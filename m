@@ -1,202 +1,101 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 21:56:19 +0800
-Message-ID: <CACVXFVN0Y0p+WXUhJco6EKCdjx6Wg-guJLe79Bmj2K9KQGKToA@mail.gmail.com>
-References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
-	<CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
-	<CA+v9cxYvvRVWAUHX=b-P022pFbG1M7S=SZtOo2zfJnhAx5_+sQ@mail.gmail.com>
-	<CACVXFVPj-4J2_UuOQ9NCW7wV_SLG50a-pEYqhd7K9sXuGmDmoQ@mail.gmail.com>
-	<CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ@mail.gmail.com>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: Difficulties to get 1Gbps on be2net ethernet card
+Date: Fri, 8 Jun 2012 16:53:23 +0200
+Message-ID: <CAL8zT=i6zruaa0-bc-MG4FyhdM8RDtARd2E_o0+G-=p7RsJdGw@mail.gmail.com>
+References: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
+ <CAL8zT=jKhRjVCdYRCerMzimxPAhP5Gi+JBBfuKjG-rfg-LMoVw@mail.gmail.com>
+ <1338360536.2760.85.camel@edumazet-glaptop> <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
+ <1338361587.2760.94.camel@edumazet-glaptop> <CAL8zT=jHWhDdv-DyXL8XnL8qRc7o-jZfA7ADU-qt54hB5aLyCw@mail.gmail.com>
+ <CAL8zT=gJT1Frn_44SU0CrpZjPxwC_VuHFE4k9jvOGNmFomzhHA@mail.gmail.com>
+ <3367B80B08154D42A3B2BC708B5D41F647C678B73F@EXMAIL.ad.emulex.com>
+ <CAL8zT=iP+5o11am67ZBVOd=QrOfcjFWDydiuM9RrrAKe_k7LZw@mail.gmail.com>
+ <CAL8zT=ggT7Y2on6qmsp3u9CLOCwd6nOr3VjQfEsGZzA+O6us0A@mail.gmail.com>
+ <1338980484.2760.4219.camel@edumazet-glaptop> <CAL8zT=hHDPnvRFcQ0w+D=AP+QK6ic4X=tva6Yw_XGwuTbAYjhQ@mail.gmail.com>
+ <CAL8zT=jGHo82mo-s8Tfs9LWzfu2GkrS4eZJoeOpHhpXHMr6csg@mail.gmail.com>
+ <CAL8zT=jY9YfdkBjk5VhwaSbzghCVUMXZZh+QAgc15LBBztczog@mail.gmail.com>
+ <CAL8zT=g67JLZZjLF81+wxe9pmuPZ4EdpY1fHJMQNgcy9R6oBzg@mail.gmail.com>
+ <1339072289.3494.3.camel@edumazet-glaptop> <CAL8zT=i2EkZLz3J5ib1tLnOuXt=Buf0sCwr7UbQWRE3B4oB+JQ@mail.gmail.com>
+ <1339135709.6001.22.camel@edumazet-glaptop> <CAL8zT=jPUEF62-V_0n9o3=n2Mo6y4M_kGgK+OwdXg0aLDazDgQ@mail.gmail.com>
+ <1339143759.6001.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Huajun Li <huajun.li.lee@gmail.com>
+Cc: Sathya.Perla@emulex.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:35543 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757412Ab2FHN4U convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 09:56:20 -0400
-In-Reply-To: <CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ@mail.gmail.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:61448 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757145Ab2FHOxo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 10:53:44 -0400
+Received: by wgbdr13 with SMTP id dr13so966551wgb.1
+        for <netdev@vger.kernel.org>; Fri, 08 Jun 2012 07:53:43 -0700 (PDT)
+In-Reply-To: <1339143759.6001.53.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 8, 2012 at 2:24 PM, Huajun Li <huajun.li.lee@gmail.com> wro=
-te:
-> On Fri, Jun 8, 2012 at 1:22 PM, Ming Lei <tom.leiming@gmail.com> wrot=
-e:
->> If so, looks mistaken value is returned from the host controller dri=
-ver,
->> but not sure if your device is buggy. What is your host controller?
+2012/6/8 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Fri, 2012-06-08 at 10:14 +0200, Jean-Michel Hautbois wrote:
+>> 2012/6/8 Eric Dumazet <eric.dumazet@gmail.com>:
+>> > On Thu, 2012-06-07 at 14:54 +0200, Jean-Michel Hautbois wrote:
+>> >
+>> >> eth1 =C2=A0 =C2=A0 =C2=A0Link encap:Ethernet =C2=A0HWaddr 68:b5:9=
+9:b9:8d:d4
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 UP BROADCAST RUNNING SLAVE MUL=
+TICAST =C2=A0MTU:4096 =C2=A0Metric:1
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 RX packets:0 errors:0 dropped:=
+0 overruns:0 frame:0
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 TX packets:15215387 errors:0 d=
+ropped:0 overruns:0 carrier:0
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 collisions:0 txqueuelen:1000
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 RX bytes:0 (0.0 B) =C2=A0TX by=
+tes:61476524359 (57.2 GiB)
+>> >
+>> >> qdisc mq 0: dev eth1 root
+>> >> =C2=A0Sent 61476524359 bytes 15215387 pkt (dropped 45683472, over=
+limits 0
+>> >> requeues 17480)
+>> >
+>> > OK, and "tc -s -d cl show dev eth1"
+>> >
+>> > (How many queues are really used)
+>> >
+>> >
+>> >
 >>
-> Nothing related to HC.
-> I tried to find out the endpoint state, but found it was halt. I thin=
-k
-> this is the root cause.
-
-I mean that your HCD should not return -EPROTO if only the interrupt
-endpoint's HALT feature is set, and it should return -EPIPE.
-
+>> tc -s -d cl show dev eth1
+>> class mq :1 root
+>> =C2=A0Sent 9798071746 bytes 2425410 pkt (dropped 3442405, overlimits=
+ 0 requeues 2747)
+>> =C2=A0backlog 0b 0p requeues 2747
+>> class mq :2 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
+>> class mq :3 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
+>> class mq :4 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
+>> class mq :5 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
+>> class mq :6 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
+>> class mq :7 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
+>> class mq :8 root
+>> =C2=A0Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>> =C2=A0backlog 0b 0p requeues 0
 >
->> Also suppose your device is buggy, and the correct solution should
->> be addding quirk for the driver to clear halt before the 1st submit =
-status
->> urb.
->>
-> I ever worked out a patch just as you said and it could work.
-> However, if this can be fixed by common framework just like usbnet.c,
-> and there is no sideeffect, then why not.
-
-There is side effect, at least sending out the command of
-clear feature(HALT) is mistaken in logic if  -EPROTO is returned for
-the endpoint.
-
->>
->> I just have tried to switch configuration by sysfs interface on the =
-g_multi
->> and don't trigger the error.
->>
-> The driver is common one, but not just for a specific device.
-
-The problem is that your device is a specific buggy device, and the int=
-errupt
-endpoint shouldn't be set HALT after SetConfiguration(), see 9.4.5 of U=
-SB 2.0
-spec.
-
-So it is reasonable to add a quirk to fix the problem for the device, t=
-hat has
-document benefits, also considered that the device is a very specific c=
-ase.
-
 >
->>>
->>>> Is the "XactErr" msg printed just after switching to cdc_ether int=
-erface
->>>> by changing configuration?
->>>>
->>>
->>> Yes, just as I mentioned in my original email.
->>> And it did not work even I removed the driver and re-installed it.
->>>
->>>>> Maybe this is a common issue, so fix it by activating the endpoin=
-t
->>>>> once the error occurs.
->>>>>
->>>>> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
->>>>> ---
->>>>> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 ++++++++++++++++++++++++=
-+++++++++
->>>>> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
->>>>> =A02 files changed, 41 insertions(+), 7 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->>>>> index 9f58330..f13922b 100644
->>>>> --- a/drivers/net/usb/usbnet.c
->>>>> +++ b/drivers/net/usb/usbnet.c
->>>>> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdown=
-, code %d\n", status);
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
->>>>>
->>>>> + =A0 =A0 =A0 case -EPIPE:
->>>>> + =A0 =A0 =A0 case -EPROTO:
->>>>
->>>> It is good to handle EPIPE error here, but looks it is no sense to
->>>> clear halt for
->>>> bus transfer failure. At least, no clear halt is done for returnin=
-g -EPROTO from
->>>> rx/tx transfer currently.
->>>
->>> Just as I said above, there is different issue can cause -EPROTO, a=
-t
->>> least, for my case it is because the interrupt endpoint is not acti=
-ve.
->>> If the error occurs, the driver need try to fix it instead of just
->>> printing an error msg.
->>
->> One problem in your patch is that if the =A0-EPROTO is caused by bad=
- cable
->> or interference, clean halt may not be sent to device successfully, =
-and will
->> cause -EPROTO further.
+> Do you have the same distribution on old kernels as well ?
+> (ie only queue 0 is used)
 >
-> What's your opinion to handle "-EPROTO" error in usbnet.c?
-> Please check usbnet.c again, when "-EPROTO" occurs, it just pints
-> error msg and re-submit the interrupt URB, and then causes endless
-> "EactErr" error msg.
-
-Yes, it should be bug, but clear feature(HALT) is not correct for the s=
-ituation.
-
 >
-> At least, this patch lets the driver try to fix the error before
-> resubmit the URB.
 >
->>
->>>
->>>>
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS_=
-HALT);
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
->>>>> +
->>>>> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this =
-endpoint
->>>>> =A0 =A0 =A0 =A0 * already polls infrequently
->>>>> =A0 =A0 =A0 =A0 */
->>>>> @@ -967,6 +972,34 @@ fail_halt:
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->>>>> =A0 =A0 =A0 =A0}
->>>>>
->>>>> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *des=
-c;
->>>>> +
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAddr=
-ess & USB_ENDPOINT_NUMBER_MASK);
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interface=
-(dev->intf);
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->udev=
-, pipe);
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf)=
-;
->>>>> +
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPIP=
-E && status !=3D -ESHUTDOWN) {
->>>>> +fail_sts:
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->net=
-,
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "ca=
-n't clear intr halt, status %d\n", status);
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_STS=
-_HALT, &dev->flags);
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interru=
-pt->transfer_buffer, 0,
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev=
-->interrupt->transfer_buffer_length);
->>>>
->>>> The above is not necessary.
->>>
->>> Ming, do you mean the above one line, or others ?
->>
->> Yes, it is the above line.
->>
->
-> Then not sure whether the buffer will be tainted without this line.
 
-It isn't necessary,  the buffer should include valid data if URB->statu=
-s
-returns zero.
+On the old kernel, there is nothing returned by this command.
 
-
-Thanks,
---=20
-Ming Lei
+JM
