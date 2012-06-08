@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp: fix a race in l2tp_ip_sendmsg()
-Date: Fri, 08 Jun 2012 14:31:47 -0700 (PDT)
-Message-ID: <20120608.143147.1838350639362568199.davem@davemloft.net>
-References: <1339172700.6001.128.camel@edumazet-glaptop>
+Subject: Re: [PATCH] be2net: fix a race in be_xmit()
+Date: Fri, 08 Jun 2012 14:44:39 -0700 (PDT)
+Message-ID: <20120608.144439.2206391950312069751.davem@davemloft.net>
+References: <1339145999.6001.62.camel@edumazet-glaptop>
+	<3367B80B08154D42A3B2BC708B5D41F647C6A0B900@EXMAIL.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, denys@visp.net.lb
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Sathya.Perla@Emulex.Com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52878 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52923 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935Ab2FHVbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 17:31:49 -0400
-In-Reply-To: <1339172700.6001.128.camel@edumazet-glaptop>
+	with ESMTP id S934508Ab2FHVok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 17:44:40 -0400
+In-Reply-To: <3367B80B08154D42A3B2BC708B5D41F647C6A0B900@EXMAIL.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 08 Jun 2012 18:25:00 +0200
+From: <Sathya.Perla@Emulex.Com>
+Date: Fri, 8 Jun 2012 03:06:14 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
 > 
-> Commit 081b1b1bb27f (l2tp: fix l2tp_ip_sendmsg() route handling) added
-> a race, in case IP route cache is disabled.
+>>-----Original Message-----
+>>From: Eric Dumazet <edumazet@google.com>
+>>
+>>As soon as hardware is notified of a transmit, we no longer can assume
+>>skb can be dereferenced, as TX completion might have freed the packet.
+>>
+>>Signed-off-by: Eric Dumazet <edumazet@google.com>
+>>Cc: Sathya Perla <sathya.perla@emulex.com>
 > 
-> In this case, we should not do the dst_release(&rt->dst), since it'll
-> free the dst immediately, instead of waiting a RCU grace period.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Good catch. Thanks!
+> Acked-by: Sathya Perla <sathya.perla@emulex.com>
 
-Working with a zero-ref'd object is always playing with fire even
-when we "know what we are doing" :-)
-
-Applied and queued up for -stable, thanks Eric.
+Applied.
