@@ -1,44 +1,47 @@
-From: Dustin Schumm <shodid@gmail.com>
-Subject: Re: Reoccuring kern.log events after running xl2tp with ethernet
- adapter Realtek 8111E
-Date: Fri, 8 Jun 2012 13:56:25 -0400
-Message-ID: <CANcVnzjkVSef88Fanr4tNiKB6sfma_HM5aGfRE4GkmL7YFbfXg@mail.gmail.com>
-References: <CANcVnzi2mXKXZLcaAt9rJ9OOdK_2=V8JV9uebVeBcsDu6j+DhQ@mail.gmail.com>
-	<CANcVnzivnQrhSderZ+b5yoy+F1OiO7Ajv7WeijqzQKyAkYRqug@mail.gmail.com>
-	<20120605153753.GA12514@electric-eye.fr.zoreil.com>
-	<CANcVnzj-DUD8x9jcj3awyWkZjH9x5PMf3fAFtR_osPNAU9adgA@mail.gmail.com>
-	<CANcVnzjKCn00kF8NG+ZLLrzGCs_jx7WYPKyM7uwrxJ=kVLiQ4Q@mail.gmail.com>
-	<20120606222529.GA13420@electric-eye.fr.zoreil.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1 v2] Ethtool: Add EEE support
+Date: Fri, 8 Jun 2012 19:11:29 +0100
+Message-ID: <1339179089.2648.5.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1339010124-23413-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <eilong@broadcom.com>,
+	<peppe.cavallaro@st.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:40770 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761315Ab2FHR40 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 13:56:26 -0400
-Received: by weyu7 with SMTP id u7so765159wey.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jun 2012 10:56:25 -0700 (PDT)
-In-Reply-To: <20120606222529.GA13420@electric-eye.fr.zoreil.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:54165 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751394Ab2FHSLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 14:11:34 -0400
+In-Reply-To: <1339010124-23413-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 6, 2012 at 6:25 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Dustin Schumm <shodid@gmail.com> :
-> [...]
->> Do you see any indication if this is a problem with the mainline
->> kernel, distro kernel, driver, or otherwise? It's not definitive, been
->> I've been good using kernels 2.6.x and getting errors on everything
->> 3.x I have tried. I am looking for some direction to pursue. Thanks.
->
-> See http://marc.info/?l=linux-kernel&m=133897670115862&w=2
->
-> --
-> Ueimor
+On Wed, 2012-06-06 at 22:15 +0300, Yuval Mintz wrote:
+> This patch adds 2 new ethtool commands which can be
+> used to manipulate network interfaces' support in
+> EEE.
+[...]
+> @@ -3423,6 +3514,12 @@ static const struct option {
+>  	  "		[ hex on|off ]\n"
+>  	  "		[ offset N ]\n"
+>  	  "		[ length N ]\n" },
+> +	{ "--get-eee", 1, do_geee, "Get EEE settings"},
+> +	{ "--set-eee", 1, do_seee, "Set EEE settings",
+> +	  "		[ eee on|off ]\n"
+> +	  "		[ advertise %x ]\n"
+> +	  "		[ tx-lpi on|off ]\n"
+> +	  "		[ tx-timer %d ]\n"},
+[...]
 
-After further investigation of "EIP is at aesni_cbc_dec"
-I changed the ipsec encryption to 3des and l2tp is working properly
-now under kernels 3.x
-It is strange that the aes module errors do not occur when used with
-ipsec alone. It is not until l2tp is initiated that the errors start.
+Another thing: the long options are generally --foo to set/change foo
+settings and --show-foo to get/show foo settings.  Please rename these
+options to match.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
