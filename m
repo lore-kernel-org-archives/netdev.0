@@ -1,201 +1,241 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] ipv4: Add interface option to enable routing of
- 127.0.0.0/8
-Date: Fri, 8 Jun 2012 06:18:59 -0400
-Message-ID: <20120608101859.GH32152@canuck.infradead.org>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: [PATCH net-next v3 1/2] inetpeer: add namespace support for inetpeer
+Date: Fri, 8 Jun 2012 19:20:41 +0800
+Message-ID: <1339154441-4513-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:52601 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276Ab2FHKTC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 06:19:02 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Routing of 127/8 is tradtionally forbidden, we consider
-packets from that address block martian when routing and do
-not process corresponding ARP requests.
+now inetpeer doesn't support namespace,the information will
+be leaking across namespace.
 
-This is a sane default but renders a huge address space
-practically unuseable.
+this patch move the global vars v4_peers and v6_peers to
+netns_ipv4 and netns_ipv6 as a field peers.
 
-The RFC states that no address within the 127/8 block should
-ever appear on any network anywhere but it does not forbid
-the use of such addresses outside of the loopback device in
-particular. For example to address a pool of virtual guests
-behind a load balancer.
+add struct pernet_operations inetpeer_ops to initial pernet
+inetpeer data.
 
-This patch adds a new interface option 'route_localnet'
-enabling routing of the 127/8 address block and processing
-of ARP requests on a specific interface.
+and change family_to_base and inet_getpeer to support namespace.
 
-Note that for the feature to work, the default local route
-covering 127/8 dev lo needs to be removed.
-
-Example:
-  $ sysctl -w net.ipv4.conf.eth0.route_localnet=1
-  $ ip route del 127.0.0.0/8 dev lo table local
-  $ ip addr add 127.1.0.1/16 dev eth0
-  $ ip route flush cache
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- Documentation/networking/ip-sysctl.txt |    5 +++++
- include/linux/inetdevice.h             |    2 ++
- net/ipv4/arp.c                         |    3 ++-
- net/ipv4/devinet.c                     |    5 ++++-
- net/ipv4/route.c                       |   30 +++++++++++++++++++++---------
- 5 files changed, 34 insertions(+), 11 deletions(-)
+ include/net/inetpeer.h   |   10 ++++---
+ include/net/netns/ipv4.h |    2 +-
+ include/net/netns/ipv6.h |    1 +
+ net/ipv4/inetpeer.c      |   68 +++++++++++++++++++++++++++++++++------------
+ net/ipv4/route.c         |    2 +-
+ 5 files changed, 59 insertions(+), 24 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 6f896b9..99d0e05 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -862,6 +862,11 @@ accept_local - BOOLEAN
- 	local interfaces over the wire and have them accepted properly.
- 	default FALSE
+diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
+index 2040bff..fef9dfa 100644
+--- a/include/net/inetpeer.h
++++ b/include/net/inetpeer.h
+@@ -75,7 +75,9 @@ static inline bool inet_metrics_new(const struct inet_peer *p)
+ }
  
-+route_localnet - BOOLEAN
-+	Do not consider loopback addresses as martian source or destination
-+	while routing. This enables the use of 127/8 for local routing purposes.
-+	default FALSE
-+
- rp_filter - INTEGER
- 	0 - No source validation.
- 	1 - Strict mode as defined in RFC3704 Strict Reverse Path
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 597f4a9..67f9dda 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -38,6 +38,7 @@ enum
- 	IPV4_DEVCONF_ACCEPT_LOCAL,
- 	IPV4_DEVCONF_SRC_VMARK,
- 	IPV4_DEVCONF_PROXY_ARP_PVLAN,
-+	IPV4_DEVCONF_ROUTE_LOCALNET,
- 	__IPV4_DEVCONF_MAX
- };
+ /* can be called with or without local BH being disabled */
+-struct inet_peer	*inet_getpeer(const struct inetpeer_addr *daddr, int create);
++struct inet_peer *inet_getpeer(struct net *net,
++			       const struct inetpeer_addr *daddr,
++			       int create);
  
-@@ -131,6 +132,7 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
- #define IN_DEV_PROMOTE_SECONDARIES(in_dev) \
- 					IN_DEV_ORCONF((in_dev), \
- 						      PROMOTE_SECONDARIES)
-+#define IN_DEV_ROUTE_LOCALNET(in_dev)	IN_DEV_ORCONF(in_dev, ROUTE_LOCALNET)
+ static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
+ {
+@@ -83,7 +85,7 @@ static inline struct inet_peer *inet_getpeer_v4(__be32 v4daddr, int create)
  
- #define IN_DEV_RX_REDIRECTS(in_dev) \
- 	((IN_DEV_FORWARD(in_dev) && \
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index cda37be..2e560f0 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -790,7 +790,8 @@ static int arp_process(struct sk_buff *skb)
-  *	Check for bad requests for 127.x.x.x and requests for multicast
-  *	addresses.  If this is one such, delete it.
-  */
--	if (ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
-+	if (ipv4_is_multicast(tip) ||
-+	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
- 		goto out;
+ 	daddr.addr.a4 = v4daddr;
+ 	daddr.family = AF_INET;
+-	return inet_getpeer(&daddr, create);
++	return inet_getpeer(&init_net, &daddr, create);
+ }
+ 
+ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr, int create)
+@@ -92,14 +94,14 @@ static inline struct inet_peer *inet_getpeer_v6(const struct in6_addr *v6daddr,
+ 
+ 	*(struct in6_addr *)daddr.addr.a6 = *v6daddr;
+ 	daddr.family = AF_INET6;
+-	return inet_getpeer(&daddr, create);
++	return inet_getpeer(&init_net, &daddr, create);
+ }
+ 
+ /* can be called from BH context or outside */
+ extern void inet_putpeer(struct inet_peer *p);
+ extern bool inet_peer_xrlim_allow(struct inet_peer *peer, int timeout);
+ 
+-extern void inetpeer_invalidate_tree(int family);
++extern void inetpeer_invalidate_tree(struct net *net, int family);
  
  /*
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 10e15a1..378c28b 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1500,7 +1500,8 @@ static int devinet_conf_proc(ctl_table *ctl, int write,
+  * temporary check to make sure we dont access rid, ip_id_count, tcp_ts,
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index bbd023a..227f0cd 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -30,7 +30,7 @@ struct netns_ipv4 {
  
- 		if (cnf == net->ipv4.devconf_dflt)
- 			devinet_copy_dflt_conf(net, i);
--		if (i == IPV4_DEVCONF_ACCEPT_LOCAL - 1)
-+		if (i == IPV4_DEVCONF_ACCEPT_LOCAL - 1 ||
-+		    i == IPV4_DEVCONF_ROUTE_LOCALNET)
- 			if ((new_value == 0) && (old_value != 0))
- 				rt_cache_flush(net, 0);
- 	}
-@@ -1617,6 +1618,8 @@ static struct devinet_sysctl_table {
- 					      "force_igmp_version"),
- 		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
- 					      "promote_secondaries"),
-+		DEVINET_SYSCTL_FLUSHING_ENTRY(ROUTE_LOCALNET,
-+					      "route_localnet"),
- 	},
+ 	struct sock		**icmp_sk;
+ 	struct sock		*tcp_sock;
+-
++	struct inet_peer_base	*peers;
+ 	struct netns_frags	frags;
+ #ifdef CONFIG_NETFILTER
+ 	struct xt_table		*iptable_filter;
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index b42be53..df0a545 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -33,6 +33,7 @@ struct netns_ipv6 {
+ 	struct netns_sysctl_ipv6 sysctl;
+ 	struct ipv6_devconf	*devconf_all;
+ 	struct ipv6_devconf	*devconf_dflt;
++	struct inet_peer_base	*peers;
+ 	struct netns_frags	frags;
+ #ifdef CONFIG_NETFILTER
+ 	struct xt_table		*ip6table_filter;
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index dfba343..1c85273 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -88,18 +88,6 @@ struct inet_peer_base {
+ 	int		total;
  };
  
+-static struct inet_peer_base v4_peers = {
+-	.root		= peer_avl_empty_rcu,
+-	.lock		= __SEQLOCK_UNLOCKED(v4_peers.lock),
+-	.total		= 0,
+-};
+-
+-static struct inet_peer_base v6_peers = {
+-	.root		= peer_avl_empty_rcu,
+-	.lock		= __SEQLOCK_UNLOCKED(v6_peers.lock),
+-	.total		= 0,
+-};
+-
+ #define PEER_MAXDEPTH 40 /* sufficient for about 2^27 nodes */
+ 
+ /* Exported for sysctl_net_ipv4.  */
+@@ -153,6 +141,46 @@ static void inetpeer_gc_worker(struct work_struct *work)
+ 	schedule_delayed_work(&gc_work, gc_delay);
+ }
+ 
++static int __net_init inetpeer_net_init(struct net *net)
++{
++	net->ipv4.peers = kzalloc(sizeof(struct inet_peer_base),
++				  GFP_KERNEL);
++	if (net->ipv4.peers == NULL)
++		return -ENOMEM;
++
++	net->ipv4.peers->root = peer_avl_empty_rcu;
++	seqlock_init(&net->ipv4.peers->lock);
++
++	net->ipv6.peers = kzalloc(sizeof(struct inet_peer_base),
++				  GFP_KERNEL);
++	if (net->ipv6.peers == NULL)
++		goto out_ipv6;
++
++	net->ipv6.peers->root = peer_avl_empty_rcu;
++	seqlock_init(&net->ipv6.peers->lock);
++
++	return 0;
++out_ipv6:
++	kfree(net->ipv4.peers);
++	return -ENOMEM;
++}
++
++static void __net_exit inetpeer_net_exit(struct net *net)
++{
++	inetpeer_invalidate_tree(net, AF_INET);
++	kfree(net->ipv4.peers);
++	net->ipv4.peers = NULL;
++
++	inetpeer_invalidate_tree(net, AF_INET6);
++	kfree(net->ipv6.peers);
++	net->ipv6.peers = NULL;
++}
++
++static struct pernet_operations inetpeer_ops = {
++	.init = inetpeer_net_init,
++	.exit = inetpeer_net_exit,
++};
++
+ /* Called from ip_output.c:ip_init  */
+ void __init inet_initpeers(void)
+ {
+@@ -177,6 +205,7 @@ void __init inet_initpeers(void)
+ 			NULL);
+ 
+ 	INIT_DELAYED_WORK_DEFERRABLE(&gc_work, inetpeer_gc_worker);
++	register_pernet_subsys(&inetpeer_ops);
+ }
+ 
+ static int addr_compare(const struct inetpeer_addr *a,
+@@ -401,9 +430,10 @@ static void unlink_from_pool(struct inet_peer *p, struct inet_peer_base *base,
+ 	call_rcu(&p->rcu, inetpeer_free_rcu);
+ }
+ 
+-static struct inet_peer_base *family_to_base(int family)
++static struct inet_peer_base *family_to_base(struct net *net,
++					     int family)
+ {
+-	return family == AF_INET ? &v4_peers : &v6_peers;
++	return family == AF_INET ? net->ipv4.peers : net->ipv6.peers;
+ }
+ 
+ /* perform garbage collect on all items stacked during a lookup */
+@@ -443,10 +473,12 @@ static int inet_peer_gc(struct inet_peer_base *base,
+ 	return cnt;
+ }
+ 
+-struct inet_peer *inet_getpeer(const struct inetpeer_addr *daddr, int create)
++struct inet_peer *inet_getpeer(struct net *net,
++			       const struct inetpeer_addr *daddr,
++			       int create)
+ {
+ 	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
+-	struct inet_peer_base *base = family_to_base(daddr->family);
++	struct inet_peer_base *base = family_to_base(net, daddr->family);
+ 	struct inet_peer *p;
+ 	unsigned int sequence;
+ 	int invalidated, gccnt = 0;
+@@ -571,10 +603,10 @@ static void inetpeer_inval_rcu(struct rcu_head *head)
+ 	schedule_delayed_work(&gc_work, gc_delay);
+ }
+ 
+-void inetpeer_invalidate_tree(int family)
++void inetpeer_invalidate_tree(struct net *net, int family)
+ {
+ 	struct inet_peer *old, *new, *prev;
+-	struct inet_peer_base *base = family_to_base(family);
++	struct inet_peer_base *base = family_to_base(net, family);
+ 
+ 	write_seqlock_bh(&base->lock);
+ 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 98b30d0..7509acc 100644
+index 98b30d0..006c21c 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2023,9 +2023,13 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		return -EINVAL;
+@@ -938,7 +938,7 @@ static void rt_cache_invalidate(struct net *net)
  
- 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr) ||
--	    ipv4_is_loopback(saddr) || skb->protocol != htons(ETH_P_IP))
-+	    skb->protocol != htons(ETH_P_IP))
- 		goto e_inval;
+ 	get_random_bytes(&shuffle, sizeof(shuffle));
+ 	atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
+-	inetpeer_invalidate_tree(AF_INET);
++	inetpeer_invalidate_tree(net, AF_INET);
+ }
  
-+	if (likely(!IN_DEV_ROUTE_LOCALNET(in_dev)))
-+		if (ipv4_is_loopback(saddr))
-+			goto e_inval;
-+
- 	if (ipv4_is_zeronet(saddr)) {
- 		if (!ipv4_is_local_multicast(daddr))
- 			goto e_inval;
-@@ -2266,8 +2270,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	   by fib_lookup.
- 	 */
- 
--	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr) ||
--	    ipv4_is_loopback(saddr))
-+	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
- 		goto martian_source;
- 
- 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
-@@ -2279,9 +2282,17 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (ipv4_is_zeronet(saddr))
- 		goto martian_source;
- 
--	if (ipv4_is_zeronet(daddr) || ipv4_is_loopback(daddr))
-+	if (ipv4_is_zeronet(daddr))
- 		goto martian_destination;
- 
-+	if (likely(!IN_DEV_ROUTE_LOCALNET(in_dev))) {
-+		if (ipv4_is_loopback(daddr))
-+			goto martian_destination;
-+
-+		if (ipv4_is_loopback(saddr))
-+			goto martian_source;
-+	}
-+
- 	/*
- 	 *	Now we are ready to route packet.
- 	 */
-@@ -2520,9 +2531,14 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	u16 type = res->type;
- 	struct rtable *rth;
- 
--	if (ipv4_is_loopback(fl4->saddr) && !(dev_out->flags & IFF_LOOPBACK))
-+	in_dev = __in_dev_get_rcu(dev_out);
-+	if (!in_dev)
- 		return ERR_PTR(-EINVAL);
- 
-+	if (likely(!IN_DEV_ROUTE_LOCALNET(in_dev)))
-+		if (ipv4_is_loopback(fl4->saddr) && !(dev_out->flags & IFF_LOOPBACK))
-+			return ERR_PTR(-EINVAL);
-+
- 	if (ipv4_is_lbcast(fl4->daddr))
- 		type = RTN_BROADCAST;
- 	else if (ipv4_is_multicast(fl4->daddr))
-@@ -2533,10 +2549,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	if (dev_out->flags & IFF_LOOPBACK)
- 		flags |= RTCF_LOCAL;
- 
--	in_dev = __in_dev_get_rcu(dev_out);
--	if (!in_dev)
--		return ERR_PTR(-EINVAL);
--
- 	if (type == RTN_BROADCAST) {
- 		flags |= RTCF_BROADCAST | RTCF_LOCAL;
- 		fi = NULL;
+ /*
+-- 
+1.7.1
