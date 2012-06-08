@@ -1,187 +1,87 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH] net/sh-eth: Add support selecting MII function for SH7734 and R8A7740
-Date: Fri,  8 Jun 2012 15:01:51 +0900
-Message-ID: <1339135311-1896-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
+Date: Fri, 08 Jun 2012 07:57:37 +0200
+Message-ID: <1339135057.6001.20.camel@edumazet-glaptop>
+References: <alpine.DEB.2.00.1206072201200.13686@pokey.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:47116 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756636Ab2FHFyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 01:54:31 -0400
-Received: by pbbrp8 with SMTP id rp8so2079331pbb.19
-        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 22:54:31 -0700 (PDT)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:65023 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933119Ab2FHF5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 01:57:44 -0400
+Received: by eeit10 with SMTP id t10so769620eei.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 22:57:43 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1206072201200.13686@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ethernet IP of SH7734 and R8A7740 has selecting MII register.
-The user needs to change a value according to MII to be used.
-This adds the function to change the value of this register.
+On Thu, 2012-06-07 at 22:05 -0700, Tom Herbert wrote:
+> In the transmit path of the bonding driver, skb->cb is used to
+> stash the skb->queue_mapping so that the bonding device can set its
+> own queue mapping.  This value becomes corrupted since the skb->cb is
+> also used in __dev_xmit_skb.
+> 
+> When transmitting through bonding driver, bond_select_queue is
+> called from dev_queue_xmit.  In bond_select_queue the original
+> skb->queue_mapping is copied into skb->cb (via bond_queue_mapping)
+> and skb->queue_mapping is overwritten with the bond driver queue.
+> Subsequently in dev_queue_xmit, __dev_xmit_skb is called which writes
+> the packet length into skb->cb, thereby overwriting the stashed
+> queue mappping.  In bond_dev_queue_xmit (called from hard_start_xmit),
+> the queue mapping for the skb is set to the stashed value which is now
+> the skb length and hence is an invalid queue for the slave device.
+> 
+> Fix is to set bond_queue_mapping to skb->cb +
+> sizeof((struct qdisc_skb_cb)
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 2ee8cf9..044c1c0 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -76,6 +76,7 @@
+>  #include <net/route.h>
+>  #include <net/net_namespace.h>
+>  #include <net/netns/generic.h>
+> +#include <net/sch_generic.h>
+>  #include "bonding.h"
+>  #include "bond_3ad.h"
+>  #include "bond_alb.h"
+> @@ -381,7 +382,8 @@ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
+>  	return next;
+>  }
+>  
+> -#define bond_queue_mapping(skb) (*(u16 *)((skb)->cb))
+> +#define bond_queue_mapping(skb) (*(u16 *)((skb)->cb + \
+> +    sizeof(struct qdisc_skb_cb)))
+>  
+>  /**
+>   * bond_dev_queue_xmit - Prepare skb for xmit.
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |  105 ++++++++++++++++++++-------------
- drivers/net/ethernet/renesas/sh_eth.h |    1 +
- 2 files changed, 64 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index be3c221..e3d03c8 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -49,6 +49,33 @@
- 		NETIF_MSG_RX_ERR| \
- 		NETIF_MSG_TX_ERR)
+Sorry this wont work in all cases.
+
+Some qdisc also use skb->cb[]
+
+maybe :
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 55ce96b..47cbfa2 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -220,6 +220,7 @@ struct tcf_proto {
  
-+#if defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763) || \
-+	defined(CONFIG_ARCH_R8A7740)
-+static void sh_eth_select_mii(struct net_device *ndev)
-+{
-+	u32 value = 0x0;
-+	struct sh_eth_private *mdp = netdev_priv(ndev);
-+
-+	switch (mdp->phy_interface) {
-+	case PHY_INTERFACE_MODE_GMII:
-+		value = 0x2;
-+		break;
-+	case PHY_INTERFACE_MODE_MII:
-+		value = 0x1;
-+		break;
-+	case PHY_INTERFACE_MODE_RMII:
-+		value = 0x0;
-+		break;
-+	default:
-+		pr_warn("PHY interface mode was not setup. Set to MII.\n");
-+		value = 0x1;
-+		break;
-+	}
-+
-+	sh_eth_write(ndev, value, RMII_MII);
-+}
-+#endif
-+
- /* There is CPU dependent code */
- #if defined(CONFIG_CPU_SUBTYPE_SH7724)
- #define SH_ETH_RESET_DEFAULT	1
-@@ -283,6 +310,7 @@ static struct sh_eth_cpu_data *sh_eth_get_cpu_data(struct sh_eth_private *mdp)
- #elif defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763)
- #define SH_ETH_HAS_TSU	1
- static void sh_eth_reset_hw_crc(struct net_device *ndev);
-+
- static void sh_eth_chip_reset(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -292,35 +320,6 @@ static void sh_eth_chip_reset(struct net_device *ndev)
- 	mdelay(1);
- }
- 
--static void sh_eth_reset(struct net_device *ndev)
--{
--	int cnt = 100;
--
--	sh_eth_write(ndev, EDSR_ENALL, EDSR);
--	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER, EDMR);
--	while (cnt > 0) {
--		if (!(sh_eth_read(ndev, EDMR) & 0x3))
--			break;
--		mdelay(1);
--		cnt--;
--	}
--	if (cnt == 0)
--		printk(KERN_ERR "Device reset fail\n");
--
--	/* Table Init */
--	sh_eth_write(ndev, 0x0, TDLAR);
--	sh_eth_write(ndev, 0x0, TDFAR);
--	sh_eth_write(ndev, 0x0, TDFXR);
--	sh_eth_write(ndev, 0x0, TDFFR);
--	sh_eth_write(ndev, 0x0, RDLAR);
--	sh_eth_write(ndev, 0x0, RDFAR);
--	sh_eth_write(ndev, 0x0, RDFXR);
--	sh_eth_write(ndev, 0x0, RDFFR);
--
--	/* Reset HW CRC register */
--	sh_eth_reset_hw_crc(ndev);
--}
--
- static void sh_eth_set_duplex(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -377,9 +376,43 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.tsu		= 1,
- #if defined(CONFIG_CPU_SUBTYPE_SH7734)
- 	.hw_crc     = 1,
-+	.select_mii = 1,
- #endif
+ struct qdisc_skb_cb {
+ 	unsigned int		pkt_len;
++	unsigned int		bond_queue_mapping;
+ 	unsigned char		data[24];
  };
  
-+static void sh_eth_reset(struct net_device *ndev)
-+{
-+	int cnt = 100;
-+
-+	sh_eth_write(ndev, EDSR_ENALL, EDSR);
-+	sh_eth_write(ndev, sh_eth_read(ndev, EDMR) | EDMR_SRST_GETHER, EDMR);
-+	while (cnt > 0) {
-+		if (!(sh_eth_read(ndev, EDMR) & 0x3))
-+			break;
-+		mdelay(1);
-+		cnt--;
-+	}
-+	if (cnt == 0)
-+		printk(KERN_ERR "Device reset fail\n");
-+
-+	/* Table Init */
-+	sh_eth_write(ndev, 0x0, TDLAR);
-+	sh_eth_write(ndev, 0x0, TDFAR);
-+	sh_eth_write(ndev, 0x0, TDFXR);
-+	sh_eth_write(ndev, 0x0, TDFFR);
-+	sh_eth_write(ndev, 0x0, RDLAR);
-+	sh_eth_write(ndev, 0x0, RDFAR);
-+	sh_eth_write(ndev, 0x0, RDFXR);
-+	sh_eth_write(ndev, 0x0, RDFFR);
-+
-+	/* Reset HW CRC register */
-+	sh_eth_reset_hw_crc(ndev);
-+
-+	/* Select MII mode */
-+	if (sh_eth_my_cpu_data.hw_crc)
-+		sh_eth_select_mii(ndev);
-+}
-+
- static void sh_eth_reset_hw_crc(struct net_device *ndev)
- {
- 	if (sh_eth_my_cpu_data.hw_crc)
-@@ -397,19 +430,7 @@ static void sh_eth_chip_reset(struct net_device *ndev)
- 	sh_eth_tsu_write(mdp, ARSTR_ARSTR, ARSTR);
- 	mdelay(1);
- 
--	switch (mdp->phy_interface) {
--	case PHY_INTERFACE_MODE_GMII:
--		mii = 2;
--		break;
--	case PHY_INTERFACE_MODE_MII:
--		mii = 1;
--		break;
--	case PHY_INTERFACE_MODE_RMII:
--	default:
--		mii = 0;
--		break;
--	}
--	sh_eth_write(ndev, mii, RMII_MII);
-+	sh_eth_select_mii(ndev);
- }
- 
- static void sh_eth_reset(struct net_device *ndev)
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 57b8e1f..d6763b1392 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -757,6 +757,7 @@ struct sh_eth_cpu_data {
- 	unsigned no_trimd:1;		/* E-DMAC DO NOT have TRIMD */
- 	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
- 	unsigned hw_crc:1;	/* E-DMAC have CSMR */
-+	unsigned select_mii:1;	/* EtherC have RMII_MII (MII select register) */
- };
- 
- struct sh_eth_private {
--- 
-1.7.10
