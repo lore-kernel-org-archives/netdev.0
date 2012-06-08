@@ -1,32 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.5.0+ - Linus GIT - WARNING: at net/sched/sch_generic.c:255
- dev_watchdog+0xeb/0x15f()
-Date: Fri, 08 Jun 2012 18:33:37 +0200
-Message-ID: <1339173217.6001.129.camel@edumazet-glaptop>
-References: <CAHFgRy9jgxOrF=b=oQd-zK5CKxDacOKdBAX_BEuyW+R+sK_GyQ@mail.gmail.com>
-	 <1339051157.26966.97.camel@edumazet-glaptop>
-	 <CAHFgRy-u3Xh=1XjrZi2x+=6bBdQ=Ve8i6jer9ppjYEWun70hxQ@mail.gmail.com>
+From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
+ endless "XactErr" error
+Date: Sat, 9 Jun 2012 00:36:23 +0800
+Message-ID: <CA+v9cxYt29H38pY-6n=hn90i-q7FJAGAa1_Coss4akK_4C0ZHA@mail.gmail.com>
+References: <CA+v9cxag9NV2ud+oupyziLN3nLgkgj+kyTcaOnEjYNjqXtM4Bw@mail.gmail.com>
+	<Pine.LNX.4.44L0.1206081212150.1360-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Wim Van Sebroeck <wim@iguana.be>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Huang Xiong <xiong@qca.qualcomm.com>
-To: Miles Lane <miles.lane@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHFgRy-u3Xh=1XjrZi2x+=6bBdQ=Ve8i6jer9ppjYEWun70hxQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <Pine.LNX.4.44L0.1206081212150.1360-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-08 at 12:26 -0400, Miles Lane wrote:
+On Sat, Jun 9, 2012 at 12:13 AM, Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>=
+ wrote:
+> On Fri, 8 Jun 2012, Huajun Li wrote:
+>
+>> > One possibility is to wait for a little while before resubmitting =
+the
+>> > URB, and after 10 failures in a row, attempt a reset.
+>> >
+>> Alan, thanks for your proposal.
+>> You mean reset the device after 10 failures, right ?
+>
+> Yes. =A0But I don't know if it will help your problem.
+>
 
-> I tested this patch as well and got the following (identical to the
-> warning with the other patch you sent):
+usb_queue_reset_device() could make it work again, I ever tried this.
 
-Is this card working on a previous kernel ?
+And I tried usb_clear_halt() and found this also made it work, so
+drafted this patch.
 
-If yes, you probably should do a bisection.
+>> BTW, I ever tried to sleep several seconds before submitting the 1st
+>> interrupt URB, but it did not work.
+>
+> As Ming Lei said, it sounds like your device isn't working right.
+>
+
+Yes.
+However, if add a quirk to fix the issue,  I did not find a elegant
+solution, at least based on current usbnet/cdc_ether framework.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
