@@ -1,141 +1,254 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: e1000e, 3.4.1, , jumbo frames are not working
-Date: Fri, 08 Jun 2012 17:59:01 +0300
-Message-ID: <87ed034d58606650514bdd3b88b0b002@visp.net.lb>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] af_unix: speedup /proc/net/unix
+Date: Fri, 08 Jun 2012 17:03:21 +0200
+Message-ID: <1339167801.6001.111.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: <jeffrey.t.kirsher@intel.com>, <rkagan@parallels.com>,
-	<stable@vger.kernel.org>, <jesse.brandeburg@intel.com>,
-	<bruce.w.allan@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <gregory.v.rose@intel.com>,
-	<peter.p.waskiewicz.jr@intel.com>, <alexander.h.duyck@intel.com>,
-	<john.ronciak@intel.com>, <dnelson@redhat.com>,
-	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Steven Whitehouse <swhiteho@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:38636 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753336Ab2FHPDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 11:03:25 -0400
+Received: by eeit10 with SMTP id t10so1191281eei.19
+        for <netdev@vger.kernel.org>; Fri, 08 Jun 2012 08:03:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just tried to enable larger mtu on interface, and failed, even i try to 
-disable both of mentioned in dmesg offloads.
+From: Eric Dumazet <edumazet@google.com>
 
-05:00.0 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
-Ethernet Controller (Copper) (rev 01)
-05:00.1 Ethernet controller: Intel Corporation 80003ES2LAN Gigabit 
-Ethernet Controller (Copper) (rev 01)
+/proc/net/unix has quadratic behavior, and can hold unix_table_lock for
+a while if high number of unix sockets are alive. (90 ms for 200k
+sockets...)
 
-L2TP ~ # ethtool -i eth0
-driver: e1000e
-version: 1.9.5-k
-firmware-version: 1.0-0
-bus-info: 0000:05:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
+We already have a hash table, so its quite easy to use it.
 
-Here is what i did:
-ifconfig eth1 mtu 2000
-got dmesg:
-[ 9160.679354] e1000e 0000:05:00.0: eth0: Jumbo frames cannot be 
-enabled when both receive checksum offload and receive hashing are 
-enabled.  Disable one of the receive offload features before enabling 
-jumbos.
+Problem is unbound sockets are still hashed in a single hash slot
+(unix_socket_table[UNIX_HASH_TABLE])
 
-ethtool -K eth1 rxhash off
-dmesg:
-[ 9194.208856] e1000e 0000:05:00.1: eth1: Reset adapter
-[ 9197.295425] e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow 
-Control: None
+This patch also spreads unbound sockets to 256 hash slots, to speedup
+both /proc/net/unix and unix_diag.
 
-Lost connectivity for few seconds, then again i tried to:
-ifconfig eth1 mtu 2000
+Time to read /proc/net/unix with 200k unix sockets :
+(time dd if=/proc/net/unix of=/dev/null bs=4k)
 
-dmesg:
-[ 9207.797616] e1000e 0000:05:00.0: eth0: Jumbo frames cannot be 
-enabled when both receive checksum offload and receive hashing are 
-enabled.  Disable one of the receive offload features before enabling 
-jumbos.
+before : 520 secs
+after : 2 secs
 
-ethtool -K eth1 rx off
-[ 9222.398034] e1000e 0000:05:00.1: eth1: Reset adapter
-[ 9225.497550] e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow 
-Control: None
-
-Again, tried: ifconfig eth1 mtu 2000
-dmesg:
-[ 9254.795445] e1000e 0000:05:00.0: eth0: Jumbo frames cannot be 
-enabled when both receive checksum offload and receive hashing are 
-enabled.  Disable one of the receive offload features before enabling 
-jumbos.
-
-L2TP ~ # ethtool -k eth1
-Offload parameters for eth1:
-rx-checksumming: off
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off
-receive-hashing: off
-
-L2TP ~ # ethtool -d eth1
-MAC Registers
--------------
-0x00000: CTRL (Device control register)  0x40144241
-       Endian mode (buffers):             little
-       Link reset:                        normal
-       Set link up:                       1
-       Invert Loss-Of-Signal:             no
-       Receive flow control:              disabled
-       Transmit flow control:             disabled
-       VLAN mode:                         enabled
-       Auto speed detect:                 disabled
-       Speed select:                      1000Mb/s
-       Force speed:                       no
-       Force duplex:                      no
-0x00008: STATUS (Device status register) 0x02080787
-       Duplex:                            full
-       Link up:                           link config
-       TBI mode:                          disabled
-       Link speed:                        1000Mb/s
-       Bus type:                          PCI Express
-       Port number:                       1
-0x00100: RCTL (Receive control register) 0x04008002
-       Receiver:                          enabled
-       Store bad packets:                 disabled
-       Unicast promiscuous:               disabled
-       Multicast promiscuous:             disabled
-       Long packet:                       disabled
-       Descriptor minimum threshold size: 1/2
-       Broadcast accept mode:             accept
-       VLAN filter:                       disabled
-       Canonical form indicator:          disabled
-       Discard pause frames:              filtered
-       Pass MAC control frames:           don't pass
-       Receive buffer size:               2048
-0x02808: RDLEN (Receive desc length)     0x00001000
-0x02810: RDH   (Receive desc head)       0x00000046
-0x02818: RDT   (Receive desc tail)       0x00000040
-0x02820: RDTR  (Receive delay timer)     0x00000020
-0x00400: TCTL (Transmit ctrl register)   0x3103F0FA
-       Transmitter:                       enabled
-       Pad short packets:                 enabled
-       Software XOFF Transmission:        disabled
-       Re-transmit on late collision:     enabled
-0x03808: TDLEN (Transmit desc length)    0x00001000
-0x03810: TDH   (Transmit desc head)      0x00000098
-0x03818: TDT   (Transmit desc tail)      0x00000099
-0x03820: TIDV  (Transmit delay timer)    0x00000008
-PHY type:                                unknown
-
-
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Steven Whitehouse <swhiteho@redhat.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
 ---
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+ include/net/af_unix.h |    3 -
+ net/unix/af_unix.c    |  110 +++++++++++++++++++++++-----------------
+ net/unix/diag.c       |    6 +-
+ 3 files changed, 70 insertions(+), 49 deletions(-)
+
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index 2ee33da..b5f8988 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -14,10 +14,11 @@ extern struct sock *unix_get_socket(struct file *filp);
+ extern struct sock *unix_peer_get(struct sock *);
+ 
+ #define UNIX_HASH_SIZE	256
++#define UNIX_HASH_BITS	8
+ 
+ extern unsigned int unix_tot_inflight;
+ extern spinlock_t unix_table_lock;
+-extern struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
++extern struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
+ 
+ struct unix_address {
+ 	atomic_t	refcnt;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 641f2e4..cf83f6b 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -115,15 +115,24 @@
+ #include <net/checksum.h>
+ #include <linux/security.h>
+ 
+-struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
++struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
+ EXPORT_SYMBOL_GPL(unix_socket_table);
+ DEFINE_SPINLOCK(unix_table_lock);
+ EXPORT_SYMBOL_GPL(unix_table_lock);
+ static atomic_long_t unix_nr_socks;
+ 
+-#define unix_sockets_unbound	(&unix_socket_table[UNIX_HASH_SIZE])
+ 
+-#define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
++static struct hlist_head *unix_sockets_unbound(void *addr)
++{
++	unsigned long hash = (unsigned long)addr;
++
++	hash ^= hash >> 16;
++	hash ^= hash >> 8;
++	hash %= UNIX_HASH_SIZE;
++	return &unix_socket_table[UNIX_HASH_SIZE + hash];
++}
++
++#define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash < UNIX_HASH_SIZE)
+ 
+ #ifdef CONFIG_SECURITY_NETWORK
+ static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
+@@ -645,7 +654,7 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
+ 	INIT_LIST_HEAD(&u->link);
+ 	mutex_init(&u->readlock); /* single task reading lock */
+ 	init_waitqueue_head(&u->peer_wait);
+-	unix_insert_socket(unix_sockets_unbound, sk);
++	unix_insert_socket(unix_sockets_unbound(sk), sk);
+ out:
+ 	if (sk == NULL)
+ 		atomic_long_dec(&unix_nr_socks);
+@@ -2239,47 +2248,58 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+-static struct sock *first_unix_socket(int *i)
+-{
+-	for (*i = 0; *i <= UNIX_HASH_SIZE; (*i)++) {
+-		if (!hlist_empty(&unix_socket_table[*i]))
+-			return __sk_head(&unix_socket_table[*i]);
+-	}
+-	return NULL;
+-}
+ 
+-static struct sock *next_unix_socket(int *i, struct sock *s)
+-{
+-	struct sock *next = sk_next(s);
+-	/* More in this chain? */
+-	if (next)
+-		return next;
+-	/* Look for next non-empty chain. */
+-	for ((*i)++; *i <= UNIX_HASH_SIZE; (*i)++) {
+-		if (!hlist_empty(&unix_socket_table[*i]))
+-			return __sk_head(&unix_socket_table[*i]);
+-	}
+-	return NULL;
+-}
++#define BUCKET_SPACE (BITS_PER_LONG - (UNIX_HASH_BITS + 1) - 1)
++
++#define get_bucket(x) ((x) >> BUCKET_SPACE)
++#define get_offset(x) ((x) & ((1L << BUCKET_SPACE) - 1))
++#define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
+ 
+ struct unix_iter_state {
+ 	struct seq_net_private p;
+-	int i;
+ };
+ 
+-static struct sock *unix_seq_idx(struct seq_file *seq, loff_t pos)
++static struct sock *unix_from_bucket(struct seq_file *seq, loff_t *pos)
+ {
+-	struct unix_iter_state *iter = seq->private;
+-	loff_t off = 0;
+-	struct sock *s;
++	unsigned long offset = get_offset(*pos);
++	unsigned long bucket = get_bucket(*pos);
++	struct sock *sk;
++	unsigned long count = 0;
+ 
+-	for (s = first_unix_socket(&iter->i); s; s = next_unix_socket(&iter->i, s)) {
+-		if (sock_net(s) != seq_file_net(seq))
++	for (sk = sk_head(&unix_socket_table[bucket]); sk; sk = sk_next(sk)) {
++		if (sock_net(sk) != seq_file_net(seq))
+ 			continue;
+-		if (off == pos)
+-			return s;
+-		++off;
++		if (++count == offset)
++			break;
+ 	}
++
++	return sk;
++}
++
++static struct sock *unix_next_socket(struct seq_file *seq,
++				     struct sock *sk,
++				     loff_t *pos)
++{
++	unsigned long bucket;
++
++	while (sk > (struct sock *)SEQ_START_TOKEN) {
++		sk = sk_next(sk);
++		if (!sk)
++			goto next_bucket;
++		if (sock_net(sk) == seq_file_net(seq))
++			return sk;
++	}
++
++	do {
++		sk = unix_from_bucket(seq, pos);
++		if (sk)
++			return sk;
++
++next_bucket:
++		bucket = get_bucket(*pos) + 1;
++		*pos = set_bucket_offset(bucket, 1);
++	} while (bucket < ARRAY_SIZE(unix_socket_table));
++
+ 	return NULL;
+ }
+ 
+@@ -2287,22 +2307,20 @@ static void *unix_seq_start(struct seq_file *seq, loff_t *pos)
+ 	__acquires(unix_table_lock)
+ {
+ 	spin_lock(&unix_table_lock);
+-	return *pos ? unix_seq_idx(seq, *pos - 1) : SEQ_START_TOKEN;
++
++	if (!*pos)
++		return SEQ_START_TOKEN;
++
++	if (get_bucket(*pos) >= ARRAY_SIZE(unix_socket_table))
++		return NULL;
++
++	return unix_next_socket(seq, NULL, pos);
+ }
+ 
+ static void *unix_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+-	struct unix_iter_state *iter = seq->private;
+-	struct sock *sk = v;
+ 	++*pos;
+-
+-	if (v == SEQ_START_TOKEN)
+-		sk = first_unix_socket(&iter->i);
+-	else
+-		sk = next_unix_socket(&iter->i, sk);
+-	while (sk && (sock_net(sk) != seq_file_net(seq)))
+-		sk = next_unix_socket(&iter->i, sk);
+-	return sk;
++	return unix_next_socket(seq, v, pos);
+ }
+ 
+ static void unix_seq_stop(struct seq_file *seq, void *v)
+diff --git a/net/unix/diag.c b/net/unix/diag.c
+index 47d3002..7e8a24b 100644
+--- a/net/unix/diag.c
++++ b/net/unix/diag.c
+@@ -195,7 +195,9 @@ static int unix_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	num = s_num = cb->args[1];
+ 
+ 	spin_lock(&unix_table_lock);
+-	for (slot = s_slot; slot <= UNIX_HASH_SIZE; s_num = 0, slot++) {
++	for (slot = s_slot;
++	     slot < ARRAY_SIZE(unix_socket_table);
++	     s_num = 0, slot++) {
+ 		struct sock *sk;
+ 		struct hlist_node *node;
+ 
+@@ -228,7 +230,7 @@ static struct sock *unix_lookup_by_ino(int ino)
+ 	struct sock *sk;
+ 
+ 	spin_lock(&unix_table_lock);
+-	for (i = 0; i <= UNIX_HASH_SIZE; i++) {
++	for (i = 0; i < ARRAY_SIZE(unix_socket_table); i++) {
+ 		struct hlist_node *node;
+ 
+ 		sk_for_each(sk, node, &unix_socket_table[i])
