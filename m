@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
 	through ethtool
-Date: Fri, 8 Jun 2012 10:02:37 +0300
-Message-ID: <20120608070237.GA32532@redhat.com>
+Date: Fri, 8 Jun 2012 10:04:32 +0300
+Message-ID: <20120608070430.GB32532@redhat.com>
 References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
 	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
 	<20120607221911.GD16235@redhat.com> <4FD172FD.5070200@redhat.com>
@@ -51,10 +51,8 @@ On Fri, Jun 08, 2012 at 11:35:25AM +0800, Jason Wang wrote:
 > could be sent by one vcpu and freed by another.
 > Pehaps another reason to use per-queue satistics.
 
-For transmit, it could be done easily as we both send and free skbs
-under a lock. I'm not sure how acceptable it is to
-take a lock in get_stats but send a separate patch like this
-and we'll see what others say.
+Just to stress these things do not need to contradict:
+you can have per cpu stats for each queue.
 
 -- 
 MST
