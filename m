@@ -1,171 +1,74 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 11:29:24 +0800
-Message-ID: <CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
-References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [V2 RFC net-next PATCH 2/2] virtio_net: export more statistics
+	through ethtool
+Date: Fri, 08 Jun 2012 11:33:34 +0800
+Message-ID: <4FD1728E.20802@redhat.com>
+References: <20120606075208.29081.75284.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<20120606075217.29081.30713.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<1339089306.2770.10.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120607.130512.219951433412203999.davem@davemloft.net>
+	<1339100649.2770.20.camel@bwh-desktop.uk.solarflarecom.com>
+	<4FD11194.2040405@hp.com>
+	<1339102567.2770.25.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1339102567.2770.25.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 5, 2012 at 10:12 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
-ote:
-> There prints endless "XactErr" error msg once switch my device to the
-
-The "XactErr" error msg means that there are some transfer error in the=
- bus,
-such as timeout, bad CRC, wrong PID, etc. Generally, -EPROTO is returne=
-d
-to driver if this kind of error happened.
-
-> configuration
-> =A0which needs cdc_ether driver, the root cause is the interrupt endp=
-oint halts.
-
-How do you switch your configuration? by writing to
-/sys/.../bConfigurationValue?
-
-Is the "XactErr" msg printed just after switching to cdc_ether interfac=
-e
-by changing configuration?
-
-> Maybe this is a common issue, so fix it by activating the endpoint
-> once the error occurs.
+On 06/08/2012 04:56 AM, Ben Hutchings wrote:
+> On Thu, 2012-06-07 at 13:39 -0700, Rick Jones wrote:
+>> On 06/07/2012 01:24 PM, Ben Hutchings wrote:
+>>> On Thu, 2012-06-07 at 13:05 -0700, David Miller wrote:
+>>>> From: Ben Hutchings<bhutchings@solarflare.com>
+>>>> Date: Thu, 7 Jun 2012 18:15:06 +0100
+>>>>
+>>>>> I would really like to see some sort of convention for presenting
+>>>>> per-queue statistics through ethtool.  At the moment we have a complete
+>>>>> mess of different formats:
+>>>> Indeed.  Probably ${QUEUE_TYPE}-${INDEX}-${STATISTIC} is best.
+>>>> With an agreed upon list of queue types such as "rx", "tx", "rxtx"
+>>>> etc.
+>>> I think we should leave the type names open-ended, as there are other
+>>> useful groupings like per-virtual-port.  In that case the separator
+>>> should be chosen to allow arbitrary type names without ambiguity.
+>> So you mean like something along the lines of the presence of say '.'
+>> indicating indent a level:
+>>
+>> rx_bytes:  1234
+>>       myqueue1.rx_bytes: 234
+>>       myqueue2.rx_bytes: 345
+>>       ...
+> Most drivers seem to want this sort of ordering/grouping:
 >
-> Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 ++++++++++++++++++++++++++++=
-+++++
-> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
-> =A02 files changed, 41 insertions(+), 7 deletions(-)
+> group0.foo
+> group0.bar
+> ...
+> group1.foo
+> group1.bar
+> ...
 >
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 9f58330..f13922b 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdown, co=
-de %d\n", status);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+> but if we have a standard way of indicating groups of statistics then
+> the user can choose whether they want to reorder by type name.
 >
-> + =A0 =A0 =A0 case -EPIPE:
-> + =A0 =A0 =A0 case -EPROTO:
-
-It is good to handle EPIPE error here, but looks it is no sense to
-clear halt for
-bus transfer failure. At least, no clear halt is done for returning -EP=
-ROTO from
-rx/tx transfer currently.
-
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS_HALT=
-);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
-> +
-> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this endp=
-oint
-> =A0 =A0 =A0 =A0 * already polls infrequently
-> =A0 =A0 =A0 =A0 */
-> @@ -967,6 +972,34 @@ fail_halt:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0}
+> Ben.
 >
-> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *desc;
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAddress =
-& USB_ENDPOINT_NUMBER_MASK);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interface(dev=
-->intf);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->udev, pi=
-pe);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf);
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPIPE &&=
- status !=3D -ESHUTDOWN) {
-> +fail_sts:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->net,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "can't =
-clear intr halt, status %d\n", status);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_STS_HAL=
-T, &dev->flags);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interrupt->=
-transfer_buffer, 0,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->in=
-terrupt->transfer_buffer_length);
 
-The above is not necessary.
+Yes, it looks to me that the per-queue satistics were better:
 
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_submit_u=
-rb(dev->interrupt, GFP_KERNEL);
-
-Before submitting urb, usb_autopm_get_interface is required to wakeup d=
-evice.
-
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status !=3D 0)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_e=
-rr(dev, timer, dev->net,
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 "intr resubmit --> %d\n", status);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> + =A0 =A0 =A0 }
-> +
-> =A0 =A0 =A0 =A0/* tasklet could resubmit itself forever if memory is =
-tight */
-> =A0 =A0 =A0 =A0if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct urb =A0 =A0 =A0*urb =3D NULL;
-> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> index 76f4396..c0bcb61 100644
-> --- a/include/linux/usb/usbnet.h
-> +++ b/include/linux/usb/usbnet.h
-> @@ -62,13 +62,14 @@ struct usbnet {
-> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 flags;
-> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_TX_HALT =A0 =A00
-> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_HALT =A0 =A01
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A02
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A03
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 4
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A05
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 6
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 7
-> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 8
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_HALT =A0 2
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A03
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A04
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 5
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A06
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 7
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 8
-> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 9
-> =A0};
->
-> =A0static inline struct usb_driver *driver_of(struct usb_interface *i=
-ntf)
-> --
-> 1.7.9.5
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" =
-in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-
-
-Thanks,
---=20
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Simple and less synchronization.
+- Good for future virtio-net multiqueue merging.
