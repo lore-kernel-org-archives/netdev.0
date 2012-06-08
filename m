@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/2] inetpeer: add namespace support for
- inetpeer
-Date: Fri, 08 Jun 2012 14:27:42 -0700 (PDT)
-Message-ID: <20120608.142742.1627858906014237271.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v3 2/2] inetpeer: add parameter net for
+	inet_getpeer_v4,v6
+Date: Fri, 08 Jun 2012 14:27:53 -0700 (PDT)
+Message-ID: <20120608.142753.388568216790211727.davem@davemloft.net>
 References: <1339137683-19217-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<1339137779-19340-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, steffen.klassert@secunet.com,
-	netdev@vger.kernel.org, containers@lists.linux-foundation.org
-To: gaofeng@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753651Ab2FHV1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 17:27:47 -0400
-In-Reply-To: <1339137683-19217-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1339137779-19340-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Fri,  8 Jun 2012 14:41:23 +0800
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Date: Fri,  8 Jun 2012 14:42:59 +0800
 
-> now inetpeer doesn't support namespace,the information will
-> be leaking across namespace.
+> add struct net as a parameter of inet_getpeer_v[4,6],
+> use net to replace &init_net.
 > 
-> this patch move the global vars v4_peers and v6_peers to
-> netns_ipv4 and netns_ipv6 as a field peers.
+> and modify some places to provide net for inet_getpeer_v[4,6]
 > 
-> add struct pernet_operations inetpeer_ops to initial pernet
-> inetpeer data.
-> 
-> and change family_to_base and inet_getpeer to support namespace.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 
 Applied.
