@@ -1,81 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
-Date: Thu, 07 Jun 2012 23:02:16 -0700 (PDT)
-Message-ID: <20120607.230216.2014005732863772019.davem@davemloft.net>
-References: <alpine.DEB.2.00.1206072201200.13686@pokey.mtv.corp.google.com>
-	<1339135057.6001.20.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Difficulties to get 1Gbps on be2net ethernet card
+Date: Fri, 08 Jun 2012 08:08:29 +0200
+Message-ID: <1339135709.6001.22.camel@edumazet-glaptop>
+References: <CAL8zT=hHAc5-wGMKgumV=K9jG6tDxzej9Dffe9UYQ24gdWQRtw@mail.gmail.com>
+	 <CAL8zT=jKhRjVCdYRCerMzimxPAhP5Gi+JBBfuKjG-rfg-LMoVw@mail.gmail.com>
+	 <1338360536.2760.85.camel@edumazet-glaptop>
+	 <CAL8zT=h2hoTWDMpTe8P-xfm-USXD6spx8fFVmm1UXyOfuuqhZw@mail.gmail.com>
+	 <1338361587.2760.94.camel@edumazet-glaptop>
+	 <CAL8zT=jHWhDdv-DyXL8XnL8qRc7o-jZfA7ADU-qt54hB5aLyCw@mail.gmail.com>
+	 <CAL8zT=gJT1Frn_44SU0CrpZjPxwC_VuHFE4k9jvOGNmFomzhHA@mail.gmail.com>
+	 <3367B80B08154D42A3B2BC708B5D41F647C678B73F@EXMAIL.ad.emulex.com>
+	 <CAL8zT=iP+5o11am67ZBVOd=QrOfcjFWDydiuM9RrrAKe_k7LZw@mail.gmail.com>
+	 <CAL8zT=ggT7Y2on6qmsp3u9CLOCwd6nOr3VjQfEsGZzA+O6us0A@mail.gmail.com>
+	 <1338980484.2760.4219.camel@edumazet-glaptop>
+	 <CAL8zT=hHDPnvRFcQ0w+D=AP+QK6ic4X=tva6Yw_XGwuTbAYjhQ@mail.gmail.com>
+	 <CAL8zT=jGHo82mo-s8Tfs9LWzfu2GkrS4eZJoeOpHhpXHMr6csg@mail.gmail.com>
+	 <CAL8zT=jY9YfdkBjk5VhwaSbzghCVUMXZZh+QAgc15LBBztczog@mail.gmail.com>
+	 <CAL8zT=g67JLZZjLF81+wxe9pmuPZ4EdpY1fHJMQNgcy9R6oBzg@mail.gmail.com>
+	 <1339072289.3494.3.camel@edumazet-glaptop>
+	 <CAL8zT=i2EkZLz3J5ib1tLnOuXt=Buf0sCwr7UbQWRE3B4oB+JQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Sathya.Perla@emulex.com, netdev@vger.kernel.org
+To: Jean-Michel Hautbois <jhautbois@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47870 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753395Ab2FHGCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 02:02:17 -0400
-In-Reply-To: <1339135057.6001.20.camel@edumazet-glaptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:62599 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933207Ab2FHGIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 02:08:34 -0400
+Received: by eaak11 with SMTP id k11so767138eaa.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 23:08:33 -0700 (PDT)
+In-Reply-To: <CAL8zT=i2EkZLz3J5ib1tLnOuXt=Buf0sCwr7UbQWRE3B4oB+JQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 08 Jun 2012 07:57:37 +0200
+On Thu, 2012-06-07 at 14:54 +0200, Jean-Michel Hautbois wrote:
 
-> On Thu, 2012-06-07 at 22:05 -0700, Tom Herbert wrote:
->> In the transmit path of the bonding driver, skb->cb is used to
->> stash the skb->queue_mapping so that the bonding device can set its
->> own queue mapping.  This value becomes corrupted since the skb->cb is
->> also used in __dev_xmit_skb.
->> 
->> When transmitting through bonding driver, bond_select_queue is
->> called from dev_queue_xmit.  In bond_select_queue the original
->> skb->queue_mapping is copied into skb->cb (via bond_queue_mapping)
->> and skb->queue_mapping is overwritten with the bond driver queue.
->> Subsequently in dev_queue_xmit, __dev_xmit_skb is called which writes
->> the packet length into skb->cb, thereby overwriting the stashed
->> queue mappping.  In bond_dev_queue_xmit (called from hard_start_xmit),
->> the queue mapping for the skb is set to the stashed value which is now
->> the skb length and hence is an invalid queue for the slave device.
->> 
->> Fix is to set bond_queue_mapping to skb->cb +
->> sizeof((struct qdisc_skb_cb)
->> 
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->>  drivers/net/bonding/bond_main.c |    4 +++-
->>  1 files changed, 3 insertions(+), 1 deletions(-)
->> 
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 2ee8cf9..044c1c0 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -76,6 +76,7 @@
->>  #include <net/route.h>
->>  #include <net/net_namespace.h>
->>  #include <net/netns/generic.h>
->> +#include <net/sch_generic.h>
->>  #include "bonding.h"
->>  #include "bond_3ad.h"
->>  #include "bond_alb.h"
->> @@ -381,7 +382,8 @@ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
->>  	return next;
->>  }
->>  
->> -#define bond_queue_mapping(skb) (*(u16 *)((skb)->cb))
->> +#define bond_queue_mapping(skb) (*(u16 *)((skb)->cb + \
->> +    sizeof(struct qdisc_skb_cb)))
->>  
->>  /**
->>   * bond_dev_queue_xmit - Prepare skb for xmit.
-> 
-> 
-> Sorry this wont work in all cases.
-> 
-> Some qdisc also use skb->cb[]
+> eth1      Link encap:Ethernet  HWaddr 68:b5:99:b9:8d:d4
+>           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:4096  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:15215387 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:0 (0.0 B)  TX bytes:61476524359 (57.2 GiB)
 
-Hmmm, isn't that what qdisc_skb_cb is for?  And even private data is
-explicitly allocated:
+> qdisc mq 0: dev eth1 root
+>  Sent 61476524359 bytes 15215387 pkt (dropped 45683472, overlimits 0
+> requeues 17480)
 
->  	unsigned char		data[24];
+OK, and "tc -s -d cl show dev eth1"
 
-there. :-)
+(How many queues are really used)
