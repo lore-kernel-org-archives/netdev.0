@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) V3] stmmac: fix driver built w/ w/o both pci
- and platf modules
-Date: Thu, 07 Jun 2012 22:47:00 -0700 (PDT)
-Message-ID: <20120607.224700.190797412351871914.davem@davemloft.net>
-References: <20120607.110130.1448306195184899614.davem@davemloft.net>
-	<1339133107-29098-1-git-send-email-peppe.cavallaro@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Deadlock, L2TP over IP are not working, 3.4.1
+Date: Fri, 08 Jun 2012 07:47:18 +0200
+Message-ID: <1339134438.6001.13.camel@edumazet-glaptop>
+References: <7ed49f446365ac625437702d92946add@visp.net.lb>
+	 <20120607205356.GA2491@electric-eye.fr.zoreil.com>
+	 <1339104606.6001.4.camel@edumazet-glaptop>
+	 <20120607223752.GA4475@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wfg@linux.intel.com
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47810 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933363Ab2FHFrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 01:47:00 -0400
-In-Reply-To: <1339133107-29098-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120607223752.GA4475@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Fri,  8 Jun 2012 07:25:07 +0200
+On Fri, 2012-06-08 at 00:37 +0200, Francois Romieu wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> :
+> [...]
+> > If LLTX is used, this means several cpus can execute this code at the
+> > same time.
+> > 
+> > You need percpu stats, or use atomic primitives.
+> 
+> Would adding percpu stats not be frown upon ?
+> 
 
-> The commit ba27ec66ffeb78cbf fixes the Kconfig of the
-> driver when built as module allowing to select/unselect
-> the PCI and Platform modules that are not anymore mutually
-> exclusive. This patch fixes and guarantees that the driver
-> builds on all the platforms w/ w/o PCI and when select/unselect
-> the two stmmac supports. In case of there are some problems
-> on both the configuration and the pci/pltf registration the
-> module_init will fail.
-> 
-> v2: set the CONFIG_STMMAC_PLATFORM enabled by default.
-> I've just noticed that this can actually help on
-> some configurations that don't enable any STMMAC
-> options by default (e.g. SPEAr).
-> 
-> v3: change printk level when do not register the driver.
-> 
-> Reported-by: Fengguang Wu <wfg@linux.intel.com>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+I have no idea how many l2tp_eth devices are setup at once in typical
+conf.
 
-Applied.
+> As atomic will defeat the 64 bits stats on 32 bits, I should probably stick
+> to plain bh disabling lock.
+> 
+
+Not sure what you mean by "atomic will defeat the 64 bits stats on 32
+bits", since you also need atomic for "32 bits stats" or "64 bits stats
+on 64 bit arches"
+
+I personally would just use "unsigned long". If people want 64bit stats
+for their l2tp_eth, they certainly can use a 64bit host.
