@@ -1,53 +1,127 @@
-From: Huajun Li <huajun.li.lee@gmail.com>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 23:24:08 +0800
-Message-ID: <CA+v9cxag9NV2ud+oupyziLN3nLgkgj+kyTcaOnEjYNjqXtM4Bw@mail.gmail.com>
-References: <CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ@mail.gmail.com>
-	<Pine.LNX.4.44L0.1206080940350.1360-100000@iolanthe.rowland.org>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: e1000e, 3.4.1, , jumbo frames are not working
+Date: Fri, 8 Jun 2012 15:38:14 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A18428448AE0@ORSMSX102.amr.corp.intel.com>
+References: <87ed034d58606650514bdd3b88b0b002@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <tom.leiming@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36745 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754204Ab2FHPYJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 11:24:09 -0400
-In-Reply-To: <Pine.LNX.4.44L0.1206080940350.1360-100000@iolanthe.rowland.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Denys Fedoryshchenko <denys@visp.net.lb>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"rkagan@parallels.com" <rkagan@parallels.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"dnelson@redhat.com" <dnelson@redhat.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87ed034d58606650514bdd3b88b0b002@visp.net.lb>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 8, 2012 at 9:43 PM, Alan Stern <stern@rowland.harvard.edu> =
-wrote:
-> On Fri, 8 Jun 2012, Huajun Li wrote:
->
->> > If so, looks mistaken value is returned from the host controller d=
-river,
->> > but not sure if your device is buggy. What is your host controller=
-?
->> >
->> Nothing related to HC.
->> I tried to find out the endpoint state, but found it was halt. I thi=
-nk
->> this is the root cause.
->
-> No, it isn't. =A0Endpoint halt causes a -EPIPE error, not -EPROTO.
-> -EPROTO indicates that the device's firmware has crashed.
->
->> What's your opinion to handle "-EPROTO" error in usbnet.c?
->> Please check usbnet.c again, when "-EPROTO" occurs, it just pints
->> error msg and re-submit the interrupt URB, and then causes endless
->> "EactErr" error msg.
->
-> One possibility is to wait for a little while before resubmitting the
-> URB, and after 10 failures in a row, attempt a reset.
->
-Alan, thanks for your proposal.
-You mean reset the device after 10 failures, right ?
-
-BTW, I ever tried to sleep several seconds before submitting the 1st
-interrupt URB, but it did not work.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBEZW55cyBGZWRvcnlzaGNoZW5r
+byBbbWFpbHRvOmRlbnlzQHZpc3AubmV0LmxiXQ0KPiBTZW50OiBGcmlkYXksIEp1bmUgMDgsIDIw
+MTIgNzo1OSBBTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUOyBya2FnYW5AcGFyYWxsZWxzLmNv
+bTsgc3RhYmxlQHZnZXIua2VybmVsLm9yZzsNCj4gQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLCBC
+cnVjZSBXOyBXeWJvcm55LCBDYXJvbHluOyBTa2lkbW9yZSwgRG9uYWxkDQo+IEM7IFJvc2UsIEdy
+ZWdvcnkgVjsgV2Fza2lld2ljeiBKciwgUGV0ZXIgUDsgRHV5Y2ssIEFsZXhhbmRlciBIOw0KPiBS
+b25jaWFrLCBKb2huOyBkbmVsc29uQHJlZGhhdC5jb207IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJj
+ZWZvcmdlLm5ldDsNCj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIu
+a2VybmVsLm9yZw0KPiBTdWJqZWN0OiBlMTAwMGUsIDMuNC4xLCAsIGp1bWJvIGZyYW1lcyBhcmUg
+bm90IHdvcmtpbmcNCj4gDQo+IEp1c3QgdHJpZWQgdG8gZW5hYmxlIGxhcmdlciBtdHUgb24gaW50
+ZXJmYWNlLCBhbmQgZmFpbGVkLCBldmVuIGkgdHJ5DQo+IHRvDQo+IGRpc2FibGUgYm90aCBvZiBt
+ZW50aW9uZWQgaW4gZG1lc2cgb2ZmbG9hZHMuDQo+IA0KPiAwNTowMC4wIEV0aGVybmV0IGNvbnRy
+b2xsZXI6IEludGVsIENvcnBvcmF0aW9uIDgwMDAzRVMyTEFOIEdpZ2FiaXQNCj4gRXRoZXJuZXQg
+Q29udHJvbGxlciAoQ29wcGVyKSAocmV2IDAxKQ0KPiAwNTowMC4xIEV0aGVybmV0IGNvbnRyb2xs
+ZXI6IEludGVsIENvcnBvcmF0aW9uIDgwMDAzRVMyTEFOIEdpZ2FiaXQNCj4gRXRoZXJuZXQgQ29u
+dHJvbGxlciAoQ29wcGVyKSAocmV2IDAxKQ0KPiANCj4gTDJUUCB+ICMgZXRodG9vbCAtaSBldGgw
+DQo+IGRyaXZlcjogZTEwMDBlDQo+IHZlcnNpb246IDEuOS41LWsNCj4gZmlybXdhcmUtdmVyc2lv
+bjogMS4wLTANCj4gYnVzLWluZm86IDAwMDA6MDU6MDAuMA0KPiBzdXBwb3J0cy1zdGF0aXN0aWNz
+OiB5ZXMNCj4gc3VwcG9ydHMtdGVzdDogeWVzDQo+IHN1cHBvcnRzLWVlcHJvbS1hY2Nlc3M6IHll
+cw0KPiBzdXBwb3J0cy1yZWdpc3Rlci1kdW1wOiB5ZXMNCj4gDQo+IEhlcmUgaXMgd2hhdCBpIGRp
+ZDoNCj4gaWZjb25maWcgZXRoMSBtdHUgMjAwMA0KPiBnb3QgZG1lc2c6DQo+IFsgOTE2MC42Nzkz
+NTRdIGUxMDAwZSAwMDAwOjA1OjAwLjA6IGV0aDA6IEp1bWJvIGZyYW1lcyBjYW5ub3QgYmUNCj4g
+ZW5hYmxlZCB3aGVuIGJvdGggcmVjZWl2ZSBjaGVja3N1bSBvZmZsb2FkIGFuZCByZWNlaXZlIGhh
+c2hpbmcgYXJlDQo+IGVuYWJsZWQuICBEaXNhYmxlIG9uZSBvZiB0aGUgcmVjZWl2ZSBvZmZsb2Fk
+IGZlYXR1cmVzIGJlZm9yZSBlbmFibGluZw0KPiBqdW1ib3MuDQo+IA0KPiBldGh0b29sIC1LIGV0
+aDEgcnhoYXNoIG9mZg0KPiBkbWVzZzoNCj4gWyA5MTk0LjIwODg1Nl0gZTEwMDBlIDAwMDA6MDU6
+MDAuMTogZXRoMTogUmVzZXQgYWRhcHRlcg0KPiBbIDkxOTcuMjk1NDI1XSBlMTAwMGU6IGV0aDEg
+TklDIExpbmsgaXMgVXAgMTAwMCBNYnBzIEZ1bGwgRHVwbGV4LCBGbG93DQo+IENvbnRyb2w6IE5v
+bmUNCj4gDQo+IExvc3QgY29ubmVjdGl2aXR5IGZvciBmZXcgc2Vjb25kcywgdGhlbiBhZ2FpbiBp
+IHRyaWVkIHRvOg0KPiBpZmNvbmZpZyBldGgxIG10dSAyMDAwDQo+IA0KPiBkbWVzZzoNCj4gWyA5
+MjA3Ljc5NzYxNl0gZTEwMDBlIDAwMDA6MDU6MDAuMDogZXRoMDogSnVtYm8gZnJhbWVzIGNhbm5v
+dCBiZQ0KPiBlbmFibGVkIHdoZW4gYm90aCByZWNlaXZlIGNoZWNrc3VtIG9mZmxvYWQgYW5kIHJl
+Y2VpdmUgaGFzaGluZyBhcmUNCj4gZW5hYmxlZC4gIERpc2FibGUgb25lIG9mIHRoZSByZWNlaXZl
+IG9mZmxvYWQgZmVhdHVyZXMgYmVmb3JlIGVuYWJsaW5nDQo+IGp1bWJvcy4NCj4gDQo+IGV0aHRv
+b2wgLUsgZXRoMSByeCBvZmYNCj4gWyA5MjIyLjM5ODAzNF0gZTEwMDBlIDAwMDA6MDU6MDAuMTog
+ZXRoMTogUmVzZXQgYWRhcHRlcg0KPiBbIDkyMjUuNDk3NTUwXSBlMTAwMGU6IGV0aDEgTklDIExp
+bmsgaXMgVXAgMTAwMCBNYnBzIEZ1bGwgRHVwbGV4LCBGbG93DQo+IENvbnRyb2w6IE5vbmUNCj4g
+DQo+IEFnYWluLCB0cmllZDogaWZjb25maWcgZXRoMSBtdHUgMjAwMA0KPiBkbWVzZzoNCj4gWyA5
+MjU0Ljc5NTQ0NV0gZTEwMDBlIDAwMDA6MDU6MDAuMDogZXRoMDogSnVtYm8gZnJhbWVzIGNhbm5v
+dCBiZQ0KPiBlbmFibGVkIHdoZW4gYm90aCByZWNlaXZlIGNoZWNrc3VtIG9mZmxvYWQgYW5kIHJl
+Y2VpdmUgaGFzaGluZyBhcmUNCj4gZW5hYmxlZC4gIERpc2FibGUgb25lIG9mIHRoZSByZWNlaXZl
+IG9mZmxvYWQgZmVhdHVyZXMgYmVmb3JlIGVuYWJsaW5nDQo+IGp1bWJvcy4NCj4gDQo+IEwyVFAg
+fiAjIGV0aHRvb2wgLWsgZXRoMQ0KPiBPZmZsb2FkIHBhcmFtZXRlcnMgZm9yIGV0aDE6DQo+IHJ4
+LWNoZWNrc3VtbWluZzogb2ZmDQo+IHR4LWNoZWNrc3VtbWluZzogb24NCj4gc2NhdHRlci1nYXRo
+ZXI6IG9uDQo+IHRjcC1zZWdtZW50YXRpb24tb2ZmbG9hZDogb24NCj4gdWRwLWZyYWdtZW50YXRp
+b24tb2ZmbG9hZDogb2ZmDQo+IGdlbmVyaWMtc2VnbWVudGF0aW9uLW9mZmxvYWQ6IG9uDQo+IGdl
+bmVyaWMtcmVjZWl2ZS1vZmZsb2FkOiBvbg0KPiBsYXJnZS1yZWNlaXZlLW9mZmxvYWQ6IG9mZg0K
+PiByeC12bGFuLW9mZmxvYWQ6IG9uDQo+IHR4LXZsYW4tb2ZmbG9hZDogb24NCj4gbnR1cGxlLWZp
+bHRlcnM6IG9mZg0KPiByZWNlaXZlLWhhc2hpbmc6IG9mZg0KPiANCj4gTDJUUCB+ICMgZXRodG9v
+bCAtZCBldGgxDQo+IE1BQyBSZWdpc3RlcnMNCj4gLS0tLS0tLS0tLS0tLQ0KPiAweDAwMDAwOiBD
+VFJMIChEZXZpY2UgY29udHJvbCByZWdpc3RlcikgIDB4NDAxNDQyNDENCj4gICAgICAgIEVuZGlh
+biBtb2RlIChidWZmZXJzKTogICAgICAgICAgICAgbGl0dGxlDQo+ICAgICAgICBMaW5rIHJlc2V0
+OiAgICAgICAgICAgICAgICAgICAgICAgIG5vcm1hbA0KPiAgICAgICAgU2V0IGxpbmsgdXA6ICAg
+ICAgICAgICAgICAgICAgICAgICAxDQo+ICAgICAgICBJbnZlcnQgTG9zcy1PZi1TaWduYWw6ICAg
+ICAgICAgICAgIG5vDQo+ICAgICAgICBSZWNlaXZlIGZsb3cgY29udHJvbDogICAgICAgICAgICAg
+IGRpc2FibGVkDQo+ICAgICAgICBUcmFuc21pdCBmbG93IGNvbnRyb2w6ICAgICAgICAgICAgIGRp
+c2FibGVkDQo+ICAgICAgICBWTEFOIG1vZGU6ICAgICAgICAgICAgICAgICAgICAgICAgIGVuYWJs
+ZWQNCj4gICAgICAgIEF1dG8gc3BlZWQgZGV0ZWN0OiAgICAgICAgICAgICAgICAgZGlzYWJsZWQN
+Cj4gICAgICAgIFNwZWVkIHNlbGVjdDogICAgICAgICAgICAgICAgICAgICAgMTAwME1iL3MNCj4g
+ICAgICAgIEZvcmNlIHNwZWVkOiAgICAgICAgICAgICAgICAgICAgICAgbm8NCj4gICAgICAgIEZv
+cmNlIGR1cGxleDogICAgICAgICAgICAgICAgICAgICAgbm8NCj4gMHgwMDAwODogU1RBVFVTIChE
+ZXZpY2Ugc3RhdHVzIHJlZ2lzdGVyKSAweDAyMDgwNzg3DQo+ICAgICAgICBEdXBsZXg6ICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIGZ1bGwNCj4gICAgICAgIExpbmsgdXA6ICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgbGluayBjb25maWcNCj4gICAgICAgIFRCSSBtb2RlOiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgZGlzYWJsZWQNCj4gICAgICAgIExpbmsgc3BlZWQ6ICAgICAgICAgICAg
+ICAgICAgICAgICAgMTAwME1iL3MNCj4gICAgICAgIEJ1cyB0eXBlOiAgICAgICAgICAgICAgICAg
+ICAgICAgICAgUENJIEV4cHJlc3MNCj4gICAgICAgIFBvcnQgbnVtYmVyOiAgICAgICAgICAgICAg
+ICAgICAgICAgMQ0KPiAweDAwMTAwOiBSQ1RMIChSZWNlaXZlIGNvbnRyb2wgcmVnaXN0ZXIpIDB4
+MDQwMDgwMDINCj4gICAgICAgIFJlY2VpdmVyOiAgICAgICAgICAgICAgICAgICAgICAgICAgZW5h
+YmxlZA0KPiAgICAgICAgU3RvcmUgYmFkIHBhY2tldHM6ICAgICAgICAgICAgICAgICBkaXNhYmxl
+ZA0KPiAgICAgICAgVW5pY2FzdCBwcm9taXNjdW91czogICAgICAgICAgICAgICBkaXNhYmxlZA0K
+PiAgICAgICAgTXVsdGljYXN0IHByb21pc2N1b3VzOiAgICAgICAgICAgICBkaXNhYmxlZA0KPiAg
+ICAgICAgTG9uZyBwYWNrZXQ6ICAgICAgICAgICAgICAgICAgICAgICBkaXNhYmxlZA0KPiAgICAg
+ICAgRGVzY3JpcHRvciBtaW5pbXVtIHRocmVzaG9sZCBzaXplOiAxLzINCj4gICAgICAgIEJyb2Fk
+Y2FzdCBhY2NlcHQgbW9kZTogICAgICAgICAgICAgYWNjZXB0DQo+ICAgICAgICBWTEFOIGZpbHRl
+cjogICAgICAgICAgICAgICAgICAgICAgIGRpc2FibGVkDQo+ICAgICAgICBDYW5vbmljYWwgZm9y
+bSBpbmRpY2F0b3I6ICAgICAgICAgIGRpc2FibGVkDQo+ICAgICAgICBEaXNjYXJkIHBhdXNlIGZy
+YW1lczogICAgICAgICAgICAgIGZpbHRlcmVkDQo+ICAgICAgICBQYXNzIE1BQyBjb250cm9sIGZy
+YW1lczogICAgICAgICAgIGRvbid0IHBhc3MNCj4gICAgICAgIFJlY2VpdmUgYnVmZmVyIHNpemU6
+ICAgICAgICAgICAgICAgMjA0OA0KPiAweDAyODA4OiBSRExFTiAoUmVjZWl2ZSBkZXNjIGxlbmd0
+aCkgICAgIDB4MDAwMDEwMDANCj4gMHgwMjgxMDogUkRIICAgKFJlY2VpdmUgZGVzYyBoZWFkKSAg
+ICAgICAweDAwMDAwMDQ2DQo+IDB4MDI4MTg6IFJEVCAgIChSZWNlaXZlIGRlc2MgdGFpbCkgICAg
+ICAgMHgwMDAwMDA0MA0KPiAweDAyODIwOiBSRFRSICAoUmVjZWl2ZSBkZWxheSB0aW1lcikgICAg
+IDB4MDAwMDAwMjANCj4gMHgwMDQwMDogVENUTCAoVHJhbnNtaXQgY3RybCByZWdpc3RlcikgICAw
+eDMxMDNGMEZBDQo+ICAgICAgICBUcmFuc21pdHRlcjogICAgICAgICAgICAgICAgICAgICAgIGVu
+YWJsZWQNCj4gICAgICAgIFBhZCBzaG9ydCBwYWNrZXRzOiAgICAgICAgICAgICAgICAgZW5hYmxl
+ZA0KPiAgICAgICAgU29mdHdhcmUgWE9GRiBUcmFuc21pc3Npb246ICAgICAgICBkaXNhYmxlZA0K
+PiAgICAgICAgUmUtdHJhbnNtaXQgb24gbGF0ZSBjb2xsaXNpb246ICAgICBlbmFibGVkDQo+IDB4
+MDM4MDg6IFRETEVOIChUcmFuc21pdCBkZXNjIGxlbmd0aCkgICAgMHgwMDAwMTAwMA0KPiAweDAz
+ODEwOiBUREggICAoVHJhbnNtaXQgZGVzYyBoZWFkKSAgICAgIDB4MDAwMDAwOTgNCj4gMHgwMzgx
+ODogVERUICAgKFRyYW5zbWl0IGRlc2MgdGFpbCkgICAgICAweDAwMDAwMDk5DQo+IDB4MDM4MjA6
+IFRJRFYgIChUcmFuc21pdCBkZWxheSB0aW1lcikgICAgMHgwMDAwMDAwOA0KPiBQSFkgdHlwZTog
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHVua25vd24NCj4gDQo+IA0KPiAtLS0NCj4g
+RGVueXMgRmVkb3J5c2hjaGVua28sIE5ldHdvcmsgRW5naW5lZXIsIFZpcnR1YWwgSVNQIFMuQS5M
+Lg0KDQpUaGFua3MgZm9yIHRoZSByZXBvcnQuICBXZSBhcmUgYXdhcmUgb2YgdGhlIGlzc3VlIGFu
+ZCBoYXZlIGFscmVhZHkgYmVndW4NCndvcmtpbmcgb24gYSBwYXRjaCB0byByZXNvbHZlIHRoZSBp
+c3N1ZS4NCg0KQnJ1Y2UuDQoNCg==
