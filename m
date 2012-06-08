@@ -1,38 +1,34 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 12:13:04 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1206081212150.1360-100000@iolanthe.rowland.org>
-References: <CA+v9cxag9NV2ud+oupyziLN3nLgkgj+kyTcaOnEjYNjqXtM4Bw@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
+Date: Fri, 08 Jun 2012 09:16:15 -0700
+Message-ID: <4FD2254F.1090900@intel.com>
+References: <1339135057.6001.20.camel@edumazet-glaptop>  <20120607.230216.2014005732863772019.davem@davemloft.net>  <1339135881.6001.25.camel@edumazet-glaptop>  <20120607.231501.463746858434969001.davem@davemloft.net>  <1339138040.6001.39.camel@edumazet-glaptop>  <1339140238.6001.42.camel@edumazet-glaptop>  <CA+mtBx9xpy6Ly=3kiBc+sdHqFfsO5KRK8O=VAXTb3rofAgm2ow@mail.gmail.com> <1339168272.6001.116.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+v9cxag9NV2ud+oupyziLN3nLgkgj+kyTcaOnEjYNjqXtM4Bw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:57717 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761221Ab2FHQQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2012 12:16:16 -0400
+In-Reply-To: <1339168272.6001.116.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 8 Jun 2012, Huajun Li wrote:
+On 6/8/2012 8:11 AM, Eric Dumazet wrote:
+> On Fri, 2012-06-08 at 08:04 -0700, Tom Herbert wrote:
+>
+>> Maybe the fundamental issue is that the queue mappings only allow for
+>> one level of multi queue device.  It might be better if bonding didn't
+>> have one and dev_pick_tx did the right thin (use xps on bonding
+>> maybe).
+>
+> bonding misuses multiqueue infrastructure to divert frames on selected
+> slaves, or maybe I am wrong.
+>
 
-> > One possibility is to wait for a little while before resubmitting the
-> > URB, and after 10 failures in a row, attempt a reset.
-> >
-> Alan, thanks for your proposal.
-> You mean reset the device after 10 failures, right ?
-
-Yes.  But I don't know if it will help your problem.
-
-> BTW, I ever tried to sleep several seconds before submitting the 1st
-> interrupt URB, but it did not work.
-
-As Ming Lei said, it sounds like your device isn't working right.
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is right see bond_slave_override() here the slaves queue_ids
+are mapped to skb->queue_mapping via this TX_QUEUE_OVERRIDE param.
