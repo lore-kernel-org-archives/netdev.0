@@ -1,98 +1,204 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the akpm tree with the net-next tree
-Date: Fri, 8 Jun 2012 13:56:23 +1000
-Message-ID: <20120608135623.0771d422608209264d4c3ef5@canb.auug.org.au>
+From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
+ endless "XactErr" error
+Date: Fri, 8 Jun 2012 13:04:51 +0800
+Message-ID: <CA+v9cxYvvRVWAUHX=b-P022pFbG1M7S=SZtOo2zfJnhAx5_+sQ@mail.gmail.com>
+References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
+	<CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__8_Jun_2012_13_56_23_+1000_.QQKrYWL2EHZtje/"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	AnilKumar Ch <anilkumar@ti.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Viresh Kumar <viresh.kumar@st.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:60498 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758241Ab2FHD4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jun 2012 23:56:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__8_Jun_2012_13_56_23_+1000_.QQKrYWL2EHZtje/
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Ming, thanks for your comments.
 
-Hi Andrew,
+On Fri, Jun 8, 2012 at 11:29 AM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote=
+:
+> On Tue, Jun 5, 2012 at 10:12 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> =
+wrote:
+>> There prints endless "XactErr" error msg once switch my device to th=
+e
+>
+> The "XactErr" error msg means that there are some transfer error in t=
+he bus,
+> such as timeout, bad CRC, wrong PID, etc. Generally, -EPROTO is retur=
+ned
+> to driver if this kind of error happened.
+>
+Yes, you pointed out the why there printed the error.
+However, how can this error(-EPROTO) happen? Actually, maybe it is
+caused by malfunction device, bad usb cable, or other issues. In my
+case, it is because the endpoint halts.
 
-Today's linux-next merge of the akpm tree got a conflict in
-drivers/net/can/c_can/c_can_platform.c between commit 33f810097769 ("can:
-c_can: Move overlay structure to array with offset as index") from the
-net-next tree and commit "net/c_can: remove conditional compilation of
-clk code" from the akpm tree.
+>> configuration
+>> =A0which needs cdc_ether driver, the root cause is the interrupt end=
+point halts.
+>
+> How do you switch your configuration? by writing to
+> /sys/.../bConfigurationValue?
+>
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Maybe.
+I were using a third party application to switch the configurations,
+so I think it should use this way to do it unless there is other
+approach.
 
-diff --cc drivers/net/can/c_can/c_can_platform.c
-index f0921d1,7ec9316..0000000
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@@ -71,10 -71,8 +71,9 @@@ static int __devinit c_can_plat_probe(s
-  	void __iomem *addr;
-  	struct net_device *dev;
-  	struct c_can_priv *priv;
- +	const struct platform_device_id *id;
-  	struct resource *mem;
-  	int irq;
-- #ifdef CONFIG_HAVE_CLK
-  	struct clk *clk;
- =20
-  	/* get the appropriate clk */
-@@@ -138,18 -129,8 +136,16 @@@
-  		priv->read_reg =3D c_can_plat_read_reg_aligned_to_16bit;
-  		priv->write_reg =3D c_can_plat_write_reg_aligned_to_16bit;
-  		break;
- +	default:
- +		ret =3D -EINVAL;
- +		goto exit_free_device;
-  	}
- =20
- +	dev->irq =3D irq;
- +	priv->base =3D addr;
-- #ifdef CONFIG_HAVE_CLK
- +	priv->can.clock.freq =3D clk_get_rate(clk);
- +	priv->priv =3D clk;
-- #endif
- +
-  	platform_set_drvdata(pdev, dev);
-  	SET_NETDEV_DEV(dev, &pdev->dev);
- =20
+> Is the "XactErr" msg printed just after switching to cdc_ether interf=
+ace
+> by changing configuration?
+>
 
---Signature=_Fri__8_Jun_2012_13_56_23_+1000_.QQKrYWL2EHZtje/
-Content-Type: application/pgp-signature
+Yes, just as I mentioned in my original email.
+And it did not work even I removed the driver and re-installed it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+>> Maybe this is a common issue, so fix it by activating the endpoint
+>> once the error occurs.
+>>
+>> Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 +++++++++++++++++++++++++++=
+++++++
+>> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
+>> =A02 files changed, 41 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+>> index 9f58330..f13922b 100644
+>> --- a/drivers/net/usb/usbnet.c
+>> +++ b/drivers/net/usb/usbnet.c
+>> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdown, c=
+ode %d\n", status);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+>>
+>> + =A0 =A0 =A0 case -EPIPE:
+>> + =A0 =A0 =A0 case -EPROTO:
+>
+> It is good to handle EPIPE error here, but looks it is no sense to
+> clear halt for
+> bus transfer failure. At least, no clear halt is done for returning -=
+EPROTO from
+> rx/tx transfer currently.
 
-iQIcBAEBCAAGBQJP0XfnAAoJEECxmPOUX5FEh1cP/j32krsuzCEAsWMTcZt6P/JD
-L93AAMdNomyrL+islkawj5WxoI26OxbQuIRvQAyTfDmPToBjFqF/N3MTRrpXYk4t
-e6ZM1qqUiSd9tIsC314u9H0oBWNw9Af6Hbt9dUIY8Fani2L492KHk3WsFpK7lsFS
-UK8p2Iv65xPSWSNSZUK++djs8mpbBVTj97XhgucnFcA0iKD3AsiWkHPJA25DEPeM
-aRLg5CzesyZ2UrpKX7f8+O//c8ZQDnNoFW7FRZel1rwJqNOhVxJZxp+KEDaZhA+c
-QcQ5cQKwi7uK6iV7VgexPFg1ytywN2Qc0s0yhiqLvXcALKLw4QN+n+iya7mp+lvr
-O1FxAD9ieRk4dhZUjCIscIHeAXjMqVAcPiPLfJsKMk3NL2r2OIpitNzRoGkiYT3I
-uOtVLUJ2d+4v6r2RC4jCQwpJD3WJ6sYlOM5r7bAmP4EYyJWwdowAWp/l2pPE837p
-vEV0s06Buvdgs2CXMCg4IvDK3OX7ikllR3gfZR9h3RS2EznqTyIWJfjgcDNChpbA
-29nhXELnCnZH4EQUTAyEjjnPrPMoyZkNdMWHJJIQ5VoQ07VI7JG6O13KwTQn3X+q
-SwbVCNYDaWrl16bfE42Otw5bzaOJ6DZV/izXxUvE+qAuh5P7tnj3h2S3rz6N+Qws
-zvf9zRz8RWIHV73yGAF0
-=p5Hn
------END PGP SIGNATURE-----
+Just as I said above, there is different issue can cause -EPROTO, at
+least, for my case it is because the interrupt endpoint is not active.
+If the error occurs, the driver need try to fix it instead of just
+printing an error msg.
 
---Signature=_Fri__8_Jun_2012_13_56_23_+1000_.QQKrYWL2EHZtje/--
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS_HAL=
+T);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+>> +
+>> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this end=
+point
+>> =A0 =A0 =A0 =A0 * already polls infrequently
+>> =A0 =A0 =A0 =A0 */
+>> @@ -967,6 +972,34 @@ fail_halt:
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+>> =A0 =A0 =A0 =A0}
+>>
+>> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *desc;
+>> +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAddress=
+ & USB_ENDPOINT_NUMBER_MASK);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interface(de=
+v->intf);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->udev, p=
+ipe);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf);
+>> +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPIPE &=
+& status !=3D -ESHUTDOWN) {
+>> +fail_sts:
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->net,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "can't=
+ clear intr halt, status %d\n", status);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_STS_HA=
+LT, &dev->flags);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interrupt-=
+>transfer_buffer, 0,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->i=
+nterrupt->transfer_buffer_length);
+>
+> The above is not necessary.
+
+Ming, do you mean the above one line, or others ?
+
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_submit_=
+urb(dev->interrupt, GFP_KERNEL);
+>
+> Before submitting urb, usb_autopm_get_interface is required to wakeup=
+ device.
+>
+
+Got it. Will check its context, thanks.
+
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status !=3D 0)
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_=
+err(dev, timer, dev->net,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 "intr resubmit --> %d\n", status);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> + =A0 =A0 =A0 }
+>> +
+>> =A0 =A0 =A0 =A0/* tasklet could resubmit itself forever if memory is=
+ tight */
+>> =A0 =A0 =A0 =A0if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct urb =A0 =A0 =A0*urb =3D NULL;
+>> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+>> index 76f4396..c0bcb61 100644
+>> --- a/include/linux/usb/usbnet.h
+>> +++ b/include/linux/usb/usbnet.h
+>> @@ -62,13 +62,14 @@ struct usbnet {
+>> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 flags;
+>> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_TX_HALT =A0 =A00
+>> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_HALT =A0 =A01
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A02
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A03
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 4
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A05
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 6
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 7
+>> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 8
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_HALT =A0 2
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A03
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A04
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 5
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A06
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 7
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 8
+>> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 9
+>> =A0};
+>>
+>> =A0static inline struct usb_driver *driver_of(struct usb_interface *=
+intf)
+>> --
+>> 1.7.9.5
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-usb"=
+ in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+>
+> Thanks,
+> --
+> Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
