@@ -1,56 +1,42 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: bnx2x: Added EEE support
-Date: Fri, 8 Jun 2012 16:09:21 +0300
-Message-ID: <20120608130921.GA19268@elgon.mountain>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net-next v3 1/2] inetpeer: add namespace support for inetpeer
+Date: Fri, 08 Jun 2012 21:26:42 +0800
+Message-ID: <4FD1FD92.1050301@cn.fujitsu.com>
+References: <1339154441-4513-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: yuvalmin@broadcom.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:25212 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729Ab2FHNJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 09:09:32 -0400
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:18960 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751090Ab2FHN0R convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 09:26:17 -0400
+In-Reply-To: <1339154441-4513-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Yuval Mintz,
+=E4=BA=8E 2012=E5=B9=B406=E6=9C=8808=E6=97=A5 19:20, Gao feng =E5=86=99=
+=E9=81=93:
+> now inetpeer doesn't support namespace,the information will
+> be leaking across namespace.
+>=20
+> this patch move the global vars v4_peers and v6_peers to
+> netns_ipv4 and netns_ipv6 as a field peers.
+>=20
+> add struct pernet_operations inetpeer_ops to initial pernet
+> inetpeer data.
+>=20
+> and change family_to_base and inet_getpeer to support namespace.
+>=20
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
 
-The patch c8c60d88c59c: "bnx2x: Added EEE support" from Jun 6, 2012, 
-leads to the following warning:
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c:10121 
-bnx2x_848x3_config_init()
-	 error: buffer overflow 'params->req_duplex' 2 <= 4
+It seams I send two v3 patch.
+Please ignore this duplicate,There must be some wrong with my mail clie=
+nt.
 
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
- 10032          actual_phy_selection = bnx2x_phy_selection(params);
- 10033  
- 10034          switch (actual_phy_selection) {
- 10035          case PORT_HW_CFG_PHY_SELECTION_HARDWARE_DEFAULT:
- 10036                  /* Do nothing. Essentially this is like the priority copper */
- 10037                  break;
- 10038          case PORT_HW_CFG_PHY_SELECTION_FIRST_PHY_PRIORITY:
- 10039                  val |= MDIO_CTL_REG_84823_MEDIA_PRIORITY_COPPER;
- 10040                  break;
- 10041          case PORT_HW_CFG_PHY_SELECTION_SECOND_PHY_PRIORITY:
-                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-We assume "actual_phy_selection" can be 4 here.
-
- 10042                  val |= MDIO_CTL_REG_84823_MEDIA_PRIORITY_FIBER;
- 10043                  break;
-
-[snip]
-
- 10121                  if ((params->req_duplex[actual_phy_selection] == DUPLEX_FULL) &&
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This array only has 2 elements so 4 is beyond the end.
-
- 10122                      (params->eee_mode & EEE_MODE_ADV_LPI) &&
- 10123                      (bnx2x_eee_calc_timer(params) ||
- 10124                       !(params->eee_mode & EEE_MODE_ENABLE_LPI)))
- 10125                          rc = bnx2x_8483x_enable_eee(phy, params, vars);
- 10126                  else
-
-regards,
-dan carpenter
+Thanks Eric for reminding me this.
