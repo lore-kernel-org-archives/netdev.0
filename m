@@ -1,179 +1,188 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 13:22:30 +0800
-Message-ID: <CACVXFVPj-4J2_UuOQ9NCW7wV_SLG50a-pEYqhd7K9sXuGmDmoQ@mail.gmail.com>
-References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
-	<CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
-	<CA+v9cxYvvRVWAUHX=b-P022pFbG1M7S=SZtOo2zfJnhAx5_+sQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Huajun Li <huajun.li.lee@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) V3] stmmac: fix driver built w/ w/o both pci and platf modules
+Date: Fri,  8 Jun 2012 07:25:07 +0200
+Message-ID: <1339133107-29098-1-git-send-email-peppe.cavallaro@st.com>
+References: <20120607.110130.1448306195184899614.davem@davemloft.net>
+Cc: wfg@linux.intel.com, davem@davemloft.net,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:55149 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761452Ab2FHFWa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 01:22:30 -0400
-In-Reply-To: <CA+v9cxYvvRVWAUHX=b-P022pFbG1M7S=SZtOo2zfJnhAx5_+sQ@mail.gmail.com>
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:51639 "EHLO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932729Ab2FHFZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 01:25:30 -0400
+In-Reply-To: <20120607.110130.1448306195184899614.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 8, 2012 at 1:04 PM, Huajun Li <huajun.li.lee@gmail.com> wro=
-te:
-> Ming, thanks for your comments.
+The commit ba27ec66ffeb78cbf fixes the Kconfig of the
+driver when built as module allowing to select/unselect
+the PCI and Platform modules that are not anymore mutually
+exclusive. This patch fixes and guarantees that the driver
+builds on all the platforms w/ w/o PCI and when select/unselect
+the two stmmac supports. In case of there are some problems
+on both the configuration and the pci/pltf registration the
+module_init will fail.
 
-Welcome, :-)
+v2: set the CONFIG_STMMAC_PLATFORM enabled by default.
+I've just noticed that this can actually help on
+some configurations that don't enable any STMMAC
+options by default (e.g. SPEAr).
 
->
-> On Fri, Jun 8, 2012 at 11:29 AM, Ming Lei <tom.leiming@gmail.com> wro=
-te:
->> On Tue, Jun 5, 2012 at 10:12 PM, Huajun Li <huajun.li.lee@gmail.com>=
- wrote:
->>> There prints endless "XactErr" error msg once switch my device to t=
-he
->>
->> The "XactErr" error msg means that there are some transfer error in =
-the bus,
->> such as timeout, bad CRC, wrong PID, etc. Generally, -EPROTO is retu=
-rned
->> to driver if this kind of error happened.
->>
-> Yes, you pointed out the why there printed the error.
-> However, how can this error(-EPROTO) happen? Actually, maybe it is
-> caused by malfunction device, bad usb cable, or other issues. In my
-> case, it is because the endpoint halts.
+v3: change printk level when do not register the driver.
 
-If so, looks mistaken value is returned from the host controller driver=
-,
-but not sure if your device is buggy. What is your host controller?
+Reported-by: Fengguang Wu <wfg@linux.intel.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/Kconfig       |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |   60 ++++++++++++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   23 +++++----
+ 3 files changed, 72 insertions(+), 12 deletions(-)
 
-Also suppose your device is buggy, and the correct solution should
-be addding quirk for the driver to clear halt before the 1st submit sta=
-tus
-urb.
-
->
->>> configuration
->>> =A0which needs cdc_ether driver, the root cause is the interrupt en=
-dpoint halts.
->>
->> How do you switch your configuration? by writing to
->> /sys/.../bConfigurationValue?
->>
->
-> Maybe.
-> I were using a third party application to switch the configurations,
-> so I think it should use this way to do it unless there is other
-> approach.
-
-I just have tried to switch configuration by sysfs interface on the g_m=
-ulti
-and don't trigger the error.
-
->
->> Is the "XactErr" msg printed just after switching to cdc_ether inter=
-face
->> by changing configuration?
->>
->
-> Yes, just as I mentioned in my original email.
-> And it did not work even I removed the driver and re-installed it.
->
->>> Maybe this is a common issue, so fix it by activating the endpoint
->>> once the error occurs.
->>>
->>> Signed-off-by: Huajun Li <huajun.li.lee@gmail.com>
->>> ---
->>> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 ++++++++++++++++++++++++++=
-+++++++
->>> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
->>> =A02 files changed, 41 insertions(+), 7 deletions(-)
->>>
->>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->>> index 9f58330..f13922b 100644
->>> --- a/drivers/net/usb/usbnet.c
->>> +++ b/drivers/net/usb/usbnet.c
->>> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdown, =
-code %d\n", status);
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
->>>
->>> + =A0 =A0 =A0 case -EPIPE:
->>> + =A0 =A0 =A0 case -EPROTO:
->>
->> It is good to handle EPIPE error here, but looks it is no sense to
->> clear halt for
->> bus transfer failure. At least, no clear halt is done for returning =
--EPROTO from
->> rx/tx transfer currently.
->
-> Just as I said above, there is different issue can cause -EPROTO, at
-> least, for my case it is because the interrupt endpoint is not active=
-=2E
-> If the error occurs, the driver need try to fix it instead of just
-> printing an error msg.
-
-One problem in your patch is that if the  -EPROTO is caused by bad cabl=
-e
-or interference, clean halt may not be sent to device successfully, and=
- will
-cause -EPROTO further.
-
->
->>
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS_HA=
-LT);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
->>> +
->>> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this en=
-dpoint
->>> =A0 =A0 =A0 =A0 * already polls infrequently
->>> =A0 =A0 =A0 =A0 */
->>> @@ -967,6 +972,34 @@ fail_halt:
->>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->>> =A0 =A0 =A0 =A0}
->>>
->>> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *desc;
->>> +
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAddres=
-s & USB_ENDPOINT_NUMBER_MASK);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interface(d=
-ev->intf);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->udev, =
-pipe);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf);
->>> +
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPIPE =
-&& status !=3D -ESHUTDOWN) {
->>> +fail_sts:
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->net,
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "can'=
-t clear intr halt, status %d\n", status);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_STS_H=
-ALT, &dev->flags);
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interrupt=
-->transfer_buffer, 0,
->>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->=
-interrupt->transfer_buffer_length);
->>
->> The above is not necessary.
->
-> Ming, do you mean the above one line, or others ?
-
-Yes, it is the above line.
-
-
-
-Thanks,
---=20
-Ming Lei
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 0076f77..9f44827 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -15,6 +15,7 @@ if STMMAC_ETH
+ config STMMAC_PLATFORM
+ 	bool "STMMAC Platform bus support"
+ 	depends on STMMAC_ETH
++	default y
+ 	---help---
+ 	  This selects the platform specific bus support for
+ 	  the stmmac device driver. This is the driver used
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 6d07ba2..e8afe7b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -26,6 +26,7 @@
+ #include <linux/clk.h>
+ #include <linux/stmmac.h>
+ #include <linux/phy.h>
++#include <linux/pci.h>
+ #include "common.h"
+ #ifdef CONFIG_STMMAC_TIMER
+ #include "stmmac_timer.h"
+@@ -95,8 +96,6 @@ extern int stmmac_mdio_register(struct net_device *ndev);
+ extern void stmmac_set_ethtool_ops(struct net_device *netdev);
+ extern const struct stmmac_desc_ops enh_desc_ops;
+ extern const struct stmmac_desc_ops ndesc_ops;
+-extern struct pci_driver stmmac_pci_driver;
+-extern struct platform_driver stmmac_pltfr_driver;
+ int stmmac_freeze(struct net_device *ndev);
+ int stmmac_restore(struct net_device *ndev);
+ int stmmac_resume(struct net_device *ndev);
+@@ -144,3 +143,60 @@ static inline int stmmac_clk_get(struct stmmac_priv *priv)
+ 	return 0;
+ }
+ #endif /* CONFIG_HAVE_CLK */
++
++
++#ifdef CONFIG_STMMAC_PLATFORM
++extern struct platform_driver stmmac_pltfr_driver;
++static inline int stmmac_register_platform(void)
++{
++	int err;
++
++	err = platform_driver_register(&stmmac_pltfr_driver);
++	if (err)
++		pr_err("stmmac: failed to register the platform driver\n");
++
++	return err;
++}
++static inline void stmmac_unregister_platform(void)
++{
++	platform_driver_register(&stmmac_pltfr_driver);
++}
++#else
++static inline int stmmac_register_platform(void)
++{
++	pr_debug("stmmac: do not register the platf driver\n");
++
++	return -EINVAL;
++}
++static inline void stmmac_unregister_platform(void)
++{
++}
++#endif /* CONFIG_STMMAC_PLATFORM */
++
++#ifdef CONFIG_STMMAC_PCI
++extern struct pci_driver stmmac_pci_driver;
++static inline int stmmac_register_pci(void)
++{
++	int err;
++
++	err = pci_register_driver(&stmmac_pci_driver);
++	if (err)
++		pr_err("stmmac: failed to register the PCI driver\n");
++
++	return err;
++}
++static inline void stmmac_unregister_pci(void)
++{
++	pci_unregister_driver(&stmmac_pci_driver);
++}
++#else
++static inline int stmmac_register_pci(void)
++{
++	pr_debug("stmmac: do not register the PCI driver\n");
++
++	return -EINVAL;
++}
++static inline void stmmac_unregister_pci(void)
++{
++}
++#endif /* CONFIG_STMMAC_PCI */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3638569..51b3b68 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -42,7 +42,6 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/slab.h>
+ #include <linux/prefetch.h>
+-#include <linux/pci.h>
+ #ifdef CONFIG_STMMAC_DEBUG_FS
+ #include <linux/debugfs.h>
+ #include <linux/seq_file.h>
+@@ -2094,25 +2093,29 @@ int stmmac_restore(struct net_device *ndev)
+ }
+ #endif /* CONFIG_PM */
+ 
++/* Driver can be configured w/ and w/ both PCI and Platf drivers
++ * depending on the configuration selected.
++ */
+ static int __init stmmac_init(void)
+ {
+-	int err = 0;
++	int err_plt = 0;
++	int err_pci = 0;
+ 
+-	err = platform_driver_register(&stmmac_pltfr_driver);
++	err_plt = stmmac_register_platform();
++	err_pci = stmmac_register_pci();
+ 
+-	if (!err) {
+-		err = pci_register_driver(&stmmac_pci_driver);
+-		if (err)
+-			platform_driver_unregister(&stmmac_pltfr_driver);
++	if ((err_pci) && (err_plt)) {
++		pr_err("stmmac: driver registration failed\n");
++		return -EINVAL;
+ 	}
+ 
+-	return err;
++	return 0;
+ }
+ 
+ static void __exit stmmac_exit(void)
+ {
+-	pci_unregister_driver(&stmmac_pci_driver);
+-	platform_driver_unregister(&stmmac_pltfr_driver);
++	stmmac_unregister_platform();
++	stmmac_unregister_pci();
+ }
+ 
+ module_init(stmmac_init);
+-- 
+1.7.4.4
