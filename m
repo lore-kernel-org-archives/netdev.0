@@ -1,110 +1,45 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: tg3: transmit timed out, resetting
-Date: Fri, 8 Jun 2012 09:24:11 +0800
-Message-ID: <CABawtvPpaNCb00KQ1yuX2ytAhEeZ8DrYsK6VqfGo=ZOz66bMOA@mail.gmail.com>
-References: <alpine.DEB.2.01.1206041546070.5568@trent.utfs.org>
-	<20120606010255.GA9991@mcarlson.broadcom.com>
-	<CABawtvPE_xuamH2ysL8x0WsJMXdFV5oXPrWjMT-EC-DF_kCxxw@mail.gmail.com>
-	<20120606021436.GA10714@mcarlson.broadcom.com>
-	<CABawtvNVKkxAgrQqJS7FJGoswQ9ZVyJcHcNwbSJQk4yscTn8gw@mail.gmail.com>
-	<1338955977.2760.3603.camel@edumazet-glaptop>
-	<CABawtvOBJQ-oajFQmviOdgKCub-4n06kRW+x7nE2uyiWnoky9Q@mail.gmail.com>
-	<20120607225654.GA14247@mcarlson.broadcom.com>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
+	inetpeer
+Date: Fri, 08 Jun 2012 09:44:04 +0800
+Message-ID: <4FD158E4.1080701@cn.fujitsu.com>
+References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<20120606.104323.1698446129331745479.davem@davemloft.net>
+	<20120607.144301.1259354794384347085.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Christian Kujau <lists@nerdbynature.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120607225654.GA14247@mcarlson.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20120607.144301.1259354794384347085.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Matt,
-   I notice there are some AER errors ( UnsupReq+,RxErr+) with the tg3
-from Christian'  lspci output,  do you know why and how to clear them ?
-
-UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF-
-MalfTLP- ECRC- UnsupReq+ ACSViol-
-CESta:  RxErr+ BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-
-Thanks,
-Ethan
-
-On Fri, Jun 8, 2012 at 6:56 AM, Matt Carlson <mcarlson@broadcom.com> wr=
-ote:
-> On Wed, Jun 06, 2012 at 12:52:32PM +0800, ethan zhao wrote:
->> Eric,
->> =A0 That is ask for confirmation from Matt Carlson of Broadcom.
->>
->> Ethan
->>
->> On Wed, Jun 6, 2012 at 12:12 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> > On Wed, 2012-06-06 at 10:29 +0800, ethan zhao wrote:
->> >> So no way to fix it via firmware update or Linux driver ? :<
->> >
->> > Yes, but you need to cooperate, or else it might take more time th=
-an
->> > necessary.
->> >
->> > Asking questions like that on lkml is not going to help very much.
->> >
->> > So, once again, we kindly ask you try a recent kernel and post
->> > register dump and some additional information when transmit timeou=
-ts
->> > happen.
->> >
->> > The 'latest kernel' is either linux-3.5.rc1, or one of David Mille=
-r
->> > tree :
->> >
->> > http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3D=
-summary
->> >
->> > or
->> >
->> > http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net.git;a=3Dsumm=
-ary
->> >
->> > Thanks
->
-> Does the following patch fix your problem?
->
->
-> [PATCH] tg3: Apply short DMA frag workaround to 5906
->
-> 5906 devices also need the short DMA fragment workaround. =A0This pat=
-ch
-> makes the necessary change.
->
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> ---
-> =A0drivers/net/ethernet/broadcom/tg3.c | =A0 =A03 ++-
-> =A01 files changed, 2 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethern=
-et/broadcom/tg3.c
-> index d55df32..2db4d70 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -14275,7 +14275,8 @@ static int __devinit tg3_get_invariants(struc=
-t tg3 *tp)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0}
->
-> - =A0 =A0 =A0 if (tg3_flag(tp, 5755_PLUS))
-> + =A0 =A0 =A0 if (tg3_flag(tp, 5755_PLUS) ||
-> + =A0 =A0 =A0 =A0 =A0 GET_ASIC_REV(tp->pci_chip_rev_id) =3D=3D ASIC_R=
-EV_5906)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tg3_flag_set(tp, SHORT_DMA_BUG);
->
-> =A0 =A0 =A0 =A0if (GET_ASIC_REV(tp->pci_chip_rev_id) =3D=3D ASIC_REV_=
-5719)
-> --
-> 1.7.3.4
->
->
+5LqOIDIwMTLlubQwNuaciDA45pelIDA1OjQzLCBEYXZpZCBNaWxsZXIg5YaZ6YGTOgo+IEZyb206
+IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBEYXRlOiBXZWQsIDA2IEp1biAy
+MDEyIDEwOjQzOjIzIC0wNzAwIChQRFQpCj4gCj4+IFNvIEknbSBkcm9wcGluZyB0aGVzZSB0d28g
+cGF0Y2hlcyBhbmQgd2lsbCB3b3JrIG9uIHRoZSBtZW50aW9uZWQKPj4gYXBwcm9hY2ggdG8gdGhp
+cyBmaXguCj4gCj4gSXQgdHVybnMgb3V0IHRoYXQgZXZlbiBpZiBJIG1vdmUgdGhlIGluZXRwZWVy
+IHJvb3RzIGludG8gdGhlIEZJQiBydWxlcwo+IGxheWVyLCB3ZSBzdGlsbCBuZWVkIHlvdXIgY2hh
+bmdlcyBHYW8uCj4gCj4gQnV0IHlvdXIgcGF0Y2hlcyBhcmUgY29ycnVwdGVkLiAgRm9yIGV4YW1w
+bGUsIGluIHRoaXMgcGF0Y2gsCj4gdGhlIGZpbmFsIGh1bmsgZm9yIG5ldC9pcHY0L2luZXRwZWVy
+LmMgaGFzIG5vIGRpZmZlcmVuY2VzIG9ubHkKPiBjb250ZXh0LiAgVGhhdCdzIGFuIGV4dHJlbWVs
+eSBjb3JydXB0ZWQgcGF0Y2guCgpTb3JyeSBmb3IgbXkgcG9vbCBlbmdsaXNoLCBJIGRvbid0IHVu
+ZGVyc3RhbmQgdGhpcy4KQ2FuIHlvdSBleHBsYWluIGl0IGZvciBtZT8KCj4gCj4gUGxlYXNlIHJl
+c29sdmUgdGhpcywgYW5kIGFkZCB0aGUgTlVMTCBwb2ludGVyIHNldHRpbmdzIGR1cmluZyBuZXR3
+b3JrCj4gbmFtZXNwYWNlIHNodXRkb3duIHRoYXQgRXJpYyBEdW1hemV0IGFza2VkIGZvci4KCk9L
+LCBJIHdpbGwgZG8gaXQuClRoYW5rcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5s
+aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
+bG1hbi9saXN0aW5mby9jb250YWluZXJz
