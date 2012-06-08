@@ -1,50 +1,109 @@
-From: Roman Kagan <rkagan@parallels.com>
-Subject: Re: [PATCH] e1000: save skb counts in TX to avoid cache misses
-Date: Fri, 8 Jun 2012 11:37:22 +0400
-Message-ID: <1339141042.7850.51.camel@rkaganb.sw.ru>
-References: <b838d871c0d507787373061e4edd91a624d62475.1339073391.git.rkagan@parallels.com>
-	 <4FD11F49.5060805@gmail.com>
-	 <20120607.144358.1732928576389957779.davem@davemloft.net>
-	 <20120608021542.GA10112@kroah.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
+Date: Fri, 08 Jun 2012 00:42:25 -0700
+Message-ID: <4FD1ACE1.4050005@intel.com>
+References: <1339135057.6001.20.camel@edumazet-glaptop>  <20120607.230216.2014005732863772019.davem@davemloft.net>  <1339135881.6001.25.camel@edumazet-glaptop>  <20120607.231501.463746858434969001.davem@davemloft.net>  <1339138040.6001.39.camel@edumazet-glaptop> <1339140238.6001.42.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"tarbal@gmail.com" <tarbal@gmail.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	"peter.p.waskiewicz.jr@intel.com" <peter.p.waskiewicz.jr@intel.com>,
-	"alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"dnelson@redhat.com" <dnelson@redhat.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.or
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120608021542.GA10112@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:26840 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752439Ab2FHHm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jun 2012 03:42:26 -0400
+In-Reply-To: <1339140238.6001.42.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDEyLTA2LTA4IGF0IDA2OjE1ICswNDAwLCBHcmVnIEtIIHdyb3RlOg0KPiBPbiBU
-aHUsIEp1biAwNywgMjAxMiBhdCAwMjo0Mzo1OFBNIC0wNzAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6
-DQo+ID4gRnJvbTogSmVmZiBLaXJzaGVyIDx0YXJiYWxAZ21haWwuY29tPg0KPiA+IERhdGU6IFRo
-dSwgMDcgSnVuIDIwMTIgMTQ6Mzg6MTcgLTA3MDANCj4gPiANCj4gPiA+IFRoYW5rcyEgSSBoYXZl
-IGFwcGxpZWQgdGhlIHBhdGNoIHRvIG15IHF1ZXVlDQo+ID4gDQo+ID4gV2h5Pw0KPiA+IA0KPiA+
-IE15IGltcHJlc3Npb24gaXMgdGhhdCB0aGlzIGlzIGEgcGF0Y2ggYWxyZWFkeSBpbiB0aGUgdHJl
-ZSwgYW5kIGl0J3MNCj4gPiBiZWluZyBzdWJtaXR0ZWQgZm9yIC1zdGFibGUgYnV0IHN1Y2ggbWlu
-b3IgcGVyZm9ybWFuY2UgaGFja3MgYXJlDQo+ID4gYWJzb2x1dGVseSBub3QgYXBwcm9wcmlhdGUg
-Zm9yIC1zdGFibGUgc3VibWlzc2lvbi4NCj4gDQo+IFRoZSBwYXRjaCBkZXNjcmlwdGlvbiBzYXlz
-IGl0IGlzIGZpeGluZyByZXBvcnRlZCBvb3BzZXMsDQoNCkV4YWN0bHkuDQoNCj4gYnV0IHRoZSBT
-dWJqZWN0OiBpc24ndCBhbGwgdGhhdCBoZWxwZnVsIHRoZXJlLg0KDQpXZWxsIEkganVzdCBwcmVz
-ZXJ2ZWQgdGhlIG9yaWdpbmFsIHN1YmplY3QgZnJvbSB0aGUgdXBzdHJlYW0gY29tbWl0Lg0KV2Fu
-dCBtZSB0byByZXN1Ym1pdCB3aXRoIGEgbW9yZSBhbGFybWluZyBvbmU/DQoNCj4gU28gd2hpY2gg
-aXMgdGhpcz8gIFNob3VsZCBJIGFjY2VwdCBpdCBmb3IgYSBzdGFibGUgcmVsZWFzZSBvciBub3Q/
-DQoNCklNTyB5ZXMgOykNCg0KVGhhbmtzLA0KUm9tYW4uDQo=
+On 6/8/2012 12:23 AM, Eric Dumazet wrote:
+> On Fri, 2012-06-08 at 08:47 +0200, Eric Dumazet wrote:
+>> On Thu, 2012-06-07 at 23:15 -0700, David Miller wrote:
+>>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Date: Fri, 08 Jun 2012 08:11:21 +0200
+>>>
+>>>> On Thu, 2012-06-07 at 23:02 -0700, David Miller wrote:
+>>>>> Hmmm, isn't that what qdisc_skb_cb is for?  And even private data is
+>>>>> explicitly allocated:
+>>>>>
+>>>>>>   	unsigned char		data[24];
+>>>>>
+>>>>> there. :-)
+>>>>>
+>>>>
+>>>> Yes, but some other layers can use the same trick so it might collide.
+>>>>
+>>>> Inserting the bond field in qdisc_skb_cb (level0) is safer.
+>>>
+>>> Do you suggest that Infiniband does the same thing? :-)
+>>
+>> I wonder if another way to solve this is not letting ndo_select_queue()
+>> method the responsibility to call skb_set_queue_mapping() itself ?
+>>
+>> (ie removing skb_set_queue_mapping() done in dev_pick_tx())
+>>
+>> bonding would not have to save/restore skb queue mapping ?
+>>
+>> Partial patch : (we have to audit all ndo_select_queue()
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index cd09819..c6c92d5 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -2368,6 +2368,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>>
+>>   	if (dev->real_num_tx_queues == 1)
+>>   		queue_index = 0;
+>> +		skb_set_queue_mapping(skb, queue_index);
+>>   	else if (ops->ndo_select_queue) {
+>>   		queue_index = ops->ndo_select_queue(dev, skb);
+>>   		queue_index = dev_cap_txqueue(dev, queue_index);
+>> @@ -2391,9 +2392,9 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+>>   					sk_tx_queue_set(sk, queue_index);
+>>   			}
+>>   		}
+>> +		skb_set_queue_mapping(skb, queue_index);
+>>   	}
+>>
+>> -	skb_set_queue_mapping(skb, queue_index);
+>>   	return netdev_get_tx_queue(dev, queue_index);
+>>   }
+>>
+>>
+>
+>
+> I must say I dont understand dev_pick_tx() anymore.
+>
+> It seems to ignore skb->queue_mapping (unless device provides its own
+> ndo_select_queue() and this functions is aware of skb->queue_mapping, as
+> correctly done in ixgbe)
+>
+> So commit fff3269907897ee (tcp: reflect SYN queue_mapping into SYNACK
+> packets) works on ixgbe, but probably not on other multiqueue devices.
+>
+> This sounds like a regression to me.
+>
+>
+>
+
+Well it would get picked up via skb_tx_hash(),
+
+         else if (ops->ndo_select_queue) {
+		[...]
+         } else {
+                 struct sock *sk = skb->sk;
+                 queue_index = sk_tx_queue_get(sk);
+
+                 if (queue_index < 0 || skb->ooo_okay ||
+                     queue_index >= dev->real_num_tx_queues) {
+                         int old_index = queue_index;
+
+                         queue_index = get_xps_queue(dev, skb);
+                         if (queue_index < 0)
+                                 queue_index = skb_tx_hash(dev, skb);
+	[...]
+
+
+So think this might be OK.
