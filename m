@@ -1,42 +1,43 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH net-next v3 1/2] inetpeer: add namespace support for inetpeer
-Date: Fri, 08 Jun 2012 21:26:42 +0800
-Message-ID: <4FD1FD92.1050301@cn.fujitsu.com>
-References: <1339154441-4513-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
+ endless "XactErr" error
+Date: Fri, 8 Jun 2012 09:43:12 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1206080940350.1360-100000@iolanthe.rowland.org>
+References: <CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	containers@lists.linux-foundation.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:18960 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751090Ab2FHN0R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 09:26:17 -0400
-In-Reply-To: <1339154441-4513-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012=E5=B9=B406=E6=9C=8808=E6=97=A5 19:20, Gao feng =E5=86=99=
-=E9=81=93:
-> now inetpeer doesn't support namespace,the information will
-> be leaking across namespace.
->=20
-> this patch move the global vars v4_peers and v6_peers to
-> netns_ipv4 and netns_ipv6 as a field peers.
->=20
-> add struct pernet_operations inetpeer_ops to initial pernet
-> inetpeer data.
->=20
-> and change family_to_base and inet_getpeer to support namespace.
->=20
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> ---
+On Fri, 8 Jun 2012, Huajun Li wrote:
 
-It seams I send two v3 patch.
-Please ignore this duplicate,There must be some wrong with my mail clie=
-nt.
+> > If so, looks mistaken value is returned from the host controller driver,
+> > but not sure if your device is buggy. What is your host controller?
+> >
+> Nothing related to HC.
+> I tried to find out the endpoint state, but found it was halt. I think
+> this is the root cause.
 
-Thanks Eric for reminding me this.
+No, it isn't.  Endpoint halt causes a -EPIPE error, not -EPROTO.  
+-EPROTO indicates that the device's firmware has crashed.
+
+> What's your opinion to handle "-EPROTO" error in usbnet.c?
+> Please check usbnet.c again, when "-EPROTO" occurs, it just pints
+> error msg and re-submit the interrupt URB, and then causes endless
+> "EactErr" error msg.
+
+One possibility is to wait for a little while before resubmitting the 
+URB, and after 10 failures in a row, attempt a reset.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
