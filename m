@@ -1,90 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
-Date: Fri, 08 Jun 2012 09:23:58 +0200
-Message-ID: <1339140238.6001.42.camel@edumazet-glaptop>
-References: <1339135057.6001.20.camel@edumazet-glaptop>
-	 <20120607.230216.2014005732863772019.davem@davemloft.net>
-	 <1339135881.6001.25.camel@edumazet-glaptop>
-	 <20120607.231501.463746858434969001.davem@davemloft.net>
-	 <1339138040.6001.39.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] Revert "niu: Add support for byte queue limits."
+Date: Fri, 08 Jun 2012 00:30:43 -0700 (PDT)
+Message-ID: <20120608.003043.1986430143540742088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:50160 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231Ab2FHHYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 03:24:02 -0400
-Received: by eeit10 with SMTP id t10so830967eei.19
-        for <netdev@vger.kernel.org>; Fri, 08 Jun 2012 00:24:01 -0700 (PDT)
-In-Reply-To: <1339138040.6001.39.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48298 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853Ab2FHHaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 03:30:46 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id E6723583CEE
+	for <netdev@vger.kernel.org>; Fri,  8 Jun 2012 00:30:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-06-08 at 08:47 +0200, Eric Dumazet wrote:
-> On Thu, 2012-06-07 at 23:15 -0700, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Fri, 08 Jun 2012 08:11:21 +0200
-> > 
-> > > On Thu, 2012-06-07 at 23:02 -0700, David Miller wrote:
-> > >> Hmmm, isn't that what qdisc_skb_cb is for?  And even private data is
-> > >> explicitly allocated:
-> > >> 
-> > >> >  	unsigned char		data[24];
-> > >> 
-> > >> there. :-)
-> > >> 
-> > > 
-> > > Yes, but some other layers can use the same trick so it might collide.
-> > > 
-> > > Inserting the bond field in qdisc_skb_cb (level0) is safer.
-> > 
-> > Do you suggest that Infiniband does the same thing? :-)
-> 
-> I wonder if another way to solve this is not letting ndo_select_queue()
-> method the responsibility to call skb_set_queue_mapping() itself ?
-> 
-> (ie removing skb_set_queue_mapping() done in dev_pick_tx())
-> 
-> bonding would not have to save/restore skb queue mapping ?
-> 
-> Partial patch : (we have to audit all ndo_select_queue()
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index cd09819..c6c92d5 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2368,6 +2368,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
->  
->  	if (dev->real_num_tx_queues == 1)
->  		queue_index = 0;
-> +		skb_set_queue_mapping(skb, queue_index);
->  	else if (ops->ndo_select_queue) {
->  		queue_index = ops->ndo_select_queue(dev, skb);
->  		queue_index = dev_cap_txqueue(dev, queue_index);
-> @@ -2391,9 +2392,9 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
->  					sk_tx_queue_set(sk, queue_index);
->  			}
->  		}
-> +		skb_set_queue_mapping(skb, queue_index);
->  	}
->  
-> -	skb_set_queue_mapping(skb, queue_index);
->  	return netdev_get_tx_queue(dev, queue_index);
->  }
->  
-> 
 
+This reverts commit efa230f2c68abab817f13473077f8d0cc74f43f3.
 
-I must say I dont understand dev_pick_tx() anymore.
+BQL doesn't work with how this driver currently only takes TX
+interrupts every 1/4 of the TX ring.  That behavior needs to be fixed,
+but that's a larger non-trivial task and for now we have to revert
+BQL support as this makes the device currently completely unusable.
 
-It seems to ignore skb->queue_mapping (unless device provides its own
-ndo_select_queue() and this functions is aware of skb->queue_mapping, as
-correctly done in ixgbe)
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/sun/niu.c |   12 +-----------
+ 1 files changed, 1 insertions(+), 11 deletions(-)
 
-So commit fff3269907897ee (tcp: reflect SYN queue_mapping into SYNACK
-packets) works on ixgbe, but probably not on other multiqueue devices.
-
-This sounds like a regression to me.
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 703c8cc..8c726b7 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -3598,7 +3598,6 @@ static int release_tx_packet(struct niu *np, struct tx_ring_info *rp, int idx)
+ static void niu_tx_work(struct niu *np, struct tx_ring_info *rp)
+ {
+ 	struct netdev_queue *txq;
+-	unsigned int tx_bytes;
+ 	u16 pkt_cnt, tmp;
+ 	int cons, index;
+ 	u64 cs;
+@@ -3621,18 +3620,12 @@ static void niu_tx_work(struct niu *np, struct tx_ring_info *rp)
+ 	netif_printk(np, tx_done, KERN_DEBUG, np->dev,
+ 		     "%s() pkt_cnt[%u] cons[%d]\n", __func__, pkt_cnt, cons);
+ 
+-	tx_bytes = 0;
+-	tmp = pkt_cnt;
+-	while (tmp--) {
+-		tx_bytes += rp->tx_buffs[cons].skb->len;
++	while (pkt_cnt--)
+ 		cons = release_tx_packet(np, rp, cons);
+-	}
+ 
+ 	rp->cons = cons;
+ 	smp_mb();
+ 
+-	netdev_tx_completed_queue(txq, pkt_cnt, tx_bytes);
+-
+ out:
+ 	if (unlikely(netif_tx_queue_stopped(txq) &&
+ 		     (niu_tx_avail(rp) > NIU_TX_WAKEUP_THRESH(rp)))) {
+@@ -4333,7 +4326,6 @@ static void niu_free_channels(struct niu *np)
+ 			struct tx_ring_info *rp = &np->tx_rings[i];
+ 
+ 			niu_free_tx_ring_info(np, rp);
+-			netdev_tx_reset_queue(netdev_get_tx_queue(np->dev, i));
+ 		}
+ 		kfree(np->tx_rings);
+ 		np->tx_rings = NULL;
+@@ -6739,8 +6731,6 @@ static netdev_tx_t niu_start_xmit(struct sk_buff *skb,
+ 		prod = NEXT_TX(rp, prod);
+ 	}
+ 
+-	netdev_tx_sent_queue(txq, skb->len);
+-
+ 	if (prod < rp->prod)
+ 		rp->wrap_bit ^= TX_RING_KICK_WRAP;
+ 	rp->prod = prod;
+-- 
+1.7.6.5
