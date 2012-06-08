@@ -1,42 +1,56 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] net/ethernet: ks8851_mll unregister_netdev() before
- freeing
-Date: Fri, 8 Jun 2012 15:53:06 +0300
-Message-ID: <20120608125306.GN4400@mwanda>
-References: <20120606063129.GA26829@elgon.mountain>
- <20120607.131544.346298142594197233.davem@davemloft.net>
+Subject: re: bnx2x: Added EEE support
+Date: Fri, 8 Jun 2012 16:09:21 +0300
+Message-ID: <20120608130921.GA19268@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: raffaele.recalcati@bticino.it, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:43878 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752785Ab2FHMxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 08:53:22 -0400
+Received: from acsinet15.oracle.com ([141.146.126.227]:25212 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751729Ab2FHNJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 09:09:32 -0400
 Content-Disposition: inline
-In-Reply-To: <20120607.131544.346298142594197233.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 07, 2012 at 01:15:44PM -0700, David Miller wrote:
-> From: Dan Carpenter <dan.carpenter@oracle.com>
-> Date: Wed, 6 Jun 2012 09:31:29 +0300
-> 
-> > We added another error condition here, but if we were to hit it then
-> > we need to unregister_netdev() before doing the free_netdev().
-> > Otherwise we would hit the BUG_ON() in free_netdev():
-> > 
-> > 	BUG_ON(dev->reg_state != NETREG_UNREGISTERED);
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Applied, but please be explicit that your patch is against one
-> tree or another.  This one was for net-next only, but I tried
-> initially to apply it to net which failed.
+Hello Yuval Mintz,
 
-Sorry about that.  Will be more careful in the future.
+The patch c8c60d88c59c: "bnx2x: Added EEE support" from Jun 6, 2012, 
+leads to the following warning:
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c:10121 
+bnx2x_848x3_config_init()
+	 error: buffer overflow 'params->req_duplex' 2 <= 4
+
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+ 10032          actual_phy_selection = bnx2x_phy_selection(params);
+ 10033  
+ 10034          switch (actual_phy_selection) {
+ 10035          case PORT_HW_CFG_PHY_SELECTION_HARDWARE_DEFAULT:
+ 10036                  /* Do nothing. Essentially this is like the priority copper */
+ 10037                  break;
+ 10038          case PORT_HW_CFG_PHY_SELECTION_FIRST_PHY_PRIORITY:
+ 10039                  val |= MDIO_CTL_REG_84823_MEDIA_PRIORITY_COPPER;
+ 10040                  break;
+ 10041          case PORT_HW_CFG_PHY_SELECTION_SECOND_PHY_PRIORITY:
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We assume "actual_phy_selection" can be 4 here.
+
+ 10042                  val |= MDIO_CTL_REG_84823_MEDIA_PRIORITY_FIBER;
+ 10043                  break;
+
+[snip]
+
+ 10121                  if ((params->req_duplex[actual_phy_selection] == DUPLEX_FULL) &&
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This array only has 2 elements so 4 is beyond the end.
+
+ 10122                      (params->eee_mode & EEE_MODE_ADV_LPI) &&
+ 10123                      (bnx2x_eee_calc_timer(params) ||
+ 10124                       !(params->eee_mode & EEE_MODE_ENABLE_LPI)))
+ 10125                          rc = bnx2x_8483x_enable_eee(phy, params, vars);
+ 10126                  else
 
 regards,
 dan carpenter
