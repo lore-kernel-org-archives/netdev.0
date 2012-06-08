@@ -1,203 +1,75 @@
-From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Fri, 8 Jun 2012 14:24:26 +0800
-Message-ID: <CA+v9cxbogzS7sVChqkRMgDUcs=aJgNDRH8ydoQ-_htfS2t52gQ@mail.gmail.com>
-References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
-	<CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
-	<CA+v9cxYvvRVWAUHX=b-P022pFbG1M7S=SZtOo2zfJnhAx5_+sQ@mail.gmail.com>
-	<CACVXFVPj-4J2_UuOQ9NCW7wV_SLG50a-pEYqhd7K9sXuGmDmoQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: Fix corrupted queue_mapping
+Date: Fri, 08 Jun 2012 08:47:20 +0200
+Message-ID: <1339138040.6001.39.camel@edumazet-glaptop>
+References: <1339135057.6001.20.camel@edumazet-glaptop>
+	 <20120607.230216.2014005732863772019.davem@davemloft.net>
+	 <1339135881.6001.25.camel@edumazet-glaptop>
+	 <20120607.231501.463746858434969001.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVPj-4J2_UuOQ9NCW7wV_SLG50a-pEYqhd7K9sXuGmDmoQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:36956 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299Ab2FHGr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 02:47:27 -0400
+Received: by eaak11 with SMTP id k11so792655eaa.19
+        for <netdev@vger.kernel.org>; Thu, 07 Jun 2012 23:47:26 -0700 (PDT)
+In-Reply-To: <20120607.231501.463746858434969001.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 8, 2012 at 1:22 PM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Fri, Jun 8, 2012 at 1:04 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> w=
-rote:
->> Ming, thanks for your comments.
->
-> Welcome, :-)
->
->>
->> On Fri, Jun 8, 2012 at 11:29 AM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
-ote:
->>> On Tue, Jun 5, 2012 at 10:12 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org=
-> wrote:
->>>> There prints endless "XactErr" error msg once switch my device to =
-the
->>>
->>> The "XactErr" error msg means that there are some transfer error in=
- the bus,
->>> such as timeout, bad CRC, wrong PID, etc. Generally, -EPROTO is ret=
-urned
->>> to driver if this kind of error happened.
->>>
->> Yes, you pointed out the why there printed the error.
->> However, how can this error(-EPROTO) happen? Actually, maybe it is
->> caused by malfunction device, bad usb cable, or other issues. In my
->> case, it is because the endpoint halts.
->
-> If so, looks mistaken value is returned from the host controller driv=
-er,
-> but not sure if your device is buggy. What is your host controller?
->
-Nothing related to HC.
-I tried to find out the endpoint state, but found it was halt. I think
-this is the root cause.
+On Thu, 2012-06-07 at 23:15 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 08 Jun 2012 08:11:21 +0200
+> 
+> > On Thu, 2012-06-07 at 23:02 -0700, David Miller wrote:
+> >> Hmmm, isn't that what qdisc_skb_cb is for?  And even private data is
+> >> explicitly allocated:
+> >> 
+> >> >  	unsigned char		data[24];
+> >> 
+> >> there. :-)
+> >> 
+> > 
+> > Yes, but some other layers can use the same trick so it might collide.
+> > 
+> > Inserting the bond field in qdisc_skb_cb (level0) is safer.
+> 
+> Do you suggest that Infiniband does the same thing? :-)
 
-> Also suppose your device is buggy, and the correct solution should
-> be addding quirk for the driver to clear halt before the 1st submit s=
-tatus
-> urb.
->
-I ever worked out a patch just as you said and it could work.
-However, if this can be fixed by common framework just like usbnet.c,
-and there is no sideeffect, then why not.
+I wonder if another way to solve this is not letting ndo_select_queue()
+method the responsibility to call skb_set_queue_mapping() itself ?
 
->>
->>>> configuration
->>>> =A0which needs cdc_ether driver, the root cause is the interrupt e=
-ndpoint halts.
->>>
->>> How do you switch your configuration? by writing to
->>> /sys/.../bConfigurationValue?
->>>
->>
->> Maybe.
->> I were using a third party application to switch the configurations,
->> so I think it should use this way to do it unless there is other
->> approach.
->
-> I just have tried to switch configuration by sysfs interface on the g=
-_multi
-> and don't trigger the error.
->
-The driver is common one, but not just for a specific device.
+(ie removing skb_set_queue_mapping() done in dev_pick_tx())
 
->>
->>> Is the "XactErr" msg printed just after switching to cdc_ether inte=
-rface
->>> by changing configuration?
->>>
->>
->> Yes, just as I mentioned in my original email.
->> And it did not work even I removed the driver and re-installed it.
->>
->>>> Maybe this is a common issue, so fix it by activating the endpoint
->>>> once the error occurs.
->>>>
->>>> Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>>> ---
->>>> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 +++++++++++++++++++++++++=
-++++++++
->>>> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
->>>> =A02 files changed, 41 insertions(+), 7 deletions(-)
->>>>
->>>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->>>> index 9f58330..f13922b 100644
->>>> --- a/drivers/net/usb/usbnet.c
->>>> +++ b/drivers/net/usb/usbnet.c
->>>> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdown,=
- code %d\n", status);
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
->>>>
->>>> + =A0 =A0 =A0 case -EPIPE:
->>>> + =A0 =A0 =A0 case -EPROTO:
->>>
->>> It is good to handle EPIPE error here, but looks it is no sense to
->>> clear halt for
->>> bus transfer failure. At least, no clear halt is done for returning=
- -EPROTO from
->>> rx/tx transfer currently.
->>
->> Just as I said above, there is different issue can cause -EPROTO, at
->> least, for my case it is because the interrupt endpoint is not activ=
-e.
->> If the error occurs, the driver need try to fix it instead of just
->> printing an error msg.
->
-> One problem in your patch is that if the =A0-EPROTO is caused by bad =
-cable
-> or interference, clean halt may not be sent to device successfully, a=
-nd will
-> cause -EPROTO further.
+bonding would not have to save/restore skb queue mapping ?
 
-What's your opinion to handle "-EPROTO" error in usbnet.c?
-Please check usbnet.c again, when "-EPROTO" occurs, it just pints
-error msg and re-submit the interrupt URB, and then causes endless
-"EactErr" error msg.
+Partial patch : (we have to audit all ndo_select_queue()
 
-At least, this patch lets the driver try to fix the error before
-resubmit the URB.
-
->
->>
->>>
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS_H=
-ALT);
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
->>>> +
->>>> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this e=
-ndpoint
->>>> =A0 =A0 =A0 =A0 * already polls infrequently
->>>> =A0 =A0 =A0 =A0 */
->>>> @@ -967,6 +972,34 @@ fail_halt:
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->>>> =A0 =A0 =A0 =A0}
->>>>
->>>> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *desc=
-;
->>>> +
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAddre=
-ss & USB_ENDPOINT_NUMBER_MASK);
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interface(=
-dev->intf);
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->udev,=
- pipe);
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf);
->>>> +
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPIPE=
- && status !=3D -ESHUTDOWN) {
->>>> +fail_sts:
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->net,
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "can=
-'t clear intr halt, status %d\n", status);
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_STS_=
-HALT, &dev->flags);
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interrup=
-t->transfer_buffer, 0,
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev-=
->interrupt->transfer_buffer_length);
->>>
->>> The above is not necessary.
->>
->> Ming, do you mean the above one line, or others ?
->
-> Yes, it is the above line.
->
-
-Then not sure whether the buffer will be tainted without this line.
->
->
-> Thanks,
-> --
-> Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cd09819..c6c92d5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2368,6 +2368,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 
+ 	if (dev->real_num_tx_queues == 1)
+ 		queue_index = 0;
++		skb_set_queue_mapping(skb, queue_index);
+ 	else if (ops->ndo_select_queue) {
+ 		queue_index = ops->ndo_select_queue(dev, skb);
+ 		queue_index = dev_cap_txqueue(dev, queue_index);
+@@ -2391,9 +2392,9 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 					sk_tx_queue_set(sk, queue_index);
+ 			}
+ 		}
++		skb_set_queue_mapping(skb, queue_index);
+ 	}
+ 
+-	skb_set_queue_mapping(skb, queue_index);
+ 	return netdev_get_tx_queue(dev, queue_index);
+ }
+ 
