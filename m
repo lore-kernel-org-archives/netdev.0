@@ -1,45 +1,44 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/2] inetpeer: add namespace support for
-	inetpeer
-Date: Fri, 08 Jun 2012 09:44:04 +0800
-Message-ID: <4FD158E4.1080701@cn.fujitsu.com>
-References: <1338882737-11914-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<20120606.104323.1698446129331745479.davem@davemloft.net>
-	<20120607.144301.1259354794384347085.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] e1000: save skb counts in TX to avoid cache misses
+Date: Fri, 8 Jun 2012 11:15:42 +0900
+Message-ID: <20120608021542.GA10112@kroah.com>
+References: <b838d871c0d507787373061e4edd91a624d62475.1339073391.git.rkagan@parallels.com>
+ <4FD11F49.5060805@gmail.com>
+ <20120607.144358.1732928576389957779.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20120607.144301.1259354794384347085.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeffrey.t.kirsher@intel.com, tarbal@gmail.com,
+	rkagan@parallels.com, stable@vger.kernel.org,
+	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
+	alexander.h.duyck@intel.com, john.ronciak@intel.com,
+	dnelson@redhat.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120607.144358.1732928576389957779.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-5LqOIDIwMTLlubQwNuaciDA45pelIDA1OjQzLCBEYXZpZCBNaWxsZXIg5YaZ6YGTOgo+IEZyb206
-IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBEYXRlOiBXZWQsIDA2IEp1biAy
-MDEyIDEwOjQzOjIzIC0wNzAwIChQRFQpCj4gCj4+IFNvIEknbSBkcm9wcGluZyB0aGVzZSB0d28g
-cGF0Y2hlcyBhbmQgd2lsbCB3b3JrIG9uIHRoZSBtZW50aW9uZWQKPj4gYXBwcm9hY2ggdG8gdGhp
-cyBmaXguCj4gCj4gSXQgdHVybnMgb3V0IHRoYXQgZXZlbiBpZiBJIG1vdmUgdGhlIGluZXRwZWVy
-IHJvb3RzIGludG8gdGhlIEZJQiBydWxlcwo+IGxheWVyLCB3ZSBzdGlsbCBuZWVkIHlvdXIgY2hh
-bmdlcyBHYW8uCj4gCj4gQnV0IHlvdXIgcGF0Y2hlcyBhcmUgY29ycnVwdGVkLiAgRm9yIGV4YW1w
-bGUsIGluIHRoaXMgcGF0Y2gsCj4gdGhlIGZpbmFsIGh1bmsgZm9yIG5ldC9pcHY0L2luZXRwZWVy
-LmMgaGFzIG5vIGRpZmZlcmVuY2VzIG9ubHkKPiBjb250ZXh0LiAgVGhhdCdzIGFuIGV4dHJlbWVs
-eSBjb3JydXB0ZWQgcGF0Y2guCgpTb3JyeSBmb3IgbXkgcG9vbCBlbmdsaXNoLCBJIGRvbid0IHVu
-ZGVyc3RhbmQgdGhpcy4KQ2FuIHlvdSBleHBsYWluIGl0IGZvciBtZT8KCj4gCj4gUGxlYXNlIHJl
-c29sdmUgdGhpcywgYW5kIGFkZCB0aGUgTlVMTCBwb2ludGVyIHNldHRpbmdzIGR1cmluZyBuZXR3
-b3JrCj4gbmFtZXNwYWNlIHNodXRkb3duIHRoYXQgRXJpYyBEdW1hemV0IGFza2VkIGZvci4KCk9L
-LCBJIHdpbGwgZG8gaXQuClRoYW5rcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5s
-aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
-bG1hbi9saXN0aW5mby9jb250YWluZXJz
+On Thu, Jun 07, 2012 at 02:43:58PM -0700, David Miller wrote:
+> From: Jeff Kirsher <tarbal@gmail.com>
+> Date: Thu, 07 Jun 2012 14:38:17 -0700
+> 
+> > Thanks! I have applied the patch to my queue
+> 
+> Why?
+> 
+> My impression is that this is a patch already in the tree, and it's
+> being submitted for -stable but such minor performance hacks are
+> absolutely not appropriate for -stable submission.
+
+The patch description says it is fixing reported oopses, but the
+Subject: isn't all that helpful there.
+
+So which is this?  Should I accept it for a stable release or not?
+
+thanks,
+
+greg k-h
