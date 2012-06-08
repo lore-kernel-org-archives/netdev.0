@@ -1,51 +1,27 @@
-From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
-Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
-Date: Fri, 08 Jun 2012 11:31:41 +0200
-Message-ID: <0273df6192e6cfcfb9ac7284c82625ae@justnet.pl>
-Reply-To: <adam.niescierowicz@justnet.pl>
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] be2net: fix a race in be_xmit()
+Date: Fri, 8 Jun 2012 03:06:14 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F647C6A0B900@EXMAIL.ad.emulex.com>
+References: <1339145999.6001.62.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:54779 "EHLO
-	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S932252Ab2FHJxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 05:53:48 -0400
+Received: from exht1.emulex.com ([138.239.113.183]:49536 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754503Ab2FHKGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jun 2012 06:06:39 -0400
+In-Reply-To: <1339145999.6001.62.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 08.06.2012 11:41, Eric Dumazet napisa=C5=82(a):
-
-> On Fri, 2012-06-08 at 10:58 +0200, Nie=C5=9Bcierowicz Adam wrote:
->
->> Hello, recently we changed on the router kernel from 2.6.38.1 to=20
->> 3.4.1
->> and noticed 30% packet loss when traffic increases up to 250MB / s.
->> Similar is for kernel 3.5-rc1 Here a link to ifstat
->> http://wklej.org/id/767577/ [2]
->
-> You should give as much as possible delails on your setup (hardware,
-> software)
->
-> lspci
-> cat /proc/cpuinfo
-> cat /proc/interrupts
-> ifconfig -a
-> tc -s -d qdisc
-> dmesg
-> netstat -s
-
-currently running on 2.6.38.1 and traffic is 100Mb / s
-
-lspci: http://wklej.org/id/769102/
-/proc/cpuinfo: http://wklej.org/id/769104/
-/proc/interrupts: http://wklej.org/id/769106/
-ifconfig -a: http://wklej.org/id/769108/
-tc -s -d qdisc: http://wklej.org/id/769109/
-dmesg: here are some logs from iptables
-netstat -s: http://wklej.org/id/769110/
-lsmod: http://wklej.org/id/769117/
-/proc/net/softnet_stat: http://wklej.org/id/769116/
+DQo+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj5Gcm9tOiBFcmljIER1bWF6ZXQgPGVkdW1h
+emV0QGdvb2dsZS5jb20+DQo+DQo+QXMgc29vbiBhcyBoYXJkd2FyZSBpcyBub3RpZmllZCBvZiBh
+IHRyYW5zbWl0LCB3ZSBubyBsb25nZXIgY2FuIGFzc3VtZQ0KPnNrYiBjYW4gYmUgZGVyZWZlcmVu
+Y2VkLCBhcyBUWCBjb21wbGV0aW9uIG1pZ2h0IGhhdmUgZnJlZWQgdGhlIHBhY2tldC4NCj4NCj5T
+aWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+Q2M6IFNh
+dGh5YSBQZXJsYSA8c2F0aHlhLnBlcmxhQGVtdWxleC5jb20+DQoNCkdvb2QgY2F0Y2guIFRoYW5r
+cyENCkFja2VkLWJ5OiBTYXRoeWEgUGVybGEgPHNhdGh5YS5wZXJsYUBlbXVsZXguY29tPg0K
