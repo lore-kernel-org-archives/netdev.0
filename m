@@ -1,44 +1,171 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] e1000: save skb counts in TX to avoid cache misses
-Date: Fri, 8 Jun 2012 11:15:42 +0900
-Message-ID: <20120608021542.GA10112@kroah.com>
-References: <b838d871c0d507787373061e4edd91a624d62475.1339073391.git.rkagan@parallels.com>
- <4FD11F49.5060805@gmail.com>
- <20120607.144358.1732928576389957779.davem@davemloft.net>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
+ endless "XactErr" error
+Date: Fri, 8 Jun 2012 11:29:24 +0800
+Message-ID: <CACVXFVMwhoYyJHAsK0xF0poZxoZv8ENHhquPVAiGnsow5-FH8Q@mail.gmail.com>
+References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, tarbal@gmail.com,
-	rkagan@parallels.com, stable@vger.kernel.org,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	dnelson@redhat.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120607.144358.1732928576389957779.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 07, 2012 at 02:43:58PM -0700, David Miller wrote:
-> From: Jeff Kirsher <tarbal@gmail.com>
-> Date: Thu, 07 Jun 2012 14:38:17 -0700
-> 
-> > Thanks! I have applied the patch to my queue
-> 
-> Why?
-> 
-> My impression is that this is a patch already in the tree, and it's
-> being submitted for -stable but such minor performance hacks are
-> absolutely not appropriate for -stable submission.
+On Tue, Jun 5, 2012 at 10:12 PM, Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
+ote:
+> There prints endless "XactErr" error msg once switch my device to the
 
-The patch description says it is fixing reported oopses, but the
-Subject: isn't all that helpful there.
+The "XactErr" error msg means that there are some transfer error in the=
+ bus,
+such as timeout, bad CRC, wrong PID, etc. Generally, -EPROTO is returne=
+d
+to driver if this kind of error happened.
 
-So which is this?  Should I accept it for a stable release or not?
+> configuration
+> =A0which needs cdc_ether driver, the root cause is the interrupt endp=
+oint halts.
 
-thanks,
+How do you switch your configuration? by writing to
+/sys/.../bConfigurationValue?
 
-greg k-h
+Is the "XactErr" msg printed just after switching to cdc_ether interfac=
+e
+by changing configuration?
+
+> Maybe this is a common issue, so fix it by activating the endpoint
+> once the error occurs.
+>
+> Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> =A0drivers/net/usb/usbnet.c =A0 | =A0 33 ++++++++++++++++++++++++++++=
++++++
+> =A0include/linux/usb/usbnet.h | =A0 15 ++++++++-------
+> =A02 files changed, 41 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 9f58330..f13922b 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -537,6 +537,11 @@ static void intr_complete (struct urb *urb)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"intr shutdown, co=
+de %d\n", status);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+>
+> + =A0 =A0 =A0 case -EPIPE:
+> + =A0 =A0 =A0 case -EPROTO:
+
+It is good to handle EPIPE error here, but looks it is no sense to
+clear halt for
+bus transfer failure. At least, no clear halt is done for returning -EP=
+ROTO from
+rx/tx transfer currently.
+
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usbnet_defer_kevent(dev, EVENT_STS_HALT=
+);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+> +
+> =A0 =A0 =A0 =A0/* NOTE: =A0not throttling like RX/TX, since this endp=
+oint
+> =A0 =A0 =A0 =A0 * already polls infrequently
+> =A0 =A0 =A0 =A0 */
+> @@ -967,6 +972,34 @@ fail_halt:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0}
+>
+> + =A0 =A0 =A0 if (test_bit(EVENT_STS_HALT, &dev->flags)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 unsigned pipe;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct usb_endpoint_descriptor *desc;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc =3D &dev->status->desc;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pipe =3D usb_rcvintpipe(dev->udev,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 desc->bEndpointAddress =
+& USB_ENDPOINT_NUMBER_MASK);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_autopm_get_interface(dev=
+->intf);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto fail_sts;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_clear_halt(dev->udev, pi=
+pe);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 usb_autopm_put_interface(dev->intf);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status < 0 && status !=3D -EPIPE &&=
+ status !=3D -ESHUTDOWN) {
+> +fail_sts:
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netdev_err(dev->net,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "can't =
+clear intr halt, status %d\n", status);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 } else {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 clear_bit(EVENT_STS_HAL=
+T, &dev->flags);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(dev->interrupt->=
+transfer_buffer, 0,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->in=
+terrupt->transfer_buffer_length);
+
+The above is not necessary.
+
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 status =3D usb_submit_u=
+rb(dev->interrupt, GFP_KERNEL);
+
+Before submitting urb, usb_autopm_get_interface is required to wakeup d=
+evice.
+
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (status !=3D 0)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 netif_e=
+rr(dev, timer, dev->net,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 "intr resubmit --> %d\n", status);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 }
+> +
+> =A0 =A0 =A0 =A0/* tasklet could resubmit itself forever if memory is =
+tight */
+> =A0 =A0 =A0 =A0if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct urb =A0 =A0 =A0*urb =3D NULL;
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index 76f4396..c0bcb61 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -62,13 +62,14 @@ struct usbnet {
+> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 flags;
+> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_TX_HALT =A0 =A00
+> =A0# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_HALT =A0 =A01
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A02
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A03
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 4
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A05
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 6
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 7
+> -# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 8
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_HALT =A0 2
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A03
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A04
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 5
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A06
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 7
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 8
+> +# =A0 =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 9
+> =A0};
+>
+> =A0static inline struct usb_driver *driver_of(struct usb_interface *i=
+ntf)
+> --
+> 1.7.9.5
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" =
+in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+
+
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
