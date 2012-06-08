@@ -1,34 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Deadlock, L2TP over IP are not working, 3.4.1
-Date: Fri, 08 Jun 2012 18:04:55 +0200
-Message-ID: <1339171495.6001.118.camel@edumazet-glaptop>
-References: <7ed49f446365ac625437702d92946add@visp.net.lb>
-	 <20120607205356.GA2491@electric-eye.fr.zoreil.com>
-	 <1339104606.6001.4.camel@edumazet-glaptop>
-	 <20120607223752.GA4475@electric-eye.fr.zoreil.com>
-	 <1339134438.6001.13.camel@edumazet-glaptop>
-	 <20120608154106.GD5024@kvack.org>
-	 <67d8beaf421874815145fdefc69b3366@visp.net.lb>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
+ endless "XactErr" error
+Date: Fri, 8 Jun 2012 12:13:04 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1206081212150.1360-100000@iolanthe.rowland.org>
+References: <CA+v9cxag9NV2ud+oupyziLN3nLgkgj+kyTcaOnEjYNjqXtM4Bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <67d8beaf421874815145fdefc69b3366@visp.net.lb>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+v9cxag9NV2ud+oupyziLN3nLgkgj+kyTcaOnEjYNjqXtM4Bw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-08 at 18:56 +0300, Denys Fedoryshchenko wrote:
+On Fri, 8 Jun 2012, Huajun Li wrote:
 
-> Right now i am routing around 700Mbps over there, and noticed some 
-> problem with pskb_expand_head,
-> but that's separate question i will ask, if i will not be able to sort 
-> it out by myself.
-> 
+> > One possibility is to wait for a little while before resubmitting the
+> > URB, and after 10 failures in a row, attempt a reset.
+> >
+> Alan, thanks for your proposal.
+> You mean reset the device after 10 failures, right ?
 
-Before spending too much time on this, make sure you use a kernel
-including commit 617c8c11236 ( skb: avoid unnecessary reallocations in
-__skb_cow )
+Yes.  But I don't know if it will help your problem.
+
+> BTW, I ever tried to sleep several seconds before submitting the 1st
+> interrupt URB, but it did not work.
+
+As Ming Lei said, it sounds like your device isn't working right.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
