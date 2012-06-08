@@ -1,82 +1,95 @@
-From: Josh Boyer <jwboyer@redhat.com>
-Subject: Re: [PATCH] netdev: mv643xx_eth: Prevent build on PPC32
-Date: Thu, 7 Jun 2012 21:04:03 -0400
-Message-ID: <20120608010403.GL7683@zod.bos.redhat.com>
-References: <20120605192820.GC7683@zod.bos.redhat.com>
- <1338939005.21665.54.camel@deadeye.wl.decadent.org.uk>
- <20120606023842.GD7683@zod.bos.redhat.com>
- <20120607235115.GB21150@sirena.org.uk>
- <20120607235550.GK7683@zod.bos.redhat.com>
- <20120608003445.GC21150@sirena.org.uk>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: [PATCH] e1000e: disable rxhash when try to enable
+ jumbo frame also rxhash and rxcsum have enabled
+Date: Fri, 08 Jun 2012 09:06:40 +0800
+Message-ID: <4FD15020.7090709@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Andrew Lunn <andrew@lunn.ch>, Olof Johansson <olof@lixom.net>,
-	netdev@vger.kernel.org
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3519 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759403Ab2FHBEv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jun 2012 21:04:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20120608003445.GC21150@sirena.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Guru Anbalagane <guru.anbalagane@oracle.com>,
+	Adnan Misherfi <adnan.misherfi@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 08, 2012 at 01:34:45AM +0100, Mark Brown wrote:
-> On Thu, Jun 07, 2012 at 07:55:51PM -0400, Josh Boyer wrote:
-> > On Fri, Jun 08, 2012 at 12:51:15AM +0100, Mark Brown wrote:
-> 
-> > > This sort of issue is just the tip of the iceberg in terms of what it's
-> > > useful to do with the API.
-> 
-> > Yes, sounds like it.  All I ask is that people test their patches along
-> > the way so things don't get broken.  I mean, it's great we have an
-> > iceberg but I don't want tons of drivers on other architectures running
-> > into the thing and sinking because people aren't being careful.  Except
-> > maybe the one already appropriately (nick)named.
-> 
-> It's really hard to blame the submitters here - this really isn't the
-> sort of API that you'd expect to only be available conditionally so this
-> isn't something that one would expect to have to worry about.  It's a
-> product of the age of the clock API and the glacial progress on the
-> generic clock API.
+Upstream commit 70495a5 check if both rxhash and rxcsum enabled when enabling
+jumbo frames and disallowed all of them enabled at the same time.
 
-I'm not placing blame.  I'm declaring people should be cautious going
-forward.  5 arches have the clock API.  21 don't.  Whatever reasons
-there are for that, I don't care.  It should be a big warning sign.
+Since jumbo frame widely be used in real world, so when try to enable jumbo
+frames but rxhash and rxcsum have enabled, change the default behavior to
+disable receive hashing.
 
-It might even be beneficial to put some Kconfig dependencies on both
-CONFIG_COMMON_CLK (which is somewhat misleadingly named) and
-CONFIG_CLKDEV_LOOKUP so those are only selectable on those 5 arches.
-Something like:
+Signed-off-by: Joe Jin <joe.jin@oracle.com>
+Signed-off-by: Guru Anbalagane <guru.anbalagane@oracle.com>
+Acked-by: Adnan Misherfi <adnan.misherfi@oracle.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |   13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/clk/Kconfig b/drivers/clk/Kconfig
-index 4864407..3f49c22 100644
---- a/drivers/clk/Kconfig
-+++ b/drivers/clk/Kconfig
-@@ -1,6 +1,7 @@
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index a4b0435..b9f0857 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -66,6 +66,8 @@ module_param(debug, int, 0);
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
  
- config CLKDEV_LOOKUP
- 	bool
-+	depends on (ARM || SUPERH || MIPS || C6X || BLACKFIN)
- 	select HAVE_CLK
+ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state);
++static int e1000_set_features(struct net_device *netdev,
++			      netdev_features_t features);
  
- config HAVE_CLK_PREPARE
-@@ -11,6 +12,7 @@ config HAVE_MACH_CLKDEV
+ static const struct e1000_info *e1000_info_tbl[] = {
+ 	[board_82571]		= &e1000_82571_info,
+@@ -5254,8 +5256,15 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 		 */
+ 		if ((netdev->features & NETIF_F_RXCSUM) &&
+ 		    (netdev->features & NETIF_F_RXHASH)) {
+-			e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
+-			return -EINVAL;
++			netdev_features_t features;
++
++			/* Disable receive hashing if conflicted */
++			features = netdev->features & (~NETIF_F_RXHASH);
++			if (e1000_set_features(netdev, features)) {
++				e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
++				return -EINVAL;
++			}
++			e_info("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled. Disabling Receive Hashing.\n");
+ 		}
+ 	}
  
- config COMMON_CLK
- 	bool
-+	depends on (ARM || SUPERH || MIPS || C6X || BLACKFIN)
- 	select HAVE_CLK_PREPARE
- 	select CLKDEV_LOOKUP
- 	---help---
+-- 
+1.7.10.2
 
-Regardless, hopefully things like this will get hit in linux-next in the
-future.  I believe the only reason that it wasn't this time is that
-none of the PPC defconfigs build in linux-next bother to build the
-driver at all.
 
-josh
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
