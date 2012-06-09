@@ -1,284 +1,81 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 9/9] ixgbe: Check PTP Rx timestamps via BPF filter
-Date: Sat,  9 Jun 2012 01:21:03 -0700
-Message-ID: <1339230063-12545-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/9] ixgbe: ptp code cleanup
+Date: Sat,  9 Jun 2012 01:21:01 -0700
+Message-ID: <1339230063-12545-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8495 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:40735 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753301Ab2FIIVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jun 2012 04:21:16 -0400
+	id S1752833Ab2FIIVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jun 2012 04:21:15 -0400
 In-Reply-To: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch fixes a potential Rx timestamp deadlock that causes the Rx
-timestamping to stall indefinitely. The issue could occur when a PTP packet is
-timestamped by hardware but never reaches the Rx queue. In order to prevent a
-permanent loss of timestamping, the RXSTMP(L/H) registers have to be read to
-unlock them. (This used to only occur when a packet that was timestamped
-reached the software.) However the registers can't be read early otherwise
-there is no way to correlate them to the packet.
-
-This patch introduces a filter function which can be used to determine if a
-packet should have been timestamped. Supplied with the filter setup by the
-hwtstamp ioctl, check to make sure the PTP protocol and message type match the
-expected values. If so, then read the timestamp registers (to free them.) At
-this point check the descriptor bit, if the bit is set then we know this
-packet correlates to the timestamp stored in the RXTSTAMP registers.
-Otherwise, assume that packet was dropped by the hardware, and ignore this
-timestamp value. However, we have at least unlocked the rxtstamp registers for
-future timestamping.
-
-Due to the way the driver handles skb data, it cannot be directly accessed. In
-order to work around this, a copy of the skb data into a linear buffer is
-made. From this buffer it becomes possible to read the data correctly
+This patch fixes two minor nits from Richard Cochran. The first is a case of
+ambitious line wrapping that wasn't necessary. The second is to re-order the
+flag checks for PPS support. Previously, the hardware test was done first, and
+the interrupt flag test was done second. Now, test the interrupt flag and use
+the unlikely macro.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Richard Cochran <richardcochran@gmail.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  |  113 ++++++++++++++++++++++---
- 3 files changed, 104 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    8 +++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  |   13 +++++++------
+ 2 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 3ef3c52..41f9f6e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -561,6 +561,7 @@ struct ixgbe_adapter {
- 	spinlock_t tmreg_lock;
- 	struct cyclecounter cc;
- 	struct timecounter tc;
-+	int rx_hwtstamp_filter;
- 	u32 base_incval;
- 	u32 cycle_speed;
- #endif /* CONFIG_IXGBE_PTP */
-@@ -718,6 +719,7 @@ extern void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_tx_hwtstamp(struct ixgbe_q_vector *q_vector,
- 				  struct sk_buff *skb);
- extern void ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
-+				  union ixgbe_adv_rx_desc *rx_desc,
- 				  struct sk_buff *skb);
- extern int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 				    struct ifreq *ifr, int cmd);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1675b66..b0ddfd4 100644
+index 17ad6a3..1675b66 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1397,8 +1397,7 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 	ixgbe_rx_checksum(rx_ring, rx_desc, skb);
+@@ -790,12 +790,10 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 		total_packets += tx_buffer->gso_segs;
  
  #ifdef CONFIG_IXGBE_PTP
--	if (ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_TS))
--		ixgbe_ptp_rx_hwtstamp(rx_ring->q_vector, skb);
-+	ixgbe_ptp_rx_hwtstamp(rx_ring->q_vector, rx_desc, skb);
+-		if (unlikely(tx_buffer->tx_flags &
+-			     IXGBE_TX_FLAGS_TSTAMP))
+-			ixgbe_ptp_tx_hwtstamp(q_vector,
+-					      tx_buffer->skb);
+-
++		if (unlikely(tx_buffer->tx_flags & IXGBE_TX_FLAGS_TSTAMP))
++			ixgbe_ptp_tx_hwtstamp(q_vector, tx_buffer->skb);
  #endif
++
+ 		/* free the skb */
+ 		dev_kfree_skb_any(tx_buffer->skb);
  
- 	if ((dev->features & NETIF_F_HW_VLAN_RX) &&
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 5ed8cff..cb7d1b2 100644
+index ddc6a4d..174f41f 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -26,6 +26,7 @@
- *******************************************************************************/
- #include "ixgbe.h"
- #include <linux/export.h>
-+#include <linux/ptp_classify.h>
+@@ -307,13 +307,14 @@ void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr)
+ 	    !(adapter->flags2 & IXGBE_FLAG2_PTP_PPS_ENABLED))
+ 		return;
  
- /*
-  * The 82599 and the X540 do not have true 64bit nanosecond scale
-@@ -100,6 +101,10 @@
- #define NSECS_PER_SEC 1000000000ULL
- #endif
- 
-+static struct sock_filter ptp_filter[] = {
-+	PTP_FILTER
-+};
-+
- /**
-  * ixgbe_ptp_read - read raw cycle counter (to be used by time counter)
-  * @cc - the cyclecounter structure
-@@ -426,6 +431,68 @@ void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter)
+-	switch (hw->mac.type) {
+-	case ixgbe_mac_X540:
+-		if (eicr & IXGBE_EICR_TIMESYNC)
++	if (unlikely(eicr & IXGBE_EICR_TIMESYNC)) {
++		switch (hw->mac.type) {
++		case ixgbe_mac_X540:
+ 			ptp_clock_event(adapter->ptp_clock, &event);
+-		break;
+-	default:
+-		break;
++			break;
++		default:
++			break;
++		}
+ 	}
  }
  
- /**
-+ * ixgbe_ptp_match - determine if this skb matches a ptp packet
-+ * @skb: pointer to the skb
-+ * @hwtstamp: pointer to the hwtstamp_config to check
-+ *
-+ * Determine whether the skb should have been timestamped, assuming the
-+ * hwtstamp was set via the hwtstamp ioctl. Returns non-zero when the packet
-+ * should have a timestamp waiting in the registers, and 0 otherwise.
-+ *
-+ * V1 packets have to check the version type to determine whether they are
-+ * correct. However, we can't directly access the data because it might be
-+ * fragmented in the SKB, in paged memory. In order to work around this, we
-+ * use skb_copy_bits which will properly copy the data whether it is in the
-+ * paged memory fragments or not. We have to copy the IP header as well as the
-+ * message type.
-+ */
-+static int ixgbe_ptp_match(struct sk_buff *skb, int rx_filter)
-+{
-+	struct iphdr iph;
-+	u8 msgtype;
-+	unsigned int type, offset;
-+
-+	if (rx_filter == HWTSTAMP_FILTER_NONE)
-+		return 0;
-+
-+	type = sk_run_filter(skb, ptp_filter);
-+
-+	if (likely(rx_filter == HWTSTAMP_FILTER_PTP_V2_EVENT))
-+		return type & PTP_CLASS_V2;
-+
-+	/* For the remaining cases actually check message type */
-+	switch (type) {
-+	case PTP_CLASS_V1_IPV4:
-+		skb_copy_bits(skb, OFF_IHL, &iph, sizeof(iph));
-+		offset = ETH_HLEN + (iph.ihl << 2) + UDP_HLEN + OFF_PTP_CONTROL;
-+		break;
-+	case PTP_CLASS_V1_IPV6:
-+		offset = OFF_PTP6 + OFF_PTP_CONTROL;
-+		break;
-+	default:
-+		/* other cases invalid or handled above */
-+		return 0;
-+	}
-+
-+	/* Make sure our buffer is long enough */
-+	if (skb->len < offset)
-+		return 0;
-+
-+	skb_copy_bits(skb, offset, &msgtype, sizeof(msgtype));
-+
-+	switch (rx_filter) {
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+		return (msgtype == IXGBE_RXMTRL_V1_SYNC_MSG);
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+		return (msgtype == IXGBE_RXMTRL_V1_DELAY_REQ_MSG);
-+		break;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+/**
-  * ixgbe_ptp_tx_hwtstamp - utility function which checks for TX time stamp
-  * @q_vector: structure containing interrupt and ring information
-  * @skb: particular skb to send timestamp with
-@@ -474,6 +541,7 @@ void ixgbe_ptp_tx_hwtstamp(struct ixgbe_q_vector *q_vector,
- /**
-  * ixgbe_ptp_rx_hwtstamp - utility function which checks for RX time stamp
-  * @q_vector: structure containing interrupt and ring information
-+ * @rx_desc: the rx descriptor
-  * @skb: particular skb to send timestamp with
-  *
-  * if the timestamp is valid, we convert it into the timecounter ns
-@@ -481,6 +549,7 @@ void ixgbe_ptp_tx_hwtstamp(struct ixgbe_q_vector *q_vector,
-  * is passed up the network stack
-  */
- void ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
-+			   union ixgbe_adv_rx_desc *rx_desc,
- 			   struct sk_buff *skb)
- {
- 	struct ixgbe_adapter *adapter;
-@@ -498,21 +567,33 @@ void ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
- 	hw = &adapter->hw;
- 
- 	tsyncrxctl = IXGBE_READ_REG(hw, IXGBE_TSYNCRXCTL);
-+
-+	/* Check if we have a valid timestamp and make sure the skb should
-+	 * have been timestamped */
-+	if (likely(!(tsyncrxctl & IXGBE_TSYNCRXCTL_VALID) ||
-+		   !ixgbe_ptp_match(skb, adapter->rx_hwtstamp_filter)))
-+		return;
-+
-+	/*
-+	 * Always read the registers, in order to clear a possible fault
-+	 * because of stagnant RX timestamp values for a packet that never
-+	 * reached the queue.
-+	 */
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_RXSTMPL);
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_RXSTMPH) << 32;
- 
- 	/*
--	 * If this bit is set, then the RX registers contain the time stamp. No
--	 * other packet will be time stamped until we read these registers, so
--	 * read the registers to make them available again. Because only one
--	 * packet can be time stamped at a time, we know that the register
--	 * values must belong to this one here and therefore we don't need to
--	 * compare any of the additional attributes stored for it.
-+	 * If the timestamp bit is set in the packet's descriptor, we know the
-+	 * timestamp belongs to this packet. No other packet can be
-+	 * timestamped until the registers for timestamping have been read.
-+	 * Therefor only one packet with this bit can be in the queue at a
-+	 * time, and the rx timestamp values that were in the registers belong
-+	 * to this packet.
- 	 *
- 	 * If nothing went wrong, then it should have a skb_shared_tx that we
- 	 * can turn into a skb_shared_hwtstamps.
- 	 */
--	if (!(tsyncrxctl & IXGBE_TSYNCRXCTL_VALID))
-+	if (unlikely(!ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_TS)))
- 		return;
- 
- 	spin_lock_irqsave(&adapter->tmreg_lock, flags);
-@@ -598,19 +679,20 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
- 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_EVENT_V2;
--		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
- 		is_l2 = true;
- 		is_l4 = true;
-+		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
- 	case HWTSTAMP_FILTER_ALL:
- 	default:
- 		/*
--		 * register RXMTRL must be set, therefore it is not
--		 * possible to time stamp both V1 Sync and Delay_Req messages
--		 * and hardware does not support timestamping all packets
--		 * => return error
-+		 * register RXMTRL must be set in order to do V1 packets,
-+		 * therefore it is not possible to time stamp both V1 Sync and
-+		 * Delay_Req messages and hardware does not support
-+		 * timestamping all packets => return error
- 		 */
-+		config.rx_filter = HWTSTAMP_FILTER_NONE;
- 		return -ERANGE;
- 	}
- 
-@@ -620,6 +702,9 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 		return 0;
- 	}
- 
-+	/* Store filter value for later use */
-+	adapter->rx_hwtstamp_filter = config.rx_filter;
-+
- 	/* define ethertype filter for timestamped packets */
- 	if (is_l2)
- 		IXGBE_WRITE_REG(hw, IXGBE_ETQF(3),
-@@ -855,6 +940,10 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter)
- 		return;
- 	}
- 
-+	/* initialize the ptp filter */
-+	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter)))
-+		e_dev_warn("ptp_filter_init failed\n");
-+
- 	spin_lock_init(&adapter->tmreg_lock);
- 
- 	ixgbe_ptp_start_cyclecounter(adapter);
 -- 
 1.7.10.2
