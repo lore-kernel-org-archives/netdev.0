@@ -1,64 +1,122 @@
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Subject: Re: mlx4_core: Modify driver initialization flow to accommodate SRIOV for Ethernet
-Date: Sat, 9 Jun 2012 14:29:16 +0300
-Message-ID: <201206091429.17171.jackm@dev.mellanox.co.il>
-References: <20120609090918.GB877@elgon.mountain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] ip: speedup ip link
+Date: Sat, 09 Jun 2012 13:55:55 +0200
+Message-ID: <1339242955.7575.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, dotanb@mellanox.co.il,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:47553 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884Ab2FIL1a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 07:27:30 -0400
-Received: by weyu7 with SMTP id u7so1097957wey.19
-        for <netdev@vger.kernel.org>; Sat, 09 Jun 2012 04:27:28 -0700 (PDT)
-In-Reply-To: <20120609090918.GB877@elgon.mountain>
-Content-Disposition: inline
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:48255 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192Ab2FILz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 07:55:59 -0400
+Received: by wibhm6 with SMTP id hm6so2011778wib.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jun 2012 04:55:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 09 June 2012 12:09, Dan Carpenter wrote:
-> =A0 =A0423 =A0 =A0 =A0 =A0 =A0/*fail if the hca has an unknown capabi=
-lity */
-> =A0 =A0424 =A0 =A0 =A0 =A0 =A0if ((hca_param.global_caps | HCA_GLOBAL=
-_CAP_MASK) !=3D
-> =A0 =A0425 =A0 =A0 =A0 =A0 =A0 =A0 =A0HCA_GLOBAL_CAP_MASK) {
-> =A0 =A0426 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0mlx4_err(dev, "Unknown =
-hca global capabilities\n");
-> =A0 =A0427 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOSYS;
-> =A0 =A0428 =A0 =A0 =A0 =A0 =A0}
->=20
-> The test sort of makes sense but HCA_GLOBAL_CAP_MASK is zero so we co=
-uld
-> as well say:
->=20
-> =A0=A0=A0=A0=A0=A0=A0=A0if (hca_param.global_caps) { ...
->=20
-The parameter global_caps is to guarantee that the guest OS is capable
-of supporting the driver which is running on the master (hypervisor).
+From: Eric Dumazet <edumazet@google.com>
 
-If a new feature impacts the guests, we will define a bit in the
-global_caps bitmask and the master driver will set this bit and
-the global_caps bitmask with the newly set bit will be passed
-to the slaves.
+ip link has quadratic behavior because store_nlmsg()
+has a head list pointer and search the end of list.
 
-The HCA_GLOBAL_CAP_MASK on the slave OS represents the set
-of such features which the slave knows how to support.
-If a new feature appears which is not set in the slave's
-HCA_GLOBAL_CAP_MASK, this test detects the discrepancy and
-the slave driver aborts.
+Provides a head/tail to cut time.
 
-This global_caps parameter passed from the master to the slave
-is currently zero, because all current master capabilities
-are supported on the slaves.
+Time with 128000 net devices, to do "ip link show dev xxx"
 
-In the (probably near) future, when new capabilities are added,
-Slave O/S's will also need to be updated.  If the master O/S driver is
-updated, but an older slave O/S driver  isstill installed, the test
-will fail and the driver on the slave will abort.
+Before: 2m3.594s
+After: 0m2.830s
 
--Jack
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ ip/ipaddress.c |   28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 9ab65ec..51292b0 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -717,6 +717,12 @@ struct nlmsg_list
+ 	struct nlmsghdr	  h;
+ };
+ 
++struct nlmsg_chain
++{
++	struct nlmsg_list *head;
++	struct nlmsg_list *tail;
++};
++
+ static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *fp)
+ {
+ 	for ( ;ainfo ;  ainfo = ainfo->next) {
+@@ -742,9 +748,8 @@ static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *
+ static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 		       void *arg)
+ {
+-	struct nlmsg_list **linfo = (struct nlmsg_list**)arg;
++	struct nlmsg_chain *lchain = (struct nlmsg_chain *)arg;
+ 	struct nlmsg_list *h;
+-	struct nlmsg_list **lp;
+ 
+ 	h = malloc(n->nlmsg_len+sizeof(void*));
+ 	if (h == NULL)
+@@ -753,8 +758,11 @@ static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 	memcpy(&h->h, n, n->nlmsg_len);
+ 	h->next = NULL;
+ 
+-	for (lp = linfo; *lp; lp = &(*lp)->next) /* NOTHING */;
+-	*lp = h;
++	if (lchain->tail)
++		lchain->tail->next = h;
++	else
++		lchain->head = h;
++	lchain->tail = h;
+ 
+ 	ll_remember_index(who, n, NULL);
+ 	return 0;
+@@ -762,8 +770,8 @@ static int store_nlmsg(const struct sockaddr_nl *who, struct nlmsghdr *n,
+ 
+ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+ {
+-	struct nlmsg_list *linfo = NULL;
+-	struct nlmsg_list *ainfo = NULL;
++	struct nlmsg_chain linfo = { NULL, NULL};
++	struct nlmsg_chain ainfo = { NULL, NULL};
+ 	struct nlmsg_list *l, *n;
+ 	char *filter_dev = NULL;
+ 	int no_link = 0;
+@@ -953,7 +961,7 @@ flush_done:
+ 
+ 	if (filter.family && filter.family != AF_PACKET) {
+ 		struct nlmsg_list **lp;
+-		lp=&linfo;
++		lp = &linfo.head;
+ 
+ 		if (filter.oneline)
+ 			no_link = 1;
+@@ -963,7 +971,7 @@ flush_done:
+ 			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+ 			struct nlmsg_list *a;
+ 
+-			for (a=ainfo; a; a=a->next) {
++			for (a = ainfo.head; a; a = a->next) {
+ 				struct nlmsghdr *n = &a->h;
+ 				struct ifaddrmsg *ifa = NLMSG_DATA(n);
+ 
+@@ -1010,12 +1018,12 @@ flush_done:
+ 		}
+ 	}
+ 
+-	for (l=linfo; l; l = n) {
++	for (l = linfo.head; l; l = n) {
+ 		n = l->next;
+ 		if (no_link || print_linkinfo(NULL, &l->h, stdout) == 0) {
+ 			struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
+ 			if (filter.family != AF_PACKET)
+-				print_selected_addrinfo(ifi->ifi_index, ainfo, stdout);
++				print_selected_addrinfo(ifi->ifi_index, ainfo.head, stdout);
+ 		}
+ 		fflush(stdout);
+ 		free(l);
