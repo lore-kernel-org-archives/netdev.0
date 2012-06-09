@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH torvalds/linux.git] Make linux/tcp.h C++ friendly
- (trivial)
-Date: Fri, 08 Jun 2012 22:17:55 -0700 (PDT)
-Message-ID: <20120608.221755.927511342271201223.davem@davemloft.net>
-References: <alpine.LNX.2.00.1202032232320.25026@pobox.suse.cz>
-	<CALoOobMSXp4x_+En2gyHmpXcxq=sECQvMZN1LX_j3Yve7Ha6Aw@mail.gmail.com>
-	<CALoOobNbt0Kbea8gHdNkQFa0+ydpH++6ND+fOBGvy5Rmf=_QpA@mail.gmail.com>
+Subject: Re: [PATCH] inetpeer: fix build failed when IPV6 not enabled
+Date: Fri, 08 Jun 2012 22:20:13 -0700 (PDT)
+Message-ID: <20120608.222013.1938519972999084819.davem@davemloft.net>
+References: <1339207973-11479-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jkosina@suse.cz, netdev@vger.kernel.org
-To: ppluzhnikov@google.com
+Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	wfg@linux.intel.com
+To: gaofeng@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54706 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54765 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734Ab2FIFR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 01:17:56 -0400
-In-Reply-To: <CALoOobNbt0Kbea8gHdNkQFa0+ydpH++6ND+fOBGvy5Rmf=_QpA@mail.gmail.com>
+	with ESMTP id S1750734Ab2FIFUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 01:20:14 -0400
+In-Reply-To: <1339207973-11479-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Pluzhnikov <ppluzhnikov@google.com>
-Date: Fri, 8 Jun 2012 21:14:19 -0700
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Sat, 9 Jun 2012 10:12:53 +0800
 
-> I thought the patch has been applied, and stopped pinging it.
-> But it appears that it never did get applied :-(
+> fix this by adding #if IS_ENABLED(CONFIG_IPV6)
 
-Your submission is not properly formed, you need to post this as a
-fresh email with proper commit message and signoffs.
+There is not a single UGLY ifdef in inetpeer.c, and I am not going to
+allow you to start crapping it up with ifdefs now.
 
-Please read Documentation/SubmittingPatches if you want us to
-seriously consider this change.
-
-Thanks.
+We support ipv6 just fine without ifdefs before your network namespace
+changes, so you need to find a way to continue dong so afterwards.
