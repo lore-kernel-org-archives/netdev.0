@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inetpeer: fix build failed when IPV6 not enabled
-Date: Fri, 08 Jun 2012 22:20:13 -0700 (PDT)
-Message-ID: <20120608.222013.1938519972999084819.davem@davemloft.net>
-References: <1339207973-11479-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] net/core: fix kernel-doc warnings
+Date: Fri, 08 Jun 2012 22:21:11 -0700 (PDT)
+Message-ID: <20120608.222111.780223138922648196.davem@davemloft.net>
+References: <4FD29268.1010604@xenotime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	wfg@linux.intel.com
-To: gaofeng@cn.fujitsu.com
+Cc: netdev@vger.kernel.org
+To: rdunlap@xenotime.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54765 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54776 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734Ab2FIFUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 01:20:14 -0400
-In-Reply-To: <1339207973-11479-1-git-send-email-gaofeng@cn.fujitsu.com>
+	with ESMTP id S1750813Ab2FIFVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 01:21:12 -0400
+In-Reply-To: <4FD29268.1010604@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Sat, 9 Jun 2012 10:12:53 +0800
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Fri, 08 Jun 2012 17:01:44 -0700
 
-> fix this by adding #if IS_ENABLED(CONFIG_IPV6)
+> From: Randy Dunlap <rdunlap@xenotime.net>
+> 
+> Fix kernel-doc warnings in net/core:
+> 
+> Warning(net/core/skbuff.c:3368): No description found for parameter 'delta_truesize'
+> Warning(net/core/filter.c:628): No description found for parameter 'pfp'
+> Warning(net/core/filter.c:628): Excess function parameter 'sk' description in 'sk_unattached_filter_create'
+> 
+> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
 
-There is not a single UGLY ifdef in inetpeer.c, and I am not going to
-allow you to start crapping it up with ifdefs now.
-
-We support ipv6 just fine without ifdefs before your network namespace
-changes, so you need to find a way to continue dong so afterwards.
+Applied.
