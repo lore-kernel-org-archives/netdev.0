@@ -1,115 +1,103 @@
-From: Scott Parlane <scott@scottnz.com>
-Subject: [PATCH rfc net] Allow the autoconfigured network interface to be renamed.
-Date: Sat,  9 Jun 2012 19:48:07 +1200
-Message-ID: <1339228087-14870-1-git-send-email-scott@scottnz.com>
-Cc: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] af_unix: speedup /proc/net/unix
+Date: Sat, 09 Jun 2012 10:10:20 +0200
+Message-ID: <1339229420.6001.146.camel@edumazet-glaptop>
+References: <1339167801.6001.111.camel@edumazet-glaptop>
+	 <4FD2E22F.9090503@msgid.tls.msk.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Steven Whitehouse <swhiteho@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Michael Tokarev <mjt@tls.msk.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from edgewireless.tk ([184.82.109.251]:47453 "EHLO vps1.scottnz.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751400Ab2FIH7q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jun 2012 03:59:46 -0400
+Received: from mail-we0-f174.google.com ([74.125.82.174]:33956 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751962Ab2FIIKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 04:10:23 -0400
+Received: by weyu7 with SMTP id u7so1033803wey.19
+        for <netdev@vger.kernel.org>; Sat, 09 Jun 2012 01:10:21 -0700 (PDT)
+In-Reply-To: <4FD2E22F.9090503@msgid.tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
+From: Eric Dumazet <edumazet@google.com>
 
-if IP_PNP_RENAME_DEV is set, the first interface to be configured
-automatically by the kernel during boot will be renamed.
+On Sat, 2012-06-09 at 09:42 +0400, Michael Tokarev wrote:
+> On 08.06.2012 19:03, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > /proc/net/unix has quadratic behavior, and can hold unix_table_lock for
+> > a while if high number of unix sockets are alive. (90 ms for 200k
+> > sockets...)
+> 
+> Two comments, nitpicking...
+> 
+> []
+> >  struct unix_iter_state {
+> >  	struct seq_net_private p;
+> > -	int i;
+> >  };
+> 
+> Can't seq_net_private be used directly?
+> 
 
-IP_PNP_DEV_NEWNAME is the name to give the autoconfigured device.
+Absolutely
 
-No changes will be made to any interface that is not autoconfigured.
+> >  
+> >  static void *unix_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+> >  {
+> > +	return unix_next_socket(seq, v, pos);
+> >  }
+> 
+> Why unix_seq_next() is needed?  Can't unix_next_socket() be used directly instead?
 
-This allows the assurance of the boot device name, without the need
-for an initramfs.
+Nope, you missed the "++*pos;"
 
-Signed-off-by: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
+static void *unix_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+{
+	++*pos;
+	return unix_next_socket(seq, v, pos);
+}
+
+Thanks !
+
+[PATCH net-next] af_unix: remove unix_iter_state
+
+As pointed out by Michael Tokarev , struct unix_iter_state is no longer
+needed.
+
+Suggested-by: Michael Tokarev <mjt@tls.msk.ru>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Steven Whitehouse <swhiteho@redhat.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
 ---
- net/ipv4/Kconfig    |   17 +++++++++++++++++
- net/ipv4/ipconfig.c |   35 +++++++++++++++++++++++++++++++++++
- 2 files changed, 52 insertions(+), 0 deletions(-)
+ net/unix/af_unix.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 20f1cb5..c85c654 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -163,6 +163,23 @@ config IP_PNP_RARP
- 	  operating on your network. Read
- 	  <file:Documentation/filesystems/nfs/nfsroot.txt> for details.
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index cf83f6b..79981d9 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2255,10 +2255,6 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
+ #define get_offset(x) ((x) & ((1L << BUCKET_SPACE) - 1))
+ #define set_bucket_offset(b, o) ((b) << BUCKET_SPACE | (o))
  
-+config IP_PNP_RENAME_DEV
-+	bool "IP: Rename boot device"
-+	depends on IP_PNP
-+	help
-+	 If you want to rename the network device you are booting from
-+	 to something other than eth%d enable this option, and choose the name
-+	 below. This is helpful if you want to use udev to keep
-+	 persistent naming of your other interfaces.
-+
-+config IP_PNP_DEV_NEWNAME
-+	string "IP: New name of boot device"
-+	depends on IP_PNP_RENAME_DEV
-+	default "bootnet"
-+	help
-+	 The name to assign to the network device you are booting from
-+	 when using ip autoconfigure
-+
- config NET_IPIP
- 	tristate "IP: tunneling"
- 	select INET_TUNNEL
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 67e8a6b..a4b052a 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -86,6 +86,10 @@
- #if defined(IPCONFIG_BOOTP) || defined(IPCONFIG_RARP)
- #define IPCONFIG_DYNAMIC
- #endif
-+#if defined(CONFIG_IP_PNP_RENAME_DEV)
-+#define IPCONFIG_RENAME_DEV
-+#define IPCONFIG_DEV_NEWNAME CONFIG_IP_PNP_DEV_NEWNAME
-+#endif
+-struct unix_iter_state {
+-	struct seq_net_private p;
+-};
+-
+ static struct sock *unix_from_bucket(struct seq_file *seq, loff_t *pos)
+ {
+ 	unsigned long offset = get_offset(*pos);
+@@ -2383,7 +2379,7 @@ static const struct seq_operations unix_seq_ops = {
+ static int unix_seq_open(struct inode *inode, struct file *file)
+ {
+ 	return seq_open_net(inode, file, &unix_seq_ops,
+-			    sizeof(struct unix_iter_state));
++			    sizeof(struct seq_net_private));
+ }
  
- /* Define the friendly delay before and after opening net devices */
- #define CONF_POST_OPEN		10	/* After opening: 10 msecs */
-@@ -360,6 +364,37 @@ static int __init ic_setup_if(void)
- 
- 	memset(&ir, 0, sizeof(ir));
- 	strcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name);
-+#ifdef IPCONFIG_RENAME_DEV
-+	if ((err = ic_dev_ioctl(SIOCGIFFLAGS, &ir)) < 0) {
-+		pr_err("IP-Config: Unable to get interface flags (1,%d).\n",
-+		       err);
-+		return -1;
-+	}
-+	ir.ifr_flags &= ~IFF_UP;
-+	if ((err = ic_dev_ioctl(SIOCSIFFLAGS, &ir)) < 0) {
-+		pr_err("IP-Config: Unable to set interface flags (1,%d).\n",
-+		       err);
-+		return -1;
-+	}
-+	strcpy(ir.ifr_newname, IPCONFIG_DEV_NEWNAME);
-+	if ((err = ic_dev_ioctl(SIOCSIFNAME, &ir)) < 0) {
-+		pr_err("IP-Config: Unable to change boot interface name to %s (%d).\n",
-+		       IPCONFIG_DEV_NEWNAME, err);
-+		return -1;
-+	}
-+	strcpy(ir.ifr_ifrn.ifrn_name, IPCONFIG_DEV_NEWNAME);
-+	if ((err = ic_dev_ioctl(SIOCGIFFLAGS, &ir)) < 0) {
-+		pr_err("IP-Config: Unable to get interface flags (2,%d).\n",
-+		       err);
-+		return -1;
-+	}
-+	ir.ifr_flags |= IFF_UP;
-+	if ((err = ic_dev_ioctl(SIOCSIFFLAGS, &ir)) < 0) {
-+		pr_err("IP-Config: Unable to set interface flags (2,%d).\n",
-+		       err);
-+		return -1;
-+	}
-+#endif
- 	set_sockaddr(sin, ic_myaddr, 0);
- 	if ((err = ic_devinet_ioctl(SIOCSIFADDR, &ir)) < 0) {
- 		pr_err("IP-Config: Unable to set interface address (%d)\n",
--- 
-1.7.7
+ static const struct file_operations unix_seq_fops = {
