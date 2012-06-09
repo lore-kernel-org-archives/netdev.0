@@ -1,70 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/9] ixgbe: do not compile ixgbe_sysfs.c when CONFIG_IXGBE_HWMON is not set
-Date: Sat,  9 Jun 2012 01:21:00 -0700
-Message-ID: <1339230063-12545-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] ixgbe: align flow control DV macros with datasheet
+Date: Sat,  9 Jun 2012 01:20:59 -0700
+Message-ID: <1339230063-12545-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8495 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:16442 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752795Ab2FIIVP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jun 2012 04:21:15 -0400
+	id S1752730Ab2FIIVO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jun 2012 04:21:14 -0400
 In-Reply-To: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-ixgbe_sysfs.c is only needed when CONFIG_IXGBE_HWMON is configured in the
-kernel.
+The flow control DV macros are used to calculate the flow control
+high and low thresholds. This patch annotates these macros slightly
+better and fixes the issues below.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Acked-by: Don Skidmore <Donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+The macro variables are renamed LINK to _max_frame_link and TC to
+_max_frame_tc. This was to avoid confusion and make them more
+readable. It was found that people auditing the code read TC to be
+'traffic class' in the 802.1Q definition instead of the max frame
+size of the tc. Hopefully it is clear now.
+
+This audit also found the following real deviations from the
+theoretical values. Fixed in this patch.
+
+  * I multiplied the DV calculations by (36/25) which always
+    evaluates to 1. This does not match the intended theoretical
+    value of 1.44.
+
+  * IXGBE_BT2KB added 1023 to account for rounding however this
+    really should be 8 * 1023 - 1 to account for division by 8k.
+
+  * x2 multiplication of max frame in DV calculations to account
+    for updated hardware recommendations.
+
+With this patch the DV values are inline with the recommendations
+in the 82599 and 82598 data sheets. Its worth noting I did not
+see any dropped frames with flow control on in my experiments without
+this patch. However aligning with the hardware specs and
+recommendations seems like a good idea here to account for worst
+case scenarios.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/Makefile      |    4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |    2 --
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   37 +++++++++++++++----------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/Makefile b/drivers/net/ethernet/intel/ixgbe/Makefile
-index 0bdf06b..5fd5d04 100644
---- a/drivers/net/ethernet/intel/ixgbe/Makefile
-+++ b/drivers/net/ethernet/intel/ixgbe/Makefile
-@@ -34,11 +34,11 @@ obj-$(CONFIG_IXGBE) += ixgbe.o
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 204848d..1085c07 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2419,7 +2419,7 @@ typedef u32 ixgbe_physical_layer;
+  */
  
- ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
-               ixgbe_82599.o ixgbe_82598.o ixgbe_phy.o ixgbe_sriov.o \
--              ixgbe_mbx.o ixgbe_x540.o ixgbe_sysfs.o ixgbe_lib.o
-+              ixgbe_mbx.o ixgbe_x540.o ixgbe_lib.o
+ /* BitTimes (BT) conversion */
+-#define IXGBE_BT2KB(BT) ((BT + 1023) / (8 * 1024))
++#define IXGBE_BT2KB(BT) ((BT + (8 * 1024 - 1)) / (8 * 1024))
+ #define IXGBE_B2BT(BT) (BT * 8)
  
- ixgbe-$(CONFIG_IXGBE_DCB) +=  ixgbe_dcb.o ixgbe_dcb_82598.o \
-                               ixgbe_dcb_82599.o ixgbe_dcb_nl.o
+ /* Calculate Delay to respond to PFC */
+@@ -2450,24 +2450,31 @@ typedef u32 ixgbe_physical_layer;
+ #define IXGBE_PCI_DELAY	10000
  
- ixgbe-$(CONFIG_IXGBE_PTP) += ixgbe_ptp.o
+ /* Calculate X540 delay value in bit times */
+-#define IXGBE_FILL_RATE (36 / 25)
 -
-+ixgbe-$(CONFIG_IXGBE_HWMON) += ixgbe_sysfs.o
- ixgbe-$(CONFIG_FCOE:m=y) += ixgbe_fcoe.o
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-index 1d80b1c..2334fce 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-@@ -37,7 +37,6 @@
- #include <linux/netdevice.h>
- #include <linux/hwmon.h>
+-#define IXGBE_DV_X540(LINK, TC) (IXGBE_FILL_RATE * \
+-				 (IXGBE_B2BT(LINK) + IXGBE_PFC_D + \
+-				 (2 * IXGBE_CABLE_DC) + \
+-				 (2 * IXGBE_ID_X540) + \
+-				 IXGBE_HD + IXGBE_B2BT(TC)))
++#define IXGBE_DV_X540(_max_frame_link, _max_frame_tc) \
++			((36 * \
++			  (IXGBE_B2BT(_max_frame_link) + \
++			   IXGBE_PFC_D + \
++			   (2 * IXGBE_CABLE_DC) + \
++			   (2 * IXGBE_ID_X540) + \
++			   IXGBE_HD) / 25 + 1) + \
++			 2 * IXGBE_B2BT(_max_frame_tc))
  
--#ifdef CONFIG_IXGBE_HWMON
- /* hwmon callback functions */
- static ssize_t ixgbe_hwmon_show_location(struct device *dev,
- 					 struct device_attribute *attr,
-@@ -241,5 +240,4 @@ err:
- exit:
- 	return rc;
- }
--#endif /* CONFIG_IXGBE_HWMON */
+ /* Calculate 82599, 82598 delay value in bit times */
+-#define IXGBE_DV(LINK, TC) (IXGBE_FILL_RATE * \
+-			    (IXGBE_B2BT(LINK) + IXGBE_PFC_D + \
+-			    (2 * IXGBE_CABLE_DC) + (2 * IXGBE_ID) + \
+-			    IXGBE_HD + IXGBE_B2BT(TC)))
++#define IXGBE_DV(_max_frame_link, _max_frame_tc) \
++			((36 * \
++			  (IXGBE_B2BT(_max_frame_link) + \
++			   IXGBE_PFC_D + \
++			   (2 * IXGBE_CABLE_DC) + \
++			   (2 * IXGBE_ID) + \
++			   IXGBE_HD) / 25 + 1) + \
++			 2 * IXGBE_B2BT(_max_frame_tc))
  
+ /* Calculate low threshold delay values */
+-#define IXGBE_LOW_DV_X540(TC) (2 * IXGBE_B2BT(TC) + \
+-			       (IXGBE_FILL_RATE * IXGBE_PCI_DELAY))
+-#define IXGBE_LOW_DV(TC)      (2 * IXGBE_LOW_DV_X540(TC))
++#define IXGBE_LOW_DV_X540(_max_frame_tc) \
++			(2 * IXGBE_B2BT(_max_frame_tc) + \
++			(36 * IXGBE_PCI_DELAY / 25) + 1)
++#define IXGBE_LOW_DV(_max_frame_tc) \
++			(2 * IXGBE_LOW_DV_X540(_max_frame_tc))
+ 
+ /* Software ATR hash keys */
+ #define IXGBE_ATR_BUCKET_HASH_KEY    0x3DAD14E2
 -- 
 1.7.10.2
