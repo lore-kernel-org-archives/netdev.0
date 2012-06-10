@@ -1,70 +1,69 @@
-From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in
-	net/ipv{4,6}/route.c
-Date: Sun, 10 Jun 2012 14:47:48 +0800
-Message-ID: <20120610064748.GA10905@localhost>
-References: <20120609.212147.1738198233131370927.davem@davemloft.net>
-	<20120610044339.GA10436@localhost>
-	<20120610044934.GA10507@localhost>
-	<20120609.220421.2043389435765629622.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Sun, 10 Jun 2012 10:03:27 +0300
+Message-ID: <20120610070325.GA14010@redhat.com>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<1338972341.2760.3944.camel@edumazet-glaptop>
+	<87ipezhdvx.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20120609.220421.2043389435765629622.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+In-Reply-To: <87ipezhdvx.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 09, 2012 at 10:04:21PM -0700, David Miller wrote:
-> From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> Date: Sun, 10 Jun 2012 12:49:34 +0800
-> 
-> > On Sun, Jun 10, 2012 at 12:43:39PM +0800, Fengguang Wu wrote:
-> >> On Sat, Jun 09, 2012 at 09:21:47PM -0700, David Miller wrote:
-> >> > From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> >> > Date: Sun, 10 Jun 2012 11:16:34 +0800
-> >> > 
-> >> > > In long run, such build-fix patches can also be auto tested and
-> >> > > reported, somehow in this way. You just create a temporary branch
-> >> > 
-> >> > Sorry, no.
-> >> 
-> >> That's fine. Then how about including some text "fix build errors" or
-> >> "fix build warnings" or paste the original gcc error/warning messages,
-> >> somewhere in the changelog or subject?
-> >> 
-> >> That will also allow me recognize that it's a build fix commit and to
-> >> make it unconditionally report back any build results.
+On Sun, Jun 10, 2012 at 04:06:34PM +0930, Rusty Russell wrote:
+> On Wed, 06 Jun 2012 10:45:41 +0200, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Wed, 2012-06-06 at 10:35 +0200, Eric Dumazet wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > commit 3fa2a1df909 (virtio-net: per cpu 64 bit stats (v2)) added a race
+> > > on 32bit arches.
+> > > 
+> > > We must use separate syncp for rx and tx path as they can be run at the
+> > > same time on different cpus. Thus one sequence increment can be lost and
+> > > readers spin forever.
+> > > 
+> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > > Cc: Stephen Hemminger <shemminger@vyatta.com>
+> > > Cc: Michael S. Tsirkin <mst@redhat.com>
+> > > Cc: Jason Wang <jasowang@redhat.com>
+> > > ---
 > > 
-> > Or better, simply include a 
+> > Just to make clear : even using percpu stats/syncp, we have no guarantee
+> > that write_seqcount_begin() is done with one instruction. [1]
 > > 
-> >         Reported-by: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> > It is OK on x86 if "incl" instruction is generated by the compiler, but
+> > on a RISC cpu, the "load memory,%reg ; inc %reg ; store %reg,memory" can
+> > be interrupted.
+> > 
+> > So if you are 100% sure all paths are safe against preemption/BH, then
+> > this patch is not needed, but a big comment in the code would avoid
+> > adding possible races in the future.
 > 
-> Now that on the other hand I should have done and was an oversight.
+> Too fragile; let's keep them separate as per this patch.
+> 
+> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+> 
+> Thanks,
+> Rusty.
 
-That's fine.
+One question though: do we want to lay the structure
+out so that the rx sync structure precedes the rx counters?
 
-Please feel free to add that "Reported-by" to get verbose build report,
-as well as to _NOT_ add the above line to avoid receiving reports when
-the fix is obviously correct.
-
-Ie. use the tag as a way to control my script.
-
-> But all the other crap, is absolutely unreasonable of you to ask of me.
-
-Yup.. Thanks for your time!
-
-Regards,
-Fengguang
+-- 
+MST
