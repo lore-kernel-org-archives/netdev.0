@@ -1,42 +1,27 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: [PATCH] af_packet: check loop for greater than zero in tpacket_fill_skb
-Date: Sun, 10 Jun 2012 21:25:08 +0200
-Message-ID: <4FD4F494.6020102@iogearbox.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: REGRESSION: 3.4.0->3.5.0-rc2 kernel WARNING on cable plug on Acer Aspire One, no network
+Date: Sun, 10 Jun 2012 21:59:06 +0200
+Message-ID: <20120610195906.GA15641@electric-eye.fr.zoreil.com>
+References: <4FD4F28B.4070003@palosanto.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Alex =?utf-8?B?VmlsbGFjw61z?= Lasso <a_villacis@palosanto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35682 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751399Ab2FJTZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 15:25:16 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50361 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab2FJUI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 16:08:27 -0400
+Content-Disposition: inline
+In-Reply-To: <4FD4F28B.4070003@palosanto.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It could be more safe to check the 'to_write' for 'greater than zero'
-instead for 'not zero'. 'to_write' is of type int and subtraction operations
-are performed on it, so in the case of malformed values that are
-subtracted from 'to_write', it could become less than zero, which is then
-interpreted as 'not zero' in the while condition, thus the loop won't
-return as expected.
+Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com> :
+[...]
 
-Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
----
- net/packet/af_packet.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Which r8169 chipset version is it (dmesg | grep XID) ?
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 0f66174..3e53680 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2027,7 +2027,7 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb->truesize += to_write;
- 	atomic_add(to_write, &po->sk.sk_wmem_alloc);
- 
--	while (likely(to_write)) {
-+	while (likely(to_write > 0)) {
- 		nr_frags = skb_shinfo(skb)->nr_frags;
- 
- 		if (unlikely(nr_frags >= MAX_SKB_FRAGS)) {
+--=20
+Ueimor
