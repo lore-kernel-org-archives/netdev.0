@@ -1,62 +1,60 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 3/9] igb: Update firmware info output
-Date: Sun, 10 Jun 2012 01:57:34 +0100
-Message-ID: <1339289854.21665.161.camel@deadeye.wl.decadent.org.uk>
-References: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1339230063-12545-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: mlx4_core: Modify driver initialization flow to accommodate
+ SRIOV for Ethernet
+Date: Sun, 10 Jun 2012 02:03:37 +0100
+Message-ID: <1339290217.21665.164.camel@deadeye.wl.decadent.org.uk>
+References: <20120609090918.GB877@elgon.mountain>
+	 <201206091429.17171.jackm@dev.mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>, <netdev@vger.kernel.org>,
+	<dotanb@mellanox.co.il>, Or Gerlitz <ogerlitz@mellanox.com>
+To: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8653 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:8747 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752592Ab2FJA5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 20:57:39 -0400
-In-Reply-To: <1339230063-12545-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	by vger.kernel.org with ESMTP id S1753923Ab2FJBDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jun 2012 21:03:42 -0400
+In-Reply-To: <201206091429.17171.jackm@dev.mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-06-09 at 01:20 -0700, Jeff Kirsher wrote:
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On Sat, 2012-06-09 at 14:29 +0300, Jack Morgenstein wrote:
+> On Saturday 09 June 2012 12:09, Dan Carpenter wrote:
+> >    423          /*fail if the hca has an unknown capability */
+> >    424          if ((hca_param.global_caps | HCA_GLOBAL_CAP_MASK) !=
+> >    425              HCA_GLOBAL_CAP_MASK) {
+> >    426                  mlx4_err(dev, "Unknown hca global capabilities\n");
+> >    427                  return -ENOSYS;
+> >    428          }
+> > 
+> > The test sort of makes sense but HCA_GLOBAL_CAP_MASK is zero so we could
+> > as well say:
+> > 
+> >         if (hca_param.global_caps) { ...
+> > 
+> The parameter global_caps is to guarantee that the guest OS is capable
+> of supporting the driver which is running on the master (hypervisor).
 > 
-> Our NVM image creation tools have evolved over the years and there are
-> multiple versions contained in them, depending on the tool used to create
-> them.  This patch outputs the NVM versions available in ethtool -i output.
-[...]
-> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> @@ -718,20 +718,16 @@ static void igb_get_drvinfo(struct net_device *netdev,
->  			    struct ethtool_drvinfo *drvinfo)
->  {
->  	struct igb_adapter *adapter = netdev_priv(netdev);
-> -	u16 eeprom_data;
->  
->  	strlcpy(drvinfo->driver,  igb_driver_name, sizeof(drvinfo->driver));
->  	strlcpy(drvinfo->version, igb_driver_version, sizeof(drvinfo->version));
->  
-> -	/* EEPROM image version # is reported as firmware version # for
-> -	 * 82575 controllers */
-> -	adapter->hw.nvm.ops.read(&adapter->hw, 5, 1, &eeprom_data);
-> -	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
-> -		"%d.%d-%d",
-> -		(eeprom_data & 0xF000) >> 12,
-> -		(eeprom_data & 0x0FF0) >> 4,
-> -		eeprom_data & 0x000F);
-> -
-> +	/*
-> +	 * EEPROM image version # is reported as firmware version # for
-> +	 * 82575 controllers
-> +	 */
-> +	strlcpy(drvinfo->fw_version, adapter->fw_version,
-> +		sizeof(drvinfo->fw_version));
+> If a new feature impacts the guests, we will define a bit in the
+> global_caps bitmask and the master driver will set this bit and
+> the global_caps bitmask with the newly set bit will be passed
+> to the slaves.
+> 
+> The HCA_GLOBAL_CAP_MASK on the slave OS represents the set
+> of such features which the slave knows how to support.
+> If a new feature appears which is not set in the slave's
+> HCA_GLOBAL_CAP_MASK, this test detects the discrepancy and
+> the slave driver aborts.
 [...]
 
-Doesn't this driver support online firmware upgrades using
-ETHTOOL_SEEPROM?  If so then you should carry on reading the version
-from NVRAM here, rather than only doing it at probe time.
+It would be more idiomatic to write the condition as:
+
+	if (hca_param.global_caps & ~(u64)HCA_GLOBAL_CAP_MASK)
+
+(although that cast probably belongs in the definition of
+HCA_GLOBAL_CAP_MASK).
 
 Ben.
 
