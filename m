@@ -1,320 +1,98 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH 1/1 v3] Ethtool: Add EEE support
-Date: Sun, 10 Jun 2012 11:48:08 +0300
-Message-ID: <1339318088-27126-1-git-send-email-yuvalmin@broadcom.com>
+From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in
+	net/ipv{4,6}/route.c
+Date: Sun, 10 Jun 2012 18:16:40 +0800
+Message-ID: <20120610101640.GA14476@localhost>
+References: <20120610015832.GA9175@localhost> <20120610020801.GA9293@localhost>
+	<20120609.190929.1165462964087672866.davem@davemloft.net>
+	<20120609.221801.2226110181753212240.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, peppe.cavallaro@st.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: bhutchings@solarflare.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4336 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751451Ab2FJItk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jun 2012 04:49:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120609.221801.2226110181753212240.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds 2 new ethtool commands which can be
-used to manipulate network interfaces' support in
-EEE.
-
-Output of 'get' has the following form:
-
-	EEE Settings for p2p1:
-		EEE status: enabled - active
-		Tx LPI: 1000 (us)
-		Supported EEE link modes:  10000baseT/Full
-		Advertised EEE link modes:  10000baseT/Full
-		Link partner advertised EEE link modes:  10000baseT/Full
-
-Thanks goes to Giuseppe Cavallaro for his original patch.
-
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Changes from Version 2:
-	- Changed --get-eee into --show-eee
-	- Corrected EEE tests in test-cmdline.c
-	- Corrected documentation
----
- ethtool.8.in   |   32 +++++++++++++
- ethtool.c      |  136 +++++++++++++++++++++++++++++++++++++++++++++++--------
- test-cmdline.c |   11 +++++
- 3 files changed, 159 insertions(+), 20 deletions(-)
-
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 70ae31d..178322b 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -325,6 +325,16 @@ ethtool \- query or control network driver and hardware settings
- .I devname flag
- .A1 on off
- .RB ...
-+.HP
-+.B ethtool \-\-show\-eee
-+.I devname
-+.HP
-+.B ethtool \-\-set\-eee
-+.I devname
-+.B2 eee on off
-+.B2 tx-lpi on off
-+.BN tx-timer
-+.BN advertise
- .
- .\" Adjust lines (i.e. full justification) and hyphenate.
- .ad
-@@ -810,6 +820,28 @@ Sets the device's private flags as specified.
- .I flag
- .A1 on off
- Sets the state of the named private flag.
-+.TP
-+.B \-\-show\-eee
-+Queries the specified network device for its support of Efficient Energy
-+Ethernet (according to the IEEE 802.3az specifications)
-+.TP
-+.B \-\-set\-eee
-+Sets the device EEE behaviour.
-+.TP
-+.A2 eee on off
-+Enables/disables the device support of EEE.
-+.TP
-+.A2 tx-lpi on off
-+Determines whether the device should assert its Tx LPI.
-+.TP
-+.BI advertise \ N
-+Sets the speeds for which the device should advertise EEE capabiliities.
-+Values are as for
-+.B \-\-change advertise
-+.TP
-+.BI tx-timer \ N
-+Sets the amount of time the device should stay in idle mode prior to asserting
-+its Tx LPI (in microseconds). This has meaning only when Tx LPI is enabled.
- .SH BUGS
- Not supported (in part or whole) on all network drivers.
- .SH AUTHOR
-diff --git a/ethtool.c b/ethtool.c
-index f09a032..73e0e28 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -416,7 +416,8 @@ static int do_version(struct cmd_context *ctx)
- 	return 0;
- }
- 
--static void dump_link_caps(const char *prefix, const char *an_prefix, u32 mask);
-+static void dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
-+			   int link_mode_only);
- 
- static void dump_supported(struct ethtool_cmd *ep)
- {
-@@ -435,14 +436,15 @@ static void dump_supported(struct ethtool_cmd *ep)
- 		fprintf(stdout, "FIBRE ");
- 	fprintf(stdout, "]\n");
- 
--	dump_link_caps("Supported", "Supports", mask);
-+	dump_link_caps("Supported", "Supports", mask, 0);
- }
- 
- /* Print link capability flags (supported, advertised or lp_advertised).
-  * Assumes that the corresponding SUPPORTED and ADVERTISED flags are equal.
-  */
- static void
--dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
-+dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
-+	       int link_mode_only)
- {
- 	int indent;
- 	int did1;
-@@ -527,24 +529,26 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
- 		 fprintf(stdout, "Not reported");
- 	fprintf(stdout, "\n");
- 
--	fprintf(stdout, "	%s pause frame use: ", prefix);
--	if (mask & ADVERTISED_Pause) {
--		fprintf(stdout, "Symmetric");
--		if (mask & ADVERTISED_Asym_Pause)
--			fprintf(stdout, " Receive-only");
--		fprintf(stdout, "\n");
--	} else {
--		if (mask & ADVERTISED_Asym_Pause)
--			fprintf(stdout, "Transmit-only\n");
-+	if (!link_mode_only) {
-+		fprintf(stdout, "	%s pause frame use: ", prefix);
-+		if (mask & ADVERTISED_Pause) {
-+			fprintf(stdout, "Symmetric");
-+			if (mask & ADVERTISED_Asym_Pause)
-+				fprintf(stdout, " Receive-only");
-+			fprintf(stdout, "\n");
-+		} else {
-+			if (mask & ADVERTISED_Asym_Pause)
-+				fprintf(stdout, "Transmit-only\n");
-+			else
-+				fprintf(stdout, "No\n");
-+		}
-+
-+		fprintf(stdout, "	%s auto-negotiation: ", an_prefix);
-+		if (mask & ADVERTISED_Autoneg)
-+			fprintf(stdout, "Yes\n");
- 		else
- 			fprintf(stdout, "No\n");
- 	}
--
--	fprintf(stdout, "	%s auto-negotiation: ", an_prefix);
--	if (mask & ADVERTISED_Autoneg)
--		fprintf(stdout, "Yes\n");
--	else
--		fprintf(stdout, "No\n");
- }
- 
- static int dump_ecmd(struct ethtool_cmd *ep)
-@@ -552,10 +556,11 @@ static int dump_ecmd(struct ethtool_cmd *ep)
- 	u32 speed;
- 
- 	dump_supported(ep);
--	dump_link_caps("Advertised", "Advertised", ep->advertising);
-+	dump_link_caps("Advertised", "Advertised", ep->advertising, 0);
- 	if (ep->lp_advertising)
- 		dump_link_caps("Link partner advertised",
--			       "Link partner advertised", ep->lp_advertising);
-+			       "Link partner advertised", ep->lp_advertising,
-+			       0);
- 
- 	fprintf(stdout, "	Speed: ");
- 	speed = ethtool_cmd_speed(ep);
-@@ -1234,6 +1239,34 @@ static int dump_rxfhash(int fhash, u64 val)
- 	return 0;
- }
- 
-+static void dump_eeecmd(struct ethtool_eee *ep)
-+{
-+
-+	fprintf(stdout, "	EEE status: ");
-+	if (!ep->supported) {
-+		fprintf(stdout, "not supported\n");
-+		return;
-+	} else if (!ep->eee_enabled) {
-+		fprintf(stdout, "disabled\n");
-+	} else {
-+		fprintf(stdout, "enabled - ");
-+		if (ep->eee_active)
-+			fprintf(stdout, "active\n");
-+		else
-+			fprintf(stdout, "inactive\n");
-+	}
-+
-+	fprintf(stdout, "	Tx LPI:");
-+	if (ep->tx_lpi_enabled)
-+		fprintf(stdout, " %d (us)\n", ep->tx_lpi_timer);
-+	else
-+		fprintf(stdout, " disabled\n");
-+
-+	dump_link_caps("Supported EEE", "", ep->supported, 1);
-+	dump_link_caps("Advertised EEE", "", ep->advertised, 1);
-+	dump_link_caps("Link partner advertised EEE", "", ep->lp_advertised, 1);
-+}
-+
- #define N_SOTS 7
- 
- static char *so_timestamping_labels[N_SOTS] = {
-@@ -3463,6 +3496,63 @@ static int do_getmodule(struct cmd_context *ctx)
- 	return 0;
- }
- 
-+static int do_geee(struct cmd_context *ctx)
-+{
-+	struct ethtool_eee eeecmd;
-+
-+	if (ctx->argc != 0)
-+		exit_bad_args();
-+
-+	eeecmd.cmd = ETHTOOL_GEEE;
-+	if (send_ioctl(ctx, &eeecmd)) {
-+		perror("Cannot get EEE settings");
-+		return 1;
-+	}
-+
-+	fprintf(stdout, "EEE Settings for %s:\n", ctx->devname);
-+	dump_eeecmd(&eeecmd);
-+
-+	return 0;
-+}
-+
-+static int do_seee(struct cmd_context *ctx)
-+{
-+	int adv_c = -1, lpi_c = -1, lpi_time_c = -1, eee_c = -1;
-+	int change = -1, change2 = -1;
-+	struct ethtool_eee eeecmd;
-+	struct cmdline_info cmdline_eee[] = {
-+		{ "advertise",    CMDL_U32,  &adv_c,       &eeecmd.advertised },
-+		{ "tx-lpi",       CMDL_BOOL, &lpi_c,   &eeecmd.tx_lpi_enabled },
-+		{ "tx-timer",	  CMDL_U32,  &lpi_time_c, &eeecmd.tx_lpi_timer},
-+		{ "eee",	  CMDL_BOOL, &eee_c,	   &eeecmd.eee_enabled},
-+	};
-+
-+	if (ctx->argc == 0)
-+		exit_bad_args();
-+
-+	parse_generic_cmdline(ctx, &change, cmdline_eee,
-+			      ARRAY_SIZE(cmdline_eee));
-+
-+	eeecmd.cmd = ETHTOOL_GEEE;
-+	if (send_ioctl(ctx, &eeecmd)) {
-+		perror("Cannot get EEE settings");
-+		return 1;
-+	}
-+
-+	do_generic_set(cmdline_eee, ARRAY_SIZE(cmdline_eee), &change2);
-+
-+	if (change2) {
-+
-+		eeecmd.cmd = ETHTOOL_SEEE;
-+		if (send_ioctl(ctx, &eeecmd)) {
-+			perror("Cannot set EEE settings");
-+			return 1;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- #ifndef TEST_ETHTOOL
- int send_ioctl(struct cmd_context *ctx, void *cmd)
- {
-@@ -3611,6 +3701,12 @@ static const struct option {
- 	  "		[ hex on|off ]\n"
- 	  "		[ offset N ]\n"
- 	  "		[ length N ]\n" },
-+	{ "--show-eee", 1, do_geee, "Show EEE settings"},
-+	{ "--set-eee", 1, do_seee, "Set EEE settings",
-+	  "		[ eee on|off ]\n"
-+	  "		[ advertise %x ]\n"
-+	  "		[ tx-lpi on|off ]\n"
-+	  "		[ tx-timer %d ]\n"},
- 	{ "-h|--help", 0, show_usage, "Show this help" },
- 	{ "--version", 0, do_version, "Show version number" },
- 	{}
-diff --git a/test-cmdline.c b/test-cmdline.c
-index 978c312..8fc2b48 100644
---- a/test-cmdline.c
-+++ b/test-cmdline.c
-@@ -217,6 +217,17 @@ static struct test_case {
- 	{ 0, "-m devname hex off" },
- 	{ 1, "-m devname hex on raw on" },
- 	{ 0, "-m devname offset 4 length 6" },
-+	{ 1, "--show-eee" },
-+	{ 0, "--show-eee devname" },
-+	{ 1, "--show-eee devname foo" },
-+	{ 1, "--set-eee" },
-+	{ 1, "--set-eee devname" },
-+	{ 0, "--set-eee devname eee on" },
-+	{ 0, "--set-eee devname eee off" },
-+	{ 0, "--set-eee devname tx-lpi on" },
-+	{ 0, "--set-eee devname tx-lpi off" },
-+	{ 1, "--set-eee devname tx-timer foo" },
-+	{ 1, "--set-eee devname advertise foo" },
- 	/* can't test --set-priv-flags yet */
- 	{ 0, "-h" },
- 	{ 0, "--help" },
--- 
-1.7.9.rc2
+T24gU2F0LCBKdW4gMDksIDIwMTIgYXQgMTA6MTg6MDFQTSAtMDQwMCwgRGF2aWQgTWlsbGVyIHdy
+b3RlOgo+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBEYXRlOiBT
+YXQsIDA5IEp1biAyMDEyIDE5OjA5OjI5IC0wNzAwIChQRFQpCj4gCj4gPiBGcm9tOiBGZW5nZ3Vh
+bmcgV3UgPHdmZ0BsaW51eC5pbnRlbC5jb20+Cj4gPiBEYXRlOiBTdW4sIDEwIEp1biAyMDEyIDEw
+OjA4OjAxICswODAwCj4gPiAKPiA+PiBBbmQgaW4gYW5vdGhlciBjb25maWcsIGFuIG9sZCBlcnJv
+ciBzdGlsbCB0cmlnZ2VyczoKPiA+PiAKPiA+PiBuZXQvaXB2NC9pbmV0cGVlci5jOiBJbiBmdW5j
+dGlvbiDigJhmYW1pbHlfdG9fYmFzZeKAmToKPiA+PiBuZXQvaXB2NC9pbmV0cGVlci5jOjM5Nzo1
+MDogZXJyb3I6IOKAmHN0cnVjdCBuZXTigJkgaGFzIG5vIG1lbWJlciBuYW1lZCDigJhpcHY24oCZ
+Cj4gPj4gbmV0L2lwdjQvaW5ldHBlZXIuYzozOTg6MTogd2FybmluZzogY29udHJvbCByZWFjaGVz
+IGVuZCBvZiBub24tdm9pZCBmdW5jdGlvbiBbLVdyZXR1cm4tdHlwZV0KPiA+PiAKPiA+PiBJJ20g
+YnVpbGRpbmcgdGhpcyBwYXRjaCBvbiB0b3Agb2YgbmV0LW5leHQgbWFzdGVyLgo+ID4gCj4gPiBX
+aGF0IGEgZnVja2luZyBtZXNzIEdhbyBjcmVhdGVkLCBJJ2xsIGZpeCB0aGlzLgo+ID4gCj4gPiBU
+aGFua3MgZm9yIHRoZSByZXBvcnQuCj4gCj4gSSBqdXN0IHB1c2hlZCB0aGUgZm9sbG93aW5nIHRv
+IG5ldC1uZXh0Ogo+IAo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gaW5ldDogUGFzcyBpbmV0cGVl
+ciByb290IGludG8gaW5ldF9nZXRwZWVyKigpIGludGVyZmFjZXMuCj4gCj4gT3RoZXJ3aXNlIHdl
+IHJlZmVyZW5jZSBwb3RlbnRpYWxseSBub24tZXhpc3RpbmcgbWVtYmVycyB3aGVuCj4gaXB2NiBp
+cyBkaXNhYmxlZC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRh
+dmVtbG9mdC5uZXQ+Cj4gLS0tCj4gIGluY2x1ZGUvbmV0L2luZXRwZWVyLmggfCAgIDEwICsrKysr
+LS0tLS0KPiAgbmV0L2lwdjQvaW5ldHBlZXIuYyAgICB8ICAgIDkgKy0tLS0tLS0tCj4gIG5ldC9p
+cHY0L2lwX2ZyYWdtZW50LmMgfCAgICAyICstCj4gIG5ldC9pcHY0L3JvdXRlLmMgICAgICAgfCAg
+ICA2ICsrKy0tLQo+ICBuZXQvaXB2Ni9yb3V0ZS5jICAgICAgIHwgICAgMiArLQo+ICA1IGZpbGVz
+IGNoYW5nZWQsIDExIGluc2VydGlvbnMoKyksIDE4IGRlbGV0aW9ucygtKQoKSXQgdHJpZ2dlcnMg
+c29tZSBvdGhlciBlcnJvcnM6CgpuZXQvaXB2NC9pbmV0cGVlci5jOiBJbiBmdW5jdGlvbiDigJhp
+bmV0cGVlcl9pbnZhbGlkYXRlX3RyZWXigJk6Cm5ldC9pcHY0L2luZXRwZWVyLmM6NTg1Ojk6IGVy
+cm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhmYW1pbHlfdG9fYmFzZeKA
+mSBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0KbmV0L2lwdjQvaW5ldHBl
+ZXIuYzo1ODU6MzI6IHdhcm5pbmc6IGluaXRpYWxpemF0aW9uIG1ha2VzIHBvaW50ZXIgZnJvbSBp
+bnRlZ2VyIHdpdGhvdXQgYSBjYXN0IFtlbmFibGVkIGJ5IGRlZmF1bHRdCm5ldC9pcHY2L3RjcF9p
+cHY2LmM6MTc1ODoyOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDEgb2Yg4oCYaW5ldF9nZXRw
+ZWVyX3Y24oCZIGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZh
+dWx0XQppbmNsdWRlL25ldC9pbmV0cGVlci5oOjEwMTozMzogbm90ZTogZXhwZWN0ZWQg4oCYc3Ry
+dWN0IGluZXRfcGVlcl9iYXNlICrigJkgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUg4oCYc3RydWN0
+IG5ldCAq4oCZCm5ldC9pcHY0L3RjcF9pcHY0LmM6MTg0MzoyOiB3YXJuaW5nOiBwYXNzaW5nIGFy
+Z3VtZW50IDEgb2Yg4oCYaW5ldF9nZXRwZWVyX3Y04oCZIGZyb20gaW5jb21wYXRpYmxlIHBvaW50
+ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQppbmNsdWRlL25ldC9pbmV0cGVlci5oOjkwOjMz
+OiBub3RlOiBleHBlY3RlZCDigJhzdHJ1Y3QgaW5ldF9wZWVyX2Jhc2UgKuKAmSBidXQgYXJndW1l
+bnQgaXMgb2YgdHlwZSDigJhzdHJ1Y3QgbmV0ICrigJkKCndoaWNoIGNhbiBiZSBmaXhlZCBieSB0
+aGUgZm9sbG93aW5nIGRpZmYuCgpUaGFua3MsCkZlbmdndWFuZwotLS0KIG5ldC9pcHY0L2luZXRw
+ZWVyLmMgfCAgICA2ICsrKysrKwogbmV0L2lwdjQvdGNwX2lwdjQuYyB8ICAgIDIgKy0KIG5ldC9p
+cHY2L3RjcF9pcHY2LmMgfCAgICAyICstCiAzIGZpbGVzIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygr
+KSwgMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvaXB2NC9pbmV0cGVlci5jIGIvbmV0
+L2lwdjQvaW5ldHBlZXIuYwppbmRleCA5OGNmMWY4Li43YWQ2Yjc2IDEwMDY0NAotLS0gYS9uZXQv
+aXB2NC9pbmV0cGVlci5jCisrKyBiL25ldC9pcHY0L2luZXRwZWVyLmMKQEAgLTM5MSw2ICszOTEs
+MTIgQEAgc3RhdGljIHZvaWQgdW5saW5rX2Zyb21fcG9vbChzdHJ1Y3QgaW5ldF9wZWVyICpwLCBz
+dHJ1Y3QgaW5ldF9wZWVyX2Jhc2UgKmJhc2UsCiAJY2FsbF9yY3UoJnAtPnJjdSwgaW5ldHBlZXJf
+ZnJlZV9yY3UpOwogfQogCitzdGF0aWMgc3RydWN0IGluZXRfcGVlcl9iYXNlICpmYW1pbHlfdG9f
+YmFzZShzdHJ1Y3QgbmV0ICpuZXQsCisJCQkJCSAgICAgaW50IGZhbWlseSkKK3sKKwlyZXR1cm4g
+ZmFtaWx5ID09IEFGX0lORVQgPyBuZXQtPmlwdjQucGVlcnMgOiBuZXQtPmlwdjYucGVlcnM7Cit9
+CisKIC8qIHBlcmZvcm0gZ2FyYmFnZSBjb2xsZWN0IG9uIGFsbCBpdGVtcyBzdGFja2VkIGR1cmlu
+ZyBhIGxvb2t1cCAqLwogc3RhdGljIGludCBpbmV0X3BlZXJfZ2Moc3RydWN0IGluZXRfcGVlcl9i
+YXNlICpiYXNlLAogCQkJc3RydWN0IGluZXRfcGVlciBfX3JjdSAqKnN0YWNrW1BFRVJfTUFYREVQ
+VEhdLApkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lwdjQuYyBiL25ldC9pcHY0L3RjcF9pcHY0
+LmMKaW5kZXggNzdmMDQ5ZC4uY2Y3ZmU5MiAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvdGNwX2lwdjQu
+YworKysgYi9uZXQvaXB2NC90Y3BfaXB2NC5jCkBAIC0xODQwLDcgKzE4NDAsNyBAQCB2b2lkICp0
+Y3BfdjRfdHdfZ2V0X3BlZXIoc3RydWN0IHNvY2sgKnNrKQogCWNvbnN0IHN0cnVjdCBpbmV0X3Rp
+bWV3YWl0X3NvY2sgKnR3ID0gaW5ldF90d3NrKHNrKTsKIAlzdHJ1Y3QgbmV0ICpuZXQgPSBzb2Nr
+X25ldChzayk7CiAKLQlyZXR1cm4gaW5ldF9nZXRwZWVyX3Y0KG5ldCwgdHctPnR3X2RhZGRyLCAx
+KTsKKwlyZXR1cm4gaW5ldF9nZXRwZWVyX3Y0KG5ldC0+aXB2NC5wZWVycywgdHctPnR3X2RhZGRy
+LCAxKTsKIH0KIEVYUE9SVF9TWU1CT0wodGNwX3Y0X3R3X2dldF9wZWVyKTsKIApkaWZmIC0tZ2l0
+IGEvbmV0L2lwdjYvdGNwX2lwdjYuYyBiL25ldC9pcHY2L3RjcF9pcHY2LmMKaW5kZXggYjVlY2Yz
+Ny4uOTI3YzAyOSAxMDA2NDQKLS0tIGEvbmV0L2lwdjYvdGNwX2lwdjYuYworKysgYi9uZXQvaXB2
+Ni90Y3BfaXB2Ni5jCkBAIC0xNzU1LDcgKzE3NTUsNyBAQCBzdGF0aWMgdm9pZCAqdGNwX3Y2X3R3
+X2dldF9wZWVyKHN0cnVjdCBzb2NrICpzaykKIAlpZiAodHctPnR3X2ZhbWlseSA9PSBBRl9JTkVU
+KQogCQlyZXR1cm4gdGNwX3Y0X3R3X2dldF9wZWVyKHNrKTsKIAotCXJldHVybiBpbmV0X2dldHBl
+ZXJfdjYobmV0LCAmdHc2LT50d192Nl9kYWRkciwgMSk7CisJcmV0dXJuIGluZXRfZ2V0cGVlcl92
+NihuZXQtPmlwdjYucGVlcnMsICZ0dzYtPnR3X3Y2X2RhZGRyLCAxKTsKIH0KIAogc3RhdGljIHN0
+cnVjdCB0aW1ld2FpdF9zb2NrX29wcyB0Y3A2X3RpbWV3YWl0X3NvY2tfb3BzID0gewotLSAKMS43
+LjEwCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb250
+YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3Jn
+Cmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRh
+aW5lcnM=
