@@ -1,25 +1,47 @@
-From: Vanda Schrum <vanda0gschrum@yahoo.com>
-Subject: =?utf-8?B?W0Zvci4uMi02XeeOm+WlgyBbRW5kRm9yXS4uLg==?=
-Date: Sun, 10 Jun 2012 05:34:57 +0100 (BST)
-Message-ID: <1339302897.92354.YahooMailNeo@web132101.mail.ird.yahoo.com>
-Reply-To: Vanda0gschrum <vanda0gschrum@yahoo.com>
+From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in
+	net/ipv{4,6}/route.c
+Date: Sun, 10 Jun 2012 12:43:39 +0800
+Message-ID: <20120610044339.GA10436@localhost>
+References: <20120610015832.GA9175@localhost>
+	<20120609.190451.182034193302304295.davem@davemloft.net>
+	<20120610031634.GA10032@localhost>
+	<20120609.212147.1738198233131370927.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "prmexgrniz520@yahoo.com" <prmexgrniz520@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm24-vm2.bullet.mail.ird.yahoo.com ([212.82.109.193]:42681 "HELO
-	nm24-vm2.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750895Ab2FJEkX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jun 2012 00:40:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120609.212147.1738198233131370927.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=E7=9E=95=E8=83=82 =E9=A9=9C=E5=B8=80=E8=A8=BA=E5=88=A8 =E8=87=97=E4=BA=
-=88=E6=A3=9C =E7=A9=A3=E6=9F=8E =E7=9E=83=E9=87=AD=E9=99=BC=E6=A2=9D =E5=
-=A4=98 =E6=95=9C=E5=97=88=E6=A5=AC=E5=99=AC=E4=BD=BA =E7=86=A2 =E7=B1=83=
-=E6=AE=B1 =E8=BC=B5 =E7=BB=BE =E9=84=BF=E8=A4=B8=E7=81=8E=E5=BB=9D =E6=B6=
-=8C=E7=9C=B2=E7=B1=86 =E6=B9=8F=E5=BE=B1=E5=9E=88=E8=8D=9D=E8=9A=89 =E8=
-=89=A2=E9=AC=AA=E8=A4=9B=E6=86=AF =E5=A5=9B =E6=B1=87 =E6=91=A4=E9=99=AF=
- =E5=91=B8=E6=93=A2...
+On Sat, Jun 09, 2012 at 09:21:47PM -0700, David Miller wrote:
+> From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Date: Sun, 10 Jun 2012 11:16:34 +0800
+> 
+> > In long run, such build-fix patches can also be auto tested and
+> > reported, somehow in this way. You just create a temporary branch
+> 
+> Sorry, no.
+
+That's fine. Then how about including some text "fix build errors" or
+"fix build warnings" or paste the original gcc error/warning messages,
+somewhere in the changelog or subject?
+
+That will also allow me recognize that it's a build fix commit and to
+make it unconditionally report back any build results.
+
+Thanks,
+Fengguang
