@@ -1,19 +1,20 @@
 From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in
 	net/ipv{4,6}/route.c
-Date: Sun, 10 Jun 2012 10:37:36 +0800
-Message-ID: <20120610023736.GA9908@localhost>
-References: <20120610015832.GA9175@localhost> <20120610020801.GA9293@localhost>
-	<20120609.190929.1165462964087672866.davem@davemloft.net>
-	<20120609.221801.2226110181753212240.davem@davemloft.net>
+Date: Sun, 10 Jun 2012 11:16:34 +0800
+Message-ID: <20120610031634.GA10032@localhost>
+References: <20120609.163202.516027044484907548.davem@davemloft.net>
+	<20120610015832.GA9175@localhost>
+	<20120609.190451.182034193302304295.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20120609.221801.2226110181753212240.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <20120609.190451.182034193302304295.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
@@ -25,41 +26,39 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gU2F0LCBKdW4gMDksIDIwMTIgYXQgMTA6MTg6MDFQTSAtMDQwMCwgRGF2aWQgTWlsbGVyIHdy
-b3RlOgo+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBEYXRlOiBT
-YXQsIDA5IEp1biAyMDEyIDE5OjA5OjI5IC0wNzAwIChQRFQpCj4gCj4gPiBGcm9tOiBGZW5nZ3Vh
-bmcgV3UgPHdmZ0BsaW51eC5pbnRlbC5jb20+Cj4gPiBEYXRlOiBTdW4sIDEwIEp1biAyMDEyIDEw
-OjA4OjAxICswODAwCj4gPiAKPiA+PiBBbmQgaW4gYW5vdGhlciBjb25maWcsIGFuIG9sZCBlcnJv
-ciBzdGlsbCB0cmlnZ2VyczoKPiA+PiAKPiA+PiBuZXQvaXB2NC9pbmV0cGVlci5jOiBJbiBmdW5j
-dGlvbiDigJhmYW1pbHlfdG9fYmFzZeKAmToKPiA+PiBuZXQvaXB2NC9pbmV0cGVlci5jOjM5Nzo1
-MDogZXJyb3I6IOKAmHN0cnVjdCBuZXTigJkgaGFzIG5vIG1lbWJlciBuYW1lZCDigJhpcHY24oCZ
-Cj4gPj4gbmV0L2lwdjQvaW5ldHBlZXIuYzozOTg6MTogd2FybmluZzogY29udHJvbCByZWFjaGVz
-IGVuZCBvZiBub24tdm9pZCBmdW5jdGlvbiBbLVdyZXR1cm4tdHlwZV0KPiA+PiAKPiA+PiBJJ20g
-YnVpbGRpbmcgdGhpcyBwYXRjaCBvbiB0b3Agb2YgbmV0LW5leHQgbWFzdGVyLgo+ID4gCj4gPiBX
-aGF0IGEgZnVja2luZyBtZXNzIEdhbyBjcmVhdGVkLCBJJ2xsIGZpeCB0aGlzLgo+ID4gCj4gPiBU
-aGFua3MgZm9yIHRoZSByZXBvcnQuCj4gCj4gSSBqdXN0IHB1c2hlZCB0aGUgZm9sbG93aW5nIHRv
-IG5ldC1uZXh0Ogo+IAo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gaW5ldDogUGFzcyBpbmV0cGVl
-ciByb290IGludG8gaW5ldF9nZXRwZWVyKigpIGludGVyZmFjZXMuCj4gCj4gT3RoZXJ3aXNlIHdl
-IHJlZmVyZW5jZSBwb3RlbnRpYWxseSBub24tZXhpc3RpbmcgbWVtYmVycyB3aGVuCj4gaXB2NiBp
-cyBkaXNhYmxlZC4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRh
-dmVtbG9mdC5uZXQ+Cj4gLS0tCj4gIGluY2x1ZGUvbmV0L2luZXRwZWVyLmggfCAgIDEwICsrKysr
-LS0tLS0KPiAgbmV0L2lwdjQvaW5ldHBlZXIuYyAgICB8ICAgIDkgKy0tLS0tLS0tCj4gIG5ldC9p
-cHY0L2lwX2ZyYWdtZW50LmMgfCAgICAyICstCj4gIG5ldC9pcHY0L3JvdXRlLmMgICAgICAgfCAg
-ICA2ICsrKy0tLQo+ICBuZXQvaXB2Ni9yb3V0ZS5jICAgICAgIHwgICAgMiArLQo+ICA1IGZpbGVz
-IGNoYW5nZWQsIDExIGluc2VydGlvbnMoKyksIDE4IGRlbGV0aW9ucygtKQoKRGF2aWQsCgpUaGVy
-ZSB3aWxsIGJlIGEgZGVsYXkgYmVmb3JlIEkgY2FuIHNlZSBhbmQgcHVsbCB0aGUgY2hhbmdlLiBC
-dXQgYW55d2F5Cm5ldyBidWlsZCB0ZXN0cyBzaG91bGQgYmUga2lja2VkIG9mZiBhdXRvbWF0aWNh
-bGx5IGFmdGVyIGEgd2hpbGUuCgpBbnkgbmV3IGVycm9ycy93YXJuaW5ncyB3aWxsIGJlIGF1dG9t
-YXRpY2FsbHkgcmVwb3J0ZWQgdG8geW91IGFuZCB0aGUKbWFpbGluZyBsaXN0LiBJbiBmdXR1cmUg
-YnVpbGQgZXJyb3JzIGluIHRoZXNlIDQgdHJlZXMgd2lsbCBiZSBDQ2VkIHRvCnRoZSBuZXRkZXYg
-bWFpbGluZyBsaXN0OgoKICAgIG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcgIGdpdDovL2dpdC5rZXJu
-ZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQuZ2l0CiAgICBuZXRkZXZA
-dmdlci5rZXJuZWwub3JnICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5l
-bC9naXQvZGF2ZW0vbmV0LW5leHQuZ2l0CiAgICBuZXRkZXZAdmdlci5rZXJuZWwub3JnICBnaXQ6
-Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQva2tlaWwvaXNkbi0yLjYu
-Z2l0CiAgICBuZXRkZXZAdmdlci5rZXJuZWwub3JnICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIv
-c2NtL2xpbnV4L2tlcm5lbC9naXQvc2FtZW8vaXJkYS0yLjYuZ2l0CgpUaGFua3MsCkZlbmdndWFu
-ZwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb250YWlu
-ZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0
-dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRhaW5l
-cnM=
+On Sat, Jun 09, 2012 at 07:04:51PM -0700, David Miller wrote:
+> From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+> Date: Sun, 10 Jun 2012 09:58:32 +0800
+> 
+> > It triggers some warnings:
+> > 
+> > WARNING: net/ipv6/ipv6.o(.text+0x1049c): Section mismatch in reference from the function ip6_route_cleanup() to the variable .init.data:ipv6_inetpeer_ops
+> 
+> This should fix it:
+
+Yes it worked.
+
+Tested-by: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+
+In long run, such build-fix patches can also be auto tested and
+reported, somehow in this way. You just create a temporary branch
+named "0day-XXXXXX" and push the build-fix patch there. After a while
+my robot script will pull and build test it. When finished, it will
+recognize the "0day" pattern in the branch name and then
+*unconditionally* report back.
+
+"unconditionally" means it will
+
+- report build failure as well as build success
+- report new error/warnings as well as old ones
+
+Upon receiving the success/failure notification, you can then proceed
+to either merge the commit to the main branch, or update the commit in
+place to restart the test. This should work much more fluently than
+waiting for me to manually test some emailed patch. Not only I may be
+sleeping at the time, but also I'm sending out build failure reports
+almost *every day*. It would be a burden for me to manually test out
+fixes every day...
+
+Thanks,
+Fengguang
