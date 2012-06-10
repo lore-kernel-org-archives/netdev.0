@@ -1,34 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in
-	net/ipv{4,6}/route.c
-Date: Sat, 09 Jun 2012 21:21:47 -0700 (PDT)
-Message-ID: <20120609.212147.1738198233131370927.davem@davemloft.net>
-References: <20120610015832.GA9175@localhost>
-	<20120609.190451.182034193302304295.davem@davemloft.net>
-	<20120610031634.GA10032@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH torvalds/linux.git] Make linux/tcp.h C++ friendly
+ (trivial)
+Date: Sat, 09 Jun 2012 21:26:53 -0700 (PDT)
+Message-ID: <20120609.212653.1110875247901140795.davem@davemloft.net>
+References: <20120609145303.3094919060E@elbrus2.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20120610031634.GA10032@localhost>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jkosina@suse.cz
+To: ppluzhnikov@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32969 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750796Ab2FJE06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 00:26:58 -0400
+In-Reply-To: <20120609145303.3094919060E@elbrus2.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Date: Sun, 10 Jun 2012 11:16:34 +0800
+From: ppluzhnikov@google.com (Paul Pluzhnikov)
+Date: Sat,  9 Jun 2012 07:53:03 -0700 (PDT)
 
-> In long run, such build-fix patches can also be auto tested and
-> reported, somehow in this way. You just create a temporary branch
+> P.S. Google has blanket copyright assignment to FSF.
 
-Sorry, no.
+FSF assignments have no applicability with the Linux kernel.
+
+This really eliminates the reason why I asked you to make
+a fresh submission of the patch.
+
+I asked you to do this so that I could just apply your
+patch using "git am --signoff" but I can't, now I have
+to edit out all of this irrelevant text you added to
+the email.
+
+I have to edit out this "P.S." thing, because it's irrelevant.
+
+I have to edit out all of the trite things like "Thanks," too.
+
+Oh well, II'll edit it up and apply your patch this time.
+
+But for future submissions put only essential things into the email
+content because that ends up in the commit message.  If you want to
+say "extra" stuff say it after the "---" because things said after
+"---" don't make it into the commit log message.
