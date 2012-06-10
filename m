@@ -1,62 +1,39 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [patch] can: c_can: precedence error in c_can_chip_config()
-Date: Sun, 10 Jun 2012 19:52:50 +0200
-Message-ID: <4FD4DEF2.6070802@pengutronix.de>
-References: <20120609155150.GA6488@elgon.mountain>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: [PATCH] af_packet: use sizeof instead of constant in spkt_device
+Date: Sun, 10 Jun 2012 20:59:28 +0200
+Message-ID: <4FD4EE90.1070302@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigDF9262DCE005C3D320965B72"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	AnilKumar Ch <anilkumar@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Kosina <jkosina@suse.cz>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20120609155150.GA6488@elgon.mountain>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigDF9262DCE005C3D320965B72
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:34588 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898Ab2FJTTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 15:19:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2012 05:56 PM, Dan Carpenter wrote:
-> (CAN_CTRLMODE_LISTENONLY & CAN_CTRLMODE_LOOPBACK) is (0x02 & 0x01) whic=
-h
-> is zero so the condition is never true.  The intent here was to test
-> that both flags were set.
->=20
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> This is a static checker fix.  I'm not super familiar with the c_can
-> code.
+This small patch removes access to the last element of the spkt_device
+array through a constant. Instead, it is accessed by sizeof() to respect
+possible changes in if_packet.h.
 
-Good catch. Applied to can-next.
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+---
+ net/packet/af_packet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigDF9262DCE005C3D320965B72
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk/U3vUACgkQjTAFq1RaXHNiSQCbBRNFpJ4t87JO60VXWO6gYQSt
-qiEAni/2FlRasJZcbIRpE6LzyWYgEUz8
-=TViJ
------END PGP SIGNATURE-----
-
---------------enigDF9262DCE005C3D320965B72--
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 0f66174..06ff8e1 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1476,7 +1476,7 @@ static int packet_sendmsg_spkt(struct kiocb *iocb, struct socket *sock,
+ 	 *	Find the device first to size check it
+ 	 */
+ 
+-	saddr->spkt_device[13] = 0;
++	saddr->spkt_device[sizeof(saddr->spkt_device) - 1] = 0;
+ retry:
+ 	rcu_read_lock();
+ 	dev = dev_get_by_name_rcu(sock_net(sk), saddr->spkt_device);
