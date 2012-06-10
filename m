@@ -1,42 +1,60 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in net/ipv{4,
-	6}/route.c
-Date: Sun, 10 Jun 2012 13:14:16 +0800
-Message-ID: <4FD42D28.4090200@cn.fujitsu.com>
-References: <20120609.163202.516027044484907548.davem@davemloft.net>
-	<20120610015832.GA9175@localhost> <20120610020801.GA9293@localhost>
-	<20120609.190929.1165462964087672866.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Sun, 10 Jun 2012 16:06:34 +0930
+Message-ID: <87ipezhdvx.fsf@rustcorp.com.au>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<1338972341.2760.3944.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20120609.190929.1165462964087672866.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	mst@redhat.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>, Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1338972341.2760.3944.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-5LqOIDIwMTLlubQwNuaciDEw5pelIDEwOjA5LCBEYXZpZCBNaWxsZXIg5YaZ6YGTOgo+IEZyb206
-IEZlbmdndWFuZyBXdSA8d2ZnQGxpbnV4LmludGVsLmNvbT4KPiBEYXRlOiBTdW4sIDEwIEp1biAy
-MDEyIDEwOjA4OjAxICswODAwCj4gCj4+IEFuZCBpbiBhbm90aGVyIGNvbmZpZywgYW4gb2xkIGVy
-cm9yIHN0aWxsIHRyaWdnZXJzOgo+Pgo+PiBuZXQvaXB2NC9pbmV0cGVlci5jOiBJbiBmdW5jdGlv
-biDigJhmYW1pbHlfdG9fYmFzZeKAmToKPj4gbmV0L2lwdjQvaW5ldHBlZXIuYzozOTc6NTA6IGVy
-cm9yOiDigJhzdHJ1Y3QgbmV04oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYaXB2NuKAmQo+PiBu
-ZXQvaXB2NC9pbmV0cGVlci5jOjM5ODoxOiB3YXJuaW5nOiBjb250cm9sIHJlYWNoZXMgZW5kIG9m
-IG5vbi12b2lkIGZ1bmN0aW9uIFstV3JldHVybi10eXBlXQo+Pgo+PiBJJ20gYnVpbGRpbmcgdGhp
-cyBwYXRjaCBvbiB0b3Agb2YgbmV0LW5leHQgbWFzdGVyLgo+IAo+IFdoYXQgYSBmdWNraW5nIG1l
-c3MgR2FvIGNyZWF0ZWQsIEknbGwgZml4IHRoaXMuCgpPayxJIGFtIHNvcnJ5IGZvciB0aGVzZSB0
-aGluZ3MuClBsZWFzZSBqdXN0IGtlZXAgY29vbCxJZiBJIGludHJvZHVjZSBzb21lIG1lc3NlcyxJ
-IHdpbGwgZml4IGl0LgoKVGhhbmtzIQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5s
-aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
-bG1hbi9saXN0aW5mby9jb250YWluZXJz
+On Wed, 06 Jun 2012 10:45:41 +0200, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2012-06-06 at 10:35 +0200, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > commit 3fa2a1df909 (virtio-net: per cpu 64 bit stats (v2)) added a race
+> > on 32bit arches.
+> > 
+> > We must use separate syncp for rx and tx path as they can be run at the
+> > same time on different cpus. Thus one sequence increment can be lost and
+> > readers spin forever.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Stephen Hemminger <shemminger@vyatta.com>
+> > Cc: Michael S. Tsirkin <mst@redhat.com>
+> > Cc: Jason Wang <jasowang@redhat.com>
+> > ---
+> 
+> Just to make clear : even using percpu stats/syncp, we have no guarantee
+> that write_seqcount_begin() is done with one instruction. [1]
+> 
+> It is OK on x86 if "incl" instruction is generated by the compiler, but
+> on a RISC cpu, the "load memory,%reg ; inc %reg ; store %reg,memory" can
+> be interrupted.
+> 
+> So if you are 100% sure all paths are safe against preemption/BH, then
+> this patch is not needed, but a big comment in the code would avoid
+> adding possible races in the future.
+
+Too fragile; let's keep them separate as per this patch.
+
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+
+Thanks,
+Rusty.
