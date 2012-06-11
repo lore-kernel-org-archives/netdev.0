@@ -1,309 +1,229 @@
 From: pablo@netfilter.org
-Subject: [PATCH 18/25] netfilter: nf_conntrack: add namespace support for cttimeout
-Date: Mon, 11 Jun 2012 16:43:54 +0200
-Message-ID: <1339425841-24171-19-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 20/25] netfilter: xt_recent: add address masking option
+Date: Mon, 11 Jun 2012 16:43:56 +0200
+Message-ID: <1339425841-24171-21-git-send-email-pablo@netfilter.org>
 References: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:32918 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755436Ab2FKOpJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 10:45:09 -0400
 In-Reply-To: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
 
-This patch adds namespace support for cttimeout.
+The mask option allows you put all address belonging that mask into
+the same recent slot. This can be useful in case that recent is used
+to detect attacks from the same network segment.
 
-Acked-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Tested for backward compatibility.
+
+Signed-off-by: Denys Fedoryshchenko <denys@visp.net.lb>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_l4proto.h   |    3 ++-
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    6 ++++--
- net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    6 ++++--
- net/netfilter/nf_conntrack_proto_dccp.c        |    5 +++--
- net/netfilter/nf_conntrack_proto_generic.c     |    6 ++++--
- net/netfilter/nf_conntrack_proto_gre.c         |    8 +++++---
- net/netfilter/nf_conntrack_proto_sctp.c        |    6 ++++--
- net/netfilter/nf_conntrack_proto_tcp.c         |    6 ++++--
- net/netfilter/nf_conntrack_proto_udp.c         |    8 +++++---
- net/netfilter/nf_conntrack_proto_udplite.c     |    8 +++++---
- net/netfilter/nfnetlink_cttimeout.c            |   13 ++++++++-----
- 11 files changed, 48 insertions(+), 27 deletions(-)
+ Documentation/feature-removal-schedule.txt |    7 ++++
+ include/linux/netfilter.h                  |   10 +++++
+ include/linux/netfilter/xt_recent.h        |   10 +++++
+ net/netfilter/xt_recent.c                  |   62 ++++++++++++++++++++++++----
+ 4 files changed, 80 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index cfa2f89..81c52b5 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -87,7 +87,8 @@ struct nf_conntrack_l4proto {
- #if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
- 	struct {
- 		size_t obj_size;
--		int (*nlattr_to_obj)(struct nlattr *tb[], void *data);
-+		int (*nlattr_to_obj)(struct nlattr *tb[],
-+				     struct net *net, void *data);
- 		int (*obj_to_nlattr)(struct sk_buff *skb, const void *data);
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index 24ac00f..bc4b9c6 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -574,6 +574,13 @@ Why:	Remount currently allows changing bound subsystems and
  
- 		unsigned int nlattr_max;
-diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-index 2bca7a5..041923c 100644
---- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-@@ -279,16 +279,18 @@ static int icmp_nlattr_tuple_size(void)
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
+ ----------------------------
  
--static int icmp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int icmp_timeout_nlattr_to_obj(struct nlattr *tb[],
-+				      struct net *net, void *data)
- {
- 	unsigned int *timeout = data;
-+	struct nf_icmp_net *in = icmp_pernet(net);
- 
- 	if (tb[CTA_TIMEOUT_ICMP_TIMEOUT]) {
- 		*timeout =
- 			ntohl(nla_get_be32(tb[CTA_TIMEOUT_ICMP_TIMEOUT])) * HZ;
- 	} else {
- 		/* Set default ICMP timeout. */
--		*timeout = nf_ct_icmp_timeout;
-+		*timeout = in->timeout;
- 	}
- 	return 0;
++What:  xt_recent rev 0
++When:  2013
++Who:   Pablo Neira Ayuso <pablo@netfilter.org>
++Files: net/netfilter/xt_recent.c
++
++----------------------------
++
+ What:	KVM debugfs statistics
+ When:	2013
+ Why:	KVM tracepoints provide mostly equivalent information in a much more
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index ff9c84c..4541f33 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -94,6 +94,16 @@ static inline int nf_inet_addr_cmp(const union nf_inet_addr *a1,
+ 	       a1->all[3] == a2->all[3];
  }
-diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 1b7818f..63ed012 100644
---- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-@@ -286,16 +286,18 @@ static int icmpv6_nlattr_tuple_size(void)
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
  
--static int icmpv6_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int icmpv6_timeout_nlattr_to_obj(struct nlattr *tb[],
-+					struct net *net, void *data)
++static inline void nf_inet_addr_mask(const union nf_inet_addr *a1,
++				     union nf_inet_addr *result,
++				     const union nf_inet_addr *mask)
++{
++	result->all[0] = a1->all[0] & mask->all[0];
++	result->all[1] = a1->all[1] & mask->all[1];
++	result->all[2] = a1->all[2] & mask->all[2];
++	result->all[3] = a1->all[3] & mask->all[3];
++}
++
+ extern void netfilter_init(void);
+ 
+ /* Largest hook number + 1 */
+diff --git a/include/linux/netfilter/xt_recent.h b/include/linux/netfilter/xt_recent.h
+index 83318e0..6ef36c1 100644
+--- a/include/linux/netfilter/xt_recent.h
++++ b/include/linux/netfilter/xt_recent.h
+@@ -32,4 +32,14 @@ struct xt_recent_mtinfo {
+ 	__u8 side;
+ };
+ 
++struct xt_recent_mtinfo_v1 {
++	__u32 seconds;
++	__u32 hit_count;
++	__u8 check_set;
++	__u8 invert;
++	char name[XT_RECENT_NAME_LEN];
++	__u8 side;
++	union nf_inet_addr mask;
++};
++
+ #endif /* _LINUX_NETFILTER_XT_RECENT_H */
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index fc0d6db..ae2ad1e 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -75,6 +75,7 @@ struct recent_entry {
+ struct recent_table {
+ 	struct list_head	list;
+ 	char			name[XT_RECENT_NAME_LEN];
++	union nf_inet_addr	mask;
+ 	unsigned int		refcnt;
+ 	unsigned int		entries;
+ 	struct list_head	lru_list;
+@@ -228,10 +229,10 @@ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
- 	unsigned int *timeout = data;
-+	struct nf_icmp_net *in = icmpv6_pernet(net);
+ 	struct net *net = dev_net(par->in ? par->in : par->out);
+ 	struct recent_net *recent_net = recent_pernet(net);
+-	const struct xt_recent_mtinfo *info = par->matchinfo;
++	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
+ 	struct recent_table *t;
+ 	struct recent_entry *e;
+-	union nf_inet_addr addr = {};
++	union nf_inet_addr addr = {}, addr_mask;
+ 	u_int8_t ttl;
+ 	bool ret = info->invert;
  
- 	if (tb[CTA_TIMEOUT_ICMPV6_TIMEOUT]) {
- 		*timeout =
- 		    ntohl(nla_get_be32(tb[CTA_TIMEOUT_ICMPV6_TIMEOUT])) * HZ;
- 	} else {
- 		/* Set default ICMPv6 timeout. */
--		*timeout = nf_ct_icmpv6_timeout;
-+		*timeout = in->timeout;
- 	}
- 	return 0;
- }
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 8d798a6..c33f76a 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -712,9 +712,10 @@ static int dccp_nlattr_size(void)
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
+@@ -261,12 +262,15 @@ recent_mt(const struct sk_buff *skb, struct xt_action_param *par)
  
--static int dccp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int dccp_timeout_nlattr_to_obj(struct nlattr *tb[],
-+				      struct net *net, void *data)
- {
--	struct dccp_net *dn = dccp_pernet(&init_net);
-+	struct dccp_net *dn = dccp_pernet(net);
- 	unsigned int *timeouts = data;
- 	int i;
- 
-diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index e4e2d2a..bb0e74f 100644
---- a/net/netfilter/nf_conntrack_proto_generic.c
-+++ b/net/netfilter/nf_conntrack_proto_generic.c
-@@ -75,16 +75,18 @@ static bool generic_new(struct nf_conn *ct, const struct sk_buff *skb,
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
- 
--static int generic_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int generic_timeout_nlattr_to_obj(struct nlattr *tb[],
-+					 struct net *net, void *data)
- {
- 	unsigned int *timeout = data;
-+	struct nf_generic_net *gn = generic_pernet(net);
- 
- 	if (tb[CTA_TIMEOUT_GENERIC_TIMEOUT])
- 		*timeout =
- 		    ntohl(nla_get_be32(tb[CTA_TIMEOUT_GENERIC_TIMEOUT])) * HZ;
- 	else {
- 		/* Set default generic timeout. */
--		*timeout = nf_ct_generic_timeout;
-+		*timeout = gn->timeout;
- 	}
- 
- 	return 0;
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index e36973f..25ba5a2 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -304,13 +304,15 @@ static void gre_destroy(struct nf_conn *ct)
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
- 
--static int gre_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int gre_timeout_nlattr_to_obj(struct nlattr *tb[],
-+				     struct net *net, void *data)
- {
- 	unsigned int *timeouts = data;
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 
- 	/* set default timeouts for GRE. */
--	timeouts[GRE_CT_UNREPLIED] = gre_timeouts[GRE_CT_UNREPLIED];
--	timeouts[GRE_CT_REPLIED] = gre_timeouts[GRE_CT_REPLIED];
-+	timeouts[GRE_CT_UNREPLIED] = net_gre->gre_timeouts[GRE_CT_UNREPLIED];
-+	timeouts[GRE_CT_REPLIED] = net_gre->gre_timeouts[GRE_CT_REPLIED];
- 
- 	if (tb[CTA_TIMEOUT_GRE_UNREPLIED]) {
- 		timeouts[GRE_CT_UNREPLIED] =
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index d785f2c..8fb0582 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -562,14 +562,16 @@ static int sctp_nlattr_size(void)
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
- 
--static int sctp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int sctp_timeout_nlattr_to_obj(struct nlattr *tb[],
-+				      struct net *net, void *data)
- {
- 	unsigned int *timeouts = data;
-+	struct sctp_net *sn = sctp_pernet(net);
- 	int i;
- 
- 	/* set default SCTP timeouts. */
- 	for (i=0; i<SCTP_CONNTRACK_MAX; i++)
--		timeouts[i] = sctp_timeouts[i];
-+		timeouts[i] = sn->timeouts[i];
- 
- 	/* there's a 1:1 mapping between attributes and protocol states. */
- 	for (i=CTA_TIMEOUT_SCTP_UNSPEC+1; i<CTA_TIMEOUT_SCTP_MAX+1; i++) {
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index e57f2a8..1cff854 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -1260,14 +1260,16 @@ static int tcp_nlattr_tuple_size(void)
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
- 
--static int tcp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int tcp_timeout_nlattr_to_obj(struct nlattr *tb[],
-+				     struct net *net, void *data)
- {
- 	unsigned int *timeouts = data;
-+	struct nf_tcp_net *tn = tcp_pernet(net);
- 	int i;
- 
- 	/* set default TCP timeouts. */
- 	for (i=0; i<TCP_CONNTRACK_TIMEOUT_MAX; i++)
--		timeouts[i] = tcp_timeouts[i];
-+		timeouts[i] = tn->timeouts[i];
- 
- 	if (tb[CTA_TIMEOUT_TCP_SYN_SENT]) {
- 		timeouts[TCP_CONNTRACK_SYN_SENT] =
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index db7abad..360565a 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -156,13 +156,15 @@ static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
- 
--static int udp_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int udp_timeout_nlattr_to_obj(struct nlattr *tb[],
-+				     struct net *net, void *data)
- {
- 	unsigned int *timeouts = data;
-+	struct nf_udp_net *un = udp_pernet(net);
- 
- 	/* set default timeouts for UDP. */
--	timeouts[UDP_CT_UNREPLIED] = udp_timeouts[UDP_CT_UNREPLIED];
--	timeouts[UDP_CT_REPLIED] = udp_timeouts[UDP_CT_REPLIED];
-+	timeouts[UDP_CT_UNREPLIED] = un->timeouts[UDP_CT_UNREPLIED];
-+	timeouts[UDP_CT_REPLIED] = un->timeouts[UDP_CT_REPLIED];
- 
- 	if (tb[CTA_TIMEOUT_UDP_UNREPLIED]) {
- 		timeouts[UDP_CT_UNREPLIED] =
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index 2e25e98..b32e700 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -172,13 +172,15 @@ static int udplite_error(struct net *net, struct nf_conn *tmpl,
- #include <linux/netfilter/nfnetlink.h>
- #include <linux/netfilter/nfnetlink_cttimeout.h>
- 
--static int udplite_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-+static int udplite_timeout_nlattr_to_obj(struct nlattr *tb[],
-+					 struct net *net, void *data)
- {
- 	unsigned int *timeouts = data;
-+	struct udplite_net *un = udplite_pernet(net);
- 
- 	/* set default timeouts for UDPlite. */
--	timeouts[UDPLITE_CT_UNREPLIED] = udplite_timeouts[UDPLITE_CT_UNREPLIED];
--	timeouts[UDPLITE_CT_REPLIED] = udplite_timeouts[UDPLITE_CT_REPLIED];
-+	timeouts[UDPLITE_CT_UNREPLIED] = un->timeouts[UDPLITE_CT_UNREPLIED];
-+	timeouts[UDPLITE_CT_REPLIED] = un->timeouts[UDPLITE_CT_REPLIED];
- 
- 	if (tb[CTA_TIMEOUT_UDPLITE_UNREPLIED]) {
- 		timeouts[UDPLITE_CT_UNREPLIED] =
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 3e65528..cdecbc8 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -49,8 +49,9 @@ static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
- 
- static int
- ctnl_timeout_parse_policy(struct ctnl_timeout *timeout,
--			       struct nf_conntrack_l4proto *l4proto,
--			       const struct nlattr *attr)
-+			  struct nf_conntrack_l4proto *l4proto,
-+			  struct net *net,
-+			  const struct nlattr *attr)
- {
- 	int ret = 0;
- 
-@@ -60,7 +61,8 @@ ctnl_timeout_parse_policy(struct ctnl_timeout *timeout,
- 		nla_parse_nested(tb, l4proto->ctnl_timeout.nlattr_max,
- 				 attr, l4proto->ctnl_timeout.nla_policy);
- 
--		ret = l4proto->ctnl_timeout.nlattr_to_obj(tb, &timeout->data);
-+		ret = l4proto->ctnl_timeout.nlattr_to_obj(tb, net,
-+							  &timeout->data);
- 	}
+ 	spin_lock_bh(&recent_lock);
+ 	t = recent_table_lookup(recent_net, info->name);
+-	e = recent_entry_lookup(t, &addr, par->family,
++
++	nf_inet_addr_mask(&addr, &addr_mask, &t->mask);
++
++	e = recent_entry_lookup(t, &addr_mask, par->family,
+ 				(info->check_set & XT_RECENT_TTL) ? ttl : 0);
+ 	if (e == NULL) {
+ 		if (!(info->check_set & XT_RECENT_SET))
+ 			goto out;
+-		e = recent_entry_init(t, &addr, par->family, ttl);
++		e = recent_entry_init(t, &addr_mask, par->family, ttl);
+ 		if (e == NULL)
+ 			par->hotdrop = true;
+ 		ret = !ret;
+@@ -306,10 +310,10 @@ out:
  	return ret;
  }
-@@ -74,6 +76,7 @@ cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
- 	__u8 l4num;
- 	struct nf_conntrack_l4proto *l4proto;
- 	struct ctnl_timeout *timeout, *matching = NULL;
-+	struct net *net = sock_net(skb->sk);
- 	char *name;
- 	int ret;
  
-@@ -117,7 +120,7 @@ cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
- 				goto err_proto_put;
- 			}
- 
--			ret = ctnl_timeout_parse_policy(matching, l4proto,
-+			ret = ctnl_timeout_parse_policy(matching, l4proto, net,
- 							cda[CTA_TIMEOUT_DATA]);
- 			return ret;
- 		}
-@@ -132,7 +135,7 @@ cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
- 		goto err_proto_put;
+-static int recent_mt_check(const struct xt_mtchk_param *par)
++static int recent_mt_check(const struct xt_mtchk_param *par,
++			   const struct xt_recent_mtinfo_v1 *info)
+ {
+ 	struct recent_net *recent_net = recent_pernet(par->net);
+-	const struct xt_recent_mtinfo *info = par->matchinfo;
+ 	struct recent_table *t;
+ #ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry *pde;
+@@ -361,6 +365,8 @@ static int recent_mt_check(const struct xt_mtchk_param *par)
+ 		goto out;
  	}
+ 	t->refcnt = 1;
++
++	memcpy(&t->mask, &info->mask, sizeof(t->mask));
+ 	strcpy(t->name, info->name);
+ 	INIT_LIST_HEAD(&t->lru_list);
+ 	for (i = 0; i < ip_list_hash_size; i++)
+@@ -385,10 +391,28 @@ out:
+ 	return ret;
+ }
  
--	ret = ctnl_timeout_parse_policy(timeout, l4proto,
-+	ret = ctnl_timeout_parse_policy(timeout, l4proto, net,
- 					cda[CTA_TIMEOUT_DATA]);
- 	if (ret < 0)
- 		goto err;
++static int recent_mt_check_v0(const struct xt_mtchk_param *par)
++{
++	const struct xt_recent_mtinfo_v0 *info_v0 = par->matchinfo;
++	struct xt_recent_mtinfo_v1 info_v1;
++
++	/* Copy revision 0 structure to revision 1 */
++	memcpy(&info_v1, info_v0, sizeof(struct xt_recent_mtinfo));
++	/* Set default mask to ensure backward compatible behaviour */
++	memset(info_v1.mask.all, 0xFF, sizeof(info_v1.mask.all));
++
++	return recent_mt_check(par, &info_v1);
++}
++
++static int recent_mt_check_v1(const struct xt_mtchk_param *par)
++{
++	return recent_mt_check(par, par->matchinfo);
++}
++
+ static void recent_mt_destroy(const struct xt_mtdtor_param *par)
+ {
+ 	struct recent_net *recent_net = recent_pernet(par->net);
+-	const struct xt_recent_mtinfo *info = par->matchinfo;
++	const struct xt_recent_mtinfo_v1 *info = par->matchinfo;
+ 	struct recent_table *t;
+ 
+ 	mutex_lock(&recent_mutex);
+@@ -625,7 +649,7 @@ static struct xt_match recent_mt_reg[] __read_mostly = {
+ 		.family     = NFPROTO_IPV4,
+ 		.match      = recent_mt,
+ 		.matchsize  = sizeof(struct xt_recent_mtinfo),
+-		.checkentry = recent_mt_check,
++		.checkentry = recent_mt_check_v0,
+ 		.destroy    = recent_mt_destroy,
+ 		.me         = THIS_MODULE,
+ 	},
+@@ -635,10 +659,30 @@ static struct xt_match recent_mt_reg[] __read_mostly = {
+ 		.family     = NFPROTO_IPV6,
+ 		.match      = recent_mt,
+ 		.matchsize  = sizeof(struct xt_recent_mtinfo),
+-		.checkentry = recent_mt_check,
++		.checkentry = recent_mt_check_v0,
++		.destroy    = recent_mt_destroy,
++		.me         = THIS_MODULE,
++	},
++	{
++		.name       = "recent",
++		.revision   = 1,
++		.family     = NFPROTO_IPV4,
++		.match      = recent_mt,
++		.matchsize  = sizeof(struct xt_recent_mtinfo_v1),
++		.checkentry = recent_mt_check_v1,
+ 		.destroy    = recent_mt_destroy,
+ 		.me         = THIS_MODULE,
+ 	},
++	{
++		.name       = "recent",
++		.revision   = 1,
++		.family     = NFPROTO_IPV6,
++		.match      = recent_mt,
++		.matchsize  = sizeof(struct xt_recent_mtinfo_v1),
++		.checkentry = recent_mt_check_v1,
++		.destroy    = recent_mt_destroy,
++		.me         = THIS_MODULE,
++	}
+ };
+ 
+ static int __init recent_mt_init(void)
 -- 
 1.7.10
-
