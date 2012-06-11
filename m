@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tg3: transmit timed out, resetting
-Date: Mon, 11 Jun 2012 16:55:34 -0700 (PDT)
-Message-ID: <20120611.165534.2252638532171302031.davem@davemloft.net>
-References: <20120607225654.GA14247@mcarlson.broadcom.com>
-	<20120611.164239.604207264181849443.davem@davemloft.net>
-	<alpine.DEB.2.01.1206111650560.5568@trent.utfs.org>
+Subject: Re: [PATCH net-next] ipv4: Add interface option to enable routing
+ of 127.0.0.0/8
+Date: Mon, 11 Jun 2012 16:57:40 -0700 (PDT)
+Message-ID: <20120611.165740.419299184892679723.davem@davemloft.net>
+References: <20120608101859.GH32152@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, ethan.kernel@gmail.com,
-	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: lists@nerdbynature.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.01.1206111650560.5568@trent.utfs.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47041 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752702Ab2FKX5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 19:57:41 -0400
+In-Reply-To: <20120608101859.GH32152@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christian Kujau <lists@nerdbynature.de>
-Date: Mon, 11 Jun 2012 16:53:16 -0700 (PDT)
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 8 Jun 2012 06:18:59 -0400
 
-> Tested-by: Christian Kujau <lists@nerdbynature.de>
+> -		if (i == IPV4_DEVCONF_ACCEPT_LOCAL - 1)
+> +		if (i == IPV4_DEVCONF_ACCEPT_LOCAL - 1 ||
+> +		    i == IPV4_DEVCONF_ROUTE_LOCALNET)
 
-Great, applied, thanks everyone.
+Why does one value get tested using "X - 1" indexing and the
+other gets tested using plain "X" indexing?
