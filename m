@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lpc_eth: add missing ndo_change_mtu()
-Date: Mon, 11 Jun 2012 13:13:44 -0700 (PDT)
-Message-ID: <20120611.131344.140847541249729239.davem@davemloft.net>
-References: <1339406640.6001.1896.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: lpc_eth: fix tx completion
+Date: Mon, 11 Jun 2012 13:13:55 -0700 (PDT)
+Message-ID: <20120611.131355.1151863180696891268.davem@davemloft.net>
+References: <4FD5AE1D.9030807@antcom.de>
+	<1339404835.6001.1788.camel@edumazet-glaptop>
+	<1339435296.6001.2484.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stigge@antcom.de, kevin.wells@nxp.com,
-	aletes.xgr@gmail.com, srinivas.bakki@nxp.com
+Cc: stigge@antcom.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
+	linux-arm-kernel@lists.infradead.org
 To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45791 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126Ab2FKUNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 16:13:45 -0400
-In-Reply-To: <1339406640.6001.1896.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339435296.6001.2484.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 11 Jun 2012 11:24:00 +0200
+Date: Mon, 11 Jun 2012 19:21:36 +0200
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> lpc_eth does a copy of transmitted skbs to DMA area, without checking
-> skb lengths, so can trigger buffer overflows :
+> __lpc_handle_xmit() has two bugs :
 > 
-> memcpy(pldat->tx_buff_v + txidx * ENET_MAXF_SIZE, skb->data, len);
+> 1) It can leak skbs in case TXSTATUS_ERROR is set
 > 
-> One way to get bigger skbs is to allow MTU changes above the 1500 limit.
-> 
-> Calling eth_change_mtu() in ndo_change_mtu() makes sure this cannot
-> happen.
+> 2) It can wake up txqueue while no slot was freed.
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Roland Stigge <stigge@antcom.de>
+> Tested-by: Roland Stigge <stigge@antcom.de>
 
 Applied and queued up for -stable.
