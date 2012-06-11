@@ -1,55 +1,82 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: Re: [PATCH] lpc_eth: add missing ndo_change_mtu()
-Date: Mon, 11 Jun 2012 11:36:29 +0200
-Message-ID: <4FD5BC1D.8040805@antcom.de>
-References: <1339406640.6001.1896.camel@edumazet-glaptop>
+From: scott@scottnz.com
+Subject: Re: [PATCH rfc net] Allow the autoconfigured network interface to be
+ renamed.
+Date: Mon, 11 Jun 2012 21:58:45 +1200
+Message-ID: <f8f3fa05ddbe3a2e1613588754f151ac.squirrel@scottnz.com>
+References: <1339228087-14870-1-git-send-email-scott@scottnz.com>
+    <20120610.202515.138701034400919651.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, kevin.wells@nxp.com,
-	aletes.xgr@gmail.com, srinivas.bakki@nxp.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: scott@scottnz.com, netdev@vger.kernel.org,
+	scott.parlane@alliedtelesis.co.nz
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from antcom.de ([188.40.178.216]:39212 "EHLO chuck.antcom.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751011Ab2FKJga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 05:36:30 -0400
-In-Reply-To: <1339406640.6001.1896.camel@edumazet-glaptop>
+Received: from edgewireless.tk ([184.82.109.251]:38153 "EHLO vps1.scottnz.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751326Ab2FKJ7R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 05:59:17 -0400
+In-Reply-To: <20120610.202515.138701034400919651.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/11/2012 11:24 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> lpc_eth does a copy of transmitted skbs to DMA area, without checking
-> skb lengths, so can trigger buffer overflows :
-> 
-> memcpy(pldat->tx_buff_v + txidx * ENET_MAXF_SIZE, skb->data, len);
-> 
-> One way to get bigger skbs is to allow MTU changes above the 1500 limit.
-> 
-> Calling eth_change_mtu() in ndo_change_mtu() makes sure this cannot
-> happen.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> From: Scott Parlane <scott@scottnz.com>
+> Date: Sat,  9 Jun 2012 19:48:07 +1200
+>
+>> From: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
+>>
+>> if IP_PNP_RENAME_DEV is set, the first interface to be configured
+>> automatically by the kernel during boot will be renamed.
+>>
+>> IP_PNP_DEV_NEWNAME is the name to give the autoconfigured device.
+>>
+>> No changes will be made to any interface that is not autoconfigured.
+>>
+>> This allows the assurance of the boot device name, without the need
+>> for an initramfs.
+>>
+>> Signed-off-by: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
+>
+> Making this a compile time option makes absolutely no sense at all.
+>
+> Assuming this feature is desirable at all (which is a big IF), it
+> should be a kernel command line option.
 
-Acked-by: Roland Stigge <stigge@antcom.de>
+My comment re how many devices was a reference to the level of testing,
+not the usage, however I see it was probably moot given any person with
+sufficient
+knowledge of the area would see it works as described.
+(unless I did something i haven't seen yet)
 
-> Cc: Roland Stigge <stigge@antcom.de>
-> Cc: Kevin Wells <kevin.wells@nxp.com>
-> ---
-> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-> index 8d2666f..10febdc 100644
-> --- a/drivers/net/ethernet/nxp/lpc_eth.c
-> +++ b/drivers/net/ethernet/nxp/lpc_eth.c
-> @@ -1320,6 +1320,7 @@ static const struct net_device_ops lpc_netdev_ops = {
->  	.ndo_set_rx_mode	= lpc_eth_set_multicast_list,
->  	.ndo_do_ioctl		= lpc_eth_ioctl,
->  	.ndo_set_mac_address	= lpc_set_mac_address,
-> +	.ndo_change_mtu		= eth_change_mtu,
->  };
->  
->  static int lpc_eth_drv_probe(struct platform_device *pdev)
-> 
-> 
+[background of this solution]
+In our configuration we load the same kernel on to a number of testboxes,
+each of which has several ethernet interfaces and serial ports
+(for communicating with our devices under test)
+They use nfsroot which prevents udev rules from working correctly
+(because you cant take down the interface to rename it)
+Previously we were using an initramfs that would rename the interface,
+just before mounting the real root.
+However a recent change to glibc prevents busybox's nfs utils from working,
+so I made this patch to get the kernel to do it, and remove the need for
+the initramfs
+(which just slows our boot process anyways)
+
+In our case, we run a custom kernel, and have this option turned on, with a
+suitable name so that we can identify the boot interface.
+
+While I agree that being able to configure it from the command line would
+be useful,
+I would rather that I could (if I wanted) configure it at compile time to
+default,
+purely because it means there is one less thing my admins need to deal
+worry about
+or can change in the pxelinux config. (every testbox has a unique cmdline,
+because of
+how our nfsroot mount points work)
+
+Please let me know if you want me to extend it to support command line
+configuration,
+and what configuration you would like to trigger it.
+
+Kind Regards,
+Scott
