@@ -1,128 +1,95 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH 2/4] drivers/net/ethernet/dec/tulip: Add tulip_ prefix to set_bit_le()
-Date: Mon, 11 Jun 2012 08:42:45 -0700
-Message-ID: <CAP6odjjPAo+y_oZzBVFbOPVn=KkX-Oqycvkjo4CdNuUzNN4zkA@mail.gmail.com>
-References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp>
-	<20120611213002.caaf0e05.yoshikawa.takuya@oss.ntt.co.jp>
+From: Tomas Papan <tomas.papan@gmail.com>
+Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Mon, 11 Jun 2012 15:55:55 +0000 (UTC)
+Message-ID: <loom.20120611T175322-643@post.gmane.org>
+References: <20120501182405.3dda59b9@stein> <20120501172748.GA17117@electric-eye.fr.zoreil.com> <20120501200423.6804dcf0@stein> <20120501200403.GA20763@electric-eye.fr.zoreil.com> <20120503204813.65468df7@stein> <20120602111335.0b94fb59@stein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: grundler@parisc-linux.org, bhutchings@solarflare.com,
-	arnd@arndb.de, avi@redhat.com, mtosatti@redhat.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	kvm@vger.kernel.org, takuya.yoshikawa@gmail.com
-To: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20120611213002.caaf0e05.yoshikawa.takuya@oss.ntt.co.jp>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:46991 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751972Ab2FKQAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 12:00:09 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Se72E-0000Ij-9z
+	for netdev@vger.kernel.org; Mon, 11 Jun 2012 18:00:06 +0200
+Received: from dial-109-230-4-153.orange.sk ([109.230.4.153])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 18:00:06 +0200
+Received: from tomas.papan by dial-109-230-4-153.orange.sk with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 18:00:06 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 11, 2012 at 5:30 AM, Takuya Yoshikawa
-<yoshikawa.takuya@oss.ntt.co.jp> wrote:
-> From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
->
-> Needed to introduce generic set_bit_le().
->
-> Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-> Cc: Grant Grundler <grundler@parisc-linux.org>
-> ---
-> =A0drivers/net/ethernet/dec/tulip/de2104x.c =A0 =A0| =A0 =A07 +++----
-> =A0drivers/net/ethernet/dec/tulip/tulip_core.c | =A0 =A07 +++----
-> =A02 files changed, 6 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/e=
-thernet/dec/tulip/de2104x.c
-> index 61cc093..e635f1a 100644
-> --- a/drivers/net/ethernet/dec/tulip/de2104x.c
-> +++ b/drivers/net/ethernet/dec/tulip/de2104x.c
-> @@ -661,8 +661,7 @@ static netdev_tx_t de_start_xmit (struct sk_buff =
-*skb,
-> =A0 =A0new frame, not around filling de->setup_frame. =A0This is non-=
-deterministic
-> =A0 =A0when re-entered but still correct. */
->
-> -#undef set_bit_le
-> -#define set_bit_le(i,p) do { ((char *)(p))[(i)/8] |=3D (1<<((i)%8));=
- } while(0)
-> +#define tulip_set_bit_le(i,p) do { ((char *)(p))[(i)/8] |=3D (1<<((i=
-)%8)); } while(0)
+Stefan Richter <stefanr <at> s5r6.in-berlin.de> writes:
 
-I am ok with this patch going in. This code predates the clear
-understanding of bit_ops that we have now and will continue to work
-with this patch.
+> 
+> On May 03 Stefan Richter wrote:
+> > On May 01 Francois Romieu wrote:
+> > [...]
+> > > Can you apply the patch below on top of current ethtool
+> > > (git://git.kernel.org/pub/scm/network/ethtool/ethtool.git) and see
+> > > if it is enough to compare the register dumps (ethtool -d eth0).
+> > [...]
+> > > This is a firmware free chipset anyway. Nothing strange in the interface
+> > > stats (ethtool -S eth0) ?
+> > > 
+> > > You may have to narrow things. Can you check if the r8169.c at
+> > > 036dafa28da1e2565a8529de2ae663c37b7a0060 behaves the same ?
+> > 
+> > I will follow up on this eventually, but it may take quite some time due
+> > to interfering work.
+> > 
+> > Thank you for looking into it and giving directions,
+> 
+> I haven't had time to look further into it yet.  Just two minor findings:
+> 
+> (a) After update from 3.4-rc5 to 3.4, the problem persisted.
+> 
+> (b) Later I noticed that silent file corruptions on FireWire disks happened
+> and happen under 3.4-rc5 and 3.4, so I reverted into 3.3.1 which fixed
+> that issue.  Furthermore, since 6 days uptime of 3.3.1, the eth0 (r8169)
+> transmit queue time-out did never occur.
+> 
+> I have no idea whether the FireWire and networking issues might be somehow
+> connected, and I still lack time to investigate these issues (using Linux
+> only at home, not at work), but I will eventually get back to it.
 
-If you have time to follow Arnd's suggestion to use __set_bit_le()
-(and removing both local definitions), that would be better. Either
-way:
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Hi,
 
-thanks!
-grant
+I have the same problem on 3.4.1 and 3.4.2 (3.2.x is fine)
+interestingly enough, the problem occurs only once, then it is running fine
+(3.4.1 and six days uptime)
 
->
-> =A0static void build_setup_frame_hash(u16 *setup_frm, struct net_devi=
-ce *dev)
-> =A0{
-> @@ -673,12 +672,12 @@ static void build_setup_frame_hash(u16 *setup_f=
-rm, struct net_device *dev)
-> =A0 =A0 =A0 =A0u16 *eaddrs;
->
-> =A0 =A0 =A0 =A0memset(hash_table, 0, sizeof(hash_table));
-> - =A0 =A0 =A0 set_bit_le(255, hash_table); =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0/* Broadcast entry */
-> + =A0 =A0 =A0 tulip_set_bit_le(255, hash_table); =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0/* Broadcast entry */
-> =A0 =A0 =A0 =A0/* This should work on big-endian machines as well. */
-> =A0 =A0 =A0 =A0netdev_for_each_mc_addr(ha, dev) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int index =3D ether_crc_le(ETH_ALEN, h=
-a->addr) & 0x1ff;
->
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 set_bit_le(index, hash_table);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tulip_set_bit_le(index, hash_table);
-> =A0 =A0 =A0 =A0}
->
-> =A0 =A0 =A0 =A0for (i =3D 0; i < 32; i++) {
-> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/ne=
-t/ethernet/dec/tulip/tulip_core.c
-> index c4f37ac..3a1ebd02 100644
-> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> @@ -1010,8 +1010,7 @@ static int private_ioctl (struct net_device *de=
-v, struct ifreq *rq, int cmd)
-> =A0 =A0new frame, not around filling tp->setup_frame. =A0This is non-=
-deterministic
-> =A0 =A0when re-entered but still correct. */
->
-> -#undef set_bit_le
-> -#define set_bit_le(i,p) do { ((char *)(p))[(i)/8] |=3D (1<<((i)%8));=
- } while(0)
-> +#define tulip_set_bit_le(i,p) do { ((char *)(p))[(i)/8] |=3D (1<<((i=
-)%8)); } while(0)
->
-> =A0static void build_setup_frame_hash(u16 *setup_frm, struct net_devi=
-ce *dev)
-> =A0{
-> @@ -1022,12 +1021,12 @@ static void build_setup_frame_hash(u16 *setup=
-_frm, struct net_device *dev)
-> =A0 =A0 =A0 =A0u16 *eaddrs;
->
-> =A0 =A0 =A0 =A0memset(hash_table, 0, sizeof(hash_table));
-> - =A0 =A0 =A0 set_bit_le(255, hash_table); =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0/* Broadcast entry */
-> + =A0 =A0 =A0 tulip_set_bit_le(255, hash_table); =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0/* Broadcast entry */
-> =A0 =A0 =A0 =A0/* This should work on big-endian machines as well. */
-> =A0 =A0 =A0 =A0netdev_for_each_mc_addr(ha, dev) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0int index =3D ether_crc_le(ETH_ALEN, h=
-a->addr) & 0x1ff;
->
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 set_bit_le(index, hash_table);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 tulip_set_bit_le(index, hash_table);
-> =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0for (i =3D 0; i < 32; i++) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*setup_frm++ =3D hash_table[i];
-> --
-> 1.7.5.4
->
+
+WARNING: at net/sched/sch_generic.c:256 dev_watchdog+0x16b/0x20f()
+[ 2839.337554] Pid: 0, comm: swapper/3 Not tainted 3.4.2 #1
+[ 2839.337556] Call Trace:
+[ 2839.337559]  <IRQ>  [<ffffffff81026881>] ? warn_slowpath_common+0x78/0x8c
+[ 2839.337571]  [<ffffffff81026936>] ? warn_slowpath_fmt+0x45/0x4a
+[ 2839.337576]  [<ffffffff81042fc2>] ? scheduler_tick+0xaf/0xc3
+[ 2839.337582]  [<ffffffff812535a0>] ? dev_watchdog+0x16b/0x20f
+[ 2839.337588]  [<ffffffff8102f3ae>] ? run_timer_softirq+0x177/0x209
+[ 2839.337594]  [<ffffffff8103e7b3>] ? hrtimer_interrupt+0x100/0x19b
+[ 2839.337599]  [<ffffffff81253435>] ? qdisc_reset+0x35/0x35
+[ 2839.337605]  [<ffffffff8102b256>] ? __do_softirq+0x7f/0x106
+[ 2839.337611]  [<ffffffff812e298c>] ? call_softirq+0x1c/0x30
+[ 2839.337616]  [<ffffffff81003376>] ? do_softirq+0x31/0x67
+[ 2839.337621]  [<ffffffff8102b503>] ? irq_exit+0x44/0x75
+[ 2839.337625]  [<ffffffff810032b5>] ? do_IRQ+0x94/0xad
+[ 2839.337631]  [<ffffffff812e10a7>] ? common_interrupt+0x67/0x67
+[ 2839.337634]  <EOI>  [<ffffffff81163f07>] ? intel_idle+0xde/0x103
+[ 2839.337645]  [<ffffffff81163ee3>] ? intel_idle+0xba/0x103
+[ 2839.337652]  [<ffffffff81220bfa>] ? cpuidle_idle_call+0x7e/0xc4
+[ 2839.337659]  [<ffffffff81008e92>] ? cpu_idle+0x53/0x7c
+[ 2839.337663] ---[ end trace 04a2b9c09e9d7860 ]---
+[ 2839.341697] r8169 0000:01:00.0: eth1: link up
+
+Regards
+Tomas
