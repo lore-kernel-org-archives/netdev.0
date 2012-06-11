@@ -1,46 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dummy: fix rcu_sched self-detected stalls
-Date: Sun, 10 Jun 2012 22:48:00 -0700 (PDT)
-Message-ID: <20120610.224800.602807319671005890.davem@davemloft.net>
-References: <1339239546.6001.177.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Roland Dreier <roland@kernel.org>
+Subject: [PATCH] net: Reorder initialization in ip_route_output to fix gcc warning
+Date: Sun, 10 Jun 2012 23:05:24 -0700
+Message-ID: <1339394724-28296-1-git-send-email-roland@kernel.org>
+Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39978 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287Ab2FKFsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 01:48:03 -0400
-In-Reply-To: <1339239546.6001.177.camel@edumazet-glaptop>
+Received: from na3sys010aog107.obsmtp.com ([74.125.245.82]:57289 "HELO
+	na3sys010aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751144Ab2FKGF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 02:05:29 -0400
+Received: by pbbrp12 with SMTP id rp12so5468517pbb.29
+        for <netdev@vger.kernel.org>; Sun, 10 Jun 2012 23:05:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 09 Jun 2012 12:59:06 +0200
+From: Roland Dreier <roland@purestorage.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Trying to "modprobe dummy numdummies=30000" triggers :
-> 
-> INFO: rcu_sched self-detected stall on CPU { 8} (t=60000 jiffies)
-> 
-> After this splat, RTNL is locked and reboot is needed.
-> 
-> We must call cond_resched() to avoid this, even holding RTNL.
-> 
-> Also remove the ~32767 limit on number of dummies (PAGE_SIZE*8)
-> 
-> Tested with "modprobe dummy numdummies=128000"
-> (it took ~12 minutes, because of sysfs)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+If I build with W=1, for every file that includes <net/route.h>, I get the warning
 
-I'm all for the cond_resched() change, but the name optimization
-belongs generically in net/core/dev.c not in specific drivers.
+    include/net/route.h: In function 'ip_route_output':
+    include/net/route.h:135:3: warning: initialized field overwritten [-Woverride-init]
+    include/net/route.h:135:3: warning: (near initialization for 'fl4') [-Woverride-init]
 
-So, please submit this cond_resched() fix first then we can work
-on the naming performance issue.
+(This is with "gcc (Debian 4.6.3-1) 4.6.3")
 
-Thanks.
+A fix seems pretty trivial: move the initialization of .flowi4_tos
+earlier.  As far as I can tell, this has no effect on code generation.
+
+Signed-off-by: Roland Dreier <roland@purestorage.com>
+---
+ include/net/route.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/route.h b/include/net/route.h
+index ed2b78e..9870546 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -130,9 +130,9 @@ static inline struct rtable *ip_route_output(struct net *net, __be32 daddr,
+ {
+ 	struct flowi4 fl4 = {
+ 		.flowi4_oif = oif,
++		.flowi4_tos = tos,
+ 		.daddr = daddr,
+ 		.saddr = saddr,
+-		.flowi4_tos = tos,
+ 	};
+ 	return ip_route_output_key(net, &fl4);
+ }
+-- 
+1.7.9.5
