@@ -1,72 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/3] net: lpc_eth: Replace WARN() trace with simple
- pr_warn()
-Date: Mon, 11 Jun 2012 10:53:55 +0200
-Message-ID: <1339404835.6001.1788.camel@edumazet-glaptop>
-References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
-	 <1339403108.6001.1697.camel@edumazet-glaptop>  <4FD5AE1D.9030807@antcom.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FD5AE1D.9030807@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH net 0/3] correct behavior when modify primary via sysfs
+Date: Mon, 11 Jun 2012 17:00:19 +0800
+Message-ID: <cover.1339404887.git.wpan@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56096 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752286Ab2FKIzs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 04:55:48 -0400
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q5B8tj8U027368
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 04:55:45 -0400
+Received: from localhost.localdomain.com (dhcp-16-141.nay.redhat.com [10.66.16.141] (may be forged))
+	by int-mx10.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q5B8thXP012130
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 04:55:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-11 at 10:36 +0200, Roland Stigge wrote:
+There is a problem that when we set primary slave with module parameters,
+bond will always use this primary slave as active slave.
 
-> I encountered cases where this happened for me on a custom board under
-> heavy load.
-> 
-> I discussed this with Kevin Wells, the original driver author. We
-> identified the case of xmit()'s TX request (from .ndo_start_xmit) with
-> full TX driver buffers as valid when ethernet is busy.
-> 
-> But maybe this is wrong. Can you please give me a hint how the net
-> subsystem makes sure that this doesn't happen under normal circumstances?
+But when we modify primary slave via sysfs, it will call
+bond_should_change_active() and take into account
+primary_reselect.
 
-When TX ring is about to be filler, driver lpc_eth_hard_start_xmit()
-calls netif_stop_queue(ndev);
+And I think we should use the new primary slave as the new active slave
+regardless of the value of primary_reselect.
+Thus the behavior is the same with module parameters and meets the
+administrator's expectation.
 
-So network stack should not call again lpc_eth_hard_start_xmit().
+Weiping Pan (3):
+  bonding:record primary when modify it via sysfs
+  bonding:check mode when modify primary_reselect
+  bonding:force to use primary slave
 
-I would say the bug(s) come from __lpc_handle_xmit(), since it does :
+ drivers/net/bonding/bond_sysfs.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-if (netif_queue_stopped(ndev))
-	netif_wake_queue(ndev);
-
-without making sure some room is available in TX ring.
-
-cumulative patch :
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 8d2666f..59b37c8 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -946,16 +946,16 @@ static void __lpc_handle_xmit(struct net_device *ndev)
- 			/* Update stats */
- 			ndev->stats.tx_packets++;
- 			ndev->stats.tx_bytes += skb->len;
--
--			/* Free buffer */
--			dev_kfree_skb_irq(skb);
- 		}
-+		dev_kfree_skb_irq(skb);
- 
- 		txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
- 	}
- 
--	if (netif_queue_stopped(ndev))
--		netif_wake_queue(ndev);
-+	if (pldat->num_used_tx_buffs <= ENET_TX_DESC/2) { 
-+		if (netif_queue_stopped(ndev))
-+			netif_wake_queue(ndev);
-+	}
- }
- 
- static int __lpc_handle_recv(struct net_device *ndev, int budget)
+-- 
+1.7.4
