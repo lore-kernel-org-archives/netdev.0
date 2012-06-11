@@ -1,46 +1,48 @@
 From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Subject: [PATCH 4/4] KVM: Replace test_and_set_bit_le() in
- mark_page_dirty_in_slot() with set_bit_le()
-Date: Mon, 11 Jun 2012 21:32:21 +0900
-Message-ID: <20120611213221.a48fc664.yoshikawa.takuya@oss.ntt.co.jp>
+Subject: [PATCH 3/4] bitops: Introduce generic set_bit_le()
+Date: Mon, 11 Jun 2012 21:31:01 +0900
+Message-ID: <20120611213101.5969fde5.yoshikawa.takuya@oss.ntt.co.jp>
 References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: bhutchings@solarflare.com, grundler@parisc-linux.org,
-	arnd@arndb.de, linux-net-drivers@solarflare.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, kvm@vger.kernel.org,
-	takuya.yoshikawa@gmail.com
-To: avi@redhat.com, mtosatti@redhat.com
-Return-path: <linux-arch-owner@vger.kernel.org>
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org, takuya.yoshikawa@gmail.com
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp>
-Sender: linux-arch-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
 
-Now that we have defined generic set_bit_le() we do not need to use
-test_and_set_bit_le() for atomically setting a bit.
+Needed to replace test_and_set_bit_le() in virt/kvm/kvm_main.c which is
+being used for this missing function.
 
 Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
+Cc: Arnd Bergmann <arnd@arndb.de>
 ---
- virt/kvm/kvm_main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ include/asm-generic/bitops/le.h |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index 02cb440..560c502 100644
---- a/virt/kvm/kvm_main.c
-+++ b/virt/kvm/kvm_main.c
-@@ -1485,8 +1485,7 @@ void mark_page_dirty_in_slot(struct kvm *kvm, struct kvm_memory_slot *memslot,
- 	if (memslot && memslot->dirty_bitmap) {
- 		unsigned long rel_gfn = gfn - memslot->base_gfn;
- 
--		/* TODO: introduce set_bit_le() and use it */
--		test_and_set_bit_le(rel_gfn, memslot->dirty_bitmap);
-+		set_bit_le(rel_gfn, memslot->dirty_bitmap);
- 	}
+diff --git a/include/asm-generic/bitops/le.h b/include/asm-generic/bitops/le.h
+index f95c663..3e72143 100644
+--- a/include/asm-generic/bitops/le.h
++++ b/include/asm-generic/bitops/le.h
+@@ -54,6 +54,11 @@ static inline int test_bit_le(int nr, const void *addr)
+ 	return test_bit(nr ^ BITOP_LE_SWIZZLE, addr);
  }
  
++static inline void set_bit_le(int nr, void *addr)
++{
++	set_bit(nr ^ BITOP_LE_SWIZZLE, addr);
++}
++
+ static inline void __set_bit_le(int nr, void *addr)
+ {
+ 	__set_bit(nr ^ BITOP_LE_SWIZZLE, addr);
 -- 
 1.7.5.4
