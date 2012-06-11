@@ -1,54 +1,67 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: net: nfc: BUG and panic in accept() on 3.5-rc2
-Date: Mon, 11 Jun 2012 13:25:45 -0400
-Message-ID: <20120611172545.GA1776@redhat.com>
-References: <1339423241.4999.53.camel@lappy>
- <20120611144134.GX22557@sortiz-mobl>
- <1339425693.6001.2268.camel@edumazet-glaptop>
- <20120611145700.GY22557@sortiz-mobl>
- <1339426778.6001.2312.camel@edumazet-glaptop>
- <20120611152007.GZ22557@sortiz-mobl>
- <1339433810.4999.65.camel@lappy>
+From: Roland Stigge <stigge@antcom.de>
+Subject: Re: [PATCH] net: lpc_eth: fix tx completion
+Date: Mon, 11 Jun 2012 20:58:40 +0200
+Message-ID: <4FD63FE0.9020609@antcom.de>
+References: <1339401793-12258-1-git-send-email-stigge@antcom.de>  <1339403108.6001.1697.camel@edumazet-glaptop>  <4FD5AE1D.9030807@antcom.de>  <1339404835.6001.1788.camel@edumazet-glaptop> <1339435296.6001.2484.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <sameo@linux.intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Sasha Levin <levinsasha928@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1339433810.4999.65.camel@lappy>
+In-Reply-To: <1339435296.6001.2484.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 11, 2012 at 06:56:50PM +0200, Sasha Levin wrote:
+On 11/06/12 19:21, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> __lpc_handle_xmit() has two bugs :
+> 
+> 1) It can leak skbs in case TXSTATUS_ERROR is set
+> 
+> 2) It can wake up txqueue while no slot was freed.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Roland Stigge <stigge@antcom.de>
+> Tested-by: Roland Stigge <stigge@antcom.de>
+> Cc: Kevin Wells <kevin.wells@nxp.com>
 
- > > > > > > What's trinity ?
- > > > > > > Also, if this one is reproducible, would you mind sharing some details about
- > > > > > > how we could reproduce it ?
- > > > > > 
- > > > > > Well, bugfix should be trivial enough ;)
- > > > > Yep, I looked at the code only after looking at Sasha's report.
- > > > > 
- > > > > Thanks for the patch, do you mind if I add your SOB to it ?
- > > > 
- > > > I  would prefer making sure it fixes the bug first ;)
- > > Sure, although your patch makes sense regardless of that :)
- > > I'll still wait for Sasha to confirm that it fixes his crash.
- > 
- > I don't have a direct way of reproducing it, but I've put it in the test
- > vm and the fuzzer is running, I'll let you know tomorrow if it happened
- > again.
+Thanks!
 
-You might be able to trigger it faster by using -P PF_NFC, which will 
-force trinity to only use NFC sockets.
+Would be good for v3.5 and for stable v3.4 also.
 
-sidenote: most protocols trigger the module to be auto-loaded when a socket
-is created. This doesn't seem to happen with nfc, making me need to manually
-modprobe it first. Intentional ?
-
-	Dave
+> ---
+>  drivers/net/ethernet/nxp/lpc_eth.c |   10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+> index 8d2666f..ff76c21 100644
+> --- a/drivers/net/ethernet/nxp/lpc_eth.c
+> +++ b/drivers/net/ethernet/nxp/lpc_eth.c
+> @@ -946,16 +946,16 @@ static void __lpc_handle_xmit(struct net_device *ndev)
+>  			/* Update stats */
+>  			ndev->stats.tx_packets++;
+>  			ndev->stats.tx_bytes += skb->len;
+> -
+> -			/* Free buffer */
+> -			dev_kfree_skb_irq(skb);
+>  		}
+> +		dev_kfree_skb_irq(skb);
+>  
+>  		txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
+>  	}
+>  
+> -	if (netif_queue_stopped(ndev))
+> -		netif_wake_queue(ndev);
+> +	if (pldat->num_used_tx_buffs <= ENET_TX_DESC/2) {
+> +		if (netif_queue_stopped(ndev))
+> +			netif_wake_queue(ndev);
+> +	}
+>  }
+>  
+>  static int __lpc_handle_recv(struct net_device *ndev, int budget)
+> 
