@@ -1,34 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/4] bitops: Introduce generic set_bit_le()
-Date: Mon, 11 Jun 2012 14:10:26 +0000
-Message-ID: <201206111410.26359.arnd@arndb.de>
-References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp> <20120611213101.5969fde5.yoshikawa.takuya@oss.ntt.co.jp>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
+Date: Mon, 11 Jun 2012 16:21:19 +0200
+Message-ID: <4FD5FEDF.6020405@grandegger.com>
+References: <331ABD5ECB02734CA317220B2BBEABC13E9CB18A@DBDE01.ent.ti.com> <4FCE07EE.40003@pengutronix.de> <D5ECB3C7A6F99444980976A8C6D896384FA5EC4DFC@EAPEX1MAIL1.st.com> <4FC135C6.5030206@grandegger.com> <1677842.Pq7naXsvrI@harkonnen> <D5ECB3C7A6F99444980976A8C6D896384FA5EC4B37@EAPEX1MAIL1.st.com> <3650428.HarNR9HfNF@harkonnen> <20120605131337.GA15432@mail.gnudd.com> <20120605133013.GA16108@mail.gnudd.com> <20120605165008.GA21871@mail.gnudd.com> <D5ECB3C7A6F99444980976A8C6D896384FA5EC4E62@EAPEX1MAIL1.st.com> <CAH5GJ0qgQJZwO8xn-zkMA_mMhVM=uCjuCZjd8EbJr0NyE6i+tQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, grundler@parisc-linux.org,
-	avi@redhat.com, mtosatti@redhat.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	kvm@vger.kernel.org, takuya.yoshikawa@gmail.com
-To: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
+Cc: Bhupesh SHARMA <bhupesh.sharma@st.com>,
+	"rubini@gnudd.com" <rubini@gnudd.com>,
+	"anilkumar@ti.com" <anilkumar@ti.com>,
+	"mkl@pengutronix.de" <mkl@pengutronix.de>,
+	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
+	Giancarlo ASNAGHI <giancarlo.asnaghi@st.com>,
+	"alan@linux.intel.com" <alan@linux.intel.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Federico Vaga <federico.vaga@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120611213101.5969fde5.yoshikawa.takuya@oss.ntt.co.jp>
+In-Reply-To: <CAH5GJ0qgQJZwO8xn-zkMA_mMhVM=uCjuCZjd8EbJr0NyE6i+tQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 11 June 2012, Takuya Yoshikawa wrote:
-> From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-> 
-> Needed to replace test_and_set_bit_le() in virt/kvm/kvm_main.c which is
-> being used for this missing function.
-> 
-> Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-> Cc: Arnd Bergmann <arnd@arndb.de>
+On 06/11/2012 03:18 PM, Federico Vaga wrote:
+> How we proceed?
+> I submit my c_can_pci.c as a separated module, we create a
+> c_can_platform_common.c,
+> or we are thinking about a generic c_can.c as plaftorm driver?
 
-I would recommend adding the corresponding clear_bit_le() along with
-set_bit_le, so the next person who needs that doesn't have to make
-yet another patch.
+I would accept your patch with the remaining fixes especially the new
+register access methods introduced by the D_CAN support patch recently.
 
-	Arnd
+Any further improvements to the device abstraction and a more consistent
+handling of the platform data or register access should be addressed by
+sub-sequent patches.
+
+Wolfgang.
