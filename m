@@ -1,46 +1,35 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: [PATCH 2/3] net: lpc_eth: Increase number of TX descriptors
-Date: Mon, 11 Jun 2012 10:03:12 +0200
-Message-ID: <1339401793-12258-2-git-send-email-stigge@antcom.de>
-References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: Generic user-space routing library -- need collaborator
+Date: Mon, 11 Jun 2012 04:09:08 -0400
+Message-ID: <20120611080908.GB28598@canuck.infradead.org>
+References: <4FCBBD6C.8020904@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Roland Stigge <stigge@antcom.de>
-To: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
- srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
- linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1339401793-12258-1-git-send-email-stigge@antcom.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>
+To: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:32907 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750695Ab2FKIJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 04:09:10 -0400
+Content-Disposition: inline
+In-Reply-To: <4FCBBD6C.8020904@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since we have enough SRAM, we can increase the number of TX descriptors, so the
-"BUSY" warning about occupied TX descriptors doesn't need to show up as often.
+On Sun, Jun 03, 2012 at 01:39:24PM -0600, Philip Prindeville wrote:
+> Hi.
+> 
+> I'm working on adding a few more portability classes to Poco (a multi-platform C++ toolkit) and wanted to add a Net::Routing class for examining and manipulating the routing tables.
+> 
+> The C++ would just be convenience wrappers around a core C library that handles the netlink semantics. I've looked at libmnl and it's handy, but I need a higher level of abstraction (for instance, parsing an RTA_NETMASK for IPv6 is anything but well-documented).
 
-Signed-off-by: Roland Stigge <stigge@antcom.de>
-Tested-by: Alexandre Pereira da Silva <aletes.xgr@gmail.com>
+You want to look at libnl. It's similiar to libmnl but provides a higher
+level of abstraction. It implements routing, netfilter and generic
+netlink parsing and message construction.
 
----
- drivers/net/ethernet/nxp/lpc_eth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+http://www.infradead.org/~tgr/libnl/
 
---- linux-2.6.orig/drivers/net/ethernet/nxp/lpc_eth.c
-+++ linux-2.6/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -56,7 +56,7 @@
- 
- #define ENET_MAXF_SIZE 1536
- #define ENET_RX_DESC 48
--#define ENET_TX_DESC 16
-+#define ENET_TX_DESC 32
- 
- #define NAPI_WEIGHT 16
+You should be able to easily construct C++ wrappers around the lib.
+
+~Thomas
