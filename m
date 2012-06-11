@@ -1,40 +1,60 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: =?utf-8?Q?net=2Fnetfilter=2Fnf=5Fconnt?=
-	=?utf-8?B?cmFja19wcm90b190Y3AuYzoxNjA2Ojk6IGVycm9yOiDigJhzdHJ1Y3QgbmZf?=
-	=?utf-8?B?cHJvdG9fbmV04oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYdXNlcuKAmQ==?=
-Date: Tue, 12 Jun 2012 00:46:20 +0200
-Message-ID: <20120611224620.GA27507@1984>
-References: <4fd664de.oQN9NTKjdledtla0%wfg@linux.intel.com>
- <20120611221521.GA27239@1984>
- <20120611.152344.1072167705198124284.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] inet: Fix BUG triggered by __rt{,6}_get_peer().
+Date: Mon, 11 Jun 2012 15:57:22 -0700 (PDT)
+Message-ID: <20120611.155722.872336629515682610.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wfg@linux.intel.com, gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44006 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751446Ab2FKWqX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 18:46:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20120611.152344.1072167705198124284.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46753 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035Ab2FKW5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 18:57:25 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id ED3BB58438E
+	for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 15:57:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 11, 2012 at 03:23:44PM -0700, David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Tue, 12 Jun 2012 00:15:21 +0200
-> 
-> > Could you please apply the following patch to net-next to resolve
-> > this? Thanks.
-> 
-> Applied, but you have to be kidding me with those ifdefs.
-> 
-> This is exactly the same kind of thing Gao suggested for
-> the inetpeer code recently and which I flat out rejected.
 
-Yes, this doesn't look nice at all...
+If no peer actually gets attached (either because create is zero or
+the peer allocation fails) we'll trigger a BUG because we
+unconditionally do an rt{,6}_peer_ptr() afterwards.
 
-> You can't pepper foo.c files with ifdefs all over the place.
+Fix this by guarding it with the proper check.
 
-I'll send patches to improve the current situation.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip6_route.h |    2 +-
+ include/net/route.h     |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index f88a85c..a2cda24 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -61,7 +61,7 @@ static inline struct inet_peer *__rt6_get_peer(struct rt6_info *rt, int create)
+ 		return rt6_peer_ptr(rt);
+ 
+ 	rt6_bind_peer(rt, create);
+-	return rt6_peer_ptr(rt);
++	return (rt6_has_peer(rt) ? rt6_peer_ptr(rt) : NULL);
+ }
+ 
+ static inline struct inet_peer *rt6_get_peer(struct rt6_info *rt)
+diff --git a/include/net/route.h b/include/net/route.h
+index cc693a5..2bfbc93 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -334,7 +334,7 @@ static inline struct inet_peer *__rt_get_peer(struct rtable *rt, __be32 daddr, i
+ 		return rt_peer_ptr(rt);
+ 
+ 	rt_bind_peer(rt, daddr, create);
+-	return rt_peer_ptr(rt);
++	return (rt_has_peer(rt) ? rt_peer_ptr(rt) : NULL);
+ }
+ 
+ static inline struct inet_peer *rt_get_peer(struct rtable *rt, __be32 daddr)
+-- 
+1.7.10
