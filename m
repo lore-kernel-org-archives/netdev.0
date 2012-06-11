@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 16/25] netfilter: nf_ct_gre: use new namespace support
-Date: Mon, 11 Jun 2012 16:43:52 +0200
-Message-ID: <1339425841-24171-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/25] netfilter: nf_ct_dccp: use new namespace support
+Date: Mon, 11 Jun 2012 16:43:51 +0200
+Message-ID: <1339425841-24171-16-git-send-email-pablo@netfilter.org>
 References: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,150 +12,204 @@ List-Id: netdev.vger.kernel.org
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This patch modifies the GRE protocol tracker, which partially
-supported namespace before this patch, to use the new namespace
-infrastructure for nf_conntrack.
+This patch modifies the DCCP protocol tracker to use the new
+namespace infrastructure for nf_conntrack.
 
 Acked-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_proto_gre.c |   55 ++++++++++++++++++++------------
- 1 file changed, 34 insertions(+), 21 deletions(-)
+ net/netfilter/nf_conntrack_proto_dccp.c |  132 +++++++++++++++----------------
+ 1 file changed, 66 insertions(+), 66 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 132f0d2..e36973f 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -54,13 +54,20 @@ static unsigned int gre_timeouts[GRE_CT_MAX] = {
- 
- static int proto_gre_net_id __read_mostly;
- struct netns_proto_gre {
-+	struct nf_proto_net	nf;
- 	rwlock_t		keymap_lock;
- 	struct list_head	keymap_list;
-+	unsigned int		gre_timeouts[GRE_CT_MAX];
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index 5a8e037..8d798a6 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -387,12 +387,9 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][DCCP_PKT_SYNCACK + 1][CT_DCCP_MAX + 1] =
+ /* this module per-net specifics */
+ static int dccp_net_id __read_mostly;
+ struct dccp_net {
++	struct nf_proto_net np;
+ 	int dccp_loose;
+ 	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
+-#ifdef CONFIG_SYSCTL
+-	struct ctl_table_header *sysctl_header;
+-	struct ctl_table *sysctl_table;
+-#endif
  };
  
-+static inline struct netns_proto_gre *gre_pernet(struct net *net)
-+{
-+	return net_generic(net, proto_gre_net_id);
-+}
-+
- void nf_ct_gre_keymap_flush(struct net *net)
- {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_ct_gre_keymap *km, *tmp;
- 
- 	write_lock_bh(&net_gre->keymap_lock);
-@@ -85,7 +92,7 @@ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
- /* look up the source key for a given tuple */
- static __be16 gre_keymap_lookup(struct net *net, struct nf_conntrack_tuple *t)
- {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_ct_gre_keymap *km;
- 	__be16 key = 0;
- 
-@@ -109,7 +116,7 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
- 			 struct nf_conntrack_tuple *t)
- {
- 	struct net *net = nf_ct_net(ct);
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_conn_help *help = nfct_help(ct);
- 	struct nf_ct_gre_keymap **kmp, *km;
- 
-@@ -150,7 +157,7 @@ EXPORT_SYMBOL_GPL(nf_ct_gre_keymap_add);
- void nf_ct_gre_keymap_destroy(struct nf_conn *ct)
- {
- 	struct net *net = nf_ct_net(ct);
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
- 	struct nf_conn_help *help = nfct_help(ct);
- 	enum ip_conntrack_dir dir;
- 
-@@ -237,7 +244,7 @@ static int gre_print_conntrack(struct seq_file *s, struct nf_conn *ct)
- 
- static unsigned int *gre_get_timeouts(struct net *net)
- {
--	return gre_timeouts;
-+	return gre_pernet(net)->gre_timeouts;
- }
- 
- /* Returns verdict for packet, and may modify conntrack */
-@@ -339,6 +346,19 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
+ static inline struct dccp_net *dccp_pernet(struct net *net)
+@@ -817,6 +814,45 @@ static struct ctl_table dccp_sysctl_table[] = {
  };
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ #endif /* CONFIG_SYSCTL */
  
-+static int gre_init_net(struct net *net)
++static int dccp_init_net(struct net *net)
 +{
-+	struct netns_proto_gre *net_gre = gre_pernet(net);
-+	int i;
++	struct dccp_net *dn = dccp_pernet(net);
++	struct nf_proto_net *pn = (struct nf_proto_net *)dn;
 +
-+	rwlock_init(&net_gre->keymap_lock);
-+	INIT_LIST_HEAD(&net_gre->keymap_list);
-+	for (i = 0; i < GRE_CT_MAX; i++)
-+		net_gre->gre_timeouts[i] = gre_timeouts[i];
++#ifdef CONFIG_SYSCTL
++	if (!pn->ctl_table) {
++#else
++	if (!pn->users++) {
++#endif
++		/* default values */
++		dn->dccp_loose = 1;
++		dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
++		dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
++		dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
++		dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
++		dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
++		dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
++		dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
++#ifdef CONFIG_SYSCTL
++		pn->ctl_table = kmemdup(dccp_sysctl_table,
++					sizeof(dccp_sysctl_table),
++					GFP_KERNEL);
++		if (!pn->ctl_table)
++			return -ENOMEM;
 +
++		pn->ctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
++		pn->ctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
++		pn->ctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
++		pn->ctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
++		pn->ctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
++		pn->ctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
++		pn->ctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
++		pn->ctl_table[7].data = &dn->dccp_loose;
++#endif
++	}
 +	return 0;
 +}
 +
- /* protocol helper struct */
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
- 	.l3proto	 = AF_INET,
-@@ -368,20 +388,22 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
- 		.nla_policy	= gre_timeout_nla_policy,
+ static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
+ 	.l3proto		= AF_INET,
+ 	.l4proto		= IPPROTO_DCCP,
+@@ -847,6 +883,8 @@ static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
+ 		.nla_policy	= dccp_timeout_nla_policy,
  	},
  #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+	.net_id		= &proto_gre_net_id,
-+	.init_net	= gre_init_net,
++	.net_id			= &dccp_net_id,
++	.init_net		= dccp_init_net,
  };
  
- static int proto_gre_net_init(struct net *net)
+ static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
+@@ -879,55 +917,39 @@ static struct nf_conntrack_l4proto dccp_proto6 __read_mostly = {
+ 		.nla_policy	= dccp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
++	.net_id			= &dccp_net_id,
++	.init_net		= dccp_init_net,
+ };
+ 
+ static __net_init int dccp_net_init(struct net *net)
  {
--	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
+-	struct dccp_net *dn = dccp_pernet(net);
 -
--	rwlock_init(&net_gre->keymap_lock);
--	INIT_LIST_HEAD(&net_gre->keymap_list);
+-	/* default values */
+-	dn->dccp_loose = 1;
+-	dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
+-	dn->dccp_timeout[CT_DCCP_RESPOND]	= 4 * DCCP_MSL;
+-	dn->dccp_timeout[CT_DCCP_PARTOPEN]	= 4 * DCCP_MSL;
+-	dn->dccp_timeout[CT_DCCP_OPEN]		= 12 * 3600 * HZ;
+-	dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
+-	dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
+-	dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
 -
--	return 0;
+-#ifdef CONFIG_SYSCTL
+-	dn->sysctl_table = kmemdup(dccp_sysctl_table,
+-			sizeof(dccp_sysctl_table), GFP_KERNEL);
+-	if (!dn->sysctl_table)
+-		return -ENOMEM;
+-
+-	dn->sysctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
+-	dn->sysctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
+-	dn->sysctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
+-	dn->sysctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
+-	dn->sysctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
+-	dn->sysctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
+-	dn->sysctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
+-	dn->sysctl_table[7].data = &dn->dccp_loose;
+-
+-	dn->sysctl_header = register_net_sysctl(net, "net/netfilter",
+-						dn->sysctl_table);
+-	if (!dn->sysctl_header) {
+-		kfree(dn->sysctl_table);
+-		return -ENOMEM;
 +	int ret = 0;
-+	ret = nf_conntrack_l4proto_register(net, &nf_conntrack_l4proto_gre4);
-+	if (ret < 0)
-+		pr_err("nf_conntrack_l4proto_gre4 :protocol register failed.\n");
++	ret = nf_conntrack_l4proto_register(net,
++					    &dccp_proto4);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_dccp4 :protocol register failed.\n");
++		goto out;
++	}
++	ret = nf_conntrack_l4proto_register(net,
++					    &dccp_proto6);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_dccp6 :protocol register failed.\n");
++		goto cleanup_dccp4;
+ 	}
+-#endif
+-
+ 	return 0;
++cleanup_dccp4:
++	nf_conntrack_l4proto_unregister(net,
++					&dccp_proto4);
++out:
 +	return ret;
  }
  
- static void proto_gre_net_exit(struct net *net)
+ static __net_exit void dccp_net_exit(struct net *net)
  {
-+	nf_conntrack_l4proto_unregister(net, &nf_conntrack_l4proto_gre4);
- 	nf_ct_gre_keymap_flush(net);
+-	struct dccp_net *dn = dccp_pernet(net);
+-#ifdef CONFIG_SYSCTL
+-	unregister_net_sysctl_table(dn->sysctl_header);
+-	kfree(dn->sysctl_table);
+-#endif
++	nf_conntrack_l4proto_unregister(net,
++					&dccp_proto6);
++	nf_conntrack_l4proto_unregister(net,
++					&dccp_proto4);
  }
  
-@@ -394,20 +416,11 @@ static struct pernet_operations proto_gre_net_ops = {
+ static struct pernet_operations dccp_net_ops = {
+@@ -939,34 +961,12 @@ static struct pernet_operations dccp_net_ops = {
  
- static int __init nf_ct_proto_gre_init(void)
+ static int __init nf_conntrack_proto_dccp_init(void)
  {
--	int rv;
+-	int err;
 -
--	rv = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_gre4);
--	if (rv < 0)
--		return rv;
--	rv = register_pernet_subsys(&proto_gre_net_ops);
--	if (rv < 0)
--		nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
--	return rv;
-+	return register_pernet_subsys(&proto_gre_net_ops);
+-	err = register_pernet_subsys(&dccp_net_ops);
+-	if (err < 0)
+-		goto err1;
+-
+-	err = nf_conntrack_l4proto_register(&init_net, &dccp_proto4);
+-	if (err < 0)
+-		goto err2;
+-
+-	err = nf_conntrack_l4proto_register(&init_net, &dccp_proto6);
+-	if (err < 0)
+-		goto err3;
+-	return 0;
+-
+-err3:
+-	nf_conntrack_l4proto_unregister(&init_net, &dccp_proto4);
+-err2:
+-	unregister_pernet_subsys(&dccp_net_ops);
+-err1:
+-	return err;
++	return register_pernet_subsys(&dccp_net_ops);
  }
  
- static void __exit nf_ct_proto_gre_fini(void)
+ static void __exit nf_conntrack_proto_dccp_fini(void)
  {
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
- 	unregister_pernet_subsys(&proto_gre_net_ops);
+ 	unregister_pernet_subsys(&dccp_net_ops);
+-	nf_conntrack_l4proto_unregister(&init_net, &dccp_proto6);
+-	nf_conntrack_l4proto_unregister(&init_net, &dccp_proto4);
  }
  
+ module_init(nf_conntrack_proto_dccp_init);
 -- 
 1.7.10
 
