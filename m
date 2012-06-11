@@ -1,33 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: REGRESSION: 3.4.0->3.5.0-rc2 kernel WARNING on cable plug on Acer Aspire One, no network
-Date: Mon, 11 Jun 2012 23:38:15 +0200
-Message-ID: <20120611213815.GA8517@electric-eye.fr.zoreil.com>
-References: <4FD4F28B.4070003@palosanto.com> <20120610195906.GA15641@electric-eye.fr.zoreil.com> <4FD504DA.3000500@palosanto.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] ip: speedup ip link
+Date: Mon, 11 Jun 2012 14:57:19 -0700
+Message-ID: <20120611145719.6337066e@nehalam.linuxnetplumber.net>
+References: <1339242955.7575.5.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Alex =?utf-8?B?VmlsbGFjw61z?= Lasso <a_villacis@palosanto.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53439 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854Ab2FKVrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 17:47:42 -0400
-Content-Disposition: inline
-In-Reply-To: <4FD504DA.3000500@palosanto.com>
+Received: from mail.vyatta.com ([76.74.103.46]:33788 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751321Ab2FKV5W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 17:57:22 -0400
+In-Reply-To: <1339242955.7575.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com> :
-[...]
-> $ grep XID dmesg-3.5.0-rc2.txt
-> [   15.873858] r8169 0000:02:00.0: eth0: RTL8102e at 0xf7c0e000,
-> 00:1e:68:e5:5d:b1, XID 04a00000 IRQ 44
+On Sat, 09 Jun 2012 13:55:55 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-The 8102e has not been touched by that many suspect patches but I do
-not see where the problem is :o(
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> ip link has quadratic behavior because store_nlmsg()
+> has a head list pointer and search the end of list.
+> 
+> Provides a head/tail to cut time.
+> 
+> Time with 128000 net devices, to do "ip link show dev xxx"
+> 
+> Before: 2m3.594s
+> After: 0m2.830s
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Can you peel off the r8169 patches between 3.4.0 and 3.5-rc ?
-
---=20
-Ueimor
+Looks good applied
