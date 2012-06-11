@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 06/25] netfilter: nf_ct_generic: add namespace support
-Date: Mon, 11 Jun 2012 16:43:42 +0200
-Message-ID: <1339425841-24171-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/25] netfilter: nf_ct_ipv4: add namespace support
+Date: Mon, 11 Jun 2012 16:43:47 +0200
+Message-ID: <1339425841-24171-12-git-send-email-pablo@netfilter.org>
 References: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,280 +12,223 @@ List-Id: netdev.vger.kernel.org
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This patch adds namespace support for the generic layer 4 protocol
-tracker.
+This patch adds namespace support for IPv4 protocol tracker.
 
 Acked-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_core.h  |    4 +--
- include/net/netns/conntrack.h              |    6 ++++
- net/netfilter/nf_conntrack_core.c          |   17 ++++------
- net/netfilter/nf_conntrack_proto.c         |   46 ++++++++++++++++++----------
- net/netfilter/nf_conntrack_proto_generic.c |   38 +++++++++++++++++++++--
- 5 files changed, 78 insertions(+), 33 deletions(-)
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  123 ++++++++++++++++--------
+ 1 file changed, 85 insertions(+), 38 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index aced085..d8f5b9f 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -28,8 +28,8 @@ extern unsigned int nf_conntrack_in(struct net *net,
- extern int nf_conntrack_init(struct net *net);
- extern void nf_conntrack_cleanup(struct net *net);
- 
--extern int nf_conntrack_proto_init(void);
--extern void nf_conntrack_proto_fini(void);
-+extern int nf_conntrack_proto_init(struct net *net);
-+extern void nf_conntrack_proto_fini(struct net *net);
- 
- extern bool
- nf_ct_get_tuple(const struct sk_buff *skb,
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index b2dbcc5..0ef8592 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -20,7 +20,13 @@ struct nf_proto_net {
- 	unsigned int		users;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 0c0fb90..5c66203 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -207,35 +207,30 @@ static int log_invalid_proto_max = 255;
+ static ctl_table ip_ct_sysctl_table[] = {
+ 	{
+ 		.procname	= "ip_conntrack_max",
+-		.data		= &nf_conntrack_max,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_count",
+-		.data		= &init_net.ct.count,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_buckets",
+-		.data		= &init_net.ct.htable_size,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_checksum",
+-		.data		= &init_net.ct.sysctl_checksum,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
+ 	{
+ 		.procname	= "ip_conntrack_log_invalid",
+-		.data		= &init_net.ct.sysctl_log_invalid,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+@@ -351,6 +346,25 @@ static struct nf_sockopt_ops so_getorigdst = {
+ 	.owner		= THIS_MODULE,
  };
  
-+struct nf_generic_net {
-+	struct nf_proto_net pn;
-+	unsigned int timeout;
-+};
-+
- struct nf_ip_net {
-+	struct nf_generic_net   generic;
- #if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- 	struct ctl_table_header *ctl_table_header;
- 	struct ctl_table	*ctl_table;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index ac3af97..068f2e0 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1333,7 +1333,6 @@ static void nf_conntrack_cleanup_init_net(void)
- 	while (untrack_refs() > 0)
- 		schedule();
- 
--	nf_conntrack_proto_fini();
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	nf_ct_extend_unregister(&nf_ct_zone_extend);
- #endif
-@@ -1372,7 +1371,7 @@ void nf_conntrack_cleanup(struct net *net)
- 	   netfilter framework.  Roll on, two-stage module
- 	   delete... */
- 	synchronize_net();
--
-+	nf_conntrack_proto_fini(net);
- 	nf_conntrack_cleanup_net(net);
- 
- 	if (net_eq(net, &init_net)) {
-@@ -1496,11 +1495,6 @@ static int nf_conntrack_init_init_net(void)
- 	printk(KERN_INFO "nf_conntrack version %s (%u buckets, %d max)\n",
- 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
- 	       nf_conntrack_max);
--
--	ret = nf_conntrack_proto_init();
--	if (ret < 0)
--		goto err_proto;
--
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	ret = nf_ct_extend_register(&nf_ct_zone_extend);
- 	if (ret < 0)
-@@ -1518,9 +1512,7 @@ static int nf_conntrack_init_init_net(void)
- 
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- err_extend:
--	nf_conntrack_proto_fini();
- #endif
--err_proto:
- 	return ret;
- }
- 
-@@ -1583,9 +1575,7 @@ static int nf_conntrack_init_net(struct net *net)
- 	ret = nf_conntrack_helper_init(net);
- 	if (ret < 0)
- 		goto err_helper;
--
- 	return 0;
--
- err_helper:
- 	nf_conntrack_timeout_fini(net);
- err_timeout:
-@@ -1622,6 +1612,9 @@ int nf_conntrack_init(struct net *net)
- 		if (ret < 0)
- 			goto out_init_net;
- 	}
-+	ret = nf_conntrack_proto_init(net);
-+	if (ret < 0)
-+		goto out_proto;
- 	ret = nf_conntrack_init_net(net);
- 	if (ret < 0)
- 		goto out_net;
-@@ -1637,6 +1630,8 @@ int nf_conntrack_init(struct net *net)
- 	return 0;
- 
- out_net:
-+	nf_conntrack_proto_fini(net);
-+out_proto:
- 	if (net_eq(net, &init_net))
- 		nf_conntrack_cleanup_init_net();
- out_init_net:
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index a8daf0f..b095b4a 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -302,10 +302,16 @@ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
- static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
- 					      struct nf_conntrack_l4proto *l4proto)
- {
--	if (l4proto->net_id)
--		return net_generic(net, *l4proto->net_id);
--	else
--		return NULL;
-+	switch (l4proto->l4proto) {
-+	case 255: /* l4proto_generic */
-+		return (struct nf_proto_net *)&net->ct.nf_ct_proto.generic;
-+	default:
-+		if (l4proto->net_id)
-+			return net_generic(net, *l4proto->net_id);
-+		else
-+			return NULL;
-+	}
-+	return NULL;
- }
- 
- static
-@@ -487,28 +493,34 @@ void nf_conntrack_l4proto_unregister(struct net *net,
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
- 
--int nf_conntrack_proto_init(void)
-+int nf_conntrack_proto_init(struct net *net)
- {
- 	unsigned int i;
- 	int err;
--
--	err = nf_ct_l4proto_register_sysctl(&init_net, &nf_conntrack_l4proto_generic);
-+	err = nf_conntrack_l4proto_generic.init_net(net);
-+	if (err < 0)
-+		return err;
-+	err = nf_ct_l4proto_register_sysctl(net,
-+					    &nf_conntrack_l4proto_generic);
- 	if (err < 0)
- 		return err;
- 
--	for (i = 0; i < AF_MAX; i++)
--		rcu_assign_pointer(nf_ct_l3protos[i],
--				   &nf_conntrack_l3proto_generic);
-+	if (net == &init_net) {
-+		for (i = 0; i < AF_MAX; i++)
-+			rcu_assign_pointer(nf_ct_l3protos[i],
-+					   &nf_conntrack_l3proto_generic);
-+	}
- 	return 0;
- }
- 
--void nf_conntrack_proto_fini(void)
-+void nf_conntrack_proto_fini(struct net *net)
- {
- 	unsigned int i;
--
--	nf_ct_l4proto_unregister_sysctl(&init_net, &nf_conntrack_l4proto_generic);
--
--	/* free l3proto protocol tables */
--	for (i = 0; i < PF_MAX; i++)
--		kfree(nf_ct_protos[i]);
-+	nf_ct_l4proto_unregister_sysctl(net,
-+					&nf_conntrack_l4proto_generic);
-+	if (net == &init_net) {
-+		/* free l3proto protocol tables */
-+		for (i = 0; i < PF_MAX; i++)
-+			kfree(nf_ct_protos[i]);
-+	}
- }
-diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index d8923d5..19bc880 100644
---- a/net/netfilter/nf_conntrack_proto_generic.c
-+++ b/net/netfilter/nf_conntrack_proto_generic.c
-@@ -14,6 +14,11 @@
- 
- static unsigned int nf_ct_generic_timeout __read_mostly = 600*HZ;
- 
-+static inline struct nf_generic_net *generic_pernet(struct net *net)
++static int ipv4_init_net(struct net *net)
 +{
-+	return &net->ct.nf_ct_proto.generic;
-+}
-+
- static bool generic_pkt_to_tuple(const struct sk_buff *skb,
- 				 unsigned int dataoff,
- 				 struct nf_conntrack_tuple *tuple)
-@@ -42,7 +47,7 @@ static int generic_print_tuple(struct seq_file *s,
- 
- static unsigned int *generic_get_timeouts(struct net *net)
- {
--	return &nf_ct_generic_timeout;
-+	return &(generic_pernet(net)->timeout);
- }
- 
- /* Returns verdict for packet, or -1 for invalid. */
-@@ -110,7 +115,6 @@ static struct ctl_table_header *generic_sysctl_header;
- static struct ctl_table generic_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_generic_timeout",
--		.data		= &nf_ct_generic_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -121,7 +125,6 @@ static struct ctl_table generic_sysctl_table[] = {
- static struct ctl_table generic_compat_sysctl_table[] = {
- 	{
- 		.procname	= "ip_conntrack_generic_timeout",
--		.data		= &nf_ct_generic_timeout,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -131,6 +134,34 @@ static struct ctl_table generic_compat_sysctl_table[] = {
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
- #endif /* CONFIG_SYSCTL */
- 
-+static int generic_init_net(struct net *net)
-+{
-+	struct nf_generic_net *gn = generic_pernet(net);
-+	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
-+	gn->timeout = nf_ct_generic_timeout;
-+#ifdef CONFIG_SYSCTL
-+	pn->ctl_table = kmemdup(generic_sysctl_table,
-+				sizeof(generic_sysctl_table),
++#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
++	struct nf_ip_net *in = &net->ct.nf_ct_proto;
++	in->ctl_table = kmemdup(ip_ct_sysctl_table,
++				sizeof(ip_ct_sysctl_table),
 +				GFP_KERNEL);
-+	if (!pn->ctl_table)
++	if (!in->ctl_table)
 +		return -ENOMEM;
-+	pn->ctl_table[0].data = &gn->timeout;
 +
-+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-+	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
-+				       sizeof(generic_compat_sysctl_table),
-+				       GFP_KERNEL);
-+	if (!pn->ctl_compat_table) {
-+		kfree(pn->ctl_table);
-+		pn->ctl_table = NULL;
-+		return -ENOMEM;
-+	}
-+	pn->ctl_compat_table[0].data = &gn->timeout;
-+#endif
++	in->ctl_table[0].data = &nf_conntrack_max;
++	in->ctl_table[1].data = &net->ct.count;
++	in->ctl_table[2].data = &net->ct.htable_size;
++	in->ctl_table[3].data = &net->ct.sysctl_checksum;
++	in->ctl_table[4].data = &net->ct.sysctl_log_invalid;
 +#endif
 +	return 0;
 +}
 +
- struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
- {
- 	.l3proto		= PF_UNSPEC,
-@@ -158,4 +189,5 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
- 	.ctl_compat_table	= generic_compat_sysctl_table,
+ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.l3proto	 = PF_INET,
+ 	.name		 = "ipv4",
+@@ -368,6 +382,7 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.ctl_table_path  = "net/ipv4/netfilter",
+ 	.ctl_table	 = ip_ct_sysctl_table,
  #endif
- #endif
-+	.init_net		= generic_init_net,
++	.init_net	 = ipv4_init_net,
+ 	.me		 = THIS_MODULE,
  };
+ 
+@@ -378,6 +393,65 @@ MODULE_ALIAS("nf_conntrack-" __stringify(AF_INET));
+ MODULE_ALIAS("ip_conntrack");
+ MODULE_LICENSE("GPL");
+ 
++static int ipv4_net_init(struct net *net)
++{
++	int ret = 0;
++
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_tcp4);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_tcp4 :protocol register failed\n");
++		goto out_tcp;
++	}
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_udp4);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_udp4 :protocol register failed\n");
++		goto out_udp;
++	}
++	ret = nf_conntrack_l4proto_register(net,
++					    &nf_conntrack_l4proto_icmp);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l4proto_icmp4 :protocol register failed\n");
++		goto out_icmp;
++	}
++	ret = nf_conntrack_l3proto_register(net,
++					    &nf_conntrack_l3proto_ipv4);
++	if (ret < 0) {
++		pr_err("nf_conntrack_l3proto_ipv4 :protocol register failed\n");
++		goto out_ipv4;
++	}
++	return 0;
++out_ipv4:
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_icmp);
++out_icmp:
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_udp4);
++out_udp:
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_tcp4);
++out_tcp:
++	return ret;
++}
++
++static void ipv4_net_exit(struct net *net)
++{
++	nf_conntrack_l3proto_unregister(net,
++					&nf_conntrack_l3proto_ipv4);
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_icmp);
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_udp4);
++	nf_conntrack_l4proto_unregister(net,
++					&nf_conntrack_l4proto_tcp4);
++}
++
++static struct pernet_operations ipv4_net_ops = {
++	.init = ipv4_net_init,
++	.exit = ipv4_net_exit,
++};
++
+ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ {
+ 	int ret = 0;
+@@ -391,35 +465,17 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 		return ret;
+ 	}
+ 
+-	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_tcp4);
++	ret = register_pernet_subsys(&ipv4_net_ops);
+ 	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv4: can't register tcp.\n");
++		pr_err("nf_conntrack_ipv4: can't register pernet ops\n");
+ 		goto cleanup_sockopt;
+ 	}
+ 
+-	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_udp4);
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv4: can't register udp.\n");
+-		goto cleanup_tcp;
+-	}
+-
+-	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_icmp);
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv4: can't register icmp.\n");
+-		goto cleanup_udp;
+-	}
+-
+-	ret = nf_conntrack_l3proto_register(&init_net, &nf_conntrack_l3proto_ipv4);
+-	if (ret < 0) {
+-		pr_err("nf_conntrack_ipv4: can't register ipv4\n");
+-		goto cleanup_icmp;
+-	}
+-
+ 	ret = nf_register_hooks(ipv4_conntrack_ops,
+ 				ARRAY_SIZE(ipv4_conntrack_ops));
+ 	if (ret < 0) {
+ 		pr_err("nf_conntrack_ipv4: can't register hooks.\n");
+-		goto cleanup_ipv4;
++		goto cleanup_pernet;
+ 	}
+ #if defined(CONFIG_PROC_FS) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
+ 	ret = nf_conntrack_ipv4_compat_init();
+@@ -431,14 +487,8 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+  cleanup_hooks:
+ 	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+ #endif
+- cleanup_ipv4:
+-	nf_conntrack_l3proto_unregister(&init_net, &nf_conntrack_l3proto_ipv4);
+- cleanup_icmp:
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_icmp);
+- cleanup_udp:
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_udp4);
+- cleanup_tcp:
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_tcp4);
++ cleanup_pernet:
++	unregister_pernet_subsys(&ipv4_net_ops);
+  cleanup_sockopt:
+ 	nf_unregister_sockopt(&so_getorigdst);
+ 	return ret;
+@@ -451,10 +501,7 @@ static void __exit nf_conntrack_l3proto_ipv4_fini(void)
+ 	nf_conntrack_ipv4_compat_fini();
+ #endif
+ 	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+-	nf_conntrack_l3proto_unregister(&init_net, &nf_conntrack_l3proto_ipv4);
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_icmp);
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_udp4);
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_tcp4);
++	unregister_pernet_subsys(&ipv4_net_ops);
+ 	nf_unregister_sockopt(&so_getorigdst);
+ }
+ 
 -- 
 1.7.10
 
