@@ -1,28 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH rfc net] Allow the autoconfigured network interface to
- be renamed.
-Date: Sun, 10 Jun 2012 20:08:21 -0700 (PDT)
-Message-ID: <20120610.200821.1580504676011333528.davem@davemloft.net>
-References: <1339228087-14870-1-git-send-email-scott@scottnz.com>
-	<1339343619.27293.7.camel@c2d>
+Subject: Re: [PATCH] af_packet: check loop for greater than zero in
+ tpacket_fill_skb
+Date: Sun, 10 Jun 2012 20:10:15 -0700 (PDT)
+Message-ID: <20120610.201015.1131273088392536549.davem@davemloft.net>
+References: <4FD4F494.6020102@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, scott.parlane@alliedtelesis.co.nz
-To: scott@scottnz.com
+Cc: netdev@vger.kernel.org
+To: danborkmann@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39393 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39404 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109Ab2FKDIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 23:08:22 -0400
-In-Reply-To: <1339343619.27293.7.camel@c2d>
+	with ESMTP id S1752807Ab2FKDKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 23:10:16 -0400
+In-Reply-To: <4FD4F494.6020102@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Parlane <scott@scottnz.com>
-Date: Mon, 11 Jun 2012 03:53:39 +1200
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Date: Sun, 10 Jun 2012 21:25:08 +0200
 
-> We have been running it for several months on ~80 x86 machines
+> It could be more safe to check the 'to_write' for 'greater than zero'
+> instead for 'not zero'. 'to_write' is of type int and subtraction operations
+> are performed on it, so in the case of malformed values that are
+> subtracted from 'to_write', it could become less than zero, which is then
+> interpreted as 'not zero' in the while condition, thus the loop won't
+> return as expected.
+> 
+> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 
-The number of people already running a patch is not the criteria use
-to determine if a patch gets added or not.
+I hate this kind of change.
+
+The implication is that there are bugs in the loop that can cause
+the value to go negative.
+
+Unless you can show that this actually happens, leave this clean
+test alone.
