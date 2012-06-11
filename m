@@ -1,46 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: avoid NAPI scheduling delay.
-Date: Sun, 10 Jun 2012 20:21:28 -0700 (PDT)
-Message-ID: <20120610.202128.2099230010518549663.davem@davemloft.net>
-References: <20120609205316.GA5915@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] virtio-net: fix a race on 32bit arches
+Date: Sun, 10 Jun 2012 20:23:41 -0700 (PDT)
+Message-ID: <20120610.202341.2146277133562218686.davem@davemloft.net>
+References: <1338971724.2760.3913.camel@edumazet-glaptop>
+	<20120610102512.GB6793@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davej@redhat.com, marc.c.dionne@gmail.com,
-	tglx@linutronix.de, js@sig21.net, realnc@gmail.com,
-	hayeswang@realtek.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39447 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109Ab2FKDV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 23:21:29 -0400
-In-Reply-To: <20120609205316.GA5915@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, shemminger@vyatta.com
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120610102512.GB6793@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 9 Jun 2012 22:53:16 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 10 Jun 2012 13:25:12 +0300
 
-> While reworking the r8169 driver a few months ago to perform the
-> smallest amount of work in the irq handler, I took care of avoiding
-> any irq mask register operation in the slow work dedicated user
-> context thread. The slow work thread scheduled an extra round of NAPI
-> work which would ultimately set the irq mask register as required,
-> thus keeping such irq mask operations in the NAPI handler.
-> It would eventually race with the irq handler and delay NAPI execution
-> for - assuming no further irq - a whole ksoftirqd period. Mildly a
-> problem for rare link changes or corner case PCI events.
+> On Wed, Jun 06, 2012 at 10:35:24AM +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> commit 3fa2a1df909 (virtio-net: per cpu 64 bit stats (v2)) added a race
+>> on 32bit arches.
+>> 
+>> We must use separate syncp for rx and tx path as they can be run at the
+>> same time on different cpus. Thus one sequence increment can be lost and
+>> readers spin forever.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Stephen Hemminger <shemminger@vyatta.com>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Cc: Jason Wang <jasowang@redhat.com>
 > 
-> The race was always lost after the last bh disabling lock had been
-> removed from the work thread and people started wondering where those
-> pesky "NOHZ: local_softirq_pending 08" messages came from.
+> I'm still thinking about moving tx to take a xmit lock long term,
+> meanwhile this fix appears appropriate for 3.5.
 > 
-> Actually the irq mask register _can_ be set up directly in the slow
-> work thread.
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Reported-by: Dave Jones <davej@redhat.com>
-> Tested-by: Marc Dionne <marc.c.dionne@gmail.com>
+> Dave, can you pick this up pls?
 
-Applied, thanks.
+Done, thanks.
