@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] net: lpc_eth: Increase number of TX descriptors
-Date: Mon, 11 Jun 2012 01:11:17 -0700 (PDT)
-Message-ID: <20120611.011117.597888637750902318.davem@davemloft.net>
-References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
-	<1339401793-12258-2-git-send-email-stigge@antcom.de>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH] ieee802154: verify packet size before trying to
+ allocate it
+Date: Mon, 11 Jun 2012 10:18:22 +0200
+Message-ID: <1339402702.4999.15.camel@lappy>
+References: <1339326619-1753-1-git-send-email-levinsasha928@gmail.com>
+	 <20120610.200443.971015025499077057.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: stigge@antcom.de
+Cc: dbaryshkov@gmail.com, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339401793-12258-2-git-send-email-stigge@antcom.de>
+In-Reply-To: <20120610.200443.971015025499077057.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Stigge <stigge@antcom.de>
-Date: Mon, 11 Jun 2012 10:03:12 +0200
-
-> Since we have enough SRAM, we can increase the number of TX descriptors, so the
-> "BUSY" warning about occupied TX descriptors doesn't need to show up as often.
+On Sun, 2012-06-10 at 20:04 -0700, David Miller wrote:
+> From: Sasha Levin <levinsasha928@gmail.com>
+> Date: Sun, 10 Jun 2012 13:10:19 +0200
 > 
-> Signed-off-by: Roland Stigge <stigge@antcom.de>
-> Tested-by: Alexandre Pereira da Silva <aletes.xgr@gmail.com>
+> > Currently when sending data over datagram, the send function will attempt to
+> > allocate any size passed on from the userspace.
+> > 
+> > We should make sure that this size is checked and limited. The maximum size
+> > of an IP packet seemed like the safest limit here.
+> > 
+> > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> 
+> Why not limit to the device MTU?  That's exactly what I suggested
+> to you.
 
-This is way too terse, and as I described in my reply to your first
-patch it is not normal for the transmit function to be invoked when
-there are no TX descriptors available.  That's a bug if it is happening.
+That's what I ended up doing in the reply to this mail.
