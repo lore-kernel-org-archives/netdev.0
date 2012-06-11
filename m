@@ -1,60 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2] dummy: fix rcu_sched self-detected stalls
-Date: Mon, 11 Jun 2012 09:51:15 -0700
-Message-ID: <20120611095115.22afbd1b@s6510.linuxnetplumber.net>
-References: <1339239546.6001.177.camel@edumazet-glaptop>
-	<20120610.224800.602807319671005890.davem@davemloft.net>
-	<1339398717.6001.1538.camel@edumazet-glaptop>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: net: nfc: BUG and panic in accept() on 3.5-rc2
+Date: Mon, 11 Jun 2012 18:55:59 +0200
+Message-ID: <1339433759.4999.64.camel@lappy>
+References: <1339423241.4999.53.camel@lappy>
+	 <20120611144134.GX22557@sortiz-mobl>
+	 <1339425693.6001.2268.camel@edumazet-glaptop>
+	 <1339426241.4999.62.camel@lappy>
+	 <1339426726.6001.2309.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Samuel Ortiz <sameo@linux.intel.com>,
+	David Miller <davem@davemloft.net>,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	Dave Jones <davej@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52708 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750877Ab2FKQvU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 12:51:20 -0400
-In-Reply-To: <1339398717.6001.1538.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339426726.6001.2309.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 11 Jun 2012 09:11:57 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Mon, 2012-06-11 at 16:58 +0200, Eric Dumazet wrote:
+> On Mon, 2012-06-11 at 16:50 +0200, Sasha Levin wrote:
+> 
+> > Eric, Is there something that documents at what state each of the
+> > callbacks in the network subsystem can be called? Like a big flow chart
+> > of some sorts?
+> > 
+> > I'm asking because I've looked at this as well before sending this mail,
+> > and while the fix does look trivial, I wasn't sure whether it is really
+> > the correct fix, or the problem is that this callback wasn't supposed be
+> > called at all so something else is broken (we had such issue with
+> > namespaces and unshare() not long ago).
+> > 
+> 
+> I am not aware of such 'document'.
+> 
+> Things change, and only *good* reference is actual source code.
+> 
+> Now, take a look at sock_graft()/sock_orphan()/inet_release() ...
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Trying to "modprobe dummy numdummies=30000" triggers :
-> 
-> INFO: rcu_sched self-detected stall on CPU { 8} (t=60000 jiffies)
-> 
-> After this splat, RTNL is locked and reboot is needed.
-> 
-> We must call cond_resched() to avoid this, even holding RTNL.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/dummy.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-> index 442d91a..bab0158 100644
-> --- a/drivers/net/dummy.c
-> +++ b/drivers/net/dummy.c
-> @@ -187,8 +187,10 @@ static int __init dummy_init_module(void)
->  	rtnl_lock();
->  	err = __rtnl_link_register(&dummy_link_ops);
->  
-> -	for (i = 0; i < numdummies && !err; i++)
-> +	for (i = 0; i < numdummies && !err; i++) {
->  		err = dummy_init_one();
-> +		cond_resched();
-> +	}
->  	if (err < 0)
->  		__rtnl_link_unregister(&dummy_link_ops);
->  	rtnl_unlock();
-> 
+I see.
 
-
-Rather than holding lock for the whole loop, why not reacquire
-each time to keep from holding off everything els.
+I grepped for release callbacks and the first few in the result (atm,
+ax_25) did check for !sk, so I guess I'll just follow what I see in
+other code in the future :)
