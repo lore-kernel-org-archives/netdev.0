@@ -1,60 +1,96 @@
-From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Subject: Re: [PATCH net-next 0/4] 6lowpan: set of bug fixes
-Date: Mon, 11 Jun 2012 16:45:02 +0200
-Message-ID: <ce01fc3b60f428ee9d3928d0fca6227c@amnesiak.org>
-References: <20120611003741.27263005@dualbox>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <alex.bluesman.smirnov@gmail.com>
-To: <netdev@vger.kernel.org>,
-	<linux-zigbee-devel@lists.sourceforge.net>
+From: pablo@netfilter.org
+Subject: [PATCH 01/25] netfilter: remove include/linux/netfilter_ipv4/ipt_addrtype.h
+Date: Mon, 11 Jun 2012 16:43:37 +0200
+Message-ID: <1339425841-24171-2-git-send-email-pablo@netfilter.org>
+References: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.amnesiak.org ([95.130.11.136]:57603 "EHLO amnesiak.org"
+Received: from mail.us.es ([193.147.175.20]:32791 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755116Ab2FKOn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 10:43:28 -0400
-In-Reply-To: <20120611003741.27263005@dualbox>
+	id S1755304Ab2FKOop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 10:44:45 -0400
+In-Reply-To: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-As Jan pointed out, it seems that the third patch of my patchset is not=
-=20
-formatted properly. Moreover, I got my own email address wrong. Please=20
-disregard the whole patchset as I need to investigate the issue. I'll=20
-repost the complete patchset when it will be resolved.
+It was scheduled to be removed.
 
-I'm sorry if it caused any of you to waste your time on it.
+Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ Documentation/feature-removal-schedule.txt  |    8 --------
+ include/linux/netfilter_ipv4/Kbuild         |    1 -
+ include/linux/netfilter_ipv4/ipt_addrtype.h |   27 ---------------------------
+ 3 files changed, 36 deletions(-)
+ delete mode 100644 include/linux/netfilter_ipv4/ipt_addrtype.h
 
-Regards,
-Tony
-
-Le 11.06.2012 06:37, Tony Cheneau a =C3=A9crit=C2=A0:
-> Hello,
->
-> (This is my first time submitting patches. If I fail to apply to
-> some rules in here, please let me know)
->
-> After reading the 6lowpan code, I found a few issues. This patchset
-> fixes them. This patchset should apply cleanly against the current
-> net-next. It contains only bug fixes, I'll send later on a few other
-> patches that will offer new functionalities.
->
-> This is a set of 4 small patches that correct bugs in 6lowpan:
-> - patch 1 fixes a potential crash when reassembling UDP fragments
-> - patch 2 fixes a type issues that prevent the fragmentation=20
-> reassembly
->   to operate properly.
-> - patch 3 and 4 corrects field encoding issues
->
-> Hope it helps.
->
-> Regards,
-> 	Tony Cheneau
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
+index 56000b3..08e7e71 100644
+--- a/Documentation/feature-removal-schedule.txt
++++ b/Documentation/feature-removal-schedule.txt
+@@ -421,14 +421,6 @@ Files:	net/netfilter/xt_connlimit.c
+ 
+ ----------------------------
+ 
+-What:	ipt_addrtype match include file
+-When:	2012
+-Why:	superseded by xt_addrtype
+-Who:	Florian Westphal <fw@strlen.de>
+-Files:	include/linux/netfilter_ipv4/ipt_addrtype.h
+-
+-----------------------------
+-
+ What:	i2c_driver.attach_adapter
+ 	i2c_driver.detach_adapter
+ When:	September 2011
+diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
+index c61b8fb..8ba0c5b 100644
+--- a/include/linux/netfilter_ipv4/Kbuild
++++ b/include/linux/netfilter_ipv4/Kbuild
+@@ -5,7 +5,6 @@ header-y += ipt_LOG.h
+ header-y += ipt_REJECT.h
+ header-y += ipt_TTL.h
+ header-y += ipt_ULOG.h
+-header-y += ipt_addrtype.h
+ header-y += ipt_ah.h
+ header-y += ipt_ecn.h
+ header-y += ipt_ttl.h
+diff --git a/include/linux/netfilter_ipv4/ipt_addrtype.h b/include/linux/netfilter_ipv4/ipt_addrtype.h
+deleted file mode 100644
+index 0da4223..0000000
+--- a/include/linux/netfilter_ipv4/ipt_addrtype.h
++++ /dev/null
+@@ -1,27 +0,0 @@
+-#ifndef _IPT_ADDRTYPE_H
+-#define _IPT_ADDRTYPE_H
+-
+-#include <linux/types.h>
+-
+-enum {
+-	IPT_ADDRTYPE_INVERT_SOURCE	= 0x0001,
+-	IPT_ADDRTYPE_INVERT_DEST	= 0x0002,
+-	IPT_ADDRTYPE_LIMIT_IFACE_IN	= 0x0004,
+-	IPT_ADDRTYPE_LIMIT_IFACE_OUT	= 0x0008,
+-};
+-
+-struct ipt_addrtype_info_v1 {
+-	__u16	source;		/* source-type mask */
+-	__u16	dest;		/* dest-type mask */
+-	__u32	flags;
+-};
+-
+-/* revision 0 */
+-struct ipt_addrtype_info {
+-	__u16	source;		/* source-type mask */
+-	__u16	dest;		/* dest-type mask */
+-	__u32	invert_source;
+-	__u32	invert_dest;
+-};
+-
+-#endif
+-- 
+1.7.10
