@@ -1,61 +1,68 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
-Date: Mon, 11 Jun 2012 15:51:45 +0200
-Message-ID: <4FD5F7F1.3010602@grandegger.com>
-References: <20120604165619.15ba43bf@pyramind.ukuu.org.uk>  <4FC135C6.5030206@grandegger.com>  <1338816766-7089-1-git-send-email-federico.vaga@gmail.com>  <1338816766-7089-2-git-send-email-federico.vaga@gmail.com> <20120604164531.GA22000@mail.gnudd.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: net: nfc: BUG and panic in accept() on 3.5-rc2
+Date: Mon, 11 Jun 2012 16:00:41 +0200
+Message-ID: <1339423241.4999.53.camel@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, federico.vaga@gmail.com,
-	mkl@pengutronix.de, giancarlo.asnaghi@st.com, alan@linux.intel.com,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alessandro Rubini <rubini@gnudd.com>
+Cc: Dave Jones <davej@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, lauro.venancio@openbossa.org,
+	aloisio.almeida@openbossa.org, sameo@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120604164531.GA22000@mail.gnudd.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/04/2012 06:45 PM, Alessandro Rubini wrote:
->> Anythign wrong with 
->>
->> bool aligned32;
-> 
-> I personally think booleans are evil.  But both this and the other
-> thing:
-> 
->>> +static u16 c_can_pci_read_reg_aligned_to_16bit(struct c_can_priv *priv,
->>> +						void *reg)
->>
->> I'm a bit worried this function name might be too short ;)
-> 
-> come from the platform driver this is based on (I already blamed
-> federico offlist for not preserving authorship of the original file).
-> 
-> So, this file is mostly copied from the platform driver, which is a
-> duplication of code.  A mandated duplication, given how the thing
-> is currently laid out: the c_can core driver exports functions that
-> the other two files are using (the platform and the new pci driver).
-> 
-> In my opinion, it would be much better to have one less layer and no
-> exports at all. The core driver should be a platform driver, and the
-> pci driver would just build platform data and register the platform
-> device.
+Hi all,
 
-Do you have examples for that approach? Not sure yet if it really saves
-code and makes it more readable.
+I've stumbled on the following while fuzzing with trinity inside a KVM tools guest, running on 3.5-rc2:
 
-> Sure this isn't up to federico, who has the pci device but cannot
-> access any boards where the previous driver is used.  What do the
-> maintainers think? I (or federico :) may propose a reshaping, if
-> the idea makes sense.
-
-I would suggest to provide the c_can_pci driver using the *current* API,
-even if it's not optimal. Federicos patch then already looks quite good.
-It should use the new register access methods introduced by the D_CAN
-support patch, though.
-
-Any further improvements to the device abstraction and a more consistent
-handling of the platform data are welcome.
-
-Wolfgang.
+[ 2136.383310] BUG: unable to handle kernel NULL pointer dereference at 00000000000003b0
+[ 2136.384022] IP: [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
+[ 2136.384022] PGD 131c4067 PUD 11c0c067 PMD 0 
+[ 2136.388106] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+[ 2136.388106] CPU 1 
+[ 2136.388106] Pid: 24855, comm: trinity-child1 Tainted: G        W    3.5.0-rc2-sasha-00015-g7b268f7 #374  
+[ 2136.388106] RIP: 0010:[<ffffffff8114e400>]  [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
+[ 2136.388106] RSP: 0018:ffff8800130b3ca8  EFLAGS: 00010046
+[ 2136.388106] RAX: 0000000000000086 RBX: ffff88001186b000 RCX: 0000000000000000
+[ 2136.388106] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
+[ 2136.388106] RBP: ffff8800130b3d08 R08: 0000000000000001 R09: 0000000000000000
+[ 2136.388106] R10: 0000000000000000 R11: 0000000000000001 R12: 0000000000000002
+[ 2136.388106] R13: 00000000000003b0 R14: 0000000000000000 R15: 0000000000000000
+[ 2136.388106] FS:  00007fa5b1bd4700(0000) GS:ffff88001b800000(0000) knlGS:0000000000000000
+[ 2136.388106] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[ 2136.388106] CR2: 00000000000003b0 CR3: 0000000011d1f000 CR4: 00000000000406e0
+[ 2136.388106] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[ 2136.388106] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[ 2136.388106] Process trinity-child1 (pid: 24855, threadinfo ffff8800130b2000, task ffff88001186b000)
+[ 2136.388106] Stack:
+[ 2136.388106]  ffff8800130b3cd8 ffffffff81121785 ffffffff81236774 000080d000000001
+[ 2136.388106]  ffff88001b9d6c00 00000000001d6c00 ffffffff130b3d08 ffff88001186b000
+[ 2136.388106]  0000000000000000 0000000000000002 0000000000000000 0000000000000000
+[ 2136.388106] Call Trace:
+[ 2136.388106]  [<ffffffff81121785>] ? sched_clock_local+0x25/0x90
+[ 2136.388106]  [<ffffffff81236774>] ? get_empty_filp+0x74/0x220
+[ 2136.388106]  [<ffffffff8114e97a>] lock_acquire+0x18a/0x1e0
+[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
+[ 2136.388106]  [<ffffffff837c0ef0>] _raw_write_lock_bh+0x40/0x80
+[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
+[ 2136.388106]  [<ffffffff836b37df>] rawsock_release+0x4f/0xa0
+[ 2136.388106]  [<ffffffff8321cfe8>] sock_release+0x18/0x70
+[ 2136.388106]  [<ffffffff8321d069>] sock_close+0x29/0x30
+[ 2136.388106]  [<ffffffff81236bca>] __fput+0x11a/0x2c0
+[ 2136.388106]  [<ffffffff81236d85>] fput+0x15/0x20
+[ 2136.388106]  [<ffffffff8321de34>] sys_accept4+0x1b4/0x200
+[ 2136.388106]  [<ffffffff837c165c>] ? _raw_spin_unlock_irq+0x4c/0x80
+[ 2136.388106]  [<ffffffff837c1669>] ? _raw_spin_unlock_irq+0x59/0x80
+[ 2136.388106]  [<ffffffff837c2565>] ? sysret_check+0x22/0x5d
+[ 2136.388106]  [<ffffffff8321de8b>] sys_accept+0xb/0x10
+[ 2136.388106]  [<ffffffff837c2539>] system_call_fastpath+0x16/0x1b
+[ 2136.388106] Code: ec 04 00 0f 85 ea 03 00 00 be d5 0b 00 00 48 c7 c7 8a c1 40 84 e8 b1 a5 f8 ff 31 c0 e9 d4 03 00 00 66 2e 0f 1f 84 00 00 00 00 00 <49> 81 7d 00 60 73 5e 85 b8 01 00 00 00 44 0f 44 e0 83 fe 01 77 
+[ 2136.388106] RIP  [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
+[ 2136.388106]  RSP <ffff8800130b3ca8>
+[ 2136.388106] CR2: 00000000000003b0
+[ 2136.388106] ---[ end trace 6d450e935ee18982 ]---
+[ 2136.388106] Kernel panic - not syncing: Fatal exception in interrupt
