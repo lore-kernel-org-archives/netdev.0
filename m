@@ -1,35 +1,38 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: Generic user-space routing library -- need collaborator
-Date: Mon, 11 Jun 2012 04:09:08 -0400
-Message-ID: <20120611080908.GB28598@canuck.infradead.org>
-References: <4FCBBD6C.8020904@redfish-solutions.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] net: lpc_eth: Replace WARN() trace with simple
+ pr_warn()
+Date: Mon, 11 Jun 2012 01:10:26 -0700 (PDT)
+Message-ID: <20120611.011026.1545016970136342488.davem@davemloft.net>
+References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>
-To: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:32907 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750695Ab2FKIJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 04:09:10 -0400
-Content-Disposition: inline
-In-Reply-To: <4FCBBD6C.8020904@redfish-solutions.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: stigge@antcom.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339401793-12258-1-git-send-email-stigge@antcom.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 03, 2012 at 01:39:24PM -0600, Philip Prindeville wrote:
-> Hi.
+From: Roland Stigge <stigge@antcom.de>
+Date: Mon, 11 Jun 2012 10:03:11 +0200
+
+> A WARN() trace indicating a "BUG!" was identified as a "normal" case in the
+> xmit function in case all TX descriptors are occupied already. In this case,
+> NETDEV_TX_BUSY is returned, nothing buggy at all.
 > 
-> I'm working on adding a few more portability classes to Poco (a multi-platform C++ toolkit) and wanted to add a Net::Routing class for examining and manipulating the routing tables.
-> 
-> The C++ would just be convenience wrappers around a core C library that handles the netlink semantics. I've looked at libmnl and it's handy, but I need a higher level of abstraction (for instance, parsing an RTA_NETMASK for IPv6 is anything but well-documented).
+> Signed-off-by: Roland Stigge <stigge@antcom.de>
+> Tested-by: Alexandre Pereira da Silva <aletes.xgr@gmail.com>
 
-You want to look at libnl. It's similiar to libmnl but provides a higher
-level of abstraction. It implements routing, netfilter and generic
-netlink parsing and message construction.
+This is not normal.
 
-http://www.infradead.org/~tgr/libnl/
+Read the comment above this code you are changing.  If we are
+out of TX descriptors, the queue must be stopped, and therefore
+if the queue is stopped this transmit method should not be
+invoked.
 
-You should be able to easily construct C++ wrappers around the lib.
-
-~Thomas
+It is a hard error condition, should never occur, and indicates
+a very serious error condition in the driver.
