@@ -1,34 +1,73 @@
-From: "Michael D. Berger" <m_d_berger_1900@yahoo.com>
-Subject: tcp/ip server timeout
-Date: Sun, 10 Jun 2012 22:32:23 +0000 (UTC)
-Message-ID: <jr379n$17r$1@dough.gmane.org>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: Re: [PATCH] inet: Initialize per-netns inetpeer roots in net/ipv{4,
+	6}/route.c
+Date: Mon, 11 Jun 2012 08:27:32 +0800
+Message-ID: <4FD53B74.1050409@cn.fujitsu.com>
+References: <20120610015832.GA9175@localhost> <20120610020801.GA9293@localhost>
+	<20120609.190929.1165462964087672866.davem@davemloft.net>
+	<20120609.221801.2226110181753212240.davem@davemloft.net>
+	<20120610101640.GA14476@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:43138 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752778Ab2FJWco (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jun 2012 18:32:44 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1SdqgV-0004IZ-JG
-	for netdev@vger.kernel.org; Mon, 11 Jun 2012 00:32:35 +0200
-Received: from static-71-246-219-24.washdc.fios.verizon.net ([71.246.219.24])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 00:32:35 +0200
-Received: from m_d_berger_1900 by static-71-246-219-24.washdc.fios.verizon.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 00:32:35 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Fengguang Wu <wfg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20120610101640.GA14476@localhost>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Using Linux, Fedora 16.
-Is there a way to have a tcp/ip server socket signal or
-disconnect when there has been no traffic in either
-direction for, say, 5 minutes?
-
-Thanks for your help,
-Mike.
+SGkgZmVuZ2d1YW5nOgoK5LqOIDIwMTLlubQwNuaciDEw5pelIDE4OjE2LCBGZW5nZ3VhbmcgV3Ug
+5YaZ6YGTOgo+IE9uIFNhdCwgSnVuIDA5LCAyMDEyIGF0IDEwOjE4OjAxUE0gLTA0MDAsIERhdmlk
+IE1pbGxlciB3cm90ZToKPj4gRnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0
+Pgo+PiBEYXRlOiBTYXQsIDA5IEp1biAyMDEyIDE5OjA5OjI5IC0wNzAwIChQRFQpCj4+Cj4+PiBG
+cm9tOiBGZW5nZ3VhbmcgV3UgPHdmZ0BsaW51eC5pbnRlbC5jb20+Cj4+PiBEYXRlOiBTdW4sIDEw
+IEp1biAyMDEyIDEwOjA4OjAxICswODAwCj4+Pgo+Pj4+IEFuZCBpbiBhbm90aGVyIGNvbmZpZywg
+YW4gb2xkIGVycm9yIHN0aWxsIHRyaWdnZXJzOgo+Pj4+Cj4+Pj4gbmV0L2lwdjQvaW5ldHBlZXIu
+YzogSW4gZnVuY3Rpb24g4oCYZmFtaWx5X3RvX2Jhc2XigJk6Cj4+Pj4gbmV0L2lwdjQvaW5ldHBl
+ZXIuYzozOTc6NTA6IGVycm9yOiDigJhzdHJ1Y3QgbmV04oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg
+4oCYaXB2NuKAmQo+Pj4+IG5ldC9pcHY0L2luZXRwZWVyLmM6Mzk4OjE6IHdhcm5pbmc6IGNvbnRy
+b2wgcmVhY2hlcyBlbmQgb2Ygbm9uLXZvaWQgZnVuY3Rpb24gWy1XcmV0dXJuLXR5cGVdCj4+Pj4K
+Pj4+PiBJJ20gYnVpbGRpbmcgdGhpcyBwYXRjaCBvbiB0b3Agb2YgbmV0LW5leHQgbWFzdGVyLgo+
+Pj4KPj4+IFdoYXQgYSBmdWNraW5nIG1lc3MgR2FvIGNyZWF0ZWQsIEknbGwgZml4IHRoaXMuCj4+
+Pgo+Pj4gVGhhbmtzIGZvciB0aGUgcmVwb3J0Lgo+Pgo+PiBJIGp1c3QgcHVzaGVkIHRoZSBmb2xs
+b3dpbmcgdG8gbmV0LW5leHQ6Cj4+Cj4+IC0tLS0tLS0tLS0tLS0tLS0tLS0tCj4+IGluZXQ6IFBh
+c3MgaW5ldHBlZXIgcm9vdCBpbnRvIGluZXRfZ2V0cGVlciooKSBpbnRlcmZhY2VzLgo+Pgo+PiBP
+dGhlcndpc2Ugd2UgcmVmZXJlbmNlIHBvdGVudGlhbGx5IG5vbi1leGlzdGluZyBtZW1iZXJzIHdo
+ZW4KPj4gaXB2NiBpcyBkaXNhYmxlZC4KPj4KPj4gU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWls
+bGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pgo+PiAtLS0KPj4gIGluY2x1ZGUvbmV0L2luZXRwZWVy
+LmggfCAgIDEwICsrKysrLS0tLS0KPj4gIG5ldC9pcHY0L2luZXRwZWVyLmMgICAgfCAgICA5ICst
+LS0tLS0tLQo+PiAgbmV0L2lwdjQvaXBfZnJhZ21lbnQuYyB8ICAgIDIgKy0KPj4gIG5ldC9pcHY0
+L3JvdXRlLmMgICAgICAgfCAgICA2ICsrKy0tLQo+PiAgbmV0L2lwdjYvcm91dGUuYyAgICAgICB8
+ICAgIDIgKy0KPj4gIDUgZmlsZXMgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMTggZGVsZXRp
+b25zKC0pCj4gCj4gSXQgdHJpZ2dlcnMgc29tZSBvdGhlciBlcnJvcnM6Cj4gCj4gbmV0L2lwdjQv
+aW5ldHBlZXIuYzogSW4gZnVuY3Rpb24g4oCYaW5ldHBlZXJfaW52YWxpZGF0ZV90cmVl4oCZOgo+
+IG5ldC9pcHY0L2luZXRwZWVyLmM6NTg1Ojk6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBv
+ZiBmdW5jdGlvbiDigJhmYW1pbHlfdG9fYmFzZeKAmSBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlv
+bi1kZWNsYXJhdGlvbl0KPiBuZXQvaXB2NC9pbmV0cGVlci5jOjU4NTozMjogd2FybmluZzogaW5p
+dGlhbGl6YXRpb24gbWFrZXMgcG9pbnRlciBmcm9tIGludGVnZXIgd2l0aG91dCBhIGNhc3QgW2Vu
+YWJsZWQgYnkgZGVmYXVsdF0KPiBuZXQvaXB2Ni90Y3BfaXB2Ni5jOjE3NTg6Mjogd2FybmluZzog
+cGFzc2luZyBhcmd1bWVudCAxIG9mIOKAmGluZXRfZ2V0cGVlcl92NuKAmSBmcm9tIGluY29tcGF0
+aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0KPiBpbmNsdWRlL25ldC9pbmV0
+cGVlci5oOjEwMTozMzogbm90ZTogZXhwZWN0ZWQg4oCYc3RydWN0IGluZXRfcGVlcl9iYXNlICri
+gJkgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUg4oCYc3RydWN0IG5ldCAq4oCZCj4gbmV0L2lwdjQv
+dGNwX2lwdjQuYzoxODQzOjI6IHdhcm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMSBvZiDigJhpbmV0
+X2dldHBlZXJfdjTigJkgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5
+IGRlZmF1bHRdCj4gaW5jbHVkZS9uZXQvaW5ldHBlZXIuaDo5MDozMzogbm90ZTogZXhwZWN0ZWQg
+4oCYc3RydWN0IGluZXRfcGVlcl9iYXNlICrigJkgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUg4oCY
+c3RydWN0IG5ldCAq4oCZCj4gCj4gd2hpY2ggY2FuIGJlIGZpeGVkIGJ5IHRoZSBmb2xsb3dpbmcg
+ZGlmZi4KCnNlYW1zIHlvdSBkaWQgbm90IHB1bGwgdGhlIGxhc3QgY29kZXMKRGF2aWQgaGFzIGRl
+bGV0ZSB0aGUgdGNwX3YoNCw2KV90d19nZXRfcGVlcgppbiBjb21taXQgMjM5Nzg0OWJhYTdjNDRj
+MjQyZTVkNTE0MmQ1ZDE2ZDFlN2VkNTNkMC4KClRoYW5rcy4KX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KQ29udGFpbmVycyBtYWlsaW5nIGxpc3QKQ29udGFp
+bmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRh
+dGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9jb250YWluZXJz
