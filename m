@@ -1,68 +1,41 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: net: nfc: BUG and panic in accept() on 3.5-rc2
-Date: Mon, 11 Jun 2012 16:00:41 +0200
-Message-ID: <1339423241.4999.53.camel@lappy>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/4] drivers/net/ethernet/sfc: Add efx_ prefix to set_bit_le()
+Date: Mon, 11 Jun 2012 14:09:15 +0000
+Message-ID: <201206111409.16093.arnd@arndb.de>
+References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp> <20120611212901.2b4d0a17.yoshikawa.takuya@oss.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, lauro.venancio@openbossa.org,
-	aloisio.almeida@openbossa.org, sameo@linux.intel.com
+Cc: bhutchings@solarflare.com, grundler@parisc-linux.org,
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org, takuya.yoshikawa@gmail.com
+To: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120611212901.2b4d0a17.yoshikawa.takuya@oss.ntt.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Monday 11 June 2012, Takuya Yoshikawa wrote:
+> 
+>  /* Set bit in a little-endian bitfield */
+> -static inline void set_bit_le(unsigned nr, unsigned char *addr)
+> +static inline void efx_set_bit_le(unsigned nr, unsigned char *addr)
+>  {
+>         addr[nr / 8] |= (1 << (nr % 8));
+>  }
+>  
+>  /* Clear bit in a little-endian bitfield */
+> -static inline void clear_bit_le(unsigned nr, unsigned char *addr)
+> +static inline void efx_clear_bit_le(unsigned nr, unsigned char *addr)
+>  {
+>         addr[nr / 8] &= ~(1 << (nr % 8));
+>  }
 
-I've stumbled on the following while fuzzing with trinity inside a KVM tools guest, running on 3.5-rc2:
+Hmm, any reason why we're not just using the existing non-atomic
+__set_bit_le() here? I think the helpers in sfc and tulip can
+just get removed if you use those.
 
-[ 2136.383310] BUG: unable to handle kernel NULL pointer dereference at 00000000000003b0
-[ 2136.384022] IP: [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
-[ 2136.384022] PGD 131c4067 PUD 11c0c067 PMD 0 
-[ 2136.388106] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[ 2136.388106] CPU 1 
-[ 2136.388106] Pid: 24855, comm: trinity-child1 Tainted: G        W    3.5.0-rc2-sasha-00015-g7b268f7 #374  
-[ 2136.388106] RIP: 0010:[<ffffffff8114e400>]  [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
-[ 2136.388106] RSP: 0018:ffff8800130b3ca8  EFLAGS: 00010046
-[ 2136.388106] RAX: 0000000000000086 RBX: ffff88001186b000 RCX: 0000000000000000
-[ 2136.388106] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
-[ 2136.388106] RBP: ffff8800130b3d08 R08: 0000000000000001 R09: 0000000000000000
-[ 2136.388106] R10: 0000000000000000 R11: 0000000000000001 R12: 0000000000000002
-[ 2136.388106] R13: 00000000000003b0 R14: 0000000000000000 R15: 0000000000000000
-[ 2136.388106] FS:  00007fa5b1bd4700(0000) GS:ffff88001b800000(0000) knlGS:0000000000000000
-[ 2136.388106] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 2136.388106] CR2: 00000000000003b0 CR3: 0000000011d1f000 CR4: 00000000000406e0
-[ 2136.388106] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[ 2136.388106] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[ 2136.388106] Process trinity-child1 (pid: 24855, threadinfo ffff8800130b2000, task ffff88001186b000)
-[ 2136.388106] Stack:
-[ 2136.388106]  ffff8800130b3cd8 ffffffff81121785 ffffffff81236774 000080d000000001
-[ 2136.388106]  ffff88001b9d6c00 00000000001d6c00 ffffffff130b3d08 ffff88001186b000
-[ 2136.388106]  0000000000000000 0000000000000002 0000000000000000 0000000000000000
-[ 2136.388106] Call Trace:
-[ 2136.388106]  [<ffffffff81121785>] ? sched_clock_local+0x25/0x90
-[ 2136.388106]  [<ffffffff81236774>] ? get_empty_filp+0x74/0x220
-[ 2136.388106]  [<ffffffff8114e97a>] lock_acquire+0x18a/0x1e0
-[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
-[ 2136.388106]  [<ffffffff837c0ef0>] _raw_write_lock_bh+0x40/0x80
-[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
-[ 2136.388106]  [<ffffffff836b37df>] rawsock_release+0x4f/0xa0
-[ 2136.388106]  [<ffffffff8321cfe8>] sock_release+0x18/0x70
-[ 2136.388106]  [<ffffffff8321d069>] sock_close+0x29/0x30
-[ 2136.388106]  [<ffffffff81236bca>] __fput+0x11a/0x2c0
-[ 2136.388106]  [<ffffffff81236d85>] fput+0x15/0x20
-[ 2136.388106]  [<ffffffff8321de34>] sys_accept4+0x1b4/0x200
-[ 2136.388106]  [<ffffffff837c165c>] ? _raw_spin_unlock_irq+0x4c/0x80
-[ 2136.388106]  [<ffffffff837c1669>] ? _raw_spin_unlock_irq+0x59/0x80
-[ 2136.388106]  [<ffffffff837c2565>] ? sysret_check+0x22/0x5d
-[ 2136.388106]  [<ffffffff8321de8b>] sys_accept+0xb/0x10
-[ 2136.388106]  [<ffffffff837c2539>] system_call_fastpath+0x16/0x1b
-[ 2136.388106] Code: ec 04 00 0f 85 ea 03 00 00 be d5 0b 00 00 48 c7 c7 8a c1 40 84 e8 b1 a5 f8 ff 31 c0 e9 d4 03 00 00 66 2e 0f 1f 84 00 00 00 00 00 <49> 81 7d 00 60 73 5e 85 b8 01 00 00 00 44 0f 44 e0 83 fe 01 77 
-[ 2136.388106] RIP  [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
-[ 2136.388106]  RSP <ffff8800130b3ca8>
-[ 2136.388106] CR2: 00000000000003b0
-[ 2136.388106] ---[ end trace 6d450e935ee18982 ]---
-[ 2136.388106] Kernel panic - not syncing: Fatal exception in interrupt
+	Arnd
