@@ -1,52 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: kernel ipsec error
-Date: Mon, 11 Jun 2012 18:49:23 +0100
-Message-ID: <1339436963.2665.5.camel@bwh-desktop.uk.solarflarecom.com>
-References: <DUB108-W3906ACEA67D9618490CB02B2F70@phx.gbl>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [patch] can: c_can: precedence error in c_can_chip_config()
+Date: Mon, 11 Jun 2012 19:51:53 +0200
+Message-ID: <4FD63039.4080104@pengutronix.de>
+References: <20120609155150.GA6488@elgon.mountain> <4FD4DEF2.6070802@pengutronix.de> <4FD62E21.3020209@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Marco Berizzi <pupilla@hotmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigDA31BE94A4B1E4AEB3931963"
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	AnilKumar Ch <anilkumar@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Kosina <jkosina@suse.cz>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:21878 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750738Ab2FKRt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 13:49:29 -0400
-In-Reply-To: <DUB108-W3906ACEA67D9618490CB02B2F70@phx.gbl>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:41742 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007Ab2FKRwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 13:52:24 -0400
+In-Reply-To: <4FD62E21.3020209@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-11 at 14:45 +0200, Marco Berizzi wrote:
-> Hello everybody.
-> 
-> After 12 days uptime I got this message.
-> Linux is 3.3.5 32bit, running openswan
-> (this is an ipsec gateway/netfilter
-> firewall) and squid.
-> 
-> Jun 11 12:53:02 Pleiadi kernel: SLUB: Unable to allocate memory on node -1 (gfp=0x20)
-> Jun 11 12:53:02 Pleiadi kernel:   cache: kmalloc-2048, object size: 2048, buffer size: 2048, default order: 2, min order: 0
-> Jun 11 12:53:02 Pleiadi kernel:   node 0: slabs: 61, objs: 476, free: 0
-> Jun 11 12:53:02 Pleiadi kernel: kworker/0:2: page allocation failure: order:0, mode:0x4020
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigDA31BE94A4B1E4AEB3931963
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-So a single page allocation in atomic (non-sleeping) context failed.
+On 06/11/2012 07:42 PM, Oliver Hartkopp wrote:
+> On 10.06.2012 19:52, Marc Kleine-Budde wrote:
+>=20
+>> On 06/09/2012 05:56 PM, Dan Carpenter wrote:
+>>> (CAN_CTRLMODE_LISTENONLY & CAN_CTRLMODE_LOOPBACK) is (0x02 & 0x01) wh=
+ich
+>>> is zero so the condition is never true.  The intent here was to test
+>>> that both flags were set.
+>>>
+>>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>>> ---
+>>> This is a static checker fix.  I'm not super familiar with the c_can
+>>> code.
+>>
+>> Good catch. Applied to can-next.
+>>
+>> Marc
+>>
+>=20
+>=20
+> Shouldn't this fix go through the net-tree and stable instead of net-ne=
+xt?
 
-[...]
-> Jun 11 12:53:02 Pleiadi kernel: Free swap  = 130908kB
-> Jun 11 12:53:02 Pleiadi kernel: Total swap = 151164kB
-> Jun 11 12:53:02 Pleiadi kernel: 40944 pages RAM
-[...]
+Indeed.
 
-Not too surprising with this little RAM available (swap didn't help
-since we couldn't wait for swap-out).
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-There could be a memory leak, but you would need to read /proc/meminfo
-and /proc/slabinfo at intervals to work out whether that was the case.
 
-Ben.
+--------------enigDA31BE94A4B1E4AEB3931963
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/WMD4ACgkQjTAFq1RaXHPkcgCeIIbQjkQ1QGsFgnk6j7+eybnT
+AIUAn1x7jjatrgp25sVlbVCPvp3KEVeC
+=adXJ
+-----END PGP SIGNATURE-----
+
+--------------enigDA31BE94A4B1E4AEB3931963--
