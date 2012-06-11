@@ -1,155 +1,161 @@
 From: pablo@netfilter.org
-Subject: [PATCH 12/25] netfilter: nf_ct_ipv6: add namespace support
-Date: Mon, 11 Jun 2012 16:43:48 +0200
-Message-ID: <1339425841-24171-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/25] netfilter: nf_ct_gre: use new namespace support
+Date: Mon, 11 Jun 2012 16:43:52 +0200
+Message-ID: <1339425841-24171-17-git-send-email-pablo@netfilter.org>
 References: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:32870 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755359Ab2FKOpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 10:45:02 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This patch adds namespace support for IPv6 protocol tracker.
+This patch modifies the GRE protocol tracker, which partially
+supported namespace before this patch, to use the new namespace
+infrastructure for nf_conntrack.
 
 Acked-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 ++++++++++++++++--------
- 1 file changed, 59 insertions(+), 29 deletions(-)
+ net/netfilter/nf_conntrack_proto_gre.c |   55 ++++++++++++++++++++------------
+ 1 file changed, 34 insertions(+), 21 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 7334cbf..fca10da 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -333,37 +333,75 @@ MODULE_ALIAS("nf_conntrack-" __stringify(AF_INET6));
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Yasuyuki KOZAKAI @USAGI <yasuyuki.kozakai@toshiba.co.jp>");
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 132f0d2..e36973f 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -54,13 +54,20 @@ static unsigned int gre_timeouts[GRE_CT_MAX] = {
  
--static int __init nf_conntrack_l3proto_ipv6_init(void)
-+static int ipv6_net_init(struct net *net)
+ static int proto_gre_net_id __read_mostly;
+ struct netns_proto_gre {
++	struct nf_proto_net	nf;
+ 	rwlock_t		keymap_lock;
+ 	struct list_head	keymap_list;
++	unsigned int		gre_timeouts[GRE_CT_MAX];
+ };
+ 
++static inline struct netns_proto_gre *gre_pernet(struct net *net)
++{
++	return net_generic(net, proto_gre_net_id);
++}
++
+ void nf_ct_gre_keymap_flush(struct net *net)
  {
- 	int ret = 0;
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km, *tmp;
  
--	need_conntrack();
--	nf_defrag_ipv6_enable();
--
--	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_tcp6);
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_tcp6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register tcp.\n");
--		return ret;
-+		printk(KERN_ERR "nf_conntrack_l4proto_tcp6: protocol register failed\n");
-+		goto out;
- 	}
--
--	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_udp6);
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_udp6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register udp.\n");
--		goto cleanup_tcp;
-+		printk(KERN_ERR "nf_conntrack_l4proto_udp6: protocol register failed\n");
-+		goto cleanup_tcp6;
- 	}
--
--	ret = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_icmpv6);
-+	ret = nf_conntrack_l4proto_register(net,
-+					    &nf_conntrack_l4proto_icmpv6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register icmpv6.\n");
--		goto cleanup_udp;
-+		printk(KERN_ERR "nf_conntrack_l4proto_icmp6: protocol register failed\n");
-+		goto cleanup_udp6;
- 	}
--
--	ret = nf_conntrack_l3proto_register(&init_net, &nf_conntrack_l3proto_ipv6);
-+	ret = nf_conntrack_l3proto_register(net,
-+					    &nf_conntrack_l3proto_ipv6);
- 	if (ret < 0) {
--		pr_err("nf_conntrack_ipv6: can't register ipv6\n");
-+		printk(KERN_ERR "nf_conntrack_l3proto_ipv6: protocol register failed\n");
- 		goto cleanup_icmpv6;
- 	}
+ 	write_lock_bh(&net_gre->keymap_lock);
+@@ -85,7 +92,7 @@ static inline int gre_key_cmpfn(const struct nf_ct_gre_keymap *km,
+ /* look up the source key for a given tuple */
+ static __be16 gre_keymap_lookup(struct net *net, struct nf_conntrack_tuple *t)
+ {
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_ct_gre_keymap *km;
+ 	__be16 key = 0;
+ 
+@@ -109,7 +116,7 @@ int nf_ct_gre_keymap_add(struct nf_conn *ct, enum ip_conntrack_dir dir,
+ 			 struct nf_conntrack_tuple *t)
+ {
+ 	struct net *net = nf_ct_net(ct);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 	struct nf_ct_gre_keymap **kmp, *km;
+ 
+@@ -150,7 +157,7 @@ EXPORT_SYMBOL_GPL(nf_ct_gre_keymap_add);
+ void nf_ct_gre_keymap_destroy(struct nf_conn *ct)
+ {
+ 	struct net *net = nf_ct_net(ct);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
++	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 	enum ip_conntrack_dir dir;
+ 
+@@ -237,7 +244,7 @@ static int gre_print_conntrack(struct seq_file *s, struct nf_conn *ct)
+ 
+ static unsigned int *gre_get_timeouts(struct net *net)
+ {
+-	return gre_timeouts;
++	return gre_pernet(net)->gre_timeouts;
+ }
+ 
+ /* Returns verdict for packet, and may modify conntrack */
+@@ -339,6 +346,19 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
+ };
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ 
++static int gre_init_net(struct net *net)
++{
++	struct netns_proto_gre *net_gre = gre_pernet(net);
++	int i;
++
++	rwlock_init(&net_gre->keymap_lock);
++	INIT_LIST_HEAD(&net_gre->keymap_list);
++	for (i = 0; i < GRE_CT_MAX; i++)
++		net_gre->gre_timeouts[i] = gre_timeouts[i];
++
 +	return 0;
-+ cleanup_icmpv6:
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_icmpv6);
-+ cleanup_udp6:
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udp6);
-+ cleanup_tcp6:
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_tcp6);
-+ out:
-+	return ret;
-+}
- 
-+static void ipv6_net_exit(struct net *net)
-+{
-+	nf_conntrack_l3proto_unregister(net,
-+					&nf_conntrack_l3proto_ipv6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_icmpv6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_udp6);
-+	nf_conntrack_l4proto_unregister(net,
-+					&nf_conntrack_l4proto_tcp6);
 +}
 +
-+static struct pernet_operations ipv6_net_ops = {
-+	.init = ipv6_net_init,
-+	.exit = ipv6_net_exit,
-+};
-+
-+static int __init nf_conntrack_l3proto_ipv6_init(void)
-+{
-+	int ret = 0;
-+
-+	need_conntrack();
-+	nf_defrag_ipv6_enable();
-+
-+	ret = register_pernet_subsys(&ipv6_net_ops);
-+	if (ret < 0)
-+		goto cleanup_pernet;
- 	ret = nf_register_hooks(ipv6_conntrack_ops,
- 				ARRAY_SIZE(ipv6_conntrack_ops));
- 	if (ret < 0) {
-@@ -374,13 +412,8 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	return ret;
+ /* protocol helper struct */
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 	.l3proto	 = AF_INET,
+@@ -368,20 +388,22 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_gre4 __read_mostly = {
+ 		.nla_policy	= gre_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
++	.net_id		= &proto_gre_net_id,
++	.init_net	= gre_init_net,
+ };
  
-  cleanup_ipv6:
--	nf_conntrack_l3proto_unregister(&init_net, &nf_conntrack_l3proto_ipv6);
-- cleanup_icmpv6:
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_icmpv6);
-- cleanup_udp:
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_udp6);
-- cleanup_tcp:
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_tcp6);
-+	unregister_pernet_subsys(&ipv6_net_ops);
-+ cleanup_pernet:
- 	return ret;
- }
- 
-@@ -388,10 +421,7 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
+ static int proto_gre_net_init(struct net *net)
  {
- 	synchronize_net();
- 	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
--	nf_conntrack_l3proto_unregister(&init_net, &nf_conntrack_l3proto_ipv6);
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_icmpv6);
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_udp6);
--	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_tcp6);
-+	unregister_pernet_subsys(&ipv6_net_ops);
+-	struct netns_proto_gre *net_gre = net_generic(net, proto_gre_net_id);
+-
+-	rwlock_init(&net_gre->keymap_lock);
+-	INIT_LIST_HEAD(&net_gre->keymap_list);
+-
+-	return 0;
++	int ret = 0;
++	ret = nf_conntrack_l4proto_register(net, &nf_conntrack_l4proto_gre4);
++	if (ret < 0)
++		pr_err("nf_conntrack_l4proto_gre4 :protocol register failed.\n");
++	return ret;
  }
  
- module_init(nf_conntrack_l3proto_ipv6_init);
+ static void proto_gre_net_exit(struct net *net)
+ {
++	nf_conntrack_l4proto_unregister(net, &nf_conntrack_l4proto_gre4);
+ 	nf_ct_gre_keymap_flush(net);
+ }
+ 
+@@ -394,20 +416,11 @@ static struct pernet_operations proto_gre_net_ops = {
+ 
+ static int __init nf_ct_proto_gre_init(void)
+ {
+-	int rv;
+-
+-	rv = nf_conntrack_l4proto_register(&init_net, &nf_conntrack_l4proto_gre4);
+-	if (rv < 0)
+-		return rv;
+-	rv = register_pernet_subsys(&proto_gre_net_ops);
+-	if (rv < 0)
+-		nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
+-	return rv;
++	return register_pernet_subsys(&proto_gre_net_ops);
+ }
+ 
+ static void __exit nf_ct_proto_gre_fini(void)
+ {
+-	nf_conntrack_l4proto_unregister(&init_net, &nf_conntrack_l4proto_gre4);
+ 	unregister_pernet_subsys(&proto_gre_net_ops);
+ }
+ 
 -- 
 1.7.10
+
