@@ -1,41 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH rfc net] Allow the autoconfigured network interface to
- be renamed.
-Date: Sun, 10 Jun 2012 20:25:15 -0700 (PDT)
-Message-ID: <20120610.202515.138701034400919651.davem@davemloft.net>
-References: <1339228087-14870-1-git-send-email-scott@scottnz.com>
+From: Tony Cheneau <tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 0/4] 6lowpan: set of bug fixes
+Date: Mon, 11 Jun 2012 00:37:41 -0400
+Message-ID: <20120611003741.27263005@dualbox>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, scott.parlane@alliedtelesis.co.nz
-To: scott@scottnz.com
+Cc: alex.bluesman.smirnov@gmail.com
+To: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39481 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373Ab2FKDZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jun 2012 23:25:16 -0400
-In-Reply-To: <1339228087-14870-1-git-send-email-scott@scottnz.com>
+Received: from ns.amnesiak.org ([95.130.11.136]:52958 "EHLO amnesiak.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750711Ab2FKEqc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 00:46:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Parlane <scott@scottnz.com>
-Date: Sat,  9 Jun 2012 19:48:07 +1200
+Hello,
 
-> From: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
-> 
-> if IP_PNP_RENAME_DEV is set, the first interface to be configured
-> automatically by the kernel during boot will be renamed.
-> 
-> IP_PNP_DEV_NEWNAME is the name to give the autoconfigured device.
-> 
-> No changes will be made to any interface that is not autoconfigured.
-> 
-> This allows the assurance of the boot device name, without the need
-> for an initramfs.
-> 
-> Signed-off-by: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
+(This is my first time submitting patches. If I fail to apply to
+some rules in here, please let me know)
 
-Making this a compile time option makes absolutely no sense at all.
+After reading the 6lowpan code, I found a few issues. This patchset
+fixes them. This patchset should apply cleanly against the current
+net-next. It contains only bug fixes, I'll send later on a few other
+patches that will offer new functionalities.
 
-Assuming this feature is desirable at all (which is a big IF), it
-should be a kernel command line option.
+This is a set of 4 small patches that correct bugs in 6lowpan:
+- patch 1 fixes a potential crash when reassembling UDP fragments
+- patch 2 fixes a type issues that prevent the fragmentation reassembly
+  to operate properly.
+- patch 3 and 4 corrects field encoding issues
+
+Hope it helps.
+
+Regards,
+	Tony Cheneau
