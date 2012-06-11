@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tg3: transmit timed out, resetting
-Date: Mon, 11 Jun 2012 16:42:39 -0700 (PDT)
-Message-ID: <20120611.164239.604207264181849443.davem@davemloft.net>
-References: <1338955977.2760.3603.camel@edumazet-glaptop>
-	<CABawtvOBJQ-oajFQmviOdgKCub-4n06kRW+x7nE2uyiWnoky9Q@mail.gmail.com>
-	<20120607225654.GA14247@mcarlson.broadcom.com>
+Subject: Re: [PATCH][RESEND] net: socket: Fixed some style issues and
+ condensed list of fixes.
+Date: Mon, 11 Jun 2012 16:45:07 -0700 (PDT)
+Message-ID: <20120611.164507.1289803990715626884.davem@davemloft.net>
+References: <1339444359-16248-1-git-send-email-shaw500@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ethan.kernel@gmail.com, eric.dumazet@gmail.com,
-	lists@nerdbynature.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mcarlson@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shaw500@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120607225654.GA14247@mcarlson.broadcom.com>
+In-Reply-To: <1339444359-16248-1-git-send-email-shaw500@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Thu, 7 Jun 2012 15:56:54 -0700
+From: Matthew Shaw <shaw500@gmail.com>
+Date: Mon, 11 Jun 2012 20:52:39 +0100
 
-> Does the following patch fix your problem?
+> From: Matthew Shaw <mjshaw@athena.(none)>
 > 
+> There was an instance of brackets in an if statement that was not
+> required, and a number of lines that exceeded 80 chars. The fixes
+> list has also been condensed to simply list the people that should
+> be credited with various fixes in net/socket.c throughout its
+> developement.
 > 
-> [PATCH] tg3: Apply short DMA frag workaround to 5906
-> 
-> 5906 devices also need the short DMA fragment workaround.  This patch
-> makes the necessary change.
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Matthew Shaw <shaw500@gmail.com>
 
-Ping, what's the status of this?
+I don't see any value in this patch, and the comment fixups don't use
+the recommended coding style in the networking, you would need to get
+rid of all of that extraneous whitespace between "/* ", "* ", and the
+actual test.
+
+But again I really see no value to this change, so I won't be applying
+a patch like this, in any form.
