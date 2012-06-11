@@ -1,96 +1,121 @@
 From: pablo@netfilter.org
-Subject: [PATCH 01/25] netfilter: remove include/linux/netfilter_ipv4/ipt_addrtype.h
-Date: Mon, 11 Jun 2012 16:43:37 +0200
-Message-ID: <1339425841-24171-2-git-send-email-pablo@netfilter.org>
-References: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/25] netfilter updates from net-next (upcoming 3.6)
+Date: Mon, 11 Jun 2012 16:43:36 +0200
+Message-ID: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:32791 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:32787 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755304Ab2FKOop (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 10:44:45 -0400
-In-Reply-To: <1339425841-24171-1-git-send-email-pablo@netfilter.org>
+	id S1754981Ab2FKOon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 10:44:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-It was scheduled to be removed.
+Hi Davidm
 
-Acked-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- Documentation/feature-removal-schedule.txt  |    8 --------
- include/linux/netfilter_ipv4/Kbuild         |    1 -
- include/linux/netfilter_ipv4/ipt_addrtype.h |   27 ---------------------------
- 3 files changed, 36 deletions(-)
+The following patchset contains netfilter updates for your net-next
+tree. Short summary:
+
+* Netns support for all our nf_conntrack sysctl tweaks, including global
+  timeout adjustment from Gao Feng.
+
+* Add fail-open support to NFQUEUE, ie. don't drop packets if the kernel-space
+  nfqueue gets full, instead we allow packets to go through, from Krishna Kumar.
+
+* Remove support for connlimit revision 0, as we already scheduled, from
+  Cong Wang.
+
+* Improve load distribution in NFQUEUE if multi-queue is used from Florian
+  Westphal.
+
+* Minor cleanups from Alban Crequy to use NFPROTO_* constants instead of
+  PF_* as we do in other parts of the Netfilter code.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/net-next master
+
+Thanks!
+
+Alban Crequy (5):
+  netfilter: decnet: switch hook PFs to nfproto
+  netfilter: bridge: switch hook PFs to nfproto
+  netfilter: ipv4, defrag: switch hook PFs to nfproto
+  netfilter: ipvs: switch hook PFs to nfproto
+  netfilter: selinux: switch hook PFs to nfproto
+
+Cong Wang (2):
+  netfilter: remove include/linux/netfilter_ipv4/ipt_addrtype.h
+  netfilter: xt_connlimit: remove revision 0
+
+Denys Fedoryshchenko (1):
+  netfilter: xt_recent: add address masking option
+
+Florian Westphal (1):
+  netfilter: NFQUEUE: don't xor src/dst ip address for load
+    distribution
+
+Gao feng (14):
+  netfilter: nf_conntrack: prepare namespace support for l4 protocol trackers
+  netfilter: nf_conntrack: prepare namespace support for l3 protocol trackers
+  netfilter: nf_ct_generic: add namespace support
+  netfilter: nf_ct_tcp: add namespace support
+  netfilter: nf_ct_udp: add namespace support
+  netfilter: nf_ct_icmp: add namespace support
+  netfilter: nf_ct_icmp: add namespace support
+  netfilter: nf_ct_ipv4: add namespace support
+  netfilter: nf_ct_ipv6: add namespace support
+  netfilter: nf_ct_sctp: add namespace support
+  netfilter: nf_ct_udplite: add namespace support
+  netfilter: nf_ct_dccp: use new namespace support
+  netfilter: nf_ct_gre: use new namespace support
+  netfilter: nf_conntrack: add namespace support for cttimeout
+
+Krishna Kumar (1):
+  netfilter: Add fail-open support
+
+Pablo Neira Ayuso (1):
+  netfilter: nf_conntrack: remove now unused sysctl for nf_conntrack_l[3|4]proto
+
+ Documentation/feature-removal-schedule.txt     |   22 +-
+ include/linux/netfilter.h                      |   10 +
+ include/linux/netfilter/nfnetlink_queue.h      |    5 +
+ include/linux/netfilter/xt_connlimit.h         |    9 +-
+ include/linux/netfilter/xt_recent.h            |   10 +
+ include/linux/netfilter_ipv4/Kbuild            |    1 -
+ include/linux/netfilter_ipv4/ipt_addrtype.h    |   27 ---
+ include/net/netfilter/nf_conntrack_core.h      |    4 +-
+ include/net/netfilter/nf_conntrack_l3proto.h   |   11 +-
+ include/net/netfilter/nf_conntrack_l4proto.h   |   22 +-
+ include/net/netns/conntrack.h                  |   55 +++++
+ net/bridge/br_netfilter.c                      |   28 +--
+ net/decnet/netfilter/dn_rtmsg.c                |    2 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  124 +++++++----
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   52 +++--
+ net/ipv4/netfilter/nf_defrag_ipv4.c            |    4 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   88 +++++---
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   36 +++-
+ net/netfilter/ipvs/ip_vs_core.c                |   24 +--
+ net/netfilter/nf_conntrack_core.c              |   17 +-
+ net/netfilter/nf_conntrack_proto.c             |  273 +++++++++++++++++-------
+ net/netfilter/nf_conntrack_proto_dccp.c        |  137 ++++++------
+ net/netfilter/nf_conntrack_proto_generic.c     |   52 +++--
+ net/netfilter/nf_conntrack_proto_gre.c         |   63 +++---
+ net/netfilter/nf_conntrack_proto_sctp.c        |  196 +++++++++++++----
+ net/netfilter/nf_conntrack_proto_tcp.c         |  183 ++++++++++++----
+ net/netfilter/nf_conntrack_proto_udp.c         |  123 ++++++++---
+ net/netfilter/nf_conntrack_proto_udplite.c     |  118 +++++++---
+ net/netfilter/nfnetlink_cttimeout.c            |   13 +-
+ net/netfilter/nfnetlink_queue.c                |   40 +++-
+ net/netfilter/xt_NFQUEUE.c                     |   28 ++-
+ net/netfilter/xt_connlimit.c                   |   35 +--
+ net/netfilter/xt_recent.c                      |   62 +++++-
+ security/selinux/hooks.c                       |   10 +-
+ 34 files changed, 1300 insertions(+), 584 deletions(-)
  delete mode 100644 include/linux/netfilter_ipv4/ipt_addrtype.h
 
-diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index 56000b3..08e7e71 100644
---- a/Documentation/feature-removal-schedule.txt
-+++ b/Documentation/feature-removal-schedule.txt
-@@ -421,14 +421,6 @@ Files:	net/netfilter/xt_connlimit.c
- 
- ----------------------------
- 
--What:	ipt_addrtype match include file
--When:	2012
--Why:	superseded by xt_addrtype
--Who:	Florian Westphal <fw@strlen.de>
--Files:	include/linux/netfilter_ipv4/ipt_addrtype.h
--
------------------------------
--
- What:	i2c_driver.attach_adapter
- 	i2c_driver.detach_adapter
- When:	September 2011
-diff --git a/include/linux/netfilter_ipv4/Kbuild b/include/linux/netfilter_ipv4/Kbuild
-index c61b8fb..8ba0c5b 100644
---- a/include/linux/netfilter_ipv4/Kbuild
-+++ b/include/linux/netfilter_ipv4/Kbuild
-@@ -5,7 +5,6 @@ header-y += ipt_LOG.h
- header-y += ipt_REJECT.h
- header-y += ipt_TTL.h
- header-y += ipt_ULOG.h
--header-y += ipt_addrtype.h
- header-y += ipt_ah.h
- header-y += ipt_ecn.h
- header-y += ipt_ttl.h
-diff --git a/include/linux/netfilter_ipv4/ipt_addrtype.h b/include/linux/netfilter_ipv4/ipt_addrtype.h
-deleted file mode 100644
-index 0da4223..0000000
---- a/include/linux/netfilter_ipv4/ipt_addrtype.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--#ifndef _IPT_ADDRTYPE_H
--#define _IPT_ADDRTYPE_H
--
--#include <linux/types.h>
--
--enum {
--	IPT_ADDRTYPE_INVERT_SOURCE	= 0x0001,
--	IPT_ADDRTYPE_INVERT_DEST	= 0x0002,
--	IPT_ADDRTYPE_LIMIT_IFACE_IN	= 0x0004,
--	IPT_ADDRTYPE_LIMIT_IFACE_OUT	= 0x0008,
--};
--
--struct ipt_addrtype_info_v1 {
--	__u16	source;		/* source-type mask */
--	__u16	dest;		/* dest-type mask */
--	__u32	flags;
--};
--
--/* revision 0 */
--struct ipt_addrtype_info {
--	__u16	source;		/* source-type mask */
--	__u16	dest;		/* dest-type mask */
--	__u32	invert_source;
--	__u32	invert_dest;
--};
--
--#endif
 -- 
 1.7.10
