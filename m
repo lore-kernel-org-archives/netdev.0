@@ -1,128 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/5] inet: Use FIB table peer roots in routes.
-Date: Mon, 11 Jun 2012 02:29:20 -0700 (PDT)
-Message-ID: <20120611.022920.1985101064843460396.davem@davemloft.net>
+From: Roland Stigge <stigge@antcom.de>
+Subject: Re: [PATCH] lpc_eth: add missing ndo_change_mtu()
+Date: Mon, 11 Jun 2012 11:36:29 +0200
+Message-ID: <4FD5BC1D.8040805@antcom.de>
+References: <1339406640.6001.1896.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, kevin.wells@nxp.com,
+	aletes.xgr@gmail.com, srinivas.bakki@nxp.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41167 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751732Ab2FKJ3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 05:29:20 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 9153258426D
-	for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 02:29:20 -0700 (PDT)
+Received: from antcom.de ([188.40.178.216]:39212 "EHLO chuck.antcom.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751011Ab2FKJga (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 05:36:30 -0400
+In-Reply-To: <1339406640.6001.1896.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 06/11/2012 11:24 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> lpc_eth does a copy of transmitted skbs to DMA area, without checking
+> skb lengths, so can trigger buffer overflows :
+> 
+> memcpy(pldat->tx_buff_v + txidx * ENET_MAXF_SIZE, skb->data, len);
+> 
+> One way to get bigger skbs is to allow MTU changes above the 1500 limit.
+> 
+> Calling eth_change_mtu() in ndo_change_mtu() makes sure this cannot
+> happen.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/route.c |    8 ++++++--
- net/ipv6/route.c |   14 ++++++++------
- 2 files changed, 14 insertions(+), 8 deletions(-)
+Acked-by: Roland Stigge <stigge@antcom.de>
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 456a947..4c33ce3 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2125,7 +2125,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->rt_gateway	= daddr;
- 	rth->rt_spec_dst= spec_dst;
- 	rth->rt_peer_genid = 0;
--	rt_init_peer(rth, dev_net(rth->dst.dev)->ipv4.peers);
-+	rt_init_peer(rth, &res->table->tb_peers);
- 	rth->fi = NULL;
- 
- 	rth->dst.input = ip_forward;
-@@ -2512,7 +2512,9 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	rth->rt_gateway = fl4->daddr;
- 	rth->rt_spec_dst= fl4->saddr;
- 	rth->rt_peer_genid = 0;
--	rt_init_peer(rth, dev_net(dev_out)->ipv4.peers);
-+	rt_init_peer(rth, (res->table ?
-+			   &res->table->tb_peers :
-+			   dev_net(dev_out)->ipv4.peers));
- 	rth->fi = NULL;
- 
- 	RT_CACHE_STAT_INC(out_slow_tot);
-@@ -2561,6 +2563,7 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
- 	int orig_oif;
- 
- 	res.fi		= NULL;
-+	res.table	= NULL;
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- 	res.r		= NULL;
- #endif
-@@ -2666,6 +2669,7 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
- 
- 	if (fib_lookup(net, fl4, &res)) {
- 		res.fi = NULL;
-+		res.table = NULL;
- 		if (fl4->flowi4_oif) {
- 			/* Apparently, routing tables are wrong. Assume,
- 			   that the destination is on link.
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 17a9b86..d9ba480 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -260,7 +260,8 @@ static struct rt6_info ip6_blk_hole_entry_template = {
- /* allocate dst with ip6_dst_ops */
- static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 					     struct net_device *dev,
--					     int flags)
-+					     int flags,
-+					     struct fib6_table *table)
- {
- 	struct rt6_info *rt = dst_alloc(&net->ipv6.ip6_dst_ops, dev,
- 					0, 0, flags);
-@@ -268,7 +269,7 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 	if (rt) {
- 		memset(&rt->rt6i_table, 0,
- 		       sizeof(*rt) - sizeof(struct dst_entry));
--		rt6_init_peer(rt, net->ipv6.peers);
-+		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
- 	}
- 	return rt;
- }
-@@ -1114,7 +1115,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
- 	if (unlikely(!idev))
- 		return ERR_PTR(-ENODEV);
- 
--	rt = ip6_dst_alloc(net, dev, 0);
-+	rt = ip6_dst_alloc(net, dev, 0, NULL);
- 	if (unlikely(!rt)) {
- 		in6_dev_put(idev);
- 		dst = ERR_PTR(-ENOMEM);
-@@ -1296,7 +1297,7 @@ int ip6_route_add(struct fib6_config *cfg)
- 	if (!table)
- 		goto out;
- 
--	rt = ip6_dst_alloc(net, NULL, DST_NOCOUNT);
-+	rt = ip6_dst_alloc(net, NULL, DST_NOCOUNT, table);
- 
- 	if (!rt) {
- 		err = -ENOMEM;
-@@ -1818,7 +1819,8 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
- 				    const struct in6_addr *dest)
- {
- 	struct net *net = dev_net(ort->dst.dev);
--	struct rt6_info *rt = ip6_dst_alloc(net, ort->dst.dev, 0);
-+	struct rt6_info *rt = ip6_dst_alloc(net, ort->dst.dev, 0,
-+					    ort->rt6i_table);
- 
- 	if (rt) {
- 		rt->dst.input = ort->dst.input;
-@@ -2102,7 +2104,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 				    bool anycast)
- {
- 	struct net *net = dev_net(idev->dev);
--	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev, 0);
-+	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev, 0, NULL);
- 	int err;
- 
- 	if (!rt) {
--- 
-1.7.10
+> Cc: Roland Stigge <stigge@antcom.de>
+> Cc: Kevin Wells <kevin.wells@nxp.com>
+> ---
+> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+> index 8d2666f..10febdc 100644
+> --- a/drivers/net/ethernet/nxp/lpc_eth.c
+> +++ b/drivers/net/ethernet/nxp/lpc_eth.c
+> @@ -1320,6 +1320,7 @@ static const struct net_device_ops lpc_netdev_ops = {
+>  	.ndo_set_rx_mode	= lpc_eth_set_multicast_list,
+>  	.ndo_do_ioctl		= lpc_eth_ioctl,
+>  	.ndo_set_mac_address	= lpc_set_mac_address,
+> +	.ndo_change_mtu		= eth_change_mtu,
+>  };
+>  
+>  static int lpc_eth_drv_probe(struct platform_device *pdev)
+> 
+> 
