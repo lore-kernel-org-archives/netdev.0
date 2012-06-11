@@ -1,48 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] lpc_eth: add missing ndo_change_mtu()
-Date: Mon, 11 Jun 2012 11:24:00 +0200
-Message-ID: <1339406640.6001.1896.camel@edumazet-glaptop>
+From: Roland Stigge <stigge@antcom.de>
+Subject: Re: [PATCH 1/3] net: lpc_eth: Replace WARN() trace with simple pr_warn()
+Date: Mon, 11 Jun 2012 11:26:32 +0200
+Message-ID: <4FD5B9C8.4020800@antcom.de>
+References: <1339401793-12258-1-git-send-email-stigge@antcom.de> <1339403108.6001.1697.camel@edumazet-glaptop> <4FD5AE1D.9030807@antcom.de> <20120611.020352.1962768244524496467.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, stigge@antcom.de,
-	kevin.wells@nxp.com, aletes.xgr@gmail.com, srinivas.bakki@nxp.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
+	linux-arm-kernel@lists.infradead.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:63838 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068Ab2FKJYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 05:24:04 -0400
-Received: by eaak11 with SMTP id k11so1727995eaa.19
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 02:24:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120611.020352.1962768244524496467.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hi!
 
-lpc_eth does a copy of transmitted skbs to DMA area, without checking
-skb lengths, so can trigger buffer overflows :
+On 06/11/2012 11:03 AM, David Miller wrote:
+> From: Roland Stigge <stigge@antcom.de>
+> Date: Mon, 11 Jun 2012 10:36:45 +0200
+> 
+>> But maybe this is wrong. Can you please give me a hint how the net
+>> subsystem makes sure that this doesn't happen under normal circumstances?
+> 
+> Well if you are asking this question then you didn't read my feedback,
+> because I explained exactly what prevents this.
 
-memcpy(pldat->tx_buff_v + txidx * ENET_MAXF_SIZE, skb->data, len);
+Re-reading your feedback, you are right, sorry!
 
-One way to get bigger skbs is to allow MTU changes above the 1500 limit.
+My question was based on the assumption that the driver is doing
+correctly, which was wrong.
 
-Calling eth_change_mtu() in ndo_change_mtu() makes sure this cannot
-happen.
+Thank you and Eric for clarifying!
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Roland Stigge <stigge@antcom.de>
-Cc: Kevin Wells <kevin.wells@nxp.com>
----
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 8d2666f..10febdc 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1320,6 +1320,7 @@ static const struct net_device_ops lpc_netdev_ops = {
- 	.ndo_set_rx_mode	= lpc_eth_set_multicast_list,
- 	.ndo_do_ioctl		= lpc_eth_ioctl,
- 	.ndo_set_mac_address	= lpc_set_mac_address,
-+	.ndo_change_mtu		= eth_change_mtu,
- };
- 
- static int lpc_eth_drv_probe(struct platform_device *pdev)
+Eric's second (cumulative) patch works fine for now, and I can't
+reproduce the issue. Will do more test runs now and will reply back
+later with an updated patch set.
+
+Is it sensible at this point to increase the TX buffers anyway? For
+different reasons of course: We have enough SRAM available and TX
+buffers (16->32) are still more than RX buffers (48).
+
+Roland
