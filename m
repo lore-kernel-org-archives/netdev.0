@@ -1,82 +1,92 @@
-From: scott@scottnz.com
-Subject: Re: [PATCH rfc net] Allow the autoconfigured network interface to be
- renamed.
-Date: Mon, 11 Jun 2012 21:58:45 +1200
-Message-ID: <f8f3fa05ddbe3a2e1613588754f151ac.squirrel@scottnz.com>
-References: <1339228087-14870-1-git-send-email-scott@scottnz.com>
-    <20120610.202515.138701034400919651.davem@davemloft.net>
+From: "maxd@inwind.it" <maxd@inwind.it>
+Subject: R: Re: BUG (?) multicast loopback (IP6SKB_FORWARDED)
+Date: Mon, 11 Jun 2012 12:09:18 +0200 (CEST)
+Message-ID: <3948604.8447911339409358263.JavaMail.defaultUser@defaultHost>
+Reply-To: "maxd@inwind.it" <maxd@inwind.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: scott@scottnz.com, netdev@vger.kernel.org,
-	scott.parlane@alliedtelesis.co.nz
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from edgewireless.tk ([184.82.109.251]:38153 "EHLO vps1.scottnz.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751326Ab2FKJ7R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 05:59:17 -0400
-In-Reply-To: <20120610.202515.138701034400919651.davem@davemloft.net>
+Received: from outrelay02.libero.it ([212.52.84.102]:37949 "EHLO
+	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163Ab2FKKJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 06:09:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Scott Parlane <scott@scottnz.com>
-> Date: Sat,  9 Jun 2012 19:48:07 +1200
+Hi Eric,
+thanks for the quick reply. It seems that reverting the patch fixes the issue, 
+and I have not observed any unintended behaviour so far.
+Do you know what was the motivation for the patch?
+
+Regards,
+Massimiliano
+
+>----Messaggio originale----
+>Da: eric.dumazet@gmail.com
+>Data: 08/06/2012 19.23
+>A: "maxd@inwind.it"<maxd@inwind.it>
+>Cc: <netdev@vger.kernel.org>
+>Ogg: Re: BUG (?) multicast loopback (IP6SKB_FORWARDED)
 >
->> From: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
->>
->> if IP_PNP_RENAME_DEV is set, the first interface to be configured
->> automatically by the kernel during boot will be renamed.
->>
->> IP_PNP_DEV_NEWNAME is the name to give the autoconfigured device.
->>
->> No changes will be made to any interface that is not autoconfigured.
->>
->> This allows the assurance of the boot device name, without the need
->> for an initramfs.
->>
->> Signed-off-by: Scott Parlane <scott.parlane@alliedtelesis.co.nz>
+>On Fri, 2012-06-08 at 18:48 +0200, maxd@inwind.it wrote:
+>> Hi guys,
+>> I found a probably wrong behaviour while doing some tests with multicast 
+>> routing on IPv6 with kernel 2.6.29. I will try to describe what's wrong in 
+the 
+>> code in the following. I will use the latest kernel sources (3.5-rc1)
+>> as reference source code (line numbers are taken there).
+>> Let's assume a scenario with a node with two network interfaces acting as 
+a 
+>> multicast router. The router receives the message on one interface and 
+needs to 
+>> forward it on the other interface. Looking at the packet flow inside the 
+>> kernel, we notice that
+>> 
+>> in ip6mr.c, line 2282, a flag is set:
+>> IP6CB(skb)->flags |= IP6SKB_FORWARDED;
+>> 
+>> After this, a multicast packet can be looped back (see line 124 in 
+ip6_output.
+>> c where function ip6_dev_loopback_xmit is called). 
+>> The packet is hence reinjected in the stack.
+>> 
+>> The packet is processed by function ipv6_rcv (ip6_input.c), and then by 
+>> ipv6_mc_input (ip6_input.c).
+>> 
+>> In ipv6_rcv, line 82, the previously set flag is cleared
+>> memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
+>> 
+>> In ipv6_mc_input, , line 268, the flag is checked to determine if the 
+packet 
+>> has been already forwarded. Since the flag has been cleared, the kernel 
+cannot 
+>> determine that the packet has been looped back, and will hence try to 
+forward 
+>> it again.
+>> 
+>> Trying to forward a looped back packet determines a wrong behaviour of the 
+>> multicast routing protocol (PIM): the kernel believes that a multicast 
+message 
+>> has been received from a wrong interface (line 1993 in ip6mr.c), discard 
+the 
+>> message (this explains why the packet does not loop forever) and triggers 
+the 
+>> transmission of an ASSERT message. Basically, the node ends up sending an 
+>> ASSERT message because of a looped back packet. 
+>> 
+>> WDYT? Is my analysis correct? Which is the best way to fix this issue?
 >
-> Making this a compile time option makes absolutely no sense at all.
+>I guess your analysis is correct, try to revert commit
+>6b7fdc3ae18a0598a999156b62d55ea55220e00f ([IPV6]: Clean skb cb on IPv6
+>input) ?
 >
-> Assuming this feature is desirable at all (which is a big IF), it
-> should be a kernel command line option.
-
-My comment re how many devices was a reference to the level of testing,
-not the usage, however I see it was probably moot given any person with
-sufficient
-knowledge of the area would see it works as described.
-(unless I did something i haven't seen yet)
-
-[background of this solution]
-In our configuration we load the same kernel on to a number of testboxes,
-each of which has several ethernet interfaces and serial ports
-(for communicating with our devices under test)
-They use nfsroot which prevents udev rules from working correctly
-(because you cant take down the interface to rename it)
-Previously we were using an initramfs that would rename the interface,
-just before mounting the real root.
-However a recent change to glibc prevents busybox's nfs utils from working,
-so I made this patch to get the kernel to do it, and remove the need for
-the initramfs
-(which just slows our boot process anyways)
-
-In our case, we run a custom kernel, and have this option turned on, with a
-suitable name so that we can identify the boot interface.
-
-While I agree that being able to configure it from the command line would
-be useful,
-I would rather that I could (if I wanted) configure it at compile time to
-default,
-purely because it means there is one less thing my admins need to deal
-worry about
-or can change in the pxelinux config. (every testbox has a unique cmdline,
-because of
-how our nfsroot mount points work)
-
-Please let me know if you want me to extend it to support command line
-configuration,
-and what configuration you would like to trigger it.
-
-Kind Regards,
-Scott
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
