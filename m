@@ -1,62 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: lpc_eth: fix tx completion
-Date: Mon, 11 Jun 2012 19:21:36 +0200
-Message-ID: <1339435296.6001.2484.camel@edumazet-glaptop>
-References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
-	 <1339403108.6001.1697.camel@edumazet-glaptop>  <4FD5AE1D.9030807@antcom.de>
-	 <1339404835.6001.1788.camel@edumazet-glaptop>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [patch] can: c_can: precedence error in c_can_chip_config()
+Date: Mon, 11 Jun 2012 19:42:57 +0200
+Message-ID: <4FD62E21.3020209@hartkopp.net>
+References: <20120609155150.GA6488@elgon.mountain> <4FD4DEF2.6070802@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339404835.6001.1788.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	AnilKumar Ch <anilkumar@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Kosina <jkosina@suse.cz>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4FD4DEF2.6070802@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 10.06.2012 19:52, Marc Kleine-Budde wrote:
 
-__lpc_handle_xmit() has two bugs :
+> On 06/09/2012 05:56 PM, Dan Carpenter wrote:
+>> (CAN_CTRLMODE_LISTENONLY & CAN_CTRLMODE_LOOPBACK) is (0x02 & 0x01) which
+>> is zero so the condition is never true.  The intent here was to test
+>> that both flags were set.
+>>
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> ---
+>> This is a static checker fix.  I'm not super familiar with the c_can
+>> code.
+> 
+> Good catch. Applied to can-next.
+> 
+> Marc
+> 
 
-1) It can leak skbs in case TXSTATUS_ERROR is set
 
-2) It can wake up txqueue while no slot was freed.
+Shouldn't this fix go through the net-tree and stable instead of net-next?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Roland Stigge <stigge@antcom.de>
-Tested-by: Roland Stigge <stigge@antcom.de>
-Cc: Kevin Wells <kevin.wells@nxp.com>
----
- drivers/net/ethernet/nxp/lpc_eth.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Regards,
+Oliver
 
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 8d2666f..ff76c21 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -946,16 +946,16 @@ static void __lpc_handle_xmit(struct net_device *ndev)
- 			/* Update stats */
- 			ndev->stats.tx_packets++;
- 			ndev->stats.tx_bytes += skb->len;
--
--			/* Free buffer */
--			dev_kfree_skb_irq(skb);
- 		}
-+		dev_kfree_skb_irq(skb);
- 
- 		txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
- 	}
- 
--	if (netif_queue_stopped(ndev))
--		netif_wake_queue(ndev);
-+	if (pldat->num_used_tx_buffs <= ENET_TX_DESC/2) {
-+		if (netif_queue_stopped(ndev))
-+			netif_wake_queue(ndev);
-+	}
- }
- 
- static int __lpc_handle_recv(struct net_device *ndev, int budget)
