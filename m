@@ -1,36 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][RESEND] net: socket: Fixed some style issues and
- condensed list of fixes.
-Date: Mon, 11 Jun 2012 16:45:07 -0700 (PDT)
-Message-ID: <20120611.164507.1289803990715626884.davem@davemloft.net>
-References: <1339444359-16248-1-git-send-email-shaw500@gmail.com>
+Subject: Re: [PATCH] net/sh-eth: Add support selecting MII function for
+ SH7734 and R8A7740
+Date: Mon, 11 Jun 2012 16:47:17 -0700 (PDT)
+Message-ID: <20120611.164717.1390327462404819704.davem@davemloft.net>
+References: <1339135311-1896-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shaw500@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339444359-16248-1-git-send-email-shaw500@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: nobuhiro.iwamatsu.yj@renesas.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46971 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752942Ab2FKXrS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 19:47:18 -0400
+In-Reply-To: <1339135311-1896-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Shaw <shaw500@gmail.com>
-Date: Mon, 11 Jun 2012 20:52:39 +0100
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Date: Fri,  8 Jun 2012 15:01:51 +0900
 
-> From: Matthew Shaw <mjshaw@athena.(none)>
-> 
-> There was an instance of brackets in an if statement that was not
-> required, and a number of lines that exceeded 80 chars. The fixes
-> list has also been condensed to simply list the people that should
-> be credited with various fixes in net/socket.c throughout its
-> developement.
-> 
-> Signed-off-by: Matthew Shaw <shaw500@gmail.com>
+> +	unsigned select_mii:1;	/* EtherC have RMII_MII (MII select register) */
 
-I don't see any value in this patch, and the comment fixups don't use
-the recommended coding style in the networking, you would need to get
-rid of all of that extraneous whitespace between "/* ", "* ", and the
-actual test.
-
-But again I really see no value to this change, so I won't be applying
-a patch like this, in any form.
+Nothing tests this value.
