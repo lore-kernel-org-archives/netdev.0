@@ -1,86 +1,79 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: =?utf-8?Q?net=2Fnetfilter=2Fnf=5Fconnt?=
-	=?utf-8?B?cmFja19wcm90b190Y3AuYzoxNjA2Ojk6IGVycm9yOiDigJhzdHJ1Y3QgbmZf?=
-	=?utf-8?B?cHJvdG9fbmV04oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYdXNlcuKAmQ==?=
-Date: Tue, 12 Jun 2012 11:29:40 +0200
-Message-ID: <20120612092940.GB30080@1984>
-References: <4fd664de.oQN9NTKjdledtla0%wfg@linux.intel.com>
- <20120611221521.GA27239@1984>
- <20120611.152344.1072167705198124284.davem@davemloft.net>
- <20120612002655.GA28155@1984>
- <4FD69F5E.3060900@cn.fujitsu.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [patch] can: c_can: precedence error in c_can_chip_config()
+Date: Tue, 12 Jun 2012 11:37:29 +0200
+Message-ID: <4FD70DD9.4010009@pengutronix.de>
+References: <20120609155150.GA6488@elgon.mountain> <4FD4DEF2.6070802@pengutronix.de> <4FD62E21.3020209@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, wfg@linux.intel.com,
-	netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig1AD2A6F0A8D88757976B66E6"
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	AnilKumar Ch <anilkumar@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Kosina <jkosina@suse.cz>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51507 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751448Ab2FLJ3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2012 05:29:47 -0400
-Content-Disposition: inline
-In-Reply-To: <4FD69F5E.3060900@cn.fujitsu.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:52191 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752682Ab2FLJhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 05:37:54 -0400
+In-Reply-To: <4FD62E21.3020209@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 12, 2012 at 09:46:06AM +0800, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8812=E6=97=A5 08:26, Pablo Neira Ayus=
-o =E5=86=99=E9=81=93:
-> > Hi again David,
-> >=20
-> > On Mon, Jun 11, 2012 at 03:23:44PM -0700, David Miller wrote:
-> >> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> >> Date: Tue, 12 Jun 2012 00:15:21 +0200
-> >>
-> >>> Could you please apply the following patch to net-next to resolve
-> >>> this? Thanks.
-> >>
-> >> Applied, but you have to be kidding me with those ifdefs.
-> >>
-> >> This is exactly the same kind of thing Gao suggested for
-> >> the inetpeer code recently and which I flat out rejected.
-> >>
-> >> You can't pepper foo.c files with ifdefs all over the place.
-> >=20
-> > Would you be OK if I send you patches to move all sysctl part of
-> > nf_conntrack_proto_*.c to nf_conntrack_proto_*_sysctl.c
-> >=20
-> > I can also do the same for nf_conntrack_proto.c.
-> >=20
-> > This means more files under the net/netfilter directory, but less
-> > ifdef kludges in the code.
-> >=20
-> > Please, have a look at the patch enclosed to this email in case you
-> > want to see how it would look like in the end with my proposal.
->=20
-> I am sorry for all the trouble aroused by my negligence.
->=20
-> >  static int tcpv4_init_net(struct net *net)
-> >  {
-> >  	int i;
-> > @@ -1600,11 +1373,7 @@ static int tcpv4_init_net(struct net *net)
-> >  	struct nf_tcp_net *tn =3D tcp_pernet(net);
-> >  	struct nf_proto_net *pn =3D (struct nf_proto_net *)tn;
-> > =20
-> > -#ifdef CONFIG_SYSCTL
-> > -	if (!pn->ctl_table) {
-> > -#else
-> >  	if (!pn->users++) {
->=20
-> nf_proto_net.users has different meaning when SYSCTL enabled or disab=
-led.
->=20
-> when SYSCTL enabled,it means if both tcpv4 and tcpv6 register the sys=
-ctl,
-> it is increased when register sysctl success and decreased when unreg=
-ister sysctl.
-> we can regard it as the refcnt of ctl_table.
->=20
-> when SYSCTL disabled,it just used to identify if the proto's pernet d=
-ata
-> has been initialized.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig1AD2A6F0A8D88757976B66E6
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-We have to use two different counters for this. The conditional
-meaning of that variable is really confusing.
+On 06/11/2012 07:42 PM, Oliver Hartkopp wrote:
+> On 10.06.2012 19:52, Marc Kleine-Budde wrote:
+>=20
+>> On 06/09/2012 05:56 PM, Dan Carpenter wrote:
+>>> (CAN_CTRLMODE_LISTENONLY & CAN_CTRLMODE_LOOPBACK) is (0x02 & 0x01) wh=
+ich
+>>> is zero so the condition is never true.  The intent here was to test
+>>> that both flags were set.
+>>>
+>>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>>> ---
+>>> This is a static checker fix.  I'm not super familiar with the c_can
+>>> code.
+>>
+>> Good catch. Applied to can-next.
+>>
+>> Marc
+>>
+>=20
+>=20
+> Shouldn't this fix go through the net-tree and stable instead of net-ne=
+xt?
+
+Can I add your Acked-by ... when adding to net?
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig1AD2A6F0A8D88757976B66E6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/XDdkACgkQjTAFq1RaXHNXaQCfc021vSacXyaYlFjTpWep0kdw
+kuAAn1T2K7svEH6XZMWiQcSzzo7hD/hf
+=zD3e
+-----END PGP SIGNATURE-----
+
+--------------enig1AD2A6F0A8D88757976B66E6--
