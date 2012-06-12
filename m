@@ -1,77 +1,72 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: =?UTF-8?B?UmU6IG5ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX3Byb3RvX3RjcC4=?=
- =?UTF-8?B?YzoxNjA2Ojk6IGVycm9yOiDigJhzdHJ1Y3QgbmZfcHJvdG9fbmV04oCZIGhhcyA=?=
- =?UTF-8?B?bm8gbWVtYmVyIG5hbWVkIOKAmHVzZXLigJk=?=
-Date: Tue, 12 Jun 2012 09:46:06 +0800
-Message-ID: <4FD69F5E.3060900@cn.fujitsu.com>
-References: <4fd664de.oQN9NTKjdledtla0%wfg@linux.intel.com> <20120611221521.GA27239@1984> <20120611.152344.1072167705198124284.davem@davemloft.net> <20120612002655.GA28155@1984>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: Re: [PATCH] fix kernel crash in the macvlan driver
+Date: Mon, 11 Jun 2012 18:50:40 -0700 (PDT)
+Message-ID: <alpine.OSX.2.00.1206111840260.6713@animac.local>
+References: <alpine.OSX.2.00.1206071137360.86561@animac.local> <87bokux5po.fsf@xmission.com> <alpine.OSX.2.00.1206071320040.86561@animac.local> <87fwa6pxol.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, wfg@linux.intel.com,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51228 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753153Ab2FLBpi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 21:45:38 -0400
-In-Reply-To: <20120612002655.GA28155@1984>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:53453 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752761Ab2FLBum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 21:50:42 -0400
+Received: by dady13 with SMTP id y13so6167923dad.19
+        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 18:50:42 -0700 (PDT)
+In-Reply-To: <87fwa6pxol.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B406=E6=9C=8812=E6=97=A5 08:26, Pablo Neira Ayuso =
-=E5=86=99=E9=81=93:
-> Hi again David,
->=20
-> On Mon, Jun 11, 2012 at 03:23:44PM -0700, David Miller wrote:
->> From: Pablo Neira Ayuso <pablo@netfilter.org>
->> Date: Tue, 12 Jun 2012 00:15:21 +0200
->>
->>> Could you please apply the following patch to net-next to resolve
->>> this? Thanks.
->>
->> Applied, but you have to be kidding me with those ifdefs.
->>
->> This is exactly the same kind of thing Gao suggested for
->> the inetpeer code recently and which I flat out rejected.
->>
->> You can't pepper foo.c files with ifdefs all over the place.
->=20
-> Would you be OK if I send you patches to move all sysctl part of
-> nf_conntrack_proto_*.c to nf_conntrack_proto_*_sysctl.c
->=20
-> I can also do the same for nf_conntrack_proto.c.
->=20
-> This means more files under the net/netfilter directory, but less
-> ifdef kludges in the code.
->=20
-> Please, have a look at the patch enclosed to this email in case you
-> want to see how it would look like in the end with my proposal.
+Hi Eric :
 
-I am sorry for all the trouble aroused by my negligence.
+I have found the reason for the crash :
 
->  static int tcpv4_init_net(struct net *net)
->  {
->  	int i;
-> @@ -1600,11 +1373,7 @@ static int tcpv4_init_net(struct net *net)
->  	struct nf_tcp_net *tn =3D tcp_pernet(net);
->  	struct nf_proto_net *pn =3D (struct nf_proto_net *)tn;
-> =20
-> -#ifdef CONFIG_SYSCTL
-> -	if (!pn->ctl_table) {
-> -#else
->  	if (!pn->users++) {
+On Thu, 7 Jun 2012, Eric W. Biederman wrote:
 
-nf_proto_net.users has different meaning when SYSCTL enabled or disable=
-d.
+> >
+> > The logic of my change is as follows :
+> >
+> > As far as I can see, macvlan_newlink() pairs with macvlan_dellink(). If
+> > you are incrementing the reference count in newlink(), the corresponding
+> > decrement should be, in my opinion in dellink(). If you are derementing
+> > the count in uninit(), you are asuming that for every dellink() call,
+> > there is a corresponding uninit() call. I am not sure if this assumption
+> > is correct. Perhaps you can shed some more lights on this.
+>
+> Yes.  Look at net/core/dev.c
+> dellink calls unregister_netdevice_queue.
+> The active part of unregister_netdevice_queue rollback_registered_many
+> calls dev->ndo_stop() and then ndo_uninit.
 
-when SYSCTL enabled,it means if both tcpv4 and tcpv6 register the sysct=
-l,
-it is increased when register sysctl success and decreased when unregis=
-ter sysctl.
-we can regard it as the refcnt of ctl_table.
+You are correct with respect the current upstream code. However, please
+take a look at the commit : 0696c3a8acd3b7c3186dd231d65d97e05a75189f
 
-when SYSCTL disabled,it just used to identify if the proto's pernet dat=
-a
-has been initialized.
+Before this change was committed, a failure in dev_get_valid_name() would
+cause netdev_ops->ndo_uninit() to get called as a part of the clneaup
+code. This in turn will mess up (decrement) the port->count values causing
+an unbalanced reference cound decrement. This was the reason why the port
+was getting freed and a use after free resulted in the crash. I have
+verified this was indeed the case using printks. After applying the fix in
+0696c3a8acd3b7c3186dd231d65d97e05a75189f  along with your original
+ref-count on dev->port fix, I can no longer reproduce the crash.
+
+When moved the counter decrement from uninit() to dellink(), this fixed
+the issue since although we had an extra unbalanced uninit() call, it
+wasn't modifying the counter values. However ...
+
+>
+> We might still be using rcu hash lookups until ndo_close is called and
+> so we really don't want to move the decrement before then.
+
+I agree with you on this one. Hence, we should keep the reference counter
+modification code where it currently is.
+
+
+So there was a window when you had applied your patch (port reference
+counting) and Peter's fix did not go in. In that period, the upstream
+kernel was broken as well. Fortunately, it's all fixed now :)
+
+Cheers,
+Ani
