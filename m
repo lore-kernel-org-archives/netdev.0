@@ -1,88 +1,90 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: [PATCH net V2] bonding:force to use primary slave
-Date: Tue, 12 Jun 2012 11:35:06 +0800
-Message-ID: <0d639c5449aad0222c7e88cf8a61013c1cdf98e2.1339472044.git.wpan@redhat.com>
-References: <32118.1339449441@death.nxdomain>
-Cc: nicolas.2p.debian@gmail.com, fubar@us.ibm.com
-To: netdev@vger.kernel.org
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: Re: [PATCH net 1/3] bonding:record primary when modify it via sysfs
+Date: Tue, 12 Jun 2012 11:38:04 +0800
+Message-ID: <4FD6B99C.7020305@gmail.com>
+References: <cover.1339404887.git.wpan@redhat.com> <84a4e0e6bbdc9206baefb1454324f4759a98b80e.1339404887.git.wpan@redhat.com> <4FD64938.6080009@gmail.com> <31624.1339447734@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>, Weiping Pan <wpan@redhat.com>,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59246 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751175Ab2FLDa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 23:30:27 -0400
-In-Reply-To: <32118.1339449441@death.nxdomain>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:37117 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175Ab2FLDdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 23:33:21 -0400
+Received: by dady13 with SMTP id y13so6262492dad.19
+        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 20:33:20 -0700 (PDT)
+In-Reply-To: <31624.1339447734@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we set primary slave with module parameters, bond will always use this
-primary slave as active slave.
+On 06/12/2012 04:48 AM, Jay Vosburgh wrote:
+> Nicolas de Peslo=C3=BCan 	<nicolas.2p.debian@gmail.com>  wrote:
+>
+>> Le 11/06/2012 11:00, Weiping Pan a =C3=A9crit :
+>>> If we modify primary via sysfs and it is not a valid slave,
+>>> we should record it for future use, and this behavior is the same w=
+ith
+>>> bond_check_params().
+>>>
+>>> Signed-off-by: Weiping Pan<wpan@redhat.com>
+>>> ---
+>>>    drivers/net/bonding/bond_sysfs.c |    8 ++++++--
+>>>    1 files changed, 6 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding=
+/bond_sysfs.c
+>>> index aef42f0..485bedb 100644
+>>> --- a/drivers/net/bonding/bond_sysfs.c
+>>> +++ b/drivers/net/bonding/bond_sysfs.c
+>>> @@ -1082,8 +1082,12 @@ static ssize_t bonding_store_primary(struct =
+device *d,
+>>>    		}
+>>>    	}
+>>>
+>>> -	pr_info("%s: Unable to set %.*s as primary slave.\n",
+>>> -		bond->dev->name, (int)strlen(buf) - 1, buf);
+>>> +	strncpy(bond->params.primary, ifname, IFNAMSIZ);
+>>> +	bond->params.primary[IFNAMSIZ - 1] =3D 0;
+>>> +
+>>> +	pr_info("%s: Recording %s as primary, "
+>>> +		"but it has not been enslaved to %s yet.\n",
+>>> +		bond->dev->name, ifname, bond->dev->name);
+>>>    out:
+>>>    	write_unlock_bh(&bond->curr_slave_lock);
+>>>    	read_unlock(&bond->lock);
+>> I like this one, because it tend to relax the current constraints on=
+e
+>> should respect on the order to write into sysfs to setup bonding.
+>>
+>> May I suggest we have a better info message, suggesting there might =
+have a
+>> typo on the name of the primary ?
+>>
+>>> +	pr_info("%s: Recording %s as primary, "
+>>> +		"but it has not been enslaved to %s yet. Possible typo?\n",
+>>> +		bond->dev->name, ifname, bond->dev->name);
+>> Except from this cosmetic,
+>>
+>> Acked-by: Nicolas de Peslo=C3=BCan<nicolas.2p.debian@free.fr>
+> 	Agreed, except that I can go either way on the "typo" warning.
 
-But when we modify primary slave via sysfs, it will call
-bond_should_change_active() and take into account primary_reselect.
+I prefer not to add 'typo' since I think the log is enough.
 
-And I think we should use the new primary slave as the new active slave
-regardless of the value of primary_reselect, since primary slave really should
-have priority than other slaves.
-primary_reselect is introduced to handle the failure or recovery of primary
-slave, but when we modify primary slave via sysfs, we want to give it higher
-priority, and it may or may not be a failure or recovery slave.
-
-Thus the behavior is the same with module parameters and meets the
-administrator's expectation.
-
-Changelog:
-V2:modify document
-
-Signed-off-by: Weiping Pan <wpan@redhat.com>
----
- Documentation/networking/bonding.txt |    8 ++++++--
- drivers/net/bonding/bond_sysfs.c     |    1 +
- 2 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index bfea8a3..9130050 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -652,7 +652,8 @@ primary
- 
- 	A string (eth0, eth2, etc) specifying which slave is the
- 	primary device.  The specified device will always be the
--	active slave while it is available.  Only when the primary is
-+	active slave while it is available.  Changing it via sysfs will make
-+	it to be used as active slave immediately.  Only when the primary is
- 	off-line will alternate devices be used.  This is useful when
- 	one slave is preferred over another, e.g., when one slave has
- 	higher throughput than another.
-@@ -684,7 +685,7 @@ primary_reselect
- 		The primary slave becomes the active slave only if the
- 		current active slave fails and the primary slave is up.
- 
--	The primary_reselect setting is ignored in two cases:
-+	The primary_reselect setting is ignored in three cases:
- 
- 		If no slaves are active, the first slave to recover is
- 		made the active slave.
-@@ -692,6 +693,9 @@ primary_reselect
- 		When initially enslaved, the primary slave is always made
- 		the active slave.
- 
-+		When changing primary slave via sysfs, and if the primary
-+		slave is up, bonding will use it as active slave immediately.
-+
- 	Changing the primary_reselect policy via sysfs will cause an
- 	immediate selection of the best active slave according to the new
- 	policy.  This may or may not result in a change of the active
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 1b0f3cd..7256ae4 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1077,6 +1077,7 @@ static ssize_t bonding_store_primary(struct device *d,
- 				bond->dev->name, slave->dev->name);
- 			bond->primary_slave = slave;
- 			strcpy(bond->params.primary, slave->dev->name);
-+			bond->force_primary = true;
- 			bond_select_active_slave(bond);
- 			goto out;
- 		}
--- 
-1.7.4
+thanks
+Weiping Pan
+> Signed-off-by: Jay Vosburgh<fubar@us.ibm.com>
+>
+> 	-J
+>
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
