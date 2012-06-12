@@ -1,53 +1,50 @@
-From: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
-Subject: Re: [PATCH 1/4] drivers/net/ethernet/sfc: Add efx_ prefix to
- set_bit_le()
-Date: Tue, 12 Jun 2012 22:06:54 +0900
-Message-ID: <20120612220654.fd0246e6e687f7c79e5c988c@gmail.com>
-References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp>
-	<20120611212901.2b4d0a17.yoshikawa.takuya@oss.ntt.co.jp>
-	<201206111409.16093.arnd@arndb.de>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: RE: [net-next.git 4/4 (v4)] stmmac: add the Energy Efficient
+ Ethernet support
+Date: Tue, 12 Jun 2012 13:09:20 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A5027BDB@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1339505153-26731-1-git-send-email-peppe.cavallaro@st.com>
+ <1339505153-26731-5-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
-	bhutchings@solarflare.com, grundler@parisc-linux.org,
-	avi@redhat.com, mtosatti@redhat.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <201206111409.16093.arnd@arndb.de>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"rayagond@vayavyalabs.com" <rayagond@vayavyalabs.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Giuseppe CAVALLARO" <peppe.cavallaro@st.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1331 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751696Ab2FLNKA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 09:10:00 -0400
+In-Reply-To: <1339505153-26731-5-git-send-email-peppe.cavallaro@st.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Jun 2012 14:09:15 +0000
-Arnd Bergmann <arnd@arndb.de> wrote:
+Hi Giuseppe,
 
-> On Monday 11 June 2012, Takuya Yoshikawa wrote:
-> > 
-> >  /* Set bit in a little-endian bitfield */
-> > -static inline void set_bit_le(unsigned nr, unsigned char *addr)
-> > +static inline void efx_set_bit_le(unsigned nr, unsigned char *addr)
-> >  {
-> >         addr[nr / 8] |= (1 << (nr % 8));
-> >  }
-> >  
-> >  /* Clear bit in a little-endian bitfield */
-> > -static inline void clear_bit_le(unsigned nr, unsigned char *addr)
-> > +static inline void efx_clear_bit_le(unsigned nr, unsigned char *addr)
-> >  {
-> >         addr[nr / 8] &= ~(1 << (nr % 8));
-> >  }
-> 
-> Hmm, any reason why we're not just using the existing non-atomic
-> __set_bit_le() here? I think the helpers in sfc and tulip can
-> just get removed if you use those.
+> @@ -1541,10 +1663,37 @@ static irqreturn_t stmmac_interrupt(int irq,
+> void *dev_id)
+> +		if (unlikely(status)) {
+> +			if (status & core_mmc_tx_irq)
+> +				priv->xstats.mmc_tx_irq_n++;
+> +			if (status & core_mmc_rx_irq)
+> +				priv->xstats.mmc_rx_irq_n++;
+> +			if (status & core_mmc_rx_csum_offload_irq)
+> +				priv->xstats.mmc_rx_csum_offload_irq_n++;
+> +			if (status & core_irq_receive_pmt_irq)
+> +				priv->xstats.irq_receive_pmt_irq_n++;
+> +
 
-__set_bit_le() assumes long word alignment and does endian conversion
-when needed.
+Are these EEE related?
 
-To be honest, I am a bit scared of changing drivers which I cannot test
-on real hardware.
+> +	/* To handle DMA interrupts */
 
-	Takuya
+Is this related?
+
+
+Cheers,
+Yuval Mintz
