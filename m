@@ -1,61 +1,62 @@
-From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
- endless "XactErr" error
-Date: Tue, 12 Jun 2012 18:09:05 +0800
-Message-ID: <CA+v9cxarz27iX=S9JUxW-oj_Q0+egRSjs1R2B36tyK1wYZFXHQ@mail.gmail.com>
-References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
-	<20120607.145438.1351539405712214173.davem@davemloft.net>
-	<CA+v9cxaLERjFKdE7joGgmpbxCUotdh=Nn4F4f-KeOXwp8nqMPg@mail.gmail.com>
-	<87sje1podo.fsf@nemi.mork.no>
+From: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+Subject: [PATCH] netpoll: Fix skb tail pointer in netpoll_send_udp()
+Date: Tue, 12 Jun 2012 13:26:04 +0300
+Message-ID: <1339496765-3093-1-git-send-email-bogdan.hamciuc@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87sje1podo.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:17810 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751378Ab2FLK1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 06:27:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 12, 2012 at 4:47 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-> Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->
->> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
->> index 76f4396..c0bcb61 100644
->> --- a/include/linux/usb/usbnet.h
->> +++ b/include/linux/usb/usbnet.h
->> @@ -62,13 +62,14 @@ struct usbnet {
->> =A0 =A0 =A0 unsigned long =A0 =A0 =A0 =A0 =A0 flags;
->> =A0# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_TX_HALT =A0 =A00
->> =A0# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_HALT =A0 =A01
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A02
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A03
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 4
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A05
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 6
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 7
->> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 8
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_HALT =A0 2
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A03
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A04
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 5
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A06
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 7
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 8
->> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 9
->> =A0};
->
-> Why do you renumber all of these instead of adding the new
-> EVENT_STS_HALT to the end of the list?
->
+As skb->tail wasn't updated after skb_copy_to_linear_data(), subsequent
+calls to skb_realloc_headroom() (as made by an ethernet driver's
+ndo_start_xmit routine) would only effectively copy the packet headers,
+leaving garbage in the payload.
 
-Thanks for your comments.
+In the process, removed some unnecessary code.
 
-I think it's nice to sort these mask codes by their purposes.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+---
+ net/core/netpoll.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 3d84fb9..9a08068 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -362,22 +362,22 @@ EXPORT_SYMBOL(netpoll_send_skb_on_dev);
+ 
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ {
+-	int total_len, eth_len, ip_len, udp_len;
++	int total_len, ip_len, udp_len;
+ 	struct sk_buff *skb;
+ 	struct udphdr *udph;
+ 	struct iphdr *iph;
+ 	struct ethhdr *eth;
+ 
+ 	udp_len = len + sizeof(*udph);
+-	ip_len = eth_len = udp_len + sizeof(*iph);
+-	total_len = eth_len + ETH_HLEN + NET_IP_ALIGN;
++	ip_len = udp_len + sizeof(*iph);
++	total_len = ip_len + ETH_HLEN + NET_IP_ALIGN;
+ 
+ 	skb = find_skb(np, total_len, total_len - len);
+ 	if (!skb)
+ 		return;
+ 
+ 	skb_copy_to_linear_data(skb, msg, len);
+-	skb->len += len;
++	skb_put(skb, len);
+ 
+ 	skb_push(skb, sizeof(*udph));
+ 	skb_reset_transport_header(skb);
+-- 
+1.5.6.3
