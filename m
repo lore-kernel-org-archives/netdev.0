@@ -1,102 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] sfc: Use standard __{clear,set}_bit_le() functions
-Date: Tue, 12 Jun 2012 20:23:30 +0100
-Message-ID: <1339529010.2711.5.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp>
-	 <20120611212901.2b4d0a17.yoshikawa.takuya@oss.ntt.co.jp>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCHv2 net-next] ipv4: Add interface option to enable routing
+ of 127.0.0.0/8
+Date: Tue, 12 Jun 2012 15:50:19 -0400
+Message-ID: <20120612195019.GM28598@canuck.infradead.org>
+References: <20120608101859.GH32152@canuck.infradead.org>
+ <20120611.165740.419299184892679723.davem@davemloft.net>
+ <20120612104401.GH28598@canuck.infradead.org>
+ <4FD786B8.3030205@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <grundler@parisc-linux.org>, <arnd@arndb.de>, <avi@redhat.com>,
-	<mtosatti@redhat.com>, <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>, <kvm@vger.kernel.org>,
-	<takuya.yoshikawa@gmail.com>
-To: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120611212901.2b4d0a17.yoshikawa.takuya@oss.ntt.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tgraf@suug.ch,
+	David Miller <davem@davemloft.net>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:44365 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751955Ab2FLTuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 15:50:23 -0400
+Content-Disposition: inline
+In-Reply-To: <4FD786B8.3030205@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are now standard functions for dealing with little-endian bit
-arrays, so use them instead of our own implementations.
+On Tue, Jun 12, 2012 at 11:13:12AM -0700, Rick Jones wrote:
+> I'd go beyond "traditionally forbidden" and call it something
+> considered fundamental.  That 127.0.0.1 (et al) can only be reached
+> by entities on the same system is rather deeply ingrained in the
+> collective consciousness after 30-odd years.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-Please use this version instead.
+I absolutely agree with regard to 127.0.0.1 but I do not fully
+agree with regard to 127/8 in general.
 
-Ben.
+> This change would make 127/8 a de facto RFC 1918 address right?  It
+> would not be publicly routable.  Are there actually entities who
+> have exhausted 10/8, 172.16/12 and 192.168/16?
 
- drivers/net/ethernet/sfc/efx.c        |    4 ++--
- drivers/net/ethernet/sfc/net_driver.h |   12 ------------
- drivers/net/ethernet/sfc/nic.c        |    4 ++--
- 3 files changed, 4 insertions(+), 16 deletions(-)
+This is not about enabling 127/8 to become publicly routeable.
+This is about enabling 127/8 for host internal routing, f.e.
+virtual bridges, ifb devices, or dummy devices.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index b95f2e1..ca2a348 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1976,14 +1976,14 @@ static void efx_set_rx_mode(struct net_device *net_dev)
- 		netdev_for_each_mc_addr(ha, net_dev) {
- 			crc = ether_crc_le(ETH_ALEN, ha->addr);
- 			bit = crc & (EFX_MCAST_HASH_ENTRIES - 1);
--			set_bit_le(bit, mc_hash->byte);
-+			__set_bit_le(bit, mc_hash);
- 		}
- 
- 		/* Broadcast packets go through the multicast hash filter.
- 		 * ether_crc_le() of the broadcast address is 0xbe2612ff
- 		 * so we always add bit 0xff to the mask.
- 		 */
--		set_bit_le(0xff, mc_hash->byte);
-+		__set_bit_le(0xff, mc_hash);
- 	}
- 
- 	if (efx->port_enabled)
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 0e57535..6f1a7f7 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1080,18 +1080,6 @@ static inline struct efx_rx_buffer *efx_rx_buffer(struct efx_rx_queue *rx_queue,
- 	return &rx_queue->buffer[index];
- }
- 
--/* Set bit in a little-endian bitfield */
--static inline void set_bit_le(unsigned nr, unsigned char *addr)
--{
--	addr[nr / 8] |= (1 << (nr % 8));
--}
--
--/* Clear bit in a little-endian bitfield */
--static inline void clear_bit_le(unsigned nr, unsigned char *addr)
--{
--	addr[nr / 8] &= ~(1 << (nr % 8));
--}
--
- 
- /**
-  * EFX_MAX_FRAME_LEN - calculate maximum frame length
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 4a9a5be..bb0172d 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -473,9 +473,9 @@ void efx_nic_init_tx(struct efx_tx_queue *tx_queue)
- 
- 		efx_reado(efx, &reg, FR_AA_TX_CHKSM_CFG);
- 		if (tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD)
--			clear_bit_le(tx_queue->queue, (void *)&reg);
-+			__clear_bit_le(tx_queue->queue, &reg);
- 		else
--			set_bit_le(tx_queue->queue, (void *)&reg);
-+			__set_bit_le(tx_queue->queue, &reg);
- 		efx_writeo(efx, &reg, FR_AA_TX_CHKSM_CFG);
- 	}
- 
--- 
-1.7.7.6
+The problem with 10/8, 172.162/12 and 192.168/16 is that these
+ranges are often in use by VPNs and thus unavailable. None of these
+addresses are guaranteed to be available on a random system.
 
+An example for such usage would be virtualization where you want
+to assign addresses to guests which are guaranteed to be available
+in host scope as well.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Yes, if someone enables this on a publicly facing interface that
+will enable the possibility to violate the RFC but he might as well
+do that by using a raw socket.
+
+> Are there any other stacks which can do this, or would this be an
+> "RFC 1918" network between (newer)Linux systems only?  (Assuming
+> non-newer-linux-based routers would be happy with it)
+
+AFAIK none but I could be wrong. Again, this option is not intended
+to be used on any public interfaces. However, if you want to enable
+this in your own private network, fine with me again.
