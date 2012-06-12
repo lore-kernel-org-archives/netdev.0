@@ -1,90 +1,163 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: Re: [PATCH net 1/3] bonding:record primary when modify it via sysfs
-Date: Tue, 12 Jun 2012 11:38:04 +0800
-Message-ID: <4FD6B99C.7020305@gmail.com>
-References: <cover.1339404887.git.wpan@redhat.com> <84a4e0e6bbdc9206baefb1454324f4759a98b80e.1339404887.git.wpan@redhat.com> <4FD64938.6080009@gmail.com> <31624.1339447734@death.nxdomain>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net tree
+Date: Tue, 12 Jun 2012 14:07:11 +1000
+Message-ID: <20120612140711.ef9b97ee55147328a784def7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>, Weiping Pan <wpan@redhat.com>,
-	netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:37117 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175Ab2FLDdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 23:33:21 -0400
-Received: by dady13 with SMTP id y13so6262492dad.19
-        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 20:33:20 -0700 (PDT)
-In-Reply-To: <31624.1339447734@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Viresh Kumar <viresh.kumar@st.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/12/2012 04:48 AM, Jay Vosburgh wrote:
-> Nicolas de Peslo=C3=BCan 	<nicolas.2p.debian@gmail.com>  wrote:
->
->> Le 11/06/2012 11:00, Weiping Pan a =C3=A9crit :
->>> If we modify primary via sysfs and it is not a valid slave,
->>> we should record it for future use, and this behavior is the same w=
-ith
->>> bond_check_params().
->>>
->>> Signed-off-by: Weiping Pan<wpan@redhat.com>
->>> ---
->>>    drivers/net/bonding/bond_sysfs.c |    8 ++++++--
->>>    1 files changed, 6 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding=
-/bond_sysfs.c
->>> index aef42f0..485bedb 100644
->>> --- a/drivers/net/bonding/bond_sysfs.c
->>> +++ b/drivers/net/bonding/bond_sysfs.c
->>> @@ -1082,8 +1082,12 @@ static ssize_t bonding_store_primary(struct =
-device *d,
->>>    		}
->>>    	}
->>>
->>> -	pr_info("%s: Unable to set %.*s as primary slave.\n",
->>> -		bond->dev->name, (int)strlen(buf) - 1, buf);
->>> +	strncpy(bond->params.primary, ifname, IFNAMSIZ);
->>> +	bond->params.primary[IFNAMSIZ - 1] =3D 0;
->>> +
->>> +	pr_info("%s: Recording %s as primary, "
->>> +		"but it has not been enslaved to %s yet.\n",
->>> +		bond->dev->name, ifname, bond->dev->name);
->>>    out:
->>>    	write_unlock_bh(&bond->curr_slave_lock);
->>>    	read_unlock(&bond->lock);
->> I like this one, because it tend to relax the current constraints on=
-e
->> should respect on the order to write into sysfs to setup bonding.
->>
->> May I suggest we have a better info message, suggesting there might =
-have a
->> typo on the name of the primary ?
->>
->>> +	pr_info("%s: Recording %s as primary, "
->>> +		"but it has not been enslaved to %s yet. Possible typo?\n",
->>> +		bond->dev->name, ifname, bond->dev->name);
->> Except from this cosmetic,
->>
->> Acked-by: Nicolas de Peslo=C3=BCan<nicolas.2p.debian@free.fr>
-> 	Agreed, except that I can go either way on the "typo" warning.
+--Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I prefer not to add 'typo' since I think the log is enough.
+Hi Andrew,
 
-thanks
-Weiping Pan
-> Signed-off-by: Jay Vosburgh<fubar@us.ibm.com>
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Today's linux-next merge of the akpm tree got a conflict in
+drivers/net/ethernet/stmicro/stmmac/stmmac.h between commit 33d5e332b9c5
+("stmmac: fix driver built w/ w/o both pci and platf modules") from the
+net tree and commit "net/stmmac: remove conditional compilation of clk
+code" from the akpm tree.
+
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 94b21b4,8e1a43b..0000000
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@@ -104,99 -103,3 +102,59 @@@ int stmmac_dvr_remove(struct net_devic
+  struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+  				     struct plat_stmmacenet_data *plat_dat,
+  				     void __iomem *addr);
+ +
+- #ifdef CONFIG_HAVE_CLK
+- static inline int stmmac_clk_enable(struct stmmac_priv *priv)
+- {
+- 	if (!IS_ERR(priv->stmmac_clk))
+- 		return clk_enable(priv->stmmac_clk);
+-=20
+- 	return 0;
+- }
+-=20
+- static inline void stmmac_clk_disable(struct stmmac_priv *priv)
+- {
+- 	if (IS_ERR(priv->stmmac_clk))
+- 		return;
+-=20
+- 	clk_disable(priv->stmmac_clk);
+- }
+- static inline int stmmac_clk_get(struct stmmac_priv *priv)
+- {
+- 	priv->stmmac_clk =3D clk_get(priv->device, NULL);
+-=20
+- 	if (IS_ERR(priv->stmmac_clk))
+- 		return PTR_ERR(priv->stmmac_clk);
+-=20
+- 	return 0;
+- }
+- #else
+- static inline int stmmac_clk_enable(struct stmmac_priv *priv)
+- {
+- 	return 0;
+- }
+- static inline void stmmac_clk_disable(struct stmmac_priv *priv)
+- {
+- }
+- static inline int stmmac_clk_get(struct stmmac_priv *priv)
+- {
+- 	return 0;
+- }
+- #endif /* CONFIG_HAVE_CLK */
+-=20
+-=20
+ +#ifdef CONFIG_STMMAC_PLATFORM
+ +extern struct platform_driver stmmac_pltfr_driver;
+ +static inline int stmmac_register_platform(void)
+ +{
+ +	int err;
+ +
+ +	err =3D platform_driver_register(&stmmac_pltfr_driver);
+ +	if (err)
+ +		pr_err("stmmac: failed to register the platform driver\n");
+ +
+ +	return err;
+ +}
+ +static inline void stmmac_unregister_platform(void)
+ +{
+ +	platform_driver_register(&stmmac_pltfr_driver);
+ +}
+ +#else
+ +static inline int stmmac_register_platform(void)
+ +{
+ +	pr_debug("stmmac: do not register the platf driver\n");
+ +
+ +	return -EINVAL;
+ +}
+ +static inline void stmmac_unregister_platform(void)
+ +{
+ +}
+ +#endif /* CONFIG_STMMAC_PLATFORM */
+ +
+ +#ifdef CONFIG_STMMAC_PCI
+ +extern struct pci_driver stmmac_pci_driver;
+ +static inline int stmmac_register_pci(void)
+ +{
+ +	int err;
+ +
+ +	err =3D pci_register_driver(&stmmac_pci_driver);
+ +	if (err)
+ +		pr_err("stmmac: failed to register the PCI driver\n");
+ +
+ +	return err;
+ +}
+ +static inline void stmmac_unregister_pci(void)
+ +{
+ +	pci_unregister_driver(&stmmac_pci_driver);
+ +}
+ +#else
+ +static inline int stmmac_register_pci(void)
+ +{
+ +	pr_debug("stmmac: do not register the PCI driver\n");
+ +
+ +	return -EINVAL;
+ +}
+ +static inline void stmmac_unregister_pci(void)
+ +{
+ +}
+ +#endif /* CONFIG_STMMAC_PCI */
+
+--Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJP1sBvAAoJEECxmPOUX5FE1skP/0P6fgcSbZnLtJDgUlrw+lUQ
+sU2LAnXv1R4lWES8Pm6HshtGRFBIFWoBjbysM6/eGmg8Pcg5hBTDo0E99rMN579z
+cEFomXpOjhkYyulGSVZxAX9MQFtNYWkySSo5pLNUtRS0e6MVi0n4Dx/U6iJvYd0D
+FKP1QpagI2aixCMmx1GEovo6BE5nc9AbfK25gz/8pXjABl1qH2qB88FgVrbyzYf0
+XmAUNUjSO/bgneg3LrNknmww/lJ+YFHRZx3RODiVtPTDuSCop7IdWFZYDRd9EPzu
+6R6bDb/AvZEOg7TwNDAqXmjcv0PtDJBuquEBEgBpW4oHBP1pi+6IlKHpj+waZbJR
+ks82e06zJWPcdqa+zqQVOskg0uX0JwiyZ/KpCchC5oAks9/vS8lVEKIWmvV6mDc+
+fSyoIr/FaqMC90N1oxY8Um86S1kmymhpEtnINkM9caI87PO3xa+hFhKdnXBXE2Mm
+N0SyuSif++w/3uuUPR1bdyxWu84iY5jfWieTdwy3ifnMp9bjd2MOFhmuq8nPFNs5
+SGSFG8sKZ+GF3xNDwnql+3cHQJtIWhiTTGJoI9jLOqWapT5yovSiVU9Wf/pr9EQA
+IkoVzWVsGR/1U7JLfIba1HbENLgwDhVHvOZfPQYhzjCq+u4UD8YhjlSu9QfwHL8D
+e64dyyH4dD4J8Pov+3Nv
+=JUda
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe--
