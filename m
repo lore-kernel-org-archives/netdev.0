@@ -1,10 +1,10 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 4/4 (v4)] stmmac: add the Energy Efficient
- Ethernet support
-Date: Tue, 12 Jun 2012 17:42:27 +0100
-Message-ID: <1339519347.2701.3.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [net-next.git 1/4 (v4)] phy: add the EEE support and the way to
+ access to the MMD registers.
+Date: Tue, 12 Jun 2012 17:50:20 +0100
+Message-ID: <1339519820.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1339505153-26731-1-git-send-email-peppe.cavallaro@st.com>
-	 <1339505153-26731-5-git-send-email-peppe.cavallaro@st.com>
+	 <1339505153-26731-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,45 +12,80 @@ Cc: <netdev@vger.kernel.org>, <rayagond@vayavyalabs.com>,
 	<davem@davemloft.net>, <yuvalmin@broadcom.com>
 To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:37423 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:7639 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752838Ab2FLQmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 12:42:33 -0400
-In-Reply-To: <1339505153-26731-5-git-send-email-peppe.cavallaro@st.com>
+	by vger.kernel.org with ESMTP id S1751074Ab2FLQuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 12:50:23 -0400
+In-Reply-To: <1339505153-26731-2-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, 2012-06-12 at 14:45 +0200, Giuseppe CAVALLARO wrote:
-> This patch adds the Energy Efficient Ethernet support to the stmmac.
+> This patch adds the support for the Energy-Efficient Ethernet (EEE)
+> to the Physical Abstraction Layer.
+> To support the EEE we have to access to the MMD registers 3.20 and
+> 7.60/61. So two new functions have been added to read/write the MMD
+> registers (clause 45).
 > 
-> Please see the driver's documentation for further details about this support
-> in the driver.
+> An Ethernet driver (I tested the stmmac) can invoke the phy_init_eee to properly
+> check if the EEE is supported by the PHYs and it can also set the clock
+> stop enable bit in the 3.0 register.
+> The phy_get_eee_err can be used for reporting the number of time where
+> the PHY failed to complete its normal wake sequence.
+> 
+> In the end, this patch also adds the EEE ethtool support implementing:
+>  o phy_ethtool_set_eee
+>  o phy_ethtool_get_eee
 [...]
-> +static int stmmac_ethtool_op_set_eee(struct net_device *dev,
-> +				     struct ethtool_eee *edata)
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+[...]
+> +static int phy_eee_to_adv(int eee_adv)
 > +{
-> +	struct stmmac_priv *priv = netdev_priv(dev);
+> +	int adv = 0;
 > +
-> +	priv->eee_enabled = edata->eee_enabled;
+> +	if (eee_adv & MDIO_EEE_100TX)
+> +		adv |= ADVERTISED_100baseT_Full;
+> +	if (eee_adv & MDIO_EEE_1000T)
+> +		adv |= ADVERTISED_1000baseT_Full;
+> +	if (eee_adv & MDIO_EEE_10GT)
+> +		adv |= ADVERTISED_10000baseT_Full;
+> +	if (eee_adv & MDIO_EEE_1000KX)
+> +		adv |= ADVERTISED_1000baseKX_Full;
+> +	if (eee_adv & MDIO_EEE_10GKX4)
+> +		adv |= ADVERTISED_10000baseKX4_Full;
+> +	if (eee_adv & MDIO_EEE_10GKR)
+> +		adv |= ADVERTISED_10000baseKR_Full;
 > +
-> +	if (!priv->eee_enabled)
-> +		stmmac_disable_eee_mode(priv);
-> +	else {
-> +		/* We are asking for enabling the EEE but it is safe
-> +		 * to verify all by invoking the eee_init function.
-> +		 * In case of failure it will return an error.
-> +		 */
+> +	return adv;
+> +}
 
-It would be better if you could avoid changing any settings in the case
-of failure, though.
+The type of 'adv' and the return type should be u32 (per ethtool API);
+the type of 'eee_adv' should be u16 (16-bit register).
 
-> +		priv->tx_lpi_timer = edata->tx_lpi_timer;
-> +		priv->eee_enabled = stmmac_eee_init(priv);
-> +		if (!priv->eee_enabled)
-> +			return -EPERM;
+Similarly in phy_eee_to_supported() and phy_adv_to_eee().
+
+[...]
+> --- a/include/linux/mii.h
+> +++ b/include/linux/mii.h
+[...]
+> @@ -141,6 +143,15 @@
+>  #define FLOW_CTRL_TX		0x01
+>  #define FLOW_CTRL_RX		0x02
+>  
+> +/* MMD Access Control register fields */
+> +#define MII_MMD_CTRL_DEVAD_MASK			0x1f	/* Mask MMD DEVAD*/
+> +#define MII_MMD_CTRL_FUNC_ADDR			0x0000	/* Address */
+> +#define MII_MMD_CTRL_FUNC_DATA_NOINCR		0x4000	/* no post increment */
+> +#define MII_MMD_CTRL_FUNC_DATA_INCR_ON_RDWT	0x8000	/* post increment on
+> +							 * reads & writes */
+> +#define MII_MMD_CTRL_FUNC_DATA_INCR_ON_WT	0xC000	/* post increment on
+> +							 * writes only */
+> +
 [...]
 
-Surely -EOPNOTSUPP?
+These names are quite long; could they reasonably be shortened, e.g. by
+dropping 'FUNC_' and 'DATA_' parts?
 
 Ben.
 
