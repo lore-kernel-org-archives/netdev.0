@@ -1,45 +1,32 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCHv2 net-next] ipv4: Add interface option to enable routing
- of 127.0.0.0/8
-Date: Tue, 12 Jun 2012 11:13:12 -0700
-Message-ID: <4FD786B8.3030205@hp.com>
-References: <20120608101859.GH32152@canuck.infradead.org> <20120611.165740.419299184892679723.davem@davemloft.net> <20120612104401.GH28598@canuck.infradead.org>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 4/7] usbnet: remove EVENT_DEV_OPEN flag
+Date: Tue, 12 Jun 2012 20:14:28 +0200
+Message-ID: <201206122014.28408.oliver@neukum.org>
+References: <1339463985-9006-1-git-send-email-tom.leiming@gmail.com> <1339463985-9006-5-git-send-email-tom.leiming@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org, tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:1246 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753351Ab2FLSNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 14:13:14 -0400
-In-Reply-To: <20120612104401.GH28598@canuck.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1339463985-9006-5-git-send-email-tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/12/2012 03:44 AM, Thomas Graf wrote:
-> Routing of 127/8 is tradtionally forbidden, we consider
-> packets from that address block martian when routing and do
-> not process corresponding ARP requests.
+Am Dienstag, 12. Juni 2012, 03:19:42 schrieb Ming Lei:
+> EVENT_DEV_OPEN is introduced to mark if the interface is opened or
+> not, but we already have IFF_UP to handle it, so just
+> remove the flag and use IFF_UP.
 
-I'd go beyond "traditionally forbidden" and call it something considered 
-fundamental.  That 127.0.0.1 (et al) can only be reached by entities on 
-the same system is rather deeply ingrained in the collective 
-consciousness after 30-odd years.
+When is IFF_UP cleared? The flag is tested in usbnet_resume(),
+so it must be cleared before usbnet_stop() is called.
 
-> This is a sane default but renders a huge address space practically
-> unuseable.
-
-This change would make 127/8 a de facto RFC 1918 address right?  It 
-would not be publicly routable.  Are there actually entities who have 
-exhausted 10/8, 172.16/12 and 192.168/16?
-
-Are there any other stacks which can do this, or would this be an "RFC 
-1918" network between (newer)Linux systems only?  (Assuming 
-non-newer-linux-based routers would be happy with it)
-
-I cannot say that I'm all that good about practicing the preaching, but 
-IPv6 cannot be held-off indefinitely.
-
-rick jones
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
