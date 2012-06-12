@@ -1,163 +1,74 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the akpm tree with the net tree
-Date: Tue, 12 Jun 2012 14:07:11 +1000
-Message-ID: <20120612140711.ef9b97ee55147328a784def7@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Viresh Kumar <viresh.kumar@st.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net V2] bonding:force to use primary slave
+Date: Mon, 11 Jun 2012 22:00:47 -0700
+Message-ID: <7128.1339477247@death.nxdomain>
+References: <32118.1339449441@death.nxdomain> <0d639c5449aad0222c7e88cf8a61013c1cdf98e2.1339472044.git.wpan@redhat.com>
+Cc: netdev@vger.kernel.org, nicolas.2p.debian@gmail.com
+To: Weiping Pan <wpan@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:35832 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996Ab2FLFBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 01:01:17 -0400
+Received: from /spool/local
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Mon, 11 Jun 2012 23:01:16 -0600
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 534CDC90063
+	for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 01:00:48 -0400 (EDT)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q5C50mXp129694
+	for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 01:00:48 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q5C50mSl014047
+	for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 01:00:48 -0400
+In-reply-to: <0d639c5449aad0222c7e88cf8a61013c1cdf98e2.1339472044.git.wpan@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Weiping Pan <wpan@redhat.com> wrote:
 
-Hi Andrew,
+>When we set primary slave with module parameters, bond will always use this
+>primary slave as active slave.
+>
+>But when we modify primary slave via sysfs, it will call
+>bond_should_change_active() and take into account primary_reselect.
+>
+>And I think we should use the new primary slave as the new active slave
+>regardless of the value of primary_reselect, since primary slave really should
+>have priority than other slaves.
 
-Today's linux-next merge of the akpm tree got a conflict in
-drivers/net/ethernet/stmicro/stmmac/stmmac.h between commit 33d5e332b9c5
-("stmmac: fix driver built w/ w/o both pci and platf modules") from the
-net tree and commit "net/stmmac: remove conditional compilation of clk
-code" from the akpm tree.
+	The whole point of primary_reselect is that the primary slave
+does not have priority unless it meets the reselect criteria, or it is
+being enslaved.
 
-Just context changes.  I fixed it up (see below) and can carry the fix as
-necessary.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+>primary_reselect is introduced to handle the failure or recovery of primary
+>slave, but when we modify primary slave via sysfs, we want to give it higher
+>priority, and it may or may not be a failure or recovery slave.
+>
+>Thus the behavior is the same with module parameters and meets the
+>administrator's expectation.
 
-diff --cc drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 94b21b4,8e1a43b..0000000
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@@ -104,99 -103,3 +102,59 @@@ int stmmac_dvr_remove(struct net_devic
-  struct stmmac_priv *stmmac_dvr_probe(struct device *device,
-  				     struct plat_stmmacenet_data *plat_dat,
-  				     void __iomem *addr);
- +
-- #ifdef CONFIG_HAVE_CLK
-- static inline int stmmac_clk_enable(struct stmmac_priv *priv)
-- {
-- 	if (!IS_ERR(priv->stmmac_clk))
-- 		return clk_enable(priv->stmmac_clk);
--=20
-- 	return 0;
-- }
--=20
-- static inline void stmmac_clk_disable(struct stmmac_priv *priv)
-- {
-- 	if (IS_ERR(priv->stmmac_clk))
-- 		return;
--=20
-- 	clk_disable(priv->stmmac_clk);
-- }
-- static inline int stmmac_clk_get(struct stmmac_priv *priv)
-- {
-- 	priv->stmmac_clk =3D clk_get(priv->device, NULL);
--=20
-- 	if (IS_ERR(priv->stmmac_clk))
-- 		return PTR_ERR(priv->stmmac_clk);
--=20
-- 	return 0;
-- }
-- #else
-- static inline int stmmac_clk_enable(struct stmmac_priv *priv)
-- {
-- 	return 0;
-- }
-- static inline void stmmac_clk_disable(struct stmmac_priv *priv)
-- {
-- }
-- static inline int stmmac_clk_get(struct stmmac_priv *priv)
-- {
-- 	return 0;
-- }
-- #endif /* CONFIG_HAVE_CLK */
--=20
--=20
- +#ifdef CONFIG_STMMAC_PLATFORM
- +extern struct platform_driver stmmac_pltfr_driver;
- +static inline int stmmac_register_platform(void)
- +{
- +	int err;
- +
- +	err =3D platform_driver_register(&stmmac_pltfr_driver);
- +	if (err)
- +		pr_err("stmmac: failed to register the platform driver\n");
- +
- +	return err;
- +}
- +static inline void stmmac_unregister_platform(void)
- +{
- +	platform_driver_register(&stmmac_pltfr_driver);
- +}
- +#else
- +static inline int stmmac_register_platform(void)
- +{
- +	pr_debug("stmmac: do not register the platf driver\n");
- +
- +	return -EINVAL;
- +}
- +static inline void stmmac_unregister_platform(void)
- +{
- +}
- +#endif /* CONFIG_STMMAC_PLATFORM */
- +
- +#ifdef CONFIG_STMMAC_PCI
- +extern struct pci_driver stmmac_pci_driver;
- +static inline int stmmac_register_pci(void)
- +{
- +	int err;
- +
- +	err =3D pci_register_driver(&stmmac_pci_driver);
- +	if (err)
- +		pr_err("stmmac: failed to register the PCI driver\n");
- +
- +	return err;
- +}
- +static inline void stmmac_unregister_pci(void)
- +{
- +	pci_unregister_driver(&stmmac_pci_driver);
- +}
- +#else
- +static inline int stmmac_register_pci(void)
- +{
- +	pr_debug("stmmac: do not register the PCI driver\n");
- +
- +	return -EINVAL;
- +}
- +static inline void stmmac_unregister_pci(void)
- +{
- +}
- +#endif /* CONFIG_STMMAC_PCI */
+	I still disagree with this patch.  My comments regarding the
+prior version were intended to mean that we should document the current
+behavior, not change the behavior and document the new behavior.
 
---Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe
-Content-Type: application/pgp-signature
+	If an administrator wishes for the newly set primary to
+immediately become the active slave, they can either leave
+primary_reselect at its default setting or utilize the available
+mechanism to change the active slave.  Applying this patch eliminates
+the ability to alter the primary slave setting without simultaneously
+changing the active slave.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+	Further, the default value for primary_reselect already does
+this (change to the new primary immediately); this patch only affects
+the case that primary_reselect is set to a non-default value. In my
+mind, this reinforces that the current behavior is correct, and that the
+primary_reselect setting should apply to the newly selected primary
+(because the administrator has explicitly chosen that behavior).
 
-iQIcBAEBCAAGBQJP1sBvAAoJEECxmPOUX5FE1skP/0P6fgcSbZnLtJDgUlrw+lUQ
-sU2LAnXv1R4lWES8Pm6HshtGRFBIFWoBjbysM6/eGmg8Pcg5hBTDo0E99rMN579z
-cEFomXpOjhkYyulGSVZxAX9MQFtNYWkySSo5pLNUtRS0e6MVi0n4Dx/U6iJvYd0D
-FKP1QpagI2aixCMmx1GEovo6BE5nc9AbfK25gz/8pXjABl1qH2qB88FgVrbyzYf0
-XmAUNUjSO/bgneg3LrNknmww/lJ+YFHRZx3RODiVtPTDuSCop7IdWFZYDRd9EPzu
-6R6bDb/AvZEOg7TwNDAqXmjcv0PtDJBuquEBEgBpW4oHBP1pi+6IlKHpj+waZbJR
-ks82e06zJWPcdqa+zqQVOskg0uX0JwiyZ/KpCchC5oAks9/vS8lVEKIWmvV6mDc+
-fSyoIr/FaqMC90N1oxY8Um86S1kmymhpEtnINkM9caI87PO3xa+hFhKdnXBXE2Mm
-N0SyuSif++w/3uuUPR1bdyxWu84iY5jfWieTdwy3ifnMp9bjd2MOFhmuq8nPFNs5
-SGSFG8sKZ+GF3xNDwnql+3cHQJtIWhiTTGJoI9jLOqWapT5yovSiVU9Wf/pr9EQA
-IkoVzWVsGR/1U7JLfIba1HbENLgwDhVHvOZfPQYhzjCq+u4UD8YhjlSu9QfwHL8D
-e64dyyH4dD4J8Pov+3Nv
-=JUda
------END PGP SIGNATURE-----
+	-J
 
---Signature=_Tue__12_Jun_2012_14_07_11_+1000_IVIL8vRsiTQ8xWCe--
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
