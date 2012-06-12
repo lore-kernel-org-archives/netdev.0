@@ -1,66 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netpoll: Add support for hardware checksumming on
- egress
-Date: Tue, 12 Jun 2012 14:43:20 +0200
-Message-ID: <1339505000.22704.132.camel@edumazet-glaptop>
-References: <1339496765-3093-1-git-send-email-bogdan.hamciuc@freescale.com>
-	 <1339496765-3093-2-git-send-email-bogdan.hamciuc@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next.git 3/4] stmmac: update the driver Documentation and add EEE
+Date: Tue, 12 Jun 2012 14:45:52 +0200
+Message-ID: <1339505153-26731-4-git-send-email-peppe.cavallaro@st.com>
+References: <1339505153-26731-1-git-send-email-peppe.cavallaro@st.com>
+Cc: bhutchings@solarflare.com, rayagond@vayavyalabs.com,
+	davem@davemloft.net, yuvalmin@broadcom.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:47085 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884Ab2FLMnZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 08:43:25 -0400
-Received: by eaak11 with SMTP id k11so2169469eaa.19
-        for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 05:43:24 -0700 (PDT)
-In-Reply-To: <1339496765-3093-2-git-send-email-bogdan.hamciuc@freescale.com>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:40953 "EHLO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751916Ab2FLMqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 08:46:30 -0400
+In-Reply-To: <1339505153-26731-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-12 at 13:26 +0300, Bogdan Hamciuc wrote:
-> Netpoll used to compute its own csum; but if the device supports, we
-> should let it do the checksum itself.
-> 
-> Signed-off-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
-> ---
->  net/core/netpoll.c |   14 ++++++++++----
->  1 files changed, 10 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 9a08068..f5d00b4 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -385,13 +385,19 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
->  	udph->source = htons(np->local_port);
->  	udph->dest = htons(np->remote_port);
->  	udph->len = htons(udp_len);
-> -	udph->check = 0;
-> -	udph->check = csum_tcpudp_magic(np->local_ip,
-> +
-> +	/* Only querying the IPv4 csumming capabilities */
-> +	if (np->dev->features & NETIF_F_IP_CSUM)
-> +		skb->ip_summed = CHECKSUM_PARTIAL;
-> +	else {
-> +		skb->ip_summed = CHECKSUM_NONE;
-> +		udph->check = csum_tcpudp_magic(np->local_ip,
->  					np->remote_ip,
->  					udp_len, IPPROTO_UDP,
->  					csum_partial(udph, udp_len, 0));
-> -	if (udph->check == 0)
-> -		udph->check = CSUM_MANGLED_0;
-> +		if (udph->check == 0)
-> +			udph->check = CSUM_MANGLED_0;
-> +	}
->  
->  	skb_push(skb, sizeof(*iph));
->  	skb_reset_network_header(skb);
+This patch updates the stmmac's documentation adding
+some missing files in the section used to describe the
+internal driver's structure.
 
-Hi Bogdan
+Also the patch adds a new section to describe the EEE support.
 
-I cant see how this can possibly work ?
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ Documentation/networking/stmmac.txt |   36 +++++++++++++++++++++++++++++-----
+ 1 files changed, 30 insertions(+), 6 deletions(-)
 
-Which NIC was able to send a good UDP frame after this patch ?
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 5cb9a19..c676b9c 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -257,9 +257,11 @@ reset procedure etc).
+  o Makefile
+  o stmmac_main.c: main network device driver;
+  o stmmac_mdio.c: mdio functions;
++ o stmmac_pci: PCI driver;
++ o stmmac_platform.c: platform driver
+  o stmmac_ethtool.c: ethtool support;
+  o stmmac_timer.[ch]: timer code used for mitigating the driver dma interrupts
+-		      Only tested on ST40 platforms based.
++		      (only tested on ST40 platforms based);
+  o stmmac.h: private driver structure;
+  o common.h: common definitions and VFTs;
+  o descs.h: descriptor structure definitions;
+@@ -269,9 +271,11 @@ reset procedure etc).
+  o dwmac100_core: MAC 100 core and dma code;
+  o dwmac100_dma.c: dma funtions for the MAC chip;
+  o dwmac1000.h: specific header file for the MAC;
+- o dwmac_lib.c: generic DMA functions shared among chips
+- o enh_desc.c: functions for handling enhanced descriptors
+- o norm_desc.c: functions for handling normal descriptors
++ o dwmac_lib.c: generic DMA functions shared among chips;
++ o enh_desc.c: functions for handling enhanced descriptors;
++ o norm_desc.c: functions for handling normal descriptors;
++ o chain_mode.c/ring_mode.c:: functions to manage RING/CHAINED modes;
++ o mmc_core.c/mmc.h: Management MAC Counters;
+ 
+ 5) Debug Information
+ 
+@@ -304,7 +308,27 @@ All these are only useful during the developing stage
+ and should never enabled inside the code for general usage.
+ In fact, these can generate an huge amount of debug messages.
+ 
+-6) TODO:
++6) Energy Efficient Ethernet
++
++Energy Efficient Ethernet(EEE) enables IEEE 802.3 MAC sublayer along
++with a family of Physical layer to operate in the Low power Idle(LPI)
++mode. The EEE mode supports the IEEE 802.3 MAC operation at 100Mbps,
++1000Mbps & 10Gbps.
++
++The LPI mode allows power saving by switching off parts of the
++communication device functionality when there is no data to be
++transmitted & received. The system on both the side of the link can
++disable some functionalities & save power during the period of low-link
++utilization. The MAC controls whether the system should enter or exit
++the LPI mode & communicate this to PHY.
++
++As soon as the interface is opened, the driver verifies if the EEE can
++be supported. This is done by looking at both the DMA HW capability
++register and the PHY devices MCD registers.
++To enter in Tx LPI mode the driver needs to have a software timer
++that enable and disable the LPI mode when there is nothing to be
++transmitted.
++
++7) TODO:
+  o XGMAC is not supported.
+- o Add the EEE - Energy Efficient Ethernet
+  o Add the PTP - precision time protocol
+-- 
+1.7.4.4
