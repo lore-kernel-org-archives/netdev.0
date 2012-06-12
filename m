@@ -1,89 +1,127 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: =?utf-8?Q?net=2Fnetfilter=2Fnf=5Fconnt?=
-	=?utf-8?B?cmFja19wcm90b190Y3AuYzoxNjA2Ojk6IGVycm9yOiDigJhzdHJ1Y3QgbmZf?=
-	=?utf-8?B?cHJvdG9fbmV04oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYdXNlcuKAmQ==?=
-Date: Tue, 12 Jun 2012 18:03:04 +0200
-Message-ID: <20120612160304.GA31427@1984>
-References: <4fd664de.oQN9NTKjdledtla0%wfg@linux.intel.com>
- <20120611221521.GA27239@1984>
- <20120611.152344.1072167705198124284.davem@davemloft.net>
- <20120612002655.GA28155@1984>
- <4FD69F5E.3060900@cn.fujitsu.com>
- <20120612092940.GB30080@1984>
- <4FD72203.9090005@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2] bonding: Fix corrupted queue_mapping
+Date: Tue, 12 Jun 2012 18:03:51 +0200
+Message-ID: <1339517031.22704.202.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, wfg@linux.intel.com,
-	netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Roland Dreier <roland@kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60074 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752299Ab2FLQDM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2012 12:03:12 -0400
-Content-Disposition: inline
-In-Reply-To: <4FD72203.9090005@cn.fujitsu.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:63004 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495Ab2FLQD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 12:03:56 -0400
+Received: by eeit10 with SMTP id t10so2279123eei.19
+        for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 09:03:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 12, 2012 at 07:03:31PM +0800, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8812=E6=97=A5 17:29, Pablo Neira Ayus=
-o =E5=86=99=E9=81=93:
->=20
-> >> nf_proto_net.users has different meaning when SYSCTL enabled or di=
-sabled.
-> >>
-> >> when SYSCTL enabled,it means if both tcpv4 and tcpv6 register the =
-sysctl,
-> >> it is increased when register sysctl success and decreased when un=
-register sysctl.
-> >> we can regard it as the refcnt of ctl_table.
-> >>
-> >> when SYSCTL disabled,it just used to identify if the proto's perne=
-t data
-> >> has been initialized.
-> >=20
-> > We have to use two different counters for this. The conditional
-> > meaning of that variable is really confusing.
-> >=20
-> Hi David & Pablo
->=20
-> Please have a look at this patch and tell me if it's OK.
-> it base on Pable's patch.
+From: Eric Dumazet <edumazet@google.com>
 
-I think we have to merge those tcpv4_init_net and tcpv6_init_net
-functions into one single function tcp_init_net. Then, we can pass
-l4proto->l3proto to init_net:
+In the transmit path of the bonding driver, skb->cb is used to
+stash the skb->queue_mapping so that the bonding device can set its
+own queue mapping.  This value becomes corrupted since the skb->cb is
+also used in __dev_xmit_skb.
 
-        if (proto->init_net) {
-                ret =3D proto->init_net(net, l4proto->l3proto);
-                if (ret < 0)
-                        return ret;
-        }
+When transmitting through bonding driver, bond_select_queue is
+called from dev_queue_xmit.  In bond_select_queue the original
+skb->queue_mapping is copied into skb->cb (via bond_queue_mapping)
+and skb->queue_mapping is overwritten with the bond driver queue.
 
-Thus, we can check if this is IPv4 or IPv6 and initialize the compat
-part accordingly.
+Subsequently in dev_queue_xmit, __dev_xmit_skb is called which writes
+the packet length into skb->cb, thereby overwriting the stashed
+queue mappping.  In bond_dev_queue_xmit (called from hard_start_xmit),
+the queue mapping for the skb is set to the stashed value which is now
+the skb length and hence is an invalid queue for the slave device.
 
-Still, we have that pn->users thing:
+If we want to save skb->queue_mapping into skb->cb[], best place is to
+add a field in struct qdisc_skb_cb, to make sure it wont conflict with
+other layers (eg : Qdiscc, Infiniband...)
 
-        if (!pn->users++) {
-                for (i =3D 0; i < TCP_CONNTRACK_TIMEOUT_MAX; i++)
-                        tn->timeouts[i] =3D tcp_timeouts[i];
+This patchs also makes sure (struct qdisc_skb_cb)->data is aligned on 8
+bytes :
 
-                tn->tcp_loose =3D nf_ct_tcp_loose;
-                tn->tcp_be_liberal =3D nf_ct_tcp_be_liberal;
-                tn->tcp_max_retrans =3D nf_ct_tcp_max_retrans;
-        }
+netem qdisc for example assumes it can store an u64 in it, without
+misalignment penalty.
 
-Define some pn->initialized boolean. Set it to true at the end of
-the new tcp_init_net.
+Note : we only have 20 bytes left in (struct qdisc_skb_cb)->data[].
+The largest user is CHOKe and it fills it.
 
-Similar thing for other protocol trackers.
+Based on a previous patch from Tom Herbert.
 
-Let me know if you are going to send me patches. In that case, please
-do it on top of the current tree.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Tom Herbert <therbert@google.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
+Cc: Roland Dreier <roland@kernel.org>
+---
+ drivers/net/bonding/bond_main.c |    9 +++++----
+ include/net/sch_generic.h       |    7 +++++--
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-Once that has been cleaned up, we can prepare follow-up patches to
-move the sysctl code to nf_conntrack_proto_*_sysctl.c to reduce the
-ifdef pollution.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2ee8cf9..b9c2ae6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -76,6 +76,7 @@
+ #include <net/route.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
++#include <net/pkt_sched.h>
+ #include "bonding.h"
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+@@ -381,8 +382,6 @@ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
+ 	return next;
+ }
+ 
+-#define bond_queue_mapping(skb) (*(u16 *)((skb)->cb))
+-
+ /**
+  * bond_dev_queue_xmit - Prepare skb for xmit.
+  *
+@@ -395,7 +394,9 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ {
+ 	skb->dev = slave_dev;
+ 
+-	skb->queue_mapping = bond_queue_mapping(skb);
++	BUILD_BUG_ON(sizeof(skb->queue_mapping) !=
++		     sizeof(qdisc_skb_cb(skb)->bond_queue_mapping));
++	skb->queue_mapping = qdisc_skb_cb(skb)->bond_queue_mapping;
+ 
+ 	if (unlikely(netpoll_tx_running(slave_dev)))
+ 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
+@@ -4171,7 +4172,7 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	/*
+ 	 * Save the original txq to restore before passing to the driver
+ 	 */
+-	bond_queue_mapping(skb) = skb->queue_mapping;
++	qdisc_skb_cb(skb)->bond_queue_mapping = skb->queue_mapping;
+ 
+ 	if (unlikely(txq >= dev->real_num_tx_queues)) {
+ 		do {
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 55ce96b..9d7d54a 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -220,13 +220,16 @@ struct tcf_proto {
+ 
+ struct qdisc_skb_cb {
+ 	unsigned int		pkt_len;
+-	unsigned char		data[24];
++	u16			bond_queue_mapping;
++	u16			_pad;
++	unsigned char		data[20];
+ };
+ 
+ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
+ {
+ 	struct qdisc_skb_cb *qcb;
+-	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(unsigned int) + sz);
++
++	BUILD_BUG_ON(sizeof(skb->cb) < offsetof(struct qdisc_skb_cb, data) + sz);
+ 	BUILD_BUG_ON(sizeof(qcb->data) < sz);
+ }
+ 
