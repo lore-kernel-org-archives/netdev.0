@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] phy: Use pr_<level>
-Date: Mon, 11 Jun 2012 16:59:04 -0700 (PDT)
-Message-ID: <20120611.165904.1263417067457821204.davem@davemloft.net>
-References: <1339264147.5848.4.camel@joe2Laptop>
+Subject: Re: [PATCH v10] tilegx network driver: initial support
+Date: Mon, 11 Jun 2012 17:03:36 -0700 (PDT)
+Message-ID: <20120611.170336.1197560839526564340.davem@davemloft.net>
+References: <4FCFA312.4020505@tilera.com>
+	<20120606.115440.1245419453265419850.davem@davemloft.net>
+	<201206072045.q57Kj2r1009249@farm-0002.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47056 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752702Ab2FKX7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 19:59:04 -0400
-In-Reply-To: <1339264147.5848.4.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com, arnd@arndb.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201206072045.q57Kj2r1009249@farm-0002.internal.tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 09 Jun 2012 10:49:07 -0700
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Thu, 7 Jun 2012 16:45:02 -0400
 
-> Use a more current logging style.
+> This change adds support for the tilegx network driver based on the
+> GXIO IORPC support in the tilegx software stack, using the on-chip
+> mPIPE packet processing engine.
 > 
-> Add pr_fmt and missing newlines.
-> Remove embedded prefixes.
-> Neaten phy_print_status to avoid using KERN_CONT.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 
-Applied, thanks Joe.
+Applied.
+
+Although:
+
+> +/* The transmit wake timer for a given cpu and echannel. */
+> +struct tile_net_tx_wake {
+> +	struct hrtimer timer;
+> +	struct net_device *dev;
+> +};
+> +	
+   ^^^^^^^
+
+I had to remove that trailing whitespace when I applied this.
