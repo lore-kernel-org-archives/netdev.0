@@ -1,23 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] netfilter updates for net tree (3.5-rc2)
-Date: Tue, 12 Jun 2012 15:20:44 -0700 (PDT)
-Message-ID: <20120612.152044.901780224973005776.davem@davemloft.net>
-References: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net 1/3] bonding:record primary when modify it via sysfs
+Date: Tue, 12 Jun 2012 15:24:28 -0700 (PDT)
+Message-ID: <20120612.152428.108565740210342263.davem@davemloft.net>
+References: <4FD64938.6080009@gmail.com>
+	<31624.1339447734@death.nxdomain>
+	<4FD7A111.9040004@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fubar@us.ibm.com, wpan@redhat.com, netdev@vger.kernel.org
+To: nicolas.2p.debian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55122 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116Ab2FLWY3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 18:24:29 -0400
+In-Reply-To: <4FD7A111.9040004@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Tue, 12 Jun 2012 19:36:01 +0200
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
+Date: Tue, 12 Jun 2012 22:05:37 +0200
 
-> You can pull these two changes from:
-> 
-> git://1984.lsi.us.es/net master
+> I think this patch (http://patchwork.ozlabs.org/patch/164100/) was
+> erroneously flagged as "Changes Requested". Despite my suggestion to
+> add a "possible typo" warning, I acked the patch and so do Jay. We
+> eventually decided not to add the "possible typo" warning, so the
+> patch should be accepted.
 
-Pulled, thanks Pablo.
+Thanks for bringing this to my attention.
+
+Applied and pushed out.
