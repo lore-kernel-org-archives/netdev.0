@@ -1,33 +1,23 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2012-06-12
-Date: Tue, 12 Jun 2012 15:15:28 -0700 (PDT)
-Message-ID: <20120612.151528.549574507684383623.davem@davemloft.net>
-References: <20120612200500.GC1932@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] netfilter updates for net tree (3.5-rc2)
+Date: Tue, 12 Jun 2012 15:20:44 -0700 (PDT)
+Message-ID: <20120612.152044.901780224973005776.davem@davemloft.net>
+References: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120612200500.GC1932-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 12 Jun 2012 16:05:01 -0400
+From: pablo@netfilter.org
+Date: Tue, 12 Jun 2012 19:36:01 +0200
 
-> This is the first big wireless pull request intended for 3.6.
-> This includes big updates for the ti bits (expecially regarding
-> wl18xx support), a large batch of NFC changes (particularly for
-> pn533 hardware support), and the usual large amount of updates for
-> ath9k and iwlwifi, as well as a variety of other bits here and there.
-> In order to fix/avoid some merge problems, this also includes a pull
-> of some wireless fixes that have already been sent for 3.5.
+> You can pull these two changes from:
 > 
-> Please let me know if there are problems!
+> git://1984.lsi.us.es/net master
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Pablo.
