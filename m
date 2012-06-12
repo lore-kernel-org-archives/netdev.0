@@ -1,40 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/4] drivers/net/ethernet/sfc: Add efx_ prefix to set_bit_le()
-Date: Tue, 12 Jun 2012 13:12:32 +0000
-Message-ID: <201206121312.32301.arnd@arndb.de>
-References: <20120611212735.f92ea521.yoshikawa.takuya@oss.ntt.co.jp> <201206111409.16093.arnd@arndb.de> <20120612220654.fd0246e6e687f7c79e5c988c@gmail.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH v10] tilegx network driver: initial support
+Date: Tue, 12 Jun 2012 09:14:31 -0400
+Message-ID: <4FD740B7.8090203@tilera.com>
+References: <4FCFA312.4020505@tilera.com> <20120606.115440.1245419453265419850.davem@davemloft.net> <201206072045.q57Kj2r1009249@farm-0002.internal.tilera.com> <20120611.170336.1197560839526564340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
-	bhutchings@solarflare.com, grundler@parisc-linux.org,
-	avi@redhat.com, mtosatti@redhat.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20120612220654.fd0246e6e687f7c79e5c988c@gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
+Cc: <eric.dumazet@gmail.com>, <bhutchings@solarflare.com>,
+	<arnd@arndb.de>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120611.170336.1197560839526564340.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 12 June 2012, Takuya Yoshikawa wrote:
-> > 
-> > Hmm, any reason why we're not just using the existing non-atomic
-> > __set_bit_le() here? I think the helpers in sfc and tulip can
-> > just get removed if you use those.
-> 
-> __set_bit_le() assumes long word alignment and does endian conversion
-> when needed.
+On 6/11/2012 8:03 PM, David Miller wrote:
+> From: Chris Metcalf <cmetcalf@tilera.com>
+> Date: Thu, 7 Jun 2012 16:45:02 -0400
+>
+>> This change adds support for the tilegx network driver based on the
+>> GXIO IORPC support in the tilegx software stack, using the on-chip
+>> mPIPE packet processing engine.
+>>
+>> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+> Applied.
 
-Ah, I see.
- 
-> To be honest, I am a bit scared of changing drivers which I cannot test
-> on real hardware.
+Glad to hear it.  Thanks for bearing with the multiple revisions.  I (we)
+appreciate all your feedback, and that of Ben, Eric, Arnd, and other folks
+who contributed their time.
 
-Ok, let's take your patches as they are then.
+The driver does depend on tilegx iorpc framework code that is currently
+only in linux-next, but it should all come together properly for 3.6.
 
-With the change to add clear_bit_le:
-
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
