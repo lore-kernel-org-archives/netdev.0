@@ -1,61 +1,114 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/2] netfilter: nf_ct_h323: fix bug in rtcp natting
-Date: Tue, 12 Jun 2012 19:36:03 +0200
-Message-ID: <1339522563-9227-3-git-send-email-pablo@netfilter.org>
-References: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Subject: [PATCH 2/7] netfilter: nf_ct_ext: support variable length extensions
+Date: Tue, 12 Jun 2012 20:06:15 +0200
+Message-ID: <1339524380-2707-3-git-send-email-pablo@netfilter.org>
+References: <1339524380-2707-1-git-send-email-pablo@netfilter.org>
+Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48503 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754103Ab2FLRgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jun 2012 13:36:55 -0400
-In-Reply-To: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1339524380-2707-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-The nat_rtp_rtcp hook takes two separate parameters port and rtp_port.
+We can now define conntrack extensions of variable size. This
+patch is useful to get rid of these unions:
 
-port is expected to be the real h245 address (found inside the packet).
-rtp_port is the even number closest to port (RTP ports are even and
-RTCP ports are odd).
+union nf_conntrack_help
+union nf_conntrack_proto
+union nf_conntrack_nat_help
 
-However currently, both port and rtp_port are having same value (both are
-rounded to nearest even numbers).
-
-This works well in case of openlogicalchannel with media (RTP/even) port.
-
-But in case of openlogicalchannel for media control (RTCP/odd) port,
-h245 address in the packet is wrongly modified to have an even port.
-
-I am attaching a pcap demonstrating the problem, for any further analysis.
-
-This behavior was introduced around v2.6.19 while rewriting the helper.
-
-Signed-off-by: Jagdish Motwani <jagdish.motwani@elitecore.com>
-Signed-off-by: Sanket Shah <sanket.shah@elitecore.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_h323_main.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ include/net/netfilter/nf_conntrack_extend.h |    7 ++++++-
+ net/netfilter/nf_conntrack_extend.c         |   16 +++++++++-------
+ 2 files changed, 15 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 46d69d7..31f50bc 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -270,9 +270,8 @@ static int expect_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
- 		return 0;
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 96755c3..ecedd5f 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -79,11 +79,16 @@ static inline void nf_ct_ext_free(struct nf_conn *ct)
+ 		kfree(ct->ext);
+ }
  
- 	/* RTP port is even */
--	port &= htons(~1);
--	rtp_port = port;
--	rtcp_port = htons(ntohs(port) + 1);
-+	rtp_port = port & ~htons(1);
-+	rtcp_port = port | htons(1);
++void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
++			     size_t var_alloc_len, gfp_t gfp);
++
+ /* Add this type, returns pointer to data or NULL. */
+ void *
+ __nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp);
+ #define nf_ct_ext_add(ct, id, gfp) \
+-	((id##_TYPE *)__nf_ct_ext_add((ct), (id), (gfp)))
++	((id##_TYPE *)__nf_ct_ext_add_length((ct), (id), 0, (gfp)))
++#define nf_ct_ext_add_length(ct, id, len, gfp) \
++	((id##_TYPE *)__nf_ct_ext_add_length((ct), (id), (len), (gfp)))
  
- 	/* Create expect for RTP */
- 	if ((rtp_exp = nf_ct_expect_alloc(ct)) == NULL)
+ #define NF_CT_EXT_F_PREALLOC	0x0001
+ 
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 641ff5f..1a95459 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -44,7 +44,8 @@ void __nf_ct_ext_destroy(struct nf_conn *ct)
+ EXPORT_SYMBOL(__nf_ct_ext_destroy);
+ 
+ static void *
+-nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
++nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id,
++		 size_t var_alloc_len, gfp_t gfp)
+ {
+ 	unsigned int off, len;
+ 	struct nf_ct_ext_type *t;
+@@ -54,8 +55,8 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
+ 	t = rcu_dereference(nf_ct_ext_types[id]);
+ 	BUG_ON(t == NULL);
+ 	off = ALIGN(sizeof(struct nf_ct_ext), t->align);
+-	len = off + t->len;
+-	alloc_size = t->alloc_size;
++	len = off + t->len + var_alloc_len;
++	alloc_size = t->alloc_size + var_alloc_len;
+ 	rcu_read_unlock();
+ 
+ 	*ext = kzalloc(alloc_size, gfp);
+@@ -68,7 +69,8 @@ nf_ct_ext_create(struct nf_ct_ext **ext, enum nf_ct_ext_id id, gfp_t gfp)
+ 	return (void *)(*ext) + off;
+ }
+ 
+-void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
++void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
++			     size_t var_alloc_len, gfp_t gfp)
+ {
+ 	struct nf_ct_ext *old, *new;
+ 	int i, newlen, newoff;
+@@ -79,7 +81,7 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ 
+ 	old = ct->ext;
+ 	if (!old)
+-		return nf_ct_ext_create(&ct->ext, id, gfp);
++		return nf_ct_ext_create(&ct->ext, id, var_alloc_len, gfp);
+ 
+ 	if (__nf_ct_ext_exist(old, id))
+ 		return NULL;
+@@ -89,7 +91,7 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ 	BUG_ON(t == NULL);
+ 
+ 	newoff = ALIGN(old->len, t->align);
+-	newlen = newoff + t->len;
++	newlen = newoff + t->len + var_alloc_len;
+ 	rcu_read_unlock();
+ 
+ 	new = __krealloc(old, newlen, gfp);
+@@ -117,7 +119,7 @@ void *__nf_ct_ext_add(struct nf_conn *ct, enum nf_ct_ext_id id, gfp_t gfp)
+ 	memset((void *)new + newoff, 0, newlen - newoff);
+ 	return (void *)new + newoff;
+ }
+-EXPORT_SYMBOL(__nf_ct_ext_add);
++EXPORT_SYMBOL(__nf_ct_ext_add_length);
+ 
+ static void update_alloc_size(struct nf_ct_ext_type *type)
+ {
 -- 
 1.7.10
+
