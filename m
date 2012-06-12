@@ -1,44 +1,41 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 7/7] usbnet: don't initialize transfer buffer before submit status URB
-Date: Tue, 12 Jun 2012 09:19:45 +0800
-Message-ID: <1339463985-9006-8-git-send-email-tom.leiming@gmail.com>
-References: <1339463985-9006-1-git-send-email-tom.leiming@gmail.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1339463985-9006-1-git-send-email-tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: net/netfilter/nf_conntrack_proto_tcp.c:1606:9: error:
+ =?iso-8859-7?B?oXN0cnVjdCBuZl9wcm90b19uZXSi?= has no member named
+ =?iso-8859-7?B?oXVzZXKi?=
+Date: Mon, 11 Jun 2012 18:34:54 -0700 (PDT)
+Message-ID: <20120611.183454.1290469931190793239.davem@davemloft.net>
+References: <20120611221521.GA27239@1984>
+	<20120611.152344.1072167705198124284.davem@davemloft.net>
+	<20120612002655.GA28155@1984>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wfg@linux.intel.com, gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47508 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913Ab2FLBez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 21:34:55 -0400
+In-Reply-To: <20120612002655.GA28155@1984>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The line below in intr_complete isn't needed,
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 12 Jun 2012 02:26:55 +0200
 
-	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
+> Would you be OK if I send you patches to move all sysctl part of
+> nf_conntrack_proto_*.c to nf_conntrack_proto_*_sysctl.c
+> 
+> I can also do the same for nf_conntrack_proto.c.
+> 
+> This means more files under the net/netfilter directory, but less
+> ifdef kludges in the code.
+> 
+> Please, have a look at the patch enclosed to this email in case you
+> want to see how it would look like in the end with my proposal.
 
-so just remove it.
+Looks good to me.
 
-Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/usb/usbnet.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index f4bd5fa..5d7956d 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -209,7 +209,6 @@ static void intr_complete (struct urb *urb)
- 	if (!netif_running (dev->net))
- 		return;
- 
--	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
- 	status = usb_submit_urb (urb, GFP_ATOMIC);
- 	if (status != 0)
- 		netif_err(dev, timer, dev->net,
--- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But I have to ask, why are you able to now unconditionally use
+pn->users vs. pn->ctl_table in those tests?
