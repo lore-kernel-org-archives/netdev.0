@@ -1,62 +1,57 @@
 From: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
-Subject: [PATCH] netpoll: Fix skb tail pointer in netpoll_send_udp()
-Date: Tue, 12 Jun 2012 13:26:04 +0300
-Message-ID: <1339496765-3093-1-git-send-email-bogdan.hamciuc@freescale.com>
+Subject: [PATCH] netpoll: Add support for hardware checksumming on egress
+Date: Tue, 12 Jun 2012 13:26:05 +0300
+Message-ID: <1339496765-3093-2-git-send-email-bogdan.hamciuc@freescale.com>
+References: <1339496765-3093-1-git-send-email-bogdan.hamciuc@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
 	Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:17810 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751378Ab2FLK1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 06:27:17 -0400
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:5367
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751378Ab2FLK1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 06:27:21 -0400
+In-Reply-To: <1339496765-3093-1-git-send-email-bogdan.hamciuc@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As skb->tail wasn't updated after skb_copy_to_linear_data(), subsequent
-calls to skb_realloc_headroom() (as made by an ethernet driver's
-ndo_start_xmit routine) would only effectively copy the packet headers,
-leaving garbage in the payload.
-
-In the process, removed some unnecessary code.
+Netpoll used to compute its own csum; but if the device supports, we
+should let it do the checksum itself.
 
 Signed-off-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
 ---
- net/core/netpoll.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ net/core/netpoll.c |   14 ++++++++++----
+ 1 files changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 3d84fb9..9a08068 100644
+index 9a08068..f5d00b4 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -362,22 +362,22 @@ EXPORT_SYMBOL(netpoll_send_skb_on_dev);
+@@ -385,13 +385,19 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 	udph->source = htons(np->local_port);
+ 	udph->dest = htons(np->remote_port);
+ 	udph->len = htons(udp_len);
+-	udph->check = 0;
+-	udph->check = csum_tcpudp_magic(np->local_ip,
++
++	/* Only querying the IPv4 csumming capabilities */
++	if (np->dev->features & NETIF_F_IP_CSUM)
++		skb->ip_summed = CHECKSUM_PARTIAL;
++	else {
++		skb->ip_summed = CHECKSUM_NONE;
++		udph->check = csum_tcpudp_magic(np->local_ip,
+ 					np->remote_ip,
+ 					udp_len, IPPROTO_UDP,
+ 					csum_partial(udph, udp_len, 0));
+-	if (udph->check == 0)
+-		udph->check = CSUM_MANGLED_0;
++		if (udph->check == 0)
++			udph->check = CSUM_MANGLED_0;
++	}
  
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
- {
--	int total_len, eth_len, ip_len, udp_len;
-+	int total_len, ip_len, udp_len;
- 	struct sk_buff *skb;
- 	struct udphdr *udph;
- 	struct iphdr *iph;
- 	struct ethhdr *eth;
- 
- 	udp_len = len + sizeof(*udph);
--	ip_len = eth_len = udp_len + sizeof(*iph);
--	total_len = eth_len + ETH_HLEN + NET_IP_ALIGN;
-+	ip_len = udp_len + sizeof(*iph);
-+	total_len = ip_len + ETH_HLEN + NET_IP_ALIGN;
- 
- 	skb = find_skb(np, total_len, total_len - len);
- 	if (!skb)
- 		return;
- 
- 	skb_copy_to_linear_data(skb, msg, len);
--	skb->len += len;
-+	skb_put(skb, len);
- 
- 	skb_push(skb, sizeof(*udph));
- 	skb_reset_transport_header(skb);
+ 	skb_push(skb, sizeof(*iph));
+ 	skb_reset_network_header(skb);
 -- 
 1.5.6.3
