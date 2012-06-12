@@ -1,76 +1,174 @@
-From: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 3/4] 6lowpan: the two
- bytes of u16 tag needs to be stored/accessed the other way around
-Date: Tue, 12 Jun 2012 22:07:12 +0400
-Message-ID: <CAJmB2rB20UL_8u1PmJM67dQJ1FaW09irJhz6-OusZwWkgs0kLQ@mail.gmail.com>
-References: <20120611003953.0725d77a@dualbox>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Tony Cheneau <tony.cheneauh-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20120611003953.0725d77a@dualbox>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 5/7] netfilter: nfnetlink_queue: add NAT TCP sequence adjustment if packet mangled
+Date: Tue, 12 Jun 2012 20:06:18 +0200
+Message-ID: <1339524380-2707-6-git-send-email-pablo@netfilter.org>
+References: <1339524380-2707-1-git-send-email-pablo@netfilter.org>
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53630 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753621Ab2FLSHM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2012 14:07:12 -0400
+In-Reply-To: <1339524380-2707-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/6/11 Tony Cheneau <tony.cheneauh-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>:
-> Or else, tag values, as displayed with a trafic analyser, such a
-> Wireshark, are not properly displayed (e.g. 0x01 00 insted of 0x00 01,
-> and so on). ---
-> =A0net/ieee802154/6lowpan.c | =A0 =A06 +++---
-> =A01 files changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index af4f29b..af2f12e 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -307,7 +307,7 @@ static u16 lowpan_fetch_skb_u16(struct sk_buff *skb)
->
-> =A0 =A0 =A0 =A0BUG_ON(!pskb_may_pull(skb, 2));
->
-> - =A0 =A0 =A0 ret =3D skb->data[0] | (skb->data[1] << 8);
-> + =A0 =A0 =A0 ret =3D (skb->data[0] << 8) | skb->data[1];
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-This function aimed to obtain u16 from skb, why did you change the
-byte-order here instead of 'tag' variable byte-shifting? Will this
-code work properly on the both little and big-endian machines? Please
-rework this to keep order properly for all the architectures.
+User-space programs that receive traffic via NFQUEUE may mangle packets.
+If NAT is enabled, this usually puzzles sequence tracking, leading to
+traffic disruptions.
 
-> =A0 =A0 =A0 =A0skb_pull(skb, 2);
-> =A0 =A0 =A0 =A0return ret;
-> =A0}
-> @@ -1002,8 +1002,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb)
-> =A0 =A0 =A0 =A0/* first fragment header */
-> =A0 =A0 =A0 =A0head[0] =3D LOWPAN_DISPATCH_FRAG1 | (payload_length & 0x7);
-> =A0 =A0 =A0 =A0head[1] =3D (payload_length >> 3) & 0xff;
-> - =A0 =A0 =A0 head[2] =3D tag & 0xff;
-> - =A0 =A0 =A0 head[3] =3D tag >> 8;
-> + =A0 =A0 =A0 head[2] =3D tag >> 8;
-> + =A0 =A0 =A0 head[3] =3D tag & 0xff;
->
-> =A0 =A0 =A0 =A0err =3D lowpan_fragment_xmit(skb, head, header_length, 0, =
-0);
->
-> --
-> 1.7.3.4
->
->
+With this patch, nfnl_queue will make the corresponding NAT TCP sequence
+adjustment if:
 
----------------------------------------------------------------------------=
+1) The packet has been mangled,
+2) the NFQA_CFG_F_CONNTRACK flag has been set, and
+3) NAT is detected.
+
+There are some records on the Internet complaning about this issue:
+http://stackoverflow.com/questions/260757/packet-mangling-utilities-besides-iptables
+
+By now, we only support TCP since we have no helpers for DCCP or SCTP.
+Better to add this if we ever have some helper over those layer 4 protocols.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and =
+ include/linux/netfilter.h             |    2 ++
+ include/net/netfilter/nf_nat_helper.h |    4 ++++
+ net/ipv4/netfilter/nf_nat_helper.c    |   13 +++++++++++++
+ net/netfilter/nf_conntrack_netlink.c  |    4 ++++
+ net/netfilter/nfnetlink_queue.c       |   19 +++++++++++--------
+ 5 files changed, 34 insertions(+), 8 deletions(-)
 
-threat landscape has changed and how IT managers can respond. Discussions =
-
-will include endpoint security, mobile security and the latest in malware =
-
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index ba65bfb..dca19e6 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -401,6 +401,8 @@ struct nfq_ct_hook {
+ 	size_t (*build_size)(const struct nf_conn *ct);
+ 	int (*build)(struct sk_buff *skb, struct nf_conn *ct);
+ 	int (*parse)(const struct nlattr *attr, struct nf_conn *ct);
++	void (*seq_adjust)(struct sk_buff *skb, struct nf_conn *ct,
++			   u32 ctinfo, int off);
+ };
+ extern struct nfq_ct_hook *nfq_ct_hook;
+ #else
+diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
+index 02bb6c2..7d8fb7b 100644
+--- a/include/net/netfilter/nf_nat_helper.h
++++ b/include/net/netfilter/nf_nat_helper.h
+@@ -54,4 +54,8 @@ extern void nf_nat_follow_master(struct nf_conn *ct,
+ extern s16 nf_nat_get_offset(const struct nf_conn *ct,
+ 			     enum ip_conntrack_dir dir,
+ 			     u32 seq);
++
++extern void nf_nat_tcp_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
++				  u32 dir, int off);
++
+ #endif
+diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
+index af65958..2e59ad0 100644
+--- a/net/ipv4/netfilter/nf_nat_helper.c
++++ b/net/ipv4/netfilter/nf_nat_helper.c
+@@ -153,6 +153,19 @@ void nf_nat_set_seq_adjust(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ }
+ EXPORT_SYMBOL_GPL(nf_nat_set_seq_adjust);
+ 
++void nf_nat_tcp_seq_adjust(struct sk_buff *skb, struct nf_conn *ct,
++			   u32 ctinfo, int off)
++{
++	const struct tcphdr *th;
++
++	if (nf_ct_protonum(ct) != IPPROTO_TCP)
++		return;
++
++	th = (struct tcphdr *)(skb_network_header(skb)+ ip_hdrlen(skb));
++	nf_nat_set_seq_adjust(ct, ctinfo, th->seq, off);
++}
++EXPORT_SYMBOL_GPL(nf_nat_tcp_seq_adjust);
++
+ static void nf_nat_csum(struct sk_buff *skb, const struct iphdr *iph, void *data,
+ 			int datalen, __sum16 *check, int oldlen)
+ {
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 3b03a86..206d297 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -46,6 +46,7 @@
+ #ifdef CONFIG_NF_NAT_NEEDED
+ #include <net/netfilter/nf_nat_core.h>
+ #include <net/netfilter/nf_nat_protocol.h>
++#include <net/netfilter/nf_nat_helper.h>
+ #endif
+ 
+ #include <linux/netfilter/nfnetlink.h>
+@@ -1751,6 +1752,9 @@ static struct nfq_ct_hook ctnetlink_nfqueue_hook = {
+ 	.build_size	= ctnetlink_nfqueue_build_size,
+ 	.build		= ctnetlink_nfqueue_build,
+ 	.parse		= ctnetlink_nfqueue_parse,
++#ifdef CONFIG_NF_NAT_NEEDED
++	.seq_adjust	= nf_nat_tcp_seq_adjust,
++#endif
+ };
+ #endif /* CONFIG_NETFILTER_NETLINK_QUEUE */
+ 
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index ab1fd1c..52ebf02 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -502,12 +502,10 @@ err_out:
+ }
+ 
+ static int
+-nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e)
++nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e, int diff)
+ {
+ 	struct sk_buff *nskb;
+-	int diff;
+ 
+-	diff = data_len - e->skb->len;
+ 	if (diff < 0) {
+ 		if (pskb_trim(e->skb, data_len))
+ 			return -ENOMEM;
+@@ -766,6 +764,8 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	unsigned int verdict;
+ 	struct nf_queue_entry *entry;
+ 	struct nfq_ct_hook *nfq_ct;
++	enum ip_conntrack_info uninitialized_var(ctinfo);
++	struct nf_conn *ct = NULL;
+ 
+ 	queue = instance_lookup(queue_num);
+ 	if (!queue)
+@@ -788,20 +788,23 @@ nfqnl_recv_verdict(struct sock *ctnl, struct sk_buff *skb,
+ 	nfq_ct = rcu_dereference(nfq_ct_hook);
+ 	if (nfq_ct != NULL &&
+ 	    (queue->flags & NFQA_CFG_F_CONNTRACK) && nfqa[NFQA_CT]) {
+-		enum ip_conntrack_info ctinfo;
+-		struct nf_conn *ct;
+-
+ 		ct = nf_ct_get(entry->skb, &ctinfo);
+ 		if (ct && !nf_ct_is_untracked(ct))
+ 			nfq_ct->parse(nfqa[NFQA_CT], ct);
+ 	}
+-	rcu_read_unlock();
+ 
+ 	if (nfqa[NFQA_PAYLOAD]) {
++		u16 payload_len = nla_len(nfqa[NFQA_PAYLOAD]);
++		int diff = payload_len - entry->skb->len;
++
+ 		if (nfqnl_mangle(nla_data(nfqa[NFQA_PAYLOAD]),
+-				 nla_len(nfqa[NFQA_PAYLOAD]), entry) < 0)
++				 payload_len, entry, diff) < 0)
+ 			verdict = NF_DROP;
++
++		if (ct && (ct->status & IPS_NAT_MASK) && diff)
++			nfq_ct->seq_adjust(skb, ct, ctinfo, diff);
+ 	}
++	rcu_read_unlock();
+ 
+ 	if (nfqa[NFQA_MARK])
+ 		entry->skb->mark = ntohl(nla_get_be32(nfqa[NFQA_MARK]));
+-- 
+1.7.10
