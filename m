@@ -1,79 +1,61 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [patch] can: c_can: precedence error in c_can_chip_config()
-Date: Tue, 12 Jun 2012 11:37:29 +0200
-Message-ID: <4FD70DD9.4010009@pengutronix.de>
-References: <20120609155150.GA6488@elgon.mountain> <4FD4DEF2.6070802@pengutronix.de> <4FD62E21.3020209@hartkopp.net>
+From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate the halt interrupt endpoint to fix
+ endless "XactErr" error
+Date: Tue, 12 Jun 2012 18:09:05 +0800
+Message-ID: <CA+v9cxarz27iX=S9JUxW-oj_Q0+egRSjs1R2B36tyK1wYZFXHQ@mail.gmail.com>
+References: <CA+v9cxYHq4gcy11SDmsuHUhTSdLJM-G0sugYnOjSthbYWA+1Yg@mail.gmail.com>
+	<20120607.145438.1351539405712214173.davem@davemloft.net>
+	<CA+v9cxaLERjFKdE7joGgmpbxCUotdh=Nn4F4f-KeOXwp8nqMPg@mail.gmail.com>
+	<87sje1podo.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig1AD2A6F0A8D88757976B66E6"
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	AnilKumar Ch <anilkumar@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Kosina <jkosina@suse.cz>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:52191 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752682Ab2FLJhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 05:37:54 -0400
-In-Reply-To: <4FD62E21.3020209@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1AD2A6F0A8D88757976B66E6
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87sje1podo.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/11/2012 07:42 PM, Oliver Hartkopp wrote:
-> On 10.06.2012 19:52, Marc Kleine-Budde wrote:
->=20
->> On 06/09/2012 05:56 PM, Dan Carpenter wrote:
->>> (CAN_CTRLMODE_LISTENONLY & CAN_CTRLMODE_LOOPBACK) is (0x02 & 0x01) wh=
-ich
->>> is zero so the condition is never true.  The intent here was to test
->>> that both flags were set.
->>>
->>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->>> ---
->>> This is a static checker fix.  I'm not super familiar with the c_can
->>> code.
->>
->> Good catch. Applied to can-next.
->>
->> Marc
->>
->=20
->=20
-> Shouldn't this fix go through the net-tree and stable instead of net-ne=
-xt?
+On Tue, Jun 12, 2012 at 4:47 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+> Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>
+>> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+>> index 76f4396..c0bcb61 100644
+>> --- a/include/linux/usb/usbnet.h
+>> +++ b/include/linux/usb/usbnet.h
+>> @@ -62,13 +62,14 @@ struct usbnet {
+>> =A0 =A0 =A0 unsigned long =A0 =A0 =A0 =A0 =A0 flags;
+>> =A0# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_TX_HALT =A0 =A00
+>> =A0# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_HALT =A0 =A01
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A02
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A03
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 4
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A05
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 6
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 7
+>> -# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 8
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_HALT =A0 2
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_MEMORY =A03
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_STS_SPLIT =A04
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_LINK_RESET 5
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_RX_PAUSED =A06
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_WAKING 7
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_ASLEEP 8
+>> +# =A0 =A0 =A0 =A0 =A0 =A0define EVENT_DEV_OPEN =A0 9
+>> =A0};
+>
+> Why do you renumber all of these instead of adding the new
+> EVENT_STS_HALT to the end of the list?
+>
 
-Can I add your Acked-by ... when adding to net?
+Thanks for your comments.
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig1AD2A6F0A8D88757976B66E6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk/XDdkACgkQjTAFq1RaXHNXaQCfc021vSacXyaYlFjTpWep0kdw
-kuAAn1T2K7svEH6XZMWiQcSzzo7hD/hf
-=zD3e
------END PGP SIGNATURE-----
-
---------------enig1AD2A6F0A8D88757976B66E6--
+I think it's nice to sort these mask codes by their purposes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
