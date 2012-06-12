@@ -1,81 +1,88 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
-Date: Tue, 12 Jun 2012 12:04:43 +0900
-Message-ID: <20120612030442.GH10170@linux-sh.org>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com>
- <1298369864-24429-2-git-send-email-peppe.cavallaro@st.com>
- <201102241820.55873.arnd@arndb.de>
- <4D6D0EA3.9000504@st.com>
- <alpine.LFD.2.00.1103011630080.2701@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stuart Menefy <stuart.menefy@st.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH net V2] bonding:force to use primary slave
+Date: Tue, 12 Jun 2012 11:35:06 +0800
+Message-ID: <0d639c5449aad0222c7e88cf8a61013c1cdf98e2.1339472044.git.wpan@redhat.com>
+References: <32118.1339449441@death.nxdomain>
+Cc: nicolas.2p.debian@gmail.com, fubar@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from linux-sh.org ([111.68.239.195]:38135 "EHLO linux-sh.org"
+Received: from mx1.redhat.com ([209.132.183.28]:59246 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032Ab2FLDFH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jun 2012 23:05:07 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1103011630080.2701@localhost6.localdomain6>
+	id S1751175Ab2FLDa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jun 2012 23:30:27 -0400
+In-Reply-To: <32118.1339449441@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2011 at 05:48:33PM +0100, Thomas Gleixner wrote:
-> On Tue, 1 Mar 2011, Stuart Menefy wrote:
-> > On 24/02/11 17:20, Arnd Bergmann wrote:
-> > > On Tuesday 22 February 2011, Peppe CAVALLARO wrote:
-> > >> From: Stuart Menefy <stuart.menefy@st.com>
-> > >>
-> > >> Many devices targeted at the embedded market provide a number of
-> > >> generic timers which are capable of generating interrupts at a
-> > >> requested rate. These can then be used in the implementation of drivers
-> > >> for other peripherals which require a timer interrupt, without having
-> > >> to provide an additional timer as part of that peripheral.
-> 
-> Why can't you just use an hrtimer and be done with it? Just because
-> there is some extra hardware in the chip?
-> 
-..
+When we set primary slave with module parameters, bond will always use this
+primary slave as active slave.
 
-> If we get some reasonable explanation why an extra timer interrupt is
-> solving a specific problem better than hrtimers we can do that, but
-> that needs more thought than picking the first available clockevent
-> from a list. If we come to the conclusion, that we want/need this kind
-> of functionality then I really prefer not to create yet another piece
-> of infrastructure which deals with timer devices.
-> 
+But when we modify primary slave via sysfs, it will call
+bond_should_change_active() and take into account primary_reselect.
 
-I've run in to this issue again while working on local timer support on
-SH, as we're presently dependent on broadcast and dummy tick devices in
-the SMP case, while quite a few timer channels remain available for use.
-(Ironically, while the aforementioned driver was able to solve the
-problem with hrtimers, we have the same need to _provide_ hrtimers).
+And I think we should use the new primary slave as the new active slave
+regardless of the value of primary_reselect, since primary slave really should
+have priority than other slaves.
+primary_reselect is introduced to handle the failure or recovery of primary
+slave, but when we modify primary slave via sysfs, we want to give it higher
+priority, and it may or may not be a failure or recovery slave.
 
-In the sh_tmu/cmt/mtu2 case all timer channels are handed off as platform
-devices, and the block itself is global for all CPUs, though we can tweak
-the IRQ affinity relative to the cpumask. My tentative plan is to deal
-with the clockevent device as a percpu thing in the local timer case
-which will require some additional side infrastructure, but some
-additional work will need to be done in the clockevents code regardless.
+Thus the behavior is the same with module parameters and meets the
+administrator's expectation.
 
-The ARM approach is a bit backwards from what we're interested in
-solving, as it uses its own local timer infrastructure and some
-TWD-specific API for registering per-cpu timers and only then inserting
-them in to the clockevents list. Whereas in our case we've got all of the
-timer channels available at platform probe time (earlier for the early
-timer case), and simply need a method for tracking unused channels as
-well as having a facility for picking them up and reconfiguring them
-later on when the secondary CPUs come up. I'm not at all interested in
-registering the same timer multiple times with slightly different APIs,
-having two different drivers fighting over the same register space is not
-a thought that fills me with joy.
+Changelog:
+V2:modify document
 
-In any event, I'll hack on it a bit and see what falls out, patches
-later.
+Signed-off-by: Weiping Pan <wpan@redhat.com>
+---
+ Documentation/networking/bonding.txt |    8 ++++++--
+ drivers/net/bonding/bond_sysfs.c     |    1 +
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index bfea8a3..9130050 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -652,7 +652,8 @@ primary
+ 
+ 	A string (eth0, eth2, etc) specifying which slave is the
+ 	primary device.  The specified device will always be the
+-	active slave while it is available.  Only when the primary is
++	active slave while it is available.  Changing it via sysfs will make
++	it to be used as active slave immediately.  Only when the primary is
+ 	off-line will alternate devices be used.  This is useful when
+ 	one slave is preferred over another, e.g., when one slave has
+ 	higher throughput than another.
+@@ -684,7 +685,7 @@ primary_reselect
+ 		The primary slave becomes the active slave only if the
+ 		current active slave fails and the primary slave is up.
+ 
+-	The primary_reselect setting is ignored in two cases:
++	The primary_reselect setting is ignored in three cases:
+ 
+ 		If no slaves are active, the first slave to recover is
+ 		made the active slave.
+@@ -692,6 +693,9 @@ primary_reselect
+ 		When initially enslaved, the primary slave is always made
+ 		the active slave.
+ 
++		When changing primary slave via sysfs, and if the primary
++		slave is up, bonding will use it as active slave immediately.
++
+ 	Changing the primary_reselect policy via sysfs will cause an
+ 	immediate selection of the best active slave according to the new
+ 	policy.  This may or may not result in a change of the active
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 1b0f3cd..7256ae4 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1077,6 +1077,7 @@ static ssize_t bonding_store_primary(struct device *d,
+ 				bond->dev->name, slave->dev->name);
+ 			bond->primary_slave = slave;
+ 			strcpy(bond->params.primary, slave->dev->name);
++			bond->force_primary = true;
+ 			bond_select_active_slave(bond);
+ 			goto out;
+ 		}
+-- 
+1.7.4
