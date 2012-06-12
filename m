@@ -1,33 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/3] bonding:record primary when modify it via sysfs
-Date: Tue, 12 Jun 2012 15:24:28 -0700 (PDT)
-Message-ID: <20120612.152428.108565740210342263.davem@davemloft.net>
-References: <4FD64938.6080009@gmail.com>
-	<31624.1339447734@death.nxdomain>
-	<4FD7A111.9040004@gmail.com>
+Subject: Re: [PATCHv2 net-next] ipv4: Add interface option to enable
+ routing of 127.0.0.0/8
+Date: Tue, 12 Jun 2012 15:26:51 -0700 (PDT)
+Message-ID: <20120612.152651.979001082972454031.davem@davemloft.net>
+References: <20120612111444.GA15984@hmsreliant.think-freely.org>
+	<20120612113115.GI28598@canuck.infradead.org>
+	<20120612123238.GB15984@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: fubar@us.ibm.com, wpan@redhat.com, netdev@vger.kernel.org
-To: nicolas.2p.debian@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55122 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55135 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751116Ab2FLWY3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 18:24:29 -0400
-In-Reply-To: <4FD7A111.9040004@gmail.com>
+	with ESMTP id S1751116Ab2FLW0w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 18:26:52 -0400
+In-Reply-To: <20120612123238.GB15984@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
-Date: Tue, 12 Jun 2012 22:05:37 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 12 Jun 2012 08:32:38 -0400
 
-> I think this patch (http://patchwork.ozlabs.org/patch/164100/) was
-> erroneously flagged as "Changes Requested". Despite my suggestion to
-> add a "possible typo" warning, I acked the patch and so do Jay. We
-> eventually decided not to add the "possible typo" warning, so the
-> patch should be accepted.
+> On Tue, Jun 12, 2012 at 07:31:15AM -0400, Thomas Graf wrote:
+>> On Tue, Jun 12, 2012 at 07:14:44AM -0400, Neil Horman wrote:
+>> > Just out of curiosity, would it be more efficient to implement this by
+>> > optionally adding a prohibit route to the local table for 127.0.0.0/8 to every
+>> > interface that was brought up, based on weather or not that interfaces
+>> > route_localnet bool was true or not?  It would save the additional checks in the
+>> > routing path I think.  Not sure how much a savings that is, but I thought I
+>> > would ask.
+>> 
+>> It's not that simple because we also use the local table for source
+>> address selection and local address verification. So we would have to
+>> exclude/include such routes conditionally based on some route lookup
+>> purpose indicator. Such a prohibit route would have to be valid only
+>> in the output context.
+> 
+> ah, understood, so that doesn't really save us anything, it just moves the point
+> at which we do the check.
+> 
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Thanks for bringing this to my attention.
-
-Applied and pushed out.
+Applied, thanks guys.
