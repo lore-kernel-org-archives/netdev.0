@@ -1,63 +1,48 @@
-From: Debabrata Banerjee <dbavatar@gmail.com>
-Subject: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
-Date: Tue, 12 Jun 2012 13:22:29 -0400
-Message-ID: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	Joshua Hunt <johunt@akamai.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	yoshfuji@linux-ipv6.org, jmorris@namei.org, pekkas@netcore.fi,
-	kuznet@ms2.inr.ac.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] netfilter updates for net tree (3.5-rc2)
+Date: Tue, 12 Jun 2012 19:36:01 +0200
+Message-ID: <1339522563-9227-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:48490 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754055Ab2FLRgv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jun 2012 13:36:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Looks like commit=A02bec5a369ee79576a3eea2c23863325089785a2c=A0"ipv6:=A0=
-fib:
-fix=A0crash=A0when=A0changing=A0large=A0fib=A0while=A0dumping" is the c=
-ulprit. The
-result of this code is that if there is a tree addition while a dump
-has suspended because the netlink skb is full, it will simply go back
-to the top of the tree and you end up with duplicate/triplicate/etc
-routes. It looks like the code attempts to count nodes, but it's a
-linear count and the data structure is a tree so that's a big problem.
-The net result is potentially DOSable, since if route table updates
-happen often enough in proportion to table size, a dump will attempt
-to return an infinite amount of routes (observed). So this commit
-should be reverted. However I am interested in the problem that commit
-tried to solve, if anyone has more information on that. My assumption
-is the fib tree gets corrupted and eventually it crashes in
-fib6_dump_table(), which I assume can still happen.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-I can easily demonstrate the bug by adding cloned/cache routes while I
-check the results of fib6_dump_table:
+Hi David,
 
-root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
-show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
-593
-189
-root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
-show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
-884
-16
-root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
-show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
-888
-78
-root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
-show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
-507
-507
-root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
-show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
-533
-533
-root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
-show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
-571
-571
+The following two patches are netfilter fixes for your net tree, they
+provide:
 
-Thanks,
-Debabrata
+* endianess fixes to calm down warnings spotted by the sparse utility for
+  xt_HMARK from Hans Schillstrom.
+
+* One fix for h323 conntrack helper from Sanket Shah and Jagdish Motwani.
+  The log says it's been me instead because they sent an incomplete patch
+  without header, so I had to manually include all the information, but
+  forgot to change the GIT_AUTHOR thing.
+
+You can pull these two changes from:
+
+git://1984.lsi.us.es/net master
+
+Thanks!
+
+Hans Schillstrom (1):
+  netfilter: xt_HMARK: fix endianness and provide consistent hashing
+
+Pablo Neira Ayuso (1):
+  netfilter: nf_ct_h323: fix bug in rtcp natting
+
+ include/linux/netfilter/xt_HMARK.h     |    5 +++
+ net/netfilter/nf_conntrack_h323_main.c |    5 +--
+ net/netfilter/xt_HMARK.c               |   72 ++++++++++++++++++--------------
+ 3 files changed, 48 insertions(+), 34 deletions(-)
+
+-- 
+1.7.10
