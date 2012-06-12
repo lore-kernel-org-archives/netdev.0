@@ -1,252 +1,245 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH net-next 5/5] net: sh_eth: use NAPI
-Date: Tue, 12 Jun 2012 14:19:16 +0900
-Message-ID: <4FD6D154.1000000@renesas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bonding: remove packet cloning in recv_probe()
+Date: Tue, 12 Jun 2012 07:23:07 +0200
+Message-ID: <1339478587.22704.16.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: SH-Linux <linux-sh@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Bohac <jbohac@suse.cz>,
+	Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@free.fr>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:41425 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348Ab2FLFXN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 01:23:13 -0400
+Received: by eaak11 with SMTP id k11so2030607eaa.19
+        for <netdev@vger.kernel.org>; Mon, 11 Jun 2012 22:23:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch modifies the driver to use NAPI.
+=46rom: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Cloning all packets in input path have a significant cost.
+
+Use skb_header_pointer()/skb_copy_bits() instead of pskb_may_pull() so
+that recv_probe handlers (bond_3ad_lacpdu_recv / bond_arp_rcv /
+rlb_arp_recv ) dont touch input skb.
+
+bond_handle_frame() can avoid the skb_clone()/dev_kfree_skb()
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Jiri Bohac <jbohac@suse.cz>
+Cc: Nicolas de Peslo=C3=BCan <nicolas.2p.debian@free.fr>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |  102 +++++++++++++++++++++------------
- drivers/net/ethernet/renesas/sh_eth.h |    3 +
- 2 files changed, 68 insertions(+), 37 deletions(-)
+ drivers/net/bonding/bond_3ad.c  |   11 +++++---
+ drivers/net/bonding/bond_3ad.h  |    4 +--
+ drivers/net/bonding/bond_alb.c  |   20 ++++------------
+ drivers/net/bonding/bond_main.c |   37 ++++++++++++++++--------------
+ drivers/net/bonding/bonding.h   |    4 +--
+ 5 files changed, 36 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index c64a31c..1584cda 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1035,7 +1035,7 @@ static int sh_eth_txfree(struct net_device *ndev)
- }
-
- /* Packet receive function */
--static int sh_eth_rx(struct net_device *ndev)
-+static int sh_eth_rx(struct net_device *ndev, int *work, int budget)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	struct sh_eth_rxdesc *rxdesc;
-@@ -1047,7 +1047,8 @@ static int sh_eth_rx(struct net_device *ndev)
- 	u32 desc_status;
-
- 	rxdesc = &mdp->rx_ring[entry];
--	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
-+	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT)) &&
-+	       *work < budget) {
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
- 		pkt_len = rxdesc->frame_length;
-
-@@ -1087,13 +1088,14 @@ static int sh_eth_rx(struct net_device *ndev)
- 				skb_reserve(skb, NET_IP_ALIGN);
- 			skb_put(skb, pkt_len);
- 			skb->protocol = eth_type_trans(skb, ndev);
--			netif_rx(skb);
-+			netif_receive_skb(skb);
- 			ndev->stats.rx_packets++;
- 			ndev->stats.rx_bytes += pkt_len;
- 		}
- 		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
- 		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
- 		rxdesc = &mdp->rx_ring[entry];
-+		(*work)++;
- 	}
-
- 	/* Refill the Rx ring buffers. */
-@@ -1125,7 +1127,7 @@ static int sh_eth_rx(struct net_device *ndev)
-
- 	/* Restart Rx engine if stopped. */
- 	/* If we don't need to check status, don't. -KDU */
--	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
-+	if (*work < budget && !(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
- 		/* fix the values for the next receiving */
- 		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
- 					       sh_eth_read(ndev, RDLAR)) >> 4;
-@@ -1281,38 +1283,61 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
-
- 	/* Get interrpt stat */
- 	intr_status = sh_eth_read(ndev, EESR);
--	/* Clear interrupt */
- 	if (intr_status & (EESR_FRC | EESR_RMAF | EESR_RRF |
- 			EESR_RTLF | EESR_RTSF | EESR_PRE | EESR_CERF |
- 			cd->tx_check | cd->eesr_err_check)) {
--		sh_eth_write(ndev, intr_status, EESR);
-+		if (napi_schedule_prep(&mdp->napi)) {
-+			/* Disable interrupts of the channel */
-+			sh_eth_write(ndev, 0, EESIPR);
-+			__napi_schedule(&mdp->napi);
-+		}
- 		ret = IRQ_HANDLED;
--	} else
--		goto other_irq;
--
--	if (intr_status & (EESR_FRC | /* Frame recv*/
--			EESR_RMAF | /* Multi cast address recv*/
--			EESR_RRF  | /* Bit frame recv */
--			EESR_RTLF | /* Long frame recv*/
--			EESR_RTSF | /* short frame recv */
--			EESR_PRE  | /* PHY-LSI recv error */
--			EESR_CERF)){ /* recv frame CRC error */
--		sh_eth_rx(ndev);
- 	}
-
--	/* Tx Check */
--	if (intr_status & cd->tx_check) {
--		sh_eth_txfree(ndev);
--		netif_wake_queue(ndev);
-+	spin_unlock(&mdp->lock);
-+
-+	return ret;
-+}
-+
-+static int sh_eth_poll(struct napi_struct *napi, int budget)
-+{
-+	struct sh_eth_private *mdp = container_of(napi, struct sh_eth_private,
-+						  napi);
-+	struct net_device *ndev = mdp->ndev;
-+	struct sh_eth_cpu_data *cd = mdp->cd;
-+	int work_done = 0, txfree_num;
-+	u32 intr_status = sh_eth_read(ndev, EESR);
-+
-+	/* Clear interrupt flags */
-+	sh_eth_write(ndev, intr_status, EESR);
-+
-+	/* check txdesc */
-+	txfree_num = sh_eth_txfree(ndev);
-+	if (txfree_num) {
-+		netif_tx_lock(ndev);
-+		if (netif_queue_stopped(ndev))
-+			netif_wake_queue(ndev);
-+		netif_tx_unlock(ndev);
- 	}
-
-+	/* check rxdesc */
-+	sh_eth_rx(ndev, &work_done, budget);
-+
-+	/* check error flags */
- 	if (intr_status & cd->eesr_err_check)
- 		sh_eth_error(ndev, intr_status);
-
--other_irq:
--	spin_unlock(&mdp->lock);
-+	/* get current interrupt flags */
-+	intr_status = sh_eth_read(ndev, EESR);
-
--	return ret;
-+	/* check whether this driver should call napi_complete() */
-+	if (work_done < budget) {
-+		napi_complete(napi);
-+		/* Enable all interrupts */
-+		sh_eth_write(ndev, cd->eesipr_value, EESIPR);
-+	}
-+
-+	return work_done;
- }
-
- /* PHY state control function */
-@@ -1545,6 +1570,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
- 		/* Stop the chip's Tx and Rx processes. */
- 		sh_eth_write(ndev, 0, EDTRR);
- 		sh_eth_write(ndev, 0, EDRRR);
-+		napi_disable(&mdp->napi);
- 		synchronize_irq(ndev->irq);
- 	}
-
-@@ -1569,6 +1595,7 @@ static int sh_eth_set_ringparam(struct net_device *ndev,
- 	}
-
- 	if (netif_running(ndev)) {
-+		napi_enable(&mdp->napi);
- 		sh_eth_write(ndev, mdp->cd->eesipr_value, EESIPR);
- 		/* Setting the Rx mode will start the Rx process. */
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
-@@ -1600,6 +1627,8 @@ static int sh_eth_open(struct net_device *ndev)
-
- 	pm_runtime_get_sync(&mdp->pdev->dev);
-
-+	napi_enable(&mdp->napi);
-+
- 	ret = request_irq(ndev->irq, sh_eth_interrupt,
- #if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
- 	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
-@@ -1678,19 +1707,6 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	struct sh_eth_txdesc *txdesc;
- 	u32 entry;
--	unsigned long flags;
--
--	spin_lock_irqsave(&mdp->lock, flags);
--	if ((mdp->cur_tx - mdp->dirty_tx) >= (mdp->num_tx_ring - 4)) {
--		if (!sh_eth_txfree(ndev)) {
--			if (netif_msg_tx_queued(mdp))
--				dev_warn(&ndev->dev, "TxFD exhausted.\n");
--			netif_stop_queue(ndev);
--			spin_unlock_irqrestore(&mdp->lock, flags);
--			return NETDEV_TX_BUSY;
--		}
--	}
--	spin_unlock_irqrestore(&mdp->lock, flags);
-
- 	entry = mdp->cur_tx % mdp->num_tx_ring;
- 	mdp->tx_skbuff[entry] = skb;
-@@ -1716,6 +1732,13 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (!(sh_eth_read(ndev, EDTRR) & sh_eth_get_edtrr_trns(mdp)))
- 		sh_eth_write(ndev, sh_eth_get_edtrr_trns(mdp), EDTRR);
-
-+	if ((mdp->cur_tx - mdp->dirty_tx) >= (mdp->num_tx_ring - 4)) {
-+		if (netif_msg_tx_queued(mdp)) {
-+			dev_warn(&ndev->dev, "TxFD exhausted.\n");
-+			netif_stop_queue(ndev);
-+		}
-+	}
-+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_=
+3ad.c
+index 3463b46..3031e04 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2460,18 +2460,21 @@ out:
  	return NETDEV_TX_OK;
  }
-
-@@ -1739,6 +1762,8 @@ static int sh_eth_close(struct net_device *ndev)
- 		phy_disconnect(mdp->phydev);
+=20
+-int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+-			  struct slave *slave)
++int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bo=
+nd,
++			 struct slave *slave)
+ {
+ 	int ret =3D RX_HANDLER_ANOTHER;
++	struct lacpdu *lacpdu, _lacpdu;
++
+ 	if (skb->protocol !=3D PKT_TYPE_LACPDU)
+ 		return ret;
+=20
+-	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
++	lacpdu =3D skb_header_pointer(skb, 0, sizeof(_lacpdu), &_lacpdu);
++	if (!lacpdu)
+ 		return ret;
+=20
+ 	read_lock(&bond->lock);
+-	ret =3D bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, sk=
+b->len);
++	ret =3D bond_3ad_rx_indication(lacpdu, slave, skb->len);
+ 	read_unlock(&bond->lock);
+ 	return ret;
+ }
+diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_=
+3ad.h
+index 5ee7e3c..0cfaa4a 100644
+--- a/drivers/net/bonding/bond_3ad.h
++++ b/drivers/net/bonding/bond_3ad.h
+@@ -274,8 +274,8 @@ void bond_3ad_adapter_duplex_changed(struct slave *=
+slave);
+ void bond_3ad_handle_link_change(struct slave *slave, char link);
+ int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_info=
+ *ad_info);
+ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+-int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+-			  struct slave *slave);
++int bond_3ad_lacpdu_recv(const struct sk_buff *skb, struct bonding *bo=
+nd,
++			 struct slave *slave);
+ int bond_3ad_set_carrier(struct bonding *bond);
+ void bond_3ad_update_lacp_rate(struct bonding *bond);
+ #endif //__BOND_3AD_H__
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_=
+alb.c
+index 0f59c15..ef3791a 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -342,27 +342,17 @@ static void rlb_update_entry_from_arp(struct bond=
+ing *bond, struct arp_pkt *arp)
+ 	_unlock_rx_hashtbl_bh(bond);
+ }
+=20
+-static int rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
+-			 struct slave *slave)
++static int rlb_arp_recv(const struct sk_buff *skb, struct bonding *bon=
+d,
++			struct slave *slave)
+ {
+-	struct arp_pkt *arp;
++	struct arp_pkt *arp, _arp;
+=20
+ 	if (skb->protocol !=3D cpu_to_be16(ETH_P_ARP))
+ 		goto out;
+=20
+-	arp =3D (struct arp_pkt *) skb->data;
+-	if (!arp) {
+-		pr_debug("Packet has no ARP data\n");
++	arp =3D skb_header_pointer(skb, 0, sizeof(_arp), &_arp);
++	if (!arp)
+ 		goto out;
+-	}
+-
+-	if (!pskb_may_pull(skb, arp_hdr_len(bond->dev)))
+-		goto out;
+-
+-	if (skb->len < sizeof(struct arp_pkt)) {
+-		pr_debug("Packet is too small to be an ARP\n");
+-		goto out;
+-	}
+=20
+ 	if (arp->op_code =3D=3D htons(ARPOP_REPLY)) {
+ 		/* update rx hash table for this ARP */
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index 2ee8cf9..9e2301e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1444,8 +1444,8 @@ static rx_handler_result_t bond_handle_frame(stru=
+ct sk_buff **pskb)
+ 	struct sk_buff *skb =3D *pskb;
+ 	struct slave *slave;
+ 	struct bonding *bond;
+-	int (*recv_probe)(struct sk_buff *, struct bonding *,
+-				struct slave *);
++	int (*recv_probe)(const struct sk_buff *, struct bonding *,
++			  struct slave *);
+ 	int ret =3D RX_HANDLER_ANOTHER;
+=20
+ 	skb =3D skb_share_check(skb, GFP_ATOMIC);
+@@ -1462,15 +1462,10 @@ static rx_handler_result_t bond_handle_frame(st=
+ruct sk_buff **pskb)
+=20
+ 	recv_probe =3D ACCESS_ONCE(bond->recv_probe);
+ 	if (recv_probe) {
+-		struct sk_buff *nskb =3D skb_clone(skb, GFP_ATOMIC);
+-
+-		if (likely(nskb)) {
+-			ret =3D recv_probe(nskb, bond, slave);
+-			dev_kfree_skb(nskb);
+-			if (ret =3D=3D RX_HANDLER_CONSUMED) {
+-				consume_skb(skb);
+-				return ret;
+-			}
++		ret =3D recv_probe(skb, bond, slave);
++		if (ret =3D=3D RX_HANDLER_CONSUMED) {
++			consume_skb(skb);
++			return ret;
+ 		}
  	}
-
-+	napi_disable(&mdp->napi);
-+
- 	free_irq(ndev->irq, ndev);
-
- 	/* Free all the skbuffs in the Rx queue. */
-@@ -2368,6 +2393,9 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- #endif
- 	sh_eth_set_default_cpu_data(mdp->cd);
-
-+	mdp->ndev = ndev;
-+	netif_napi_add(ndev, &mdp->napi, sh_eth_poll, SH_ETH_NAPI_WEIGHT);
-+
- 	/* set function */
- 	ndev->netdev_ops = &sh_eth_netdev_ops;
- 	SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index f1dbc27..93dad7b 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -35,6 +35,7 @@
- #define PKT_BUF_SZ		1538
- #define SH_ETH_TSU_TIMEOUT_MS	500
- #define SH_ETH_TSU_CAM_ENTRIES	32
-+#define SH_ETH_NAPI_WEIGHT	32
-
- enum {
- 	/* E-DMAC registers */
-@@ -728,6 +729,8 @@ struct sh_eth_private {
- 	int duplex;
- 	int port;		/* for TSU */
- 	int vlan_num_ids;	/* for VLAN tag filter */
-+	struct napi_struct napi;
-+	struct net_device *ndev;
-
- 	unsigned no_ether_link:1;
- 	unsigned ether_link_active_low:1;
--- 
-1.7.1
+=20
+@@ -2737,25 +2732,31 @@ static void bond_validate_arp(struct bonding *b=
+ond, struct slave *slave, __be32
+ 	}
+ }
+=20
+-static int bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+-			 struct slave *slave)
++static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bon=
+d,
++			struct slave *slave)
+ {
+-	struct arphdr *arp;
++	struct arphdr *arp =3D (struct arphdr *)skb->data;
+ 	unsigned char *arp_ptr;
+ 	__be32 sip, tip;
++	int alen;
+=20
+ 	if (skb->protocol !=3D __cpu_to_be16(ETH_P_ARP))
+ 		return RX_HANDLER_ANOTHER;
+=20
+ 	read_lock(&bond->lock);
++	alen =3D arp_hdr_len(bond->dev);
+=20
+ 	pr_debug("bond_arp_rcv: bond %s skb->dev %s\n",
+ 		 bond->dev->name, skb->dev->name);
+=20
+-	if (!pskb_may_pull(skb, arp_hdr_len(bond->dev)))
+-		goto out_unlock;
++	if (alen > skb_headlen(skb)) {
++		arp =3D kmalloc(alen, GFP_ATOMIC);
++		if (!arp)
++			goto out_unlock;
++		if (skb_copy_bits(skb, 0, arp, alen) < 0)
++			goto out_unlock;
++	}
+=20
+-	arp =3D arp_hdr(skb);
+ 	if (arp->ar_hln !=3D bond->dev->addr_len ||
+ 	    skb->pkt_type =3D=3D PACKET_OTHERHOST ||
+ 	    skb->pkt_type =3D=3D PACKET_LOOPBACK ||
+@@ -2790,6 +2791,8 @@ static int bond_arp_rcv(struct sk_buff *skb, stru=
+ct bonding *bond,
+=20
+ out_unlock:
+ 	read_unlock(&bond->lock);
++	if (arp !=3D (struct arphdr *)skb->data)
++		kfree(arp);
+ 	return RX_HANDLER_ANOTHER;
+ }
+=20
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
+g.h
+index 4581aa5..f8af2fc 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -218,8 +218,8 @@ struct bonding {
+ 	struct   slave *primary_slave;
+ 	bool     force_primary;
+ 	s32      slave_cnt; /* never change this value outside the attach/det=
+ach wrappers */
+-	int     (*recv_probe)(struct sk_buff *, struct bonding *,
+-			       struct slave *);
++	int     (*recv_probe)(const struct sk_buff *, struct bonding *,
++			      struct slave *);
+ 	rwlock_t lock;
+ 	rwlock_t curr_slave_lock;
+ 	u8	 send_peer_notif;
