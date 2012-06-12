@@ -1,83 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] net/sched/em_canid: Ematch rule to match CAN frames
- according to their CAN IDs
-Date: Tue, 12 Jun 2012 16:03:29 +0200
-Message-ID: <1339509809.22704.149.camel@edumazet-glaptop>
-References: <1339508913-7784-1-git-send-email-lisovy@gmail.com>
+From: Federico Vaga <federico.vaga@gmail.com>
+Subject: Re: [PATCH RFC] c_can_pci: generic module for c_can on PCI
+Date: Tue, 12 Jun 2012 16:25:25 +0200
+Message-ID: <2105333.GQGP4hKIYU@harkonnen>
+References: <4FC135C6.5030206@grandegger.com> <1338816766-7089-2-git-send-email-federico.vaga@gmail.com> <4FCCC077.7000303@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Rostislav Lisovy <lisovy@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1339508913-7784-1-git-send-email-lisovy@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Giancarlo Asnaghi <giancarlo.asnaghi@st.com>,
+	Alan Cox <alan@linux.intel.com>,
+	Alessandro Rubini <rubini@gnudd.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FCCC077.7000303@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-06-12 at 15:48 +0200, Rostislav Lisovy wrote:
-> em_canid is an ematch capable of classifying CAN frames according to
-> their CAN IDs.
+> > +out_free_clock:
+> > +	if (!priv->priv)
 > 
-> This RFC/Patch contains a reworked classifier initially posted in
-> http://www.spinics.net/lists/netdev/msg200114.html
-> The functionality is the same however there is almost 50% reduction
-> in the source code length.
+>            ^^^
 > 
-> There is a slight difference between this ematch and other available
-> ematches. Other ematches implement only a simple match operation and
-> are meant to be combined with logic conjunctions (e.g. AND, OR).
-> Our ematch makes it possible to use up to 32 rules in single
-> 'configuration statement' (with OR semantics). This allows us to take
-> the advantage of the bit field data-structure in the implementation of
-> the match function.
-> 
-> Example: canid(sff 0x123 eff 0x124 sff 0x230:0x7f0)
-> This ematch would match CAN SFF frames with the following IDs:
-> 0x123, 0x230--0x23f or EFF frame with ID 0x124.
-> 
-> Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
-> ---
->  include/linux/can.h     |    3 +
->  include/linux/pkt_cls.h |    5 +-
->  net/sched/Kconfig       |   10 +++
->  net/sched/Makefile      |    1 +
->  net/sched/em_canid.c    |  217 +++++++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 234 insertions(+), 2 deletions(-)
->  create mode 100644 net/sched/em_canid.c
-> 
-> diff --git a/include/linux/can.h b/include/linux/can.h
-> index 9a19bcb..08d1610 100644
-> --- a/include/linux/can.h
-> +++ b/include/linux/can.h
-> @@ -38,6 +38,9 @@
->   */
->  typedef __u32 canid_t;
->  
-> +#define CAN_SFF_ID_BITS		11
-> +#define CAN_EFF_ID_BITS		29
-> +
+> looks fishy
 
-> +struct canid_match {
-> +	struct can_filter rules_raw[EM_CAN_RULES_SIZE]; /* Raw rules copied
-> +		from netlink message; Used for sending information to
-> +		userspace (when 'tc filter show' is invoked) AND when
-> +		matching EFF frames*/
-> +	DECLARE_BITMAP(match_sff, (1 << CAN_SFF_ID_BITS)); /* For each SFF CAN
-> +		ID (11 bit) there is one record in this	bitfield */
-> +	int rules_count;
-> +	int eff_rules_count;
-> +	int sff_rules_count;
-> +
-> +	struct rcu_head rcu;
-> +};
+Also c_can_platform.c use priv->priv when it needs to get clk. I can add 
+a comment to specify what the statement do.
 
-The size of kmalloc() blob to hold this structure is 4 Mbytes
-
-This is a huge cost, and unlikely to succeed but shortly after boot...
-
-(this happens to be the largest possible kmalloc() allocation by the way
-on x86)
-
-
-
+-- 
+Federico Vaga
