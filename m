@@ -1,127 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] bonding: Fix corrupted queue_mapping
-Date: Tue, 12 Jun 2012 18:03:51 +0200
-Message-ID: <1339517031.22704.202.camel@edumazet-glaptop>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [net-next PATCH 00/02] net/ipv4: Add support for new tunnel type
+ VTI.
+Date: Tue, 12 Jun 2012 18:17:10 +0200
+Message-ID: <4FD76B86.50009@6wind.com>
+References: <20120608173225.GA11928@debian-saurabh-64.vyatta.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tom Herbert <therbert@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Roland Dreier <roland@kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Saurabh <saurabh.mohan@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:63004 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752495Ab2FLQD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 12:03:56 -0400
-Received: by eeit10 with SMTP id t10so2279123eei.19
-        for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 09:03:55 -0700 (PDT)
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:56768 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758Ab2FLQRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 12:17:14 -0400
+Received: by eaak11 with SMTP id k11so2256549eaa.19
+        for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 09:17:13 -0700 (PDT)
+In-Reply-To: <20120608173225.GA11928@debian-saurabh-64.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi,
 
-In the transmit path of the bonding driver, skb->cb is used to
-stash the skb->queue_mapping so that the bonding device can set its
-own queue mapping.  This value becomes corrupted since the skb->cb is
-also used in __dev_xmit_skb.
+thank you for pushing this feature upstream Saurabh.
+This feature is very usefull, we have implemented something similar in =
+our system.
 
-When transmitting through bonding driver, bond_select_queue is
-called from dev_queue_xmit.  In bond_select_queue the original
-skb->queue_mapping is copied into skb->cb (via bond_queue_mapping)
-and skb->queue_mapping is overwritten with the bond driver queue.
+Regards,
+Nicolas
 
-Subsequently in dev_queue_xmit, __dev_xmit_skb is called which writes
-the packet length into skb->cb, thereby overwriting the stashed
-queue mappping.  In bond_dev_queue_xmit (called from hard_start_xmit),
-the queue mapping for the skb is set to the stashed value which is now
-the skb length and hence is an invalid queue for the slave device.
-
-If we want to save skb->queue_mapping into skb->cb[], best place is to
-add a field in struct qdisc_skb_cb, to make sure it wont conflict with
-other layers (eg : Qdiscc, Infiniband...)
-
-This patchs also makes sure (struct qdisc_skb_cb)->data is aligned on 8
-bytes :
-
-netem qdisc for example assumes it can store an u64 in it, without
-misalignment penalty.
-
-Note : we only have 20 bytes left in (struct qdisc_skb_cb)->data[].
-The largest user is CHOKe and it fills it.
-
-Based on a previous patch from Tom Herbert.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Tom Herbert <therbert@google.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Roland Dreier <roland@kernel.org>
----
- drivers/net/bonding/bond_main.c |    9 +++++----
- include/net/sch_generic.h       |    7 +++++--
- 2 files changed, 10 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 2ee8cf9..b9c2ae6 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -76,6 +76,7 @@
- #include <net/route.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include <net/pkt_sched.h>
- #include "bonding.h"
- #include "bond_3ad.h"
- #include "bond_alb.h"
-@@ -381,8 +382,6 @@ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
- 	return next;
- }
- 
--#define bond_queue_mapping(skb) (*(u16 *)((skb)->cb))
--
- /**
-  * bond_dev_queue_xmit - Prepare skb for xmit.
-  *
-@@ -395,7 +394,9 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- {
- 	skb->dev = slave_dev;
- 
--	skb->queue_mapping = bond_queue_mapping(skb);
-+	BUILD_BUG_ON(sizeof(skb->queue_mapping) !=
-+		     sizeof(qdisc_skb_cb(skb)->bond_queue_mapping));
-+	skb->queue_mapping = qdisc_skb_cb(skb)->bond_queue_mapping;
- 
- 	if (unlikely(netpoll_tx_running(slave_dev)))
- 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
-@@ -4171,7 +4172,7 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	/*
- 	 * Save the original txq to restore before passing to the driver
- 	 */
--	bond_queue_mapping(skb) = skb->queue_mapping;
-+	qdisc_skb_cb(skb)->bond_queue_mapping = skb->queue_mapping;
- 
- 	if (unlikely(txq >= dev->real_num_tx_queues)) {
- 		do {
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 55ce96b..9d7d54a 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -220,13 +220,16 @@ struct tcf_proto {
- 
- struct qdisc_skb_cb {
- 	unsigned int		pkt_len;
--	unsigned char		data[24];
-+	u16			bond_queue_mapping;
-+	u16			_pad;
-+	unsigned char		data[20];
- };
- 
- static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
- {
- 	struct qdisc_skb_cb *qcb;
--	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(unsigned int) + sz);
-+
-+	BUILD_BUG_ON(sizeof(skb->cb) < offsetof(struct qdisc_skb_cb, data) + sz);
- 	BUILD_BUG_ON(sizeof(qcb->data) < sz);
- }
- 
+Le 08/06/2012 19:32, Saurabh a =E9crit :
+>
+>
+> Introduction:
+> Virtual tunnel interface is a way to represent policy based IPsec tun=
+nels as virtual interfaces in linux. This is similar to Cisco's VTI (vi=
+rtual tunnel interface) and Juniper's representaion of secure tunnel (s=
+t.xx). The advantage of representing an IPsec tunnel as an interface is=
+ that it is possible to plug Ipsec tunnels into the routing protocol in=
+frastructure of a router. Therefore it becomes possible to influence th=
+e packet path by toggling the link state of the tunnel or based on rout=
+ing metrics.
+>
+> Overview:
+> Natively linux kernel does not support ipsec as an interface. Also se=
+cure interface assume a ipsec policy 4 tupple of {dst-ip-any, src-ip-an=
+y, dst-port-any, src-port-any}. Applying this 4 tuple in linux would re=
+sult in all traffic matching the ipsec policy. What is needed is a tunn=
+el distinguisher. The linux kernel skbuff has fwmark which is used for =
+policy based routing (PBR). Linux kernel version 2.6.35 enhanced SPD/SA=
+DB to use fwmark as part of the IPsec policy. Strongswan has also intro=
+duced support for this kernel feature with version 4.5.0. We can theref=
+ore use the fwmark as the distinguisher for tunnel interface. We can al=
+so create a light weight tunnel kernel module (vti) to give the notion =
+of an interface for rest of the kernel routing system. The tunnel modul=
+e does not do any encapsulation/decapsulation. The kernel's xfrm module=
+s still do the esp encryption/decryption.
+>
+> Usage:
+> ip tunnel add sti15 mode vti remote 12.0.0.1 local 12.0.0.3 ikey 15
+> or
+> ip link add sti15 type vti key 15 remote 12.0.0.1 local 12.0.0.3
+>
+> Signed-off-by: Saurabh Mohan<saurabh.mohan@vyatta.com>
+> Reviewed-by: Stephen Hemminger<shemminger@vyatta.com>
+>
+> ---
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
