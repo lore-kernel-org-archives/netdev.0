@@ -1,51 +1,93 @@
-From: Hamciuc Bogdan-BHAMCIU1 <bhamciu1@freescale.com>
-Subject: RE: [PATCH] netpoll: Fix skb tail pointer in netpoll_send_udp()
-Date: Tue, 12 Jun 2012 15:08:58 +0000
-Message-ID: <0CEB9B99E5B9024B8FD0E8A1DFF8E638269B99@039-SN1MPN1-002.039d.mgd.msft.net>
-References: <1339496765-3093-1-git-send-email-bogdan.hamciuc@freescale.com>
-	 <1339503766.22704.116.camel@edumazet-glaptop>
-	 <1339506917.22704.134.camel@edumazet-glaptop>
- <1339508049.22704.143.camel@edumazet-glaptop>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [RFC] net/sched/em_canid: Ematch rule to match CAN frames according
+ to their CAN IDs
+Date: Tue, 12 Jun 2012 17:42:01 +0200
+Message-ID: <4FD76349.6040407@hartkopp.net>
+References: <1339508913-7784-1-git-send-email-lisovy@gmail.com>  <1339509809.22704.149.camel@edumazet-glaptop>  <1339511593.22704.157.camel@edumazet-glaptop> <1339512622.8536.3.camel@lolumad>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
+To: Rostislav Lisovy <lisovy@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:2668
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751729Ab2FLPWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 11:22:17 -0400
-In-Reply-To: <1339508049.22704.143.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:29060 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417Ab2FLPm1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 11:42:27 -0400
+In-Reply-To: <1339512622.8536.3.camel@lolumad>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgRXJpYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1
-bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBK
-dW5lIDEyLCAyMDEyIDQ6MzQgUE0NCj4gVG86IEhhbWNpdWMgQm9nZGFuLUJIQU1DSVUxDQo+IENj
-OiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6
-IFJlOiBbUEFUQ0hdIG5ldHBvbGw6IEZpeCBza2IgdGFpbCBwb2ludGVyIGluIG5ldHBvbGxfc2Vu
-ZF91ZHAoKQ0KPiANCj4gT24gVHVlLCAyMDEyLTA2LTEyIGF0IDE1OjE1ICswMjAwLCBFcmljIER1
-bWF6ZXQgd3JvdGU6DQo+ID4gT24gVHVlLCAyMDEyLTA2LTEyIGF0IDE0OjIyICswMjAwLCBFcmlj
-IER1bWF6ZXQgd3JvdGU6DQo+IA0KPiA+ID4gSG1tLCByZWFsIHF1ZXN0aW9uIGlzIHdoeSBza2Jf
-cmVhbGxvY19oZWFkcm9vbSgpIGlzIGV2ZW4gbmVjZXNzYXJ5Li4uDQpPdXIgZHJpdmVyIChGcmVl
-c2NhbGUgUDQwODAsIHVuZm9ydHVuYXRlbHkgbm90IHVwc3RyZWFtIHlldCkgbmVlZHMgYSBtaW5p
-bXVtIGFtb3VudCBvZiBoZWFkcm9vbSBpbiBvcmRlciB0byBjb21tdW5pY2F0ZSBtZXRhZGF0YSB0
-byB0aGUgTklDLg0KRm9yIGluc3RhbmNlLCBmcmFtZSBvZmZzZXRzIHRvIHRoZSBwcm90b2NvbCBo
-ZWFkZXJzIGFyZSBzdG9yZWQgdGhlcmUsIHdoaWNoIHRoZSBOSUMgdGhlbiB1c2VzIHRvIGZpbGwg
-aW4gdGhlIGVncmVzcyBjaGVja3N1bS4NCk9yaWdpbmF0aW5nIGZyYW1lcywgb24gdGhlIG90aGVy
-IGhhbmQsIGRvbid0IGFsd2F5cyBoYXZlIHRoYXQgYW1vdW50IG9mIGhlYWRyb29tLCBzbyB3ZSBv
-Y2Nhc2lvbmFsbHkgbmVlZCB0byByZWFsbG9jLiANCj4gPiA+DQo+ID4gPiBJIHN1c3BlY3Qgd2Ug
-bmVlZCB0byByZXNlcnZlIG1vcmUgYnl0ZXMuDQo+ID4gPg0KPiA+ID4gCXRvdGFsX2xlbiA9IGlw
-X2xlbiArIEVUSF9ITEVOICsgTkVUX0lQX0FMSUdOICsgTkVUX1NLQl9QQUQ7DQo+ID4gPg0KPiA+
-ID4gb3Igc29tZXRoaW5nIGxpa2UgdGhhdCA/DQpJbmRlZWQsIHlvdXIgY291bnRlci1wcm9wb3Nh
-bCBwYXRjaCAoYWRkaW5nIExMX1JFU0VSVkVEX1NQQUNFKCkpIHdvcmtlZCBmaW5lLg0KDQo+ID4g
-Pg0KPiA+ID4gV2hpY2ggZHJpdmVyIHRyaWdnZXJzIHRoZSBidWcgPw0KPiA+ID4NCj4gDQo+IElu
-IGNhc2UgeW91IHdvbmRlciB3aHkgSSB0cnkgc28gaGFyZCB0byBhdm9pZCB0aGUNCj4gc2tiX3Jl
-YWxsb2NfaGVhZHJvb20oKSA6DQo+IA0KPiBuZXRwb2xsIGhhcyBjb21wbGljYXRlZF5Xc3BlY2lh
-bF5XbmljZSBza2IgY2FjaGUsIHRvIG1ha2Ugc3VyZSBpdCBjYW4NCj4gd29yayBldmVuIGlmIG1l
-bW9yeSBpcyBleGhhdXN0ZWQuDQo+IA0KPiBCdXQgaWYgd2UgdHJpZ2dlciBza2JfcmVhbGxvY19o
-ZWFkcm9vbSgpIHRoZSB3aG9sZSB0aGluZyBpcyB1c2VsZXNzLg0KPiANClRoYW5rIHlvdSwNCkJv
-Z2Rhbg0KDQo=
+
+Hello Rostislav, hello Eric,
+
+On 12.06.2012 16:50, Rostislav Lisovy wrote:
+
+> On Tue, 2012-06-12 at 16:33 +0200, Eric Dumazet wrote: 
+>> On Tue, 2012-06-12 at 16:03 +0200, Eric Dumazet wrote:
+>>> On Tue, 2012-06-12 at 15:48 +0200, Rostislav Lisovy wrote:
+>>>> em_canid is an ematch capable of classifying CAN frames according to
+>>>> their CAN IDs.
+>>>>
+>>>> This RFC/Patch contains a reworked classifier initially posted in
+>>>> http://www.spinics.net/lists/netdev/msg200114.html
+>>>> The functionality is the same however there is almost 50% reduction
+>>>> in the source code length.
+>>>>
+>>>> There is a slight difference between this ematch and other available
+>>>> ematches. Other ematches implement only a simple match operation and
+>>>> are meant to be combined with logic conjunctions (e.g. AND, OR).
+>>>> Our ematch makes it possible to use up to 32 rules in single
+>>>> 'configuration statement' (with OR semantics). This allows us to take
+>>>> the advantage of the bit field data-structure in the implementation of
+>>>> the match function.
+>>>>
+>>>> Example: canid(sff 0x123 eff 0x124 sff 0x230:0x7f0)
+>>>> This ematch would match CAN SFF frames with the following IDs:
+>>>> 0x123, 0x230--0x23f or EFF frame with ID 0x124.
+
+
+
+i tried to figure out the difference between the implementation as classifier
+(link above) and this implementation as an ematch.
+
+Do we have any disadvantages using the ematch? E.g. is it still possible to
+add additional ematches like checking for patterns inside can_frame.data[]
+(which is located in skb->data) with ematch_u32 or e.g. ematch_text ??
+
+
+...
+
+Btw.
+
+>>>> +struct canid_match {
+>>>> +	struct can_filter rules_raw[EM_CAN_RULES_SIZE]; /* Raw rules copied
+>>>> +		from netlink message; Used for sending information to
+>>>> +		userspace (when 'tc filter show' is invoked) AND when
+>>>> +		matching EFF frames*/
+>>>> +	DECLARE_BITMAP(match_sff, (1 << CAN_SFF_ID_BITS)); /* For each SFF CAN
+>>>> +		ID (11 bit) there is one record in this	bitfield */
+
+
+these comments have a styling problem :-)
+
+Additional to these checkpatch warnings:
+
+WARNING: line over 80 characters
+#144: FILE: net/sched/em_canid.c:48:
++static void em_canid_sff_match_add(struct canid_match *cm, u32 can_id, u32 can_mask)
+
+WARNING: line over 80 characters
+#231: FILE: net/sched/em_canid.c:135:
++	if (cm->rules_count > EM_CAN_RULES_SIZE) /* Be sure to fit into the array */
+
+WARNING: line over 80 characters
+#256: FILE: net/sched/em_canid.c:160:
++			memcpy(cm->rules_raw + cm->eff_rules_count + cm->sff_rules_count,
+
+
+
+Tnx & regards,
+Oliver
