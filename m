@@ -1,30 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 43327] New: IP routing: cached route is applied to wrong
- network interface
-Date: Tue, 12 Jun 2012 13:39:05 -0700 (PDT)
-Message-ID: <20120612.133905.111728727958886749.davem@davemloft.net>
-References: <20120531174641.2809b5c4@nehalam.linuxnetplumber.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-06-12
+Date: Tue, 12 Jun 2012 15:15:28 -0700 (PDT)
+Message-ID: <20120612.151528.549574507684383623.davem@davemloft.net>
+References: <20120612200500.GC1932@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54500 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445Ab2FLUjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 16:39:06 -0400
-In-Reply-To: <20120531174641.2809b5c4@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120612200500.GC1932-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 31 May 2012 17:46:41 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 12 Jun 2012 16:05:01 -0400
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=43327
+> This is the first big wireless pull request intended for 3.6.
+> This includes big updates for the ti bits (expecially regarding
+> wl18xx support), a large batch of NFC changes (particularly for
+> pn533 hardware support), and the usual large amount of updates for
+> ath9k and iwlwifi, as well as a variety of other bits here and there.
+> In order to fix/avoid some merge problems, this also includes a pull
+> of some wireless fixes that have already been sent for 3.5.
 > 
->            Summary: IP routing: cached route is applied to wrong network
->                     interface
+> Please let me know if there are problems!
 
-This should now be fixed in net-next, inetpeer trees are rooted in the
-FIB rules, so should handle arbitrary route lookup key situations.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
