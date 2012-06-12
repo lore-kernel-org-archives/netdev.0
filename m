@@ -1,63 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: kernel ipsec error
-Date: Tue, 12 Jun 2012 17:53:03 +0100
-Message-ID: <1339519983.2701.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <DUB108-W3906ACEA67D9618490CB02B2F70@phx.gbl>
-	,<1339436963.2665.5.camel@bwh-desktop.uk.solarflarecom.com>
-	 <DUB108-W54AAF31BD3E442DF275349B2F60@phx.gbl>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] bonding: Fix corrupted queue_mapping
+Date: Tue, 12 Jun 2012 13:16:08 -0400
+Message-ID: <20120612171608.GC15984@hmsreliant.think-freely.org>
+References: <1339517031.22704.202.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Marco Berizzi <pupilla@hotmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Roland Dreier <roland@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7747 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752262Ab2FLQxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 12:53:06 -0400
-In-Reply-To: <DUB108-W54AAF31BD3E442DF275349B2F60@phx.gbl>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48025 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640Ab2FLRQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 13:16:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1339517031.22704.202.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-12 at 08:31 +0200, Marco Berizzi wrote:
-> bhutchings@solarflare.com wrote:
-> > On Mon, 2012-06-11 at 14:45 +0200, Marco Berizzi wrote:
-> > > Hello everybody.
-> > >
-> > > After 12 days uptime I got this message.
-> > > Linux is 3.3.5 32bit, running openswan
-> > > (this is an ipsec gateway/netfilter
-> > > firewall) and squid.
-> > >
-> > > Jun 11 12:53:02 Pleiadi kernel: SLUB: Unable to allocate memory on node -1 (gfp=0x20)
-> > > Jun 11 12:53:02 Pleiadi kernel: cache: kmalloc-2048, object size: 2048, buffer size: 2048, default order: 2, min order: 0
-> > > Jun 11 12:53:02 Pleiadi kernel: node 0: slabs: 61, objs: 476, free: 0
-> > > Jun 11 12:53:02 Pleiadi kernel: kworker/0:2: page allocation failure: order:0, mode:0x4020
-> >
-> > So a single page allocation in atomic (non-sleeping) context failed.
-> >
-> > [...]
-> > > Jun 11 12:53:02 Pleiadi kernel: Free swap = 130908kB
-> > > Jun 11 12:53:02 Pleiadi kernel: Total swap = 151164kB
-> > > Jun 11 12:53:02 Pleiadi kernel: 40944 pages RAM
-> > [...]
-> >
-> > Not too surprising with this little RAM available (swap didn't help
-> > since we couldn't wait for swap-out).
+On Tue, Jun 12, 2012 at 06:03:51PM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> yes, this is really a very old hardware.
+> In the transmit path of the bonding driver, skb->cb is used to
+> stash the skb->queue_mapping so that the bonding device can set its
+> own queue mapping.  This value becomes corrupted since the skb->cb is
+> also used in __dev_xmit_skb.
 > 
-> > There could be a memory leak, but you would need to read /proc/meminfo
-> > and /proc/slabinfo at intervals to work out whether that was the case.
+> When transmitting through bonding driver, bond_select_queue is
+> called from dev_queue_xmit.  In bond_select_queue the original
+> skb->queue_mapping is copied into skb->cb (via bond_queue_mapping)
+> and skb->queue_mapping is overwritten with the bond driver queue.
 > 
-> Kindly, may you tell me which should be the intervals? One second? one minute?
+> Subsequently in dev_queue_xmit, __dev_xmit_skb is called which writes
+> the packet length into skb->cb, thereby overwriting the stashed
+> queue mappping.  In bond_dev_queue_xmit (called from hard_start_xmit),
+> the queue mapping for the skb is set to the stashed value which is now
+> the skb length and hence is an invalid queue for the slave device.
+> 
+> If we want to save skb->queue_mapping into skb->cb[], best place is to
+> add a field in struct qdisc_skb_cb, to make sure it wont conflict with
+> other layers (eg : Qdiscc, Infiniband...)
+> 
+> This patchs also makes sure (struct qdisc_skb_cb)->data is aligned on 8
+> bytes :
+> 
+> netem qdisc for example assumes it can store an u64 in it, without
+> misalignment penalty.
+> 
+> Note : we only have 20 bytes left in (struct qdisc_skb_cb)->data[].
+> The largest user is CHOKe and it fills it.
+> 
+> Based on a previous patch from Tom Herbert.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Tom Herbert <therbert@google.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Roland Dreier <roland@kernel.org>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Given that you saw this after 12 days, I would think somewhere between
-an hour and a day would be appropriate.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Looking at this, it would be really nice if we could have some sort of layer
+independent space in an skb.  It seems we're often looking to shoehorn more
+stuff into the control bock.
+Neil
