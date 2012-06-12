@@ -1,66 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] bonding: Fix corrupted queue_mapping
-Date: Tue, 12 Jun 2012 13:16:08 -0400
-Message-ID: <20120612171608.GC15984@hmsreliant.think-freely.org>
-References: <1339517031.22704.202.camel@edumazet-glaptop>
+From: Debabrata Banerjee <dbavatar@gmail.com>
+Subject: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
+Date: Tue, 12 Jun 2012 13:22:29 -0400
+Message-ID: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Roland Dreier <roland@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48025 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640Ab2FLRQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 13:16:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1339517031.22704.202.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	Joshua Hunt <johunt@akamai.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	yoshfuji@linux-ipv6.org, jmorris@namei.org, pekkas@netcore.fi,
+	kuznet@ms2.inr.ac.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 12, 2012 at 06:03:51PM +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In the transmit path of the bonding driver, skb->cb is used to
-> stash the skb->queue_mapping so that the bonding device can set its
-> own queue mapping.  This value becomes corrupted since the skb->cb is
-> also used in __dev_xmit_skb.
-> 
-> When transmitting through bonding driver, bond_select_queue is
-> called from dev_queue_xmit.  In bond_select_queue the original
-> skb->queue_mapping is copied into skb->cb (via bond_queue_mapping)
-> and skb->queue_mapping is overwritten with the bond driver queue.
-> 
-> Subsequently in dev_queue_xmit, __dev_xmit_skb is called which writes
-> the packet length into skb->cb, thereby overwriting the stashed
-> queue mappping.  In bond_dev_queue_xmit (called from hard_start_xmit),
-> the queue mapping for the skb is set to the stashed value which is now
-> the skb length and hence is an invalid queue for the slave device.
-> 
-> If we want to save skb->queue_mapping into skb->cb[], best place is to
-> add a field in struct qdisc_skb_cb, to make sure it wont conflict with
-> other layers (eg : Qdiscc, Infiniband...)
-> 
-> This patchs also makes sure (struct qdisc_skb_cb)->data is aligned on 8
-> bytes :
-> 
-> netem qdisc for example assumes it can store an u64 in it, without
-> misalignment penalty.
-> 
-> Note : we only have 20 bytes left in (struct qdisc_skb_cb)->data[].
-> The largest user is CHOKe and it fills it.
-> 
-> Based on a previous patch from Tom Herbert.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Tom Herbert <therbert@google.com>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Cc: Roland Dreier <roland@kernel.org>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Looks like commit=A02bec5a369ee79576a3eea2c23863325089785a2c=A0"ipv6:=A0=
+fib:
+fix=A0crash=A0when=A0changing=A0large=A0fib=A0while=A0dumping" is the c=
+ulprit. The
+result of this code is that if there is a tree addition while a dump
+has suspended because the netlink skb is full, it will simply go back
+to the top of the tree and you end up with duplicate/triplicate/etc
+routes. It looks like the code attempts to count nodes, but it's a
+linear count and the data structure is a tree so that's a big problem.
+The net result is potentially DOSable, since if route table updates
+happen often enough in proportion to table size, a dump will attempt
+to return an infinite amount of routes (observed). So this commit
+should be reverted. However I am interested in the problem that commit
+tried to solve, if anyone has more information on that. My assumption
+is the fib tree gets corrupted and eventually it crashes in
+fib6_dump_table(), which I assume can still happen.
 
-Looking at this, it would be really nice if we could have some sort of layer
-independent space in an skb.  It seems we're often looking to shoehorn more
-stuff into the control bock.
-Neil
+I can easily demonstrate the bug by adding cloned/cache routes while I
+check the results of fib6_dump_table:
+
+root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
+show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
+593
+189
+root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
+show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
+884
+16
+root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
+show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
+888
+78
+root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
+show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
+507
+507
+root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
+show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
+533
+533
+root@a172-25-43-12.deploy.akamaitechnologies.com:~# ip -6 -o route
+show table cache |tee tmp | wc -l; sort tmp | uniq -u | wc -l
+571
+571
+
+Thanks,
+Debabrata
