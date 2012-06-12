@@ -1,60 +1,86 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: [PATCH 3/7] usbnet:cdc-phonet: remove usb_get/put_dev in .probe and .disconnect
-Date: Tue, 12 Jun 2012 09:19:41 +0800
-Message-ID: <1339463985-9006-4-git-send-email-tom.leiming@gmail.com>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 4/7] usbnet: remove EVENT_DEV_OPEN flag
+Date: Tue, 12 Jun 2012 09:19:42 +0800
+Message-ID: <1339463985-9006-5-git-send-email-tom.leiming@gmail.com>
 References: <1339463985-9006-1-git-send-email-tom.leiming@gmail.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Ming Lei <tom.leiming@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:51886 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753212Ab2FLBUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jun 2012 21:20:33 -0400
-In-Reply-To: <1339463985-9006-1-git-send-email-tom.leiming@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1339463985-9006-1-git-send-email-tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-usb_device is parent device of usb_interface in the view of driver
-model, so its reference count is always held during .probe/.disconnect
-of usb_interface instance.
+EVENT_DEV_OPEN is introduced to mark if the interface is opened or
+not, but we already have IFF_UP to handle it, so just
+remove the flag and use IFF_UP.
 
-This patch just removes the unnecessay usb_get/put_dev.
+Also the patch may fix one bug in failure path of usbnet_open:
+it may return failure but EVENT_DEV_OPEN is not cleared. After
+this convering, dev->net->flags & IFF_UP always return consistent
+status of the interface.
 
-Signed-off-by: Ming Lei <tom.leiming@gmail.com>
+Signed-off-by: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/usb/cdc-phonet.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/usb/usbnet.c   |    6 ++----
+ include/linux/usb/usbnet.h |    1 -
+ 2 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/cdc-phonet.c b/drivers/net/usb/cdc-phonet.c
-index d848d4d..187c144 100644
---- a/drivers/net/usb/cdc-phonet.c
-+++ b/drivers/net/usb/cdc-phonet.c
-@@ -394,7 +394,7 @@ int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
- 	SET_NETDEV_DEV(dev, &intf->dev);
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 022c1e7..96f8a08 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -686,7 +686,6 @@ int usbnet_stop (struct net_device *net)
+ 	struct driver_info	*info = dev->driver_info;
+ 	int			retval;
  
- 	pnd->dev = dev;
--	pnd->usb = usb_get_dev(usbdev);
-+	pnd->usb = usbdev;
- 	pnd->intf = intf;
- 	pnd->data_intf = data_intf;
- 	spin_lock_init(&pnd->tx_lock);
-@@ -440,7 +440,6 @@ out:
- static void usbpn_disconnect(struct usb_interface *intf)
- {
- 	struct usbpn_dev *pnd = usb_get_intfdata(intf);
--	struct usb_device *usb = pnd->usb;
+-	clear_bit(EVENT_DEV_OPEN, &dev->flags);
+ 	netif_stop_queue (net);
  
- 	if (pnd->disconnected)
- 		return;
-@@ -449,7 +448,6 @@ static void usbpn_disconnect(struct usb_interface *intf)
- 	usb_driver_release_interface(&usbpn_driver,
- 			(pnd->intf == intf) ? pnd->data_intf : pnd->intf);
- 	unregister_netdev(pnd->dev);
--	usb_put_dev(usb);
- }
+ 	netif_info(dev, ifdown, dev->net,
+@@ -778,7 +777,6 @@ int usbnet_open (struct net_device *net)
+ 		}
+ 	}
  
- static struct usb_driver usbpn_driver = {
+-	set_bit(EVENT_DEV_OPEN, &dev->flags);
+ 	netif_start_queue (net);
+ 	netif_info(dev, ifup, dev->net,
+ 		   "open: enable queueing (rx %d, tx %d) mtu %d %s framing\n",
+@@ -1542,7 +1540,7 @@ int usbnet_resume (struct usb_interface *intf)
+ 
+ 	if (!--dev->suspend_count) {
+ 		/* resume interrupt URBs */
+-		if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
++		if (dev->interrupt && (dev->net->flags & IFF_UP))
+ 			usb_submit_urb(dev->interrupt, GFP_NOIO);
+ 
+ 		spin_lock_irq(&dev->txq.lock);
+@@ -1564,7 +1562,7 @@ int usbnet_resume (struct usb_interface *intf)
+ 		clear_bit(EVENT_DEV_ASLEEP, &dev->flags);
+ 		spin_unlock_irq(&dev->txq.lock);
+ 
+-		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
++		if (dev->net->flags & IFF_UP) {
+ 			if (!(dev->txq.qlen >= TX_QLEN(dev)))
+ 				netif_tx_wake_all_queues(dev->net);
+ 			tasklet_schedule (&dev->bh);
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 76f4396..f15a729 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -68,7 +68,6 @@ struct usbnet {
+ #		define EVENT_RX_PAUSED	5
+ #		define EVENT_DEV_WAKING 6
+ #		define EVENT_DEV_ASLEEP 7
+-#		define EVENT_DEV_OPEN	8
+ };
+ 
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
