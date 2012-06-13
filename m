@@ -1,87 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next patch 3/12] bnx2x: Add support for 4-tupple UDP RSS
-Date: Wed, 13 Jun 2012 19:20:32 +0100
-Message-ID: <1339611632.2612.17.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
-	 <1339591464-10554-4-git-send-email-meravs@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bnx2x: fix panic when TX ring is full
+Date: Wed, 13 Jun 2012 21:45:16 +0200
+Message-ID: <1339616716.22704.661.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <eilong@broadcom.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Merav Sicron <meravs@broadcom.com>
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
+	Robert Evans <evansr@google.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Merav Sicron <meravs@broadcom.com>,
+	Yaniv Rosner <yanivr@broadcom.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Tomas Hruby <thruby@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28469 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752254Ab2FMSUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 14:20:35 -0400
-In-Reply-To: <1339591464-10554-4-git-send-email-meravs@broadcom.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:54210 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754212Ab2FMTpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 15:45:21 -0400
+Received: by eaak11 with SMTP id k11so333585eaa.19
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 12:45:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-13 at 15:44 +0300, Merav Sicron wrote:
-> This change enables to control via ethtool whether to do UDP RSS on 2-tupple
-> (IP source / destination only) or on 4-tupple (include UDP source / destination
-> port). It also enables to read back the RSS configuration.
-[...]
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> @@ -2600,6 +2600,52 @@ static int bnx2x_set_phys_id(struct net_device *dev,
->  	return 0;
->  }
->  
-> +static int bnx2x_get_rss_flags(struct bnx2x *bp, struct ethtool_rxnfc *info)
-> +{
-> +
-> +	switch (info->flow_type) {
-> +	case TCP_V4_FLOW:
-> +	case TCP_V6_FLOW:
-> +		info->data = RXH_IP_SRC | RXH_IP_DST |
-> +			     RXH_L4_B_0_1 | RXH_L4_B_2_3;
-> +		break;
-> +	case UDP_V4_FLOW:
-> +		if (bp->rss_conf_obj.udp_rss_v4)
-> +			info->data = RXH_IP_SRC | RXH_IP_DST |
-> +				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
-> +		else
-> +			info->data = RXH_IP_SRC | RXH_IP_DST;
-> +		break;
-> +	case UDP_V6_FLOW:
-> +		if (bp->rss_conf_obj.udp_rss_v6)
-> +			info->data = RXH_IP_SRC | RXH_IP_DST |
-> +				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
-> +		else
-> +			info->data = RXH_IP_SRC | RXH_IP_DST;
-> +		break;
-> +	case IPV4_FLOW:
-> +	case IPV6_FLOW:
-> +		info->data = RXH_IP_SRC | RXH_IP_DST;
-> +		break;
-> +	case SCTP_V4_FLOW:
-> +	case AH_ESP_V4_FLOW:
-> +	case AH_V4_FLOW:
-> +	case ESP_V4_FLOW:
-> +	case SCTP_V6_FLOW:
-> +	case AH_ESP_V6_FLOW:
-> +	case AH_V6_FLOW:
-> +	case ESP_V6_FLOW:
-> +	case IP_USER_FLOW:
-> +	case ETHER_FLOW:
-> +		info->data = 0;
-> +		break;
-> +	default:
-> +		return -EINVAL;
-> +	}
-[...]
+From: Eric Dumazet <edumazet@google.com>
 
-Don't try to enumerate all flow types; we may add others in future.  You
-should set info->data = 0 for any type for which RSS is not supported.
+There is a off by one error in the minimal number of BD in
+bnx2x_start_xmit() and bnx2x_tx_int() before stopping/resuming tx queue.
 
-Otherwise I think the ethtool bits are fine.
+A full size GSO packet, with data included in skb->head really needs
+(MAX_SKB_FRAGS + 4) BDs, because of bnx2x_tx_split()
 
-Ben.
+This error triggers if BQL is disabled and heavy TCP transmit traffic
+occurs.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+bnx2x_tx_split() definitely can be called, remove a wrong comment.
+
+Reported-by: Tomas Hruby <thruby@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>
+Cc: Yaniv Rosner <yanivr@broadcom.com>
+Cc: Merav Sicron <meravs@broadcom.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Robert Evans <evansr@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index ad0743b..302765a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -190,7 +190,7 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
+ 
+ 		if ((netif_tx_queue_stopped(txq)) &&
+ 		    (bp->state == BNX2X_STATE_OPEN) &&
+-		    (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 3))
++		    (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 4))
+ 			netif_tx_wake_queue(txq);
+ 
+ 		__netif_tx_unlock(txq);
+@@ -2501,8 +2501,6 @@ int bnx2x_poll(struct napi_struct *napi, int budget)
+ /* we split the first BD into headers and data BDs
+  * to ease the pain of our fellow microcode engineers
+  * we use one mapping for both BDs
+- * So far this has only been observed to happen
+- * in Other Operating Systems(TM)
+  */
+ static noinline u16 bnx2x_tx_split(struct bnx2x *bp,
+ 				   struct bnx2x_fp_txdata *txdata,
+@@ -3156,7 +3154,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	txdata->tx_bd_prod += nbd;
+ 
+-	if (unlikely(bnx2x_tx_avail(bp, txdata) < MAX_SKB_FRAGS + 3)) {
++	if (unlikely(bnx2x_tx_avail(bp, txdata) < MAX_SKB_FRAGS + 4)) {
+ 		netif_tx_stop_queue(txq);
+ 
+ 		/* paired memory barrier is in bnx2x_tx_int(), we have to keep
+@@ -3165,7 +3163,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		smp_mb();
+ 
+ 		fp->eth_q_stats.driver_xoff++;
+-		if (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 3)
++		if (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 4)
+ 			netif_tx_wake_queue(txq);
+ 	}
+ 	txdata->tx_pkt++;
