@@ -1,9 +1,9 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next patch 1/12] bnx2x: Add support for external LB
-Date: Wed, 13 Jun 2012 19:17:49 +0100
-Message-ID: <1339611469.2612.14.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [net-next patch 3/12] bnx2x: Add support for 4-tupple UDP RSS
+Date: Wed, 13 Jun 2012 19:20:32 +0100
+Message-ID: <1339611632.2612.17.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
-	 <1339591464-10554-2-git-send-email-meravs@broadcom.com>
+	 <1339591464-10554-4-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,41 +11,73 @@ Cc: <eilong@broadcom.com>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>
 To: Merav Sicron <meravs@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28400 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:28469 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754507Ab2FMSRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 14:17:53 -0400
-In-Reply-To: <1339591464-10554-2-git-send-email-meravs@broadcom.com>
+	by vger.kernel.org with ESMTP id S1752254Ab2FMSUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 14:20:35 -0400
+In-Reply-To: <1339591464-10554-4-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, 2012-06-13 at 15:44 +0300, Merav Sicron wrote:
-> This change enables to do self-test with external loopback via ethtool.
-> 
-> Signed-off-by: Merav Sicron <meravs@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
-
-The ethtool bits look right.
-
+> This change enables to control via ethtool whether to do UDP RSS on 2-tupple
+> (IP source / destination only) or on 4-tupple (include UDP source / destination
+> port). It also enables to read back the RSS configuration.
 [...]
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-> @@ -2124,7 +2124,12 @@ u8 bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode)
->  			}
->  		}
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> @@ -2600,6 +2600,52 @@ static int bnx2x_set_phys_id(struct net_device *dev,
+>  	return 0;
+>  }
 >  
-> -		rc = bnx2x_phy_init(&bp->link_params, &bp->link_vars);
-> +	if (load_mode == LOAD_LOOPBACK_EXT) {
-> +		struct link_params *lp = &bp->link_params;
-> +		lp->loopback_mode = LOOPBACK_EXT;
-> +	}
+> +static int bnx2x_get_rss_flags(struct bnx2x *bp, struct ethtool_rxnfc *info)
+> +{
 > +
-> +	rc = bnx2x_phy_init(&bp->link_params, &bp->link_vars);
->  
->  		bnx2x_release_phy_lock(bp);
+> +	switch (info->flow_type) {
+> +	case TCP_V4_FLOW:
+> +	case TCP_V6_FLOW:
+> +		info->data = RXH_IP_SRC | RXH_IP_DST |
+> +			     RXH_L4_B_0_1 | RXH_L4_B_2_3;
+> +		break;
+> +	case UDP_V4_FLOW:
+> +		if (bp->rss_conf_obj.udp_rss_v4)
+> +			info->data = RXH_IP_SRC | RXH_IP_DST |
+> +				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
+> +		else
+> +			info->data = RXH_IP_SRC | RXH_IP_DST;
+> +		break;
+> +	case UDP_V6_FLOW:
+> +		if (bp->rss_conf_obj.udp_rss_v6)
+> +			info->data = RXH_IP_SRC | RXH_IP_DST |
+> +				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
+> +		else
+> +			info->data = RXH_IP_SRC | RXH_IP_DST;
+> +		break;
+> +	case IPV4_FLOW:
+> +	case IPV6_FLOW:
+> +		info->data = RXH_IP_SRC | RXH_IP_DST;
+> +		break;
+> +	case SCTP_V4_FLOW:
+> +	case AH_ESP_V4_FLOW:
+> +	case AH_V4_FLOW:
+> +	case ESP_V4_FLOW:
+> +	case SCTP_V6_FLOW:
+> +	case AH_ESP_V6_FLOW:
+> +	case AH_V6_FLOW:
+> +	case ESP_V6_FLOW:
+> +	case IP_USER_FLOW:
+> +	case ETHER_FLOW:
+> +		info->data = 0;
+> +		break;
+> +	default:
+> +		return -EINVAL;
+> +	}
+[...]
 
-Indentation is wrong here, though.
+Don't try to enumerate all flow types; we may add others in future.  You
+should set info->data = 0 for any type for which RSS is not supported.
+
+Otherwise I think the ethtool bits are fine.
 
 Ben.
 
