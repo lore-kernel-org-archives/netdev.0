@@ -1,94 +1,425 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/3] net: lpc_eth: Replace WARN() trace with simple
- pr_warn()
-Date: Wed, 13 Jun 2012 08:16:12 +0200
-Message-ID: <1339568172.22704.312.camel@edumazet-glaptop>
-References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
-	 <1339403108.6001.1697.camel@edumazet-glaptop> <4FD5AE1D.9030807@antcom.de>
-	 <20120611.020352.1962768244524496467.davem@davemloft.net>
-	 <4FD5B9C8.4020800@antcom.de>  <1339442328.6001.2602.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
-	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
-	linux-arm-kernel@lists.infradead.org
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339442328.6001.2602.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next.git 1/4 (v5)] phy: add the EEE support and the way to access to the MMD registers.
+Date: Wed, 13 Jun 2012 09:17:04 +0200
+Message-ID: <1339571827-7162-2-git-send-email-peppe.cavallaro@st.com>
+References: <1339571827-7162-1-git-send-email-peppe.cavallaro@st.com>
+Cc: bhutchings@solarflare.com, rayagond@vayavyalabs.com,
+	davem@davemloft.net, yuvalmin@broadcom.com,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:58086 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751114Ab2FMHR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 03:17:26 -0400
+In-Reply-To: <1339571827-7162-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-11 at 21:18 +0200, Eric Dumazet wrote:
-> On Mon, 2012-06-11 at 11:26 +0200, Roland Stigge wrote:
-> 
-> > Is it sensible at this point to increase the TX buffers anyway? For
-> > different reasons of course: We have enough SRAM available and TX
-> > buffers (16->32) are still more than RX buffers (48).
-> 
-> I doubt it has any impact on performance for a 100Mbit link ?
-> 
-> One thing that could be done would be to free skbs in
-> lpc_eth_hard_start_xmit() instead of __lpc_handle_xmit()
-> 
+This patch adds the support for the Energy-Efficient Ethernet (EEE)
+to the Physical Abstraction Layer.
+To support the EEE we have to access to the MMD registers 3.20 and
+7.60/61. So two new functions have been added to read/write the MMD
+registers (clause 45).
 
-Here is the patch I was thinking about
+An Ethernet driver (I tested the stmmac) can invoke the phy_init_eee to properly
+check if the EEE is supported by the PHYs and it can also set the clock
+stop enable bit in the 3.0 register.
+The phy_get_eee_err can be used for reporting the number of time where
+the PHY failed to complete its normal wake sequence.
 
-(on top of latest net-next)
+In the end, this patch also adds the EEE ethtool support implementing:
+ o phy_ethtool_set_eee
+ o phy_ethtool_get_eee
 
-Could you please test it ?
+v1: initial patch
+v2: fixed some errors especially on naming convention
+v3: renamed again the mmd read/write functions thank to Ben's feedback
+v4: moved file to phy.c and added the ethtool support.
+v5: fixed phy_adv_to_eee, phy_eee_to_supported, phy_eee_to_adv return
+    values according to ethtool API (thanks to Ben's feedback).
+    Renamed some macros to avoid too long names.
 
- drivers/net/ethernet/nxp/lpc_eth.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/phy/phy.c |  261 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mdio.h  |   21 +++-
+ include/linux/mii.h   |    9 ++
+ include/linux/phy.h   |    5 +
+ 4 files changed, 292 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 083d671..426f14c 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -440,7 +440,7 @@ struct netdata_local {
- 	spinlock_t		lock;
- 	void __iomem		*net_base;
- 	u32			msg_enable;
--	struct sk_buff		*skb[ENET_TX_DESC];
-+	unsigned int		skblen[ENET_TX_DESC];
- 	unsigned int		last_tx_idx;
- 	unsigned int		num_used_tx_buffs;
- 	struct mii_bus		*mii_bus;
-@@ -908,7 +908,7 @@ static void __lpc_handle_xmit(struct net_device *ndev)
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 2e1c237..8935295 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -35,6 +35,7 @@
+ #include <linux/phy.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
++#include <linux/mdio.h>
  
- 	txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
- 	while (pldat->last_tx_idx != txcidx) {
--		skb = pldat->skb[pldat->last_tx_idx];
-+		unsigned int skblen = pldat->skblen[pldat->last_tx_idx];
+ #include <linux/atomic.h>
+ #include <asm/io.h>
+@@ -967,3 +968,263 @@ void phy_state_machine(struct work_struct *work)
  
- 		/* A buffer is available, get buffer status */
- 		ptxstat = &pldat->tx_stat_v[pldat->last_tx_idx];
-@@ -945,9 +945,8 @@ static void __lpc_handle_xmit(struct net_device *ndev)
- 		} else {
- 			/* Update stats */
- 			ndev->stats.tx_packets++;
--			ndev->stats.tx_bytes += skb->len;
-+			ndev->stats.tx_bytes += skblen;
- 		}
--		dev_kfree_skb_irq(skb);
- 
- 		txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
- 	}
-@@ -1132,7 +1131,7 @@ static int lpc_eth_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	memcpy(pldat->tx_buff_v + txidx * ENET_MAXF_SIZE, skb->data, len);
- 
- 	/* Save the buffer and increment the buffer counter */
--	pldat->skb[txidx] = skb;
-+	pldat->skblen[txidx] = len;
- 	pldat->num_used_tx_buffs++;
- 
- 	/* Start transmit */
-@@ -1147,6 +1146,7 @@ static int lpc_eth_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 
- 	spin_unlock_irq(&pldat->lock);
- 
-+	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
+ 	schedule_delayed_work(&phydev->state_queue, PHY_STATE_TIME * HZ);
  }
++
++static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
++				    int addr)
++{
++	/* Write the desired MMD Devad */
++	bus->write(bus, addr, MII_MMD_CTRL, devad);
++
++	/* Write the desired MMD register address */
++	bus->write(bus, addr, MII_MMD_DATA, prtad);
++
++	/* Select the Function : DATA with no post increment */
++	bus->write(bus, addr, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
++}
++
++/**
++ * phy_read_mmd_indirect - reads data from the MMC register (clause 22 to
++ * access to clause 45)
++ * @bus: the target MII bus
++ * @prtad: MMD Address
++ * @devad: MMD DEVAD
++ * @addr: PHY address on the MII bus
++ *
++ * Description: Reads data from the MMD regisetrs of the
++ * phy addr. To read these register we have:
++ * 1) Write reg 13 // DEVAD
++ * 2) Write reg 14 // MMD Address
++ * 3) Write reg 13 // MMD Data Command for MMD DEVAD
++ * 3) Read  reg 14 // Read MMD data
++ */
++static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
++				 int addr)
++{
++	u32 ret;
++
++	mmd_phy_indirect(bus, prtad, devad, addr);
++
++	/* Read the content of the MMD's selected register */
++	ret = bus->read(bus, addr, MII_MMD_DATA);
++
++	return ret;
++}
++
++/**
++ * phy_write_mmd_indirect - writes data to the MMC register (clause 22 to
++ * access to clause 45)
++ * @bus: the target MII bus
++ * @prtad: MMD Address
++ * @devad: MMD DEVAD
++ * @addr: PHY address on the MII bus
++ * @data: data to write in the MMD register
++ *
++ * Description: Reads data from the MMD regisetrs of the
++ * phy addr. To read these register we have:
++ * 1) Write reg 13 // DEVAD
++ * 2) Write reg 14 // MMD Address
++ * 3) Write reg 13 // MMD Data Command for MMD DEVAD
++ * 3) Write reg 14 // Write MMD data
++ */
++static void phy_write_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
++				   int addr, u32 data)
++{
++	mmd_phy_indirect(bus, prtad, devad, addr);
++
++	/* Write the data into MMD's selected register */
++	bus->write(bus, addr, MII_MMD_DATA, data);
++}
++
++/* phy_init_eee
++ * @phydev: target phy_device struct
++ * @clk_stop_enable: PHY may stop the clock during LPI
++ *
++ * Description: it checks if the Energy-Efficient Ethernet (EEE)
++ * is supported by looking at the MMD registers 3.20 and 7.60/61
++ * and it programs the MMD register 3.0 setting the "Clock stop enable"
++ * bit if required.
++ * In fact, the clk_stop_enable can be passed to:
++ *  1 = The PHY may stop the clock during LPI
++ *  0 = Clock not stoppable
++ */
++int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
++{
++	int ret = -EPROTONOSUPPORT;
++
++	/* According to 802.3az,the EEE is supported only in full duplex-mode.
++	 * Also EEE feature is active when core is operating with MII, GMII
++	 * or RGMII.
++	 */
++	if ((phydev->duplex == DUPLEX_FULL) &&
++	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
++	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
++	    (phydev->interface == PHY_INTERFACE_MODE_RGMII))) {
++		int eee_cap, eee_link;
++
++		/* EEE ability must be supported in both local and remote
++		 * PHY devices.
++		 */
++		eee_cap = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
++						MDIO_MMD_AN, phydev->addr);
++		if (eee_cap < 0)
++			return eee_cap;
++
++		eee_link = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
++						 MDIO_MMD_PCS, phydev->addr);
++		if (eee_link < 0)
++			return eee_link;
++
++		if (eee_cap && eee_link) {
++			if (clk_stop_enable) {
++				/* Configure the PHY to stop receiving xMII
++				 * clock while it is signaling LPI
++				 */
++				int ctrl;
++				ctrl = phy_read_mmd_indirect(phydev->bus,
++							     MDIO_CTRL1,
++							     MDIO_MMD_PCS,
++							     phydev->addr);
++				if (ctrl < 0)
++					return ctrl;
++
++				ctrl |= MDIO_PCS_CTRL1_CLKSTOP_EN;
++				phy_write_mmd_indirect(phydev->bus, MDIO_CTRL1,
++						       MDIO_MMD_PCS,
++						       phydev->addr, ctrl);
++			}
++
++			ret = 0; /* EEE supported */
++		}
++	}
++
++	return ret;
++}
++EXPORT_SYMBOL(phy_init_eee);
++
++/* phy_get_eee_err
++ * @phydev: target phy_device struct
++ *
++ * Description: it is to report the number of time where the PHY
++ * failed to complete its normal wake sequence.
++ */
++int phy_get_eee_err(struct phy_device *phydev)
++{
++	return phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_WK_ERR,
++				     MDIO_MMD_PCS, phydev->addr);
++
++}
++EXPORT_SYMBOL(phy_get_eee_err);
++
++static u32 phy_eee_to_adv(u16 eee_adv)
++{
++	u32 adv = 0;
++
++	if (eee_adv & MDIO_EEE_100TX)
++		adv |= ADVERTISED_100baseT_Full;
++	if (eee_adv & MDIO_EEE_1000T)
++		adv |= ADVERTISED_1000baseT_Full;
++	if (eee_adv & MDIO_EEE_10GT)
++		adv |= ADVERTISED_10000baseT_Full;
++	if (eee_adv & MDIO_EEE_1000KX)
++		adv |= ADVERTISED_1000baseKX_Full;
++	if (eee_adv & MDIO_EEE_10GKX4)
++		adv |= ADVERTISED_10000baseKX4_Full;
++	if (eee_adv & MDIO_EEE_10GKR)
++		adv |= ADVERTISED_10000baseKR_Full;
++
++	return adv;
++}
++
++static u32 phy_eee_to_supported(u16 eee_supported)
++{
++	u32 supported = 0;
++
++	if (eee_supported & MDIO_EEE_100TX)
++		supported |= SUPPORTED_100baseT_Full;
++	if (eee_supported & MDIO_EEE_1000T)
++		supported |= SUPPORTED_1000baseT_Full;
++	if (eee_supported & MDIO_EEE_10GT)
++		supported |= SUPPORTED_10000baseT_Full;
++	if (eee_supported & MDIO_EEE_1000KX)
++		supported |= SUPPORTED_1000baseKX_Full;
++	if (eee_supported & MDIO_EEE_10GKX4)
++		supported |= SUPPORTED_10000baseKX4_Full;
++	if (eee_supported & MDIO_EEE_10GKR)
++		supported |= SUPPORTED_10000baseKR_Full;
++
++	return supported;
++}
++
++/* phy_ethtool_get_eee
++ * @phydev: target phy_device struct
++ * @data: ethtool_eee data
++ *
++ * Description: it reportes the Supported/Advertisement/LP Advertisement
++ * capabilities.
++ */
++int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
++{
++	int val;
++
++	/* Get Supported EEE */
++	val = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
++				    MDIO_MMD_PCS, phydev->addr);
++	if (val < 0)
++		return val;
++	data->supported = phy_eee_to_supported(val);
++
++	/* Get advertisement EEE */
++	val = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV,
++				    MDIO_MMD_AN, phydev->addr);
++	if (val < 0)
++		return val;
++	data->advertised = phy_eee_to_adv(val);
++
++	/* Get LP advertisement EEE */
++	val = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
++				    MDIO_MMD_AN, phydev->addr);
++	if (val < 0)
++		return val;
++	data->lp_advertised = phy_eee_to_adv(val);
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_ethtool_get_eee);
++
++static u16 phy_adv_to_eee(u32 adv)
++{
++	u16 reg = 0;
++
++	if (adv & ADVERTISED_100baseT_Full)
++		reg |= MDIO_EEE_100TX;
++	if (adv & ADVERTISED_1000baseT_Full)
++		reg |= MDIO_EEE_1000T;
++	if (adv & ADVERTISED_10000baseT_Full)
++		reg |= MDIO_EEE_10GT;
++	if (adv & ADVERTISED_1000baseKX_Full)
++		reg |= MDIO_EEE_1000KX;
++	if (adv & ADVERTISED_10000baseKX4_Full)
++		reg |= MDIO_EEE_10GKX4;
++	if (adv & ADVERTISED_10000baseKR_Full)
++		reg |= MDIO_EEE_10GKR;
++
++	return reg;
++}
++
++/* phy_ethtool_set_eee
++ * @phydev: target phy_device struct
++ * @data: ethtool_eee data
++ *
++ * Description: it is to program the Advertisement EEE register.
++ */
++int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
++{
++	int val;
++
++	val = phy_adv_to_eee(data->advertised);
++	phy_write_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
++			       phydev->addr, val);
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_ethtool_set_eee);
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index dfb9479..4ad8f0e 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -43,7 +43,11 @@
+ #define MDIO_PKGID2		15
+ #define MDIO_AN_ADVERTISE	16	/* AN advertising (base page) */
+ #define MDIO_AN_LPA		19	/* AN LP abilities (base page) */
++#define MDIO_PCS_EEE_ABLE	20	/* EEE Capability register */
++#define MDIO_PCS_EEE_WK_ERR	22	/* EEE wake error counter */
+ #define MDIO_PHYXS_LNSTAT	24	/* PHY XGXS lane state */
++#define MDIO_AN_EEE_ADV		60	/* EEE advertisement */
++#define MDIO_AN_EEE_LPABLE	61	/* EEE link partner ability */
  
+ /* Media-dependent registers. */
+ #define MDIO_PMA_10GBT_SWAPPOL	130	/* 10GBASE-T pair swap & polarity */
+@@ -56,7 +60,6 @@
+ #define MDIO_PCS_10GBRT_STAT2	33	/* 10GBASE-R/-T PCS status 2 */
+ #define MDIO_AN_10GBT_CTRL	32	/* 10GBASE-T auto-negotiation control */
+ #define MDIO_AN_10GBT_STAT	33	/* 10GBASE-T auto-negotiation status */
+-#define MDIO_AN_EEE_ADV		60	/* EEE advertisement */
+ 
+ /* LASI (Link Alarm Status Interrupt) registers, defined by XENPAK MSA. */
+ #define MDIO_PMA_LASI_RXCTRL	0x9000	/* RX_ALARM control */
+@@ -82,6 +85,7 @@
+ #define MDIO_AN_CTRL1_RESTART		BMCR_ANRESTART
+ #define MDIO_AN_CTRL1_ENABLE		BMCR_ANENABLE
+ #define MDIO_AN_CTRL1_XNP		0x2000	/* Enable extended next page */
++#define MDIO_PCS_CTRL1_CLKSTOP_EN	0x400	/* Stop the clock during LPI */
+ 
+ /* 10 Gb/s */
+ #define MDIO_CTRL1_SPEED10G		(MDIO_CTRL1_SPEEDSELEXT | 0x00)
+@@ -237,9 +241,18 @@
+ #define MDIO_AN_10GBT_STAT_MS		0x4000	/* Master/slave config */
+ #define MDIO_AN_10GBT_STAT_MSFLT	0x8000	/* Master/slave config fault */
+ 
+-/* AN EEE Advertisement register. */
+-#define MDIO_AN_EEE_ADV_100TX		0x0002	/* Advertise 100TX EEE cap */
+-#define MDIO_AN_EEE_ADV_1000T		0x0004	/* Advertise 1000T EEE cap */
++/* EEE Supported/Advertisement/LP Advertisement registers.
++ *
++ * EEE capability Register (3.20), Advertisement (7.60) and
++ * Link partner ability (7.61) registers have and can use the same identical
++ * bit masks.
++ */
++#define MDIO_EEE_100TX			0x0002	/* 100TX EEE cap */
++#define MDIO_EEE_1000T			0x0004	/* 1000T EEE cap */
++#define MDIO_EEE_10GT			0x0008	/* 10GT EEE cap */
++#define MDIO_EEE_1000KX			0x0010	/* 1000KX EEE cap */
++#define MDIO_EEE_10GKX4			0x0020	/* 10G KX4 EEE cap */
++#define MDIO_EEE_10GKR			0x0040	/* 10G KR EEE cap */
+ 
+ /* LASI RX_ALARM control/status registers. */
+ #define MDIO_PMA_LASI_RX_PHYXSLFLT	0x0001	/* PHY XS RX local fault */
+diff --git a/include/linux/mii.h b/include/linux/mii.h
+index 2783eca..8ef3a7a 100644
+--- a/include/linux/mii.h
++++ b/include/linux/mii.h
+@@ -21,6 +21,8 @@
+ #define MII_EXPANSION		0x06	/* Expansion register          */
+ #define MII_CTRL1000		0x09	/* 1000BASE-T control          */
+ #define MII_STAT1000		0x0a	/* 1000BASE-T status           */
++#define	MII_MMD_CTRL		0x0d	/* MMD Access Control Register */
++#define	MII_MMD_DATA		0x0e	/* MMD Access Data Register */
+ #define MII_ESTATUS		0x0f	/* Extended Status             */
+ #define MII_DCOUNTER		0x12	/* Disconnect counter          */
+ #define MII_FCSCOUNTER		0x13	/* False carrier counter       */
+@@ -141,6 +143,13 @@
+ #define FLOW_CTRL_TX		0x01
+ #define FLOW_CTRL_RX		0x02
+ 
++/* MMD Access Control register fields */
++#define MII_MMD_CTRL_DEVAD_MASK	0x1f	/* Mask MMD DEVAD*/
++#define MII_MMD_CTRL_ADDR	0x0000	/* Address */
++#define MII_MMD_CTRL_NOINCR	0x4000	/* no post increment */
++#define MII_MMD_CTRL_INCR_RDWT	0x8000	/* post increment on reads & writes */
++#define MII_MMD_CTRL_INCR_ON_WT	0xC000	/* post increment on writes only */
++
+ /* This structure is used in all SIOCxMIIxxx ioctl calls */
+ struct mii_ioctl_data {
+ 	__u16		phy_id;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index c291cae..97fc4cf 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -532,6 +532,11 @@ int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
+ 		int (*run)(struct phy_device *));
+ int phy_scan_fixups(struct phy_device *phydev);
+ 
++int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable);
++int phy_get_eee_err(struct phy_device *phydev);
++int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data);
++int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data);
++
+ int __init mdio_bus_init(void);
+ void mdio_bus_exit(void);
+ 
+-- 
+1.7.4.4
