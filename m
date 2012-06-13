@@ -1,143 +1,48 @@
-From: Shuah Khan <shuahkhan@gmail.com>
-Subject: [PATCH] leds: Rename led_brightness_set() to led_set_brightness()
-Date: Wed, 13 Jun 2012 14:34:30 -0600
-Message-ID: <1339619670.13326.22.camel@lorien2>
-Reply-To: shuahkhan@gmail.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1 v3] Ethtool: Add EEE support
+Date: Wed, 13 Jun 2012 22:39:29 +0100
+Message-ID: <1339623569.2612.58.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1339318088-27126-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shuahkhan@gmail.com, LKML <linux-kernel@vger.kernel.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: bryan.wu@canonical.com, rpurdie@rpsys.net,
-	johannes@sipsolutions.net, linville@tuxdriver.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <eilong@broadcom.com>,
+	<peppe.cavallaro@st.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:17736 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750770Ab2FMVjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 17:39:35 -0400
+In-Reply-To: <1339318088-27126-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rename leds external interface led_brightness_set() to led_set_brightness().
-This is the second phase of the change to reduce confusion between the
-leds internal and external interfaces that set brightness. With this change,
-now the external interface is led_set_brightness(). The first phase renamed
-the internal interface led_set_brightness() to __led_set_brightness().
-There are no changes to the interface implementations.
+On Sun, 2012-06-10 at 11:48 +0300, Yuval Mintz wrote:
+> This patch adds 2 new ethtool commands which can be
+> used to manipulate network interfaces' support in
+> EEE.
+> 
+> Output of 'get' has the following form:
+> 
+> 	EEE Settings for p2p1:
+> 		EEE status: enabled - active
+> 		Tx LPI: 1000 (us)
+> 		Supported EEE link modes:  10000baseT/Full
+> 		Advertised EEE link modes:  10000baseT/Full
+> 		Link partner advertised EEE link modes:  10000baseT/Full
+> 
+> Thanks goes to Giuseppe Cavallaro for his original patch.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+[...]
 
-Signed-off-by: Shuah Khan <shuahkhan@gmail.com>
----
- drivers/leds/led-class.c       |    2 +-
- drivers/leds/led-core.c        |    4 ++--
- drivers/leds/led-triggers.c    |    2 +-
- drivers/leds/ledtrig-oneshot.c |    2 +-
- drivers/leds/ledtrig-timer.c   |    2 +-
- include/linux/leds.h           |    4 ++--
- net/mac80211/led.c             |    2 +-
- 7 files changed, 9 insertions(+), 9 deletions(-)
+Applied, thanks.
 
-diff --git a/drivers/leds/led-class.c b/drivers/leds/led-class.c
-index cb0a6eb..c599095 100644
---- a/drivers/leds/led-class.c
-+++ b/drivers/leds/led-class.c
-@@ -222,7 +222,7 @@ void led_classdev_unregister(struct led_classdev *led_cdev)
- #endif
- 
- 	/* Stop blinking */
--	led_brightness_set(led_cdev, LED_OFF);
-+	led_set_brightness(led_cdev, LED_OFF);
- 
- 	device_unregister(led_cdev->dev);
- 
-diff --git a/drivers/leds/led-core.c b/drivers/leds/led-core.c
-index 176961b..8a09c5f 100644
---- a/drivers/leds/led-core.c
-+++ b/drivers/leds/led-core.c
-@@ -103,7 +103,7 @@ void led_blink_set_oneshot(struct led_classdev *led_cdev,
- }
- EXPORT_SYMBOL(led_blink_set_oneshot);
- 
--void led_brightness_set(struct led_classdev *led_cdev,
-+void led_set_brightness(struct led_classdev *led_cdev,
- 			enum led_brightness brightness)
- {
- 	/* stop and clear soft-blink timer */
-@@ -113,4 +113,4 @@ void led_brightness_set(struct led_classdev *led_cdev,
- 
- 	__led_set_brightness(led_cdev, brightness);
- }
--EXPORT_SYMBOL(led_brightness_set);
-+EXPORT_SYMBOL(led_set_brightness);
-diff --git a/drivers/leds/led-triggers.c b/drivers/leds/led-triggers.c
-index f8b14dd..57721f2 100644
---- a/drivers/leds/led-triggers.c
-+++ b/drivers/leds/led-triggers.c
-@@ -112,7 +112,7 @@ void led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig)
- 		if (led_cdev->trigger->deactivate)
- 			led_cdev->trigger->deactivate(led_cdev);
- 		led_cdev->trigger = NULL;
--		led_brightness_set(led_cdev, LED_OFF);
-+		led_set_brightness(led_cdev, LED_OFF);
- 	}
- 	if (trig) {
- 		write_lock_irqsave(&trig->leddev_list_lock, flags);
-diff --git a/drivers/leds/ledtrig-oneshot.c b/drivers/leds/ledtrig-oneshot.c
-index 5cbab41..2c029aa 100644
---- a/drivers/leds/ledtrig-oneshot.c
-+++ b/drivers/leds/ledtrig-oneshot.c
-@@ -177,7 +177,7 @@ static void oneshot_trig_deactivate(struct led_classdev *led_cdev)
- 	}
- 
- 	/* Stop blinking */
--	led_brightness_set(led_cdev, LED_OFF);
-+	led_set_brightness(led_cdev, LED_OFF);
- }
- 
- static struct led_trigger oneshot_led_trigger = {
-diff --git a/drivers/leds/ledtrig-timer.c b/drivers/leds/ledtrig-timer.c
-index 9010f7a..f774d05 100644
---- a/drivers/leds/ledtrig-timer.c
-+++ b/drivers/leds/ledtrig-timer.c
-@@ -104,7 +104,7 @@ static void timer_trig_deactivate(struct led_classdev *led_cdev)
- 	}
- 
- 	/* Stop blinking */
--	led_brightness_set(led_cdev, LED_OFF);
-+	led_set_brightness(led_cdev, LED_OFF);
- }
- 
- static struct led_trigger timer_led_trigger = {
-diff --git a/include/linux/leds.h b/include/linux/leds.h
-index dd93a22..3aade1d 100644
---- a/include/linux/leds.h
-+++ b/include/linux/leds.h
-@@ -124,7 +124,7 @@ extern void led_blink_set_oneshot(struct led_classdev *led_cdev,
- 				  unsigned long *delay_off,
- 				  int invert);
- /**
-- * led_brightness_set - set LED brightness
-+ * led_set_brightness - set LED brightness
-  * @led_cdev: the LED to set
-  * @brightness: the brightness to set it to
-  *
-@@ -132,7 +132,7 @@ extern void led_blink_set_oneshot(struct led_classdev *led_cdev,
-  * software blink timer that implements blinking when the
-  * hardware doesn't.
-  */
--extern void led_brightness_set(struct led_classdev *led_cdev,
-+extern void led_set_brightness(struct led_classdev *led_cdev,
- 			       enum led_brightness brightness);
- 
- /*
-diff --git a/net/mac80211/led.c b/net/mac80211/led.c
-index 1bf7903..bcffa69 100644
---- a/net/mac80211/led.c
-+++ b/net/mac80211/led.c
-@@ -276,7 +276,7 @@ static void ieee80211_stop_tpt_led_trig(struct ieee80211_local *local)
- 
- 	read_lock(&tpt_trig->trig.leddev_list_lock);
- 	list_for_each_entry(led_cdev, &tpt_trig->trig.led_cdevs, trig_list)
--		led_brightness_set(led_cdev, LED_OFF);
-+		led_set_brightness(led_cdev, LED_OFF);
- 	read_unlock(&tpt_trig->trig.leddev_list_lock);
- }
- 
+Ben.
+
 -- 
-1.7.9.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
