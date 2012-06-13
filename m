@@ -1,25 +1,51 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: usbnet: PM related fixes
-Date: Wed, 13 Jun 2012 12:20:14 +0800
-Message-ID: <1339561217-18151-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:49329 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717Ab2FMEUe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 00:20:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH 1/3] usbnet: clear OPEN flag in failure path
+Date: Wed, 13 Jun 2012 12:20:15 +0800
+Message-ID: <1339561217-18151-2-git-send-email-ming.lei@canonical.com>
+References: <1339561217-18151-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1339561217-18151-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Without clearing OPEN flag in failure path, runtime or system resume
+may submit interrupt/rx URB and start tx queue mistakenly on a
+interface in DOWN state.
 
-The 3 patches fix some PM related problems.
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/usb/usbnet.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Sorry for sending them after the cleanup patches since I found them just
-after sending out the cleanup patches. 
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index ac2e493..f06cf9b 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -793,11 +793,13 @@ int usbnet_open (struct net_device *net)
+ 	if (info->manage_power) {
+ 		retval = info->manage_power(dev, 1);
+ 		if (retval < 0)
+-			goto done;
++			goto done_manage_power_error;
+ 		usb_autopm_put_interface(dev->intf);
+ 	}
+ 	return retval;
+ 
++done_manage_power_error:
++	clear_bit(EVENT_DEV_OPEN, &dev->flags);
+ done:
+ 	usb_autopm_put_interface(dev->intf);
+ done_nopm:
+-- 
+1.7.9.5
 
- drivers/net/usb/usbnet.c |   47 +++++++++++++++++++++++++++++-----------------
- 1 file changed, 30 insertions(+), 17 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
