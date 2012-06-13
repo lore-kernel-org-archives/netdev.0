@@ -1,41 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] net/sched/em_canid: Ematch rule to match CAN frames
- according to their CAN IDs
-Date: Wed, 13 Jun 2012 08:18:28 -0400
-Message-ID: <20120613121828.GP28598@canuck.infradead.org>
-References: <1339508913-7784-1-git-send-email-lisovy@gmail.com>
- <1339509809.22704.149.camel@edumazet-glaptop>
- <1339511593.22704.157.camel@edumazet-glaptop>
- <1339512622.8536.3.camel@lolumad>
- <4FD76349.6040407@hartkopp.net>
- <878vfr7d4l.fsf@steelpick.2x.cz>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: am3359 (cpsw): unable to get gigabit link working (PHY: ICPlus IP1001)
+Date: Wed, 13 Jun 2012 14:28:41 +0200
+Message-ID: <CAGm1_kurEedQc=5dR-mWPingRZcG9s0y9VDY=UijQC1X9RhJCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Rostislav Lisovy <lisovy@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, lartc@vger.kernel.org,
-	pisa@cmp.felk.cvut.cz
-To: Michal Sojka <sojkam1@fel.cvut.cz>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <878vfr7d4l.fsf@steelpick.2x.cz>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: cyril@ti.com, srk@ti.com, mugunthanvnm@ti.com
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:52781 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754012Ab2FMM3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 08:29:03 -0400
+Received: by gglu4 with SMTP id u4so325850ggl.19
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 05:29:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 13, 2012 at 11:52:10AM +0200, Michal Sojka wrote:
-> The performance of ematch might be slightly lower than of standalone
-> classifier. Rosta will compare the performance soon. 
+I'm using a custom am3359 based board. The first CPSW ports is
+connected to ICPlus IP1001 phy via RGMII interface. I have no problem
+with 100mbit link, but as soon as I connect my board to a 1Gbit switch
+the communication fails. I can see that some data goes on wire, but
+switch refuses to forward it. I can't receive anything either. Phy
+detects 1Gbit link correctly.
 
-I think it doesn't make a difference, there is no additional locking
-involved. Numbers definitely welcome though.
+My kernel: https://github.com/koenkooi/linux
 
-> > E.g. is it still possible to add additional ematches like checking for
-> > patterns inside can_frame.data[] (which is located in skb->data) with
-> > ematch_u32 or e.g. ematch_text ??
-> 
-> AFAIK, this should be possible and it will be a big advantage over
-> implementation as a standalone classifier.
+I also define phy interface as RGMII:
 
-Definitely and the real advantage is that you can combine these
-using logic operators.
+static struct cpsw_slave_data am33xx_cpsw_slaves[] = {
+        {
+                .slave_reg_ofs  = 0x208,
+                .sliver_reg_ofs = 0xd80,
+                .phy_id         = "0:02",
+                .phy_if               = PHY_INTERFACE_MODE_RGMII,
+        },
+        {
+                .slave_reg_ofs  = 0x308,
+                .sliver_reg_ofs = 0xdc0,
+                .phy_id         = "0:01",
+        },
+};
+
+As far as I can see in the mainline cpsw driver
+PHY_INTERFACE_MODE_RGMII will be ignored. Why? In the current driver
+it sets two bits in mac_control register:
+
+if (phy->interface == PHY_INTERFACE_MODE_RGMII) /* RGMII */
+                        mac_control |= (BIT(15)|BIT(16));
+
+Any idea where should I look to solve the problem?
