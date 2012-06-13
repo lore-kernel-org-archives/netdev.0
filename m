@@ -1,90 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] bnx2x: fix panic when TX ring is full
-Date: Wed, 13 Jun 2012 21:45:16 +0200
-Message-ID: <1339616716.22704.661.camel@edumazet-glaptop>
+From: Karl Hiramoto <karl@hiramoto.org>
+Subject: Re: PPPoE performance regression
+Date: Wed, 13 Jun 2012 22:17:21 +0200
+Message-ID: <4FD8F551.4020708@hiramoto.org>
+References: <1339143949.24571.72.camel@dualcore.traverse>  <1339144110.13998.1.camel@i7.infradead.org>  <1339144954.24571.80.camel@dualcore.traverse>  <1339147045.13998.3.camel@i7.infradead.org>  <1339289425.2661.27.camel@laptop> <1339317136.2851.54.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
-	Robert Evans <evansr@google.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Merav Sicron <meravs@broadcom.com>,
-	Yaniv Rosner <yanivr@broadcom.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Tomas Hruby <thruby@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: Nathan Williams <nathan@traverse.com.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:54210 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754212Ab2FMTpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 15:45:21 -0400
-Received: by eaak11 with SMTP id k11so333585eaa.19
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 12:45:20 -0700 (PDT)
+Received: from hapkido.dreamhost.com ([66.33.216.122]:60253 "EHLO
+	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113Ab2FMUTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 16:19:48 -0400
+Received: from homiemail-a34.g.dreamhost.com (caiajhbdccah.dreamhost.com [208.97.132.207])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id 458CF2191
+	for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 13:22:41 -0700 (PDT)
+In-Reply-To: <1339317136.2851.54.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 06/10/12 10:32, David Woodhouse wrote:
+>   On Sun, 2012-06-10 at 10:50 +1000, Nathan Williams wrote:
+>>> When using iperf with UDP, we can get 20Mbps downstream, but only about
+>>> 15Mbps throughput when using TCP on a short ADSL line (line sync at
+>>> 25Mbps).  Using iperf to send UDP traffic upstream at the same time
+>>> doesn't affect the downstream rate.
+>> ...
+>>
+>> I found the change responsible for the performance problem and rebuilt
+>> OpenWrt with the patch reversed on kernel 3.3.8 to confirm everything
+>> still works.  So the TX buffer is getting full, which causes the netif
+>> queue to be stopped and restarted after some skbs have been freed?
+> The *Ethernet* netif queue, yes. But not the PPP netif queue, I believe.
+> I think the PPP code keeps just blindly calling dev_queue_xmit() and
+> throwing away packets when they're not accepted.
+>
+>> commit 137742cf9738f1b4784058ff79aec7ca85e769d4
+>> Author: Karl Hiramoto <karl@hiramoto.org>
+>> Date:   Wed Sep 2 23:26:39 2009 -0700
+>>
+>>      atm/br2684: netif_stop_queue() when atm device busy and
+>> netif_wake_queue() when we can send packets again.
+> Nice work; well done finding that. I've added Karl and DaveM, and the
+> netdev@ list to Cc.
+>
+> (Btw, I assume the performance problem also goes away if you use PPPoA?
+> I've made changes in the PPPoA code recently to *eliminate* excessive
+> calls to netif_wake_queue(), and also to stop it from filling the ATM
+> device queue. That was commit 9d02daf7 in 3.5-rc1, which is already in
+> OpenWRT.)
+>
+> I was already looking vaguely at how we could limit the PPP queue depth
+> for PPPoE and implement byte queue limits. Currently the PPP code just
+> throws the packets at the Ethernet device and considers them 'gone',
+> which is why it's hitting the ATM limits all the time. The patch you
+> highlight is changing the behaviour in a case that should never *happen*
+> with PPP. It's suffering massive queue bloat if it's filling the ATM
+> queue, and we should fix *that*.
 
-There is a off by one error in the minimal number of BD in
-bnx2x_start_xmit() and bnx2x_tx_int() before stopping/resuming tx queue.
+Agreed,  the issue is the PPP layer.     I've seen this issue with PPPoE 
+before,  haven't had  the itch, time or interest to fix it though.   A 
+workaround to help mitigate the issue may be to increase the TX queue 
+length of the  br2684  interface, and the atm device if possible.   
+You'll pay the price  of buffer bloat and latency.
 
-A full size GSO packet, with data included in skb->head really needs
-(MAX_SKB_FRAGS + 4) BDs, because of bnx2x_tx_split()
 
-This error triggers if BQL is disabled and heavy TCP transmit traffic
-occurs.
-
-bnx2x_tx_split() definitely can be called, remove a wrong comment.
-
-Reported-by: Tomas Hruby <thruby@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Eilon Greenstein <eilong@broadcom.com>
-Cc: Yaniv Rosner <yanivr@broadcom.com>
-Cc: Merav Sicron <meravs@broadcom.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Robert Evans <evansr@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ad0743b..302765a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -190,7 +190,7 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
- 
- 		if ((netif_tx_queue_stopped(txq)) &&
- 		    (bp->state == BNX2X_STATE_OPEN) &&
--		    (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 3))
-+		    (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 4))
- 			netif_tx_wake_queue(txq);
- 
- 		__netif_tx_unlock(txq);
-@@ -2501,8 +2501,6 @@ int bnx2x_poll(struct napi_struct *napi, int budget)
- /* we split the first BD into headers and data BDs
-  * to ease the pain of our fellow microcode engineers
-  * we use one mapping for both BDs
-- * So far this has only been observed to happen
-- * in Other Operating Systems(TM)
-  */
- static noinline u16 bnx2x_tx_split(struct bnx2x *bp,
- 				   struct bnx2x_fp_txdata *txdata,
-@@ -3156,7 +3154,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	txdata->tx_bd_prod += nbd;
- 
--	if (unlikely(bnx2x_tx_avail(bp, txdata) < MAX_SKB_FRAGS + 3)) {
-+	if (unlikely(bnx2x_tx_avail(bp, txdata) < MAX_SKB_FRAGS + 4)) {
- 		netif_tx_stop_queue(txq);
- 
- 		/* paired memory barrier is in bnx2x_tx_int(), we have to keep
-@@ -3165,7 +3163,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		smp_mb();
- 
- 		fp->eth_q_stats.driver_xoff++;
--		if (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 3)
-+		if (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 4)
- 			netif_tx_wake_queue(txq);
- 	}
- 	txdata->tx_pkt++;
+--
+Karl
