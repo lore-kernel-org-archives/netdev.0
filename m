@@ -1,8 +1,7 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 11/12] bnx2x: Add FCoE capabilities
- advertisement
-Date: Wed, 13 Jun 2012 15:44:23 +0300
-Message-ID: <1339591464-10554-12-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 10/12] bnx2x: Support DCBX for all functions
+Date: Wed, 13 Jun 2012 15:44:22 +0300
+Message-ID: <1339591464-10554-11-git-send-email-meravs@broadcom.com>
 References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,216 +10,182 @@ Cc: "Merav Sicron" <meravs@broadcom.com>,
 	"Barak Witkowski" <barak@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2749 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2835 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752722Ab2FMJm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:42:59 -0400
+	id S1752802Ab2FMJmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 05:42:53 -0400
 In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Barak Witkowski <barak@broadcom.com>
 
-1. When FCoE offload driver is registered, copy its capabilities to the chip
-   scratchpad.
-2. Copy FCoE/iSCSI MAC addresses in aligned manner to chip scratchpad.
+In multi-function device, allow configuring dcbx admin params from all drivers
+on a single physical port.
 
 Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
  drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |   41 +++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   41 +++++++++++++++++++---
- drivers/net/ethernet/broadcom/cnic_if.h          |    6 ++++
- 4 files changed, 83 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    6 +++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c  |   30 +++++++++++++++-------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    1 +
+ 7 files changed, 31 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 1f2e03a..47ec384 100644
+index e0a3cc9..1f2e03a 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1332,6 +1332,7 @@ struct bnx2x {
- #define NO_ISCSI_FLAG			(1 << 14)
+@@ -1333,6 +1333,7 @@ struct bnx2x {
  #define NO_FCOE_FLAG			(1 << 15)
  #define BC_SUPPORTS_PFC_STATS		(1 << 17)
-+#define BC_SUPPORTS_FCOE_FEATURES	(1 << 19)
  #define USING_SINGLE_MSIX_FLAG		(1 << 20)
- #define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
++#define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
  
+ #define NO_ISCSI(bp)		((bp)->flags & NO_ISCSI_FLAG)
+ #define NO_ISCSI_OOO(bp)	((bp)->flags & NO_ISCSI_OOO_FLAG)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index c8a83a3..f774acf 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2257,8 +2257,10 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		return -EBUSY;
+ 	}
+ 
+-	if (bp->state != BNX2X_STATE_DIAG)
+-		bnx2x_dcbx_init(bp);
++	/* If PMF - send ADMIN DCBX msg to MFW to initiate DCBX FSM */
++	if (bp->port.pmf && (bp->state != BNX2X_STATE_DIAG))
++		bnx2x_dcbx_init(bp, false);
++
+ 	return 0;
+ 
+ #ifndef BNX2X_STOP_ON_ERROR
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index b6ae665..cd98a3a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -418,7 +418,7 @@ void bnx2x_ilt_set_info(struct bnx2x *bp);
+  *
+  * @bp:		driver handle
+  */
+-void bnx2x_dcbx_init(struct bnx2x *bp);
++void bnx2x_dcbx_init(struct bnx2x *bp, bool update_shmem);
+ 
+ /**
+  * bnx2x_set_power_state - set power state to the requested value.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index 4f9244b..8a73374 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -972,23 +972,26 @@ void bnx2x_dcbx_init_params(struct bnx2x *bp)
+ 	bp->dcbx_config_params.admin_default_priority = 0;
+ }
+ 
+-void bnx2x_dcbx_init(struct bnx2x *bp)
++void bnx2x_dcbx_init(struct bnx2x *bp, bool update_shmem)
+ {
+ 	u32 dcbx_lldp_params_offset = SHMEM_LLDP_DCBX_PARAMS_NONE;
+ 
++	/* only PMF can send ADMIN msg to MFW in old MFW versions */
++	if ((!bp->port.pmf) && (!(bp->flags & BC_SUPPORTS_DCBX_MSG_NON_PMF)))
++		return;
++
+ 	if (bp->dcbx_enabled <= 0)
+ 		return;
+ 
+ 	/* validate:
+ 	 * chip of good for dcbx version,
+ 	 * dcb is wanted
+-	 * the function is pmf
+ 	 * shmem2 contains DCBX support fields
+ 	 */
+ 	DP(BNX2X_MSG_DCB, "dcb_state %d bp->port.pmf %d\n",
+ 	   bp->dcb_state, bp->port.pmf);
+ 
+-	if (bp->dcb_state == BNX2X_DCB_STATE_ON && bp->port.pmf &&
++	if (bp->dcb_state == BNX2X_DCB_STATE_ON &&
+ 	    SHMEM2_HAS(bp, dcbx_lldp_params_offset)) {
+ 		dcbx_lldp_params_offset =
+ 			SHMEM2_RD(bp, dcbx_lldp_params_offset);
+@@ -999,12 +1002,23 @@ void bnx2x_dcbx_init(struct bnx2x *bp)
+ 		bnx2x_update_drv_flags(bp, 1 << DRV_FLAGS_DCB_CONFIGURED, 0);
+ 
+ 		if (SHMEM_LLDP_DCBX_PARAMS_NONE != dcbx_lldp_params_offset) {
+-			bnx2x_dcbx_admin_mib_updated_params(bp,
+-				dcbx_lldp_params_offset);
++			/* need HW lock to avoid scenario of two drivers
++			 * writing in parallel to shmem
++			 */
++			bnx2x_acquire_hw_lock(bp,
++					      HW_LOCK_RESOURCE_DCBX_ADMIN_MIB);
++			if (update_shmem)
++				bnx2x_dcbx_admin_mib_updated_params(bp,
++					dcbx_lldp_params_offset);
+ 
+ 			/* Let HW start negotiation */
+ 			bnx2x_fw_command(bp,
+ 					 DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG, 0);
++			/* release HW lock only after MFW acks that it finished
++			 * reading values from shmem
++			 */
++			bnx2x_release_hw_lock(bp,
++					      HW_LOCK_RESOURCE_DCBX_ADMIN_MIB);
+ 		}
+ 	}
+ }
+@@ -2063,10 +2077,8 @@ static u8 bnx2x_dcbnl_set_all(struct net_device *netdev)
+ 			   "Handling parity error recovery. Try again later\n");
+ 		return 1;
+ 	}
+-	if (netif_running(bp->dev)) {
+-		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+-		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
+-	}
++	if (netif_running(bp->dev))
++		bnx2x_dcbx_init(bp, true);
+ 	DP(BNX2X_MSG_DCB, "set_dcbx_params done (%d)\n", rc);
+ 	if (rc)
+ 		return 1;
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 6b77630..6bad5c4 100644
+index c61aa37..6b77630 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1250,6 +1250,7 @@ struct drv_func_mb {
- 	#define REQ_BC_VER_4_VRFY_AFEX_SUPPORTED        0x00070002
- 	#define REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED   0x00070014
- 	#define REQ_BC_VER_4_PFC_STATS_SUPPORTED        0x00070201
-+	#define REQ_BC_VER_4_FCOE_FEATURES              0x00070209
+@@ -1253,6 +1253,7 @@ struct drv_func_mb {
  
  	#define DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG         0xb0000000
  	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
-@@ -2698,8 +2699,46 @@ struct host_func_stats {
- /* VIC definitions */
- #define VICSTATST_UIF_INDEX 2
++	#define REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF     0x00070401
  
-+/* FCoE capabilities required from the driver */
-+struct fcoe_capabilities {
-+	u32 capability1;
-+	/* Maximum number of I/Os per connection */
-+	#define FCOE_IOS_PER_CONNECTION_MASK    0x0000ffff
-+	#define FCOE_IOS_PER_CONNECTION_SHIFT   0
-+	/* Maximum number of Logins per port */
-+	#define FCOE_LOGINS_PER_PORT_MASK       0xffff0000
-+	#define FCOE_LOGINS_PER_PORT_SHIFT   16
-+
-+	u32 capability2;
-+	/* Maximum number of exchanges */
-+	#define FCOE_NUMBER_OF_EXCHANGES_MASK   0x0000ffff
-+	#define FCOE_NUMBER_OF_EXCHANGES_SHIFT  0
-+	/* Maximum NPIV WWN per port */
-+	#define FCOE_NPIV_WWN_PER_PORT_MASK     0xffff0000
-+	#define FCOE_NPIV_WWN_PER_PORT_SHIFT    16
-+
-+	u32 capability3;
-+	/* Maximum number of targets supported */
-+	#define FCOE_TARGETS_SUPPORTED_MASK     0x0000ffff
-+	#define FCOE_TARGETS_SUPPORTED_SHIFT    0
-+	/* Maximum number of outstanding commands across all connections */
-+	#define FCOE_OUTSTANDING_COMMANDS_MASK  0xffff0000
-+	#define FCOE_OUTSTANDING_COMMANDS_SHIFT 16
-+
-+	u32 capability4;
-+	#define FCOE_CAPABILITY4_STATEFUL			0x00000001
-+	#define FCOE_CAPABILITY4_STATELESS			0x00000002
-+	#define FCOE_CAPABILITY4_CAPABILITIES_REPORTED_VALID	0x00000004
-+};
-+
-+struct glob_ncsi_oem_data {
-+	u32 driver_version;
-+	u32 unused[3];
-+	struct fcoe_capabilities fcoe_features[NVM_PATH_MAX][PORT_MAX];
-+};
-+
- /* current drv_info version */
--#define DRV_INFO_CUR_VER 1
-+#define DRV_INFO_CUR_VER 2
+ 	#define DRV_MSG_CODE_VF_DISABLED_DONE           0xc0000000
  
- /* drv_info op codes supported */
- enum drv_info_opcode {
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 26a8296..eb3e55a 100644
+index 3a4fefd..26a8296 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -74,6 +74,8 @@
- #define FW_FILE_NAME_E1H	"bnx2x/bnx2x-e1h-" FW_FILE_VERSION ".fw"
- #define FW_FILE_NAME_E2		"bnx2x/bnx2x-e2-" FW_FILE_VERSION ".fw"
- 
-+#define MAC_LEADING_ZERO_CNT (ALIGN(ETH_ALEN, sizeof(u32)) - ETH_ALEN)
-+
- /* Time in jiffies before concluding the transmitter is hung */
- #define TX_TIMEOUT		(5*HZ)
- 
-@@ -3060,7 +3062,8 @@ static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
- 	struct fcoe_stats_info *fcoe_stat =
- 		&bp->slowpath->drv_info_to_mcp.fcoe_stat;
- 
--	memcpy(fcoe_stat->mac_local, bp->fip_mac, ETH_ALEN);
-+	memcpy(fcoe_stat->mac_local + MAC_LEADING_ZERO_CNT,
-+	       bp->fip_mac, ETH_ALEN);
- 
- 	fcoe_stat->qos_priority =
- 		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_FCOE];
-@@ -3151,7 +3154,8 @@ static void bnx2x_drv_info_iscsi_stat(struct bnx2x *bp)
- 	struct iscsi_stats_info *iscsi_stat =
- 		&bp->slowpath->drv_info_to_mcp.iscsi_stat;
- 
--	memcpy(iscsi_stat->mac_local, bp->cnic_eth_dev.iscsi_mac, ETH_ALEN);
-+	memcpy(iscsi_stat->mac_local + MAC_LEADING_ZERO_CNT,
-+	       bp->cnic_eth_dev.iscsi_mac, ETH_ALEN);
- 
- 	iscsi_stat->qos_priority =
- 		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_ISCSI];
-@@ -9732,6 +9736,9 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+@@ -9732,6 +9732,8 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
  	bp->flags |= (val >= REQ_BC_VER_4_PFC_STATS_SUPPORTED) ?
  			BC_SUPPORTS_PFC_STATS : 0;
  
-+	bp->flags |= (val >= REQ_BC_VER_4_FCOE_FEATURES) ?
-+			BC_SUPPORTS_FCOE_FEATURES : 0;
-+
- 	bp->flags |= (val >= REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF) ?
- 			BC_SUPPORTS_DCBX_MSG_NON_PMF : 0;
++	bp->flags |= (val >= REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF) ?
++			BC_SUPPORTS_DCBX_MSG_NON_PMF : 0;
  	boot_mode = SHMEM_RD(bp,
-@@ -12548,21 +12555,45 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
- 		break;
- 	}
- 	case DRV_CTL_ULP_REGISTER_CMD: {
--		int ulp_type = ctl->data.ulp_type;
-+		int ulp_type = ctl->data.register_data.ulp_type;
- 
- 		if (CHIP_IS_E3(bp)) {
- 			int idx = BP_FW_MB_IDX(bp);
--			u32 cap;
-+			u32 cap = SHMEM2_RD(bp, drv_capabilities_flag[idx]);
-+			int path = BP_PATH(bp);
-+			int port = BP_PORT(bp);
-+			int i;
-+			u32 scratch_offset;
-+			u32 *host_addr;
- 
--			cap = SHMEM2_RD(bp, drv_capabilities_flag[idx]);
-+			/* first write capability to shmem2 */
- 			if (ulp_type == CNIC_ULP_ISCSI)
- 				cap |= DRV_FLAGS_CAPABILITIES_LOADED_ISCSI;
- 			else if (ulp_type == CNIC_ULP_FCOE)
- 				cap |= DRV_FLAGS_CAPABILITIES_LOADED_FCOE;
- 			SHMEM2_WR(bp, drv_capabilities_flag[idx], cap);
-+
-+			if ((ulp_type != CNIC_ULP_FCOE) ||
-+			    (!SHMEM2_HAS(bp, ncsi_oem_data_addr)) ||
-+			    (!(bp->flags &  BC_SUPPORTS_FCOE_FEATURES)))
-+				break;
-+
-+			/* if reached here - should write fcoe capabilities */
-+			scratch_offset = SHMEM2_RD(bp, ncsi_oem_data_addr);
-+			if (!scratch_offset)
-+				break;
-+			scratch_offset += offsetof(struct glob_ncsi_oem_data,
-+						   fcoe_features[path][port]);
-+			host_addr = (u32 *) &(ctl->data.register_data.
-+					      fcoe_features);
-+			for (i = 0; i < sizeof(struct fcoe_capabilities);
-+			     i += 4)
-+				REG_WR(bp, scratch_offset + i,
-+				       *(host_addr + i/4));
- 		}
- 		break;
- 	}
-+
- 	case DRV_CTL_ULP_UNREGISTER_CMD: {
- 		int ulp_type = ctl->data.ulp_type;
- 
-diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-index 289274e..82872e6 100644
---- a/drivers/net/ethernet/broadcom/cnic_if.h
-+++ b/drivers/net/ethernet/broadcom/cnic_if.h
-@@ -131,6 +131,11 @@ struct drv_ctl_l2_ring {
- 	u32		cid;
- };
- 
-+struct drv_ctl_register_data {
-+	int ulp_type;
-+	struct fcoe_capabilities fcoe_features;
-+};
-+
- struct drv_ctl_info {
- 	int	cmd;
- 	union {
-@@ -138,6 +143,7 @@ struct drv_ctl_info {
- 		struct drv_ctl_io io;
- 		struct drv_ctl_l2_ring ring;
- 		int ulp_type;
-+		struct drv_ctl_register_data register_data;
- 		char bytes[MAX_DRV_CTL_DATA];
- 	} data;
- };
+ 			dev_info.port_feature_config[BP_PORT(bp)].mba_config) &
+ 			PORT_FEATURE_MBA_BOOT_AGENT_TYPE_MASK;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index bfef98f..a78e356 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -5913,6 +5913,7 @@
+ #define MISC_REGISTERS_SPIO_OUTPUT_LOW				 0
+ #define MISC_REGISTERS_SPIO_SET_POS				 8
+ #define HW_LOCK_MAX_RESOURCE_VALUE				 31
++#define HW_LOCK_RESOURCE_DCBX_ADMIN_MIB				 13
+ #define HW_LOCK_RESOURCE_DRV_FLAGS				 10
+ #define HW_LOCK_RESOURCE_GPIO					 1
+ #define HW_LOCK_RESOURCE_MDIO					 0
 -- 
 1.7.10
