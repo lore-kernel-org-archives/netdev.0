@@ -1,87 +1,94 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netpoll: fix netpoll_send_udp() bugs
-Date: Wed, 13 Jun 2012 07:30:21 +0200
-Message-ID: <1339565421.22704.310.camel@edumazet-glaptop>
+Subject: Re: [PATCH 1/3] net: lpc_eth: Replace WARN() trace with simple
+ pr_warn()
+Date: Wed, 13 Jun 2012 08:16:12 +0200
+Message-ID: <1339568172.22704.312.camel@edumazet-glaptop>
+References: <1339401793-12258-1-git-send-email-stigge@antcom.de>
+	 <1339403108.6001.1697.camel@edumazet-glaptop> <4FD5AE1D.9030807@antcom.de>
+	 <20120611.020352.1962768244524496467.davem@davemloft.net>
+	 <4FD5B9C8.4020800@antcom.de>  <1339442328.6001.2602.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Bogdan Hamciuc <bogdan.hamciuc@freescale.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:42247 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752036Ab2FMFaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 01:30:24 -0400
-Received: by eaak11 with SMTP id k11so38217eaa.19
-        for <netdev@vger.kernel.org>; Tue, 12 Jun 2012 22:30:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin.wells@nxp.com,
+	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: Roland Stigge <stigge@antcom.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339442328.6001.2602.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2012-06-11 at 21:18 +0200, Eric Dumazet wrote:
+> On Mon, 2012-06-11 at 11:26 +0200, Roland Stigge wrote:
+> 
+> > Is it sensible at this point to increase the TX buffers anyway? For
+> > different reasons of course: We have enough SRAM available and TX
+> > buffers (16->32) are still more than RX buffers (48).
+> 
+> I doubt it has any impact on performance for a 100Mbit link ?
+> 
+> One thing that could be done would be to free skbs in
+> lpc_eth_hard_start_xmit() instead of __lpc_handle_xmit()
+> 
 
-Bogdan Hamciuc diagnosed and fixed following bug in netpoll_send_udp() :
+Here is the patch I was thinking about
 
-"skb->len += len;" instead of "skb_put(skb, len);"
+(on top of latest net-next)
 
-Meaning that _if_ a network driver needs to call skb_realloc_headroom(),
-only packet headers would be copied, leaving garbage in the payload.
+Could you please test it ?
 
-However the skb_realloc_headroom() must be avoided as much as possible
-since it requires memory and netpoll tries hard to work even if memory
-is exhausted (using a pool of preallocated skbs)
+ drivers/net/ethernet/nxp/lpc_eth.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-It appears netpoll_send_udp() reserved 16 bytes for the ethernet header,
-which happens to work for typicall drivers but not all.
-
-Right thing is to use LL_RESERVED_SPACE(dev)
-(And also add dev->needed_tailroom of tailroom)
-
-This patch combines both fixes.
-
-Many thanks to Bogdan for raising this issue.
-
-Reported-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Tested-by: Bogdan Hamciuc <bogdan.hamciuc@freescale.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Neil Horman <nhorman@tuxdriver.com>
----
- net/core/netpoll.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 3d84fb9..f9f40b9 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -362,22 +362,23 @@ EXPORT_SYMBOL(netpoll_send_skb_on_dev);
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index 083d671..426f14c 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -440,7 +440,7 @@ struct netdata_local {
+ 	spinlock_t		lock;
+ 	void __iomem		*net_base;
+ 	u32			msg_enable;
+-	struct sk_buff		*skb[ENET_TX_DESC];
++	unsigned int		skblen[ENET_TX_DESC];
+ 	unsigned int		last_tx_idx;
+ 	unsigned int		num_used_tx_buffs;
+ 	struct mii_bus		*mii_bus;
+@@ -908,7 +908,7 @@ static void __lpc_handle_xmit(struct net_device *ndev)
  
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
- {
--	int total_len, eth_len, ip_len, udp_len;
-+	int total_len, ip_len, udp_len;
- 	struct sk_buff *skb;
- 	struct udphdr *udph;
- 	struct iphdr *iph;
- 	struct ethhdr *eth;
+ 	txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
+ 	while (pldat->last_tx_idx != txcidx) {
+-		skb = pldat->skb[pldat->last_tx_idx];
++		unsigned int skblen = pldat->skblen[pldat->last_tx_idx];
  
- 	udp_len = len + sizeof(*udph);
--	ip_len = eth_len = udp_len + sizeof(*iph);
--	total_len = eth_len + ETH_HLEN + NET_IP_ALIGN;
-+	ip_len = udp_len + sizeof(*iph);
-+	total_len = ip_len + LL_RESERVED_SPACE(np->dev);
+ 		/* A buffer is available, get buffer status */
+ 		ptxstat = &pldat->tx_stat_v[pldat->last_tx_idx];
+@@ -945,9 +945,8 @@ static void __lpc_handle_xmit(struct net_device *ndev)
+ 		} else {
+ 			/* Update stats */
+ 			ndev->stats.tx_packets++;
+-			ndev->stats.tx_bytes += skb->len;
++			ndev->stats.tx_bytes += skblen;
+ 		}
+-		dev_kfree_skb_irq(skb);
  
--	skb = find_skb(np, total_len, total_len - len);
-+	skb = find_skb(np, total_len + np->dev->needed_tailroom,
-+		       total_len - len);
- 	if (!skb)
- 		return;
+ 		txcidx = readl(LPC_ENET_TXCONSUMEINDEX(pldat->net_base));
+ 	}
+@@ -1132,7 +1131,7 @@ static int lpc_eth_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	memcpy(pldat->tx_buff_v + txidx * ENET_MAXF_SIZE, skb->data, len);
  
- 	skb_copy_to_linear_data(skb, msg, len);
--	skb->len += len;
-+	skb_put(skb, len);
+ 	/* Save the buffer and increment the buffer counter */
+-	pldat->skb[txidx] = skb;
++	pldat->skblen[txidx] = len;
+ 	pldat->num_used_tx_buffs++;
  
- 	skb_push(skb, sizeof(*udph));
- 	skb_reset_transport_header(skb);
+ 	/* Start transmit */
+@@ -1147,6 +1146,7 @@ static int lpc_eth_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	spin_unlock_irq(&pldat->lock);
+ 
++	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
+ }
+ 
