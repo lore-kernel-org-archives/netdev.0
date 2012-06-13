@@ -1,51 +1,35 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: am3359 (cpsw): unable to get gigabit link working (PHY: ICPlus IP1001)
-Date: Wed, 13 Jun 2012 14:28:41 +0200
-Message-ID: <CAGm1_kurEedQc=5dR-mWPingRZcG9s0y9VDY=UijQC1X9RhJCw@mail.gmail.com>
+From: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
+Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
+ __set_bit_le() function
+Date: Wed, 13 Jun 2012 21:41:57 +0900
+Message-ID: <20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
+References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
+	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
+	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: cyril@ti.com, srk@ti.com, mugunthanvnm@ti.com
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:52781 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754012Ab2FMM3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 08:29:03 -0400
-Received: by gglu4 with SMTP id u4so325850ggl.19
-        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 05:29:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
+	akpm@linux-foundation.org, bhutchings@solarflare.com,
+	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I'm using a custom am3359 based board. The first CPSW ports is
-connected to ICPlus IP1001 phy via RGMII interface. I have no problem
-with 100mbit link, but as soon as I connect my board to a 1Gbit switch
-the communication fails. I can see that some data goes on wire, but
-switch refuses to forward it. I can't receive anything either. Phy
-detects 1Gbit link correctly.
+On Wed, 13 Jun 2012 18:43:40 +0900
+Akinobu Mita <akinobu.mita@gmail.com> wrote:
 
-My kernel: https://github.com/koenkooi/linux
+> Should this hash_table be converted from u16 hash_table[32] to
+> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is aligned
+> on long-word boundary?
 
-I also define phy interface as RGMII:
+I think hash_table is already long-word aligned because it is placed
+right after a pointer.
 
-static struct cpsw_slave_data am33xx_cpsw_slaves[] = {
-        {
-                .slave_reg_ofs  = 0x208,
-                .sliver_reg_ofs = 0xd80,
-                .phy_id         = "0:02",
-                .phy_if               = PHY_INTERFACE_MODE_RGMII,
-        },
-        {
-                .slave_reg_ofs  = 0x308,
-                .sliver_reg_ofs = 0xdc0,
-                .phy_id         = "0:01",
-        },
-};
-
-As far as I can see in the mainline cpsw driver
-PHY_INTERFACE_MODE_RGMII will be ignored. Why? In the current driver
-it sets two bits in mac_control register:
-
-if (phy->interface == PHY_INTERFACE_MODE_RGMII) /* RGMII */
-                        mac_control |= (BIT(15)|BIT(16));
-
-Any idea where should I look to solve the problem?
+	Takuya
