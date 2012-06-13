@@ -1,68 +1,46 @@
-From: Michal Sojka <sojkam1@fel.cvut.cz>
-Subject: Re: [RFC] net/sched/em_canid: Ematch rule to match CAN frames according to their CAN IDs
-Date: Wed, 13 Jun 2012 11:52:10 +0200
-Message-ID: <878vfr7d4l.fsf@steelpick.2x.cz>
-References: <1339508913-7784-1-git-send-email-lisovy@gmail.com> <1339509809.22704.149.camel@edumazet-glaptop> <1339511593.22704.157.camel@edumazet-glaptop> <1339512622.8536.3.camel@lolumad> <4FD76349.6040407@hartkopp.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 2/5] ipv4: Kill ip_rt_frag_needed().
+Date: Wed, 13 Jun 2012 12:07:09 +0200
+Message-ID: <20120613100709.GO27795@secunet.com>
+References: <20120612114440.GM27795@secunet.com>
+ <20120612.133333.527780673034196147.davem@davemloft.net>
+ <20120613080152.GN27795@secunet.com>
+ <20120613.024225.1623724542402950589.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Rostislav Lisovy <lisovy@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from max.feld.cvut.cz ([147.32.192.36]:38646 "EHLO max.feld.cvut.cz"
+Received: from a.mx.secunet.com ([195.81.216.161]:34948 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752165Ab2FMJ6m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:58:42 -0400
-In-Reply-To: <4FD76349.6040407@hartkopp.net>
+	id S1751125Ab2FMKHc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 06:07:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20120613.024225.1623724542402950589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Oliver,
+On Wed, Jun 13, 2012 at 02:42:25AM -0700, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Wed, 13 Jun 2012 10:01:52 +0200
+> 
+> > I think an application that sets IP_PMTUDISC_WANT explicitly will
+> > rely on the fact that the kernel does pmtu discovery. Changing
+> > the socket setting to IP_PMTUDISC_DONT the first time we get into
+> > trouble makes IP_PMTUDISC_WANT pointless for udp and raw sockets.
+> 
+> How so?
+> 
+> We are mimicking exactly what would happen if we had just created
+> a new routing cache entry when the application openned the socket.
+> 
+> There is no behavioral difference whatsoever.
+> 
+> We absolutely do perform PMTU discovery, the first large packet
+> will trigger it.  And then, as if we had lowered the PMTU in
+> the routing cache entry, we will stop setting DF in the packets.
 
-Oliver Hartkopp <socketcan@hartkopp.net> writes:
-> Hello Rostislav, hello Eric,
->
-> On 12.06.2012 16:50, Rostislav Lisovy wrote:
->
->> On Tue, 2012-06-12 at 16:33 +0200, Eric Dumazet wrote: 
->>> On Tue, 2012-06-12 at 16:03 +0200, Eric Dumazet wrote:
->>>> On Tue, 2012-06-12 at 15:48 +0200, Rostislav Lisovy wrote:
->>>>> em_canid is an ematch capable of classifying CAN frames according to
->>>>> their CAN IDs.
->>>>>
->>>>> This RFC/Patch contains a reworked classifier initially posted in
->>>>> http://www.spinics.net/lists/netdev/msg200114.html
->>>>> The functionality is the same however there is almost 50% reduction
->>>>> in the source code length.
->>>>>
->>>>> There is a slight difference between this ematch and other available
->>>>> ematches. Other ematches implement only a simple match operation and
->>>>> are meant to be combined with logic conjunctions (e.g. AND, OR).
->>>>> Our ematch makes it possible to use up to 32 rules in single
->>>>> 'configuration statement' (with OR semantics). This allows us to take
->>>>> the advantage of the bit field data-structure in the implementation of
->>>>> the match function.
->>>>>
->>>>> Example: canid(sff 0x123 eff 0x124 sff 0x230:0x7f0)
->>>>> This ematch would match CAN SFF frames with the following IDs:
->>>>> 0x123, 0x230--0x23f or EFF frame with ID 0x124.
->
-> i tried to figure out the difference between the implementation as classifier
-> (link above) and this implementation as an ematch.
->
-> Do we have any disadvantages using the ematch? 
-
-The performance of ematch might be slightly lower than of standalone
-classifier. Rosta will compare the performance soon. 
-
-> E.g. is it still possible to add additional ematches like checking for
-> patterns inside can_frame.data[] (which is located in skb->data) with
-> ematch_u32 or e.g. ematch_text ??
-
-AFAIK, this should be possible and it will be a big advantage over
-implementation as a standalone classifier.
-
-Regards,
--Michal
+Maybe I missunderstood what you meant. I thought that you don't want
+to update the pmtu cache informations at all on udp and raw.
+If we update the pmtu cache informations with first large packet,
+I agree absolutely.
