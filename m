@@ -1,67 +1,68 @@
-From: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
-Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
- __set_bit_le() function
-Date: Wed, 13 Jun 2012 23:00:13 +0900
-Message-ID: <20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
-References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
-	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
-	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
-	<20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
-	<CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2x: fix checksum validation
+Date: Wed, 13 Jun 2012 16:10:05 +0200
+Message-ID: <1339596605.22704.363.camel@edumazet-glaptop>
+References: <1339581004.22704.340.camel@edumazet-glaptop>
+	 <1339594957.13000.7.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
-	akpm@linux-foundation.org, bhutchings@solarflare.com,
-	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
-	avi@redhat.com, mtosatti@redhat.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Akinobu Mita <akinobu.mita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Robert Evans <evansr@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yaniv Rosner <yanivr@broadcom.com>,
+	Merav Sicron <meravs@broadcom.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>
+To: eilong@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:52991 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751144Ab2FMOKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 10:10:12 -0400
+Received: by eaak11 with SMTP id k11so221265eaa.19
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 07:10:10 -0700 (PDT)
+In-Reply-To: <1339594957.13000.7.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Jun 2012 22:31:13 +0900
-Akinobu Mita <akinobu.mita@gmail.com> wrote:
+On Wed, 2012-06-13 at 16:42 +0300, Eilon Greenstein wrote:
 
-> >> Should this hash_table be converted from u16 hash_table[32] to
-> >> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is aligned
-> >> on long-word boundary?
-> >
-> > I think hash_table is already long-word aligned because it is placed
-> > right after a pointer.
+> So what you are saying is that the indication that the checksum is valid
+> is interpreted as the encapsulated checksum and not just the IP
+> header... This was not the intention of this code, it was meant to
+> indicate that the IP header is valid.
 > 
-> I recommend converting to proper bitmap.  Because such an implicit
-> assumption is easily broken by someone touching this function.
 
-Do you mean something like:
-	DECLARE_BITMAP(__hash_table, 16 * 32);
-	u16 *hash_table = (u16 *)__hash_table;
-?
+IP header is always checked by our stack.
 
-Grant, what do you think about this?
+Its so fast that there is no point spending a bit in skb, and testing
+this bit.
 
-	Takuya
+Yes, CHECKSUM_UNNECESSARY really means everything was checked up to L4
+
+> I must admit that the code looks much better with this change. The only
+> down side is that there is no longer IP checksum offload for pure IP
+> packets, but that's negligible. The only thing that bothers me is that
+> there is no way to indicate anything about the encapsulated packet
+> separately from the outer header. Is that the way we want to keep it?
+
+Some NIC allow for csum L3 offloading, providing the 16bit csum.
+
+We then can :
+
+skb->csum = csum;
+skb->ip_summed = CHECKSUM_COMPLETE;
+
+Check drivers/net/ethernet/ibm/ehea/ehea_main.c,
+drivers/net/ethernet/marvell/skge.c ,
+drivers/net/ethernet/marvell/sky2.c , ... for examples.
 
 
-===
-drivers/net/ethernet/dec/tulip/tulip_core.c:
+When a layer is removed(pulled), we can use skb_postpull_rcsum() and
+friends (check net/ipv4/ip_gre.c for example) to keep skb->csum up2date.
 
-static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
-{
-	struct tulip_private *tp = netdev_priv(dev);
-	u16 hash_table[32];
-	...
-}
 
-drivers/net/ethernet/dec/tulip/de2104x.c:
-
-static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
-{
-	struct de_private *de = netdev_priv(dev);
-	u16 hash_table[32];
-	...
-}
+If bnx2x provides this csum (for non TCP/UCP packets or fragments), you
+could fallback to this CHECKSUM_COMPLETE stuff.
