@@ -1,48 +1,41 @@
-From: "Merav Sicron" <meravs@broadcom.com>
-Subject: Re: [net-next patch 8/12] bnx2x: Allow up to 63 RSS queues
- default 8 queues
-Date: Wed, 13 Jun 2012 18:14:20 +0300
-Message-ID: <1339600460.17240.69.camel@lb-tlvb-meravs.il.broadcom.com>
-References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
- <1339591464-10554-9-git-send-email-meravs@broadcom.com>
- <1339581175.22704.342.camel@edumazet-glaptop>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] net/sched/em_canid: Ematch rule to match CAN frames
+ according to their CAN IDs
+Date: Wed, 13 Jun 2012 08:18:28 -0400
+Message-ID: <20120613121828.GP28598@canuck.infradead.org>
+References: <1339508913-7784-1-git-send-email-lisovy@gmail.com>
+ <1339509809.22704.149.camel@edumazet-glaptop>
+ <1339511593.22704.157.camel@edumazet-glaptop>
+ <1339512622.8536.3.camel@lolumad>
+ <4FD76349.6040407@hartkopp.net>
+ <878vfr7d4l.fsf@steelpick.2x.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2542 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753972Ab2FMMMc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 08:12:32 -0400
-In-Reply-To: <1339581175.22704.342.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Rostislav Lisovy <lisovy@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, lartc@vger.kernel.org,
+	pisa@cmp.felk.cvut.cz
+To: Michal Sojka <sojkam1@fel.cvut.cz>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <878vfr7d4l.fsf@steelpick.2x.cz>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Wed, Jun 13, 2012 at 11:52:10AM +0200, Michal Sojka wrote:
+> The performance of ematch might be slightly lower than of standalone
+> classifier. Rosta will compare the performance soon. 
 
-On Wed, 2012-06-13 at 11:52 +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-13 at 15:44 +0300, Merav Sicron wrote:
-> > This patch removed the limitation in the code for 16 RSS queues. The default
-> > (without other instruction from the user) number of queues is determined
-> > according to the number of MSI-X vectors supported for that function, the number
-> > of CPUs in the system, and a maximum of 8 queues.
-> 
-> Thats a very confusing changelog
-> 
-> You meant : " a minimum of 8 queues" ?
-> 
-No, I meant maximum...for example in a system with 16 CPUs we will
-allocate 8 RSS queues. We saw that in most scenarios we tested there was
-no need for more than 8 queues to get the maximal throughput, and by
-limiting to 8 by default we reduce the allocated memory. We do provide
-ethtool -L support so that the user could request more RSS queues if
-desired.
+I think it doesn't make a difference, there is no additional locking
+involved. Numbers definitely welcome though.
 
-> You should give more explanations, because its a sensible area for
-> performances.
+> > E.g. is it still possible to add additional ematches like checking for
+> > patterns inside can_frame.data[] (which is located in skb->data) with
+> > ematch_u32 or e.g. ematch_text ??
 > 
-Thanks,
-Merav
+> AFAIK, this should be possible and it will be a big advantage over
+> implementation as a standalone classifier.
+
+Definitely and the real advantage is that you can combine these
+using logic operators.
