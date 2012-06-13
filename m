@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: fix checksum validation
-Date: Wed, 13 Jun 2012 15:59:39 -0700 (PDT)
-Message-ID: <20120613.155939.1175872840511097833.davem@davemloft.net>
-References: <1339594957.13000.7.camel@lb-tlvb-eilong.il.broadcom.com>
-	<1339596605.22704.363.camel@edumazet-glaptop>
-	<1339597263.15601.0.camel@lb-tlvb-eilong.il.broadcom.com>
+Subject: Re: [PATCH net-next] bonding: drop_monitor aware
+Date: Wed, 13 Jun 2012 16:00:49 -0700 (PDT)
+Message-ID: <20120613.160049.753989290507288197.davem@davemloft.net>
+References: <1339601407.22704.380.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	therbert@google.com, evansr@google.com, willemb@google.com,
-	yanivr@broadcom.com, meravs@broadcom.com, yuvalmin@broadcom.com
-To: eilong@broadcom.com
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35701 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35719 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752648Ab2FMW7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 18:59:39 -0400
-In-Reply-To: <1339597263.15601.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	with ESMTP id S1752648Ab2FMXAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 19:00:50 -0400
+In-Reply-To: <1339601407.22704.380.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Wed, 13 Jun 2012 17:21:03 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 13 Jun 2012 17:30:07 +0200
 
-> Thanks Erik. This leaves me with just one thing to add:
-> Acked-by: Eilon Greenstein <eilong@broadcom.com>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When packets are dropped in TX path, its better to use kfree_skb()
+> instead of dev_kfree_skb() to give proper drop_monitor events.
+> 
+> Also move the kfree_skb() call after read_unlock() in bond_alb_xmit()
+> and bond_xmit_activebackup()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, and queued up for -stable, thanks.
+Applied, thanks Eric.
