@@ -1,7 +1,8 @@
 From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Subject: [PATCH 4/5] powerpc: bitops: Introduce {clear,set}_bit_le()
-Date: Wed, 13 Jun 2012 13:04:38 +0900
-Message-ID: <20120613130438.b1cd04db.yoshikawa.takuya@oss.ntt.co.jp>
+Subject: [PATCH 5/5] KVM: Replace test_and_set_bit_le() in
+ mark_page_dirty_in_slot() with set_bit_le()
+Date: Wed, 13 Jun 2012 13:05:31 +0900
+Message-ID: <20120613130531.dd67479c.yoshikawa.takuya@oss.ntt.co.jp>
 References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -20,35 +21,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
 
-Needed to replace test_and_set_bit_le() in virt/kvm/kvm_main.c which is
-being used for this missing function.
+Now that we have defined generic set_bit_le() we do not need to use
+test_and_set_bit_le() for atomically setting a bit.
 
 Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Avi Kivity <avi@redhat.com>
+Cc: Marcelo Tosatti <mtosatti@redhat.com>
 ---
- arch/powerpc/include/asm/bitops.h |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+ virt/kvm/kvm_main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/bitops.h b/arch/powerpc/include/asm/bitops.h
-index efdc926..dc2cf9c 100644
---- a/arch/powerpc/include/asm/bitops.h
-+++ b/arch/powerpc/include/asm/bitops.h
-@@ -288,6 +288,16 @@ static __inline__ int test_bit_le(unsigned long nr,
- 	return (tmp[nr >> 3] >> (nr & 7)) & 1;
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index 02cb440..560c502 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -1485,8 +1485,7 @@ void mark_page_dirty_in_slot(struct kvm *kvm, struct kvm_memory_slot *memslot,
+ 	if (memslot && memslot->dirty_bitmap) {
+ 		unsigned long rel_gfn = gfn - memslot->base_gfn;
+ 
+-		/* TODO: introduce set_bit_le() and use it */
+-		test_and_set_bit_le(rel_gfn, memslot->dirty_bitmap);
++		set_bit_le(rel_gfn, memslot->dirty_bitmap);
+ 	}
  }
  
-+static inline void set_bit_le(int nr, void *addr)
-+{
-+	set_bit(nr ^ BITOP_LE_SWIZZLE, addr);
-+}
-+
-+static inline void clear_bit_le(int nr, void *addr)
-+{
-+	clear_bit(nr ^ BITOP_LE_SWIZZLE, addr);
-+}
-+
- static inline void __set_bit_le(int nr, void *addr)
- {
- 	__set_bit(nr ^ BITOP_LE_SWIZZLE, addr);
 -- 
 1.7.5.4
