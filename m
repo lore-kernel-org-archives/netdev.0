@@ -1,191 +1,251 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 10/12] bnx2x: Support DCBX for all functions
-Date: Wed, 13 Jun 2012 15:44:22 +0300
-Message-ID: <1339591464-10554-11-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 1/12] bnx2x: Add support for external LB
+Date: Wed, 13 Jun 2012 15:44:13 +0300
+Message-ID: <1339591464-10554-2-git-send-email-meravs@broadcom.com>
 References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Merav Sicron" <meravs@broadcom.com>,
-	"Barak Witkowski" <barak@broadcom.com>
+Cc: "Merav Sicron" <meravs@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2835 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2749 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752802Ab2FMJmx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:42:53 -0400
+	id S1752650Ab2FMJmi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 05:42:38 -0400
 In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Barak Witkowski <barak@broadcom.com>
+This change enables to do self-test with external loopback via ethtool.
 
-In multi-function device, allow configuring dcbx admin params from all drivers
-on a single physical port.
-
-Signed-off-by: Barak Witkowski <barak@broadcom.com>
+Signed-off-by: Merav Sicron <meravs@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    6 +++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c  |   30 +++++++++++++++-------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    1 +
- 7 files changed, 31 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    5 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |    4 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   76 ++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    7 +-
+ 4 files changed, 82 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index e0a3cc9..1f2e03a 100644
+index e30e2a2..fb6de4a 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1333,6 +1333,7 @@ struct bnx2x {
- #define NO_FCOE_FLAG			(1 << 15)
- #define BC_SUPPORTS_PFC_STATS		(1 << 17)
- #define USING_SINGLE_MSIX_FLAG		(1 << 20)
-+#define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
+@@ -1832,6 +1832,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define LOAD_NORMAL			0
+ #define LOAD_OPEN			1
+ #define LOAD_DIAG			2
++#define LOAD_LOOPBACK_EXT		3
+ #define UNLOAD_NORMAL			0
+ #define UNLOAD_CLOSE			1
+ #define UNLOAD_RECOVERY			2
+@@ -1915,12 +1916,14 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define PCICFG_LINK_SPEED_SHIFT		16
  
- #define NO_ISCSI(bp)		((bp)->flags & NO_ISCSI_FLAG)
- #define NO_ISCSI_OOO(bp)	((bp)->flags & NO_ISCSI_OOO_FLAG)
+ 
+-#define BNX2X_NUM_TESTS			7
++#define BNX2X_NUM_TESTS			8
+ 
+ #define BNX2X_PHY_LOOPBACK		0
+ #define BNX2X_MAC_LOOPBACK		1
++#define BNX2X_EXT_LOOPBACK		2
+ #define BNX2X_PHY_LOOPBACK_FAILED	1
+ #define BNX2X_MAC_LOOPBACK_FAILED	2
++#define BNX2X_EXT_LOOPBACK_FAILED	3
+ #define BNX2X_LOOPBACK_FAILED		(BNX2X_MAC_LOOPBACK_FAILED | \
+ 					 BNX2X_PHY_LOOPBACK_FAILED)
+ 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index c8a83a3..f774acf 100644
+index ad0743b..09fcc55 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -2257,8 +2257,10 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+@@ -2161,6 +2161,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		break;
+ 
+ 	case LOAD_DIAG:
++	case LOAD_LOOPBACK_EXT:
+ 		bp->state = BNX2X_STATE_DIAG;
+ 		break;
+ 
+@@ -2200,7 +2201,8 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
  		return -EBUSY;
  	}
  
--	if (bp->state != BNX2X_STATE_DIAG)
--		bnx2x_dcbx_init(bp);
-+	/* If PMF - send ADMIN DCBX msg to MFW to initiate DCBX FSM */
-+	if (bp->port.pmf && (bp->state != BNX2X_STATE_DIAG))
-+		bnx2x_dcbx_init(bp, false);
-+
+-	bnx2x_dcbx_init(bp);
++	if (bp->state != BNX2X_STATE_DIAG)
++		bnx2x_dcbx_init(bp);
  	return 0;
  
  #ifndef BNX2X_STOP_ON_ERROR
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index b6ae665..cd98a3a 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -418,7 +418,7 @@ void bnx2x_ilt_set_info(struct bnx2x *bp);
-  *
-  * @bp:		driver handle
-  */
--void bnx2x_dcbx_init(struct bnx2x *bp);
-+void bnx2x_dcbx_init(struct bnx2x *bp, bool update_shmem);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index bf30e28..116ac25 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1538,7 +1538,8 @@ static const struct {
+ } bnx2x_tests_str_arr[BNX2X_NUM_TESTS] = {
+ 	{ "register_test (offline)" },
+ 	{ "memory_test (offline)" },
+-	{ "loopback_test (offline)" },
++	{ "int_loopback_test (offline)" },
++	{ "ext_loopback_test (offline)" },
+ 	{ "nvram_test (online)" },
+ 	{ "interrupt_test (online)" },
+ 	{ "link_test (online)" },
+@@ -1943,6 +1944,14 @@ static void bnx2x_wait_for_link(struct bnx2x *bp, u8 link_up, u8 is_serdes)
  
- /**
-  * bnx2x_set_power_state - set power state to the requested value.
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 4f9244b..8a73374 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -972,23 +972,26 @@ void bnx2x_dcbx_init_params(struct bnx2x *bp)
- 	bp->dcbx_config_params.admin_default_priority = 0;
- }
- 
--void bnx2x_dcbx_init(struct bnx2x *bp)
-+void bnx2x_dcbx_init(struct bnx2x *bp, bool update_shmem)
- {
- 	u32 dcbx_lldp_params_offset = SHMEM_LLDP_DCBX_PARAMS_NONE;
- 
-+	/* only PMF can send ADMIN msg to MFW in old MFW versions */
-+	if ((!bp->port.pmf) && (!(bp->flags & BC_SUPPORTS_DCBX_MSG_NON_PMF)))
-+		return;
+ 		if (cnt <= 0 && bnx2x_link_test(bp, is_serdes))
+ 			DP(BNX2X_MSG_ETHTOOL, "Timeout waiting for link up\n");
 +
- 	if (bp->dcbx_enabled <= 0)
- 		return;
- 
- 	/* validate:
- 	 * chip of good for dcbx version,
- 	 * dcb is wanted
--	 * the function is pmf
- 	 * shmem2 contains DCBX support fields
- 	 */
- 	DP(BNX2X_MSG_DCB, "dcb_state %d bp->port.pmf %d\n",
- 	   bp->dcb_state, bp->port.pmf);
- 
--	if (bp->dcb_state == BNX2X_DCB_STATE_ON && bp->port.pmf &&
-+	if (bp->dcb_state == BNX2X_DCB_STATE_ON &&
- 	    SHMEM2_HAS(bp, dcbx_lldp_params_offset)) {
- 		dcbx_lldp_params_offset =
- 			SHMEM2_RD(bp, dcbx_lldp_params_offset);
-@@ -999,12 +1002,23 @@ void bnx2x_dcbx_init(struct bnx2x *bp)
- 		bnx2x_update_drv_flags(bp, 1 << DRV_FLAGS_DCB_CONFIGURED, 0);
- 
- 		if (SHMEM_LLDP_DCBX_PARAMS_NONE != dcbx_lldp_params_offset) {
--			bnx2x_dcbx_admin_mib_updated_params(bp,
--				dcbx_lldp_params_offset);
-+			/* need HW lock to avoid scenario of two drivers
-+			 * writing in parallel to shmem
-+			 */
-+			bnx2x_acquire_hw_lock(bp,
-+					      HW_LOCK_RESOURCE_DCBX_ADMIN_MIB);
-+			if (update_shmem)
-+				bnx2x_dcbx_admin_mib_updated_params(bp,
-+					dcbx_lldp_params_offset);
- 
- 			/* Let HW start negotiation */
- 			bnx2x_fw_command(bp,
- 					 DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG, 0);
-+			/* release HW lock only after MFW acks that it finished
-+			 * reading values from shmem
-+			 */
-+			bnx2x_release_hw_lock(bp,
-+					      HW_LOCK_RESOURCE_DCBX_ADMIN_MIB);
- 		}
++		cnt = 1400;
++		while (!bp->link_vars.link_up && cnt--)
++			msleep(20);
++
++		if (cnt <= 0 && !bp->link_vars.link_up)
++			DP(BNX2X_MSG_ETHTOOL,
++			   "Timeout waiting for link init\n");
  	}
  }
-@@ -2063,10 +2077,8 @@ static u8 bnx2x_dcbnl_set_all(struct net_device *netdev)
- 			   "Handling parity error recovery. Try again later\n");
- 		return 1;
+ 
+@@ -1968,13 +1977,16 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode)
+ 	u16 len;
+ 	int rc = -ENODEV;
+ 	u8 *data;
+-	struct netdev_queue *txq = netdev_get_tx_queue(bp->dev, txdata->txq_index);
++	struct netdev_queue *txq = netdev_get_tx_queue(bp->dev,
++						       txdata->txq_index);
+ 
+ 	/* check the loopback mode */
+ 	switch (loopback_mode) {
+ 	case BNX2X_PHY_LOOPBACK:
+-		if (bp->link_params.loopback_mode != LOOPBACK_XGXS)
++		if (bp->link_params.loopback_mode != LOOPBACK_XGXS) {
++			DP(BNX2X_MSG_ETHTOOL, "PHY loopback not supported\n");
+ 			return -EINVAL;
++		}
+ 		break;
+ 	case BNX2X_MAC_LOOPBACK:
+ 		if (CHIP_IS_E3(bp)) {
+@@ -1991,6 +2003,13 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode)
+ 
+ 		bnx2x_phy_init(&bp->link_params, &bp->link_vars);
+ 		break;
++	case BNX2X_EXT_LOOPBACK:
++		if (bp->link_params.loopback_mode != LOOPBACK_EXT) {
++			DP(BNX2X_MSG_ETHTOOL,
++			   "Can't configure external loopback\n");
++			return -EINVAL;
++		}
++		break;
+ 	default:
+ 		DP(BNX2X_MSG_ETHTOOL, "Command parameters not supported\n");
+ 		return -EINVAL;
+@@ -2162,6 +2181,38 @@ static int bnx2x_test_loopback(struct bnx2x *bp)
+ 	return rc;
+ }
+ 
++static int bnx2x_test_ext_loopback(struct bnx2x *bp)
++{
++	int rc;
++	u8 is_serdes =
++		(bp->link_vars.link_status & LINK_STATUS_SERDES_LINK) > 0;
++
++	if (BP_NOMCP(bp))
++		return -ENODEV;
++
++	if (!netif_running(bp->dev))
++		return BNX2X_EXT_LOOPBACK_FAILED;
++
++	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
++	rc = bnx2x_nic_load(bp, LOAD_LOOPBACK_EXT);
++	if (rc != 0) {
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Can't perform self-test, nic_load (for external lb) failed\n");
++		return -ENODEV;
++	}
++	bnx2x_wait_for_link(bp, 1, is_serdes);
++
++	bnx2x_netif_stop(bp, 1);
++
++	rc = bnx2x_run_loopback(bp, BNX2X_EXT_LOOPBACK);
++	if (rc)
++		DP(BNX2X_MSG_ETHTOOL, "EXT loopback failed  (res %d)\n", rc);
++
++	bnx2x_netif_start(bp);
++
++	return rc;
++}
++
+ #define CRC32_RESIDUAL			0xdebb20e3
+ 
+ static int bnx2x_test_nvram(struct bnx2x *bp)
+@@ -2263,6 +2314,10 @@ static void bnx2x_self_test(struct net_device *dev,
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 		return;
  	}
--	if (netif_running(bp->dev)) {
--		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
--		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
--	}
-+	if (netif_running(bp->dev))
-+		bnx2x_dcbx_init(bp, true);
- 	DP(BNX2X_MSG_DCB, "set_dcbx_params done (%d)\n", rc);
- 	if (rc)
- 		return 1;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index c61aa37..6b77630 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -1253,6 +1253,7 @@ struct drv_func_mb {
++	DP(BNX2X_MSG_ETHTOOL,
++	   "Self-test command parameters: offline = %d, external_lb = %d\n",
++	   (etest->flags & ETH_TEST_FL_OFFLINE),
++	   (etest->flags & ETH_TEST_FL_EXTERNAL_LB)>>2);
  
- 	#define DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG         0xb0000000
- 	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
-+	#define REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF     0x00070401
+ 	memset(buf, 0, sizeof(u64) * BNX2X_NUM_TESTS);
  
- 	#define DRV_MSG_CODE_VF_DISABLED_DONE           0xc0000000
+@@ -2300,10 +2355,17 @@ static void bnx2x_self_test(struct net_device *dev,
+ 			etest->flags |= ETH_TEST_FL_FAILED;
+ 		}
+ 
+-		buf[2] = bnx2x_test_loopback(bp);
++		buf[2] = bnx2x_test_loopback(bp); /* internal LB */
+ 		if (buf[2] != 0)
+ 			etest->flags |= ETH_TEST_FL_FAILED;
+ 
++		if (etest->flags & ETH_TEST_FL_EXTERNAL_LB) {
++			buf[3] = bnx2x_test_ext_loopback(bp); /* external LB */
++			if (buf[3] != 0)
++				etest->flags |= ETH_TEST_FL_FAILED;
++			etest->flags |= ETH_TEST_FL_EXTERNAL_LB_DONE;
++		}
++
+ 		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
+ 
+ 		/* restore input for TX port IF */
+@@ -2314,16 +2376,16 @@ static void bnx2x_self_test(struct net_device *dev,
+ 		bnx2x_wait_for_link(bp, link_up, is_serdes);
+ 	}
+ 	if (bnx2x_test_nvram(bp) != 0) {
+-		buf[3] = 1;
++		buf[4] = 1;
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 	}
+ 	if (bnx2x_test_intr(bp) != 0) {
+-		buf[4] = 1;
++		buf[5] = 1;
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 	}
+ 
+ 	if (bnx2x_link_test(bp, is_serdes) != 0) {
+-		buf[5] = 1;
++		buf[6] = 1;
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 	}
  
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 3a4fefd..26a8296 100644
+index a622bb7..21930be 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9732,6 +9732,8 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
- 	bp->flags |= (val >= REQ_BC_VER_4_PFC_STATS_SUPPORTED) ?
- 			BC_SUPPORTS_PFC_STATS : 0;
+@@ -2124,7 +2124,12 @@ u8 bnx2x_initial_phy_init(struct bnx2x *bp, int load_mode)
+ 			}
+ 		}
  
-+	bp->flags |= (val >= REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF) ?
-+			BC_SUPPORTS_DCBX_MSG_NON_PMF : 0;
- 	boot_mode = SHMEM_RD(bp,
- 			dev_info.port_feature_config[BP_PORT(bp)].mba_config) &
- 			PORT_FEATURE_MBA_BOOT_AGENT_TYPE_MASK;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index bfef98f..a78e356 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -5913,6 +5913,7 @@
- #define MISC_REGISTERS_SPIO_OUTPUT_LOW				 0
- #define MISC_REGISTERS_SPIO_SET_POS				 8
- #define HW_LOCK_MAX_RESOURCE_VALUE				 31
-+#define HW_LOCK_RESOURCE_DCBX_ADMIN_MIB				 13
- #define HW_LOCK_RESOURCE_DRV_FLAGS				 10
- #define HW_LOCK_RESOURCE_GPIO					 1
- #define HW_LOCK_RESOURCE_MDIO					 0
+-		rc = bnx2x_phy_init(&bp->link_params, &bp->link_vars);
++	if (load_mode == LOAD_LOOPBACK_EXT) {
++		struct link_params *lp = &bp->link_params;
++		lp->loopback_mode = LOOPBACK_EXT;
++	}
++
++	rc = bnx2x_phy_init(&bp->link_params, &bp->link_vars);
+ 
+ 		bnx2x_release_phy_lock(bp);
+ 
 -- 
 1.7.10
