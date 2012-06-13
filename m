@@ -1,63 +1,67 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [net-next patch 8/12] bnx2x: Allow up to 63 RSS queues
- default 8 queues
-Date: Wed, 13 Jun 2012 16:53:29 +0300
-Message-ID: <1339595609.13000.15.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
- <1339591464-10554-9-git-send-email-meravs@broadcom.com>
- <1339581175.22704.342.camel@edumazet-glaptop>
- <1339600460.17240.69.camel@lb-tlvb-meravs.il.broadcom.com>
-Reply-To: eilong@broadcom.com
+From: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
+Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
+ __set_bit_le() function
+Date: Wed, 13 Jun 2012 23:00:13 +0900
+Message-ID: <20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
+References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
+	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
+	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
+	<20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
+	<CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Merav Sicron" <meravs@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2820 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753849Ab2FMOAd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 10:00:33 -0400
-In-Reply-To: <1339600460.17240.69.camel@lb-tlvb-meravs.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
+	akpm@linux-foundation.org, bhutchings@solarflare.com,
+	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-13 at 18:14 +0300, Merav Sicron wrote:
-> Hi Eric,
+On Wed, 13 Jun 2012 22:31:13 +0900
+Akinobu Mita <akinobu.mita@gmail.com> wrote:
+
+> >> Should this hash_table be converted from u16 hash_table[32] to
+> >> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is aligned
+> >> on long-word boundary?
+> >
+> > I think hash_table is already long-word aligned because it is placed
+> > right after a pointer.
 > 
-> On Wed, 2012-06-13 at 11:52 +0200, Eric Dumazet wrote:
-> > On Wed, 2012-06-13 at 15:44 +0300, Merav Sicron wrote:
-> > > This patch removed the limitation in the code for 16 RSS queues. The default
-> > > (without other instruction from the user) number of queues is determined
-> > > according to the number of MSI-X vectors supported for that function, the number
-> > > of CPUs in the system, and a maximum of 8 queues.
-> > 
-> > Thats a very confusing changelog
-> > 
-> > You meant : " a minimum of 8 queues" ?
-> > 
-> No, I meant maximum...for example in a system with 16 CPUs we will
-> allocate 8 RSS queues. We saw that in most scenarios we tested there was
-> no need for more than 8 queues to get the maximal throughput, and by
-> limiting to 8 by default we reduce the allocated memory. We do provide
-> ethtool -L support so that the user could request more RSS queues if
-> desired.
-> 
-> > You should give more explanations, because its a sensible area for
-> > performances.
-> > 
+> I recommend converting to proper bitmap.  Because such an implicit
+> assumption is easily broken by someone touching this function.
 
-Just to emphasis, since this is the patch series that enable the users
-to control the number of queues, we can reduce the default number and
-allow the user to increase it if he has a setup that needs more than 8
-parallel CPUs to receive the traffic. When using a new FW on the board,
-the number can be increased up to 64, so using the maximal number can be
-an overkill (even if the machine has 64 CPUs, it does not mean that the
-user would like us to consume 64 MSI-X vectors and all the memory to set
-up 64 queues) - so a lower default value can be used to satisfy most
-users while allowing them to increase the number if they wish.
+Do you mean something like:
+	DECLARE_BITMAP(__hash_table, 16 * 32);
+	u16 *hash_table = (u16 *)__hash_table;
+?
 
-Thanks,
-Eilon
+Grant, what do you think about this?
+
+	Takuya
+
+
+===
+drivers/net/ethernet/dec/tulip/tulip_core.c:
+
+static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
+{
+	struct tulip_private *tp = netdev_priv(dev);
+	u16 hash_table[32];
+	...
+}
+
+drivers/net/ethernet/dec/tulip/de2104x.c:
+
+static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
+{
+	struct de_private *de = netdev_priv(dev);
+	u16 hash_table[32];
+	...
+}
