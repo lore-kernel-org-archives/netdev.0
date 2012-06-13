@@ -1,7 +1,8 @@
 From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Subject: [PATCH 1/5] sfc: Use standard __{clear,set}_bit_le() functions
-Date: Wed, 13 Jun 2012 13:02:06 +0900
-Message-ID: <20120613130206.2bf3a675.yoshikawa.takuya@oss.ntt.co.jp>
+Subject: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
+ __set_bit_le() function
+Date: Wed, 13 Jun 2012 13:03:04 +0900
+Message-ID: <20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
 References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -13,83 +14,80 @@ Cc: bhutchings@solarflare.com, grundler@parisc-linux.org,
 	linux-arch@vger.kernel.org, kvm@vger.kernel.org,
 	takuya.yoshikawa@gmail.com
 To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
 In-Reply-To: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
 
-There are now standard functions for dealing with little-endian bit
-arrays, so use them instead of our own implementations.
+To introduce generic set_bit_le() later, we remove our own definition
+and use a proper non-atomic bitops function: __set_bit_le().
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 ---
- drivers/net/ethernet/sfc/efx.c        |    4 ++--
- drivers/net/ethernet/sfc/net_driver.h |   12 ------------
- drivers/net/ethernet/sfc/nic.c        |    4 ++--
- 3 files changed, 4 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/dec/tulip/de2104x.c    |    7 ++-----
+ drivers/net/ethernet/dec/tulip/tulip_core.c |    7 ++-----
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index b95f2e1..ca2a348 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1976,14 +1976,14 @@ static void efx_set_rx_mode(struct net_device *net_dev)
- 		netdev_for_each_mc_addr(ha, net_dev) {
- 			crc = ether_crc_le(ETH_ALEN, ha->addr);
- 			bit = crc & (EFX_MCAST_HASH_ENTRIES - 1);
--			set_bit_le(bit, mc_hash->byte);
-+			__set_bit_le(bit, mc_hash);
- 		}
+diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+index 61cc093..77335853 100644
+--- a/drivers/net/ethernet/dec/tulip/de2104x.c
++++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+@@ -661,9 +661,6 @@ static netdev_tx_t de_start_xmit (struct sk_buff *skb,
+    new frame, not around filling de->setup_frame.  This is non-deterministic
+    when re-entered but still correct. */
  
- 		/* Broadcast packets go through the multicast hash filter.
- 		 * ether_crc_le() of the broadcast address is 0xbe2612ff
- 		 * so we always add bit 0xff to the mask.
- 		 */
--		set_bit_le(0xff, mc_hash->byte);
-+		__set_bit_le(0xff, mc_hash);
+-#undef set_bit_le
+-#define set_bit_le(i,p) do { ((char *)(p))[(i)/8] |= (1<<((i)%8)); } while(0)
+-
+ static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
+ {
+ 	struct de_private *de = netdev_priv(dev);
+@@ -673,12 +670,12 @@ static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
+ 	u16 *eaddrs;
+ 
+ 	memset(hash_table, 0, sizeof(hash_table));
+-	set_bit_le(255, hash_table); 			/* Broadcast entry */
++	__set_bit_le(255, hash_table);			/* Broadcast entry */
+ 	/* This should work on big-endian machines as well. */
+ 	netdev_for_each_mc_addr(ha, dev) {
+ 		int index = ether_crc_le(ETH_ALEN, ha->addr) & 0x1ff;
+ 
+-		set_bit_le(index, hash_table);
++		__set_bit_le(index, hash_table);
  	}
  
- 	if (efx->port_enabled)
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 0e57535..6f1a7f7 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1080,18 +1080,6 @@ static inline struct efx_rx_buffer *efx_rx_buffer(struct efx_rx_queue *rx_queue,
- 	return &rx_queue->buffer[index];
- }
+ 	for (i = 0; i < 32; i++) {
+diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+index c4f37ac..885700a 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip_core.c
++++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+@@ -1010,9 +1010,6 @@ static int private_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
+    new frame, not around filling tp->setup_frame.  This is non-deterministic
+    when re-entered but still correct. */
  
--/* Set bit in a little-endian bitfield */
--static inline void set_bit_le(unsigned nr, unsigned char *addr)
--{
--	addr[nr / 8] |= (1 << (nr % 8));
--}
+-#undef set_bit_le
+-#define set_bit_le(i,p) do { ((char *)(p))[(i)/8] |= (1<<((i)%8)); } while(0)
 -
--/* Clear bit in a little-endian bitfield */
--static inline void clear_bit_le(unsigned nr, unsigned char *addr)
--{
--	addr[nr / 8] &= ~(1 << (nr % 8));
--}
--
+ static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
+ {
+ 	struct tulip_private *tp = netdev_priv(dev);
+@@ -1022,12 +1019,12 @@ static void build_setup_frame_hash(u16 *setup_frm, struct net_device *dev)
+ 	u16 *eaddrs;
  
- /**
-  * EFX_MAX_FRAME_LEN - calculate maximum frame length
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 4a9a5be..bb0172d 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -473,9 +473,9 @@ void efx_nic_init_tx(struct efx_tx_queue *tx_queue)
+ 	memset(hash_table, 0, sizeof(hash_table));
+-	set_bit_le(255, hash_table); 			/* Broadcast entry */
++	__set_bit_le(255, hash_table);			/* Broadcast entry */
+ 	/* This should work on big-endian machines as well. */
+ 	netdev_for_each_mc_addr(ha, dev) {
+ 		int index = ether_crc_le(ETH_ALEN, ha->addr) & 0x1ff;
  
- 		efx_reado(efx, &reg, FR_AA_TX_CHKSM_CFG);
- 		if (tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD)
--			clear_bit_le(tx_queue->queue, (void *)&reg);
-+			__clear_bit_le(tx_queue->queue, &reg);
- 		else
--			set_bit_le(tx_queue->queue, (void *)&reg);
-+			__set_bit_le(tx_queue->queue, &reg);
- 		efx_writeo(efx, &reg, FR_AA_TX_CHKSM_CFG);
+-		set_bit_le(index, hash_table);
++		__set_bit_le(index, hash_table);
  	}
- 
+ 	for (i = 0; i < 32; i++) {
+ 		*setup_frm++ = hash_table[i];
 -- 
 1.7.5.4
