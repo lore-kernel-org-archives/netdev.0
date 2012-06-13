@@ -1,94 +1,59 @@
 From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: PPPoE performance regression
-Date: Wed, 13 Jun 2012 17:53:03 +0100
-Message-ID: <1339606383.14785.14.camel@shinybook.infradead.org>
-References: <1339143949.24571.72.camel@dualcore.traverse>
-	 <1339144110.13998.1.camel@i7.infradead.org>
-	 <1339144954.24571.80.camel@dualcore.traverse>
-	 <1339147045.13998.3.camel@i7.infradead.org>
-	 <1339289425.2661.27.camel@laptop>
-	 <1339317136.2851.54.camel@shinybook.infradead.org>
-	 <1339581421.11011.18.camel@shinybook.infradead.org>
-	 <1339595401.11011.48.camel@shinybook.infradead.org>
-	 <20120613155541.GD2361@kvack.org>
-	 <1339603894.14785.5.camel@shinybook.infradead.org>
-	 <20120613163108.GE2361@kvack.org>
+Date: Wed, 13 Jun 2012 17:59:57 +0100
+Message-ID: <1339606797.14785.16.camel@shinybook.infradead.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F47@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-75lmvIZhZi5K1GQfmUhC"
-Cc: Nathan Williams <nathan@traverse.com.au>,
+	boundary="=-VZlVBetpN/hm+5vEhwcI"
+Cc: Benjamin LaHaise <bcrl@kvack.org>,
+	Nathan Williams <nathan@traverse.com.au>,
 	Karl Hiramoto <karl@hiramoto.org>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Paul Mackerras <paulus@samba.org>,
 	John Crispin <blogic@openwrt.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [85.118.1.10] ([85.118.1.10]:36480 "EHLO casper.infradead.org"
+Received: from [85.118.1.10] ([85.118.1.10]:36557 "EHLO casper.infradead.org"
 	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754558Ab2FMQxP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 12:53:15 -0400
-In-Reply-To: <20120613163108.GE2361@kvack.org>
+	id S1752481Ab2FMRAH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 13:00:07 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F47@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-75lmvIZhZi5K1GQfmUhC
+--=-VZlVBetpN/hm+5vEhwcI
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2012-06-13 at 12:31 -0400, Benjamin LaHaise wrote:
-> I would contend that PPPoE over br2684 is not the common case.  The vast=
+On Wed, 2012-06-13 at 17:32 +0100, David Laight wrote:
+> > I would contend that PPPoE over br2684 is not the common case.  The vas=
+t=20
+> > majority of users in client mode are going to be using PPPoE over an=
 =20
-> majority of users in client mode are going to be using PPPoE over an=20
-> ethernet link to a DSL modem (or cable or wireless radios even).  Just lo=
-ok=20
-> at what DSL modems are available for users in computer stores / what ISPs=
-=20
-> actually ship to their users.  Real ATM exposing devices are rare.
-
-I'm looking at the class of device on which OpenWRT runs. Linux is *on*
-the router with the ADSL port, not connected to it via Ethernet.
-
-I can buy lots of these in the shop. Anything that's an ADSL *router*
-rather than *modem* is likely to be running, or at least capable of
-running, Linux.
-
-Admittedly, if you have access to the native ADSL interface then you'd
-do a lot better to run PPPoA =E2=80=94 but I already fixed this issue for P=
-PPoA.
-There are people in some parts of the world who are using PPPoEoA and
-putting up with the resulting MTU issues because the *ISP* doesn't
-support proper PPPoA.
-
-And even if it *were* rare... this is the case that *should* work best,
-where we have complete control of the hardware. There's no excuse for
-the behaviour that we currently see with PPPoE on BR2684.
-
-> > On the ISP side if the skb ends up sitting on a receive queue of a user
-> > socket, and nothing is servicing that socket, surely the transmits on
-> > this channel weren't happening anyway?
+> > ethernet link to a DSL modem (or cable or wireless radios even).  Just =
+look=20
+> > at what DSL modems are available for users in computer stores / what IS=
+Ps=20
+> > actually ship to their users.  Real ATM exposing devices are rare.
 >=20
-> True, but it's a design issue we've had to contend with elsewhere in the=
-=20
-> various tunnelling protocols.
->=20
-> Don't get me wrong: I am very much in favour of intelligent queue=20
-> management, but this approach simply does not work for the vast majority=
-=20
-> of PPPoE users, while it adds overhead that will negatively impact access=
-=20
-> concentrators.=20
+> PPPoA is common in the UK.
 
-I think that's largely true of BQL in general, isn't it? That's OK; it's
-a config option. I suspect if I make this accounting of PPPoE / L2TP
-packets conditional on BQL (or perhaps on a separate config option
-PPP_BQL) that ought to address your concern about the cases where you
-don't need it?
+In the UK you tend to have the option of using PPPoA *or* PPPoE over
+BR2684. The ISP's kit will handle both.
+
+Ben's comment was about the *hardware*, though. If your "ADSL modem" is
+a separate box which just bridges Ethernet to BR2684 on the ADSL link,
+you're limited to using the PPPoE protocol over that.
+
+Obviously, if you have a proper ADSL *router* and it's not just a PPP
+bridge, then you can =E2=80=94 and should =E2=80=94 use PPPoA.
 
 --=20
 dwmw2
 
---=-75lmvIZhZi5K1GQfmUhC
+--=-VZlVBetpN/hm+5vEhwcI
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -189,19 +154,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIwNjEzMTY1MzAzWjAjBgkqhkiG9w0BCQQx
-FgQUXbxV/8lfOOUgZeNnZZbUodUDs7IwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIwNjEzMTY1OTU3WjAjBgkqhkiG9w0BCQQx
+FgQUYcDUtMFLz+O2JpOLv9FA4PqiQqwwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQA78ds3AcEi1J97GltpziB/hbWt
-T314GzyX+x50tYxxl1l0IdByLTmDbs/ck2rxosRkwAp4CAvJJZ1ELB8cRz+2xrMPSr/lG55tEJB3
-1r4IPnRF5EtTM/dmLJ+jm/u73pJM9g71uvvOCduiqRJ/J9kT9VNic6vdoYMH0Vd2dAqw9n4Jdndd
-njAsYReFDGHa2CICsa+3l9ylglSx/bqFdSP6Y6hL1WG0swC8YPvebHx2hSDvZycar0agndXbxoKp
-GRxoi6ztq4KGMIV5/sa3Q7LdyZVaLKihVsK1YYsNjxmp5SoCdP+dT0nSRgeGXryp1389z4nVUqHx
-g826o2GHuQfCAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQCThz60WXEFZ4UFUOAmXwiLgL5T
+BBHvfE8zjf6CAMx69c7aMqOlolcBb3VU77hG8pfds/QNPVJv33Jxn5bkQu75iPtBD4cq2RoIBngg
+7ZWdYBSAPi6XsczrOSpT6/oVDGX+Xcjv1LQvGszynEEAfkK8Z9+OVanZXAQPmN0On29NnbAwEda7
+CZS/gYqqPqX/lLrHAEJSTcuRo7VRL3tkGEkrmIwN0MUtV2MMwPb/d5dif+5xTJwWp6JiqfGJ8bJh
+eEBGBKM5chGUqHROqdg2RRaS9T5etP0AM4NZqimzPk2Yupm36clNdqcKVdwKlgH707iniF3ebIY2
+yumm8wACgl5lAAAAAAAA
 
 
---=-75lmvIZhZi5K1GQfmUhC--
+--=-VZlVBetpN/hm+5vEhwcI--
