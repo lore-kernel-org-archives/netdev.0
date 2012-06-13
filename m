@@ -1,199 +1,226 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 4/12] bnx2x: Allow more than 64 L2 CIDs
-Date: Wed, 13 Jun 2012 15:44:16 +0300
-Message-ID: <1339591464-10554-5-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 11/12] bnx2x: Add FCoE capabilities
+ advertisement
+Date: Wed, 13 Jun 2012 15:44:23 +0300
+Message-ID: <1339591464-10554-12-git-send-email-meravs@broadcom.com>
 References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Merav Sicron" <meravs@broadcom.com>
+Cc: "Merav Sicron" <meravs@broadcom.com>,
+	"Barak Witkowski" <barak@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2785 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2749 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752704Ab2FMJmo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:42:44 -0400
+	id S1752722Ab2FMJm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 05:42:59 -0400
 In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With increased number of RSS queues, each multiplied by the number of traffic-
-classes, we may have up to 64*3=192 CIDs. The current driver scheme with regard
-to context allocation supports only 64 CIDs. The new scheme enables scatter-
-gatehr list of pages for the context.
+From: Barak Witkowski <barak@broadcom.com>
 
-Signed-off-by: Merav Sicron <meravs@broadcom.com>
+1. When FCoE offload driver is registered, copy its capabilities to the chip
+   scratchpad.
+2. Copy FCoE/iSCSI MAC addresses in aligned manner to chip scratchpad.
+
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   10 +++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   67 ++++++++++++++++------
- 2 files changed, 57 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |   41 +++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   41 +++++++++++++++++++---
+ drivers/net/ethernet/broadcom/cnic_if.h          |    6 ++++
+ 4 files changed, 83 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 568c3c7..feec032 100644
+index 1f2e03a..47ec384 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -993,8 +993,8 @@ union cdu_context {
- };
+@@ -1332,6 +1332,7 @@ struct bnx2x {
+ #define NO_ISCSI_FLAG			(1 << 14)
+ #define NO_FCOE_FLAG			(1 << 15)
+ #define BC_SUPPORTS_PFC_STATS		(1 << 17)
++#define BC_SUPPORTS_FCOE_FEATURES	(1 << 19)
+ #define USING_SINGLE_MSIX_FLAG		(1 << 20)
+ #define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
  
- /* CDU host DB constants */
--#define CDU_ILT_PAGE_SZ_HW	3
--#define CDU_ILT_PAGE_SZ		(8192 << CDU_ILT_PAGE_SZ_HW) /* 64K */
-+#define CDU_ILT_PAGE_SZ_HW	2
-+#define CDU_ILT_PAGE_SZ		(8192 << CDU_ILT_PAGE_SZ_HW) /* 32K */
- #define ILT_PAGE_CIDS		(CDU_ILT_PAGE_SZ / sizeof(union cdu_context))
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+index 6b77630..6bad5c4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
+@@ -1250,6 +1250,7 @@ struct drv_func_mb {
+ 	#define REQ_BC_VER_4_VRFY_AFEX_SUPPORTED        0x00070002
+ 	#define REQ_BC_VER_4_SFP_TX_DISABLE_SUPPORTED   0x00070014
+ 	#define REQ_BC_VER_4_PFC_STATS_SUPPORTED        0x00070201
++	#define REQ_BC_VER_4_FCOE_FEATURES              0x00070209
  
- #ifdef BCM_CNIC
-@@ -1435,7 +1435,11 @@ struct bnx2x {
- 	dma_addr_t			fw_stats_data_mapping;
- 	int				fw_stats_data_sz;
+ 	#define DRV_MSG_CODE_DCBX_ADMIN_PMF_MSG         0xb0000000
+ 	#define DRV_MSG_CODE_DCBX_PMF_DRV_OK            0xb2000000
+@@ -2698,8 +2699,46 @@ struct host_func_stats {
+ /* VIC definitions */
+ #define VICSTATST_UIF_INDEX 2
  
--	struct hw_context	context;
-+	/* For max 196 cids (64*3 + non-eth), 32KB ILT page size and 1KB
-+	 * context size we need 8 ILT entries.
-+	 */
-+#define ILT_MAX_L2_LINES	8
-+	struct hw_context	context[ILT_MAX_L2_LINES];
++/* FCoE capabilities required from the driver */
++struct fcoe_capabilities {
++	u32 capability1;
++	/* Maximum number of I/Os per connection */
++	#define FCOE_IOS_PER_CONNECTION_MASK    0x0000ffff
++	#define FCOE_IOS_PER_CONNECTION_SHIFT   0
++	/* Maximum number of Logins per port */
++	#define FCOE_LOGINS_PER_PORT_MASK       0xffff0000
++	#define FCOE_LOGINS_PER_PORT_SHIFT   16
++
++	u32 capability2;
++	/* Maximum number of exchanges */
++	#define FCOE_NUMBER_OF_EXCHANGES_MASK   0x0000ffff
++	#define FCOE_NUMBER_OF_EXCHANGES_SHIFT  0
++	/* Maximum NPIV WWN per port */
++	#define FCOE_NPIV_WWN_PER_PORT_MASK     0xffff0000
++	#define FCOE_NPIV_WWN_PER_PORT_SHIFT    16
++
++	u32 capability3;
++	/* Maximum number of targets supported */
++	#define FCOE_TARGETS_SUPPORTED_MASK     0x0000ffff
++	#define FCOE_TARGETS_SUPPORTED_SHIFT    0
++	/* Maximum number of outstanding commands across all connections */
++	#define FCOE_OUTSTANDING_COMMANDS_MASK  0xffff0000
++	#define FCOE_OUTSTANDING_COMMANDS_SHIFT 16
++
++	u32 capability4;
++	#define FCOE_CAPABILITY4_STATEFUL			0x00000001
++	#define FCOE_CAPABILITY4_STATELESS			0x00000002
++	#define FCOE_CAPABILITY4_CAPABILITIES_REPORTED_VALID	0x00000004
++};
++
++struct glob_ncsi_oem_data {
++	u32 driver_version;
++	u32 unused[3];
++	struct fcoe_capabilities fcoe_features[NVM_PATH_MAX][PORT_MAX];
++};
++
+ /* current drv_info version */
+-#define DRV_INFO_CUR_VER 1
++#define DRV_INFO_CUR_VER 2
  
- 	struct bnx2x_ilt	*ilt;
- #define BP_ILT(bp)		((bp)->ilt)
+ /* drv_info op codes supported */
+ enum drv_info_opcode {
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 21930be..16e009f 100644
+index 26a8296..eb3e55a 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -7068,12 +7068,10 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 	cdu_ilt_start = ilt->clients[ILT_CLIENT_CDU].start;
+@@ -74,6 +74,8 @@
+ #define FW_FILE_NAME_E1H	"bnx2x/bnx2x-e1h-" FW_FILE_VERSION ".fw"
+ #define FW_FILE_NAME_E2		"bnx2x/bnx2x-e2-" FW_FILE_VERSION ".fw"
  
- 	for (i = 0; i < L2_ILT_LINES(bp); i++) {
--		ilt->lines[cdu_ilt_start + i].page =
--			bp->context.vcxt + (ILT_PAGE_CIDS * i);
-+		ilt->lines[cdu_ilt_start + i].page = bp->context[i].vcxt;
- 		ilt->lines[cdu_ilt_start + i].page_mapping =
--			bp->context.cxt_mapping + (CDU_ILT_PAGE_SZ * i);
--		/* cdu ilt pages are allocated manually so there's no need to
--		set the size */
-+			bp->context[i].cxt_mapping;
-+		ilt->lines[cdu_ilt_start + i].size = bp->context[i].size;
++#define MAC_LEADING_ZERO_CNT (ALIGN(ETH_ALEN, sizeof(u32)) - ETH_ALEN)
++
+ /* Time in jiffies before concluding the transmitter is hung */
+ #define TX_TIMEOUT		(5*HZ)
+ 
+@@ -3060,7 +3062,8 @@ static void bnx2x_drv_info_fcoe_stat(struct bnx2x *bp)
+ 	struct fcoe_stats_info *fcoe_stat =
+ 		&bp->slowpath->drv_info_to_mcp.fcoe_stat;
+ 
+-	memcpy(fcoe_stat->mac_local, bp->fip_mac, ETH_ALEN);
++	memcpy(fcoe_stat->mac_local + MAC_LEADING_ZERO_CNT,
++	       bp->fip_mac, ETH_ALEN);
+ 
+ 	fcoe_stat->qos_priority =
+ 		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_FCOE];
+@@ -3151,7 +3154,8 @@ static void bnx2x_drv_info_iscsi_stat(struct bnx2x *bp)
+ 	struct iscsi_stats_info *iscsi_stat =
+ 		&bp->slowpath->drv_info_to_mcp.iscsi_stat;
+ 
+-	memcpy(iscsi_stat->mac_local, bp->cnic_eth_dev.iscsi_mac, ETH_ALEN);
++	memcpy(iscsi_stat->mac_local + MAC_LEADING_ZERO_CNT,
++	       bp->cnic_eth_dev.iscsi_mac, ETH_ALEN);
+ 
+ 	iscsi_stat->qos_priority =
+ 		app->traffic_type_priority[LLFC_TRAFFIC_TYPE_ISCSI];
+@@ -9732,6 +9736,9 @@ static void __devinit bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ 	bp->flags |= (val >= REQ_BC_VER_4_PFC_STATS_SUPPORTED) ?
+ 			BC_SUPPORTS_PFC_STATS : 0;
+ 
++	bp->flags |= (val >= REQ_BC_VER_4_FCOE_FEATURES) ?
++			BC_SUPPORTS_FCOE_FEATURES : 0;
++
+ 	bp->flags |= (val >= REQ_BC_VER_4_DCBX_ADMIN_MSG_NON_PMF) ?
+ 			BC_SUPPORTS_DCBX_MSG_NON_PMF : 0;
+ 	boot_mode = SHMEM_RD(bp,
+@@ -12548,21 +12555,45 @@ static int bnx2x_drv_ctl(struct net_device *dev, struct drv_ctl_info *ctl)
+ 		break;
  	}
- 	bnx2x_ilt_init_op(bp, INITOP_SET);
+ 	case DRV_CTL_ULP_REGISTER_CMD: {
+-		int ulp_type = ctl->data.ulp_type;
++		int ulp_type = ctl->data.register_data.ulp_type;
  
-@@ -7340,6 +7338,8 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
+ 		if (CHIP_IS_E3(bp)) {
+ 			int idx = BP_FW_MB_IDX(bp);
+-			u32 cap;
++			u32 cap = SHMEM2_RD(bp, drv_capabilities_flag[idx]);
++			int path = BP_PATH(bp);
++			int port = BP_PORT(bp);
++			int i;
++			u32 scratch_offset;
++			u32 *host_addr;
  
- void bnx2x_free_mem(struct bnx2x *bp)
- {
-+	int i;
+-			cap = SHMEM2_RD(bp, drv_capabilities_flag[idx]);
++			/* first write capability to shmem2 */
+ 			if (ulp_type == CNIC_ULP_ISCSI)
+ 				cap |= DRV_FLAGS_CAPABILITIES_LOADED_ISCSI;
+ 			else if (ulp_type == CNIC_ULP_FCOE)
+ 				cap |= DRV_FLAGS_CAPABILITIES_LOADED_FCOE;
+ 			SHMEM2_WR(bp, drv_capabilities_flag[idx], cap);
 +
- 	/* fastpath */
- 	bnx2x_free_fp_mem(bp);
- 	/* end of fastpath */
-@@ -7353,9 +7353,9 @@ void bnx2x_free_mem(struct bnx2x *bp)
- 	BNX2X_PCI_FREE(bp->slowpath, bp->slowpath_mapping,
- 		       sizeof(struct bnx2x_slowpath));
- 
--	BNX2X_PCI_FREE(bp->context.vcxt, bp->context.cxt_mapping,
--		       bp->context.size);
--
-+	for (i = 0; i < L2_ILT_LINES(bp); i++)
-+		BNX2X_PCI_FREE(bp->context[i].vcxt, bp->context[i].cxt_mapping,
-+			       bp->context[i].size);
- 	bnx2x_ilt_mem_op(bp, ILT_MEMOP_FREE);
- 
- 	BNX2X_FREE(bp->ilt->lines);
-@@ -7441,6 +7441,8 @@ alloc_mem_err:
- 
- int bnx2x_alloc_mem(struct bnx2x *bp)
- {
-+	int i, allocated, context_size;
++			if ((ulp_type != CNIC_ULP_FCOE) ||
++			    (!SHMEM2_HAS(bp, ncsi_oem_data_addr)) ||
++			    (!(bp->flags &  BC_SUPPORTS_FCOE_FEATURES)))
++				break;
 +
- #ifdef BCM_CNIC
- 	if (!CHIP_IS_E1x(bp))
- 		/* size = the status block + ramrod buffers */
-@@ -7470,11 +7472,29 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
- 	if (bnx2x_alloc_fw_stats_mem(bp))
- 		goto alloc_mem_err;
- 
--	bp->context.size = sizeof(union cdu_context) * BNX2X_L2_CID_COUNT(bp);
--
--	BNX2X_PCI_ALLOC(bp->context.vcxt, &bp->context.cxt_mapping,
--			bp->context.size);
-+	/* Allocate memory for CDU context:
-+	 * This memory is allocated separately and not in the generic ILT
-+	 * functions because CDU differs in few aspects:
-+	 * 1. There are multiple entities allocating memory for context -
-+	 * 'regular' driver, CNIC and SRIOV driver. Each separately controls
-+	 * its own ILT lines.
-+	 * 2. Since CDU page-size is not a single 4KB page (which is the case
-+	 * for the other ILT clients), to be efficient we want to support
-+	 * allocation of sub-page-size in the last entry.
-+	 * 3. Context pointers are used by the driver to pass to FW / update
-+	 * the context (for the other ILT clients the pointers are used just to
-+	 * free the memory during unload).
-+	 */
-+	context_size = sizeof(union cdu_context) * BNX2X_L2_CID_COUNT(bp);
- 
-+	for (i = 0, allocated = 0; allocated < context_size; i++) {
-+		bp->context[i].size = min(CDU_ILT_PAGE_SZ,
-+					  (context_size - allocated));
-+		BNX2X_PCI_ALLOC(bp->context[i].vcxt,
-+				&bp->context[i].cxt_mapping,
-+				bp->context[i].size);
-+		allocated += bp->context[i].size;
-+	}
- 	BNX2X_ALLOC(bp->ilt->lines, sizeof(struct ilt_line) * ILT_MAX_LINES);
- 
- 	if (bnx2x_ilt_mem_op(bp, ILT_MEMOP_ALLOC))
-@@ -7748,6 +7768,8 @@ static void bnx2x_pf_q_prep_init(struct bnx2x *bp,
- {
- 
- 	u8 cos;
-+	int cxt_index, cxt_offset;
-+
- 	/* FCoE Queue uses Default SB, thus has no HC capabilities */
- 	if (!IS_FCOE_FP(fp)) {
- 		__set_bit(BNX2X_Q_FLG_HC, &init_params->rx.flags);
-@@ -7784,9 +7806,13 @@ static void bnx2x_pf_q_prep_init(struct bnx2x *bp,
- 	    fp->index, init_params->max_cos);
- 
- 	/* set the context pointers queue object */
--	for (cos = FIRST_TX_COS_INDEX; cos < init_params->max_cos; cos++)
-+	for (cos = FIRST_TX_COS_INDEX; cos < init_params->max_cos; cos++) {
-+		cxt_index = fp->txdata[cos].cid / ILT_PAGE_CIDS;
-+		cxt_offset = fp->txdata[cos].cid - (cxt_index *
-+				ILT_PAGE_CIDS);
- 		init_params->cxts[cos] =
--			&bp->context.vcxt[fp->txdata[cos].cid].eth;
-+			&bp->context[cxt_index].vcxt[cxt_offset].eth;
-+	}
- }
- 
- int bnx2x_setup_tx_only(struct bnx2x *bp, struct bnx2x_fastpath *fp,
-@@ -12202,6 +12228,7 @@ static int bnx2x_set_iscsi_eth_mac_addr(struct bnx2x *bp)
- static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
- {
- 	struct eth_spe *spe;
-+	int cxt_index, cxt_offset;
- 
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
-@@ -12224,10 +12251,16 @@ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
- 		 *  ramrod
- 		 */
- 		if (type == ETH_CONNECTION_TYPE) {
--			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP)
--				bnx2x_set_ctx_validation(bp, &bp->context.
--					vcxt[BNX2X_ISCSI_ETH_CID].eth,
-+			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP) {
-+				cxt_index = BNX2X_ISCSI_ETH_CID /
-+					ILT_PAGE_CIDS;
-+				cxt_offset = BNX2X_ISCSI_ETH_CID -
-+					(cxt_index * ILT_PAGE_CIDS);
-+				bnx2x_set_ctx_validation(bp,
-+					&bp->context[cxt_index].
-+							 vcxt[cxt_offset].eth,
- 					BNX2X_ISCSI_ETH_CID);
-+			}
++			/* if reached here - should write fcoe capabilities */
++			scratch_offset = SHMEM2_RD(bp, ncsi_oem_data_addr);
++			if (!scratch_offset)
++				break;
++			scratch_offset += offsetof(struct glob_ncsi_oem_data,
++						   fcoe_features[path][port]);
++			host_addr = (u32 *) &(ctl->data.register_data.
++					      fcoe_features);
++			for (i = 0; i < sizeof(struct fcoe_capabilities);
++			     i += 4)
++				REG_WR(bp, scratch_offset + i,
++				       *(host_addr + i/4));
  		}
+ 		break;
+ 	}
++
+ 	case DRV_CTL_ULP_UNREGISTER_CMD: {
+ 		int ulp_type = ctl->data.ulp_type;
  
- 		/*
+diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+index 289274e..82872e6 100644
+--- a/drivers/net/ethernet/broadcom/cnic_if.h
++++ b/drivers/net/ethernet/broadcom/cnic_if.h
+@@ -131,6 +131,11 @@ struct drv_ctl_l2_ring {
+ 	u32		cid;
+ };
+ 
++struct drv_ctl_register_data {
++	int ulp_type;
++	struct fcoe_capabilities fcoe_features;
++};
++
+ struct drv_ctl_info {
+ 	int	cmd;
+ 	union {
+@@ -138,6 +143,7 @@ struct drv_ctl_info {
+ 		struct drv_ctl_io io;
+ 		struct drv_ctl_l2_ring ring;
+ 		int ulp_type;
++		struct drv_ctl_register_data register_data;
+ 		char bytes[MAX_DRV_CTL_DATA];
+ 	} data;
+ };
 -- 
 1.7.10
