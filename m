@@ -1,60 +1,96 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Grant Grundler <grantgrundler@gmail.com>
 Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
  __set_bit_le() function
-Date: Wed, 13 Jun 2012 16:14:17 +0100
-Message-ID: <1339600457.2612.2.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Wed, 13 Jun 2012 08:21:18 -0700
+Message-ID: <CAP6odji_JvRkJP1dSzGK5ww3y71h4k6pXyj4pOQBpqP-X7Nn-A@mail.gmail.com>
 References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
-	 <20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
-	 <CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
-	 <20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
-	 <CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
-	 <20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
+	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
+	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
+	<20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
+	<CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
+	<20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
 	Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
-	<akpm@linux-foundation.org>, <grundler@parisc-linux.org>,
-	<arnd@arndb.de>, <benh@kernel.crashing.org>, <avi@redhat.com>,
-	<mtosatti@redhat.com>, <linux-net-drivers@solarflare.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>, <kvm@vger.kernel.org>
+	akpm@linux-foundation.org, bhutchings@solarflare.com,
+	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org
 To: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
 In-Reply-To: <20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-13 at 23:00 +0900, Takuya Yoshikawa wrote:
+On Wed, Jun 13, 2012 at 7:00 AM, Takuya Yoshikawa
+<takuya.yoshikawa@gmail.com> wrote:
 > On Wed, 13 Jun 2012 22:31:13 +0900
 > Akinobu Mita <akinobu.mita@gmail.com> wrote:
-> 
-> > >> Should this hash_table be converted from u16 hash_table[32] to
-> > >> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is aligned
-> > >> on long-word boundary?
-> > >
-> > > I think hash_table is already long-word aligned because it is placed
-> > > right after a pointer.
-> > 
-> > I recommend converting to proper bitmap.  Because such an implicit
-> > assumption is easily broken by someone touching this function.
-> 
+>
+>> >> Should this hash_table be converted from u16 hash_table[32] to
+>> >> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is aligned
+>> >> on long-word boundary?
+>> >
+>> > I think hash_table is already long-word aligned because it is plac=
+ed
+>> > right after a pointer.
+>>
+>> I recommend converting to proper bitmap. =A0Because such an implicit
+>> assumption is easily broken by someone touching this function.
+>
 > Do you mean something like:
-> 	DECLARE_BITMAP(__hash_table, 16 * 32);
-> 	u16 *hash_table = (u16 *)__hash_table;
+> =A0 =A0 =A0 =A0DECLARE_BITMAP(__hash_table, 16 * 32);
+> =A0 =A0 =A0 =A0u16 *hash_table =3D (u16 *)__hash_table;
 > ?
-[...]
+>
+> Grant, what do you think about this?
 
-Could this driver perhaps use:
+Hi Takuya,
+two thoughts:
+1) while I agree with Akinobu and thank him for pointing out a
+_potential_ alignment problem, this is a separate issue and your
+existing patch should go in anyway. There are probably other drivers
+with _potential_ alignment issues. Akinobu could get credit for
+finding them by submitting patches after reviewing calls to set_bit
+and set_bit_le() - similar to what you are doing now.
 
-	union hash_table {
-		DECLARE_BITMAP(bits, 16 * 32);
-		__le16 words[32];
-	};
+2) I generally do not like declaring one type and then using an alias
+of a different type to reference the same memory address. We have a
+simple alternative since hash_table[] is indexed directly only in one
+hunk of code:
+        for (i =3D 0; i < 32; i++) {
+                *setup_frm++ =3D ((u16 *)hash_table)[i];
+                *setup_frm++ =3D ((u16 *)hash_table)[i];
+        }
 
-Ben.
+thanks,
+grant
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>
+> =A0 =A0 =A0 =A0Takuya
+>
+>
+> =3D=3D=3D
+> drivers/net/ethernet/dec/tulip/tulip_core.c:
+>
+> static void build_setup_frame_hash(u16 *setup_frm, struct net_device =
+*dev)
+> {
+> =A0 =A0 =A0 =A0struct tulip_private *tp =3D netdev_priv(dev);
+> =A0 =A0 =A0 =A0u16 hash_table[32];
+> =A0 =A0 =A0 =A0...
+> }
+>
+> drivers/net/ethernet/dec/tulip/de2104x.c:
+>
+> static void build_setup_frame_hash(u16 *setup_frm, struct net_device =
+*dev)
+> {
+> =A0 =A0 =A0 =A0struct de_private *de =3D netdev_priv(dev);
+> =A0 =A0 =A0 =A0u16 hash_table[32];
+> =A0 =A0 =A0 =A0...
+> }
