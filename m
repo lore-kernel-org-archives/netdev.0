@@ -1,31 +1,663 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 0/12] bnx2x: ethtool and other enhancements
-Date: Wed, 13 Jun 2012 15:44:12 +0300
-Message-ID: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 7/12] bnx2x: Split the FP structure
+Date: Wed, 13 Jun 2012 15:44:19 +0300
+Message-ID: <1339591464-10554-8-git-send-email-meravs@broadcom.com>
+References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Merav Sicron" <meravs@broadcom.com>
+Cc: "Merav Sicron" <meravs@broadcom.com>,
+	"Barak Witkowski" <barak@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:2749 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752387Ab2FMJmd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:42:33 -0400
+	id S1752722Ab2FMJms (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 05:42:48 -0400
+In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Barak Witkowski <barak@broadcom.com>
 
-This patch series adds few features to bnx2x:
-Add support for external LB in ethtool self-test
-Enable UDP RSS on 4-tupple, controlled by ethtool
-Support up to 63 RSS queues (rather than 16)
-Add support for setting the desired number of RSS queues via ethtool
-Allow to configure dcbx admin params from all drivers on a single physical port
-Add FCoE capabilities advertisement
+This patch moves some fields out of the FP structure to different structures, in
+order to minimize size of contigiuous memory allocated.
 
-Please consider applying this patch series to net-next.
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |   41 +++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   87 +++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    8 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    4 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   37 +++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |   55 ++++++++-----
+ 6 files changed, 149 insertions(+), 83 deletions(-)
 
-Thanks,
-Merav
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 68d0d2c..60a72f5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -549,34 +549,23 @@ struct bnx2x_fastpath {
+ 				rx_calls;
+ 
+ 	/* TPA related */
+-	struct bnx2x_agg_info	tpa_info[ETH_MAX_AGGREGATION_QUEUES_E1H_E2];
++	struct bnx2x_agg_info	*tpa_info;
+ 	u8			disable_tpa;
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	u64			tpa_queue_used;
+ #endif
+-
+-	struct tstorm_per_queue_stats old_tclient;
+-	struct ustorm_per_queue_stats old_uclient;
+-	struct xstorm_per_queue_stats old_xclient;
+-	struct bnx2x_eth_q_stats eth_q_stats;
+-	struct bnx2x_eth_q_stats_old eth_q_stats_old;
+-
+ 	/* The size is calculated using the following:
+ 	     sizeof name field from netdev structure +
+ 	     4 ('-Xx-' string) +
+ 	     4 (for the digits and to make it DWORD aligned) */
+ #define FP_NAME_SIZE		(sizeof(((struct net_device *)0)->name) + 8)
+ 	char			name[FP_NAME_SIZE];
+-
+-	/* MACs object */
+-	struct bnx2x_vlan_mac_obj mac_obj;
+-
+-	/* Queue State object */
+-	struct bnx2x_queue_sp_obj q_obj;
+-
+ };
+ 
+-#define bnx2x_fp(bp, nr, var)		(bp->fp[nr].var)
++#define bnx2x_fp(bp, nr, var)	((bp)->fp[(nr)].var)
++#define bnx2x_sp_obj(bp, fp)	((bp)->sp_objs[(fp)->index])
++#define bnx2x_fp_stats(bp, fp)	(&((bp)->fp_stats[(fp)->index]))
++#define bnx2x_fp_qstats(bp, fp)	(&((bp)->fp_stats[(fp)->index].eth_q_stats))
+ 
+ /* Use 2500 as a mini-jumbo MTU for FCoE */
+ #define BNX2X_FCOE_MINI_JUMBO_MTU	2500
+@@ -587,6 +576,8 @@ struct bnx2x_fastpath {
+ 				 FCOE_IDX_OFFSET)
+ #define bnx2x_fcoe_fp(bp)	(&bp->fp[FCOE_IDX(bp)])
+ #define bnx2x_fcoe(bp, var)	(bnx2x_fcoe_fp(bp)->var)
++#define bnx2x_fcoe_inner_sp_obj(bp)	(&bp->sp_objs[FCOE_IDX(bp)])
++#define bnx2x_fcoe_sp_obj(bp, var)	(bnx2x_fcoe_inner_sp_obj(bp)->var)
+ #define bnx2x_fcoe_tx(bp, var)	(bnx2x_fcoe_fp(bp)-> \
+ 						txdata_ptr[FIRST_TX_COS_INDEX] \
+ 						->var)
+@@ -1202,11 +1193,29 @@ struct bnx2x_prev_path_list {
+ 	struct list_head list;
+ };
+ 
++struct bnx2x_sp_objs {
++	/* MACs object */
++	struct bnx2x_vlan_mac_obj mac_obj;
++
++	/* Queue State object */
++	struct bnx2x_queue_sp_obj q_obj;
++};
++
++struct bnx2x_fp_stats {
++	struct tstorm_per_queue_stats old_tclient;
++	struct ustorm_per_queue_stats old_uclient;
++	struct xstorm_per_queue_stats old_xclient;
++	struct bnx2x_eth_q_stats eth_q_stats;
++	struct bnx2x_eth_q_stats_old eth_q_stats_old;
++};
++
+ struct bnx2x {
+ 	/* Fields used in the tx and intr/napi performance paths
+ 	 * are grouped together in the beginning of the structure
+ 	 */
+ 	struct bnx2x_fastpath	*fp;
++	struct bnx2x_sp_objs	*sp_objs;
++	struct bnx2x_fp_stats	*fp_stats;
+ 	struct bnx2x_fp_txdata	*bnx2x_txq;
+ 	int			bnx2x_txq_size;
+ 	void __iomem		*regview;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index d76df33..915e680 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -47,6 +47,10 @@ static inline void bnx2x_move_fp(struct bnx2x *bp, int from, int to)
+ {
+ 	struct bnx2x_fastpath *from_fp = &bp->fp[from];
+ 	struct bnx2x_fastpath *to_fp = &bp->fp[to];
++	struct bnx2x_sp_objs *from_sp_objs = &bp->sp_objs[from];
++	struct bnx2x_sp_objs *to_sp_objs = &bp->sp_objs[to];
++	struct bnx2x_fp_stats *from_fp_stats = &bp->fp_stats[from];
++	struct bnx2x_fp_stats *to_fp_stats = &bp->fp_stats[to];
+ 	int old_max_eth_txqs, new_max_eth_txqs;
+ 	int old_txdata_index = 0, new_txdata_index = 0;
+ 
+@@ -57,6 +61,12 @@ static inline void bnx2x_move_fp(struct bnx2x *bp, int from, int to)
+ 	memcpy(to_fp, from_fp, sizeof(*to_fp));
+ 	to_fp->index = to;
+ 
++	/* move sp_objs contents as well, as their indices match fp ones */
++	memcpy(to_sp_objs, from_sp_objs, sizeof(*to_sp_objs));
++
++	/* move fp_stats contents as well, as their indices match fp ones */
++	memcpy(to_fp_stats, from_fp_stats, sizeof(*to_fp_stats));
++
+ 	/* Update txdata pointers in fp and move txdata content accordingly:
+ 	 * Each fp consumes 'max_cos' txdata structures, so the index should be
+ 	 * decremented by max_cos x delta.
+@@ -500,7 +510,7 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		   where we are and drop the whole packet */
+ 		err = bnx2x_alloc_rx_sge(bp, fp, sge_idx);
+ 		if (unlikely(err)) {
+-			fp->eth_q_stats.rx_skb_alloc_failed++;
++			bnx2x_fp_qstats(bp, fp)->rx_skb_alloc_failed++;
+ 			return err;
+ 		}
+ 
+@@ -605,7 +615,7 @@ drop:
+ 	/* drop the packet and keep the buffer in the bin */
+ 	DP(NETIF_MSG_RX_STATUS,
+ 	   "Failed to allocate or map a new skb - dropping packet!\n");
+-	fp->eth_q_stats.rx_skb_alloc_failed++;
++	bnx2x_fp_stats(bp, fp)->eth_q_stats.rx_skb_alloc_failed++;
+ }
+ 
+ static int bnx2x_alloc_rx_data(struct bnx2x *bp,
+@@ -778,7 +788,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 			DP(NETIF_MSG_RX_ERR | NETIF_MSG_RX_STATUS,
+ 			   "ERROR  flags %x  rx packet %u\n",
+ 			   cqe_fp_flags, sw_comp_cons);
+-			fp->eth_q_stats.rx_err_discard_pkt++;
++			bnx2x_fp_qstats(bp, fp)->rx_err_discard_pkt++;
+ 			goto reuse_rx;
+ 		}
+ 
+@@ -791,7 +801,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 			if (skb == NULL) {
+ 				DP(NETIF_MSG_RX_ERR | NETIF_MSG_RX_STATUS,
+ 				   "ERROR  packet dropped because of alloc failure\n");
+-				fp->eth_q_stats.rx_skb_alloc_failed++;
++				bnx2x_fp_qstats(bp, fp)->rx_skb_alloc_failed++;
+ 				goto reuse_rx;
+ 			}
+ 			memcpy(skb->data, data + pad, len);
+@@ -805,14 +815,15 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 				skb = build_skb(data, 0);
+ 				if (unlikely(!skb)) {
+ 					kfree(data);
+-					fp->eth_q_stats.rx_skb_alloc_failed++;
++					bnx2x_fp_qstats(bp, fp)->
++							rx_skb_alloc_failed++;
+ 					goto next_rx;
+ 				}
+ 				skb_reserve(skb, pad);
+ 			} else {
+ 				DP(NETIF_MSG_RX_ERR | NETIF_MSG_RX_STATUS,
+ 				   "ERROR  packet dropped because of alloc failure\n");
+-				fp->eth_q_stats.rx_skb_alloc_failed++;
++				bnx2x_fp_qstats(bp, fp)->rx_skb_alloc_failed++;
+ reuse_rx:
+ 				bnx2x_reuse_rx_data(fp, bd_cons, bd_prod);
+ 				goto next_rx;
+@@ -832,7 +843,7 @@ reuse_rx:
+ 			if (likely(BNX2X_RX_CSUM_OK(cqe)))
+ 				skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 			else
+-				fp->eth_q_stats.hw_csum_err++;
++				bnx2x_fp_qstats(bp, fp)->hw_csum_err++;
+ 		}
+ 
+ 		skb_record_rx_queue(skb, fp->rx_queue);
+@@ -1765,7 +1776,7 @@ static void bnx2x_squeeze_objects(struct bnx2x *bp)
+ 	int rc;
+ 	unsigned long ramrod_flags = 0, vlan_mac_flags = 0;
+ 	struct bnx2x_mcast_ramrod_params rparam = {NULL};
+-	struct bnx2x_vlan_mac_obj *mac_obj = &bp->fp->mac_obj;
++	struct bnx2x_vlan_mac_obj *mac_obj = &bp->sp_objs->mac_obj;
+ 
+ 	/***************** Cleanup MACs' object first *************************/
+ 
+@@ -1776,7 +1787,7 @@ static void bnx2x_squeeze_objects(struct bnx2x *bp)
+ 
+ 	/* Clean ETH primary MAC */
+ 	__set_bit(BNX2X_ETH_MAC, &vlan_mac_flags);
+-	rc = mac_obj->delete_all(bp, &bp->fp->mac_obj, &vlan_mac_flags,
++	rc = mac_obj->delete_all(bp, &bp->sp_objs->mac_obj, &vlan_mac_flags,
+ 				 &ramrod_flags);
+ 	if (rc != 0)
+ 		BNX2X_ERR("Failed to clean ETH MACs: %d\n", rc);
+@@ -1862,12 +1873,16 @@ bool bnx2x_test_firmware_version(struct bnx2x *bp, bool is_err)
+ static void bnx2x_bz_fp(struct bnx2x *bp, int index)
+ {
+ 	struct bnx2x_fastpath *fp = &bp->fp[index];
++	struct bnx2x_fp_stats *fp_stats = &bp->fp_stats[index];
++
+ 	int cos;
+ 	struct napi_struct orig_napi = fp->napi;
++	struct bnx2x_agg_info *orig_tpa_info = fp->tpa_info;
+ 	/* bzero bnx2x_fastpath contents */
+-	if (bp->stats_init)
++	if (bp->stats_init) {
++		memset(fp->tpa_info, 0, sizeof(*fp->tpa_info));
+ 		memset(fp, 0, sizeof(*fp));
+-	else {
++	} else {
+ 		/* Keep Queue statistics */
+ 		struct bnx2x_eth_q_stats *tmp_eth_q_stats;
+ 		struct bnx2x_eth_q_stats_old *tmp_eth_q_stats_old;
+@@ -1875,26 +1890,27 @@ static void bnx2x_bz_fp(struct bnx2x *bp, int index)
+ 		tmp_eth_q_stats = kzalloc(sizeof(struct bnx2x_eth_q_stats),
+ 					  GFP_KERNEL);
+ 		if (tmp_eth_q_stats)
+-			memcpy(tmp_eth_q_stats, &fp->eth_q_stats,
++			memcpy(tmp_eth_q_stats, &fp_stats->eth_q_stats,
+ 			       sizeof(struct bnx2x_eth_q_stats));
+ 
+ 		tmp_eth_q_stats_old =
+ 			kzalloc(sizeof(struct bnx2x_eth_q_stats_old),
+ 				GFP_KERNEL);
+ 		if (tmp_eth_q_stats_old)
+-			memcpy(tmp_eth_q_stats_old, &fp->eth_q_stats_old,
++			memcpy(tmp_eth_q_stats_old, &fp_stats->eth_q_stats_old,
+ 			       sizeof(struct bnx2x_eth_q_stats_old));
+ 
++		memset(fp->tpa_info, 0, sizeof(*fp->tpa_info));
+ 		memset(fp, 0, sizeof(*fp));
+ 
+ 		if (tmp_eth_q_stats) {
+-			memcpy(&fp->eth_q_stats, tmp_eth_q_stats,
+-				   sizeof(struct bnx2x_eth_q_stats));
++			memcpy(&fp_stats->eth_q_stats, tmp_eth_q_stats,
++			       sizeof(struct bnx2x_eth_q_stats));
+ 			kfree(tmp_eth_q_stats);
+ 		}
+ 
+ 		if (tmp_eth_q_stats_old) {
+-			memcpy(&fp->eth_q_stats_old, tmp_eth_q_stats_old,
++			memcpy(&fp_stats->eth_q_stats_old, tmp_eth_q_stats_old,
+ 			       sizeof(struct bnx2x_eth_q_stats_old));
+ 			kfree(tmp_eth_q_stats_old);
+ 		}
+@@ -1903,7 +1919,7 @@ static void bnx2x_bz_fp(struct bnx2x *bp, int index)
+ 
+ 	/* Restore the NAPI object as it has been already initialized */
+ 	fp->napi = orig_napi;
+-
++	fp->tpa_info = orig_tpa_info;
+ 	fp->bp = bp;
+ 	fp->index = index;
+ 	if (IS_ETH_FP(fp))
+@@ -2905,7 +2921,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	if (unlikely(bnx2x_tx_avail(bp, txdata) <
+ 		     (skb_shinfo(skb)->nr_frags + 3))) {
+-		txdata->parent_fp->eth_q_stats.driver_xoff++;
++		bnx2x_fp_qstats(bp, txdata->parent_fp)->driver_xoff++;
+ 		netif_tx_stop_queue(txq);
+ 		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
+ 		return NETDEV_TX_BUSY;
+@@ -3187,7 +3203,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		 * fp->bd_tx_cons */
+ 		smp_mb();
+ 
+-		txdata->parent_fp->eth_q_stats.driver_xoff++;
++		bnx2x_fp_qstats(bp, txdata->parent_fp)->driver_xoff++;
+ 		if (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 3)
+ 			netif_tx_wake_queue(txq);
+ 	}
+@@ -3424,7 +3440,7 @@ static int bnx2x_alloc_rx_bds(struct bnx2x_fastpath *fp,
+ 			       cqe_ring_prod);
+ 	fp->rx_pkt = fp->rx_calls = 0;
+ 
+-	fp->eth_q_stats.rx_skb_alloc_failed += failure_cnt;
++	bnx2x_fp_stats(bp, fp)->eth_q_stats.rx_skb_alloc_failed += failure_cnt;
+ 
+ 	return i - failure_cnt;
+ }
+@@ -3629,7 +3645,10 @@ int bnx2x_alloc_fp_mem(struct bnx2x *bp)
+ 
+ void bnx2x_free_mem_bp(struct bnx2x *bp)
+ {
++	kfree(bp->fp->tpa_info);
+ 	kfree(bp->fp);
++	kfree(bp->sp_objs);
++	kfree(bp->fp_stats);
+ 	kfree(bp->bnx2x_txq);
+ 	kfree(bp->msix_table);
+ 	kfree(bp->ilt);
+@@ -3641,6 +3660,8 @@ int __devinit bnx2x_alloc_mem_bp(struct bnx2x *bp)
+ 	struct msix_entry *tbl;
+ 	struct bnx2x_ilt *ilt;
+ 	int msix_table_size = 0;
++	int fp_array_size;
++	int i;
+ 
+ 	/*
+ 	 * The biggest MSI-X table we might need is as a maximum number of fast
+@@ -3649,12 +3670,34 @@ int __devinit bnx2x_alloc_mem_bp(struct bnx2x *bp)
+ 	msix_table_size = bp->igu_sb_cnt + 1;
+ 
+ 	/* fp array: RSS plus CNIC related L2 queues */
+-	fp = kcalloc(BNX2X_MAX_RSS_COUNT(bp) + NON_ETH_CONTEXT_USE,
+-		     sizeof(*fp), GFP_KERNEL);
++	fp_array_size = BNX2X_MAX_RSS_COUNT(bp) + NON_ETH_CONTEXT_USE;
++	BNX2X_DEV_INFO("fp_array_size %d", fp_array_size);
++
++	fp = kcalloc(fp_array_size, sizeof(*fp), GFP_KERNEL);
+ 	if (!fp)
+ 		goto alloc_err;
++	for (i = 0; i < fp_array_size; i++) {
++		fp[i].tpa_info =
++			kcalloc(ETH_MAX_AGGREGATION_QUEUES_E1H_E2,
++				sizeof(struct bnx2x_agg_info), GFP_KERNEL);
++		if (!(fp[i].tpa_info))
++			goto alloc_err;
++	}
++
+ 	bp->fp = fp;
+ 
++	/* allocate sp objs */
++	bp->sp_objs = kcalloc(fp_array_size, sizeof(struct bnx2x_sp_objs),
++			      GFP_KERNEL);
++	if (!bp->sp_objs)
++		goto alloc_err;
++
++	/* allocate fp_stats */
++	bp->fp_stats = kcalloc(fp_array_size, sizeof(struct bnx2x_fp_stats),
++			       GFP_KERNEL);
++	if (!bp->fp_stats)
++		goto alloc_err;
++
+ 	/* Allocate memory for the transmission queues array */
+ 	bp->bnx2x_txq_size = BNX2X_MAX_RSS_COUNT(bp) * BNX2X_MULTI_TX_COS;
+ #ifdef BCM_CNIC
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index de79cdf..11afe5d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -981,8 +981,8 @@ static inline void bnx2x_init_vlan_mac_fp_objs(struct bnx2x_fastpath *fp,
+ 	struct bnx2x *bp = fp->bp;
+ 
+ 	/* Configure classification DBs */
+-	bnx2x_init_mac_obj(bp, &fp->mac_obj, fp->cl_id, fp->cid,
+-			   BP_FUNC(bp), bnx2x_sp(bp, mac_rdata),
++	bnx2x_init_mac_obj(bp, &bnx2x_sp_obj(bp, fp).mac_obj, fp->cl_id,
++			   fp->cid, BP_FUNC(bp), bnx2x_sp(bp, mac_rdata),
+ 			   bnx2x_sp_mapping(bp, mac_rdata),
+ 			   BNX2X_FILTER_MAC_PENDING,
+ 			   &bp->sp_state, obj_type,
+@@ -1138,8 +1138,8 @@ static inline void bnx2x_init_fcoe_fp(struct bnx2x *bp)
+ 	/* No multi-CoS for FCoE L2 client */
+ 	BUG_ON(fp->max_cos != 1);
+ 
+-	bnx2x_init_queue_obj(bp, &fp->q_obj, fp->cl_id, &fp->cid, 1,
+-			     BP_FUNC(bp), bnx2x_sp(bp, q_rdata),
++	bnx2x_init_queue_obj(bp, &bnx2x_sp_obj(bp, fp).q_obj, fp->cl_id,
++			     &fp->cid, 1, BP_FUNC(bp), bnx2x_sp(bp, q_rdata),
+ 			     bnx2x_sp_mapping(bp, q_rdata), q_type);
+ 
+ 	DP(NETIF_MSG_IFUP,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 037eee6..13a51b0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -2292,7 +2292,7 @@ static int bnx2x_test_intr(struct bnx2x *bp)
+ 		return -ENODEV;
+ 	}
+ 
+-	params.q_obj = &bp->fp->q_obj;
++	params.q_obj = &bp->sp_objs->q_obj;
+ 	params.cmd = BNX2X_Q_CMD_EMPTY;
+ 
+ 	__set_bit(RAMROD_COMP_WAIT, &params.ramrod_flags);
+@@ -2516,7 +2516,7 @@ static void bnx2x_get_ethtool_stats(struct net_device *dev,
+ 
+ 	if (is_multi(bp)) {
+ 		for_each_eth_queue(bp, i) {
+-			hw_stats = (u32 *)&bp->fp[i].eth_q_stats;
++			hw_stats = (u32 *)&bp->fp_stats[i].eth_q_stats;
+ 			for (j = 0; j < BNX2X_NUM_Q_STATS; j++) {
+ 				if (bnx2x_q_stats_arr[j].size == 0) {
+ 					/* skip this counter */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 1895de5..fbade5c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -1583,7 +1583,7 @@ void bnx2x_sp_event(struct bnx2x_fastpath *fp, union eth_rx_cqe *rr_cqe)
+ 	int cid = SW_CID(rr_cqe->ramrod_cqe.conn_and_cmd_data);
+ 	int command = CQE_CMD(rr_cqe->ramrod_cqe.conn_and_cmd_data);
+ 	enum bnx2x_queue_cmd drv_cmd = BNX2X_Q_CMD_MAX;
+-	struct bnx2x_queue_sp_obj *q_obj = &fp->q_obj;
++	struct bnx2x_queue_sp_obj *q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
+ 
+ 	DP(BNX2X_MSG_SP,
+ 	   "fp %d  cid %d  got ramrod #%d  state is %x  type is %d\n",
+@@ -3035,9 +3035,9 @@ static void bnx2x_drv_info_ether_stat(struct bnx2x *bp)
+ 	memcpy(ether_stat->version, DRV_MODULE_VERSION,
+ 	       ETH_STAT_INFO_VERSION_LEN - 1);
+ 
+-	bp->fp[0].mac_obj.get_n_elements(bp, &bp->fp[0].mac_obj,
+-					 DRV_INFO_ETH_STAT_NUM_MACS_REQUIRED,
+-					 ether_stat->mac_local);
++	bp->sp_objs[0].mac_obj.get_n_elements(bp, &bp->sp_objs[0].mac_obj,
++					DRV_INFO_ETH_STAT_NUM_MACS_REQUIRED,
++					ether_stat->mac_local);
+ 
+ 	ether_stat->mtu_size = bp->dev->mtu;
+ 
+@@ -4632,7 +4632,7 @@ static void bnx2x_handle_classification_eqe(struct bnx2x *bp,
+ 			vlan_mac_obj = &bp->iscsi_l2_mac_obj;
+ 		else
+ #endif
+-			vlan_mac_obj = &bp->fp[cid].mac_obj;
++			vlan_mac_obj = &bp->sp_objs[cid].mac_obj;
+ 
+ 		break;
+ 	case BNX2X_FILTER_MCAST_PENDING:
+@@ -4730,7 +4730,7 @@ static void bnx2x_after_function_update(struct bnx2x *bp)
+ 	for_each_eth_queue(bp, q) {
+ 		/* Set the appropriate Queue object */
+ 		fp = &bp->fp[q];
+-		queue_params.q_obj = &fp->q_obj;
++		queue_params.q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
+ 
+ 		/* send the ramrod */
+ 		rc = bnx2x_queue_state_change(bp, &queue_params);
+@@ -4742,7 +4742,7 @@ static void bnx2x_after_function_update(struct bnx2x *bp)
+ #ifdef BCM_CNIC
+ 	if (!NO_FCOE(bp)) {
+ 		fp = &bp->fp[FCOE_IDX(bp)];
+-		queue_params.q_obj = &fp->q_obj;
++		queue_params.q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
+ 
+ 		/* clear pending completion bit */
+ 		__clear_bit(RAMROD_COMP_WAIT, &queue_params.ramrod_flags);
+@@ -4775,10 +4775,10 @@ static struct bnx2x_queue_sp_obj *bnx2x_cid_to_q_obj(
+ 	DP(BNX2X_MSG_SP, "retrieving fp from cid %d\n", cid);
+ #ifdef BCM_CNIC
+ 	if (cid == BNX2X_FCOE_ETH_CID(bp))
+-		return &bnx2x_fcoe(bp, q_obj);
++		return &bnx2x_fcoe_sp_obj(bp, q_obj);
+ 	else
+ #endif
+-		return &bnx2x_fp(bp, CID_TO_FP(cid, bp), q_obj);
++		return &bp->sp_objs[CID_TO_FP(cid, bp)].q_obj;
+ }
+ 
+ static void bnx2x_eq_int(struct bnx2x *bp)
+@@ -5667,8 +5667,8 @@ static void bnx2x_init_eth_fp(struct bnx2x *bp, int fp_idx)
+ 		cids[cos] = fp->txdata_ptr[cos]->cid;
+ 	}
+ 
+-	bnx2x_init_queue_obj(bp, &fp->q_obj, fp->cl_id, cids, fp->max_cos,
+-			     BP_FUNC(bp), bnx2x_sp(bp, q_rdata),
++	bnx2x_init_queue_obj(bp, &bnx2x_sp_obj(bp, fp).q_obj, fp->cl_id, cids,
++			     fp->max_cos, BP_FUNC(bp), bnx2x_sp(bp, q_rdata),
+ 			     bnx2x_sp_mapping(bp, q_rdata), q_type);
+ 
+ 	/**
+@@ -7596,8 +7596,8 @@ int bnx2x_set_eth_mac(struct bnx2x *bp, bool set)
+ 
+ 	__set_bit(RAMROD_COMP_WAIT, &ramrod_flags);
+ 	/* Eth MAC is set on RSS leading client (fp[0]) */
+-	return bnx2x_set_mac_one(bp, bp->dev->dev_addr, &bp->fp->mac_obj, set,
+-				 BNX2X_ETH_MAC, &ramrod_flags);
++	return bnx2x_set_mac_one(bp, bp->dev->dev_addr, &bp->sp_objs->mac_obj,
++				 set, BNX2X_ETH_MAC, &ramrod_flags);
+ }
+ 
+ int bnx2x_setup_leading(struct bnx2x *bp)
+@@ -7877,7 +7877,7 @@ int bnx2x_setup_queue(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		bnx2x_ack_sb(bp, fp->igu_sb_id, USTORM_ID, 0,
+ 			     IGU_INT_ENABLE, 0);
+ 
+-	q_params.q_obj = &fp->q_obj;
++	q_params.q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
+ 	/* We want to wait for completion in this context */
+ 	__set_bit(RAMROD_COMP_WAIT, &q_params.ramrod_flags);
+ 
+@@ -7950,7 +7950,7 @@ static int bnx2x_stop_queue(struct bnx2x *bp, int index)
+ 
+ 	DP(NETIF_MSG_IFDOWN, "stopping queue %d cid %d\n", index, fp->cid);
+ 
+-	q_params.q_obj = &fp->q_obj;
++	q_params.q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
+ 	/* We want to wait for completion in this context */
+ 	__set_bit(RAMROD_COMP_WAIT, &q_params.ramrod_flags);
+ 
+@@ -8339,12 +8339,13 @@ void bnx2x_chip_cleanup(struct bnx2x *bp, int unload_mode)
+ 	usleep_range(1000, 1000);
+ 
+ 	/* Clean all ETH MACs */
+-	rc = bnx2x_del_all_macs(bp, &bp->fp[0].mac_obj, BNX2X_ETH_MAC, false);
++	rc = bnx2x_del_all_macs(bp, &bp->sp_objs[0].mac_obj, BNX2X_ETH_MAC,
++				false);
+ 	if (rc < 0)
+ 		BNX2X_ERR("Failed to delete all ETH macs: %d\n", rc);
+ 
+ 	/* Clean up UC list  */
+-	rc = bnx2x_del_all_macs(bp, &bp->fp[0].mac_obj, BNX2X_UC_LIST_MAC,
++	rc = bnx2x_del_all_macs(bp, &bp->sp_objs[0].mac_obj, BNX2X_UC_LIST_MAC,
+ 				true);
+ 	if (rc < 0)
+ 		BNX2X_ERR("Failed to schedule DEL commands for UC MACs list: %d\n",
+@@ -11049,7 +11050,7 @@ static int bnx2x_set_uc_list(struct bnx2x *bp)
+ 	int rc;
+ 	struct net_device *dev = bp->dev;
+ 	struct netdev_hw_addr *ha;
+-	struct bnx2x_vlan_mac_obj *mac_obj = &bp->fp->mac_obj;
++	struct bnx2x_vlan_mac_obj *mac_obj = &bp->sp_objs->mac_obj;
+ 	unsigned long ramrod_flags = 0;
+ 
+ 	/* First schedule a cleanup up of old configuration */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 776b521..514a528 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -859,17 +859,22 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 		struct tstorm_per_queue_stats *tclient =
+ 			&bp->fw_stats_data->queue_stats[i].
+ 			tstorm_queue_statistics;
+-		struct tstorm_per_queue_stats *old_tclient = &fp->old_tclient;
++		struct tstorm_per_queue_stats *old_tclient =
++			&bnx2x_fp_stats(bp, fp)->old_tclient;
+ 		struct ustorm_per_queue_stats *uclient =
+ 			&bp->fw_stats_data->queue_stats[i].
+ 			ustorm_queue_statistics;
+-		struct ustorm_per_queue_stats *old_uclient = &fp->old_uclient;
++		struct ustorm_per_queue_stats *old_uclient =
++			&bnx2x_fp_stats(bp, fp)->old_uclient;
+ 		struct xstorm_per_queue_stats *xclient =
+ 			&bp->fw_stats_data->queue_stats[i].
+ 			xstorm_queue_statistics;
+-		struct xstorm_per_queue_stats *old_xclient = &fp->old_xclient;
+-		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
+-		struct bnx2x_eth_q_stats_old *qstats_old = &fp->eth_q_stats_old;
++		struct xstorm_per_queue_stats *old_xclient =
++			&bnx2x_fp_stats(bp, fp)->old_xclient;
++		struct bnx2x_eth_q_stats *qstats =
++			&bnx2x_fp_stats(bp, fp)->eth_q_stats;
++		struct bnx2x_eth_q_stats_old *qstats_old =
++			&bnx2x_fp_stats(bp, fp)->eth_q_stats_old;
+ 
+ 		u32 diff;
+ 
+@@ -1052,8 +1057,11 @@ static void bnx2x_net_stats_update(struct bnx2x *bp)
+ 	nstats->tx_bytes = bnx2x_hilo(&estats->total_bytes_transmitted_hi);
+ 
+ 	tmp = estats->mac_discard;
+-	for_each_rx_queue(bp, i)
+-		tmp += le32_to_cpu(bp->fp[i].old_tclient.checksum_discard);
++	for_each_rx_queue(bp, i) {
++		struct tstorm_per_queue_stats *old_tclient =
++			&bp->fp_stats[i].old_tclient;
++		tmp += le32_to_cpu(old_tclient->checksum_discard);
++	}
+ 	nstats->rx_dropped = tmp + bp->net_stats_old.rx_dropped;
+ 
+ 	nstats->tx_dropped = 0;
+@@ -1103,9 +1111,9 @@ static void bnx2x_drv_stats_update(struct bnx2x *bp)
+ 	int i;
+ 
+ 	for_each_queue(bp, i) {
+-		struct bnx2x_eth_q_stats *qstats = &bp->fp[i].eth_q_stats;
++		struct bnx2x_eth_q_stats *qstats = &bp->fp_stats[i].eth_q_stats;
+ 		struct bnx2x_eth_q_stats_old *qstats_old =
+-						&bp->fp[i].eth_q_stats_old;
++			&bp->fp_stats[i].eth_q_stats_old;
+ 
+ 		UPDATE_ESTAT_QSTAT(driver_xoff);
+ 		UPDATE_ESTAT_QSTAT(rx_err_discard_pkt);
+@@ -1483,15 +1491,19 @@ void bnx2x_stats_init(struct bnx2x *bp)
+ 
+ 	/* function stats */
+ 	for_each_queue(bp, i) {
+-		struct bnx2x_fastpath *fp = &bp->fp[i];
+-
+-		memset(&fp->old_tclient, 0, sizeof(fp->old_tclient));
+-		memset(&fp->old_uclient, 0, sizeof(fp->old_uclient));
+-		memset(&fp->old_xclient, 0, sizeof(fp->old_xclient));
++		struct bnx2x_fp_stats *fp_stats = &bp->fp_stats[i];
++
++		memset(&fp_stats->old_tclient, 0,
++		       sizeof(fp_stats->old_tclient));
++		memset(&fp_stats->old_uclient, 0,
++		       sizeof(fp_stats->old_uclient));
++		memset(&fp_stats->old_xclient, 0,
++		       sizeof(fp_stats->old_xclient));
+ 		if (bp->stats_init) {
+-			memset(&fp->eth_q_stats, 0, sizeof(fp->eth_q_stats));
+-			memset(&fp->eth_q_stats_old, 0,
+-			       sizeof(fp->eth_q_stats_old));
++			memset(&fp_stats->eth_q_stats, 0,
++			       sizeof(fp_stats->eth_q_stats));
++			memset(&fp_stats->eth_q_stats_old, 0,
++			       sizeof(fp_stats->eth_q_stats_old));
+ 		}
+ 	}
+ 
+@@ -1533,8 +1545,10 @@ void bnx2x_save_statistics(struct bnx2x *bp)
+ 	/* save queue statistics */
+ 	for_each_eth_queue(bp, i) {
+ 		struct bnx2x_fastpath *fp = &bp->fp[i];
+-		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
+-		struct bnx2x_eth_q_stats_old *qstats_old = &fp->eth_q_stats_old;
++		struct bnx2x_eth_q_stats *qstats =
++			&bnx2x_fp_stats(bp, fp)->eth_q_stats;
++		struct bnx2x_eth_q_stats_old *qstats_old =
++			&bnx2x_fp_stats(bp, fp)->eth_q_stats_old;
+ 
+ 		UPDATE_QSTAT_OLD(total_unicast_bytes_received_hi);
+ 		UPDATE_QSTAT_OLD(total_unicast_bytes_received_lo);
+@@ -1590,8 +1604,7 @@ void bnx2x_afex_collect_stats(struct bnx2x *bp, void *void_afex_stats,
+ 	memset(afex_stats, 0, sizeof(struct afex_stats));
+ 
+ 	for_each_eth_queue(bp, i) {
+-		struct bnx2x_fastpath *fp = &bp->fp[i];
+-		struct bnx2x_eth_q_stats *qstats = &fp->eth_q_stats;
++		struct bnx2x_eth_q_stats *qstats = &bp->fp_stats[i].eth_q_stats;
+ 
+ 		ADD_64(afex_stats->rx_unicast_bytes_hi,
+ 		       qstats->total_unicast_bytes_received_hi,
+-- 
+1.7.10
