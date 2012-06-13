@@ -1,263 +1,123 @@
-From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 9/12] bnx2x: Add support for ethtool -L
-Date: Wed, 13 Jun 2012 15:44:21 +0300
-Message-ID: <1339591464-10554-10-git-send-email-meravs@broadcom.com>
-References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bnx2x: fix checksum validation
+Date: Wed, 13 Jun 2012 11:50:04 +0200
+Message-ID: <1339581004.22704.340.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Merav Sicron" <meravs@broadcom.com>
-To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Robert Evans <evansr@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yaniv Rosner <yanivr@broadcom.com>,
+	Merav Sicron <meravs@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1464 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752221Ab2FMJto (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:49:44 -0400
-In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:50833 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752221Ab2FMJuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 05:50:11 -0400
+Received: by eeit10 with SMTP id t10so116657eei.19
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 02:50:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for ethtool -L/-l for setting and getting the number of RSS queues.
-The 'combined' field is used as we don't support separate IRQ for Rx and Tx.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Merav Sicron <meravs@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+bnx2x driver incorrectly sets ip_summed to CHECKSUM_UNNECESSARY on
+encapsulated segments. TCP stack happily accepts frames with bad
+checksums, if they are inside a GRE or IPIP encapsulation.
+
+Our understanding is that if no IP or L4 csum validation was done by the
+hardware, we should leave ip_summed as is (CHECKSUM_NONE), since
+hardware doesn't provide CHECKSUM_COMPLETE support in its cqe.
+
+Then, if IP/L4 checksumming was done by the hardware, set
+CHECKSUM_UNNECESSARY if no error was flagged.
+
+Patch based on findings and analysis from Robert Evans
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>
+Cc: Yaniv Rosner <yanivr@broadcom.com>
+Cc: Merav Sicron <meravs@broadcom.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Robert Evans <evansr@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    4 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   11 ++-
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   81 ++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |   15 ++--
- 5 files changed, 101 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |   15 -------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   27 ++++++++++----
+ 2 files changed, 21 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 4dde45a..e0a3cc9 100644
+index e30e2a2..7de8241 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1408,6 +1408,7 @@ struct bnx2x {
- #define BNX2X_MAX_COS			3
- #define BNX2X_MAX_TX_COS		2
- 	int			num_queues;
-+	int			num_napi_queues;
- 	int			disable_tpa;
+@@ -747,21 +747,6 @@ struct bnx2x_fastpath {
  
- 	u32			rx_mode;
-@@ -1695,6 +1696,9 @@ struct bnx2x_func_init_params {
- 			continue;		\
- 		else
+ #define ETH_RX_ERROR_FALGS		ETH_FAST_PATH_RX_CQE_PHY_DECODE_ERR_FLG
  
-+#define for_each_napi_rx_queue(bp, var) \
-+	for ((var) = 0; (var) < bp->num_napi_queues; (var)++)
-+
- /* Skip OOO FP */
- #define for_each_tx_queue(bp, var) \
- 	for ((var) = 0; (var) < BNX2X_NUM_QUEUES(bp); (var)++) \
+-#define BNX2X_IP_CSUM_ERR(cqe) \
+-			(!((cqe)->fast_path_cqe.status_flags & \
+-			   ETH_FAST_PATH_RX_CQE_IP_XSUM_NO_VALIDATION_FLG) && \
+-			 ((cqe)->fast_path_cqe.type_error_flags & \
+-			  ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG))
+-
+-#define BNX2X_L4_CSUM_ERR(cqe) \
+-			(!((cqe)->fast_path_cqe.status_flags & \
+-			   ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG) && \
+-			 ((cqe)->fast_path_cqe.type_error_flags & \
+-			  ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG))
+-
+-#define BNX2X_RX_CSUM_OK(cqe) \
+-			(!(BNX2X_L4_CSUM_ERR(cqe) || BNX2X_IP_CSUM_ERR(cqe)))
+-
+ #define BNX2X_PRS_FLAG_OVERETH_IPV4(flags) \
+ 				(((le16_to_cpu(flags) & \
+ 				   PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) >> \
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 915e680..c8a83a3 100644
+index ad0743b..cbc56f2 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1343,7 +1343,7 @@ void bnx2x_free_irq(struct bnx2x *bp)
- 		free_irq(bp->dev->irq, bp->dev);
+@@ -617,6 +617,25 @@ static int bnx2x_alloc_rx_data(struct bnx2x *bp,
+ 	return 0;
  }
  
--int __devinit bnx2x_enable_msix(struct bnx2x *bp)
-+int bnx2x_enable_msix(struct bnx2x *bp)
- {
- 	int msix_vec = 0, i, rc, req_cnt;
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 2865575..b6ae665 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -29,6 +29,7 @@
- extern int load_count[2][3]; /* per-path: 0-common, 1-port0, 2-port1 */
- 
- extern int num_queues;
-+extern int int_mode;
- 
- /************************ Macros ********************************/
- #define BNX2X_PCI_FREE(x, y, size) \
-@@ -495,7 +496,7 @@ void bnx2x_netif_start(struct bnx2x *bp);
-  * fills msix_table, requests vectors, updates num_queues
-  * according to number of available vectors.
-  */
--int __devinit bnx2x_enable_msix(struct bnx2x *bp);
-+int bnx2x_enable_msix(struct bnx2x *bp);
- 
- /**
-  * bnx2x_enable_msi - request msi mode from OS, updated internals accordingly
-@@ -788,8 +789,10 @@ static inline void bnx2x_add_all_napi(struct bnx2x *bp)
- {
- 	int i;
- 
-+	bp->num_napi_queues = bp->num_queues;
-+
- 	/* Add NAPI objects */
--	for_each_rx_queue(bp, i)
-+	for_each_napi_rx_queue(bp, i)
- 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
- 			       bnx2x_poll, BNX2X_NAPI_WEIGHT);
- }
-@@ -798,10 +801,12 @@ static inline void bnx2x_del_all_napi(struct bnx2x *bp)
- {
- 	int i;
- 
--	for_each_rx_queue(bp, i)
-+	for_each_napi_rx_queue(bp, i)
- 		netif_napi_del(&bnx2x_fp(bp, i, napi));
- }
- 
-+void bnx2x_set_int_mode(struct bnx2x *bp);
-+
- static inline void bnx2x_disable_msi(struct bnx2x *bp)
- {
- 	if (bp->flags & USING_MSIX_FLAG) {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 13a51b0..43ee337 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -2809,6 +2809,85 @@ static int bnx2x_set_rxfh_indir(struct net_device *dev, const u32 *indir)
- 	return bnx2x_config_rss_eth(bp, false);
- }
- 
-+/**
-+ * bnx2x_get_channels - gets the number of RSS queues.
-+ *
-+ * @dev:		net device
-+ * @channels:		returns the number of max / current queues
-+ */
-+static void bnx2x_get_channels(struct net_device *dev,
-+			       struct ethtool_channels *channels)
++static void bnx2x_csum_validate(struct sk_buff *skb, union eth_rx_cqe *cqe,
++				struct bnx2x_fastpath *fp)
 +{
-+	struct bnx2x *bp = netdev_priv(dev);
++	/* Do nothing if no IP/L4 csum validation was done */
 +
-+	channels->max_rx = channels->max_tx = channels->max_other = 0;
-+	channels->max_combined = BNX2X_MAX_RSS_COUNT(bp);
-+	channels->rx_count = channels->tx_count = channels->other_count = 0;
-+	channels->combined_count = BNX2X_NUM_ETH_QUEUES(bp);
++	if (cqe->fast_path_cqe.status_flags &
++	    (ETH_FAST_PATH_RX_CQE_IP_XSUM_NO_VALIDATION_FLG |
++	     ETH_FAST_PATH_RX_CQE_L4_XSUM_NO_VALIDATION_FLG))
++		return;
++
++	/* If both IP/L4 validation were done, check if an error was found. */
++
++	if (cqe->fast_path_cqe.type_error_flags &
++	    (ETH_FAST_PATH_RX_CQE_IP_BAD_XSUM_FLG |
++	     ETH_FAST_PATH_RX_CQE_L4_BAD_XSUM_FLG))
++		fp->eth_q_stats.hw_csum_err++;
++	else
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
 +}
-+
-+/**
-+ * bnx2x_change_num_queues - change the number of RSS queues.
-+ *
-+ * @bp:			bnx2x private structure
-+ *
-+ * Re-configure interrupt mode to get the new number of MSI-X
-+ * vectors and re-add NAPI objects.
-+ */
-+static void bnx2x_change_num_queues(struct bnx2x *bp, int num_rss)
-+{
-+	bnx2x_del_all_napi(bp);
-+	bnx2x_disable_msi(bp);
-+	BNX2X_NUM_QUEUES(bp) = num_rss + NON_ETH_CONTEXT_USE;
-+	bnx2x_set_int_mode(bp);
-+	bnx2x_add_all_napi(bp);
-+}
-+
-+/**
-+ * bnx2x_set_channels - sets the number of RSS queues.
-+ *
-+ * @dev:		net device
-+ * @channels:		includes the number of queues requested
-+ */
-+static int bnx2x_set_channels(struct net_device *dev,
-+			      struct ethtool_channels *channels)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+
-+
-+	DP(BNX2X_MSG_ETHTOOL,
-+	   "set-channels command parameters: rx = %d, tx = %d, other = %d, combined = %d\n",
-+	   channels->rx_count, channels->tx_count, channels->other_count,
-+	   channels->combined_count);
-+
-+	/* We don't support separate rx / tx channels.
-+	 * We don't allow setting 'other' channels.
-+	 */
-+	if (channels->rx_count || channels->tx_count || channels->other_count
-+	    || (channels->combined_count > BNX2X_MAX_RSS_COUNT(bp))) {
-+		DP(BNX2X_MSG_ETHTOOL, "command parameters not supported\n");
-+		return -EINVAL;
-+	}
-+
-+	/* Check if there was a change in the active parameters */
-+	if (channels->combined_count == BNX2X_NUM_ETH_QUEUES(bp)) {
-+		DP(BNX2X_MSG_ETHTOOL, "No change in active parameters\n");
-+		return 0;
-+	}
-+
-+	/* Set the requested number of queues in bp context.
-+	 * Note that the actual number of queues created during load may be
-+	 * less than requested if memory is low.
-+	 */
-+	if (unlikely(!netif_running(dev))) {
-+		bnx2x_change_num_queues(bp, channels->combined_count);
-+		return 0;
-+	}
-+	bnx2x_nic_unload(bp, UNLOAD_NORMAL);
-+	bnx2x_change_num_queues(bp, channels->combined_count);
-+	return bnx2x_nic_load(bp, LOAD_NORMAL);
-+}
-+
- static const struct ethtool_ops bnx2x_ethtool_ops = {
- 	.get_settings		= bnx2x_get_settings,
- 	.set_settings		= bnx2x_set_settings,
-@@ -2840,6 +2919,8 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
- 	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
- 	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
- 	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
-+	.get_channels		= bnx2x_get_channels,
-+	.set_channels		= bnx2x_set_channels,
- 	.get_eee		= bnx2x_get_eee,
- 	.set_eee		= bnx2x_set_eee,
- };
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 11bd0b6..3a4fefd 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -104,7 +104,7 @@ MODULE_PARM_DESC(disable_tpa, " Disable the TPA (LRO) feature");
  
- #define INT_MODE_INTx			1
- #define INT_MODE_MSI			2
--static int int_mode;
-+int int_mode;
- module_param(int_mode, int, 0);
- MODULE_PARM_DESC(int_mode, " Force interrupt mode other than MSI-X "
- 				"(1 INT#x; 2 MSI)");
-@@ -7612,7 +7612,7 @@ int bnx2x_setup_leading(struct bnx2x *bp)
-  *
-  * In case of MSI-X it will also try to enable MSI-X.
-  */
--static void __devinit bnx2x_set_int_mode(struct bnx2x *bp)
-+void bnx2x_set_int_mode(struct bnx2x *bp)
+ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
  {
- 	switch (int_mode) {
- 	case INT_MODE_MSI:
-@@ -7623,11 +7623,6 @@ static void __devinit bnx2x_set_int_mode(struct bnx2x *bp)
- 		BNX2X_DEV_INFO("set number of queues to 1\n");
- 		break;
- 	default:
--		/* Set number of queues for MSI-X mode */
--		bnx2x_set_num_queues(bp);
--
--		BNX2X_DEV_INFO("set number of queues to %d\n", bp->num_queues);
--
- 		/* if we can't use MSI-X we only need one fp,
- 		 * so try to enable MSI-X with the requested number of fp's
- 		 * and fallback to MSI or legacy INTx with one fp
-@@ -11883,8 +11878,12 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+@@ -806,13 +825,9 @@ reuse_rx:
  
- #endif
+ 		skb_checksum_none_assert(skb);
  
-+
-+	/* Set bp->num_queues for MSI-X mode*/
-+	bnx2x_set_num_queues(bp);
-+
- 	/* Configure interrupt mode: try to enable MSI-X/MSI if
--	 * needed, set bp->num_queues appropriately.
-+	 * needed.
- 	 */
- 	bnx2x_set_int_mode(bp);
+-		if (bp->dev->features & NETIF_F_RXCSUM) {
++		if (bp->dev->features & NETIF_F_RXCSUM)
++			bnx2x_csum_validate(skb, cqe, fp);
  
--- 
-1.7.10
+-			if (likely(BNX2X_RX_CSUM_OK(cqe)))
+-				skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			else
+-				fp->eth_q_stats.hw_csum_err++;
+-		}
+ 
+ 		skb_record_rx_queue(skb, fp->rx_queue);
+ 
