@@ -1,93 +1,88 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 3/4] stmmac: update the driver Documentation and add EEE
-Date: Wed, 13 Jun 2012 10:01:02 +0200
-Message-ID: <1339574463-1207-4-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 2/4 (v3)] stmmac: do not use strict_strtoul but kstrtoint
+Date: Wed, 13 Jun 2012 10:01:01 +0200
+Message-ID: <1339574463-1207-3-git-send-email-peppe.cavallaro@st.com>
 References: <1339574463-1207-1-git-send-email-peppe.cavallaro@st.com>
 Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
 	rayagond@vayavyalabs.com, davem@davemloft.net,
 	yuvalmin@broadcom.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:35698 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751620Ab2FMIBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 04:01:31 -0400
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:51092 "EHLO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751265Ab2FMIB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 04:01:27 -0400
 In-Reply-To: <1339574463-1207-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the stmmac's documentation adding
-some missing files in the section used to describe the
-internal driver's structure.
+This patch replaces the obsolete strict_strtoul with kstrtoint.
 
-Also the patch adds a new section to describe the EEE support.
+v2: also removed casting on kstrtoul.
+v3: use kstrtoint instead of kstrtoul due to all vars are integer.
+    thanks to E. Dumazet.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- Documentation/networking/stmmac.txt |   36 +++++++++++++++++++++++++++++-----
- 1 files changed, 30 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   27 +++++++-------------
+ 1 files changed, 10 insertions(+), 17 deletions(-)
 
-diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
-index 5cb9a19..c676b9c 100644
---- a/Documentation/networking/stmmac.txt
-+++ b/Documentation/networking/stmmac.txt
-@@ -257,9 +257,11 @@ reset procedure etc).
-  o Makefile
-  o stmmac_main.c: main network device driver;
-  o stmmac_mdio.c: mdio functions;
-+ o stmmac_pci: PCI driver;
-+ o stmmac_platform.c: platform driver
-  o stmmac_ethtool.c: ethtool support;
-  o stmmac_timer.[ch]: timer code used for mitigating the driver dma interrupts
--		      Only tested on ST40 platforms based.
-+		      (only tested on ST40 platforms based);
-  o stmmac.h: private driver structure;
-  o common.h: common definitions and VFTs;
-  o descs.h: descriptor structure definitions;
-@@ -269,9 +271,11 @@ reset procedure etc).
-  o dwmac100_core: MAC 100 core and dma code;
-  o dwmac100_dma.c: dma funtions for the MAC chip;
-  o dwmac1000.h: specific header file for the MAC;
-- o dwmac_lib.c: generic DMA functions shared among chips
-- o enh_desc.c: functions for handling enhanced descriptors
-- o norm_desc.c: functions for handling normal descriptors
-+ o dwmac_lib.c: generic DMA functions shared among chips;
-+ o enh_desc.c: functions for handling enhanced descriptors;
-+ o norm_desc.c: functions for handling normal descriptors;
-+ o chain_mode.c/ring_mode.c:: functions to manage RING/CHAINED modes;
-+ o mmc_core.c/mmc.h: Management MAC Counters;
- 
- 5) Debug Information
- 
-@@ -304,7 +308,27 @@ All these are only useful during the developing stage
- and should never enabled inside the code for general usage.
- In fact, these can generate an huge amount of debug messages.
- 
--6) TODO:
-+6) Energy Efficient Ethernet
-+
-+Energy Efficient Ethernet(EEE) enables IEEE 802.3 MAC sublayer along
-+with a family of Physical layer to operate in the Low power Idle(LPI)
-+mode. The EEE mode supports the IEEE 802.3 MAC operation at 100Mbps,
-+1000Mbps & 10Gbps.
-+
-+The LPI mode allows power saving by switching off parts of the
-+communication device functionality when there is no data to be
-+transmitted & received. The system on both the side of the link can
-+disable some functionalities & save power during the period of low-link
-+utilization. The MAC controls whether the system should enter or exit
-+the LPI mode & communicate this to PHY.
-+
-+As soon as the interface is opened, the driver verifies if the EEE can
-+be supported. This is done by looking at both the DMA HW capability
-+register and the PHY devices MCD registers.
-+To enter in Tx LPI mode the driver needs to have a software timer
-+that enable and disable the LPI mode when there is nothing to be
-+transmitted.
-+
-+7) TODO:
-  o XGMAC is not supported.
-- o Add the EEE - Energy Efficient Ethernet
-  o Add the PTP - precision time protocol
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 8899e10..4df9aa5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2126,42 +2126,35 @@ static int __init stmmac_cmdline_opt(char *str)
+ 		return -EINVAL;
+ 	while ((opt = strsep(&str, ",")) != NULL) {
+ 		if (!strncmp(opt, "debug:", 6)) {
+-			if (strict_strtoul(opt + 6, 0, (unsigned long *)&debug))
++			if (kstrtoint(opt + 6, 0, &debug))
+ 				goto err;
+ 		} else if (!strncmp(opt, "phyaddr:", 8)) {
+-			if (strict_strtoul(opt + 8, 0,
+-					   (unsigned long *)&phyaddr))
++			if (kstrtoint(opt + 8, 0, &phyaddr))
+ 				goto err;
+ 		} else if (!strncmp(opt, "dma_txsize:", 11)) {
+-			if (strict_strtoul(opt + 11, 0,
+-					   (unsigned long *)&dma_txsize))
++			if (kstrtoint(opt + 11, 0, &dma_txsize))
+ 				goto err;
+ 		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
+-			if (strict_strtoul(opt + 11, 0,
+-					   (unsigned long *)&dma_rxsize))
++			if (kstrtoint(opt + 11, 0, &dma_rxsize))
+ 				goto err;
+ 		} else if (!strncmp(opt, "buf_sz:", 7)) {
+-			if (strict_strtoul(opt + 7, 0,
+-					   (unsigned long *)&buf_sz))
++			if (kstrtoint(opt + 7, 0, &buf_sz))
+ 				goto err;
+ 		} else if (!strncmp(opt, "tc:", 3)) {
+-			if (strict_strtoul(opt + 3, 0, (unsigned long *)&tc))
++			if (kstrtoint(opt + 3, 0, &tc))
+ 				goto err;
+ 		} else if (!strncmp(opt, "watchdog:", 9)) {
+-			if (strict_strtoul(opt + 9, 0,
+-					   (unsigned long *)&watchdog))
++			if (kstrtoint(opt + 9, 0, &watchdog))
+ 				goto err;
+ 		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
+-			if (strict_strtoul(opt + 10, 0,
+-					   (unsigned long *)&flow_ctrl))
++			if (kstrtoint(opt + 10, 0, &flow_ctrl))
+ 				goto err;
+ 		} else if (!strncmp(opt, "pause:", 6)) {
+-			if (strict_strtoul(opt + 6, 0, (unsigned long *)&pause))
++			if (kstrtoint(opt + 6, 0, &pause))
+ 				goto err;
+ #ifdef CONFIG_STMMAC_TIMER
+ 		} else if (!strncmp(opt, "tmrate:", 7)) {
+-			if (strict_strtoul(opt + 7, 0,
+-					   (unsigned long *)&tmrate))
++			if (kstrtoint(opt + 7, 0, &tmrate))
+ 				goto err;
+ #endif
+ 		}
 -- 
 1.7.4.4
