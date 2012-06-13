@@ -1,7 +1,7 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 3/12] bnx2x: Add support for 4-tupple UDP RSS
-Date: Wed, 13 Jun 2012 15:44:15 +0300
-Message-ID: <1339591464-10554-4-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 4/12] bnx2x: Allow more than 64 L2 CIDs
+Date: Wed, 13 Jun 2012 15:44:16 +0300
+Message-ID: <1339591464-10554-5-git-send-email-meravs@broadcom.com>
 References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,348 +9,191 @@ Content-Transfer-Encoding: 7bit
 Cc: "Merav Sicron" <meravs@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2760 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2785 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752695Ab2FMJmo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752704Ab2FMJmo (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 13 Jun 2012 05:42:44 -0400
 In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change enables to control via ethtool whether to do UDP RSS on 2-tupple
-(IP source / destination only) or on 4-tupple (include UDP source / destination
-port). It also enables to read back the RSS configuration.
+With increased number of RSS queues, each multiplied by the number of traffic-
+classes, we may have up to 64*3=192 CIDs. The current driver scheme with regard
+to context allocation supports only 64 CIDs. The new scheme enables scatter-
+gatehr list of pages for the context.
 
 Signed-off-by: Merav Sicron <meravs@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   16 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    8 +-
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |  147 +++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c     |    8 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |    6 +
- 5 files changed, 170 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   10 +++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   67 ++++++++++++++++------
+ 2 files changed, 57 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 09fcc55..5648078 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1651,14 +1651,13 @@ static void bnx2x_set_rx_buf_size(struct bnx2x *bp)
- static int bnx2x_init_rss_pf(struct bnx2x *bp)
- {
- 	int i;
--	u8 ind_table[T_ETH_INDIRECTION_TABLE_SIZE] = {0};
- 	u8 num_eth_queues = BNX2X_NUM_ETH_QUEUES(bp);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 568c3c7..feec032 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -993,8 +993,8 @@ union cdu_context {
+ };
  
- 	/* Prepare the initial contents fo the indirection table if RSS is
- 	 * enabled
- 	 */
--	for (i = 0; i < sizeof(ind_table); i++)
--		ind_table[i] =
-+	for (i = 0; i < sizeof(bp->rss_conf_obj.ind_table); i++)
-+		bp->rss_conf_obj.ind_table[i] =
- 			bp->fp->cl_id +
- 			ethtool_rxfh_indir_default(i, num_eth_queues);
+ /* CDU host DB constants */
+-#define CDU_ILT_PAGE_SZ_HW	3
+-#define CDU_ILT_PAGE_SZ		(8192 << CDU_ILT_PAGE_SZ_HW) /* 64K */
++#define CDU_ILT_PAGE_SZ_HW	2
++#define CDU_ILT_PAGE_SZ		(8192 << CDU_ILT_PAGE_SZ_HW) /* 32K */
+ #define ILT_PAGE_CIDS		(CDU_ILT_PAGE_SZ / sizeof(union cdu_context))
  
-@@ -1670,12 +1669,11 @@ static int bnx2x_init_rss_pf(struct bnx2x *bp)
- 	 * For 57712 and newer on the other hand it's a per-function
- 	 * configuration.
- 	 */
--	return bnx2x_config_rss_eth(bp, ind_table,
--				    bp->port.pmf || !CHIP_IS_E1x(bp));
-+	return bnx2x_config_rss_eth(bp, bp->port.pmf || !CHIP_IS_E1x(bp));
- }
+ #ifdef BCM_CNIC
+@@ -1435,7 +1435,11 @@ struct bnx2x {
+ 	dma_addr_t			fw_stats_data_mapping;
+ 	int				fw_stats_data_sz;
  
- int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
--			u8 *ind_table, bool config_hash)
-+			bool config_hash)
- {
- 	struct bnx2x_config_rss_params params = {NULL};
- 	int i;
-@@ -1698,11 +1696,15 @@ int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
- 	__set_bit(BNX2X_RSS_IPV4_TCP, &params.rss_flags);
- 	__set_bit(BNX2X_RSS_IPV6, &params.rss_flags);
- 	__set_bit(BNX2X_RSS_IPV6_TCP, &params.rss_flags);
-+	if (rss_obj->udp_rss_v4)
-+		__set_bit(BNX2X_RSS_IPV4_UDP, &params.rss_flags);
-+	if (rss_obj->udp_rss_v6)
-+		__set_bit(BNX2X_RSS_IPV6_UDP, &params.rss_flags);
+-	struct hw_context	context;
++	/* For max 196 cids (64*3 + non-eth), 32KB ILT page size and 1KB
++	 * context size we need 8 ILT entries.
++	 */
++#define ILT_MAX_L2_LINES	8
++	struct hw_context	context[ILT_MAX_L2_LINES];
  
- 	/* Hash bits */
- 	params.rss_result_mask = MULTI_MASK;
+ 	struct bnx2x_ilt	*ilt;
+ #define BP_ILT(bp)		((bp)->ilt)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 21930be..16e009f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -7068,12 +7068,10 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
+ 	cdu_ilt_start = ilt->clients[ILT_CLIENT_CDU].start;
  
--	memcpy(params.ind_table, ind_table, sizeof(params.ind_table));
-+	memcpy(params.ind_table, rss_obj->ind_table, sizeof(params.ind_table));
- 
- 	if (config_hash) {
- 		/* RSS keys */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 7cd99b7..bb47984 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -94,7 +94,7 @@ void bnx2x_send_unload_done(struct bnx2x *bp);
-  * @config_hash:	re-configure RSS hash keys configuration
-  */
- int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
--			u8 *ind_table, bool config_hash);
-+			bool config_hash);
- 
- /**
-  * bnx2x__init_func_obj - init function object
-@@ -865,11 +865,9 @@ static inline int func_by_vn(struct bnx2x *bp, int vn)
- 	return 2 * vn + BP_PORT(bp);
- }
- 
--static inline int bnx2x_config_rss_eth(struct bnx2x *bp, u8 *ind_table,
--				       bool config_hash)
-+static inline int bnx2x_config_rss_eth(struct bnx2x *bp, bool config_hash)
- {
--	return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, ind_table,
--				   config_hash);
-+	return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, config_hash);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index d7ffc74..36c0277 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -2600,6 +2600,52 @@ static int bnx2x_set_phys_id(struct net_device *dev,
- 	return 0;
- }
- 
-+static int bnx2x_get_rss_flags(struct bnx2x *bp, struct ethtool_rxnfc *info)
-+{
-+
-+	switch (info->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+		info->data = RXH_IP_SRC | RXH_IP_DST |
-+			     RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		break;
-+	case UDP_V4_FLOW:
-+		if (bp->rss_conf_obj.udp_rss_v4)
-+			info->data = RXH_IP_SRC | RXH_IP_DST |
-+				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		else
-+			info->data = RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	case UDP_V6_FLOW:
-+		if (bp->rss_conf_obj.udp_rss_v6)
-+			info->data = RXH_IP_SRC | RXH_IP_DST |
-+				     RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		else
-+			info->data = RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+		info->data = RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	case SCTP_V4_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_V4_FLOW:
-+	case ESP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V6_FLOW:
-+	case IP_USER_FLOW:
-+	case ETHER_FLOW:
-+		info->data = 0;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- static int bnx2x_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- 			   u32 *rules __always_unused)
- {
-@@ -2609,7 +2655,102 @@ static int bnx2x_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- 	case ETHTOOL_GRXRINGS:
- 		info->data = BNX2X_NUM_ETH_QUEUES(bp);
- 		return 0;
-+	case ETHTOOL_GRXFH:
-+		return bnx2x_get_rss_flags(bp, info);
-+	default:
-+		DP(BNX2X_MSG_ETHTOOL, "Command parameters not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
- 
-+static int bnx2x_set_rss_flags(struct bnx2x *bp, struct ethtool_rxnfc *info)
-+{
-+	int udp_rss_requested;
-+
-+	DP(BNX2X_MSG_ETHTOOL,
-+	   "Set rss flags command parameters: flow type = %d, data = %llu\n",
-+	   info->flow_type, info->data);
-+
-+	switch (info->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+		/* For TCP only 4-tupple hash is supported */
-+		if (info->data ^ (RXH_IP_SRC | RXH_IP_DST |
-+				  RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "Command parameters not supported\n");
-+			return -EINVAL;
-+		} else {
-+			return 0;
-+		}
-+
-+	case UDP_V4_FLOW:
-+	case UDP_V6_FLOW:
-+		/* For UDP either 2-tupple hash or 4-tupple hash is supported */
-+		if (info->data == (RXH_IP_SRC | RXH_IP_DST |
-+				 RXH_L4_B_0_1 | RXH_L4_B_2_3))
-+			udp_rss_requested = 1;
-+		else if (info->data == (RXH_IP_SRC | RXH_IP_DST))
-+			udp_rss_requested = 0;
-+		else
-+			return -EINVAL;
-+		if ((info->flow_type == UDP_V4_FLOW) &&
-+		    (bp->rss_conf_obj.udp_rss_v4 != udp_rss_requested)) {
-+			bp->rss_conf_obj.udp_rss_v4 = udp_rss_requested;
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "rss re-configured, UDP 4-tupple %s\n",
-+			   udp_rss_requested ? "enabled" : "disabled");
-+			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, 0);
-+		} else if ((info->flow_type == UDP_V6_FLOW) &&
-+			   (bp->rss_conf_obj.udp_rss_v6 != udp_rss_requested)) {
-+			bp->rss_conf_obj.udp_rss_v6 = udp_rss_requested;
-+			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, 0);
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "rss re-configured, UDP 4-tupple %s\n",
-+			   udp_rss_requested ? "enabled" : "disabled");
-+		} else {
-+			return 0;
-+		}
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+		/* For IP only 2-tupple hash is supported */
-+		if (info->data ^ (RXH_IP_SRC | RXH_IP_DST)) {
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "Command parameters not supported\n");
-+			return -EINVAL;
-+		} else {
-+			return 0;
-+		}
-+	case SCTP_V4_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_V4_FLOW:
-+	case ESP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V6_FLOW:
-+	case IP_USER_FLOW:
-+	case ETHER_FLOW:
-+		/* RSS is not supported for these protocols */
-+		if (info->data) {
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "Command parameters not supported\n");
-+			return -EINVAL;
-+		} else {
-+			return 0;
-+		}
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static int bnx2x_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+
-+	switch (info->cmd) {
-+	case ETHTOOL_SRXFH:
-+		return bnx2x_set_rss_flags(bp, info);
- 	default:
- 		DP(BNX2X_MSG_ETHTOOL, "Command parameters not supported\n");
- 		return -EOPNOTSUPP;
-@@ -2649,7 +2790,6 @@ static int bnx2x_set_rxfh_indir(struct net_device *dev, const u32 *indir)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	size_t i;
--	u8 ind_table[T_ETH_INDIRECTION_TABLE_SIZE] = {0};
- 
- 	for (i = 0; i < T_ETH_INDIRECTION_TABLE_SIZE; i++) {
- 		/*
-@@ -2661,10 +2801,10 @@ static int bnx2x_set_rxfh_indir(struct net_device *dev, const u32 *indir)
- 		 * align the received table to the Client ID of the leading RSS
- 		 * queue
- 		 */
--		ind_table[i] = indir[i] + bp->fp->cl_id;
-+		bp->rss_conf_obj.ind_table[i] = indir[i] + bp->fp->cl_id;
+ 	for (i = 0; i < L2_ILT_LINES(bp); i++) {
+-		ilt->lines[cdu_ilt_start + i].page =
+-			bp->context.vcxt + (ILT_PAGE_CIDS * i);
++		ilt->lines[cdu_ilt_start + i].page = bp->context[i].vcxt;
+ 		ilt->lines[cdu_ilt_start + i].page_mapping =
+-			bp->context.cxt_mapping + (CDU_ILT_PAGE_SZ * i);
+-		/* cdu ilt pages are allocated manually so there's no need to
+-		set the size */
++			bp->context[i].cxt_mapping;
++		ilt->lines[cdu_ilt_start + i].size = bp->context[i].size;
  	}
+ 	bnx2x_ilt_init_op(bp, INITOP_SET);
  
--	return bnx2x_config_rss_eth(bp, ind_table, false);
-+	return bnx2x_config_rss_eth(bp, false);
+@@ -7340,6 +7338,8 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
+ 
+ void bnx2x_free_mem(struct bnx2x *bp)
+ {
++	int i;
++
+ 	/* fastpath */
+ 	bnx2x_free_fp_mem(bp);
+ 	/* end of fastpath */
+@@ -7353,9 +7353,9 @@ void bnx2x_free_mem(struct bnx2x *bp)
+ 	BNX2X_PCI_FREE(bp->slowpath, bp->slowpath_mapping,
+ 		       sizeof(struct bnx2x_slowpath));
+ 
+-	BNX2X_PCI_FREE(bp->context.vcxt, bp->context.cxt_mapping,
+-		       bp->context.size);
+-
++	for (i = 0; i < L2_ILT_LINES(bp); i++)
++		BNX2X_PCI_FREE(bp->context[i].vcxt, bp->context[i].cxt_mapping,
++			       bp->context[i].size);
+ 	bnx2x_ilt_mem_op(bp, ILT_MEMOP_FREE);
+ 
+ 	BNX2X_FREE(bp->ilt->lines);
+@@ -7441,6 +7441,8 @@ alloc_mem_err:
+ 
+ int bnx2x_alloc_mem(struct bnx2x *bp)
+ {
++	int i, allocated, context_size;
++
+ #ifdef BCM_CNIC
+ 	if (!CHIP_IS_E1x(bp))
+ 		/* size = the status block + ramrod buffers */
+@@ -7470,11 +7472,29 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
+ 	if (bnx2x_alloc_fw_stats_mem(bp))
+ 		goto alloc_mem_err;
+ 
+-	bp->context.size = sizeof(union cdu_context) * BNX2X_L2_CID_COUNT(bp);
+-
+-	BNX2X_PCI_ALLOC(bp->context.vcxt, &bp->context.cxt_mapping,
+-			bp->context.size);
++	/* Allocate memory for CDU context:
++	 * This memory is allocated separately and not in the generic ILT
++	 * functions because CDU differs in few aspects:
++	 * 1. There are multiple entities allocating memory for context -
++	 * 'regular' driver, CNIC and SRIOV driver. Each separately controls
++	 * its own ILT lines.
++	 * 2. Since CDU page-size is not a single 4KB page (which is the case
++	 * for the other ILT clients), to be efficient we want to support
++	 * allocation of sub-page-size in the last entry.
++	 * 3. Context pointers are used by the driver to pass to FW / update
++	 * the context (for the other ILT clients the pointers are used just to
++	 * free the memory during unload).
++	 */
++	context_size = sizeof(union cdu_context) * BNX2X_L2_CID_COUNT(bp);
+ 
++	for (i = 0, allocated = 0; allocated < context_size; i++) {
++		bp->context[i].size = min(CDU_ILT_PAGE_SZ,
++					  (context_size - allocated));
++		BNX2X_PCI_ALLOC(bp->context[i].vcxt,
++				&bp->context[i].cxt_mapping,
++				bp->context[i].size);
++		allocated += bp->context[i].size;
++	}
+ 	BNX2X_ALLOC(bp->ilt->lines, sizeof(struct ilt_line) * ILT_MAX_LINES);
+ 
+ 	if (bnx2x_ilt_mem_op(bp, ILT_MEMOP_ALLOC))
+@@ -7748,6 +7768,8 @@ static void bnx2x_pf_q_prep_init(struct bnx2x *bp,
+ {
+ 
+ 	u8 cos;
++	int cxt_index, cxt_offset;
++
+ 	/* FCoE Queue uses Default SB, thus has no HC capabilities */
+ 	if (!IS_FCOE_FP(fp)) {
+ 		__set_bit(BNX2X_Q_FLG_HC, &init_params->rx.flags);
+@@ -7784,9 +7806,13 @@ static void bnx2x_pf_q_prep_init(struct bnx2x *bp,
+ 	    fp->index, init_params->max_cos);
+ 
+ 	/* set the context pointers queue object */
+-	for (cos = FIRST_TX_COS_INDEX; cos < init_params->max_cos; cos++)
++	for (cos = FIRST_TX_COS_INDEX; cos < init_params->max_cos; cos++) {
++		cxt_index = fp->txdata[cos].cid / ILT_PAGE_CIDS;
++		cxt_offset = fp->txdata[cos].cid - (cxt_index *
++				ILT_PAGE_CIDS);
+ 		init_params->cxts[cos] =
+-			&bp->context.vcxt[fp->txdata[cos].cid].eth;
++			&bp->context[cxt_index].vcxt[cxt_offset].eth;
++	}
  }
  
- static const struct ethtool_ops bnx2x_ethtool_ops = {
-@@ -2694,6 +2834,7 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
- 	.set_phys_id		= bnx2x_set_phys_id,
- 	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
- 	.get_rxnfc		= bnx2x_get_rxnfc,
-+	.set_rxnfc		= bnx2x_set_rxnfc,
- 	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
- 	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
- 	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 6c14b4a..734fd87 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -4107,6 +4107,10 @@ static int bnx2x_setup_rss(struct bnx2x *bp,
- 		data->capabilities |=
- 			ETH_RSS_UPDATE_RAMROD_DATA_IPV4_TCP_CAPABILITY;
+ int bnx2x_setup_tx_only(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+@@ -12202,6 +12228,7 @@ static int bnx2x_set_iscsi_eth_mac_addr(struct bnx2x *bp)
+ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
+ {
+ 	struct eth_spe *spe;
++	int cxt_index, cxt_offset;
  
-+	if (test_bit(BNX2X_RSS_IPV4_UDP, &p->rss_flags))
-+		data->capabilities |=
-+			ETH_RSS_UPDATE_RAMROD_DATA_IPV4_UDP_CAPABILITY;
-+
- 	if (test_bit(BNX2X_RSS_IPV6, &p->rss_flags))
- 		data->capabilities |=
- 			ETH_RSS_UPDATE_RAMROD_DATA_IPV6_CAPABILITY;
-@@ -4115,6 +4119,10 @@ static int bnx2x_setup_rss(struct bnx2x *bp,
- 		data->capabilities |=
- 			ETH_RSS_UPDATE_RAMROD_DATA_IPV6_TCP_CAPABILITY;
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+@@ -12224,10 +12251,16 @@ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
+ 		 *  ramrod
+ 		 */
+ 		if (type == ETH_CONNECTION_TYPE) {
+-			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP)
+-				bnx2x_set_ctx_validation(bp, &bp->context.
+-					vcxt[BNX2X_ISCSI_ETH_CID].eth,
++			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP) {
++				cxt_index = BNX2X_ISCSI_ETH_CID /
++					ILT_PAGE_CIDS;
++				cxt_offset = BNX2X_ISCSI_ETH_CID -
++					(cxt_index * ILT_PAGE_CIDS);
++				bnx2x_set_ctx_validation(bp,
++					&bp->context[cxt_index].
++							 vcxt[cxt_offset].eth,
+ 					BNX2X_ISCSI_ETH_CID);
++			}
+ 		}
  
-+	if (test_bit(BNX2X_RSS_IPV6_UDP, &p->rss_flags))
-+		data->capabilities |=
-+			ETH_RSS_UPDATE_RAMROD_DATA_IPV6_UDP_CAPABILITY;
-+
- 	/* Hashing mask */
- 	data->rss_result_mask = p->rss_result_mask;
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-index efd80bd..76818ef 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
-@@ -694,8 +694,10 @@ enum {
- 
- 	BNX2X_RSS_IPV4,
- 	BNX2X_RSS_IPV4_TCP,
-+	BNX2X_RSS_IPV4_UDP,
- 	BNX2X_RSS_IPV6,
- 	BNX2X_RSS_IPV6_TCP,
-+	BNX2X_RSS_IPV6_UDP,
- };
- 
- struct bnx2x_config_rss_params {
-@@ -729,6 +731,10 @@ struct bnx2x_rss_config_obj {
- 	/* Last configured indirection table */
- 	u8			ind_table[T_ETH_INDIRECTION_TABLE_SIZE];
- 
-+	/* flags for enabling 4-tupple hash on UDP */
-+	u8			udp_rss_v4;
-+	u8			udp_rss_v6;
-+
- 	int (*config_rss)(struct bnx2x *bp,
- 			  struct bnx2x_config_rss_params *p);
- };
+ 		/*
 -- 
 1.7.10
