@@ -1,96 +1,141 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
- __set_bit_le() function
-Date: Wed, 13 Jun 2012 08:21:18 -0700
-Message-ID: <CAP6odji_JvRkJP1dSzGK5ww3y71h4k6pXyj4pOQBpqP-X7Nn-A@mail.gmail.com>
-References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
-	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
-	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
-	<20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
-	<CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
-	<20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bonding: drop_monitor aware
+Date: Wed, 13 Jun 2012 17:30:07 +0200
+Message-ID: <1339601407.22704.380.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
-	akpm@linux-foundation.org, bhutchings@solarflare.com,
-	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
-	avi@redhat.com, mtosatti@redhat.com,
-	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:53976 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753453Ab2FMPaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 11:30:10 -0400
+Received: by eeit10 with SMTP id t10so256084eei.19
+        for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 08:30:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 13, 2012 at 7:00 AM, Takuya Yoshikawa
-<takuya.yoshikawa@gmail.com> wrote:
-> On Wed, 13 Jun 2012 22:31:13 +0900
-> Akinobu Mita <akinobu.mita@gmail.com> wrote:
->
->> >> Should this hash_table be converted from u16 hash_table[32] to
->> >> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is aligned
->> >> on long-word boundary?
->> >
->> > I think hash_table is already long-word aligned because it is plac=
-ed
->> > right after a pointer.
->>
->> I recommend converting to proper bitmap. =A0Because such an implicit
->> assumption is easily broken by someone touching this function.
->
-> Do you mean something like:
-> =A0 =A0 =A0 =A0DECLARE_BITMAP(__hash_table, 16 * 32);
-> =A0 =A0 =A0 =A0u16 *hash_table =3D (u16 *)__hash_table;
-> ?
->
-> Grant, what do you think about this?
+From: Eric Dumazet <edumazet@google.com>
 
-Hi Takuya,
-two thoughts:
-1) while I agree with Akinobu and thank him for pointing out a
-_potential_ alignment problem, this is a separate issue and your
-existing patch should go in anyway. There are probably other drivers
-with _potential_ alignment issues. Akinobu could get credit for
-finding them by submitting patches after reviewing calls to set_bit
-and set_bit_le() - similar to what you are doing now.
+When packets are dropped in TX path, its better to use kfree_skb()
+instead of dev_kfree_skb() to give proper drop_monitor events.
 
-2) I generally do not like declaring one type and then using an alias
-of a different type to reference the same memory address. We have a
-simple alternative since hash_table[] is indexed directly only in one
-hunk of code:
-        for (i =3D 0; i < 32; i++) {
-                *setup_frm++ =3D ((u16 *)hash_table)[i];
-                *setup_frm++ =3D ((u16 *)hash_table)[i];
-        }
+Also move the kfree_skb() call after read_unlock() in bond_alb_xmit()
+and bond_xmit_activebackup()
 
-thanks,
-grant
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+---
+ drivers/net/bonding/bond_3ad.c  |    2 +-
+ drivers/net/bonding/bond_alb.c  |    6 +++---
+ drivers/net/bonding/bond_main.c |   18 +++++++++---------
+ 3 files changed, 13 insertions(+), 13 deletions(-)
 
->
-> =A0 =A0 =A0 =A0Takuya
->
->
-> =3D=3D=3D
-> drivers/net/ethernet/dec/tulip/tulip_core.c:
->
-> static void build_setup_frame_hash(u16 *setup_frm, struct net_device =
-*dev)
-> {
-> =A0 =A0 =A0 =A0struct tulip_private *tp =3D netdev_priv(dev);
-> =A0 =A0 =A0 =A0u16 hash_table[32];
-> =A0 =A0 =A0 =A0...
-> }
->
-> drivers/net/ethernet/dec/tulip/de2104x.c:
->
-> static void build_setup_frame_hash(u16 *setup_frm, struct net_device =
-*dev)
-> {
-> =A0 =A0 =A0 =A0struct de_private *de =3D netdev_priv(dev);
-> =A0 =A0 =A0 =A0u16 hash_table[32];
-> =A0 =A0 =A0 =A0...
-> }
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 3031e04..a030e63 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2454,7 +2454,7 @@ int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev)
+ out:
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 	}
+ 
+ 	return NETDEV_TX_OK;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index ef3791a..e15cc11 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1346,12 +1346,12 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+ 		}
+ 	}
+ 
++	read_unlock(&bond->curr_slave_lock);
++
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 	}
+-	read_unlock(&bond->curr_slave_lock);
+-
+ 	return NETDEV_TX_OK;
+ }
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index af50632..f5a40b9 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3990,7 +3990,7 @@ static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev
+ out:
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 	}
+ 
+ 	return NETDEV_TX_OK;
+@@ -4012,11 +4012,11 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
+ 		res = bond_dev_queue_xmit(bond, skb,
+ 			bond->curr_active_slave->dev);
+ 
++	read_unlock(&bond->curr_slave_lock);
++
+ 	if (res)
+ 		/* no suitable interface, frame not sent */
+-		dev_kfree_skb(skb);
+-
+-	read_unlock(&bond->curr_slave_lock);
++		kfree_skb(skb);
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -4055,7 +4055,7 @@ static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
+ 
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 	}
+ 
+ 	return NETDEV_TX_OK;
+@@ -4093,7 +4093,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
+ 
+ 				res = bond_dev_queue_xmit(bond, skb2, tx_dev);
+ 				if (res) {
+-					dev_kfree_skb(skb2);
++					kfree_skb(skb2);
+ 					continue;
+ 				}
+ 			}
+@@ -4107,7 +4107,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
+ out:
+ 	if (res)
+ 		/* no suitable interface, frame not sent */
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 
+ 	/* frame sent to all suitable interfaces */
+ 	return NETDEV_TX_OK;
+@@ -4213,7 +4213,7 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
+ 		pr_err("%s: Error: Unknown bonding mode %d\n",
+ 		       dev->name, bond->params.mode);
+ 		WARN_ON_ONCE(1);
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+ }
+@@ -4235,7 +4235,7 @@ static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (bond->slave_cnt)
+ 		ret = __bond_start_xmit(skb, dev);
+ 	else
+-		dev_kfree_skb(skb);
++		kfree_skb(skb);
+ 
+ 	read_unlock(&bond->lock);
+ 
