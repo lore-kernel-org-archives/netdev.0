@@ -1,68 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
 Subject: RE: [net-next 1/9] igb: Add support functions to access thermal
  data.
-Date: Wed, 13 Jun 2012 18:06:29 +0100
-Message-ID: <1339607189.2612.8.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Wed, 13 Jun 2012 17:15:22 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B626274A72B5@ORSMSX102.amr.corp.intel.com>
 References: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <1339230063-12545-2-git-send-email-jeffrey.t.kirsher@intel.com>
 	 <1339289333.21665.156.camel@deadeye.wl.decadent.org.uk>
 	 <9BBC4E0CF881AA4299206E2E1412B626274A6F4B@ORSMSX102.amr.corp.intel.com>
+ <1339607189.2612.8.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"gospo@redhat.com" <gospo@redhat.com>,
 	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17916 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752834Ab2FMRGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 13:06:33 -0400
-In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B626274A6F4B@ORSMSX102.amr.corp.intel.com>
+Received: from mga02.intel.com ([134.134.136.20]:13326 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752624Ab2FMRPX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 13:15:23 -0400
+In-Reply-To: <1339607189.2612.8.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-13 at 14:53 +0000, Wyborny, Carolyn wrote:
-> >-----Original Message-----
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> >Sent: Saturday, June 09, 2012 5:49 PM
-> >To: Kirsher, Jeffrey T
-> >Cc: davem@davemloft.net; Wyborny, Carolyn; netdev@vger.kernel.org;
-> >gospo@redhat.com; sassmann@redhat.com
-> >Subject: Re: [net-next 1/9] igb: Add support functions to access thermal
-> >data.
-> >
-> >On Sat, 2012-06-09 at 01:20 -0700, Jeff Kirsher wrote:
-> >> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> >>
-> >> Some i350 devices contain thermal data that we can get to via an i2c
-> >> interface.  These functions provide support to get at that data.  A
-> >> following patch will export this data.
-> >[...]
-> >
-> >We already have an I2C subsystem - so don't replicate i2c-algo-bit etc.
-> >
-> >It's possible we also have an hwmon driver for whatever temperature
-> >sensor is on these boards, which you can then probe by calling
-> >i2c_new_device().
-> 
-> I am not sure that our sensors will be compatible, but I will research
-> it to be sure.  I will also take a look at what we can do with the i2c
-> interface that already exists and make sure we are not duplicating any
-> of it.
-
-The patch you posted duplicates i2c-algo-bit.  The sfc driver initially
-did this too, but I was rightly required to fix that.  So if you want an
-example, you could do worse than looking for references to 'i2c' in
-drivers/net/ethernet/sfc/falcon.c and
-drivers/net/ethernet/sfc/falcon_boards.c.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogV2VkbmVzZGF5LCBKdW5lIDEzLCAy
+MDEyIDEwOjA2IEFNDQo+VG86IFd5Ym9ybnksIENhcm9seW4NCj5DYzogS2lyc2hlciwgSmVmZnJl
+eSBUOyBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPmdvc3Bv
+QHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb20NCj5TdWJqZWN0OiBSRTogW25ldC1uZXh0
+IDEvOV0gaWdiOiBBZGQgc3VwcG9ydCBmdW5jdGlvbnMgdG8gYWNjZXNzIHRoZXJtYWwNCj5kYXRh
+Lg0KPg0KPk9uIFdlZCwgMjAxMi0wNi0xMyBhdCAxNDo1MyArMDAwMCwgV3lib3JueSwgQ2Fyb2x5
+biB3cm90ZToNCj4+ID4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPj4gPkZyb206IEJlbiBI
+dXRjaGluZ3MgW21haWx0bzpiaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tXQ0KPj4gPlNlbnQ6IFNh
+dHVyZGF5LCBKdW5lIDA5LCAyMDEyIDU6NDkgUE0NCj4+ID5UbzogS2lyc2hlciwgSmVmZnJleSBU
+DQo+PiA+Q2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IFd5Ym9ybnksIENhcm9seW47IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmc7DQo+PiA+Z29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNv
+bQ0KPj4gPlN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMS85XSBpZ2I6IEFkZCBzdXBwb3J0IGZ1bmN0
+aW9ucyB0byBhY2Nlc3MNCj50aGVybWFsDQo+PiA+ZGF0YS4NCj4+ID4NCj4+ID5PbiBTYXQsIDIw
+MTItMDYtMDkgYXQgMDE6MjAgLTA3MDAsIEplZmYgS2lyc2hlciB3cm90ZToNCj4+ID4+IEZyb206
+IENhcm9seW4gV3lib3JueSA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4NCj4+ID4+DQo+PiA+
+PiBTb21lIGkzNTAgZGV2aWNlcyBjb250YWluIHRoZXJtYWwgZGF0YSB0aGF0IHdlIGNhbiBnZXQg
+dG8gdmlhIGFuDQo+aTJjDQo+PiA+PiBpbnRlcmZhY2UuICBUaGVzZSBmdW5jdGlvbnMgcHJvdmlk
+ZSBzdXBwb3J0IHRvIGdldCBhdCB0aGF0IGRhdGEuICBBDQo+PiA+PiBmb2xsb3dpbmcgcGF0Y2gg
+d2lsbCBleHBvcnQgdGhpcyBkYXRhLg0KPj4gPlsuLi5dDQo+PiA+DQo+PiA+V2UgYWxyZWFkeSBo
+YXZlIGFuIEkyQyBzdWJzeXN0ZW0gLSBzbyBkb24ndCByZXBsaWNhdGUgaTJjLWFsZ28tYml0DQo+
+ZXRjLg0KPj4gPg0KPj4gPkl0J3MgcG9zc2libGUgd2UgYWxzbyBoYXZlIGFuIGh3bW9uIGRyaXZl
+ciBmb3Igd2hhdGV2ZXIgdGVtcGVyYXR1cmUNCj4+ID5zZW5zb3IgaXMgb24gdGhlc2UgYm9hcmRz
+LCB3aGljaCB5b3UgY2FuIHRoZW4gcHJvYmUgYnkgY2FsbGluZw0KPj4gPmkyY19uZXdfZGV2aWNl
+KCkuDQo+Pg0KPj4gSSBhbSBub3Qgc3VyZSB0aGF0IG91ciBzZW5zb3JzIHdpbGwgYmUgY29tcGF0
+aWJsZSwgYnV0IEkgd2lsbCByZXNlYXJjaA0KPj4gaXQgdG8gYmUgc3VyZS4gIEkgd2lsbCBhbHNv
+IHRha2UgYSBsb29rIGF0IHdoYXQgd2UgY2FuIGRvIHdpdGggdGhlIGkyYw0KPj4gaW50ZXJmYWNl
+IHRoYXQgYWxyZWFkeSBleGlzdHMgYW5kIG1ha2Ugc3VyZSB3ZSBhcmUgbm90IGR1cGxpY2F0aW5n
+IGFueQ0KPj4gb2YgaXQuDQo+DQo+VGhlIHBhdGNoIHlvdSBwb3N0ZWQgZHVwbGljYXRlcyBpMmMt
+YWxnby1iaXQuICBUaGUgc2ZjIGRyaXZlciBpbml0aWFsbHkNCj5kaWQgdGhpcyB0b28sIGJ1dCBJ
+IHdhcyByaWdodGx5IHJlcXVpcmVkIHRvIGZpeCB0aGF0LiAgU28gaWYgeW91IHdhbnQgYW4NCj5l
+eGFtcGxlLCB5b3UgY291bGQgZG8gd29yc2UgdGhhbiBsb29raW5nIGZvciByZWZlcmVuY2VzIHRv
+ICdpMmMnIGluDQo+ZHJpdmVycy9uZXQvZXRoZXJuZXQvc2ZjL2ZhbGNvbi5jIGFuZA0KPmRyaXZl
+cnMvbmV0L2V0aGVybmV0L3NmYy9mYWxjb25fYm9hcmRzLmMuDQoNClRoYW5rcyBCZW4sIGFwcHJl
+Y2lhdGUgdGhlIHBvaW50ZXIuICBJJ2xsIHN0YXJ0IHRoZXJlLg0KDQpDYXJvbHluDQoNCkNhcm9s
+eW4gV3lib3JueQ0KTGludXggRGV2ZWxvcG1lbnQNCkxBTiBBY2Nlc3MgRGl2aXNpb24NCkludGVs
+IENvcnBvcmF0aW9uDQoNCg0KDQo=
