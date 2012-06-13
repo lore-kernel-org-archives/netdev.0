@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 1/3] usbnet: clear OPEN flag in failure path
-Date: Wed, 13 Jun 2012 12:20:15 +0800
-Message-ID: <1339561217-18151-2-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 2/3] usbnet: decrease suspend count if returning -EBUSY for runtime suspend
+Date: Wed, 13 Jun 2012 12:20:16 +0800
+Message-ID: <1339561217-18151-3-git-send-email-ming.lei@canonical.com>
 References: <1339561217-18151-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
@@ -13,35 +13,28 @@ In-Reply-To: <1339561217-18151-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Without clearing OPEN flag in failure path, runtime or system resume
-may submit interrupt/rx URB and start tx queue mistakenly on a
-interface in DOWN state.
+This patch decreases dev->suspend_count in the -EBUSY failure path
+of usbnet_suspend. Without the change, the later runtime suspend
+will do nothing except for increasing dev->suspend_count.
 
 Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/usb/usbnet.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/usb/usbnet.c |    1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index ac2e493..f06cf9b 100644
+index f06cf9b..9bfa775 100644
 --- a/drivers/net/usb/usbnet.c
 +++ b/drivers/net/usb/usbnet.c
-@@ -793,11 +793,13 @@ int usbnet_open (struct net_device *net)
- 	if (info->manage_power) {
- 		retval = info->manage_power(dev, 1);
- 		if (retval < 0)
--			goto done;
-+			goto done_manage_power_error;
- 		usb_autopm_put_interface(dev->intf);
- 	}
- 	return retval;
- 
-+done_manage_power_error:
-+	clear_bit(EVENT_DEV_OPEN, &dev->flags);
- done:
- 	usb_autopm_put_interface(dev->intf);
- done_nopm:
+@@ -1508,6 +1508,7 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+ 		spin_lock_irq(&dev->txq.lock);
+ 		/* don't autosuspend while transmitting */
+ 		if (dev->txq.qlen && PMSG_IS_AUTO(message)) {
++			dev->suspend_count--;
+ 			spin_unlock_irq(&dev->txq.lock);
+ 			return -EBUSY;
+ 		} else {
 -- 
 1.7.9.5
 
