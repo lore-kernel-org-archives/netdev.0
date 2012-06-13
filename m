@@ -1,7 +1,8 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 2/12] bnx2x: Return only online tests for MF
-Date: Wed, 13 Jun 2012 15:44:14 +0300
-Message-ID: <1339591464-10554-3-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 6/12] bnx2x: Move the CNIC L2 CIDs to be right
+ after the RSS CIDs
+Date: Wed, 13 Jun 2012 15:44:18 +0300
+Message-ID: <1339591464-10554-7-git-send-email-meravs@broadcom.com>
 References: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,211 +10,236 @@ Content-Transfer-Encoding: 7bit
 Cc: "Merav Sicron" <meravs@broadcom.com>
 To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2760 "EHLO mms3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1464 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752671Ab2FMJmj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 05:42:39 -0400
+	id S1751496Ab2FMJte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 05:49:34 -0400
 In-Reply-To: <1339591464-10554-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. In multi-function device, show only the online tests in self-test results as
-   only these test are performed (offline tests cannot be performed as they may
-   corrupt the traffic of other functions on the same physical port). Note that
-   multi-function mode cannot change while the driver is up.
-2. Check result code in NIC load and act accordingly.
+Currently the CNIC-related L2 CIDs (for sending control FCoE / iSCSI packets)
+were at fixed position, according to the maximal number of RSS queues multiplied
+by the number of traffic-classes. This change makes the CIDs dynamic, as they
+are defined to be right after the highest RSS CID. This decreases the memory
+allocated for the context.
 
 Signed-off-by: Merav Sicron <meravs@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    6 +-
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   85 +++++++++++++-------
- 2 files changed, 62 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   19 +++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   15 ++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   47 +++++++++++++++-------
+ 4 files changed, 52 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index fb6de4a..568c3c7 100644
+index 36ebc3d..68d0d2c 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1915,8 +1915,10 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
- #define PCICFG_LINK_SPEED		0xf0000
- #define PCICFG_LINK_SPEED_SHIFT		16
- 
--
--#define BNX2X_NUM_TESTS			8
-+#define BNX2X_NUM_TESTS_SF		7
-+#define BNX2X_NUM_TESTS_MF		3
-+#define BNX2X_NUM_TESTS(bp)		(IS_MF(bp) ? BNX2X_NUM_TESTS_MF : \
-+						     BNX2X_NUM_TESTS_SF)
- 
- #define BNX2X_PHY_LOOPBACK		0
- #define BNX2X_MAC_LOOPBACK		1
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 116ac25..d7ffc74 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -826,7 +826,7 @@ static void bnx2x_get_drvinfo(struct net_device *dev,
- 		 ((phy_fw_ver[0] != '\0') ? " phy " : ""), phy_fw_ver);
- 	strlcpy(info->bus_info, pci_name(bp->pdev), sizeof(info->bus_info));
- 	info->n_stats = BNX2X_NUM_STATS;
--	info->testinfo_len = BNX2X_NUM_TESTS;
-+	info->testinfo_len = BNX2X_NUM_TESTS(bp);
- 	info->eedump_len = bp->common.flash_size;
- 	info->regdump_len = bnx2x_get_regs_len(dev);
- }
-@@ -1533,17 +1533,14 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
- 	return 0;
- }
- 
--static const struct {
--	char string[ETH_GSTRING_LEN];
--} bnx2x_tests_str_arr[BNX2X_NUM_TESTS] = {
--	{ "register_test (offline)" },
--	{ "memory_test (offline)" },
--	{ "int_loopback_test (offline)" },
--	{ "ext_loopback_test (offline)" },
--	{ "nvram_test (online)" },
--	{ "interrupt_test (online)" },
--	{ "link_test (online)" },
--	{ "idle check (online)" }
-+char *bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF] = {
-+	"register_test (offline)    ",
-+	"memory_test (offline)      ",
-+	"int_loopback_test (offline)",
-+	"ext_loopback_test (offline)",
-+	"nvram_test (online)        ",
-+	"interrupt_test (online)    ",
-+	"link_test (online)         "
+@@ -248,13 +248,12 @@ enum {
+ 	BNX2X_MAX_CNIC_ETH_CL_ID_IDX,
  };
  
- static u32 bnx2x_eee_to_adv(u32 eee_adv)
-@@ -2308,6 +2305,8 @@ static void bnx2x_self_test(struct net_device *dev,
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	u8 is_serdes;
-+	int rc;
-+
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
- 		netdev_err(bp->dev,
- 			   "Handling parity error recovery. Try again later\n");
-@@ -2319,17 +2318,18 @@ static void bnx2x_self_test(struct net_device *dev,
- 	   (etest->flags & ETH_TEST_FL_OFFLINE),
- 	   (etest->flags & ETH_TEST_FL_EXTERNAL_LB)>>2);
+-#define BNX2X_CNIC_START_ETH_CID	48
+-enum {
++#define BNX2X_CNIC_START_ETH_CID(bp)	(BNX2X_NUM_NON_CNIC_QUEUES(bp) *\
++					 (bp)->max_cos)
+ 	/* iSCSI L2 */
+-	BNX2X_ISCSI_ETH_CID = BNX2X_CNIC_START_ETH_CID,
++#define	BNX2X_ISCSI_ETH_CID(bp)		(BNX2X_CNIC_START_ETH_CID(bp))
+ 	/* FCoE L2 */
+-	BNX2X_FCOE_ETH_CID,
+-};
++#define	BNX2X_FCOE_ETH_CID(bp)		(BNX2X_CNIC_START_ETH_CID(bp) + 1)
  
--	memset(buf, 0, sizeof(u64) * BNX2X_NUM_TESTS);
-+	memset(buf, 0, sizeof(u64) * BNX2X_NUM_TESTS(bp));
+ /** Additional rings budgeting */
+ #ifdef BCM_CNIC
+@@ -276,8 +275,6 @@ enum {
+ #define FIRST_TX_ONLY_COS_INDEX		1
+ #define FIRST_TX_COS_INDEX		0
  
--	if (!netif_running(dev))
-+	if (!netif_running(dev)) {
-+		DP(BNX2X_MSG_ETHTOOL,
-+		   "Can't perform self-test when interface is down\n");
- 		return;
-+	}
- 
--	/* offline tests are not supported in MF mode */
--	if (IS_MF(bp))
--		etest->flags &= ~ETH_TEST_FL_OFFLINE;
- 	is_serdes = (bp->link_vars.link_status & LINK_STATUS_SERDES_LINK) > 0;
- 
--	if (etest->flags & ETH_TEST_FL_OFFLINE) {
-+	/* offline tests are not supported in MF mode */
-+	if ((etest->flags & ETH_TEST_FL_OFFLINE) && !IS_MF(bp)) {
- 		int port = BP_PORT(bp);
- 		u32 val;
- 		u8 link_up;
-@@ -2342,7 +2342,14 @@ static void bnx2x_self_test(struct net_device *dev,
- 		link_up = bp->link_vars.link_up;
- 
- 		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
--		bnx2x_nic_load(bp, LOAD_DIAG);
-+		rc = bnx2x_nic_load(bp, LOAD_DIAG);
-+		if (rc != 0) {
-+			etest->flags |= ETH_TEST_FL_FAILED;
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "Can't perform self-test, nic_load (for offline) failed\n");
-+			return;
-+		}
-+
- 		/* wait until link state is restored */
- 		bnx2x_wait_for_link(bp, 1, is_serdes);
- 
-@@ -2370,22 +2377,36 @@ static void bnx2x_self_test(struct net_device *dev,
- 
- 		/* restore input for TX port IF */
- 		REG_WR(bp, NIG_REG_EGRESS_UMP0_IN_EN + port*4, val);
+-#define MAX_TXQS_PER_COS	FP_SB_MAX_E1x
 -
--		bnx2x_nic_load(bp, LOAD_NORMAL);
-+		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
-+		if (rc != 0) {
-+			etest->flags |= ETH_TEST_FL_FAILED;
-+			DP(BNX2X_MSG_ETHTOOL,
-+			   "Can't perform self-test, nic_load (for online) failed\n");
-+			return;
-+		}
- 		/* wait until link state is restored */
- 		bnx2x_wait_for_link(bp, link_up, is_serdes);
- 	}
- 	if (bnx2x_test_nvram(bp) != 0) {
--		buf[4] = 1;
-+		if (!IS_MF(bp))
-+			buf[4] = 1;
-+		else
-+			buf[0] = 1;
- 		etest->flags |= ETH_TEST_FL_FAILED;
- 	}
- 	if (bnx2x_test_intr(bp) != 0) {
--		buf[5] = 1;
-+		if (!IS_MF(bp))
-+			buf[5] = 1;
-+		else
-+			buf[1] = 1;
- 		etest->flags |= ETH_TEST_FL_FAILED;
- 	}
+ /* rules for calculating the cids of tx-only connections */
+ #define CID_TO_FP(cid, bp)		((cid) % BNX2X_NUM_NON_CNIC_QUEUES(bp))
+ #define CID_COS_TO_TX_ONLY_CID(cid, cos, bp) \
+@@ -1463,10 +1460,12 @@ struct bnx2x {
  
- 	if (bnx2x_link_test(bp, is_serdes) != 0) {
--		buf[6] = 1;
-+		if (!IS_MF(bp))
-+			buf[6] = 1;
-+		else
-+			buf[2] = 1;
- 		etest->flags |= ETH_TEST_FL_FAILED;
- 	}
+ /*
+  * Maximum CID count that might be required by the bnx2x:
+- * Max Tss * Max_Tx_Multi_Cos + CNIC L2 Clients (FCoE and iSCSI related)
++ * Max RSS * Max_Tx_Multi_Cos + FCoE + iSCSI
+  */
+-#define BNX2X_L2_CID_COUNT(bp)	(MAX_TXQS_PER_COS * BNX2X_MULTI_TX_COS +\
+-					NON_ETH_CONTEXT_USE + CNIC_PRESENT)
++#define BNX2X_L2_CID_COUNT(bp)	(BNX2X_NUM_ETH_QUEUES(bp) * BNX2X_MULTI_TX_COS \
++				+ NON_ETH_CONTEXT_USE + CNIC_PRESENT)
++#define BNX2X_L2_MAX_CID(bp)	(BNX2X_MAX_RSS_COUNT(bp) * BNX2X_MULTI_TX_COS \
++				+ NON_ETH_CONTEXT_USE + CNIC_PRESENT)
+ #define L2_ILT_LINES(bp)	(DIV_ROUND_UP(BNX2X_L2_CID_COUNT(bp),\
+ 					ILT_PAGE_CIDS))
  
-@@ -2430,7 +2451,7 @@ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
- 		return num_stats;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 33132b1..d76df33 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2220,6 +2220,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	/* re-read iscsi info */
+ 	bnx2x_get_iscsi_info(bp);
+ 	bnx2x_setup_cnic_irq_info(bp);
++	bnx2x_setup_cnic_info(bp);
+ 	if (bp->state == BNX2X_STATE_OPEN)
+ 		bnx2x_cnic_notify(bp, CNIC_CTL_START_CMD);
+ #endif
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 112ffcc..de79cdf 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -244,6 +244,14 @@ int bnx2x_cnic_notify(struct bnx2x *bp, int cmd);
+  * @bp:		driver handle
+  */
+ void bnx2x_setup_cnic_irq_info(struct bnx2x *bp);
++
++/**
++ * bnx2x_setup_cnic_info - provides cnic with updated info
++ *
++ * @bp:		driver handle
++ */
++void bnx2x_setup_cnic_info(struct bnx2x *bp);
++
+ #endif
  
- 	case ETH_SS_TEST:
--		return BNX2X_NUM_TESTS;
-+		return BNX2X_NUM_TESTS(bp);
- 
- 	default:
- 		return -EINVAL;
-@@ -2440,7 +2461,7 @@ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
- static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ /**
+@@ -1107,12 +1115,7 @@ static inline void bnx2x_init_fcoe_fp(struct bnx2x *bp)
+ 	bnx2x_fcoe(bp, rx_queue) = BNX2X_NUM_ETH_QUEUES(bp);
+ 	bnx2x_fcoe(bp, cl_id) = bnx2x_cnic_eth_cl_id(bp,
+ 						     BNX2X_FCOE_ETH_CL_ID_IDX);
+-	/** Current BNX2X_FCOE_ETH_CID deffinition implies not more than
+-	 *  16 ETH clients per function when CNIC is enabled!
+-	 *
+-	 *  Fix it ASAP!!!
+-	 */
+-	bnx2x_fcoe(bp, cid) = BNX2X_FCOE_ETH_CID;
++	bnx2x_fcoe(bp, cid) = BNX2X_FCOE_ETH_CID(bp);
+ 	bnx2x_fcoe(bp, fw_sb_id) = DEF_SB_ID;
+ 	bnx2x_fcoe(bp, igu_sb_id) = bp->igu_dsb_id;
+ 	bnx2x_fcoe(bp, rx_cons_sb) = BNX2X_FCOE_L2_RX_INDEX;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index f80059e..1895de5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -4628,7 +4628,7 @@ static void bnx2x_handle_classification_eqe(struct bnx2x *bp,
+ 	case BNX2X_FILTER_MAC_PENDING:
+ 		DP(BNX2X_MSG_SP, "Got SETUP_MAC completions\n");
+ #ifdef BCM_CNIC
+-		if (cid == BNX2X_ISCSI_ETH_CID)
++		if (cid == BNX2X_ISCSI_ETH_CID(bp))
+ 			vlan_mac_obj = &bp->iscsi_l2_mac_obj;
+ 		else
+ #endif
+@@ -4774,7 +4774,7 @@ static struct bnx2x_queue_sp_obj *bnx2x_cid_to_q_obj(
  {
- 	struct bnx2x *bp = netdev_priv(dev);
--	int i, j, k;
-+	int i, j, k, offset, start;
- 	char queue_name[MAX_QUEUE_NAME_LEN+1];
+ 	DP(BNX2X_MSG_SP, "retrieving fp from cid %d\n", cid);
+ #ifdef BCM_CNIC
+-	if (cid == BNX2X_FCOE_ETH_CID)
++	if (cid == BNX2X_FCOE_ETH_CID(bp))
+ 		return &bnx2x_fcoe(bp, q_obj);
+ 	else
+ #endif
+@@ -11724,7 +11724,7 @@ void bnx2x__init_func_obj(struct bnx2x *bp)
+ /* must be called after sriov-enable */
+ static int bnx2x_set_qm_cid_count(struct bnx2x *bp)
+ {
+-	int cid_count = BNX2X_L2_CID_COUNT(bp);
++	int cid_count = BNX2X_L2_MAX_CID(bp);
  
- 	switch (stringset) {
-@@ -2471,7 +2492,17 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- 		break;
+ #ifdef BCM_CNIC
+ 	cid_count += CNIC_CID_MAX;
+@@ -11829,9 +11829,9 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
  
- 	case ETH_SS_TEST:
--		memcpy(buf, bnx2x_tests_str_arr, sizeof(bnx2x_tests_str_arr));
-+		/* First 4 tests cannot be done in MF mode */
-+		if (!IS_MF(bp))
-+			start = 0;
-+		else
-+			start = 4;
-+		for (i = 0, j = start; j < (start + BNX2X_NUM_TESTS(bp));
-+		     i++, j++) {
-+			offset = sprintf(buf+32*i, "%s",
-+					 bnx2x_tests_str_arr[j]);
-+			*(buf+offset) = '\0';
-+		}
- 		break;
- 	}
+ 	/*
+ 	 * Maximum number of netdev Tx queues:
+-	 *      Maximum TSS queues * Maximum supported number of CoS  + FCoE L2
++	 * Maximum TSS queues * Maximum supported number of CoS  + FCoE L2
+ 	 */
+-	tx_count = MAX_TXQS_PER_COS * max_cos_est + FCOE_PRESENT;
++	tx_count = rss_count * max_cos_est + FCOE_PRESENT;
+ 
+ 	/* dev zeroed in init_etherdev */
+ 	dev = alloc_etherdev_mqs(sizeof(*bp), tx_count, rx_count);
+@@ -11863,11 +11863,15 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	 * Map doorbels here as we need the real value of bp->max_cos which
+ 	 * is initialized in bnx2x_init_bp().
+ 	 */
+-	doorbell_size = (rss_count * max_cos_est + NON_ETH_CONTEXT_USE +
+-			 CNIC_PRESENT) * (1 << BNX2X_DB_SHIFT);
++	doorbell_size = BNX2X_L2_MAX_CID(bp) * (1 << BNX2X_DB_SHIFT);
++	if (doorbell_size > pci_resource_len(pdev, 2)) {
++		dev_err(&bp->pdev->dev,
++			"Cannot map doorbells, bar size too small, aborting\n");
++		rc = -ENOMEM;
++		goto init_one_exit;
++	}
+ 	bp->doorbells = ioremap_nocache(pci_resource_start(pdev, 2),
+-					min_t(u64, doorbell_size,
+-					      pci_resource_len(pdev, 2)));
++					doorbell_size);
+ 	if (!bp->doorbells) {
+ 		dev_err(&bp->pdev->dev,
+ 			"Cannot map doorbell space, aborting\n");
+@@ -12254,14 +12258,14 @@ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
+ 		 */
+ 		if (type == ETH_CONNECTION_TYPE) {
+ 			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP) {
+-				cxt_index = BNX2X_ISCSI_ETH_CID /
++				cxt_index = BNX2X_ISCSI_ETH_CID(bp) /
+ 					ILT_PAGE_CIDS;
+-				cxt_offset = BNX2X_ISCSI_ETH_CID -
++				cxt_offset = BNX2X_ISCSI_ETH_CID(bp) -
+ 					(cxt_index * ILT_PAGE_CIDS);
+ 				bnx2x_set_ctx_validation(bp,
+ 					&bp->context[cxt_index].
+ 							 vcxt[cxt_offset].eth,
+-					BNX2X_ISCSI_ETH_CID);
++					BNX2X_ISCSI_ETH_CID(bp));
+ 			}
+ 		}
+ 
+@@ -12615,6 +12619,21 @@ void bnx2x_setup_cnic_irq_info(struct bnx2x *bp)
+ 	cp->num_irq = 2;
  }
+ 
++void bnx2x_setup_cnic_info(struct bnx2x *bp)
++{
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++
++
++	cp->ctx_tbl_offset = FUNC_ILT_BASE(BP_FUNC(bp)) +
++			     bnx2x_cid_ilt_lines(bp);
++	cp->starting_cid = bnx2x_cid_ilt_lines(bp) * ILT_PAGE_CIDS;
++	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID(bp);
++	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID(bp);
++
++	if (NO_ISCSI_OOO(bp))
++		cp->drv_state |= CNIC_DRV_STATE_NO_ISCSI_OOO;
++}
++
+ static int bnx2x_register_cnic(struct net_device *dev, struct cnic_ops *ops,
+ 			       void *data)
+ {
+@@ -12693,10 +12712,10 @@ struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *dev)
+ 	cp->drv_ctl = bnx2x_drv_ctl;
+ 	cp->drv_register_cnic = bnx2x_register_cnic;
+ 	cp->drv_unregister_cnic = bnx2x_unregister_cnic;
+-	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID;
++	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID(bp);
+ 	cp->iscsi_l2_client_id =
+ 		bnx2x_cnic_eth_cl_id(bp, BNX2X_ISCSI_ETH_CL_ID_IDX);
+-	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID;
++	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID(bp);
+ 
+ 	if (NO_ISCSI_OOO(bp))
+ 		cp->drv_state |= CNIC_DRV_STATE_NO_ISCSI_OOO;
 -- 
 1.7.10
