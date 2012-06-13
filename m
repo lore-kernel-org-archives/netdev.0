@@ -1,75 +1,49 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: fix checksum validation
-Date: Wed, 13 Jun 2012 17:21:03 +0300
-Message-ID: <1339597263.15601.0.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1339581004.22704.340.camel@edumazet-glaptop>
- <1339594957.13000.7.camel@lb-tlvb-eilong.il.broadcom.com>
- <1339596605.22704.363.camel@edumazet-glaptop>
-Reply-To: eilong@broadcom.com
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [net-next 1/9] igb: Add support functions to access thermal
+ data.
+Date: Wed, 13 Jun 2012 14:53:54 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B626274A6F4B@ORSMSX102.amr.corp.intel.com>
+References: <1339230063-12545-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1339230063-12545-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1339289333.21665.156.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Tom Herbert" <therbert@google.com>,
-	"Robert Evans" <evansr@google.com>,
-	"Willem de Bruijn" <willemb@google.com>,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
-	"Merav Sicron" <meravs@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4155 "EHLO mms2.broadcom.com"
+Received: from mga14.intel.com ([143.182.124.37]:14551 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752885Ab2FMOVP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jun 2012 10:21:15 -0400
-In-Reply-To: <1339596605.22704.363.camel@edumazet-glaptop>
+	id S1754352Ab2FMOx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jun 2012 10:53:57 -0400
+In-Reply-To: <1339289333.21665.156.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-13 at 16:10 +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-13 at 16:42 +0300, Eilon Greenstein wrote:
-> 
-> > So what you are saying is that the indication that the checksum is valid
-> > is interpreted as the encapsulated checksum and not just the IP
-> > header... This was not the intention of this code, it was meant to
-> > indicate that the IP header is valid.
-> > 
-> 
-> IP header is always checked by our stack.
-> 
-> Its so fast that there is no point spending a bit in skb, and testing
-> this bit.
-> 
-> Yes, CHECKSUM_UNNECESSARY really means everything was checked up to L4
-> 
-> > I must admit that the code looks much better with this change. The only
-> > down side is that there is no longer IP checksum offload for pure IP
-> > packets, but that's negligible. The only thing that bothers me is that
-> > there is no way to indicate anything about the encapsulated packet
-> > separately from the outer header. Is that the way we want to keep it?
-> 
-> Some NIC allow for csum L3 offloading, providing the 16bit csum.
-> 
-> We then can :
-> 
-> skb->csum = csum;
-> skb->ip_summed = CHECKSUM_COMPLETE;
-> 
-> Check drivers/net/ethernet/ibm/ehea/ehea_main.c,
-> drivers/net/ethernet/marvell/skge.c ,
-> drivers/net/ethernet/marvell/sky2.c , ... for examples.
-> 
-> 
-> When a layer is removed(pulled), we can use skb_postpull_rcsum() and
-> friends (check net/ipv4/ip_gre.c for example) to keep skb->csum up2date.
-> 
-> 
-> If bnx2x provides this csum (for non TCP/UCP packets or fragments), you
-> could fallback to this CHECKSUM_COMPLETE stuff.
-> 
-> 
-
-Thanks Erik. This leaves me with just one thing to add:
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogU2F0dXJkYXksIEp1bmUgMDksIDIw
+MTIgNTo0OSBQTQ0KPlRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj5DYzogZGF2ZW1AZGF2ZW1sb2Z0
+Lm5ldDsgV3lib3JueSwgQ2Fyb2x5bjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj5nb3Nwb0By
+ZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+U3ViamVjdDogUmU6IFtuZXQtbmV4dCAx
+LzldIGlnYjogQWRkIHN1cHBvcnQgZnVuY3Rpb25zIHRvIGFjY2VzcyB0aGVybWFsDQo+ZGF0YS4N
+Cj4NCj5PbiBTYXQsIDIwMTItMDYtMDkgYXQgMDE6MjAgLTA3MDAsIEplZmYgS2lyc2hlciB3cm90
+ZToNCj4+IEZyb206IENhcm9seW4gV3lib3JueSA8Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4N
+Cj4+DQo+PiBTb21lIGkzNTAgZGV2aWNlcyBjb250YWluIHRoZXJtYWwgZGF0YSB0aGF0IHdlIGNh
+biBnZXQgdG8gdmlhIGFuIGkyYw0KPj4gaW50ZXJmYWNlLiAgVGhlc2UgZnVuY3Rpb25zIHByb3Zp
+ZGUgc3VwcG9ydCB0byBnZXQgYXQgdGhhdCBkYXRhLiAgQQ0KPj4gZm9sbG93aW5nIHBhdGNoIHdp
+bGwgZXhwb3J0IHRoaXMgZGF0YS4NCj5bLi4uXQ0KPg0KPldlIGFscmVhZHkgaGF2ZSBhbiBJMkMg
+c3Vic3lzdGVtIC0gc28gZG9uJ3QgcmVwbGljYXRlIGkyYy1hbGdvLWJpdCBldGMuDQo+DQo+SXQn
+cyBwb3NzaWJsZSB3ZSBhbHNvIGhhdmUgYW4gaHdtb24gZHJpdmVyIGZvciB3aGF0ZXZlciB0ZW1w
+ZXJhdHVyZQ0KPnNlbnNvciBpcyBvbiB0aGVzZSBib2FyZHMsIHdoaWNoIHlvdSBjYW4gdGhlbiBw
+cm9iZSBieSBjYWxsaW5nDQo+aTJjX25ld19kZXZpY2UoKS4NCg0KSSBhbSBub3Qgc3VyZSB0aGF0
+IG91ciBzZW5zb3JzIHdpbGwgYmUgY29tcGF0aWJsZSwgYnV0IEkgd2lsbCByZXNlYXJjaCBpdCB0
+byBiZSBzdXJlLiAgSSB3aWxsIGFsc28gdGFrZSBhIGxvb2sgYXQgd2hhdCB3ZSBjYW4gZG8gd2l0
+aCB0aGUgaTJjIGludGVyZmFjZSB0aGF0IGFscmVhZHkgZXhpc3RzIGFuZCBtYWtlIHN1cmUgd2Ug
+YXJlIG5vdCBkdXBsaWNhdGluZyBhbnkgb2YgaXQuDQoNClRoYW5rcywNCg0KQ2Fyb2x5bg0KDQpD
+YXJvbHluIFd5Ym9ybnkNCkxpbnV4IERldmVsb3BtZW50DQpMQU4gQWNjZXNzIERpdmlzaW9uDQpJ
+bnRlbCBDb3Jwb3JhdGlvbg0KDQoNCg==
