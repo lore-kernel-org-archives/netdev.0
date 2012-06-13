@@ -1,108 +1,143 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 3/3] usbnet: handle remote wakeup asap
-Date: Wed, 13 Jun 2012 12:20:17 +0800
-Message-ID: <1339561217-18151-4-git-send-email-ming.lei@canonical.com>
-References: <1339561217-18151-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>,
-	stable@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/5] ipv4: Kill ip_rt_frag_needed().
+Date: Tue, 12 Jun 2012 21:22:36 -0700 (PDT)
+Message-ID: <20120612.212236.897121854594455904.davem@davemloft.net>
+References: <20120611.160258.866525532025442350.davem@davemloft.net>
+	<20120612114440.GM27795@secunet.com>
+	<20120612.133333.527780673034196147.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:35728 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894Ab2FMEVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 00:21:06 -0400
-In-Reply-To: <1339561217-18151-1-git-send-email-ming.lei@canonical.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57024 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717Ab2FMEWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 00:22:39 -0400
+In-Reply-To: <20120612.133333.527780673034196147.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If usbnet is resumed by remote wakeup, generally there are
-some packets comming to be handled, so allocate and submit
-rx URBs in usbnet_resume to avoid delays introduced by tasklet.
-Otherwise, usbnet may have been runtime suspended before the
-usbnet_bh is executed to schedule Rx URBs.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 12 Jun 2012 13:33:33 -0700 (PDT)
 
-Without the patch, usbnet can't recieve any packets from peer
-in runtime suspend state if runtime PM is enabled and
-autosuspend_delay is set as zero.
+> What we possibly could do is adjust the socket's IP_PMTUDISC_* setting
+> from IP_PMTUDISC_WANT to IP_PMTUDISC_DONT in response to PMTU
+> messages.
+> 
+> This seems to solve all the problems.  Individual RAW and UDP sockets
+> get the behavior they did before, and route cache PMTU poisoning is
+> less of an issue.
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
----
- drivers/net/usb/usbnet.c |   42 ++++++++++++++++++++++++++----------------
- 1 file changed, 26 insertions(+), 16 deletions(-)
+Here is an implementation of that idea:
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 9bfa775..4911efa 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1201,6 +1201,21 @@ deferred:
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 8260ef7..61cb532 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -416,6 +416,16 @@ static inline struct ipv6_pinfo * inet6_sk(const struct sock *__sk)
+ 	return inet_sk(__sk)->pinet6;
  }
- EXPORT_SYMBOL_GPL(usbnet_start_xmit);
  
-+static void rx_alloc_submit(struct usbnet *dev, gfp_t flags)
++/* We don't want to update the routing tables because there is no way
++ * to validate the legitimacy of this PMTU event.  Instead, downgrade
++ * the PMTU setting of the socket.
++ */
++static inline void inet6_datagram_pmtu_event(struct ipv6_pinfo *np)
 +{
-+	struct urb	*urb;
-+	int		i;
-+
-+	/* don't refill the queue all at once */
-+	for (i = 0; i < 10 && dev->rxq.qlen < RX_QLEN(dev); i++) {
-+		urb = usb_alloc_urb(0, GFP_ATOMIC);
-+		if (urb != NULL) {
-+			if (rx_submit(dev, urb, flags) == -ENOLINK)
-+				return;
-+		}
-+	}
++	if (np->pmtudisc == IP_PMTUDISC_WANT)
++		np->pmtudisc = IP_PMTUDISC_DONT;
 +}
 +
- /*-------------------------------------------------------------------------*/
+ static inline struct inet6_request_sock *
+ 			inet6_rsk(const struct request_sock *rsk)
+ {
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index ae17e13..2199afb 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -199,6 +199,16 @@ static inline void inet_sk_copy_descendant(struct sock *sk_to,
+ }
+ #endif
  
- // tasklet (work deferred from completions, in_irq) or timer
-@@ -1240,26 +1255,14 @@ static void usbnet_bh (unsigned long param)
- 		   !timer_pending (&dev->delay) &&
- 		   !test_bit (EVENT_RX_HALT, &dev->flags)) {
- 		int	temp = dev->rxq.qlen;
--		int	qlen = RX_QLEN (dev);
--
--		if (temp < qlen) {
--			struct urb	*urb;
--			int		i;
--
--			// don't refill the queue all at once
--			for (i = 0; i < 10 && dev->rxq.qlen < qlen; i++) {
--				urb = usb_alloc_urb (0, GFP_ATOMIC);
--				if (urb != NULL) {
--					if (rx_submit (dev, urb, GFP_ATOMIC) ==
--					    -ENOLINK)
--						return;
--				}
--			}
++/* We don't want to update the routing cache because there is no way
++ * to validate the legitimacy of this PMTU event.  Instead, downgrade
++ * the PMTU setting of the socket.
++ */
++static inline void inet_datagram_pmtu_event(struct inet_sock *inet)
++{
++	if (inet->pmtudisc == IP_PMTUDISC_WANT)
++		inet->pmtudisc = IP_PMTUDISC_DONT;
++}
 +
-+		if (temp < RX_QLEN(dev)) {
-+			rx_alloc_submit(dev, GFP_ATOMIC);
- 			if (temp != dev->rxq.qlen)
- 				netif_dbg(dev, link, dev->net,
- 					  "rxqlen %d --> %d\n",
- 					  temp, dev->rxq.qlen);
--			if (dev->rxq.qlen < qlen)
-+			if (dev->rxq.qlen < RX_QLEN(dev))
- 				tasklet_schedule (&dev->bh);
+ extern int inet_sk_rebuild_header(struct sock *sk);
+ 
+ extern u32 inet_ehash_secret;
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 2c00e8b..c6becc1 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -374,6 +374,7 @@ void ping_err(struct sk_buff *skb, u32 info)
+ 			if (inet_sock->pmtudisc != IP_PMTUDISC_DONT) {
+ 				err = EMSGSIZE;
+ 				harderr = 1;
++				inet_datagram_pmtu_event(inet_sock);
+ 				break;
+ 			}
+ 			goto out;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 4032b81..ed24b05 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -244,6 +244,7 @@ static void raw_err(struct sock *sk, struct sk_buff *skb, u32 info)
+ 		if (code == ICMP_FRAG_NEEDED) {
+ 			harderr = inet->pmtudisc != IP_PMTUDISC_DONT;
+ 			err = EMSGSIZE;
++			inet_datagram_pmtu_event(inet);
  		}
- 		if (dev->txq.qlen < TX_QLEN (dev))
-@@ -1565,6 +1568,13 @@ int usbnet_resume (struct usb_interface *intf)
- 		spin_unlock_irq(&dev->txq.lock);
+ 	}
  
- 		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
-+			/* handle remote wakeup ASAP */
-+			if (!dev->wait &&
-+				netif_device_present(dev->net) &&
-+				!timer_pending(&dev->delay) &&
-+				!test_bit(EVENT_RX_HALT, &dev->flags))
-+					rx_alloc_submit(dev, GFP_KERNEL);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index eaca736..40cf013 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -618,6 +618,7 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, struct udp_table *udptable)
+ 			if (inet->pmtudisc != IP_PMTUDISC_DONT) {
+ 				err = EMSGSIZE;
+ 				harderr = 1;
++				inet_datagram_pmtu_event(inet);
+ 				break;
+ 			}
+ 			goto out;
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 93d6983..79e2f7a 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -328,9 +328,10 @@ static void rawv6_err(struct sock *sk, struct sk_buff *skb,
+ 		return;
+ 
+ 	harderr = icmpv6_err_convert(type, code, &err);
+-	if (type == ICMPV6_PKT_TOOBIG)
++	if (type == ICMPV6_PKT_TOOBIG) {
+ 		harderr = (np->pmtudisc == IPV6_PMTUDISC_DO);
+-
++		inet6_datagram_pmtu_event(np);
++	}
+ 	if (np->recverr) {
+ 		u8 *payload = skb->data;
+ 		if (!inet->hdrincl)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index f05099f..fb57815 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -481,6 +481,9 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 
+ 	np = inet6_sk(sk);
+ 
++	if (type == ICMPV6_PKT_TOOBIG)
++		inet6_datagram_pmtu_event(np);
 +
- 			if (!(dev->txq.qlen >= TX_QLEN(dev)))
- 				netif_tx_wake_all_queues(dev->net);
- 			tasklet_schedule (&dev->bh);
--- 
-1.7.9.5
+ 	if (!icmpv6_err_convert(type, code, &err) && !np->recverr)
+ 		goto out;
+ 
