@@ -1,42 +1,60 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH 4/7] usbnet: remove EVENT_DEV_OPEN flag
-Date: Wed, 13 Jun 2012 10:12:28 +0800
-Message-ID: <CACVXFVPf+Q9i-Ju3GFapiTB2wEWZSBrZ2Gf=WHsLWfWfTnWGpA@mail.gmail.com>
-References: <1339463985-9006-1-git-send-email-tom.leiming@gmail.com>
-	<1339463985-9006-5-git-send-email-tom.leiming@gmail.com>
-	<201206122014.28408.oliver@neukum.org>
+From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
+Subject: [PATCH 0/5] Introduce generic set_bit_le() -v2
+Date: Wed, 13 Jun 2012 13:00:54 +0900
+Message-ID: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:61434 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081Ab2FMCM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jun 2012 22:12:28 -0400
-In-Reply-To: <201206122014.28408.oliver@neukum.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, grundler@parisc-linux.org,
+	arnd@arndb.de, benh@kernel.crashing.org, avi@redhat.com,
+	mtosatti@redhat.com, linux-net-drivers@solarflare.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, kvm@vger.kernel.org,
+	takuya.yoshikawa@gmail.com
+To: akpm@linux-foundation.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 13, 2012 at 2:14 AM, Oliver Neukum <oliver@neukum.org> wrote:
-> Am Dienstag, 12. Juni 2012, 03:19:42 schrieb Ming Lei:
->> EVENT_DEV_OPEN is introduced to mark if the interface is opened or
->> not, but we already have IFF_UP to handle it, so just
->> remove the flag and use IFF_UP.
->
-> When is IFF_UP cleared? The flag is tested in usbnet_resume(),
+  [ Andrew, can you take this or should I send to other person?
+    Note: the whole series is against linux-next. ]
 
-The flag is cleared just after usbnet_stop completes.
+KVM is using test_and_set_bit_le() for this missing function; this patch
+series corrects this usage.
 
-> so it must be cleared before usbnet_stop() is called.
+As some drivers have their own definitions of set_bit_le(), a bit of
+preparation is also needed.
 
-Yes, I see, otherwise system or runtime resume may happen
-at the same time with usbnet_stop.
+  Although these are differently implemented, especially for big-endian
+  case, than the generic __set_bit_le(), it should not be a problem to
+  use the latter since both maintainers prefer it.
 
-Thanking you for point it out.
+Changes from v1:
+  - sfc:     Ben made a patch
+  - tulip:   followed suggestion by Grant
+  - bitops:  added clear_bit_le -- suggested by Arnd
+  - powerpc: added the same code
 
-Thanks,
+
+Ben Hutchings (1):
+  sfc: Use standard __{clear,set}_bit_le() functions
+
+Takuya Yoshikawa (4):
+  drivers/net/ethernet/dec/tulip: Use standard __set_bit_le() function
+  bitops: Introduce generic {clear,set}_bit_le()
+  powerpc: bitops: Introduce {clear,set}_bit_le()
+  KVM: Replace test_and_set_bit_le() in mark_page_dirty_in_slot() with set_bit_le()
+
+ arch/powerpc/include/asm/bitops.h           |   10 ++++++++++
+ drivers/net/ethernet/dec/tulip/de2104x.c    |    7 ++-----
+ drivers/net/ethernet/dec/tulip/tulip_core.c |    7 ++-----
+ drivers/net/ethernet/sfc/efx.c              |    4 ++--
+ drivers/net/ethernet/sfc/net_driver.h       |   12 ------------
+ drivers/net/ethernet/sfc/nic.c              |    4 ++--
+ include/asm-generic/bitops/le.h             |   10 ++++++++++
+ virt/kvm/kvm_main.c                         |    3 +--
+ 8 files changed, 29 insertions(+), 28 deletions(-)
+
 -- 
-Ming Lei
+1.7.5.4
+
