@@ -1,71 +1,143 @@
-From: Karl Hiramoto <karl@hiramoto.org>
-Subject: Re: PPPoE performance regression
-Date: Wed, 13 Jun 2012 22:17:21 +0200
-Message-ID: <4FD8F551.4020708@hiramoto.org>
-References: <1339143949.24571.72.camel@dualcore.traverse>  <1339144110.13998.1.camel@i7.infradead.org>  <1339144954.24571.80.camel@dualcore.traverse>  <1339147045.13998.3.camel@i7.infradead.org>  <1339289425.2661.27.camel@laptop> <1339317136.2851.54.camel@shinybook.infradead.org>
+From: Shuah Khan <shuahkhan@gmail.com>
+Subject: [PATCH] leds: Rename led_brightness_set() to led_set_brightness()
+Date: Wed, 13 Jun 2012 14:34:30 -0600
+Message-ID: <1339619670.13326.22.camel@lorien2>
+Reply-To: shuahkhan@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Nathan Williams <nathan@traverse.com.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:60253 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113Ab2FMUTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jun 2012 16:19:48 -0400
-Received: from homiemail-a34.g.dreamhost.com (caiajhbdccah.dreamhost.com [208.97.132.207])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 458CF2191
-	for <netdev@vger.kernel.org>; Wed, 13 Jun 2012 13:22:41 -0700 (PDT)
-In-Reply-To: <1339317136.2851.54.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shuahkhan@gmail.com, LKML <linux-kernel@vger.kernel.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: bryan.wu@canonical.com, rpurdie@rpsys.net,
+	johannes@sipsolutions.net, linville@tuxdriver.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/10/12 10:32, David Woodhouse wrote:
->   On Sun, 2012-06-10 at 10:50 +1000, Nathan Williams wrote:
->>> When using iperf with UDP, we can get 20Mbps downstream, but only about
->>> 15Mbps throughput when using TCP on a short ADSL line (line sync at
->>> 25Mbps).  Using iperf to send UDP traffic upstream at the same time
->>> doesn't affect the downstream rate.
->> ...
->>
->> I found the change responsible for the performance problem and rebuilt
->> OpenWrt with the patch reversed on kernel 3.3.8 to confirm everything
->> still works.  So the TX buffer is getting full, which causes the netif
->> queue to be stopped and restarted after some skbs have been freed?
-> The *Ethernet* netif queue, yes. But not the PPP netif queue, I believe.
-> I think the PPP code keeps just blindly calling dev_queue_xmit() and
-> throwing away packets when they're not accepted.
->
->> commit 137742cf9738f1b4784058ff79aec7ca85e769d4
->> Author: Karl Hiramoto <karl@hiramoto.org>
->> Date:   Wed Sep 2 23:26:39 2009 -0700
->>
->>      atm/br2684: netif_stop_queue() when atm device busy and
->> netif_wake_queue() when we can send packets again.
-> Nice work; well done finding that. I've added Karl and DaveM, and the
-> netdev@ list to Cc.
->
-> (Btw, I assume the performance problem also goes away if you use PPPoA?
-> I've made changes in the PPPoA code recently to *eliminate* excessive
-> calls to netif_wake_queue(), and also to stop it from filling the ATM
-> device queue. That was commit 9d02daf7 in 3.5-rc1, which is already in
-> OpenWRT.)
->
-> I was already looking vaguely at how we could limit the PPP queue depth
-> for PPPoE and implement byte queue limits. Currently the PPP code just
-> throws the packets at the Ethernet device and considers them 'gone',
-> which is why it's hitting the ATM limits all the time. The patch you
-> highlight is changing the behaviour in a case that should never *happen*
-> with PPP. It's suffering massive queue bloat if it's filling the ATM
-> queue, and we should fix *that*.
+Rename leds external interface led_brightness_set() to led_set_brightness().
+This is the second phase of the change to reduce confusion between the
+leds internal and external interfaces that set brightness. With this change,
+now the external interface is led_set_brightness(). The first phase renamed
+the internal interface led_set_brightness() to __led_set_brightness().
+There are no changes to the interface implementations.
 
-Agreed,  the issue is the PPP layer.     I've seen this issue with PPPoE 
-before,  haven't had  the itch, time or interest to fix it though.   A 
-workaround to help mitigate the issue may be to increase the TX queue 
-length of the  br2684  interface, and the atm device if possible.   
-You'll pay the price  of buffer bloat and latency.
+Signed-off-by: Shuah Khan <shuahkhan@gmail.com>
+---
+ drivers/leds/led-class.c       |    2 +-
+ drivers/leds/led-core.c        |    4 ++--
+ drivers/leds/led-triggers.c    |    2 +-
+ drivers/leds/ledtrig-oneshot.c |    2 +-
+ drivers/leds/ledtrig-timer.c   |    2 +-
+ include/linux/leds.h           |    4 ++--
+ net/mac80211/led.c             |    2 +-
+ 7 files changed, 9 insertions(+), 9 deletions(-)
 
-
---
-Karl
+diff --git a/drivers/leds/led-class.c b/drivers/leds/led-class.c
+index cb0a6eb..c599095 100644
+--- a/drivers/leds/led-class.c
++++ b/drivers/leds/led-class.c
+@@ -222,7 +222,7 @@ void led_classdev_unregister(struct led_classdev *led_cdev)
+ #endif
+ 
+ 	/* Stop blinking */
+-	led_brightness_set(led_cdev, LED_OFF);
++	led_set_brightness(led_cdev, LED_OFF);
+ 
+ 	device_unregister(led_cdev->dev);
+ 
+diff --git a/drivers/leds/led-core.c b/drivers/leds/led-core.c
+index 176961b..8a09c5f 100644
+--- a/drivers/leds/led-core.c
++++ b/drivers/leds/led-core.c
+@@ -103,7 +103,7 @@ void led_blink_set_oneshot(struct led_classdev *led_cdev,
+ }
+ EXPORT_SYMBOL(led_blink_set_oneshot);
+ 
+-void led_brightness_set(struct led_classdev *led_cdev,
++void led_set_brightness(struct led_classdev *led_cdev,
+ 			enum led_brightness brightness)
+ {
+ 	/* stop and clear soft-blink timer */
+@@ -113,4 +113,4 @@ void led_brightness_set(struct led_classdev *led_cdev,
+ 
+ 	__led_set_brightness(led_cdev, brightness);
+ }
+-EXPORT_SYMBOL(led_brightness_set);
++EXPORT_SYMBOL(led_set_brightness);
+diff --git a/drivers/leds/led-triggers.c b/drivers/leds/led-triggers.c
+index f8b14dd..57721f2 100644
+--- a/drivers/leds/led-triggers.c
++++ b/drivers/leds/led-triggers.c
+@@ -112,7 +112,7 @@ void led_trigger_set(struct led_classdev *led_cdev, struct led_trigger *trig)
+ 		if (led_cdev->trigger->deactivate)
+ 			led_cdev->trigger->deactivate(led_cdev);
+ 		led_cdev->trigger = NULL;
+-		led_brightness_set(led_cdev, LED_OFF);
++		led_set_brightness(led_cdev, LED_OFF);
+ 	}
+ 	if (trig) {
+ 		write_lock_irqsave(&trig->leddev_list_lock, flags);
+diff --git a/drivers/leds/ledtrig-oneshot.c b/drivers/leds/ledtrig-oneshot.c
+index 5cbab41..2c029aa 100644
+--- a/drivers/leds/ledtrig-oneshot.c
++++ b/drivers/leds/ledtrig-oneshot.c
+@@ -177,7 +177,7 @@ static void oneshot_trig_deactivate(struct led_classdev *led_cdev)
+ 	}
+ 
+ 	/* Stop blinking */
+-	led_brightness_set(led_cdev, LED_OFF);
++	led_set_brightness(led_cdev, LED_OFF);
+ }
+ 
+ static struct led_trigger oneshot_led_trigger = {
+diff --git a/drivers/leds/ledtrig-timer.c b/drivers/leds/ledtrig-timer.c
+index 9010f7a..f774d05 100644
+--- a/drivers/leds/ledtrig-timer.c
++++ b/drivers/leds/ledtrig-timer.c
+@@ -104,7 +104,7 @@ static void timer_trig_deactivate(struct led_classdev *led_cdev)
+ 	}
+ 
+ 	/* Stop blinking */
+-	led_brightness_set(led_cdev, LED_OFF);
++	led_set_brightness(led_cdev, LED_OFF);
+ }
+ 
+ static struct led_trigger timer_led_trigger = {
+diff --git a/include/linux/leds.h b/include/linux/leds.h
+index dd93a22..3aade1d 100644
+--- a/include/linux/leds.h
++++ b/include/linux/leds.h
+@@ -124,7 +124,7 @@ extern void led_blink_set_oneshot(struct led_classdev *led_cdev,
+ 				  unsigned long *delay_off,
+ 				  int invert);
+ /**
+- * led_brightness_set - set LED brightness
++ * led_set_brightness - set LED brightness
+  * @led_cdev: the LED to set
+  * @brightness: the brightness to set it to
+  *
+@@ -132,7 +132,7 @@ extern void led_blink_set_oneshot(struct led_classdev *led_cdev,
+  * software blink timer that implements blinking when the
+  * hardware doesn't.
+  */
+-extern void led_brightness_set(struct led_classdev *led_cdev,
++extern void led_set_brightness(struct led_classdev *led_cdev,
+ 			       enum led_brightness brightness);
+ 
+ /*
+diff --git a/net/mac80211/led.c b/net/mac80211/led.c
+index 1bf7903..bcffa69 100644
+--- a/net/mac80211/led.c
++++ b/net/mac80211/led.c
+@@ -276,7 +276,7 @@ static void ieee80211_stop_tpt_led_trig(struct ieee80211_local *local)
+ 
+ 	read_lock(&tpt_trig->trig.leddev_list_lock);
+ 	list_for_each_entry(led_cdev, &tpt_trig->trig.led_cdevs, trig_list)
+-		led_brightness_set(led_cdev, LED_OFF);
++		led_set_brightness(led_cdev, LED_OFF);
+ 	read_unlock(&tpt_trig->trig.leddev_list_lock);
+ }
+ 
+-- 
+1.7.9.5
