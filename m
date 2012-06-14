@@ -1,43 +1,28 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] dcbnl: Use BUG_ON() instead of BUG()
-Date: Thu, 14 Jun 2012 04:40:15 -0400
-Message-ID: <20120614084015.GC29738@canuck.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dcbnl: Use BUG_ON() instead of BUG()
+Date: Thu, 14 Jun 2012 01:46:51 -0700 (PDT)
+Message-ID: <20120614.014651.2075841249960953851.davem@davemloft.net>
 References: <cover.1339591572.git.tgraf@suug.ch>
- <20120613.155541.26513304496438357.davem@davemloft.net>
+	<20120613.155541.26513304496438357.davem@davemloft.net>
+	<20120614084015.GC29738@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, lucy.liu@intel.com,
 	john.r.fastabend@intel.com, alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:39844 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478Ab2FNIkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 04:40:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20120613.155541.26513304496438357.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38432 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755063Ab2FNIqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 04:46:51 -0400
+In-Reply-To: <20120614084015.GC29738@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 14 Jun 2012 04:40:15 -0400
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/dcb/dcbnl.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index da6ee81..0a36007 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -208,10 +208,7 @@ static struct sk_buff *dcbnl_newmsg(int type, u8 cmd, u32 port, u32 seq,
- 		return NULL;
- 
- 	nlh = nlmsg_put(skb, port, seq, type, sizeof(*dcb), flags);
--	if (!nlh) {
--		/* header should always fit, allocation must be buggy */
--		BUG();
--	}
-+	BUG_ON(!nlh);
- 
- 	dcb = nlmsg_data(nlh);
- 	dcb->dcb_family = AF_UNSPEC;
+Applied.
