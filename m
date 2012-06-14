@@ -1,56 +1,53 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3] be2net: Increase statistics structure size for
- skyhawk.
-Date: Thu, 14 Jun 2012 19:50:02 +0100
-Message-ID: <1339699802.2719.26.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
-	 <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
+Subject: Re: [PATCH] usbnet: sanitise overlong driver information strings
+Date: Thu, 14 Jun 2012 20:08:33 +0100
+Message-ID: <1339700913.2719.27.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1339672722-22793-1-git-send-email-phil.sutter@viprinet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Vasundhara Volam <vasundhara.volam@emulex.com>
-To: <sarveshwar.bandi@emulex.com>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Phil Sutter <phil.sutter@viprinet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:47067 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:39190 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756037Ab2FNSuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 14:50:06 -0400
-In-Reply-To: <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
+	by vger.kernel.org with ESMTP id S1752265Ab2FNTIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 15:08:36 -0400
+In-Reply-To: <1339672722-22793-1-git-send-email-phil.sutter@viprinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-14 at 11:21 +0530, sarveshwar.bandi@emulex.com wrote:
-> From: Vasundhara Volam <vasundhara.volam@emulex.com>
-> 
-> Increasing the hardware statistics structure to accomodate statistics for skyhawk.
-> 
-> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_cmds.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-> index 2f6bb06..3c938f5 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-> +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-> @@ -1566,7 +1566,7 @@ struct be_hw_stats_v1 {
->  	u32 rsvd0[BE_TXP_SW_SZ];
->  	struct be_erx_stats_v1 erx;
->  	struct be_pmem_stats pmem;
-> -	u32 rsvd1[3];
-> +	u32 rsvd1[18];
->  };
->  
->  struct be_cmd_req_get_stats_v1 {
+On Thu, 2012-06-14 at 13:18 +0200, Phil Sutter wrote:
+> As seen on smsc75xx, driver_info->description being longer than 32
+> characters messes up 'ethtool -i' output.
 
-Doesn't this merit a 'struct be_hw_stats_v2'?
-
-Does this mean that the driver wasn't currently allocating enough memory
-for the structure, and could that result in a buffer overrun?  If so
-then this fix would need to go into 3.5 and 3.4.y as well.
+I should make ethtool tolerate that, but yes these are supposed to be
+null-terminated strings.
 
 Ben.
+
+> Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
+> ---
+>  drivers/net/usb/usbnet.c |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 9f58330..d4f7256 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -876,9 +876,9 @@ void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+>  
+> -	strncpy (info->driver, dev->driver_name, sizeof info->driver);
+> -	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+> -	strncpy (info->fw_version, dev->driver_info->description,
+> +	strlcpy (info->driver, dev->driver_name, sizeof info->driver);
+> +	strlcpy (info->version, DRIVER_VERSION, sizeof info->version);
+> +	strlcpy (info->fw_version, dev->driver_info->description,
+>  		sizeof info->fw_version);
+>  	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
+>  }
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
