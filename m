@@ -1,70 +1,247 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Regression on TX throughput when using bonding
-Date: Thu, 14 Jun 2012 10:46:12 -0700
-Message-ID: <4FDA2364.9090508@hp.com>
-References: <CAL8zT=j8pEVc7AHwJzk+4skj=1tfRYZ_C7CuXD_08T_VmkwoFg@mail.gmail.com> <1339665719.22704.692.camel@edumazet-glaptop> <1339667417.22704.707.camel@edumazet-glaptop> <CAL8zT=icffEiz9MeaNwMtzteQnXiaT4k++s0TPWt5zsnHxFbmw@mail.gmail.com> <CAL8zT=huqtqBKzH3DDwid_C8jH16SH=kjYEK6zjxp_spfnLxXA@mail.gmail.com> <1339684157.22704.722.camel@edumazet-glaptop> <CAL8zT=joBA5pgXB7QfDM5qhOizmdneghXsSnwN5G74-yoGzg_Q@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 02/10] netfilter: add parameter proto for
+ l4proto.init_net
+Date: Thu, 14 Jun 2012 19:59:03 +0200
+Message-ID: <20120614175903.GB10633@1984>
+References: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1339668445-23848-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:22843 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756449Ab2FNRqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 13:46:14 -0400
-In-Reply-To: <CAL8zT=joBA5pgXB7QfDM5qhOizmdneghXsSnwN5G74-yoGzg_Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1339668445-23848-2-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/14/2012 08:43 AM, Jean-Michel Hautbois wrote:
-> As suggested by Eric, here is a description I wish to be as precise as possible.
-> I send three RAW video frames, 1920x1088@30fps on three udp sockets to
-> the same NIC.
-> Each sending is in a thread, so I will focus on the numbers for one thread.
->
-> This generates burst of send(), as this : each 1/30s send 3.133.440
-> bytes to the ethernet interface.
-> This is in fact something similar to this :
-> while (n != 0)
-> {
->    sendto(socket, packet, 4000);
->    n -= 4000;
->    packet += 4000
-> }
->
-> My interface is a bond with a 10Gbps interface and MTU set to 4096.
-> This means I have 784 packets each 1/30s which are sent on my
-> interface by one thread, then I wait for the next burst, and so on.
-> The videos are not necessarily the same video, so the threads may send
-> simultaneously or not...
->
-> My socket is in blocking mode.
+On Thu, Jun 14, 2012 at 06:07:17PM +0800, Gao feng wrote:
+> there are redundancy codes in l4proto's init_net functions.
+> we can use one init_net function and l3proto to impletment
+> the same thing.
+> 
+> So we should add l3proto as a parameter for init_net function.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
+>  net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    2 +-
+>  net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+>  net/netfilter/nf_conntrack_proto.c             |    6 ++++--
+>  net/netfilter/nf_conntrack_proto_dccp.c        |    2 +-
+>  net/netfilter/nf_conntrack_proto_generic.c     |    2 +-
+>  net/netfilter/nf_conntrack_proto_gre.c         |    2 +-
+>  net/netfilter/nf_conntrack_proto_sctp.c        |    4 ++--
+>  net/netfilter/nf_conntrack_proto_tcp.c         |    4 ++--
+>  net/netfilter/nf_conntrack_proto_udp.c         |    4 ++--
+>  net/netfilter/nf_conntrack_proto_udplite.c     |    2 +-
+>  11 files changed, 17 insertions(+), 15 deletions(-)
+> 
+> diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+> index 81c52b5..5dd60f2 100644
+> --- a/include/net/netfilter/nf_conntrack_l4proto.h
+> +++ b/include/net/netfilter/nf_conntrack_l4proto.h
+> @@ -97,7 +97,7 @@ struct nf_conntrack_l4proto {
+>  #endif
+>  	int	*net_id;
+>  	/* Init l4proto pernet data */
+> -	int (*init_net)(struct net *net);
+> +	int (*init_net)(struct net *net, u_int16_t proto);
+>  
+>  	/* Protocol name */
+>  	const char *name;
+> diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> index 041923c..76f7a2f 100644
+> --- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> @@ -337,7 +337,7 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
+>  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+>  #endif /* CONFIG_SYSCTL */
+>  
+> -static int icmp_init_net(struct net *net)
+> +static int icmp_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct nf_icmp_net *in = icmp_pernet(net);
+>  	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+> diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+> index 63ed012..807ae09 100644
+> --- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+> +++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+> @@ -333,7 +333,7 @@ static struct ctl_table icmpv6_sysctl_table[] = {
+>  };
+>  #endif /* CONFIG_SYSCTL */
+>  
+> -static int icmpv6_init_net(struct net *net)
+> +static int icmpv6_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct nf_icmp_net *in = icmpv6_pernet(net);
+>  	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+> index a434dd7..8fc0332 100644
+> --- a/net/netfilter/nf_conntrack_proto.c
+> +++ b/net/netfilter/nf_conntrack_proto.c
+> @@ -193,6 +193,7 @@ static int nf_ct_l3proto_register_sysctl(struct net *net,
+>  					    l3proto->ctl_table_path,
+>  					    in->ctl_table,
+>  					    NULL);
+> +
 
-If desired, here is how to simulate that with netperf:
+This entire patchset contains many extra new lines. If you want to
+provide some cleanup, it should come in some follow-up patch.
 
-./configure --enable-intervals
-make
+>  		if (err < 0) {
+>  			kfree(in->ctl_table);
+>  			in->ctl_table = NULL;
+> @@ -460,7 +461,7 @@ int nf_conntrack_l4proto_register(struct net *net,
+>  {
+>  	int ret = 0;
+>  	if (l4proto->init_net) {
+> -		ret = l4proto->init_net(net);
+> +		ret = l4proto->init_net(net, l4proto->l3proto);
+>  		if (ret < 0)
+>  			return ret;
+>  	}
+> @@ -514,7 +515,8 @@ int nf_conntrack_proto_init(struct net *net)
+>  {
+>  	unsigned int i;
+>  	int err;
+> -	err = nf_conntrack_l4proto_generic.init_net(net);
+> +	err = nf_conntrack_l4proto_generic.init_net(net,
+> +						    nf_conntrack_l4proto_generic.l3proto);
 
-And an example over loopback:
+You have to make sure that lines break at 80-chars per column.
 
-raj@tardy:~/netperf2_trunk$ src/netperf -l 10 -t UDP_STREAM -H localhost 
--w 33 -b 783 -- -s 1M -S 1M -m 4000
-MIGRATED UDP STREAM TEST from ::0 (::) port 0 AF_INET6 to tardy (::1) 
-port 0 AF_INET6 : interval
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
+Something like this should be fine:
 
-2097152    4000   9.99       260739      0     835.18
-2097152           9.99       260442            834.23
+        err = nf_conntrack_l4proto_generic.init_net(net,
+                                        nf_conntrack_l4proto_generic.l3proto);
 
 
-Adjust the -s and/or -S options to match what Jean-Michel's application 
-uses for socket buffer sizes.  Run another two simultaneous instances to 
-get the three streams.  Adjust the run length with the -l option.
-
-happy benchmarking,
-
-rick jones
+>  	if (err < 0)
+>  		return err;
+>  	err = nf_ct_l4proto_register_sysctl(net,
+> diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+> index c33f76a..52da8f0 100644
+> --- a/net/netfilter/nf_conntrack_proto_dccp.c
+> +++ b/net/netfilter/nf_conntrack_proto_dccp.c
+> @@ -815,7 +815,7 @@ static struct ctl_table dccp_sysctl_table[] = {
+>  };
+>  #endif /* CONFIG_SYSCTL */
+>  
+> -static int dccp_init_net(struct net *net)
+> +static int dccp_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct dccp_net *dn = dccp_pernet(net);
+>  	struct nf_proto_net *pn = (struct nf_proto_net *)dn;
+> diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+> index bb0e74f..d1ed7b4 100644
+> --- a/net/netfilter/nf_conntrack_proto_generic.c
+> +++ b/net/netfilter/nf_conntrack_proto_generic.c
+> @@ -135,7 +135,7 @@ static struct ctl_table generic_compat_sysctl_table[] = {
+>  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+>  #endif /* CONFIG_SYSCTL */
+>  
+> -static int generic_init_net(struct net *net)
+> +static int generic_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct nf_generic_net *gn = generic_pernet(net);
+>  	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
+> diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+> index 25ba5a2..851b93b 100644
+> --- a/net/netfilter/nf_conntrack_proto_gre.c
+> +++ b/net/netfilter/nf_conntrack_proto_gre.c
+> @@ -348,7 +348,7 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
+>  };
+>  #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+>  
+> -static int gre_init_net(struct net *net)
+> +static int gre_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct netns_proto_gre *net_gre = gre_pernet(net);
+>  	int i;
+> diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+> index 8fb0582..1e7836c 100644
+> --- a/net/netfilter/nf_conntrack_proto_sctp.c
+> +++ b/net/netfilter/nf_conntrack_proto_sctp.c
+> @@ -767,7 +767,7 @@ static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+>  	return 0;
+>  }
+>  
+> -static int sctpv4_init_net(struct net *net)
+> +static int sctpv4_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	int ret;
+>  	struct sctp_net *sn = sctp_pernet(net);
+> @@ -793,7 +793,7 @@ static int sctpv4_init_net(struct net *net)
+>  	return ret;
+>  }
+>  
+> -static int sctpv6_init_net(struct net *net)
+> +static int sctpv6_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct sctp_net *sn = sctp_pernet(net);
+>  	struct nf_proto_net *pn = (struct nf_proto_net *)sn;
+> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+> index 99caa13..6db9d3c 100644
+> --- a/net/netfilter/nf_conntrack_proto_tcp.c
+> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
+> @@ -1593,7 +1593,7 @@ static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+>  	return 0;
+>  }
+>  
+> -static int tcpv4_init_net(struct net *net)
+> +static int tcpv4_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	int i;
+>  	int ret = 0;
+> @@ -1631,7 +1631,7 @@ static int tcpv4_init_net(struct net *net)
+>  	return ret;
+>  }
+>  
+> -static int tcpv6_init_net(struct net *net)
+> +static int tcpv6_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	int i;
+>  	struct nf_tcp_net *tn = tcp_pernet(net);
+> diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+> index a83cf93..2b978e6 100644
+> --- a/net/netfilter/nf_conntrack_proto_udp.c
+> +++ b/net/netfilter/nf_conntrack_proto_udp.c
+> @@ -283,7 +283,7 @@ static void udp_init_net_data(struct nf_udp_net *un)
+>  	}
+>  }
+>  
+> -static int udpv4_init_net(struct net *net)
+> +static int udpv4_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	int ret;
+>  	struct nf_udp_net *un = udp_pernet(net);
+> @@ -307,7 +307,7 @@ static int udpv4_init_net(struct net *net)
+>  	return ret;
+>  }
+>  
+> -static int udpv6_init_net(struct net *net)
+> +static int udpv6_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	struct nf_udp_net *un = udp_pernet(net);
+>  	struct nf_proto_net *pn = (struct nf_proto_net *)un;
+> diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+> index b32e700..d33e511 100644
+> --- a/net/netfilter/nf_conntrack_proto_udplite.c
+> +++ b/net/netfilter/nf_conntrack_proto_udplite.c
+> @@ -234,7 +234,7 @@ static struct ctl_table udplite_sysctl_table[] = {
+>  };
+>  #endif /* CONFIG_SYSCTL */
+>  
+> -static int udplite_init_net(struct net *net)
+> +static int udplite_init_net(struct net *net, u_int16_t proto)
+>  {
+>  	int i;
+>  	struct udplite_net *un = udplite_pernet(net);
+> -- 
+> 1.7.7.6
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
