@@ -1,81 +1,70 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] ixgbe: ptp code cleanup
-Date: Thu, 14 Jun 2012 03:18:07 -0700
-Message-ID: <1339669089-27955-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/6] ixgbe: do not compile ixgbe_sysfs.c when CONFIG_IXGBE_HWMON is not set
+Date: Thu, 14 Jun 2012 03:18:06 -0700
+Message-ID: <1339669089-27955-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1339669089-27955-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6172 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:22113 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755566Ab2FNKSP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jun 2012 06:18:15 -0400
+	id S1755637Ab2FNKSO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2012 06:18:14 -0400
 In-Reply-To: <1339669089-27955-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch fixes two minor nits from Richard Cochran. The first is a case of
-ambitious line wrapping that wasn't necessary. The second is to re-order the
-flag checks for PPS support. Previously, the hardware test was done first, and
-the interrupt flag test was done second. Now, test the interrupt flag and use
-the unlikely macro.
+ixgbe_sysfs.c is only needed when CONFIG_IXGBE_HWMON is configured in the
+kernel.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Acked-by: Don Skidmore <Donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    8 +++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  |   13 +++++++------
- 2 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/Makefile      |    4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |    2 --
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 17ad6a3..1675b66 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -790,12 +790,10 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		total_packets += tx_buffer->gso_segs;
+diff --git a/drivers/net/ethernet/intel/ixgbe/Makefile b/drivers/net/ethernet/intel/ixgbe/Makefile
+index 0bdf06b..5fd5d04 100644
+--- a/drivers/net/ethernet/intel/ixgbe/Makefile
++++ b/drivers/net/ethernet/intel/ixgbe/Makefile
+@@ -34,11 +34,11 @@ obj-$(CONFIG_IXGBE) += ixgbe.o
  
- #ifdef CONFIG_IXGBE_PTP
--		if (unlikely(tx_buffer->tx_flags &
--			     IXGBE_TX_FLAGS_TSTAMP))
--			ixgbe_ptp_tx_hwtstamp(q_vector,
--					      tx_buffer->skb);
+ ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
+               ixgbe_82599.o ixgbe_82598.o ixgbe_phy.o ixgbe_sriov.o \
+-              ixgbe_mbx.o ixgbe_x540.o ixgbe_sysfs.o ixgbe_lib.o
++              ixgbe_mbx.o ixgbe_x540.o ixgbe_lib.o
+ 
+ ixgbe-$(CONFIG_IXGBE_DCB) +=  ixgbe_dcb.o ixgbe_dcb_82598.o \
+                               ixgbe_dcb_82599.o ixgbe_dcb_nl.o
+ 
+ ixgbe-$(CONFIG_IXGBE_PTP) += ixgbe_ptp.o
 -
-+		if (unlikely(tx_buffer->tx_flags & IXGBE_TX_FLAGS_TSTAMP))
-+			ixgbe_ptp_tx_hwtstamp(q_vector, tx_buffer->skb);
- #endif
-+
- 		/* free the skb */
- 		dev_kfree_skb_any(tx_buffer->skb);
++ixgbe-$(CONFIG_IXGBE_HWMON) += ixgbe_sysfs.o
+ ixgbe-$(CONFIG_FCOE:m=y) += ixgbe_fcoe.o
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+index 1d80b1c..2334fce 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+@@ -37,7 +37,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/hwmon.h>
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index ddc6a4d..174f41f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -307,13 +307,14 @@ void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr)
- 	    !(adapter->flags2 & IXGBE_FLAG2_PTP_PPS_ENABLED))
- 		return;
- 
--	switch (hw->mac.type) {
--	case ixgbe_mac_X540:
--		if (eicr & IXGBE_EICR_TIMESYNC)
-+	if (unlikely(eicr & IXGBE_EICR_TIMESYNC)) {
-+		switch (hw->mac.type) {
-+		case ixgbe_mac_X540:
- 			ptp_clock_event(adapter->ptp_clock, &event);
--		break;
--	default:
--		break;
-+			break;
-+		default:
-+			break;
-+		}
- 	}
+-#ifdef CONFIG_IXGBE_HWMON
+ /* hwmon callback functions */
+ static ssize_t ixgbe_hwmon_show_location(struct device *dev,
+ 					 struct device_attribute *attr,
+@@ -241,5 +240,4 @@ err:
+ exit:
+ 	return rc;
  }
+-#endif /* CONFIG_IXGBE_HWMON */
  
 -- 
 1.7.10.2
