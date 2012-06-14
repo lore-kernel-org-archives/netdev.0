@@ -1,58 +1,81 @@
-From: trtr678678@gmail.com
-Subject: Server Rental services in Hong Kong
-Date: Thu, 14 Jun 2012 23:22:41 +0800 (HKT)
-Message-ID: <LvNpG@iris.seed.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
-To: unlisted-recipients:; (no To-header on input)
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: Regression on TX throughput when using bonding
+Date: Thu, 14 Jun 2012 17:43:58 +0200
+Message-ID: <CAL8zT=joBA5pgXB7QfDM5qhOizmdneghXsSnwN5G74-yoGzg_Q@mail.gmail.com>
+References: <CAL8zT=j8pEVc7AHwJzk+4skj=1tfRYZ_C7CuXD_08T_VmkwoFg@mail.gmail.com>
+ <1339665719.22704.692.camel@edumazet-glaptop> <1339667417.22704.707.camel@edumazet-glaptop>
+ <CAL8zT=icffEiz9MeaNwMtzteQnXiaT4k++s0TPWt5zsnHxFbmw@mail.gmail.com>
+ <CAL8zT=huqtqBKzH3DDwid_C8jH16SH=kjYEK6zjxp_spfnLxXA@mail.gmail.com> <1339684157.22704.722.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-94.sunnyvision.com ([124.248.200.94]:45288 "EHLO
-	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754125Ab2FNPW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 11:22:59 -0400
-Received: from teamb01.edmhongkong.com (unknown [124.248.200.39])
-	by teamb04.edmhongkong.com (Postfix) with ESMTP id A6BCA51EEC
-	for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 23:22:42 +0800 (HKT)
-Received: from TeamB3-WS (unknown [124.248.200.14])
-	by teamb01.edmhongkong.com (Postfix) with SMTP id 057EE4FAF2
-	for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 23:22:41 +0800 (HKT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:47038 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756057Ab2FNPoV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 11:44:21 -0400
+Received: by wibhn6 with SMTP id hn6so2094358wib.1
+        for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 08:44:20 -0700 (PDT)
+In-Reply-To: <1339684157.22704.722.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
+2012/6/14 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Thu, 2012-06-14 at 16:14 +0200, Jean-Michel Hautbois wrote:
+>
+>> ~# tc -s -d qdisc show dev eth1 > before_tc && sleep 10 && tc -s -d
+>> qdisc show dev eth1 > after_tc && ./beforeafter before_tc after_tc
+>> qdisc mq 0: root
+>> =C2=A0Sent 3185900568 bytes 788681 pkt (dropped 0, overlimits 0 requ=
+eues 620)
+>> =C2=A0backlog 0b 0p requeues 620
+>>
+>> As you can see, 2.5Gbps without any difficulties :).
+>>
+>> Thanks,
+>> JM
+>
+> I have no idea why throughput on ethernet link is changed.
+>
+> There is another bug elsewhere. =C2=A0Use a thousand of sockets inste=
+ad of
+> few, and you'll hit the bug.
+>
+> Orphaning skbs should not lower speed of the device, only drops exces=
+s
+> packets, instead of blocking the application, waiting the socket wmem
+> alloc being freed by destructors.
+>
+> Are you playing with process priorities ?
+>
+> If the ksoftirqd cannot run, this could explain the problem.
+>
 
-We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
+As suggested by Eric, here is a description I wish to be as precise as =
+possible.
+I send three RAW video frames, 1920x1088@30fps on three udp sockets to
+the same NIC.
+Each sending is in a thread, so I will focus on the numbers for one thr=
+ead.
 
-Dell=3F PowerEdge=3F EnterpriseRack Mount Server
--Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
--8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
--500GB, 3.5", 6Gbps SAS x 2
--Raid 1 Mirroring Protection
--Remote KVM (iDRAC6 Enterprise)
+This generates burst of send(), as this : each 1/30s send 3.133.440
+bytes to the ethernet interface.
+This is in fact something similar to this :
+while (n !=3D 0)
+{
+  sendto(socket, packet, 4000);
+  n -=3D 4000;
+  packet +=3D 4000
+}
 
-Dell(TM) PowerEdge(TM) R410 Rack Mount Server
--Intel(R) Quad Core E5606 Xeon(R) CPU, 2.13GHz, 4M Cache, 4.86 GT/s QPI
--4GB Memory (2x2GB), 1333MHz Dual Ranked RDIMMs Fully-Buffered
--500GB 7.2K RPM SATAII 3.5" Hard Drive x 2
--iDRAC6 Enterprise or Express (Remote KVM Management)
+My interface is a bond with a 10Gbps interface and MTU set to 4096.
+This means I have 784 packets each 1/30s which are sent on my
+interface by one thread, then I wait for the next burst, and so on.
+The videos are not necessarily the same video, so the threads may send
+simultaneously or not...
 
-Every Dedicated Server Hosting Solution Also Includes: 
- 
-Software Specification 
-- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
-- Full root-level access 
-- Data Center Facilities 
-- Shared Local & International Bandwidth 
-- 2 IP Addresses Allocation 
-- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
-- FM200=A1=A7based fire suppression system 
-- 24x7 CRAC Air Conditioning and Humidity Control 
-- 24x7 Security Control 
-- 24x7 Remote Hand Service 
+My socket is in blocking mode.
 
-Pls send us email for further information.Thanks,
-
-Ron 
-trtr678678@gmail.com 
-
-If you do not wish to further receive this event message, email "trtr789789@gmail.com" to unsubscribe this message or remove your email from the list.
+JM
