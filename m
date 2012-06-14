@@ -1,90 +1,55 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 07/10] netfilter: nf_conntrack_l4proto_udplite[4,6] cleanup
-Date: Thu, 14 Jun 2012 18:07:22 +0800
-Message-ID: <1339668445-23848-7-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next.git 1/4 (v5)] phy: add the EEE support and the way
+ to access to the MMD registers.
+Date: Thu, 14 Jun 2012 12:51:11 +0200
+Message-ID: <4FD9C21F.1030208@st.com>
+References: <1339574463-1207-1-git-send-email-peppe.cavallaro@st.com>  <1339574463-1207-2-git-send-email-peppe.cavallaro@st.com> <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	rayagond@vayavyalabs.com, davem@davemloft.net,
+	yuvalmin@broadcom.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:34271 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755197Ab2FNKvX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 06:51:23 -0400
+In-Reply-To: <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-some cleanup for nf_conntrack_l4proto_udplite[4,6],
-make codes more clearer and ready for moving the
-sysctl code to nf_conntrack_proto_*_sysctl.c to
-reduce the ifdef pollution.
+On 6/14/2012 1:28 AM, Ben Hutchings wrote:
+> On Wed, 2012-06-13 at 10:01 +0200, Giuseppe CAVALLARO wrote:
+>> This patch adds the support for the Energy-Efficient Ethernet (EEE)
+>> to the Physical Abstraction Layer.
+>> To support the EEE we have to access to the MMD registers 3.20 and
+>> 7.60/61. So two new functions have been added to read/write the MMD
+>> registers (clause 45).
+>>
+>> An Ethernet driver (I tested the stmmac) can invoke the phy_init_eee to properly
+>> check if the EEE is supported by the PHYs and it can also set the clock
+>> stop enable bit in the 3.0 register.
+>> The phy_get_eee_err can be used for reporting the number of time where
+>> the PHY failed to complete its normal wake sequence.
+>>
+>> In the end, this patch also adds the EEE ethtool support implementing:
+>>  o phy_ethtool_set_eee
+>>  o phy_ethtool_get_eee
+>>
+>> v1: initial patch
+>> v2: fixed some errors especially on naming convention
+>> v3: renamed again the mmd read/write functions thank to Ben's feedback
+>> v4: moved file to phy.c and added the ethtool support.
+>> v5: fixed phy_adv_to_eee, phy_eee_to_supported, phy_eee_to_adv return
+>>     values according to ethtool API (thanks to Ben's feedback).
+>>     Renamed some macros to avoid too long names.
+> 
+> Sorry, I spotted some more little issues:
 
-and use nf_proto_net.users to identify if it's the first time
-we use the nf_proto_net. when it's the first time,we will
-initialized it.
+No problem, I'll fix these too.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/netfilter/nf_conntrack_proto_udplite.c |   42 +++++++++++++++++----------
- 1 files changed, 26 insertions(+), 16 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index d33e511..f6a789a 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -234,29 +234,39 @@ static struct ctl_table udplite_sysctl_table[] = {
- };
- #endif /* CONFIG_SYSCTL */
- 
-+static int udplite_kmemdup_sysctl_table(struct nf_proto_net *pn)
-+{
-+#ifdef CONFIG_SYSCTL
-+	struct udplite_net *un = (struct udplite_net *)pn;
-+
-+	if (pn->ctl_table)
-+		return 0;
-+
-+	pn->ctl_table = kmemdup(udplite_sysctl_table,
-+				sizeof(udplite_sysctl_table),
-+				GFP_KERNEL);
-+	if (!pn->ctl_table)
-+		return -ENOMEM;
-+
-+	pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
-+	pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
-+#endif
-+	return 0;
-+}
-+
-+
- static int udplite_init_net(struct net *net, u_int16_t proto)
- {
--	int i;
- 	struct udplite_net *un = udplite_pernet(net);
- 	struct nf_proto_net *pn = (struct nf_proto_net *)un;
--#ifdef CONFIG_SYSCTL
--	if (!pn->ctl_table) {
--#else
--	if (!pn->users++) {
--#endif
-+
-+	if (!pn->users) {
-+		int i;
- 		for (i = 0 ; i < UDPLITE_CT_MAX; i++)
- 			un->timeouts[i] = udplite_timeouts[i];
--#ifdef CONFIG_SYSCTL
--		pn->ctl_table = kmemdup(udplite_sysctl_table,
--					sizeof(udplite_sysctl_table),
--					GFP_KERNEL);
--		if (!pn->ctl_table)
--			return -ENOMEM;
--		pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
--		pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
--#endif
- 	}
--	return 0;
-+
-+	return udplite_kmemdup_sysctl_table(pn);
- }
- 
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
--- 
-1.7.7.6
-
+Many thanks
+Regards
+Peppe
