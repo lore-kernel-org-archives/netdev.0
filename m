@@ -1,103 +1,43 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: am3359 (cpsw): unable to get gigabit link working (PHY: ICPlus IP1001)
-Date: Thu, 14 Jun 2012 10:28:03 +0200
-Message-ID: <CAGm1_ksx7cZaUPOLq3bQcwEchaZY6xM7svb0i+6KGtJYvwU_Gw@mail.gmail.com>
-References: <CAGm1_kurEedQc=5dR-mWPingRZcG9s0y9VDY=UijQC1X9RhJCw@mail.gmail.com>
- <EB1619762EAF8B4E97A227FB77B7E0293E9B6D3B@DBDE01.ent.ti.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: =?utf-8?Q?include=2Fnet=2Fnetlink=2Eh?=
+	=?utf-8?B?OjQ5Nzo0MTogd2FybmluZzog4oCYcmVwbHlfbmxo4oCZIG1h?=
+	=?utf-8?Q?y?= be used uninitialized in this function
+ [-Wuninitialized]
+Date: Thu, 14 Jun 2012 04:30:57 -0400
+Message-ID: <20120614083057.GA29738@canuck.infradead.org>
+References: <4fd9474c.wdaRvq8n+Xh/6wOA%wfg@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"Chemparathy, Cyril" <cyril@ti.com>,
-	"Govindarajan, Sriramakrishnan" <srk@ti.com>
-To: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: wfg@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:41438 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582Ab2FNI2Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 04:28:24 -0400
-Received: by obbtb18 with SMTP id tb18so2102838obb.19
-        for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 01:28:24 -0700 (PDT)
-In-Reply-To: <EB1619762EAF8B4E97A227FB77B7E0293E9B6D3B@DBDE01.ent.ti.com>
+Received: from merlin.infradead.org ([205.233.59.134]:38357 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752873Ab2FNIa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 04:30:58 -0400
+Content-Disposition: inline
+In-Reply-To: <4fd9474c.wdaRvq8n+Xh/6wOA%wfg@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 14, 2012 at 10:16 AM, N, Mugunthan V <mugunthanvnm@ti.com> =
-wrote:
->> -----Original Message-----
->> From: Yegor Yefremov [mailto:yegorslists@googlemail.com]
->> Sent: Wednesday, June 13, 2012 5:59 PM
->> To: netdev
->> Cc: Chemparathy, Cyril; Govindarajan, Sriramakrishnan; N, Mugunthan =
-V
->> Subject: am3359 (cpsw): unable to get gigabit link working (PHY: ICP=
-lus
->> IP1001)
->>
->> I'm using a custom am3359 based board. The first CPSW ports is
->> connected to ICPlus IP1001 phy via RGMII interface. I have no proble=
-m
->> with 100mbit link, but as soon as I connect my board to a 1Gbit swit=
-ch
->> the communication fails. I can see that some data goes on wire, but
->> switch refuses to forward it. I can't receive anything either. Phy
->>. detects 1Gbit link correctly
->>
->> My kernel: https://github.com/koenkooi/linux
->>
->> I also define phy interface as RGMII:
->>
->> static struct cpsw_slave_data am33xx_cpsw_slaves[] =3D {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .slave_reg_o=
-fs =C2=A0=3D 0x208,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .sliver_reg_=
-ofs =3D 0xd80,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .phy_id =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =3D "0:02",
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .phy_if =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =3D PHY_INTERFACE_MODE_RGMII=
-,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 },
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 {
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .slave_reg_o=
-fs =C2=A0=3D 0x308,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .sliver_reg_=
-ofs =3D 0xdc0,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 .phy_id =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =3D "0:01",
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 },
->> };
->>
->> As far as I can see in the mainline cpsw driver
->> PHY_INTERFACE_MODE_RGMII will be ignored. Why? In the current driver
->> it sets two bits in mac_control register:
->>
->> if (phy->interface =3D=3D PHY_INTERFACE_MODE_RGMII) /* RGMII */
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 mac_control |=3D (BIT(15)|BIT(16));
->>
->> Any idea where should I look to solve the problem?
->
-> Phy interface in cpsw is always MII, there is an external gasket to c=
-onvert from MII/GMII to RMII/RGMII. So this is a dead code resides in c=
-urrent driver and will be removed, that's why this part of code is not =
-up streamed.
->
-> Can you verify the design/board layout with hardware engineer; also l=
-ook for cpsw statistics counters for errors.
+On Thu, Jun 14, 2012 at 10:07:08AM +0800, wfg@linux.intel.com wrote:
+> FYI: there are new compile warnings show up in
+>=20
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.=
+git master
+> head:   0450243096de90ff51c3a6c605410c5e28d79f8d
+> commit: 33a03aadb52fa05d28aba6d8f0c03c7b3b905897 [464/472] dcbnl: Pre=
+pare framework to shorten handling functions
+> config: x86_64-randconfig-net3 (attached as .config)
+>=20
+> All related error/warning messages are:
+>=20
+> net/dcb/dcbnl.c: In function =E2=80=98dcb_doit=E2=80=99:
+> include/net/netlink.h:497:41: warning: =E2=80=98reply_nlh=E2=80=99 ma=
+y be used uninitialized in this function [-Wuninitialized]
+> net/dcb/dcbnl.c:1975:19: note: =E2=80=98reply_nlh=E2=80=99 was declar=
+ed here
 
-Thanks for the quick reply.
-
-I have just fixed the problem. In this thread
-http://e2e.ti.com/support/dsp/sitara_arm174_microprocessors/f/791/p/172=
-049/685105.aspx#685105
-Paul suggests to disable internal delay. I followed his suggestion and
-now it works.
-
-#define RGMII_MODE_ENABLE       0x3A
-
- __raw_writel(RGMII_MODE_ENABLE,
-                        AM33XX_CTRL_REGADDR(MAC_MII_SEL));
-
-Yegor
+gcc 4.6.3 on my system doesn't complain about this. I'm sending a patch=
+=2E
