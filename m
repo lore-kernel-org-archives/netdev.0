@@ -1,141 +1,72 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Re: Regression on TX throughput when using bonding
-Date: Thu, 14 Jun 2012 16:14:53 +0200
-Message-ID: <CAL8zT=huqtqBKzH3DDwid_C8jH16SH=kjYEK6zjxp_spfnLxXA@mail.gmail.com>
-References: <CAL8zT=j8pEVc7AHwJzk+4skj=1tfRYZ_C7CuXD_08T_VmkwoFg@mail.gmail.com>
- <1339665719.22704.692.camel@edumazet-glaptop> <1339667417.22704.707.camel@edumazet-glaptop>
- <CAL8zT=icffEiz9MeaNwMtzteQnXiaT4k++s0TPWt5zsnHxFbmw@mail.gmail.com>
+From: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
+Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
+ __set_bit_le() function
+Date: Thu, 14 Jun 2012 23:28:55 +0900
+Message-ID: <20120614232855.5cb16291d148340c19d01f04@gmail.com>
+References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
+	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
+	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
+	<20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
+	<CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
+	<20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
+	<CAP6odji_JvRkJP1dSzGK5ww3y71h4k6pXyj4pOQBpqP-X7Nn-A@mail.gmail.com>
+	<20120614072831.63845f6ddf024ece28e49f5e@gmail.com>
+	<CAC5umyjkdDqavCo3Dk+WOggCnH+_CZz5jrOr3SougS4HSgV3OA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:43577 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756038Ab2FNOPQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 10:15:16 -0400
-Received: by wibhm6 with SMTP id hm6so6501044wib.1
-        for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 07:15:15 -0700 (PDT)
-In-Reply-To: <CAL8zT=icffEiz9MeaNwMtzteQnXiaT4k++s0TPWt5zsnHxFbmw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Grant Grundler <grantgrundler@gmail.com>,
+	Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
+	akpm@linux-foundation.org, bhutchings@solarflare.com,
+	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <CAC5umyjkdDqavCo3Dk+WOggCnH+_CZz5jrOr3SougS4HSgV3OA@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2012/6/14 Jean-Michel Hautbois <jhautbois@gmail.com>:
-> 2012/6/14 Eric Dumazet <eric.dumazet@gmail.com>:
->> On Thu, 2012-06-14 at 11:22 +0200, Eric Dumazet wrote:
->>
->>> So you are saying that if you make skb_orphan_try() doing nothing, =
-it
->>> solves your problem ?
->>
->> It probably does, if your application does an UDP flood, trying to s=
-end
->> more than the link bandwidth. I guess only benchmarks workloads ever=
- try
->> to do that.
->>
->> bonding has no way to give congestion back, it has no Qdisc by defau=
-lt.
->>
->> We probably can defer the skb_orphan_try() for bonding master, a bit
->> like the IFF_XMIT_DST_RELEASE
->>
->> =C2=A0drivers/net/bonding/bond_main.c | =C2=A0 =C2=A02 +-
->> =C2=A0include/linux/if.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0| =C2=A0 =C2=A03 +++
->> =C2=A0net/core/dev.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0| =C2=A0 =C2=A05 +++--
->> =C2=A03 files changed, 7 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
-ond_main.c
->> index 2ee8cf9..1b1e9c8 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -4343,7 +4343,7 @@ static void bond_setup(struct net_device *bond=
-_dev)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0bond_dev->tx_queue_len =3D 0;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0bond_dev->flags |=3D IFF_MASTER|IFF_MULTI=
-CAST;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0bond_dev->priv_flags |=3D IFF_BONDING;
->> - =C2=A0 =C2=A0 =C2=A0 bond_dev->priv_flags &=3D ~(IFF_XMIT_DST_RELE=
-ASE | IFF_TX_SKB_SHARING);
->> + =C2=A0 =C2=A0 =C2=A0 bond_dev->priv_flags &=3D ~(IFF_XMIT_DST_RELE=
-ASE | IFF_TX_SKB_SHARING | IFF_XMIT_ORPHAN);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* At first, we block adding VLANs. That'=
-s the only way to
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 * prevent problems that occur when addin=
-g VLANs over an
->> diff --git a/include/linux/if.h b/include/linux/if.h
->> index f995c66..a788e7b 100644
->> --- a/include/linux/if.h
->> +++ b/include/linux/if.h
->> @@ -81,6 +81,9 @@
->> =C2=A0#define IFF_UNICAST_FLT =C2=A0 =C2=A0 =C2=A0 =C2=A00x20000 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 /* Supports unicast filtering =C2=A0 */
->> =C2=A0#define IFF_TEAM_PORT =C2=A00x40000 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- /* device used as team port */
->> =C2=A0#define IFF_SUPP_NOFCS 0x80000 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* =
-device supports sending custom FCS */
->> +#define IFF_XMIT_ORPHAN =C2=A0 =C2=A0 =C2=A0 =C2=A00x100000 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0/* dev_hard_start_xmit() is allowed to
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-* orphan skb
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-*/
->>
->>
->> =C2=A0#define IF_GET_IFACE =C2=A0 0x0001 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0/* for querying only */
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index cd09819..3435463 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -2193,7 +2193,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, s=
-truct net_device *dev,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!list_emp=
-ty(&ptype_all))
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0dev_queue_xmit_nit(skb, dev);
->>
->> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 skb_orphan_try(sk=
-b);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (dev->priv_fla=
-gs & IFF_XMIT_ORPHAN)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 skb_orphan_try(skb);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0features =3D =
-netif_skb_features(skb);
->>
->> @@ -5929,7 +5930,7 @@ struct net_device *alloc_netdev_mqs(int sizeof=
-_priv, const char *name,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_LIST_HEAD(&dev->napi_list);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_LIST_HEAD(&dev->unreg_list);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0INIT_LIST_HEAD(&dev->link_watch_list);
->> - =C2=A0 =C2=A0 =C2=A0 dev->priv_flags =3D IFF_XMIT_DST_RELEASE;
->> + =C2=A0 =C2=A0 =C2=A0 dev->priv_flags =3D IFF_XMIT_DST_RELEASE | IF=
-=46_XMIT_ORPHAN;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0setup(dev);
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev->num_tx_queues =3D txqs;
->>
->>
->
-> It works
-=46or your information :
-~# tc -s -d qdisc show dev eth1 > before_tc && sleep 10 && tc -s -d
-qdisc show dev eth1 > after_tc && ./beforeafter before_tc after_tc
-qdisc mq 0: root
- Sent 3185900568 bytes 788681 pkt (dropped 0, overlimits 0 requeues 620=
-)
- backlog 0b 0p requeues 620
+On Thu, 14 Jun 2012 18:36:42 +0900
+Akinobu Mita <akinobu.mita@gmail.com> wrote:
 
-As you can see, 2.5Gbps without any difficulties :).
+> >> 1) while I agree with Akinobu and thank him for pointing out a
+> >> _potential_ alignment problem, this is a separate issue and your
+> >> existing patch should go in anyway. There are probably other drivers
+> >> with _potential_ alignment issues. Akinobu could get credit for
+> >> finding them by submitting patches after reviewing calls to set_bit
+> >> and set_bit_le() - similar to what you are doing now.
+> >
+> > I prefer approach 1.
+> >
+> > hash_table is local in build_setup_frame_hash(), so if further
+> > improvement is also required, we can do that locally there later.
+> 
+> This potential alignment problem is introduced by this patch.  Because
+> the original set_bit_le() in tulip driver can handle unaligned bitmap.
+> This is why I recommended it should be fixed in this patch.
+
+The original set_bit_le() was used only in build_setup_frame_hash().
+
+If it's clear that the table is aligned locally in the function, I do
+not think the __potential__ problem is introduced by this patch.
+
+As you can see from my response to Arnd in v1 thread, I knew the
+alignment requirement at that time and checked the definition of
+hash_table before using __set_bit_le().
+
+> But please just ignore me if I'm too much paranoid.  And I'll handle
+> this issue if no one wants to do it.
+
+I'm open to suggestions.
+
+But now that the maintainer who can test the driver on real hardware
+has suggested this patch should go in, I won't change the patch without
+any real issue.
+
+I would thank you if you improve this driver later on top of that.
 
 Thanks,
-JM
+	Takuya
