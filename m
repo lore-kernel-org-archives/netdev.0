@@ -1,42 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] ipv4: Kill ip_rt_frag_needed().
-Date: Wed, 13 Jun 2012 22:42:03 -0700 (PDT)
-Message-ID: <20120613.224203.297717896085583687.davem@davemloft.net>
-References: <20120613100709.GO27795@secunet.com>
-	<20120613.032228.1574539964049471628.davem@davemloft.net>
-	<20120614053529.GP27795@secunet.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH 1/3] be2net: reduce gso_max_size setting to account for ethernet header.
+Date: Thu, 14 Jun 2012 11:21:43 +0530
+Message-ID: <a5935849-a5bc-4876-b632-7a863cd714ab@exht1.ad.emulex.com>
+References: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37434 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875Ab2FNFmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 01:42:07 -0400
-In-Reply-To: <20120614053529.GP27795@secunet.com>
+Received: from exht1.emulex.com ([138.239.113.183]:51758 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751190Ab2FNFwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 01:52:20 -0400
+In-Reply-To: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 14 Jun 2012 07:35:29 +0200
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-> With your patch applied, we stop setting the DF bit after we
-> received a 'need to frag' ICMP message, but we don't fragment. We
-> send the packets out unfragmented. Before we removed
-> ip_rt_frag_needed(), we did the fragmentation according to the pmtu
-> informations we got from the icmp message. Now the router with the
-> low mtu has to do the fragmentation.
+The maximum size of packet that can be handled by controller including ethernet
+header is 65535. Reducing gso_max_size accordingly.
 
-Ok, then if we want to do the fragmentation locally then we have to
-consider my initial patch which updates the PMTU in raw_err().
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Did you test that?  I mean specifically, this patch:
-
-http://marc.info/?l=linux-netdev&m=133945597319917&w=2
-
-If it works for you, I will try to extend it to the other datagram
-cases.
-
-Thanks.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 5a34503..cbd245a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3242,7 +3242,7 @@ static void be_netdev_init(struct net_device *netdev)
+ 
+ 	netdev->flags |= IFF_MULTICAST;
+ 
+-	netif_set_gso_max_size(netdev, 65535);
++	netif_set_gso_max_size(netdev, 65535 - ETH_HLEN);
+ 
+ 	netdev->netdev_ops = &be_netdev_ops;
+ 
+-- 
+1.7.9.5
