@@ -1,55 +1,94 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next.git 1/4 (v5)] phy: add the EEE support and the way
- to access to the MMD registers.
-Date: Thu, 14 Jun 2012 12:51:11 +0200
-Message-ID: <4FD9C21F.1030208@st.com>
-References: <1339574463-1207-1-git-send-email-peppe.cavallaro@st.com>  <1339574463-1207-2-git-send-email-peppe.cavallaro@st.com> <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	rayagond@vayavyalabs.com, davem@davemloft.net,
-	yuvalmin@broadcom.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:34271 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755197Ab2FNKvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 06:51:23 -0400
-In-Reply-To: <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH 01/10] netfilter: fix problem with proto register
+Date: Thu, 14 Jun 2012 18:07:16 +0800
+Message-ID: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/14/2012 1:28 AM, Ben Hutchings wrote:
-> On Wed, 2012-06-13 at 10:01 +0200, Giuseppe CAVALLARO wrote:
->> This patch adds the support for the Energy-Efficient Ethernet (EEE)
->> to the Physical Abstraction Layer.
->> To support the EEE we have to access to the MMD registers 3.20 and
->> 7.60/61. So two new functions have been added to read/write the MMD
->> registers (clause 45).
->>
->> An Ethernet driver (I tested the stmmac) can invoke the phy_init_eee to properly
->> check if the EEE is supported by the PHYs and it can also set the clock
->> stop enable bit in the 3.0 register.
->> The phy_get_eee_err can be used for reporting the number of time where
->> the PHY failed to complete its normal wake sequence.
->>
->> In the end, this patch also adds the EEE ethtool support implementing:
->>  o phy_ethtool_set_eee
->>  o phy_ethtool_get_eee
->>
->> v1: initial patch
->> v2: fixed some errors especially on naming convention
->> v3: renamed again the mmd read/write functions thank to Ben's feedback
->> v4: moved file to phy.c and added the ethtool support.
->> v5: fixed phy_adv_to_eee, phy_eee_to_supported, phy_eee_to_adv return
->>     values according to ethtool API (thanks to Ben's feedback).
->>     Renamed some macros to avoid too long names.
-> 
-> Sorry, I spotted some more little issues:
+commit 2c352f444ccfa966a1aa4fd8e9ee29381c467448
+(netfilter: nf_conntrack: prepare namespace support for
+l4 protocol trackers) register proto before register sysctl.
 
-No problem, I'll fix these too.
+it changes the behavior that when register sysctl failed, the
+proto should not be registered too.
 
-Many thanks
-Regards
-Peppe
+so change to register sysctl before register protos.
+
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/netfilter/nf_conntrack_proto.c |   37 ++++++++++++++++++++++-------------
+ 1 files changed, 23 insertions(+), 14 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 1ea9194..a434dd7 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -253,18 +253,23 @@ int nf_conntrack_l3proto_register(struct net *net,
+ {
+ 	int ret = 0;
+ 
+-	if (net == &init_net)
+-		ret = nf_conntrack_l3proto_register_net(proto);
++	if (proto->init_net) {
++		ret = proto->init_net(net);
++		if (ret < 0)
++			return ret;
++	}
+ 
++	ret = nf_ct_l3proto_register_sysctl(net, proto);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (proto->init_net) {
+-		ret = proto->init_net(net);
++	if (net == &init_net) {
++		ret = nf_conntrack_l3proto_register_net(proto);
+ 		if (ret < 0)
+-			return ret;
++			nf_ct_l3proto_unregister_sysctl(net, proto);
+ 	}
+-	return nf_ct_l3proto_register_sysctl(net, proto);
++
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
+ 
+@@ -454,19 +459,23 @@ int nf_conntrack_l4proto_register(struct net *net,
+ 				  struct nf_conntrack_l4proto *l4proto)
+ {
+ 	int ret = 0;
+-	if (net == &init_net)
+-		ret = nf_conntrack_l4proto_register_net(l4proto);
+-
+-	if (ret < 0)
+-		return ret;
+-
+-	if (l4proto->init_net)
++	if (l4proto->init_net) {
+ 		ret = l4proto->init_net(net);
++		if (ret < 0)
++			return ret;
++	}
+ 
++	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	return nf_ct_l4proto_register_sysctl(net, l4proto);
++	if (net == &init_net) {
++		ret = nf_conntrack_l4proto_register_net(l4proto);
++		if (ret < 0)
++			nf_ct_l4proto_unregister_sysctl(net, l4proto);
++	}
++
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
+ 
+-- 
+1.7.7.6
+
