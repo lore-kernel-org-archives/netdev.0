@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 03/10] netfilter: add nf_ct_kfree_compat_sysctl_table to make codes clear
-Date: Thu, 14 Jun 2012 18:07:18 +0800
-Message-ID: <1339668445-23848-3-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 09/10] netfilter: nf_conntrack_l4proto_generic cleanup
+Date: Thu, 14 Jun 2012 18:07:24 +0800
+Message-ID: <1339668445-23848-9-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Gao feng <gaofeng@cn.fujitsu.com>
@@ -11,49 +11,86 @@ In-Reply-To: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-add function nf_ct_kfree_compat_sysctl_table to kfree l4proto's
-compat sysctl table and set the sysctl table point to NULL.
+some cleanup of nf_conntrack_l4proto_generic,
+split the code to make it more clearer.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/net/netfilter/nf_conntrack_l4proto.h |    8 ++++++++
- net/netfilter/nf_conntrack_proto.c           |    4 +---
- 2 files changed, 9 insertions(+), 3 deletions(-)
+ net/netfilter/nf_conntrack_proto_generic.c |   41 ++++++++++++++++++++++-----
+ 1 files changed, 33 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index 5dd60f2..889b717 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -132,6 +132,14 @@ extern int nf_ct_port_nlattr_to_tuple(struct nlattr *tb[],
- extern int nf_ct_port_nlattr_tuple_size(void);
- extern const struct nla_policy nf_ct_port_nla_policy[];
+diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+index d1ed7b4..5e3c0ea 100644
+--- a/net/netfilter/nf_conntrack_proto_generic.c
++++ b/net/netfilter/nf_conntrack_proto_generic.c
+@@ -135,34 +135,59 @@ static struct ctl_table generic_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
  
-+static inline void nf_ct_kfree_compat_sysctl_table(struct nf_proto_net *pn)
-+{
-+#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-+	kfree(pn->ctl_compat_table);
-+	pn->ctl_compat_table = NULL;
+-static int generic_init_net(struct net *net, u_int16_t proto)
++static int generic_kmemdup_sysctl_table(struct nf_proto_net *pn)
+ {
+-	struct nf_generic_net *gn = generic_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
+-	gn->timeout = nf_ct_generic_timeout;
+ #ifdef CONFIG_SYSCTL
++	struct nf_generic_net *gn = (struct nf_generic_net *)pn;
++
+ 	pn->ctl_table = kmemdup(generic_sysctl_table,
+ 				sizeof(generic_sysctl_table),
+ 				GFP_KERNEL);
+ 	if (!pn->ctl_table)
+ 		return -ENOMEM;
++
+ 	pn->ctl_table[0].data = &gn->timeout;
 +#endif
++	return 0;
++}
+ 
++static int generic_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
++{
++#ifdef CONFIG_SYSCTL
+ #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	struct nf_generic_net *gn = (struct nf_generic_net *)pn;
++
+ 	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
+ 				       sizeof(generic_compat_sysctl_table),
+ 				       GFP_KERNEL);
+-	if (!pn->ctl_compat_table) {
+-		kfree(pn->ctl_table);
+-		pn->ctl_table = NULL;
++	if (!pn->ctl_compat_table)
+ 		return -ENOMEM;
+-	}
++
+ 	pn->ctl_compat_table[0].data = &gn->timeout;
+ #endif
+ #endif
+ 	return 0;
+ }
+ 
++static int generic_init_net(struct net *net, u_int16_t proto)
++{
++	int ret = 0;
++	struct nf_generic_net *gn = generic_pernet(net);
++	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
++
++	gn->timeout = nf_ct_generic_timeout;
++
++	ret = generic_kmemdup_compat_sysctl_table(pn);
++	if (ret < 0)
++		return ret;
++
++	ret = generic_kmemdup_sysctl_table(pn);
++	if (ret < 0)
++		nf_ct_kfree_compat_sysctl_table(pn);
++
++	return ret;
 +}
 +
- #ifdef CONFIG_SYSCTL
- #ifdef DEBUG_INVALID_PACKETS
- #define LOG_INVALID(net, proto)				\
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 8fc0332..c9df1b4 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -361,9 +361,7 @@ int nf_ct_l4proto_register_sysctl(struct net *net,
- 					    NULL);
- 		if (err == 0)
- 			goto out;
--
--		kfree(pn->ctl_compat_table);
--		pn->ctl_compat_table = NULL;
-+		nf_ct_kfree_compat_sysctl_table(pn);
- 		nf_ct_unregister_sysctl(&pn->ctl_table_header,
- 					&pn->ctl_table,
- 					&pn->users);
+ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+ {
+ 	.l3proto		= PF_UNSPEC,
 -- 
 1.7.7.6
 
