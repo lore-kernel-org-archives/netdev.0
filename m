@@ -1,94 +1,41 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 01/10] netfilter: fix problem with proto register
-Date: Thu, 14 Jun 2012 18:07:16 +0800
-Message-ID: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil.sutter@viprinet.com>
+Subject: [PATCH] usbnet: sanitise overlong driver information strings
+Date: Thu, 14 Jun 2012 13:18:42 +0200
+Message-ID: <1339672722-22793-1-git-send-email-phil.sutter@viprinet.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.vipri.net ([89.207.250.15]:41381 "EHLO zimbra.vipri.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752826Ab2FNL1b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jun 2012 07:27:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 2c352f444ccfa966a1aa4fd8e9ee29381c467448
-(netfilter: nf_conntrack: prepare namespace support for
-l4 protocol trackers) register proto before register sysctl.
+As seen on smsc75xx, driver_info->description being longer than 32
+characters messes up 'ethtool -i' output.
 
-it changes the behavior that when register sysctl failed, the
-proto should not be registered too.
-
-so change to register sysctl before register protos.
-
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
 ---
- net/netfilter/nf_conntrack_proto.c |   37 ++++++++++++++++++++++-------------
- 1 files changed, 23 insertions(+), 14 deletions(-)
+ drivers/net/usb/usbnet.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 1ea9194..a434dd7 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -253,18 +253,23 @@ int nf_conntrack_l3proto_register(struct net *net,
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 9f58330..d4f7256 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -876,9 +876,9 @@ void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
  {
- 	int ret = 0;
+ 	struct usbnet *dev = netdev_priv(net);
  
--	if (net == &init_net)
--		ret = nf_conntrack_l3proto_register_net(proto);
-+	if (proto->init_net) {
-+		ret = proto->init_net(net);
-+		if (ret < 0)
-+			return ret;
-+	}
- 
-+	ret = nf_ct_l3proto_register_sysctl(net, proto);
- 	if (ret < 0)
- 		return ret;
- 
--	if (proto->init_net) {
--		ret = proto->init_net(net);
-+	if (net == &init_net) {
-+		ret = nf_conntrack_l3proto_register_net(proto);
- 		if (ret < 0)
--			return ret;
-+			nf_ct_l3proto_unregister_sysctl(net, proto);
- 	}
--	return nf_ct_l3proto_register_sysctl(net, proto);
-+
-+	return ret;
+-	strncpy (info->driver, dev->driver_name, sizeof info->driver);
+-	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+-	strncpy (info->fw_version, dev->driver_info->description,
++	strlcpy (info->driver, dev->driver_name, sizeof info->driver);
++	strlcpy (info->version, DRIVER_VERSION, sizeof info->version);
++	strlcpy (info->fw_version, dev->driver_info->description,
+ 		sizeof info->fw_version);
+ 	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
  }
- EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
- 
-@@ -454,19 +459,23 @@ int nf_conntrack_l4proto_register(struct net *net,
- 				  struct nf_conntrack_l4proto *l4proto)
- {
- 	int ret = 0;
--	if (net == &init_net)
--		ret = nf_conntrack_l4proto_register_net(l4proto);
--
--	if (ret < 0)
--		return ret;
--
--	if (l4proto->init_net)
-+	if (l4proto->init_net) {
- 		ret = l4proto->init_net(net);
-+		if (ret < 0)
-+			return ret;
-+	}
- 
-+	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
- 	if (ret < 0)
- 		return ret;
- 
--	return nf_ct_l4proto_register_sysctl(net, l4proto);
-+	if (net == &init_net) {
-+		ret = nf_conntrack_l4proto_register_net(l4proto);
-+		if (ret < 0)
-+			nf_ct_l4proto_unregister_sysctl(net, l4proto);
-+	}
-+
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
- 
 -- 
-1.7.7.6
-
+1.7.3.4
