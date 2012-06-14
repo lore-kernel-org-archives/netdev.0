@@ -1,37 +1,58 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] qlcnic: off by one in qlcnic_init_pci_info()
-Date: Thu, 14 Jun 2012 21:34:24 +0300
-Message-ID: <20120614183424.GC6383@elgon.mountain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3] be2net: Increase statistics structure size for
+ skyhawk.
+Date: Thu, 14 Jun 2012 19:50:02 +0100
+Message-ID: <1339699802.2719.26.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
+	 <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>
+To: <sarveshwar.bandi@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:31442 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755802Ab2FNSei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 14:34:38 -0400
-Content-Disposition: inline
+Received: from webmail.solarflare.com ([12.187.104.25]:47067 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756037Ab2FNSuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 14:50:06 -0400
+In-Reply-To: <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The adapter->npars[] array has QLCNIC_MAX_PCI_FUNC elements.  We
-allocate it that way a few lines earlier in the function.  So this test
-is off by one.
+On Thu, 2012-06-14 at 11:21 +0530, sarveshwar.bandi@emulex.com wrote:
+> From: Vasundhara Volam <vasundhara.volam@emulex.com>
+> 
+> Increasing the hardware statistics structure to accomodate statistics for skyhawk.
+> 
+> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+> ---
+>  drivers/net/ethernet/emulex/benet/be_cmds.h |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+> index 2f6bb06..3c938f5 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
+> +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+> @@ -1566,7 +1566,7 @@ struct be_hw_stats_v1 {
+>  	u32 rsvd0[BE_TXP_SW_SZ];
+>  	struct be_erx_stats_v1 erx;
+>  	struct be_pmem_stats pmem;
+> -	u32 rsvd1[3];
+> +	u32 rsvd1[18];
+>  };
+>  
+>  struct be_cmd_req_get_stats_v1 {
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Doesn't this merit a 'struct be_hw_stats_v2'?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 33c3e46..212c121 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -479,7 +479,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
- 
- 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
- 		pfn = pci_info[i].id;
--		if (pfn > QLCNIC_MAX_PCI_FUNC) {
-+		if (pfn >= QLCNIC_MAX_PCI_FUNC) {
- 			ret = QL_STATUS_INVALID_PARAM;
- 			goto err_eswitch;
- 		}
+Does this mean that the driver wasn't currently allocating enough memory
+for the structure, and could that result in a buffer overrun?  If so
+then this fix would need to go into 3.5 and 3.4.y as well.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
