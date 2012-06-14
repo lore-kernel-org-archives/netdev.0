@@ -1,20 +1,20 @@
 From: trtr678678@gmail.com
 Subject: Server Rental services in Hong Kong
 Date: Thu, 14 Jun 2012 23:22:41 +0800 (HKT)
-Message-ID: <Evxt@tpts6.seed.net.tw>
+Message-ID: <LvNpG@iris.seed.net.tw>
 Content-Type: text/plain;
 Content-Transfer-Encoding: Quoted-Printable
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124-248-200-89.sunnyvision.com ([124.248.200.89]:51840 "EHLO
-	teamb02.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1754439Ab2FNPXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 11:23:00 -0400
+Received: from 124-248-200-94.sunnyvision.com ([124.248.200.94]:45288 "EHLO
+	teamb04.edmhongkong.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754125Ab2FNPW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 11:22:59 -0400
 Received: from teamb01.edmhongkong.com (unknown [124.248.200.39])
-	by teamb02.edmhongkong.com (Postfix) with ESMTP id 74816520D2
+	by teamb04.edmhongkong.com (Postfix) with ESMTP id A6BCA51EEC
 	for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 23:22:42 +0800 (HKT)
 Received: from TeamB3-WS (unknown [124.248.200.14])
-	by teamb01.edmhongkong.com (Postfix) with SMTP id CBBB34FA8A
+	by teamb01.edmhongkong.com (Postfix) with SMTP id 057EE4FAF2
 	for <netdev@vger.kernel.org>; Thu, 14 Jun 2012 23:22:41 +0800 (HKT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
