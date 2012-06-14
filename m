@@ -1,44 +1,43 @@
 From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH 1/3] be2net: reduce gso_max_size setting to account for ethernet header.
-Date: Thu, 14 Jun 2012 11:21:43 +0530
-Message-ID: <a5935849-a5bc-4876-b632-7a863cd714ab@exht1.ad.emulex.com>
+Subject: [PATCH 3/3] be2net: Increase statistics structure size for skyhawk.
+Date: Thu, 14 Jun 2012 11:21:45 +0530
+Message-ID: <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
 References: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+	Vasundhara Volam <vasundhara.volam@emulex.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:51758 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751190Ab2FNFwU (ORCPT
+	with ESMTP id S1751848Ab2FNFwU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 01:52:20 -0400
 In-Reply-To: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-The maximum size of packet that can be handled by controller including ethernet
-header is 65535. Reducing gso_max_size accordingly.
+Increasing the hardware statistics structure to accomodate statistics for skyhawk.
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5a34503..cbd245a 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3242,7 +3242,7 @@ static void be_netdev_init(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 2f6bb06..3c938f5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1566,7 +1566,7 @@ struct be_hw_stats_v1 {
+ 	u32 rsvd0[BE_TXP_SW_SZ];
+ 	struct be_erx_stats_v1 erx;
+ 	struct be_pmem_stats pmem;
+-	u32 rsvd1[3];
++	u32 rsvd1[18];
+ };
  
- 	netdev->flags |= IFF_MULTICAST;
- 
--	netif_set_gso_max_size(netdev, 65535);
-+	netif_set_gso_max_size(netdev, 65535 - ETH_HLEN);
- 
- 	netdev->netdev_ops = &be_netdev_ops;
- 
+ struct be_cmd_req_get_stats_v1 {
 -- 
 1.7.9.5
