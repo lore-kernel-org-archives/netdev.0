@@ -1,154 +1,74 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [net-next PATCH 01/02] net/ipv4: VTI support rx-path hook in
- xfrm4_mode_tunnel.
-Date: Thu, 14 Jun 2012 11:25:59 +0200
-Message-ID: <20120614092559.GU27795@secunet.com>
-References: <20120608173246.GA11945@debian-saurabh-64.vyatta.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: Re: [PATCH 2/5] drivers/net/ethernet/dec/tulip: Use standard
+ __set_bit_le() function
+Date: Thu, 14 Jun 2012 18:36:42 +0900
+Message-ID: <CAC5umyjkdDqavCo3Dk+WOggCnH+_CZz5jrOr3SougS4HSgV3OA@mail.gmail.com>
+References: <20120613130054.b5695621.yoshikawa.takuya@oss.ntt.co.jp>
+	<20120613130304.0186fa9d.yoshikawa.takuya@oss.ntt.co.jp>
+	<CAC5umyj582T+9GbOYDzOAanmMcVZ-Fdxr7i-8GWf3gTSmtAKUA@mail.gmail.com>
+	<20120613214157.0a5179d5358ec7f1b2646606@gmail.com>
+	<CAC5umygutE35hVObuooWj=ADP6PZDy4cqLtxGnRtxRX8uTtGSw@mail.gmail.com>
+	<20120613230013.3cc59bf908616e94bb4ccef2@gmail.com>
+	<CAP6odji_JvRkJP1dSzGK5ww3y71h4k6pXyj4pOQBpqP-X7Nn-A@mail.gmail.com>
+	<20120614072831.63845f6ddf024ece28e49f5e@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Saurabh <saurabh.mohan@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48905 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755400Ab2FNJ0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jun 2012 05:26:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20120608173246.GA11945@debian-saurabh-64.vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Grant Grundler <grantgrundler@gmail.com>,
+	Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>,
+	akpm@linux-foundation.org, bhutchings@solarflare.com,
+	grundler@parisc-linux.org, arnd@arndb.de, benh@kernel.crashing.org,
+	avi@redhat.com, mtosatti@redhat.com,
+	linux-net-drivers@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Takuya Yoshikawa <takuya.yoshikawa@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120614072831.63845f6ddf024ece28e49f5e@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 08, 2012 at 10:32:46AM -0700, Saurabh wrote:
-> 
-> 
-> Add hook for rx-path xfmr4_mode_tunnel for VTI tunnel module.
-> 
-> Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
-> Reviewed-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> ---
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index e0a55df..04214c0 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -1475,6 +1475,8 @@ extern int xfrm4_output(struct sk_buff *skb);
->  extern int xfrm4_output_finish(struct sk_buff *skb);
->  extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
->  extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
-> +extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler);
-> +extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler);
->  extern int xfrm6_extract_header(struct sk_buff *skb);
->  extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
->  extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
-> diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-> index ed4bf11..4fc2944 100644
-> --- a/net/ipv4/xfrm4_mode_tunnel.c
-> +++ b/net/ipv4/xfrm4_mode_tunnel.c
-> @@ -15,6 +15,68 @@
->  #include <net/ip.h>
->  #include <net/xfrm.h>
->  
-> +/*
-> + * Informational hook. The decap is still done here.
-> + */
-> +static struct xfrm_tunnel __rcu *rcv_notify_handlers __read_mostly;
-> +static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
-> +
-> +int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
-> +{
-> +	struct xfrm_tunnel __rcu **pprev;
-> +	struct xfrm_tunnel *t;
-> +
-> +	int ret = -EEXIST;
-> +	int priority = handler->priority;
-> +
-> +	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
-> +
-> +	for (pprev = &rcv_notify_handlers;
-> +		(t = rcu_dereference_protected(*pprev,
-> +		lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
-> +		pprev = &t->next) {
-> +		if (t->priority > priority)
-> +			break;
-> +		if (t->priority == priority)
-> +			goto err;
-> +
-> +	}
-> +
-> +	handler->next = *pprev;
-> +	rcu_assign_pointer(*pprev, handler);
-> +
-> +	ret = 0;
-> +
-> +err:
-> +	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
-> +
-> +int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler)
-> +{
-> +	struct xfrm_tunnel __rcu **pprev;
-> +	struct xfrm_tunnel *t;
-> +	int ret = -ENOENT;
-> +
-> +	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
-> +	for (pprev = &rcv_notify_handlers;
-> +		(t = rcu_dereference_protected(*pprev,
-> +		lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
-> +		pprev = &t->next) {
-> +		if (t == handler) {
-> +			*pprev = handler->next;
-> +			ret = 0;
-> +			break;
-> +		}
-> +	}
-> +	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
-> +	synchronize_net();
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_deregister);
-> +
->  static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
->  {
->  	struct iphdr *inner_iph = ipip_hdr(skb);
-> @@ -64,8 +126,14 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
->  	return 0;
->  }
->  
-> +#define for_each_input_rcu(head, handler)	\
-> +	for (handler = rcu_dereference(head);	\
-> +		handler != NULL;		\
-> +		handler = rcu_dereference(handler->next))  \
-> +
->  static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
->  {
-> +	struct xfrm_tunnel *handler;
->  	int err = -EINVAL;
->  
->  	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
-> @@ -74,6 +142,10 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
->  	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
->  		goto out;
->  
-> +	/* The handlers do not consume the skb. */
-> +	for_each_input_rcu(rcv_notify_handlers, handler)
-> +		handler->handler(skb);
+2012/6/14 Takuya Yoshikawa <takuya.yoshikawa@gmail.com>:
+> On Wed, 13 Jun 2012 08:21:18 -0700
+> Grant Grundler <grantgrundler@gmail.com> wrote:
+>
+>> >> >> Should this hash_table be converted from u16 hash_table[32] to
+>> >> >> DECLARE_BITMAP(hash_table, 16 * 32) to ensure that it is align=
+ed
+>> >> >> on long-word boundary?
+>> >> >
+>> >> > I think hash_table is already long-word aligned because it is p=
+laced
+>> >> > right after a pointer.
+>> >>
+>> >> I recommend converting to proper bitmap. =A0Because such an impli=
+cit
+>> >> assumption is easily broken by someone touching this function.
+>> >
+>> > Do you mean something like:
+>> > =A0 =A0 =A0 =A0DECLARE_BITMAP(__hash_table, 16 * 32);
+>> > =A0 =A0 =A0 =A0u16 *hash_table =3D (u16 *)__hash_table;
+>> > ?
+>> >
+>> > Grant, what do you think about this?
+>>
+>> Hi Takuya,
+>> two thoughts:
+>> 1) while I agree with Akinobu and thank him for pointing out a
+>> _potential_ alignment problem, this is a separate issue and your
+>> existing patch should go in anyway. There are probably other drivers
+>> with _potential_ alignment issues. Akinobu could get credit for
+>> finding them by submitting patches after reviewing calls to set_bit
+>> and set_bit_le() - similar to what you are doing now.
+>
+> I prefer approach 1.
+>
+> hash_table is local in build_setup_frame_hash(), so if further
+> improvement is also required, we can do that locally there later.
 
-I'm not sure if this is the right place to add your handler.
-My understanding of an IPsec tunnel device would be to
-receive the packet first and then do IPsec processing.
-Here it happens the other way arround.
+This potential alignment problem is introduced by this patch.  Because
+the original set_bit_le() in tulip driver can handle unaligned bitmap.
+This is why I recommended it should be fixed in this patch.
 
-Why didn't you register a tunnel handler and call the
-xfrm tunnel handler from that?
-
-> +
->  	if (skb_cloned(skb) &&
->  	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
->  		goto out;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But please just ignore me if I'm too much paranoid.  And I'll handle
+this issue if no one wants to do it.
