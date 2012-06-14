@@ -1,43 +1,35 @@
 From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH 3/3] be2net: Increase statistics structure size for skyhawk.
-Date: Thu, 14 Jun 2012 11:21:45 +0530
-Message-ID: <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
-References: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
+Subject: [PATCH 0/3] be2net: patches fix max gso size, modify driver log info and stats struct.
+Date: Thu, 14 Jun 2012 11:21:42 +0530
+Message-ID: <8b01e121-64f5-4a7a-ace5-2f811b097a8d@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-	Vasundhara Volam <vasundhara.volam@emulex.com>
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:51758 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751848Ab2FNFwU (ORCPT
+	with ESMTP id S1750974Ab2FNFwU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 01:52:20 -0400
-In-Reply-To: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-Increasing the hardware statistics structure to accomodate statistics for skyhawk.
+Please apply these patches. Thanks.
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
----
+Sarveshwar Bandi (1):
+  be2net: reduce gso_max_size setting to account for ethernet header.
+
+Vasundhara Volam (2):
+  be2net: Modify error message to incorporate subsystem
+  be2net: Increase statistics structure size for skyhawk.
+
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   12 ++++++------
  drivers/net/ethernet/emulex/benet/be_cmds.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 2f6bb06..3c938f5 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1566,7 +1566,7 @@ struct be_hw_stats_v1 {
- 	u32 rsvd0[BE_TXP_SW_SZ];
- 	struct be_erx_stats_v1 erx;
- 	struct be_pmem_stats pmem;
--	u32 rsvd1[3];
-+	u32 rsvd1[18];
- };
- 
- struct be_cmd_req_get_stats_v1 {
 -- 
 1.7.9.5
