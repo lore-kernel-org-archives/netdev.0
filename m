@@ -1,36 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 02/02] net/ipv4: VTI support new module for
- ip_vti.
-Date: Thu, 14 Jun 2012 20:50:44 -0700 (PDT)
-Message-ID: <20120614.205044.2206855389955918140.davem@davemloft.net>
-References: <20120614091254.GT27795@secunet.com>
-	<c2becb86-be73-4668-be84-82293c6c56fc@tahiti.vyatta.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: [patch] qlcnic: off by one in qlcnic_init_pci_info()
+Date: Thu, 14 Jun 2012 21:03:14 -0700
+Message-ID: <CC000197.32F56%anirban.chakraborty@qlogic.com>
+References: <20120614183424.GC6383@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: saurabh.mohan@vyatta.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45573 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753436Ab2FODur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jun 2012 23:50:47 -0400
-In-Reply-To: <c2becb86-be73-4668-be84-82293c6c56fc@tahiti.vyatta.com>
+Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:30891
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750725Ab2FOEDW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2012 00:03:22 -0400
+In-Reply-To: <20120614183424.GC6383@elgon.mountain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Date: Thu, 14 Jun 2012 19:43:59 -0700 (PDT)
 
-> Thanks for your feedback. Responses are inline (@SM)
- ...
-> @SM: Yes, we do plan to do the same for ipv6. The timelines are not yet certain though.
 
-Top-posting and using this special "@FOO" way of replying to other
-people's emails is extremely hard to read and follow.
+On 6/14/12 11:34 AM, "Dan Carpenter" <dan.carpenter@oracle.com> wrote:
 
-Please use normal email quotation mannerisms to reply to people,
-otherwise many developers will simply give much lower precedence to
-your postings or flat out ignore them altogether.
+>The adapter->npars[] array has QLCNIC_MAX_PCI_FUNC elements.  We
+>allocate it that way a few lines earlier in the function.  So this test
+>is off by one.
+>
+>Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>index 33c3e46..212c121 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>@@ -479,7 +479,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+> 
+> 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
+> 		pfn = pci_info[i].id;
+>-		if (pfn > QLCNIC_MAX_PCI_FUNC) {
+>+		if (pfn >= QLCNIC_MAX_PCI_FUNC) {
+> 			ret = QL_STATUS_INVALID_PARAM;
+> 			goto err_eswitch;
+> 		}
 
-Thank you.
+Thanks for the patch.
+
+Acked-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
