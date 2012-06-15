@@ -1,97 +1,53 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [RFC] Introduce to batch variants of accept() and epoll_ctl()
- syscall
-Date: Fri, 15 Jun 2012 13:37:42 +0800
-Message-ID: <4FDACA26.70004@gmail.com>
-References: <4FDAB652.6070201@gmail.com> <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [net-next PATCH 01/02] net/ipv4: VTI support rx-path hook in
+ xfrm4_mode_tunnel.
+Date: Fri, 15 Jun 2012 07:46:36 +0200
+Message-ID: <20120615054636.GW27795@secunet.com>
+References: <20120614092559.GU27795@secunet.com>
+ <766b5544-ace1-44b5-ac14-14d0e7702b4f@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davidel@xmailserver.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:59982 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750765Ab2FOFql (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2012 01:46:41 -0400
+Content-Disposition: inline
+In-Reply-To: <766b5544-ace1-44b5-ac14-14d0e7702b4f@tahiti.vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B406=E6=9C=8815=E6=97=A5 12:29, Changli Gao =E5=86=
-=99=E9=81=93:
-> On Fri, Jun 15, 2012 at 12:13 PM, Li Yu<raise.sail@gmail.com>  wrote:
->> Hi,
->>
->>   We encounter a performance problem in a large scale computer
->> cluster, which needs to handle a lot of incoming concurrent TCP
->> connection requests.
->>
->>   The top shows the kernel is most cpu hog, the testing is simple,
->> just a accept() ->  epoll_ctl(ADD) loop, the ratio of cpu util sys% =
-to
->> si% is about 2:5.
->>
->>   I also asked some experienced webserver/proxy developers in my tea=
-m
->> for suggestions, it seem that behavior of many userland programs alr=
-eady
->> called accept() multiple times after it is waked up by
->> epoll_wait(). And the common action is adding the fd that accept()
->> return into epoll interface by epoll_ctl() syscall then.
->>
->>   Therefore, I think that we'd better to introduce to batch variants=
- of
->> accept() and epoll_ctl() syscall, just like sendmmsg() or recvmmsg()=
-=2E
->>
->>   For accept(), we may need a new syscall, it may like this,
->>
->>   struct accept_result {
->>       int fd;
->>       struct sockaddr addr;
->>       socklen_t addr_len;
->>   };
->>
->>   int maccept4(int fd, int flags, int nr_accept_result, struct
->> accept_result *results);
->>
->>   For epoll_ctl(), there are two means to extend it, I prefer to ext=
-end
->> current interface instead of introduce to new syscall. We may introd=
-uce
->> to a new flag EPOLL_CTL_BATCH. If userland call epoll_ctl() with thi=
-s
->> flag set, the meaning of last two arguments of epoll_ctl() change, .=
-e.g:
->>
->>   struct batch_epoll_event batch_event[] =3D {
->>          {
->>               .fd =3D a_newsock_fd;
->>               .epoll_event =3D { ... };
->>          },
->>          ...
->>   };
->>
->>   ret =3D epoll_ctl(fd, EPOLL_CTL_ADD|EPOLL_CTL_BATCH, nr_batch_even=
-ts,
->> batch_events);
->>
->
-> I think it is good idea. Would you please implement a prototype and
-> give some numbers? This kind of data may help selling this idea.
-> Thanks.
->
+On Thu, Jun 14, 2012 at 07:44:11PM -0700, Saurabh Mohan wrote:
+> > +
+> >  static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+> >  {
+> > +	struct xfrm_tunnel *handler;
+> >  	int err = -EINVAL;
+> >  
+> >  	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
+> > @@ -74,6 +142,10 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+> >  	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+> >  		goto out;
+> >  
+> > +	/* The handlers do not consume the skb. */
+> > +	for_each_input_rcu(rcv_notify_handlers, handler)
+> > +		handler->handler(skb);
+> 
+> I'm not sure if this is the right place to add your handler.
+> My understanding of an IPsec tunnel device would be to
+> receive the packet first and then do IPsec processing.
+> Here it happens the other way arround.
+> 
+> @SM: The intention is to get the packet post decrypt and post-esp-decap. Just like a GRE tunnel the rx-counters account for the payload and NOT the GRE header.
+> 
 
-Of course, I think that implementing them should not be a hard work :)
+Well, I think a virtual interface should behave similar
+to physical interfaces. And a physical interface has to
+receive the packet before it can be processed.
 
-Em. I really do not know whether it is necessary to introduce to a new=20
-syscall here. An alternative solution to add new socket option to handl=
-e=20
-such batch requirement, so applications also can detect if kernel has=20
-this extended ability with a easy getsockopt() call.
-
-Any way, I am going to try to write a prototype first.
-
-Thanks
-
-Yu
+I looked into the old klips IPsec implementation.
+They had virtual IPsec interfaces and they did it like 
+that, update the statistics and the input device first
+and process the packet then.
