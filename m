@@ -1,95 +1,113 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 03/10] netfilter: add nf_ct_kfree_compat_sysctl_table
- to make codes clear
-Date: Fri, 15 Jun 2012 12:08:06 +0200
-Message-ID: <20120615100806.GB13867@1984>
+Subject: Re: [PATCH 02/10] netfilter: add parameter proto for
+ l4proto.init_net
+Date: Fri, 15 Jun 2012 12:10:45 +0200
+Message-ID: <20120615101045.GC13867@1984>
 References: <1339668445-23848-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1339668445-23848-3-git-send-email-gaofeng@cn.fujitsu.com>
- <20120614180632.GD10633@1984>
- <4FDA9186.408@cn.fujitsu.com>
+ <1339668445-23848-2-git-send-email-gaofeng@cn.fujitsu.com>
+ <20120614175903.GB10633@1984>
+ <4FDA921F.1020804@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39757 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750731Ab2FOKIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2012 06:08:12 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4FDA9186.408@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4FDA921F.1020804@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 15, 2012 at 09:36:06AM +0800, Gao feng wrote:
-> Hi Pablo:
->=20
-> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8815=E6=97=A5 02:06, Pablo Neira Ayus=
+On Fri, Jun 15, 2012 at 09:38:39AM +0800, Gao feng wrote:
+> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8815=E6=97=A5 01:59, Pablo Neira Ayus=
 o =E5=86=99=E9=81=93:
-> > On Thu, Jun 14, 2012 at 06:07:18PM +0800, Gao feng wrote:
-> >> add function nf_ct_kfree_compat_sysctl_table to kfree l4proto's
-> >> compat sysctl table and set the sysctl table point to NULL.
+> > On Thu, Jun 14, 2012 at 06:07:17PM +0800, Gao feng wrote:
+> >> there are redundancy codes in l4proto's init_net functions.
+> >> we can use one init_net function and l3proto to impletment
+> >> the same thing.
+> >>
+> >> So we should add l3proto as a parameter for init_net function.
 > >>
 > >> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 > >> ---
-> >>  include/net/netfilter/nf_conntrack_l4proto.h |    8 ++++++++
-> >>  net/netfilter/nf_conntrack_proto.c           |    4 +---
-> >>  2 files changed, 9 insertions(+), 3 deletions(-)
+> >>  include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
+> >>  net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    2 +-
+> >>  net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+> >>  net/netfilter/nf_conntrack_proto.c             |    6 ++++--
+> >>  net/netfilter/nf_conntrack_proto_dccp.c        |    2 +-
+> >>  net/netfilter/nf_conntrack_proto_generic.c     |    2 +-
+> >>  net/netfilter/nf_conntrack_proto_gre.c         |    2 +-
+> >>  net/netfilter/nf_conntrack_proto_sctp.c        |    4 ++--
+> >>  net/netfilter/nf_conntrack_proto_tcp.c         |    4 ++--
+> >>  net/netfilter/nf_conntrack_proto_udp.c         |    4 ++--
+> >>  net/netfilter/nf_conntrack_proto_udplite.c     |    2 +-
+> >>  11 files changed, 17 insertions(+), 15 deletions(-)
 > >>
 > >> diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/includ=
 e/net/netfilter/nf_conntrack_l4proto.h
-> >> index 5dd60f2..889b717 100644
+> >> index 81c52b5..5dd60f2 100644
 > >> --- a/include/net/netfilter/nf_conntrack_l4proto.h
 > >> +++ b/include/net/netfilter/nf_conntrack_l4proto.h
-> >> @@ -132,6 +132,14 @@ extern int nf_ct_port_nlattr_to_tuple(struct =
-nlattr *tb[],
-> >>  extern int nf_ct_port_nlattr_tuple_size(void);
-> >>  extern const struct nla_policy nf_ct_port_nla_policy[];
+> >> @@ -97,7 +97,7 @@ struct nf_conntrack_l4proto {
+> >>  #endif
+> >>  	int	*net_id;
+> >>  	/* Init l4proto pernet data */
+> >> -	int (*init_net)(struct net *net);
+> >> +	int (*init_net)(struct net *net, u_int16_t proto);
 > >> =20
-> >> +static inline void nf_ct_kfree_compat_sysctl_table(struct nf_prot=
-o_net *pn)
-> >> +{
-> >> +#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_CO=
-MPAT)
-> >> +	kfree(pn->ctl_compat_table);
-> >> +	pn->ctl_compat_table =3D NULL;
-> >> +#endif
-> >> +}
-
-inline is usually reserved for fast path, not initialization path.
-
-Although this function is fairly small, I think I prefer that this
-function is defined in nf_conntrack_proto.c and exported.
-
-> >> +
-> >>  #ifdef CONFIG_SYSCTL
-> >>  #ifdef DEBUG_INVALID_PACKETS
-> >>  #define LOG_INVALID(net, proto)				\
+> >>  	/* Protocol name */
+> >>  	const char *name;
+> >> diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ip=
+v4/netfilter/nf_conntrack_proto_icmp.c
+> >> index 041923c..76f7a2f 100644
+> >> --- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> >> +++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> >> @@ -337,7 +337,7 @@ static struct ctl_table icmp_compat_sysctl_tab=
+le[] =3D {
+> >>  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+> >>  #endif /* CONFIG_SYSCTL */
+> >> =20
+> >> -static int icmp_init_net(struct net *net)
+> >> +static int icmp_init_net(struct net *net, u_int16_t proto)
+> >>  {
+> >>  	struct nf_icmp_net *in =3D icmp_pernet(net);
+> >>  	struct nf_proto_net *pn =3D (struct nf_proto_net *)in;
+> >> diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/=
+ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+> >> index 63ed012..807ae09 100644
+> >> --- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+> >> +++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+> >> @@ -333,7 +333,7 @@ static struct ctl_table icmpv6_sysctl_table[] =
+=3D {
+> >>  };
+> >>  #endif /* CONFIG_SYSCTL */
+> >> =20
+> >> -static int icmpv6_init_net(struct net *net)
+> >> +static int icmpv6_init_net(struct net *net, u_int16_t proto)
+> >>  {
+> >>  	struct nf_icmp_net *in =3D icmpv6_pernet(net);
+> >>  	struct nf_proto_net *pn =3D (struct nf_proto_net *)in;
 > >> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf=
 _conntrack_proto.c
-> >> index 8fc0332..c9df1b4 100644
+> >> index a434dd7..8fc0332 100644
 > >> --- a/net/netfilter/nf_conntrack_proto.c
 > >> +++ b/net/netfilter/nf_conntrack_proto.c
-> >> @@ -361,9 +361,7 @@ int nf_ct_l4proto_register_sysctl(struct net *=
-net,
+> >> @@ -193,6 +193,7 @@ static int nf_ct_l3proto_register_sysctl(struc=
+t net *net,
+> >>  					    l3proto->ctl_table_path,
+> >>  					    in->ctl_table,
 > >>  					    NULL);
-> >>  		if (err =3D=3D 0)
-> >>  			goto out;
-> >> -
-> >> -		kfree(pn->ctl_compat_table);
-> >> -		pn->ctl_compat_table =3D NULL;
-> >> +		nf_ct_kfree_compat_sysctl_table(pn);
+> >> +
 > >=20
-> > if this is the only client of this function, then make it static an=
-d
-> > define it inside nf_conntrack_proto.c
-> >=20
+> > This entire patchset contains many extra new lines. If you want to
+> > provide some cleanup, it should come in some follow-up patch.
 >=20
-> tcp_init_net,udp_init_net use this function too.
->=20
-> Thanks
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Ok, I will make a follow-up patch to do some cleanup.
+
+I prefer if you wait a bit until I see how this looks like in the end.
+Then, we can apply this little comestical changes.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
