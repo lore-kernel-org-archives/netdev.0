@@ -1,79 +1,58 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [RFC] Introduce to batch variants of accept() and epoll_ctl() syscall
-Date: Fri, 15 Jun 2012 12:29:45 +0800
-Message-ID: <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
-References: <4FDAB652.6070201@gmail.com>
+From: <Sarveshwar.Bandi@Emulex.Com>
+Subject: RE: [PATCH 3/3] be2net: Increase statistics structure size for
+ skyhawk.
+Date: Thu, 14 Jun 2012 21:58:06 -0700
+Message-ID: <7305639d-36a2-4cb2-ae79-204d5bfc2a9d@exht2.ad.emulex.com>
+References: <1339653105-7313-1-git-send-email-sarveshwar.bandi@emulex.com>
+	 <57eadb3c-1687-40a3-b846-e1fcee3f5a58@exht1.ad.emulex.com>
+ <1339699802.2719.26.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davidel@xmailserver.org
-To: Li Yu <raise.sail@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FDAB652.6070201@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<Vasundhara.Volam@Emulex.Com>
+To: <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht2.emulex.com ([138.239.113.184]:45136 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751034Ab2FOE6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 00:58:44 -0400
+In-Reply-To: <1339699802.2719.26.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 15, 2012 at 12:13 PM, Li Yu <raise.sail@gmail.com> wrote:
-> Hi,
->
-> =A0We encounter a performance problem in a large scale computer
-> cluster, which needs to handle a lot of incoming concurrent TCP
-> connection requests.
->
-> =A0The top shows the kernel is most cpu hog, the testing is simple,
-> just a accept() -> epoll_ctl(ADD) loop, the ratio of cpu util sys% to
-> si% is about 2:5.
->
-> =A0I also asked some experienced webserver/proxy developers in my tea=
-m
-> for suggestions, it seem that behavior of many userland programs alre=
-ady
-> called accept() multiple times after it is waked up by
-> epoll_wait(). And the common action is adding the fd that accept()
-> return into epoll interface by epoll_ctl() syscall then.
->
-> =A0Therefore, I think that we'd better to introduce to batch variants=
- of
-> accept() and epoll_ctl() syscall, just like sendmmsg() or recvmmsg().
->
-> =A0For accept(), we may need a new syscall, it may like this,
->
-> =A0struct accept_result {
-> =A0 =A0 =A0int fd;
-> =A0 =A0 =A0struct sockaddr addr;
-> =A0 =A0 =A0socklen_t addr_len;
-> =A0};
->
-> =A0int maccept4(int fd, int flags, int nr_accept_result, struct
-> accept_result *results);
->
-> =A0For epoll_ctl(), there are two means to extend it, I prefer to ext=
-end
-> current interface instead of introduce to new syscall. We may introdu=
-ce
-> to a new flag EPOLL_CTL_BATCH. If userland call epoll_ctl() with this
-> flag set, the meaning of last two arguments of epoll_ctl() change, .e=
-=2Eg:
->
-> =A0struct batch_epoll_event batch_event[] =3D {
-> =A0 =A0 =A0 =A0 {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0.fd =3D a_newsock_fd;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0.epoll_event =3D { ... };
-> =A0 =A0 =A0 =A0 },
-> =A0 =A0 =A0 =A0 ...
-> =A0};
->
-> =A0ret =3D epoll_ctl(fd, EPOLL_CTL_ADD|EPOLL_CTL_BATCH, nr_batch_even=
-ts,
-> batch_events);
->
-
-I think it is good idea. Would you please implement a prototype and
-give some numbers? This kind of data may help selling this idea.
-Thanks.
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+QmVuLA0KICBObywgQnVmZmVyIG92ZXJydW4gZG9lc27igJl0IGhhcHBlbi4gVGhlIHByZXNlbnQg
+TklDIGNvbnRyb2xsZXIgRE1BcyBvbmx5IGFzIG11Y2ggaW5mb3JtYXRpb24gZm9yIHdoaWNoIG1l
+bW9yeSBpcyANCmFsbG9jYXRlZC4gVGhlIG5leHQgdmVyc2lvbiBvZiBjb250cm9sbGVyIHdpbGwg
+ZmFpbCB0aGUgcmVxdWVzdCBpZiBzdWZmaWNpZW50IG1lbW9yeSBpcyBub3QgYXZhaWxhYmxlLg0K
+DQpUaGFua3MsDQpTYXJ2ZXNoDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBC
+ZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0gDQpTZW50OiBG
+cmlkYXksIEp1bmUgMTUsIDIwMTIgMTI6MjAgQU0NClRvOiBCYW5kaSxTYXJ2ZXNod2FyDQpDYzog
+ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgVmFzdW5kaGFyYSwg
+Vm9sYW0NClN1YmplY3Q6IFJlOiBbUEFUQ0ggMy8zXSBiZTJuZXQ6IEluY3JlYXNlIHN0YXRpc3Rp
+Y3Mgc3RydWN0dXJlIHNpemUgZm9yIHNreWhhd2suDQoNCk9uIFRodSwgMjAxMi0wNi0xNCBhdCAx
+MToyMSArMDUzMCwgc2FydmVzaHdhci5iYW5kaUBlbXVsZXguY29tIHdyb3RlOg0KPiBGcm9tOiBW
+YXN1bmRoYXJhIFZvbGFtIDx2YXN1bmRoYXJhLnZvbGFtQGVtdWxleC5jb20+DQo+IA0KPiBJbmNy
+ZWFzaW5nIHRoZSBoYXJkd2FyZSBzdGF0aXN0aWNzIHN0cnVjdHVyZSB0byBhY2NvbW9kYXRlIHN0
+YXRpc3RpY3MgZm9yIHNreWhhd2suDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBWYXN1bmRoYXJhIFZv
+bGFtIDx2YXN1bmRoYXJhLnZvbGFtQGVtdWxleC5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZW11bGV4L2JlbmV0L2JlX2NtZHMuaCB8ICAgIDIgKy0NCj4gIDEgZmlsZSBjaGFu
+Z2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9jbWRzLmggDQo+IGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0L2JlX2NtZHMuaA0KPiBpbmRleCAyZjZiYjA2Li4zYzkz
+OGY1IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVsZXgvYmVuZXQvYmVf
+Y21kcy5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9jbWRz
+LmgNCj4gQEAgLTE1NjYsNyArMTU2Niw3IEBAIHN0cnVjdCBiZV9od19zdGF0c192MSB7DQo+ICAJ
+dTMyIHJzdmQwW0JFX1RYUF9TV19TWl07DQo+ICAJc3RydWN0IGJlX2VyeF9zdGF0c192MSBlcng7
+DQo+ICAJc3RydWN0IGJlX3BtZW1fc3RhdHMgcG1lbTsNCj4gLQl1MzIgcnN2ZDFbM107DQo+ICsJ
+dTMyIHJzdmQxWzE4XTsNCj4gIH07DQo+ICANCj4gIHN0cnVjdCBiZV9jbWRfcmVxX2dldF9zdGF0
+c192MSB7DQoNCkRvZXNuJ3QgdGhpcyBtZXJpdCBhICdzdHJ1Y3QgYmVfaHdfc3RhdHNfdjInPw0K
+DQpEb2VzIHRoaXMgbWVhbiB0aGF0IHRoZSBkcml2ZXIgd2Fzbid0IGN1cnJlbnRseSBhbGxvY2F0
+aW5nIGVub3VnaCBtZW1vcnkgZm9yIHRoZSBzdHJ1Y3R1cmUsIGFuZCBjb3VsZCB0aGF0IHJlc3Vs
+dCBpbiBhIGJ1ZmZlciBvdmVycnVuPyAgSWYgc28gdGhlbiB0aGlzIGZpeCB3b3VsZCBuZWVkIHRv
+IGdvIGludG8gMy41IGFuZCAzLjQueSBhcyB3ZWxsLg0KDQpCZW4uDQoNCi0tDQpCZW4gSHV0Y2hp
+bmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZSBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxv
+eWVyOyB0aGF0J3MgdGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KVGhleSBhc2tlZCB1
+cyB0byBub3RlIHRoYXQgU29sYXJmbGFyZSBwcm9kdWN0IG5hbWVzIGFyZSB0cmFkZW1hcmtlZC4N
+Cg0K
