@@ -1,11 +1,12 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH wireless-next 11/20] mac80211_hwsim: Use pr_<level>
-Date: Thu, 14 Jun 2012 22:53:51 -0700
-Message-ID: <f03c0933fd2c334ef9aedffc04b2ec5f6924108f.1339739416.git.joe@perches.com>
+Subject: [PATCH wireless-next 12/20] mwl8k: Use pr_<level>
+Date: Thu, 14 Jun 2012 22:53:52 -0700
+Message-ID: <f6b98c85e5cfd71c05078643f2388fb9797d1561.1339739416.git.joe@perches.com>
 References: <cover.1339739415.git.joe@perches.com>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1339739415.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -14,225 +15,195 @@ List-Id: netdev.vger.kernel.org
 Use a more current logging style.
 
 Convert printks to pr_<level>.
-Convert printk(KERN_DEBUG to pr_debug(.
 Coalesce formats, align arguments.
+Add missing newline terminations.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/mac80211_hwsim.c |   61 ++++++++++++++------------------
- 1 files changed, 27 insertions(+), 34 deletions(-)
+ drivers/net/wireless/mwl8k.c |   53 ++++++++++++++++++++---------------------
+ 1 files changed, 26 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index a0b7cfd..eae77d2 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -15,6 +15,8 @@
-  * - RX filtering based on filter configuration (data->rx_filter)
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index cf7bdc6..7197e80 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -9,6 +9,8 @@
+  * warranty of any kind, whether express or implied.
   */
  
 +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
- #include <linux/list.h>
- #include <linux/slab.h>
- #include <linux/spinlock.h>
-@@ -578,7 +580,7 @@ static void mac80211_hwsim_tx_frame_nl(struct ieee80211_hw *hw,
- 	msg_head = genlmsg_put(skb, 0, 0, &hwsim_genl_family, 0,
- 			       HWSIM_CMD_FRAME);
- 	if (msg_head == NULL) {
--		printk(KERN_DEBUG "mac80211_hwsim: problem with msg_head\n");
-+		pr_debug("problem with msg_head\n");
- 		goto nla_put_failure;
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
+@@ -522,7 +524,7 @@ static int mwl8k_request_firmware(struct mwl8k_priv *priv, char *fw_image,
+ 			rc = mwl8k_request_fw(priv, di->helper_image,
+ 					      &priv->fw_helper, false);
+ 		if (rc)
+-			printk(KERN_ERR "%s: Error requesting helper fw %s\n",
++			pr_err("%s: Error requesting helper fw %s\n",
+ 			       pci_name(priv->pdev), di->helper_image);
+ 
+ 		if (rc || nowait)
+@@ -542,7 +544,7 @@ static int mwl8k_request_firmware(struct mwl8k_priv *priv, char *fw_image,
+ 		rc = mwl8k_request_fw(priv, fw_image,
+ 				      &priv->fw_ucode, false);
+ 	if (rc) {
+-		printk(KERN_ERR "%s: Error requesting firmware file %s\n",
++		pr_err("%s: Error requesting firmware file %s\n",
+ 		       pci_name(priv->pdev), fw_image);
+ 		mwl8k_release_fw(&priv->fw_helper);
+ 		return rc;
+@@ -712,15 +714,15 @@ static int mwl8k_load_firmware(struct ieee80211_hw *hw)
+ 		const struct firmware *helper = priv->fw_helper;
+ 
+ 		if (helper == NULL) {
+-			printk(KERN_ERR "%s: helper image needed but none "
+-			       "given\n", pci_name(priv->pdev));
++			pr_err("%s: helper image needed but none given\n",
++			       pci_name(priv->pdev));
+ 			return -EINVAL;
+ 		}
+ 
+ 		rc = mwl8k_load_fw_image(priv, helper->data, helper->size);
+ 		if (rc) {
+-			printk(KERN_ERR "%s: unable to load firmware "
+-			       "helper image\n", pci_name(priv->pdev));
++			pr_err("%s: unable to load firmware helper image\n",
++			       pci_name(priv->pdev));
+ 			return rc;
+ 		}
+ 		msleep(20);
+@@ -731,7 +733,7 @@ static int mwl8k_load_firmware(struct ieee80211_hw *hw)
  	}
  
-@@ -626,7 +628,7 @@ static void mac80211_hwsim_tx_frame_nl(struct ieee80211_hw *hw,
- 	return;
- 
- nla_put_failure:
--	printk(KERN_DEBUG "mac80211_hwsim: error occurred in %s\n", __func__);
-+	pr_debug("error occurred in %s\n", __func__);
- }
- 
- static bool mac80211_hwsim_tx_frame_no_nl(struct ieee80211_hw *hw,
-@@ -1189,12 +1191,10 @@ static int mac80211_hwsim_hw_scan(struct ieee80211_hw *hw,
- 	hsd->hw = hw;
- 	INIT_DELAYED_WORK(&hsd->w, hw_scan_done);
- 
--	printk(KERN_DEBUG "hwsim hw_scan request\n");
-+	pr_debug("hw_scan request\n");
- 	for (i = 0; i < req->n_channels; i++)
--		printk(KERN_DEBUG "hwsim hw_scan freq %d\n",
--			req->channels[i]->center_freq);
--	print_hex_dump(KERN_DEBUG, "scan IEs: ", DUMP_PREFIX_OFFSET,
--			16, 1, req->ie, req->ie_len, 1);
-+		pr_debug("hw_scan freq %d\n", req->channels[i]->center_freq);
-+	print_hex_dump_bytes("scan IEs: ", DUMP_PREFIX_OFFSET, req->ie, req->ie_len);
- 
- 	ieee80211_queue_delayed_work(hw, &hsd->w, 2 * HZ);
- 
-@@ -1208,11 +1208,11 @@ static void mac80211_hwsim_sw_scan(struct ieee80211_hw *hw)
- 	mutex_lock(&hwsim->mutex);
- 
- 	if (hwsim->scanning) {
--		printk(KERN_DEBUG "two hwsim sw_scans detected!\n");
-+		pr_debug("two hwsim sw_scans detected!\n");
- 		goto out;
+ 	if (rc) {
+-		printk(KERN_ERR "%s: unable to load firmware image\n",
++		pr_err("%s: unable to load firmware image\n",
+ 		       pci_name(priv->pdev));
+ 		return rc;
  	}
+@@ -2425,8 +2427,7 @@ static int mwl8k_cmd_get_hw_spec_ap(struct ieee80211_hw *hw)
  
--	printk(KERN_DEBUG "hwsim sw_scan request, prepping stuff\n");
-+	pr_debug("sw_scan request, prepping stuff\n");
- 	hwsim->scanning = true;
- 
- out:
-@@ -1225,7 +1225,7 @@ static void mac80211_hwsim_sw_scan_complete(struct ieee80211_hw *hw)
- 
- 	mutex_lock(&hwsim->mutex);
- 
--	printk(KERN_DEBUG "hwsim sw_scan_complete\n");
-+	pr_debug("sw_scan_complete\n");
- 	hwsim->scanning = false;
- 
- 	mutex_unlock(&hwsim->mutex);
-@@ -1338,7 +1338,7 @@ static void hwsim_send_ps_poll(void *dat, u8 *mac, struct ieee80211_vif *vif)
- 		return mac80211_hwsim_tx_frame_nl(data->hw, skb, _pid);
- 
- 	if (!mac80211_hwsim_tx_frame_no_nl(data->hw, skb))
--		printk(KERN_DEBUG "%s: PS-poll frame not ack'ed\n", __func__);
-+		pr_debug("%s: PS-poll frame not ack'ed\n", __func__);
- 	dev_kfree_skb(skb);
- }
- 
-@@ -1377,7 +1377,7 @@ static void hwsim_send_nullfunc(struct mac80211_hwsim_data *data, u8 *mac,
- 		return mac80211_hwsim_tx_frame_nl(data->hw, skb, _pid);
- 
- 	if (!mac80211_hwsim_tx_frame_no_nl(data->hw, skb))
--		printk(KERN_DEBUG "%s: nullfunc frame not ack'ed\n", __func__);
-+		pr_debug("%s: nullfunc frame not ack'ed\n", __func__);
- 	dev_kfree_skb(skb);
- }
- 
-@@ -1621,7 +1621,7 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
- 
- 	return 0;
- err:
--	printk(KERN_DEBUG "mac80211_hwsim: error occurred in %s\n", __func__);
-+	pr_debug("error occurred in %s\n", __func__);
- 	goto out;
- out:
- 	dev_kfree_skb(skb);
-@@ -1636,12 +1636,12 @@ static int hwsim_register_received_nl(struct sk_buff *skb_2,
- 
- 	wmediumd_pid = info->snd_pid;
- 
--	printk(KERN_DEBUG "mac80211_hwsim: received a REGISTER, "
--	       "switching to wmediumd mode with pid %d\n", info->snd_pid);
-+	pr_debug("received a REGISTER, switching to wmediumd mode with pid %d\n",
-+		 info->snd_pid);
- 
- 	return 0;
- out:
--	printk(KERN_DEBUG "mac80211_hwsim: error occurred in %s\n", __func__);
-+	pr_debug("error occurred in %s\n", __func__);
- 	return -EINVAL;
- }
- 
-@@ -1675,8 +1675,7 @@ static int mac80211_hwsim_netlink_notify(struct notifier_block *nb,
- 		return NOTIFY_DONE;
- 
- 	if (notify->pid == wmediumd_pid) {
--		printk(KERN_INFO "mac80211_hwsim: wmediumd released netlink"
--		       " socket, switching to perfect channel medium\n");
-+		pr_info("wmediumd released netlink socket, switching to perfect channel medium\n");
- 		wmediumd_pid = 0;
- 	}
- 	return NOTIFY_DONE;
-@@ -1690,7 +1689,7 @@ static struct notifier_block hwsim_netlink_notifier = {
- static int hwsim_init_netlink(void)
+ 		api_version = le32_to_cpu(cmd->fw_api_version);
+ 		if (priv->device_info->fw_api_ap != api_version) {
+-			printk(KERN_ERR "%s: Unsupported fw API version for %s."
+-			       "  Expected %d got %d.\n", MWL8K_NAME,
++			pr_err("Unsupported fw API version for %s.  Expected %d got %d.\n",
+ 			       priv->device_info->part_name,
+ 			       priv->device_info->fw_api_ap,
+ 			       api_version);
+@@ -5278,12 +5279,12 @@ MODULE_DEVICE_TABLE(pci, mwl8k_pci_id_table);
+ static int mwl8k_request_alt_fw(struct mwl8k_priv *priv)
  {
  	int rc;
--	printk(KERN_INFO "mac80211_hwsim: initializing netlink\n");
-+	pr_info("initializing netlink\n");
+-	printk(KERN_ERR "%s: Error requesting preferred fw %s.\n"
+-	       "Trying alternative firmware %s\n", pci_name(priv->pdev),
+-	       priv->fw_pref, priv->fw_alt);
++	pr_err("%s: Error requesting preferred fw %s.\n"
++	       "Trying alternative firmware %s\n",
++	       pci_name(priv->pdev), priv->fw_pref, priv->fw_alt);
+ 	rc = mwl8k_request_fw(priv, priv->fw_alt, &priv->fw_ucode, true);
+ 	if (rc) {
+-		printk(KERN_ERR "%s: Error requesting alt fw %s\n",
++		pr_err("%s: Error requesting alt fw %s\n",
+ 		       pci_name(priv->pdev), priv->fw_alt);
+ 		return rc;
+ 	}
+@@ -5300,7 +5301,7 @@ static void mwl8k_fw_state_machine(const struct firmware *fw, void *context)
+ 	switch (priv->fw_state) {
+ 	case FW_STATE_INIT:
+ 		if (!fw) {
+-			printk(KERN_ERR "%s: Error requesting helper fw %s\n",
++			pr_err("%s: Error requesting helper fw %s\n",
+ 			       pci_name(priv->pdev), di->helper_image);
+ 			goto fail;
+ 		}
+@@ -5339,7 +5340,7 @@ static void mwl8k_fw_state_machine(const struct firmware *fw, void *context)
  
- 	rc = genl_register_family_with_ops(&hwsim_genl_family,
- 		hwsim_ops, ARRAY_SIZE(hwsim_ops));
-@@ -1704,7 +1703,7 @@ static int hwsim_init_netlink(void)
- 	return 0;
+ 	case FW_STATE_LOADING_ALT:
+ 		if (!fw) {
+-			printk(KERN_ERR "%s: Error requesting alt fw %s\n",
++			pr_err("%s: Error requesting alt fw %s\n",
+ 			       pci_name(priv->pdev), di->helper_image);
+ 			goto fail;
+ 		}
+@@ -5352,8 +5353,8 @@ static void mwl8k_fw_state_machine(const struct firmware *fw, void *context)
+ 		break;
  
- failure:
--	printk(KERN_DEBUG "mac80211_hwsim: error occurred in %s\n", __func__);
-+	pr_debug("error occurred in %s\n", __func__);
- 	return -EINVAL;
+ 	default:
+-		printk(KERN_ERR "%s: Unexpected firmware loading state: %d\n",
+-		       MWL8K_NAME, priv->fw_state);
++		pr_err("Unexpected firmware loading state: %d\n",
++		       priv->fw_state);
+ 		BUG_ON(1);
+ 	}
+ 
+@@ -5607,7 +5608,7 @@ static int mwl8k_reload_firmware(struct ieee80211_hw *hw, char *fw_image)
+ 	return rc;
+ 
+ fail:
+-	printk(KERN_WARNING "mwl8k: Failed to reload firmware image.\n");
++	pr_warn("Failed to reload firmware image\n");
+ 	return rc;
  }
  
-@@ -1712,14 +1711,13 @@ static void hwsim_exit_netlink(void)
- {
- 	int ret;
+@@ -5725,22 +5726,20 @@ static int __devinit mwl8k_probe(struct pci_dev *pdev,
+ 	int rc;
  
--	printk(KERN_INFO "mac80211_hwsim: closing netlink\n");
-+	pr_info("closing netlink\n");
- 	/* unregister the notifier */
- 	netlink_unregister_notifier(&hwsim_netlink_notifier);
- 	/* unregister the family */
- 	ret = genl_unregister_family(&hwsim_genl_family);
- 	if (ret)
--		printk(KERN_DEBUG "mac80211_hwsim: "
--		       "unregister family %i\n", ret);
-+		pr_debug("unregister family %i\n", ret);
+ 	if (!printed_version) {
+-		printk(KERN_INFO "%s version %s\n", MWL8K_DESC, MWL8K_VERSION);
++		pr_info("%s version %s\n", MWL8K_DESC, MWL8K_VERSION);
+ 		printed_version = 1;
+ 	}
+ 
+ 
+ 	rc = pci_enable_device(pdev);
+ 	if (rc) {
+-		printk(KERN_ERR "%s: Cannot enable new PCI device\n",
+-		       MWL8K_NAME);
++		pr_err("Cannot enable new PCI device\n");
+ 		return rc;
+ 	}
+ 
+ 	rc = pci_request_regions(pdev, MWL8K_NAME);
+ 	if (rc) {
+-		printk(KERN_ERR "%s: Cannot obtain PCI resources\n",
+-		       MWL8K_NAME);
++		pr_err("Cannot obtain PCI resources\n");
+ 		goto err_disable_device;
+ 	}
+ 
+@@ -5749,7 +5748,7 @@ static int __devinit mwl8k_probe(struct pci_dev *pdev,
+ 
+ 	hw = ieee80211_alloc_hw(sizeof(*priv), &mwl8k_ops);
+ 	if (hw == NULL) {
+-		printk(KERN_ERR "%s: ieee80211 alloc failed\n", MWL8K_NAME);
++		pr_err("ieee80211 alloc failed\n");
+ 		rc = -ENOMEM;
+ 		goto err_free_reg;
+ 	}
+@@ -5796,10 +5795,10 @@ static int __devinit mwl8k_probe(struct pci_dev *pdev,
+ 		priv->fw_pref = di->fw_image_sta;
+ 		priv->fw_alt = di->fw_image_ap;
+ 	} else if (ap_mode_default && !di->fw_image_ap && di->fw_image_sta) {
+-		printk(KERN_WARNING "AP fw is unavailable.  Using STA fw.");
++		pr_warn("AP fw is unavailable.  Using STA fw.\n");
+ 		priv->fw_pref = di->fw_image_sta;
+ 	} else if (!ap_mode_default && !di->fw_image_sta && di->fw_image_ap) {
+-		printk(KERN_WARNING "STA fw is unavailable.  Using AP fw.");
++		pr_warn("STA fw is unavailable.  Using AP fw.\n");
+ 		priv->fw_pref = di->fw_image_ap;
+ 	}
+ 	rc = mwl8k_init_firmware(hw, priv->fw_pref, true);
+@@ -5834,7 +5833,7 @@ err_disable_device:
+ 
+ static void __devexit mwl8k_shutdown(struct pci_dev *pdev)
+ {
+-	printk(KERN_ERR "===>%s(%u)\n", __func__, __LINE__);
++	pr_err("===>%s(%u)\n", __func__, __LINE__);
  }
  
- static const struct ieee80211_iface_limit hwsim_if_limits[] = {
-@@ -1768,12 +1766,10 @@ static int __init init_mac80211_hwsim(void)
- 	addr[0] = 0x02;
- 
- 	for (i = 0; i < radios; i++) {
--		printk(KERN_DEBUG "mac80211_hwsim: Initializing radio %d\n",
--		       i);
-+		pr_debug("Initializing radio %d\n", i);
- 		hw = ieee80211_alloc_hw(sizeof(*data), &mac80211_hwsim_ops);
- 		if (!hw) {
--			printk(KERN_DEBUG "mac80211_hwsim: ieee80211_alloc_hw "
--			       "failed\n");
-+			pr_debug("ieee80211_alloc_hw failed\n");
- 			err = -ENOMEM;
- 			goto failed;
- 		}
-@@ -1783,9 +1779,7 @@ static int __init init_mac80211_hwsim(void)
- 		data->dev = device_create(hwsim_class, NULL, 0, hw,
- 					  "hwsim%d", i);
- 		if (IS_ERR(data->dev)) {
--			printk(KERN_DEBUG
--			       "mac80211_hwsim: device_create "
--			       "failed (%ld)\n", PTR_ERR(data->dev));
-+			pr_debug("device_create failed (%ld)\n", PTR_ERR(data->dev));
- 			err = -ENOMEM;
- 			goto failed_drvdata;
- 		}
-@@ -1946,8 +1940,7 @@ static int __init init_mac80211_hwsim(void)
- 			schedule_timeout_interruptible(1);
- 		err = ieee80211_register_hw(hw);
- 		if (err < 0) {
--			printk(KERN_DEBUG "mac80211_hwsim: "
--			       "ieee80211_register_hw failed (%d)\n", err);
-+			pr_debug("ieee80211_register_hw failed (%d)\n", err);
- 			goto failed_hw;
- 		}
- 
-@@ -2039,7 +2032,7 @@ static int __init init_mac80211_hwsim(void)
- 	return 0;
- 
- failed_nl:
--	printk(KERN_DEBUG "mac_80211_hwsim: failed initializing netlink\n");
-+	pr_debug("failed initializing netlink\n");
- 	return err;
- 
- failed_mon:
-@@ -2060,7 +2053,7 @@ failed:
- 
- static void __exit exit_mac80211_hwsim(void)
- {
--	printk(KERN_DEBUG "mac80211_hwsim: unregister radios\n");
-+	pr_debug("unregister radios\n");
- 
- 	hwsim_exit_netlink();
- 
+ static void __devexit mwl8k_remove(struct pci_dev *pdev)
 -- 
 1.7.8.111.gad25c.dirty
