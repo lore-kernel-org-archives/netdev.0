@@ -1,80 +1,71 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH 02.5] mm: sl[au]b: first remove PFMEMALLOC flag then SLAB flag
-Date: Fri, 15 Jun 2012 17:54:32 +0200
-Message-ID: <20120615155432.GA5498@breakpoint.cc>
-References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
- <1337266231-8031-3-git-send-email-mgorman@suse.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next.git 1/4 (v5)] phy: add the EEE support and the way to
+ access to the MMD registers.
+Date: Fri, 15 Jun 2012 17:37:28 +0100
+Message-ID: <1339778248.2555.9.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1339574463-1207-1-git-send-email-peppe.cavallaro@st.com>
+	  <1339574463-1207-2-git-send-email-peppe.cavallaro@st.com>
+	 <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
+	 <4FDAD0C8.6000307@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1337266231-8031-3-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>,
+	<rayagond@vayavyalabs.com>, <davem@davemloft.net>,
+	<yuvalmin@broadcom.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:29426 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750910Ab2FOQhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 12:37:33 -0400
+In-Reply-To: <4FDAD0C8.6000307@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+On Fri, 2012-06-15 at 08:06 +0200, Giuseppe CAVALLARO wrote:
+> Hello Ben
+>=20
+> On 6/14/2012 1:28 AM, Ben Hutchings wrote:
+[...]
+> > But you also use this condition to decide whether to enable TX LPI,=
+ so
+> > it's important that it does match the specification (=C2=A778.3) fo=
+r whether
+> > EEE is supported - but it doesn't.  You need to work out what mode =
+was
+> > autonegotiated, then check that the relevant bit is set in both our=
+ EEE
+> > advertising (*not* supported) and the LP EEE advertising masks.
+>=20
+> I've some doubts and, before resending the patch, I kindly ask you so=
+me
+> further details just on this point.
+>=20
+> In the code, I check if the EEE is supported and on GMII, MII and RGM=
+II
+> and duplex mode; in case of success the Ethernet driver can enable th=
+e
+> TX LPI.
+> Indeed, I am only using the 3.20 and 7.61 registers w/o looking at th=
+e
+> 7.60. So this should be fixed, shouldn't it?
+> Am I missing anything else?
+> What do you mean when say that it doesn't match the specification
+> (=C2=A778.3)? I'm pointing to the '78.3 Capabilities Negotiation' cha=
+pter of
+> the IEEE802-3az, is it ok?
 
-If we first remove the SLAB flag followed by the PFMEMALLOC flag then the
-removal of the latter will trigger the VM_BUG_ON() as it can be seen in
-| kernel BUG at include/linux/page-flags.h:474!
-| invalid opcode: 0000 [#1] PREEMPT SMP
-| Call Trace:
-|  [<c10e2d77>] slab_destroy+0x27/0x70
-|  [<c10e3285>] drain_freelist+0x55/0x90
-|  [<c10e344e>] __cache_shrink+0x6e/0x90
-|  [<c14e3211>] ? acpi_sleep_init+0xcf/0xcf
-|  [<c10e349d>] kmem_cache_shrink+0x2d/0x40
+Yes that's what I mean.  As I read it, you need to check which link mod=
+e
+was autonegotiated, then the corresponding bit in 7.60 and 7.61.  If
+they're both set then EEE is supported on the current link.  (But, let
+me repeat, I have not done any work on implementing EEE, so it's
+entirely possible that I have misunderstood some things.)
 
-because the SLAB flag is gone. This patch simply changes the order.
+Ben.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- mm/slab.c |    2 +-
- mm/slub.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/mm/slab.c b/mm/slab.c
-index 00c601b..b1a39f7 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -2007,8 +2007,8 @@ static void kmem_freepages(struct kmem_cache *cachep, void *addr)
- 				NR_SLAB_UNRECLAIMABLE, nr_freed);
- 	while (i--) {
- 		BUG_ON(!PageSlab(page));
--		__ClearPageSlab(page);
- 		__ClearPageSlabPfmemalloc(page);
-+		__ClearPageSlab(page);
- 		page++;
- 	}
- 	if (current->reclaim_state)
-diff --git a/mm/slub.c b/mm/slub.c
-index f8cbec4..d753146 100644
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -1417,8 +1417,8 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
- 		NR_SLAB_RECLAIMABLE : NR_SLAB_UNRECLAIMABLE,
- 		-pages);
- 
--	__ClearPageSlab(page);
- 	__ClearPageSlabPfmemalloc(page);
-+	__ClearPageSlab(page);
- 	reset_page_mapcount(page);
- 	if (current->reclaim_state)
- 		current->reclaim_state->reclaimed_slab += pages;
--- 
-1.7.10
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
