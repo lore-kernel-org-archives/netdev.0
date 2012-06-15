@@ -1,35 +1,97 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [net-next PATCH 02/02] net/ipv4: VTI support new module for
- ip_vti.
-Date: Fri, 15 Jun 2012 07:37:07 +0200
-Message-ID: <20120615053707.GV27795@secunet.com>
-References: <20120614091254.GT27795@secunet.com>
- <c2becb86-be73-4668-be84-82293c6c56fc@tahiti.vyatta.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: [RFC] Introduce to batch variants of accept() and epoll_ctl()
+ syscall
+Date: Fri, 15 Jun 2012 13:37:42 +0800
+Message-ID: <4FDACA26.70004@gmail.com>
+References: <4FDAB652.6070201@gmail.com> <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:59950 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750759Ab2FOFhM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2012 01:37:12 -0400
-Content-Disposition: inline
-In-Reply-To: <c2becb86-be73-4668-be84-82293c6c56fc@tahiti.vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	davidel@xmailserver.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 14, 2012 at 07:43:59PM -0700, Saurabh Mohan wrote:
-> > +
-> > +	iph->version		= 4;
-> > +	iph->protocol		= IPPROTO_ESP;
-> 
-> Why IPPROTO_ESP? What's with the other IPsec protocols?
-> Shouldn't this be IPPROTO_IPIP?
-> 
-> @SM: VTI will work only with ESP not with AH (at least I have never heard of any one using it with AH). Plus I wanted to keep this module separate from IPIP (ip-in-ip tunnels).
-> 
+=E4=BA=8E 2012=E5=B9=B406=E6=9C=8815=E6=97=A5 12:29, Changli Gao =E5=86=
+=99=E9=81=93:
+> On Fri, Jun 15, 2012 at 12:13 PM, Li Yu<raise.sail@gmail.com>  wrote:
+>> Hi,
+>>
+>>   We encounter a performance problem in a large scale computer
+>> cluster, which needs to handle a lot of incoming concurrent TCP
+>> connection requests.
+>>
+>>   The top shows the kernel is most cpu hog, the testing is simple,
+>> just a accept() ->  epoll_ctl(ADD) loop, the ratio of cpu util sys% =
+to
+>> si% is about 2:5.
+>>
+>>   I also asked some experienced webserver/proxy developers in my tea=
+m
+>> for suggestions, it seem that behavior of many userland programs alr=
+eady
+>> called accept() multiple times after it is waked up by
+>> epoll_wait(). And the common action is adding the fd that accept()
+>> return into epoll interface by epoll_ctl() syscall then.
+>>
+>>   Therefore, I think that we'd better to introduce to batch variants=
+ of
+>> accept() and epoll_ctl() syscall, just like sendmmsg() or recvmmsg()=
+=2E
+>>
+>>   For accept(), we may need a new syscall, it may like this,
+>>
+>>   struct accept_result {
+>>       int fd;
+>>       struct sockaddr addr;
+>>       socklen_t addr_len;
+>>   };
+>>
+>>   int maccept4(int fd, int flags, int nr_accept_result, struct
+>> accept_result *results);
+>>
+>>   For epoll_ctl(), there are two means to extend it, I prefer to ext=
+end
+>> current interface instead of introduce to new syscall. We may introd=
+uce
+>> to a new flag EPOLL_CTL_BATCH. If userland call epoll_ctl() with thi=
+s
+>> flag set, the meaning of last two arguments of epoll_ctl() change, .=
+e.g:
+>>
+>>   struct batch_epoll_event batch_event[] =3D {
+>>          {
+>>               .fd =3D a_newsock_fd;
+>>               .epoll_event =3D { ... };
+>>          },
+>>          ...
+>>   };
+>>
+>>   ret =3D epoll_ctl(fd, EPOLL_CTL_ADD|EPOLL_CTL_BATCH, nr_batch_even=
+ts,
+>> batch_events);
+>>
+>
+> I think it is good idea. Would you please implement a prototype and
+> give some numbers? This kind of data may help selling this idea.
+> Thanks.
+>
 
-VTI should be independent of the IPsec protocol.
-Our IPsec implementation supports AH (and IPCOMP)
-so VTI should support these protocols too.
+Of course, I think that implementing them should not be a hard work :)
+
+Em. I really do not know whether it is necessary to introduce to a new=20
+syscall here. An alternative solution to add new socket option to handl=
+e=20
+such batch requirement, so applications also can detect if kernel has=20
+this extended ability with a easy getsockopt() call.
+
+Any way, I am going to try to write a prototype first.
+
+Thanks
+
+Yu
