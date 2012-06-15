@@ -1,42 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
-Date: Fri, 15 Jun 2012 15:30:49 -0700 (PDT)
-Message-ID: <20120615.153049.103988387813257203.davem@davemloft.net>
-References: <1339616716.22704.661.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: remove skb_orphan_try()
+Date: Fri, 15 Jun 2012 15:31:21 -0700 (PDT)
+Message-ID: <20120615.153121.2111795723533328140.davem@davemloft.net>
+References: <1339668471.22704.714.camel@edumazet-glaptop>
+	<20120614.033153.258221733380821664.davem@davemloft.net>
+	<1339692164.7491.64.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, evansr@google.com,
-	eilong@broadcom.com, meravs@broadcom.com, yanivr@broadcom.com,
-	willemb@google.com, thruby@google.com
+Cc: jhautbois@gmail.com, netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51799 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51809 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758316Ab2FOWau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 18:30:50 -0400
-In-Reply-To: <1339616716.22704.661.camel@edumazet-glaptop>
+	with ESMTP id S1758318Ab2FOWbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 18:31:22 -0400
+In-Reply-To: <1339692164.7491.64.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 13 Jun 2012 21:45:16 +0200
+Date: Thu, 14 Jun 2012 18:42:44 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> [PATCH] net: remove skb_orphan_try()
 > 
-> There is a off by one error in the minimal number of BD in
-> bnx2x_start_xmit() and bnx2x_tx_int() before stopping/resuming tx queue.
+> Orphaning skb in dev_hard_start_xmit() makes bonding behavior
+> unfriendly for applications sending big UDP bursts : Once packets
+> pass the bonding device and come to real device, they might hit a full
+> qdisc and be dropped. Without orphaning, the sender is automatically
+> throttled because sk->sk_wmemalloc reaches sk->sk_sndbuf (assuming
+> sk_sndbuf is not too big)
 > 
-> A full size GSO packet, with data included in skb->head really needs
-> (MAX_SKB_FRAGS + 4) BDs, because of bnx2x_tx_split()
+> We could try to defer the orphaning adding another test in
+> dev_hard_start_xmit(), but all this seems of little gain,
+> now that BQL tends to make packets more likely to be parked
+> in Qdisc queues instead of NIC TX ring, in cases where performance
+> matters.
 > 
-> This error triggers if BQL is disabled and heavy TCP transmit traffic
-> occurs.
+> Reverts commits :
+> fc6055a5ba31 net: Introduce skb_orphan_try()
+> 87fd308cfc6b net: skb_tx_hash() fix relative to skb_orphan_try()
+> and removes SKBTX_DRV_NEEDS_SK_REF flag
 > 
-> bnx2x_tx_split() definitely can be called, remove a wrong comment.
-> 
-> Reported-by: Tomas Hruby <thruby@google.com>
+> Reported-and-bisected-by: Jean-Michel Hautbois <jhautbois@gmail.com>
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-I got tired of waiting for the Broadcom "maintainers" to review this,
-so I just applied it to 'net', thanks Eric.
+Applied, thanks Eric.
