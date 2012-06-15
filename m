@@ -1,93 +1,69 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] e1000: save skb counts in TX to avoid
-	cache misses
-Date: Thu, 14 Jun 2012 15:30:07 -0700
-Message-ID: <20120614223007.GD8006@kroah.com>
-References: <b838d871c0d507787373061e4edd91a624d62475.1339073391.git.rkagan@parallels.com>
-	<4FD11F49.5060805@gmail.com>
-	<20120607.144358.1732928576389957779.davem@davemloft.net>
-	<20120608021542.GA10112@kroah.com>
-	<1339141042.7850.51.camel@rkaganb.sw.ru>
-	<1339585937.17472.11.camel@rkaganb.sw.ru>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the wireless-next tree with the net
+ tree
+Date: Fri, 15 Jun 2012 10:23:10 +1000
+Message-ID: <20120615102310.a066ef60ba1c3c083f078aea@canb.auug.org.au>
+References: <20120612114129.68159847828093544c867306@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"dnelson@redhat.com" <dnelson@redhat.com>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Roman Kagan <rkagan@parallels.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1339585937.17472.11.camel@rkaganb.sw.ru>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__15_Jun_2012_10_23_10_+1000_pCGYjChD0K1uUYW6"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120612114129.68159847828093544c867306@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 13, 2012 at 03:12:17PM +0400, Roman Kagan wrote:
-> On Fri, 2012-06-08 at 11:37 +0400, Roman Kagan wrote:
-> > On Fri, 2012-06-08 at 06:15 +0400, Greg KH wrote:
-> > > On Thu, Jun 07, 2012 at 02:43:58PM -0700, David Miller wrote:
-> > > > From: Jeff Kirsher <tarbal@gmail.com>
-> > > > Date: Thu, 07 Jun 2012 14:38:17 -0700
-> > > > 
-> > > > > Thanks! I have applied the patch to my queue
-> > > > 
-> > > > Why?
-> > > > 
-> > > > My impression is that this is a patch already in the tree, and it's
-> > > > being submitted for -stable but such minor performance hacks are
-> > > > absolutely not appropriate for -stable submission.
-> > > 
-> > > The patch description says it is fixing reported oopses,
-> > 
-> > Exactly.
-> > 
-> > > but the Subject: isn't all that helpful there.
-> > 
-> > Well I just preserved the original subject from the upstream commit.
-> > Want me to resubmit with a more alarming one?
-> > 
-> > > So which is this?  Should I accept it for a stable release or not?
-> > 
-> > IMO yes ;)
-> 
-> What came out of this discussion?  Should I resubmit with a different
-> subject, or the original one is good enough?
-> 
-> The patch resolves a real oops; we've seen it multiple times when
-> running Ubuntu-11.10 in virtual machines.  Upstream and RHEL have the
-> fix since long.  Ubuntu is waiting for 3.0-stable to merge it
-> (https://bugs.launchpad.net/bugs/1009545).
+--Signature=_Fri__15_Jun_2012_10_23_10_+1000_pCGYjChD0K1uUYW6
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-That's pretty funny that Ubuntu is letting me be the gatekeeper of fixes
-to get to their customers, there's just so much wrong in that it's sad.
+Hi John, Dave,
 
-Anyway, I've queued it up for the next 3.0-stable release.
+On Tue, 12 Jun 2012 11:41:29 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
+wrote:
+>
+> Today's linux-next merge of the wireless-next tree got a conflict in
+> drivers/net/wireless/iwlwifi/pcie/trans.c between commit d012d04e4d63
+> ("iwlwifi: disable the buggy chain extension feature in HW") from the net
+> tree and commit 4beaf6c2f8af ("iwlwifi: s/txq_setup/txq_enable") from the
+> wireless-next tree.
+>=20
+> I fixed it up (I think - see below) and can carry the fix as necessary.
 
-thanks,
+So this conflict has now been fixed up in both the net-next (commit
+43b03f1f6d68) and wireless-next (commit 627ae3ddd6f9) trees, but slightly
+differently :-(  I used the version from the net-next tree.
 
-greg k-h
+Just a heads up.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--Signature=_Fri__15_Jun_2012_10_23_10_+1000_pCGYjChD0K1uUYW6
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJP2oBuAAoJEECxmPOUX5FEsNYQAJpn1R8C2NFiDaC8+4ismOzW
+5+96Xj8gdpRASRAkVjnD5+ZgYacw/H3VibsSBR1ez2nvjcmIY3GtIJIxSxkHBDpN
+fmjU4EZcbtMoQwq8CnCKVIfe2PZ0vhtR5g4vftZ/y9aVDi9DcWCU/bXux0qWUh30
+h1F7+A6osz9/KgTi+aBYoTAKdLnjnl85H2LyfH7lyWbrC4zEWcc8tSH2fjNRVdxq
+r1J8BbJmlKtLeHp8qKWFFQLWoSvgIjWTHFxpVqwtG3G655EvVp4Lm5VfIt9NLTTT
+C19m1CsIIkBZw8UGZ9YEvPjiJbIKewFRVBdDxMFbDLg1ycJf7aGtMoLrCkf0AoyI
+TmCUY+44PQVEtJiwu6SNOzTKU6ZdPG/js4PGhe4ZiIvMiqVK1F+RMt5NW+xqW2pl
+oqhGkgBdIikz4XOz5zT6J8rbUsyFdpn80zQUAf2Z7OrSjmItEAJVyEFXTKgX57Y9
+TdTxlJ99nh3OaK8T5vlCnhKqPhsg6QxXFTAp8nX6m3xc8arujbgqqQ/zQpXRvGWI
+Fy6wed7F1MtK59UorLWriQdMP5xdoR17QjF90hiUL9yy9Dfkt13WF1oAi342wBem
+vcGCVlna//bMn2j9Cf97PWPpxalxg+tYMl/qwSCYM9EP6bqc+v7fDEpshv1X1Yyd
+FMevpyZLmMLl6Y4mUZMC
+=DIPV
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__15_Jun_2012_10_23_10_+1000_pCGYjChD0K1uUYW6--
