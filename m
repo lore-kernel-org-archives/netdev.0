@@ -1,96 +1,68 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [net-next.git 1/4 (v5)] phy: add the EEE support and the way
- to access to the MMD registers.
-Date: Fri, 15 Jun 2012 08:06:00 +0200
-Message-ID: <4FDAD0C8.6000307@st.com>
-References: <1339574463-1207-1-git-send-email-peppe.cavallaro@st.com>  <1339574463-1207-2-git-send-email-peppe.cavallaro@st.com> <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] net: remove skb_orphan_try()
+Date: Fri, 15 Jun 2012 09:15:59 +0200
+Message-ID: <4FDAE12F.5000804@hartkopp.net>
+References: <1339667417.22704.707.camel@edumazet-glaptop>  <20120614.030021.2291563831943273331.davem@davemloft.net>  <1339668471.22704.714.camel@edumazet-glaptop>  <20120614.033153.258221733380821664.davem@davemloft.net> <1339692164.7491.64.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	rayagond@vayavyalabs.com, davem@davemloft.net,
-	yuvalmin@broadcom.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jhautbois@gmail.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:57389 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751379Ab2FOGGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 02:06:46 -0400
-In-Reply-To: <1339630137.2612.83.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:36989 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751478Ab2FOHQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 03:16:04 -0400
+In-Reply-To: <1339692164.7491.64.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Ben
+On 14.06.2012 18:42, Eric Dumazet wrote:
 
-On 6/14/2012 1:28 AM, Ben Hutchings wrote:
 
-[snip]
+> 
+> [PATCH] net: remove skb_orphan_try()
+> 
+> Orphaning skb in dev_hard_start_xmit() makes bonding behavior
+> unfriendly for applications sending big UDP bursts : Once packets
+> pass the bonding device and come to real device, they might hit a full
+> qdisc and be dropped. Without orphaning, the sender is automatically
+> throttled because sk->sk_wmemalloc reaches sk->sk_sndbuf (assuming
+> sk_sndbuf is not too big)
+> 
+> We could try to defer the orphaning adding another test in
+> dev_hard_start_xmit(), but all this seems of little gain,
+> now that BQL tends to make packets more likely to be parked
+> in Qdisc queues instead of NIC TX ring, in cases where performance
+> matters.
+> 
+> Reverts commits :
+> fc6055a5ba31 net: Introduce skb_orphan_try()
+> 87fd308cfc6b net: skb_tx_hash() fix relative to skb_orphan_try()
+> and removes SKBTX_DRV_NEEDS_SK_REF flag
+> 
+> Reported-and-bisected-by: Jean-Michel Hautbois <jhautbois@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  include/linux/skbuff.h |    7 ++-----
+>  net/can/raw.c          |    3 ---
+>  net/core/dev.c         |   23 +----------------------
+>  net/iucv/af_iucv.c     |    1 -
+>  4 files changed, 3 insertions(+), 31 deletions(-)
+> 
 
->> > + */
->> > +int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
->> > +{
->> > +	int ret =3D -EPROTONOSUPPORT;
->> > +
->> > +	/* According to 802.3az,the EEE is supported only in full duplex=
--mode.
->> > +	 * Also EEE feature is active when core is operating with MII, G=
-MII
->> > +	 * or RGMII.
->> > +	 */
->> > +	if ((phydev->duplex =3D=3D DUPLEX_FULL) &&
->> > +	    ((phydev->interface =3D=3D PHY_INTERFACE_MODE_MII) ||
->> > +	    (phydev->interface =3D=3D PHY_INTERFACE_MODE_GMII) ||
->> > +	    (phydev->interface =3D=3D PHY_INTERFACE_MODE_RGMII))) {
->> > +		int eee_cap, eee_link;
->> > +
->> > +		/* EEE ability must be supported in both local and remote
->> > +		 * PHY devices.
->> > +		 */
->> > +		eee_cap =3D phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPAB=
-LE,
->> > +						MDIO_MMD_AN, phydev->addr);
->> > +		if (eee_cap < 0)
->> > +			return eee_cap;
->> > +
->> > +		eee_link =3D phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_AB=
-LE,
->> > +						 MDIO_MMD_PCS, phydev->addr);
->> > +		if (eee_link < 0)
->> > +			return eee_link;
->> > +
->> > +		if (eee_cap && eee_link) {
-> I don't see any harm in setting the 'clock stop' bit if requested, ev=
-en
-> if EEE is not supported and therefore we will never receive LPI from =
-the
-> link partner.
 
-ok
+As i originally introduced the SKBTX_DRV_NEEDS_SK_REF flag to preserve the skb
+packet flow for CAN i'm pretty happy to see that skb_orphan_try() goes away
+again :-)
 
-> But you also use this condition to decide whether to enable TX LPI, s=
-o
-> it's important that it does match the specification (=C2=A778.3) for =
-whether
-> EEE is supported - but it doesn't.  You need to work out what mode wa=
-s
-> autonegotiated, then check that the relevant bit is set in both our E=
-EE
-> advertising (*not* supported) and the LP EEE advertising masks.
+I also tested this patch with my test-apps that would detect these problems.
 
-I've some doubts and, before resending the patch, I kindly ask you some
-further details just on this point.
+Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-In the code, I check if the EEE is supported and on GMII, MII and RGMII
-and duplex mode; in case of success the Ethernet driver can enable the
-TX LPI.
-Indeed, I am only using the 3.20 and 7.61 registers w/o looking at the
-7.60. So this should be fixed, shouldn't it?
-Am I missing anything else?
-What do you mean when say that it doesn't match the specification
-(=C2=A778.3)? I'm pointing to the '78.3 Capabilities Negotiation' chapt=
-er of
-the IEEE802-3az, is it ok?=02=03=03=03=04=05=06=07=04=08
+Tnx Eric!
 
-=03=03=03=04Thanks for your feedback in advance.
-
-peppe
+Regards,
+Oliver
