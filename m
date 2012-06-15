@@ -1,26 +1,40 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH wireless-next 00/20] Use pr_<level>
-Date: Fri, 15 Jun 2012 09:36:51 +0200
-Message-ID: <1339745811.4512.0.camel@jlt3.sipsolutions.net>
-References: <cover.1339739415.git.joe@perches.com>
-	 (sfid-20120615_080311_586023_85E50A2D)
+From: Sakari Ailus <sakari.ailus@nokia.com>
+Subject: Re: [PATCH] net: remove my future former mail address
+Date: Fri, 15 Jun 2012 10:44:21 +0300
+Message-ID: <4FDAE7D5.5040709@nokia.com>
+References: <1339662543-7203-1-git-send-email-remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	libertas-dev@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1339739415.git.joe@perches.com> (sfid-20120615_080311_586023_85E50A2D)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+To: =?ISO-8859-1?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.nokia.com ([147.243.128.26]:50910 "EHLO mgw-da02.nokia.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875Ab2FOHog (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2012 03:44:36 -0400
+In-Reply-To: <1339662543-7203-1-git-send-email-remi@remlab.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-14 at 22:53 -0700, Joe Perches wrote:
-> Update logging style
+Hi R=E9mi,
 
-So ... since we make everybody else explain *why* they make a change, I
-think you should too. I don't see a reason for this random patching of
-perfectly good code.
+R=E9mi Denis-Courmont wrote:
+> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi@remlab.net>
+> Cc: Sakari Ailus <sakari.ailus@nokia.com>
 
-johannes
+Hmm. While you're at it, could you please remove mine from the same
+files as well, please?
+
+I wonder if this also means that the code will be without a maintainer
+in the future.
+
+Kind regards,
+
+--=20
+Sakari Ailus
+sakari.ailus@maxwell.research.nokia.com
