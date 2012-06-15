@@ -1,46 +1,86 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: c_can: precedence error in c_can_chip_config()
-Date: Fri, 15 Jun 2012 12:20:44 +0200
-Message-ID: <1339755644-6686-2-git-send-email-mkl@pengutronix.de>
-References: <1339755644-6686-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: davem@davemloft.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1339755644-6686-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH wireless-next 18/20] ti: Use pr_<level>
+Date: Fri, 15 Jun 2012 03:42:11 -0700
+Message-ID: <1339756931.24527.16.camel@joe2Laptop>
+References: <cover.1339739415.git.joe@perches.com>
+	 <a4533db379be3689e3b29ed9b0d170263d875f7d.1339739416.git.joe@perches.com>
+	 <1339749374.4502.80.camel@cumari.coelho.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Luciano Coelho <coelho@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1339749374.4502.80.camel@cumari.coelho.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+On Fri, 2012-06-15 at 11:36 +0300, Luciano Coelho wrote:
+> Hi Joe,
 
-(CAN_CTRLMODE_LISTENONLY & CAN_CTRLMODE_LOOPBACK) is (0x02 & 0x01) which
-is zero so the condition is never true.  The intent here was to test
-that both flags were set.
+Hi Luciano.
 
-Cc: <stable@kernel.org> # 2.6.39+
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/c_can/c_can.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> As Johannes already mentioned, I have to also ask why do you need to do
+> this?
 
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index 8dc84d6..86cd532 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -590,8 +590,8 @@ static void c_can_chip_config(struct net_device *dev)
- 	priv->write_reg(priv, &priv->regs->control,
- 			CONTROL_ENABLE_AR);
- 
--	if (priv->can.ctrlmode & (CAN_CTRLMODE_LISTENONLY &
--					CAN_CTRLMODE_LOOPBACK)) {
-+	if ((priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) &&
-+	    (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)) {
- 		/* loopback + silent mode : useful for hot self-test */
- 		priv->write_reg(priv, &priv->regs->control, CONTROL_EIE |
- 				CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
--- 
-1.7.4.1
+To use a more consistent logging style.
+To minimize unnecessary changes when adding
+similar drivers based on this code.
 
+>  I see the point, slightly, with the wl1251 code, because it is
+> still using printks, but with wlcore and friends, there's no functional
+> change.
+
+Using a consistent logging style minimizes defects.
+
+> As mentioned above, this change here is acceptable, but removing the \n
+> from the macro and adding it at the end of each and every call is
+> useless and will just skew git-blame and make it harder to do rebase or
+> apply patches because of conflicts.
+
+In practice, the merging won't be much of an issue.
+Neither will git blame.
+
+> > -#define wl1271_warning(fmt, arg...) \
+> > -	pr_warning(DRIVER_PREFIX "WARNING " fmt "\n", ##arg)
+> > +#define wl1271_warn(fmt, arg...)				\
+> > +	pr_warn(DRIVER_PREFIX "WARNING " fmt, ##arg)
+> 
+> Using pr_warn instead of pr_warning is pointless.  pr_warning is the
+> main definition, actually, and pr_warn is just a "mirror".
+
+I expect one day to reverse the definitions.
+
+The kernel is moving, albeit slowly to prefer
+pr_warn to mirror dev_warn, netdev_warn, etc.
+
+Most of these uses will eventually become netdev_warn.
+netdev_warn still uses a \n.
+
+> Again, moving the \n from the macro definition and changing all the
+> callers is an unnecessary, intrusive change.
+> 
+> We have wanted to change "wl1271" to "wl12xx" for a long time, but we
+> don't do it exactly because this means we need to change the calls
+> everywhere.
+
+Nothing in ever _needed_, no child will go
+hungry or fed here.  This is a consistency change.
+
+There are a couple of instances where \n is
+currently used unnecessarily that are fixed in
+the conversion.
+
+$ git grep -E  "\bwl12[0-9]+_[a-z]+\s*\(.*\\\\n\"" drivers/net/wireless/ti
+drivers/net/wireless/ti/wl12xx/cmd.c:   wl1271_debug(DEBUG_CMD, "FEM autodetect: %s, manufacturer: %d\n",
+drivers/net/wireless/ti/wl12xx/cmd.c:   wl1271_debug(DEBUG_CMD, "FEM autodetect: %s, manufacturer: %d\n",
+drivers/net/wireless/ti/wlcore/main.c:          wl1271_error("Incorrect ampdu action id=%x\n", action);
+
+People make these mistakes because the more
+common and adjacent dev_<level> code _use_
+a newline.  Using a consistent style minimzes
+these defects.
+
+cheers, Joe
