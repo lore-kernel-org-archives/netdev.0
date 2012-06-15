@@ -1,52 +1,67 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: Re: [patch] qlcnic: off by one in qlcnic_init_pci_info()
-Date: Thu, 14 Jun 2012 21:03:14 -0700
-Message-ID: <CC000197.32F56%anirban.chakraborty@qlogic.com>
-References: <20120614183424.GC6383@elgon.mountain>
+From: Li Yu <raise.sail@gmail.com>
+Subject: [RFC] Introduce to batch variants of accept() and epoll_ctl() syscall
+Date: Fri, 15 Jun 2012 12:13:06 +0800
+Message-ID: <4FDAB652.6070201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	davidel@xmailserver.org
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe001.messaging.microsoft.com ([213.199.154.139]:30891
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750725Ab2FOEDW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2012 00:03:22 -0400
-In-Reply-To: <20120614183424.GC6383@elgon.mountain>
-Content-Language: en-US
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:52353 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759Ab2FOENS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jun 2012 00:13:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+  We encounter a performance problem in a large scale computer
+cluster, which needs to handle a lot of incoming concurrent TCP
+connection requests.
 
-On 6/14/12 11:34 AM, "Dan Carpenter" <dan.carpenter@oracle.com> wrote:
+  The top shows the kernel is most cpu hog, the testing is simple,
+just a accept() -> epoll_ctl(ADD) loop, the ratio of cpu util sys% to
+si% is about 2:5.
 
->The adapter->npars[] array has QLCNIC_MAX_PCI_FUNC elements.  We
->allocate it that way a few lines earlier in the function.  So this test
->is off by one.
->
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
->diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->index 33c3e46..212c121 100644
->--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->@@ -479,7 +479,7 @@ qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
-> 
-> 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
-> 		pfn = pci_info[i].id;
->-		if (pfn > QLCNIC_MAX_PCI_FUNC) {
->+		if (pfn >= QLCNIC_MAX_PCI_FUNC) {
-> 			ret = QL_STATUS_INVALID_PARAM;
-> 			goto err_eswitch;
-> 		}
+  I also asked some experienced webserver/proxy developers in my team
+for suggestions, it seem that behavior of many userland programs already
+called accept() multiple times after it is waked up by
+epoll_wait(). And the common action is adding the fd that accept()
+return into epoll interface by epoll_ctl() syscall then.
 
-Thanks for the patch.
+  Therefore, I think that we'd better to introduce to batch variants of
+accept() and epoll_ctl() syscall, just like sendmmsg() or recvmmsg().
 
-Acked-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+  For accept(), we may need a new syscall, it may like this,
+
+  struct accept_result {
+      int fd;
+      struct sockaddr addr;
+      socklen_t addr_len;
+  };
+
+  int maccept4(int fd, int flags, int nr_accept_result, struct
+accept_result *results);
+
+  For epoll_ctl(), there are two means to extend it, I prefer to extend
+current interface instead of introduce to new syscall. We may introduce
+to a new flag EPOLL_CTL_BATCH. If userland call epoll_ctl() with this
+flag set, the meaning of last two arguments of epoll_ctl() change, .e.g:
+
+  struct batch_epoll_event batch_event[] = {
+         {
+              .fd = a_newsock_fd;
+              .epoll_event = { ... };
+         },
+         ...
+  };
+
+  ret = epoll_ctl(fd, EPOLL_CTL_ADD|EPOLL_CTL_BATCH, nr_batch_events,
+batch_events);
+
+  Thanks.
+
+Yu
