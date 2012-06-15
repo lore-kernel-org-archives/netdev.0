@@ -1,12 +1,12 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH wireless-next 04/20] atmel: atmel_cs: Use pr_<level>
-Date: Thu, 14 Jun 2012 22:53:44 -0700
-Message-ID: <ce3d70d9120108bf646e4a3c0c8b5698ce3ce1ad.1339739416.git.joe@perches.com>
+Subject: [PATCH wireless-next 05/20] b43: Use pr_<level>
+Date: Thu, 14 Jun 2012 22:53:45 -0700
+Message-ID: <8cf055c50431d00cebcd134a6560a59e093057cc.1339739416.git.joe@perches.com>
 References: <cover.1339739415.git.joe@perches.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Simon Kelley <simon@thekelleys.org.uk>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefano Brivio <stefano.brivio@polimi.it>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1339739415.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -19,258 +19,181 @@ Coalesce formats, align arguments.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/atmel.c    |   71 ++++++++++++++++++++-------------------
- drivers/net/wireless/atmel_cs.c |    4 ++-
- 2 files changed, 39 insertions(+), 36 deletions(-)
+ drivers/net/wireless/b43/debugfs.c |   20 +++++++++--------
+ drivers/net/wireless/b43/main.c    |   41 ++++++++++++++++-------------------
+ drivers/net/wireless/b43/pcmcia.c  |    5 ++-
+ 3 files changed, 33 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
-index d07c030..2688735 100644
---- a/drivers/net/wireless/atmel.c
-+++ b/drivers/net/wireless/atmel.c
-@@ -39,6 +39,8 @@
+diff --git a/drivers/net/wireless/b43/debugfs.c b/drivers/net/wireless/b43/debugfs.c
+index e807bd9..1feebd9 100644
+--- a/drivers/net/wireless/b43/debugfs.c
++++ b/drivers/net/wireless/b43/debugfs.c
+@@ -23,6 +23,8 @@
  
- ******************************************************************************/
+ */
  
 +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
+ #include <linux/fs.h>
+ #include <linux/debugfs.h>
+ #include <linux/slab.h>
+@@ -61,15 +63,15 @@ struct b43_dfs_file *fops_to_dfs_file(struct b43_wldev *dev,
+ }
+ 
+ 
+-#define fappend(fmt, x...)	\
+-	do {							\
+-		if (bufsize - count)				\
+-			count += snprintf(buf + count,		\
+-					  bufsize - count,	\
+-					  fmt , ##x);		\
+-		else						\
+-			printk(KERN_ERR "b43: fappend overflow\n"); \
+-	} while (0)
++#define fappend(fmt, x...)					\
++do {								\
++	if (bufsize - count)					\
++		count += snprintf(buf + count,			\
++				  bufsize - count,		\
++				  fmt , ##x);			\
++	else							\
++		pr_err("fappend overflow\n");			\
++} while (0)
+ 
+ 
+ /* The biggest address values for SHM access from the debugfs files. */
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index acd03a4..2bcedce 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -32,6 +32,8 @@
+ 
+ */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/delay.h>
  #include <linux/init.h>
- #include <linux/interrupt.h>
+ #include <linux/module.h>
+@@ -354,8 +356,8 @@ void b43info(struct b43_wl *wl, const char *fmt, ...)
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
  
-@@ -1189,7 +1191,7 @@ static irqreturn_t service_interrupt(int irq, void *dev_id)
- 	while (1) {
- 		if (!atmel_lock_mac(priv)) {
- 			/* failed to contact card */
--			printk(KERN_ALERT "%s: failed to contact MAC.\n", dev->name);
-+			pr_alert("%s: failed to contact MAC\n", dev->name);
- 			return IRQ_HANDLED;
+-	printk(KERN_INFO "b43-%s: %pV",
+-	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
++	pr_info("%s: %pV",
++		(wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
+ 
+ 	va_end(args);
+ }
+@@ -375,7 +377,7 @@ void b43err(struct b43_wl *wl, const char *fmt, ...)
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
+ 
+-	printk(KERN_ERR "b43-%s ERROR: %pV",
++	pr_err("%s ERROR: %pV",
+ 	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
+ 
+ 	va_end(args);
+@@ -396,8 +398,8 @@ void b43warn(struct b43_wl *wl, const char *fmt, ...)
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
+ 
+-	printk(KERN_WARNING "b43-%s warning: %pV",
+-	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
++	pr_warn("%s warning: %pV",
++		(wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
+ 
+ 	va_end(args);
+ }
+@@ -415,7 +417,7 @@ void b43dbg(struct b43_wl *wl, const char *fmt, ...)
+ 	vaf.fmt = fmt;
+ 	vaf.va = &args;
+ 
+-	printk(KERN_DEBUG "b43-%s debug: %pV",
++	printk(KERN_DEBUG pr_fmt("%s debug: %pV"),
+ 	       (wl && wl->hw) ? wiphy_name(wl->hw->wiphy) : "wlan", &vaf);
+ 
+ 	va_end(args);
+@@ -1069,7 +1071,7 @@ static void b43_dump_keymemory(struct b43_wldev *dev)
+ 	}
+ 	for (index = 0; index < count; index++) {
+ 		key = &(dev->key[index]);
+-		printk(KERN_DEBUG "Key slot %02u: %s",
++		printk(KERN_DEBUG pr_fmt("Key slot %02u: %s"),
+ 		       index, (key->keyconf == NULL) ? " " : "*");
+ 		offset = dev->ktp + (index * B43_SEC_KEYSIZE);
+ 		for (i = 0; i < B43_SEC_KEYSIZE; i += 2) {
+@@ -1794,7 +1796,7 @@ static void b43_handle_firmware_panic(struct b43_wldev *dev)
+ 
+ static void handle_irq_ucode_debug(struct b43_wldev *dev)
+ {
+-	unsigned int i, cnt;
++	unsigned int i;
+ 	u16 reason, marker_id, marker_line;
+ 	__le16 *buf;
+ 
+@@ -1830,18 +1832,15 @@ static void handle_irq_ucode_debug(struct b43_wldev *dev)
+ 		if (!B43_DEBUG)
+ 			break; /* Only with driver debugging enabled. */
+ 		b43info(dev->wl, "Microcode register dump:\n");
+-		for (i = 0, cnt = 0; i < 64; i++) {
++		for (i = 0; i < 64; i++) {
+ 			u16 tmp = b43_shm_read16(dev, B43_SHM_SCRATCH, i);
+-			if (cnt == 0)
+-				printk(KERN_INFO);
+-			printk("r%02u: 0x%04X  ", i, tmp);
+-			cnt++;
+-			if (cnt == 6) {
+-				printk("\n");
+-				cnt = 0;
+-			}
++			if (!(i % 6))
++				pr_info("");
++			
++			pr_cont("r%02u: 0x%04X%s",
++				i, tmp, (i % 6) != 5 ? "  " : "\n");
  		}
- 
-@@ -1209,7 +1211,7 @@ static irqreturn_t service_interrupt(int irq, void *dev_id)
- 
- 		if (!atmel_lock_mac(priv)) {
- 			/* failed to contact card */
--			printk(KERN_ALERT "%s: failed to contact MAC.\n", dev->name);
-+			pr_alert("%s: failed to contact MAC\n", dev->name);
- 			return IRQ_HANDLED;
- 		}
- 
-@@ -1240,7 +1242,8 @@ static irqreturn_t service_interrupt(int irq, void *dev_id)
- 			break;
- 
- 		case ISR_FATAL_ERROR:
--			printk(KERN_ALERT "%s: *** FATAL error interrupt ***\n", dev->name);
-+			pr_alert("%s: *** FATAL error interrupt ***\n",
-+				 dev->name);
- 			atmel_enter_state(priv, STATION_STATE_MGMT_ERROR);
- 			break;
- 
-@@ -1256,7 +1259,7 @@ static irqreturn_t service_interrupt(int irq, void *dev_id)
- 				build_wpa_mib(priv);
- 			break;
- 		case ISR_GENERIC_IRQ:
--			printk(KERN_INFO "%s: Generic_irq received.\n", dev->name);
-+			pr_info("%s: Generic_irq received\n", dev->name);
- 			break;
- 		}
- 	}
-@@ -1355,7 +1358,8 @@ int atmel_open(struct net_device *dev)
- 				break;
- 		if (i == ARRAY_SIZE(channel_table)) {
- 			priv->reg_domain = REG_DOMAIN_MKK1;
--			printk(KERN_ALERT "%s: failed to get regulatory domain: assuming MKK1.\n", dev->name);
-+			pr_alert("%s: failed to get regulatory domain: assuming MKK1\n",
-+				 dev->name);
- 		}
- 	}
- 
-@@ -1536,7 +1540,7 @@ struct net_device *init_atmel_card(unsigned short irq, unsigned long port,
- 		return NULL;
- 
- 	if (dev_alloc_name(dev, dev->name) < 0) {
--		printk(KERN_ERR "atmel: Couldn't get name!\n");
-+		pr_err("Couldn't get name!\n");
- 		goto err_out_free;
- 	}
- 
-@@ -1611,7 +1615,8 @@ struct net_device *init_atmel_card(unsigned short irq, unsigned long port,
- 	SET_NETDEV_DEV(dev, sys_dev);
- 
- 	if ((rc = request_irq(dev->irq, service_interrupt, IRQF_SHARED, dev->name, dev))) {
--		printk(KERN_ERR "%s: register interrupt %d failed, rc %d\n", dev->name, irq, rc);
-+		pr_err("%s: register interrupt %d failed, rc %d\n",
-+		       dev->name, irq, rc);
- 		goto err_out_free;
- 	}
- 
-@@ -1632,10 +1637,10 @@ struct net_device *init_atmel_card(unsigned short irq, unsigned long port,
- 
- 	ent = create_proc_read_entry ("driver/atmel", 0, NULL, atmel_read_proc, priv);
- 	if (!ent)
--		printk(KERN_WARNING "atmel: unable to create /proc entry.\n");
-+		pr_warn("unable to create /proc entry\n");
- 
--	printk(KERN_INFO "%s: Atmel at76c50x. Version %d.%d. MAC %pM\n",
--	       dev->name, DRIVER_MAJOR, DRIVER_MINOR, dev->dev_addr);
-+	pr_info("%s: Atmel at76c50x. Version %d.%d. MAC %pM\n",
-+		dev->name, DRIVER_MAJOR, DRIVER_MINOR, dev->dev_addr);
- 
- 	return dev;
- 
-@@ -3642,12 +3647,12 @@ static int atmel_wakeup_firmware(struct atmel_private *priv)
- 	}
- 
- 	if (i == 0) {
--		printk(KERN_ALERT "%s: MAC failed to boot.\n", priv->dev->name);
-+		pr_alert("%s: MAC failed to boot\n", priv->dev->name);
- 		return -EIO;
- 	}
- 
- 	if ((priv->host_info_base = atmel_read16(priv->dev, MR2)) == 0xffff) {
--		printk(KERN_ALERT "%s: card missing.\n", priv->dev->name);
-+		pr_alert("%s: card missing\n", priv->dev->name);
- 		return -ENODEV;
- 	}
- 
-@@ -3670,20 +3675,19 @@ static int atmel_wakeup_firmware(struct atmel_private *priv)
- 	}
- 
- 	if (i == 0) {
--		printk(KERN_ALERT "%s: MAC failed to initialise.\n",
--				priv->dev->name);
-+		pr_alert("%s: MAC failed to initialise\n", priv->dev->name);
- 		return -EIO;
- 	}
- 
- 	/* Check for MAC_INIT_OK only on the register that the MAC_INIT_OK was set */
- 	if ((mr3 & MAC_INIT_COMPLETE) &&
- 	    !(atmel_read16(priv->dev, MR3) & MAC_INIT_OK)) {
--		printk(KERN_ALERT "%s: MAC failed MR3 self-test.\n", priv->dev->name);
-+		pr_alert("%s: MAC failed MR3 self-test\n", priv->dev->name);
- 		return -EIO;
- 	}
- 	if ((mr1 & MAC_INIT_COMPLETE) &&
- 	    !(atmel_read16(priv->dev, MR1) & MAC_INIT_OK)) {
--		printk(KERN_ALERT "%s: MAC failed MR1 self-test.\n", priv->dev->name);
-+		pr_alert("%s: MAC failed MR1 self-test\n", priv->dev->name);
- 		return -EIO;
- 	}
- 
-@@ -3735,7 +3739,8 @@ static int probe_atmel_card(struct net_device *dev)
- 			if (atmel_read16(dev, MR3) & MAC_BOOT_COMPLETE)
- 				break;
- 		if (i == 0) {
--			printk(KERN_ALERT "%s: MAC failed to boot MAC address reader.\n", dev->name);
-+			pr_alert("%s: MAC failed to boot MAC address reader\n",
-+				 dev->name);
- 		} else {
- 			atmel_copy_to_host(dev, dev->dev_addr, atmel_read16(dev, MR2), 6);
- 			/* got address, now squash it again until the network
-@@ -3773,7 +3778,8 @@ static int probe_atmel_card(struct net_device *dev)
- 			static const u8 default_mac[] = {
- 				0x00, 0x04, 0x25, 0x00, 0x00, 0x00
- 			};
--			printk(KERN_ALERT "%s: *** Invalid MAC address. UPGRADE Firmware ****\n", dev->name);
-+			pr_alert("%s: *** Invalid MAC address. UPGRADE Firmware ****\n",
-+				 dev->name);
- 			memcpy(dev->dev_addr, default_mac, 6);
- 		}
- 	}
-@@ -3926,19 +3932,16 @@ static int reset_atmel_card(struct net_device *dev)
- 		if (!(fw = priv->firmware)) {
- 			if (priv->firmware_type == ATMEL_FW_TYPE_NONE) {
- 				if (strlen(priv->firmware_id) == 0) {
--					printk(KERN_INFO
--					       "%s: card type is unknown: assuming at76c502 firmware is OK.\n",
--					       dev->name);
--					printk(KERN_INFO
--					       "%s: if not, use the firmware= module parameter.\n",
--					       dev->name);
-+					pr_info("%s: card type is unknown: assuming at76c502 firmware is OK\n",
-+						dev->name);
-+					pr_info("%s: if not, use the firmware= module parameter\n",
-+						dev->name);
- 					strcpy(priv->firmware_id, "atmel_at76c502.bin");
- 				}
- 				err = request_firmware(&fw_entry, priv->firmware_id, priv->sys_dev);
- 				if (err != 0) {
--					printk(KERN_ALERT
--					       "%s: firmware %s is missing, cannot continue.\n",
--					       dev->name, priv->firmware_id);
-+					pr_alert("%s: firmware %s is missing, cannot continue\n",
-+						 dev->name, priv->firmware_id);
- 					return err;
- 				}
- 			} else {
-@@ -3964,9 +3967,8 @@ static int reset_atmel_card(struct net_device *dev)
- 					}
- 				}
- 				if (!success) {
--					printk(KERN_ALERT
--					       "%s: firmware %s is missing, cannot start.\n",
--					       dev->name, priv->firmware_id);
-+					pr_alert("%s: firmware %s is missing, cannot start\n",
-+						 dev->name, priv->firmware_id);
- 					priv->firmware_id[0] = '\0';
- 					return -ENOENT;
- 				}
-@@ -4035,8 +4037,7 @@ static int reset_atmel_card(struct net_device *dev)
- 	if (!priv->radio_on_broken) {
- 		if (atmel_send_command_wait(priv, CMD_EnableRadio, NULL, 0) ==
- 		    CMD_STATUS_REJECTED_RADIO_OFF) {
--			printk(KERN_INFO "%s: cannot turn the radio on.\n",
--			       dev->name);
-+			pr_info("%s: cannot turn the radio on\n", dev->name);
- 			return -EIO;
- 		}
- 	}
-@@ -4101,7 +4102,7 @@ static int atmel_send_command_wait(struct atmel_private *priv, int command,
- 	}
- 
- 	if (i == 0) {
--		printk(KERN_ALERT "%s: failed to contact MAC.\n", priv->dev->name);
-+		pr_alert("%s: failed to contact MAC\n", priv->dev->name);
- 		status =  CMD_STATUS_HOST_ERROR;
- 	} else {
- 		if (command != CMD_EnableRadio)
-@@ -4155,7 +4156,7 @@ static void atmel_set_mib(struct atmel_private *priv, u8 type, u8 index,
- 	m.index = index;
- 
- 	if (data_len > MIB_MAX_DATA_BYTES)
--		printk(KERN_ALERT "%s: MIB buffer too small.\n", priv->dev->name);
-+		pr_alert("%s: MIB buffer too small\n", priv->dev->name);
- 
- 	memcpy(m.data, data, data_len);
- 	atmel_send_command_wait(priv, CMD_Set_MIB_Vars, &m, MIB_HEADER_SIZE + data_len);
-@@ -4170,7 +4171,7 @@ static void atmel_get_mib(struct atmel_private *priv, u8 type, u8 index,
- 	m.index = index;
- 
- 	if (data_len > MIB_MAX_DATA_BYTES)
--		printk(KERN_ALERT "%s: MIB buffer too small.\n", priv->dev->name);
-+		pr_alert("%s: MIB buffer too small\n", priv->dev->name);
- 
- 	atmel_send_command_wait(priv, CMD_Get_MIB_Vars, &m, MIB_HEADER_SIZE + data_len);
- 	atmel_copy_to_host(priv->dev, data,
-diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
-index ded03d2..2b85420 100644
---- a/drivers/net/wireless/atmel_cs.c
-+++ b/drivers/net/wireless/atmel_cs.c
-@@ -29,6 +29,8 @@
- 
- ******************************************************************************/
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #ifdef __IN_PCMCIA_PACKAGE__
- #include <pcmcia/k_compat.h>
+-		printk("\n");
++		pr_cont("\n");
+ 		break;
+ 	case B43_DEBUGIRQ_MARKER:
+ 		if (!B43_DEBUG)
+@@ -5509,10 +5508,8 @@ static void b43_print_driverinfo(void)
+ #ifdef CONFIG_B43_SDIO
+ 	feat_sdio = "S";
  #endif
-@@ -80,7 +82,7 @@ static int atmel_probe(struct pcmcia_device *p_dev)
- 	/* Allocate space for private device-specific data */
- 	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
- 	if (!local) {
--		printk(KERN_ERR "atmel_cs: no memory for new device\n");
-+		pr_err("no memory for new device\n");
- 		return -ENOMEM;
- 	}
- 	p_dev->priv = local;
+-	printk(KERN_INFO "Broadcom 43xx driver loaded "
+-	       "[ Features: %s%s%s%s%s ]\n",
+-	       feat_pci, feat_pcmcia, feat_nphy,
+-	       feat_leds, feat_sdio);
++	pr_info("Broadcom 43xx driver loaded [ Features: %s%s%s%s%s ]\n",
++		feat_pci, feat_pcmcia, feat_nphy, feat_leds, feat_sdio);
+ }
+ 
+ static int __init b43_init(void)
+diff --git a/drivers/net/wireless/b43/pcmcia.c b/drivers/net/wireless/b43/pcmcia.c
+index 714cad6..0c0751a 100644
+--- a/drivers/net/wireless/b43/pcmcia.c
++++ b/drivers/net/wireless/b43/pcmcia.c
+@@ -21,6 +21,8 @@
+ 
+ */
+ 
++#define pr_fmt(fmt) "b43-pcmcia: " fmt
++
+ #include "pcmcia.h"
+ 
+ #include <linux/ssb/ssb.h>
+@@ -105,8 +107,7 @@ err_disable:
+ err_kfree_ssb:
+ 	kfree(ssb);
+ out_error:
+-	printk(KERN_ERR "b43-pcmcia: Initialization failed (%d, %d)\n",
+-	       res, err);
++	pr_err("Initialization failed (%d, %d)\n", res, err);
+ 	return err;
+ }
+ 
 -- 
 1.7.8.111.gad25c.dirty
