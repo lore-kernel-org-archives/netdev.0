@@ -1,62 +1,48 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch] bonding: show all the link status of slaves
-Date: Fri, 15 Jun 2012 16:39:27 +0800
-Message-ID: <1339749567-20393-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6458 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753394Ab2FOIjx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2012 04:39:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] Introduce to batch variants of accept() and epoll_ctl()
+ syscall
+Date: Fri, 15 Jun 2012 10:51:58 +0200
+Message-ID: <1339750318.7491.70.camel@edumazet-glaptop>
+References: <4FDAB652.6070201@gmail.com>
+	 <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
+	 <4FDACA26.70004@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	davidel@xmailserver.org
+To: Li Yu <raise.sail@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FDACA26.70004@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are four link statuses of a bonding slave, the procfs
-code shows a wrong status when using downdelay/updelay:
+On Fri, 2012-06-15 at 13:37 +0800, Li Yu wrote:
 
-	(slave->link == BOND_LINK_UP) ?  "up" : "down"
+> Of course, I think that implementing them should not be a hard work :)
+> 
+> Em. I really do not know whether it is necessary to introduce to a new 
+> syscall here. An alternative solution to add new socket option to handle 
+> such batch requirement, so applications also can detect if kernel has 
+> this extended ability with a easy getsockopt() call.
+> 
+> Any way, I am going to try to write a prototype first.
 
-It doesn't respect the rest two statuses. This patch fixes it.
+Before that, could you post the result of "perf top", or "perf
+record ...;perf report"
 
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+>  The top shows the kernel is most cpu hog, the testing is simple,
+> just a accept() -> epoll_ctl(ADD) loop, the ratio of cpu util sys% to
+> si% is about 2:5.
 
----
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index ad284ba..3cea38d 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -150,14 +150,25 @@ static void bond_info_show_master(struct seq_file *seq)
- 	}
- }
- 
-+static const char *bond_slave_link_status(s8 link)
-+{
-+	static const char * const status[] = {
-+		[BOND_LINK_UP] = "up",
-+		[BOND_LINK_FAIL] = "going down",
-+		[BOND_LINK_DOWN] = "down",
-+		[BOND_LINK_BACK] = "going back",
-+	};
-+
-+	return status[link];
-+}
-+
- static void bond_info_show_slave(struct seq_file *seq,
- 				 const struct slave *slave)
- {
- 	struct bonding *bond = seq->private;
- 
- 	seq_printf(seq, "\nSlave Interface: %s\n", slave->dev->name);
--	seq_printf(seq, "MII Status: %s\n",
--		   (slave->link == BOND_LINK_UP) ?  "up" : "down");
-+	seq_printf(seq, "MII Status: %s\n", bond_slave_link_status(slave->link));
- 	if (slave->speed == SPEED_UNKNOWN)
- 		seq_printf(seq, "Speed: %s\n", "Unknown");
- 	else
+This ratio is not meaningful, if we dont know where time is spent.
+
+
+I doubt epoll_ctl(ADD) is a problem here...
+
+If it is, batching the fds wont speed the thing anyway...
+
+I believe accept() is the problem here, because it contends with the
+softirq processing the tcp session handshake.
