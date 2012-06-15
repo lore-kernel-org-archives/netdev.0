@@ -1,49 +1,62 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [RFC] Introduce to batch variants of accept() and epoll_ctl() syscall
-Date: Fri, 15 Jun 2012 09:35:29 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F4D@saturn3.aculab.com>
-References: <4FDAB652.6070201@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	<davidel@xmailserver.org>
-To: "Li Yu" <raise.sail@gmail.com>,
-	"Linux Netdev List" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <4FDAB652.6070201@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch] bonding: show all the link status of slaves
+Date: Fri, 15 Jun 2012 16:39:27 +0800
+Message-ID: <1339749567-20393-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:6458 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753394Ab2FOIjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2012 04:39:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+There are four link statuses of a bonding slave, the procfs
+code shows a wrong status when using downdelay/updelay:
+
+	(slave->link == BOND_LINK_UP) ?  "up" : "down"
+
+It doesn't respect the rest two statuses. This patch fixes it.
+
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index ad284ba..3cea38d 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -150,14 +150,25 @@ static void bond_info_show_master(struct seq_file *seq)
+ 	}
+ }
  
->   We encounter a performance problem in a large scale computer
-> cluster, which needs to handle a lot of incoming concurrent TCP
-> connection requests.
-> 
->   The top shows the kernel is most cpu hog, the testing is simple,
-> just a accept() -> epoll_ctl(ADD) loop, the ratio of cpu util sys% to
-> si% is about 2:5.
-> 
->   I also asked some experienced webserver/proxy developers in my team
-> for suggestions, it seem that behavior of many userland 
-> programs already
-> called accept() multiple times after it is waked up by
-> epoll_wait(). And the common action is adding the fd that accept()
-> return into epoll interface by epoll_ctl() syscall then.
-> 
->   Therefore, I think that we'd better to introduce to batch 
-> variants of
-> accept() and epoll_ctl() syscall, just like sendmmsg() or recvmmsg().
-...
-
-Having seen the support added to NetBSD for sendmmsg() and
-recvmmsg() (and I'm told the linux code is much the same),
-I'm surprised that just cutting out a system call entry/exit
-and fd lookup is significant above the rest of the costs
-involved in sending a message (which I presume is UDP here).
-I'd be even more surprised if it is significant for an
-incoming connection.
-
-	David
++static const char *bond_slave_link_status(s8 link)
++{
++	static const char * const status[] = {
++		[BOND_LINK_UP] = "up",
++		[BOND_LINK_FAIL] = "going down",
++		[BOND_LINK_DOWN] = "down",
++		[BOND_LINK_BACK] = "going back",
++	};
++
++	return status[link];
++}
++
+ static void bond_info_show_slave(struct seq_file *seq,
+ 				 const struct slave *slave)
+ {
+ 	struct bonding *bond = seq->private;
+ 
+ 	seq_printf(seq, "\nSlave Interface: %s\n", slave->dev->name);
+-	seq_printf(seq, "MII Status: %s\n",
+-		   (slave->link == BOND_LINK_UP) ?  "up" : "down");
++	seq_printf(seq, "MII Status: %s\n", bond_slave_link_status(slave->link));
+ 	if (slave->speed == SPEED_UNKNOWN)
+ 		seq_printf(seq, "Speed: %s\n", "Unknown");
+ 	else
