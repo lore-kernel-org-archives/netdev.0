@@ -1,62 +1,60 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH 0/8] dcbnl: Major simplifications
-Date: Fri, 15 Jun 2012 20:53:23 -0700
-Message-ID: <4FDC0333.5090806@intel.com>
-References: <cover.1339591572.git.tgraf@suug.ch> <20120613.155541.26513304496438357.davem@davemloft.net> <20120614075435.GA29185@canuck.infradead.org> <4FDA0BFC.90807@intel.com> <20120615072659.GD29738@canuck.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Prevent access to uninitialized fib_table_hash
+ via /proc/net/ipv6_route
+Date: Fri, 15 Jun 2012 22:15:02 -0700 (PDT)
+Message-ID: <20120615.221502.1196734470412725503.davem@davemloft.net>
+References: <e4b53a15fadbe5c1aa5402fcc8172b0ee281da33.1339750783.git.tgraf@suug.ch>
+	<20120615105655.GA22945@hmsreliant.think-freely.org>
+	<20120615.153240.1699971156820399680.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, lucy.liu@intel.com
-To: Thomas Graf <tgraf@redhat.com>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:14738 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751906Ab2FPDx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jun 2012 23:53:27 -0400
-In-Reply-To: <20120615072659.GD29738@canuck.infradead.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53482 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341Ab2FPFPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jun 2012 01:15:06 -0400
+In-Reply-To: <20120615.153240.1699971156820399680.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/15/2012 12:26 AM, Thomas Graf wrote:
-> On Thu, Jun 14, 2012 at 09:06:20AM -0700, John Fastabend wrote:
->> On 6/14/2012 12:54 AM, Thomas Graf wrote:
->>> On Wed, Jun 13, 2012 at 03:55:41PM -0700, David Miller wrote:
->>>> Lots of deleted code, I like it :-)
->>>>
->>>> Applied, but could you send a follow-on patch to use BUG_ON() instead
->>>> of that "if (!ptr) { /* ... */ BUG(); }" construct?
->>>
->>> Sure, I must have had a weak moment right there :)
->>>
->>
->> Nice! I'm a bit late but dumped this into my dcbnl netlink test kit
->> and everything looks good so...
->
-> Thank you for testing John. Are you referring to lldp/test/nltest.c?
-> I only discovered it after you mentioned a test kit. I've been feeding
-> a list of commands through dcbtool for testing so far.
->
+From: David Miller <davem@davemloft.net>
+Date: Fri, 15 Jun 2012 15:32:40 -0700 (PDT)
 
-nltest works OK, I've got a variant here that I use to send/read
-messages and also check the hardware registers on 82599. 'dcbtool'
-works fine as well.
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri, 15 Jun 2012 06:56:55 -0400
+> 
+>> On Fri, Jun 15, 2012 at 11:00:17AM +0200, Thomas Graf wrote:
+>>> /proc/net/ipv6_route reflects the contents of fib_table_hash. The proc
+>>> handler is installed in ip6_route_net_init() whereas fib_table_hash is
+>>> allocated in fib6_net_init() _after_ the proc handler has been installed.
+>>> 
+>>> This opens up a short time frame to access fib_table_hash with its pants
+>>> down.
+>>> 
+>>> fib6_init() as a whole can't be moved to an earlier position as it also
+>>> registers the rtnetlink message handlers which should be registered at
+>>> the end. Therefore split it into fib6_init() which is run early and
+>>> fib6_init_late() to register the rtnetlink message handlers.
+>>> 
+>>> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>> Reviewed-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Applied.
+> 
+> Since you're snooping around in here, you might notice that on network
+> namespace shutdown, we leak all user configured ipv6 FIB rules.
 
-If I get some time I'll update nltest on open-lldp.
+Thomas, this patch is buggy.
 
-> BTW, I believe you mentioned at some point, that there is a patch
-> available allowing non net_device based DCB users to use dcbnl.
-> Otherwise I would start with the effort :)
->
+We will now initialize fib6_init() before ip6_net_route_net_ops is registerd.
 
-Nope patch doesn't exist. I've been threatening to do it for awhile
-now but haven't got to it. Yes please start it :)
+This causes fib6_net_init() to run before net->ipv6.ip6_null_entry it
+initialized.
 
-I talked about it here once although it might be a bit out dated
-now and I think if you have a lookup function then other things
-besides scsci_hosts could be added easily,
+Any route lookup will crash when we dereference a root's ->leaf
+because it will be NULL.
 
-http://www.linuxplumbersconf.org/2011/ocw/system/presentations/561/original/Plumbers2011.pdf
-
-Thanks!
-John
+Please test your changes more thoroughly.
