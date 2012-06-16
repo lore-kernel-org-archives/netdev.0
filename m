@@ -1,69 +1,67 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v2 09/12] netfilter:
- nf_conntrack_l4proto_generic cleanup
-Date: Sat, 16 Jun 2012 13:05:22 +0200
-Message-ID: <20120616110522.GD18251@1984>
+Subject: Re: [PATCH net-next v2 11/12] netfilter: nf_conntrack_l4proto_icmp
+ cleanup
+Date: Sat, 16 Jun 2012 13:08:28 +0200
+Message-ID: <20120616110828.GE18251@1984>
 References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1339818083-31356-9-git-send-email-gaofeng@cn.fujitsu.com>
+ <1339818083-31356-11-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43144 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756325Ab2FPLF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Jun 2012 07:05:27 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1339818083-31356-9-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1339818083-31356-11-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 16, 2012 at 11:41:20AM +0800, Gao feng wrote:
-> some cleanup of nf_conntrack_l4proto_generic,
-> split the code to make it more clearer.
+On Sat, Jun 16, 2012 at 11:41:22AM +0800, Gao feng wrote:
+> add two functions icmp_kmemdup_sysctl_table and
+> icmp_kmemdup_compat_sysctl_table to make codes more
+> clearer.
 > 
 > Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 > ---
->  net/netfilter/nf_conntrack_proto_generic.c |   41 ++++++++++++++++++++++-----
->  1 files changed, 33 insertions(+), 8 deletions(-)
+>  net/ipv4/netfilter/nf_conntrack_proto_icmp.c |   44 ++++++++++++++++++++-----
+>  1 files changed, 35 insertions(+), 9 deletions(-)
 > 
-> diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-> index d1ed7b4..c8487d1 100644
-> --- a/net/netfilter/nf_conntrack_proto_generic.c
-> +++ b/net/netfilter/nf_conntrack_proto_generic.c
-> @@ -135,34 +135,59 @@ static struct ctl_table generic_compat_sysctl_table[] = {
+> diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> index 76f7a2f..be7ae4c 100644
+> --- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+> @@ -337,34 +337,60 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
 >  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
 >  #endif /* CONFIG_SYSCTL */
 >  
-> -static int generic_init_net(struct net *net, u_int16_t proto)
-> +static int generic_kmemdup_sysctl_table(struct nf_proto_net *pn)
+> -static int icmp_init_net(struct net *net, u_int16_t proto)
+> +static int icmp_kmemdup_sysctl_table(struct nf_proto_net *pn)
 >  {
-> -	struct nf_generic_net *gn = generic_pernet(net);
-> -	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
-> -	gn->timeout = nf_ct_generic_timeout;
+> -	struct nf_icmp_net *in = icmp_pernet(net);
+> -	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+> -	in->timeout = nf_ct_icmp_timeout;
+> -
 >  #ifdef CONFIG_SYSCTL
-> +	struct nf_generic_net *gn = (struct nf_generic_net *)pn;
+> +	struct nf_icmp_net *in = (struct nf_icmp_net *)pn;
 > +
->  	pn->ctl_table = kmemdup(generic_sysctl_table,
->  				sizeof(generic_sysctl_table),
+>  	pn->ctl_table = kmemdup(icmp_sysctl_table,
+>  				sizeof(icmp_sysctl_table),
 >  				GFP_KERNEL);
 >  	if (!pn->ctl_table)
 >  		return -ENOMEM;
 > +
->  	pn->ctl_table[0].data = &gn->timeout;
+>  	pn->ctl_table[0].data = &in->timeout;
 > +#endif
 > +	return 0;
 > +}
->  
-> +static int generic_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+> +
+> +static int icmp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
 > +{
 > +#ifdef CONFIG_SYSCTL
 >  #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-> +	struct nf_generic_net *gn = (struct nf_generic_net *)pn;
+> +	struct nf_icmp_net *in = (struct nf_icmp_net *)pn;
 > +
->  	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
->  				       sizeof(generic_compat_sysctl_table),
+>  	pn->ctl_compat_table = kmemdup(icmp_compat_sysctl_table,
+>  				       sizeof(icmp_compat_sysctl_table),
 >  				       GFP_KERNEL);
 > -	if (!pn->ctl_compat_table) {
 > -		kfree(pn->ctl_table);
@@ -72,38 +70,46 @@ On Sat, Jun 16, 2012 at 11:41:20AM +0800, Gao feng wrote:
 >  		return -ENOMEM;
 > -	}
 > +
->  	pn->ctl_compat_table[0].data = &gn->timeout;
+>  	pn->ctl_compat_table[0].data = &in->timeout;
 >  #endif
 >  #endif
 >  	return 0;
 >  }
 >  
-> +static int generic_init_net(struct net *net, u_int16_t proto)
+> +
+
+extra line unrequiered.
+
+I'm sorry, I'm stressing a lot on this because I don't like abusing
+follow-up patches that clean up extra lines / missing lines and that
+sort of nitpicks...
+
+> +static int icmp_init_net(struct net *net, u_int16_t proto)
 > +{
 > +	int ret;
-> +	struct nf_generic_net *gn = generic_pernet(net);
-> +	struct nf_proto_net *pn = &gn->pn;
+> +	struct nf_icmp_net *in = icmp_pernet(net);
+> +	struct nf_proto_net *pn = &in->pn;
 > +
-> +	gn->timeout = nf_ct_generic_timeout;
+> +	in->timeout = nf_ct_icmp_timeout;
 > +
-> +	ret = generic_kmemdup_compat_sysctl_table(pn);
+> +	ret = icmp_kmemdup_compat_sysctl_table(pn);
 > +	if (ret < 0)
 > +		return ret;
 > +
-> +	ret = generic_kmemdup_sysctl_table(pn);
-
-better pass generic_kmemdup_sysctl(pn, gn) so we can avoid the casting
-above in generic_kmemdup_compat_sysctl_table to obtain gn again.
-
+> +	ret = icmp_kmemdup_sysctl_table(pn);
 > +	if (ret < 0)
 > +		nf_ct_kfree_compat_sysctl_table(pn);
 > +
 > +	return ret;
 > +}
 > +
->  struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+>  struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
 >  {
->  	.l3proto		= PF_UNSPEC,
+>  	.l3proto		= PF_INET,
 > -- 
 > 1.7.7.6
 > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
