@@ -1,31 +1,107 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: Re: [PATCH] ipv6: Prevent access to uninitialized fib_table_hash via /proc/net/ipv6_route
-Date: Sat, 16 Jun 2012 11:46:06 +0200
-Message-ID: <CA+icZUW7D-L4K8981oRNKgezn1Dw0ESqW_RMsYjmBx2jh4xOdw@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next v2 01/12] netfilter: fix problem with proto
+ register
+Date: Sat, 16 Jun 2012 12:50:37 +0200
+Message-ID: <20120616105037.GA18251@1984>
+References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:53094 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753951Ab2FPJqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jun 2012 05:46:07 -0400
-Received: by qcro28 with SMTP id o28so2111147qcr.19
-        for <netdev@vger.kernel.org>; Sat, 16 Jun 2012 02:46:06 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, Jun 16, 2012 at 11:41:12AM +0800, Gao feng wrote:
+> commit 2c352f444ccfa966a1aa4fd8e9ee29381c467448
+> (netfilter: nf_conntrack: prepare namespace support for
+> l4 protocol trackers) register proto before register sysctl.
+> 
+> it changes the behavior that when register sysctl failed, the
+> proto should not be registered too.
+> 
+> so change to register sysctl before register protos.
 
-I pulled net.git#master on top of latest Linus upstream GIT.
+Could you explain why we need to change the order in the registration?
+ie. now first proto->init_net then sysctl things.
 
-The revert [1] fixes machine's kernel-panic.
-Thanks.
-
-Regards,
-- Sedat -
-
-
-[1] http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=commitdiff;h=e8803b6c387129059e04d9e14d49efda250a7361
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  net/netfilter/nf_conntrack_proto.c |   37 ++++++++++++++++++++++-------------
+>  1 files changed, 23 insertions(+), 14 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+> index 1ea9194..a434dd7 100644
+> --- a/net/netfilter/nf_conntrack_proto.c
+> +++ b/net/netfilter/nf_conntrack_proto.c
+> @@ -253,18 +253,23 @@ int nf_conntrack_l3proto_register(struct net *net,
+>  {
+>  	int ret = 0;
+>  
+> -	if (net == &init_net)
+> -		ret = nf_conntrack_l3proto_register_net(proto);
+> +	if (proto->init_net) {
+> +		ret = proto->init_net(net);
+> +		if (ret < 0)
+> +			return ret;
+> +	}
+>  
+> +	ret = nf_ct_l3proto_register_sysctl(net, proto);
+>  	if (ret < 0)
+>  		return ret;
+>  
+> -	if (proto->init_net) {
+> -		ret = proto->init_net(net);
+> +	if (net == &init_net) {
+> +		ret = nf_conntrack_l3proto_register_net(proto);
+>  		if (ret < 0)
+> -			return ret;
+> +			nf_ct_l3proto_unregister_sysctl(net, proto);
+>  	}
+> -	return nf_ct_l3proto_register_sysctl(net, proto);
+> +
+> +	return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
+>  
+> @@ -454,19 +459,23 @@ int nf_conntrack_l4proto_register(struct net *net,
+>  				  struct nf_conntrack_l4proto *l4proto)
+>  {
+>  	int ret = 0;
+> -	if (net == &init_net)
+> -		ret = nf_conntrack_l4proto_register_net(l4proto);
+> -
+> -	if (ret < 0)
+> -		return ret;
+> -
+> -	if (l4proto->init_net)
+> +	if (l4proto->init_net) {
+>  		ret = l4proto->init_net(net);
+> +		if (ret < 0)
+> +			return ret;
+> +	}
+>  
+> +	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
+>  	if (ret < 0)
+>  		return ret;
+>  
+> -	return nf_ct_l4proto_register_sysctl(net, l4proto);
+> +	if (net == &init_net) {
+> +		ret = nf_conntrack_l4proto_register_net(l4proto);
+> +		if (ret < 0)
+> +			nf_ct_l4proto_unregister_sysctl(net, l4proto);
+> +	}
+> +
+> +	return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
+>  
+> -- 
+> 1.7.7.6
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
