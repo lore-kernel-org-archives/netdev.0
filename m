@@ -1,94 +1,99 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH net-next v2 01/12] netfilter: fix problem with proto register
-Date: Sat, 16 Jun 2012 11:41:12 +0800
-Message-ID: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH net-next v2 09/12] netfilter: nf_conntrack_l4proto_generic cleanup
+Date: Sat, 16 Jun 2012 11:41:20 +0800
+Message-ID: <1339818083-31356-9-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:48314 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1758948Ab2FPDlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jun 2012 23:41:01 -0400
+In-Reply-To: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 2c352f444ccfa966a1aa4fd8e9ee29381c467448
-(netfilter: nf_conntrack: prepare namespace support for
-l4 protocol trackers) register proto before register sysctl.
-
-it changes the behavior that when register sysctl failed, the
-proto should not be registered too.
-
-so change to register sysctl before register protos.
+some cleanup of nf_conntrack_l4proto_generic,
+split the code to make it more clearer.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_proto.c |   37 ++++++++++++++++++++++-------------
- 1 files changed, 23 insertions(+), 14 deletions(-)
+ net/netfilter/nf_conntrack_proto_generic.c |   41 ++++++++++++++++++++++-----
+ 1 files changed, 33 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 1ea9194..a434dd7 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -253,18 +253,23 @@ int nf_conntrack_l3proto_register(struct net *net,
+diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+index d1ed7b4..c8487d1 100644
+--- a/net/netfilter/nf_conntrack_proto_generic.c
++++ b/net/netfilter/nf_conntrack_proto_generic.c
+@@ -135,34 +135,59 @@ static struct ctl_table generic_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
+ 
+-static int generic_init_net(struct net *net, u_int16_t proto)
++static int generic_kmemdup_sysctl_table(struct nf_proto_net *pn)
  {
- 	int ret = 0;
+-	struct nf_generic_net *gn = generic_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
+-	gn->timeout = nf_ct_generic_timeout;
+ #ifdef CONFIG_SYSCTL
++	struct nf_generic_net *gn = (struct nf_generic_net *)pn;
++
+ 	pn->ctl_table = kmemdup(generic_sysctl_table,
+ 				sizeof(generic_sysctl_table),
+ 				GFP_KERNEL);
+ 	if (!pn->ctl_table)
+ 		return -ENOMEM;
++
+ 	pn->ctl_table[0].data = &gn->timeout;
++#endif
++	return 0;
++}
  
--	if (net == &init_net)
--		ret = nf_conntrack_l3proto_register_net(proto);
-+	if (proto->init_net) {
-+		ret = proto->init_net(net);
-+		if (ret < 0)
-+			return ret;
-+	}
++static int generic_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
++{
++#ifdef CONFIG_SYSCTL
+ #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
++	struct nf_generic_net *gn = (struct nf_generic_net *)pn;
++
+ 	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
+ 				       sizeof(generic_compat_sysctl_table),
+ 				       GFP_KERNEL);
+-	if (!pn->ctl_compat_table) {
+-		kfree(pn->ctl_table);
+-		pn->ctl_table = NULL;
++	if (!pn->ctl_compat_table)
+ 		return -ENOMEM;
+-	}
++
+ 	pn->ctl_compat_table[0].data = &gn->timeout;
+ #endif
+ #endif
+ 	return 0;
+ }
  
-+	ret = nf_ct_l3proto_register_sysctl(net, proto);
- 	if (ret < 0)
- 		return ret;
- 
--	if (proto->init_net) {
--		ret = proto->init_net(net);
-+	if (net == &init_net) {
-+		ret = nf_conntrack_l3proto_register_net(proto);
- 		if (ret < 0)
--			return ret;
-+			nf_ct_l3proto_unregister_sysctl(net, proto);
- 	}
--	return nf_ct_l3proto_register_sysctl(net, proto);
++static int generic_init_net(struct net *net, u_int16_t proto)
++{
++	int ret;
++	struct nf_generic_net *gn = generic_pernet(net);
++	struct nf_proto_net *pn = &gn->pn;
++
++	gn->timeout = nf_ct_generic_timeout;
++
++	ret = generic_kmemdup_compat_sysctl_table(pn);
++	if (ret < 0)
++		return ret;
++
++	ret = generic_kmemdup_sysctl_table(pn);
++	if (ret < 0)
++		nf_ct_kfree_compat_sysctl_table(pn);
 +
 +	return ret;
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
- 
-@@ -454,19 +459,23 @@ int nf_conntrack_l4proto_register(struct net *net,
- 				  struct nf_conntrack_l4proto *l4proto)
- {
- 	int ret = 0;
--	if (net == &init_net)
--		ret = nf_conntrack_l4proto_register_net(l4proto);
--
--	if (ret < 0)
--		return ret;
--
--	if (l4proto->init_net)
-+	if (l4proto->init_net) {
- 		ret = l4proto->init_net(net);
-+		if (ret < 0)
-+			return ret;
-+	}
- 
-+	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
- 	if (ret < 0)
- 		return ret;
- 
--	return nf_ct_l4proto_register_sysctl(net, l4proto);
-+	if (net == &init_net) {
-+		ret = nf_conntrack_l4proto_register_net(l4proto);
-+		if (ret < 0)
-+			nf_ct_l4proto_unregister_sysctl(net, l4proto);
-+	}
++}
 +
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
- 
+ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
+ {
+ 	.l3proto		= PF_UNSPEC,
 -- 
 1.7.7.6
-
