@@ -1,81 +1,151 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v2 03/12] netfilter: add
- nf_ct_kfree_compat_sysctl_table to make codes clear
-Date: Sat, 16 Jun 2012 13:10:02 +0200
-Message-ID: <20120616111002.GF18251@1984>
+Subject: Re: [PATCH net-next v2 06/12] netfilter: merge udpv[4,6]_net_init
+ into udp_net_init
+Date: Sat, 16 Jun 2012 13:22:59 +0200
+Message-ID: <20120616112259.GG18251@1984>
 References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1339818083-31356-3-git-send-email-gaofeng@cn.fujitsu.com>
+ <1339818083-31356-6-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1339818083-31356-3-git-send-email-gaofeng@cn.fujitsu.com>
+In-Reply-To: <1339818083-31356-6-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 16, 2012 at 11:41:14AM +0800, Gao feng wrote:
-> add function nf_ct_kfree_compat_sysctl_table to kfree l4proto's
-> compat sysctl table and set the sysctl table point to NULL.
-> 
+On Sat, Jun 16, 2012 at 11:41:17AM +0800, Gao feng wrote:
+> merge udpv4_net_init and udpv6_net_init into udp_net_init to
+> reduce the redundancy codes.
+>
+> and use nf_proto_net.users to identify if it's the first time
+> we use the nf_proto_net. when it's the first time,we will
+> initialized it.
+>
 > Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 > ---
->  include/net/netfilter/nf_conntrack_l4proto.h |    2 ++
->  net/netfilter/nf_conntrack_proto.c           |   12 ++++++++++--
->  2 files changed, 12 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-> index 5dd60f2..11fcf27 100644
-> --- a/include/net/netfilter/nf_conntrack_l4proto.h
-> +++ b/include/net/netfilter/nf_conntrack_l4proto.h
-> @@ -124,6 +124,8 @@ extern int nf_conntrack_l4proto_register(struct net *net,
->  extern void nf_conntrack_l4proto_unregister(struct net *net,
->  					    struct nf_conntrack_l4proto *proto);
->  
-> +extern void nf_ct_kfree_compat_sysctl_table(struct nf_proto_net *pn);
-> +
->  /* Generic netlink helpers */
->  extern int nf_ct_port_tuple_to_nlattr(struct sk_buff *skb,
->  				      const struct nf_conntrack_tuple *tuple);
-> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-> index 5ea2d71..1033ee6 100644
-> --- a/net/netfilter/nf_conntrack_proto.c
-> +++ b/net/netfilter/nf_conntrack_proto.c
-> @@ -327,6 +327,15 @@ static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
->  	return NULL;
+>  net/netfilter/nf_conntrack_proto_udp.c |   56 ++++++++++---------------------
+>  1 files changed, 18 insertions(+), 38 deletions(-)
+>
+> diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+> index 2b978e6..61bca4f 100644
+> --- a/net/netfilter/nf_conntrack_proto_udp.c
+> +++ b/net/netfilter/nf_conntrack_proto_udp.c
+> @@ -270,52 +270,32 @@ static int udp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+>  	return 0;
 >  }
->  
-> +void nf_ct_kfree_compat_sysctl_table(struct nf_proto_net *pn)
-> +{
-> +#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-> +	kfree(pn->ctl_compat_table);
-> +	pn->ctl_compat_table = NULL;
-> +#endif
-> +}
-> +EXPORT_SYMBOL_GPL(nf_ct_kfree_compat_sysctl_table);
-
-I know, I told you to export this symbol instead of inlining it. But I
-overlooked that this will be an empty symbol if systcl is disabled.
-
-So, please recover the ancient patch that you sent that inlines this.
-
-Sorry.
-
+>
+> -static void udp_init_net_data(struct nf_udp_net *un)
+> +static int udp_init_net(struct net *net, u_int16_t proto)
+>  {
+> -	int i;
+> -#ifdef CONFIG_SYSCTL
+> -	if (!un->pn.ctl_table) {
+> -#else
+> -	if (!un->pn.users++) {
+> -#endif
+> +	int ret;
+> +	struct nf_udp_net *un = udp_pernet(net);
+> +	struct nf_proto_net *pn = &un->pn;
 > +
->  static
->  int nf_ct_l4proto_register_sysctl(struct net *net,
->  				  struct nf_conntrack_l4proto *l4proto)
-> @@ -361,8 +370,7 @@ int nf_ct_l4proto_register_sysctl(struct net *net,
->  		if (err == 0)
->  			goto out;
->  
+> +	if (!pn->users) {
+> +		int i;
+>  		for (i = 0; i < UDP_CT_MAX; i++)
+>  			un->timeouts[i] = udp_timeouts[i];
+>  	}
+> -}
+> -
+> -static int udpv4_init_net(struct net *net, u_int16_t proto)
+> -{
+> -	int ret;
+> -	struct nf_udp_net *un = udp_pernet(net);
+> -	struct nf_proto_net *pn = (struct nf_proto_net *)un;
+>
+> -	udp_init_net_data(un);
+> +	if (proto == AF_INET) {
+
+I think we can remove that u_int16_t proto that I proposed to make
+something like:
+
+static int udp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+{
+#ifdef CONFIG_SYSCTL
+#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+        struct nf_udp_net *un = (struct nf_udp_net *)pn;
++
++       if (pn->ctl_compat_table)
++               return 0;
++
+        pn->ctl_compat_table = kmemdup(udp_compat_sysctl_table,
+                                       sizeof(udp_compat_sysctl_table),
+                                       GFP_KERNEL);
+        if (!pn->ctl_compat_table)
+                return -ENOMEM;
+
+That should be enough to ensure that the compat is registered once. No
+matter if it's done by the IPv4 or IPv6 invocation of udp_init_net.
+
+Thus, it will look consistent with udp_kmemdup_sysctl_table.
+
+> +		ret = udp_kmemdup_compat_sysctl_table(pn);
+> +		if (ret < 0)
+> +			return ret;
+>
+> -	ret = udp_kmemdup_compat_sysctl_table(pn);
+> -	if (ret < 0)
+> -		return ret;
+> +		ret = udp_kmemdup_sysctl_table(pn);
+> +		if (ret < 0)
+> +			nf_ct_kfree_compat_sysctl_table(pn);
+> +	} else
+> +		ret = udp_kmemdup_sysctl_table(pn);
+>
+> -	ret = udp_kmemdup_sysctl_table(pn);
+> -#ifdef CONFIG_SYSCTL
+> -#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+> -	if (ret < 0) {
 > -		kfree(pn->ctl_compat_table);
 > -		pn->ctl_compat_table = NULL;
-> +		nf_ct_kfree_compat_sysctl_table(pn);
->  		nf_ct_unregister_sysctl(&pn->ctl_table_header,
->  					&pn->ctl_table,
->  					&pn->users);
-> -- 
+> -	}
+> -#endif
+> -#endif
+>  	return ret;
+>  }
+>
+> -static int udpv6_init_net(struct net *net, u_int16_t proto)
+> -{
+> -	struct nf_udp_net *un = udp_pernet(net);
+> -	struct nf_proto_net *pn = (struct nf_proto_net *)un;
+> -
+> -	udp_init_net_data(un);
+> -	return udp_kmemdup_sysctl_table(pn);
+> -}
+> -
+>  struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
+>  {
+>  	.l3proto		= PF_INET,
+> @@ -343,7 +323,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
+>  		.nla_policy	= udp_timeout_nla_policy,
+>  	},
+>  #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+> -	.init_net		= udpv4_init_net,
+> +	.init_net		= udp_init_net,
+>  };
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp4);
+>
+> @@ -374,6 +354,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
+>  		.nla_policy	= udp_timeout_nla_policy,
+>  	},
+>  #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+> -	.init_net		= udpv6_init_net,
+> +	.init_net		= udp_init_net,
+>  };
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp6);
+> --
 > 1.7.7.6
-> 
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
