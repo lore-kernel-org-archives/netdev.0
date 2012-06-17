@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 02/02] net/ipv4: VTI support new module for
- ip_vti.
-Date: Sun, 17 Jun 2012 16:27:17 -0700 (PDT)
-Message-ID: <20120617.162717.1814684296202502234.davem@davemloft.net>
-References: <20120614091254.GT27795@secunet.com>
-	<c2becb86-be73-4668-be84-82293c6c56fc@tahiti.vyatta.com>
-	<20120615053707.GV27795@secunet.com>
+Subject: Re: [PATCH net-next] net: lpc_eth: free skbs in start_xmit
+Date: Sun, 17 Jun 2012 16:28:52 -0700 (PDT)
+Message-ID: <20120617.162852.2208481357025267726.davem@davemloft.net>
+References: <1339568172.22704.312.camel@edumazet-glaptop>
+	<4FD85D27.5090509@antcom.de>
+	<1339581496.22704.346.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saurabh.mohan@vyatta.com, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: stigge@antcom.de, netdev@vger.kernel.org, kevin.wells@nxp.com,
+	srinivas.bakki@nxp.com, aletes.xgr@gmail.com,
+	linux-arm-kernel@lists.infradead.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38012 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38024 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261Ab2FQX1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 19:27:18 -0400
-In-Reply-To: <20120615053707.GV27795@secunet.com>
+	with ESMTP id S1753197Ab2FQX2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 19:28:53 -0400
+In-Reply-To: <1339581496.22704.346.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 15 Jun 2012 07:37:07 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 13 Jun 2012 11:58:16 +0200
 
-> VTI should be independent of the IPsec protocol.
-> Our IPsec implementation supports AH (and IPCOMP)
-> so VTI should support these protocols too.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Transmitted skbs can be freed immediately in lpc_eth_hard_start_xmit()
+> instead of at TX completion, since driver copies the frames in DMA area.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Tested-by: Roland Stigge <stigge@antcom.de>
 
-I agree with Steffen, it shouldn't require very much work to support
-all of the 3 major IPSEC protocols.  So if we are going to add a
-feature like this I require that you completely flesh out the support
-and support IPV6 as well.
-
-Doing otherwise creates a terrible user experience.
+Applied.
