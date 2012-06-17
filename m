@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: fix clk handling for Coldfire.
-Date: Sun, 17 Jun 2012 02:00:01 -0700 (PDT)
-Message-ID: <20120617.020001.1114007088096967861.davem@davemloft.net>
-References: <201206170000.48076.sfking@fdwdc.com>
-	<20120617.010849.1446855262442120268.davem@davemloft.net>
-	<201206170121.18807.sfking@fdwdc.com>
+Subject: Re: [net-next patch 8/12] bnx2x: Allow up to 63 RSS queues default
+ 8 queues
+Date: Sun, 17 Jun 2012 02:00:58 -0700 (PDT)
+Message-ID: <20120617.020058.2281757592609638666.davem@davemloft.net>
+References: <1339916031.2486.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	<20120617.010817.1214320083280899562.davem@davemloft.net>
+	<1339922036.2486.1.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sfking@fdwdc.com
+Cc: meravs@broadcom.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60969 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60977 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752715Ab2FQJAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 05:00:03 -0400
-In-Reply-To: <201206170121.18807.sfking@fdwdc.com>
+	with ESMTP id S1753792Ab2FQJA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 05:00:58 -0400
+In-Reply-To: <1339922036.2486.1.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steven King <sfking@fdwdc.com>
-Date: Sun, 17 Jun 2012 01:21:18 -0700
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Sun, 17 Jun 2012 11:33:56 +0300
 
-> On Sunday 17 June 2012 1:08:49 am David Miller wrote:
->> Sorry, I'm not going to allow you to crap up this driver with
->> ifdefs.  Find a way to fix it without that.
-> 
-> Well, then how about then revert the commit and have the imx folks
-> do whatever they need to do without breaking things for Coldfire?
+> drivers now, it does not sound like a good path - so I was asking if you
+> can consider a kernel parameter as acceptable path. To be clear, I'm
+> asking if adding the default for all multi-queue drivers in the form of
+> a kernel parameter is a good path to explore.
 
-Read what I said, you have the time to fix the problem cleanly.
-It's not like there's a kernel release tomorrow.
+If it's the default, there's no need for a kernel command line
+parameter.  Those suck, just pick a good default.
