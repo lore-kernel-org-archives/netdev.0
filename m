@@ -1,53 +1,177 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 2/4] bnx2: Dump additional BC_STATE during
- firmware sync timeout.
-Date: Sat, 16 Jun 2012 18:45:42 -0700
-Message-ID: <1339897544-20254-2-git-send-email-mchan@broadcom.com>
-References: <1339897544-20254-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 1/4] bnx2: Dump all FTQ_CTL registers during
+ tx_timeout
+Date: Sat, 16 Jun 2012 18:45:41 -0700
+Message-ID: <1339897544-20254-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2599 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2601 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757204Ab2FQBfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757261Ab2FQBfK (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 16 Jun 2012 21:35:10 -0400
-In-Reply-To: <1339897544-20254-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+to help debug tx timeouts reported in the field.
+
+Reviewed-by Benjamin Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c |    1 +
- drivers/net/ethernet/broadcom/bnx2.h |    2 ++
- 2 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c |   71 ++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2.h |   41 +++++++++++++++++++
+ 2 files changed, 112 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 8eaab0c..da88de7 100644
+index ff5d3c1..8eaab0c 100644
 --- a/drivers/net/ethernet/broadcom/bnx2.c
 +++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -2473,6 +2473,7 @@ bnx2_dump_mcp_state(struct bnx2 *bp)
- 		   bnx2_shmem_rd(bp, BNX2_BC_STATE_RESET_TYPE));
- 	pr_cont(" condition[%08x]\n",
- 		bnx2_shmem_rd(bp, BNX2_BC_STATE_CONDITION));
-+	DP_SHMEM_LINE(bp, BNX2_BC_RESET_TYPE);
- 	DP_SHMEM_LINE(bp, 0x3cc);
- 	DP_SHMEM_LINE(bp, 0x3dc);
- 	DP_SHMEM_LINE(bp, 0x3ec);
+@@ -14,6 +14,7 @@
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+ 
++#include <linux/stringify.h>
+ #include <linux/kernel.h>
+ #include <linux/timer.h>
+ #include <linux/errno.h>
+@@ -6405,6 +6406,75 @@ bnx2_reset_task(struct work_struct *work)
+ 	rtnl_unlock();
+ }
+ 
++#define BNX2_FTQ_ENTRY(ftq) { __stringify(ftq##FTQ_CTL), BNX2_##ftq##FTQ_CTL }
++
++static void
++bnx2_dump_ftq(struct bnx2 *bp)
++{
++	int i;
++	u32 reg, bdidx, cid, valid;
++	struct net_device *dev = bp->dev;
++	static const struct ftq_reg {
++		char *name;
++		u32 off;
++	} ftq_arr[] = {
++		BNX2_FTQ_ENTRY(RV2P_P),
++		BNX2_FTQ_ENTRY(RV2P_T),
++		BNX2_FTQ_ENTRY(RV2P_M),
++		BNX2_FTQ_ENTRY(TBDR_),
++		BNX2_FTQ_ENTRY(TDMA_),
++		BNX2_FTQ_ENTRY(TXP_),
++		BNX2_FTQ_ENTRY(TXP_),
++		BNX2_FTQ_ENTRY(TPAT_),
++		BNX2_FTQ_ENTRY(RXP_C),
++		BNX2_FTQ_ENTRY(RXP_),
++		BNX2_FTQ_ENTRY(COM_COMXQ_),
++		BNX2_FTQ_ENTRY(COM_COMTQ_),
++		BNX2_FTQ_ENTRY(COM_COMQ_),
++		BNX2_FTQ_ENTRY(CP_CPQ_),
++	};
++
++	netdev_err(dev, "<--- start FTQ dump --->\n");
++	for (i = 0; i < ARRAY_SIZE(ftq_arr); i++)
++		netdev_err(dev, "%s %08x\n", ftq_arr[i].name,
++			   bnx2_reg_rd_ind(bp, ftq_arr[i].off));
++
++	netdev_err(dev, "CPU states:\n");
++	for (reg = BNX2_TXP_CPU_MODE; reg <= BNX2_CP_CPU_MODE; reg += 0x40000)
++		netdev_err(dev, "%06x mode %x state %x evt_mask %x pc %x pc %x instr %x\n",
++			   reg, bnx2_reg_rd_ind(bp, reg),
++			   bnx2_reg_rd_ind(bp, reg + 4),
++			   bnx2_reg_rd_ind(bp, reg + 8),
++			   bnx2_reg_rd_ind(bp, reg + 0x1c),
++			   bnx2_reg_rd_ind(bp, reg + 0x1c),
++			   bnx2_reg_rd_ind(bp, reg + 0x20));
++
++	netdev_err(dev, "<--- end FTQ dump --->\n");
++	netdev_err(dev, "<--- start TBDC dump --->\n");
++	netdev_err(dev, "TBDC free cnt: %ld\n",
++		   REG_RD(bp, BNX2_TBDC_STATUS) & BNX2_TBDC_STATUS_FREE_CNT);
++	netdev_err(dev, "LINE     CID  BIDX   CMD  VALIDS\n");
++	for (i = 0; i < 0x20; i++) {
++		int j = 0;
++
++		REG_WR(bp, BNX2_TBDC_BD_ADDR, i);
++		REG_WR(bp, BNX2_TBDC_CAM_OPCODE,
++		       BNX2_TBDC_CAM_OPCODE_OPCODE_CAM_READ);
++		REG_WR(bp, BNX2_TBDC_COMMAND, BNX2_TBDC_COMMAND_CMD_REG_ARB);
++		while ((REG_RD(bp, BNX2_TBDC_COMMAND) &
++			BNX2_TBDC_COMMAND_CMD_REG_ARB) && j < 100)
++			j++;
++
++		cid = REG_RD(bp, BNX2_TBDC_CID);
++		bdidx = REG_RD(bp, BNX2_TBDC_BIDX);
++		valid = REG_RD(bp, BNX2_TBDC_CAM_OPCODE);
++		netdev_err(dev, "%02x    %06x  %04lx   %02x    [%x]\n",
++			   i, cid, bdidx & BNX2_TBDC_BDIDX_BDIDX,
++			   bdidx >> 24, (valid >> 8) & 0x0ff);
++	}
++	netdev_err(dev, "<--- end TBDC dump --->\n");
++}
++
+ static void
+ bnx2_dump_state(struct bnx2 *bp)
+ {
+@@ -6434,6 +6504,7 @@ bnx2_tx_timeout(struct net_device *dev)
+ {
+ 	struct bnx2 *bp = netdev_priv(dev);
+ 
++	bnx2_dump_ftq(bp);
+ 	bnx2_dump_state(bp);
+ 	bnx2_dump_mcp_state(bp);
+ 
 diff --git a/drivers/net/ethernet/broadcom/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
-index 2997585..f9cb639 100644
+index dc06bda..2997585 100644
 --- a/drivers/net/ethernet/broadcom/bnx2.h
 +++ b/drivers/net/ethernet/broadcom/bnx2.h
-@@ -7355,6 +7355,8 @@ struct bnx2_rv2p_fw_file {
- #define BNX2_BC_STATE_RESET_TYPE_VALUE(msg) (BNX2_BC_STATE_RESET_TYPE_SIG | \
- 					     (msg))
+@@ -4642,6 +4642,47 @@ struct l2_fhdr {
+ #define BNX2_TBDR_FTQ_CTL_CUR_DEPTH			 (0x3ffL<<22)
  
-+#define BNX2_BC_RESET_TYPE			0x000001c0
+ 
++/*
++ *  tbdc definition
++ *  offset: 0x5400
++ */
++#define BNX2_TBDC_COMMAND                               0x5400
++#define BNX2_TBDC_COMMAND_CMD_ENABLED                    (1UL<<0)
++#define BNX2_TBDC_COMMAND_CMD_FLUSH                      (1UL<<1)
++#define BNX2_TBDC_COMMAND_CMD_SOFT_RST                   (1UL<<2)
++#define BNX2_TBDC_COMMAND_CMD_REG_ARB                    (1UL<<3)
++#define BNX2_TBDC_COMMAND_WRCHK_RANGE_ERROR              (1UL<<4)
++#define BNX2_TBDC_COMMAND_WRCHK_ALL_ONES_ERROR           (1UL<<5)
++#define BNX2_TBDC_COMMAND_WRCHK_ALL_ZEROS_ERROR          (1UL<<6)
++#define BNX2_TBDC_COMMAND_WRCHK_ANY_ONES_ERROR           (1UL<<7)
++#define BNX2_TBDC_COMMAND_WRCHK_ANY_ZEROS_ERROR          (1UL<<8)
 +
- #define BNX2_BC_STATE				0x000001c4
- #define BNX2_BC_STATE_ERR_MASK			 0x0000ff00
- #define BNX2_BC_STATE_SIGN			 0x42530000
++#define BNX2_TBDC_STATUS				0x5404
++#define BNX2_TBDC_STATUS_FREE_CNT                        (0x3fUL<<0)
++
++#define BNX2_TBDC_BD_ADDR                               0x5424
++
++#define BNX2_TBDC_BIDX                                  0x542c
++#define BNX2_TBDC_BDIDX_BDIDX                            (0xffffUL<<0)
++#define BNX2_TBDC_BDIDX_CMD                              (0xffUL<<24)
++
++#define BNX2_TBDC_CID                                   0x5430
++
++#define BNX2_TBDC_CAM_OPCODE                            0x5434
++#define BNX2_TBDC_CAM_OPCODE_OPCODE                      (0x7UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_SEARCH               (0UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_CACHE_WRITE          (1UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_INVALIDATE           (2UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_CAM_WRITE            (4UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_CAM_READ             (5UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_RAM_WRITE            (6UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_OPCODE_RAM_READ             (7UL<<0)
++#define BNX2_TBDC_CAM_OPCODE_SMASK_BDIDX                 (1UL<<4)
++#define BNX2_TBDC_CAM_OPCODE_SMASK_CID                   (1UL<<5)
++#define BNX2_TBDC_CAM_OPCODE_SMASK_CMD                   (1UL<<6)
++#define BNX2_TBDC_CAM_OPCODE_WMT_FAILED                  (1UL<<7)
++#define BNX2_TBDC_CAM_OPCODE_CAM_VALIDS                  (0xffUL<<8)
++
+ 
+ /*
+  *  tdma_reg definition
 -- 
 1.7.1
