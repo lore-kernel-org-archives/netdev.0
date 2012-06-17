@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] bonding: show all the link status of slaves
-Date: Sun, 17 Jun 2012 16:24:11 -0700 (PDT)
-Message-ID: <20120617.162411.278560789686194550.davem@davemloft.net>
-References: <1339749567-20393-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] net: remove my future former mail address
+Date: Sun, 17 Jun 2012 16:26:07 -0700 (PDT)
+Message-ID: <20120617.162607.2183118083376477941.davem@davemloft.net>
+References: <1339662543-7203-1-git-send-email-remi@remlab.net>
+	<4FDAE7D5.5040709@nokia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: amwang@redhat.com
+Cc: remi@remlab.net, netdev@vger.kernel.org,
+	remi.denis-courmont@nokia.com
+To: sakari.ailus@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37980 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37999 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261Ab2FQXYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 19:24:12 -0400
-In-Reply-To: <1339749567-20393-1-git-send-email-amwang@redhat.com>
+	with ESMTP id S1751904Ab2FQX0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 19:26:08 -0400
+In-Reply-To: <4FDAE7D5.5040709@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Fri, 15 Jun 2012 16:39:27 +0800
+From: Sakari Ailus <sakari.ailus@nokia.com>
+Date: Fri, 15 Jun 2012 10:44:21 +0300
 
-> There are four link statuses of a bonding slave, the procfs
-> code shows a wrong status when using downdelay/updelay:
-> 
-> 	(slave->link == BOND_LINK_UP) ?  "up" : "down"
-> 
-> It doesn't respect the rest two statuses. This patch fixes it.
-> 
-> Cc: Jay Vosburgh <fubar@us.ibm.com>
-> Cc: Andy Gospodarek <andy@greyhouse.net>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> I wonder if this also means that the code will be without a
+> maintainer in the future.
 
-Applied, thanks.
+I really want to thank Nokia for submitting code then abandoning
+it completely.
+
+I am warning future Nokia patch submitters that I'm now, as a
+result, extremely resultant to apply anything they submit other
+than the absolutely most trivial bug fixes.
