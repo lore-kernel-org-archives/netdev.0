@@ -1,69 +1,132 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [net-next patch 8/12] bnx2x: Allow up to 63 RSS queues
- default 8 queues
-Date: Sun, 17 Jun 2012 09:53:51 +0300
-Message-ID: <1339916031.2486.0.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1339595609.13000.15.camel@lb-tlvb-eilong.il.broadcom.com>
- <20120613.153517.901328280865603627.davem@davemloft.net>
- <1339688046.20038.3.camel@lb-tlvb-meravs.il.broadcom.com>
- <20120614.133649.794229745961162963.davem@davemloft.net>
-Reply-To: eilong@broadcom.com
+From: Steven King <sfking@fdwdc.com>
+Subject: [PATCH] fec: fix clk handling for Coldfire.
+Date: Sun, 17 Jun 2012 00:00:47 -0700
+Message-ID: <201206170000.48076.sfking@fdwdc.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=utf-8
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: meravs@broadcom.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2076 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752793Ab2FQGyG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jun 2012 02:54:06 -0400
-In-Reply-To: <20120614.133649.794229745961162963.davem@davemloft.net>
+Received: from nm28.access.bullet.mail.mud.yahoo.com ([66.94.237.93]:46775
+	"HELO nm28.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750913Ab2FQHGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 03:06:18 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-14 at 13:36 -0700, David Miller wrote:
-> From: "Merav Sicron" <meravs@broadcom.com>
-> Date: Thu, 14 Jun 2012 18:34:06 +0300
-> 
-> > That's why we think (and so does Eric Dumazet) that it is better
-> > to have a smaller default number which is good for most cases.
-> > Do you agree with that?
-> 
-> What I think is that the thing which is more important than the
-> default we choose, is that it is consistently followed by all
-> multiqueue drivers.
-> 
-> By blazing your own unique path here, that is nearly guaranteed not to
-> happen.
-> 
-> I'd much rather have a bad default that every driver adheres to.
-> 
+commit f4d40de39a23f0c39cca55ac63e1175c69c3d2f7
+'net fec: do not depend on grouped clocks' broke fec for Coldfire.
 
-The increasing number of CPUs together with the increasing number of
-supported MSI-X vectors per device, is causing a lot of memory to be
-allocated for the networking channels. This is a problem on low memory
-platforms such as 32bits installations. 64 queues per device (and in
-most cases, there are few devices) is a becoming a real problem.
+Add #ifdef's to restore the working 3.4 clk handling for Coldfire.
 
-If the device does not implement the ethtool .set_channels operation,
-then the default is practically the only way to go, and there is no such
-thing as a good default - it really depends on the use case. This is the
-reason why we are only setting the default in the series that adds
-support for this operation.
+Signed-off-by: Steven King <sfking@fdwdc.com>
+---
+ drivers/net/ethernet/freescale/fec.c |   33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
 
-So what do you say about setting a new default only for devices that
-supports .set_channels? There are only 2 of those right now (qlcnic,
-bnx2 and hopefully bnx2x soon). Is it acceptable to keep the default
-hard coded value or do you want it to be configurable? If the latter, is
-a kernel parameter a valid option?
-
-Please note that today, on a system with enough CPUs, you cannot really
-tell how many channels will be created per device - each vendor is
-allocating up to its HW limit - usually 8 or 16, but there is no easy
-way to determine it beside reading the code. So adding a kernel
-parameter to limit the number can actually increase the consistency.
-
-Thanks,
-Eilon
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index ff7f4c5..f7b0372 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -207,8 +207,12 @@ struct fec_enet_private {
+ 
+ 	struct net_device *netdev;
+ 
++#ifdef CONFIG_COLDFIRE
++	struct clk *clk;
++#else
+ 	struct clk *clk_ipg;
+ 	struct clk *clk_ahb;
++#endif
+ 
+ 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+ 	unsigned char *tx_bounce[TX_RING_SIZE];
+@@ -1066,7 +1070,11 @@ static int fec_enet_mii_init(struct platform_device *pdev)
+ 	 * Reference Manual has an error on this, and gets fixed on i.MX6Q
+ 	 * document.
+ 	 */
++#ifdef CONFIG_COLDFIRE
++	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000);
++#else
+ 	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ahb), 5000000);
++#endif
+ 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+ 		fep->phy_speed--;
+ 	fep->phy_speed <<= 1;
+@@ -1619,6 +1627,14 @@ fec_probe(struct platform_device *pdev)
+ 		goto failed_pin;
+ 	}
+ 
++#ifdef CONFIG_COLDFIRE
++	fep->clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(fep->clk)) {
++		ret = PTR_ERR(fep->clk);
++		goto failed_clk;
++	}
++	clk_prepare_enable(fep->clk);
++#else
+ 	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+ 	if (IS_ERR(fep->clk_ipg)) {
+ 		ret = PTR_ERR(fep->clk_ipg);
+@@ -1633,6 +1649,7 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	clk_prepare_enable(fep->clk_ahb);
+ 	clk_prepare_enable(fep->clk_ipg);
++#endif
+ 
+ 	ret = fec_enet_init(ndev);
+ 	if (ret)
+@@ -1655,8 +1672,12 @@ failed_register:
+ 	fec_enet_mii_remove(fep);
+ failed_mii_init:
+ failed_init:
++#ifdef CONFIG_COLDFIRE
++	clk_disable_unprepare(fep->clk);
++#else
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
++#endif
+ failed_pin:
+ failed_clk:
+ 	for (i = 0; i < FEC_IRQ_NUM; i++) {
+@@ -1689,8 +1710,12 @@ fec_drv_remove(struct platform_device *pdev)
+ 		if (irq > 0)
+ 			free_irq(irq, ndev);
+ 	}
++#ifdef CONFIG_COLDFIRE
++	clk_disable_unprepare(fep->clk);
++#else
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
++#endif
+ 	iounmap(fep->hwp);
+ 	free_netdev(ndev);
+ 
+@@ -1714,8 +1739,12 @@ fec_suspend(struct device *dev)
+ 		fec_stop(ndev);
+ 		netif_device_detach(ndev);
+ 	}
++#ifdef CONFIG_COLDFIRE
++	clk_disable_unprepare(fep->clk);
++#else
+ 	clk_disable_unprepare(fep->clk_ahb);
+ 	clk_disable_unprepare(fep->clk_ipg);
++#endif
+ 
+ 	return 0;
+ }
+@@ -1726,8 +1755,12 @@ fec_resume(struct device *dev)
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
++#ifdef CONFIG_COLDFIRE
++	clk_prepare_enable(fep->clk);
++#else
+ 	clk_prepare_enable(fep->clk_ahb);
+ 	clk_prepare_enable(fep->clk_ipg);
++#endif
+ 	if (netif_running(ndev)) {
+ 		fec_restart(ndev, fep->full_duplex);
+ 		netif_device_attach(ndev);
