@@ -1,36 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] netfilter updates for net-next (upcoming 3.6),
- batch 2
-Date: Sat, 16 Jun 2012 15:24:23 -0700 (PDT)
-Message-ID: <20120616.152423.1487928117133764164.davem@davemloft.net>
-References: <1339861796-2676-1-git-send-email-pablo@netfilter.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 2/4] bnx2: Dump additional BC_STATE during
+ firmware sync timeout.
+Date: Sat, 16 Jun 2012 18:45:42 -0700
+Message-ID: <1339897544-20254-2-git-send-email-mchan@broadcom.com>
+References: <1339897544-20254-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1339861796-2676-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2599 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757204Ab2FQBfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Jun 2012 21:35:10 -0400
+In-Reply-To: <1339897544-20254-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Sat, 16 Jun 2012 17:49:49 +0200
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2.c |    1 +
+ drivers/net/ethernet/broadcom/bnx2.h |    2 ++
+ 2 files changed, 3 insertions(+), 0 deletions(-)
 
-> This is the second batch of Netfilter updates for net-next. It contains the
-> kernel changes for the new user-space connection tracking helper
-> infrastructure.
-> 
-> More details on this infrastructure are provides here:
-> http://lwn.net/Articles/500196/
-> 
-> Still, I plan to provide some official documentation through the
-> conntrack-tools user manual on how to setup user-space utilities for this.
-> So far, it provides two helper in user-space, one for NFSv3 and another for
-> Oracle/SQLnet/TNS. Yet in my TODO list.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf-next master
-
-Pulled, thanks Pablo.
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 8eaab0c..da88de7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -2473,6 +2473,7 @@ bnx2_dump_mcp_state(struct bnx2 *bp)
+ 		   bnx2_shmem_rd(bp, BNX2_BC_STATE_RESET_TYPE));
+ 	pr_cont(" condition[%08x]\n",
+ 		bnx2_shmem_rd(bp, BNX2_BC_STATE_CONDITION));
++	DP_SHMEM_LINE(bp, BNX2_BC_RESET_TYPE);
+ 	DP_SHMEM_LINE(bp, 0x3cc);
+ 	DP_SHMEM_LINE(bp, 0x3dc);
+ 	DP_SHMEM_LINE(bp, 0x3ec);
+diff --git a/drivers/net/ethernet/broadcom/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
+index 2997585..f9cb639 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.h
++++ b/drivers/net/ethernet/broadcom/bnx2.h
+@@ -7355,6 +7355,8 @@ struct bnx2_rv2p_fw_file {
+ #define BNX2_BC_STATE_RESET_TYPE_VALUE(msg) (BNX2_BC_STATE_RESET_TYPE_SIG | \
+ 					     (msg))
+ 
++#define BNX2_BC_RESET_TYPE			0x000001c0
++
+ #define BNX2_BC_STATE				0x000001c4
+ #define BNX2_BC_STATE_ERR_MASK			 0x0000ff00
+ #define BNX2_BC_STATE_SIGN			 0x42530000
+-- 
+1.7.1
