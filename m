@@ -1,42 +1,29 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [net PATCH 2/2] bnx2x: fix link for BCM57711 with 84823 phy
-Date: Sun, 17 Jun 2012 09:27:15 +0300
-Message-ID: <1339914435-12912-3-git-send-email-yuvalmin@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH 0/2] bnx2x: link bug fixes.
+Date: Sat, 16 Jun 2012 23:39:03 -0700 (PDT)
+Message-ID: <20120616.233903.1848065886754246739.davem@davemloft.net>
 References: <1339914435-12912-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, yaniv.rosner@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com,
+	yaniv.rosner@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3310 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752545Ab2FQGgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jun 2012 02:36:15 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60403 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751759Ab2FQGjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 02:39:07 -0400
 In-Reply-To: <1339914435-12912-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Sun, 17 Jun 2012 09:27:13 +0300
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 65f673f..e0b1fbc 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -9754,7 +9754,7 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 
- 	msleep(1);
- 
--	if (!(CHIP_IS_E1(bp)))
-+	if (!(CHIP_IS_E1x(bp)))
- 		port = BP_PATH(bp);
- 	else
- 		port = params->port;
--- 
-1.7.9.rc2
+> This patch series contain relatively small corrections
+> to the link initialization of the bnx2x driver.
+> 
+> Please consider applying it to 'net'.
+
+Both applied, thanks.
