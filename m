@@ -1,49 +1,182 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [net-next patch 8/12] bnx2x: Allow up to 63 RSS queues
- default 8 queues
-Date: Sun, 17 Jun 2012 12:31:28 +0300
-Message-ID: <1339925488.2486.2.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1339916031.2486.0.camel@lb-tlvb-eilong.il.broadcom.com>
- <20120617.010817.1214320083280899562.davem@davemloft.net>
- <1339922036.2486.1.camel@lb-tlvb-eilong.il.broadcom.com>
- <20120617.020058.2281757592609638666.davem@davemloft.net>
-Reply-To: eilong@broadcom.com
+From: Steven King <sfking@fdwdc.com>
+Subject: [PATCH v2] fec: fix clk handling for Coldfire.
+Date: Sun, 17 Jun 2012 03:06:58 -0700
+Message-ID: <201206170306.58576.sfking@fdwdc.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=utf-8
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: meravs@broadcom.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3809 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754199Ab2FQJbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jun 2012 05:31:40 -0400
-In-Reply-To: <20120617.020058.2281757592609638666.davem@davemloft.net>
+Received: from nm29.access.bullet.mail.mud.yahoo.com ([66.94.237.94]:47251
+	"HELO nm29.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754615Ab2FQKHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 06:07:01 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-06-17 at 02:00 -0700, David Miller wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Sun, 17 Jun 2012 11:33:56 +0300
-> 
-> > drivers now, it does not sound like a good path - so I was asking if you
-> > can consider a kernel parameter as acceptable path. To be clear, I'm
-> > asking if adding the default for all multi-queue drivers in the form of
-> > a kernel parameter is a good path to explore.
-> 
-> If it's the default, there's no need for a kernel command line
-> parameter.  Those suck, just pick a good default.
-> 
+commit f4d40de39a23f0c39cca55ac63e1175c69c3d2f7
+'net fec: do not depend on grouped clocks' broke fec for Coldfire.
 
-OK. So we will send an RFC series setting the default (hard coded
-define) to 8 for all multi-queue drivers and that will start a
-discussion if this is a good default number or not. The side-effect of
-this series will be that drivers that did not implement set_channels
-will not be able to change this default back to the HW limit like they
-run today (assuming the HW limit is higher than the chosen default).
+Hide the details of fec clk management in a trio of new functions:
+fec_clk_get, fec_clk_prepare and fec_clk_disable_unprepare.
 
-On top of that, we will send this series for the bnx2x again without any
-default -allowing up to 64 queues unless set_channels is used.
+Signed-off-by: Steven King <sfking@fdwdc.com>
+---
+ drivers/net/ethernet/freescale/fec.c |   84 
+++++++++++++++++++++++++++--------
+ 1 file changed, 65 insertions(+), 19 deletions(-)
 
-Eilon
+diff --git a/drivers/net/ethernet/freescale/fec.c 
+b/drivers/net/ethernet/freescale/fec.c
+index ff7f4c5..1072da6 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -207,8 +207,12 @@ struct fec_enet_private {
+ 
+ 	struct net_device *netdev;
+ 
++#ifdef CONFIG_COLDFIRE
++	struct clk *clk;
++#else
+ 	struct clk *clk_ipg;
+ 	struct clk *clk_ahb;
++#endif
+ 
+ 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
+ 	unsigned char *tx_bounce[TX_RING_SIZE];
+@@ -248,6 +252,56 @@ struct fec_enet_private {
+ 	int	irq[FEC_IRQ_NUM];
+ };
+ 
++static int fec_clk_get(struct platform_device *pdev,
++		       struct fec_enet_private *fep)
++{
++	int ret;
++
++#ifdef CONFIG_COLDFIRE
++	fep->clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(fep->clk)) {
++		ret = PTR_ERR(fep->clk);
++		goto failed_clk;
++	}
++#else
++	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
++	if (IS_ERR(fep->clk_ipg)) {
++		ret = PTR_ERR(fep->clk_ipg);
++		goto failed_clk;
++	}
++
++	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
++	if (IS_ERR(fep->clk_ahb)) {
++		ret = PTR_ERR(fep->clk_ahb);
++		goto failed_clk;
++	}
++#endif
++	return 0;
++
++failed_clk:
++	return ret;
++}
++
++static void fec_clk_prepare(struct fec_enet_private *fep)
++{
++#ifdef CONFIG_COLDFIRE
++	clk_prepare_enable(fep->clk);
++#else
++	clk_prepare_enable(fep->clk_ahb);
++	clk_prepare_enable(fep->clk_ipg);
++#endif
++}
++
++static void fec_clk_disable_unprepare(struct fec_enet_private *fep)
++{
++#ifdef CONFIG_COLDFIRE
++	clk_disable_unprepare(fep->clk);
++#else
++	clk_disable_unprepare(fep->clk_ahb);
++	clk_disable_unprepare(fep->clk_ipg);
++#endif
++}
++
+ /* FEC MII MMFR bits definition */
+ #define FEC_MMFR_ST		(1 << 30)
+ #define FEC_MMFR_OP_READ	(2 << 28)
+@@ -1066,7 +1120,11 @@ static int fec_enet_mii_init(struct platform_device 
+*pdev)
+ 	 * Reference Manual has an error on this, and gets fixed on i.MX6Q
+ 	 * document.
+ 	 */
++#ifdef CONFIG_COLDFIRE
++	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000);
++#else
+ 	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ahb), 5000000);
++#endif
+ 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+ 		fep->phy_speed--;
+ 	fep->phy_speed <<= 1;
+@@ -1619,20 +1677,11 @@ fec_probe(struct platform_device *pdev)
+ 		goto failed_pin;
+ 	}
+ 
+-	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+-	if (IS_ERR(fep->clk_ipg)) {
+-		ret = PTR_ERR(fep->clk_ipg);
+-		goto failed_clk;
+-	}
+ 
+-	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
+-	if (IS_ERR(fep->clk_ahb)) {
+-		ret = PTR_ERR(fep->clk_ahb);
++	if (fec_clk_get(pdev, fep))
+ 		goto failed_clk;
+-	}
+ 
+-	clk_prepare_enable(fep->clk_ahb);
+-	clk_prepare_enable(fep->clk_ipg);
++	fec_clk_prepare(fep);
+ 
+ 	ret = fec_enet_init(ndev);
+ 	if (ret)
+@@ -1655,8 +1704,7 @@ failed_register:
+ 	fec_enet_mii_remove(fep);
+ failed_mii_init:
+ failed_init:
+-	clk_disable_unprepare(fep->clk_ahb);
+-	clk_disable_unprepare(fep->clk_ipg);
++	fec_clk_disable_unprepare(fep);
+ failed_pin:
+ failed_clk:
+ 	for (i = 0; i < FEC_IRQ_NUM; i++) {
+@@ -1689,8 +1737,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 		if (irq > 0)
+ 			free_irq(irq, ndev);
+ 	}
+-	clk_disable_unprepare(fep->clk_ahb);
+-	clk_disable_unprepare(fep->clk_ipg);
++	fec_clk_disable_unprepare(fep);
+ 	iounmap(fep->hwp);
+ 	free_netdev(ndev);
+ 
+@@ -1714,8 +1761,7 @@ fec_suspend(struct device *dev)
+ 		fec_stop(ndev);
+ 		netif_device_detach(ndev);
+ 	}
+-	clk_disable_unprepare(fep->clk_ahb);
+-	clk_disable_unprepare(fep->clk_ipg);
++	fec_clk_disable_unprepare(fep);
+ 
+ 	return 0;
+ }
+@@ -1726,8 +1772,8 @@ fec_resume(struct device *dev)
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
+-	clk_prepare_enable(fep->clk_ahb);
+-	clk_prepare_enable(fep->clk_ipg);
++	fec_clk_prepare(fep);
++
+ 	if (netif_running(ndev)) {
+ 		fec_restart(ndev, fep->full_duplex);
+ 		netif_device_attach(ndev);
