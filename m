@@ -1,182 +1,69 @@
-From: Steven King <sfking@fdwdc.com>
-Subject: [PATCH v2] fec: fix clk handling for Coldfire.
-Date: Sun, 17 Jun 2012 03:06:58 -0700
-Message-ID: <201206170306.58576.sfking@fdwdc.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net-next PATCH] bnx2x: correct LPI pass-through configuration
+Date: Sun, 17 Jun 2012 15:04:50 +0300
+Message-ID: <1339934690-28191-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: dan.carpenter@oracle.com, eilong@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm29.access.bullet.mail.mud.yahoo.com ([66.94.237.94]:47251
-	"HELO nm29.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754615Ab2FQKHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 06:07:01 -0400
-Content-Disposition: inline
+Received: from mms2.broadcom.com ([216.31.210.18]:2461 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756841Ab2FQMHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Jun 2012 08:07:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit f4d40de39a23f0c39cca55ac63e1175c69c3d2f7
-'net fec: do not depend on grouped clocks' broke fec for Coldfire.
+Commit c8c60d88c59cbb48737732ba948663a3efe882aa contained
+an incorrect logic which enabled a buffer overflow when accessing 
+an array during LPI pass-through configuration.
+This patch fixes this issue by removing that logic altogether.
 
-Hide the details of fec clk management in a trio of new functions:
-fec_clk_get, fec_clk_prepare and fec_clk_disable_unprepare.
-
-Signed-off-by: Steven King <sfking@fdwdc.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/freescale/fec.c |   84 
-++++++++++++++++++++++++++--------
- 1 file changed, 65 insertions(+), 19 deletions(-)
+Thanks goes to Dan Carpenter for finding this bug.
 
-diff --git a/drivers/net/ethernet/freescale/fec.c 
-b/drivers/net/ethernet/freescale/fec.c
-index ff7f4c5..1072da6 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -207,8 +207,12 @@ struct fec_enet_private {
+Dave, please apply this patch to 'net-next'. 
+
+Thanks,
+Yuval Mintz
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   18 ++++++------------
+ 1 files changed, 6 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index c7c814d..91aa565 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -4057,18 +4057,12 @@ static void bnx2x_warpcore_set_10G_XFI(struct bnx2x_phy *phy,
+ 			 MDIO_WC_REG_DIGITAL4_MISC3, val | 0x8080);
  
- 	struct net_device *netdev;
- 
-+#ifdef CONFIG_COLDFIRE
-+	struct clk *clk;
-+#else
- 	struct clk *clk_ipg;
- 	struct clk *clk_ahb;
-+#endif
- 
- 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
- 	unsigned char *tx_bounce[TX_RING_SIZE];
-@@ -248,6 +252,56 @@ struct fec_enet_private {
- 	int	irq[FEC_IRQ_NUM];
- };
- 
-+static int fec_clk_get(struct platform_device *pdev,
-+		       struct fec_enet_private *fep)
-+{
-+	int ret;
-+
-+#ifdef CONFIG_COLDFIRE
-+	fep->clk = clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(fep->clk)) {
-+		ret = PTR_ERR(fep->clk);
-+		goto failed_clk;
-+	}
-+#else
-+	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
-+	if (IS_ERR(fep->clk_ipg)) {
-+		ret = PTR_ERR(fep->clk_ipg);
-+		goto failed_clk;
-+	}
-+
-+	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
-+	if (IS_ERR(fep->clk_ahb)) {
-+		ret = PTR_ERR(fep->clk_ahb);
-+		goto failed_clk;
-+	}
-+#endif
-+	return 0;
-+
-+failed_clk:
-+	return ret;
-+}
-+
-+static void fec_clk_prepare(struct fec_enet_private *fep)
-+{
-+#ifdef CONFIG_COLDFIRE
-+	clk_prepare_enable(fep->clk);
-+#else
-+	clk_prepare_enable(fep->clk_ahb);
-+	clk_prepare_enable(fep->clk_ipg);
-+#endif
-+}
-+
-+static void fec_clk_disable_unprepare(struct fec_enet_private *fep)
-+{
-+#ifdef CONFIG_COLDFIRE
-+	clk_disable_unprepare(fep->clk);
-+#else
-+	clk_disable_unprepare(fep->clk_ahb);
-+	clk_disable_unprepare(fep->clk_ipg);
-+#endif
-+}
-+
- /* FEC MII MMFR bits definition */
- #define FEC_MMFR_ST		(1 << 30)
- #define FEC_MMFR_OP_READ	(2 << 28)
-@@ -1066,7 +1120,11 @@ static int fec_enet_mii_init(struct platform_device 
-*pdev)
- 	 * Reference Manual has an error on this, and gets fixed on i.MX6Q
- 	 * document.
- 	 */
-+#ifdef CONFIG_COLDFIRE
-+	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000);
-+#else
- 	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ahb), 5000000);
-+#endif
- 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
- 		fep->phy_speed--;
- 	fep->phy_speed <<= 1;
-@@ -1619,20 +1677,11 @@ fec_probe(struct platform_device *pdev)
- 		goto failed_pin;
- 	}
- 
--	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
--	if (IS_ERR(fep->clk_ipg)) {
--		ret = PTR_ERR(fep->clk_ipg);
--		goto failed_clk;
+ 	/* Enable LPI pass through */
+-	if ((params->eee_mode & EEE_MODE_ADV_LPI) &&
+-	    (phy->flags & FLAGS_EEE_10GBT) &&
+-	    (!(params->eee_mode & EEE_MODE_ENABLE_LPI) ||
+-	      bnx2x_eee_calc_timer(params)) &&
+-	    (params->req_duplex[bnx2x_phy_selection(params)] == DUPLEX_FULL)) {
+-		DP(NETIF_MSG_LINK, "Configure WC for LPI pass through\n");
+-		bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+-				 MDIO_WC_REG_EEE_COMBO_CONTROL0,
+-				 0x7c);
+-		bnx2x_cl45_read_or_write(bp, phy, MDIO_WC_DEVAD,
+-					 MDIO_WC_REG_DIGITAL4_MISC5, 0xc000);
 -	}
++	DP(NETIF_MSG_LINK, "Configure WC for LPI pass through\n");
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_EEE_COMBO_CONTROL0,
++			 0x7c);
++	bnx2x_cl45_read_or_write(bp, phy, MDIO_WC_DEVAD,
++				 MDIO_WC_REG_DIGITAL4_MISC5, 0xc000);
  
--	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
--	if (IS_ERR(fep->clk_ahb)) {
--		ret = PTR_ERR(fep->clk_ahb);
-+	if (fec_clk_get(pdev, fep))
- 		goto failed_clk;
--	}
- 
--	clk_prepare_enable(fep->clk_ahb);
--	clk_prepare_enable(fep->clk_ipg);
-+	fec_clk_prepare(fep);
- 
- 	ret = fec_enet_init(ndev);
- 	if (ret)
-@@ -1655,8 +1704,7 @@ failed_register:
- 	fec_enet_mii_remove(fep);
- failed_mii_init:
- failed_init:
--	clk_disable_unprepare(fep->clk_ahb);
--	clk_disable_unprepare(fep->clk_ipg);
-+	fec_clk_disable_unprepare(fep);
- failed_pin:
- failed_clk:
- 	for (i = 0; i < FEC_IRQ_NUM; i++) {
-@@ -1689,8 +1737,7 @@ fec_drv_remove(struct platform_device *pdev)
- 		if (irq > 0)
- 			free_irq(irq, ndev);
- 	}
--	clk_disable_unprepare(fep->clk_ahb);
--	clk_disable_unprepare(fep->clk_ipg);
-+	fec_clk_disable_unprepare(fep);
- 	iounmap(fep->hwp);
- 	free_netdev(ndev);
- 
-@@ -1714,8 +1761,7 @@ fec_suspend(struct device *dev)
- 		fec_stop(ndev);
- 		netif_device_detach(ndev);
- 	}
--	clk_disable_unprepare(fep->clk_ahb);
--	clk_disable_unprepare(fep->clk_ipg);
-+	fec_clk_disable_unprepare(fep);
- 
- 	return 0;
- }
-@@ -1726,8 +1772,8 @@ fec_resume(struct device *dev)
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
--	clk_prepare_enable(fep->clk_ahb);
--	clk_prepare_enable(fep->clk_ipg);
-+	fec_clk_prepare(fep);
-+
- 	if (netif_running(ndev)) {
- 		fec_restart(ndev, fep->full_duplex);
- 		netif_device_attach(ndev);
+ 	/* 10G XFI Full Duplex */
+ 	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+-- 
+1.7.9.rc2
