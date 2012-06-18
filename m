@@ -1,108 +1,96 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
-Date: Mon, 18 Jun 2012 21:07:33 +0300
-Message-ID: <1340042853.2486.11.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1339616716.22704.661.camel@edumazet-glaptop>
- <20120615.153049.103988387813257203.davem@davemloft.net>
- <504C9EFCA2D0054393414C9CB605C37F1CF19E@SJEXCHMB06.corp.ad.broadcom.com>
- <1340005136.7491.609.camel@edumazet-glaptop>
- <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
-Reply-To: eilong@broadcom.com
+From: David Ahern <daahern@cisco.com>
+Subject: divide by 0 error in igbvf_set_coalesce - ab50a2a
+Date: Mon, 18 Jun 2012 12:16:13 -0600
+Message-ID: <4FDF706D.7080509@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>,
-	"evansr@google.com" <evansr@google.com>,
-	"Merav Sicron" <meravs@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"willemb@google.com" <willemb@google.com>
-To: "Tomas Hruby" <thruby@google.com>
+Cc: netdev@vger.kernel.org
+To: mitch.a.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2654 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951Ab2FRSHz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2012 14:07:55 -0400
-In-Reply-To: <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
+Received: from mtv-iport-3.cisco.com ([173.36.130.14]:48662 "EHLO
+	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751629Ab2FRSQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 14:16:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-18 at 10:18 -0700, Tomas Hruby wrote:
-> On Mon, Jun 18, 2012 at 12:38 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Sat, 2012-06-16 at 07:40 +0000, Dmitry Kravkov wrote:
-> >> Hi Eric and Tomas
-> >>
-> >> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> >> > owner@vger.kernel.org] On Behalf Of David Miller
-> >> > Sent: Saturday, June 16, 2012 1:31 AM
-> >> > To: eric.dumazet@gmail.com
-> >> > Cc: netdev@vger.kernel.org; therbert@google.com; evansr@google.com;
-> >> > Eilon Greenstein; Merav Sicron; Yaniv Rosner; willemb@google.com;
-> >> > thruby@google.com
-> >> > Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
-> >> >
-> >> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> > Date: Wed, 13 Jun 2012 21:45:16 +0200
-> >> >
-> >> > > From: Eric Dumazet <edumazet@google.com>
-> >> > >
-> >> > > There is a off by one error in the minimal number of BD in
-> >> > > bnx2x_start_xmit() and bnx2x_tx_int() before stopping/resuming tx
-> >> > queue.
-> >> > >
-> >> > > A full size GSO packet, with data included in skb->head really needs
-> >> > > (MAX_SKB_FRAGS + 4) BDs, because of bnx2x_tx_split()
-> >> > >
-> >> > > This error triggers if BQL is disabled and heavy TCP transmit traffic
-> >> > > occurs.
-> >> > >
-> >> > > bnx2x_tx_split() definitely can be called, remove a wrong comment.
-> >> > >
-> >> > > Reported-by: Tomas Hruby <thruby@google.com>
-> >> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> >>
-> >> Theoretically a can't see how we can reach the case with 4 BDs required apart of frags,
-> >> Usually we need 2, when split invoked 3:
-> >> 1.Start
-> >> 2.Start(split)
-> >> 3.Parsing
-> >> + Frags
-> >>
-> >> Next pages descriptors and 2 extras for full indication are not counted as available.
-> >>
-> >> Practically I'm running the traffic for more then a day without hitting the panic.
-> >>
-> >> Can you describe the scenario you reproduced this in details? And which code has paniced?
-> >
-> > Thats pretty immediate.
-> 
-> yes
-> 
-> > Disable bql on your NIC.
-> >
-> > Say you have 4 queues :
-> >
-> > for q in 0 1 2 3
-> > do
-> >  echo max >/sys/class/net/eth0/queues/tx-$q/byte_queue_limits/limit_min
-> > done
-> >
-> > Then start 40 netperf
-> >
-> > for i in `seq 1 40`
-> > do
-> >  netperf -H 192.168.1.4 &
-> > done
-> 
-> this is enough in my case too, it is perfectly reproducible on
-> different machines. Replacing +3 for +4 fixes the problem.
+Mitch:
 
-Thanks. We are now able to reproduce the issue and we have root-caused
-it and found when it was introduced. We are considering few alternatives
-and will send our conclusions tomorrow.
+I have a VM using a 82576 based VF. Running:
+$ ethtool -C eth2 rx-usecs 0
 
-Eilon
+generates the following trace on console:
+
+[  894.683322] divide error: 0000 [#1] SMP
+[  894.684020] CPU 1
+[  894.684020] Modules linked in: sunrpc virtio_net igbvf virtio_blk 
+virtio_pci virtio_ring virtio
+[  894.684020]
+[  894.684020] Pid: 7310, comm: ethtool Not tainted 3.5.0-rc1 #0 Bochs Bochs
+[  894.684020] RIP: 0010:[<ffffffffa00259ec>]  [<ffffffffa00259ec>] 
+igbvf_set_coalesce+0x5b/0x8b [igbvf]
+[  894.684020] RSP: 0018:ffff88003cd51c38  EFLAGS: 00010246
+[  894.684020] RAX: 000000003b9aca00 RBX: ffff88003aa42000 RCX: 
+0000000000000000
+[  894.684020] RDX: 0000000000000000 RSI: ffff88003cd51c48 RDI: 
+ffff88003aa42780
+[  894.684020] RBP: ffff88003cd51c38 R08: 0000000000000000 R09: 
+0000000000000000
+[  894.684020] R10: 0000000000000000 R11: ffff88003cd51ec8 R12: 
+ffff88003cd51c48
+[  894.684020] R13: 000000000000000f R14: 00000000ffffffff R15: 
+00000000fffffff2
+[  894.684020] FS:  00007f8142ccb720(0000) GS:ffff88003fd00000(0000) 
+knlGS:0000000000000000
+[  894.684020] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  894.684020] CR2: 000000000040466c CR3: 000000003c754000 CR4: 
+00000000000007e0
+[  894.684020] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 
+0000000000000000
+[  894.684020] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 
+0000000000000400
+[  894.684020] Process ethtool (pid: 7310, threadinfo ffff88003cd50000, 
+task ffff88003b984470)
+[  894.684020] Stack:
+[  894.684020]  ffff88003cd51cb8 ffffffff8132bcf5 000000000000000f 
+0000000000000000
+[  894.684020]  0000000000000000 0000000000000000 0000000000000000 
+0000000000000000
+[  894.684020]  0000000000000000 0000000000000000 0000000000000000 
+0000000000000000
+[  894.684020] Call Trace:
+[  894.684020]  [<ffffffff8132bcf5>] ethtool_set_coalesce+0x54/0x5d
+[  894.684020]  [<ffffffff8132d0c9>] dev_ethtool+0x5dc/0x175b
+[  894.684020]  [<ffffffff81057921>] ? need_resched+0x1e/0x28
+[  894.684020]  [<ffffffff81057934>] ? should_resched+0x9/0x29
+[  894.684020]  [<ffffffff813be822>] ? _cond_resched+0xe/0x22
+[  894.684020]  [<ffffffff8132b227>] dev_ioctl+0x517/0x684
+[  894.684020]  [<ffffffff810ec91f>] ? pmd_offset+0x14/0x3b
+[  894.684020]  [<ffffffff81315045>] sock_do_ioctl+0x3d/0x48
+[  894.684020]  [<ffffffff8131545f>] sock_ioctl+0x1f8/0x207
+[  894.684020]  [<ffffffff8111f6fa>] do_vfs_ioctl+0x475/0x4b6
+[  894.684020]  [<ffffffff811f8e70>] ? 
+inode_has_perm.clone.19.clone.27+0x33/0x35
+[  894.684020]  [<ffffffff811f9298>] ? file_has_perm+0x73/0x7e
+[  894.684020]  [<ffffffff8110f6cf>] ? fd_install+0x57/0x60
+[  894.684020]  [<ffffffff8111f791>] sys_ioctl+0x56/0x79
+[  894.684020]  [<ffffffff813c5de9>] system_call_fastpath+0x16/0x1b
+[  894.684020] Code: 83 f8 02 77 0f c7 87 0c 03 00 00 e8 01 00 00 8b 46 
+04 eb 19 8d 04 8d 00 00 00 00 31 d2 89 87 0c 03 00 00 c1 e1 0a b8 00 ca 
+9a 3b <f7> f1 89 87 08 03 00 00 8b 97 0c 03 00 00 48 8b 87 80 03 00 00
+[  894.684020] RIP  [<ffffffffa00259ec>] igbvf_set_coalesce+0x5b/0x8b 
+[igbvf]
+[  894.684020]  RSP <ffff88003cd51c38>
+[  894.779474] ---[ end trace 162bed6b66df758d ]---
+
+
+This commit introduced the problem:
+
+commit ab50a2a430693b0961dc7b7d9fe2a4bd77d11ea6
+Author: Mitch A Williams <mitch.a.williams@intel.com>
+Date:   Sat Jan 14 08:10:50 2012 +0000
+
+     igbvf: refactor Interrupt Throttle Rate code
+
+David
