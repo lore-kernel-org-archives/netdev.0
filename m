@@ -1,65 +1,128 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/2 net-next] ixgbe: use skb_padto
-Date: Mon, 18 Jun 2012 13:38:47 -0700
-Message-ID: <1340051927.1995.32.camel@jtkirshe-mobl>
-References: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 2012-06-18
+Date: Mon, 18 Jun 2012 22:39:04 +0200
+Message-ID: <1340051963-14836-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-COccLVCOp3uUFnEefRsL"
-Cc: Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31164 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751802Ab2FRUiy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2012 16:38:54 -0400
-In-Reply-To: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-COccLVCOp3uUFnEefRsL
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-18 at 10:58 -0700, Stephen Hemminger wrote:
-> The code to pad packets here is the same effective code as
-> the existing inline function skb_padto(). There is a minor
-> performance gain since skb_padto() also uses unlikely().
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>=20
+Hello David,
+	here is our first set of changes intended for next-next/linux-3.6.
 
-Thanks Stephen, I have added it to my queue.
+Patch 2 fixes a major bug in the TranslationTable code where the old valu=
+e of
+skb->data is used for memory access even if the data was relocated.
+Patches 4, 10, 11, 13, 14 are endianess-related cleanups that we wrote th=
+anks
+to Al Viro's advice and help.
+Thanks to Martin Hundeb=C3=B8ll batman-adv now supports the ethtool API a=
+nd can
+export several counters that are specific to our module (patch 5).
+Then patch 16 improves the routing protocol API by making part of the
+TranslationTable code routing agnostic.
+The rest are minor fixes and other cleanups.
 
---=-COccLVCOp3uUFnEefRsL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Thank you very much,
+		Antonio
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJP35HXAAoJEOVv75VaS+3OQ0EP/06RSZ+ATmUx2tWUJUhUH+5/
-7CU2b9cQKOC+zShBP6r+fTmsUw6qpzbZxSWHzuIyXbucLvTY+S33h0IEgVjXD7Ei
-Jjph+U2YQHjkkkcvnxWZc6KZCR0kJjPTmGrRH/0xpmm9Kxs6JmSb66SNBPN3xYUZ
-dhtKVrDU5snwDFU8zpQ7UZyfLB1afZd6Sx66MNMLeeTlyrnG5y5oIgZ3xHyruezE
-GLUXnL2TLrnX6/e++Vo4dGZ9A2cb+prsbHbhyQgh4gii0mx4INmKlRvfl53PWceu
-m7HPr2F6SjqPhNF/eAvOgZcPWvS33i26IZMutP8KiwbOGLjpdUTYhH5zbIc9hKbp
-RUrOBk9LKjO96Y0q8TxL1doASjGb8vAhc5biL0MVAgFdGKr17HTAPfeR+Z+FhlhI
-kc1I0Wgi8mcrp4rzy6viEeIAeh0tqli2ds/MkApBIEhbQiLorwvk4OfdrA++MuWK
-pK14yd4umZvH87qS44eytMBaj8D/3409f21SpLT5FrenyvVi+K9jWh1Kq2qVbgmS
-as8jVkzc0YPiCu2OZZqveECGc3ljQTq6QkesffeNasmsf5n0Juj5G/RtYDrVAAEU
-jH3oh3r7pElE7wsP/IybmbLn6a1iAMt+nO8BI9HGLQFTHkxQ4oulA3/dK3hpC8BH
-URk1tzg7vJMCvEbYq+QB
-=orMK
------END PGP SIGNATURE-----
 
---=-COccLVCOp3uUFnEefRsL--
+The following changes since commit 6fac262526ee91ee66210b8919a4297dcf7d54=
+4e:
+
+  ipv4: Cap ADVMSS metric in the FIB rather than the routing cache. (2012=
+-06-17 19:47:34 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to dafe94b278e052c3901b137fe6f666f8f92d839a:
+
+  batman-adv: only store changed gw_bandwidth values (2012-06-18 18:01:07=
+ +0200)
+
+----------------------------------------------------------------
+Included changes:
+
+* major skb->data pointer usage fix
+* interval version update
+* added get_ethtool_stats() support
+* endianess clean up
+* routing protocol API improvement wrt TT commit code
+* fix locking in hash table code
+* minor cleanups and fixes
+
+----------------------------------------------------------------
+Al Viro (5):
+      batman-adv: get rid of pointless cast in memcpy()
+      batman-adv: trivial endianness annotations
+      batman-adv: keep batman_ogm_packet ->seqno net-endian all along
+      batman-adv: don't bother flipping ->tt_data
+      batman-adv: don't bother flipping ->tt_crc
+
+Antonio Quartulli (3):
+      batman-adv: fix skb->data assignment
+      batman-adv: convert bat_priv->tt_crc from atomic_t to uint16_t
+      batman-adv: use DBG_ALL in log_level sysfs definition
+
+Marek Lindner (5):
+      batman-adv: avoid characters requiring shell escapes in protocol na=
+mes
+      batman-adv: ignore trailing CR when comparing protocol names
+      batman-adv: return added entries instead of number of possibly adde=
+d entries
+      batman-adv: turn tt commit code into routing protocol agnostic API
+      batman-adv: only store changed gw_bandwidth values
+
+Martin Hundeb=C3=B8ll (1):
+      batman-adv: Add get_ethtool_stats() support
+
+Matthias Schiffer (2):
+      batman-adv: fix visualization output without neighbors on the prima=
+ry interface
+      batman-adv: fix locking in hash_add()
+
+Sven Eckelmann (3):
+      batman-adv: update internal version number
+      batman-adv: Initialize lockdep class keys for hashes
+      batman-adv: Return error codes instead of -1 on failures
+
+ Documentation/networking/batman-adv.txt |    5 +
+ net/batman-adv/bat_debugfs.c            |   11 +-
+ net/batman-adv/bat_iv_ogm.c             |   63 ++++++------
+ net/batman-adv/bat_sysfs.c              |    4 +-
+ net/batman-adv/bridge_loop_avoidance.c  |   27 +++--
+ net/batman-adv/gateway_common.c         |    3 +
+ net/batman-adv/hard-interface.c         |    4 +-
+ net/batman-adv/hash.c                   |    9 ++
+ net/batman-adv/hash.h                   |   19 ++--
+ net/batman-adv/icmp_socket.c            |    4 +-
+ net/batman-adv/main.c                   |   42 +++++---
+ net/batman-adv/main.h                   |   29 +++++-
+ net/batman-adv/originator.c             |   18 ++--
+ net/batman-adv/packet.h                 |   18 ++--
+ net/batman-adv/routing.c                |   23 +++--
+ net/batman-adv/send.c                   |   74 +-------------
+ net/batman-adv/soft-interface.c         |   66 +++++++++++-
+ net/batman-adv/translation-table.c      |  168 ++++++++++++++++++++++++-=
+------
+ net/batman-adv/translation-table.h      |    7 +-
+ net/batman-adv/types.h                  |   22 +++-
+ net/batman-adv/vis.c                    |   29 ++++--
+ 21 files changed, 420 insertions(+), 225 deletions(-)
