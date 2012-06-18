@@ -1,55 +1,48 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: [PATCH] net: remove my future former mail address
-Date: Mon, 18 Jun 2012 06:45:48 +0300
-Message-ID: <201206180645.49266.remi@remlab.net>
-References: <1339662543-7203-1-git-send-email-remi@remlab.net> <4FDAE7D5.5040709@nokia.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH] tc: man: Fix incorrect parameter format in prio.
+Date: Mon, 18 Jun 2012 14:23:05 +0800
+Message-ID: <4FDEC949.30207@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oyp.chewa.net ([91.121.6.101]:39012 "EHLO oyp.chewa.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752376Ab2FRDpw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 23:45:52 -0400
-Received: from basile.localnet (ip6-localhost [IPv6:::1])
-	by oyp.chewa.net (Postfix) with ESMTP id EEA8A2005A
-	for <netdev@vger.kernel.org>; Mon, 18 Jun 2012 05:45:49 +0200 (CEST)
-In-Reply-To: <4FDAE7D5.5040709@nokia.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:17436 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751816Ab2FRGXo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jun 2012 02:23:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 15 juin 2012 10:44:21 Sakari Ailus, vous avez =E9crit :
-> Hi R=E9mi,
->=20
-> R=E9mi Denis-Courmont wrote:
-> > From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-> >=20
-> > Signed-off-by: R=E9mi Denis-Courmont <remi@remlab.net>
-> > Cc: Sakari Ailus <sakari.ailus@nokia.com>
->=20
-> Hmm. While you're at it, could you please remove mine from the same
-> files as well, please?
->=20
-> I wonder if this also means that the code will be without a maintaine=
-r
-> in the future.
 
-I don't have a crystal ball. As far as I know, the ISI modem "assets" h=
-ave=20
-been sold to Renesas several years ago, so it would natural for them to=
- take=20
-over. Or a Renesas licensee (ST-E seemed to be one at some point).
+Parameter priomap use blank instead of comma to separate bands,
+update manpage to confirms to this.
+---
+ man/man8/tc-prio.8 |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-In any case, the Phonet stack has been essentially code complete from t=
-he=20
-beginning: the changes with new modems occur either above in userspace,=
- or=20
-below in device drivers. In the past few years, it boiled down to keepi=
-ng it=20
-up to date with kernel internal changes.
-
---=20
-R=E9mi Denis-Courmont
-http://www.remlab.net/
-http://fi.linkedin.com/in/remidenis
+diff --git a/man/man8/tc-prio.8 b/man/man8/tc-prio.8
+index 1625fcc..55a5f3d 100644
+--- a/man/man8/tc-prio.8
++++ b/man/man8/tc-prio.8
+@@ -11,7 +11,7 @@ major:
+ .B ] prio [ bands 
+ bands
+ .B ] [ priomap
+-band,band,band... 
++band band band... 
+ .B ] [ estimator 
+ interval timeconstant
+ .B ]
+@@ -134,7 +134,7 @@ showing to which Priority they are mapped.
+ The last column shows the result of the default priomap. On the command line,
+ the default priomap looks like this:
+ 
+-    1, 2, 2, 2, 1, 2, 0, 0 , 1, 1, 1, 1, 1, 1, 1, 1
++    1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+ 
+ This means that priority 4, for example, gets mapped to band number 1.
+ The priomap also allows you to list higher priorities (> 7) which do not
+-- 
+1.7.1
