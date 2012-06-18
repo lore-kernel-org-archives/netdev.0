@@ -1,56 +1,73 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [XFRM][RFC v1] Fix unexpected SA hard expiration after setting
- new date
-Date: Mon, 18 Jun 2012 16:53:05 +0800
-Message-ID: <4FDEEC71.50302@windriver.com>
-References: <1340007856-27651-1-git-send-email-fan.du@windriver.com> <20120618084021.GA24902@gondor.apana.org.au>
+From: Hui Wang <jason77.wang@gmail.com>
+Subject: [PATCH] phy/micrel: change phy_id_mask for KSZ9021 and KS8001
+Date: Mon, 18 Jun 2012 16:52:09 +0800
+Message-ID: <1340009529-4231-1-git-send-email-jason77.wang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<fdu@windriver.com>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <david.choi@micrel.com>, <davem@davemloft.net>,
+	<nobuhiro.iwamatsu.yj@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:50506 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:50517 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752599Ab2FRIv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 04:51:58 -0400
-In-Reply-To: <20120618084021.GA24902@gondor.apana.org.au>
+	with ESMTP id S1753437Ab2FRIwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 04:52:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On a freescale imx6q platform, a hardware phy chip KSZ9021 is
+recognized as a KS8001 chip by the current driver like this:
+eth0: Freescale FEC PHY driver [Micrel KS8001 or KS8721]
 
+KSZ9021 has phy_id 0x00221610, while KSZ8001 has phy_id
+0x0022161a, the current phy_id_mask (0x00fffff0/0x00ffff10) can't
+distinguish them. So change phy_id_mask to resolve this problem.
 
-On 2012=E5=B9=B406=E6=9C=8818=E6=97=A5 16:40, Herbert Xu wrote:
-> On Mon, Jun 18, 2012 at 04:24:15PM +0800, fan.du wrote:
->>
->> So, could you please give your comments on this?
->
-> Well, this used to work back when we were using relative time
-> instead of absolute time.  Then someone came along and changed
-> it for suspend/resume.
->
-> I didn't like this new behaviour but Dave convinced me that
-> it is a good thing :)
->
+Although the micrel datasheet says that the 4 LSB of phyid2 register
+contains the chip revision number and the current driver is designed
+to follow this rule, in reality the chip implementation doesn't follow
+it.
 
-One of our custom complained the networking down when changing date,
-even it's only less than 10 seconds, but they complain anyway:)
-So it probably hurts much in practice for tel comm company.
+Cc: David J. Choi <david.choi@micrel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Signed-off-by: Hui Wang <jason77.wang@gmail.com>
+---
+ drivers/net/phy/micrel.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-
-> I guess I can live with your workaround if Dave is happy with
-> it.  But IMHO we should just go back to relative time and fix
-> the suspend/resume user-space scripts instead.
-
-Ok, let's see what Dave will say about this.
-And thanks for your comments.
-
->
-> Cheers,
-
---=20
-
-Love each day!
---fan
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 590f902..9d6c80c 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -161,7 +161,7 @@ static struct phy_driver ks8051_driver = {
+ static struct phy_driver ks8001_driver = {
+ 	.phy_id		= PHY_ID_KS8001,
+ 	.name		= "Micrel KS8001 or KS8721",
+-	.phy_id_mask	= 0x00fffff0,
++	.phy_id_mask	= 0x00ffffff,
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+@@ -174,7 +174,7 @@ static struct phy_driver ks8001_driver = {
+ 
+ static struct phy_driver ksz9021_driver = {
+ 	.phy_id		= PHY_ID_KSZ9021,
+-	.phy_id_mask	= 0x000fff10,
++	.phy_id_mask	= 0x000ffffe,
+ 	.name		= "Micrel KSZ9021 Gigabit PHY",
+ 	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause
+ 				| SUPPORTED_Asym_Pause),
+@@ -240,8 +240,8 @@ MODULE_AUTHOR("David J. Choi");
+ MODULE_LICENSE("GPL");
+ 
+ static struct mdio_device_id __maybe_unused micrel_tbl[] = {
+-	{ PHY_ID_KSZ9021, 0x000fff10 },
+-	{ PHY_ID_KS8001, 0x00fffff0 },
++	{ PHY_ID_KSZ9021, 0x000ffffe },
++	{ PHY_ID_KS8001, 0x00ffffff },
+ 	{ PHY_ID_KS8737, 0x00fffff0 },
+ 	{ PHY_ID_KS8041, 0x00fffff0 },
+ 	{ PHY_ID_KS8051, 0x00fffff0 },
+-- 
+1.7.6
