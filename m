@@ -1,78 +1,113 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net: added support for 40GbE link.
-Date: Mon, 18 Jun 2012 18:09:36 +0100
-Message-ID: <1340039376.2913.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <0c7c97b0-bfe1-4143-a562-2019f86912fc@exht1.ad.emulex.com>
+From: Tomas Hruby <thruby@google.com>
+Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
+Date: Mon, 18 Jun 2012 10:18:59 -0700
+Message-ID: <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
+References: <1339616716.22704.661.camel@edumazet-glaptop>
+	<20120615.153049.103988387813257203.davem@davemloft.net>
+	<504C9EFCA2D0054393414C9CB605C37F1CF19E@SJEXCHMB06.corp.ad.broadcom.com>
+	<1340005136.7491.609.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Parav Pandit <parav.pandit@emulex.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dmitry Kravkov <dmitry@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"therbert@google.com" <therbert@google.com>,
+	"evansr@google.com" <evansr@google.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Merav Sicron <meravs@broadcom.com>,
+	Yaniv Rosner <yaniv.rosner@broadcom.com>,
+	"willemb@google.com" <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:62511 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752974Ab2FRRJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 13:09:39 -0400
-In-Reply-To: <0c7c97b0-bfe1-4143-a562-2019f86912fc@exht1.ad.emulex.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:52660 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254Ab2FRRTA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 13:19:00 -0400
+Received: by vbbff1 with SMTP id ff1so2863082vbb.19
+        for <netdev@vger.kernel.org>; Mon, 18 Jun 2012 10:18:59 -0700 (PDT)
+In-Reply-To: <1340005136.7491.609.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-18 at 18:14 +0530, Parav Pandit wrote:
-> 1. link speed of 40GbE and #4 KR4, CR4, SR4, LR4 modes defined.
-> 2. removed code replication for tov calculation for 1G, 10G and
-> made is common for 1G, 10G, 40G.
-[...]
-> @@ -1185,12 +1193,13 @@ struct ethtool_ops {
->   * it was forced up into this mode or autonegotiated.
->   */
->  
-> -/* The forced speed, 10Mb, 100Mb, gigabit, 2.5Gb, 10GbE. */
-> +/* The forced speed, 10Mb, 100Mb, gigabit, 2.5Gb, 10GbE, 40GbE. */
->  #define SPEED_10		10
->  #define SPEED_100		100
->  #define SPEED_1000		1000
->  #define SPEED_2500		2500
->  #define SPEED_10000		10000
-> +#define SPEED_40000		40000
->  #define SPEED_UNKNOWN		-1
+On Mon, Jun 18, 2012 at 12:38 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> On Sat, 2012-06-16 at 07:40 +0000, Dmitry Kravkov wrote:
+>> Hi Eric and Tomas
+>>
+>> > From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> > owner@vger.kernel.org] On Behalf Of David Miller
+>> > Sent: Saturday, June 16, 2012 1:31 AM
+>> > To: eric.dumazet@gmail.com
+>> > Cc: netdev@vger.kernel.org; therbert@google.com; evansr@google.com=
+;
+>> > Eilon Greenstein; Merav Sicron; Yaniv Rosner; willemb@google.com;
+>> > thruby@google.com
+>> > Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
+>> >
+>> > From: Eric Dumazet <eric.dumazet@gmail.com>
+>> > Date: Wed, 13 Jun 2012 21:45:16 +0200
+>> >
+>> > > From: Eric Dumazet <edumazet@google.com>
+>> > >
+>> > > There is a off by one error in the minimal number of BD in
+>> > > bnx2x_start_xmit() and bnx2x_tx_int() before stopping/resuming t=
+x
+>> > queue.
+>> > >
+>> > > A full size GSO packet, with data included in skb->head really n=
+eeds
+>> > > (MAX_SKB_FRAGS + 4) BDs, because of bnx2x_tx_split()
+>> > >
+>> > > This error triggers if BQL is disabled and heavy TCP transmit tr=
+affic
+>> > > occurs.
+>> > >
+>> > > bnx2x_tx_split() definitely can be called, remove a wrong commen=
+t.
+>> > >
+>> > > Reported-by: Tomas Hruby <thruby@google.com>
+>> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>>
+>> Theoretically a can't see how we can reach the case with 4 BDs requi=
+red apart of frags,
+>> Usually we need 2, when split invoked 3:
+>> 1.Start
+>> 2.Start(split)
+>> 3.Parsing
+>> + Frags
+>>
+>> Next pages descriptors and 2 extras for full indication are not coun=
+ted as available.
+>>
+>> Practically I'm running the traffic for more then a day without hitt=
+ing the panic.
+>>
+>> Can you describe the scenario you reproduced this in details? And wh=
+ich code has paniced?
+>
+> Thats pretty immediate.
 
-I don't think there's any need to name all possible link speeds, and it
-just encourages the bad practice of ethtool API users checking for
-specific values.  You may notice there is no SPEED_20000.
+yes
 
->  /* Duplex, half or full. */
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 8a10d5b..dd0e503 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -542,13 +542,11 @@ static int prb_calc_retire_blk_tmo(struct packet_sock *po,
->  	rtnl_unlock();
->  	if (!err) {
->  		switch (ecmd.speed) {
-> -		case SPEED_10000:
-> -			msec = 1;
-> -			div = 10000/1000;
-> -			break;
->  		case SPEED_1000:
-> +		case SPEED_10000:
-> +		case SPEED_40000:
->  			msec = 1;
-> -			div = 1000/1000;
-> +			div = ecmd.speed / 1000;
->  			break;
+> Disable bql on your NIC.
+>
+> Say you have 4 queues :
+>
+> for q in 0 1 2 3
+> do
+> =A0echo max >/sys/class/net/eth0/queues/tx-$q/byte_queue_limits/limit=
+_min
+> done
+>
+> Then start 40 netperf
+>
+> for i in `seq 1 40`
+> do
+> =A0netperf -H 192.168.1.4 &
+> done
 
-This function should be fixed properly.  Firstly, it must use
-ethtool_cmd_speed() rather than directly accessing ecmd.speed.
-Secondly, it should allow any speed value rather than checking for
-specific values.  Then there will be no need to make further changes for
-100G or any other new speed.
+this is enough in my case too, it is perfectly reproducible on
+different machines. Replacing +3 for +4 fixes the problem.
 
-Ben.
-
->  		/*
->  		 * If the link speed is so slow you don't really
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+T.
