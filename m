@@ -1,47 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: unstable 10GBE performance with recent kernels (> 3.0.X)
-Date: Mon, 18 Jun 2012 12:25:43 +0200
-Message-ID: <1340015143.7491.855.camel@edumazet-glaptop>
-References: <4FDEF34C.808@profihost.ag>
-	 <1340012706.7491.770.camel@edumazet-glaptop>
-	 <4FDEFD55.7010204@profihost.ag>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after
+ changing date
+Date: Mon, 18 Jun 2012 13:05:23 +0200
+Message-ID: <20120618110523.GA29295@secunet.com>
+References: <1340007856-27651-1-git-send-email-fan.du@windriver.com>
+ <1340007856-27651-2-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, herbert@gondor.hengli.com.au,
+	netdev@vger.kernel.org, fdu@windriver.com
+To: "fan.du" <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:40741 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972Ab2FRKZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 06:25:49 -0400
-Received: by eeit10 with SMTP id t10so1498206eei.19
-        for <netdev@vger.kernel.org>; Mon, 18 Jun 2012 03:25:48 -0700 (PDT)
-In-Reply-To: <4FDEFD55.7010204@profihost.ag>
+Received: from a.mx.secunet.com ([195.81.216.161]:47230 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750786Ab2FRLFh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jun 2012 07:05:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1340007856-27651-2-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-18 at 12:05 +0200, Stefan Priebe - Profihost AG wrote:
-> Am 18.06.2012 11:45, schrieb Eric Dumazet:
-> > On Mon, 2012-06-18 at 11:22 +0200, Stefan Priebe - Profihost AG wrote:
-> >> Hello list,
-> >>
-> >> i've discovered very unstable 10GBE performance using recent kernels.
-> >> I'm using some optimized settings mentioned by intel here
-> >> (part:Improving Performance):
-> >> http://downloadmirror.intel.com/5874/eng/README.txt
-> >>
-> > like what settings ?
+On Mon, Jun 18, 2012 at 04:24:16PM +0800, fan.du wrote:
+> After SA is setup, one timer is armed to detect soft/hard expiration,
+> however the timer handler uses xtime to do the math. This makes hard
+> expiration occurs first before soft expiration after setting new date
+> with big interval. As a result new child SA is deleted before rekeying
+> the new one.
 > 
-> Sorry these ones:
-> http://pastebin.com/raw.php?i=J2XRFAjD
+> Signed-off-by: fan.du <fan.du@windriver.com>
+> ---
+>  include/net/xfrm.h    |    2 ++
+>  net/xfrm/xfrm_state.c |   22 ++++++++++++++++++----
+>  2 files changed, 20 insertions(+), 4 deletions(-)
 > 
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index 2933d74..1734acc 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -214,6 +214,8 @@ struct xfrm_state
+>  	/* Private data of this transformer, format is opaque,
+>  	 * interpreted by xfrm_type methods. */
+>  	void			*data;
+> +	u32				flags;
 
-I would remove all this (pretty old and obsolete) stuff and use standard
-params.
-
-Only thing you could do is :
-
-ethtool -K eth2 ntuple on
-
-on both machines
+We already have the xflags field, it holds exactly one flag
+at the moment. So I think we don't need yet another u32 that
+holds one flag too.
