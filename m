@@ -1,42 +1,68 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 3/3] usbnet: handle remote wakeup asap
-Date: Mon, 18 Jun 2012 09:55:16 +0800
-Message-ID: <CACVXFVN6B70=7AE8_JmOmRBZQgAdqjsr4-WoaXb0Acadsmw0+A@mail.gmail.com>
-References: <1339561217-18151-1-git-send-email-ming.lei@canonical.com>
-	<1339561217-18151-4-git-send-email-ming.lei@canonical.com>
-	<CACVXFVMO0Z23kW59YRyfbVFu77vG6_yAMxAhOXk619V0dhF7Fw@mail.gmail.com>
-	<20120617.162233.868029041800646826.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Cap ADVMSS metric in the FIB rather than the routing
+ cache.
+Date: Sun, 17 Jun 2012 19:53:56 -0700 (PDT)
+Message-ID: <20120617.195356.1115146370520234751.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120617.162233.868029041800646826.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38942 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752966Ab2FRCx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jun 2012 22:53:58 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id EB210585CD2
+	for <netdev@vger.kernel.org>; Sun, 17 Jun 2012 19:53:58 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 18, 2012 at 7:22 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> Date: Fri, 15 Jun 2012 10:22:16 +0800
->
->> David, sorry, the 'GFP_ATOMIC' above should be 'flags', so could
->> you take the fixed version from attachment? Or could you do it by
->> your self?
->
-> You are rushing this patch submission if you are finding such
-> errors right after you post the patch.
->
-> Take your time and properly audit your work, then resubmit your
-> entire series again once it is really ready.
 
-Good suggestion, I will check the patches again and test them further.
+It makes no sense to execute this limit test every time we create a
+routing cache entry.
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We can't simply error out on these things since we've silently
+accepted and truncated them forever.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/fib_semantics.c |    7 ++++++-
+ net/ipv4/route.c         |    2 --
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index e5b7182..415f823 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -779,9 +779,14 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 			int type = nla_type(nla);
+ 
+ 			if (type) {
++				u32 val;
++
+ 				if (type > RTAX_MAX)
+ 					goto err_inval;
+-				fi->fib_metrics[type - 1] = nla_get_u32(nla);
++				val = nla_get_u32(nla);
++				if (type == RTAX_ADVMSS && val > 65535 - 40)
++					val = 65535 - 40;
++				fi->fib_metrics[type - 1] = val;
+ 			}
+ 		}
+ 	}
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 41df529..a91f6d3 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1951,8 +1951,6 @@ static void rt_set_nexthop(struct rtable *rt, const struct flowi4 *fl4,
+ 
+ 	if (dst_mtu(dst) > IP_MAX_MTU)
+ 		dst_metric_set(dst, RTAX_MTU, IP_MAX_MTU);
+-	if (dst_metric_raw(dst, RTAX_ADVMSS) > 65535 - 40)
+-		dst_metric_set(dst, RTAX_ADVMSS, 65535 - 40);
+ 
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+-- 
+1.7.10
