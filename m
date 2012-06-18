@@ -1,60 +1,53 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/2 net-next] ixgbe: use skb_padto
-Date: Mon, 18 Jun 2012 10:58:16 -0700
-Message-ID: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] tc: man: Fix incorrect parameter format in prio.
+Date: Mon, 18 Jun 2012 12:25:46 -0700
+Message-ID: <20120618122546.21ec3267@nehalam.linuxnetplumber.net>
+References: <4FDEC949.30207@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, Bruce Allan
-	<bruce.w.allan@intel.com>, Carolyn Wyborny <carolyn.wyborny@intel.com>, Don
-	Skidmore <donald.c.skidmore@intel.com>, Greg Rose
-	<gregory.v.rose@intel.com>, Peter P Waskiewicz Jr
-	<peter.p.waskiewicz.jr@intel.com>, Alex Duyck
-	<alexander.h.duyck@intel.com>, "David S. Miller" <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Li Wei <lw@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:37108 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751700Ab2FRTZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jun 2012 15:25:50 -0400
+In-Reply-To: <4FDEC949.30207@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The code to pad packets here is the same effective code as
-the existing inline function skb_padto(). There is a minor
-performance gain since skb_padto() also uses unlikely().
+On Mon, 18 Jun 2012 14:23:05 +0800
+Li Wei <lw@cn.fujitsu.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> Parameter priomap use blank instead of comma to separate bands,
+> update manpage to confirms to this.
+> ---
+>  man/man8/tc-prio.8 |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/man/man8/tc-prio.8 b/man/man8/tc-prio.8
+> index 1625fcc..55a5f3d 100644
+> --- a/man/man8/tc-prio.8
+> +++ b/man/man8/tc-prio.8
+> @@ -11,7 +11,7 @@ major:
+>  .B ] prio [ bands 
+>  bands
+>  .B ] [ priomap
+> -band,band,band... 
+> +band band band... 
+>  .B ] [ estimator 
+>  interval timeconstant
+>  .B ]
+> @@ -134,7 +134,7 @@ showing to which Priority they are mapped.
+>  The last column shows the result of the default priomap. On the command line,
+>  the default priomap looks like this:
+>  
+> -    1, 2, 2, 2, 1, 2, 0, 0 , 1, 1, 1, 1, 1, 1, 1, 1
+> +    1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>  
+>  This means that priority 4, for example, gets mapped to band number 1.
+>  The priomap also allows you to list higher priorities (> 7) which do not
 
-
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-06-18 10:53:09.130376800 -0700
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-06-18 10:55:13.104540844 -0700
-@@ -6389,11 +6389,8 @@ static netdev_tx_t ixgbe_xmit_frame(stru
- 	 * The minimum packet size for olinfo paylen is 17 so pad the skb
- 	 * in order to meet this minimum size requirement.
- 	 */
--	if (skb->len < 17) {
--		if (skb_padto(skb, 17))
--			return NETDEV_TX_OK;
--		skb->len = 17;
--	}
-+	if (skb_padto(skb, 17))
-+		return NETDEV_TX_OK;
- 
- 	tx_ring = adapter->tx_ring[skb->queue_mapping];
- 	return ixgbe_xmit_frame_ring(skb, adapter, tx_ring);
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Applied (had to fix whitespace in patch)
