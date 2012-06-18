@@ -1,42 +1,45 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: unstable 10GBE performance with recent kernels (> 3.0.X)
-Date: Mon, 18 Jun 2012 16:17:15 +0200
-Message-ID: <4FDF386B.1040300@profihost.ag>
-References: <4FDEF34C.808@profihost.ag>  <1340012706.7491.770.camel@edumazet-glaptop>  <4FDEFD55.7010204@profihost.ag>  <1340015143.7491.855.camel@edumazet-glaptop>  <4FDF20B2.2010603@profihost.ag>  <1340023876.7491.1153.camel@edumazet-glaptop>  <4FDF2829.6050705@profihost.ag> <1340026144.7491.1231.camel@edumazet-glaptop>
+From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
+Date: Tue, 19 Jun 2012 00:25:15 +0800
+Message-ID: <CA+v9cxZG6b1O7kOQpeTELtv0vHzqy-8NH84boMpim0BM+tp1eQ@mail.gmail.com>
+References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com>
+	<20120617.163017.1067800063889498786.davem@davemloft.net>
+	<201206180923.36091.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.profihost.ag ([85.158.179.208]:38298 "EHLO
-	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751466Ab2FRORS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 10:17:18 -0400
-In-Reply-To: <1340026144.7491.1231.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201206180923.36091.oneukum-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Am 18.06.2012 15:29, schrieb Eric Dumazet:
->> But with the latest long term stable vanilla kernel 3.0.34.
+On Mon, Jun 18, 2012 at 3:23 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+> Am Montag, 18. Juni 2012, 01:30:17 schrieb David Miller:
+>> From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Date: Wed, 13 Jun 2012 20:50:31 +0800
 >>
->> # iperf -c HOST -t 60
+>> > intr_complete() submits URB even the interrupt endpoint stalls.
+>> > This patch will try to activate the endpoint once the exception
+>> > occurs, and then re-submit the URB if the endpoint works again.
+>> >
+>> > Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 >>
->> works fine but with -d for using both directions i see around 9.8Gbit/s
->> in one direction and only 300kb/s in the other direction.
+>> Review from USB experts would be appreciated.
 >
-> I would try using regular MTU.
-For 3.5.0-rc2 this works fine but decreases the speed from 9,9Gbit/s to 
-9,3Gbit/s. With mtu 9000 i get around 3-4Gbit/s (netstat -s attached below)
+> The code implements a minimum error handler correctly.
+> Did you observe a stall in actual hardware or is this a just
+> in case patch?
+>
 
-With 3.0.34 MTU 9000 works fine with constant 9,9Gbit/s in both directions.
+This one is just a patch, thanks for your comments.
 
-> And post "netstat -s" results before/after your iperf.
-
-Tests with mtu 9000 and 3.5rc2:
-Pre: http://pastebin.com/raw.php?i=uBjsFKjs
-Post: http://pastebin.com/raw.php?i=TAK8JS6j
-
-Thanks again!
-
-Stefan
+> =A0 =A0 =A0 =A0Regards
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
