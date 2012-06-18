@@ -1,36 +1,33 @@
 From: Parav Pandit <parav.pandit@emulex.com>
-Subject: [PATCH] net: added support for 40GbE link.
-Date: Mon, 18 Jun 2012 18:14:49 +0530
-Message-ID: <0c7c97b0-bfe1-4143-a562-2019f86912fc@exht1.ad.emulex.com>
+Subject: [PATCH] ethtool: added support for 40G link.
+Date: Mon, 18 Jun 2012 18:15:28 +0530
+Message-ID: <ca609cbe-43eb-4a9f-8c11-d3b14c45f21c@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <bhutchings@solarflare.com>, Parav Pandit <parav.pandit@emulex.com>
-To: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, Parav Pandit <parav.pandit@emulex.com>
+To: <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:11584 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:11596 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752607Ab2FRIjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 04:39:37 -0400
+	with ESMTP id S1751765Ab2FRIkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 04:40:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. link speed of 40GbE and #4 KR4, CR4, SR4, LR4 modes defined.
-2. removed code replication for tov calculation for 1G, 10G and
-made is common for 1G, 10G, 40G.
-
-Port cost calculation changes for bridging for 40G will be done once have more clarify from 802.1d spec in coming days.
+1. defined 40G link speed.
+2. defined values for KR4, CR4, SR4, LR4 PHY.
 
 Signed-off-by: Parav Pandit <parav.pandit@emulex.com>
 ---
- include/linux/ethtool.h |   11 ++++++++++-
- net/packet/af_packet.c  |    8 +++-----
- 2 files changed, 13 insertions(+), 6 deletions(-)
+ ethtool-copy.h |   11 ++++++++++-
+ ethtool.c      |    4 ++++
+ 2 files changed, 14 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 297370a..1ebfa6e 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -1153,6 +1153,10 @@ struct ethtool_ops {
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3027ca3..3bbc0ed 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -913,6 +913,10 @@ enum ethtool_sfeatures_retval_bits {
  #define SUPPORTED_10000baseR_FEC	(1 << 20)
  #define SUPPORTED_20000baseMLD2_Full	(1 << 21)
  #define SUPPORTED_20000baseKR2_Full	(1 << 22)
@@ -41,7 +38,7 @@ index 297370a..1ebfa6e 100644
  
  /* Indicates what features are advertised by the interface. */
  #define ADVERTISED_10baseT_Half		(1 << 0)
-@@ -1178,6 +1182,10 @@ struct ethtool_ops {
+@@ -938,6 +942,10 @@ enum ethtool_sfeatures_retval_bits {
  #define ADVERTISED_10000baseR_FEC	(1 << 20)
  #define ADVERTISED_20000baseMLD2_Full	(1 << 21)
  #define ADVERTISED_20000baseKR2_Full	(1 << 22)
@@ -52,7 +49,7 @@ index 297370a..1ebfa6e 100644
  
  /* The following are all involved in forcing a particular link
   * mode for the device for setting things.  When getting the
-@@ -1185,12 +1193,13 @@ struct ethtool_ops {
+@@ -945,12 +953,13 @@ enum ethtool_sfeatures_retval_bits {
   * it was forced up into this mode or autonegotiated.
   */
  
@@ -67,26 +64,20 @@ index 297370a..1ebfa6e 100644
  #define SPEED_UNKNOWN		-1
  
  /* Duplex, half or full. */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8a10d5b..dd0e503 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -542,13 +542,11 @@ static int prb_calc_retire_blk_tmo(struct packet_sock *po,
- 	rtnl_unlock();
- 	if (!err) {
- 		switch (ecmd.speed) {
--		case SPEED_10000:
--			msec = 1;
--			div = 10000/1000;
--			break;
- 		case SPEED_1000:
-+		case SPEED_10000:
-+		case SPEED_40000:
- 			msec = 1;
--			div = 1000/1000;
-+			div = ecmd.speed / 1000;
- 			break;
- 		/*
- 		 * If the link speed is so slow you don't really
+diff --git a/ethtool.c b/ethtool.c
+index b0d3eea..6e9418e 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -460,6 +460,10 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask)
+ 		{ 0, ADVERTISED_10000baseT_Full,    "10000baseT/Full" },
+ 		{ 0, ADVERTISED_10000baseKX4_Full,  "10000baseKX4/Full" },
+ 		{ 0, ADVERTISED_20000baseMLD2_Full, "20000baseMLD2/Full" },
++		{ 0, ADVERTISED_40000baseKR4_Full,  "40000baseKR4/Full" },
++		{ 0, ADVERTISED_40000baseCR4_Full,  "40000baseCR4/Full" },
++		{ 0, ADVERTISED_40000baseSR4_Full,  "40000baseSR4/Full" },
++		{ 0, ADVERTISED_40000baseLR4_Full,  "40000baseLR4/Full" },
+ 	};
+ 	int indent;
+ 	int did1, new_line_pend, i;
 -- 
 1.6.0.2
