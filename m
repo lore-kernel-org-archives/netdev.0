@@ -1,33 +1,58 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC] Introduce to batch variants of accept() and epoll_ctl() syscall
-Date: Mon, 18 Jun 2012 16:27:47 -0700
-Message-ID: <m2fw9s8aks.fsf@firstfloor.org>
-References: <4FDAB652.6070201@gmail.com>
-	<CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>
-	<4FDACA26.70004@gmail.com> <1339750318.7491.70.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] ixgbe: simplify padding and length checks (v2)
+Date: Mon, 18 Jun 2012 16:31:11 -0700
+Message-ID: <20120618163111.4e46493b@nehalam.linuxnetplumber.net>
+References: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
+	<4FDF9B37.3030804@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Li Yu <raise.sail@gmail.com>, Changli Gao <xiaosuo@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davidel@xmailserver.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1339750318.7491.70.camel@edumazet-glaptop> (Eric Dumazet's
-	message of "Fri, 15 Jun 2012 10:51:58 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:57445 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752544Ab2FRXbR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jun 2012 19:31:17 -0400
+In-Reply-To: <4FDF9B37.3030804@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
->
-> I believe accept() is the problem here, because it contends with the
-> softirq processing the tcp session handshake.
+The check for length <= 0 is bogus because length is unsigned, and network
+stack never sends zero length packets (unless it is totally broken).
 
-The MOSBENCH people some time ago did a per CPU accept queue. This is
-probably overkill, but there are clearly some scaling problems here
-with enough cores.
+The check for really small packets can be optimized (using unlikely)
+and calling skb_pad directly.
 
--Andi
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
--- 
-ak@linux.intel.com -- Speaking for myself only
+
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-06-18 10:53:09.130376800 -0700
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-06-18 15:20:44.364951004 -0700
+@@ -6380,17 +6380,12 @@ static netdev_tx_t ixgbe_xmit_frame(stru
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_ring *tx_ring;
+ 
+-	if (skb->len <= 0) {
+-		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
+-	}
+-
+ 	/*
+ 	 * The minimum packet size for olinfo paylen is 17 so pad the skb
+ 	 * in order to meet this minimum size requirement.
+ 	 */
+-	if (skb->len < 17) {
+-		if (skb_padto(skb, 17))
++	if (unlikely(skb->len < 17)) {
++		if (skb_pad(skb, 17 - skb->len))
+ 			return NETDEV_TX_OK;
+ 		skb->len = 17;
+ 	}
