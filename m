@@ -1,88 +1,71 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 1/4 (v3)] stmmac: do not use strict_strtoul but kstrtoint
-Date: Mon, 18 Jun 2012 08:49:44 +0200
-Message-ID: <1340002187-9248-2-git-send-email-peppe.cavallaro@st.com>
-References: <1340002187-9248-1-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 0/4] EEE for PAL and stmmac (V4)
+Date: Mon, 18 Jun 2012 08:49:43 +0200
+Message-ID: <1340002187-9248-1-git-send-email-peppe.cavallaro@st.com>
 Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
 	rayagond@vayavyalabs.com, davem@davemloft.net,
 	yuvalmin@broadcom.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:58809 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752570Ab2FRGuI (ORCPT
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:58273 "EHLO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752055Ab2FRGuI (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 02:50:08 -0400
-In-Reply-To: <1340002187-9248-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replaces the obsolete strict_strtoul with kstrtoint.
+These patches add the EEE support in the stmmac device driver
+restoring an old work I had done some months ago and not
+completed in time.
 
-v2: also removed casting on kstrtoul.
-v3: use kstrtoint instead of kstrtoul due to all vars are integer.
-    thanks to E. Dumazet.
+I've tested all on ST STB with the IC+ 101G PHY device that has
+this feature.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   27 +++++++-------------
- 1 files changed, 10 insertions(+), 17 deletions(-)
+The initial EEE support for the stmmac has been written by Rayagond
+but I have reworked all his code adding new parts and especially
+performing tests on a real hardware. Thx Rayagond!
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 590e95b..eba49cb 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2129,42 +2129,35 @@ static int __init stmmac_cmdline_opt(char *str)
- 		return -EINVAL;
- 	while ((opt = strsep(&str, ",")) != NULL) {
- 		if (!strncmp(opt, "debug:", 6)) {
--			if (strict_strtoul(opt + 6, 0, (unsigned long *)&debug))
-+			if (kstrtoint(opt + 6, 0, &debug))
- 				goto err;
- 		} else if (!strncmp(opt, "phyaddr:", 8)) {
--			if (strict_strtoul(opt + 8, 0,
--					   (unsigned long *)&phyaddr))
-+			if (kstrtoint(opt + 8, 0, &phyaddr))
- 				goto err;
- 		} else if (!strncmp(opt, "dma_txsize:", 11)) {
--			if (strict_strtoul(opt + 11, 0,
--					   (unsigned long *)&dma_txsize))
-+			if (kstrtoint(opt + 11, 0, &dma_txsize))
- 				goto err;
- 		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
--			if (strict_strtoul(opt + 11, 0,
--					   (unsigned long *)&dma_rxsize))
-+			if (kstrtoint(opt + 11, 0, &dma_rxsize))
- 				goto err;
- 		} else if (!strncmp(opt, "buf_sz:", 7)) {
--			if (strict_strtoul(opt + 7, 0,
--					   (unsigned long *)&buf_sz))
-+			if (kstrtoint(opt + 7, 0, &buf_sz))
- 				goto err;
- 		} else if (!strncmp(opt, "tc:", 3)) {
--			if (strict_strtoul(opt + 3, 0, (unsigned long *)&tc))
-+			if (kstrtoint(opt + 3, 0, &tc))
- 				goto err;
- 		} else if (!strncmp(opt, "watchdog:", 9)) {
--			if (strict_strtoul(opt + 9, 0,
--					   (unsigned long *)&watchdog))
-+			if (kstrtoint(opt + 9, 0, &watchdog))
- 				goto err;
- 		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
--			if (strict_strtoul(opt + 10, 0,
--					   (unsigned long *)&flow_ctrl))
-+			if (kstrtoint(opt + 10, 0, &flow_ctrl))
- 				goto err;
- 		} else if (!strncmp(opt, "pause:", 6)) {
--			if (strict_strtoul(opt + 6, 0, (unsigned long *)&pause))
-+			if (kstrtoint(opt + 6, 0, &pause))
- 				goto err;
- #ifdef CONFIG_STMMAC_TIMER
- 		} else if (!strncmp(opt, "tmrate:", 7)) {
--			if (strict_strtoul(opt + 7, 0,
--					   (unsigned long *)&tmrate))
-+			if (kstrtoint(opt + 7, 0, &tmrate))
- 				goto err;
- #endif
- 		}
+In these patches, we can see that the stmmac supports the EEE
+only if the DMA HW capability register says that this
+feature is actually available. In that case, the driver can enter
+in the Tx LPI mode by using a timer as recommended by Synopsys.
+Note that EEE is supported in new chip generations; in particular
+I used the 3.61a.
+
+At any rate, further information about how the driver treats the EEE
+can be found in the stmmac.txt file (there is a patch for that).
+
+Another patch is for Physical Abstraction Layer now able to
+manage the MMD registers (clause 45); it also provides the ethtool
+support to manage supported/advertisement/lp adv features.
+
+v3: fixed the "stmmac: do not use strict_strtoul but kstrtoint"
+    to use the kstrtoint.
+v4: fixed the function to enable the EEE and add a check that verifies
+    if the link auto-negotiated matches with the bits in the adv and lp
+    registers.
+
+Giuseppe Cavallaro (4):
+  stmmac: do not use strict_strtoul but kstrtoint
+  stmmac: update the driver Documentation and add EEE
+  stmmac: add the Energy Efficient Ethernet support
+  phy: add the EEE support and the way to access to the MMD registers.
+
+ Documentation/networking/stmmac.txt                |   36 +++-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   31 +++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   20 ++
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  101 +++++++-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    4 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    8 +
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   57 ++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  193 ++++++++++++--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +
+ drivers/net/phy/phy.c                              |  274 ++++++++++++++++++++
+ include/linux/mdio.h                               |   21 ++-
+ include/linux/mii.h                                |    9 +
+ include/linux/phy.h                                |    5 +
+ 14 files changed, 717 insertions(+), 45 deletions(-)
+
 -- 
 1.7.4.4
