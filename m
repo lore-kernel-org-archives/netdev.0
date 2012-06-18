@@ -1,56 +1,38 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 1/2 net-next] ixgbe: use skb_padto
-Date: Mon, 18 Jun 2012 14:18:47 -0700
-Message-ID: <4FDF9B37.3030804@intel.com>
-References: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
+From: Federico Vaga <federico.vaga@gmail.com>
+Subject: Re: [PATCH] c_can_pci: generic module for C_CAN/D_CAN on PCI
+Date: Mon, 18 Jun 2012 23:23:35 +0200
+Message-ID: <CAH5GJ0p_9x_6sSN=UQW0Wh57LKGKwXnAiO+8UoB=Ex88gNWQsg@mail.gmail.com>
+References: <1339674222-27699-1-git-send-email-federico.vaga@gmail.com> <4FDF83A5.6060703@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39667 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753443Ab2FRVSs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2012 17:18:48 -0400
-In-Reply-To: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Giancarlo Asnaghi <giancarlo.asnaghi@st.com>,
+	Alan Cox <alan@linux.intel.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Bhupesh SHARMA <bhupesh.sharma@st.com>,
+	AnilKumar Chimata <anilkumar@ti.com>,
+	Alessandro Rubini <rubini@gnudd.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4FDF83A5.6060703@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/18/2012 10:58 AM, Stephen Hemminger wrote:
-> The code to pad packets here is the same effective code as
-> the existing inline function skb_padto(). There is a minor
-> performance gain since skb_padto() also uses unlikely().
+> I get this warning:
 >
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> socketcan/linux/drivers/net/can/c_can/c_can_pci.c: In function 'c_can=
+_pci_probe':
+> socketcan/linux/drivers/net/can/c_can/c_can_pci.c:71: warning: 'priv'=
+ may be used uninitialized in this function
 >
+> What about:
 >
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-06-18 10:53:09.130376800 -0700
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c	2012-06-18 10:55:13.104540844 -0700
-> @@ -6389,11 +6389,8 @@ static netdev_tx_t ixgbe_xmit_frame(stru
->  	 * The minimum packet size for olinfo paylen is 17 so pad the skb
->  	 * in order to meet this minimum size requirement.
->  	 */
-> -	if (skb->len < 17) {
-> -		if (skb_padto(skb, 17))
-> -			return NETDEV_TX_OK;
-> -		skb->len = 17;
-> -	}
-> +	if (skb_padto(skb, 17))
-> +		return NETDEV_TX_OK;
->  
->  	tx_ring = adapter->tx_ring[skb->queue_mapping];
->  	return ixgbe_xmit_frame_ring(skb, adapter, tx_ring);
-I don't think this will work.  We need to update the skb->len and last I
-knew skb_padto doesn't do that.
+> - =C2=A0 =C2=A0 =C2=A0 pci_iounmap(pdev, priv->base);
+> + =C2=A0 =C2=A0 =C2=A0 pci_iounmap(pdev, addr);
 
-Thanks,
+I didn't get this warning, but I read again the code and the warning
+is correct, so pci_iounmap(pdev, addr) is the right way.
 
-Alex
+--=20
+=46ederico Vaga
