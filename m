@@ -1,96 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2 net-next] ixgbe: remove xmit length
-	check
-Date: Mon, 18 Jun 2012 13:39:25 -0700
-Message-ID: <1340051965.1995.33.camel@jtkirshe-mobl>
-References: <20120618105816.5fdd0b90@nehalam.linuxnetplumber.net>
-	<20120618115558.1ef26a48@nehalam.linuxnetplumber.net>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3059250732497903764=="
-Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20120618115558.1ef26a48@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 02/19] batman-adv: fix skb->data assignment
+Date: Mon, 18 Jun 2012 22:39:06 +0200
+Message-ID: <1340051963-14836-3-git-send-email-ordex@autistici.org>
+References: <1340051963-14836-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1340051963-14836-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+skb_linearize(skb) possibly rearranges the skb internal data and then changes
+the skb->data pointer value. For this reason any other pointer in the code that
+was assigned skb->data before invoking skb_linearise(skb) must be re-assigned.
 
---===============3059250732497903764==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-FV+RtSXyU4ENxs7JBXPd"
+In the current tt_query message handling code this is not done and therefore, in
+case of skb linearization, the pointer used to handle the packet header ends up
+in pointing to poisoned memory. The packet is then dropped but the
+translation-table mechanism is corrupted.
 
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+---
+ net/batman-adv/routing.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
---=-FV+RtSXyU4ENxs7JBXPd
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2012-06-18 at 11:55 -0700, Stephen Hemminger wrote:
-> The check here is bogus. Since len is unsigned, it can never
-> be negative. And it would be a bug in network stack to ever
-> send a zero length packet to device.
->=20
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>=20
-
-Thanks, I have added this patch as well to my queue.
-
---=-FV+RtSXyU4ENxs7JBXPd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJP35H9AAoJEOVv75VaS+3O+tUP/jcXbbDVQWVq9+mv35pICtvh
-yKa1FIJnnYrvKibN5juGLvEpkp72EjQoDnqZZQAnkrSPjYuPKyCuGvU/jsATdleL
-3vDo7MMgF4Vb1lhMhPk8zSYa6/+IKu2pY4Ul6zIG8qmPIGSCHj1YW8xZDQVghgXm
-nN/Fmda7ywq9s5M+eQc6lq7MfgS+rLKGDHmqPIfdhIZQkgdF2svRJbdhIuJkPsV5
-HV4Y0OzbRQ+lEyS2X2ECz0mu6/Oes1PSszT11XrJlp1hkkQWF4OTPFBmDQrvka0U
-5z8lWw61TMpw1VPOmdS2C6B+kYeJHH5jq8QpbcG0EXK7R4BrQpOunNeMCh16mCMW
-AV0bfLo+fwwDKgOcPTBHb34RXrfIZ9jHYLwiyvX9wlzv2xIZZZE1QYN5HqDhvZYu
-NkBRXupWmukpmKRMY2HOKoGn77yxq82+T4w3TJ/kRZPHTtfltyqjYSfmZ3N2TK4q
-CQXIYQHKczjWIovZpb9tTbG0+5MesQm+DJms0Rg0bfHK8heAKgU8x3ixJzdQ3KT7
-H7vweXZGL1Zllg3QPlWBRowspTaSxuK0OWNcu4u9otXmCxfBxEC6adnrHiOhNDG8
-XasVzVQmF77v0Nsro5+daMhrrn6/Qza7rjFg7zqhxp/rGa0OTnXvENCrwCdjrz71
-ciYpkum+9NYKlUnMjnsc
-=OC8k
------END PGP SIGNATURE-----
-
---=-FV+RtSXyU4ENxs7JBXPd--
-
-
-
---===============3059250732497903764==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
---===============3059250732497903764==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============3059250732497903764==--
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 840e2c6..015471d 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -617,6 +617,8 @@ int recv_tt_query(struct sk_buff *skb, struct hard_iface *recv_if)
+ 			 * changes */
+ 			if (skb_linearize(skb) < 0)
+ 				goto out;
++			/* skb_linearize() possibly changed skb->data */
++			tt_query = (struct tt_query_packet *)skb->data;
+ 
+ 			tt_len = tt_query->tt_data * sizeof(struct tt_change);
+ 
+-- 
+1.7.9.4
