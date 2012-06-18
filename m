@@ -1,89 +1,46 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 14/19] batman-adv: don't bother flipping ->tt_crc
-Date: Mon, 18 Jun 2012 22:39:18 +0200
-Message-ID: <1340051963-14836-15-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 01/19] batman-adv: update internal version
+	number
+Date: Mon, 18 Jun 2012 22:39:05 +0200
+Message-ID: <1340051963-14836-2-git-send-email-ordex@autistici.org>
 References: <1340051963-14836-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Sven Eckelmann <sven@narfation.org>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:41527 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753413Ab2FRUjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 16:39:15 -0400
-In-Reply-To: <1340051963-14836-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1340051963-14836-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-Keep it net-endian
-
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c |   10 ++--------
- net/batman-adv/packet.h     |    2 +-
- 2 files changed, 3 insertions(+), 9 deletions(-)
+ net/batman-adv/main.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 896287e..ec3542c 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -547,8 +547,6 @@ static void bat_iv_ogm_forward(struct orig_node *orig_node,
- 		"Forwarding packet: tq: %i, ttl: %i\n",
- 		batman_ogm_packet->tq, batman_ogm_packet->header.ttl);
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index f4a3ec0..630bbe8 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -28,7 +28,7 @@
+ #define DRIVER_DEVICE "batman-adv"
  
--	batman_ogm_packet->tt_crc = htons(batman_ogm_packet->tt_crc);
--
- 	/* switch of primaries first hop flag when forwarding */
- 	batman_ogm_packet->flags &= ~PRIMARIES_FIRST_HOP;
- 	if (is_single_hop_neigh)
-@@ -724,7 +722,7 @@ update_tt:
- 		tt_update_orig(bat_priv, orig_node, tt_buff,
- 			       batman_ogm_packet->tt_num_changes,
- 			       batman_ogm_packet->ttvn,
--			       batman_ogm_packet->tt_crc);
-+			       ntohs(batman_ogm_packet->tt_crc));
+ #ifndef SOURCE_VERSION
+-#define SOURCE_VERSION "2012.2.0"
++#define SOURCE_VERSION "2012.3.0"
+ #endif
  
- 	if (orig_node->gw_flags != batman_ogm_packet->gw_flags)
- 		gw_node_update(bat_priv, orig_node,
-@@ -972,7 +970,7 @@ static void bat_iv_ogm_process(const struct ethhdr *ethhdr,
- 		ethhdr->h_source, if_incoming->net_dev->name,
- 		if_incoming->net_dev->dev_addr, batman_ogm_packet->orig,
- 		batman_ogm_packet->prev_sender, ntohl(batman_ogm_packet->seqno),
--		batman_ogm_packet->ttvn, batman_ogm_packet->tt_crc,
-+		batman_ogm_packet->ttvn, ntohs(batman_ogm_packet->tt_crc),
- 		batman_ogm_packet->tt_num_changes, batman_ogm_packet->tq,
- 		batman_ogm_packet->header.ttl,
- 		batman_ogm_packet->header.version, has_directlink_flag);
-@@ -1219,10 +1217,6 @@ static int bat_iv_ogm_receive(struct sk_buff *skb,
- 
- 	/* unpack the aggregated packets and process them one by one */
- 	do {
--		/* network to host order for our 32bit seqno and the
--		   orig_interval */
--		batman_ogm_packet->tt_crc = ntohs(batman_ogm_packet->tt_crc);
--
- 		tt_buff = packet_buff + buff_pos + BATMAN_OGM_HLEN;
- 
- 		bat_iv_ogm_process(ethhdr, batman_ogm_packet,
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index 372fc88..033d994 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -124,7 +124,7 @@ struct batman_ogm_packet {
- 	uint8_t  tq;
- 	uint8_t  tt_num_changes;
- 	uint8_t  ttvn; /* translation table version number */
--	uint16_t tt_crc;
-+	__be16   tt_crc;
- } __packed;
- 
- #define BATMAN_OGM_HLEN sizeof(struct batman_ogm_packet)
+ /* B.A.T.M.A.N. parameters */
 -- 
 1.7.9.4
