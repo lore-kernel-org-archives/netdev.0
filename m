@@ -1,109 +1,113 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: NETDEV WATCHDOG: eth0 (forcedeth): transmit queue 0 timed out
-Date: Mon, 18 Jun 2012 22:43:34 +0200
-Message-ID: <20120618204334.GB4148@liondog.tnic>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: divide by 0 error in igbvf_set_coalesce - ab50a2a
+Date: Mon, 18 Jun 2012 20:45:56 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D15B30910@FMSMSX107.amr.corp.intel.com>
+References: <4FDF706D.7080509@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: lkml <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <daahern@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:5736 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752475Ab2FRUp6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 16:45:58 -0400
+In-Reply-To: <4FDF706D.7080509@cisco.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Just got the below on -rc3 after resuming. No network afterwards.
 
-Rebooting fixed it.
 
-[15473.272994] Restarting tasks ... done.
-[15473.685535] forcedeth 0000:00:08.0: eth0: link up
-[15483.926079] ------------[ cut here ]------------
-[15483.926095] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x16f/0x213()
-[15483.926099] Hardware name:  
-[15483.926103] NETDEV WATCHDOG: eth0 (forcedeth): transmit queue 0 timed out
-[15483.926160] Modules linked in: nls_iso8859_15 nls_cp437 tun cpufreq_powersave cpufreq_userspace ip6table_filter cpufreq_conservative ip6_tables cpufreq_stats iptable_filter ip_tables x_tables binfmt_misc fuse dm_crypt ipv6 vfat fat dm_mod powernow_k8 mperf kvm_amd kvm radeon drm_kms_helper ttm edac_core k10temp microcode cfbfillrect cfbimgblt cfbcopyarea
-[15483.926166] Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc3+ #3
-[15483.926170] Call Trace:
-[15483.926180]  <IRQ>  [<ffffffff8137b500>] ? dev_watchdog+0x72/0x213
-[15483.926189]  [<ffffffff8102b354>] warn_slowpath_common+0x83/0x9b
-[15483.926195]  [<ffffffff8102b40f>] warn_slowpath_fmt+0x46/0x48
-[15483.926203]  [<ffffffff8137b5fd>] dev_watchdog+0x16f/0x213
-[15483.926211]  [<ffffffff8103a4a9>] run_timer_softirq+0x37b/0x58f
-[15483.926217]  [<ffffffff8103a354>] ? run_timer_softirq+0x226/0x58f
-[15483.926224]  [<ffffffff8105e56e>] ? local_clock+0x2a/0x3b
-[15483.926231]  [<ffffffff81051842>] ? hrtimer_interrupt+0x118/0x1b4
-[15483.926237]  [<ffffffff8137b48e>] ? pfifo_fast_dequeue+0xc2/0xc2
-[15483.926245]  [<ffffffff81075638>] ? trace_hardirqs_off_caller+0x1f/0x10e
-[15483.926256]  [<ffffffff81032c26>] __do_softirq+0x17f/0x32d
-[15483.926262]  [<ffffffff810720c2>] ? clockevents_program_event+0xab/0xc7
-[15483.926269]  [<ffffffff813fe40c>] call_softirq+0x1c/0x30
-[15483.926277]  [<ffffffff810035bf>] do_softirq+0x3d/0x86
-[15483.926282]  [<ffffffff81033021>] irq_exit+0x53/0xbb
-[15483.926290]  [<ffffffff813fea2d>] smp_apic_timer_interrupt+0x8a/0x98
-[15483.926296]  [<ffffffff813fdbdc>] apic_timer_interrupt+0x6c/0x80
-[15483.926304]  <EOI>  [<ffffffff810532b0>] ? __atomic_notifier_call_chain+0xdb/0x109
-[15483.926313]  [<ffffffff81009a40>] ? default_idle+0x113/0x24e
-[15483.926319]  [<ffffffff81009a3e>] ? default_idle+0x111/0x24e
-[15483.926326]  [<ffffffff81009d06>] amd_e400_idle+0xe5/0xe7
-[15483.926332]  [<ffffffff8100a4ae>] cpu_idle+0x6c/0xc8
-[15483.926339]  [<ffffffff813e044c>] rest_init+0x130/0x137
-[15483.926345]  [<ffffffff813e031c>] ? csum_partial_copy_generic+0x16c/0x16c
-[15483.926353]  [<ffffffff8186fa30>] start_kernel+0x2d2/0x2df
-[15483.926359]  [<ffffffff8186f567>] ? repair_env_string+0x56/0x56
-[15483.926366]  [<ffffffff8186f27a>] x86_64_start_reservations+0x7e/0x82
-[15483.926373]  [<ffffffff8186f36e>] x86_64_start_kernel+0xf0/0xf7
-[15483.926377] ---[ end trace bd46b3883a3ab819 ]---
-[15483.926385] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15488.929896] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15498.921512] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15508.913144] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15518.904786] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15528.896409] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15538.888039] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15548.879678] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15558.871309] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15568.862929] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15578.854570] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15588.846189] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15598.837828] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15608.829441] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15618.821083] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15628.812722] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15638.804350] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15648.795974] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15658.787605] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15668.779222] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15678.770871] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15688.762501] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15698.754136] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15708.745764] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15718.737391] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15728.729019] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15738.720654] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15748.712280] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15754.570157] forcedeth 0000:00:08.0: eth0: link down
-[15756.972392] forcedeth 0000:00:08.0: eth0: link up
-[15762.700565] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15777.679993] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15787.671642] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15797.663285] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15802.667092] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15812.658701] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15822.650341] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15832.641980] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15882.600137] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15892.591755] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15917.562840] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15932.558276] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15962.533183] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15972.524806] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15982.516438] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[15992.508077] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[16002.499699] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[16012.491327] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[16022.482969] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
-[16032.474585] forcedeth 0000:00:08.0: eth0: Got tx_timeout. irq status: 00000020
+> -----Original Message-----
+> From: David Ahern [mailto:daahern@cisco.com]
+> Sent: Monday, June 18, 2012 11:16 AM
+> To: Williams, Mitch A
+> Cc: netdev@vger.kernel.org
+> Subject: divide by 0 error in igbvf_set_coalesce - ab50a2a
+> 
+> Mitch:
+> 
+> I have a VM using a 82576 based VF. Running:
+> $ ethtool -C eth2 rx-usecs 0
+> 
+> generates the following trace on console:
+> 
+> [  894.683322] divide error: 0000 [#1] SMP [  894.684020] CPU 1 [
 
--- 
-Regards/Gruss,
-    Boris.
+Thanks for letting me know, David. I'll look into it and get a patch out soon. Shouldn't be that big of a deal to fix.
+
+In the meantime, my advice to you is, "Don't do that."
+
+-Mitch
+
+
+
+> 894.684020] Modules linked in: sunrpc virtio_net igbvf virtio_blk
+> virtio_pci virtio_ring virtio [  894.684020] [  894.684020] Pid: 7310,
+> comm: ethtool Not tainted 3.5.0-rc1 #0 Bochs Bochs [  894.684020] RIP:
+> 0010:[<ffffffffa00259ec>]  [<ffffffffa00259ec>]
+> igbvf_set_coalesce+0x5b/0x8b [igbvf] [  894.684020] RSP:
+> 0018:ffff88003cd51c38  EFLAGS: 00010246 [  894.684020] RAX:
+> 000000003b9aca00 RBX: ffff88003aa42000 RCX:
+> 0000000000000000
+> [  894.684020] RDX: 0000000000000000 RSI: ffff88003cd51c48 RDI:
+> ffff88003aa42780
+> [  894.684020] RBP: ffff88003cd51c38 R08: 0000000000000000 R09:
+> 0000000000000000
+> [  894.684020] R10: 0000000000000000 R11: ffff88003cd51ec8 R12:
+> ffff88003cd51c48
+> [  894.684020] R13: 000000000000000f R14: 00000000ffffffff R15:
+> 00000000fffffff2
+> [  894.684020] FS:  00007f8142ccb720(0000) GS:ffff88003fd00000(0000)
+> knlGS:0000000000000000
+> [  894.684020] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033 [
+> 894.684020] CR2: 000000000040466c CR3: 000000003c754000 CR4:
+> 00000000000007e0
+> [  894.684020] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+> 0000000000000000
+> [  894.684020] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+> 0000000000000400
+> [  894.684020] Process ethtool (pid: 7310, threadinfo ffff88003cd50000,
+> task ffff88003b984470) [  894.684020] Stack:
+> [  894.684020]  ffff88003cd51cb8 ffffffff8132bcf5 000000000000000f
+> 0000000000000000
+> [  894.684020]  0000000000000000 0000000000000000 0000000000000000
+> 0000000000000000
+> [  894.684020]  0000000000000000 0000000000000000 0000000000000000
+> 0000000000000000
+> [  894.684020] Call Trace:
+> [  894.684020]  [<ffffffff8132bcf5>] ethtool_set_coalesce+0x54/0x5d [
+> 894.684020]  [<ffffffff8132d0c9>] dev_ethtool+0x5dc/0x175b [
+> 894.684020]  [<ffffffff81057921>] ? need_resched+0x1e/0x28 [
+> 894.684020]  [<ffffffff81057934>] ? should_resched+0x9/0x29 [
+> 894.684020]  [<ffffffff813be822>] ? _cond_resched+0xe/0x22 [
+> 894.684020]  [<ffffffff8132b227>] dev_ioctl+0x517/0x684 [  894.684020]
+> [<ffffffff810ec91f>] ? pmd_offset+0x14/0x3b [  894.684020]
+> [<ffffffff81315045>] sock_do_ioctl+0x3d/0x48 [  894.684020]
+> [<ffffffff8131545f>] sock_ioctl+0x1f8/0x207 [  894.684020]
+> [<ffffffff8111f6fa>] do_vfs_ioctl+0x475/0x4b6 [  894.684020]
+> [<ffffffff811f8e70>] ?
+> inode_has_perm.clone.19.clone.27+0x33/0x35
+> [  894.684020]  [<ffffffff811f9298>] ? file_has_perm+0x73/0x7e [
+> 894.684020]  [<ffffffff8110f6cf>] ? fd_install+0x57/0x60 [  894.684020]
+> [<ffffffff8111f791>] sys_ioctl+0x56/0x79 [  894.684020]
+> [<ffffffff813c5de9>] system_call_fastpath+0x16/0x1b [  894.684020] Code:
+> 83 f8 02 77 0f c7 87 0c 03 00 00 e8 01 00 00 8b 46
+> 04 eb 19 8d 04 8d 00 00 00 00 31 d2 89 87 0c 03 00 00 c1 e1 0a b8 00 ca
+> 9a 3b <f7> f1 89 87 08 03 00 00 8b 97 0c 03 00 00 48 8b 87 80 03 00 00 [
+> 894.684020] RIP  [<ffffffffa00259ec>] igbvf_set_coalesce+0x5b/0x8b
+> [igbvf] [  894.684020]  RSP <ffff88003cd51c38> [  894.779474] ---[ end
+> trace 162bed6b66df758d ]---
+> 
+> 
+> This commit introduced the problem:
+> 
+> commit ab50a2a430693b0961dc7b7d9fe2a4bd77d11ea6
+> Author: Mitch A Williams <mitch.a.williams@intel.com>
+> Date:   Sat Jan 14 08:10:50 2012 +0000
+> 
+>      igbvf: refactor Interrupt Throttle Rate code
+> 
+> David
