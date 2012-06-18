@@ -1,128 +1,98 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: pull request: batman-adv 2012-06-18
-Date: Mon, 18 Jun 2012 22:39:04 +0200
-Message-ID: <1340051963-14836-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 03/19] batman-adv: Initialize lockdep class keys for hashes
+Date: Mon, 18 Jun 2012 22:39:07 +0200
+Message-ID: <1340051963-14836-4-git-send-email-ordex@autistici.org>
+References: <1340051963-14836-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from latitanza.investici.org ([82.94.249.234]:41426 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753304Ab2FRUjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 16:39:07 -0400
+In-Reply-To: <1340051963-14836-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
-	here is our first set of changes intended for next-next/linux-3.6.
+From: Sven Eckelmann <sven@narfation.org>
 
-Patch 2 fixes a major bug in the TranslationTable code where the old valu=
-e of
-skb->data is used for memory access even if the data was relocated.
-Patches 4, 10, 11, 13, 14 are endianess-related cleanups that we wrote th=
-anks
-to Al Viro's advice and help.
-Thanks to Martin Hundeb=C3=B8ll batman-adv now supports the ethtool API a=
-nd can
-export several counters that are specific to our module (patch 5).
-Then patch 16 improves the routing protocol API by making part of the
-TranslationTable code routing agnostic.
-The rest are minor fixes and other cleanups.
+The hash for claim and backbone hash in the bridge loop avoidance code receive
+the same key because they are getting initialized by hash_new with the same
+key. Lockdep will create a backtrace when they are used recursively. This can
+be avoided by reinitializing the key directly after the hash_new.
 
-Thank you very much,
-		Antonio
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/bridge_loop_avoidance.c |   13 +++++++++++++
+ net/batman-adv/hash.c                  |    9 +++++++++
+ net/batman-adv/hash.h                  |    4 ++++
+ 3 files changed, 26 insertions(+)
 
-
-
-The following changes since commit 6fac262526ee91ee66210b8919a4297dcf7d54=
-4e:
-
-  ipv4: Cap ADVMSS metric in the FIB rather than the routing cache. (2012=
--06-17 19:47:34 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to dafe94b278e052c3901b137fe6f666f8f92d839a:
-
-  batman-adv: only store changed gw_bandwidth values (2012-06-18 18:01:07=
- +0200)
-
-----------------------------------------------------------------
-Included changes:
-
-* major skb->data pointer usage fix
-* interval version update
-* added get_ethtool_stats() support
-* endianess clean up
-* routing protocol API improvement wrt TT commit code
-* fix locking in hash table code
-* minor cleanups and fixes
-
-----------------------------------------------------------------
-Al Viro (5):
-      batman-adv: get rid of pointless cast in memcpy()
-      batman-adv: trivial endianness annotations
-      batman-adv: keep batman_ogm_packet ->seqno net-endian all along
-      batman-adv: don't bother flipping ->tt_data
-      batman-adv: don't bother flipping ->tt_crc
-
-Antonio Quartulli (3):
-      batman-adv: fix skb->data assignment
-      batman-adv: convert bat_priv->tt_crc from atomic_t to uint16_t
-      batman-adv: use DBG_ALL in log_level sysfs definition
-
-Marek Lindner (5):
-      batman-adv: avoid characters requiring shell escapes in protocol na=
-mes
-      batman-adv: ignore trailing CR when comparing protocol names
-      batman-adv: return added entries instead of number of possibly adde=
-d entries
-      batman-adv: turn tt commit code into routing protocol agnostic API
-      batman-adv: only store changed gw_bandwidth values
-
-Martin Hundeb=C3=B8ll (1):
-      batman-adv: Add get_ethtool_stats() support
-
-Matthias Schiffer (2):
-      batman-adv: fix visualization output without neighbors on the prima=
-ry interface
-      batman-adv: fix locking in hash_add()
-
-Sven Eckelmann (3):
-      batman-adv: update internal version number
-      batman-adv: Initialize lockdep class keys for hashes
-      batman-adv: Return error codes instead of -1 on failures
-
- Documentation/networking/batman-adv.txt |    5 +
- net/batman-adv/bat_debugfs.c            |   11 +-
- net/batman-adv/bat_iv_ogm.c             |   63 ++++++------
- net/batman-adv/bat_sysfs.c              |    4 +-
- net/batman-adv/bridge_loop_avoidance.c  |   27 +++--
- net/batman-adv/gateway_common.c         |    3 +
- net/batman-adv/hard-interface.c         |    4 +-
- net/batman-adv/hash.c                   |    9 ++
- net/batman-adv/hash.h                   |   19 ++--
- net/batman-adv/icmp_socket.c            |    4 +-
- net/batman-adv/main.c                   |   42 +++++---
- net/batman-adv/main.h                   |   29 +++++-
- net/batman-adv/originator.c             |   18 ++--
- net/batman-adv/packet.h                 |   18 ++--
- net/batman-adv/routing.c                |   23 +++--
- net/batman-adv/send.c                   |   74 +-------------
- net/batman-adv/soft-interface.c         |   66 +++++++++++-
- net/batman-adv/translation-table.c      |  168 ++++++++++++++++++++++++-=
-------
- net/batman-adv/translation-table.h      |    7 +-
- net/batman-adv/types.h                  |   22 +++-
- net/batman-adv/vis.c                    |   29 ++++--
- 21 files changed, 420 insertions(+), 225 deletions(-)
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 8bf9751..5c1ac55 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -1127,6 +1127,14 @@ out:
+ 	bla_start_timer(bat_priv);
+ }
+ 
++/* The hash for claim and backbone hash receive the same key because they
++ * are getting initialized by hash_new with the same key. Reinitializing
++ * them with to different keys to allow nested locking without generating
++ * lockdep warnings
++ */
++static struct lock_class_key claim_hash_lock_class_key;
++static struct lock_class_key backbone_hash_lock_class_key;
++
+ /* initialize all bla structures */
+ int bla_init(struct bat_priv *bat_priv)
+ {
+@@ -1164,6 +1172,11 @@ int bla_init(struct bat_priv *bat_priv)
+ 	if (!bat_priv->claim_hash || !bat_priv->backbone_hash)
+ 		return -1;
+ 
++	batadv_hash_set_lock_class(bat_priv->claim_hash,
++				   &claim_hash_lock_class_key);
++	batadv_hash_set_lock_class(bat_priv->backbone_hash,
++				   &backbone_hash_lock_class_key);
++
+ 	bat_dbg(DBG_BLA, bat_priv, "bla hashes initialized\n");
+ 
+ 	bla_start_timer(bat_priv);
+diff --git a/net/batman-adv/hash.c b/net/batman-adv/hash.c
+index 117687b..5b2eabe 100644
+--- a/net/batman-adv/hash.c
++++ b/net/batman-adv/hash.c
+@@ -69,3 +69,12 @@ free_hash:
+ 	kfree(hash);
+ 	return NULL;
+ }
++
++void batadv_hash_set_lock_class(struct hashtable_t *hash,
++				struct lock_class_key *key)
++{
++	uint32_t i;
++
++	for (i = 0; i < hash->size; i++)
++		lockdep_set_class(&hash->list_locks[i], key);
++}
+diff --git a/net/batman-adv/hash.h b/net/batman-adv/hash.h
+index d4bd786..93b3c71 100644
+--- a/net/batman-adv/hash.h
++++ b/net/batman-adv/hash.h
+@@ -45,6 +45,10 @@ struct hashtable_t {
+ /* allocates and clears the hash */
+ struct hashtable_t *hash_new(uint32_t size);
+ 
++/* set class key for all locks */
++void batadv_hash_set_lock_class(struct hashtable_t *hash,
++				struct lock_class_key *key);
++
+ /* free only the hashtable and the hash itself. */
+ void hash_destroy(struct hashtable_t *hash);
+ 
+-- 
+1.7.9.4
