@@ -1,39 +1,88 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] tc: prio: Perform more strict check on priomap.
-Date: Mon, 18 Jun 2012 14:33:38 +0800
-Message-ID: <4FDECBC2.1090304@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-To: netdev <netdev@vger.kernel.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next.git 1/4 (v3)] stmmac: do not use strict_strtoul but kstrtoint
+Date: Mon, 18 Jun 2012 08:49:44 +0200
+Message-ID: <1340002187-9248-2-git-send-email-peppe.cavallaro@st.com>
+References: <1340002187-9248-1-git-send-email-peppe.cavallaro@st.com>
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	rayagond@vayavyalabs.com, davem@davemloft.net,
+	yuvalmin@broadcom.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:51442 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751461Ab2FRGeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2012 02:34:13 -0400
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:58809 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752570Ab2FRGuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 02:50:08 -0400
+In-Reply-To: <1340002187-9248-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch replaces the obsolete strict_strtoul with kstrtoint.
 
-Since band number counts from zero thus band must be little than
-opt.bands.
+v2: also removed casting on kstrtoul.
+v3: use kstrtoint instead of kstrtoul due to all vars are integer.
+    thanks to E. Dumazet.
+
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- tc/q_prio.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   27 +++++++-------------
+ 1 files changed, 10 insertions(+), 17 deletions(-)
 
-diff --git a/tc/q_prio.c b/tc/q_prio.c
-index 79b4fd0..bacc702 100644
---- a/tc/q_prio.c
-+++ b/tc/q_prio.c
-@@ -67,7 +67,7 @@ static int prio_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
- 				fprintf(stderr, "Illegal \"priomap\" element\n");
- 				return -1;
- 			}
--			if (band > opt.bands) {
-+			if (band >= opt.bands) {
- 				fprintf(stderr, "\"priomap\" element is out of bands\n");
- 				return -1;
- 			}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 590e95b..eba49cb 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2129,42 +2129,35 @@ static int __init stmmac_cmdline_opt(char *str)
+ 		return -EINVAL;
+ 	while ((opt = strsep(&str, ",")) != NULL) {
+ 		if (!strncmp(opt, "debug:", 6)) {
+-			if (strict_strtoul(opt + 6, 0, (unsigned long *)&debug))
++			if (kstrtoint(opt + 6, 0, &debug))
+ 				goto err;
+ 		} else if (!strncmp(opt, "phyaddr:", 8)) {
+-			if (strict_strtoul(opt + 8, 0,
+-					   (unsigned long *)&phyaddr))
++			if (kstrtoint(opt + 8, 0, &phyaddr))
+ 				goto err;
+ 		} else if (!strncmp(opt, "dma_txsize:", 11)) {
+-			if (strict_strtoul(opt + 11, 0,
+-					   (unsigned long *)&dma_txsize))
++			if (kstrtoint(opt + 11, 0, &dma_txsize))
+ 				goto err;
+ 		} else if (!strncmp(opt, "dma_rxsize:", 11)) {
+-			if (strict_strtoul(opt + 11, 0,
+-					   (unsigned long *)&dma_rxsize))
++			if (kstrtoint(opt + 11, 0, &dma_rxsize))
+ 				goto err;
+ 		} else if (!strncmp(opt, "buf_sz:", 7)) {
+-			if (strict_strtoul(opt + 7, 0,
+-					   (unsigned long *)&buf_sz))
++			if (kstrtoint(opt + 7, 0, &buf_sz))
+ 				goto err;
+ 		} else if (!strncmp(opt, "tc:", 3)) {
+-			if (strict_strtoul(opt + 3, 0, (unsigned long *)&tc))
++			if (kstrtoint(opt + 3, 0, &tc))
+ 				goto err;
+ 		} else if (!strncmp(opt, "watchdog:", 9)) {
+-			if (strict_strtoul(opt + 9, 0,
+-					   (unsigned long *)&watchdog))
++			if (kstrtoint(opt + 9, 0, &watchdog))
+ 				goto err;
+ 		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
+-			if (strict_strtoul(opt + 10, 0,
+-					   (unsigned long *)&flow_ctrl))
++			if (kstrtoint(opt + 10, 0, &flow_ctrl))
+ 				goto err;
+ 		} else if (!strncmp(opt, "pause:", 6)) {
+-			if (strict_strtoul(opt + 6, 0, (unsigned long *)&pause))
++			if (kstrtoint(opt + 6, 0, &pause))
+ 				goto err;
+ #ifdef CONFIG_STMMAC_TIMER
+ 		} else if (!strncmp(opt, "tmrate:", 7)) {
+-			if (strict_strtoul(opt + 7, 0,
+-					   (unsigned long *)&tmrate))
++			if (kstrtoint(opt + 7, 0, &tmrate))
+ 				goto err;
+ #endif
+ 		}
 -- 
-1.7.1
+1.7.4.4
