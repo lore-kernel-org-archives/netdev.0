@@ -1,96 +1,111 @@
-From: "fan.du" <fan.du@windriver.com>
-Subject: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing date
-Date: Tue, 19 Jun 2012 15:51:09 +0800
-Message-ID: <1340092269-6136-2-git-send-email-fan.du@windriver.com>
-References: <1340092269-6136-1-git-send-email-fan.du@windriver.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net-next v2 06/12] netfilter: merge udpv[4,6]_net_init
+ into udp_net_init
+Date: Tue, 19 Jun 2012 16:08:31 +0800
+Message-ID: <4FE0337F.6030000@cn.fujitsu.com>
+References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com> <1339818083-31356-6-git-send-email-gaofeng@cn.fujitsu.com> <20120616112259.GG18251@1984>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <fdu@windriver.com>
-To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36540 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750974Ab2FSHvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 03:51:21 -0400
-In-Reply-To: <1340092269-6136-1-git-send-email-fan.du@windriver.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:52766 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750814Ab2FSIIM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 04:08:12 -0400
+In-Reply-To: <20120616112259.GG18251@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "fan.du" <fan.du@windriver.com>
+=E4=BA=8E 2012=E5=B9=B406=E6=9C=8816=E6=97=A5 19:22, Pablo Neira Ayuso =
+=E5=86=99=E9=81=93:
+> On Sat, Jun 16, 2012 at 11:41:17AM +0800, Gao feng wrote:
+>> merge udpv4_net_init and udpv6_net_init into udp_net_init to
+>> reduce the redundancy codes.
+>>
+>> and use nf_proto_net.users to identify if it's the first time
+>> we use the nf_proto_net. when it's the first time,we will
+>> initialized it.
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> ---
+>>  net/netfilter/nf_conntrack_proto_udp.c |   56 ++++++++++-----------=
+----------
+>>  1 files changed, 18 insertions(+), 38 deletions(-)
+>>
+>> diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/=
+nf_conntrack_proto_udp.c
+>> index 2b978e6..61bca4f 100644
+>> --- a/net/netfilter/nf_conntrack_proto_udp.c
+>> +++ b/net/netfilter/nf_conntrack_proto_udp.c
+>> @@ -270,52 +270,32 @@ static int udp_kmemdup_compat_sysctl_table(str=
+uct nf_proto_net *pn)
+>>  	return 0;
+>>  }
+>>
+>> -static void udp_init_net_data(struct nf_udp_net *un)
+>> +static int udp_init_net(struct net *net, u_int16_t proto)
+>>  {
+>> -	int i;
+>> -#ifdef CONFIG_SYSCTL
+>> -	if (!un->pn.ctl_table) {
+>> -#else
+>> -	if (!un->pn.users++) {
+>> -#endif
+>> +	int ret;
+>> +	struct nf_udp_net *un =3D udp_pernet(net);
+>> +	struct nf_proto_net *pn =3D &un->pn;
+>> +
+>> +	if (!pn->users) {
+>> +		int i;
+>>  		for (i =3D 0; i < UDP_CT_MAX; i++)
+>>  			un->timeouts[i] =3D udp_timeouts[i];
+>>  	}
+>> -}
+>> -
+>> -static int udpv4_init_net(struct net *net, u_int16_t proto)
+>> -{
+>> -	int ret;
+>> -	struct nf_udp_net *un =3D udp_pernet(net);
+>> -	struct nf_proto_net *pn =3D (struct nf_proto_net *)un;
+>>
+>> -	udp_init_net_data(un);
+>> +	if (proto =3D=3D AF_INET) {
+>=20
+> I think we can remove that u_int16_t proto that I proposed to make
+> something like:
+>=20
+> static int udp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+> {
+> #ifdef CONFIG_SYSCTL
+> #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+>         struct nf_udp_net *un =3D (struct nf_udp_net *)pn;
+> +
+> +       if (pn->ctl_compat_table)
+> +               return 0;
+> +
+>         pn->ctl_compat_table =3D kmemdup(udp_compat_sysctl_table,
+>                                        sizeof(udp_compat_sysctl_table=
+),
+>                                        GFP_KERNEL);
+>         if (!pn->ctl_compat_table)
+>                 return -ENOMEM;
+>=20
+> That should be enough to ensure that the compat is registered once. N=
+o
+> matter if it's done by the IPv4 or IPv6 invocation of udp_init_net.
+>=20
+> Thus, it will look consistent with udp_kmemdup_sysctl_table.
 
-After SA is setup, one timer is armed to detect soft/hard expiration,
-however the timer handler uses xtime to do the math. This makes hard
-expiration occurs first before soft expiration after setting new date
-with big interval. As a result new child SA is deleted before rekeying
-the new one.
 
-Signed-off-by: fan.du <fan.du@windriver.com>
----
- include/net/xfrm.h    |  3 +++
- net/xfrm/xfrm_state.c | 21 +++++++++++++++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+yes, but this will be very terrible to unregister compat sysctl
+and free compat sysctl table.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 2933d74..8d16777 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -197,6 +197,8 @@ struct xfrm_state
- 
- 	struct xfrm_lifetime_cur curlft;
- 	struct timer_list	timer;
-+	/* used to fix curlft->add_time when changing date */
-+	long		saved_tmo;
- 
- 	/* Last used time */
- 	unsigned long		lastused;
-@@ -218,6 +220,7 @@ struct xfrm_state
- 
- /* xflags - make enum if more show up */
- #define XFRM_TIME_DEFER	1
-+#define XFRM_SOFT_EXPIRE 2
- 
- enum {
- 	XFRM_STATE_VOID,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index fd77cf0..ab4aa0f 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -442,8 +442,17 @@ static void xfrm_timer_handler(unsigned long data)
- 	if (x->lft.hard_add_expires_seconds) {
- 		long tmo = x->lft.hard_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
--			goto expired;
-+		if (tmo <= 0) {
-+			if (x->xflags & XFRM_SOFT_EXPIRE) {
-+				/* enter hard expire without soft expire first?!
-+				 * setting a new date could trigger this.
-+				 * workarbound: fix x->curflt.add_time by below:
-+				 */
-+				x->curlft.add_time = now - x->saved_tmo - 1;
-+				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
-+			} else
-+				goto expired;
-+		}
- 		if (tmo < next)
- 			next = tmo;
- 	}
-@@ -460,10 +469,14 @@ static void xfrm_timer_handler(unsigned long data)
- 	if (x->lft.soft_add_expires_seconds) {
- 		long tmo = x->lft.soft_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
-+		if (tmo <= 0) {
- 			warn = 1;
--		else if (tmo < next)
-+			x->xflags |= ~XFRM_SOFT_EXPIRE;
-+		} else if (tmo < next) {
- 			next = tmo;
-+			x->xflags |= XFRM_SOFT_EXPIRE;
-+			x->saved_tmo = tmo;
-+		}
- 	}
- 	if (x->lft.soft_use_expires_seconds) {
- 		long tmo = x->lft.soft_use_expires_seconds +
--- 
-1.7.11
+thinking about, we may insmod nf_conntrack_ipv6 only, as your idea,
+we will allocate compat_sysctl_table.so we have to free it when
+rmmod nf_conntrack_ipv6.
+
+in order to implement it, we have to change the logic of
+nf_ct_l4proto_unregister_sysctl and nf_ct_unregister_sysctl. because we
+only free the sysctl table when we unregister the proto.
