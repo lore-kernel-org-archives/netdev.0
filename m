@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC net-next 01/14] Add Default
-Date: Tue, 19 Jun 2012 14:22:51 -0700 (PDT)
-Message-ID: <20120619.142251.516617552797939214.davem@davemloft.net>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
-	<1340118848-30978-2-git-send-email-yuvalmin@broadcom.com>
-	<4FE0AABE.4070100@intel.com>
+Date: Tue, 19 Jun 2012 14:26:04 -0700 (PDT)
+Message-ID: <20120619.142604.1446599238444016500.davem@davemloft.net>
+References: <4FE0AABE.4070100@intel.com>
+	<1340127678.2486.18.camel@lb-tlvb-eilong.il.broadcom.com>
+	<4FE0CCA2.304@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
+Cc: eilong@broadcom.com, yuvalmin@broadcom.com, netdev@vger.kernel.org
 To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58660 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58676 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753528Ab2FSVWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 17:22:52 -0400
-In-Reply-To: <4FE0AABE.4070100@intel.com>
+	with ESMTP id S1754882Ab2FSV0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 17:26:05 -0400
+In-Reply-To: <4FE0CCA2.304@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Tue, 19 Jun 2012 09:37:18 -0700
+Date: Tue, 19 Jun 2012 12:01:54 -0700
 
-> I'm not a big fan of just having this as a fixed define in the code.  It
-> seems like it would make much more sense to have this in the Kconfig
-> somewhere as a range value if you plan on making this changeable in the
-> future.
+> There is a huge difference between a kernel parameter an a kconfig
+> value.  The main idea behind the kconfig value is that you are going to
+> have different preferences depending on architectures and such so it
+> would make much more sense to have the default as a config option.
 
-Please not Kconfig :-/
+I don't think the issue of how many queues to use in a network driver
+when you have 1024 cpus is architecture specific.
+
+Please drop this idea, thanks.
