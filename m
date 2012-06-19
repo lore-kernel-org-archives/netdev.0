@@ -1,72 +1,102 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/4] netfilter: ctnetlink: fix NULL dereference while trying to change helper
-Date: Tue, 19 Jun 2012 05:16:26 +0200
-Message-ID: <1340075789-6196-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/4] netfilter: fix compilation of the nfnl_cthelper if NF_CONNTRACK is unset
+Date: Tue, 19 Jun 2012 05:16:28 +0200
+Message-ID: <1340075789-6196-4-git-send-email-pablo@netfilter.org>
 References: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53884 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:53893 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752886Ab2FSDRM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jun 2012 23:17:12 -0400
+	id S1752886Ab2FSDRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jun 2012 23:17:16 -0400
 In-Reply-To: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-The patch 1afc56794e03: "netfilter: nf_ct_helper: implement variable
-length helper private data" from Jun 7, 2012, leads to the following
-Smatch complaint:
+This patch fixes the compilation of net/netfilter/nfnetlink_cthelper.c
+if CONFIG_NF_CONNTRACK is not set.
 
-net/netfilter/nf_conntrack_netlink.c:1231 ctnetlink_change_helper()
-         error: we previously assumed 'help->helper' could be null (see line 1228)
+This patch also moves the definition of the cthelper infrastructure to
+the scope of NF_CONNTRACK things.
 
-This NULL dereference can be triggered with the following sequence:
+I have also renamed NETFILTER_NETLINK_CTHELPER by NF_CT_NETLINK_HELPER,
+to use similar names to other nf_conntrack_netlink extensions. Better now
+that this has been only for two days in David's tree.
 
-1) attach the helper for first time when the conntrack is created.
-2) remove the helper module or detach the helper from the conntrack
-   via ctnetlink.
-3) attach helper again (the same or different one, no matter) to the
-   that existing conntrack again via ctnetlink.
+Two new dependencies have been added:
 
-This patch fixes the problem by removing the use case that allows you
-to re-assign again a helper for one conntrack entry via ctnetlink since
-I cannot find any practical use for it.
+* NF_CT_NETLINK
+* NETFILTER_NETLINK_QUEUE
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Since these infrastructure requires both ctnetlink and nfqueue.
+
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_netlink.c |   13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+ net/netfilter/Kconfig  |   20 ++++++++++++--------
+ net/netfilter/Makefile |    2 +-
+ 2 files changed, 13 insertions(+), 9 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index ae156df..76271a1 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1224,19 +1224,12 @@ ctnetlink_change_helper(struct nf_conn *ct, const struct nlattr * const cda[])
- 			if (helper->from_nlattr && helpinfo)
- 				helper->from_nlattr(helpinfo, ct);
- 			return 0;
--		}
--		if (help->helper)
-+		} else
- 			return -EBUSY;
--		/* need to zero data of old helper */
--		memset(help->data, 0, help->helper->data_len);
--	} else {
--		/* we cannot set a helper for an existing conntrack */
--		return -EOPNOTSUPP;
- 	}
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index aae6c62..f1a52ba 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -12,14 +12,6 @@ tristate "Netfilter NFACCT over NFNETLINK interface"
+ 	  If this option is enabled, the kernel will include support
+ 	  for extended accounting via NFNETLINK.
  
--	rcu_assign_pointer(help->helper, helper);
+-config NETFILTER_NETLINK_CTHELPER
+-tristate "Netfilter CTHELPER over NFNETLINK interface"
+-	depends on NETFILTER_ADVANCED
+-	select NETFILTER_NETLINK
+-	help
+-	  If this option is enabled, the kernel will include support
+-	  for user-space connection tracking helpers via NFNETLINK.
 -
--	return 0;
-+	/* we cannot set a helper for an existing conntrack */
-+	return -EOPNOTSUPP;
- }
+ config NETFILTER_NETLINK_QUEUE
+ 	tristate "Netfilter NFQUEUE over NFNETLINK interface"
+ 	depends on NETFILTER_ADVANCED
+@@ -343,6 +335,18 @@ config NF_CT_NETLINK_TIMEOUT
  
- static inline int
+ 	  If unsure, say `N'.
+ 
++config NF_CT_NETLINK_HELPER
++	tristate 'Connection tracking helpers in user-space via Netlink'
++	select NETFILTER_NETLINK
++	depends on NF_CT_NETLINK
++	depends on NETFILTER_NETLINK_QUEUE
++	depends on NETFILTER_ADVANCED
++	help
++	  This option enables the user-space connection tracking helpers
++	  infrastructure.
++
++	  If unsure, say `N'.
++
+ endif # NF_CONNTRACK
+ 
+ # transparent proxy support
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 2f3bc0f..7cc2019 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -9,7 +9,6 @@ obj-$(CONFIG_NETFILTER) = netfilter.o
+ 
+ obj-$(CONFIG_NETFILTER_NETLINK) += nfnetlink.o
+ obj-$(CONFIG_NETFILTER_NETLINK_ACCT) += nfnetlink_acct.o
+-obj-$(CONFIG_NETFILTER_NETLINK_CTHELPER) += nfnetlink_cthelper.o
+ obj-$(CONFIG_NETFILTER_NETLINK_QUEUE) += nfnetlink_queue.o
+ obj-$(CONFIG_NETFILTER_NETLINK_LOG) += nfnetlink_log.o
+ 
+@@ -25,6 +24,7 @@ obj-$(CONFIG_NF_CT_PROTO_UDPLITE) += nf_conntrack_proto_udplite.o
+ # netlink interface for nf_conntrack
+ obj-$(CONFIG_NF_CT_NETLINK) += nf_conntrack_netlink.o
+ obj-$(CONFIG_NF_CT_NETLINK_TIMEOUT) += nfnetlink_cttimeout.o
++obj-$(CONFIG_NF_CT_NETLINK_HELPER) += nfnetlink_cthelper.o
+ 
+ # connection tracking helpers
+ nf_conntrack_h323-objs := nf_conntrack_h323_main.o nf_conntrack_h323_asn1.o
 -- 
 1.7.10
