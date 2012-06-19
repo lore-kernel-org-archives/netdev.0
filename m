@@ -1,54 +1,65 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 4/5] net: qmi_wwan: shorten driver description
-Date: Tue, 19 Jun 2012 12:42:02 +0200
-Message-ID: <1340102523-23990-5-git-send-email-bjorn@mork.no>
-References: <1340102523-23990-1-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 0/5] qmi_wwan fixes for 3.6
+Date: Tue, 19 Jun 2012 12:41:58 +0200
+Message-ID: <1340102523-23990-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, Dan Williams <dcbw@redhat.com>,
-	linux-usb@vger.kernel.org,
-	"Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43939 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752052Ab2FSKmc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 06:42:32 -0400
-In-Reply-To: <1340102523-23990-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Andrew Bird (Sphere Systems)" <ajb-5+cxppFmGx6/3pe1ocb+s/XRex20P6io@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The description is used in ethtool fixed length fields.  Make
-it shorter to avoid truncation.
+None of these are critical, so I don't think they are appropriate
+for 3.5 at this point. I've therefore based them on net-next.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The two first patches prepare the driver for the new probing
+model introduced by patch #3, which is the main change in this
+set.  A RFC version of this was posted to linux-usb 29 May 2012=20
+for discussion, as it also implicitly affects the cdc-wdm driver,=20
+without any comments so far.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 05571fc..f12ba3c 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -360,7 +360,7 @@ err:
- }
-=20
- static const struct driver_info	qmi_wwan_info =3D {
--	.description	=3D "QMI speaking wwan device",
-+	.description	=3D "WWAN/QMI device",
- 	.flags		=3D FLAG_WWAN,
- 	.bind		=3D qmi_wwan_bind,
- 	.unbind		=3D qmi_wwan_unbind,
-@@ -368,7 +368,7 @@ static const struct driver_info	qmi_wwan_info =3D {
- };
-=20
- static const struct driver_info	qmi_wwan_shared =3D {
--	.description	=3D "QMI speaking wwan device with combined interface",
-+	.description	=3D "WWAN/QMI device",
- 	.flags		=3D FLAG_WWAN,
- 	.bind		=3D qmi_wwan_bind_shared,
- 	.unbind		=3D qmi_wwan_unbind,
+Probing on the data interface was a mistake which was introduced
+at a point where I didn't realize that the cdc-wdm subdriver
+support was required in any case, because most of the supported
+devices only provide a single USB interface. Apart from creating
+a confusing and inconsistent driver usage, where some devices would
+use cdc-wdm as a subdriver and some would not, a number of real
+problems has also shown up.  The most important one at the moment
+is the need to make cdc_ether and qmi_wwan cooperate wrt which
+devices are supported by which driver.  This is close to impossible
+unless the two probes both look at the same control interface. It
+is not enough that the probe does this. We need to fine tune the
+alias matching, which implies fine tuning the device ID tables.
+
+Completing this change will require removing the now unnecessary
+and conflicting device ID entries from cdc-wdm.  This will be
+submitted as a separate patch against usb-next to avoid mixing
+patches for both trees in one patch set.  There is no build
+dependency.
+
+The two last patches are minor obvious editorial fixes.
+
+
+Bj=C3=B8rn Mork (5):
+  net: qmi_wwan: define a structure for driver specific state
+  net: qmi_wwan: rearranging to prepare for code sharing
+  net: qmi_wwan: bind to both control and data interface
+  net: qmi_wwan: shorten driver description
+  net: qmi_wwan: use module_usb_driver macro
+
+ drivers/net/usb/qmi_wwan.c |  308 +++++++++++++++++++++++-------------=
+--------
+ 1 file changed, 163 insertions(+), 145 deletions(-)
+
 --=20
 1.7.10
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
