@@ -1,76 +1,73 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [RFC net-next 06/14] Fix intel/igb
-Date: Tue, 19 Jun 2012 19:07:58 +0300
-Message-ID: <1340122078.2486.15.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
- <1340118848-30978-7-git-send-email-yuvalmin@broadcom.com>
- <4FE09DFF.704@intel.com>
-Reply-To: eilong@broadcom.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] TCP:  Support configurable delayed-ack parameters.
+Date: Tue, 19 Jun 2012 09:11:59 -0700
+Message-ID: <4FE0A4CF.6000906@candelatech.com>
+References: <1340067163-29329-1-git-send-email-greearb@candelatech.com> <1340082688.7491.2299.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-To: "Alexander Duyck" <alexander.h.duyck@intel.com>
+Cc: netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2950 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750742Ab2FSQIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 12:08:11 -0400
-In-Reply-To: <4FE09DFF.704@intel.com>
+Received: from mail.candelatech.com ([208.74.158.172]:44839 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754543Ab2FSQME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 12:12:04 -0400
+In-Reply-To: <1340082688.7491.2299.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-19 at 08:42 -0700, Alexander Duyck wrote:
-> On 06/19/2012 08:14 AM, Yuval Mintz wrote:
-> > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> >
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/igb/igb_main.c |   14 ++++++++------
-> >  1 files changed, 8 insertions(+), 6 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> > index dd3bfe8..8e7ade5 100644
-> > --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> > +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> > @@ -2380,18 +2380,20 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
-> >  #endif /* CONFIG_PCI_IOV */
-> >  	switch (hw->mac.type) {
-> >  	case e1000_i210:
-> > -		adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES_I210,
-> > -			num_online_cpus());
-> > +		adapter->rss_queues = IGB_MAX_RX_QUEUES_I210;
-> >  		break;
-> >  	case e1000_i211:
-> > -		adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES_I211,
-> > -			num_online_cpus());
-> > +		adapter->rss_queues = IGB_MAX_RX_QUEUES_I211;
-> >  		break;
-> >  	default:
-> > -		adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES,
-> > -		num_online_cpus());
-> > +		adapter->rss_queues = IGB_MAX_RX_QUEUES;
-> >  		break;
-> >  	}
-> > +
-> > +	adapter->rss_queues = min_t(u32, adapter->rss_queues,
-> > +				    min_t(u32, num_online_cpus(),
-> > +					  DEFAULT_MAX_NUM_RSS_QUEUES));
-> > +
-> >  	/* i350 cannot do RSS and SR-IOV at the same time */
-> >  	if (hw->mac.type == e1000_i350 && adapter->vfs_allocated_count)
-> >  		adapter->rss_queues = 1;
-> Same issue here as ixgbevf, only we support a max of 8 Rx queues in the
-> hardware.  So now you are once again adding another unnecessary limit on
-> something that is already limited to 8 or less.
-> 
+On 06/18/2012 10:11 PM, Eric Dumazet wrote:
+> On Mon, 2012-06-18 at 17:52 -0700, greearb@candelatech.com wrote:
+>> From: Ben Greear<greearb@candelatech.com>
+>>
+>> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
+>>
+>> " .. an ACK SHOULD be generated for at least every second
+>>    full-sized segment, and MUST be generated within 500 ms
+>>    of the arrival of the first unacknowledged packet.
+>> "
+>>
+>> We export the number of segments and the timeout limits
+>> specified above, so that a user can tune them according
+>> to their needs.
+>>
+>> Specifically:
+>> 	* /proc/sys/net/ipv4/tcp_default_delack_segs, represents
+>> 	the threshold for the number of segments.
+>> 	* /proc/sys/net/ipv4/tcp_default_delack_min, specifies
+>> 	the minimum timeout value
+>> 	* /proc/sys/net/ipv4/tcp_default_delack_max, specifies
+>> 	the maximum timeout value.
+>>
+>> In addition, new TCP socket options are added to allow
+>> per-socket configuration:
+>>
+>> TCP_DELACK_SEGS
+>> TCP_DELACK_MIN
+>> TCP_DELACK_MAX
+>>
+>> In order to keep a multiply out of the hot path, the segs * mss
+>> computation is recalculated and cached whenever segs or mss changes.
+>>
+>
+> I know David was worried about this multiply, but current cpus do a
+> multiply in at most 3 cycles.
+>
+> Addding an u32 field in socket structure adds 1/16 of a cache line, and
+> adds more penalty.
+>
+> Avoiding to build/send an ACK packet can save us so many cpu cycles that
+> the multiply is pure noise.
 
-Same issue and same reply :)
+Dave..any opinion on this?  I'll be happy to get rid of the
+multiply caching if it's agreed that it should not be there.
 
-It is here to support a change of the DEFAULT_MAX_NUM_RSS_QUEUES macro.
+Thanks,
+Ben
 
-Eilon
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
