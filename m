@@ -1,33 +1,29 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH net-next v2 11/12] netfilter: nf_conntrack_l4proto_icmp
- cleanup
-Date: Tue, 19 Jun 2012 16:14:59 +0800
-Message-ID: <4FE03503.2060100@cn.fujitsu.com>
-References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com> <1339818083-31356-11-git-send-email-gaofeng@cn.fujitsu.com> <20120616110828.GE18251@1984>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after
+ changing date
+Date: Tue, 19 Jun 2012 02:01:11 -0700 (PDT)
+Message-ID: <20120619.020111.1596676335106760442.davem@davemloft.net>
+References: <1340092269-6136-1-git-send-email-fan.du@windriver.com>
+	<1340092269-6136-2-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120616110828.GE18251@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org,
+	fdu@windriver.com
+To: fan.du@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52047 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753145Ab2FSJBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 05:01:13 -0400
+In-Reply-To: <1340092269-6136-2-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B406=E6=9C=8816=E6=97=A5 19:08, Pablo Neira Ayuso =
-=E5=86=99=E9=81=93:
-> extra line unrequiered.
->=20
-> I'm sorry, I'm stressing a lot on this because I don't like abusing
-> follow-up patches that clean up extra lines / missing lines and that
-> sort of nitpicks...
->=20
+From: "fan.du" <fan.du@windriver.com>
+Date: Tue, 19 Jun 2012 15:51:09 +0800
 
-Sorry for this,I will double check this when I send the v3 patch.
+> From: "fan.du" <fan.du@windriver.com>
 
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please don't put your email user name instead of real name in quotes
+there.  Thank you.
