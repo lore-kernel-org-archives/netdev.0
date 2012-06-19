@@ -1,68 +1,48 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [RFC net-next 06/14] Fix intel/igb
-Date: Tue, 19 Jun 2012 08:42:55 -0700
-Message-ID: <4FE09DFF.704@intel.com>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com> <1340118848-30978-7-git-send-email-yuvalmin@broadcom.com>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
+Date: Tue, 19 Jun 2012 23:50:14 +0800
+Message-ID: <CACVXFVML6Qd-Js9ekJhsXA9YW=LTXdcmC-874gzHE=4yTnVzdA@mail.gmail.com>
+References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com>
+	<201206180923.36091.oneukum@suse.de>
+	<CA+v9cxZG6b1O7kOQpeTELtv0vHzqy-8NH84boMpim0BM+tp1eQ@mail.gmail.com>
+	<201206181851.49765.oneukum@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, eilong@broadcom.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:12862 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752457Ab2FSPnD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 11:43:03 -0400
-In-Reply-To: <1340118848-30978-7-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201206181851.49765.oneukum-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/19/2012 08:14 AM, Yuval Mintz wrote:
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+On Tue, Jun 19, 2012 at 12:51 AM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+
 >
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c |   14 ++++++++------
->  1 files changed, 8 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> index dd3bfe8..8e7ade5 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -2380,18 +2380,20 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
->  #endif /* CONFIG_PCI_IOV */
->  	switch (hw->mac.type) {
->  	case e1000_i210:
-> -		adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES_I210,
-> -			num_online_cpus());
-> +		adapter->rss_queues = IGB_MAX_RX_QUEUES_I210;
->  		break;
->  	case e1000_i211:
-> -		adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES_I211,
-> -			num_online_cpus());
-> +		adapter->rss_queues = IGB_MAX_RX_QUEUES_I211;
->  		break;
->  	default:
-> -		adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES,
-> -		num_online_cpus());
-> +		adapter->rss_queues = IGB_MAX_RX_QUEUES;
->  		break;
->  	}
-> +
-> +	adapter->rss_queues = min_t(u32, adapter->rss_queues,
-> +				    min_t(u32, num_online_cpus(),
-> +					  DEFAULT_MAX_NUM_RSS_QUEUES));
-> +
->  	/* i350 cannot do RSS and SR-IOV at the same time */
->  	if (hw->mac.type == e1000_i350 && adapter->vfs_allocated_count)
->  		adapter->rss_queues = 1;
-Same issue here as ixgbevf, only we support a max of 8 Rx queues in the
-hardware.  So now you are once again adding another unnecessary limit on
-something that is already limited to 8 or less.
+> Then I am inclined to say that this is not fully thought through
+> If the endpoint stalls, the device has detected an error.
+> We have no idea how to generically handle this error.
+> We might come into a vicious circle.
+
+Why does it come into a vicious circle? If the interrupt endpoint is
+HALTed, the clear halt event is scheduled to call usb_clear_halt(int pipe),
+and if it returns successfully, the pipe shouldn't be halted any more,
+so the later usb_submit_urb() should be OK on the interrupt endpoint.
+
+The similar handling policy is taken for RX/TX endpoints in case they
+are halted.
+
+> Could you add a sanity limit for the
+> amount of halts we clear?
+
+Looks it is not needed, at least clearing HALT on Rx/Tx endpoints
+works well without the limit.
 
 Thanks,
-
-Alex
+-- 
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
