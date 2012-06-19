@@ -1,7 +1,8 @@
 From: "Merav Sicron" <meravs@broadcom.com>
-Subject: [net-next patch 4/11 v2] bnx2x: Allow more than 64 L2 CIDs
-Date: Tue, 19 Jun 2012 20:48:25 +0300
-Message-ID: <1340128112-22935-5-git-send-email-meravs@broadcom.com>
+Subject: [net-next patch 6/11 v2] bnx2x: Move the CNIC L2 CIDs to be
+ right after the RSS CIDs
+Date: Tue, 19 Jun 2012 20:48:27 +0300
+Message-ID: <1340128112-22935-7-git-send-email-meravs@broadcom.com>
 References: <1340128112-22935-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,189 +12,234 @@ To: netdev@vger.kernel.org, davem@davemloft.net, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:3481 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754464Ab2FSOlO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 10:41:14 -0400
+	id S1754470Ab2FSOlT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 10:41:19 -0400
 In-Reply-To: <1340128112-22935-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With increased number of RSS queues, each multiplied by the number of traffic-
-classes, we may have up to 64*3=192 CIDs. The current driver scheme with regard
-to context allocation supports only 64 CIDs. The new scheme enables scatter-
-gatehr list of pages for the context.
+Currently the CNIC-related L2 CIDs (for sending control FCoE / iSCSI packets)
+were at fixed position, according to the maximal number of RSS queues multiplied
+by the number of traffic-classes. This change makes the CIDs dynamic, as they
+are defined to be right after the highest RSS CID. This decreases the memory
+allocated for the context.
 
 Signed-off-by: Merav Sicron <meravs@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   10 +++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   67 ++++++++++++++++------
- 2 files changed, 57 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   19 +++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   15 ++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   47 +++++++++++++++-------
+ 4 files changed, 52 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 568c3c7..feec032 100644
+index 36ebc3d..68d0d2c 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -993,8 +993,8 @@ union cdu_context {
+@@ -248,13 +248,12 @@ enum {
+ 	BNX2X_MAX_CNIC_ETH_CL_ID_IDX,
  };
  
- /* CDU host DB constants */
--#define CDU_ILT_PAGE_SZ_HW	3
--#define CDU_ILT_PAGE_SZ		(8192 << CDU_ILT_PAGE_SZ_HW) /* 64K */
-+#define CDU_ILT_PAGE_SZ_HW	2
-+#define CDU_ILT_PAGE_SZ		(8192 << CDU_ILT_PAGE_SZ_HW) /* 32K */
- #define ILT_PAGE_CIDS		(CDU_ILT_PAGE_SZ / sizeof(union cdu_context))
+-#define BNX2X_CNIC_START_ETH_CID	48
+-enum {
++#define BNX2X_CNIC_START_ETH_CID(bp)	(BNX2X_NUM_NON_CNIC_QUEUES(bp) *\
++					 (bp)->max_cos)
+ 	/* iSCSI L2 */
+-	BNX2X_ISCSI_ETH_CID = BNX2X_CNIC_START_ETH_CID,
++#define	BNX2X_ISCSI_ETH_CID(bp)		(BNX2X_CNIC_START_ETH_CID(bp))
+ 	/* FCoE L2 */
+-	BNX2X_FCOE_ETH_CID,
+-};
++#define	BNX2X_FCOE_ETH_CID(bp)		(BNX2X_CNIC_START_ETH_CID(bp) + 1)
  
+ /** Additional rings budgeting */
  #ifdef BCM_CNIC
-@@ -1435,7 +1435,11 @@ struct bnx2x {
- 	dma_addr_t			fw_stats_data_mapping;
- 	int				fw_stats_data_sz;
+@@ -276,8 +275,6 @@ enum {
+ #define FIRST_TX_ONLY_COS_INDEX		1
+ #define FIRST_TX_COS_INDEX		0
  
--	struct hw_context	context;
-+	/* For max 196 cids (64*3 + non-eth), 32KB ILT page size and 1KB
-+	 * context size we need 8 ILT entries.
-+	 */
-+#define ILT_MAX_L2_LINES	8
-+	struct hw_context	context[ILT_MAX_L2_LINES];
+-#define MAX_TXQS_PER_COS	FP_SB_MAX_E1x
+-
+ /* rules for calculating the cids of tx-only connections */
+ #define CID_TO_FP(cid, bp)		((cid) % BNX2X_NUM_NON_CNIC_QUEUES(bp))
+ #define CID_COS_TO_TX_ONLY_CID(cid, cos, bp) \
+@@ -1463,10 +1460,12 @@ struct bnx2x {
  
- 	struct bnx2x_ilt	*ilt;
- #define BP_ILT(bp)		((bp)->ilt)
+ /*
+  * Maximum CID count that might be required by the bnx2x:
+- * Max Tss * Max_Tx_Multi_Cos + CNIC L2 Clients (FCoE and iSCSI related)
++ * Max RSS * Max_Tx_Multi_Cos + FCoE + iSCSI
+  */
+-#define BNX2X_L2_CID_COUNT(bp)	(MAX_TXQS_PER_COS * BNX2X_MULTI_TX_COS +\
+-					NON_ETH_CONTEXT_USE + CNIC_PRESENT)
++#define BNX2X_L2_CID_COUNT(bp)	(BNX2X_NUM_ETH_QUEUES(bp) * BNX2X_MULTI_TX_COS \
++				+ NON_ETH_CONTEXT_USE + CNIC_PRESENT)
++#define BNX2X_L2_MAX_CID(bp)	(BNX2X_MAX_RSS_COUNT(bp) * BNX2X_MULTI_TX_COS \
++				+ NON_ETH_CONTEXT_USE + CNIC_PRESENT)
+ #define L2_ILT_LINES(bp)	(DIV_ROUND_UP(BNX2X_L2_CID_COUNT(bp),\
+ 					ILT_PAGE_CIDS))
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 33132b1..d76df33 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2220,6 +2220,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	/* re-read iscsi info */
+ 	bnx2x_get_iscsi_info(bp);
+ 	bnx2x_setup_cnic_irq_info(bp);
++	bnx2x_setup_cnic_info(bp);
+ 	if (bp->state == BNX2X_STATE_OPEN)
+ 		bnx2x_cnic_notify(bp, CNIC_CTL_START_CMD);
+ #endif
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 112ffcc..de79cdf 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -244,6 +244,14 @@ int bnx2x_cnic_notify(struct bnx2x *bp, int cmd);
+  * @bp:		driver handle
+  */
+ void bnx2x_setup_cnic_irq_info(struct bnx2x *bp);
++
++/**
++ * bnx2x_setup_cnic_info - provides cnic with updated info
++ *
++ * @bp:		driver handle
++ */
++void bnx2x_setup_cnic_info(struct bnx2x *bp);
++
+ #endif
+ 
+ /**
+@@ -1107,12 +1115,7 @@ static inline void bnx2x_init_fcoe_fp(struct bnx2x *bp)
+ 	bnx2x_fcoe(bp, rx_queue) = BNX2X_NUM_ETH_QUEUES(bp);
+ 	bnx2x_fcoe(bp, cl_id) = bnx2x_cnic_eth_cl_id(bp,
+ 						     BNX2X_FCOE_ETH_CL_ID_IDX);
+-	/** Current BNX2X_FCOE_ETH_CID deffinition implies not more than
+-	 *  16 ETH clients per function when CNIC is enabled!
+-	 *
+-	 *  Fix it ASAP!!!
+-	 */
+-	bnx2x_fcoe(bp, cid) = BNX2X_FCOE_ETH_CID;
++	bnx2x_fcoe(bp, cid) = BNX2X_FCOE_ETH_CID(bp);
+ 	bnx2x_fcoe(bp, fw_sb_id) = DEF_SB_ID;
+ 	bnx2x_fcoe(bp, igu_sb_id) = bp->igu_dsb_id;
+ 	bnx2x_fcoe(bp, rx_cons_sb) = BNX2X_FCOE_L2_RX_INDEX;
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 21930be..16e009f 100644
+index f80059e..1895de5 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -7068,12 +7068,10 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 	cdu_ilt_start = ilt->clients[ILT_CLIENT_CDU].start;
- 
- 	for (i = 0; i < L2_ILT_LINES(bp); i++) {
--		ilt->lines[cdu_ilt_start + i].page =
--			bp->context.vcxt + (ILT_PAGE_CIDS * i);
-+		ilt->lines[cdu_ilt_start + i].page = bp->context[i].vcxt;
- 		ilt->lines[cdu_ilt_start + i].page_mapping =
--			bp->context.cxt_mapping + (CDU_ILT_PAGE_SZ * i);
--		/* cdu ilt pages are allocated manually so there's no need to
--		set the size */
-+			bp->context[i].cxt_mapping;
-+		ilt->lines[cdu_ilt_start + i].size = bp->context[i].size;
- 	}
- 	bnx2x_ilt_init_op(bp, INITOP_SET);
- 
-@@ -7340,6 +7338,8 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
- 
- void bnx2x_free_mem(struct bnx2x *bp)
- {
-+	int i;
-+
- 	/* fastpath */
- 	bnx2x_free_fp_mem(bp);
- 	/* end of fastpath */
-@@ -7353,9 +7353,9 @@ void bnx2x_free_mem(struct bnx2x *bp)
- 	BNX2X_PCI_FREE(bp->slowpath, bp->slowpath_mapping,
- 		       sizeof(struct bnx2x_slowpath));
- 
--	BNX2X_PCI_FREE(bp->context.vcxt, bp->context.cxt_mapping,
--		       bp->context.size);
--
-+	for (i = 0; i < L2_ILT_LINES(bp); i++)
-+		BNX2X_PCI_FREE(bp->context[i].vcxt, bp->context[i].cxt_mapping,
-+			       bp->context[i].size);
- 	bnx2x_ilt_mem_op(bp, ILT_MEMOP_FREE);
- 
- 	BNX2X_FREE(bp->ilt->lines);
-@@ -7441,6 +7441,8 @@ alloc_mem_err:
- 
- int bnx2x_alloc_mem(struct bnx2x *bp)
- {
-+	int i, allocated, context_size;
-+
+@@ -4628,7 +4628,7 @@ static void bnx2x_handle_classification_eqe(struct bnx2x *bp,
+ 	case BNX2X_FILTER_MAC_PENDING:
+ 		DP(BNX2X_MSG_SP, "Got SETUP_MAC completions\n");
  #ifdef BCM_CNIC
- 	if (!CHIP_IS_E1x(bp))
- 		/* size = the status block + ramrod buffers */
-@@ -7470,11 +7472,29 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
- 	if (bnx2x_alloc_fw_stats_mem(bp))
- 		goto alloc_mem_err;
- 
--	bp->context.size = sizeof(union cdu_context) * BNX2X_L2_CID_COUNT(bp);
--
--	BNX2X_PCI_ALLOC(bp->context.vcxt, &bp->context.cxt_mapping,
--			bp->context.size);
-+	/* Allocate memory for CDU context:
-+	 * This memory is allocated separately and not in the generic ILT
-+	 * functions because CDU differs in few aspects:
-+	 * 1. There are multiple entities allocating memory for context -
-+	 * 'regular' driver, CNIC and SRIOV driver. Each separately controls
-+	 * its own ILT lines.
-+	 * 2. Since CDU page-size is not a single 4KB page (which is the case
-+	 * for the other ILT clients), to be efficient we want to support
-+	 * allocation of sub-page-size in the last entry.
-+	 * 3. Context pointers are used by the driver to pass to FW / update
-+	 * the context (for the other ILT clients the pointers are used just to
-+	 * free the memory during unload).
-+	 */
-+	context_size = sizeof(union cdu_context) * BNX2X_L2_CID_COUNT(bp);
- 
-+	for (i = 0, allocated = 0; allocated < context_size; i++) {
-+		bp->context[i].size = min(CDU_ILT_PAGE_SZ,
-+					  (context_size - allocated));
-+		BNX2X_PCI_ALLOC(bp->context[i].vcxt,
-+				&bp->context[i].cxt_mapping,
-+				bp->context[i].size);
-+		allocated += bp->context[i].size;
-+	}
- 	BNX2X_ALLOC(bp->ilt->lines, sizeof(struct ilt_line) * ILT_MAX_LINES);
- 
- 	if (bnx2x_ilt_mem_op(bp, ILT_MEMOP_ALLOC))
-@@ -7748,6 +7768,8 @@ static void bnx2x_pf_q_prep_init(struct bnx2x *bp,
+-		if (cid == BNX2X_ISCSI_ETH_CID)
++		if (cid == BNX2X_ISCSI_ETH_CID(bp))
+ 			vlan_mac_obj = &bp->iscsi_l2_mac_obj;
+ 		else
+ #endif
+@@ -4774,7 +4774,7 @@ static struct bnx2x_queue_sp_obj *bnx2x_cid_to_q_obj(
  {
- 
- 	u8 cos;
-+	int cxt_index, cxt_offset;
-+
- 	/* FCoE Queue uses Default SB, thus has no HC capabilities */
- 	if (!IS_FCOE_FP(fp)) {
- 		__set_bit(BNX2X_Q_FLG_HC, &init_params->rx.flags);
-@@ -7784,9 +7806,13 @@ static void bnx2x_pf_q_prep_init(struct bnx2x *bp,
- 	    fp->index, init_params->max_cos);
- 
- 	/* set the context pointers queue object */
--	for (cos = FIRST_TX_COS_INDEX; cos < init_params->max_cos; cos++)
-+	for (cos = FIRST_TX_COS_INDEX; cos < init_params->max_cos; cos++) {
-+		cxt_index = fp->txdata[cos].cid / ILT_PAGE_CIDS;
-+		cxt_offset = fp->txdata[cos].cid - (cxt_index *
-+				ILT_PAGE_CIDS);
- 		init_params->cxts[cos] =
--			&bp->context.vcxt[fp->txdata[cos].cid].eth;
-+			&bp->context[cxt_index].vcxt[cxt_offset].eth;
-+	}
- }
- 
- int bnx2x_setup_tx_only(struct bnx2x *bp, struct bnx2x_fastpath *fp,
-@@ -12202,6 +12228,7 @@ static int bnx2x_set_iscsi_eth_mac_addr(struct bnx2x *bp)
- static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
+ 	DP(BNX2X_MSG_SP, "retrieving fp from cid %d\n", cid);
+ #ifdef BCM_CNIC
+-	if (cid == BNX2X_FCOE_ETH_CID)
++	if (cid == BNX2X_FCOE_ETH_CID(bp))
+ 		return &bnx2x_fcoe(bp, q_obj);
+ 	else
+ #endif
+@@ -11724,7 +11724,7 @@ void bnx2x__init_func_obj(struct bnx2x *bp)
+ /* must be called after sriov-enable */
+ static int bnx2x_set_qm_cid_count(struct bnx2x *bp)
  {
- 	struct eth_spe *spe;
-+	int cxt_index, cxt_offset;
+-	int cid_count = BNX2X_L2_CID_COUNT(bp);
++	int cid_count = BNX2X_L2_MAX_CID(bp);
  
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
-@@ -12224,10 +12251,16 @@ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
- 		 *  ramrod
+ #ifdef BCM_CNIC
+ 	cid_count += CNIC_CID_MAX;
+@@ -11829,9 +11829,9 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 
+ 	/*
+ 	 * Maximum number of netdev Tx queues:
+-	 *      Maximum TSS queues * Maximum supported number of CoS  + FCoE L2
++	 * Maximum TSS queues * Maximum supported number of CoS  + FCoE L2
+ 	 */
+-	tx_count = MAX_TXQS_PER_COS * max_cos_est + FCOE_PRESENT;
++	tx_count = rss_count * max_cos_est + FCOE_PRESENT;
+ 
+ 	/* dev zeroed in init_etherdev */
+ 	dev = alloc_etherdev_mqs(sizeof(*bp), tx_count, rx_count);
+@@ -11863,11 +11863,15 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	 * Map doorbels here as we need the real value of bp->max_cos which
+ 	 * is initialized in bnx2x_init_bp().
+ 	 */
+-	doorbell_size = (rss_count * max_cos_est + NON_ETH_CONTEXT_USE +
+-			 CNIC_PRESENT) * (1 << BNX2X_DB_SHIFT);
++	doorbell_size = BNX2X_L2_MAX_CID(bp) * (1 << BNX2X_DB_SHIFT);
++	if (doorbell_size > pci_resource_len(pdev, 2)) {
++		dev_err(&bp->pdev->dev,
++			"Cannot map doorbells, bar size too small, aborting\n");
++		rc = -ENOMEM;
++		goto init_one_exit;
++	}
+ 	bp->doorbells = ioremap_nocache(pci_resource_start(pdev, 2),
+-					min_t(u64, doorbell_size,
+-					      pci_resource_len(pdev, 2)));
++					doorbell_size);
+ 	if (!bp->doorbells) {
+ 		dev_err(&bp->pdev->dev,
+ 			"Cannot map doorbell space, aborting\n");
+@@ -12254,14 +12258,14 @@ static void bnx2x_cnic_sp_post(struct bnx2x *bp, int count)
  		 */
  		if (type == ETH_CONNECTION_TYPE) {
--			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP)
--				bnx2x_set_ctx_validation(bp, &bp->context.
--					vcxt[BNX2X_ISCSI_ETH_CID].eth,
-+			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP) {
-+				cxt_index = BNX2X_ISCSI_ETH_CID /
-+					ILT_PAGE_CIDS;
-+				cxt_offset = BNX2X_ISCSI_ETH_CID -
-+					(cxt_index * ILT_PAGE_CIDS);
-+				bnx2x_set_ctx_validation(bp,
-+					&bp->context[cxt_index].
-+							 vcxt[cxt_offset].eth,
- 					BNX2X_ISCSI_ETH_CID);
-+			}
+ 			if (cmd == RAMROD_CMD_ID_ETH_CLIENT_SETUP) {
+-				cxt_index = BNX2X_ISCSI_ETH_CID /
++				cxt_index = BNX2X_ISCSI_ETH_CID(bp) /
+ 					ILT_PAGE_CIDS;
+-				cxt_offset = BNX2X_ISCSI_ETH_CID -
++				cxt_offset = BNX2X_ISCSI_ETH_CID(bp) -
+ 					(cxt_index * ILT_PAGE_CIDS);
+ 				bnx2x_set_ctx_validation(bp,
+ 					&bp->context[cxt_index].
+ 							 vcxt[cxt_offset].eth,
+-					BNX2X_ISCSI_ETH_CID);
++					BNX2X_ISCSI_ETH_CID(bp));
+ 			}
  		}
  
- 		/*
+@@ -12615,6 +12619,21 @@ void bnx2x_setup_cnic_irq_info(struct bnx2x *bp)
+ 	cp->num_irq = 2;
+ }
+ 
++void bnx2x_setup_cnic_info(struct bnx2x *bp)
++{
++	struct cnic_eth_dev *cp = &bp->cnic_eth_dev;
++
++
++	cp->ctx_tbl_offset = FUNC_ILT_BASE(BP_FUNC(bp)) +
++			     bnx2x_cid_ilt_lines(bp);
++	cp->starting_cid = bnx2x_cid_ilt_lines(bp) * ILT_PAGE_CIDS;
++	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID(bp);
++	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID(bp);
++
++	if (NO_ISCSI_OOO(bp))
++		cp->drv_state |= CNIC_DRV_STATE_NO_ISCSI_OOO;
++}
++
+ static int bnx2x_register_cnic(struct net_device *dev, struct cnic_ops *ops,
+ 			       void *data)
+ {
+@@ -12693,10 +12712,10 @@ struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *dev)
+ 	cp->drv_ctl = bnx2x_drv_ctl;
+ 	cp->drv_register_cnic = bnx2x_register_cnic;
+ 	cp->drv_unregister_cnic = bnx2x_unregister_cnic;
+-	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID;
++	cp->fcoe_init_cid = BNX2X_FCOE_ETH_CID(bp);
+ 	cp->iscsi_l2_client_id =
+ 		bnx2x_cnic_eth_cl_id(bp, BNX2X_ISCSI_ETH_CL_ID_IDX);
+-	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID;
++	cp->iscsi_l2_cid = BNX2X_ISCSI_ETH_CID(bp);
+ 
+ 	if (NO_ISCSI_OOO(bp))
+ 		cp->drv_state |= CNIC_DRV_STATE_NO_ISCSI_OOO;
 -- 
 1.7.10
