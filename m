@@ -1,30 +1,45 @@
-From: Stefan Priebe <s.priebe@profihost.ag>
-Subject: 10GBE performance drop with net.ipv4.tcp_timestamps=0
-Date: Tue, 19 Jun 2012 23:08:03 +0200
-Message-ID: <4FE0EA33.1000309@profihost.ag>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Prevent access to uninitialized fib_table_hash
+ via /proc/net/ipv6_route
+Date: Tue, 19 Jun 2012 14:13:03 -0700 (PDT)
+Message-ID: <20120619.141303.61044763636341121.davem@davemloft.net>
+References: <20120615105655.GA22945@hmsreliant.think-freely.org>
+	<20120615.153240.1699971156820399680.davem@davemloft.net>
+	<20120619113602.GG27921@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.profihost.ag ([85.158.179.208]:37187 "EHLO
-	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752873Ab2FSVIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 17:08:07 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:58586 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752659Ab2FSVNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 17:13:04 -0400
+In-Reply-To: <20120619113602.GG27921@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello List,
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 19 Jun 2012 07:36:02 -0400
 
-i'm testing 10GBE speed with tweo servers. One with 3.5-rc3 nd thoe 
-other one whith RHEL 6 (2.6.32 kernel).
+> On Fri, Jun 15, 2012 at 03:32:40PM -0700, David Miller wrote:
+>> Since you're snooping around in here, you might notice that on network
+>> namespace shutdown, we leak all user configured ipv6 FIB rules.
+> 
+> I looked into this. fib_rules_unregister() will free all rules
+> belonging to the address family in that namespace.
+> 
+> Or were you referring to other rules?
 
-I noticed that setting
-net.ipv4.tcp_timestamps=0
+Sorry, the leak I saw was for the fib6 tables, not the rules
+themselves.
 
-descreased the performance from 9,7 Full Duplex to 3-4Gb/s.
+IPV4 has ip_fib_net_exit() which walks the FIB4 table hash
+and releases everything.
 
-Is this bahviour fine? What should / could i tet?
+I couldn't find the IPV6 counterpart.  All I could find was code which
+explicitly liberates the ipv6 main and local tables.
 
-Greets
-Stefan
+There is no ipv6 code I can find which traverses fib_table_hash and
+liberates the dynamically generated tables.
