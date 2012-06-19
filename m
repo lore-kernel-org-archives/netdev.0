@@ -1,98 +1,54 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [RFC net-next 05/14] Fix intel/ixgbevf
-Date: Tue, 19 Jun 2012 21:24:28 +0300
-Message-ID: <1340130268.2486.19.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
- <1340118848-30978-6-git-send-email-yuvalmin@broadcom.com>
- <4FE09D3F.4060305@intel.com>
- <1340122013.2486.14.camel@lb-tlvb-eilong.il.broadcom.com>
- <20120619110704.000045b2@unknown>
-Reply-To: eilong@broadcom.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv4: Early TCP socket demux.
+Date: Tue, 19 Jun 2012 11:31:37 -0700
+Message-ID: <20120619113137.44d80c27@s6510.linuxnetplumber.net>
+References: <20120618.194016.2282814982594761206.davem@davemloft.net>
+	<a22edf13-1bf5-49fb-8ebe-05054f68c129@tahiti.vyatta.com>
+	<CABa6K_E+EzeJQF_m4aoq1WAYUwWQxd8_=k7HT0XZ6P5EpBR+4g@mail.gmail.com>
+	<20120618.211613.921381844240194486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Alexander Duyck" <alexander.h.duyck@intel.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: "Greg Rose" <gregory.v.rose@intel.com>
+Cc: xiaosuo@gmail.com, stephen.hemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3231 "EHLO mms3.broadcom.com"
+Received: from mail.vyatta.com ([76.74.103.46]:36921 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751549Ab2FSSYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 14:24:46 -0400
-In-Reply-To: <20120619110704.000045b2@unknown>
+	id S1753075Ab2FSSbk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 14:31:40 -0400
+In-Reply-To: <20120618.211613.921381844240194486.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-19 at 11:07 -0700, Greg Rose wrote:
-> On Tue, 19 Jun 2012 19:06:53 +0300
-> Eilon Greenstein <eilong@broadcom.com> wrote:
+On Mon, 18 Jun 2012 21:16:13 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Tue, 19 Jun 2012 12:13:48 +0800
 > 
-> > On Tue, 2012-06-19 at 08:39 -0700, Alexander Duyck wrote:
-> > > On 06/19/2012 08:13 AM, Yuval Mintz wrote:
-> > > > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> > > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > > >
-> > > > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > ---
-> > > >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    5 +++--
-> > > >  1 files changed, 3 insertions(+), 2 deletions(-)
-> > > >
-> > > > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > > > b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c index
-> > > > f69ec42..3ad46c2 100644 ---
-> > > > a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c +++
-> > > > b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c @@ -2014,7
-> > > > +2014,7 @@ err_tx_ring_allocation: static int
-> > > > ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
-> > > > { int err = 0;
-> > > > -	int vector, v_budget;
-> > > > +	int vector, v_budget, ncpu;
-> > > >  
-> > > >  	/*
-> > > >  	 * It's easy to be greedy for MSI-X vectors, but it
-> > > > really @@ -2022,8 +2022,9 @@ static int
-> > > > ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
-> > > >  	 * than CPU's.  So let's be conservative and only ask for
-> > > >  	 * (roughly) twice the number of vectors as there are
-> > > > CPU's. */
-> > > > +	ncpu = min_t(int, num_online_cpus(),
-> > > > DEFAULT_MAX_NUM_RSS_QUEUES); v_budget =
-> > > > min(adapter->num_rx_queues + adapter->num_tx_queues,
-> > > > -		       (int)(num_online_cpus() * 2)) +
-> > > > NON_Q_VECTORS;
-> > > > +		       ncpu * 2) + NON_Q_VECTORS;
-> > > >  
-> > > >  	/* A failure in MSI-X entry allocation isn't fatal, but
-> > > > it does
-> > > >  	 * mean we disable MSI-X capabilities of the adapter. */
-> > > This change is pointless on the ixgbevf driver.  The VF hardware can
-> > > support at most 4 RSS queues.  As such num_rx_queues + num_tx_queues
-> > > will never exceed 8 so you are essentially adding a necessary
-> > > min(x,8).
+> > On Tue, Jun 19, 2012 at 12:03 PM, Stephen Hemminger
+> > <stephen.hemminger@vyatta.com> wrote:
+> >>
+> >>>
+> >>> You know you want it.
+> >>>
+> >>> Signed-off-by: David S. Miller <davem@davemloft.net>
+> >>
+> >> David, I understand it, Eric understands it, and maybe one or
+> >> two others. But on the principal of what is "good for the goose
+> >> is good for the gander", you really need to provide a reasonable
+> >> change log entry. Just because you are the network maintainer
+> >> doesn't mean you get to skip all the documented rules about submitting
+> >> patches.
 > > 
-> > It is pointless with the current value, but if someone will edit the
-> > kernel source code and replace the 8 with a 2, it will become
-> > meaningful. The compiler will optimize this part, and I think that for
-> > completion, it is best to keep this reference so a future default
-> > number change will not be missed.
-> > 
-> > Eilon
+> > Agree. Thanks.
 > 
-> I don't feel there is any real point to making this change to the
-> ixgbevf driver.  82599 virtual functions have 3 MSI-X vectors, one of
-> which is for the mailbox and the other two can be shared with tx/rx
-> queue pairs or assigned separately to tx or rx queues.  So this code is
-> pointless no matter what value is set for DEFAULT_MAX_NUM_RSS_QUEUES.
-> Perhaps the patches to the other drivers in your RFC will have some
-> effect but this one looks like a no-op for the ixgbevf driver so there
-> is no reason for it.
+> That's the last time I try to be even slightly humerous on this
+> list.
+> 
+> Thanks for killing the fun Stephen.
 
-
-OK - I guess we can just add a comment in this location saying that
-using DEFAULT_MAX_NUM_RSS_QUEUES is meaningless for the ixgbevf with
-that explanation so it will not look as if it was simply over looked.
-
-Thanks,
-Eilon
+We all need to lighten up, keep trying to be humorous.
+Maybe you just need better material. The IP stack is just in too good
+a shape, how about something with more natural whackiness like bluetooth.
