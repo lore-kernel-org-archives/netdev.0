@@ -1,54 +1,59 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] ipv4: Early TCP socket demux.
-Date: Tue, 19 Jun 2012 11:31:37 -0700
-Message-ID: <20120619113137.44d80c27@s6510.linuxnetplumber.net>
-References: <20120618.194016.2282814982594761206.davem@davemloft.net>
-	<a22edf13-1bf5-49fb-8ebe-05054f68c129@tahiti.vyatta.com>
-	<CABa6K_E+EzeJQF_m4aoq1WAYUwWQxd8_=k7HT0XZ6P5EpBR+4g@mail.gmail.com>
-	<20120618.211613.921381844240194486.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] micrel KSZ8041 disable auto negotiation with fiber
+Date: Tue, 19 Jun 2012 19:45:00 +0100
+Message-ID: <1340131500.2692.34.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FE090A7.801@efacec.com>
+	 <1340125709.2692.23.camel@bwh-desktop.uk.solarflarecom.com>
+	 <4FE0BC99.2030101@efacec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, stephen.hemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?An=EDbal?= Almeida Pinto <anibal.pinto@efacec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36921 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753075Ab2FSSbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 14:31:40 -0400
-In-Reply-To: <20120618.211613.921381844240194486.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:44883 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751003Ab2FSSpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 14:45:03 -0400
+In-Reply-To: <4FE0BC99.2030101@efacec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Jun 2012 21:16:13 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Changli Gao <xiaosuo@gmail.com>
-> Date: Tue, 19 Jun 2012 12:13:48 +0800
-> 
-> > On Tue, Jun 19, 2012 at 12:03 PM, Stephen Hemminger
-> > <stephen.hemminger@vyatta.com> wrote:
+On Tue, 2012-06-19 at 18:53 +0100, An=C3=ADbal Almeida Pinto wrote:
+> Em Ter 19 Jun 2012 18:08:29 WEST, Ben Hutchings escreveu:
+> > On Tue, 2012-06-19 at 15:45 +0100, An=C3=ADbal Almeida Pinto wrote:
+> >> Hi,
 > >>
-> >>>
-> >>> You know you want it.
-> >>>
-> >>> Signed-off-by: David S. Miller <davem@davemloft.net>
-> >>
-> >> David, I understand it, Eric understands it, and maybe one or
-> >> two others. But on the principal of what is "good for the goose
-> >> is good for the gander", you really need to provide a reasonable
-> >> change log entry. Just because you are the network maintainer
-> >> doesn't mean you get to skip all the documented rules about submitting
-> >> patches.
-> > 
-> > Agree. Thanks.
-> 
-> That's the last time I try to be even slightly humerous on this
-> list.
-> 
-> Thanks for killing the fun Stephen.
+> >> I am working on a custom board based on a OMAP L138 with a KSZ8041=
+TL-FTL
+> >> phy that have fibber and copper support.
+[...]
+> > The net driver or PHY driver needs to disable autoneg by default wh=
+en
+> > connected to fibre, and reject attempts to turn it on.
+> >
+> > As for *how* the driver is supposed to know whether that's the case=
+, I
+> > have no idea...
+>=20
+> On this chip you have a pin where you can specify if is fibber or=20
+> copper, at power up it cleat/set the bit of auto negotiation.
+>=20
+> The driver can save the bit state after phy power up or reset, and wi=
+th=20
+> that validate if is copper or fibber.
+>
+> In the case of fibber shouldn't allow change the auto negotiation.
 
-We all need to lighten up, keep trying to be humorous.
-Maybe you just need better material. The IP stack is just in too good
-a shape, how about something with more natural whackiness like bluetooth.
+So presumably the problem is where to put this logic?
+
+It looks like you'll be using the davinci_emac net driver, which uses
+phylib (i.e. separate PHY drivers) so you need to change ks8041_driver
+and related functions in drivers/net/phy/micrel.c.
+
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
