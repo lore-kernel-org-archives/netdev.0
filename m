@@ -1,53 +1,53 @@
-From: =?ISO-8859-1?Q?An=EDbal_Almeida_Pinto?= <anibal.pinto@efacec.com>
-Subject: [RFC] micrel KSZ8041 disable auto negotiation with fiber
-Date: Tue, 19 Jun 2012 15:45:59 +0100
-Message-ID: <4FE090A7.801@efacec.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [RFC net-next 02/14] Fix mellanox/mlx4
+Date: Tue, 19 Jun 2012 18:13:56 +0300
+Message-ID: <1340118848-30978-3-git-send-email-yuvalmin@broadcom.com>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.efacec.com ([62.28.144.243]:39495 "HELO mail2.efacec.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751750Ab2FSO7j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 10:59:39 -0400
+Received: from mms1.broadcom.com ([216.31.210.17]:3914 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751599Ab2FSPQS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 11:16:18 -0400
+In-Reply-To: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-I am working on a custom board based on a OMAP L138 with a KSZ8041TL-FT=
-L=20
-phy that have fibber and copper support.
+Cc: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-When using with fibber the board can't connect to a switch, only after=20
-exec :
-
-	ethtool -s eth1 speed 100 duplex full autoneg off
-
-the phy get link and start working.
-
-On some switches it appears that autoneg don't work well with fibber,=20
-ethtool reports that its at 10MB/s after exec
-
-	ethtool -s eth1 autoneg on
-
-The auto negotiation bit on phy register is disable on start when using=
-=20
-the fibber but Linux don't appear to look at it.
-
-=46ound a thread [1] that solve the problem but don't appear to be full=
-y=20
-accepted.
-
-The problem is modifying the phy code without interfere with ethtool us=
-e.
-
-Any official/accepted solution to this problem ?
-
-Thanks.
-
-[1] - http://marc.info/?l=3Dlinuxppc-embedded&m=3D131107263711714
-
-An=EDbal
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index ee6f4fe..57840ad 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -41,6 +41,7 @@
+ #include <linux/slab.h>
+ #include <linux/io-mapping.h>
+ #include <linux/delay.h>
++#include <linux/etherdevice.h>
+ 
+ #include <linux/mlx4/device.h>
+ #include <linux/mlx4/doorbell.h>
+@@ -1538,8 +1539,9 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct msix_entry *entries;
++	int ncpu = min_t(int, num_online_cpus(), DEFAULT_MAX_NUM_RSS_QUEUES);
+ 	int nreq = min_t(int, dev->caps.num_ports *
+-			 min_t(int, num_online_cpus() + 1, MAX_MSIX_P_PORT)
++			 min_t(int, ncpu + 1, MAX_MSIX_P_PORT)
+ 				+ MSIX_LEGACY_SZ, MAX_MSIX);
+ 	int err;
+ 	int i;
+-- 
+1.7.9.rc2
