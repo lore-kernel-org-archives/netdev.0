@@ -1,73 +1,65 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC] TCP:  Support configurable delayed-ack parameters.
-Date: Tue, 19 Jun 2012 09:11:59 -0700
-Message-ID: <4FE0A4CF.6000906@candelatech.com>
-References: <1340067163-29329-1-git-send-email-greearb@candelatech.com> <1340082688.7491.2299.camel@edumazet-glaptop>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [RFC net-next 07/14] Fix intel/ixgbe
+Date: Tue, 19 Jun 2012 19:11:50 +0300
+Message-ID: <1340122310.2486.16.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
+ <1340118848-30978-8-git-send-email-yuvalmin@broadcom.com>
+ <4FE0A0CD.5050909@intel.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+To: "Alexander Duyck" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44839 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754543Ab2FSQME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 12:12:04 -0400
-In-Reply-To: <1340082688.7491.2299.camel@edumazet-glaptop>
+Received: from mms3.broadcom.com ([216.31.210.19]:4991 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752044Ab2FSQMD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 12:12:03 -0400
+In-Reply-To: <4FE0A0CD.5050909@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2012 10:11 PM, Eric Dumazet wrote:
-> On Mon, 2012-06-18 at 17:52 -0700, greearb@candelatech.com wrote:
->> From: Ben Greear<greearb@candelatech.com>
->>
->> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
->>
->> " .. an ACK SHOULD be generated for at least every second
->>    full-sized segment, and MUST be generated within 500 ms
->>    of the arrival of the first unacknowledged packet.
->> "
->>
->> We export the number of segments and the timeout limits
->> specified above, so that a user can tune them according
->> to their needs.
->>
->> Specifically:
->> 	* /proc/sys/net/ipv4/tcp_default_delack_segs, represents
->> 	the threshold for the number of segments.
->> 	* /proc/sys/net/ipv4/tcp_default_delack_min, specifies
->> 	the minimum timeout value
->> 	* /proc/sys/net/ipv4/tcp_default_delack_max, specifies
->> 	the maximum timeout value.
->>
->> In addition, new TCP socket options are added to allow
->> per-socket configuration:
->>
->> TCP_DELACK_SEGS
->> TCP_DELACK_MIN
->> TCP_DELACK_MAX
->>
->> In order to keep a multiply out of the hot path, the segs * mss
->> computation is recalculated and cached whenever segs or mss changes.
->>
->
-> I know David was worried about this multiply, but current cpus do a
-> multiply in at most 3 cycles.
->
-> Addding an u32 field in socket structure adds 1/16 of a cache line, and
-> adds more penalty.
->
-> Avoiding to build/send an ACK packet can save us so many cpu cycles that
-> the multiply is pure noise.
+On Tue, 2012-06-19 at 08:54 -0700, Alexander Duyck wrote:
+> On 06/19/2012 08:14 AM, Yuval Mintz wrote:
+> > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> >
+> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c |    3 ++-
+> >  1 files changed, 2 insertions(+), 1 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+> > index af1a531..21e4513 100644
+> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+> > @@ -802,7 +802,8 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+> >  	 * The default is to use pairs of vectors.
+> >  	 */
+> >  	v_budget = max(adapter->num_rx_queues, adapter->num_tx_queues);
+> > -	v_budget = min_t(int, v_budget, num_online_cpus());
+> > +	v_budget = min_t(int, v_budget, min_t(int, num_online_cpus(),
+> > +					      DEFAULT_MAX_NUM_RSS_QUEUES));
+> >  	v_budget += NON_Q_VECTORS;
+> >  
+> >  	/*
+> This patch doesn't limit the number of queues.  It is limiting the
+> number of interrupts.  The two are not directly related as we can
+> support multiple queues per interrupt.
+> 
+> Also this change assumes we are only using receive side scaling.  We
+> have other features such as DCB, FCoE, and Flow Director which require
+> additional queues.
 
-Dave..any opinion on this?  I'll be happy to get rid of the
-multiply caching if it's agreed that it should not be there.
+You are right - but DEFAULT_MAX_NUM_RSS_QUEUES is there to limit the RSS
+and not everything else. It is harder to determine what else should be
+set to a lower value and the two goals were to limit the memory waste in
+correlation to the number of CPUs and to have some unification between
+the drivers - both goals are applicable mostly to the RSS and not so
+much to DCB, FCoE and similar features.
 
 Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Eilon
