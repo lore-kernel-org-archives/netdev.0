@@ -1,48 +1,50 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
-Date: Tue, 19 Jun 2012 23:50:14 +0800
-Message-ID: <CACVXFVML6Qd-Js9ekJhsXA9YW=LTXdcmC-874gzHE=4yTnVzdA@mail.gmail.com>
-References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com>
-	<201206180923.36091.oneukum@suse.de>
-	<CA+v9cxZG6b1O7kOQpeTELtv0vHzqy-8NH84boMpim0BM+tp1eQ@mail.gmail.com>
-	<201206181851.49765.oneukum@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201206181851.49765.oneukum-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next 00/19] team: couple of patches
+Date: Tue, 19 Jun 2012 17:54:02 +0200
+Message-ID: <1340121261-2966-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jbrouer@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12234 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753424Ab2FSPy0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 11:54:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 19, 2012 at 12:51 AM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+The main impact is this patchset provides an implementation of userspace driven
+TX loadbalancing for team driver.
 
->
-> Then I am inclined to say that this is not fully thought through
-> If the endpoint stalls, the device has detected an error.
-> We have no idea how to generically handle this error.
-> We might come into a vicious circle.
+Also couple of typos are fixed, minor issues fixes.
 
-Why does it come into a vicious circle? If the interrupt endpoint is
-HALTed, the clear halt event is scheduled to call usb_clear_halt(int pipe),
-and if it returns successfully, the pipe shouldn't be halted any more,
-so the later usb_submit_urb() should be OK on the interrupt endpoint.
+Jiri Pirko (19):
+  team: make team_mode struct const
+  team: for nomode use dummy struct team_mode
+  team: add mode priv to port
+  team: lb: push hash counting into separate function
+  team: allow read/write-only options
+  team: introduce array options
+  team: comments: s/net\/drivers\/team/drivers\/net\/team/
+  team: push array_index and port into separate structure
+  team: allow async option changes
+  team: fix error path in team_nl_fill_options_get()
+  team: fix error path in team_nl_fill_port_list_get()
+  team: allow to specify one option instance to be send to userspace
+  team: pass NULL to __team_option_inst_add() instead of 0
+  team: add port_[enabled/disabled] mode callbacks
+  team: lb: introduce infrastructure for userspace driven tx
+    loadbalancing
+  team: implement multipart netlink messages for options transfers
+  team: ensure correct order of netlink messages delivery
+  team: allow to send multiple set events in one message
+  team: use rcu_dereference_bh() in tx path
 
-The similar handling policy is taken for RX/TX endpoints in case they
-are halted.
+ drivers/net/team/team.c                   |  546 ++++++++++++++++++-----------
+ drivers/net/team/team_mode_activebackup.c |    6 +-
+ drivers/net/team/team_mode_loadbalance.c  |  536 ++++++++++++++++++++++++++--
+ drivers/net/team/team_mode_roundrobin.c   |    4 +-
+ include/linux/if_team.h                   |   22 +-
+ 5 files changed, 885 insertions(+), 229 deletions(-)
 
-> Could you add a sanity limit for the
-> amount of halts we clear?
-
-Looks it is not needed, at least clearing HALT on Rx/Tx endpoints
-works well without the limit.
-
-Thanks,
 -- 
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.10.2
