@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter updates for net-next (batch 3)
-Date: Mon, 18 Jun 2012 21:09:29 -0700 (PDT)
-Message-ID: <20120618.210929.1851699162115600043.davem@davemloft.net>
-References: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
-	<20120619033745.GA31405@1984>
+Subject: Re: [PATCH] ipv4: Early TCP socket demux.
+Date: Mon, 18 Jun 2012 21:10:33 -0700 (PDT)
+Message-ID: <20120618.211033.127841245029278364.davem@davemloft.net>
+References: <20120618.194016.2282814982594761206.davem@davemloft.net>
+	<a22edf13-1bf5-49fb-8ebe-05054f68c129@tahiti.vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120619033745.GA31405@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen.hemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097Ab2FSEKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 00:10:34 -0400
+In-Reply-To: <a22edf13-1bf5-49fb-8ebe-05054f68c129@tahiti.vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 19 Jun 2012 05:37:45 +0200
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Mon, 18 Jun 2012 21:03:26 -0700 (PDT)
 
-> On Tue, Jun 19, 2012 at 05:16:25AM +0200, pablo@netfilter.org wrote:
-> [...]
->> You can pull these changes from:
->> 
->> git://1984.lsi.us.es/nf-next master
-> 
-> Please, also take the small patch attached after this 4 patch series. It
-> fixes one linking issue.
-> 
-> Sorry, I'll put more care next time testing compilation options more
-> extensively.
+> David, I understand it, Eric understands it, and maybe one or
+> two others. But on the principal of what is "good for the goose
+> is good for the gander", you really need to provide a reasonable
+> change log entry. Just because you are the network maintainer
+> doesn't mean you get to skip all the documented rules about submitting
+> patches.
 
-Done.
+This wasn't going to be the final commit log entry.
