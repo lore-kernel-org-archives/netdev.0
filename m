@@ -1,97 +1,102 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [RFC net-next 01/14] Add Default
-Date: Tue, 19 Jun 2012 22:53:54 +0300
-Message-ID: <1340135634.2486.23.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
- <1340118848-30978-2-git-send-email-yuvalmin@broadcom.com>
- <4FE0AABE.4070100@intel.com>
- <1340127678.2486.18.camel@lb-tlvb-eilong.il.broadcom.com>
- <4FE0CCA2.304@intel.com>
-Reply-To: eilong@broadcom.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2012-06-19
+Date: Tue, 19 Jun 2012 22:01:56 +0200
+Message-ID: <4FE0DAB4.6080400@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: "Alexander Duyck" <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4504 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753043Ab2FSTyK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 15:54:10 -0400
-In-Reply-To: <4FE0CCA2.304@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig3730D6B992A1AE3C1375DB01"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: davem@davemloft.net
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-06-19 at 12:01 -0700, Alexander Duyck wrote:
-> On 06/19/2012 10:41 AM, Eilon Greenstein wrote:
-> > On Tue, 2012-06-19 at 09:37 -0700, Alexander Duyck wrote:
-> >> On 06/19/2012 08:13 AM, Yuval Mintz wrote:
-> >>> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> >>> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> >>> ---
-> >>>  include/linux/etherdevice.h |    5 ++++-
-> >>>  1 files changed, 4 insertions(+), 1 deletions(-)
-> >>>
-> >>> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-> >>> index 3d406e0..bb1ecaf 100644
-> >>> --- a/include/linux/etherdevice.h
-> >>> +++ b/include/linux/etherdevice.h
-> >>> @@ -44,7 +44,10 @@ extern int eth_mac_addr(struct net_device *dev, void *p);
-> >>>  extern int eth_change_mtu(struct net_device *dev, int new_mtu);
-> >>>  extern int eth_validate_addr(struct net_device *dev);
-> >>>  
-> >>> -
-> >>> +/* The maximal number of RSS queues a driver should have unless configured
-> >>> + * so explicitly.
-> >>> + */
-> >>> +#define DEFAULT_MAX_NUM_RSS_QUEUES (8)
-> >>>  
-> >>>  extern struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
-> >>>  					    unsigned int rxqs);
-> >> I'm not a big fan of just having this as a fixed define in the code.  It
-> >> seems like it would make much more sense to have this in the Kconfig
-> >> somewhere as a range value if you plan on making this changeable in the
-> >> future.
-> > My original suggestion was a kernel command line parameter, but Dave was
-> > less than enthusiastic. If you will follow the original thread, you can
-> > probably understand why I decided to adopt Dave's constant approach
-> > without suggesting Kconfig:
-> > http://marc.info/?l=linux-netdev&m=133992386010982&w=2
-> There is a huge difference between a kernel parameter an a kconfig
-> value.  The main idea behind the kconfig value is that you are going to
-> have different preferences depending on architectures and such so it
-> would make much more sense to have the default as a config option.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig3730D6B992A1AE3C1375DB01
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Yes, I'm aware of that. Coming from the orientation of number of CPUs
-and memory constrains, the kernel parameter came to mind first, after
-receiving the reply about using just a good default, I have considered
-the kconfig alternative but decided not to make further suggestions and
-just go with a good default.
+Hello David,
 
-> I'm not sure why you couldn't just limit it to 16.  From what I can tell
-> that is the largest number that gets used for RSS queues on almost all
-> the different hardware out there.
+here is our second pull request for net-next. In this series Federico
+Vaga adds a pci driver for c_can/d_can hardware using the existing
+generic c_can driver. The remaining 6 patches are by Oliver Hartkopp.
+He adds CANFD support to the CAN stack while keeping binary
+compatibility for existing applications. CANFD is an extension to the
+existing CAN standard, it allows longer CAN frames and/or higher data
+rates. There's no real hardware available yet, but this series adds
+CANFD support to the vcan driver.
 
-cxgb4 32, myril10ge 32, efx 32, niu 24.
-The point is that I was requested by a customer to support more queues,
-but simply  enabling that much more MSI-X vectors in the FW will cause
-the driver to consume too much memory and this is probably not desired
-for most users. Having the set_channels API is good solution to have a
-default value which is different than the maximal value, and that brings
-us to where we are now - finding a default value for all multi-queue
-drivers.
+regards,
+Marc
+
+---
+
+The following changes since commit b31525d16b50fe0eb33545afbc0be1a03f2896=
+e3:
+
+  net: lpc_eth: Driver cleanup (2012-06-19 00:27:03 -0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git master
+
+for you to fetch changes up to ea53fe0c667ad3cae61d4d71d2be41908ac5c0a4:
+
+  canfd: update documentation according to CAN FD extensions (2012-06-19 =
+21:40:26 +0200)
+
+----------------------------------------------------------------
+Federico Vaga (1):
+      c_can_pci: generic module for C_CAN/D_CAN on PCI
+
+Oliver Hartkopp (6):
+      canfd: add new data structures and constants
+      canfd: add support for CAN FD in PF_CAN core
+      canfd: add support for CAN FD in CAN_RAW sockets
+      candev: add/update helpers for CAN FD
+      vcan: add CAN FD support
+      canfd: update documentation according to CAN FD extensions
+
+ Documentation/networking/can.txt  |  154 ++++++++++++++++++++++++++++--
+ drivers/net/can/c_can/Kconfig     |    7 ++
+ drivers/net/can/c_can/Makefile    |    1 +
+ drivers/net/can/c_can/c_can_pci.c |  236 +++++++++++++++++++++++++++++++=
++++++++++++++++
+ drivers/net/can/dev.c             |   35 ++++++-
+ drivers/net/can/vcan.c            |   27 ++++--
+ include/linux/can.h               |   59 +++++++++++-
+ include/linux/can/core.h          |    4 +-
+ include/linux/can/dev.h           |   33 +++++--
+ include/linux/can/raw.h           |    3 +-
+ include/linux/if_ether.h          |    3 +-
+ net/can/af_can.c                  |  116 +++++++++++++++++------
+ net/can/raw.c                     |   50 +++++++++-
+ 13 files changed, 664 insertions(+), 64 deletions(-)
+ create mode 100644 drivers/net/can/c_can/c_can_pci.c
 
 
-> As far as the rest of the patches for the Intel drivers go you might be
-> better off if you understood how we allocate queues on the ixgbe/ixgbevf
-> drivers.  Usually we have the number of queues determined before we set
-> the number of vectors so your patches that limited the number of vectors
-> aren't going to have the effect you desire.  So for example RSS
-> configuration is currently handled in either ixgbe_set_rss_queues or
-> ixgbe_set_dcb_queues depending on the mode the driver is in.  You would
-> be much better off looking there for how to limit the RSS queueing on
-> the ixgbe adapter.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-OK, we will move the logic to those functions.
+
+--------------enig3730D6B992A1AE3C1375DB01
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/g2rkACgkQjTAFq1RaXHOc6gCcCaSORY83vo4jPoy+ng9EPR2l
+UsUAn2+KSxyyIySIonsJBM1fD1CqOPIx
+=hNB4
+-----END PGP SIGNATURE-----
+
+--------------enig3730D6B992A1AE3C1375DB01--
