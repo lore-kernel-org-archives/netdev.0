@@ -1,121 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v2 06/12] netfilter: merge udpv[4,6]_net_init
- into udp_net_init
-Date: Tue, 19 Jun 2012 13:39:58 +0200
-Message-ID: <20120619113958.GD445@1984>
-References: <1339818083-31356-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1339818083-31356-6-git-send-email-gaofeng@cn.fujitsu.com>
- <20120616112259.GG18251@1984>
- <4FE0337F.6030000@cn.fujitsu.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCH] net: added support for 40GbE link.
+Date: Tue, 19 Jun 2012 15:11:34 +0100
+Message-ID: <1340115094.2692.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1340039376.2913.13.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120619.002905.922583388766089167.davem@davemloft.net>
+	 <5D6C0ABE6A236946864C45679362BBE20AC52269@CMEXMB1.ad.emulex.com>
+	 <20120619.003517.2067426285873138772.davem@davemloft.net>
+	 <5D6C0ABE6A236946864C45679362BBE20AC5227D@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <Parav.Pandit@Emulex.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58933 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751933Ab2FSLkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 07:40:01 -0400
-Content-Disposition: inline
-In-Reply-To: <4FE0337F.6030000@cn.fujitsu.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:13940 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751301Ab2FSOLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 10:11:40 -0400
+In-Reply-To: <5D6C0ABE6A236946864C45679362BBE20AC5227D@CMEXMB1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 19, 2012 at 04:08:31PM +0800, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8816=E6=97=A5 19:22, Pablo Neira Ayus=
-o =E5=86=99=E9=81=93:
-> > On Sat, Jun 16, 2012 at 11:41:17AM +0800, Gao feng wrote:
-> >> merge udpv4_net_init and udpv6_net_init into udp_net_init to
-> >> reduce the redundancy codes.
-> >>
-> >> and use nf_proto_net.users to identify if it's the first time
-> >> we use the nf_proto_net. when it's the first time,we will
-> >> initialized it.
-> >>
-> >> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> >> ---
-> >>  net/netfilter/nf_conntrack_proto_udp.c |   56 ++++++++++---------=
-------------
-> >>  1 files changed, 18 insertions(+), 38 deletions(-)
-> >>
-> >> diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilte=
-r/nf_conntrack_proto_udp.c
-> >> index 2b978e6..61bca4f 100644
-> >> --- a/net/netfilter/nf_conntrack_proto_udp.c
-> >> +++ b/net/netfilter/nf_conntrack_proto_udp.c
-> >> @@ -270,52 +270,32 @@ static int udp_kmemdup_compat_sysctl_table(s=
-truct nf_proto_net *pn)
-> >>  	return 0;
-> >>  }
-> >>
-> >> -static void udp_init_net_data(struct nf_udp_net *un)
-> >> +static int udp_init_net(struct net *net, u_int16_t proto)
-> >>  {
-> >> -	int i;
-> >> -#ifdef CONFIG_SYSCTL
-> >> -	if (!un->pn.ctl_table) {
-> >> -#else
-> >> -	if (!un->pn.users++) {
-> >> -#endif
-> >> +	int ret;
-> >> +	struct nf_udp_net *un =3D udp_pernet(net);
-> >> +	struct nf_proto_net *pn =3D &un->pn;
-> >> +
-> >> +	if (!pn->users) {
-> >> +		int i;
-> >>  		for (i =3D 0; i < UDP_CT_MAX; i++)
-> >>  			un->timeouts[i] =3D udp_timeouts[i];
-> >>  	}
-> >> -}
-> >> -
-> >> -static int udpv4_init_net(struct net *net, u_int16_t proto)
-> >> -{
-> >> -	int ret;
-> >> -	struct nf_udp_net *un =3D udp_pernet(net);
-> >> -	struct nf_proto_net *pn =3D (struct nf_proto_net *)un;
-> >>
-> >> -	udp_init_net_data(un);
-> >> +	if (proto =3D=3D AF_INET) {
-> >=20
-> > I think we can remove that u_int16_t proto that I proposed to make
-> > something like:
-> >=20
-> > static int udp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
-> > {
-> > #ifdef CONFIG_SYSCTL
-> > #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
-> >         struct nf_udp_net *un =3D (struct nf_udp_net *)pn;
-> > +
-> > +       if (pn->ctl_compat_table)
-> > +               return 0;
-> > +
-> >         pn->ctl_compat_table =3D kmemdup(udp_compat_sysctl_table,
-> >                                        sizeof(udp_compat_sysctl_tab=
-le),
-> >                                        GFP_KERNEL);
-> >         if (!pn->ctl_compat_table)
-> >                 return -ENOMEM;
-> >=20
-> > That should be enough to ensure that the compat is registered once.=
- No
-> > matter if it's done by the IPv4 or IPv6 invocation of udp_init_net.
-> >=20
-> > Thus, it will look consistent with udp_kmemdup_sysctl_table.
->=20
->=20
-> yes, but this will be very terrible to unregister compat sysctl
-> and free compat sysctl table.
->=20
-> thinking about, we may insmod nf_conntrack_ipv6 only, as your idea,
-> we will allocate compat_sysctl_table.so we have to free it when
-> rmmod nf_conntrack_ipv6.
+On Tue, 2012-06-19 at 07:42 +0000, Parav.Pandit@Emulex.Com wrote:
+> > -----Original Message-----
+> > From: David Miller [mailto:davem@davemloft.net]
+> > Sent: Tuesday, June 19, 2012 1:05 PM
+> > To: Pandit, Parav
+> > Cc: bhutchings@solarflare.com; netdev@vger.kernel.org
+> > Subject: Re: [PATCH] net: added support for 40GbE link.
+> > 
+> > From: <Parav.Pandit@Emulex.Com>
+> > Date: Tue, 19 Jun 2012 07:33:12 +0000
+> > 
+> > > Should eventually all net driver should remove using SPEED_xxxxxx and
+> > start using hard coded value of 10, 100, 1000, 20000?
+> > 
+> > No, the ones that exist can stay, just no new ones.
+> > 
+> So driver which supports 40Gpbs, 100Gbps should hardcode to 40000, 100000 respectively?
 
-You're right.
+Right.
 
-> in order to implement it, we have to change the logic of
-> nf_ct_l4proto_unregister_sysctl and nf_ct_unregister_sysctl. because =
-we
-> only free the sysctl table when we unregister the proto.
+> > > That means ethtool_cmd_speed() should not be called in this function?
+> > 
+> > Ben said that it must be called, what are you talking about?
+> 
+> Sorry, I wanted to ask - Do you need switch case for speed like below new code or its should be speed independent code?
+>                 switch (ethtool_cmd_speed()) {
+>                 case SPEED_100:
+>                 case SPEED_10:
+>                         return DEFAULT_PRB_RETIRE_TOV;
+>                 default:
+>                         msec = 1;
+>                         div = ethtool_cmd_speed() / 1000;
+>                         break;
+>                 /*
+>                 }
 
-OK, let's stick to what we have then.
+I was thinking of something like:
+
+		u64 speed = ethtool_cmd_speed(&ecmd);
+		if (speed < 1000 || speed == SPEED_UNKNOWN)
+			return DEFAULT_PRB_RETIRE_TOV;
+		msec = 1;
+		div = speed / 1000;
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
