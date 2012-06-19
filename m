@@ -1,94 +1,54 @@
-From: Fan Du <fdu@windriver.com>
-Subject: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing date
-Date: Tue, 19 Jun 2012 17:28:38 +0800
-Message-ID: <1340098118-21529-2-git-send-email-fdu@windriver.com>
-References: <1340098118-21529-1-git-send-email-fdu@windriver.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next 4/5] net: qmi_wwan: shorten driver description
+Date: Tue, 19 Jun 2012 12:42:02 +0200
+Message-ID: <1340102523-23990-5-git-send-email-bjorn@mork.no>
+References: <1340102523-23990-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.org>, Dan Williams <dcbw@redhat.com>,
+	linux-usb@vger.kernel.org,
+	"Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:38207 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716Ab2FSJ2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 05:28:50 -0400
-In-Reply-To: <1340098118-21529-1-git-send-email-fdu@windriver.com>
+Received: from canardo.mork.no ([148.122.252.1]:43939 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752052Ab2FSKmc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 06:42:32 -0400
+In-Reply-To: <1340102523-23990-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After SA is setup, one timer is armed to detect soft/hard expiration,
-however the timer handler uses xtime to do the math. This makes hard
-expiration occurs first before soft expiration after setting new date
-with big interval. As a result new child SA is deleted before rekeying
-the new one.
+The description is used in ethtool fixed length fields.  Make
+it shorter to avoid truncation.
 
-Signed-off-by: Fan Du <fdu@windriver.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- include/net/xfrm.h    |  3 +++
- net/xfrm/xfrm_state.c | 21 +++++++++++++++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+ drivers/net/usb/qmi_wwan.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 2933d74..8d16777 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -197,6 +197,8 @@ struct xfrm_state
- 
- 	struct xfrm_lifetime_cur curlft;
- 	struct timer_list	timer;
-+	/* used to fix curlft->add_time when changing date */
-+	long		saved_tmo;
- 
- 	/* Last used time */
- 	unsigned long		lastused;
-@@ -218,6 +220,7 @@ struct xfrm_state
- 
- /* xflags - make enum if more show up */
- #define XFRM_TIME_DEFER	1
-+#define XFRM_SOFT_EXPIRE 2
- 
- enum {
- 	XFRM_STATE_VOID,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index fd77cf0..ab4aa0f 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -442,8 +442,17 @@ static void xfrm_timer_handler(unsigned long data)
- 	if (x->lft.hard_add_expires_seconds) {
- 		long tmo = x->lft.hard_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
--			goto expired;
-+		if (tmo <= 0) {
-+			if (x->xflags & XFRM_SOFT_EXPIRE) {
-+				/* enter hard expire without soft expire first?!
-+				 * setting a new date could trigger this.
-+				 * workarbound: fix x->curflt.add_time by below:
-+				 */
-+				x->curlft.add_time = now - x->saved_tmo - 1;
-+				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
-+			} else
-+				goto expired;
-+		}
- 		if (tmo < next)
- 			next = tmo;
- 	}
-@@ -460,10 +469,14 @@ static void xfrm_timer_handler(unsigned long data)
- 	if (x->lft.soft_add_expires_seconds) {
- 		long tmo = x->lft.soft_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
-+		if (tmo <= 0) {
- 			warn = 1;
--		else if (tmo < next)
-+			x->xflags |= ~XFRM_SOFT_EXPIRE;
-+		} else if (tmo < next) {
- 			next = tmo;
-+			x->xflags |= XFRM_SOFT_EXPIRE;
-+			x->saved_tmo = tmo;
-+		}
- 	}
- 	if (x->lft.soft_use_expires_seconds) {
- 		long tmo = x->lft.soft_use_expires_seconds +
--- 
-1.7.11
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 05571fc..f12ba3c 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -360,7 +360,7 @@ err:
+ }
+=20
+ static const struct driver_info	qmi_wwan_info =3D {
+-	.description	=3D "QMI speaking wwan device",
++	.description	=3D "WWAN/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+ 	.bind		=3D qmi_wwan_bind,
+ 	.unbind		=3D qmi_wwan_unbind,
+@@ -368,7 +368,7 @@ static const struct driver_info	qmi_wwan_info =3D {
+ };
+=20
+ static const struct driver_info	qmi_wwan_shared =3D {
+-	.description	=3D "QMI speaking wwan device with combined interface",
++	.description	=3D "WWAN/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+ 	.bind		=3D qmi_wwan_bind_shared,
+ 	.unbind		=3D qmi_wwan_unbind,
+--=20
+1.7.10
