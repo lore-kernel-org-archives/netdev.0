@@ -1,32 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: Early TCP socket demux.
-Date: Tue, 19 Jun 2012 06:07:26 +0200
-Message-ID: <1340078846.7491.2127.camel@edumazet-glaptop>
-References: <20120618.194016.2282814982594761206.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] netfilter updates for net-next (batch 3)
+Date: Mon, 18 Jun 2012 21:09:29 -0700 (PDT)
+Message-ID: <20120618.210929.1851699162115600043.davem@davemloft.net>
+References: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
+	<20120619033745.GA31405@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:43224 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750754Ab2FSEHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 00:07:31 -0400
-Received: by eeit10 with SMTP id t10so1814218eei.19
-        for <netdev@vger.kernel.org>; Mon, 18 Jun 2012 21:07:30 -0700 (PDT)
-In-Reply-To: <20120618.194016.2282814982594761206.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120619033745.GA31405@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-18 at 19:40 -0700, David Miller wrote:
-> You know you want it.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 19 Jun 2012 05:37:45 +0200
+
+> On Tue, Jun 19, 2012 at 05:16:25AM +0200, pablo@netfilter.org wrote:
+> [...]
+>> You can pull these changes from:
+>> 
+>> git://1984.lsi.us.es/nf-next master
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Please, also take the small patch attached after this 4 patch series. It
+> fixes one linking issue.
+> 
+> Sorry, I'll put more care next time testing compilation options more
+> extensively.
 
-Yeah, very good idea David ;)
-
-needs some polishing of course.
-
-This reminds the idea of having seperate dst per tcp socket, to remove
-the dst refcnt contention as well.
+Done.
