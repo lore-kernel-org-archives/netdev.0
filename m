@@ -1,39 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2012-06-18
-Date: Mon, 18 Jun 2012 20:28:55 -0700 (PDT)
-Message-ID: <20120618.202855.272613444878909098.davem@davemloft.net>
-References: <1340051963-14836-1-git-send-email-ordex@autistici.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 0/4] netfilter updates for net-next (batch 3)
+Date: Tue, 19 Jun 2012 05:37:45 +0200
+Message-ID: <20120619033745.GA31405@1984>
+References: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50022 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753110Ab2FSD25 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 23:28:57 -0400
-In-Reply-To: <1340051963-14836-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="J/dobhs11T7y2rNN"
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Antonio Quartulli <ordex@autistici.org>
-Date: Mon, 18 Jun 2012 22:39:04 +0200
 
-> Hello David,
-> 	here is our first set of changes intended for next-next/linux-3.6.
->=20
-> Patch 2 fixes a major bug in the TranslationTable code where the old =
-value of
-> skb->data is used for memory access even if the data was relocated.
-> Patches 4, 10, 11, 13, 14 are endianess-related cleanups that we wrot=
-e thanks
-> to Al Viro's advice and help.
-> Thanks to Martin Hundeb=F8ll batman-adv now supports the ethtool API =
-and can
-> export several counters that are specific to our module (patch 5).
-> Then patch 16 improves the routing protocol API by making part of the
-> TranslationTable code routing agnostic.
-> The rest are minor fixes and other cleanups.
+--J/dobhs11T7y2rNN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Pulled, thanks.
+On Tue, Jun 19, 2012 at 05:16:25AM +0200, pablo@netfilter.org wrote:
+[...]
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf-next master
+
+Please, also take the small patch attached after this 4 patch series. It
+fixes one linking issue.
+
+Sorry, I'll put more care next time testing compilation options more
+extensively.
+
+--J/dobhs11T7y2rNN
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-fix-missing-symbols-if-CONFIG_NETFILTER_NE.patch"
+
+>From af6b248c22759fb7448668bbe495f1cbe0a9109d Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 19 Jun 2012 05:25:46 +0200
+Subject: [PATCH] netfilter: fix missing symbols if
+ CONFIG_NETFILTER_NETLINK_QUEUE_CT unset
+
+ERROR: "nfqnl_ct_parse" [net/netfilter/nfnetlink_queue.ko] undefined!
+ERROR: "nfqnl_ct_seq_adjust" [net/netfilter/nfnetlink_queue.ko] undefined!
+ERROR: "nfqnl_ct_put" [net/netfilter/nfnetlink_queue.ko] undefined!
+ERROR: "nfqnl_ct_get" [net/netfilter/nfnetlink_queue.ko] undefined!
+
+We have to use CONFIG_NETFILTER_NETLINK_QUEUE_CT in
+include/net/netfilter/nfnetlink_queue.h, not CONFIG_NF_CONNTRACK.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/netfilter/nfnetlink_queue.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/netfilter/nfnetlink_queue.h b/include/net/netfilter/nfnetlink_queue.h
+index 9f8095c..86267a5 100644
+--- a/include/net/netfilter/nfnetlink_queue.h
++++ b/include/net/netfilter/nfnetlink_queue.h
+@@ -5,7 +5,7 @@
+ 
+ struct nf_conn;
+ 
+-#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
++#ifdef CONFIG_NETFILTER_NETLINK_QUEUE_CT
+ struct nf_conn *nfqnl_ct_get(struct sk_buff *entskb, size_t *size,
+ 			     enum ip_conntrack_info *ctinfo);
+ struct nf_conn *nfqnl_ct_parse(const struct sk_buff *skb,
+-- 
+1.7.10
+
+
+--J/dobhs11T7y2rNN--
