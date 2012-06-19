@@ -1,32 +1,30 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH net-next 0/5] qmi_wwan fixes for 3.6
-Date: Tue, 19 Jun 2012 12:53:17 +0200
-Message-ID: <201206191253.17413.oneukum@suse.de>
-References: <1340102523-23990-1-git-send-email-bjorn@mork.no>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] ipv6: Prevent access to uninitialized fib_table_hash via
+ /proc/net/ipv6_route
+Date: Tue, 19 Jun 2012 07:36:02 -0400
+Message-ID: <20120619113602.GG27921@canuck.infradead.org>
+References: <e4b53a15fadbe5c1aa5402fcc8172b0ee281da33.1339750783.git.tgraf@suug.ch>
+ <20120615105655.GA22945@hmsreliant.think-freely.org>
+ <20120615.153240.1699971156820399680.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	linux-usb@vger.kernel.org,
-	"Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>
-To: =?utf-8?q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:43519 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751360Ab2FSKxT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 06:53:19 -0400
-In-Reply-To: <1340102523-23990-1-git-send-email-bjorn@mork.no>
+Received: from merlin.infradead.org ([205.233.59.134]:32827 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751532Ab2FSLgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 07:36:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20120615.153240.1699971156820399680.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag, 19. Juni 2012, 12:41:58 schrieb Bj=C3=B8rn Mork:
-> The two first patches prepare the driver for the new probing
-> model introduced by patch #3, which is the main change in this
-> set.  A RFC version of this was posted to linux-usb 29 May 2012=20
-> for discussion, as it also implicitly affects the cdc-wdm driver,=20
-> without any comments so far.
+On Fri, Jun 15, 2012 at 03:32:40PM -0700, David Miller wrote:
+> Since you're snooping around in here, you might notice that on network
+> namespace shutdown, we leak all user configured ipv6 FIB rules.
 
-Looking good.
+I looked into this. fib_rules_unregister() will free all rules
+belonging to the address family in that namespace.
 
-	Regards
-		Oliver
+Or were you referring to other rules?
