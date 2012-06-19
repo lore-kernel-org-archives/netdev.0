@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter updates for net-next (batch 3)
-Date: Mon, 18 Jun 2012 20:28:43 -0700 (PDT)
-Message-ID: <20120618.202843.1377755046459413169.davem@davemloft.net>
-References: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
+Subject: Re: pull request: batman-adv 2012-06-18
+Date: Mon, 18 Jun 2012 20:28:55 -0700 (PDT)
+Message-ID: <20120618.202855.272613444878909098.davem@davemloft.net>
+References: <1340051963-14836-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50022 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753110Ab2FSD25 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 23:28:57 -0400
+In-Reply-To: <1340051963-14836-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Tue, 19 Jun 2012 05:16:25 +0200
+=46rom: Antonio Quartulli <ordex@autistici.org>
+Date: Mon, 18 Jun 2012 22:39:04 +0200
 
-> The patches provide:
-> 
-> * compilation fixes if CONFIG_NF_CONNTRACK is disabled: I moved all the
->   conntrack code from nfnetlink_queue.c to nfnetlink_queue_ct.c to avoid
->   peppering the entire code with lots of ifdefs. I needed to rename
->   nfnetlink_queue.c to nfnetlink_queue_core.c to get it working with the
->   Makefile tweaks I've added.
-> 
-> * fix NULL pointer dereference via ctnetlink while trying to change the helper
->   for an existing conntrack entry. I don't find any reasonable use case for
->   changing the helper from one to another in run-time. Thus, now ctnetlink
->   returns -EOPNOTSUPP for this operation.
-> 
-> * fix possible out-of-bound zeroing of the conntrack extension area due to
->   the helper automatic assignation routine.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf-next master
+> Hello David,
+> 	here is our first set of changes intended for next-next/linux-3.6.
+>=20
+> Patch 2 fixes a major bug in the TranslationTable code where the old =
+value of
+> skb->data is used for memory access even if the data was relocated.
+> Patches 4, 10, 11, 13, 14 are endianess-related cleanups that we wrot=
+e thanks
+> to Al Viro's advice and help.
+> Thanks to Martin Hundeb=F8ll batman-adv now supports the ethtool API =
+and can
+> export several counters that are specific to our module (patch 5).
+> Then patch 16 improves the routing protocol API by making part of the
+> TranslationTable code routing agnostic.
+> The rest are minor fixes and other cleanups.
 
 Pulled, thanks.
