@@ -1,80 +1,61 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC] TCP:  Support configurable delayed-ack parameters.
-Date: Mon, 18 Jun 2012 19:46:30 -0700
-Message-ID: <4FDFE806.4050003@candelatech.com>
-References: <1340067163-29329-1-git-send-email-greearb@candelatech.com> <20120618182716.5f8fb72f@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Baluta <dbaluta@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:55756 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751136Ab2FSCqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jun 2012 22:46:33 -0400
-In-Reply-To: <20120618182716.5f8fb72f@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 0/4] netfilter updates for net-next (batch 3)
+Date: Tue, 19 Jun 2012 05:16:25 +0200
+Message-ID: <1340075789-6196-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/18/2012 06:27 PM, Stephen Hemminger wrote:
-> On Mon, 18 Jun 2012 17:52:43 -0700
-> greearb@candelatech.com wrote:
->
->> From: Ben Greear<greearb@candelatech.com>
->>
->> RFC2581 ($4.2) specifies when an ACK should be generated as follows:
->>
->> " .. an ACK SHOULD be generated for at least every second
->>    full-sized segment, and MUST be generated within 500 ms
->>    of the arrival of the first unacknowledged packet.
->> "
->>
->> We export the number of segments and the timeout limits
->> specified above, so that a user can tune them according
->> to their needs.
->>
->> Specifically:
->> 	* /proc/sys/net/ipv4/tcp_default_delack_segs, represents
->> 	the threshold for the number of segments.
->> 	* /proc/sys/net/ipv4/tcp_default_delack_min, specifies
->> 	the minimum timeout value
->> 	* /proc/sys/net/ipv4/tcp_default_delack_max, specifies
->> 	the maximum timeout value.
->>
->> In addition, new TCP socket options are added to allow
->> per-socket configuration:
->>
->> TCP_DELACK_SEGS
->> TCP_DELACK_MIN
->> TCP_DELACK_MAX
->>
->> In order to keep a multiply out of the hot path, the segs * mss
->> computation is recalculated and cached whenever segs or mss changes.
->>
->> Signed-off-by: Daniel Baluta<dbaluta@ixiacom.com>
->> Signed-off-by: Ben Greear<greearb@candelatech.com>
->
-> What is the justification (other than standard) for making this
-> tunable. Why would you want to do this? Why shouldn't the stack be adjusting
-> it for you (based on other heuristics)? Or is this just for testing interoperation
-> with TCP stacks that have wonky ACK policies. There are already too many TCP tunable
-> parameters for general usage.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-tcp over wifi performance sucks, and tuning it to delay acks by 10 or 20 segments
-gives a decent performance boost.
+Hi David,
 
-It is beyond me to write something that auto-tunes this, but even if someone
-did, it's virtually guaranteed that someone somewhere will get better results
-by tuning their application directly.
+The following patchset provides fixes for issues that were recently introduced
+by my new cthelper infrastructure. They have been spotted by Randy Dunlap,
+Andrew Morton and Dan Carpenter.
 
-I honestly didn't even read the RFC section in question..just stole the
-description text from the original patch by Daniel Baluta.
+The patches provide:
 
-Thanks,
-Ben
+* compilation fixes if CONFIG_NF_CONNTRACK is disabled: I moved all the
+  conntrack code from nfnetlink_queue.c to nfnetlink_queue_ct.c to avoid
+  peppering the entire code with lots of ifdefs. I needed to rename
+  nfnetlink_queue.c to nfnetlink_queue_core.c to get it working with the
+  Makefile tweaks I've added.
 
+* fix NULL pointer dereference via ctnetlink while trying to change the helper
+  for an existing conntrack entry. I don't find any reasonable use case for
+  changing the helper from one to another in run-time. Thus, now ctnetlink
+  returns -EOPNOTSUPP for this operation.
+
+* fix possible out-of-bound zeroing of the conntrack extension area due to
+  the helper automatic assignation routine.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf-next master
+
+Thanks!
+
+Pablo Neira Ayuso (4):
+  netfilter: ctnetlink: fix NULL dereference while trying to change helper
+  netfilter: nf_ct_helper: disable automatic helper re-assignment of different type
+  netfilter: fix compilation of the nfnl_cthelper if NF_CONNTRACK is unset
+  netfilter: nfnetlink_queue: fix compilation with NF_CONNTRACK disabled
+
+ include/net/netfilter/nfnetlink_queue.h            |   43 +++++++++
+ net/netfilter/Kconfig                              |   29 ++++--
+ net/netfilter/Makefile                             |    4 +-
+ net/netfilter/nf_conntrack_helper.c                |    8 +-
+ net/netfilter/nf_conntrack_netlink.c               |   24 ++---
+ .../{nfnetlink_queue.c => nfnetlink_queue_core.c}  |   49 ++--------
+ net/netfilter/nfnetlink_queue_ct.c                 |   97 ++++++++++++++++++++
+ 7 files changed, 187 insertions(+), 67 deletions(-)
+ create mode 100644 include/net/netfilter/nfnetlink_queue.h
+ rename net/netfilter/{nfnetlink_queue.c => nfnetlink_queue_core.c} (95%)
+ create mode 100644 net/netfilter/nfnetlink_queue_ct.c
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.10
+
