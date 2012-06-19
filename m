@@ -1,39 +1,32 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Patches depending on changes in usb-next
-Date: Tue, 19 Jun 2012 12:52:24 +0200
-Message-ID: <877gv3po9j.fsf@nemi.mork.no>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH net-next 0/5] qmi_wwan fixes for 3.6
+Date: Tue, 19 Jun 2012 12:53:17 +0200
+Message-ID: <201206191253.17413.oneukum@suse.de>
+References: <1340102523-23990-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	linux-usb@vger.kernel.org,
+	"Andrew Bird (Sphere Systems)" <ajb@spheresystems.co.uk>
+To: =?utf-8?q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:44071 "EHLO canardo.mork.no"
+Received: from cantor2.suse.de ([195.135.220.15]:43519 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754239Ab2FSKwb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 06:52:31 -0400
-Received: from nemi.mork.no (ip6-localhost [IPv6:::1])
-	by canardo.mork.no (8.14.3/8.14.3) with ESMTP id q5JAqO77014605
-	(version=TLSv1/SSLv3 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 19 Jun 2012 12:52:25 +0200
-Received: from bjorn by nemi.mork.no with local (Exim 4.77)
-	(envelope-from <bjorn@mork.no>)
-	id 1Sgw2q-0006Kb-9m
-	for netdev@vger.kernel.org; Tue, 19 Jun 2012 12:52:24 +0200
+	id S1751360Ab2FSKxT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 06:53:19 -0400
+In-Reply-To: <1340102523-23990-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Am Dienstag, 19. Juni 2012, 12:41:58 schrieb Bj=C3=B8rn Mork:
+> The two first patches prepare the driver for the new probing
+> model introduced by patch #3, which is the main change in this
+> set.  A RFC version of this was posted to linux-usb 29 May 2012=20
+> for discussion, as it also implicitly affects the cdc-wdm driver,=20
+> without any comments so far.
 
-I have a couple of 3.6 patches for the qmi_wwan driver which depend on
+Looking good.
 
-  81df2d5 USB: allow match on bInterfaceNumber
-  fec1868 USB: properly pad out usb_device_id.driver_info
-
-only available in usb-next.  Do you prefer that I hold on to these unti=
-l
-after the 3.6 merge window?  They only affect module aliases and
-probing so the risk isn't too high, although they do represent quite
-major changes in that particular area.
-
-
-Bj=C3=B8rn
+	Regards
+		Oliver
