@@ -1,35 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after
- changing date
-Date: Tue, 19 Jun 2012 02:05:53 -0700 (PDT)
-Message-ID: <20120619.020553.227635216346617898.davem@davemloft.net>
-References: <1340092269-6136-1-git-send-email-fan.du@windriver.com>
-	<1340092269-6136-2-git-send-email-fan.du@windriver.com>
-	<20120619.020111.1596676335106760442.davem@davemloft.net>
+From: Fan Du <fdu@windriver.com>
+Subject: [XFRM][RFC v3] Fix unexpected SA hard expiration after setting new date
+Date: Tue, 19 Jun 2012 17:28:37 +0800
+Message-ID: <1340098118-21529-1-git-send-email-fdu@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org,
-	fdu@windriver.com
-To: fan.du@windriver.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52086 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753732Ab2FSJFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 05:05:54 -0400
-In-Reply-To: <20120619.020111.1596676335106760442.davem@davemloft.net>
+Received: from mail.windriver.com ([147.11.1.11]:54274 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765Ab2FSJ2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 05:28:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 19 Jun 2012 02:01:11 -0700 (PDT)
 
-> From: "fan.du" <fan.du@windriver.com>
-> Date: Tue, 19 Jun 2012 15:51:09 +0800
-> 
->> From: "fan.du" <fan.du@windriver.com>
-> 
-> Please don't put your email user name instead of real name in quotes
-> there.  Thank you.
+Hi, Dave and Herbert
 
-Also fdu@windriver.com bounces, do not put it in the CC: list.
+Could you give a try to review this?
+thanks
+
+Changelog:
+v1->v2
+1) use xflags instead of creating new flags(suggested by Steffen Klassert)
+
+v2->v3
+1) fix email problem, and remove cc to myself(requested by David Miller)
+
+
+*Background*:
+Once IPsec SAs are created between two peers, kernel setup a timer to monitor
+two events: soft/hard expiration. However the timer handler use xtime to
+caculate whether it's soft or hard expiration event.
+
+normal code flow(hard expire time:100s, soft expire time:82s)
+
+a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;
+
+b) soft expire occur, rearm the timer with hard expire interval(18s)
+then notify racoon2 about soft expire event. racoon2 will create
+new SAs.
+
+c) hard expire happen, notify racoon2 about it. racoon2 will delete
+the old SAs.
+
+*Scenario*:
+Setting a new date before b),and after a) could result c) happens first,
+As a result, old SAs is deleted before new ones are created. Normally
+new SAs will be created by the next time networking traffic, but there
+is a small time being when networking connection is down, this could
+result in upper layer connections failed in tel comm area, thus it's
+better to keep it strict in sequence.
+
+*Workaround*:
+set new time could happen:
+1) before a), then SAs is updated with new time.
+2) before b),and after a)
+2a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;(set flag to mark next time should
+be soft time expire)
+
+<<---- new date comes
+
+2b) soft expire occur, the calculation results in a hard time expire
+event, but flag is set, so catch ya. Sync the addtime, and rearm
+the timer with hard expire interval(18s), then notify racoon2
+about soft expire event;
+
+2c) hard expire happen, notify racoon2 about it;
+so everything is in order.
+
+3) after b), hard expire always happened anyway.
