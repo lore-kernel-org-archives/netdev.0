@@ -1,55 +1,44 @@
-From: <Parav.Pandit@Emulex.Com>
-Subject: RE: [PATCH] net: added support for 40GbE link.
-Date: Tue, 19 Jun 2012 07:42:31 +0000
-Message-ID: <5D6C0ABE6A236946864C45679362BBE20AC5227D@CMEXMB1.ad.emulex.com>
-References: <1340039376.2913.13.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120619.002905.922583388766089167.davem@davemloft.net>
-	<5D6C0ABE6A236946864C45679362BBE20AC52269@CMEXMB1.ad.emulex.com>
- <20120619.003517.2067426285873138772.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [XFRM][RFC v1] Fix unexpected SA hard expiration after setting
+ new date
+Date: Tue, 19 Jun 2012 15:43:42 +0800
+Message-ID: <20120619074342.GA32309@gondor.apana.org.au>
+References: <1340007856-27651-1-git-send-email-fan.du@windriver.com>
+ <20120618084021.GA24902@gondor.apana.org.au>
+ <20120619.003422.1109786261235176550.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <bhutchings@solarflare.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: fan.du@windriver.com, netdev@vger.kernel.org, fdu@windriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:15462 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751878Ab2FSHmv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 03:42:51 -0400
-In-Reply-To: <20120619.003517.2067426285873138772.davem@davemloft.net>
-Content-Language: en-US
+Received: from sting.hengli.com.au ([178.18.18.71]:58678 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753350Ab2FSHnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 03:43:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20120619.003422.1109786261235176550.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, June 19, 2012 1:05 PM
-> To: Pandit, Parav
-> Cc: bhutchings@solarflare.com; netdev@vger.kernel.org
-> Subject: Re: [PATCH] net: added support for 40GbE link.
+On Tue, Jun 19, 2012 at 12:34:22AM -0700, David Miller wrote:
 > 
-> From: <Parav.Pandit@Emulex.Com>
-> Date: Tue, 19 Jun 2012 07:33:12 +0000
-> 
-> > Should eventually all net driver should remove using SPEED_xxxxxx and
-> start using hard coded value of 10, 100, 1000, 20000?
-> 
-> No, the ones that exist can stay, just no new ones.
-> 
-So driver which supports 40Gpbs, 100Gbps should hardcode to 40000, 100000 respectively?
+> But I seem to remember that last time this issue came up the
+> suggestion was to use highres timers.  Someone tried but they did an
+> amazingly poor job so the effort just died off.  It takes someone with
+> some skill because highres timers operate with different context
+> requirements than normal timers.
 
-> > That means ethtool_cmd_speed() should not be called in this function?
-> 
-> Ben said that it must be called, what are you talking about?
+Sorry I think I didn't see that discussion or if I did, then
+it has completely left my mind :)
 
-Sorry, I wanted to ask - Do you need switch case for speed like below new code or its should be speed independent code?
-                switch (ethtool_cmd_speed()) {
-                case SPEED_100:
-                case SPEED_10:
-                        return DEFAULT_PRB_RETIRE_TOV;
-                default:
-                        msec = 1;
-                        div = ethtool_cmd_speed() / 1000;
-                        break;
-                /*
-                }
+So excuse my ignorance, are highres timers relative like jiffies
+or absolute? If it's absolute, I don't see how it would impact this
+case.
+
+If it's relative, what exactly does it buy for us over jiffies?
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
