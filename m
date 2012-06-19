@@ -1,71 +1,91 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 19/19] team: use rcu_dereference_bh() in tx path
-Date: Tue, 19 Jun 2012 17:54:21 +0200
-Message-ID: <1340121261-2966-20-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 17/19] team: ensure correct order of netlink messages delivery
+Date: Tue, 19 Jun 2012 17:54:19 +0200
+Message-ID: <1340121261-2966-18-git-send-email-jpirko@redhat.com>
 References: <1340121261-2966-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com, jbrouer@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64346 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9937 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754637Ab2FSPyz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 11:54:55 -0400
+	id S1754637Ab2FSPyw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 11:54:52 -0400
 In-Reply-To: <1340121261-2966-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Should be used instead of rcu_dereference, since rcu_read_lock_bh is
-held.
+currently, when port is created and per-port options are present, there
+options are sent to userspace with ifindex of port which userspace does
+not know about. Port add message goes right after.
+
+This patch corrects message ordering so userspace would not be confused.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/team/team_mode_activebackup.c |    2 +-
- drivers/net/team/team_mode_loadbalance.c  |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/team/team.c |   25 +++++--------------------
+ 1 file changed, 5 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
-index bcc7d6d..2fe02a8 100644
---- a/drivers/net/team/team_mode_activebackup.c
-+++ b/drivers/net/team/team_mode_activebackup.c
-@@ -40,7 +40,7 @@ static bool ab_transmit(struct team *team, struct sk_buff *skb)
- {
- 	struct team_port *active_port;
- 
--	active_port = rcu_dereference(ab_priv(team)->active_port);
-+	active_port = rcu_dereference_bh(ab_priv(team)->active_port);
- 	if (unlikely(!active_port))
- 		goto drop;
- 	skb->dev = active_port->dev;
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index 33e30ed..45cc095 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -124,7 +124,7 @@ static struct team_port *lb_htpm_select_tx_port(struct team *team,
- 						struct sk_buff *skb,
- 						unsigned char hash)
- {
--	return rcu_dereference(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
-+	return rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 9e9d3e5..a7b391d 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -347,24 +347,6 @@ void team_options_unregister(struct team *team,
  }
+ EXPORT_SYMBOL(team_options_unregister);
  
- struct lb_select_tx_port {
-@@ -179,7 +179,7 @@ static unsigned int lb_get_skb_hash(struct lb_priv *lb_priv,
- 	uint32_t lhash;
- 	unsigned char *c;
+-static int team_option_port_add(struct team *team, struct team_port *port)
+-{
+-	int err;
+-
+-	err = __team_option_inst_add_port(team, port);
+-	if (err)
+-		return err;
+-	__team_options_change_check(team);
+-	return 0;
+-}
+-
+-static void team_option_port_del(struct team *team, struct team_port *port)
+-{
+-	__team_option_inst_mark_removed_port(team, port);
+-	__team_options_change_check(team);
+-	__team_option_inst_del_port(team, port);
+-}
+-
+ static int team_option_get(struct team *team,
+ 			   struct team_option_inst *opt_inst,
+ 			   struct team_gsetter_ctx *ctx)
+@@ -891,7 +873,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 		goto err_handler_register;
+ 	}
  
--	fp = rcu_dereference(lb_priv->fp);
-+	fp = rcu_dereference_bh(lb_priv->fp);
- 	if (unlikely(!fp))
- 		return 0;
- 	lhash = SK_RUN_FILTER(fp, skb);
-@@ -213,7 +213,7 @@ static bool lb_transmit(struct team *team, struct sk_buff *skb)
- 	unsigned int tx_bytes = skb->len;
+-	err = team_option_port_add(team, port);
++	err = __team_option_inst_add_port(team, port);
+ 	if (err) {
+ 		netdev_err(dev, "Device %s failed to add per-port options\n",
+ 			   portname);
+@@ -904,6 +886,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 	team_adjust_ops(team);
+ 	__team_compute_features(team);
+ 	__team_port_change_check(port, !!netif_carrier_ok(port_dev));
++	__team_options_change_check(team);
  
- 	hash = lb_get_skb_hash(lb_priv, skb);
--	select_tx_port_func = rcu_dereference(lb_priv->select_tx_port_func);
-+	select_tx_port_func = rcu_dereference_bh(lb_priv->select_tx_port_func);
- 	port = select_tx_port_func(team, lb_priv, skb, hash);
- 	if (unlikely(!port))
- 		goto drop;
+ 	netdev_info(dev, "Port device %s added\n", portname);
+ 
+@@ -947,12 +930,14 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+ 		return -ENOENT;
+ 	}
+ 
++	__team_option_inst_mark_removed_port(team, port);
++	__team_options_change_check(team);
++	__team_option_inst_del_port(team, port);
+ 	port->removed = true;
+ 	__team_port_change_check(port, false);
+ 	team_port_disable(team, port);
+ 	list_del_rcu(&port->list);
+ 	team_adjust_ops(team);
+-	team_option_port_del(team, port);
+ 	netdev_rx_handler_unregister(port_dev);
+ 	netdev_set_master(port_dev, NULL);
+ 	vlan_vids_del_by_dev(port_dev, dev);
 -- 
 1.7.10.2
