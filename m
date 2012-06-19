@@ -1,62 +1,40 @@
-From: <Parav.Pandit@Emulex.Com>
-Subject: RE: [PATCH] net: added support for 40GbE link.
-Date: Tue, 19 Jun 2012 05:20:52 +0000
-Message-ID: <5D6C0ABE6A236946864C45679362BBE20AC52202@CMEXMB1.ad.emulex.com>
-References: <0c7c97b0-bfe1-4143-a562-2019f86912fc@exht1.ad.emulex.com>
- <4FDF56FB.9080509@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Early TCP socket demux.
+Date: Mon, 18 Jun 2012 23:07:23 -0700 (PDT)
+Message-ID: <20120618.230723.612232275251003129.davem@davemloft.net>
+References: <1340079938.7491.2172.camel@edumazet-glaptop>
+	<20120618.212721.2148947025741866390.davem@davemloft.net>
+	<1340080661.7491.2205.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>
-To: <rick.jones2@hp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:13369 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753300Ab2FSFVO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 01:21:14 -0400
-In-Reply-To: <4FDF56FB.9080509@hp.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:50969 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752615Ab2FSGH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 02:07:26 -0400
+In-Reply-To: <1340080661.7491.2205.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 19 Jun 2012 06:37:41 +0200
 
+> On Mon, 2012-06-18 at 21:27 -0700, David Miller wrote:
+> 
+>> How are we not using it?  We use the cached SKB socket no matter what
+>> happens.
+>> 
+>> Look at how inet hash lookup works.
+>> 
+>> The error tells the caller solely whether a route lookup is still
+>> necessary.
+> 
+> OK, remove the unlikely() in __inet_lookup_skb() so that its obvious we
+> have this skb_steal_sock() thing :)
 
-> -----Original Message-----
-> From: Rick Jones [mailto:rick.jones2@hp.com]
-> Sent: Monday, June 18, 2012 9:58 PM
-> To: Pandit, Parav
-> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com
-> Subject: Re: [PATCH] net: added support for 40GbE link.
-> 
-> On 06/18/2012 05:44 AM, Parav Pandit wrote:
-> 
-> > diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h index
-> > 297370a..1ebfa6e 100644
-> > --- a/include/linux/ethtool.h
-> > +++ b/include/linux/ethtool.h
-> > @@ -1153,6 +1153,10 @@ struct ethtool_ops {
-> >   #define SUPPORTED_10000baseR_FEC	(1<<  20)
-> >   #define SUPPORTED_20000baseMLD2_Full	(1<<  21)
-> >   #define SUPPORTED_20000baseKR2_Full	(1<<  22)
-> > +#define SUPPORTED_40000baseKR4_Full	(1<<  23)
-> > +#define SUPPORTED_40000baseCR4_Full	(1<<  24)
-> > +#define SUPPORTED_40000baseSR4_Full	(1<<  25)
-> > +#define SUPPORTED_40000baseLR4_Full	(1<<  26)
-> >
-> >   /* Indicates what features are advertised by the interface. */
-> >   #define ADVERTISED_10baseT_Half		(1<<  0)
-> > @@ -1178,6 +1182,10 @@ struct ethtool_ops {
-> >   #define ADVERTISED_10000baseR_FEC	(1<<  20)
-> >   #define ADVERTISED_20000baseMLD2_Full	(1<<  21)
-> >   #define ADVERTISED_20000baseKR2_Full	(1<<  22)
-> > +#define ADVERTISED_40000baseKR4_Full	(1<<  23)
-> > +#define ADVERTISED_40000baseCR4_Full	(1<<  24)
-> > +#define ADVERTISED_40000baseSR4_Full	(1<<  25)
-> > +#define ADVERTISED_40000baseLR4_Full	(1<<  26)
-> 
-> Any idea how many defines will be wanted for 100 Gbit Ethernet?
-> Supported and advertising in ethtool_cmd are __u32s...
-> 
-100G supports CR10, ER4, LR4, Base-R and SR10 interfaces. So 5 bits. We have space from 27 to 31 bits for 100G as well.
+Sure thing.
 
-> rick jones
+We also need to add some dst->ops->check() handling as well.
