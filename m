@@ -1,44 +1,73 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM][RFC v1] Fix unexpected SA hard expiration after setting
- new date
-Date: Tue, 19 Jun 2012 15:43:42 +0800
-Message-ID: <20120619074342.GA32309@gondor.apana.org.au>
-References: <1340007856-27651-1-git-send-email-fan.du@windriver.com>
- <20120618084021.GA24902@gondor.apana.org.au>
- <20120619.003422.1109786261235176550.davem@davemloft.net>
+From: "fan.du" <fan.du@windriver.com>
+Subject: [XFRM][RFC v2] Fix unexpected SA hard expiration after setting new date
+Date: Tue, 19 Jun 2012 15:51:08 +0800
+Message-ID: <1340092269-6136-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fan.du@windriver.com, netdev@vger.kernel.org, fdu@windriver.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <fdu@windriver.com>
+To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:58678 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753350Ab2FSHnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 03:43:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20120619.003422.1109786261235176550.davem@davemloft.net>
+Received: from mail1.windriver.com ([147.11.146.13]:36956 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756Ab2FSHvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 03:51:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 19, 2012 at 12:34:22AM -0700, David Miller wrote:
-> 
-> But I seem to remember that last time this issue came up the
-> suggestion was to use highres timers.  Someone tried but they did an
-> amazingly poor job so the effort just died off.  It takes someone with
-> some skill because highres timers operate with different context
-> requirements than normal timers.
 
-Sorry I think I didn't see that discussion or if I did, then
-it has completely left my mind :)
+Hi, Dave and Herbert
 
-So excuse my ignorance, are highres timers relative like jiffies
-or absolute? If it's absolute, I don't see how it would impact this
-case.
+Could you give a try to review this?
+thanks :)
 
-If it's relative, what exactly does it buy for us over jiffies?
+Changelog:
+v1->v2
+1) use xflags instead of creating new flags(suggested by Steffen Klassert)
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+*Background*:
+Once IPsec SAs are created between two peers, kernel setup a timer to monitor
+two events: soft/hard expiration. However the timer handler use xtime to
+caculate whether it's soft or hard expiration event.
+
+normal code flow(hard expire time:100s, soft expire time:82s)
+
+a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;
+
+b) soft expire occur, rearm the timer with hard expire interval(18s)
+then notify racoon2 about soft expire event. racoon2 will create
+new SAs.
+
+c) hard expire happen, notify racoon2 about it. racoon2 will delete
+the old SAs.
+
+*Scenario*:
+Setting a new date before b),and after a) could result c) happens first,
+As a result, old SAs is deleted before new ones are created. Normally
+new SAs will be created by the next time networking traffic, but there
+is a small time being when networking connection is down, this could
+result in upper layer connections failed in tel comm area, thus it's
+better to keep it strict in sequence.
+
+*Workaround*:
+set new time could happen:
+1) before a), then SAs is updated with new time.
+2) before b),and after a)
+2a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;(set flag to mark next time should
+be soft time expire)
+
+<<---- new date comes
+
+2b) soft expire occur, the calculation results in a hard time expire
+event, but flag is set, so catch ya. Sync the addtime, and rearm
+the timer with hard expire interval(18s), then notify racoon2
+about soft expire event;
+
+2c) hard expire happen, notify racoon2 about it;
+so everything is in order.
+
+3) after b), hard expire always happened anyway.
