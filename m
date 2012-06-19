@@ -1,73 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC] micrel KSZ8041 disable auto negotiation with fiber
-Date: Tue, 19 Jun 2012 18:08:29 +0100
-Message-ID: <1340125709.2692.23.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4FE090A7.801@efacec.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [RFC net-next 01/14] Add Default
+Date: Tue, 19 Jun 2012 20:41:18 +0300
+Message-ID: <1340127678.2486.18.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
+ <1340118848-30978-2-git-send-email-yuvalmin@broadcom.com>
+ <4FE0AABE.4070100@intel.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?An=EDbal?= Almeida Pinto <anibal.pinto@efacec.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: "Alexander Duyck" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8296 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751958Ab2FSRId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 13:08:33 -0400
-In-Reply-To: <4FE090A7.801@efacec.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3685 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751049Ab2FSRlg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jun 2012 13:41:36 -0400
+In-Reply-To: <4FE0AABE.4070100@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-19 at 15:45 +0100, An=C3=ADbal Almeida Pinto wrote:
-> Hi,
->=20
-> I am working on a custom board based on a OMAP L138 with a KSZ8041TL-=
-=46TL=20
-> phy that have fibber and copper support.
->=20
-> When using with fibber the board can't connect to a switch, only afte=
-r=20
-> exec :
->=20
-> 	ethtool -s eth1 speed 100 duplex full autoneg off
->=20
-> the phy get link and start working.
->=20
-> On some switches it appears that autoneg don't work well with fibber,=
-=20
-> ethtool reports that its at 10MB/s after exec
->=20
-> 	ethtool -s eth1 autoneg on
+On Tue, 2012-06-19 at 09:37 -0700, Alexander Duyck wrote:
+> On 06/19/2012 08:13 AM, Yuval Mintz wrote:
+> > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > ---
+> >  include/linux/etherdevice.h |    5 ++++-
+> >  1 files changed, 4 insertions(+), 1 deletions(-)
+> >
+> > diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+> > index 3d406e0..bb1ecaf 100644
+> > --- a/include/linux/etherdevice.h
+> > +++ b/include/linux/etherdevice.h
+> > @@ -44,7 +44,10 @@ extern int eth_mac_addr(struct net_device *dev, void *p);
+> >  extern int eth_change_mtu(struct net_device *dev, int new_mtu);
+> >  extern int eth_validate_addr(struct net_device *dev);
+> >  
+> > -
+> > +/* The maximal number of RSS queues a driver should have unless configured
+> > + * so explicitly.
+> > + */
+> > +#define DEFAULT_MAX_NUM_RSS_QUEUES (8)
+> >  
+> >  extern struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
+> >  					    unsigned int rxqs);
+> I'm not a big fan of just having this as a fixed define in the code.  It
+> seems like it would make much more sense to have this in the Kconfig
+> somewhere as a range value if you plan on making this changeable in the
+> future.
 
-I'm not aware of any specification for autoneg over fibre, so I imagine
-the PHY is being programmed with an invalid configuration and sending
-weird signals.
+My original suggestion was a kernel command line parameter, but Dave was
+less than enthusiastic. If you will follow the original thread, you can
+probably understand why I decided to adopt Dave's constant approach
+without suggesting Kconfig:
+http://marc.info/?l=linux-netdev&m=133992386010982&w=2
 
-> The auto negotiation bit on phy register is disable on start when usi=
-ng=20
-> the fibber but Linux don't appear to look at it.
->=20
-> Found a thread [1] that solve the problem but don't appear to be full=
-y=20
-> accepted.
->=20
-> The problem is modifying the phy code without interfere with ethtool =
-use.
->=20
-> Any official/accepted solution to this problem ?
+However, 8 is not a holy number - I'm open for suggestions.
 
-The net driver or PHY driver needs to disable autoneg by default when
-connected to fibre, and reject attempts to turn it on.
-
-As for *how* the driver is supposed to know whether that's the case, I
-have no idea...
-
-> [1] - http://marc.info/?l=3Dlinuxppc-embedded&m=3D131107263711714
-
-=2E..which seems to be where the previous discussion ended.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Eilon
