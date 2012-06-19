@@ -1,41 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] batman-adv: fix skb->data assignment
-Date: Tue, 19 Jun 2012 14:28:03 -0700 (PDT)
-Message-ID: <20120619.142803.977377594415293854.davem@davemloft.net>
-References: <1340133999-26838-1-git-send-email-ordex@autistici.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
+Date: Tue, 19 Jun 2012 23:31:33 +0200
+Message-ID: <1340141493.4604.773.camel@edumazet-glaptop>
+References: <4FE0EA33.1000309@profihost.ag>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	stable@vger.kernel.org
-To: ordex@autistici.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58690 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755105Ab2FSV2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 17:28:04 -0400
-In-Reply-To: <1340133999-26838-1-git-send-email-ordex@autistici.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:61775 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752389Ab2FSVbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 17:31:38 -0400
+Received: by eeit10 with SMTP id t10so2199462eei.19
+        for <netdev@vger.kernel.org>; Tue, 19 Jun 2012 14:31:37 -0700 (PDT)
+In-Reply-To: <4FE0EA33.1000309@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Tue, 19 Jun 2012 21:26:39 +0200
+On Tue, 2012-06-19 at 23:08 +0200, Stefan Priebe wrote:
+> Hello List,
+> 
+> i'm testing 10GBE speed with tweo servers. One with 3.5-rc3 nd thoe 
+> other one whith RHEL 6 (2.6.32 kernel).
+> 
+> I noticed that setting
+> net.ipv4.tcp_timestamps=0
+> 
+> descreased the performance from 9,7 Full Duplex to 3-4Gb/s.
+> 
+> Is this bahviour fine? What should / could i tet?
+> 
 
-> This patch has already been merged in net-next. I am sorry about that, but we
-> were missing some knowledge about sending patches for stable.
-
-You really like making my life miserable.
-
-What is so damn complicated about:
-
-1) BUG FIXES go to 'net'
-
-2) NON BUG FIXES go to 'net-next'
-
-This gets stated repeatedly here.
-
-I do see you guys erroneously submit bug fixes into net-next all
-the time but I just assumed you simply didn't give a shit about
-bug fixes propagating quickly.
-
-You guys definitely need to get your asses in gear.
+Really, you should provide more input than that, if you really want us
+to help.
