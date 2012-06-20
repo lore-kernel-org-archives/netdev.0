@@ -1,57 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: RE: [PATCH net-next 2/6] bnx2x: link cleanup
-Date: Wed, 20 Jun 2012 15:41:52 -0700
-Message-ID: <1340232112.29885.38.camel@joe2Laptop>
-References: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
-	 <1340182175-916-3-git-send-email-yuvalmin@broadcom.com>
-	 <1340204019.29885.9.camel@joe2Laptop>
-	 <979A8436335E3744ADCD3A9F2A2B68A5029F62@SJEXCHMB10.corp.ad.broadcom.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: accept_ra_rt_info_max_plen default value
+Date: Thu, 21 Jun 2012 01:07:55 +0200
+Message-ID: <20120620230755.GB4957@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Yaniv Rosner <yaniv.rosner@broadcom.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Teran McKinney <sega01@gmail.com>,
+	Pekka Savola <pekkas@netcore.fi>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:48772 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752189Ab2FTWlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 18:41:52 -0400
-In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A5029F62@SJEXCHMB10.corp.ad.broadcom.com>
+Received: from cantor2.suse.de ([195.135.220.15]:46597 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754788Ab2FTXIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 19:08:02 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-20 at 17:50 +0000, Yuval Mintz wrote:
-> > >  3. Change msleep(1) --> usleep_range(1000, 1000)
-> > 
-> > I believe replacing msleep(small) with
-> > usleep_range(small * 1000, small * 1000) is
-> > not generally a good idea.
-> > 
-> > Please give usleep_range an actual range to
-> > work with and not a repeated single value.
-> > 
-> > Please think a little more about what a
-> > good upper range for the maximum time to
-> > sleep should be.
-> > 
-> > usleep_range(small * 1000, small * 2000)
-> > or something similar maybe.
-> >
-> 
-> Sounds good.  I'll change it and re-send the patch series.
+Hi,
 
-Hi Yuval.
+I have been looking for the reason behind the default of
+accept_ra_rt_info_max_plen being 0. No luck.
 
-Here's a little script from awhile ago that
-does it by doubling the small value as the
-high value range bound.
+The feature has been introduced by 930d6ff2 ([IPV6]: ROUTE: Add
+accept_ra_rt_info_max_plen sysctl).
 
-http://kerneltrap.org/mailarchive/linux-netdev/2010/12/2/6290711
+The only relevant discussion I found was
+http://markmail.org/message/5m34bfzhox6y5lcf
+with no explanation.
 
-(replace [path] as appropriate)
+I imagine that the motivation for setting
+accept_ra_rt_info_max_plen to 0 would be security concerns (?).
 
-$ grep -nPrl --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" [path] \
-  xargs perl -p -i -e 's/msleep\s*\(\s*(1?\d)\s*\)/"usleep_range\(${1}000, " . scalar($1) * 2 . "000\)"/ge'
+However, RFC 4191, section "6. Security Consideration", concludes
+that the new features don't increase the risks already present:
+
+	A malicious node could send Router Advertisement messages, specifying
+	a High Default Router Preference or carrying specific routes, with
+	the effect of pulling traffic away from legitimate routers.  However,
+	a malicious node could easily achieve this same effect in other ways.
+
+	For example, it could fabricate Router Advertisement messages with a
+	zero Router Lifetime from the other routers, causing hosts to stop
+	using the other routes.  By advertising a specific prefix, this
+	attack could be carried out in a less noticeable way.  However, this
+	attack has no significant incremental impact on Internet
+	infrastructure security.
+
+
+RFC 6434 has been published since, and under 5.3. it says:
+
+	Small Office/Home Office (SOHO) deployments supported by routers
+	adhering to [RFC6204] use RFC 4191 to advertise routes to certain
+	local destinations.  Consequently, nodes that will be deployed in
+	SOHO environments SHOULD implement RFC 4191.
+
+
+Shouldn't the default value of accept_ra_rt_info_max_plen be
+re-considered to comply with RFC 6434 by default? Any reason not
+to make it 128?
+
+Thanks,
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
