@@ -1,64 +1,47 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 07/17] net: Introduce sk_gfp_atomic() to allow addition
- of GFP flags depending on the individual socket
-Date: Wed, 20 Jun 2012 15:20:33 +0100
-Message-ID: <20120620142033.GJ4011@suse.de>
-References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
- <1340192652-31658-8-git-send-email-mgorman@suse.de>
- <1340193999.4604.867.camel@edumazet-glaptop>
+Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
+Date: Wed, 20 Jun 2012 15:21:27 +0100
+Message-ID: <20120620142127.GK4011@suse.de>
+References: <1340185081-22525-1-git-send-email-mgorman@suse.de>
+ <1340185081-22525-2-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	Linux-NFS <linux-nfs@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	David Miller <davem@davemloft.net>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Neil Brown <neilb@suse.de>, Christoph Hellwig <hch@infradead.org>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric B Munson <emunson@mgebm.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1340193999.4604.867.camel@edumazet-glaptop>
+In-Reply-To: <1340185081-22525-2-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 20, 2012 at 02:06:39PM +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-20 at 12:44 +0100, Mel Gorman wrote:
-> > Introduce sk_gfp_atomic(), this function allows to inject sock specific
-> > flags to each sock related allocation. It is only used on allocation
-> > paths that may be required for writing pages back to network storage.
-> > 
-> > [davem@davemloft.net: Use sk_gfp_atomic only when necessary]
-> > Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
-> > Acked-by: David S. Miller <davem@davemloft.net>
-> > ---
-> >  include/net/sock.h    |    5 +++++
-> >  net/ipv4/tcp_output.c |    9 +++++----
-> >  net/ipv6/tcp_ipv6.c   |    8 +++++---
-> >  3 files changed, 15 insertions(+), 7 deletions(-)
-> > 
+On Wed, Jun 20, 2012 at 10:37:50AM +0100, Mel Gorman wrote:
+> It could happen that all !SOCK_MEMALLOC sockets have buffered so
+> much data that we're over the global rmem limit. This will prevent
+> SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
+> from running, which is needed to reduce the buffered data.
 > 
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index 803cbfe..440b47e 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -2461,7 +2461,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
-> >  
-> >  	if (cvp != NULL && cvp->s_data_constant && cvp->s_data_desired)
-> >  		s_data_desired = cvp->s_data_desired;
-> > -	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1, GFP_ATOMIC);
-> > +	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15 + s_data_desired, 1,
-> > +			   sk_gfp_atomic(sk, GFP_ATOMIC));
-> >  	if (skb == NULL)
-> >  
+> Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+> Once this change it applied, it is important that sockets that set
+> SOCK_MEMALLOC do not clear the flag until the socket is being torn down.
+> If this happens, a warning is generated and the tokens reclaimed to
+> avoid accounting errors until the bug is fixed.
 > 
-> This bit no longer applies on net-next, sock_wmalloc() was changed to a
-> mere alloc_skb()
-> 
+> [davem@davemloft.net: Warning about clearing SOCK_MEMALLOC]
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-Thanks, I'll rebase and retest.
+This patch introduced a new warning that I had previously missed. I'll
+fix it up when rebasing this series on top of linux-next.
 
 -- 
 Mel Gorman
