@@ -1,37 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 20 Jun 2012 02:06:11 -0700 (PDT)
-Message-ID: <20120620.020611.1696375957120854262.davem@davemloft.net>
-References: <D5ECB3C7A6F99444980976A8C6D896384FAA275CBE@EAPEX1MAIL1.st.com>
-	<4FE18A5E.204@pengutronix.de>
-	<3170667.1PZa2330KE@harkonnen>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
+Date: Wed, 20 Jun 2012 11:06:41 +0200
+Message-ID: <4FE192A1.6000000@profihost.ag>
+References: <4FE0EA33.1000309@profihost.ag>  <1340141493.4604.773.camel@edumazet-glaptop>  <4FE17522.5050005@profihost.ag>  <1340176940.4604.801.camel@edumazet-glaptop>  <4FE1881B.7030800@profihost.ag> <1340181676.4604.838.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, bhupesh.sharma@st.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, giancarlo.asnaghi@st.com,
-	wg@grandegger.com
-To: federico.vaga@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <3170667.1PZa2330KE@harkonnen>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.profihost.ag ([85.158.179.208]:60374 "EHLO
+	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754709Ab2FTJGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 05:06:47 -0400
+In-Reply-To: <1340181676.4604.838.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Federico Vaga <federico.vaga@gmail.com>
-Date: Wed, 20 Jun 2012 11:03:08 +0200
+Am 20.06.2012 10:41, schrieb Eric Dumazet:
+> On Wed, 2012-06-20 at 10:21 +0200, Stefan Priebe - Profihost AG wrote:
+>> Am 20.06.2012 09:22, schrieb Eric Dumazet:
+> Yes, you already told that in subject line.
+>
+> single tcp flow ?
+I use iperf - i think it uses just a single tcp flow. But i'm not sure.
 
->> I think the driver is currently used/tested only on ARM only, so what
->> about adding a HAVE_CLK dependency, until Viresh Kumar's patches are
->> available in net-next. Later we can remove it.
-> 
-> This driver is tested only on an x86 with AMBA peripherals on PCI. We 
-> are developing the clk side for this new platform. 
+> You seem to have a switch or something that drops packets in this case.
+> You could try to rate limit to 9Gb/s and see if it is better.
+Sadly i can't rate limit to 9Gbit/s on the switch.
 
-Then the driver should NEVER have been submitted without the
-required infrastructure in place first.
+> Here, I roughly have same bandwidth with tcp_timestamps on or off, with
+> ixgbe cards and net-next kernels.
+Mhm strange. Do you have any vague idea what could cause this? Any wrong 
+reordering of the packets without tcp_timestamps?
 
-If what you say is true, I'm extremely pissed off about this now.
-
-This submission was a complete cluster fuck, and it means the person
-who submitted this to me didn't test the damn build even.
+Stefan
