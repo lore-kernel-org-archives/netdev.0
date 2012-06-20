@@ -1,107 +1,55 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH -v1 3/3] usbnet: handle remote wakeup asap
-Date: Wed, 20 Jun 2012 15:15:53 +0800
-Message-ID: <1340176553-32225-4-git-send-email-ming.lei@canonical.com>
-References: <1340176553-32225-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1340176553-32225-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
+Date: Wed, 20 Jun 2012 09:22:20 +0200
+Message-ID: <1340176940.4604.801.camel@edumazet-glaptop>
+References: <4FE0EA33.1000309@profihost.ag>
+	 <1340141493.4604.773.camel@edumazet-glaptop>
+	 <4FE17522.5050005@profihost.ag>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:40471 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752049Ab2FTHWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:22:25 -0400
+Received: by bkcji2 with SMTP id ji2so5869927bkc.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 00:22:23 -0700 (PDT)
+In-Reply-To: <4FE17522.5050005@profihost.ag>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If usbnet is resumed by remote wakeup, generally there are
-some packets comming to be handled, so allocate and submit
-rx URBs in usbnet_resume to avoid delays introduced by tasklet.
-Otherwise, usbnet may have been runtime suspended before the
-usbnet_bh is executed to schedule Rx URBs.
+On Wed, 2012-06-20 at 09:00 +0200, Stefan Priebe - Profihost AG wrote:
+> Am 19.06.2012 23:31, schrieb Eric Dumazet:
+> > On Tue, 2012-06-19 at 23:08 +0200, Stefan Priebe wrote:
+> >> i'm testing 10GBE speed with tweo servers. One with 3.5-rc3 nd thoe
+> >> other one whith RHEL 6 (2.6.32 kernel).
+> >>
+> >> I noticed that setting
+> >> net.ipv4.tcp_timestamps=0
+> >>
+> >> descreased the performance from 9,7 Full Duplex to 3-4Gb/s.
+> >>
+> >> Is this bahviour fine? What should / could i tet?
+> >>
+> >
+> > Really, you should provide more input than that, if you really want us
+> > to help.
+> 
+> *arg* forgot to add the pastebin links. Sorry. Speed degraded in this 
+> case from 9,88Gbit/s to 2,45Gbit/s. When i turn on timestamps it's 
+> perfect again. Server A has 3.5.0-rc3 and server B has an RHEL6 2.6.32 
+> kernel.
+> 
+> Before:
+> http://pastebin.com/raw.php?i=1gVraWVc
+> 
+> After:
+> http://pastebin.com/raw.php?i=NSh8Y29s
 
-Without the patch, usbnet can't recieve any packets from peer
-in runtime suspend state if runtime PM is enabled and
-autosuspend_delay is set as zero.
+You have a lot of packet losses
 
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/usb/usbnet.c |   42 ++++++++++++++++++++++++++----------------
- 1 file changed, 26 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 9bfa775..a89d6c5 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1201,6 +1201,21 @@ deferred:
- }
- EXPORT_SYMBOL_GPL(usbnet_start_xmit);
- 
-+static void rx_alloc_submit(struct usbnet *dev, gfp_t flags)
-+{
-+	struct urb	*urb;
-+	int		i;
-+
-+	/* don't refill the queue all at once */
-+	for (i = 0; i < 10 && dev->rxq.qlen < RX_QLEN(dev); i++) {
-+		urb = usb_alloc_urb(0, flags);
-+		if (urb != NULL) {
-+			if (rx_submit(dev, urb, flags) == -ENOLINK)
-+				return;
-+		}
-+	}
-+}
-+
- /*-------------------------------------------------------------------------*/
- 
- // tasklet (work deferred from completions, in_irq) or timer
-@@ -1240,26 +1255,14 @@ static void usbnet_bh (unsigned long param)
- 		   !timer_pending (&dev->delay) &&
- 		   !test_bit (EVENT_RX_HALT, &dev->flags)) {
- 		int	temp = dev->rxq.qlen;
--		int	qlen = RX_QLEN (dev);
--
--		if (temp < qlen) {
--			struct urb	*urb;
--			int		i;
--
--			// don't refill the queue all at once
--			for (i = 0; i < 10 && dev->rxq.qlen < qlen; i++) {
--				urb = usb_alloc_urb (0, GFP_ATOMIC);
--				if (urb != NULL) {
--					if (rx_submit (dev, urb, GFP_ATOMIC) ==
--					    -ENOLINK)
--						return;
--				}
--			}
-+
-+		if (temp < RX_QLEN(dev)) {
-+			rx_alloc_submit(dev, GFP_ATOMIC);
- 			if (temp != dev->rxq.qlen)
- 				netif_dbg(dev, link, dev->net,
- 					  "rxqlen %d --> %d\n",
- 					  temp, dev->rxq.qlen);
--			if (dev->rxq.qlen < qlen)
-+			if (dev->rxq.qlen < RX_QLEN(dev))
- 				tasklet_schedule (&dev->bh);
- 		}
- 		if (dev->txq.qlen < TX_QLEN (dev))
-@@ -1565,6 +1568,13 @@ int usbnet_resume (struct usb_interface *intf)
- 		spin_unlock_irq(&dev->txq.lock);
- 
- 		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
-+			/* handle remote wakeup ASAP */
-+			if (!dev->wait &&
-+				netif_device_present(dev->net) &&
-+				!timer_pending(&dev->delay) &&
-+				!test_bit(EVENT_RX_HALT, &dev->flags))
-+					rx_alloc_submit(dev, GFP_KERNEL);
-+
- 			if (!(dev->txq.qlen >= TX_QLEN(dev)))
- 				netif_tx_wake_all_queues(dev->net);
- 			tasklet_schedule (&dev->bh);
--- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+add "tc -s -d qdisc" , "ifconfig -a " and "ethtool -S ethX" outputs for
+both servers
