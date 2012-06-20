@@ -1,77 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
- with TCP and GRO
-Date: Wed, 20 Jun 2012 15:21:54 +0200
-Message-ID: <1340198514.4604.970.camel@edumazet-glaptop>
-References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
-	 <1340170590.4604.784.camel@edumazet-glaptop>
-	 <1340180223.4604.828.camel@edumazet-glaptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [net-next:master 257/266]
+ drivers/net/team/team_mode_loadbalance.c:99:30: sparse: incompatible types
+ in comparison expression (different address spaces)
+Date: Wed, 20 Jun 2012 15:23:29 +0200
+Message-ID: <20120620132329.GD1580@minipsycho.brq.redhat.com>
+References: <20120620042743.GA7640@localhost>
+ <20120620063607.GA1491@minipsycho>
+ <20120620065055.GA5872@localhost>
+ <20120620124913.GF2432@linux.vnet.ibm.com>
+ <1340197909.4604.956.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f66.google.com ([209.85.214.66]:55675 "EHLO
-	mail-bk0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751291Ab2FTNWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 09:22:31 -0400
-Received: by bkty5 with SMTP id y5so2187761bkt.1
-        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 06:22:29 -0700 (PDT)
-In-Reply-To: <1340180223.4604.828.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com, Fengguang Wu <wfg@linux.intel.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1340197909.4604.956.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-20 at 10:17 +0200, Eric Dumazet wrote:
+Wed, Jun 20, 2012 at 03:11:49PM CEST, eric.dumazet@gmail.com wrote:
+>On Wed, 2012-06-20 at 05:49 -0700, Paul E. McKenney wrote:
+>> On Wed, Jun 20, 2012 at 02:50:55PM +0800, Fengguang Wu wrote:
+>> > [CC Paul, the RCU maintainer]
+>> > 
+>> > On Wed, Jun 20, 2012 at 08:36:07AM +0200, Jiri Pirko wrote:
+>> > > Wed, Jun 20, 2012 at 06:27:43AM CEST, wfg@linux.intel.com wrote:
+>> > > >Hi Jiri,
+>> > > >
+>> > > >There are new sparse warnings show up in
+>> > > >
+>> > > >tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+>> > > >head:   677a3d60fb3153f786a0d28fcf0287670e7bd3c2
+>> > > >commit: ab8250d70063f77929fc404c02390a1f64d66416 [257/266] team: lb: introduce infrastructure for userspace driven tx loadbalancing
+>> > > >
+>> > > >All sparse warnings:
+>> > > >
+>> > > >drivers/net/team/team_mode_loadbalance.c:99:30: sparse: incompatible types in comparison expression (different address spaces)
+>> > > >
+>> > > >drivers/net/team/team_mode_loadbalance.c:99:
+>> > > >    96			struct lb_port_mapping *pm;
+>> > > >    97	
+>> > > >    98			pm = &lb_priv->ex->tx_hash_to_port_mapping[i];
+>> > > >  > 99			if (pm->port == port) {
+>> > > 
+>> > > This looks like your checker does not like
+>> > > (struct team_port __rcu *) == (struct team_port *)
+>> > > But I wonder why (or how should I fix that)
+>> 
+>> Because you said that it was an RCU-protected pointer, but then did
+>> not use an RCU primitive to access it.  In this case, where you are
+>> just using the value but not dereferencing it, you can use
+>> rcu_access_pointer().
+>
+>Yes, and please Jiri change the 
+>
+>rcu_assign_pointer(pm->port, NULL);
+>
+>by
+>
+>RCU_INIT_POINTER(pm->port, NULL);
 
-> Strange, I did again benchs with order-2 allocations and got good
-> results this time, but with latest net-next, maybe things have changed
-> since last time I did this.
-> 
-> (netdev_alloc_frag(), get_page_from_freelist() and put_page() less
-> prevalent in perf results)
-> 
+Will do.
 
-In fact, since SLUB uses order-3 for kmalloc-2048, I felt lucky to try
-this as well, and results are really good, on ixgbe at least.
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5b21522..ffd2cba 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -299,6 +299,9 @@ struct netdev_alloc_cache {
- };
- static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
- 
-+#define MAX_NETDEV_FRAGSIZE	max_t(unsigned int, PAGE_SIZE, 32768)
-+#define NETDEV_FRAG_ORDER	get_order(MAX_NETDEV_FRAGSIZE)
-+
- /**
-  * netdev_alloc_frag - allocate a page fragment
-  * @fragsz: fragment size
-@@ -316,11 +319,13 @@ void *netdev_alloc_frag(unsigned int fragsz)
- 	nc = &__get_cpu_var(netdev_alloc_cache);
- 	if (unlikely(!nc->page)) {
- refill:
--		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-+		nc->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
-+				       (NETDEV_FRAG_ORDER ? __GFP_COMP : 0),
-+				       NETDEV_FRAG_ORDER);
- 		nc->offset = 0;
- 	}
- 	if (likely(nc->page)) {
--		if (nc->offset + fragsz > PAGE_SIZE) {
-+		if (nc->offset + fragsz > MAX_NETDEV_FRAGSIZE) {
- 			put_page(nc->page);
- 			goto refill;
- 		}
-@@ -353,7 +358,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
- 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
--	if (fragsz <= PAGE_SIZE && !(gfp_mask & __GFP_WAIT)) {
-+	if (fragsz <= MAX_NETDEV_FRAGSIZE && !(gfp_mask & __GFP_WAIT)) {
- 		void *data = netdev_alloc_frag(fragsz);
- 
- 		if (likely(data)) {
+>
+>
+>
