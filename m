@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 20 Jun 2012 02:58:37 -0700 (PDT)
-Message-ID: <20120620.025837.721158723130014230.davem@davemloft.net>
-References: <3170667.1PZa2330KE@harkonnen>
-	<20120620.020611.1696375957120854262.davem@davemloft.net>
-	<5059693.iaLYtpk3E4@harkonnen>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
+Date: Wed, 20 Jun 2012 12:06:28 +0200
+Message-ID: <1340186788.4604.857.camel@edumazet-glaptop>
+References: <4FE0EA33.1000309@profihost.ag>
+	 <1340141493.4604.773.camel@edumazet-glaptop>
+	 <4FE17522.5050005@profihost.ag>
+	 <1340176940.4604.801.camel@edumazet-glaptop>
+	 <4FE1881B.7030800@profihost.ag>
+	 <1340181676.4604.838.camel@edumazet-glaptop>
+	 <4FE192A1.6000000@profihost.ag>  <4FE193FA.5030802@profihost.ag>
+	 <1340183854.4604.847.camel@edumazet-glaptop>
+	 <4FE196F4.3040900@profihost.ag>
+	 <1340184528.4604.849.camel@edumazet-glaptop>
+	 <4FE198FE.5050202@profihost.ag>
+	 <1340185645.4604.853.camel@edumazet-glaptop>
+	 <4FE19CFC.8030408@profihost.ag>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, bhupesh.sharma@st.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, giancarlo.asnaghi@st.com,
-	wg@grandegger.com
-To: federico.vaga@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <5059693.iaLYtpk3E4@harkonnen>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:36892 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751708Ab2FTKGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 06:06:34 -0400
+Received: by bkcji2 with SMTP id ji2so5975729bkc.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 03:06:32 -0700 (PDT)
+In-Reply-To: <4FE19CFC.8030408@profihost.ag>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Federico Vaga <federico.vaga@gmail.com>
-Date: Wed, 20 Jun 2012 11:59:26 +0200
-
->> Then the driver should NEVER have been submitted without the
->> required infrastructure in place first.
+On Wed, 2012-06-20 at 11:50 +0200, Stefan Priebe - Profihost AG wrote:
+> Am 20.06.2012 11:47, schrieb Eric Dumazet:
+> > On Wed, 2012-06-20 at 11:33 +0200, Stefan Priebe - Profihost AG wrote:
+> >
+> >> Sure. In that case i get 4Gbit/s in both variants. I also tried two
+> >> other different machines same result.
+> >>
+> >
+> > So 3.5 on receiver is the problem, it seems ?
+> Yes.
 > 
-> This particular driver don't use the clk framework at the moment. I put 
-> that lines about clk to try to be generic as possibile, but I see that I 
-> made a mistake: I'm sorry.
+> > And you checked all the stuff about irq affinities, i presume, since a
+> > lot of things might have changed between 2.6.32 and 3.5 ?
+> 
+> It is a single core E5 Xeon - i've set the affinity like this:
 
-Why would you try to be generic by using an interface currently
-only available on certain platforms?
+And you still have the retransmits in "netstat -s" output ?
 
-That is how you make drivers non-portable, and not generic.
+Might be a firmware or pci issue, I have same cards but no problem here.
+
+Check LRO is on ?
+
+ethtool -k eth2
