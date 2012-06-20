@@ -1,70 +1,65 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [net-next:master 257/266]
- drivers/net/team/team_mode_loadbalance.c:99:30: sparse: incompatible types
- in comparison expression (different address spaces)
-Date: Wed, 20 Jun 2012 15:23:29 +0200
-Message-ID: <20120620132329.GD1580@minipsycho.brq.redhat.com>
-References: <20120620042743.GA7640@localhost>
- <20120620063607.GA1491@minipsycho>
- <20120620065055.GA5872@localhost>
- <20120620124913.GF2432@linux.vnet.ibm.com>
- <1340197909.4604.956.camel@edumazet-glaptop>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 08/17] net: Do not coalesce skbs belonging to PFMEMALLOC
+ sockets
+Date: Wed, 20 Jun 2012 14:36:56 +0100
+Message-ID: <20120620133656.GH4011@suse.de>
+References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
+ <1340192652-31658-9-git-send-email-mgorman@suse.de>
+ <1340193892.4604.865.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulmck@linux.vnet.ibm.com, Fengguang Wu <wfg@linux.intel.com>,
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1340197909.4604.956.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1340193892.4604.865.camel@edumazet-glaptop>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Wed, Jun 20, 2012 at 03:11:49PM CEST, eric.dumazet@gmail.com wrote:
->On Wed, 2012-06-20 at 05:49 -0700, Paul E. McKenney wrote:
->> On Wed, Jun 20, 2012 at 02:50:55PM +0800, Fengguang Wu wrote:
->> > [CC Paul, the RCU maintainer]
->> > 
->> > On Wed, Jun 20, 2012 at 08:36:07AM +0200, Jiri Pirko wrote:
->> > > Wed, Jun 20, 2012 at 06:27:43AM CEST, wfg@linux.intel.com wrote:
->> > > >Hi Jiri,
->> > > >
->> > > >There are new sparse warnings show up in
->> > > >
->> > > >tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
->> > > >head:   677a3d60fb3153f786a0d28fcf0287670e7bd3c2
->> > > >commit: ab8250d70063f77929fc404c02390a1f64d66416 [257/266] team: lb: introduce infrastructure for userspace driven tx loadbalancing
->> > > >
->> > > >All sparse warnings:
->> > > >
->> > > >drivers/net/team/team_mode_loadbalance.c:99:30: sparse: incompatible types in comparison expression (different address spaces)
->> > > >
->> > > >drivers/net/team/team_mode_loadbalance.c:99:
->> > > >    96			struct lb_port_mapping *pm;
->> > > >    97	
->> > > >    98			pm = &lb_priv->ex->tx_hash_to_port_mapping[i];
->> > > >  > 99			if (pm->port == port) {
->> > > 
->> > > This looks like your checker does not like
->> > > (struct team_port __rcu *) == (struct team_port *)
->> > > But I wonder why (or how should I fix that)
->> 
->> Because you said that it was an RCU-protected pointer, but then did
->> not use an RCU primitive to access it.  In this case, where you are
->> just using the value but not dereferencing it, you can use
->> rcu_access_pointer().
->
->Yes, and please Jiri change the 
->
->rcu_assign_pointer(pm->port, NULL);
->
->by
->
->RCU_INIT_POINTER(pm->port, NULL);
+On Wed, Jun 20, 2012 at 02:04:52PM +0200, Eric Dumazet wrote:
+> On Wed, 2012-06-20 at 12:44 +0100, Mel Gorman wrote:
+> > Commit [bad43ca8: net: introduce skb_try_coalesce()] introduced an
+> > optimisation to coalesce skbs to reduce memory usage and cache line
+> > misses. In the case where the socket is used for swapping this can result
+> > in a warning like the following.
+> > 
+> > [  110.476565] nbd0: page allocation failure: order:0, mode:0x20
+> > [  110.476568] Pid: 2714, comm: nbd0 Not tainted 3.5.0-rc2-swapnbd-v12r2-slab #3
+> > [  110.476569] Call Trace:
+> > [  110.476573]  [<ffffffff811042d3>] warn_alloc_failed+0xf3/0x160
+> > [  110.476578]  [<ffffffff81107c92>] __alloc_pages_nodemask+0x6e2/0x930
+> >
+> > <SNIP
+> >  
+> 
+> 
+> This makes absolutely no sense to me.
+> 
+> This patch changes input path, while your stack trace is about output
+> path and a packet being fragmented.
+> 
 
-Will do.
+The intention was to avoid any coalescing in the input path due to avoid
+packets that "were held back due to TCP_CORK or attempt at coalescing
+tiny packet". I recognise that it is clumsy and will take the approach
+instead of having __tcp_push_pending_frames() use sk_gfp_atomic() in the
+output path.
 
->
->
->
+Thanks.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
