@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 16/17] mm: Account for the number of times direct reclaimers get throttled
-Date: Wed, 20 Jun 2012 10:35:19 +0100
-Message-ID: <1340184920-22288-17-git-send-email-mgorman@suse.de>
+Subject: [PATCH 17/17] netvm: Prevent a stream-specific deadlock
+Date: Wed, 20 Jun 2012 10:35:20 +0100
+Message-ID: <1340184920-22288-18-git-send-email-mgorman@suse.de>
 References: <1340184920-22288-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -16,58 +16,154 @@ In-Reply-To: <1340184920-22288-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Under significant pressure when writing back to network-backed storage,
-direct reclaimers may get throttled. This is expected to be a
-short-lived event and the processes get woken up again but processes do
-get stalled. This patch counts how many times such stalling occurs. It's
-up to the administrator whether to reduce these stalls by increasing
-min_free_kbytes.
+It could happen that all !SOCK_MEMALLOC sockets have buffered so
+much data that we're over the global rmem limit. This will prevent
+SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
+from running, which is needed to reduce the buffered data.
 
+Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
+Once this change it applied, it is important that sockets that set
+SOCK_MEMALLOC do not clear the flag until the socket is being torn down.
+If this happens, a warning is generated and the tokens reclaimed to
+avoid accounting errors until the bug is fixed.
+
+[davem@davemloft.net: Warning about clearing SOCK_MEMALLOC]
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/vm_event_item.h |    1 +
- mm/vmscan.c                   |    3 +++
- mm/vmstat.c                   |    1 +
- 3 files changed, 5 insertions(+)
+ include/net/sock.h     |    7 ++++---
+ net/caif/caif_socket.c |    2 +-
+ net/core/sock.c        |   14 +++++++++++++-
+ net/ipv4/tcp_input.c   |   12 ++++++------
+ net/sctp/ulpevent.c    |    2 +-
+ 5 files changed, 25 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
-index 06f8e38..57f7b10 100644
---- a/include/linux/vm_event_item.h
-+++ b/include/linux/vm_event_item.h
-@@ -30,6 +30,7 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
- 		FOR_ALL_ZONES(PGSTEAL_DIRECT),
- 		FOR_ALL_ZONES(PGSCAN_KSWAPD),
- 		FOR_ALL_ZONES(PGSCAN_DIRECT),
-+		PGSCAN_DIRECT_THROTTLE,
- #ifdef CONFIG_NUMA
- 		PGSCAN_ZONE_RECLAIM_FAILED,
- #endif
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index bf8625c..bcc65c5 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -2166,6 +2166,9 @@ static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
- 	if (pfmemalloc_watermark_ok(pgdat))
- 		return;
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 772577f..9ab9934 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1315,12 +1315,13 @@ static inline bool sk_wmem_schedule(struct sock *sk, int size)
+ 		__sk_mem_schedule(sk, size, SK_MEM_SEND);
+ }
  
-+	/* Account for the throttling */
-+	count_vm_event(PGSCAN_DIRECT_THROTTLE);
+-static inline bool sk_rmem_schedule(struct sock *sk, int size)
++static inline bool sk_rmem_schedule(struct sock *sk, struct sk_buff *skb)
+ {
+ 	if (!sk_has_account(sk))
+ 		return true;
+-	return size <= sk->sk_forward_alloc ||
+-		__sk_mem_schedule(sk, size, SK_MEM_RECV);
++	return skb->truesize <= sk->sk_forward_alloc ||
++		__sk_mem_schedule(sk, skb->truesize, SK_MEM_RECV) ||
++		skb_pfmemalloc(skb);
+ }
+ 
+ static inline void sk_mem_reclaim(struct sock *sk)
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index fb89443..5855b3a 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -141,7 +141,7 @@ static int caif_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	err = sk_filter(sk, skb);
+ 	if (err)
+ 		return err;
+-	if (!sk_rmem_schedule(sk, skb->truesize) && rx_flow_is_on(cf_sk)) {
++	if (!sk_rmem_schedule(sk, skb) && rx_flow_is_on(cf_sk)) {
+ 		set_rx_flow_off(cf_sk);
+ 		net_dbg_ratelimited("sending flow OFF due to rmem_schedule\n");
+ 		caif_flow_ctrl(sk, CAIF_MODEMCMD_FLOW_OFF_REQ);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 4388a8a..b51a49a 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -294,6 +294,18 @@ void sk_clear_memalloc(struct sock *sk)
+ 	sock_reset_flag(sk, SOCK_MEMALLOC);
+ 	sk->sk_allocation &= ~__GFP_MEMALLOC;
+ 	static_key_slow_dec(&memalloc_socks);
 +
- 	/*
- 	 * If the caller cannot enter the filesystem, it's possible that it
- 	 * is due to the caller holding an FS lock or performing a journal
-diff --git a/mm/vmstat.c b/mm/vmstat.c
-index 1bbbbd9..df7a674 100644
---- a/mm/vmstat.c
-+++ b/mm/vmstat.c
-@@ -745,6 +745,7 @@ const char * const vmstat_text[] = {
- 	TEXTS_FOR_ZONES("pgsteal_direct")
- 	TEXTS_FOR_ZONES("pgscan_kswapd")
- 	TEXTS_FOR_ZONES("pgscan_direct")
-+	"pgscan_direct_throttle",
++	/*
++	 * SOCK_MEMALLOC is allowed to ignore rmem limits to ensure forward
++	 * progress of swapping. However, if SOCK_MEMALLOC is cleared while
++	 * it has rmem allocations there is a risk that the user of the
++	 * socket cannot make forward progress due to exceeding the rmem
++	 * limits. By rights, sk_clear_memalloc() should only be called
++	 * on sockets being torn down but warn and reset the accounting if
++	 * that assumption breaks.
++	 */
++	if (WARN_ON(sk->sk_forward_alloc))
++		sk_mem_reclaim(sk);
+ }
+ EXPORT_SYMBOL_GPL(sk_clear_memalloc);
  
- #ifdef CONFIG_NUMA
- 	"zone_reclaim_failed",
+@@ -395,7 +407,7 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	if (err)
+ 		return err;
+ 
+-	if (!sk_rmem_schedule(sk, skb->truesize)) {
++	if (!sk_rmem_schedule(sk, skb)) {
+ 		atomic_inc(&sk->sk_drops);
+ 		return -ENOBUFS;
+ 	}
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b224eb8..c121d6a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4512,19 +4512,19 @@ static void tcp_ofo_queue(struct sock *sk)
+ static bool tcp_prune_ofo_queue(struct sock *sk);
+ static int tcp_prune_queue(struct sock *sk);
+ 
+-static int tcp_try_rmem_schedule(struct sock *sk, unsigned int size)
++static int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb)
+ {
+ 	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+-	    !sk_rmem_schedule(sk, size)) {
++	    !sk_rmem_schedule(sk, skb)) {
+ 
+ 		if (tcp_prune_queue(sk) < 0)
+ 			return -1;
+ 
+-		if (!sk_rmem_schedule(sk, size)) {
++		if (!sk_rmem_schedule(sk, skb)) {
+ 			if (!tcp_prune_ofo_queue(sk))
+ 				return -1;
+ 
+-			if (!sk_rmem_schedule(sk, size))
++			if (!sk_rmem_schedule(sk, skb))
+ 				return -1;
+ 		}
+ 	}
+@@ -4579,7 +4579,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+ 
+ 	TCP_ECN_check_ce(tp, skb);
+ 
+-	if (tcp_try_rmem_schedule(sk, skb->truesize)) {
++	if (tcp_try_rmem_schedule(sk, skb)) {
+ 		/* TODO: should increment a counter */
+ 		__kfree_skb(skb);
+ 		return;
+@@ -4791,7 +4791,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 		if (eaten <= 0) {
+ queue_and_out:
+ 			if (eaten < 0 &&
+-			    tcp_try_rmem_schedule(sk, skb->truesize))
++			    tcp_try_rmem_schedule(sk, skb))
+ 				goto drop;
+ 
+ 			eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index 8a84017..6c6ed2d 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -702,7 +702,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_rcvmsg(struct sctp_association *asoc,
+ 	if (rx_count >= asoc->base.sk->sk_rcvbuf) {
+ 
+ 		if ((asoc->base.sk->sk_userlocks & SOCK_RCVBUF_LOCK) ||
+-		    (!sk_rmem_schedule(asoc->base.sk, chunk->skb->truesize)))
++		    (!sk_rmem_schedule(asoc->base.sk, chunk->skb)))
+ 			goto fail;
+ 	}
+ 
 -- 
 1.7.9.2
 
