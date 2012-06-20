@@ -1,57 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] r8169: RxConfig hack for the 8168evl.
-Date: Thu, 21 Jun 2012 00:09:18 +0200
-Message-ID: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
+From: David Ahern <daahern@cisco.com>
+Subject: Re: divide by 0 error in igbvf_set_coalesce - ab50a2a
+Date: Wed, 20 Jun 2012 16:21:37 -0600
+Message-ID: <4FE24CF1.50603@cisco.com>
+References: <4FDF706D.7080509@cisco.com> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D15B30910@FMSMSX107.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, thomas.pi@arcor.de
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47622 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757760Ab2FTWTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 18:19:34 -0400
-Content-Disposition: inline
+Received: from mtv-iport-3.cisco.com ([173.36.130.14]:42994 "EHLO
+	mtv-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757676Ab2FTWVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 18:21:38 -0400
+In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D15B30910@FMSMSX107.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 8168evl (RTL_GIGA_MAC_VER_34) based Gigabyte GA-990FXA motherboards
-are very prone to NETDEV watchdog problems without this change. See
-https://bugzilla.kernel.org/show_bug.cgi?id=42899 for instance.
 
-I don't know why it *works*. It's depressingly effective though.
 
-For the record:
-- the problem may go along IOMMU (AMD-Vi) errors but it really looks
-  like a red herring.
-- the patch sets the RX_MULTI_EN bit. If the 8168c doc is any guide,
-  the chipset now fetches several Rx descriptors at a time.
-- long ago the driver ignored the RX_MULTI_EN bit.
-  e542a2269f232d61270ceddd42b73a4348dee2bb changed the RxConfig
-  settings. Whatever the problem it's now labeled a regression.
-- Realtek's own driver can identify two different 8168evl devices
-  (CFG_METHOD_16 and CFG_METHOD_17) where the r8169 driver only
-  sees one. It sucks.
+On 6/18/12 2:45 PM, Williams, Mitch A wrote:
+> Thanks for letting me know, David. I'll look into it and get a patch out soon. Shouldn't be that big of a deal to fix.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
+Could you CC me on the patch so I know when it's fixed? I have enough 
+events to poll.
 
- Hayes, any hindsight ?
+>
+> In the meantime, my advice to you is, "Don't do that."
 
- drivers/net/ethernet/realtek/r8169.c |    1 +
- 1 file changed, 1 insertion(+)
+Uh, yea. Figured that part out. ;-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 7260aa7..d7a04e0 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3894,6 +3894,7 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_22:
- 	case RTL_GIGA_MAC_VER_23:
- 	case RTL_GIGA_MAC_VER_24:
-+	case RTL_GIGA_MAC_VER_34:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
- 	default:
--- 
-1.7.10.2
+Thanks,
+David
