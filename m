@@ -1,53 +1,85 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
-Date: Wed, 20 Jun 2012 12:21:37 +0200
-Message-ID: <201206201221.37211.oneukum@suse.de>
-References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com> <201206201058.55519.oneukum@suse.de> <CACVXFVMy6Hrqgw6rmAXv5YXD86sLF+FUPTRRcXKs40uwN6ioCg@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Wed, 20 Jun 2012 20:26:04 +1000
+Message-ID: <20120620202604.407af721f746045ae00c8268@canb.auug.org.au>
+References: <20120620133348.a9ff31a72ffd11818f574fe3@canb.auug.org.au>
+	<D5ECB3C7A6F99444980976A8C6D896384FAA275CA8@EAPEX1MAIL1.st.com>
+	<4FE18502.6040409@arm.com>
+	<20120620.012037.783895812206310043.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Huajun Li <huajun.li.lee@gmail.com>,
-	David Miller <davem@davemloft.net>, stern@rowland.harvard.edu,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:34105 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753552Ab2FTKVi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 06:21:38 -0400
-In-Reply-To: <CACVXFVMy6Hrqgw6rmAXv5YXD86sLF+FUPTRRcXKs40uwN6ioCg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__20_Jun_2012_20_26_04_+1000_Pt2R0QMfCktuvVXA"
+Cc: viresh.kumar2@arm.com, bhupesh.sharma@st.com,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, federico.vaga@gmail.com,
+	giancarlo.asnaghi@st.com, wg@grandegger.com, mkl@pengutronix.de,
+	spear-devel@list.st.com, Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120620.012037.783895812206310043.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Mittwoch, 20. Juni 2012, 12:15:25 schrieb Ming Lei:
-> On Wed, Jun 20, 2012 at 4:58 PM, Oliver Neukum <oneukum@suse.de> wrote:
-> > Am Mittwoch, 20. Juni 2012, 10:07:55 schrieb Ming Lei:
-> >> BTW, maybe it is better to add below
-> >>
-> >>     usbnet_defer_kevent(dev, EVENT_STS_HALT);
-> >>
-> >> for -EPIPE returned from usb_urb_submit if it will be resent.
-> >
-> > Why? If it failed once it'll probably also fail the next time.
-> 
-> -EPIPE just means the endpoint is halted, either from usb_urb_submit
-> or urb->status, so the HALT should be cleared in the situation.
+--Signature=_Wed__20_Jun_2012_20_26_04_+1000_Pt2R0QMfCktuvVXA
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-It probably was halted and cleared. However that you cleared
-a halt doesn't mean that the reason for stalling went away.
-So you must cope with an endpoint being halted again right after
-it was cleared.
+Hi all,
 
-> > In that case we'd need to do something more intrusive
-> > like resetting the device, but that cannot be done well
-> > in the generic usbnet part.
-> 
-> IMO, resetting is not needed for -EPIPE, but may be needed for
-> -EPROTO failure.
+On Wed, 20 Jun 2012 01:20:37 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: viresh kumar <viresh.kumar2@arm.com>
+> Date: Wed, 20 Jun 2012 09:08:34 +0100
+>=20
+> > Please see following patchset from me, that got applied in linux-next
+> >=20
+> > https://lkml.org/lkml/2012/4/24/154
+> >=20
+> > Please check if this patchset is present in your build repo. I believe =
+it should be
+> > there. If it is, then you shouldn't get these errors.
+>=20
+> Well, then Stephen shouldn't get those errors either.
+>=20
+> But obviously he did.
+>=20
+> But all of this talk about changes existing only in linux-next is
+> entirely moot.  Because The damn thing MUST build independently inside
+> of net-next which doesn't have those clock layer changes.
+>=20
+> Someone send me a clean fix for net-next now.
 
-We don't need it for a single failure, but what else would we do
-if we keep getting -EPIPE?
+I get those errors because those patches are in the akpm tree which is
+merged after everything else ...
 
-	Regards
-		Oliver
+One possibility is to put those changes in another (stable) tree and
+merge that into the net-next tree (and any other tree that needs it).
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__20_Jun_2012_20_26_04_+1000_Pt2R0QMfCktuvVXA
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJP4aU8AAoJEECxmPOUX5FESSkQAKpF+Pf7CDj+K4cG37IdcOeE
+GZ7vji+MG9baDypNtp2CAPQOS2aYZeO4YBbBDg1UIDmDfltdi8iEpwpfPkIZDEzt
+yIfUN2O4RgvQ/reoxtp9aJ8DKbdOK+eO+zA4h1fdDRzsLMGZO7aWQOv0LbnC0Prz
+VX6nJHyloHsOWD3kX3e5j4Fq241EPR+sTC4DRnqMNI5esu1rwuNCx1TAPqVEO8xq
+AlVpKoBV+MTICylBAwspdv8cr6o2hsz99szPHMRgRPZ30qvbkdx2to7xCvSj4wgb
+76+Tj5gUZZ4aQMMRKKpGIp151NTZ1aD9Hlg24GcwmKJz21XAi8PTmWa/fptZ1EfO
+HeE6RCwxsoDMhL+EKXd1gmunmzQTvzMqAQsJEHVGVEAYA/70M4+K8g0tlZmleM22
+WuUITytjY/gWQDRo3dauRAvb2LlkbEGFPw8b+zyqj5I0VFEH6K+v7NSscuOmPsYV
+RUuxwqMu+LHgjhp43n/i53eGxks4WDMSOz1uOc/3y7vVG5yNg5TxW/s+CX3NTq7p
+rUqG91VC2I0Wym40lrQmVo/L5E2qEQioOzy+YROBQO5LPJzzVmCtjZImyc32jOzj
+n/qXtP3gkjux3yQncUN70NH3Unm2eSVtUI6SxaABEjqXbQkNvuKO38YRFnhtU3Ol
+2WfQVOxHGTEnwgzwnS+2
+=keoq
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__20_Jun_2012_20_26_04_+1000_Pt2R0QMfCktuvVXA--
