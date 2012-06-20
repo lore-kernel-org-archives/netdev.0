@@ -1,78 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
-Date: Wed, 20 Jun 2012 14:38:40 +0200
-Message-ID: <1340195920.4604.918.camel@edumazet-glaptop>
-References: <20120619.214657.1345825814176201681.davem@davemloft.net>
-	 <1340171940.4604.799.camel@edumazet-glaptop>
-	 <20120619.231412.1236237191660427779.davem@davemloft.net>
-	 <20120620.031543.1511134879638711616.davem@davemloft.net>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH] netxen : Error return off by one for XG port.
+Date: Wed, 20 Jun 2012 08:06:04 -0500
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A886EF1A@MNEXMB1.qlogic.org>
+References: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: santosh nayak <santoshprasadnayak@gmail.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59072 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752259Ab2FTMip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 08:38:45 -0400
-Received: by bkcji2 with SMTP id ji2so6112742bkc.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 05:38:43 -0700 (PDT)
-In-Reply-To: <20120620.031543.1511134879638711616.davem@davemloft.net>
+Received: from [213.199.154.139] ([213.199.154.139]:4818 "EHLO
+	db3outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755583Ab2FTNIP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 09:08:15 -0400
+In-Reply-To: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-20 at 03:15 -0700, David Miller wrote:
-> 			       dev->ifindex);
-> +		if (sk) {
-> +			skb_orphan(skb);
-> +			skb->sk = sk;
-> +			skb->destructor = sock_edemux;
-> +			if (!skb_dst(skb) &&
-> +			    sk->sk_state != TCP_TIME_WAIT) {
-> +				struct dst_entry *dst = sk->sk_rx_dst;
-> +				if (dst)
-> +					dst = dst_check(dst, 0);
-> +				if (dst) {
-> +					struct rtable *rt = (struct rtable *) dst;
-> +
-> +					if (rt->rt_iif == dev->ifindex)
-> +						skb_dst_set_noref(skb, dst);
-> +				}
-> +			}
-> +		}
-> +	}
-> +	return pp;
+______________________________________
+From: santosh nayak [santoshprasadnayak@gmail.com]
+Sent: Wednesday, June 20, 2012 4:22 PM
+To: Sony Chacko; Rajesh Borundia
+Cc: netdev; kernel-janitors@vger.kernel.org; Santosh Nayak
+Subject: [PATCH] netxen : Error return off by one for XG port.
 
-I am trying to convince myself its safe.
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-skb_dst_set_noref() assumes caller hold rcu_read_lock() until we use the
-skb dst.
+There are  NETXEN_NIU_MAX_XG_PORTS ports.
+Port indexing starts from zero.
+Hence we should also return error for  'port == NETXEN_NIU_MAX_XG_PORTS'.
 
-And dev_gro_receive() releases RCU...
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |    4 ++--
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Problem could happen if sk->sk_rx_dst is freed while some packets are
-still in napi or socket backlog (can happen with some network
-reordering)
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+index d4f179f..9103e3e 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+@@ -511,7 +511,7 @@ netxen_nic_get_pauseparam(struct net_device *dev,
+                                break;
+                }
+        } else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
+-               if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
++               if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
+                        return;
+                pause->rx_pause = 1;
+                val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
+@@ -577,7 +577,7 @@ netxen_nic_set_pauseparam(struct net_device *dev,
+                }
+                NXWR32(adapter, NETXEN_NIU_GB_PAUSE_CTL, val);
+        } else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
+-               if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
++               if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
+                        return -EIO;
+                val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
+                if (port == 0) {
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index de96a94..946160f 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -365,7 +365,7 @@ static int netxen_niu_disable_xg_port(struct netxen_adapter *adapter)
+        if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+                return 0;
 
-1) Socket backlog must be flushed before sk->sk_rx_dst freeing
+-       if (port > NETXEN_NIU_MAX_XG_PORTS)
++       if (port >= NETXEN_NIU_MAX_XG_PORTS)
+                return -EINVAL;
 
-2) Even if we move rcu_read_lock() in net_rx_action(), we need some
-napi_gro_forcedstrefs() in case we sofnet_break
+        mac_cfg = 0;
+@@ -392,7 +392,7 @@ static int netxen_p2_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
+        u32 port = adapter->physical_port;
+        u16 board_type = adapter->ahw.board_type;
 
-Or maybe just use napi_gro_flush() ?
+-       if (port > NETXEN_NIU_MAX_XG_PORTS)
++       if (port >= NETXEN_NIU_MAX_XG_PORTS)
+                return -EINVAL;
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 57c4f9b..c0f71a0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3861,6 +3861,9 @@ static void net_rx_action(struct softirq_action *h)
- 
- 		budget -= work;
- 
-+		if (work == weight)
-+			napi_gro_flush(n);
-+
- 		local_irq_disable();
- 
- 		/* Drivers must not modify the NAPI state if they
+        mac_cfg = NXRD32(adapter, NETXEN_NIU_XGE_CONFIG_0 + (0x10000 * port));
+--
+1.7.4.4
+
+Looks ok to me.
+
+Rajesh
