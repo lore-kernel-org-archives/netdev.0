@@ -1,63 +1,40 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 3/6] bnx2x: treat 0 speed as link down (copper)
-Date: Wed, 20 Jun 2012 11:49:32 +0300
-Message-ID: <1340182175-916-4-git-send-email-yuvalmin@broadcom.com>
-References: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next 07/14] Fix intel/ixgbe
+Date: Wed, 20 Jun 2012 10:55:14 +0200
+Message-ID: <1340182514.4604.843.camel@edumazet-glaptop>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
+	 <1340118848-30978-8-git-send-email-yuvalmin@broadcom.com>
+	 <4FE0A0CD.5050909@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Yuval Mintz <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, eilong@broadcom.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1933 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754928Ab2FTIwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 04:52:21 -0400
-In-Reply-To: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:33693 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755703Ab2FTIzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 04:55:20 -0400
+Received: by bkcji2 with SMTP id ji2so5924872bkc.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 01:55:18 -0700 (PDT)
+In-Reply-To: <4FE0A0CD.5050909@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+On Tue, 2012-06-19 at 08:54 -0700, Alexander Duyck wrote:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 121275e..17ddb9f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -10179,17 +10179,19 @@ static u8 bnx2x_848xx_read_status(struct bnx2x_phy *phy,
- 		DP(NETIF_MSG_LINK, "Legacy speed status = 0x%x\n",
- 		   legacy_status);
- 		link_up = ((legacy_status & (1<<11)) == (1<<11));
--		if (link_up) {
--			legacy_speed = (legacy_status & (3<<9));
--			if (legacy_speed == (0<<9))
--				vars->line_speed = SPEED_10;
--			else if (legacy_speed == (1<<9))
--				vars->line_speed = SPEED_100;
--			else if (legacy_speed == (2<<9))
--				vars->line_speed = SPEED_1000;
--			else /* Should not happen */
--				vars->line_speed = 0;
-+		legacy_speed = (legacy_status & (3<<9));
-+		if (legacy_speed == (0<<9))
-+			vars->line_speed = SPEED_10;
-+		else if (legacy_speed == (1<<9))
-+			vars->line_speed = SPEED_100;
-+		else if (legacy_speed == (2<<9))
-+			vars->line_speed = SPEED_1000;
-+		else { /* Should not happen: Treat as link down */
-+			vars->line_speed = 0;
-+			link_up = 0;
-+		}
- 
-+		if (link_up) {
- 			if (legacy_status & (1<<8))
- 				vars->duplex = DUPLEX_FULL;
- 			else
--- 
-1.7.9.rc2
+> This patch doesn't limit the number of queues.  It is limiting the
+> number of interrupts.  The two are not directly related as we can
+> support multiple queues per interrupt.
+> 
+> Also this change assumes we are only using receive side scaling.  We
+> have other features such as DCB, FCoE, and Flow Director which require
+> additional queues.
+> 
+
+Yet, it would be good if ixgbe doesnt allocate 36 queues on a 4 cpu
+machine.
+
+"tc -s class show dev eth0" output is full of not used classes.
