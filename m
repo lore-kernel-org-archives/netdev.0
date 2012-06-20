@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] can: c_can_pci: fix compilation on non HAVE_CLK
- archs
-Date: Wed, 20 Jun 2012 13:56:08 -0700 (PDT)
-Message-ID: <20120620.135608.1188854620320486272.davem@davemloft.net>
-References: <1340208266-22098-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
+Date: Wed, 20 Jun 2012 14:01:21 -0700 (PDT)
+Message-ID: <20120620.140121.1603737472432326278.davem@davemloft.net>
+References: <1340171940.4604.799.camel@edumazet-glaptop>
+	<1340215664.2576.12.camel@bwh-desktop.uk.solarflarecom.com>
+	<1340217604.4604.1569.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	federico.vaga@gmail.com
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1340208266-22098-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45110 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754960Ab2FTVBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 17:01:22 -0400
+In-Reply-To: <1340217604.4604.1569.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 20 Jun 2012 18:04:26 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 20 Jun 2012 20:40:04 +0200
 
-> In commit:
+> If someone wants to tune its linux router, he probably already disables
+> GRO because of various issues with too big packets.
 > 
->   5b92da0 c_can_pci: generic module for C_CAN/D_CAN on PCI
-> 
-> the c_can_pci driver has been added. It uses clk_*() functions
-> resulting in a link error on archs without clock support. This
-> patch removed these clk_() functions as these parts of the driver
-> are not tested.
-> 
-> Cc: Federico Vaga <federico.vaga@gmail.com>
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> GRO adds a significant cost to forwarding path.
 
-Applied.
+No, Ben is right Eric.  GRO decreases the costs, because it means we
+only need to make one forwarding/netfilter/classification decision for
+N packets instead of 1.
