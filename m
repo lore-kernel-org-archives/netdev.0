@@ -1,88 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next.git 4/4 (v7)] phy: add the EEE support and the way to
- access to the MMD registers.
-Date: Wed, 20 Jun 2012 18:22:20 +0100
-Message-ID: <1340212940.2576.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1340172774-27443-1-git-send-email-peppe.cavallaro@st.com>
-	 <1340172774-27443-5-git-send-email-peppe.cavallaro@st.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: next-20120620 build error in netfilter
+Date: Wed, 20 Jun 2012 19:28:01 +0200
+Message-ID: <20120620172801.GA9385@1984>
+References: <32596.1340212473@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>,
-	<rayagond@vayavyalabs.com>, <davem@davemloft.net>,
-	<yuvalmin@broadcom.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:9104 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757306Ab2FTRW1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 13:22:27 -0400
-In-Reply-To: <1340172774-27443-5-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <32596.1340212473@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-20 at 08:12 +0200, Giuseppe CAVALLARO wrote:
-[...]
-> +int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
-> +{
-> +	int ret = -EPROTONOSUPPORT;
-> +
-> +	/* According to 802.3az,the EEE is supported only in full duplex-mode.
-> +	 * Also EEE feature is active when core is operating with MII, GMII
-> +	 * or RGMII.
-> +	 */
-> +	if ((phydev->duplex == DUPLEX_FULL) &&
-> +	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
-> +	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
-> +	    (phydev->interface == PHY_INTERFACE_MODE_RGMII))) {
-> +		u16 eee_lp, eee_cap, eee_adv;
-> +		u32 lp, cap, adv;
-> +		int idx;
-> +
-> +		/* Read phy status to properly get the right settings */
-> +		ret = phy_read_status(phydev);
-> +		if (ret)
-> +			return ret;
-> +
-> +		/* First check if the EEE ability is supported */
-> +		eee_cap = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
-> +						MDIO_MMD_PCS, phydev->addr);
-> +		if (eee_cap < 0)
-> +			return eee_cap;
-> +
-> +		cap = phy_eee_to_supported(eee_cap);
-> +		if (!cap)
-> +			goto eee_exit;
+On Wed, Jun 20, 2012 at 01:14:33PM -0400, Valdis Kletnieks wrote:
+> Today's linux-next fails to build with CONFIG_NF_NAT_NEEDED=y and CONFIG_NF_NAT=m
+> 
+>   LD      init/built-in.o
+> net/built-in.o:(.data+0x4408): undefined reference to `nf_nat_tcp_seq_adjust'
+> make: *** [vmlinux] Error 1
 
-But this now means returning 0 since you added the call to
-phy_read_status() above.  Maybe you should just return -EPROTONOSUPPORT
-directly instead of relying on the assumed value of ret?
+I guess you have NF_CT_NETLINK=y, right?
 
-> +		/* Check which link settings negotiated and verify it in
-> +		 * the EEE advertising registers.
-> +		 */
-> +		eee_lp = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
-> +					       MDIO_MMD_AN, phydev->addr);
-> +		if (eee_lp < 0)
-> +			return eee_lp;
-> +
-> +		eee_adv = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV,
-> +						MDIO_MMD_AN, phydev->addr);
-> +		if (eee_adv < 0)
-> +			return eee_adv;
-> +
-> +		adv = phy_eee_to_adv(eee_adv);
-> +		lp = phy_eee_to_adv(eee_lp);
-> +		idx = phy_find_setting(phydev->speed, phydev->duplex);
-> +		if ((lp & adv & settings[idx].setting))
-> +			goto eee_exit;
-[...]
-
-Same problem here.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> Breakage introduced with this commit:
+> 
+> commit 8c88f87cb27ad09086940bdd3e6955e5325ec89a
+> Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date:   Thu Jun 7 13:31:25 2012 +0200
+> 
+>     netfilter: nfnetlink_queue: add NAT TCP sequence adjustment if packet mangled
+> 
