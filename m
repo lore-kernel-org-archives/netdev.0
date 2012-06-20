@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
-Date: Tue, 19 Jun 2012 23:14:12 -0700 (PDT)
-Message-ID: <20120619.231412.1236237191660427779.davem@davemloft.net>
-References: <20120619193549.13bcffa7@s6510.linuxnetplumber.net>
-	<20120619.214657.1345825814176201681.davem@davemloft.net>
-	<1340171940.4604.799.camel@edumazet-glaptop>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [patch net-next 00/19] team: couple of patches
+Date: Wed, 20 Jun 2012 08:40:55 +0200
+Message-ID: <1340174455.25757.215.camel@localhost>
+References: <1340121261-2966-1-git-send-email-jpirko@redhat.com>
+	 <20120619.150124.1674713634175419404.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: jpirko@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34343 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411Ab2FTGON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 02:14:13 -0400
-In-Reply-To: <1340171940.4604.799.camel@edumazet-glaptop>
+Received: from 0304ds2-fs.1.fullrate.dk ([89.150.128.48]:18582 "EHLO
+	localhost.firesoul.dk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750754Ab2FTGnJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 02:43:09 -0400
+In-Reply-To: <20120619.150124.1674713634175419404.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 20 Jun 2012 07:59:00 +0200
+On Tue, 2012-06-19 at 15:01 -0700, David Miller wrote:
+> From: Jiri Pirko <jpirko@redhat.com>
+> Date: Tue, 19 Jun 2012 17:54:02 +0200
+> 
+> > The main impact is this patchset provides an implementation of userspace driven
+> > TX loadbalancing for team driver.
+> > 
+> > Also couple of typos are fixed, minor issues fixes.
+> 
+> Looks good, pushed, thanks Jiri.
 
-> On Tue, 2012-06-19 at 21:46 -0700, David Miller wrote:
-> 
->> These numbers can be decreased further, because since we're already
->> looking at the TCP header we can pre-cook the TCP control block in the
->> SKB and skip much of the stuff that tcp_v4_rcv() does since we've done
->> it already in the early demux code.
-> 
-> It could be done at GRO level and remove one another demux.
-> 
-> As routers probably have no use of GRO, no need of additional knob.
+Just for the record, I have also reviewed the patch series (before
+submission), and ACK the series.
 
-That's a great idea.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
