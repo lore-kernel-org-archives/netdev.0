@@ -1,91 +1,357 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
- with TCP and GRO
-Date: Tue, 19 Jun 2012 18:49:04 -0700
-Message-ID: <4FE12C10.7060207@gmail.com>
-References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
+Date: Tue, 19 Jun 2012 19:02:02 -0700 (PDT)
+Message-ID: <20120619.190202.2133868658770269780.davem@davemloft.net>
+References: <20120619.175435.1705108432673390966.davem@davemloft.net>
+	<1340154206.6871.90.camel@deadeye.wl.decadent.org.uk>
+	<20120619.180527.65196005824751590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, Eric Dumazet <edumazet@google.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:50324 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752640Ab2FTBtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 21:49:14 -0400
-Received: by dady13 with SMTP id y13so9150933dad.19
-        for <netdev@vger.kernel.org>; Tue, 19 Jun 2012 18:49:14 -0700 (PDT)
-In-Reply-To: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60844 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753256Ab2FTCCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 22:02:05 -0400
+In-Reply-To: <20120619.180527.65196005824751590.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/19/2012 5:43 PM, Alexander Duyck wrote:
-> This patch is meant to help improve system performance when
-> netdev_alloc_frag is used in scenarios in which buffers are short lived.
-> This is accomplished by allowing the page offset to be reset in the event
-> that the page count is 1.  I also reordered the direction in which we give
-> out sections of the page so that we start at the end of the page and end at
-> the start.  The main motivation being that I preferred to have offset
-> represent the amount of page remaining to be used.
->
-> My primary test case was using ixgbe in combination with TCP.  With this
-> patch applied I saw CPU utilization drop from 3.4% to 3.0% for a single
-> thread of netperf receiving a TCP stream via ixgbe.
->
-> I also tested several scenarios in which the page reuse would not be
-> possible such as UDP flows and routing.  In both of these scenarios I saw
-> no noticeable performance degradation compared to the kernel without this
-> patch.
->
-> Cc: Eric Dumazet<edumazet@google.com>
-> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
-> ---
->
->   net/core/skbuff.c |   15 +++++++++++----
->   1 files changed, 11 insertions(+), 4 deletions(-)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 5b21522..eb3853c 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -317,15 +317,22 @@ void *netdev_alloc_frag(unsigned int fragsz)
->   	if (unlikely(!nc->page)) {
->   refill:
->   		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-> -		nc->offset = 0;
->   	}
->   	if (likely(nc->page)) {
-> -		if (nc->offset + fragsz>  PAGE_SIZE) {
-> +		unsigned int offset = PAGE_SIZE;
-> +
-> +		if (page_count(nc->page) != 1)
-> +			offset = nc->offset;
-> +
-> +		if (offset<  fragsz) {
->   			put_page(nc->page);
->   			goto refill;
->   		}
-> -		data = page_address(nc->page) + nc->offset;
-> -		nc->offset += fragsz;
-> +
-> +		offset -= fragsz;
-> +		nc->offset = offset;
-> +
-> +		data = page_address(nc->page) + offset;
->   		get_page(nc->page);
->   	}
->   	local_irq_restore(flags);
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-It looks like I forgot to add "--auto" to the command line when I sent 
-this out via stg mail so I am just adding Eric to the CC list on this 
-reply.  Sorry for the extra noise.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 19 Jun 2012 18:05:27 -0700 (PDT)
 
-Thanks,
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 20 Jun 2012 02:03:26 +0100
+> 
+>> On Tue, 2012-06-19 at 17:54 -0700, David Miller wrote:
+>>> The hash is perfect, what's the big deal?
+>> 
+>> It obscures what we're really doing and relying on.
+> 
+> If it matters to you, patches are always welcome :-)
 
-Alex
+Nevermind, I just committed the following to net-next:
+
+--------------------
+inet: Sanitize inet{,6} protocol demux.
+
+Don't pretend that inet_protos[] and inet6_protos[] are hashes, thay
+are just a straight arrays.  Remove all unnecessary hash masking.
+
+Document MAX_INET_PROTOS.
+
+Use RAW_HTABLE_SIZE when appropriate.
+
+Reported-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/protocol.h |    7 +++++--
+ net/ipv4/af_inet.c     |   26 ++++++++++++--------------
+ net/ipv4/icmp.c        |    9 ++++-----
+ net/ipv4/ip_input.c    |    5 ++---
+ net/ipv4/protocol.c    |    8 +++-----
+ net/ipv6/icmp.c        |    7 ++-----
+ net/ipv6/ip6_input.c   |    9 +++------
+ net/ipv6/protocol.c    |    8 +++-----
+ net/ipv6/raw.c         |    4 ++--
+ 9 files changed, 36 insertions(+), 47 deletions(-)
+
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index 875f489..a1b1b53 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -29,8 +29,11 @@
+ #include <linux/ipv6.h>
+ #endif
+ 
+-#define MAX_INET_PROTOS	256		/* Must be a power of 2		*/
+-
++/* This is one larger than the largest protocol value that can be
++ * found in an ipv4 or ipv6 header.  Since in both cases the protocol
++ * value is presented in a __u8, this is defined to be 256.
++ */
++#define MAX_INET_PROTOS		256
+ 
+ /* This is used to register protocols. */
+ struct net_protocol {
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index e4e8e00..85a3b17 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -242,20 +242,18 @@ void build_ehash_secret(void)
+ }
+ EXPORT_SYMBOL(build_ehash_secret);
+ 
+-static inline int inet_netns_ok(struct net *net, int protocol)
++static inline int inet_netns_ok(struct net *net, __u8 protocol)
+ {
+-	int hash;
+ 	const struct net_protocol *ipprot;
+ 
+ 	if (net_eq(net, &init_net))
+ 		return 1;
+ 
+-	hash = protocol & (MAX_INET_PROTOS - 1);
+-	ipprot = rcu_dereference(inet_protos[hash]);
+-
+-	if (ipprot == NULL)
++	ipprot = rcu_dereference(inet_protos[protocol]);
++	if (ipprot == NULL) {
+ 		/* raw IP is OK */
+ 		return 1;
++	}
+ 	return ipprot->netns_ok;
+ }
+ 
+@@ -1216,8 +1214,8 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
+ 
+ static int inet_gso_send_check(struct sk_buff *skb)
+ {
+-	const struct iphdr *iph;
+ 	const struct net_protocol *ops;
++	const struct iphdr *iph;
+ 	int proto;
+ 	int ihl;
+ 	int err = -EINVAL;
+@@ -1236,7 +1234,7 @@ static int inet_gso_send_check(struct sk_buff *skb)
+ 	__skb_pull(skb, ihl);
+ 	skb_reset_transport_header(skb);
+ 	iph = ip_hdr(skb);
+-	proto = iph->protocol & (MAX_INET_PROTOS - 1);
++	proto = iph->protocol;
+ 	err = -EPROTONOSUPPORT;
+ 
+ 	rcu_read_lock();
+@@ -1253,8 +1251,8 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+-	struct iphdr *iph;
+ 	const struct net_protocol *ops;
++	struct iphdr *iph;
+ 	int proto;
+ 	int ihl;
+ 	int id;
+@@ -1286,7 +1284,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	skb_reset_transport_header(skb);
+ 	iph = ip_hdr(skb);
+ 	id = ntohs(iph->id);
+-	proto = iph->protocol & (MAX_INET_PROTOS - 1);
++	proto = iph->protocol;
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
+ 
+ 	rcu_read_lock();
+@@ -1340,7 +1338,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 			goto out;
+ 	}
+ 
+-	proto = iph->protocol & (MAX_INET_PROTOS - 1);
++	proto = iph->protocol;
+ 
+ 	rcu_read_lock();
+ 	ops = rcu_dereference(inet_protos[proto]);
+@@ -1398,11 +1396,11 @@ out:
+ 
+ static int inet_gro_complete(struct sk_buff *skb)
+ {
+-	const struct net_protocol *ops;
++	__be16 newlen = htons(skb->len - skb_network_offset(skb));
+ 	struct iphdr *iph = ip_hdr(skb);
+-	int proto = iph->protocol & (MAX_INET_PROTOS - 1);
++	const struct net_protocol *ops;
++	int proto = iph->protocol;
+ 	int err = -ENOSYS;
+-	__be16 newlen = htons(skb->len - skb_network_offset(skb));
+ 
+ 	csum_replace2(&iph->check, iph->tot_len, newlen);
+ 	iph->tot_len = newlen;
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index e1caa1a..49a74cc 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -637,12 +637,12 @@ EXPORT_SYMBOL(icmp_send);
+ 
+ static void icmp_unreach(struct sk_buff *skb)
+ {
++	const struct net_protocol *ipprot;
+ 	const struct iphdr *iph;
+ 	struct icmphdr *icmph;
+-	int hash, protocol;
+-	const struct net_protocol *ipprot;
+-	u32 info = 0;
+ 	struct net *net;
++	u32 info = 0;
++	int protocol;
+ 
+ 	net = dev_net(skb_dst(skb)->dev);
+ 
+@@ -731,9 +731,8 @@ static void icmp_unreach(struct sk_buff *skb)
+ 	 */
+ 	raw_icmp_error(skb, protocol, info);
+ 
+-	hash = protocol & (MAX_INET_PROTOS - 1);
+ 	rcu_read_lock();
+-	ipprot = rcu_dereference(inet_protos[hash]);
++	ipprot = rcu_dereference(inet_protos[protocol]);
+ 	if (ipprot && ipprot->err_handler)
+ 		ipprot->err_handler(skb, info);
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 8590144..c4fe1d2 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -198,14 +198,13 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
+ 	rcu_read_lock();
+ 	{
+ 		int protocol = ip_hdr(skb)->protocol;
+-		int hash, raw;
+ 		const struct net_protocol *ipprot;
++		int raw;
+ 
+ 	resubmit:
+ 		raw = raw_local_deliver(skb, protocol);
+ 
+-		hash = protocol & (MAX_INET_PROTOS - 1);
+-		ipprot = rcu_dereference(inet_protos[hash]);
++		ipprot = rcu_dereference(inet_protos[protocol]);
+ 		if (ipprot != NULL) {
+ 			int ret;
+ 
+diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+index 9ae5c01..8918eff 100644
+--- a/net/ipv4/protocol.c
++++ b/net/ipv4/protocol.c
+@@ -36,9 +36,7 @@ const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
+ 
+ int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
+-	int hash = protocol & (MAX_INET_PROTOS - 1);
+-
+-	return !cmpxchg((const struct net_protocol **)&inet_protos[hash],
++	return !cmpxchg((const struct net_protocol **)&inet_protos[protocol],
+ 			NULL, prot) ? 0 : -1;
+ }
+ EXPORT_SYMBOL(inet_add_protocol);
+@@ -49,9 +47,9 @@ EXPORT_SYMBOL(inet_add_protocol);
+ 
+ int inet_del_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
+-	int ret, hash = protocol & (MAX_INET_PROTOS - 1);
++	int ret;
+ 
+-	ret = (cmpxchg((const struct net_protocol **)&inet_protos[hash],
++	ret = (cmpxchg((const struct net_protocol **)&inet_protos[protocol],
+ 		       prot, NULL) == prot) ? 0 : -1;
+ 
+ 	synchronize_net();
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 5247d5c..c7da142 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -600,9 +600,8 @@ static void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+ {
+ 	const struct inet6_protocol *ipprot;
+ 	int inner_offset;
+-	int hash;
+-	u8 nexthdr;
+ 	__be16 frag_off;
++	u8 nexthdr;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		return;
+@@ -629,10 +628,8 @@ static void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+ 	   --ANK (980726)
+ 	 */
+ 
+-	hash = nexthdr & (MAX_INET_PROTOS - 1);
+-
+ 	rcu_read_lock();
+-	ipprot = rcu_dereference(inet6_protos[hash]);
++	ipprot = rcu_dereference(inet6_protos[nexthdr]);
+ 	if (ipprot && ipprot->err_handler)
+ 		ipprot->err_handler(skb, NULL, type, code, inner_offset, info);
+ 	rcu_read_unlock();
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 21a15df..5ab923e 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -168,13 +168,12 @@ drop:
+ 
+ static int ip6_input_finish(struct sk_buff *skb)
+ {
++	struct net *net = dev_net(skb_dst(skb)->dev);
+ 	const struct inet6_protocol *ipprot;
++	struct inet6_dev *idev;
+ 	unsigned int nhoff;
+ 	int nexthdr;
+ 	bool raw;
+-	u8 hash;
+-	struct inet6_dev *idev;
+-	struct net *net = dev_net(skb_dst(skb)->dev);
+ 
+ 	/*
+ 	 *	Parse extension headers
+@@ -189,9 +188,7 @@ resubmit:
+ 	nexthdr = skb_network_header(skb)[nhoff];
+ 
+ 	raw = raw6_local_deliver(skb, nexthdr);
+-
+-	hash = nexthdr & (MAX_INET_PROTOS - 1);
+-	if ((ipprot = rcu_dereference(inet6_protos[hash])) != NULL) {
++	if ((ipprot = rcu_dereference(inet6_protos[nexthdr])) != NULL) {
+ 		int ret;
+ 
+ 		if (ipprot->flags & INET6_PROTO_FINAL) {
+diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
+index 9a7978f..053082d 100644
+--- a/net/ipv6/protocol.c
++++ b/net/ipv6/protocol.c
+@@ -29,9 +29,7 @@ const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PROTOS] __read_mostly;
+ 
+ int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char protocol)
+ {
+-	int hash = protocol & (MAX_INET_PROTOS - 1);
+-
+-	return !cmpxchg((const struct inet6_protocol **)&inet6_protos[hash],
++	return !cmpxchg((const struct inet6_protocol **)&inet6_protos[protocol],
+ 			NULL, prot) ? 0 : -1;
+ }
+ EXPORT_SYMBOL(inet6_add_protocol);
+@@ -42,9 +40,9 @@ EXPORT_SYMBOL(inet6_add_protocol);
+ 
+ int inet6_del_protocol(const struct inet6_protocol *prot, unsigned char protocol)
+ {
+-	int ret, hash = protocol & (MAX_INET_PROTOS - 1);
++	int ret;
+ 
+-	ret = (cmpxchg((const struct inet6_protocol **)&inet6_protos[hash],
++	ret = (cmpxchg((const struct inet6_protocol **)&inet6_protos[protocol],
+ 		       prot, NULL) == prot) ? 0 : -1;
+ 
+ 	synchronize_net();
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 43b0042..b5c1dcb 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -165,7 +165,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 	saddr = &ipv6_hdr(skb)->saddr;
+ 	daddr = saddr + 1;
+ 
+-	hash = nexthdr & (MAX_INET_PROTOS - 1);
++	hash = nexthdr & (RAW_HTABLE_SIZE - 1);
+ 
+ 	read_lock(&raw_v6_hashinfo.lock);
+ 	sk = sk_head(&raw_v6_hashinfo.ht[hash]);
+@@ -229,7 +229,7 @@ bool raw6_local_deliver(struct sk_buff *skb, int nexthdr)
+ {
+ 	struct sock *raw_sk;
+ 
+-	raw_sk = sk_head(&raw_v6_hashinfo.ht[nexthdr & (MAX_INET_PROTOS - 1)]);
++	raw_sk = sk_head(&raw_v6_hashinfo.ht[nexthdr & (RAW_HTABLE_SIZE - 1)]);
+ 	if (raw_sk && !ipv6_raw_deliver(skb, nexthdr))
+ 		raw_sk = NULL;
+ 
+-- 
+1.7.10
