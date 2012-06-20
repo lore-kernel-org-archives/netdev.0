@@ -1,73 +1,30 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH] net: Update netdev_alloc_frag to work more efficiently with
-	TCP and GRO
-Date: Tue, 19 Jun 2012 17:43:06 -0700
-Message-ID: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
+Date: Tue, 19 Jun 2012 17:54:35 -0700 (PDT)
+Message-ID: <20120619.175435.1705108432673390966.davem@davemloft.net>
+References: <20120619.163911.2094057156011157978.davem@davemloft.net>
+	<1340151666.6871.81.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15901 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752623Ab2FTAms (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jun 2012 20:42:48 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60325 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750831Ab2FTAyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jun 2012 20:54:38 -0400
+In-Reply-To: <1340151666.6871.81.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is meant to help improve system performance when
-netdev_alloc_frag is used in scenarios in which buffers are short lived.
-This is accomplished by allowing the page offset to be reset in the event
-that the page count is 1.  I also reordered the direction in which we give
-out sections of the page so that we start at the end of the page and end at
-the start.  The main motivation being that I preferred to have offset
-represent the amount of page remaining to be used.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Wed, 20 Jun 2012 01:21:06 +0100
 
-My primary test case was using ixgbe in combination with TCP.  With this
-patch applied I saw CPU utilization drop from 3.4% to 3.0% for a single
-thread of netperf receiving a TCP stream via ixgbe.
+> This works only because MAX_INET_PROTOS is defined as 256, so that hash
+> == protocol.  If we were ever to change MAX_INET_PROTOS then we would
+> need to add a whole lot of protocol checks, but this isn't particularly
+> obvious!  Perhaps it would be better to remove the 'hashing' altogether?
 
-I also tested several scenarios in which the page reuse would not be
-possible such as UDP flows and routing.  In both of these scenarios I saw
-no noticeable performance degradation compared to the kernel without this
-patch.
-
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
-
- net/core/skbuff.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5b21522..eb3853c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -317,15 +317,22 @@ void *netdev_alloc_frag(unsigned int fragsz)
- 	if (unlikely(!nc->page)) {
- refill:
- 		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
--		nc->offset = 0;
- 	}
- 	if (likely(nc->page)) {
--		if (nc->offset + fragsz > PAGE_SIZE) {
-+		unsigned int offset = PAGE_SIZE;
-+
-+		if (page_count(nc->page) != 1)
-+			offset = nc->offset;
-+
-+		if (offset < fragsz) {
- 			put_page(nc->page);
- 			goto refill;
- 		}
--		data = page_address(nc->page) + nc->offset;
--		nc->offset += fragsz;
-+
-+		offset -= fragsz;
-+		nc->offset = offset;
-+
-+		data = page_address(nc->page) + offset;
- 		get_page(nc->page);
- 	}
- 	local_irq_restore(flags);
+We never have changed the value and we never will.  The hash is
+perfect, what's the big deal?
