@@ -1,48 +1,53 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH 01/12] netvm: Prevent a stream-specific deadlock
-Date: Wed, 20 Jun 2012 11:22:35 -0400
-Message-ID: <4FE1EABB.5060105@redhat.com>
-References: <1340185081-22525-1-git-send-email-mgorman@suse.de> <1340185081-22525-2-git-send-email-mgorman@suse.de>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC net-next 07/14] Fix intel/ixgbe
+Date: Wed, 20 Jun 2012 08:30:48 -0700
+Message-ID: <4FE1ECA8.1060201@intel.com>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>  <1340118848-30978-8-git-send-email-yuvalmin@broadcom.com>  <4FE0A0CD.5050909@intel.com> <1340182514.4604.843.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-        Linux-Netdev <netdev@vger.kernel.org>,
-        Linux-NFS <linux-nfs@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Trond Myklebust <Trond.Myklebust@netapp.com>,
-        Neil Brown <neilb@suse.de>, Christoph Hellwig <hch@infradead.org>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>,
-        Mike Christie <michaelc@cs.wisc.edu>,
-        Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340185081-22525-2-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Yuval Mintz <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, eilong@broadcom.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:12750 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752654Ab2FTPau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 11:30:50 -0400
+In-Reply-To: <1340182514.4604.843.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2012 05:37 AM, Mel Gorman wrote:
-> It could happen that all !SOCK_MEMALLOC sockets have buffered so
-> much data that we're over the global rmem limit. This will prevent
-> SOCK_MEMALLOC buffers from receiving data, which will prevent userspace
-> from running, which is needed to reduce the buffered data.
+On 6/20/2012 1:55 AM, Eric Dumazet wrote:
+> On Tue, 2012-06-19 at 08:54 -0700, Alexander Duyck wrote:
 >
-> Fix this by exempting the SOCK_MEMALLOC sockets from the rmem limit.
-> Once this change it applied, it is important that sockets that set
-> SOCK_MEMALLOC do not clear the flag until the socket is being torn down.
-> If this happens, a warning is generated and the tokens reclaimed to
-> avoid accounting errors until the bug is fixed.
+>> This patch doesn't limit the number of queues.  It is limiting the
+>> number of interrupts.  The two are not directly related as we can
+>> support multiple queues per interrupt.
+>>
+>> Also this change assumes we are only using receive side scaling.  We
+>> have other features such as DCB, FCoE, and Flow Director which require
+>> additional queues.
+>>
 >
-> [davem@davemloft.net: Warning about clearing SOCK_MEMALLOC]
-> Signed-off-by: Peter Zijlstra<a.p.zijlstra@chello.nl>
-> Signed-off-by: Mel Gorman<mgorman@suse.de>
-> Acked-by: David S. Miller<davem@davemloft.net>
+> Yet, it would be good if ixgbe doesnt allocate 36 queues on a 4 cpu
+> machine.
+>
+> "tc -s class show dev eth0" output is full of not used classes.
+>
+>
+>
 
-Acked-by: Rik van Riel<riel@redhat.com>
+We do this for the DCB/FCoE/RSS/Flow Director case where we want to
+use multiple queues per traffic class (802.1Qaz). As it is now we
+have to set the max queues at alloc_etherdev_mq() time so we use a
+max of
+	(num_cpu * max traffic classes) + num_cpu
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+The last num_cpu is in error and I have a patch in JeffK's tree to
+remove this. In many cases it seems excessive but sometimes it is
+helpful.
+
+.John
