@@ -1,48 +1,63 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
-Date: Wed, 20 Jun 2012 09:00:50 +0200
-Message-ID: <4FE17522.5050005@profihost.ag>
-References: <4FE0EA33.1000309@profihost.ag> <1340141493.4604.773.camel@edumazet-glaptop>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v3] ipv4: Early TCP socket demux.
+Date: Wed, 20 Jun 2012 10:00:37 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1206200937040.1912@ja.ssi.bg>
+References: <20120619.214957.1282277480138040899.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.profihost.ag ([85.158.179.208]:56018 "EHLO
-	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209Ab2FTHA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:00:56 -0400
-In-Reply-To: <1340141493.4604.773.camel@edumazet-glaptop>
+Received: from ja.ssi.bg ([178.16.129.10]:43682 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752873Ab2FTHDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 03:03:07 -0400
+In-Reply-To: <20120619.214957.1282277480138040899.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 19.06.2012 23:31, schrieb Eric Dumazet:
-> On Tue, 2012-06-19 at 23:08 +0200, Stefan Priebe wrote:
->> i'm testing 10GBE speed with tweo servers. One with 3.5-rc3 nd thoe
->> other one whith RHEL 6 (2.6.32 kernel).
->>
->> I noticed that setting
->> net.ipv4.tcp_timestamps=0
->>
->> descreased the performance from 9,7 Full Duplex to 3-4Gb/s.
->>
->> Is this bahviour fine? What should / could i tet?
->>
->
-> Really, you should provide more input than that, if you really want us
-> to help.
 
-*arg* forgot to add the pastebin links. Sorry. Speed degraded in this 
-case from 9,88Gbit/s to 2,45Gbit/s. When i turn on timestamps it's 
-perfect again. Server A has 3.5.0-rc3 and server B has an RHEL6 2.6.32 
-kernel.
+	Hello,
 
-Before:
-http://pastebin.com/raw.php?i=1gVraWVc
+On Tue, 19 Jun 2012, David Miller wrote:
 
-After:
-http://pastebin.com/raw.php?i=NSh8Y29s
+> +		if (sk->sk_state != TCP_TIME_WAIT) {
+> +			struct dst_entry *dst = sk->sk_rx_dst;
+> +			if (dst)
+> +				dst = dst_check(dst, 0);
 
-Thanks,
-Stefan
+	What about checking rp_filter here or before dst_check:
+
+			rcu_read_lock();
+			in_dev = __in_dev_get_rcu(dst->dev);
+			if (skb->dev != dst->dev &&
+			    (!in_dev || IN_DEV_RPFILTER(in_dev)))
+				dst = NULL;
+			rcu_read_unlock();
+
+	But may be it is a bad idea to return cached dst
+that is with different dev. May be it is better a simple
+check instead:
+
+			if (skb->dev != dst->dev)
+				dst = NULL;
+
+	It will work for the common case of traffic using
+same dev.
+
+> +			if (dst) {
+> +				skb_dst_set_noref(skb, dst);
+> +				err = 0;
+> +			}
+
+	Also, is it a good idea to hide such optimizations
+in a bit mask:
+
+sysctl_net_optimizations & 1: optimize for end host
+sysctl_net_optimizations & 2: optimize for router
+...
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
