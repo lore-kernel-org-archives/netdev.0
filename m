@@ -1,32 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 20 Jun 2012 01:41:32 -0700 (PDT)
-Message-ID: <20120620.014132.2222580541940208799.davem@davemloft.net>
-References: <20120619.213703.513466167861199217.davem@davemloft.net>
-	<D5ECB3C7A6F99444980976A8C6D896384FAA275CBE@EAPEX1MAIL1.st.com>
-	<4FE18A5E.204@pengutronix.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
+ with TCP and GRO
+Date: Wed, 20 Jun 2012 10:44:07 +0200
+Message-ID: <1340181847.4604.840.camel@edumazet-glaptop>
+References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
+	 <1340170590.4604.784.camel@edumazet-glaptop>
+	 <1340180223.4604.828.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bhupesh.sharma@st.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, federico.vaga@gmail.com,
-	giancarlo.asnaghi@st.com, wg@grandegger.com
-To: mkl@pengutronix.de
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35520 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512Ab2FTIld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 04:41:33 -0400
-In-Reply-To: <4FE18A5E.204@pengutronix.de>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51265 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752831Ab2FTIoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 04:44:11 -0400
+Received: by bkcji2 with SMTP id ji2so5917628bkc.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 01:44:10 -0700 (PDT)
+In-Reply-To: <1340180223.4604.828.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 20 Jun 2012 10:31:26 +0200
+On Wed, 2012-06-20 at 10:17 +0200, Eric Dumazet wrote:
 
-> I think the driver is currently used/tested only on ARM only, so what
-> about adding a HAVE_CLK dependency, until Viresh Kumar's patches are
-> available in net-next. Later we can remove it.
+> Strange, I did again benchs with order-2 allocations and got good
+> results this time, but with latest net-next, maybe things have changed
+> since last time I did this.
+> 
+> (netdev_alloc_frag(), get_page_from_freelist() and put_page() less
+> prevalent in perf results)
+> 
 
-Sounds good.
+Oh well, I now remember why I abandoned this : machines dont have
+infinite memory after all...
+
+(put_page assumes order-0 page)
