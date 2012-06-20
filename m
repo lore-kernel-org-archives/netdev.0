@@ -1,77 +1,61 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: Re: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor
- empty happens
-Date: Wed, 20 Jun 2012 15:10:33 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1206201507260.20254@axis700.grange>
-References: <4FC491EB.4040002@renesas.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next:master 257/266]
+ drivers/net/team/team_mode_loadbalance.c:99:30: sparse: incompatible types
+ in comparison expression (different address spaces)
+Date: Wed, 20 Jun 2012 15:11:49 +0200
+Message-ID: <1340197909.4604.956.camel@edumazet-glaptop>
+References: <20120620042743.GA7640@localhost>
+	 <20120620063607.GA1491@minipsycho> <20120620065055.GA5872@localhost>
+	 <20120620124913.GF2432@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@vger.kernel.org>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4FC491EB.4040002@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Fengguang Wu <wfg@linux.intel.com>, Jiri Pirko <jpirko@redhat.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120620124913.GF2432@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Shimoda-san
-
-On Tue, 29 May 2012, Shimoda, Yoshihiro wrote:
-
-> When Receive Descriptor Empty happens, rxdesc pointer of the driver
-> and actual next descriptor of the controller may be mismatch.
-> This patch fixes it.
-
-Unfortunately, this patch breaks networking on ecovec (sh7724). Booting 
-with dhcp and NFS-root progresses very slowly with lots of "nfs: server 
-not responding / Ok" messages and never completes. Reverting it in current 
-Linus' tree fixes the problem.
-
-Thanks
-Guennadi
-
+On Wed, 2012-06-20 at 05:49 -0700, Paul E. McKenney wrote:
+> On Wed, Jun 20, 2012 at 02:50:55PM +0800, Fengguang Wu wrote:
+> > [CC Paul, the RCU maintainer]
+> > 
+> > On Wed, Jun 20, 2012 at 08:36:07AM +0200, Jiri Pirko wrote:
+> > > Wed, Jun 20, 2012 at 06:27:43AM CEST, wfg@linux.intel.com wrote:
+> > > >Hi Jiri,
+> > > >
+> > > >There are new sparse warnings show up in
+> > > >
+> > > >tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> > > >head:   677a3d60fb3153f786a0d28fcf0287670e7bd3c2
+> > > >commit: ab8250d70063f77929fc404c02390a1f64d66416 [257/266] team: lb: introduce infrastructure for userspace driven tx loadbalancing
+> > > >
+> > > >All sparse warnings:
+> > > >
+> > > >drivers/net/team/team_mode_loadbalance.c:99:30: sparse: incompatible types in comparison expression (different address spaces)
+> > > >
+> > > >drivers/net/team/team_mode_loadbalance.c:99:
+> > > >    96			struct lb_port_mapping *pm;
+> > > >    97	
+> > > >    98			pm = &lb_priv->ex->tx_hash_to_port_mapping[i];
+> > > >  > 99			if (pm->port == port) {
+> > > 
+> > > This looks like your checker does not like
+> > > (struct team_port __rcu *) == (struct team_port *)
+> > > But I wonder why (or how should I fix that)
 > 
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c |    8 +++++---
->  1 files changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index be3c221..667169b 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -1101,8 +1101,12 @@ static int sh_eth_rx(struct net_device *ndev)
-> 
->  	/* Restart Rx engine if stopped. */
->  	/* If we don't need to check status, don't. -KDU */
-> -	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R))
-> +	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
-> +		/* fix the values for the next receiving */
-> +		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
-> +					       sh_eth_read(ndev, RDLAR)) >> 4;
->  		sh_eth_write(ndev, EDRRR_R, EDRRR);
-> +	}
-> 
->  	return 0;
->  }
-> @@ -1199,8 +1203,6 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
->  		/* Receive Descriptor Empty int */
->  		ndev->stats.rx_over_errors++;
-> 
-> -		if (sh_eth_read(ndev, EDRRR) ^ EDRRR_R)
-> -			sh_eth_write(ndev, EDRRR_R, EDRRR);
->  		if (netif_msg_rx_err(mdp))
->  			dev_err(&ndev->dev, "Receive Descriptor Empty\n");
->  	}
-> -- 
-> 1.7.1
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Because you said that it was an RCU-protected pointer, but then did
+> not use an RCU primitive to access it.  In this case, where you are
+> just using the value but not dereferencing it, you can use
+> rcu_access_pointer().
 
----
-Guennadi Liakhovetski, Ph.D.
-Freelance Open-Source Software Developer
-http://www.open-technology.de/
+Yes, and please Jiri change the 
+
+rcu_assign_pointer(pm->port, NULL);
+
+by
+
+RCU_INIT_POINTER(pm->port, NULL);
