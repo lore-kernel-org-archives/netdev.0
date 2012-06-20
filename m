@@ -1,32 +1,39 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH -v1 0/3] usbnet: usbnet: PM related fixes
-Date: Wed, 20 Jun 2012 09:46:56 +0200
-Message-ID: <201206200946.56591.oneukum@suse.de>
-References: <1340176553-32225-1-git-send-email-ming.lei@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] ipv4: Early TCP socket demux.
+Date: Wed, 20 Jun 2012 00:57:53 -0700 (PDT)
+Message-ID: <20120620.005753.545788933895952782.davem@davemloft.net>
+References: <20120619.214957.1282277480138040899.davem@davemloft.net>
+	<alpine.LFD.2.00.1206200937040.1912@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52120 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754071Ab2FTHq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 03:46:57 -0400
-In-Reply-To: <1340176553-32225-1-git-send-email-ming.lei@canonical.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35165 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755466Ab2FTH54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:57:56 -0400
+In-Reply-To: <alpine.LFD.2.00.1206200937040.1912@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 20. Juni 2012, 09:15:50 schrieb Ming Lei:
-> Hi David,
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 20 Jun 2012 10:00:37 +0300 (EEST)
+
+> 			if (skb->dev != dst->dev)
+> 				dst = NULL;
+
+That makes the most sense.
+
+> 	Also, is it a good idea to hide such optimizations
+> in a bit mask:
 > 
-> The 3 patches fix some PM related problems.
+> sysctl_net_optimizations & 1: optimize for end host
+> sysctl_net_optimizations & 2: optimize for router
+> ...
 
-The first two patches should go into stable.
-Could you send them?
+God, that's ugly as sin.
 
-	Regards
-		Oliver
+We're putting this down into GRO, so people can tune with
+an existing knob there as they already do.
