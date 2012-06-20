@@ -1,73 +1,45 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 12/12] Avoid dereferencing bd_disk during swap_entry_free for network storage
-Date: Wed, 20 Jun 2012 10:38:01 +0100
-Message-ID: <1340185081-22525-13-git-send-email-mgorman@suse.de>
-References: <1340185081-22525-1-git-send-email-mgorman@suse.de>
-Cc: Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	Linux-NFS <linux-nfs@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Neil Brown <neilb@suse.de>, Christoph Hellwig <hch@infradead.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>, Mel Gorman <mgorman@suse.de>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340185081-22525-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
+Date: Wed, 20 Jun 2012 11:47:25 +0200
+Message-ID: <1340185645.4604.853.camel@edumazet-glaptop>
+References: <4FE0EA33.1000309@profihost.ag>
+	 <1340141493.4604.773.camel@edumazet-glaptop>
+	 <4FE17522.5050005@profihost.ag>
+	 <1340176940.4604.801.camel@edumazet-glaptop>
+	 <4FE1881B.7030800@profihost.ag>
+	 <1340181676.4604.838.camel@edumazet-glaptop>
+	 <4FE192A1.6000000@profihost.ag>  <4FE193FA.5030802@profihost.ag>
+	 <1340183854.4604.847.camel@edumazet-glaptop>
+	 <4FE196F4.3040900@profihost.ag>
+	 <1340184528.4604.849.camel@edumazet-glaptop>
+	 <4FE198FE.5050202@profihost.ag>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:39333 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755881Ab2FTJr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 05:47:29 -0400
+Received: by bkcji2 with SMTP id ji2so5962054bkc.19
+        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 02:47:28 -0700 (PDT)
+In-Reply-To: <4FE198FE.5050202@profihost.ag>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit [b3a27d: swap: Add swap slot free callback to
-block_device_operations] dereferences p->bdev->bd_disk but this is a
-NULL dereference if using swap-over-NFS. This patch checks SWP_BLKDEV
-on the swap_info_struct before dereferencing.
+On Wed, 2012-06-20 at 11:33 +0200, Stefan Priebe - Profihost AG wrote:
 
-With reference to this callback, Christoph Hellwig stated "Please
-just remove the callback entirely.  It has no user outside the staging
-tree and was added clearly against the rules for that staging tree".
-This would also be my preference but there was not an obvious way of
-keeping zram in staging/ happy.
+> Sure. In that case i get 4Gbit/s in both variants. I also tried two 
+> other different machines same result.
+> 
 
-Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-Signed-off-by: Mel Gorman <mgorman@suse.de>
----
- mm/swapfile.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+So 3.5 on receiver is the problem, it seems ?
 
-diff --git a/mm/swapfile.c b/mm/swapfile.c
-index 7307fc9..e6c4b13 100644
---- a/mm/swapfile.c
-+++ b/mm/swapfile.c
-@@ -549,7 +549,6 @@ static unsigned char swap_entry_free(struct swap_info_struct *p,
- 
- 	/* free if no reference */
- 	if (!usage) {
--		struct gendisk *disk = p->bdev->bd_disk;
- 		if (offset < p->lowest_bit)
- 			p->lowest_bit = offset;
- 		if (offset > p->highest_bit)
-@@ -560,9 +559,11 @@ static unsigned char swap_entry_free(struct swap_info_struct *p,
- 		nr_swap_pages++;
- 		p->inuse_pages--;
- 		frontswap_invalidate_page(p->type, offset);
--		if ((p->flags & SWP_BLKDEV) &&
--				disk->fops->swap_slot_free_notify)
--			disk->fops->swap_slot_free_notify(p->bdev, offset);
-+		if (p->flags & SWP_BLKDEV) {
-+			struct gendisk *disk = p->bdev->bd_disk;
-+			if (disk->fops->swap_slot_free_notify)
-+				disk->fops->swap_slot_free_notify(p->bdev, offset);
-+		}
- 	}
- 
- 	return usage;
--- 
-1.7.9.2
+And you checked all the stuff about irq affinities, i presume, since a
+lot of things might have changed between 2.6.32 and 3.5 ?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+cat /proc/interrupts
+
+what kind of NIC it is ?
