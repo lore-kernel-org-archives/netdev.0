@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 13/17] mm: Micro-optimise slab to avoid a function call
-Date: Wed, 20 Jun 2012 10:35:16 +0100
-Message-ID: <1340184920-22288-14-git-send-email-mgorman@suse.de>
+Subject: [PATCH 16/17] mm: Account for the number of times direct reclaimers get throttled
+Date: Wed, 20 Jun 2012 10:35:19 +0100
+Message-ID: <1340184920-22288-17-git-send-email-mgorman@suse.de>
 References: <1340184920-22288-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -16,76 +16,58 @@ In-Reply-To: <1340184920-22288-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Getting and putting objects in SLAB currently requires a function call
-but the bulk of the work is related to PFMEMALLOC reserves which are
-only consumed when network-backed storage is critical. Use an inline
-function to determine if the function call is required.
+Under significant pressure when writing back to network-backed storage,
+direct reclaimers may get throttled. This is expected to be a
+short-lived event and the processes get woken up again but processes do
+get stalled. This patch counts how many times such stalling occurs. It's
+up to the administrator whether to reduce these stalls by increasing
+min_free_kbytes.
 
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- mm/slab.c |   28 ++++++++++++++++++++++++++--
- 1 file changed, 26 insertions(+), 2 deletions(-)
+ include/linux/vm_event_item.h |    1 +
+ mm/vmscan.c                   |    3 +++
+ mm/vmstat.c                   |    1 +
+ 3 files changed, 5 insertions(+)
 
-diff --git a/mm/slab.c b/mm/slab.c
-index 417ae71..00c601b 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -117,6 +117,8 @@
- #include	<linux/memory.h>
- #include	<linux/prefetch.h>
+diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
+index 06f8e38..57f7b10 100644
+--- a/include/linux/vm_event_item.h
++++ b/include/linux/vm_event_item.h
+@@ -30,6 +30,7 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
+ 		FOR_ALL_ZONES(PGSTEAL_DIRECT),
+ 		FOR_ALL_ZONES(PGSCAN_KSWAPD),
+ 		FOR_ALL_ZONES(PGSCAN_DIRECT),
++		PGSCAN_DIRECT_THROTTLE,
+ #ifdef CONFIG_NUMA
+ 		PGSCAN_ZONE_RECLAIM_FAILED,
+ #endif
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index bf8625c..bcc65c5 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -2166,6 +2166,9 @@ static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
+ 	if (pfmemalloc_watermark_ok(pgdat))
+ 		return;
  
-+#include	<net/sock.h>
++	/* Account for the throttling */
++	count_vm_event(PGSCAN_DIRECT_THROTTLE);
 +
- #include	<asm/cacheflush.h>
- #include	<asm/tlbflush.h>
- #include	<asm/page.h>
-@@ -1016,7 +1018,7 @@ out:
- 	spin_unlock_irqrestore(&l3->list_lock, flags);
- }
+ 	/*
+ 	 * If the caller cannot enter the filesystem, it's possible that it
+ 	 * is due to the caller holding an FS lock or performing a journal
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index 1bbbbd9..df7a674 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -745,6 +745,7 @@ const char * const vmstat_text[] = {
+ 	TEXTS_FOR_ZONES("pgsteal_direct")
+ 	TEXTS_FOR_ZONES("pgscan_kswapd")
+ 	TEXTS_FOR_ZONES("pgscan_direct")
++	"pgscan_direct_throttle",
  
--static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 						gfp_t flags, bool force_refill)
- {
- 	int i;
-@@ -1063,7 +1065,20 @@ static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 	return objp;
- }
- 
--static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+static inline void *ac_get_obj(struct kmem_cache *cachep,
-+			struct array_cache *ac, gfp_t flags, bool force_refill)
-+{
-+	void *objp;
-+
-+	if (unlikely(sk_memalloc_socks()))
-+		objp = __ac_get_obj(cachep, ac, flags, force_refill);
-+	else
-+		objp = ac->entry[--ac->avail];
-+
-+	return objp;
-+}
-+
-+static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 								void *objp)
- {
- 	if (unlikely(pfmemalloc_active)) {
-@@ -1073,6 +1088,15 @@ static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 			set_obj_pfmemalloc(&objp);
- 	}
- 
-+	return objp;
-+}
-+
-+static inline void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+								void *objp)
-+{
-+	if (unlikely(sk_memalloc_socks()))
-+		objp = __ac_put_obj(cachep, ac, objp);
-+
- 	ac->entry[ac->avail++] = objp;
- }
- 
+ #ifdef CONFIG_NUMA
+ 	"zone_reclaim_failed",
 -- 
 1.7.9.2
 
