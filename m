@@ -1,63 +1,66 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 11/17] netvm: Propagate page->pfmemalloc to skb
-Date: Wed, 20 Jun 2012 12:44:06 +0100
-Message-ID: <1340192652-31658-12-git-send-email-mgorman@suse.de>
-References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
-Cc: Linux-MM <linux-mm@kvack.org>,
+Subject: Re: [PATCH 01/17] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
+ pages
+Date: Wed, 20 Jun 2012 12:44:50 +0100
+Message-ID: <20120620114450.GF4011@suse.de>
+References: <1340184920-22288-1-git-send-email-mgorman@suse.de>
+ <1340184920-22288-2-git-send-email-mgorman@suse.de>
+ <20120620110512.GA4208@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
-	Mel Gorman <mgorman@suse.de>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340192652-31658-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+	Eric B Munson <emunson@mgebm.net>
+To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120620110512.GA4208@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The skb->pfmemalloc flag gets set to true iff during the slab
-allocation of data in __alloc_skb that the the PFMEMALLOC reserves
-were used. If the packet is fragmented, it is possible that pages
-will be allocated from the PFMEMALLOC reserve without propagating
-this information to the skb. This patch propagates page->pfmemalloc
-from pages allocated for fragments to the skb.
+On Wed, Jun 20, 2012 at 01:05:13PM +0200, Sebastian Andrzej Siewior wrote:
+> On Wed, Jun 20, 2012 at 10:35:04AM +0100, Mel Gorman wrote:
+> > [a.p.zijlstra@chello.nl: Original implementation]
+> > Signed-off-by: Mel Gorman <mgorman@suse.de>
+> > ---
+> > diff --git a/mm/slab.c b/mm/slab.c
+> > index e901a36..b190cac 100644
+> > --- a/mm/slab.c
+> > +++ b/mm/slab.c
+> > @@ -1851,6 +1984,7 @@ static void kmem_freepages(struct kmem_cache *cachep, void *addr)
+> >  	while (i--) {
+> >  		BUG_ON(!PageSlab(page));
+> >  		__ClearPageSlab(page);
+> > +		__ClearPageSlabPfmemalloc(page);
+> >  		page++;
+> >  	}
+> >  	if (current->reclaim_state)
+> > @@ -3120,16 +3254,19 @@ bad:
+> > diff --git a/mm/slub.c b/mm/slub.c
+> > index 8c691fa..43738c9 100644
+> > --- a/mm/slub.c
+> > +++ b/mm/slub.c
+> > @@ -1414,6 +1418,7 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
+> >  		-pages);
+> >  
+> >  	__ClearPageSlab(page);
+> > +	__ClearPageSlabPfmemalloc(page);
+> >  	reset_page_mapcount(page);
+> >  	if (current->reclaim_state)
+> >  		current->reclaim_state->reclaimed_slab += pages;
+> 
+> So you mention a change here in v11's changelog but I don't see it.
+> 
 
-Signed-off-by: Mel Gorman <mgorman@suse.de>
-Acked-by: David S. Miller <davem@davemloft.net>
----
- include/linux/skbuff.h |   11 +++++++++++
- 1 file changed, 11 insertions(+)
+Because I'm an idiot and send out the wrong branch and then was rude
+enough to not include you on the CC. I have resent the series, correctly
+this time I hope. Sorry about that.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 61c951f..c421ee0 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1250,6 +1250,17 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
- {
- 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
-+	/*
-+	 * Propagate page->pfmemalloc to the skb if we can. The problem is
-+	 * that not all callers have unique ownership of the page. If
-+	 * pfmemalloc is set, we check the mapping as a mapping implies
-+	 * page->index is set (index and pfmemalloc share space).
-+	 * If it's a valid mapping, we cannot use page->pfmemalloc but we
-+	 * do not lose pfmemalloc information as the pages would not be
-+	 * allocated using __GFP_MEMALLOC.
-+	 */
-+	if (page->pfmemalloc && !page->mapping)
-+		skb->pfmemalloc	= true;
- 	frag->page.p		  = page;
- 	frag->page_offset	  = off;
- 	skb_frag_size_set(frag, size);
 -- 
-1.7.9.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Mel Gorman
+SUSE Labs
