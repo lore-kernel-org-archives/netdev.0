@@ -1,46 +1,24 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH 09/12] nfs: disable data cache revalidation for swapfiles
-Date: Wed, 20 Jun 2012 13:16:27 -0400
-Message-ID: <4FE2056B.3070407@redhat.com>
-References: <1340185081-22525-1-git-send-email-mgorman@suse.de> <1340185081-22525-10-git-send-email-mgorman@suse.de>
+From: <Menny_Hamburger@Dell.com>
+Subject: [ndisc6] Bad NIC causing  IPV6 NDP to stop working
+Date: Wed, 20 Jun 2012 18:09:39 +0100
+Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34C74BF3@DUBX7MCDUB01.EMEA.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-        Linux-Netdev <netdev@vger.kernel.org>,
-        Linux-NFS <linux-nfs@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Trond Myklebust <Trond.Myklebust@netapp.com>,
-        Neil Brown <neilb@suse.de>, Christoph Hellwig <hch@infradead.org>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>,
-        Mike Christie <michaelc@cs.wisc.edu>,
-        Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340185081-22525-10-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:63171 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754434Ab2FTRTO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 13:19:14 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2012 05:37 AM, Mel Gorman wrote:
-> The VM does not like PG_private set on PG_swapcache pages. As suggested
-> by Trond in http://lkml.org/lkml/2006/8/25/348, this patch disables
-> NFS data cache revalidation on swap files.  as it does not make
-> sense to have other clients change the file while it is being used as
-> swap. This avoids setting PG_private on swap pages, since there ought
-> to be no further races with invalidate_inode_pages2() to deal with.
->
-> Since we cannot set PG_private we cannot use page->private which
-> is already used by PG_swapcache pages to store the nfs_page. Thus
-> augment the new nfs_page_find_request logic.
->
-> Signed-off-by: Peter Zijlstra<a.p.zijlstra@chello.nl>
-> Signed-off-by: Mel Gorman<mgorman@suse.de>
+Hi,
 
-Acked-by: Rik van Riel<riel@redhat.com>
+We have witnessed several cases where we suspect that a bad NIC on the machine caused neighbour discovery to stop working on all the other NICs - when this happens ping6 fails on every NIC we try it.
+>From looking into the code I see that there is only a single socket assigned for NDP; Does it sound logical to allocate a socket per interface instead of a single global socket.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Menny
