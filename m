@@ -1,40 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
-Date: Wed, 20 Jun 2012 14:04:54 -0700
-Message-ID: <20120620140454.36847c65@s6510.linuxnetplumber.net>
-References: <1340171940.4604.799.camel@edumazet-glaptop>
-	<1340215664.2576.12.camel@bwh-desktop.uk.solarflarecom.com>
-	<1340217604.4604.1569.camel@edumazet-glaptop>
-	<20120620.140121.1603737472432326278.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] team: do RCU update path fixups
+Date: Wed, 20 Jun 2012 14:05:01 -0700 (PDT)
+Message-ID: <20120620.140501.1474627180521558377.davem@davemloft.net>
+References: <1340217579-1478-1-git-send-email-jpirko@redhat.com>
+	<1340219643.4604.1641.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: jpirko@redhat.com, netdev@vger.kernel.org, jbrouer@redhat.com,
+	paulmck@linux.vnet.ibm.com, wfg@linux.intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34589 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753696Ab2FTVE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 17:04:57 -0400
-In-Reply-To: <20120620.140121.1603737472432326278.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45151 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754225Ab2FTVFC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 17:05:02 -0400
+In-Reply-To: <1340219643.4604.1641.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Jun 2012 14:01:21 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 20 Jun 2012 21:14:03 +0200
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 20 Jun 2012 20:40:04 +0200
+> On Wed, 2012-06-20 at 20:39 +0200, Jiri Pirko wrote:
+>> Use rcu_access_pointer and rcu_dereference_protected
+>> to access RCU pointer by updater.
+>> Use RCU_INIT_POINTER for NULL assignment of RCU pointer.
+>> 
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> ---
+>>  drivers/net/team/team_mode_activebackup.c |    8 ++++++--
+>>  drivers/net/team/team_mode_loadbalance.c  |   14 ++++++++++----
+>>  2 files changed, 16 insertions(+), 6 deletions(-)
 > 
-> > If someone wants to tune its linux router, he probably already disables
-> > GRO because of various issues with too big packets.
-> > 
-> > GRO adds a significant cost to forwarding path.
+> Seems good to me, thanks.
 > 
-> No, Ben is right Eric.  GRO decreases the costs, because it means we
-> only need to make one forwarding/netfilter/classification decision for
-> N packets instead of 1.
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-GRO is also important for routers that interact with VM's.
-It helps reduce the per-packet wakeup of the guest VM's.
+This patch doesn't apply after the 2 patch set you sent right
+before this one.
