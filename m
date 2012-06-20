@@ -1,56 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
-Date: Wed, 20 Jun 2012 12:06:28 +0200
-Message-ID: <1340186788.4604.857.camel@edumazet-glaptop>
-References: <4FE0EA33.1000309@profihost.ag>
-	 <1340141493.4604.773.camel@edumazet-glaptop>
-	 <4FE17522.5050005@profihost.ag>
-	 <1340176940.4604.801.camel@edumazet-glaptop>
-	 <4FE1881B.7030800@profihost.ag>
-	 <1340181676.4604.838.camel@edumazet-glaptop>
-	 <4FE192A1.6000000@profihost.ag>  <4FE193FA.5030802@profihost.ag>
-	 <1340183854.4604.847.camel@edumazet-glaptop>
-	 <4FE196F4.3040900@profihost.ag>
-	 <1340184528.4604.849.camel@edumazet-glaptop>
-	 <4FE198FE.5050202@profihost.ag>
-	 <1340185645.4604.853.camel@edumazet-glaptop>
-	 <4FE19CFC.8030408@profihost.ag>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: c_can_pci: limit compilation to archs with clock
+ support
+Date: Wed, 20 Jun 2012 12:10:41 +0200
+Message-ID: <4FE1A1A1.3000105@pengutronix.de>
+References: <1340185688-9454-1-git-send-email-mkl@pengutronix.de> <20120620.025452.2203668280120884694.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36892 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751708Ab2FTKGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 06:06:34 -0400
-Received: by bkcji2 with SMTP id ji2so5975729bkc.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 03:06:32 -0700 (PDT)
-In-Reply-To: <4FE19CFC.8030408@profihost.ag>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigDAFE57454A726CCA8AE415D7"
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	federico.vaga@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120620.025452.2203668280120884694.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-20 at 11:50 +0200, Stefan Priebe - Profihost AG wrote:
-> Am 20.06.2012 11:47, schrieb Eric Dumazet:
-> > On Wed, 2012-06-20 at 11:33 +0200, Stefan Priebe - Profihost AG wrote:
-> >
-> >> Sure. In that case i get 4Gbit/s in both variants. I also tried two
-> >> other different machines same result.
-> >>
-> >
-> > So 3.5 on receiver is the problem, it seems ?
-> Yes.
-> 
-> > And you checked all the stuff about irq affinities, i presume, since a
-> > lot of things might have changed between 2.6.32 and 3.5 ?
-> 
-> It is a single core E5 Xeon - i've set the affinity like this:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigDAFE57454A726CCA8AE415D7
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-And you still have the retransmits in "netstat -s" output ?
+On 06/20/2012 11:54 AM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Wed, 20 Jun 2012 11:48:08 +0200
+>=20
+>> In commit:
+>>
+>>   5b92da0 c_can_pci: generic module for C_CAN/D_CAN on PCI
+>>
+>> the c_can_pci driver has been added. It uses clk_*() functions
+>> unconditionally, resulting in a link error on archs without
+>> clock support. This patch adds a "depends on HAVE_CLK" to the
+>> Kconfig symbol.
+>=20
+> This is an unreasonable change and I just explained why in my email to
+> Frederico, did you not see it?
 
-Might be a firmware or pci issue, I have same cards but no problem here.
+I send that mail before I received Frederico's and your Mail.
 
-Check LRO is on ?
+> He says that this driver was only tested on an architecture that
+> currently doesn't even have clock support in any existing tree, and
+> therefore completely relies upon local changes they have to add clock
+> support to that platform.
+>=20
+> Which means you're change is restricting compilation of this driver to
+> platforms the driver was never, ever, tested on.
+>=20
+> Can you see what a complete joke this is?
 
-ethtool -k eth2
+I think we finally can see the big picture now; I'm preparing a patch
+which removes the clk_*() functions.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigDAFE57454A726CCA8AE415D7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEUEARECAAYFAk/hoaIACgkQjTAFq1RaXHNS6ACYvKNWC+WfCv+TYsAWA7i4hqfQ
+ZgCfeTJVgZWce7ai7Dm5L3pItaIs0SM=
+=MNwO
+-----END PGP SIGNATURE-----
+
+--------------enigDAFE57454A726CCA8AE415D7--
