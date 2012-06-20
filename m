@@ -1,73 +1,62 @@
-From: santosh nayak <santoshprasadnayak@gmail.com>
-Subject: [PATCH] netxen : Error return off by one for XG port.
-Date: Wed, 20 Jun 2012 16:22:58 +0530
-Message-ID: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Santosh Nayak <santoshprasadnayak@gmail.com>
-To: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
+Date: Wed, 20 Jun 2012 18:56:23 +0800
+Message-ID: <CACVXFVOJzctAs-giOmC-0J5LfLsp1YSwrcRK4UEyPAejFc05rg@mail.gmail.com>
+References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com>
+	<201206201058.55519.oneukum@suse.de>
+	<CACVXFVMy6Hrqgw6rmAXv5YXD86sLF+FUPTRRcXKs40uwN6ioCg@mail.gmail.com>
+	<201206201221.37211.oneukum@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Huajun Li <huajun.li.lee@gmail.com>,
+	David Miller <davem@davemloft.net>, stern@rowland.harvard.edu,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:55252 "EHLO
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:47232 "EHLO
 	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756386Ab2FTKxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 06:53:17 -0400
+	with ESMTP id S1756582Ab2FTK4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 06:56:24 -0400
+In-Reply-To: <201206201221.37211.oneukum@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Wed, Jun 20, 2012 at 6:21 PM, Oliver Neukum <oneukum@suse.de> wrote:
 
-There are  NETXEN_NIU_MAX_XG_PORTS ports.
-Port indexing starts from zero.
-Hence we should also return error for  'port == NETXEN_NIU_MAX_XG_PORTS'.
+> It probably was halted and cleared. However that you cleared
+> a halt doesn't mean that the reason for stalling went away.
+> So you must cope with an endpoint being halted again right after
+> it was cleared.
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
----
- .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |    4 ++--
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+I only suggested we should handle -EPIPE for usb_submit_urb
+on interrupt endpoint, maybe it is the 1st handling, at least it is
+per USB spec.
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-index d4f179f..9103e3e 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-@@ -511,7 +511,7 @@ netxen_nic_get_pauseparam(struct net_device *dev,
- 				break;
- 		}
- 	} else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
--		if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
-+		if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
- 			return;
- 		pause->rx_pause = 1;
- 		val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
-@@ -577,7 +577,7 @@ netxen_nic_set_pauseparam(struct net_device *dev,
- 		}
- 		NXWR32(adapter, NETXEN_NIU_GB_PAUSE_CTL, val);
- 	} else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
--		if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
-+		if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
- 			return -EIO;
- 		val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
- 		if (port == 0) {
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index de96a94..946160f 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -365,7 +365,7 @@ static int netxen_niu_disable_xg_port(struct netxen_adapter *adapter)
- 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
- 		return 0;
- 
--	if (port > NETXEN_NIU_MAX_XG_PORTS)
-+	if (port >= NETXEN_NIU_MAX_XG_PORTS)
- 		return -EINVAL;
- 
- 	mac_cfg = 0;
-@@ -392,7 +392,7 @@ static int netxen_p2_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
- 	u32 port = adapter->physical_port;
- 	u16 board_type = adapter->ahw.board_type;
- 
--	if (port > NETXEN_NIU_MAX_XG_PORTS)
-+	if (port >= NETXEN_NIU_MAX_XG_PORTS)
- 		return -EINVAL;
- 
- 	mac_cfg = NXRD32(adapter, NETXEN_NIU_XGE_CONFIG_0 + (0x10000 * port));
+Also from implementation of usb gadget device, generally
+ClearFeature(HALT) is to clear the some halt related flag of
+endpoint hardware.
+
+Looks the reasons of interrupt endpoint stalling is invisible
+for usbnet driver, so it is not easy to handle the situation
+you described(halted and cleared repeatedly).
+
+>
+>> > In that case we'd need to do something more intrusive
+>> > like resetting the device, but that cannot be done well
+>> > in the generic usbnet part.
+>>
+>> IMO, resetting is not needed for -EPIPE, but may be needed for
+>> -EPROTO failure.
+>
+> We don't need it for a single failure, but what else would we do
+> if we keep getting -EPIPE?
+
+Suppose the case will happen, what is the appropriate actions
+usbnet should take on the failure? I am not sure RESET can deal
+with it.
+
+Also is it a actual failure case or only a theory case?
+
+Thanks,
 -- 
-1.7.4.4
+Ming Lei
