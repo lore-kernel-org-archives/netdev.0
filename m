@@ -1,7 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 5/6] bnx2x: 1G sfp+ module handling
-Date: Wed, 20 Jun 2012 11:49:34 +0300
-Message-ID: <1340182175-916-6-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 6/6] bnx2x: link module eeprom
+Date: Wed, 20 Jun 2012 11:49:35 +0300
+Message-ID: <1340182175-916-7-git-send-email-yuvalmin@broadcom.com>
 References: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,409 +10,159 @@ Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
 	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1812 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1933 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755688Ab2FTIvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 04:51:54 -0400
+	id S1755688Ab2FTIwB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 04:52:01 -0400
 In-Reply-To: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Automatically lower requested link speed to 1G in case 1G SFP+
-module is detected.
+Add the ethtool functionality of accessing optic modules'
+information and eeprom to the bnx2x driver.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   16 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   |  202 +++++++++++++-------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h   |   17 +-
- 3 files changed, 151 insertions(+), 84 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   63 +++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c   |    9 ++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h   |    1 +
+ 3 files changed, 68 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 70c0881..819170e 100644
+index 819170e..0f158b6 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -187,7 +187,8 @@ static int bnx2x_get_port_type(struct bnx2x *bp)
- 	int port_type;
- 	u32 phy_idx = bnx2x_get_cur_phy_idx(bp);
- 	switch (bp->link_params.phy[phy_idx].media_type) {
--	case ETH_PHY_SFP_FIBER:
+@@ -1160,6 +1160,65 @@ static int bnx2x_get_eeprom(struct net_device *dev,
+ 	return rc;
+ }
+ 
++static int bnx2x_get_module_eeprom(struct net_device *dev,
++				   struct ethtool_eeprom *ee,
++				   u8 *data)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	int rc = 0, phy_idx;
++	u8 *user_data = data;
++	int remaining_len = ee->len, xfer_size;
++	unsigned int page_off = ee->offset;
++
++	if (!netif_running(dev)) {
++		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
++		   "cannot access eeprom when the interface is down\n");
++		return -EAGAIN;
++	}
++
++	phy_idx = bnx2x_get_cur_phy_idx(bp);
++	bnx2x_acquire_phy_lock(bp);
++	while (!rc && remaining_len > 0) {
++		xfer_size = (remaining_len > SFP_EEPROM_PAGE_SIZE) ?
++			SFP_EEPROM_PAGE_SIZE : remaining_len;
++		rc = bnx2x_read_sfp_module_eeprom(&bp->link_params.phy[phy_idx],
++						  &bp->link_params,
++						  page_off,
++						  xfer_size,
++						  user_data);
++		remaining_len -= xfer_size;
++		user_data += xfer_size;
++		page_off += xfer_size;
++	}
++
++	bnx2x_release_phy_lock(bp);
++	return rc;
++}
++
++static int bnx2x_get_module_info(struct net_device *dev,
++				 struct ethtool_modinfo *modinfo)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	int phy_idx;
++	if (!netif_running(dev)) {
++		DP(BNX2X_MSG_ETHTOOL  | BNX2X_MSG_NVM,
++		   "cannot access eeprom when the interface is down\n");
++		return -EAGAIN;
++	}
++
++	phy_idx = bnx2x_get_cur_phy_idx(bp);
++	switch (bp->link_params.phy[phy_idx].media_type) {
 +	case ETH_PHY_SFPP_10G_FIBER:
 +	case ETH_PHY_SFP_1G_FIBER:
- 	case ETH_PHY_XFP_FIBER:
- 	case ETH_PHY_KR:
- 	case ETH_PHY_CX4:
-@@ -220,6 +221,11 @@ static int bnx2x_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		(bp->port.supported[cfg_idx ^ 1] &
- 		 (SUPPORTED_TP | SUPPORTED_FIBRE));
- 	cmd->advertising = bp->port.advertising[cfg_idx];
-+	if (bp->link_params.phy[bnx2x_get_cur_phy_idx(bp)].media_type ==
-+	    ETH_PHY_SFP_1G_FIBER) {
-+		cmd->supported &= ~(SUPPORTED_10000baseT_Full);
-+		cmd->advertising &= ~(ADVERTISED_10000baseT_Full);
++	case ETH_PHY_DA_TWINAX:
++		modinfo->type = ETH_MODULE_SFF_8079;
++		modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
++		return 0;
++	default:
++		return -EOPNOTSUPP;
 +	}
- 
- 	if ((bp->state == BNX2X_STATE_OPEN) && (bp->link_vars.link_up)) {
- 		if (!(bp->flags & MF_FUNC_DIS)) {
-@@ -295,7 +301,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++}
++
+ static int bnx2x_nvram_write_dword(struct bnx2x *bp, u32 offset, u32 val,
+ 				   u32 cmd_flags)
  {
- 	struct bnx2x *bp = netdev_priv(dev);
- 	u32 advertising, cfg_idx, old_multi_phy_config, new_multi_phy_config;
--	u32 speed;
-+	u32 speed, phy_idx;
+@@ -2915,7 +2974,9 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
+ 	.get_channels		= bnx2x_get_channels,
+ 	.set_channels		= bnx2x_set_channels,
+-	.get_eee		= bnx2x_get_eee,
++	.get_module_info	= bnx2x_get_module_info,
++	.get_module_eeprom	= bnx2x_get_module_eeprom,
++	.get_eee		= bnx2x_get_eee,
+ 	.set_eee		= bnx2x_set_eee,
+ };
  
- 	if (IS_MF_SD(bp))
- 		return 0;
-@@ -550,9 +556,11 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				   "10G half not supported\n");
- 				return -EINVAL;
- 			}
--
-+			phy_idx = bnx2x_get_cur_phy_idx(bp);
- 			if (!(bp->port.supported[cfg_idx]
--			      & SUPPORTED_10000baseT_Full)) {
-+			      & SUPPORTED_10000baseT_Full) ||
-+			    (bp->link_params.phy[phy_idx].media_type ==
-+			     ETH_PHY_SFP_1G_FIBER)) {
- 				DP(BNX2X_MSG_ETHTOOL,
- 				   "10G full not supported\n");
- 				return -EINVAL;
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index fc7ff06..36845f7 100644
+index 36845f7..8803f77 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -4374,6 +4374,23 @@ static void bnx2x_warpcore_config_runtime(struct bnx2x_phy *phy,
- 	} /*params->rx_tx_asic_rst*/
- 
- }
-+static void bnx2x_warpcore_config_sfi(struct bnx2x_phy *phy,
-+				      struct link_params *params)
-+{
-+	u16 lane = bnx2x_get_warpcore_lane(phy, params);
-+	struct bnx2x *bp = params->bp;
-+	bnx2x_warpcore_clear_regs(phy, params, lane);
-+	if ((params->req_line_speed[LINK_CONFIG_IDX(INT_PHY)] ==
-+	     SPEED_10000) &&
-+	    (phy->media_type != ETH_PHY_SFP_1G_FIBER)) {
-+		DP(NETIF_MSG_LINK, "Setting 10G SFI\n");
-+		bnx2x_warpcore_set_10G_XFI(phy, params, 0);
-+	} else {
-+		DP(NETIF_MSG_LINK, "Setting 1G Fiber\n");
-+		bnx2x_warpcore_set_sgmii_speed(phy, params, 1, 0);
-+	}
-+}
-+
- static void bnx2x_warpcore_config_init(struct bnx2x_phy *phy,
- 				       struct link_params *params,
- 				       struct link_vars *vars)
-@@ -4434,19 +4451,11 @@ static void bnx2x_warpcore_config_init(struct bnx2x_phy *phy,
- 			break;
- 
- 		case PORT_HW_CFG_NET_SERDES_IF_SFI:
--
--			bnx2x_warpcore_clear_regs(phy, params, lane);
--			if (vars->line_speed == SPEED_10000) {
--				DP(NETIF_MSG_LINK, "Setting 10G SFI\n");
--				bnx2x_warpcore_set_10G_XFI(phy, params, 0);
--			} else if (vars->line_speed == SPEED_1000) {
--				DP(NETIF_MSG_LINK, "Setting 1G Fiber\n");
--				bnx2x_warpcore_set_sgmii_speed(
--						phy, params, 1, 0);
--			}
- 			/* Issue Module detection */
- 			if (bnx2x_is_sfp_module_plugged(phy, params))
- 				bnx2x_sfp_module_detection(phy, params);
-+
-+			bnx2x_warpcore_config_sfi(phy, params);
- 			break;
- 
- 		case PORT_HW_CFG_NET_SERDES_IF_DXGXS:
-@@ -6355,7 +6364,9 @@ int bnx2x_test_link(struct link_params *params, struct link_vars *vars,
- 		for (phy_index = EXT_PHY1; phy_index < params->num_phys;
- 		      phy_index++) {
- 			serdes_phy_type = ((params->phy[phy_index].media_type ==
--					    ETH_PHY_SFP_FIBER) ||
-+					    ETH_PHY_SFPP_10G_FIBER) ||
-+					   (params->phy[phy_index].media_type ==
-+					    ETH_PHY_SFP_1G_FIBER) ||
- 					   (params->phy[phy_index].media_type ==
- 					    ETH_PHY_XFP_FIBER) ||
- 					   (params->phy[phy_index].media_type ==
-@@ -7892,7 +7903,7 @@ static int bnx2x_get_edc_mode(struct bnx2x_phy *phy,
- {
+@@ -7696,7 +7696,7 @@ static int bnx2x_8726_read_sfp_module_eeprom(struct bnx2x_phy *phy,
  	struct bnx2x *bp = params->bp;
- 	u32 sync_offset = 0, phy_idx, media_types;
--	u8 val, check_limiting_mode = 0;
-+	u8 val[2], check_limiting_mode = 0;
- 	*edc_mode = EDC_MODE_LIMITING;
- 
- 	phy->media_type = ETH_PHY_UNSPECIFIED;
-@@ -7900,13 +7911,13 @@ static int bnx2x_get_edc_mode(struct bnx2x_phy *phy,
- 	if (bnx2x_read_sfp_module_eeprom(phy,
- 					 params,
- 					 SFP_EEPROM_CON_TYPE_ADDR,
--					 1,
--					 &val) != 0) {
-+					 2,
-+					 (u8 *)val) != 0) {
- 		DP(NETIF_MSG_LINK, "Failed to read from SFP+ module EEPROM\n");
+ 	u16 val = 0;
+ 	u16 i;
+-	if (byte_cnt > 16) {
++	if (byte_cnt > SFP_EEPROM_PAGE_SIZE) {
+ 		DP(NETIF_MSG_LINK,
+ 		   "Reading from eeprom is limited to 0xf\n");
  		return -EINVAL;
- 	}
- 
--	switch (val) {
-+	switch (val[0]) {
- 	case SFP_EEPROM_CON_TYPE_VAL_COPPER:
- 	{
- 		u8 copper_module_type;
-@@ -7944,13 +7955,29 @@ static int bnx2x_get_edc_mode(struct bnx2x_phy *phy,
- 		break;
- 	}
- 	case SFP_EEPROM_CON_TYPE_VAL_LC:
--		phy->media_type = ETH_PHY_SFP_FIBER;
--		DP(NETIF_MSG_LINK, "Optic module detected\n");
- 		check_limiting_mode = 1;
-+		if ((val[1] & (SFP_EEPROM_COMP_CODE_SR_MASK |
-+			       SFP_EEPROM_COMP_CODE_LR_MASK |
-+			       SFP_EEPROM_COMP_CODE_LRM_MASK)) == 0) {
-+			DP(NETIF_MSG_LINK, "1G Optic module detected\n");
-+			phy->media_type = ETH_PHY_SFP_1G_FIBER;
-+			phy->req_line_speed = SPEED_1000;
-+		} else {
-+			int idx, cfg_idx = 0;
-+			DP(NETIF_MSG_LINK, "10G Optic module detected\n");
-+			for (idx = INT_PHY; idx < MAX_PHYS; idx++) {
-+				if (params->phy[idx].type == phy->type) {
-+					cfg_idx = LINK_CONFIG_IDX(idx);
-+					break;
-+				}
-+			}
-+			phy->media_type = ETH_PHY_SFPP_10G_FIBER;
-+			phy->req_line_speed = params->req_line_speed[cfg_idx];
-+		}
- 		break;
- 	default:
- 		DP(NETIF_MSG_LINK, "Unable to determine module type 0x%x !!!\n",
--			 val);
-+			 val[0]);
+@@ -7765,7 +7765,8 @@ static int bnx2x_warpcore_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 	u32 data_array[4];
+ 	u16 addr32;
+ 	struct bnx2x *bp = params->bp;
+-	if (byte_cnt > 16) {
++
++	if (byte_cnt > SFP_EEPROM_PAGE_SIZE) {
+ 		DP(NETIF_MSG_LINK,
+ 		   "Reading from eeprom is limited to 16 bytes\n");
  		return -EINVAL;
- 	}
- 	sync_offset = params->shmem_base +
-@@ -8480,14 +8507,34 @@ void bnx2x_handle_module_detect_int(struct link_params *params)
+@@ -7795,7 +7796,7 @@ static int bnx2x_8727_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 	struct bnx2x *bp = params->bp;
+ 	u16 val, i;
  
- 	/* Call the handling function in case module is detected */
- 	if (gpio_val == 0) {
-+		bnx2x_set_mdio_clk(bp, params->chip_id, params->port);
-+		bnx2x_set_aer_mmd(params, phy);
-+
- 		bnx2x_power_sfp_module(params, phy, 1);
- 		bnx2x_set_gpio_int(bp, gpio_num,
- 				   MISC_REGISTERS_GPIO_INT_OUTPUT_CLR,
- 				   gpio_port);
--		if (bnx2x_wait_for_sfp_module_initialized(phy, params) == 0)
-+		if (bnx2x_wait_for_sfp_module_initialized(phy, params) == 0) {
- 			bnx2x_sfp_module_detection(phy, params);
--		else
-+			if (CHIP_IS_E3(bp)) {
-+				u16 rx_tx_in_reset;
-+				/* In case WC is out of reset, reconfigure the
-+				 * link speed while taking into account 1G
-+				 * module limitation.
-+				 */
-+				bnx2x_cl45_read(bp, phy,
-+						MDIO_WC_DEVAD,
-+						MDIO_WC_REG_DIGITAL5_MISC6,
-+						&rx_tx_in_reset);
-+				if (!rx_tx_in_reset) {
-+					bnx2x_warpcore_reset_lane(bp, phy, 1);
-+					bnx2x_warpcore_config_sfi(phy, params);
-+					bnx2x_warpcore_reset_lane(bp, phy, 0);
-+				}
-+			}
-+		} else {
- 			DP(NETIF_MSG_LINK, "SFP+ module is not initialized\n");
-+		}
- 	} else {
- 		u32 val = REG_RD(bp, params->shmem_base +
- 				 offsetof(struct shmem_region, dev_info.
-@@ -8939,6 +8986,63 @@ static void bnx2x_8727_hw_reset(struct bnx2x_phy *phy,
- 		       MISC_REGISTERS_GPIO_OUTPUT_LOW, port);
- }
- 
-+static void bnx2x_8727_config_speed(struct bnx2x_phy *phy,
-+				    struct link_params *params)
-+{
-+	struct bnx2x *bp = params->bp;
-+	u16 tmp1, val;
-+	/* Set option 1G speed */
-+	if ((phy->req_line_speed == SPEED_1000) ||
-+	    (phy->media_type == ETH_PHY_SFP_1G_FIBER)) {
-+		DP(NETIF_MSG_LINK, "Setting 1G force\n");
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 0x40);
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2, 0xD);
-+		bnx2x_cl45_read(bp, phy,
-+				MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2, &tmp1);
-+		DP(NETIF_MSG_LINK, "1.7 = 0x%x\n", tmp1);
-+		/* Power down the XAUI until link is up in case of dual-media
-+		 * and 1G
-+		 */
-+		if (DUAL_MEDIA(params)) {
-+			bnx2x_cl45_read(bp, phy,
-+					MDIO_PMA_DEVAD,
-+					MDIO_PMA_REG_8727_PCS_GP, &val);
-+			val |= (3<<10);
-+			bnx2x_cl45_write(bp, phy,
-+					 MDIO_PMA_DEVAD,
-+					 MDIO_PMA_REG_8727_PCS_GP, val);
-+		}
-+	} else if ((phy->req_line_speed == SPEED_AUTO_NEG) &&
-+		   ((phy->speed_cap_mask &
-+		     PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)) &&
-+		   ((phy->speed_cap_mask &
-+		      PORT_HW_CFG_SPEED_CAPABILITY_D0_10G) !=
-+		   PORT_HW_CFG_SPEED_CAPABILITY_D0_10G)) {
-+
-+		DP(NETIF_MSG_LINK, "Setting 1G clause37\n");
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_AN_DEVAD, MDIO_AN_REG_8727_MISC_CTRL, 0);
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_AN_DEVAD, MDIO_AN_REG_CL37_AN, 0x1300);
-+	} else {
-+		/* Since the 8727 has only single reset pin, need to set the 10G
-+		 * registers although it is default
-+		 */
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_AN_DEVAD, MDIO_AN_REG_8727_MISC_CTRL,
-+				 0x0020);
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_AN_DEVAD, MDIO_AN_REG_CL37_AN, 0x0100);
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 0x2040);
-+		bnx2x_cl45_write(bp, phy,
-+				 MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2,
-+				 0x0008);
-+	}
-+}
-+
- static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
- 				  struct link_params *params,
- 				  struct link_vars *vars)
-@@ -9008,56 +9112,7 @@ static int bnx2x_8727_config_init(struct bnx2x_phy *phy,
- 	bnx2x_cl45_read(bp, phy,
- 			MDIO_PMA_DEVAD, MDIO_PMA_LASI_RXSTAT, &tmp1);
- 
--	/* Set option 1G speed */
--	if (phy->req_line_speed == SPEED_1000) {
--		DP(NETIF_MSG_LINK, "Setting 1G force\n");
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 0x40);
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2, 0xD);
--		bnx2x_cl45_read(bp, phy,
--				MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2, &tmp1);
--		DP(NETIF_MSG_LINK, "1.7 = 0x%x\n", tmp1);
--		/* Power down the XAUI until link is up in case of dual-media
--		 * and 1G
--		 */
--		if (DUAL_MEDIA(params)) {
--			bnx2x_cl45_read(bp, phy,
--					MDIO_PMA_DEVAD,
--					MDIO_PMA_REG_8727_PCS_GP, &val);
--			val |= (3<<10);
--			bnx2x_cl45_write(bp, phy,
--					 MDIO_PMA_DEVAD,
--					 MDIO_PMA_REG_8727_PCS_GP, val);
--		}
--	} else if ((phy->req_line_speed == SPEED_AUTO_NEG) &&
--		   ((phy->speed_cap_mask &
--		     PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)) &&
--		   ((phy->speed_cap_mask &
--		      PORT_HW_CFG_SPEED_CAPABILITY_D0_10G) !=
--		   PORT_HW_CFG_SPEED_CAPABILITY_D0_10G)) {
--
--		DP(NETIF_MSG_LINK, "Setting 1G clause37\n");
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_AN_DEVAD, MDIO_AN_REG_8727_MISC_CTRL, 0);
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_AN_DEVAD, MDIO_AN_REG_CL37_AN, 0x1300);
--	} else {
--		/* Since the 8727 has only single reset pin, need to set the 10G
--		 * registers although it is default
--		 */
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_AN_DEVAD, MDIO_AN_REG_8727_MISC_CTRL,
--				 0x0020);
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_AN_DEVAD, MDIO_AN_REG_CL37_AN, 0x0100);
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_PMA_DEVAD, MDIO_PMA_REG_CTRL, 0x2040);
--		bnx2x_cl45_write(bp, phy,
--				 MDIO_PMA_DEVAD, MDIO_PMA_REG_10G_CTRL2,
--				 0x0008);
--	}
--
-+	bnx2x_8727_config_speed(phy, params);
- 	/* Set 2-wire transfer rate of SFP+ module EEPROM
- 	 * to 100Khz since some DACs(direct attached cables) do
- 	 * not work at 400Khz.
-@@ -9184,6 +9239,9 @@ static void bnx2x_8727_handle_mod_abs(struct bnx2x_phy *phy,
- 			bnx2x_sfp_module_detection(phy, params);
- 		else
- 			DP(NETIF_MSG_LINK, "SFP+ module is not initialized\n");
-+
-+		/* Reconfigure link speed based on module type limitations */
-+		bnx2x_8727_config_speed(phy, params);
- 	}
- 
- 	DP(NETIF_MSG_LINK, "8727 RX_ALARM_STATUS 0x%x\n",
-@@ -11328,7 +11386,7 @@ static struct bnx2x_phy phy_8706 = {
- 			   SUPPORTED_FIBRE |
- 			   SUPPORTED_Pause |
- 			   SUPPORTED_Asym_Pause),
--	.media_type	= ETH_PHY_SFP_FIBER,
-+	.media_type	= ETH_PHY_SFPP_10G_FIBER,
- 	.ver_addr	= 0,
- 	.req_flow_ctrl	= 0,
- 	.req_line_speed	= 0,
-@@ -11667,7 +11725,7 @@ static int bnx2x_populate_int_phy(struct bnx2x *bp, u32 shmem_base, u8 port,
- 					   SUPPORTED_FIBRE |
- 					   SUPPORTED_Pause |
- 					   SUPPORTED_Asym_Pause);
--			phy->media_type = ETH_PHY_SFP_FIBER;
-+			phy->media_type = ETH_PHY_SFPP_10G_FIBER;
- 			break;
- 		case PORT_HW_CFG_NET_SERDES_IF_KR:
- 			phy->media_type = ETH_PHY_KR;
+-	if (byte_cnt > 16) {
++	if (byte_cnt > SFP_EEPROM_PAGE_SIZE) {
+ 		DP(NETIF_MSG_LINK,
+ 		   "Reading from eeprom is limited to 0xf\n");
+ 		return -EINVAL;
+@@ -7878,7 +7879,7 @@ int bnx2x_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 				 struct link_params *params, u16 addr,
+ 				 u8 byte_cnt, u8 *o_buf)
+ {
+-	int rc = -EINVAL;
++	int rc = -EOPNOTSUPP;
+ 	switch (phy->type) {
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_BCM8726:
+ 		rc = bnx2x_8726_read_sfp_module_eeprom(phy, params, addr,
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-index 7b6051b..017236b 100644
+index 017236b..c05f9d9 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
-@@ -168,14 +168,15 @@ struct bnx2x_phy {
- 	u32 supported;
+@@ -41,6 +41,7 @@
+ #define SPEED_AUTO_NEG		0
+ #define SPEED_20000		20000
  
- 	u32 media_type;
--#define	ETH_PHY_UNSPECIFIED 0x0
--#define	ETH_PHY_SFP_FIBER   0x1
--#define	ETH_PHY_XFP_FIBER   0x2
--#define	ETH_PHY_DA_TWINAX   0x3
--#define	ETH_PHY_BASE_T      0x4
--#define	ETH_PHY_KR          0xf0
--#define	ETH_PHY_CX4         0xf1
--#define	ETH_PHY_NOT_PRESENT 0xff
-+#define	ETH_PHY_UNSPECIFIED	0x0
-+#define	ETH_PHY_SFPP_10G_FIBER	0x1
-+#define	ETH_PHY_XFP_FIBER		0x2
-+#define	ETH_PHY_DA_TWINAX		0x3
-+#define	ETH_PHY_BASE_T		0x4
-+#define	ETH_PHY_SFP_1G_FIBER	0x5
-+#define	ETH_PHY_KR		0xf0
-+#define	ETH_PHY_CX4		0xf1
-+#define	ETH_PHY_NOT_PRESENT	0xff
- 
- 	/* The address in which version is located*/
- 	u32 ver_addr;
++#define SFP_EEPROM_PAGE_SIZE			16
+ #define SFP_EEPROM_VENDOR_NAME_ADDR		0x14
+ #define SFP_EEPROM_VENDOR_NAME_SIZE		16
+ #define SFP_EEPROM_VENDOR_OUI_ADDR		0x25
 -- 
 1.7.9.rc2
