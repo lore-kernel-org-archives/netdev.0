@@ -1,88 +1,53 @@
-From: santosh prasad nayak <santoshprasadnayak@gmail.com>
-Subject: Re: [PATCH] netxen: Error return off by one in 'netxen_nic_set_pauseparam()'.
-Date: Wed, 20 Jun 2012 15:46:45 +0530
-Message-ID: <CAOD=uF4qjMOQ3=dN_1ffo1T-0EZiQ7m0quFpfvzLyAoqodEmMA@mail.gmail.com>
-References: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
-	<20120620074447.GS4400@mwanda>
-	<CAOD=uF6Oe1KZqmtUpY57u9GJh9BqxoK0DP0n4yP_DrMUjfXbCQ@mail.gmail.com>
-	<13A253B3F9BEFE43B93C09CF75F63CAA81A886EF19@MNEXMB1.qlogic.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
+Date: Wed, 20 Jun 2012 12:21:37 +0200
+Message-ID: <201206201221.37211.oneukum@suse.de>
+References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com> <201206201058.55519.oneukum@suse.de> <CACVXFVMy6Hrqgw6rmAXv5YXD86sLF+FUPTRRcXKs40uwN6ioCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Huajun Li <huajun.li.lee@gmail.com>,
+	David Miller <davem@davemloft.net>, stern@rowland.harvard.edu,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:47433 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753550Ab2FTKQq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 06:16:46 -0400
-In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA81A886EF19@MNEXMB1.qlogic.org>
+Received: from cantor2.suse.de ([195.135.220.15]:34105 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753552Ab2FTKVi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 06:21:38 -0400
+In-Reply-To: <CACVXFVMy6Hrqgw6rmAXv5YXD86sLF+FUPTRRcXKs40uwN6ioCg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 20, 2012 at 3:21 PM, Rajesh Borundia
-<rajesh.borundia@qlogic.com> wrote:
-> _______________________________________
-> From: santosh prasad nayak [santoshprasadnayak@gmail.com]
-> Sent: Wednesday, June 20, 2012 1:29 PM
-> To: Dan Carpenter; Rajesh Borundia
-> Cc: Sony Chacko; netdev; kernel-janitors@vger.kernel.org
-> Subject: Re: [PATCH] netxen: Error return off by one in 'netxen_nic_s=
-et_pauseparam()'.
->
-> On Wed, Jun 20, 2012 at 1:14 PM, Dan Carpenter <dan.carpenter@oracle.=
-com> wrote:
->> On Wed, Jun 20, 2012 at 12:57:39PM +0530, santosh nayak wrote:
->>> From: Santosh Nayak <santoshprasadnayak@gmail.com>
->>>
->>> There are 'NETXEN_NIU_MAX_GBE_PORTS' =A0GBE ports. Port indexing st=
-arts
->>> from zero.
->>> Hence we should also return error for "port =3D=3D NETXEN_NIU_MAX_G=
-BE_PORTS"
->>>
->>
->> I don't know this code well enough to say if you are right or not,
->> but what about for port =3D=3D NETXEN_NIU_MAX_XG_PORTS a few lines l=
-ater
->> in both functions?
->
->
-> I think "for port =3D=3D NETXEN_NIU_MAX_XG_PORTS" =A0error should be =
-returned.
->
->
-> @Rajesh,
->
-> Can you please comment on it ?
->
->
-> regards
-> santosh
->
->>
->> regards,
->> dan carpenter
->>
->
-> Yes error should be returned for =A0both port =3D=3D NETXEN_NIU_MAX_X=
-G_PORTS and
-> port =3D=3D =A0NETXEN_NIU_MAX_GBE_PORTS.
+Am Mittwoch, 20. Juni 2012, 12:15:25 schrieb Ming Lei:
+> On Wed, Jun 20, 2012 at 4:58 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> > Am Mittwoch, 20. Juni 2012, 10:07:55 schrieb Ming Lei:
+> >> BTW, maybe it is better to add below
+> >>
+> >>     usbnet_defer_kevent(dev, EVENT_STS_HALT);
+> >>
+> >> for -EPIPE returned from usb_urb_submit if it will be resent.
+> >
+> > Why? If it failed once it'll probably also fail the next time.
+> 
+> -EPIPE just means the endpoint is halted, either from usb_urb_submit
+> or urb->status, so the HALT should be cleared in the situation.
 
+It probably was halted and cleared. However that you cleared
+a halt doesn't mean that the reason for stalling went away.
+So you must cope with an endpoint being halted again right after
+it was cleared.
 
-Ok.
+> > In that case we'd need to do something more intrusive
+> > like resetting the device, but that cannot be done well
+> > in the generic usbnet part.
+> 
+> IMO, resetting is not needed for -EPIPE, but may be needed for
+> -EPROTO failure.
 
-The current patch is for GBE port.
-=46or XG port I will send another patch.
+We don't need it for a single failure, but what else would we do
+if we keep getting -EPIPE?
 
-regards
-santosh
-
-
->
->
-> Rajesh
->
+	Regards
+		Oliver
