@@ -1,39 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
- with TCP and GRO
-Date: Wed, 20 Jun 2012 10:44:07 +0200
-Message-ID: <1340181847.4604.840.camel@edumazet-glaptop>
-References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
-	 <1340170590.4604.784.camel@edumazet-glaptop>
-	 <1340180223.4604.828.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 2/3] Kconfig: Fix Kconfig for Intel ixgbe and igb PTP support.
+Date: Wed, 20 Jun 2012 01:44:41 -0700
+Message-ID: <1340181882-16333-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1340181882-16333-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:51265 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752831Ab2FTIoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 04:44:11 -0400
-Received: by bkcji2 with SMTP id ji2so5917628bkc.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 01:44:10 -0700 (PDT)
-In-Reply-To: <1340180223.4604.828.camel@edumazet-glaptop>
+Received: from mga11.intel.com ([192.55.52.93]:38315 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753746Ab2FTIop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 04:44:45 -0400
+In-Reply-To: <1340181882-16333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-20 at 10:17 +0200, Eric Dumazet wrote:
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-> Strange, I did again benchs with order-2 allocations and got good
-> results this time, but with latest net-next, maybe things have changed
-> since last time I did this.
-> 
-> (netdev_alloc_frag(), get_page_from_freelist() and put_page() less
-> prevalent in perf results)
-> 
+Fix Kconfig file to make sure that PTP and IGB/IXGBE are both either
+in-kernel or modules, not mixed.  Having the build status mixed causes
+compile errors.
 
-Oh well, I now remember why I abandoned this : machines dont have
-infinite memory after all...
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/Kconfig |   10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-(put_page assumes order-0 page)
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 79b07ec..0cafe4f 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -122,8 +122,10 @@ config IGB_DCA
+ 
+ config IGB_PTP
+ 	bool "PTP Hardware Clock (PHC)"
+-	default y
+-	depends on IGB && PTP_1588_CLOCK
++	default n
++	depends on IGB && EXPERIMENTAL
++	select PPS
++	select PTP_1588_CLOCK
+ 	---help---
+ 	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
+ 	  driver.  Only the basic clock operations have been implemented.
+@@ -223,7 +225,9 @@ config IXGBE_DCB
+ config IXGBE_PTP
+ 	bool "PTP Clock Support"
+ 	default n
+-	depends on IXGBE && PTP_1588_CLOCK
++	depends on IXGBE && EXPERIMENTAL
++	select PPS
++	select PTP_1588_CLOCK
+ 	---help---
+ 	  Say Y here if you want support for 1588 Timestamping with a
+ 	  PHC device, using the PTP 1588 Clock support. This is
+-- 
+1.7.10.2
