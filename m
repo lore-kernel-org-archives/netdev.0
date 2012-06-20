@@ -1,41 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] can: c_can_pci: limit compilation to archs with clock
- support
-Date: Wed, 20 Jun 2012 02:54:52 -0700 (PDT)
-Message-ID: <20120620.025452.2203668280120884694.davem@davemloft.net>
-References: <1340185688-9454-1-git-send-email-mkl@pengutronix.de>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH] netxen: Error return off by one in
+ 'netxen_nic_set_pauseparam()'.
+Date: Wed, 20 Jun 2012 04:51:52 -0500
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A886EF19@MNEXMB1.qlogic.org>
+References: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
+	<20120620074447.GS4400@mwanda>,<CAOD=uF6Oe1KZqmtUpY57u9GJh9BqxoK0DP0n4yP_DrMUjfXbCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	federico.vaga@gmail.com
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1340185688-9454-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sony Chacko <sony.chacko@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: santosh prasad nayak <santoshprasadnayak@gmail.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:3949
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752159Ab2FTJzX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 05:55:23 -0400
+In-Reply-To: <CAOD=uF6Oe1KZqmtUpY57u9GJh9BqxoK0DP0n4yP_DrMUjfXbCQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 20 Jun 2012 11:48:08 +0200
+_______________________________________
+From: santosh prasad nayak [santoshprasadnayak@gmail.com]
+Sent: Wednesday, June 20, 2012 1:29 PM
+To: Dan Carpenter; Rajesh Borundia
+Cc: Sony Chacko; netdev; kernel-janitors@vger.kernel.org
+Subject: Re: [PATCH] netxen: Error return off by one in 'netxen_nic_set_pauseparam()'.
 
-> In commit:
-> 
->   5b92da0 c_can_pci: generic module for C_CAN/D_CAN on PCI
-> 
-> the c_can_pci driver has been added. It uses clk_*() functions
-> unconditionally, resulting in a link error on archs without
-> clock support. This patch adds a "depends on HAVE_CLK" to the
-> Kconfig symbol.
+On Wed, Jun 20, 2012 at 1:14 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> On Wed, Jun 20, 2012 at 12:57:39PM +0530, santosh nayak wrote:
+>> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+>>
+>> There are 'NETXEN_NIU_MAX_GBE_PORTS'  GBE ports. Port indexing starts
+>> from zero.
+>> Hence we should also return error for "port == NETXEN_NIU_MAX_GBE_PORTS"
+>>
+>
+> I don't know this code well enough to say if you are right or not,
+> but what about for port == NETXEN_NIU_MAX_XG_PORTS a few lines later
+> in both functions?
 
-This is an unreasonable change and I just explained why in my email to
-Frederico, did you not see it?
 
-He says that this driver was only tested on an architecture that
-currently doesn't even have clock support in any existing tree, and
-therefore completely relies upon local changes they have to add clock
-support to that platform.
+I think "for port == NETXEN_NIU_MAX_XG_PORTS"  error should be returned.
 
-Which means you're change is restricting compilation of this driver to
-platforms the driver was never, ever, tested on.
 
-Can you see what a complete joke this is?
+@Rajesh,
+
+Can you please comment on it ?
+
+
+regards
+santosh
+
+>
+> regards,
+> dan carpenter
+>
+
+Yes error should be returned for  both port == NETXEN_NIU_MAX_XG_PORTS and
+port ==  NETXEN_NIU_MAX_GBE_PORTS.
+
+
+Rajesh 
