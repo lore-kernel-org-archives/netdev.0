@@ -1,58 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/9] e1000: Combining Bitwise OR in one expression.
-Date: Wed, 20 Jun 2012 01:44:55 -0700
-Message-ID: <1340181903-16382-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/9] ixgbe: add support for 1G SX modules
+Date: Wed, 20 Jun 2012 01:45:02 -0700
+Message-ID: <1340181903-16382-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1340181903-16382-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:31665 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:14962 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753136Ab2FTIpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 04:45:06 -0400
+	id S1755515Ab2FTIpJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 04:45:09 -0400
 In-Reply-To: <1340181903-16382-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tushar Dave <tushar.n.dave@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+This patch adds support for 1G Fiber PHY modules (SFP+ modules). This support
+comes along side support for 1G Copper PHY modules, but uses a different PHY
+type (ixgbe_sfp_type_1g_sx_core).
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000/e1000_main.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    4 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   |   23 +++++++++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    2 ++
+ 3 files changed, 24 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 7483ca0..183a4a3 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -1078,18 +1078,18 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index dee64d2..e7dddfd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -241,7 +241,9 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
  
- 	netdev->features |= netdev->hw_features;
--	netdev->hw_features |= NETIF_F_RXCSUM;
--	netdev->hw_features |= NETIF_F_RXALL;
--	netdev->hw_features |= NETIF_F_RXFCS;
-+	netdev->hw_features |= (NETIF_F_RXCSUM |
-+				NETIF_F_RXALL |
-+				NETIF_F_RXFCS);
+ 	/* Determine 1G link capabilities off of SFP+ type */
+ 	if (hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0 ||
+-	    hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1) {
++	    hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1 ||
++	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
++	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1) {
+ 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
+ 		*negotiation = true;
+ 		goto out;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index 2411770..71659ed 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -907,6 +907,8 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 		  * 8   SFP_act_lmt_DA_CORE1 - 82599-specific
+ 		  * 9   SFP_1g_cu_CORE0 - 82599-specific
+ 		  * 10  SFP_1g_cu_CORE1 - 82599-specific
++		  * 11  SFP_1g_sx_CORE0 - 82599-specific
++		  * 12  SFP_1g_sx_CORE1 - 82599-specific
+ 		  */
+ 		if (hw->mac.type == ixgbe_mac_82598EB) {
+ 			if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
+@@ -957,6 +959,13 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 				else
+ 					hw->phy.sfp_type =
+ 						ixgbe_sfp_type_1g_cu_core1;
++			} else if (comp_codes_1g & IXGBE_SFF_1GBASESX_CAPABLE) {
++				if (hw->bus.lan_id == 0)
++					hw->phy.sfp_type =
++						ixgbe_sfp_type_1g_sx_core0;
++				else
++					hw->phy.sfp_type =
++						ixgbe_sfp_type_1g_sx_core1;
+ 			} else {
+ 				hw->phy.sfp_type = ixgbe_sfp_type_unknown;
+ 			}
+@@ -1049,7 +1058,9 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 		/* Verify supported 1G SFP modules */
+ 		if (comp_codes_10g == 0 &&
+ 		    !(hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1 ||
+-		      hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0)) {
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0 ||
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
++		      hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1)) {
+ 			hw->phy.type = ixgbe_phy_sfp_unsupported;
+ 			status = IXGBE_ERR_SFP_NOT_SUPPORTED;
+ 			goto out;
+@@ -1064,7 +1075,9 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
+ 		hw->mac.ops.get_device_caps(hw, &enforce_sfp);
+ 		if (!(enforce_sfp & IXGBE_DEVICE_CAPS_ALLOW_ANY_SFP) &&
+ 		    !((hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0) ||
+-		      (hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1))) {
++		      (hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1) ||
++		      (hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0) ||
++		      (hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1))) {
+ 			/* Make sure we're a supported PHY type */
+ 			if (hw->phy.type == ixgbe_phy_sfp_intel) {
+ 				status = 0;
+@@ -1128,10 +1141,12 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
+ 	 * SR modules
+ 	 */
+ 	if (sfp_type == ixgbe_sfp_type_da_act_lmt_core0 ||
+-	    sfp_type == ixgbe_sfp_type_1g_cu_core0)
++	    sfp_type == ixgbe_sfp_type_1g_cu_core0 ||
++	    sfp_type == ixgbe_sfp_type_1g_sx_core0)
+ 		sfp_type = ixgbe_sfp_type_srlr_core0;
+ 	else if (sfp_type == ixgbe_sfp_type_da_act_lmt_core1 ||
+-	         sfp_type == ixgbe_sfp_type_1g_cu_core1)
++		 sfp_type == ixgbe_sfp_type_1g_cu_core1 ||
++		 sfp_type == ixgbe_sfp_type_1g_sx_core1)
+ 		sfp_type = ixgbe_sfp_type_srlr_core1;
  
- 	if (pci_using_dac) {
- 		netdev->features |= NETIF_F_HIGHDMA;
- 		netdev->vlan_features |= NETIF_F_HIGHDMA;
- 	}
- 
--	netdev->vlan_features |= NETIF_F_TSO;
--	netdev->vlan_features |= NETIF_F_HW_CSUM;
--	netdev->vlan_features |= NETIF_F_SG;
-+	netdev->vlan_features |= (NETIF_F_TSO |
-+				  NETIF_F_HW_CSUM |
-+				  NETIF_F_SG);
- 
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 
+ 	/* Read offset to PHY init contents */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 1085c07..7416d22 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2604,6 +2604,8 @@ enum ixgbe_sfp_type {
+ 	ixgbe_sfp_type_da_act_lmt_core1 = 8,
+ 	ixgbe_sfp_type_1g_cu_core0 = 9,
+ 	ixgbe_sfp_type_1g_cu_core1 = 10,
++	ixgbe_sfp_type_1g_sx_core0 = 11,
++	ixgbe_sfp_type_1g_sx_core1 = 12,
+ 	ixgbe_sfp_type_not_present = 0xFFFE,
+ 	ixgbe_sfp_type_unknown = 0xFFFF
+ };
 -- 
 1.7.10.2
