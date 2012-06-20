@@ -1,92 +1,73 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 20 Jun 2012 12:33:16 +0200
-Message-ID: <4FE1A6EC.6070206@pengutronix.de>
-References: <20120620133348.a9ff31a72ffd11818f574fe3@canb.auug.org.au> <D5ECB3C7A6F99444980976A8C6D896384FAA275CA8@EAPEX1MAIL1.st.com> <4FE18502.6040409@arm.com> <20120620.012037.783895812206310043.davem@davemloft.net> <20120620202604.407af721f746045ae00c8268@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig6BA6434F43A835D50614C9A8"
-Cc: David Miller <davem@davemloft.net>, viresh.kumar2@arm.com,
-	bhupesh.sharma@st.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	federico.vaga@gmail.com, giancarlo.asnaghi@st.com,
-	wg@grandegger.com, spear-devel@list.st.com,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120620202604.407af721f746045ae00c8268@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: santosh nayak <santoshprasadnayak@gmail.com>
+Subject: [PATCH] netxen : Error return off by one for XG port.
+Date: Wed, 20 Jun 2012 16:22:58 +0530
+Message-ID: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Santosh Nayak <santoshprasadnayak@gmail.com>
+To: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:55252 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756386Ab2FTKxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 06:53:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig6BA6434F43A835D50614C9A8
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Santosh Nayak <santoshprasadnayak@gmail.com>
 
-On 06/20/2012 12:26 PM, Stephen Rothwell wrote:
-> Hi all,
->=20
-> On Wed, 20 Jun 2012 01:20:37 -0700 (PDT) David Miller <davem@davemloft.=
-net> wrote:
->>
->> From: viresh kumar <viresh.kumar2@arm.com>
->> Date: Wed, 20 Jun 2012 09:08:34 +0100
->>
->>> Please see following patchset from me, that got applied in linux-next=
+There are  NETXEN_NIU_MAX_XG_PORTS ports.
+Port indexing starts from zero.
+Hence we should also return error for  'port == NETXEN_NIU_MAX_XG_PORTS'.
 
->>>
->>> https://lkml.org/lkml/2012/4/24/154
->>>
->>> Please check if this patchset is present in your build repo. I believ=
-e it should be
->>> there. If it is, then you shouldn't get these errors.
->>
->> Well, then Stephen shouldn't get those errors either.
->>
->> But obviously he did.
->>
->> But all of this talk about changes existing only in linux-next is
->> entirely moot.  Because The damn thing MUST build independently inside=
+Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+---
+ .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |    4 ++--
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
->> of net-next which doesn't have those clock layer changes.
->>
->> Someone send me a clean fix for net-next now.
->=20
-> I get those errors because those patches are in the akpm tree which is
-> merged after everything else ...
->=20
-> One possibility is to put those changes in another (stable) tree and
-> merge that into the net-next tree (and any other tree that needs it).
-
-We're about to remove the offending clk_*() functions from the driver,
-as they are untested anyway. The hardware the driver was developed for
-uses a hardcoded clock rate in the driver anyway, as it cannot be
-retrieved from clock tree. As soon as there is hardware available that
-will work with the clock tree, we can add those functions back.
-
-Sorry for the noise,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig6BA6434F43A835D50614C9A8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk/hpuwACgkQjTAFq1RaXHNE3wCeKwWQ+5LR0n4b5PpVlKhO5bjj
-xwcAnighlfHs1b7EAny+CoK2sUaTPOsj
-=BLOd
------END PGP SIGNATURE-----
-
---------------enig6BA6434F43A835D50614C9A8--
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+index d4f179f..9103e3e 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+@@ -511,7 +511,7 @@ netxen_nic_get_pauseparam(struct net_device *dev,
+ 				break;
+ 		}
+ 	} else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
+-		if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
++		if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
+ 			return;
+ 		pause->rx_pause = 1;
+ 		val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
+@@ -577,7 +577,7 @@ netxen_nic_set_pauseparam(struct net_device *dev,
+ 		}
+ 		NXWR32(adapter, NETXEN_NIU_GB_PAUSE_CTL, val);
+ 	} else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
+-		if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
++		if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
+ 			return -EIO;
+ 		val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
+ 		if (port == 0) {
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index de96a94..946160f 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -365,7 +365,7 @@ static int netxen_niu_disable_xg_port(struct netxen_adapter *adapter)
+ 	if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
+ 		return 0;
+ 
+-	if (port > NETXEN_NIU_MAX_XG_PORTS)
++	if (port >= NETXEN_NIU_MAX_XG_PORTS)
+ 		return -EINVAL;
+ 
+ 	mac_cfg = 0;
+@@ -392,7 +392,7 @@ static int netxen_p2_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
+ 	u32 port = adapter->physical_port;
+ 	u16 board_type = adapter->ahw.board_type;
+ 
+-	if (port > NETXEN_NIU_MAX_XG_PORTS)
++	if (port >= NETXEN_NIU_MAX_XG_PORTS)
+ 		return -EINVAL;
+ 
+ 	mac_cfg = NXRD32(adapter, NETXEN_NIU_XGE_CONFIG_0 + (0x10000 * port));
+-- 
+1.7.4.4
