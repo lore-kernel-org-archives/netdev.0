@@ -1,61 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/3] Kconfig: Fix Kconfig for Intel ixgbe and igb PTP support.
-Date: Wed, 20 Jun 2012 01:44:41 -0700
-Message-ID: <1340181882-16333-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 3/3] ixgbe: Fix memory leak in ixgbe when receiving traffic on DDP enabled rings
+Date: Wed, 20 Jun 2012 01:44:42 -0700
+Message-ID: <1340181882-16333-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1340181882-16333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:38315 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:38319 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753746Ab2FTIop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753365Ab2FTIop (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 20 Jun 2012 04:44:45 -0400
 In-Reply-To: <1340181882-16333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Fix Kconfig file to make sure that PTP and IGB/IXGBE are both either
-in-kernel or modules, not mixed.  Having the build status mixed causes
-compile errors.
+This patch fixes a memory leak that was introduced in the 3.4 kernel.  The
+leak occurred when FCoE was enabled and traffic was passed over the FCoE
+rings reserved for FCoE.  The memory leak was due to us not populating the
+compound page information on the order 1 pages needed for FCoE.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/Kconfig |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 79b07ec..0cafe4f 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -122,8 +122,10 @@ config IGB_DCA
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 17ad6a3..cbb05d6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1148,7 +1148,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
  
- config IGB_PTP
- 	bool "PTP Hardware Clock (PHC)"
--	default y
--	depends on IGB && PTP_1588_CLOCK
-+	default n
-+	depends on IGB && EXPERIMENTAL
-+	select PPS
-+	select PTP_1588_CLOCK
- 	---help---
- 	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
- 	  driver.  Only the basic clock operations have been implemented.
-@@ -223,7 +225,9 @@ config IXGBE_DCB
- config IXGBE_PTP
- 	bool "PTP Clock Support"
- 	default n
--	depends on IXGBE && PTP_1588_CLOCK
-+	depends on IXGBE && EXPERIMENTAL
-+	select PPS
-+	select PTP_1588_CLOCK
- 	---help---
- 	  Say Y here if you want support for 1588 Timestamping with a
- 	  PHC device, using the PTP 1588 Clock support. This is
+ 	/* alloc new page for storage */
+ 	if (likely(!page)) {
+-		page = alloc_pages(GFP_ATOMIC | __GFP_COLD,
++		page = alloc_pages(GFP_ATOMIC | __GFP_COLD | __GFP_COMP,
+ 				   ixgbe_rx_pg_order(rx_ring));
+ 		if (unlikely(!page)) {
+ 			rx_ring->rx_stats.alloc_rx_page_failed++;
 -- 
 1.7.10.2
