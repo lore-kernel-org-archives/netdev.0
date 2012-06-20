@@ -1,54 +1,29 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 02.5] mm: sl[au]b: first remove PFMEMALLOC flag then SLAB
- flag
-Date: Wed, 20 Jun 2012 08:38:05 +0100
-Message-ID: <20120620073805.GD8810@suse.de>
-References: <1337266231-8031-1-git-send-email-mgorman@suse.de>
- <1337266231-8031-3-git-send-email-mgorman@suse.de>
- <20120615155432.GA5498@breakpoint.cc>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH -v1 1/3] usbnet: clear OPEN flag in failure path
+Date: Wed, 20 Jun 2012 09:44:07 +0200
+Message-ID: <201206200944.07299.oneukum@suse.de>
+References: <1340176553-32225-1-git-send-email-ming.lei@canonical.com> <1340176553-32225-2-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120615155432.GA5498@breakpoint.cc>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:51950 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752049Ab2FTHoI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 03:44:08 -0400
+In-Reply-To: <1340176553-32225-2-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 15, 2012 at 05:54:32PM +0200, Sebastian Andrzej Siewior wrote:
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Am Mittwoch, 20. Juni 2012, 09:15:51 schrieb Ming Lei:
+> Without clearing OPEN flag in failure path, runtime or system resume
+> may submit interrupt/rx URB and start tx queue mistakenly on a
+> interface in DOWN state.
 > 
-> If we first remove the SLAB flag followed by the PFMEMALLOC flag then the
-> removal of the latter will trigger the VM_BUG_ON() as it can be seen in
-> | kernel BUG at include/linux/page-flags.h:474!
-> | invalid opcode: 0000 [#1] PREEMPT SMP
-> | Call Trace:
-> |  [<c10e2d77>] slab_destroy+0x27/0x70
-> |  [<c10e3285>] drain_freelist+0x55/0x90
-> |  [<c10e344e>] __cache_shrink+0x6e/0x90
-> |  [<c14e3211>] ? acpi_sleep_init+0xcf/0xcf
-> |  [<c10e349d>] kmem_cache_shrink+0x2d/0x40
-> 
-> because the SLAB flag is gone. This patch simply changes the order.
-> 
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-
-Grr, yes of course. Thanks very much. I've folded this into patch 2 and
-preserved credit.
-
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+Acked-by: Oliver Neukum <oneukum@suse.de>
