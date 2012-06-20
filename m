@@ -1,40 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net-next 07/14] Fix intel/ixgbe
-Date: Wed, 20 Jun 2012 10:55:14 +0200
-Message-ID: <1340182514.4604.843.camel@edumazet-glaptop>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
-	 <1340118848-30978-8-git-send-email-yuvalmin@broadcom.com>
-	 <4FE0A0CD.5050909@intel.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
+Date: Wed, 20 Jun 2012 10:58:55 +0200
+Message-ID: <201206201058.55519.oneukum@suse.de>
+References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com> <201206201000.21845.oneukum@suse.de> <CACVXFVPDV5v3gW5wz44kBsXm0KreHJnkvoxEPZhnLVoaTDw-Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Yuval Mintz <yuvalmin@broadcom.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, eilong@broadcom.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Huajun Li <huajun.li.lee@gmail.com>,
+	David Miller <davem@davemloft.net>, stern@rowland.harvard.edu,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Ming Lei <tom.leiming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33693 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755703Ab2FTIzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 04:55:20 -0400
-Received: by bkcji2 with SMTP id ji2so5924872bkc.19
-        for <netdev@vger.kernel.org>; Wed, 20 Jun 2012 01:55:18 -0700 (PDT)
-In-Reply-To: <4FE0A0CD.5050909@intel.com>
+Received: from cantor2.suse.de ([195.135.220.15]:56024 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752167Ab2FTI64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 04:58:56 -0400
+In-Reply-To: <CACVXFVPDV5v3gW5wz44kBsXm0KreHJnkvoxEPZhnLVoaTDw-Yw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-19 at 08:54 -0700, Alexander Duyck wrote:
-
-> This patch doesn't limit the number of queues.  It is limiting the
-> number of interrupts.  The two are not directly related as we can
-> support multiple queues per interrupt.
+Am Mittwoch, 20. Juni 2012, 10:07:55 schrieb Ming Lei:
+> On Wed, Jun 20, 2012 at 4:00 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> >
+> > Very well, on second thought, this patch makes sense.
+> > Could you resend and I'll ack?
 > 
-> Also this change assumes we are only using receive side scaling.  We
-> have other features such as DCB, FCoE, and Flow Director which require
-> additional queues.
+> BTW, maybe it is better to add below
 > 
+>     usbnet_defer_kevent(dev, EVENT_STS_HALT);
+> 
+> for -EPIPE returned from usb_urb_submit if it will be resent.
 
-Yet, it would be good if ixgbe doesnt allocate 36 queues on a 4 cpu
-machine.
+Why? If it failed once it'll probably also fail the next time.
+In that case we'd need to do something more intrusive
+like resetting the device, but that cannot be done well
+in the generic usbnet part.
 
-"tc -s class show dev eth0" output is full of not used classes.
+	Regards
+		Oliver
