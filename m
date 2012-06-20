@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 04/12] mm: Add support for a filesystem to activate swap files and use direct_IO for writing swap pages
-Date: Wed, 20 Jun 2012 10:37:53 +0100
-Message-ID: <1340185081-22525-5-git-send-email-mgorman@suse.de>
+Subject: [PATCH 06/12] mm: Add get_kernel_page[s] for pinning of kernel addresses for I/O
+Date: Wed, 20 Jun 2012 10:37:55 +0100
+Message-ID: <1340185081-22525-7-git-send-email-mgorman@suse.de>
 References: <1340185081-22525-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -19,339 +19,132 @@ In-Reply-To: <1340185081-22525-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Currently swapfiles are managed entirely by the core VM by using ->bmap
-to allocate space and write to the blocks directly. This effectively
-ensures that the underlying blocks are allocated and avoids the need
-for the swap subsystem to locate what physical blocks store offsets
-within a file.
+This patch adds two new APIs get_kernel_pages() and get_kernel_page()
+that may be used to pin a vector of kernel addresses for IO. The initial
+user is expected to be NFS for allowing pages to be written to swap
+using aops->direct_IO(). Strictly speaking, swap-over-NFS only needs
+to pin one page for IO but it makes sense to express the API in terms
+of a vector and add a helper for pinning single pages.
 
-If the swap subsystem is to use the filesystem information to locate
-the blocks, it is critical that information such as block groups,
-block bitmaps and the block descriptor table that map the swap file
-were resident in memory. This patch adds address_space_operations that
-the VM can call when activating or deactivating swap backed by a file.
-
-  int swap_activate(struct file *);
-  int swap_deactivate(struct file *);
-
-The ->swap_activate() method is used to communicate to the
-file that the VM relies on it, and the address_space should take
-adequate measures such as reserving space in the underlying device,
-reserving memory for mempools and pinning information such as the
-block descriptor table in memory. The ->swap_deactivate() method is
-called on sys_swapoff() if ->swap_activate() returned success.
-
-After a successful swapfile ->swap_activate, the swapfile
-is marked SWP_FILE and swapper_space.a_ops will proxy to
-sis->swap_file->f_mappings->a_ops using ->direct_io to write swapcache
-pages and ->readpage to read.
-
-It is perfectly possible that direct_IO be used to read the swap
-pages but it is an unnecessary complication. Similarly, it is possible
-that ->writepage be used instead of direct_io to write the pages but
-filesystem developers have stated that calling writepage from the VM
-is undesirable for a variety of reasons and using direct_IO opens up
-the possibility of writing back batches of swap pages in the future.
-
-[a.p.zijlstra@chello.nl: Original patch]
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- Documentation/filesystems/Locking |   13 ++++++++++
- Documentation/filesystems/vfs.txt |   12 +++++++++
- include/linux/fs.h                |    4 +++
- include/linux/swap.h              |    3 +++
- mm/page_io.c                      |   52 +++++++++++++++++++++++++++++++++++++
- mm/swap_state.c                   |    2 +-
- mm/swapfile.c                     |   30 +++++++++++++++++++--
- 7 files changed, 113 insertions(+), 3 deletions(-)
+ include/linux/blk_types.h |    2 ++
+ include/linux/fs.h        |    2 ++
+ include/linux/mm.h        |    4 ++++
+ mm/memory.c               |   53 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 61 insertions(+)
 
-diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
-index 8e2da1e..392e400 100644
---- a/Documentation/filesystems/Locking
-+++ b/Documentation/filesystems/Locking
-@@ -203,6 +203,8 @@ prototypes:
- 	int (*launder_page)(struct page *);
- 	int (*is_partially_uptodate)(struct page *, read_descriptor_t *, unsigned long);
- 	int (*error_remove_page)(struct address_space *, struct page *);
-+	int (*swap_activate)(struct file *);
-+	int (*swap_deactivate)(struct file *);
- 
- locking rules:
- 	All except set_page_dirty and freepage may block
-@@ -226,6 +228,8 @@ migratepage:		yes (both)
- launder_page:		yes
- is_partially_uptodate:	yes
- error_remove_page:	yes
-+swap_activate:		no
-+swap_deactivate:	no
- 
- 	->write_begin(), ->write_end(), ->sync_page() and ->readpage()
- may be called from the request handler (/dev/loop).
-@@ -327,6 +331,15 @@ cleaned, or an error value if not. Note that in order to prevent the page
- getting mapped back in and redirtied, it needs to be kept locked
- across the entire operation.
- 
-+	->swap_activate will be called with a non-zero argument on
-+files backing (non block device backed) swapfiles. A return value
-+of zero indicates success, in which case this file can be used for
-+backing swapspace. The swapspace operations will be proxied to the
-+address space operations.
-+
-+	->swap_deactivate() will be called in the sys_swapoff()
-+path after ->swap_activate() returned success.
-+
- ----------------------- file_lock_operations ------------------------------
- prototypes:
- 	void (*fl_copy_lock)(struct file_lock *, struct file_lock *);
-diff --git a/Documentation/filesystems/vfs.txt b/Documentation/filesystems/vfs.txt
-index efd23f4..7b07075 100644
---- a/Documentation/filesystems/vfs.txt
-+++ b/Documentation/filesystems/vfs.txt
-@@ -581,6 +581,8 @@ struct address_space_operations {
- 	int (*migratepage) (struct page *, struct page *);
- 	int (*launder_page) (struct page *);
- 	int (*error_remove_page) (struct mapping *mapping, struct page *page);
-+	int (*swap_activate)(struct file *);
-+	int (*swap_deactivate)(struct file *);
+diff --git a/include/linux/blk_types.h b/include/linux/blk_types.h
+index 0edb65d..7b7ac9c 100644
+--- a/include/linux/blk_types.h
++++ b/include/linux/blk_types.h
+@@ -160,6 +160,7 @@ enum rq_flag_bits {
+ 	__REQ_FLUSH_SEQ,	/* request for flush sequence */
+ 	__REQ_IO_STAT,		/* account I/O stat */
+ 	__REQ_MIXED_MERGE,	/* merge of different types, fail separately */
++	__REQ_KERNEL, 		/* direct IO to kernel pages */
+ 	__REQ_NR_BITS,		/* stops here */
  };
  
-   writepage: called by the VM to write a dirty page to backing store.
-@@ -749,6 +751,16 @@ struct address_space_operations {
- 	Setting this implies you deal with pages going away under you,
- 	unless you have them locked or reference counts increased.
+@@ -201,5 +202,6 @@ enum rq_flag_bits {
+ #define REQ_IO_STAT		(1 << __REQ_IO_STAT)
+ #define REQ_MIXED_MERGE		(1 << __REQ_MIXED_MERGE)
+ #define REQ_SECURE		(1 << __REQ_SECURE)
++#define REQ_KERNEL		(1 << __REQ_KERNEL)
  
-+  swap_activate: Called when swapon is used on a file to allocate
-+	space if necessary and pin the block lookup information in
-+	memory. A return value of zero indicates success,
-+	in which case this file can be used to back swapspace. The
-+	swapspace operations will be proxied to this address space's
-+	->swap_{out,in} methods.
-+
-+  swap_deactivate: Called during swapoff on files where swap_activate
-+  	was successful.
-+
- 
- The File Object
- ===============
+ #endif /* __LINUX_BLK_TYPES_H */
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 17fd887..9fe9e46 100644
+index 0186d67..f21da77 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -636,6 +636,10 @@ struct address_space_operations {
- 	int (*is_partially_uptodate) (struct page *, read_descriptor_t *,
- 					unsigned long);
- 	int (*error_remove_page)(struct address_space *, struct page *);
-+
-+	/* swapfile support */
-+	int (*swap_activate)(struct file *file);
-+	int (*swap_deactivate)(struct file *file);
- };
+@@ -165,6 +165,8 @@ struct inodes_stat_t {
+ #define READ			0
+ #define WRITE			RW_MASK
+ #define READA			RWA_MASK
++#define KERNEL_READ		(READ|REQ_KERNEL)
++#define KERNEL_WRITE		(WRITE|REQ_KERNEL)
  
- extern const struct address_space_operations empty_aops;
-diff --git a/include/linux/swap.h b/include/linux/swap.h
-index c84ec68..7b4f601 100644
---- a/include/linux/swap.h
-+++ b/include/linux/swap.h
-@@ -151,6 +151,7 @@ enum {
- 	SWP_SOLIDSTATE	= (1 << 4),	/* blkdev seeks are cheap */
- 	SWP_CONTINUED	= (1 << 5),	/* swap_map has count continuation */
- 	SWP_BLKDEV	= (1 << 6),	/* its a block device */
-+	SWP_FILE	= (1 << 7),	/* set after swap_activate success */
- 					/* add others here before... */
- 	SWP_SCANNING	= (1 << 8),	/* refcount in scan_swap_map */
- };
-@@ -320,6 +321,7 @@ static inline void mem_cgroup_uncharge_swap(swp_entry_t ent)
- /* linux/mm/page_io.c */
- extern int swap_readpage(struct page *);
- extern int swap_writepage(struct page *page, struct writeback_control *wbc);
-+extern int swap_set_page_dirty(struct page *page);
- extern void end_swap_bio_read(struct bio *bio, int err);
+ #define READ_SYNC		(READ | REQ_SYNC)
+ #define WRITE_SYNC		(WRITE | REQ_SYNC | REQ_NOIDLE)
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 0c0301c..b4924f0 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1019,6 +1019,10 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
+ 			struct page **pages, struct vm_area_struct **vmas);
+ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 			struct page **pages);
++struct kvec;
++int get_kernel_pages(const struct kvec *iov, int nr_pages, int write,
++			struct page **pages);
++int get_kernel_page(unsigned long start, int write, struct page **pages);
+ struct page *get_dump_page(unsigned long addr);
  
- /* linux/mm/swap_state.c */
-@@ -356,6 +358,7 @@ extern unsigned int count_swap_pages(int, int);
- extern sector_t map_swap_page(struct page *, struct block_device **);
- extern sector_t swapdev_block(int, pgoff_t);
- extern int page_swapcount(struct page *);
-+extern struct swap_info_struct *page_swap_info(struct page *);
- extern int reuse_swap_page(struct page *);
- extern int try_to_free_swap(struct page *);
- struct backing_dev_info;
-diff --git a/mm/page_io.c b/mm/page_io.c
-index 34f0292..307a3e7 100644
---- a/mm/page_io.c
-+++ b/mm/page_io.c
-@@ -17,6 +17,7 @@
- #include <linux/swap.h>
- #include <linux/bio.h>
- #include <linux/swapops.h>
-+#include <linux/buffer_head.h>
- #include <linux/writeback.h>
- #include <linux/frontswap.h>
- #include <asm/pgtable.h>
-@@ -94,6 +95,7 @@ int swap_writepage(struct page *page, struct writeback_control *wbc)
- {
- 	struct bio *bio;
- 	int ret = 0, rw = WRITE;
-+	struct swap_info_struct *sis = page_swap_info(page);
- 
- 	if (try_to_free_swap(page)) {
- 		unlock_page(page);
-@@ -105,6 +107,32 @@ int swap_writepage(struct page *page, struct writeback_control *wbc)
- 		end_page_writeback(page);
- 		goto out;
- 	}
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct kiocb kiocb;
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+		struct iovec iov = {
-+			.iov_base = page_address(page),
-+			.iov_len  = PAGE_SIZE,
-+		};
-+
-+		init_sync_kiocb(&kiocb, swap_file);
-+		kiocb.ki_pos = page_file_offset(page);
-+		kiocb.ki_left = PAGE_SIZE;
-+		kiocb.ki_nbytes = PAGE_SIZE;
-+
-+		unlock_page(page);
-+		ret = mapping->a_ops->direct_IO(KERNEL_WRITE,
-+						&kiocb, &iov,
-+						kiocb.ki_pos, 1);
-+		if (ret == PAGE_SIZE) {
-+			count_vm_event(PSWPOUT);
-+			ret = 0;
-+		}
-+		return ret;
-+	}
-+
- 	bio = get_swap_bio(GFP_NOIO, page, end_swap_bio_write);
- 	if (bio == NULL) {
- 		set_page_dirty(page);
-@@ -126,6 +154,7 @@ int swap_readpage(struct page *page)
- {
- 	struct bio *bio;
- 	int ret = 0;
-+	struct swap_info_struct *sis = page_swap_info(page);
- 
- 	VM_BUG_ON(!PageLocked(page));
- 	VM_BUG_ON(PageUptodate(page));
-@@ -134,6 +163,17 @@ int swap_readpage(struct page *page)
- 		unlock_page(page);
- 		goto out;
- 	}
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+
-+		ret = mapping->a_ops->readpage(swap_file, page);
-+		if (!ret)
-+			count_vm_event(PSWPIN);
-+		return ret;
-+	}
-+
- 	bio = get_swap_bio(GFP_KERNEL, page, end_swap_bio_read);
- 	if (bio == NULL) {
- 		unlock_page(page);
-@@ -145,3 +185,15 @@ int swap_readpage(struct page *page)
- out:
- 	return ret;
- }
-+
-+int swap_set_page_dirty(struct page *page)
-+{
-+	struct swap_info_struct *sis = page_swap_info(page);
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct address_space *mapping = sis->swap_file->f_mapping;
-+		return mapping->a_ops->set_page_dirty(page);
-+	} else {
-+		return __set_page_dirty_no_writeback(page);
-+	}
-+}
-diff --git a/mm/swap_state.c b/mm/swap_state.c
-index 4c5ff7f..c25b9cf 100644
---- a/mm/swap_state.c
-+++ b/mm/swap_state.c
-@@ -26,7 +26,7 @@
-  */
- static const struct address_space_operations swap_aops = {
- 	.writepage	= swap_writepage,
--	.set_page_dirty	= __set_page_dirty_no_writeback,
-+	.set_page_dirty	= swap_set_page_dirty,
- 	.migratepage	= migrate_page,
- };
- 
-diff --git a/mm/swapfile.c b/mm/swapfile.c
-index 6123151..6ffc876 100644
---- a/mm/swapfile.c
-+++ b/mm/swapfile.c
-@@ -1329,6 +1329,14 @@ static void destroy_swap_extents(struct swap_info_struct *sis)
- 		list_del(&se->list);
- 		kfree(se);
- 	}
-+
-+	if (sis->flags & SWP_FILE) {
-+		struct file *swap_file = sis->swap_file;
-+		struct address_space *mapping = swap_file->f_mapping;
-+
-+		sis->flags &= ~SWP_FILE;
-+		mapping->a_ops->swap_deactivate(swap_file);
-+	}
- }
+ extern int try_to_release_page(struct page * page, gfp_t gfp_mask);
+diff --git a/mm/memory.c b/mm/memory.c
+index 1b7dc66..2d55992 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -1834,6 +1834,59 @@ next_page:
+ EXPORT_SYMBOL(__get_user_pages);
  
  /*
-@@ -1410,7 +1418,9 @@ add_swap_extent(struct swap_info_struct *sis, unsigned long start_page,
-  */
- static int setup_swap_extents(struct swap_info_struct *sis, sector_t *span)
- {
--	struct inode *inode;
-+	struct file *swap_file = sis->swap_file;
-+	struct address_space *mapping = swap_file->f_mapping;
-+	struct inode *inode = mapping->host;
- 	unsigned blocks_per_page;
- 	unsigned long page_no;
- 	unsigned blkbits;
-@@ -1421,13 +1431,22 @@ static int setup_swap_extents(struct swap_info_struct *sis, sector_t *span)
- 	int nr_extents = 0;
- 	int ret;
- 
--	inode = sis->swap_file->f_mapping->host;
- 	if (S_ISBLK(inode->i_mode)) {
- 		ret = add_swap_extent(sis, 0, sis->max, 0);
- 		*span = sis->pages;
- 		goto out;
- 	}
- 
-+	if (mapping->a_ops->swap_activate) {
-+		ret = mapping->a_ops->swap_activate(swap_file);
-+		if (!ret) {
-+			sis->flags |= SWP_FILE;
-+			ret = add_swap_extent(sis, 0, sis->max, 0);
-+			*span = sis->pages;
-+		}
-+		goto out;
++ * get_kernel_pages() - pin kernel pages in memory
++ * @kiov:	An array of struct kvec structures
++ * @nr_segs:	number of segments to pin
++ * @write:	pinning for read/write, currently ignored
++ * @pages:	array that receives pointers to the pages pinned.
++ *		Should be at least nr_segs long.
++ *
++ * Returns number of pages pinned. This may be fewer than the number
++ * requested. If nr_pages is 0 or negative, returns 0. If no pages
++ * were pinned, returns -errno. Each page returned must be released
++ * with a put_page() call when it is finished with.
++ */
++int get_kernel_pages(const struct kvec *kiov, int nr_segs, int write,
++		struct page **pages)
++{
++	int seg;
++
++	for (seg = 0; seg < nr_segs; seg++) {
++		if (WARN_ON(kiov[seg].iov_len != PAGE_SIZE))
++			return seg;
++
++		/* virt_to_page sanity checks the PFN */
++		pages[seg] = virt_to_page(kiov[seg].iov_base);
++		page_cache_get(pages[seg]);
 +	}
 +
- 	blkbits = inode->i_blkbits;
- 	blocks_per_page = PAGE_SIZE >> blkbits;
- 
-@@ -2286,6 +2305,13 @@ int swapcache_prepare(swp_entry_t entry)
- 	return __swap_duplicate(entry, SWAP_HAS_CACHE);
- }
- 
-+struct swap_info_struct *page_swap_info(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	BUG_ON(!PageSwapCache(page));
-+	return swap_info[swp_type(swap)];
++	return seg;
 +}
++EXPORT_SYMBOL_GPL(get_kernel_pages);
 +
- /*
-  * out-of-line __page_file_ methods to avoid include hell.
-  */
++/*
++ * get_kernel_page() - pin a kernel page in memory
++ * @start:	starting kernel address
++ * @write:	pinning for read/write, currently ignored
++ * @pages:	array that receives pointer to the page pinned.
++ *		Must be at least nr_segs long.
++ *
++ * Returns 1 if page is pinned. If the page was not pinned, returns
++ * -errno. The page returned must be released with a put_page() call
++ * when it is finished with.
++ */
++int get_kernel_page(unsigned long start, int write, struct page **pages)
++{
++	const struct kvec kiov = {
++		.iov_base = (void *)start,
++		.iov_len = PAGE_SIZE
++	};
++
++	return get_kernel_pages(&kiov, 1, write, pages);
++}
++EXPORT_SYMBOL_GPL(get_kernel_page);
++
++/*
+  * fixup_user_fault() - manually resolve a user page fault
+  * @tsk:	the task_struct to use for page fault accounting, or
+  *		NULL if faults are not to be recorded.
 -- 
 1.7.9.2
 
