@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC reserves
-Date: Wed, 20 Jun 2012 12:44:05 +0100
-Message-ID: <1340192652-31658-11-git-send-email-mgorman@suse.de>
+Subject: [PATCH 16/17] mm: Throttle direct reclaimers if PF_MEMALLOC reserves are low and swap is backed by network storage
+Date: Wed, 20 Jun 2012 12:44:11 +0100
+Message-ID: <1340192652-31658-17-git-send-email-mgorman@suse.de>
 References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -13,452 +13,247 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
 	Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1340192652-31658-1-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change the skb allocation API to indicate RX usage and use this to fall
-back to the PFMEMALLOC reserve when needed. SKBs allocated from the
-reserve are tagged in skb->pfmemalloc. If an SKB is allocated from
-the reserve and the socket is later found to be unrelated to page
-reclaim, the packet is dropped so that the memory remains available
-for page reclaim. Network protocols are expected to recover from this
-packet loss.
+If swap is backed by network storage such as NBD, there is a risk
+that a large number of reclaimers can hang the system by consuming
+all PF_MEMALLOC reserves. To avoid these hangs, the administrator
+must tune min_free_kbytes in advance which is a bit fragile.
 
-[davem@davemloft.net: Use static branches, coding style corrections]
-[a.p.zijlstra@chello.nl: Ideas taken from various patches]
+This patch throttles direct reclaimers if half the PF_MEMALLOC reserves
+are in use. If the system is routinely getting throttled the system
+administrator can increase min_free_kbytes so degradation is smoother
+but the system will keep running.
+
 Signed-off-by: Mel Gorman <mgorman@suse.de>
-Acked-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/gfp.h    |    3 ++
- include/linux/skbuff.h |   14 +++++-
- include/net/sock.h     |    6 +++
- mm/internal.h          |    3 --
- net/core/filter.c      |    8 ++++
- net/core/skbuff.c      |  124 ++++++++++++++++++++++++++++++++++++++----------
- net/core/sock.c        |    5 ++
- 7 files changed, 133 insertions(+), 30 deletions(-)
+ include/linux/mmzone.h |    1 +
+ mm/page_alloc.c        |    1 +
+ mm/vmscan.c            |  128 +++++++++++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 122 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-index cbd7400..4883f39 100644
---- a/include/linux/gfp.h
-+++ b/include/linux/gfp.h
-@@ -385,6 +385,9 @@ void drain_local_pages(void *dummy);
-  */
- extern gfp_t gfp_allowed_mask;
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 2427706..b97c3d3 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -694,6 +694,7 @@ typedef struct pglist_data {
+ 					     range, including holes */
+ 	int node_id;
+ 	wait_queue_head_t kswapd_wait;
++	wait_queue_head_t pfmemalloc_wait;
+ 	struct task_struct *kswapd;
+ 	int kswapd_max_order;
+ 	enum zone_type classzone_idx;
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6c48965..95da786 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4379,6 +4379,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat,
+ 	pgdat_resize_init(pgdat);
+ 	pgdat->nr_zones = 0;
+ 	init_waitqueue_head(&pgdat->kswapd_wait);
++	init_waitqueue_head(&pgdat->pfmemalloc_wait);
+ 	pgdat->kswapd_max_order = 0;
+ 	pgdat_page_cgroup_init(pgdat);
  
-+/* Returns true if the gfp_mask allows use of ALLOC_NO_WATERMARK */
-+bool gfp_pfmemalloc_allowed(gfp_t gfp_mask);
-+
- extern void pm_restrict_gfp_mask(void);
- extern void pm_restore_gfp_mask(void);
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index eeb3bc9..bf8625c 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -2111,6 +2111,80 @@ out:
+ 	return 0;
+ }
  
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b534a1b..61c951f 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -465,6 +465,7 @@ struct sk_buff {
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
- 	__u8			ndisc_nodetype:2;
- #endif
-+	__u8			pfmemalloc:1;
- 	__u8			ooo_okay:1;
- 	__u8			l4_rxhash:1;
- 	__u8			wifi_acked_valid:1;
-@@ -505,6 +506,15 @@ struct sk_buff {
- #include <linux/slab.h>
- 
- 
-+#define SKB_ALLOC_FCLONE	0x01
-+#define SKB_ALLOC_RX		0x02
-+
-+/* Returns true if the skb was allocated from PFMEMALLOC reserves */
-+static inline bool skb_pfmemalloc(struct sk_buff *skb)
++static bool pfmemalloc_watermark_ok(pg_data_t *pgdat)
 +{
-+	return unlikely(skb->pfmemalloc);
++	struct zone *zone;
++	unsigned long pfmemalloc_reserve = 0;
++	unsigned long free_pages = 0;
++	int i;
++	bool wmark_ok;
++
++	for (i = 0; i <= ZONE_NORMAL; i++) {
++		zone = &pgdat->node_zones[i];
++		pfmemalloc_reserve += min_wmark_pages(zone);
++		free_pages += zone_page_state(zone, NR_FREE_PAGES);
++	}
++
++	wmark_ok = free_pages > pfmemalloc_reserve / 2;
++
++	/* kswapd must be awake if processes are being throttled */
++	if (!wmark_ok && waitqueue_active(&pgdat->kswapd_wait)) {
++		pgdat->classzone_idx = min(pgdat->classzone_idx,
++						(enum zone_type)ZONE_NORMAL);
++		wake_up_interruptible(&pgdat->kswapd_wait);
++	}
++
++	return wmark_ok;
 +}
-+
- /*
-  * skb might have a dst pointer attached, refcounted or not.
-  * _skb_refdst low order bit is set if refcount was _not_ taken
-@@ -568,7 +578,7 @@ extern bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 			     bool *fragstolen, int *delta_truesize);
- 
- extern struct sk_buff *__alloc_skb(unsigned int size,
--				   gfp_t priority, int fclone, int node);
-+				   gfp_t priority, int flags, int node);
- extern struct sk_buff *build_skb(void *data, unsigned int frag_size);
- static inline struct sk_buff *alloc_skb(unsigned int size,
- 					gfp_t priority)
-@@ -579,7 +589,7 @@ static inline struct sk_buff *alloc_skb(unsigned int size,
- static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 					       gfp_t priority)
- {
--	return __alloc_skb(size, priority, 1, NUMA_NO_NODE);
-+	return __alloc_skb(size, priority, SKB_ALLOC_FCLONE, NUMA_NO_NODE);
- }
- 
- extern void skb_recycle(struct sk_buff *skb);
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 9f38b7d..e3fe462 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -657,6 +657,12 @@ static inline bool sock_flag(const struct sock *sk, enum sock_flags flag)
- 	return test_bit(flag, &sk->sk_flags);
- }
- 
-+extern struct static_key memalloc_socks;
-+static inline int sk_memalloc_socks(void)
-+{
-+	return static_key_false(&memalloc_socks);
-+}
-+
- static inline gfp_t sk_gfp_atomic(struct sock *sk, gfp_t gfp_mask)
- {
- 	return GFP_ATOMIC | (sk->sk_allocation & __GFP_MEMALLOC);
-diff --git a/mm/internal.h b/mm/internal.h
-index 2d0dd52..2ba87fb 100644
---- a/mm/internal.h
-+++ b/mm/internal.h
-@@ -273,9 +273,6 @@ static inline struct page *mem_map_next(struct page *iter,
- #define __paginginit __init
- #endif
- 
--/* Returns true if the gfp_mask allows use of ALLOC_NO_WATERMARK */
--bool gfp_pfmemalloc_allowed(gfp_t gfp_mask);
--
- /* Memory initialisation debug and verification */
- enum mminit_level {
- 	MMINIT_WARNING,
-diff --git a/net/core/filter.c b/net/core/filter.c
-index d4ce2dc..907efd2 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -83,6 +83,14 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
- 	int err;
- 	struct sk_filter *filter;
- 
-+	/*
-+	 * If the skb was allocated from pfmemalloc reserves, only
-+	 * allow SOCK_MEMALLOC sockets to use it as this socket is
-+	 * helping free memory
-+	 */
-+	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
-+		return -ENOMEM;
-+
- 	err = security_sock_rcv_skb(sk, skb);
- 	if (err)
- 		return err;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1d6ecc8..9a58dcc 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -145,6 +145,43 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
- 	BUG();
- }
- 
 +
 +/*
-+ * kmalloc_reserve is a wrapper around kmalloc_node_track_caller that tells
-+ * the caller if emergency pfmemalloc reserves are being used. If it is and
-+ * the socket is later found to be SOCK_MEMALLOC then PFMEMALLOC reserves
-+ * may be used. Otherwise, the packet data may be discarded until enough
-+ * memory is free
++ * Throttle direct reclaimers if backing storage is backed by the network
++ * and the PFMEMALLOC reserve for the preferred node is getting dangerously
++ * depleted. kswapd will continue to make progress and wake the processes
++ * when the low watermark is reached
 + */
-+#define kmalloc_reserve(size, gfp, node, pfmemalloc) \
-+	 __kmalloc_reserve(size, gfp, node, _RET_IP_, pfmemalloc)
-+void *__kmalloc_reserve(size_t size, gfp_t flags, int node, unsigned long ip,
-+			 bool *pfmemalloc)
++static void throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
++					nodemask_t *nodemask)
 +{
-+	void *obj;
-+	bool ret_pfmemalloc = false;
++	struct zone *zone;
++	int high_zoneidx = gfp_zone(gfp_mask);
++	pg_data_t *pgdat;
 +
 +	/*
-+	 * Try a regular allocation, when that fails and we're not entitled
-+	 * to the reserves, fail.
++	 * Kernel threads should not be throttled as they may be indirectly
++	 * responsible for cleaning pages necessary for reclaim to make forward
++	 * progress. kjournald for example may enter direct reclaim while
++	 * committing a transaction where throttling it could forcing other
++	 * processes to block on log_wait_commit().
 +	 */
-+	obj = kmalloc_node_track_caller(size,
-+					flags | __GFP_NOMEMALLOC | __GFP_NOWARN,
-+					node);
-+	if (obj || !(gfp_pfmemalloc_allowed(flags)))
-+		goto out;
++	if (current->flags & PF_KTHREAD)
++		return;
 +
-+	/* Try again but now we are using pfmemalloc reserves */
-+	ret_pfmemalloc = true;
-+	obj = kmalloc_node_track_caller(size, flags, node);
++	/* Check if the pfmemalloc reserves are ok */
++	first_zones_zonelist(zonelist, high_zoneidx, NULL, &zone);
++	pgdat = zone->zone_pgdat;
++	if (pfmemalloc_watermark_ok(pgdat))
++		return;
 +
-+out:
-+	if (pfmemalloc)
-+		*pfmemalloc = ret_pfmemalloc;
++	/*
++	 * If the caller cannot enter the filesystem, it's possible that it
++	 * is due to the caller holding an FS lock or performing a journal
++	 * transaction in the case of a filesystem like ext[3|4]. In this case,
++	 * it is not safe to block on pfmemalloc_wait as kswapd could be
++	 * blocked waiting on the same lock. Instead, throttle for up to a
++	 * second before continuing.
++	 */
++	if (!(gfp_mask & __GFP_FS)) {
++		wait_event_interruptible_timeout(pgdat->pfmemalloc_wait,
++			pfmemalloc_watermark_ok(pgdat), HZ);
++		return;
++	}
 +
-+	return obj;
++	/* Throttle until kswapd wakes the process */
++	wait_event_killable(zone->zone_pgdat->pfmemalloc_wait,
++		pfmemalloc_watermark_ok(pgdat));
 +}
 +
- /* 	Allocate a new skbuff. We do this ourselves so we can fill in a few
-  *	'private' fields and also do memory statistics to find all the
-  *	[BEEP] leaks.
-@@ -155,8 +192,10 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
-  *	__alloc_skb	-	allocate a network buffer
-  *	@size: size to allocate
-  *	@gfp_mask: allocation mask
-- *	@fclone: allocate from fclone cache instead of head cache
-- *		and allocate a cloned (child) skb
-+ *	@flags: If SKB_ALLOC_FCLONE is set, allocate from fclone cache
-+ *		instead of head cache and allocate a cloned (child) skb.
-+ *		If SKB_ALLOC_RX is set, __GFP_MEMALLOC will be used for
-+ *		allocations in case the data is required for writeback
-  *	@node: numa node to allocate memory on
-  *
-  *	Allocate a new &sk_buff. The returned buffer has no headroom and a
-@@ -167,14 +206,19 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
-  *	%GFP_ATOMIC.
-  */
- struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
--			    int fclone, int node)
-+			    int flags, int node)
+ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+ 				gfp_t gfp_mask, nodemask_t *nodemask)
  {
- 	struct kmem_cache *cache;
- 	struct skb_shared_info *shinfo;
- 	struct sk_buff *skb;
- 	u8 *data;
-+	bool pfmemalloc;
+@@ -2130,6 +2204,15 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
+ 		.gfp_mask = sc.gfp_mask,
+ 	};
  
--	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
-+	cache = (flags & SKB_ALLOC_FCLONE)
-+		? skbuff_fclone_cache : skbuff_head_cache;
++	throttle_direct_reclaim(gfp_mask, zonelist, nodemask);
 +
-+	if (sk_memalloc_socks() && (flags & SKB_ALLOC_RX))
-+		gfp_mask |= __GFP_MEMALLOC;
- 
- 	/* Get the HEAD */
- 	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
-@@ -189,7 +233,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	 */
- 	size = SKB_DATA_ALIGN(size);
- 	size += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
--	data = kmalloc_node_track_caller(size, gfp_mask, node);
-+	data = kmalloc_reserve(size, gfp_mask, node, &pfmemalloc);
- 	if (!data)
- 		goto nodata;
- 	/* kmalloc(size) might give us more room than requested.
-@@ -207,6 +251,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	memset(skb, 0, offsetof(struct sk_buff, tail));
- 	/* Account for allocated memory : skb + skb->head */
- 	skb->truesize = SKB_TRUESIZE(size);
-+	skb->pfmemalloc = pfmemalloc;
- 	atomic_set(&skb->users, 1);
- 	skb->head = data;
- 	skb->data = data;
-@@ -222,7 +267,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	atomic_set(&shinfo->dataref, 1);
- 	kmemcheck_annotate_variable(shinfo->destructor_arg);
- 
--	if (fclone) {
-+	if (flags & SKB_ALLOC_FCLONE) {
- 		struct sk_buff *child = skb + 1;
- 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
- 
-@@ -232,6 +277,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 		atomic_set(fclone_ref, 1);
- 
- 		child->fclone = SKB_FCLONE_UNAVAILABLE;
-+		child->pfmemalloc = pfmemalloc;
- 	}
- out:
- 	return skb;
-@@ -299,14 +345,7 @@ struct netdev_alloc_cache {
- };
- static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
- 
--/**
-- * netdev_alloc_frag - allocate a page fragment
-- * @fragsz: fragment size
-- *
-- * Allocates a frag from a page for receive buffer.
-- * Uses GFP_ATOMIC allocations.
-- */
--void *netdev_alloc_frag(unsigned int fragsz)
-+static void *__netdev_alloc_frag(unsigned int fragsz, gfp_t gfp_mask)
- {
- 	struct netdev_alloc_cache *nc;
- 	void *data = NULL;
-@@ -316,7 +355,7 @@ void *netdev_alloc_frag(unsigned int fragsz)
- 	nc = &__get_cpu_var(netdev_alloc_cache);
- 	if (unlikely(!nc->page)) {
- refill:
--		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-+		nc->page = alloc_page(gfp_mask);
- 		nc->offset = 0;
- 	}
- 	if (likely(nc->page)) {
-@@ -331,6 +370,18 @@ refill:
- 	local_irq_restore(flags);
- 	return data;
++	/*
++	 * Do not enter reclaim if fatal signal is pending. 1 is returned so
++	 * that the page allocator does not consider triggering OOM
++	 */
++	if (fatal_signal_pending(current))
++		return 1;
++
+ 	trace_mm_vmscan_direct_reclaim_begin(order,
+ 				sc.may_writepage,
+ 				gfp_mask);
+@@ -2274,8 +2357,13 @@ static bool pgdat_balanced(pg_data_t *pgdat, unsigned long balanced_pages,
+ 	return balanced_pages >= (present_pages >> 2);
  }
-+
-+/**
-+ * netdev_alloc_frag - allocate a page fragment
-+ * @fragsz: fragment size
+ 
+-/* is kswapd sleeping prematurely? */
+-static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
++/*
++ * Prepare kswapd for sleeping. This verifies that there are no processes
++ * waiting in throttle_direct_reclaim() and that watermarks have been met.
 + *
-+ * Allocates a frag from a page for receive buffer.
-+ * Uses GFP_ATOMIC allocations.
++ * Returns true if kswapd is ready to sleep
 + */
-+void *netdev_alloc_frag(unsigned int fragsz)
-+{
-+	return __netdev_alloc_frag(fragsz, GFP_ATOMIC | __GFP_COLD);
-+}
- EXPORT_SYMBOL(netdev_alloc_frag);
- 
- /**
-@@ -354,7 +405,12 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
- 	if (fragsz <= PAGE_SIZE && !(gfp_mask & __GFP_WAIT)) {
--		void *data = netdev_alloc_frag(fragsz);
-+		void *data;
-+
-+		if (sk_memalloc_socks())
-+			gfp_mask |= __GFP_MEMALLOC;
-+
-+		data = __netdev_alloc_frag(fragsz, gfp_mask);
- 
- 		if (likely(data)) {
- 			skb = build_skb(data, fragsz);
-@@ -362,7 +418,8 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 				put_page(virt_to_head_page(data));
- 		}
- 	} else {
--		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, NUMA_NO_NODE);
-+		skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
-+				  SKB_ALLOC_RX, NUMA_NO_NODE);
- 	}
- 	if (likely(skb)) {
- 		skb_reserve(skb, NET_SKB_PAD);
-@@ -644,6 +701,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- #if IS_ENABLED(CONFIG_IP_VS)
- 	new->ipvs_property	= old->ipvs_property;
- #endif
-+	new->pfmemalloc		= old->pfmemalloc;
- 	new->protocol		= old->protocol;
- 	new->mark		= old->mark;
- 	new->skb_iif		= old->skb_iif;
-@@ -803,6 +861,9 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 		n->fclone = SKB_FCLONE_CLONE;
- 		atomic_inc(fclone_ref);
- 	} else {
-+		if (skb_pfmemalloc(skb))
-+			gfp_mask |= __GFP_MEMALLOC;
-+
- 		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
- 		if (!n)
- 			return NULL;
-@@ -839,6 +900,13 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
- }
- 
-+static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
-+{
-+	if (skb_pfmemalloc((struct sk_buff *)skb))
-+		return SKB_ALLOC_RX;
-+	return 0;
-+}
-+
- /**
-  *	skb_copy	-	create private copy of an sk_buff
-  *	@skb: buffer to copy
-@@ -860,7 +928,8 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
++static bool prepare_kswapd_sleep(pg_data_t *pgdat, int order, long remaining,
+ 					int classzone_idx)
  {
- 	int headerlen = skb_headroom(skb);
- 	unsigned int size = skb_end_offset(skb) + skb->data_len;
--	struct sk_buff *n = alloc_skb(size, gfp_mask);
-+	struct sk_buff *n = __alloc_skb(size, gfp_mask,
-+					skb_alloc_rx_flag(skb), NUMA_NO_NODE);
+ 	int i;
+@@ -2284,7 +2372,21 @@ static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
  
- 	if (!n)
- 		return NULL;
-@@ -895,7 +964,8 @@ EXPORT_SYMBOL(skb_copy);
- struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask)
- {
- 	unsigned int size = skb_headlen(skb) + headroom;
--	struct sk_buff *n = alloc_skb(size, gfp_mask);
-+	struct sk_buff *n = __alloc_skb(size, gfp_mask,
-+					skb_alloc_rx_flag(skb), NUMA_NO_NODE);
+ 	/* If a direct reclaimer woke kswapd within HZ/10, it's premature */
+ 	if (remaining)
+-		return true;
++		return false;
++
++	/*
++	 * There is a potential race between when kswapd checks its watermarks
++	 * and a process gets throttled. There is also a potential race if
++	 * processes get throttled, kswapd wakes, a large process exits therby
++	 * balancing the zones that causes kswapd to miss a wakeup. If kswapd
++	 * is going to sleep, no process should be sleeping on pfmemalloc_wait
++	 * so wake them now if necessary. If necessary, processes will wake
++	 * kswapd and get throttled again
++	 */
++	if (waitqueue_active(&pgdat->pfmemalloc_wait)) {
++		wake_up(&pgdat->pfmemalloc_wait);
++		return false;
++	}
  
- 	if (!n)
- 		goto out;
-@@ -970,8 +1040,10 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 
- 	size = SKB_DATA_ALIGN(size);
- 
--	data = kmalloc(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
--		       gfp_mask);
-+	if (skb_pfmemalloc(skb))
-+		gfp_mask |= __GFP_MEMALLOC;
-+	data = kmalloc_reserve(size + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
-+			       gfp_mask, NUMA_NO_NODE, NULL);
- 	if (!data)
- 		goto nodata;
- 	size = SKB_WITH_OVERHEAD(ksize(data));
-@@ -1085,8 +1157,9 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	/*
- 	 *	Allocate the copy buffer
+ 	/* Check the watermark levels */
+ 	for (i = 0; i <= classzone_idx; i++) {
+@@ -2317,9 +2419,9 @@ static bool sleeping_prematurely(pg_data_t *pgdat, int order, long remaining,
+ 	 * must be balanced
  	 */
--	struct sk_buff *n = alloc_skb(newheadroom + skb->len + newtailroom,
--				      gfp_mask);
-+	struct sk_buff *n = __alloc_skb(newheadroom + skb->len + newtailroom,
-+					gfp_mask, skb_alloc_rx_flag(skb),
-+					NUMA_NO_NODE);
- 	int oldheadroom = skb_headroom(skb);
- 	int head_copy_len, head_copy_off;
- 	int off;
-@@ -2767,8 +2840,9 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 			skb_release_head_state(nskb);
- 			__skb_push(nskb, doffset);
- 		} else {
--			nskb = alloc_skb(hsize + doffset + headroom,
--					 GFP_ATOMIC);
-+			nskb = __alloc_skb(hsize + doffset + headroom,
-+					   GFP_ATOMIC, skb_alloc_rx_flag(skb),
-+					   NUMA_NO_NODE);
+ 	if (order)
+-		return !pgdat_balanced(pgdat, balanced, classzone_idx);
++		return pgdat_balanced(pgdat, balanced, classzone_idx);
+ 	else
+-		return !all_zones_ok;
++		return all_zones_ok;
+ }
  
- 			if (unlikely(!nskb))
- 				goto err;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index d45d6fd..9f7240f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -271,6 +271,9 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
- int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
- EXPORT_SYMBOL(sysctl_optmem_max);
+ /*
+@@ -2545,6 +2647,16 @@ loop_again:
+ 			}
  
-+struct static_key memalloc_socks = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL_GPL(memalloc_socks);
+ 		}
 +
- /**
-  * sk_set_memalloc - sets %SOCK_MEMALLOC
-  * @sk: socket to set it on
-@@ -283,6 +286,7 @@ void sk_set_memalloc(struct sock *sk)
- {
- 	sock_set_flag(sk, SOCK_MEMALLOC);
- 	sk->sk_allocation |= __GFP_MEMALLOC;
-+	static_key_slow_inc(&memalloc_socks);
- }
- EXPORT_SYMBOL_GPL(sk_set_memalloc);
++		/*
++		 * If the low watermark is met there is no need for processes
++		 * to be throttled on pfmemalloc_wait as they should not be
++		 * able to safely make forward progress. Wake them
++		 */
++		if (waitqueue_active(&pgdat->pfmemalloc_wait) &&
++				pfmemalloc_watermark_ok(pgdat))
++			wake_up(&pgdat->pfmemalloc_wait);
++
+ 		if (all_zones_ok || (order && pgdat_balanced(pgdat, balanced, *classzone_idx)))
+ 			break;		/* kswapd: all done */
+ 		/*
+@@ -2646,7 +2758,7 @@ out:
+ 	}
  
-@@ -290,6 +294,7 @@ void sk_clear_memalloc(struct sock *sk)
- {
- 	sock_reset_flag(sk, SOCK_MEMALLOC);
- 	sk->sk_allocation &= ~__GFP_MEMALLOC;
-+	static_key_slow_dec(&memalloc_socks);
- }
- EXPORT_SYMBOL_GPL(sk_clear_memalloc);
+ 	/*
+-	 * Return the order we were reclaiming at so sleeping_prematurely()
++	 * Return the order we were reclaiming at so prepare_kswapd_sleep()
+ 	 * makes a decision on the order we were last reclaiming at. However,
+ 	 * if another caller entered the allocator slow path while kswapd
+ 	 * was awake, order will remain at the higher level
+@@ -2666,7 +2778,7 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int order, int classzone_idx)
+ 	prepare_to_wait(&pgdat->kswapd_wait, &wait, TASK_INTERRUPTIBLE);
  
+ 	/* Try to sleep for a short interval */
+-	if (!sleeping_prematurely(pgdat, order, remaining, classzone_idx)) {
++	if (prepare_kswapd_sleep(pgdat, order, remaining, classzone_idx)) {
+ 		remaining = schedule_timeout(HZ/10);
+ 		finish_wait(&pgdat->kswapd_wait, &wait);
+ 		prepare_to_wait(&pgdat->kswapd_wait, &wait, TASK_INTERRUPTIBLE);
+@@ -2676,7 +2788,7 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int order, int classzone_idx)
+ 	 * After a short sleep, check if it was a premature sleep. If not, then
+ 	 * go fully to sleep until explicitly woken up.
+ 	 */
+-	if (!sleeping_prematurely(pgdat, order, remaining, classzone_idx)) {
++	if (prepare_kswapd_sleep(pgdat, order, remaining, classzone_idx)) {
+ 		trace_mm_vmscan_kswapd_sleep(pgdat->node_id);
+ 
+ 		/*
 -- 
 1.7.9.2
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
