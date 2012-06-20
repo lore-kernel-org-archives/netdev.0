@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ipv4: Early TCP socket demux.
-Date: Wed, 20 Jun 2012 00:57:53 -0700 (PDT)
-Message-ID: <20120620.005753.545788933895952782.davem@davemloft.net>
-References: <20120619.214957.1282277480138040899.davem@davemloft.net>
-	<alpine.LFD.2.00.1206200937040.1912@ja.ssi.bg>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] netxen: Error return off by one in
+ 'netxen_nic_set_pauseparam()'.
+Date: Wed, 20 Jun 2012 10:57:46 +0300
+Message-ID: <20120620075746.GT4400@mwanda>
+References: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Content-Type: text/plain; charset=us-ascii
+Cc: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: santosh nayak <santoshprasadnayak@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35165 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755466Ab2FTH54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:57:56 -0400
-In-Reply-To: <alpine.LFD.2.00.1206200937040.1912@ja.ssi.bg>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:36614 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755434Ab2FTH6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:58:02 -0400
+Content-Disposition: inline
+In-Reply-To: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Wed, 20 Jun 2012 10:00:37 +0300 (EEST)
-
-> 			if (skb->dev != dst->dev)
-> 				dst = NULL;
-
-That makes the most sense.
-
-> 	Also, is it a good idea to hide such optimizations
-> in a bit mask:
+On Wed, Jun 20, 2012 at 12:57:39PM +0530, santosh nayak wrote:
+> From: Santosh Nayak <santoshprasadnayak@gmail.com>
 > 
-> sysctl_net_optimizations & 1: optimize for end host
-> sysctl_net_optimizations & 2: optimize for router
-> ...
+> There are 'NETXEN_NIU_MAX_GBE_PORTS'  GBE ports. Port indexing starts
+> from zero. 
+> Hence we should also return error for "port == NETXEN_NIU_MAX_GBE_PORTS"
+> 
 
-God, that's ugly as sin.
+So my understanding is that you are guessing on this based on the
+fact that, "Who counts from 0-4 inclusive?".  I can't argue with
+that logic.
 
-We're putting this down into GRO, so people can tune with
-an existing knob there as they already do.
+Looking some more at NETXEN_NIU_MAX_XG_PORTS.  It is used off by one
+4 times and it's used correctly 1 time.
+
+regards,
+dan carpenter
