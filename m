@@ -1,53 +1,113 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
-Date: Wed, 20 Jun 2012 09:21:59 -0700
-Message-ID: <4FE1F8A7.9000306@hp.com>
-References: <20120619.214657.1345825814176201681.davem@davemloft.net> <1340171359.4604.794.camel@edumazet-glaptop> <1340171489.4604.796.camel@edumazet-glaptop> <20120619.231401.2278176068934152926.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
+ with TCP and GRO
+Date: Wed, 20 Jun 2012 09:30:55 -0700
+Message-ID: <4FE1FABF.6040309@intel.com>
+References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com> <1340170590.4604.784.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:10837 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757149Ab2FTQWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 12:22:03 -0400
-In-Reply-To: <20120619.231401.2278176068934152926.davem@davemloft.net>
+Received: from mga11.intel.com ([192.55.52.93]:46377 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756945Ab2FTQa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 12:30:56 -0400
+In-Reply-To: <1340170590.4604.784.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/19/2012 11:14 PM, David Miller wrote:
-> From: Eric Dumazet<eric.dumazet@gmail.com>
-> Date: Wed, 20 Jun 2012 07:51:29 +0200
->
->> On Wed, 2012-06-20 at 07:49 +0200, Eric Dumazet wrote:
+On 06/19/2012 10:36 PM, Eric Dumazet wrote:
+> On Tue, 2012-06-19 at 17:43 -0700, Alexander Duyck wrote:
+>> This patch is meant to help improve system performance when
+>> netdev_alloc_frag is used in scenarios in which buffers are short lived.
+>> This is accomplished by allowing the page offset to be reset in the event
+>> that the page count is 1.  I also reordered the direction in which we give
+>> out sections of the page so that we start at the end of the page and end at
+>> the start.  The main motivation being that I preferred to have offset
+>> represent the amount of page remaining to be used.
 >>
->>> 2) small lived tcp sessions
->>>
->>>     input dst is now dirtied because of the additional
->>> dst_clone()/dst_release()
+>> My primary test case was using ixgbe in combination with TCP.  With this
+>> patch applied I saw CPU utilization drop from 3.4% to 3.0% for a single
+>> thread of netperf receiving a TCP stream via ixgbe.
 >>
->> Not realy a concern because we dirty cache line anyway
+>> I also tested several scenarios in which the page reuse would not be
+>> possible such as UDP flows and routing.  In both of these scenarios I saw
+>> no noticeable performance degradation compared to the kernel without this
+>> patch.
 >>
->> dst_use_noref()
->> {
->> 	dst->__use++;
->> 	dst->lastuse = time;
->> }
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> ---
+>>
+>>  net/core/skbuff.c |   15 +++++++++++----
+>>  1 files changed, 11 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 5b21522..eb3853c 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -317,15 +317,22 @@ void *netdev_alloc_frag(unsigned int fragsz)
+>>  	if (unlikely(!nc->page)) {
+>>  refill:
+>>  		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
+>> -		nc->offset = 0;
+>>  	}
+>>  	if (likely(nc->page)) {
+>> -		if (nc->offset + fragsz > PAGE_SIZE) {
+>> +		unsigned int offset = PAGE_SIZE;
+>> +
+>> +		if (page_count(nc->page) != 1)
+>> +			offset = nc->offset;
+>> +
+>> +		if (offset < fragsz) {
+>>  			put_page(nc->page);
+>>  			goto refill;
+>>  		}
+>> -		data = page_address(nc->page) + nc->offset;
+>> -		nc->offset += fragsz;
+>> +
+>> +		offset -= fragsz;
+>> +		nc->offset = offset;
+>> +
+>> +		data = page_address(nc->page) + offset;
+>>  		get_page(nc->page);
+>>  	}
+>>  	local_irq_restore(flags);
+>>
+> I tested this idea one month ago and got not convincing results, because
+> the branch was taken half of the time.
 >
-> Right, the costs probably even out for short TCP flows.
+> The cases where page can be reused is probably specific to ixgbe because
+> it uses a different allocator for the frags themselves.
+> netdev_alloc_frag() is only used to allocate the skb head.
+Actually it is pretty much anywhere a copy-break type setup exists.  I
+think ixgbe and a few other drivers have this type of setup where
+netdev_alloc_skb is called and the data is just copied into the buffer. 
+My thought was if that I can improve this one case without hurting the
+other cases I should just go ahead and submit it since it is a net win
+performance wise.
+
+I think one of the biggest advantages of this for ixgbe is that it
+allows the buffer to become cache warm so that writing the shared info
+and copying the header contents becomes very cheap compared to accessing
+a cache cold page.
+
+> For typical nics, we allocate frags to populate the RX ring _way_ before
+> packet is received by the NIC.
 >
-> But better to do real tests than to believe what any of
-> us say. :-)
+> Then, I played with using order-2 pages instead of order-0 ones if
+> PAGE_SIZE < 8192.
+>
+> No clear win either, but you might try this too.
+The biggest issue I see with an order-2 page is that it means the memory
+is going to take much longer to cycle out of a shared page.  As a result
+changes like the one I just came up with would likely have little to no
+benefit because we would run out of room in the frags list before we
+could start reusing a fresh page.
 
-netperf -c -C  -t TCP_CC ...  #just connect/close
+Thanks,
 
-or
-
-netperf -c -C -t TCP_CRR ...  # with a request/response pair in there
-
-For some definition of "real" anyway :)
-
-rick jones
+Alex
