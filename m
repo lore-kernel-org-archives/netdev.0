@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH -v1 2/3] usbnet: decrease suspend count if returning -EBUSY for runtime suspend
-Date: Wed, 20 Jun 2012 15:15:52 +0800
-Message-ID: <1340176553-32225-3-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH -v1 3/3] usbnet: handle remote wakeup asap
+Date: Wed, 20 Jun 2012 15:15:53 +0800
+Message-ID: <1340176553-32225-4-git-send-email-ming.lei@canonical.com>
 References: <1340176553-32225-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
@@ -12,27 +12,92 @@ In-Reply-To: <1340176553-32225-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch decreases dev->suspend_count in the -EBUSY failure path
-of usbnet_suspend. Without the change, the later runtime suspend
-will do nothing except for increasing dev->suspend_count.
+If usbnet is resumed by remote wakeup, generally there are
+some packets comming to be handled, so allocate and submit
+rx URBs in usbnet_resume to avoid delays introduced by tasklet.
+Otherwise, usbnet may have been runtime suspended before the
+usbnet_bh is executed to schedule Rx URBs.
+
+Without the patch, usbnet can't recieve any packets from peer
+in runtime suspend state if runtime PM is enabled and
+autosuspend_delay is set as zero.
 
 Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/usb/usbnet.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/usb/usbnet.c |   42 ++++++++++++++++++++++++++----------------
+ 1 file changed, 26 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index f06cf9b..9bfa775 100644
+index 9bfa775..a89d6c5 100644
 --- a/drivers/net/usb/usbnet.c
 +++ b/drivers/net/usb/usbnet.c
-@@ -1508,6 +1508,7 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
- 		spin_lock_irq(&dev->txq.lock);
- 		/* don't autosuspend while transmitting */
- 		if (dev->txq.qlen && PMSG_IS_AUTO(message)) {
-+			dev->suspend_count--;
- 			spin_unlock_irq(&dev->txq.lock);
- 			return -EBUSY;
- 		} else {
+@@ -1201,6 +1201,21 @@ deferred:
+ }
+ EXPORT_SYMBOL_GPL(usbnet_start_xmit);
+ 
++static void rx_alloc_submit(struct usbnet *dev, gfp_t flags)
++{
++	struct urb	*urb;
++	int		i;
++
++	/* don't refill the queue all at once */
++	for (i = 0; i < 10 && dev->rxq.qlen < RX_QLEN(dev); i++) {
++		urb = usb_alloc_urb(0, flags);
++		if (urb != NULL) {
++			if (rx_submit(dev, urb, flags) == -ENOLINK)
++				return;
++		}
++	}
++}
++
+ /*-------------------------------------------------------------------------*/
+ 
+ // tasklet (work deferred from completions, in_irq) or timer
+@@ -1240,26 +1255,14 @@ static void usbnet_bh (unsigned long param)
+ 		   !timer_pending (&dev->delay) &&
+ 		   !test_bit (EVENT_RX_HALT, &dev->flags)) {
+ 		int	temp = dev->rxq.qlen;
+-		int	qlen = RX_QLEN (dev);
+-
+-		if (temp < qlen) {
+-			struct urb	*urb;
+-			int		i;
+-
+-			// don't refill the queue all at once
+-			for (i = 0; i < 10 && dev->rxq.qlen < qlen; i++) {
+-				urb = usb_alloc_urb (0, GFP_ATOMIC);
+-				if (urb != NULL) {
+-					if (rx_submit (dev, urb, GFP_ATOMIC) ==
+-					    -ENOLINK)
+-						return;
+-				}
+-			}
++
++		if (temp < RX_QLEN(dev)) {
++			rx_alloc_submit(dev, GFP_ATOMIC);
+ 			if (temp != dev->rxq.qlen)
+ 				netif_dbg(dev, link, dev->net,
+ 					  "rxqlen %d --> %d\n",
+ 					  temp, dev->rxq.qlen);
+-			if (dev->rxq.qlen < qlen)
++			if (dev->rxq.qlen < RX_QLEN(dev))
+ 				tasklet_schedule (&dev->bh);
+ 		}
+ 		if (dev->txq.qlen < TX_QLEN (dev))
+@@ -1565,6 +1568,13 @@ int usbnet_resume (struct usb_interface *intf)
+ 		spin_unlock_irq(&dev->txq.lock);
+ 
+ 		if (test_bit(EVENT_DEV_OPEN, &dev->flags)) {
++			/* handle remote wakeup ASAP */
++			if (!dev->wait &&
++				netif_device_present(dev->net) &&
++				!timer_pending(&dev->delay) &&
++				!test_bit(EVENT_RX_HALT, &dev->flags))
++					rx_alloc_submit(dev, GFP_KERNEL);
++
+ 			if (!(dev->txq.qlen >= TX_QLEN(dev)))
+ 				netif_tx_wake_all_queues(dev->net);
+ 			tasklet_schedule (&dev->bh);
 -- 
 1.7.9.5
 
