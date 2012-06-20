@@ -1,41 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
-Date: Wed, 20 Jun 2012 15:29:59 -0700 (PDT)
-Message-ID: <20120620.152959.2146722628245186096.davem@davemloft.net>
-References: <20120619.231412.1236237191660427779.davem@davemloft.net>
-	<20120620.031543.1511134879638711616.davem@davemloft.net>
-	<1340195920.4604.918.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: RE: [PATCH net-next 2/6] bnx2x: link cleanup
+Date: Wed, 20 Jun 2012 15:41:52 -0700
+Message-ID: <1340232112.29885.38.camel@joe2Laptop>
+References: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
+	 <1340182175-916-3-git-send-email-yuvalmin@broadcom.com>
+	 <1340204019.29885.9.camel@joe2Laptop>
+	 <979A8436335E3744ADCD3A9F2A2B68A5029F62@SJEXCHMB10.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Yaniv Rosner <yaniv.rosner@broadcom.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46011 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757676Ab2FTWaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 18:30:00 -0400
-In-Reply-To: <1340195920.4604.918.camel@edumazet-glaptop>
+Received: from perches-mx.perches.com ([206.117.179.246]:48772 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752189Ab2FTWlw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 18:41:52 -0400
+In-Reply-To: <979A8436335E3744ADCD3A9F2A2B68A5029F62@SJEXCHMB10.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 20 Jun 2012 14:38:40 +0200
-
-> Problem could happen if sk->sk_rx_dst is freed while some packets are
-> still in napi or socket backlog (can happen with some network
-> reordering)
+On Wed, 2012-06-20 at 17:50 +0000, Yuval Mintz wrote:
+> > >  3. Change msleep(1) --> usleep_range(1000, 1000)
+> > 
+> > I believe replacing msleep(small) with
+> > usleep_range(small * 1000, small * 1000) is
+> > not generally a good idea.
+> > 
+> > Please give usleep_range an actual range to
+> > work with and not a repeated single value.
+> > 
+> > Please think a little more about what a
+> > good upper range for the maximum time to
+> > sleep should be.
+> > 
+> > usleep_range(small * 1000, small * 2000)
+> > or something similar maybe.
+> >
 > 
-> 1) Socket backlog must be flushed before sk->sk_rx_dst freeing
-> 
-> 2) Even if we move rcu_read_lock() in net_rx_action(), we need some
-> napi_gro_forcedstrefs() in case we sofnet_break
-> 
-> Or maybe just use napi_gro_flush() ?
+> Sounds good.  I'll change it and re-send the patch series.
 
-Good catch, but I've just figured out a more fundamental issue
-with doing this at the GRO layer.
+Hi Yuval.
 
-The IPV4 input path is going to undo our early socket demux by
-orphaning the SKB in ip_rcv().  So we'll end up looking up the
-socket twice.
+Here's a little script from awhile ago that
+does it by doubling the small value as the
+high value range bound.
+
+http://kerneltrap.org/mailarchive/linux-netdev/2010/12/2/6290711
+
+(replace [path] as appropriate)
+
+$ grep -nPrl --include=*.[ch] "msleep\s*\(\s*1?\d\s*\)" [path] \
+  xargs perl -p -i -e 's/msleep\s*\(\s*(1?\d)\s*\)/"usleep_range\(${1}000, " . scalar($1) * 2 . "000\)"/ge'
