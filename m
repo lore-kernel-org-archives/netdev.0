@@ -1,61 +1,94 @@
-From: valdis.kletnieks@vt.edu
-Subject: Re: next-20120620 build error in netfilter
-Date: Wed, 20 Jun 2012 14:37:52 -0400
-Message-ID: <55558.1340217472@turing-police.cc.vt.edu>
-References: <32596.1340212473@turing-police.cc.vt.edu>
-            <20120620172801.GA9385@1984>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1340217472_2019P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Wed, 20 Jun 2012 19:28:01 +0200."
-             <20120620172801.GA9385@1984>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next] team: do RCU update path fixups
+Date: Wed, 20 Jun 2012 20:39:39 +0200
+Message-ID: <1340217579-1478-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, jbrouer@redhat.com,
+	paulmck@linux.vnet.ibm.com, wfg@linux.intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24215 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932328Ab2FTSj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jun 2012 14:39:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1340217472_2019P
-Content-Type: text/plain; charset=us-ascii
+Use rcu_access_pointer and rcu_dereference_protected
+to access RCU pointer by updater.
+Use RCU_INIT_POINTER for NULL assignment of RCU pointer.
 
-On Wed, 20 Jun 2012 19:28:01 +0200, Pablo Neira Ayuso said:
-> On Wed, Jun 20, 2012 at 01:14:33PM -0400, Valdis Kletnieks wrote:
-> > Today's linux-next fails to build with CONFIG_NF_NAT_NEEDED=y and CONFIG_NF_NAT=m
-> >
-> >   LD      init/built-in.o
-> > net/built-in.o:(.data+0x4408): undefined reference to `nf_nat_tcp_seq_adjust'
-> > make: *** [vmlinux] Error 1
->
-> I guess you have NF_CT_NETLINK=y, right?
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/team/team_mode_activebackup.c |    8 ++++++--
+ drivers/net/team/team_mode_loadbalance.c  |   14 ++++++++++----
+ 2 files changed, 16 insertions(+), 6 deletions(-)
 
-Yes.
-
-Temporary workaround was setting NF_NAT=n (I don't use NAT, I just usually
-build all the netfilter modules as =m even if I don't use them, just to provide
-build coverage and trip over stuff like this).
-
-
---==_Exmh_1340217472_2019P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBT+IYgAdmEQWDXROgAQIG+hAAnd4idYSLEklTd82AQOhDPhRvr4jA0c/K
-IRQGXnRDKD6IUDtCfexbACThnal6Hn6txdUXOGEEGyD//VG4lBhBMEyhjZ1kfhBN
-gyjYXvS85DmuQAxJyevfeWzPAPGhzThav84pgGgX23/ehPhuAQtDPxGi0IBfO4tV
-0vvmSCgR4yMSkGJDLQL5NKAriOKu5s0tAgnWaFqAXluRefFctURVchN3tU2TJ7Sf
-1giz5jbhJbcPWWGOL2ABjPiVKmbhFFfP8K7TeHkQVfZguI6wTZMrcJir7pzLyNnz
-Vn/ylnMBBZHYMIrVJBWQOpdWIIVhTpFtJTmdxvDe6u6+JtbvpEla1ptocsATka9T
-EvxwPdviqg4+TRXZAx51ogD9wBvr+ed7QJriXhXmaYOxQ7nsqxfre4F4+PqHVVQ4
-MBQSKu+6WIDbU3zzidDkJnrbIjtmQLepVGPLh9Gf6jO4dmQmomTqpV6Y7UmYKWDN
-r3zQqiGKTeITfeCv9eyT8JiLQuSNfFwBCNxGChJdoTuqFRXf4vswEJmKQPbpVs+w
-adWo0xrRLJGC+zUbL27GdNEpDsJeRRhJk7AMumsXvOjfQHnchINWZAl58d5k1Tb4
-8XH5kOXR2utnFXVMZ1950XuvFZO6vOim9w/aKzWERc8aAPCMX5uJ1GUCCYNTSR8F
-ii2gO+qSgl4=
-=rHCK
------END PGP SIGNATURE-----
-
---==_Exmh_1340217472_2019P--
+diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
+index 2fe02a8..253b8a5 100644
+--- a/drivers/net/team/team_mode_activebackup.c
++++ b/drivers/net/team/team_mode_activebackup.c
+@@ -61,8 +61,12 @@ static void ab_port_leave(struct team *team, struct team_port *port)
+ 
+ static int ab_active_port_get(struct team *team, struct team_gsetter_ctx *ctx)
+ {
+-	if (ab_priv(team)->active_port)
+-		ctx->data.u32_val = ab_priv(team)->active_port->dev->ifindex;
++	struct team_port *active_port;
++
++	active_port = rcu_dereference_protected(ab_priv(team)->active_port,
++						lockdep_is_held(&team->lock));
++	if (active_port)
++		ctx->data.u32_val = active_port->dev->ifindex;
+ 	else
+ 		ctx->data.u32_val = 0;
+ 	return 0;
+diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+index 45cc095..c92fa02 100644
+--- a/drivers/net/team/team_mode_loadbalance.c
++++ b/drivers/net/team/team_mode_loadbalance.c
+@@ -96,8 +96,8 @@ static void lb_tx_hash_to_port_mapping_null_port(struct team *team,
+ 		struct lb_port_mapping *pm;
+ 
+ 		pm = &lb_priv->ex->tx_hash_to_port_mapping[i];
+-		if (pm->port == port) {
+-			rcu_assign_pointer(pm->port, NULL);
++		if (rcu_access_pointer(pm->port) == port) {
++			RCU_INIT_POINTER(pm->port, NULL);
+ 			team_option_inst_set_change(pm->opt_inst_info);
+ 			changed = true;
+ 		}
+@@ -274,6 +274,7 @@ static int lb_bpf_func_set(struct team *team, struct team_gsetter_ctx *ctx)
+ {
+ 	struct lb_priv *lb_priv = get_lb_priv(team);
+ 	struct sk_filter *fp = NULL;
++	struct sk_filter *orig_fp;
+ 	struct sock_fprog *fprog = NULL;
+ 	int err;
+ 
+@@ -292,7 +293,9 @@ static int lb_bpf_func_set(struct team *team, struct team_gsetter_ctx *ctx)
+ 	if (lb_priv->ex->orig_fprog) {
+ 		/* Clear old filter data */
+ 		__fprog_destroy(lb_priv->ex->orig_fprog);
+-		sk_unattached_filter_destroy(lb_priv->fp);
++		orig_fp = rcu_dereference_protected(lb_priv->fp,
++						lockdep_is_held(&team->lock));
++		sk_unattached_filter_destroy(orig_fp);
+ 	}
+ 
+ 	rcu_assign_pointer(lb_priv->fp, fp);
+@@ -303,9 +306,12 @@ static int lb_bpf_func_set(struct team *team, struct team_gsetter_ctx *ctx)
+ static int lb_tx_method_get(struct team *team, struct team_gsetter_ctx *ctx)
+ {
+ 	struct lb_priv *lb_priv = get_lb_priv(team);
++	lb_select_tx_port_func_t *func;
+ 	char *name;
+ 
+-	name = lb_select_tx_port_get_name(lb_priv->select_tx_port_func);
++	func = rcu_dereference_protected(lb_priv->select_tx_port_func,
++					 lockdep_is_held(&team->lock));
++	name = lb_select_tx_port_get_name(func);
+ 	BUG_ON(!name);
+ 	ctx->data.str_val = name;
+ 	return 0;
+-- 
+1.7.10.4
