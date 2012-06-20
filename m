@@ -1,9 +1,9 @@
 From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH 11/12] nfs: Prevent page allocator recursions with swap
- over NFS.
-Date: Wed, 20 Jun 2012 13:42:52 -0400
-Message-ID: <4FE20B9C.7010209@redhat.com>
-References: <1340185081-22525-1-git-send-email-mgorman@suse.de> <1340185081-22525-12-git-send-email-mgorman@suse.de>
+Subject: Re: [PATCH 12/12] Avoid dereferencing bd_disk during swap_entry_free
+ for network storage
+Date: Wed, 20 Jun 2012 13:47:03 -0400
+Message-ID: <4FE20C97.2060401@redhat.com>
+References: <1340185081-22525-1-git-send-email-mgorman@suse.de> <1340185081-22525-13-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -19,19 +19,23 @@ Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
         Eric B Munson <emunson@mgebm.net>
 To: Mel Gorman <mgorman@suse.de>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340185081-22525-12-git-send-email-mgorman@suse.de>
+In-Reply-To: <1340185081-22525-13-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 On 06/20/2012 05:38 AM, Mel Gorman wrote:
-> GFP_NOFS is _more_ permissive than GFP_NOIO in that it will initiate
-> IO, just not of any filesystem data.
+> Commit [b3a27d: swap: Add swap slot free callback to
+> block_device_operations] dereferences p->bdev->bd_disk but this is a
+> NULL dereference if using swap-over-NFS. This patch checks SWP_BLKDEV
+> on the swap_info_struct before dereferencing.
 >
-> The problem is that previously NOFS was correct because that avoids
-> recursion into the NFS code. With swap-over-NFS, it is no longer
-> correct as swap IO can lead to this recursion.
+> With reference to this callback, Christoph Hellwig stated "Please
+> just remove the callback entirely.  It has no user outside the staging
+> tree and was added clearly against the rules for that staging tree".
+> This would also be my preference but there was not an obvious way of
+> keeping zram in staging/ happy.
 >
-> Signed-off-by: Peter Zijlstra<a.p.zijlstra@chello.nl>
+> Signed-off-by: Xiaotian Feng<dfeng@redhat.com>
 > Signed-off-by: Mel Gorman<mgorman@suse.de>
 
 Acked-by: Rik van Riel<riel@redhat.com>
