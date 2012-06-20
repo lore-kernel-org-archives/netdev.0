@@ -1,36 +1,44 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: RE: [PATCH net-next 2/6] bnx2x: link cleanup
-Date: Wed, 20 Jun 2012 17:50:23 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A5029F62@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1340182175-916-1-git-send-email-yuvalmin@broadcom.com>
- <1340182175-916-3-git-send-email-yuvalmin@broadcom.com>
- <1340204019.29885.9.camel@joe2Laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2] ipv4: Early TCP socket demux.
+Date: Wed, 20 Jun 2012 19:07:44 +0100
+Message-ID: <1340215664.2576.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120619.163911.2094057156011157978.davem@davemloft.net>
+	 <20120619193549.13bcffa7@s6510.linuxnetplumber.net>
+	 <20120619.214657.1345825814176201681.davem@davemloft.net>
+	 <1340171940.4604.799.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
-To: "Joe Perches" <joe@perches.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <shemminger@vyatta.com>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4804 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756750Ab2FTRuc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 13:50:32 -0400
-In-Reply-To: <1340204019.29885.9.camel@joe2Laptop>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:34273 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756239Ab2FTSHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 14:07:47 -0400
+In-Reply-To: <1340171940.4604.799.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ICAzLiBDaGFuZ2UgbXNsZWVwKDEpIC0tPiB1c2xlZXBfcmFuZ2UoMTAwMCwgMTAwMCkNCj4g
-DQo+IEkgYmVsaWV2ZSByZXBsYWNpbmcgbXNsZWVwKHNtYWxsKSB3aXRoDQo+IHVzbGVlcF9yYW5n
-ZShzbWFsbCAqIDEwMDAsIHNtYWxsICogMTAwMCkgaXMNCj4gbm90IGdlbmVyYWxseSBhIGdvb2Qg
-aWRlYS4NCj4gDQo+IFBsZWFzZSBnaXZlIHVzbGVlcF9yYW5nZSBhbiBhY3R1YWwgcmFuZ2UgdG8N
-Cj4gd29yayB3aXRoIGFuZCBub3QgYSByZXBlYXRlZCBzaW5nbGUgdmFsdWUuDQo+IA0KPiBQbGVh
-c2UgdGhpbmsgYSBsaXR0bGUgbW9yZSBhYm91dCB3aGF0IGENCj4gZ29vZCB1cHBlciByYW5nZSBm
-b3IgdGhlIG1heGltdW0gdGltZSB0bw0KPiBzbGVlcCBzaG91bGQgYmUuDQo+IA0KPiB1c2xlZXBf
-cmFuZ2Uoc21hbGwgKiAxMDAwLCBzbWFsbCAqIDIwMDApDQo+IG9yIHNvbWV0aGluZyBzaW1pbGFy
-IG1heWJlLg0KPg0KDQpTb3VuZHMgZ29vZC4gIEknbGwgY2hhbmdlIGl0IGFuZCByZS1zZW5kIHRo
-ZSBwYXRjaCBzZXJpZXMuDQoNClRoYW5rcywNCll1dmFsIE1pbnR6DQo=
+On Wed, 2012-06-20 at 07:59 +0200, Eric Dumazet wrote:
+> On Tue, 2012-06-19 at 21:46 -0700, David Miller wrote:
+> 
+> > These numbers can be decreased further, because since we're already
+> > looking at the TCP header we can pre-cook the TCP control block in the
+> > SKB and skip much of the stuff that tcp_v4_rcv() does since we've done
+> > it already in the early demux code.
+> 
+> It could be done at GRO level and remove one another demux.
+> 
+> As routers probably have no use of GRO, no need of additional knob.
+
+I don't know what you mean by 'have no use'.  It's enabled anyway, and I
+would expect that it's beneficial for some smaller routers.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
