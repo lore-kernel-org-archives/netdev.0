@@ -1,56 +1,48 @@
-From: santosh prasad nayak <santoshprasadnayak@gmail.com>
-Subject: Re: [PATCH] netxen: Error return off by one in 'netxen_nic_set_pauseparam()'.
-Date: Wed, 20 Jun 2012 13:29:21 +0530
-Message-ID: <CAOD=uF6Oe1KZqmtUpY57u9GJh9BqxoK0DP0n4yP_DrMUjfXbCQ@mail.gmail.com>
-References: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
-	<20120620074447.GS4400@mwanda>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH] usbnet: Activate halt interrupt endpoint before re-submit URB
+Date: Wed, 20 Jun 2012 10:00:21 +0200
+Message-ID: <201206201000.21845.oneukum@suse.de>
+References: <CA+v9cxad+THL8u7tr_ubD7H7o+6x+qTOXOgowmPDnWUxa8aJtQ@mail.gmail.com> <201206180923.36091.oneukum@suse.de> <CA+v9cxZG6b1O7kOQpeTELtv0vHzqy-8NH84boMpim0BM+tp1eQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sony.chacko@qlogic.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	rajesh.borundia@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:46185 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755500Ab2FTH7V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:59:21 -0400
-In-Reply-To: <20120620074447.GS4400@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+v9cxZG6b1O7kOQpeTELtv0vHzqy-8NH84boMpim0BM+tp1eQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 20, 2012 at 1:14 PM, Dan Carpenter <dan.carpenter@oracle.co=
-m> wrote:
-> On Wed, Jun 20, 2012 at 12:57:39PM +0530, santosh nayak wrote:
->> From: Santosh Nayak <santoshprasadnayak@gmail.com>
->>
->> There are 'NETXEN_NIU_MAX_GBE_PORTS' =A0GBE ports. Port indexing sta=
-rts
->> from zero.
->> Hence we should also return error for "port =3D=3D NETXEN_NIU_MAX_GB=
-E_PORTS"
->>
->
-> I don't know this code well enough to say if you are right or not,
-> but what about for port =3D=3D NETXEN_NIU_MAX_XG_PORTS a few lines la=
-ter
-> in both functions?
+Am Montag, 18. Juni 2012, 18:25:15 schrieb Huajun Li:
+> On Mon, Jun 18, 2012 at 3:23 PM, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> wrote:
+> > Am Montag, 18. Juni 2012, 01:30:17 schrieb David Miller:
+> >> From: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> Date: Wed, 13 Jun 2012 20:50:31 +0800
+> >>
+> >> > intr_complete() submits URB even the interrupt endpoint stalls.
+> >> > This patch will try to activate the endpoint once the exception
+> >> > occurs, and then re-submit the URB if the endpoint works again.
+> >> >
+> >> > Signed-off-by: Huajun Li <huajun.li.lee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >>
+> >> Review from USB experts would be appreciated.
+> >
+> > The code implements a minimum error handler correctly.
+> > Did you observe a stall in actual hardware or is this a just
+> > in case patch?
+> >
+> 
+> This one is just a patch, thanks for your comments.
 
+Very well, on second thought, this patch makes sense.
+Could you resend and I'll ack?
 
-I think "for port =3D=3D NETXEN_NIU_MAX_XG_PORTS"  error should be retu=
-rned.
-
-
-@Rajesh,
-
-Can you please comment on it ?
-
-
-regards
-santosh
-
->
-> regards,
-> dan carpenter
->
+	Regards
+		Oliver
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
