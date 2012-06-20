@@ -1,35 +1,29 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH] netxen: Error return off by one in
- 'netxen_nic_set_pauseparam()'.
-Date: Wed, 20 Jun 2012 10:44:47 +0300
-Message-ID: <20120620074447.GS4400@mwanda>
-References: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [PATCH -v1 2/3] usbnet: decrease suspend count if returning -EBUSY for runtime suspend
+Date: Wed, 20 Jun 2012 09:45:31 +0200
+Message-ID: <201206200945.31939.oneukum@suse.de>
+References: <1340176553-32225-1-git-send-email-ming.lei@canonical.com> <1340176553-32225-3-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: santosh nayak <santoshprasadnayak@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:27990 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752367Ab2FTHpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 03:45:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1340177259-14083-1-git-send-email-santoshprasadnayak@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1340176553-32225-3-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 20, 2012 at 12:57:39PM +0530, santosh nayak wrote:
-> From: Santosh Nayak <santoshprasadnayak@gmail.com>
+Am Mittwoch, 20. Juni 2012, 09:15:52 schrieb Ming Lei:
+> This patch decreases dev->suspend_count in the -EBUSY failure path
+> of usbnet_suspend. Without the change, the later runtime suspend
+> will do nothing except for increasing dev->suspend_count.
 > 
-> There are 'NETXEN_NIU_MAX_GBE_PORTS'  GBE ports. Port indexing starts
-> from zero. 
-> Hence we should also return error for "port == NETXEN_NIU_MAX_GBE_PORTS"
-> 
-
-I don't know this code well enough to say if you are right or not,
-but what about for port == NETXEN_NIU_MAX_XG_PORTS a few lines later
-in both functions?
-
-regards,
-dan carpenter
+> Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Acked-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
