@@ -1,92 +1,77 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH] netxen : Error return off by one for XG port.
-Date: Wed, 20 Jun 2012 08:06:04 -0500
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A886EF1A@MNEXMB1.qlogic.org>
-References: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor
+ empty happens
+Date: Wed, 20 Jun 2012 15:10:33 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1206201507260.20254@axis700.grange>
+References: <4FC491EB.4040002@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: santosh nayak <santoshprasadnayak@gmail.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.199.154.139] ([213.199.154.139]:4818 "EHLO
-	db3outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755583Ab2FTNIP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jun 2012 09:08:15 -0400
-In-Reply-To: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	SH-Linux <linux-sh@vger.kernel.org>
+To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4FC491EB.4040002@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-______________________________________
-From: santosh nayak [santoshprasadnayak@gmail.com]
-Sent: Wednesday, June 20, 2012 4:22 PM
-To: Sony Chacko; Rajesh Borundia
-Cc: netdev; kernel-janitors@vger.kernel.org; Santosh Nayak
-Subject: [PATCH] netxen : Error return off by one for XG port.
+Hello Shimoda-san
 
-From: Santosh Nayak <santoshprasadnayak@gmail.com>
+On Tue, 29 May 2012, Shimoda, Yoshihiro wrote:
 
-There are  NETXEN_NIU_MAX_XG_PORTS ports.
-Port indexing starts from zero.
-Hence we should also return error for  'port == NETXEN_NIU_MAX_XG_PORTS'.
+> When Receive Descriptor Empty happens, rxdesc pointer of the driver
+> and actual next descriptor of the controller may be mismatch.
+> This patch fixes it.
 
-Signed-off-by: Santosh Nayak <santoshprasadnayak@gmail.com>
+Unfortunately, this patch breaks networking on ecovec (sh7724). Booting 
+with dhcp and NFS-root progresses very slowly with lots of "nfs: server 
+not responding / Ok" messages and never completes. Reverting it in current 
+Linus' tree fixes the problem.
+
+Thanks
+Guennadi
+
+> 
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c |    8 +++++---
+>  1 files changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index be3c221..667169b 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1101,8 +1101,12 @@ static int sh_eth_rx(struct net_device *ndev)
+> 
+>  	/* Restart Rx engine if stopped. */
+>  	/* If we don't need to check status, don't. -KDU */
+> -	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R))
+> +	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
+> +		/* fix the values for the next receiving */
+> +		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
+> +					       sh_eth_read(ndev, RDLAR)) >> 4;
+>  		sh_eth_write(ndev, EDRRR_R, EDRRR);
+> +	}
+> 
+>  	return 0;
+>  }
+> @@ -1199,8 +1203,6 @@ static void sh_eth_error(struct net_device *ndev, int intr_status)
+>  		/* Receive Descriptor Empty int */
+>  		ndev->stats.rx_over_errors++;
+> 
+> -		if (sh_eth_read(ndev, EDRRR) ^ EDRRR_R)
+> -			sh_eth_write(ndev, EDRRR_R, EDRRR);
+>  		if (netif_msg_rx_err(mdp))
+>  			dev_err(&ndev->dev, "Receive Descriptor Empty\n");
+>  	}
+> -- 
+> 1.7.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
 ---
- .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |    4 ++--
- drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-index d4f179f..9103e3e 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-@@ -511,7 +511,7 @@ netxen_nic_get_pauseparam(struct net_device *dev,
-                                break;
-                }
-        } else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
--               if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
-+               if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
-                        return;
-                pause->rx_pause = 1;
-                val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
-@@ -577,7 +577,7 @@ netxen_nic_set_pauseparam(struct net_device *dev,
-                }
-                NXWR32(adapter, NETXEN_NIU_GB_PAUSE_CTL, val);
-        } else if (adapter->ahw.port_type == NETXEN_NIC_XGBE) {
--               if ((port < 0) || (port > NETXEN_NIU_MAX_XG_PORTS))
-+               if ((port < 0) || (port >= NETXEN_NIU_MAX_XG_PORTS))
-                        return -EIO;
-                val = NXRD32(adapter, NETXEN_NIU_XG_PAUSE_CTL);
-                if (port == 0) {
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-index de96a94..946160f 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
-@@ -365,7 +365,7 @@ static int netxen_niu_disable_xg_port(struct netxen_adapter *adapter)
-        if (NX_IS_REVISION_P3(adapter->ahw.revision_id))
-                return 0;
-
--       if (port > NETXEN_NIU_MAX_XG_PORTS)
-+       if (port >= NETXEN_NIU_MAX_XG_PORTS)
-                return -EINVAL;
-
-        mac_cfg = 0;
-@@ -392,7 +392,7 @@ static int netxen_p2_nic_set_promisc(struct netxen_adapter *adapter, u32 mode)
-        u32 port = adapter->physical_port;
-        u16 board_type = adapter->ahw.board_type;
-
--       if (port > NETXEN_NIU_MAX_XG_PORTS)
-+       if (port >= NETXEN_NIU_MAX_XG_PORTS)
-                return -EINVAL;
-
-        mac_cfg = NXRD32(adapter, NETXEN_NIU_XGE_CONFIG_0 + (0x10000 * port));
---
-1.7.4.4
-
-Looks ok to me.
-
-Rajesh
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
+http://www.open-technology.de/
