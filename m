@@ -1,9 +1,8 @@
 From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH 08/12] nfs: teach the NFS client how to treat PG_swapcache
- pages
-Date: Wed, 20 Jun 2012 13:14:41 -0400
-Message-ID: <4FE20501.3080004@redhat.com>
-References: <1340185081-22525-1-git-send-email-mgorman@suse.de> <1340185081-22525-9-git-send-email-mgorman@suse.de>
+Subject: Re: [PATCH 09/12] nfs: disable data cache revalidation for swapfiles
+Date: Wed, 20 Jun 2012 13:16:27 -0400
+Message-ID: <4FE2056B.3070407@redhat.com>
+References: <1340185081-22525-1-git-send-email-mgorman@suse.de> <1340185081-22525-10-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -19,14 +18,21 @@ Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
         Eric B Munson <emunson@mgebm.net>
 To: Mel Gorman <mgorman@suse.de>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340185081-22525-9-git-send-email-mgorman@suse.de>
+In-Reply-To: <1340185081-22525-10-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 On 06/20/2012 05:37 AM, Mel Gorman wrote:
-> Replace all relevant occurences of page->index and page->mapping in
-> the NFS client with the new page_file_index() and page_file_mapping()
-> functions.
+> The VM does not like PG_private set on PG_swapcache pages. As suggested
+> by Trond in http://lkml.org/lkml/2006/8/25/348, this patch disables
+> NFS data cache revalidation on swap files.  as it does not make
+> sense to have other clients change the file while it is being used as
+> swap. This avoids setting PG_private on swap pages, since there ought
+> to be no further races with invalidate_inode_pages2() to deal with.
+>
+> Since we cannot set PG_private we cannot use page->private which
+> is already used by PG_swapcache pages to store the nfs_page. Thus
+> augment the new nfs_page_find_request logic.
 >
 > Signed-off-by: Peter Zijlstra<a.p.zijlstra@chello.nl>
 > Signed-off-by: Mel Gorman<mgorman@suse.de>
