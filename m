@@ -1,40 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Wed, 20 Jun 2012 01:20:37 -0700 (PDT)
-Message-ID: <20120620.012037.783895812206310043.davem@davemloft.net>
-References: <20120620133348.a9ff31a72ffd11818f574fe3@canb.auug.org.au>
-	<D5ECB3C7A6F99444980976A8C6D896384FAA275CA8@EAPEX1MAIL1.st.com>
-	<4FE18502.6040409@arm.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: 10GBE performance drop with net.ipv4.tcp_timestamps=0
+Date: Wed, 20 Jun 2012 10:21:47 +0200
+Message-ID: <4FE1881B.7030800@profihost.ag>
+References: <4FE0EA33.1000309@profihost.ag>  <1340141493.4604.773.camel@edumazet-glaptop>  <4FE17522.5050005@profihost.ag> <1340176940.4604.801.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bhupesh.sharma@st.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, federico.vaga@gmail.com,
-	giancarlo.asnaghi@st.com, wg@grandegger.com, mkl@pengutronix.de,
-	spear-devel@list.st.com
-To: viresh.kumar2@arm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FE18502.6040409@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.profihost.ag ([85.158.179.208]:37742 "EHLO
+	mail.profihost.ag" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753019Ab2FTIVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 04:21:54 -0400
+In-Reply-To: <1340176940.4604.801.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: viresh kumar <viresh.kumar2@arm.com>
-Date: Wed, 20 Jun 2012 09:08:34 +0100
+Am 20.06.2012 09:22, schrieb Eric Dumazet:
+> On Wed, 2012-06-20 at 09:00 +0200, Stefan Priebe - Profihost AG wrote:
+>> Am 19.06.2012 23:31, schrieb Eric Dumazet:
+>> Before:
+>> http://pastebin.com/raw.php?i=1gVraWVc
+>>
+>> After:
+>> http://pastebin.com/raw.php?i=NSh8Y29s
+>
+> You have a lot of packet losses
+But this ONLY happens with tcp_timestamps=0.
 
-> Please see following patchset from me, that got applied in linux-next
-> 
-> https://lkml.org/lkml/2012/4/24/154
-> 
-> Please check if this patchset is present in your build repo. I believe it should be
-> there. If it is, then you shouldn't get these errors.
 
-Well, then Stephen shouldn't get those errors either.
+> add "tc -s -d qdisc" , "ifconfig -a " and "ethtool -S ethX" outputs for
+> both servers
 
-But obviously he did.
+eth2 is the 10Gb device on both systems
+server a has kernel 3.5 server b has rhel 6 kernel
 
-But all of this talk about changes existing only in linux-next is
-entirely moot.  Because The damn thing MUST build independently inside
-of net-next which doesn't have those clock layer changes.
+Server A:
+# tc -s -d qdisc
+RTNETLINK answers: Operation not supported
+Dump terminated
 
-Someone send me a clean fix for net-next now.
+Server B (eth2 is the 10GB/s device):
+# tc -s -d qdisc
+qdisc mq 0: dev eth0 root
+  Sent 55151 bytes 555 pkt (dropped 0, overlimits 0 requeues 0)
+  rate 0bit 0pps backlog 0b 0p requeues 0
+qdisc mq 0: dev eth2 root
+  Sent 38374148475 bytes 2774405 pkt (dropped 0, overlimits 0 requeues 4)
+  rate 0bit 0pps backlog 0b 0p requeues 4
+
+ifconfig -a:
+http://pastebin.com/raw.php?i=M3QHQjSU
+
+ethtool -S:
+http://pastebin.com/raw.php?i=Eap05xKc
+
+Thanks again,
+Stefan
