@@ -1,85 +1,104 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: [RFC] TCP:  Support configurable delayed-ack parameters.
-Date: Thu, 21 Jun 2012 09:04:31 -0700
-Message-ID: <4FE3460F.7030001@candelatech.com>
-References: <1340067163-29329-1-git-send-email-greearb@candelatech.com> <1340082688.7491.2299.camel@edumazet-glaptop>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
+ reserves
+Date: Thu, 21 Jun 2012 18:09:02 +0200
+Message-ID: <20120621160902.GA6045@breakpoint.cc>
+References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
+ <1340192652-31658-11-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Daniel Baluta <dbaluta-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1340082688.7491.2299.camel@edumazet-glaptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1340192652-31658-11-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 06/18/2012 10:11 PM, Eric Dumazet wrote:
-> On Mon, 2012-06-18 at 17:52 -0700, greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org wrote:
+On Wed, Jun 20, 2012 at 12:44:05PM +0100, Mel Gorman wrote:
+> index b534a1b..61c951f 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -505,6 +506,15 @@ struct sk_buff {
+>  #include <linux/slab.h>
+>  
+>  
+> +#define SKB_ALLOC_FCLONE	0x01
+> +#define SKB_ALLOC_RX		0x02
+> +
+> +/* Returns true if the skb was allocated from PFMEMALLOC reserves */
+> +static inline bool skb_pfmemalloc(struct sk_buff *skb)
+> +{
+> +	return unlikely(skb->pfmemalloc);
+> +}
+> +
+>  /*
+>   * skb might have a dst pointer attached, refcounted or not.
+>   * _skb_refdst low order bit is set if refcount was _not_ taken
+> @@ -568,7 +578,7 @@ extern bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 1d6ecc8..9a58dcc 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -839,6 +900,13 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+>  	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
+>  }
+>  
+> +static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
+> +{
+> +	if (skb_pfmemalloc((struct sk_buff *)skb))
+> +		return SKB_ALLOC_RX;
+> +	return 0;
+> +}
+> +
+>  /**
+>   *	skb_copy	-	create private copy of an sk_buff
+>   *	@skb: buffer to copy
 
->> In order to keep a multiply out of the hot path, the segs * mss
->> computation is recalculated and cached whenever segs or mss changes.
->>
->
-> I know David was worried about this multiply, but current cpus do a
-> multiply in at most 3 cycles.
->
-> Addding an u32 field in socket structure adds 1/16 of a cache line, and
-> adds more penalty.
->
-> Avoiding to build/send an ACK packet can save us so many cpu cycles that
-> the multiply is pure noise.
+If merge this chunk
 
-I modified the patch as you suggested to remove the cached multiply
-and just do the multiply in the hot path (and fixed a few other bugs in
-the implementation).  And yes, I know Dave doesn't like the patch, so
-it's unlikely to ever go upstream...
-
-Test system is i5 processor laptop, 3.3.7+ kernel, Fedora 17, running wifi
-traffic and wired NIC through an AP (sending-to-self, with proper
-routing rules to make this function as desired).  AP is 3x3 mimo,
-laptop is 2x2, max nominal rate of 300Mbps.  Channel is 149.
-Both nics are Atheros (ath9k).
-Laptop and AP is about 3 feet apart, and AP antenna & laptop rotation
-have been tweaked for maximum throughput.
-
-Traffic generator is our in-house tool, but it generally matches
-iperf when used with the same configuration.  Send-buffer size
-is configured at 1MB (with system defaults performance is much worse).
-
-This is wifi upload, with station sending to wired Ethernet port.
-
-I only changed the max-segs values for this test, leaving the min/max
-delay-ack timers at defaults.
-
-Rate is calculated over TCP data throughput, ie not counting headers.
-The rates bounce around a bit, but I tried to report the average.
-
-segs == 1:  196Mbps TCP throughput, 17,000 pps tx, 4,000 pps rx on wlan interface.
-
-segs == 20: 203Mbps, 17,300 pps tx, 1400 pps rx
-
-segs == 64: 217Mbps, 18300 pps tx, 311 pps rx
-
-segs == 1024: 231Mbps, 19200 pps tx, 118 pps rx.
-
-Note that with pure UDP throughput, I see right at 230-240Mbps when
-everything is running smoothly, so setting delack-segs to a high value
-allows TCP to approach UDP throughput.
-
-I'll repost the patch (against 3.5-rcX) that I'm using later today
-after some more testing in case someone else wants to try it out.
-
-Thanks,
-Ben
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6510a5d..2acfec9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -510,7 +510,7 @@ struct sk_buff {
+ #define SKB_ALLOC_RX		0x02
+ 
+ /* Returns true if the skb was allocated from PFMEMALLOC reserves */
+-static inline bool skb_pfmemalloc(struct sk_buff *skb)
++static inline bool skb_pfmemalloc(const struct sk_buff *skb)
+ {
+ 	return unlikely(skb->pfmemalloc);
+ }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c44ab68..6ce94b5 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -852,7 +852,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 
+ static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
+ {
+-	if (skb_pfmemalloc((struct sk_buff *)skb))
++	if (skb_pfmemalloc(skb))
+ 		return SKB_ALLOC_RX;
+ 	return 0;
+ }
 
 
+Then you should be able to drop the case in skb_alloc_rx_flag() without adding
+a warning.
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+Sebastian
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
