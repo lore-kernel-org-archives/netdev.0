@@ -1,48 +1,28 @@
-From: <Menny_Hamburger@Dell.com>
-Subject: RE: IPV6 ndisc::  Bad NIC causing  IPV6 NDP to stop working
-Date: Thu, 21 Jun 2012 09:43:33 +0100
-Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34DBF05D@DUBX7MCDUB01.EMEA.DELL.COM>
-References: <D8C50530D6022F40A817A35C40CC06A70B34DBEFCF@DUBX7MCDUB01.EMEA.DELL.COM>
- <1340266972.4604.4404.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: dcb: fix small regression in __dcbnl_pg_setcfg()
+Date: Thu, 21 Jun 2012 02:04:34 -0700 (PDT)
+Message-ID: <20120621.020434.1822468544175438004.davem@davemloft.net>
+References: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
+	<20120621081910.GH27921@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	lucy.liu@intel.com, alexander.h.duyck@intel.com
+To: tgraf@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:24125 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758823Ab2FUIoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 04:44:20 -0400
-In-Reply-To: <1340266972.4604.4404.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:50743 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759003Ab2FUJEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 05:04:38 -0400
+In-Reply-To: <20120621081910.GH27921@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rm9yIGhpZ2ggYXZhaWxhYmlsaXR5IHJlYXNvbnMsIHRoZSBtYWNoaW5lcyBkaXNjdXNzZWQgcnVu
-IHdpdGggYSBudW1iZXIgb2YgTklDcyBwZXIgc3VibmV0LCB3aGVyZSBvdXIgb3duIHByb3ByaWV0
-YXJ5IHNlcnZpY2UgZml4ZXMgdXAgcm91dGluZyB3aGVuIGEgTklDIGdvZXMgd2lsZC4NCldlIHNj
-aGVkdWxlIGEgZml4IGluIHRoZSBmaWVsZCBidXQgb3VyIGdvYWwgaXMgdG8gZWxpbWluYXRlIGFz
-IG1hbnkgc2luZ2xlIHBvaW50cyBvZiBmYWlsdXJlIGFzIHdlIGNhbiwgc28gdGhhdCBvdXIgc3lz
-dGVtcyB3aWxsIHN0aWxsIHJ1biBwcm9wZXJseSB3aGVuIHNvbWV0aGluZyBnb2VzIHdyb25nLg0K
-V2UgZW5jb3VudGVyZWQgdGhpcyBpc3N1ZSBvbiBzb21lIHByb3ByaWV0YXJ5IE5JQ3MgYnV0IGFs
-c28gd2l0aCBibngyLCB3aGVyZSB3ZSBnZXQgImNoaXAgbm90IGluIGNvcnJlY3QgZW5kaWFuIG1v
-ZGUiIGVycm9ycyAoVGhpcyBpcyBhbm90aGVyIHByb2JsZW0gdGhhdCBtYXkgcmVxdWlyZSBhIHNl
-cGFyYXRlIGRpc2N1c3Npb24pLg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTog
-RXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0gDQpTZW50OiAyMSBK
-dW5lLCAyMDEyIDExOjIzDQpUbzogSGFtYnVyZ2VyLCBNZW5ueQ0KQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmcNClN1YmplY3Q6IFJlOiBJUFY2IG5kaXNjOjogQmFkIE5JQyBjYXVzaW5nIElQVjYg
-TkRQIHRvIHN0b3Agd29ya2luZw0KDQpPbiBUaHUsIDIwMTItMDYtMjEgYXQgMDg6NTkgKzAxMDAs
-IE1lbm55X0hhbWJ1cmdlckBEZWxsLmNvbSB3cm90ZToNCj4gSGksDQo+IA0KPiBPdXIgbWFjaGlu
-ZXMgcnVucyBFTDUuOCB4ODZfNjQuDQo+IFdlIGhhdmUgd2l0bmVzc2VkIHNldmVyYWwgY2FzZXMg
-d2hlcmUgd2Ugc3VzcGVjdCB0aGF0IGEgYmFkIE5JQyBvbiB0aGUgbWFjaGluZSBjYXVzZWQgSVBW
-NiBuZWlnaGJvdXIgZGlzY292ZXJ5IHRvIHN0b3Agd29ya2luZyBvbiBhbGwgdGhlIG90aGVyIE5J
-Q3MgLSB3aGVuIHRoaXMgaGFwcGVucyBwaW5nNiBmYWlscyBvbiBldmVyeSBOSUMgd2UgdHJ5IGl0
-Lg0KPiBGcm9tIGxvb2tpbmcgaW50byB0aGUgY29kZSBJIHNlZSB0aGF0IHRoZXJlIGlzIG9ubHkg
-YSBzaW5nbGUgc29ja2V0IGFzc2lnbmVkIGZvciBORFA7IERvZXMgaXQgc291bmQgbG9naWNhbCB0
-byBhbGxvY2F0ZSBhIHNvY2tldCBwZXIgaW50ZXJmYWNlIGluc3RlYWQgb2YgYSBzaW5nbGUgZ2xv
-YmFsIHNvY2tldC4NCj4gSSBoYXZlIGZvdW5kIHRoZSBmb2xsb3dpbmcgdGhyZWFkIGluIExLTUw6
-IGh0dHBzOi8vbGttbC5vcmcvbGttbC8yMDA2LzExLzI5LzMzNSwgYW5kIGl0IHNlZW1zIHRoYXQg
-dGhpcyBhbGxvY2F0aW9uIGlzc3VlIHN0aWxsIGV4aXN0cyBpbiBFTDUgYmFzZWQga2VybmVscyAt
-IGNvdWxkIHRoaXMgY2F1c2UgdGhlIGFib3ZlIHByb2JsZW0/DQo+IA0KDQpXaGF0IGlzIGEgYmFk
-IE5JQywgYW5kIHdoeSBub3QgZml4aW5nIGl0ID8NCg0KDQoNCg==
+From: Thomas Graf <tgraf@infradead.org>
+Date: Thu, 21 Jun 2012 04:19:10 -0400
+
+> ACK
+
+Can I get a real "Acked-by: ..." so that it automatically gets
+picked up by patchwork?  Thanks.
