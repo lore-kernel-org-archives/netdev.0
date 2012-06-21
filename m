@@ -1,47 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Allow receiving packets on the fallback tunnel if they
- pass sanity checks
-Date: Wed, 20 Jun 2012 21:04:05 -0700 (PDT)
-Message-ID: <20120620.210405.2231549940491911080.davem@davemloft.net>
-References: <20120605154058.GA16615@ipom.com>
+Subject: Re: Possible deadlock in ipv6?
+Date: Wed, 20 Jun 2012 21:05:52 -0700 (PDT)
+Message-ID: <20120620.210552.612891057039503955.davem@davemloft.net>
+References: <1338998314.26966.12.camel@edumazet-glaptop>
+	<20120611.235453.953830769326224643.davem@davemloft.net>
+	<1339492184.22704.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, phild@fb.com
-To: phil@ipom.com
+Cc: vdavydov@parallels.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48816 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48831 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750934Ab2FUEEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 00:04:08 -0400
-In-Reply-To: <20120605154058.GA16615@ipom.com>
+	with ESMTP id S1750980Ab2FUEFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 00:05:53 -0400
+In-Reply-To: <1339492184.22704.26.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Dibowitz <phil@ipom.com>
-Date: Tue, 5 Jun 2012 08:40:58 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 12 Jun 2012 11:09:44 +0200
 
-> From b413062771afbba064ae9bc49b5daed7abb1243d Mon Sep 17 00:00:00 2001
-> From: Ville Nuorvala <ville.nuorvala@gmail.com>
-> Subject: [PATCH] Allow receiving packets on the fallback tunnel if they pass sanity checks
-> 
-> The same IPv6 address checks are performed as with any normal tunnel,
-> but as the fallback tunnel endpoint addresses are unspecified, the checks
-> must be performed on a per-packet basis, rather than at tunnel
-> configuration time.
-> 
-> Signed-off-by: Ville Nuorvala <ville.nuorvala@gmail.com>
-> Tested-by: Phil Dibowitz <phil@ipom.com>
+> Is it expected we send traffic on device dismantle ?
 
-I've reviewed this change but I still have no idea why it's
-necessary.
-
-You need to compose a more lengthy and detailed commit log message
-explaining everything before I'm going to consider applying this
-patch.
-
-You can't just say "we have some problem at Facebook, this patch fixes
-it", and then merely describe word by word the content of the patch
-without explaining the "why".  That simply doesn't cut it.
-
-Thanks.
+If we are subscribed to multicast groups we could, to
+announce our leaving those groups.
