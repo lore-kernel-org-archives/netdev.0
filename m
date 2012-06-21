@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 10/13] netfilter: nf_conntrack_l4proto_generic cleanup
-Date: Thu, 21 Jun 2012 22:36:47 +0800
-Message-ID: <1340289410-17642-10-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 08/13] netfilter: nf_conntrack_l4proto_udplite[4,6] cleanup
+Date: Thu, 21 Jun 2012 22:36:45 +0800
+Message-ID: <1340289410-17642-8-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Gao feng <gaofeng@cn.fujitsu.com>
@@ -11,84 +11,80 @@ In-Reply-To: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-some cleanup of nf_conntrack_l4proto_generic,
-split the code to make it more clearer.
+some cleanup for nf_conntrack_l4proto_udplite[4,6],
+make codes more clearer and ready for moving the
+sysctl code to nf_conntrack_proto_*_sysctl.c to
+reduce the ifdef pollution.
+
+and use nf_proto_net.users to identify if it's the first time
+we use the nf_proto_net. when it's the first time,we will
+initialized it.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_proto_generic.c |   39 ++++++++++++++++++++++-----
- 1 files changed, 31 insertions(+), 8 deletions(-)
+ net/netfilter/nf_conntrack_proto_udplite.c |   43 +++++++++++++++++-----------
+ 1 files changed, 26 insertions(+), 17 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index d1ed7b4..7c11c54 100644
---- a/net/netfilter/nf_conntrack_proto_generic.c
-+++ b/net/netfilter/nf_conntrack_proto_generic.c
-@@ -135,34 +135,57 @@ static struct ctl_table generic_compat_sysctl_table[] = {
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+index d33e511..4b66df2 100644
+--- a/net/netfilter/nf_conntrack_proto_udplite.c
++++ b/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -234,29 +234,38 @@ static struct ctl_table udplite_sysctl_table[] = {
+ };
  #endif /* CONFIG_SYSCTL */
  
--static int generic_init_net(struct net *net, u_int16_t proto)
-+static int generic_kmemdup_sysctl_table(struct nf_proto_net *pn,
-+					struct nf_generic_net *gn)
+-static int udplite_init_net(struct net *net, u_int16_t proto)
++static int udplite_kmemdup_sysctl_table(struct nf_proto_net *pn,
++					struct udplite_net *un)
  {
--	struct nf_generic_net *gn = generic_pernet(net);
--	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
--	gn->timeout = nf_ct_generic_timeout;
+-	int i;
+-	struct udplite_net *un = udplite_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)un;
  #ifdef CONFIG_SYSCTL
- 	pn->ctl_table = kmemdup(generic_sysctl_table,
- 				sizeof(generic_sysctl_table),
- 				GFP_KERNEL);
- 	if (!pn->ctl_table)
- 		return -ENOMEM;
+-	if (!pn->ctl_table) {
+-#else
+-	if (!pn->users++) {
++	if (pn->ctl_table)
++		return 0;
 +
- 	pn->ctl_table[0].data = &gn->timeout;
-+#endif
++	pn->ctl_table = kmemdup(udplite_sysctl_table,
++				sizeof(udplite_sysctl_table),
++				GFP_KERNEL);
++	if (!pn->ctl_table)
++		return -ENOMEM;
++
++	pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
++	pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
+ #endif
 +	return 0;
 +}
- 
-+static int generic_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
-+					       struct nf_generic_net *gn)
-+{
-+#ifdef CONFIG_SYSCTL
- #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
- 	pn->ctl_compat_table = kmemdup(generic_compat_sysctl_table,
- 				       sizeof(generic_compat_sysctl_table),
- 				       GFP_KERNEL);
--	if (!pn->ctl_compat_table) {
--		kfree(pn->ctl_table);
--		pn->ctl_table = NULL;
-+	if (!pn->ctl_compat_table)
- 		return -ENOMEM;
--	}
 +
- 	pn->ctl_compat_table[0].data = &gn->timeout;
- #endif
- #endif
- 	return 0;
++static int udplite_init_net(struct net *net, u_int16_t proto)
++{
++	struct udplite_net *un = udplite_pernet(net);
++	struct nf_proto_net *pn = &un->pn;
++
++	if (!pn->users) {
++		int i;
++
+ 		for (i = 0 ; i < UDPLITE_CT_MAX; i++)
+ 			un->timeouts[i] = udplite_timeouts[i];
+-#ifdef CONFIG_SYSCTL
+-		pn->ctl_table = kmemdup(udplite_sysctl_table,
+-					sizeof(udplite_sysctl_table),
+-					GFP_KERNEL);
+-		if (!pn->ctl_table)
+-			return -ENOMEM;
+-		pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
+-		pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
+-#endif
+ 	}
+-	return 0;
++
++	return udplite_kmemdup_sysctl_table(pn, un);
  }
  
-+static int generic_init_net(struct net *net, u_int16_t proto)
-+{
-+	int ret;
-+	struct nf_generic_net *gn = generic_pernet(net);
-+	struct nf_proto_net *pn = &gn->pn;
-+
-+	gn->timeout = nf_ct_generic_timeout;
-+
-+	ret = generic_kmemdup_compat_sysctl_table(pn, gn);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = generic_kmemdup_sysctl_table(pn, gn);
-+	if (ret < 0)
-+		nf_ct_kfree_compat_sysctl_table(pn);
-+
-+	return ret;
-+}
-+
- struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
- {
- 	.l3proto		= PF_UNSPEC,
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
 -- 
 1.7.7.6
 
