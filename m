@@ -1,43 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dcb: fix small regression in __dcbnl_pg_setcfg()
-Date: Thu, 21 Jun 2012 15:06:14 -0700 (PDT)
-Message-ID: <20120621.150614.1100069075307116721.davem@davemloft.net>
-References: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
-	<20120621105245.GI27921@canuck.infradead.org>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
+Date: Fri, 22 Jun 2012 01:50:56 +0400
+Message-ID: <20120621215056.GA24908@ms2.inr.ac.ru>
+References: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com> <4FE37783.9000409@akamai.com> <1340310469.4604.6702.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	lucy.liu@intel.com, alexander.h.duyck@intel.com
-To: tgraf@suug.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752399Ab2FUWGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 18:06:15 -0400
-In-Reply-To: <20120621105245.GI27921@canuck.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Josh Hunt <johunt@akamai.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	Debabrata Banerjee <dbavatar@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"pekkas@netcore.fi" <pekkas@netcore.fi>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1340310469.4604.6702.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 21 Jun 2012 06:52:45 -0400
-
-> On Wed, Jun 20, 2012 at 10:56:21PM -0700, John Fastabend wrote:
->> A small regression was introduced in the reply command of
->> dcbnl_pg_setcfg(). User space apps may be expecting the
->> DCB_ATTR_PG_CFG attribute to be returned with the patch
->> below TX or RX variants are returned.
->> 
->> commit 7be994138b188387691322921c08e19bddf6d3c5
->> Author: Thomas Graf <tgraf@suug.ch>
->> Date:   Wed Jun 13 02:54:55 2012 +0000
->> 
->>     dcbnl: Shorten all command handling functions
->> 
->> This patch reverts this behavior and returns DCB_ATTR_PG_CFG
->> 
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+On Thu, Jun 21, 2012 at 10:27:49PM +0200, Eric Dumazet wrote:
+> Looking at this code, it lacks proper synchronization
+> between tree updaters and tree walkers.
 > 
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+> fib6_walker_lock rwlock is not enough to prevent races.
 
-Applied, thanks.
+Hmm. As author of this weird code, I must say I honestly believed it was correct.
+At least I tried. :-)
+
+
+What's about 2bec5a336.., it does not look reasonable.
+The idea was that when you change tree, you fixup sleeping walkers, moving
+their location in tree to correct point. So, walkers must not have any stale pointers
+at any times (except when you under table write lock) and no skips/counts are required.
+I remember how damn difficult was it to make this right (well, sorry, if it is not yet :-)),
+so that understand that if some update is forgotten or done incorrectly, it is not so easy to find,
+but it is definitely worth of efforts.
+
+Alexey
