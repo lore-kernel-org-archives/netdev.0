@@ -1,90 +1,80 @@
-From: <Sathya.Perla@Emulex.Com>
-Subject: RE: [RFC net-next 11/14] Fix emulex/benet
-Date: Wed, 20 Jun 2012 23:42:22 -0700
-Message-ID: <3367B80B08154D42A3B2BC708B5D41F647C69FA2E4@EXMAIL.ad.emulex.com>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>,<1340118848-30978-12-git-send-email-yuvalmin@broadcom.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: [RFC] tcp: How does SACK or FACK determine the time to start
+ fast retransmition?
+Date: Thu, 21 Jun 2012 15:20:06 +0800
+Message-ID: <4FE2CB26.6010007@gmail.com>
+References: <CAAA3+BpRQ24HED6a+yCF+A_q=vJ7nHexLJd1U+-50pb43MVa5w@mail.gmail.com> <4FE2C03C.6030102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <eilong@broadcom.com>
-To: <yuvalmin@broadcom.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, kernelnewbies@kernelnewbies.org
+To: =?UTF-8?B?5p2O5piT?= <lovelylich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht2.emulex.com ([138.239.113.184]:6754 "EHLO
-	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755299Ab2FUGrS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 02:47:18 -0400
-In-Reply-To: <1340118848-30978-12-git-send-email-yuvalmin@broadcom.com>
-Content-Language: en-US
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:56280 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758503Ab2FUHUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 03:20:11 -0400
+Received: by dady13 with SMTP id y13so478226dad.19
+        for <netdev@vger.kernel.org>; Thu, 21 Jun 2012 00:20:11 -0700 (PDT)
+In-Reply-To: <4FE2C03C.6030102@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yuval, for be2net, the best place to cap the number of queues to a global default 
-value would be_num_rss_want(). The change would look like:
+=E4=BA=8E 2012=E5=B9=B406=E6=9C=8821=E6=97=A5 14:33, =E6=9D=8E=E6=98=93=
+ =E5=86=99=E9=81=93:
+> HI all,
+> When tcp uses reno as its congestion control algothim, it uses
+> tp->sacked_out as dup-ack. When the third dup-ack(under default
+> condition) comes, tcp will initiate its fast retransmition.
+> But how about sack ?
+> According to kernel source code comments, when sack or fack tcp optio=
+n
+> is enabled, there is no dup-ack counter. See comments for function
+> tcp_dupack_heuristics():
+> http://lxr.linux.no/linux+v2.6.37/net/ipv4/tcp_input.c#L2300
+> So , how does tcp know the current dup-ack is the last one which
+> triggers the fast retransmition?
+>
+> According to rfc3517 section 5:
+> "Upon the receipt of the first (DupThresh - 1) duplicate ACKs, the
+> scoreboard is to be updated as normal."
+> "When a TCP sender receives the duplicate ACK corresponding to
+> DupThresh ACKs,
+> the scoreboard MUST be updated with the new SACK information (via
+> Update ()). If no previous loss event has occurred
+> on the connection or the cumulative acknowledgment point is beyond
+> the last value of RecoveryPoint, a loss recovery phase SHOULD be
+> initiated, per the fast retransmit algorithm outlined in [RFC2581]."
+>
+> But these sentences doesn't describe how tcp knows the current ack
+> is the dup-threshold dup-ack.
+>
+> Accorrding to rfc3517 seciton 4 and isLost(Seqnum) function:
+> "The routine returns true when either
+> DupThresh discontiguous SACKed sequences have arrived above
+> =E2=80=99SeqNum=E2=80=99 or (DupThresh * SMSS) bytes with sequence nu=
+mbers greater
+> than =E2=80=99SeqNum=E2=80=99 have been SACKed. Otherwise, the routin=
+e returns
+> false."
+> I think this is just what I am searching for, but I still don't know
+> which line of code in Linux tcp protocol does this check.
+> Can any one help me ? thks in advance.
+>
+>
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/
-index fa2a01e..5265b42 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2186,12 +2186,15 @@ static void be_msix_disable(struct be_adapter *adapter)
- 
- static uint be_num_rss_want(struct be_adapter *adapter)
- {
-+       u32 num = 0;
-+
-        if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
-             !sriov_want(adapter) && be_physfn(adapter) &&
--            !be_is_mc(adapter))
--               return (adapter->be3_native) ? BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
--       else
--               return 0;
-+            !be_is_mc(adapter)) {
-+               num = (adapter->be3_native) ? BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
-+               num = min_t(u32, num, DEFAULT_MAX_NUM_RSS_QUEUES);
-+       }
-+       return num;
- }
- 
- static void be_msix_enable(struct be_adapter *adapter)
+Do you mean you did not locate where FR is triggered in TCP stack ?
+I am not a TCP expert, however I think that it may be at
+tcp_time_to_recover(), and the "DupThresh" is not a fixed value in
+Linux TCP implementation.
 
-thanks,
--Sathya
+Thanks
 
-________________________________________
-From: Yuval Mintz [yuvalmin@broadcom.com]
-
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5a34503..e42597d 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2153,13 +2153,15 @@ static uint be_num_rss_want(struct be_adapter *adapter)
- static void be_msix_enable(struct be_adapter *adapter)
- {
- #define BE_MIN_MSIX_VECTORS            1
--       int i, status, num_vec, num_roce_vec = 0;
-+       int i, status, num_vec, num_roce_vec = 0, ncpu;
-+
-+       ncpu = min_t(int, num_online_cpus(), DEFAULT_MAX_NUM_RSS_QUEUES);
-
-        /* If RSS queues are not used, need a vec for default RX Q */
--       num_vec = min(be_num_rss_want(adapter), num_online_cpus());
-+       num_vec = min(be_num_rss_want(adapter), ncpu);
-        if (be_roce_supported(adapter)) {
-                num_roce_vec = min_t(u32, MAX_ROCE_MSIX_VECTORS,
--                                       (num_online_cpus() + 1));
-+                                    (u32)(ncpu + 1));
-                num_roce_vec = min(num_roce_vec, MAX_ROCE_EQS);
-                num_vec += num_roce_vec;
-                num_vec = min(num_vec, MAX_MSIX_VECTORS);
---
-1.7.9.rc2
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>
