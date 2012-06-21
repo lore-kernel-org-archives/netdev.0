@@ -1,76 +1,74 @@
-From: Andras Takacs <wakoond@wakoond.hu>
-Subject: 3.4.2 net/ipv6/mip6.c destopt regression
-Date: Thu, 21 Jun 2012 22:41:49 +0200
-Message-ID: <A81B4C3A-8B30-4860-BFE1-AE91F7F0DD6E@wakoond.hu>
-Mime-Version: 1.0 (Apple Message framework v1257)
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net] ixgbe: simplify padding and length checks
+Date: Thu, 21 Jun 2012 14:28:09 -0700
+Message-ID: <1340314089.2033.16.camel@jtkirshe-mobl>
+References: <1340280910-22651-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120621.133807.59441426155221033.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-dVJ5mpU3VEO60x25EnKi"
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:37278 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753062Ab2FUUl5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 16:41:57 -0400
-Received: by wgbdr13 with SMTP id dr13so1071959wgb.1
-        for <netdev@vger.kernel.org>; Thu, 21 Jun 2012 13:41:53 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:37717 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760358Ab2FUV2K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 17:28:10 -0400
+In-Reply-To: <20120621.133807.59441426155221033.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
 
-I'm working with Mobile IPv6 systems, and I'm setting up a new MIP6 env=
-ironment. I would like to use the latest stable kernel, so I'm using 3.=
-4.2. Unfortunately I have some serious problems with destination option=
- XFRM processing. I have done the following tests to find the issue:
+--=-dVJ5mpU3VEO60x25EnKi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-=46irst case: No XFRM policies and states.
-Sending MH messages without destopt header.
-In this case the message format is OK, I have tested it with tcpdump an=
-d wireshark.
+On Thu, 2012-06-21 at 13:38 -0700, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Thu, 21 Jun 2012 05:15:10 -0700
+>=20
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> >=20
+> > The check for length <=3D 0 is bogus because length is unsigned, and ne=
+twork
+> > stack never sends zero length packets (unless it is totally broken).
+> >=20
+> > The check for really small packets can be optimized (using unlikely)
+> > and calling skb_pad directly.
+> >=20
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> > Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> Not really fixing anything and more of a cleanup, so maybe 'net-next'
+> instead of 'net' for this guy instead?
 
-21:33:58.817130 IP6 2001:470:7210:10::11 > 2001:470:7210:10::1000: mobi=
-lity: BU seq#=3D1 lifetime=3D8
-	0x0000:  6000 0000 0020 8740 2001 0470 7210 0010  `......@...pr...
-	0x0010:  0000 0000 0000 0011 2001 0470 7210 0010  ...........pr...
-	0x0020:  0000 0000 0000 1000 3b03 0500 1c46 0001  ........;....F..
-	0x0030:  0000 0002 0100 0310 2001 0470 7210 0011  ...........pr...
-	0x0040:  020c 29ff fe46 a0e3                      ..)..F..
+Yeah, net-next is fine.  I just verified that the patch applies cleanly
+to net-next as well.
 
-Second case: Adding destopt XFRM policy and state:
+--=-dVJ5mpU3VEO60x25EnKi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-ip -6 xfrm policy add src 2001:470:7210:10::11 dst 2001:470:7210:10::10=
-00 proto 135 type 5 dir out priority 2 ptype sub tmpl src 2001:470:7210=
-:10::11 dst 2001:470:7210:10::1000 proto hao reqid 0 mode ro level use
-ip -6 xfrm state add src 2001:470:7210:10::11 dst 2001:470:7210:10::100=
-0 proto hao reqid 0 mode ro replay-window 0 coa 2001:470:7210:11:20c:29=
-ff:fe46:a0e3 sel src 2001:470:7210:10::11 dst 2001:470:7210:10::1000
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-In this case, the message format is corrupted:
+iQIcBAABCgAGBQJP45HpAAoJEOVv75VaS+3Oq/gP/A0cPIwXnOUaMW7qzVAkFGcd
+k8IByW3YQAFjkYCIYTmdEAnWK535Q6UbUWryuhQs4rDgRLS4Omk1XpQW+BWxqKon
+9Cz6vZGgZuz1BGobukKeFnPd3KHbNjT/4HXoLVNCiknrLcvBtMo/2qcoFbxzZuY5
+kcm4RpbhJMhlt8zf19SthfDappa9hukNSBHdXi9a1HlsgDYuMcmiAGrI+GCaBy88
+1t4soTJ+3H7cTUmr4UZifZ3dI3PPvai4tQaWGvTLhhKvgrXeCIv12IVxxt9IcY/J
+PhnuBMAlf9RONZBn21MNkXxWYyqi0ZIDtBfucVisVCDDJ4GY3/A+rsHNpCmGpdpo
+FZ+Zkl7I4PJERC4yo9TqJ/w9Luf1Xsskv2PjrfVukuiYyynnumSdZLKk6YNM6Meb
+8tf1AxnytMeXFD7AxjfBsx7fjyjA/GxA7zthpQ1u4Bv2tJO8OuAIYBM4eTDBcSUr
+2WtX93BE8Vck1jH4nqd49462Ph1JY9XJ9Kk2nfvwvNBGM9hdY60QhhLCFoEqCTCI
+TMMr8NpXeYzhrkiwZfa8ppKqou4ikZKqiShYEzCvRG6XiaVwBRglRPN+J9xEssXk
+j0S5r4QD2p0rlDmJCCSWunPDmDmtgMtygOpfS6trlhugO4qJ39DBVmz/1mLwYJ1O
+KTPTZVGZC8eKPbqMsAbW
+=uE1j
+-----END PGP SIGNATURE-----
 
-21:30:42.350315 IP6 2001:470:7210:11:20c:29ff:fe46:a0e3 > 2001:470:7210=
-:10::1000: DSTOPT mobility: type-#41 len=3D12
-	0x0000:  6000 0000 0020 3c40 2001 0470 7210 0011  `.....<@...pr...
-	0x0010:  020c 29ff fe46 a0e3 2001 0470 7210 0010  ..)..F.....pr...
-	0x0020:  0000 0000 0000 1000 8702 0102 0000 c910  ................
-	0x0030:  2001 0470 7210 0010 0000 0000 0000 0011  ...pr...........
-	0x0040:  020c 29ff fe46 a0e3=20
-
-As you can see, the IPv6 header is OK. Next, the destination option hea=
-der is OK. Finally, the following part of the packet isn't OK. If you c=
-ompare the two dump carefully, you will see, that the last 8 bytes are =
-identical. The mip6_destopt_output function adds the destination option=
- header correctly, but overwrites the existing MH header, and doesn't s=
-hift it after the destopt header.
-
-I'm not familiar with the XFRM framework enough to fix the problem. :(
-Maybe, could anyone help to me to fix this issue?
-
-The last environment, which worked fine was built on 2.6.35 version. Th=
-e problem happened between 2.6.35 and 3.4.2. Sorry, I know, it is a qui=
-te big interval. :(
-
-Thanks!
-
-
-Best regards,
-Andr=E1s Tak=E1cs
+--=-dVJ5mpU3VEO60x25EnKi--
