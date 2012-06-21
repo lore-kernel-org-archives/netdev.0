@@ -1,26 +1,57 @@
-From: <Menny_Hamburger@Dell.com>
-Subject: IPV6 ndisc::  Bad NIC causing  IPV6 NDP to stop working
-Date: Thu, 21 Jun 2012 08:59:46 +0100
-Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34DBEFCF@DUBX7MCDUB01.EMEA.DELL.COM>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCH] net: dcb: fix small regression in __dcbnl_pg_setcfg()
+Date: Thu, 21 Jun 2012 04:19:10 -0400
+Message-ID: <20120621081910.GH27921@canuck.infradead.org>
+References: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org,
+	lucy.liu@intel.com, alexander.h.duyck@intel.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:54167 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753608Ab2FUIJy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 04:09:54 -0400
-Content-Language: en-US
+Received: from merlin.infradead.org ([205.233.59.134]:57791 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758714Ab2FUITR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 04:19:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jun 20, 2012 at 10:56:21PM -0700, John Fastabend wrote:
+> A small regression was introduced in the reply command of
+> dcbnl_pg_setcfg(). User space apps may be expecting the
+> DCB_ATTR_PG_CFG attribute to be returned with the patch
+> below TX or RX variants are returned.
+> 
+> commit 7be994138b188387691322921c08e19bddf6d3c5
+> Author: Thomas Graf <tgraf@suug.ch>
+> Date:   Wed Jun 13 02:54:55 2012 +0000
+> 
+>     dcbnl: Shorten all command handling functions
+> 
+> This patch reverts this behavior and returns DCB_ATTR_PG_CFG
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
+>  net/dcb/dcbnl.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+> index 0a36007..013da86 100644
+> --- a/net/dcb/dcbnl.c
+> +++ b/net/dcb/dcbnl.c
+> @@ -852,8 +852,7 @@ static int __dcbnl_pg_setcfg(struct net_device *netdev, struct nlmsghdr *nlh,
+>  		}
+>  	}
+>  
+> -	return nla_put_u8(skb,
+> -			  (dir ? DCB_CMD_PGRX_SCFG : DCB_CMD_PGTX_SCFG), 0);
+> +	return nla_put_u8(skb, DCB_ATTR_PG_CFG, 0);
+>  }
+>  
 
-Our machines runs EL5.8 x86_64.
-We have witnessed several cases where we suspect that a bad NIC on the machine caused IPV6 neighbour discovery to stop working on all the other NICs - when this happens ping6 fails on every NIC we try it.
->From looking into the code I see that there is only a single socket assigned for NDP; Does it sound logical to allocate a socket per interface instead of a single global socket.
-I have found the following thread in LKML: https://lkml.org/lkml/2006/11/29/335, and it seems that this allocation issue still exists in EL5 based kernels - could this cause the above problem?
+ACK
 
-Thanks,
-Menny
+Thanks John
