@@ -1,53 +1,93 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH 2/8] dcbnl: Shorten all command handling functions
-Date: Wed, 20 Jun 2012 23:04:49 -0700
-Message-ID: <4FE2B981.6010704@intel.com>
-References: <cover.1339591572.git.tgraf@suug.ch> <3fea99383d5ee98b51bd8b0088bed38cdb59f375.1339591572.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, lucy.liu@intel.com,
-	alexander.h.duyck@intel.com
-To: Thomas Graf <tgraf@suug.ch>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [net-next.git 2/4] stmmac: update the driver Documentation and add EEE
+Date: Thu, 21 Jun 2012 08:03:17 +0200
+Message-ID: <1340258599-3083-3-git-send-email-peppe.cavallaro@st.com>
+References: <1340258599-3083-1-git-send-email-peppe.cavallaro@st.com>
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	rayagond@vayavyalabs.com, davem@davemloft.net,
+	yuvalmin@broadcom.com, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:42568 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758618Ab2FUGEw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2012 02:04:52 -0400
-In-Reply-To: <3fea99383d5ee98b51bd8b0088bed38cdb59f375.1339591572.git.tgraf@suug.ch>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:33962 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755555Ab2FUGEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 02:04:37 -0400
+In-Reply-To: <1340258599-3083-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/13/2012 5:54 AM, Thomas Graf wrote:
-> Allocating and sending the skb in dcb_doit() allows for much
-> shorter and cleaner command handling functions.
->
-> The huge switch statement is replaced with an array based definition
-> of the handling function and reply message type.
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->   net/dcb/dcbnl.c |  722 +++++++++++++------------------------------------------
->   1 files changed, 172 insertions(+), 550 deletions(-)
->
+This patch updates the stmmac's documentation adding
+some missing files in the section used to describe the
+internal driver's structure.
 
-[...]
+Also the patch adds a new section to describe the EEE support.
 
-> @@ -1054,32 +885,27 @@ static int __dcbnl_pg_setcfg(struct net_device *netdev, struct nlattr **tb,
->   		}
->   	}
->
-> -	ret = dcbnl_reply(0, RTM_SETDCB,
-> -			  (dir ? DCB_CMD_PGRX_SCFG : DCB_CMD_PGTX_SCFG),
-> -			  DCB_ATTR_PG_CFG, pid, seq, flags);
-> +	ret = nla_put_u8(skb, (dir ? DCB_CMD_PGRX_SCFG : DCB_CMD_PGTX_SCFG), 0);
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ Documentation/networking/stmmac.txt |   36 +++++++++++++++++++++++++++++-----
+ 1 files changed, 30 insertions(+), 6 deletions(-)
 
-Previously, this returned DCB_ATTR_PG_CFG now it is returning RX or TX
-variants. Although I like this implementation better I think in order
-to not break user space application we should keep the previous
-behavior. At least one app is checking these return codes.
-
-I'll post a patch shortly. Thomas if you ACK it that would be great.
-
-Thanks,
-John
+diff --git a/Documentation/networking/stmmac.txt b/Documentation/networking/stmmac.txt
+index 5cb9a19..c676b9c 100644
+--- a/Documentation/networking/stmmac.txt
++++ b/Documentation/networking/stmmac.txt
+@@ -257,9 +257,11 @@ reset procedure etc).
+  o Makefile
+  o stmmac_main.c: main network device driver;
+  o stmmac_mdio.c: mdio functions;
++ o stmmac_pci: PCI driver;
++ o stmmac_platform.c: platform driver
+  o stmmac_ethtool.c: ethtool support;
+  o stmmac_timer.[ch]: timer code used for mitigating the driver dma interrupts
+-		      Only tested on ST40 platforms based.
++		      (only tested on ST40 platforms based);
+  o stmmac.h: private driver structure;
+  o common.h: common definitions and VFTs;
+  o descs.h: descriptor structure definitions;
+@@ -269,9 +271,11 @@ reset procedure etc).
+  o dwmac100_core: MAC 100 core and dma code;
+  o dwmac100_dma.c: dma funtions for the MAC chip;
+  o dwmac1000.h: specific header file for the MAC;
+- o dwmac_lib.c: generic DMA functions shared among chips
+- o enh_desc.c: functions for handling enhanced descriptors
+- o norm_desc.c: functions for handling normal descriptors
++ o dwmac_lib.c: generic DMA functions shared among chips;
++ o enh_desc.c: functions for handling enhanced descriptors;
++ o norm_desc.c: functions for handling normal descriptors;
++ o chain_mode.c/ring_mode.c:: functions to manage RING/CHAINED modes;
++ o mmc_core.c/mmc.h: Management MAC Counters;
+ 
+ 5) Debug Information
+ 
+@@ -304,7 +308,27 @@ All these are only useful during the developing stage
+ and should never enabled inside the code for general usage.
+ In fact, these can generate an huge amount of debug messages.
+ 
+-6) TODO:
++6) Energy Efficient Ethernet
++
++Energy Efficient Ethernet(EEE) enables IEEE 802.3 MAC sublayer along
++with a family of Physical layer to operate in the Low power Idle(LPI)
++mode. The EEE mode supports the IEEE 802.3 MAC operation at 100Mbps,
++1000Mbps & 10Gbps.
++
++The LPI mode allows power saving by switching off parts of the
++communication device functionality when there is no data to be
++transmitted & received. The system on both the side of the link can
++disable some functionalities & save power during the period of low-link
++utilization. The MAC controls whether the system should enter or exit
++the LPI mode & communicate this to PHY.
++
++As soon as the interface is opened, the driver verifies if the EEE can
++be supported. This is done by looking at both the DMA HW capability
++register and the PHY devices MCD registers.
++To enter in Tx LPI mode the driver needs to have a software timer
++that enable and disable the LPI mode when there is nothing to be
++transmitted.
++
++7) TODO:
+  o XGMAC is not supported.
+- o Add the EEE - Energy Efficient Ethernet
+  o Add the PTP - precision time protocol
+-- 
+1.7.4.4
