@@ -1,8 +1,8 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 01/20] batman-adv: Prefix bat_algo non-static
+Subject: [PATCH 04/20] batman-adv: Prefix bitarray non-static
 	functions with batadv_
-Date: Thu, 21 Jun 2012 18:57:37 +0200
-Message-ID: <1340297876-29923-2-git-send-email-ordex@autistici.org>
+Date: Thu, 21 Jun 2012 18:57:40 +0200
+Message-ID: <1340297876-29923-5-git-send-email-ordex@autistici.org>
 References: <1340297876-29923-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,48 +33,97 @@ Reported-by: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bat_algo.h   |    2 +-
- net/batman-adv/bat_iv_ogm.c |    2 +-
- net/batman-adv/main.c       |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ net/batman-adv/bat_iv_ogm.c |    6 +++---
+ net/batman-adv/bitarray.c   |    8 ++++----
+ net/batman-adv/bitarray.h   |    4 ++--
+ net/batman-adv/routing.c    |    4 ++--
+ 4 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/net/batman-adv/bat_algo.h b/net/batman-adv/bat_algo.h
-index 9852a68..a14336a 100644
---- a/net/batman-adv/bat_algo.h
-+++ b/net/batman-adv/bat_algo.h
-@@ -22,6 +22,6 @@
- #ifndef _NET_BATMAN_ADV_BAT_ALGO_H_
- #define _NET_BATMAN_ADV_BAT_ALGO_H_
- 
--int bat_iv_init(void);
-+int batadv_iv_init(void);
- 
- #endif /* _NET_BATMAN_ADV_BAT_ALGO_H_ */
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 6e0859f..b445739 100644
+index b445739..53bce95 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1248,7 +1248,7 @@ static struct bat_algo_ops batman_iv __read_mostly = {
- 	.bat_ogm_emit = bat_iv_ogm_emit,
- };
+@@ -903,9 +903,9 @@ static int bat_iv_ogm_update_seqnos(const struct ethhdr *ethhdr,
+ 			set_mark = 0;
  
--int __init bat_iv_init(void)
-+int __init batadv_iv_init(void)
+ 		/* if the window moved, set the update flag. */
+-		need_update |= bit_get_packet(bat_priv,
+-					      tmp_neigh_node->real_bits,
+-					      seq_diff, set_mark);
++		need_update |= batadv_bit_get_packet(bat_priv,
++						     tmp_neigh_node->real_bits,
++						     seq_diff, set_mark);
+ 
+ 		tmp_neigh_node->real_packet_count =
+ 			bitmap_weight(tmp_neigh_node->real_bits,
+diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
+index 07ae6e1..99ed991 100644
+--- a/net/batman-adv/bitarray.c
++++ b/net/batman-adv/bitarray.c
+@@ -25,7 +25,7 @@
+ #include <linux/bitops.h>
+ 
+ /* shift the packet array by n places. */
+-static void bat_bitmap_shift_left(unsigned long *seq_bits, int32_t n)
++static void batadv_bitmap_shift_left(unsigned long *seq_bits, int32_t n)
  {
- 	int ret;
+ 	if (n <= 0 || n >= TQ_LOCAL_WINDOW_SIZE)
+ 		return;
+@@ -40,8 +40,8 @@ static void bat_bitmap_shift_left(unsigned long *seq_bits, int32_t n)
+  *  1 if the window was moved (either new or very old)
+  *  0 if the window was not moved/shifted.
+  */
+-int bit_get_packet(void *priv, unsigned long *seq_bits,
+-		    int32_t seq_num_diff, int set_mark)
++int batadv_bit_get_packet(void *priv, unsigned long *seq_bits,
++			  int32_t seq_num_diff, int set_mark)
+ {
+ 	struct bat_priv *bat_priv = priv;
  
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 46ba302..1f064d4 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -56,7 +56,7 @@ static int __init batman_init(void)
+@@ -58,7 +58,7 @@ int bit_get_packet(void *priv, unsigned long *seq_bits,
+ 	 * set the mark if required */
  
- 	recv_handler_init();
+ 	if ((seq_num_diff > 0) && (seq_num_diff < TQ_LOCAL_WINDOW_SIZE)) {
+-		bat_bitmap_shift_left(seq_bits, seq_num_diff);
++		batadv_bitmap_shift_left(seq_bits, seq_num_diff);
  
--	bat_iv_init();
-+	batadv_iv_init();
+ 		if (set_mark)
+ 			bat_set_bit(seq_bits, 0);
+diff --git a/net/batman-adv/bitarray.h b/net/batman-adv/bitarray.h
+index 1835c15..e855ddd3 100644
+--- a/net/batman-adv/bitarray.h
++++ b/net/batman-adv/bitarray.h
+@@ -48,7 +48,7 @@ static inline void bat_set_bit(unsigned long *seq_bits, int32_t n)
  
- 	/* the name should not be longer than 10 chars - see
- 	 * http://lwn.net/Articles/23634/ */
+ /* receive and process one packet, returns 1 if received seq_num is considered
+  * new, 0 if old  */
+-int bit_get_packet(void *priv, unsigned long *seq_bits,
+-		   int32_t seq_num_diff, int set_mark);
++int batadv_bit_get_packet(void *priv, unsigned long *seq_bits,
++			  int32_t seq_num_diff, int set_mark);
+ 
+ #endif /* _NET_BATMAN_ADV_BITARRAY_H_ */
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 9cfd23c..e573c32 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -54,7 +54,7 @@ void slide_own_bcast_window(struct hard_iface *hard_iface)
+ 			word_index = hard_iface->if_num * NUM_WORDS;
+ 			word = &(orig_node->bcast_own[word_index]);
+ 
+-			bit_get_packet(bat_priv, word, 1, 0);
++			batadv_bit_get_packet(bat_priv, word, 1, 0);
+ 			orig_node->bcast_own_sum[hard_iface->if_num] =
+ 				bitmap_weight(word, TQ_LOCAL_WINDOW_SIZE);
+ 			spin_unlock_bh(&orig_node->ogm_cnt_lock);
+@@ -1083,7 +1083,7 @@ int recv_bcast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 
+ 	/* mark broadcast in flood history, update window position
+ 	 * if required. */
+-	if (bit_get_packet(bat_priv, orig_node->bcast_bits, seq_diff, 1))
++	if (batadv_bit_get_packet(bat_priv, orig_node->bcast_bits, seq_diff, 1))
+ 		orig_node->last_bcast_seqno = ntohl(bcast_packet->seqno);
+ 
+ 	spin_unlock_bh(&orig_node->bcast_seqno_lock);
 -- 
 1.7.9.4
