@@ -1,42 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
-Date: Thu, 21 Jun 2012 22:27:49 +0200
-Message-ID: <1340310469.4604.6702.camel@edumazet-glaptop>
-References: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com>
-	 <4FE37783.9000409@akamai.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-06-21
+Date: Thu, 21 Jun 2012 13:36:00 -0700 (PDT)
+Message-ID: <20120621.133600.2007831014209963002.davem@davemloft.net>
+References: <1340297876-29923-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	Debabrata Banerjee <dbavatar@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"pekkas@netcore.fi" <pekkas@netcore.fi>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Josh Hunt <johunt@akamai.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FE37783.9000409@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1340297876-29923-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-06-21 at 14:35 -0500, Josh Hunt wrote:
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Thu, 21 Jun 2012 18:57:36 +0200
 
-> Can anyone provide details of the crash which was intended to be fixed
-> by 2bec5a369ee79576a3eea2c23863325089785a2c? With this patch in and
-> doing concurrent adds/deletes and dumping the table via netlink causes
-> duplicate entries to be reported. Reverting this patch causes those
-> problems to go away. We can provide a more detailed test if that is
-> needed, but so far our testing has been unable to reproduce the crash
-> mentioned in the above commit with it reverted.
+> here is another set of changes intended for net-next/linux-3.6.
+> From 1/20 to 19/20 you have our first set of changes aiming to rename the
+> exported symbols, as you suggested some time ago.
+> 
+> Patch 20/20 restyles all the comments in our code in order to follow the new
+> guidelines.
+ ...
+>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
 
-A mere revert wont be enough.
-
-Looking at this code, it lacks proper synchronization
-between tree updaters and tree walkers.
-
-fib6_walker_lock rwlock is not enough to prevent races.
-
-Are you willing to fix this yourself ?
+Pulled, thanks.
