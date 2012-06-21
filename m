@@ -1,38 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-06-21
-Date: Thu, 21 Jun 2012 13:36:00 -0700 (PDT)
-Message-ID: <20120621.133600.2007831014209963002.davem@davemloft.net>
-References: <1340297876-29923-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net] ixgbe: simplify padding and length checks
+Date: Thu, 21 Jun 2012 13:38:07 -0700 (PDT)
+Message-ID: <20120621.133807.59441426155221033.davem@davemloft.net>
+References: <1340280910-22651-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1340297876-29923-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56261 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760191Ab2FUUiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 16:38:08 -0400
+In-Reply-To: <1340280910-22651-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Thu, 21 Jun 2012 18:57:36 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 21 Jun 2012 05:15:10 -0700
 
-> here is another set of changes intended for net-next/linux-3.6.
-> From 1/20 to 19/20 you have our first set of changes aiming to rename the
-> exported symbols, as you suggested some time ago.
+> From: Stephen Hemminger <shemminger@vyatta.com>
 > 
-> Patch 20/20 restyles all the comments in our code in order to follow the new
-> guidelines.
- ...
->   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+> The check for length <= 0 is bogus because length is unsigned, and network
+> stack never sends zero length packets (unless it is totally broken).
+> 
+> The check for really small packets can be optimized (using unlikely)
+> and calling skb_pad directly.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Pulled, thanks.
+Not really fixing anything and more of a cleanup, so maybe 'net-next'
+instead of 'net' for this guy instead?
