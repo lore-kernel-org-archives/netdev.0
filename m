@@ -1,8 +1,8 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 07/20] batman-adv: Prefix gateway-common
+Subject: [PATCH 08/20] batman-adv: Prefix hard-interface
 	non-static functions with batadv_
-Date: Thu, 21 Jun 2012 18:57:43 +0200
-Message-ID: <1340297876-29923-8-git-send-email-ordex@autistici.org>
+Date: Thu, 21 Jun 2012 18:57:44 +0200
+Message-ID: <1340297876-29923-9-git-send-email-ordex@autistici.org>
 References: <1340297876-29923-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,130 +33,316 @@ Reported-by: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bat_sysfs.c      |    4 ++--
- net/batman-adv/gateway_client.c |   12 +++++++-----
- net/batman-adv/gateway_common.c |    7 ++++---
- net/batman-adv/gateway_common.h |    5 +++--
- 4 files changed, 16 insertions(+), 12 deletions(-)
+ net/batman-adv/bat_sysfs.c         |   20 +++++++++++---------
+ net/batman-adv/hard-interface.c    |   32 ++++++++++++++++----------------
+ net/batman-adv/hard-interface.h    |   22 +++++++++++-----------
+ net/batman-adv/main.c              |    6 +++---
+ net/batman-adv/soft-interface.c    |    2 +-
+ net/batman-adv/translation-table.c |    2 +-
+ 6 files changed, 43 insertions(+), 41 deletions(-)
 
 diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index 31d23db..a8fb660 100644
+index a8fb660..5a7b042 100644
 --- a/net/batman-adv/bat_sysfs.c
 +++ b/net/batman-adv/bat_sysfs.c
-@@ -409,7 +409,7 @@ static ssize_t show_gw_bwidth(struct kobject *kobj, struct attribute *attr,
- 	int down, up;
- 	int gw_bandwidth = atomic_read(&bat_priv->gw_bandwidth);
- 
--	gw_bandwidth_to_kbit(gw_bandwidth, &down, &up);
-+	batadv_gw_bandwidth_to_kbit(gw_bandwidth, &down, &up);
- 	return sprintf(buff, "%i%s/%i%s\n",
- 		       (down > 2048 ? down / 1024 : down),
- 		       (down > 2048 ? "MBit" : "KBit"),
-@@ -425,7 +425,7 @@ static ssize_t store_gw_bwidth(struct kobject *kobj, struct attribute *attr,
- 	if (buff[count - 1] == '\n')
- 		buff[count - 1] = '\0';
- 
--	return gw_bandwidth_set(net_dev, buff, count);
-+	return batadv_gw_bandwidth_set(net_dev, buff, count);
- }
- 
- BAT_ATTR_SIF_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index a28d9ce..a3f944b 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -116,13 +116,15 @@ static struct gw_node *gw_get_best_gw_node(struct bat_priv *bat_priv)
- 	uint32_t max_gw_factor = 0, tmp_gw_factor = 0;
- 	uint8_t max_tq = 0;
- 	int down, up;
-+	struct orig_node *orig_node;
- 
- 	rcu_read_lock();
- 	hlist_for_each_entry_rcu(gw_node, node, &bat_priv->gw_list, list) {
- 		if (gw_node->deleted)
- 			continue;
- 
--		router = orig_node_get_router(gw_node->orig_node);
-+		orig_node = gw_node->orig_node;
-+		router = orig_node_get_router(orig_node);
- 		if (!router)
- 			continue;
- 
-@@ -131,8 +133,8 @@ static struct gw_node *gw_get_best_gw_node(struct bat_priv *bat_priv)
- 
- 		switch (atomic_read(&bat_priv->gw_sel_class)) {
- 		case 1: /* fast connection */
--			gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags,
--					     &down, &up);
-+			batadv_gw_bandwidth_to_kbit(orig_node->gw_flags,
-+						    &down, &up);
- 
- 			tmp_gw_factor = (router->tq_avg * router->tq_avg *
- 					 down * 100 * 100) /
-@@ -319,7 +321,7 @@ static void gw_node_add(struct bat_priv *bat_priv,
- 	hlist_add_head_rcu(&gw_node->list, &bat_priv->gw_list);
- 	spin_unlock_bh(&bat_priv->gw_list_lock);
- 
--	gw_bandwidth_to_kbit(new_gwflags, &down, &up);
-+	batadv_gw_bandwidth_to_kbit(new_gwflags, &down, &up);
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Found new gateway %pM -> gw_class: %i - %i%s/%i%s\n",
- 		orig_node->orig, new_gwflags,
-@@ -434,7 +436,7 @@ static int _write_buffer_text(struct bat_priv *bat_priv, struct seq_file *seq,
- 	struct neigh_node *router;
- 	int down, up, ret = -1;
- 
--	gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags, &down, &up);
-+	batadv_gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags, &down, &up);
- 
- 	router = orig_node_get_router(gw_node->orig_node);
- 	if (!router)
-diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
-index a0b0f52..722c932 100644
---- a/net/batman-adv/gateway_common.c
-+++ b/net/batman-adv/gateway_common.c
-@@ -59,7 +59,7 @@ static void kbit_to_gw_bandwidth(int down, int up, long *gw_srv_class)
- }
- 
- /* returns the up and downspeeds in kbit, calculated from the class */
--void gw_bandwidth_to_kbit(uint8_t gw_srv_class, int *down, int *up)
-+void batadv_gw_bandwidth_to_kbit(uint8_t gw_srv_class, int *down, int *up)
+@@ -122,9 +122,10 @@ ssize_t store_##_name(struct kobject *kobj, struct attribute *attr,	\
+ 		      char *buff, size_t count)				\
+ {									\
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);		\
+-	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);	\
++	struct hard_iface *hard_iface;					\
+ 	ssize_t length;							\
+ 									\
++	hard_iface = batadv_hardif_get_by_netdev(net_dev);		\
+ 	if (!hard_iface)						\
+ 		return 0;						\
+ 									\
+@@ -140,9 +141,10 @@ ssize_t show_##_name(struct kobject *kobj,				\
+ 		     struct attribute *attr, char *buff)		\
+ {									\
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);		\
+-	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);	\
++	struct hard_iface *hard_iface;					\
+ 	ssize_t length;							\
+ 									\
++	hard_iface = batadv_hardif_get_by_netdev(net_dev);		\
+ 	if (!hard_iface)						\
+ 		return 0;						\
+ 									\
+@@ -433,7 +435,7 @@ BAT_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
+ #ifdef CONFIG_BATMAN_ADV_BLA
+ BAT_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
+ #endif
+-BAT_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, update_min_mtu);
++BAT_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, batadv_update_min_mtu);
+ BAT_ATTR_SIF_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
+ static BAT_ATTR(vis_mode, S_IRUGO | S_IWUSR, show_vis_mode, store_vis_mode);
+ static BAT_ATTR(routing_algo, S_IRUGO, show_bat_algo, NULL);
+@@ -523,7 +525,7 @@ static ssize_t show_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 			       char *buff)
  {
- 	int sbit = (gw_srv_class & 0x80) >> 7;
- 	int dpart = (gw_srv_class & 0x78) >> 3;
-@@ -136,7 +136,8 @@ static bool parse_gw_bandwidth(struct net_device *net_dev, char *buff,
- 	return true;
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);
+-	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);
++	struct hard_iface *hard_iface = batadv_hardif_get_by_netdev(net_dev);
+ 	ssize_t length;
+ 
+ 	if (!hard_iface)
+@@ -541,7 +543,7 @@ static ssize_t store_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 				char *buff, size_t count)
+ {
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);
+-	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);
++	struct hard_iface *hard_iface = batadv_hardif_get_by_netdev(net_dev);
+ 	int status_tmp = -1;
+ 	int ret = count;
+ 
+@@ -576,15 +578,15 @@ static ssize_t store_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 	}
+ 
+ 	if (status_tmp == IF_NOT_IN_USE) {
+-		hardif_disable_interface(hard_iface);
++		batadv_hardif_disable_interface(hard_iface);
+ 		goto unlock;
+ 	}
+ 
+ 	/* if the interface already is in use */
+ 	if (hard_iface->if_status != IF_NOT_IN_USE)
+-		hardif_disable_interface(hard_iface);
++		batadv_hardif_disable_interface(hard_iface);
+ 
+-	ret = hardif_enable_interface(hard_iface, buff);
++	ret = batadv_hardif_enable_interface(hard_iface, buff);
+ 
+ unlock:
+ 	rtnl_unlock();
+@@ -597,7 +599,7 @@ static ssize_t show_iface_status(struct kobject *kobj, struct attribute *attr,
+ 				 char *buff)
+ {
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);
+-	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);
++	struct hard_iface *hard_iface = batadv_hardif_get_by_netdev(net_dev);
+ 	ssize_t length;
+ 
+ 	if (!hard_iface)
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 1643e7f..4f44f04 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -32,7 +32,7 @@
+ 
+ #include <linux/if_arp.h>
+ 
+-void hardif_free_rcu(struct rcu_head *rcu)
++void batadv_hardif_free_rcu(struct rcu_head *rcu)
+ {
+ 	struct hard_iface *hard_iface;
+ 
+@@ -41,7 +41,7 @@ void hardif_free_rcu(struct rcu_head *rcu)
+ 	kfree(hard_iface);
  }
  
--ssize_t gw_bandwidth_set(struct net_device *net_dev, char *buff, size_t count)
-+ssize_t batadv_gw_bandwidth_set(struct net_device *net_dev, char *buff,
-+				size_t count)
+-struct hard_iface *hardif_get_by_netdev(const struct net_device *net_dev)
++struct hard_iface *batadv_hardif_get_by_netdev(const struct net_device *net_dev)
  {
- 	struct bat_priv *bat_priv = netdev_priv(net_dev);
- 	long gw_bandwidth_tmp = 0;
-@@ -160,7 +161,7 @@ ssize_t gw_bandwidth_set(struct net_device *net_dev, char *buff, size_t count)
- 	 * speeds, hence we need to calculate it back to show the number
- 	 * that is going to be propagated
- 	 **/
--	gw_bandwidth_to_kbit((uint8_t)gw_bandwidth_tmp, &down, &up);
-+	batadv_gw_bandwidth_to_kbit((uint8_t)gw_bandwidth_tmp, &down, &up);
+ 	struct hard_iface *hard_iface;
  
- 	if (atomic_read(&bat_priv->gw_bandwidth) == gw_bandwidth_tmp)
- 		return count;
-diff --git a/net/batman-adv/gateway_common.h b/net/batman-adv/gateway_common.h
-index b8fb11c..e256040 100644
---- a/net/batman-adv/gateway_common.h
-+++ b/net/batman-adv/gateway_common.h
-@@ -32,7 +32,8 @@ enum gw_modes {
- #define GW_MODE_CLIENT_NAME	"client"
- #define GW_MODE_SERVER_NAME	"server"
+@@ -180,7 +180,7 @@ static void check_known_mac_addr(const struct net_device *net_dev)
+ 	rcu_read_unlock();
+ }
  
--void gw_bandwidth_to_kbit(uint8_t gw_class, int *down, int *up);
--ssize_t gw_bandwidth_set(struct net_device *net_dev, char *buff, size_t count);
-+void batadv_gw_bandwidth_to_kbit(uint8_t gw_class, int *down, int *up);
-+ssize_t batadv_gw_bandwidth_set(struct net_device *net_dev, char *buff,
-+				size_t count);
+-int hardif_min_mtu(struct net_device *soft_iface)
++int batadv_hardif_min_mtu(struct net_device *soft_iface)
+ {
+ 	const struct bat_priv *bat_priv = netdev_priv(soft_iface);
+ 	const struct hard_iface *hard_iface;
+@@ -209,11 +209,11 @@ out:
+ }
  
- #endif /* _NET_BATMAN_ADV_GATEWAY_COMMON_H_ */
+ /* adjusts the MTU if a new interface with a smaller MTU appeared. */
+-void update_min_mtu(struct net_device *soft_iface)
++void batadv_update_min_mtu(struct net_device *soft_iface)
+ {
+ 	int min_mtu;
+ 
+-	min_mtu = hardif_min_mtu(soft_iface);
++	min_mtu = batadv_hardif_min_mtu(soft_iface);
+ 	if (soft_iface->mtu != min_mtu)
+ 		soft_iface->mtu = min_mtu;
+ }
+@@ -242,7 +242,7 @@ static void hardif_activate_interface(struct hard_iface *hard_iface)
+ 	bat_info(hard_iface->soft_iface, "Interface activated: %s\n",
+ 		 hard_iface->net_dev->name);
+ 
+-	update_min_mtu(hard_iface->soft_iface);
++	batadv_update_min_mtu(hard_iface->soft_iface);
+ 
+ out:
+ 	if (primary_if)
+@@ -260,11 +260,11 @@ static void hardif_deactivate_interface(struct hard_iface *hard_iface)
+ 	bat_info(hard_iface->soft_iface, "Interface deactivated: %s\n",
+ 		 hard_iface->net_dev->name);
+ 
+-	update_min_mtu(hard_iface->soft_iface);
++	batadv_update_min_mtu(hard_iface->soft_iface);
+ }
+ 
+-int hardif_enable_interface(struct hard_iface *hard_iface,
+-			    const char *iface_name)
++int batadv_hardif_enable_interface(struct hard_iface *hard_iface,
++				   const char *iface_name)
+ {
+ 	struct bat_priv *bat_priv;
+ 	struct net_device *soft_iface;
+@@ -357,7 +357,7 @@ err:
+ 	return ret;
+ }
+ 
+-void hardif_disable_interface(struct hard_iface *hard_iface)
++void batadv_hardif_disable_interface(struct hard_iface *hard_iface)
+ {
+ 	struct bat_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+ 	struct hard_iface *primary_if = NULL;
+@@ -461,7 +461,7 @@ static void hardif_remove_interface(struct hard_iface *hard_iface)
+ 
+ 	/* first deactivate interface */
+ 	if (hard_iface->if_status != IF_NOT_IN_USE)
+-		hardif_disable_interface(hard_iface);
++		batadv_hardif_disable_interface(hard_iface);
+ 
+ 	if (hard_iface->if_status != IF_NOT_IN_USE)
+ 		return;
+@@ -471,7 +471,7 @@ static void hardif_remove_interface(struct hard_iface *hard_iface)
+ 	hardif_free_ref(hard_iface);
+ }
+ 
+-void hardif_remove_interfaces(void)
++void batadv_hardif_remove_interfaces(void)
+ {
+ 	struct hard_iface *hard_iface, *hard_iface_tmp;
+ 
+@@ -488,7 +488,7 @@ static int hard_if_event(struct notifier_block *this,
+ 			 unsigned long event, void *ptr)
+ {
+ 	struct net_device *net_dev = ptr;
+-	struct hard_iface *hard_iface = hardif_get_by_netdev(net_dev);
++	struct hard_iface *hard_iface = batadv_hardif_get_by_netdev(net_dev);
+ 	struct hard_iface *primary_if = NULL;
+ 	struct bat_priv *bat_priv;
+ 
+@@ -513,7 +513,7 @@ static int hard_if_event(struct notifier_block *this,
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+ 		if (hard_iface->soft_iface)
+-			update_min_mtu(hard_iface->soft_iface);
++			batadv_update_min_mtu(hard_iface->soft_iface);
+ 		break;
+ 	case NETDEV_CHANGEADDR:
+ 		if (hard_iface->if_status == IF_NOT_IN_USE)
+@@ -545,7 +545,7 @@ out:
+ 
+ /* This function returns true if the interface represented by ifindex is a
+  * 802.11 wireless device */
+-bool is_wifi_iface(int ifindex)
++bool batadv_is_wifi_iface(int ifindex)
+ {
+ 	struct net_device *net_device = NULL;
+ 	bool ret = false;
+@@ -573,6 +573,6 @@ out:
+ 	return ret;
+ }
+ 
+-struct notifier_block hard_if_notifier = {
++struct notifier_block batadv_hard_if_notifier = {
+ 	.notifier_call = hard_if_event,
+ };
+diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
+index e68c565..20e09db 100644
+--- a/net/batman-adv/hard-interface.h
++++ b/net/batman-adv/hard-interface.h
+@@ -31,23 +31,23 @@ enum hard_if_state {
+ 	IF_I_WANT_YOU
+ };
+ 
+-extern struct notifier_block hard_if_notifier;
++extern struct notifier_block batadv_hard_if_notifier;
+ 
+ struct hard_iface*
+-hardif_get_by_netdev(const struct net_device *net_dev);
+-int hardif_enable_interface(struct hard_iface *hard_iface,
+-			    const char *iface_name);
+-void hardif_disable_interface(struct hard_iface *hard_iface);
+-void hardif_remove_interfaces(void);
+-int hardif_min_mtu(struct net_device *soft_iface);
+-void update_min_mtu(struct net_device *soft_iface);
+-void hardif_free_rcu(struct rcu_head *rcu);
+-bool is_wifi_iface(int ifindex);
++batadv_hardif_get_by_netdev(const struct net_device *net_dev);
++int batadv_hardif_enable_interface(struct hard_iface *hard_iface,
++				   const char *iface_name);
++void batadv_hardif_disable_interface(struct hard_iface *hard_iface);
++void batadv_hardif_remove_interfaces(void);
++int batadv_hardif_min_mtu(struct net_device *soft_iface);
++void batadv_update_min_mtu(struct net_device *soft_iface);
++void batadv_hardif_free_rcu(struct rcu_head *rcu);
++bool batadv_is_wifi_iface(int ifindex);
+ 
+ static inline void hardif_free_ref(struct hard_iface *hard_iface)
+ {
+ 	if (atomic_dec_and_test(&hard_iface->refcount))
+-		call_rcu(&hard_iface->rcu, hardif_free_rcu);
++		call_rcu(&hard_iface->rcu, batadv_hardif_free_rcu);
+ }
+ 
+ static inline struct hard_iface *primary_if_get_selected(
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 8fe70b4..8e40836 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -68,7 +68,7 @@ static int __init batman_init(void)
+ 	bat_socket_init();
+ 	batadv_debugfs_init();
+ 
+-	register_netdevice_notifier(&hard_if_notifier);
++	register_netdevice_notifier(&batadv_hard_if_notifier);
+ 
+ 	pr_info("B.A.T.M.A.N. advanced %s (compatibility version %i) loaded\n",
+ 		SOURCE_VERSION, COMPAT_VERSION);
+@@ -79,8 +79,8 @@ static int __init batman_init(void)
+ static void __exit batman_exit(void)
+ {
+ 	batadv_debugfs_destroy();
+-	unregister_netdevice_notifier(&hard_if_notifier);
+-	hardif_remove_interfaces();
++	unregister_netdevice_notifier(&batadv_hard_if_notifier);
++	batadv_hardif_remove_interfaces();
+ 
+ 	flush_workqueue(bat_event_workqueue);
+ 	destroy_workqueue(bat_event_workqueue);
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index bfc4fe0..5bf9a73 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -122,7 +122,7 @@ static int interface_set_mac_addr(struct net_device *dev, void *p)
+ static int interface_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	/* check ranges */
+-	if ((new_mtu < 68) || (new_mtu > hardif_min_mtu(dev)))
++	if ((new_mtu < 68) || (new_mtu > batadv_hardif_min_mtu(dev)))
+ 		return -EINVAL;
+ 
+ 	dev->mtu = new_mtu;
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index bb8557e..7324b89 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -221,7 +221,7 @@ void tt_local_add(struct net_device *soft_iface, const uint8_t *addr,
+ 
+ 	memcpy(tt_local_entry->common.addr, addr, ETH_ALEN);
+ 	tt_local_entry->common.flags = NO_FLAGS;
+-	if (is_wifi_iface(ifindex))
++	if (batadv_is_wifi_iface(ifindex))
+ 		tt_local_entry->common.flags |= TT_CLIENT_WIFI;
+ 	atomic_set(&tt_local_entry->common.refcount, 2);
+ 	tt_local_entry->last_seen = jiffies;
 -- 
 1.7.9.4
