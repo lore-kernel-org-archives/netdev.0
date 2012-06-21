@@ -1,50 +1,67 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] l2tp: synchronise u64 stats writer callsites
-Date: Thu, 21 Jun 2012 16:18:12 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F5D@saturn3.aculab.com>
-References: <1340291054-16077-1-git-send-email-tparkin@katalix.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
+Date: Thu, 21 Jun 2012 18:56:22 +0300
+Message-ID: <1340294182.18721.30.camel@lb-tlvb-dmitry>
+References: <1339616716.22704.661.camel@edumazet-glaptop>
+ <20120615.153049.103988387813257203.davem@davemloft.net>
+ <504C9EFCA2D0054393414C9CB605C37F1CF19E@SJEXCHMB06.corp.ad.broadcom.com>
+ <1340005136.7491.609.camel@edumazet-glaptop>
+ <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
+ <1340281166.15484.16.camel@lb-tlvb-dmitry>
+ <1340291526.4604.5710.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "James Chapman" <jchapman@katalix.com>
-To: "Tom Parkin" <tparkin@katalix.com>, <netdev@vger.kernel.org>
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Tomas Hruby" <thruby@google.com>,
+	"David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"therbert@google.com" <therbert@google.com>,
+	"evansr@google.com" <evansr@google.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Merav Sicron" <meravs@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
+	"willemb@google.com" <willemb@google.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49507 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1759320Ab2FUPT3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 11:19:29 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 27664-03 for <netdev@vger.kernel.org>;
- Thu, 21 Jun 2012 16:19:22 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1340291054-16077-1-git-send-email-tparkin@katalix.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3653 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755812Ab2FUP43 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 11:56:29 -0400
+In-Reply-To: <1340291526.4604.5710.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-> Subject: [PATCH] l2tp: synchronise u64 stats writer callsites
+On Thu, 2012-06-21 at 17:12 +0200, Eric Dumazet wrote:
+> On Thu, 2012-06-21 at 15:19 +0300, Dmitry Kravkov wrote:
 > 
-> Fix statistics update race in l2tp_core.  As described in
-> include/linux/u64_stats_sync.h, it is necessary for the writers of
-> u64 statistics to ensure mutual exclusion to the seqcount for
-> statistics synchronisation.  Failure to do so may result in a
-> missed seqcount update, leaving readers blocking forever.
-...
-> +			spin_lock_bh(&sstats->writelock);
->  			u64_stats_update_begin(&sstats->syncp);
->  			sstats->rx_oos_packets++;
->  			u64_stats_update_end(&sstats->syncp);
-> +			spin_unlock_bh(&sstats->writelock);
+> > The crash happens with default configuration since
+> > [4acb41903b2f99f3dffd4c3df9acc84ca5942cb2] "net/tcp: Fix tcp memory
+> > limits initialization when !CONFIG_SYSCTL", but it can be hit by
+> > increasing values of tcp_wmem even earlier.
+> 
+> This makes no sense.
+Bisected to this commit and reproduced before the commit only after:
+echo "4096 16384 4194304" > /proc/sys/net/ipv4/tcp_wmem
+by this max nr_frags raised from 8 to 17, when running 40 netperfs
 
-The purpose of the u64_stats_update_begin/end is to
-perform lockless writes of the stats.
-If you need to lock them (because multiple threads can
-be writing to stats covered by the same 'syncp' at the
-same time) then the reader might as well use the same lock.
+i've decreased rx queue to 200, during the test
 
-Otherwise split the 'syncp' such that only one update
-can be happening (for each sync).
 
-	David
+> > From: Dmitry Kravkov <dmitry@broadcom.com>
+> > Subject: [PATCH net-next] bnx2x: reservation for NEXT tx BDs
+> > 
+> > Commit [4acb41903b2f99f3dffd4c3df9acc84ca5942cb2]
+> > net/tcp: Fix tcp memory limits initialization when !CONFIG_SYSCTL
+> > provided new default value for tcp_wmem, since heavy tcp
+> > traffic may cause the TSO packet to consume 20 BDs + 1 for next page
+> > descriptor.
+> 
+> This is completely bogus. I have no idea how you came to this.
+> 
+> A forwarding workload can trigger same bug, if GRO is enabled.
+> 
+> Remove this wrong bit, please ?
+> 
+> 
+> 
