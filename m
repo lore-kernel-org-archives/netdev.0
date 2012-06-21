@@ -1,69 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] tcp: Validate route interface in early demux.
-Date: Thu, 21 Jun 2012 15:03:45 -0700 (PDT)
-Message-ID: <20120621.150345.1099437864390577092.davem@davemloft.net>
+Subject: Re: [net] ixgbe: simplify padding and length checks
+Date: Thu, 21 Jun 2012 15:04:54 -0700 (PDT)
+Message-ID: <20120621.150454.828540055288845272.davem@davemloft.net>
+References: <1340280910-22651-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20120621.133807.59441426155221033.davem@davemloft.net>
+	<1340314089.2033.16.camel@jtkirshe-mobl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57328 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57333 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760581Ab2FUWDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 18:03:48 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id D3B87587173
-	for <netdev@vger.kernel.org>; Thu, 21 Jun 2012 15:03:47 -0700 (PDT)
+	with ESMTP id S1754330Ab2FUWEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 18:04:54 -0400
+In-Reply-To: <1340314089.2033.16.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 21 Jun 2012 14:28:09 -0700
 
-Otherwise we might violate reverse path filtering.
+> On Thu, 2012-06-21 at 13:38 -0700, David Miller wrote:
+>> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Date: Thu, 21 Jun 2012 05:15:10 -0700
+>> 
+>> > From: Stephen Hemminger <shemminger@vyatta.com>
+>> > 
+>> > The check for length <= 0 is bogus because length is unsigned, and network
+>> > stack never sends zero length packets (unless it is totally broken).
+>> > 
+>> > The check for really small packets can be optimized (using unlikely)
+>> > and calling skb_pad directly.
+>> > 
+>> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>> > Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> 
+>> Not really fixing anything and more of a cleanup, so maybe 'net-next'
+>> instead of 'net' for this guy instead?
+> 
+> Yeah, net-next is fine.  I just verified that the patch applies cleanly
+> to net-next as well.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/tcp_ipv4.c |   12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 13857df..21e22a0 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1676,6 +1676,7 @@ int tcp_v4_early_demux(struct sk_buff *skb)
- 	struct net *net = dev_net(skb->dev);
- 	const struct iphdr *iph;
- 	const struct tcphdr *th;
-+	struct net_device *dev;
- 	struct sock *sk;
- 	int err;
- 
-@@ -1695,10 +1696,11 @@ int tcp_v4_early_demux(struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, ip_hdrlen(skb) + th->doff * 4))
- 		goto out_err;
- 
-+	dev = skb->dev;
- 	sk = __inet_lookup_established(net, &tcp_hashinfo,
- 				       iph->saddr, th->source,
- 				       iph->daddr, th->dest,
--				       skb->dev->ifindex);
-+				       dev->ifindex);
- 	if (sk) {
- 		skb->sk = sk;
- 		skb->destructor = sock_edemux;
-@@ -1707,8 +1709,12 @@ int tcp_v4_early_demux(struct sk_buff *skb)
- 			if (dst)
- 				dst = dst_check(dst, 0);
- 			if (dst) {
--				skb_dst_set_noref(skb, dst);
--				err = 0;
-+				struct rtable *rt = (struct rtable *) dst;
-+
-+				if (rt->rt_iif == dev->ifindex) {
-+					skb_dst_set_noref(skb, dst);
-+					err = 0;
-+				}
- 			}
- 		}
- 	}
--- 
-1.7.10
+Great, applied, thanks.
