@@ -1,157 +1,220 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 06/13] netfilter: merge tcpv[4,6]_net_init into tcp_net_init
-Date: Thu, 21 Jun 2012 22:36:43 +0800
-Message-ID: <1340289410-17642-6-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 02/13] netfilter: add parameter proto for l4proto.init_net
+Date: Thu, 21 Jun 2012 22:36:39 +0800
+Message-ID: <1340289410-17642-2-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:64715 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754650Ab2FUOg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 10:36:28 -0400
 In-Reply-To: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-merge tcpv4_net_init and tcpv6_net_init into tcp_net_init to
-reduce the redundancy codes.
+there are redundancy codes in l4proto's init_net functions.
+we can use one init_net function and l3proto to impletment
+the same thing.
 
-and use nf_proto_net.users to identify if it's the first time
-we use the nf_proto_net. when it's the first time,we will
-initialized it.
+So we should add l3proto as a parameter for init_net function.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_proto_tcp.c |   71 +++++++++----------------------
- 1 files changed, 21 insertions(+), 50 deletions(-)
+ include/net/netfilter/nf_conntrack_l4proto.h   |    2 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    2 +-
+ net/netfilter/nf_conntrack_proto.c             |    5 +++--
+ net/netfilter/nf_conntrack_proto_dccp.c        |    2 +-
+ net/netfilter/nf_conntrack_proto_generic.c     |    2 +-
+ net/netfilter/nf_conntrack_proto_gre.c         |    2 +-
+ net/netfilter/nf_conntrack_proto_sctp.c        |    4 ++--
+ net/netfilter/nf_conntrack_proto_tcp.c         |    4 ++--
+ net/netfilter/nf_conntrack_proto_udp.c         |    4 ++--
+ net/netfilter/nf_conntrack_proto_udplite.c     |    2 +-
+ 11 files changed, 16 insertions(+), 15 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 6db9d3c..44f0da8 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -1533,11 +1533,10 @@ static struct ctl_table tcp_compat_sysctl_table[] = {
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index 81c52b5..5dd60f2 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -97,7 +97,7 @@ struct nf_conntrack_l4proto {
+ #endif
+ 	int	*net_id;
+ 	/* Init l4proto pernet data */
+-	int (*init_net)(struct net *net);
++	int (*init_net)(struct net *net, u_int16_t proto);
+ 
+ 	/* Protocol name */
+ 	const char *name;
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index 041923c..76f7a2f 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -337,7 +337,7 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
  #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
  #endif /* CONFIG_SYSCTL */
  
--static int tcp_kmemdup_sysctl_table(struct nf_proto_net *pn)
-+static int tcp_kmemdup_sysctl_table(struct nf_proto_net *pn,
-+				    struct nf_tcp_net *tn)
+-static int icmp_init_net(struct net *net)
++static int icmp_init_net(struct net *net, u_int16_t proto)
  {
- #ifdef CONFIG_SYSCTL
--	struct nf_tcp_net *tn = (struct nf_tcp_net *)pn;
--
- 	if (pn->ctl_table)
- 		return 0;
+ 	struct nf_icmp_net *in = icmp_pernet(net);
+ 	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index 63ed012..807ae09 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -333,7 +333,7 @@ static struct ctl_table icmpv6_sysctl_table[] = {
+ };
+ #endif /* CONFIG_SYSCTL */
  
-@@ -1564,11 +1563,11 @@ static int tcp_kmemdup_sysctl_table(struct nf_proto_net *pn)
- 	return 0;
- }
- 
--static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
-+static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
-+					   struct nf_tcp_net *tn)
+-static int icmpv6_init_net(struct net *net)
++static int icmpv6_init_net(struct net *net, u_int16_t proto)
  {
- #ifdef CONFIG_SYSCTL
- #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
--	struct nf_tcp_net *tn = (struct nf_tcp_net *)pn;
- 	pn->ctl_compat_table = kmemdup(tcp_compat_sysctl_table,
- 				       sizeof(tcp_compat_sysctl_table),
- 				       GFP_KERNEL);
-@@ -1593,18 +1592,15 @@ static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
- 	return 0;
- }
+ 	struct nf_icmp_net *in = icmpv6_pernet(net);
+ 	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 9bd88aa..6f4b6f3 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -461,7 +461,7 @@ int nf_conntrack_l4proto_register(struct net *net,
+ 	int ret = 0;
  
--static int tcpv4_init_net(struct net *net, u_int16_t proto)
-+static int tcp_init_net(struct net *net, u_int16_t proto)
- {
--	int i;
--	int ret = 0;
-+	int ret;
- 	struct nf_tcp_net *tn = tcp_pernet(net);
--	struct nf_proto_net *pn = (struct nf_proto_net *)tn;
-+	struct nf_proto_net *pn = &tn->pn;
-+
-+	if (!pn->users) {
-+		int i;
- 
--#ifdef CONFIG_SYSCTL
--	if (!pn->ctl_table) {
--#else
--	if (!pn->users++) {
--#endif
- 		for (i = 0; i < TCP_CONNTRACK_TIMEOUT_MAX; i++)
- 			tn->timeouts[i] = tcp_timeouts[i];
- 
-@@ -1613,45 +1609,20 @@ static int tcpv4_init_net(struct net *net, u_int16_t proto)
- 		tn->tcp_max_retrans = nf_ct_tcp_max_retrans;
+ 	if (l4proto->init_net) {
+-		ret = l4proto->init_net(net);
++		ret = l4proto->init_net(net, l4proto->l3proto);
+ 		if (ret < 0)
+ 			return ret;
  	}
+@@ -515,7 +515,8 @@ int nf_conntrack_proto_init(struct net *net)
+ {
+ 	unsigned int i;
+ 	int err;
+-	err = nf_conntrack_l4proto_generic.init_net(net);
++	err = nf_conntrack_l4proto_generic.init_net(net,
++					nf_conntrack_l4proto_generic.l3proto);
+ 	if (err < 0)
+ 		return err;
+ 	err = nf_ct_l4proto_register_sysctl(net,
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index c33f76a..52da8f0 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -815,7 +815,7 @@ static struct ctl_table dccp_sysctl_table[] = {
+ };
+ #endif /* CONFIG_SYSCTL */
  
--	ret = tcp_kmemdup_compat_sysctl_table(pn);
--
--	if (ret < 0)
--		return ret;
-+	if (proto == AF_INET) {
-+		ret = tcp_kmemdup_compat_sysctl_table(pn, tn);
-+		if (ret < 0)
-+			return ret;
+-static int dccp_init_net(struct net *net)
++static int dccp_init_net(struct net *net, u_int16_t proto)
+ {
+ 	struct dccp_net *dn = dccp_pernet(net);
+ 	struct nf_proto_net *pn = (struct nf_proto_net *)dn;
+diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+index bb0e74f..d1ed7b4 100644
+--- a/net/netfilter/nf_conntrack_proto_generic.c
++++ b/net/netfilter/nf_conntrack_proto_generic.c
+@@ -135,7 +135,7 @@ static struct ctl_table generic_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
  
--	ret = tcp_kmemdup_sysctl_table(pn);
-+		ret = tcp_kmemdup_sysctl_table(pn, tn);
-+		if (ret < 0)
-+			nf_ct_kfree_compat_sysctl_table(pn);
-+	} else
-+		ret = tcp_kmemdup_sysctl_table(pn, tn);
+-static int generic_init_net(struct net *net)
++static int generic_init_net(struct net *net, u_int16_t proto)
+ {
+ 	struct nf_generic_net *gn = generic_pernet(net);
+ 	struct nf_proto_net *pn = (struct nf_proto_net *)gn;
+diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+index 5cac41c..b09b7af 100644
+--- a/net/netfilter/nf_conntrack_proto_gre.c
++++ b/net/netfilter/nf_conntrack_proto_gre.c
+@@ -348,7 +348,7 @@ gre_timeout_nla_policy[CTA_TIMEOUT_GRE_MAX+1] = {
+ };
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
  
--#ifdef CONFIG_SYSCTL
--#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
--	if (ret < 0) {
--		kfree(pn->ctl_compat_table);
--		pn->ctl_compat_table = NULL;
--	}
--#endif
--#endif
+-static int gre_init_net(struct net *net)
++static int gre_init_net(struct net *net, u_int16_t proto)
+ {
+ 	struct netns_proto_gre *net_gre = gre_pernet(net);
+ 	int i;
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 8fb0582..1e7836c 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -767,7 +767,7 @@ static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+ 	return 0;
+ }
+ 
+-static int sctpv4_init_net(struct net *net)
++static int sctpv4_init_net(struct net *net, u_int16_t proto)
+ {
+ 	int ret;
+ 	struct sctp_net *sn = sctp_pernet(net);
+@@ -793,7 +793,7 @@ static int sctpv4_init_net(struct net *net)
  	return ret;
  }
  
--static int tcpv6_init_net(struct net *net, u_int16_t proto)
--{
--	int i;
--	struct nf_tcp_net *tn = tcp_pernet(net);
--	struct nf_proto_net *pn = (struct nf_proto_net *)tn;
--
--#ifdef CONFIG_SYSCTL
--	if (!pn->ctl_table) {
--#else
--	if (!pn->users++) {
--#endif
--		for (i = 0; i < TCP_CONNTRACK_TIMEOUT_MAX; i++)
--			tn->timeouts[i] = tcp_timeouts[i];
--		tn->tcp_loose = nf_ct_tcp_loose;
--		tn->tcp_be_liberal = nf_ct_tcp_be_liberal;
--		tn->tcp_max_retrans = nf_ct_tcp_max_retrans;
--	}
--
--	return tcp_kmemdup_sysctl_table(pn);
--}
--
- struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
+-static int sctpv6_init_net(struct net *net)
++static int sctpv6_init_net(struct net *net, u_int16_t proto)
  {
- 	.l3proto		= PF_INET,
-@@ -1684,7 +1655,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
- 		.nla_policy	= tcp_timeout_nla_policy,
- 	},
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
--	.init_net		= tcpv4_init_net,
-+	.init_net		= tcp_init_net,
- };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp4);
+ 	struct sctp_net *sn = sctp_pernet(net);
+ 	struct nf_proto_net *pn = (struct nf_proto_net *)sn;
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 99caa13..6db9d3c 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1593,7 +1593,7 @@ static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+ 	return 0;
+ }
  
-@@ -1720,6 +1691,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6 __read_mostly =
- 		.nla_policy	= tcp_timeout_nla_policy,
- 	},
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
--	.init_net		= tcpv6_init_net,
-+	.init_net		= tcp_init_net,
+-static int tcpv4_init_net(struct net *net)
++static int tcpv4_init_net(struct net *net, u_int16_t proto)
+ {
+ 	int i;
+ 	int ret = 0;
+@@ -1631,7 +1631,7 @@ static int tcpv4_init_net(struct net *net)
+ 	return ret;
+ }
+ 
+-static int tcpv6_init_net(struct net *net)
++static int tcpv6_init_net(struct net *net, u_int16_t proto)
+ {
+ 	int i;
+ 	struct nf_tcp_net *tn = tcp_pernet(net);
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+index a83cf93..2b978e6 100644
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -283,7 +283,7 @@ static void udp_init_net_data(struct nf_udp_net *un)
+ 	}
+ }
+ 
+-static int udpv4_init_net(struct net *net)
++static int udpv4_init_net(struct net *net, u_int16_t proto)
+ {
+ 	int ret;
+ 	struct nf_udp_net *un = udp_pernet(net);
+@@ -307,7 +307,7 @@ static int udpv4_init_net(struct net *net)
+ 	return ret;
+ }
+ 
+-static int udpv6_init_net(struct net *net)
++static int udpv6_init_net(struct net *net, u_int16_t proto)
+ {
+ 	struct nf_udp_net *un = udp_pernet(net);
+ 	struct nf_proto_net *pn = (struct nf_proto_net *)un;
+diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+index b32e700..d33e511 100644
+--- a/net/netfilter/nf_conntrack_proto_udplite.c
++++ b/net/netfilter/nf_conntrack_proto_udplite.c
+@@ -234,7 +234,7 @@ static struct ctl_table udplite_sysctl_table[] = {
  };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp6);
+ #endif /* CONFIG_SYSCTL */
+ 
+-static int udplite_init_net(struct net *net)
++static int udplite_init_net(struct net *net, u_int16_t proto)
+ {
+ 	int i;
+ 	struct udplite_net *un = udplite_pernet(net);
 -- 
 1.7.7.6
-
