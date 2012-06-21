@@ -1,102 +1,51 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor
- empty happens
-Date: Thu, 21 Jun 2012 10:26:34 +0900
-Message-ID: <4FE2784A.70208@renesas.com>
-References: <4FC491EB.4040002@renesas.com>
- <Pine.LNX.4.64.1206201507260.20254@axis700.grange>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing
+ date
+Date: Thu, 21 Jun 2012 10:11:51 +0800
+Message-ID: <4FE282E7.2010804@windriver.com>
+References: <1340092269-6136-1-git-send-email-fan.du@windriver.com>	<1340092269-6136-2-git-send-email-fan.du@windriver.com>	<20120619.020111.1596676335106760442.davem@davemloft.net> <20120619.020553.227635216346617898.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-reply-to: <Pine.LNX.4.64.1206201507260.20254@axis700.grange>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <herbert@gondor.hengli.com.au>, <netdev@vger.kernel.org>,
+	<fdu@windriver.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:42459 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757412Ab2FUCJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jun 2012 22:09:50 -0400
+In-Reply-To: <20120619.020553.227635216346617898.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Guennadi-san,
+Hi David
 
-2012/06/20 22:10, Guennadi Liakhovetski wrote:
-> Hello Shimoda-san
-> 
-> On Tue, 29 May 2012, Shimoda, Yoshihiro wrote:
-> 
->> When Receive Descriptor Empty happens, rxdesc pointer of the driver
->> and actual next descriptor of the controller may be mismatch.
->> This patch fixes it.
-> 
-> Unfortunately, this patch breaks networking on ecovec (sh7724). Booting 
-> with dhcp and NFS-root progresses very slowly with lots of "nfs: server 
-> not responding / Ok" messages and never completes. Reverting it in current 
-> Linus' tree fixes the problem.
+On 2012=E5=B9=B406=E6=9C=8819=E6=97=A5 17:05, David Miller wrote:
+> From: David Miller<davem@davemloft.net>
+> Date: Tue, 19 Jun 2012 02:01:11 -0700 (PDT)
+>
+>> From: "fan.du"<fan.du@windriver.com>
+>> Date: Tue, 19 Jun 2012 15:51:09 +0800
+>>
+>>> From: "fan.du"<fan.du@windriver.com>
+>>
+>> Please don't put your email user name instead of real name in quotes
+>> there.  Thank you.
+>
+> Also fdu@windriver.com bounces, do not put it in the CC: list.
 
-Thank you very much for the report.
-The SH7724 doesn't set the RMCR register. So, the EDRRR will be clear after
-the controller receives a freme every time.
-So, the "fix the rxdesc pointer" had to check a condition.
+I have send the V3 which made modifications requested by your advice at
+here:
+http://marc.info/?l=3Dlinux-netdev&m=3D134009837402499&w=3D2
+http://marc.info/?l=3Dlinux-netdev&m=3D134009837402498&w=3D2
 
-I wrote a patch for the issue as the following.
-If possible, would you try the patch?
+Could you please take a look at it if you have time?
 
-Best regards,
-Yoshihiro Shimoda
----
-Subject: [PATCH] net: sh_eth: fix the condition to fix the cur_tx/dirty_rx
+thanks :)
 
-The following commit couldn't work if the RMCR is not set to 1.
+--=20
 
-"net: sh_eth: fix the rxdesc pointer when rx descriptor empty happens"
-commit id 79fba9f51755c704c0a7d7b7f0df10874dc0a744
-
-If RMCR is not set, the controller will clear the EDRRR after it received
-a frame. In this case, the driver doesn't need to fix the value of
-cur_rx/dirty_rx. The driver only needs it when the controll detects
-receive descriptors are empty.
-
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- drivers/net/ethernet/renesas/sh_eth.c |   12 +++++++-----
- 1 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 667169b..79bf09b 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1011,7 +1011,7 @@ static int sh_eth_txfree(struct net_device *ndev)
- }
-
- /* Packet receive function */
--static int sh_eth_rx(struct net_device *ndev)
-+static int sh_eth_rx(struct net_device *ndev, u32 intr_status)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 	struct sh_eth_rxdesc *rxdesc;
-@@ -1102,9 +1102,11 @@ static int sh_eth_rx(struct net_device *ndev)
- 	/* Restart Rx engine if stopped. */
- 	/* If we don't need to check status, don't. -KDU */
- 	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
--		/* fix the values for the next receiving */
--		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
--					       sh_eth_read(ndev, RDLAR)) >> 4;
-+		/* fix the values for the next receiving if RDE is set */
-+		if (intr_status & EESR_RDE)
-+			mdp->cur_rx = mdp->dirty_rx =
-+				(sh_eth_read(ndev, RDFAR) -
-+				 sh_eth_read(ndev, RDLAR)) >> 4;
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
- 	}
-
-@@ -1273,7 +1275,7 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
- 			EESR_RTSF | /* short frame recv */
- 			EESR_PRE  | /* PHY-LSI recv error */
- 			EESR_CERF)){ /* recv frame CRC error */
--		sh_eth_rx(ndev);
-+		sh_eth_rx(ndev, intr_status);
- 	}
-
- 	/* Tx Check */
--- 
-1.7.1
-
+Love each day!
+--fan
