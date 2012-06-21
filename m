@@ -1,60 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
-Date: Thu, 21 Jun 2012 18:25:12 +0200
-Message-ID: <1340295912.4604.5935.camel@edumazet-glaptop>
-References: <1339616716.22704.661.camel@edumazet-glaptop>
-	 <20120615.153049.103988387813257203.davem@davemloft.net>
-	 <504C9EFCA2D0054393414C9CB605C37F1CF19E@SJEXCHMB06.corp.ad.broadcom.com>
-	 <1340005136.7491.609.camel@edumazet-glaptop>
-	 <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
-	 <1340281166.15484.16.camel@lb-tlvb-dmitry>
-	 <1340291526.4604.5710.camel@edumazet-glaptop>
-	 <1340294182.18721.30.camel@lb-tlvb-dmitry>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
+ reserves
+Date: Thu, 21 Jun 2012 18:30:29 +0200
+Message-ID: <20120621163029.GB6045@breakpoint.cc>
+References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
+ <1340192652-31658-11-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tomas Hruby <thruby@google.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>,
-	"evansr@google.com" <evansr@google.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Merav Sicron <meravs@broadcom.com>,
-	Yaniv Rosner <yaniv.rosner@broadcom.com>,
-	"willemb@google.com" <willemb@google.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39074 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759753Ab2FUQZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 12:25:17 -0400
-Received: by eeit10 with SMTP id t10so323759eei.19
-        for <netdev@vger.kernel.org>; Thu, 21 Jun 2012 09:25:16 -0700 (PDT)
-In-Reply-To: <1340294182.18721.30.camel@lb-tlvb-dmitry>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1340192652-31658-11-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-06-21 at 18:56 +0300, Dmitry Kravkov wrote:
-> On Thu, 2012-06-21 at 17:12 +0200, Eric Dumazet wrote:
-> > On Thu, 2012-06-21 at 15:19 +0300, Dmitry Kravkov wrote:
-> > 
-> > > The crash happens with default configuration since
-> > > [4acb41903b2f99f3dffd4c3df9acc84ca5942cb2] "net/tcp: Fix tcp memory
-> > > limits initialization when !CONFIG_SYSCTL", but it can be hit by
-> > > increasing values of tcp_wmem even earlier.
-> > 
-> > This makes no sense.
-> Bisected to this commit and reproduced before the commit only after:
-> echo "4096 16384 4194304" > /proc/sys/net/ipv4/tcp_wmem
-> by this max nr_frags raised from 8 to 17, when running 40 netperfs
-> 
-> i've decreased rx queue to 200, during the test
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 1d6ecc8..9a58dcc 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -167,14 +206,19 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
+>   *	%GFP_ATOMIC.
+>   */
+>  struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+> -			    int fclone, int node)
+> +			    int flags, int node)
+>  {
+>  	struct kmem_cache *cache;
+>  	struct skb_shared_info *shinfo;
+>  	struct sk_buff *skb;
+>  	u8 *data;
+> +	bool pfmemalloc;
+>  
+> -	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
+> +	cache = (flags & SKB_ALLOC_FCLONE)
+> +		? skbuff_fclone_cache : skbuff_head_cache;
+> +
+> +	if (sk_memalloc_socks() && (flags & SKB_ALLOC_RX))
+> +		gfp_mask |= __GFP_MEMALLOC;
+>  
+>  	/* Get the HEAD */
+>  	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
 
-I repeat, this bug can be triggered anytime with a skb not provided by
-local tcp stack.
+This is mostly used by nic to refil their RX skb pool. You add the
+__GFP_MEMALLOC to the allocation to rise the change of a successfull refill
+for the swap case.
+A few drivers use build_skb() to create the skb. __netdev_alloc_skb()
+shouldn't be affected since the allocation happens with GFP_ATOMIC. Looking at
+TG3 it uses build_skb() and get_pages() / kmalloc(). Shouldn't this be some
+considered?
 
-By the way, looking at your fix, its pretty obvious the fix has nothing
-to do with TCP stack.
+Sebastian
 
-commit changelog must be accurate, so please remove this wrong
-information. This will confuse future readers.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
