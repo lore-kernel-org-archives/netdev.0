@@ -1,130 +1,224 @@
-From: =?utf-8?Q?=C3=89meric?= Vigier
-	<emeric.vigier@savoirfairelinux.com>
-Subject: smsc95xx: download ok, upload hangs
-Date: Thu, 21 Jun 2012 10:34:42 -0400 (EDT)
-Message-ID: <464058858.159452.1340289282058.JavaMail.root@mail.savoirfairelinux.com>
-References: <674701881.595779.1340222798864.JavaMail.root@mail.savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net,
-	=?utf-8?B?SsOpcsO0bWU=?= Oufella
-	<jerome.oufella@savoirfairelinux.com>
-To: netdev kernel <netdev@vger.kernel.org>
+From: Tom Parkin <tparkin@katalix.com>
+Subject: [PATCH] l2tp: synchronise u64 stats writer callsites
+Date: Thu, 21 Jun 2012 16:04:14 +0100
+Message-ID: <1340291054-16077-1-git-send-email-tparkin@katalix.com>
+Cc: Tom Parkin <tparkin@katalix.com>,
+	James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:54107 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755128Ab2FUOmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 10:42:12 -0400
-In-Reply-To: <674701881.595779.1340222798864.JavaMail.root@mail.savoirfairelinux.com>
+Received: from katalix.com ([82.103.140.233]:48119 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759268Ab2FUPLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 11:11:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Fix statistics update race in l2tp_core.  As described in
+include/linux/u64_stats_sync.h, it is necessary for the writers of
+u64 statistics to ensure mutual exclusion to the seqcount for
+statistics synchronisation.  Failure to do so may result in a
+missed seqcount update, leaving readers blocking forever.
 
-I am experiencing ethernet issue with a pandaboard A3 (OMAP4430 rev 2.2) featuring smsc LAN9514-JZX usbnet chipset.
-My panda runs android-4.0.4 with linux kernel 3.0.8 (the latest from omapzoom).
+This race was discovered on an AMD64 SMP machine running a 32bit
+kernel.  Running "ip l2tp" while sending data over an Ethernet
+pseudowire resulted in an occasional soft lockup in
+u64_stats_fetch_begin() called from l2tp_nl_session_send().
 
-Receiving ethernet frames work fine, but transmitting them does not. The driver/chip seems stuck.
-Moving the USB mouse (or USB keyboard key pressed) unlocks this behavior and transmission gets resumed for a second or two. Then ethernet transmission gets stuck again.
+Statistics writers are now serialized via. a spinlock in the stats
+structure, preventing the seqcount update race.
 
-Recently, I cherry-picked dozen of usbnet and smsc95xx patches, and managed to get a watchdog barking (see test 21 below).
+Signed-off-by: Tom Parkin <tparkin@katalix.com>
+Signed-off-by: James Chapman <jchapman@katalix.com>
+---
+ net/l2tp/l2tp_core.c |   34 +++++++++++++++++++++++++++++++---
+ net/l2tp/l2tp_core.h |    5 +++++
+ 2 files changed, 36 insertions(+), 3 deletions(-)
 
-Unfortunately I have no JTAG probe, so I am limited to driver tweaks and tryouts...
-Here are the tests I have performed so far, along with a todo list:
-
-FAILED means that the issue came up.
-PASSED means that the issue has not come up.
-DONE, NOT DONE, ONGOING are more related to a todo list than a test report.
-
-1. check with constant cpu load (stress -c 2) - FAILED
-2. check if problem occurs on older releases (non ICS) - NOT DONE
-3. try CONFIG_PL310_ERRATA_769419 patch in cpuidle - FAILED
-4. check without USB hub connected - FAILED
-5. check with usbcore.autosuspend=600 added to cmdline - FAILED
-6. patch ehci-omap.c to verify clock frequency - NOT DONE
-7. check with CPU1 offlined - FAILED
-8. check ethtool on android - FAILED
-Cannot get register dump: Operation not supported on transport endpoint
-9. check without USB_EHCI_TT_NEWSCHED - FAILED
-
-10. try to unbind, rebind smsc95xx - FAILED
-11. disable turbo_mode and reset the chip - FAILED
-12. test with "CONFIG_NO_HZ is not set" - FAILED
-13. test with another external USB ethernet dongle - NOT DONE
-14. test linaro-12.05 ICS release and see ethernet behavior - PASSED
-Ethernet runs fine on release:
-. 12.05 tracking - PASSED
-. 11.10 tracking - PASSED
-. 11.09 release - PASSED
-15. try with "netcfg eth0 dhcp" - FAILED
-16. check datasheet - ONGOING
-registers description is missing on 9514.pdf, only eeprom is described
-17. adapt driver to ethtool - DONE
-18. dump registers and check against linaro 11.09 - ONGOING
-19. ethtool returns heaps of "0", the pattern I added to the array is all replaced by "0"...
-Actually the eeprom is blank. I found it out since each time I unbind/bind the device to smsc95xx driver, I get a random MAC address...
-
-20. test with 11.09 linaro kernel - NOT DONE
-zygote not starting
-21. uploading 24MB file on the web (http://dl.free.fr) - FAILED
-This occurred only with these patches added to my kernel:
- From 8a78335 [PATCH] usbnet: consider device busy at each recieved packet
- From 5d5440a [PATCH] usbnet: don't clear urb->dev in tx_complete
- From 4231d47 [PATCH] net/usbnet: avoid recursive locking in usbnet_stop()
- From 1aa9bc5 [PATCH] usbnet: use netif_tx_wake_queue instead of netif_start_queue
- From 7bdd402 [PATCH] net/usbnet: reserve headroom on rx skbs
- From 0956a8c [PATCH] usbnet: increase URB reference count before usb_unlink_urb
- From 9bbf566 [PATCH] net: usb: smsc95xx: fix mtu
- From 720f3d7 [PATCH] usbnet: fix leak of transfer buffer of dev->interrupt
- From a472384 [PATCH] usbnet: fix failure handling in usbnet_probe
- From 5b6e9bc [PATCH] usbnet: fix skb traversing races during unlink(v2)
- From 07d69d4 [PATCH] smsc95xx: mark link down on startup and let PHY interrupt
-a timeout occurred:
-http://pastebin.com/KpaTJY3N
-
-My current kernel is based on:
-commit 52f476403350050beb0dff135a55c06c9e7a82a9
-Author: Jean-Baptiste Queru <jbq@google.com>
-Subject: Revert "gpu: pvr: Revert to 1.8@550175"
-
-I managed to get a register and PHY dump when upload is stuck, thanks to ethtool:
-
-000:     01 00 00 ec 00 00 00 00 00 00 00 00 00 00 00 00
-010:     04 00 00 00 00 14 00 00 00 00 00 00 00 20 00 00
-020:     81 00 00 00 00 00 11 01 1f 00 00 1f a0 30 f8 00
-030:     00 00 00 00 00 00 00 00 00 00 00 00 03 00 00 00
-040:     00 00 00 80 00 00 00 00 00 00 00 00 00 00 00 00
-050:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-060:     00 00 00 00 00 00 00 00 00 80 00 00 00 20 00 00
-070:     00 00 00 00 83 0f 83 0f 00 00 00 00 0f 06 0f 06
-080:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-090:     00 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00
-0a0:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0b0:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0c0:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0d0:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0e0:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-0f0:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-100:     0c 20 10 00 f7 6f 00 00 a2 7d 13 dd 00 00 00 40
-110:     20 00 00 80 40 09 00 00 e1 c1 00 00 00 00 00 00
-120:     00 81 00 00 ff ff 00 00 00 00 00 00 00 00 00 00
-130:     00 31 00 00 2d 78 00 00 07 00 00 00 c3 c0 00 00
-140:     e1 0d 00 00 e1 c1 00 00 0b 00 00 00 ff ff 00 00
-150:     ff ff 00 00 ff ff 00 00 ff ff 00 00 ff ff 00 00
-160:     ff ff 00 00 ff ff 00 00 ff ff 00 00 00 00 00 00
-170:     40 00 00 00 02 00 00 00 e1 00 00 00 ff ff 00 00
-180:     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-190:     ff ff 00 00 ff ff 00 00 00 00 00 00 0a 00 00 00
-1a0:     00 00 00 00 c8 00 00 00 50 00 00 00 58 10 00 00
-
-But the 9514.pdf datasheet I have misses register description.
-Then decoding all this is quite troublesome.
-
-I saw that Ubuntu release got trouble with this chipset and acpi. But there is no acpi on Android AFAIK.
-Did anyone else experience this issue?
-Does anyone have an idea where it can come from?
-
-
-Thanks a lot for your kind support,
-Emeric
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 32b2155..e9e7cb0 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -343,9 +343,11 @@ static void l2tp_recv_queue_skb(struct l2tp_session *session, struct sk_buff *sk
+ 				 "%s: pkt %hu, inserted before %hu, reorder_q len=%d\n",
+ 				 session->name, ns, L2TP_SKB_CB(skbp)->ns,
+ 				 skb_queue_len(&session->reorder_q));
++			spin_lock_bh(&sstats->writelock);
+ 			u64_stats_update_begin(&sstats->syncp);
+ 			sstats->rx_oos_packets++;
+ 			u64_stats_update_end(&sstats->syncp);
++			spin_unlock_bh(&sstats->writelock);
+ 			goto out;
+ 		}
+ 	}
+@@ -370,15 +372,20 @@ static void l2tp_recv_dequeue_skb(struct l2tp_session *session, struct sk_buff *
+ 	skb_orphan(skb);
+ 
+ 	tstats = &tunnel->stats;
++	spin_lock_bh(&tstats->writelock);
+ 	u64_stats_update_begin(&tstats->syncp);
+-	sstats = &session->stats;
+-	u64_stats_update_begin(&sstats->syncp);
+ 	tstats->rx_packets++;
+ 	tstats->rx_bytes += length;
++	u64_stats_update_end(&tstats->syncp);
++	spin_unlock_bh(&tstats->writelock);
++
++	sstats = &session->stats;
++	spin_lock_bh(&sstats->writelock);
++	u64_stats_update_begin(&sstats->syncp);
+ 	sstats->rx_packets++;
+ 	sstats->rx_bytes += length;
+-	u64_stats_update_end(&tstats->syncp);
+ 	u64_stats_update_end(&sstats->syncp);
++	spin_unlock_bh(&sstats->writelock);
+ 
+ 	if (L2TP_SKB_CB(skb)->has_seq) {
+ 		/* Bump our Nr */
+@@ -420,10 +427,12 @@ start:
+ 	sstats = &session->stats;
+ 	skb_queue_walk_safe(&session->reorder_q, skb, tmp) {
+ 		if (time_after(jiffies, L2TP_SKB_CB(skb)->expires)) {
++			spin_lock_bh(&sstats->writelock);
+ 			u64_stats_update_begin(&sstats->syncp);
+ 			sstats->rx_seq_discards++;
+ 			sstats->rx_errors++;
+ 			u64_stats_update_end(&sstats->syncp);
++			spin_unlock_bh(&sstats->writelock);
+ 			l2tp_dbg(session, L2TP_MSG_SEQ,
+ 				 "%s: oos pkt %u len %d discarded (too old), waiting for %u, reorder_q_len=%d\n",
+ 				 session->name, L2TP_SKB_CB(skb)->ns,
+@@ -599,9 +608,11 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 				  "%s: cookie mismatch (%u/%u). Discarding.\n",
+ 				  tunnel->name, tunnel->tunnel_id,
+ 				  session->session_id);
++			spin_lock_bh(&sstats->writelock);
+ 			u64_stats_update_begin(&sstats->syncp);
+ 			sstats->rx_cookie_discards++;
+ 			u64_stats_update_end(&sstats->syncp);
++			spin_unlock_bh(&sstats->writelock);
+ 			goto discard;
+ 		}
+ 		ptr += session->peer_cookie_len;
+@@ -670,9 +681,11 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 			l2tp_warn(session, L2TP_MSG_SEQ,
+ 				  "%s: recv data has no seq numbers when required. Discarding.\n",
+ 				  session->name);
++			spin_lock_bh(&sstats->writelock);
+ 			u64_stats_update_begin(&sstats->syncp);
+ 			sstats->rx_seq_discards++;
+ 			u64_stats_update_end(&sstats->syncp);
++			spin_unlock_bh(&sstats->writelock);
+ 			goto discard;
+ 		}
+ 
+@@ -691,9 +704,11 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 			l2tp_warn(session, L2TP_MSG_SEQ,
+ 				  "%s: recv data has no seq numbers when required. Discarding.\n",
+ 				  session->name);
++			spin_lock_bh(&sstats->writelock);
+ 			u64_stats_update_begin(&sstats->syncp);
+ 			sstats->rx_seq_discards++;
+ 			u64_stats_update_end(&sstats->syncp);
++			spin_unlock_bh(&sstats->writelock);
+ 			goto discard;
+ 		}
+ 	}
+@@ -747,9 +762,11 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 			 * packets
+ 			 */
+ 			if (L2TP_SKB_CB(skb)->ns != session->nr) {
++				spin_lock_bh(&sstats->writelock);
+ 				u64_stats_update_begin(&sstats->syncp);
+ 				sstats->rx_seq_discards++;
+ 				u64_stats_update_end(&sstats->syncp);
++				spin_unlock_bh(&sstats->writelock);
+ 				l2tp_dbg(session, L2TP_MSG_SEQ,
+ 					 "%s: oos pkt %u len %d discarded, waiting for %u, reorder_q_len=%d\n",
+ 					 session->name, L2TP_SKB_CB(skb)->ns,
+@@ -775,9 +792,11 @@ void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
+ 	return;
+ 
+ discard:
++	spin_lock_bh(&sstats->writelock);
+ 	u64_stats_update_begin(&sstats->syncp);
+ 	sstats->rx_errors++;
+ 	u64_stats_update_end(&sstats->syncp);
++	spin_unlock_bh(&sstats->writelock);
+ 	kfree_skb(skb);
+ 
+ 	if (session->deref)
+@@ -892,9 +911,11 @@ discard_bad_csum:
+ 	LIMIT_NETDEBUG("%s: UDP: bad checksum\n", tunnel->name);
+ 	UDP_INC_STATS_USER(tunnel->l2tp_net, UDP_MIB_INERRORS, 0);
+ 	tstats = &tunnel->stats;
++	spin_lock_bh(&tstats->writelock);
+ 	u64_stats_update_begin(&tstats->syncp);
+ 	tstats->rx_errors++;
+ 	u64_stats_update_end(&tstats->syncp);
++	spin_unlock_bh(&tstats->writelock);
+ 	kfree_skb(skb);
+ 
+ 	return 0;
+@@ -1051,8 +1072,10 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
+ 
+ 	/* Update stats */
+ 	tstats = &tunnel->stats;
++	spin_lock_bh(&tstats->writelock);
+ 	u64_stats_update_begin(&tstats->syncp);
+ 	sstats = &session->stats;
++	spin_lock_bh(&sstats->writelock);
+ 	u64_stats_update_begin(&sstats->syncp);
+ 	if (error >= 0) {
+ 		tstats->tx_packets++;
+@@ -1064,7 +1087,9 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
+ 		sstats->tx_errors++;
+ 	}
+ 	u64_stats_update_end(&tstats->syncp);
++	spin_unlock_bh(&tstats->writelock);
+ 	u64_stats_update_end(&sstats->syncp);
++	spin_unlock_bh(&sstats->writelock);
+ 
+ 	return 0;
+ }
+@@ -1575,6 +1600,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	tunnel->magic = L2TP_TUNNEL_MAGIC;
+ 	sprintf(&tunnel->name[0], "tunl %u", tunnel_id);
+ 	rwlock_init(&tunnel->hlist_lock);
++	spin_lock_init(&tunnel->stats.writelock);
+ 
+ 	/* The net we belong to */
+ 	tunnel->l2tp_net = net;
+@@ -1758,6 +1784,8 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 		INIT_HLIST_NODE(&session->hlist);
+ 		INIT_HLIST_NODE(&session->global_hlist);
+ 
++		spin_lock_init(&session->stats.writelock);
++
+ 		/* Inherit debug options from tunnel */
+ 		session->debug = tunnel->debug;
+ 
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index a38ec6c..80c4475 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -35,6 +35,10 @@ enum {
+ 
+ struct sk_buff;
+ 
++/* Stats are synchronised via a synchronisation point for safe
++ * reader/writer access on 64 and 32 bit kernels.  Multi-threaded
++ * stats writers are serialized through a spinlock.
++ */
+ struct l2tp_stats {
+ 	u64			tx_packets;
+ 	u64			tx_bytes;
+@@ -46,6 +50,7 @@ struct l2tp_stats {
+ 	u64			rx_errors;
+ 	u64			rx_cookie_discards;
+ 	struct u64_stats_sync	syncp;
++	spinlock_t		writelock;
+ };
+ 
+ struct l2tp_tunnel;
+-- 
+1.7.9.5
