@@ -1,117 +1,96 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 11/13] netfilter: nf_conntrack_l4proto_dccp[4,6] cleanup
-Date: Thu, 21 Jun 2012 22:36:48 +0800
-Message-ID: <1340289410-17642-11-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 12/13] netfilter: nf_conntrack_l4proto_icmp cleanup
+Date: Thu, 21 Jun 2012 22:36:49 +0800
+Message-ID: <1340289410-17642-12-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	Gao feng <gaofeng@cn.fujitsu.com>
 To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:64715 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756967Ab2FUOgf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2012 10:36:35 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-some cleanup of nf_conntrack_l4proto_dccp[4,6],
-make codes more clearer and ready for moving the
-sysctl code to nf_conntrack_proto_*_sysctl.c to
-reduce the ifdef pollution.
-
-and use nf_proto_net.users to identify if it's the first time
-we use the nf_proto_net. when it's the first time,we will
-initialized it.
+add two functions icmp_kmemdup_sysctl_table and
+icmp_kmemdup_compat_sysctl_table to make codes more
+clearer.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_proto_dccp.c |   54 +++++++++++++++++--------------
- 1 files changed, 30 insertions(+), 24 deletions(-)
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c |   41 ++++++++++++++++++++------
+ 1 files changed, 32 insertions(+), 9 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 52da8f0..6535326 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -387,7 +387,7 @@ dccp_state_table[CT_DCCP_ROLE_MAX + 1][DCCP_PKT_SYNCACK + 1][CT_DCCP_MAX + 1] =
- /* this module per-net specifics */
- static int dccp_net_id __read_mostly;
- struct dccp_net {
--	struct nf_proto_net np;
-+	struct nf_proto_net pn;
- 	int dccp_loose;
- 	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
- };
-@@ -815,16 +815,37 @@ static struct ctl_table dccp_sysctl_table[] = {
- };
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index 76f7a2f..9c2095c 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -337,34 +337,57 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
  #endif /* CONFIG_SYSCTL */
  
-+static int dccp_kmemdup_sysctl_table(struct nf_proto_net *pn,
-+				     struct dccp_net *dn)
-+{
-+#ifdef CONFIG_SYSCTL
-+	if (pn->ctl_table)
-+		return 0;
+-static int icmp_init_net(struct net *net, u_int16_t proto)
++static int icmp_kmemdup_sysctl_table(struct nf_proto_net *pn,
++				     struct nf_icmp_net *in)
+ {
+-	struct nf_icmp_net *in = icmp_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+-	in->timeout = nf_ct_icmp_timeout;
+-
+ #ifdef CONFIG_SYSCTL
+ 	pn->ctl_table = kmemdup(icmp_sysctl_table,
+ 				sizeof(icmp_sysctl_table),
+ 				GFP_KERNEL);
+ 	if (!pn->ctl_table)
+ 		return -ENOMEM;
 +
-+	pn->ctl_table = kmemdup(dccp_sysctl_table,
-+				sizeof(dccp_sysctl_table),
-+				GFP_KERNEL);
-+	if (!pn->ctl_table)
-+		return -ENOMEM;
-+
-+	pn->ctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
-+	pn->ctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
-+	pn->ctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
-+	pn->ctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
-+	pn->ctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
-+	pn->ctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
-+	pn->ctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
-+	pn->ctl_table[7].data = &dn->dccp_loose;
+ 	pn->ctl_table[0].data = &in->timeout;
 +#endif
 +	return 0;
 +}
 +
- static int dccp_init_net(struct net *net, u_int16_t proto)
- {
- 	struct dccp_net *dn = dccp_pernet(net);
--	struct nf_proto_net *pn = (struct nf_proto_net *)dn;
-+	struct nf_proto_net *pn = &dn->pn;
- 
--#ifdef CONFIG_SYSCTL
--	if (!pn->ctl_table) {
--#else
--	if (!pn->users++) {
--#endif
-+	if (!pn->users) {
- 		/* default values */
- 		dn->dccp_loose = 1;
- 		dn->dccp_timeout[CT_DCCP_REQUEST]	= 2 * DCCP_MSL;
-@@ -834,24 +855,9 @@ static int dccp_init_net(struct net *net, u_int16_t proto)
- 		dn->dccp_timeout[CT_DCCP_CLOSEREQ]	= 64 * HZ;
- 		dn->dccp_timeout[CT_DCCP_CLOSING]	= 64 * HZ;
- 		dn->dccp_timeout[CT_DCCP_TIMEWAIT]	= 2 * DCCP_MSL;
--#ifdef CONFIG_SYSCTL
--		pn->ctl_table = kmemdup(dccp_sysctl_table,
--					sizeof(dccp_sysctl_table),
--					GFP_KERNEL);
--		if (!pn->ctl_table)
--			return -ENOMEM;
--
--		pn->ctl_table[0].data = &dn->dccp_timeout[CT_DCCP_REQUEST];
--		pn->ctl_table[1].data = &dn->dccp_timeout[CT_DCCP_RESPOND];
--		pn->ctl_table[2].data = &dn->dccp_timeout[CT_DCCP_PARTOPEN];
--		pn->ctl_table[3].data = &dn->dccp_timeout[CT_DCCP_OPEN];
--		pn->ctl_table[4].data = &dn->dccp_timeout[CT_DCCP_CLOSEREQ];
--		pn->ctl_table[5].data = &dn->dccp_timeout[CT_DCCP_CLOSING];
--		pn->ctl_table[6].data = &dn->dccp_timeout[CT_DCCP_TIMEWAIT];
--		pn->ctl_table[7].data = &dn->dccp_loose;
--#endif
- 	}
--	return 0;
++static int icmp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
++					    struct nf_icmp_net *in)
++{
++#ifdef CONFIG_SYSCTL
+ #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+ 	pn->ctl_compat_table = kmemdup(icmp_compat_sysctl_table,
+ 				       sizeof(icmp_compat_sysctl_table),
+ 				       GFP_KERNEL);
+-	if (!pn->ctl_compat_table) {
+-		kfree(pn->ctl_table);
+-		pn->ctl_table = NULL;
++	if (!pn->ctl_compat_table)
+ 		return -ENOMEM;
+-	}
 +
-+	return dccp_kmemdup_sysctl_table(pn, dn);
+ 	pn->ctl_compat_table[0].data = &in->timeout;
+ #endif
+ #endif
+ 	return 0;
  }
  
- static struct nf_conntrack_l4proto dccp_proto4 __read_mostly = {
++static int icmp_init_net(struct net *net, u_int16_t proto)
++{
++	int ret;
++	struct nf_icmp_net *in = icmp_pernet(net);
++	struct nf_proto_net *pn = &in->pn;
++
++	in->timeout = nf_ct_icmp_timeout;
++
++	ret = icmp_kmemdup_compat_sysctl_table(pn, in);
++	if (ret < 0)
++		return ret;
++
++	ret = icmp_kmemdup_sysctl_table(pn, in);
++	if (ret < 0)
++		nf_ct_kfree_compat_sysctl_table(pn);
++
++	return ret;
++}
++
+ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
+ {
+ 	.l3proto		= PF_INET,
 -- 
 1.7.7.6
+
