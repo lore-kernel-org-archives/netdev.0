@@ -1,57 +1,90 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing
- date
-Date: Thu, 21 Jun 2012 14:41:17 +0800
-Message-ID: <4FE2C20D.1020603@windriver.com>
-References: <20120619.020111.1596676335106760442.davem@davemloft.net>	<20120619.020553.227635216346617898.davem@davemloft.net>	<4FE282E7.2010804@windriver.com> <20120620.204323.1614285855856633624.davem@davemloft.net>
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [RFC net-next 11/14] Fix emulex/benet
+Date: Wed, 20 Jun 2012 23:42:22 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F647C69FA2E4@EXMAIL.ad.emulex.com>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>,<1340118848-30978-12-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <herbert@gondor.hengli.com.au>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <eilong@broadcom.com>
+To: <yuvalmin@broadcom.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48451 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756998Ab2FUGjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 02:39:02 -0400
-In-Reply-To: <20120620.204323.1614285855856633624.davem@davemloft.net>
+Received: from exht2.emulex.com ([138.239.113.184]:6754 "EHLO
+	exht2.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755299Ab2FUGrS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 02:47:18 -0400
+In-Reply-To: <1340118848-30978-12-git-send-email-yuvalmin@broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, David
+Yuval, for be2net, the best place to cap the number of queues to a global default 
+value would be_num_rss_want(). The change would look like:
 
-On 2012=E5=B9=B406=E6=9C=8821=E6=97=A5 11:43, David Miller wrote:
-> From: Fan Du<fan.du@windriver.com>
-> Date: Thu, 21 Jun 2012 10:11:51 +0800
->
->> Could you please take a look at it if you have time?
->
-> Everyone saw it, you need to be patient.
->
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/
+index fa2a01e..5265b42 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2186,12 +2186,15 @@ static void be_msix_disable(struct be_adapter *adapter)
+ 
+ static uint be_num_rss_want(struct be_adapter *adapter)
+ {
++       u32 num = 0;
++
+        if ((adapter->function_caps & BE_FUNCTION_CAPS_RSS) &&
+             !sriov_want(adapter) && be_physfn(adapter) &&
+-            !be_is_mc(adapter))
+-               return (adapter->be3_native) ? BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
+-       else
+-               return 0;
++            !be_is_mc(adapter)) {
++               num = (adapter->be3_native) ? BE3_MAX_RSS_QS : BE2_MAX_RSS_QS;
++               num = min_t(u32, num, DEFAULT_MAX_NUM_RSS_QUEUES);
++       }
++       return num;
+ }
+ 
+ static void be_msix_enable(struct be_adapter *adapter)
 
-Apologize for this noise.
-Yes, I'm young, and a bit of rush :)
+thanks,
+-Sathya
 
+________________________________________
+From: Yuval Mintz [yuvalmin@broadcom.com]
 
-> And you still have fdu@windriver.com in the CC: list, which I told yo=
-u
-> bounces.
->
-> I asked you explicitly to remove this email address from the CC: list=
-,
-> because it bounces.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-I didn't do it deliberately.
-Damn, must be my afternoon buzzy head!
+Cc: Sathya Perla <sathya.perla@emulex.com>
+Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
-I have sent out V4, I hope I will not make any dummy mistake.
-Anyway, please review it if you have time, and I will wait for your
-response *PATIENTLY*.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 5a34503..e42597d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2153,13 +2153,15 @@ static uint be_num_rss_want(struct be_adapter *adapter)
+ static void be_msix_enable(struct be_adapter *adapter)
+ {
+ #define BE_MIN_MSIX_VECTORS            1
+-       int i, status, num_vec, num_roce_vec = 0;
++       int i, status, num_vec, num_roce_vec = 0, ncpu;
++
++       ncpu = min_t(int, num_online_cpus(), DEFAULT_MAX_NUM_RSS_QUEUES);
 
-thanks
-
---=20
-
-Love each day!
---fan
+        /* If RSS queues are not used, need a vec for default RX Q */
+-       num_vec = min(be_num_rss_want(adapter), num_online_cpus());
++       num_vec = min(be_num_rss_want(adapter), ncpu);
+        if (be_roce_supported(adapter)) {
+                num_roce_vec = min_t(u32, MAX_ROCE_MSIX_VECTORS,
+-                                       (num_online_cpus() + 1));
++                                    (u32)(ncpu + 1));
+                num_roce_vec = min(num_roce_vec, MAX_ROCE_EQS);
+                num_vec += num_roce_vec;
+                num_vec = min(num_vec, MAX_MSIX_VECTORS);
+--
+1.7.9.rc2
