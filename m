@@ -1,104 +1,73 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Thu, 21 Jun 2012 18:09:02 +0200
-Message-ID: <20120621160902.GA6045@breakpoint.cc>
-References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
- <1340192652-31658-11-git-send-email-mgorman@suse.de>
+From: Tom Parkin <tparkin@katalix.com>
+Subject: Re: [PATCH] l2tp: synchronise u64 stats writer callsites
+Date: Thu, 21 Jun 2012 17:19:56 +0100
+Message-ID: <20120621161955.GA29812@jackdaw>
+References: <1340291054-16077-1-git-send-email-tparkin@katalix.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6F5D@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="opJtzjQTFsWo+cga"
+Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:54307 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759701Ab2FUQT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 12:19:58 -0400
 Content-Disposition: inline
-In-Reply-To: <1340192652-31658-11-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-On Wed, Jun 20, 2012 at 12:44:05PM +0100, Mel Gorman wrote:
-> index b534a1b..61c951f 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -505,6 +506,15 @@ struct sk_buff {
->  #include <linux/slab.h>
->  
->  
-> +#define SKB_ALLOC_FCLONE	0x01
-> +#define SKB_ALLOC_RX		0x02
-> +
-> +/* Returns true if the skb was allocated from PFMEMALLOC reserves */
-> +static inline bool skb_pfmemalloc(struct sk_buff *skb)
-> +{
-> +	return unlikely(skb->pfmemalloc);
-> +}
-> +
->  /*
->   * skb might have a dst pointer attached, refcounted or not.
->   * _skb_refdst low order bit is set if refcount was _not_ taken
-> @@ -568,7 +578,7 @@ extern bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 1d6ecc8..9a58dcc 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -839,6 +900,13 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
->  	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
->  }
->  
-> +static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
-> +{
-> +	if (skb_pfmemalloc((struct sk_buff *)skb))
-> +		return SKB_ALLOC_RX;
-> +	return 0;
-> +}
-> +
->  /**
->   *	skb_copy	-	create private copy of an sk_buff
->   *	@skb: buffer to copy
-
-If merge this chunk
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6510a5d..2acfec9 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -510,7 +510,7 @@ struct sk_buff {
- #define SKB_ALLOC_RX		0x02
- 
- /* Returns true if the skb was allocated from PFMEMALLOC reserves */
--static inline bool skb_pfmemalloc(struct sk_buff *skb)
-+static inline bool skb_pfmemalloc(const struct sk_buff *skb)
- {
- 	return unlikely(skb->pfmemalloc);
- }
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c44ab68..6ce94b5 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -852,7 +852,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 
- static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
- {
--	if (skb_pfmemalloc((struct sk_buff *)skb))
-+	if (skb_pfmemalloc(skb))
- 		return SKB_ALLOC_RX;
- 	return 0;
- }
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F5D@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Then you should be able to drop the case in skb_alloc_rx_flag() without adding
-a warning.
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Sebastian
+On Thu, Jun 21, 2012 at 04:18:12PM +0100, David Laight wrote:
+> The purpose of the u64_stats_update_begin/end is to
+> perform lockless writes of the stats.
+> If you need to lock them (because multiple threads can
+> be writing to stats covered by the same 'syncp' at the
+> same time) then the reader might as well use the same lock.
+>=20
+> Otherwise split the 'syncp' such that only one update
+> can be happening (for each sync).
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks David.
+
+I think the best approach is probably to attempt to partition the l2tp
+statistics such that we can be sure of single-threaded writer access
+for each dataset, which can then be covered by a 'syncp'.
+
+If that turns out not to be possible, I suppose the fallback position
+is to do away with the u64_stats_update* calls and just use a spinlock
+instead.
+
+I'll look at implementing the former and put a new patch together.
+
+Tom
+--=20
+Tom Parkin
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
+--opJtzjQTFsWo+cga
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJP40mrAAoJEJSMBmUKuovQNsYH/2ewZwJIjs+w3odNBihU3TlJ
+gFntKzZo5NpUkmDr3sxCRrOwGDv+d3ZJj0pCOcPuT0OqaWJIiYFt2vQid/Gib9TH
+Yp3CDaiWiTsQXjXqyAM8jYt2ObPh5EZeIaInFSXGjMWAFkQNbIQR449o/WflSTSO
+ADn0lUdGVILCnDTZ/DXKlNV0EGBzzjp/PGUt/sRi63F6K1/L/dXtxkeB5DLK8GOs
+7UvEtxFl1LeJR1Q1nfoPL54C2lmZvAUqtJIgOtgGk0ZXk18elTCas/6dA3celfut
+H2M9AHk83U/obBPUfj4YTZx7zsXW98sBA8mINYg2BANuPBls59KS05ZdgGz9ChY=
+=wT95
+-----END PGP SIGNATURE-----
+
+--opJtzjQTFsWo+cga--
