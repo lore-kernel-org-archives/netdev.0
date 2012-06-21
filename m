@@ -1,44 +1,69 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [PATCH 01/17] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Thu, 21 Jun 2012 17:30:56 -0400
-Message-ID: <4FE39290.8020609@redhat.com>
-References: <1340192652-31658-1-git-send-email-mgorman@suse.de> <1340192652-31658-2-git-send-email-mgorman@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] tcp: Validate route interface in early demux.
+Date: Thu, 21 Jun 2012 15:03:45 -0700 (PDT)
+Message-ID: <20120621.150345.1099437864390577092.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM <linux-mm@kvack.org>,
-        Linux-Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-        Peter Zijlstra <a.p.zijlstra@chello.nl>,
-        Mike Christie <michaelc@cs.wisc.edu>,
-        Eric B Munson <emunson@mgebm.net>,
-        Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1340192652-31658-2-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57328 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760581Ab2FUWDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 18:03:48 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id D3B87587173
+	for <netdev@vger.kernel.org>; Thu, 21 Jun 2012 15:03:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2012 07:43 AM, Mel Gorman wrote:
 
-> +/* Clears ac->pfmemalloc if no slabs have pfmalloc set */
-> +static void check_ac_pfmemalloc(struct kmem_cache *cachep,
-> +						struct array_cache *ac)
-> +{
+Otherwise we might violate reverse path filtering.
 
-> +	pfmemalloc_active = false;
-> +out:
-> +	spin_unlock_irqrestore(&l3->list_lock, flags);
-> +}
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/tcp_ipv4.c |   12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-The comment and the function do not seem to match.
-
-Otherwise, the patch looks reasonable.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 13857df..21e22a0 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1676,6 +1676,7 @@ int tcp_v4_early_demux(struct sk_buff *skb)
+ 	struct net *net = dev_net(skb->dev);
+ 	const struct iphdr *iph;
+ 	const struct tcphdr *th;
++	struct net_device *dev;
+ 	struct sock *sk;
+ 	int err;
+ 
+@@ -1695,10 +1696,11 @@ int tcp_v4_early_demux(struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, ip_hdrlen(skb) + th->doff * 4))
+ 		goto out_err;
+ 
++	dev = skb->dev;
+ 	sk = __inet_lookup_established(net, &tcp_hashinfo,
+ 				       iph->saddr, th->source,
+ 				       iph->daddr, th->dest,
+-				       skb->dev->ifindex);
++				       dev->ifindex);
+ 	if (sk) {
+ 		skb->sk = sk;
+ 		skb->destructor = sock_edemux;
+@@ -1707,8 +1709,12 @@ int tcp_v4_early_demux(struct sk_buff *skb)
+ 			if (dst)
+ 				dst = dst_check(dst, 0);
+ 			if (dst) {
+-				skb_dst_set_noref(skb, dst);
+-				err = 0;
++				struct rtable *rt = (struct rtable *) dst;
++
++				if (rt->rt_iif == dev->ifindex) {
++					skb_dst_set_noref(skb, dst);
++					err = 0;
++				}
+ 			}
+ 		}
+ 	}
+-- 
+1.7.10
