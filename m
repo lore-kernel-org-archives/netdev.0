@@ -1,209 +1,231 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
-Date: Thu, 21 Jun 2012 15:19:26 +0300
-Message-ID: <1340281166.15484.16.camel@lb-tlvb-dmitry>
-References: <1339616716.22704.661.camel@edumazet-glaptop>
- <20120615.153049.103988387813257203.davem@davemloft.net>
- <504C9EFCA2D0054393414C9CB605C37F1CF19E@SJEXCHMB06.corp.ad.broadcom.com>
- <1340005136.7491.609.camel@edumazet-glaptop>
- <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: qmi_wwan: fix Gobi device probing
+Date: Thu, 21 Jun 2012 14:45:58 +0200
+Message-ID: <1340282758-18085-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>,
-	"evansr@google.com" <evansr@google.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Merav Sicron" <meravs@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>,
-	"willemb@google.com" <willemb@google.com>
-To: "Tomas Hruby" <thruby@google.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1099 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757039Ab2FUMTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2012 08:19:37 -0400
-In-Reply-To: <CA+yapKM+H0DHA_UotD7v5LRZfYUeanupxb4=r89+fVSTo-Ad4w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, H.Siebmanns-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-18 at 10:18 -0700, Tomas Hruby wrote:
-> On Mon, Jun 18, 2012 at 12:38 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Sat, 2012-06-16 at 07:40 +0000, Dmitry Kravkov wrote:
-> >> Hi Eric and Tomas
-> >>
-> >> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> >> > owner@vger.kernel.org] On Behalf Of David Miller
-> >> > Sent: Saturday, June 16, 2012 1:31 AM
-> >> > To: eric.dumazet@gmail.com
-> >> > Cc: netdev@vger.kernel.org; therbert@google.com; evansr@google.com;
-> >> > Eilon Greenstein; Merav Sicron; Yaniv Rosner; willemb@google.com;
-> >> > thruby@google.com
-> >> > Subject: Re: [PATCH] bnx2x: fix panic when TX ring is full
-> >> >
-> >> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> > Date: Wed, 13 Jun 2012 21:45:16 +0200
-> >> >
-> >> > > From: Eric Dumazet <edumazet@google.com>
-> >> > >
-> >> > > There is a off by one error in the minimal number of BD in
-> >> > > bnx2x_start_xmit() and bnx2x_tx_int() before stopping/resuming tx
-> >> > queue.
-> >> > >
-> >> > > A full size GSO packet, with data included in skb->head really needs
-> >> > > (MAX_SKB_FRAGS + 4) BDs, because of bnx2x_tx_split()
-> >> > >
-> >> > > This error triggers if BQL is disabled and heavy TCP transmit traffic
-> >> > > occurs.
-> >> > >
-> >> > > bnx2x_tx_split() definitely can be called, remove a wrong comment.
-> >> > >
-> >> > > Reported-by: Tomas Hruby <thruby@google.com>
-> >> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> >>
-> >> Theoretically a can't see how we can reach the case with 4 BDs required apart of frags,
-> >> Usually we need 2, when split invoked 3:
-> >> 1.Start
-> >> 2.Start(split)
-> >> 3.Parsing
-> >> + Frags
-> >>
-> >> Next pages descriptors and 2 extras for full indication are not counted as available.
-> >>
-> >> Practically I'm running the traffic for more then a day without hitting the panic.
-> >>
-> >> Can you describe the scenario you reproduced this in details? And which code has paniced?
-> >
-> > Thats pretty immediate.
-> 
-> yes
-> 
-> > Disable bql on your NIC.
-> >
-> > Say you have 4 queues :
-> >
-> > for q in 0 1 2 3
-> > do
-> >  echo max >/sys/class/net/eth0/queues/tx-$q/byte_queue_limits/limit_min
-> > done
-> >
-> > Then start 40 netperf
-> >
-> > for i in `seq 1 40`
-> > do
-> >  netperf -H 192.168.1.4 &
-> > done
-> 
-> this is enough in my case too, it is perfectly reproducible on
-> different machines. Replacing +3 for +4 fixes the problem.
+Ignoring interfaces with additional descriptors is not a reliable
+method for locating the correct interface on Gobi devices.  There
+is at least one device where this method fails:
+https://bbs.archlinux.org/viewtopic.php?id=3D143506
 
-The crash happens with default configuration since
-[4acb41903b2f99f3dffd4c3df9acc84ca5942cb2] "net/tcp: Fix tcp memory
-limits initialization when !CONFIG_SYSCTL", but it can be hit by
-increasing values of tcp_wmem even earlier.
+The result is that the AT command port (interface #2) is hidden
+from qcserial, preventing traditional serial modem usage:
 
-We want to submit a semantic patch into net-next once the two branches are
-merged, but the original patch from Eric needs to go -stable.
+[   15.562552] qmi_wwan 4-1.6:1.0: cdc-wdm0: USB WDM device
+[   15.562691] qmi_wwan 4-1.6:1.0: wwan0: register 'qmi_wwan' at usb-00=
+00:00:1d.0-1.6, Qualcomm Gobi wwan/QMI device, 1e:df:3c:3a:4e:3b
+[   15.563383] qmi_wwan: probe of 4-1.6:1.1 failed with error -22
+[   15.564189] qmi_wwan 4-1.6:1.2: cdc-wdm1: USB WDM device
+[   15.564302] qmi_wwan 4-1.6:1.2: wwan1: register 'qmi_wwan' at usb-00=
+00:00:1d.0-1.6, Qualcomm Gobi wwan/QMI device, 1e:df:3c:3a:4e:3b
+[   15.564328] qmi_wwan: probe of 4-1.6:1.3 failed with error -22
+[   15.569376] qcserial 4-1.6:1.1: Qualcomm USB modem converter detecte=
+d
+[   15.569440] usb 4-1.6: Qualcomm USB modem converter now attached to =
+ttyUSB0
+[   15.570372] qcserial 4-1.6:1.3: Qualcomm USB modem converter detecte=
+d
+[   15.570430] usb 4-1.6: Qualcomm USB modem converter now attached to =
+ttyUSB1
 
-Thanks.
+Use static interface numbers taken from the interface map in
+qcserial for all Gobi devices instead:
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
-Subject: [PATCH net-next] bnx2x: reservation for NEXT tx BDs
+	Gobi 1K USB layout:
+	0: serial port (doesn't respond)
+	1: serial port (doesn't respond)
+	2: AT-capable modem port
+	3: QMI/net
 
-Commit [4acb41903b2f99f3dffd4c3df9acc84ca5942cb2]
-net/tcp: Fix tcp memory limits initialization when !CONFIG_SYSCTL
-provided new default value for tcp_wmem, since heavy tcp
-traffic may cause the TSO packet to consume 20 BDs + 1 for next page
-descriptor.
-Eric has fixed the reservation in
-[bc14786a100cc6a81cd060e8031ec481241b418c]
- bnx2x: fix panic when TX ring is full, this patch provides some
-inline explanation for magic numbers are used and fixes condition for
-statistics increment in a similar way.
+	Gobi 2K+ USB layout:
+	0: QMI/net
+	1: DM/DIAG (use libqcdm from ModemManager for communication)
+	2: AT-capable modem port
+	3: NMEA
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+This should be more reliable over all, and will also prevent the
+noisy "probe failed" messages.  The whitelisting logic is expected
+to be replaced by direct interface number matching in 3.6.
+
+Reported-by: Heinrich Siebmanns (Harvey) <H.Siebmanns-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4: 0000188 USB: qmi_wwan: Make forced=
+ int 4 whitelist generic
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4: f7142e6 USB: qmi_wwan: Add ZTE (Vo=
+dafone) K3520-Z
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |   15 +++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    9 +++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+ drivers/net/usb/qmi_wwan.c |   83 +++++++++++++++++++++---------------=
+--------
+ 1 file changed, 40 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 7de8241..be75f45 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -616,6 +616,21 @@ struct bnx2x_fastpath {
- #define TX_BD(x)		((x) & MAX_TX_BD)
- #define TX_BD_POFF(x)		((x) & MAX_TX_DESC_CNT)
- 
-+/* how many NEXT PAGE descriptors may packet occupy */
-+#define NEXT_CNT_PER_TX_PKT(bds)	\
-+				(((bds) + MAX_TX_DESC_CNT - 1) / \
-+				 MAX_TX_DESC_CNT * NEXT_PAGE_TX_DESC_CNT)
-+/* max pure data/headers BDs per tx packet:
-+ * START_BD		- describes packed
-+ * START_BD(splitted)	- includes unpaged data segment for GSO
-+ * PARSING_BD		- for TSO and CSUM data
-+ * Frag BDs		- decribes pages for frags
-+ */
-+#define MAX_BDS_PER_TX_PKT	(MAX_SKB_FRAGS + 3)
-+/* max BDs per tx packet including next pages */
-+#define MAX_DESC_PER_TX_PKT	(MAX_BDS_PER_TX_PKT + \
-+				 NEXT_CNT_PER_TX_PKT(MAX_BDS_PER_TX_PKT))
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 3b20678..3767a12 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -257,29 +257,6 @@ err:
+ 	return rv;
+ }
+=20
+-/* Gobi devices uses identical class/protocol codes for all interfaces=
+ regardless
+- * of function. Some of these are CDC ACM like and have the exact same=
+ endpoints
+- * we are looking for. This leaves two possible strategies for identif=
+ying the
+- * correct interface:
+- *   a) hardcoding interface number, or
+- *   b) use the fact that the wwan interface is the only one lacking a=
+dditional
+- *      (CDC functional) descriptors
+- *
+- * Let's see if we can get away with the generic b) solution.
+- */
+-static int qmi_wwan_bind_gobi(struct usbnet *dev, struct usb_interface=
+ *intf)
+-{
+-	int rv =3D -EINVAL;
+-
+-	/* ignore any interface with additional descriptors */
+-	if (intf->cur_altsetting->extralen)
+-		goto err;
+-
+-	rv =3D qmi_wwan_bind_shared(dev, intf);
+-err:
+-	return rv;
+-}
+-
+ static void qmi_wwan_unbind_shared(struct usbnet *dev, struct usb_inte=
+rface *intf)
+ {
+ 	struct usb_driver *subdriver =3D (void *)dev->data[0];
+@@ -347,15 +324,15 @@ static const struct driver_info	qmi_wwan_shared =3D=
+ {
+ 	.manage_power	=3D qmi_wwan_manage_power,
+ };
+=20
+-static const struct driver_info	qmi_wwan_gobi =3D {
+-	.description	=3D "Qualcomm Gobi wwan/QMI device",
++static const struct driver_info	qmi_wwan_force_int0 =3D {
++	.description	=3D "Qualcomm WWAN/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+-	.bind		=3D qmi_wwan_bind_gobi,
++	.bind		=3D qmi_wwan_bind_shared,
+ 	.unbind		=3D qmi_wwan_unbind_shared,
+ 	.manage_power	=3D qmi_wwan_manage_power,
++	.data		=3D BIT(0), /* interface whitelist bitmap */
+ };
+=20
+-/* ZTE suck at making USB descriptors */
+ static const struct driver_info	qmi_wwan_force_int1 =3D {
+ 	.description	=3D "Qualcomm WWAN/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+@@ -365,6 +342,15 @@ static const struct driver_info	qmi_wwan_force_int=
+1 =3D {
+ 	.data		=3D BIT(1), /* interface whitelist bitmap */
+ };
+=20
++static const struct driver_info	qmi_wwan_force_int3 =3D {
++	.description	=3D "Qualcomm WWAN/QMI device",
++	.flags		=3D FLAG_WWAN,
++	.bind		=3D qmi_wwan_bind_shared,
++	.unbind		=3D qmi_wwan_unbind_shared,
++	.manage_power	=3D qmi_wwan_manage_power,
++	.data		=3D BIT(3), /* interface whitelist bitmap */
++};
 +
- /* The RX BD ring is special, each bd is 8 bytes but the last one is 16 */
- #define NUM_RX_RINGS		8
- #define RX_DESC_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_rx_bd))
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 8098eea..c4928ea 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -190,7 +190,7 @@ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata)
- 
- 		if ((netif_tx_queue_stopped(txq)) &&
- 		    (bp->state == BNX2X_STATE_OPEN) &&
--		    (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 4))
-+		    (bnx2x_tx_avail(bp, txdata) >= MAX_DESC_PER_TX_PKT))
- 			netif_tx_wake_queue(txq);
- 
- 		__netif_tx_unlock(txq);
-@@ -2894,7 +2894,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	   txdata->cid, fp_index, txdata_index, txdata, fp); */
- 
- 	if (unlikely(bnx2x_tx_avail(bp, txdata) <
--		     (skb_shinfo(skb)->nr_frags + 3))) {
-+			skb_shinfo(skb)->nr_frags + 3 +
-+			NEXT_CNT_PER_TX_PKT(MAX_BDS_PER_TX_PKT))) {
- 		fp->eth_q_stats.driver_xoff++;
- 		netif_tx_stop_queue(txq);
- 		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
-@@ -3169,7 +3170,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	txdata->tx_bd_prod += nbd;
- 
--	if (unlikely(bnx2x_tx_avail(bp, txdata) < MAX_SKB_FRAGS + 4)) {
-+	if (unlikely(bnx2x_tx_avail(bp, txdata) < MAX_DESC_PER_TX_PKT)) {
- 		netif_tx_stop_queue(txq);
- 
- 		/* paired memory barrier is in bnx2x_tx_int(), we have to keep
-@@ -3178,7 +3179,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		smp_mb();
- 
- 		fp->eth_q_stats.driver_xoff++;
--		if (bnx2x_tx_avail(bp, txdata) >= MAX_SKB_FRAGS + 4)
-+		if (bnx2x_tx_avail(bp, txdata) >= MAX_DESC_PER_TX_PKT)
- 			netif_tx_wake_queue(txq);
- 	}
- 	txdata->tx_pkt++;
--- 
-1.7.7.2
+ static const struct driver_info	qmi_wwan_force_int4 =3D {
+ 	.description	=3D "Qualcomm WWAN/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+@@ -390,16 +376,23 @@ static const struct driver_info	qmi_wwan_force_in=
+t4 =3D {
+ static const struct driver_info	qmi_wwan_sierra =3D {
+ 	.description	=3D "Sierra Wireless wwan/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+-	.bind		=3D qmi_wwan_bind_gobi,
++	.bind		=3D qmi_wwan_bind_shared,
+ 	.unbind		=3D qmi_wwan_unbind_shared,
+ 	.manage_power	=3D qmi_wwan_manage_power,
+ 	.data		=3D BIT(8) | BIT(19), /* interface whitelist bitmap */
+ };
+=20
+ #define HUAWEI_VENDOR_ID	0x12D1
++
++/* Gobi 1000 QMI/wwan interface number is 3 according to qcserial */
++#define QMI_GOBI1K_DEVICE(vend, prod) \
++	USB_DEVICE(vend, prod), \
++	.driver_info =3D (unsigned long)&qmi_wwan_force_int3
++
++/* Gobi 2000 and Gobi 3000 QMI/wwan interface number is 0 according to=
+ qcserial */
+ #define QMI_GOBI_DEVICE(vend, prod) \
+ 	USB_DEVICE(vend, prod), \
+-	.driver_info =3D (unsigned long)&qmi_wwan_gobi
++	.driver_info =3D (unsigned long)&qmi_wwan_force_int0
+=20
+ static const struct usb_device_id products[] =3D {
+ 	{	/* Huawei E392, E398 and possibly others sharing both device id and=
+ more... */
+@@ -510,20 +503,24 @@ static const struct usb_device_id products[] =3D =
+{
+ 		.bInterfaceProtocol =3D 0xff,
+ 		.driver_info        =3D (unsigned long)&qmi_wwan_sierra,
+ 	},
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+-	{QMI_GOBI_DEVICE(0x03f0, 0x1f1d)},	/* HP un2400 Gobi Modem Device */
+-	{QMI_GOBI_DEVICE(0x03f0, 0x371d)},	/* HP un2430 Mobile Broadband Modu=
+le */
+-	{QMI_GOBI_DEVICE(0x04da, 0x250d)},	/* Panasonic Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x413c, 0x8172)},	/* Dell Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x1410, 0xa001)},	/* Novatel Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x0b05, 0x1776)},	/* Asus Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x19d2, 0xfff3)},	/* ONDA Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9001)},	/* Generic Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9002)},	/* Generic Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9202)},	/* Generic Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9203)},	/* Generic Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9222)},	/* Generic Gobi Modem device */
+-	{QMI_GOBI_DEVICE(0x05c6, 0x9009)},	/* Generic Gobi Modem device */
++
++	/* Gobi 1000 devices */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
++	{QMI_GOBI1K_DEVICE(0x03f0, 0x1f1d)},	/* HP un2400 Gobi Modem Device *=
+/
++	{QMI_GOBI1K_DEVICE(0x03f0, 0x371d)},	/* HP un2430 Mobile Broadband Mo=
+dule */
++	{QMI_GOBI1K_DEVICE(0x04da, 0x250d)},	/* Panasonic Gobi Modem device *=
+/
++	{QMI_GOBI1K_DEVICE(0x413c, 0x8172)},	/* Dell Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x1410, 0xa001)},	/* Novatel Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x0b05, 0x1776)},	/* Asus Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x19d2, 0xfff3)},	/* ONDA Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9001)},	/* Generic Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9002)},	/* Generic Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9202)},	/* Generic Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9203)},	/* Generic Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9222)},	/* Generic Gobi Modem device */
++	{QMI_GOBI1K_DEVICE(0x05c6, 0x9009)},	/* Generic Gobi Modem device */
++
++	/* Gobi 2000 and 3000 devices */
+ 	{QMI_GOBI_DEVICE(0x413c, 0x8186)},	/* Dell Gobi 2000 Modem device (N0=
+218, VU936) */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x920b)},	/* Generic Gobi 2000 Modem device =
+*/
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9225)},	/* Sony Gobi 2000 Modem device (N0=
+279, VU730) */
+--=20
+1.7.10
 
-
-
-
-
-> T.
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
