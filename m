@@ -1,48 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] ixgbe: simplify padding and length checks
-Date: Thu, 21 Jun 2012 15:04:54 -0700 (PDT)
-Message-ID: <20120621.150454.828540055288845272.davem@davemloft.net>
-References: <1340280910-22651-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20120621.133807.59441426155221033.davem@davemloft.net>
-	<1340314089.2033.16.camel@jtkirshe-mobl>
+Subject: Re: [PATCH] net: dcb: fix small regression in __dcbnl_pg_setcfg()
+Date: Thu, 21 Jun 2012 15:06:14 -0700 (PDT)
+Message-ID: <20120621.150614.1100069075307116721.davem@davemloft.net>
+References: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
+	<20120621105245.GI27921@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	lucy.liu@intel.com, alexander.h.duyck@intel.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57333 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57355 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754330Ab2FUWEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 18:04:54 -0400
-In-Reply-To: <1340314089.2033.16.camel@jtkirshe-mobl>
+	with ESMTP id S1752399Ab2FUWGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 18:06:15 -0400
+In-Reply-To: <20120621105245.GI27921@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 21 Jun 2012 14:28:09 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 21 Jun 2012 06:52:45 -0400
 
-> On Thu, 2012-06-21 at 13:38 -0700, David Miller wrote:
->> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Date: Thu, 21 Jun 2012 05:15:10 -0700
+> On Wed, Jun 20, 2012 at 10:56:21PM -0700, John Fastabend wrote:
+>> A small regression was introduced in the reply command of
+>> dcbnl_pg_setcfg(). User space apps may be expecting the
+>> DCB_ATTR_PG_CFG attribute to be returned with the patch
+>> below TX or RX variants are returned.
 >> 
->> > From: Stephen Hemminger <shemminger@vyatta.com>
->> > 
->> > The check for length <= 0 is bogus because length is unsigned, and network
->> > stack never sends zero length packets (unless it is totally broken).
->> > 
->> > The check for really small packets can be optimized (using unlikely)
->> > and calling skb_pad directly.
->> > 
->> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->> > Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
->> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> commit 7be994138b188387691322921c08e19bddf6d3c5
+>> Author: Thomas Graf <tgraf@suug.ch>
+>> Date:   Wed Jun 13 02:54:55 2012 +0000
 >> 
->> Not really fixing anything and more of a cleanup, so maybe 'net-next'
->> instead of 'net' for this guy instead?
+>>     dcbnl: Shorten all command handling functions
+>> 
+>> This patch reverts this behavior and returns DCB_ATTR_PG_CFG
+>> 
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > 
-> Yeah, net-next is fine.  I just verified that the patch applies cleanly
-> to net-next as well.
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 
-Great, applied, thanks.
+Applied, thanks.
