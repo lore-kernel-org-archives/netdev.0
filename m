@@ -1,8 +1,8 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 03/20] batman-adv: Prefix bat_sysfs
+Subject: [PATCH 07/20] batman-adv: Prefix gateway-common
 	non-static functions with batadv_
-Date: Thu, 21 Jun 2012 18:57:39 +0200
-Message-ID: <1340297876-29923-4-git-send-email-ordex@autistici.org>
+Date: Thu, 21 Jun 2012 18:57:43 +0200
+Message-ID: <1340297876-29923-8-git-send-email-ordex@autistici.org>
 References: <1340297876-29923-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,164 +33,130 @@ Reported-by: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/bat_sysfs.c      |   12 ++++++------
- net/batman-adv/bat_sysfs.h      |   13 +++++++------
- net/batman-adv/gateway_client.c |    6 +++---
- net/batman-adv/hard-interface.c |    4 ++--
- net/batman-adv/soft-interface.c |    6 +++---
- 5 files changed, 21 insertions(+), 20 deletions(-)
+ net/batman-adv/bat_sysfs.c      |    4 ++--
+ net/batman-adv/gateway_client.c |   12 +++++++-----
+ net/batman-adv/gateway_common.c |    7 ++++---
+ net/batman-adv/gateway_common.h |    5 +++--
+ 4 files changed, 16 insertions(+), 12 deletions(-)
 
 diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index dc1edbe..5dce1ab 100644
+index 31d23db..a8fb660 100644
 --- a/net/batman-adv/bat_sysfs.c
 +++ b/net/batman-adv/bat_sysfs.c
-@@ -469,7 +469,7 @@ static struct bat_attribute *mesh_attrs[] = {
- 	NULL,
- };
+@@ -409,7 +409,7 @@ static ssize_t show_gw_bwidth(struct kobject *kobj, struct attribute *attr,
+ 	int down, up;
+ 	int gw_bandwidth = atomic_read(&bat_priv->gw_bandwidth);
  
--int sysfs_add_meshif(struct net_device *dev)
-+int batadv_sysfs_add_meshif(struct net_device *dev)
- {
- 	struct kobject *batif_kobject = &dev->dev.kobj;
- 	struct bat_priv *bat_priv = netdev_priv(dev);
-@@ -507,7 +507,7 @@ out:
- 	return -ENOMEM;
+-	gw_bandwidth_to_kbit(gw_bandwidth, &down, &up);
++	batadv_gw_bandwidth_to_kbit(gw_bandwidth, &down, &up);
+ 	return sprintf(buff, "%i%s/%i%s\n",
+ 		       (down > 2048 ? down / 1024 : down),
+ 		       (down > 2048 ? "MBit" : "KBit"),
+@@ -425,7 +425,7 @@ static ssize_t store_gw_bwidth(struct kobject *kobj, struct attribute *attr,
+ 	if (buff[count - 1] == '\n')
+ 		buff[count - 1] = '\0';
+ 
+-	return gw_bandwidth_set(net_dev, buff, count);
++	return batadv_gw_bandwidth_set(net_dev, buff, count);
  }
  
--void sysfs_del_meshif(struct net_device *dev)
-+void batadv_sysfs_del_meshif(struct net_device *dev)
- {
- 	struct bat_priv *bat_priv = netdev_priv(dev);
- 	struct bat_attribute **bat_attr;
-@@ -637,7 +637,7 @@ static struct bat_attribute *batman_attrs[] = {
- 	NULL,
- };
- 
--int sysfs_add_hardif(struct kobject **hardif_obj, struct net_device *dev)
-+int batadv_sysfs_add_hardif(struct kobject **hardif_obj, struct net_device *dev)
- {
- 	struct kobject *hardif_kobject = &dev->dev.kobj;
- 	struct bat_attribute **bat_attr;
-@@ -671,14 +671,14 @@ out:
- 	return -ENOMEM;
- }
- 
--void sysfs_del_hardif(struct kobject **hardif_obj)
-+void batadv_sysfs_del_hardif(struct kobject **hardif_obj)
- {
- 	kobject_put(*hardif_obj);
- 	*hardif_obj = NULL;
- }
- 
--int throw_uevent(struct bat_priv *bat_priv, enum uev_type type,
--		 enum uev_action action, const char *data)
-+int batadv_throw_uevent(struct bat_priv *bat_priv, enum uev_type type,
-+			enum uev_action action, const char *data)
- {
- 	int ret = -ENOMEM;
- 	struct hard_iface *primary_if = NULL;
-diff --git a/net/batman-adv/bat_sysfs.h b/net/batman-adv/bat_sysfs.h
-index fece77a..f01aea8 100644
---- a/net/batman-adv/bat_sysfs.h
-+++ b/net/batman-adv/bat_sysfs.h
-@@ -34,11 +34,12 @@ struct bat_attribute {
- 			 char *buf, size_t count);
- };
- 
--int sysfs_add_meshif(struct net_device *dev);
--void sysfs_del_meshif(struct net_device *dev);
--int sysfs_add_hardif(struct kobject **hardif_obj, struct net_device *dev);
--void sysfs_del_hardif(struct kobject **hardif_obj);
--int throw_uevent(struct bat_priv *bat_priv, enum uev_type type,
--		 enum uev_action action, const char *data);
-+int batadv_sysfs_add_meshif(struct net_device *dev);
-+void batadv_sysfs_del_meshif(struct net_device *dev);
-+int batadv_sysfs_add_hardif(struct kobject **hardif_obj,
-+			    struct net_device *dev);
-+void batadv_sysfs_del_hardif(struct kobject **hardif_obj);
-+int batadv_throw_uevent(struct bat_priv *bat_priv, enum uev_type type,
-+			enum uev_action action, const char *data);
- 
- #endif /* _NET_BATMAN_ADV_SYSFS_H_ */
+ BAT_ATTR_SIF_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
 diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 47f7186..1d7f08e 100644
+index a28d9ce..a3f944b 100644
 --- a/net/batman-adv/gateway_client.c
 +++ b/net/batman-adv/gateway_client.c
-@@ -220,19 +220,19 @@ void gw_election(struct bat_priv *bat_priv)
- 	if ((curr_gw) && (!next_gw)) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"Removing selected gateway - no gateway in range\n");
--		throw_uevent(bat_priv, UEV_GW, UEV_DEL, NULL);
-+		batadv_throw_uevent(bat_priv, UEV_GW, UEV_DEL, NULL);
- 	} else if ((!curr_gw) && (next_gw)) {
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"Adding route to gateway %pM (gw_flags: %i, tq: %i)\n",
- 			next_gw->orig_node->orig, next_gw->orig_node->gw_flags,
- 			router->tq_avg);
--		throw_uevent(bat_priv, UEV_GW, UEV_ADD, gw_addr);
-+		batadv_throw_uevent(bat_priv, UEV_GW, UEV_ADD, gw_addr);
- 	} else {
- 		bat_dbg(DBG_BATMAN, bat_priv,
- 			"Changing route to gateway %pM (gw_flags: %i, tq: %i)\n",
- 			next_gw->orig_node->orig, next_gw->orig_node->gw_flags,
- 			router->tq_avg);
--		throw_uevent(bat_priv, UEV_GW, UEV_CHANGE, gw_addr);
-+		batadv_throw_uevent(bat_priv, UEV_GW, UEV_CHANGE, gw_addr);
- 	}
+@@ -116,13 +116,15 @@ static struct gw_node *gw_get_best_gw_node(struct bat_priv *bat_priv)
+ 	uint32_t max_gw_factor = 0, tmp_gw_factor = 0;
+ 	uint8_t max_tq = 0;
+ 	int down, up;
++	struct orig_node *orig_node;
  
- 	gw_select(bat_priv, next_gw);
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index ce78c6d..380572e 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -423,7 +423,7 @@ static struct hard_iface *hardif_add_interface(struct net_device *net_dev)
- 	if (!hard_iface)
- 		goto release_dev;
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(gw_node, node, &bat_priv->gw_list, list) {
+ 		if (gw_node->deleted)
+ 			continue;
  
--	ret = sysfs_add_hardif(&hard_iface->hardif_obj, net_dev);
-+	ret = batadv_sysfs_add_hardif(&hard_iface->hardif_obj, net_dev);
- 	if (ret)
- 		goto free_if;
+-		router = orig_node_get_router(gw_node->orig_node);
++		orig_node = gw_node->orig_node;
++		router = orig_node_get_router(orig_node);
+ 		if (!router)
+ 			continue;
  
-@@ -467,7 +467,7 @@ static void hardif_remove_interface(struct hard_iface *hard_iface)
- 		return;
+@@ -131,8 +133,8 @@ static struct gw_node *gw_get_best_gw_node(struct bat_priv *bat_priv)
  
- 	hard_iface->if_status = IF_TO_BE_REMOVED;
--	sysfs_del_hardif(&hard_iface->hardif_obj);
-+	batadv_sysfs_del_hardif(&hard_iface->hardif_obj);
- 	hardif_free_ref(hard_iface);
+ 		switch (atomic_read(&bat_priv->gw_sel_class)) {
+ 		case 1: /* fast connection */
+-			gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags,
+-					     &down, &up);
++			batadv_gw_bandwidth_to_kbit(orig_node->gw_flags,
++						    &down, &up);
+ 
+ 			tmp_gw_factor = (router->tq_avg * router->tq_avg *
+ 					 down * 100 * 100) /
+@@ -319,7 +321,7 @@ static void gw_node_add(struct bat_priv *bat_priv,
+ 	hlist_add_head_rcu(&gw_node->list, &bat_priv->gw_list);
+ 	spin_unlock_bh(&bat_priv->gw_list_lock);
+ 
+-	gw_bandwidth_to_kbit(new_gwflags, &down, &up);
++	batadv_gw_bandwidth_to_kbit(new_gwflags, &down, &up);
+ 	bat_dbg(DBG_BATMAN, bat_priv,
+ 		"Found new gateway %pM -> gw_class: %i - %i%s/%i%s\n",
+ 		orig_node->orig, new_gwflags,
+@@ -434,7 +436,7 @@ static int _write_buffer_text(struct bat_priv *bat_priv, struct seq_file *seq,
+ 	struct neigh_node *router;
+ 	int down, up, ret = -1;
+ 
+-	gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags, &down, &up);
++	batadv_gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags, &down, &up);
+ 
+ 	router = orig_node_get_router(gw_node->orig_node);
+ 	if (!router)
+diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
+index a0b0f52..722c932 100644
+--- a/net/batman-adv/gateway_common.c
++++ b/net/batman-adv/gateway_common.c
+@@ -59,7 +59,7 @@ static void kbit_to_gw_bandwidth(int down, int up, long *gw_srv_class)
  }
  
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 0f0003b..11bfe53 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -415,7 +415,7 @@ struct net_device *softif_create(const char *name)
- 	if (ret < 0)
- 		goto free_bat_counters;
- 
--	ret = sysfs_add_meshif(soft_iface);
-+	ret = batadv_sysfs_add_meshif(soft_iface);
- 	if (ret < 0)
- 		goto free_bat_counters;
- 
-@@ -432,7 +432,7 @@ struct net_device *softif_create(const char *name)
- unreg_debugfs:
- 	batadv_debugfs_del_meshif(soft_iface);
- unreg_sysfs:
--	sysfs_del_meshif(soft_iface);
-+	batadv_sysfs_del_meshif(soft_iface);
- free_bat_counters:
- 	free_percpu(bat_priv->bat_counters);
- unreg_soft_iface:
-@@ -448,7 +448,7 @@ out:
- void softif_destroy(struct net_device *soft_iface)
+ /* returns the up and downspeeds in kbit, calculated from the class */
+-void gw_bandwidth_to_kbit(uint8_t gw_srv_class, int *down, int *up)
++void batadv_gw_bandwidth_to_kbit(uint8_t gw_srv_class, int *down, int *up)
  {
- 	batadv_debugfs_del_meshif(soft_iface);
--	sysfs_del_meshif(soft_iface);
-+	batadv_sysfs_del_meshif(soft_iface);
- 	mesh_free(soft_iface);
- 	unregister_netdevice(soft_iface);
+ 	int sbit = (gw_srv_class & 0x80) >> 7;
+ 	int dpart = (gw_srv_class & 0x78) >> 3;
+@@ -136,7 +136,8 @@ static bool parse_gw_bandwidth(struct net_device *net_dev, char *buff,
+ 	return true;
  }
+ 
+-ssize_t gw_bandwidth_set(struct net_device *net_dev, char *buff, size_t count)
++ssize_t batadv_gw_bandwidth_set(struct net_device *net_dev, char *buff,
++				size_t count)
+ {
+ 	struct bat_priv *bat_priv = netdev_priv(net_dev);
+ 	long gw_bandwidth_tmp = 0;
+@@ -160,7 +161,7 @@ ssize_t gw_bandwidth_set(struct net_device *net_dev, char *buff, size_t count)
+ 	 * speeds, hence we need to calculate it back to show the number
+ 	 * that is going to be propagated
+ 	 **/
+-	gw_bandwidth_to_kbit((uint8_t)gw_bandwidth_tmp, &down, &up);
++	batadv_gw_bandwidth_to_kbit((uint8_t)gw_bandwidth_tmp, &down, &up);
+ 
+ 	if (atomic_read(&bat_priv->gw_bandwidth) == gw_bandwidth_tmp)
+ 		return count;
+diff --git a/net/batman-adv/gateway_common.h b/net/batman-adv/gateway_common.h
+index b8fb11c..e256040 100644
+--- a/net/batman-adv/gateway_common.h
++++ b/net/batman-adv/gateway_common.h
+@@ -32,7 +32,8 @@ enum gw_modes {
+ #define GW_MODE_CLIENT_NAME	"client"
+ #define GW_MODE_SERVER_NAME	"server"
+ 
+-void gw_bandwidth_to_kbit(uint8_t gw_class, int *down, int *up);
+-ssize_t gw_bandwidth_set(struct net_device *net_dev, char *buff, size_t count);
++void batadv_gw_bandwidth_to_kbit(uint8_t gw_class, int *down, int *up);
++ssize_t batadv_gw_bandwidth_set(struct net_device *net_dev, char *buff,
++				size_t count);
+ 
+ #endif /* _NET_BATMAN_ADV_GATEWAY_COMMON_H_ */
 -- 
 1.7.9.4
