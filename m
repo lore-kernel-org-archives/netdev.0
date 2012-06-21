@@ -1,80 +1,64 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [RFC] tcp: How does SACK or FACK determine the time to start
- fast retransmition?
-Date: Thu, 21 Jun 2012 15:20:06 +0800
-Message-ID: <4FE2CB26.6010007@gmail.com>
-References: <CAAA3+BpRQ24HED6a+yCF+A_q=vJ7nHexLJd1U+-50pb43MVa5w@mail.gmail.com> <4FE2C03C.6030102@gmail.com>
+From: Jeff Kirsher <tarbal@gmail.com>
+Subject: Re: divide by 0 error in igbvf_set_coalesce - ab50a2a
+Date: Thu, 21 Jun 2012 00:35:20 -0700
+Message-ID: <4FE2CEB8.4080501@gmail.com>
+References: <4FDF706D.7080509@cisco.com> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D15B30910@FMSMSX107.amr.corp.intel.com> <4FE24CF1.50603@cisco.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, kernelnewbies@kernelnewbies.org
-To: =?UTF-8?B?5p2O5piT?= <lovelylich@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="------------enig2476F5981AC4AE90285C2CFA"
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <daahern@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:56280 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758503Ab2FUHUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 03:20:11 -0400
-Received: by dady13 with SMTP id y13so478226dad.19
-        for <netdev@vger.kernel.org>; Thu, 21 Jun 2012 00:20:11 -0700 (PDT)
-In-Reply-To: <4FE2C03C.6030102@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:3712 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758674Ab2FUHfV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 03:35:21 -0400
+In-Reply-To: <4FE24CF1.50603@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B406=E6=9C=8821=E6=97=A5 14:33, =E6=9D=8E=E6=98=93=
- =E5=86=99=E9=81=93:
-> HI all,
-> When tcp uses reno as its congestion control algothim, it uses
-> tp->sacked_out as dup-ack. When the third dup-ack(under default
-> condition) comes, tcp will initiate its fast retransmition.
-> But how about sack ?
-> According to kernel source code comments, when sack or fack tcp optio=
-n
-> is enabled, there is no dup-ack counter. See comments for function
-> tcp_dupack_heuristics():
-> http://lxr.linux.no/linux+v2.6.37/net/ipv4/tcp_input.c#L2300
-> So , how does tcp know the current dup-ack is the last one which
-> triggers the fast retransmition?
->
-> According to rfc3517 section 5:
-> "Upon the receipt of the first (DupThresh - 1) duplicate ACKs, the
-> scoreboard is to be updated as normal."
-> "When a TCP sender receives the duplicate ACK corresponding to
-> DupThresh ACKs,
-> the scoreboard MUST be updated with the new SACK information (via
-> Update ()). If no previous loss event has occurred
-> on the connection or the cumulative acknowledgment point is beyond
-> the last value of RecoveryPoint, a loss recovery phase SHOULD be
-> initiated, per the fast retransmit algorithm outlined in [RFC2581]."
->
-> But these sentences doesn't describe how tcp knows the current ack
-> is the dup-threshold dup-ack.
->
-> Accorrding to rfc3517 seciton 4 and isLost(Seqnum) function:
-> "The routine returns true when either
-> DupThresh discontiguous SACKed sequences have arrived above
-> =E2=80=99SeqNum=E2=80=99 or (DupThresh * SMSS) bytes with sequence nu=
-mbers greater
-> than =E2=80=99SeqNum=E2=80=99 have been SACKed. Otherwise, the routin=
-e returns
-> false."
-> I think this is just what I am searching for, but I still don't know
-> which line of code in Linux tcp protocol does this check.
-> Can any one help me ? thks in advance.
->
->
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2476F5981AC4AE90285C2CFA
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Do you mean you did not locate where FR is triggered in TCP stack ?
-I am not a TCP expert, however I think that it may be at
-tcp_time_to_recover(), and the "DupThresh" is not a fixed value in
-Linux TCP implementation.
+On 06/20/2012 03:21 PM, David Ahern wrote:
+>
+> On 6/18/12 2:45 PM, Williams, Mitch A wrote:
+>> Thanks for letting me know, David. I'll look into it and get a patch
+>> out soon. Shouldn't be that big of a deal to fix.
+>
+> Could you CC me on the patch so I know when it's fixed? I have enough
+> events to poll.=20
+I will CC you when I push Mitch's patch upstream.
 
-Thanks
 
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at http://vger.kernel.org/majordomo-info.html
->
+
+--------------enig2476F5981AC4AE90285C2CFA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iQIcBAEBCgAGBQJP4s64AAoJEOVv75VaS+3Oht8P/RTRH1W4+v1efH8y9VJX39BH
+hB2nRrxh+hLw+BjXZtwZRTKrdeh1KspPM6O0MYN/IPOg/6eHireRxwLoGKDrhuEH
+KDqQRRA5CuL8mqXxUDw+hfcULQTiJPdz5eX9a6J5r3vO9mdywV+hjevuMm5kMHr8
+TCQY6vRtXW8aJw/RwM6T3pwNIvgnHyr/38AF8jcbWoEQJ4K6DqT7f9wATsLTsiZS
+qKXmyF+R6AtBpSVDDd1dkpsfNLVoQH2seS9+V6ChwY99ZZAWVOLMmV3Q7REuCcHG
+31klq1SOq/qcDTvrjjQl89fnGeELZp5cJJKD61tdqTvZUsJD5mRhj0nGP1rO/qrO
++ZwDVDr352DiL+hs7nDTloReGD2s2veKkqcQwgOuAIOsDuHdFHshyKpVxdprwxXh
+96YHHQSgtgRFqveKzEMkb3/39KybJ2mhlVr2lObD1KajltsqXe7GSaifyAppvBD4
+/Mxg19MIvj39aCZmfqxWrvKXOTxXTivdvk5/CRxfr0UHag2OeKgJEZRMNh77GQN7
+twPCPCmYwHO2CxToCSsjZQR5gqsoeL0aUgZLw51plORidAHOqoolMT/kgP0FA0xf
+ypgE0CilOiuh7tEDYZ1mTx5/KMGeQIyXvNRz/dOPdrPluq69Zm1Z+tKGi6kM3960
+9jmpCXwhWkiVQVQp793/
+=vOst
+-----END PGP SIGNATURE-----
+
+--------------enig2476F5981AC4AE90285C2CFA--
