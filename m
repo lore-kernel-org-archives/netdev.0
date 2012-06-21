@@ -1,37 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: dcb: fix small regression in __dcbnl_pg_setcfg()
-Date: Thu, 21 Jun 2012 06:52:45 -0400
-Message-ID: <20120621105245.GI27921@canuck.infradead.org>
-References: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, lucy.liu@intel.com,
-	alexander.h.duyck@intel.com
-To: John Fastabend <john.r.fastabend@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] ixgbe: simplify padding and length checks
+Date: Thu, 21 Jun 2012 05:15:10 -0700
+Message-ID: <1340280910-22651-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:57706 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758196Ab2FUKws (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 06:52:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20120621055621.14148.42206.stgit@jf-dev1-dcblab>
+Received: from mga01.intel.com ([192.55.52.88]:30552 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757071Ab2FUMPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jun 2012 08:15:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 20, 2012 at 10:56:21PM -0700, John Fastabend wrote:
-> A small regression was introduced in the reply command of
-> dcbnl_pg_setcfg(). User space apps may be expecting the
-> DCB_ATTR_PG_CFG attribute to be returned with the patch
-> below TX or RX variants are returned.
-> 
-> commit 7be994138b188387691322921c08e19bddf6d3c5
-> Author: Thomas Graf <tgraf@suug.ch>
-> Date:   Wed Jun 13 02:54:55 2012 +0000
-> 
->     dcbnl: Shorten all command handling functions
-> 
-> This patch reverts this behavior and returns DCB_ATTR_PG_CFG
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+The check for length <= 0 is bogus because length is unsigned, and network
+stack never sends zero length packets (unless it is totally broken).
+
+The check for really small packets can be optimized (using unlikely)
+and calling skb_pad directly.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index cbb05d6..9afe0cb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6383,17 +6383,12 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_ring *tx_ring;
+ 
+-	if (skb->len <= 0) {
+-		dev_kfree_skb_any(skb);
+-		return NETDEV_TX_OK;
+-	}
+-
+ 	/*
+ 	 * The minimum packet size for olinfo paylen is 17 so pad the skb
+ 	 * in order to meet this minimum size requirement.
+ 	 */
+-	if (skb->len < 17) {
+-		if (skb_padto(skb, 17))
++	if (unlikely(skb->len < 17)) {
++		if (skb_pad(skb, 17 - skb->len))
+ 			return NETDEV_TX_OK;
+ 		skb->len = 17;
+ 	}
+-- 
+1.7.10.2
