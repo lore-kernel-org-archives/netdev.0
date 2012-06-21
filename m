@@ -1,94 +1,80 @@
 From: Fan Du <fdu@windriver.com>
-Subject: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing date
-Date: Thu, 21 Jun 2012 14:26:01 +0800
-Message-ID: <1340259961-30354-2-git-send-email-fdu@windriver.com>
-References: <1340259961-30354-1-git-send-email-fdu@windriver.com>
+Subject: [XFRM][RFC v4] Fix unexpected SA hard expiration after setting new date
+Date: Thu, 21 Jun 2012 14:26:00 +0800
+Message-ID: <1340259961-30354-1-git-send-email-fdu@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:44447 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754557Ab2FUG0N (ORCPT
+Received: from mail.windriver.com ([147.11.1.11]:47021 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752763Ab2FUG0N (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jun 2012 02:26:13 -0400
-In-Reply-To: <1340259961-30354-1-git-send-email-fdu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After SA is setup, one timer is armed to detect soft/hard expiration,
-however the timer handler uses xtime to do the math. This makes hard
-expiration occurs first before soft expiration after setting new date
-with big interval. As a result new child SA is deleted before rekeying
-the new one.
 
-Signed-off-by: Fan Du <fdu@windriver.com>
----
- include/net/xfrm.h    |  3 +++
- net/xfrm/xfrm_state.c | 21 +++++++++++++++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+Hi, Dave and Herbert
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 2933d74..8d16777 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -197,6 +197,8 @@ struct xfrm_state
- 
- 	struct xfrm_lifetime_cur curlft;
- 	struct timer_list	timer;
-+	/* used to fix curlft->add_time when changing date */
-+	long		saved_tmo;
- 
- 	/* Last used time */
- 	unsigned long		lastused;
-@@ -218,6 +220,7 @@ struct xfrm_state
- 
- /* xflags - make enum if more show up */
- #define XFRM_TIME_DEFER	1
-+#define XFRM_SOFT_EXPIRE 2
- 
- enum {
- 	XFRM_STATE_VOID,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index fd77cf0..2b55244 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -442,8 +442,17 @@ static void xfrm_timer_handler(unsigned long data)
- 	if (x->lft.hard_add_expires_seconds) {
- 		long tmo = x->lft.hard_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
--			goto expired;
-+		if (tmo <= 0) {
-+			if (x->xflags & XFRM_SOFT_EXPIRE) {
-+				/* enter hard expire without soft expire first?!
-+				 * setting a new date could trigger this.
-+				 * workarbound: fix x->curflt.add_time by below:
-+				 */
-+				x->curlft.add_time = now - x->saved_tmo - 1;
-+				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
-+			} else
-+				goto expired;
-+		}
- 		if (tmo < next)
- 			next = tmo;
- 	}
-@@ -460,10 +469,14 @@ static void xfrm_timer_handler(unsigned long data)
- 	if (x->lft.soft_add_expires_seconds) {
- 		long tmo = x->lft.soft_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
-+		if (tmo <= 0) {
- 			warn = 1;
--		else if (tmo < next)
-+			x->xflags &= ~XFRM_SOFT_EXPIRE;
-+		} else if (tmo < next) {
- 			next = tmo;
-+			x->xflags |= XFRM_SOFT_EXPIRE;
-+			x->saved_tmo = tmo;
-+		}
- 	}
- 	if (x->lft.soft_use_expires_seconds) {
- 		long tmo = x->lft.soft_use_expires_seconds +
--- 
-1.7.11
+Could you give a try to review this?
+thanks
+
+Changelog:
+v1->v2
+1) use xflags instead of creating new flags(suggested by Steffen Klassert)
+
+v2->v3
+1) fix email problem, and remove cc to myself(requested by David Miller)
+
+v3->v4
+1) fix typo when clearing XFRM_SOFT_EXPIRE(thanks for David Miller)
+2) fix email problem, and remove cc to myself AGAIN!!!
+
+
+*Background*:
+Once IPsec SAs are created between two peers, kernel setup a timer to monitor
+two events: soft/hard expiration. However the timer handler use xtime to
+caculate whether it's soft or hard expiration event.
+
+normal code flow(hard expire time:100s, soft expire time:82s)
+
+a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;
+
+b) soft expire occur, rearm the timer with hard expire interval(18s)
+then notify racoon2 about soft expire event. racoon2 will create
+new SAs.
+
+c) hard expire happen, notify racoon2 about it. racoon2 will delete
+the old SAs.
+
+*Scenario*:
+Setting a new date before b),and after a) could result c) happens first,
+As a result, old SAs is deleted before new ones are created. Normally
+new SAs will be created by the next time networking traffic, but there
+is a small time being when networking connection is down, this could
+result in upper layer connections failed in tel comm area, thus it's
+better to keep it strict in sequence.
+
+*Workaround*:
+set new time could happen:
+1) before a), then SAs is updated with new time.
+2) before b),and after a)
+2a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;(set flag to mark next time should
+be soft time expire)
+
+<<---- new date comes
+
+2b) soft expire occur, the calculation results in a hard time expire
+event, but flag is set, so catch ya. Sync the addtime, and rearm
+the timer with hard expire interval(18s), then notify racoon2
+about soft expire event;
+
+2c) hard expire happen, notify racoon2 about it;
+so everything is in order.
+
+3) after b), hard expire always happened anyway.
