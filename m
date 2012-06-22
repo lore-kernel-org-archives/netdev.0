@@ -1,50 +1,33 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Fri, 22 Jun 2012 13:27:51 +0200
-Message-ID: <20120622112750.GA6596@breakpoint.cc>
-References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
- <1340192652-31658-11-git-send-email-mgorman@suse.de>
- <20120621163029.GB6045@breakpoint.cc>
- <20120622105451.GC8271@suse.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] ipv4: tcp: dont cache output dst for syncookies
+Date: Fri, 22 Jun 2012 13:47:34 +0200
+Message-ID: <1340365654.4003.46.camel@localhost>
+References: <1340204539.4604.1122.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120622105451.GC8271@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8459 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755550Ab2FVLrl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jun 2012 07:47:41 -0400
+In-Reply-To: <1340204539.4604.1122.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 22, 2012 at 11:54:51AM +0100, Mel Gorman wrote:
-> > This is mostly used by nic to refil their RX skb pool. You add the
-> > __GFP_MEMALLOC to the allocation to rise the change of a successfull refill
-> > for the swap case.
-> > A few drivers use build_skb() to create the skb. __netdev_alloc_skb()
-> > shouldn't be affected since the allocation happens with GFP_ATOMIC. Looking at
-> > TG3 it uses build_skb() and get_pages() / kmalloc(). Shouldn't this be some
-> > considered?
-> > 
+On Wed, 2012-06-20 at 17:02 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> While TG3 is not exactly as you describe after rebasing build_skb should
-> make a similar check to __alloc_skb. As it is always used for RX allocation
-> from the skbuff_head_cache cache the following should be suitable. Thanks.
+> Don't cache output dst for syncookies, as this adds pressure on IP route
+> cache and rcu subsystem for no gain.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-As Eric pointed out you end up in netdev_alloc_frag() which is using
-alloc_page(). This is also used by __netdev_alloc_skb().
+Looks good to me.
 
-Sebastian
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
