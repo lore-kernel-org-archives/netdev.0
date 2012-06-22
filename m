@@ -1,32 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 2/2] iproute2: Fix memory hog of ip batched command.
-Date: Fri, 22 Jun 2012 09:26:31 -0700
-Message-ID: <20120622092631.2753176a@nehalam.linuxnetplumber.net>
-References: <1337726249-9958-1-git-send-email-pshelar@nicira.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: net: qmi_wwan: bind to both control and data interface
+Date: Fri, 22 Jun 2012 18:27:17 +0200
+Message-ID: <87395nl3bu.fsf@nemi.mork.no>
+References: <20120622142534.GA19617@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jpettit@nicira.com, jesse@nicira.com
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36523 "EHLO mail.vyatta.com"
+Received: from canardo.mork.no ([148.122.252.1]:49971 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762308Ab2FVQ0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jun 2012 12:26:35 -0400
-In-Reply-To: <1337726249-9958-1-git-send-email-pshelar@nicira.com>
+	id S1755826Ab2FVQ1W convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 12:27:22 -0400
+In-Reply-To: <20120622142534.GA19617@elgon.mountain> (Dan Carpenter's message
+	of "Fri, 22 Jun 2012 17:25:34 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 May 2012 15:37:29 -0700
-Pravin B Shelar <pshelar@nicira.com> wrote:
+Dan Carpenter <dan.carpenter@oracle.com> writes:
 
-> ipaddr_list_or_flush() builds list of all device at start of
-> every flush or list operation, but does not free memory at end.
-> This can hog lot of memory for large batched command.
-> Following patch fixes it.
-> 
-> Reported-by: Justin Pettit <jpettit@nicira.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> The patch 230718bda1be: "net: qmi_wwan: bind to both control and data=
+=20
+> interface" from Jun 19, 2012, leads to the following Smatch warning:
+> drivers/net/usb/qmi_wwan.c:206 qmi_wwan_bind()
+> 	 error: potential NULL dereference 'cdc_union'.
+>
+> drivers/net/usb/qmi_wwan.c
+>    205          /* verify CDC Union */
+>    206          if (desc->bInterfaceNumber !=3D cdc_union->bMasterInt=
+erface0) {
+>                                               ^^^^^^^^^
+>
+> cdc_union is only non-NULL for USB_CDC_UNION_TYPE.  We used to check =
+for
+> NULL here but your patch removes the check.  I just want to verify th=
+at
+> that was intended.
+>
+>    207                  dev_err(&intf->dev, "bogus CDC Union: master=3D=
+%u\n", cdc_union->bMasterInterface0);
+>    208                  goto err;
+>    209          }
+>    210 =20
 
-Patch does not apply to current version.
-Most likely Eric's recent changes to ipaddress conflict with this.
+Thanks for the notification, but this was intentional while touching th=
+e
+code anyway.  The test always was redundant because the parsing code
+ensure that cdc_union cannot be NULL at that point.
+
+
+Bj=C3=B8rn
