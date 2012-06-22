@@ -1,81 +1,84 @@
-From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Sat, 23 Jun 2012 00:52:05 +0800
-Message-ID: <CACVXFVNCAsM5NihpAFLU5rGo5ynr3=XU5gw7nM5Fi2mrrX+hKA@mail.gmail.com>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<CACVXFVPkC8NtvOzTsOyNcftZy60fDjtEkV_Da1Z32iYpHFHcUw@mail.gmail.com>
-	<87mx3vlayl.fsf@nemi.mork.no>
-	<CACVXFVOQ3Uh50iJxboD-7=+J55MAW8Wjt3iY0WahauO2PrxT4w@mail.gmail.com>
-	<877guzl3qz.fsf@nemi.mork.no>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: net: qmi_wwan: bind to both control and data interface
+Date: Fri, 22 Jun 2012 19:56:17 +0300
+Message-ID: <20120622165616.GI5390@mwanda>
+References: <20120622142534.GA19617@elgon.mountain>
+ <87395nl3bu.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <877guzl3qz.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:40566 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756097Ab2FVQ4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 12:56:34 -0400
+Content-Disposition: inline
+In-Reply-To: <87395nl3bu.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 23, 2012 at 12:18 AM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
-> Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On Fri, Jun 22, 2012 at 06:27:17PM +0200, Bj=F8rn Mork wrote:
+> Dan Carpenter <dan.carpenter@oracle.com> writes:
+>=20
+> > The patch 230718bda1be: "net: qmi_wwan: bind to both control and da=
+ta=20
+> > interface" from Jun 19, 2012, leads to the following Smatch warning=
+:
+> > drivers/net/usb/qmi_wwan.c:206 qmi_wwan_bind()
+> > 	 error: potential NULL dereference 'cdc_union'.
+> >
+> > drivers/net/usb/qmi_wwan.c
+> >    205          /* verify CDC Union */
+> >    206          if (desc->bInterfaceNumber !=3D cdc_union->bMasterI=
+nterface0) {
+> >                                               ^^^^^^^^^
+> >
+> > cdc_union is only non-NULL for USB_CDC_UNION_TYPE.  We used to chec=
+k for
+> > NULL here but your patch removes the check.  I just want to verify =
+that
+> > that was intended.
+> >
+> >    207                  dev_err(&intf->dev, "bogus CDC Union: maste=
+r=3D%u\n", cdc_union->bMasterInterface0);
+> >    208                  goto err;
+> >    209          }
+> >    210 =20
+>=20
+> Thanks for the notification, but this was intentional while touching =
+the
+> code anyway.  The test always was redundant because the parsing code
+> ensure that cdc_union cannot be NULL at that point.
+>=20
 
-> Yes, intfdata is per interface, but in the case of cdc_ether (and
-> probably other similar minidrivers) there are two interfaces pointing=
- to
-> the *same* usbnet private data.
+Yeah.  I see that now.  I think it would be more readable if the
+check were rewritten like this.  That way you can see immediately
+that it's checking for USB_CDC_UNION_TYPE without scrolling back and
+forth in the code.
 
-Yes, the priv pointers of both interface points to the usbnet instance,=
- but
-the same pointer is stored into two places.
-
->
-> What about the situation where disconnect is called simultaneously fo=
-r
-> both interfaces? Or can't that happen? If it can, then we'll do
-
-It can't happen because both parent lock and its lock need to be held i=
-n
-hotplug situation or unbind situation.
-
->
-> =A0driver->disconnect(intf1) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0driver->d=
-isconnect(intf2)
-> =A0 =A0 dev =3D usb_get_intfdata(intf1) =A0 =A0 =A0 =A0 =A0 dev =3D u=
-sb_get_intfdata(intf2)
-> =A0 =A0 dev->driver_info->unbind() =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->dr=
-iver_info->unbind()
-> =A0 =A0 net =3D dev->net =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0net =3D dev->net
-> =A0 =A0 free_netdev(net) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0free_netdev(dev->net)
->
-> where "dev" and "net" will be pointing to the same private data and
-> netdevice.
-
-Suppose driver->disconnect(intf1) is called first, .ubind() inside
-=2Edisconnect will clear intfdata of another interface(intf2) and call
-usb_driver_release_interface(intf2), which will cause .disconnect(intf2=
-)
-called, but it will return immediately.
-
->
-> I assume that is what the code above is trying to protect against. =A0=
-But
-
-I don't see the protection in the code, :-)
-
-> I could be wrong. =A0That has happened before, believe it or not :-)
-
-Could you provide a link or commit about it?
-
-
-Thanks,
---=20
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index f1e7791..23cb13c 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -129,7 +129,6 @@ static int qmi_wwan_bind(struct usbnet *dev, struct=
+ usb_interface *intf)
+ 	struct usb_interface_descriptor *desc =3D &intf->cur_altsetting->desc=
+;
+ 	struct usb_cdc_union_desc *cdc_union =3D NULL;
+ 	struct usb_cdc_ether_desc *cdc_ether =3D NULL;
+-	u32 required =3D 1 << USB_CDC_HEADER_TYPE | 1 << USB_CDC_UNION_TYPE;
+ 	u32 found =3D 0;
+ 	struct usb_driver *driver =3D driver_of(intf);
+ 	struct qmi_wwan_state *info =3D (void *)&dev->data;
+@@ -197,7 +196,8 @@ next_desc:
+ 	}
+=20
+ 	/* did we find all the required ones? */
+-	if ((found & required) !=3D required) {
++	if (!(found & (1 << USB_CDC_HEADER_TYPE)) ||
++	    !(found & (1 << USB_CDC_UNION_TYPE))) {
+ 		dev_err(&intf->dev, "CDC functional descriptors missing\n");
+ 		goto err;
+ 	}
