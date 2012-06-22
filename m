@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 05/16] mm: Only set page->pfmemalloc when ALLOC_NO_WATERMARKS was used
-Date: Fri, 22 Jun 2012 15:30:32 +0100
-Message-ID: <1340375443-22455-6-git-send-email-mgorman@suse.de>
+Subject: [PATCH 07/16] net: Introduce sk_gfp_atomic() to allow addition of GFP flags depending on the individual socket
+Date: Fri, 22 Jun 2012 15:30:34 +0100
+Message-ID: <1340375443-22455-8-git-send-email-mgorman@suse.de>
 References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -19,81 +19,120 @@ In-Reply-To: <1340375443-22455-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-__alloc_pages_slowpath() is called when the number of free pages is below
-the low watermark. If the caller is entitled to use ALLOC_NO_WATERMARKS
-then the page will be marked page->pfmemalloc.  This protects more pages
-than are strictly necessary as we only need to protect pages allocated
-below the min watermark (the pfmemalloc reserves).
+Introduce sk_gfp_atomic(), this function allows to inject sock specific
+flags to each sock related allocation. It is only used on allocation
+paths that may be required for writing pages back to network storage.
 
-This patch only sets page->pfmemalloc when ALLOC_NO_WATERMARKS was
-required to allocate the page.
-
-[rientjes@google.com: David noticed the problem during review]
+[davem@davemloft.net: Use sk_gfp_atomic only when necessary]
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- mm/page_alloc.c |   27 ++++++++++++++-------------
- 1 file changed, 14 insertions(+), 13 deletions(-)
+ include/net/sock.h    |    5 +++++
+ net/ipv4/tcp_output.c |   12 +++++++-----
+ net/ipv6/tcp_ipv6.c   |    8 +++++---
+ 3 files changed, 17 insertions(+), 8 deletions(-)
 
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 5c6d9c6..9883cf7 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -2085,8 +2085,8 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 87b424a..bc71d3c 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -657,6 +657,11 @@ static inline bool sock_flag(const struct sock *sk, enum sock_flags flag)
+ 	return test_bit(flag, &sk->sk_flags);
+ }
  
- 		page = get_page_from_freelist(gfp_mask, nodemask,
- 				order, zonelist, high_zoneidx,
--				alloc_flags, preferred_zone,
--				migratetype);
-+				alloc_flags & ~ALLOC_NO_WATERMARKS,
-+				preferred_zone, migratetype);
- 		if (page) {
- 			preferred_zone->compact_considered = 0;
- 			preferred_zone->compact_defer_shift = 0;
-@@ -2178,8 +2178,8 @@ __alloc_pages_direct_reclaim(gfp_t gfp_mask, unsigned int order,
- retry:
- 	page = get_page_from_freelist(gfp_mask, nodemask, order,
- 					zonelist, high_zoneidx,
--					alloc_flags, preferred_zone,
--					migratetype);
-+					alloc_flags & ~ALLOC_NO_WATERMARKS,
-+					preferred_zone, migratetype);
++static inline gfp_t sk_gfp_atomic(struct sock *sk, gfp_t gfp_mask)
++{
++	return GFP_ATOMIC;
++}
++
+ static inline void sk_acceptq_removed(struct sock *sk)
+ {
+ 	sk->sk_ack_backlog--;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c465d3e..05e61b7 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1849,7 +1849,8 @@ void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
+ 	if (unlikely(sk->sk_state == TCP_CLOSE))
+ 		return;
  
- 	/*
- 	 * If an allocation failed after direct reclaim, it could be because
-@@ -2350,8 +2350,17 @@ rebalance:
- 		page = __alloc_pages_high_priority(gfp_mask, order,
- 				zonelist, high_zoneidx, nodemask,
- 				preferred_zone, migratetype);
--		if (page)
-+		if (page) {
-+			/*
-+			 * page->pfmemalloc is set when ALLOC_NO_WATERMARKS was
-+			 * necessary to allocate the page. The expectation is
-+			 * that the caller is taking steps that will free more
-+			 * memory. The caller should avoid the page being used
-+			 * for !PFMEMALLOC purposes.
-+			 */
-+			page->pfmemalloc = true;
- 			goto got_pg;
-+		}
+-	if (tcp_write_xmit(sk, cur_mss, nonagle, 0, GFP_ATOMIC))
++	if (tcp_write_xmit(sk, cur_mss, nonagle, 0,
++			   sk_gfp_atomic(sk, GFP_ATOMIC)))
+ 		tcp_check_probe_timer(sk);
+ }
+ 
+@@ -2470,7 +2471,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 
+ 	if (cvp != NULL && cvp->s_data_constant && cvp->s_data_desired)
+ 		s_data_desired = cvp->s_data_desired;
+-	skb = alloc_skb(MAX_TCP_HEADER + 15 + s_data_desired, GFP_ATOMIC);
++	skb = alloc_skb(MAX_TCP_HEADER + 15 + s_data_desired,
++			sk_gfp_atomic(sk, GFP_ATOMIC));
+ 	if (unlikely(!skb)) {
+ 		dst_release(dst);
+ 		return NULL;
+@@ -2769,7 +2771,7 @@ void tcp_send_ack(struct sock *sk)
+ 	 * tcp_transmit_skb() will set the ownership to this
+ 	 * sock.
+ 	 */
+-	buff = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	buff = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
+ 	if (buff == NULL) {
+ 		inet_csk_schedule_ack(sk);
+ 		inet_csk(sk)->icsk_ack.ato = TCP_ATO_MIN;
+@@ -2784,7 +2786,7 @@ void tcp_send_ack(struct sock *sk)
+ 
+ 	/* Send it off, this clears delayed acks for us. */
+ 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
+-	tcp_transmit_skb(sk, buff, 0, GFP_ATOMIC);
++	tcp_transmit_skb(sk, buff, 0, sk_gfp_atomic(sk, GFP_ATOMIC));
+ }
+ 
+ /* This routine sends a packet with an out of date sequence
+@@ -2804,7 +2806,7 @@ static int tcp_xmit_probe_skb(struct sock *sk, int urgent)
+ 	struct sk_buff *skb;
+ 
+ 	/* We don't queue it, tcp_transmit_skb() sets ownership. */
+-	skb = alloc_skb(MAX_TCP_HEADER, GFP_ATOMIC);
++	skb = alloc_skb(MAX_TCP_HEADER, sk_gfp_atomic(sk, GFP_ATOMIC));
+ 	if (skb == NULL)
+ 		return -1;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 26a8862..0fd11a1 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1354,7 +1354,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	/* Clone pktoptions received with SYN */
+ 	newnp->pktoptions = NULL;
+ 	if (treq->pktopts != NULL) {
+-		newnp->pktoptions = skb_clone(treq->pktopts, GFP_ATOMIC);
++		newnp->pktoptions = skb_clone(treq->pktopts,
++					      sk_gfp_atomic(sk, GFP_ATOMIC));
+ 		consume_skb(treq->pktopts);
+ 		treq->pktopts = NULL;
+ 		if (newnp->pktoptions)
+@@ -1407,7 +1408,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		 * across. Shucks.
+ 		 */
+ 		tcp_md5_do_add(newsk, (union tcp_md5_addr *)&newnp->daddr,
+-			       AF_INET6, key->key, key->keylen, GFP_ATOMIC);
++			       AF_INET6, key->key, key->keylen,
++			       sk_gfp_atomic(sk, GFP_ATOMIC));
  	}
+ #endif
  
- 	/* Atomic allocations - we can't balance anything */
-@@ -2468,14 +2477,6 @@ nopage:
- 	warn_alloc_failed(gfp_mask, order, NULL);
- 	return page;
- got_pg:
--	/*
--	 * page->pfmemalloc is set when the caller had PFMEMALLOC set, is
--	 * been OOM killed or specified __GFP_MEMALLOC. The expectation is
--	 * that the caller is taking steps that will free more memory. The
--	 * caller should avoid the page being used for !PFMEMALLOC purposes.
--	 */
--	page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
--
- 	if (kmemcheck_enabled)
- 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
+@@ -1502,7 +1504,7 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 					       --ANK (980728)
+ 	 */
+ 	if (np->rxopt.all)
+-		opt_skb = skb_clone(skb, GFP_ATOMIC);
++		opt_skb = skb_clone(skb, sk_gfp_atomic(sk, GFP_ATOMIC));
  
+ 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
+ 		sock_rps_save_rxhash(sk, skb);
 -- 
 1.7.9.2
 
