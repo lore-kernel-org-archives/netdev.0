@@ -1,89 +1,32 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Fri, 22 Jun 2012 18:18:12 +0200
-Message-ID: <877guzl3qz.fsf@nemi.mork.no>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<CACVXFVPkC8NtvOzTsOyNcftZy60fDjtEkV_Da1Z32iYpHFHcUw@mail.gmail.com>
-	<87mx3vlayl.fsf@nemi.mork.no>
-	<CACVXFVOQ3Uh50iJxboD-7=+J55MAW8Wjt3iY0WahauO2PrxT4w@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] iproute2: Fix memory hog of ip batched command.
+Date: Fri, 22 Jun 2012 09:26:31 -0700
+Message-ID: <20120622092631.2753176a@nehalam.linuxnetplumber.net>
+References: <1337726249-9958-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marius =?utf-8?Q?Bj=C3=B8rnstad?= Kotsbak
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVOQ3Uh50iJxboD-7=+J55MAW8Wjt3iY0WahauO2PrxT4w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Ming Lei's message of "Fri, 22 Jun 2012 23:09:36 +0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jpettit@nicira.com, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36523 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762308Ab2FVQ0f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jun 2012 12:26:35 -0400
+In-Reply-To: <1337726249-9958-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On Tue, 22 May 2012 15:37:29 -0700
+Pravin B Shelar <pshelar@nicira.com> wrote:
 
-> Looks I understand the problem incorrectly, your problem is
-> that qmi_wwan_cdc_wdm_manage_power is called from
-> wdm_open, not from usbnet_open. It is a problem crossing
-> 2 class drivers.
+> ipaddr_list_or_flush() builds list of all device at start of
+> every flush or list operation, but does not free memory at end.
+> This can hog lot of memory for large batched command.
+> Following patch fixes it.
+> 
+> Reported-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-That's correct.  Trying to use two drivers at once will necessarily lea=
-d
-to the situation where one drivers shutdown is called from the other
-drivers shutdown.  And the fact that one of the drivers is a usbnet
-minidriver complicates this a bit.
-
-But I believe most of it should be OK now.  I tried my best to let the
-two drivers share as little as possible.  The only shared state is in
-the power management code, which have to access the active/idle state o=
-f
-both drivers.
-
->>> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
->>> index e92c057..2eb9e1e 100644
->>> --- a/drivers/net/usb/usbnet.c
->>> +++ b/drivers/net/usb/usbnet.c
->>> @@ -1286,7 +1286,6 @@ void usbnet_disconnect (struct usb_interface =
-*intf)
->>> =C2=A0 =C2=A0 =C2=A0 struct net_device =C2=A0 =C2=A0 =C2=A0 *net;
->>>
->>> =C2=A0 =C2=A0 =C2=A0 dev =3D usb_get_intfdata(intf);
->>> - =C2=A0 =C2=A0 usb_set_intfdata(intf, NULL);
->>> =C2=A0 =C2=A0 =C2=A0 if (!dev)
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return;
->>
->> I believe that call is there to prevent disconnect from running twic=
-e
->> for the common two-interface CDC ethernet model, like e.g. cdc_ether=
-=2E
->
-> No, intfdata is per interface, and .unbind will clear it for each int=
-erface.
-
-
-Yes, intfdata is per interface, but in the case of cdc_ether (and
-probably other similar minidrivers) there are two interfaces pointing t=
-o
-the *same* usbnet private data.
-
-What about the situation where disconnect is called simultaneously for
-both interfaces? Or can't that happen? If it can, then we'll do
-
- driver->disconnect(intf1)                driver->disconnect(intf2)
-     dev =3D usb_get_intfdata(intf1)           dev =3D usb_get_intfdata=
-(intf2)
-     dev->driver_info->unbind()              dev->driver_info->unbind()
-     net =3D dev->net                          net =3D dev->net
-     free_netdev(net)                        free_netdev(dev->net)
-
-where "dev" and "net" will be pointing to the same private data and
-netdevice.
-
-I assume that is what the code above is trying to protect against.  But
-I could be wrong.  That has happened before, believe it or not :-)
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Patch does not apply to current version.
+Most likely Eric's recent changes to ipaddress conflict with this.
