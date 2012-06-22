@@ -1,145 +1,55 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH] ipv4: Add sysctl knob to control early socket demux
-Date: Thu, 21 Jun 2012 16:58:31 -0700
-Message-ID: <20120621235011.29846.29715.stgit@gitlad.jf.intel.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
+Date: Fri, 22 Jun 2012 11:34:08 +0800
+Message-ID: <4FE3E7B0.3020802@cn.fujitsu.com>
+References: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com> <4FE37783.9000409@akamai.com> <1340310469.4604.6702.camel@edumazet-glaptop> <20120621215056.GA24908@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27773 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758407Ab2FUX6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jun 2012 19:58:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Josh Hunt <johunt@akamai.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	Debabrata Banerjee <dbavatar@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"pekkas@netcore.fi" <pekkas@netcore.fi>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120621215056.GA24908@ms2.inr.ac.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This change is meant to add a control for disabling early socket demux.
-The main motivation behind this patch is to provide an option to disable
-the feature as it adds an additional cost to routing that reduces overall
-throughput by up to 5%.  For example one of my systems went from 12.1Mpps
-to 11.6 after the early socket demux was added.  It looks like the reason
-for the regression is that we are now having to perform two lookups, first
-the one for an established socket, and then the one for the routing table.
+=E4=BA=8E 2012=E5=B9=B406=E6=9C=8822=E6=97=A5 05:50, Alexey Kuznetsov =E5=
+=86=99=E9=81=93:
+> On Thu, Jun 21, 2012 at 10:27:49PM +0200, Eric Dumazet wrote:
+>> Looking at this code, it lacks proper synchronization
+>> between tree updaters and tree walkers.
+>>
+>> fib6_walker_lock rwlock is not enough to prevent races.
+>=20
+> Hmm. As author of this weird code, I must say I honestly believed it =
+was correct.
+> At least I tried. :-)
+>=20
+>=20
+> What's about 2bec5a336.., it does not look reasonable.
+> The idea was that when you change tree, you fixup sleeping walkers, m=
+oving
+> their location in tree to correct point. So, walkers must not have an=
+y stale pointers
+> at any times (except when you under table write lock) and no skips/co=
+unts are required.
+> I remember how damn difficult was it to make this right (well, sorry,=
+ if it is not yet :-)),
+> so that understand that if some update is forgotten or done incorrect=
+ly, it is not so easy to find,
+> but it is definitely worth of efforts.
 
-By adding this patch and toggling the value for ip_early_demux to 0 I am
-able to get back to the 12.1Mpps I was previously seeing.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
-
-I am open to any comments or suggestions on this patch.  I had seen the
-earlier discussions and saw mention of adding a control for disabling the
-early demux feature so I figured I would just code it up real quick once I
-ran into the regression.  I am assuming it is okay to disable the early
-demux code since I suspect there is other code in place that will still
-handle the demux for the TCP sockets later.  Also I wasn't sure about the
-sysctl since I haven't set one up before.
-
- include/linux/sysctl.h     |    1 +
- include/net/ip.h           |    3 +++
- kernel/sysctl_binary.c     |    2 ++
- net/ipv4/ip_input.c        |   19 +++++++++++--------
- net/ipv4/sysctl_net_ipv4.c |    7 +++++++
- 5 files changed, 24 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-index c34b4c8..20825e5 100644
---- a/include/linux/sysctl.h
-+++ b/include/linux/sysctl.h
-@@ -425,6 +425,7 @@ enum
- 	NET_TCP_ALLOWED_CONG_CONTROL=123,
- 	NET_TCP_MAX_SSTHRESH=124,
- 	NET_TCP_FRTO_RESPONSE=125,
-+	NET_IPV4_EARLY_DEMUX=126,
- };
- 
- enum {
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 83e0619..50841bd 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -210,6 +210,9 @@ extern int inet_peer_threshold;
- extern int inet_peer_minttl;
- extern int inet_peer_maxttl;
- 
-+/* From ip_input.c */
-+extern int sysctl_ip_early_demux;
-+
- /* From ip_output.c */
- extern int sysctl_ip_dynaddr;
- 
-diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-index a650694..6a3cf82 100644
---- a/kernel/sysctl_binary.c
-+++ b/kernel/sysctl_binary.c
-@@ -415,6 +415,8 @@ static const struct bin_table bin_net_ipv4_table[] = {
- 	{ CTL_INT,	NET_IPV4_IPFRAG_SECRET_INTERVAL,	"ipfrag_secret_interval" },
- 	/* NET_IPV4_IPFRAG_MAX_DIST "ipfrag_max_dist" no longer used */
- 
-+	{ CTL_INT,	NET_IPV4_EARLY_DEMUX,			"ip_early_demux" },
-+
- 	{ CTL_INT,	2088 /* NET_IPQ_QMAX */,		"ip_queue_maxlen" },
- 
- 	/* NET_TCP_DEFAULT_WIN_SCALE unused */
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 93b092c..07de38d 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -313,6 +313,8 @@ drop:
- 	return true;
- }
- 
-+int sysctl_ip_early_demux __read_mostly = 1;
-+
- static int ip_rcv_finish(struct sk_buff *skb)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
-@@ -325,14 +327,15 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 	if (skb_dst(skb) == NULL) {
- 		const struct net_protocol *ipprot;
- 		int protocol = iph->protocol;
--		int err;
--
--		rcu_read_lock();
--		ipprot = rcu_dereference(inet_protos[protocol]);
--		err = -ENOENT;
--		if (ipprot && ipprot->early_demux)
--			err = ipprot->early_demux(skb);
--		rcu_read_unlock();
-+		int err = -ENOENT;
-+
-+		if (sysctl_ip_early_demux) {
-+			rcu_read_lock();
-+			ipprot = rcu_dereference(inet_protos[protocol]);
-+			if (ipprot && ipprot->early_demux)
-+				err = ipprot->early_demux(skb);
-+			rcu_read_unlock();
-+		}
- 
- 		if (err) {
- 			err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index ef32956..12aa0c5 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -301,6 +301,13 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
-+		.procname	= "ip_early_demux",
-+		.data		= &sysctl_ip_early_demux,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
- 		.procname	= "ip_dynaddr",
- 		.data		= &sysctl_ip_dynaddr,
- 		.maxlen		= sizeof(int),
+Actually, I spent two months to try to reproduce this crash four months=
+ ago,
+But finally I give up, I don't think there was any stale pointers,
+we already correct it when we change the tree.
