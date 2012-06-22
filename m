@@ -1,65 +1,118 @@
-From: Josh Hunt <johunt@akamai.com>
-Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
-Date: Fri, 22 Jun 2012 08:44:06 -0500
-Message-ID: <4FE476A6.1050209@akamai.com>
-References: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com>  <4FE37783.9000409@akamai.com> <1340310469.4604.6702.camel@edumazet-glaptop>  <4FE41570.4090803@akamai.com> <1340353746.4604.9502.camel@edumazet-glaptop>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor
+ empty happens
+Date: Fri, 22 Jun 2012 16:16:38 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1206221610350.17552@axis700.grange>
+References: <4FC491EB.4040002@renesas.com> <Pine.LNX.4.64.1206201507260.20254@axis700.grange>
+ <4FE2784A.70208@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	Debabrata Banerjee <dbavatar@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"pekkas@netcore.fi" <pekkas@netcore.fi>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340353746.4604.9502.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4FE2784A.70208@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/22/2012 03:29 AM, Eric Dumazet wrote:
-> On Fri, 2012-06-22 at 01:49 -0500, Josh Hunt wrote:
->> On 06/21/2012 03:27 PM, Eric Dumazet wrote:
->>> On Thu, 2012-06-21 at 14:35 -0500, Josh Hunt wrote:
->>>
->>>> Can anyone provide details of the crash which was intended to be fixed
->>>> by 2bec5a369ee79576a3eea2c23863325089785a2c? With this patch in and
->>>> doing concurrent adds/deletes and dumping the table via netlink causes
->>>> duplicate entries to be reported. Reverting this patch causes those
->>>> problems to go away. We can provide a more detailed test if that is
->>>> needed, but so far our testing has been unable to reproduce the crash
->>>> mentioned in the above commit with it reverted.
->>>
->>> A mere revert wont be enough.
->>>
->>> Looking at this code, it lacks proper synchronization
->>> between tree updaters and tree walkers.
->>>
->>> fib6_walker_lock rwlock is not enough to prevent races.
->>>
->>> Are you willing to fix this yourself ?
->>>
->>
->> Looking through the code a bit more it seems like we would need to have
->> a lock in fib6_walker_t to protect its contents. Mainly for when we
->> update the pointers in fib6_del_route and fib6_repair_tree. Right now
->> there is the fib6_walker_lock, but that appears to only be protecting
->> the elements of the list, not their contents. Is this what you had in
->> mind? I just coded up something along these lines and it works for the
->> most part, but I also got a message about unsafe lock ordering when I
->> stressed it so I am messing something up. If this sounds like it's on
->> the right track I can work out the kinks in the morning.
-> 
-> Hmm, it seems tb6_lock is held by a writer, so its safe :
-> 
-> a tree walker can run only holding a read_lock on tb6_lock
+Hi Shimoda-san
 
-Ahh. That makes sense and is what Alexey said before I just didn't put
-it all together. So we are OK reverting this patch? I cannot find a path
-where the walker's pointers are updated without the tb6_lock write_lock.
+On Thu, 21 Jun 2012, Shimoda, Yoshihiro wrote:
 
-Josh
+> Hello Guennadi-san,
+> 
+> 2012/06/20 22:10, Guennadi Liakhovetski wrote:
+> > Hello Shimoda-san
+> > 
+> > On Tue, 29 May 2012, Shimoda, Yoshihiro wrote:
+> > 
+> >> When Receive Descriptor Empty happens, rxdesc pointer of the driver
+> >> and actual next descriptor of the controller may be mismatch.
+> >> This patch fixes it.
+> > 
+> > Unfortunately, this patch breaks networking on ecovec (sh7724). Booting 
+> > with dhcp and NFS-root progresses very slowly with lots of "nfs: server 
+> > not responding / Ok" messages and never completes. Reverting it in current 
+> > Linus' tree fixes the problem.
+> 
+> Thank you very much for the report.
+> The SH7724 doesn't set the RMCR register. So, the EDRRR will be clear after
+> the controller receives a freme every time.
+> So, the "fix the rxdesc pointer" had to check a condition.
+> 
+> I wrote a patch for the issue as the following.
+> If possible, would you try the patch?
+
+Yes, it does seem to fix the problem.
+
+Tested-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+
+Thanks
+Guennadi
+
+> 
+> Best regards,
+> Yoshihiro Shimoda
+> ---
+> Subject: [PATCH] net: sh_eth: fix the condition to fix the cur_tx/dirty_rx
+> 
+> The following commit couldn't work if the RMCR is not set to 1.
+> 
+> "net: sh_eth: fix the rxdesc pointer when rx descriptor empty happens"
+> commit id 79fba9f51755c704c0a7d7b7f0df10874dc0a744
+> 
+> If RMCR is not set, the controller will clear the EDRRR after it received
+> a frame. In this case, the driver doesn't need to fix the value of
+> cur_rx/dirty_rx. The driver only needs it when the controll detects
+> receive descriptors are empty.
+> 
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c |   12 +++++++-----
+>  1 files changed, 7 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 667169b..79bf09b 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1011,7 +1011,7 @@ static int sh_eth_txfree(struct net_device *ndev)
+>  }
+> 
+>  /* Packet receive function */
+> -static int sh_eth_rx(struct net_device *ndev)
+> +static int sh_eth_rx(struct net_device *ndev, u32 intr_status)
+>  {
+>  	struct sh_eth_private *mdp = netdev_priv(ndev);
+>  	struct sh_eth_rxdesc *rxdesc;
+> @@ -1102,9 +1102,11 @@ static int sh_eth_rx(struct net_device *ndev)
+>  	/* Restart Rx engine if stopped. */
+>  	/* If we don't need to check status, don't. -KDU */
+>  	if (!(sh_eth_read(ndev, EDRRR) & EDRRR_R)) {
+> -		/* fix the values for the next receiving */
+> -		mdp->cur_rx = mdp->dirty_rx = (sh_eth_read(ndev, RDFAR) -
+> -					       sh_eth_read(ndev, RDLAR)) >> 4;
+> +		/* fix the values for the next receiving if RDE is set */
+> +		if (intr_status & EESR_RDE)
+> +			mdp->cur_rx = mdp->dirty_rx =
+> +				(sh_eth_read(ndev, RDFAR) -
+> +				 sh_eth_read(ndev, RDLAR)) >> 4;
+>  		sh_eth_write(ndev, EDRRR_R, EDRRR);
+>  	}
+> 
+> @@ -1273,7 +1275,7 @@ static irqreturn_t sh_eth_interrupt(int irq, void *netdev)
+>  			EESR_RTSF | /* short frame recv */
+>  			EESR_PRE  | /* PHY-LSI recv error */
+>  			EESR_CERF)){ /* recv frame CRC error */
+> -		sh_eth_rx(ndev);
+> +		sh_eth_rx(ndev, intr_status);
+>  	}
+> 
+>  	/* Tx Check */
+> -- 
+> 1.7.1
+> 
+
+---
+Guennadi Liakhovetski, Ph.D.
+Freelance Open-Source Software Developer
+http://www.open-technology.de/
