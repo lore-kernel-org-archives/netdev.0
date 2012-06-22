@@ -1,84 +1,76 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Fri, 22 Jun 2012 11:54:51 +0100
-Message-ID: <20120622105451.GC8271@suse.de>
-References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
- <1340192652-31658-11-git-send-email-mgorman@suse.de>
- <20120621163029.GB6045@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120621163029.GB6045@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matthias Brugger <mbrugger@iseebcn.com>
+Subject: [PATCH] smsc911x.c: encapsulate enable irq calls
+Date: Fri, 22 Jun 2012 13:10:15 +0200
+Message-ID: <1340363415-10118-1-git-send-email-mbrugger@iseebcn.com>
+Cc: netdev@vger.kernel.org, Matthias Brugger <mbrugger@iseebcn.com>
+To: Steve Glendinning <steve.glendinning@smsc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:33057 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758199Ab2FVLK3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 07:10:29 -0400
+Received: by weyu7 with SMTP id u7so1102429wey.19
+        for <netdev@vger.kernel.org>; Fri, 22 Jun 2012 04:10:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 21, 2012 at 06:30:29PM +0200, Sebastian Andrzej Siewior wrote:
-> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > index 1d6ecc8..9a58dcc 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -167,14 +206,19 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
-> >   *	%GFP_ATOMIC.
-> >   */
-> >  struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
-> > -			    int fclone, int node)
-> > +			    int flags, int node)
-> >  {
-> >  	struct kmem_cache *cache;
-> >  	struct skb_shared_info *shinfo;
-> >  	struct sk_buff *skb;
-> >  	u8 *data;
-> > +	bool pfmemalloc;
-> >  
-> > -	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
-> > +	cache = (flags & SKB_ALLOC_FCLONE)
-> > +		? skbuff_fclone_cache : skbuff_head_cache;
-> > +
-> > +	if (sk_memalloc_socks() && (flags & SKB_ALLOC_RX))
-> > +		gfp_mask |= __GFP_MEMALLOC;
-> >  
-> >  	/* Get the HEAD */
-> >  	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
-> 
-> This is mostly used by nic to refil their RX skb pool. You add the
-> __GFP_MEMALLOC to the allocation to rise the change of a successfull refill
-> for the swap case.
-> A few drivers use build_skb() to create the skb. __netdev_alloc_skb()
-> shouldn't be affected since the allocation happens with GFP_ATOMIC. Looking at
-> TG3 it uses build_skb() and get_pages() / kmalloc(). Shouldn't this be some
-> considered?
-> 
+We encapsulate enbale irq functionality in a function call.
+As on probe the interrupts will be disabled twice, we delete
+one.
 
-While TG3 is not exactly as you describe after rebasing build_skb should
-make a similar check to __alloc_skb. As it is always used for RX allocation
-from the skbuff_head_cache cache the following should be suitable. Thanks.
+Signed-off-by: Matthias Brugger <mbrugger@iseebcn.com>
+---
+ drivers/net/ethernet/smsc/smsc911x.c |   17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 9832001..063830c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -310,8 +310,12 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
- 	struct skb_shared_info *shinfo;
- 	struct sk_buff *skb;
- 	unsigned int size = frag_size ? : ksize(data);
-+	gfp_t gfp_mask = GFP_ATOMIC;
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 1466e5d..54ca99d 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1442,6 +1442,14 @@ smsc911x_set_hw_mac_address(struct smsc911x_data *pdata, u8 dev_addr[6])
+ 	smsc911x_mac_write(pdata, ADDRL, mac_low32);
+ }
  
--	skb = kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
-+	if (sk_memalloc_socks())
-+		gfp_mask |= __GFP_MEMALLOC;
++static void smsc911x_disable_irq_chip(struct net_device *dev)
++{
++	struct smsc911x_data *pdata = netdev_priv(dev);
 +
-+	skb = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
- 	if (!skb)
- 		return NULL;
++	smsc911x_reg_write(pdata, INT_EN, 0);
++	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
++}
++
+ static int smsc911x_open(struct net_device *dev)
+ {
+ 	struct smsc911x_data *pdata = netdev_priv(dev);
+@@ -1494,8 +1502,7 @@ static int smsc911x_open(struct net_device *dev)
+ 	spin_unlock_irq(&pdata->mac_lock);
  
+ 	/* Initialise irqs, but leave all sources disabled */
+-	smsc911x_reg_write(pdata, INT_EN, 0);
+-	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
++	smsc911x_disable_irq_chip(dev);
+ 
+ 	/* Set interrupt deassertion to 100uS */
+ 	intcfg = ((10 << 24) | INT_CFG_IRQ_EN_);
+@@ -2215,9 +2222,6 @@ static int __devinit smsc911x_init(struct net_device *dev)
+ 	if (smsc911x_soft_reset(pdata))
+ 		return -ENODEV;
+ 
+-	/* Disable all interrupt sources until we bring the device up */
+-	smsc911x_reg_write(pdata, INT_EN, 0);
+-
+ 	ether_setup(dev);
+ 	dev->flags |= IFF_MULTICAST;
+ 	netif_napi_add(dev, &pdata->napi, smsc911x_poll, SMSC_NAPI_WEIGHT);
+@@ -2434,8 +2438,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
+ 	smsc911x_reg_write(pdata, INT_CFG, intcfg);
+ 
+ 	/* Ensure interrupts are globally disabled before connecting ISR */
+-	smsc911x_reg_write(pdata, INT_EN, 0);
+-	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
++	smsc911x_disable_irq_chip(dev);
+ 
+ 	retval = request_irq(dev->irq, smsc911x_irqhandler,
+ 			     irq_flags | IRQF_SHARED, dev->name, dev);
+-- 
+1.7.9.5
