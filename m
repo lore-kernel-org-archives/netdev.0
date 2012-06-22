@@ -1,134 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
- with TCP and GRO
-Date: Fri, 22 Jun 2012 14:33:50 +0200
-Message-ID: <1340368430.4604.10280.camel@edumazet-glaptop>
-References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
-	 <1340170590.4604.784.camel@edumazet-glaptop>
-	 <1340180223.4604.828.camel@edumazet-glaptop>
-	 <1340198514.4604.970.camel@edumazet-glaptop>  <4FE29DE4.1010705@gmail.com>
-	 <1340255226.4604.3774.camel@edumazet-glaptop>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
+Date: Fri, 22 Jun 2012 20:45:12 +0800
+Message-ID: <CACVXFVPkC8NtvOzTsOyNcftZy60fDjtEkV_Da1Z32iYpHFHcUw@mail.gmail.com>
+References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:55127 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761835Ab2FVMdz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 08:33:55 -0400
-Received: by bkcji2 with SMTP id ji2so1480460bkc.19
-        for <netdev@vger.kernel.org>; Fri, 22 Jun 2012 05:33:54 -0700 (PDT)
-In-Reply-To: <1340255226.4604.3774.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
+	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1340356279-3124-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-06-21 at 07:07 +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-20 at 21:07 -0700, Alexander Duyck wrote:
-> > On 6/20/2012 6:21 AM, Eric Dumazet wrote:
-> 
-> > > +		nc->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
-> > > +				       (NETDEV_FRAG_ORDER ? __GFP_COMP : 0),
-> > > +				       NETDEV_FRAG_ORDER);
-> 
-> > I was wondering if you needed the check for NETDEV_FRAG_ORDER here.  
-> >  From what I can tell setting __GFP_COMP for an order 0 page has no 
-> > effect since it only seems to get checked in prep_new_page and that is 
-> > after a check to verify if the page is order 0 or not.
-> 
-> Good point, it seems some net drivers could be changed to remove
-> useless tests.
-> 
-> I'll post some performance data as well.
+On Fri, Jun 22, 2012 at 5:11 PM, Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote:
+> usbnet_disconnect() will set intfdata to NULL before calling
+> the minidriver unbind function. =A0The cdc_wdm subdriver cannot
+> know that it is disconnecting until the qmi_wwan unbind
+> function has called its disconnect function. =A0This means that
+> we must be able to support the cdc_wdm subdriver operating
+> normally while usbnet_disconnect() is running, and in
+> particular that intfdata may be NULL.
+>
+> The only place this matters is in qmi_wwan_cdc_wdm_manage_power
+> which is called from cdc_wdm. =A0Simply testing for NULL
+> intfdata there is sufficient to allow it to continue working
+> at all times.
+>
+> Fixes this Oops where a cdc-wdm device was closed while the
+> USB device was disconnecting, causing wdm_release to call
+> qmi_wwan_cdc_wdm_manage_power after intfdata was set to
+> NULL by usbnet_disconnect:
 
-Here is the patch I tested here.
+In fact, it should be a general problem in usbnet, there are races
+between usbnet_disconnect and .open/.close. Considered that
+unregister_netdev, which will sync with .open/.close,  is called in
+usbnet_disconnect,  the simplest fix is to move usb_set_intfdata(NULL)
+after unregister_netdev.
 
-Using 32768 bytes allocations is actually nice for MTU=9000 traffic,
-since we can fit 3 frames per 32KB instead of only 2 frames (using
-kmalloc-16384 slab))
+> Reported-by: Marius Bj=F8rnstad Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> ---
+> =A0drivers/net/usb/qmi_wwan.c | =A0 =A04 ++++
+> =A01 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index 3767a12..b01960f 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -197,6 +197,10 @@ err:
+> =A0static int qmi_wwan_cdc_wdm_manage_power(struct usb_interface *int=
+f, int on)
+> =A0{
+> =A0 =A0 =A0 =A0struct usbnet *dev =3D usb_get_intfdata(intf);
+> +
+> + =A0 =A0 =A0 /* can be called while disconnecting */
+> + =A0 =A0 =A0 if (!dev)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> =A0 =A0 =A0 =A0return qmi_wwan_manage_power(dev, on);
+> =A0}
 
-Also, I prefill page->_count with a high bias value, to avoid the
-get_page() we did for each allocated frag.
+Considered that usb_set_intfdata(NULL) will be called after
+executing .disconnect in unbind path, it can be removed simply.
 
-In my profiles, the get_page() cost was dominant, because of false
-sharing with skb consumers (as they might run on different cpus)
+So how about the below?
 
-This way, when 32768 bytes are filled, we perform a single
-atomic_sub_return() and can recycle the page if we find we are the last
-user (this is what you did in your patch, when testing page->_count
-being 1)
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index e92c057..2eb9e1e 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1286,7 +1286,6 @@ void usbnet_disconnect (struct usb_interface *int=
+f)
+ 	struct net_device	*net;
 
-Note : If I used max(PAGE_SIZE, 32678) for MAX_NETDEV_FRAGSIZE,
-gcc was not able to optimise get_order(MAX_NETDEV_FRAGSIZE), strange...
+ 	dev =3D usb_get_intfdata(intf);
+-	usb_set_intfdata(intf, NULL);
+ 	if (!dev)
+ 		return;
 
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 5b21522..d31efa2 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -296,9 +296,18 @@ EXPORT_SYMBOL(build_skb);
- struct netdev_alloc_cache {
- 	struct page *page;
- 	unsigned int offset;
-+	unsigned int pagecnt_bias;
- };
- static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
- 
-+#if PAGE_SIZE > 32768
-+#define MAX_NETDEV_FRAGSIZE	PAGE_SIZE
-+#else
-+#define MAX_NETDEV_FRAGSIZE	32768
-+#endif
-+
-+#define NETDEV_PAGECNT_BIAS	(MAX_NETDEV_FRAGSIZE /		\
-+				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
- /**
-  * netdev_alloc_frag - allocate a page fragment
-  * @fragsz: fragment size
-@@ -316,18 +325,25 @@ void *netdev_alloc_frag(unsigned int fragsz)
- 	nc = &__get_cpu_var(netdev_alloc_cache);
- 	if (unlikely(!nc->page)) {
- refill:
--		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-+		nc->page = alloc_pages(GFP_ATOMIC | __GFP_COLD | __GFP_COMP,
-+				       get_order(MAX_NETDEV_FRAGSIZE));
-+		if (unlikely(!nc->page))
-+			goto end;
-+recycle:
-+		atomic_set(&nc->page->_count, NETDEV_PAGECNT_BIAS);
-+		nc->pagecnt_bias = NETDEV_PAGECNT_BIAS;
- 		nc->offset = 0;
- 	}
--	if (likely(nc->page)) {
--		if (nc->offset + fragsz > PAGE_SIZE) {
--			put_page(nc->page);
--			goto refill;
--		}
--		data = page_address(nc->page) + nc->offset;
--		nc->offset += fragsz;
--		get_page(nc->page);
-+	if (nc->offset + fragsz > MAX_NETDEV_FRAGSIZE) {
-+		if (!atomic_sub_return(nc->pagecnt_bias,
-+				       &nc->page->_count))
-+			goto recycle;
-+		goto refill;
- 	}
-+	data = page_address(nc->page) + nc->offset;
-+	nc->offset += fragsz;
-+	nc->pagecnt_bias--; /* avoid get_page()/get_page() false sharing */
-+end:
- 	local_irq_restore(flags);
- 	return data;
- }
-@@ -353,7 +369,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
- 			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 
--	if (fragsz <= PAGE_SIZE && !(gfp_mask & __GFP_WAIT)) {
-+	if (fragsz <= MAX_NETDEV_FRAGSIZE && !(gfp_mask & __GFP_WAIT)) {
- 		void *data = netdev_alloc_frag(fragsz);
- 
- 		if (likely(data)) {
+Thanks,
+--=20
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
