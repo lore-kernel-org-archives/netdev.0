@@ -1,85 +1,65 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Fri, 22 Jun 2012 15:42:26 +0200
-Message-ID: <87mx3vlayl.fsf@nemi.mork.no>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<CACVXFVPkC8NtvOzTsOyNcftZy60fDjtEkV_Da1Z32iYpHFHcUw@mail.gmail.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
+Date: Fri, 22 Jun 2012 08:44:06 -0500
+Message-ID: <4FE476A6.1050209@akamai.com>
+References: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com>  <4FE37783.9000409@akamai.com> <1340310469.4604.6702.camel@edumazet-glaptop>  <4FE41570.4090803@akamai.com> <1340353746.4604.9502.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Marius =?utf-8?Q?Bj=C3=B8rnstad?= Kotsbak
-	<marius.kotsbak@gmail.com>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:47932 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762124Ab2FVNnD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 09:43:03 -0400
-In-Reply-To: <CACVXFVPkC8NtvOzTsOyNcftZy60fDjtEkV_Da1Z32iYpHFHcUw@mail.gmail.com>
-	(Ming Lei's message of "Fri, 22 Jun 2012 20:45:12 +0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	Debabrata Banerjee <dbavatar@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"pekkas@netcore.fi" <pekkas@netcore.fi>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340353746.4604.9502.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ming Lei <tom.leiming@gmail.com> writes:
-
-> On Fri, Jun 22, 2012 at 5:11 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrot=
-e:
->> usbnet_disconnect() will set intfdata to NULL before calling
->> the minidriver unbind function. =C2=A0The cdc_wdm subdriver cannot
->> know that it is disconnecting until the qmi_wwan unbind
->> function has called its disconnect function. =C2=A0This means that
->> we must be able to support the cdc_wdm subdriver operating
->> normally while usbnet_disconnect() is running, and in
->> particular that intfdata may be NULL.
+On 06/22/2012 03:29 AM, Eric Dumazet wrote:
+> On Fri, 2012-06-22 at 01:49 -0500, Josh Hunt wrote:
+>> On 06/21/2012 03:27 PM, Eric Dumazet wrote:
+>>> On Thu, 2012-06-21 at 14:35 -0500, Josh Hunt wrote:
+>>>
+>>>> Can anyone provide details of the crash which was intended to be fixed
+>>>> by 2bec5a369ee79576a3eea2c23863325089785a2c? With this patch in and
+>>>> doing concurrent adds/deletes and dumping the table via netlink causes
+>>>> duplicate entries to be reported. Reverting this patch causes those
+>>>> problems to go away. We can provide a more detailed test if that is
+>>>> needed, but so far our testing has been unable to reproduce the crash
+>>>> mentioned in the above commit with it reverted.
+>>>
+>>> A mere revert wont be enough.
+>>>
+>>> Looking at this code, it lacks proper synchronization
+>>> between tree updaters and tree walkers.
+>>>
+>>> fib6_walker_lock rwlock is not enough to prevent races.
+>>>
+>>> Are you willing to fix this yourself ?
+>>>
 >>
->> The only place this matters is in qmi_wwan_cdc_wdm_manage_power
->> which is called from cdc_wdm. =C2=A0Simply testing for NULL
->> intfdata there is sufficient to allow it to continue working
->> at all times.
->>
->> Fixes this Oops where a cdc-wdm device was closed while the
->> USB device was disconnecting, causing wdm_release to call
->> qmi_wwan_cdc_wdm_manage_power after intfdata was set to
->> NULL by usbnet_disconnect:
->
-> In fact, it should be a general problem in usbnet, there are races
-> between usbnet_disconnect and .open/.close. Considered that
-> unregister_netdev, which will sync with .open/.close,  is called in
-> usbnet_disconnect,  the simplest fix is to move usb_set_intfdata(NULL=
-)
-> after unregister_netdev.
+>> Looking through the code a bit more it seems like we would need to have
+>> a lock in fib6_walker_t to protect its contents. Mainly for when we
+>> update the pointers in fib6_del_route and fib6_repair_tree. Right now
+>> there is the fib6_walker_lock, but that appears to only be protecting
+>> the elements of the list, not their contents. Is this what you had in
+>> mind? I just coded up something along these lines and it works for the
+>> most part, but I also got a message about unsafe lock ordering when I
+>> stressed it so I am messing something up. If this sounds like it's on
+>> the right track I can work out the kinks in the morning.
+> 
+> Hmm, it seems tb6_lock is held by a writer, so its safe :
+> 
+> a tree walker can run only holding a read_lock on tb6_lock
 
-Is there really a race there?  The usbnet .open/.close don't use the
-intfdata, do they?  I looked briefly through usbnet for related
-potentional problems while fixing this in qmi_wwan, but could only find
-suspend/resume.  Which I believe are protected against running on
-disconnect.
+Ahh. That makes sense and is what Alexey said before I just didn't put
+it all together. So we are OK reverting this patch? I cannot find a path
+where the walker's pointers are updated without the tb6_lock write_lock.
 
-So I think usbnet in general is OK.
-
-> Considered that usb_set_intfdata(NULL) will be called after
-> executing .disconnect in unbind path, it can be removed simply.
->
-> So how about the below?
->
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index e92c057..2eb9e1e 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -1286,7 +1286,6 @@ void usbnet_disconnect (struct usb_interface *i=
-ntf)
->  	struct net_device	*net;
->
->  	dev =3D usb_get_intfdata(intf);
-> -	usb_set_intfdata(intf, NULL);
->  	if (!dev)
->  		return;
-
-I believe that call is there to prevent disconnect from running twice
-for the common two-interface CDC ethernet model, like e.g. cdc_ether.
-So I don't think it can be removed.  Not without touching the
-minidrivers depending on that behaviour, anyway.
-
-
-Bj=C3=B8rn
+Josh
