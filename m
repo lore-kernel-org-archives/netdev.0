@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 03/12] mm: Methods for teaching filesystems about PG_swapcache pages
-Date: Fri, 22 Jun 2012 15:30:59 +0100
-Message-ID: <1340375468-22509-4-git-send-email-mgorman@suse.de>
+Subject: [PATCH 05/12] mm: swap: Implement generic handler for swap_activate
+Date: Fri, 22 Jun 2012 15:31:01 +0100
+Message-ID: <1340375468-22509-6-git-send-email-mgorman@suse.de>
 References: <1340375468-22509-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -19,128 +19,289 @@ In-Reply-To: <1340375468-22509-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-In order to teach filesystems to handle swap cache pages, three new
-page functions are introduced:
+The version of swap_activate introduced is sufficient for swap-over-NFS
+but would not provide enough information to implement a generic handler.
+This patch shuffles things slightly to ensure the same information is
+available for aops->swap_activate() as is available to the core.
 
-  pgoff_t page_file_index(struct page *);
-  loff_t page_file_offset(struct page *);
-  struct address_space *page_file_mapping(struct page *);
+No functionality change.
 
-page_file_index() - gives the offset of this page in the file in
-PAGE_CACHE_SIZE blocks. Like page->index is for mapped pages, this
-function also gives the correct index for PG_swapcache pages.
-
-page_file_offset() - uses page_file_index(), so that it will give
-the expected result, even for PG_swapcache pages.
-
-page_file_mapping() - gives the mapping backing the actual page;
-that is for swap cache pages it will give swap_file->f_mapping.
-
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
-Reviewed-by: Rik van Riel <riel@redhat.com>
+Acked-by: Rik van Riel <riel@redhat.com>
 ---
- include/linux/mm.h      |   25 +++++++++++++++++++++++++
- include/linux/pagemap.h |    5 +++++
- mm/swapfile.c           |   19 +++++++++++++++++++
- 3 files changed, 49 insertions(+)
+ include/linux/fs.h   |    6 ++--
+ include/linux/swap.h |    5 +++
+ mm/page_io.c         |   92 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ mm/swapfile.c        |   91 +++----------------------------------------------
+ 4 files changed, 106 insertions(+), 88 deletions(-)
 
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index a4549c6..b3d4cd9 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -805,6 +805,17 @@ static inline void *page_rmapping(struct page *page)
- 	return (void *)((unsigned long)page->mapping & ~PAGE_MAPPING_FLAGS);
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index aeeb8e1..f5e5bbb 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -427,6 +427,7 @@ struct kstatfs;
+ struct vm_area_struct;
+ struct vfsmount;
+ struct cred;
++struct swap_info_struct;
+ 
+ extern void __init inode_init(void);
+ extern void __init inode_init_early(void);
+@@ -640,8 +641,9 @@ struct address_space_operations {
+ 	int (*error_remove_page)(struct address_space *, struct page *);
+ 
+ 	/* swapfile support */
+-	int (*swap_activate)(struct file *file);
+-	int (*swap_deactivate)(struct file *file);
++	int (*swap_activate)(struct swap_info_struct *sis, struct file *file,
++				sector_t *span);
++	void (*swap_deactivate)(struct file *file);
+ };
+ 
+ extern const struct address_space_operations empty_aops;
+diff --git a/include/linux/swap.h b/include/linux/swap.h
+index b236bc4..57f4858 100644
+--- a/include/linux/swap.h
++++ b/include/linux/swap.h
+@@ -324,6 +324,11 @@ extern int swap_writepage(struct page *page, struct writeback_control *wbc);
+ extern int swap_set_page_dirty(struct page *page);
+ extern void end_swap_bio_read(struct bio *bio, int err);
+ 
++int add_swap_extent(struct swap_info_struct *sis, unsigned long start_page,
++		unsigned long nr_pages, sector_t start_block);
++int generic_swapfile_activate(struct swap_info_struct *, struct file *,
++		sector_t *);
++
+ /* linux/mm/swap_state.c */
+ extern struct address_space swapper_space;
+ #define total_swapcache_pages  swapper_space.nrpages
+diff --git a/mm/page_io.c b/mm/page_io.c
+index 307a3e7..4a37962 100644
+--- a/mm/page_io.c
++++ b/mm/page_io.c
+@@ -87,6 +87,98 @@ void end_swap_bio_read(struct bio *bio, int err)
+ 	bio_put(bio);
  }
  
-+extern struct address_space *__page_file_mapping(struct page *);
-+
-+static inline
-+struct address_space *page_file_mapping(struct page *page)
++int generic_swapfile_activate(struct swap_info_struct *sis,
++				struct file *swap_file,
++				sector_t *span)
 +{
-+	if (unlikely(PageSwapCache(page)))
-+		return __page_file_mapping(page);
++	struct address_space *mapping = swap_file->f_mapping;
++	struct inode *inode = mapping->host;
++	unsigned blocks_per_page;
++	unsigned long page_no;
++	unsigned blkbits;
++	sector_t probe_block;
++	sector_t last_block;
++	sector_t lowest_block = -1;
++	sector_t highest_block = 0;
++	int nr_extents = 0;
++	int ret;
 +
-+	return page->mapping;
-+}
++	blkbits = inode->i_blkbits;
++	blocks_per_page = PAGE_SIZE >> blkbits;
 +
- static inline int PageAnon(struct page *page)
- {
- 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
-@@ -821,6 +832,20 @@ static inline pgoff_t page_index(struct page *page)
- 	return page->index;
- }
- 
-+extern pgoff_t __page_file_index(struct page *page);
++	/*
++	 * Map all the blocks into the extent list.  This code doesn't try
++	 * to be very smart.
++	 */
++	probe_block = 0;
++	page_no = 0;
++	last_block = i_size_read(inode) >> blkbits;
++	while ((probe_block + blocks_per_page) <= last_block &&
++			page_no < sis->max) {
++		unsigned block_in_page;
++		sector_t first_block;
 +
-+/*
-+ * Return the file index of the page. Regular pagecache pages use ->index
-+ * whereas swapcache pages use swp_offset(->private)
-+ */
-+static inline pgoff_t page_file_index(struct page *page)
-+{
-+	if (unlikely(PageSwapCache(page)))
-+		return __page_file_index(page);
++		first_block = bmap(inode, probe_block);
++		if (first_block == 0)
++			goto bad_bmap;
 +
-+	return page->index;
++		/*
++		 * It must be PAGE_SIZE aligned on-disk
++		 */
++		if (first_block & (blocks_per_page - 1)) {
++			probe_block++;
++			goto reprobe;
++		}
++
++		for (block_in_page = 1; block_in_page < blocks_per_page;
++					block_in_page++) {
++			sector_t block;
++
++			block = bmap(inode, probe_block + block_in_page);
++			if (block == 0)
++				goto bad_bmap;
++			if (block != first_block + block_in_page) {
++				/* Discontiguity */
++				probe_block++;
++				goto reprobe;
++			}
++		}
++
++		first_block >>= (PAGE_SHIFT - blkbits);
++		if (page_no) {	/* exclude the header page */
++			if (first_block < lowest_block)
++				lowest_block = first_block;
++			if (first_block > highest_block)
++				highest_block = first_block;
++		}
++
++		/*
++		 * We found a PAGE_SIZE-length, PAGE_SIZE-aligned run of blocks
++		 */
++		ret = add_swap_extent(sis, page_no, 1, first_block);
++		if (ret < 0)
++			goto out;
++		nr_extents += ret;
++		page_no++;
++		probe_block += blocks_per_page;
++reprobe:
++		continue;
++	}
++	ret = nr_extents;
++	*span = 1 + highest_block - lowest_block;
++	if (page_no == 0)
++		page_no = 1;	/* force Empty message */
++	sis->max = page_no;
++	sis->pages = page_no - 1;
++	sis->highest_bit = page_no - 1;
++out:
++	return ret;
++bad_bmap:
++	printk(KERN_ERR "swapon: swapfile has holes\n");
++	ret = -EINVAL;
++	goto out;
 +}
 +
  /*
-  * Return true if this page is mapped into pagetables.
-  */
-diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
-index 7cfad3b..e42c762 100644
---- a/include/linux/pagemap.h
-+++ b/include/linux/pagemap.h
-@@ -286,6 +286,11 @@ static inline loff_t page_offset(struct page *page)
- 	return ((loff_t)page->index) << PAGE_CACHE_SHIFT;
- }
- 
-+static inline loff_t page_file_offset(struct page *page)
-+{
-+	return ((loff_t)page_file_index(page)) << PAGE_CACHE_SHIFT;
-+}
-+
- extern pgoff_t linear_hugepage_index(struct vm_area_struct *vma,
- 				     unsigned long address);
- 
+  * We may have stale swap cache pages in memory: notice
+  * them here and get rid of the unnecessary final write.
 diff --git a/mm/swapfile.c b/mm/swapfile.c
-index 64408be..f4e02bd 100644
+index b8b5861..1d77b13 100644
 --- a/mm/swapfile.c
 +++ b/mm/swapfile.c
-@@ -33,6 +33,7 @@
- #include <linux/oom.h>
- #include <linux/frontswap.h>
- #include <linux/swapfile.h>
-+#include <linux/export.h>
+@@ -1358,7 +1358,7 @@ static void destroy_swap_extents(struct swap_info_struct *sis)
+  *
+  * This function rather assumes that it is called in ascending page order.
+  */
+-static int
++int
+ add_swap_extent(struct swap_info_struct *sis, unsigned long start_page,
+ 		unsigned long nr_pages, sector_t start_block)
+ {
+@@ -1434,106 +1434,25 @@ static int setup_swap_extents(struct swap_info_struct *sis, sector_t *span)
+ 	struct file *swap_file = sis->swap_file;
+ 	struct address_space *mapping = swap_file->f_mapping;
+ 	struct inode *inode = mapping->host;
+-	unsigned blocks_per_page;
+-	unsigned long page_no;
+-	unsigned blkbits;
+-	sector_t probe_block;
+-	sector_t last_block;
+-	sector_t lowest_block = -1;
+-	sector_t highest_block = 0;
+-	int nr_extents = 0;
+ 	int ret;
  
- #include <asm/pgtable.h>
- #include <asm/tlbflush.h>
-@@ -2299,6 +2300,24 @@ int swapcache_prepare(swp_entry_t entry)
+ 	if (S_ISBLK(inode->i_mode)) {
+ 		ret = add_swap_extent(sis, 0, sis->max, 0);
+ 		*span = sis->pages;
+-		goto out;
++		return ret;
+ 	}
+ 
+ 	if (mapping->a_ops->swap_activate) {
+-		ret = mapping->a_ops->swap_activate(swap_file);
++		ret = mapping->a_ops->swap_activate(sis, swap_file, span);
+ 		if (!ret) {
+ 			sis->flags |= SWP_FILE;
+ 			ret = add_swap_extent(sis, 0, sis->max, 0);
+ 			*span = sis->pages;
+ 		}
+-		goto out;
++		return ret;
+ 	}
+ 
+-	blkbits = inode->i_blkbits;
+-	blocks_per_page = PAGE_SIZE >> blkbits;
+-
+-	/*
+-	 * Map all the blocks into the extent list.  This code doesn't try
+-	 * to be very smart.
+-	 */
+-	probe_block = 0;
+-	page_no = 0;
+-	last_block = i_size_read(inode) >> blkbits;
+-	while ((probe_block + blocks_per_page) <= last_block &&
+-			page_no < sis->max) {
+-		unsigned block_in_page;
+-		sector_t first_block;
+-
+-		first_block = bmap(inode, probe_block);
+-		if (first_block == 0)
+-			goto bad_bmap;
+-
+-		/*
+-		 * It must be PAGE_SIZE aligned on-disk
+-		 */
+-		if (first_block & (blocks_per_page - 1)) {
+-			probe_block++;
+-			goto reprobe;
+-		}
+-
+-		for (block_in_page = 1; block_in_page < blocks_per_page;
+-					block_in_page++) {
+-			sector_t block;
+-
+-			block = bmap(inode, probe_block + block_in_page);
+-			if (block == 0)
+-				goto bad_bmap;
+-			if (block != first_block + block_in_page) {
+-				/* Discontiguity */
+-				probe_block++;
+-				goto reprobe;
+-			}
+-		}
+-
+-		first_block >>= (PAGE_SHIFT - blkbits);
+-		if (page_no) {	/* exclude the header page */
+-			if (first_block < lowest_block)
+-				lowest_block = first_block;
+-			if (first_block > highest_block)
+-				highest_block = first_block;
+-		}
+-
+-		/*
+-		 * We found a PAGE_SIZE-length, PAGE_SIZE-aligned run of blocks
+-		 */
+-		ret = add_swap_extent(sis, page_no, 1, first_block);
+-		if (ret < 0)
+-			goto out;
+-		nr_extents += ret;
+-		page_no++;
+-		probe_block += blocks_per_page;
+-reprobe:
+-		continue;
+-	}
+-	ret = nr_extents;
+-	*span = 1 + highest_block - lowest_block;
+-	if (page_no == 0)
+-		page_no = 1;	/* force Empty message */
+-	sis->max = page_no;
+-	sis->pages = page_no - 1;
+-	sis->highest_bit = page_no - 1;
+-out:
+-	return ret;
+-bad_bmap:
+-	printk(KERN_ERR "swapon: swapfile has holes\n");
+-	ret = -EINVAL;
+-	goto out;
++	return generic_swapfile_activate(sis, swap_file, span);
  }
  
- /*
-+ * out-of-line __page_file_ methods to avoid include hell.
-+ */
-+struct address_space *__page_file_mapping(struct page *page)
-+{
-+	VM_BUG_ON(!PageSwapCache(page));
-+	return page_swap_info(page)->swap_file->f_mapping;
-+}
-+EXPORT_SYMBOL_GPL(__page_file_mapping);
-+
-+pgoff_t __page_file_index(struct page *page)
-+{
-+	swp_entry_t swap = { .val = page_private(page) };
-+	VM_BUG_ON(!PageSwapCache(page));
-+	return swp_offset(swap);
-+}
-+EXPORT_SYMBOL_GPL(__page_file_index);
-+
-+/*
-  * add_swap_count_continuation - called when a swap count is duplicated
-  * beyond SWAP_MAP_MAX, it allocates a new page and links that to the entry's
-  * page of the original vmalloc'ed swap_map, to hold the continuation count
+ static void enable_swap_info(struct swap_info_struct *p, int prio,
 -- 
 1.7.9.2
 
