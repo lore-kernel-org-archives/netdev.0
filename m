@@ -1,64 +1,133 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
-Date: Fri, 22 Jun 2012 10:29:06 +0200
-Message-ID: <1340353746.4604.9502.camel@edumazet-glaptop>
-References: <CAATkVEzTxT6d5nzt_qwCuFWM-WcN8hdhjGxFRPXJ4=L35wKbGw@mail.gmail.com>
-	 <4FE37783.9000409@akamai.com> <1340310469.4604.6702.camel@edumazet-glaptop>
-	 <4FE41570.4090803@akamai.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
+Date: Fri, 22 Jun 2012 11:11:18 +0200
+Message-ID: <1340356279-3124-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"kaber@trash.net" <kaber@trash.net>,
-	Debabrata Banerjee <dbavatar@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"pekkas@netcore.fi" <pekkas@netcore.fi>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Josh Hunt <johunt@akamai.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:50792 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761530Ab2FVI3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 04:29:12 -0400
-In-Reply-To: <4FE41570.4090803@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Marius=20Bj=C3=B8rnstad=20Kotsbak?=
+	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-22 at 01:49 -0500, Josh Hunt wrote:
-> On 06/21/2012 03:27 PM, Eric Dumazet wrote:
-> > On Thu, 2012-06-21 at 14:35 -0500, Josh Hunt wrote:
-> > 
-> >> Can anyone provide details of the crash which was intended to be fixed
-> >> by 2bec5a369ee79576a3eea2c23863325089785a2c? With this patch in and
-> >> doing concurrent adds/deletes and dumping the table via netlink causes
-> >> duplicate entries to be reported. Reverting this patch causes those
-> >> problems to go away. We can provide a more detailed test if that is
-> >> needed, but so far our testing has been unable to reproduce the crash
-> >> mentioned in the above commit with it reverted.
-> > 
-> > A mere revert wont be enough.
-> > 
-> > Looking at this code, it lacks proper synchronization
-> > between tree updaters and tree walkers.
-> > 
-> > fib6_walker_lock rwlock is not enough to prevent races.
-> > 
-> > Are you willing to fix this yourself ?
-> > 
-> 
-> Looking through the code a bit more it seems like we would need to have
-> a lock in fib6_walker_t to protect its contents. Mainly for when we
-> update the pointers in fib6_del_route and fib6_repair_tree. Right now
-> there is the fib6_walker_lock, but that appears to only be protecting
-> the elements of the list, not their contents. Is this what you had in
-> mind? I just coded up something along these lines and it works for the
-> most part, but I also got a message about unsafe lock ordering when I
-> stressed it so I am messing something up. If this sounds like it's on
-> the right track I can work out the kinks in the morning.
+usbnet_disconnect() will set intfdata to NULL before calling
+the minidriver unbind function.  The cdc_wdm subdriver cannot
+know that it is disconnecting until the qmi_wwan unbind
+function has called its disconnect function.  This means that
+we must be able to support the cdc_wdm subdriver operating
+normally while usbnet_disconnect() is running, and in
+particular that intfdata may be NULL.
 
-Hmm, it seems tb6_lock is held by a writer, so its safe :
+The only place this matters is in qmi_wwan_cdc_wdm_manage_power
+which is called from cdc_wdm.  Simply testing for NULL
+intfdata there is sufficient to allow it to continue working
+at all times.
 
-a tree walker can run only holding a read_lock on tb6_lock
+=46ixes this Oops where a cdc-wdm device was closed while the
+USB device was disconnecting, causing wdm_release to call
+qmi_wwan_cdc_wdm_manage_power after intfdata was set to
+NULL by usbnet_disconnect:
+
+[41819.087460] BUG: unable to handle kernel NULL pointer dereference at=
+ 00000080
+[41819.087815] IP: [<f8640458>] qmi_wwan_manage_power+0x68/0x90 [qmi_ww=
+an]
+[41819.088028] *pdpt =3D 000000000314f001 *pde =3D 0000000000000000
+[41819.088028] Oops: 0002 [#1] SMP
+[41819.088028] Modules linked in: qmi_wwan option usb_wwan usbserial us=
+bnet
+cdc_wdm nls_iso8859_1 nls_cp437 vfat fat usb_storage bnep rfcomm blueto=
+oth
+parport_pc ppdev binfmt_misc iptable_nat nf_nat nf_conntrack_ipv4
+nf_conntrack nf_defrag_ipv4 iptable_mangle iptable_filter ip_tables
+x_tables dm_crypt uvcvideo snd_hda_codec_realtek snd_hda_intel
+videobuf2_core snd_hda_codec joydev videodev videobuf2_vmalloc
+hid_multitouch snd_hwdep arc4 videobuf2_memops snd_pcm snd_seq_midi
+snd_rawmidi snd_seq_midi_event ath9k mac80211 snd_seq ath9k_common ath9=
+k_hw
+ath snd_timer snd_seq_device sparse_keymap dm_multipath scsi_dh coretem=
+p
+mac_hid snd soundcore cfg80211 snd_page_alloc psmouse serio_raw microco=
+de
+lp parport dm_mirror dm_region_hash dm_log usbhid hid i915 drm_kms_help=
+er
+drm r8169 i2c_algo_bit wmi video [last unloaded: qmi_wwan]
+[41819.088028]
+[41819.088028] Pid: 23292, comm: qmicli Not tainted 3.4.0-5-generic #11=
+-Ubuntu GIGABYTE T1005/T1005
+[41819.088028] EIP: 0060:[<f8640458>] EFLAGS: 00010246 CPU: 1
+[41819.088028] EIP is at qmi_wwan_manage_power+0x68/0x90 [qmi_wwan]
+[41819.088028] EAX: 00000000 EBX: 00000000 ECX: 000000c3 EDX: 00000000
+[41819.088028] ESI: c3b27658 EDI: 00000000 EBP: c298bea4 ESP: c298be98
+[41819.088028]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+[41819.088028] CR0: 8005003b CR2: 00000080 CR3: 3605e000 CR4: 000007f0
+[41819.088028] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+[41819.088028] DR6: ffff0ff0 DR7: 00000400
+[41819.088028] Process qmicli (pid: 23292, ti=3Dc298a000 task=3Df343b28=
+0 task.ti=3Dc298a000)
+[41819.088028] Stack:
+[41819.088028]  00000000 c3b27658 e2a80d00 c298beb0 f864051a c3b27600 c=
+298bec0 f9027099
+[41819.088028]  c2fd6000 00000008 c298bef0 c1147f96 00000001 00000000 0=
+0000000 f4e54790
+[41819.088028]  ecf43a00 ecf43a00 c2fd6008 c2fd6000 ebbd7600 ffffffb9 c=
+298bf08 c1144474
+[41819.088028] Call Trace:
+[41819.088028]  [<f864051a>] qmi_wwan_cdc_wdm_manage_power+0x1a/0x20 [q=
+mi_wwan]
+[41819.088028]  [<f9027099>] wdm_release+0x69/0x70 [cdc_wdm]
+[41819.088028]  [<c1147f96>] fput+0xe6/0x210
+[41819.088028]  [<c1144474>] filp_close+0x54/0x80
+[41819.088028]  [<c1046a65>] put_files_struct+0x75/0xc0
+[41819.088028]  [<c1046b56>] exit_files+0x46/0x60
+[41819.088028]  [<c1046f81>] do_exit+0x141/0x780
+[41819.088028]  [<c107248f>] ? wake_up_state+0xf/0x20
+[41819.088028]  [<c1053f48>] ? signal_wake_up+0x28/0x40
+[41819.088028]  [<c1054f3b>] ? zap_other_threads+0x6b/0x80
+[41819.088028]  [<c1047864>] do_group_exit+0x34/0xa0
+[41819.088028]  [<c10478e8>] sys_exit_group+0x18/0x20
+[41819.088028]  [<c15bb7df>] sysenter_do_call+0x12/0x28
+[41819.088028] Code: 04 83 e7 01 c1 e7 03 0f b6 42 18 83 e0 f7 09 f8 88=
+ 42
+18 8b 43 04 e8 48 9a dd c8 89 f0 8b 5d f4 8b 75 f8 8b 7d fc 89 ec 5d c3=
+ 90
+<f0> ff 88 80 00 00 00 0f 94 c0 84 c0 75 b7 31 f6 8b 5d f4 89 f0
+[41819.088028] EIP: [<f8640458>] qmi_wwan_manage_power+0x68/0x90 [qmi_w=
+wan] SS:ESP 0068:c298be98
+[41819.088028] CR2: 0000000000000080
+[41819.149492] ---[ end trace 0944479ff8257f55 ]---
+
+Reported-by: Marius Bj=C3=B8rnstad Kotsbak <marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 3767a12..b01960f 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -197,6 +197,10 @@ err:
+ static int qmi_wwan_cdc_wdm_manage_power(struct usb_interface *intf, i=
+nt on)
+ {
+ 	struct usbnet *dev =3D usb_get_intfdata(intf);
++
++	/* can be called while disconnecting */
++	if (!dev)
++		return 0;
+ 	return qmi_wwan_manage_power(dev, on);
+ }
+=20
+--=20
+1.7.10
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
