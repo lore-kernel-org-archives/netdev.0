@@ -1,11 +1,11 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 01/17] mm: sl[au]b: Add knowledge of PFMEMALLOC reserve
- pages
-Date: Fri, 22 Jun 2012 10:34:32 +0100
-Message-ID: <20120622093432.GA8271@suse.de>
+Subject: Re: [PATCH 10/17] netvm: Allow skb allocation to use PFMEMALLOC
+ reserves
+Date: Fri, 22 Jun 2012 11:00:32 +0100
+Message-ID: <20120622100032.GB8271@suse.de>
 References: <1340192652-31658-1-git-send-email-mgorman@suse.de>
- <1340192652-31658-2-git-send-email-mgorman@suse.de>
- <4FE39290.8020609@redhat.com>
+ <1340192652-31658-11-git-send-email-mgorman@suse.de>
+ <20120621160902.GA6045@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-15
 Cc: Andrew Morton <akpm@linux-foundation.org>,
@@ -14,37 +14,52 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-To: Rik van Riel <riel@redhat.com>
+	Eric B Munson <emunson@mgebm.net>
+To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <4FE39290.8020609@redhat.com>
+In-Reply-To: <20120621160902.GA6045@breakpoint.cc>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 21, 2012 at 05:30:56PM -0400, Rik van Riel wrote:
-> On 06/20/2012 07:43 AM, Mel Gorman wrote:
+On Thu, Jun 21, 2012 at 06:09:02PM +0200, Sebastian Andrzej Siewior wrote:
+> > <SNIP>
+> >
+> If merge this chunk
 > 
-> >+/* Clears ac->pfmemalloc if no slabs have pfmalloc set */
-> >+static void check_ac_pfmemalloc(struct kmem_cache *cachep,
-> >+						struct array_cache *ac)
-> >+{
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 6510a5d..2acfec9 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -510,7 +510,7 @@ struct sk_buff {
+>  #define SKB_ALLOC_RX		0x02
+>  
+>  /* Returns true if the skb was allocated from PFMEMALLOC reserves */
+> -static inline bool skb_pfmemalloc(struct sk_buff *skb)
+> +static inline bool skb_pfmemalloc(const struct sk_buff *skb)
+>  {
+>  	return unlikely(skb->pfmemalloc);
+>  }
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index c44ab68..6ce94b5 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -852,7 +852,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+>  
+>  static inline int skb_alloc_rx_flag(const struct sk_buff *skb)
+>  {
+> -	if (skb_pfmemalloc((struct sk_buff *)skb))
+> +	if (skb_pfmemalloc(skb))
+>  		return SKB_ALLOC_RX;
+>  	return 0;
+>  }
 > 
-> >+	pfmemalloc_active = false;
-> >+out:
-> >+	spin_unlock_irqrestore(&l3->list_lock, flags);
-> >+}
 > 
-> The comment and the function do not seem to match.
+> Then you should be able to drop the case in skb_alloc_rx_flag() without adding
+> a warning.
 > 
 
-Well spotted. There used to be ac->pfmemalloc and obviously I failed to
-update the comment when it was removed.
-
-> Otherwise, the patch looks reasonable.
-
-Thanks.
+You're right. Thanks.
 
 -- 
 Mel Gorman
