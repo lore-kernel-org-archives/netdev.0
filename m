@@ -1,43 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: next-20120620 build error in netfilter
-Date: Sat, 23 Jun 2012 02:20:35 +0200
-Message-ID: <20120623002035.GB21360@1984>
-References: <32596.1340212473@turing-police.cc.vt.edu>
- <20120620172801.GA9385@1984>
- <55558.1340217472@turing-police.cc.vt.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next (v2) 0/6] bnx2x: link patch series
+Date: Fri, 22 Jun 2012 17:20:54 -0700 (PDT)
+Message-ID: <20120622.172054.1832176727496878280.davem@davemloft.net>
+References: <1340255123-22371-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: valdis.kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55558.1340217472@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, joe@perches.com
+To: yuvalmin@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38937 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756597Ab2FWAUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:20:55 -0400
+In-Reply-To: <1340255123-22371-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 20, 2012 at 02:37:52PM -0400, valdis.kletnieks@vt.edu wrote:
-> On Wed, 20 Jun 2012 19:28:01 +0200, Pablo Neira Ayuso said:
-> > On Wed, Jun 20, 2012 at 01:14:33PM -0400, Valdis Kletnieks wrote:
-> > > Today's linux-next fails to build with CONFIG_NF_NAT_NEEDED=y and CONFIG_NF_NAT=m
-> > >
-> > >   LD      init/built-in.o
-> > > net/built-in.o:(.data+0x4408): undefined reference to `nf_nat_tcp_seq_adjust'
-> > > make: *** [vmlinux] Error 1
-> >
-> > I guess you have NF_CT_NETLINK=y, right?
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Thu, 21 Jun 2012 08:05:17 +0300
+
+> Hi Dave,
 > 
-> Yes.
+> This patch series change bnx2x's link code. It contains both
+> semantic cleanup of the code as well as several patches that
+> add new support for optical modules - better 1G SFP support,
+> SFP+ Tx Fault support and implementation of the new ethtool API
+> for accessing the module's eeprom (on the bnx2x side).
 > 
-> Temporary workaround was setting NF_NAT=n (I don't use NAT, I just usually
-> build all the netfilter modules as =m even if I don't use them, just to provide
-> build coverage and trip over stuff like this).
+> Changes from Version 1:
+>   - Patch 2/6 - use usleep_range(small, small*2) instead of
+> 		usleep_range(small, small).
+> 
+> 
+> Please consider applying this patch-series to 'net-next'.
 
-Probably NF_CT_NETLINK=m is a better workaround.
-
-Anyway, I've enqueued the following patch to fix this:
-
-http://1984.lsi.us.es/git/nf-next/commit/?id=d584a61a931e6cbfef0dd811c4ae0250ec5987f4
-
-So you can use your previous config.
-
-Thanks.
+All applied, thanks.
