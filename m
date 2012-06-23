@@ -1,78 +1,72 @@
 From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Sat, 23 Jun 2012 10:45:04 +0200
-Message-ID: <8762aiju27.fsf@nemi.mork.no>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<CACVXFVNmquD6nhcJkumZsnXH7T+Ga3YNt9EAQ=-5HUkYwEdp7w@mail.gmail.com>
-	<CACVXFVMJSrLjOyKUnZWr3CY2HJT6Wfm6AugZOhSCRUubV0hNMQ@mail.gmail.com>
+Subject: Re: [PATCH net] net: qmi_wwan: fix Gobi device probing
+Date: Sat, 23 Jun 2012 11:26:54 +0200
+Message-ID: <87y5neidk1.fsf@nemi.mork.no>
+References: <1340282758-18085-1-git-send-email-bjorn@mork.no>
+	<20120622.171735.637204872051168180.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marius =?utf-8?Q?Bj=C3=B8rnstad?= Kotsbak
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	H.Siebmanns-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVMJSrLjOyKUnZWr3CY2HJT6Wfm6AugZOhSCRUubV0hNMQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Ming Lei's message of "Sat, 23 Jun 2012 11:39:22 +0800")
+In-Reply-To: <20120622.171735.637204872051168180.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+	Miller's message of "Fri, 22 Jun 2012 17:17:35 -0700 (PDT)")
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> On Sat, Jun 23, 2012 at 11:32 AM, Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
-ote:
->> On Fri, Jun 22, 2012 at 5:11 PM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wro=
-te:
->>
->>>
->>> Reported-by: Marius Bj=C3=B8rnstad Kotsbak <marius.kotsbak-Re5JQEeQqe8@public.gmane.org=
-m>
->>> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4
->>> Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
->>> ---
->>> =C2=A0drivers/net/usb/qmi_wwan.c | =C2=A0 =C2=A04 ++++
->>> =C2=A01 file changed, 4 insertions(+)
->>>
->>> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.=
-c
->>> index 3767a12..b01960f 100644
->>> --- a/drivers/net/usb/qmi_wwan.c
->>> +++ b/drivers/net/usb/qmi_wwan.c
->>> @@ -197,6 +197,10 @@ err:
->>> =C2=A0static int qmi_wwan_cdc_wdm_manage_power(struct usb_interface=
- *intf, int on)
->>> =C2=A0{
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct usbnet *dev =3D usb_get_intfdata(=
-intf);
->>> +
->>> + =C2=A0 =C2=A0 =C2=A0 /* can be called while disconnecting */
->>> + =C2=A0 =C2=A0 =C2=A0 if (!dev)
->>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return 0;
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0return qmi_wwan_manage_power(dev, on);
->>> =C2=A0}
->>
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
+
+> From: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> Date: Thu, 21 Jun 2012 14:45:58 +0200
 >
-> Considered there isn't any protection between usbnet_disconnet and
-> wdm_open/wdm_close, you patch still doesn't work on the race, see
-> below:
+>> Ignoring interfaces with additional descriptors is not a reliable
+>> method for locating the correct interface on Gobi devices.  There
+>> is at least one device where this method fails:
+>> https://bbs.archlinux.org/viewtopic.php?id=3D143506
+>>=20
+>> The result is that the AT command port (interface #2) is hidden
+>> from qcserial, preventing traditional serial modem usage:
+>  ...
+>> Use static interface numbers taken from the interface map in
+>> qcserial for all Gobi devices instead:
+>  ...
+>> This should be more reliable over all, and will also prevent the
+>> noisy "probe failed" messages.  The whitelisting logic is expected
+>> to be replaced by direct interface number matching in 3.6.
+>>=20
+>> Reported-by: Heinrich Siebmanns (Harvey) <H.Siebmanns-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
+>> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4: 0000188 USB: qmi_wwan: Make for=
+ced int 4 whitelist generic
+>> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4: f7142e6 USB: qmi_wwan: Add ZTE =
+(Vodafone) K3520-Z
+>> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # v3.4
+>> Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 >
->  =C2=A0 + =C2=A0 =C2=A0 =C2=A0 if (!dev)
->  =C2=A0 + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return 0;
->
->  =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0-> usbnet_disconnect() is t=
-riggered and completed here, so
->             dev may point to a freed usbnet instance.
+> Applied.
 
->  =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return qmi_wwan_manage_pow=
-er(dev, on);
+Thanks.
 
+Note that this patch will conflict with the qmi_wwan changes already in
+net-next.  I can prepare a minimal forward port if you like.
 
-usbnet_disconnect() cannot continue to the point where it frees the
-netdev before wdm_open/wdm_close has completed, because it waits for
-qmi_wwan_unbind which waits for wdm_disconnect.  And wdm_disconnect
-takes the both read and write mutexes.
+But I would really prefer to rewrite it completely for 3.6 instead,
+taking advantage of the USB interface number matching in usb-next.  Tha=
+t
+will allow us to get rid of the ugly whitelisting logic and just match
+directly on the USB interface number instead.  Would that be OK?  It
+will depend on=20
 
-So I do not think there is any race there. =20
+ 81df2d5 USB: allow match on bInterfaceNumber
+ fec1868 USB: properly pad out usb_device_id.driver_info
+
+from usb-next, so those must go into net-next before this is possible.
+Is waiting for 3.6-rc1 the best alternative, or is cherry-picking them
+an option?
+
+I can of course also do the basic forward port now and then fix it up
+later during the 3.6 cycle if you prefer that.
 
 
 
