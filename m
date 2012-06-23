@@ -1,102 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
-Date: Sat, 23 Jun 2012 07:37:31 +0200
-Message-ID: <1340429851.4604.11942.camel@edumazet-glaptop>
-References: <1340353746.4604.9502.camel@edumazet-glaptop>
-	 <4FE476A6.1050209@akamai.com>
-	 <1340388785.4604.11442.camel@edumazet-glaptop>
-	 <20120622.170237.1504103690155447356.davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Add sysctl knob to control early socket demux
+Date: Sat, 23 Jun 2012 07:45:26 +0200
+Message-ID: <1340430326.4604.11946.camel@edumazet-glaptop>
+References: <20120621235011.29846.29715.stgit@gitlad.jf.intel.com>
+	 <20120622.171509.1112294083000632011.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: johunt@akamai.com, kaber@trash.net, dbavatar@gmail.com,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	pekkas@netcore.fi, kuznet@ms2.inr.ac.ru,
-	linux-kernel@vger.kernel.org, Ben Greear <greearb@candelatech.com>
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:36223 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947Ab2FWFhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 01:37:37 -0400
-In-Reply-To: <20120622.170237.1504103690155447356.davem@davemloft.net>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:38940 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167Ab2FWFpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 01:45:33 -0400
+Received: by wgbdr13 with SMTP id dr13so2402812wgb.1
+        for <netdev@vger.kernel.org>; Fri, 22 Jun 2012 22:45:32 -0700 (PDT)
+In-Reply-To: <20120622.171509.1112294083000632011.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2012-06-22 at 17:15 -0700, David Miller wrote:
 
-
-> 1) Patrick McHardy has been inactive for a while, so do not expect
->    any insight from him.
+> I applied this for now, making a minor change to move the local
+> variables down into the new basic block you created.
 > 
-> 2) Ben Greear isn't even on the CC: list of this discussion yet he
->    appears to be the person who reproduced the crash way back then
->    and is listed in the Tested-by tag of the commit.
+
+Hmm, sorry to come late, but you left NET_IPV4_EARLY_DEMUX=126 sysctl,
+while this is deprecated way...
+
+> There has got to be a way to make this really cheap.  At the very
+> least we can have the GRO code store away the ports and therefore
+> allow us to just do a direct call to try and demux the socket.  Thus,
+> we'd avoid all of pskb_may_pull() et al. packet validations, and
+> packet header pointer calculations.
 > 
->    As a result we aren't likely to get any insight from the one person
->    who actually could hit the crash.
-> 
-> I'm inclined to just revert simply because we have people active who
-> can reproduce regressions introduced by this change and nobody can
-> understand why the change is even necessary.
+> Furthermore, we can reduce to overhead by making a special inet
+> established hash demux that doesn't check for time-wait sockets,
+> reducing the number of probes to 1 from 2.
 
-Well, except that :
-
-I spent 3 hours trying to understand Alexey code and failed.
-
-All other /proc/net files don't have a such sophisticated walkers aware
-mechanism (easily DOSable by the way, if some guy opens 10.000 handles
-and suspend in the middle the dumps).
-
-cat /proc/net/tcp for example can display same socket twice or miss a
-socket, because a 'suspend/restart' remembers offsets/counts in a hash
-chain, not a pointer to 'next socket'
-
-The fix I submitted is a real one, based on my analysis and tests.
- 
-Patrick patch was restarting the dump at the root of the tree, and
-setting skip = count was doing nothing at all, since all entries were
-dumped again.
-
-This is more a stable candidate fix.
-
-If someones smarter than me can find the real bug, then we certainly can
-revert Patrick patch ?
-
-[PATCH] ipv6: fib: fix fib dump restart
-
-Commit 2bec5a369ee79576a3 (ipv6: fib: fix crash when changing large fib
-while dumping it) introduced ability to restart the dump at tree root,
-but failed to skip correctly a count of already dumped entries. Code
-didn't match Patrick intent.
-
-We must skip exactly the number of already dumped entries.
-
-Note that like other /proc/net files or netlink producers, we could
-still dump some duplicates entries.
-
-Reported-by: Debabrata Banerjee <dbavatar@gmail.com>
-Reported-by: Josh Hunt <johunt@akamai.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
- net/ipv6/ip6_fib.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 74c21b9..6083276 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1349,8 +1349,8 @@ static int fib6_walk_continue(struct fib6_walker_t *w)
- 			if (w->leaf && fn->fn_flags & RTN_RTINFO) {
- 				int err;
- 
--				if (w->count < w->skip) {
--					w->count++;
-+				if (w->skip) {
-+					w->skip--;
- 					continue;
- 				}
- 
+The timewait hash chain is on the same cache line than established one.
+And on a router, both chains are empty with a 99.999 % probability.
