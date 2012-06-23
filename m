@@ -1,47 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Gobi device probing
-Date: Fri, 22 Jun 2012 17:17:35 -0700 (PDT)
-Message-ID: <20120622.171735.637204872051168180.davem@davemloft.net>
-References: <1340282758-18085-1-git-send-email-bjorn@mork.no>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: linux-next: Tree for Jun 21 (netfilter)
+Date: Sat, 23 Jun 2012 02:19:04 +0200
+Message-ID: <20120623001904.GA21360@1984>
+References: <20120621161200.9f42414a528897bb016869e2@canb.auug.org.au>
+ <4FE4AB02.9020100@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	H.Siebmanns@t-online.de
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38919 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756380Ab2FWARg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:17:36 -0400
-In-Reply-To: <1340282758-18085-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4FE4AB02.9020100@xenotime.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 21 Jun 2012 14:45:58 +0200
+On Fri, Jun 22, 2012 at 10:27:30AM -0700, Randy Dunlap wrote:
+> On 06/20/2012 11:12 PM, Stephen Rothwell wrote:
+> 
+> > Hi all,
+> > 
+> > Uploads to ra/geb.kernel.org are broken right now, so the tree will not
+> > be available until that is fixed and I have uploaded it.
+> > 
+> > News: All my builds are now done with gcc 4.6.3 and binutils 2.22.
+> > 
+> > Changes since 20120620:
+> 
+> on x86_64:
+> 
+> net/netfilter/nf_conntrack_netlink.c:1644:9: error: implicit declaration of function 'ctnetlink_secctx_size'
+> net/netfilter/nf_conntrack_netlink.c:1652:9: error: implicit declaration of function 'ctnetlink_proto_size'
 
-> Ignoring interfaces with additional descriptors is not a reliable
-> method for locating the correct interface on Gobi devices.  There
-> is at least one device where this method fails:
-> https://bbs.archlinux.org/viewtopic.php?id=3D143506
->=20
-> The result is that the AT command port (interface #2) is hidden
-> from qcserial, preventing traditional serial modem usage:
- ...
-> Use static interface numbers taken from the interface map in
-> qcserial for all Gobi devices instead:
- ...
-> This should be more reliable over all, and will also prevent the
-> noisy "probe failed" messages.  The whitelisting logic is expected
-> to be replaced by direct interface number matching in 3.6.
->=20
-> Reported-by: Heinrich Siebmanns (Harvey) <H.Siebmanns@t-online.de>
-> Cc: <stable@vger.kernel.org> # v3.4: 0000188 USB: qmi_wwan: Make forc=
-ed int 4 whitelist generic
-> Cc: <stable@vger.kernel.org> # v3.4: f7142e6 USB: qmi_wwan: Add ZTE (=
-Vodafone) K3520-Z
-> Cc: <stable@vger.kernel.org> # v3.4
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+I'll pass this patch to David to fix this issue:
 
-Applied.
+http://1984.lsi.us.es/git/nf-next/commit/?id=8e36c4b5b673edc6081599b8bd461e062e4910f4
+
+thanks for the report Randy.
