@@ -1,63 +1,51 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Sat, 23 Jun 2012 22:55:08 +0200
-Message-ID: <201206232255.08319.oliver@neukum.org>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no> <CACVXFVOZUvyNDzEoWT5o7JQRKjuw1pUgkipxV7dxT1w2Dd0H+A@mail.gmail.com> <87hau2hwna.fsf@nemi.mork.no>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
+Date: Sun, 24 Jun 2012 00:55:46 +0400
+Message-ID: <20120623205546.GA15964@ms2.inr.ac.ru>
+References: <1340353746.4604.9502.camel@edumazet-glaptop> <4FE476A6.1050209@akamai.com> <1340388785.4604.11442.camel@edumazet-glaptop> <20120622.170237.1504103690155447356.davem@davemloft.net> <1340429851.4604.11942.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marius =?utf-8?q?Bj=C3=B8rnstad_Kotsbak?=
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: =?utf-8?q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87hau2hwna.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, johunt@akamai.com,
+	kaber@trash.net, dbavatar@gmail.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, jmorris@namei.org, pekkas@netcore.fi,
+	linux-kernel@vger.kernel.org, Ben Greear <greearb@candelatech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1340429851.4604.11942.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Samstag, 23. Juni 2012, 17:32:09 schrieb Bj=C3=B8rn Mork:
-> Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> > On Sat, Jun 23, 2012 at 4:45 PM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wr=
-ote:
+On Sat, Jun 23, 2012 at 07:37:31AM +0200, Eric Dumazet wrote:
+> All other /proc/net files don't have a such sophisticated walkers aware
+> mechanism
 
-> > Suppose there will be another usbnet driver which has its own subdr=
-iver
-> > too, the same trick of checking need to be added again if not takin=
-g the
-> > general way of simply removing 'usb_set_intfdata(intf, NULL);' in
-> > usbnet_disconnect.
->=20
-> Yes, I guess so.
->=20
-> I am just worrying (maybe too much) about the unknown consequences of
-> removing that code in usbnet, not fully understanding why it was ther=
-e
-> in the first place.  And I do not want to take the blame and cleanup
-> work if anything goes wrong :-) Fixing it in qmi_wwan feels much safe=
-r.
+I can explain why.
 
-void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
-{
-        struct cdc_state                *info =3D (void *) &dev->data;
-        struct usb_driver               *driver =3D driver_of(intf);
+IPv6 routing table has a capital management drawback: core policy rules are mixed
+with dynamic cache and addrconf routes in one structure.
+(BTW it is one of reasons why I did not want to integrate routing cache to fib for IPv4)
 
-        /* disconnect master --> disconnect slave */
-        if (intf =3D=3D info->control && info->data) {
-                /* ensure immediate exit from usbnet_disconnect */
-                usb_set_intfdata(info->data, NULL);
-                usb_driver_release_interface(driver, info->data);
-                info->data =3D NULL;
+Do you see the problem? F.e. when you do iptables-save, you do not expect
+that it can occasionally miss some rules (unless you mess with it in parallel, of course)
+The same is here. When you dump routing table, you are allowed to miss some cache routes,
+but if you have a chance to miss at least one of important routes just because
+unimportant dynamic part is alway under change, it is fatal.
 
-1. We mirror the minidrivers closely, which reduces errors
-2. unbind() is called with the data anyway and after disconnect()
-    the intfdata is not valid anyway, because the interface may have be=
-en
-    reprobed.
+There are a lot of ways to solve the problem, all of them have some flaws.
+F.e. I can remember:
+* atomic dump like bsd sysctl.
+* keeping administrative routes in a separate list, which can be walked using skip/count
+etc.
 
-	Regarsd
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This way with walkers I chose because it looked quite optimal and because
+it was an exciting little task for brains . :-)
+
+
+> (easily DOSable by the way, if some guy opens 10.000 handles
+> and suspend in the middle the dumps).
+
+This is true. The easiest way to fix this is just to limit amount of readers,
+putting them on hold.
+
+Alexey
