@@ -1,85 +1,34 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 3/4] netdev/phy/of: Add more methods for binding PHY devices to drivers.
-Date: Fri, 22 Jun 2012 17:24:15 -0700
-Message-ID: <1340411056-18988-4-git-send-email-ddaney.cavm@gmail.com>
-References: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	afleming@gmail.com, David Daney <david.daney@cavium.com>
-To: Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	devicetree-discuss@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3 net-next] tg3: Add sysfs file to export sensor data
+Date: Fri, 22 Jun 2012 17:26:51 -0700 (PDT)
+Message-ID: <20120622.172651.932738000786251092.davem@davemloft.net>
+References: <1340237192-30052-1-git-send-email-mchan@broadcom.com>
+	<1340237192-30052-2-git-send-email-mchan@broadcom.com>
+	<1340237192-30052-3-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nsujir@broadcom.com, mcarlson@broadcom.com
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39012 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932467Ab2FWA0w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:26:52 -0400
+In-Reply-To: <1340237192-30052-3-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 20 Jun 2012 17:06:32 -0700
 
-Allow PHY drivers to supply their own device matching function
-(match_phy_device()), or to be matched OF compatible properties.
+> Some tg3 devices have management firmware that can export data such as
+> temperature and other real time diagnostics data.  Export this data to
+> sysfs so that userspace can access this information.
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-PHYs following IEEE802.3 clause 45 have more than one device
-identifier constants, which breaks the default device matching code.
-Other 10G PHYs don't follow the standard manufacturer/device
-identifier register layout standards, but they do use the standard
-MDIO bus protocols for register access.  Both of these require
-adjustments to the PHY driver to device matching code.
-
-If the there is an of_node associated with such a PHY, we can match it
-to its driver using the "compatible" properties, just as we do with
-certain platform devices.  If the "compatible" property match fails,
-first check if there is a driver supplied matching function, and if
-not fall back to the existing identifier matching rules.
-
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/phy/mdio_bus.c |    7 +++++++
- include/linux/phy.h        |    7 +++++++
- 2 files changed, 14 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 31470b0..9a283b4 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -25,6 +25,7 @@
- #include <linux/init.h>
- #include <linux/delay.h>
- #include <linux/device.h>
-+#include <linux/of_device.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
-@@ -308,6 +309,12 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
- 	struct phy_device *phydev = to_phy_device(dev);
- 	struct phy_driver *phydrv = to_phy_driver(drv);
- 
-+	if (of_driver_match_device(dev, drv))
-+		return 1;
-+
-+	if (phydrv->match_phy_device)
-+		return phydrv->match_phy_device(phydev);
-+
- 	return ((phydrv->phy_id & phydrv->phy_id_mask) ==
- 		(phydev->phy_id & phydrv->phy_id_mask));
- }
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 92d53ee..bbd9e7f 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -434,6 +434,13 @@ struct phy_driver {
- 	/* Handles ethtool queries for hardware time stamping. */
- 	int (*ts_info)(struct phy_device *phydev, struct ethtool_ts_info *ti);
- 
-+	/*
-+	 * Returns true if this is a suitable driver for the given
-+	 * phydev.  If NULL, matching is based on phy_id and
-+	 * phy_id_mask.
-+	 */
-+	int (*match_phy_device)(struct phy_device *phydev);
-+
- 	/* Handles SIOCSHWTSTAMP ioctl for hardware time stamping. */
- 	int  (*hwtstamp)(struct phy_device *phydev, struct ifreq *ifr);
- 
--- 
-1.7.2.3
+I do not agree that sysfs is the appropriate place to export binary
+data.
