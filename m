@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] net/mlx4_en: Use atomic counter to decide when
- queue is full
-Date: Fri, 22 Jun 2012 17:23:53 -0700 (PDT)
-Message-ID: <20120622.172353.1092394608024377078.davem@davemloft.net>
-References: <1340270358-19504-1-git-send-email-yevgenyp@mellanox.co.il>
-	<1340270358-19504-5-git-send-email-yevgenyp@mellanox.co.il>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yevgenyp@mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38961 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756690Ab2FWAXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:23:54 -0400
-In-Reply-To: <1340270358-19504-5-git-send-email-yevgenyp@mellanox.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH 0/4] netdev/phy: 10G PHY support.
+Date: Fri, 22 Jun 2012 17:24:12 -0700
+Message-ID: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+	afleming@gmail.com, David Daney <david.daney@cavium.com>
+To: Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	devicetree-discuss@lists.ozlabs.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Date: Thu, 21 Jun 2012 12:19:17 +0300
+From: David Daney <david.daney@cavium.com>
 
-> The Transmit and transmit completion flows execute from different contexts,
-> which are not synchronized. Hence naive reading the of consumer index might
-> give wrong value by the time it is being used, That could lead to a state of transmit timeout.
-> Fix that by using atomic variable to maintain that index.
-> 
-> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+The existing PHY driver infrastructure supports IEEE 802.3 Clause 22
+PHYs used with 10/100/1000MB Ethernet.  For 10G Ethernet, many PHYs
+use 802.3 Clause 45.  These patches attempt to add core support for
+this as well as a driver for BCM87XX 10G PHY devices.
 
-I'm not convinced.  There is only one place that actually changes
-the counter.
+This is reworked from patches I send about 9 months ago:
 
-So it seems more like you have a missing memory barrier somewhere.
+http://marc.info/?l=linux-netdev&m=131844282403852
 
-Other drivers do not need to use something as expansive as an atomic
-variable for this and neither should you.
+Several of the patches have device tree bindings in them, so the
+device tree people get to enjoy them too.
 
-I'm not applying this patch series, you'll need to resubmit it in
-it's entirety once you fix this patch.
+David Daney (4):
+  netdev/phy: Handle IEEE802.3 clause 45 Ethernet PHYs
+  netdev/phy/of: Handle IEEE802.3 clause 45 Ethernet PHYs in
+    of_mdiobus_register()
+  netdev/phy/of: Add more methods for binding PHY devices to drivers.
+  netdev/phy: Add driver for Broadcom BCM87XX 10G Ethernet PHYs
+
+ .../devicetree/bindings/net/broadcom-bcm87xx.txt   |   29 +++
+ Documentation/devicetree/bindings/net/phy.txt      |   12 +-
+ drivers/net/phy/Kconfig                            |    5 +
+ drivers/net/phy/Makefile                           |    1 +
+ drivers/net/phy/bcm87xx.c                          |  239 ++++++++++++++++++++
+ drivers/net/phy/mdio_bus.c                         |    7 +
+ drivers/net/phy/phy_device.c                       |  110 +++++++++-
+ drivers/of/of_mdio.c                               |   14 +-
+ include/linux/phy.h                                |   32 +++-
+ 9 files changed, 436 insertions(+), 13 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
+ create mode 100644 drivers/net/phy/bcm87xx.c
+
+-- 
+1.7.2.3
