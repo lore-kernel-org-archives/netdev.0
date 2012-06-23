@@ -1,34 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3 net-next] tg3: Add sysfs file to export sensor data
-Date: Fri, 22 Jun 2012 17:26:51 -0700 (PDT)
-Message-ID: <20120622.172651.932738000786251092.davem@davemloft.net>
-References: <1340237192-30052-1-git-send-email-mchan@broadcom.com>
-	<1340237192-30052-2-git-send-email-mchan@broadcom.com>
-	<1340237192-30052-3-git-send-email-mchan@broadcom.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH -v1 0/3] usbnet: usbnet: PM related fixes
+Date: Fri, 22 Jun 2012 17:34:57 -0700 (PDT)
+Message-ID: <20120622.173457.698754419353861991.davem@davemloft.net>
+References: <1340176553-32225-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nsujir@broadcom.com, mcarlson@broadcom.com
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39012 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932467Ab2FWA0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:26:52 -0400
-In-Reply-To: <1340237192-30052-3-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1340176553-32225-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 20 Jun 2012 17:06:32 -0700
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Wed, 20 Jun 2012 15:15:50 +0800
 
-> Some tg3 devices have management firmware that can export data such as
-> temperature and other real time diagnostics data.  Export this data to
-> sysfs so that userspace can access this information.
+> The 3 patches fix some PM related problems.
 > 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> v1:
+> 	- one line fix in 3/3: GFP_ATOMIC -> flags in rx_alloc_submit
 
-I do not agree that sysfs is the appropriate place to export binary
-data.
+All applied, thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
