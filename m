@@ -1,55 +1,59 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Sat, 23 Jun 2012 22:55:13 +0800
-Message-ID: <CACVXFVOZUvyNDzEoWT5o7JQRKjuw1pUgkipxV7dxT1w2Dd0H+A@mail.gmail.com>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<CACVXFVNmquD6nhcJkumZsnXH7T+Ga3YNt9EAQ=-5HUkYwEdp7w@mail.gmail.com>
-	<CACVXFVMJSrLjOyKUnZWr3CY2HJT6Wfm6AugZOhSCRUubV0hNMQ@mail.gmail.com>
-	<8762aiju27.fsf@nemi.mork.no>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3 net-next] tg3: Add sysfs file to export sensor data
+Date: Sat, 23 Jun 2012 16:02:09 +0100
+Message-ID: <1340463729.6345.25.camel@deadeye.wl.decadent.org.uk>
+References: <1340237192-30052-1-git-send-email-mchan@broadcom.com>
+	 <1340237192-30052-2-git-send-email-mchan@broadcom.com>
+	 <1340237192-30052-3-git-send-email-mchan@broadcom.com>
+	 <20120622.172651.932738000786251092.davem@davemloft.net>
+	 <1340413453.4344.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak@gmail.com>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<nsujir@broadcom.com>, <mcarlson@broadcom.com>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:64560 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751186Ab2FWOzO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 10:55:14 -0400
-In-Reply-To: <8762aiju27.fsf@nemi.mork.no>
+Received: from webmail.solarflare.com ([12.187.104.25]:33702 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751613Ab2FWPCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 11:02:17 -0400
+In-Reply-To: <1340413453.4344.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 23, 2012 at 4:45 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+On Fri, 2012-06-22 at 18:04 -0700, Michael Chan wrote:
+> On Fri, 2012-06-22 at 17:26 -0700, David Miller wrote: 
+> > From: "Michael Chan" <mchan@broadcom.com>
+> > Date: Wed, 20 Jun 2012 17:06:32 -0700
+> > 
+> > > Some tg3 devices have management firmware that can export data such as
+> > > temperature and other real time diagnostics data.  Export this data to
+> > > sysfs so that userspace can access this information.
+> > > 
+> > > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> > > Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> > > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> > 
+> > I do not agree that sysfs is the appropriate place to export binary
+> > data.
+> > 
+> 
+> What's your suggestion?  ethtool?
 
-> usbnet_disconnect() cannot continue to the point where it frees the
-> netdev before wdm_open/wdm_close has completed, because it waits for
-> qmi_wwan_unbind which waits for wdm_disconnect. =A0And wdm_disconnect
-> takes the both read and write mutexes.
+Temperature and voltage can be exposed through an hwmon device (which
+practically means you use multiple attributes with conventional names).
+Other diagnostics might possible be suitable for ethtool stats,
+depending on what they are.
 
-Thanks for your explanation.
+If the driver can't easily parse the information (e.g. it varies greatly
+between the different chips and firmware versions) then a binary
+attribute or private ioctl might be appropriate.  But generic interfaces
+really should be considered first.
 
-I see, and your patch is correct, but it might not be generic enough.
+Ben.
 
-So driver_info->unbind will sync with .open/.close of the subdriver,
-just like unregister_netdev will sync with .open/.close of usbnet inter=
-face.
-
-IMO, the general solution is to keep intfdata's lifetime after ->unbind=
-,
-which can guarantee that intfdata can be accessed safely in .open/.clos=
-e
-of usbnet interface and the other subdrivers' device.
-
-Suppose there will be another usbnet driver which has its own subdriver
-too, the same trick of checking need to be added again if not taking th=
-e
-general way of simply removing 'usb_set_intfdata(intf, NULL);' in
-usbnet_disconnect.
-
-
-Thanks,
---=20
-Ming Lei
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
