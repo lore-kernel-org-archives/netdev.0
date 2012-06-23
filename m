@@ -1,43 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: RxConfig hack for the 8168evl.
-Date: Fri, 22 Jun 2012 21:49:02 -0700 (PDT)
-Message-ID: <20120622.214902.877817727539946317.davem@davemloft.net>
-References: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] net: sh_eth: fix the rxdesc pointer when rx descriptor
+ empty happens
+Date: Fri, 22 Jun 2012 21:51:02 -0700 (PDT)
+Message-ID: <20120622.215102.2154734910994772908.davem@davemloft.net>
+References: <Pine.LNX.4.64.1206201507260.20254@axis700.grange>
+	<4FE2784A.70208@renesas.com>
+	<Pine.LNX.4.64.1206221610350.17552@axis700.grange>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org, thomas.pi@arcor.de
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39836 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753337Ab2FWEtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 00:49:03 -0400
-In-Reply-To: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yoshihiro.shimoda.uh@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: g.liakhovetski@gmx.de
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1206221610350.17552@axis700.grange>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 21 Jun 2012 00:09:18 +0200
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Date: Fri, 22 Jun 2012 16:16:38 +0200 (CEST)
 
-> The 8168evl (RTL_GIGA_MAC_VER_34) based Gigabyte GA-990FXA motherboards
-> are very prone to NETDEV watchdog problems without this change. See
-> https://bugzilla.kernel.org/show_bug.cgi?id=42899 for instance.
+> Hi Shimoda-san
 > 
-> I don't know why it *works*. It's depressingly effective though.
+> On Thu, 21 Jun 2012, Shimoda, Yoshihiro wrote:
 > 
-> For the record:
-> - the problem may go along IOMMU (AMD-Vi) errors but it really looks
->   like a red herring.
-> - the patch sets the RX_MULTI_EN bit. If the 8168c doc is any guide,
->   the chipset now fetches several Rx descriptors at a time.
-> - long ago the driver ignored the RX_MULTI_EN bit.
->   e542a2269f232d61270ceddd42b73a4348dee2bb changed the RxConfig
->   settings. Whatever the problem it's now labeled a regression.
-> - Realtek's own driver can identify two different 8168evl devices
->   (CFG_METHOD_16 and CFG_METHOD_17) where the r8169 driver only
->   sees one. It sucks.
+>> Hello Guennadi-san,
+>> 
+>> 2012/06/20 22:10, Guennadi Liakhovetski wrote:
+>> > Hello Shimoda-san
+>> > 
+>> > On Tue, 29 May 2012, Shimoda, Yoshihiro wrote:
+>> > 
+>> >> When Receive Descriptor Empty happens, rxdesc pointer of the driver
+>> >> and actual next descriptor of the controller may be mismatch.
+>> >> This patch fixes it.
+>> > 
+>> > Unfortunately, this patch breaks networking on ecovec (sh7724). Booting 
+>> > with dhcp and NFS-root progresses very slowly with lots of "nfs: server 
+>> > not responding / Ok" messages and never completes. Reverting it in current 
+>> > Linus' tree fixes the problem.
+>> 
+>> Thank you very much for the report.
+>> The SH7724 doesn't set the RMCR register. So, the EDRRR will be clear after
+>> the controller receives a freme every time.
+>> So, the "fix the rxdesc pointer" had to check a condition.
+>> 
+>> I wrote a patch for the issue as the following.
+>> If possible, would you try the patch?
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Yes, it does seem to fix the problem.
+> 
+> Tested-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
 
-Applied, thanks Francois.
+Applied, thanks.
