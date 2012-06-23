@@ -1,7 +1,7 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 1/4] netdev/phy: Handle IEEE802.3 clause 45 Ethernet PHYs
-Date: Fri, 22 Jun 2012 17:24:13 -0700
-Message-ID: <1340411056-18988-2-git-send-email-ddaney.cavm@gmail.com>
+Subject: [PATCH 4/4] netdev/phy: Add driver for Broadcom BCM87XX 10G Ethernet PHYs
+Date: Fri, 22 Jun 2012 17:24:16 -0700
+Message-ID: <1340411056-18988-5-git-send-email-ddaney.cavm@gmail.com>
 References: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
 	afleming@gmail.com, David Daney <david.daney@cavium.com>
@@ -9,280 +9,339 @@ To: Grant Likely <grant.likely@secretlab.ca>,
 	Rob Herring <rob.herring@calxeda.com>,
 	devicetree-discuss@lists.ozlabs.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:43779 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932116Ab2FWAYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:24:25 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Daney <david.daney@cavium.com>
 
-The IEEE802.3 clause 45 MDIO bus protocol allows for directly
-addressing PHY registers using a 21 bit address, and is used by many
-10G Ethernet PHYS.  Already existing is the ability of MDIO bus
-drivers to use clause 45, with the MII_ADDR_C45 flag.  Here we add
-struct phy_c45_device_ids to hold the device identifier registers
-present in clause 45. struct phy_device gets a couple of new fields:
-c45_ids to hold the identifiers and is_c45 to signal that it is clause
-45.
+Add a driver for BCM8706 and BCM8727 devices.  These are a 10Gig PHYs
+which use MII_ADDR_C45 addressing.  They are always 10G full duplex, so
+there is no autonegotiation.  All we do is report link state and send
+interrupts when it changes.
 
-Normally the MII_ADDR_C45 flag is ORed with the register address to
-indicate a clause 45 transaction.  Here we also use this flag in the
-*device* address passed to get_phy_device() to indicate that probing
-should be done with clause 45 transactions.
-
-EXPORT phy_device_create() so that the follow-on patch to of_mdio.c
-can use it to create phy devices for PHYs, that have non-standard
-device identifier registers, based on the device tree bindings.
+If the PHY has a device tree of_node associated with it, the
+"broadcom,c45-reg-init" property is used to supply register
+initialization values when config_init() is called.
 
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/net/phy/phy_device.c |  110 +++++++++++++++++++++++++++++++++++++++---
- include/linux/phy.h          |   25 +++++++++-
- 2 files changed, 126 insertions(+), 9 deletions(-)
+ .../devicetree/bindings/net/broadcom-bcm87xx.txt   |   29 +++
+ drivers/net/phy/Kconfig                            |    5 +
+ drivers/net/phy/Makefile                           |    1 +
+ drivers/net/phy/bcm87xx.c                          |  239 ++++++++++++++++++++
+ 4 files changed, 274 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
+ create mode 100644 drivers/net/phy/bcm87xx.c
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 18ab0da..fa0f558 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -152,8 +152,8 @@ int phy_scan_fixups(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(phy_scan_fixups);
- 
--static struct phy_device* phy_device_create(struct mii_bus *bus,
--					    int addr, int phy_id)
-+struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
-+				     struct phy_c45_device_ids *c45_ids)
- {
- 	struct phy_device *dev;
- 
-@@ -174,8 +174,12 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
- 
- 	dev->autoneg = AUTONEG_ENABLE;
- 
-+	dev->is_c45 = (addr & MII_ADDR_C45) != 0;
-+	addr &= ~MII_ADDR_C45;
- 	dev->addr = addr;
- 	dev->phy_id = phy_id;
-+	if (c45_ids)
-+		dev->c45_ids = *c45_ids;
- 	dev->bus = bus;
- 	dev->dev.parent = bus->parent;
- 	dev->dev.bus = &mdio_bus_type;
-@@ -200,20 +204,104 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
- 
- 	return dev;
- }
-+EXPORT_SYMBOL(phy_device_create);
+diff --git a/Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt b/Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
+new file mode 100644
+index 0000000..7c86d5e
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
+@@ -0,0 +1,29 @@
++The Broadcom BCM87XX devices are a family of 10G Ethernet PHYs.  They
++have these bindings in addition to the standard PHY bindings.
 +
-+/**
-+ * get_phy_c45_ids - reads the specified addr for its 802.3-c45 IDs.
-+ * @bus: the target MII bus
-+ * @addr: PHY address on the MII bus
-+ * @phy_id: where to store the ID retrieved.
-+ * @c45_ids: where to store the c45 ID information.
++Compatible: Should contain "broadcom,bcm8706" or "broadcom,bcm8727" and
++            "ethernet-phy-ieee802.3-c45"
++
++Optional Properties:
++
++- broadcom,c45-reg-init : one of more sets of 4 cells.  The first cell
++  is the MDIO Manageable Device (MMD) address, the second a register
++  address within the MMD, the third cell contains a mask to be ANDed
++  with the existing register value, and the fourth cell is ORed with
++  he result to yield the new register value.  If the third cell has a
++  value of zero, no read of the existing value is performed.
++
++Example:
++
++	ethernet-phy@5 {
++		reg = <5>;
++		compatible = "broadcom,bcm8706", "ethernet-phy-ieee802.3-c45";
++		interrupt-parent = <&gpio>;
++		interrupts = <12 8>; /* Pin 12, active low */
++		/*
++		 * Set PMD Digital Control Register for
++		 * GPIO[1] Tx/Rx
++		 * GPIO[0] R64 Sync Acquired
++		 */
++		broadcom,c45-reg-init = <1 0xc808 0xff8f 0x70>;
++	};
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 944cdfb..3090dc6 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -67,6 +67,11 @@ config BCM63XX_PHY
+ 	---help---
+ 	  Currently supports the 6348 and 6358 PHYs.
+ 
++config BCM87XX_PHY
++	tristate "Driver for Broadcom BCM8706 and BCM8727 PHYs"
++	help
++	  Currently supports the BCM8706 and BCM8727 10G Ethernet PHYs.
++
+ config ICPLUS_PHY
+ 	tristate "Drivers for ICPlus PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index f51af68..6d2dc6c 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -12,6 +12,7 @@ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
+ obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
+ obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
++obj-$(CONFIG_BCM87XX_PHY)	+= bcm87xx.o
+ obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
+ obj-$(CONFIG_LSI_ET1011C_PHY)	+= et1011c.o
+diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
+new file mode 100644
+index 0000000..b2f6a43
+--- /dev/null
++++ b/drivers/net/phy/bcm87xx.c
+@@ -0,0 +1,239 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
 + *
-+ *   If the PHY devices-in-package appears to be valid, it and the
-+ *   corresponding identifiers are stored in @c45_ids, zero is stored
-+ *   in @phy_id.  Otherwise 0xffffffff is stored in @phy_id.  Returns
-+ *   zero on success.
++ * Copyright (C) 2011 - 2012 Cavium, Inc.
++ */
++
++#include <linux/module.h>
++#include <linux/phy.h>
++#include <linux/of.h>
++
++#define PHY_ID_BCM8706	0x0143bdc1
++#define PHY_ID_BCM8727	0x0143bff0
++
++#define BCM87XX_PMD_RX_SIGNAL_DETECT	(MII_ADDR_C45 | 0x1000a)
++#define BCM87XX_10GBASER_PCS_STATUS	(MII_ADDR_C45 | 0x30020)
++#define BCM87XX_XGXS_LANE_STATUS	(MII_ADDR_C45 | 0x40018)
++
++#define BCM87XX_LASI_CONTROL (MII_ADDR_C45 | 0x39002)
++#define BCM87XX_LASI_STATUS (MII_ADDR_C45 | 0x39005)
++
++#if IS_ENABLED(CONFIG_OF_MDIO)
++/*
++ * Set and/or override some configuration registers based on the
++ * marvell,reg-init property stored in the of_node for the phydev.
++ *
++ * broadcom,c45-reg-init = <devid reg mask value>,...;
++ *
++ * There may be one or more sets of <devid reg mask value>:
++ *
++ * devid: which sub-device to use.
++ * reg: the register.
++ * mask: if non-zero, ANDed with existing register value.
++ * value: ORed with the masked value and written to the regiser.
 + *
 + */
-+static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
-+			   struct phy_c45_device_ids *c45_ids) {
-+	int phy_reg;
-+	int i, reg_addr;
++static int bcm87xx_of_reg_init(struct phy_device *phydev)
++{
++	const __be32 *paddr;
++	const __be32 *paddr_end;
++	int len, ret;
 +
-+	/*
-+	 * Find first non-zero Devices In package.  Device
-+	 * zero is reserved, so don't probe it.
-+	 */
-+	for (i = 1;
-+	     i < ARRAY_SIZE(c45_ids->device_ids) &&
-+		     c45_ids->devices_in_package == 0;
-+	     i++) {
-+		reg_addr = MII_ADDR_C45 | i << 16 | 6;
-+		phy_reg = mdiobus_read(bus, addr, reg_addr);
-+		if (phy_reg < 0)
-+			return -EIO;
-+		c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
++	if (!phydev->dev.of_node)
++		return 0;
 +
++	paddr = of_get_property(phydev->dev.of_node,
++				"broadcom,c45-reg-init", &len);
++	if (!paddr)
++		return 0;
 +
-+		reg_addr = MII_ADDR_C45 | i << 16 | 5;
-+		phy_reg = mdiobus_read(bus, addr, reg_addr);
-+		if (phy_reg < 0)
-+			return -EIO;
-+		c45_ids->devices_in_package |= (phy_reg & 0xffff);
++	paddr_end = paddr + (len /= sizeof(*paddr));
 +
-+		/*
-+		 * If mostly Fs, there is no device there,
-+		 * let's get out of here.
-+		 */
-+		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
-+			*phy_id = 0xffffffff;
-+			return 0;
++	ret = 0;
++
++	while (paddr + 3 < paddr_end) {
++		u16 devid	= be32_to_cpup(paddr++);
++		u16 reg		= be32_to_cpup(paddr++);
++		u16 mask	= be32_to_cpup(paddr++);
++		u16 val_bits	= be32_to_cpup(paddr++);
++		int val;
++		u32 regnum = MII_ADDR_C45 | (devid << 16) | reg;
++		val = 0;
++		if (mask) {
++			val = phy_read(phydev, regnum);
++			if (val < 0) {
++				ret = val;
++				goto err;
++			}
++			val &= mask;
 +		}
++		val |= val_bits;
++
++		ret = phy_write(phydev, regnum, val);
++		if (ret < 0)
++			goto err;
 +	}
-+
-+	/* Now probe Device Identifiers for each device present. */
-+	for (i = 1; i < ARRAY_SIZE(c45_ids->device_ids); i++) {
-+		if (!(c45_ids->devices_in_package & (1 << i)))
-+			continue;
-+
-+		reg_addr = MII_ADDR_C45 | i << 16 | MII_PHYSID1;
-+		phy_reg = mdiobus_read(bus, addr, reg_addr);
-+		if (phy_reg < 0)
-+			return -EIO;
-+		c45_ids->device_ids[i] = (phy_reg & 0xffff) << 16;
-+
-+
-+		reg_addr = MII_ADDR_C45 | i << 16 | MII_PHYSID2;
-+		phy_reg = mdiobus_read(bus, addr, reg_addr);
-+		if (phy_reg < 0)
-+			return -EIO;
-+		c45_ids->device_ids[i] |= (phy_reg & 0xffff);
-+	}
-+	*phy_id = 0;
++err:
++	return ret;
++}
++#else
++static int bcm87xx_of_reg_init(struct phy_device *phydev)
++{
 +	return 0;
 +}
- 
- /**
-  * get_phy_id - reads the specified addr for its ID.
-  * @bus: the target MII bus
-  * @addr: PHY address on the MII bus
-  * @phy_id: where to store the ID retrieved.
-+ * @c45_ids: where to store the c45 ID information.
-+ *
-+ * Description: In the case of a 802.3-c22 PHY, reads the ID registers
-+ *   of the PHY at @addr on the @bus, stores it in @phy_id and returns
-+ *   zero on success.
-+ *
-+ *   In the case of a 802.3-c45 PHY, get_phy_c45_ids() is invoked, and
-+ *   its return value is in turn returned.
-  *
-- * Description: Reads the ID registers of the PHY at @addr on the
-- *   @bus, stores it in @phy_id and returns zero on success.
-  */
--static int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
-+static int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id,
-+		      struct phy_c45_device_ids *c45_ids)
- {
- 	int phy_reg;
- 
-+	if (addr & MII_ADDR_C45) {
-+		addr &= ~MII_ADDR_C45;
++#endif /* CONFIG_OF_MDIO */
 +
-+		return get_phy_c45_ids(bus, addr, phy_id, c45_ids);
++static int bcm87xx_config_init(struct phy_device *phydev)
++{
++	phydev->supported = SUPPORTED_10000baseR_FEC;
++	phydev->advertising = ADVERTISED_10000baseR_FEC;
++	phydev->state = PHY_NOLINK;
++
++	bcm87xx_of_reg_init(phydev);
++
++	return 0;
++}
++
++static int bcm87xx_config_aneg(struct phy_device *phydev)
++{
++	return -EINVAL;
++}
++
++static int bcm87xx_read_status(struct phy_device *phydev)
++{
++	int rx_signal_detect;
++	int pcs_status;
++	int xgxs_lane_status;
++
++	rx_signal_detect = phy_read(phydev, BCM87XX_PMD_RX_SIGNAL_DETECT);
++	if (rx_signal_detect < 0)
++		return rx_signal_detect;
++
++	if ((rx_signal_detect & 1) == 0)
++		goto no_link;
++
++	pcs_status = phy_read(phydev, BCM87XX_10GBASER_PCS_STATUS);
++	if (pcs_status < 0)
++		return pcs_status;
++
++	if ((pcs_status & 1) == 0)
++		goto no_link;
++
++	xgxs_lane_status = phy_read(phydev, BCM87XX_XGXS_LANE_STATUS);
++	if (xgxs_lane_status < 0)
++		return xgxs_lane_status;
++
++	if ((xgxs_lane_status & 0x1000) == 0)
++		goto no_link;
++
++	phydev->speed = 10000;
++	phydev->link = 1;
++	phydev->duplex = 1;
++	return 0;
++
++no_link:
++	phydev->link = 0;
++	return 0;
++}
++
++static int bcm87xx_config_intr(struct phy_device *phydev)
++{
++	int reg, err;
++
++	reg = phy_read(phydev, BCM87XX_LASI_CONTROL);
++
++	if (reg < 0)
++		return reg;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		reg |= 1;
++	else
++		reg &= ~1;
++
++	err = phy_write(phydev, BCM87XX_LASI_CONTROL, reg);
++	return err;
++}
++
++static int bcm87xx_did_interrupt(struct phy_device *phydev)
++{
++	int reg;
++
++	reg = phy_read(phydev, BCM87XX_LASI_STATUS);
++
++	if (reg < 0) {
++		dev_err(&phydev->dev,
++			"Error: Read of BCM87XX_LASI_STATUS failed: %d\n", reg);
++		return 0;
 +	}
- 	/* Grab the bits from PHYIR1, and put them
- 	 * in the upper half */
- 	phy_reg = mdiobus_read(bus, addr, MII_PHYSID1);
-@@ -241,14 +329,17 @@ static int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
-  *
-  * Description: Reads the ID registers of the PHY at @addr on the
-  *   @bus, then allocates and returns the phy_device to represent it.
-+ *   If @addr & MII_ADDR_C45 is not zero, the PHY is assumed to be
-+ *   802.3-c45.
-  */
- struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
- {
- 	struct phy_device *dev = NULL;
- 	u32 phy_id;
-+	struct phy_c45_device_ids c45_ids = {0};
- 	int r;
- 
--	r = get_phy_id(bus, addr, &phy_id);
-+	r = get_phy_id(bus, addr, &phy_id, &c45_ids);
- 	if (r)
- 		return ERR_PTR(r);
- 
-@@ -256,7 +347,7 @@ struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
- 	if ((phy_id & 0x1fffffff) == 0x1fffffff)
- 		return NULL;
- 
--	dev = phy_device_create(bus, addr, phy_id);
-+	dev = phy_device_create(bus, addr, phy_id, &c45_ids);
- 
- 	return dev;
- }
-@@ -449,6 +540,11 @@ static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 	/* Assume that if there is no driver, that it doesn't
- 	 * exist, and we should use the genphy driver. */
- 	if (NULL == d->driver) {
-+		if (phydev->is_c45) {
-+			pr_err("No driver for phy %x\n", phydev->phy_id);
-+			return -ENODEV;
-+		}
++	return (reg & 1) != 0;
++}
 +
- 		d->driver = &genphy_driver.driver;
- 
- 		err = d->driver->probe(d);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index c291cae..92d53ee 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -83,8 +83,12 @@ typedef enum {
-  */
- #define MII_BUS_ID_SIZE	(20 - 3)
- 
--/* Or MII_ADDR_C45 into regnum for read/write on mii_bus to enable the 21 bit
--   IEEE 802.3ae clause 45 addressing mode used by 10GIGE phy chips. */
-+/*
-+ * Or MII_ADDR_C45 into regnum for read/write on mii_bus to enable the
-+ * 21 bit IEEE 802.3ae clause 45 addressing mode used by 10GIGE phy
-+ * chips.  Also may be ORed into the device address in
-+ * get_phy_device().
-+ */
- #define MII_ADDR_C45 (1<<30)
- 
- struct device;
-@@ -243,6 +247,16 @@ enum phy_state {
- 	PHY_RESUMING
- };
- 
-+/*
-+ * phy_c45_device_ids: 802.3-c45 Device Identifiers
-+ *
-+ * devices_in_package: Bit vector of devices present.
-+ * device_ids: The device identifer for each present device.
-+ */
-+struct phy_c45_device_ids {
-+	u32 devices_in_package;
-+	u32 device_ids[8];
++static int bcm87xx_ack_interrupt(struct phy_device *phydev)
++{
++	/* Reading the LASI status clears it. */
++	bcm87xx_did_interrupt(phydev);
++	return 0;
++}
++
++static int bcm8706_match_phy_device(struct phy_device *phydev)
++{
++	return phydev->c45_ids.device_ids[4] == PHY_ID_BCM8706;
++}
++
++static int bcm8727_match_phy_device(struct phy_device *phydev)
++{
++	return phydev->c45_ids.device_ids[4] == PHY_ID_BCM8727;
++}
++
++static struct phy_driver bcm8706_driver = {
++	.phy_id		= PHY_ID_BCM8706,
++	.phy_id_mask	= 0xffffffff,
++	.name		= "Broadcom BCM8706",
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= bcm87xx_config_init,
++	.config_aneg	= bcm87xx_config_aneg,
++	.read_status	= bcm87xx_read_status,
++	.ack_interrupt	= bcm87xx_ack_interrupt,
++	.config_intr	= bcm87xx_config_intr,
++	.did_interrupt	= bcm87xx_did_interrupt,
++	.match_phy_device = bcm8706_match_phy_device,
++	.driver		= { .owner = THIS_MODULE },
 +};
- 
- /* phy_device: An instance of a PHY
-  *
-@@ -250,6 +264,8 @@ enum phy_state {
-  * bus: Pointer to the bus this PHY is on
-  * dev: driver model device structure for this PHY
-  * phy_id: UID for this device found during discovery
-+ * c45_ids: 802.3-c45 Device Identifers if is_c45.
-+ * is_c45:  Set to true if this phy uses clause 45 addressing.
-  * state: state of the PHY for management purposes
-  * dev_flags: Device-specific flags used by the PHY driver.
-  * addr: Bus address of PHY
-@@ -285,6 +301,9 @@ struct phy_device {
- 
- 	u32 phy_id;
- 
-+	struct phy_c45_device_ids c45_ids;
-+	bool is_c45;
 +
- 	enum phy_state state;
- 
- 	u32 dev_flags;
-@@ -480,6 +499,8 @@ static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
- 	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
- }
- 
-+struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
-+				     struct phy_c45_device_ids *c45_ids);
- struct phy_device* get_phy_device(struct mii_bus *bus, int addr);
- int phy_device_register(struct phy_device *phy);
- int phy_init_hw(struct phy_device *phydev);
++static struct phy_driver bcm8727_driver = {
++	.phy_id		= PHY_ID_BCM8727,
++	.phy_id_mask	= 0xffffffff,
++	.name		= "Broadcom BCM8727",
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= bcm87xx_config_init,
++	.config_aneg	= bcm87xx_config_aneg,
++	.read_status	= bcm87xx_read_status,
++	.ack_interrupt	= bcm87xx_ack_interrupt,
++	.config_intr	= bcm87xx_config_intr,
++	.did_interrupt	= bcm87xx_did_interrupt,
++	.match_phy_device = bcm8727_match_phy_device,
++	.driver		= { .owner = THIS_MODULE },
++};
++
++static int __init bcm87xx_init(void)
++{
++	int ret;
++
++	ret = phy_driver_register(&bcm8706_driver);
++	if (ret)
++		goto err;
++
++	ret = phy_driver_register(&bcm8727_driver);
++err:
++	return ret;
++}
++module_init(bcm87xx_init);
++
++static void __exit bcm87xx_exit(void)
++{
++	phy_driver_unregister(&bcm8706_driver);
++	phy_driver_unregister(&bcm8727_driver);
++}
++module_exit(bcm87xx_exit);
 -- 
 1.7.2.3
