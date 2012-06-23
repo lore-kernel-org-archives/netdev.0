@@ -1,347 +1,103 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 4/4] netdev/phy: Add driver for Broadcom BCM87XX 10G Ethernet PHYs
-Date: Fri, 22 Jun 2012 17:24:16 -0700
-Message-ID: <1340411056-18988-5-git-send-email-ddaney.cavm@gmail.com>
+From: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 2/4] netdev/phy/of: Handle IEEE802.3 clause 45 Ethernet PHYs
+ in of_mdiobus_register()
+Date: Fri, 22 Jun 2012 17:24:14 -0700
+Message-ID: <1340411056-18988-3-git-send-email-ddaney.cavm@gmail.com>
 References: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	afleming@gmail.com, David Daney <david.daney@cavium.com>
-To: Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	devicetree-discuss@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340411056-18988-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, afleming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+ Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1340411056-18988-1-git-send-email-ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: David Daney <david.daney@cavium.com>
+From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 
-Add a driver for BCM8706 and BCM8727 devices.  These are a 10Gig PHYs
-which use MII_ADDR_C45 addressing.  They are always 10G full duplex, so
-there is no autonegotiation.  All we do is report link state and send
-interrupts when it changes.
+Define two new "compatible" values for Ethernet
+PHYs. "ethernet-phy-ieee802.3-c22" and "ethernet-phy-ieee802.3-c45"
+are used to indicate a PHY uses the corresponding protocol.
 
-If the PHY has a device tree of_node associated with it, the
-"broadcom,c45-reg-init" property is used to supply register
-initialization values when config_init() is called.
+If a PHY is "compatible" with "ethernet-phy-ieee802.3-c45", we
+indicate this so that get_phy_device() can properly probe the device.
 
-Signed-off-by: David Daney <david.daney@cavium.com>
+If get_phy_device() fails, it was probably due to failing the probe of
+the PHY identifier registers.  Since we have the device tree telling
+us the PHY exists, go ahead and add it anyhow with a phy_id of zero.
+There may be a driver match based on the "compatible" property.
+
+Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 ---
- .../devicetree/bindings/net/broadcom-bcm87xx.txt   |   29 +++
- drivers/net/phy/Kconfig                            |    5 +
- drivers/net/phy/Makefile                           |    1 +
- drivers/net/phy/bcm87xx.c                          |  239 ++++++++++++++++++++
- 4 files changed, 274 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
- create mode 100644 drivers/net/phy/bcm87xx.c
+ Documentation/devicetree/bindings/net/phy.txt |   12 +++++++++++-
+ drivers/of/of_mdio.c                          |   14 +++++++++++---
+ 2 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt b/Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
-new file mode 100644
-index 0000000..7c86d5e
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/broadcom-bcm87xx.txt
-@@ -0,0 +1,29 @@
-+The Broadcom BCM87XX devices are a family of 10G Ethernet PHYs.  They
-+have these bindings in addition to the standard PHY bindings.
-+
-+Compatible: Should contain "broadcom,bcm8706" or "broadcom,bcm8727" and
-+            "ethernet-phy-ieee802.3-c45"
-+
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index bb8c742..7cd18fb 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -14,10 +14,20 @@ Required properties:
+  - linux,phandle :  phandle for this node; likely referenced by an
+    ethernet controller node.
+ 
 +Optional Properties:
 +
-+- broadcom,c45-reg-init : one of more sets of 4 cells.  The first cell
-+  is the MDIO Manageable Device (MMD) address, the second a register
-+  address within the MMD, the third cell contains a mask to be ANDed
-+  with the existing register value, and the fourth cell is ORed with
-+  he result to yield the new register value.  If the third cell has a
-+  value of zero, no read of the existing value is performed.
++- compatible: Compatible list, may contain
++  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
++  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
++  specifications. If neither of these are specified, the default is to
++  assume clause 22. The compatible list may also contain other
++  elements.
 +
-+Example:
-+
-+	ethernet-phy@5 {
-+		reg = <5>;
-+		compatible = "broadcom,bcm8706", "ethernet-phy-ieee802.3-c45";
-+		interrupt-parent = <&gpio>;
-+		interrupts = <12 8>; /* Pin 12, active low */
-+		/*
-+		 * Set PMD Digital Control Register for
-+		 * GPIO[1] Tx/Rx
-+		 * GPIO[0] R64 Sync Acquired
-+		 */
-+		broadcom,c45-reg-init = <1 0xc808 0xff8f 0x70>;
-+	};
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 944cdfb..3090dc6 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -67,6 +67,11 @@ config BCM63XX_PHY
- 	---help---
- 	  Currently supports the 6348 and 6358 PHYs.
+ Example:
  
-+config BCM87XX_PHY
-+	tristate "Driver for Broadcom BCM8706 and BCM8727 PHYs"
-+	help
-+	  Currently supports the BCM8706 and BCM8727 10G Ethernet PHYs.
+ ethernet-phy@0 {
+-	linux,phandle = <2452000>
++	compatible = "ethernet-phy-ieee802.3-c22";
++	linux,phandle = <2452000>;
+ 	interrupt-parent = <40000>;
+ 	interrupts = <35 1>;
+ 	reg = <0>;
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 2574abd..0f08aaf 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -79,11 +79,19 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 				mdio->irq[addr] = PHY_POLL;
+ 		}
+ 
++		if (of_device_is_compatible(child,
++					    "ethernet-phy-ieee802.3-c45"))
++			addr |= MII_ADDR_C45;
 +
- config ICPLUS_PHY
- 	tristate "Drivers for ICPlus PHYs"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index f51af68..6d2dc6c 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -12,6 +12,7 @@ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
- obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
- obj-$(CONFIG_BROADCOM_PHY)	+= broadcom.o
- obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
-+obj-$(CONFIG_BCM87XX_PHY)	+= bcm87xx.o
- obj-$(CONFIG_ICPLUS_PHY)	+= icplus.o
- obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
- obj-$(CONFIG_LSI_ET1011C_PHY)	+= et1011c.o
-diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
-new file mode 100644
-index 0000000..b2f6a43
---- /dev/null
-+++ b/drivers/net/phy/bcm87xx.c
-@@ -0,0 +1,239 @@
-+/*
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * Copyright (C) 2011 - 2012 Cavium, Inc.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/phy.h>
-+#include <linux/of.h>
-+
-+#define PHY_ID_BCM8706	0x0143bdc1
-+#define PHY_ID_BCM8727	0x0143bff0
-+
-+#define BCM87XX_PMD_RX_SIGNAL_DETECT	(MII_ADDR_C45 | 0x1000a)
-+#define BCM87XX_10GBASER_PCS_STATUS	(MII_ADDR_C45 | 0x30020)
-+#define BCM87XX_XGXS_LANE_STATUS	(MII_ADDR_C45 | 0x40018)
-+
-+#define BCM87XX_LASI_CONTROL (MII_ADDR_C45 | 0x39002)
-+#define BCM87XX_LASI_STATUS (MII_ADDR_C45 | 0x39005)
-+
-+#if IS_ENABLED(CONFIG_OF_MDIO)
-+/*
-+ * Set and/or override some configuration registers based on the
-+ * marvell,reg-init property stored in the of_node for the phydev.
-+ *
-+ * broadcom,c45-reg-init = <devid reg mask value>,...;
-+ *
-+ * There may be one or more sets of <devid reg mask value>:
-+ *
-+ * devid: which sub-device to use.
-+ * reg: the register.
-+ * mask: if non-zero, ANDed with existing register value.
-+ * value: ORed with the masked value and written to the regiser.
-+ *
-+ */
-+static int bcm87xx_of_reg_init(struct phy_device *phydev)
-+{
-+	const __be32 *paddr;
-+	const __be32 *paddr_end;
-+	int len, ret;
-+
-+	if (!phydev->dev.of_node)
-+		return 0;
-+
-+	paddr = of_get_property(phydev->dev.of_node,
-+				"broadcom,c45-reg-init", &len);
-+	if (!paddr)
-+		return 0;
-+
-+	paddr_end = paddr + (len /= sizeof(*paddr));
-+
-+	ret = 0;
-+
-+	while (paddr + 3 < paddr_end) {
-+		u16 devid	= be32_to_cpup(paddr++);
-+		u16 reg		= be32_to_cpup(paddr++);
-+		u16 mask	= be32_to_cpup(paddr++);
-+		u16 val_bits	= be32_to_cpup(paddr++);
-+		int val;
-+		u32 regnum = MII_ADDR_C45 | (devid << 16) | reg;
-+		val = 0;
-+		if (mask) {
-+			val = phy_read(phydev, regnum);
-+			if (val < 0) {
-+				ret = val;
-+				goto err;
+ 		phy = get_phy_device(mdio, addr);
+ 		if (!phy || IS_ERR(phy)) {
+-			dev_err(&mdio->dev, "error probing PHY at address %i\n",
+-				addr);
+-			continue;
++			phy = phy_device_create(mdio, addr, 0, NULL);
++			if (!phy || IS_ERR(phy)) {
++				dev_err(&mdio->dev,
++					"error creating PHY at address %i\n",
++					addr);
++				continue;
 +			}
-+			val &= mask;
-+		}
-+		val |= val_bits;
-+
-+		ret = phy_write(phydev, regnum, val);
-+		if (ret < 0)
-+			goto err;
-+	}
-+err:
-+	return ret;
-+}
-+#else
-+static int bcm87xx_of_reg_init(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_OF_MDIO */
-+
-+static int bcm87xx_config_init(struct phy_device *phydev)
-+{
-+	phydev->supported = SUPPORTED_10000baseR_FEC;
-+	phydev->advertising = ADVERTISED_10000baseR_FEC;
-+	phydev->state = PHY_NOLINK;
-+
-+	bcm87xx_of_reg_init(phydev);
-+
-+	return 0;
-+}
-+
-+static int bcm87xx_config_aneg(struct phy_device *phydev)
-+{
-+	return -EINVAL;
-+}
-+
-+static int bcm87xx_read_status(struct phy_device *phydev)
-+{
-+	int rx_signal_detect;
-+	int pcs_status;
-+	int xgxs_lane_status;
-+
-+	rx_signal_detect = phy_read(phydev, BCM87XX_PMD_RX_SIGNAL_DETECT);
-+	if (rx_signal_detect < 0)
-+		return rx_signal_detect;
-+
-+	if ((rx_signal_detect & 1) == 0)
-+		goto no_link;
-+
-+	pcs_status = phy_read(phydev, BCM87XX_10GBASER_PCS_STATUS);
-+	if (pcs_status < 0)
-+		return pcs_status;
-+
-+	if ((pcs_status & 1) == 0)
-+		goto no_link;
-+
-+	xgxs_lane_status = phy_read(phydev, BCM87XX_XGXS_LANE_STATUS);
-+	if (xgxs_lane_status < 0)
-+		return xgxs_lane_status;
-+
-+	if ((xgxs_lane_status & 0x1000) == 0)
-+		goto no_link;
-+
-+	phydev->speed = 10000;
-+	phydev->link = 1;
-+	phydev->duplex = 1;
-+	return 0;
-+
-+no_link:
-+	phydev->link = 0;
-+	return 0;
-+}
-+
-+static int bcm87xx_config_intr(struct phy_device *phydev)
-+{
-+	int reg, err;
-+
-+	reg = phy_read(phydev, BCM87XX_LASI_CONTROL);
-+
-+	if (reg < 0)
-+		return reg;
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		reg |= 1;
-+	else
-+		reg &= ~1;
-+
-+	err = phy_write(phydev, BCM87XX_LASI_CONTROL, reg);
-+	return err;
-+}
-+
-+static int bcm87xx_did_interrupt(struct phy_device *phydev)
-+{
-+	int reg;
-+
-+	reg = phy_read(phydev, BCM87XX_LASI_STATUS);
-+
-+	if (reg < 0) {
-+		dev_err(&phydev->dev,
-+			"Error: Read of BCM87XX_LASI_STATUS failed: %d\n", reg);
-+		return 0;
-+	}
-+	return (reg & 1) != 0;
-+}
-+
-+static int bcm87xx_ack_interrupt(struct phy_device *phydev)
-+{
-+	/* Reading the LASI status clears it. */
-+	bcm87xx_did_interrupt(phydev);
-+	return 0;
-+}
-+
-+static int bcm8706_match_phy_device(struct phy_device *phydev)
-+{
-+	return phydev->c45_ids.device_ids[4] == PHY_ID_BCM8706;
-+}
-+
-+static int bcm8727_match_phy_device(struct phy_device *phydev)
-+{
-+	return phydev->c45_ids.device_ids[4] == PHY_ID_BCM8727;
-+}
-+
-+static struct phy_driver bcm8706_driver = {
-+	.phy_id		= PHY_ID_BCM8706,
-+	.phy_id_mask	= 0xffffffff,
-+	.name		= "Broadcom BCM8706",
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= bcm87xx_config_init,
-+	.config_aneg	= bcm87xx_config_aneg,
-+	.read_status	= bcm87xx_read_status,
-+	.ack_interrupt	= bcm87xx_ack_interrupt,
-+	.config_intr	= bcm87xx_config_intr,
-+	.did_interrupt	= bcm87xx_did_interrupt,
-+	.match_phy_device = bcm8706_match_phy_device,
-+	.driver		= { .owner = THIS_MODULE },
-+};
-+
-+static struct phy_driver bcm8727_driver = {
-+	.phy_id		= PHY_ID_BCM8727,
-+	.phy_id_mask	= 0xffffffff,
-+	.name		= "Broadcom BCM8727",
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= bcm87xx_config_init,
-+	.config_aneg	= bcm87xx_config_aneg,
-+	.read_status	= bcm87xx_read_status,
-+	.ack_interrupt	= bcm87xx_ack_interrupt,
-+	.config_intr	= bcm87xx_config_intr,
-+	.did_interrupt	= bcm87xx_did_interrupt,
-+	.match_phy_device = bcm8727_match_phy_device,
-+	.driver		= { .owner = THIS_MODULE },
-+};
-+
-+static int __init bcm87xx_init(void)
-+{
-+	int ret;
-+
-+	ret = phy_driver_register(&bcm8706_driver);
-+	if (ret)
-+		goto err;
-+
-+	ret = phy_driver_register(&bcm8727_driver);
-+err:
-+	return ret;
-+}
-+module_init(bcm87xx_init);
-+
-+static void __exit bcm87xx_exit(void)
-+{
-+	phy_driver_unregister(&bcm8706_driver);
-+	phy_driver_unregister(&bcm8727_driver);
-+}
-+module_exit(bcm87xx_exit);
+ 		}
+ 
+ 		/* Associate the OF node with the device structure so it
 -- 
 1.7.2.3
