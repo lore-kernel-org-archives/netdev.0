@@ -1,59 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3 net-next] tg3: Add sysfs file to export sensor data
-Date: Sat, 23 Jun 2012 16:02:09 +0100
-Message-ID: <1340463729.6345.25.camel@deadeye.wl.decadent.org.uk>
-References: <1340237192-30052-1-git-send-email-mchan@broadcom.com>
-	 <1340237192-30052-2-git-send-email-mchan@broadcom.com>
-	 <1340237192-30052-3-git-send-email-mchan@broadcom.com>
-	 <20120622.172651.932738000786251092.davem@davemloft.net>
-	 <1340413453.4344.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<nsujir@broadcom.com>, <mcarlson@broadcom.com>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33702 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751613Ab2FWPCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 11:02:17 -0400
-In-Reply-To: <1340413453.4344.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 2/2 net] batman-adv: fix race condition in TT
+	full-table replacement
+Date: Sat, 23 Jun 2012 17:30:59 +0200
+Message-ID: <1340465459-2949-3-git-send-email-ordex@autistici.org>
+References: <1340465459-2949-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1340465459-2949-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-22 at 18:04 -0700, Michael Chan wrote:
-> On Fri, 2012-06-22 at 17:26 -0700, David Miller wrote: 
-> > From: "Michael Chan" <mchan@broadcom.com>
-> > Date: Wed, 20 Jun 2012 17:06:32 -0700
-> > 
-> > > Some tg3 devices have management firmware that can export data such as
-> > > temperature and other real time diagnostics data.  Export this data to
-> > > sysfs so that userspace can access this information.
-> > > 
-> > > Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> > > Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> > > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> > 
-> > I do not agree that sysfs is the appropriate place to export binary
-> > data.
-> > 
-> 
-> What's your suggestion?  ethtool?
+bug introduced with cea194d90b11aff7fc289149e4c7f305fad3535a
 
-Temperature and voltage can be exposed through an hwmon device (which
-practically means you use multiple attributes with conventional names).
-Other diagnostics might possible be suitable for ethtool stats,
-depending on what they are.
+In the current TT code, when a TT_Response containing a full table is received
+from an originator, first the node purges all the clients for that originator in
+the global translation-table and then merges the newly received table.
+During the purging phase each client deletion is done by means of a call_rcu()
+invocation and at the end of this phase the global entry counter for that
+originator is set to 0. However the invoked rcu function decreases the global
+entry counter for that originator by one too and since the rcu invocation is
+likely to be postponed, the node will end up in first setting the counter to 0
+and then decreasing it one by one for each deleted client.
 
-If the driver can't easily parse the information (e.g. it varies greatly
-between the different chips and firmware versions) then a binary
-attribute or private ioctl might be appropriate.  But generic interfaces
-really should be considered first.
+This bug leads to having a wrong global entry counter for the related node, say
+X. Then when the node with the broken counter will answer to a TT_REQUEST on
+behalf of node X, it will create faulty TT_RESPONSE that will generate an
+unrecoverable situation on the node that asked for the full table recover.
 
-Ben.
+The non-recoverability is given by the fact that the node with the broken
+counter will keep answering on behalf of X because its knowledge about X's state
+(ttvn + tt_crc) is correct.
 
+To solve this problem the counter is not explicitly set to 0 anymore and the
+counter decrement is performed right before the invocation of call_rcu().
+
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+---
+ net/batman-adv/translation-table.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 660c40f..2ab83d7 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -141,13 +141,14 @@ static void tt_orig_list_entry_free_rcu(struct rcu_head *rcu)
+ 	struct tt_orig_list_entry *orig_entry;
+ 
+ 	orig_entry = container_of(rcu, struct tt_orig_list_entry, rcu);
+-	atomic_dec(&orig_entry->orig_node->tt_size);
+ 	orig_node_free_ref(orig_entry->orig_node);
+ 	kfree(orig_entry);
+ }
+ 
+ static void tt_orig_list_entry_free_ref(struct tt_orig_list_entry *orig_entry)
+ {
++	/* to avoid race conditions, immediately decrease the tt counter */
++	atomic_dec(&orig_entry->orig_node->tt_size);
+ 	call_rcu(&orig_entry->rcu, tt_orig_list_entry_free_rcu);
+ }
+ 
+@@ -910,7 +911,6 @@ void tt_global_del_orig(struct bat_priv *bat_priv,
+ 		}
+ 		spin_unlock_bh(list_lock);
+ 	}
+-	atomic_set(&orig_node->tt_size, 0);
+ 	orig_node->tt_initialised = false;
+ }
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.9.4
