@@ -1,38 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next (v2) 0/6] bnx2x: link patch series
-Date: Fri, 22 Jun 2012 17:20:54 -0700 (PDT)
-Message-ID: <20120622.172054.1832176727496878280.davem@davemloft.net>
-References: <1340255123-22371-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH 4/4] net/mlx4_en: Use atomic counter to decide when
+ queue is full
+Date: Fri, 22 Jun 2012 17:23:53 -0700 (PDT)
+Message-ID: <20120622.172353.1092394608024377078.davem@davemloft.net>
+References: <1340270358-19504-1-git-send-email-yevgenyp@mellanox.co.il>
+	<1340270358-19504-5-git-send-email-yevgenyp@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, joe@perches.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38937 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38961 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756597Ab2FWAUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:20:55 -0400
-In-Reply-To: <1340255123-22371-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1756690Ab2FWAXy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 20:23:54 -0400
+In-Reply-To: <1340270358-19504-5-git-send-email-yevgenyp@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Thu, 21 Jun 2012 08:05:17 +0300
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Thu, 21 Jun 2012 12:19:17 +0300
 
-> Hi Dave,
+> The Transmit and transmit completion flows execute from different contexts,
+> which are not synchronized. Hence naive reading the of consumer index might
+> give wrong value by the time it is being used, That could lead to a state of transmit timeout.
+> Fix that by using atomic variable to maintain that index.
 > 
-> This patch series change bnx2x's link code. It contains both
-> semantic cleanup of the code as well as several patches that
-> add new support for optical modules - better 1G SFP support,
-> SFP+ Tx Fault support and implementation of the new ethtool API
-> for accessing the module's eeprom (on the bnx2x side).
-> 
-> Changes from Version 1:
->   - Patch 2/6 - use usleep_range(small, small*2) instead of
-> 		usleep_range(small, small).
-> 
-> 
-> Please consider applying this patch-series to 'net-next'.
+> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 
-All applied, thanks.
+I'm not convinced.  There is only one place that actually changes
+the counter.
+
+So it seems more like you have a missing memory barrier somewhere.
+
+Other drivers do not need to use something as expansive as an atomic
+variable for this and neither should you.
+
+I'm not applying this patch series, you'll need to resubmit it in
+it's entirety once you fix this patch.
