@@ -1,74 +1,51 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Sat, 23 Jun 2012 11:39:22 +0800
-Message-ID: <CACVXFVMJSrLjOyKUnZWr3CY2HJT6Wfm6AugZOhSCRUubV0hNMQ@mail.gmail.com>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<CACVXFVNmquD6nhcJkumZsnXH7T+Ga3YNt9EAQ=-5HUkYwEdp7w@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless 2012-06-22
+Date: Sat, 23 Jun 2012 00:11:03 -0400
+Message-ID: <20120623041103.GA29801@tuxdriver.com>
+References: <20120622201716.GB13918@tuxdriver.com>
+ <20452.64701.760819.559191@gargle.gargle.HOWL>
+ <20453.302.671438.533390@gargle.gargle.HOWL>
+ <20120622.165611.2220193371527786713.davem@davemloft.net>
+ <20453.9687.225096.194368@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak@gmail.com>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:64018 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300Ab2FWDjX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jun 2012 23:39:23 -0400
-In-Reply-To: <CACVXFVNmquD6nhcJkumZsnXH7T+Ga3YNt9EAQ=-5HUkYwEdp7w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20453.9687.225096.194368@gargle.gargle.HOWL>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sorry for mistaken triggered sending, :-(
+On Sat, Jun 23, 2012 at 07:41:35AM +0530, Sujith Manoharan wrote:
+> David Miller wrote:
+> > From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+> > Date: Sat, 23 Jun 2012 05:05:10 +0530
+> > 
+> > > Sujith Manoharan wrote:
+> > >> John W. Linville wrote:
+> > >> > Mohammed Shafi Shajakhan (1):
+> > >> >       ath9k_hw: avoid possible infinite loop in ar9003_get_pll_sqsum_dvc
+> > >> 
+> > >> Um, this commit doesn't really fix anything - the timeout is also
+> > >> arbitrary. Can you remove this from the 3.5 queue ? Thanks.
+> > > 
+> > > A review of the patch later, I think it's good. At least there's a
+> > > WARN_ON_ONCE() to indicate the situation in which the measurement fails.
+> > > It might come in handy as a debugging aid.
+> > 
+> > Thanks for wasting our time.
+> > 
+> > Make these determinations when changes to into John's tree, not
+> > later when he asks me to pull them into mine.
+> 
+> The patch was under review:
+> http://marc.info/?l=linux-wireless&m=134001371002288&w=2
 
-On Sat, Jun 23, 2012 at 11:32 AM, Ming Lei <tom.leiming@gmail.com> wrot=
-e:
-> On Fri, Jun 22, 2012 at 5:11 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
->
->>
->> Reported-by: Marius Bj=F8rnstad Kotsbak <marius.kotsbak@gmail.com>
->> Cc: <stable@vger.kernel.org> # v3.4
->> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
->> ---
->> =A0drivers/net/usb/qmi_wwan.c | =A0 =A04 ++++
->> =A01 file changed, 4 insertions(+)
->>
->> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
->> index 3767a12..b01960f 100644
->> --- a/drivers/net/usb/qmi_wwan.c
->> +++ b/drivers/net/usb/qmi_wwan.c
->> @@ -197,6 +197,10 @@ err:
->> =A0static int qmi_wwan_cdc_wdm_manage_power(struct usb_interface *in=
-tf, int on)
->> =A0{
->> =A0 =A0 =A0 =A0struct usbnet *dev =3D usb_get_intfdata(intf);
->> +
->> + =A0 =A0 =A0 /* can be called while disconnecting */
->> + =A0 =A0 =A0 if (!dev)
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
->> =A0 =A0 =A0 =A0return qmi_wwan_manage_power(dev, on);
->> =A0}
->
+Quibbling over the exact number of iterations for a timeout didn't
+seem is important as avoiding an endless loop...
 
-Considered there isn't any protection between usbnet_disconnet and
-wdm_open/wdm_close, you patch still doesn't work on the race, see
-below:
-
- =A0 + =A0 =A0 =A0 if (!dev)
- =A0 + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
-
- =A0 =A0 =A0 =A0 =A0 =A0-> usbnet_disconnect() is triggered and complet=
-ed here, so
-            dev may point to a freed usbnet instance.
-
- =A0 =A0 =A0 =A0 =A0 =A0 return qmi_wwan_manage_power(dev, on);
-
-One fix I can think of is to export wdm_mutex or its lock/unlock
-functions, and introduce the function of qmi_wwan_disconnect, which
-will call usbnet_disconnect with holding wdm_mutex.
-
-
-Thanks,
---=20
-Ming Lei
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
