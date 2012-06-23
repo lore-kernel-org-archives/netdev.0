@@ -1,44 +1,54 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Gobi device probing
-Date: Sat, 23 Jun 2012 12:44:16 +0200
-Message-ID: <87lijei9z3.fsf@nemi.mork.no>
-References: <87y5neidk1.fsf@nemi.mork.no>
-	<20120623.023749.1066357959466872561.davem@davemloft.net>
-	<87txy2ibr8.fsf@nemi.mork.no>
-	<20120623.033546.563917179592608418.davem@davemloft.net>
+From: Mohammed Shafi <shafi.wireless@gmail.com>
+Subject: Re: pull request: wireless 2012-06-22
+Date: Sat, 23 Jun 2012 16:15:51 +0530
+Message-ID: <CAD2nsn1wRUv3+585X0iaTdq4gfaHLk99GifmSktUSHEyrM4Erw@mail.gmail.com>
+References: <20120622201716.GB13918@tuxdriver.com>
+	<20452.64701.760819.559191@gargle.gargle.HOWL>
+	<20453.302.671438.533390@gargle.gargle.HOWL>
+	<20120622.165611.2220193371527786713.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	H.Siebmanns-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120623.033546.563917179592608418.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Sat, 23 Jun 2012 03:35:46 -0700 (PDT)")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: c_manoha@qca.qualcomm.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120622.165611.2220193371527786713.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-
-> From: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> Date: Sat, 23 Jun 2012 12:05:46 +0200
+On Sat, Jun 23, 2012 at 5:26 AM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Sujith Manoharan <c_manoha@qca.qualcomm.com>
+> Date: Sat, 23 Jun 2012 05:05:10 +0530
 >
->> But failing that, would it be OK to let the 3.6 version of the fix w=
-ait
->> for -rc2?  It's not a crash or any other kind of data loss bug, just=
- a
->> usability regression with a workaround.
+>> Sujith Manoharan wrote:
+>>> John W. Linville wrote:
+>>> > Mohammed Shafi Shajakhan (1):
+>>> > =A0 =A0 =A0 ath9k_hw: avoid possible infinite loop in ar9003_get_=
+pll_sqsum_dvc
+>>>
+>>> Um, this commit doesn't really fix anything - the timeout is also
+>>> arbitrary. Can you remove this from the 3.5 queue ? Thanks.
+>>
+>> A review of the patch later, I think it's good. At least there's a
+>> WARN_ON_ONCE() to indicate the situation in which the measurement fa=
+ils.
+>> It might come in handy as a debugging aid.
 >
-> I'm shortly going to merge net into net-next as I periodically do,
-> so I'm going to have to resolve the conflict regardless of how you
-> finally want to fix this Gobi device probing problem.
+> Thanks for wasting our time.
+>
+> Make these determinations when changes to into John's tree, not
+> later when he asks me to pull them into mine.
 
-OK.  I just sent a forward ported version for net-next.  Feel free to
-use it instead of the conflicting one, or drop it if not necessary.
+apologies for the confusion, i haven't got a better timeout from very
+few of the folks
+queried, I should have updated that. As the patch is being already
+pushed in, if we get
+a proper timeout, we would fix it later with a proper timeout.
 
 
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+thanks,
+shafi
