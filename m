@@ -1,48 +1,45 @@
-From: rainbow <rainbow@irh.it>
-Subject: [PATCH 1/1] ipheth: add support for iPad
-Date: Mon, 25 Jun 2012 00:37:48 +0200
-Message-ID: <1340577468-3298-1-git-send-email-rainbow@irh.it>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rainbow <rainbow@irh.it>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] net: Remove 'unlikely' qualifier in skb_steal_sock()
+Date: Sun, 24 Jun 2012 16:03:07 -0700
+Message-ID: <1340578987-2495-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	alexander.h.duyck@intel.com, shemminger@vyatta.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.irh.it ([109.74.199.9]:57560 "EHLO server.irh.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751850Ab2FXWoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jun 2012 18:44:25 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:42988 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751587Ab2FXW6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 18:58:13 -0400
+Received: by pbbrp8 with SMTP id rp8so5755151pbb.19
+        for <netdev@vger.kernel.org>; Sun, 24 Jun 2012 15:58:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for the iPad to the ipheth driver.
-(product id = 0x129a)
+With early demux enabled by default for TCP flows, there is high chance that
+skb->sk will be non-null. 'unlikely()' was removed from __inet_lookup_skb() but
+maybe it can be removed from skb_steal_sock() as well.
 
-Signed-off-by: rainbow <rainbow@irh.it>
+Note: skb_steal_sock() is also called by __inet6_lookup_skb() and
+__udp4_lib_lookup_skb() but they are protected by their own 'unlikely' calls.
+
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 ---
- drivers/net/usb/ipheth.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ include/net/sock.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 964031e..9c98449 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -59,6 +59,7 @@
- #define USB_PRODUCT_IPHONE_3G   0x1292
- #define USB_PRODUCT_IPHONE_3GS  0x1294
- #define USB_PRODUCT_IPHONE_4	0x1297
-+#define USB_PRODUCT_IPAD 0x129a
- #define USB_PRODUCT_IPHONE_4_VZW 0x129c
- #define USB_PRODUCT_IPHONE_4S	0x12a0
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 87b424a..2108603 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2154,7 +2154,7 @@ static inline void sk_change_net(struct sock *sk, struct net *net)
  
-@@ -101,6 +102,10 @@ static struct usb_device_id ipheth_table[] = {
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
- 	{ USB_DEVICE_AND_INTERFACE_INFO(
-+		USB_VENDOR_APPLE, USB_PRODUCT_IPAD,
-+		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+		IPHETH_USBINTF_PROTO) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(
- 		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4_VZW,
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
+ static inline struct sock *skb_steal_sock(struct sk_buff *skb)
+ {
+-	if (unlikely(skb->sk)) {
++	if (skb->sk) {
+ 		struct sock *sk = skb->sk;
+ 
+ 		skb->destructor = NULL;
 -- 
-1.7.10.2
+1.7.0.4
