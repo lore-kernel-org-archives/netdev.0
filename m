@@ -1,53 +1,60 @@
-From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Sun, 24 Jun 2012 19:47:30 +0200
-Message-ID: <0e34226c-8fe7-4e2e-8fc2-2ed140f23e9b@email.android.com>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no> <201206232255.08319.oliver@neukum.org> <877guxhx44.fsf@nemi.mork.no> <201206241413.08339.oliver@neukum.org>
+From: sjur.brandeland@stericsson.com
+Subject: [net 2/3] caif-hsi: Bugfix - Piggyback'ed embedded CAIF frame lost
+Date: Sun, 24 Jun 2012 23:01:37 +0200
+Message-ID: <1340571698-17892-2-git-send-email-sjur.brandeland@stericsson.com>
+References: <1340571698-17892-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <tom.leiming@gmail.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org,
-	=?ISO-8859-1?Q?Marius__Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak@gmail.com>
-To: Oliver Neukum <oliver@neukum.org>
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com,
+	Per Ellefsen <Per.Ellefsen@stericsson.com>,
+	Per Ellefsen <per.ellefsen@stericsson.com>,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:32929 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244Ab2FXRsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jun 2012 13:48:08 -0400
-In-Reply-To: <201206241413.08339.oliver@neukum.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:65158 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752328Ab2FXVBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 17:01:48 -0400
+Received: by lbbgm6 with SMTP id gm6so5685479lbb.19
+        for <netdev@vger.kernel.org>; Sun, 24 Jun 2012 14:01:46 -0700 (PDT)
+In-Reply-To: <1340571698-17892-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oliver@neukum.org> wrote:
->Am Sonntag, 24. Juni 2012, 11:34:19 schrieb Bj=C3=B8rn Mork:
->
->> Sorry, I did not understand what you meant we should do here.  The
->extra
->> usb_set_intfdata(, NULL) in usbnet_disconnect() won't make any
->> difference for that piece of code, will it?
->
->The point is that if it may be set to NULL, we always want it to be se=
-t
->to
->NULL, so we catch bugs.
->
->> And the USB core ensures that intfdata is set to NULL before any
->> reprobing, so that will never be a problem.  That's the reason why i=
-t
->> seems redundant setting it in usbnet_disconnect().
->
->The point is that if there is a problem because intfdata is set to
->NULL,
->there is very likely a problem in form of a race condition, if intfdat=
-a
->were not set to NULL in usbnet's disconnect handler.
+=46rom: Per Ellefsen <Per.Ellefsen@stericsson.com>
 
-Thanks for explaining. Yes, that makes sense to me as well.
+When receiving a piggyback'ed descriptor containing an
+embedded frame, but no payload, the embedded frame was
+lost.
 
-So then the original patch against qmi_wwan should go in, and we should=
- leave usbnet as it is. Are everyone comfortable with that?
+Signed-off-by: Per Ellefsen <per.ellefsen@stericsson.com>
+Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+---
+ drivers/net/caif/caif_hsi.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-
-Bj=C3=B8rn
+diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
+index 1520814..1f52ff3 100644
+--- a/drivers/net/caif/caif_hsi.c
++++ b/drivers/net/caif/caif_hsi.c
+@@ -693,8 +693,6 @@ static void cfhsi_rx_done(struct cfhsi *cfhsi)
+ 			 */
+ 			memcpy(rx_buf, (u8 *)piggy_desc,
+ 					CFHSI_DESC_SHORT_SZ);
+-			/* Mark no embedded frame here */
+-			piggy_desc->offset =3D 0;
+ 			if (desc_pld_len =3D=3D -EPROTO)
+ 				goto out_of_sync;
+ 		}
+@@ -737,6 +735,8 @@ static void cfhsi_rx_done(struct cfhsi *cfhsi)
+ 			/* Extract any payload in piggyback descriptor. */
+ 			if (cfhsi_rx_desc(piggy_desc, cfhsi) < 0)
+ 				goto out_of_sync;
++			/* Mark no embedded frame after extracting it */
++			piggy_desc->offset =3D 0;
+ 		}
+ 	}
+=20
+--=20
+1.7.5.4
