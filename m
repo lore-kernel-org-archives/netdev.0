@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: Fix bug in tcp socket early demux
-Date: Sat, 23 Jun 2012 23:23:00 -0700 (PDT)
-Message-ID: <20120623.232300.874228666675084293.davem@davemloft.net>
-References: <1340509090-2819-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: Re: [PATCH 0/2 net] Bug fixes for batman-adv 2012-06-23
+Date: Sat, 23 Jun 2012 23:24:38 -0700 (PDT)
+Message-ID: <20120623.232438.525314692277944525.davem@davemloft.net>
+References: <1340465459-2949-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	alexander.h.duyck@intel.com
-To: subramanian.vijay@gmail.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45080 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45089 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab2FXGXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 02:23:04 -0400
-In-Reply-To: <1340509090-2819-1-git-send-email-subramanian.vijay@gmail.com>
+	with ESMTP id S1752842Ab2FXGYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 02:24:38 -0400
+In-Reply-To: <1340465459-2949-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Sat, 23 Jun 2012 20:38:10 -0700
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Sat, 23 Jun 2012 17:30:57 +0200
 
-> The dest port for the call to __inet_lookup_established() in TCP early demux
-> code is passed with the wrong endian-ness. This causes the lookup to fail
-> leading to early demux not being used.
-> 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> Patch 1 is a fix for the AP-Isolation feature. A wrong check made all the
+> broadcast packets coming from any client be dropped before delivery to the
+> interface.
+> Patch 2 instead fixes a "real" race condition in the TranslationTable code.
+ ...
+>   git://git.open-mesh.org/linux-merge.git batman-adv/maint
 
-That's what I get for only testing on big-endian :-)
-
-Applied, thanks.
+Pulled, thanks.
