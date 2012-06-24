@@ -1,45 +1,48 @@
-From: sjur.brandeland@stericsson.com
-Subject: [net 3/3] caif-hsi: Add missing return in error path
-Date: Sun, 24 Jun 2012 23:01:38 +0200
-Message-ID: <1340571698-17892-3-git-send-email-sjur.brandeland@stericsson.com>
-References: <1340571698-17892-1-git-send-email-sjur.brandeland@stericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sjurbren@gmail.com,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: davem@davemloft.net
+From: rainbow <rainbow@irh.it>
+Subject: [PATCH 1/1] ipheth: add support for iPad
+Date: Mon, 25 Jun 2012 00:37:48 +0200
+Message-ID: <1340577468-3298-1-git-send-email-rainbow@irh.it>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rainbow <rainbow@irh.it>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:60193 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752649Ab2FXVBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 17:01:48 -0400
-Received: by mail-lb0-f174.google.com with SMTP id gm6so5685469lbb.19
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2012 14:01:47 -0700 (PDT)
-In-Reply-To: <1340571698-17892-1-git-send-email-sjur.brandeland@stericsson.com>
+Received: from server.irh.it ([109.74.199.9]:57560 "EHLO server.irh.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751850Ab2FXWoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jun 2012 18:44:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+This adds support for the iPad to the ipheth driver.
+(product id = 0x129a)
 
-=46ix a missing return, causing access to freed memory.
-
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+Signed-off-by: rainbow <rainbow@irh.it>
 ---
- drivers/net/caif/caif_hsi.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/usb/ipheth.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index 1f52ff3..4a27adb 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -1178,6 +1178,7 @@ int cfhsi_probe(struct platform_device *pdev)
- 		dev_err(&ndev->dev, "%s: Registration error: %d.\n",
- 			__func__, res);
- 		free_netdev(ndev);
-+		return -ENODEV;
- 	}
- 	/* Add CAIF HSI device to list. */
- 	spin_lock(&cfhsi_list_lock);
---=20
-1.7.5.4
+diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
+index 964031e..9c98449 100644
+--- a/drivers/net/usb/ipheth.c
++++ b/drivers/net/usb/ipheth.c
+@@ -59,6 +59,7 @@
+ #define USB_PRODUCT_IPHONE_3G   0x1292
+ #define USB_PRODUCT_IPHONE_3GS  0x1294
+ #define USB_PRODUCT_IPHONE_4	0x1297
++#define USB_PRODUCT_IPAD 0x129a
+ #define USB_PRODUCT_IPHONE_4_VZW 0x129c
+ #define USB_PRODUCT_IPHONE_4S	0x12a0
+ 
+@@ -101,6 +102,10 @@ static struct usb_device_id ipheth_table[] = {
+ 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
+ 		IPHETH_USBINTF_PROTO) },
+ 	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPAD,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(
+ 		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_4_VZW,
+ 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
+ 		IPHETH_USBINTF_PROTO) },
+-- 
+1.7.10.2
