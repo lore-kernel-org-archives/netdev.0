@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter updates for net-next (upcoming 3.6),
- batch 4
-Date: Sat, 23 Jun 2012 17:14:39 -0700 (PDT)
-Message-ID: <20120623.171439.269257012571243684.davem@davemloft.net>
-References: <1340495609-26250-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1340495609-26250-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] tcp: Fix bug in tcp socket early demux
+Date: Sat, 23 Jun 2012 20:38:10 -0700
+Message-ID: <1340509090-2819-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	alexander.h.duyck@intel.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:33746 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753130Ab2FXDdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jun 2012 23:33:22 -0400
+Received: by pbbrp8 with SMTP id rp8so5142165pbb.19
+        for <netdev@vger.kernel.org>; Sat, 23 Jun 2012 20:33:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Sun, 24 Jun 2012 01:53:25 +0200
+The dest port for the call to __inet_lookup_established() in TCP early demux
+code is passed with the wrong endian-ness. This causes the lookup to fail
+leading to early demux not being used.
 
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
-> Hi David,
-> 
-> The following four patches provide Netfilter fixes for the cthelper
-> infrastructure that was recently merged mainstream, they are:
-> 
-> * two fixes for compilation breakage with two different configurations:
-> 
->   - CONFIG_NF_NAT=m and CONFIG_NF_CT_NETLINK=y
->   - NF_CONNTRACK_EVENTS=n and CONFIG_NETFILTER_NETLINK_QUEUE_CT=y
-> 
-> * two fixes for sparse warnings.
-> 
-> You can pull this changes from:
-> 
-> git://1984.lsi.us.es/nf-next master
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ net/ipv4/tcp_ipv4.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Pulled, thanks Pablo.
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index b52934f..1781dc6 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1701,7 +1701,7 @@ int tcp_v4_early_demux(struct sk_buff *skb)
+ 	dev = skb->dev;
+ 	sk = __inet_lookup_established(net, &tcp_hashinfo,
+ 				       iph->saddr, th->source,
+-				       iph->daddr, th->dest,
++				       iph->daddr, ntohs(th->dest),
+ 				       dev->ifindex);
+ 	if (sk) {
+ 		skb->sk = sk;
+-- 
+1.7.0.4
