@@ -1,59 +1,53 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH 5/5] tcp: plug dst leak in tcp_v6_conn_request()
-Date: Sun, 24 Jun 2012 13:12:33 -0400
-Message-ID: <CADVnQykuAQcj_i5cZQphKnnoHaCPMd6xLBmq1ZSAeZs83z3tfw@mail.gmail.com>
-References: <1340515324-2152-1-git-send-email-ncardwell@google.com>
-	<1340515324-2152-5-git-send-email-ncardwell@google.com>
-	<1340523678.23933.11.camel@edumazet-glaptop>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
+Date: Sun, 24 Jun 2012 19:47:30 +0200
+Message-ID: <0e34226c-8fe7-4e2e-8fc2-2ed140f23e9b@email.android.com>
+References: <1340356279-3124-1-git-send-email-bjorn@mork.no> <201206232255.08319.oliver@neukum.org> <877guxhx44.fsf@nemi.mork.no> <201206241413.08339.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ming Lei <tom.leiming@gmail.com>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	=?ISO-8859-1?Q?Marius__Bj=F8rnstad_Kotsbak?=
+	<marius.kotsbak@gmail.com>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:65459 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752000Ab2FXRMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 13:12:34 -0400
-Received: by obbuo13 with SMTP id uo13so5177118obb.19
-        for <netdev@vger.kernel.org>; Sun, 24 Jun 2012 10:12:34 -0700 (PDT)
-In-Reply-To: <1340523678.23933.11.camel@edumazet-glaptop>
+Received: from canardo.mork.no ([148.122.252.1]:32929 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751244Ab2FXRsI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jun 2012 13:48:08 -0400
+In-Reply-To: <201206241413.08339.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 24, 2012 at 3:41 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2012-06-24 at 01:22 -0400, Neal Cardwell wrote:
->> The code in tcp_v6_conn_request() was implicitly assuming that
->> tcp_v6_send_synack() would take care of dst_release(), much as
->> tcp_v4_send_synack() already does. This resulted in
->> tcp_v6_conn_request() leaking a dst if sysctl_tw_recycle is enabled.
->>
->> This commit restructures tcp_v6_send_synack() so that it accepts a dst
->> pointer and takes care of releasing the dst that is passed in, to plug
->> the leak and avoid future surprises by bringing the IPv6 behavior in
->> line with the IPv4 side.
+Oliver Neukum <oliver@neukum.org> wrote:
+>Am Sonntag, 24. Juni 2012, 11:34:19 schrieb Bj=C3=B8rn Mork:
 >
-> I feel a bit uncomfortable to send a mix of 3 patches to fix one bug.
+>> Sorry, I did not understand what you meant we should do here.  The
+>extra
+>> usb_set_intfdata(, NULL) in usbnet_disconnect() won't make any
+>> difference for that piece of code, will it?
 >
-> Could you instead send pure fix (fixing dst leak) for net tree ?
+>The point is that if it may be set to NULL, we always want it to be se=
+t
+>to
+>NULL, so we catch bugs.
 >
-> Then, when fix is incorporated in net-next, send the cleanups ?
+>> And the USB core ensures that intfdata is set to NULL before any
+>> reprobing, so that will never be a problem.  That's the reason why i=
+t
+>> seems redundant setting it in usbnet_disconnect().
 >
-> This also clashes with this pending work, so it would ease things if you
-> can respin the cleanups for net-next
->
-> http://patchwork.ozlabs.org/patch/166737/
+>The point is that if there is a problem because intfdata is set to
+>NULL,
+>there is very likely a problem in form of a race condition, if intfdat=
+a
+>were not set to NULL in usbnet's disconnect handler.
 
-Yes, the patches in this series were generated as patches against the
-"net" tree (sorry for not indicating that).
+Thanks for explaining. Yes, that makes sense to me as well.
 
-The dst leak on the v6 sysctl_tw_recycle code path (patches 2-5) seems
-like a pretty low priority, so I think we could simplify your plan
-even a little further... How about this as a plan: we could apply the
-first patch in the series (tcp: heed result of
-security_inet_conn_request() in tcp_v6_conn_request()) to the net tree
-now, and skip patches 2-5 for now. Once your pending synack work is in
-net-next, I can respin patches 2-5 for net-next. How does that sound?
+So then the original patch against qmi_wwan should go in, and we should=
+ leave usbnet as it is. Are everyone comfortable with that?
 
-neal
+
+Bj=C3=B8rn
