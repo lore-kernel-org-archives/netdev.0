@@ -1,51 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Bug in net/ipv6/ip6_fib.c:fib6_dump_table()
-Date: Mon, 25 Jun 2012 15:40:47 -0700 (PDT)
-Message-ID: <20120625.154047.462435723648654696.davem@davemloft.net>
-References: <1340388785.4604.11442.camel@edumazet-glaptop>
-	<20120622.170237.1504103690155447356.davem@davemloft.net>
-	<1340429851.4604.11942.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
+Date: Mon, 25 Jun 2012 15:43:40 -0700 (PDT)
+Message-ID: <20120625.154340.158890441165257041.davem@davemloft.net>
+References: <1338615992.2760.1665.camel@edumazet-glaptop>
+	<CAGK4HS8Hae_4sNQeGXGc4ocK1-2DVtCUdBAPj7+DY_iF6-2zOA@mail.gmail.com>
+	<1340440962.17495.39.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johunt@akamai.com, kaber@trash.net, dbavatar@gmail.com,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	pekkas@netcore.fi, kuznet@ms2.inr.ac.ru,
-	linux-kernel@vger.kernel.org, greearb@candelatech.com
+Cc: subramanian.vijay@gmail.com, dave.taht@gmail.com,
+	hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
+	ncardwell@google.com, therbert@google.com, brouer@redhat.com
 To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340429851.4604.11942.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56307 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757632Ab2FYWno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 18:43:44 -0400
+In-Reply-To: <1340440962.17495.39.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 23 Jun 2012 07:37:31 +0200
+Date: Sat, 23 Jun 2012 10:42:42 +0200
 
-> [PATCH] ipv6: fib: fix fib dump restart
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Commit 2bec5a369ee79576a3 (ipv6: fib: fix crash when changing large fib
-> while dumping it) introduced ability to restart the dump at tree root,
-> but failed to skip correctly a count of already dumped entries. Code
-> didn't match Patrick intent.
+> On Sat, 2012-06-23 at 00:34 -0700, Vijay Subramanian wrote:
 > 
-> We must skip exactly the number of already dumped entries.
+>> This  patch ([PATCH net-next] tcp: avoid tx starvation by SYNACK
+>> packets)  is neither in net/net-next trees nor on patchwork. Maybe it
+>> was missed since it was sent during the merge window. Is this not
+>> needed anymore or is it being tested currently?
 > 
-> Note that like other /proc/net files or netlink producers, we could
-> still dump some duplicates entries.
+> You're right, thanks for the reminder !
 > 
-> Reported-by: Debabrata Banerjee <dbavatar@gmail.com>
-> Reported-by: Josh Hunt <johunt@akamai.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
 
-I've applied this.
+I don't agree with this change.
 
-But I wonder if it does the right thing, to be honest.
+What is the point in having real classification configuration if
+arbitrary places in the network stack are going to override SKB
+priority with a fixed priority setting?
 
-When tree change is detected, w->skip is set to w->count
-
-But with your change, w->count won't be the number of entries to
-skip from the root after the first time we handle a tree change.
-
-So on the second tree change, we'll skip the wrong number of
-entries, since the w->count we save into w->skip will be biased
-by the previous w->skip value.  So we'll skip too few entries.
+I bet the person who set listening socket priority really meant it and
+does not expect you to override it.
