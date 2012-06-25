@@ -1,130 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: nfc: fix panic in accept()
-Date: Mon, 25 Jun 2012 17:53:32 +0200
-Message-ID: <1340639612.10893.84.camel@edumazet-glaptop>
-References: <1339423241.4999.53.camel@lappy>
-	 <20120611144134.GX22557@sortiz-mobl>
-	 <1339425693.6001.2268.camel@edumazet-glaptop>
-	 <20120611145700.GY22557@sortiz-mobl>
-	 <1339426778.6001.2312.camel@edumazet-glaptop>
-	 <20120611152007.GZ22557@sortiz-mobl> <1339433810.4999.65.camel@lappy>
-	 <20120611172545.GA1776@redhat.com>
-	 <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
+From: Tomas Papan <tomas.papan@gmail.com>
+Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Mon, 25 Jun 2012 18:13:17 +0200
+Message-ID: <CAMGsXDSSCnOF+CykudBoEjTacSYL4LYG_ZnRTcS+Xzt54LW=Og@mail.gmail.com>
+References: <20120501172748.GA17117@electric-eye.fr.zoreil.com>
+	<20120501200423.6804dcf0@stein>
+	<20120501200403.GA20763@electric-eye.fr.zoreil.com>
+	<20120503204813.65468df7@stein>
+	<20120602111335.0b94fb59@stein>
+	<loom.20120611T175322-643@post.gmane.org>
+	<20120611204925.GA7070@electric-eye.fr.zoreil.com>
+	<CAMGsXDRjqsgL=KCR=dQGTNhBS7G-AK-VtDEVT+8bUUqFUR5HsA@mail.gmail.com>
+	<20120611215203.GA8860@electric-eye.fr.zoreil.com>
+	<CAMGsXDT5xu_+gHber-XS=wv9RW7kyUzHNUJN87CuJuNevDuxSw@mail.gmail.com>
+	<20120612052631.GA14567@electric-eye.fr.zoreil.com>
+	<CAMGsXDSsSMWfrV1vjnqkWH45ypZw+ZtYF7=ytc79MWRJ5RF5jQ@mail.gmail.com>
+	<CAMGsXDRAE5RZduZnTRa-JmA9_N0Kv+juzYNB_0hf-x+Q8nkpSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	David Miller <davem@davemloft.net>,
-	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:33498 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756996Ab2FYQNS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 12:13:18 -0400
+Received: by pbbrp8 with SMTP id rp8so6749452pbb.19
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 09:13:18 -0700 (PDT)
+In-Reply-To: <CAMGsXDRAE5RZduZnTRa-JmA9_N0Kv+juzYNB_0hf-x+Q8nkpSg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi,
 
-Sasha Levin reported following panic :
+The problem still exists in 3.4.4. I'm currently using 3.2.21, which is=
+ fine.
+Unfortunately it is service affecting, after some time the machine
+just froze. I'm using headless setup, so I can not tell if this causes
+the problem (logs are empty). But I had with 3.2.x more than 30+ days
+uptime and no problems or warnings whatsoever (dmesg and logs are
+clear). I do not believe that I'm the only one with this problem,
+r8169 is quite popular.
+Is there anything what can I provide or try? I do not want to be stuck
+on 3.2.x kernel.
 
-[ 2136.383310] BUG: unable to handle kernel NULL pointer dereference at
-00000000000003b0
-[ 2136.384022] IP: [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
-[ 2136.384022] PGD 131c4067 PUD 11c0c067 PMD 0 
-[ 2136.388106] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[ 2136.388106] CPU 1 
-[ 2136.388106] Pid: 24855, comm: trinity-child1 Tainted: G        W
-3.5.0-rc2-sasha-00015-g7b268f7 #374  
-[ 2136.388106] RIP: 0010:[<ffffffff8114e400>]  [<ffffffff8114e400>]
-__lock_acquire+0xc0/0x4b0
-[ 2136.388106] RSP: 0018:ffff8800130b3ca8  EFLAGS: 00010046
-[ 2136.388106] RAX: 0000000000000086 RBX: ffff88001186b000 RCX:
-0000000000000000
-[ 2136.388106] RDX: 0000000000000000 RSI: 0000000000000000 RDI:
-0000000000000000
-[ 2136.388106] RBP: ffff8800130b3d08 R08: 0000000000000001 R09:
-0000000000000000
-[ 2136.388106] R10: 0000000000000000 R11: 0000000000000001 R12:
-0000000000000002
-[ 2136.388106] R13: 00000000000003b0 R14: 0000000000000000 R15:
-0000000000000000
-[ 2136.388106] FS:  00007fa5b1bd4700(0000) GS:ffff88001b800000(0000)
-knlGS:0000000000000000
-[ 2136.388106] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 2136.388106] CR2: 00000000000003b0 CR3: 0000000011d1f000 CR4:
-00000000000406e0
-[ 2136.388106] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-0000000000000000
-[ 2136.388106] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-0000000000000400
-[ 2136.388106] Process trinity-child1 (pid: 24855, threadinfo
-ffff8800130b2000, task ffff88001186b000)
-[ 2136.388106] Stack:
-[ 2136.388106]  ffff8800130b3cd8 ffffffff81121785 ffffffff81236774
-000080d000000001
-[ 2136.388106]  ffff88001b9d6c00 00000000001d6c00 ffffffff130b3d08
-ffff88001186b000
-[ 2136.388106]  0000000000000000 0000000000000002 0000000000000000
-0000000000000000
-[ 2136.388106] Call Trace:
-[ 2136.388106]  [<ffffffff81121785>] ? sched_clock_local+0x25/0x90
-[ 2136.388106]  [<ffffffff81236774>] ? get_empty_filp+0x74/0x220
-[ 2136.388106]  [<ffffffff8114e97a>] lock_acquire+0x18a/0x1e0
-[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
-[ 2136.388106]  [<ffffffff837c0ef0>] _raw_write_lock_bh+0x40/0x80
-[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
-[ 2136.388106]  [<ffffffff836b37df>] rawsock_release+0x4f/0xa0
-[ 2136.388106]  [<ffffffff8321cfe8>] sock_release+0x18/0x70
-[ 2136.388106]  [<ffffffff8321d069>] sock_close+0x29/0x30
-[ 2136.388106]  [<ffffffff81236bca>] __fput+0x11a/0x2c0
-[ 2136.388106]  [<ffffffff81236d85>] fput+0x15/0x20
-[ 2136.388106]  [<ffffffff8321de34>] sys_accept4+0x1b4/0x200
-[ 2136.388106]  [<ffffffff837c165c>] ? _raw_spin_unlock_irq+0x4c/0x80
-[ 2136.388106]  [<ffffffff837c1669>] ? _raw_spin_unlock_irq+0x59/0x80
-[ 2136.388106]  [<ffffffff837c2565>] ? sysret_check+0x22/0x5d
-[ 2136.388106]  [<ffffffff8321de8b>] sys_accept+0xb/0x10
-[ 2136.388106]  [<ffffffff837c2539>] system_call_fastpath+0x16/0x1b
-[ 2136.388106] Code: ec 04 00 0f 85 ea 03 00 00 be d5 0b 00 00 48 c7 c7
-8a c1 40 84 e8 b1 a5 f8 ff 31 c0 e9 d4 03 00 00 66 2e 0f 1f 84 00 00 00
-00 00 <49> 81 7d 00 60 73 5e 85 b8 01 00 00 00 44 0f 44 e0 83 fe 01 77 
-[ 2136.388106] RIP  [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
-[ 2136.388106]  RSP <ffff8800130b3ca8>
-[ 2136.388106] CR2: 00000000000003b0
-[ 2136.388106] ---[ end trace 6d450e935ee18982 ]---
-[ 2136.388106] Kernel panic - not syncing: Fatal exception in interrupt
+[13513.912323] WARNING: at net/sched/sch_generic.c:256
+dev_watchdog+0x16b/0x20f()
+[13513.912327] Hardware name: SH55J
+[13513.912330] NETDEV WATCHDOG: eth1 (r8169): transmit queue 0 timed ou=
+t
+[13513.912333] Modules linked in: vhost_net cls_route cls_u32 cls_fw
+sch_sfq sch_htb ipt_REDIRECT ipt_MASQUERADE ipt_REJECT xt_limit
+xt_tcpudp nf_conntrack_ipv6 nf_defrag_ipv6 xt_state iptable_nat nf_nat
+nf_conntrack_ipv4 nf_conntrack nf_defrag_ipv4 ip6table_filter
+ip6_tables iptable_filter ip_tables x_tables kvm_intel kvm fuse r8169
+[13513.912369] Pid: 0, comm: swapper/2 Not tainted 3.4.4 #1
+[13513.912372] Call Trace:
+[13513.912374]  <IRQ>  [<ffffffff81026881>] ? warn_slowpath_common+0x78=
+/0x8c
+[13513.912386]  [<ffffffff81026936>] ? warn_slowpath_fmt+0x45/0x4a
+[13513.912392]  [<ffffffff81042fc2>] ? scheduler_tick+0xaf/0xc3
+[13513.912400]  [<ffffffff81049f70>] ? ktime_get+0x5f/0xb9
+[13513.912404]  [<ffffffff812535f0>] ? dev_watchdog+0x16b/0x20f
+[13513.912411]  [<ffffffff8102f3ae>] ? run_timer_softirq+0x177/0x209
+[13513.912417]  [<ffffffff8103e7b3>] ? hrtimer_interrupt+0x100/0x19b
+[13513.912421]  [<ffffffff81253485>] ? qdisc_reset+0x35/0x35
+[13513.912428]  [<ffffffff8102b256>] ? __do_softirq+0x7f/0x106
+[13513.912434]  [<ffffffff812e2a4c>] ? call_softirq+0x1c/0x30
+[13513.912439]  [<ffffffff81003376>] ? do_softirq+0x31/0x67
+[13513.912444]  [<ffffffff8102b503>] ? irq_exit+0x44/0x75
+[13513.912448]  [<ffffffff810032b5>] ? do_IRQ+0x94/0xad
+[13513.912454]  [<ffffffff812e1167>] ? common_interrupt+0x67/0x67
+[13513.912457]  <EOI>  [<ffffffff81163f87>] ? intel_idle+0xde/0x103
+[13513.912468]  [<ffffffff81163f63>] ? intel_idle+0xba/0x103
+[13513.912475]  [<ffffffff81220c4a>] ? cpuidle_idle_call+0x7e/0xc4
+[13513.912483]  [<ffffffff81008e92>] ? cpu_idle+0x53/0x7c
+[13513.912487] ---[ end trace 635a32207d8c1b48 ]---
+[13513.915428] r8169 0000:01:00.0: eth1: link up
 
-rawsock_release() should test if sock->sk is NULL before calling
-sock_orphan()/sock_put()
+Thanks in advance
+Tomas
 
-Reported-by: Sasha Levin <levinsasha928@gmail.com>
-Tested-by: Sasha Levin <levinsasha928@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Samuel Ortiz <sameo@linux.intel.com>
----
- net/nfc/rawsock.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/nfc/rawsock.c b/net/nfc/rawsock.c
-index ec1134c..208416e 100644
---- a/net/nfc/rawsock.c
-+++ b/net/nfc/rawsock.c
-@@ -54,11 +54,12 @@ static int rawsock_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 
--	pr_debug("sock=%p\n", sock);
--
--	sock_orphan(sk);
--	sock_put(sk);
-+	pr_debug("sock=%p sk=%p\n", sock, sk);
- 
-+	if (sk) {
-+		sock_orphan(sk);
-+		sock_put(sk);
-+	}
- 	return 0;
- }
- 
+On Tue, Jun 12, 2012 at 4:34 PM, Tomas Papan <tomas.papan@gmail.com> wr=
+ote:
+> Hi Francois,
+>
+> Unfortunately after the warning occurred =C2=A0once again after 28 00=
+0 seconds.
+> Is there anything else what can I do?
+>
+> Regards
+> Tomas
+>
+> [28914.344765] ------------[ cut here ]------------
+> [28914.344775] WARNING: at net/sched/sch_generic.c:256
+> dev_watchdog+0x16b/0x20f()
+> [28914.344779] Hardware name: SH55J
+> [28914.344782] NETDEV WATCHDOG: eth1 (r8169): transmit queue 0 timed =
+out
+> [28914.344785] Modules linked in: vhost_net cls_route cls_u32 cls_fw
+> sch_sfq sch_htb ipt_REDIRECT ipt_MASQUERADE xt_limit xt_tcpudp
+> nf_conntrack_ipv6 nf_defrag_ipv6 xt_state iptable_nat nf_nat
+> nf_conntrack_ipv4 nf_conntrack nf_defrag_ipv4 ip6table_filter
+> ip6_tables iptable_filter ip_tables x_tables kvm_intel kvm fuse r8169
+> [28914.344819] Pid: 0, comm: swapper/2 Not tainted 3.4.2 #1
+> [28914.344822] Call Trace:
+> [28914.344825] =C2=A0<IRQ> =C2=A0[<ffffffff81026881>] ? warn_slowpath=
+_common+0x78/0x8c
+> [28914.344837] =C2=A0[<ffffffff81026936>] ? warn_slowpath_fmt+0x45/0x=
+4a
+> [28914.344843] =C2=A0[<ffffffff81042fc2>] ? scheduler_tick+0xaf/0xc3
+> [28914.344850] =C2=A0[<ffffffff81049f70>] ? ktime_get+0x5f/0xb9
+> [28914.344855] =C2=A0[<ffffffff812535a0>] ? dev_watchdog+0x16b/0x20f
+> [28914.344861] =C2=A0[<ffffffff8102f3ae>] ? run_timer_softirq+0x177/0=
+x209
+> [28914.344868] =C2=A0[<ffffffff8103e7b3>] ? hrtimer_interrupt+0x100/0=
+x19b
+> [28914.344872] =C2=A0[<ffffffff81253435>] ? qdisc_reset+0x35/0x35
+> [28914.344879] =C2=A0[<ffffffff8102b256>] ? __do_softirq+0x7f/0x106
+> [28914.344884] =C2=A0[<ffffffff812e298c>] ? call_softirq+0x1c/0x30
+> [28914.344890] =C2=A0[<ffffffff81003376>] ? do_softirq+0x31/0x67
+> [28914.344895] =C2=A0[<ffffffff8102b503>] ? irq_exit+0x44/0x75
+> [28914.344899] =C2=A0[<ffffffff810032b5>] ? do_IRQ+0x94/0xad
+> [28914.344905] =C2=A0[<ffffffff812e10a7>] ? common_interrupt+0x67/0x6=
+7
+> [28914.344908] =C2=A0<EOI> =C2=A0[<ffffffff81163f07>] ? intel_idle+0x=
+de/0x103
+> [28914.344919] =C2=A0[<ffffffff81163ee3>] ? intel_idle+0xba/0x103
+> [28914.344926] =C2=A0[<ffffffff81220bfa>] ? cpuidle_idle_call+0x7e/0x=
+c4
+> [28914.344933] =C2=A0[<ffffffff81008e92>] ? cpu_idle+0x53/0x7c
+> [28914.344937] ---[ end trace 3d8459064a9171b4 ]---
+> [28914.347829] r8169 0000:01:00.0: eth1: link up
