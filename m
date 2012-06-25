@@ -1,25 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipheth: add support for iPad
-Date: Mon, 25 Jun 2012 16:21:09 -0700 (PDT)
-Message-ID: <20120625.162109.1516602877861332722.davem@davemloft.net>
-References: <1340607887-28648-1-git-send-email-rainbow@irh.it>
+Subject: Re: [PATCH] net/ipv6/route.c: packets originating on device match
+ lo
+Date: Mon, 25 Jun 2012 16:28:32 -0700 (PDT)
+Message-ID: <20120625.162832.804773711822642700.davem@davemloft.net>
+References: <20120625065030.GA28914@mcafee.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: rainbow@irh.it
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340607887-28648-1-git-send-email-rainbow@irh.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: david_mccullough@mcafee.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56617 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756821Ab2FYX2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 19:28:33 -0400
+In-Reply-To: <20120625065030.GA28914@mcafee.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Davide Gerhard <rainbow@irh.it>
-Date: Mon, 25 Jun 2012 09:04:47 +0200
+From: David McCullough <david_mccullough@mcafee.com>
+Date: Mon, 25 Jun 2012 16:50:30 +1000
 
-> This adds support for the iPad to the ipheth driver.
-> (product id = 0x129a)
-> 
-> Signed-off-by: Davide Gerhard <rainbow@irh.it>
+> @@ -931,6 +931,9 @@ struct dst_entry * ip6_route_output(stru
+>  {
+>  	int flags = 0;
+>  
+> +	if (fl6->flowi6_iif == 0)
+> +		fl6->flowi6_iif = net->loopback_dev->ifindex;
+> +		
 
-Applied, thanks.
+Like ipv4, you should make this assignment unconditionally.
+
+Thanks.
