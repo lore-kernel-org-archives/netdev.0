@@ -1,41 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC V3 PATCH 4/6] tuntap: multiqueue support
-Date: Mon, 25 Jun 2012 11:41:51 +0300
-Message-ID: <20120625084151.GA18987@redhat.com>
-References: <20120625060830.6765.27584.stgit@amd-6168-8-1.englab.nay.redhat.com>
- <20120625061018.6765.76633.stgit@amd-6168-8-1.englab.nay.redhat.com>
- <20120625082553.GC18229@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/4] net/mlx4_en: Use atomic counter to decide when queue is full
+Date: Mon, 25 Jun 2012 10:00:03 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F61@saturn3.aculab.com>
+References: <20120622.172353.1092394608024377078.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: habanero@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, krkumar2@in.ibm.com,
-	tahm@linux.vnet.ibm.com, akong@redhat.com, davem@davemloft.net,
-	shemminger@vyatta.com, mashirle@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120625082553.GC18229@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <yevgenyp@mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:37933 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751275Ab2FYJBV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 05:01:21 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 16004-05 for <netdev@vger.kernel.org>;
+ Mon, 25 Jun 2012 10:01:19 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20120622.172353.1092394608024377078.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 25, 2012 at 11:25:53AM +0300, Michael S. Tsirkin wrote:
-> On Mon, Jun 25, 2012 at 02:10:18PM +0800, Jason Wang wrote:
-> > This patch adds multiqueue support for tap device. This is done by abstracting
-> > each queue as a file/socket and allowing multiple sockets to be attached to the
-> > tuntap device (an array of tun_file were stored in the tun_struct). Userspace
-> > could write and read from those files to do the parallel packet
-> > sending/receiving.
+ 
+> > The Transmit and transmit completion flows execute from different
+contexts,
+> > which are not synchronized. Hence naive reading the of consumer
+index might
+> > give wrong value by the time it is being used, That could lead to a
+state of transmit timeout.
+> > Fix that by using atomic variable to maintain that index.
 > > 
-> > Unlike the previous single queue implementation, the socket and device were
-> > loosely coupled, each of them were allowed to go away first. In order to let the
-> > tx path lockless, netif_tx_loch_bh() is replaced by RCU/NETIF_F_LLTX to
-> > synchronize between data path and system call.
+> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 > 
-> Don't use LLTX/RCU. It's not worth it.
+> I'm not convinced.  There is only one place that actually changes
+> the counter.
+> 
+> So it seems more like you have a missing memory barrier somewhere.
 
-Or maybe we should use LLTX. Need to think about it.
-But if yes I'd like a separate patch moving tun to LLTX
-and move it always to LLTX. Don't play with LLTX at runtime.
+Or just keep the two ring indexes - instead of keeping the
+number of 'active' entries as well.
+Then you don't have a variable which the tx setup and
+tx completion routines both update.
 
--- 
-MST
+	David
