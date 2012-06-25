@@ -1,60 +1,70 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: net: nfc: BUG and panic in accept() on 3.5-rc2
-Date: Mon, 25 Jun 2012 17:04:35 +0200
-Message-ID: <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
-References: <1339423241.4999.53.camel@lappy> <20120611144134.GX22557@sortiz-mobl>
- <1339425693.6001.2268.camel@edumazet-glaptop> <20120611145700.GY22557@sortiz-mobl>
- <1339426778.6001.2312.camel@edumazet-glaptop> <20120611152007.GZ22557@sortiz-mobl>
- <1339433810.4999.65.camel@lappy> <20120611172545.GA1776@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Fw: [Bug 43671] New: 1282:9102 Davicom DM9102 issue
+Date: Mon, 25 Jun 2012 08:15:15 -0700
+Message-ID: <20120625081515.02a6b109@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Dave Jones <davej@redhat.com>,
-	Sasha Levin <levinsasha928@gmail.com>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120611172545.GA1776@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:48039 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750820Ab2FYPP1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2012 11:15:27 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 4A8621440004
+	for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 08:15:26 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id QjOozNKgPv6H for <netdev@vger.kernel.org>;
+	Mon, 25 Jun 2012 08:15:21 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
+	by mail.vyatta.com (Postfix) with ESMTPSA id 784201440005
+	for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 08:15:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 11, 2012 at 7:25 PM, Dave Jones <davej@redhat.com> wrote:
-> On Mon, Jun 11, 2012 at 06:56:50PM +0200, Sasha Levin wrote:
->
-> =A0> > > > > > What's trinity ?
-> =A0> > > > > > Also, if this one is reproducible, would you mind shar=
-ing some details about
-> =A0> > > > > > how we could reproduce it ?
-> =A0> > > > >
-> =A0> > > > > Well, bugfix should be trivial enough ;)
-> =A0> > > > Yep, I looked at the code only after looking at Sasha's re=
-port.
-> =A0> > > >
-> =A0> > > > Thanks for the patch, do you mind if I add your SOB to it =
-?
-> =A0> > >
-> =A0> > > I =A0would prefer making sure it fixes the bug first ;)
-> =A0> > Sure, although your patch makes sense regardless of that :)
-> =A0> > I'll still wait for Sasha to confirm that it fixes his crash.
-> =A0>
-> =A0> I don't have a direct way of reproducing it, but I've put it in =
-the test
-> =A0> vm and the fuzzer is running, I'll let you know tomorrow if it h=
-appened
-> =A0> again.
->
-> You might be able to trigger it faster by using -P PF_NFC, which will
-> force trinity to only use NFC sockets.
->
-> sidenote: most protocols trigger the module to be auto-loaded when a =
-socket
-> is created. This doesn't seem to happen with nfc, making me need to m=
-anually
-> modprobe it first. Intentional ?
 
-It fixes the bug, wasn't been able to reproduce it since then.
+
+Begin forwarded message:
+
+Date: Sat, 23 Jun 2012 05:16:31 +0000 (UTC)
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 43671] New: 1282:9102 Davicom DM9102 issue
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=43671
+
+           Summary: 1282:9102 Davicom DM9102 issue
+           Product: Networking
+           Version: 2.5
+    Kernel Version: Linux version 3.5.0-999-generic (apw@gomeisa) (gcc
+                    version 4.6.3 (Ubuntu/Linaro 4.6.3-1ubuntu5) )
+                    #201206090407 SMP Sat Jun 9 08:14:58 UTC 2012
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: p.satishchandra@gmail.com
+        Regression: No
+
+
+Created an attachment (id=74001)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=74001)
+cpuinfo, dmesg, iomem, ioports, lspci, modules, scsi
+
+Ethernet cards of Davicom DM9102 do not work. Many people suggest trying with
+'dmfe' module rather than 'tulip' but neither works. The syslog is full of
+'eth0: Tx timeout - resetting' messages. The bug is also reported in Launchpad
+(url - https://bugs.launchpad.net/ubuntu/+source/linux/+bug/819868) but it was
+suggested to report it to the mainline kernel.
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
