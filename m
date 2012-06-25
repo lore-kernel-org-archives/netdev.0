@@ -1,67 +1,32 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [RFC net-next (v2) 12/14] ixgbe: set maximal number of
- default RSS queues
-Date: Mon, 25 Jun 2012 20:53:38 +0300
-Message-ID: <1340646818.2486.27.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
- <1340624745-8650-13-git-send-email-yuvalmin@broadcom.com>
- <4FE88770.7070007@intel.com>
-Reply-To: eilong@broadcom.com
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [net-next RFC V4 PATCH 0/4] Multiqueue virtio-net
+Date: Mon, 25 Jun 2012 11:01:18 -0700
+Message-ID: <1340647278.23823.0.camel@oc3660625478.ibm.com>
+References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-	"John Fastabend" <john.r.fastabend@intel.com>
-To: "Alexander Duyck" <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1754 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754029Ab2FYRxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2012 13:53:54 -0400
-In-Reply-To: <4FE88770.7070007@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-25 at 08:44 -0700, Alexander Duyck wrote:
-> This doesn't limit queues, only interrupt vectors.  As I told you before
-> you should look at the ixgbe_set_rss_queues function if you actually
-> want to limit the number of RSS queues.
+Hello Jason,
 
-How about this:
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index af1a531..23a8609 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -277,6 +277,8 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
- 	bool ret = false;
- 	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_RSS];
- 
-+	f->indices = min_t(int, netif_get_num_default_rss_queues(), f->indices);
-+
- 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
- 		f->mask = 0xF;
- 		adapter->num_rx_queues = f->indices;
-@@ -302,7 +304,9 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
- 	bool ret = false;
- 	struct ixgbe_ring_feature *f_fdir = &adapter->ring_feature[RING_F_FDIR];
- 
--	f_fdir->indices = min_t(int, num_online_cpus(), f_fdir->indices);
-+	f_fdir->indices = min_t(int, netif_get_num_default_rss_queues(),
-+				f_fdir->indices);
-+
- 	f_fdir->mask = 0;
- 
- 	/*
-@@ -339,8 +343,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
- 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
- 		return false;
- 
--	f->indices = min_t(int, num_online_cpus(), f->indices);
--
-+	f->indices = min_t(int, f->indices, netif_get_num_default_rss_queues());
- 	adapter->num_rx_queues = 1;
- 	adapter->num_tx_queues = 1;
- 
+Good work. Do you have local guest to guest results?
+
+Thanks
+Shirley
