@@ -1,217 +1,64 @@
-From: sjur.brandeland@stericsson.com
-Subject: [net-next 08/11] Documentation/networking/caif: Update documentation
-Date: Mon, 25 Jun 2012 19:49:40 +0200
-Message-ID: <1340646583-21059-9-git-send-email-sjur.brandeland@stericsson.com>
-References: <1340646583-21059-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [net-next RFC V4 PATCH 0/4] Multiqueue virtio-net
+Date: Mon, 25 Jun 2012 10:49:42 -0700
+Message-ID: <4FE8A4B6.1080200@us.ibm.com>
+References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sjurbren@gmail.com,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?=
-	<sjur.brandeland@stericssion.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:58023 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754634Ab2FYRuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 13:50:05 -0400
-Received: by mail-lb0-f174.google.com with SMTP id gm6so6807294lbb.19
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 10:50:05 -0700 (PDT)
-In-Reply-To: <1340646583-21059-1-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org, mashirle@us.ibm.com,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+On 6/25/2012 2:16 AM, Jason Wang wrote:
+> Hello All:
+>
+> This series is an update version of multiqueue virtio-net driver based on
+> Krishna Kumar's work to let virtio-net use multiple rx/tx queues to do the
+> packets reception and transmission. Please review and comments.
+>
+> Test Environment:
+> - Intel(R) Xeon(R) CPU E5620 @ 2.40GHz, 8 cores 2 numa nodes
+> - Two directed connected 82599
+>
+> Test Summary:
+>
+> - Highlights: huge improvements on TCP_RR test
+> - Lowlights: regression on small packet transmission, higher cpu utilization
+>               than single queue, need further optimization
+Does this also scale with increased number of VMs?
 
-Update drawing and remove description of old features.
-Add HSI and USB link layers to the drawing.
-
-Reported-by: Joerg Reisenweber <joerg.reisenweber@stericssion.com>
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericssion.com>
----
- Documentation/networking/caif/Linux-CAIF.txt |   91 ++++++++----------=
---------
- 1 files changed, 27 insertions(+), 64 deletions(-)
-
-diff --git a/Documentation/networking/caif/Linux-CAIF.txt b/Documentati=
-on/networking/caif/Linux-CAIF.txt
-index e52fd62..0aa4bd3 100644
---- a/Documentation/networking/caif/Linux-CAIF.txt
-+++ b/Documentation/networking/caif/Linux-CAIF.txt
-@@ -19,60 +19,36 @@ and host. Currently, UART and Loopback are availabl=
-e for Linux.
- Architecture:
- ------------
- The implementation of CAIF is divided into:
--* CAIF Socket Layer, Kernel API, and  Net Device.
-+* CAIF Socket Layer and GPRS IP Interface.
- * CAIF Core Protocol Implementation
- * CAIF Link Layer, implemented as NET devices.
-=20
-=20
-   RTNL
-    !
--   !	 +------+   +------+   +------+
--   !	+------+!  +------+!  +------+!
--   !	! Sock !!  !Kernel!!  ! Net  !!
--   !	! API  !+  ! API  !+  ! Dev  !+	  <- CAIF Client APIs
--   !	+------+   +------!   +------+
--   !	   !	      !		 !
--   !	   +----------!----------+
--   !		   +------+		  <- CAIF Protocol Implementation
--   +------->	   ! CAIF !
--		   ! Core !
--		   +------+
--	     +--------!--------+
--	     !		       !
--	  +------+	    +-----+
--	  !    	 !	    ! TTY !	  <- Link Layer (Net Devices)
--	  +------+	    +-----+
--
--
--Using the Kernel API
------------------------
--The Kernel API is used for accessing CAIF channels from the
--kernel.
--The user of the API has to implement two callbacks for receive
--and control.
--The receive callback gives a CAIF packet as a SKB. The control
--callback will
--notify of channel initialization complete, and flow-on/flow-
--off.
--
--
--  struct caif_device caif_dev =3D {
--    .caif_config =3D {
--     .name =3D "MYDEV"
--     .type =3D CAIF_CHTY_AT
--    }
--   .receive_cb =3D my_receive,
--   .control_cb =3D my_control,
--  };
--  caif_add_device(&caif_dev);
--  caif_transmit(&caif_dev, skb);
--
--See the caif_kernel.h for details about the CAIF kernel API.
-+   !	      +------+	 +------+
-+   !	     +------+!	+------+!
-+   !	     !	IP  !!	!Socket!!
-+   +-------> !interf!+	! API  !+	<- CAIF Client APIs
-+   !	     +------+	+------!
-+   !		!	    !
-+   !		+-----------+
-+   !		      !
-+   !		   +------+		<- CAIF Core Protocol
-+   !		   ! CAIF !
-+   !		   ! Core !
-+   !		   +------+
-+   !	   +----------!---------+
-+   !	   !	      !		!
-+   !	+------+   +-----+   +------+
-+   +--> ! HSI  !   ! TTY !   ! USB  !	<- Link Layer (Net Devices)
-+	+------+   +-----+   +------+
-+
-=20
-=20
- I M P L E M E N T A T I O N
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
--=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
-+
-=20
- CAIF Core Protocol Layer
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-@@ -88,17 +64,13 @@ The Core CAIF implementation contains:
-       -	Simple implementation of CAIF.
-       -	Layered architecture (a la Streams), each layer in the CAIF
- 	specification is implemented in a separate c-file.
--      -	Clients must implement PHY layer to access physical HW
--	with receive and transmit functions.
-       -	Clients must call configuration function to add PHY layer.
-       -	Clients must implement CAIF layer to consume/produce
- 	CAIF payload with receive and transmit functions.
-       -	Clients must call configuration function to add and connect th=
-e
- 	Client layer.
-       - When receiving / transmitting CAIF Packets (cfpkt), ownership =
-is passed
--	to the called function (except for framing layers' receive functions
--	or if a transmit function returns an error, in which case the caller
--	must free the packet).
-+	to the called function (except for framing layers' receive function)
-=20
- Layered Architecture
- --------------------
-@@ -109,11 +81,6 @@ Implementation. The support functions include:
- 	CAIF Packet has functions for creating, destroying and adding content
- 	and for adding/extracting header and trailers to protocol packets.
-=20
--      - CFLST CAIF list implementation.
--
--      - CFGLUE CAIF Glue. Contains OS Specifics, such as memory
--	allocation, endianness, etc.
--
- The CAIF Protocol implementation contains:
-=20
-       - CFCNFG CAIF Configuration layer. Configures the CAIF Protocol
-@@ -128,7 +95,7 @@ The CAIF Protocol implementation contains:
- 	control and remote shutdown requests.
-=20
-       - CFVEI CAIF VEI layer. Handles CAIF AT Channels on VEI (Virtual
--        External Interface). This layer encodes/decodes VEI frames.
-+	External Interface). This layer encodes/decodes VEI frames.
-=20
-       - CFDGML CAIF Datagram layer. Handles CAIF Datagram layer (IP
- 	traffic), encodes/decodes Datagram frames.
-@@ -170,7 +137,7 @@ The CAIF Protocol implementation contains:
- 	    +---------+	    +---------+
- 		 !		!
- 	    +---------+	    +---------+
--	    |         |	    | Serial  |
-+	    |	      |	    | Serial  |
- 	    |	      |	    | CFSERL  |
- 	    +---------+	    +---------+
-=20
-@@ -186,24 +153,20 @@ In this layered approach the following "rules" ap=
-ply.
- 		 layer->dn->transmit(layer->dn, packet);
-=20
-=20
--Linux Driver Implementation
-+CAIF Socket and IP interface
- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D
-=20
--Linux GPRS Net Device and CAIF socket are implemented on top of the
--CAIF Core protocol. The Net device and CAIF socket have an instance of
-+The IP interface and CAIF socket API are implemented on top of the
-+CAIF Core protocol. The IP Interface and CAIF socket have an instance =
-of
- 'struct cflayer', just like the CAIF Core protocol stack.
- Net device and Socket implement the 'receive()' function defined by
- 'struct cflayer', just like the rest of the CAIF stack. In this way, t=
-ransmit and
- receive of packets is handled as by the rest of the layers: the 'dn->t=
-ransmit()'
- function is called in order to transmit data.
-=20
--The layer on top of the CAIF Core implementation is
--sometimes referred to as the "Client layer".
--
--
- Configuration of Link Layer
- ---------------------------
--The Link Layer is implemented as Linux net devices (struct net_device)=
-=2E
-+The Link Layer is implemented as Linux network devices (struct net_dev=
-ice).
- Payload handling and registration is done using standard Linux mechani=
-sms.
-=20
- The CAIF Protocol relies on a loss-less link layer without implementin=
-g
---=20
-1.7.5.4
+Thanks
+Sridhar
+>
+> Analysis of the performance result:
+>
+> - I count the number of packets sending/receiving during the test, and
+>    multiqueue show much more ability in terms of packets per second.
+>
+> - For the tx regression, multiqueue send about 1-2 times of more packets
+>    compared to single queue, and the packets size were much smaller than single
+>    queue does. I suspect tcp does less batching in multiqueue, so I hack the
+>    tcp_write_xmit() to forece more batching, multiqueue works as well as
+>    singlequeue for both small transmission and throughput
+>
+> - I didn't pack the accelerate RFS with virtio-net in this sereis as it still
+>    need further shaping, for the one that interested in this please see:
+>    http://www.mail-archive.com/kvm@vger.kernel.org/msg64111.html
+>
+>
