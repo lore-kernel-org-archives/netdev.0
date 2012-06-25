@@ -1,73 +1,58 @@
-From: Ming Lei <tom.leiming@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
 Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Mon, 25 Jun 2012 15:15:21 +0800
-Message-ID: <CACVXFVNUv6w5OjSZdQDbcLEPpDU5vO_Nmarm+fAfh0RkkL_hdg@mail.gmail.com>
+Date: Mon, 25 Jun 2012 09:24:43 +0200
+Message-ID: <87hatzhn0k.fsf@nemi.mork.no>
 References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
+	<201206232255.08319.oliver@neukum.org> <877guxhx44.fsf@nemi.mork.no>
+	<201206241413.08339.oliver@neukum.org>
 	<0e34226c-8fe7-4e2e-8fc2-2ed140f23e9b@email.android.com>
 	<CACVXFVN3wJ3NWxSGj-yWCgtDE_sgJT5CZYHwYUWk1MxkphcsTg@mail.gmail.com>
-	<201206250815.39466.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak@gmail.com>
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:49383 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754858Ab2FYHPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 03:15:22 -0400
-In-Reply-To: <201206250815.39466.oliver@neukum.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marius =?utf-8?Q?Bj=C3=B8rnstad?= Kotsbak
+	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACVXFVN3wJ3NWxSGj-yWCgtDE_sgJT5CZYHwYUWk1MxkphcsTg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Ming Lei's message of "Mon, 25 Jun 2012 11:37:20 +0800")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 25, 2012 at 2:15 PM, Oliver Neukum <oliver@neukum.org> wrote:
-> Am Montag, 25. Juni 2012, 05:37:20 schrieb Ming Lei:
+[I don't have anything more to add to the generic usbnet discussion, bu=
+t
+ want to comment on the qmi_wwan issues]
 
->> The current problem is caused by the set to NULL without any
->> protection or sync mechanism on it, and it is really a bug.
->
-> Minidrivers can test for NULL.
-> That may not be enough and locking may be needed.
+Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Any locking isn't needed if the set to NULL is put after
-driver_info->unbind,  since ->unbind will call subdriver->disconnect,
-which will hold the open/disconnect lock of wdm_mutex.
+> Also, the clear of intfdata may not be observed in .manage_power
+> since usb_set_intfdata(, NULL) may be completed after the lock wdm_mu=
+tex
+> operation.
 
->
->> Also we didn't say the set to NULL will be cancelled, just delay
->> the clear until it is safe to do it, eg. after complete of unregister_netdev()
->> and driver_info->unbind, when the previous .open/.close has been
->> completed already or the later ones will notice the disconnection
->> early and won't touch usb_get_intfdata() any more.
->
-> We can move to after unregister_netdev()
-> I am unhappy with it going after unbind.
->
+True, but irrelevant.  The pointer is either valid or NULL.  We don't
+need to care about synchronizing the exact time it is set to NULL.
 
-Could you let us know the reason? I think it may let the
-patch not necessary.
+The locking in cdc-wdm will ensure that the pointer is valid while it i=
+s
+in use by .manage_power, because usbnet_disconnect is prevented from
+continuing with free_netdev() while any caller of .manage_power is
+running.
 
->> I don't see any races caused by just removing usb_set_intfdata(, NULL)
->> or moving it after driver_info->unbind simply in usbnet_disconnect.
->
-> They are not caused. They are harder to detect.
->
->> In fact, suppose that .open/.close and .disconnect are run on different CPUs,
->> there are no any guarantee that .open/.close can always see the clear action
->> immediately. Also, the clear of intfdata may not be observed in .manage_power
->> since usb_set_intfdata(, NULL) may be completed after the lock wdm_mutex
->> operation.
->
-> Sure, it is a debugging aid. It has the drawback that minidrivers have
-> to be able to deal with intfdata being NULL. That is not hard to do.
+> So it is only the sync mechanism that  works on the race even the che=
+ck is
+> added in the patch.  Putting usb_set_intfdata(, NULL) after driver_in=
+fo->unbind
+> should be OK, and it is a general solution for the problem.
 
-The check isn't needed if the set to NULL is put after  driver_info->unbind
-in usbnet_disconnect.
+There is no problem wrt qmi_wwan and intfdata as long as the NULL test
+is added to .manage_power.
 
-I think we can add the comment on it to avoid the unnecessary check.
 
-Thanks,
--- 
-Ming Lei
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
