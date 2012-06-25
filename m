@@ -1,102 +1,40 @@
-From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Mon, 25 Jun 2012 14:10:13 +0200
-Message-ID: <201206251410.13454.oliver@neukum.org>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no> <201206250815.39466.oliver@neukum.org> <CACVXFVNUv6w5OjSZdQDbcLEPpDU5vO_Nmarm+fAfh0RkkL_hdg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 5/6] tuntap: per queue 64 bit stats
+Date: Mon, 25 Jun 2012 14:52:45 +0200
+Message-ID: <1340628765.10893.46.camel@edumazet-glaptop>
+References: <20120625060830.6765.27584.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	 <1340625563-9300-6-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: =?iso-8859-1?q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marius =?iso-8859-1?q?Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CACVXFVNUv6w5OjSZdQDbcLEPpDU5vO_Nmarm+fAfh0RkkL_hdg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: mst@redhat.com, akong@redhat.com, habanero@linux.vnet.ibm.com,
+	tahm@linux.vnet.ibm.com, haixiao@juniper.net,
+	jwhan@filewood.snu.ac.kr, ernesto.martin@viasat.com,
+	mashirle@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, krkumar2@in.ibm.com,
+	shemminger@vyatta.com, edumazet@google.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340625563-9300-6-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Montag, 25. Juni 2012, 09:15:21 schrieb Ming Lei:
-> On Mon, Jun 25, 2012 at 2:15 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrote:
-> > Am Montag, 25. Juni 2012, 05:37:20 schrieb Ming Lei:
-> 
-> >> The current problem is caused by the set to NULL without any
-> >> protection or sync mechanism on it, and it is really a bug.
-> >
-> > Minidrivers can test for NULL.
-> > That may not be enough and locking may be needed.
-> 
-> Any locking isn't needed if the set to NULL is put after
-> driver_info->unbind,  since ->unbind will call subdriver->disconnect,
-> which will hold the open/disconnect lock of wdm_mutex.
+On Mon, 2012-06-25 at 19:59 +0800, Jason Wang wrote:
+> As we've added multiqueue support for tun/tap, this patch convert the statistics
+> to use per-queue 64 bit statistics.
 
-True for cdc_wdm. But usbnet needs to work well for everything.
+LLTX means you can have several cpus calling TX path in parallel.
 
-> > We can move to after unregister_netdev()
-> > I am unhappy with it going after unbind.
-> >
-> 
-> Could you let us know the reason? I think it may let the
-> patch not necessary.
+So tx stats are wrong (even before this patch), and racy after this
+patch (if several cpu access same queue, it seems to be possible)
 
-Very well. This is the code:
+       u64_stats_update_begin(&tfile->stats.tx_syncp);
+       tfile->stats.tx_packets++;
+       tfile->stats.tx_bytes += total;
+       u64_stats_update_end(&tfile->stats.tx_syncp);
+ 
+This can break horribly if several cpus run this code using same 'tfile'
+pointer.
 
- void usbnet_disconnect (struct usb_interface *intf)
-{
-        struct usbnet           *dev;
-        struct usb_device       *xdev;
-        struct net_device       *net;
-
-        dev = usb_get_intfdata(intf);
-        usb_set_intfdata(intf, NULL);
-        if (!dev)
-                return;
-
-This code needs to check for NULL (cdc_ether and similar drivers)
-It is cleaner that if we need to check for NULL we also set to NULL.
-But that is no good reason to keep it if there's real trouble 
-
-        xdev = interface_to_usbdev (intf);
-
-        netif_info(dev, probe, dev->net, "unregister '%s' usb-%s-%s, %s\n",
-                   intf->dev.driver->name,
-                   xdev->bus->bus_name, xdev->devpath,
-                   dev->driver_info->description);
-
-        net = dev->net;
-        unregister_netdev (net);
-
-Here intfdata is NULL.
-
-        cancel_work_sync(&dev->kevent);
-
-        if (dev->driver_info->unbind)
-                dev->driver_info->unbind (dev, intf);
-
-At this point a minidriver must not follow the intfdata pointer,
-because the interface may again be probed. So if here a minidriver
-still uses intfdata, locking will be needed. We want to catch those
-casees.
-
-        usb_kill_urb(dev->interrupt);
-        usb_free_urb(dev->interrupt);
-
-        free_netdev(net);
-        usb_put_dev (xdev);
-}
-
-> > Sure, it is a debugging aid. It has the drawback that minidrivers have
-> > to be able to deal with intfdata being NULL. That is not hard to do.
-> 
-> The check isn't needed if the set to NULL is put after  driver_info->unbind
-> in usbnet_disconnect.
-
-True, but we don't catch bugs. 
-
-	Regards
-		Oliver
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I suggest this patch comes before 'tuntap: multiqueue support' in the
+serie.
