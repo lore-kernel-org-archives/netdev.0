@@ -1,79 +1,54 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [RFC net-next 05/14] Fix intel/ixgbevf
-Date: Mon, 25 Jun 2012 14:23:08 +0300
-Message-ID: <4FE84A1C.90901@broadcom.com>
-References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
- <1340118848-30978-6-git-send-email-yuvalmin@broadcom.com>
- <4FE09D3F.4060305@intel.com>
- <1340122013.2486.14.camel@lb-tlvb-eilong.il.broadcom.com>
- <20120619110704.000045b2@unknown>
+Subject: [RFC net-next (v2) 02/14] mlx4: set maximal number of default
+ RSS queues
+Date: Mon, 25 Jun 2012 14:45:33 +0300
+Message-ID: <1340624745-8650-3-git-send-email-yuvalmin@broadcom.com>
+References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com,
-	"Alexander Duyck" <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: "Greg Rose" <gregory.v.rose@intel.com>
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2530 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4326 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755572Ab2FYLZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2012 07:25:06 -0400
-In-Reply-To: <20120619110704.000045b2@unknown>
+	id S1751863Ab2FYLro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2012 07:47:44 -0400
+In-Reply-To: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>  	 * It's easy to be greedy for MSI-X vectors, but it
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
->>>> really @@ -2022,8 +2022,9 @@ static int
->>>> ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
->>>>  	 * than CPU's.  So let's be conservative and only ask for
->>>>  	 * (roughly) twice the number of vectors as there are
->>>> CPU's. */
->>>> +	ncpu = min_t(int, num_online_cpus(),
->>>> DEFAULT_MAX_NUM_RSS_QUEUES); v_budget =
->>>> min(adapter->num_rx_queues + adapter->num_tx_queues,
->>>> -		       (int)(num_online_cpus() * 2)) +
->>>> NON_Q_VECTORS;
->>>> +		       ncpu * 2) + NON_Q_VECTORS;
->>>>  
->>>>  	/* A failure in MSI-X entry allocation isn't fatal, but
->>>> it does
->>>>  	 * mean we disable MSI-X capabilities of the adapter. */
->>> This change is pointless on the ixgbevf driver.  The VF hardware can
->>> support at most 4 RSS queues.  As such num_rx_queues + num_tx_queues
->>> will never exceed 8 so you are essentially adding a necessary
->>> min(x,8).
->>
->> It is pointless with the current value, but if someone will edit the
->> kernel source code and replace the 8 with a 2, it will become
->> meaningful. The compiler will optimize this part, and I think that for
->> completion, it is best to keep this reference so a future default
->> number change will not be missed.
->>
->> Eilon
-> 
-> I don't feel there is any real point to making this change to the
-> ixgbevf driver.  82599 virtual functions have 3 MSI-X vectors, one of
-> which is for the mailbox and the other two can be shared with tx/rx
-> queue pairs or assigned separately to tx or rx queues.  So this code is
-> pointless no matter what value is set for DEFAULT_MAX_NUM_RSS_QUEUES.
-> Perhaps the patches to the other drivers in your RFC will have some
-> effect but this one looks like a no-op for the ixgbevf driver so there
-> is no reason for it.
-> 
-> - Greg
-> 
+Cc: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Hi Greg,
-
-Since we're changing the RFC to use a new wrapper function which should
-replace num_online_cpus (for these purpose), the next RFC version will still
-change this driver (for uniformity, if nothing else).
-
-Of course, if you would still have reservations for this change - send them.
-
-Thanks,
-Yuval
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index ee6f4fe..8f990a3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -41,6 +41,7 @@
+ #include <linux/slab.h>
+ #include <linux/io-mapping.h>
+ #include <linux/delay.h>
++#include <linux/netdevice.h>
+ 
+ #include <linux/mlx4/device.h>
+ #include <linux/mlx4/doorbell.h>
+@@ -1539,8 +1540,8 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct msix_entry *entries;
+ 	int nreq = min_t(int, dev->caps.num_ports *
+-			 min_t(int, num_online_cpus() + 1, MAX_MSIX_P_PORT)
+-				+ MSIX_LEGACY_SZ, MAX_MSIX);
++			 min_t(int, netif_get_num_default_rss_queues() + 1,
++			       MAX_MSIX_P_PORT) + MSIX_LEGACY_SZ, MAX_MSIX);
+ 	int err;
+ 	int i;
+ 
+-- 
+1.7.9.rc2
