@@ -1,28 +1,89 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: Mon, 25 Jun 2012 22:25:30 +0200
-Message-ID: <20120625202530.GC20195@electric-eye.fr.zoreil.com>
-References: <20120602111335.0b94fb59@stein> <loom.20120611T175322-643@post.gmane.org> <20120611204925.GA7070@electric-eye.fr.zoreil.com> <CAMGsXDRjqsgL=KCR=dQGTNhBS7G-AK-VtDEVT+8bUUqFUR5HsA@mail.gmail.com> <20120611215203.GA8860@electric-eye.fr.zoreil.com> <CAMGsXDT5xu_+gHber-XS=wv9RW7kyUzHNUJN87CuJuNevDuxSw@mail.gmail.com> <20120612052631.GA14567@electric-eye.fr.zoreil.com> <CAMGsXDSsSMWfrV1vjnqkWH45ypZw+ZtYF7=ytc79MWRJ5RF5jQ@mail.gmail.com> <CAMGsXDRAE5RZduZnTRa-JmA9_N0Kv+juzYNB_0hf-x+Q8nkpSg@mail.gmail.com> <CAMGsXDSSCnOF+CykudBoEjTacSYL4LYG_ZnRTcS+Xzt54LW=Og@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [RFC net-next (v2) 12/14] ixgbe: set maximal number of default
+ RSS queues
+Date: Mon, 25 Jun 2012 14:03:18 -0700
+Message-ID: <4FE8D216.5080702@intel.com>
+References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>  <1340624745-8650-13-git-send-email-yuvalmin@broadcom.com>  <4FE88770.7070007@intel.com>  <1340646818.2486.27.camel@lb-tlvb-eilong.il.broadcom.com>  <4FE8B019.4030807@intel.com> <1340649847.2572.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tomas Papan <tomas.papan@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, Yuval Mintz <yuvalmin@broadcom.com>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57060 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756108Ab2FYUgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 16:36:08 -0400
-Content-Disposition: inline
-In-Reply-To: <CAMGsXDSSCnOF+CykudBoEjTacSYL4LYG_ZnRTcS+Xzt54LW=Og@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:44061 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756395Ab2FYVDT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2012 17:03:19 -0400
+In-Reply-To: <1340649847.2572.15.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tomas Papan <tomas.papan@gmail.com> :
-[...]
-> Is there anything what can I provide or try? I do not want to be stuck
-> on 3.2.x kernel.
+On 06/25/2012 11:44 AM, Ben Hutchings wrote:
+> On Mon, 2012-06-25 at 11:38 -0700, Alexander Duyck wrote:
+>> On 06/25/2012 10:53 AM, Eilon Greenstein wrote:
+>>> On Mon, 2012-06-25 at 08:44 -0700, Alexander Duyck wrote:
+>>>> This doesn't limit queues, only interrupt vectors.  As I told you before
+>>>> you should look at the ixgbe_set_rss_queues function if you actually
+>>>> want to limit the number of RSS queues.
+>>> How about this:
+>>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+>>> index af1a531..23a8609 100644
+>>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+>>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+>>> @@ -277,6 +277,8 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+>>>  	bool ret = false;
+>>>  	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_RSS];
+>>>  
+>>> +	f->indices = min_t(int, netif_get_num_default_rss_queues(), f->indices);
+>>> +
+>>>  	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+>>>  		f->mask = 0xF;
+>>>  		adapter->num_rx_queues = f->indices;
+>>> @@ -302,7 +304,9 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
+>>>  	bool ret = false;
+>>>  	struct ixgbe_ring_feature *f_fdir = &adapter->ring_feature[RING_F_FDIR];
+>>>  
+>>> -	f_fdir->indices = min_t(int, num_online_cpus(), f_fdir->indices);
+>>> +	f_fdir->indices = min_t(int, netif_get_num_default_rss_queues(),
+>>> +				f_fdir->indices);
+>>> +
+>>>  	f_fdir->mask = 0;
+>>>  
+>>>  	/*
+>>> @@ -339,8 +343,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+>>>  	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+>>>  		return false;
+>>>  
+>>> -	f->indices = min_t(int, num_online_cpus(), f->indices);
+>>> -
+>>> +	f->indices = min_t(int, f->indices, netif_get_num_default_rss_queues());
+>>>  	adapter->num_rx_queues = 1;
+>>>  	adapter->num_tx_queues = 1;
+>>>
+>> This makes much more sense, but still needs a few minor changes.  The
+>> first change I would recommend is to not alter ixgbe_set_fdir_queues
+>> since that controls flow director queues, not RSS queues.  The second
+>> would be to update ixgbe_set_dcb_queues since that does RSS per DCB
+>> traffic class and will also need to be updated.
+> There is a difference between the stated aim (reduce memory allocated
+> for RX buffers) and this implementation (limit number of RSS queues
+> only).  If we agree on that aim then we should be limiting the total
+> number of RX queues.
+>
+> Ben
+The problem is there are certain features that require a certain number
+of Tx/Rx queues.  In addition, certain features will behave differently
+from RSS in terms of how well they scale based on the number of queues.
 
-You can try to revert 036dafa28da1e2565a8529de2ae663c37b7a0060
+For example if we enable DCB we require at least one queue per traffic
+class.  In the case of ATR we should have 1 queue per CPU since the Tx
+queue selection is based on the number of CPUs.  If we don't have that
+1:1 mapping we should be disabling ATR since the feature will not
+function correctly in that case.
 
--- 
-Ueimor
+Thanks,
+
+Alex
