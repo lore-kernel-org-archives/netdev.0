@@ -1,49 +1,114 @@
-From: <Menny_Hamburger@Dell.com>
-Subject: RE: [PATCH] net-next: ipv6: ndisc: allocate a ndisc socket per
- inet6_dev
-Date: Mon, 25 Jun 2012 12:08:30 +0100
-Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34E34DA7@DUBX7MCDUB01.EMEA.DELL.COM>
-References: <D8C50530D6022F40A817A35C40CC06A70B34E34D44@DUBX7MCDUB01.EMEA.DELL.COM>
- <1340620878.10893.26.camel@edumazet-glaptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 01/13] netfilter: fix problem with proto register
+Date: Mon, 25 Jun 2012 13:12:53 +0200
+Message-ID: <20120625111253.GA4607@1984>
+References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:54219 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755899Ab2FYLJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 07:09:54 -0400
-In-Reply-To: <1340620878.10893.26.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SSdtIHNvcnJ5IGZvciBub3QgcmVzcG9uZGluZyBvbiB5b3VyIHBvc3QuDQpJIHJlYWxseSB3YW50
-IHRvIHVuZGVyc3RhbmQgaG93IHRoaXMgZml4ZXMgb3VyIHByb2JsZW0uDQpUaGlzIGZpeCB3aWxs
-IG1ha2UgdGhlIHNrYiBhbGxvY2F0aW9ucyBzdWNjZWVkLCBidXQgd2hhdCBtZWNoYW5pc20gcmVs
-ZWFzZXMgdGhlIHN0dWNrIHNvY2tldCBhc3NvY2lhdGVkIHdpdGggdGhlIGJhZCBkZXZpY2U/DQoN
-ClRoYW5rcywNCk1lbm55DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmlj
-IER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IDI1IEp1bmUs
-IDIwMTIgMTM6NDENClRvOiBIYW1idXJnZXIsIE1lbm55DQpDYzogbmV0ZGV2QHZnZXIua2VybmVs
-Lm9yZw0KU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0LW5leHQ6IGlwdjY6IG5kaXNjOiBhbGxvY2F0
-ZSBhIG5kaXNjIHNvY2tldCBwZXIgaW5ldDZfZGV2DQoNCk9uIE1vbiwgMjAxMi0wNi0yNSBhdCAx
-MToyNiArMDEwMCwgTWVubnlfSGFtYnVyZ2VyQERlbGwuY29tIHdyb3RlOg0KPiBGcm9tOiBtZW5u
-eWggPE1lbm55X0hhbWJ1cmdlckBEZWxsLmNvbT4NCj4gDQo+ICBXaGVuIGFuIElQVjYgbmV0d29y
-ayBkaXNjb3ZlcnkgcGFja2V0IGRvZXMgbm90IGdldCBzZW50IGJ5IHRoZSBOSUMsIA0KPiAgZWl0
-aGVyIGJlY2F1c2UgdGhlcmUgaXMgc29tZSBTL1cgaXNzdWUgb3IgYSBIL1cgcHJvYmxlbSB3aXRo
-IHRoZSBOSUMsIE5EUCB3aWxsIHN0b3ANCj4gIHdvcmtpbmcgYW5kIHdpbGwgbm90IGJlIGFibGUg
-dG8gc2VuZCBuZGlzYyBwYWNrZXRzIHZpYSBvdGhlciBOSUNzIG9uIHRoZSBtYWNoaW5lLg0KPiAg
-VGhlIHJlYXNvbiBmb3IgdGhpcyB0aGF0IHRoZXJlIGlzIG9ubHkgb25lIGdsb2JhbCBzb2NrZXQg
-YXNzaWduZWQgcGVyIG5ldHdvcmsgZm9yIG5ldHdvcmsgZGlzY292ZXJ5DQo+ICAobmV0LT5pcHY2
-Lm5kaXNjX3NrKSwgYW5kICB3aGVuIHRoaXMgc29ja2V0IGlzIGJ1c3ksIE5EUCBjYW5ub3QgYmUg
-c2VydmljZWQgYnkgDQo+ICBvdGhlciBOSUNTLiANCj4gIA0KPiAgVGhpcyBwYXRjaCBhZGRzIGEg
-a2VybmVsIGNvbmZpZ3VyYXRpb24gb3B0aW9uIElQVjZfTkRJU0NfU09DS0VUX1BFUl9JTlRFUkZB
-Q0UsIA0KPiAgd2hpY2ggd2hlbiBlbmFibGVkIHRoZSBrZXJuZWwgd2lsbCBhbGxvY2F0ZSBhIG5l
-dHdvcmsgZGlzY292ZXJ5IHNvY2tldCBwZXIgaW5ldDZfZGV2IG9uIGNyZWF0aW9uLA0KPiAgaW5z
-dGVhZCBvZiBhIHNpbmdsZSBzb2NrZXQgcGVyIG5ldHdvcmsuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5
-OiBtZW5ueWggPE1lbm55X0hhbWJ1cmdlckBEZWxsLmNvbT4NCj4gLS0tDQoNCllvdSBvYnZpb3Vz
-bHkgZGlkbid0IHNlZSBteSBwYXRjaCB0byBhZGRyZXNzIHRoaXMgcHJvYmxlbSA/DQoNCkkgd2Fz
-IHdhaXRpbmcgeW91ciBmZWVkYmFjayBhbmQgeW91IHBvc3QgdGhpcyB3cm9uZyBwYXRjaCBpbnN0
-ZWFkID8NCg0KVGhpcyBzdWNrcy4NCg0KVGVzdCB0aGlzIGluc3RlYWQuIFBsZWFzZSA/DQo=
+On Thu, Jun 21, 2012 at 10:36:38PM +0800, Gao feng wrote:
+> before commit 2c352f444ccfa966a1aa4fd8e9ee29381c467448
+> (netfilter: nf_conntrack: prepare namespace support for
+> l4 protocol trackers), we register sysctl before register
+> protos, so if sysctl is registered faild, the protos will
+> not be registered.
+> 
+> but now, we register protos first, and when register
+> sysctl failed, we can use protos too, it's different
+> from before.
+
+No, this has to be an all-or-nothing game. If one fails, everything
+else that you've registered has to be unregistered.
+
+> so change to register sysctl before register protos.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  net/netfilter/nf_conntrack_proto.c |   36 +++++++++++++++++++++++-------------
+>  1 files changed, 23 insertions(+), 13 deletions(-)
+> 
+> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+> index 1ea9194..9bd88aa 100644
+> --- a/net/netfilter/nf_conntrack_proto.c
+> +++ b/net/netfilter/nf_conntrack_proto.c
+> @@ -253,18 +253,23 @@ int nf_conntrack_l3proto_register(struct net *net,
+>  {
+>  	int ret = 0;
+>  
+> -	if (net == &init_net)
+> -		ret = nf_conntrack_l3proto_register_net(proto);
+> +	if (proto->init_net) {
+> +		ret = proto->init_net(net);
+> +		if (ret < 0)
+> +			return ret;
+> +	}
+>  
+> +	ret = nf_ct_l3proto_register_sysctl(net, proto);
+>  	if (ret < 0)
+>  		return ret;
+
+This is still wrong.
+
+If nf_ct_l3proto_register_sysctl fails, we'll leak the memory that has
+been reserved by proto->init_net.
+
+> -	if (proto->init_net) {
+> -		ret = proto->init_net(net);
+> +	if (net == &init_net) {
+> +		ret = nf_conntrack_l3proto_register_net(proto);
+>  		if (ret < 0)
+> -			return ret;
+> +			nf_ct_l3proto_unregister_sysctl(net, proto);
+>  	}
+> -	return nf_ct_l3proto_register_sysctl(net, proto);
+> +
+> +	return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
+>  
+> @@ -454,19 +459,24 @@ int nf_conntrack_l4proto_register(struct net *net,
+>  				  struct nf_conntrack_l4proto *l4proto)
+>  {
+>  	int ret = 0;
+> -	if (net == &init_net)
+> -		ret = nf_conntrack_l4proto_register_net(l4proto);
+>  
+> -	if (ret < 0)
+> -		return ret;
+> -
+> -	if (l4proto->init_net)
+> +	if (l4proto->init_net) {
+>  		ret = l4proto->init_net(net);
+> +		if (ret < 0)
+> +			return ret;
+> +	}
+>  
+> +	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
+>  	if (ret < 0)
+>  		return ret;
+>  
+> -	return nf_ct_l4proto_register_sysctl(net, l4proto);
+> +	if (net == &init_net) {
+> +		ret = nf_conntrack_l4proto_register_net(l4proto);
+> +		if (ret < 0)
+> +			nf_ct_l4proto_unregister_sysctl(net, l4proto);
+> +	}
+> +
+> +	return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
+>  
+> -- 
+> 1.7.7.6
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
