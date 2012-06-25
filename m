@@ -1,370 +1,242 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: [PATCH 01/20] batman-adv: Prefix bat_debugfs local
-	static functions with batadv_
-Date: Mon, 25 Jun 2012 08:54:25 +0200
-Message-ID: <1340607284-29950-2-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 17/20] batman-adv: Prefix routing local static functions with batadv_
+Date: Mon, 25 Jun 2012 08:54:41 +0200
+Message-ID: <1340607284-29950-18-git-send-email-ordex@autistici.org>
 References: <1340607284-29950-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1340607284-29950-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from latitanza.investici.org ([82.94.249.234]:30541 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754793Ab2FYGyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 02:54:52 -0400
+In-Reply-To: <1340607284-29950-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+From: Sven Eckelmann <sven@narfation.org>
 
 All non-static symbols of batman-adv were prefixed with batadv_ to avoid
 collisions with other symbols of the kernel. Other symbols of batman-adv
 should use the same prefix to keep the naming scheme consistent.
 
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_debugfs.c |  143 +++++++++++++++++++++---------------------
- 1 file changed, 72 insertions(+), 71 deletions(-)
+ net/batman-adv/routing.c |   65 ++++++++++++++++++++++++----------------------
+ 1 file changed, 34 insertions(+), 31 deletions(-)
 
-diff --git a/net/batman-adv/bat_debugfs.c b/net/batman-adv/bat_debugfs.c
-index 4001c57..03f09f0 100644
---- a/net/batman-adv/bat_debugfs.c
-+++ b/net/batman-adv/bat_debugfs.c
-@@ -32,25 +32,25 @@
- #include "icmp_socket.h"
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 57ff851..e7ee40d 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -29,8 +29,8 @@
+ #include "unicast.h"
  #include "bridge_loop_avoidance.h"
  
--static struct dentry *bat_debugfs;
-+static struct dentry *batadv_debugfs;
+-static int route_unicast_packet(struct sk_buff *skb,
+-				struct hard_iface *recv_if);
++static int batadv_route_unicast_packet(struct sk_buff *skb,
++				       struct hard_iface *recv_if);
  
- #ifdef CONFIG_BATMAN_ADV_DEBUG
--#define LOG_BUFF_MASK (log_buff_len-1)
-+#define LOG_BUFF_MASK (batadv_log_buff_len - 1)
- #define LOG_BUFF(idx) (debug_log->log_buff[(idx) & LOG_BUFF_MASK])
- 
--static int log_buff_len = LOG_BUF_LEN;
-+static int batadv_log_buff_len = LOG_BUF_LEN;
- 
--static void emit_log_char(struct debug_log *debug_log, char c)
-+static void batadv_emit_log_char(struct debug_log *debug_log, char c)
+ void batadv_slide_own_bcast_window(struct hard_iface *hard_iface)
  {
- 	LOG_BUFF(debug_log->log_end) = c;
- 	debug_log->log_end++;
- 
--	if (debug_log->log_end - debug_log->log_start > log_buff_len)
--		debug_log->log_start = debug_log->log_end - log_buff_len;
-+	if (debug_log->log_end - debug_log->log_start > batadv_log_buff_len)
-+		debug_log->log_start = debug_log->log_end - batadv_log_buff_len;
- }
- 
- __printf(2, 3)
--static int fdebug_log(struct debug_log *debug_log, const char *fmt, ...)
-+static int batadv_fdebug_log(struct debug_log *debug_log, const char *fmt, ...)
- {
- 	va_list args;
- 	static char debug_log_buf[256];
-@@ -65,7 +65,7 @@ static int fdebug_log(struct debug_log *debug_log, const char *fmt, ...)
- 	va_end(args);
- 
- 	for (p = debug_log_buf; *p != 0; p++)
--		emit_log_char(debug_log, *p);
-+		batadv_emit_log_char(debug_log, *p);
- 
- 	spin_unlock_bh(&debug_log->lock);
- 
-@@ -81,14 +81,14 @@ int batadv_debug_log(struct bat_priv *bat_priv, const char *fmt, ...)
- 
- 	va_start(args, fmt);
- 	vscnprintf(tmp_log_buf, sizeof(tmp_log_buf), fmt, args);
--	fdebug_log(bat_priv->debug_log, "[%10u] %s",
--		   jiffies_to_msecs(jiffies), tmp_log_buf);
-+	batadv_fdebug_log(bat_priv->debug_log, "[%10u] %s",
-+			  jiffies_to_msecs(jiffies), tmp_log_buf);
- 	va_end(args);
- 
- 	return 0;
- }
- 
--static int log_open(struct inode *inode, struct file *file)
-+static int batadv_log_open(struct inode *inode, struct file *file)
- {
- 	nonseekable_open(inode, file);
- 	file->private_data = inode->i_private;
-@@ -96,14 +96,14 @@ static int log_open(struct inode *inode, struct file *file)
- 	return 0;
- }
- 
--static int log_release(struct inode *inode, struct file *file)
-+static int batadv_log_release(struct inode *inode, struct file *file)
- {
- 	batadv_dec_module_count();
- 	return 0;
- }
- 
--static ssize_t log_read(struct file *file, char __user *buf,
--			size_t count, loff_t *ppos)
-+static ssize_t batadv_log_read(struct file *file, char __user *buf,
-+			       size_t count, loff_t *ppos)
- {
- 	struct bat_priv *bat_priv = file->private_data;
- 	struct debug_log *debug_log = bat_priv->debug_log;
-@@ -156,7 +156,7 @@ static ssize_t log_read(struct file *file, char __user *buf,
- 	return error;
- }
- 
--static unsigned int log_poll(struct file *file, poll_table *wait)
-+static unsigned int batadv_log_poll(struct file *file, poll_table *wait)
- {
- 	struct bat_priv *bat_priv = file->private_data;
- 	struct debug_log *debug_log = bat_priv->debug_log;
-@@ -169,15 +169,15 @@ static unsigned int log_poll(struct file *file, poll_table *wait)
- 	return 0;
- }
- 
--static const struct file_operations log_fops = {
--	.open           = log_open,
--	.release        = log_release,
--	.read           = log_read,
--	.poll           = log_poll,
-+static const struct file_operations batadv_log_fops = {
-+	.open           = batadv_log_open,
-+	.release        = batadv_log_release,
-+	.read           = batadv_log_read,
-+	.poll           = batadv_log_poll,
- 	.llseek         = no_llseek,
- };
- 
--static int debug_log_setup(struct bat_priv *bat_priv)
-+static int batadv_debug_log_setup(struct bat_priv *bat_priv)
- {
- 	struct dentry *d;
- 
-@@ -192,7 +192,8 @@ static int debug_log_setup(struct bat_priv *bat_priv)
- 	init_waitqueue_head(&bat_priv->debug_log->queue_wait);
- 
- 	d = debugfs_create_file("log", S_IFREG | S_IRUSR,
--				bat_priv->debug_dir, bat_priv, &log_fops);
-+				bat_priv->debug_dir, bat_priv,
-+				&batadv_log_fops);
- 	if (!d)
- 		goto err;
- 
-@@ -202,49 +203,49 @@ err:
- 	return -ENOMEM;
- }
- 
--static void debug_log_cleanup(struct bat_priv *bat_priv)
-+static void batadv_debug_log_cleanup(struct bat_priv *bat_priv)
- {
- 	kfree(bat_priv->debug_log);
- 	bat_priv->debug_log = NULL;
- }
- #else /* CONFIG_BATMAN_ADV_DEBUG */
--static int debug_log_setup(struct bat_priv *bat_priv)
-+static int batadv_debug_log_setup(struct bat_priv *bat_priv)
- {
- 	bat_priv->debug_log = NULL;
- 	return 0;
- }
- 
--static void debug_log_cleanup(struct bat_priv *bat_priv)
-+static void batadv_debug_log_cleanup(struct bat_priv *bat_priv)
- {
- 	return;
- }
- #endif
- 
--static int bat_algorithms_open(struct inode *inode, struct file *file)
-+static int batadv_algorithms_open(struct inode *inode, struct file *file)
- {
- 	return single_open(file, batadv_algo_seq_print_text, NULL);
- }
- 
--static int originators_open(struct inode *inode, struct file *file)
-+static int batadv_originators_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, batadv_orig_seq_print_text, net_dev);
- }
- 
--static int gateways_open(struct inode *inode, struct file *file)
-+static int batadv_gateways_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, batadv_gw_client_seq_print_text, net_dev);
- }
- 
--static int transtable_global_open(struct inode *inode, struct file *file)
-+static int batadv_transtable_global_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, batadv_tt_global_seq_print_text, net_dev);
- }
- 
- #ifdef CONFIG_BATMAN_ADV_BLA
--static int bla_claim_table_open(struct inode *inode, struct file *file)
-+static int batadv_bla_claim_table_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, batadv_bla_claim_table_seq_print_text,
-@@ -252,13 +253,13 @@ static int bla_claim_table_open(struct inode *inode, struct file *file)
- }
- #endif
- 
--static int transtable_local_open(struct inode *inode, struct file *file)
-+static int batadv_transtable_local_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, batadv_tt_local_seq_print_text, net_dev);
- }
- 
--static int vis_data_open(struct inode *inode, struct file *file)
-+static int batadv_vis_data_open(struct inode *inode, struct file *file)
- {
- 	struct net_device *net_dev = (struct net_device *)inode->i_private;
- 	return single_open(file, batadv_vis_seq_print_text, net_dev);
-@@ -269,37 +270,37 @@ struct bat_debuginfo {
- 	const struct file_operations fops;
- };
- 
--#define BAT_DEBUGINFO(_name, _mode, _open)	\
--struct bat_debuginfo bat_debuginfo_##_name = {	\
--	.attr = { .name = __stringify(_name),	\
--		  .mode = _mode, },		\
--	.fops = { .owner = THIS_MODULE,		\
--		  .open = _open,		\
--		  .read	= seq_read,		\
--		  .llseek = seq_lseek,		\
--		  .release = single_release,	\
--		}				\
-+#define BAT_DEBUGINFO(_name, _mode, _open)		\
-+struct bat_debuginfo batadv_debuginfo_##_name = {	\
-+	.attr = { .name = __stringify(_name),		\
-+		  .mode = _mode, },			\
-+	.fops = { .owner = THIS_MODULE,			\
-+		  .open = _open,			\
-+		  .read	= seq_read,			\
-+		  .llseek = seq_lseek,			\
-+		  .release = single_release,		\
-+		}					\
- };
- 
--static BAT_DEBUGINFO(routing_algos, S_IRUGO, bat_algorithms_open);
--static BAT_DEBUGINFO(originators, S_IRUGO, originators_open);
--static BAT_DEBUGINFO(gateways, S_IRUGO, gateways_open);
--static BAT_DEBUGINFO(transtable_global, S_IRUGO, transtable_global_open);
-+static BAT_DEBUGINFO(routing_algos, S_IRUGO, batadv_algorithms_open);
-+static BAT_DEBUGINFO(originators, S_IRUGO, batadv_originators_open);
-+static BAT_DEBUGINFO(gateways, S_IRUGO, batadv_gateways_open);
-+static BAT_DEBUGINFO(transtable_global, S_IRUGO, batadv_transtable_global_open);
- #ifdef CONFIG_BATMAN_ADV_BLA
--static BAT_DEBUGINFO(bla_claim_table, S_IRUGO, bla_claim_table_open);
-+static BAT_DEBUGINFO(bla_claim_table, S_IRUGO, batadv_bla_claim_table_open);
- #endif
--static BAT_DEBUGINFO(transtable_local, S_IRUGO, transtable_local_open);
--static BAT_DEBUGINFO(vis_data, S_IRUGO, vis_data_open);
-+static BAT_DEBUGINFO(transtable_local, S_IRUGO, batadv_transtable_local_open);
-+static BAT_DEBUGINFO(vis_data, S_IRUGO, batadv_vis_data_open);
- 
--static struct bat_debuginfo *mesh_debuginfos[] = {
--	&bat_debuginfo_originators,
--	&bat_debuginfo_gateways,
--	&bat_debuginfo_transtable_global,
-+static struct bat_debuginfo *batadv_mesh_debuginfos[] = {
-+	&batadv_debuginfo_originators,
-+	&batadv_debuginfo_gateways,
-+	&batadv_debuginfo_transtable_global,
- #ifdef CONFIG_BATMAN_ADV_BLA
--	&bat_debuginfo_bla_claim_table,
-+	&batadv_debuginfo_bla_claim_table,
- #endif
--	&bat_debuginfo_transtable_local,
--	&bat_debuginfo_vis_data,
-+	&batadv_debuginfo_transtable_local,
-+	&batadv_debuginfo_vis_data,
- 	NULL,
- };
- 
-@@ -308,17 +309,17 @@ void batadv_debugfs_init(void)
- 	struct bat_debuginfo *bat_debug;
- 	struct dentry *file;
- 
--	bat_debugfs = debugfs_create_dir(DEBUGFS_BAT_SUBDIR, NULL);
--	if (bat_debugfs == ERR_PTR(-ENODEV))
--		bat_debugfs = NULL;
-+	batadv_debugfs = debugfs_create_dir(DEBUGFS_BAT_SUBDIR, NULL);
-+	if (batadv_debugfs == ERR_PTR(-ENODEV))
-+		batadv_debugfs = NULL;
- 
--	if (!bat_debugfs)
-+	if (!batadv_debugfs)
- 		goto out;
- 
--	bat_debug = &bat_debuginfo_routing_algos;
-+	bat_debug = &batadv_debuginfo_routing_algos;
- 	file = debugfs_create_file(bat_debug->attr.name,
- 				   S_IFREG | bat_debug->attr.mode,
--				   bat_debugfs, NULL, &bat_debug->fops);
-+				   batadv_debugfs, NULL, &bat_debug->fops);
- 	if (!file)
- 		pr_err("Can't add debugfs file: %s\n", bat_debug->attr.name);
- 
-@@ -328,9 +329,9 @@ out:
- 
- void batadv_debugfs_destroy(void)
- {
--	if (bat_debugfs) {
--		debugfs_remove_recursive(bat_debugfs);
--		bat_debugfs = NULL;
-+	if (batadv_debugfs) {
-+		debugfs_remove_recursive(batadv_debugfs);
-+		batadv_debugfs = NULL;
+@@ -61,9 +61,9 @@ void batadv_slide_own_bcast_window(struct hard_iface *hard_iface)
  	}
  }
  
-@@ -340,20 +341,20 @@ int batadv_debugfs_add_meshif(struct net_device *dev)
- 	struct bat_debuginfo **bat_debug;
- 	struct dentry *file;
- 
--	if (!bat_debugfs)
-+	if (!batadv_debugfs)
- 		goto out;
- 
--	bat_priv->debug_dir = debugfs_create_dir(dev->name, bat_debugfs);
-+	bat_priv->debug_dir = debugfs_create_dir(dev->name, batadv_debugfs);
- 	if (!bat_priv->debug_dir)
- 		goto out;
- 
- 	if (batadv_socket_setup(bat_priv) < 0)
- 		goto rem_attr;
- 
--	if (debug_log_setup(bat_priv) < 0)
-+	if (batadv_debug_log_setup(bat_priv) < 0)
- 		goto rem_attr;
- 
--	for (bat_debug = mesh_debuginfos; *bat_debug; ++bat_debug) {
-+	for (bat_debug = batadv_mesh_debuginfos; *bat_debug; ++bat_debug) {
- 		file = debugfs_create_file(((*bat_debug)->attr).name,
- 					  S_IFREG | ((*bat_debug)->attr).mode,
- 					  bat_priv->debug_dir,
-@@ -381,9 +382,9 @@ void batadv_debugfs_del_meshif(struct net_device *dev)
+-static void _update_route(struct bat_priv *bat_priv,
+-			  struct orig_node *orig_node,
+-			  struct neigh_node *neigh_node)
++static void _batadv_update_route(struct bat_priv *bat_priv,
++				 struct orig_node *orig_node,
++				 struct neigh_node *neigh_node)
  {
- 	struct bat_priv *bat_priv = netdev_priv(dev);
+ 	struct neigh_node *curr_router;
  
--	debug_log_cleanup(bat_priv);
-+	batadv_debug_log_cleanup(bat_priv);
+@@ -117,7 +117,7 @@ void batadv_update_route(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ 	router = batadv_orig_node_get_router(orig_node);
  
--	if (bat_debugfs) {
-+	if (batadv_debugfs) {
- 		debugfs_remove_recursive(bat_priv->debug_dir);
- 		bat_priv->debug_dir = NULL;
+ 	if (router != neigh_node)
+-		_update_route(bat_priv, orig_node, neigh_node);
++		_batadv_update_route(bat_priv, orig_node, neigh_node);
+ 
+ out:
+ 	if (router)
+@@ -276,8 +276,8 @@ bool batadv_check_management_packet(struct sk_buff *skb,
+ 	return true;
+ }
+ 
+-static int recv_my_icmp_packet(struct bat_priv *bat_priv,
+-			       struct sk_buff *skb, size_t icmp_len)
++static int batadv_recv_my_icmp_packet(struct bat_priv *bat_priv,
++				      struct sk_buff *skb, size_t icmp_len)
+ {
+ 	struct hard_iface *primary_if = NULL;
+ 	struct orig_node *orig_node = NULL;
+@@ -331,8 +331,8 @@ out:
+ 	return ret;
+ }
+ 
+-static int recv_icmp_ttl_exceeded(struct bat_priv *bat_priv,
+-				  struct sk_buff *skb)
++static int batadv_recv_icmp_ttl_exceeded(struct bat_priv *bat_priv,
++					 struct sk_buff *skb)
+ {
+ 	struct hard_iface *primary_if = NULL;
+ 	struct orig_node *orig_node = NULL;
+@@ -431,11 +431,11 @@ int batadv_recv_icmp_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 
+ 	/* packet for me */
+ 	if (batadv_is_my_mac(icmp_packet->dst))
+-		return recv_my_icmp_packet(bat_priv, skb, hdr_size);
++		return batadv_recv_my_icmp_packet(bat_priv, skb, hdr_size);
+ 
+ 	/* TTL exceeded */
+ 	if (icmp_packet->header.ttl < 2)
+-		return recv_icmp_ttl_exceeded(bat_priv, skb);
++		return batadv_recv_icmp_ttl_exceeded(bat_priv, skb);
+ 
+ 	/* get routing information */
+ 	orig_node = batadv_orig_hash_find(bat_priv, icmp_packet->dst);
+@@ -473,8 +473,9 @@ out:
+  * This method rotates the bonding list and increases the
+  * returned router's refcount.
+  */
+-static struct neigh_node *find_bond_router(struct orig_node *primary_orig,
+-					   const struct hard_iface *recv_if)
++static struct neigh_node *
++batadv_find_bond_router(struct orig_node *primary_orig,
++			const struct hard_iface *recv_if)
+ {
+ 	struct neigh_node *tmp_neigh_node;
+ 	struct neigh_node *router = NULL, *first_candidate = NULL;
+@@ -527,8 +528,9 @@ out:
+  *
+  * Increases the returned router's refcount
+  */
+-static struct neigh_node *find_ifalter_router(struct orig_node *primary_orig,
+-					      const struct hard_iface *recv_if)
++static struct neigh_node *
++batadv_find_ifalter_router(struct orig_node *primary_orig,
++			   const struct hard_iface *recv_if)
+ {
+ 	struct neigh_node *tmp_neigh_node;
+ 	struct neigh_node *router = NULL, *first_candidate = NULL;
+@@ -614,7 +616,7 @@ int batadv_recv_tt_query(struct sk_buff *skb, struct hard_iface *recv_if)
+ 				   "Routing TT_REQUEST to %pM [%c]\n",
+ 				   tt_query->dst,
+ 				   tt_flag);
+-			return route_unicast_packet(skb, recv_if);
++			return batadv_route_unicast_packet(skb, recv_if);
+ 		}
+ 		break;
+ 	case TT_RESPONSE:
+@@ -643,7 +645,7 @@ int batadv_recv_tt_query(struct sk_buff *skb, struct hard_iface *recv_if)
+ 				   "Routing TT_RESPONSE to %pM [%c]\n",
+ 				   tt_query->dst,
+ 				   tt_flag);
+-			return route_unicast_packet(skb, recv_if);
++			return batadv_route_unicast_packet(skb, recv_if);
+ 		}
+ 		break;
  	}
+@@ -679,7 +681,7 @@ int batadv_recv_roam_adv(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	roam_adv_packet = (struct roam_adv_packet *)skb->data;
+ 
+ 	if (!batadv_is_my_mac(roam_adv_packet->dst))
+-		return route_unicast_packet(skb, recv_if);
++		return batadv_route_unicast_packet(skb, recv_if);
+ 
+ 	/* check if it is a backbone gateway. we don't accept
+ 	 * roaming advertisement from it, as it has the same
+@@ -783,9 +785,9 @@ struct neigh_node *batadv_find_router(struct bat_priv *bat_priv,
+ 	batadv_neigh_node_free_ref(router);
+ 
+ 	if (bonding_enabled)
+-		router = find_bond_router(primary_orig_node, recv_if);
++		router = batadv_find_bond_router(primary_orig_node, recv_if);
+ 	else
+-		router = find_ifalter_router(primary_orig_node, recv_if);
++		router = batadv_find_ifalter_router(primary_orig_node, recv_if);
+ 
+ return_router:
+ 	if (router && router->if_incoming->if_status != IF_ACTIVE)
+@@ -801,7 +803,7 @@ err:
+ 	return NULL;
+ }
+ 
+-static int check_unicast_packet(struct sk_buff *skb, int hdr_size)
++static int batadv_check_unicast_packet(struct sk_buff *skb, int hdr_size)
+ {
+ 	struct ethhdr *ethhdr;
+ 
+@@ -826,7 +828,8 @@ static int check_unicast_packet(struct sk_buff *skb, int hdr_size)
+ 	return 0;
+ }
+ 
+-static int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
++static int batadv_route_unicast_packet(struct sk_buff *skb,
++				       struct hard_iface *recv_if)
+ {
+ 	struct bat_priv *bat_priv = netdev_priv(recv_if->soft_iface);
+ 	struct orig_node *orig_node = NULL;
+@@ -911,8 +914,8 @@ out:
+ 	return ret;
+ }
+ 
+-static int check_unicast_ttvn(struct bat_priv *bat_priv,
+-			       struct sk_buff *skb) {
++static int batadv_check_unicast_ttvn(struct bat_priv *bat_priv,
++				     struct sk_buff *skb) {
+ 	uint8_t curr_ttvn;
+ 	struct orig_node *orig_node;
+ 	struct ethhdr *ethhdr;
+@@ -994,10 +997,10 @@ int batadv_recv_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 	struct unicast_packet *unicast_packet;
+ 	int hdr_size = sizeof(*unicast_packet);
+ 
+-	if (check_unicast_packet(skb, hdr_size) < 0)
++	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
+ 		return NET_RX_DROP;
+ 
+-	if (!check_unicast_ttvn(bat_priv, skb))
++	if (!batadv_check_unicast_ttvn(bat_priv, skb))
+ 		return NET_RX_DROP;
+ 
+ 	unicast_packet = (struct unicast_packet *)skb->data;
+@@ -1009,7 +1012,7 @@ int batadv_recv_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_if)
+ 		return NET_RX_SUCCESS;
+ 	}
+ 
+-	return route_unicast_packet(skb, recv_if);
++	return batadv_route_unicast_packet(skb, recv_if);
+ }
+ 
+ int batadv_recv_ucast_frag_packet(struct sk_buff *skb,
+@@ -1021,10 +1024,10 @@ int batadv_recv_ucast_frag_packet(struct sk_buff *skb,
+ 	struct sk_buff *new_skb = NULL;
+ 	int ret;
+ 
+-	if (check_unicast_packet(skb, hdr_size) < 0)
++	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
+ 		return NET_RX_DROP;
+ 
+-	if (!check_unicast_ttvn(bat_priv, skb))
++	if (!batadv_check_unicast_ttvn(bat_priv, skb))
+ 		return NET_RX_DROP;
+ 
+ 	unicast_packet = (struct unicast_frag_packet *)skb->data;
+@@ -1046,7 +1049,7 @@ int batadv_recv_ucast_frag_packet(struct sk_buff *skb,
+ 		return NET_RX_SUCCESS;
+ 	}
+ 
+-	return route_unicast_packet(skb, recv_if);
++	return batadv_route_unicast_packet(skb, recv_if);
+ }
+ 
+ 
 -- 
 1.7.9.4
