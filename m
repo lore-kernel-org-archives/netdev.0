@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipheth: add support for iPad
-Date: Sun, 24 Jun 2012 19:53:02 -0700 (PDT)
-Message-ID: <20120624.195302.102607171155558421.davem@davemloft.net>
-References: <1340577468-3298-1-git-send-email-rainbow@irh.it>
-	<alpine.LNX.2.00.1206250208140.30361@swampdragon.chaosbits.net>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH] r8169: RxConfig hack for the 8168evl.
+Date: Mon, 25 Jun 2012 11:31:50 +0800
+Message-ID: <DB5F775AE8124DDDAE4E1501A78AF7A3@realtek.com.tw>
+References: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: rainbow@irh.it, gregkh@linuxfoundation.org,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jj@chaosbits.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1206250208140.30361@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <thomas.pi@arcor.de>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:58596 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752654Ab2FYDcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 23:32:07 -0400
+In-Reply-To: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Mon, 25 Jun 2012 02:09:22 +0200 (CEST)
+Hi, 
 
-> On Mon, 25 Jun 2012, rainbow wrote:
-> 
->> This adds support for the iPad to the ipheth driver.
->> (product id = 0x129a)
->> 
->> Signed-off-by: rainbow <rainbow@irh.it>
-> 
-> It is usually very much prefered that people use their real names in 
-> Signed-off-by: lines.
-> 
-> Please consider re-submitting using your real name.
+> - the patch sets the RX_MULTI_EN bit. If the 8168c doc is any guide,
+>   the chipset now fetches several Rx descriptors at a time.
+> - long ago the driver ignored the RX_MULTI_EN bit.
+>   e542a2269f232d61270ceddd42b73a4348dee2bb changed the RxConfig
+>   settings. Whatever the problem it's now labeled a regression.
 
-Indeed.
+The definition of the IO 0x44 bit 14 is opposite for new chips.
+For 8111C, 0 means fetching one Rx descriptor, and 1 means fetching
+multi-descriptors.
+For 8111D and the later chips, 0 means fetching multi-descriptors, and 1 means
+fetching one Rx descriptor.
+
+However, I have no idea about why it influences the issue.
+
+> - Realtek's own driver can identify two different 8168evl devices
+>   (CFG_METHOD_16 and CFG_METHOD_17) where the r8169 driver only
+>   sees one. It sucks.
+
+The CFG_METHOD_16 is the internal test chip. We don't have mass production for
+it. Even it could be removed from driver. I don't think the kernel have to
+support it.
+ 
+Best Regards,
+Hayes
