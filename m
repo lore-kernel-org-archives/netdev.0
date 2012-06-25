@@ -1,45 +1,60 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH] r8169: RxConfig hack for the 8168evl.
-Date: Mon, 25 Jun 2012 11:31:50 +0800
-Message-ID: <DB5F775AE8124DDDAE4E1501A78AF7A3@realtek.com.tw>
-References: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 25 Jun 2012 13:33:18 +1000
+Message-ID: <20120625133318.a57079c86bad4360828efac0@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <thomas.pi@arcor.de>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__25_Jun_2012_13_33_18_+1000_wKb8ulSpM+VLtTPa"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?B?IkJqw7hybiBNb3JrIg==?= <bjorn@mork.no>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:58596 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752654Ab2FYDcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 23:32:07 -0400
-In-Reply-To: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
+Received: from haggis.pcug.org.au ([203.10.76.10]:59403 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752654Ab2FYDdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 23:33:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, 
+--Signature=_Mon__25_Jun_2012_13_33_18_+1000_wKb8ulSpM+VLtTPa
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> - the patch sets the RX_MULTI_EN bit. If the 8168c doc is any guide,
->   the chipset now fetches several Rx descriptors at a time.
-> - long ago the driver ignored the RX_MULTI_EN bit.
->   e542a2269f232d61270ceddd42b73a4348dee2bb changed the RxConfig
->   settings. Whatever the problem it's now labeled a regression.
+Hi all,
 
-The definition of the IO 0x44 bit 14 is opposite for new chips.
-For 8111C, 0 means fetching one Rx descriptor, and 1 means fetching
-multi-descriptors.
-For 8111D and the later chips, 0 means fetching multi-descriptors, and 1 means
-fetching one Rx descriptor.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/usb/qmi_wwan.c between commit b9f90eb27402 ("net: qmi_wwan:
+fix Gobi device probing") from the net tree and various commits from the
+net-next tree.
 
-However, I have no idea about why it influences the issue.
+I am not sure how to fix this, but the comments in the net tree commit
+implied that it would be placed in the 3.6 code, so I just used the
+version of this file from the net-next tree.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> - Realtek's own driver can identify two different 8168evl devices
->   (CFG_METHOD_16 and CFG_METHOD_17) where the r8169 driver only
->   sees one. It sucks.
+--Signature=_Mon__25_Jun_2012_13_33_18_+1000_wKb8ulSpM+VLtTPa
+Content-Type: application/pgp-signature
 
-The CFG_METHOD_16 is the internal test chip. We don't have mass production for
-it. Even it could be removed from driver. I don't think the kernel have to
-support it.
- 
-Best Regards,
-Hayes
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJP59v+AAoJEECxmPOUX5FEfnoP/1wJ2+5sV9ul1lqwnD+VOvtv
+U10dLgP6mpa0b5MU7dduiYqZ6UJ5CTQr3ELzDFfkwHtRqsYl+pjZTVIPTQL1JvE1
+RLUSkwB6QW/vjz3DsBGaecyS3p9ChO4hiMNUWOigEncTbD8SpbKjFZMRHe4rMLcM
+pbuT+10zzX1iY++kyyzAZgU9yZJ5s6lv/cnKtNagu1U5toYRwlTDryxT+9sZBD1Z
+Si/KxM0onHCynRvxsY41nYP4vX9aFfVFp/xjfXOpEB00rcOelmlibDOY/gLY7BAS
+19R0Nu1ABDS8WD0awyoXdwgCyXDsyWtgfmE0KGRKi0HPoNxAPHa6uRM1bZw57Fj6
+RcVzguQ8XewotdK66I1PG2I/QPPf0SdU/Jv2hjAgGOJsvQuUpBsFShZmbN3KafgF
+5nvnXKaoO7fwu9che8240Gg3gQM75NeTPGnHhXRRhFESw1wLRA11ckuK7SbAQ/op
+KZaLvGQaAT2Nd7YzHoLzdwH+1+CiQgdHVX2lUDKW+biPx+Ni8W4iDEnq5eEci/X7
+r1dakiX0IxOZuHo1TaK6yYUJVQKvSXy9eSfuscxvz+TKA18bH+ktZusM0AJ871ET
+la1Gx/Mb232Z/fkadq7llqvJky3ZlTiR+dlam5HEwiHGSnL72ROdgpXxNi5yGCDW
+S5+sw9R6SAgFcFDeQhJE
+=dYqs
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__25_Jun_2012_13_33_18_+1000_wKb8ulSpM+VLtTPa--
