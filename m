@@ -1,71 +1,130 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [RFC net-next (v2) 14/14] ixgbevf: set maximal number of
- default RSS queues
-Date: Mon, 25 Jun 2012 18:53:11 +0300
-Message-ID: <1340639591.2486.25.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
- <1340624745-8650-15-git-send-email-yuvalmin@broadcom.com>
- <4FE88794.9090704@intel.com>
-Reply-To: eilong@broadcom.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: nfc: fix panic in accept()
+Date: Mon, 25 Jun 2012 17:53:32 +0200
+Message-ID: <1340639612.10893.84.camel@edumazet-glaptop>
+References: <1339423241.4999.53.camel@lappy>
+	 <20120611144134.GX22557@sortiz-mobl>
+	 <1339425693.6001.2268.camel@edumazet-glaptop>
+	 <20120611145700.GY22557@sortiz-mobl>
+	 <1339426778.6001.2312.camel@edumazet-glaptop>
+	 <20120611152007.GZ22557@sortiz-mobl> <1339433810.4999.65.camel@lappy>
+	 <20120611172545.GA1776@redhat.com>
+	 <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-	"Greg Rose" <gregory.v.rose@intel.com>
-To: "Alexander Duyck" <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4973 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757158Ab2FYPxU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2012 11:53:20 -0400
-In-Reply-To: <4FE88794.9090704@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dave Jones <davej@redhat.com>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	David Miller <davem@davemloft.net>,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-25 at 08:45 -0700, Alexander Duyck wrote:
-> On 06/25/2012 04:45 AM, Yuval Mintz wrote:
-> > Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> >
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> > Cc: Greg Rose <gregory.v.rose@intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > index f69ec42..7889644 100644
-> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > @@ -2023,7 +2023,7 @@ static int ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
-> >  	 * (roughly) twice the number of vectors as there are CPU's.
-> >  	 */
-> >  	v_budget = min(adapter->num_rx_queues + adapter->num_tx_queues,
-> > -		       (int)(num_online_cpus() * 2)) + NON_Q_VECTORS;
-> > +		       netif_get_num_default_rss_queues() * 2) + NON_Q_VECTORS;
-> >  
-> >  	/* A failure in MSI-X entry allocation isn't fatal, but it does
-> >  	 * mean we disable MSI-X capabilities of the adapter. */
-> I'm not even sure why you are bothering to alter this driver since it is
-> currently single queue only.
+From: Eric Dumazet <edumazet@google.com>
 
-Alex,
+Sasha Levin reported following panic :
 
-Can you please explain the logic behind these lines in the current
-implementation?
-	v_budget = min(adapter->num_rx_queues + adapter->num_tx_queues,
-		       (int)(num_online_cpus() * 2)) + NON_Q_VECTORS;
-It looks as if you were trying to be generic and support a future in
-which this driver will support more than a single queue - to be future
-ready, this RFC is replacing the usage of num_online_cpus with
-netif_get_num_default_rss_queues. Are you suggesting to remove these
-lines all together? Keeping this minimum function with only the
-num_online_cpus does not seem right without considering also the new
-default value.
+[ 2136.383310] BUG: unable to handle kernel NULL pointer dereference at
+00000000000003b0
+[ 2136.384022] IP: [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
+[ 2136.384022] PGD 131c4067 PUD 11c0c067 PMD 0 
+[ 2136.388106] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+[ 2136.388106] CPU 1 
+[ 2136.388106] Pid: 24855, comm: trinity-child1 Tainted: G        W
+3.5.0-rc2-sasha-00015-g7b268f7 #374  
+[ 2136.388106] RIP: 0010:[<ffffffff8114e400>]  [<ffffffff8114e400>]
+__lock_acquire+0xc0/0x4b0
+[ 2136.388106] RSP: 0018:ffff8800130b3ca8  EFLAGS: 00010046
+[ 2136.388106] RAX: 0000000000000086 RBX: ffff88001186b000 RCX:
+0000000000000000
+[ 2136.388106] RDX: 0000000000000000 RSI: 0000000000000000 RDI:
+0000000000000000
+[ 2136.388106] RBP: ffff8800130b3d08 R08: 0000000000000001 R09:
+0000000000000000
+[ 2136.388106] R10: 0000000000000000 R11: 0000000000000001 R12:
+0000000000000002
+[ 2136.388106] R13: 00000000000003b0 R14: 0000000000000000 R15:
+0000000000000000
+[ 2136.388106] FS:  00007fa5b1bd4700(0000) GS:ffff88001b800000(0000)
+knlGS:0000000000000000
+[ 2136.388106] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[ 2136.388106] CR2: 00000000000003b0 CR3: 0000000011d1f000 CR4:
+00000000000406e0
+[ 2136.388106] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+0000000000000000
+[ 2136.388106] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+0000000000000400
+[ 2136.388106] Process trinity-child1 (pid: 24855, threadinfo
+ffff8800130b2000, task ffff88001186b000)
+[ 2136.388106] Stack:
+[ 2136.388106]  ffff8800130b3cd8 ffffffff81121785 ffffffff81236774
+000080d000000001
+[ 2136.388106]  ffff88001b9d6c00 00000000001d6c00 ffffffff130b3d08
+ffff88001186b000
+[ 2136.388106]  0000000000000000 0000000000000002 0000000000000000
+0000000000000000
+[ 2136.388106] Call Trace:
+[ 2136.388106]  [<ffffffff81121785>] ? sched_clock_local+0x25/0x90
+[ 2136.388106]  [<ffffffff81236774>] ? get_empty_filp+0x74/0x220
+[ 2136.388106]  [<ffffffff8114e97a>] lock_acquire+0x18a/0x1e0
+[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
+[ 2136.388106]  [<ffffffff837c0ef0>] _raw_write_lock_bh+0x40/0x80
+[ 2136.388106]  [<ffffffff836b37df>] ? rawsock_release+0x4f/0xa0
+[ 2136.388106]  [<ffffffff836b37df>] rawsock_release+0x4f/0xa0
+[ 2136.388106]  [<ffffffff8321cfe8>] sock_release+0x18/0x70
+[ 2136.388106]  [<ffffffff8321d069>] sock_close+0x29/0x30
+[ 2136.388106]  [<ffffffff81236bca>] __fput+0x11a/0x2c0
+[ 2136.388106]  [<ffffffff81236d85>] fput+0x15/0x20
+[ 2136.388106]  [<ffffffff8321de34>] sys_accept4+0x1b4/0x200
+[ 2136.388106]  [<ffffffff837c165c>] ? _raw_spin_unlock_irq+0x4c/0x80
+[ 2136.388106]  [<ffffffff837c1669>] ? _raw_spin_unlock_irq+0x59/0x80
+[ 2136.388106]  [<ffffffff837c2565>] ? sysret_check+0x22/0x5d
+[ 2136.388106]  [<ffffffff8321de8b>] sys_accept+0xb/0x10
+[ 2136.388106]  [<ffffffff837c2539>] system_call_fastpath+0x16/0x1b
+[ 2136.388106] Code: ec 04 00 0f 85 ea 03 00 00 be d5 0b 00 00 48 c7 c7
+8a c1 40 84 e8 b1 a5 f8 ff 31 c0 e9 d4 03 00 00 66 2e 0f 1f 84 00 00 00
+00 00 <49> 81 7d 00 60 73 5e 85 b8 01 00 00 00 44 0f 44 e0 83 fe 01 77 
+[ 2136.388106] RIP  [<ffffffff8114e400>] __lock_acquire+0xc0/0x4b0
+[ 2136.388106]  RSP <ffff8800130b3ca8>
+[ 2136.388106] CR2: 00000000000003b0
+[ 2136.388106] ---[ end trace 6d450e935ee18982 ]---
+[ 2136.388106] Kernel panic - not syncing: Fatal exception in interrupt
 
-Thanks,
-Eilon
+rawsock_release() should test if sock->sk is NULL before calling
+sock_orphan()/sock_put()
+
+Reported-by: Sasha Levin <levinsasha928@gmail.com>
+Tested-by: Sasha Levin <levinsasha928@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+---
+ net/nfc/rawsock.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/nfc/rawsock.c b/net/nfc/rawsock.c
+index ec1134c..208416e 100644
+--- a/net/nfc/rawsock.c
++++ b/net/nfc/rawsock.c
+@@ -54,11 +54,12 @@ static int rawsock_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+ 
+-	pr_debug("sock=%p\n", sock);
+-
+-	sock_orphan(sk);
+-	sock_put(sk);
++	pr_debug("sock=%p sk=%p\n", sock, sk);
+ 
++	if (sk) {
++		sock_orphan(sk);
++		sock_put(sk);
++	}
+ 	return 0;
+ }
+ 
