@@ -1,36 +1,34 @@
-From: Jesper Juhl <jj@chaosbits.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 1/1] ipheth: add support for iPad
-Date: Mon, 25 Jun 2012 02:09:22 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1206250208140.30361@swampdragon.chaosbits.net>
+Date: Sun, 24 Jun 2012 19:53:02 -0700 (PDT)
+Message-ID: <20120624.195302.102607171155558421.davem@davemloft.net>
 References: <1340577468-3298-1-git-send-email-rainbow@irh.it>
+	<alpine.LNX.2.00.1206250208140.30361@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rainbow@irh.it, gregkh@linuxfoundation.org,
 	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: rainbow <rainbow@irh.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:12552 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776Ab2FYAJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jun 2012 20:09:24 -0400
-In-Reply-To: <1340577468-3298-1-git-send-email-rainbow@irh.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: jj@chaosbits.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1206250208140.30361@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Jun 2012, rainbow wrote:
+From: Jesper Juhl <jj@chaosbits.net>
+Date: Mon, 25 Jun 2012 02:09:22 +0200 (CEST)
 
-> This adds support for the iPad to the ipheth driver.
-> (product id = 0x129a)
+> On Mon, 25 Jun 2012, rainbow wrote:
 > 
-> Signed-off-by: rainbow <rainbow@irh.it>
+>> This adds support for the iPad to the ipheth driver.
+>> (product id = 0x129a)
+>> 
+>> Signed-off-by: rainbow <rainbow@irh.it>
+> 
+> It is usually very much prefered that people use their real names in 
+> Signed-off-by: lines.
+> 
+> Please consider re-submitting using your real name.
 
-It is usually very much prefered that people use their real names in 
-Signed-off-by: lines.
-
-Please consider re-submitting using your real name.
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Indeed.
