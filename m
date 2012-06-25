@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen : Error return off by one for XG port.
-Date: Mon, 25 Jun 2012 15:27:48 -0700 (PDT)
-Message-ID: <20120625.152748.779914323352702017.davem@davemloft.net>
-References: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
-	<13A253B3F9BEFE43B93C09CF75F63CAA81A886EF1A@MNEXMB1.qlogic.org>
+Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after
+ changing date
+Date: Mon, 25 Jun 2012 15:29:27 -0700 (PDT)
+Message-ID: <20120625.152927.1898837361946168264.davem@davemloft.net>
+References: <1340259961-30354-1-git-send-email-fdu@windriver.com>
+	<1340259961-30354-2-git-send-email-fdu@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: santoshprasadnayak@gmail.com, sony.chacko@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: rajesh.borundia@qlogic.com
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: fdu@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56185 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56199 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756672Ab2FYW1t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 18:27:49 -0400
-In-Reply-To: <13A253B3F9BEFE43B93C09CF75F63CAA81A886EF1A@MNEXMB1.qlogic.org>
+	with ESMTP id S1757545Ab2FYW32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 18:29:28 -0400
+In-Reply-To: <1340259961-30354-2-git-send-email-fdu@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Date: Wed, 20 Jun 2012 08:06:04 -0500
+From: Fan Du <fdu@windriver.com>
+Date: Thu, 21 Jun 2012 14:26:01 +0800
 
-> ______________________________________
-> From: santosh nayak [santoshprasadnayak@gmail.com]
-> Sent: Wednesday, June 20, 2012 4:22 PM
-> To: Sony Chacko; Rajesh Borundia
-> Cc: netdev; kernel-janitors@vger.kernel.org; Santosh Nayak
-> Subject: [PATCH] netxen : Error return off by one for XG port.
+> After SA is setup, one timer is armed to detect soft/hard expiration,
+> however the timer handler uses xtime to do the math. This makes hard
+> expiration occurs first before soft expiration after setting new date
+> with big interval. As a result new child SA is deleted before rekeying
+> the new one.
+> 
+> Signed-off-by: Fan Du <fdu@windriver.com>
+> ---
+>  include/net/xfrm.h    |  3 +++
+>  net/xfrm/xfrm_state.c | 21 +++++++++++++++++----
+>  2 files changed, 20 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index 2933d74..8d16777 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -197,6 +197,8 @@ struct xfrm_state
+>  
+>  	struct xfrm_lifetime_cur curlft;
+>  	struct timer_list	timer;
+> +	/* used to fix curlft->add_time when changing date */
+> +	long		saved_tmo;
 
-This is not the correct way to submit patches written by other
-people.
+'saved_tmo' is not properly indented to line up with the
+struct member names above it.
