@@ -1,56 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC V4 PATCH 0/4] Multiqueue virtio-net
-Date: Mon, 25 Jun 2012 13:07:58 +0300
-Message-ID: <20120625100758.GB19169@redhat.com>
-References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH 4/4] net/mlx4_en: Use atomic counter to decide when
+ queue is full
+Date: Mon, 25 Jun 2012 12:12:05 +0200
+Message-ID: <1340619125.10893.20.camel@edumazet-glaptop>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F61@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, mashirle@us.ibm.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, yevgenyp@mellanox.co.il,
+	netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:39931 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755813Ab2FYKMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 06:12:09 -0400
+Received: by bkcji2 with SMTP id ji2so2948372bkc.19
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 03:12:08 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F61@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 25, 2012 at 05:16:48PM +0800, Jason Wang wrote:
-> Hello All:
+On Mon, 2012-06-25 at 10:00 +0100, David Laight wrote:
+> > > The Transmit and transmit completion flows execute from different
+> contexts,
+> > > which are not synchronized. Hence naive reading the of consumer
+> index might
+> > > give wrong value by the time it is being used, That could lead to a
+> state of transmit timeout.
+> > > Fix that by using atomic variable to maintain that index.
+> > > 
+> > > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> > 
+> > I'm not convinced.  There is only one place that actually changes
+> > the counter.
+> > 
+> > So it seems more like you have a missing memory barrier somewhere.
 > 
-> This series is an update version of multiqueue virtio-net driver based on
-> Krishna Kumar's work to let virtio-net use multiple rx/tx queues to do the
-> packets reception and transmission. Please review and comments.
-> 
-> Test Environment:
-> - Intel(R) Xeon(R) CPU E5620 @ 2.40GHz, 8 cores 2 numa nodes
-> - Two directed connected 82599
-> 
-> Test Summary:
-> 
-> - Highlights: huge improvements on TCP_RR test
-> - Lowlights: regression on small packet transmission, higher cpu utilization
->              than single queue, need further optimization
+> Or just keep the two ring indexes - instead of keeping the
+> number of 'active' entries as well.
+> Then you don't have a variable which the tx setup and
+> tx completion routines both update.
 
-Didn't review yet, reacting this this paragraph:
+This is what was implied by David.
 
-To avoid regressions, it seems reasonable to make
-the device use a single queue by default for now.
-Add a way to switch multiqueue on/off using ethtool.
+Using a producer/consumer index and appropriate memory barriers.
 
-This way guest admin can tune the device for the
-workload manually until we manage to imlement some
-self-tuning heuristics.
+start_xmit() and tx completion can be truly lockless and atomicless in
+their fast path.
 
--- 
-MST
+There are many drivers doing that correctly.
+
+tg3 driver is a good example.
