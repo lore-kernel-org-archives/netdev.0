@@ -1,190 +1,311 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC V4 PATCH 3/4] virtio: introduce a method to get
-	the irq of a specific virtqueue
-Date: Mon, 25 Jun 2012 13:14:39 +0300
-Message-ID: <20120625101439.GC19169@redhat.com>
-References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<1340617278-8022-1-git-send-email-jasowang@redhat.com>
+From: <Menny_Hamburger@Dell.com>
+Subject: [PATCH] net-next: ipv6: ndisc: allocate a ndisc socket per inet6_dev
+Date: Mon, 25 Jun 2012 11:26:41 +0100
+Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34E34D44@DUBX7MCDUB01.EMEA.DELL.COM>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
-	qemu-devel@nongnu.org, netdev@vger.kernel.org,
-	mashirle@us.ibm.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1340617278-8022-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:21147 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755542Ab2FYK2v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 06:28:51 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 25, 2012 at 05:41:17PM +0800, Jason Wang wrote:
-> Device specific irq optimizations such as irq affinity may be used by virtio
-> drivers. So this patch introduce a new method to get the irq of a specific
-> virtqueue.
-> 
-> After this patch, virtio device drivers could query the irq and do device
-> specific optimizations. First user would be virtio-net.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/lguest/lguest_device.c |    8 ++++++++
->  drivers/s390/kvm/kvm_virtio.c  |    6 ++++++
->  drivers/virtio/virtio_mmio.c   |    8 ++++++++
->  drivers/virtio/virtio_pci.c    |   12 ++++++++++++
->  include/linux/virtio_config.h  |    4 ++++
->  5 files changed, 38 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/lguest/lguest_device.c b/drivers/lguest/lguest_device.c
-> index 9e8388e..bcd080f 100644
-> --- a/drivers/lguest/lguest_device.c
-> +++ b/drivers/lguest/lguest_device.c
-> @@ -392,6 +392,13 @@ static const char *lg_bus_name(struct virtio_device *vdev)
->  	return "";
->  }
->  
-> +static int lg_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
-> +{
-> +	struct lguest_vq_info *lvq = vq->priv;
-> +
-> +	return lvq->config.irq;
-> +}
-> +
->  /* The ops structure which hooks everything together. */
->  static struct virtio_config_ops lguest_config_ops = {
->  	.get_features = lg_get_features,
-> @@ -404,6 +411,7 @@ static struct virtio_config_ops lguest_config_ops = {
->  	.find_vqs = lg_find_vqs,
->  	.del_vqs = lg_del_vqs,
->  	.bus_name = lg_bus_name,
-> +	.get_vq_irq = lg_get_vq_irq,
->  };
->  
->  /*
-> diff --git a/drivers/s390/kvm/kvm_virtio.c b/drivers/s390/kvm/kvm_virtio.c
-> index d74e9ae..a897de2 100644
-> --- a/drivers/s390/kvm/kvm_virtio.c
-> +++ b/drivers/s390/kvm/kvm_virtio.c
-> @@ -268,6 +268,11 @@ static const char *kvm_bus_name(struct virtio_device *vdev)
->  	return "";
->  }
->  
-> +static int kvm_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
-> +{
-> +	return 0x2603;
-> +}
-> +
->  /*
->   * The config ops structure as defined by virtio config
->   */
-> @@ -282,6 +287,7 @@ static struct virtio_config_ops kvm_vq_configspace_ops = {
->  	.find_vqs = kvm_find_vqs,
->  	.del_vqs = kvm_del_vqs,
->  	.bus_name = kvm_bus_name,
-> +	.get_vq_irq = kvm_get_vq_irq,
->  };
->  
->  /*
-> diff --git a/drivers/virtio/virtio_mmio.c b/drivers/virtio/virtio_mmio.c
-> index f5432b6..2ba37ed 100644
-> --- a/drivers/virtio/virtio_mmio.c
-> +++ b/drivers/virtio/virtio_mmio.c
-> @@ -411,6 +411,13 @@ static const char *vm_bus_name(struct virtio_device *vdev)
->  	return vm_dev->pdev->name;
->  }
->  
-> +static int vm_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
-> +{
-> +	struct virtio_mmio_device *vm_dev = to_virtio_mmio_device(vdev);
-> +
-> +	return platform_get_irq(vm_dev->pdev, 0);
-> +}
-> +
->  static struct virtio_config_ops virtio_mmio_config_ops = {
->  	.get		= vm_get,
->  	.set		= vm_set,
-> @@ -422,6 +429,7 @@ static struct virtio_config_ops virtio_mmio_config_ops = {
->  	.get_features	= vm_get_features,
->  	.finalize_features = vm_finalize_features,
->  	.bus_name	= vm_bus_name,
-> +	.get_vq_irq     = vm_get_vq_irq,
->  };
->  
->  
-> diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-> index adb24f2..c062227 100644
-> --- a/drivers/virtio/virtio_pci.c
-> +++ b/drivers/virtio/virtio_pci.c
-> @@ -607,6 +607,17 @@ static const char *vp_bus_name(struct virtio_device *vdev)
->  	return pci_name(vp_dev->pci_dev);
->  }
->  
-> +static int vp_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
-> +{
-> +	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
-> +	struct virtio_pci_vq_info *info = vq->priv;
-> +
-> +	if (vp_dev->intx_enabled)
-> +		return vp_dev->pci_dev->irq;
-> +	else
-> +		return vp_dev->msix_entries[info->msix_vector].vector;
-> +}
-> +
->  static struct virtio_config_ops virtio_pci_config_ops = {
->  	.get		= vp_get,
->  	.set		= vp_set,
-> @@ -618,6 +629,7 @@ static struct virtio_config_ops virtio_pci_config_ops = {
->  	.get_features	= vp_get_features,
->  	.finalize_features = vp_finalize_features,
->  	.bus_name	= vp_bus_name,
-> +	.get_vq_irq     = vp_get_vq_irq,
->  };
->  
->  static void virtio_pci_release_dev(struct device *_d)
-> diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
-> index fc457f4..acd6930 100644
-> --- a/include/linux/virtio_config.h
-> +++ b/include/linux/virtio_config.h
-> @@ -98,6 +98,9 @@
->   *	vdev: the virtio_device
->   *      This returns a pointer to the bus name a la pci_name from which
->   *      the caller can then copy.
-> + * @get_vq_irq: get the irq numer of the specific virt queue.
-> + *      vdev: the virtio_device
-> + *      vq: the virtqueue
+From: mennyh <Menny_Hamburger@Dell.com>
 
-What if the vq does not have an IRQ? E.g. control vqs don't.
-What if the IRQ is shared between VQs? Between devices?
-The need to cleanup affinity on destroy is also nasty.
-How about we expose a set_affinity API instead?
-Then:
-	- non PCI can ignore for now
-	- with a per vq vector we can force it
-	- with a shared MSI we make it an OR over all affinities
-	- with a level interrupt we can ignore it
-	- on cleanup we can do it in core
+ When an IPV6 network discovery packet does not get sent by the NIC, 
+ either because there is some S/W issue or a H/W problem with the NIC, NDP will stop
+ working and will not be able to send ndisc packets via other NICs on the machine.
+ The reason for this that there is only one global socket assigned per network for network discovery
+ (net->ipv6.ndisc_sk), and  when this socket is busy, NDP cannot be serviced by 
+ other NICS. 
+ 
+ This patch adds a kernel configuration option IPV6_NDISC_SOCKET_PER_INTERFACE, 
+ which when enabled the kernel will allocate a network discovery socket per inet6_dev on creation,
+ instead of a single socket per network.
 
+Signed-off-by: mennyh <Menny_Hamburger@Dell.com>
+---
+ include/net/if_inet6.h   |    3 +++
+ include/net/ndisc.h      |    3 +++
+ include/net/netns/ipv6.h |    2 ++
+ net/ipv6/Kconfig         |    8 ++++++++
+ net/ipv6/addrconf.c      |   22 +++++++++++++++++++++
+ net/ipv6/ndisc.c         |   48 +++++++++++++++++++++++++++++++++++++++++++++-
+ 6 files changed, 85 insertions(+), 1 deletion(-)
 
->   */
->  typedef void vq_callback_t(struct virtqueue *);
->  struct virtio_config_ops {
-> @@ -116,6 +119,7 @@ struct virtio_config_ops {
->  	u32 (*get_features)(struct virtio_device *vdev);
->  	void (*finalize_features)(struct virtio_device *vdev);
->  	const char *(*bus_name)(struct virtio_device *vdev);
-> +	int (*get_vq_irq)(struct virtio_device *vdev, struct virtqueue *vq);
->  };
->  
->  /* If driver didn't advertise the feature, it will never appear. */
-> -- 
-> 1.7.1
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 9356322..7134632 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -191,6 +191,9 @@ struct inet6_dev {
+ 	struct inet6_dev	*next;
+ 	struct ipv6_devconf	cnf;
+ 	struct ipv6_devstat	stats;
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++	struct sock             *ndisc_sk;
++#endif
+ 	unsigned long		tstamp; /* ipv6InterfaceTable update timestamp */
+ 	struct rcu_head		rcu;
+ };
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index c02b6ad..9039d6c 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -153,6 +153,9 @@ extern void			ndisc_send_skb(struct sk_buff *skb,
+ 					       const struct in6_addr *saddr,
+ 					       struct icmp6hdr *icmp6h);
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++extern int ndisc_socket_init(struct sock **ndisc_sk, struct net *net);
++#endif
+ 
+ 
+ /*
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index df0a545..5d65d60 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -58,7 +58,9 @@ struct netns_ipv6 {
+ 	struct fib_rules_ops    *fib6_rules_ops;
+ #endif
+ 	struct sock		**icmp_sk;
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	struct sock             *ndisc_sk;
++#endif
+ 	struct sock             *tcp_sk;
+ 	struct sock             *igmp_sk;
+ #ifdef CONFIG_IPV6_MROUTE
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 5728695..77a09ff 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -250,4 +250,12 @@ config IPV6_PIMSM_V2
+ 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
+ 	  If unsure, say N.
+ 
++config IPV6_NDISC_SOCKET_PER_INTERFACE
++	bool "IPv6: define socket for network discovery per interface (EXPERIMENTAL)"
++	depends on IPV6 && EXPERIMENTAL
++	---help---
++	  Normally only one socket per network is allocated to service the IPV6 network discovery protocol;
++	  This may cause NDP to stop working when ndisc packet is starved by a NIC due to S/W or H/W problems.
++	  If you say Y here, a separate socket will be allocated for each IPV6 enabled interface.
++
++	  If unsure, say N.
++
+ endif # IPV6
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8f6411c..8cbcb66 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -78,6 +78,9 @@
+ #include <net/ip.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++#include <net/inet_common.h>
++#endif
+ #include <linux/if_tunnel.h>
+ #include <linux/rtnetlink.h>
+ 
+@@ -336,6 +339,13 @@ void in6_dev_finish_destroy(struct inet6_dev *idev)
+ 		pr_warn("Freeing alive inet6 device %p\n", idev);
+ 		return;
+ 	}
++
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++	if (idev->ndisc_sk) {
++		inet_ctl_sock_destroy(idev->ndisc_sk);
++		idev->ndisc_sk = NULL;
++	}
++#endif
+ 	snmp6_free_dev(idev);
+ 	kfree_rcu(idev, rcu);
+ }
+@@ -392,6 +402,18 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ 		return NULL;
+ 	}
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++	if (ndisc_socket_init(&ndev->ndisc_sk, dev_net(dev)) < 0) {
++		ADBG((KERN_WARNING
++			"%s(): cannot allocate network discovery socket\n"));
++		ndev->ndisc_sk = NULL;
++		neigh_parms_release(&nd_tbl, ndev->nd_parms);
++		ndev->dead = 1;
++		in6_dev_finish_destroy(ndev);
++		return NULL;
++	}
++#endif
++
+ 	/* One reference from device.  We must do this before
+ 	 * we invoke __ipv6_regen_rndid().
+ 	 */
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 69a6330..08f991b 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -422,8 +422,12 @@ struct sk_buff *ndisc_build_skb(struct net_device *dev,
+ 				const struct in6_addr *target,
+ 				int llinfo)
+ {
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	struct net *net = dev_net(dev);
+ 	struct sock *sk = net->ipv6.ndisc_sk;
++#else
++	struct sock *sk;
++#endif
+ 	struct sk_buff *skb;
+ 	struct icmp6hdr *hdr;
+ 	int hlen = LL_RESERVED_SPACE(dev);
+@@ -432,6 +436,10 @@ struct sk_buff *ndisc_build_skb(struct net_device *dev,
+ 	int err;
+ 	u8 *opt;
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++        sk = in6_dev_get(dev)->ndisc_sk;
++#endif
++
+ 	if (!dev->addr_len)
+ 		llinfo = 0;
+ 
+@@ -488,11 +496,19 @@ void ndisc_send_skb(struct sk_buff *skb,
+ 	struct flowi6 fl6;
+ 	struct dst_entry *dst;
+ 	struct net *net = dev_net(dev);
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	struct sock *sk = net->ipv6.ndisc_sk;
++#else
++	struct sock *sk;
++#endif
+ 	struct inet6_dev *idev;
+ 	int err;
+ 	u8 type;
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++        sk = in6_dev_get(dev)->ndisc_sk;
++#endif
++
+ 	type = icmp6h->icmp6_type;
+ 
+ 	icmpv6_flow_init(sk, &fl6, type, saddr, daddr, dev->ifindex);
+@@ -550,6 +566,11 @@ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
+ 	struct icmp6hdr icmp6h = {
+ 		.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT,
+ 	};
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++	struct sock *sk = dev_net(dev)->ipv6.ndisc_sk;
++#else
++	struct sock *sk = in6_dev_get(dev)->ndisc_sk;
++#endif
+ 
+ 	/* for anycast or proxy, solicited_addr != src_addr */
+ 	ifp = ipv6_get_ifaddr(dev_net(dev), solicited_addr, dev, 1);
+@@ -561,7 +582,7 @@ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
+ 		in6_ifa_put(ifp);
+ 	} else {
+ 		if (ipv6_dev_get_saddr(dev_net(dev), dev, daddr,
+-				       inet6_sk(dev_net(dev)->ipv6.ndisc_sk)->srcprefs,
++				       inet6_sk(sk)->srcprefs,
+ 				       &tmpaddr))
+ 			return;
+ 		src_addr = &tmpaddr;
+@@ -1470,7 +1491,11 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ {
+ 	struct net_device *dev = skb->dev;
+ 	struct net *net = dev_net(dev);
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	struct sock *sk = net->ipv6.ndisc_sk;
++#else
++	struct sock *sk;
++#endif
+ 	int len = sizeof(struct icmp6hdr) + 2 * sizeof(struct in6_addr);
+ 	struct inet_peer *peer;
+ 	struct sk_buff *buff;
+@@ -1487,6 +1512,10 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 	int err;
+ 	u8 ha_buf[MAX_ADDR_LEN], *ha = NULL;
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++	sk = in6_dev_get(dev)->ndisc_sk;
++#endif
++
+ 	if (ipv6_get_lladdr(dev, &saddr_buf, IFA_F_TENTATIVE)) {
+ 		ND_PRINTK(2, warn, "Redirect: no link-local address on %s\n",
+ 			  dev->name);
+@@ -1761,7 +1790,11 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, void __user *bu
+ 
+ #endif
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++int ndisc_socket_init(struct sock **ndisc_sk, struct net *net)
++#else
+ static int __net_init ndisc_net_init(struct net *net)
++#endif
+ {
+ 	struct ipv6_pinfo *np;
+ 	struct sock *sk;
+@@ -1776,7 +1809,11 @@ static int __net_init ndisc_net_init(struct net *net)
+ 		return err;
+ 	}
+ 
++#ifdef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
++	*ndisc_sk = sk;
++#else
+ 	net->ipv6.ndisc_sk = sk;
++#endif
+ 
+ 	np = inet6_sk(sk);
+ 	np->hop_limit = 255;
+@@ -1786,6 +1823,7 @@ static int __net_init ndisc_net_init(struct net *net)
+ 	return 0;
+ }
+ :q!
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ static void __net_exit ndisc_net_exit(struct net *net)
+ {
+ 	inet_ctl_sock_destroy(net->ipv6.ndisc_sk);
+@@ -1795,14 +1833,18 @@ static struct pernet_operations ndisc_net_ops = {
+ 	.init = ndisc_net_init,
+ 	.exit = ndisc_net_exit,
+ };
++#endif
+ 
+ int __init ndisc_init(void)
+ {
+ 	int err;
+ 
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	err = register_pernet_subsys(&ndisc_net_ops);
+ 	if (err)
+ 		return err;
++#endif
++
+ 	/*
+ 	 * Initialize the neighbour table
+ 	 */
+@@ -1825,7 +1867,9 @@ out_unregister_sysctl:
+ 	neigh_sysctl_unregister(&nd_tbl.parms);
+ out_unregister_pernet:
+ #endif
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	unregister_pernet_subsys(&ndisc_net_ops);
++#endif
+ 	goto out;
+ }
+ 
+@@ -1836,5 +1880,7 @@ void ndisc_cleanup(void)
+ 	neigh_sysctl_unregister(&nd_tbl.parms);
+ #endif
+ 	neigh_table_clear(&nd_tbl);
++#ifndef CONFIG_IPV6_NDISC_SOCKET_PER_INTERFACE
+ 	unregister_pernet_subsys(&ndisc_net_ops);
++#endif
+ }
+-- 
+1.7.10.1
