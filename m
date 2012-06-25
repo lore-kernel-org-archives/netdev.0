@@ -1,61 +1,60 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next RFC V4 PATCH 0/4] Multiqueue virtio-net
-Date: Mon, 25 Jun 2012 07:13:43 -0700
-Message-ID: <4FE87217.5020208@intel.com>
-References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	<20120625100758.GB19169@redhat.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: net: nfc: BUG and panic in accept() on 3.5-rc2
+Date: Mon, 25 Jun 2012 17:04:35 +0200
+Message-ID: <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
+References: <1339423241.4999.53.camel@lappy> <20120611144134.GX22557@sortiz-mobl>
+ <1339425693.6001.2268.camel@edumazet-glaptop> <20120611145700.GY22557@sortiz-mobl>
+ <1339426778.6001.2312.camel@edumazet-glaptop> <20120611152007.GZ22557@sortiz-mobl>
+ <1339433810.4999.65.camel@lappy> <20120611172545.GA1776@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120625100758.GB19169@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Dave Jones <davej@redhat.com>,
+	Sasha Levin <levinsasha928@gmail.com>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120611172545.GA1776@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/25/2012 3:07 AM, Michael S. Tsirkin wrote:
-> On Mon, Jun 25, 2012 at 05:16:48PM +0800, Jason Wang wrote:
->> Hello All:
->>
->> This series is an update version of multiqueue virtio-net driver based on
->> Krishna Kumar's work to let virtio-net use multiple rx/tx queues to do the
->> packets reception and transmission. Please review and comments.
->>
->> Test Environment:
->> - Intel(R) Xeon(R) CPU E5620 @ 2.40GHz, 8 cores 2 numa nodes
->> - Two directed connected 82599
->>
->> Test Summary:
->>
->> - Highlights: huge improvements on TCP_RR test
->> - Lowlights: regression on small packet transmission, higher cpu utilization
->>               than single queue, need further optimization
+On Mon, Jun 11, 2012 at 7:25 PM, Dave Jones <davej@redhat.com> wrote:
+> On Mon, Jun 11, 2012 at 06:56:50PM +0200, Sasha Levin wrote:
 >
-> Didn't review yet, reacting this this paragraph:
+> =A0> > > > > > What's trinity ?
+> =A0> > > > > > Also, if this one is reproducible, would you mind shar=
+ing some details about
+> =A0> > > > > > how we could reproduce it ?
+> =A0> > > > >
+> =A0> > > > > Well, bugfix should be trivial enough ;)
+> =A0> > > > Yep, I looked at the code only after looking at Sasha's re=
+port.
+> =A0> > > >
+> =A0> > > > Thanks for the patch, do you mind if I add your SOB to it =
+?
+> =A0> > >
+> =A0> > > I =A0would prefer making sure it fixes the bug first ;)
+> =A0> > Sure, although your patch makes sense regardless of that :)
+> =A0> > I'll still wait for Sasha to confirm that it fixes his crash.
+> =A0>
+> =A0> I don't have a direct way of reproducing it, but I've put it in =
+the test
+> =A0> vm and the fuzzer is running, I'll let you know tomorrow if it h=
+appened
+> =A0> again.
 >
-> To avoid regressions, it seems reasonable to make
-> the device use a single queue by default for now.
-> Add a way to switch multiqueue on/off using ethtool.
+> You might be able to trigger it faster by using -P PF_NFC, which will
+> force trinity to only use NFC sockets.
 >
-> This way guest admin can tune the device for the
-> workload manually until we manage to imlement some
-> self-tuning heuristics.
->
+> sidenote: most protocols trigger the module to be auto-loaded when a =
+socket
+> is created. This doesn't seem to happen with nfc, making me need to m=
+anually
+> modprobe it first. Intentional ?
 
-Ethtool already has this switch 'ethtool -L' can be
-used to set the number tx/rx channels. So you would
-likely just need to add a set_channels hook.
-
-.John
+It fixes the bug, wasn't been able to reproduce it since then.
