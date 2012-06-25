@@ -1,54 +1,190 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH 4/4] net/mlx4_en: Use atomic counter to decide when
- queue is full
-Date: Mon, 25 Jun 2012 12:12:05 +0200
-Message-ID: <1340619125.10893.20.camel@edumazet-glaptop>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F61@saturn3.aculab.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next RFC V4 PATCH 3/4] virtio: introduce a method to get
+	the irq of a specific virtqueue
+Date: Mon, 25 Jun 2012 13:14:39 +0300
+Message-ID: <20120625101439.GC19169@redhat.com>
+References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<1340617278-8022-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, yevgenyp@mellanox.co.il,
-	netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:39931 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755813Ab2FYKMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 06:12:09 -0400
-Received: by bkcji2 with SMTP id ji2so2948372bkc.19
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 03:12:08 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F61@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	qemu-devel@nongnu.org, netdev@vger.kernel.org,
+	mashirle@us.ibm.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1340617278-8022-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-06-25 at 10:00 +0100, David Laight wrote:
-> > > The Transmit and transmit completion flows execute from different
-> contexts,
-> > > which are not synchronized. Hence naive reading the of consumer
-> index might
-> > > give wrong value by the time it is being used, That could lead to a
-> state of transmit timeout.
-> > > Fix that by using atomic variable to maintain that index.
-> > > 
-> > > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-> > 
-> > I'm not convinced.  There is only one place that actually changes
-> > the counter.
-> > 
-> > So it seems more like you have a missing memory barrier somewhere.
+On Mon, Jun 25, 2012 at 05:41:17PM +0800, Jason Wang wrote:
+> Device specific irq optimizations such as irq affinity may be used by virtio
+> drivers. So this patch introduce a new method to get the irq of a specific
+> virtqueue.
 > 
-> Or just keep the two ring indexes - instead of keeping the
-> number of 'active' entries as well.
-> Then you don't have a variable which the tx setup and
-> tx completion routines both update.
+> After this patch, virtio device drivers could query the irq and do device
+> specific optimizations. First user would be virtio-net.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/lguest/lguest_device.c |    8 ++++++++
+>  drivers/s390/kvm/kvm_virtio.c  |    6 ++++++
+>  drivers/virtio/virtio_mmio.c   |    8 ++++++++
+>  drivers/virtio/virtio_pci.c    |   12 ++++++++++++
+>  include/linux/virtio_config.h  |    4 ++++
+>  5 files changed, 38 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/lguest/lguest_device.c b/drivers/lguest/lguest_device.c
+> index 9e8388e..bcd080f 100644
+> --- a/drivers/lguest/lguest_device.c
+> +++ b/drivers/lguest/lguest_device.c
+> @@ -392,6 +392,13 @@ static const char *lg_bus_name(struct virtio_device *vdev)
+>  	return "";
+>  }
+>  
+> +static int lg_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
+> +{
+> +	struct lguest_vq_info *lvq = vq->priv;
+> +
+> +	return lvq->config.irq;
+> +}
+> +
+>  /* The ops structure which hooks everything together. */
+>  static struct virtio_config_ops lguest_config_ops = {
+>  	.get_features = lg_get_features,
+> @@ -404,6 +411,7 @@ static struct virtio_config_ops lguest_config_ops = {
+>  	.find_vqs = lg_find_vqs,
+>  	.del_vqs = lg_del_vqs,
+>  	.bus_name = lg_bus_name,
+> +	.get_vq_irq = lg_get_vq_irq,
+>  };
+>  
+>  /*
+> diff --git a/drivers/s390/kvm/kvm_virtio.c b/drivers/s390/kvm/kvm_virtio.c
+> index d74e9ae..a897de2 100644
+> --- a/drivers/s390/kvm/kvm_virtio.c
+> +++ b/drivers/s390/kvm/kvm_virtio.c
+> @@ -268,6 +268,11 @@ static const char *kvm_bus_name(struct virtio_device *vdev)
+>  	return "";
+>  }
+>  
+> +static int kvm_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
+> +{
+> +	return 0x2603;
+> +}
+> +
+>  /*
+>   * The config ops structure as defined by virtio config
+>   */
+> @@ -282,6 +287,7 @@ static struct virtio_config_ops kvm_vq_configspace_ops = {
+>  	.find_vqs = kvm_find_vqs,
+>  	.del_vqs = kvm_del_vqs,
+>  	.bus_name = kvm_bus_name,
+> +	.get_vq_irq = kvm_get_vq_irq,
+>  };
+>  
+>  /*
+> diff --git a/drivers/virtio/virtio_mmio.c b/drivers/virtio/virtio_mmio.c
+> index f5432b6..2ba37ed 100644
+> --- a/drivers/virtio/virtio_mmio.c
+> +++ b/drivers/virtio/virtio_mmio.c
+> @@ -411,6 +411,13 @@ static const char *vm_bus_name(struct virtio_device *vdev)
+>  	return vm_dev->pdev->name;
+>  }
+>  
+> +static int vm_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
+> +{
+> +	struct virtio_mmio_device *vm_dev = to_virtio_mmio_device(vdev);
+> +
+> +	return platform_get_irq(vm_dev->pdev, 0);
+> +}
+> +
+>  static struct virtio_config_ops virtio_mmio_config_ops = {
+>  	.get		= vm_get,
+>  	.set		= vm_set,
+> @@ -422,6 +429,7 @@ static struct virtio_config_ops virtio_mmio_config_ops = {
+>  	.get_features	= vm_get_features,
+>  	.finalize_features = vm_finalize_features,
+>  	.bus_name	= vm_bus_name,
+> +	.get_vq_irq     = vm_get_vq_irq,
+>  };
+>  
+>  
+> diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+> index adb24f2..c062227 100644
+> --- a/drivers/virtio/virtio_pci.c
+> +++ b/drivers/virtio/virtio_pci.c
+> @@ -607,6 +607,17 @@ static const char *vp_bus_name(struct virtio_device *vdev)
+>  	return pci_name(vp_dev->pci_dev);
+>  }
+>  
+> +static int vp_get_vq_irq(struct virtio_device *vdev, struct virtqueue *vq)
+> +{
+> +	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
+> +	struct virtio_pci_vq_info *info = vq->priv;
+> +
+> +	if (vp_dev->intx_enabled)
+> +		return vp_dev->pci_dev->irq;
+> +	else
+> +		return vp_dev->msix_entries[info->msix_vector].vector;
+> +}
+> +
+>  static struct virtio_config_ops virtio_pci_config_ops = {
+>  	.get		= vp_get,
+>  	.set		= vp_set,
+> @@ -618,6 +629,7 @@ static struct virtio_config_ops virtio_pci_config_ops = {
+>  	.get_features	= vp_get_features,
+>  	.finalize_features = vp_finalize_features,
+>  	.bus_name	= vp_bus_name,
+> +	.get_vq_irq     = vp_get_vq_irq,
+>  };
+>  
+>  static void virtio_pci_release_dev(struct device *_d)
+> diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+> index fc457f4..acd6930 100644
+> --- a/include/linux/virtio_config.h
+> +++ b/include/linux/virtio_config.h
+> @@ -98,6 +98,9 @@
+>   *	vdev: the virtio_device
+>   *      This returns a pointer to the bus name a la pci_name from which
+>   *      the caller can then copy.
+> + * @get_vq_irq: get the irq numer of the specific virt queue.
+> + *      vdev: the virtio_device
+> + *      vq: the virtqueue
 
-This is what was implied by David.
+What if the vq does not have an IRQ? E.g. control vqs don't.
+What if the IRQ is shared between VQs? Between devices?
+The need to cleanup affinity on destroy is also nasty.
+How about we expose a set_affinity API instead?
+Then:
+	- non PCI can ignore for now
+	- with a per vq vector we can force it
+	- with a shared MSI we make it an OR over all affinities
+	- with a level interrupt we can ignore it
+	- on cleanup we can do it in core
 
-Using a producer/consumer index and appropriate memory barriers.
 
-start_xmit() and tx completion can be truly lockless and atomicless in
-their fast path.
-
-There are many drivers doing that correctly.
-
-tg3 driver is a good example.
+>   */
+>  typedef void vq_callback_t(struct virtqueue *);
+>  struct virtio_config_ops {
+> @@ -116,6 +119,7 @@ struct virtio_config_ops {
+>  	u32 (*get_features)(struct virtio_device *vdev);
+>  	void (*finalize_features)(struct virtio_device *vdev);
+>  	const char *(*bus_name)(struct virtio_device *vdev);
+> +	int (*get_vq_irq)(struct virtio_device *vdev, struct virtqueue *vq);
+>  };
+>  
+>  /* If driver didn't advertise the feature, it will never appear. */
+> -- 
+> 1.7.1
