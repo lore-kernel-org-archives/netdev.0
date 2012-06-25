@@ -1,32 +1,31 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH net V1 0/3] net/mlx4: Bug fixes for the mlx4_en driver
-Date: Mon, 25 Jun 2012 13:24:10 +0300
-Message-ID: <1340619853-29804-1-git-send-email-yevgenyp@mellanox.co.il>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Christian Franke <nobody@nowhere.ws>
+Subject: pneigh/NLF_PROXY: should NLM_F_EXCL be honored?
+Date: Mon, 25 Jun 2012 15:23:55 +0200
+Message-ID: <4FE8666B.9040805@nowhere.ws>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:39897 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755934Ab2FYNY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 09:24:29 -0400
+Received: from zeus.nowhere.ws ([78.111.67.33]:38632 "EHLO zeus.nowhere.ws"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756365Ab2FYNbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2012 09:31:23 -0400
+Received: from [172.22.92.125] (buster.dn42.nowhere.ws [172.22.92.125])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by zeus.nowhere.ws (Postfix) with ESMTPSA id C89E67EA45
+	for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 15:23:55 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a set of 3 bug fixes generated agains net tree:
+Hi,
 
----
-Diff from V1:
-Removed atomic counter patch for rework.
+by sending RTM_NEWNEIGH with NLF_PROXY in the ndmsg, a new proxy entry
+can be added.
 
-Yevgeny Petrilin (3):
-	net/mlx4_en: Set correct port parameters during device initialization
-	net/mlx4: Use single completion vector after NOP failure
-	net/mlx4_en: Release QP range in free_resources
+The code path taken ignores NLM_F_EXCL, returning success, even if the
+proxy entry does already exist. Is this intended behaviour?
 
- en_netdev.c |   18 ++++++++++++------
- main.c      |    2 ++
- mlx4_en.h   |    1 +
- 3 files changed, 15 insertions(+), 6 deletions(-)
-
-Thanks,
-Yevgeny
+Best Regards,
+Christian Franke
