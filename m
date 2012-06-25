@@ -1,63 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: ipvs: fix dst leak in __ip_vs_addr_is_local_v6
-Date: Mon, 25 Jun 2012 09:58:23 +0200
-Message-ID: <1340611103.10893.14.camel@edumazet-glaptop>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
+Date: Mon, 25 Jun 2012 16:08:52 +0800
+Message-ID: <CACVXFVOPjFSS6Sv6AUCSAs4nywR045QhjYAbN8g6U3adsUbujw@mail.gmail.com>
+References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
+	<201206232255.08319.oliver@neukum.org>
+	<877guxhx44.fsf@nemi.mork.no>
+	<201206241413.08339.oliver@neukum.org>
+	<0e34226c-8fe7-4e2e-8fc2-2ed140f23e9b@email.android.com>
+	<CACVXFVN3wJ3NWxSGj-yWCgtDE_sgJT5CZYHwYUWk1MxkphcsTg@mail.gmail.com>
+	<87hatzhn0k.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
+	<marius.kotsbak@gmail.com>
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:39636 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518Ab2FYIIw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 04:08:52 -0400
+In-Reply-To: <87hatzhn0k.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Jun 25, 2012 at 3:24 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
 
-After call to ip6_route_output() we must release dst or we leak it.
+>
+> True, but irrelevant. =A0The pointer is either valid or NULL. =A0We d=
+on't
+> need to care about synchronizing the exact time it is set to NULL.
+>
+> The locking in cdc-wdm will ensure that the pointer is valid while it=
+ is
+> in use by .manage_power, because usbnet_disconnect is prevented from
+> continuing with free_netdev() while any caller of .manage_power is
+> running.
 
-Also should test dst->error, as ip6_route_output() never returns NULL.
+What I mean is that the situation is just what moving the set to NULL
+is doing.
 
-Use boolean while we are at it.
+>> So it is only the sync mechanism that =A0works on the race even the =
+check is
+>> added in the patch. =A0Putting usb_set_intfdata(, NULL) after driver=
+_info->unbind
+>> should be OK, and it is a general solution for the problem.
+>
+> There is no problem wrt qmi_wwan and intfdata as long as the NULL tes=
+t
+> is added to .manage_power.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+It depends on the ARCH or compiler.
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index dd811b8..d43e3c1 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -76,19 +76,19 @@ static void __ip_vs_del_service(struct ip_vs_service *svc);
- 
- #ifdef CONFIG_IP_VS_IPV6
- /* Taken from rt6_fill_node() in net/ipv6/route.c, is there a better way? */
--static int __ip_vs_addr_is_local_v6(struct net *net,
--				    const struct in6_addr *addr)
-+static bool __ip_vs_addr_is_local_v6(struct net *net,
-+				     const struct in6_addr *addr)
- {
--	struct rt6_info *rt;
- 	struct flowi6 fl6 = {
- 		.daddr = *addr,
- 	};
-+	struct dst_entry *dst = ip6_route_output(net, NULL, &fl6);
-+	bool is_local;
- 
--	rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
--	if (rt && rt->dst.dev && (rt->dst.dev->flags & IFF_LOOPBACK))
--		return 1;
-+	is_local = !dst->error && dst->dev && (dst->dev->flags & IFF_LOOPBACK);
- 
--	return 0;
-+	dst_release(dst);
-+	return is_local;
- }
- #endif
- 
+Considered there is not any locking/memory barrier between the set to N=
+ULL
+and read the pointer, also no ACCESS_ONCE on read or store the pointer,
+reading in .manage_power may see a invalid pointer if the CPU doesn't
+support Store Atomicity or the compiler does a byte-at-a-time optimizat=
+ion
+on the store[1].
+
+So why not take the correct way in theory? also it is a general solutio=
+n,
+and we can document its usage.
 
 
+[1], Paul mentioned it in the previous discussion
+http://lkml.org/lkml/2012/6/6/280
+
+Thanks,
+--=20
+Ming Lei
