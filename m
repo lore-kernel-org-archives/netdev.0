@@ -1,153 +1,79 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 04/13] netfilter: regard users as refcount for
- l4proto's per-net data
-Date: Mon, 25 Jun 2012 13:20:29 +0200
-Message-ID: <20120625112029.GB4607@1984>
-References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1340289410-17642-4-git-send-email-gaofeng@cn.fujitsu.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [RFC net-next 05/14] Fix intel/ixgbevf
+Date: Mon, 25 Jun 2012 14:23:08 +0300
+Message-ID: <4FE84A1C.90901@broadcom.com>
+References: <1340118848-30978-1-git-send-email-yuvalmin@broadcom.com>
+ <1340118848-30978-6-git-send-email-yuvalmin@broadcom.com>
+ <4FE09D3F.4060305@intel.com>
+ <1340122013.2486.14.camel@lb-tlvb-eilong.il.broadcom.com>
+ <20120619110704.000045b2@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1340289410-17642-4-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com,
+	"Alexander Duyck" <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
+To: "Greg Rose" <gregory.v.rose@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2530 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755572Ab2FYLZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2012 07:25:06 -0400
+In-Reply-To: <20120619110704.000045b2@unknown>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 21, 2012 at 10:36:41PM +0800, Gao feng wrote:
-> Now, nf_proto_net's users is confusing.
-> we should regard it as the refcount for l4proto's per-net data,
-> because maybe there are two l4protos use the same per-net data.
+>>>>  	 * It's easy to be greedy for MSI-X vectors, but it
+
+>>>> really @@ -2022,8 +2022,9 @@ static int
+>>>> ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
+>>>>  	 * than CPU's.  So let's be conservative and only ask for
+>>>>  	 * (roughly) twice the number of vectors as there are
+>>>> CPU's. */
+>>>> +	ncpu = min_t(int, num_online_cpus(),
+>>>> DEFAULT_MAX_NUM_RSS_QUEUES); v_budget =
+>>>> min(adapter->num_rx_queues + adapter->num_tx_queues,
+>>>> -		       (int)(num_online_cpus() * 2)) +
+>>>> NON_Q_VECTORS;
+>>>> +		       ncpu * 2) + NON_Q_VECTORS;
+>>>>  
+>>>>  	/* A failure in MSI-X entry allocation isn't fatal, but
+>>>> it does
+>>>>  	 * mean we disable MSI-X capabilities of the adapter. */
+>>> This change is pointless on the ixgbevf driver.  The VF hardware can
+>>> support at most 4 RSS queues.  As such num_rx_queues + num_tx_queues
+>>> will never exceed 8 so you are essentially adding a necessary
+>>> min(x,8).
+>>
+>> It is pointless with the current value, but if someone will edit the
+>> kernel source code and replace the 8 with a 2, it will become
+>> meaningful. The compiler will optimize this part, and I think that for
+>> completion, it is best to keep this reference so a future default
+>> number change will not be missed.
+>>
+>> Eilon
 > 
-> so increment pn->users when nf_conntrack_l4proto_register
-> success, and decrement it for nf_conntrack_l4_unregister case.
+> I don't feel there is any real point to making this change to the
+> ixgbevf driver.  82599 virtual functions have 3 MSI-X vectors, one of
+> which is for the mailbox and the other two can be shared with tx/rx
+> queue pairs or assigned separately to tx or rx queues.  So this code is
+> pointless no matter what value is set for DEFAULT_MAX_NUM_RSS_QUEUES.
+> Perhaps the patches to the other drivers in your RFC will have some
+> effect but this one looks like a no-op for the ixgbevf driver so there
+> is no reason for it.
 > 
-> because nf_conntrack_l3proto_ipv[4|6] don't use the same per-net
-> data,so we don't need to add a refcnt for their per-net data.
+> - Greg
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> ---
->  net/netfilter/nf_conntrack_proto.c |   76 ++++++++++++++++++++++--------------
->  1 files changed, 46 insertions(+), 30 deletions(-)
-> 
-> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-> index 9d6b6ab..63612e6 100644
-> --- a/net/netfilter/nf_conntrack_proto.c
-> +++ b/net/netfilter/nf_conntrack_proto.c
-[...]
-> @@ -458,23 +446,32 @@ int nf_conntrack_l4proto_register(struct net *net,
->  				  struct nf_conntrack_l4proto *l4proto)
->  {
->  	int ret = 0;
-> +	struct nf_proto_net *pn = NULL;
->  
->  	if (l4proto->init_net) {
->  		ret = l4proto->init_net(net, l4proto->l3proto);
->  		if (ret < 0)
-> -			return ret;
-> +			goto out;
->  	}
->  
-> -	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
-> +	pn = nf_ct_l4proto_net(net, l4proto);
-> +	if (pn == NULL)
-> +		goto out;
 
-Same thing here, we're leaking memory allocated by l4proto->init_net.
+Hi Greg,
 
-> +	ret = nf_ct_l4proto_register_sysctl(net, pn, l4proto);
->  	if (ret < 0)
-> -		return ret;
-> +		goto out;
->  
->  	if (net == &init_net) {
->  		ret = nf_conntrack_l4proto_register_net(l4proto);
-> -		if (ret < 0)
-> -			nf_ct_l4proto_unregister_sysctl(net, l4proto);
-> +		if (ret < 0) {
-> +			nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-> +			goto out;
+Since we're changing the RFC to use a new wrapper function which should
+replace num_online_cpus (for these purpose), the next RFC version will still
+change this driver (for uniformity, if nothing else).
 
-Better replace the two lines above by:
+Of course, if you would still have reservations for this change - send them.
 
-goto out_register_net;
-
-and then...
-
-> +		}
->  	}
->  
-> +	pn->users++;
-
-out_register_net:
-        nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-
-> +out:
->  	return ret;
-
-I think that this change is similar to patch 1/1, I think you should
-send it as a separated patch.
-
->  }
->  EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
-> @@ -499,10 +496,18 @@ nf_conntrack_l4proto_unregister_net(struct nf_conntrack_l4proto *l4proto)
->  void nf_conntrack_l4proto_unregister(struct net *net,
->  				     struct nf_conntrack_l4proto *l4proto)
->  {
-> +	struct nf_proto_net *pn = NULL;
-> +
->  	if (net == &init_net)
->  		nf_conntrack_l4proto_unregister_net(l4proto);
->  
-> -	nf_ct_l4proto_unregister_sysctl(net, l4proto);
-> +	pn = nf_ct_l4proto_net(net, l4proto);
-> +	if (pn == NULL)
-> +		return;
-> +
-> +	pn->users--;
-> +	nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-> +
->  	/* Remove all contrack entries for this protocol */
->  	rtnl_lock();
->  	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
-> @@ -514,11 +519,15 @@ int nf_conntrack_proto_init(struct net *net)
->  {
->  	unsigned int i;
->  	int err;
-> +	struct nf_proto_net *pn = nf_ct_l4proto_net(net,
-> +					&nf_conntrack_l4proto_generic);
-> +
->  	err = nf_conntrack_l4proto_generic.init_net(net,
->  					nf_conntrack_l4proto_generic.l3proto);
->  	if (err < 0)
->  		return err;
->  	err = nf_ct_l4proto_register_sysctl(net,
-> +					    pn,
->  					    &nf_conntrack_l4proto_generic);
->  	if (err < 0)
->  		return err;
-> @@ -528,13 +537,20 @@ int nf_conntrack_proto_init(struct net *net)
->  			rcu_assign_pointer(nf_ct_l3protos[i],
->  					   &nf_conntrack_l3proto_generic);
->  	}
-> +
-> +	pn->users++;
->  	return 0;
->  }
->  
->  void nf_conntrack_proto_fini(struct net *net)
->  {
->  	unsigned int i;
-> +	struct nf_proto_net *pn = nf_ct_l4proto_net(net,
-> +					&nf_conntrack_l4proto_generic);
-> +
-> +	pn->users--;
->  	nf_ct_l4proto_unregister_sysctl(net,
-> +					pn,
->  					&nf_conntrack_l4proto_generic);
->  	if (net == &init_net) {
->  		/* free l3proto protocol tables */
-> -- 
-> 1.7.7.6
-> 
+Thanks,
+Yuval
