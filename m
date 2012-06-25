@@ -1,44 +1,51 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [RFC net-next (v2) 05/14] cxgb3: set maximal number of default
- RSS queues
-Date: Mon, 25 Jun 2012 14:45:36 +0300
-Message-ID: <1340624745-8650-6-git-send-email-yuvalmin@broadcom.com>
-References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] net-next: ipv6: ndisc: allocate a ndisc socket per
+ inet6_dev
+Date: Mon, 25 Jun 2012 14:02:37 +0200
+Message-ID: <1340625757.10893.40.camel@edumazet-glaptop>
+References: <D8C50530D6022F40A817A35C40CC06A70B34E34D44@DUBX7MCDUB01.EMEA.DELL.COM>
+	 <1340620878.10893.26.camel@edumazet-glaptop>
+	 <D8C50530D6022F40A817A35C40CC06A70B34E34DA7@DUBX7MCDUB01.EMEA.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Divy Le Ray" <divy@chelsio.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Menny_Hamburger@Dell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4326 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756059Ab2FYLrt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2012 07:47:49 -0400
-In-Reply-To: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:40005 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752048Ab2FYMCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 08:02:42 -0400
+Received: by bkcji2 with SMTP id ji2so3028276bkc.19
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 05:02:41 -0700 (PDT)
+In-Reply-To: <D8C50530D6022F40A817A35C40CC06A70B34E34DA7@DUBX7MCDUB01.EMEA.DELL.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+On Mon, 2012-06-25 at 12:08 +0100, Menny_Hamburger@Dell.com wrote:
+> I'm sorry for not responding on your post.
 
-Cc: Divy Le Ray <divy@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+...
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index abb6ce7..9b08749 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -3050,7 +3050,7 @@ static struct pci_error_handlers t3_err_handler = {
- static void set_nqsets(struct adapter *adap)
- {
- 	int i, j = 0;
--	int num_cpus = num_online_cpus();
-+	int num_cpus = netif_get_num_default_rss_queues();
- 	int hwports = adap->params.nports;
- 	int nqsets = adap->msix_nvectors - 1;
- 
--- 
-1.7.9.rc2
+> I really want to understand how this fixes our problem.
+> This fix will make the skb allocations succeed, but what mechanism releases the stuck socket associated with the bad device?
+
+There is no stuck socket, I don't know why you believe this.
+
+And I don't want to spend time writing a changelog if the patch doesn't
+solve the problem, especially knowing you didn't even test it.
+
+net/ipv4/arp.c arp_create() doesn't use a 'global socket' to attach skbs
+on a socket.
+
+This kind of protection makes sense for UDP / ICMP sockets, not for ARP
+or ND resolution.
+
+If you don't understand my patch, don't post your own, thats really lost
+time for everyone.
+
+We don't want adding yet another per device stuff for ipv6.
+We already have too big memory footprint.
+
+Once I am sure patch fixes the problem, I'll make an official submission
+with all credits and changelog.
