@@ -1,77 +1,171 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH 6/7] drivers/ieee802154: add support for the at86rf230/231 transceivers
-Date: Mon, 25 Jun 2012 17:33:16 +0400
-Message-ID: <1340631197-27691-7-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH 1/7] mac802154: add wpan device-class support
+Date: Mon, 25 Jun 2012 17:33:11 +0400
+Message-ID: <1340631197-27691-2-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1340631197-27691-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:64390 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756870Ab2FYNgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 09:36:46 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hq12so2712643wib.1
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 06:36:45 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:58362 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756240Ab2FYNgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 09:36:39 -0400
+Received: by wgbdr13 with SMTP id dr13so4119921wgb.1
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 06:36:37 -0700 (PDT)
 In-Reply-To: <1340631197-27691-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The AT86RF231 is a feature rich, low-power 2.4 GHz radio transceiver
-designed for industrial and consumer ZigBee/IEEE 802.15.4, 6LoWPAN,
-RF4CE and high data rate 2.4 GHz ISM band applications.
+Every real 802.15.4 transceiver, which works with software MAC layer,
+can be classified as a wpan device in this stack. So the wpan device
+implementation provides missing link in datapath between the device
+drivers and the Linux network queue.
 
-This patch adds support for the Atmel RF230/231 radio transceivers.
+According to the IEEE 802.15.4 standard each packet can be one of the
+following types:
+ - beacon
+ - MAC layer command
+ - ACK
+ - data
+
+This patch adds support for the data packet-type only, but this is
+enough to perform data transmission and receiving over radio.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- drivers/ieee802154/Kconfig     |    6 +
- drivers/ieee802154/Makefile    |    1 +
- drivers/ieee802154/at86rf230.c |  966 ++++++++++++++++++++++++++++++++++++++++
- include/linux/spi/at86rf230.h  |   32 ++
- 4 files changed, 1005 insertions(+), 0 deletions(-)
- create mode 100644 drivers/ieee802154/at86rf230.c
- create mode 100644 include/linux/spi/at86rf230.h
+ include/linux/nl802154.h       |   14 +-
+ include/net/mac802154.h        |    8 +
+ net/mac802154/Makefile         |    2 +-
+ net/mac802154/ieee802154_dev.c |    4 +
+ net/mac802154/mac802154.h      |    4 +
+ net/mac802154/mac_cmd.c        |    4 +
+ net/mac802154/rx.c             |    1 +
+ net/mac802154/wpan.c           |  560 ++++++++++++++++++++++++++++++++++++++++
+ 8 files changed, 584 insertions(+), 13 deletions(-)
+ create mode 100644 net/mac802154/wpan.c
 
-diff --git a/drivers/ieee802154/Kconfig b/drivers/ieee802154/Kconfig
-index 15c0640..1fc4eef 100644
---- a/drivers/ieee802154/Kconfig
-+++ b/drivers/ieee802154/Kconfig
-@@ -19,6 +19,7 @@ config IEEE802154_FAKEHARD
+diff --git a/include/linux/nl802154.h b/include/linux/nl802154.h
+index 5a3db3a..fd4f2d1 100644
+--- a/include/linux/nl802154.h
++++ b/include/linux/nl802154.h
+@@ -130,18 +130,8 @@ enum {
+ enum {
+ 	__IEEE802154_DEV_INVALID = -1,
  
-           This driver can also be built as a module. To do so say M here.
- 	  The module will be called 'fakehard'.
-+
- config IEEE802154_FAKELB
- 	depends on IEEE802154_DRIVERS && MAC802154
- 	tristate "IEEE 802.15.4 loopback driver"
-@@ -28,3 +29,8 @@ config IEEE802154_FAKELB
+-	 /* TODO:
+-	 * Nowadays three device types supported by this stack at linux-zigbee
+-	 * project: WPAN = 0, MONITOR = 1 and SMAC = 2.
+-	 *
+-	 * Since this stack implementation exists many years, it's definitely
+-	 * bad idea to change the assigned values due to they are already used
+-	 * by third-party userspace software like: iz-tools, wireshark...
+-	 *
+-	 * Currently only monitor device is added and initialized by '1' for
+-	 * compatibility.
+-	 */
+-	IEEE802154_DEV_MONITOR = 1,
++	IEEE802154_DEV_WPAN,
++	IEEE802154_DEV_MONITOR,
  
- 	  This driver can also be built as a module. To do so say M here.
- 	  The module will be called 'fakelb'.
+ 	__IEEE802154_DEV_MAX,
+ };
+diff --git a/include/net/mac802154.h b/include/net/mac802154.h
+index c9f8ab5..d0d11df 100644
+--- a/include/net/mac802154.h
++++ b/include/net/mac802154.h
+@@ -21,6 +21,14 @@
+ 
+ #include <net/af_ieee802154.h>
+ 
++/* General MAC frame format:
++ *  2 bytes: Frame Control
++ *  1 byte:  Sequence Number
++ * 20 bytes: Addressing fields
++ * 14 bytes: Auxiliary Security Header
++ */
++#define MAC802154_FRAME_HARD_HEADER_LEN		(2 + 1 + 20 + 14)
 +
-+config IEEE802154_AT86RF230
-+        depends on IEEE802154_DRIVERS && MAC802154
-+        tristate "AT86RF230/231 transceiver driver"
-+        depends on SPI
-diff --git a/drivers/ieee802154/Makefile b/drivers/ieee802154/Makefile
-index ea784ea..4f4371d 100644
---- a/drivers/ieee802154/Makefile
-+++ b/drivers/ieee802154/Makefile
-@@ -1,2 +1,3 @@
- obj-$(CONFIG_IEEE802154_FAKEHARD) += fakehard.o
- obj-$(CONFIG_IEEE802154_FAKELB) += fakelb.o
-+obj-$(CONFIG_IEEE802154_AT86RF230) += at86rf230.o
-diff --git a/drivers/ieee802154/at86rf230.c b/drivers/ieee802154/at86rf230.c
+ /* The following flags are used to indicate changed address settings from
+  * the stack to the hardware.
+  */
+diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
+index ec1bd3f..57cf5d1 100644
+--- a/net/mac802154/Makefile
++++ b/net/mac802154/Makefile
+@@ -1,2 +1,2 @@
+ obj-$(CONFIG_MAC802154)	+= mac802154.o
+-mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o monitor.o
++mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o monitor.o wpan.o
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index e3edfb0..e748aed 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -140,6 +140,10 @@ mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
+ 		dev = alloc_netdev(sizeof(struct mac802154_sub_if_data),
+ 				   name, mac802154_monitor_setup);
+ 		break;
++	case IEEE802154_DEV_WPAN:
++		dev = alloc_netdev(sizeof(struct mac802154_sub_if_data),
++				   name, mac802154_wpan_setup);
++		break;
+ 	default:
+ 		dev = NULL;
+ 		err = -EINVAL;
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index 789d9c9..c0efcf1 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -93,6 +93,7 @@ struct mac802154_sub_if_data {
+ #define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
+ 
+ extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
++extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
+ 
+ int mac802154_slave_open(struct net_device *dev);
+ int mac802154_slave_close(struct net_device *dev);
+@@ -100,6 +101,9 @@ int mac802154_slave_close(struct net_device *dev);
+ void mac802154_monitors_rx(struct mac802154_priv *priv, struct sk_buff *skb);
+ void mac802154_monitor_setup(struct net_device *dev);
+ 
++void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb);
++void mac802154_wpan_setup(struct net_device *dev);
++
+ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ 			 u8 page, u8 chan);
+ 
+diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
+index 7a5d0e0..db83419 100644
+--- a/net/mac802154/mac_cmd.c
++++ b/net/mac802154/mac_cmd.c
+@@ -43,3 +43,7 @@ struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
+ struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
+ 	.get_phy = mac802154_get_phy,
+ };
++
++struct ieee802154_mlme_ops mac802154_mlme_wpan = {
++	.get_phy = mac802154_get_phy,
++};
+diff --git a/net/mac802154/rx.c b/net/mac802154/rx.c
+index 4a7d76d..38548ec 100644
+--- a/net/mac802154/rx.c
++++ b/net/mac802154/rx.c
+@@ -77,6 +77,7 @@ mac802154_subif_rx(struct ieee802154_dev *hw, struct sk_buff *skb, u8 lqi)
+ 	}
+ 
+ 	mac802154_monitors_rx(priv, skb);
++	mac802154_wpans_rx(priv, skb);
+ out:
+ 	dev_kfree_skb(skb);
+ 	return;
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
 new file mode 100644
-index 0000000..2b52374
+index 0000000..caab599
 --- /dev/null
-+++ b/drivers/ieee802154/at86rf230.c
-@@ -0,0 +1,966 @@
++++ b/net/mac802154/wpan.c
+@@ -0,0 +1,560 @@
 +/*
-+ * AT86RF230/RF231 driver
-+ *
-+ * Copyright (C) 2009-2012 Siemens AG
++ * Copyright 2007-2012 Siemens AG
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2
@@ -88,989 +182,547 @@ index 0000000..2b52374
 + *
 + * Written by:
 + * Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
++ * Sergey Lapin <slapin@ossfans.org>
++ * Maxim Gorbachyov <maxim.gorbachev@siemens.com>
 + * Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 + */
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
-+#include <linux/gpio.h>
-+#include <linux/delay.h>
-+#include <linux/mutex.h>
-+#include <linux/workqueue.h>
-+#include <linux/spinlock.h>
-+#include <linux/spi/spi.h>
-+#include <linux/spi/at86rf230.h>
-+#include <linux/skbuff.h>
 +
++#include <linux/netdevice.h>
++#include <linux/module.h>
++#include <linux/if_arp.h>
++
++#include <net/rtnetlink.h>
++#include <linux/nl802154.h>
++#include <net/af_ieee802154.h>
 +#include <net/mac802154.h>
++#include <net/ieee802154_netdev.h>
++#include <net/ieee802154.h>
 +#include <net/wpan-phy.h>
 +
-+struct at86rf230_local {
-+	struct spi_device *spi;
-+	int rstn, slp_tr, dig2;
++#include "mac802154.h"
 +
-+	u8 part;
-+	u8 vers;
-+
-+	u8 buf[2];
-+	struct mutex bmux;
-+
-+	struct work_struct irqwork;
-+	struct completion tx_complete;
-+
-+	struct ieee802154_dev *dev;
-+
-+	spinlock_t lock;
-+	bool irq_disabled;
-+	bool is_tx;
-+};
-+
-+#define	RG_TRX_STATUS	(0x01)
-+#define	SR_TRX_STATUS		0x01, 0x1f, 0
-+#define	SR_RESERVED_01_3	0x01, 0x20, 5
-+#define	SR_CCA_STATUS		0x01, 0x40, 6
-+#define	SR_CCA_DONE		0x01, 0x80, 7
-+#define	RG_TRX_STATE	(0x02)
-+#define	SR_TRX_CMD		0x02, 0x1f, 0
-+#define	SR_TRAC_STATUS		0x02, 0xe0, 5
-+#define	RG_TRX_CTRL_0	(0x03)
-+#define	SR_CLKM_CTRL		0x03, 0x07, 0
-+#define	SR_CLKM_SHA_SEL		0x03, 0x08, 3
-+#define	SR_PAD_IO_CLKM		0x03, 0x30, 4
-+#define	SR_PAD_IO		0x03, 0xc0, 6
-+#define	RG_TRX_CTRL_1	(0x04)
-+#define	SR_IRQ_POLARITY		0x04, 0x01, 0
-+#define	SR_IRQ_MASK_MODE	0x04, 0x02, 1
-+#define	SR_SPI_CMD_MODE		0x04, 0x0c, 2
-+#define	SR_RX_BL_CTRL		0x04, 0x10, 4
-+#define	SR_TX_AUTO_CRC_ON	0x04, 0x20, 5
-+#define	SR_IRQ_2_EXT_EN		0x04, 0x40, 6
-+#define	SR_PA_EXT_EN		0x04, 0x80, 7
-+#define	RG_PHY_TX_PWR	(0x05)
-+#define	SR_TX_PWR		0x05, 0x0f, 0
-+#define	SR_PA_LT		0x05, 0x30, 4
-+#define	SR_PA_BUF_LT		0x05, 0xc0, 6
-+#define	RG_PHY_RSSI	(0x06)
-+#define	SR_RSSI			0x06, 0x1f, 0
-+#define	SR_RND_VALUE		0x06, 0x60, 5
-+#define	SR_RX_CRC_VALID		0x06, 0x80, 7
-+#define	RG_PHY_ED_LEVEL	(0x07)
-+#define	SR_ED_LEVEL		0x07, 0xff, 0
-+#define	RG_PHY_CC_CCA	(0x08)
-+#define	SR_CHANNEL		0x08, 0x1f, 0
-+#define	SR_CCA_MODE		0x08, 0x60, 5
-+#define	SR_CCA_REQUEST		0x08, 0x80, 7
-+#define	RG_CCA_THRES	(0x09)
-+#define	SR_CCA_ED_THRES		0x09, 0x0f, 0
-+#define	SR_RESERVED_09_1	0x09, 0xf0, 4
-+#define	RG_RX_CTRL	(0x0a)
-+#define	SR_PDT_THRES		0x0a, 0x0f, 0
-+#define	SR_RESERVED_0a_1	0x0a, 0xf0, 4
-+#define	RG_SFD_VALUE	(0x0b)
-+#define	SR_SFD_VALUE		0x0b, 0xff, 0
-+#define	RG_TRX_CTRL_2	(0x0c)
-+#define	SR_OQPSK_DATA_RATE	0x0c, 0x03, 0
-+#define	SR_RESERVED_0c_2	0x0c, 0x7c, 2
-+#define	SR_RX_SAFE_MODE		0x0c, 0x80, 7
-+#define	RG_ANT_DIV	(0x0d)
-+#define	SR_ANT_CTRL		0x0d, 0x03, 0
-+#define	SR_ANT_EXT_SW_EN	0x0d, 0x04, 2
-+#define	SR_ANT_DIV_EN		0x0d, 0x08, 3
-+#define	SR_RESERVED_0d_2	0x0d, 0x70, 4
-+#define	SR_ANT_SEL		0x0d, 0x80, 7
-+#define	RG_IRQ_MASK	(0x0e)
-+#define	SR_IRQ_MASK		0x0e, 0xff, 0
-+#define	RG_IRQ_STATUS	(0x0f)
-+#define	SR_IRQ_0_PLL_LOCK	0x0f, 0x01, 0
-+#define	SR_IRQ_1_PLL_UNLOCK	0x0f, 0x02, 1
-+#define	SR_IRQ_2_RX_START	0x0f, 0x04, 2
-+#define	SR_IRQ_3_TRX_END	0x0f, 0x08, 3
-+#define	SR_IRQ_4_CCA_ED_DONE	0x0f, 0x10, 4
-+#define	SR_IRQ_5_AMI		0x0f, 0x20, 5
-+#define	SR_IRQ_6_TRX_UR		0x0f, 0x40, 6
-+#define	SR_IRQ_7_BAT_LOW	0x0f, 0x80, 7
-+#define	RG_VREG_CTRL	(0x10)
-+#define	SR_RESERVED_10_6	0x10, 0x03, 0
-+#define	SR_DVDD_OK		0x10, 0x04, 2
-+#define	SR_DVREG_EXT		0x10, 0x08, 3
-+#define	SR_RESERVED_10_3	0x10, 0x30, 4
-+#define	SR_AVDD_OK		0x10, 0x40, 6
-+#define	SR_AVREG_EXT		0x10, 0x80, 7
-+#define	RG_BATMON	(0x11)
-+#define	SR_BATMON_VTH		0x11, 0x0f, 0
-+#define	SR_BATMON_HR		0x11, 0x10, 4
-+#define	SR_BATMON_OK		0x11, 0x20, 5
-+#define	SR_RESERVED_11_1	0x11, 0xc0, 6
-+#define	RG_XOSC_CTRL	(0x12)
-+#define	SR_XTAL_TRIM		0x12, 0x0f, 0
-+#define	SR_XTAL_MODE		0x12, 0xf0, 4
-+#define	RG_RX_SYN	(0x15)
-+#define	SR_RX_PDT_LEVEL		0x15, 0x0f, 0
-+#define	SR_RESERVED_15_2	0x15, 0x70, 4
-+#define	SR_RX_PDT_DIS		0x15, 0x80, 7
-+#define	RG_XAH_CTRL_1	(0x17)
-+#define	SR_RESERVED_17_8	0x17, 0x01, 0
-+#define	SR_AACK_PROM_MODE	0x17, 0x02, 1
-+#define	SR_AACK_ACK_TIME	0x17, 0x04, 2
-+#define	SR_RESERVED_17_5	0x17, 0x08, 3
-+#define	SR_AACK_UPLD_RES_FT	0x17, 0x10, 4
-+#define	SR_AACK_FLTR_RES_FT	0x17, 0x20, 5
-+#define	SR_RESERVED_17_2	0x17, 0x40, 6
-+#define	SR_RESERVED_17_1	0x17, 0x80, 7
-+#define	RG_FTN_CTRL	(0x18)
-+#define	SR_RESERVED_18_2	0x18, 0x7f, 0
-+#define	SR_FTN_START		0x18, 0x80, 7
-+#define	RG_PLL_CF	(0x1a)
-+#define	SR_RESERVED_1a_2	0x1a, 0x7f, 0
-+#define	SR_PLL_CF_START		0x1a, 0x80, 7
-+#define	RG_PLL_DCU	(0x1b)
-+#define	SR_RESERVED_1b_3	0x1b, 0x3f, 0
-+#define	SR_RESERVED_1b_2	0x1b, 0x40, 6
-+#define	SR_PLL_DCU_START	0x1b, 0x80, 7
-+#define	RG_PART_NUM	(0x1c)
-+#define	SR_PART_NUM		0x1c, 0xff, 0
-+#define	RG_VERSION_NUM	(0x1d)
-+#define	SR_VERSION_NUM		0x1d, 0xff, 0
-+#define	RG_MAN_ID_0	(0x1e)
-+#define	SR_MAN_ID_0		0x1e, 0xff, 0
-+#define	RG_MAN_ID_1	(0x1f)
-+#define	SR_MAN_ID_1		0x1f, 0xff, 0
-+#define	RG_SHORT_ADDR_0	(0x20)
-+#define	SR_SHORT_ADDR_0		0x20, 0xff, 0
-+#define	RG_SHORT_ADDR_1	(0x21)
-+#define	SR_SHORT_ADDR_1		0x21, 0xff, 0
-+#define	RG_PAN_ID_0	(0x22)
-+#define	SR_PAN_ID_0		0x22, 0xff, 0
-+#define	RG_PAN_ID_1	(0x23)
-+#define	SR_PAN_ID_1		0x23, 0xff, 0
-+#define	RG_IEEE_ADDR_0	(0x24)
-+#define	SR_IEEE_ADDR_0		0x24, 0xff, 0
-+#define	RG_IEEE_ADDR_1	(0x25)
-+#define	SR_IEEE_ADDR_1		0x25, 0xff, 0
-+#define	RG_IEEE_ADDR_2	(0x26)
-+#define	SR_IEEE_ADDR_2		0x26, 0xff, 0
-+#define	RG_IEEE_ADDR_3	(0x27)
-+#define	SR_IEEE_ADDR_3		0x27, 0xff, 0
-+#define	RG_IEEE_ADDR_4	(0x28)
-+#define	SR_IEEE_ADDR_4		0x28, 0xff, 0
-+#define	RG_IEEE_ADDR_5	(0x29)
-+#define	SR_IEEE_ADDR_5		0x29, 0xff, 0
-+#define	RG_IEEE_ADDR_6	(0x2a)
-+#define	SR_IEEE_ADDR_6		0x2a, 0xff, 0
-+#define	RG_IEEE_ADDR_7	(0x2b)
-+#define	SR_IEEE_ADDR_7		0x2b, 0xff, 0
-+#define	RG_XAH_CTRL_0	(0x2c)
-+#define	SR_SLOTTED_OPERATION	0x2c, 0x01, 0
-+#define	SR_MAX_CSMA_RETRIES	0x2c, 0x0e, 1
-+#define	SR_MAX_FRAME_RETRIES	0x2c, 0xf0, 4
-+#define	RG_CSMA_SEED_0	(0x2d)
-+#define	SR_CSMA_SEED_0		0x2d, 0xff, 0
-+#define	RG_CSMA_SEED_1	(0x2e)
-+#define	SR_CSMA_SEED_1		0x2e, 0x07, 0
-+#define	SR_AACK_I_AM_COORD	0x2e, 0x08, 3
-+#define	SR_AACK_DIS_ACK		0x2e, 0x10, 4
-+#define	SR_AACK_SET_PD		0x2e, 0x20, 5
-+#define	SR_AACK_FVN_MODE	0x2e, 0xc0, 6
-+#define	RG_CSMA_BE	(0x2f)
-+#define	SR_MIN_BE		0x2f, 0x0f, 0
-+#define	SR_MAX_BE		0x2f, 0xf0, 4
-+
-+#define CMD_REG		0x80
-+#define CMD_REG_MASK	0x3f
-+#define CMD_WRITE	0x40
-+#define CMD_FB		0x20
-+
-+#define IRQ_BAT_LOW	(1 << 7)
-+#define IRQ_TRX_UR	(1 << 6)
-+#define IRQ_AMI		(1 << 5)
-+#define IRQ_CCA_ED	(1 << 4)
-+#define IRQ_TRX_END	(1 << 3)
-+#define IRQ_RX_START	(1 << 2)
-+#define IRQ_PLL_UNL	(1 << 1)
-+#define IRQ_PLL_LOCK	(1 << 0)
-+
-+#define STATE_P_ON		0x00	/* BUSY */
-+#define STATE_BUSY_RX		0x01
-+#define STATE_BUSY_TX		0x02
-+#define STATE_FORCE_TRX_OFF	0x03
-+#define STATE_FORCE_TX_ON	0x04	/* IDLE */
-+/* 0x05 */				/* INVALID_PARAMETER */
-+#define STATE_RX_ON		0x06
-+/* 0x07 */				/* SUCCESS */
-+#define STATE_TRX_OFF		0x08
-+#define STATE_TX_ON		0x09
-+/* 0x0a - 0x0e */			/* 0x0a - UNSUPPORTED_ATTRIBUTE */
-+#define STATE_SLEEP		0x0F
-+#define STATE_BUSY_RX_AACK	0x11
-+#define STATE_BUSY_TX_ARET	0x12
-+#define STATE_BUSY_RX_AACK_ON	0x16
-+#define STATE_BUSY_TX_ARET_ON	0x19
-+#define STATE_RX_ON_NOCLK	0x1C
-+#define STATE_RX_AACK_ON_NOCLK	0x1D
-+#define STATE_BUSY_RX_AACK_NOCLK 0x1E
-+#define STATE_TRANSITION_IN_PROGRESS 0x1F
-+
-+static int
-+__at86rf230_write(struct at86rf230_local *lp, u8 addr, u8 data)
++static inline int mac802154_fetch_skb_u8(struct sk_buff *skb, u8 *val)
 +{
-+	u8 *buf = lp->buf;
-+	int status;
-+	struct spi_message msg;
-+	struct spi_transfer xfer = {
-+		.len	= 2,
-+		.tx_buf	= buf,
-+	};
-+
-+	buf[0] = (addr & CMD_REG_MASK) | CMD_REG | CMD_WRITE;
-+	buf[1] = data;
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
-+	spi_message_init(&msg);
-+	spi_message_add_tail(&xfer, &msg);
-+
-+	status = spi_sync(lp->spi, &msg);
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	if (msg.status)
-+		status = msg.status;
-+
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
-+
-+	return status;
-+}
-+
-+static int
-+__at86rf230_read_subreg(struct at86rf230_local *lp,
-+			u8 addr, u8 mask, int shift, u8 *data)
-+{
-+	u8 *buf = lp->buf;
-+	int status;
-+	struct spi_message msg;
-+	struct spi_transfer xfer = {
-+		.len	= 2,
-+		.tx_buf	= buf,
-+		.rx_buf	= buf,
-+	};
-+
-+	buf[0] = (addr & CMD_REG_MASK) | CMD_REG;
-+	buf[1] = 0xff;
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	spi_message_init(&msg);
-+	spi_message_add_tail(&xfer, &msg);
-+
-+	status = spi_sync(lp->spi, &msg);
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	if (msg.status)
-+		status = msg.status;
-+
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
-+
-+	if (status == 0)
-+		*data = buf[1];
-+
-+	return status;
-+}
-+
-+static int
-+at86rf230_read_subreg(struct at86rf230_local *lp,
-+		      u8 addr, u8 mask, int shift, u8 *data)
-+{
-+	int status;
-+
-+	mutex_lock(&lp->bmux);
-+	status = __at86rf230_read_subreg(lp, addr, mask, shift, data);
-+	mutex_unlock(&lp->bmux);
-+
-+	return status;
-+}
-+
-+static int
-+at86rf230_write_subreg(struct at86rf230_local *lp,
-+		       u8 addr, u8 mask, int shift, u8 data)
-+{
-+	int status;
-+	u8 val;
-+
-+	mutex_lock(&lp->bmux);
-+	status = __at86rf230_read_subreg(lp, addr, 0xff, 0, &val);
-+	if (status)
-+		goto out;
-+
-+	val &= ~mask;
-+	val |= (data << shift) & mask;
-+
-+	status = __at86rf230_write(lp, addr, val);
-+out:
-+	mutex_unlock(&lp->bmux);
-+
-+	return status;
-+}
-+
-+static int
-+at86rf230_write_fbuf(struct at86rf230_local *lp, u8 *data, u8 len)
-+{
-+	u8 *buf = lp->buf;
-+	int status;
-+	struct spi_message msg;
-+	struct spi_transfer xfer_head = {
-+		.len		= 2,
-+		.tx_buf		= buf,
-+
-+	};
-+	struct spi_transfer xfer_buf = {
-+		.len		= len,
-+		.tx_buf		= data,
-+	};
-+
-+	mutex_lock(&lp->bmux);
-+	buf[0] = CMD_WRITE | CMD_FB;
-+	buf[1] = len + 2; /* 2 bytes for CRC that isn't written */
-+
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
-+
-+	spi_message_init(&msg);
-+	spi_message_add_tail(&xfer_head, &msg);
-+	spi_message_add_tail(&xfer_buf, &msg);
-+
-+	status = spi_sync(lp->spi, &msg);
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	if (msg.status)
-+		status = msg.status;
-+
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
-+
-+	mutex_unlock(&lp->bmux);
-+	return status;
-+}
-+
-+static int
-+at86rf230_read_fbuf(struct at86rf230_local *lp, u8 *data, u8 *len, u8 *lqi)
-+{
-+	u8 *buf = lp->buf;
-+	int status;
-+	struct spi_message msg;
-+	struct spi_transfer xfer_head = {
-+		.len		= 2,
-+		.tx_buf		= buf,
-+		.rx_buf		= buf,
-+	};
-+	struct spi_transfer xfer_head1 = {
-+		.len		= 2,
-+		.tx_buf		= buf,
-+		.rx_buf		= buf,
-+	};
-+	struct spi_transfer xfer_buf = {
-+		.len		= 0,
-+		.rx_buf		= data,
-+	};
-+
-+	mutex_lock(&lp->bmux);
-+
-+	buf[0] = CMD_FB;
-+	buf[1] = 0x00;
-+
-+	spi_message_init(&msg);
-+	spi_message_add_tail(&xfer_head, &msg);
-+
-+	status = spi_sync(lp->spi, &msg);
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+
-+	xfer_buf.len = *(buf + 1) + 1;
-+	*len = buf[1];
-+
-+	buf[0] = CMD_FB;
-+	buf[1] = 0x00;
-+
-+	spi_message_init(&msg);
-+	spi_message_add_tail(&xfer_head1, &msg);
-+	spi_message_add_tail(&xfer_buf, &msg);
-+
-+	status = spi_sync(lp->spi, &msg);
-+
-+	if (msg.status)
-+		status = msg.status;
-+
-+	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
-+	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
-+	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
-+
-+	if (status) {
-+		if (lqi && (*len > lp->buf[1]))
-+			*lqi = data[lp->buf[1]];
-+	}
-+	mutex_unlock(&lp->bmux);
-+
-+	return status;
-+}
-+
-+static int
-+at86rf230_ed(struct ieee802154_dev *dev, u8 *level)
-+{
-+	might_sleep();
-+	BUG_ON(!level);
-+	*level = 0xbe;
-+	return 0;
-+}
-+
-+static int
-+at86rf230_state(struct ieee802154_dev *dev, int state)
-+{
-+	struct at86rf230_local *lp = dev->priv;
-+	int rc;
-+	u8 val;
-+	u8 desired_status;
-+
-+	might_sleep();
-+
-+	if (state == STATE_FORCE_TX_ON)
-+		desired_status = STATE_TX_ON;
-+	else if (state == STATE_FORCE_TRX_OFF)
-+		desired_status = STATE_TRX_OFF;
-+	else
-+		desired_status = state;
-+
-+	do {
-+		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &val);
-+		if (rc)
-+			goto err;
-+	} while (val == STATE_TRANSITION_IN_PROGRESS);
-+
-+	if (val == desired_status)
-+		return 0;
-+
-+	/* state is equal to phy states */
-+	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, state);
-+	if (rc)
-+		goto err;
-+
-+	do {
-+		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &val);
-+		if (rc)
-+			goto err;
-+	} while (val == STATE_TRANSITION_IN_PROGRESS);
-+
-+
-+	if (val == desired_status)
-+		return 0;
-+
-+	pr_err("unexpected state change: %d, asked for %d\n", val, state);
-+	return -EBUSY;
-+
-+err:
-+	pr_err("error: %d\n", rc);
-+	return rc;
-+}
-+
-+static int
-+at86rf230_start(struct ieee802154_dev *dev)
-+{
-+	struct at86rf230_local *lp = dev->priv;
-+	u8 rc;
-+
-+	rc = at86rf230_write_subreg(lp, SR_RX_SAFE_MODE, 1);
-+	if (rc)
-+		return rc;
-+
-+	return at86rf230_state(dev, STATE_RX_ON);
-+}
-+
-+static void
-+at86rf230_stop(struct ieee802154_dev *dev)
-+{
-+	at86rf230_state(dev, STATE_FORCE_TRX_OFF);
-+}
-+
-+static int
-+at86rf230_channel(struct ieee802154_dev *dev, int page, int channel)
-+{
-+	struct at86rf230_local *lp = dev->priv;
-+	int rc;
-+
-+	might_sleep();
-+
-+	if (page != 0 || channel < 11 || channel > 26) {
-+		WARN_ON(1);
++	if (unlikely(!pskb_may_pull(skb, 1)))
 +		return -EINVAL;
-+	}
 +
-+	rc = at86rf230_write_subreg(lp, SR_CHANNEL, channel);
-+	msleep(1); /* Wait for PLL */
-+	dev->phy->current_channel = channel;
++	*val = skb->data[0];
++	 skb_pull(skb, 1);
 +
 +	return 0;
 +}
 +
-+static int
-+at86rf230_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
++static inline int mac802154_fetch_skb_u16(struct sk_buff *skb, u16 *val)
 +{
-+	struct at86rf230_local *lp = dev->priv;
-+	int rc;
-+	unsigned long flags;
++	if (unlikely(!pskb_may_pull(skb, 2)))
++		return -EINVAL;
 +
-+	might_sleep();
++	*val = skb->data[0] | (skb->data[1] << 8);
++	skb_pull(skb, 2);
 +
-+	rc = at86rf230_state(dev, STATE_FORCE_TX_ON);
-+	if (rc)
-+		goto err;
-+
-+	spin_lock_irqsave(&lp->lock, flags);
-+	lp->is_tx = 1;
-+	INIT_COMPLETION(lp->tx_complete);
-+	spin_unlock_irqrestore(&lp->lock, flags);
-+
-+	rc = at86rf230_write_fbuf(lp, skb->data, skb->len);
-+	if (rc)
-+		goto err_rx;
-+
-+	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_BUSY_TX);
-+	if (rc)
-+		goto err_rx;
-+
-+	rc = wait_for_completion_interruptible(&lp->tx_complete);
-+	if (rc < 0)
-+		goto err_rx;
-+
-+	rc = at86rf230_start(dev);
-+
-+	return rc;
-+
-+err_rx:
-+	at86rf230_start(dev);
-+err:
-+	pr_err("error: %d\n", rc);
-+
-+	spin_lock_irqsave(&lp->lock, flags);
-+	lp->is_tx = 0;
-+	spin_unlock_irqrestore(&lp->lock, flags);
-+
-+	return rc;
++	return 0;
 +}
 +
-+static int at86rf230_rx(struct at86rf230_local *lp)
++static inline void mac802154_haddr_copy_swap(u8 *dest, const u8 *src)
 +{
-+	u8 len = 128, lqi = 0;
-+	int rc;
-+	struct sk_buff *skb;
++	int i;
++	for (i = 0; i < IEEE802154_ADDR_LEN; i++)
++		dest[IEEE802154_ADDR_LEN - i - 1] = src[i];
++}
 +
-+	skb = alloc_skb(len, GFP_KERNEL);
++static int
++mac802154_wpan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	struct sockaddr_ieee802154 *sa =
++		(struct sockaddr_ieee802154 *)&ifr->ifr_addr;
++	int err = -ENOIOCTLCMD;
 +
-+	if (!skb)
++	spin_lock_bh(&priv->mib_lock);
++
++	switch (cmd) {
++	case SIOCGIFADDR:
++		if (priv->pan_id == IEEE802154_PANID_BROADCAST ||
++		    priv->short_addr == IEEE802154_ADDR_BROADCAST) {
++			err = -EADDRNOTAVAIL;
++			break;
++		}
++
++		sa->family = AF_IEEE802154;
++		sa->addr.addr_type = IEEE802154_ADDR_SHORT;
++		sa->addr.pan_id = priv->pan_id;
++		sa->addr.short_addr = priv->short_addr;
++
++		err = 0;
++		break;
++	case SIOCSIFADDR:
++		dev_warn(&dev->dev,
++			 "Using DEBUGing ioctl SIOCSIFADDR isn't recommened!\n");
++		if (sa->family != AF_IEEE802154 ||
++		    sa->addr.addr_type != IEEE802154_ADDR_SHORT ||
++		    sa->addr.pan_id == IEEE802154_PANID_BROADCAST ||
++		    sa->addr.short_addr == IEEE802154_ADDR_BROADCAST ||
++		    sa->addr.short_addr == IEEE802154_ADDR_UNDEF) {
++			err = -EINVAL;
++			break;
++		}
++
++		priv->pan_id = sa->addr.pan_id;
++		priv->short_addr = sa->addr.short_addr;
++
++		err = 0;
++		break;
++	}
++
++	spin_unlock_bh(&priv->mib_lock);
++	return err;
++}
++
++static int mac802154_wpan_mac_addr(struct net_device *dev, void *p)
++{
++	struct sockaddr *addr = p;
++
++	if (netif_running(dev))
++		return -EBUSY;
++
++	/* FIXME: validate addr */
++	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
++	mac802154_dev_set_ieee_addr(dev);
++	return 0;
++}
++
++static int mac802154_header_create(struct sk_buff *skb,
++				   struct net_device *dev,
++				   unsigned short type,
++				   const void *_daddr,
++				   const void *_saddr,
++				   unsigned len)
++{
++	const struct ieee802154_addr *saddr = _saddr;
++	const struct ieee802154_addr *daddr = _daddr;
++	struct ieee802154_addr dev_addr;
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	int pos = 2;
++	u8 *head;
++	u16 fc;
++
++	if (!daddr)
++		return -EINVAL;
++
++	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_KERNEL);
++	if (head == NULL)
 +		return -ENOMEM;
 +
-+	if (at86rf230_write_subreg(lp, SR_RX_PDT_DIS, 1) ||
-+	    at86rf230_read_fbuf(lp, skb_put(skb, len), &len, &lqi) ||
-+	    at86rf230_write_subreg(lp, SR_RX_SAFE_MODE, 1) ||
-+	    at86rf230_write_subreg(lp, SR_RX_PDT_DIS, 0)) {
-+		goto err;
++	head[pos++] = mac_cb(skb)->seq; /* DSN/BSN */
++	fc = mac_cb_type(skb);
++
++	if (!saddr) {
++		spin_lock_bh(&priv->mib_lock);
++
++		if (priv->short_addr == IEEE802154_ADDR_BROADCAST ||
++		    priv->short_addr == IEEE802154_ADDR_UNDEF ||
++		    priv->pan_id == IEEE802154_PANID_BROADCAST) {
++			dev_addr.addr_type = IEEE802154_ADDR_LONG;
++			memcpy(dev_addr.hwaddr, dev->dev_addr,
++			       IEEE802154_ADDR_LEN);
++		} else {
++			dev_addr.addr_type = IEEE802154_ADDR_SHORT;
++			dev_addr.short_addr = priv->short_addr;
++		}
++
++		dev_addr.pan_id = priv->pan_id;
++		saddr = &dev_addr;
++
++		spin_unlock_bh(&priv->mib_lock);
 +	}
 +
-+	if (len < 2)
-+		goto err;
++	if (daddr->addr_type != IEEE802154_ADDR_NONE) {
++		fc |= (daddr->addr_type << IEEE802154_FC_DAMODE_SHIFT);
 +
-+	skb_trim(skb, len - 2); /* We do not put CRC into the frame */
++		head[pos++] = daddr->pan_id & 0xff;
++		head[pos++] = daddr->pan_id >> 8;
 +
-+	ieee802154_rx_irqsafe(lp->dev, skb, lqi);
-+
-+	dev_dbg(&lp->spi->dev, "READ_FBUF: %d %d %x\n", rc, len, lqi);
-+
-+	return 0;
-+err:
-+	pr_debug("received frame is too small\n");
-+
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
-+static struct ieee802154_ops at86rf230_ops = {
-+	.owner = THIS_MODULE,
-+	.xmit = at86rf230_xmit,
-+	.ed = at86rf230_ed,
-+	.set_channel = at86rf230_channel,
-+	.start = at86rf230_start,
-+	.stop = at86rf230_stop,
-+};
-+
-+static void at86rf230_irqwork(struct work_struct *work)
-+{
-+	struct at86rf230_local *lp =
-+		container_of(work, struct at86rf230_local, irqwork);
-+	u8 status = 0, val;
-+	int rc;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&lp->lock, flags);
-+	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &val);
-+	status |= val;
-+
-+	status &= ~IRQ_PLL_LOCK; /* ignore */
-+	status &= ~IRQ_RX_START; /* ignore */
-+	status &= ~IRQ_AMI; /* ignore */
-+	status &= ~IRQ_TRX_UR; /* FIXME: possibly handle ???*/
-+
-+	if (status & IRQ_TRX_END) {
-+		status &= ~IRQ_TRX_END;
-+		if (lp->is_tx) {
-+			lp->is_tx = 0;
-+			complete(&lp->tx_complete);
++		if (daddr->addr_type == IEEE802154_ADDR_SHORT) {
++			head[pos++] = daddr->short_addr & 0xff;
++			head[pos++] = daddr->short_addr >> 8;
 +		} else {
-+			at86rf230_rx(lp);
++			mac802154_haddr_copy_swap(head + pos, daddr->hwaddr);
++			pos += IEEE802154_ADDR_LEN;
 +		}
 +	}
 +
-+	if (lp->irq_disabled) {
-+		lp->irq_disabled = 0;
-+		enable_irq(lp->spi->irq);
++	if (saddr->addr_type != IEEE802154_ADDR_NONE) {
++		fc |= (saddr->addr_type << IEEE802154_FC_SAMODE_SHIFT);
++
++		if ((saddr->pan_id == daddr->pan_id) &&
++		    (saddr->pan_id != IEEE802154_PANID_BROADCAST))
++			/* PANID compression/ intra PAN */
++			fc |= IEEE802154_FC_INTRA_PAN;
++		else {
++			head[pos++] = saddr->pan_id & 0xff;
++			head[pos++] = saddr->pan_id >> 8;
++		}
++
++		if (saddr->addr_type == IEEE802154_ADDR_SHORT) {
++			head[pos++] = saddr->short_addr & 0xff;
++			head[pos++] = saddr->short_addr >> 8;
++		} else {
++			mac802154_haddr_copy_swap(head + pos, saddr->hwaddr);
++			pos += IEEE802154_ADDR_LEN;
++		}
 +	}
-+	spin_unlock_irqrestore(&lp->lock, flags);
++
++	head[0] = fc;
++	head[1] = fc >> 8;
++
++	memcpy(skb_push(skb, pos), head, pos);
++	kfree(head);
++
++	return pos;
 +}
 +
-+static irqreturn_t at86rf230_isr(int irq, void *data)
++static int
++mac802154_header_parse(const struct sk_buff *skb, unsigned char *haddr)
 +{
-+	struct at86rf230_local *lp = data;
++	const u8 *hdr = skb_mac_header(skb);
++	const u8 *tail = skb_tail_pointer(skb);
++	struct ieee802154_addr *addr = (struct ieee802154_addr *)haddr;
++	u16 fc;
++	int da_type;
 +
-+	spin_lock(&lp->lock);
-+	if (!lp->irq_disabled) {
-+		disable_irq_nosync(irq);
-+		lp->irq_disabled = 1;
-+	}
-+	spin_unlock(&lp->lock);
++	if (hdr + 3 > tail)
++		goto malformed;
 +
-+	schedule_work(&lp->irqwork);
++	fc = hdr[0] | (hdr[1] << 8);
 +
-+	return IRQ_HANDLED;
-+}
++	hdr += 3;
 +
++	da_type = IEEE802154_FC_DAMODE(fc);
++	addr->addr_type = IEEE802154_FC_SAMODE(fc);
 +
-+static int at86rf230_hw_init(struct at86rf230_local *lp)
-+{
-+	u8 status;
-+	int rc;
-+
-+	rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
-+	if (rc)
-+		return rc;
-+
-+	dev_info(&lp->spi->dev, "Status: %02x\n", status);
-+	if (status == STATE_P_ON) {
-+		rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_TRX_OFF);
-+		if (rc)
-+			return rc;
-+		msleep(1);
-+		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
-+		if (rc)
-+			return rc;
-+		dev_info(&lp->spi->dev, "Status: %02x\n", status);
-+	}
-+
-+	rc = at86rf230_write_subreg(lp, SR_IRQ_MASK, 0xff); /* IRQ_TRX_UR |
-+							     * IRQ_CCA_ED |
-+							     * IRQ_TRX_END |
-+							     * IRQ_PLL_UNL |
-+							     * IRQ_PLL_LOCK
-+							     */
-+	if (rc)
-+		return rc;
-+
-+	/* CLKM changes are applied immediately */
-+	rc = at86rf230_write_subreg(lp, SR_CLKM_SHA_SEL, 0x00);
-+	if (rc)
-+		return rc;
-+
-+	/* Turn CLKM Off */
-+	rc = at86rf230_write_subreg(lp, SR_CLKM_CTRL, 0x00);
-+	if (rc)
-+		return rc;
-+	/* Wait the next SLEEP cycle */
-+	msleep(100);
-+
-+	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_TX_ON);
-+	if (rc)
-+		return rc;
-+	msleep(1);
-+
-+	rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &status);
-+	if (rc)
-+		return rc;
-+	dev_info(&lp->spi->dev, "Status: %02x\n", status);
-+
-+	rc = at86rf230_read_subreg(lp, SR_DVDD_OK, &status);
-+	if (rc)
-+		return rc;
-+	if (!status) {
-+		dev_err(&lp->spi->dev, "DVDD error\n");
-+		return -EINVAL;
-+	}
-+
-+	rc = at86rf230_read_subreg(lp, SR_AVDD_OK, &status);
-+	if (rc)
-+		return rc;
-+	if (!status) {
-+		dev_err(&lp->spi->dev, "AVDD error\n");
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int at86rf230_suspend(struct spi_device *spi, pm_message_t message)
-+{
-+	return 0;
-+}
-+
-+static int at86rf230_resume(struct spi_device *spi)
-+{
-+	return 0;
-+}
-+
-+static int at86rf230_fill_data(struct spi_device *spi)
-+{
-+	struct at86rf230_local *lp = spi_get_drvdata(spi);
-+	struct at86rf230_platform_data *pdata = spi->dev.platform_data;
-+
-+	if (!pdata) {
-+		dev_err(&spi->dev, "no platform_data\n");
-+		return -EINVAL;
-+	}
-+
-+	lp->rstn = pdata->rstn;
-+	lp->slp_tr = pdata->slp_tr;
-+	lp->dig2 = pdata->dig2;
-+
-+	return 0;
-+}
-+
-+static int __devinit at86rf230_probe(struct spi_device *spi)
-+{
-+	struct ieee802154_dev *dev;
-+	struct at86rf230_local *lp;
-+	u8 man_id_0, man_id_1;
-+	int rc;
-+	const char *chip;
-+	int supported = 0;
-+
-+	if (!spi->irq) {
-+		dev_err(&spi->dev, "no IRQ specified\n");
-+		return -EINVAL;
-+	}
-+
-+	dev = ieee802154_alloc_device(sizeof(*lp), &at86rf230_ops);
-+	if (!dev)
-+		return -ENOMEM;
-+
-+	lp = dev->priv;
-+	lp->dev = dev;
-+
-+	lp->spi = spi;
-+
-+	dev->priv = lp;
-+	dev->parent = &spi->dev;
-+	dev->extra_tx_headroom = 0;
-+	/* We do support only 2.4 Ghz */
-+	dev->phy->channels_supported[0] = 0x7FFF800;
-+	dev->flags = IEEE802154_HW_OMIT_CKSUM;
-+
-+	mutex_init(&lp->bmux);
-+	INIT_WORK(&lp->irqwork, at86rf230_irqwork);
-+	spin_lock_init(&lp->lock);
-+	init_completion(&lp->tx_complete);
-+
-+	spi_set_drvdata(spi, lp);
-+
-+	rc = at86rf230_fill_data(spi);
-+	if (rc)
-+		goto err_fill;
-+
-+	rc = gpio_request(lp->rstn, "rstn");
-+	if (rc)
-+		goto err_rstn;
-+
-+	if (gpio_is_valid(lp->slp_tr)) {
-+		rc = gpio_request(lp->slp_tr, "slp_tr");
-+		if (rc)
-+			goto err_slp_tr;
-+	}
-+
-+	rc = gpio_direction_output(lp->rstn, 1);
-+	if (rc)
-+		goto err_gpio_dir;
-+
-+	if (gpio_is_valid(lp->slp_tr)) {
-+		rc = gpio_direction_output(lp->slp_tr, 0);
-+		if (rc)
-+			goto err_gpio_dir;
-+	}
-+
-+	/* Reset */
-+	msleep(1);
-+	gpio_set_value(lp->rstn, 0);
-+	msleep(1);
-+	gpio_set_value(lp->rstn, 1);
-+	msleep(1);
-+
-+	rc = at86rf230_read_subreg(lp, SR_MAN_ID_0, &man_id_0);
-+	if (rc)
-+		goto err_gpio_dir;
-+	rc = at86rf230_read_subreg(lp, SR_MAN_ID_1, &man_id_1);
-+	if (rc)
-+		goto err_gpio_dir;
-+
-+	if (man_id_1 != 0x00 || man_id_0 != 0x1f) {
-+		dev_err(&spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
-+			man_id_1, man_id_0);
-+		rc = -EINVAL;
-+		goto err_gpio_dir;
-+	}
-+
-+	rc = at86rf230_read_subreg(lp, SR_PART_NUM, &lp->part);
-+	if (rc)
-+		goto err_gpio_dir;
-+
-+	rc = at86rf230_read_subreg(lp, SR_VERSION_NUM, &lp->vers);
-+	if (rc)
-+		goto err_gpio_dir;
-+
-+	switch (lp->part) {
-+	case 2:
-+		chip = "at86rf230";
-+		/* supported = 1;  FIXME: should be easy to support; */
++	switch (da_type) {
++	case IEEE802154_ADDR_NONE:
++		if (fc & IEEE802154_FC_INTRA_PAN)
++			goto malformed;
 +		break;
-+	case 3:
-+		chip = "at86rf231";
-+		supported = 1;
++	case IEEE802154_ADDR_LONG:
++		if (fc & IEEE802154_FC_INTRA_PAN) {
++			if (hdr + 2 > tail)
++				goto malformed;
++			addr->pan_id = hdr[0] | (hdr[1] << 8);
++			hdr += 2;
++		}
++
++		if (hdr + IEEE802154_ADDR_LEN > tail)
++			goto malformed;
++
++		hdr += IEEE802154_ADDR_LEN;
++		break;
++	case IEEE802154_ADDR_SHORT:
++		if (fc & IEEE802154_FC_INTRA_PAN) {
++			if (hdr + 2 > tail)
++				goto malformed;
++			addr->pan_id = hdr[0] | (hdr[1] << 8);
++			hdr += 2;
++		}
++
++		if (hdr + 2 > tail)
++			goto malformed;
++
++		hdr += 2;
 +		break;
 +	default:
-+		chip = "UNKNOWN";
++		goto malformed;
++
++	}
++
++	switch (addr->addr_type) {
++	case IEEE802154_ADDR_NONE:
 +		break;
++	case IEEE802154_ADDR_LONG:
++		if (!(fc & IEEE802154_FC_INTRA_PAN)) {
++			if (hdr + 2 > tail)
++				goto malformed;
++			addr->pan_id = hdr[0] | (hdr[1] << 8);
++			hdr += 2;
++		}
++
++		if (hdr + IEEE802154_ADDR_LEN > tail)
++			goto malformed;
++
++		mac802154_haddr_copy_swap(addr->hwaddr, hdr);
++		hdr += IEEE802154_ADDR_LEN;
++		break;
++	case IEEE802154_ADDR_SHORT:
++		if (!(fc & IEEE802154_FC_INTRA_PAN)) {
++			if (hdr + 2 > tail)
++				goto malformed;
++			addr->pan_id = hdr[0] | (hdr[1] << 8);
++			hdr += 2;
++		}
++
++		if (hdr + 2 > tail)
++			goto malformed;
++
++		addr->short_addr = hdr[0] | (hdr[1] << 8);
++		hdr += 2;
++		break;
++	default:
++		goto malformed;
 +	}
 +
-+	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, lp->vers);
-+	if (!supported) {
-+		rc = -ENOTSUPP;
-+		goto err_gpio_dir;
-+	}
++	return sizeof(struct ieee802154_addr);
 +
-+	rc = at86rf230_hw_init(lp);
-+	if (rc)
-+		goto err_gpio_dir;
-+
-+	rc = request_irq(spi->irq, at86rf230_isr, IRQF_SHARED,
-+			 dev_name(&spi->dev), lp);
-+	if (rc)
-+		goto err_gpio_dir;
-+
-+	rc = ieee802154_register_device(lp->dev);
-+	if (rc)
-+		goto err_irq;
-+
-+	return rc;
-+
-+	ieee802154_unregister_device(lp->dev);
-+err_irq:
-+	free_irq(spi->irq, lp);
-+	flush_work(&lp->irqwork);
-+err_gpio_dir:
-+	if (gpio_is_valid(lp->slp_tr))
-+		gpio_free(lp->slp_tr);
-+err_slp_tr:
-+	gpio_free(lp->rstn);
-+err_rstn:
-+err_fill:
-+	spi_set_drvdata(spi, NULL);
-+	mutex_destroy(&lp->bmux);
-+	ieee802154_free_device(lp->dev);
-+	return rc;
-+}
-+
-+static int __devexit at86rf230_remove(struct spi_device *spi)
-+{
-+	struct at86rf230_local *lp = spi_get_drvdata(spi);
-+
-+	ieee802154_unregister_device(lp->dev);
-+
-+	free_irq(spi->irq, lp);
-+	flush_work(&lp->irqwork);
-+
-+	if (gpio_is_valid(lp->slp_tr))
-+		gpio_free(lp->slp_tr);
-+	gpio_free(lp->rstn);
-+
-+	spi_set_drvdata(spi, NULL);
-+	mutex_destroy(&lp->bmux);
-+	ieee802154_free_device(lp->dev);
-+
-+	dev_dbg(&spi->dev, "unregistered at86rf230\n");
++malformed:
++	pr_debug("malformed packet\n");
 +	return 0;
 +}
 +
-+static struct spi_driver at86rf230_driver = {
-+	.driver = {
-+		.name	= "at86rf230",
-+		.owner	= THIS_MODULE,
-+	},
-+	.probe      = at86rf230_probe,
-+	.remove     = __devexit_p(at86rf230_remove),
-+	.suspend    = at86rf230_suspend,
-+	.resume     = at86rf230_resume,
++static netdev_tx_t
++mac802154_wpan_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv;
++	u8 chan, page;
++
++	priv = netdev_priv(dev);
++
++	spin_lock_bh(&priv->mib_lock);
++	chan = priv->chan;
++	page = priv->page;
++	spin_unlock_bh(&priv->mib_lock);
++
++	if (chan == MAC802154_CHAN_NONE ||
++	    page >= WPAN_NUM_PAGES ||
++	    chan >= WPAN_NUM_CHANNELS)
++		return NETDEV_TX_OK;
++
++	skb->skb_iif = dev->ifindex;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++
++	return mac802154_tx(priv->hw, skb, page, chan);
++}
++
++static struct header_ops mac802154_header_ops = {
++	.create		= mac802154_header_create,
++	.parse		= mac802154_header_parse,
 +};
 +
-+static int __init at86rf230_init(void)
-+{
-+	return spi_register_driver(&at86rf230_driver);
-+}
-+module_init(at86rf230_init);
-+
-+static void __exit at86rf230_exit(void)
-+{
-+	spi_unregister_driver(&at86rf230_driver);
-+}
-+module_exit(at86rf230_exit);
-+
-+MODULE_DESCRIPTION("AT86RF230 Transceiver Driver");
-+MODULE_LICENSE("GPL v2");
-+
-diff --git a/include/linux/spi/at86rf230.h b/include/linux/spi/at86rf230.h
-new file mode 100644
-index 0000000..958f88d
---- /dev/null
-+++ b/include/linux/spi/at86rf230.h
-@@ -0,0 +1,32 @@
-+/*
-+ * AT86RF230/RF231 driver
-+ *
-+ * Copyright (C) 2009-2012 Siemens AG
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along
-+ * with this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-+ *
-+ * Written by:
-+ * Dmitry Eremin-Solenikov <dmitry.baryshkov@siemens.com>
-+ */
-+#ifndef AT86RF230_H
-+#define AT86RF230_H
-+
-+struct at86rf230_platform_data {
-+	int rstn;
-+	int slp_tr;
-+	int dig2;
++static const struct net_device_ops mac802154_wpan_ops = {
++	.ndo_open		= mac802154_slave_open,
++	.ndo_stop		= mac802154_slave_close,
++	.ndo_start_xmit		= mac802154_wpan_xmit,
++	.ndo_do_ioctl		= mac802154_wpan_ioctl,
++	.ndo_set_mac_address	= mac802154_wpan_mac_addr,
 +};
 +
-+#endif
++void mac802154_wpan_setup(struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv;
 +
++	dev->addr_len		= IEEE802154_ADDR_LEN;
++	memset(dev->broadcast, 0xff, IEEE802154_ADDR_LEN);
++
++	dev->hard_header_len	= MAC802154_FRAME_HARD_HEADER_LEN;
++	dev->header_ops		= &mac802154_header_ops;
++	dev->needed_tailroom	= 2; /* FCS */
++	dev->mtu		= IEEE802154_MTU;
++	dev->tx_queue_len	= 10;
++	dev->type		= ARPHRD_IEEE802154;
++	dev->flags		= IFF_NOARP | IFF_BROADCAST;
++	dev->watchdog_timeo	= 0;
++
++	dev->destructor		= free_netdev;
++	dev->netdev_ops		= &mac802154_wpan_ops;
++	dev->ml_priv		= &mac802154_mlme_wpan;
++
++	priv = netdev_priv(dev);
++	priv->type = IEEE802154_DEV_WPAN;
++
++	priv->chan = MAC802154_CHAN_NONE;
++	priv->page = 0;
++
++	spin_lock_init(&priv->mib_lock);
++
++	get_random_bytes(&priv->bsn, 1);
++	get_random_bytes(&priv->dsn, 1);
++
++	priv->pan_id = IEEE802154_PANID_BROADCAST;
++	priv->short_addr = IEEE802154_ADDR_BROADCAST;
++}
++
++static int mac802154_process_data(struct net_device *dev, struct sk_buff *skb)
++{
++	return netif_rx(skb);
++}
++
++static int
++mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb)
++{
++	pr_debug("getting packet via slave interface %s\n", sdata->dev->name);
++
++	spin_lock_bh(&sdata->mib_lock);
++
++	switch (mac_cb(skb)->da.addr_type) {
++	case IEEE802154_ADDR_NONE:
++		if (mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_NONE)
++			/* FIXME: check if we are PAN coordinator */
++			skb->pkt_type = PACKET_OTHERHOST;
++		else
++			/* ACK comes with both addresses empty */
++			skb->pkt_type = PACKET_HOST;
++		break;
++	case IEEE802154_ADDR_LONG:
++		if (mac_cb(skb)->da.pan_id != sdata->pan_id &&
++		    mac_cb(skb)->da.pan_id != IEEE802154_PANID_BROADCAST)
++			skb->pkt_type = PACKET_OTHERHOST;
++		else if (!memcmp(mac_cb(skb)->da.hwaddr, sdata->dev->dev_addr,
++				 IEEE802154_ADDR_LEN))
++			skb->pkt_type = PACKET_HOST;
++		else
++			skb->pkt_type = PACKET_OTHERHOST;
++		break;
++	case IEEE802154_ADDR_SHORT:
++		if (mac_cb(skb)->da.pan_id != sdata->pan_id &&
++		    mac_cb(skb)->da.pan_id != IEEE802154_PANID_BROADCAST)
++			skb->pkt_type = PACKET_OTHERHOST;
++		else if (mac_cb(skb)->da.short_addr == sdata->short_addr)
++			skb->pkt_type = PACKET_HOST;
++		else if (mac_cb(skb)->da.short_addr ==
++					IEEE802154_ADDR_BROADCAST)
++			skb->pkt_type = PACKET_BROADCAST;
++		else
++			skb->pkt_type = PACKET_OTHERHOST;
++		break;
++	default:
++		break;
++	}
++
++	spin_unlock_bh(&sdata->mib_lock);
++
++	skb->dev = sdata->dev;
++
++	sdata->dev->stats.rx_packets++;
++	sdata->dev->stats.rx_bytes += skb->len;
++
++	switch (mac_cb_type(skb)) {
++	case IEEE802154_FC_TYPE_DATA:
++		return mac802154_process_data(sdata->dev, skb);
++	default:
++		pr_warning("ieee802154: bad frame received (type = %d)\n",
++			   mac_cb_type(skb));
++		kfree_skb(skb);
++		return NET_RX_DROP;
++	}
++}
++
++static int mac802154_parse_frame_start(struct sk_buff *skb)
++{
++	u8 *head = skb->data;
++	u16 fc;
++
++	if (mac802154_fetch_skb_u16(skb, &fc) ||
++	    mac802154_fetch_skb_u8(skb, &(mac_cb(skb)->seq)))
++		goto err;
++
++	pr_debug("fc: %04x dsn: %02x\n", fc, head[2]);
++
++	mac_cb(skb)->flags = IEEE802154_FC_TYPE(fc);
++	mac_cb(skb)->sa.addr_type = IEEE802154_FC_SAMODE(fc);
++	mac_cb(skb)->da.addr_type = IEEE802154_FC_DAMODE(fc);
++
++	if (fc & IEEE802154_FC_INTRA_PAN)
++		mac_cb(skb)->flags |= MAC_CB_FLAG_INTRAPAN;
++
++	if (mac_cb(skb)->da.addr_type != IEEE802154_ADDR_NONE) {
++		if (mac802154_fetch_skb_u16(skb, &(mac_cb(skb)->da.pan_id)))
++			goto err;
++
++		/* source PAN id compression */
++		if (mac_cb_is_intrapan(skb))
++			mac_cb(skb)->sa.pan_id = mac_cb(skb)->da.pan_id;
++
++		pr_debug("dest PAN addr: %04x\n", mac_cb(skb)->da.pan_id);
++
++		if (mac_cb(skb)->da.addr_type == IEEE802154_ADDR_SHORT) {
++			u16 *da = &(mac_cb(skb)->da.short_addr);
++
++			if (mac802154_fetch_skb_u16(skb, da))
++				goto err;
++
++			pr_debug("destination address is short: %04x\n",
++				 mac_cb(skb)->da.short_addr);
++		} else {
++			if (!pskb_may_pull(skb, IEEE802154_ADDR_LEN))
++				goto err;
++
++			mac802154_haddr_copy_swap(mac_cb(skb)->da.hwaddr,
++						  skb->data);
++			skb_pull(skb, IEEE802154_ADDR_LEN);
++
++			pr_debug("destination address is hardware\n");
++		}
++	}
++
++	if (mac_cb(skb)->sa.addr_type != IEEE802154_ADDR_NONE) {
++		/* non PAN-compression, fetch source address id */
++		if (!(mac_cb_is_intrapan(skb))) {
++			u16 *sa_pan = &(mac_cb(skb)->sa.pan_id);
++
++			if (mac802154_fetch_skb_u16(skb, sa_pan))
++				goto err;
++		}
++
++		pr_debug("source PAN addr: %04x\n", mac_cb(skb)->da.pan_id);
++
++		if (mac_cb(skb)->sa.addr_type == IEEE802154_ADDR_SHORT) {
++			u16 *sa = &(mac_cb(skb)->sa.short_addr);
++
++			if (mac802154_fetch_skb_u16(skb, sa))
++				goto err;
++
++			pr_debug("source address is short: %04x\n",
++				 mac_cb(skb)->sa.short_addr);
++		} else {
++			if (!pskb_may_pull(skb, IEEE802154_ADDR_LEN))
++				goto err;
++
++			mac802154_haddr_copy_swap(mac_cb(skb)->sa.hwaddr,
++						  skb->data);
++			skb_pull(skb, IEEE802154_ADDR_LEN);
++
++			pr_debug("source address is hardware\n");
++		}
++	}
++
++	return 0;
++err:
++	return -EINVAL;
++}
++
++void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
++{
++	int ret;
++	struct sk_buff *sskb;
++	struct mac802154_sub_if_data *sdata;
++
++	ret = mac802154_parse_frame_start(skb);
++	if (ret) {
++		pr_debug("got invalid frame\n");
++		return;
++	}
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(sdata, &priv->slaves, list)
++	{
++		if (sdata->type != IEEE802154_DEV_WPAN)
++			continue;
++
++		sskb = skb_clone(skb, GFP_ATOMIC);
++		if (sskb)
++			mac802154_subif_frame(sdata, sskb);
++	}
++	rcu_read_unlock();
++}
 -- 
 1.7.2.3
