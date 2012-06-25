@@ -1,40 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 5/6] tuntap: per queue 64 bit stats
-Date: Mon, 25 Jun 2012 14:52:45 +0200
-Message-ID: <1340628765.10893.46.camel@edumazet-glaptop>
-References: <20120625060830.6765.27584.stgit@amd-6168-8-1.englab.nay.redhat.com>
-	 <1340625563-9300-6-git-send-email-jasowang@redhat.com>
+From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Subject: RE: [PATCH 4/4] net/mlx4_en: Use atomic counter to decide when
+ queue is full
+Date: Mon, 25 Jun 2012 13:06:06 +0000
+Message-ID: <953B660C027164448AE903364AC447D2868104FE@MTLDAG02.mtl.com>
+References: <1340270358-19504-1-git-send-email-yevgenyp@mellanox.co.il>
+	<1340270358-19504-5-git-send-email-yevgenyp@mellanox.co.il>
+ <20120622.172353.1092394608024377078.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, akong@redhat.com, habanero@linux.vnet.ibm.com,
-	tahm@linux.vnet.ibm.com, haixiao@juniper.net,
-	jwhan@filewood.snu.ac.kr, ernesto.martin@viasat.com,
-	mashirle@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, krkumar2@in.ibm.com,
-	shemminger@vyatta.com, edumazet@google.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340625563-9300-6-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:57277 "HELO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756429Ab2FYNIk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Jun 2012 09:08:40 -0400
+In-Reply-To: <20120622.172353.1092394608024377078.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-06-25 at 19:59 +0800, Jason Wang wrote:
-> As we've added multiqueue support for tun/tap, this patch convert the statistics
-> to use per-queue 64 bit statistics.
+> > The Transmit and transmit completion flows execute from different
+> > contexts, which are not synchronized. Hence naive reading the of
+> > consumer index might give wrong value by the time it is being used, That could lead to a state of transmit timeout.
+> > Fix that by using atomic variable to maintain that index.
+> >
+> > Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+> 
+> I'm not convinced.  There is only one place that actually changes the counter.
+> 
+> So it seems more like you have a missing memory barrier somewhere.
+> 
+> Other drivers do not need to use something as expansive as an atomic
+> variable for this and neither should you.
+> 
+> I'm not applying this patch series, you'll need to resubmit it in it's
+> entirety once you fix this patch.
 
-LLTX means you can have several cpus calling TX path in parallel.
+Thanks,
+I'll resubmit the other 3 and continue to work on this one.
 
-So tx stats are wrong (even before this patch), and racy after this
-patch (if several cpu access same queue, it seems to be possible)
-
-       u64_stats_update_begin(&tfile->stats.tx_syncp);
-       tfile->stats.tx_packets++;
-       tfile->stats.tx_bytes += total;
-       u64_stats_update_end(&tfile->stats.tx_syncp);
- 
-This can break horribly if several cpus run this code using same 'tfile'
-pointer.
-
-I suggest this patch comes before 'tuntap: multiqueue support' in the
-serie.
+Thanks,
+Yevgeny
