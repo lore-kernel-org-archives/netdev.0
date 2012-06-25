@@ -1,56 +1,28 @@
-From: Eldad Zack <eldad@fogrefinery.com>
-Subject: Re: [PATCH RFC 0/8] LLDP implementation for Linux
-Date: Mon, 25 Jun 2012 22:21:50 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1206252206010.8021@debianer>
-References: <1340648900-6547-1-git-send-email-eldad@fogrefinery.com> <4FE8B535.70900@intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 3.4-rc: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Mon, 25 Jun 2012 22:25:30 +0200
+Message-ID: <20120625202530.GC20195@electric-eye.fr.zoreil.com>
+References: <20120602111335.0b94fb59@stein> <loom.20120611T175322-643@post.gmane.org> <20120611204925.GA7070@electric-eye.fr.zoreil.com> <CAMGsXDRjqsgL=KCR=dQGTNhBS7G-AK-VtDEVT+8bUUqFUR5HsA@mail.gmail.com> <20120611215203.GA8860@electric-eye.fr.zoreil.com> <CAMGsXDT5xu_+gHber-XS=wv9RW7kyUzHNUJN87CuJuNevDuxSw@mail.gmail.com> <20120612052631.GA14567@electric-eye.fr.zoreil.com> <CAMGsXDSsSMWfrV1vjnqkWH45ypZw+ZtYF7=ytc79MWRJ5RF5jQ@mail.gmail.com> <CAMGsXDRAE5RZduZnTRa-JmA9_N0Kv+juzYNB_0hf-x+Q8nkpSg@mail.gmail.com> <CAMGsXDSSCnOF+CykudBoEjTacSYL4LYG_ZnRTcS+Xzt54LW=Og@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
+To: Tomas Papan <tomas.papan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:44623 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755712Ab2FYUV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 16:21:56 -0400
-Received: by eeit10 with SMTP id t10so1392168eei.19
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 13:21:55 -0700 (PDT)
-In-Reply-To: <4FE8B535.70900@intel.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57060 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756108Ab2FYUgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 16:36:08 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMGsXDSSCnOF+CykudBoEjTacSYL4LYG_ZnRTcS+Xzt54LW=Og@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tomas Papan <tomas.papan@gmail.com> :
+[...]
+> Is there anything what can I provide or try? I do not want to be stuck
+> on 3.2.x kernel.
 
-On Mon, 25 Jun 2012, John Fastabend wrote:
-> On 6/25/2012 11:28 AM, Eldad Zack wrote:
-> > Hi all,
-> > 
-> > This series of patches provides a partial LLDP (IEEE Std 802.1ab)
-> > implementation.
-> 
-> Why do you want to implement this in the kernel? We've been doing this
-> in user space for sometime without any issues and has some noted
-> advantages. Reduces kernel bloat, easier to add extend, etc.
+You can try to revert 036dafa28da1e2565a8529de2ae663c37b7a0060
 
-You have a point there. I don't have any real, I just wrote it for fun.
-
-> What are we missing? Can we address any deficiencies here rather than
-> embedded this into the kernel.
-
-I will take a look, though it seems too feature complete :)
-
-> No, netlink is much nicer for these types of things. User space
-> can register for events and stay in sync and also all the other
-> relevant events are using netlink UP/DOWN/DORMANT events for
-> example.
-
-I had a hunch that it might be the case. Thanks!
-
-> > 
-> > Thanks in advance if you're taking the time to review it or test it!
-> > 
-> 
-> I'll scan the patches shortly.
-
-Thanks for that (if you'd still like to) and all your comments, much 
-appreciated!
-
-Eldad
+-- 
+Ueimor
