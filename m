@@ -1,31 +1,42 @@
-From: Christian Franke <nobody@nowhere.ws>
-Subject: pneigh/NLF_PROXY: should NLM_F_EXCL be honored?
-Date: Mon, 25 Jun 2012 15:23:55 +0200
-Message-ID: <4FE8666B.9040805@nowhere.ws>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH fix] mac802154: add missed braces
+Date: Mon, 25 Jun 2012 17:30:13 +0400
+Message-ID: <1340631013-27556-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus.nowhere.ws ([78.111.67.33]:38632 "EHLO zeus.nowhere.ws"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756365Ab2FYNbX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jun 2012 09:31:23 -0400
-Received: from [172.22.92.125] (buster.dn42.nowhere.ws [172.22.92.125])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by zeus.nowhere.ws (Postfix) with ESMTPSA id C89E67EA45
-	for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 15:23:55 +0200 (CEST)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:49416 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756240Ab2FYNd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 09:33:27 -0400
+Received: by bkcji2 with SMTP id ji2so3128610bkc.19
+        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 06:33:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Add missed braces after 'if' operator.
 
-by sending RTM_NEWNEIGH with NLF_PROXY in the ndmsg, a new proxy entry
-can be added.
+Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+---
+ net/mac802154/tx.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-The code path taken ignores NLM_F_EXCL, returning success, even if the
-proxy entry does already exist. Is this intended behaviour?
-
-Best Regards,
-Christian Franke
+diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
+index 8781d8f9..434b687 100644
+--- a/net/mac802154/tx.c
++++ b/net/mac802154/tx.c
+@@ -83,9 +83,10 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ {
+ 	struct xmit_work *work;
+ 
+-	if (!(priv->phy->channels_supported[page] & (1 << chan)))
++	if (!(priv->phy->channels_supported[page] & (1 << chan))) {
+ 		WARN_ON(1);
+ 		return NETDEV_TX_OK;
++	}
+ 
+ 	if (!(priv->hw.flags & IEEE802154_HW_OMIT_CKSUM)) {
+ 		u16 crc = crc_ccitt(0, skb->data, skb->len);
+-- 
+1.7.2.3
