@@ -1,24 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] mac802154: basic wpan class-device support
-Date: Mon, 25 Jun 2012 16:39:25 -0700 (PDT)
-Message-ID: <20120625.163925.1581566744291098230.davem@davemloft.net>
-References: <1340631197-27691-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: Re: [net-next 00/11] caif patch-set for net-next
+Date: Mon, 25 Jun 2012 16:44:27 -0700 (PDT)
+Message-ID: <20120625.164427.675677292164090641.davem@davemloft.net>
+References: <1340646583-21059-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com
-To: alex.bluesman.smirnov@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sjurbren@gmail.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56707 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56719 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755767Ab2FYXj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 19:39:26 -0400
-In-Reply-To: <1340631197-27691-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	with ESMTP id S1757873Ab2FYXo2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 19:44:28 -0400
+In-Reply-To: <1340646583-21059-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: sjur.brandeland@stericsson.com
+Date: Mon, 25 Jun 2012 19:49:32 +0200
 
-Please fix the coding style problems in patch #1 and resubmit this
-series.
+> From: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+>=20
+> The first 8 patches are fixes,
+> there are a couple of fixes for issues found by static code analysis =
+(coverity),
+> and some other misc cleanups/fixes.
+>=20
+> The three last patches introduces rtnl for managing
+> the HSI interface and removes the use of module parameters.
 
-Thanks.
+All applied, thanks.
