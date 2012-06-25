@@ -1,48 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: l2tp_eth: fix l2tp_eth_dev_xmit race
-Date: Mon, 25 Jun 2012 12:45:14 +0200
-Message-ID: <1340621114.10893.29.camel@edumazet-glaptop>
+From: <Menny_Hamburger@Dell.com>
+Subject: RE: [PATCH] net-next: ipv6: ndisc: allocate a ndisc socket per
+ inet6_dev
+Date: Mon, 25 Jun 2012 12:08:30 +0100
+Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34E34DA7@DUBX7MCDUB01.EMEA.DELL.COM>
+References: <D8C50530D6022F40A817A35C40CC06A70B34E34D44@DUBX7MCDUB01.EMEA.DELL.COM>
+ <1340620878.10893.26.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	James Chapman <jchapman@katalix.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:57156 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755600Ab2FYKpV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 06:45:21 -0400
-Received: by bkcji2 with SMTP id ji2so2970370bkc.19
-        for <netdev@vger.kernel.org>; Mon, 25 Jun 2012 03:45:20 -0700 (PDT)
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:54219 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755899Ab2FYLJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jun 2012 07:09:54 -0400
+In-Reply-To: <1340620878.10893.26.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-Its illegal to dereference skb after giving it to l2tp_xmit_skb()
-as it might be already freed/reused.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: James Chapman <jchapman@katalix.com>
----
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 185f12f..c3738f4 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -88,12 +88,12 @@ static int l2tp_eth_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct l2tp_eth *priv = netdev_priv(dev);
- 	struct l2tp_session *session = priv->session;
- 
--	l2tp_xmit_skb(session, skb, session->hdr_len);
--
- 	dev->stats.tx_bytes += skb->len;
- 	dev->stats.tx_packets++;
- 
--	return 0;
-+	l2tp_xmit_skb(session, skb, session->hdr_len);
-+
-+	return NETDEV_TX_OK;
- }
- 
- static struct net_device_ops l2tp_eth_netdev_ops = {
+SSdtIHNvcnJ5IGZvciBub3QgcmVzcG9uZGluZyBvbiB5b3VyIHBvc3QuDQpJIHJlYWxseSB3YW50
+IHRvIHVuZGVyc3RhbmQgaG93IHRoaXMgZml4ZXMgb3VyIHByb2JsZW0uDQpUaGlzIGZpeCB3aWxs
+IG1ha2UgdGhlIHNrYiBhbGxvY2F0aW9ucyBzdWNjZWVkLCBidXQgd2hhdCBtZWNoYW5pc20gcmVs
+ZWFzZXMgdGhlIHN0dWNrIHNvY2tldCBhc3NvY2lhdGVkIHdpdGggdGhlIGJhZCBkZXZpY2U/DQoN
+ClRoYW5rcywNCk1lbm55DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmlj
+IER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IDI1IEp1bmUs
+IDIwMTIgMTM6NDENClRvOiBIYW1idXJnZXIsIE1lbm55DQpDYzogbmV0ZGV2QHZnZXIua2VybmVs
+Lm9yZw0KU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0LW5leHQ6IGlwdjY6IG5kaXNjOiBhbGxvY2F0
+ZSBhIG5kaXNjIHNvY2tldCBwZXIgaW5ldDZfZGV2DQoNCk9uIE1vbiwgMjAxMi0wNi0yNSBhdCAx
+MToyNiArMDEwMCwgTWVubnlfSGFtYnVyZ2VyQERlbGwuY29tIHdyb3RlOg0KPiBGcm9tOiBtZW5u
+eWggPE1lbm55X0hhbWJ1cmdlckBEZWxsLmNvbT4NCj4gDQo+ICBXaGVuIGFuIElQVjYgbmV0d29y
+ayBkaXNjb3ZlcnkgcGFja2V0IGRvZXMgbm90IGdldCBzZW50IGJ5IHRoZSBOSUMsIA0KPiAgZWl0
+aGVyIGJlY2F1c2UgdGhlcmUgaXMgc29tZSBTL1cgaXNzdWUgb3IgYSBIL1cgcHJvYmxlbSB3aXRo
+IHRoZSBOSUMsIE5EUCB3aWxsIHN0b3ANCj4gIHdvcmtpbmcgYW5kIHdpbGwgbm90IGJlIGFibGUg
+dG8gc2VuZCBuZGlzYyBwYWNrZXRzIHZpYSBvdGhlciBOSUNzIG9uIHRoZSBtYWNoaW5lLg0KPiAg
+VGhlIHJlYXNvbiBmb3IgdGhpcyB0aGF0IHRoZXJlIGlzIG9ubHkgb25lIGdsb2JhbCBzb2NrZXQg
+YXNzaWduZWQgcGVyIG5ldHdvcmsgZm9yIG5ldHdvcmsgZGlzY292ZXJ5DQo+ICAobmV0LT5pcHY2
+Lm5kaXNjX3NrKSwgYW5kICB3aGVuIHRoaXMgc29ja2V0IGlzIGJ1c3ksIE5EUCBjYW5ub3QgYmUg
+c2VydmljZWQgYnkgDQo+ICBvdGhlciBOSUNTLiANCj4gIA0KPiAgVGhpcyBwYXRjaCBhZGRzIGEg
+a2VybmVsIGNvbmZpZ3VyYXRpb24gb3B0aW9uIElQVjZfTkRJU0NfU09DS0VUX1BFUl9JTlRFUkZB
+Q0UsIA0KPiAgd2hpY2ggd2hlbiBlbmFibGVkIHRoZSBrZXJuZWwgd2lsbCBhbGxvY2F0ZSBhIG5l
+dHdvcmsgZGlzY292ZXJ5IHNvY2tldCBwZXIgaW5ldDZfZGV2IG9uIGNyZWF0aW9uLA0KPiAgaW5z
+dGVhZCBvZiBhIHNpbmdsZSBzb2NrZXQgcGVyIG5ldHdvcmsuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5
+OiBtZW5ueWggPE1lbm55X0hhbWJ1cmdlckBEZWxsLmNvbT4NCj4gLS0tDQoNCllvdSBvYnZpb3Vz
+bHkgZGlkbid0IHNlZSBteSBwYXRjaCB0byBhZGRyZXNzIHRoaXMgcHJvYmxlbSA/DQoNCkkgd2Fz
+IHdhaXRpbmcgeW91ciBmZWVkYmFjayBhbmQgeW91IHBvc3QgdGhpcyB3cm9uZyBwYXRjaCBpbnN0
+ZWFkID8NCg0KVGhpcyBzdWNrcy4NCg0KVGVzdCB0aGlzIGluc3RlYWQuIFBsZWFzZSA/DQo=
