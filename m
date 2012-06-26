@@ -1,130 +1,62 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 04/13] netfilter: regard users as refcount for
- l4proto's per-net data
-Date: Tue, 26 Jun 2012 16:47:08 +0200
-Message-ID: <20120626144708.GB11165@1984>
-References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1340289410-17642-4-git-send-email-gaofeng@cn.fujitsu.com>
- <20120625112029.GB4607@1984>
- <4FE93375.1080803@cn.fujitsu.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] bridge: Assign rtnl_link_ops to bridge devices created
+ via ioctl()
+Date: Tue, 26 Jun 2012 07:59:40 -0700
+Message-ID: <20120626075940.099521a7@nehalam.linuxnetplumber.net>
+References: <692d04316b78401b0256598155caae190d3f27c9.1340700973.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4FE93375.1080803@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:53573 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757276Ab2FZO7t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 10:59:49 -0400
+In-Reply-To: <692d04316b78401b0256598155caae190d3f27c9.1340700973.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 26, 2012 at 11:58:45AM +0800, Gao feng wrote:
-> Hi Pablo:
-> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8825=E6=97=A5 19:20, Pablo Neira Ayus=
-o =E5=86=99=E9=81=93:
-> > On Thu, Jun 21, 2012 at 10:36:41PM +0800, Gao feng wrote:
-> >> Now, nf_proto_net's users is confusing.
-> >> we should regard it as the refcount for l4proto's per-net data,
-> >> because maybe there are two l4protos use the same per-net data.
-> >>
-> >> so increment pn->users when nf_conntrack_l4proto_register
-> >> success, and decrement it for nf_conntrack_l4_unregister case.
-> >>
-> >> because nf_conntrack_l3proto_ipv[4|6] don't use the same per-net
-> >> data,so we don't need to add a refcnt for their per-net data.
-> >>
-> >> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> >> ---
-> >>  net/netfilter/nf_conntrack_proto.c |   76 ++++++++++++++++++++++-=
--------------
-> >>  1 files changed, 46 insertions(+), 30 deletions(-)
-> >>
-> >> diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf=
-_conntrack_proto.c
-> >> index 9d6b6ab..63612e6 100644
-> >> --- a/net/netfilter/nf_conntrack_proto.c
-> >> +++ b/net/netfilter/nf_conntrack_proto.c
-> > [...]
-> >> @@ -458,23 +446,32 @@ int nf_conntrack_l4proto_register(struct net=
- *net,
-> >>  				  struct nf_conntrack_l4proto *l4proto)
-> >>  {
-> >>  	int ret =3D 0;
-> >> +	struct nf_proto_net *pn =3D NULL;
-> >> =20
-> >>  	if (l4proto->init_net) {
-> >>  		ret =3D l4proto->init_net(net, l4proto->l3proto);
-> >>  		if (ret < 0)
-> >> -			return ret;
-> >> +			goto out;
-> >>  	}
-> >> =20
-> >> -	ret =3D nf_ct_l4proto_register_sysctl(net, l4proto);
-> >> +	pn =3D nf_ct_l4proto_net(net, l4proto);
-> >> +	if (pn =3D=3D NULL)
-> >> +		goto out;
-> >=20
-> > Same thing here, we're leaking memory allocated by l4proto->init_ne=
-t.
->=20
-> if pn is NULL,init_net can't allocate memory for pn->ctl_table.
-> So I think it's not memory leak here.
+On Tue, 26 Jun 2012 10:56:15 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-Sorry, I meant to say the line below. But we've already clarified
-this in patch 1/1.
+> +void br_assign_rtnl_link_ops(struct net_device *dev)
+> +{
+> +	dev->rtnl_link_ops = &br_link_ops;
+> +}
 
-> >> +	ret =3D nf_ct_l4proto_register_sysctl(net, pn, l4proto);
-> >>  	if (ret < 0)
-> >> -		return ret;
-> >> +		goto out;
-> >> =20
-> >>  	if (net =3D=3D &init_net) {
-> >>  		ret =3D nf_conntrack_l4proto_register_net(l4proto);
-> >> -		if (ret < 0)
-> >> -			nf_ct_l4proto_unregister_sysctl(net, l4proto);
-> >> +		if (ret < 0) {
-> >> +			nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-> >> +			goto out;
-> >=20
-> > Better replace the two lines above by:
-> >=20
-> > goto out_register_net;
-> >=20
-> > and then...
-> >=20
-> >> +		}
-> >>  	}
-> >> =20
-> >> +	pn->users++;
-> >=20
-> > out_register_net:
-> >         nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-> >=20
-> >> +out:
-> >>  	return ret;
-> >=20
-> > I think that this change is similar to patch 1/1, I think you shoul=
-d
-> > send it as a separated patch.
-> >=20
->=20
-> Yes, It looks better.
-> should I change this and rebase whole patchset or
-> maybe you just apply this patchset and then I send a cleanup patch to=
- do this?
+I am fine with the concept, but maybe it would just be simpler to
+make br_link_ops public?
 
-This patch includes changes that are not included in the description,
-so you have two choices:
-
-1) You resend me this patch with appropriate description (including
-the fact that you're fixing the same thing that patch 1/1 does). This
-option still I don't like too much, since making two different things
-in one single patch is nasty, but well if you push me...
-
-2) you split the patch in two, with the appropriate descriptions each
-and you'll make me happy.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/net/bridge/br_netlink.c	2012-06-22 08:27:50.837126940 -0700
++++ b/net/bridge/br_netlink.c	2012-06-26 07:56:33.510237340 -0700
+@@ -208,7 +208,7 @@ static int br_validate(struct nlattr *tb
+ 	return 0;
+ }
+ 
+-static struct rtnl_link_ops br_link_ops __read_mostly = {
++struct rtnl_link_ops br_link_ops __read_mostly = {
+ 	.kind		= "bridge",
+ 	.priv_size	= sizeof(struct net_bridge),
+ 	.setup		= br_dev_setup,
+--- a/net/bridge/br_private.h	2012-06-22 08:27:50.837126940 -0700
++++ b/net/bridge/br_private.h	2012-06-26 07:57:25.873711454 -0700
+@@ -549,6 +549,7 @@ extern int (*br_fdb_test_addr_hook)(stru
+ #endif
+ 
+ /* br_netlink.c */
++extern struct rtnl_link_ops br_link_ops;
+ extern int br_netlink_init(void);
+ extern void br_netlink_fini(void);
+ extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
+--- a/net/bridge/br_if.c	2012-06-26 07:59:01.996746090 -0700
++++ b/net/bridge/br_if.c	2012-06-26 07:58:55.904807272 -0700
+@@ -240,6 +240,7 @@ int br_add_bridge(struct net *net, const
+ 		return -ENOMEM;
+ 
+ 	dev_net_set(dev, net);
++	br->rtnl_link_ops = &br_link_ops;
+ 
+ 	res = register_netdev(dev);
+ 	if (res)
