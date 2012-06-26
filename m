@@ -1,78 +1,116 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 2/3] team: do not allow to map disabled ports
-Date: Tue, 26 Jun 2012 18:52:46 +0200
-Message-ID: <1340729567-3164-3-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next 1/3] team: fix team_adjust_ops with regard to enabled ports
+Date: Tue, 26 Jun 2012 18:52:45 +0200
+Message-ID: <1340729567-3164-2-git-send-email-jpirko@redhat.com>
 References: <1340729567-3164-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com, brouer@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14798 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16080 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758685Ab2FZRHa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 13:07:30 -0400
+	id S1758499Ab2FZRHb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 13:07:31 -0400
 In-Reply-To: <1340729567-3164-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+team_adjust_ops should check for enabled ports, not all ports.
+This may lead to division by zero. This patch fixes this.
+
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/team/team.c                  |    5 ++---
- drivers/net/team/team_mode_loadbalance.c |    3 ++-
- include/linux/if_team.h                  |    2 ++
- 3 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/team/team.c |   30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 6b4cf6e..5350eea 100644
+index 3a4a74b..6b4cf6e 100644
 --- a/drivers/net/team/team.c
 +++ b/drivers/net/team/team.c
-@@ -614,8 +614,6 @@ static int team_change_mode(struct team *team, const char *kind)
-  * Rx path frame handler
-  ************************/
- 
--static bool team_port_enabled(struct team_port *port);
--
- /* note: already called with rcu_read_lock */
- static rx_handler_result_t team_handle_frame(struct sk_buff **pskb)
- {
-@@ -673,10 +671,11 @@ static bool team_port_find(const struct team *team,
- 	return false;
+@@ -508,26 +508,31 @@ static void team_set_no_mode(struct team *team)
+ 	team->mode = &__team_no_mode;
  }
  
--static bool team_port_enabled(struct team_port *port)
-+bool team_port_enabled(struct team_port *port)
+-static void team_adjust_ops(struct team *team)
++static void __team_adjust_ops(struct team *team, int en_port_count)
  {
- 	return port->index != -1;
+ 	/*
+ 	 * To avoid checks in rx/tx skb paths, ensure here that non-null and
+ 	 * correct ops are always set.
+ 	 */
+ 
+-	if (list_empty(&team->port_list) ||
+-	    !team_is_mode_set(team) || !team->mode->ops->transmit)
++	if (!en_port_count || !team_is_mode_set(team) ||
++	    !team->mode->ops->transmit)
+ 		team->ops.transmit = team_dummy_transmit;
+ 	else
+ 		team->ops.transmit = team->mode->ops->transmit;
+ 
+-	if (list_empty(&team->port_list) ||
+-	    !team_is_mode_set(team) || !team->mode->ops->receive)
++	if (!en_port_count || !team_is_mode_set(team) ||
++	    !team->mode->ops->receive)
+ 		team->ops.receive = team_dummy_receive;
+ 	else
+ 		team->ops.receive = team->mode->ops->receive;
  }
-+EXPORT_SYMBOL(team_port_enabled);
  
- /*
-  * Enable/disable port by adding to enabled port hashlist and setting
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index c92fa02..51a4b19 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -359,7 +359,8 @@ static int lb_tx_hash_to_port_mapping_set(struct team *team,
- 	unsigned char hash = ctx->info->array_index;
- 
- 	list_for_each_entry(port, &team->port_list, list) {
--		if (ctx->data.u32_val == port->dev->ifindex) {
-+		if (ctx->data.u32_val == port->dev->ifindex &&
-+		    team_port_enabled(port)) {
- 			rcu_assign_pointer(LB_HTPM_PORT_BY_HASH(lb_priv, hash),
- 					   port);
- 			return 0;
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index c193886..e636a54 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -64,6 +64,8 @@ struct team_port {
- 	long mode_priv[0];
- };
- 
-+extern bool team_port_enabled(struct team_port *port);
++static void team_adjust_ops(struct team *team)
++{
++	__team_adjust_ops(team, team->en_port_count);
++}
 +
- struct team_mode_ops {
- 	int (*init)(struct team *team);
- 	void (*exit)(struct team *team);
+ /*
+  * We can benefit from the fact that it's ensured no port is present
+  * at the time of mode change. Therefore no packets are in fly so there's no
+@@ -687,6 +692,7 @@ static void team_port_enable(struct team *team,
+ 	port->index = team->en_port_count++;
+ 	hlist_add_head_rcu(&port->hlist,
+ 			   team_port_index_hash(team, port->index));
++	team_adjust_ops(team);
+ 	if (team->ops.port_enabled)
+ 		team->ops.port_enabled(team, port);
+ }
+@@ -708,16 +714,20 @@ static void __reconstruct_port_hlist(struct team *team, int rm_index)
+ static void team_port_disable(struct team *team,
+ 			      struct team_port *port)
+ {
+-	int rm_index = port->index;
+-
+ 	if (!team_port_enabled(port))
+ 		return;
+ 	if (team->ops.port_disabled)
+ 		team->ops.port_disabled(team, port);
+ 	hlist_del_rcu(&port->hlist);
+-	__reconstruct_port_hlist(team, rm_index);
+-	team->en_port_count--;
++	__reconstruct_port_hlist(team, port->index);
+ 	port->index = -1;
++	__team_adjust_ops(team, team->en_port_count - 1);
++	/*
++	 * Wait until readers see adjusted ops. This ensures that
++	 * readers never see team->en_port_count == 0
++	 */
++	synchronize_rcu();
++	team->en_port_count--;
+ }
+ 
+ #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
+@@ -874,7 +884,6 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 	port->index = -1;
+ 	team_port_enable(team, port);
+ 	list_add_tail_rcu(&port->list, &team->port_list);
+-	team_adjust_ops(team);
+ 	__team_compute_features(team);
+ 	__team_port_change_check(port, !!netif_carrier_ok(port_dev));
+ 	__team_options_change_check(team);
+@@ -928,7 +937,6 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+ 	__team_port_change_check(port, false);
+ 	team_port_disable(team, port);
+ 	list_del_rcu(&port->list);
+-	team_adjust_ops(team);
+ 	netdev_rx_handler_unregister(port_dev);
+ 	netdev_set_master(port_dev, NULL);
+ 	vlan_vids_del_by_dev(port_dev, dev);
 -- 
 1.7.10.4
