@@ -1,75 +1,100 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH v2 net-next 5/7] mac802154: mlme start request
-Date: Tue, 26 Jun 2012 13:24:52 +0400
-Message-ID: <1340702694-24706-6-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH v2 net-next 4/7] mac802154: page and channel setter
+Date: Tue, 26 Jun 2012 13:24:51 +0400
+Message-ID: <1340702694-24706-5-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1340702694-24706-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:42562 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755324Ab2FZJ3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 05:29:13 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so5026840wgb.1
-        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 02:29:12 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:47395 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753040Ab2FZJ3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 05:29:07 -0400
+Received: by wibhq12 with SMTP id hq12so3484510wib.1
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 02:29:06 -0700 (PDT)
 In-Reply-To: <1340702694-24706-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Basic preparations to start the interface.
+A new method to set page and channel values for a transceiver
+was added to the MIB.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- net/mac802154/mac_cmd.c |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
+ net/mac802154/mac802154.h |    1 +
+ net/mac802154/mib.c       |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 0 deletions(-)
 
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
-index db83419..7f5403e 100644
---- a/net/mac802154/mac_cmd.c
-+++ b/net/mac802154/mac_cmd.c
-@@ -25,12 +25,36 @@
- #include <linux/skbuff.h>
- #include <linux/if_arp.h>
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index 9951072..6967864 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -112,5 +112,6 @@ void mac802154_dev_set_short_addr(struct net_device *dev, u16 val);
+ void mac802154_dev_set_ieee_addr(struct net_device *dev);
+ u16 mac802154_dev_get_pan_id(const struct net_device *dev);
+ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val);
++void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan);
  
-+#include <net/ieee802154.h>
- #include <net/ieee802154_netdev.h>
- #include <net/wpan-phy.h>
- #include <net/mac802154.h>
-+#include <net/nl802154.h>
+ #endif /* MAC802154_H */
+diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
+index d74503b..380829d 100644
+--- a/net/mac802154/mib.c
++++ b/net/mac802154/mib.c
+@@ -28,6 +28,11 @@
  
  #include "mac802154.h"
  
-+static int mac802154_mlme_start_req(struct net_device *dev,
-+				    struct ieee802154_addr *addr,
-+				    u8 channel, u8 page,
-+				    u8 bcn_ord, u8 sf_ord,
-+				    u8 pan_coord, u8 blx,
-+				    u8 coord_realign)
++struct phy_chan_notify_work {
++	struct work_struct work;
++	struct net_device *dev;
++};
++
+ struct hw_addr_filt_notify_work {
+ 	struct work_struct work;
+ 	struct net_device *dev;
+@@ -139,3 +144,42 @@ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val)
+ 		set_hw_addr_filt(dev, IEEE802515_AFILT_PANID_CHANGED);
+ 	}
+ }
++
++static void phy_chan_notify(struct work_struct *work)
 +{
-+	BUG_ON(addr->addr_type != IEEE802154_ADDR_SHORT);
++	struct phy_chan_notify_work *nw = container_of(work,
++					  struct phy_chan_notify_work, work);
++	struct mac802154_priv *hw = mac802154_slave_get_priv(nw->dev);
++	struct mac802154_sub_if_data *priv = netdev_priv(nw->dev);
++	int res;
 +
-+	mac802154_dev_set_pan_id(dev, addr->pan_id);
-+	mac802154_dev_set_short_addr(dev, addr->short_addr);
-+	mac802154_dev_set_ieee_addr(dev);
-+	mac802154_dev_set_page_channel(dev, page, channel);
++	res = hw->ops->set_channel(&hw->hw, priv->page, priv->chan);
++	if (res)
++		pr_debug("set_channel failed\n");
 +
-+	/* FIXME: add validation for unused parameters to be sane
-+	 * for SoftMAC
-+	 */
-+	ieee802154_nl_start_confirm(dev, IEEE802154_SUCCESS);
-+
-+	return 0;
++	kfree(nw);
 +}
 +
- struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
- {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-@@ -46,4 +70,5 @@ struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
- 
- struct ieee802154_mlme_ops mac802154_mlme_wpan = {
- 	.get_phy = mac802154_get_phy,
-+	.start_req = mac802154_mlme_start_req,
- };
++void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	struct phy_chan_notify_work *work;
++
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
++
++	spin_lock_bh(&priv->mib_lock);
++	priv->page = page;
++	priv->chan = chan;
++	spin_unlock_bh(&priv->mib_lock);
++
++	if (priv->hw->phy->current_channel != priv->chan ||
++	    priv->hw->phy->current_page != priv->page) {
++		work = kzalloc(sizeof(*work), GFP_ATOMIC);
++		if (!work)
++			return;
++
++		INIT_WORK(&work->work, phy_chan_notify);
++		work->dev = dev;
++		queue_work(priv->hw->dev_workqueue, &work->work);
++	}
++}
 -- 
 1.7.2.3
