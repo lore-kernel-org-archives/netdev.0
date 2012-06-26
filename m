@@ -1,33 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: Remove unnecessary code from rt_check_expire().
-Date: Tue, 26 Jun 2012 10:46:48 +0200
-Message-ID: <1340700408.10893.275.camel@edumazet-glaptop>
-References: <1340696398.10893.209.camel@edumazet-glaptop>
-	 <20120626.004658.2123525722448546355.davem@davemloft.net>
-	 <1340698984.10893.248.camel@edumazet-glaptop>
-	 <20120626.013730.902797211256084220.davem@davemloft.net>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH] xen/netfront: teardown the device before unregistering it.
+Date: Tue, 26 Jun 2012 09:48:41 +0100
+Message-ID: <1340700521-13012-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	Ian Campbell <ian.campbell@citrix.com>, stable@kernel.org,
+	675190@bugs.debian.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:53585 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275Ab2FZIqx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 04:46:53 -0400
-Received: by eaak11 with SMTP id k11so1497606eaa.19
-        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 01:46:52 -0700 (PDT)
-In-Reply-To: <20120626.013730.902797211256084220.davem@davemloft.net>
+Received: from smtp02.citrix.com ([66.165.176.63]:49950 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752658Ab2FZIsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 04:48:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-06-26 at 01:37 -0700, David Miller wrote:
+Fixes:
+[   15.470311] WARNING: at /local/scratch/ianc/devel/kernels/linux/fs/sysfs/file.c:498 sysfs_attr_ns+0x95/0xa0()
+[   15.470326] sysfs: kobject eth0 without dirent
+[   15.470333] Modules linked in:
+[   15.470342] Pid: 12, comm: xenwatch Not tainted 3.4.0-x86_32p-xenU #93
+and
+[    9.150554] BUG: unable to handle kernel paging request at 2b359000
+[    9.150577] IP: [<c1279561>] linkwatch_do_dev+0x81/0xc0
+[    9.150592] *pdpt = 000000002c3c9027 *pde = 0000000000000000
+[    9.150604] Oops: 0002 [#1] SMP
+[    9.150613] Modules linked in:
 
-> And think, we don't do any stupidity like this for the inetpeer cache
-> and no small cute animals have died as a result.
+This is http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=675190
 
-Thats because inetpeer is kept small.
+Reported-by: George Shuklin <george.shuklin@gmail.com>
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Tested-by: William Dauchy <wdauchy@gmail.com>
+Cc: stable@kernel.org
+Cc: 675190@bugs.debian.org
+---
+ drivers/net/xen-netfront.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-We do have a smart gc on inetpeer cache (inet_peer_gc()),
-and inetpeer threshold is 65536 
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 0ebbb19..796afbf 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1935,14 +1935,14 @@ static int __devexit xennet_remove(struct xenbus_device *dev)
+ 
+ 	dev_dbg(&dev->dev, "%s\n", dev->nodename);
+ 
+-	unregister_netdev(info->netdev);
+-
+ 	xennet_disconnect_backend(info);
+ 
+-	del_timer_sync(&info->rx_refill_timer);
+-
+ 	xennet_sysfs_delif(info->netdev);
+ 
++	unregister_netdev(info->netdev);
++
++	del_timer_sync(&info->rx_refill_timer);
++
+ 	free_percpu(info->stats);
+ 
+ 	free_netdev(info->netdev);
+-- 
+1.7.2.5
