@@ -1,116 +1,66 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next 1/3] team: fix team_adjust_ops with regard to enabled ports
-Date: Tue, 26 Jun 2012 18:52:45 +0200
-Message-ID: <1340729567-3164-2-git-send-email-jpirko@redhat.com>
-References: <1340729567-3164-1-git-send-email-jpirko@redhat.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, brouer@redhat.com
-To: netdev@vger.kernel.org
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: New commands to configure IOV features
+Date: Tue, 26 Jun 2012 10:19:03 -0700
+Message-ID: <20120626101903.0000791c@unknown>
+References: <4FA7AF62.8000405@broadcom.com>
+	<20120507081634.000003f8.gregory.v.rose@intel.com>
+	<4FE9A963.7020602@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16080 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:46841 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758499Ab2FZRHb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 13:07:31 -0400
-In-Reply-To: <1340729567-3164-1-git-send-email-jpirko@redhat.com>
+	id S1758499Ab2FZRTb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 13:19:31 -0400
+In-Reply-To: <4FE9A963.7020602@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-team_adjust_ops should check for enabled ports, not all ports.
-This may lead to division by zero. This patch fixes this.
+On Tue, 26 Jun 2012 15:21:55 +0300
+Yuval Mintz <yuvalmin@broadcom.com> wrote:
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/team/team.c |   30 +++++++++++++++++++-----------
- 1 file changed, 19 insertions(+), 11 deletions(-)
+> On 05/07/2012 06:16 PM, Greg Rose wrote:
+> 
+> > On Mon, 7 May 2012 14:17:54 +0300
+> > Yuval Mintz <yuvalmin@broadcom.com> wrote:
+> > 
+> >> I've tried to figure out if there was a standard interface
+> >> (ethtool/iproute) through which a user could configure the number
+> >> of vfs in his system.
+> >>
+> >> I've seen the RFC suggested in
+> >> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
+> >> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
+> >> later references to it (commits or further discussion on this
+> >> topic).
+> >>
+> >> How exactly are things standing with these RFCs? Were they
+> >> abandoned?
+> > 
+> > The only way to configure the number of VFs continues to be through
+> > the max_vfs module parameter.  I've got a patch to do it through
+> > ethtool sitting on the back burner but due to other requirements of
+> > my day job I've not been able to work on it since last fall.
+> > 
+> > - Greg
+> 
+> 
+> Hi Ben,
+> 
+> If I want to pick the RFCs and add support for configuring the number
+> of VFs - do you think ethtool's the right place for such added
+> support?
+> 
+> I'm asking since as far as I can see, ethtool (today) doesn't contain
+> any features related to virtual functions.
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 3a4a74b..6b4cf6e 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -508,26 +508,31 @@ static void team_set_no_mode(struct team *team)
- 	team->mode = &__team_no_mode;
- }
- 
--static void team_adjust_ops(struct team *team)
-+static void __team_adjust_ops(struct team *team, int en_port_count)
- {
- 	/*
- 	 * To avoid checks in rx/tx skb paths, ensure here that non-null and
- 	 * correct ops are always set.
- 	 */
- 
--	if (list_empty(&team->port_list) ||
--	    !team_is_mode_set(team) || !team->mode->ops->transmit)
-+	if (!en_port_count || !team_is_mode_set(team) ||
-+	    !team->mode->ops->transmit)
- 		team->ops.transmit = team_dummy_transmit;
- 	else
- 		team->ops.transmit = team->mode->ops->transmit;
- 
--	if (list_empty(&team->port_list) ||
--	    !team_is_mode_set(team) || !team->mode->ops->receive)
-+	if (!en_port_count || !team_is_mode_set(team) ||
-+	    !team->mode->ops->receive)
- 		team->ops.receive = team_dummy_receive;
- 	else
- 		team->ops.receive = team->mode->ops->receive;
- }
- 
-+static void team_adjust_ops(struct team *team)
-+{
-+	__team_adjust_ops(team, team->en_port_count);
-+}
-+
- /*
-  * We can benefit from the fact that it's ensured no port is present
-  * at the time of mode change. Therefore no packets are in fly so there's no
-@@ -687,6 +692,7 @@ static void team_port_enable(struct team *team,
- 	port->index = team->en_port_count++;
- 	hlist_add_head_rcu(&port->hlist,
- 			   team_port_index_hash(team, port->index));
-+	team_adjust_ops(team);
- 	if (team->ops.port_enabled)
- 		team->ops.port_enabled(team, port);
- }
-@@ -708,16 +714,20 @@ static void __reconstruct_port_hlist(struct team *team, int rm_index)
- static void team_port_disable(struct team *team,
- 			      struct team_port *port)
- {
--	int rm_index = port->index;
--
- 	if (!team_port_enabled(port))
- 		return;
- 	if (team->ops.port_disabled)
- 		team->ops.port_disabled(team, port);
- 	hlist_del_rcu(&port->hlist);
--	__reconstruct_port_hlist(team, rm_index);
--	team->en_port_count--;
-+	__reconstruct_port_hlist(team, port->index);
- 	port->index = -1;
-+	__team_adjust_ops(team, team->en_port_count - 1);
-+	/*
-+	 * Wait until readers see adjusted ops. This ensures that
-+	 * readers never see team->en_port_count == 0
-+	 */
-+	synchronize_rcu();
-+	team->en_port_count--;
- }
- 
- #define TEAM_VLAN_FEATURES (NETIF_F_ALL_CSUM | NETIF_F_SG | \
-@@ -874,7 +884,6 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 	port->index = -1;
- 	team_port_enable(team, port);
- 	list_add_tail_rcu(&port->list, &team->port_list);
--	team_adjust_ops(team);
- 	__team_compute_features(team);
- 	__team_port_change_check(port, !!netif_carrier_ok(port_dev));
- 	__team_options_change_check(team);
-@@ -928,7 +937,6 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
- 	__team_port_change_check(port, false);
- 	team_port_disable(team, port);
- 	list_del_rcu(&port->list);
--	team_adjust_ops(team);
- 	netdev_rx_handler_unregister(port_dev);
- 	netdev_set_master(port_dev, NULL);
- 	vlan_vids_del_by_dev(port_dev, dev);
--- 
-1.7.10.4
+I think a PCI utility tool would be better, SR-IOV is not limited to
+network devices.  That's one of the reasons I dropped the RFC.  I
+haven't gotten back to the idea since then due to my day job keeping me
+pretty busy.
+
+- Greg
