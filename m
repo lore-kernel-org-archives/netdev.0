@@ -1,55 +1,55 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: HSR: How to set IF_OPER_LOWERLAYERDOWN?
-Date: Tue, 26 Jun 2012 22:28:51 +0000
-Message-ID: <4FEA37A0.309@xdin.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: HSR: How to set IF_OPER_LOWERLAYERDOWN?
+Date: Tue, 26 Jun 2012 15:33:24 -0700
+Message-ID: <20120626153324.455c6081@nehalam.linuxnetplumber.net>
+References: <4FEA37A0.309@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Javier Boticario <jboticario@gmail.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Javier Boticario <jboticario@gmail.com>,
 	Bruno Ferreira <balferreira@googlemail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
+To: Arvid Brodin <Arvid.Brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:53223 "EHLO spam1.webland.se"
+Received: from mail.vyatta.com ([76.74.103.46]:52820 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751702Ab2FZW2x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 18:28:53 -0400
-Content-Language: en-US
-Content-ID: <E434CD351325594AAF15807EDF2A5064@redbull.xdin.com>
+	id S1751960Ab2FZWdd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 18:33:33 -0400
+In-Reply-To: <4FEA37A0.309@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksDQoNCkFjY29yZGluZyB0byBEb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvb3BlcnN0YXRlcy50
-eHQgYSBuZXR3b3JrIGludGVyZmFjZSBoYXZlIGFuDQpvcGVyYXRpb25hbCBzdGF0ZSBhbmQgYW4g
-YWRtaW5pc3RyYXRpdmUgc3RhdGUuDQoNCklmIEkgdW5kZXJzdGFuZCB0aGluZ3MgY29ycmVjdGx5
-IHRoZSBhZG1pbmlzdHJhdGl2ZSBzdGF0ZSBpcyB0aGUgZGVzaXJlZCBzdGF0ZSBzZXQgYnkNCnVz
-ZXJzcGFjZSwgYW5kIHRoZSBvcGVyYXRpb25hbCBzdGF0ZSBpcyB0aGUgYWN0dWFsIHN0YXRlIHdo
-aWNoIGRlcGVuZHMgb24gdGhpbmdzIGxpa2UgdGhlDQphZG1pbmlzdHJhdGl2ZSBzdGF0ZSwgd2hl
-dGhlciBhIGNhcnJpZXIgaXMgcHJlc2VudCwgb3IgKGZvciB2aXJ0dWFsIGludGVyZmFjZXMgbGl0
-ZSBWTEFOKQ0Kd2hldGhlciB0aGUgbG93ZXIgaW50ZXJmYWNlIGlzIGF2YWlsYWJsZS4NCg0KDQpJ
-biB0aGUgZHJpdmVyIEknbSB3cml0aW5nIChmb3IgdGhlICJIU1IiIHJlZHVuZGFuY3kgcHJvdG9j
-b2wpIGEgaHNyICh2aXJ0dWFsKSBpbnRlcmZhY2UgaXMNCnVzZWFibGUgYXMgbG9uZyBhcyBhbnkg
-b2YgaXRzIChwaHlzaWNhbCkgc2xhdmVzIGFyZSB1c2VhYmxlLiBJLmUuIHRoZSBvcGVyc3RhdGUg
-b2YgYSBoc3INCmRldmljZSBtaWdodCBiZSBzZXQgbGlrZSB0aGlzOg0KDQp2b2lkIGhzcl9zZXRf
-b3BlcnN0YXRlKCkNCnsNCglpZiAoIWlzX2FkbWluX3VwKGhzcl9kZXYpKSAvKiBDaGVjayBJRkZf
-VVAgKi8gew0KCQlzZXRfb3BlcnN0YXRlKGhzcl9kZXYsIElGX09QRVJfRE9XTik7DQoJCXJldHVy
-bjsNCgl9DQoNCglpZiAoaXNfb3BlcnN0YXRlX3VwKHNsYXZlMSkgfHwgaXNfb3BlcnN0YXRlX3Vw
-KHNsYXZlMikpIC8qIENoZWNrIElGX09QRVJfVVAgKi8NCgkJc2V0X29wZXJzdGF0ZShoc3JfZGV2
-LCBJRl9PUEVSX1VQKTsNCgllbHNlDQoJCXNldF9vcGVyc3RhdGUoaHNyX2RldiwgSUZfT1BFUl9M
-T1dFUkxBWUVSRE9XTik7DQp9DQoNCkhvd2V2ZXIsIHRoZSBmdW5jdGlvbiBzZXRfb3BlcnN0YXRl
-KCkgKGluIG5ldC9jb3JlL3J0bmV0bGluay5jKSBvbmx5IGFjY2VwdCB0cmFuc2l0aW9ucyB0bw0K
-SUZfT1BFUl9VUCBhbmQgSUZfT1BFUl9ET1JNQU5UIC0gb3RoZXIgdHJhbnNpdGlvbnMgYXJlIGln
-bm9yZWQuIChUaGVyZSBpcyBhIGZ1bmN0aW9uDQpyZmMyODYzX3BvbGljeSgpIChuZXQvY29yZS9s
-aW5rX3dhdGNoLmMpIHRoYXQgbWF5IHJldHVybiBJRl9PUEVSX0xPV0VSTEFZRVJET1dOIGlmZg0K
-KCFuZXRpZl9jYXJyaWVyX29rKGRldikgJiYgKGRldi0+aWZpbmRleCAhPSBkZXYtPmlmbGluaykp
-LCBidXQgSSBkb24ndCBrbm93IHdoYXQgdGhhdCBtZWFucy4pDQoNClNvIGhvdyBkbyBJIHNpZ25h
-bCBteSBpbnRlcmZhY2UgYXMgYmVpbmcgSUZfT1BFUl9MT1dFUkxBWUVSRE9XTj8NCg0KDQpJbiBh
-bm90aGVyLCByZWxhdGVkIG1hdHRlciwgSSdtIHdvbmRlcmluZyBpZiBJIHNob3VsZCBzZXQgdGhl
-IGNhcnJpZXIgc3RhdGUgb2YgbXkgdmlydHVhbA0KaW50ZXJmYWNlIHNvIHRoYXQgaXQgc2hvd3Mg
-bmV0aWZfY2Fycmllcl9vaygpIHdoZW4gaXQgaXMgcG9zc2libGUgdG8gZ2V0IHRoZSBpbnRlcmZh
-Y2UgdG8NCklGX09QRVJfVVA6DQoNCnZvaWQgaHNyX3NldF9jYXJyaWVyKCkNCnsNCglpZiAoaXNf
-b3BlcnN0YXRlX3VwKHNsYXZlMSkgfHwgaXNfb3BlcnN0YXRlX3VwKHNsYXZlMikpDQoJCW5ldGlm
-X2NhcnJpZXJfb24oaHNyX2Rldik7DQoJZWxzZQ0KCQluZXRpZl9jYXJyaWVyX29mZihoc3JfZGV2
-KTsNCn0NCg0KDQpUaGFua3MsDQotLSANCkFydmlkIEJyb2RpbiB8IENvbnN1bHRhbnQgKExpbnV4
-KQ0KWERJTiBBQiB8IEphbiBTdGVuYmVja3MgVG9yZyAxNyB8IFNFLTE2NCA0MCBLaXN0YSB8IFN3
-ZWRlbiB8IHhkaW4uY29t
+On Tue, 26 Jun 2012 22:28:51 +0000
+Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
+
+> Hi,
+> 
+> According to Documentation/networking/operstates.txt a network interface have an
+> operational state and an administrative state.
+> 
+> If I understand things correctly the administrative state is the desired state set by
+> userspace, and the operational state is the actual state which depends on things like the
+> administrative state, whether a carrier is present, or (for virtual interfaces lite VLAN)
+> whether the lower interface is available.
+> 
+> 
+> In the driver I'm writing (for the "HSR" redundancy protocol) a hsr (virtual) interface is
+> useable as long as any of its (physical) slaves are useable. I.e. the operstate of a hsr
+> device might be set like this:
+> 
+> void hsr_set_operstate()
+> {
+> 	if (!is_admin_up(hsr_dev)) /* Check IFF_UP */ {
+> 		set_operstate(hsr_dev, IF_OPER_DOWN);
+> 		return;
+> 	}
+> 
+> 	if (is_operstate_up(slave1) || is_operstate_up(slave2)) /* Check IF_OPER_UP */
+> 		set_operstate(hsr_dev, IF_OPER_UP);
+> 	else
+> 		set_operstate(hsr_dev, IF_OPER_LOWERLAYERDOWN);
+> }
+
+
+According to 802.1X example in documentation to set it down you need to set IF_OPER_DORMANT
+not IF_OPER_LOWERLAYERDOWN.  Probably a kernel bug in there somwhere.
