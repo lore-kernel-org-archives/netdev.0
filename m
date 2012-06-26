@@ -1,66 +1,31 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH] xen/netfront: teardown the device before unregistering it.
-Date: Tue, 26 Jun 2012 09:48:41 +0100
-Message-ID: <1340700521-13012-1-git-send-email-ian.campbell@citrix.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH 0/2] flexcan driver updates
+Date: Tue, 26 Jun 2012 16:49:21 +0800
+Message-ID: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>, stable@kernel.org,
-	675190@bugs.debian.org
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:49950 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658Ab2FZIsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 04:48:43 -0400
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:43927
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751088Ab2FZItX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 04:49:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes:
-[   15.470311] WARNING: at /local/scratch/ianc/devel/kernels/linux/fs/sysfs/file.c:498 sysfs_attr_ns+0x95/0xa0()
-[   15.470326] sysfs: kobject eth0 without dirent
-[   15.470333] Modules linked in:
-[   15.470342] Pid: 12, comm: xenwatch Not tainted 3.4.0-x86_32p-xenU #93
-and
-[    9.150554] BUG: unable to handle kernel paging request at 2b359000
-[    9.150577] IP: [<c1279561>] linkwatch_do_dev+0x81/0xc0
-[    9.150592] *pdpt = 000000002c3c9027 *pde = 0000000000000000
-[    9.150604] Oops: 0002 [#1] SMP
-[    9.150613] Modules linked in:
+Here are a couple of flexcan driver/bindings updates, which are meant
+to get the driver more device tree friendly.
 
-This is http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=675190
+Shawn Guo (2):
+  net: flexcan: clock-frequency is optional for device tree probe
+  net: flexcan: add transceiver switch gpio support
 
-Reported-by: George Shuklin <george.shuklin@gmail.com>
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Tested-by: William Dauchy <wdauchy@gmail.com>
-Cc: stable@kernel.org
-Cc: 675190@bugs.debian.org
----
- drivers/net/xen-netfront.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ .../devicetree/bindings/net/can/fsl-flexcan.txt    |    6 ++++
+ drivers/net/can/flexcan.c                          |   30 ++++++++++++++++++++
+ 2 files changed, 36 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 0ebbb19..796afbf 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1935,14 +1935,14 @@ static int __devexit xennet_remove(struct xenbus_device *dev)
- 
- 	dev_dbg(&dev->dev, "%s\n", dev->nodename);
- 
--	unregister_netdev(info->netdev);
--
- 	xennet_disconnect_backend(info);
- 
--	del_timer_sync(&info->rx_refill_timer);
--
- 	xennet_sysfs_delif(info->netdev);
- 
-+	unregister_netdev(info->netdev);
-+
-+	del_timer_sync(&info->rx_refill_timer);
-+
- 	free_percpu(info->stats);
- 
- 	free_netdev(info->netdev);
 -- 
-1.7.2.5
+1.7.5.4
