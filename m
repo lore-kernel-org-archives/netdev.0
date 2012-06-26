@@ -1,57 +1,80 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: Re: [PATCH 04/16] mm: allow PF_MEMALLOC from softirq context
-Date: Tue, 26 Jun 2012 18:55:13 +0200
-Message-ID: <20120626165513.GD6509@breakpoint.cc>
-References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
- <1340375443-22455-5-git-send-email-mgorman@suse.de>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 0/2] flexcan driver updates
+Date: Tue, 26 Jun 2012 18:55:29 +0200
+Message-ID: <4FE9E981.2080402@hartkopp.net>
+References: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1340375443-22455-5-git-send-email-mgorman@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:48446 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758511Ab2FZQzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 12:55:36 -0400
+In-Reply-To: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 22, 2012 at 03:30:31PM +0100, Mel Gorman wrote:
-> This is needed to allow network softirq packet processing to make
-> use of PF_MEMALLOC.
+On 26.06.2012 10:49, Shawn Guo wrote:
 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index b6c0727..5c6d9c6 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -2265,7 +2265,11 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
->  	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
->  		if (gfp_mask & __GFP_MEMALLOC)
->  			alloc_flags |= ALLOC_NO_WATERMARKS;
-> -		else if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
-> +		else if (in_serving_softirq() && (current->flags & PF_MEMALLOC))
-> +			alloc_flags |= ALLOC_NO_WATERMARKS;
-> +		else if (!in_interrupt() &&
-> +				((current->flags & PF_MEMALLOC) ||
-> +				 unlikely(test_thread_flag(TIF_MEMDIE))))
->  			alloc_flags |= ALLOC_NO_WATERMARKS;
->  	}
+> Here are a couple of flexcan driver/bindings updates, which are meant
+> to get the driver more device tree friendly.
+> 
+> Shawn Guo (2):
+>   net: flexcan: clock-frequency is optional for device tree probe
+>   net: flexcan: add transceiver switch gpio support
+> 
+>  .../devicetree/bindings/net/can/fsl-flexcan.txt    |    6 ++++
+>  drivers/net/can/flexcan.c                          |   30 ++++++++++++++++++++
+>  2 files changed, 36 insertions(+), 0 deletions(-)
+> 
 
-You allocate in RX path with __GFP_MEMALLOC and your sk->sk_allocation has
-also __GFP_MEMALLOC set. That means you should get ALLOC_NO_WATERMARKS in
-alloc_flags. Is this to done to avoid GFP annotations in skb_share_check() and
-friends on your __netif_receive_skb() path?
 
-Sebastian
+Sorry Shawn, but your posting is pretty misplaced ...
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Please check for the maintainers and mailing lists in the MAINTAINERS file
+that match your suggested changes:
+
+Documentation/devicetree/bindings/net/can/fsl-flexcan.txt =>
+
+OPEN FIRMWARE AND FLATTENED DEVICE TREE
+M:	Grant Likely <grant.likely@secretlab.ca>
+M:	Rob Herring <rob.herring@calxeda.com>
+L:	devicetree-discuss@lists.ozlabs.org (moderated for non-subscribers)
+W:	http://fdt.secretlab.ca
+T:	git git://git.secretlab.ca/git/linux-2.6.git
+S:	Maintained
+F:	Documentation/devicetree		<<<<<------------- !!!
+F:	drivers/of
+F:	include/linux/of*.h
+K:	of_get_property
+K:	of_match_table
+
+
+drivers/net/can/flexcan.c =>
+
+CAN NETWORK DRIVERS
+M:	Wolfgang Grandegger <wg@grandegger.com>
+M:	Marc Kleine-Budde <mkl@pengutronix.de>
+L:	linux-can@vger.kernel.org
+W:	http://gitorious.org/linux-can
+T:	git git://gitorious.org/linux-can/linux-can-next.git
+S:	Maintained
+F:	drivers/net/can/			<<<<<------------- !!!
+F:	include/linux/can/dev.h
+F:	include/linux/can/error.h
+F:	include/linux/can/netlink.h
+F:	include/linux/can/platform/
+
+So please post your suggested changes for the flexcan driver on the mailing
+lists linux-can@vger.kernel.org and devicetree-discuss@lists.ozlabs.org
+
+Once the changes are discussed and accepted they can be pulled by Dave Miller
+from the CAN development git repository into the networking tree.
+
+Thanks,
+Oliver
