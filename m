@@ -1,66 +1,132 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: New commands to configure IOV features
-Date: Tue, 26 Jun 2012 10:19:03 -0700
-Message-ID: <20120626101903.0000791c@unknown>
-References: <4FA7AF62.8000405@broadcom.com>
-	<20120507081634.000003f8.gregory.v.rose@intel.com>
-	<4FE9A963.7020602@broadcom.com>
+From: Fengguang Wu <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: BUG: No init found on NFSROOT
+Date: Wed, 27 Jun 2012 01:29:18 +0800
+Message-ID: <20120626172918.GA16446@localhost>
+References: <20120626145432.GA15289@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuval Mintz <yuvalmin@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46841 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758499Ab2FZRTb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 13:19:31 -0400
-In-Reply-To: <4FE9A963.7020602@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120626145432.GA15289@localhost>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Jun 2012 15:21:55 +0300
-Yuval Mintz <yuvalmin@broadcom.com> wrote:
+On Tue, Jun 26, 2012 at 10:54:32PM +0800, Fengguang Wu wrote:
+> Hi Trond,
+> 
+> It's found that this commit in linux-next leads to the below boot hang.
+> 
+> da660bb2774ff21c7263b4061198c5abe0629cb4 is the first bad commit
+> commit da660bb2774ff21c7263b4061198c5abe0629cb4
+> Author: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> Date:   Thu Jun 21 14:53:10 2012 -0400
+> 
+>     SUNRPC: Clean up xdr_read_pages and xdr_enter_page
+> 
+>     Move the page alignment code into a separate helper.
+> 
+>     Signed-off-by: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+> 
+> :040000 040000 742f2939849ea8ff2e4b954316e6ea2933e7e018 6809fe8bd11b9f2459168d6e1dac92b0c5a74eef M      net
+> bisect run success
+> 
+> The "held lock freed" message may or may not appear in the tests.
 
-> On 05/07/2012 06:16 PM, Greg Rose wrote:
-> 
-> > On Mon, 7 May 2012 14:17:54 +0300
-> > Yuval Mintz <yuvalmin@broadcom.com> wrote:
-> > 
-> >> I've tried to figure out if there was a standard interface
-> >> (ethtool/iproute) through which a user could configure the number
-> >> of vfs in his system.
-> >>
-> >> I've seen the RFC suggested in
-> >> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
-> >> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
-> >> later references to it (commits or further discussion on this
-> >> topic).
-> >>
-> >> How exactly are things standing with these RFCs? Were they
-> >> abandoned?
-> > 
-> > The only way to configure the number of VFs continues to be through
-> > the max_vfs module parameter.  I've got a patch to do it through
-> > ethtool sitting on the back burner but due to other requirements of
-> > my day job I've not been able to work on it since last fall.
-> > 
-> > - Greg
-> 
-> 
-> Hi Ben,
-> 
-> If I want to pick the RFCs and add support for configuring the number
-> of VFs - do you think ethtool's the right place for such added
-> support?
-> 
-> I'm asking since as far as I can see, ethtool (today) doesn't contain
-> any features related to virtual functions.
+Ah that seem to be an independent bug. It's still there when reverting
+the above commit on top of linux-next. Will try to bisect it.
 
-I think a PCI utility tool would be better, SR-IOV is not limited to
-network devices.  That's one of the reasons I dropped the RFC.  I
-haven't gotten back to the idea since then due to my day job keeping me
-pretty busy.
+> However the "No init found." message reliably appears in all test runs.
 
-- Greg
+That "No init found" disappears after reverting the commit.
+
+Thanks,
+Fengguang
+
+> [  133.909702] =========================
+> [  133.910694] [ BUG: held lock freed! ]
+> [  133.911700] 3.5.0-rc4+ #5 Not tainted
+> [  133.912672] -------------------------
+> [  133.912969] swapper/0/0 is freeing memory ffff88001233ce08-ffff88001233de07, with a lock still held there!
+> [  133.912969]  (slock-AF_INET-RPC/1){+.-...}, at: [<ffffffff82ae84ee>] tcp_v4_rcv+0x28b/0x6fc
+> [  133.912969] 3 locks held by swapper/0/0:
+> [  133.912969]  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff82a1ea8a>] rcu_lock_acquire+0x0/0x29
+> [  133.912969]  #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff82aca483>] rcu_lock_acquire.constprop.14+0x0/0x30
+> [  133.912969]  #2:  (slock-AF_INET-RPC/1){+.-...}, at: [<ffffffff82ae84ee>] tcp_v4_rcv+0x28b/0x6fc
+> [  133.912969] 
+> [  133.912969] stack backtrace:
+> [  133.912969] Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc4+ #5
+> [  133.912969] Call Trace:
+> [  133.912969]  <IRQ>  [<ffffffff810e09ae>] debug_check_no_locks_freed+0x109/0x14b
+> [  133.912969]  [<ffffffff811774e0>] kmem_cache_free+0x2e/0xa7
+> [  133.912969]  [<ffffffff82a191e5>] __kfree_skb+0x7f/0x83
+> [  133.912969]  [<ffffffff82adeccd>] tcp_ack+0x45d/0xc6a
+> [  133.912969]  [<ffffffff810c22ae>] ? local_clock+0x3b/0x52
+> [  133.912969]  [<ffffffff82adff44>] tcp_rcv_state_process+0x15a/0x7c6
+> [  133.912969]  [<ffffffff82ae79e7>] tcp_v4_do_rcv+0x341/0x390
+> [  133.912969]  [<ffffffff82ae88db>] tcp_v4_rcv+0x678/0x6fc
+> [  133.912969]  [<ffffffff82aca618>] ip_local_deliver_finish+0x165/0x1e4
+> [  133.912969]  [<ffffffff82acab4a>] ip_local_deliver+0x53/0x84
+> [  133.912969]  [<ffffffff810c228c>] ? local_clock+0x19/0x52
+> [  133.912969]  [<ffffffff82aca9c6>] ip_rcv_finish+0x32f/0x367
+> [  133.912969]  [<ffffffff82acad8b>] ip_rcv+0x210/0x269
+> [  133.912969]  [<ffffffff82a1eab1>] ? rcu_lock_acquire+0x27/0x29
+> [  133.912969]  [<ffffffff82a1ea8a>] ? softnet_seq_show+0x68/0x68
+> [  133.912969]  [<ffffffff82a21ede>] __netif_receive_skb+0x3cd/0x464
+> [  133.912969]  [<ffffffff82a21fda>] netif_receive_skb+0x65/0x9c
+> [  133.912969]  [<ffffffff82a227c5>] ? __napi_gro_receive+0xf2/0xff
+> [  133.912969]  [<ffffffff82a2209e>] napi_skb_finish+0x26/0x58
+> [  133.912969]  [<ffffffff810c228c>] ? local_clock+0x19/0x52
+> [  133.912969]  [<ffffffff82a228c5>] napi_gro_receive+0x2f/0x34
+> [  133.912969]  [<ffffffff81e36d12>] e1000_receive_skb+0x57/0x60
+> [  133.912969]  [<ffffffff81e39b23>] e1000_clean_rx_irq+0x2f2/0x387
+> [  133.912969]  [<ffffffff81e390f3>] e1000_clean+0x541/0x695
+> [  133.912969]  [<ffffffff8106c57b>] ? kvm_clock_read+0x2e/0x36
+> [  133.912969]  [<ffffffff82a22402>] ? net_rx_action+0x1b3/0x1f8
+> [  133.912969]  [<ffffffff82a22302>] net_rx_action+0xb3/0x1f8
+> [  133.912969]  [<ffffffff810984ab>] ? __do_softirq+0x76/0x1e8
+> [  133.912969]  [<ffffffff81098515>] __do_softirq+0xe0/0x1e8
+> [  133.912969]  [<ffffffff81122190>] ? time_hardirqs_off+0x26/0x2a
+> [  133.912969]  [<ffffffff82ea7fec>] call_softirq+0x1c/0x30
+> [  133.912969]  [<ffffffff81049cc8>] do_softirq+0x4a/0xa2
+> [  133.912969]  [<ffffffff8109888e>] irq_exit+0x51/0xbc
+> [  133.912969]  [<ffffffff82ea88ae>] do_IRQ+0x8e/0xa5
+> [  133.912969]  [<ffffffff82ea002f>] common_interrupt+0x6f/0x6f
+> [  133.912969]  <EOI>  [<ffffffff8106c76b>] ? native_safe_halt+0x6/0x8
+> [  133.912969]  [<ffffffff810e08a3>] ? trace_hardirqs_on+0xd/0xf
+> [  133.912969]  [<ffffffff8104f384>] default_idle+0x53/0x90
+> [  133.912969]  [<ffffffff8104fc09>] cpu_idle+0xcc/0x123
+> [  133.912969]  [<ffffffff82d1d8dd>] rest_init+0xd1/0xda
+> [  133.912969]  [<ffffffff82d1d80c>] ? csum_partial_copy_generic+0x16c/0x16c
+> [  133.912969]  [<ffffffff8460dbbc>] start_kernel+0x3da/0x3e7
+> [  133.912969]  [<ffffffff8460d5ea>] ? repair_env_string+0x5a/0x5a
+> [  133.912969]  [<ffffffff8460d2d6>] x86_64_start_reservations+0xb1/0xb5
+> [  133.912969]  [<ffffffff8460d3d8>] x86_64_start_kernel+0xfe/0x10b
+> [  134.024230] VFS: Mounted root (nfs filesystem) on device 0:14.
+> [  134.025782] debug: unmapping init [mem 0xffffffff84437000-0xffffffff8480efff]
+> [  134.027686] Write protecting the kernel read-only data: 49152k
+> [  134.029956] debug: unmapping init [mem 0xffff880002eb0000-0xffff880002ffffff]
+> [  134.031745] debug: unmapping init [mem 0xffff880003e95000-0xffff880003ffffff]
+> [  134.059408] request_module: runaway loop modprobe binfmt-0000
+> [  134.062946] kworker/u:0 (2781) used greatest stack depth: 3432 bytes left
+> [  134.069553] Kernel panic - not syncing: No init found.  Try passing init= option to kernel. See Linux Documentation/init.txt for guidance.
+> [  134.072742] Pid: 1, comm: swapper/0 Not tainted 3.5.0-rc4+ #5
+> [  134.074200] Call Trace:
+> [  134.074971]  [<ffffffff82e4fc90>] panic+0xbd/0x1d0
+> [  134.076237]  [<ffffffff82e4ccc7>] init_post+0xc8/0xc8
+> [  134.077636]  [<ffffffff8460dd8e>] kernel_init+0x1c5/0x1c5
+> [  134.078979]  [<ffffffff8460d590>] ? do_early_param+0x8c/0x8c
+> [  134.080408]  [<ffffffff82ea7ef4>] kernel_thread_helper+0x4/0x10
+> [  134.082038]  [<ffffffff82ea00f0>] ? retint_restore_args+0x13/0x13
+> [  134.083514]  [<ffffffff8460dbc9>] ? start_kernel+0x3e7/0x3e7
+> [  134.084997]  [<ffffffff82ea7ef0>] ? gs_change+0x13/0x13
+> 
+> Thanks,
+> Fengguang
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
