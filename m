@@ -1,44 +1,49 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Tue, 26 Jun 2012 09:27:10 +0200
-Message-ID: <201206260927.11945.hans.schillstrom@ericsson.com>
-References: <1340686296.10893.115.camel@edumazet-glaptop> <201206260734.33472.hans.schillstrom@ericsson.com> <20120626.001124.36486380031998542.davem@davemloft.net>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Tue, 26 Jun 2012 12:33:06 -0300
+Message-ID: <1340724786-3819-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"subramanian.vijay@gmail.com" <subramanian.vijay@gmail.com>,
-	"dave.taht@gmail.com" <dave.taht@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ncardwell@google.com" <ncardwell@google.com>,
-	"therbert@google.com" <therbert@google.com>,
-	"brouer@redhat.com" <brouer@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw7.ericsson.se ([193.180.251.48]:44337 "EHLO
-	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757562Ab2FZH1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 03:27:14 -0400
-In-Reply-To: <20120626.001124.36486380031998542.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
+	xiong <xiong@qca.qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 26 June 2012 09:11:24 David Miller wrote:
-> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> Date: Tue, 26 Jun 2012 07:34:31 +0200
-> 
-> > The big cycle consumer during a syn attack is SHA sum right now, 
-> > so from that perspective it's better to add aes crypto (by using AES-NI) 
-> > to the syn cookies instead of SHA sum. Even if only newer x86_64 can use it.
-> 
-> I'm surprised that x86 lacks an SHA1 instruction, even shitty sparcs
-> have one now.
-> 
-> SHA1 seems overkill for what the syncookie code is trying to do, could
-> you give the following a try?
-> 
+From: xiong <xiong@qca.qualcomm.com>
 
-Sure, I'll give it a try later today 
+some people report atl1c could cause system hang with following
+kernel trace info:
+---------------------------------------
+WARNING: at.../net/sched/sch_generic.c:258
+dev_watchdog+0x1db/0x1d0()
+...
+NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
+...
+---------------------------------------
+This is caused by netif_stop_queue calling when cable Link is down
+but netif_wake_queue isn't called when cable Link is resume.
 
-Thanks
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 85717cb..c2736c4 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -351,6 +351,8 @@ static void atl1c_common_task(struct work_struct *work)
+ 		atl1c_irq_disable(adapter);
+ 		atl1c_check_link_status(adapter);
+ 		atl1c_irq_enable(adapter);
++		if (netif_queue_stopped(netdev) && netif_carrier_ok(netdev))
++			netif_wake_queue(netdev);
+ 	}
+ }
+ 
+-- 
+1.7.7
