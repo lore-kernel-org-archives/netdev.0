@@ -1,89 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Remove unnecessary code from rt_check_expire().
-Date: Tue, 26 Jun 2012 00:21:24 -0700 (PDT)
-Message-ID: <20120626.002124.2220875506847485306.davem@davemloft.net>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
+Date: Tue, 26 Jun 2012 15:23:19 +0800
+Message-ID: <CACVXFVO5x9pePZekJPnywr7czXG_3_xCRj-rXEgf2KSQXnmPbA@mail.gmail.com>
+References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
+	<201206250815.39466.oliver@neukum.org>
+	<CACVXFVNUv6w5OjSZdQDbcLEPpDU5vO_Nmarm+fAfh0RkkL_hdg@mail.gmail.com>
+	<201206251410.13454.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
+	<marius.kotsbak@gmail.com>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59062 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758391Ab2FZHVZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 03:21:25 -0400
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:32943 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757100Ab2FZHXU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 03:23:20 -0400
+In-Reply-To: <201206251410.13454.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jun 25, 2012 at 8:10 PM, Oliver Neukum <oliver@neukum.org> wrot=
+e:
+> Am Montag, 25. Juni 2012, 09:15:21 schrieb Ming Lei:
+>> Any locking isn't needed if the set to NULL is put after
+>> driver_info->unbind, =A0since ->unbind will call subdriver->disconne=
+ct,
+>> which will hold the open/disconnect lock of wdm_mutex.
+>
+> True for cdc_wdm. But usbnet needs to work well for everything.
 
-IPv4 routing cache entries no longer use dst->expires, because the
-metrics, PMTU, and redirect information are stored in the inetpeer
-cache.
+Suppose there are other usbnet drivers which may have this kind of
+subdriver, and they have to take one lock to avoid open/disconnect
+race, there are only two ways to do it:
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+          - the lock is held before calling usbnet_disconnect
+          - the lock is held inside driver_info->unbind
 
-Eric, when you did commit 9f28a2fc0bd77511f649c0a788c7bf9a5fd04edb
-(ipv4: reintroduce route cache garbage collector) do you remember
-if the thing we needed was the real expiry or both the
-rt_is_expired() and the rt_may_expire() cases?
+So putting the set to NULL after driver_info->unbind should work
+for the both two ways above.
 
-I really want to remove rt_may_expire() from this conditional because
-it results in absolutely stupid behavior.  If your system is idle
-for 5 minutes, all of your input routing cache entries are purged.
+Also we can document the usage in comments.
 
- net/ipv4/route.c |   34 +++++++++++-----------------------
- 1 file changed, 11 insertions(+), 23 deletions(-)
+>
+>> > We can move to after unregister_netdev()
+>> > I am unhappy with it going after unbind.
+>> >
+>>
+>> Could you let us know the reason? I think it may let the
+>> patch not necessary.
+>
+> Very well. This is the code:
+>
+> =A0void usbnet_disconnect (struct usb_interface *intf)
+> {
+> =A0 =A0 =A0 =A0struct usbnet =A0 =A0 =A0 =A0 =A0 *dev;
+> =A0 =A0 =A0 =A0struct usb_device =A0 =A0 =A0 *xdev;
+> =A0 =A0 =A0 =A0struct net_device =A0 =A0 =A0 *net;
+>
+> =A0 =A0 =A0 =A0dev =3D usb_get_intfdata(intf);
+> =A0 =A0 =A0 =A0usb_set_intfdata(intf, NULL);
+> =A0 =A0 =A0 =A0if (!dev)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return;
+>
+> This code needs to check for NULL (cdc_ether and similar drivers)
+> It is cleaner that if we need to check for NULL we also set to NULL.
+> But that is no good reason to keep it if there's real trouble
+>
+> =A0 =A0 =A0 =A0xdev =3D interface_to_usbdev (intf);
+>
+> =A0 =A0 =A0 =A0netif_info(dev, probe, dev->net, "unregister '%s' usb-=
+%s-%s, %s\n",
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 intf->dev.driver->name,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 xdev->bus->bus_name, xdev->devpat=
+h,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev->driver_info->description);
+>
+> =A0 =A0 =A0 =A0net =3D dev->net;
+> =A0 =A0 =A0 =A0unregister_netdev (net);
+>
+> Here intfdata is NULL.
+>
+> =A0 =A0 =A0 =A0cancel_work_sync(&dev->kevent);
+>
+> =A0 =A0 =A0 =A0if (dev->driver_info->unbind)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dev->driver_info->unbind (dev, intf);
+>
+> At this point a minidriver must not follow the intfdata pointer,
+> because the interface may again be probed. So if here a minidriver
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8d62d85..846961c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -870,34 +870,22 @@ static void rt_check_expire(void)
- 		while ((rth = rcu_dereference_protected(*rthp,
- 					lockdep_is_held(rt_hash_lock_addr(i)))) != NULL) {
- 			prefetch(rth->dst.rt_next);
--			if (rt_is_expired(rth)) {
-+			if (rt_is_expired(rth) ||
-+			    rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
- 				*rthp = rth->dst.rt_next;
- 				rt_free(rth);
- 				continue;
- 			}
--			if (rth->dst.expires) {
--				/* Entry is expired even if it is in use */
--				if (time_before_eq(jiffies, rth->dst.expires)) {
--nofree:
--					tmo >>= 1;
--					rthp = &rth->dst.rt_next;
--					/*
--					 * We only count entries on
--					 * a chain with equal hash inputs once
--					 * so that entries for different QOS
--					 * levels, and other non-hash input
--					 * attributes don't unfairly skew
--					 * the length computation
--					 */
--					length += has_noalias(rt_hash_table[i].chain, rth);
--					continue;
--				}
--			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout))
--				goto nofree;
- 
--			/* Cleanup aged off entries. */
--			*rthp = rth->dst.rt_next;
--			rt_free(rth);
-+			/* We only count entries on a chain with equal
-+			 * hash inputs once so that entries for
-+			 * different QOS levels, and other non-hash
-+			 * input attributes don't unfairly skew the
-+			 * length computation
-+			 */
-+			tmo >>= 1;
-+			rthp = &rth->dst.rt_next;
-+			length += has_noalias(rt_hash_table[i].chain, rth);
- 		}
- 		spin_unlock_bh(rt_hash_lock_addr(i));
- 		sum += length;
--- 
-1.7.10
+IMO, probe is serialized strictly with driver unbind since both the par=
+ent
+lock and its own device lock have been held, so the probe may only be
+started after driver unbinding is completed.
+
+> still uses intfdata, locking will be needed. We want to catch those
+> casees.
+
+Suppose infdata is used here somewhere, it is surely a bug because
+the usbnet instance pointed by intfdata will be freed soon.
+
+So looks putting the set to NULL after driver_info->unbind is good,
+doesn't it?
+
+>
+> =A0 =A0 =A0 =A0usb_kill_urb(dev->interrupt);
+> =A0 =A0 =A0 =A0usb_free_urb(dev->interrupt);
+>
+> =A0 =A0 =A0 =A0free_netdev(net);
+> =A0 =A0 =A0 =A0usb_put_dev (xdev);
+> }
+>
+>> > Sure, it is a debugging aid. It has the drawback that minidrivers =
+have
+>> > to be able to deal with intfdata being NULL. That is not hard to d=
+o.
+>>
+>> The check isn't needed if the set to NULL is put after =A0driver_inf=
+o->unbind
+>> in usbnet_disconnect.
+>
+> True, but we don't catch bugs.
+
+If the check is added, the bugs may be hided, and no stack will be
+dumped, :-)
+
+
+Thanks,
+--=20
+Ming Lei
