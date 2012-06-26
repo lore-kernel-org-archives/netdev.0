@@ -1,66 +1,45 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-Date: Tue, 26 Jun 2012 20:41:11 +0000
-Message-ID: <157393863283F442885425D2C454285623DB49B7@NASANEXD02A.na.qualcomm.com>
-References: <1340724786-3819-1-git-send-email-cjren@qca.qualcomm.com>
- <20120626180311.GC5070@tux>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] udp: Add socket early demux support
+Date: Tue, 26 Jun 2012 22:49:07 +0200
+Message-ID: <1340743747.10893.370.camel@edumazet-glaptop>
+References: <1340739826-3363-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: "Rodriguez, Luis" <rodrigue@qca.qualcomm.com>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120626180311.GC5070@tux>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	alexander.h.duyck@intel.com
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:62647 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590Ab2FZUtO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 16:49:14 -0400
+Received: by bkcji2 with SMTP id ji2so392093bkc.19
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 13:49:12 -0700 (PDT)
+In-Reply-To: <1340739826-3363-1-git-send-email-subramanian.vijay@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Luis
-   It should be a stable fix, but as Ben Hutchings mentioned in another mail, 
-Maybe, removing netif_stop_queue when cable link down is a better choice.
+On Tue, 2012-06-26 at 12:43 -0700, Vijay Subramanian wrote:
+> Based on the recent TCP socket early demux code, this patch provides similar
+> support for UDP.
+> 
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+> This has been tested on x86 with UDP iperf flows and seemed to work. If this is
+> accepted, I plan to submit one more patch moving common code from TCP and UDP
+> early demux code into common helper functions.
+> Thanks in advance for feedback.
 
-   Do you mean we need add 'cc:stable@vger.kernel.org'  just before 'some people report  ...' ?
+Hmm... I cant see how it can work.
 
-Thanks
-Xiong
+Have you tested a router can still route DNS packets if you also have a
+DNS server on it, listening on 0.0.0.0:53 ?
 
-> -----Original Message-----
-> From: Rodriguez, Luis
-> Sent: Wednesday, June 27, 2012 2:03
-> To: Ren, Cloud
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; qca-linux-team; nic-devel; Huang, Xiong
-> Subject: Re: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-> 
-> On Tue, Jun 26, 2012 at 12:33:06PM -0300, Ren, Cloud wrote:
-> > From: xiong <xiong@qca.qualcomm.com>
-> >
-> > some people report atl1c could cause system hang with following kernel
-> > trace info:
-> > ---------------------------------------
-> > WARNING: at.../net/sched/sch_generic.c:258
-> > dev_watchdog+0x1db/0x1d0()
-> > ...
-> > NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out ...
-> > ---------------------------------------
-> > This is caused by netif_stop_queue calling when cable Link is down but
-> > netif_wake_queue isn't called when cable Link is resume.
-> >
-> > Signed-off-by: xiong <xiong@qca.qualcomm.com>
-> > Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
-> 
-> If this fixes  a system hang then this could be a stable fix -- that is, this should
-> be propagated to older stable kernels, no?
-> 
-> If so then please add to the commit log a line like this:
-> 
-> Cc: stable@vger.kernel.org [3.4]
-> 
-> Note: this is for the commit log! Right above the line below that has "---"
-> 
->   Luis
+Most UDP applications are using unconnected sockets.
+(In fact few programmers are aware UDP sockets can be connected)
+
+Try to bench how this is going to work with random IP sources, instead
+of UDP iperf flows using a single IP ?
+
+And what about multicast ?
