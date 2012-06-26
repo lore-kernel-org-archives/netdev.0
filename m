@@ -1,54 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Mon, 25 Jun 2012 21:55:37 -0700 (PDT)
-Message-ID: <20120625.215537.169465424900682764.davem@davemloft.net>
-References: <1340440962.17495.39.camel@edumazet-glaptop>
-	<20120625.154340.158890441165257041.davem@davemloft.net>
-	<1340686296.10893.115.camel@edumazet-glaptop>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH] netxen : Error return off by one for XG port.
+Date: Tue, 26 Jun 2012 00:06:27 -0500
+Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A927E6D1@MNEXMB1.qlogic.org>
+References: <1340189578-18308-1-git-send-email-santoshprasadnayak@gmail.com>
+	<13A253B3F9BEFE43B93C09CF75F63CAA81A886EF1A@MNEXMB1.qlogic.org>
+ <20120625.152748.779914323352702017.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: subramanian.vijay@gmail.com, dave.taht@gmail.com,
-	hans.schillstrom@ericsson.com, netdev@vger.kernel.org,
-	ncardwell@google.com, therbert@google.com, brouer@redhat.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "santoshprasadnayak@gmail.com" <santoshprasadnayak@gmail.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58252 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752501Ab2FZEzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 00:55:40 -0400
-In-Reply-To: <1340686296.10893.115.camel@edumazet-glaptop>
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:24211
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752066Ab2FZFGm convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 01:06:42 -0400
+In-Reply-To: <20120625.152748.779914323352702017.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 26 Jun 2012 06:51:36 +0200
-
-> On Mon, 2012-06-25 at 15:43 -0700, David Miller wrote:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, June 26, 2012 3:58 AM
+> To: Rajesh Borundia
+> Cc: santoshprasadnayak@gmail.com; Sony Chacko; netdev; kernel-
+> janitors@vger.kernel.org
+> Subject: Re: [PATCH] netxen : Error return off by one for XG port.
 > 
->> I don't agree with this change.
->> 
->> What is the point in having real classification configuration if
->> arbitrary places in the network stack are going to override SKB
->> priority with a fixed priority setting?
->> 
->> I bet the person who set listening socket priority really meant it and
->> does not expect you to override it.
+> From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+> Date: Wed, 20 Jun 2012 08:06:04 -0500
 > 
+> > ______________________________________
+> > From: santosh nayak [santoshprasadnayak@gmail.com]
+> > Sent: Wednesday, June 20, 2012 4:22 PM
+> > To: Sony Chacko; Rajesh Borundia
+> > Cc: netdev; kernel-janitors@vger.kernel.org; Santosh Nayak
+> > Subject: [PATCH] netxen : Error return off by one for XG port.
 > 
-> If I add a test on listener_sk->sk_priority being 0, would you accept
-> the patch ? If classification is done after tcp stack, it wont be hurt
-> by initial skb priority ?
+> This is not the correct way to submit patches written by other
+> people.
 
-It's better than your original patch, but it suffers from the same
-fundamental problem.
+I just ack-ed the patch. I did it in incorrect way (formatting in a mail).
+Sorry for the trouble.
 
-No user is going to expect that TCP on it's own has choosen a
-non-default priority and only for some packet types.  It's completely
-unexpected behavior.
-
-A SYN flood consumes so much more RX work than the TX for the SYNACK's
-ever can.
-
-So whilst I understand your desire to handle all elements of this kind
-of attack, this one is reaching too far.
+Rajesh
