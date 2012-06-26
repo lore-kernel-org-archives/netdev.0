@@ -1,47 +1,55 @@
-From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Subject: Re: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-Date: Tue, 26 Jun 2012 11:03:11 -0700
-Message-ID: <20120626180311.GC5070@tux>
-References: <1340724786-3819-1-git-send-email-cjren@qca.qualcomm.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [RFC net-next (v2) 12/14] ixgbe: set maximal number of
+ default RSS queues
+Date: Tue, 26 Jun 2012 21:23:52 +0300
+Message-ID: <1340735032.2486.35.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
+ <1340624745-8650-13-git-send-email-yuvalmin@broadcom.com>
+ <4FE88770.7070007@intel.com>
+ <1340646818.2486.27.camel@lb-tlvb-eilong.il.broadcom.com>
+ <4FE8B019.4030807@intel.com> <4FE9983C.2060006@broadcom.com>
+ <4FE9DB88.5070208@intel.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <qca-linux-team@qualcomm.com>,
-	<nic-devel@qualcomm.com>, xiong <xiong@qca.qualcomm.com>
-To: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1340724786-3819-1-git-send-email-cjren@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	"John Fastabend" <john.r.fastabend@intel.com>
+To: "Alexander Duyck" <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1977 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755973Ab2FZSYB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 14:24:01 -0400
+In-Reply-To: <4FE9DB88.5070208@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 26, 2012 at 12:33:06PM -0300, Ren, Cloud wrote:
-> From: xiong <xiong@qca.qualcomm.com>
+On Tue, 2012-06-26 at 08:55 -0700, Alexander Duyck wrote:
+> One thing that just occurred to me though is that this is going to lock
+> the upper limit for us and we won't be able to override it if we
+> implement the set channels code.  I believe the same thing goes for the
+> igb driver as well.
 > 
-> some people report atl1c could cause system hang with following
-> kernel trace info:
-> ---------------------------------------
-> WARNING: at.../net/sched/sch_generic.c:258
-> dev_watchdog+0x1db/0x1d0()
-> ...
-> NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-> ...
-> ---------------------------------------
-> This is caused by netif_stop_queue calling when cable Link is down
-> but netif_wake_queue isn't called when cable Link is resume.
-> 
-> Signed-off-by: xiong <xiong@qca.qualcomm.com>
-> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
+> Is there any chance you could just bypass the ixgbe and igb drivers for
+> now and give us time to come up with a more complete solution that would
+> allow us to add the set_channels calls.  One issue is I have a number of
+> ixgbe patches that are going to be completely rewriting this code anyway
+> so I could probably just add set_channels support and support for your
+> function once it is included in net-next.
 
-If this fixes  a system hang then this could be a stable
-fix -- that is, this should be propagated to older stable
-kernels, no?
+Alex,
 
-If so then please add to the commit log a line like this:
+I share your concern. I actually brought it up originally when
+discussing this RFC:
+http://marc.info/?l=linux-netdev&m=133991625809201&w=2
 
-Cc: stable@vger.kernel.org [3.4]
+>From my end, if you would like to add the Intel side support that would
+be great. Unless anyone object, we will leave the ixgbe and igb out of
+this patch series.
 
-Note: this is for the commit log! Right above the line below
-that has "---"
-
-  Luis
+Thanks,
+Eilon
