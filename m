@@ -1,69 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] bridge: Assign rtnl_link_ops to bridge devices created via
- ioctl (v2)
-Date: Tue, 26 Jun 2012 08:48:45 -0700
-Message-ID: <20120626084845.0578fcb8@nehalam.linuxnetplumber.net>
-References: <692d04316b78401b0256598155caae190d3f27c9.1340700973.git.tgraf@suug.ch>
-	<20120626075940.099521a7@nehalam.linuxnetplumber.net>
-	<20120626151311.GB31808@canuck.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Subject: [PATCH 1/1] connector: use nlmsg_put() instead of NLMSG_PUT() macro.
+Date: Tue, 26 Jun 2012 17:41:24 +0200
+Message-ID: <1340725284-21698-1-git-send-email-javier.martinez@collabora.co.uk>
+Cc: netdev@vger.kernel.org,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37043 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758580Ab2FZPsz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 11:48:55 -0400
-In-Reply-To: <20120626151311.GB31808@canuck.infradead.org>
+Received: from bhuna.collabora.co.uk ([93.93.135.160]:37303 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756880Ab2FZPtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 11:49:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ensures that bridges created with brctl(8) or ioctl(2) directly
-also carry IFLA_LINKINFO when dumped over netlink. This also allows
-to create a bridge with ioctl(2) and delete it with RTM_DELLINK.
+The NLMSG_PUT() macro contains a hidden goto which makes the code hard
+to audit and very error prone.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+While been there also use the inline function nlmsg_data() instead of the
+NLMSG_DATA() macro to do explicit type checking.
 
+Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 ---
-v2 - Minor change to Thomas's original patch.
-This is a bug fix, should go to stable as well.
+ drivers/connector/connector.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
- net/bridge/br_if.c      |    1 +
- net/bridge/br_netlink.c |    2 +-
- net/bridge/br_private.h |    1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
-
---- a/net/bridge/br_netlink.c	2012-06-26 08:07:18.459760113 -0700
-+++ b/net/bridge/br_netlink.c	2012-06-26 08:30:16.729918150 -0700
-@@ -208,7 +208,7 @@ static int br_validate(struct nlattr *tb
- 	return 0;
- }
- 
--static struct rtnl_link_ops br_link_ops __read_mostly = {
-+struct rtnl_link_ops br_link_ops __read_mostly = {
- 	.kind		= "bridge",
- 	.priv_size	= sizeof(struct net_bridge),
- 	.setup		= br_dev_setup,
---- a/net/bridge/br_private.h	2012-06-26 08:07:18.459760113 -0700
-+++ b/net/bridge/br_private.h	2012-06-26 08:30:16.729918150 -0700
-@@ -549,6 +549,7 @@ extern int (*br_fdb_test_addr_hook)(stru
- #endif
- 
- /* br_netlink.c */
-+extern struct rtnl_link_ops br_link_ops;
- extern int br_netlink_init(void);
- extern void br_netlink_fini(void);
- extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
---- a/net/bridge/br_if.c	2012-06-26 08:07:18.459760113 -0700
-+++ b/net/bridge/br_if.c	2012-06-26 08:30:37.653708011 -0700
-@@ -240,6 +240,7 @@ int br_add_bridge(struct net *net, const
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index a1f9364..a728d33 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -101,19 +101,19 @@ int cn_netlink_send(struct cn_msg *msg, u32 __group, gfp_t gfp_mask)
+ 	if (!skb)
  		return -ENOMEM;
  
- 	dev_net_set(dev, net);
-+	dev->rtnl_link_ops = &br_link_ops;
+-	nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size - sizeof(*nlh));
++	nlh = nlmsg_put(skb, 0, msg->seq, NLMSG_DONE, size - sizeof(*nlh), 0);
++	if (!nlh) {
++		kfree_skb(skb);
++		return -EMSGSIZE;
++	}
  
- 	res = register_netdev(dev);
- 	if (res)
+-	data = NLMSG_DATA(nlh);
++	data = nlmsg_data(nlh);
+ 
+ 	memcpy(data, msg, sizeof(*data) + msg->len);
+ 
+ 	NETLINK_CB(skb).dst_group = group;
+ 
+ 	return netlink_broadcast(dev->nls, skb, 0, group, gfp_mask);
+-
+-nlmsg_failure:
+-	kfree_skb(skb);
+-	return -EINVAL;
+ }
+ EXPORT_SYMBOL_GPL(cn_netlink_send);
+ 
+-- 
+1.7.7.6
