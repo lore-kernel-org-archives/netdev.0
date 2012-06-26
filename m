@@ -1,576 +1,782 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Unknown chipsets from Realtek's 8168 driver
-Date: Tue, 26 Jun 2012 12:26:35 +0200
-Message-ID: <20120626102635.GB1854@electric-eye.fr.zoreil.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next RFC V3 PATCH 4/6] tuntap: multiqueue support
+Date: Tue, 26 Jun 2012 13:42:50 +0300
+Message-ID: <20120626104250.GC13108@redhat.com>
+References: <20120625060830.6765.27584.stgit@amd-6168-8-1.englab.nay.redhat.com>
+ <20120625061018.6765.76633.stgit@amd-6168-8-1.englab.nay.redhat.com>
+ <20120625082553.GC18229@redhat.com>
+ <4FE92F99.6020402@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: hayeswang <hayeswang@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:58678 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756001Ab2FZKhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 06:37:20 -0400
+Cc: habanero@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, krkumar2@in.ibm.com,
+	tahm@linux.vnet.ibm.com, akong@redhat.com, davem@davemloft.net,
+	shemminger@vyatta.com, mashirle@us.ibm.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4FE92F99.6020402@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hayes,
+On Tue, Jun 26, 2012 at 11:42:17AM +0800, Jason Wang wrote:
+> On 06/25/2012 04:25 PM, Michael S. Tsirkin wrote:
+> >On Mon, Jun 25, 2012 at 02:10:18PM +0800, Jason Wang wrote:
+> >>This patch adds multiqueue support for tap device. This is done by abstracting
+> >>each queue as a file/socket and allowing multiple sockets to be attached to the
+> >>tuntap device (an array of tun_file were stored in the tun_struct). Userspace
+> >>could write and read from those files to do the parallel packet
+> >>sending/receiving.
+> >>
+> >>Unlike the previous single queue implementation, the socket and device were
+> >>loosely coupled, each of them were allowed to go away first. In order to let the
+> >>tx path lockless, netif_tx_loch_bh() is replaced by RCU/NETIF_F_LLTX to
+> >>synchronize between data path and system call.
+> >Don't use LLTX/RCU. It's not worth it.
+> >Use something like netif_set_real_num_tx_queues.
+> >
+> >>The tx queue selecting is first based on the recorded rxq index of an skb, it
+> >>there's no such one, then choosing based on rx hashing (skb_get_rxhash()).
+> >>
+> >>Signed-off-by: Jason Wang<jasowang@redhat.com>
+> >Interestingly macvtap switched to hashing first:
+> >ef0002b577b52941fb147128f30bd1ecfdd3ff6d
+> >(the commit log is corrupted but see what it
+> >does in the patch).
+> >Any idea why?
+> 
+> Yes, so tap should be changed to behave same as macvtap. I remember
+> the reason we do that is to make sure the packet of a single flow to
+> be queued to a fixed socket/virtqueues. As 10g cards like ixgbe
+> choose the rx queue for a flow based on the last tx queue where the
+> packets of that flow comes. So if we are using recored rx queue in
+> macvtap, the queue index of a flow would change as vhost thread
+> moves amongs processors.
 
-  there appears to remain unknown chipsets in Realtek's own driver.
-Namely:
-- CFG_METHOD_21
-- CFG_METHOD_22
-- CFG_METHOD_23
+Hmm. OTOH if you override this, if TX is sent from VCPU0, RX might land
+on VCPU1 in the guest, which is not good, right?
 
-Should support for some of those be added to the kernel driver ?
+> But during test tun/tap, one interesting thing I find is that even
+> ixgbe has recorded the queue index during rx, it seems be lost when
+> tap tries to transmit skbs to userspace.
 
-If so it would make sense to plan for those now as there are still a
-couple of weeks ahead before the window for -next closes and everything
-experiences more than 2 months of delay. You will find some incomplete
-stuff below. Feel free to use or ignore it.
+dev_pick_tx does this I think but ndo_select_queue
+should be able to get it without trouble.
 
 
-Some chipsets from Realtek's 8.031.00 8168 driver:
-- CFG_METHOD_21 / RTL_GIGA_MAC_VER_39
-- CFG_METHOD_22 / RTL_GIGA_MAC_VER_40
-- CFG_METHOD_23 / RTL_GIGA_MAC_VER_41
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/realtek/r8169.c |  284 ++++++++++++++++++++++++++++++++--
- 1 file changed, 269 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 7260aa7..8381640 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -46,6 +46,7 @@
- #define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
- #define FIRMWARE_8402_1		"rtl_nic/rtl8402-1.fw"
- #define FIRMWARE_8411_1		"rtl_nic/rtl8411-1.fw"
-+#define FIRMWARE_8168G_1	"rtl_nic/rtl8168g-1.fw"
- 
- #ifdef RTL8169_DEBUG
- #define assert(expr) \
-@@ -141,6 +142,9 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_36,
- 	RTL_GIGA_MAC_VER_37,
- 	RTL_GIGA_MAC_VER_38,
-+	RTL_GIGA_MAC_VER_39,
-+	RTL_GIGA_MAC_VER_40,
-+	RTL_GIGA_MAC_VER_41,
- 	RTL_GIGA_MAC_NONE   = 0xff,
- };
- 
-@@ -259,6 +263,13 @@ static const struct {
- 	[RTL_GIGA_MAC_VER_38] =
- 		_R("RTL8411",		RTL_TD_1, FIRMWARE_8411_1,
- 							JUMBO_9K, false),
-+	[RTL_GIGA_MAC_VER_39] =
-+		_R("RTL8168g/8111g",	RTL_TD_1, FIRMWARE_8168G_1,
-+							JUMBO_9K, false),
-+	[RTL_GIGA_MAC_VER_40] =
-+		_R("RTL8168g/8111g",	RTL_TD_1, NULL, JUMBO_9K, false),
-+	[RTL_GIGA_MAC_VER_41] =
-+		_R("RTL8168ep/8111ep",	RTL_TD_1, NULL, JUMBO_9K, false),
- };
- #undef _R
- 
-@@ -424,11 +435,22 @@ enum rtl8168_registers {
- #define OCPDR_REG_MASK			0x7f
- #define OCPDR_GPHY_REG_SHIFT		16
- #define OCPDR_DATA_MASK			0xffff
-+	MACOCP			= 0xb0,
-+	/* Shared with PHYOCP. */
-+#define OCPR_FLAG			0x80000000
-+#define OCPR_WRITE_CMD			0x80000000
-+#define OCPR_READ_CMD			0x00000000
-+#define OCPR_ADDR_REG_SHIFT		16
- 	OCPAR			= 0xb4,
- #define OCPAR_FLAG			0x80000000
- #define OCPAR_GPHY_WRITE_CMD		0x8000f060
- #define OCPAR_GPHY_READ_CMD		0x0000f060
-+	PHYOCP			= 0xb8,
- 	RDSAR1			= 0xd0,	/* 8168c only. Undocumented on 8168dp */
-+	MCUCMD			= 0xd3,
-+#define	MCUCMD_NOW_IS_OOB		(1 << 7)
-+#define	MCUCMD_TXFIFO_EMPTY		(1 << 5)
-+#define	MCUCMD_RXFIFO_EMPTY		(1 << 4)
- 	MISC			= 0xf0,	/* 8168e only. */
- #define TXPLA_RST			(1 << 29)
- #define PWM_EN				(1 << 22)
-@@ -721,8 +743,8 @@ struct rtl8169_private {
- 	u16 event_slow;
- 
- 	struct mdio_ops {
--		void (*write)(void __iomem *, int, int);
--		int (*read)(void __iomem *, int);
-+		void (*write)(struct rtl8169_private *, int, int);
-+		int (*read)(struct rtl8169_private *, int);
- 	} mdio_ops;
- 
- 	struct pll_power_ops {
-@@ -774,6 +796,8 @@ struct rtl8169_private {
- 		} phy_action;
- 	} *rtl_fw;
- #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN)
-+
-+	int mii_page;
- };
- 
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
-@@ -872,6 +896,27 @@ static u16 rtl8168_get_ocp_reg(struct rtl8169_private *tp)
- 	return (tp->mac_version == RTL_GIGA_MAC_VER_31) ? 0xb8 : 0x10;
- }
- 
-+static u32 rtl_ocp_wrap_cmd(u16 addr, u32 cmd)
-+{
-+	return ((addr >> 1) << OCPR_ADDR_REG_SHIFT) | cmd;
-+}
-+
-+static void rtl_mac_ocp_write(struct rtl8169_private *tp, u16 reg_addr, u16 value)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	RTL_W32(MACOCP, rtl_ocp_wrap_cmd(reg_addr, OCPR_WRITE_CMD | value));
-+}
-+
-+static u16 rtl_mac_ocp_read(struct rtl8169_private *tp, u16 reg_addr)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	RTL_W32(MACOCP, rtl_ocp_wrap_cmd(reg_addr, OCPR_READ_CMD));
-+
-+	return (u16)RTL_R32(MACOCP);
-+}
-+
- static void rtl8168_driver_start(struct rtl8169_private *tp)
- {
- 	u16 reg;
-@@ -911,8 +956,9 @@ static int r8168dp_check_dash(struct rtl8169_private *tp)
- 	return (ocp_read(tp, 0x0f, reg) & 0x00008000) ? 1 : 0;
- }
- 
--static void r8169_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
-+static void r8169_mdio_write(struct rtl8169_private *tp, int reg_addr, int value)
- {
-+	void __iomem *ioaddr = tp->mmio_addr;
- 	int i;
- 
- 	RTL_W32(PHYAR, 0x80000000 | (reg_addr & 0x1f) << 16 | (value & 0xffff));
-@@ -933,8 +979,9 @@ static void r8169_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
- 	udelay(20);
- }
- 
--static int r8169_mdio_read(void __iomem *ioaddr, int reg_addr)
-+static int r8169_mdio_read(struct rtl8169_private *tp, int reg_addr)
- {
-+	void __iomem *ioaddr = tp->mmio_addr;
- 	int i, value = -1;
- 
- 	RTL_W32(PHYAR, 0x0 | (reg_addr & 0x1f) << 16);
-@@ -975,14 +1022,15 @@ static void r8168dp_1_mdio_access(void __iomem *ioaddr, int reg_addr, u32 data)
- 	}
- }
- 
--static void r8168dp_1_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
-+static void r8168dp_1_mdio_write(struct rtl8169_private *tp, int reg_addr, int value)
- {
--	r8168dp_1_mdio_access(ioaddr, reg_addr, OCPDR_WRITE_CMD |
--		(value & OCPDR_DATA_MASK));
-+	r8168dp_1_mdio_access(tp->mmio_addr, reg_addr,
-+			      OCPDR_WRITE_CMD | (value & OCPDR_DATA_MASK));
- }
- 
--static int r8168dp_1_mdio_read(void __iomem *ioaddr, int reg_addr)
-+static int r8168dp_1_mdio_read(struct rtl8169_private *tp, int reg_addr)
- {
-+	void __iomem *ioaddr = tp->mmio_addr;
- 	int i;
- 
- 	r8168dp_1_mdio_access(ioaddr, reg_addr, OCPDR_READ_CMD);
-@@ -1012,8 +1060,10 @@ static void r8168dp_2_mdio_stop(void __iomem *ioaddr)
- 	RTL_W32(0xd0, RTL_R32(0xd0) | R8168DP_1_MDIO_ACCESS_BIT);
- }
- 
--static void r8168dp_2_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
-+static void r8168dp_2_mdio_write(struct rtl8169_private *tp, int reg_addr, int value)
- {
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
- 	r8168dp_2_mdio_start(ioaddr);
- 
- 	r8169_mdio_write(ioaddr, reg_addr, value);
-@@ -1021,8 +1071,9 @@ static void r8168dp_2_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
- 	r8168dp_2_mdio_stop(ioaddr);
- }
- 
--static int r8168dp_2_mdio_read(void __iomem *ioaddr, int reg_addr)
-+static int r8168dp_2_mdio_read(struct rtl8169_private *tp, int reg_addr)
- {
-+	void __iomem *ioaddr = tp->mmio_addr;
- 	int value;
- 
- 	r8168dp_2_mdio_start(ioaddr);
-@@ -1034,14 +1085,81 @@ static int r8168dp_2_mdio_read(void __iomem *ioaddr, int reg_addr)
- 	return value;
- }
- 
-+static u16 rtl_map_phy_ocp_addr(u16 page, u8 reg)
-+{
-+	if (!page) {
-+		// FIXME: use some #define here ?
-+		page = 0x0a40 + (reg / 8);
-+		reg  = 0x0010 + (reg % 8);
-+	}
-+
-+	page <<= 4;
-+
-+	reg -= 16;
-+	reg <<= 1;
-+
-+	return page + reg;
-+}
-+
-+static void rtl_phy_ocp_cmd(struct rtl8169_private *tp, u8 reg, u32 cmd)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u32 data;
-+
-+	data = rtl_map_phy_ocp_addr(tp->mii_page, reg);
-+
-+	RTL_W32(PHYOCP, rtl_ocp_wrap_cmd(data, cmd));
-+}
-+
-+static bool rtl_phy_ocp_wait_bit(struct rtl8169_private *tp, bool low)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	bool done;
-+	int i;
-+
-+	for (i = 0; i < 10; i++) {
-+		bool set;
-+
-+		udelay(100);
-+
-+		set = !!(RTL_R32(PHYOCP) & OCPR_FLAG);
-+		done = set ^ low;
-+		if (done)
-+			break;
-+	}
-+	return done;
-+}
-+
-+static void r8168g_mdio_write(struct rtl8169_private *tp, int reg_addr, int value)
-+{
-+	if (reg_addr == 0x1f) {
-+		tp->mii_page = value;
-+		return;
-+	}
-+
-+	rtl_phy_ocp_cmd(tp, reg_addr, OCPR_WRITE_CMD | value);
-+
-+	rtl_phy_ocp_wait_bit(tp, true);
-+}
-+
-+static int r8168g_mdio_read(struct rtl8169_private *tp, int reg_addr)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	rtl_phy_ocp_cmd(tp, reg_addr, OCPR_READ_CMD);
-+
-+	return rtl_phy_ocp_wait_bit(tp, false) ?
-+		RTL_R32(PHYOCP) & OCPDR_DATA_MASK : -1;
-+}
-+
- static void rtl_writephy(struct rtl8169_private *tp, int location, u32 val)
- {
--	tp->mdio_ops.write(tp->mmio_addr, location, val);
-+	tp->mdio_ops.write(tp, location, val);
- }
- 
- static int rtl_readphy(struct rtl8169_private *tp, int location)
- {
--	return tp->mdio_ops.read(tp->mmio_addr, location);
-+	return tp->mdio_ops.read(tp, location);
- }
- 
- static void rtl_patchphy(struct rtl8169_private *tp, int reg_addr, int value)
-@@ -1319,6 +1437,11 @@ static void rtl_link_chg_patch(struct rtl8169_private *tp)
- 			rtl_eri_write(ioaddr, 0x1d0, ERIAR_MASK_0011,
- 				      0x0000, ERIAR_EXGMAC);
- 		}
-+	} else if (tp->mac_version == RTL_GIGA_MAC_VER_39 ||
-+		   tp->mac_version == RTL_GIGA_MAC_VER_40) {
-+		// ...
-+	} else if (tp->mac_version == RTL_GIGA_MAC_VER_41) {
-+		// ...
- 	}
- }
- 
-@@ -1425,6 +1548,7 @@ static void __rtl8169_set_wol(struct rtl8169_private *tp, u32 wolopts)
- 		RTL_W8(Config1, options);
- 		break;
- 	default:
-+		// Is it ok for RTL_GIGA_MAC_VER_39..41 ?
- 		options = RTL_R8(Config2) & ~PME_SIGNAL;
- 		if (wolopts)
- 			options |= PME_SIGNAL;
-@@ -1894,6 +2018,11 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		u32 val;
- 		int mac_version;
- 	} mac_info[] = {
-+		{ 0x7cf00000, 0x50000000,	RTL_GIGA_MAC_VER_41 },
-+
-+		{ 0x7cf00000, 0x4c100000,	RTL_GIGA_MAC_VER_40 },
-+		{ 0x7cf00000, 0x4c000000,	RTL_GIGA_MAC_VER_39 },
-+
- 		/* 8168F family. */
- 		{ 0x7c800000, 0x48800000,	RTL_GIGA_MAC_VER_38 },
- 		{ 0x7cf00000, 0x48100000,	RTL_GIGA_MAC_VER_36 },
-@@ -3273,6 +3402,32 @@ static void rtl8402_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x1f, 0x0000);
- }
- 
-+static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
-+	rtl_apply_firmware(tp);
-+}
-+
-+static void rtl8168g_2_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+}
-+
-+static void rtl8168ep_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	static const struct phy_reg phy_reg_init[] = {
-+		{ 0x1f, 0x0a40 },
-+		{ 0x1b, 0x809c },
-+		{ 0x1c, 0xa700 },
-+		{ 0x1b, 0x80a5 },
-+		{ 0x1c, 0xa700 }
-+	};
-+
-+	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+}
-+
- static void rtl_hw_phy_config(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -3369,6 +3524,18 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 		rtl8411_hw_phy_config(tp);
- 		break;
- 
-+	case RTL_GIGA_MAC_VER_39:
-+		rtl8168g_1_hw_phy_config(tp);
-+		break;
-+
-+	case RTL_GIGA_MAC_VER_40:
-+		rtl8168g_2_hw_phy_config(tp);
-+		break;
-+
-+	case RTL_GIGA_MAC_VER_41:
-+		rtl8168ep_hw_phy_config(tp);
-+		break;
-+
- 	default:
- 		break;
- 	}
-@@ -3589,6 +3756,12 @@ static void __devinit rtl_init_mdio_ops(struct rtl8169_private *tp)
- 		ops->write	= r8168dp_2_mdio_write;
- 		ops->read	= r8168dp_2_mdio_read;
- 		break;
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
-+		ops->write	= r8168g_mdio_write;
-+		ops->read	= r8168g_mdio_read;
-+		break;
- 	default:
- 		ops->write	= r8169_mdio_write;
- 		ops->read	= r8169_mdio_read;
-@@ -3611,6 +3784,10 @@ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
- 		RTL_W32(RxConfig, RTL_R32(RxConfig) |
- 			AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
- 		break;
-+	// Is it ok for RTL_GIGA_MAC_VER_39..41 ?
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 	default:
- 		break;
- 	}
-@@ -3705,6 +3882,10 @@ static void r8168_phy_power_up(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_31:
- 		rtl_writephy(tp, 0x0e, 0x0000);
- 		break;
-+	// Is it ok for RTL_GIGA_MAC_VER_39..41 ?
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 	default:
- 		break;
- 	}
-@@ -3736,6 +3917,9 @@ static void r8168_phy_power_down(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_28:
- 	case RTL_GIGA_MAC_VER_31:
- 		rtl_writephy(tp, 0x0e, 0x0200);
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 	default:
- 		rtl_writephy(tp, MII_BMCR, BMCR_PDOWN);
- 		break;
-@@ -3855,6 +4039,9 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_35:
- 	case RTL_GIGA_MAC_VER_36:
- 	case RTL_GIGA_MAC_VER_38:
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 		ops->down	= r8168_pll_power_down;
- 		ops->up		= r8168_pll_power_up;
- 		break;
-@@ -3896,6 +4083,9 @@ static void rtl_init_rxcfg(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_24:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 	default:
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_DMA_BURST);
- 		break;
-@@ -4050,6 +4240,9 @@ static void __devinit rtl_init_jumbo_ops(struct rtl8169_private *tp)
- 	 * No action needed for jumbo frames with 8169.
- 	 * No jumbo for 810x at all.
- 	 */
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 	default:
- 		ops->disable	= NULL;
- 		ops->enable	= NULL;
-@@ -4142,7 +4335,10 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
- 	           tp->mac_version == RTL_GIGA_MAC_VER_35 ||
- 	           tp->mac_version == RTL_GIGA_MAC_VER_36 ||
- 	           tp->mac_version == RTL_GIGA_MAC_VER_37 ||
--	           tp->mac_version == RTL_GIGA_MAC_VER_38) {
-+	           tp->mac_version == RTL_GIGA_MAC_VER_38 ||
-+	           tp->mac_version == RTL_GIGA_MAC_VER_39 ||
-+	           tp->mac_version == RTL_GIGA_MAC_VER_40 ||
-+	           tp->mac_version == RTL_GIGA_MAC_VER_41) {
- 		RTL_W8(ChipCmd, RTL_R8(ChipCmd) | StopReq);
- 		while (!(RTL_R32(TxConfig) & TXCFG_EMPTY))
- 			udelay(100);
-@@ -4478,6 +4674,9 @@ static void __devinit rtl_init_csi_ops(struct rtl8169_private *tp)
- 		ops->read	= r8402_csi_read;
- 		break;
- 
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+	case RTL_GIGA_MAC_VER_41:
- 	default:
- 		ops->write	= r8169_csi_write;
- 		ops->read	= r8169_csi_read;
-@@ -4810,6 +5009,38 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
- 	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
- }
- 
-+static void rtl_hw_start_8168e_3(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	struct pci_dev *pdev = tp->pci_dev;
-+	static const struct ephy_info e_info_8168e_3[] = {
-+		{ 0x00, 0x0000, 0x10a3 },
-+		{ 0x06, 0x0000, 0xf030 },
-+		{ 0x08, 0x0000, 0x2006 },
-+		{ 0x0d, 0x0000, 0x1666 }
-+	};
-+
-+	rtl_csi_access_enable_1(tp);
-+
-+	rtl_ephy_init(ioaddr, e_info_8168e_3, ARRAY_SIZE(e_info_8168e_3));
-+
-+	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+
-+	rtl_eri_write(ioaddr, 0xc8, ERIAR_MASK_0001, 0x02, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xca, ERIAR_MASK_0001, 0x08, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xcc, ERIAR_MASK_0001, 0x2f, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xd0, ERIAR_MASK_0001, 0x5f, ERIAR_EXGMAC);
-+	rtl_eri_write(ioaddr, 0xe8, ERIAR_MASK_1111, 0x00100006, ERIAR_EXGMAC);
-+
-+	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x00, 0x01, ERIAR_EXGMAC);
-+	rtl_w1w0_eri(ioaddr, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
-+
-+	RTL_W8(MaxTxPacketSize, EarlySize);
-+
-+	/* Adjust EEE LED frequency */
-+	RTL_W8(EEE_LED, RTL_R8(EEE_LED) & ~0x07);
-+}
-+
- static void rtl_hw_start_8168f(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -4880,6 +5111,18 @@ static void rtl_hw_start_8411(struct rtl8169_private *tp)
- 		     ERIAR_EXGMAC);
- }
- 
-+static void rtl_hw_start_8168g(struct rtl8169_private *tp)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	struct pci_dev *pdev = tp->pci_dev;
-+	static const struct ephy_info e_info_8168g[] = {
-+		{ 0x00, 0xffff,	0x0000 },
-+		{ 0x00, 0xffff,	0x0000 }
-+	};
-+
-+	rtl_ephy_init(ioaddr, e_info_8168g, ARRAY_SIZE(e_info_8168g));
-+}
-+
- static void rtl_hw_start_8168(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -4981,6 +5224,15 @@ static void rtl_hw_start_8168(struct net_device *dev)
- 		rtl_hw_start_8411(tp);
- 		break;
- 
-+	case RTL_GIGA_MAC_VER_39:
-+	case RTL_GIGA_MAC_VER_40:
-+		rtl_hw_start_8168g(tp);
-+		break;
-+
-+	case RTL_GIGA_MAC_VER_41:
-+		rtl_hw_start_8168e_3(tp);
-+		break;
-+
- 	default:
- 		printk(KERN_ERR PFX "%s: unknown chipset (mac_version = %d).\n",
- 			dev->name, tp->mac_version);
-@@ -6335,7 +6587,8 @@ static void __devexit rtl_remove_one(struct pci_dev *pdev)
- 
- 	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
- 	    tp->mac_version == RTL_GIGA_MAC_VER_28 ||
--	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
-+	    tp->mac_version == RTL_GIGA_MAC_VER_31 ||
-+	    tp->mac_version == RTL_GIGA_MAC_VER_41) {
- 		rtl8168_driver_stop(tp);
- 	}
- 
-@@ -6651,7 +6904,8 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
- 	    tp->mac_version == RTL_GIGA_MAC_VER_28 ||
--	    tp->mac_version == RTL_GIGA_MAC_VER_31) {
-+	    tp->mac_version == RTL_GIGA_MAC_VER_31 ||
-+	    tp->mac_version == RTL_GIGA_MAC_VER_41) {
- 		rtl8168_driver_start(tp);
- 	}
- 
--- 
-1.7.10.2
+> >>---
+> >>  drivers/net/tun.c |  371 +++++++++++++++++++++++++++++++++--------------------
+> >>  1 files changed, 232 insertions(+), 139 deletions(-)
+> >>
+> >>diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> >>index 8233b0a..5c26757 100644
+> >>--- a/drivers/net/tun.c
+> >>+++ b/drivers/net/tun.c
+> >>@@ -107,6 +107,8 @@ struct tap_filter {
+> >>  	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
+> >>  };
+> >>
+> >>+#define MAX_TAP_QUEUES (NR_CPUS<  16 ? NR_CPUS : 16)
+> >Why the limit? I am guessing you copied this from macvtap?
+> >This is problematic for a number of reasons:
+> >	- will not play well with migration
+> >	- will not work well for a large guest
+> >
+> >Yes, macvtap needs to be fixed too.
+> >
+> >I am guessing what it is trying to prevent is queueing
+> >up a huge number of packets?
+> >So just divide the default tx queue limit by the # of queues.
+> >
+> >And by the way, for MQ applications maybe we can finally
+> >ignore tx queue altogether and limit the total number
+> >of bytes queued?
+> >To avoid regressions we can make it large like 64M/# queues.
+> >Could be a separate patch I think, and for a single queue
+> >might need a compatible mode though I am not sure.
+> >
+> >>+
+> >>  struct tun_file {
+> >>  	struct sock sk;
+> >>  	struct socket socket;
+> >>@@ -114,16 +116,18 @@ struct tun_file {
+> >>  	int vnet_hdr_sz;
+> >>  	struct tap_filter txflt;
+> >>  	atomic_t count;
+> >>-	struct tun_struct *tun;
+> >>+	struct tun_struct __rcu *tun;
+> >>  	struct net *net;
+> >>  	struct fasync_struct *fasync;
+> >>  	unsigned int flags;
+> >>+	u16 queue_index;
+> >>  };
+> >>
+> >>  struct tun_sock;
+> >>
+> >>  struct tun_struct {
+> >>-	struct tun_file		*tfile;
+> >>+	struct tun_file		*tfiles[MAX_TAP_QUEUES];
+> >>+	unsigned int            numqueues;
+> >>  	unsigned int 		flags;
+> >>  	uid_t			owner;
+> >>  	gid_t			group;
+> >>@@ -138,80 +142,159 @@ struct tun_struct {
+> >>  #endif
+> >>  };
+> >>
+> >>-static int tun_attach(struct tun_struct *tun, struct file *file)
+> >>+static DEFINE_SPINLOCK(tun_lock);
+> >>+
+> >>+/*
+> >>+ * tun_get_queue(): calculate the queue index
+> >>+ *     - if skbs comes from mq nics, we can just borrow
+> >>+ *     - if not, calculate from the hash
+> >>+ */
+> >>+static struct tun_file *tun_get_queue(struct net_device *dev,
+> >>+				      struct sk_buff *skb)
+> >>  {
+> >>-	struct tun_file *tfile = file->private_data;
+> >>-	int err;
+> >>+	struct tun_struct *tun = netdev_priv(dev);
+> >>+	struct tun_file *tfile = NULL;
+> >>+	int numqueues = tun->numqueues;
+> >>+	__u32 rxq;
+> >>
+> >>-	ASSERT_RTNL();
+> >>+	BUG_ON(!rcu_read_lock_held());
+> >>
+> >>-	netif_tx_lock_bh(tun->dev);
+> >>+	if (!numqueues)
+> >>+		goto out;
+> >>
+> >>-	err = -EINVAL;
+> >>-	if (tfile->tun)
+> >>+	if (numqueues == 1) {
+> >>+		tfile = rcu_dereference(tun->tfiles[0]);
+> >Instead of hacks like this, you can ask for an MQ
+> >flag to be set in SETIFF. Then you won't need to
+> >handle attach/detach at random times.
+> >And most of the scary num_queues checks can go away.
+> >You can then also ask userspace about the max # of queues
+> >to expect if you want to save some memory.
+> >
+> >
+> >>  		goto out;
+> >>+	}
+> >>
+> >>-	err = -EBUSY;
+> >>-	if (tun->tfile)
+> >>+	if (likely(skb_rx_queue_recorded(skb))) {
+> >>+		rxq = skb_get_rx_queue(skb);
+> >>+
+> >>+		while (unlikely(rxq>= numqueues))
+> >>+			rxq -= numqueues;
+> >>+
+> >>+		tfile = rcu_dereference(tun->tfiles[rxq]);
+> >>  		goto out;
+> >>+	}
+> >>
+> >>-	err = 0;
+> >>-	tfile->tun = tun;
+> >>-	tun->tfile = tfile;
+> >>-	netif_carrier_on(tun->dev);
+> >>-	dev_hold(tun->dev);
+> >>-	sock_hold(&tfile->sk);
+> >>-	atomic_inc(&tfile->count);
+> >>+	/* Check if we can use flow to select a queue */
+> >>+	rxq = skb_get_rxhash(skb);
+> >>+	if (rxq) {
+> >>+		u32 idx = ((u64)rxq * numqueues)>>  32;
+> >This completely confuses me. What's the logic here?
+> >How do we even know it's in range?
+> >
+> >>+		tfile = rcu_dereference(tun->tfiles[idx]);
+> >>+		goto out;
+> >>+	}
+> >>
+> >>+	tfile = rcu_dereference(tun->tfiles[0]);
+> >>  out:
+> >>-	netif_tx_unlock_bh(tun->dev);
+> >>-	return err;
+> >>+	return tfile;
+> >>  }
+> >>
+> >>-static void __tun_detach(struct tun_struct *tun)
+> >>+static int tun_detach(struct tun_file *tfile, bool clean)
+> >>  {
+> >>-	struct tun_file *tfile = tun->tfile;
+> >>-	/* Detach from net device */
+> >>-	netif_tx_lock_bh(tun->dev);
+> >>-	netif_carrier_off(tun->dev);
+> >>-	tun->tfile = NULL;
+> >>-	netif_tx_unlock_bh(tun->dev);
+> >>-
+> >>-	/* Drop read queue */
+> >>-	skb_queue_purge(&tfile->socket.sk->sk_receive_queue);
+> >>-
+> >>-	/* Drop the extra count on the net device */
+> >>-	dev_put(tun->dev);
+> >>-}
+> >>+	struct tun_struct *tun;
+> >>+	struct net_device *dev = NULL;
+> >>+	bool destroy = false;
+> >>
+> >>-static void tun_detach(struct tun_struct *tun)
+> >>-{
+> >>-	rtnl_lock();
+> >>-	__tun_detach(tun);
+> >>-	rtnl_unlock();
+> >>-}
+> >>+	spin_lock(&tun_lock);
+> >>
+> >>-static struct tun_struct *__tun_get(struct tun_file *tfile)
+> >>-{
+> >>-	struct tun_struct *tun = NULL;
+> >>+	tun = rcu_dereference_protected(tfile->tun,
+> >>+					lockdep_is_held(&tun_lock));
+> >>+	if (tun) {
+> >>+		u16 index = tfile->queue_index;
+> >>+		BUG_ON(index>= tun->numqueues);
+> >>+		dev = tun->dev;
+> >>+
+> >>+		rcu_assign_pointer(tun->tfiles[index],
+> >>+				   tun->tfiles[tun->numqueues - 1]);
+> >>+		tun->tfiles[index]->queue_index = index;
+> >>+		rcu_assign_pointer(tfile->tun, NULL);
+> >>+		--tun->numqueues;
+> >>+		sock_put(&tfile->sk);
+> >>
+> >>-	if (atomic_inc_not_zero(&tfile->count))
+> >>-		tun = tfile->tun;
+> >>+		if (tun->numqueues == 0&&  !(tun->flags&  TUN_PERSIST))
+> >>+			destroy = true;
+> >Please don't use flags like that. Use dedicated labels and goto there on error.
+> >
+> >
+> >>+	}
+> >>
+> >>-	return tun;
+> >>+	spin_unlock(&tun_lock);
+> >>+
+> >>+	synchronize_rcu();
+> >>+	if (clean)
+> >>+		sock_put(&tfile->sk);
+> >>+
+> >>+	if (destroy) {
+> >>+		rtnl_lock();
+> >>+		if (dev->reg_state == NETREG_REGISTERED)
+> >>+			unregister_netdevice(dev);
+> >>+		rtnl_unlock();
+> >>+	}
+> >>+
+> >>+	return 0;
+> >>  }
+> >>
+> >>-static struct tun_struct *tun_get(struct file *file)
+> >>+static void tun_detach_all(struct net_device *dev)
+> >>  {
+> >>-	return __tun_get(file->private_data);
+> >>+	struct tun_struct *tun = netdev_priv(dev);
+> >>+	struct tun_file *tfile, *tfile_list[MAX_TAP_QUEUES];
+> >>+	int i, j = 0;
+> >>+
+> >>+	spin_lock(&tun_lock);
+> >>+
+> >>+	for (i = 0; i<  MAX_TAP_QUEUES&&  tun->numqueues; i++) {
+> >>+		tfile = rcu_dereference_protected(tun->tfiles[i],
+> >>+						lockdep_is_held(&tun_lock));
+> >>+		BUG_ON(!tfile);
+> >>+		wake_up_all(&tfile->wq.wait);
+> >>+		tfile_list[j++] = tfile;
+> >>+		rcu_assign_pointer(tfile->tun, NULL);
+> >>+		--tun->numqueues;
+> >>+	}
+> >>+	BUG_ON(tun->numqueues != 0);
+> >>+	/* guarantee that any future tun_attach will fail */
+> >>+	tun->numqueues = MAX_TAP_QUEUES;
+> >>+	spin_unlock(&tun_lock);
+> >>+
+> >>+	synchronize_rcu();
+> >>+	for (--j; j>= 0; j--)
+> >>+		sock_put(&tfile_list[j]->sk);
+> >>  }
+> >>
+> >>-static void tun_put(struct tun_struct *tun)
+> >>+static int tun_attach(struct tun_struct *tun, struct file *file)
+> >>  {
+> >>-	struct tun_file *tfile = tun->tfile;
+> >>+	struct tun_file *tfile = file->private_data;
+> >>+	int err;
+> >>+
+> >>+	ASSERT_RTNL();
+> >>+
+> >>+	spin_lock(&tun_lock);
+> >>
+> >>-	if (atomic_dec_and_test(&tfile->count))
+> >>-		tun_detach(tfile->tun);
+> >>+	err = -EINVAL;
+> >>+	if (rcu_dereference_protected(tfile->tun, lockdep_is_held(&tun_lock)))
+> >>+		goto out;
+> >>+
+> >>+	err = -EBUSY;
+> >>+	if (!(tun->flags&  TUN_TAP_MQ)&&  tun->numqueues == 1)
+> >>+		goto out;
+> >>+
+> >>+	if (tun->numqueues == MAX_TAP_QUEUES)
+> >>+		goto out;
+> >>+
+> >>+	err = 0;
+> >>+	tfile->queue_index = tun->numqueues;
+> >>+	rcu_assign_pointer(tfile->tun, tun);
+> >>+	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
+> >>+	sock_hold(&tfile->sk);
+> >>+	tun->numqueues++;
+> >>+
+> >>+	if (tun->numqueues == 1)
+> >>+		netif_carrier_on(tun->dev);
+> >>+
+> >>+	/* device is allowed to go away first, so no need to hold extra
+> >>+	 * refcnt. */
+> >>+
+> >>+out:
+> >>+	spin_unlock(&tun_lock);
+> >>+	return err;
+> >>  }
+> >>
+> >>  /* TAP filtering */
+> >>@@ -331,16 +414,7 @@ static const struct ethtool_ops tun_ethtool_ops;
+> >>  /* Net device detach from fd. */
+> >>  static void tun_net_uninit(struct net_device *dev)
+> >>  {
+> >>-	struct tun_struct *tun = netdev_priv(dev);
+> >>-	struct tun_file *tfile = tun->tfile;
+> >>-
+> >>-	/* Inform the methods they need to stop using the dev.
+> >>-	 */
+> >>-	if (tfile) {
+> >>-		wake_up_all(&tfile->wq.wait);
+> >>-		if (atomic_dec_and_test(&tfile->count))
+> >>-			__tun_detach(tun);
+> >>-	}
+> >>+	tun_detach_all(dev);
+> >>  }
+> >>
+> >>  /* Net device open. */
+> >>@@ -360,10 +434,10 @@ static int tun_net_close(struct net_device *dev)
+> >>  /* Net device start xmit */
+> >>  static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+> >>  {
+> >>-	struct tun_struct *tun = netdev_priv(dev);
+> >>-	struct tun_file *tfile = tun->tfile;
+> >>+	struct tun_file *tfile = NULL;
+> >>
+> >>-	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
+> >>+	rcu_read_lock();
+> >>+	tfile = tun_get_queue(dev, skb);
+> >>
+> >>  	/* Drop packet if interface is not attached */
+> >>  	if (!tfile)
+> >>@@ -381,7 +455,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+> >>
+> >>  	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+> >>  	>= dev->tx_queue_len) {
+> >>-		if (!(tun->flags&  TUN_ONE_QUEUE)) {
+> >>+		if (!(tfile->flags&  TUN_ONE_QUEUE)&&
+> >Which patch moved flags from tun to tfile?
+> >
+> >>+		    !(tfile->flags&  TUN_TAP_MQ)) {
+> >>  			/* Normal queueing mode. */
+> >>  			/* Packet scheduler handles dropping of further packets. */
+> >>  			netif_stop_queue(dev);
+> >>@@ -390,7 +465,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+> >>  			 * error is more appropriate. */
+> >>  			dev->stats.tx_fifo_errors++;
+> >>  		} else {
+> >>-			/* Single queue mode.
+> >>+			/* Single queue mode or multi queue mode.
+> >>  			 * Driver handles dropping of all packets itself. */
+> >Please don't do this. Stop the queue on overrun as appropriate.
+> >ONE_QUEUE is a legacy hack.
+> >
+> >BTW we really should stop queue before we start dropping packets,
+> >but that can be a separate patch.
+> >
+> >>  			goto drop;
+> >>  		}
+> >>@@ -408,9 +483,11 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+> >>  		kill_fasync(&tfile->fasync, SIGIO, POLL_IN);
+> >>  	wake_up_interruptible_poll(&tfile->wq.wait, POLLIN |
+> >>  				   POLLRDNORM | POLLRDBAND);
+> >>+	rcu_read_unlock();
+> >>  	return NETDEV_TX_OK;
+> >>
+> >>  drop:
+> >>+	rcu_read_unlock();
+> >>  	dev->stats.tx_dropped++;
+> >>  	kfree_skb(skb);
+> >>  	return NETDEV_TX_OK;
+> >>@@ -527,16 +604,22 @@ static void tun_net_init(struct net_device *dev)
+> >>  static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+> >>  {
+> >>  	struct tun_file *tfile = file->private_data;
+> >>-	struct tun_struct *tun = __tun_get(tfile);
+> >>+	struct tun_struct *tun = NULL;
+> >>  	struct sock *sk;
+> >>  	unsigned int mask = 0;
+> >>
+> >>-	if (!tun)
+> >>+	if (!tfile)
+> >>  		return POLLERR;
+> >>
+> >>-	sk = tfile->socket.sk;
+> >>+	rcu_read_lock();
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>+	if (!tun) {
+> >>+		rcu_read_unlock();
+> >>+		return POLLERR;
+> >>+	}
+> >>+	rcu_read_unlock();
+> >>
+> >>-	tun_debug(KERN_INFO, tun, "tun_chr_poll\n");
+> >>+	sk =&tfile->sk;
+> >>
+> >>  	poll_wait(file,&tfile->wq.wait, wait);
+> >>
+> >>@@ -548,10 +631,12 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+> >>  	     sock_writeable(sk)))
+> >>  		mask |= POLLOUT | POLLWRNORM;
+> >>
+> >>-	if (tun->dev->reg_state != NETREG_REGISTERED)
+> >>+	rcu_read_lock();
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>+	if (!tun || tun->dev->reg_state != NETREG_REGISTERED)
+> >>  		mask = POLLERR;
+> >>+	rcu_read_unlock();
+> >>
+> >>-	tun_put(tun);
+> >>  	return mask;
+> >>  }
+> >>
+> >>@@ -708,9 +793,12 @@ static ssize_t tun_get_user(struct tun_file *tfile,
+> >>  		skb_shinfo(skb)->gso_segs = 0;
+> >>  	}
+> >>
+> >>-	tun = __tun_get(tfile);
+> >>-	if (!tun)
+> >>+	rcu_read_lock();
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>+	if (!tun) {
+> >>+		rcu_read_unlock();
+> >>  		return -EBADFD;
+> >>+	}
+> >>
+> >>  	switch (tfile->flags&  TUN_TYPE_MASK) {
+> >>  	case TUN_TUN_DEV:
+> >>@@ -720,26 +808,30 @@ static ssize_t tun_get_user(struct tun_file *tfile,
+> >>  		skb->protocol = eth_type_trans(skb, tun->dev);
+> >>  		break;
+> >>  	}
+> >>-
+> >>-	netif_rx_ni(skb);
+> >>  	tun->dev->stats.rx_packets++;
+> >>  	tun->dev->stats.rx_bytes += len;
+> >>-	tun_put(tun);
+> >>+	rcu_read_unlock();
+> >>+
+> >>+	netif_rx_ni(skb);
+> >>+
+> >>  	return count;
+> >>
+> >>  err_free:
+> >>  	count = -EINVAL;
+> >>  	kfree_skb(skb);
+> >>  err:
+> >>-	tun = __tun_get(tfile);
+> >>-	if (!tun)
+> >>+	rcu_read_lock();
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>+	if (!tun) {
+> >>+		rcu_read_unlock();
+> >>  		return -EBADFD;
+> >>+	}
+> >>
+> >>  	if (drop)
+> >>  		tun->dev->stats.rx_dropped++;
+> >>  	if (error)
+> >>  		tun->dev->stats.rx_frame_errors++;
+> >>-	tun_put(tun);
+> >>+	rcu_read_unlock();
+> >>  	return count;
+> >>  }
+> >>
+> >>@@ -833,12 +925,13 @@ static ssize_t tun_put_user(struct tun_file *tfile,
+> >>  	skb_copy_datagram_const_iovec(skb, 0, iv, total, len);
+> >>  	total += skb->len;
+> >>
+> >>-	tun = __tun_get(tfile);
+> >>+	rcu_read_lock();
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>  	if (tun) {
+> >>  		tun->dev->stats.tx_packets++;
+> >>  		tun->dev->stats.tx_bytes += len;
+> >>-		tun_put(tun);
+> >>  	}
+> >>+	rcu_read_unlock();
+> >>
+> >>  	return total;
+> >>  }
+> >>@@ -869,28 +962,31 @@ static ssize_t tun_do_read(struct tun_file *tfile,
+> >>  				break;
+> >>  			}
+> >>
+> >>-			tun = __tun_get(tfile);
+> >>+			rcu_read_lock();
+> >>+			tun = rcu_dereference(tfile->tun);
+> >>  			if (!tun) {
+> >>-				ret = -EIO;
+> >>+				ret = -EBADFD;
+> >BADFD is for when you get passed something like -1 fd.
+> >Here fd is OK, it's just in a bad state so you can not do IO.
+> >
+> >
+> >>+				rcu_read_unlock();
+> >>  				break;
+> >>  			}
+> >>  			if (tun->dev->reg_state != NETREG_REGISTERED) {
+> >>  				ret = -EIO;
+> >>-				tun_put(tun);
+> >>+				rcu_read_unlock();
+> >>  				break;
+> >>  			}
+> >>-			tun_put(tun);
+> >>+			rcu_read_unlock();
+> >>
+> >>  			/* Nothing to read, let's sleep */
+> >>  			schedule();
+> >>  			continue;
+> >>  		}
+> >>
+> >>-		tun = __tun_get(tfile);
+> >>+		rcu_read_lock();
+> >>+		tun = rcu_dereference(tfile->tun);
+> >>  		if (tun) {
+> >>  			netif_wake_queue(tun->dev);
+> >>-			tun_put(tun);
+> >>  		}
+> >>+		rcu_read_unlock();
+> >>
+> >>  		ret = tun_put_user(tfile, skb, iv, len);
+> >>  		kfree_skb(skb);
+> >>@@ -1038,6 +1134,9 @@ static int tun_flags(struct tun_struct *tun)
+> >>  	if (tun->flags&  TUN_VNET_HDR)
+> >>  		flags |= IFF_VNET_HDR;
+> >>
+> >>+	if (tun->flags&  TUN_TAP_MQ)
+> >>+		flags |= IFF_MULTI_QUEUE;
+> >>+
+> >>  	return flags;
+> >>  }
+> >>
+> >>@@ -1097,8 +1196,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>  		err = tun_attach(tun, file);
+> >>  		if (err<  0)
+> >>  			return err;
+> >>-	}
+> >>-	else {
+> >>+	} else {
+> >>  		char *name;
+> >>  		unsigned long flags = 0;
+> >>
+> >>@@ -1142,6 +1240,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>  		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+> >>  			TUN_USER_FEATURES;
+> >>  		dev->features = dev->hw_features;
+> >>+		if (ifr->ifr_flags&  IFF_MULTI_QUEUE)
+> >>+			dev->features |= NETIF_F_LLTX;
+> >>
+> >>  		err = register_netdevice(tun->dev);
+> >>  		if (err<  0)
+> >>@@ -1154,7 +1254,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>
+> >>  		err = tun_attach(tun, file);
+> >>  		if (err<  0)
+> >>-			goto failed;
+> >>+			goto err_free_dev;
+> >>  	}
+> >>
+> >>  	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
+> >>@@ -1174,6 +1274,11 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>  	else
+> >>  		tun->flags&= ~TUN_VNET_HDR;
+> >>
+> >>+	if (ifr->ifr_flags&  IFF_MULTI_QUEUE)
+> >>+		tun->flags |= TUN_TAP_MQ;
+> >>+	else
+> >>+		tun->flags&= ~TUN_TAP_MQ;
+> >>+
+> >>  	/* Cache flags from tun device */
+> >>  	tfile->flags = tun->flags;
+> >>  	/* Make sure persistent devices do not get stuck in
+> >>@@ -1187,7 +1292,6 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>
+> >>  err_free_dev:
+> >>  	free_netdev(dev);
+> >>-failed:
+> >>  	return err;
+> >>  }
+> >>
+> >>@@ -1264,38 +1368,40 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+> >>  				(unsigned int __user*)argp);
+> >>  	}
+> >>
+> >>-	rtnl_lock();
+> >>-
+> >>-	tun = __tun_get(tfile);
+> >>-	if (cmd == TUNSETIFF&&  !tun) {
+> >>+	ret = 0;
+> >>+	if (cmd == TUNSETIFF) {
+> >>+		rtnl_lock();
+> >>  		ifr.ifr_name[IFNAMSIZ-1] = '\0';
+> >>-
+> >>  		ret = tun_set_iff(tfile->net, file,&ifr);
+> >>-
+> >>+		rtnl_unlock();
+> >>  		if (ret)
+> >>-			goto unlock;
+> >>-
+> >>+			return ret;
+> >>  		if (copy_to_user(argp,&ifr, ifreq_len))
+> >>-			ret = -EFAULT;
+> >>-		goto unlock;
+> >>+			return -EFAULT;
+> >>+		return ret;
+> >>  	}
+> >>
+> >>+	rtnl_lock();
+> >>+
+> >>+	rcu_read_lock();
+> >>+
+> >>  	ret = -EBADFD;
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>  	if (!tun)
+> >>  		goto unlock;
+> >>+	else
+> >>+		ret = 0;
+> >>
+> >>-	tun_debug(KERN_INFO, tun, "tun_chr_ioctl cmd %d\n", cmd);
+> >>-
+> >>-	ret = 0;
+> >>  	switch (cmd) {
+> >>  	case TUNGETIFF:
+> >>  		ret = tun_get_iff(current->nsproxy->net_ns, tun,&ifr);
+> >>+		rcu_read_unlock();
+> >>  		if (ret)
+> >>-			break;
+> >>+			goto out;
+> >>
+> >>  		if (copy_to_user(argp,&ifr, ifreq_len))
+> >>  			ret = -EFAULT;
+> >>-		break;
+> >>+		goto out;
+> >>
+> >>  	case TUNSETNOCSUM:
+> >>  		/* Disable/Enable checksum */
+> >>@@ -1357,9 +1463,10 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+> >>  		/* Get hw address */
+> >>  		memcpy(ifr.ifr_hwaddr.sa_data, tun->dev->dev_addr, ETH_ALEN);
+> >>  		ifr.ifr_hwaddr.sa_family = tun->dev->type;
+> >>+		rcu_read_unlock();
+> >>  		if (copy_to_user(argp,&ifr, ifreq_len))
+> >>  			ret = -EFAULT;
+> >>-		break;
+> >>+		goto out;
+> >>
+> >>  	case SIOCSIFHWADDR:
+> >>  		/* Set hw address */
+> >>@@ -1375,9 +1482,9 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+> >>  	}
+> >>
+> >>  unlock:
+> >>+	rcu_read_unlock();
+> >>+out:
+> >>  	rtnl_unlock();
+> >>-	if (tun)
+> >>-		tun_put(tun);
+> >>  	return ret;
+> >>  }
+> >>
+> >>@@ -1517,6 +1624,11 @@ out:
+> >>  	return ret;
+> >>  }
+> >>
+> >>+static void tun_sock_destruct(struct sock *sk)
+> >>+{
+> >>+	skb_queue_purge(&sk->sk_receive_queue);
+> >>+}
+> >>+
+> >>  static int tun_chr_open(struct inode *inode, struct file * file)
+> >>  {
+> >>  	struct net *net = current->nsproxy->net_ns;
+> >>@@ -1540,6 +1652,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+> >>  	sock_init_data(&tfile->socket,&tfile->sk);
+> >>
+> >>  	tfile->sk.sk_write_space = tun_sock_write_space;
+> >>+	tfile->sk.sk_destruct = tun_sock_destruct;
+> >>  	tfile->sk.sk_sndbuf = INT_MAX;
+> >>  	file->private_data = tfile;
+> >>
+> >>@@ -1549,31 +1662,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+> >>  static int tun_chr_close(struct inode *inode, struct file *file)
+> >>  {
+> >>  	struct tun_file *tfile = file->private_data;
+> >>-	struct tun_struct *tun;
+> >>-
+> >>-	tun = __tun_get(tfile);
+> >>-	if (tun) {
+> >>-		struct net_device *dev = tun->dev;
+> >>-
+> >>-		tun_debug(KERN_INFO, tun, "tun_chr_close\n");
+> >>-
+> >>-		__tun_detach(tun);
+> >>-
+> >>-		/* If desirable, unregister the netdevice. */
+> >>-		if (!(tun->flags&  TUN_PERSIST)) {
+> >>-			rtnl_lock();
+> >>-			if (dev->reg_state == NETREG_REGISTERED)
+> >>-				unregister_netdevice(dev);
+> >>-			rtnl_unlock();
+> >>-		}
+> >>
+> >>-		/* drop the reference that netdevice holds */
+> >>-		sock_put(&tfile->sk);
+> >>-
+> >>-	}
+> >>-
+> >>-	/* drop the reference that file holds */
+> >>-	sock_put(&tfile->sk);
+> >>+	tun_detach(tfile, true);
+> >>
+> >>  	return 0;
+> >>  }
+> >>@@ -1700,14 +1790,17 @@ static void tun_cleanup(void)
+> >>   * holding a reference to the file for as long as the socket is in use. */
+> >>  struct socket *tun_get_socket(struct file *file)
+> >>  {
+> >>-	struct tun_struct *tun;
+> >>+	struct tun_struct *tun = NULL;
+> >>  	struct tun_file *tfile = file->private_data;
+> >>  	if (file->f_op !=&tun_fops)
+> >>  		return ERR_PTR(-EINVAL);
+> >>-	tun = tun_get(file);
+> >>-	if (!tun)
+> >>+	rcu_read_lock();
+> >>+	tun = rcu_dereference(tfile->tun);
+> >>+	if (!tun) {
+> >>+		rcu_read_unlock();
+> >>  		return ERR_PTR(-EBADFD);
+> >>-	tun_put(tun);
+> >>+	}
+> >>+	rcu_read_unlock();
+> >>  	return&tfile->socket;
+> >>  }
+> >>  EXPORT_SYMBOL_GPL(tun_get_socket);
