@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: RxConfig hack for the 8168evl.
-Date: Tue, 26 Jun 2012 16:41:18 -0700 (PDT)
-Message-ID: <20120626.164118.924203209791240399.davem@davemloft.net>
-References: <20120620220918.GA2785@electric-eye.fr.zoreil.com>
-	<DB5F775AE8124DDDAE4E1501A78AF7A3@realtek.com.tw>
-	<20120626092251.GA1854@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] net: l2tp_eth: use LLTX to avoid LOCKDEP splats
+Date: Tue, 26 Jun 2012 16:43:06 -0700 (PDT)
+Message-ID: <20120626.164306.246094482304140679.davem@davemloft.net>
+References: <7ed49f446365ac625437702d92946add@visp.net.lb>
+	<1340638545.10893.70.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org, thomas.pi@arcor.de
-To: romieu@fr.zoreil.com
+Cc: denys@visp.net.lb, netdev@vger.kernel.org, honkiko@gmail.com,
+	jchapman@katalix.com, romieu@fr.zoreil.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37786 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37807 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221Ab2FZXlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 19:41:19 -0400
-In-Reply-To: <20120626092251.GA1854@electric-eye.fr.zoreil.com>
+	with ESMTP id S1754213Ab2FZXnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 19:43:07 -0400
+In-Reply-To: <1340638545.10893.70.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 26 Jun 2012 11:22:51 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 25 Jun 2012 17:35:45 +0200
 
-> hayeswang <hayeswang@realtek.com> :
-> [...]
->> The definition of the IO 0x44 bit 14 is opposite for new chips.
->> For 8111C, 0 means fetching one Rx descriptor, and 1 means fetching
->> multi-descriptors.
->> For 8111D and the later chips, 0 means fetching multi-descriptors, and 1 means
->> fetching one Rx descriptor.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Ok. Is there much point fetching one Rx descriptor versus several ?
+> Denys Fedoryshchenko reported a LOCKDEP issue with l2tp code.
+ ...
+> It appears that like most virtual devices, l2tp should be converted to
+> LLTX mode.
+> 
+> This patch takes care of statistics using atomic_long in both RX and TX
+> paths, and fix a bug in l2tp_eth_dev_recv(), which was caching skb->data
+> before a pskb_may_pull() call.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Denys Fedoryshchenko <denys@visp.net.lb>
+> Cc: James Chapman <jchapman@katalix.com>
+> Cc: Hong zhi guo <honkiko@gmail.com>
+> Cc: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+> Should be applied after "net: l2tp_eth: fix l2tp_eth_dev_xmit race"
 
-It can help if the chip accesses enough at a time to fill a full cache
-line.
-
-In drivers I've written for chips that can do this, I've had the code
-only post RX descriptors in chunks rather than one at a time, to
-facilitate this even further.
+Applied, thanks Eric.
