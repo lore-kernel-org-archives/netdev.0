@@ -1,80 +1,48 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 0/2] flexcan driver updates
-Date: Tue, 26 Jun 2012 18:55:29 +0200
-Message-ID: <4FE9E981.2080402@hartkopp.net>
-References: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
+Date: Tue, 26 Jun 2012 19:02:36 +0200
+Message-ID: <1340730156.10893.359.camel@edumazet-glaptop>
+References: <1340440962.17495.39.camel@edumazet-glaptop>
+	 <1340686296.10893.115.camel@edumazet-glaptop>
+	 <20120625.215537.169465424900682764.davem@davemloft.net>
+	 <201206260734.33472.hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@linaro.org>
+Cc: David Miller <davem@davemloft.net>,
+	"subramanian.vijay@gmail.com" <subramanian.vijay@gmail.com>,
+	"dave.taht@gmail.com" <dave.taht@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ncardwell@google.com" <ncardwell@google.com>,
+	"therbert@google.com" <therbert@google.com>,
+	"brouer@redhat.com" <brouer@redhat.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:48446 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758511Ab2FZQzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 12:55:36 -0400
-In-Reply-To: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46383 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758742Ab2FZRCm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 13:02:42 -0400
+Received: by bkcji2 with SMTP id ji2so147176bkc.19
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 10:02:41 -0700 (PDT)
+In-Reply-To: <201206260734.33472.hans.schillstrom@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26.06.2012 10:49, Shawn Guo wrote:
+On Tue, 2012-06-26 at 07:34 +0200, Hans Schillstrom wrote:
 
-> Here are a couple of flexcan driver/bindings updates, which are meant
-> to get the driver more device tree friendly.
-> 
-> Shawn Guo (2):
->   net: flexcan: clock-frequency is optional for device tree probe
->   net: flexcan: add transceiver switch gpio support
-> 
->  .../devicetree/bindings/net/can/fsl-flexcan.txt    |    6 ++++
->  drivers/net/can/flexcan.c                          |   30 ++++++++++++++++++++
->  2 files changed, 36 insertions(+), 0 deletions(-)
-> 
+> This patch didn't give much in gain actually.
 
+With a 100Mbps link it does.
 
-Sorry Shawn, but your posting is pretty misplaced ...
+With a 1Gbps link we are cpu bounded for sure.
 
-Please check for the maintainers and mailing lists in the MAINTAINERS file
-that match your suggested changes:
+> The big cycle consumer during a syn attack is SHA sum right now, 
+> so from that perspective it's better to add aes crypto (by using AES-NI) 
+> to the syn cookies instead of SHA sum. Even if only newer x86_64 can use it.
 
-Documentation/devicetree/bindings/net/can/fsl-flexcan.txt =>
+My dev machine is able to process ~280.000 SYN (and synack) per second
+(tg3, mono queue), and sha_transform() takes ~10 % of the time according
+to perf.
 
-OPEN FIRMWARE AND FLATTENED DEVICE TREE
-M:	Grant Likely <grant.likely@secretlab.ca>
-M:	Rob Herring <rob.herring@calxeda.com>
-L:	devicetree-discuss@lists.ozlabs.org (moderated for non-subscribers)
-W:	http://fdt.secretlab.ca
-T:	git git://git.secretlab.ca/git/linux-2.6.git
-S:	Maintained
-F:	Documentation/devicetree		<<<<<------------- !!!
-F:	drivers/of
-F:	include/linux/of*.h
-K:	of_get_property
-K:	of_match_table
-
-
-drivers/net/can/flexcan.c =>
-
-CAN NETWORK DRIVERS
-M:	Wolfgang Grandegger <wg@grandegger.com>
-M:	Marc Kleine-Budde <mkl@pengutronix.de>
-L:	linux-can@vger.kernel.org
-W:	http://gitorious.org/linux-can
-T:	git git://gitorious.org/linux-can/linux-can-next.git
-S:	Maintained
-F:	drivers/net/can/			<<<<<------------- !!!
-F:	include/linux/can/dev.h
-F:	include/linux/can/error.h
-F:	include/linux/can/netlink.h
-F:	include/linux/can/platform/
-
-So please post your suggested changes for the flexcan driver on the mailing
-lists linux-can@vger.kernel.org and devicetree-discuss@lists.ozlabs.org
-
-Once the changes are discussed and accepted they can be pulled by Dave Miller
-from the CAN development git repository into the networking tree.
-
-Thanks,
-Oliver
+With David patch using jhash instead of SHA, I reach ~315.000 SYN per
+second.
