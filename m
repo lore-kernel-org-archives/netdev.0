@@ -1,65 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-Date: Tue, 26 Jun 2012 21:23:44 +0100
-Message-ID: <1340742224.2644.1.camel@bwh-desktop.uk.solarflarecom.com>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Tue, 26 Jun 2012 20:25:21 +0000
+Message-ID: <157393863283F442885425D2C454285623DB4982@NASANEXD02A.na.qualcomm.com>
 References: <1340724786-3819-1-git-send-email-cjren@qca.qualcomm.com>
+ <1340742224.2644.1.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <qca-linux-team@qualcomm.com>,
-	<nic-devel@qualcomm.com>, xiong <xiong@qca.qualcomm.com>
-To: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56950 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751554Ab2FZUXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 16:23:51 -0400
-In-Reply-To: <1340724786-3819-1-git-send-email-cjren@qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Ren, Cloud" <cjren@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340742224.2644.1.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-06-26 at 12:33 -0300, Ren, Cloud wrote:
-> From: xiong <xiong@qca.qualcomm.com>
-> 
-> some people report atl1c could cause system hang with following
-> kernel trace info:
-> ---------------------------------------
-> WARNING: at.../net/sched/sch_generic.c:258
-> dev_watchdog+0x1db/0x1d0()
-> ...
-> NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-> ...
-> ---------------------------------------
-> This is caused by netif_stop_queue calling when cable Link is down
-> but netif_wake_queue isn't called when cable Link is resume.
-> 
-> Signed-off-by: xiong <xiong@qca.qualcomm.com>
-> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
-> ---
->  drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 85717cb..c2736c4 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -351,6 +351,8 @@ static void atl1c_common_task(struct work_struct *work)
->  		atl1c_irq_disable(adapter);
->  		atl1c_check_link_status(adapter);
->  		atl1c_irq_enable(adapter);
-> +		if (netif_queue_stopped(netdev) && netif_carrier_ok(netdev))
-> +			netif_wake_queue(netdev);
->  	}
->  }
->  
-
-Why explicitly stop/start the queue when the link changes?  That's what
-link_watch is for.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+WWVzLCBhbm90aGVyIGZpeCB0byByZW1vdmUgbmV0aWZfc3RvcF9xdWV1ZSB3aGVuIGNhYmxlIGxp
+bmsgaXMgZG93bi4NCg0KLVhpb25nDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+
+IFNlbnQ6IFdlZG5lc2RheSwgSnVuZSAyNywgMjAxMiA0OjI0DQo+IFRvOiBSZW4sIENsb3VkDQo+
+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0N
+Cj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgcWNhLWxpbnV4LXRlYW07IG5pYy1kZXZlbDsgSHVh
+bmcsIFhpb25nDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8xXSBhdGwxYzogZml4IGlzc3VlIG9m
+IHRyYW5zbWl0IHF1ZXVlIDAgdGltZWQgb3V0DQo+IA0KPiBPbiBUdWUsIDIwMTItMDYtMjYgYXQg
+MTI6MzMgLTAzMDAsIFJlbiwgQ2xvdWQgd3JvdGU6DQo+ID4gRnJvbTogeGlvbmcgPHhpb25nQHFj
+YS5xdWFsY29tbS5jb20+DQo+ID4NCj4gPiBzb21lIHBlb3BsZSByZXBvcnQgYXRsMWMgY291bGQg
+Y2F1c2Ugc3lzdGVtIGhhbmcgd2l0aCBmb2xsb3dpbmcga2VybmVsDQo+ID4gdHJhY2UgaW5mbzoN
+Cj4gPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gPiBXQVJOSU5H
+OiBhdC4uLi9uZXQvc2NoZWQvc2NoX2dlbmVyaWMuYzoyNTgNCj4gPiBkZXZfd2F0Y2hkb2crMHgx
+ZGIvMHgxZDAoKQ0KPiA+IC4uLg0KPiA+IE5FVERFViBXQVRDSERPRzogZXRoMCAoYXRsMWMpOiB0
+cmFuc21pdCBxdWV1ZSAwIHRpbWVkIG91dCAuLi4NCj4gPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0NCj4gPiBUaGlzIGlzIGNhdXNlZCBieSBuZXRpZl9zdG9wX3F1ZXVl
+IGNhbGxpbmcgd2hlbiBjYWJsZSBMaW5rIGlzIGRvd24gYnV0DQo+ID4gbmV0aWZfd2FrZV9xdWV1
+ZSBpc24ndCBjYWxsZWQgd2hlbiBjYWJsZSBMaW5rIGlzIHJlc3VtZS4NCj4gPg0KPiA+IFNpZ25l
+ZC1vZmYtYnk6IHhpb25nIDx4aW9uZ0BxY2EucXVhbGNvbW0uY29tPg0KPiA+IFNpZ25lZC1vZmYt
+Ynk6IENsb3VkIFJlbiA8Y2pyZW5AcWNhLnF1YWxjb21tLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19tYWluLmMgfCAgICAyICsrDQo+
+ID4gIDEgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQ0KPiA+
+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0aGVyb3MvYXRsMWMvYXRs
+MWNfbWFpbi5jDQo+ID4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9hdGhlcm9zL2F0bDFjL2F0bDFj
+X21haW4uYw0KPiA+IGluZGV4IDg1NzE3Y2IuLmMyNzM2YzQgMTAwNjQ0DQo+ID4gLS0tIGEvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19tYWluLmMNCj4gPiArKysgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9hdGhlcm9zL2F0bDFjL2F0bDFjX21haW4uYw0KPiA+IEBAIC0z
+NTEsNiArMzUxLDggQEAgc3RhdGljIHZvaWQgYXRsMWNfY29tbW9uX3Rhc2soc3RydWN0IHdvcmtf
+c3RydWN0DQo+ICp3b3JrKQ0KPiA+ICAJCWF0bDFjX2lycV9kaXNhYmxlKGFkYXB0ZXIpOw0KPiA+
+ICAJCWF0bDFjX2NoZWNrX2xpbmtfc3RhdHVzKGFkYXB0ZXIpOw0KPiA+ICAJCWF0bDFjX2lycV9l
+bmFibGUoYWRhcHRlcik7DQo+ID4gKwkJaWYgKG5ldGlmX3F1ZXVlX3N0b3BwZWQobmV0ZGV2KSAm
+JiBuZXRpZl9jYXJyaWVyX29rKG5ldGRldikpDQo+ID4gKwkJCW5ldGlmX3dha2VfcXVldWUobmV0
+ZGV2KTsNCj4gPiAgCX0NCj4gPiAgfQ0KPiA+DQo+IA0KPiBXaHkgZXhwbGljaXRseSBzdG9wL3N0
+YXJ0IHRoZSBxdWV1ZSB3aGVuIHRoZSBsaW5rIGNoYW5nZXM/ICBUaGF0J3Mgd2hhdA0KPiBsaW5r
+X3dhdGNoIGlzIGZvci4NCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0
+YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRo
+YXQncw0KPiB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMg
+dG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoN
+Cg==
