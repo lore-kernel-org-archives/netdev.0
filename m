@@ -1,60 +1,90 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: [PATCH 1/1] use USER_DS in vhost_worker thread
-Date: Tue, 26 Jun 2012 12:59:58 +0200
-Message-ID: <1340708398-17965-2-git-send-email-borntraeger@de.ibm.com>
-References: <1340708398-17965-1-git-send-email-borntraeger@de.ibm.com>
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	Jens Freimann <jfrei@linux.vnet.ibm.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [RFC net-next (v2) 12/14] ixgbe: set maximal number of
+ default RSS queues
+Date: Tue, 26 Jun 2012 14:08:44 +0300
+Message-ID: <4FE9983C.2060006@broadcom.com>
+References: <1340624745-8650-1-git-send-email-yuvalmin@broadcom.com>
+ <1340624745-8650-13-git-send-email-yuvalmin@broadcom.com>
+ <4FE88770.7070007@intel.com>
+ <1340646818.2486.27.camel@lb-tlvb-eilong.il.broadcom.com>
+ <4FE8B019.4030807@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	"John Fastabend" <john.r.fastabend@intel.com>
+To: "Alexander Duyck" <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:50019 "EHLO
-	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512Ab2FZLAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 07:00:08 -0400
-Received: from /spool/local
-	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <borntraeger@de.ibm.com>;
-	Tue, 26 Jun 2012 12:00:06 +0100
-In-Reply-To: <1340708398-17965-1-git-send-email-borntraeger@de.ibm.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3214 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753814Ab2FZLKa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 07:10:30 -0400
+In-Reply-To: <4FE8B019.4030807@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jens Freimann <jfrei@linux.vnet.ibm.com>
 
-On some architectures address spaces are set up in a way that this is
-not necessary to work properly but on some others (like s390) it is.
-Make sure we operate on the user address space to allow copy_xxx_user()
-from the vhost_worker() thread by setting it explicitly before calling
-use_mm() and revert it after unuse_mm().
+>> How about this:
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+>> index af1a531..23a8609 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+>> @@ -277,6 +277,8 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+>>  	bool ret = false;
+>>  	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_RSS];
+>>  
+>> +	f->indices = min_t(int, netif_get_num_default_rss_queues(), f->indices);
+>> +
+>>  	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+>>  		f->mask = 0xF;
+>>  		adapter->num_rx_queues = f->indices;
+>> @@ -302,7 +304,9 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
+>>  	bool ret = false;
+>>  	struct ixgbe_ring_feature *f_fdir = &adapter->ring_feature[RING_F_FDIR];
+>>  
+>> -	f_fdir->indices = min_t(int, num_online_cpus(), f_fdir->indices);
+>> +	f_fdir->indices = min_t(int, netif_get_num_default_rss_queues(),
+>> +				f_fdir->indices);
+>> +
+>>  	f_fdir->mask = 0;
+>>  
+>>  	/*
+>> @@ -339,8 +343,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+>>  	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+>>  		return false;
+>>  
+>> -	f->indices = min_t(int, num_online_cpus(), f->indices);
+>> -
+>> +	f->indices = min_t(int, f->indices, netif_get_num_default_rss_queues());
+>>  	adapter->num_rx_queues = 1;
+>>  	adapter->num_tx_queues = 1;
+>>
+> This makes much more sense, but still needs a few minor changes.
 
-Signed-off-by: Jens Freimann <jfrei@linux.vnet.ibm.com>
-Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
----
- drivers/vhost/vhost.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 94dbd25..112156f 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -191,7 +191,9 @@ static int vhost_worker(void *data)
- 	struct vhost_dev *dev = data;
- 	struct vhost_work *work = NULL;
- 	unsigned uninitialized_var(seq);
-+	mm_segment_t oldfs = get_fs();
- 
-+	set_fs(USER_DS);
- 	use_mm(dev->mm);
- 
- 	for (;;) {
-@@ -229,6 +231,7 @@ static int vhost_worker(void *data)
- 
- 	}
- 	unuse_mm(dev->mm);
-+	set_fs(oldfs);
- 	return 0;
- }
- 
--- 
-1.7.0.4
+
+Well, what about this one:
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index af1a531..0dd1e51 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -277,6 +277,7 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+ 	bool ret = false;
+ 	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_RSS];
+
++	f->indices = min_t(int, netif_get_num_default_rss_queues(), f->indices);
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+ 		f->mask = 0xF;
+ 		adapter->num_rx_queues = f->indices;
+@@ -376,7 +377,7 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+
+ 	/* Map queue offset and counts onto allocated tx queues */
+ 	per_tc_q = min_t(unsigned int, dev->num_tx_queues / tcs, DCB_QUEUE_CAP);
+-	q = min_t(int, num_online_cpus(), per_tc_q);
++	q = min_t(int, netif_get_num_default_rss_queues(), per_tc_q);
+
+ 	for (i = 0; i < tcs; i++) {
+ 		netdev_set_tc_queue(dev, i, q, offset);
