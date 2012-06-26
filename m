@@ -1,49 +1,92 @@
-From: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [RFC] iwmc3200top: remove driver for unavailable hardware
-Date: Tue, 26 Jun 2012 21:21:34 +0000
-Message-ID: <3A78FAA0EC814D4B8ECC99B3AB32B3320812EBC9@fmsmsx110.amr.corp.intel.com>
-References: <1340740397-18119-1-git-send-email-linville@tuxdriver.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] em_canid: Ematch rule to match CAN frames
+ according to their CAN IDs
+Date: Tue, 26 Jun 2012 17:32:55 -0400
+Message-ID: <20120626213255.GC31808@canuck.infradead.org>
+References: <1340022131-7827-1-git-send-email-lisovy@gmail.com>
+ <4FEA169C.1070709@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ortiz, Samuel" <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1340740397-18119-1-git-send-email-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rostislav Lisovy <lisovy@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, lartc@vger.kernel.org,
+	pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4FEA169C.1070709@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi  John
-
-> From: John W. Linville [mailto:linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org]
-> Subject: [RFC] iwmc3200top: remove driver for unavailable hardware
+On Tue, Jun 26, 2012 at 10:07:56PM +0200, Oliver Hartkopp wrote:
+> > With no extra filter/qdisc configured, median of the time spent in can_send()
+> > was about 27 us -- with prio qdisc with 5 bands and 5 appropriate cls_can
+> > filters (previous patch), it was about 30 us -- with prio qdisc with 5 bands
+> > and 5 appropriate em_can filters (this patch), it was about 34 us.
 > 
-> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 > 
-> This hardware never became available to normal humans.  Leaving this
-> driver imposes unwelcome maintenance costs for no clear benefit.
+> Hm that's more than twice the time consumed for classification ...
 > 
-> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> ---
-> Can't remove this just yet, as it is selected by the i2400m wimax
-> driver.  The 3200 bits of that driver seem a bit intertwined with the
-> rest of the driver.
+> cls_can: 3 us more
+> em_can:  7 us more
 > 
-> Are there any other SDIO parts for i2400m?  Does anyone have any other
-> guidance on how I can safely make i2400m be independent of iwmc3200
-> support?
+> @Eric: Is this still the better approach then?
 
-It should be pretty straight forward: remove the dependency. In fact, you
-are very right--all the sdio code should be removed, as there are no SDIO
-parts in the market, to the best of my knowledge.
+If there is overhead, we should get rid of that overhead and not
+abandon an established subsystem.
 
-Yank anything hitting a grep on sdio in i2400m/ (*sdio*) and the Makefile
-entries, as well as the Kconfig. That should take care of it.
+Rostislav: Can you provide some details on where the time is spent?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > +	/* Process EFF frame rules*/
+> > +	for (i = 0; i < cm->rules_count; i++) {
+> > +		if ((conf[i].can_id & CAN_EFF_FLAG) &&
+> > +		    (conf[i].can_mask & CAN_EFF_FLAG)) {
+> > +			memcpy(cm->rules_raw + cm->eff_rules_count,
+> 
+> 
+> Oops. Shouldn't this be
+> 
+> cm->rules_raw + cm->eff_rules_count * sizeof(struct can_filter),
+> 
+> ???
+
+Looks like correct pointer arithmetic to me. Your suggestion
+would only be valid if rules_raw was a void pointer.
+
+> > +static void em_canid_destroy(struct tcf_proto *tp, struct tcf_ematch *m)
+> > +{
+> > +	struct canid_match *cm = em_canid_priv(m);
+> > +
+> 
+> 
+> Check for cm == NULL not needed ?
+
+kfree() has that check embeddded. Also, for destroy() can only be called
+if the match was added to the tree and that requires a successful call
+to ->change(). Therefore it will never be NULL.
+
+> > +static int em_canid_dump(struct sk_buff *skb, struct tcf_ematch *m)
+> > +{
+> > +	struct canid_match *cm = em_canid_priv(m);
+> > +
+> 
+> 
+> Check for cm == NULL not needed ?
+> 
+> Can a dump happen before the matches are added??
+
+Nope, ->dump() is only ever called if the match has been added to the tree.
+
+> > +	/*
+> > +	 * When configuring this ematch 'rules_count' is set not to exceed
+> > +	 * 'rules_raw' array size
+> > +	 */
+> > +	if (nla_put_nohdr(skb, sizeof(cm->rules_raw[0]) * cm->rules_count,
+> 
+> 
+> better sizeof(struct can_filter) instead of sizeof(cm->rules_raw[0]) ??
+> 
+> > +	    &cm->rules_raw) < 0)
+> > +		goto nla_put_failure;
+
+No need for a goto here, just return -EMSGSIZE.
