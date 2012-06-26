@@ -1,49 +1,35 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net: qmi_wwan: simplify a check in qmi_wwan_bind()
-Date: Tue, 26 Jun 2012 11:39:45 +0300
-Message-ID: <20120626083945.GA8946@elgon.mountain>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [net-next patch] bnx2x,bnx2fc,bnx2i,cnic: Add statistics
+ support and FCoE capabilities advertisement
+Date: Tue, 26 Jun 2012 11:44:06 +0300
+Message-ID: <1340700246.2486.32.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1340710279-18241-1-git-send-email-meravs@broadcom.com>
+ <20120626.013837.1956509898964121509.davem@davemloft.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: meravs@broadcom.com, netdev@vger.kernel.org, barak@broadcom.com,
+	eddie.wai@broadcom.com, mchan@broadcom.com, bprakash@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:37201 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758245Ab2FZIkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 04:40:06 -0400
-Content-Disposition: inline
+Received: from mms3.broadcom.com ([216.31.210.19]:2218 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753375Ab2FZIoU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 04:44:20 -0400
+In-Reply-To: <20120626.013837.1956509898964121509.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code is easier to read if we specify which flags we want at the
-condition instead of at the top of the function.
+On Tue, 2012-06-26 at 01:38 -0700, David Miller wrote:
+> How many times are you going to post this patch?
+>=20
+> The only difference is this copy is that you removed Eilon
+> from the CC: list.  That's really wasteful and confusing.
+>=20
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Acked-by: Bj=F8rn Mork <bjorn@mork.no>
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index f1e7791..23cb13c 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -129,7 +129,6 @@ static int qmi_wwan_bind(struct usbnet *dev, struct=
- usb_interface *intf)
- 	struct usb_interface_descriptor *desc =3D &intf->cur_altsetting->desc=
-;
- 	struct usb_cdc_union_desc *cdc_union =3D NULL;
- 	struct usb_cdc_ether_desc *cdc_ether =3D NULL;
--	u32 required =3D 1 << USB_CDC_HEADER_TYPE | 1 << USB_CDC_UNION_TYPE;
- 	u32 found =3D 0;
- 	struct usb_driver *driver =3D driver_of(intf);
- 	struct qmi_wwan_state *info =3D (void *)&dev->data;
-@@ -197,7 +196,8 @@ next_desc:
- 	}
-=20
- 	/* did we find all the required ones? */
--	if ((found & required) !=3D required) {
-+	if (!(found & (1 << USB_CDC_HEADER_TYPE)) ||
-+	    !(found & (1 << USB_CDC_UNION_TYPE))) {
- 		dev_err(&intf->dev, "CDC functional descriptors missing\n");
- 		goto err;
- 	}
+Sorry about that - the first two attempts did not reach netdev
+(semicolon was used instead of a comma as address separator) but
+apparently the first person on the email did receive them=E2=80=A6 Sorr=
+y about
+the spam.
