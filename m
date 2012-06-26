@@ -1,65 +1,36 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: New commands to configure IOV features
-Date: Tue, 26 Jun 2012 09:13:42 -0700
-Message-ID: <4FE9DFB6.5020205@intel.com>
-References: <4FA7AF62.8000405@broadcom.com> <20120507081634.000003f8.gregory.v.rose@intel.com> <4FE9A963.7020602@broadcom.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [net] ixgbe: Do not pad FCoE frames as this can cause issues
+ with FCoE DDP
+Date: Tue, 26 Jun 2012 09:33:58 -0700
+Message-ID: <20120626163358.GA5500@kroah.com>
+References: <1340695993-1911-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20120626.004302.1065943933933136878.davem@davemloft.net>
+ <1340696850.2255.17.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	stable@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:37025 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757866Ab2FZQNn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 12:13:43 -0400
-In-Reply-To: <4FE9A963.7020602@broadcom.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:41698 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757903Ab2FZQeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 12:34:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1340696850.2255.17.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2012 05:21 AM, Yuval Mintz wrote:
-> On 05/07/2012 06:16 PM, Greg Rose wrote:
->
->> On Mon, 7 May 2012 14:17:54 +0300
->> Yuval Mintz <yuvalmin@broadcom.com> wrote:
->>
->>> I've tried to figure out if there was a standard interface
->>> (ethtool/iproute) through which a user could configure the number
->>> of vfs in his system.
->>>
->>> I've seen the RFC suggested in
->>> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
->>> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
->>> later references to it (commits or further discussion on this topic).
->>>
->>> How exactly are things standing with these RFCs? Were they abandoned?
->> The only way to configure the number of VFs continues to be through the
->> max_vfs module parameter.  I've got a patch to do it through ethtool
->> sitting on the back burner but due to other requirements of my day job
->> I've not been able to work on it since last fall.
->>
->> - Greg
->
-> Hi Ben,
->
-> If I want to pick the RFCs and add support for configuring the number of
-> VFs - do you think ethtool's the right place for such added support?
->
-> I'm asking since as far as I can see, ethtool (today) doesn't contain any
-> features related to virtual functions.
->
-> Thanks,
-> Yuval
+On Tue, Jun 26, 2012 at 12:47:30AM -0700, Jeff Kirsher wrote:
+> On Tue, 2012-06-26 at 00:43 -0700, David Miller wrote:
+> > You can't put things like "[3.4]" unquoted into the CC: list, that's
+> > not kosher and vger rejected it.
+> 
+> Sorry, that was what Greg told me to do.  I did not realize it needed to
+> be in quotes, my bad.
 
-I think the issue is that any class of PCI device could theoretically
-support SR-IOV.  For example there could be a storage controller out
-there that supports spawning VFs, and an ethtool solution wouldn't work
-for a device like that.  Personally what I would like to see is a
-solution that is more focused on the PCI side of the network adapters
-instead of the network side when it comes to enabling VFs.
+Greg told you no such thing, please use real email addresses on your cc:
+lines, to not do so is crazy, and to blame me is sad.
 
-Thanks,
-
-Alex
+greg k-h
