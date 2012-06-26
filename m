@@ -1,43 +1,56 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH 3/3] net: fec: add phy-reset-interval for device tree
- probe
-Date: Tue, 26 Jun 2012 20:13:36 +0800
-Message-ID: <20120626121334.GF8858@S2101-09.ap.freescale.net>
-References: <1340700308-8315-1-git-send-email-shawn.guo@linaro.org>
- <1340700308-8315-4-git-send-email-shawn.guo@linaro.org>
- <2921547.BkALd1Y1Bk@flexo>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: New commands to configure IOV features
+Date: Tue, 26 Jun 2012 15:21:55 +0300
+Message-ID: <4FE9A963.7020602@broadcom.com>
+References: <4FA7AF62.8000405@broadcom.com>
+ <20120507081634.000003f8.gregory.v.rose@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Greg Rose" <gregory.v.rose@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:57090
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754432Ab2FZMNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 08:13:36 -0400
-Content-Disposition: inline
-In-Reply-To: <2921547.BkALd1Y1Bk@flexo>
+Received: from mms2.broadcom.com ([216.31.210.18]:4183 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754432Ab2FZMXo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 08:23:44 -0400
+In-Reply-To: <20120507081634.000003f8.gregory.v.rose@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 26, 2012 at 01:55:05PM +0200, Florian Fainelli wrote:
-> > +	of_property_read_u32(np, "phy-reset-interval", &msec);
-> >  	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
-> >  	err = gpio_request_one(phy_reset, GPIOF_OUT_INIT_LOW, "phy-reset");
-> >  	if (err) {
-> >  		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
-> >  		return;
-> >  	}
-> > -	msleep(1);
-> > +	msleep(msec);
-> 
-> You might want to check the value of the property here to make sure it is in 
-> the msleep() acceptable range.
-> 
-Sounds good.  I think a sensible reset duration should be less one
-second, so let's force 1000 ms to be the possible max one?
+On 05/07/2012 06:16 PM, Greg Rose wrote:
 
--- 
-Regards,
-Shawn
+> On Mon, 7 May 2012 14:17:54 +0300
+> Yuval Mintz <yuvalmin@broadcom.com> wrote:
+> 
+>> I've tried to figure out if there was a standard interface
+>> (ethtool/iproute) through which a user could configure the number
+>> of vfs in his system.
+>>
+>> I've seen the RFC suggested in
+>> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
+>> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
+>> later references to it (commits or further discussion on this topic).
+>>
+>> How exactly are things standing with these RFCs? Were they abandoned?
+> 
+> The only way to configure the number of VFs continues to be through the
+> max_vfs module parameter.  I've got a patch to do it through ethtool
+> sitting on the back burner but due to other requirements of my day job
+> I've not been able to work on it since last fall.
+> 
+> - Greg
+
+
+Hi Ben,
+
+If I want to pick the RFCs and add support for configuring the number of
+VFs - do you think ethtool's the right place for such added support?
+
+I'm asking since as far as I can see, ethtool (today) doesn't contain any
+features related to virtual functions.
+
+Thanks,
+Yuval
