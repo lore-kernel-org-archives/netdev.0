@@ -1,47 +1,84 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 5/6] tuntap: per queue 64 bit stats
-Date: Tue, 26 Jun 2012 14:00:53 +0800
-Message-ID: <4FE95015.7000707@redhat.com>
-References: <20120625060830.6765.27584.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1340625563-9300-6-git-send-email-jasowang@redhat.com> <1340628765.10893.46.camel@edumazet-glaptop>
+Subject: Re: [net-next RFC V4 PATCH 0/4] Multiqueue virtio-net
+Date: Tue, 26 Jun 2012 14:02:46 +0800
+Message-ID: <4FE95086.2020207@redhat.com>
+References: <20120625090829.7263.65026.stgit@amd-6168-8-1.englab.nay.redhat.com>
+	<4FE8A4B6.1080200@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, akong@redhat.com, habanero@linux.vnet.ibm.com,
-	tahm@linux.vnet.ibm.com, haixiao@juniper.net,
-	jwhan@filewood.snu.ac.kr, ernesto.martin@viasat.com,
-	mashirle@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, krkumar2@in.ibm.com,
-	shemminger@vyatta.com, edumazet@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340628765.10893.46.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org, mashirle@us.ibm.com,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4FE8A4B6.1080200@us.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 06/25/2012 08:52 PM, Eric Dumazet wrote:
-> On Mon, 2012-06-25 at 19:59 +0800, Jason Wang wrote:
->> As we've added multiqueue support for tun/tap, this patch convert the statistics
->> to use per-queue 64 bit statistics.
-> LLTX means you can have several cpus calling TX path in parallel.
+On 06/26/2012 01:49 AM, Sridhar Samudrala wrote:
+> On 6/25/2012 2:16 AM, Jason Wang wrote:
+>> Hello All:
+>>
+>> This series is an update version of multiqueue virtio-net driver 
+>> based on
+>> Krishna Kumar's work to let virtio-net use multiple rx/tx queues to 
+>> do the
+>> packets reception and transmission. Please review and comments.
+>>
+>> Test Environment:
+>> - Intel(R) Xeon(R) CPU E5620 @ 2.40GHz, 8 cores 2 numa nodes
+>> - Two directed connected 82599
+>>
+>> Test Summary:
+>>
+>> - Highlights: huge improvements on TCP_RR test
+>> - Lowlights: regression on small packet transmission, higher cpu 
+>> utilization
+>>               than single queue, need further optimization
+> Does this also scale with increased number of VMs?
 >
-> So tx stats are wrong (even before this patch), and racy after this
-> patch (if several cpu access same queue, it seems to be possible)
->
->         u64_stats_update_begin(&tfile->stats.tx_syncp);
->         tfile->stats.tx_packets++;
->         tfile->stats.tx_bytes += total;
->         u64_stats_update_end(&tfile->stats.tx_syncp);
->
-> This can break horribly if several cpus run this code using same 'tfile'
-> pointer.
 
-Yes, looks like it's hard to use NETIF_F_LLTX without breaking the u64 
-statistics, may worth to use tx lock and alloc_netdev_mq().
+Hi Sridhar:
 
-> I suggest this patch comes before 'tuntap: multiqueue support' in the
-> serie.
+Good suggestions, I didn't measure them. I would run test and post them.
 
-Sure, thanks.
+Thanks
+
+> Thanks
+> Sridhar
+>>
+>> Analysis of the performance result:
+>>
+>> - I count the number of packets sending/receiving during the test, and
+>>    multiqueue show much more ability in terms of packets per second.
+>>
+>> - For the tx regression, multiqueue send about 1-2 times of more packets
+>>    compared to single queue, and the packets size were much smaller 
+>> than single
+>>    queue does. I suspect tcp does less batching in multiqueue, so I 
+>> hack the
+>>    tcp_write_xmit() to forece more batching, multiqueue works as well as
+>>    singlequeue for both small transmission and throughput
+>>
+>> - I didn't pack the accelerate RFS with virtio-net in this sereis as 
+>> it still
+>>    need further shaping, for the one that interested in this please see:
+>>    http://www.mail-archive.com/kvm@vger.kernel.org/msg64111.html
+>>
+>>
 >
->
->
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
