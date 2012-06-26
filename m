@@ -1,283 +1,89 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [rfc] virtio-spec: introduce VIRTIO_NET_F_MULTIQUEUE
-Date: Tue, 26 Jun 2012 15:15:39 +0800
-Message-ID: <1340694939-14724-1-git-send-email-jasowang@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Remove unnecessary code from rt_check_expire().
+Date: Tue, 26 Jun 2012 00:21:24 -0700 (PDT)
+Message-ID: <20120626.002124.2220875506847485306.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: jasowang@redhat.com, mst@redhat.com, rusty@rustcorp.com.au
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59062 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758391Ab2FZHVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 03:21:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch introduces the multiqueue capabilities to virtio net devices. The
-number of tx/rx queue pairs available in the device were exposed through config
-space, and driver could negotiate the number of pairs it wish to use through
-ctrl vq.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+IPv4 routing cache entries no longer use dst->expires, because the
+metrics, PMTU, and redirect information are stored in the inetpeer
+cache.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- virtio-0.9.5.lyx |  180 ++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 176 insertions(+), 4 deletions(-)
 
-diff --git a/virtio-0.9.5.lyx b/virtio-0.9.5.lyx
-index 3c80ecf..480e9c7 100644
---- a/virtio-0.9.5.lyx
-+++ b/virtio-0.9.5.lyx
-@@ -56,6 +56,7 @@
- \html_math_output 0
- \html_css_as_file 0
- \html_be_strict false
-+\author 2090695081 "Jason Wang" 
- \end_header
+Eric, when you did commit 9f28a2fc0bd77511f649c0a788c7bf9a5fd04edb
+(ipv4: reintroduce route cache garbage collector) do you remember
+if the thing we needed was the real expiry or both the
+rt_is_expired() and the rt_may_expire() cases?
+
+I really want to remove rt_may_expire() from this conditional because
+it results in absolutely stupid behavior.  If your system is idle
+for 5 minutes, all of your input routing cache entries are purged.
+
+ net/ipv4/route.c |   34 +++++++++++-----------------------
+ 1 file changed, 11 insertions(+), 23 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 8d62d85..846961c 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -870,34 +870,22 @@ static void rt_check_expire(void)
+ 		while ((rth = rcu_dereference_protected(*rthp,
+ 					lockdep_is_held(rt_hash_lock_addr(i)))) != NULL) {
+ 			prefetch(rth->dst.rt_next);
+-			if (rt_is_expired(rth)) {
++			if (rt_is_expired(rth) ||
++			    rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
+ 				*rthp = rth->dst.rt_next;
+ 				rt_free(rth);
+ 				continue;
+ 			}
+-			if (rth->dst.expires) {
+-				/* Entry is expired even if it is in use */
+-				if (time_before_eq(jiffies, rth->dst.expires)) {
+-nofree:
+-					tmo >>= 1;
+-					rthp = &rth->dst.rt_next;
+-					/*
+-					 * We only count entries on
+-					 * a chain with equal hash inputs once
+-					 * so that entries for different QOS
+-					 * levels, and other non-hash input
+-					 * attributes don't unfairly skew
+-					 * the length computation
+-					 */
+-					length += has_noalias(rt_hash_table[i].chain, rth);
+-					continue;
+-				}
+-			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout))
+-				goto nofree;
  
- \begin_body
-@@ -3854,11 +3855,22 @@ ID 1
- \end_layout
- 
- \begin_layout Description
--Virtqueues 0:receiveq.
-+Virtqueues 
-+\change_inserted 2090695081 1340693104
-+
-+\end_layout
-+
-+\begin_deeper
-+\begin_layout Description
-+
-+\change_inserted 2090695081 1340693118
-+When VIRTIO_NET_F_MULTIQUEUE is not set: 
-+\change_unchanged
-+0:receiveq.
-  1:transmitq.
-  2:controlq
- \begin_inset Foot
--status open
-+status collapsed
- 
- \begin_layout Plain Layout
- Only if VIRTIO_NET_F_CTRL_VQ set
-@@ -3867,9 +3879,60 @@ Only if VIRTIO_NET_F_CTRL_VQ set
- \end_inset
- 
- 
-+\change_inserted 2090695081 1340693122
-+
- \end_layout
- 
- \begin_layout Description
-+
-+\change_inserted 2090695081 1340693866
-+When VIRTIO_NET_F_MULTIQUEUE is set and there's N tx/rx queue pairs: 0:receiveq1.
-+ 1:transmitq1.
-+ 2:controlq
-+\begin_inset Foot
-+status collapsed
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693141
-+Only if VIRTIO_NET_F_CTRL_VQ set
-+\end_layout
-+
-+\end_inset
-+
-+ ...
-+ 2N-1
-+\begin_inset Foot
-+status collapsed
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693284
-+2N-2 If VIRTIO_NET_F_CTRL_VQ not set
-+\end_layout
-+
-+\end_inset
-+
-+:receiveqN.
-+ 2N
-+\begin_inset Foot
-+status collapsed
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693302
-+2N-1 If VIRTIO_NET_F_CTRL_VQ is not set
-+\end_layout
-+
-+\end_inset
-+
-+: transmitqN
-+\change_unchanged
-+
-+\end_layout
-+
-+\end_deeper
-+\begin_layout Description
- Feature
- \begin_inset space ~
- \end_inset
-@@ -4027,6 +4090,16 @@ VIRTIO_NET_F_CTRL_VLAN
- 
- \begin_layout Description
- VIRTIO_NET_F_GUEST_ANNOUNCE(21) Guest can send gratuitous packets.
-+\change_inserted 2090695081 1340692965
-+
-+\end_layout
-+
-+\begin_layout Description
-+
-+\change_inserted 2090695081 1340693017
-+VIRTIO_NET_F_MULTIQUEUE (22) Device has multiple tx/rx queues.
-+\change_unchanged
-+
- \end_layout
- 
- \end_deeper
-@@ -4039,11 +4112,22 @@ configuration
- \begin_inset space ~
- \end_inset
- 
--layout Two configuration fields are currently defined.
-+layout T
-+\change_inserted 2090695081 1340693345
-+hree
-+\change_deleted 2090695081 1340693344
-+wo
-+\change_unchanged
-+ configuration fields are currently defined.
-  The mac address field always exists (though is only valid if VIRTIO_NET_F_MAC
-  is set), and the status field only exists if VIRTIO_NET_F_STATUS is set.
-  Two read-only bits are currently defined for the status field: VIRTIO_NET_S_LIN
- K_UP and VIRTIO_NET_S_ANNOUNCE.
-+
-+\change_inserted 2090695081 1340693398
-+ The num queue pairs fields only exist if VIRTIO_NET_F_MULTIQUEUE is set.
-+
-+\change_unchanged
-  
- \begin_inset listings
- inline false
-@@ -4076,6 +4160,17 @@ struct virtio_net_config {
- \begin_layout Plain Layout
- 
-     u16 status;
-+\change_inserted 2090695081 1340692955
-+
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340692962
-+
-+	u16 num_queue_pairs;
-+\change_unchanged
-+
- \end_layout
- 
- \begin_layout Plain Layout
-@@ -4527,7 +4622,7 @@ O features are used, the Guest will need to accept packets of up to 65550
-  So unless VIRTIO_NET_F_MRG_RXBUF is negotiated, every buffer in the receive
-  queue needs to be at least this length 
- \begin_inset Foot
--status open
-+status collapsed
- 
- \begin_layout Plain Layout
- Obviously each one can be split across multiple descriptor elements.
-@@ -4980,6 +5075,83 @@ Sending VIRTIO_NET_CTRL_ANNOUNCE_ACK command through control vq.
- \begin_layout Enumerate
- .
-  
-+\change_inserted 2090695081 1340693446
-+
-+\end_layout
-+
-+\begin_layout Subsection*
-+
-+\change_inserted 2090695081 1340693500
-+Negotiating the number of queue pairs
-+\end_layout
-+
-+\begin_layout Standard
-+
-+\change_inserted 2090695081 1340693733
-+If the driver negotiates the VIRTIO_NET_F_MULTIQUEUE (depends on VIRTIO_NET_F_CT
-+RL_VQ), it can then negotiate the number of queue pairs it wish to use by
-+ placing the number in num_queue_pairs field of virtio_net_ctrl_multiqueue
-+ through VIRTIO_NET_CTRL_MULTIQUEUE_NUM command.
-+\end_layout
-+
-+\begin_layout Standard
-+
-+\change_inserted 2090695081 1340693782
-+If the driver doesn't negotiate the number, all tx/rx queues were enabled
-+ by default.
-+\end_layout
-+
-+\begin_layout Standard
-+
-+\change_inserted 2090695081 1340693616
-+\begin_inset listings
-+inline false
-+status open
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693620
-+
-+struct virtio_net_ctrl_multiqueue {
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693627
-+
-+	u16 num_queue_pairs;
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693616
-+
-+};
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693616
-+
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693639
-+
-+#define VIRTIO_NET_CTRL_MULTIQUEUE    4
-+\end_layout
-+
-+\begin_layout Plain Layout
-+
-+\change_inserted 2090695081 1340693646
-+
-+ #define VIRTIO_NET_CTRL_MULTIQUEUE_NUM        0 
-+\end_layout
-+
-+\end_inset
-+
-+
- \end_layout
- 
- \begin_layout Chapter*
+-			/* Cleanup aged off entries. */
+-			*rthp = rth->dst.rt_next;
+-			rt_free(rth);
++			/* We only count entries on a chain with equal
++			 * hash inputs once so that entries for
++			 * different QOS levels, and other non-hash
++			 * input attributes don't unfairly skew the
++			 * length computation
++			 */
++			tmo >>= 1;
++			rthp = &rth->dst.rt_next;
++			length += has_noalias(rt_hash_table[i].chain, rth);
+ 		}
+ 		spin_unlock_bh(rt_hash_lock_addr(i));
+ 		sum += length;
 -- 
-1.7.9.5
+1.7.10
