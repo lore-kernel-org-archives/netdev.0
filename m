@@ -1,47 +1,48 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 5/6] tuntap: per queue 64 bit stats
-Date: Tue, 26 Jun 2012 14:28:28 +0800
-Message-ID: <4FE9568C.4040900@redhat.com>
-References: <20120625060830.6765.27584.stgit@amd-6168-8-1.englab.nay.redhat.com>  <1340625563-9300-6-git-send-email-jasowang@redhat.com>  <1340628765.10893.46.camel@edumazet-glaptop>  <4FE95015.7000707@redhat.com> <1340691016.10893.197.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, akong@redhat.com, habanero@linux.vnet.ibm.com,
-	tahm@linux.vnet.ibm.com, haixiao@juniper.net,
-	jwhan@filewood.snu.ac.kr, ernesto.martin@viasat.com,
-	mashirle@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, krkumar2@in.ibm.com,
-	shemminger@vyatta.com, edumazet@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340691016.10893.197.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 1/2 net-next] batman-adv: fix condition in AP
+	isolation
+Date: Tue, 26 Jun 2012 08:49:50 +0200
+Message-ID: <1340693391-16434-2-git-send-email-ordex@autistici.org>
+References: <20120625.161933.730861831753419928.davem@davemloft.net>
+	<1340693391-16434-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1340693391-16434-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/26/2012 02:10 PM, Eric Dumazet wrote:
-> On Tue, 2012-06-26 at 14:00 +0800, Jason Wang wrote:
->
->> Yes, looks like it's hard to use NETIF_F_LLTX without breaking the u64
->> statistics, may worth to use tx lock and alloc_netdev_mq().
-> Yes, this probably needs percpu storage (if you really want to use
-> include/linux/u64_stats_sync.h).
->
-> But percpu storage seems a bit overkill with a raising number of cpus
-> on typical machines.
->
-> For loopback device, its fine because we only have one lo device per
-> network namespace, and some workloads really hit hard this device.
->
-> But for tuntap, I am not sure ?
->
+During the last conflict resolution involving translation-table.c something went
+wrong and a condition in the AP isolation code was reversed. This patch fixes
+this problem.
 
-The problem is that we want to collect per-queue statistics. So if we 
-convert tuntap to use alloc_netdev_mq(), the tx statistics would be 
-updated under tx lock which looks safe.
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+---
+ net/batman-adv/translation-table.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index cf79883..e4f27a8 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -2187,7 +2187,7 @@ bool batadv_is_ap_isolated(struct bat_priv *bat_priv, uint8_t *src,
+ 	if (!tt_global_entry)
+ 		goto out;
+ 
+-	if (_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
++	if (!_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
+ 		goto out;
+ 
+ 	ret = true;
+-- 
+1.7.9.4
