@@ -1,56 +1,50 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: New commands to configure IOV features
-Date: Tue, 26 Jun 2012 15:21:55 +0300
-Message-ID: <4FE9A963.7020602@broadcom.com>
-References: <4FA7AF62.8000405@broadcom.com>
- <20120507081634.000003f8.gregory.v.rose@intel.com>
+From: "Merav Sicron" <meravs@broadcom.com>
+Subject: [net-next patch] bnx2x: Change bnx2x_tests_str_arr to static
+ char
+Date: Tue, 26 Jun 2012 19:11:03 +0300
+Message-ID: <1340727063-23870-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Greg Rose" <gregory.v.rose@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: "Merav Sicron" <meravs@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4183 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4508 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754432Ab2FZMXo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jun 2012 08:23:44 -0400
-In-Reply-To: <20120507081634.000003f8.gregory.v.rose@intel.com>
+	id S1756132Ab2FZNDx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jun 2012 09:03:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/07/2012 06:16 PM, Greg Rose wrote:
+This patch changes the definition of bnx2x_tests_str_arr from char to static
+char. This correction will also eliminate the sparse warning created in commit
+cf2c1df62e065bfc15e38daf2d3479a56b320f29.
 
-> On Mon, 7 May 2012 14:17:54 +0300
-> Yuval Mintz <yuvalmin@broadcom.com> wrote:
-> 
->> I've tried to figure out if there was a standard interface
->> (ethtool/iproute) through which a user could configure the number
->> of vfs in his system.
->>
->> I've seen the RFC suggested in
->> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
->> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
->> later references to it (commits or further discussion on this topic).
->>
->> How exactly are things standing with these RFCs? Were they abandoned?
-> 
-> The only way to configure the number of VFs continues to be through the
-> max_vfs module parameter.  I've got a patch to do it through ethtool
-> sitting on the back burner but due to other requirements of my day job
-> I've not been able to work on it since last fall.
-> 
-> - Greg
+Signed-off-by: Merav Sicron <meravs@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+Hi Dave,
 
-
-Hi Ben,
-
-If I want to pick the RFCs and add support for configuring the number of
-VFs - do you think ethtool's the right place for such added support?
-
-I'm asking since as far as I can see, ethtool (today) doesn't contain any
-features related to virtual functions.
+Please consider applying this patch to net-next.
 
 Thanks,
-Yuval
+Merav
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 1f8c156..bff3129 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1600,7 +1600,7 @@ static int bnx2x_set_pauseparam(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-char *bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF] = {
++static char *bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF] = {
+ 	"register_test (offline)    ",
+ 	"memory_test (offline)      ",
+ 	"int_loopback_test (offline)",
+-- 
+1.7.10
