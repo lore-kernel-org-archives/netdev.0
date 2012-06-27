@@ -1,30 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] be2net: Fix to trim skb for padded vlan
- packets to workaround an ASIC Bug
-Date: Wed, 27 Jun 2012 01:36:07 -0700 (PDT)
-Message-ID: <20120627.013607.1203331705442562498.davem@davemloft.net>
-References: <879c023f-1730-4874-a943-58b6725f80f4@exht1.ad.emulex.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] iwlegacy: print how long queue was actually stuck
+Date: Wed, 27 Jun 2012 10:36:27 +0200
+Message-ID: <1340786187.1911.24.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: somnath.kotur@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40493 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753514Ab2F0IgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:36:07 -0400
-In-Reply-To: <879c023f-1730-4874-a943-58b6725f80f4@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Date: Wed, 27 Jun 2012 14:02:10 +0530
+Every now and then, after resuming from suspend, the iwlegacy driver
+prints
+    iwl4965 0000:03:00.0: Queue 2 stuck for 2000 ms.
+    iwl4965 0000:03:00.0: On demand firmware reload
 
-> Fixed spelling error in a comment as pointed out by DaveM.
-> Also refactored existing code a bit to provide placeholders for another ASIC
-> Bug workaround that will be checked-in soon after this.
-> 
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+I have no idea what causes these errors. But the code currently uses
+wd_timeout in the first error. wd_timeout will generally be set at
+IL_DEF_WD_TIMEOUT (ie, 2000). Perhaps printing for how long the queue
+was actually stuck can clarify the cause of these errors.
 
-Applied, thanks.
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+0) Compile tested on v3.5-rc4. Tested on Fedora 's current v3.4.2 based
+kernel (ie, on F16). That required an edit to this commit because of
+trivial context changes.
+
+1) Please note that testing here involved waiting until I again
+triggered this error (which now of course printed how long the queue was
+actually stuck).
+
+ drivers/net/wireless/iwlegacy/common.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlegacy/common.c b/drivers/net/wireless/iwlegacy/common.c
+index cbf2dc1..763c752 100644
+--- a/drivers/net/wireless/iwlegacy/common.c
++++ b/drivers/net/wireless/iwlegacy/common.c
+@@ -4717,10 +4717,11 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
+ 	struct il_tx_queue *txq = &il->txq[cnt];
+ 	struct il_queue *q = &txq->q;
+ 	unsigned long timeout;
++	unsigned long now = jiffies;
+ 	int ret;
+ 
+ 	if (q->read_ptr == q->write_ptr) {
+-		txq->time_stamp = jiffies;
++		txq->time_stamp = now;
+ 		return 0;
+ 	}
+ 
+@@ -4728,9 +4729,9 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
+ 	    txq->time_stamp +
+ 	    msecs_to_jiffies(il->cfg->wd_timeout);
+ 
+-	if (time_after(jiffies, timeout)) {
++	if (time_after(now, timeout)) {
+ 		IL_ERR("Queue %d stuck for %u ms.\n", q->id,
+-		       il->cfg->wd_timeout);
++		       jiffies_to_msecs(now - txq->time_stamp));
+ 		ret = il_force_reset(il, false);
+ 		return (ret == -EAGAIN) ? 0 : 1;
+ 	}
+-- 
+1.7.7.6
