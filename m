@@ -1,45 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] l2tp: use per-cpu variables for u64_stats updates
-Date: Wed, 27 Jun 2012 22:39:01 +0200
-Message-ID: <1340829541.26242.90.camel@edumazet-glaptop>
-References: <1340798457-28270-1-git-send-email-tparkin@katalix.com>
-	 <1340823810.26242.81.camel@edumazet-glaptop>  <4FEB6B64.5060708@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Parkin <tparkin@katalix.com>, netdev@vger.kernel.org,
-	David.Laight@ACULAB.COM, James Chapman <jchapman@katalix.com>
-To: Rick Jones <rick.jones2@hp.com>
+From: borislamsv2@gmail.com
+Subject: Server Rental Promotion
+Date: Thu, 28 Jun 2012 04:18:14 +0800 (HKT)
+Message-ID: <Xbii__8200.78619658506$1340829686$gmane$org@seed.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59341 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753418Ab2F0UjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 16:39:07 -0400
-Received: by bkcji2 with SMTP id ji2so1433221bkc.19
-        for <netdev@vger.kernel.org>; Wed, 27 Jun 2012 13:39:05 -0700 (PDT)
-In-Reply-To: <4FEB6B64.5060708@hp.com>
+Received: from 124-248-200-90.sunnyvision.com ([124.248.200.90]:55170 "EHLO
+	teamb03.edmhongkong.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752709Ab2F0UlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 16:41:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-27 at 13:21 -0700, Rick Jones wrote:
+Dear All,
 
-> It is a question of the speed of the communications more than the 
-> bitness of the processor no?
+We have our own datacenter in Hong Kong & provide email/application/web rental service to clients.We are APNIC member & provide clean IP to clients.
 
-Why ?
+Dell=3F PowerEdge=3F EnterpriseRack Mount Server
+-Intel(R) Xeon(R) E3-1240 Processor (3.3GHz, 8M Cache, Turbo, 4C/8T, 80W)
+-8GB RAM, 2x4GB, 1333MHz, DDR-3, Dual Ranked UDIMMs
+-500GB, 3.5", 6Gbps SAS x 2
+-Raid 1 Mirroring Protection
 
-In 2012 or 2013, 64bits kernels are the norm, and 32bit the exception.
+Every Dedicated Server Hosting Solution Also Includes: 
+ 
+Software Specification 
+- CentOS / Fedora / Debian / FreeBSD / Ubuntu / Redhat Linux 
+- Full root-level access 
+- Data Center Facilities 
+- Shared Local & International Bandwidth 
+- 2 IP Addresses Allocation 
+- Un-interruptible Power Supply (UPS) backed up by private diesel generator 
+- FM200=A1=A7based fire suppression system 
+- 24x7 CRAC Air Conditioning and Humidity Control 
+- 24x7 Security Control 
+- 24x7 Remote Hand Service 
 
-Should we add complex code to l2tp just for being able to run it on
-32bit kernels with 64bit stats ?
+Pls send us email for further information.Thanks,
 
-Considering this code is buggy at the v1 & v2, I am really wondering.
+Boris 
+boris@dedicatedserver.co.hk
 
-All sane SNMP applications are ready to cope with 32bits counters
-wrapping.
-
-Machines that could wrap the 32bit counter several times per second are
-probably running on 64bit kernels.
-
-Also percpu stats are overkill unless a device is really meant to be
-used in // by many cpus.
+If you do not wish to further receive this event message, email "borislamsv2@gmail.com" to unsubscribe this message or remove your email from the list.
