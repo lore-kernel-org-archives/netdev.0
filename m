@@ -1,69 +1,40 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] iwlegacy: print how long queue was actually stuck
-Date: Wed, 27 Jun 2012 10:36:27 +0200
-Message-ID: <1340786187.1911.24.camel@x61.thuisdomein>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
+Date: Wed, 27 Jun 2012 10:40:00 +0200
+Message-ID: <1340786400.26242.27.camel@edumazet-glaptop>
+References: <201206260734.33472.hans.schillstrom@ericsson.com>
+	 <1340730156.10893.359.camel@edumazet-glaptop>
+	 <201206270723.11615.hans.schillstrom@ericsson.com>
+	 <20120627.012204.1603944185909940692.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hans.schillstrom@ericsson.com, subramanian.vijay@gmail.com,
+	dave.taht@gmail.com, netdev@vger.kernel.org, ncardwell@google.com,
+	therbert@google.com, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:53671 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080Ab2F0IkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:40:11 -0400
+Received: by eeit10 with SMTP id t10so238180eei.19
+        for <netdev@vger.kernel.org>; Wed, 27 Jun 2012 01:40:09 -0700 (PDT)
+In-Reply-To: <20120627.012204.1603944185909940692.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Every now and then, after resuming from suspend, the iwlegacy driver
-prints
-    iwl4965 0000:03:00.0: Queue 2 stuck for 2000 ms.
-    iwl4965 0000:03:00.0: On demand firmware reload
+On Wed, 2012-06-27 at 01:22 -0700, David Miller wrote:
+> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> Date: Wed, 27 Jun 2012 07:23:03 +0200
+> 
+> > On Tuesday 26 June 2012 19:02:36 Eric Dumazet wrote:
+> >> With David patch using jhash instead of SHA, I reach ~315.000 SYN per
+> >> second.
+> > 
+> > I have similar results from ~170k to ~199k synack/sec.
+> 
+> Eric and Hans, I'm going to add Tested-by: tags for both of you
+> when I commit this patch if you don't mind. :-)
 
-I have no idea what causes these errors. But the code currently uses
-wd_timeout in the first error. wd_timeout will generally be set at
-IL_DEF_WD_TIMEOUT (ie, 2000). Perhaps printing for how long the queue
-was actually stuck can clarify the cause of these errors.
-
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
-0) Compile tested on v3.5-rc4. Tested on Fedora 's current v3.4.2 based
-kernel (ie, on F16). That required an edit to this commit because of
-trivial context changes.
-
-1) Please note that testing here involved waiting until I again
-triggered this error (which now of course printed how long the queue was
-actually stuck).
-
- drivers/net/wireless/iwlegacy/common.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlegacy/common.c b/drivers/net/wireless/iwlegacy/common.c
-index cbf2dc1..763c752 100644
---- a/drivers/net/wireless/iwlegacy/common.c
-+++ b/drivers/net/wireless/iwlegacy/common.c
-@@ -4717,10 +4717,11 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
- 	struct il_tx_queue *txq = &il->txq[cnt];
- 	struct il_queue *q = &txq->q;
- 	unsigned long timeout;
-+	unsigned long now = jiffies;
- 	int ret;
- 
- 	if (q->read_ptr == q->write_ptr) {
--		txq->time_stamp = jiffies;
-+		txq->time_stamp = now;
- 		return 0;
- 	}
- 
-@@ -4728,9 +4729,9 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
- 	    txq->time_stamp +
- 	    msecs_to_jiffies(il->cfg->wd_timeout);
- 
--	if (time_after(jiffies, timeout)) {
-+	if (time_after(now, timeout)) {
- 		IL_ERR("Queue %d stuck for %u ms.\n", q->id,
--		       il->cfg->wd_timeout);
-+		       jiffies_to_msecs(now - txq->time_stamp));
- 		ret = il_force_reset(il, false);
- 		return (ret == -EAGAIN) ? 0 : 1;
- 	}
--- 
-1.7.7.6
+Well, please send your complete patch before (with IPv6 part) ?
