@@ -1,114 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 17/18] pkt_sched: sch_api: Move away from NLMSG_NEW().
-Date: Tue, 26 Jun 2012 22:02:54 -0700 (PDT)
-Message-ID: <20120626.220254.2153171862575376971.davem@davemloft.net>
+From: John <john@boldstatementmarketing.net>
+Subject: Un...Freakin...believable!
+Date: Tue, 26 Jun 2012 23:59:30 -0400
+Message-ID: <AovuKDwHSJtbVkcF02CpTqb00lPrHRR9eYKDP1cML9A3@boldstatementmarketing.net>
+Reply-To: laveniaent@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39240 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751756Ab2F0FCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 01:02:55 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 5B073584194
-	for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 22:02:55 -0700 (PDT)
+Received: from [108.167.186.132] ([108.167.186.132]:38493 "EHLO
+	bol.boldstatementmarketing.net" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750810Ab2F0FDb convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2012 01:03:31 -0400
+Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:35756 helo=[10.0.1.9])
+	by bol.boldstatementmarketing.net with esmtpa (Exim 4.77)
+	(envelope-from <john@boldstatementmarketing.net>)
+	id 1SjjPe-0004Xr-FY
+	for netdev@vger.kernel.org; Tue, 26 Jun 2012 22:59:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+I literally would not have believed this either.
 
-And use nlmsg_data() while we're here too, as well as remove
-a useless cast.
+In fact, I didn't.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/sched/sch_api.c |   24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
+My friend used the "loyalty" card to get
+me to give it a try...
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 085ce53..a08b4ab 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -973,7 +973,7 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
- static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct tcmsg *tcm = NLMSG_DATA(n);
-+	struct tcmsg *tcm = nlmsg_data(n);
- 	struct nlattr *tca[TCA_MAX + 1];
- 	struct net_device *dev;
- 	u32 clid = tcm->tcm_parent;
-@@ -1046,7 +1046,7 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 
- replay:
- 	/* Reinit, just in case something touches this. */
--	tcm = NLMSG_DATA(n);
-+	tcm = nlmsg_data(n);
- 	clid = tcm->tcm_parent;
- 	q = p = NULL;
- 
-@@ -1193,8 +1193,10 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
- 	struct gnet_dump d;
- 	struct qdisc_size_table *stab;
- 
--	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*tcm), flags);
--	tcm = NLMSG_DATA(nlh);
-+	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*tcm), flags);
-+	if (!nlh)
-+		goto out_nlmsg_trim;
-+	tcm = nlmsg_data(nlh);
- 	tcm->tcm_family = AF_UNSPEC;
- 	tcm->tcm__pad1 = 0;
- 	tcm->tcm__pad2 = 0;
-@@ -1230,7 +1232,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
- 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
- 	return skb->len;
- 
--nlmsg_failure:
-+out_nlmsg_trim:
- nla_put_failure:
- 	nlmsg_trim(skb, b);
- 	return -1;
-@@ -1366,7 +1368,7 @@ done:
- static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct tcmsg *tcm = NLMSG_DATA(n);
-+	struct tcmsg *tcm = nlmsg_data(n);
- 	struct nlattr *tca[TCA_MAX + 1];
- 	struct net_device *dev;
- 	struct Qdisc *q = NULL;
-@@ -1498,8 +1500,10 @@ static int tc_fill_tclass(struct sk_buff *skb, struct Qdisc *q,
- 	struct gnet_dump d;
- 	const struct Qdisc_class_ops *cl_ops = q->ops->cl_ops;
- 
--	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*tcm), flags);
--	tcm = NLMSG_DATA(nlh);
-+	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*tcm), flags);
-+	if (!nlh)
-+		goto out_nlmsg_trim;
-+	tcm = nlmsg_data(nlh);
- 	tcm->tcm_family = AF_UNSPEC;
- 	tcm->tcm__pad1 = 0;
- 	tcm->tcm__pad2 = 0;
-@@ -1525,7 +1529,7 @@ static int tc_fill_tclass(struct sk_buff *skb, struct Qdisc *q,
- 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
- 	return skb->len;
- 
--nlmsg_failure:
-+out_nlmsg_trim:
- nla_put_failure:
- 	nlmsg_trim(skb, b);
- 	return -1;
-@@ -1616,7 +1620,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
- 
- static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- {
--	struct tcmsg *tcm = (struct tcmsg *)NLMSG_DATA(cb->nlh);
-+	struct tcmsg *tcm = nlmsg_data(cb->nlh);
- 	struct net *net = sock_net(skb->sk);
- 	struct netdev_queue *dev_queue;
- 	struct net_device *dev;
--- 
-1.7.10.2
+I'm glad I did because I've made more money faster
+than I ever had.
+
+In fact, I turned that $100.00 to more thousands in the last
+4 months than I can even legally say (plus,you'd probably f
+all of your freakin' chair).
+
+But tomorrow, I'll just show you the proof.
+
+I'm doing a Live Webcast with that same friend and
+we're going to just show you the back office and the results
+we've gotten putting in about 10 minutes a day.
+
+http://bit.ly/MW5hPf
+
+This is so simple, newbies with no business experience
+or marketing "know-how" are still profiting their first week.
+
+For many people it's the first time they've ever succeeded
+with any home business or online marketing
+
+http://bit.ly/MW5hPf
+
+Register for the Live Broadcast happening on Wednesday.
+
+Talk soon,
+John
+
+PS: You don't have to take my word for it, just watch as we
+show you exactly what's happening and you see the proof:
+
+http://bit.ly/MW5hPf
+
+
+
+
+****This email is not guaranteeing any results for any person.
+Our results do not guarantee your own. *****
