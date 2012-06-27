@@ -1,50 +1,65 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 04/13] netfilter: regard users as refcount for
- l4proto's per-net data
-Date: Wed, 27 Jun 2012 11:05:05 +0200
-Message-ID: <20120627090505.GA18372@1984>
-References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1340289410-17642-4-git-send-email-gaofeng@cn.fujitsu.com>
- <20120625112029.GB4607@1984>
- <4FE93375.1080803@cn.fujitsu.com>
- <20120626144708.GB11165@1984>
- <4FEA6309.5060305@cn.fujitsu.com>
+From: <Parav.Pandit@Emulex.Com>
+Subject: RE: [PATCH] net: added support for 40GbE link.
+Date: Wed, 27 Jun 2012 09:08:26 +0000
+Message-ID: <bb3ccb69-cd3f-42e5-8596-ba11b9b5a43f@CMEXHTCAS1.ad.emulex.com>
+References: <1340039376.2913.13.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120619.002905.922583388766089167.davem@davemloft.net>
+	 <5D6C0ABE6A236946864C45679362BBE20AC52269@CMEXMB1.ad.emulex.com>
+	 <20120619.003517.2067426285873138772.davem@davemloft.net>
+	 <5D6C0ABE6A236946864C45679362BBE20AC5227D@CMEXMB1.ad.emulex.com>
+ <1340115094.2692.10.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <bhutchings@solarflare.com>, <Parav.Pandit@Emulex.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39234 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754906Ab2F0JFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 05:05:13 -0400
-Content-Disposition: inline
-In-Reply-To: <4FEA6309.5060305@cn.fujitsu.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:35836 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756493Ab2F0JN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 05:13:56 -0400
+In-Reply-To: <1340115094.2692.10.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 27, 2012 at 09:34:01AM +0800, Gao feng wrote:
-[...]
-> >>> I think that this change is similar to patch 1/1, I think you should
-> >>> send it as a separated patch.
-> >>>
-> >>
-> >> Yes, It looks better.
-> >> should I change this and rebase whole patchset or
-> >> maybe you just apply this patchset and then I send a cleanup patch to do this?
-> > 
-> > This patch includes changes that are not included in the description,
-> > so you have two choices:
-> > 
-> > 1) You resend me this patch with appropriate description (including
-> > the fact that you're fixing the same thing that patch 1/1 does). This
-> > option still I don't like too much, since making two different things
-> > in one single patch is nasty, but well if you push me...
-> 
-> Sorry, I don't know which the same thing I fixed in this patch and 1/13 patch.
-> the 1/13 patch only change the proto's registration order. and this patch doesn't
-> change the registration order.
-> 
-> This patch is used to try to make variable "users" clear.
-
-Never mind, I'll take the patchset. Thanks Gao.
+by5rLiBJIGFtIHNlbmRpbmcgUEFUQ0ggdjEgd2l0aCBzdWdnZXN0ZWQgZml4ZXMgaW4gc2hvcnQg
+d2hpbGUgZm9yIGV0aHRvb2wgYW5kIGtlcm5lbCBib3RoLg0KDQpQYXJhdg0KDQo+IC0tLS0tT3Jp
+Z2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiaHV0Y2hp
+bmdzQHNvbGFyZmxhcmUuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBKdW5lIDE5LCAyMDEyIDc6NDIg
+UE0NCj4gVG86IFBhbmRpdCwgUGFyYXYNCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUkU6IFtQQVRDSF0gbmV0OiBhZGRlZCBzdXBw
+b3J0IGZvciA0MEdiRSBsaW5rLg0KPiANCj4gT24gVHVlLCAyMDEyLTA2LTE5IGF0IDA3OjQyICsw
+MDAwLCBQYXJhdi5QYW5kaXRARW11bGV4LkNvbSB3cm90ZToNCj4gPiA+IC0tLS0tT3JpZ2luYWwg
+TWVzc2FnZS0tLS0tDQo+ID4gPiBGcm9tOiBEYXZpZCBNaWxsZXIgW21haWx0bzpkYXZlbUBkYXZl
+bWxvZnQubmV0XQ0KPiA+ID4gU2VudDogVHVlc2RheSwgSnVuZSAxOSwgMjAxMiAxOjA1IFBNDQo+
+ID4gPiBUbzogUGFuZGl0LCBQYXJhdg0KPiA+ID4gQ2M6IGJodXRjaGluZ3NAc29sYXJmbGFyZS5j
+b207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5l
+dDogYWRkZWQgc3VwcG9ydCBmb3IgNDBHYkUgbGluay4NCj4gPiA+DQo+ID4gPiBGcm9tOiA8UGFy
+YXYuUGFuZGl0QEVtdWxleC5Db20+DQo+ID4gPiBEYXRlOiBUdWUsIDE5IEp1biAyMDEyIDA3OjMz
+OjEyICswMDAwDQo+ID4gPg0KPiA+ID4gPiBTaG91bGQgZXZlbnR1YWxseSBhbGwgbmV0IGRyaXZl
+ciBzaG91bGQgcmVtb3ZlIHVzaW5nIFNQRUVEX3h4eHh4eA0KPiA+ID4gPiBhbmQNCj4gPiA+IHN0
+YXJ0IHVzaW5nIGhhcmQgY29kZWQgdmFsdWUgb2YgMTAsIDEwMCwgMTAwMCwgMjAwMDA/DQo+ID4g
+Pg0KPiA+ID4gTm8sIHRoZSBvbmVzIHRoYXQgZXhpc3QgY2FuIHN0YXksIGp1c3Qgbm8gbmV3IG9u
+ZXMuDQo+ID4gPg0KPiA+IFNvIGRyaXZlciB3aGljaCBzdXBwb3J0cyA0MEdwYnMsIDEwMEdicHMg
+c2hvdWxkIGhhcmRjb2RlIHRvIDQwMDAwLA0KPiAxMDAwMDAgcmVzcGVjdGl2ZWx5Pw0KPiANCj4g
+UmlnaHQuDQo+IA0KPiA+ID4gPiBUaGF0IG1lYW5zIGV0aHRvb2xfY21kX3NwZWVkKCkgc2hvdWxk
+IG5vdCBiZSBjYWxsZWQgaW4gdGhpcyBmdW5jdGlvbj8NCj4gPiA+DQo+ID4gPiBCZW4gc2FpZCB0
+aGF0IGl0IG11c3QgYmUgY2FsbGVkLCB3aGF0IGFyZSB5b3UgdGFsa2luZyBhYm91dD8NCj4gPg0K
+PiA+IFNvcnJ5LCBJIHdhbnRlZCB0byBhc2sgLSBEbyB5b3UgbmVlZCBzd2l0Y2ggY2FzZSBmb3Ig
+c3BlZWQgbGlrZSBiZWxvdyBuZXcNCj4gY29kZSBvciBpdHMgc2hvdWxkIGJlIHNwZWVkIGluZGVw
+ZW5kZW50IGNvZGU/DQo+ID4gICAgICAgICAgICAgICAgIHN3aXRjaCAoZXRodG9vbF9jbWRfc3Bl
+ZWQoKSkgew0KPiA+ICAgICAgICAgICAgICAgICBjYXNlIFNQRUVEXzEwMDoNCj4gPiAgICAgICAg
+ICAgICAgICAgY2FzZSBTUEVFRF8xMDoNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICByZXR1
+cm4gREVGQVVMVF9QUkJfUkVUSVJFX1RPVjsNCj4gPiAgICAgICAgICAgICAgICAgZGVmYXVsdDoN
+Cj4gPiAgICAgICAgICAgICAgICAgICAgICAgICBtc2VjID0gMTsNCj4gPiAgICAgICAgICAgICAg
+ICAgICAgICAgICBkaXYgPSBldGh0b29sX2NtZF9zcGVlZCgpIC8gMTAwMDsNCj4gPiAgICAgICAg
+ICAgICAgICAgICAgICAgICBicmVhazsNCj4gPiAgICAgICAgICAgICAgICAgLyoNCj4gPiAgICAg
+ICAgICAgICAgICAgfQ0KPiANCj4gSSB3YXMgdGhpbmtpbmcgb2Ygc29tZXRoaW5nIGxpa2U6DQo+
+IA0KPiAJCXU2NCBzcGVlZCA9IGV0aHRvb2xfY21kX3NwZWVkKCZlY21kKTsNCj4gCQlpZiAoc3Bl
+ZWQgPCAxMDAwIHx8IHNwZWVkID09IFNQRUVEX1VOS05PV04pDQo+IAkJCXJldHVybiBERUZBVUxU
+X1BSQl9SRVRJUkVfVE9WOw0KPiAJCW1zZWMgPSAxOw0KPiAJCWRpdiA9IHNwZWVkIC8gMTAwMDsN
+Cj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBT
+b2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7DQo+IHRoYXQncyB0aGUgbWFy
+a2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNv
+bGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
