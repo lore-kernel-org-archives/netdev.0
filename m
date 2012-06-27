@@ -1,85 +1,45 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: Re: HSR: How to set IF_OPER_LOWERLAYERDOWN?
-Date: Wed, 27 Jun 2012 01:42:12 +0000
-Message-ID: <4FEA64F3.8000400@xdin.com>
-References: <4FEA37A0.309@xdin.com>
- <20120626153324.455c6081@nehalam.linuxnetplumber.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next] udp: Add socket early demux support
+Date: Wed, 27 Jun 2012 10:29:19 +0800
+Message-ID: <CABa6K_G1+7xvPkveRWEWCpAJcf8gK4=zKwXGtOxJLW2wTCCvMA@mail.gmail.com>
+References: <1340739826-3363-1-git-send-email-subramanian.vijay@gmail.com> <20120626.143401.445148198931339546.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Javier Boticario <jboticario@gmail.com>,
-	Bruno Ferreira <balferreira@googlemail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org,
+	shemminger@vyatta.com, eric.dumazet@gmail.com,
+	alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:57360 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753821Ab2F0BmP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 21:42:15 -0400
-In-Reply-To: <20120626153324.455c6081@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Content-ID: <16CE64B1FFF8C44DB17FC41EC57B9F3B@redbull.xdin.com>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:43171 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab2F0C3k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 22:29:40 -0400
+Received: by qcmt36 with SMTP id t36so379360qcm.1
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 19:29:39 -0700 (PDT)
+In-Reply-To: <20120626.143401.445148198931339546.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2012-06-27 00:33, Stephen Hemminger wrote:
-> On Tue, 26 Jun 2012 22:28:51 +0000
-> Arvid Brodin <Arvid.Brodin@xdin.com> wrote:
-> 
->> Hi,
->>
->> According to Documentation/networking/operstates.txt a network interface have an
->> operational state and an administrative state.
->>
->> If I understand things correctly the administrative state is the desired state set by
->> userspace, and the operational state is the actual state which depends on things like the
->> administrative state, whether a carrier is present, or (for virtual interfaces lite VLAN)
->> whether the lower interface is available.
->>
->>
->> In the driver I'm writing (for the "HSR" redundancy protocol) a hsr (virtual) interface is
->> useable as long as any of its (physical) slaves are useable. I.e. the operstate of a hsr
->> device might be set like this:
->>
->> void hsr_set_operstate()
->> {
->> 	if (!is_admin_up(hsr_dev)) /* Check IFF_UP */ {
->> 		set_operstate(hsr_dev, IF_OPER_DOWN);
->> 		return;
->> 	}
->>
->> 	if (is_operstate_up(slave1) || is_operstate_up(slave2)) /* Check IF_OPER_UP */
->> 		set_operstate(hsr_dev, IF_OPER_UP);
->> 	else
->> 		set_operstate(hsr_dev, IF_OPER_LOWERLAYERDOWN);
->> }
-> 
-> 
-> According to 802.1X example in documentation to set it down you need to set IF_OPER_DORMANT
-> not IF_OPER_LOWERLAYERDOWN.  Probably a kernel bug in there somwhere.
-> 
+On Wed, Jun 27, 2012 at 5:34 AM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> You can't do this.
+>
+> If the UDP socket has wildcards, that means the source address of the
+> route will not be validated. =A0This means we will start accepting
+> spoofed packets. =A0It also means the route you are caching is going
+> to be the wrong route since the keys are variable.
+>
+> You can only do an early demux where all the keys are fully specified
+> and there are no wildcards. =A0That why for TCP we only early demux f=
+or
+> established sockets.
 
-Hmm... if you're referring to the example in Documentation/networking/operstates.txt it
-seems to me that the usage of IF_OPER_DORMANT there is in compliance with RFC2863 - i.e.
-the device is waiting for some kind of handshake to finish. I don't think it has anything
-to do with taking the device down?
+How about implementing the whole early demux infrastructure on
+iptables/netfilter like rpfilter and TPROXY, then users have more
+controls.
 
-Oh, and I see now that set_operstate() is called from do_setlink() in
-net/core/rtnetlink.c, which means this function is used to set operstate from userspace.
-The limitations then fits with the description in operstates.txt, and this function is
-probably not meant to set an interface's operational state from within the kernel. I wrote
-my own hsr_set_operstate that accepts any values, and it seems to work... (?)
-
-
-Is there a way to get notifications when an interface's operational state change?
-NETDEV_CHANGE seems to trigger on carrier change, and NETDEV_UP/DOWN triggers when the
-administrative state changes - is there something similar for operational state?
-
-(Unfortunately NETDEV_UP/DOWN triggers before the operational state for the interface in
-question changes accordingly, so it's not possible to just check dev->operstate in the
-handler for these messages. NETDEV_CHANGE seems to trigger after the interface's
-operational state has been changed, though.)
-
--- 
-Arvid Brodin | Consultant (Linux)
-XDIN AB | Jan Stenbecks Torg 17 | SE-164 40 Kista | Sweden | xdin.com
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
