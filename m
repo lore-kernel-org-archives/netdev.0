@@ -1,54 +1,70 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [PATCH v2] l2tp: use per-cpu variables for u64_stats updates
-Date: Wed, 27 Jun 2012 13:58:23 -0700
-Message-ID: <4FEB73EF.9090702@candelatech.com>
-References: <1340798457-28270-1-git-send-email-tparkin@katalix.com> <1340823810.26242.81.camel@edumazet-glaptop> <4FEB6B64.5060708@hp.com> <1340829541.26242.90.camel@edumazet-glaptop> <20120627135034.7db7d0eb@nehalam.linuxnetplumber.net>
+Date: Wed, 27 Jun 2012 14:00:05 -0700
+Message-ID: <4FEB7455.6030107@hp.com>
+References: <1340798457-28270-1-git-send-email-tparkin@katalix.com> <1340823810.26242.81.camel@edumazet-glaptop>  <4FEB6B64.5060708@hp.com> <1340829541.26242.90.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Tom Parkin <tparkin@katalix.com>, netdev@vger.kernel.org,
+Cc: Tom Parkin <tparkin@katalix.com>, netdev@vger.kernel.org,
 	David.Laight@ACULAB.COM, James Chapman <jchapman@katalix.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:35389 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756764Ab2F0U6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 16:58:53 -0400
-In-Reply-To: <20120627135034.7db7d0eb@nehalam.linuxnetplumber.net>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:20438 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756761Ab2F0VAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 17:00:06 -0400
+In-Reply-To: <1340829541.26242.90.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2012 01:50 PM, Stephen Hemminger wrote:
-> On Wed, 27 Jun 2012 22:39:01 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 06/27/2012 01:39 PM, Eric Dumazet wrote:
+> On Wed, 2012-06-27 at 13:21 -0700, Rick Jones wrote:
 >
->> All sane SNMP applications are ready to cope with 32bits counters
->> wrapping.
+>> It is a question of the speed of the communications more than the
+>> bitness of the processor no?
 >
-> Actually that statement depends on the data rate. SNMP daemons work
-> by polling at periodic intervals. The limit for detecting roll over depends
-> on the rate and the interval. I believe the ubiquitous net-snmp code uses
-> something a 30 second polling interval for lots of it's caches. This means
-> it rolls over too fast at 10G. Polling faster can help but net-snmp is
-> a pig about updates.
+> Why ?
+
+The desire to have a greater than 32 bit counter stems from how quickly 
+it will wrap, and how quickly it will wrap depends on the speed of 
+communication.
+
+> In 2012 or 2013, 64bits kernels are the norm, and 32bit the exception.
+
+In servers and laptops I would be inclined to agree.  Elsewhere I am not 
+so sure.   And while I don't know of its status, there is at least one 
+hit on an RFC where, back in 2001, when a great many things were 32 bit, 
+various 64-bit counters were added for L2TP Domain statistics:
+
+http://tools.ietf.org/html/draft-ietf-l2tpext-l2tp-mib-03
+
+(I think that became http://tools.ietf.org/html/rfc3371 in 2002)
+
+So, it is possible people were simply painting a bikeshed, but 10 years 
+ago, when the prevalence of 64 bit processors was not nearly so great, 
+folks involved in L2TP MIB definitions found it worthwhile to make 
+various counters 64-bit.
+
+> Should we add complex code to l2tp just for being able to run it on
+> 32bit kernels with 64bit stats ?
 >
-> I just realized the whole x32 (running 32 bit apps on 64 bit kernel) is broken
-> for things like /proc/net/dev where 64 bit kernel will give 64 bit values and
-> the 32 bit app (like net-snmp) is expecting unsigned long (32 bits).
+> Considering this code is buggy at the v1 & v2, I am really wondering.
+>
+> All sane SNMP applications are ready to cope with 32bits counters
+> wrapping.
 
-It's worse than that:  Even on 64-bit kernels, counters that are returned by
-netlink and /proc/net/dev as 64-bit may still wrap themselves at 32-bit
-intervals.
+Once (maybe twice?) but no more than that.
 
-I found that I just have to be very paranoid, and assume that if a '64-bit'
-number wraps its high 32-bits between polls then it is really just a 32-bit
-number and do that wrap properly (and poll more often).
+> Machines that could wrap the 32bit counter several times per second are
+> probably running on 64bit kernels.
 
-Thanks,
-Ben
+I don't think it requires wrapping a 32 bit counter several times a 
+second to warrant a > 32 bit counter.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> Also percpu stats are overkill unless a device is really meant to be
+> used in // by many cpus.
+
+I take it "//" is used as a shorthand for parallel?
+
+rick
