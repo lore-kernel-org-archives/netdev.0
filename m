@@ -1,192 +1,103 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 9/18] pkt_sched: act_api: Move away from NLMSG_PUT().
-Date: Tue, 26 Jun 2012 22:02:29 -0700 (PDT)
-Message-ID: <20120626.220229.271920038298770697.davem@davemloft.net>
+Subject: [PATCH 7/18] netfilter: nfnetlink_log: Move away from NLMSG_PUT().
+Date: Tue, 26 Jun 2012 22:02:23 -0700 (PDT)
+Message-ID: <20120626.220223.1090653207727010874.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39211 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39206 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751772Ab2F0FC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 01:02:29 -0400
+	with ESMTP id S1750708Ab2F0FCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 01:02:24 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 545DC584191
-	for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 22:02:30 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 8564C584190
+	for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 22:02:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Move away from NLMSG_NEW() as well.
 
 And use nlmsg_data() while we're here too.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/act_api.c |   59 +++++++++++++++++++++++++++------------------------
- 1 file changed, 31 insertions(+), 28 deletions(-)
+ net/netfilter/nfnetlink_log.c |   29 ++++++++++++++++-------------
+ 1 file changed, 16 insertions(+), 13 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 5cfb160..e3d2c78 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -652,27 +652,27 @@ tca_get_fill(struct sk_buff *skb, struct tc_action *a, u32 pid, u32 seq,
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct nlattr *nest;
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 3c3cfc0..169ab59 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -326,18 +326,20 @@ __nfulnl_send(struct nfulnl_instance *inst)
+ {
+ 	int status = -1;
  
--	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*t), flags);
+-	if (inst->qlen > 1)
+-		NLMSG_PUT(inst->skb, 0, 0,
+-			  NLMSG_DONE,
+-			  sizeof(struct nfgenmsg));
 -
--	t = NLMSG_DATA(nlh);
-+	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*t), flags);
-+	if (!nlh)
-+		goto out_nlmsg_trim;
-+	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
- 	t->tca__pad2 = 0;
++	if (inst->qlen > 1) {
++		struct nlmsghdr *nlh = nlmsg_put(inst->skb, 0, 0,
++						 NLMSG_DONE,
++						 sizeof(struct nfgenmsg),
++						 0);
++		if (!nlh)
++			goto out;
++	}
+ 	status = nfnetlink_unicast(inst->skb, &init_net, inst->peer_pid,
+ 				   MSG_DONTWAIT);
  
- 	nest = nla_nest_start(skb, TCA_ACT_TAB);
- 	if (nest == NULL)
--		goto nla_put_failure;
-+		goto out_nlmsg_trim;
- 
- 	if (tcf_action_dump(skb, a, bind, ref) < 0)
--		goto nla_put_failure;
-+		goto out_nlmsg_trim;
- 
- 	nla_nest_end(skb, nest);
- 
- 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
- 	return skb->len;
- 
--nla_put_failure:
+ 	inst->qlen = 0;
+ 	inst->skb = NULL;
+-
 -nlmsg_failure:
-+out_nlmsg_trim:
- 	nlmsg_trim(skb, b);
- 	return -1;
++out:
+ 	return status;
  }
-@@ -799,19 +799,21 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 	if (a->ops == NULL)
- 		goto err_out;
  
--	nlh = NLMSG_PUT(skb, pid, n->nlmsg_seq, RTM_DELACTION, sizeof(*t));
--	t = NLMSG_DATA(nlh);
-+	nlh = nlmsg_put(skb, pid, n->nlmsg_seq, RTM_DELACTION, sizeof(*t), 0);
+@@ -380,10 +382,12 @@ __build_packet_message(struct nfulnl_instance *inst,
+ 	struct nfgenmsg *nfmsg;
+ 	sk_buff_data_t old_tail = inst->skb->tail;
+ 
+-	nlh = NLMSG_PUT(inst->skb, 0, 0,
++	nlh = nlmsg_put(inst->skb, 0, 0,
+ 			NFNL_SUBSYS_ULOG << 8 | NFULNL_MSG_PACKET,
+-			sizeof(struct nfgenmsg));
+-	nfmsg = NLMSG_DATA(nlh);
++			sizeof(struct nfgenmsg), 0);
 +	if (!nlh)
-+		goto out_module_put;
-+	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
- 	t->tca__pad2 = 0;
++		return -1;
++	nfmsg = nlmsg_data(nlh);
+ 	nfmsg->nfgen_family = pf;
+ 	nfmsg->version = NFNETLINK_V0;
+ 	nfmsg->res_id = htons(inst->group_num);
+@@ -526,7 +530,7 @@ __build_packet_message(struct nfulnl_instance *inst,
  
- 	nest = nla_nest_start(skb, TCA_ACT_TAB);
- 	if (nest == NULL)
--		goto nla_put_failure;
-+		goto out_module_put;
+ 		if (skb_tailroom(inst->skb) < nla_total_size(data_len)) {
+ 			printk(KERN_WARNING "nfnetlink_log: no tailroom!\n");
+-			goto nlmsg_failure;
++			return -1;
+ 		}
  
- 	err = a->ops->walk(skb, &dcb, RTM_DELACTION, a);
- 	if (err < 0)
--		goto nla_put_failure;
-+		goto out_module_put;
- 	if (err == 0)
- 		goto noflush_out;
+ 		nla = (struct nlattr *)skb_put(inst->skb, nla_total_size(data_len));
+@@ -540,7 +544,6 @@ __build_packet_message(struct nfulnl_instance *inst,
+ 	nlh->nlmsg_len = inst->skb->tail - old_tail;
+ 	return 0;
  
-@@ -828,8 +830,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 
- 	return err;
- 
--nla_put_failure:
 -nlmsg_failure:
-+out_module_put:
- 	module_put(a->ops->owner);
- err_out:
- noflush_out:
-@@ -919,18 +920,20 @@ static int tcf_add_notify(struct net *net, struct tc_action *a,
- 
- 	b = skb_tail_pointer(skb);
- 
--	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*t), flags);
--	t = NLMSG_DATA(nlh);
-+	nlh = nlmsg_put(skb, pid, seq, event, sizeof(*t), flags);
-+	if (!nlh)
-+		goto out_kfree_skb;
-+	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
- 	t->tca__pad2 = 0;
- 
- 	nest = nla_nest_start(skb, TCA_ACT_TAB);
- 	if (nest == NULL)
--		goto nla_put_failure;
-+		goto out_kfree_skb;
- 
- 	if (tcf_action_dump(skb, a, 0, 0) < 0)
--		goto nla_put_failure;
-+		goto out_kfree_skb;
- 
- 	nla_nest_end(skb, nest);
- 
-@@ -942,8 +945,7 @@ static int tcf_add_notify(struct net *net, struct tc_action *a,
- 		err = 0;
- 	return err;
- 
--nla_put_failure:
--nlmsg_failure:
-+out_kfree_skb:
- 	kfree_skb(skb);
+ nla_put_failure:
+ 	PRINTR(KERN_ERR "nfnetlink_log: error creating log nlmsg\n");
  	return -1;
- }
-@@ -1062,7 +1064,7 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tc_action_ops *a_o;
- 	struct tc_action a;
- 	int ret = 0;
--	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
-+	struct tcamsg *t = (struct tcamsg *) nlmsg_data(cb->nlh);
- 	struct nlattr *kind = find_dump_kind(cb->nlh);
- 
- 	if (kind == NULL) {
-@@ -1080,23 +1082,25 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	if (a_o->walk == NULL) {
- 		WARN(1, "tc_dump_action: %s !capable of dumping table\n",
- 		     a_o->kind);
--		goto nla_put_failure;
-+		goto out_module_put;
- 	}
- 
--	nlh = NLMSG_PUT(skb, NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq,
--			cb->nlh->nlmsg_type, sizeof(*t));
--	t = NLMSG_DATA(nlh);
-+	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq,
-+			cb->nlh->nlmsg_type, sizeof(*t), 0);
-+	if (!nlh)
-+		goto out_module_put;
-+	t = nlmsg_data(nlh);
- 	t->tca_family = AF_UNSPEC;
- 	t->tca__pad1 = 0;
- 	t->tca__pad2 = 0;
- 
- 	nest = nla_nest_start(skb, TCA_ACT_TAB);
- 	if (nest == NULL)
--		goto nla_put_failure;
-+		goto out_module_put;
- 
- 	ret = a_o->walk(skb, cb, RTM_GETACTION, &a);
- 	if (ret < 0)
--		goto nla_put_failure;
-+		goto out_module_put;
- 
- 	if (ret > 0) {
- 		nla_nest_end(skb, nest);
-@@ -1110,8 +1114,7 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	module_put(a_o->owner);
- 	return skb->len;
- 
--nla_put_failure:
--nlmsg_failure:
-+out_module_put:
- 	module_put(a_o->owner);
- 	nlmsg_trim(skb, b);
- 	return skb->len;
+@@ -745,7 +748,7 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
+ 		   const struct nlmsghdr *nlh,
+ 		   const struct nlattr * const nfula[])
+ {
+-	struct nfgenmsg *nfmsg = NLMSG_DATA(nlh);
++	struct nfgenmsg *nfmsg = nlmsg_data(nlh);
+ 	u_int16_t group_num = ntohs(nfmsg->res_id);
+ 	struct nfulnl_instance *inst;
+ 	struct nfulnl_msg_config_cmd *cmd = NULL;
 -- 
 1.7.10.2
