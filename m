@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1] net: added support for 40GbE link.
-Date: Wed, 27 Jun 2012 15:42:36 -0700 (PDT)
-Message-ID: <20120627.154236.2191644759533537024.davem@davemloft.net>
-References: <054018eb-a85c-4401-a010-7479aa38d2ef@exht1.ad.emulex.com>
-	<1340812980.2591.0.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH net-next] net: skb_free_datagram_locked() doesnt drop
+ all packets
+Date: Wed, 27 Jun 2012 15:42:49 -0700 (PDT)
+Message-ID: <20120627.154249.1708237703176021200.davem@davemloft.net>
+References: <1340792624.26242.75.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: parav.pandit@emulex.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47785 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47790 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755583Ab2F0Wmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 18:42:37 -0400
-In-Reply-To: <1340812980.2591.0.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1757101Ab2F0Wmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 18:42:50 -0400
+In-Reply-To: <1340792624.26242.75.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 27 Jun 2012 17:03:00 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 27 Jun 2012 12:23:44 +0200
 
-> On Wed, 2012-06-27 at 19:26 +0530, Parav Pandit wrote:
->> 1. removed code replication for tov calculation for 1G, 10G and
->> made is common for speed > 1G (1G, 10G, 40G, 100G).
->> 2. defines values for #4 different 40G Phys (KR4, LF4, SR4, CR4)
->> 
->> Signed-off-by: Parav Pandit <parav.pandit@emulex.com>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> dropwatch wrongly diagnose all received UDP packets as drops.
+> 
+> This patch removes trace_kfree_skb() done in skb_free_datagram_locked().
+> 
+> Locations calling skb_free_datagram_locked() should do it on their own.
+> 
+> As a result, drops are accounted on the right function.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
