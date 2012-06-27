@@ -1,53 +1,42 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Wed, 27 Jun 2012 11:23:34 +0200
-Message-ID: <1340789014.2028.165.camel@localhost>
-References: <201206260734.33472.hans.schillstrom@ericsson.com>
-	 <1340730156.10893.359.camel@edumazet-glaptop>
-	 <1340778733.2028.110.camel@localhost>
-	 <20120626.235423.588696200884989114.davem@davemloft.net>
-	 <1340781845.2028.133.camel@localhost>
-	 <1340782216.10893.427.camel@edumazet-glaptop>
-	 <1340783670.2028.141.camel@localhost>
-	 <1340784137.26242.5.camel@edumazet-glaptop>
-	 <1340785275.2028.151.camel@localhost>
-	 <1340786710.26242.37.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, hans.schillstrom@ericsson.com,
-	subramanian.vijay@gmail.com, dave.taht@gmail.com,
-	netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	mph@hoth.dk
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2012-06-27
+Date: Wed, 27 Jun 2012 11:27:15 +0200
+Message-ID: <1340789236-28266-1-git-send-email-mkl@pengutronix.de>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34563 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750884Ab2F0JXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 05:23:43 -0400
-In-Reply-To: <1340786710.26242.37.camel@edumazet-glaptop>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:52390 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884Ab2F0J12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 05:27:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-27 at 10:45 +0200, Eric Dumazet wrote:
-> On Wed, 2012-06-27 at 10:21 +0200, Jesper Dangaard Brouer wrote:
-> 
-> > It works because we have a spinlock problem in the code... Perhaps, they
-> > did it, because we have have locking/contention problem, not the other
-> > way around ;-)  How about fixing the code instead? ;-)))
-> 
-> The socket lock is currently mandatory.
->
-> It's really _hard_ to remove it, your attempts added a lot of races.
+Hello David,
 
-Yes, its really hard to remove completely.  That's why I choose _only_
-to handle the SYN cookie "overload" case, and leave the rest locked, and
-I also introduced extra locking in the latest patches.  I know it was
-not perfect, hence the RFC tag, but I hope I didn't add that many races.
+here's a patch intended for v3.5, targeting net/master. Hui Wang has
+found and fixed an endianness problem in the device tree handling in
+the flexcan driver.
 
+regards, Marc
 
-> I want to do it properly, adding needed RCU and array of spinlocks were
-> appropriate.
+---
 
-I really appreciate that you will attempt to fix this properly.  Like a
-real network ninja ;-).
+The following changes since commit 6bc96d047fe32d76ef79f3195c52a542edf7c705:
+
+  xen/netfront: teardown the device before unregistering it. (2012-06-27 01:25:41 -0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git for-davem
+
+for you to fetch changes up to 85f2f834e85517307f13e30e630a5fc86f757cb5:
+
+  can: flexcan: use be32_to_cpup to handle the value of dt entry (2012-06-27 11:12:07 +0200)
+
+----------------------------------------------------------------
+Hui Wang (1):
+      can: flexcan: use be32_to_cpup to handle the value of dt entry
+
+ drivers/net/can/flexcan.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
