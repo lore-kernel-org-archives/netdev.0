@@ -1,56 +1,73 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: be mroe restrictive in transport selection on
- bundled sacks
-Date: Wed, 27 Jun 2012 06:24:19 -0400
-Message-ID: <20120627102419.GA19313@hmsreliant.think-freely.org>
-References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
- <20120626.210504.657326352932517334.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch -resend] 9p: fix min_t() casting in p9pdu_vwritef()
+Date: Wed, 27 Jun 2012 13:36:58 +0300
+Message-ID: <20120627103658.GC3007@mwanda>
+References: <20120627090141.GF31212@elgon.mountain>
+ <4FEADE2E.90005@bfs.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Eric Van Hensbergen <ericvh@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: walter harms <wharms@bfs.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53187 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756723Ab2F0KYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 06:24:32 -0400
+Received: from rcsinet15.oracle.com ([148.87.113.117]:30960 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754799Ab2F0KhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 06:37:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20120626.210504.657326352932517334.davem@davemloft.net>
+In-Reply-To: <4FEADE2E.90005@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 26, 2012 at 09:05:04PM -0700, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Tue, 26 Jun 2012 16:31:44 -0400
+On Wed, Jun 27, 2012 at 12:19:26PM +0200, walter harms wrote:
 > 
-> > @@ -240,15 +240,20 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct sctp_packet *pkt,
-> >  	 */
-> >  	if (sctp_chunk_is_data(chunk) && !pkt->has_sack &&
-> >  	    !pkt->has_cookie_echo) {
-> > -		struct sctp_association *asoc;
-> >  		struct timer_list *timer;
-> > -		asoc = pkt->transport->asoc;
-> > +		struct sctp_association *asoc = pkt->transport->asoc;
-> > +		struct sctp_transport *trans;
-> > +
-> >  		timer = &asoc->timers[SCTP_EVENT_TIMEOUT_SACK];
+> 
+> Am 27.06.2012 11:01, schrieb Dan Carpenter:
+> > I don't think we're actually likely to hit this limit but if we do
+> > then the comparison should be done as size_t.  The original code
+> > is equivalent to:
+> >         len = strlen(sptr) % USHRT_MAX;
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > ---
+> > I was told this patch "has already made it upstream via the v9fs pull."
+> > but it must have been dropped accidentally.  Originally sent on Sat,
+> > Jan 15, 2011.
+> > 
+> > diff --git a/net/9p/protocol.c b/net/9p/protocol.c
+> > index 9ee48cb..3d33ecf 100644
+> > --- a/net/9p/protocol.c
+> > +++ b/net/9p/protocol.c
+> > @@ -368,7 +368,7 @@ p9pdu_vwritef(struct p9_fcall *pdu, int proto_version, const char *fmt,
+> >  				const char *sptr = va_arg(ap, const char *);
+> >  				uint16_t len = 0;
+> >  				if (sptr)
+> > -					len = min_t(uint16_t, strlen(sptr),
+> > +					len = min_t(size_t, strlen(sptr),
+> >  								USHRT_MAX);
 > >  
-> >  		/* If the SACK timer is running, we have a pending SACK */
-> >  		if (timer_pending(timer)) {
-> >  			struct sctp_chunk *sack;
-> >  			asoc->a_rwnd = asoc->rwnd;
-> > +
-> > +			if (chunk->transport && !chunk->transport->moved_ctsn)
-> > +				return retval;
-> > +
-> >  			sack = sctp_make_sack(asoc);
-> >  			if (sack) {
-> >  				retval = sctp_packet_append_chunk(pkt, sack);
+> >  				errcode = p9pdu_writef(pdu, proto_version,
 > 
-> The new local variable 'trans' seems to be unused.
+> this will result in
+> 	uint16_t = size_t
+> i would expect compilers to complains since uint16 < size_t
+> (most times). In this special case it seems more easy  write it.
+> also ushort seems ambitious since  uint16_t  need not to be
+> ushort.  so my idea would look like this:
 > 
-Crap, thank you Dave, that was a holdover from an initial pass I had made in
-writing this.  I'll repost with that removed once Vald has a chance to look this
-over
-Neil
+> 	len=strlen
+> 	if (len>65535) len=65535;
+> 	p9pdu_writef(...,(unint16_t)len);
+> 
+
+No.  I'm sorry, what you're saying is complete nonsense.  The whole
+point of min_t() is that you can cast to both sides to what you want
+before you do the compare.
+
+Obviously I wouldn't submit a patch that introduces a compile
+warning.  :/
+
+regards,
+dan carpenter
