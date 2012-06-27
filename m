@@ -1,101 +1,104 @@
 From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH net-next 1/4 v2] net: sh_eth: remove unnecessary function
-Date: Wed, 27 Jun 2012 14:59:51 +0900
-Message-ID: <4FEAA157.9060403@renesas.com>
+Subject: [PATCH net-next 3/4 v2] net: sh_eth: fix up the buffer pointers
+Date: Wed, 27 Jun 2012 15:00:01 +0900
+Message-ID: <4FEAA161.4030001@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: SH-Linux <linux-sh@vger.kernel.org>
 To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor3.renesas.com ([210.160.252.173]:56023 "EHLO
+	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592Ab2F0GAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 02:00:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The sh_eth_timer() called mod_timer() for itself. So, this patch
-removes the function.
+After freeing the buffer, the driver should change the value of
+the pointer to NULL.
 
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
  about v2:
   - rebase the latest net-next.git
-  - I don't submit the NAPI patch this time
 
- drivers/net/ethernet/renesas/sh_eth.c |   22 ----------------------
- drivers/net/ethernet/renesas/sh_eth.h |    1 -
- 2 files changed, 0 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |   31 ++++++++++++++++++++++++-------
+ 1 files changed, 24 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 326cb91..cf0bc31 100644
+index 43e76d2..2dd2ff5 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1339,14 +1339,6 @@ other_irq:
+@@ -788,6 +788,7 @@ static void sh_eth_ring_free(struct net_device *ndev)
+ 		}
+ 	}
+ 	kfree(mdp->rx_skbuff);
++	mdp->rx_skbuff = NULL;
+
+ 	/* Free Tx skb ringbuffer */
+ 	if (mdp->tx_skbuff) {
+@@ -797,6 +798,7 @@ static void sh_eth_ring_free(struct net_device *ndev)
+ 		}
+ 	}
+ 	kfree(mdp->tx_skbuff);
++	mdp->tx_skbuff = NULL;
+ }
+
+ /* format skb and descriptor buffer */
+@@ -933,10 +935,31 @@ desc_ring_free:
+ skb_ring_free:
+ 	/* Free Rx and Tx skb ring buffer */
+ 	sh_eth_ring_free(ndev);
++	mdp->tx_ring = NULL;
++	mdp->rx_ring = NULL;
+
  	return ret;
  }
 
--static void sh_eth_timer(unsigned long data)
--{
--	struct net_device *ndev = (struct net_device *)data;
--	struct sh_eth_private *mdp = netdev_priv(ndev);
--
--	mod_timer(&mdp->timer, jiffies + (10 * HZ));
--}
--
- /* PHY state control function */
- static void sh_eth_adjust_link(struct net_device *ndev)
++static void sh_eth_free_dma_buffer(struct sh_eth_private *mdp)
++{
++	int ringsize;
++
++	if (mdp->rx_ring) {
++		ringsize = sizeof(struct sh_eth_rxdesc) * RX_RING_SIZE;
++		dma_free_coherent(NULL, ringsize, mdp->rx_ring,
++				  mdp->rx_desc_dma);
++		mdp->rx_ring = NULL;
++	}
++
++	if (mdp->tx_ring) {
++		ringsize = sizeof(struct sh_eth_txdesc) * TX_RING_SIZE;
++		dma_free_coherent(NULL, ringsize, mdp->tx_ring,
++				  mdp->tx_desc_dma);
++		mdp->tx_ring = NULL;
++	}
++}
++
+ static int sh_eth_dev_init(struct net_device *ndev)
  {
-@@ -1594,11 +1586,6 @@ static int sh_eth_open(struct net_device *ndev)
- 	if (ret)
- 		goto out_free_irq;
+ 	int ret = 0;
+@@ -1677,7 +1700,6 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ static int sh_eth_close(struct net_device *ndev)
+ {
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+-	int ringsize;
 
--	/* Set the timer to check for link beat. */
--	init_timer(&mdp->timer);
--	mdp->timer.expires = (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
--	setup_timer(&mdp->timer, sh_eth_timer, (unsigned long)ndev);
--
- 	return ret;
+ 	netif_stop_queue(ndev);
 
- out_free_irq:
-@@ -1623,9 +1610,6 @@ static void sh_eth_tx_timeout(struct net_device *ndev)
- 	/* tx_errors count up */
- 	ndev->stats.tx_errors++;
-
--	/* timer off */
--	del_timer_sync(&mdp->timer);
--
- 	/* Free all the skbuffs in the Rx queue. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
- 		rxdesc = &mdp->rx_ring[i];
-@@ -1643,10 +1627,6 @@ static void sh_eth_tx_timeout(struct net_device *ndev)
-
- 	/* device init */
- 	sh_eth_dev_init(ndev);
--
--	/* timer on */
--	mdp->timer.expires = (jiffies + (24 * HZ)) / 10;/* 2.4 sec. */
--	add_timer(&mdp->timer);
- }
-
- /* Packet transmit function */
-@@ -1719,8 +1699,6 @@ static int sh_eth_close(struct net_device *ndev)
-
- 	free_irq(ndev->irq, ndev);
-
--	del_timer_sync(&mdp->timer);
--
- 	/* Free all the skbuffs in the Rx queue. */
+@@ -1700,12 +1722,7 @@ static int sh_eth_close(struct net_device *ndev)
  	sh_eth_ring_free(ndev);
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index d6763b1..5af3f2a 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -772,7 +772,6 @@ struct sh_eth_private {
- 	struct sh_eth_txdesc *tx_ring;
- 	struct sk_buff **rx_skbuff;
- 	struct sk_buff **tx_skbuff;
--	struct timer_list timer;
- 	spinlock_t lock;
- 	u32 cur_rx, dirty_rx;	/* Producer/consumer ring indices */
- 	u32 cur_tx, dirty_tx;
+ 	/* free DMA buffer */
+-	ringsize = sizeof(struct sh_eth_rxdesc) * RX_RING_SIZE;
+-	dma_free_coherent(NULL, ringsize, mdp->rx_ring, mdp->rx_desc_dma);
+-
+-	/* free DMA buffer */
+-	ringsize = sizeof(struct sh_eth_txdesc) * TX_RING_SIZE;
+-	dma_free_coherent(NULL, ringsize, mdp->tx_ring, mdp->tx_desc_dma);
++	sh_eth_free_dma_buffer(mdp);
+
+ 	pm_runtime_put_sync(&mdp->pdev->dev);
+
 -- 
 1.7.1
