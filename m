@@ -1,44 +1,45 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v2] l2tp: use per-cpu variables for u64_stats updates
-Date: Wed, 27 Jun 2012 13:21:56 -0700
-Message-ID: <4FEB6B64.5060708@hp.com>
-References: <1340798457-28270-1-git-send-email-tparkin@katalix.com> <1340823810.26242.81.camel@edumazet-glaptop>
+Date: Wed, 27 Jun 2012 22:39:01 +0200
+Message-ID: <1340829541.26242.90.camel@edumazet-glaptop>
+References: <1340798457-28270-1-git-send-email-tparkin@katalix.com>
+	 <1340823810.26242.81.camel@edumazet-glaptop>  <4FEB6B64.5060708@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Tom Parkin <tparkin@katalix.com>, netdev@vger.kernel.org,
 	David.Laight@ACULAB.COM, James Chapman <jchapman@katalix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:9266 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353Ab2F0UV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 16:21:58 -0400
-In-Reply-To: <1340823810.26242.81.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:59341 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753418Ab2F0UjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 16:39:07 -0400
+Received: by bkcji2 with SMTP id ji2so1433221bkc.19
+        for <netdev@vger.kernel.org>; Wed, 27 Jun 2012 13:39:05 -0700 (PDT)
+In-Reply-To: <4FEB6B64.5060708@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2012 12:03 PM, Eric Dumazet wrote:
-> On Wed, 2012-06-27 at 13:00 +0100, Tom Parkin wrote:
->> This patch fixes a race condition in l2tp when updating tunnel and
->> session statistics.  Previously it was possible for multiple threads
->> to concurrently call u64_stats_update*(), which lead to statistics
->> readers blocking forever.
->>
->> This race was discovered on an AMD64 SMP machine running a 32bit
->> kernel.  Running "ip l2tp" while sending data over an Ethernet
->> pseudowire resulted in an occasional soft lockup in
->> u64_stats_fetch_begin() called from l2tp_nl_session_send().
->>
->> For safe lockless update of l2tp stats, data is now stored in per-cpu
->> variables.  These per-cpu datasets are then summed at read time via.
->> an extra helper function l2tp_stats_copy() which has been added to
->> l2tp_core.c.
->>
->
-> Do we really need 64bits stats on 32bit arches for l2tp ?
+On Wed, 2012-06-27 at 13:21 -0700, Rick Jones wrote:
 
-It is a question of the speed of the communications more than the 
-bitness of the processor no?
+> It is a question of the speed of the communications more than the 
+> bitness of the processor no?
 
-rick jones
+Why ?
+
+In 2012 or 2013, 64bits kernels are the norm, and 32bit the exception.
+
+Should we add complex code to l2tp just for being able to run it on
+32bit kernels with 64bit stats ?
+
+Considering this code is buggy at the v1 & v2, I am really wondering.
+
+All sane SNMP applications are ready to cope with 32bits counters
+wrapping.
+
+Machines that could wrap the 32bit counter several times per second are
+probably running on 64bit kernels.
+
+Also percpu stats are overkill unless a device is really meant to be
+used in // by many cpus.
