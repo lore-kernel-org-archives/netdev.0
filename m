@@ -1,36 +1,30 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH v2] l2tp: use per-cpu variables for u64_stats updates
-Date: Wed, 27 Jun 2012 16:39:09 -0700
-Message-ID: <4FEB999D.20309@hp.com>
-References: <4FEB7BB9.1080905@candelatech.com> <1340832947.26242.169.camel@edumazet-glaptop> <4FEB90C3.9050607@hp.com> <20120627.160922.686783180082355740.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: tcp: dont cache unconfirmed intput dst
+Date: Wed, 27 Jun 2012 16:44:18 -0700 (PDT)
+Message-ID: <20120627.164418.1928194990434756968.davem@davemloft.net>
+References: <1340788455.26242.67.camel@edumazet-glaptop>
+	<20120627.153454.30398632011109264.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, greearb@candelatech.com,
-	shemminger@vyatta.com, tparkin@katalix.com, netdev@vger.kernel.org,
-	David.Laight@ACULAB.COM, jchapman@katalix.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, hans.schillstrom@ericsson.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:6088 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811Ab2F0XjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 19:39:11 -0400
-In-Reply-To: <20120627.160922.686783180082355740.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48209 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754013Ab2F0XoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 19:44:19 -0400
+In-Reply-To: <20120627.153454.30398632011109264.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/27/2012 04:09 PM, David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Wed, 27 Jun 2012 16:01:23 -0700
->
->> At 100 Gbit/s Ethernet, that is upwards of 147
->
-> Listing upcoming technologies shows that you miss Eric's point.
->
-> Nobody with a brain is going to drive those kinds of cards on boxes
-> running 32-bit kernels.
 
-Yes, I strayed from the context of 32-bit kernels.  I will go run iperf 
-a couple times as penance :)
+Eric, I think we need to make some adjustments after this change.
 
-rick
+What happens now is that legitimate traffic is harmed too.  If we
+really go to established state, we'll cache the DST_NOCACHE route
+in sk->sk_rx_dst.
+
+I've added logging to validate that this is in fact happening, it
+triggers when I initially ssh into my machine.  The early demux route
+we end up with has DST_NOCACHE set in it.
