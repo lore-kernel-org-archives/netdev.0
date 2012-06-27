@@ -1,64 +1,150 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch -resend] 9p: fix min_t() casting in p9pdu_vwritef()
-Date: Wed, 27 Jun 2012 12:19:26 +0200
-Message-ID: <4FEADE2E.90005@bfs.de>
-References: <20120627090141.GF31212@elgon.mountain>
-Reply-To: wharms@bfs.de
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: skb_free_datagram_locked() doesnt drop all
+ packets
+Date: Wed, 27 Jun 2012 12:23:44 +0200
+Message-ID: <1340792624.26242.75.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Van Hensbergen <ericvh@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.sz.bfs.de ([194.94.69.103]:40896 "EHLO mx01.sz.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754799Ab2F0KT2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 06:19:28 -0400
-In-Reply-To: <20120627090141.GF31212@elgon.mountain>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:63077 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756723Ab2F0KXt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 06:23:49 -0400
+Received: by eeit10 with SMTP id t10so274997eei.19
+        for <netdev@vger.kernel.org>; Wed, 27 Jun 2012 03:23:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+dropwatch wrongly diagnose all received UDP packets as drops.
 
-Am 27.06.2012 11:01, schrieb Dan Carpenter:
-> I don't think we're actually likely to hit this limit but if we do
-> then the comparison should be done as size_t.  The original code
-> is equivalent to:
->         len = strlen(sptr) % USHRT_MAX;
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> I was told this patch "has already made it upstream via the v9fs pull."
-> but it must have been dropped accidentally.  Originally sent on Sat,
-> Jan 15, 2011.
-> 
-> diff --git a/net/9p/protocol.c b/net/9p/protocol.c
-> index 9ee48cb..3d33ecf 100644
-> --- a/net/9p/protocol.c
-> +++ b/net/9p/protocol.c
-> @@ -368,7 +368,7 @@ p9pdu_vwritef(struct p9_fcall *pdu, int proto_version, const char *fmt,
->  				const char *sptr = va_arg(ap, const char *);
->  				uint16_t len = 0;
->  				if (sptr)
-> -					len = min_t(uint16_t, strlen(sptr),
-> +					len = min_t(size_t, strlen(sptr),
->  								USHRT_MAX);
->  
->  				errcode = p9pdu_writef(pdu, proto_version,
+This patch removes trace_kfree_skb() done in skb_free_datagram_locked().
 
-this will result in
-	uint16_t = size_t
-i would expect compilers to complains since uint16 < size_t (most times). In this special case
-it seems more easy  write it. also ushort seems ambitious since  uint16_t  need not to be ushort.
-so my idea would look like this:
+Locations calling skb_free_datagram_locked() should do it on their own.
 
-	len=strlen
-	if (len>65535) len=65535;
-	p9pdu_writef(...,(unint16_t)len);
+As a result, drops are accounted on the right function.
 
-just my 2 cents,
- wh	
-	
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/datagram.c  |    1 -
+ net/ipv4/udp.c       |    5 ++++-
+ net/ipv6/udp.c       |    8 +++++---
+ net/sunrpc/svcsock.c |   12 ++++++------
+ 4 files changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ae6acf6..0337e2b 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -248,7 +248,6 @@ void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb)
+ 	unlock_sock_fast(sk, slow);
+ 
+ 	/* skb is now orphaned, can be freed outside of locked section */
+-	trace_kfree_skb(skb, skb_free_datagram_locked);
+ 	__kfree_skb(skb);
+ }
+ EXPORT_SYMBOL(skb_free_datagram_locked);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index db017ef..ee37d47 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -108,6 +108,7 @@
+ #include <net/xfrm.h>
+ #include <trace/events/udp.h>
+ #include <linux/static_key.h>
++#include <trace/events/skb.h>
+ #include "udp_impl.h"
+ 
+ struct udp_table udp_table __read_mostly;
+@@ -1220,8 +1221,10 @@ try_again:
+ 			goto csum_copy_err;
+ 	}
+ 
+-	if (err)
++	if (unlikely(err)) {
++		trace_kfree_skb(skb, udp_recvmsg);
+ 		goto out_free;
++	}
+ 
+ 	if (!peeked)
+ 		UDP_INC_STATS_USER(sock_net(sk),
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 051ad48..1ecd102 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -48,6 +48,7 @@
+ 
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
++#include <trace/events/skb.h>
+ #include "udp_impl.h"
+ 
+ int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
+@@ -385,15 +386,16 @@ try_again:
+ 
+ 	if (skb_csum_unnecessary(skb))
+ 		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
+-					      msg->msg_iov, copied       );
++					      msg->msg_iov, copied);
+ 	else {
+ 		err = skb_copy_and_csum_datagram_iovec(skb, sizeof(struct udphdr), msg->msg_iov);
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+ 	}
+-	if (err)
++	if (unlikely(err)) {
++		trace_kfree_skb(skb, udpv6_recvmsg);
+ 		goto out_free;
+-
++	}
+ 	if (!peeked) {
+ 		if (is_udp4)
+ 			UDP_INC_STATS_USER(sock_net(sk),
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index a6de09d..18bc130 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -43,6 +43,7 @@
+ #include <net/tcp_states.h>
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
++#include <trace/events/skb.h>
+ 
+ #include <linux/sunrpc/types.h>
+ #include <linux/sunrpc/clnt.h>
+@@ -619,6 +620,8 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
+ 	if (!svc_udp_get_dest_address(rqstp, cmh)) {
+ 		net_warn_ratelimited("svc: received unknown control message %d/%d; dropping RPC reply datagram\n",
+ 				     cmh->cmsg_level, cmh->cmsg_type);
++out_free:
++		trace_kfree_skb(skb, svc_udp_recvfrom);
+ 		skb_free_datagram_locked(svsk->sk_sk, skb);
+ 		return 0;
+ 	}
+@@ -630,8 +633,7 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
+ 		if (csum_partial_copy_to_xdr(&rqstp->rq_arg, skb)) {
+ 			local_bh_enable();
+ 			/* checksum error */
+-			skb_free_datagram_locked(svsk->sk_sk, skb);
+-			return 0;
++			goto out_free;
+ 		}
+ 		local_bh_enable();
+ 		skb_free_datagram_locked(svsk->sk_sk, skb);
+@@ -640,10 +642,8 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
+ 		rqstp->rq_arg.head[0].iov_base = skb->data +
+ 			sizeof(struct udphdr);
+ 		rqstp->rq_arg.head[0].iov_len = len;
+-		if (skb_checksum_complete(skb)) {
+-			skb_free_datagram_locked(svsk->sk_sk, skb);
+-			return 0;
+-		}
++		if (skb_checksum_complete(skb))
++			goto out_free;
+ 		rqstp->rq_xprt_ctxt = skb;
+ 	}
+ 
