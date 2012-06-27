@@ -1,47 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Wed, 27 Jun 2012 10:45:10 +0200
-Message-ID: <1340786710.26242.37.camel@edumazet-glaptop>
-References: <201206260734.33472.hans.schillstrom@ericsson.com>
-	 <1340730156.10893.359.camel@edumazet-glaptop>
-	 <1340778733.2028.110.camel@localhost>
-	 <20120626.235423.588696200884989114.davem@davemloft.net>
-	 <1340781845.2028.133.camel@localhost>
-	 <1340782216.10893.427.camel@edumazet-glaptop>
-	 <1340783670.2028.141.camel@localhost>
-	 <1340784137.26242.5.camel@edumazet-glaptop>
-	 <1340785275.2028.151.camel@localhost>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 1/2] net: flexcan: clock-frequency is optional for device
+ tree probe
+Date: Wed, 27 Jun 2012 10:47:24 +0200
+Message-ID: <4FEAC89C.3000405@pengutronix.de>
+References: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org> <1340700563-8386-2-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, hans.schillstrom@ericsson.com,
-	subramanian.vijay@gmail.com, dave.taht@gmail.com,
-	netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	mph@hoth.dk
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigCC8817FDA14AD27BBB1BB06B"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:62096 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460Ab2F0IpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:45:17 -0400
-Received: by eeit10 with SMTP id t10so239963eei.19
-        for <netdev@vger.kernel.org>; Wed, 27 Jun 2012 01:45:16 -0700 (PDT)
-In-Reply-To: <1340785275.2028.151.camel@localhost>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50351 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952Ab2F0Irc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:47:32 -0400
+In-Reply-To: <1340700563-8386-2-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-06-27 at 10:21 +0200, Jesper Dangaard Brouer wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigCC8817FDA14AD27BBB1BB06B
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> It works because we have a spinlock problem in the code... Perhaps, they
-> did it, because we have have locking/contention problem, not the other
-> way around ;-)  How about fixing the code instead? ;-)))
+On 06/26/2012 10:49 AM, Shawn Guo wrote:
+> The property clock-frequency is optional for device tree probe.  When
+> it's absent, the flexcan driver will try to get the frequency from clk
+> system by calling clk_get_rate.
+>=20
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-The socket lock is currently mandatory.
+As Oliver pointed out, this doesn't go through the net tree.
 
-It's really _hard_ to remove it, your attempts added a lot of races.
+Marc
 
-I want to do it properly, adding needed RCU and array of spinlocks were
-appropriate.
+> ---
+>  .../devicetree/bindings/net/can/fsl-flexcan.txt    |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt =
+b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
+> index f31b686..8ff324e 100644
+> --- a/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
+> +++ b/Documentation/devicetree/bindings/net/can/fsl-flexcan.txt
+> @@ -11,6 +11,9 @@ Required properties:
+> =20
+>  - reg : Offset and length of the register set for this device
+>  - interrupts : Interrupt tuple for this device
+> +
+> +Optional properties:
+> +
+>  - clock-frequency : The oscillator frequency driving the flexcan devic=
+e
+> =20
+>  Example:
 
-Hopefully, its easier than the RCU conversion I did for the lookups of
-ESTABLISHED/TIMEWAIT sockets.
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigCC8817FDA14AD27BBB1BB06B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/qyJwACgkQjTAFq1RaXHPgsACfT6uJv3nN4L3OmhduMLcvX1f1
+MjkAn3E/YwjzNZWprwuvxJVfttonozLE
+=q9zW
+-----END PGP SIGNATURE-----
+
+--------------enigCC8817FDA14AD27BBB1BB06B--
