@@ -1,7 +1,7 @@
 From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH v2 4/5] net: fec: phy-reset-gpios is optional
-Date: Wed, 27 Jun 2012 21:45:23 +0800
-Message-ID: <1340804724-29410-5-git-send-email-shawn.guo@linaro.org>
+Subject: [PATCH v2 3/5] net: fec: use managed function devm_gpio_request_one
+Date: Wed, 27 Jun 2012 21:45:22 +0800
+Message-ID: <1340804724-29410-4-git-send-email-shawn.guo@linaro.org>
 References: <1340804724-29410-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,37 +12,36 @@ Cc: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
 	Shawn Guo <shawn.guo@linaro.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:16350
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755976Ab2F0Npl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 09:45:41 -0400
+Received: from am1ehsobe006.messaging.microsoft.com ([213.199.154.209]:58148
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755653Ab2F0Nph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 09:45:37 -0400
 In-Reply-To: <1340804724-29410-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The phy-reset-gpios is an optional property for fec device tree boot.
-Change the binding document to match the driver code.
+Using gpio_request_one will require the probe fail-out call gpio_free,
+which is missing currently.  Change to use devm_gpio_request_one to
+fix the problem.
 
 Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 ---
- Documentation/devicetree/bindings/net/fsl-fec.txt |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/freescale/fec.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index 7ab9e1a..0428920 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -7,10 +7,10 @@ Required properties:
- - phy-mode : String, operation mode of the PHY interface.
-   Supported values are: "mii", "gmii", "sgmii", "tbi", "rmii",
-   "rgmii", "rgmii-id", "rgmii-rxid", "rgmii-txid", "rtbi", "smii".
--- phy-reset-gpios : Should specify the gpio for phy reset
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 4dce9e3..f174070 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1513,7 +1513,8 @@ static void __devinit fec_reset_phy(struct platform_device *pdev)
+ 		return;
  
- Optional properties:
- - local-mac-address : 6 bytes, mac address
-+- phy-reset-gpios : Should specify the gpio for phy reset
- 
- Example:
- 
+ 	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
+-	err = gpio_request_one(phy_reset, GPIOF_OUT_INIT_LOW, "phy-reset");
++	err = devm_gpio_request_one(&pdev->dev, phy_reset,
++				    GPIOF_OUT_INIT_LOW, "phy-reset");
+ 	if (err) {
+ 		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
+ 		return;
 -- 
 1.7.5.4
