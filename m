@@ -1,48 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 7/7] netlink: Get rid of obsolete rtnetlink macros
-Date: Wed, 27 Jun 2012 15:31:45 -0700
-Message-ID: <20120627153145.1379a30b@nehalam.linuxnetplumber.net>
-References: <cover.1340788373.git.tgraf@suug.ch>
-	<a10752bf3eb27e13e61b817664d58a69f9179fc9.1340788373.git.tgraf@suug.ch>
-	<20120627083532.38566c87@nehalam.linuxnetplumber.net>
-	<20120627.150435.67648216442174370.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: tcp: dont cache unconfirmed intput dst
+Date: Wed, 27 Jun 2012 15:34:54 -0700 (PDT)
+Message-ID: <20120627.153454.30398632011109264.davem@davemloft.net>
+References: <1340788455.26242.67.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, hans.schillstrom@ericsson.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40030 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932065Ab2F0Wbz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 18:31:55 -0400
-In-Reply-To: <20120627.150435.67648216442174370.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47728 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753987Ab2F0Wez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 18:34:55 -0400
+In-Reply-To: <1340788455.26242.67.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Jun 2012 15:04:35 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 27 Jun 2012 11:14:15 +0200
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Wed, 27 Jun 2012 08:35:32 -0700
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > On Wed, 27 Jun 2012 11:36:16 +0200
-> > Thomas Graf <tgraf@suug.ch> wrote:
-> > 
-> >> Removes all RTA_GET*() and RTA_PUT*() variations, as well as the
-> >> the unused rtattr_strcmp(). Get rid of rtm_get_table() by moving
-> >> it to its only user decnet.
-> >> 
-> >> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> >> ---
-> > 
-> > Nack. The RTA_ macros are exported to user space through kernel
-> > headers process. If you do this it will break iproute2 build.
-> > 
+> DDOS synflood attacks hit badly IP route cache.
 > 
-> They are protected by __KERNEL__, what are you talking about?
+> On typical machines, this cache is allowed to hold up to 8 Millions dst
+> entries, 256 bytes for each, for a total of 2GB of memory.
+> 
+> rt_garbage_collect() triggers and tries to cleanup things.
+> 
+> Eventually route cache is disabled but machine is under fire and might
+> OOM and crash.
+> 
+> This patch exploits the new TCP early demux, to set a nocache
+> boolean in case incoming TCP frame is for a not yet ESTABLISHED or
+> TIMEWAIT socket.
+> 
+> This 'nocache' boolean is then used in case dst entry is not found in
+> route cache, to create an unhashed dst entry (DST_NOCACHE)
+> 
+> SYN-cookie-ACK sent use a similar mechanism (ipv4: tcp: dont cache
+> output dst for syncookies), so after this patch, a machine is able to
+> absorb a DDOS synflood attack without polluting its IP route cache.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Never mind, there are copies in other places in iproute
-
-I plan to get rid of the macro versions of this stuff.
-It is a nuisance in iproute for the same reason as the kernel.
+Applied, thanks Eric.
