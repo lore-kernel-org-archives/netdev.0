@@ -1,73 +1,42 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/2] net: flexcan: clock-frequency is optional for device
- tree probe
-Date: Wed, 27 Jun 2012 10:59:07 +0200
-Message-ID: <4FEACB5B.2040508@pengutronix.de>
-References: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org> <1340700563-8386-2-git-send-email-shawn.guo@linaro.org> <4FEAC89C.3000405@pengutronix.de> <20120627085600.GB9787@S2101-09.ap.freescale.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -resend] 9p: fix min_t() casting in p9pdu_vwritef()
+Date: Wed, 27 Jun 2012 12:01:41 +0300
+Message-ID: <20120627090141.GF31212@elgon.mountain>
+References: <20120627085800.GA3007@mwanda>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig5E5FFC5A70517A0CB878174C"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:39651 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201Ab2F0I7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:59:13 -0400
-In-Reply-To: <20120627085600.GB9787@S2101-09.ap.freescale.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120627085800.GA3007@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig5E5FFC5A70517A0CB878174C
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+I don't think we're actually likely to hit this limit but if we do
+then the comparison should be done as size_t.  The original code
+is equivalent to:
+        len = strlen(sptr) % USHRT_MAX;
 
-On 06/27/2012 10:56 AM, Shawn Guo wrote:
-> On Wed, Jun 27, 2012 at 10:47:24AM +0200, Marc Kleine-Budde wrote:
->> On 06/26/2012 10:49 AM, Shawn Guo wrote:
->>> The property clock-frequency is optional for device tree probe.  When=
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+I was told this patch "has already made it upstream via the v9fs pull."
+but it must have been dropped accidentally.  Originally sent on Sat,
+Jan 15, 2011.
 
->>> it's absent, the flexcan driver will try to get the frequency from cl=
-k
->>> system by calling clk_get_rate.
->>>
->>> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
->> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
->=20
-> Thanks.
->=20
->>
->> As Oliver pointed out, this doesn't go through the net tree.
->>
-> From what I have seen, device tree maintainers are generally fine with
-> having binding document updates go through subsystem tree.
-
-Okay. Then I'll take that patch.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig5E5FFC5A70517A0CB878174C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk/qy1sACgkQjTAFq1RaXHOMcACgiTdx4xOSVAq0zZTcMEN2ycAf
-jWYAnjUZePabOw+mSCFdVxSSu8UuexTM
-=ylPe
------END PGP SIGNATURE-----
-
---------------enig5E5FFC5A70517A0CB878174C--
+diff --git a/net/9p/protocol.c b/net/9p/protocol.c
+index 9ee48cb..3d33ecf 100644
+--- a/net/9p/protocol.c
++++ b/net/9p/protocol.c
+@@ -368,7 +368,7 @@ p9pdu_vwritef(struct p9_fcall *pdu, int proto_version, const char *fmt,
+ 				const char *sptr = va_arg(ap, const char *);
+ 				uint16_t len = 0;
+ 				if (sptr)
+-					len = min_t(uint16_t, strlen(sptr),
++					len = min_t(size_t, strlen(sptr),
+ 								USHRT_MAX);
+ 
+ 				errcode = p9pdu_writef(pdu, proto_version,
