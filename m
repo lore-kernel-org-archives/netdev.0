@@ -1,34 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Tue, 26 Jun 2012 23:54:23 -0700 (PDT)
-Message-ID: <20120626.235423.588696200884989114.davem@davemloft.net>
-References: <201206260734.33472.hans.schillstrom@ericsson.com>
-	<1340730156.10893.359.camel@edumazet-glaptop>
-	<1340778733.2028.110.camel@localhost>
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Subject: Re: [patch -next] 6lowpan: double unlock on an error path
+Date: Wed, 27 Jun 2012 10:57:18 +0400
+Message-ID: <CAJmB2rCwYo1KR_gOQFrvMn2A2px1mPEN5DV+KGtjV914p-o7NA@mail.gmail.com>
+References: <20120627065309.GA25774@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, hans.schillstrom@ericsson.com,
-	subramanian.vijay@gmail.com, dave.taht@gmail.com,
-	netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	mph@hoth.dk
-To: brouer@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	Sergey Lapin <slapin@ossfans.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39768 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811Ab2F0Gy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 02:54:26 -0400
-In-Reply-To: <1340778733.2028.110.camel@localhost>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:62757 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754165Ab2F0G5U convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 02:57:20 -0400
+In-Reply-To: <20120627065309.GA25774@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Wed, 27 Jun 2012 08:32:13 +0200
+2012/6/27 Dan Carpenter <dan.carpenter@oracle.com>:
+> We already unlocked a few lines earlier here, so we can go directly t=
+o
+> drop without passing through unlock. =A0This was introduced recently =
+in
+> c5d3687f6c ('6lowpan: read data from skb safely').
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index ad0c226..cd5007f 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -771,7 +771,7 @@ lowpan_process_data(struct sk_buff *skb)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0kfree(frame);
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (lowpan_fetch_skb_u=
+8(skb, &iphc0))
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto un=
+lock_and_drop;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto dr=
+op;
+>
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
 
-> Using it as default, might be "dangerous" and open an attack vector
-> on SYN cookies in Linux.
-
-If it's dangerous for syncookies then it's just as dangerous for
-the routing hash and the socket hashes where we use it already.
-
-Therefore, this sounds like a baseless claim to me.
+Acked-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
