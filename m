@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] tcp demux used to signal ip_route_input_noref to not
- cache dst
-Date: Wed, 27 Jun 2012 01:15:36 -0700 (PDT)
-Message-ID: <20120627.011536.200113758829797507.davem@davemloft.net>
-References: <1340781553.10893.414.camel@edumazet-glaptop>
-	<1340783533.26242.2.camel@edumazet-glaptop>
+Subject: Re: [patch -next] 6lowpan: double unlock on an error path
+Date: Wed, 27 Jun 2012 01:17:05 -0700 (PDT)
+Message-ID: <20120627.011705.1325190861280829179.davem@davemloft.net>
+References: <20120627065309.GA25774@elgon.mountain>
+	<CAJmB2rCwYo1KR_gOQFrvMn2A2px1mPEN5DV+KGtjV914p-o7NA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dan.carpenter@oracle.com, dbaryshkov@gmail.com, slapin@ossfans.org,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40229 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40251 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318Ab2F0IPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:15:37 -0400
-In-Reply-To: <1340783533.26242.2.camel@edumazet-glaptop>
+	with ESMTP id S1752408Ab2F0IRG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:17:06 -0400
+In-Reply-To: <CAJmB2rCwYo1KR_gOQFrvMn2A2px1mPEN5DV+KGtjV914p-o7NA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 27 Jun 2012 09:52:13 +0200
+=46rom: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Wed, 27 Jun 2012 10:57:18 +0400
 
-> I'll test the following patch in a moment.
-> 
-> For the moment, set nocache to true for all frames not associated to an
-> ESTABLISHED socket. Not sure we want to test SYN flag after all.
+> 2012/6/27 Dan Carpenter <dan.carpenter@oracle.com>:
+>> We already unlocked a few lines earlier here, so we can go directly =
+to
+>> drop without passing through unlock. =A0This was introduced recently=
+ in
+>> c5d3687f6c ('6lowpan: read data from skb safely').
+>>
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+ ...
+> Acked-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-Looks good.
-
-After this change goes in I'm going to change the calling
-convention, especially since I really hate functions that
-return multiple values using pass-by-reference to accomplish
-this.
-
-What I plan to do is move the early socket demux before the
-skb_dst()==NULL check, then we don't need the error return.
-
-Subsequently we can return a bool which is your new nocache
-value.
+Applied, thanks.
