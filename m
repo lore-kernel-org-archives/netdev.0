@@ -1,228 +1,267 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 7/7] netlink: Get rid of obsolete rtnetlink macros
-Date: Wed, 27 Jun 2012 11:36:16 +0200
-Message-ID: <a10752bf3eb27e13e61b817664d58a69f9179fc9.1340788373.git.tgraf@suug.ch>
+Subject: [PATCH 3/7] inet_diag: Do not use RTA_PUT() macros
+Date: Wed, 27 Jun 2012 11:36:12 +0200
+Message-ID: <59e528d77658c9155b93c65be6bdeb22f63a9037.1340788373.git.tgraf@suug.ch>
 References: <cover.1340788373.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39646 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53129 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756729Ab2F0Jg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 05:36:28 -0400
+	id S1755941Ab2F0JgX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2012 05:36:23 -0400
 In-Reply-To: <cover.1340788373.git.tgraf@suug.ch>
 In-Reply-To: <cover.1340788373.git.tgraf@suug.ch>
 References: <cover.1340788373.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removes all RTA_GET*() and RTA_PUT*() variations, as well as the
-the unused rtattr_strcmp(). Get rid of rtm_get_table() by moving
-it to its only user decnet.
+Also, no need to trim on nlmsg_put() failure, nothing has been added
+yet.  We also want to use nlmsg_end(), nlmsg_new() and nlmsg_free().
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/linux/rtnetlink.h |  129 ---------------------------------------------
- net/core/rtnetlink.c      |   13 -----
- net/decnet/dn_fib.c       |    8 +++
- 3 files changed, 8 insertions(+), 142 deletions(-)
+ net/ipv4/inet_diag.c |  112 +++++++++++++++++++++++--------------------------
+ 1 files changed, 53 insertions(+), 59 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 2c1de89..ea60b08 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -612,12 +612,6 @@ struct tcamsg {
- #include <linux/mutex.h>
- #include <linux/netdevice.h>
- 
--static __inline__ int rtattr_strcmp(const struct rtattr *rta, const char *str)
--{
--	int len = strlen(str) + 1;
--	return len > rta->rta_len || memcmp(RTA_DATA(rta), str, len);
--}
--
- extern int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, u32 group, int echo);
- extern int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid);
- extern void rtnl_notify(struct sk_buff *skb, struct net *net, u32 pid,
-@@ -628,122 +622,6 @@ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
- 			      u32 id, u32 ts, u32 tsage, long expires,
- 			      u32 error);
- 
--extern void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data);
--
--#define RTA_PUT(skb, attrtype, attrlen, data) \
--({	if (unlikely(skb_tailroom(skb) < (int)RTA_SPACE(attrlen))) \
--		 goto rtattr_failure; \
--   	__rta_fill(skb, attrtype, attrlen, data); }) 
--
--#define RTA_APPEND(skb, attrlen, data) \
--({	if (unlikely(skb_tailroom(skb) < (int)(attrlen))) \
--		goto rtattr_failure; \
--	memcpy(skb_put(skb, attrlen), data, attrlen); })
--
--#define RTA_PUT_NOHDR(skb, attrlen, data) \
--({	RTA_APPEND(skb, RTA_ALIGN(attrlen), data); \
--	memset(skb_tail_pointer(skb) - (RTA_ALIGN(attrlen) - attrlen), 0, \
--	       RTA_ALIGN(attrlen) - attrlen); })
--
--#define RTA_PUT_U8(skb, attrtype, value) \
--({	u8 _tmp = (value); \
--	RTA_PUT(skb, attrtype, sizeof(u8), &_tmp); })
--
--#define RTA_PUT_U16(skb, attrtype, value) \
--({	u16 _tmp = (value); \
--	RTA_PUT(skb, attrtype, sizeof(u16), &_tmp); })
--
--#define RTA_PUT_U32(skb, attrtype, value) \
--({	u32 _tmp = (value); \
--	RTA_PUT(skb, attrtype, sizeof(u32), &_tmp); })
--
--#define RTA_PUT_U64(skb, attrtype, value) \
--({	u64 _tmp = (value); \
--	RTA_PUT(skb, attrtype, sizeof(u64), &_tmp); })
--
--#define RTA_PUT_SECS(skb, attrtype, value) \
--	RTA_PUT_U64(skb, attrtype, (value) / HZ)
--
--#define RTA_PUT_MSECS(skb, attrtype, value) \
--	RTA_PUT_U64(skb, attrtype, jiffies_to_msecs(value))
--
--#define RTA_PUT_STRING(skb, attrtype, value) \
--	RTA_PUT(skb, attrtype, strlen(value) + 1, value)
--
--#define RTA_PUT_FLAG(skb, attrtype) \
--	RTA_PUT(skb, attrtype, 0, NULL);
--
--#define RTA_NEST(skb, type) \
--({	struct rtattr *__start = (struct rtattr *)skb_tail_pointer(skb); \
--	RTA_PUT(skb, type, 0, NULL); \
--	__start;  })
--
--#define RTA_NEST_END(skb, start) \
--({	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
--	(skb)->len; })
--
--#define RTA_NEST_COMPAT(skb, type, attrlen, data) \
--({	struct rtattr *__start = (struct rtattr *)skb_tail_pointer(skb); \
--	RTA_PUT(skb, type, attrlen, data); \
--	RTA_NEST(skb, type); \
--	__start; })
--
--#define RTA_NEST_COMPAT_END(skb, start) \
--({	struct rtattr *__nest = (void *)(start) + NLMSG_ALIGN((start)->rta_len); \
--	(start)->rta_len = skb_tail_pointer(skb) - (unsigned char *)(start); \
--	RTA_NEST_END(skb, __nest); \
--	(skb)->len; })
--
--#define RTA_NEST_CANCEL(skb, start) \
--({	if (start) \
--		skb_trim(skb, (unsigned char *) (start) - (skb)->data); \
--	-1; })
--
--#define RTA_GET_U8(rta) \
--({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u8)) \
--		goto rtattr_failure; \
--	*(u8 *) RTA_DATA(rta); })
--
--#define RTA_GET_U16(rta) \
--({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u16)) \
--		goto rtattr_failure; \
--	*(u16 *) RTA_DATA(rta); })
--
--#define RTA_GET_U32(rta) \
--({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u32)) \
--		goto rtattr_failure; \
--	*(u32 *) RTA_DATA(rta); })
--
--#define RTA_GET_U64(rta) \
--({	u64 _tmp; \
--	if (!rta || RTA_PAYLOAD(rta) < sizeof(u64)) \
--		goto rtattr_failure; \
--	memcpy(&_tmp, RTA_DATA(rta), sizeof(_tmp)); \
--	_tmp; })
--
--#define RTA_GET_FLAG(rta) (!!(rta))
--
--#define RTA_GET_SECS(rta) ((unsigned long) RTA_GET_U64(rta) * HZ)
--#define RTA_GET_MSECS(rta) (msecs_to_jiffies((unsigned long) RTA_GET_U64(rta)))
--		
--static inline struct rtattr *
--__rta_reserve(struct sk_buff *skb, int attrtype, int attrlen)
--{
--	struct rtattr *rta;
--	int size = RTA_LENGTH(attrlen);
--
--	rta = (struct rtattr*)skb_put(skb, RTA_ALIGN(size));
--	rta->rta_type = attrtype;
--	rta->rta_len = size;
--	memset(RTA_DATA(rta) + attrlen, 0, RTA_ALIGN(size) - size);
--	return rta;
--}
--
--#define __RTA_PUT(skb, attrtype, attrlen) \
--({ 	if (unlikely(skb_tailroom(skb) < (int)RTA_SPACE(attrlen))) \
--		goto rtattr_failure; \
--   	__rta_reserve(skb, attrtype, attrlen); })
--
- extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
- 
- /* RTNL is used as a global lock for all changes to network configuration  */
-@@ -794,13 +672,6 @@ extern void __rtnl_unlock(void);
- 	} \
- } while(0)
- 
--static inline u32 rtm_get_table(struct rtattr **rta, u8 table)
--{
--	return RTA_GET_U32(rta[RTA_TABLE-1]);
--rtattr_failure:
--	return table;
--}
--
- extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
- 			     struct netlink_callback *cb,
- 			     struct net_device *dev,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 21318d1..bc8a1cd 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -541,19 +541,6 @@ static const int rta_max[RTM_NR_FAMILIES] =
- 	[RTM_FAM(RTM_NEWACTION)]    = TCAA_MAX,
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 27640e7..38064a2 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -46,9 +46,6 @@ struct inet_diag_entry {
+ 	u16 userlocks;
  };
  
--void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data)
--{
--	struct rtattr *rta;
--	int size = RTA_LENGTH(attrlen);
+-#define INET_DIAG_PUT(skb, attrtype, attrlen) \
+-	RTA_DATA(__RTA_PUT(skb, attrtype, attrlen))
 -
--	rta = (struct rtattr *)skb_put(skb, RTA_ALIGN(size));
--	rta->rta_type = attrtype;
--	rta->rta_len = size;
--	memcpy(RTA_DATA(rta), data, attrlen);
--	memset(RTA_DATA(rta) + attrlen, 0, RTA_ALIGN(size) - size);
--}
--EXPORT_SYMBOL(__rta_fill);
+ static DEFINE_MUTEX(inet_diag_table_mutex);
+ 
+ static const struct inet_diag_handler *inet_diag_lock_handler(int proto)
+@@ -78,28 +75,22 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 	const struct inet_sock *inet = inet_sk(sk);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr  *nlh;
++	struct nlattr *attr;
+ 	void *info = NULL;
+-	struct inet_diag_meminfo  *minfo = NULL;
+-	unsigned char	 *b = skb_tail_pointer(skb);
+ 	const struct inet_diag_handler *handler;
+ 	int ext = req->idiag_ext;
+ 
+ 	handler = inet_diag_table[req->sdiag_protocol];
+ 	BUG_ON(handler == NULL);
+ 
+-	nlh = nlmsg_put(skb, pid, seq, unlh->nlmsg_type, sizeof(*r), 0);
+-	if (!nlh) {
+-		nlmsg_trim(skb, b);
++	nlh = nlmsg_put(skb, pid, seq, unlh->nlmsg_type, sizeof(*r),
++			nlmsg_flags);
++	if (!nlh)
+ 		return -EMSGSIZE;
+-	}
+-	nlh->nlmsg_flags = nlmsg_flags;
+ 
+ 	r = nlmsg_data(nlh);
+ 	BUG_ON(sk->sk_state == TCP_TIME_WAIT);
+ 
+-	if (ext & (1 << (INET_DIAG_MEMINFO - 1)))
+-		minfo = INET_DIAG_PUT(skb, INET_DIAG_MEMINFO, sizeof(*minfo));
 -
- int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned int group, int echo)
+ 	r->idiag_family = sk->sk_family;
+ 	r->idiag_state = sk->sk_state;
+ 	r->idiag_timer = 0;
+@@ -117,7 +108,8 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 	 * hence this needs to be included regardless of socket family.
+ 	 */
+ 	if (ext & (1 << (INET_DIAG_TOS - 1)))
+-		RTA_PUT_U8(skb, INET_DIAG_TOS, inet->tos);
++		if (nla_put_u8(skb, INET_DIAG_TOS, inet->tos) < 0)
++			goto errout;
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (r->idiag_family == AF_INET6) {
+@@ -125,24 +117,31 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 
+ 		*(struct in6_addr *)r->id.idiag_src = np->rcv_saddr;
+ 		*(struct in6_addr *)r->id.idiag_dst = np->daddr;
++
+ 		if (ext & (1 << (INET_DIAG_TCLASS - 1)))
+-			RTA_PUT_U8(skb, INET_DIAG_TCLASS, np->tclass);
++			if (nla_put_u8(skb, INET_DIAG_TCLASS, np->tclass) < 0)
++				goto errout;
+ 	}
+ #endif
+ 
+ 	r->idiag_uid = sock_i_uid(sk);
+ 	r->idiag_inode = sock_i_ino(sk);
+ 
+-	if (minfo) {
+-		minfo->idiag_rmem = sk_rmem_alloc_get(sk);
+-		minfo->idiag_wmem = sk->sk_wmem_queued;
+-		minfo->idiag_fmem = sk->sk_forward_alloc;
+-		minfo->idiag_tmem = sk_wmem_alloc_get(sk);
++	if (ext & (1 << (INET_DIAG_MEMINFO - 1))) {
++		struct inet_diag_meminfo minfo = {
++			.idiag_rmem = sk_rmem_alloc_get(sk),
++			.idiag_wmem = sk->sk_wmem_queued,
++			.idiag_fmem = sk->sk_forward_alloc,
++			.idiag_tmem = sk_wmem_alloc_get(sk),
++		};
++
++		if (nla_put(skb, INET_DIAG_MEMINFO, sizeof(minfo), &minfo) < 0)
++			goto errout;
+ 	}
+ 
+ 	if (ext & (1 << (INET_DIAG_SKMEMINFO - 1)))
+ 		if (sock_diag_put_meminfo(sk, skb, INET_DIAG_SKMEMINFO))
+-			goto rtattr_failure;
++			goto errout;
+ 
+ 	if (icsk == NULL) {
+ 		handler->idiag_get_info(sk, r, NULL);
+@@ -169,16 +168,20 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 	}
+ #undef EXPIRES_IN_MS
+ 
+-	if (ext & (1 << (INET_DIAG_INFO - 1)))
+-		info = INET_DIAG_PUT(skb, INET_DIAG_INFO, sizeof(struct tcp_info));
++	if (ext & (1 << (INET_DIAG_INFO - 1))) {
++		attr = nla_reserve(skb, INET_DIAG_INFO,
++				   sizeof(struct tcp_info));
++		if (!attr)
++			goto errout;
+ 
+-	if ((ext & (1 << (INET_DIAG_CONG - 1))) && icsk->icsk_ca_ops) {
+-		const size_t len = strlen(icsk->icsk_ca_ops->name);
+-
+-		strcpy(INET_DIAG_PUT(skb, INET_DIAG_CONG, len + 1),
+-		       icsk->icsk_ca_ops->name);
++		info = nla_data(attr);
+ 	}
+ 
++	if ((ext & (1 << (INET_DIAG_CONG - 1))) && icsk->icsk_ca_ops)
++		if (nla_put_string(skb, INET_DIAG_CONG,
++				   icsk->icsk_ca_ops->name) < 0)
++			goto errout;
++
+ 	handler->idiag_get_info(sk, r, info);
+ 
+ 	if (sk->sk_state < TCP_TIME_WAIT &&
+@@ -186,11 +189,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 		icsk->icsk_ca_ops->get_info(sk, ext, skb);
+ 
+ out:
+-	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+-	return skb->len;
++	return nlmsg_end(skb, nlh);
+ 
+-rtattr_failure:
+-	nlmsg_trim(skb, b);
++errout:
++	nlmsg_cancel(skb, nlh);
+ 	return -EMSGSIZE;
+ }
+ EXPORT_SYMBOL_GPL(inet_sk_diag_fill);
+@@ -211,20 +213,16 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
  {
- 	struct sock *rtnl = net->rtnl;
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index 7eaf987..102d610 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -505,6 +505,14 @@ static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
- 	return 0;
+ 	long tmo;
+ 	struct inet_diag_msg *r;
+-	const unsigned char *previous_tail = skb_tail_pointer(skb);
+-	struct nlmsghdr *nlh = nlmsg_put(skb, pid, seq,
+-					 unlh->nlmsg_type, sizeof(*r), 0);
++	struct nlmsghdr *nlh;
+ 
+-	if (!nlh) {
+-		nlmsg_trim(skb, previous_tail);
++	nlh = nlmsg_put(skb, pid, seq, unlh->nlmsg_type, sizeof(*r),
++			nlmsg_flags);
++	if (!nlh)
+ 		return -EMSGSIZE;
+-	}
+ 
+ 	r = nlmsg_data(nlh);
+ 	BUG_ON(tw->tw_state != TCP_TIME_WAIT);
+ 
+-	nlh->nlmsg_flags = nlmsg_flags;
+-
+ 	tmo = tw->tw_ttd - jiffies;
+ 	if (tmo < 0)
+ 		tmo = 0;
+@@ -253,8 +251,8 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
+ 		*(struct in6_addr *)r->id.idiag_dst = tw6->tw_v6_daddr;
+ 	}
+ #endif
+-	nlh->nlmsg_len = skb_tail_pointer(skb) - previous_tail;
+-	return skb->len;
++
++	return nlmsg_end(skb, nlh);
  }
  
-+static inline u32 rtm_get_table(struct rtattr **rta, u8 table)
-+{
-+	if (rta[RTA_TABLE - 1])
-+		table = nla_get_u32((struct nlattr *) rta[RTA_TABLE - 1]);
-+
-+	return table;
-+}
-+
- static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+@@ -303,20 +301,20 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *in_s
+ 	if (err)
+ 		goto out;
+ 
+-	err = -ENOMEM;
+-	rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
+-				     sizeof(struct inet_diag_meminfo) +
+-				     sizeof(struct tcp_info) + 64)),
+-			GFP_KERNEL);
+-	if (!rep)
++	rep = nlmsg_new(sizeof(struct inet_diag_msg) +
++			sizeof(struct inet_diag_meminfo) +
++			sizeof(struct tcp_info) + 64, GFP_KERNEL);
++	if (!rep) {
++		err = -ENOMEM;
+ 		goto out;
++	}
+ 
+ 	err = sk_diag_fill(sk, rep, req,
+ 			   NETLINK_CB(in_skb).pid,
+ 			   nlh->nlmsg_seq, 0, nlh);
+ 	if (err < 0) {
+ 		WARN_ON(err == -EMSGSIZE);
+-		kfree_skb(rep);
++		nlmsg_free(rep);
+ 		goto out;
+ 	}
+ 	err = netlink_unicast(sock_diag_nlsk, rep, NETLINK_CB(in_skb).pid,
+@@ -597,19 +595,16 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
  {
- 	struct net *net = sock_net(skb->sk);
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+ 	struct inet_sock *inet = inet_sk(sk);
+-	unsigned char *b = skb_tail_pointer(skb);
+ 	struct inet_diag_msg *r;
+ 	struct nlmsghdr *nlh;
+ 	long tmo;
+ 
+-	nlh = nlmsg_put(skb, pid, seq, unlh->nlmsg_type, sizeof(*r), 0);
+-	if (!nlh) {
+-		nlmsg_trim(skb, b);
+-		return -1;
+-	}
+-	nlh->nlmsg_flags = NLM_F_MULTI;
+-	r = nlmsg_data(nlh);
++	nlh = nlmsg_put(skb, pid, seq, unlh->nlmsg_type, sizeof(*r),
++			NLM_F_MULTI);
++	if (!nlh)
++		return -EMSGSIZE;
+ 
++	r = nlmsg_data(nlh);
+ 	r->idiag_family = sk->sk_family;
+ 	r->idiag_state = TCP_SYN_RECV;
+ 	r->idiag_timer = 1;
+@@ -637,9 +632,8 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 		*(struct in6_addr *)r->id.idiag_dst = inet6_rsk(req)->rmt_addr;
+ 	}
+ #endif
+-	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 
+-	return skb->len;
++	return nlmsg_end(skb, nlh);
+ }
+ 
+ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
 -- 
 1.7.7.6
