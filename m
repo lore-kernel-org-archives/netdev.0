@@ -1,73 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch -resend] 9p: fix min_t() casting in p9pdu_vwritef()
-Date: Wed, 27 Jun 2012 13:36:58 +0300
-Message-ID: <20120627103658.GC3007@mwanda>
-References: <20120627090141.GF31212@elgon.mountain>
- <4FEADE2E.90005@bfs.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Van Hensbergen <ericvh@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
+From: annie.li@oracle.com
+Subject: [Xen-devel] [PATCH 1/1] xen/netback: only non-freed SKB is queued into tx_queue
+Date: Wed, 27 Jun 2012 18:46:58 +0800
+Message-ID: <1340794018-17274-1-git-send-email-annie.li@oracle.com>
+Cc: kurt.hackel@oracle.com, annie.li@oracle.com,
+	Annie Li <Annie.li@oracle.com>
+To: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	davem@davemloft.net, Ian.Campbell@citrix.com,
+	konrad.wilk@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:30960 "EHLO
+Received: from rcsinet15.oracle.com ([148.87.113.117]:45296 "EHLO
 	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754799Ab2F0KhN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 06:37:13 -0400
-Content-Disposition: inline
-In-Reply-To: <4FEADE2E.90005@bfs.de>
+	with ESMTP id S1756858Ab2F0Ksf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 06:48:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 27, 2012 at 12:19:26PM +0200, walter harms wrote:
-> 
-> 
-> Am 27.06.2012 11:01, schrieb Dan Carpenter:
-> > I don't think we're actually likely to hit this limit but if we do
-> > then the comparison should be done as size_t.  The original code
-> > is equivalent to:
-> >         len = strlen(sptr) % USHRT_MAX;
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > ---
-> > I was told this patch "has already made it upstream via the v9fs pull."
-> > but it must have been dropped accidentally.  Originally sent on Sat,
-> > Jan 15, 2011.
-> > 
-> > diff --git a/net/9p/protocol.c b/net/9p/protocol.c
-> > index 9ee48cb..3d33ecf 100644
-> > --- a/net/9p/protocol.c
-> > +++ b/net/9p/protocol.c
-> > @@ -368,7 +368,7 @@ p9pdu_vwritef(struct p9_fcall *pdu, int proto_version, const char *fmt,
-> >  				const char *sptr = va_arg(ap, const char *);
-> >  				uint16_t len = 0;
-> >  				if (sptr)
-> > -					len = min_t(uint16_t, strlen(sptr),
-> > +					len = min_t(size_t, strlen(sptr),
-> >  								USHRT_MAX);
-> >  
-> >  				errcode = p9pdu_writef(pdu, proto_version,
-> 
-> this will result in
-> 	uint16_t = size_t
-> i would expect compilers to complains since uint16 < size_t
-> (most times). In this special case it seems more easy  write it.
-> also ushort seems ambitious since  uint16_t  need not to be
-> ushort.  so my idea would look like this:
-> 
-> 	len=strlen
-> 	if (len>65535) len=65535;
-> 	p9pdu_writef(...,(unint16_t)len);
-> 
+From: Annie Li <Annie.li@oracle.com>
 
-No.  I'm sorry, what you're saying is complete nonsense.  The whole
-point of min_t() is that you can cast to both sides to what you want
-before you do the compare.
+After SKB is queued into tx_queue, it will be freed if request_gop is NULL.
+However, no dequeue action is called in this situation, it is likely that
+tx_queue constains freed SKB. This patch should fix this issue, and it is
+based on 3.5.0-rc4+.
 
-Obviously I wouldn't submit a patch that introduces a compile
-warning.  :/
+This issue is found through code inspection, no bug is seen with it currently.
+I run netperf test for several hours, and no network regression was found.
 
-regards,
-dan carpenter
+Signed-off-by: Annie Li <annie.li@oracle.com>
+---
+ drivers/net/xen-netback/netback.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f4a6fca..682633b 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1363,8 +1363,6 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 					     INVALID_PENDING_IDX);
+ 		}
+ 
+-		__skb_queue_tail(&netbk->tx_queue, skb);
+-
+ 		netbk->pending_cons++;
+ 
+ 		request_gop = xen_netbk_get_requests(netbk, vif,
+@@ -1376,6 +1374,8 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 		}
+ 		gop = request_gop;
+ 
++		__skb_queue_tail(&netbk->tx_queue, skb);
++
+ 		vif->tx.req_cons = idx;
+ 		xen_netbk_check_rx_xenvif(vif);
+ 
+-- 
+1.7.6.5
