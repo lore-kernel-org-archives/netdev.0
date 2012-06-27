@@ -1,42 +1,73 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Wed, 27 Jun 2012 10:25:49 +0200
-Message-ID: <1340785549.2028.153.camel@localhost>
-References: <201206260734.33472.hans.schillstrom@ericsson.com>
-	 <1340730156.10893.359.camel@edumazet-glaptop>
-	 <201206270723.11615.hans.schillstrom@ericsson.com>
-	 <20120627.012204.1603944185909940692.davem@davemloft.net>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 04/16] mm: allow PF_MEMALLOC from softirq context
+Date: Wed, 27 Jun 2012 09:26:14 +0100
+Message-ID: <20120627082614.GE8271@suse.de>
+References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
+ <1340375443-22455-5-git-send-email-mgorman@suse.de>
+ <20120626165513.GD6509@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: hans.schillstrom@ericsson.com, eric.dumazet@gmail.com,
-	subramanian.vijay@gmail.com, dave.taht@gmail.com,
-	netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20639 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750884Ab2F0IZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 04:25:56 -0400
-In-Reply-To: <20120627.012204.1603944185909940692.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120626165513.GD6509@breakpoint.cc>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-27 at 01:22 -0700, David Miller wrote:
-> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> Date: Wed, 27 Jun 2012 07:23:03 +0200
+On Tue, Jun 26, 2012 at 06:55:13PM +0200, Sebastian Andrzej Siewior wrote:
+> On Fri, Jun 22, 2012 at 03:30:31PM +0100, Mel Gorman wrote:
+> > This is needed to allow network softirq packet processing to make
+> > use of PF_MEMALLOC.
 > 
-> > On Tuesday 26 June 2012 19:02:36 Eric Dumazet wrote:
-> >> With David patch using jhash instead of SHA, I reach ~315.000 SYN per
-> >> second.
-> > 
-> > I have similar results from ~170k to ~199k synack/sec.
+> > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> > index b6c0727..5c6d9c6 100644
+> > --- a/mm/page_alloc.c
+> > +++ b/mm/page_alloc.c
+> > @@ -2265,7 +2265,11 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+> >  	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+> >  		if (gfp_mask & __GFP_MEMALLOC)
+> >  			alloc_flags |= ALLOC_NO_WATERMARKS;
+> > -		else if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
+> > +		else if (in_serving_softirq() && (current->flags & PF_MEMALLOC))
+> > +			alloc_flags |= ALLOC_NO_WATERMARKS;
+> > +		else if (!in_interrupt() &&
+> > +				((current->flags & PF_MEMALLOC) ||
+> > +				 unlikely(test_thread_flag(TIF_MEMDIE))))
+> >  			alloc_flags |= ALLOC_NO_WATERMARKS;
+> >  	}
 > 
-> Eric and Hans, I'm going to add Tested-by: tags for both of you
-> when I commit this patch if you don't mind. :-)
+> You allocate in RX path with __GFP_MEMALLOC and your sk->sk_allocation has
+> also __GFP_MEMALLOC set. That means you should get ALLOC_NO_WATERMARKS in
+> alloc_flags.
 
-You can also add my
+In the cases where they are annotated correctly, yes. It is recordeed if
+the page gets allocated from the PFMEMALLOC reserves. If the received
+packet is not SOCK_MEMALLOC and the page was allocated from PFMEMALLOC
+reserves it is then discarded and the packet must be retransmitted.
 
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Is this to done to avoid GFP annotations in skb_share_check() and
+> friends on your __netif_receive_skb() path?
+> 
 
-(I agree with you patch, and its does not have an attack vector...)
+I don't get your question as the annotations are not being avoided. If they
+are set, they are used. In the __netif_receive_skb path, PF_MEMALLOC is
+set for PFMEMALLOC skbs to avoid having to annotate every single allocation
+call site.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
