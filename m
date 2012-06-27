@@ -1,70 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 7/18] netfilter: nfnetlink_log: Move away from
- NLMSG_PUT().
-Date: Wed, 27 Jun 2012 17:49:33 +0100
-Message-ID: <1340815773.2591.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120626.220223.1090653207727010874.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29823 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750811Ab2F0Qtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 12:49:36 -0400
-In-Reply-To: <20120626.220223.1090653207727010874.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvydas Sidorenko <asido4@gmail.com>
+Subject: [PATCH] Build fix in drivers/net/wireless/ath/ath9k/main.c
+Date: Wed, 27 Jun 2012 21:19:39 +0200
+Message-ID: <1340824779-5157-1-git-send-email-asido4@gmail.com>
+Cc: jouni@qca.qualcomm.com, vthiagar@qca.qualcomm.com,
+	senthilb@qca.qualcomm.com, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	asido4@gmail.com
+To: mcgrof@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-06-26 at 22:02 -0700, David Miller wrote:
-> And use nlmsg_data() while we're here too.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/netfilter/nfnetlink_log.c |   29 ++++++++++++++++-------------
->  1 file changed, 16 insertions(+), 13 deletions(-)
-> 
-> diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-> index 3c3cfc0..169ab59 100644
-> --- a/net/netfilter/nfnetlink_log.c
-> +++ b/net/netfilter/nfnetlink_log.c
-> @@ -326,18 +326,20 @@ __nfulnl_send(struct nfulnl_instance *inst)
->  {
->  	int status = -1;
->  
-> -	if (inst->qlen > 1)
-> -		NLMSG_PUT(inst->skb, 0, 0,
-> -			  NLMSG_DONE,
-> -			  sizeof(struct nfgenmsg));
-> -
-> +	if (inst->qlen > 1) {
-> +		struct nlmsghdr *nlh = nlmsg_put(inst->skb, 0, 0,
-> +						 NLMSG_DONE,
-> +						 sizeof(struct nfgenmsg),
-> +						 0);
-> +		if (!nlh)
-> +			goto out;
-> +	}
->  	status = nfnetlink_unicast(inst->skb, &init_net, inst->peer_pid,
->  				   MSG_DONTWAIT);
->  
->  	inst->qlen = 0;
->  	inst->skb = NULL;
-> -
-> -nlmsg_failure:
-> +out:
->  	return status;
->  }
-[...]
+Commit fad29cd2f59949581050a937786c2c9bc78b2f04 broke the build if
+no CONFIG_ATH9K_BTCOEX_SUPPORT is enabled.
 
-It looks like this also leaks the skb on failure.  At least,
-__nfulnl_flush(inst) is expected to dipose of inst->skb.
+Signed-off-by: Arvydas Sidorenko <asido4@gmail.com>
+---
+ drivers/net/wireless/ath/ath9k/main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
+index c14cf5a..e4e73f0 100644
+--- a/drivers/net/wireless/ath/ath9k/main.c
++++ b/drivers/net/wireless/ath/ath9k/main.c
+@@ -151,8 +151,10 @@ static void __ath_cancel_work(struct ath_softc *sc)
+ 	cancel_delayed_work_sync(&sc->tx_complete_work);
+ 	cancel_delayed_work_sync(&sc->hw_pll_work);
+ 
++#ifdef CONFIG_ATH9K_BTCOEX_SUPPORT
+ 	if (ath9k_hw_mci_is_enabled(sc->sc_ah))
+ 		cancel_work_sync(&sc->mci_work);
++#endif
+ }
+ 
+ static void ath_cancel_work(struct ath_softc *sc)
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.8.6
