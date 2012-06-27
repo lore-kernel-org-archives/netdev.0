@@ -1,226 +1,359 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH v2 -next 4/4] tg3: Add binary sysfs file to export bulk
- sensor data
-Date: Tue, 26 Jun 2012 17:53:35 -0700
-Message-ID: <1340758415-10746-4-git-send-email-mchan@broadcom.com>
+Subject: [PATCH v2 -next 3/4] tg3: Add hwmon support
+Date: Tue, 26 Jun 2012 17:53:34 -0700
+Message-ID: <1340758415-10746-3-git-send-email-mchan@broadcom.com>
 References: <1340758415-10746-1-git-send-email-mchan@broadcom.com>
  <1340758415-10746-2-git-send-email-mchan@broadcom.com>
- <1340758415-10746-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, nsujir@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3155 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3158 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754871Ab2F0Amd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755275Ab2F0Amd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Jun 2012 20:42:33 -0400
-In-Reply-To: <1340758415-10746-3-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1340758415-10746-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bulk of the sensor data is exported as binary data to sysfs for
-userspace access.
+Some tg3 devices have management firmware that can export sensor data such
+as temperature and other real time diagnostics data.  Export temperature
+sensor reading via hwmon sysfs.
 
-[binary sysfs suggested by Ben Hutchings <bhutchings@solarflare.com>]
+[hwmon interface suggested by Ben Hutchings <bhutchings@solarflare.com>]
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |  130 ++++++++++++++++++++++++++++++++++-
- 1 files changed, 129 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |  189 +++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/tg3.h |   63 ++++++++++++
+ 2 files changed, 252 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 6b51e3a..109a7cb 100644
+index 693a584..6b51e3a 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -9542,6 +9542,48 @@ static int tg3_init_hw(struct tg3 *tp, int reset_phy)
+@@ -44,6 +44,10 @@
+ #include <linux/prefetch.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/firmware.h>
++#if IS_ENABLED(CONFIG_HWMON)
++#include <linux/hwmon.h>
++#include <linux/hwmon-sysfs.h>
++#endif
+ 
+ #include <net/checksum.h>
+ #include <net/ip.h>
+@@ -9538,6 +9542,182 @@ static int tg3_init_hw(struct tg3 *tp, int reset_phy)
  	return tg3_reset_hw(tp, reset_phy);
  }
  
-+static void tg3_sd_xfer(struct tg3 *tp, u32 off, u32 size)
++static void tg3_sd_scan_scratchpad(struct tg3 *tp, struct tg3_ocir *ocir)
 +{
-+	struct tg3_sd *sd = tp->sd;
++	int i;
 +
-+	if (!size)
-+		return;
++	for (i = 0; i < TG3_SD_NUM_RECS; i++, ocir++) {
++		u32 off = i * TG3_OCIR_LEN, len = TG3_OCIR_LEN;
 +
-+	tg3_ape_scratchpad_read(tp, (u32 *) &sd->buf[off], off, size);
-+}
++		tg3_ape_scratchpad_read(tp, (u32 *) ocir, off, len);
++		off += len;
 +
-+static void tg3_sd_update_host(struct tg3 *tp, struct tg3_sd_record *rec)
-+{
-+	tg3_sd_xfer(tp, rec->data_off, rec->data_len);
-+	tg3_sd_xfer(tp, rec->hdr_off, rec->hdr_len);
-+}
-+
-+static void tg3_sd_update_drvflags(struct tg3 *tp, bool unloading)
-+{
-+	struct tg3_sd *sd = tp->sd;
-+	u32 flags;
-+
-+	if (!sd || !sd->sd_flags_off)
-+		return;
-+
-+	tg3_ape_scratchpad_read(tp, &flags, sd->sd_flags_off, 4);
-+
-+	flags &= ~TG3_OCIR_DRVR_FEAT_MASK;
-+
-+	if (!unloading) {
-+		u32 mask = NETIF_F_RXCSUM | NETIF_F_IP_CSUM |
-+			   NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM;
-+
-+		if (tp->dev->features & mask)
-+			flags |= TG3_OCIR_DRVR_FEAT_CSUM;
-+
-+		if (tp->dev->features & NETIF_F_ALL_TSO)
-+			flags |= TG3_OCIR_DRVR_FEAT_TSO;
++		if (ocir->signature != TG3_OCIR_SIG_MAGIC ||
++		    !(ocir->version_flags & TG3_OCIR_FLAG_ACTIVE))
++			memset(ocir, 0, TG3_OCIR_LEN);
 +	}
-+
-+	tg3_ape_scratchpad_write(tp, sd->sd_flags_off, &flags, 4);
 +}
 +
- static void tg3_sd_scan_scratchpad(struct tg3 *tp, struct tg3_ocir *ocir)
- {
- 	int i;
-@@ -9610,6 +9652,32 @@ static void tg3_hwmon_open(struct tg3 *tp)
- }
- #endif
- 
-+static ssize_t tg3_sd_read(struct file *filep, struct kobject *kobj,
-+			   struct bin_attribute *attr, char *buff,
-+			   loff_t offset, size_t size)
++#if IS_ENABLED(CONFIG_HWMON)
++/* sysfs attributes for hwmon */
++static ssize_t tg3_show_temp(struct device *dev,
++			     struct device_attribute *devattr, char *buf)
 +{
-+	struct device *dev = container_of(kobj, struct device, kobj);
 +	struct pci_dev *pdev = to_pci_dev(dev);
 +	struct net_device *netdev = pci_get_drvdata(pdev);
 +	struct tg3 *tp = netdev_priv(netdev);
-+	struct tg3_sd *sd = tp->sd;
-+	int len = size < sd->buf_size ? size : sd->buf_size;
++	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
++	u32 temperature;
 +
-+	if (offset > sd->buf_size)
-+		return 0;
-+
-+	if (offset + len > sd->buf_size)
-+		len = sd->buf_size - offset;
-+
-+	memcpy(buff, sd->buf + offset, len);
-+	return len;
++	spin_lock_bh(&tp->lock);
++	tg3_ape_scratchpad_read(tp, &temperature, attr->index,
++				sizeof(temperature));
++	spin_unlock_bh(&tp->lock);
++	return sprintf(buf, "%u\n", temperature);
 +}
 +
-+static struct bin_attribute bin_attr_tg3_sd = {
-+	.attr = {.name = "tg3_sd", .mode = S_IRUSR},
-+	.read = tg3_sd_read,
++#define TG3_TEMP_SENSOR_OFFSET 0xd4
++static SENSOR_DEVICE_ATTR(temp1_input, S_IRUGO, tg3_show_temp, NULL,
++			  TG3_TEMP_SENSOR_OFFSET);
++static struct attribute *tg3_attributes[] = {
++	&sensor_dev_attr_temp1_input.dev_attr.attr,
++	NULL
 +};
 +
- static int tg3_sd_init(struct tg3 *tp)
- {
- 	int i;
-@@ -9674,6 +9742,7 @@ static int tg3_sd_init(struct tg3 *tp)
- 	sd->sd_flags_off = 2 * TG3_OCIR_LEN + (tp->pci_fn * sizeof(u32)) +
- 				TG3_OCIR_PORT0_FLGS_OFF;
- 
-+	tg3_sd_update_drvflags(tp, false);
- 	return 0;
- }
- 
-@@ -9684,6 +9753,8 @@ static void tg3_sd_fini(struct tg3 *tp)
- 	if (!sd)
- 		return;
- 
-+	tg3_sd_update_drvflags(tp, true);
++static const struct attribute_group tg3_group = {
++	.attrs = tg3_attributes,
++};
 +
- 	kfree(sd->buf);
- 	kfree(sd);
- 	tp->sd = NULL;
-@@ -9703,6 +9774,7 @@ static void tg3_sd_close(struct tg3 *tp)
- 		sysfs_remove_group(&tp->pdev->dev.kobj, &tg3_group);
- 	}
- #endif
-+	device_remove_bin_file(&tp->pdev->dev, &bin_attr_tg3_sd);
- }
- 
- static int tg3_sd_open(struct tg3 *tp)
-@@ -9715,7 +9787,7 @@ static int tg3_sd_open(struct tg3 *tp)
- #if IS_ENABLED(CONFIG_HWMON)
- 	tg3_hwmon_open(tp);
- #endif
--	return 0;
-+	return device_create_bin_file(&tp->pdev->dev, &bin_attr_tg3_sd);
- }
- 
- #define TG3_STAT_ADD32(PSTAT, REG) \
-@@ -9803,6 +9875,59 @@ static void tg3_chk_missed_msi(struct tg3 *tp)
- 	}
- }
- 
-+
-+static void tg3_sd_timer(struct tg3 *tp)
++static void tg3_hwmon_open(struct tg3 *tp)
 +{
-+	int i;
-+	u32 val;
++	int err;
 +	struct tg3_sd *sd = tp->sd;
-+	struct tg3_ocir *ocirp = (struct tg3_ocir *) sd->buf;
++	struct pci_dev *pdev = tp->pdev;
 +
-+	if (!netif_running(tp->dev))
++	/* Register hwmon sysfs hooks */
++	err = sysfs_create_group(&pdev->dev.kobj, &tg3_group);
++	if (err) {
++		dev_err(&pdev->dev, "Cannot create sysfs group, aborting\n");
 +		return;
++	}
 +
-+	for (i = 0; i < TG3_SD_NUM_RECS; i++, ocirp++) {
-+		struct tg3_sd_record *rec = &sd->rec[i];
-+
-+		if (!rec->data_len)
-+			continue;
-+
-+		tg3_ape_scratchpad_read(tp, &val, rec->utmr_off, 4);
-+		/* Check if data has changed */
-+		if (val) {
-+
-+			if (!rec->rtmr_int) {
-+				tg3_sd_update_host(tp, rec);
-+
-+				rec->updated_seq++;
-+				ocirp->update_tmr = rec->updated_seq;
-+			} else {
-+				u32 curr;
-+				unsigned long tgt;
-+
-+				curr = tg3_ape_read32(tp, TG3_APE_STICKY_TMR);
-+				tgt = rec->rtmr_val + rec->rtmr_int;
-+				if (time_after((unsigned long) curr, tgt)) {
-+					tg3_sd_update_host(tp, rec);
-+
-+					rec->rtmr_val = curr;
-+					tg3_ape_scratchpad_write(tp,
-+							rec->rtmr_off,
-+							&curr, 4);
-+
-+					rec->updated_seq++;
-+					ocirp->update_tmr = rec->updated_seq;
-+				}
-+			}
-+
-+			val = 0;
-+			if (tg3_ape_scratchpad_write(tp, rec->utmr_off,
-+						     &val, 4))
-+				netdev_err(tp->dev, "write scratchpad error\n");
-+		}
++	sd->hwmon_dev = hwmon_device_register(&pdev->dev);
++	if (IS_ERR(sd->hwmon_dev)) {
++		sd->hwmon_dev = NULL;
++		dev_err(&pdev->dev, "Cannot register hwmon device, aborting\n");
++		sysfs_remove_group(&pdev->dev.kobj, &tg3_group);
 +	}
 +}
++#endif
 +
- static void tg3_timer(unsigned long __opaque)
- {
- 	struct tg3 *tp = (struct tg3 *) __opaque;
-@@ -9841,6 +9966,9 @@ static void tg3_timer(unsigned long __opaque)
- 		if (tg3_flag(tp, 5705_PLUS))
- 			tg3_periodic_fetch_stats(tp);
- 
-+		if (tp->sd)
-+			tg3_sd_timer(tp);
++static int tg3_sd_init(struct tg3 *tp)
++{
++	int i;
++	u32 size = 0;
++	struct tg3_sd *sd;
++	struct tg3_ocir ocirs[TG3_SD_NUM_RECS];
 +
- 		if (tp->setlpicnt && !--tp->setlpicnt)
- 			tg3_phy_eee_enable(tp);
++	if (!tg3_flag(tp, ENABLE_APE))
++		return 0;
++
++	tp->sd = kzalloc(sizeof(struct tg3_sd), GFP_KERNEL);
++	if (!tp->sd)
++		return -ENOMEM;
++
++	sd = tp->sd;
++	tg3_sd_scan_scratchpad(tp, ocirs);
++
++	for (i = 0; i < TG3_SD_NUM_RECS; i++) {
++		u32 val = 1;
++		struct tg3_sd_record *rec = &sd->rec[i];
++
++		if (!ocirs[i].src_data_length)
++			continue;
++
++		rec->hdr_len = ocirs[i].src_hdr_length;
++		rec->hdr_off = ocirs[i].src_hdr_offset;
++		rec->data_len = ocirs[i].src_data_length;
++		rec->data_off = ocirs[i].src_data_offset;
++
++		size += ocirs[i].src_hdr_length;
++		size += ocirs[i].src_data_length;
++
++		rec->utmr_off = i * TG3_OCIR_LEN + TG3_OCIR_UPDATE_TMR_OFF;
++		rec->rtmr_off = i * TG3_OCIR_LEN + TG3_OCIR_REFRESH_TMR_OFF;
++		rec->rtmr_int = ocirs[i].refresh_int;
++
++		/* Initialize utmr_off to non-zero so that we read the region
++		 * at least once */
++		if (tg3_ape_scratchpad_write(tp, rec->utmr_off, &val, 4))
++			netdev_err(tp->dev, "write scratchpad error\n");
++
++		ocirs[i].update_tmr = 0;
++	}
++	if (!size) {
++		kfree(sd);
++		tp->sd = NULL;
++		return -ENODEV;
++	}
++
++	size += sizeof(ocirs);
++
++	sd->buf = kzalloc(size, GFP_KERNEL);
++	if (!sd->buf) {
++		kfree(sd);
++		tp->sd = NULL;
++		return -ENOMEM;
++	}
++
++	sd->buf_size = size;
++	memcpy(sd->buf, ocirs, sizeof(ocirs));
++
++	sd->sd_flags_off = 2 * TG3_OCIR_LEN + (tp->pci_fn * sizeof(u32)) +
++				TG3_OCIR_PORT0_FLGS_OFF;
++
++	return 0;
++}
++
++static void tg3_sd_fini(struct tg3 *tp)
++{
++	struct tg3_sd *sd = tp->sd;
++
++	if (!sd)
++		return;
++
++	kfree(sd->buf);
++	kfree(sd);
++	tp->sd = NULL;
++}
++
++static void tg3_sd_close(struct tg3 *tp)
++{
++	struct tg3_sd *sd = tp->sd;
++
++	if (!sd)
++		return;
++
++#if IS_ENABLED(CONFIG_HWMON)
++	if (sd->hwmon_dev) {
++		hwmon_device_unregister(sd->hwmon_dev);
++		sd->hwmon_dev = NULL;
++		sysfs_remove_group(&tp->pdev->dev.kobj, &tg3_group);
++	}
++#endif
++}
++
++static int tg3_sd_open(struct tg3 *tp)
++{
++	struct tg3_sd *sd = tp->sd;
++
++	if (!sd)
++		return -ENODEV;
++
++#if IS_ENABLED(CONFIG_HWMON)
++	tg3_hwmon_open(tp);
++#endif
++	return 0;
++}
++
+ #define TG3_STAT_ADD32(PSTAT, REG) \
+ do {	u32 __val = tr32(REG); \
+ 	(PSTAT)->low += __val; \
+@@ -10246,6 +10426,8 @@ static int tg3_open(struct net_device *dev)
  
+ 	tg3_phy_start(tp);
+ 
++	tg3_sd_open(tp);
++
+ 	tg3_full_lock(tp, 0);
+ 
+ 	tg3_timer_start(tp);
+@@ -10295,6 +10477,8 @@ static int tg3_close(struct net_device *dev)
+ 
+ 	tg3_timer_stop(tp);
+ 
++	tg3_sd_close(tp);
++
+ 	tg3_phy_stop(tp);
+ 
+ 	tg3_full_lock(tp, 1);
+@@ -15945,6 +16129,8 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 
+ 	tg3_timer_init(tp);
+ 
++	tg3_sd_init(tp);
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Cannot register net device, aborting\n");
+@@ -16039,6 +16225,9 @@ static void __devexit tg3_remove_one(struct pci_dev *pdev)
+ 		}
+ 
+ 		unregister_netdev(dev);
++
++		tg3_sd_fini(tp);
++
+ 		if (tp->aperegs) {
+ 			iounmap(tp->aperegs);
+ 			tp->aperegs = NULL;
+diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
+index d167a1c..a3a51c9 100644
+--- a/drivers/net/ethernet/broadcom/tg3.h
++++ b/drivers/net/ethernet/broadcom/tg3.h
+@@ -2379,6 +2379,18 @@
+ #define TG3_APE_LOCK_PHY3		5
+ #define TG3_APE_LOCK_GPIO		7
+ 
++/* SD flags */
++#define TG3_OCIR_SIG_MAGIC		0x5253434f
++#define TG3_OCIR_FLAG_ACTIVE		0x00000001
++
++#define TG3_OCIR_DRVR_FEAT_CSUM		0x00000001
++#define TG3_OCIR_DRVR_FEAT_TSO		0x00000002
++#define TG3_OCIR_DRVR_FEAT_MASK		0xff
++
++#define TG3_OCIR_REFRESH_TMR_OFF	0x00000008
++#define TG3_OCIR_UPDATE_TMR_OFF		0x0000000c
++#define TG3_OCIR_PORT0_FLGS_OFF		0x0000002c
++
+ #define TG3_EEPROM_SB_F1R2_MBA_OFF	0x10
+ 
+ 
+@@ -2677,6 +2689,55 @@ struct tg3_hw_stats {
+ 	u8				__reserved4[0xb00-0x9c8];
+ };
+ 
++#define TG3_SD_NUM_RECS			3
++#define TG3_OCIR_LEN			(sizeof(struct tg3_ocir))
++
++
++struct tg3_ocir {
++	u32				signature;
++	u16				version_flags;
++	u16				refresh_int;
++	u32				refresh_tmr;
++	u32				update_tmr;
++	u32				dst_base_addr;
++	u16				src_hdr_offset;
++	u16				src_hdr_length;
++	u16				src_data_offset;
++	u16				src_data_length;
++	u16				dst_hdr_offset;
++	u16				dst_data_offset;
++	u16				dst_reg_upd_offset;
++	u16				dst_sem_offset;
++	u32				reserved1[2];
++	u32				port0_flags;
++	u32				port1_flags;
++	u32				port2_flags;
++	u32				port3_flags;
++	u32				reserved2[1];
++};
++
++struct tg3_sd_record {
++	u16				hdr_off;
++	u16				hdr_len;
++	u16				data_off;
++	u16				data_len;
++	u32				updated_seq;
++	u16				utmr_off;
++	u16				rtmr_off;
++	u32				rtmr_val;
++	u16				rtmr_int;
++};
++
++struct tg3_sd {
++#if IS_ENABLED(CONFIG_HWMON)
++	struct device			*hwmon_dev;
++#endif
++	struct tg3_sd_record		rec[TG3_SD_NUM_RECS];
++	u32				sd_flags_off;
++	int				buf_size;
++	u8				*buf;
++};
++
+ /* 'mapping' is superfluous as the chip does not write into
+  * the tx/rx post rings so we could just fetch it from there.
+  * But the cache behavior is better how we are doing it now.
+@@ -3212,6 +3273,8 @@ struct tg3 {
+ 	const char			*fw_needed;
+ 	const struct firmware		*fw;
+ 	u32				fw_len; /* includes BSS */
++
++	struct tg3_sd			*sd;
+ };
+ 
+ #endif /* !(_T3_H) */
 -- 
 1.7.1
