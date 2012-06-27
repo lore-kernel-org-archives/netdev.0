@@ -1,70 +1,51 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: be mroe restrictive in transport selection on
- bundled sacks
-Date: Wed, 27 Jun 2012 09:22:44 -0400
-Message-ID: <20120627132244.GD19313@hmsreliant.think-freely.org>
-References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
- <20120626.210504.657326352932517334.davem@davemloft.net>
- <20120627102419.GA19313@hmsreliant.think-freely.org>
- <4FEB08B9.7030907@gmail.com>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [RFC] tcp demux used to signal ip_route_input_noref to not cache dst
+Date: Wed, 27 Jun 2012 15:25:58 +0200
+Message-ID: <201206271526.16502.hans.schillstrom@ericsson.com>
+References: <1340781553.10893.414.camel@edumazet-glaptop> <1340783533.26242.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54902 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752727Ab2F0NXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 09:23:05 -0400
+Received: from mailgw7.ericsson.se ([193.180.251.48]:63826 "EHLO
+	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754328Ab2F0N0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 09:26:22 -0400
+In-Reply-To: <1340783533.26242.2.camel@edumazet-glaptop>
 Content-Disposition: inline
-In-Reply-To: <4FEB08B9.7030907@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 27, 2012 at 09:20:57AM -0400, Vlad Yasevich wrote:
-> On 06/27/2012 06:24 AM, Neil Horman wrote:
-> >On Tue, Jun 26, 2012 at 09:05:04PM -0700, David Miller wrote:
-> >>From: Neil Horman<nhorman@tuxdriver.com>
-> >>Date: Tue, 26 Jun 2012 16:31:44 -0400
-> >>
-> >>>@@ -240,15 +240,20 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct sctp_packet *pkt,
-> >>>  	 */
-> >>>  	if (sctp_chunk_is_data(chunk)&&  !pkt->has_sack&&
-> >>>  	!pkt->has_cookie_echo) {
-> >>>-		struct sctp_association *asoc;
-> >>>  		struct timer_list *timer;
-> >>>-		asoc = pkt->transport->asoc;
-> >>>+		struct sctp_association *asoc = pkt->transport->asoc;
-> >>>+		struct sctp_transport *trans;
-> >>>+
-> >>>  		timer =&asoc->timers[SCTP_EVENT_TIMEOUT_SACK];
-> >>>
-> >>>  		/* If the SACK timer is running, we have a pending SACK */
-> >>>  		if (timer_pending(timer)) {
-> >>>  			struct sctp_chunk *sack;
-> >>>  			asoc->a_rwnd = asoc->rwnd;
-> >>>+
-> >>>+			if (chunk->transport&&  !chunk->transport->moved_ctsn)
-> >>>+				return retval;
-> >>>+
-> >>>  			sack = sctp_make_sack(asoc);
-> >>>  			if (sack) {
-> >>>  				retval = sctp_packet_append_chunk(pkt, sack);
-> >>
-> >>The new local variable 'trans' seems to be unused.
-> >>
-> >Crap, thank you Dave, that was a holdover from an initial pass I had made in
-> >writing this.  I'll repost with that removed once Vald has a chance to look this
-> >over
-> >Neil
-> >
+On Wednesday 27 June 2012 09:52:13 Eric Dumazet wrote:
+> On Wed, 2012-06-27 at 09:19 +0200, Eric Dumazet wrote:
+> > In case tcp_v{4|6}_early_demux() doesnt find an ESTABLISHED socket, and
+> > SYN flag is set, and an "atomic_t listener_under_synflood" counter is
+> > not 0, we could :
+> > 
+> > - instruct make ip_rcv_finish() to not cache the input dst into route
+> > cache (if dst is not found in the hash table)
+> > 
+> > This would make synflood attacks having minimal impact on route cache
+> > 
+> > (We did this for the output dst of SYN-cookie-ACK messages)
+> > 
+> > 
 > 
-> Also, may want to move a_rwnd adjustment to after the new if clause.
-> No sense adjusting it if we are just going to bail.
+> I'll test the following patch in a moment.
 > 
-> -vlad
-> 
+> For the moment, set nocache to true for all frames not associated to an
+> ESTABLISHED socket. Not sure we want to test SYN flag after all.
 
-copy that, I'll make both changes and repost.  Thanks!
-Neil
+Nice work, 
+I have been runing the patch for almost 4 hours now 
+not a single message about the routing cache !
+
+BTW 
+I also use the "tcp: avoid tx starvation by SYNACK packets" patch
+and jhash patch for syn cookies.
+Not a packet single packet is dropped now.
+
+I even works nice in a KVM I have never been close to this results with KVM.
