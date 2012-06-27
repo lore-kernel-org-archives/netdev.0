@@ -1,51 +1,40 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [RFC] tcp demux used to signal ip_route_input_noref to not cache dst
-Date: Wed, 27 Jun 2012 15:25:58 +0200
-Message-ID: <201206271526.16502.hans.schillstrom@ericsson.com>
-References: <1340781553.10893.414.camel@edumazet-glaptop> <1340783533.26242.2.camel@edumazet-glaptop>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH v2 0/5] fec driver updates
+Date: Wed, 27 Jun 2012 21:45:19 +0800
+Message-ID: <1340804724-29410-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: =?UTF-8?q?Lothar=20Wa=C3=9Fmann?= <LW@KARO-electronics.de>,
+	Florian Fainelli <florian@openwrt.org>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<devicetree-discuss@lists.ozlabs.org>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw7.ericsson.se ([193.180.251.48]:63826 "EHLO
-	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754328Ab2F0N0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 09:26:22 -0400
-In-Reply-To: <1340783533.26242.2.camel@edumazet-glaptop>
-Content-Disposition: inline
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:18184
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751602Ab2F0NpY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 09:45:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 27 June 2012 09:52:13 Eric Dumazet wrote:
-> On Wed, 2012-06-27 at 09:19 +0200, Eric Dumazet wrote:
-> > In case tcp_v{4|6}_early_demux() doesnt find an ESTABLISHED socket, and
-> > SYN flag is set, and an "atomic_t listener_under_synflood" counter is
-> > not 0, we could :
-> > 
-> > - instruct make ip_rcv_finish() to not cache the input dst into route
-> > cache (if dst is not found in the hash table)
-> > 
-> > This would make synflood attacks having minimal impact on route cache
-> > 
-> > (We did this for the output dst of SYN-cookie-ACK messages)
-> > 
-> > 
-> 
-> I'll test the following patch in a moment.
-> 
-> For the moment, set nocache to true for all frames not associated to an
-> ESTABLISHED socket. Not sure we want to test SYN flag after all.
+Changes since v1:
+* Add one patch to use devm_gpio_request_one
+* Have a separate patch to fix phy-reset-gpios property in binding
+  document
+* Change phy-reset-interval to phy-reset-duration
+* Add a sanity check on phy-reset-duration value
 
-Nice work, 
-I have been runing the patch for almost 4 hours now 
-not a single message about the routing cache !
+Shawn Guo (5):
+  net: fec: reset phy after pinctrl setup
+  net: fec: enable regulator for fec phy
+  net: fec: use managed function devm_gpio_request_one
+  net: fec: phy-reset-gpios is optional
+  net: fec: add phy-reset-duration for device tree probe
 
-BTW 
-I also use the "tcp: avoid tx starvation by SYNACK packets" patch
-and jhash patch for syn cookies.
-Not a packet single packet is dropped now.
+ Documentation/devicetree/bindings/net/fsl-fec.txt |    6 +++-
+ drivers/net/ethernet/freescale/fec.c              |   28 ++++++++++++++++++---
+ 2 files changed, 29 insertions(+), 5 deletions(-)
 
-I even works nice in a KVM I have never been close to this results with KVM.
+-- 
+1.7.5.4
