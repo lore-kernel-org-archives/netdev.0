@@ -1,68 +1,131 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 09/16] netvm: Allow skb allocation to use PFMEMALLOC
- reserves
-Date: Wed, 27 Jun 2012 09:32:46 +0100
-Message-ID: <20120627083246.GF8271@suse.de>
-References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
- <1340375443-22455-10-git-send-email-mgorman@suse.de>
- <20120626152734.GA6509@breakpoint.cc>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next v2] be2net: Fix to trim skb for padded vlan packets to workaround an ASIC Bug
+Date: Wed, 27 Jun 2012 14:02:10 +0530
+Message-ID: <879c023f-1730-4874-a943-58b6725f80f4@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120626152734.GA6509@breakpoint.cc>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:26830 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298Ab2F0IdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:33:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 26, 2012 at 05:27:34PM +0200, Sebastian Andrzej Siewior wrote:
-> On Fri, Jun 22, 2012 at 03:30:36PM +0100, Mel Gorman wrote:
-> > diff --git a/net/core/sock.c b/net/core/sock.c
-> > index 5c9ca2b..159dccc 100644
-> > --- a/net/core/sock.c
-> > +++ b/net/core/sock.c
-> > @@ -271,6 +271,9 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
-> >  int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
-> >  EXPORT_SYMBOL(sysctl_optmem_max);
-> >  
-> > +struct static_key memalloc_socks = STATIC_KEY_INIT_FALSE;
-> > +EXPORT_SYMBOL_GPL(memalloc_socks);
-> > +
-> 
-> This is used via sk_memalloc_socks() by SLAB.
-> 
-> From 3da9ab9972845974da114c5a6624335e6371b2d5 Mon Sep 17 00:00:00 2001
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> Date: Tue, 26 Jun 2012 17:18:20 +0200
-> Subject: [PATCH] export sk_memalloc_socks() only with CONFIG_NET
-> 
-> |mm/built-in.o: In function `atomic_read':
-> |include/asm/atomic.h:25: undefined reference to `memalloc_socks'
-> |include/asm/atomic.h:25: undefined reference to `memalloc_socks'
-> |include/asm/atomic.h:25: undefined reference to `memalloc_socks'
-> |include/asm/atomic.h:25: undefined reference to `memalloc_socks'
-> |include/asm/atomic.h:25: undefined reference to `memalloc_socks'
-> |mm/built-in.o:include/asm/atomic.h:25: more undefined references to `memalloc_socks' follow
-> 
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Fixed spelling error in a comment as pointed out by DaveM.
+Also refactored existing code a bit to provide placeholders for another ASIC
+Bug workaround that will be checked-in soon after this.
 
-Well caught. I had not tested build with !CONFIG_NET. I've folded in
-this patch and the credits accordingly. Thanks.
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    5 ++
+ drivers/net/ethernet/emulex/benet/be_main.c |   56 ++++++++++++++++++++-------
+ 2 files changed, 47 insertions(+), 14 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 7b5cc2b..7a71fb6 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -573,6 +573,11 @@ static inline u8 is_udp_pkt(struct sk_buff *skb)
+ 	return val;
+ }
+ 
++static inline bool is_ipv4_pkt(struct sk_buff *skb)
++{
++	return skb->protocol == ntohs(ETH_P_IP) && ip_hdr(skb)->version == 4;
++}
++
+ static inline void be_vf_eth_addr_generate(struct be_adapter *adapter, u8 *mac)
+ {
+ 	u32 addr;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index a28896d..edce7af 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -577,6 +577,11 @@ static inline u16 be_get_tx_vlan_tag(struct be_adapter *adapter,
+ 	return vlan_tag;
+ }
+ 
++static int be_vlan_tag_chk(struct be_adapter *adapter, struct sk_buff *skb)
++{
++	return vlan_tx_tag_present(skb) || adapter->pvid;
++}
++
+ static void wrb_fill_hdr(struct be_adapter *adapter, struct be_eth_hdr_wrb *hdr,
+ 		struct sk_buff *skb, u32 wrb_cnt, u32 len)
+ {
+@@ -704,33 +709,56 @@ dma_err:
+ 	return 0;
+ }
+ 
++static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
++					     struct sk_buff *skb)
++{
++	u16 vlan_tag = 0;
++
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (unlikely(!skb))
++		return skb;
++
++	if (vlan_tx_tag_present(skb)) {
++		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
++		__vlan_put_tag(skb, vlan_tag);
++		skb->vlan_tci = 0;
++	}
++
++	return skb;
++}
++
+ static netdev_tx_t be_xmit(struct sk_buff *skb,
+ 			struct net_device *netdev)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct be_tx_obj *txo = &adapter->tx_obj[skb_get_queue_mapping(skb)];
+ 	struct be_queue_info *txq = &txo->q;
++	struct iphdr *ip = NULL;
+ 	u32 wrb_cnt = 0, copied = 0;
+-	u32 start = txq->head;
++	u32 start = txq->head, eth_hdr_len;
+ 	bool dummy_wrb, stopped = false;
+ 
+-	/* For vlan tagged pkts, BE
+-	 * 1) calculates checksum even when CSO is not requested
+-	 * 2) calculates checksum wrongly for padded pkt less than
+-	 * 60 bytes long.
+-	 * As a workaround disable TX vlan offloading in such cases.
++	eth_hdr_len = ntohs(skb->protocol) == ETH_P_8021Q ?
++		VLAN_ETH_HLEN : ETH_HLEN;
++
++	/* HW has a bug which considers padding bytes as legal
++	 * and modifies the IPv4 hdr's 'tot_len' field
+ 	 */
+-	if (vlan_tx_tag_present(skb) &&
+-	    (skb->ip_summed != CHECKSUM_PARTIAL || skb->len <= 60)) {
+-		skb = skb_share_check(skb, GFP_ATOMIC);
+-		if (unlikely(!skb))
+-			goto tx_drop;
++	if (skb->len <= 60 && be_vlan_tag_chk(adapter, skb) &&
++			is_ipv4_pkt(skb)) {
++		ip = (struct iphdr *)ip_hdr(skb);
++		pskb_trim(skb, eth_hdr_len + ntohs(ip->tot_len));
++	}
+ 
+-		skb = __vlan_put_tag(skb, be_get_tx_vlan_tag(adapter, skb));
++	/* HW has a bug wherein it will calculate CSUM for VLAN
++	 * pkts even though it is disabled.
++	 * Manually insert VLAN in pkt.
++	 */
++	if (skb->ip_summed != CHECKSUM_PARTIAL &&
++			be_vlan_tag_chk(adapter, skb)) {
++		skb = be_insert_vlan_in_pkt(adapter, skb);
+ 		if (unlikely(!skb))
+ 			goto tx_drop;
+-
+-		skb->vlan_tci = 0;
+ 	}
+ 
+ 	wrb_cnt = wrb_cnt_for_skb(adapter, skb, &dummy_wrb);
 -- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.5.6.1
