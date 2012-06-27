@@ -1,40 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: avoid tx starvation by SYNACK packets
-Date: Wed, 27 Jun 2012 10:40:00 +0200
-Message-ID: <1340786400.26242.27.camel@edumazet-glaptop>
-References: <201206260734.33472.hans.schillstrom@ericsson.com>
-	 <1340730156.10893.359.camel@edumazet-glaptop>
-	 <201206270723.11615.hans.schillstrom@ericsson.com>
-	 <20120627.012204.1603944185909940692.davem@davemloft.net>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH 11/16] netvm: Propagate page->pfmemalloc from
+ skb_alloc_page to skb
+Date: Wed, 27 Jun 2012 09:43:48 +0100
+Message-ID: <20120627084348.GG8271@suse.de>
+References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
+ <1340375443-22455-12-git-send-email-mgorman@suse.de>
+ <20120626201328.GI6509@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: hans.schillstrom@ericsson.com, subramanian.vijay@gmail.com,
-	dave.taht@gmail.com, netdev@vger.kernel.org, ncardwell@google.com,
-	therbert@google.com, brouer@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:53671 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080Ab2F0IkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 04:40:11 -0400
-Received: by eeit10 with SMTP id t10so238180eei.19
-        for <netdev@vger.kernel.org>; Wed, 27 Jun 2012 01:40:09 -0700 (PDT)
-In-Reply-To: <20120627.012204.1603944185909940692.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120626201328.GI6509@breakpoint.cc>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-06-27 at 01:22 -0700, David Miller wrote:
-> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> Date: Wed, 27 Jun 2012 07:23:03 +0200
+On Tue, Jun 26, 2012 at 10:13:28PM +0200, Sebastian Andrzej Siewior wrote:
+> On Fri, Jun 22, 2012 at 03:30:38PM +0100, Mel Gorman wrote:
+> >  drivers/net/ethernet/chelsio/cxgb4/sge.c          |    2 +-
+> >  drivers/net/ethernet/chelsio/cxgb4vf/sge.c        |    2 +-
+> >  drivers/net/ethernet/intel/igb/igb_main.c         |    2 +-
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |    4 +-
+> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    3 +-
+> >  drivers/net/usb/cdc-phonet.c                      |    2 +-
+> >  drivers/usb/gadget/f_phonet.c                     |    2 +-
 > 
-> > On Tuesday 26 June 2012 19:02:36 Eric Dumazet wrote:
-> >> With David patch using jhash instead of SHA, I reach ~315.000 SYN per
-> >> second.
-> > 
-> > I have similar results from ~170k to ~199k synack/sec.
+> You did not touch all drivers which use alloc_page(s)() like e1000(e). Was
+> this on purpose?
 > 
-> Eric and Hans, I'm going to add Tested-by: tags for both of you
-> when I commit this patch if you don't mind. :-)
 
-Well, please send your complete patch before (with IPv6 part) ?
+Yes. The ones I changed were the semi-obvious ones and carried over from
+when the patches were completely out of tree.  As the changelog notes
+it is not critical that these annotation happens and can be fixed on a
+per-driver basis if there are complains about network swapping being slow.
+
+In the e1000 case, alloc_page is called from e1000_alloc_jumbo_rx_buffers
+and I would not have paid quite as close attention to jumbo configurations
+even though e1000 does not depend on high-order allocations like some
+other drivers do. I can update e1000 if you like but it's not critical
+to do so and in fact getting a bug reporting saying that network swap
+was slow on e1000 would be useful to me in its own way :)
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
