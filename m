@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Assign rtnl_link_ops to bridge devices created
- via ioctl (v2)
-Date: Tue, 26 Jun 2012 21:13:10 -0700 (PDT)
-Message-ID: <20120626.211310.1141495657985558140.davem@davemloft.net>
-References: <20120626075940.099521a7@nehalam.linuxnetplumber.net>
-	<20120626151311.GB31808@canuck.infradead.org>
-	<20120626084845.0578fcb8@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH 1/1] connector: use nlmsg_put() instead of NLMSG_PUT()
+ macro.
+Date: Tue, 26 Jun 2012 21:14:45 -0700 (PDT)
+Message-ID: <20120626.211445.403519457708632249.davem@davemloft.net>
+References: <1340725284-21698-1-git-send-email-javier.martinez@collabora.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: zbr@ioremap.net, netdev@vger.kernel.org
+To: javier.martinez@collabora.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39002 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39012 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab2F0ENL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 00:13:11 -0400
-In-Reply-To: <20120626084845.0578fcb8@nehalam.linuxnetplumber.net>
+	with ESMTP id S1750714Ab2F0EOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 00:14:46 -0400
+In-Reply-To: <1340725284-21698-1-git-send-email-javier.martinez@collabora.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 26 Jun 2012 08:48:45 -0700
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Date: Tue, 26 Jun 2012 17:41:24 +0200
 
-> This ensures that bridges created with brctl(8) or ioctl(2) directly
-> also carry IFLA_LINKINFO when dumped over netlink. This also allows
-> to create a bridge with ioctl(2) and delete it with RTM_DELLINK.
+> The NLMSG_PUT() macro contains a hidden goto which makes the code hard
+> to audit and very error prone.
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> While been there also use the inline function nlmsg_data() instead of the
+> NLMSG_DATA() macro to do explicit type checking.
 > 
-> ---
-> v2 - Minor change to Thomas's original patch.
-> This is a bug fix, should go to stable as well.
+> Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
+
+I'll work to convert the remaining users, good catch.
