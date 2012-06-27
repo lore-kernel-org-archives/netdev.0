@@ -1,49 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: be mroe restrictive in transport selection on
- bundled sacks
-Date: Tue, 26 Jun 2012 21:05:04 -0700 (PDT)
-Message-ID: <20120626.210504.657326352932517334.davem@davemloft.net>
-References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 net-next 0/7] mac802154: basic wpan class-device
+ support
+Date: Tue, 26 Jun 2012 21:06:58 -0700 (PDT)
+Message-ID: <20120626.210658.1677892749117826235.davem@davemloft.net>
+References: <1340702694-24706-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, dbaryshkov@gmail.com
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38965 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38984 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750708Ab2F0EFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 00:05:05 -0400
-In-Reply-To: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1750708Ab2F0EG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 00:06:58 -0400
+In-Reply-To: <1340702694-24706-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 26 Jun 2012 16:31:44 -0400
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Tue, 26 Jun 2012 13:24:47 +0400
 
-> @@ -240,15 +240,20 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct sctp_packet *pkt,
->  	 */
->  	if (sctp_chunk_is_data(chunk) && !pkt->has_sack &&
->  	    !pkt->has_cookie_echo) {
-> -		struct sctp_association *asoc;
->  		struct timer_list *timer;
-> -		asoc = pkt->transport->asoc;
-> +		struct sctp_association *asoc = pkt->transport->asoc;
-> +		struct sctp_transport *trans;
-> +
->  		timer = &asoc->timers[SCTP_EVENT_TIMEOUT_SACK];
->  
->  		/* If the SACK timer is running, we have a pending SACK */
->  		if (timer_pending(timer)) {
->  			struct sctp_chunk *sack;
->  			asoc->a_rwnd = asoc->rwnd;
-> +
-> +			if (chunk->transport && !chunk->transport->moved_ctsn)
-> +				return retval;
-> +
->  			sack = sctp_make_sack(asoc);
->  			if (sack) {
->  				retval = sctp_packet_append_chunk(pkt, sack);
+> Cover letter:
+> =============
+> this patch-set binds the IEEE 802.15.4 Linux stack to the radio
+> transceivers. A new device-class called "wpan" is added. It represents
+> an interface for the radio device drivers to communicate the information
+> with Linux networking stack.
+> 
+> This is the basic support, only data-packets transmission is supported
+> (no MAC-layer specific commands support included here). But this set
+> represents a necessary minimum to implement IEEE 802.15.4 standard features
+> and test them on real hardware.
+> 
+> To test/try the wpan device-class the Atmel RF230 transceiver driver
+> included in this patch set. The how-to instructions are available in wiki
+> at the linux-wsn project site: http://code.google.com/p/linux-wsn/
 
-The new local variable 'trans' seems to be unused.
+All applied, thanks.
