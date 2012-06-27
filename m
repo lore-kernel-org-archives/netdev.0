@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net: qmi_wwan: simplify a check in qmi_wwan_bind()
-Date: Tue, 26 Jun 2012 17:13:36 -0700 (PDT)
-Message-ID: <20120626.171336.1112981494948391973.davem@davemloft.net>
-References: <20120626083945.GA8946@elgon.mountain>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH 0/2] flexcan driver updates
+Date: Wed, 27 Jun 2012 08:26:15 +0800
+Message-ID: <CAAQ0ZWR5ohRsfMqn9cDAhjHejLRO7cMdGL_6dyMkwzD8zpjpOQ@mail.gmail.com>
+References: <1340700563-8386-1-git-send-email-shawn.guo@linaro.org>
+	<4FE9E981.2080402@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bjorn@mork.no
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37954 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368Ab2F0ANj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 20:13:39 -0400
-In-Reply-To: <20120626083945.GA8946@elgon.mountain>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:33680 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754685Ab2F0A0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 20:26:18 -0400
+Received: by lbbgm6 with SMTP id gm6so839268lbb.19
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 17:26:15 -0700 (PDT)
+In-Reply-To: <4FE9E981.2080402@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 26 Jun 2012 11:39:45 +0300
+On 27 June 2012 00:55, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+> So please post your suggested changes for the flexcan driver on the mailing
+> lists linux-can@vger.kernel.org and devicetree-discuss@lists.ozlabs.org
+>
+Yes, you are right.  Will resend.  Thanks.
 
-> This code is easier to read if we specify which flags we want at the
-> condition instead of at the top of the function.
->=20
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Acked-by: Bj=F8rn Mork <bjorn@mork.no>
-
-Applied, thanks.
+Regards,
+Shawn
