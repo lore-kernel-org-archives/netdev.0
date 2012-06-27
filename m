@@ -1,42 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] ixgbe: Do not pad FCoE frames as this can cause issues
- with FCoE DDP
-Date: Tue, 26 Jun 2012 16:45:35 -0700 (PDT)
-Message-ID: <20120626.164535.1370104947946690268.davem@davemloft.net>
-References: <1340697286-3047-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next] udp: Add socket early demux support
+Date: Tue, 26 Jun 2012 17:06:29 -0700
+Message-ID: <CAGK4HS-bh2_hwiQAM+-4UaD8Ts5NAVEh19nBbAT8fQn1GookSw@mail.gmail.com>
+References: <1340739826-3363-1-git-send-email-subramanian.vijay@gmail.com>
+	<20120626.143401.445148198931339546.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	eric.dumazet@gmail.com, alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37826 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368Ab2FZXpg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 19:45:36 -0400
-In-Reply-To: <1340697286-3047-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:61574 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754213Ab2F0AG3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jun 2012 20:06:29 -0400
+Received: by ghrr11 with SMTP id r11so508455ghr.19
+        for <netdev@vger.kernel.org>; Tue, 26 Jun 2012 17:06:29 -0700 (PDT)
+In-Reply-To: <20120626.143401.445148198931339546.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 26 Jun 2012 00:54:46 -0700
+Thanks for the reviews and feedback, Dave and Eric. They were very help=
+ful.
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> FCoE target mode was experiencing issues due to the fact that we were
-> sending up data frames that were padded to 60 bytes after the DDP logic had
-> already stripped the frame down to 52 or 56 depending on the use of VLANs.
-> This was resulting in the FCoE DDP logic having issues since it thought the
-> frame still had data in it due to the padding.
-> 
-> To resolve this, adding code so that we do not pad FCoE frames prior to
-> handling them to the stack.
-> 
-> CC: <stable@vger.kernel.org>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On 26 June 2012 14:34, David Miller <davem@davemloft.net> wrote:
+>
+> You can't do this.
+>
+> If the UDP socket has wildcards, that means the source address of the
+> route will not be validated. =A0This means we will start accepting
+> spoofed packets. =A0It also means the route you are caching is going
+> to be the wrong route since the keys are variable.
 
-Applied, thanks.
+Thanks for this explanation.
+I see why Eric wanted me to test with DNS server bound to wildcard
+address. I guess the same issue exists with multicast too which I had
+not even considered.
+
+>
+> You can only do an early demux where all the keys are fully specified
+> and there are no wildcards. =A0That why for TCP we only early demux f=
+or
+> established sockets.
+
+I guess for UDP, early demux will work only if server binds to a
+specific address and port instead of wildcard. But I believe
+a lot of UDP servers use wildcard addresses, so use of early demux for
+UDP may be limited.
+
+Thanks,
+Vijay
