@@ -1,42 +1,50 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -resend] 9p: fix min_t() casting in p9pdu_vwritef()
-Date: Wed, 27 Jun 2012 12:01:41 +0300
-Message-ID: <20120627090141.GF31212@elgon.mountain>
-References: <20120627085800.GA3007@mwanda>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 04/13] netfilter: regard users as refcount for
+ l4proto's per-net data
+Date: Wed, 27 Jun 2012 11:05:05 +0200
+Message-ID: <20120627090505.GA18372@1984>
+References: <1340289410-17642-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1340289410-17642-4-git-send-email-gaofeng@cn.fujitsu.com>
+ <20120625112029.GB4607@1984>
+ <4FE93375.1080803@cn.fujitsu.com>
+ <20120626144708.GB11165@1984>
+ <4FEA6309.5060305@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Eric Van Hensbergen <ericvh@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:39234 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754906Ab2F0JFN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2012 05:05:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20120627085800.GA3007@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4FEA6309.5060305@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I don't think we're actually likely to hit this limit but if we do
-then the comparison should be done as size_t.  The original code
-is equivalent to:
-        len = strlen(sptr) % USHRT_MAX;
+On Wed, Jun 27, 2012 at 09:34:01AM +0800, Gao feng wrote:
+[...]
+> >>> I think that this change is similar to patch 1/1, I think you should
+> >>> send it as a separated patch.
+> >>>
+> >>
+> >> Yes, It looks better.
+> >> should I change this and rebase whole patchset or
+> >> maybe you just apply this patchset and then I send a cleanup patch to do this?
+> > 
+> > This patch includes changes that are not included in the description,
+> > so you have two choices:
+> > 
+> > 1) You resend me this patch with appropriate description (including
+> > the fact that you're fixing the same thing that patch 1/1 does). This
+> > option still I don't like too much, since making two different things
+> > in one single patch is nasty, but well if you push me...
+> 
+> Sorry, I don't know which the same thing I fixed in this patch and 1/13 patch.
+> the 1/13 patch only change the proto's registration order. and this patch doesn't
+> change the registration order.
+> 
+> This patch is used to try to make variable "users" clear.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-I was told this patch "has already made it upstream via the v9fs pull."
-but it must have been dropped accidentally.  Originally sent on Sat,
-Jan 15, 2011.
-
-diff --git a/net/9p/protocol.c b/net/9p/protocol.c
-index 9ee48cb..3d33ecf 100644
---- a/net/9p/protocol.c
-+++ b/net/9p/protocol.c
-@@ -368,7 +368,7 @@ p9pdu_vwritef(struct p9_fcall *pdu, int proto_version, const char *fmt,
- 				const char *sptr = va_arg(ap, const char *);
- 				uint16_t len = 0;
- 				if (sptr)
--					len = min_t(uint16_t, strlen(sptr),
-+					len = min_t(size_t, strlen(sptr),
- 								USHRT_MAX);
- 
- 				errcode = p9pdu_writef(pdu, proto_version,
+Never mind, I'll take the patchset. Thanks Gao.
