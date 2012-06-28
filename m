@@ -1,56 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: Use NLMSG_DEFAULT_SIZE in combination with
- nlmsg_new()
-Date: Thu, 28 Jun 2012 13:10:46 -0400
-Message-ID: <20120628171046.GG31808@canuck.infradead.org>
-References: <caecbaa2f181c17908fbd61264e1acb9c5cb1fe1.1340891841.git.tgraf@suug.ch>
- <1340895349.13187.105.camel@edumazet-glaptop>
+From: "George B." <georgeb@gmail.com>
+Subject: Sending Packet Much Larger Than MSS
+Date: Thu, 28 Jun 2012 10:21:01 -0700
+Message-ID: <CAJ2iOjQGrnhG7L1jDAXybJiG7O5OpnaDzw5UBEuN2kEWXYGUnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Sergey Lapin <slapin@ossfans.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:36107 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751293Ab2F1RKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 13:10:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1340895349.13187.105.camel@edumazet-glaptop>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:53235 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754305Ab2F1RVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 13:21:03 -0400
+Received: by wgbdr13 with SMTP id dr13so2429813wgb.1
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 10:21:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 28, 2012 at 04:55:49PM +0200, Eric Dumazet wrote:
-> On Thu, 2012-06-28 at 15:57 +0200, Thomas Graf wrote:
-> > Using NLMSG_GOODSIZE results in multiple pages being used as
-> > nlmsg_new() will automatically add the size of the netlink
-> > header to the payload thus exceeding the page limit.
-> 
-> On the other hand, this limits to 3776 bytes for each recvmsg() call.
-> 
-> Maybe this can add a regression if one of the file needed to store more
-> than 3776 bytes in the answer ?
-> 
-> For GFP_KERNEL allocations, I am not sure we really need to limit to
-> order-0 pages...
+I am troubleshooting an issue and in the course of that noticed that a
+machine running  2.6.38-11 (Ubuntu  2.6.38-11-server #48-Ubuntu SMP)
+kernel is sending packets larger than the MSS advertized by the remote
+host.  The local machine has a large MTU (9000) and the advertized MSS
+of the remote machine is 1380 and here we have the local machine
+sending a 2560 byte packet.
 
-We are talking about providing 16 bytes less space for data by default.
-If there really are protocols that break with this change then those
-protocols need to be fixed anyway.
+I have a screen capture of the flow at
+http://i46.tinypic.com/10zmgyh.png but it is kind of small.  The
+initial MSS shows 1380 and you see the packet highlighted in blue has
+a length of 2560.  That it gets accepted and acked is a different
+problem but to my mind it should not be sending a packet that large in
+the first place.
 
-Especially because NLMSG_GOODSIZE (and NLMSG_DEFAULT_SIZE) is not a
-static value but depending on the page size so if a protocol needs a
-message size of anywhere close to 4K then it definitely needs to
-provide a size of its own.
+Is this a known issue with that kernel?
 
-> Unless you can point a real bug, this patch is not for net tree, but
-> net-next.
+Thanks.
 
-It's actually based on the net-next tree, I just didn't flag it
-properly.
+George
