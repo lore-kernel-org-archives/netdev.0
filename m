@@ -1,106 +1,45 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Thu, 28 Jun 2012 10:55:34 +0200
-Message-ID: <87hatvdddl.fsf@nemi.mork.no>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
-	<201206251410.13454.oliver@neukum.org>
-	<CACVXFVO5x9pePZekJPnywr7czXG_3_xCRj-rXEgf2KSQXnmPbA@mail.gmail.com>
-	<201206281035.19964.oneukum@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: LOCKDEP complaints in l2tp_xmit_skb()
+Date: Thu, 28 Jun 2012 10:57:42 +0200
+Message-ID: <1340873862.13187.5.camel@edumazet-glaptop>
+References: <20120627111152.GA2531@raven>
+	 <1340866572.26242.312.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marius =?utf-8?Q?Bj=C3=B8rnstad?= Kotsbak
-	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201206281035.19964.oneukum-l3A5Bk7waGM@public.gmane.org> (Oliver Neukum's message of
-	"Thu, 28 Jun 2012 10:35:19 +0200")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Tom Parkin <tparkin@katalix.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:44692 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753223Ab2F1I5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 04:57:49 -0400
+Received: by eeit10 with SMTP id t10so662771eei.19
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 01:57:48 -0700 (PDT)
+In-Reply-To: <1340866572.26242.312.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
+On Thu, 2012-06-28 at 08:56 +0200, Eric Dumazet wrote:
 
-> Am Dienstag, 26. Juni 2012, 09:23:19 schrieb Ming Lei:
->> On Mon, Jun 25, 2012 at 8:10 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> w=
-rote:
->
->> > At this point a minidriver must not follow the intfdata pointer,
->> > because the interface may again be probed. So if here a minidriver
->>=20
->> IMO, probe is serialized strictly with driver unbind since both the =
-parent
->> lock and its own device lock have been held, so the probe may only b=
-e
->> started after driver unbinding is completed.
->
-> Yes, but if you have a driver which claims multiple interfaces and us=
-es
-> a subdriver, then you will have cases of intfdate being NULL before
-> disconnect() finishes.
+> [PATCH] net: Qdisc busylock gets its own lockdep class
+> 
+> Tom Parkin reported following LOCKDEP splat :
+..
+> 
+> Instruct lockdep that each Qdisc busylock is independant, or else
+> bonding or various tunnels can trigger a splat.
+> 
+> Reported-by: Tom Parkin <tparkin@katalix.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-This is true regardless of subdriver, isn't it?  The subdriver issue is
-special because it makes this a potentional problem even with a single
-interface.
+I reproduced the bug using a bond0 device, adding a qdisc on it,
+(one Qdisc on bond0, and a Qdisc on the slave too)
 
->> > still uses intfdata, locking will be needed. We want to catch thos=
-e
->> > casees.
->>=20
->> Suppose infdata is used here somewhere, it is surely a bug because
->> the usbnet instance pointed by intfdata will be freed soon.
->
-> Of course. That is the point.
->
->> So looks putting the set to NULL after driver_info->unbind is good,
->> doesn't it?
->
-> Again, of course. We could drop it (but not the check for NULL in usb=
-net).
-> It is a debugging aid.=20
->
->> >        usb_kill_urb(dev->interrupt);
->> >        usb_free_urb(dev->interrupt);
->> >
->> >        free_netdev(net);
->> >        usb_put_dev (xdev);
->> > }
->> >
->> >> > Sure, it is a debugging aid. It has the drawback that minidrive=
-rs have
->> >> > to be able to deal with intfdata being NULL. That is not hard t=
-o do.
->> >>
->> >> The check isn't needed if the set to NULL is put after  driver_in=
-fo->unbind
->> >> in usbnet_disconnect.
->> >
->> > True, but we don't catch bugs.
->>=20
->> If the check is added, the bugs may be hided, and no stack will be
->> dumped, :-)
->
-> That is also true.
->
-> Bj=C3=B8rn,
->
-> do you use subdrivers with cdc-ether?
+Problem with this patch is I have following message :
 
-No, and I don't think it should ever be added there.  It would add
-complexity to the driver, and IMHO we really don't want that for the
-generic cdc-ether. Better adding a new minidriver if the need to export
-some other CDC embedded protocol to userspace shows up.
+BUG: key ffff88..... not in .data!
 
-But given that all other embedded protocol examples I've seen are so
-simple that they've been implemented inside their repective minidrivers
-(sierra_net, hso, rndis_host), I don't think it's likely that any new
-need for the cdc-wdm subdriver will show up soon.  I could of course be
-completely wrong, as usual.
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No more LOCKDEP splat, but patch not good as is.
