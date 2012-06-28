@@ -1,106 +1,139 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: pull request: batman-adv 2012-06-28
-Date: Thu, 28 Jun 2012 11:34:09 +0200
-Message-ID: <1340876067-28333-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 07/18] batman-adv: beautify tt_global_add() argument list
+Date: Thu, 28 Jun 2012 11:34:16 +0200
+Message-ID: <1340876067-28333-8-git-send-email-ordex@autistici.org>
+References: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <ordex@autistici.org>,
+	Sven Eckelmann <sven@narfation.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from contumacia.investici.org ([178.255.144.35]:30195 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932761Ab2F1Jeb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:34:31 -0400
+In-Reply-To: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-this is another set of patches I'd like to see included in net-next/linux-3.6.
-Here you have some more patches aimed to clean our namespace, a minor cleanup
-for the vis code that eliminates a useless intermediate buffer used to
-provide the output and two other minor cleanups for the TranslationTable code.
+Instead of adding a new bool argument each time it is needed, it is better (and
+simpler) to pass an 8bit flag argument which contains all the needed flags
 
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+---
+ net/batman-adv/routing.c           |    4 ++--
+ net/batman-adv/translation-table.c |   24 +++++++++---------------
+ net/batman-adv/translation-table.h |    4 ++--
+ 3 files changed, 13 insertions(+), 19 deletions(-)
 
-Tell me if there is any problem!
-
-Thank you,
-	Antonio
-
-
-
-The following changes since commit 160eb5a6b14ca2eab5c598bdbbb24c24624bad34:
-
-  ipv4: Kill early demux method return value. (2012-06-27 22:01:22 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 42d0b044b7c9e5821f1bf3e2b4ea7861417c11c2:
-
-  batman-adv: Prefix main defines with BATADV_ (2012-06-28 08:45:05 +0200)
-
-----------------------------------------------------------------
-Included changes:
-- another batch of patches meant to clean batman-adv namespace
-- deletion of an obsolete intermediate buffer used in the visualization code to
-  print the output
-- TT code cleanups
-
-----------------------------------------------------------------
-Antonio Quartulli (2):
-      batman-adv: clear ADD+DEL (and viceversa) events in the same orig-interval
-      batman-adv: beautify tt_global_add() argument list
-
-Sven Eckelmann (16):
-      batman-adv: Prefix unicast local static functions with batadv_
-      batman-adv: Prefix vis local static functions with batadv_
-      batman-adv: Prefix main local static functions with batadv_
-      batman-adv: Prefix remaining function like macros with batadv_
-      batman-adv: Directly print to seq_file in vis
-      batman-adv: Prefix local defines with BATADV_
-      batman-adv: Prefix debugfs defines with BATADV_
-      batman-adv: Prefix sysfs defines with BATADV_
-      batman-adv: Prefix bridge_loop_avoidance defines with BATADV_
-      batman-adv: Prefix gateway defines with BATADV_
-      batman-adv: Prefix icmp_socket defines with BATADV_
-      batman-adv: Prefix packet defines with BATADV_
-      batman-adv: Prefix types defines with BATADV_
-      batman-adv: Prefix unicast defines with BATADV_
-      batman-adv: Prefix vis defines with BATADV_
-      batman-adv: Prefix main defines with BATADV_
-
- net/batman-adv/bat_debugfs.c           |   34 +--
- net/batman-adv/bat_debugfs.h           |    2 +-
- net/batman-adv/bat_iv_ogm.c            |  125 ++++++----
- net/batman-adv/bat_sysfs.c             |  228 +++++++++--------
- net/batman-adv/bat_sysfs.h             |    4 +-
- net/batman-adv/bitarray.c              |   20 +-
- net/batman-adv/bitarray.h              |    4 +-
- net/batman-adv/bridge_loop_avoidance.c |   24 +-
- net/batman-adv/bridge_loop_avoidance.h |    2 +-
- net/batman-adv/gateway_client.c        |   32 +--
- net/batman-adv/gateway_common.c        |   26 +-
- net/batman-adv/gateway_common.h        |    6 +-
- net/batman-adv/hard-interface.c        |   50 ++--
- net/batman-adv/icmp_socket.c           |    6 +-
- net/batman-adv/icmp_socket.h           |    2 +-
- net/batman-adv/main.c                  |   91 +++----
- net/batman-adv/main.h                  |  101 ++++----
- net/batman-adv/originator.c            |   34 +--
- net/batman-adv/packet.h                |   12 +-
- net/batman-adv/ring_buffer.c           |    4 +-
- net/batman-adv/routing.c               |   32 +--
- net/batman-adv/send.c                  |    6 +-
- net/batman-adv/soft-interface.c        |   24 +-
- net/batman-adv/translation-table.c     |  163 +++++++-----
- net/batman-adv/translation-table.h     |    4 +-
- net/batman-adv/types.h                 |   19 +-
- net/batman-adv/unicast.c               |   37 +--
- net/batman-adv/unicast.h               |    4 +-
- net/batman-adv/vis.c                   |  422 ++++++++++++++------------------
- net/batman-adv/vis.h                   |    2 +-
- 30 files changed, 780 insertions(+), 740 deletions(-)
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 1b8f677..864692a 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -699,8 +699,8 @@ int batadv_recv_roam_adv(struct sk_buff *skb, struct hard_iface *recv_if)
+ 		   roam_adv_packet->src, roam_adv_packet->client);
+ 
+ 	batadv_tt_global_add(bat_priv, orig_node, roam_adv_packet->client,
+-			     atomic_read(&orig_node->last_ttvn) + 1, true,
+-			     false);
++			     TT_CLIENT_ROAM,
++			     atomic_read(&orig_node->last_ttvn) + 1);
+ 
+ 	/* Roaming phase starts: I have new information but the ttvn has not
+ 	 * been incremented yet. This flag will make me check all the incoming
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index d82766b..3ca2e48 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -657,8 +657,8 @@ batadv_tt_global_add_orig_entry(struct tt_global_entry *tt_global_entry,
+ 
+ /* caller must hold orig_node refcount */
+ int batadv_tt_global_add(struct bat_priv *bat_priv, struct orig_node *orig_node,
+-			 const unsigned char *tt_addr, uint8_t ttvn,
+-			 bool roaming, bool wifi)
++			 const unsigned char *tt_addr, uint8_t flags,
++			 uint8_t ttvn)
+ {
+ 	struct tt_global_entry *tt_global_entry = NULL;
+ 	int ret = 0;
+@@ -668,15 +668,14 @@ int batadv_tt_global_add(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ 	tt_global_entry = batadv_tt_global_hash_find(bat_priv, tt_addr);
+ 
+ 	if (!tt_global_entry) {
+-		tt_global_entry = kzalloc(sizeof(*tt_global_entry),
+-					  GFP_ATOMIC);
++		tt_global_entry = kzalloc(sizeof(*tt_global_entry), GFP_ATOMIC);
+ 		if (!tt_global_entry)
+ 			goto out;
+ 
+ 		common = &tt_global_entry->common;
+ 		memcpy(common->addr, tt_addr, ETH_ALEN);
+ 
+-		common->flags = NO_FLAGS;
++		common->flags = flags;
+ 		tt_global_entry->roam_at = 0;
+ 		atomic_set(&common->refcount, 2);
+ 
+@@ -718,9 +717,6 @@ int batadv_tt_global_add(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ 							orig_node, ttvn);
+ 	}
+ 
+-	if (wifi)
+-		tt_global_entry->common.flags |= TT_CLIENT_WIFI;
+-
+ 	batadv_dbg(DBG_TT, bat_priv,
+ 		   "Creating new global tt entry: %pM (via %pM)\n",
+ 		   tt_global_entry->common.addr, orig_node->orig);
+@@ -728,7 +724,7 @@ int batadv_tt_global_add(struct bat_priv *bat_priv, struct orig_node *orig_node,
+ out_remove:
+ 	/* remove address from local hash if present */
+ 	batadv_tt_local_remove(bat_priv, tt_global_entry->common.addr,
+-			       "global tt received", roaming);
++			       "global tt received", flags & TT_CLIENT_ROAM);
+ 	ret = 1;
+ out:
+ 	if (tt_global_entry)
+@@ -1755,7 +1751,6 @@ static void _batadv_tt_update_changes(struct bat_priv *bat_priv,
+ 				      uint16_t tt_num_changes, uint8_t ttvn)
+ {
+ 	int i;
+-	int is_wifi;
+ 	int roams;
+ 
+ 	for (i = 0; i < tt_num_changes; i++) {
+@@ -1763,13 +1758,12 @@ static void _batadv_tt_update_changes(struct bat_priv *bat_priv,
+ 			roams = (tt_change + i)->flags & TT_CLIENT_ROAM;
+ 			batadv_tt_global_del(bat_priv, orig_node,
+ 					     (tt_change + i)->addr,
+-					      "tt removed by changes",
+-					      roams);
++					     "tt removed by changes",
++					     roams);
+ 		} else {
+-			is_wifi = (tt_change + i)->flags & TT_CLIENT_WIFI;
+ 			if (!batadv_tt_global_add(bat_priv, orig_node,
+-						  (tt_change + i)->addr, ttvn,
+-						  false, is_wifi))
++						  (tt_change + i)->addr,
++						  (tt_change + i)->flags, ttvn))
+ 				/* In case of problem while storing a
+ 				 * global_entry, we stop the updating
+ 				 * procedure without committing the
+diff --git a/net/batman-adv/translation-table.h b/net/batman-adv/translation-table.h
+index 7edc9df..46b60bd 100644
+--- a/net/batman-adv/translation-table.h
++++ b/net/batman-adv/translation-table.h
+@@ -32,8 +32,8 @@ void batadv_tt_global_add_orig(struct bat_priv *bat_priv,
+ 			       struct orig_node *orig_node,
+ 			       const unsigned char *tt_buff, int tt_buff_len);
+ int batadv_tt_global_add(struct bat_priv *bat_priv, struct orig_node *orig_node,
+-			 const unsigned char *addr, uint8_t ttvn, bool roaming,
+-			 bool wifi);
++			 const unsigned char *addr, uint8_t flags,
++			 uint8_t ttvn);
+ int batadv_tt_global_seq_print_text(struct seq_file *seq, void *offset);
+ void batadv_tt_global_del_orig(struct bat_priv *bat_priv,
+ 			       struct orig_node *orig_node,
+-- 
+1.7.9.4
