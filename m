@@ -1,91 +1,77 @@
-From: Oliver Neukum <oneukum@suse.de>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
 Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
-Date: Thu, 28 Jun 2012 10:35:19 +0200
-Message-ID: <201206281035.19964.oneukum@suse.de>
-References: <1340356279-3124-1-git-send-email-bjorn@mork.no> <201206251410.13454.oliver@neukum.org> <CACVXFVO5x9pePZekJPnywr7czXG_3_xCRj-rXEgf2KSQXnmPbA@mail.gmail.com>
+Date: Thu, 28 Jun 2012 10:36:49 +0200
+Message-ID: <87lij7de8u.fsf@nemi.mork.no>
+References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-1?q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Marius =?iso-8859-1?q?Bj=F8rnstad_Kotsbak?=
-	<marius.kotsbak@gmail.com>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:51129 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756223Ab2F1IfN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 04:35:13 -0400
-In-Reply-To: <CACVXFVO5x9pePZekJPnywr7czXG_3_xCRj-rXEgf2KSQXnmPbA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marius =?utf-8?Q?Bj?= =?utf-8?Q?=C3=B8rnstad?= Kotsbak
+	<marius.kotsbak-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1340356279-3124-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+ (=?utf-8?Q?=22Bj=C3=B8rn?= Mork"'s
+	message of "Fri, 22 Jun 2012 11:11:18 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Am Dienstag, 26. Juni 2012, 09:23:19 schrieb Ming Lei:
-> On Mon, Jun 25, 2012 at 8:10 PM, Oliver Neukum <oliver@neukum.org> wr=
-ote:
+Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
 
-> > At this point a minidriver must not follow the intfdata pointer,
-> > because the interface may again be probed. So if here a minidriver
->=20
-> IMO, probe is serialized strictly with driver unbind since both the p=
-arent
-> lock and its own device lock have been held, so the probe may only be
-> started after driver unbinding is completed.
+[..]
+> Fixes this Oops where a cdc-wdm device was closed while the
+> USB device was disconnecting, causing wdm_release to call
+> qmi_wwan_cdc_wdm_manage_power after intfdata was set to
+> NULL by usbnet_disconnect:
+>
+> [41819.087460] BUG: unable to handle kernel NULL pointer dereference =
+at 00000080
+> [41819.087815] IP: [<f8640458>] qmi_wwan_manage_power+0x68/0x90 [qmi_=
+wwan]
+> [41819.088028] *pdpt =3D 000000000314f001 *pde =3D 0000000000000000
+> [41819.088028] Oops: 0002 [#1] SMP
 
-Yes, but if you have a driver which claims multiple interfaces and uses
-a subdriver, then you will have cases of intfdate being NULL before
-disconnect() finishes.
+[..]
 
-> > still uses intfdata, locking will be needed. We want to catch those
-> > casees.
->=20
-> Suppose infdata is used here somewhere, it is surely a bug because
-> the usbnet instance pointed by intfdata will be freed soon.
+> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+> index 3767a12..b01960f 100644
+> --- a/drivers/net/usb/qmi_wwan.c
+> +++ b/drivers/net/usb/qmi_wwan.c
+> @@ -197,6 +197,10 @@ err:
+>  static int qmi_wwan_cdc_wdm_manage_power(struct usb_interface *intf,=
+ int on)
+>  {
+>  	struct usbnet *dev =3D usb_get_intfdata(intf);
+> +
+> +	/* can be called while disconnecting */
+> +	if (!dev)
+> +		return 0;
+>  	return qmi_wwan_manage_power(dev, on);
+>  }
 
-Of course. That is the point.
+Hello,
 
-> So looks putting the set to NULL after driver_info->unbind is good,
-> doesn't it?
+I'd like this patch applied to qmi_wwan regardless of the outcome of th=
+e
+(now stalled?) generic usbnet_disconnect discussion.
 
-Again, of course. We could drop it (but not the check for NULL in usbne=
-t).
-It is a debugging aid.=20
+The patch fixes a real Oops in 3.4 and 3.5, and I believe it should be
+left in qmi_wwan even if the usbnet code is fixed to avoid this specifi=
+c
+bug.  The additional NULL test won't harm, and it makes the code more
+robust should someone decide to rearrange usbnet_disconnect again at
+some later point in time.
 
-> >        usb_kill_urb(dev->interrupt);
-> >        usb_free_urb(dev->interrupt);
-> >
-> >        free_netdev(net);
-> >        usb_put_dev (xdev);
-> > }
-> >
-> >> > Sure, it is a debugging aid. It has the drawback that minidriver=
-s have
-> >> > to be able to deal with intfdata being NULL. That is not hard to=
- do.
-> >>
-> >> The check isn't needed if the set to NULL is put after  driver_inf=
-o->unbind
-> >> in usbnet_disconnect.
-> >
-> > True, but we don't catch bugs.
->=20
-> If the check is added, the bugs may be hided, and no stack will be
-> dumped, :-)
+I really want this fixed in the next 3.4 stable release, if possible.
+Should I resubmit the patch, or will you pick it up from
+http://patchwork.ozlabs.org/patch/166542/ ?
 
-That is also true.
 
-Bj=F8rn,
-
-do you use subdrivers with cdc-ether?
-
-	Regards
-		Oliver
-
---=20
-- - -=20
-SUSE LINUX Products GmbH, GF: Jeff Hawn, Jennifer Guild, Felix Imend=F6=
-rffer, HRB 16746 (AG N=FCrnberg)=20
-Maxfeldstra=DFe 5                        =20
-90409 N=FCrnberg=20
-Germany=20
-- - -=20
+Thanks,
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
