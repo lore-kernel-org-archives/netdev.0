@@ -1,119 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] sctp: be more restrictive in transport selection on
- bundled sacks
-Date: Thu, 28 Jun 2012 16:14:43 -0400
-Message-ID: <20120628201442.GE29277@hmsreliant.think-freely.org>
-References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
- <1340807003-23139-1-git-send-email-nhorman@tuxdriver.com>
- <4FEB2262.1030803@gmail.com>
- <20120627172802.GA9250@neilslaptop.think-freely.org>
- <4FEB6296.5050603@gmail.com>
- <20120628153308.GB29277@hmsreliant.think-freely.org>
- <4FEC7F40.8070707@gmail.com>
- <20120628180721.GC29277@hmsreliant.think-freely.org>
- <4FECA0CF.10400@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [patch net-next 1/4] net: introduce new priv_flag indicating
+	iface capable of change mac when running
+Date: Thu, 28 Jun 2012 23:32:34 +0300
+Message-ID: <20120628203234.GA15451@redhat.com>
+References: <1340892639-1111-1-git-send-email-jpirko@redhat.com>
+	<1340892639-1111-2-git-send-email-jpirko@redhat.com>
+	<1340897092.13187.110.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46085 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754224Ab2F1UOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 16:14:48 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	shimoda.hiroaki@gmail.com, virtualization@lists.linux-foundation.org,
+	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <4FECA0CF.10400@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1340897092.13187.110.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 28, 2012 at 02:22:07PM -0400, Vlad Yasevich wrote:
-> On 06/28/2012 02:07 PM, Neil Horman wrote:
-> >On Thu, Jun 28, 2012 at 11:58:56AM -0400, Vlad Yasevich wrote:
-> >>On 06/28/2012 11:33 AM, Neil Horman wrote:
-> >>>On Wed, Jun 27, 2012 at 03:44:22PM -0400, Vlad Yasevich wrote:
-> >>>>On 06/27/2012 01:28 PM, Neil Horman wrote:
-> >>>>>On Wed, Jun 27, 2012 at 11:10:26AM -0400, Vlad Yasevich wrote:
-> >>>>>>
-> >>>>>>I didn't think of this yesterday, but I think it would be much
-> >>>>>>better to use pkt->transport here since you are adding the chunk to
-> >>>>>>the packet and it will go out on the transport of the packet.  You
-> >>>>>>are also guaranteed that pkt->transport is set.
-> >>>>>>
-> >>>>>I don't think it really matters, as the chunk transport is used to lookup the
-> >>>>>packet that we append to, and if the chunk transport is unset, its somewhat
-> >>>>>questionable as to weather we should bundle, but if packet->transport is set,
-> >>>>>its probably worth it to avoid the extra conditional.
-> >>>>>
-> >>>>
-> >>>>Just looked at the code flow.  chunk->transport may not be set until
-> >>>>the end of sctp_packet_append_chunk.  For new data, transport may
-> >>>>not be set.  For retransmitted data, transport is set to last
-> >>>>transport data was sent on.  So, we could be looking at the wrong
-> >>>>transport.  What you are trying to decided is if the current
-> >>>>transport we will be used can take the SACK, but you may not be
-> >>>>looking at the current transport. Looking at packet->transport is
-> >>>>the correct thing to do.
-> >>>>
-> >>>>-vlad
-> >>>>
-> >>>So, I agree after what you said above, that this is the right thing to do.  That
-> >>>said, I just tested the change with the SCTP_RR test in netperf, and it wound up
-> >>>giving me horrid performance (Its reporting about 5 transactions per second).
-> >>>It appears that whats happening is that, because the test alternates which
-> >>>transports it sends out, and because it waits for a sack of teh prior packet
-> >>>before it sends out the next transaction, we're always missing the bundle
-> >>>opportunity, and always waiting for the 200ms timeout for the sack to occur.
-> >>>While I know this is a pessimal case, it really seems bad to me.  It seems that
-> >>>because I was using chunk->transport previously, I luckily got the transport
-> >>>wrong sometimes, and it managed to bundle more often.
-> >>>
-> >>>So I'm not sure what to do here.  I had really wanted to avoid adding a sysctl
-> >>>here, but given that this is likely a corner cases, it seems that might be the
-> >>>best approach.  Do you have any thoughts?
-> >>>
-> >>>Neil
-> >>>
-> >>
-> >>that's strange.  did you modify the SCTP_RR to alternate transports?
-> >>Seems like responses in the RR test need to go the address of the
-> >>sender so that we don't see things like:
-> >>Request (t) --->
-> >>             <--- Response (t2)
-> >>
-> >>Should be:
-> >>Request (t1) --->
-> >>              <--- Response (t1)
-> >>
-> >>
-> >>-vlad
-> >That would seem to me to be the case too....
-> >
-> >However, having looked at this some more, it seems I just jumped the gun on
-> >this. Its happening because sctp_eat_data variants are issuing a SCTP_GEN_SACK
-> >command at the end of every received packet, which causes the moved_ctsn value
-> >to get cleared.
+On Thu, Jun 28, 2012 at 05:24:52PM +0200, Eric Dumazet wrote:
+> On Thu, 2012-06-28 at 16:10 +0200, Jiri Pirko wrote:
+> > Introduce IFF_LIFE_ADDR_CHANGE priv_flag and use it to disable
+> > netif_running() check in eth_mac_addr()
+> > 
+> > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> > ---
+> >  include/linux/if.h |    2 ++
+> >  net/ethernet/eth.c |    2 +-
+> >  2 files changed, 3 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/include/linux/if.h b/include/linux/if.h
+> > index f995c66..fd9ee7c 100644
+> > --- a/include/linux/if.h
+> > +++ b/include/linux/if.h
+> > @@ -81,6 +81,8 @@
+> >  #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
+> >  #define IFF_TEAM_PORT	0x40000		/* device used as team port */
+> >  #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
+> > +#define IFF_LIFE_ADDR_CHANGE 0x100000	/* device supports hardware address
+> > +					 * change when it's running */
+> >  
+> > 
+> >  #define IF_GET_IFACE	0x0001		/* for querying only */
+> > diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> > index 36e5880..8f8ded4 100644
+> > --- a/net/ethernet/eth.c
+> > +++ b/net/ethernet/eth.c
+> > @@ -283,7 +283,7 @@ int eth_mac_addr(struct net_device *dev, void *p)
+> >  {
+> >  	struct sockaddr *addr = p;
+> >  
+> > -	if (netif_running(dev))
+> > +	if (!(dev->priv_flags & IFF_LIFE_ADDR_CHANGE) && netif_running(dev))
+> >  		return -EBUSY;
+> >  	if (!is_valid_ether_addr(addr->sa_data))
+> >  		return -EADDRNOTAVAIL;
 > 
-> Ok, that should only happen the very first time as we are supposed
-> to ack the first data immediately.  On subsequent packets it should
-> just start a timer because we are following the 2pkt/200ms rule.
-> Then, when the response happens, we should bundle the SACK as long
-> as the data is leaving on the transport that moved the CTSN.
-> 
-> So we might be using the wrong transport and as result you send data
-> and then end up waiting for a SACK.
+> Since the memcpy() is not atomic, there is a small window where a reader
+> could get a half-changed mac address. I guess its a detail.
 > 
 
-So, good news, and more good news - 
+At least for virtio nothing changes - we had this bug forever.
+How'd you fix this?
 
-The good news is that I found the problem - and its me :)
-When I modified the code to use pkt->transport over chunk->transport I removed
-the ! in front of the test on accident, and and so was not bundling when I
-should have been.  Quite stupid of me, sorry for the noise.
-
-The other good news is that while doing this I think I have a way to save us
-from having to do that for loop in sctp_make_sack, so this should be a bit more
-scalable.  I'll post when I finish testing tomorrow.
-
-Best
-Neil
+-- 
+MST
