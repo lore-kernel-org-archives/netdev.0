@@ -1,70 +1,76 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 4/4] cnic: Handle RAMROD_CMD_ID_CLOSE error.
-Date: Wed, 27 Jun 2012 18:08:22 -0700
-Message-ID: <1340845704-12580-4-git-send-email-mchan@broadcom.com>
-References: <1340845704-12580-1-git-send-email-mchan@broadcom.com>
- <1340845704-12580-2-git-send-email-mchan@broadcom.com>
- <1340845704-12580-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 1/4] cnic: Fix occasional NULL pointer
+ dereference during reboot.
+Date: Wed, 27 Jun 2012 18:08:19 -0700
+Message-ID: <1340845704-12580-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4746 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3195 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754030Ab2F1A5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 20:57:25 -0400
-In-Reply-To: <1340845704-12580-3-git-send-email-mchan@broadcom.com>
+	id S932185Ab2F1A50 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2012 20:57:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eddie Wai <eddie.wai@broadcom.com>
+We register with bnx2x before we allocate ctx_tbl structure, so it is
+possible for bnx2x to call cnic_ctl before the structure is allocated.
+This can sometimes cause NULL pointer dereference of cp->ctx_tbl.  We
+fix this by adding simple checking for valid state before proceeding.
+The cnic_ctl call is RCU protected so we don't have to deal with race
+conditions.
 
-If firmware returns error status, proceed to close the iSCSI connection.
-Update version to 2.5.11.
+Because of the additional checking, we need to finish the shutdown
+before clearing the CNIC_UP flag.
 
-Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c    |    9 +++++++++
- drivers/net/ethernet/broadcom/cnic_if.h |    4 ++--
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index ec43df1..f897306 100644
+index 0e9be2b..31b05ad 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -3953,6 +3953,15 @@ static void cnic_cm_process_kcqe(struct cnic_dev *dev, struct kcqe *kcqe)
- 		cnic_cm_upcall(cp, csk, opcode);
- 		break;
+@@ -291,6 +291,9 @@ static int cnic_get_l5_cid(struct cnic_local *cp, u32 cid, u32 *l5_cid)
+ {
+ 	u32 i;
  
-+	case L5CM_RAMROD_CMD_ID_CLOSE:
-+		if (l4kcqe->status != 0) {
-+			netdev_warn(dev->netdev, "RAMROD CLOSE compl with "
-+				    "status 0x%x\n", l4kcqe->status);
-+			opcode = L4_KCQE_OPCODE_VALUE_CLOSE_COMP;
-+			/* Fall through */
-+		} else {
++	if (!cp->ctx_tbl)
++		return -EINVAL;
++
+ 	for (i = 0; i < cp->max_cid_space; i++) {
+ 		if (cp->ctx_tbl[i].cid == cid) {
+ 			*l5_cid = i;
+@@ -3220,6 +3223,9 @@ static int cnic_ctl(void *data, struct cnic_ctl_info *info)
+ 		u32 l5_cid;
+ 		struct cnic_local *cp = dev->cnic_priv;
+ 
++		if (!test_bit(CNIC_F_CNIC_UP, &dev->flags))
 +			break;
-+		}
- 	case L4_KCQE_OPCODE_VALUE_RESET_RECEIVED:
- 	case L4_KCQE_OPCODE_VALUE_CLOSE_COMP:
- 	case L4_KCQE_OPCODE_VALUE_RESET_COMP:
-diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-index d63d455..54f68f0 100644
---- a/drivers/net/ethernet/broadcom/cnic_if.h
-+++ b/drivers/net/ethernet/broadcom/cnic_if.h
-@@ -14,8 +14,8 @@
++
+ 		if (cnic_get_l5_cid(cp, cid, &l5_cid) == 0) {
+ 			struct cnic_context *ctx = &cp->ctx_tbl[l5_cid];
  
- #include "bnx2x/bnx2x_mfw_req.h"
+@@ -4253,8 +4259,6 @@ static int cnic_cm_shutdown(struct cnic_dev *dev)
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	int i;
  
--#define CNIC_MODULE_VERSION	"2.5.10"
--#define CNIC_MODULE_RELDATE	"March 21, 2012"
-+#define CNIC_MODULE_VERSION	"2.5.11"
-+#define CNIC_MODULE_RELDATE	"June 27, 2012"
+-	cp->stop_cm(dev);
+-
+ 	if (!cp->csk_tbl)
+ 		return 0;
  
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
+@@ -5290,6 +5294,7 @@ static void cnic_stop_hw(struct cnic_dev *dev)
+ 			i++;
+ 		}
+ 		cnic_shutdown_rings(dev);
++		cp->stop_cm(dev);
+ 		clear_bit(CNIC_F_CNIC_UP, &dev->flags);
+ 		RCU_INIT_POINTER(cp->ulp_ops[CNIC_ULP_L4], NULL);
+ 		synchronize_rcu();
 -- 
 1.7.1
