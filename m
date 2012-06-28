@@ -1,66 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next 1/4] net: introduce new priv_flag indicating
-	iface capable of change mac when running
-Date: Thu, 28 Jun 2012 17:24:52 +0200
-Message-ID: <1340897092.13187.110.camel@edumazet-glaptop>
-References: <1340892639-1111-1-git-send-email-jpirko@redhat.com>
-	<1340892639-1111-2-git-send-email-jpirko@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] sctp: be more restrictive in transport selection on
+ bundled sacks
+Date: Thu, 28 Jun 2012 11:33:08 -0400
+Message-ID: <20120628153308.GB29277@hmsreliant.think-freely.org>
+References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
+ <1340807003-23139-1-git-send-email-nhorman@tuxdriver.com>
+ <4FEB2262.1030803@gmail.com>
+ <20120627172802.GA9250@neilslaptop.think-freely.org>
+ <4FEB6296.5050603@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
-	virtualization@lists.linux-foundation.org,
-	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1340892639-1111-2-git-send-email-jpirko@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42797 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752177Ab2F1PdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 11:33:22 -0400
+Content-Disposition: inline
+In-Reply-To: <4FEB6296.5050603@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-28 at 16:10 +0200, Jiri Pirko wrote:
-> Introduce IFF_LIFE_ADDR_CHANGE priv_flag and use it to disable
-> netif_running() check in eth_mac_addr()
+On Wed, Jun 27, 2012 at 03:44:22PM -0400, Vlad Yasevich wrote:
+> On 06/27/2012 01:28 PM, Neil Horman wrote:
+> >On Wed, Jun 27, 2012 at 11:10:26AM -0400, Vlad Yasevich wrote:
+> >>
+> >>I didn't think of this yesterday, but I think it would be much
+> >>better to use pkt->transport here since you are adding the chunk to
+> >>the packet and it will go out on the transport of the packet.  You
+> >>are also guaranteed that pkt->transport is set.
+> >>
+> >I don't think it really matters, as the chunk transport is used to lookup the
+> >packet that we append to, and if the chunk transport is unset, its somewhat
+> >questionable as to weather we should bundle, but if packet->transport is set,
+> >its probably worth it to avoid the extra conditional.
+> >
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
->  include/linux/if.h |    2 ++
->  net/ethernet/eth.c |    2 +-
->  2 files changed, 3 insertions(+), 1 deletion(-)
+> Just looked at the code flow.  chunk->transport may not be set until
+> the end of sctp_packet_append_chunk.  For new data, transport may
+> not be set.  For retransmitted data, transport is set to last
+> transport data was sent on.  So, we could be looking at the wrong
+> transport.  What you are trying to decided is if the current
+> transport we will be used can take the SACK, but you may not be
+> looking at the current transport. Looking at packet->transport is
+> the correct thing to do.
 > 
-> diff --git a/include/linux/if.h b/include/linux/if.h
-> index f995c66..fd9ee7c 100644
-> --- a/include/linux/if.h
-> +++ b/include/linux/if.h
-> @@ -81,6 +81,8 @@
->  #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
->  #define IFF_TEAM_PORT	0x40000		/* device used as team port */
->  #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
-> +#define IFF_LIFE_ADDR_CHANGE 0x100000	/* device supports hardware address
-> +					 * change when it's running */
->  
+> -vlad
 > 
->  #define IF_GET_IFACE	0x0001		/* for querying only */
-> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-> index 36e5880..8f8ded4 100644
-> --- a/net/ethernet/eth.c
-> +++ b/net/ethernet/eth.c
-> @@ -283,7 +283,7 @@ int eth_mac_addr(struct net_device *dev, void *p)
->  {
->  	struct sockaddr *addr = p;
->  
-> -	if (netif_running(dev))
-> +	if (!(dev->priv_flags & IFF_LIFE_ADDR_CHANGE) && netif_running(dev))
->  		return -EBUSY;
->  	if (!is_valid_ether_addr(addr->sa_data))
->  		return -EADDRNOTAVAIL;
+So, I agree after what you said above, that this is the right thing to do.  That
+said, I just tested the change with the SCTP_RR test in netperf, and it wound up
+giving me horrid performance (Its reporting about 5 transactions per second).
+It appears that whats happening is that, because the test alternates which
+transports it sends out, and because it waits for a sack of teh prior packet
+before it sends out the next transaction, we're always missing the bundle
+opportunity, and always waiting for the 200ms timeout for the sack to occur.
+While I know this is a pessimal case, it really seems bad to me.  It seems that
+because I was using chunk->transport previously, I luckily got the transport
+wrong sometimes, and it managed to bundle more often.
 
-Since the memcpy() is not atomic, there is a small window where a reader
-could get a half-changed mac address. I guess its a detail.
+So I'm not sure what to do here.  I had really wanted to avoid adding a sysctl
+here, but given that this is likely a corner cases, it seems that might be the
+best approach.  Do you have any thoughts?
+
+Neil
