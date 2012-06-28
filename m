@@ -1,58 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] fq_codel: report congestion
- notification at enqueue time
-Date: Thu, 28 Jun 2012 20:12:31 +0200
-Message-ID: <1340907151.13187.169.camel@edumazet-glaptop>
-References: <1340903237.13187.151.camel@edumazet-glaptop>
-	<CAA93jw7agn2J6Hd7x22KWhENY5jqVjnk6uRr=3LJ5Anw7EgacQ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCH v2] l2tp: use per-cpu variables for u64_stats updates
+Date: Thu, 28 Jun 2012 19:17:31 +0100
+Message-ID: <1340907451.2577.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6B@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Nandita Dukkipati <nanditad@google.com>, netdev <netdev@vger.kernel.org>,
-	codel@lists.bufferbloat.net, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>, David Miller <davem@davemloft.net>,
-	Matt Mathis <mattmathis@google.com>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAA93jw7agn2J6Hd7x22KWhENY5jqVjnk6uRr=3LJ5Anw7EgacQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Tom Parkin <tparkin@katalix.com>, <netdev@vger.kernel.org>,
+	James Chapman <jchapman@katalix.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:7192 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751677Ab2F1SRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 14:17:40 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6B@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-28 at 10:51 -0700, Dave Taht wrote:
-
-> clever idea. A problem is there are other forms of network traffic on
-> a link, and this is punishing a single tcp
-> stream that may not be the source of the problem in the first place,
-> and basically putting it into double jeopardy.
+On Thu, 2012-06-28 at 09:46 +0100, David Laight wrote:
+> > [1] : LLTX drivers case 
+> >    since ndo_start_xmit() can be run concurrently by many cpus, safely
+> > updating an "unsigned long" requires additional hassle :
+> > 
+> >    1) Use of a spinlock to protect the update.
+> >    2) Use atomic_long_t instead of "unsigned long"
+> >    3) Use percpu data
 > 
+> 4) These are statistics so it shouldn't really matter if
+>    they are out by a small number.
 
-Why ? In fact this patch helps the tcp session being signaled (as it
-will be anyway) at enqueue time, instead of having to react to packet
-losses indications given (after RTT) by receiver.
+You might be surprised just how much end users care about statistics.
 
-Avoiding losses help receiver to consume data without having to buffer
-it into Out Of Order queue.
+>    So the errors
+>    introduced by unlocked updates can probably be ignored.
+>    So just use 'unsigned long'.
 
-So its not jeopardy, but early congestion notification without RTT
-delay.
+This can result in statistics being decremented in case of a race.  That
+should never be allowed to happen.
 
-NET_XMIT_CN is a soft signal, far more disruptive than a DROP.
+Ben.
 
-> I am curious as to how often an enqueue is actually dropping in the
-> codel/fq_codel case, the hope was that there would be plenty of
-> headroom under far more circumstances on this qdisc.
-> 
+>    Might be worth putting in gcc barriers so that the
+>    load and store instructions aren't separated too far.
 
-"tc -s qdisc show dev eth0" can show you all the counts.
-
-We never drop a packet at enqueue time, unless you hit the emergency
-limit (10240 packets for fq_codel). When you reach this limit, you are
-under trouble.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
