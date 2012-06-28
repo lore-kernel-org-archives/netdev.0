@@ -1,29 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 02/02] net/ipv4: VTI support new module for
- ip_vti.
-Date: Wed, 27 Jun 2012 18:19:47 -0700 (PDT)
-Message-ID: <20120627.181947.1681522664070466028.davem@davemloft.net>
-References: <20120628010218.GA4056@debian-saurabh-64.vyatta.com>
+From: Hui Wang <jason77.wang@gmail.com>
+Subject: Re: [PATCH] can: flexcan: use be32_to_cpup to handle the value of
+ dt entry
+Date: Thu, 28 Jun 2012 09:54:12 +0800
+Message-ID: <4FEBB944.1060701@gmail.com>
+References: <1340789236-28266-1-git-send-email-mkl@pengutronix.de> <1340789236-28266-2-git-send-email-mkl@pengutronix.de> <CAAQ0ZWT3ovG7eKZZuoSZkx4FGd+W9XvnTk8R1yuD02u4wqGNHQ@mail.gmail.com> <4FEAEFC1.4060104@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saurabh.mohan@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48746 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806Ab2F1BTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 21:19:51 -0400
-In-Reply-To: <20120628010218.GA4056@debian-saurabh-64.vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Shawn Guo <shawn.guo@linaro.org>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+	Hui Wang <jason77.wang@gmail.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4FEAEFC1.4060104@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saurabh <saurabh.mohan@vyatta.com>
-Date: Wed, 27 Jun 2012 18:02:18 -0700
+Marc Kleine-Budde wrote:
+> On 06/27/2012 01:26 PM, Shawn Guo wrote:
+>   
+>> On 27 June 2012 17:27, Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+>>     
+>>> From: Hui Wang <jason77.wang@gmail.com>
+>>>
+>>> The freescale arm i.MX series platform can support this driver, and
+>>> usually the arm cpu works in the little endian mode by default, while
+>>> device tree entry value is stored in big endian format, we should use
+>>> be32_to_cpup() to handle them, after modification, it can work well
+>>> both on the le cpu and be cpu.
+>>>
+>>>       
+>> I'm wondering if you want to just use of_property_read_u32() to make
+>> it a little bit easier.
+>>     
+>
+> Even better. Hui can you send a updated patch.
+>   
+OK.
 
-> +static int vti_err(struct sk_buff *skb, u32 info)
+Regards,
+Hui.
+> Marc
+>
+>   
 
-In net-next, individual ICMP error handlers must explicitly
-handle PMTU messages.
-
-You're does not.
