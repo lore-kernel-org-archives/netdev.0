@@ -1,40 +1,99 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH] net: nfc: fix panic in accept()
-Date: Thu, 28 Jun 2012 14:11:38 +0200
-Message-ID: <CA+1xoqfy21wOh2myV0D6iBDqoZ3YmkwNZwKBVXLU75zePOGi4w@mail.gmail.com>
-References: <1339423241.4999.53.camel@lappy> <20120611144134.GX22557@sortiz-mobl>
- <1339425693.6001.2268.camel@edumazet-glaptop> <20120611145700.GY22557@sortiz-mobl>
- <1339426778.6001.2312.camel@edumazet-glaptop> <20120611152007.GZ22557@sortiz-mobl>
- <1339433810.4999.65.camel@lappy> <20120611172545.GA1776@redhat.com>
- <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
- <1340639612.10893.84.camel@edumazet-glaptop> <20120625171532.GB16275@sortiz-mobl>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH 10/12] nfs: enable swap on NFS
+Date: Thu, 28 Jun 2012 08:27:25 -0400
+Message-ID: <20120628082725.33b71097@corrin.poochiereds.net>
+References: <1340375468-22509-1-git-send-email-mgorman@suse.de>
+	<1340375468-22509-11-git-send-email-mgorman@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dave Jones <davej@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Samuel Ortiz <sameo@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120625171532.GB16275@sortiz-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM
+ <linux-mm@kvack.org>,
+        Linux-Netdev <netdev@vger.kernel.org>,
+        Linux-NFS
+ <linux-nfs@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David
+ Miller <davem@davemloft.net>,
+        Trond Myklebust <Trond.Myklebust@netapp.com>,
+        Neil Brown <neilb@suse.de>, Christoph Hellwig <hch@infradead.org>,
+        Peter
+ Zijlstra <a.p.zijlstra@chello.nl>,
+        Mike Christie <michaelc@cs.wisc.edu>,
+        Eric B Munson <emunson@mgebm.net>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1340375468-22509-11-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi Samuel,
+On Fri, 22 Jun 2012 15:31:06 +0100
+Mel Gorman <mgorman@suse.de> wrote:
 
-On Mon, Jun 25, 2012 at 7:15 PM, Samuel Ortiz <sameo@linux.intel.com> wrote:
-> Hi Eric,
->
-> On Mon, Jun 25, 2012 at 05:53:32PM +0200, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> Sasha Levin reported following panic :
-> I applied a similar patch, more consistent with the rest of the NFC socket
-> code, still with you as the author. See here:
->
-> http://git.kernel.org/?p=linux/kernel/git/sameo/nfc-3.0.git;a=commit;h=631c301f20558525a641fadffc0126affd3dc4a4
+> Implement the new swapfile a_ops for NFS and hook up ->direct_IO. This
+> will set the NFS socket to SOCK_MEMALLOC and run socket reconnect
+> under PF_MEMALLOC as well as reset SOCK_MEMALLOC before engaging the
+> protocol ->connect() method.
+> 
+> PF_MEMALLOC should allow the allocation of struct socket and related
+> objects and the early (re)setting of SOCK_MEMALLOC should allow us
+> to receive the packets required for the TCP connection buildup.
+> 
+> [dfeng@redhat.com: Fix handling of multiple swap files]
+> [a.p.zijlstra@chello.nl: Original patch]
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
+> Acked-by: Rik van Riel <riel@redhat.com>
+> ---
+>  fs/nfs/Kconfig              |    8 +++++
+>  fs/nfs/direct.c             |   82 ++++++++++++++++++++++++++++---------------
+>  fs/nfs/file.c               |   22 ++++++++++--
+>  include/linux/nfs_fs.h      |    4 +--
+>  include/linux/sunrpc/xprt.h |    3 ++
+>  net/sunrpc/Kconfig          |    5 +++
+>  net/sunrpc/clnt.c           |    2 ++
+>  net/sunrpc/sched.c          |    7 ++--
+>  net/sunrpc/xprtsock.c       |   53 ++++++++++++++++++++++++++++
+>  9 files changed, 152 insertions(+), 34 deletions(-)
+> 
 
-Could this tree be included in -next please?
+[...snip...]
+
+> @@ -2108,11 +2156,15 @@ static void xs_tcp_setup_socket(struct work_struct *work)
+>  		container_of(work, struct sock_xprt, connect_worker.work);
+>  	struct socket *sock = transport->sock;
+>  	struct rpc_xprt *xprt = &transport->xprt;
+> +	unsigned long pflags = current->flags;
+>  	int status = -EIO;
+>  
+>  	if (xprt->shutdown)
+>  		goto out;
+>  
+> +	if (xprt->swapper)
+> +		current->flags |= PF_MEMALLOC;
+> +
+>  	if (!sock) {
+>  		clear_bit(XPRT_CONNECTION_ABORT, &xprt->state);
+>  		sock = xs_create_sock(xprt, transport,
+> @@ -2174,6 +2226,7 @@ out_eagain:
+>  out:
+>  	xprt_clear_connecting(xprt);
+>  	xprt_wake_pending_tasks(xprt, status);
+> +	tsk_restore_flags(current, pflags, PF_MEMALLOC);
+>  }
+>  
+>  /**
+
+Apologies if this is fixed in another patch and I didn't see it...
+
+There's a place in the above function that returns without going
+through "out:". I think you also want to tsk_restore_flags() in that
+spot too.
+
+-- 
+Jeff Layton <jlayton@redhat.com>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
