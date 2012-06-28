@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] virtio_net: allow to change mac when iface is
-	running
-Date: Wed, 27 Jun 2012 21:30:46 -0700 (PDT)
-Message-ID: <20120627.213046.1244710404799995026.davem@davemloft.net>
-References: <1340810866-1017-1-git-send-email-jpirko@redhat.com>
+Subject: Re: [PATCH v2 0/5] fec driver updates
+Date: Wed, 27 Jun 2012 21:30:53 -0700 (PDT)
+Message-ID: <20120627.213053.2138662759941342784.davem@davemloft.net>
+References: <1340804724-29410-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	brouer@redhat.com, mst@redhat.com
-To: jpirko@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1340810866-1017-1-git-send-email-jpirko@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: LW@KARO-electronics.de, florian@openwrt.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org
+To: shawn.guo@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49552 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751233Ab2F1Eay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 00:30:54 -0400
+In-Reply-To: <1340804724-29410-1-git-send-email-shawn.guo@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Wed, 27 Jun 2012 17:27:46 +0200
+From: Shawn Guo <shawn.guo@linaro.org>
+Date: Wed, 27 Jun 2012 21:45:19 +0800
 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Changes since v1:
+> * Add one patch to use devm_gpio_request_one
+> * Have a separate patch to fix phy-reset-gpios property in binding
+>   document
+> * Change phy-reset-interval to phy-reset-duration
+> * Add a sanity check on phy-reset-duration value
 
-Applied, but this seriously makes eth_mac_addr() completely useless.
-
-Technically, every eth_mac_addr() user in a software/virtual device
-should behave the way virtio_net does now.
-
-It therefore probably makes sense to add a boolean arg which when true
-elides the netif_running() check then fixup and audit every caller.
+All applied.
