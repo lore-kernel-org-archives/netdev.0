@@ -1,78 +1,48 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v2] sctp: be more restrictive in transport selection on
- bundled sacks
-Date: Thu, 28 Jun 2012 11:58:56 -0400
-Message-ID: <4FEC7F40.8070707@gmail.com>
-References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com> <1340807003-23139-1-git-send-email-nhorman@tuxdriver.com> <4FEB2262.1030803@gmail.com> <20120627172802.GA9250@neilslaptop.think-freely.org> <4FEB6296.5050603@gmail.com> <20120628153308.GB29277@hmsreliant.think-freely.org>
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH] davinci_cpdma: include linux/module.h
+Date: Thu, 28 Jun 2012 18:12:32 +0200
+Message-ID: <1340899952-15201-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:53795 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753824Ab2F1P67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 11:58:59 -0400
-In-Reply-To: <20120628153308.GB29277@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+ Christian Riesch <christian.riesch@omicron.at>,
+ Vaibhav Hiremath <hvaibhav@ti.com>, linux-arm-kernel@lists.infradead.org,
+ Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 06/28/2012 11:33 AM, Neil Horman wrote:
-> On Wed, Jun 27, 2012 at 03:44:22PM -0400, Vlad Yasevich wrote:
->> On 06/27/2012 01:28 PM, Neil Horman wrote:
->>> On Wed, Jun 27, 2012 at 11:10:26AM -0400, Vlad Yasevich wrote:
->>>>
->>>> I didn't think of this yesterday, but I think it would be much
->>>> better to use pkt->transport here since you are adding the chunk to
->>>> the packet and it will go out on the transport of the packet.  You
->>>> are also guaranteed that pkt->transport is set.
->>>>
->>> I don't think it really matters, as the chunk transport is used to lookup the
->>> packet that we append to, and if the chunk transport is unset, its somewhat
->>> questionable as to weather we should bundle, but if packet->transport is set,
->>> its probably worth it to avoid the extra conditional.
->>>
->>
->> Just looked at the code flow.  chunk->transport may not be set until
->> the end of sctp_packet_append_chunk.  For new data, transport may
->> not be set.  For retransmitted data, transport is set to last
->> transport data was sent on.  So, we could be looking at the wrong
->> transport.  What you are trying to decided is if the current
->> transport we will be used can take the SACK, but you may not be
->> looking at the current transport. Looking at packet->transport is
->> the correct thing to do.
->>
->> -vlad
->>
-> So, I agree after what you said above, that this is the right thing to do.  That
-> said, I just tested the change with the SCTP_RR test in netperf, and it wound up
-> giving me horrid performance (Its reporting about 5 transactions per second).
-> It appears that whats happening is that, because the test alternates which
-> transports it sends out, and because it waits for a sack of teh prior packet
-> before it sends out the next transaction, we're always missing the bundle
-> opportunity, and always waiting for the 200ms timeout for the sack to occur.
-> While I know this is a pessimal case, it really seems bad to me.  It seems that
-> because I was using chunk->transport previously, I luckily got the transport
-> wrong sometimes, and it managed to bundle more often.
->
-> So I'm not sure what to do here.  I had really wanted to avoid adding a sysctl
-> here, but given that this is likely a corner cases, it seems that might be the
-> best approach.  Do you have any thoughts?
->
-> Neil
->
-
-that's strange.  did you modify the SCTP_RR to alternate transports? 
-Seems like responses in the RR test need to go the address of the sender 
-so that we don't see things like:
-Request (t) --->
-             <--- Response (t2)
-
-Should be:
-Request (t1) --->
-              <--- Response (t1)
-
-
--vlad
+VGhpcyBmaXhlcyBhIG51bWJlciBvZiB3YXJuaW5ncyBzdWNoIGFzOgoKICBDQyAgICAgIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lfY3BkbWEubwpkcml2ZXJzL25ldC9ldGhlcm5ldC90
+aS9kYXZpbmNpX2NwZG1hLmM6Mjc5OjE6IHdhcm5pbmc6IGRhdGEgZGVmaW5pdGlvbgpoYXMgbm8g
+dHlwZSBvciBzdG9yYWdlIGNsYXNzCmRyaXZlcnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lfY3Bk
+bWEuYzoyNzk6MTogd2FybmluZzogdHlwZSBkZWZhdWx0cyB0bwrigJhpbnTigJkgaW4gZGVjbGFy
+YXRpb24gb2Yg4oCYRVhQT1JUX1NZTUJPTF9HUEzigJkKZHJpdmVycy9uZXQvZXRoZXJuZXQvdGkv
+ZGF2aW5jaV9jcGRtYS5jOjI3OToxOiB3YXJuaW5nOiBwYXJhbWV0ZXIgbmFtZXMKKHdpdGhvdXQg
+dHlwZXMpIGluIGZ1bmN0aW9uIGRlY2xhcmF0aW9uCgpTaWduZWQtb2ZmLWJ5OiBEYW5pZWwgTWFj
+ayA8em9ucXVlQGdtYWlsLmNvbT4KQ2M6IFZhaWJoYXYgSGlyZW1hdGggPGh2YWliaGF2QHRpLmNv
+bT4KQ2M6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KQ2M6IENocmlzdGlh
+biBSaWVzY2ggPGNocmlzdGlhbi5yaWVzY2hAb21pY3Jvbi5hdD4KLS0tCiBkcml2ZXJzL25ldC9l
+dGhlcm5ldC90aS9kYXZpbmNpX2NwZG1hLmMgfCAgICAxICsKIDEgZmlsZSBjaGFuZ2VkLCAxIGlu
+c2VydGlvbigrKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lf
+Y3BkbWEuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lfY3BkbWEuYwppbmRleCBk
+NjE0YzM3Li4zYjVjNDU3IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC90aS9kYXZp
+bmNpX2NwZG1hLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdGkvZGF2aW5jaV9jcGRtYS5j
+CkBAIC0xNSw2ICsxNSw3IEBACiAjaW5jbHVkZSA8bGludXgva2VybmVsLmg+CiAjaW5jbHVkZSA8
+bGludXgvc3BpbmxvY2suaD4KICNpbmNsdWRlIDxsaW51eC9kZXZpY2UuaD4KKyNpbmNsdWRlIDxs
+aW51eC9tb2R1bGUuaD4KICNpbmNsdWRlIDxsaW51eC9zbGFiLmg+CiAjaW5jbHVkZSA8bGludXgv
+ZXJyLmg+CiAjaW5jbHVkZSA8bGludXgvZG1hLW1hcHBpbmcuaD4KLS0gCjEuNy4xMC40CgoKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtl
+cm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0
+dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5l
+bAo=
