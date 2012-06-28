@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] netdev/phy: 10G PHY support.
-Date: Wed, 27 Jun 2012 21:29:41 -0700 (PDT)
-Message-ID: <20120627.212941.485325944406335522.davem@davemloft.net>
-References: <1340818418-10382-1-git-send-email-ddaney.cavm@gmail.com>
+Subject: Re: [patch net-next] virtio_net: allow to change mac when iface is
+	running
+Date: Wed, 27 Jun 2012 21:30:46 -0700 (PDT)
+Message-ID: <20120627.213046.1244710404799995026.davem@davemloft.net>
+References: <1340810866-1017-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	afleming@gmail.com, david.daney@cavium.com
-To: ddaney.cavm@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340818418-10382-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	brouer@redhat.com, mst@redhat.com
+To: jpirko@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1340810866-1017-1-git-send-email-jpirko@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgRGFuZXkgPGRkYW5leS5jYXZtQGdtYWlsLmNvbT4NCkRhdGU6IFdlZCwgMjcg
-SnVuIDIwMTIgMTA6MzM6MzQgLTA3MDANCg0KPiBGcm9tOiBEYXZpZCBEYW5leSA8ZGF2aWQuZGFu
-ZXlAY2F2aXVtLmNvbT4NCj4gDQo+IFRoZSBvbmx5IG5vbi1jb3NtZXRpYyBjaGFuZ2UgZnJvbSB2
-MSBpcyB0byBwYXNzIGFuIGFkZGl0aW9uYWwgYXJndW1lbnQNCj4gdG8gZ2V0X3BoeV9kZXZpY2Uo
-KSB0aGF0IGluZGljYXRlcyB0aGF0IHRoZSBQSFkgdXNlcyA4MDIuMyBjbGF1c2UgNDUNCj4gc2ln
-bmFsaW5nLCBwcmV2aW91c2x5IEkgaGFkIGJlZW4gdXNpbmcgYSBoaWdoIG9yZGVyIGJpdCBvZiB0
-aGUgYWRkcg0KPiBwYXJhbWV0ZXIgZm9yIHRoaXMuDQo+IA0KPiBUaGVyZSBhcmUgYWxzbyBjaGFu
-Z2VzIGZyb20gdjEgaW4gdGhlIGNvZGUgYW5kIGNvbW1lbnQgZm9ybWF0dGluZy4NCj4gVGhlc2Ug
-c2hvdWxkIG5vdyBiZSBjbG9zZXIgdG8gd2hhdCBEYXZpZCBNaWxsZXIgcHJlZmVycy4NCg0KQXBw
-bGllZCwgYnV0IEkgaGFkIHRvIGFkZCB0aGUgZm9sbG93aW5nIHdhcm5pbmcgZml4dXA6DQoNCi0t
-LS0tLS0tLS0tLS0tLS0tLS0tDQpwaHk6IEZpeCB3YXJuaW5nIGluIGdldF9waHlfZGV2aWNlKCku
-DQoNCmRyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmM6IEluIGZ1bmN0aW9uIKFnZXRfcGh5X2Rl
-dmljZaI6DQpkcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jOjM0MDoxNDogd2FybmluZzogoXBo
-eV9pZKIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uIFstV21heWJl
-LXVuaW5pdGlhbGl6ZWRdDQoNCkdDQyBjYW4ndCBzZWUgdGhhdCB3aGVuIHdlIHJldHVybiB6ZXJv
-IHdlIGFsd2F5cyBpbml0aWFsaXplDQpwaHlfaWQgYW5kIHRoYXQncyB0aGUgb25seSBwYXRoIHdo
-ZXJlIHdlIHVzZSBpdC4NCg0KSW5pdGlhbGl6ZSBwaHlfaWQgdG8gemVybyB0byBzaHV0IGl0IHVw
-Lg0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+
-DQotLS0NCiBkcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jIHwgICAgNCArKy0tDQogMSBmaWxl
-IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMgYi9kcml2ZXJzL25ldC9waHkvcGh5X2Rldmlj
-ZS5jDQppbmRleCBlZjRjZGVlLi40N2UwMmU3IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvcGh5
-L3BoeV9kZXZpY2UuYw0KKysrIGIvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYw0KQEAgLTMy
-Nyw5ICszMjcsOSBAQCBzdGF0aWMgaW50IGdldF9waHlfaWQoc3RydWN0IG1paV9idXMgKmJ1cywg
-aW50IGFkZHIsIHUzMiAqcGh5X2lkLA0KICAqLw0KIHN0cnVjdCBwaHlfZGV2aWNlICpnZXRfcGh5
-X2RldmljZShzdHJ1Y3QgbWlpX2J1cyAqYnVzLCBpbnQgYWRkciwgYm9vbCBpc19jNDUpDQogew0K
-LQlzdHJ1Y3QgcGh5X2RldmljZSAqZGV2ID0gTlVMTDsNCi0JdTMyIHBoeV9pZDsNCiAJc3RydWN0
-IHBoeV9jNDVfZGV2aWNlX2lkcyBjNDVfaWRzID0gezB9Ow0KKwlzdHJ1Y3QgcGh5X2RldmljZSAq
-ZGV2ID0gTlVMTDsNCisJdTMyIHBoeV9pZCA9IDA7DQogCWludCByOw0KIA0KIAlyID0gZ2V0X3Bo
-eV9pZChidXMsIGFkZHIsICZwaHlfaWQsIGlzX2M0NSwgJmM0NV9pZHMpOw0KLS0gDQoxLjcuMTAu
-Mg0KDQo=
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Wed, 27 Jun 2012 17:27:46 +0200
+
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+Applied, but this seriously makes eth_mac_addr() completely useless.
+
+Technically, every eth_mac_addr() user in a software/virtual device
+should behave the way virtio_net does now.
+
+It therefore probably makes sense to add a boolean arg which when true
+elides the netif_running() check then fixup and audit every caller.
