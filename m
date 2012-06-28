@@ -1,104 +1,107 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 10/18] batman-adv: Prefix sysfs defines with BATADV_
-Date: Thu, 28 Jun 2012 11:34:19 +0200
-Message-ID: <1340876067-28333-11-git-send-email-ordex@autistici.org>
-References: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Show that ip_send_reply() is purely unicast routine.
+Date: Thu, 28 Jun 2012 03:22:21 -0700 (PDT)
+Message-ID: <20120628.032221.670647985041908413.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:30235 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932780Ab2F1Jed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:34:33 -0400
-In-Reply-To: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51489 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932865Ab2F1KWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 06:22:23 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 12DD95847CC
+	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 03:22:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Sven Eckelmann <sven@narfation.org>
 
-Reported-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Rename it to ip_send_unicast_reply() and add explicit 'saddr'
+argument.
+
+This removed one of the few users of rt->rt_spec_dst.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/batman-adv/bat_sysfs.c |   14 +++++++-------
- net/batman-adv/bat_sysfs.h |    4 ++--
- 2 files changed, 9 insertions(+), 9 deletions(-)
+ include/net/ip.h     |    5 +++--
+ net/ipv4/ip_output.c |    9 +++++----
+ net/ipv4/tcp_ipv4.c  |    8 ++++----
+ 3 files changed, 12 insertions(+), 10 deletions(-)
 
-diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index 3862fe1..725e7d7 100644
---- a/net/batman-adv/bat_sysfs.c
-+++ b/net/batman-adv/bat_sysfs.c
-@@ -505,11 +505,11 @@ int batadv_sysfs_add_meshif(struct net_device *de=
-v)
- 	struct bat_attribute **bat_attr;
- 	int err;
-=20
--	bat_priv->mesh_obj =3D kobject_create_and_add(SYSFS_IF_MESH_SUBDIR,
-+	bat_priv->mesh_obj =3D kobject_create_and_add(BATADV_SYSFS_IF_MESH_SU=
-BDIR,
- 						    batif_kobject);
- 	if (!bat_priv->mesh_obj) {
- 		batadv_err(dev, "Can't add sysfs directory: %s/%s\n", dev->name,
--			   SYSFS_IF_MESH_SUBDIR);
-+			   BATADV_SYSFS_IF_MESH_SUBDIR);
- 		goto out;
- 	}
-=20
-@@ -518,7 +518,7 @@ int batadv_sysfs_add_meshif(struct net_device *dev)
- 					&((*bat_attr)->attr));
- 		if (err) {
- 			batadv_err(dev, "Can't add sysfs file: %s/%s/%s\n",
--				   dev->name, SYSFS_IF_MESH_SUBDIR,
-+				   dev->name, BATADV_SYSFS_IF_MESH_SUBDIR,
- 				   ((*bat_attr)->attr).name);
- 			goto rem_attr;
- 		}
-@@ -673,12 +673,12 @@ int batadv_sysfs_add_hardif(struct kobject **hard=
-if_obj, struct net_device *dev)
- 	struct bat_attribute **bat_attr;
- 	int err;
-=20
--	*hardif_obj =3D kobject_create_and_add(SYSFS_IF_BAT_SUBDIR,
--						    hardif_kobject);
-+	*hardif_obj =3D kobject_create_and_add(BATADV_SYSFS_IF_BAT_SUBDIR,
-+					     hardif_kobject);
-=20
- 	if (!*hardif_obj) {
- 		batadv_err(dev, "Can't add sysfs directory: %s/%s\n", dev->name,
--			   SYSFS_IF_BAT_SUBDIR);
-+			   BATADV_SYSFS_IF_BAT_SUBDIR);
- 		goto out;
- 	}
-=20
-@@ -686,7 +686,7 @@ int batadv_sysfs_add_hardif(struct kobject **hardif=
-_obj, struct net_device *dev)
- 		err =3D sysfs_create_file(*hardif_obj, &((*bat_attr)->attr));
- 		if (err) {
- 			batadv_err(dev, "Can't add sysfs file: %s/%s/%s\n",
--				   dev->name, SYSFS_IF_BAT_SUBDIR,
-+				   dev->name, BATADV_SYSFS_IF_BAT_SUBDIR,
- 				   ((*bat_attr)->attr).name);
- 			goto rem_attr;
- 		}
-diff --git a/net/batman-adv/bat_sysfs.h b/net/batman-adv/bat_sysfs.h
-index 3672277..23a8390 100644
---- a/net/batman-adv/bat_sysfs.h
-+++ b/net/batman-adv/bat_sysfs.h
-@@ -20,8 +20,8 @@
- #ifndef _NET_BATMAN_ADV_SYSFS_H_
- #define _NET_BATMAN_ADV_SYSFS_H_
-=20
--#define SYSFS_IF_MESH_SUBDIR "mesh"
--#define SYSFS_IF_BAT_SUBDIR "batman_adv"
-+#define BATADV_SYSFS_IF_MESH_SUBDIR "mesh"
-+#define BATADV_SYSFS_IF_BAT_SUBDIR "batman_adv"
-=20
- struct bat_attribute {
- 	struct attribute attr;
---=20
-1.7.9.4
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 50841bd..ec5cfde 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -158,8 +158,9 @@ static inline __u8 ip_reply_arg_flowi_flags(const struct ip_reply_arg *arg)
+ 	return (arg->flags & IP_REPLY_ARG_NOSRCCHECK) ? FLOWI_FLAG_ANYSRC : 0;
+ }
+ 
+-void ip_send_reply(struct sock *sk, struct sk_buff *skb, __be32 daddr,
+-		   const struct ip_reply_arg *arg, unsigned int len);
++void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb, __be32 daddr,
++			   __be32 saddr, const struct ip_reply_arg *arg,
++			   unsigned int len);
+ 
+ struct ipv4_config {
+ 	int	log_martians;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 0f3185a..2630900 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1459,13 +1459,14 @@ static int ip_reply_glue_bits(void *dptr, char *to, int offset,
+ 
+ /*
+  *	Generic function to send a packet as reply to another packet.
+- *	Used to send TCP resets so far. ICMP should use this function too.
++ *	Used to send TCP resets so far.
+  *
+  *	Should run single threaded per socket because it uses the sock
+  *     	structure to pass arguments.
+  */
+-void ip_send_reply(struct sock *sk, struct sk_buff *skb, __be32 daddr,
+-		   const struct ip_reply_arg *arg, unsigned int len)
++void ip_send_unicast_reply(struct sock *sk, struct sk_buff *skb, __be32 daddr,
++			   __be32 saddr, const struct ip_reply_arg *arg,
++			   unsigned int len)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct ip_options_data replyopts;
+@@ -1491,7 +1492,7 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, __be32 daddr,
+ 			   RT_TOS(arg->tos),
+ 			   RT_SCOPE_UNIVERSE, sk->sk_protocol,
+ 			   ip_reply_arg_flowi_flags(arg),
+-			   daddr, rt->rt_spec_dst,
++			   daddr, saddr,
+ 			   tcp_hdr(skb)->source, tcp_hdr(skb)->dest);
+ 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
+ 	rt = ip_route_output_key(sock_net(sk), &fl4);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index b4ae1c1..64568fa 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -698,8 +698,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 
+ 	net = dev_net(skb_dst(skb)->dev);
+ 	arg.tos = ip_hdr(skb)->tos;
+-	ip_send_reply(net->ipv4.tcp_sock, skb, ip_hdr(skb)->saddr,
+-		      &arg, arg.iov[0].iov_len);
++	ip_send_unicast_reply(net->ipv4.tcp_sock, skb, ip_hdr(skb)->saddr,
++			      ip_hdr(skb)->daddr, &arg, arg.iov[0].iov_len);
+ 
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTRSTS);
+@@ -781,8 +781,8 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
+ 	if (oif)
+ 		arg.bound_dev_if = oif;
+ 	arg.tos = tos;
+-	ip_send_reply(net->ipv4.tcp_sock, skb, ip_hdr(skb)->saddr,
+-		      &arg, arg.iov[0].iov_len);
++	ip_send_unicast_reply(net->ipv4.tcp_sock, skb, ip_hdr(skb)->saddr,
++			      ip_hdr(skb)->daddr, &arg, arg.iov[0].iov_len);
+ 
+ 	TCP_INC_STATS_BH(net, TCP_MIB_OUTSEGS);
+ }
+-- 
+1.7.10.2
