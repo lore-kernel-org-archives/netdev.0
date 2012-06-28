@@ -1,29 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
-Date: Thu, 28 Jun 2012 16:27:05 -0700 (PDT)
-Message-ID: <20120628.162705.366469574403504175.davem@davemloft.net>
-References: <20120628.035946.1026666621448892198.davem@davemloft.net>
-	<alpine.LFD.2.00.1206282309340.1722@ja.ssi.bg>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: 3.4.x regression: rtl8169: frequent resets
+Date: Fri, 29 Jun 2012 00:42:50 +0100
+Message-ID: <877gurovet.fsf@spindle.srvr.nix>
+References: <87y5n7qup0.fsf@spindle.srvr.nix>
+	<20120628193026.GA31627@electric-eye.fr.zoreil.com>
+	<201206290131.49150.s.L-H@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57348 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753689Ab2F1X1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 19:27:13 -0400
-In-Reply-To: <alpine.LFD.2.00.1206282309340.1722@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Stefan Lippers-Hollmann" <s.L-H@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201206290131.49150.s.L-H@gmx.de> (Stefan Lippers-Hollmann's
+	message of "Fri, 29 Jun 2012 01:31:42 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Fri, 29 Jun 2012 02:16:25 +0300 (EEST)
+On 29 Jun 2012, Stefan Lippers-Hollmann uttered the following:
+> I received the same oops from a 3.4.4 user with these onboard network 
+> cards:
 
-> 	Hello,
+Pedant point: it's not an oops, just a slowpath warning.
 
-I really appreciate your detailed analysis, I'll look deeply into
-all of your feedback.
+>                                                        no oops in 21
+> hours uptime so far (while it usually shows up within about an hour).
 
-Thanks!
+Interesting. I wonder why it took two days to show up for me. It's not
+like I'm a very light network user or anything, there are easily 300
+packets per second in each direction on this interface every second of
+the day (and often much more).
+
+-- 
+NULL && (void)
