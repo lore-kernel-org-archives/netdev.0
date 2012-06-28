@@ -1,77 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: LOCKDEP complaints in l2tp_xmit_skb()
-Date: Thu, 28 Jun 2012 13:22:31 +0200
-Message-ID: <1340882551.13187.96.camel@edumazet-glaptop>
-References: <20120627111152.GA2531@raven>
-	 <1340866572.26242.312.camel@edumazet-glaptop>
-	 <1340873862.13187.5.camel@edumazet-glaptop>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [PATCH] net: nfc: fix panic in accept()
+Date: Thu, 28 Jun 2012 14:11:38 +0200
+Message-ID: <CA+1xoqfy21wOh2myV0D6iBDqoZ3YmkwNZwKBVXLU75zePOGi4w@mail.gmail.com>
+References: <1339423241.4999.53.camel@lappy> <20120611144134.GX22557@sortiz-mobl>
+ <1339425693.6001.2268.camel@edumazet-glaptop> <20120611145700.GY22557@sortiz-mobl>
+ <1339426778.6001.2312.camel@edumazet-glaptop> <20120611152007.GZ22557@sortiz-mobl>
+ <1339433810.4999.65.camel@lappy> <20120611172545.GA1776@redhat.com>
+ <CA+1xoqcwr-5dzHvqkt9x0-xj9EFAywVfva=asbHXvX-LSBWqdA@mail.gmail.com>
+ <1340639612.10893.84.camel@edumazet-glaptop> <20120625171532.GB16275@sortiz-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Parkin <tparkin@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:63171 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752910Ab2F1LWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 07:22:34 -0400
-Received: by mail-ey0-f174.google.com with SMTP id k11so739639eaa.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 04:22:33 -0700 (PDT)
-In-Reply-To: <1340873862.13187.5.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Dave Jones <davej@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Samuel Ortiz <sameo@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120625171532.GB16275@sortiz-mobl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-06-28 at 10:57 +0200, Eric Dumazet wrote:
-> On Thu, 2012-06-28 at 08:56 +0200, Eric Dumazet wrote:
-> 
-> > [PATCH] net: Qdisc busylock gets its own lockdep class
-> > 
-> > Tom Parkin reported following LOCKDEP splat :
-> ..
-> > 
-> > Instruct lockdep that each Qdisc busylock is independant, or else
-> > bonding or various tunnels can trigger a splat.
-> > 
-> > Reported-by: Tom Parkin <tparkin@katalix.com>
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> 
-> I reproduced the bug using a bond0 device, adding a qdisc on it,
-> (one Qdisc on bond0, and a Qdisc on the slave too)
-> 
-> Problem with this patch is I have following message :
-> 
-> BUG: key ffff88..... not in .data!
-> 
-> No more LOCKDEP splat, but patch not good as is.
+Hi Samuel,
 
-I tested the alternative following patch with my bonding setup,
-could you test it with l2tp ?
+On Mon, Jun 25, 2012 at 7:15 PM, Samuel Ortiz <sameo@linux.intel.com> wrote:
+> Hi Eric,
+>
+> On Mon, Jun 25, 2012 at 05:53:32PM +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Sasha Levin reported following panic :
+> I applied a similar patch, more consistent with the rest of the NFC socket
+> code, still with you as the author. See here:
+>
+> http://git.kernel.org/?p=linux/kernel/git/sameo/nfc-3.0.git;a=commit;h=631c301f20558525a641fadffc0126affd3dc4a4
 
- net/core/dev.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6df2140..d265c67 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2412,13 +2412,13 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 
- 		qdisc_bstats_update(q, skb);
- 
--		if (sch_direct_xmit(skb, q, dev, txq, root_lock)) {
--			if (unlikely(contended)) {
--				spin_unlock(&q->busylock);
--				contended = false;
--			}
-+		if (unlikely(contended)) {
-+			spin_unlock(&q->busylock);
-+			contended = false;
-+		}
-+		if (sch_direct_xmit(skb, q, dev, txq, root_lock))
- 			__qdisc_run(q);
--		} else
-+		else
- 			qdisc_run_end(q);
- 
- 		rc = NET_XMIT_SUCCESS;
+Could this tree be included in -next please?
