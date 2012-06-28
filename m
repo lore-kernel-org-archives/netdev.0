@@ -1,7 +1,7 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 12/18] batman-adv: Prefix gateway defines with BATADV_
-Date: Thu, 28 Jun 2012 11:34:21 +0200
-Message-ID: <1340876067-28333-13-git-send-email-ordex@autistici.org>
+Subject: [PATCH 11/18] batman-adv: Prefix bridge_loop_avoidance defines with BATADV_
+Date: Thu, 28 Jun 2012 11:34:20 +0200
+Message-ID: <1340876067-28333-12-git-send-email-ordex@autistici.org>
 References: <1340876067-28333-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:30183 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:30209 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932778Ab2F1Jef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:34:35 -0400
+	with ESMTP id S932783Ab2F1Jee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:34:34 -0400
 In-Reply-To: <1340876067-28333-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -25,96 +25,50 @@ Reported-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_sysfs.c      |   26 +++++++++++++++-----------
- net/batman-adv/gateway_common.h |    6 +++---
- 2 files changed, 18 insertions(+), 14 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c |    4 ++--
+ net/batman-adv/bridge_loop_avoidance.h |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
-index 725e7d7..a6c27f0 100644
---- a/net/batman-adv/bat_sysfs.c
-+++ b/net/batman-adv/bat_sysfs.c
-@@ -361,13 +361,16 @@ static ssize_t batadv_show_gw_mode(struct kobject=
- *kobj, struct attribute *attr,
-=20
- 	switch (atomic_read(&bat_priv->gw_mode)) {
- 	case GW_MODE_CLIENT:
--		bytes_written =3D sprintf(buff, "%s\n", GW_MODE_CLIENT_NAME);
-+		bytes_written =3D sprintf(buff, "%s\n",
-+					BATADV_GW_MODE_CLIENT_NAME);
- 		break;
- 	case GW_MODE_SERVER:
--		bytes_written =3D sprintf(buff, "%s\n", GW_MODE_SERVER_NAME);
-+		bytes_written =3D sprintf(buff, "%s\n",
-+					BATADV_GW_MODE_SERVER_NAME);
- 		break;
- 	default:
--		bytes_written =3D sprintf(buff, "%s\n", GW_MODE_OFF_NAME);
-+		bytes_written =3D sprintf(buff, "%s\n",
-+					BATADV_GW_MODE_OFF_NAME);
- 		break;
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/br=
+idge_loop_avoidance.c
+index 0592d2b..42b8a20 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -237,7 +237,7 @@ static void batadv_bla_del_backbone_claims(struct b=
+ackbone_gw *backbone_gw)
  	}
 =20
-@@ -386,15 +389,16 @@ static ssize_t batadv_store_gw_mode(struct kobjec=
-t *kobj,
- 	if (buff[count - 1] =3D=3D '\n')
- 		buff[count - 1] =3D '\0';
+ 	/* all claims gone, intialize CRC */
+-	backbone_gw->crc =3D BLA_CRC_INIT;
++	backbone_gw->crc =3D BATADV_BLA_CRC_INIT;
+ }
 =20
--	if (strncmp(buff, GW_MODE_OFF_NAME, strlen(GW_MODE_OFF_NAME)) =3D=3D =
-0)
-+	if (strncmp(buff, BATADV_GW_MODE_OFF_NAME,
-+		    strlen(BATADV_GW_MODE_OFF_NAME)) =3D=3D 0)
- 		gw_mode_tmp =3D GW_MODE_OFF;
+ /* @bat_priv: the bat priv with all the soft interface information
+@@ -375,7 +375,7 @@ static struct backbone_gw *batadv_bla_get_backbone_=
+gw(struct bat_priv *bat_priv,
 =20
--	if (strncmp(buff, GW_MODE_CLIENT_NAME,
--		    strlen(GW_MODE_CLIENT_NAME)) =3D=3D 0)
-+	if (strncmp(buff, BATADV_GW_MODE_CLIENT_NAME,
-+		    strlen(BATADV_GW_MODE_CLIENT_NAME)) =3D=3D 0)
- 		gw_mode_tmp =3D GW_MODE_CLIENT;
+ 	entry->vid =3D vid;
+ 	entry->lasttime =3D jiffies;
+-	entry->crc =3D BLA_CRC_INIT;
++	entry->crc =3D BATADV_BLA_CRC_INIT;
+ 	entry->bat_priv =3D bat_priv;
+ 	atomic_set(&entry->request_sent, 0);
+ 	memcpy(entry->orig, orig, ETH_ALEN);
+diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/br=
+idge_loop_avoidance.h
+index 9818b1e..58563f0 100644
+--- a/net/batman-adv/bridge_loop_avoidance.h
++++ b/net/batman-adv/bridge_loop_avoidance.h
+@@ -36,7 +36,7 @@ void batadv_bla_update_orig_address(struct bat_priv *=
+bat_priv,
+ int batadv_bla_init(struct bat_priv *bat_priv);
+ void batadv_bla_free(struct bat_priv *bat_priv);
 =20
--	if (strncmp(buff, GW_MODE_SERVER_NAME,
--		    strlen(GW_MODE_SERVER_NAME)) =3D=3D 0)
-+	if (strncmp(buff, BATADV_GW_MODE_SERVER_NAME,
-+		    strlen(BATADV_GW_MODE_SERVER_NAME)) =3D=3D 0)
- 		gw_mode_tmp =3D GW_MODE_SERVER;
+-#define BLA_CRC_INIT	0
++#define BATADV_BLA_CRC_INIT	0
+ #else /* ifdef CONFIG_BATMAN_ADV_BLA */
 =20
- 	if (gw_mode_tmp < 0) {
-@@ -409,13 +413,13 @@ static ssize_t batadv_store_gw_mode(struct kobjec=
-t *kobj,
-=20
- 	switch (atomic_read(&bat_priv->gw_mode)) {
- 	case GW_MODE_CLIENT:
--		curr_gw_mode_str =3D GW_MODE_CLIENT_NAME;
-+		curr_gw_mode_str =3D BATADV_GW_MODE_CLIENT_NAME;
- 		break;
- 	case GW_MODE_SERVER:
--		curr_gw_mode_str =3D GW_MODE_SERVER_NAME;
-+		curr_gw_mode_str =3D BATADV_GW_MODE_SERVER_NAME;
- 		break;
- 	default:
--		curr_gw_mode_str =3D GW_MODE_OFF_NAME;
-+		curr_gw_mode_str =3D BATADV_GW_MODE_OFF_NAME;
- 		break;
- 	}
-=20
-diff --git a/net/batman-adv/gateway_common.h b/net/batman-adv/gateway_c=
-ommon.h
-index 6f8a4d0..31bbc3c 100644
---- a/net/batman-adv/gateway_common.h
-+++ b/net/batman-adv/gateway_common.h
-@@ -26,9 +26,9 @@ enum gw_modes {
- 	GW_MODE_SERVER,
- };
-=20
--#define GW_MODE_OFF_NAME	"off"
--#define GW_MODE_CLIENT_NAME	"client"
--#define GW_MODE_SERVER_NAME	"server"
-+#define BATADV_GW_MODE_OFF_NAME	"off"
-+#define BATADV_GW_MODE_CLIENT_NAME	"client"
-+#define BATADV_GW_MODE_SERVER_NAME	"server"
-=20
- void batadv_gw_bandwidth_to_kbit(uint8_t gw_class, int *down, int *up)=
-;
- ssize_t batadv_gw_bandwidth_set(struct net_device *net_dev, char *buff=
-,
+ static inline int batadv_bla_rx(struct bat_priv *bat_priv, struct sk_b=
+uff *skb,
 --=20
 1.7.9.4
