@@ -1,71 +1,148 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] fq_codel: report congestion notification at
- enqueue time
-Date: Thu, 28 Jun 2012 15:56:46 -0700
-Message-ID: <CAK6E8=dM0HNjjT=pDWzkBHs2Npi9foAnk1zxXdVLqBxA63dSqw@mail.gmail.com>
-References: <1340903237.13187.151.camel@edumazet-glaptop> <CAA93jw7agn2J6Hd7x22KWhENY5jqVjnk6uRr=3LJ5Anw7EgacQ@mail.gmail.com>
- <1340907151.13187.169.camel@edumazet-glaptop>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
+Date: Fri, 29 Jun 2012 02:16:25 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1206282309340.1722@ja.ssi.bg>
+References: <20120628.035946.1026666621448892198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Dave Taht <dave.taht@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net,
-	Tom Herbert <therbert@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:56674 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751801Ab2F1W5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 18:57:07 -0400
-Received: by obbuo13 with SMTP id uo13so3668228obb.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 15:57:06 -0700 (PDT)
-In-Reply-To: <1340907151.13187.169.camel@edumazet-glaptop>
+Received: from ja.ssi.bg ([178.16.129.10]:56353 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751645Ab2F1XKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2012 19:10:33 -0400
+In-Reply-To: <20120628.035946.1026666621448892198.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 28, 2012 at 11:12 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2012-06-28 at 10:51 -0700, Dave Taht wrote:
->
->> clever idea. A problem is there are other forms of network traffic on
->> a link, and this is punishing a single tcp
-Dave: it won't just punish a single TCP, all protocols that react to
-XMIT_CN will share similar fate.
 
->> stream that may not be the source of the problem in the first place,
->> and basically putting it into double jeopardy.
->>
->
-> Why ? In fact this patch helps the tcp session being signaled (as it
-> will be anyway) at enqueue time, instead of having to react to packet
-> losses indications given (after RTT) by receiver.
->
-> Avoiding losses help receiver to consume data without having to buffer
-> it into Out Of Order queue.
->
-> So its not jeopardy, but early congestion notification without RTT
-> delay.
->
-> NET_XMIT_CN is a soft signal, far more disruptive than a DROP.
-I don't read here: you mean far "less" disruptive in terms of performance?
+	Hello,
 
->
->> I am curious as to how often an enqueue is actually dropping in the
->> codel/fq_codel case, the hope was that there would be plenty of
->> headroom under far more circumstances on this qdisc.
->>
->
-> "tc -s qdisc show dev eth0" can show you all the counts.
->
-> We never drop a packet at enqueue time, unless you hit the emergency
-> limit (10240 packets for fq_codel). When you reach this limit, you are
-> under trouble.
+On Thu, 28 Jun 2012, David Miller wrote:
 
-Another nice feature is to resume TCP xmit operation at when the skb
-hits the wire.
-My hutch is that Eric is working on this too.
->
->
->
+> +__be32 fib_compute_spec_dst(struct sk_buff *skb)
+> +{
+> +	struct net_device *dev = skb->dev;
+> +	struct in_device *in_dev;
+> +	struct fib_result res;
+> +	struct flowi4 fl4;
+> +	struct net *net;
+> +
+
+	This is bad for looped m/b-cast: ip_mc_output calls
+ip_dev_loopback_xmit where pkt_type is set to PACKET_LOOPBACK.
+May be we have to check skb_dst as below.
+
+	Also, for rt_spec_dst __mkroute_output used fl4->daddr for
+looped unicast traffic and fl4->saddr for
+RTCF_BROADCAST | RTCF_MULTICAST. Can we check rt_flags instead?
+It will catch some pkt_type values such as PACKET_LOOPBACK.
+For example, check similar to icmp_send():
+
+	struct rtable *rt = skb_rtable(skb);
+
+	/* input or output route destined to local stack?
+	 * daddr can be mcast/bcast
+	 */
+	if (rt && rt->rt_flags & RTCF_LOCAL) {
+		if (rt_is_input_route(rt)) {
+			if (!(rt->rt_flags & (RTCF_BROADCAST |
+					      RTCF_MULTICAST)))
+				return ip_hdr(skb)->daddr;
+			/* select saddr */
+		} else
+			return (rt->rt_flags & (RTCF_BROADCAST | 
+						RTCF_MULTICAST)) ?
+				ip_hdr(skb)->saddr : ip_hdr(skb)->daddr;
+	}
+
+	Isn't pkt_type just a hint from sender? We can not use
+it for such places. What if hackers use unicast mac (PACKET_HOST)
+combined with multicast daddr? I'm not sure that pkt_type
+is a strong validator for layer 3 addresses.
+
+> +	if (skb->pkt_type != PACKET_BROADCAST &&
+> +	    skb->pkt_type != PACKET_MULTICAST)
+> +		return ip_hdr(skb)->daddr;
+
+	So, above check should be removed if we check rt_flags.
+
+> +
+> +	in_dev = __in_dev_get_rcu(dev);
+> +	BUG_ON(!in_dev);
+> +	fl4.flowi4_oif = 0;
+> +	fl4.flowi4_iif = 0;
+
+	It is not clear to me why ip_route_input_mc and
+ip_route_input_slow (brd_input) call fib_validate_source()
+with arg oif=0. How would fib_rule_match match flowi_iif
+for such traffic then?
+
+	May be iif should be always set just like in
+ip_route_output_slow because now we do output lookup to
+unicast target?:
+
+	fl4.flowi4_iif = net->loopback_dev->ifindex;
+
+> +	fl4.daddr = ip_hdr(skb)->saddr;
+> +	fl4.saddr = ip_hdr(skb)->daddr;
+
+	Here only 0 is allowed for m/b-cast daddr, we are not
+going to use ip_hdr(skb)->daddr, so no need to provide it:
+
+	fl4.saddr = 0;
+
+	fib_validate_source was called with dst=0 for bcast/mcast.
+
+> +	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
+> +	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
+> +	fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
+> +
+> +	net = dev_net(dev);
+
+	Now net will be needed above for iif.
+
+> +	if (!fib_lookup(net, &fl4, &res))
+> +		return FIB_RES_PREFSRC(net, res);
+> +	else
+
+	What about providing ip_hdr(skb)->saddr as
+2nd argument here (it is validated by input routing
+to be unicast or 0.0.0.0):
+
+> +		return inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
+
+	By this way we will prefer local address from the
+same subnet as iph->saddr. Also, we should not call
+fib_lookup if ipv4_is_zeronet(ip_hdr(skb)->saddr), we
+should use RT_SCOPE_LINK for inet_select_addr in this case.
+By this way we will prefer addresses with scope link for
+target 0.0.0.0. There is such logic that uses RT_SCOPE_LINK in
+ip_route_input_mc() and ip_route_input_slow().
+
+>  int ip_options_compile(struct net *net,
+>  		       struct ip_options *opt, struct sk_buff *skb)
+>  {
+> -	int l;
+> -	unsigned char *iph;
+> -	unsigned char *optptr;
+> -	int optlen;
+> +	__be32 spec_dst = (__force __be32) 0;
+>  	unsigned char *pp_ptr = NULL;
+> -	struct rtable *rt = NULL;
+> +	unsigned char *optptr;
+> +	unsigned char *iph;
+> +	int optlen, l;
+>  
+>  	if (skb != NULL) {
+> -		rt = skb_rtable(skb);
+> +		spec_dst = fib_compute_spec_dst(skb);
+
+	If we use rt_flags above I'm not sure whether
+ip_options_compile is called with valid rt_flags from the
+bridging code.
+
+Regards
+--
+Julian Anastasov <ja@ssi.bg>
