@@ -1,43 +1,71 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 3.4.x regression: rtl8169: frequent resets
-Date: Fri, 29 Jun 2012 00:23:25 +0200
-Message-ID: <20120628222325.GA1579@electric-eye.fr.zoreil.com>
-References: <87y5n7qup0.fsf@spindle.srvr.nix> <20120628193026.GA31627@electric-eye.fr.zoreil.com> <87fw9fp2e1.fsf@spindle.srvr.nix>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] fq_codel: report congestion notification at
+ enqueue time
+Date: Thu, 28 Jun 2012 15:56:46 -0700
+Message-ID: <CAK6E8=dM0HNjjT=pDWzkBHs2Npi9foAnk1zxXdVLqBxA63dSqw@mail.gmail.com>
+References: <1340903237.13187.151.camel@edumazet-glaptop> <CAA93jw7agn2J6Hd7x22KWhENY5jqVjnk6uRr=3LJ5Anw7EgacQ@mail.gmail.com>
+ <1340907151.13187.169.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nix <nix@esperi.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fw9fp2e1.fsf@spindle.srvr.nix>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dave Taht <dave.taht@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net,
+	Tom Herbert <therbert@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:56674 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751801Ab2F1W5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 18:57:07 -0400
+Received: by obbuo13 with SMTP id uo13so3668228obb.19
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 15:57:06 -0700 (PDT)
+In-Reply-To: <1340907151.13187.169.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nix <nix@esperi.org.uk> :
-> Francois Romieu <romieu@fr.zoreil.com> :
-> > Can you try and revert 036dafa28da1e2565a8529de2ae663c37b7a0060 ?
-> 
-> I can try, but there's been a *lot* of code motion since then, 'git
-> revert' fails hilariously (trying to patch obviously the wrong places):
-> I'll have to do it by hand.
+On Thu, Jun 28, 2012 at 11:12 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2012-06-28 at 10:51 -0700, Dave Taht wrote:
+>
+>> clever idea. A problem is there are other forms of network traffic on
+>> a link, and this is punishing a single tcp
+Dave: it won't just punish a single TCP, all protocols that react to
+XMIT_CN will share similar fate.
 
-There is a single line reject in rtl8169_start_xmit. Other than that it
-should patch -p1 -R fine.
+>> stream that may not be the source of the problem in the first place,
+>> and basically putting it into double jeopardy.
+>>
+>
+> Why ? In fact this patch helps the tcp session being signaled (as it
+> will be anyway) at enqueue time, instead of having to react to packet
+> losses indications given (after RTT) by receiver.
+>
+> Avoiding losses help receiver to consume data without having to buffer
+> it into Out Of Order queue.
+>
+> So its not jeopardy, but early congestion notification without RTT
+> delay.
+>
+> NET_XMIT_CN is a soft signal, far more disruptive than a DROP.
+I don't read here: you mean far "less" disruptive in terms of performance?
 
-[...]
-> I note that at some time (after the first reset?), my MTU either flipped
-> back to 1500, from its initial jumbo default, or simply refused to go
-> jumbo in the first place. I bring it up like so:
-> 
-> ip link set fastnet up multicast on txqueuelen 100 mtu 7200
-> ip addr add local 192.168.16.20/24 broadcast 192.168.16.255 dev fastnet
-> 
-> but its MTU is now shown as 1500 :( so at some point either jumbo frames
-> have stopped working or the reset is flipping them off.
-[...]
-> [    1.341389] r8169 0000:06:00.0: eth0: jumbo features [frames: 6128 bytes, tx checksumming: ko]
+>
+>> I am curious as to how often an enqueue is actually dropping in the
+>> codel/fq_codel case, the hope was that there would be plenty of
+>> headroom under far more circumstances on this qdisc.
+>>
+>
+> "tc -s qdisc show dev eth0" can show you all the counts.
+>
+> We never drop a packet at enqueue time, unless you hit the emergency
+> limit (10240 packets for fq_codel). When you reach this limit, you are
+> under trouble.
 
-This chipset is not supposed to be pushed beyond 6128 bytes.
-
--- 
-Ueimor
+Another nice feature is to resume TCP xmit operation at when the skb
+hits the wire.
+My hutch is that Eric is working on this too.
+>
+>
+>
