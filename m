@@ -1,132 +1,137 @@
-From: "Stefan Lippers-Hollmann" <s.L-H@gmx.de>
-Subject: Re: 3.4.x regression: rtl8169: frequent resets
-Date: Fri, 29 Jun 2012 01:31:42 +0200
-Message-ID: <201206290131.49150.s.L-H@gmx.de>
-References: <87y5n7qup0.fsf@spindle.srvr.nix> <20120628193026.GA31627@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_klO7P/Yfmu6z9Ay"
-Cc: Nix <nix@esperi.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120628193026.GA31627@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net-next 2/4] tcp: pass fl6 to inet6_csk_route_req()
+Date: Thu, 28 Jun 2012 15:34:19 -0700
+Message-ID: <1340922861-11684-2-git-send-email-ncardwell@google.com>
+References: <1340922861-11684-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:53884 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751825Ab2F1Xpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 19:45:35 -0400
+Received: by vbnl22 with SMTP id l22so268730vbn.1
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 16:45:34 -0700 (PDT)
+In-Reply-To: <1340922861-11684-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Boundary-00=_klO7P/Yfmu6z9Ay
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+This commit changes inet_csk_route_req() so that it uses a pointer to
+a struct flowi6, rather than allocating its own on the stack. This
+brings its behavior in line with its IPv4 cousin,
+inet_csk_route_req(), and allows a follow-on patch to fix a dst leak.
 
-Hi
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ include/net/inet6_connection_sock.h |    1 +
+ net/ipv6/inet6_connection_sock.c    |   24 ++++++++++++------------
+ net/ipv6/tcp_ipv6.c                 |    9 ++++++---
+ 3 files changed, 19 insertions(+), 15 deletions(-)
 
-On Thursday 28 June 2012, Francois Romieu wrote:
-> Nix <nix@esperi.org.uk> :
-> > I recently upgraded from 3.3.x to 3.4.4, and am now experiencing
-> > networking problems with my desktop box's r8169 card. The symptoms are
-> > that all traffic ceases for five to ten seconds, then the card appears
-> > to reset and everything is back to normal -- until it happens again. It
-> > can happen quite a lot:
-> 
-> Can you try and revert 036dafa28da1e2565a8529de2ae663c37b7a0060 ?
-> 
-> I would welcome a complete dmesg including the XID line from the
-> r8169 driver.
-
-I received the same oops from a 3.4.4 user with these onboard network 
-cards:
-
-r8169 0000:04:00.0: eth0: RTL8168d/8111d at 0xffffc90000c72000, 00:24:1d:72:7c:75, XID 081000c0 IRQ 44
-r8169 0000:05:00.0: eth1: RTL8168d/8111d at 0xffffc90000c70000, 00:24:1d:72:7c:77, XID 081000c0 IRQ 45
-
-Reverting 036dafa28da1e2565a8529de2ae663c37b7a0060 (Nix, trivial 
-backport to 3.4.4 attached) did improve the situation, no oops in 21
-hours uptime so far (while it usually shows up within about an hour).
-Unfortunately his oops report was cut brief, so I've asked him to try 
-reproducing it with an unpatched kernel again, to collect a full dmesg
-(the test is still going on, past the one hour mark, but the oops 
-hasn't triggered yet). I'll report back, as soon as I get confirmation 
-and a full dmesg.
-
-Regards
-	Stefan Lippers-Hollmann
-
---Boundary-00=_klO7P/Yfmu6z9Ay
-Content-Type: text/x-patch;
-  charset="UTF-8";
-  name="revert-r8169-add-byte-queue-limit-support.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="revert-r8169-add-byte-queue-limit-support.patch"
-
-revert r8169: add byte queue limit support.
-
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5000,7 +5000,6 @@ static void rtl8169_tx_clear(struct rtl8
+diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
+index 1866a67..df2a857 100644
+--- a/include/net/inet6_connection_sock.h
++++ b/include/net/inet6_connection_sock.h
+@@ -26,6 +26,7 @@ extern int inet6_csk_bind_conflict(const struct sock *sk,
+ 				   const struct inet_bind_bucket *tb, bool relax);
+ 
+ extern struct dst_entry* inet6_csk_route_req(struct sock *sk,
++					     struct flowi6 *fl6,
+ 					     const struct request_sock *req);
+ 
+ extern struct request_sock *inet6_csk_search_req(const struct sock *sk,
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index e23d354..bceb144 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -55,26 +55,26 @@ int inet6_csk_bind_conflict(const struct sock *sk,
+ EXPORT_SYMBOL_GPL(inet6_csk_bind_conflict);
+ 
+ struct dst_entry *inet6_csk_route_req(struct sock *sk,
++				      struct flowi6 *fl6,
+ 				      const struct request_sock *req)
  {
- 	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
- 	tp->cur_tx = tp->dirty_tx = 0;
--	netdev_reset_queue(tp->dev);
+ 	struct inet6_request_sock *treq = inet6_rsk(req);
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct in6_addr *final_p, final;
+ 	struct dst_entry *dst;
+-	struct flowi6 fl6;
+-
+-	memset(&fl6, 0, sizeof(fl6));
+-	fl6.flowi6_proto = IPPROTO_TCP;
+-	fl6.daddr = treq->rmt_addr;
+-	final_p = fl6_update_dst(&fl6, np->opt, &final);
+-	fl6.saddr = treq->loc_addr;
+-	fl6.flowi6_oif = treq->iif;
+-	fl6.flowi6_mark = sk->sk_mark;
+-	fl6.fl6_dport = inet_rsk(req)->rmt_port;
+-	fl6.fl6_sport = inet_rsk(req)->loc_port;
+-	security_req_classify_flow(req, flowi6_to_flowi(&fl6));
+ 
+-	dst = ip6_dst_lookup_flow(sk, &fl6, final_p, false);
++	memset(fl6, 0, sizeof(*fl6));
++	fl6->flowi6_proto = IPPROTO_TCP;
++	fl6->daddr = treq->rmt_addr;
++	final_p = fl6_update_dst(fl6, np->opt, &final);
++	fl6->saddr = treq->loc_addr;
++	fl6->flowi6_oif = treq->iif;
++	fl6->flowi6_mark = sk->sk_mark;
++	fl6->fl6_dport = inet_rsk(req)->rmt_port;
++	fl6->fl6_sport = inet_rsk(req)->loc_port;
++	security_req_classify_flow(req, flowi6_to_flowi(fl6));
++
++	dst = ip6_dst_lookup_flow(sk, fl6, final_p, false);
+ 	if (IS_ERR(dst))
+ 		return NULL;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 26a8862..3b79e94 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -477,7 +477,8 @@ out:
  }
  
- static void rtl_reset_work(struct rtl8169_private *tp)
-@@ -5155,8 +5154,6 @@ static netdev_tx_t rtl8169_start_xmit(st
  
- 	txd->opts2 = cpu_to_le32(opts[1]);
- 
--	netdev_sent_queue(dev, skb->len);
--
- 	skb_tx_timestamp(skb);
- 
- 	wmb();
-@@ -5253,16 +5250,9 @@ static void rtl8169_pcierr_interrupt(str
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_RESET_PENDING);
- }
- 
--struct rtl_txc {
--	int packets;
--	int bytes;
--};
--
- static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+-static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req,
++static int tcp_v6_send_synack(struct sock *sk,
++			      struct request_sock *req,
+ 			      struct request_values *rvp,
+ 			      u16 queue_mapping)
  {
--	struct rtl8169_stats *tx_stats = &tp->tx_stats;
- 	unsigned int dirty_tx, tx_left;
--	struct rtl_txc txc = { 0, 0 };
+@@ -1058,6 +1059,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	__u32 isn = TCP_SKB_CB(skb)->when;
+ 	struct dst_entry *dst = NULL;
++	struct flowi6 fl6;
+ 	bool want_cookie = false;
  
- 	dirty_tx = tp->dirty_tx;
- 	smp_rmb();
-@@ -5281,24 +5271,17 @@ static void rtl_tx(struct net_device *de
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
- 		if (status & LastFrag) {
--			struct sk_buff *skb = tx_skb->skb;
--
--			txc.packets++;
--			txc.bytes += skb->len;
--			dev_kfree_skb(skb);
-+			u64_stats_update_begin(&tp->tx_stats.syncp);
-+			tp->tx_stats.packets++;
-+			tp->tx_stats.bytes += tx_skb->skb->len;
-+			u64_stats_update_end(&tp->tx_stats.syncp);
-+			dev_kfree_skb(tx_skb->skb);
- 			tx_skb->skb = NULL;
- 		}
- 		dirty_tx++;
- 		tx_left--;
+ 	if (skb->protocol == htons(ETH_P_IP))
+@@ -1177,7 +1179,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		if (tmp_opt.saw_tstamp &&
+ 		    tcp_death_row.sysctl_tw_recycle &&
+-		    (dst = inet6_csk_route_req(sk, req)) != NULL &&
++		    (dst = inet6_csk_route_req(sk, &fl6, req)) != NULL &&
+ 		    (peer = rt6_get_peer((struct rt6_info *)dst)) != NULL &&
+ 		    ipv6_addr_equal((struct in6_addr *)peer->daddr.addr.a6,
+ 				    &treq->rmt_addr)) {
+@@ -1246,6 +1248,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ #ifdef CONFIG_TCP_MD5SIG
+ 	struct tcp_md5sig_key *key;
+ #endif
++	struct flowi6 fl6;
+ 
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+ 		/*
+@@ -1308,7 +1311,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		goto out_overflow;
+ 
+ 	if (!dst) {
+-		dst = inet6_csk_route_req(sk, req);
++		dst = inet6_csk_route_req(sk, &fl6, req);
+ 		if (!dst)
+ 			goto out;
  	}
- 
--	u64_stats_update_begin(&tx_stats->syncp);
--	tx_stats->packets += txc.packets;
--	tx_stats->bytes += txc.bytes;
--	u64_stats_update_end(&tx_stats->syncp);
--
--	netdev_completed_queue(dev, txc.packets, txc.bytes);
--
- 	if (tp->dirty_tx != dirty_tx) {
- 		tp->dirty_tx = dirty_tx;
- 		/* Sync with rtl8169_start_xmit:
-
---Boundary-00=_klO7P/Yfmu6z9Ay--
+-- 
+1.7.4.1
