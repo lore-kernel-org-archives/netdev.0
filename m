@@ -1,40 +1,66 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: LOCKDEP complaints in l2tp_xmit_skb()
-Date: Thu, 28 Jun 2012 17:23:43 +0200
-Message-ID: <1340897023.13187.109.camel@edumazet-glaptop>
-References: <20120627111152.GA2531@raven>
-	 <1340866572.26242.312.camel@edumazet-glaptop>
-	 <1340873862.13187.5.camel@edumazet-glaptop>
-	 <1340882551.13187.96.camel@edumazet-glaptop> <20120628143302.GB2507@raven>
-	 <1340895642.13187.107.camel@edumazet-glaptop> <20120628152010.GC2507@raven>
+Subject: Re: [patch net-next 1/4] net: introduce new priv_flag indicating
+	iface capable of change mac when running
+Date: Thu, 28 Jun 2012 17:24:52 +0200
+Message-ID: <1340897092.13187.110.camel@edumazet-glaptop>
+References: <1340892639-1111-1-git-send-email-jpirko@redhat.com>
+	<1340892639-1111-2-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Parkin <tparkin@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:35897 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754584Ab2F1PXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 11:23:52 -0400
-Received: by eaak11 with SMTP id k11so857581eaa.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 08:23:50 -0700 (PDT)
-In-Reply-To: <20120628152010.GC2507@raven>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
+	virtualization@lists.linux-foundation.org,
+	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1340892639-1111-2-git-send-email-jpirko@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-06-28 at 16:20 +0100, Tom Parkin wrote:
-
-> Ha, yes, fair enough ;-)
+On Thu, 2012-06-28 at 16:10 +0200, Jiri Pirko wrote:
+> Introduce IFF_LIFE_ADDR_CHANGE priv_flag and use it to disable
+> netif_running() check in eth_mac_addr()
 > 
-> FWIW, I'm no longer seeing splat #1 from my previous report, but I do
-> still see splat #2.  Since they both ended up tripping over in
-> l2tp_xmit_skb() I had assumed they were symptoms of the same root
-> cause -- my mistake.
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ---
+>  include/linux/if.h |    2 ++
+>  net/ethernet/eth.c |    2 +-
+>  2 files changed, 3 insertions(+), 1 deletion(-)
 > 
+> diff --git a/include/linux/if.h b/include/linux/if.h
+> index f995c66..fd9ee7c 100644
+> --- a/include/linux/if.h
+> +++ b/include/linux/if.h
+> @@ -81,6 +81,8 @@
+>  #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
+>  #define IFF_TEAM_PORT	0x40000		/* device used as team port */
+>  #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
+> +#define IFF_LIFE_ADDR_CHANGE 0x100000	/* device supports hardware address
+> +					 * change when it's running */
+>  
+> 
+>  #define IF_GET_IFACE	0x0001		/* for querying only */
+> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> index 36e5880..8f8ded4 100644
+> --- a/net/ethernet/eth.c
+> +++ b/net/ethernet/eth.c
+> @@ -283,7 +283,7 @@ int eth_mac_addr(struct net_device *dev, void *p)
+>  {
+>  	struct sockaddr *addr = p;
+>  
+> -	if (netif_running(dev))
+> +	if (!(dev->priv_flags & IFF_LIFE_ADDR_CHANGE) && netif_running(dev))
+>  		return -EBUSY;
+>  	if (!is_valid_ether_addr(addr->sa_data))
+>  		return -EADDRNOTAVAIL;
 
-Fixing the #2 issue should be easy, I think.
-
-I'll send an official submission asap for #1
-
-thanks
+Since the memcpy() is not atomic, there is a small window where a reader
+could get a half-changed mac address. I guess its a detail.
