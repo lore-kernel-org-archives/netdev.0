@@ -1,87 +1,54 @@
-From: Xiaotian Feng <xtfeng@gmail.com>
-Subject: [RFC PATCH net-next] ipvs: add missing lock in ip_vs_ftp_init_conn()
-Date: Thu, 28 Jun 2012 21:36:27 +0800
-Message-ID: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Xiaotian Feng <xtfeng@gmail.com>,
-	Xiaotian Feng <dannyfeng@tencent.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+Subject: RFC: replace packets already in queue
+Date: Thu, 28 Jun 2012 13:18:13 +0000
+Message-ID: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:37317 "EHLO
+	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396Ab2F1Nnx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 09:43:53 -0400
+Received: from rufsun5.fkie.fgan.de ([128.7.2.5] helo=mailhost.fkie.fraunhofer.de)
+	by a.mx.fkie.fraunhofer.de with esmtps (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.72)
+	(envelope-from <ralph.erdt@fkie.fraunhofer.de>)
+	id 1SkEbv-0000dX-Eo
+	for netdev@vger.kernel.org; Thu, 28 Jun 2012 15:18:15 +0200
+Received: from mailserv1.fkie.fgan.de ([128.7.96.101] helo=mailserv1.lorien.fkie.fgan.de)
+	by mailhost.fkie.fraunhofer.de with esmtp (Exim 4.72)
+	(envelope-from <ralph.erdt@fkie.fraunhofer.de>)
+	id 1SkEbv-0000cR-CD
+	for netdev@vger.kernel.org; Thu, 28 Jun 2012 15:18:15 +0200
+Content-Language: de-DE
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We met a kernel panic in 2.6.32.43 kernel:
+(I've send this email already in the lartc mailing list. Short after this I found the list seems dead (http://dir.gmane.org/gmane.linux.network.routing). I hope this is the correct place to ask. If not - please give me a note, where I can ask this.)
 
-[2680191.848044] IPVS: ip_vs_conn_hash(): request for already hashed, called from run_timer_softirq+0x175/0x1d0
-<snip>
-[2680311.849009] general protection fault: 0000 [#1] SMP
-[2680311.853001] RIP: 0010:[<ffffffff815f155c>]  [<ffffffff815f155c>] ip_vs_conn_expire+0xdc/0x2f0
-[2680311.853001] RSP: 0018:ffff880028303e70  EFLAGS: 00010202
-[2680311.853001] RAX: dead000000200200 RBX: ffff8801aad00b80 RCX: 0000000000001d90
-[2680311.853001] RDX: dead000000100100 RSI: 000000004fd59800 RDI: ffff8801aad00c08
-<snip>
-[2680311.853001] Call Trace:
-[2680311.853001]  <IRQ>
-[2680311.853001]  [<ffffffff815f1480>] ? ip_vs_conn_expire+0x0/0x2f0
-[2680311.853001]  [<ffffffff8104e2a5>] run_timer_softirq+0x175/0x1d0
-[2680311.853001]  [<ffffffff81021a48>] ? lapic_next_event+0x18/0x20
-[2680311.853001]  [<ffffffff81049a13>] __do_softirq+0xb3/0x150
-[2680311.853001]  [<ffffffff8100cc5c>] call_softirq+0x1c/0x30
-[2680311.853001]  [<ffffffff8100ea9a>] do_softirq+0x4a/0x80
-[2680311.853001]  [<ffffffff81049957>] irq_exit+0x77/0x80
-[2680311.853001]  [<ffffffff81021f2c>] smp_apic_timer_interrupt+0x6c/0xa0
-[2680311.853001]  [<ffffffff8100c633>] apic_timer_interrupt+0x13/0x20
-[2680311.853001]  <EOI>
-[2680311.853001]  [<ffffffff81013b52>] ? mwait_idle+0x52/0x70
-[2680311.853001]  [<ffffffff8100a7b0>] ? enter_idle+0x20/0x30
-[2680311.853001]  [<ffffffff8100ac62>] ? cpu_idle+0x52/0x80
-[2680311.853001]  [<ffffffff816d504d>] ? start_secondary+0x19d/0x280
+----------
 
-rax and rdx is LIST_POISON1 and LIST_POISON2, so kernel is list_del() on an already deleted
-connection and result the general protect fault.
+Hello.
 
-The "request for already hashed" warning, told us someone might change the connection flags
-incorrectly, like described in commit aea9d711, it changes the connection flags, but doesn't
-put the connection back to the list. So ip_vs_conn_hash() throw a warning and return.
-Later, when ip_vs_conn_expire fire again, ip_vs_conn_unhash() will find the HASHED connection
-and list_del() it, then kernel panic happened.
+I'm writing a kernel module (net/sched) which replaces packets in the queue. I'm glad hearing your option.
 
-After code review, the only chance that kernel change connection flag without protection is
-in ip_vs_ftp_init_conn().
+Background:
+In very low bandwidth network (<=9.6Kbps, shared, etc.) its hard (rather: impossible) to get all packets sent.
+But some of the packets contain information, which gets obsolete over time. E.g. (GPS) positions, which will be sent periodically. If the application sends a new packet while an old position packet is still in the queue, the old packet is obsolete. This can be dropped. But just dropping the old packet and queuing the new packet will result in never sending a packet of this type.
 
-Signed-off-by: Xiaotian Feng <dannyfeng@tencent.com>
-Cc: Wensong Zhang <wensong@linux-vs.org>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "David S. Miller" <davem@davemloft.net> 
----
- net/netfilter/ipvs/ip_vs_ftp.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+So I'm writing a tc-qdisc scheduler module, which replaces packets in the queue on enqueuing, when this properties are given:
+- UDPv4
+- not fragmented
+- (TOS & bitmask) = givenCompare; (bitmask and compare are adjustable)
+- same source IP
+- same destination IP
+- same destination port
+- same TOS
+So, the packet got sent over the time - but with the actual information.
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index b20b29c..c2bc264 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -65,8 +65,10 @@ static int ip_vs_ftp_pasv;
- static int
- ip_vs_ftp_init_conn(struct ip_vs_app *app, struct ip_vs_conn *cp)
- {
-+	spin_lock(&cp->lock);
- 	/* We use connection tracking for the command connection */
- 	cp->flags |= IP_VS_CONN_F_NFCT;
-+	spin_unlock(&cp->lock);
- 	return 0;
- }
- 
--- 
-1.7.1
+What do you think? Is this module worth to get released to kernel.org? Have you any other comments?
 
+Greetings
+Ralph Erdt
