@@ -1,7 +1,7 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 3/4 (v5)] stmmac: add the Energy Efficient Ethernet support
-Date: Thu, 28 Jun 2012 09:14:37 +0200
-Message-ID: <1340867678-18375-4-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 4/4 (v9)] phy: add the EEE support and the way to access to the MMD registers.
+Date: Thu, 28 Jun 2012 09:14:38 +0200
+Message-ID: <1340867678-18375-5-git-send-email-peppe.cavallaro@st.com>
 References: <1340867678-18375-1-git-send-email-peppe.cavallaro@st.com>
 Cc: eric.dumazet@gmail.com, rayagond@vayavyalabs.com,
 	davem@davemloft.net, yuvalmin@broadcom.com,
@@ -9,729 +9,454 @@ Cc: eric.dumazet@gmail.com, rayagond@vayavyalabs.com,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:52288 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932468Ab2F1HPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 03:15:03 -0400
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:39915 "EHLO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755159Ab2F1HPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 03:15:08 -0400
 In-Reply-To: <1340867678-18375-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the Energy Efficient Ethernet support to the stmmac.
+This patch adds the support for the Energy-Efficient Ethernet (EEE)
+to the Physical Abstraction Layer.
+To support the EEE we have to access to the MMD registers 3.20 and
+7.60/61. So two new functions have been added to read/write the MMD
+registers (clause 45).
 
-Please see the driver's documentation for further details about this support
-in the driver.
+An Ethernet driver (I tested the stmmac) can invoke the phy_init_eee to properly
+check if the EEE is supported by the PHYs and it can also set the clock
+stop enable bit in the 3.0 register.
+The phy_get_eee_err can be used for reporting the number of time where
+the PHY failed to complete its normal wake sequence.
 
-Thanks also goes to Rayagond Kokatanur for his first implementation.
-
-Note:
- to clearly manage and expose the lpi interrupt status and eee ethtool
- stats I've had to do some modifications to the driver's design and I
- found really useful to move other parts of the code (e.g. mmc irq stat)
- in the main directly. So this means that some core has been reworked
- to introduce the EEE.
+In the end, this patch also adds the EEE ethtool support implementing:
+ o phy_ethtool_set_eee
+ o phy_ethtool_get_eee
 
 v1: initial patch
-v2: fixed some sparse issues (typos)
-v3: erroneously sent the v2 renamed as v3
-v4:
-	o Fixed the return value of the stmmac_eee_init as suggested by D.Miller
-	o Totally reviewed the ethtool support for EEE
-	o Added a new internal parameter to tune the SW timer for TX LPI.
-v5: do not change any eee setting in case of the stmmac_ethtool_op_set_eee fails
-    (it has to return -EOPNOTSUPP in that case).
+v2: fixed some errors especially on naming convention
+v3: renamed again the mmd read/write functions thank to Ben's feedback
+v4: moved file to phy.c and added the ethtool support.
+v5: fixed phy_adv_to_eee, phy_eee_to_supported, phy_eee_to_adv return
+    values according to ethtool API (thanks to Ben's feedback).
+    Renamed some macros to avoid too long names.
+v6: fixed kernel-doc comments to be properly parsed.
+    Fixed the phy_init_eee function: we need to check which link mode
+    was autonegotiated and then the corresponding bits in 7.60 and 7.61
+    registers.
+v7: reviewed the way to get the negotiated settings.
+v8: fixed a problem in the phy_init_eee return value erroneously added
+    when included the phy_read_status call.
+v9: do not remove the MDIO_AN_EEE_ADV_100TX and MDIO_AN_EEE_ADV_1000T
+    and fixed the eee_{cap,lp,adv} declaration as "int" instead of u16.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |   31 ++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |   20 +++
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  101 +++++++++++-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    4 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    8 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   57 +++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  166 +++++++++++++++++++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 +
- 9 files changed, 372 insertions(+), 18 deletions(-)
+ drivers/net/phy/phy.c |  281 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mdio.h  |   28 ++++-
+ include/linux/mii.h   |    9 ++
+ include/linux/phy.h   |    5 +
+ 4 files changed, 319 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index bcd54d6..e2d0832 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -95,6 +95,16 @@ struct stmmac_extra_stats {
- 	unsigned long poll_n;
- 	unsigned long sched_timer_n;
- 	unsigned long normal_irq_n;
-+	unsigned long mmc_tx_irq_n;
-+	unsigned long mmc_rx_irq_n;
-+	unsigned long mmc_rx_csum_offload_irq_n;
-+	/* EEE */
-+	unsigned long irq_receive_pmt_irq_n;
-+	unsigned long irq_tx_path_in_lpi_mode_n;
-+	unsigned long irq_tx_path_exit_lpi_mode_n;
-+	unsigned long irq_rx_path_in_lpi_mode_n;
-+	unsigned long irq_rx_path_exit_lpi_mode_n;
-+	unsigned long phy_eee_wakeup_error_n;
- };
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 2e1c237..7ca2ff9 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -35,6 +35,7 @@
+ #include <linux/phy.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
++#include <linux/mdio.h>
  
- /* CSR Frequency Access Defines*/
-@@ -162,6 +172,17 @@ enum tx_dma_irq_status {
- 	handle_tx_rx = 3,
- };
+ #include <linux/atomic.h>
+ #include <asm/io.h>
+@@ -967,3 +968,283 @@ void phy_state_machine(struct work_struct *work)
  
-+enum core_specific_irq_mask {
-+	core_mmc_tx_irq = 1,
-+	core_mmc_rx_irq = 2,
-+	core_mmc_rx_csum_offload_irq = 4,
-+	core_irq_receive_pmt_irq = 8,
-+	core_irq_tx_path_in_lpi_mode = 16,
-+	core_irq_tx_path_exit_lpi_mode = 32,
-+	core_irq_rx_path_in_lpi_mode = 64,
-+	core_irq_rx_path_exit_lpi_mode = 128,
-+};
+ 	schedule_delayed_work(&phydev->state_queue, PHY_STATE_TIME * HZ);
+ }
 +
- /* DMA HW capabilities */
- struct dma_features {
- 	unsigned int mbps_10_100;
-@@ -208,6 +229,10 @@ struct dma_features {
- #define MAC_ENABLE_TX		0x00000008	/* Transmitter Enable */
- #define MAC_RNABLE_RX		0x00000004	/* Receiver Enable */
- 
-+/* Default LPI timers */
-+#define STMMAC_DEFAULT_LIT_LS_TIMER	0x3E8
-+#define STMMAC_DEFAULT_TWT_LS_TIMER	0x0
++static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
++				    int addr)
++{
++	/* Write the desired MMD Devad */
++	bus->write(bus, addr, MII_MMD_CTRL, devad);
 +
- struct stmmac_desc_ops {
- 	/* DMA RX descriptor ring initialization */
- 	void (*init_rx_desc) (struct dma_desc *p, unsigned int ring_size,
-@@ -278,7 +303,7 @@ struct stmmac_ops {
- 	/* Dump MAC registers */
- 	void (*dump_regs) (void __iomem *ioaddr);
- 	/* Handle extra events on specific interrupts hw dependent */
--	void (*host_irq_status) (void __iomem *ioaddr);
-+	int (*host_irq_status) (void __iomem *ioaddr);
- 	/* Multicast filter setting */
- 	void (*set_filter) (struct net_device *dev, int id);
- 	/* Flow control setting */
-@@ -291,6 +316,10 @@ struct stmmac_ops {
- 			       unsigned int reg_n);
- 	void (*get_umac_addr) (void __iomem *ioaddr, unsigned char *addr,
- 			       unsigned int reg_n);
-+	void (*set_eee_mode) (void __iomem *ioaddr);
-+	void (*reset_eee_mode) (void __iomem *ioaddr);
-+	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
-+	void (*set_eee_pls) (void __iomem *ioaddr, int link);
- };
- 
- struct mac_link {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index 23478bf..f90fcb5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -36,6 +36,7 @@
- 
- #define GMAC_INT_STATUS		0x00000038	/* interrupt status register */
- enum dwmac1000_irq_status {
-+	lpiis_irq = 0x400,
- 	time_stamp_irq = 0x0200,
- 	mmc_rx_csum_offload_irq = 0x0080,
- 	mmc_tx_irq = 0x0040,
-@@ -60,6 +61,25 @@ enum power_event {
- 	power_down = 0x00000001,
- };
- 
-+/* Energy Efficient Ethernet (EEE)
++	/* Write the desired MMD register address */
++	bus->write(bus, addr, MII_MMD_DATA, prtad);
++
++	/* Select the Function : DATA with no post increment */
++	bus->write(bus, addr, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
++}
++
++/**
++ * phy_read_mmd_indirect - reads data from the MMD registers
++ * @bus: the target MII bus
++ * @prtad: MMD Address
++ * @devad: MMD DEVAD
++ * @addr: PHY address on the MII bus
 + *
-+ * LPI status, timer and control register offset
++ * Description: it reads data from the MMD registers (clause 22 to access to
++ * clause 45) of the specified phy address.
++ * To read these register we have:
++ * 1) Write reg 13 // DEVAD
++ * 2) Write reg 14 // MMD Address
++ * 3) Write reg 13 // MMD Data Command for MMD DEVAD
++ * 3) Read  reg 14 // Read MMD data
 + */
-+#define LPI_CTRL_STATUS	0x0030
-+#define LPI_TIMER_CTRL	0x0034
-+
-+/* LPI control and status defines */
-+#define LPI_CTRL_STATUS_LPITXA	0x00080000	/* Enable LPI TX Automate */
-+#define LPI_CTRL_STATUS_PLSEN	0x00040000	/* Enable PHY Link Status */
-+#define LPI_CTRL_STATUS_PLS	0x00020000	/* PHY Link Status */
-+#define LPI_CTRL_STATUS_LPIEN	0x00010000	/* LPI Enable */
-+#define LPI_CTRL_STATUS_RLPIST	0x00000200	/* Receive LPI state */
-+#define LPI_CTRL_STATUS_TLPIST	0x00000100	/* Transmit LPI state */
-+#define LPI_CTRL_STATUS_RLPIEX	0x00000008	/* Receive LPI Exit */
-+#define LPI_CTRL_STATUS_RLPIEN	0x00000004	/* Receive LPI Entry */
-+#define LPI_CTRL_STATUS_TLPIEX	0x00000002	/* Transmit LPI Exit */
-+#define LPI_CTRL_STATUS_TLPIEN	0x00000001	/* Transmit LPI Entry */
-+
- /* GMAC HW ADDR regs */
- #define GMAC_ADDR_HIGH(reg)	(((reg > 15) ? 0x00000800 : 0x00000040) + \
- 				(reg * 8))
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index b5e4d02..bfe0226 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -194,26 +194,107 @@ static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
- }
- 
- 
--static void dwmac1000_irq_status(void __iomem *ioaddr)
-+static int dwmac1000_irq_status(void __iomem *ioaddr)
- {
- 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
-+	int status = 0;
- 
- 	/* Not used events (e.g. MMC interrupts) are not handled. */
--	if ((intr_status & mmc_tx_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC tx interrupt: 0x%08x\n",
-+	if ((intr_status & mmc_tx_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC tx interrupt: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_TX_INTR));
--	if (unlikely(intr_status & mmc_rx_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC rx interrupt: 0x%08x\n",
-+		status |= core_mmc_tx_irq;
-+	}
-+	if (unlikely(intr_status & mmc_rx_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC rx interrupt: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_RX_INTR));
--	if (unlikely(intr_status & mmc_rx_csum_offload_irq))
--		CHIP_DBG(KERN_DEBUG "GMAC: MMC rx csum offload: 0x%08x\n",
-+		status |= core_mmc_rx_irq;
-+	}
-+	if (unlikely(intr_status & mmc_rx_csum_offload_irq)) {
-+		CHIP_DBG(KERN_INFO "GMAC: MMC rx csum offload: 0x%08x\n",
- 		    readl(ioaddr + GMAC_MMC_RX_CSUM_OFFLOAD));
-+		status |= core_mmc_rx_csum_offload_irq;
-+	}
- 	if (unlikely(intr_status & pmt_irq)) {
--		CHIP_DBG(KERN_DEBUG "GMAC: received Magic frame\n");
-+		CHIP_DBG(KERN_INFO "GMAC: received Magic frame\n");
- 		/* clear the PMT bits 5 and 6 by reading the PMT
- 		 * status register. */
- 		readl(ioaddr + GMAC_PMT);
-+		status |= core_irq_receive_pmt_irq;
- 	}
-+	/* MAC trx/rx EEE LPI entry/exit interrupts */
-+	if (intr_status & lpiis_irq) {
-+		/* Clean LPI interrupt by reading the Reg 12 */
-+		u32 lpi_status = readl(ioaddr + LPI_CTRL_STATUS);
-+
-+		if (lpi_status & LPI_CTRL_STATUS_TLPIEN) {
-+			CHIP_DBG(KERN_INFO "GMAC TX entered in LPI\n");
-+			status |= core_irq_tx_path_in_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_TLPIEX) {
-+			CHIP_DBG(KERN_INFO "GMAC TX exit from LPI\n");
-+			status |= core_irq_tx_path_exit_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_RLPIEN) {
-+			CHIP_DBG(KERN_INFO "GMAC RX entered in LPI\n");
-+			status |= core_irq_rx_path_in_lpi_mode;
-+		}
-+		if (lpi_status & LPI_CTRL_STATUS_RLPIEX) {
-+			CHIP_DBG(KERN_INFO "GMAC RX exit from LPI\n");
-+			status |= core_irq_rx_path_exit_lpi_mode;
-+		}
-+	}
-+
-+	return status;
-+}
-+
-+static void  dwmac1000_set_eee_mode(void __iomem *ioaddr)
++static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
++				 int addr)
 +{
-+	u32 value;
++	u32 ret;
 +
-+	/* Enable the link status receive on RGMII, SGMII ore SMII
-+	 * receive path and instruct the transmit to enter in LPI
-+	 * state. */
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+	value |= LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA;
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
++	mmd_phy_indirect(bus, prtad, devad, addr);
 +
-+static void  dwmac1000_reset_eee_mode(void __iomem *ioaddr)
-+{
-+	u32 value;
++	/* Read the content of the MMD's selected register */
++	ret = bus->read(bus, addr, MII_MMD_DATA);
 +
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+	value &= ~(LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA);
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_set_eee_pls(void __iomem *ioaddr, int link)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + LPI_CTRL_STATUS);
-+
-+	if (link)
-+		value |= LPI_CTRL_STATUS_PLS;
-+	else
-+		value &= ~LPI_CTRL_STATUS_PLS;
-+
-+	writel(value, ioaddr + LPI_CTRL_STATUS);
-+}
-+
-+static void  dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
-+{
-+	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
-+
-+	/* Program the timers in the LPI timer control register:
-+	 * LS: minimum time (ms) for which the link
-+	 *  status from PHY should be ok before transmitting
-+	 *  the LPI pattern.
-+	 * TW: minimum time (us) for which the core waits
-+	 *  after it has stopped transmitting the LPI pattern.
-+	 */
-+	writel(value, ioaddr + LPI_TIMER_CTRL);
- }
- 
- static const struct stmmac_ops dwmac1000_ops = {
-@@ -226,6 +307,10 @@ static const struct stmmac_ops dwmac1000_ops = {
- 	.pmt = dwmac1000_pmt,
- 	.set_umac_addr = dwmac1000_set_umac_addr,
- 	.get_umac_addr = dwmac1000_get_umac_addr,
-+	.set_eee_mode =  dwmac1000_set_eee_mode,
-+	.reset_eee_mode =  dwmac1000_reset_eee_mode,
-+	.set_eee_timer =  dwmac1000_set_eee_timer,
-+	.set_eee_pls =  dwmac1000_set_eee_pls,
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 19e0f4e..f83210e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -72,9 +72,9 @@ static int dwmac100_rx_ipc_enable(void __iomem *ioaddr)
- 	return 0;
- }
- 
--static void dwmac100_irq_status(void __iomem *ioaddr)
-+static int dwmac100_irq_status(void __iomem *ioaddr)
- {
--	return;
-+	return 0;
- }
- 
- static void dwmac100_set_umac_addr(void __iomem *ioaddr, unsigned char *addr,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index 6e0360f..e678ce3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -70,6 +70,7 @@
- #define DMA_INTR_DEFAULT_MASK	(DMA_INTR_NORMAL | DMA_INTR_ABNORMAL)
- 
- /* DMA Status register defines */
-+#define DMA_STATUS_GLPII	0x40000000	/* GMAC LPI interrupt */
- #define DMA_STATUS_GPI		0x10000000	/* PMT interrupt */
- #define DMA_STATUS_GMI		0x08000000	/* MMC interrupt */
- #define DMA_STATUS_GLI		0x04000000	/* GMAC Line interface int */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index dc20c56..ab4c376 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -87,6 +87,12 @@ struct stmmac_priv {
- #endif
- 	int clk_csr;
- 	int synopsys_id;
-+	struct timer_list eee_ctrl_timer;
-+	bool tx_path_in_lpi_mode;
-+	int lpi_irq;
-+	int eee_enabled;
-+	int eee_active;
-+	int tx_lpi_timer;
- };
- 
- extern int phyaddr;
-@@ -104,6 +110,8 @@ int stmmac_dvr_remove(struct net_device *ndev);
- struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 				     struct plat_stmmacenet_data *plat_dat,
- 				     void __iomem *addr);
-+void stmmac_disable_eee_mode(struct stmmac_priv *priv);
-+bool stmmac_eee_init(struct stmmac_priv *priv);
- 
- #ifdef CONFIG_HAVE_CLK
- static inline int stmmac_clk_enable(struct stmmac_priv *priv)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index ce43184..76fd61a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -93,6 +93,16 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(poll_n),
- 	STMMAC_STAT(sched_timer_n),
- 	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(normal_irq_n),
-+	STMMAC_STAT(mmc_tx_irq_n),
-+	STMMAC_STAT(mmc_rx_irq_n),
-+	STMMAC_STAT(mmc_rx_csum_offload_irq_n),
-+	STMMAC_STAT(irq_receive_pmt_irq_n),
-+	STMMAC_STAT(irq_tx_path_in_lpi_mode_n),
-+	STMMAC_STAT(irq_tx_path_exit_lpi_mode_n),
-+	STMMAC_STAT(irq_rx_path_in_lpi_mode_n),
-+	STMMAC_STAT(irq_rx_path_exit_lpi_mode_n),
-+	STMMAC_STAT(phy_eee_wakeup_error_n),
- };
- #define STMMAC_STATS_LEN ARRAY_SIZE(stmmac_gstrings_stats)
- 
-@@ -366,6 +376,11 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
- 					     (*(u32 *)p);
- 			}
- 		}
-+		if (priv->eee_enabled) {
-+			int val = phy_get_eee_err(priv->phydev);
-+			if (val)
-+				priv->xstats.phy_eee_wakeup_error_n = val;
-+		}
- 	}
- 	for (i = 0; i < STMMAC_STATS_LEN; i++) {
- 		char *p = (char *)priv + stmmac_gstrings_stats[i].stat_offset;
-@@ -464,6 +479,46 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 	return 0;
- }
- 
-+static int stmmac_ethtool_op_get_eee(struct net_device *dev,
-+				     struct ethtool_eee *edata)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	if (!priv->dma_cap.eee)
-+		return -EOPNOTSUPP;
-+
-+	edata->eee_enabled = priv->eee_enabled;
-+	edata->eee_active = priv->eee_active;
-+	edata->tx_lpi_timer = priv->tx_lpi_timer;
-+
-+	return phy_ethtool_get_eee(priv->phydev, edata);
-+}
-+
-+static int stmmac_ethtool_op_set_eee(struct net_device *dev,
-+				     struct ethtool_eee *edata)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	priv->eee_enabled = edata->eee_enabled;
-+
-+	if (!priv->eee_enabled)
-+		stmmac_disable_eee_mode(priv);
-+	else {
-+		/* We are asking for enabling the EEE but it is safe
-+		 * to verify all by invoking the eee_init function.
-+		 * In case of failure it will return an error.
-+		 */
-+		priv->eee_enabled = stmmac_eee_init(priv);
-+		if (!priv->eee_enabled)
-+			return -EOPNOTSUPP;
-+
-+		/* Do not change tx_lpi_timer in case of failure */
-+		priv->tx_lpi_timer = edata->tx_lpi_timer;
-+	}
-+
-+	return phy_ethtool_set_eee(priv->phydev, edata);
-+}
-+
- static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.begin = stmmac_check_if_running,
- 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
-@@ -480,6 +535,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.get_strings = stmmac_get_strings,
- 	.get_wol = stmmac_get_wol,
- 	.set_wol = stmmac_set_wol,
-+	.get_eee = stmmac_ethtool_op_get_eee,
-+	.set_eee = stmmac_ethtool_op_set_eee,
- 	.get_sset_count	= stmmac_get_sset_count,
- 	.get_ts_info = ethtool_op_get_ts_info,
- };
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index eba49cb..ea3bc09 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -133,6 +133,12 @@ static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
- 				      NETIF_MSG_LINK | NETIF_MSG_IFUP |
- 				      NETIF_MSG_IFDOWN | NETIF_MSG_TIMER);
- 
-+#define STMMAC_DEFAULT_LPI_TIMER	1000
-+static int eee_timer = STMMAC_DEFAULT_LPI_TIMER;
-+module_param(eee_timer, int, S_IRUGO | S_IWUSR);
-+MODULE_PARM_DESC(eee_timer, "LPI tx expiration time in msec");
-+#define STMMAC_LPI_TIMER(x) (jiffies + msecs_to_jiffies(x))
-+
- static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
- 
- #ifdef CONFIG_STMMAC_DEBUG_FS
-@@ -161,6 +167,8 @@ static void stmmac_verify_args(void)
- 		flow_ctrl = FLOW_OFF;
- 	if (unlikely((pause < 0) || (pause > 0xffff)))
- 		pause = PAUSE_TIME;
-+	if (eee_timer < 0)
-+		eee_timer = STMMAC_DEFAULT_LPI_TIMER;
- }
- 
- static void stmmac_clk_csr_set(struct stmmac_priv *priv)
-@@ -229,6 +237,85 @@ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
- 					  phydev->speed);
- }
- 
-+static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
-+{
-+	/* Check and enter in LPI mode */
-+	if ((priv->dirty_tx == priv->cur_tx) &&
-+	    (priv->tx_path_in_lpi_mode == false))
-+		priv->hw->mac->set_eee_mode(priv->ioaddr);
-+}
-+
-+void stmmac_disable_eee_mode(struct stmmac_priv *priv)
-+{
-+	/* Exit and disable EEE in case of we are are in LPI state. */
-+	priv->hw->mac->reset_eee_mode(priv->ioaddr);
-+	del_timer_sync(&priv->eee_ctrl_timer);
-+	priv->tx_path_in_lpi_mode = false;
-+}
-+
-+/**
-+ * stmmac_eee_ctrl_timer
-+ * @arg : data hook
-+ * Description:
-+ *  If there is no data transfer and if we are not in LPI state,
-+ *  then MAC Transmitter can be moved to LPI state.
-+ */
-+static void stmmac_eee_ctrl_timer(unsigned long arg)
-+{
-+	struct stmmac_priv *priv = (struct stmmac_priv *)arg;
-+
-+	stmmac_enable_eee_mode(priv);
-+	mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
-+}
-+
-+/**
-+ * stmmac_eee_init
-+ * @priv: private device pointer
-+ * Description:
-+ *  If the EEE support has been enabled while configuring the driver,
-+ *  if the GMAC actually supports the EEE (from the HW cap reg) and the
-+ *  phy can also manage EEE, so enable the LPI state and start the timer
-+ *  to verify if the tx path can enter in LPI state.
-+ */
-+bool stmmac_eee_init(struct stmmac_priv *priv)
-+{
-+	bool ret = false;
-+
-+	/* MAC core supports the EEE feature. */
-+	if (priv->dma_cap.eee) {
-+		/* Check if the PHY supports EEE */
-+		if (phy_init_eee(priv->phydev, 1))
-+			goto out;
-+
-+		priv->eee_active = 1;
-+		init_timer(&priv->eee_ctrl_timer);
-+		priv->eee_ctrl_timer.function = stmmac_eee_ctrl_timer;
-+		priv->eee_ctrl_timer.data = (unsigned long)priv;
-+		priv->eee_ctrl_timer.expires = STMMAC_LPI_TIMER(eee_timer);
-+		add_timer(&priv->eee_ctrl_timer);
-+
-+		priv->hw->mac->set_eee_timer(priv->ioaddr,
-+					     STMMAC_DEFAULT_LIT_LS_TIMER,
-+					     priv->tx_lpi_timer);
-+
-+		pr_info("stmmac: Energy-Efficient Ethernet initialized\n");
-+
-+		ret = true;
-+	}
-+out:
 +	return ret;
 +}
 +
-+static void stmmac_eee_adjust(struct stmmac_priv *priv)
++/**
++ * phy_write_mmd_indirect - writes data to the MMD registers
++ * @bus: the target MII bus
++ * @prtad: MMD Address
++ * @devad: MMD DEVAD
++ * @addr: PHY address on the MII bus
++ * @data: data to write in the MMD register
++ *
++ * Description: Write data from the MMD registers of the specified
++ * phy address.
++ * To write these register we have:
++ * 1) Write reg 13 // DEVAD
++ * 2) Write reg 14 // MMD Address
++ * 3) Write reg 13 // MMD Data Command for MMD DEVAD
++ * 3) Write reg 14 // Write MMD data
++ */
++static void phy_write_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
++				   int addr, u32 data)
 +{
-+	/* When the EEE has been already initialised we have to
-+	 * modify the PLS bit in the LPI ctrl & status reg according
-+	 * to the PHY link status. For this reason.
-+	 */
-+	if (priv->eee_enabled)
-+		priv->hw->mac->set_eee_pls(priv->ioaddr, priv->phydev->link);
++	mmd_phy_indirect(bus, prtad, devad, addr);
++
++	/* Write the data into MMD's selected register */
++	bus->write(bus, addr, MII_MMD_DATA, data);
 +}
 +
- /**
-  * stmmac_adjust_link
-  * @dev: net device structure
-@@ -249,6 +336,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	    phydev->addr, phydev->link);
- 
- 	spin_lock_irqsave(&priv->lock, flags);
++static u32 phy_eee_to_adv(u16 eee_adv)
++{
++	u32 adv = 0;
 +
- 	if (phydev->link) {
- 		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
- 
-@@ -315,6 +403,8 @@ static void stmmac_adjust_link(struct net_device *dev)
- 	if (new_state && netif_msg_link(priv))
- 		phy_print_status(phydev);
- 
-+	stmmac_eee_adjust(priv);
++	if (eee_adv & MDIO_EEE_100TX)
++		adv |= ADVERTISED_100baseT_Full;
++	if (eee_adv & MDIO_EEE_1000T)
++		adv |= ADVERTISED_1000baseT_Full;
++	if (eee_adv & MDIO_EEE_10GT)
++		adv |= ADVERTISED_10000baseT_Full;
++	if (eee_adv & MDIO_EEE_1000KX)
++		adv |= ADVERTISED_1000baseKX_Full;
++	if (eee_adv & MDIO_EEE_10GKX4)
++		adv |= ADVERTISED_10000baseKX4_Full;
++	if (eee_adv & MDIO_EEE_10GKR)
++		adv |= ADVERTISED_10000baseKR_Full;
 +
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
- 	DBG(probe, DEBUG, "stmmac_adjust_link: exiting\n");
-@@ -332,7 +422,7 @@ static int stmmac_init_phy(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	struct phy_device *phydev;
--	char phy_id[MII_BUS_ID_SIZE + 3];
-+	char phy_id_fmt[MII_BUS_ID_SIZE + 3];
- 	char bus_id[MII_BUS_ID_SIZE];
- 	int interface = priv->plat->interface;
- 	priv->oldlink = 0;
-@@ -346,11 +436,12 @@ static int stmmac_init_phy(struct net_device *dev)
- 		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
- 				priv->plat->bus_id);
- 
--	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
-+	snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 		 priv->plat->phy_addr);
--	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id);
-+	pr_debug("stmmac_init_phy:  trying to attach to %s\n", phy_id_fmt);
- 
--	phydev = phy_connect(dev, phy_id, &stmmac_adjust_link, 0, interface);
-+	phydev = phy_connect(dev, phy_id_fmt, &stmmac_adjust_link, 0,
-+			     interface);
- 
- 	if (IS_ERR(phydev)) {
- 		pr_err("%s: Could not attach to PHY\n", dev->name);
-@@ -689,6 +780,11 @@ static void stmmac_tx(struct stmmac_priv *priv)
- 		}
- 		netif_tx_unlock(priv->dev);
- 	}
++	return adv;
++}
 +
-+	if ((priv->eee_enabled) && (!priv->tx_path_in_lpi_mode)) {
-+		stmmac_enable_eee_mode(priv);
-+		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_TIMER(eee_timer));
-+	}
- 	spin_unlock(&priv->tx_lock);
- }
- 
-@@ -1027,6 +1123,17 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
-+	/* Request the IRQ lines */
-+	if (priv->lpi_irq != -ENXIO) {
-+		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
-+				  dev->name, dev);
-+		if (unlikely(ret < 0)) {
-+			pr_err("%s: ERROR: allocating the LPI IRQ %d (%d)\n",
-+			       __func__, priv->lpi_irq, ret);
-+			goto open_error_lpiirq;
++static u32 phy_eee_to_supported(u16 eee_caported)
++{
++	u32 supported = 0;
++
++	if (eee_caported & MDIO_EEE_100TX)
++		supported |= SUPPORTED_100baseT_Full;
++	if (eee_caported & MDIO_EEE_1000T)
++		supported |= SUPPORTED_1000baseT_Full;
++	if (eee_caported & MDIO_EEE_10GT)
++		supported |= SUPPORTED_10000baseT_Full;
++	if (eee_caported & MDIO_EEE_1000KX)
++		supported |= SUPPORTED_1000baseKX_Full;
++	if (eee_caported & MDIO_EEE_10GKX4)
++		supported |= SUPPORTED_10000baseKX4_Full;
++	if (eee_caported & MDIO_EEE_10GKR)
++		supported |= SUPPORTED_10000baseKR_Full;
++
++	return supported;
++}
++
++static u16 phy_adv_to_eee(u32 adv)
++{
++	u16 reg = 0;
++
++	if (adv & ADVERTISED_100baseT_Full)
++		reg |= MDIO_EEE_100TX;
++	if (adv & ADVERTISED_1000baseT_Full)
++		reg |= MDIO_EEE_1000T;
++	if (adv & ADVERTISED_10000baseT_Full)
++		reg |= MDIO_EEE_10GT;
++	if (adv & ADVERTISED_1000baseKX_Full)
++		reg |= MDIO_EEE_1000KX;
++	if (adv & ADVERTISED_10000baseKX4_Full)
++		reg |= MDIO_EEE_10GKX4;
++	if (adv & ADVERTISED_10000baseKR_Full)
++		reg |= MDIO_EEE_10GKR;
++
++	return reg;
++}
++
++/**
++ * phy_init_eee - init and check the EEE feature
++ * @phydev: target phy_device struct
++ * @clk_stop_enable: PHY may stop the clock during LPI
++ *
++ * Description: it checks if the Energy-Efficient Ethernet (EEE)
++ * is supported by looking at the MMD registers 3.20 and 7.60/61
++ * and it programs the MMD register 3.0 setting the "Clock stop enable"
++ * bit if required.
++ */
++int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
++{
++	int ret = -EPROTONOSUPPORT;
++
++	/* According to 802.3az,the EEE is supported only in full duplex-mode.
++	 * Also EEE feature is active when core is operating with MII, GMII
++	 * or RGMII.
++	 */
++	if ((phydev->duplex == DUPLEX_FULL) &&
++	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
++	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
++	    (phydev->interface == PHY_INTERFACE_MODE_RGMII))) {
++		int eee_lp, eee_cap, eee_adv;
++		u32 lp, cap, adv;
++		int idx, status;
++
++		/* Read phy status to properly get the right settings */
++		status = phy_read_status(phydev);
++		if (status)
++			return status;
++
++		/* First check if the EEE ability is supported */
++		eee_cap = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
++						MDIO_MMD_PCS, phydev->addr);
++		if (eee_cap < 0)
++			return eee_cap;
++
++		cap = phy_eee_to_supported(eee_cap);
++		if (!cap)
++			goto eee_exit;
++
++		/* Check which link settings negotiated and verify it in
++		 * the EEE advertising registers.
++		 */
++		eee_lp = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
++					       MDIO_MMD_AN, phydev->addr);
++		if (eee_lp < 0)
++			return eee_lp;
++
++		eee_adv = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV,
++						MDIO_MMD_AN, phydev->addr);
++		if (eee_adv < 0)
++			return eee_adv;
++
++		adv = phy_eee_to_adv(eee_adv);
++		lp = phy_eee_to_adv(eee_lp);
++		idx = phy_find_setting(phydev->speed, phydev->duplex);
++		if ((lp & adv & settings[idx].setting))
++			goto eee_exit;
++
++		if (clk_stop_enable) {
++			/* Configure the PHY to stop receiving xMII
++			 * clock while it is signaling LPI.
++			 */
++			int val = phy_read_mmd_indirect(phydev->bus, MDIO_CTRL1,
++							MDIO_MMD_PCS,
++							phydev->addr);
++			if (val < 0)
++				return val;
++
++			val |= MDIO_PCS_CTRL1_CLKSTOP_EN;
++			phy_write_mmd_indirect(phydev->bus, MDIO_CTRL1,
++					       MDIO_MMD_PCS, phydev->addr, val);
 +		}
++
++		ret = 0; /* EEE supported */
 +	}
 +
- 	/* Enable the MAC Rx/Tx */
- 	stmmac_set_mac(priv->ioaddr, true);
- 
-@@ -1062,12 +1169,19 @@ static int stmmac_open(struct net_device *dev)
- 	if (priv->phydev)
- 		phy_start(priv->phydev);
- 
-+	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS_TIMER;
-+	priv->eee_enabled = stmmac_eee_init(priv);
++eee_exit:
++	return ret;
++}
++EXPORT_SYMBOL(phy_init_eee);
 +
- 	napi_enable(&priv->napi);
- 	skb_queue_head_init(&priv->rx_recycle);
- 	netif_start_queue(dev);
- 
- 	return 0;
- 
-+open_error_lpiirq:
-+	if (priv->wol_irq != dev->irq)
-+		free_irq(priv->wol_irq, dev);
++/**
++ * phy_get_eee_err - report the EEE wake error count
++ * @phydev: target phy_device struct
++ *
++ * Description: it is to report the number of time where the PHY
++ * failed to complete its normal wake sequence.
++ */
++int phy_get_eee_err(struct phy_device *phydev)
++{
++	return phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_WK_ERR,
++				     MDIO_MMD_PCS, phydev->addr);
 +
- open_error_wolirq:
- 	free_irq(dev->irq, dev);
- 
-@@ -1093,6 +1207,9 @@ static int stmmac_release(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
-+	if (priv->eee_enabled)
-+		del_timer_sync(&priv->eee_ctrl_timer);
++}
++EXPORT_SYMBOL(phy_get_eee_err);
 +
- 	/* Stop and disconnect the PHY */
- 	if (priv->phydev) {
- 		phy_stop(priv->phydev);
-@@ -1115,6 +1232,8 @@ static int stmmac_release(struct net_device *dev)
- 	free_irq(dev->irq, dev);
- 	if (priv->wol_irq != dev->irq)
- 		free_irq(priv->wol_irq, dev);
-+	if (priv->lpi_irq != -ENXIO)
-+		free_irq(priv->lpi_irq, dev);
- 
- 	/* Stop TX/RX DMA and clear the descriptors */
- 	priv->hw->dma->stop_tx(priv->ioaddr);
-@@ -1164,6 +1283,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	spin_lock(&priv->tx_lock);
- 
-+	if (priv->tx_path_in_lpi_mode)
-+		stmmac_disable_eee_mode(priv);
++/**
++ * phy_ethtool_get_eee - get EEE supported and status
++ * @phydev: target phy_device struct
++ * @data: ethtool_eee data
++ *
++ * Description: it reportes the Supported/Advertisement/LP Advertisement
++ * capabilities.
++ */
++int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
++{
++	int val;
 +
- 	entry = priv->cur_tx % txsize;
- 
- #ifdef STMMAC_XMIT_DEBUG
-@@ -1540,10 +1662,37 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
- 		return IRQ_NONE;
- 	}
- 
--	if (priv->plat->has_gmac)
--		/* To handle GMAC own interrupts */
--		priv->hw->mac->host_irq_status((void __iomem *) dev->base_addr);
-+	/* To handle GMAC own interrupts */
-+	if (priv->plat->has_gmac) {
-+		int status = priv->hw->mac->host_irq_status((void __iomem *)
-+							    dev->base_addr);
-+		if (unlikely(status)) {
-+			if (status & core_mmc_tx_irq)
-+				priv->xstats.mmc_tx_irq_n++;
-+			if (status & core_mmc_rx_irq)
-+				priv->xstats.mmc_rx_irq_n++;
-+			if (status & core_mmc_rx_csum_offload_irq)
-+				priv->xstats.mmc_rx_csum_offload_irq_n++;
-+			if (status & core_irq_receive_pmt_irq)
-+				priv->xstats.irq_receive_pmt_irq_n++;
++	/* Get Supported EEE */
++	val = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
++				    MDIO_MMD_PCS, phydev->addr);
++	if (val < 0)
++		return val;
++	data->supported = phy_eee_to_supported(val);
 +
-+			/* For LPI we need to save the tx status */
-+			if (status & core_irq_tx_path_in_lpi_mode) {
-+				priv->xstats.irq_tx_path_in_lpi_mode_n++;
-+				priv->tx_path_in_lpi_mode = true;
-+			}
-+			if (status & core_irq_tx_path_exit_lpi_mode) {
-+				priv->xstats.irq_tx_path_exit_lpi_mode_n++;
-+				priv->tx_path_in_lpi_mode = false;
-+			}
-+			if (status & core_irq_rx_path_in_lpi_mode)
-+				priv->xstats.irq_rx_path_in_lpi_mode_n++;
-+			if (status & core_irq_rx_path_exit_lpi_mode)
-+				priv->xstats.irq_rx_path_exit_lpi_mode_n++;
-+		}
-+	}
- 
-+	/* To handle DMA interrupts */
- 	stmmac_dma_interrupt(priv);
- 
- 	return IRQ_HANDLED;
-@@ -2155,6 +2304,9 @@ static int __init stmmac_cmdline_opt(char *str)
- 		} else if (!strncmp(opt, "pause:", 6)) {
- 			if (kstrtoint(opt + 6, 0, &pause))
- 				goto err;
-+		} else if (!strncmp(opt, "eee_timer:", 6)) {
-+			if (kstrtoint(opt + 10, 0, &eee_timer))
-+				goto err;
- #ifdef CONFIG_STMMAC_TIMER
- 		} else if (!strncmp(opt, "tmrate:", 7)) {
- 			if (kstrtoint(opt + 7, 0, &tmrate))
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 20eb502..7d36163 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -156,6 +156,8 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
- 	if (priv->wol_irq == -ENXIO)
- 		priv->wol_irq = priv->dev->irq;
- 
-+	priv->lpi_irq = platform_get_irq_byname(pdev, "eth_lpi");
++	/* Get advertisement EEE */
++	val = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV,
++				    MDIO_MMD_AN, phydev->addr);
++	if (val < 0)
++		return val;
++	data->advertised = phy_eee_to_adv(val);
 +
- 	platform_set_drvdata(pdev, priv->dev);
++	/* Get LP advertisement EEE */
++	val = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
++				    MDIO_MMD_AN, phydev->addr);
++	if (val < 0)
++		return val;
++	data->lp_advertised = phy_eee_to_adv(val);
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_ethtool_get_eee);
++
++/**
++ * phy_ethtool_set_eee - set EEE supported and status
++ * @phydev: target phy_device struct
++ * @data: ethtool_eee data
++ *
++ * Description: it is to program the Advertisement EEE register.
++ */
++int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
++{
++	int val;
++
++	val = phy_adv_to_eee(data->advertised);
++	phy_write_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
++			       phydev->addr, val);
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_ethtool_set_eee);
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index dfb9479..7cccafe 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -43,7 +43,11 @@
+ #define MDIO_PKGID2		15
+ #define MDIO_AN_ADVERTISE	16	/* AN advertising (base page) */
+ #define MDIO_AN_LPA		19	/* AN LP abilities (base page) */
++#define MDIO_PCS_EEE_ABLE	20	/* EEE Capability register */
++#define MDIO_PCS_EEE_WK_ERR	22	/* EEE wake error counter */
+ #define MDIO_PHYXS_LNSTAT	24	/* PHY XGXS lane state */
++#define MDIO_AN_EEE_ADV		60	/* EEE advertisement */
++#define MDIO_AN_EEE_LPABLE	61	/* EEE link partner ability */
  
- 	pr_debug("STMMAC platform driver registration completed");
+ /* Media-dependent registers. */
+ #define MDIO_PMA_10GBT_SWAPPOL	130	/* 10GBASE-T pair swap & polarity */
+@@ -56,7 +60,6 @@
+ #define MDIO_PCS_10GBRT_STAT2	33	/* 10GBASE-R/-T PCS status 2 */
+ #define MDIO_AN_10GBT_CTRL	32	/* 10GBASE-T auto-negotiation control */
+ #define MDIO_AN_10GBT_STAT	33	/* 10GBASE-T auto-negotiation status */
+-#define MDIO_AN_EEE_ADV		60	/* EEE advertisement */
+ 
+ /* LASI (Link Alarm Status Interrupt) registers, defined by XENPAK MSA. */
+ #define MDIO_PMA_LASI_RXCTRL	0x9000	/* RX_ALARM control */
+@@ -82,6 +85,7 @@
+ #define MDIO_AN_CTRL1_RESTART		BMCR_ANRESTART
+ #define MDIO_AN_CTRL1_ENABLE		BMCR_ANENABLE
+ #define MDIO_AN_CTRL1_XNP		0x2000	/* Enable extended next page */
++#define MDIO_PCS_CTRL1_CLKSTOP_EN	0x400	/* Stop the clock during LPI */
+ 
+ /* 10 Gb/s */
+ #define MDIO_CTRL1_SPEED10G		(MDIO_CTRL1_SPEEDSELEXT | 0x00)
+@@ -237,9 +241,25 @@
+ #define MDIO_AN_10GBT_STAT_MS		0x4000	/* Master/slave config */
+ #define MDIO_AN_10GBT_STAT_MSFLT	0x8000	/* Master/slave config fault */
+ 
+-/* AN EEE Advertisement register. */
+-#define MDIO_AN_EEE_ADV_100TX		0x0002	/* Advertise 100TX EEE cap */
+-#define MDIO_AN_EEE_ADV_1000T		0x0004	/* Advertise 1000T EEE cap */
++/* EEE Supported/Advertisement/LP Advertisement registers.
++ *
++ * EEE capability Register (3.20), Advertisement (7.60) and
++ * Link partner ability (7.61) registers have and can use the same identical
++ * bit masks.
++ */
++#define MDIO_AN_EEE_ADV_100TX	0x0002	/* Advertise 100TX EEE cap */
++#define MDIO_AN_EEE_ADV_1000T	0x0004	/* Advertise 1000T EEE cap */
++/* Note: the two defines above can be potentially used by the user-land
++ * and cannot remove them now.
++ * So, we define the new generic MDIO_EEE_100TX and MDIO_EEE_1000T macros
++ * using the previous ones (that can be considered obsolete).
++ */
++#define MDIO_EEE_100TX		MDIO_AN_EEE_ADV_100TX	/* 100TX EEE cap */
++#define MDIO_EEE_1000T		MDIO_AN_EEE_ADV_1000T	/* 1000T EEE cap */
++#define MDIO_EEE_10GT		0x0008	/* 10GT EEE cap */
++#define MDIO_EEE_1000KX		0x0010	/* 1000KX EEE cap */
++#define MDIO_EEE_10GKX4		0x0020	/* 10G KX4 EEE cap */
++#define MDIO_EEE_10GKR		0x0040	/* 10G KR EEE cap */
+ 
+ /* LASI RX_ALARM control/status registers. */
+ #define MDIO_PMA_LASI_RX_PHYXSLFLT	0x0001	/* PHY XS RX local fault */
+diff --git a/include/linux/mii.h b/include/linux/mii.h
+index 2783eca..8ef3a7a 100644
+--- a/include/linux/mii.h
++++ b/include/linux/mii.h
+@@ -21,6 +21,8 @@
+ #define MII_EXPANSION		0x06	/* Expansion register          */
+ #define MII_CTRL1000		0x09	/* 1000BASE-T control          */
+ #define MII_STAT1000		0x0a	/* 1000BASE-T status           */
++#define	MII_MMD_CTRL		0x0d	/* MMD Access Control Register */
++#define	MII_MMD_DATA		0x0e	/* MMD Access Data Register */
+ #define MII_ESTATUS		0x0f	/* Extended Status             */
+ #define MII_DCOUNTER		0x12	/* Disconnect counter          */
+ #define MII_FCSCOUNTER		0x13	/* False carrier counter       */
+@@ -141,6 +143,13 @@
+ #define FLOW_CTRL_TX		0x01
+ #define FLOW_CTRL_RX		0x02
+ 
++/* MMD Access Control register fields */
++#define MII_MMD_CTRL_DEVAD_MASK	0x1f	/* Mask MMD DEVAD*/
++#define MII_MMD_CTRL_ADDR	0x0000	/* Address */
++#define MII_MMD_CTRL_NOINCR	0x4000	/* no post increment */
++#define MII_MMD_CTRL_INCR_RDWT	0x8000	/* post increment on reads & writes */
++#define MII_MMD_CTRL_INCR_ON_WT	0xC000	/* post increment on writes only */
++
+ /* This structure is used in all SIOCxMIIxxx ioctl calls */
+ struct mii_ioctl_data {
+ 	__u16		phy_id;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 7eac80a..c35299e 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -554,6 +554,11 @@ int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
+ 		int (*run)(struct phy_device *));
+ int phy_scan_fixups(struct phy_device *phydev);
+ 
++int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable);
++int phy_get_eee_err(struct phy_device *phydev);
++int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data);
++int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data);
++
+ int __init mdio_bus_init(void);
+ void mdio_bus_exit(void);
+ 
 -- 
 1.7.4.4
