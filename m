@@ -1,104 +1,78 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [PATCH 10/12] nfs: enable swap on NFS
-Date: Thu, 28 Jun 2012 08:49:52 -0400
-Message-ID: <20120628084952.6526f801@corrin.poochiereds.net>
-References: <1340375468-22509-1-git-send-email-mgorman@suse.de>
-	<1340375468-22509-11-git-send-email-mgorman@suse.de>
-	<20120628082725.33b71097@corrin.poochiereds.net>
-	<20120628123734.GH8271@suse.de>
+From: Marco Berizzi <pupilla@hotmail.com>
+Subject: =?windows-1256?Q?ipsec_and_?= =?windows-1256?Q?snat:_mtu_?=
+ =?windows-1256?Q?question=FE?=
+Date: Thu, 28 Jun 2012 15:08:00 +0200
+Message-ID: <DUB108-W166133D2C5FF7B74EDED00B2E60@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, Linux-MM
- <linux-mm@kvack.org>,
-        Linux-Netdev <netdev@vger.kernel.org>,
-        Linux-NFS
- <linux-nfs@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David
- Miller <davem@davemloft.net>,
-        Trond Myklebust <Trond.Myklebust@netapp.com>,
-        Neil Brown <neilb@suse.de>, Christoph Hellwig <hch@infradead.org>,
-        Peter
- Zijlstra <a.p.zijlstra@chello.nl>,
-        Mike Christie <michaelc@cs.wisc.edu>,
-        Eric B Munson <emunson@mgebm.net>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120628123734.GH8271@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1256
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dub0-omc1-s22.dub0.hotmail.com ([157.55.0.221]:25125 "EHLO
+	dub0-omc1-s22.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753111Ab2F1NIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 09:08:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Jun 2012 13:37:34 +0100
-Mel Gorman <mgorman@suse.de> wrote:
 
-> On Thu, Jun 28, 2012 at 08:27:25AM -0400, Jeff Layton wrote:
-> > > <SNIP>
-> > > @@ -2108,11 +2156,15 @@ static void xs_tcp_setup_socket(struct work_struct *work)
-> > >  		container_of(work, struct sock_xprt, connect_worker.work);
-> > >  	struct socket *sock = transport->sock;
-> > >  	struct rpc_xprt *xprt = &transport->xprt;
-> > > +	unsigned long pflags = current->flags;
-> > >  	int status = -EIO;
-> > >  
-> > >  	if (xprt->shutdown)
-> > >  		goto out;
-> > >  
-> > > +	if (xprt->swapper)
-> > > +		current->flags |= PF_MEMALLOC;
-> > > +
-> > >  	if (!sock) {
-> > >  		clear_bit(XPRT_CONNECTION_ABORT, &xprt->state);
-> > >  		sock = xs_create_sock(xprt, transport,
-> > > @@ -2174,6 +2226,7 @@ out_eagain:
-> > >  out:
-> > >  	xprt_clear_connecting(xprt);
-> > >  	xprt_wake_pending_tasks(xprt, status);
-> > > +	tsk_restore_flags(current, pflags, PF_MEMALLOC);
-> > >  }
-> > >  
-> > >  /**
-> > 
-> > Apologies if this is fixed in another patch and I didn't see it...
-> > 
-> 
-> No apologies necessary. Even if it was fixed in another patch, it would
-> still be wrong for bisection reasons and for being rude to reviewers.
-> 
-> > There's a place in the above function that returns without going
-> > through "out:". I think you also want to tsk_restore_flags() in that
-> > spot too.
-> > 
-> 
-> You're right. The case that it would trigger would be some corner case
-> but very nicely spotted.
-> 
-> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-> index b84df34..3d58b92 100644
-> --- a/net/sunrpc/xprtsock.c
-> +++ b/net/sunrpc/xprtsock.c
-> @@ -2214,6 +2214,7 @@ static void xs_tcp_setup_socket(struct work_struct *work)
->  	case -EINPROGRESS:
->  	case -EALREADY:
->  		xprt_clear_connecting(xprt);
-> +		tsk_restore_flags(current, pflags, PF_MEMALLOC);
->  		return;
->  	case -EINVAL:
->  		/* Happens, for instance, if the user specified a link
 
-That looks correct.
-
-Actually it's not obvious in this function, but it turns out that this
-is the common case. xs_tcp_finish_connecting calls kernel_connect with
-O_NONBLOCK set, and that almost always immediately returns with
--EINPROGRESS.
-
-Cheers,
--- 
-Jeff Layton <jlayton@redhat.com>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Hello everybody.
+=A0
+Kindly, I would like to ask for explanations
+about a linux ipsec gateway snatting packets.
+=A0
+Here is the network schema.
+=A0
+customer private network 10.16.0.0/16
+|
+|
++ipsec customer gateway (checkpoint)
+||
+||---ipsec tunnel 10.16.0.0/16<->172.16.128.0/28 (des3/md5)
+||=A0=A0 mtu=3D1446
+||
+++ linux_gw_snat ipsec gateway (SNAT all packets from 172.22.1.0/24 to =
+172.16.128.1)
+||=20
+||---ipsec tunnel 10.16.0.0/16<->172.22.1.0/24 (aes/sha1/ipcomp)
+||=A0=A0 mtu=3D1430
+||
++linux_final ipsec gateway
+|
+|
+client 172.22.1.50
+=A0
+SYN packet start behind the linux_final (172.22.1.50)
+for 10.16.237.66 customer network. MSS is 1460 byte.
+DF flag is set on outgoing packets.
+Packet travel inside the ipsec tunnel: tunnel mtu is
+1430
+At the linux_gw_snat, the packet get decryped, snatted
+(ip src change from 172.22.1.50 to 172.16.128.1) and
+encryped again.
+Packets are delivered to the checkpoint: tunnel mtu is
+1446
+Checkpoint deliver the decryped packet to 10.16.237.66
+So far, so good.
+=A0
+At some point, 10.16.237.66 will send a 1500 byte
+packet for 172.16.128.1: checkpoint will reply with
+an icmp packet too large need to frag: mtu is 1446
+=A0
+10.16.237.66 will send back a 1446 byte packet to
+the checkpoint which will encrypt and deliver to the
+linux_gw_snat which will decrypt and deSNAT. Now
+linux_gw_snat must send this 1446 byte packet to
+172.22.1.50 but mtu is only 1430: packet will be
+dropped (DF is set).
+=A0
+Now, IMHO, linux_gw_snat should send an imcp message
+to 10.16.237.66 telling that max mtu is 1430, but I
+don't see any icmp packet.
+Is this the expected behaviour?
+=A0
+TIA
+=A0
+PS: linux_gw_snat is 3.3.5
+ 		 	   		 =20
