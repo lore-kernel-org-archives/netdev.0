@@ -1,40 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: tcp: dont cache unconfirmed intput dst
-Date: Wed, 27 Jun 2012 17:08:30 -0700 (PDT)
-Message-ID: <20120627.170830.811332455348620174.davem@davemloft.net>
-References: <20120627.153454.30398632011109264.davem@davemloft.net>
-	<20120627.164418.1928194990434756968.davem@davemloft.net>
-	<20120627.170101.99084491660488389.davem@davemloft.net>
+From: Claire Pesce <otelia2345lardin@yahoo.com>
+Subject: I wanna be your friend if you don't mind
+Date: Thu, 28 Jun 2012 01:28:19 +0100 (BST)
+Message-ID: <1340843299.55515.YahooMailNeo@web132106.mail.ird.yahoo.com>
+Reply-To: Claire Pesce <claire.pesce@yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hans.schillstrom@ericsson.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: "mrdave_35@collegeclub.com" <mrdave_35@collegeclub.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48342 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753427Ab2F1AIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jun 2012 20:08:31 -0400
-In-Reply-To: <20120627.170101.99084491660488389.davem@davemloft.net>
+Received: from nm14-vm0.bullet.mail.ird.yahoo.com ([77.238.189.193]:22288 "HELO
+	nm14-vm0.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751410Ab2F1A2V convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jun 2012 20:28:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 27 Jun 2012 17:01:01 -0700 (PDT)
-
-> There are quite a number of unwanted side effects from this change, so
-> I think we'll have to revert unless you can fix up all of the relevant
-> cases quickly.
-
-Actually I've decided to revert it now.
-
-Whilst this was a swell idea, there is no way for you to know if
-we should really create a cached route or not.
-
-Even if you could, there is a lot of logic you'll need to code up
-so that, f.e., once we determine that we've got a DST_NOCACHE route
-when we move to established state, we can insert it into the routing
-cache and not mark it DST_NOCACHE any longer.
-
-But even if we did that, we're going to eat 2 uncached route lookups
-for every new incoming legitimate connection.
+One of my female friends offered me to write u this mail and know you a little bit closer! I'm sure u would not be against of it. 
+My name is Claire! I am 23 years and I learn in university. 
+Here I'm looking for a nice man just to talk, to go to cafe, who knows have journey through Europe or even build family. 
+I hope one of my female friends was right and that u really the man that I was looking for!
