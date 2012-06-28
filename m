@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] [PATCH 1/1] xen/netback: only non-freed SKB is
- queued into tx_queue
-Date: Thu, 28 Jun 2012 16:55:50 -0700 (PDT)
-Message-ID: <20120628.165550.1816352825092253548.davem@davemloft.net>
-References: <1340794018-17274-1-git-send-email-annie.li@oracle.com>
+Subject: Re: [PATCH] gianfar: Fix RXICr/TXICr programming for multi-queue
+ mode
+Date: Thu, 28 Jun 2012 16:57:55 -0700 (PDT)
+Message-ID: <20120628.165755.2122030720581045253.davem@davemloft.net>
+References: <1340894453-28556-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	Ian.Campbell@citrix.com, konrad.wilk@oracle.com,
-	kurt.hackel@oracle.com
-To: annie.li@oracle.com
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57586 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57604 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754601Ab2F1Xzv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 19:55:51 -0400
-In-Reply-To: <1340794018-17274-1-git-send-email-annie.li@oracle.com>
+	with ESMTP id S1752282Ab2F1X54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 19:57:56 -0400
+In-Reply-To: <1340894453-28556-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: annie.li@oracle.com
-Date: Wed, 27 Jun 2012 18:46:58 +0800
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Thu, 28 Jun 2012 17:40:53 +0300
 
-> From: Annie Li <Annie.li@oracle.com>
+> The correct behavior is to program the interrupt coalescing regs
+> (RXICr/TXICr) in accordance with the Rx/Tx Q's "rx/txcoalescing"
+> flag. That is, if the coalescing flag is 0 for a given Rx/Tx queue
+> then the corresponding coalescing register should be cleared.
+> This behavior is correctly implemented for the single-queue mode
+> (SQ_SG_MODE), but not for the multi-queue mode (MQ_MG_MODE).
+> This fixes the later case.
 > 
-> After SKB is queued into tx_queue, it will be freed if request_gop is NULL.
-> However, no dequeue action is called in this situation, it is likely that
-> tx_queue constains freed SKB. This patch should fix this issue, and it is
-> based on 3.5.0-rc4+.
-> 
-> This issue is found through code inspection, no bug is seen with it currently.
-> I run netperf test for several hours, and no network regression was found.
-> 
-> Signed-off-by: Annie Li <annie.li@oracle.com>
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-I lack the expertiece necessary to properly review this, so I really
-need a Xen expert to look this over.
+Applied, thanks.
