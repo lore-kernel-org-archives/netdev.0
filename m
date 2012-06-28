@@ -1,45 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: LOCKDEP complaints in l2tp_xmit_skb()
-Date: Thu, 28 Jun 2012 10:57:42 +0200
-Message-ID: <1340873862.13187.5.camel@edumazet-glaptop>
-References: <20120627111152.GA2531@raven>
-	 <1340866572.26242.312.camel@edumazet-glaptop>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: [PATCH net] net: qmi_wwan: fix Oops while disconnecting
+Date: Thu, 28 Jun 2012 17:11:23 +0800
+Message-ID: <CACVXFVOWZc4zA6GR+JrvDTaYVi0a6_3wgzm6TgfR_5bx9USEdQ@mail.gmail.com>
+References: <1340356279-3124-1-git-send-email-bjorn@mork.no>
+	<201206251410.13454.oliver@neukum.org>
+	<CACVXFVO5x9pePZekJPnywr7czXG_3_xCRj-rXEgf2KSQXnmPbA@mail.gmail.com>
+	<201206281035.19964.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Parkin <tparkin@katalix.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	=?ISO-8859-1?Q?Marius_Bj=F8rnstad_Kotsbak?=
+	<marius.kotsbak@gmail.com>
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:44692 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753223Ab2F1I5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 04:57:49 -0400
-Received: by eeit10 with SMTP id t10so662771eei.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 01:57:48 -0700 (PDT)
-In-Reply-To: <1340866572.26242.312.camel@edumazet-glaptop>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:38104 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755229Ab2F1JLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:11:24 -0400
+In-Reply-To: <201206281035.19964.oneukum@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-28 at 08:56 +0200, Eric Dumazet wrote:
+On Thu, Jun 28, 2012 at 4:35 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> Am Dienstag, 26. Juni 2012, 09:23:19 schrieb Ming Lei:
 
-> [PATCH] net: Qdisc busylock gets its own lockdep class
-> 
-> Tom Parkin reported following LOCKDEP splat :
-..
-> 
-> Instruct lockdep that each Qdisc busylock is independant, or else
-> bonding or various tunnels can trigger a splat.
-> 
-> Reported-by: Tom Parkin <tparkin@katalix.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+>> IMO, probe is serialized strictly with driver unbind since both the parent
+>> lock and its own device lock have been held, so the probe may only be
+>> started after driver unbinding is completed.
+>
+> Yes, but if you have a driver which claims multiple interfaces and uses
+> a subdriver, then you will have cases of intfdate being NULL before
 
-I reproduced the bug using a bond0 device, adding a qdisc on it,
-(one Qdisc on bond0, and a Qdisc on the slave too)
+We have no such case now.
 
-Problem with this patch is I have following message :
+> disconnect() finishes.
 
-BUG: key ffff88..... not in .data!
+Suppose cdc-ether will support subdriver, ->unbind will set NULL to
+the 2nd interface and release the 2nd interface, then subdriver->disconnect()
+will be called, looks still no any problem.
 
-No more LOCKDEP splat, but patch not good as is.
+
+Thanks,
+-- 
+Ming Lei
