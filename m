@@ -1,71 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [patch net-next 2/4] virtio_net: use IFF_LIFE_ADDR_CHANGE
-	priv_flag
-Date: Thu, 28 Jun 2012 22:21:23 +0300
-Message-ID: <20120628192123.GA14787@redhat.com>
-References: <1340892639-1111-1-git-send-email-jpirko@redhat.com>
-	<1340892639-1111-3-git-send-email-jpirko@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: unlock busylock before servicing qdisc
+Date: Thu, 28 Jun 2012 21:22:42 +0200
+Message-ID: <1340911362.13187.183.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
-	virtualization@lists.linux-foundation.org,
-	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1340892639-1111-3-git-send-email-jpirko@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Tom Parkin <tparkin@katalix.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:58801 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399Ab2F1TWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 15:22:46 -0400
+Received: by wibhm11 with SMTP id hm11so396573wib.1
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 12:22:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 28, 2012 at 04:10:37PM +0200, Jiri Pirko wrote:
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
 
-FWIW
+commit 79640a4ca6 (net: add additional lock to qdisc to increase
+throughput) added a LOCKDEP occurrence on bonding/l2tp or other stacked
+devices, if several levels use a qdisc.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+We should release the busylock before the call to sch_direct_xmit() or
+else LOCKDEP complains we try to lock busylock again in the lower dev
+qdisc handler.
 
-> ---
->  drivers/net/virtio_net.c |   11 +++++------
->  1 file changed, 5 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 36a16d5..6a0f526 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -679,12 +679,11 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
->  	struct virtio_device *vdev = vi->vdev;
-> -	struct sockaddr *addr = p;
-> +	int ret;
->  
-> -	if (!is_valid_ether_addr(addr->sa_data))
-> -		return -EADDRNOTAVAIL;
-> -	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-> -	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
-> +	ret = eth_mac_addr(dev, p);
-> +	if (ret)
-> +		return ret;
->  
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
->  		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
-> @@ -1063,7 +1062,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  		return -ENOMEM;
->  
->  	/* Set up network device as normal. */
-> -	dev->priv_flags |= IFF_UNICAST_FLT;
-> +	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIFE_ADDR_CHANGE;
->  	dev->netdev_ops = &virtnet_netdev;
->  	dev->features = NETIF_F_HIGHDMA;
->  
-> -- 
-> 1.7.10.4
+This of course is a false lockdep positive, but this
+patch is the simplest way to get rid of it.
+
+Reported-by: Tom Parkin <tparkin@katalix.com>
+Tested-by: Tom Parkin <tparkin@katalix.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/core/dev.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6df2140..d265c67 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2412,13 +2412,13 @@ static inline int __dev_xmit_skb(struct sk_buff
+*skb, struct Qdisc *q,
+ 
+ 		qdisc_bstats_update(q, skb);
+ 
+-		if (sch_direct_xmit(skb, q, dev, txq, root_lock)) {
+-			if (unlikely(contended)) {
+-				spin_unlock(&q->busylock);
+-				contended = false;
+-			}
++		if (unlikely(contended)) {
++			spin_unlock(&q->busylock);
++			contended = false;
++		}
++		if (sch_direct_xmit(skb, q, dev, txq, root_lock))
+ 			__qdisc_run(q);
+-		} else
++		else
+ 			qdisc_run_end(q);
+ 
+ 		rc = NET_XMIT_SUCCESS;
