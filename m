@@ -1,240 +1,270 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
-Date: Thu, 28 Jun 2012 03:59:46 -0700 (PDT)
-Message-ID: <20120628.035946.1026666621448892198.davem@davemloft.net>
+Subject: [PATCH] ipv4: Kill rt->rt_spec_dst, no longer used.
+Date: Thu, 28 Jun 2012 04:08:54 -0700 (PDT)
+Message-ID: <20120628.040854.485985077615766089.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51662 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51740 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196Ab2F1K7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 06:59:48 -0400
+	with ESMTP id S1751617Ab2F1LIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 07:08:55 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 20DFE5845DC
-	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 03:59:49 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 0F0475847F7
+	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 04:08:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The specific destination is the host we direct unicast replies to.
-Usually this is the original packet source address, but if we are
-responding to a multicast or broadcast packet we have to use something
-different.
-
-Specifically we must use the source address we would use if we were to
-send a packet to the unicast source of the original packet.
-
-The routing cache precomputes this value, but we want to remove that
-precomputation because it creates a hard dependency on the expensive
-rpfilter source address validation which we'd like to make cheaper.
-
-There are only three places where this matters:
-
-1) ICMP replies.
-
-2) pktinfo CMSG
-
-3) IP options
-
-Now there will be no real users of rt->rt_spec_dst and we can simply
-remove it altogether.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/ip_fib.h    |    1 +
- net/ipv4/fib_frontend.c |   29 +++++++++++++++++++++++++++++
- net/ipv4/icmp.c         |    6 ++++--
- net/ipv4/ip_options.c   |   22 +++++++++++-----------
- net/ipv4/ip_sockglue.c  |    7 ++++---
- 5 files changed, 49 insertions(+), 16 deletions(-)
+ include/net/ip_fib.h    |    2 +-
+ include/net/route.h     |    1 -
+ net/ipv4/fib_frontend.c |    9 ++-------
+ net/ipv4/route.c        |   38 +++++++++-----------------------------
+ net/ipv4/xfrm4_policy.c |    1 -
+ 5 files changed, 12 insertions(+), 39 deletions(-)
 
 diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 4b347c0..1687b3d 100644
+index 1687b3d..9e6c26d 100644
 --- a/include/net/ip_fib.h
 +++ b/include/net/ip_fib.h
-@@ -230,6 +230,7 @@ extern struct fib_table *fib_get_table(struct net *net, u32 id);
- /* Exported by fib_frontend.c */
- extern const struct nla_policy rtm_ipv4_policy[];
- extern void		ip_fib_init(void);
-+extern __be32 fib_compute_spec_dst(struct sk_buff *skb);
+@@ -233,7 +233,7 @@ extern void		ip_fib_init(void);
+ extern __be32 fib_compute_spec_dst(struct sk_buff *skb);
  extern int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
  			       u8 tos, int oif, struct net_device *dev,
- 			       __be32 *spec_dst, u32 *itag);
+-			       __be32 *spec_dst, u32 *itag);
++			       u32 *itag);
+ extern void fib_select_default(struct fib_result *res);
+ 
+ /* Exported by fib_semantics.c */
+diff --git a/include/net/route.h b/include/net/route.h
+index 47eb25a..211e266 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -65,7 +65,6 @@ struct rtable {
+ 	__be32			rt_gateway;
+ 
+ 	/* Miscellaneous cached information */
+-	__be32			rt_spec_dst; /* RFC1122 specific destination */
+ 	u32			rt_peer_genid;
+ 	unsigned long		_peer; /* long-living peer info */
+ 	struct fib_info		*fi; /* for client ref to shared metrics */
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 3854411..451939b 100644
+index 451939b..63b11ca 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -180,6 +180,35 @@ unsigned int inet_dev_addr_type(struct net *net, const struct net_device *dev,
- }
- EXPORT_SYMBOL(inet_dev_addr_type);
- 
-+__be32 fib_compute_spec_dst(struct sk_buff *skb)
-+{
-+	struct net_device *dev = skb->dev;
-+	struct in_device *in_dev;
-+	struct fib_result res;
-+	struct flowi4 fl4;
-+	struct net *net;
-+
-+	if (skb->pkt_type != PACKET_BROADCAST &&
-+	    skb->pkt_type != PACKET_MULTICAST)
-+		return ip_hdr(skb)->daddr;
-+
-+	in_dev = __in_dev_get_rcu(dev);
-+	BUG_ON(!in_dev);
-+	fl4.flowi4_oif = 0;
-+	fl4.flowi4_iif = 0;
-+	fl4.daddr = ip_hdr(skb)->saddr;
-+	fl4.saddr = ip_hdr(skb)->daddr;
-+	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
-+	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
-+	fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
-+
-+	net = dev_net(dev);
-+	if (!fib_lookup(net, &fl4, &res))
-+		return FIB_RES_PREFSRC(net, res);
-+	else
-+		return inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
-+}
-+
- /* Given (packet source, input interface) and optional (dst, oif, tos):
-  * - (main) check, that source is valid i.e. not broadcast or our local
-  *   address.
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 49a74cc..4bce5a2 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -95,6 +95,7 @@
- #include <net/checksum.h>
- #include <net/xfrm.h>
- #include <net/inet_common.h>
-+#include <net/ip_fib.h>
- 
- /*
-  *	Build xmit assembly blocks
-@@ -333,7 +334,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 	struct flowi4 fl4;
- 	struct sock *sk;
- 	struct inet_sock *inet;
--	__be32 daddr;
-+	__be32 daddr, saddr;
- 
- 	if (ip_options_echo(&icmp_param->replyopts.opt.opt, skb))
- 		return;
-@@ -347,6 +348,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 
- 	inet->tos = ip_hdr(skb)->tos;
- 	daddr = ipc.addr = ip_hdr(skb)->saddr;
-+	saddr = fib_compute_spec_dst(skb);
- 	ipc.opt = NULL;
- 	ipc.tx_flags = 0;
- 	if (icmp_param->replyopts.opt.opt.optlen) {
-@@ -356,7 +358,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
- 	}
- 	memset(&fl4, 0, sizeof(fl4));
- 	fl4.daddr = daddr;
--	fl4.saddr = rt->rt_spec_dst;
-+	fl4.saddr = saddr;
- 	fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
- 	fl4.flowi4_proto = IPPROTO_ICMP;
- 	security_skb_classify_flow(skb, flowi4_to_flowi(&fl4));
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 708b994..766dfe56 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -27,6 +27,7 @@
- #include <net/icmp.h>
- #include <net/route.h>
- #include <net/cipso_ipv4.h>
-+#include <net/ip_fib.h>
- 
- /*
-  * Write options to IP header, record destination address to
-@@ -104,7 +105,7 @@ int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
- 	sptr = skb_network_header(skb);
- 	dptr = dopt->__data;
- 
--	daddr = skb_rtable(skb)->rt_spec_dst;
-+	daddr = fib_compute_spec_dst(skb);
- 
- 	if (sopt->rr) {
- 		optlen  = sptr[sopt->rr+1];
-@@ -250,15 +251,14 @@ void ip_options_fragment(struct sk_buff *skb)
- int ip_options_compile(struct net *net,
- 		       struct ip_options *opt, struct sk_buff *skb)
- {
--	int l;
--	unsigned char *iph;
--	unsigned char *optptr;
--	int optlen;
-+	__be32 spec_dst = (__force __be32) 0;
- 	unsigned char *pp_ptr = NULL;
--	struct rtable *rt = NULL;
-+	unsigned char *optptr;
-+	unsigned char *iph;
-+	int optlen, l;
- 
- 	if (skb != NULL) {
--		rt = skb_rtable(skb);
-+		spec_dst = fib_compute_spec_dst(skb);
- 		optptr = (unsigned char *)&(ip_hdr(skb)[1]);
- 	} else
- 		optptr = opt->__data;
-@@ -330,8 +330,8 @@ int ip_options_compile(struct net *net,
- 					pp_ptr = optptr + 2;
- 					goto error;
- 				}
--				if (rt) {
--					memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
-+				if (skb) {
-+					memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
- 					opt->is_changed = 1;
- 				}
- 				optptr[2] += 4;
-@@ -372,8 +372,8 @@ int ip_options_compile(struct net *net,
- 						goto error;
- 					}
- 					opt->ts = optptr - iph;
--					if (rt)  {
--						memcpy(&optptr[optptr[2]-1], &rt->rt_spec_dst, 4);
-+					if (skb)  {
-+						memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
- 						timeptr = &optptr[optptr[2]+3];
- 					}
- 					opt->ts_needaddr = 1;
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 0d11f23..de29f46 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -40,6 +40,7 @@
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/transp_v6.h>
- #endif
-+#include <net/ip_fib.h>
- 
- #include <linux/errqueue.h>
- #include <asm/uaccess.h>
-@@ -1019,8 +1020,8 @@ e_inval:
-  * @sk: socket
-  * @skb: buffer
-  *
-- * To support IP_CMSG_PKTINFO option, we store rt_iif and rt_spec_dst
-- * in skb->cb[] before dst drop.
-+ * To support IP_CMSG_PKTINFO option, we store rt_iif and specific
-+ * destination in skb->cb[] before dst drop.
-  * This way, receiver doesnt make cache line misses to read rtable.
+@@ -218,8 +218,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
+  * called with rcu_read_lock()
   */
- void ipv4_pktinfo_prepare(struct sk_buff *skb)
-@@ -1030,7 +1031,7 @@ void ipv4_pktinfo_prepare(struct sk_buff *skb)
+ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst, u8 tos,
+-			int oif, struct net_device *dev, __be32 *spec_dst,
+-			u32 *itag)
++			int oif, struct net_device *dev, u32 *itag)
+ {
+ 	struct in_device *in_dev;
+ 	struct flowi4 fl4;
+@@ -258,7 +257,6 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst, u8 tos,
+ 		if (res.type != RTN_LOCAL || !accept_local)
+ 			goto e_inval;
+ 	}
+-	*spec_dst = FIB_RES_PREFSRC(net, res);
+ 	fib_combine_itag(itag, &res);
+ 	dev_match = false;
  
- 	if (rt) {
- 		pktinfo->ipi_ifindex = rt->rt_iif;
--		pktinfo->ipi_spec_dst.s_addr = rt->rt_spec_dst;
-+		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+@@ -287,17 +285,14 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst, u8 tos,
+ 
+ 	ret = 0;
+ 	if (fib_lookup(net, &fl4, &res) == 0) {
+-		if (res.type == RTN_UNICAST) {
+-			*spec_dst = FIB_RES_PREFSRC(net, res);
++		if (res.type == RTN_UNICAST)
+ 			ret = FIB_RES_NH(res).nh_scope >= RT_SCOPE_HOST;
+-		}
+ 	}
+ 	return ret;
+ 
+ last_resort:
+ 	if (rpf)
+ 		goto e_rpf;
+-	*spec_dst = inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
+ 	*itag = 0;
+ 	return 0;
+ 
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 81533e3..83d56a0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -440,7 +440,7 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
+ 			r->rt_key_tos,
+ 			-1,
+ 			HHUptod,
+-			r->rt_spec_dst, &len);
++			0, &len);
+ 
+ 		seq_printf(seq, "%*s\n", 127 - len, "");
+ 	}
+@@ -1978,7 +1978,6 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ {
+ 	unsigned int hash;
+ 	struct rtable *rth;
+-	__be32 spec_dst;
+ 	struct in_device *in_dev = __in_dev_get_rcu(dev);
+ 	u32 itag = 0;
+ 	int err;
+@@ -1999,10 +1998,8 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (ipv4_is_zeronet(saddr)) {
+ 		if (!ipv4_is_local_multicast(daddr))
+ 			goto e_inval;
+-		spec_dst = inet_select_addr(dev, 0, RT_SCOPE_LINK);
  	} else {
- 		pktinfo->ipi_ifindex = 0;
- 		pktinfo->ipi_spec_dst.s_addr = 0;
+-		err = fib_validate_source(skb, saddr, 0, tos, 0, dev, &spec_dst,
+-					  &itag);
++		err = fib_validate_source(skb, saddr, 0, tos, 0, dev, &itag);
+ 		if (err < 0)
+ 			goto e_err;
+ 	}
+@@ -2029,7 +2026,6 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	rth->rt_oif	= 0;
+ 	rth->rt_mark    = skb->mark;
+ 	rth->rt_gateway	= daddr;
+-	rth->rt_spec_dst= spec_dst;
+ 	rth->rt_peer_genid = 0;
+ 	rt_init_peer(rth, dev_net(dev)->ipv4.peers);
+ 	rth->fi = NULL;
+@@ -2093,7 +2089,6 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	int err;
+ 	struct in_device *out_dev;
+ 	unsigned int flags = 0;
+-	__be32 spec_dst;
+ 	u32 itag;
+ 
+ 	/* get a working reference to the output device */
+@@ -2105,7 +2100,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 
+ 
+ 	err = fib_validate_source(skb, saddr, daddr, tos, FIB_RES_OIF(*res),
+-				  in_dev->dev, &spec_dst, &itag);
++				  in_dev->dev, &itag);
+ 	if (err < 0) {
+ 		ip_handle_martian_source(in_dev->dev, in_dev, skb, daddr,
+ 					 saddr);
+@@ -2157,7 +2152,6 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->rt_oif 	= 0;
+ 	rth->rt_mark    = skb->mark;
+ 	rth->rt_gateway	= daddr;
+-	rth->rt_spec_dst= spec_dst;
+ 	rth->rt_peer_genid = 0;
+ 	rt_init_peer(rth, &res->table->tb_peers);
+ 	rth->fi = NULL;
+@@ -2223,7 +2217,6 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	u32		itag = 0;
+ 	struct rtable	*rth;
+ 	unsigned int	hash;
+-	__be32		spec_dst;
+ 	int		err = -EINVAL;
+ 	struct net    *net = dev_net(dev);
+ 
+@@ -2281,12 +2274,11 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (res.type == RTN_LOCAL) {
+ 		err = fib_validate_source(skb, saddr, daddr, tos,
+ 					  net->loopback_dev->ifindex,
+-					  dev, &spec_dst, &itag);
++					  dev, &itag);
+ 		if (err < 0)
+ 			goto martian_source_keep_err;
+ 		if (err)
+ 			flags |= RTCF_DIRECTSRC;
+-		spec_dst = daddr;
+ 		goto local_input;
+ 	}
+ 
+@@ -2302,11 +2294,8 @@ brd_input:
+ 	if (skb->protocol != htons(ETH_P_IP))
+ 		goto e_inval;
+ 
+-	if (ipv4_is_zeronet(saddr))
+-		spec_dst = inet_select_addr(dev, 0, RT_SCOPE_LINK);
+-	else {
+-		err = fib_validate_source(skb, saddr, 0, tos, 0, dev, &spec_dst,
+-					  &itag);
++	if (!ipv4_is_zeronet(saddr)) {
++		err = fib_validate_source(skb, saddr, 0, tos, 0, dev, &itag);
+ 		if (err < 0)
+ 			goto martian_source_keep_err;
+ 		if (err)
+@@ -2344,7 +2333,6 @@ local_input:
+ 	rth->rt_oif	= 0;
+ 	rth->rt_mark    = skb->mark;
+ 	rth->rt_gateway	= daddr;
+-	rth->rt_spec_dst= spec_dst;
+ 	rth->rt_peer_genid = 0;
+ 	rt_init_peer(rth, net->ipv4.peers);
+ 	rth->fi = NULL;
+@@ -2362,7 +2350,6 @@ local_input:
+ 
+ no_route:
+ 	RT_CACHE_STAT_INC(in_no_route);
+-	spec_dst = inet_select_addr(dev, 0, RT_SCOPE_UNIVERSE);
+ 	res.type = RTN_UNREACHABLE;
+ 	if (err == -ESRCH)
+ 		err = -ENETUNREACH;
+@@ -2545,7 +2532,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	rth->rt_oif	= orig_oif;
+ 	rth->rt_mark    = fl4->flowi4_mark;
+ 	rth->rt_gateway = fl4->daddr;
+-	rth->rt_spec_dst= fl4->saddr;
+ 	rth->rt_peer_genid = 0;
+ 	rt_init_peer(rth, (res->table ?
+ 			   &res->table->tb_peers :
+@@ -2554,12 +2540,9 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 
+ 	RT_CACHE_STAT_INC(out_slow_tot);
+ 
+-	if (flags & RTCF_LOCAL) {
++	if (flags & RTCF_LOCAL)
+ 		rth->dst.input = ip_local_deliver;
+-		rth->rt_spec_dst = fl4->daddr;
+-	}
+ 	if (flags & (RTCF_BROADCAST | RTCF_MULTICAST)) {
+-		rth->rt_spec_dst = fl4->saddr;
+ 		if (flags & RTCF_LOCAL &&
+ 		    !(dev_out->flags & IFF_LOOPBACK)) {
+ 			rth->dst.output = ip_mc_output;
+@@ -2890,7 +2873,6 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+ 		rt->rt_dst = ort->rt_dst;
+ 		rt->rt_src = ort->rt_src;
+ 		rt->rt_gateway = ort->rt_gateway;
+-		rt->rt_spec_dst = ort->rt_spec_dst;
+ 		rt_transfer_peer(rt, ort);
+ 		rt->fi = ort->fi;
+ 		if (rt->fi)
+@@ -2965,10 +2947,8 @@ static int rt_fill_info(struct net *net,
+ 	    nla_put_u32(skb, RTA_FLOW, rt->dst.tclassid))
+ 		goto nla_put_failure;
+ #endif
+-	if (rt_is_input_route(rt)) {
+-		if (nla_put_be32(skb, RTA_PREFSRC, rt->rt_spec_dst))
+-			goto nla_put_failure;
+-	} else if (rt->rt_src != rt->rt_key_src) {
++	if (!rt_is_input_route(rt) &&
++	    rt->rt_src != rt->rt_key_src) {
+ 		if (nla_put_be32(skb, RTA_PREFSRC, rt->rt_src))
+ 			goto nla_put_failure;
+ 	}
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 8855d82..9815ea0 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -100,7 +100,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 	xdst->u.rt.rt_src = rt->rt_src;
+ 	xdst->u.rt.rt_dst = rt->rt_dst;
+ 	xdst->u.rt.rt_gateway = rt->rt_gateway;
+-	xdst->u.rt.rt_spec_dst = rt->rt_spec_dst;
+ 
+ 	return 0;
+ }
 -- 
 1.7.10.2
