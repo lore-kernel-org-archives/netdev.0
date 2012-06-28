@@ -1,22 +1,41 @@
-From: Claire Pesce <otelia2345lardin@yahoo.com>
-Subject: I wanna be your friend if you don't mind
-Date: Thu, 28 Jun 2012 01:28:19 +0100 (BST)
-Message-ID: <1340843299.55515.YahooMailNeo@web132106.mail.ird.yahoo.com>
-Reply-To: Claire Pesce <claire.pesce@yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: "mrdave_35@collegeclub.com" <mrdave_35@collegeclub.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm14-vm0.bullet.mail.ird.yahoo.com ([77.238.189.193]:22288 "HELO
-	nm14-vm0.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751410Ab2F1A2V convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jun 2012 20:28:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vinson Lee <vlee@twitter.com>
+Subject: [PATCH] net: Downgrade CAP_SYS_MODULE deprecated message from error to warning.
+Date: Wed, 27 Jun 2012 17:32:07 -0700
+Message-ID: <1340843527-9962-1-git-send-email-vlee@twitter.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vinson Lee <vlee@twitter.com>,
+	David Mackey <tdmackey@twitter.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, <mirq-linux@rere.qmqm.pl>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Tom Herbert <therbert@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-One of my female friends offered me to write u this mail and know you a little bit closer! I'm sure u would not be against of it. 
-My name is Claire! I am 23 years and I learn in university. 
-Here I'm looking for a nice man just to talk, to go to cafe, who knows have journey through Europe or even build family. 
-I hope one of my female friends was right and that u really the man that I was looking for!
+Make logging level consistent with other deprecation messages in net
+subsystem.
+
+Signed-off-by: Vinson Lee <vlee@twitter.com>
+Cc: David Mackey <tdmackey@twitter.com>
+---
+ net/core/dev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cd09819..b19a361 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1136,8 +1136,8 @@ void dev_load(struct net *net, const char *name)
+ 		no_module = request_module("netdev-%s", name);
+ 	if (no_module && capable(CAP_SYS_MODULE)) {
+ 		if (!request_module("%s", name))
+-			pr_err("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
+-			       name);
++			pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
++				name);
+ 	}
+ }
+ EXPORT_SYMBOL(dev_load);
+-- 
+1.7.9.5
