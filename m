@@ -1,35 +1,81 @@
-From: Rostislav Lisovy <lisovy@gmail.com>
-Subject: Re: [PATCH net-next] em_canid: Ematch rule to match CAN frames
- according to their CAN IDs
-Date: Thu, 28 Jun 2012 19:02:38 +0200
-Message-ID: <1340902958.9286.1.camel@lolumad>
-References: <1340022131-7827-1-git-send-email-lisovy@gmail.com>
-	  <4FEA169C.1070709@hartkopp.net> <1340890522.6032.22.camel@lolumad>
-	 <4FEC87E8.1030405@hartkopp.net>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH v2 0/4] netdev/phy: 10G PHY support.
+Date: Thu, 28 Jun 2012 10:05:52 -0700
+Message-ID: <4FEC8EF0.6080408@gmail.com>
+References: <1340818418-10382-1-git-send-email-ddaney.cavm@gmail.com> <20120627.212941.485325944406335522.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, lartc@vger.kernel.org,
-	pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4FEC87E8.1030405@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-7;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+	afleming@gmail.com, david.daney@cavium.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120627.212941.485325944406335522.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-06-28 at 18:35 +0200, Oliver Hartkopp wrote:
+On 06/27/2012 09:29 PM, David Miller wrote:
+> From: David Daney<ddaney.cavm@gmail.com>
+> Date: Wed, 27 Jun 2012 10:33:34 -0700
+>
+>> From: David Daney<david.daney@cavium.com>
+>>
+>> The only non-cosmetic change from v1 is to pass an additional argume=
+nt
+>> to get_phy_device() that indicates that the PHY uses 802.3 clause 45
+>> signaling, previously I had been using a high order bit of the addr
+>> parameter for this.
+>>
+>> There are also changes from v1 in the code and comment formatting.
+>> These should now be closer to what David Miller prefers.
+>
+> Applied, but I had to add the following warning fixup:
 
-> 
-> What about 
-> 
-> 	match = (test_bit(can_id, cm->match_sff))?1:0;
-> 
-> and working with "1" and "0" all the time instead of the final correction to
-> the return values at the end of the function?
+Thank You.
 
-I agree;
+>
+> --------------------
+> phy: Fix warning in get_phy_device().
+>
+> drivers/net/phy/phy_device.c: In function =A1get_phy_device=A2:
+> drivers/net/phy/phy_device.c:340:14: warning: =A1phy_id=A2 may be use=
+d uninitialized in this function [-Wmaybe-uninitialized]
+>
+> GCC can't see that when we return zero we always initialize
+> phy_id and that's the only path where we use it.
+>
+> Initialize phy_id to zero to shut it up.
+>
 
-Regards;
-Rostislav
+=46WIW: I was testing with GCC-4.6.3 and saw no such warnings.
 
+David Daney
+
+
+> Signed-off-by: David S. Miller<davem@davemloft.net>
+> ---
+>   drivers/net/phy/phy_device.c |    4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_devic=
+e.c
+> index ef4cdee..47e02e7 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -327,9 +327,9 @@ static int get_phy_id(struct mii_bus *bus, int ad=
+dr, u32 *phy_id,
+>    */
+>   struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bo=
+ol is_c45)
+>   {
+> -	struct phy_device *dev =3D NULL;
+> -	u32 phy_id;
+>   	struct phy_c45_device_ids c45_ids =3D {0};
+> +	struct phy_device *dev =3D NULL;
+> +	u32 phy_id =3D 0;
+>   	int r;
+>
+>   	r =3D get_phy_id(bus, addr,&phy_id, is_c45,&c45_ids);
