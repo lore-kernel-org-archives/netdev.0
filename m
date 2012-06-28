@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] cnic: Handle RAMROD_CMD_ID_CLOSE error.
-Date: Wed, 27 Jun 2012 21:29:11 -0700 (PDT)
-Message-ID: <20120627.212911.2242472640950683711.davem@davemloft.net>
-References: <1340845704-12580-2-git-send-email-mchan@broadcom.com>
-	<1340845704-12580-3-git-send-email-mchan@broadcom.com>
-	<1340845704-12580-4-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH v2 0/4] netdev/phy: 10G PHY support.
+Date: Wed, 27 Jun 2012 21:29:41 -0700 (PDT)
+Message-ID: <20120627.212941.485325944406335522.davem@davemloft.net>
+References: <1340818418-10382-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49521 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805Ab2F1E3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 00:29:11 -0400
-In-Reply-To: <1340845704-12580-4-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+	afleming@gmail.com, david.daney@cavium.com
+To: ddaney.cavm@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340818418-10382-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 27 Jun 2012 18:08:22 -0700
-
-> From: Eddie Wai <eddie.wai@broadcom.com>
-> 
-> If firmware returns error status, proceed to close the iSCSI connection.
-> Update version to 2.5.11.
-> 
-> Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-Applied.
+RnJvbTogRGF2aWQgRGFuZXkgPGRkYW5leS5jYXZtQGdtYWlsLmNvbT4NCkRhdGU6IFdlZCwgMjcg
+SnVuIDIwMTIgMTA6MzM6MzQgLTA3MDANCg0KPiBGcm9tOiBEYXZpZCBEYW5leSA8ZGF2aWQuZGFu
+ZXlAY2F2aXVtLmNvbT4NCj4gDQo+IFRoZSBvbmx5IG5vbi1jb3NtZXRpYyBjaGFuZ2UgZnJvbSB2
+MSBpcyB0byBwYXNzIGFuIGFkZGl0aW9uYWwgYXJndW1lbnQNCj4gdG8gZ2V0X3BoeV9kZXZpY2Uo
+KSB0aGF0IGluZGljYXRlcyB0aGF0IHRoZSBQSFkgdXNlcyA4MDIuMyBjbGF1c2UgNDUNCj4gc2ln
+bmFsaW5nLCBwcmV2aW91c2x5IEkgaGFkIGJlZW4gdXNpbmcgYSBoaWdoIG9yZGVyIGJpdCBvZiB0
+aGUgYWRkcg0KPiBwYXJhbWV0ZXIgZm9yIHRoaXMuDQo+IA0KPiBUaGVyZSBhcmUgYWxzbyBjaGFu
+Z2VzIGZyb20gdjEgaW4gdGhlIGNvZGUgYW5kIGNvbW1lbnQgZm9ybWF0dGluZy4NCj4gVGhlc2Ug
+c2hvdWxkIG5vdyBiZSBjbG9zZXIgdG8gd2hhdCBEYXZpZCBNaWxsZXIgcHJlZmVycy4NCg0KQXBw
+bGllZCwgYnV0IEkgaGFkIHRvIGFkZCB0aGUgZm9sbG93aW5nIHdhcm5pbmcgZml4dXA6DQoNCi0t
+LS0tLS0tLS0tLS0tLS0tLS0tDQpwaHk6IEZpeCB3YXJuaW5nIGluIGdldF9waHlfZGV2aWNlKCku
+DQoNCmRyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmM6IEluIGZ1bmN0aW9uIKFnZXRfcGh5X2Rl
+dmljZaI6DQpkcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jOjM0MDoxNDogd2FybmluZzogoXBo
+eV9pZKIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uIFstV21heWJl
+LXVuaW5pdGlhbGl6ZWRdDQoNCkdDQyBjYW4ndCBzZWUgdGhhdCB3aGVuIHdlIHJldHVybiB6ZXJv
+IHdlIGFsd2F5cyBpbml0aWFsaXplDQpwaHlfaWQgYW5kIHRoYXQncyB0aGUgb25seSBwYXRoIHdo
+ZXJlIHdlIHVzZSBpdC4NCg0KSW5pdGlhbGl6ZSBwaHlfaWQgdG8gemVybyB0byBzaHV0IGl0IHVw
+Lg0KDQpTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+
+DQotLS0NCiBkcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jIHwgICAgNCArKy0tDQogMSBmaWxl
+IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMgYi9kcml2ZXJzL25ldC9waHkvcGh5X2Rldmlj
+ZS5jDQppbmRleCBlZjRjZGVlLi40N2UwMmU3IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvcGh5
+L3BoeV9kZXZpY2UuYw0KKysrIGIvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYw0KQEAgLTMy
+Nyw5ICszMjcsOSBAQCBzdGF0aWMgaW50IGdldF9waHlfaWQoc3RydWN0IG1paV9idXMgKmJ1cywg
+aW50IGFkZHIsIHUzMiAqcGh5X2lkLA0KICAqLw0KIHN0cnVjdCBwaHlfZGV2aWNlICpnZXRfcGh5
+X2RldmljZShzdHJ1Y3QgbWlpX2J1cyAqYnVzLCBpbnQgYWRkciwgYm9vbCBpc19jNDUpDQogew0K
+LQlzdHJ1Y3QgcGh5X2RldmljZSAqZGV2ID0gTlVMTDsNCi0JdTMyIHBoeV9pZDsNCiAJc3RydWN0
+IHBoeV9jNDVfZGV2aWNlX2lkcyBjNDVfaWRzID0gezB9Ow0KKwlzdHJ1Y3QgcGh5X2RldmljZSAq
+ZGV2ID0gTlVMTDsNCisJdTMyIHBoeV9pZCA9IDA7DQogCWludCByOw0KIA0KIAlyID0gZ2V0X3Bo
+eV9pZChidXMsIGFkZHIsICZwaHlfaWQsIGlzX2M0NSwgJmM0NV9pZHMpOw0KLS0gDQoxLjcuMTAu
+Mg0KDQo=
