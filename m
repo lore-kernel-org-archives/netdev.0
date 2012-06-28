@@ -1,28 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2012-06-28
-Date: Thu, 28 Jun 2012 04:11:21 -0700 (PDT)
-Message-ID: <20120628.041121.1057971961860277636.davem@davemloft.net>
-References: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: LOCKDEP complaints in l2tp_xmit_skb()
+Date: Thu, 28 Jun 2012 13:22:31 +0200
+Message-ID: <1340882551.13187.96.camel@edumazet-glaptop>
+References: <20120627111152.GA2531@raven>
+	 <1340866572.26242.312.camel@edumazet-glaptop>
+	 <1340873862.13187.5.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Tom Parkin <tparkin@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51766 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751983Ab2F1LLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 07:11:23 -0400
-In-Reply-To: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:63171 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752910Ab2F1LWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 07:22:34 -0400
+Received: by mail-ey0-f174.google.com with SMTP id k11so739639eaa.19
+        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 04:22:33 -0700 (PDT)
+In-Reply-To: <1340873862.13187.5.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Thu, 28 Jun 2012 11:34:09 +0200
+On Thu, 2012-06-28 at 10:57 +0200, Eric Dumazet wrote:
+> On Thu, 2012-06-28 at 08:56 +0200, Eric Dumazet wrote:
+> 
+> > [PATCH] net: Qdisc busylock gets its own lockdep class
+> > 
+> > Tom Parkin reported following LOCKDEP splat :
+> ..
+> > 
+> > Instruct lockdep that each Qdisc busylock is independant, or else
+> > bonding or various tunnels can trigger a splat.
+> > 
+> > Reported-by: Tom Parkin <tparkin@katalix.com>
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > ---
+> 
+> I reproduced the bug using a bond0 device, adding a qdisc on it,
+> (one Qdisc on bond0, and a Qdisc on the slave too)
+> 
+> Problem with this patch is I have following message :
+> 
+> BUG: key ffff88..... not in .data!
+> 
+> No more LOCKDEP splat, but patch not good as is.
 
-> this is another set of patches I'd like to see included in net-next/linux-3.6.
-> Here you have some more patches aimed to clean our namespace, a minor cleanup
-> for the vis code that eliminates a useless intermediate buffer used to
-> provide the output and two other minor cleanups for the TranslationTable code.
+I tested the alternative following patch with my bonding setup,
+could you test it with l2tp ?
 
-Pulled, thanks.
+ net/core/dev.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6df2140..d265c67 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2412,13 +2412,13 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 
+ 		qdisc_bstats_update(q, skb);
+ 
+-		if (sch_direct_xmit(skb, q, dev, txq, root_lock)) {
+-			if (unlikely(contended)) {
+-				spin_unlock(&q->busylock);
+-				contended = false;
+-			}
++		if (unlikely(contended)) {
++			spin_unlock(&q->busylock);
++			contended = false;
++		}
++		if (sch_direct_xmit(skb, q, dev, txq, root_lock))
+ 			__qdisc_run(q);
+-		} else
++		else
+ 			qdisc_run_end(q);
+ 
+ 		rc = NET_XMIT_SUCCESS;
