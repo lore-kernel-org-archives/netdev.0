@@ -1,98 +1,60 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 06/18] batman-adv: clear ADD+DEL (and viceversa) events in the same orig-interval
-Date: Thu, 28 Jun 2012 11:34:15 +0200
-Message-ID: <1340876067-28333-7-git-send-email-ordex@autistici.org>
+Subject: [PATCH 17/18] batman-adv: Prefix vis defines with BATADV_
+Date: Thu, 28 Jun 2012 11:34:26 +0200
+Message-ID: <1340876067-28333-18-git-send-email-ordex@autistici.org>
 References: <1340876067-28333-1-git-send-email-ordex@autistici.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Sven Eckelmann <sven@narfation.org>
+	Sven Eckelmann <sven@narfation.org>,
+	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:30235 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:30386 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932739Ab2F1Jea (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:34:30 -0400
+	with ESMTP id S932819Ab2F1Jej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 05:34:39 -0400
 In-Reply-To: <1340876067-28333-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During an OGM-interval (time between two different OGM sendings) the same client
-could roam away and then roam back to us. In this case the node would add two
-events to the events list (that is going to be sent appended to the next OGM). A
-DEL one and an ADD one. Obviously they will only increase the overhead (either in
-the air and on the receiver side) and eventually trigger wrong states/events
-without producing any real effect.
+=46rom: Sven Eckelmann <sven@narfation.org>
 
-For this reason we can safely delete any ADD event with its related DEL one.
-
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Reported-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/translation-table.c |   40 +++++++++++++++++++++++++++++++++---
- 1 file changed, 37 insertions(+), 3 deletions(-)
+ net/batman-adv/vis.c |    2 +-
+ net/batman-adv/vis.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 074936f..d82766b 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -157,7 +157,9 @@ batadv_tt_orig_list_entry_free_ref(struct tt_orig_list_entry *orig_entry)
- static void batadv_tt_local_event(struct bat_priv *bat_priv,
- 				  const uint8_t *addr, uint8_t flags)
- {
--	struct tt_change_node *tt_change_node;
-+	struct tt_change_node *tt_change_node, *entry, *safe;
-+	bool event_removed = false;
-+	bool del_op_requested, del_op_entry;
- 
- 	tt_change_node = kmalloc(sizeof(*tt_change_node), GFP_ATOMIC);
- 
-@@ -167,13 +169,45 @@ static void batadv_tt_local_event(struct bat_priv *bat_priv,
- 	tt_change_node->change.flags = flags;
- 	memcpy(tt_change_node->change.addr, addr, ETH_ALEN);
- 
-+	del_op_requested = flags & TT_CLIENT_DEL;
-+
-+	/* check for ADD+DEL or DEL+ADD events */
- 	spin_lock_bh(&bat_priv->tt_changes_list_lock);
-+	list_for_each_entry_safe(entry, safe, &bat_priv->tt_changes_list,
-+				 list) {
-+		if (!batadv_compare_eth(entry->change.addr, addr))
-+			continue;
-+
-+		/* DEL+ADD in the same orig interval have no effect and can be
-+		 * removed to avoid silly behaviour on the receiver side. The
-+		 * other way around (ADD+DEL) can happen in case of roaming of
-+		 * a client still in the NEW state. Roaming of NEW clients is
-+		 * now possible due to automatically recognition of "temporary"
-+		 * clients
-+		 */
-+		del_op_entry = entry->change.flags & TT_CLIENT_DEL;
-+		if (!del_op_requested && del_op_entry)
-+			goto del;
-+		if (del_op_requested && !del_op_entry)
-+			goto del;
-+		continue;
-+del:
-+		list_del(&entry->list);
-+		kfree(entry);
-+		event_removed = true;
-+		goto unlock;
-+	}
-+
- 	/* track the change in the OGMinterval list */
- 	list_add_tail(&tt_change_node->list, &bat_priv->tt_changes_list);
--	atomic_inc(&bat_priv->tt_local_changes);
-+
-+unlock:
- 	spin_unlock_bh(&bat_priv->tt_changes_list_lock);
- 
--	atomic_set(&bat_priv->tt_ogm_append_cnt, 0);
-+	if (event_removed)
-+		atomic_dec(&bat_priv->tt_local_changes);
-+	else
-+		atomic_inc(&bat_priv->tt_local_changes);
- }
- 
- int batadv_tt_len(int changes_num)
--- 
+diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
+index 596eacc..a439ed6 100644
+--- a/net/batman-adv/vis.c
++++ b/net/batman-adv/vis.c
+@@ -674,7 +674,7 @@ static void batadv_purge_vis_packets(struct bat_pri=
+v *bat_priv)
+ 				continue;
+=20
+ 			if (batadv_has_timed_out(info->first_seen,
+-						 VIS_TIMEOUT)) {
++						 BATADV_VIS_TIMEOUT)) {
+ 				hlist_del(node);
+ 				batadv_send_list_del(info);
+ 				kref_put(&info->refcount, batadv_free_info);
+diff --git a/net/batman-adv/vis.h b/net/batman-adv/vis.h
+index dad5958..16a1a6b 100644
+--- a/net/batman-adv/vis.h
++++ b/net/batman-adv/vis.h
+@@ -21,7 +21,7 @@
+ #define _NET_BATMAN_ADV_VIS_H_
+=20
+ /* timeout of vis packets in miliseconds */
+-#define VIS_TIMEOUT		200000
++#define BATADV_VIS_TIMEOUT		200000
+=20
+ int batadv_vis_seq_print_text(struct seq_file *seq, void *offset);
+ void batadv_receive_server_sync_packet(struct bat_priv *bat_priv,
+--=20
 1.7.9.4
