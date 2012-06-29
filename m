@@ -1,60 +1,43 @@
-From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Subject: Re: AF_BUS socket address family
-Date: Sat, 30 Jun 2012 00:12:37 +0100
-Message-ID: <20120629231236.GA28593@mail.collabora.co.uk>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
- <20120629.153656.1141845894730637434.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 2/6] qlge: Stand-up card should not report supporting wol.
+Date: Sat, 30 Jun 2012 01:02:00 +0200
+Message-ID: <20120629230200.GA22193@electric-eye.fr.zoreil.com>
+References: <1340994290-28832-1-git-send-email-jitendra.kalsaria@qlogic.com> <1340994290-28832-3-git-send-email-jitendra.kalsaria@qlogic.com> <20120629213747.GB19152@electric-eye.fr.zoreil.com> <5E4F49720D0BAD499EE1F01232234BA877435B23DA@AVEXMB1.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:40435 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754164Ab2F2XND (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 19:13:03 -0400
 Content-Disposition: inline
-In-Reply-To: <20120629.153656.1141845894730637434.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5E4F49720D0BAD499EE1F01232234BA877435B23DA@AVEXMB1.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 29, 2012 at 03:36:56PM -0700, David Miller wrote:
+(linux-zupk.site removed)
+
+Jitendra Kalsaria <jitendra.kalsaria@qlogic.com> :
+[...]
+> - broken indent
+> - netif_err(... "cleared successfully" ...)
+> [JK] I don't think so, %s will be replace with "cleared successfully" or with "clear failed" depend upon status value.
+
+I would not netif_err when everything is ok.
+
+[...]
+> If I read things correctly, WAKE_MAGIC can not be cleared and it makes no
+> difference on the status code. It should be fixed.
 > 
-> There is no extensive text describing why using IPv4 for this cannot
-> be done.  I can almost bet that nobody really, honestly, tried.
-> 
+> [JK] You right, here we are not clearing WAKE_MAGIC but we are making sure that wol is disable when no option is set.
 
-I can assure you that the team has tried no fewer than six differing
-approaches, including using IP and attempting to bend several of the
-existing address families.
+Imho wol should be disabled as well when neither WAKE_MAGIC nor any option
+is set at all.
 
-> Basically this means all of our feedback from the last time we had
-> discussions on kernel IPC for DBUS are being completely ignored.
-
-Absolutely not, we listened hard and did extensive research, please do
-not ascribe thoughtlessness to our actions. Certainly I would not
-presume to waste your time and present something which has not been
-thoroughly considered.
-
-I had hoped you would have at least read the opening list where I
-outlined the underlying features which explain why none of the
-existing IPC match the requirements.
-
-Firstly it is intended is an interprocess mechanism and not to rely on
-a configured IP system, indeed one of its primary usages is to
-provide mechanism for various tools to set up IP networking.
-
-Leaving that aside the requirements for multicast, strict ordering, fd
-passing and credential passing are simply not available in any other
-single transport. It was made plain to us that AF_UNIX would not be
-expanded to encompass multicast so we are left with adding AF_BUS.
-
-If we are wrong I hope you will explain to me how we can achieve fd and
-credential passing to multicast groups within existing protocols.
-
-> 
-> Therefore, I will completely ignore this patch submission.
-> 
-
-I do hope you will reconsider, or at least educate us appropriately. 
-I understand you are a busy maintainer and appreciate your time in this matter.
-
-Best regards
---
-Vincent Sanders <vincent.sanders@collabora.co.uk>
+-- 
+Ueimor
