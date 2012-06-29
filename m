@@ -1,31 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] davinci_cpdma: include linux/module.h
-Date: Thu, 28 Jun 2012 17:03:49 -0700 (PDT)
-Message-ID: <20120628.170349.745871140804161480.davem@davemloft.net>
-References: <1340899952-15201-1-git-send-email-zonque@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH net-next] ipvs: add missing lock in
+ ip_vs_ftp_init_conn()
+Date: Fri, 29 Jun 2012 03:17:33 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1206290225490.1722@ja.ssi.bg>
+References: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	hvaibhav@ti.com, christian.riesch@omicron.at
-To: zonque@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	Xiaotian Feng <dannyfeng@tencent.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xiaotian Feng <xtfeng@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57652 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751968Ab2F2ADu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jun 2012 20:03:50 -0400
-In-Reply-To: <1340899952-15201-1-git-send-email-zonque@gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:56429 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753018Ab2F2AMM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2012 20:12:12 -0400
+In-Reply-To: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGFuaWVsIE1hY2sgPHpvbnF1ZUBnbWFpbC5jb20+DQpEYXRlOiBUaHUsIDI4IEp1biAy
-MDEyIDE4OjEyOjMyICswMjAwDQoNCj4gVGhpcyBmaXhlcyBhIG51bWJlciBvZiB3YXJuaW5ncyBz
-dWNoIGFzOg0KPiANCj4gICBDQyAgICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lf
-Y3BkbWEubw0KPiBkcml2ZXJzL25ldC9ldGhlcm5ldC90aS9kYXZpbmNpX2NwZG1hLmM6Mjc5OjE6
-IHdhcm5pbmc6IGRhdGEgZGVmaW5pdGlvbg0KPiBoYXMgbm8gdHlwZSBvciBzdG9yYWdlIGNsYXNz
-DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lfY3BkbWEuYzoyNzk6MTogd2Fybmlu
-ZzogdHlwZSBkZWZhdWx0cyB0bw0KPiChaW50oiBpbiBkZWNsYXJhdGlvbiBvZiChRVhQT1JUX1NZ
-TUJPTF9HUEyiDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3RpL2RhdmluY2lfY3BkbWEuYzoyNzk6
-MTogd2FybmluZzogcGFyYW1ldGVyIG5hbWVzDQo+ICh3aXRob3V0IHR5cGVzKSBpbiBmdW5jdGlv
-biBkZWNsYXJhdGlvbg0KPiANCj4gU2lnbmVkLW9mZi1ieTogRGFuaWVsIE1hY2sgPHpvbnF1ZUBn
-bWFpbC5jb20+DQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
+
+	Hello,
+
+On Thu, 28 Jun 2012, Xiaotian Feng wrote:
+
+> We met a kernel panic in 2.6.32.43 kernel:
+> 
+> [2680191.848044] IPVS: ip_vs_conn_hash(): request for already hashed, called from run_timer_softirq+0x175/0x1d0
+> <snip>
+> [2680311.849009] general protection fault: 0000 [#1] SMP
+> [2680311.853001] RIP: 0010:[<ffffffff815f155c>]  [<ffffffff815f155c>] ip_vs_conn_expire+0xdc/0x2f0
+> [2680311.853001] RSP: 0018:ffff880028303e70  EFLAGS: 00010202
+> [2680311.853001] RAX: dead000000200200 RBX: ffff8801aad00b80 RCX: 0000000000001d90
+> [2680311.853001] RDX: dead000000100100 RSI: 000000004fd59800 RDI: ffff8801aad00c08
+> <snip>
+> [2680311.853001] Call Trace:
+> [2680311.853001]  <IRQ>
+> [2680311.853001]  [<ffffffff815f1480>] ? ip_vs_conn_expire+0x0/0x2f0
+> [2680311.853001]  [<ffffffff8104e2a5>] run_timer_softirq+0x175/0x1d0
+> [2680311.853001]  [<ffffffff81021a48>] ? lapic_next_event+0x18/0x20
+> [2680311.853001]  [<ffffffff81049a13>] __do_softirq+0xb3/0x150
+> [2680311.853001]  [<ffffffff8100cc5c>] call_softirq+0x1c/0x30
+> [2680311.853001]  [<ffffffff8100ea9a>] do_softirq+0x4a/0x80
+> [2680311.853001]  [<ffffffff81049957>] irq_exit+0x77/0x80
+> [2680311.853001]  [<ffffffff81021f2c>] smp_apic_timer_interrupt+0x6c/0xa0
+> [2680311.853001]  [<ffffffff8100c633>] apic_timer_interrupt+0x13/0x20
+> [2680311.853001]  <EOI>
+> [2680311.853001]  [<ffffffff81013b52>] ? mwait_idle+0x52/0x70
+> [2680311.853001]  [<ffffffff8100a7b0>] ? enter_idle+0x20/0x30
+> [2680311.853001]  [<ffffffff8100ac62>] ? cpu_idle+0x52/0x80
+> [2680311.853001]  [<ffffffff816d504d>] ? start_secondary+0x19d/0x280
+> 
+> rax and rdx is LIST_POISON1 and LIST_POISON2, so kernel is list_del() on an already deleted
+> connection and result the general protect fault.
+> 
+> The "request for already hashed" warning, told us someone might change the connection flags
+> incorrectly, like described in commit aea9d711, it changes the connection flags, but doesn't
+> put the connection back to the list. So ip_vs_conn_hash() throw a warning and return.
+> Later, when ip_vs_conn_expire fire again, ip_vs_conn_unhash() will find the HASHED connection
+> and list_del() it, then kernel panic happened.
+> 
+> After code review, the only chance that kernel change connection flag without protection is
+> in ip_vs_ftp_init_conn().
+
+	Hm, ip_vs_ftp_init_conn is called before 1st hashing,
+from ip_vs_bind_app() in ip_vs_conn_new() before
+ip_vs_conn_hash(). It should be another problem with
+the flags. How different is IPVS in 2.6.32.43 compared to
+recent kernels? If commit aea9d711 is present, I'm not
+aware of other similar problems.
+
+	May be you can post some details for your setup on
+lvs-devel@vger.kernel.org. I assume FTP is used,
+what about master-backup sync? Can you confirm that
+this fix solves the problem or it happens in rare cases?
+
+> Signed-off-by: Xiaotian Feng <dannyfeng@tencent.com>
+> Cc: Wensong Zhang <wensong@linux-vs.org>
+> Cc: Simon Horman <horms@verge.net.au>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: "David S. Miller" <davem@davemloft.net> 
+> ---
+>  net/netfilter/ipvs/ip_vs_ftp.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> index b20b29c..c2bc264 100644
+> --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> @@ -65,8 +65,10 @@ static int ip_vs_ftp_pasv;
+>  static int
+>  ip_vs_ftp_init_conn(struct ip_vs_app *app, struct ip_vs_conn *cp)
+>  {
+> +	spin_lock(&cp->lock);
+>  	/* We use connection tracking for the command connection */
+>  	cp->flags |= IP_VS_CONN_F_NFCT;
+> +	spin_unlock(&cp->lock);
+>  	return 0;
+>  }
+>  
+> -- 
+> 1.7.1
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
