@@ -1,60 +1,48 @@
-From: pablo@netfilter.org
-Subject: [PATCH 2/5] netfilter: ipvs: fix dst leak in __ip_vs_addr_is_local_v6
-Date: Fri, 29 Jun 2012 17:37:32 +0200
-Message-ID: <1340984255-738-3-git-send-email-pablo@netfilter.org>
-References: <1340984255-738-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1340984255-738-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Andreas Gruenbacher <agruen@linbit.com>
+Subject: Re: [RFC] [TCP 1/3] tcp: Add MSG_NEW_PACKET flag to indicate
+ preferable packet boundaries
+Date: Fri, 29 Jun 2012 17:38:55 +0200
+Message-ID: <1340984335.25450.24.camel@gurkel.linbit>
+References: <1340981690.25226.3.camel@gurkel.linbit>
+	 <1340982666.21162.3.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340982666.21162.3.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2012-06-29 at 17:11 +0200, Eric Dumazet wrote:
+> On Fri, 2012-06-29 at 16:54 +0200, Andreas Gruenbacher wrote:
+> > The MSG_NEW_PACKET flag indicates to sendmsg / sendpage that the message or
+> > page should be put into a new packet even when there is still room left in the
+> > previous packet.
+> > 
+> > In the tcp protocol, messages which are not sent immediately are queued.  When
+> > more data is sent, it will be added to the last segment in that queue until
+> > that segment is "full" whenever possible; only then is a new segment added.
+> > Right now, there is no way to indicate when tcp should start a new segment.
+> > The new flag allows to control that.
+> > 
+> > Signed-off-by: Andreas Gruenbacher <agruen@linbit.com>
+> > ---
+> 
+> I don't understand how maintaining any message boundaries at sender can
+> prevent any middlebox or the receiver to coalesce frames to any
+> boundaries it prefers ?
 
-After call to ip6_route_output() we must release dst or we leak it.
+The primary use case is fast Gigabit (10 or more) Ethernet connections
+with jumbo frames and switches that support them.  There, frames will go
+through unchanged and you can zero-copy receive all the time.
 
-Also should test dst->error, as ip6_route_output() never returns NULL.
+Not sure how well the approach scales to other kinds of connections; it
+may work often enough to be worth it.  When things get distorted between
+the sender and the receiver and tcp_recvbio() fails, the data can still
+be copied out of the socket as before.
 
-Use boolean while we are at it.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index dd811b8..d43e3c1 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -76,19 +76,19 @@ static void __ip_vs_del_service(struct ip_vs_service *svc);
- 
- #ifdef CONFIG_IP_VS_IPV6
- /* Taken from rt6_fill_node() in net/ipv6/route.c, is there a better way? */
--static int __ip_vs_addr_is_local_v6(struct net *net,
--				    const struct in6_addr *addr)
-+static bool __ip_vs_addr_is_local_v6(struct net *net,
-+				     const struct in6_addr *addr)
- {
--	struct rt6_info *rt;
- 	struct flowi6 fl6 = {
- 		.daddr = *addr,
- 	};
-+	struct dst_entry *dst = ip6_route_output(net, NULL, &fl6);
-+	bool is_local;
- 
--	rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
--	if (rt && rt->dst.dev && (rt->dst.dev->flags & IFF_LOOPBACK))
--		return 1;
-+	is_local = !dst->error && dst->dev && (dst->dev->flags & IFF_LOOPBACK);
- 
--	return 0;
-+	dst_release(dst);
-+	return is_local;
- }
- #endif
- 
--- 
-1.7.10
-
+Andreas
