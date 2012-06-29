@@ -1,72 +1,36 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next 1/4] net: introduce new priv_flag indicating
-	iface capable of change mac when running
-Date: Fri, 29 Jun 2012 08:41:39 +0200
-Message-ID: <20120629064139.GA1522@minipsycho.orion>
-References: <1340892639-1111-1-git-send-email-jpirko@redhat.com>
-	<1340892639-1111-2-git-send-email-jpirko@redhat.com>
-	<1340921854.2577.16.camel@bwh-desktop.uk.solarflarecom.com>
+From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
+Subject: RE: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 29 Jun 2012 08:46:04 +0200
+Message-ID: <81C3A93C17462B4BBD7E272753C10579232F86B36C@EXDCVYMBSTM005.EQ1STM.local>
+References: <20120626131543.21e4338894b19f5e02f8bdde@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
-	virtualization@lists.linux-foundation.org,
-	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1340921854.2577.16.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Per ELLEFSEN <per.ellefsen@stericsson.com>,
+	Kim LILLIESTIERNA <kim.xx.lilliestierna@stericsson.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20120626131543.21e4338894b19f5e02f8bdde@canb.auug.org.au>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fri, Jun 29, 2012 at 12:17:34AM CEST, bhutchings@solarflare.com wrote:
->On Thu, 2012-06-28 at 16:10 +0200, Jiri Pirko wrote:
->> Introduce IFF_LIFE_ADDR_CHANGE priv_flag and use it to disable
->> netif_running() check in eth_mac_addr()
->>
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->>  include/linux/if.h |    2 ++
->>  net/ethernet/eth.c |    2 +-
->>  2 files changed, 3 insertions(+), 1 deletion(-)
->> 
->> diff --git a/include/linux/if.h b/include/linux/if.h
->> index f995c66..fd9ee7c 100644
->> --- a/include/linux/if.h
->> +++ b/include/linux/if.h
->> @@ -81,6 +81,8 @@
->>  #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
->>  #define IFF_TEAM_PORT	0x40000		/* device used as team port */
->>  #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
->> +#define IFF_LIFE_ADDR_CHANGE 0x100000	/* device supports hardware address
->> +					 * change when it's running */
->[...]
->
->Any device that has IFF_UNICAST_FLT can update the unicast MAC filter
->while it's running; doesn't that go hand-in-hand with being able to
->handle changes to the primary MAC address?  Is the new flag really
->necessary at all?
+Hi Stephen,
 
-Hmm, this makes sense. But, can you guarantee that all devices behave like this?
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/caif/caif_hsi.c between commits 3935600a7f34 ("caif-hsi:
+> Bugfix - Piggyback'ed embedded CAIF frame lost") and 1fdc7630b2cb
+> ("caif-hsi: Add missing return in error path") from the net tree and
+> commits 4e7bb59d49fb ("caif-hsi: Removed dead code") and c41254006377
+> ("caif-hsi: Add rtnl support") from the net-next tree.
+> 
+> I fixed them up (see below) and can carry the fix as necessary.
 
-Also, there are many devices that does not support unicast filtering
-and yet they support updating mac adress while running.
+Sorry for late response. Your merge looks perfect.
 
-Jirka
-
->
->Ben.
->
->-- 
->Ben Hutchings, Staff Engineer, Solarflare
->Not speaking for my employer; that's the marketing department's job.
->They asked us to note that Solarflare product names are trademarked.
->
+Thanks,
+Sjur
