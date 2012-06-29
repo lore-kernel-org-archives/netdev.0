@@ -1,7 +1,7 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 3/6] qlge: Garbage values shown in extra info during selftest.
-Date: Fri, 29 Jun 2012 14:24:47 -0400
-Message-ID: <1340994290-28832-4-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 4/6] qlge: Fixed double pci free upon tx_ring->q allocation failure.
+Date: Fri, 29 Jun 2012 14:24:48 -0400
+Message-ID: <1340994290-28832-5-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1340994290-28832-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Cc: netdev@vger.kernel.org, Ron@linux-zupk.site,
 	"Mercer <ron.mercer"@qlogic.com,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Ron@linux-zupk.site,
 	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:31039 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:35961 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932099Ab2F2Sln (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932101Ab2F2Sln (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 29 Jun 2012 14:41:43 -0400
 In-Reply-To: <1340994290-28832-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,36 +19,43 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-while running selftest 'ethtool -t' multiple times will get
-different values in the 'extra info' section, which was garbage.
-
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-index 81672f5..966bd96 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-@@ -248,6 +248,9 @@ static char ql_stats_str_arr[][ETH_GSTRING_LEN] = {
- static void ql_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- {
- 	switch (stringset) {
-+	case ETH_SS_TEST:
-+		memcpy(buf, *ql_gstrings_test, QLGE_TEST_LEN * ETH_GSTRING_LEN);
-+		break;
- 	case ETH_SS_STATS:
- 		memcpy(buf, ql_stats_str_arr, sizeof(ql_stats_str_arr));
- 		break;
-@@ -539,6 +542,8 @@ static void ql_self_test(struct net_device *ndev,
- {
- 	struct ql_adapter *qdev = netdev_priv(ndev);
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index cdbc860..aa514c5 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -2701,11 +2701,9 @@ static int ql_alloc_tx_resources(struct ql_adapter *qdev,
+ 	    pci_alloc_consistent(qdev->pdev, tx_ring->wq_size,
+ 				 &tx_ring->wq_base_dma);
  
-+	memset(data, 0, sizeof(u64) * QLGE_TEST_LEN);
+-	if ((tx_ring->wq_base == NULL) ||
+-	    tx_ring->wq_base_dma & WQ_ADDR_ALIGN) {
+-		netif_err(qdev, ifup, qdev->ndev, "tx_ring alloc failed.\n");
+-		return -ENOMEM;
+-	}
++	if ((tx_ring->wq_base == NULL) || tx_ring->wq_base_dma & WQ_ADDR_ALIGN)
++		goto err;
 +
- 	if (netif_running(ndev)) {
- 		set_bit(QL_SELFTEST, &qdev->flags);
- 		if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
+ 	tx_ring->q =
+ 	    kmalloc(tx_ring->wq_len * sizeof(struct tx_ring_desc), GFP_KERNEL);
+ 	if (tx_ring->q == NULL)
+@@ -2713,8 +2711,12 @@ static int ql_alloc_tx_resources(struct ql_adapter *qdev,
+ 
+ 	return 0;
+ err:
+-	pci_free_consistent(qdev->pdev, tx_ring->wq_size,
++	if (tx_ring->wq_base) {
++		pci_free_consistent(qdev->pdev, tx_ring->wq_size,
+ 			    tx_ring->wq_base, tx_ring->wq_base_dma);
++		tx_ring->wq_base = NULL;
++	}
++	netif_err(qdev, ifup, qdev->ndev, "tx_ring alloc failed.\n");
+ 	return -ENOMEM;
+ }
+ 
 -- 
 1.7.1
