@@ -1,10 +1,10 @@
 From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Subject: [PATCH net-next 12/15] netlink: connector: Add idx and val identifiers for netfilter D-Bus
-Date: Fri, 29 Jun 2012 17:45:51 +0100
-Message-ID: <1340988354-26981-13-git-send-email-vincent.sanders@collabora.co.uk>
+Subject: [PATCH net-next 10/15] net: bus: Add the AF_BUS socket address family to KBuild
+Date: Fri, 29 Jun 2012 17:45:49 +0100
+Message-ID: <1340988354-26981-11-git-send-email-vincent.sanders@collabora.co.uk>
 References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Alban Crequy <alban.crequy@collabora.co.uk>
+	Vincent Sanders <vincent.sanders@collabora.co.uk>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -14,37 +14,76 @@ List-Id: netdev.vger.kernel.org
 
 From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 
-The D-bus IPC system implements a transport that uses AF_BUS sockets to
-send D-Bus messages to the peers. This allows decouple the routing logic
-from the daemon and move it to the kernel which has the advantage of
-reducing the number of context switches and the messages copied to
-user-space.
-
-A D-Bus protocol aware netfilter module decide which peer can recive a
-given message based on a set of D-Bus match rules. These match rules
-are set from user-space using the netlink connector API.
+This patch adds the AF_BUS code to the Linux Kernel build system.
 
 Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Signed-off-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
 ---
- include/linux/connector.h |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/Kconfig      |    1 +
+ net/Makefile     |    1 +
+ net/bus/Kconfig  |   15 +++++++++++++++
+ net/bus/Makefile |    7 +++++++
+ 4 files changed, 24 insertions(+)
+ create mode 100644 net/bus/Kconfig
+ create mode 100644 net/bus/Makefile
 
-diff --git a/include/linux/connector.h b/include/linux/connector.h
-index c27be60..519d010 100644
---- a/include/linux/connector.h
-+++ b/include/linux/connector.h
-@@ -44,8 +44,10 @@
- #define CN_VAL_DRBD			0x1
- #define CN_KVP_IDX			0x9	/* HyperV KVP */
- #define CN_KVP_VAL			0x1	/* queries from the kernel */
-+#define CN_IDX_NFDBUS                   0xA     /* netfilter D-Bus */
-+#define CN_VAL_NFDBUS                   0x1
+diff --git a/net/Kconfig b/net/Kconfig
+index 245831b..339a630 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -47,6 +47,7 @@ menu "Networking options"
  
--#define CN_NETLINK_USERS		10	/* Highest index + 1 */
-+#define CN_NETLINK_USERS		11	/* Highest index + 1 */
+ source "net/packet/Kconfig"
+ source "net/unix/Kconfig"
++source "net/bus/Kconfig"
+ source "net/xfrm/Kconfig"
+ source "net/iucv/Kconfig"
  
- /*
-  * Maximum connector's message size.
+diff --git a/net/Makefile b/net/Makefile
+index 4f4ee08..ad0e900 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -19,6 +19,7 @@ obj-$(CONFIG_NETFILTER)		+= netfilter/
+ obj-$(CONFIG_INET)		+= ipv4/
+ obj-$(CONFIG_XFRM)		+= xfrm/
+ obj-$(CONFIG_UNIX)		+= unix/
++obj-$(CONFIG_AF_BUS)		+= bus/
+ obj-$(CONFIG_NET)		+= ipv6/
+ obj-$(CONFIG_PACKET)		+= packet/
+ obj-$(CONFIG_NET_KEY)		+= key/
+diff --git a/net/bus/Kconfig b/net/bus/Kconfig
+new file mode 100644
+index 0000000..5f01410
+--- /dev/null
++++ b/net/bus/Kconfig
+@@ -0,0 +1,15 @@
++#
++# Bus Domain Sockets
++#
++
++config AF_BUS
++	tristate "Bus domain sockets (EXPERIMENTAL)"
++	depends on EXPERIMENTAL
++	---help---
++	  If you say Y here, you will include support for Bus domain sockets.
++	  These sockets are used to create communication buses for IPC.
++
++	  To compile this driver as a module, choose M here: the module will be
++	  called bus.
++
++	  Say N unless you know what you are doing.
+diff --git a/net/bus/Makefile b/net/bus/Makefile
+new file mode 100644
+index 0000000..8c1fea2
+--- /dev/null
++++ b/net/bus/Makefile
+@@ -0,0 +1,7 @@
++#
++# Makefile for the Linux bus domain socket layer.
++#
++
++obj-$(CONFIG_AF_BUS)	+= af-bus.o
++
++af-bus-y		:= af_bus.o garbage.o
 -- 
 1.7.10
