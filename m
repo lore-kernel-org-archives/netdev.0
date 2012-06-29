@@ -1,44 +1,38 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re[2]:  BUG: NULL pointer in ctnetlink_conntrack_event
-Date: Fri, 29 Jun 2012 20:22:15 +0200 (CEST)
-Message-ID: <dri38gk.7565a5f72fad1195f68b28af6833796c@obelix.schillstrom.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 1/5] netfilter: ipset: fix interface comparision in
+ hash-netiface sets
+Date: Fri, 29 Jun 2012 20:24:23 +0200
+Message-ID: <20120629182423.GD13074@breakpoint.cc>
+References: <1340984255-738-2-git-send-email-pablo@netfilter.org>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6F6E@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: "Pablo Neira Ayuso" <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-gw11.han.skanova.net ([81.236.55.20]:47407 "EHLO
-	smtp-gw11.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512Ab2F2SWT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 14:22:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6E@saturn3.aculab.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->On Fri, Jun 29, 2012 at 02:29:37PM +0200, Hans Schillstrom wrote:
->> Hello,
->> 
->> There is a "hard to find" problem in ctnetlink_conntrack_event() when calling
->> netlink_has_listeners() net->nfnl is NULL.
->> 
->> The rcu stuff seems to be right at a first look but who knows...
->> 
->> The line below fix the problem, but that is not the root cause.
->> 
->>  int nfnetlink_has_listeners(struct net *net, unsigned int group)
->>  {
->> -       return netlink_has_listeners(net->nfnl, group);
->> +       return net->nfnl ? netlink_has_listeners(net->nfnl, group) : 0 ;
->>  }
->> 
->> Yes it is a 3.0.26 kernel but this patch is applied
->> netfilter: nf_conntrack: make event callback registration per-netns
->
->I think this patch above is missing some rcu_access_pointer usage.
->
->Please, see patch attached.
+David Laight <David.Laight@ACULAB.COM> wrote:
+> > From: Florian Westphal <fw@strlen.de>
+> > 
+> > ifname_compare() assumes that skb->dev is zero-padded,
+> > e.g 'eth1\0\0\0\0\0...'. This isn't always the case. e1000 driver does
+> > 
+> > strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+> > 
+> > in e1000_probe(), so once device is registered dev->name memory
+> contains
+> > 'eth1\0:0:3\0\0\0' (or something like that), which makes eth1 compare
+> fail.
+> 
+> strncpy() would normally zero-fill the destination buffer
+> (at least the libc version does).
+> 
+> So something else must be wrong.
 
-Thanks it looks like it's the missing patch.
-
-/Hans
+No. driver .probe() runs before the device name is filled in, and no
+explict zeroing happens there.
