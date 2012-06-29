@@ -1,43 +1,90 @@
-From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
-Subject: AW: RFC: replace packets already in queue
-Date: Fri, 29 Jun 2012 08:46:32 +0000
-Message-ID: <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
-References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
- <4FEC854E.8080603@hp.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH net-next] ipvs: add missing lock in
+ ip_vs_ftp_init_conn()
+Date: Fri, 29 Jun 2012 12:04:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1206291125270.1690@ja.ssi.bg>
+References: <1340890587-8169-1-git-send-email-xtfeng@gmail.com> <alpine.LFD.2.00.1206290225490.1722@ja.ssi.bg> <CAJn8CcFy=K+Aizpi0pvnpXCOYXhgyq12oBgVaPvMthW_fwn4Pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1915040808-1340960702=:1690"
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	Xiaotian Feng <dannyfeng@tencent.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xiaotian Feng <xtfeng@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <CAJn8CcFy=K+Aizpi0pvnpXCOYXhgyq12oBgVaPvMthW_fwn4Pg@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---1463811672-1915040808-1340960702=:1690
+Content-Type: TEXT/PLAIN; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:43075 "EHLO
-	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946Ab2F2Iqg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 04:46:36 -0400
-In-Reply-To: <4FEC854E.8080603@hp.com>
-Content-Language: de-DE
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hello Rick Jones,
 
-> You might want to try the recent "codel" additions to the stack.  They
-> seek to keep the size of queues more manageable while still allowing
-> the occasional burst.
-Thank you for your hint. This is surly a needful solution in normal network, but this didn't help us:
-We are working with very heterogeneous networks:
-Internal: 100MBit and more.
-Extern: 9,6*K*Bit and LESS(*), and shared, and...
-A few other information: wireless (higher packet loss rate), medium access time > 100ms, RTT (standard ping) with IDLE network: 1,5 *seconds*, RTT with network load: minutes(!), and so on. Just very shocking..
+	Hello,
 
-TCP isn't usable over such a link. So we are only sending UDP. The codel didn't help us, as codel addresses the flow speed. It's dropping "randomly" (I know it's not random in the lower level, but it's random from the application's perspective) packets. 
+On Fri, 29 Jun 2012, Xiaotian Feng wrote:
 
-I'm addressing the amount of information: Trying to reduce it intelligently by REPLACING old packets with new ones.. Surely - the application must handle this. But in such a network a administrator have to configure the queues and he knows the applications.
-In one private mail someone guesses that we are making VoIP. No - we just want to send status information (e.g. sensor information) which will get deprecated, when a new information is available.
+> > On Thu, 28 Jun 2012, Xiaotian Feng wrote:
+> >
+> >> We met a kernel panic in 2.6.32.43 kernel:
+> >>
+> >> [2680191.848044] IPVS: ip_vs_conn_hash(): request for already hashed, called from run_timer_softirq+0x175/0x1d0
+> >> <snip>
+> >> [2680311.849009] general protection fault: 0000 [#1] SMP
 
-I know, this is a very special problem, which didn't occur in normal or even abnormal situations. But I'm sure there are some other people having the this problem, too. So I'm glad to share my solution.
+	What we see here is 120 seconds between 2680191 and
+2680311. It can mean 2 things:
 
-(*you remember the good ol' times with modems over telephone lines? When the internet was called BBS? And how it suddenly feels, when the BBS starts using ANSI? This was comfortable compared to our problem..)
+- some state timeout, it depends on your forwarding method.
+What is it? NAT? DR?
 
-Greetings
-Ralph Erdt
+- 60 seconds for ip_vs_conn_expire retries
+
+> >> After code review, the only chance that kernel change connection flag without protection is
+> >> in ip_vs_ftp_init_conn().
+> >
+> >        Hm, ip_vs_ftp_init_conn is called before 1st hashing,
+> > from ip_vs_bind_app() in ip_vs_conn_new() before
+> > ip_vs_conn_hash(). It should be another problem with
+> > the flags. How different is IPVS in 2.6.32.43 compared to
+> > recent kernels? If commit aea9d711 is present, I'm not
+> > aware of other similar problems.
+> 
+> ip_vs_bind_app() is also called by ip_vs_try_bind_dest(), which can be
+> traced to ip_vs_proc_conn().
+> I've checked the changes in upstream, but nothing helps since aea9d711
+> has been taken into 2.6.32.28 kernel.
+
+	OK, this fix should make it safe for master-backup
+sync and it should be applied but I suspect you are not
+using sync, right? And then this fix will not solve the oops.
+
+	There are no many places that rehash conn:
+
+ip_vs_conn_fill_cport
+	- used for FTP
+
+ip_vs_check_template:
+	- do you have persistence configured?
+
+	After you provide details for the used forwarding
+method, persistence and sync we should think how such races
+with rehashing can lead to double hlist_del. May be
+you can modify the debug message in ip_vs_conn_hash, so
+that we can see cp->flags and ntohs of cp->cport, cp->dport
+and cp->vport when oops happens again.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-1915040808-1340960702=:1690--
