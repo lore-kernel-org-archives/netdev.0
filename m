@@ -1,7 +1,9 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next v2 0/4] net: introduce and use IFF_LIFE_ADDR_CHANGE
-Date: Fri, 29 Jun 2012 17:10:04 +0200
-Message-ID: <1340982608-897-1-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next v2 1/4] net: introduce new priv_flag indicating iface
+	capable of change mac when running
+Date: Fri, 29 Jun 2012 17:10:05 +0200
+Message-ID: <1340982608-897-2-git-send-email-jpirko@redhat.com>
+References: <1340982608-897-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +12,7 @@ Cc: mst@redhat.com, shimoda.hiroaki@gmail.com,
 	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1340982608-897-1-git-send-email-jpirko@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -21,24 +24,40 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-three drivers updated, but this can be used in many others.
+Introduce IFF_LIVE_ADDR_CHANGE priv_flag and use it to disable
+netif_running() check in eth_mac_addr()
 
-v1->v2:
-%s/LIFE/LIVE
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ include/linux/if.h |    2 ++
+ net/ethernet/eth.c |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-Jiri Pirko (4):
-  net: introduce new priv_flag indicating iface capable of change mac
-    when running
-  virtio_net: use IFF_LIVE_ADDR_CHANGE priv_flag
-  team: use IFF_LIVE_ADDR_CHANGE priv_flag
-  dummy: use IFF_LIVE_ADDR_CHANGE priv_flag
-
- drivers/net/dummy.c      |   15 ++-------------
- drivers/net/team/team.c  |    9 +++++----
- drivers/net/virtio_net.c |   11 +++++------
- include/linux/if.h       |    2 ++
- net/ethernet/eth.c       |    2 +-
- 5 files changed, 15 insertions(+), 24 deletions(-)
-
+diff --git a/include/linux/if.h b/include/linux/if.h
+index f995c66..1ec407b 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -81,6 +81,8 @@
+ #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
+ #define IFF_TEAM_PORT	0x40000		/* device used as team port */
+ #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
++#define IFF_LIVE_ADDR_CHANGE 0x100000	/* device supports hardware address
++					 * change when it's running */
+ 
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 36e5880..db6a6c1 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -283,7 +283,7 @@ int eth_mac_addr(struct net_device *dev, void *p)
+ {
+ 	struct sockaddr *addr = p;
+ 
+-	if (netif_running(dev))
++	if (!(dev->priv_flags & IFF_LIVE_ADDR_CHANGE) && netif_running(dev))
+ 		return -EBUSY;
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
 -- 
 1.7.10.4
