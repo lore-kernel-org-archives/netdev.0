@@ -1,36 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [BUG, regression, bisected] Marvell 88E8055 NIC (sky2) fails to detect link after resume from S3
-Date: Fri, 29 Jun 2012 23:58:40 +0200
-Message-ID: <20120629215840.GA21533@electric-eye.fr.zoreil.com>
-References: <op.wgon84tw16tawo@esprimo>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH net-next 0/6] qlge: bug fix
+Date: Fri, 29 Jun 2012 15:05:14 -0700
+Message-ID: <5E4F49720D0BAD499EE1F01232234BA877435B23C9@AVEXMB1.qlogic.org>
+References: <1340994290-28832-1-git-send-email-jitendra.kalsaria@qlogic.com>
+ <20120629214015.GE19152@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Michal Zatloukal <myxal.mxl@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:40361 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab2F2WJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 18:09:43 -0400
-Content-Disposition: inline
-In-Reply-To: <op.wgon84tw16tawo@esprimo>
+Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:54690
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750825Ab2F2WU0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 18:20:26 -0400
+In-Reply-To: <20120629214015.GE19152@electric-eye.fr.zoreil.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(maintainers Cced)
+Francois,
 
-Michal Zatloukal <myxal.mxl@gmail.com> :
-[7afe1845dd1e7c90828c942daed7e57ffa7c38d6 induced regression]
-> My uneducated guess is that by making the resume from S3 shorter, the
-> driver catches the hardware with its pants down and freaks out.
-> You can find all details/files (dmesg, lspci, dmidecode, config...)
-> collected by apport in the ubuntu bug linked above. Let me know if I
-> should supply any more info.
-> Note: Please CC me into replies, I'm not subscribed. Thank you.
+I have already fixed my cc list. Will resubmit to net as major of them where bug fixes and thanks for your suggestion.
 
-Can you workaround it by enforcing some mdelay() in sky2_resume before
-it does any real work ?
+Jiten
+
+-----Original Message-----
+From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+Sent: Friday, June 29, 2012 2:40 PM
+To: Jitendra Kalsaria
+Cc: David Miller; netdev; Dept-NX Linux NIC Driver
+Subject: Re: [PATCH net-next 0/6] qlge: bug fix
+
+Please fix your Cc:.
+
+Ron@linux-zupk.site does not exist.
 
 -- 
 Ueimor
