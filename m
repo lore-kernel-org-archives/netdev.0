@@ -1,46 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
-Date: Fri, 29 Jun 2012 17:08:43 +0200
-Message-ID: <1340982523.21162.1.camel@edumazet-glaptop>
-References: <1340981632.25226.2.camel@gurkel.linbit>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next v2 0/4] net: introduce and use IFF_LIFE_ADDR_CHANGE
+Date: Fri, 29 Jun 2012 17:10:04 +0200
+Message-ID: <1340982608-897-1-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andreas Gruenbacher <agruen@linbit.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340981632.25226.2.camel@gurkel.linbit>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mst@redhat.com, shimoda.hiroaki@gmail.com,
+	virtualization@lists.linux-foundation.org,
+	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-29 at 16:53 +0200, Andreas Gruenbacher wrote:
-> Hello,
-> 
-> I'm (still) trying to pass data from the network to the block layer without
-> copying. The block layer needs blocks to be contiguous in memory, and may have
-> some alignment restrictions as well.  A lot of modern network hardware will
-> receive large packets into separate buffers, so individual large packets will
-> end up in contiguous, aligned buffers.  I would like to make use of that, but
-> tcp currently doesn't allow me to control what ends up in which packets.
-> 
-> This patch series introduces a new flag for indicating to tcp when it should
-> start a new segment. Using that on the sender side, I can get data over the
-> network with no cpu copying at all.
-> 
-> [My last posting on this topic from May 8 is archived here:
->  http://www.spinics.net/lists/netdev/msg197788.html ]
-> 
-> Thanks,
-> Andreas
-> 
-> Andreas Gruenbacher (3):
->   tcp: Add MSG_NEW_PACKET flag to indicate preferable packet boundaries
->   tcp: Zero-copy receive from a socket into a bio
->   fs: Export bio_release_pages()
+three drivers updated, but this can be used in many others.
 
-This looks like yet another zero copy, needing another couple of hundred
-of lines.
+v1->v2:
+%s/LIFE/LIVE
 
-Why splice infrastructure doesnt fit your needs ?
+Jiri Pirko (4):
+  net: introduce new priv_flag indicating iface capable of change mac
+    when running
+  virtio_net: use IFF_LIVE_ADDR_CHANGE priv_flag
+  team: use IFF_LIVE_ADDR_CHANGE priv_flag
+  dummy: use IFF_LIVE_ADDR_CHANGE priv_flag
+
+ drivers/net/dummy.c      |   15 ++-------------
+ drivers/net/team/team.c  |    9 +++++----
+ drivers/net/virtio_net.c |   11 +++++------
+ include/linux/if.h       |    2 ++
+ net/ethernet/eth.c       |    2 +-
+ 5 files changed, 15 insertions(+), 24 deletions(-)
+
+-- 
+1.7.10.4
