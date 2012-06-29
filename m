@@ -1,54 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] [PATCH 1/1] xen/netback: only non-freed SKB is
- queued into tx_queue
-Date: Fri, 29 Jun 2012 00:50:37 -0700 (PDT)
-Message-ID: <20120629.005037.1477386520087362696.davem@davemloft.net>
-References: <1340794018-17274-1-git-send-email-annie.li@oracle.com>
-	<20120628.165550.1816352825092253548.davem@davemloft.net>
-	<1340954589.5953.12.camel@dagon.hellion.org.uk>
+Subject: Re: [PATCH] ipv6_tunnel: Allow receiving packets on the fallback
+ tunnel if they pass sanity checks
+Date: Fri, 29 Jun 2012 00:52:58 -0700 (PDT)
+Message-ID: <20120629.005258.2188206674865275736.davem@davemloft.net>
+References: <20120629041552.GA27362@ipom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: annie.li@oracle.com, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, konrad.wilk@oracle.com,
-	kurt.hackel@oracle.com
-To: Ian.Campbell@citrix.com
+Cc: netdev@vger.kernel.org, phild@fb.com, ville.nuorvala@gmail.com
+To: phil@ipom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59880 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59890 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812Ab2F2Hui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 03:50:38 -0400
-In-Reply-To: <1340954589.5953.12.camel@dagon.hellion.org.uk>
+	with ESMTP id S1751210Ab2F2Hw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 03:52:59 -0400
+In-Reply-To: <20120629041552.GA27362@ipom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Fri, 29 Jun 2012 08:23:09 +0100
+From: Phil Dibowitz <phil@ipom.com>
+Date: Thu, 28 Jun 2012 21:15:52 -0700
 
-> On Fri, 2012-06-29 at 00:55 +0100, David Miller wrote:
->> From: annie.li@oracle.com
->> Date: Wed, 27 Jun 2012 18:46:58 +0800
->> 
->> > From: Annie Li <Annie.li@oracle.com>
->> > 
->> > After SKB is queued into tx_queue, it will be freed if request_gop is NULL.
->> > However, no dequeue action is called in this situation, it is likely that
->> > tx_queue constains freed SKB. This patch should fix this issue, and it is
->> > based on 3.5.0-rc4+.
->> > 
->> > This issue is found through code inspection, no bug is seen with it currently.
->> > I run netperf test for several hours, and no network regression was found.
->> > 
->> > Signed-off-by: Annie Li <annie.li@oracle.com>
->> 
->> I lack the expertiece necessary to properly review this, so I really
->> need a Xen expert to look this over.
+> From: Ville Nuorvala <ville.nuorvala@gmail.com>
 > 
-> Sorry, I put it to one side waiting for the repost to netdev and then
-> forgot about it...
+> At Facebook, we do Layer-3 DSR via IP-in-IP tunneling. Our load balancers wrap
+> an extra IP header on incoming packets so they can be routed to the backend.
+> In the v4 tunnel driver, when these packets fall on the default tunl0 device,
+> the behavior is to decapsulate them and drop them back on the stack. So our
+> setup is that tunl0 has the VIP and eth0 has (obviously) the backend's real
+> address.
 > 
-> Yes, this change looks good to me:
+> In IPv6 we do the same thing, but the v6 tunnel driver didn't have this same
+> behavior - if you didn't have an explicit tunnel setup, it would drop the
+> packet.
 > 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> This patch brings that v4 feature to the v6 driver.
+> 
+> The same IPv6 address checks are performed as with any normal tunnel,
+> but as the fallback tunnel endpoint addresses are unspecified, the checks
+> must be performed on a per-packet basis, rather than at tunnel
+> configuration time.
+> 
+> [Patch description modified by phil@ipom.com]
+> 
+> Signed-off-by: Ville Nuorvala <ville.nuorvala@gmail.com>
+> Tested-by: Phil Dibowitz <phil@ipom.com>
 
-Thanks, applied to net-next.
+Applied to net-next
