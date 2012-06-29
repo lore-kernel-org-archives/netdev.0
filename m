@@ -1,86 +1,37 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next] em_canid: Ematch rule to match CAN frames according
- to their identifiers
-Date: Fri, 29 Jun 2012 17:44:02 +0200
-Message-ID: <4FEDCD42.8010203@hartkopp.net>
-References: <1340903231-9561-1-git-send-email-lisovy@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/5] netfilter: ipset: fix interface comparision in hash-netiface sets
+Date: Fri, 29 Jun 2012 16:41:16 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6E@saturn3.aculab.com>
+References: <1340984255-738-2-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Rostislav Lisovy <lisovy@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1340903231-9561-1-git-send-email-lisovy@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <pablo@netfilter.org>, <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1340984255-738-2-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Rostislav,
+> From: Florian Westphal <fw@strlen.de>
+> 
+> ifname_compare() assumes that skb->dev is zero-padded,
+> e.g 'eth1\0\0\0\0\0...'. This isn't always the case. e1000 driver does
+> 
+> strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+> 
+> in e1000_probe(), so once device is registered dev->name memory
+contains
+> 'eth1\0:0:3\0\0\0' (or something like that), which makes eth1 compare
+fail.
 
-looks really good now.
+strncpy() would normally zero-fill the destination buffer
+(at least the libc version does).
 
-1. Your Signed-off-by: is missing.
+So something else must be wrong.
 
-2. One remark to a removed length check:
-
-(..)
-
-> +static int em_canid_change(struct tcf_proto *tp, void *data, int len,
-> +			  struct tcf_ematch *m)
-> +{
-> +	struct can_filter *conf = data; /* Array with rules,
-> +					 * fixed size EM_CAN_RULES_SIZE
-> +					 */
-> +	struct canid_match *cm;
-> +	struct canid_match *cm_old = (struct canid_match *) m->data;
-> +	int i;
-> +	int rulescnt;
-> +
+	David
 
 
-What about a zero length check here?
-
-	if (!len)
-		return -EINVAL;
-
-???
-
-> +	if (len % sizeof(struct can_filter))
-> +		return -EINVAL;
-> +
-> +	if (len > sizeof(struct can_filter) * EM_CAN_RULES_MAX)
-> +		return -EINVAL;
-> +
-> +	rulescnt = len / sizeof(struct can_filter);
-> +
-> +	cm = kzalloc(sizeof(struct canid_match) + sizeof(struct can_filter) *
-> +		rulescnt, GFP_KERNEL);
-> +	if (!cm)
-> +		return -ENOMEM;
-
-
-The length could alternatively be checked here too
-
-http://lxr.linux.no/#linux+v3.4.4/net/sched/ematch.c#L235
-
-if em->ops->datalen is set.
-
-But here's no
-
-	.datalen = sizeof(struct can_filter),
-
-defined, right?
-
-> +static struct tcf_ematch_ops em_canid_ops = {
-> +	.kind	  = TCF_EM_CANID,
-> +	.change	  = em_canid_change,
-> +	.match	  = em_canid_match,
-> +	.destroy  = em_canid_destroy,
-> +	.dump	  = em_canid_dump,
-> +	.owner	  = THIS_MODULE,
-> +	.link	  = LIST_HEAD_INIT(em_canid_ops.link)
-> +};
-
-
-Regards,
-Oliver
