@@ -1,116 +1,120 @@
-From: Radek Pazdera <rpazdera@redhat.com>
-Subject: Source-specific multicast socket options documentation
-Date: Sat, 30 Jun 2012 00:52:00 +0200
-Message-ID: <20120629225200.GA9001@laptop.redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
+ with TCP and GRO
+Date: Fri, 29 Jun 2012 16:04:39 -0700
+Message-ID: <4FEE3487.9080408@intel.com>
+References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>  <1340170590.4604.784.camel@edumazet-glaptop>  <1340180223.4604.828.camel@edumazet-glaptop>  <1340198514.4604.970.camel@edumazet-glaptop>  <4FE29DE4.1010705@gmail.com>  <1340255226.4604.3774.camel@edumazet-glaptop> <1340368430.4604.10280.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-man@vger.kernel.org, netdev@vger.kernel.org
-To: mtk.manpages@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56576 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:8743 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751401Ab2F2Wwn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2012 18:52:43 -0400
-Content-Disposition: inline
+	id S1754115Ab2F2XEl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 19:04:41 -0400
+In-Reply-To: <1340368430.4604.10280.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 06/22/2012 05:33 AM, Eric Dumazet wrote:
+> Here is the patch I tested here.
+>
+> Using 32768 bytes allocations is actually nice for MTU=9000 traffic,
+> since we can fit 3 frames per 32KB instead of only 2 frames (using
+> kmalloc-16384 slab))
+>
+> Also, I prefill page->_count with a high bias value, to avoid the
+> get_page() we did for each allocated frag.
+>
+> In my profiles, the get_page() cost was dominant, because of false
+> sharing with skb consumers (as they might run on different cpus)
+>
+> This way, when 32768 bytes are filled, we perform a single
+> atomic_sub_return() and can recycle the page if we find we are the last
+> user (this is what you did in your patch, when testing page->_count
+> being 1)
+>
+> Note : If I used max(PAGE_SIZE, 32678) for MAX_NETDEV_FRAGSIZE,
+> gcc was not able to optimise get_order(MAX_NETDEV_FRAGSIZE), strange...
+>
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 5b21522..d31efa2 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -296,9 +296,18 @@ EXPORT_SYMBOL(build_skb);
+>  struct netdev_alloc_cache {
+>  	struct page *page;
+>  	unsigned int offset;
+> +	unsigned int pagecnt_bias;
+>  };
+>  static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
+>  
+> +#if PAGE_SIZE > 32768
+> +#define MAX_NETDEV_FRAGSIZE	PAGE_SIZE
+> +#else
+> +#define MAX_NETDEV_FRAGSIZE	32768
+> +#endif
+> +
+> +#define NETDEV_PAGECNT_BIAS	(MAX_NETDEV_FRAGSIZE /		\
+> +				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+>  /**
+>   * netdev_alloc_frag - allocate a page fragment
+>   * @fragsz: fragment size
+> @@ -316,18 +325,25 @@ void *netdev_alloc_frag(unsigned int fragsz)
+>  	nc = &__get_cpu_var(netdev_alloc_cache);
+>  	if (unlikely(!nc->page)) {
+>  refill:
+> -		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
+> +		nc->page = alloc_pages(GFP_ATOMIC | __GFP_COLD | __GFP_COMP,
+> +				       get_order(MAX_NETDEV_FRAGSIZE));
+> +		if (unlikely(!nc->page))
+> +			goto end;
+> +recycle:
+> +		atomic_set(&nc->page->_count, NETDEV_PAGECNT_BIAS);
+> +		nc->pagecnt_bias = NETDEV_PAGECNT_BIAS;
+>  		nc->offset = 0;
+>  	}
+> -	if (likely(nc->page)) {
+> -		if (nc->offset + fragsz > PAGE_SIZE) {
+> -			put_page(nc->page);
+> -			goto refill;
+> -		}
+> -		data = page_address(nc->page) + nc->offset;
+> -		nc->offset += fragsz;
+> -		get_page(nc->page);
+> +	if (nc->offset + fragsz > MAX_NETDEV_FRAGSIZE) {
+> +		if (!atomic_sub_return(nc->pagecnt_bias,
+> +				       &nc->page->_count))
+> +			goto recycle;
+> +		goto refill;
+>  	}
+> +	data = page_address(nc->page) + nc->offset;
+> +	nc->offset += fragsz;
+> +	nc->pagecnt_bias--; /* avoid get_page()/get_page() false sharing */
+> +end:
+>  	local_irq_restore(flags);
+>  	return data;
+>  }
+> @@ -353,7 +369,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+>  	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
+>  			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+>  
+> -	if (fragsz <= PAGE_SIZE && !(gfp_mask & __GFP_WAIT)) {
+> +	if (fragsz <= MAX_NETDEV_FRAGSIZE && !(gfp_mask & __GFP_WAIT)) {
+>  		void *data = netdev_alloc_frag(fragsz);
+>  
+>  		if (likely(data)) {
+>
+>
+I was wondering if there were any plans to clean this patch up and
+submit it to net-next?  If not, I can probably work on that since this
+addressed the concerns I had in my original patch.
 
-I found out, that some source-specific multicast socket options are
-missing in the IPv4 manpage (man 7 ip) and I'm trying to write some
-documentation for them.
+Thanks,
 
-This is what I have now (without the formatting). I'd like to ask,
-if you could spare a minute and have just a quick look over it
-to make sure there are not some errors (either technical or language -
-I'm not native speaker), before I post the patch.
-
-IP_ADD_SOURCE_MEMBERSHIP (since Linux 2.5.68)
-    Join a multicast group and allow receiving data only from a specific
-    source. Argument is an ip_mreq_source structure.
-
-        struct ip_mreq_source {
-            struct in_addr imr_multiaddr;  /* IP multicast group
-                                              address */
-            struct in_addr imr_interface;  /* IP address of local
-                                              interface */
-            struct in_addr imr_sourceaddr; /* IP address of
-                                              multicast source */
-        };
-
-    The ip_mreq_source structure is similar to ip_mreqn structure.
-    imr_multiaddr contains the address of the multicast group
-    the application wants to join or leave. imr_address is the
-    address of the local interface which the system will join
-    the multicast group with. imr_sourceaddr is the address of
-    multicast source the application wants to receive data
-    from.
-
-    Application can use this option multiple times to receive
-    data from more than one source.
-
-
-IP_DROP_SOURCE_MEMBERHSIP (since Linux 2.5.68)
-    Leave a source-specific group, i.e. stop receiving data from
-    a given multicast group, coming from a given source.
-
-    If the application has subscribed to multiple sources within
-    the same group, data from the remaining sources will still
-    be delivered. To stop receiving data from all sources at once
-    use IP_LEAVE_GROUP.
-
-    Argument is an ip_mreq_source structure as described at
-    IP_ADD_SOURCE_MEMBERSHIP.
-
-
-IP_BLOCK_SOURCE (since Linux 2.5.68)
-    Block receiving multicast data from a specific source in a given
-    group. This is valid only after the application have subscribed
-    to the multicast group using either IP_ADD_MEMBERSHIP or
-    IP_ADD_SOURCE_MEMBERSHIP.
-
-    Argument is an ip_mreq_source structure as described at
-    IP_ADD_SOURCE_MEMBERSHIP.
-
-
-IP_UNBLOCK_SOURCE (since Linux 2.5.68)
-    Unblock previously blocked multicast source. Returns EADDRNOTAVAIL
-    when given source was not being blocked.
-
-    Argument is an ip_mreq_source structure as described at
-    IP_ADD_SOURCE_MEMBERSHIP.
-
-
-IP_MSFILTER (since Linux 2.5.68)
-    This option provides access to the advanced full-state filtering API.
-    Argument is an ip_msfilter structure.
-
-        struct ip_msfilter {
-            struct in_addr imsf_multiaddr; /* IP multicast group
-                                              address */
-            struct in_addr imsf_interface; /* IP address of local
-                                              interface */
-            uint32_t       imsf_fmode;     /* Filter-mode */
-
-            uint32_t       imsf_numsrc;    /* Number of sources in
-                                              the following array */
-            struct in_addr imsf_slist[1];  /* Array of source
-                                              addresses */
-        };
-
-    There are two macros, MCAST_INCLUDE and MCAST_EXCLUDE, which can be
-    used to specify the filtering mode. Additionaly, IP_MSFILTER_SIZE(n)
-    macro exists to determine how much memory is needed to store
-    ip_msfilter structure with n sources in the source list.
-
-    For full description of multicast source filtering refer to RFC 3376.
-
-My sources for these information were:
-    * http://tools.ietf.org/html/rfc3678
-    * http://tools.ietf.org/html/rfc3376
-    * code (http://lxr.free-electrons.com/source/net/ipv4/ip_sockglue.c)
-
-Thank you!
-
-Radek Pazdera :)
+Alex
