@@ -1,120 +1,60 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
- with TCP and GRO
-Date: Fri, 29 Jun 2012 16:04:39 -0700
-Message-ID: <4FEE3487.9080408@intel.com>
-References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>  <1340170590.4604.784.camel@edumazet-glaptop>  <1340180223.4604.828.camel@edumazet-glaptop>  <1340198514.4604.970.camel@edumazet-glaptop>  <4FE29DE4.1010705@gmail.com>  <1340255226.4604.3774.camel@edumazet-glaptop> <1340368430.4604.10280.camel@edumazet-glaptop>
+From: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Subject: Re: AF_BUS socket address family
+Date: Sat, 30 Jun 2012 00:12:37 +0100
+Message-ID: <20120629231236.GA28593@mail.collabora.co.uk>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
+ <20120629.153656.1141845894730637434.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8743 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754115Ab2F2XEl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2012 19:04:41 -0400
-In-Reply-To: <1340368430.4604.10280.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120629.153656.1141845894730637434.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/22/2012 05:33 AM, Eric Dumazet wrote:
-> Here is the patch I tested here.
->
-> Using 32768 bytes allocations is actually nice for MTU=9000 traffic,
-> since we can fit 3 frames per 32KB instead of only 2 frames (using
-> kmalloc-16384 slab))
->
-> Also, I prefill page->_count with a high bias value, to avoid the
-> get_page() we did for each allocated frag.
->
-> In my profiles, the get_page() cost was dominant, because of false
-> sharing with skb consumers (as they might run on different cpus)
->
-> This way, when 32768 bytes are filled, we perform a single
-> atomic_sub_return() and can recycle the page if we find we are the last
-> user (this is what you did in your patch, when testing page->_count
-> being 1)
->
-> Note : If I used max(PAGE_SIZE, 32678) for MAX_NETDEV_FRAGSIZE,
-> gcc was not able to optimise get_order(MAX_NETDEV_FRAGSIZE), strange...
->
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 5b21522..d31efa2 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -296,9 +296,18 @@ EXPORT_SYMBOL(build_skb);
->  struct netdev_alloc_cache {
->  	struct page *page;
->  	unsigned int offset;
-> +	unsigned int pagecnt_bias;
->  };
->  static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
->  
-> +#if PAGE_SIZE > 32768
-> +#define MAX_NETDEV_FRAGSIZE	PAGE_SIZE
-> +#else
-> +#define MAX_NETDEV_FRAGSIZE	32768
-> +#endif
-> +
-> +#define NETDEV_PAGECNT_BIAS	(MAX_NETDEV_FRAGSIZE /		\
-> +				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
->  /**
->   * netdev_alloc_frag - allocate a page fragment
->   * @fragsz: fragment size
-> @@ -316,18 +325,25 @@ void *netdev_alloc_frag(unsigned int fragsz)
->  	nc = &__get_cpu_var(netdev_alloc_cache);
->  	if (unlikely(!nc->page)) {
->  refill:
-> -		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-> +		nc->page = alloc_pages(GFP_ATOMIC | __GFP_COLD | __GFP_COMP,
-> +				       get_order(MAX_NETDEV_FRAGSIZE));
-> +		if (unlikely(!nc->page))
-> +			goto end;
-> +recycle:
-> +		atomic_set(&nc->page->_count, NETDEV_PAGECNT_BIAS);
-> +		nc->pagecnt_bias = NETDEV_PAGECNT_BIAS;
->  		nc->offset = 0;
->  	}
-> -	if (likely(nc->page)) {
-> -		if (nc->offset + fragsz > PAGE_SIZE) {
-> -			put_page(nc->page);
-> -			goto refill;
-> -		}
-> -		data = page_address(nc->page) + nc->offset;
-> -		nc->offset += fragsz;
-> -		get_page(nc->page);
-> +	if (nc->offset + fragsz > MAX_NETDEV_FRAGSIZE) {
-> +		if (!atomic_sub_return(nc->pagecnt_bias,
-> +				       &nc->page->_count))
-> +			goto recycle;
-> +		goto refill;
->  	}
-> +	data = page_address(nc->page) + nc->offset;
-> +	nc->offset += fragsz;
-> +	nc->pagecnt_bias--; /* avoid get_page()/get_page() false sharing */
-> +end:
->  	local_irq_restore(flags);
->  	return data;
->  }
-> @@ -353,7 +369,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
->  	unsigned int fragsz = SKB_DATA_ALIGN(length + NET_SKB_PAD) +
->  			      SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
->  
-> -	if (fragsz <= PAGE_SIZE && !(gfp_mask & __GFP_WAIT)) {
-> +	if (fragsz <= MAX_NETDEV_FRAGSIZE && !(gfp_mask & __GFP_WAIT)) {
->  		void *data = netdev_alloc_frag(fragsz);
->  
->  		if (likely(data)) {
->
->
-I was wondering if there were any plans to clean this patch up and
-submit it to net-next?  If not, I can probably work on that since this
-addressed the concerns I had in my original patch.
+On Fri, Jun 29, 2012 at 03:36:56PM -0700, David Miller wrote:
+> 
+> There is no extensive text describing why using IPv4 for this cannot
+> be done.  I can almost bet that nobody really, honestly, tried.
+> 
 
-Thanks,
+I can assure you that the team has tried no fewer than six differing
+approaches, including using IP and attempting to bend several of the
+existing address families.
 
-Alex
+> Basically this means all of our feedback from the last time we had
+> discussions on kernel IPC for DBUS are being completely ignored.
+
+Absolutely not, we listened hard and did extensive research, please do
+not ascribe thoughtlessness to our actions. Certainly I would not
+presume to waste your time and present something which has not been
+thoroughly considered.
+
+I had hoped you would have at least read the opening list where I
+outlined the underlying features which explain why none of the
+existing IPC match the requirements.
+
+Firstly it is intended is an interprocess mechanism and not to rely on
+a configured IP system, indeed one of its primary usages is to
+provide mechanism for various tools to set up IP networking.
+
+Leaving that aside the requirements for multicast, strict ordering, fd
+passing and credential passing are simply not available in any other
+single transport. It was made plain to us that AF_UNIX would not be
+expanded to encompass multicast so we are left with adding AF_BUS.
+
+If we are wrong I hope you will explain to me how we can achieve fd and
+credential passing to multicast groups within existing protocols.
+
+> 
+> Therefore, I will completely ignore this patch submission.
+> 
+
+I do hope you will reconsider, or at least educate us appropriately. 
+I understand you are a busy maintainer and appreciate your time in this matter.
+
+Best regards
+--
+Vincent Sanders <vincent.sanders@collabora.co.uk>
