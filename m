@@ -1,79 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] fq_codel: report congestion
- notification at enqueue time
-Date: Fri, 29 Jun 2012 07:24:08 +0200
-Message-ID: <1340947448.29822.41.camel@edumazet-glaptop>
-References: <1340903237.13187.151.camel@edumazet-glaptop>
-	<1340945592.29822.8.camel@edumazet-glaptop>
-	<20120628.221252.2220466000873887315.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Remove extraneous assignment of dst->tclassid.
+Date: Thu, 28 Jun 2012 22:24:12 -0700 (PDT)
+Message-ID: <20120628.222412.2093330323354885370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nanditad@google.com, netdev@vger.kernel.org, codel@lists.bufferbloat.net,
-	ycheng@google.com, ncardwell@google.com, mattmathis@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <20120628.221252.2220466000873887315.davem@davemloft.net>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59152 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825Ab2F2FYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 01:24:13 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 8BE05584BCB
+	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 22:24:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-06-28 at 22:12 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 29 Jun 2012 06:53:12 +0200
-> 
-> > Please dont apply this patch, I'll submit an updated version later.
-> 
-> Ok.
 
-By the way, I am not sure NET_XMIT_CN is correctly used in RED.
+We already set it several lines above.
 
-Or maybe my understanding of NET_XMIT_CN is wrong.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-If a the packet is dropped in enqueue(), why use NET_XMIT_CN instead of 
-NET_XMIT_DROP ?
-
-This seems to mean : I dropped _this_ packet, but dont worry too much, I
-might accept other packets, so please go on...
-
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 633e32d..0fc5b6c 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -77,7 +77,7 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		sch->qstats.overlimits++;
- 		if (!red_use_ecn(q) || !INET_ECN_set_ce(skb)) {
- 			q->stats.prob_drop++;
--			goto congestion_drop;
-+			goto drop;
- 		}
- 
- 		q->stats.prob_mark++;
-@@ -88,7 +88,7 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 		if (red_use_harddrop(q) || !red_use_ecn(q) ||
- 		    !INET_ECN_set_ce(skb)) {
- 			q->stats.forced_drop++;
--			goto congestion_drop;
-+			goto drop;
- 		}
- 
- 		q->stats.forced_mark++;
-@@ -104,9 +104,8 @@ static int red_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	}
- 	return ret;
- 
--congestion_drop:
--	qdisc_drop(skb, sch);
--	return NET_XMIT_CN;
-+drop:
-+	return qdisc_drop(skb, sch);
- }
- 
- static struct sk_buff *red_dequeue(struct Qdisc *sch)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 919d69e..6a5afc7 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2327,9 +2327,6 @@ local_input:
+ 	rth->rt_key_tos	= tos;
+ 	rth->rt_dst	= daddr;
+ 	rth->rt_src	= saddr;
+-#ifdef CONFIG_IP_ROUTE_CLASSID
+-	rth->dst.tclassid = itag;
+-#endif
+ 	rth->rt_route_iif = dev->ifindex;
+ 	rth->rt_iif	= dev->ifindex;
+ 	rth->rt_oif	= 0;
+-- 
+1.7.10
