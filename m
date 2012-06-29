@@ -1,157 +1,72 @@
-From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next] caif-hsi: Fix merge issues.
-Date: Fri, 29 Jun 2012 08:36:20 +0200
-Message-ID: <1340951780-27406-1-git-send-email-sjur.brandeland@stericsson.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next 1/4] net: introduce new priv_flag indicating
+	iface capable of change mac when running
+Date: Fri, 29 Jun 2012 08:41:39 +0200
+Message-ID: <20120629064139.GA1522@minipsycho.orion>
+References: <1340892639-1111-1-git-send-email-jpirko@redhat.com>
+	<1340892639-1111-2-git-send-email-jpirko@redhat.com>
+	<1340921854.2577.16.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, sjurbren@gmail.com,
-	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:65293 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab2F2GhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 02:37:01 -0400
-Received: by lbbgm6 with SMTP id gm6so4195662lbb.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 23:36:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
+	virtualization@lists.linux-foundation.org,
+	danny.kukawka@bisect.de, edumazet@google.com, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1340921854.2577.16.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+Fri, Jun 29, 2012 at 12:17:34AM CEST, bhutchings@solarflare.com wrote:
+>On Thu, 2012-06-28 at 16:10 +0200, Jiri Pirko wrote:
+>> Introduce IFF_LIFE_ADDR_CHANGE priv_flag and use it to disable
+>> netif_running() check in eth_mac_addr()
+>>
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> ---
+>>  include/linux/if.h |    2 ++
+>>  net/ethernet/eth.c |    2 +-
+>>  2 files changed, 3 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/include/linux/if.h b/include/linux/if.h
+>> index f995c66..fd9ee7c 100644
+>> --- a/include/linux/if.h
+>> +++ b/include/linux/if.h
+>> @@ -81,6 +81,8 @@
+>>  #define IFF_UNICAST_FLT	0x20000		/* Supports unicast filtering	*/
+>>  #define IFF_TEAM_PORT	0x40000		/* device used as team port */
+>>  #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
+>> +#define IFF_LIFE_ADDR_CHANGE 0x100000	/* device supports hardware address
+>> +					 * change when it's running */
+>[...]
+>
+>Any device that has IFF_UNICAST_FLT can update the unicast MAC filter
+>while it's running; doesn't that go hand-in-hand with being able to
+>handle changes to the primary MAC address?  Is the new flag really
+>necessary at all?
 
-=46ix the failing merge in net-next by reverting the last
-net-next merge for caif_hsi.c and then merge in the commit:
-"caif-hsi: Bugfix - Piggyback'ed embedded CAIF frame lost"
-from the net repository.=20
+Hmm, this makes sense. But, can you guarantee that all devices behave like this?
 
-The commit:"caif-hsi: Add missing return in error path" from
-net repository was dropped, as it changed code previously removed in th=
-e=20
-net-next repository.
+Also, there are many devices that does not support unicast filtering
+and yet they support updating mac adress while running.
 
-Signed-off-by: Sjur Br=C3=A6ndeland <sjur.brandeland@stericsson.com>
+Jirka
 
----
-Hi Dave,
-
->Sjur please send me any necessary fixups and please be more mindful in
->the future of the incredible merge pain you put me through when you
->have such fundamentally overlapping changes like that and don't
->provide me with a sample merge resolution like other people do.
-
-Yes this merge went really bad, sorry for the pain I have caused you!
-I'll try to provide you with merge instruction or sample merge
-resolutions in the future if there are conflicts.
-
-Regards,
-Sjur
-
-
----
- drivers/net/caif/caif_hsi.c |   72 ++++++++++++++++-------------------=
---------
- 1 files changed, 27 insertions(+), 45 deletions(-)
-
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index 087eb83..0def8b3 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -1131,51 +1131,7 @@ static void cfhsi_setup(struct net_device *dev)
- 	cfhsi->cfdev.use_stx =3D false;
- 	cfhsi->cfdev.use_fcs =3D false;
- 	cfhsi->ndev =3D dev;
--}
--
--int cfhsi_probe(struct platform_device *pdev)
--{
--	struct cfhsi_ops *(*get_ops)(void);
--	struct cfhsi *cfhsi =3D NULL;
--	struct net_device *ndev;
--	int res;
--
--	ndev =3D alloc_netdev(sizeof(struct cfhsi), "cfhsi%d", cfhsi_setup);
--	if (!ndev)
--		return -ENODEV;
--
--	cfhsi =3D netdev_priv(ndev);
--	cfhsi->ndev =3D ndev;
--	cfhsi->pdev =3D pdev;
--
--	get_ops =3D symbol_get(cfhsi_get_ops);
--	if (!get_ops) {
--		pr_err("%s: failed to get the cfhsi_ops\n", __func__);
--		return -ENODEV;
--	}
--
--	/* Assign the HSI device. */
--	cfhsi->ops =3D (*get_ops)();
--	if (!cfhsi->ops) {
--		pr_err("%s: failed to get the cfhsi_ops\n", __func__);
--		goto err;
--	}
--
--	/* Assign the driver to this HSI device. */
--	cfhsi->ops->cb_ops =3D &cfhsi->cb_ops;
--	res =3D register_netdevice(ndev);
--	if (res) {
--		dev_err(&ndev->dev, "%s: Registration error: %d.\n",
--			__func__, res);
--		free_netdev(ndev);
--	}
--	/* Add CAIF HSI device to list. */
--	list_add_tail(&cfhsi->list, &cfhsi_list);
--
--	return res;
--err:
--	symbol_put(cfhsi_get_ops);
--	return -ENODEV;
-+	cfhsi->cfg =3D hsi_default_config;
- }
-=20
- static int cfhsi_open(struct net_device *ndev)
-@@ -1454,6 +1410,7 @@ static int caif_hsi_newlink(struct net *src_net, =
-struct net_device *dev,
- 			  struct nlattr *tb[], struct nlattr *data[])
- {
- 	struct cfhsi *cfhsi =3D NULL;
-+	struct cfhsi_ops *(*get_ops)(void);
-=20
- 	ASSERT_RTNL();
-=20
-@@ -1461,7 +1418,32 @@ static int caif_hsi_newlink(struct net *src_net,=
- struct net_device *dev,
- 	cfhsi_netlink_parms(data, cfhsi);
- 	dev_net_set(cfhsi->ndev, src_net);
-=20
-+	get_ops =3D symbol_get(cfhsi_get_ops);
-+	if (!get_ops) {
-+		pr_err("%s: failed to get the cfhsi_ops\n", __func__);
-+		return -ENODEV;
-+	}
-+
-+	/* Assign the HSI device. */
-+	cfhsi->ops =3D (*get_ops)();
-+	if (!cfhsi->ops) {
-+		pr_err("%s: failed to get the cfhsi_ops\n", __func__);
-+		goto err;
-+	}
-+
-+	/* Assign the driver to this HSI device. */
-+	cfhsi->ops->cb_ops =3D &cfhsi->cb_ops;
-+	if (register_netdevice(dev)) {
-+		pr_warn("%s: caif_hsi device registration failed\n", __func__);
-+		goto err;
-+	}
-+	/* Add CAIF HSI device to list. */
-+	list_add_tail(&cfhsi->list, &cfhsi_list);
-+
- 	return 0;
-+err:
-+	symbol_put(cfhsi_get_ops);
-+	return -ENODEV;
- }
-=20
- static struct rtnl_link_ops caif_hsi_link_ops __read_mostly =3D {
---=20
-1.7.5.4
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
