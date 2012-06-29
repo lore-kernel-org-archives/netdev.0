@@ -1,55 +1,170 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: AW: RFC: replace packets already in queue
-Date: Fri, 29 Jun 2012 11:06:57 +0200
-Message-ID: <1340960817.15719.6.camel@edumazet-glaptop>
-References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
-	 <4FEC854E.8080603@hp.com>
-	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 1/2] r8169: support RTL8106E
+Date: Fri, 29 Jun 2012 18:34:19 +0800
+Message-ID: <1340966060-2749-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:35815 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753086Ab2F2JHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 05:07:01 -0400
-Received: by bkcji2 with SMTP id ji2so2761471bkc.19
-        for <netdev@vger.kernel.org>; Fri, 29 Jun 2012 02:07:00 -0700 (PDT)
-In-Reply-To: <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	hayes <hayes@fc17.localdomain>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-29 at 08:46 +0000, Erdt, Ralph wrote:
-> Hello Rick Jones,
-> 
-> > You might want to try the recent "codel" additions to the stack.  They
-> > seek to keep the size of queues more manageable while still allowing
-> > the occasional burst.
-> Thank you for your hint. This is surly a needful solution in normal network, but this didn't help us:
-> We are working with very heterogeneous networks:
-> Internal: 100MBit and more.
-> Extern: 9,6*K*Bit and LESS(*), and shared, and...
-> A few other information: wireless (higher packet loss rate), medium access time > 100ms, RTT (standard ping) with IDLE network: 1,5 *seconds*, RTT with network load: minutes(!), and so on. Just very shocking..
-> 
-> TCP isn't usable over such a link. So we are only sending UDP. The codel didn't help us, as codel addresses the flow speed. It's dropping "randomly" (I know it's not random in the lower level, but it's random from the application's perspective) packets. 
-> 
-> I'm addressing the amount of information: Trying to reduce it intelligently by REPLACING old packets with new ones.. Surely - the application must handle this. But in such a network a administrator have to configure the queues and he knows the applications.
-> In one private mail someone guesses that we are making VoIP. No - we just want to send status information (e.g. sensor information) which will get deprecated, when a new information is available.
-> 
-> I know, this is a very special problem, which didn't occur in normal or even abnormal situations. But I'm sure there are some other people having the this problem, too. So I'm glad to share my solution.
-> 
-> (*you remember the good ol' times with modems over telephone lines? When the internet was called BBS? And how it suddenly feels, when the BBS starts using ANSI? This was comfortable compared to our problem..)
+From: hayes <hayes@fc17.localdomain>
 
-Problem is : with wireless, chances are high that the old packet is not
-waiting in qdisc, but in wireless queues.
+Support the new chip RTL8106E.
 
-Anyway, adding a maxdelay to codel / fq_codel is really easy : This
-would drop packet if its sejourn time is above a given limit.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |   56 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 56 insertions(+)
 
-You could use codel with @target being greater than @maxdelay to remove
-all probabilistic drops, and only keep the @maxdelay behavior.
-
-If you want I can cook this patch.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index d7a04e0..7afc593 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -46,6 +46,7 @@
+ #define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
+ #define FIRMWARE_8402_1		"rtl_nic/rtl8402-1.fw"
+ #define FIRMWARE_8411_1		"rtl_nic/rtl8411-1.fw"
++#define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
+ 
+ #ifdef RTL8169_DEBUG
+ #define assert(expr) \
+@@ -141,6 +142,7 @@ enum mac_version {
+ 	RTL_GIGA_MAC_VER_36,
+ 	RTL_GIGA_MAC_VER_37,
+ 	RTL_GIGA_MAC_VER_38,
++	RTL_GIGA_MAC_VER_39,
+ 	RTL_GIGA_MAC_NONE   = 0xff,
+ };
+ 
+@@ -259,6 +261,9 @@ static const struct {
+ 	[RTL_GIGA_MAC_VER_38] =
+ 		_R("RTL8411",		RTL_TD_1, FIRMWARE_8411_1,
+ 							JUMBO_9K, false),
++	[RTL_GIGA_MAC_VER_39] =
++		_R("RTL8106e",		RTL_TD_1, FIRMWARE_8106E_1,
++							JUMBO_1K, true),
+ };
+ #undef _R
+ 
+@@ -431,7 +436,9 @@ enum rtl8168_registers {
+ 	RDSAR1			= 0xd0,	/* 8168c only. Undocumented on 8168dp */
+ 	MISC			= 0xf0,	/* 8168e only. */
+ #define TXPLA_RST			(1 << 29)
++#define DISABLE_LAN_EN			(1 << 23) /* Enable GPIO pin */
+ #define PWM_EN				(1 << 22)
++#define EARLY_TALLY_EN			(1 << 16)
+ };
+ 
+ enum rtl_register_content {
+@@ -794,6 +801,7 @@ MODULE_FIRMWARE(FIRMWARE_8168F_1);
+ MODULE_FIRMWARE(FIRMWARE_8168F_2);
+ MODULE_FIRMWARE(FIRMWARE_8402_1);
+ MODULE_FIRMWARE(FIRMWARE_8411_1);
++MODULE_FIRMWARE(FIRMWARE_8106E_1);
+ 
+ static void rtl_lock_work(struct rtl8169_private *tp)
+ {
+@@ -1933,6 +1941,8 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+ 		{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
+ 
+ 		/* 8101 family. */
++		{ 0x7cf00000, 0x44900000,	RTL_GIGA_MAC_VER_39 },
++		{ 0x7c800000, 0x44800000,	RTL_GIGA_MAC_VER_39 },
+ 		{ 0x7c800000, 0x44000000,	RTL_GIGA_MAC_VER_37 },
+ 		{ 0x7cf00000, 0x40b00000,	RTL_GIGA_MAC_VER_30 },
+ 		{ 0x7cf00000, 0x40a00000,	RTL_GIGA_MAC_VER_30 },
+@@ -3273,6 +3283,30 @@ static void rtl8402_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ }
+ 
++static void rtl8106e_hw_phy_config(struct rtl8169_private *tp)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++
++	static const struct phy_reg phy_reg_init[] = {
++		{ 0x1f, 0x0004 },
++		{ 0x10, 0xc07f },
++		{ 0x19, 0x7030 },
++		{ 0x1f, 0x0000 }
++	};
++
++	/* Disable ALDPS before ram code */
++	rtl_writephy(tp, 0x1f, 0x0000);
++	rtl_writephy(tp, 0x18, 0x0310);
++	msleep(100);
++
++	rtl_apply_firmware(tp);
++
++	rtl_eri_write(ioaddr, 0x1b0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
++	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
++
++	rtl_eri_write(ioaddr, 0x1d0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
++}
++
+ static void rtl_hw_phy_config(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -3369,6 +3403,10 @@ static void rtl_hw_phy_config(struct net_device *dev)
+ 		rtl8411_hw_phy_config(tp);
+ 		break;
+ 
++	case RTL_GIGA_MAC_VER_39:
++		rtl8106e_hw_phy_config(tp);
++		break;
++
+ 	default:
+ 		break;
+ 	}
+@@ -3608,6 +3646,7 @@ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_34:
+ 	case RTL_GIGA_MAC_VER_37:
+ 	case RTL_GIGA_MAC_VER_38:
++	case RTL_GIGA_MAC_VER_39:
+ 		RTL_W32(RxConfig, RTL_R32(RxConfig) |
+ 			AcceptBroadcast | AcceptMulticast | AcceptMyPhys);
+ 		break;
+@@ -3830,6 +3869,7 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
+ 	case RTL_GIGA_MAC_VER_29:
+ 	case RTL_GIGA_MAC_VER_30:
+ 	case RTL_GIGA_MAC_VER_37:
++	case RTL_GIGA_MAC_VER_39:
+ 		ops->down	= r810x_pll_power_down;
+ 		ops->up		= r810x_pll_power_up;
+ 		break;
+@@ -5123,6 +5163,18 @@ static void rtl_hw_start_8402(struct rtl8169_private *tp)
+ 		     ERIAR_EXGMAC);
+ }
+ 
++static void rtl_hw_start_8106(struct rtl8169_private *tp)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++
++	/* Force LAN exit from ASPM if Rx/Tx are not idle */
++	RTL_W32(FuncEvent, RTL_R32(FuncEvent) | 0x002800);
++
++	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
++	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
++	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
++}
++
+ static void rtl_hw_start_8101(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -5167,6 +5219,10 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 	case RTL_GIGA_MAC_VER_37:
+ 		rtl_hw_start_8402(tp);
+ 		break;
++
++	case RTL_GIGA_MAC_VER_39:
++		rtl_hw_start_8106(tp);
++		break;
+ 	}
+ 
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+-- 
+1.7.10.2
