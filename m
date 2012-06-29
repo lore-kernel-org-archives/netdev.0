@@ -1,26 +1,26 @@
 From: Saurabh <saurabh.mohan@vyatta.com>
-Subject: [net-next PATCH 00/02] net/ipv4: Add support for new tunnel type
- VTI.
-Date: Thu, 28 Jun 2012 17:52:14 -0700
-Message-ID: <20120629005214.GA4477@debian-saurabh-64.vyatta.com>
+Subject: [net-next PATCH 01/02] net/ipv4: VTI support rx-path hook in
+ xfrm4_mode_tunnel.
+Date: Thu, 28 Jun 2012 17:52:25 -0700
+Message-ID: <20120629005225.GA4494@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43946 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:43961 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754303Ab2F2A7O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jun 2012 20:59:14 -0400
+	id S1755257Ab2F2A7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jun 2012 20:59:25 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id B6B4E14103D7
-	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 17:59:13 -0700 (PDT)
+	by mail.vyatta.com (Postfix) with ESMTP id BE2DB14103D7
+	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 17:59:24 -0700 (PDT)
 Received: from mail.vyatta.com ([127.0.0.1])
 	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 0Kk8TSbhh71s for <netdev@vger.kernel.org>;
-	Thu, 28 Jun 2012 17:59:12 -0700 (PDT)
+	with ESMTP id MSLsPK538-OI for <netdev@vger.kernel.org>;
+	Thu, 28 Jun 2012 17:59:24 -0700 (PDT)
 Received: from localhost (eng-dhcp-126.vyatta.com [10.3.0.126])
-	by mail.vyatta.com (Postfix) with ESMTP id B1AED14103D6
-	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 17:59:12 -0700 (PDT)
+	by mail.vyatta.com (Postfix) with ESMTP id E709714103D6
+	for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 17:59:23 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,48 +28,121 @@ List-ID: <netdev.vger.kernel.org>
 
 
 Incorporated David and Steffen's comments.
-Resubmitting after taking into account review comments:
-The VTI tunnel is applicable to esp, ah and ipcomp.
-
-Introduction:
-Virtual tunnel interface is a way to represent policy based IPsec tunnels as virtual interfaces in linux. This is similar to Cisco's VTI (virtual tunnel interface) and Juniper's representaion of secure tunnel (st.xx). The advantage of representing an IPsec tunnel as an interface is that it is possible to plug Ipsec tunnels into the routing protocol infrastructure of a router. Therefore it becomes possible to influence the packet path by toggling the link state of the tunnel or based on routing metrics.
-
-Overview:
-Natively linux kernel does not support ipsec as an interface. Also secure interface assume a ipsec policy 4 tupple of {dst-ip-any, src-ip-any, dst-port-any, src-port-any}. Applying this 4 tuple in linux would result in all traffic matching the ipsec policy. What is needed is a tunnel distinguisher. The linux kernel skbuff has fwmark which is used for policy based routing (PBR). Linux kernel version 2.6.35 enhanced SPD/SADB to use fwmark as part of the IPsec policy. Strongswan has also introduced support for this kernel feature with version 4.5.0. We can therefore use the fwmark as the distinguisher for tunnel interface. We can also create a light weight tunnel kernel module (vti) to give the notion of an interface for rest of the kernel routing system. The tunnel module does not do any enc
- apsulation/decapsulation. The kernel's xfrm modules still do the esp encryption/decryption.
-
-Usage:
-ip tunnel add sti15 mode vti remote 12.0.0.1 local 12.0.0.3 ikey 15
-or
-ip link add sti15 type vti key 15 remote 12.0.0.1 local 12.0.0.3
-
-Sample strongswan config would be:
-conn peer-12.0.0.1-tunnel-1
-   left=12.0.0.3
-   right=12.0.0.1
-   leftsubnet=0.0.0.0/0
-   rightsubnet=0.0.0.0/0
-   ike=aes128-sha1-modp1024!
-   ikelifetime=28800s
-   keyingtries=%forever
-   esp=aes128-sha1!
-   keylife=3600s
-   rekeymargin=540s
-   type=tunnel
-   pfs=yes
-   compress=no
-   authby=secret
-   auto=start
-   mark_in=0xf
-   mark_out=0xf
-   keyexchange=ikev1
-
-
-Also you need the iptables rule for ingress esp and udp-4500 packets:
--A PREROUTING -s 12.0.0.1/32 -d 12.0.0.3/32 -p esp -j MARK --set-xmark 0xf/0xffffffff
-
+Add hook for rx-path xfmr4_mode_tunnel for VTI tunnel module.
 
 Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
 Reviewed-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index e0a55df..04214c0 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1475,6 +1475,8 @@ extern int xfrm4_output(struct sk_buff *skb);
+ extern int xfrm4_output_finish(struct sk_buff *skb);
+ extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
++extern int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler);
++extern int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler);
+ extern int xfrm6_extract_header(struct sk_buff *skb);
+ extern int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+ extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index ed4bf11..4fc2944 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -15,6 +15,68 @@
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ 
++/*
++ * Informational hook. The decap is still done here.
++ */
++static struct xfrm_tunnel __rcu *rcv_notify_handlers __read_mostly;
++static DEFINE_MUTEX(xfrm4_mode_tunnel_input_mutex);
++
++int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
++{
++	struct xfrm_tunnel __rcu **pprev;
++	struct xfrm_tunnel *t;
++
++	int ret = -EEXIST;
++	int priority = handler->priority;
++
++	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
++
++	for (pprev = &rcv_notify_handlers;
++		(t = rcu_dereference_protected(*pprev,
++		lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
++		pprev = &t->next) {
++		if (t->priority > priority)
++			break;
++		if (t->priority == priority)
++			goto err;
++
++	}
++
++	handler->next = *pprev;
++	rcu_assign_pointer(*pprev, handler);
++
++	ret = 0;
++
++err:
++	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
++
++int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel *handler)
++{
++	struct xfrm_tunnel __rcu **pprev;
++	struct xfrm_tunnel *t;
++	int ret = -ENOENT;
++
++	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
++	for (pprev = &rcv_notify_handlers;
++		(t = rcu_dereference_protected(*pprev,
++		lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
++		pprev = &t->next) {
++		if (t == handler) {
++			*pprev = handler->next;
++			ret = 0;
++			break;
++		}
++	}
++	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_deregister);
++
+ static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
+ {
+ 	struct iphdr *inner_iph = ipip_hdr(skb);
+@@ -64,8 +126,14 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	return 0;
+ }
+ 
++#define for_each_input_rcu(head, handler)	\
++	for (handler = rcu_dereference(head);	\
++		handler != NULL;		\
++		handler = rcu_dereference(handler->next))  \
++
+ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
++	struct xfrm_tunnel *handler;
+ 	int err = -EINVAL;
+ 
+ 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPIP)
+@@ -74,6 +142,10 @@ static int xfrm4_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+ 		goto out;
+ 
++	/* The handlers do not consume the skb. */
++	for_each_input_rcu(rcv_notify_handlers, handler)
++		handler->handler(skb);
++
+ 	if (skb_cloned(skb) &&
+ 	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+ 		goto out;
