@@ -1,7 +1,7 @@
 From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Subject: [PATCH net-next 03/15] net: bus: Add AF_BUS socket and address definitions
-Date: Fri, 29 Jun 2012 17:45:42 +0100
-Message-ID: <1340988354-26981-4-git-send-email-vincent.sanders@collabora.co.uk>
+Subject: [PATCH net-next 01/15] net: bus: Add AF_BUS socket address family
+Date: Fri, 29 Jun 2012 17:45:40 +0100
+Message-ID: <1340988354-26981-2-git-send-email-vincent.sanders@collabora.co.uk>
 References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
 	Vincent Sanders <vincent.sanders@collabora.co.uk>
@@ -14,349 +14,85 @@ List-Id: netdev.vger.kernel.org
 
 From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 
-An AF_BUS socket address is made up of a path component and a numeric
-component. The path component is either a pathname or an abstract
-socket similar to a unix socket. The numeric component is used to
-uniquely identify each connection to the bus. Thus the path identifies
-a specific bus and the numeric component the attachment to that bus.
+This adds AF_BUS to the socket headers and net core.
 
-The numeric component of the address is a 64-bit unsigned integer,
-interpreted by splitting the into two parts: the most significant 16
-bits are a prefix identifying the type of address, and the remaining
-48 bits are the actual client address within that prefix, as shown in
-this figure:
+AF_BUS is a message oriented inter process communication system
+implemented as asocket address family. The principle features are:
 
-Bit:  0             15 16                                            63
-     +----------------+------------------------------------------------+
-     |  Type prefix   |                Client address                  |
-     +----------------+------------------------------------------------+
+ - Reliable datagram based communication (all sockets are of type
+   SOCK_SEQPACKET)
+ - Multicast message delivery (one to many, unicast as a subset)
+ - Strict ordering (messages are delivered to every client in the same order)
+ - Ability to pass file descriptors
+ - Ability to pass credentials
 
 Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 Signed-off-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
 ---
- include/linux/bus.h  |   34 +++++++
- include/net/af_bus.h |  272 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 306 insertions(+)
- create mode 100644 include/linux/bus.h
- create mode 100644 include/net/af_bus.h
+ include/linux/socket.h |    5 ++++-
+ net/core/sock.c        |    6 +++---
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/bus.h b/include/linux/bus.h
-new file mode 100644
-index 0000000..19cac36
---- /dev/null
-+++ b/include/linux/bus.h
-@@ -0,0 +1,34 @@
-+#ifndef _LINUX_BUS_H
-+#define _LINUX_BUS_H
-+
-+#include <linux/socket.h>
-+
-+/* 'protocol' to use in socket(AF_BUS, SOCK_SEQPACKET, protocol) */
-+#define BUS_PROTO_NONE	0
-+#define BUS_PROTO_DBUS	1
-+#define BUS_PROTO_MAX	1
-+
-+#define BUS_PATH_MAX	108
-+
-+/**
-+ * struct bus_addr - af_bus address
-+ * @s_addr: an af_bus address (16-bit prefix + 48-bit client address)
-+ */
-+struct bus_addr {
-+	u64 s_addr;
-+};
-+
-+
-+/**
-+ * struct sockaddr_bus - af_bus socket address
-+ * @sbus_family: the socket address family
-+ * @sbus_addr: an af_bus address
-+ * @sbus_path: a path name
-+ */
-+struct sockaddr_bus {
-+	__kernel_sa_family_t sbus_family;
-+	struct bus_addr      sbus_addr;
-+	char sbus_path[BUS_PATH_MAX];
-+};
-+
-+#endif /* _LINUX_BUS_H */
-diff --git a/include/net/af_bus.h b/include/net/af_bus.h
-new file mode 100644
-index 0000000..19bd7ac
---- /dev/null
-+++ b/include/net/af_bus.h
-@@ -0,0 +1,272 @@
-+/*
-+ * Copyright (c) 2012, GENIVI Alliance
-+ *
-+ * Authors:	Javier Martinez Canillas, <javier.martinez@collabora.co.uk>
-+ *              Alban Crequy, <alban.crequy@collabora.co.uk>
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Based on BSD Unix domain sockets (net/unix).
-+ */
-+
-+#ifndef __LINUX_NET_AFBUS_H
-+#define __LINUX_NET_AFBUS_H
-+
-+#include <linux/socket.h>
-+#include <linux/bus.h>
-+#include <linux/mutex.h>
-+#include <net/sock.h>
-+#include <net/tcp_states.h>
-+
-+extern void bus_inflight(struct file *fp);
-+extern void bus_notinflight(struct file *fp);
-+extern void bus_gc(void);
-+extern void wait_for_bus_gc(void);
-+extern struct sock *bus_get_socket(struct file *filp);
-+extern struct sock *bus_peer_get(struct sock *);
-+
-+#define BUS_HASH_SIZE	256
-+
-+extern spinlock_t bus_address_lock;
-+extern struct hlist_head bus_address_table[BUS_HASH_SIZE];
-+
-+#define BUS_MAX_QLEN    10
-+#define BUS_MASTER_ADDR 0x0
-+#define BUS_PREFIX_BITS 16
-+#define BUS_CLIENT_BITS 48
-+#define BUS_PREFIX_MASK 0xffff000000000000
-+#define BUS_CLIENT_MASK 0x0000ffffffffffff
-+
-+/* AF_BUS socket options */
-+#define BUS_ADD_ADDR 1
-+#define BUS_JOIN_BUS 2
-+#define BUS_DEL_ADDR 3
-+#define BUS_SET_EAVESDROP 4
-+#define BUS_UNSET_EAVESDROP 5
-+#define BUS_SET_SENDBUF 6
-+#define BUS_SET_MAXQLEN 7
-+
-+/* Connection and socket states */
-+enum {
-+	BUS_ESTABLISHED = TCP_ESTABLISHED,
-+	BUS_CLOSE = TCP_CLOSE,
-+	BUS_LISTEN = TCP_LISTEN,
-+	BUS_MAX_STATES
-+};
-+
-+#define NF_BUS_SENDING 1
-+
-+extern unsigned int bus_tot_inflight;
-+extern spinlock_t bus_table_lock;
-+extern struct hlist_head bus_socket_table[BUS_HASH_SIZE + 1];
-+
-+/**
-+ * struct bus_address - an af_bus address associated with an af_bus sock
-+ * @refcnt: address reference counter
-+ * @len: address length
-+ * @hash: address hash value
-+ * @addr_node: member of struct bus_sock.addr_list
-+ * @table_node: member of struct hlist_head bus_address_table[hash]
-+ * @sock: the af_bus sock that owns this address
-+ * @name: the socket address for this address
-+ */
-+struct bus_address {
-+	atomic_t	refcnt;
-+	int		len;
-+	unsigned	hash;
-+	struct hlist_node addr_node;
-+	struct hlist_node table_node;
-+	struct sock  *sock;
-+	struct sockaddr_bus name[0];
-+};
-+
-+/**
-+ * struct bus_send_context - sending context for an socket buffer
-+ * @sender_socket: the sender socket associated with this sk_buff
-+ * @siocb: used to send ancillary data
-+ * @timeo: sending timeout
-+ * @max_level: file descriptor passing maximum recursion level
-+ * @namelen: length of socket address name
-+ * @hash: socket name hash value
-+ * @other: destination sock
-+ * @sender: sender socket address name
-+ * @recipient: recipient socket address name
-+ * @authenticated: flag whether the sock already joined the bus
-+ * @bus_master_side: flag whether the sock is an accepted socket
-+ * @to_master: flag whether the destination is the bus master
-+ * @multicast: flag whether the destination is a multicast address
-+ * @deliver: flag whether the skb has to be delivered
-+ * @eavesdropper: flag whether the sock is allowed to eavesdrop
-+ * @main_recipient: flag whether the sock is the main recipient
-+ */
-+struct bus_send_context {
-+	struct socket *sender_socket;
-+	struct sock_iocb *siocb;
-+	long timeo;
-+	int max_level;
-+	int namelen;
-+	unsigned hash;
-+	struct sock *other;
-+	struct sockaddr_bus	*sender;
-+	struct sockaddr_bus	*recipient;
-+	unsigned int		authenticated:1;
-+	unsigned int		bus_master_side:1;
-+	unsigned int		to_master:1;
-+	unsigned int		multicast:1;
-+	unsigned int            deliver:1;
-+	unsigned int            eavesdropper:1;
-+	unsigned int            main_recipient:1;
-+};
-+
-+/**
-+ * struct bus_skb_parms - socket buffer parameters
-+ * @pid: process id
-+ * @cred: skb credentials
-+ * @fp: passed file descriptors
-+ * @secid: security id
-+ * @sendctx: skb sending context
-+ */
-+struct bus_skb_parms {
-+	struct pid		*pid;
-+	const struct cred	*cred;
-+	struct scm_fp_list	*fp;
-+#ifdef CONFIG_SECURITY_NETWORK
-+	u32			secid;
-+#endif
-+	struct bus_send_context	*sendctx;
-+};
-+
-+#define BUSCB(skb)      (*(struct bus_skb_parms *)&((skb)->cb))
-+#define BUSSID(skb)     (&BUSCB((skb)).secid)
-+
-+#define bus_state_lock(s)	spin_lock(&bus_sk(s)->lock)
-+#define bus_state_unlock(s)	spin_unlock(&bus_sk(s)->lock)
-+#define bus_state_lock_nested(s) \
-+				spin_lock_nested(&bus_sk(s)->lock, \
-+				SINGLE_DEPTH_NESTING)
-+
-+/**
-+ * struct bus - a communication bus
-+ * @master: the bus master sock
-+ * @peers: list of struct bus_sock.bus_node allowed to join the bus
-+ * @lock: protect peers concurrent access
-+ * @send_lock: enforce atomic multicast delivery
-+ * @kref: bus reference counter
-+ * @addr_cnt: address number counter to assign prefix 0x0000 addresses
-+ * @eavesdropper_cnt: eavesdroppers counter
-+ */
-+struct bus {
-+	struct sock		*master;
-+	struct hlist_head       peers;
-+	spinlock_t		lock;
-+	spinlock_t		send_lock;
-+	struct kref             kref;
-+	atomic64_t              addr_cnt;
-+	atomic64_t              eavesdropper_cnt;
-+};
-+
-+/**
-+ * struct bus_sock - an af_bus socket
-+ * @sk: associated sock
-+ * @addr: sock principal address
-+ * @addr_list: list of struct bus_address.addr_node
-+ * @path: sock path name
-+ * @readlock: protect from concurrent reading
-+ * @peer: peer sock
-+ * @other: the listening sock
-+ * @link: list of candidates for garbage collection
-+ * @inflight: number of times the file descriptor is in flight
-+ * @lock: protect the sock from concurrent access
-+ * @gc_candidate: flag whether the is a candidate for gc
-+ * @gc_maybe_cycle: flag whether could be a cyclic reference
-+ * @recursion_level: file passing current recursion level
-+ * @peer_wq: peer sock wait queue
-+ * @bus: bus that this sock belongs to
-+ * @bus_master: flag whether the sock is the bus master
-+ * @bus_master_side: flag whether is an accepted socket
-+ * @authenticated: flag whether the sock joined the bus
-+ * @eavesdropper: flag whether the sock is allowed to eavesdrop
-+ * @bus_node: member of struct bus.peers list of joined socks
-+ */
-+struct bus_sock {
-+	/* WARNING: sk has to be the first member */
-+	struct sock		sk;
-+	struct bus_address     *addr;
-+	struct hlist_head       addr_list;
-+	struct path		path;
-+	struct mutex		readlock;
-+	struct sock		*peer;
-+	struct sock		*other;
-+	struct list_head	link;
-+	atomic_long_t		inflight;
-+	spinlock_t		lock;
-+	unsigned int		gc_candidate:1;
-+	unsigned int		gc_maybe_cycle:1;
-+	unsigned char		recursion_level;
-+	struct socket_wq	peer_wq;
-+	struct bus              *bus;
-+	bool                    bus_master;
-+	bool                    bus_master_side;
-+	bool                    authenticated;
-+	bool                    eavesdropper;
-+	struct hlist_node	bus_node;
-+};
-+#define bus_sk(__sk) ((struct bus_sock *)__sk)
-+
-+#define peer_wait peer_wq.wait
-+
-+/**
-+ * bus_same_bus - Test if two socket address belongs to the same bus
-+ * @sbusaddr1: socket address name
-+ * @sbusaddr2: socket address name
-+ */
-+static inline bool bus_same_bus(struct sockaddr_bus *sbusaddr1,
-+				struct sockaddr_bus *sbusaddr2)
-+{
-+	int offset;
-+
-+	if (sbusaddr1->sbus_path[0] != sbusaddr2->sbus_path[0])
-+		return false;
-+
-+	/*
-+	 * abstract path names start with a null byte character,
-+	 * so they have to be compared starting at the second char.
-+	 */
-+	offset = (sbusaddr1->sbus_path[0] == '\0');
-+
-+	return !strncmp(sbusaddr1->sbus_path + offset,
-+		       sbusaddr2->sbus_path + offset,
-+		       BUS_PATH_MAX);
-+}
-+
-+static inline unsigned int bus_hash_fold(__wsum n)
-+{
-+	unsigned int hash = (__force unsigned int)n;
-+	hash ^= hash>>16;
-+	hash ^= hash>>8;
-+	return hash&(BUS_HASH_SIZE-1);
-+}
-+
-+static inline unsigned int bus_compute_hash(struct bus_addr addr)
-+{
-+	return bus_hash_fold(csum_partial((void *)&addr, sizeof(addr), 0));
-+}
-+
-+long bus_inq_len(struct sock *sk);
-+long bus_outq_len(struct sock *sk);
-+
-+#ifdef CONFIG_SYSCTL
-+extern int bus_sysctl_register(struct net *net);
-+extern void bus_sysctl_unregister(struct net *net);
-+#else
-+static inline int bus_sysctl_register(struct net *net) { return 0; }
-+static inline void bus_sysctl_unregister(struct net *net) {}
-+#endif
-+
-+bool bus_can_write(struct net *net, struct sockaddr_bus *addr, int len,
-+		   int protocol);
-+
-+#endif /* __LINUX_NET_AFBUS_H */
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 25d6322..d244e69 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -195,7 +195,8 @@ struct ucred {
+ #define AF_CAIF		37	/* CAIF sockets			*/
+ #define AF_ALG		38	/* Algorithm sockets		*/
+ #define AF_NFC		39	/* NFC sockets			*/
+-#define AF_MAX		40	/* For now.. */
++#define AF_BUS		40	/* BUS sockets			*/
++#define AF_MAX		41	/* For now.. */
+ 
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+@@ -238,6 +239,7 @@ struct ucred {
+ #define PF_CAIF		AF_CAIF
+ #define PF_ALG		AF_ALG
+ #define PF_NFC		AF_NFC
++#define PF_BUS		AF_BUS
+ #define PF_MAX		AF_MAX
+ 
+ /* Maximum queue length specifiable by listen.  */
+@@ -312,6 +314,7 @@ struct ucred {
+ #define SOL_IUCV	277
+ #define SOL_CAIF	278
+ #define SOL_ALG		279
++#define SOL_BUS		280
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 929bdcc..b9c5fc8 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -208,7 +208,7 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
+   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
+-  "sk_lock-AF_NFC"   , "sk_lock-AF_MAX"
++  "sk_lock-AF_NFC"   , "sk_lock-AF_BUS"     , "sk_lock-AF_MAX"
+ };
+ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
+@@ -224,7 +224,7 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
+   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
+-  "slock-AF_NFC"   , "slock-AF_MAX"
++  "slock-AF_NFC"   , "slock-AF_BUS"     , "slock-AF_MAX"
+ };
+ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
+@@ -240,7 +240,7 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
+-  "clock-AF_NFC"   , "clock-AF_MAX"
++  "clock-AF_NFC"   , "clock-AF_BUS"     , "clock-AF_MAX"
+ };
+ 
+ /*
 -- 
 1.7.10
