@@ -1,7 +1,7 @@
 From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Subject: [PATCH net-next 07/15] scm: allow AF_BUS sockets to send ancillary data
-Date: Fri, 29 Jun 2012 17:45:46 +0100
-Message-ID: <1340988354-26981-8-git-send-email-vincent.sanders@collabora.co.uk>
+Subject: [PATCH net-next 05/15] security: selinux: Add AF_BUS socket SELinux hooks
+Date: Fri, 29 Jun 2012 17:45:44 +0100
+Message-ID: <1340988354-26981-6-git-send-email-vincent.sanders@collabora.co.uk>
 References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
 	Vincent Sanders <vincent.sanders@collabora.co.uk>
@@ -14,32 +14,73 @@ List-Id: netdev.vger.kernel.org
 
 From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 
-Similar to UNIX domain sockets AF_BUS sockets support passing file
-descriptors and process credentials which requires supporting passing
-control messages.
-
-The core socket level control messages processing requires extending
-to allow sockets other than PF_UNIX to send SCM_RIGHTS type messages.
+Add Security-Enhanced Linux (SELinux) hook for AF_BUS socket address family.
 
 Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 Signed-off-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
 ---
- net/core/scm.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ security/selinux/hooks.c |   35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-diff --git a/net/core/scm.c b/net/core/scm.c
-index 611c5ef..87e3152 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -158,7 +158,8 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
- 		switch (cmsg->cmsg_type)
- 		{
- 		case SCM_RIGHTS:
--			if (!sock->ops || sock->ops->family != PF_UNIX)
-+			if (!sock->ops || (sock->ops->family != PF_UNIX &&
-+					   sock->ops->family != PF_BUS))
- 				goto error;
- 			err=scm_fp_copy(cmsg, &p->fp);
- 			if (err<0)
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 4ee6f23..5bacbe2 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -67,6 +67,7 @@
+ #include <linux/quota.h>
+ #include <linux/un.h>		/* for Unix socket types */
+ #include <net/af_unix.h>	/* for Unix socket types */
++#include <net/af_bus.h>	/* for Bus socket types */
+ #include <linux/parser.h>
+ #include <linux/nfs_mount.h>
+ #include <net/ipv6.h>
+@@ -4101,6 +4102,39 @@ static int selinux_socket_unix_may_send(struct socket *sock,
+ 			    &ad);
+ }
+ 
++static int selinux_socket_bus_connect(struct sock *sock, struct sock *other,
++				      struct sock *newsk)
++{
++	struct sk_security_struct *sksec_sock = sock->sk_security;
++	struct sk_security_struct *sksec_other = other->sk_security;
++	struct sk_security_struct *sksec_new = newsk->sk_security;
++	struct common_audit_data ad;
++	struct lsm_network_audit net = {0,};
++	int err;
++
++	ad.type = LSM_AUDIT_DATA_NET;
++	ad.u.net = &net;
++	ad.u.net->sk = other;
++
++	err = avc_has_perm(sksec_sock->sid, sksec_other->sid,
++			   sksec_other->sclass,
++			   UNIX_STREAM_SOCKET__CONNECTTO, &ad);
++	if (err)
++		return err;
++
++	/* server child socket */
++	sksec_new->peer_sid = sksec_sock->sid;
++	err = security_sid_mls_copy(sksec_other->sid, sksec_sock->sid,
++				    &sksec_new->sid);
++	if (err)
++		return err;
++
++	/* connecting socket */
++	sksec_sock->peer_sid = sksec_new->sid;
++
++	return 0;
++}
++
+ static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
+ 				    u32 peer_sid,
+ 				    struct common_audit_data *ad)
+@@ -5643,6 +5677,7 @@ static struct security_operations selinux_ops = {
+ 
+ 	.unix_stream_connect =		selinux_socket_unix_stream_connect,
+ 	.unix_may_send =		selinux_socket_unix_may_send,
++	.bus_connect =		        selinux_socket_bus_connect,
+ 
+ 	.socket_create =		selinux_socket_create,
+ 	.socket_post_create =		selinux_socket_post_create,
 -- 
 1.7.10
