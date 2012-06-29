@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 13/16] mm: Micro-optimise slab to avoid a function call
-Date: Fri, 29 Jun 2012 14:32:44 +0100
-Message-ID: <1340976767-5737-14-git-send-email-mgorman@suse.de>
+Subject: [PATCH 10/16] netvm: Propagate page->pfmemalloc to skb
+Date: Fri, 29 Jun 2012 14:32:41 +0100
+Message-ID: <1340976767-5737-11-git-send-email-mgorman@suse.de>
 References: <1340976767-5737-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -19,76 +19,41 @@ In-Reply-To: <1340976767-5737-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Getting and putting objects in SLAB currently requires a function call
-but the bulk of the work is related to PFMEMALLOC reserves which are
-only consumed when network-backed storage is critical. Use an inline
-function to determine if the function call is required.
+The skb->pfmemalloc flag gets set to true iff during the slab
+allocation of data in __alloc_skb that the the PFMEMALLOC reserves
+were used. If the packet is fragmented, it is possible that pages
+will be allocated from the PFMEMALLOC reserve without propagating
+this information to the skb. This patch propagates page->pfmemalloc
+from pages allocated for fragments to the skb.
 
 Signed-off-by: Mel Gorman <mgorman@suse.de>
+Acked-by: David S. Miller <davem@davemloft.net>
 ---
- mm/slab.c |   28 ++++++++++++++++++++++++++--
- 1 file changed, 26 insertions(+), 2 deletions(-)
+ include/linux/skbuff.h |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/mm/slab.c b/mm/slab.c
-index d9fe508..84f471e 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -117,6 +117,8 @@
- #include	<linux/memory.h>
- #include	<linux/prefetch.h>
- 
-+#include	<net/sock.h>
-+
- #include	<asm/cacheflush.h>
- #include	<asm/tlbflush.h>
- #include	<asm/page.h>
-@@ -991,7 +993,7 @@ out:
- 	spin_unlock_irqrestore(&l3->list_lock, flags);
- }
- 
--static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+static void *__ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 						gfp_t flags, bool force_refill)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0336f02..b814bb8 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1247,6 +1247,17 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
  {
- 	int i;
-@@ -1038,7 +1040,20 @@ static void *ac_get_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 	return objp;
- }
+ 	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
  
--static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+static inline void *ac_get_obj(struct kmem_cache *cachep,
-+			struct array_cache *ac, gfp_t flags, bool force_refill)
-+{
-+	void *objp;
-+
-+	if (unlikely(sk_memalloc_socks()))
-+		objp = __ac_get_obj(cachep, ac, flags, force_refill);
-+	else
-+		objp = ac->entry[--ac->avail];
-+
-+	return objp;
-+}
-+
-+static void *__ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 								void *objp)
- {
- 	if (unlikely(pfmemalloc_active)) {
-@@ -1048,6 +1063,15 @@ static void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
- 			set_obj_pfmemalloc(&objp);
- 	}
- 
-+	return objp;
-+}
-+
-+static inline void ac_put_obj(struct kmem_cache *cachep, struct array_cache *ac,
-+								void *objp)
-+{
-+	if (unlikely(sk_memalloc_socks()))
-+		objp = __ac_put_obj(cachep, ac, objp);
-+
- 	ac->entry[ac->avail++] = objp;
- }
- 
++	/*
++	 * Propagate page->pfmemalloc to the skb if we can. The problem is
++	 * that not all callers have unique ownership of the page. If
++	 * pfmemalloc is set, we check the mapping as a mapping implies
++	 * page->index is set (index and pfmemalloc share space).
++	 * If it's a valid mapping, we cannot use page->pfmemalloc but we
++	 * do not lose pfmemalloc information as the pages would not be
++	 * allocated using __GFP_MEMALLOC.
++	 */
++	if (page->pfmemalloc && !page->mapping)
++		skb->pfmemalloc	= true;
+ 	frag->page.p		  = page;
+ 	frag->page_offset	  = off;
+ 	skb_frag_size_set(frag, size);
 -- 
 1.7.9.2
 
