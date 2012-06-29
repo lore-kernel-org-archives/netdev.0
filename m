@@ -1,30 +1,55 @@
-From: David Miller <davem@davemloft.net>
+From: Vincent Sanders <vincent.sanders@collabora.co.uk>
 Subject: Re: AF_BUS socket address family
-Date: Fri, 29 Jun 2012 16:18:21 -0700 (PDT)
-Message-ID: <20120629.161821.948325645333976311.davem@davemloft.net>
+Date: Sat, 30 Jun 2012 00:22:28 +0100
+Message-ID: <20120629232227.GB28593@mail.collabora.co.uk>
 References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
-	<20120629.153656.1141845894730637434.davem@davemloft.net>
-	<20120629231236.GA28593@mail.collabora.co.uk>
+ <4FEDF7B6.3020107@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: vincent.sanders@collabora.co.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Casey Schaufler <casey@schaufler-ca.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120629231236.GA28593@mail.collabora.co.uk>
+Content-Disposition: inline
+In-Reply-To: <4FEDF7B6.3020107@schaufler-ca.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Date: Sat, 30 Jun 2012 00:12:37 +0100
+On Fri, Jun 29, 2012 at 11:45:10AM -0700, Casey Schaufler wrote:
+> On 6/29/2012 9:45 AM, Vincent Sanders wrote:
 
-> I had hoped you would have at least read the opening list where I
-> outlined the underlying features which explain why none of the
-> existing IPC match the requirements.
+<snip>
 
-I had hoped that you had read the part we told you last time where
-we explained why multicast and "reliable delivery" are fundamentally
-incompatible attributes.
+> >
+> > A socket created using BUS_PROTO_DBUS indicates that the messages
+> > passed will be in the D-Bus format. The userspace libraries have been
+> > updated to use this transport with an updated D-Bus daemon [2] as a bus
+> > master.
+> 
+> Why don't you go whole hog and put all of D-Bus into the kernel?
+> 
 
-We are not creating a full address family in the kernel which exists
-for one, and only one, specific and difficult user.
+That would be ridiculously excessive. This work represents what we
+feel is the minimum required functionlity for the underlying IPC
+mechanism. 
+
+The minimal filtering performed by the netfilter module is what is
+required to enforce security as used in existing deployments and no more.
+
+<snip>
+
+> >
+> > The tools for testing these assertions are available [3] and
+> > consistently show a doubling in throughput and better than halving of
+> > latency.
+> 
+> Please cross-post Patches 04/15 and 05/15 to the linux-security-module list.
+> Please cross-post Patch 05/15 to the selinux list.
+> 
+> Where is the analogous patch for the Smack LSM?
+
+we have not tested or built this with the Smack LSM, I would, of
+course, be pleased to accept a patch to add this functionality if you
+are knowladgeable in this area.
+
+<snip>
