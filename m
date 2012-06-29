@@ -1,118 +1,229 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: BUG: NULL pointer in ctnetlink_conntrack_event
-Date: Fri, 29 Jun 2012 14:29:37 +0200 (CEST)
-Message-ID: <mdaatbj.9730f14767bb2419ed11e14ac50382b8@obelix.schillstrom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-To: "Pablo Neira Ayuso" <pablo@netfilter.org>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 00/16] Swap-over-NBD without deadlocking V14
+Date: Fri, 29 Jun 2012 14:32:31 +0100
+Message-ID: <1340976767-5737-1-git-send-email-mgorman@suse.de>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
+	Mel Gorman <mgorman@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Andrew, any chance of these being picked up for linux-next? Many of the
+recent changes have been related to rebasing issues instead of something
+more fundamental.
 
-There is a "hard to find" problem in ctnetlink_conntrack_event() when calling
-netlink_has_listeners() net->nfnl is NULL.
+Changelog since V13
+  o Rebase to linux-next 20120629
 
-The rcu stuff seems to be right at a first look but who knows...
+Changelog since V12
+  o Rebase to linux-next-20120622
+  o Do not alter coalesce handling in the input path		      (eric.dumazet)
+  o Avoid unnecessary cast					      (sebastian)
 
-The line below fix the problem, but that is not the root cause.
+Changelog since V11
+  o Rebase to 3.5-rc3
+  o Correct order of page flag free				      (sebastian)
 
- int nfnetlink_has_listeners(struct net *net, unsigned int group)
- {
--       return netlink_has_listeners(net->nfnl, group);
-+       return net->nfnl ? netlink_has_listeners(net->nfnl, group) : 0 ;
- }
+Changelog since V10
+  o Rebase to 3.4-rc5
+  o Coding style fixups						      (davem)
+  o API consistency						      (davem)
+  o Rename sk_allocation to sk_gfp_atomic and use only when necessary (davem)
+  o Use static branches for sk_memalloc_socks			      (davem)
+  o Use static branch checks in fast paths			      (davem)
+  o Document concerns about PF_MEMALLOC leaking flags		      (davem)
+  o Locking fix in slab						      (mel)
 
-Yes it is a 3.0.26 kernel but this patch is applied
-netfilter: nf_conntrack: make event callback registration per-netns
+Changelog since V9
+  o Rebase to 3.4-rc5
+  o Clarify comment on why PF_MEMALLOC is cleared in softirq handling (akpm)
+  o Only set page->pfmemalloc if ALLOC_NO_WATERMARKS was required     (rientjes)
 
-It happens when adding a number of containers with does a "nfct_query(h, NFCT_Q_CREATE, ct);"
-and most likely one namespace shuts down.
+Changelog since V8
+  o Rebase to 3.4-rc2
+  o Use page flag instead of slab fields to keep structures the same size
+  o Properly detect allocations from softirq context that use PF_MEMALLOC
+  o Ensure kswapd does not sleep while processes are throttled
+  o Do not accidentally throttle !_GFP_FS processes indefinitely
 
-Any idea why the timer is running at this point ?
+Changelog since V7
+  o Rebase to 3.3-rc2
+  o Take greater care propagating page->pfmemalloc to skb
+  o Propagate pfmemalloc from netdev_alloc_page to skb where possible
+  o Release RCU lock properly on preempt kernel
 
+Changelog since V6
+  o Rebase to 3.1-rc8
+  o Use wake_up instead of wake_up_interruptible()
+  o Do not throttle kernel threads
+  o Avoid a potential race between kswapd going to sleep and processes being
+    throttled
 
-BUG: unable to handle kernel NULL pointer dereference at 000000000000027c
-IP: [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
-PGD 0
-Oops: 0000 [#3] PREEMPT SMP
-CPU 0
-Modules linked in: ip6table_raw(N) xt_NOTRACK(N) iptable_raw(N) ipt_REJECT(N) xt_sctp(N) xt_multiport(N) xt_connmark(N) xt_mark(N) xt_conntrack(N) ip6table_mangle(N) ip_vs(N) nf_conntrack_netlink(N) nfnetlink(N) ip6_tunnel(N) tunnel6(N) macvlan(N) xt_HMARK(N) ipv6_find_hdr(N) iptable_mangle(N) nf_conntrack_ipv6(N) nf_defrag_ipv6(N) ip6t_LOG(N) ip6table_filter(N) ip6_tables(N) nf_conntrack_ipv4(N) nf_defrag_ipv4(N) xt_state(N) xt_tcpudp(N) xt_u32(N) xt_comment(N) xt_length(N) xt_hashlimit(N) ipt_LOG(N) xt_limit(N) iptable_filter(N) ip_tables(N) x_tables(N) nf_conntrack_ftp(N) nf_conntrack_tftp(N) nf_conntrack(N) mptsas(N) mptscsih(N) mptbase(N) sg(N) scsi_transport_sas(N) i2c_i801(N) i2c_core(N) button(N) pcspkr(N) ahci(N) libahci(N) processor(N) serio_raw(N) thermal_sys(N) hwmon(N) iTCO_wd
- t(N) iTCO_vendor_support(N) libata(N) ioatdma(N) ixgbe(N) mdio(N) nfs(N) lockd(N) fscache(N) auth_rpcgss(N) nfs_acl(N) sunrpc(N) af_packet(N) ipv6(N) ipv6_lib(N) bonding(N) e1000e(N) igb(N) dca(N) mii(N) 8021q(N) garp(N) stp(N) llc(N) softdog(N) xfs(N) exportfs(N) sd_mod(N) crc_t10dif(N) usb_storage(N) scsi_mod(N) ehci_hcd(N) uhci_hcd(N) usbcore(N) usb_common(N)
-Supported: Yes
+Changelog since V5
+  o Rebase to 3.1-rc5
 
-Pid: 0, comm: swapper Tainted: G      D    N  3.0.26-0.2-default
-RIP: 0010:[<ffffffff813615db>]  [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
-RSP: 0018:ffff88063f203da0  EFLAGS: 00010286
-RAX: ffff88063f203e30 RBX: 0000000000000000 RCX: ffffffffa04c60f0
-RDX: 0000000000000004 RSI: 0000000000000003 RDI: 0000000000000000
-RBP: 0000000000000003 R08: 0000000000000000 R09: ffff88063f2114a0
-R10: 0000000000000000 R11: ffffffff8101e760 R12: ffff8805e2a45788
-R13: 0000000000000000 R14: 0000000000000002 R15: 0000000000000004
-FS:  0000000000000000(0000) GS:ffff88063f200000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 000000000000027c CR3: 0000000001a03000 CR4: 00000000000006f0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper (pid: 0, threadinfo ffffffff81a00000, task ffffffff81a0b020)
-Stack:
- 0000000000000000 0000000000000000 ffff8805e2a45800 ffffffffa04c453e
- ffff88063f203e30 0000000400000001 ffff8805e24e6c80 0000000300000000
- 0000000000000000 ffff880610044000 ffff880610044800 ffff8805e2a45788
-Call Trace:
- [<ffffffffa04c453e>] ctnetlink_conntrack_event+0x51e/0x570 [nf_conntrack_netlink]
- [<ffffffffa042a27b>] death_by_timeout+0x12b/0x190 [nf_conntrack]
- [<ffffffff810608ec>] run_timer_softirq+0x14c/0x270
- [<ffffffff81059d25>] __do_softirq+0xa5/0x180
- [<ffffffff813ff43c>] call_softirq+0x1c/0x30
- [<ffffffff810043f5>] do_softirq+0x65/0xa0
- [<ffffffff81059b15>] irq_exit+0xc5/0x100
- [<ffffffff8101f5a9>] smp_apic_timer_interrupt+0x69/0xa0
- [<ffffffff813febf3>] apic_timer_interrupt+0x13/0x20
- [<ffffffffa0230806>] acpi_idle_enter_bm+0x255/0x28f [processor]
- [<ffffffff813179e2>] cpuidle_idle_call+0xd2/0x120
- [<ffffffff810019f3>] cpu_idle+0x63/0xd0
- [<ffffffff81bf0f65>] start_kernel+0x3e4/0x4bf
- [<ffffffff81bf03c3>] x86_64_start_kernel+0x114/0x12f
-Code: ff 66 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 e9 cb c5 fc ff 66 66 2e 0f 1f 84 00 00 00 00 00 55 89 f5 53 48 89 fb 48 83 ec 08 <f6> 87 7c 02 00 00 01 74 41 e8 47 50 d5 ff 0f b6 83 21 01 00 00
-RIP  [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
- RSP <ffff88063f203da0>
-CR2: 000000000000027c
----[ end trace a057af0b3004c67a ]---
-Kernel panic - not syncing: Fatal exception in interrupt
-Pid: 0, comm: swapper Tainted: G      D    N  3.0.26-0.2-default #1
-Call Trace:
- [<ffffffff81004672>] dump_trace+0x82/0x380
- [<ffffffff813f4fa2>] dump_stack+0x69/0x6f
- [<ffffffff813f5050>] panic+0xa8/0x20c
- [<ffffffff813f9b21>] oops_end+0xe1/0xf0
- [<ffffffff81030e50>] no_context+0x100/0x270
- [<ffffffff81031135>] __bad_area_nosemaphore+0x175/0x220
- [<ffffffff813fbb36>] do_page_fault+0x3a6/0x590
- [<ffffffff813f8d15>] page_fault+0x25/0x30
- [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
- [<ffffffffa04c453e>] ctnetlink_conntrack_event+0x51e/0x570 [nf_conntrack_netlink]
- [<ffffffffa042a27b>] death_by_timeout+0x12b/0x190 [nf_conntrack]
- [<ffffffff810608ec>] run_timer_softirq+0x14c/0x270
- [<ffffffff81059d25>] __do_softirq+0xa5/0x180
- [<ffffffff813ff43c>] call_softirq+0x1c/0x30
- [<ffffffff810043f5>] do_softirq+0x65/0xa0
- [<ffffffff81059b15>] irq_exit+0xc5/0x100
- [<ffffffff8101f5a9>] smp_apic_timer_interrupt+0x69/0xa0
- [<ffffffff813febf3>] apic_timer_interrupt+0x13/0x20
- [<ffffffffa0230806>] acpi_idle_enter_bm+0x255/0x28f [processor]
- [<ffffffff813179e2>] cpuidle_idle_call+0xd2/0x120
- [<ffffffff810019f3>] cpu_idle+0x63/0xd0
- [<ffffffff81bf0f65>] start_kernel+0x3e4/0x4bf
- [<ffffffff81bf03c3>] x86_64_start_kernel+0x114/0x12f
-Rebooting in 1 seconds..
+Changelog since V4
+  o Update comment clarifying what protocols can be used		(Michal)
+  o Rebase to 3.0-rc3
+
+Changelog since V3
+  o Propogate pfmemalloc from packet fragment pages to skb		(Neil)
+  o Rebase to 3.0-rc2
+
+Changelog since V2
+  o Document that __GFP_NOMEMALLOC overrides __GFP_MEMALLOC		(Neil)
+  o Use wait_event_interruptible					(Neil)
+  o Use !! when casting to bool to avoid any possibilitity of type
+    truncation								(Neil)
+  o Nicer logic when using skb_pfmemalloc_protocol			(Neil)
+
+Changelog since V1
+  o Rebase on top of mmotm
+  o Use atomic_t for memalloc_socks		(David Miller)
+  o Remove use of sk_memalloc_socks in vmscan	(Neil Brown)
+  o Check throttle within prepare_to_wait	(Neil Brown)
+  o Add statistics on throttling instead of printk
+
+When a user or administrator requires swap for their application, they
+create a swap partition and file, format it with mkswap and activate it
+with swapon. Swap over the network is considered as an option in diskless
+systems. The two likely scenarios are when blade servers are used as part
+of a cluster where the form factor or maintenance costs do not allow the
+use of disks and thin clients.
+
+The Linux Terminal Server Project recommends the use of the
+Network Block Device (NBD) for swap according to the manual at
+https://sourceforge.net/projects/ltsp/files/Docs-Admin-Guide/LTSPManual.pdf/download
+There is also documentation and tutorials on how to setup swap over NBD
+at places like https://help.ubuntu.com/community/UbuntuLTSP/EnableNBDSWAP
+The nbd-client also documents the use of NBD as swap. Despite this, the
+fact is that a machine using NBD for swap can deadlock within minutes if
+swap is used intensively. This patch series addresses the problem.
+
+The core issue is that network block devices do not use mempools like
+normal block devices do. As the host cannot control where they receive
+packets from, they cannot reliably work out in advance how much memory
+they might need. Some years ago, Peter Zijlstra developed a series of
+patches that supported swap over an NFS that at least one distribution
+is carrying within their kernels. This patch series borrows very heavily
+from Peter's work to support swapping over NBD as a pre-requisite to
+supporting swap-over-NFS. The bulk of the complexity is concerned with
+preserving memory that is allocated from the PFMEMALLOC reserves for use
+by the network layer which is needed for both NBD and NFS.
+
+Patch 1 adds knowledge of the PFMEMALLOC reserves to SLAB and SLUB to
+	preserve access to pages allocated under low memory situations
+	to callers that are freeing memory.
+
+Patch 2 introduces __GFP_MEMALLOC to allow access to the PFMEMALLOC
+	reserves without setting PFMEMALLOC.
+
+Patch 3 opens the possibility for softirqs to use PFMEMALLOC reserves
+	for later use by network packet processing.
+
+Patch 4 ignores memory policies when ALLOC_NO_WATERMARKS is set.
+
+Patch 5 only sets page->pfmemalloc when ALLOC_NO_WATERMARKS was required
+
+Patches 6-13 allows network processing to use PFMEMALLOC reserves when
+	the socket has been marked as being used by the VM to clean pages. If
+	packets are received and stored in pages that were allocated under
+	low-memory situations and are unrelated to the VM, the packets
+	are dropped.
+
+	Patch 11 reintroduces __skb_alloc_page which the networking
+	folk may object to but is needed in some cases to propogate
+	pfmemalloc from a newly allocated page to an skb. If there is a
+	strong objection, this patch can be dropped with the impact being
+	that swap-over-network will be slower in some cases but it should
+	not fail.
+
+Patch 14 is a micro-optimisation to avoid a function call in the
+	common case.
+
+Patch 15 tags NBD sockets as being SOCK_MEMALLOC so they can use
+	PFMEMALLOC if necessary.
+
+Patch 16 notes that it is still possible for the PFMEMALLOC reserve
+	to be depleted. To prevent this, direct reclaimers get throttled on
+	a waitqueue if 50% of the PFMEMALLOC reserves are depleted.  It is
+	expected that kswapd and the direct reclaimers already running
+	will clean enough pages for the low watermark to be reached and
+	the throttled processes are woken up.
+
+Patch 17 adds a statistic to track how often processes get throttled
+
+Some basic performance testing was run using kernel builds, netperf
+on loopback for UDP and TCP, hackbench (pipes and sockets), iozone
+and sysbench. Each of them were expected to use the sl*b allocators
+reasonably heavily but there did not appear to be significant
+performance variances.
+
+For testing swap-over-NBD, a machine was booted with 2G of RAM with a
+swapfile backed by NBD. 8*NUM_CPU processes were started that create
+anonymous memory mappings and read them linearly in a loop. The total
+size of the mappings were 4*PHYSICAL_MEMORY to use swap heavily under
+memory pressure.
+
+Without the patches and using SLUB, the machine locks up within minutes and
+runs to completion with them applied. With SLAB, the story is different
+as an unpatched kernel run to completion. However, the patched kernel
+completed the test 45% faster.
+
+MICRO
+                                         3.5.0-rc2 3.5.0-rc2
+					 vanilla     swapnbd
+Unrecognised test vmscan-anon-mmap-write
+MMTests Statistics: duration
+Sys Time Running Test (seconds)             197.80    173.07
+User+Sys Time Running Test (seconds)        206.96    182.03
+Total Elapsed Time (seconds)               3240.70   1762.09
+
+ drivers/block/nbd.c                               |    6 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c          |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c        |    2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c         |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |    4 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    3 +-
+ drivers/net/usb/cdc-phonet.c                      |    2 +-
+ drivers/usb/gadget/f_phonet.c                     |    2 +-
+ include/linux/gfp.h                               |   13 +-
+ include/linux/mm_types.h                          |    9 +
+ include/linux/mmzone.h                            |    1 +
+ include/linux/page-flags.h                        |   28 +++
+ include/linux/sched.h                             |    7 +
+ include/linux/skbuff.h                            |   80 +++++++-
+ include/linux/vm_event_item.h                     |    1 +
+ include/net/sock.h                                |   28 +++
+ include/trace/events/gfpflags.h                   |    1 +
+ kernel/softirq.c                                  |    9 +
+ mm/page_alloc.c                                   |   46 ++++-
+ mm/slab.c                                         |  216 +++++++++++++++++++--
+ mm/slub.c                                         |   30 ++-
+ mm/vmscan.c                                       |  131 ++++++++++++-
+ mm/vmstat.c                                       |    1 +
+ net/core/dev.c                                    |   53 ++++-
+ net/core/filter.c                                 |    8 +
+ net/core/skbuff.c                                 |  124 +++++++++---
+ net/core/sock.c                                   |   43 ++++
+ net/ipv4/tcp_output.c                             |   12 +-
+ net/ipv6/tcp_ipv6.c                               |    8 +-
+ 29 files changed, 782 insertions(+), 90 deletions(-)
+
+-- 
+1.7.9.2
+
 --
-Regards 
-Hans Schillstrom
-
-
-
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
