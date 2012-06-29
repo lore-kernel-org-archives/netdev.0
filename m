@@ -1,71 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: "ADDRCONF(NETDEV_UP): eth0: link is not ready" with IPv6
-Date: Fri, 29 Jun 2012 16:24:33 +0100
-Message-ID: <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4FED14C2.9020200@xdin.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Arvid Brodin <Arvid.Brodin@xdin.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:48429 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755710Ab2F2PYj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 11:24:39 -0400
-In-Reply-To: <4FED14C2.9020200@xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 0/5] netfilter fixes for 3.5-rc4
+Date: Fri, 29 Jun 2012 17:37:30 +0200
+Message-ID: <1340984255-738-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-06-29 at 02:36 +0000, Arvid Brodin wrote:
-> Hi,
-> 
-> After 'ip link set eth0 up' on an avr32 board (network driver macb), the device ends up in
-> operational mode "UNKNOWN":
-> 
-> # ip link
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000
->     link/ether 00:24:74:00:17:9d brd ff:ff:ff:ff:ff:ff
-> 
-> Unplugging and plugging in the network cable gets the device to mode "UP".
-> 
-> This is a problem for me because I'm trying to use this device as a "slave" device (for a
-> virtual HSR device*) and I need to be able to decide if the slave device is operational or
-> not.
-> 
-> Following Stephen's advice here:
-> http://kerneltrap.org/mailarchive/linux-netdev/2008/9/24/3398834 I checked the macb.c code
-> and noticed they do not call netif_carrier_off() neither before register_netdev() nor in
-> dev_open().
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-It should be called after register_netdev() and before the driver's
-ndo_open implementation returns.
+Hi David,
 
-> I added the call before register_netdev(), which fixed the problem. However, if I then
-> enable IPv6:
->
-> # ip link set eth0 up
-> ADDRCONF(NETDEV_UP): eth0: link is not ready
-> eth0: link up (100/Full)
-> ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+The following are 4 fixes and the update of the MAINTAINERS file
+to point to my Netfilter trees.
 
-This looks normal.
+They are:
 
-> Any idea what is happening / what I'm doing wrong? (This is not just cosmetic; is some
-> situations this seems to kill the interface - e.g. ping does not work, down/up does not
-> help...) Things work fine without IPv6 configured.
+* One refcount leak fix in IPVS IPv6 support from Eric Dumazet.
 
-Perhaps some packets sent automatically by IPv6 are triggering a driver
-bug?  Or there is a bug in multicast support, which IPv6 always uses.
+* One fix for interface comparison in ipset hash-netiface sets
+  from Florian Westphal.
 
-Ben.
+* One fix for a missing rcu_read_unlock in nfnetlink from
+  Tomasz Bursztyka.
 
-> *N.B. I'm writing a driver for a network protocol called "High-availability Seamless
-> Redundancy".
+* One fix for a kernel crash if IPSET_CMD_NONE is set to ipset via
+  nfnetlink, again from Tomasz Bursztyka.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf master
+
+Thanks!
+
+Eric Dumazet (1):
+  netfilter: ipvs: fix dst leak in __ip_vs_addr_is_local_v6
+
+Florian Westphal (1):
+  netfilter: ipset: fix interface comparision in hash-netiface sets
+
+Pablo Neira Ayuso (1):
+  netfilter: update location of my trees
+
+Tomasz Bursztyka (2):
+  netfilter: ipset: fix crash if IPSET_CMD_NONE command is sent
+  netfilter: nfnetlink: fix missing rcu_read_unlock in nfnetlink_rcv_msg
+
+ MAINTAINERS                                |    4 ++--
+ net/netfilter/ipset/ip_set_core.c          |   12 +++++++++++
+ net/netfilter/ipset/ip_set_hash_netiface.c |   32 ++++------------------------
+ net/netfilter/ipvs/ip_vs_ctl.c             |   14 ++++++------
+ net/netfilter/nfnetlink.c                  |    4 +++-
+ 5 files changed, 28 insertions(+), 38 deletions(-)
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10
+
