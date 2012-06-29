@@ -1,57 +1,35 @@
-From: Vincent Sanders <vincent.sanders@collabora.co.uk>
+From: David Miller <davem@davemloft.net>
 Subject: Re: AF_BUS socket address family
-Date: Sat, 30 Jun 2012 00:42:30 +0100
-Message-ID: <20120629234230.GA11480@kyllikki.org>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
- <20120629.153656.1141845894730637434.davem@davemloft.net>
- <20120629231236.GA28593@mail.collabora.co.uk>
- <20120629.161821.948325645333976311.davem@davemloft.net>
+Date: Fri, 29 Jun 2012 16:50:23 -0700 (PDT)
+Message-ID: <20120629.165023.1605284574408858612.davem@davemloft.net>
+References: <20120629231236.GA28593@mail.collabora.co.uk>
+	<20120629.161821.948325645333976311.davem@davemloft.net>
+	<20120629234230.GA11480@kyllikki.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: vincent.sanders@collabora.co.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120629.161821.948325645333976311.davem@davemloft.net>
+In-Reply-To: <20120629234230.GA11480@kyllikki.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 29, 2012 at 04:18:21PM -0700, David Miller wrote:
-> From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-> Date: Sat, 30 Jun 2012 00:12:37 +0100
-> 
-> > I had hoped you would have at least read the opening list where I
-> > outlined the underlying features which explain why none of the
-> > existing IPC match the requirements.
-> 
-> I had hoped that you had read the part we told you last time where
-> we explained why multicast and "reliable delivery" are fundamentally
-> incompatible attributes.
-> 
+From: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Date: Sat, 30 Jun 2012 00:42:30 +0100
 
-I do not beleive we indicated reliable delivery, mearly ordered and
-idempotent. eitehr everyone gets the message in the same order or
-noone gets it.
+> Basically you are indicating you would be completely opposed to any
+> mechanism involving D-Bus IPC and the kernel? 
 
-> We are not creating a full address family in the kernel which exists
-> for one, and only one, specific and difficult user.
+I would not oppose existing mechanisms, which I do not believe is
+impossible to use in your scenerio.
 
-Basically you are indicating you would be completely opposed to any
-mechanism involving D-Bus IPC and the kernel? 
+What you really don't get is that packet drops and event losses are
+absolutely fundamental.
 
-Is there were a way to convince you that this is of real value to a
-great many of the users of Linux systems in use today. I can assert
-with some confidence that there are many, many more users of D-Bus IPC
-than there are for several of the other address families that are
-present within the kernel already. 
+As long as receivers lack infinite receive queue this will always be
+the case.
 
-The current users are suffering from the issues outlined in my
-introductory mail all the time. These issues are caused by emulating an
-IPC system over AF_UNIX in userspace.
-
-All we are trying to do is make things better for our users, is there
-a way to do that which will satisfy you technically and them? Honestly
-I am just looking for a viable solution here.
-
--- 
-Regards Vincent
+Multicast operates in non-reliable transports only so that one stuck
+or malfunctioning receiver doesn't screw things over for everyone nor
+unduly brudon the sender.
