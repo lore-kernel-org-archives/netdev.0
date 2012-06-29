@@ -1,7 +1,7 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 09/12] nfs: disable data cache revalidation for swapfiles
-Date: Fri, 29 Jun 2012 14:33:22 +0100
-Message-ID: <1340976805-5799-10-git-send-email-mgorman@suse.de>
+Subject: [PATCH 12/12] Avoid dereferencing bd_disk during swap_entry_free for network storage
+Date: Fri, 29 Jun 2012 14:33:25 +0100
+Message-ID: <1340976805-5799-13-git-send-email-mgorman@suse.de>
 References: <1340976805-5799-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
@@ -21,147 +21,51 @@ In-Reply-To: <1340976805-5799-1-git-send-email-mgorman@suse.de>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-The VM does not like PG_private set on PG_swapcache pages. As suggested
-by Trond in http://lkml.org/lkml/2006/8/25/348, this patch disables
-NFS data cache revalidation on swap files.  as it does not make
-sense to have other clients change the file while it is being used as
-swap. This avoids setting PG_private on swap pages, since there ought
-to be no further races with invalidate_inode_pages2() to deal with.
+Commit [b3a27d: swap: Add swap slot free callback to
+block_device_operations] dereferences p->bdev->bd_disk but this is a
+NULL dereference if using swap-over-NFS. This patch checks SWP_BLKDEV
+on the swap_info_struct before dereferencing.
 
-Since we cannot set PG_private we cannot use page->private which
-is already used by PG_swapcache pages to store the nfs_page. Thus
-augment the new nfs_page_find_request logic.
+With reference to this callback, Christoph Hellwig stated "Please
+just remove the callback entirely.  It has no user outside the staging
+tree and was added clearly against the rules for that staging tree".
+This would also be my preference but there was not an obvious way of
+keeping zram in staging/ happy.
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
 Signed-off-by: Mel Gorman <mgorman@suse.de>
 Acked-by: Rik van Riel <riel@redhat.com>
 ---
- fs/nfs/inode.c |    4 ++++
- fs/nfs/write.c |   49 +++++++++++++++++++++++++++++++++++--------------
- 2 files changed, 39 insertions(+), 14 deletions(-)
+ mm/swapfile.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
-index edecd05..90810a4 100644
---- a/fs/nfs/inode.c
-+++ b/fs/nfs/inode.c
-@@ -883,6 +883,10 @@ int nfs_revalidate_mapping(struct inode *inode, struct address_space *mapping)
- 	struct nfs_inode *nfsi = NFS_I(inode);
- 	int ret = 0;
+diff --git a/mm/swapfile.c b/mm/swapfile.c
+index 1d77b13..f4c802d 100644
+--- a/mm/swapfile.c
++++ b/mm/swapfile.c
+@@ -549,7 +549,6 @@ static unsigned char swap_entry_free(struct swap_info_struct *p,
  
-+	/* swapfiles are not supposed to be shared. */
-+	if (IS_SWAPFILE(inode))
-+		goto out;
-+
- 	if (nfs_mapping_need_revalidate_inode(inode)) {
- 		ret = __nfs_revalidate_inode(NFS_SERVER(inode), inode);
- 		if (ret < 0)
-diff --git a/fs/nfs/write.c b/fs/nfs/write.c
-index f6a8ebc..947e1e6 100644
---- a/fs/nfs/write.c
-+++ b/fs/nfs/write.c
-@@ -139,15 +139,28 @@ static void nfs_context_set_write_error(struct nfs_open_context *ctx, int error)
- 	set_bit(NFS_CONTEXT_ERROR_WRITE, &ctx->flags);
- }
- 
--static struct nfs_page *nfs_page_find_request_locked(struct page *page)
-+static struct nfs_page *
-+nfs_page_find_request_locked(struct nfs_inode *nfsi, struct page *page)
- {
- 	struct nfs_page *req = NULL;
- 
--	if (PagePrivate(page)) {
-+	if (PagePrivate(page))
- 		req = (struct nfs_page *)page_private(page);
--		if (req != NULL)
--			kref_get(&req->wb_kref);
-+	else if (unlikely(PageSwapCache(page))) {
-+		struct nfs_page *freq, *t;
-+
-+		/* Linearly search the commit list for the correct req */
-+		list_for_each_entry_safe(freq, t, &nfsi->commit_info.list, wb_list) {
-+			if (freq->wb_page == page) {
-+				req = freq;
-+				break;
-+			}
+ 	/* free if no reference */
+ 	if (!usage) {
+-		struct gendisk *disk = p->bdev->bd_disk;
+ 		if (offset < p->lowest_bit)
+ 			p->lowest_bit = offset;
+ 		if (offset > p->highest_bit)
+@@ -560,9 +559,11 @@ static unsigned char swap_entry_free(struct swap_info_struct *p,
+ 		nr_swap_pages++;
+ 		p->inuse_pages--;
+ 		frontswap_invalidate_page(p->type, offset);
+-		if ((p->flags & SWP_BLKDEV) &&
+-				disk->fops->swap_slot_free_notify)
+-			disk->fops->swap_slot_free_notify(p->bdev, offset);
++		if (p->flags & SWP_BLKDEV) {
++			struct gendisk *disk = p->bdev->bd_disk;
++			if (disk->fops->swap_slot_free_notify)
++				disk->fops->swap_slot_free_notify(p->bdev, offset);
 +		}
  	}
-+
-+	if (req)
-+		kref_get(&req->wb_kref);
-+
- 	return req;
- }
  
-@@ -157,7 +170,7 @@ static struct nfs_page *nfs_page_find_request(struct page *page)
- 	struct nfs_page *req = NULL;
- 
- 	spin_lock(&inode->i_lock);
--	req = nfs_page_find_request_locked(page);
-+	req = nfs_page_find_request_locked(NFS_I(inode), page);
- 	spin_unlock(&inode->i_lock);
- 	return req;
- }
-@@ -258,7 +271,7 @@ static struct nfs_page *nfs_find_and_lock_request(struct page *page, bool nonblo
- 
- 	spin_lock(&inode->i_lock);
- 	for (;;) {
--		req = nfs_page_find_request_locked(page);
-+		req = nfs_page_find_request_locked(NFS_I(inode), page);
- 		if (req == NULL)
- 			break;
- 		if (nfs_lock_request(req))
-@@ -412,9 +425,15 @@ static void nfs_inode_add_request(struct inode *inode, struct nfs_page *req)
- 	spin_lock(&inode->i_lock);
- 	if (!nfsi->npages && nfs_have_delegation(inode, FMODE_WRITE))
- 		inode->i_version++;
--	set_bit(PG_MAPPED, &req->wb_flags);
--	SetPagePrivate(req->wb_page);
--	set_page_private(req->wb_page, (unsigned long)req);
-+	/*
-+	 * Swap-space should not get truncated. Hence no need to plug the race
-+	 * with invalidate/truncate.
-+	 */
-+	if (likely(!PageSwapCache(req->wb_page))) {
-+		set_bit(PG_MAPPED, &req->wb_flags);
-+		SetPagePrivate(req->wb_page);
-+		set_page_private(req->wb_page, (unsigned long)req);
-+	}
- 	nfsi->npages++;
- 	kref_get(&req->wb_kref);
- 	spin_unlock(&inode->i_lock);
-@@ -431,9 +450,11 @@ static void nfs_inode_remove_request(struct nfs_page *req)
- 	BUG_ON (!NFS_WBACK_BUSY(req));
- 
- 	spin_lock(&inode->i_lock);
--	set_page_private(req->wb_page, 0);
--	ClearPagePrivate(req->wb_page);
--	clear_bit(PG_MAPPED, &req->wb_flags);
-+	if (likely(!PageSwapCache(req->wb_page))) {
-+		set_page_private(req->wb_page, 0);
-+		ClearPagePrivate(req->wb_page);
-+		clear_bit(PG_MAPPED, &req->wb_flags);
-+	}
- 	nfsi->npages--;
- 	spin_unlock(&inode->i_lock);
- 	nfs_release_request(req);
-@@ -729,7 +750,7 @@ static struct nfs_page *nfs_try_to_update_request(struct inode *inode,
- 	spin_lock(&inode->i_lock);
- 
- 	for (;;) {
--		req = nfs_page_find_request_locked(page);
-+		req = nfs_page_find_request_locked(NFS_I(inode), page);
- 		if (req == NULL)
- 			goto out_unlock;
- 
-@@ -1744,7 +1765,7 @@ int nfs_wb_page_cancel(struct inode *inode, struct page *page)
-  */
- int nfs_wb_page(struct inode *inode, struct page *page)
- {
--	loff_t range_start = page_offset(page);
-+	loff_t range_start = page_file_offset(page);
- 	loff_t range_end = range_start + (loff_t)(PAGE_CACHE_SIZE - 1);
- 	struct writeback_control wbc = {
- 		.sync_mode = WB_SYNC_ALL,
+ 	return usage;
 -- 
 1.7.9.2
 
