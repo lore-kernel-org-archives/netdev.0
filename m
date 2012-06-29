@@ -1,46 +1,60 @@
 From: pablo@netfilter.org
-Subject: [PATCH 5/5] netfilter: nfnetlink: fix missing rcu_read_unlock in nfnetlink_rcv_msg
-Date: Fri, 29 Jun 2012 17:37:35 +0200
-Message-ID: <1340984255-738-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/5] netfilter: ipvs: fix dst leak in __ip_vs_addr_is_local_v6
+Date: Fri, 29 Jun 2012 17:37:32 +0200
+Message-ID: <1340984255-738-3-git-send-email-pablo@netfilter.org>
 References: <1340984255-738-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38960 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756150Ab2F2Phu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2012 11:37:50 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1340984255-738-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Bug added in commit 6b75e3e8d664a9a (netfilter: nfnetlink: add RCU in
-nfnetlink_rcv_msg())
+After call to ip6_route_output() we must release dst or we leak it.
 
-Signed-off-by: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
+Also should test dst->error, as ip6_route_output() never returns NULL.
+
+Use boolean while we are at it.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/netfilter/ipvs/ip_vs_ctl.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 3e797d1..791d56b 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -169,8 +169,10 @@ replay:
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index dd811b8..d43e3c1 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -76,19 +76,19 @@ static void __ip_vs_del_service(struct ip_vs_service *svc);
  
- 		err = nla_parse(cda, ss->cb[cb_id].attr_count,
- 				attr, attrlen, ss->cb[cb_id].policy);
--		if (err < 0)
-+		if (err < 0) {
-+			rcu_read_unlock();
- 			return err;
-+		}
+ #ifdef CONFIG_IP_VS_IPV6
+ /* Taken from rt6_fill_node() in net/ipv6/route.c, is there a better way? */
+-static int __ip_vs_addr_is_local_v6(struct net *net,
+-				    const struct in6_addr *addr)
++static bool __ip_vs_addr_is_local_v6(struct net *net,
++				     const struct in6_addr *addr)
+ {
+-	struct rt6_info *rt;
+ 	struct flowi6 fl6 = {
+ 		.daddr = *addr,
+ 	};
++	struct dst_entry *dst = ip6_route_output(net, NULL, &fl6);
++	bool is_local;
  
- 		if (nc->call_rcu) {
- 			err = nc->call_rcu(net->nfnl, skb, nlh,
+-	rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl6);
+-	if (rt && rt->dst.dev && (rt->dst.dev->flags & IFF_LOOPBACK))
+-		return 1;
++	is_local = !dst->error && dst->dev && (dst->dev->flags & IFF_LOOPBACK);
+ 
+-	return 0;
++	dst_release(dst);
++	return is_local;
+ }
+ #endif
+ 
 -- 
 1.7.10
+
