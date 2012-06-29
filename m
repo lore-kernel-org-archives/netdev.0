@@ -1,25 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 1/2] r8169: support RTL8106E
-Date: Fri, 29 Jun 2012 15:50:56 +0200
-Message-ID: <20120629135056.GA8560@electric-eye.fr.zoreil.com>
-References: <1340966060-2749-1-git-send-email-hayeswang@realtek.com>
+From: Andreas Gruenbacher <agruen@linbit.com>
+Subject: [RFC] [TCP 0/3] Receive from socket into bio without copying
+Date: Fri, 29 Jun 2012 16:53:52 +0200
+Message-ID: <1340981632.25226.2.camel@gurkel.linbit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1340966060-2749-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> :
-[...]
-> Support the new chip RTL8106E.
+Hello,
 
-I'll give it a try this week end.
+I'm (still) trying to pass data from the network to the block layer without
+copying. The block layer needs blocks to be contiguous in memory, and may have
+some alignment restrictions as well.  A lot of modern network hardware will
+receive large packets into separate buffers, so individual large packets will
+end up in contiguous, aligned buffers.  I would like to make use of that, but
+tcp currently doesn't allow me to control what ends up in which packets.
 
-Thanks.
+This patch series introduces a new flag for indicating to tcp when it should
+start a new segment. Using that on the sender side, I can get data over the
+network with no cpu copying at all.
+
+[My last posting on this topic from May 8 is archived here:
+ http://www.spinics.net/lists/netdev/msg197788.html ]
+
+Thanks,
+Andreas
+
+Andreas Gruenbacher (3):
+  tcp: Add MSG_NEW_PACKET flag to indicate preferable packet boundaries
+  tcp: Zero-copy receive from a socket into a bio
+  fs: Export bio_release_pages()
+
+ fs/bio.c               |    3 +-
+ include/linux/bio.h    |    1 +
+ include/linux/socket.h |    1 +
+ include/net/tcp.h      |    3 +
+ net/ipv4/Makefile      |    3 +-
+ net/ipv4/tcp.c         |    5 +-
+ net/ipv4/tcp_recvbio.c |  168 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 180 insertions(+), 4 deletions(-)
+ create mode 100644 net/ipv4/tcp_recvbio.c
 
 -- 
-Ueimor
+1.7.10.2
