@@ -1,85 +1,116 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH net-next 4/6] qlge: Fixed double pci free upon
- tx_ring->q allocation failure.
-Date: Fri, 29 Jun 2012 15:48:05 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA877435B23E0@AVEXMB1.qlogic.org>
-References: <1340994290-28832-1-git-send-email-jitendra.kalsaria@qlogic.com>
- <1340994290-28832-5-git-send-email-jitendra.kalsaria@qlogic.com>
- <20120629213755.GC19152@electric-eye.fr.zoreil.com>
+From: Radek Pazdera <rpazdera@redhat.com>
+Subject: Source-specific multicast socket options documentation
+Date: Sat, 30 Jun 2012 00:52:00 +0200
+Message-ID: <20120629225200.GA9001@laptop.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-man@vger.kernel.org, netdev@vger.kernel.org
+To: mtk.manpages@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe005.messaging.microsoft.com ([216.32.180.188]:4993
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752778Ab2F2WsR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2012 18:48:17 -0400
-In-Reply-To: <20120629213755.GC19152@electric-eye.fr.zoreil.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:56576 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751401Ab2F2Wwn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 18:52:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois,
+Hi,
 
-See comments inline.
+I found out, that some source-specific multicast socket options are
+missing in the IPv4 manpage (man 7 ip) and I'm trying to write some
+documentation for them.
 
-Jiten
+This is what I have now (without the formatting). I'd like to ask,
+if you could spare a minute and have just a quick look over it
+to make sure there are not some errors (either technical or language -
+I'm not native speaker), before I post the patch.
 
------Original Message-----
-From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-Sent: Friday, June 29, 2012 2:38 PM
-To: Jitendra Kalsaria
-Cc: David Miller; netdev; Ron@linux-zupk.site; Dept-NX Linux NIC Driver
-Subject: Re: [PATCH net-next 4/6] qlge: Fixed double pci free upon tx_ring->q allocation failure.
+IP_ADD_SOURCE_MEMBERSHIP (since Linux 2.5.68)
+    Join a multicast group and allow receiving data only from a specific
+    source. Argument is an ip_mreq_source structure.
 
-Jitendra Kalsaria <jitendra.kalsaria@qlogic.com> :
-[...]
-> diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-> index cdbc860..aa514c5 100644
-> --- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-> @@ -2701,11 +2701,9 @@ static int ql_alloc_tx_resources(struct ql_adapter *qdev,
->  	    pci_alloc_consistent(qdev->pdev, tx_ring->wq_size,
->  				 &tx_ring->wq_base_dma);
->  
-> -	if ((tx_ring->wq_base == NULL) ||
-> -	    tx_ring->wq_base_dma & WQ_ADDR_ALIGN) {
-> -		netif_err(qdev, ifup, qdev->ndev, "tx_ring alloc failed.\n");
-> -		return -ENOMEM;
-> -	}
-> +	if ((tx_ring->wq_base == NULL) || tx_ring->wq_base_dma & WQ_ADDR_ALIGN)
-> +		goto err;
-> +
->  	tx_ring->q =
->  	    kmalloc(tx_ring->wq_len * sizeof(struct tx_ring_desc), GFP_KERNEL);
->  	if (tx_ring->q == NULL)
-> @@ -2713,8 +2711,12 @@ static int ql_alloc_tx_resources(struct ql_adapter *qdev,
->  
->  	return 0;
->  err:
-> -	pci_free_consistent(qdev->pdev, tx_ring->wq_size,
-> +	if (tx_ring->wq_base) {
-> +		pci_free_consistent(qdev->pdev, tx_ring->wq_size,
->  			    tx_ring->wq_base, tx_ring->wq_base_dma);
-> +		tx_ring->wq_base = NULL;
-> +	}
+        struct ip_mreq_source {
+            struct in_addr imr_multiaddr;  /* IP multicast group
+                                              address */
+            struct in_addr imr_interface;  /* IP address of local
+                                              interface */
+            struct in_addr imr_sourceaddr; /* IP address of
+                                              multicast source */
+        };
 
-You do not need a test: use a second label + goto.
+    The ip_mreq_source structure is similar to ip_mreqn structure.
+    imr_multiaddr contains the address of the multicast group
+    the application wants to join or leave. imr_address is the
+    address of the local interface which the system will join
+    the multicast group with. imr_sourceaddr is the address of
+    multicast source the application wants to receive data
+    from.
 
-Nit: You can replace 'if ((tx_ring->wq_base == NULL)' with
-'if (!tx_ring->wq_base' and add a local variable for qdev->pdev.
+    Application can use this option multiple times to receive
+    data from more than one source.
 
-You may consider replacing pci_alloc_consistent with dma_alloc_coherent
-in a future patch.
 
-[JK] Will, definitely take care of this in future patch.
+IP_DROP_SOURCE_MEMBERHSIP (since Linux 2.5.68)
+    Leave a source-specific group, i.e. stop receiving data from
+    a given multicast group, coming from a given source.
 
--- 
-Ueimor
+    If the application has subscribed to multiple sources within
+    the same group, data from the remaining sources will still
+    be delivered. To stop receiving data from all sources at once
+    use IP_LEAVE_GROUP.
+
+    Argument is an ip_mreq_source structure as described at
+    IP_ADD_SOURCE_MEMBERSHIP.
+
+
+IP_BLOCK_SOURCE (since Linux 2.5.68)
+    Block receiving multicast data from a specific source in a given
+    group. This is valid only after the application have subscribed
+    to the multicast group using either IP_ADD_MEMBERSHIP or
+    IP_ADD_SOURCE_MEMBERSHIP.
+
+    Argument is an ip_mreq_source structure as described at
+    IP_ADD_SOURCE_MEMBERSHIP.
+
+
+IP_UNBLOCK_SOURCE (since Linux 2.5.68)
+    Unblock previously blocked multicast source. Returns EADDRNOTAVAIL
+    when given source was not being blocked.
+
+    Argument is an ip_mreq_source structure as described at
+    IP_ADD_SOURCE_MEMBERSHIP.
+
+
+IP_MSFILTER (since Linux 2.5.68)
+    This option provides access to the advanced full-state filtering API.
+    Argument is an ip_msfilter structure.
+
+        struct ip_msfilter {
+            struct in_addr imsf_multiaddr; /* IP multicast group
+                                              address */
+            struct in_addr imsf_interface; /* IP address of local
+                                              interface */
+            uint32_t       imsf_fmode;     /* Filter-mode */
+
+            uint32_t       imsf_numsrc;    /* Number of sources in
+                                              the following array */
+            struct in_addr imsf_slist[1];  /* Array of source
+                                              addresses */
+        };
+
+    There are two macros, MCAST_INCLUDE and MCAST_EXCLUDE, which can be
+    used to specify the filtering mode. Additionaly, IP_MSFILTER_SIZE(n)
+    macro exists to determine how much memory is needed to store
+    ip_msfilter structure with n sources in the source list.
+
+    For full description of multicast source filtering refer to RFC 3376.
+
+My sources for these information were:
+    * http://tools.ietf.org/html/rfc3678
+    * http://tools.ietf.org/html/rfc3376
+    * code (http://lxr.free-electrons.com/source/net/ipv4/ip_sockglue.c)
+
+Thank you!
+
+Radek Pazdera :)
