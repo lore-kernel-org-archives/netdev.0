@@ -1,178 +1,259 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: BUG: NULL pointer in ctnetlink_conntrack_event
-Date: Fri, 29 Jun 2012 18:29:05 +0200
-Message-ID: <20120629162905.GB3785@1984>
-References: <mdaatbj.9730f14767bb2419ed11e14ac50382b8@obelix.schillstrom.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="XsQoSWH+UP9D9v3l"
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Hans Schillstrom <hans@schillstrom.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <mdaatbj.9730f14767bb2419ed11e14ac50382b8@obelix.schillstrom.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH v3] sctp: be more restrictive in transport selection on bundled sacks
+Date: Fri, 29 Jun 2012 12:34:56 -0400
+Message-ID: <1340987696-19205-1-git-send-email-nhorman@tuxdriver.com>
+References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yaseivch <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55449 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753515Ab2F2QfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 12:35:15 -0400
+In-Reply-To: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+It was noticed recently that when we send data on a transport, its possible that
+we might bundle a sack that arrived on a different transport.  While this isn't
+a major problem, it does go against the SHOULD requirement in section 6.4 of RFC
+2960:
 
---XsQoSWH+UP9D9v3l
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ An endpoint SHOULD transmit reply chunks (e.g., SACK, HEARTBEAT ACK,
+   etc.) to the same destination transport address from which it
+   received the DATA or control chunk to which it is replying.  This
+   rule should also be followed if the endpoint is bundling DATA chunks
+   together with the reply chunk.
 
-On Fri, Jun 29, 2012 at 02:29:37PM +0200, Hans Schillstrom wrote:
-> Hello,
->=20
-> There is a "hard to find" problem in ctnetlink_conntrack_event() when cal=
-ling
-> netlink_has_listeners() net->nfnl is NULL.
->=20
-> The rcu stuff seems to be right at a first look but who knows...
->=20
-> The line below fix the problem, but that is not the root cause.
->=20
->  int nfnetlink_has_listeners(struct net *net, unsigned int group)
->  {
-> -       return netlink_has_listeners(net->nfnl, group);
-> +       return net->nfnl ? netlink_has_listeners(net->nfnl, group) : 0 ;
->  }
->=20
-> Yes it is a 3.0.26 kernel but this patch is applied
-> netfilter: nf_conntrack: make event callback registration per-netns
+This patch seeks to correct that.  It restricts the bundling of sack operations
+to only those transports which have moved the ctsn of the association forward
+since the last sack.  By doing this we guarantee that we only bundle outbound
+saks on a transport that has received a chunk since the last sack.  This brings
+us into stricter compliance with the RFC.
 
-I think this patch above is missing some rcu_access_pointer usage.
+Vlad had initially suggested that we strictly allow only sack bundling on the
+transport that last moved the ctsn forward.  While this makes sense, I was
+concerned that doing so prevented us from bundling in the case where we had
+received chunks that moved the ctsn on multiple transports.  In those cases, the
+RFC allows us to select any of the transports having received chunks to bundle
+the sack on.  so I've modified the approach to allow for that, by adding a state
+variable to each transport that tracks weather it has moved the ctsn since the
+last sack.  This I think keeps our behavior (and performance), close enough to
+our current profile that I think we can do this without a sysctl knob to
+enable/disable it.
 
-Please, see patch attached.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yaseivch <vyasevich@gmail.com>
+CC: David S. Miller <davem@davemloft.net>
+Reported-by: Michele Baldessari <michele@redhat.com>
+Reported-by: sorin serban <sserban@redhat.com>
 
-> It happens when adding a number of containers with does a "nfct_query(h, =
-NFCT_Q_CREATE, ct);"
-> and most likely one namespace shuts down.
->=20
-> Any idea why the timer is running at this point ?
->=20
->=20
-> BUG: unable to handle kernel NULL pointer dereference at 000000000000027c
-> IP: [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
-> PGD 0
-> Oops: 0000 [#3] PREEMPT SMP
-> CPU 0
-> Modules linked in: ip6table_raw(N) xt_NOTRACK(N) iptable_raw(N) ipt_REJEC=
-T(N) xt_sctp(N) xt_multiport(N) xt_connmark(N) xt_mark(N) xt_conntrack(N) i=
-p6table_mangle(N) ip_vs(N) nf_conntrack_netlink(N) nfnetlink(N) ip6_tunnel(=
-N) tunnel6(N) macvlan(N) xt_HMARK(N) ipv6_find_hdr(N) iptable_mangle(N) nf_=
-conntrack_ipv6(N) nf_defrag_ipv6(N) ip6t_LOG(N) ip6table_filter(N) ip6_tabl=
-es(N) nf_conntrack_ipv4(N) nf_defrag_ipv4(N) xt_state(N) xt_tcpudp(N) xt_u3=
-2(N) xt_comment(N) xt_length(N) xt_hashlimit(N) ipt_LOG(N) xt_limit(N) ipta=
-ble_filter(N) ip_tables(N) x_tables(N) nf_conntrack_ftp(N) nf_conntrack_tft=
-p(N) nf_conntrack(N) mptsas(N) mptscsih(N) mptbase(N) sg(N) scsi_transport_=
-sas(N) i2c_i801(N) i2c_core(N) button(N) pcspkr(N) ahci(N) libahci(N) proce=
-ssor(N) serio_raw(N) thermal_sys(N) hwmon(N) iTCO_wdt(N) iTCO_vendor_suppor=
-t(N) libata(N) ioatdma(N) ixgbe(N) mdio(N) nfs(N) lockd(N) fscache(N) auth_=
-rpcgss(N) nfs_acl(N) sunrpc(N) af_packet(N) ipv6(N) ipv6_lib(N) bonding(N) =
-e1000e(N) igb(N) dca(N) mii(N) 8021q(N) garp(N) st
-> p(N) llc(N) softdog(N) xfs(N) exportfs(N) sd_mod(N) crc_t10dif(N) usb_sto=
-rage(N) scsi_mod(N) ehci_hcd(N) uhci_hcd(N) usbcore(N) usb_common(N)
-> Supported: Yes
->=20
-> Pid: 0, comm: swapper Tainted: G      D    N  3.0.26-0.2-default
-> RIP: 0010:[<ffffffff813615db>]  [<ffffffff813615db>] netlink_has_listener=
-s+0xb/0x60
-> RSP: 0018:ffff88063f203da0  EFLAGS: 00010286
-> RAX: ffff88063f203e30 RBX: 0000000000000000 RCX: ffffffffa04c60f0
-> RDX: 0000000000000004 RSI: 0000000000000003 RDI: 0000000000000000
-> RBP: 0000000000000003 R08: 0000000000000000 R09: ffff88063f2114a0
-> R10: 0000000000000000 R11: ffffffff8101e760 R12: ffff8805e2a45788
-> R13: 0000000000000000 R14: 0000000000000002 R15: 0000000000000004
-> FS:  0000000000000000(0000) GS:ffff88063f200000(0000) knlGS:0000000000000=
-000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 000000000000027c CR3: 0000000001a03000 CR4: 00000000000006f0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process swapper (pid: 0, threadinfo ffffffff81a00000, task ffffffff81a0b0=
-20)
-> Stack:
->  0000000000000000 0000000000000000 ffff8805e2a45800 ffffffffa04c453e
->  ffff88063f203e30 0000000400000001 ffff8805e24e6c80 0000000300000000
->  0000000000000000 ffff880610044000 ffff880610044800 ffff8805e2a45788
-> Call Trace:
->  [<ffffffffa04c453e>] ctnetlink_conntrack_event+0x51e/0x570 [nf_conntrack=
-_netlink]
->  [<ffffffffa042a27b>] death_by_timeout+0x12b/0x190 [nf_conntrack]
->  [<ffffffff810608ec>] run_timer_softirq+0x14c/0x270
->  [<ffffffff81059d25>] __do_softirq+0xa5/0x180
->  [<ffffffff813ff43c>] call_softirq+0x1c/0x30
->  [<ffffffff810043f5>] do_softirq+0x65/0xa0
->  [<ffffffff81059b15>] irq_exit+0xc5/0x100
->  [<ffffffff8101f5a9>] smp_apic_timer_interrupt+0x69/0xa0
->  [<ffffffff813febf3>] apic_timer_interrupt+0x13/0x20
->  [<ffffffffa0230806>] acpi_idle_enter_bm+0x255/0x28f [processor]
->  [<ffffffff813179e2>] cpuidle_idle_call+0xd2/0x120
->  [<ffffffff810019f3>] cpu_idle+0x63/0xd0
->  [<ffffffff81bf0f65>] start_kernel+0x3e4/0x4bf
->  [<ffffffff81bf03c3>] x86_64_start_kernel+0x114/0x12f
-> Code: ff 66 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 e9 cb c5 fc ff 66 6=
-6 2e 0f 1f 84 00 00 00 00 00 55 89 f5 53 48 89 fb 48 83 ec 08 <f6> 87 7c 02=
- 00 00 01 74 41 e8 47 50 d5 ff 0f b6 83 21 01 00 00
-> RIP  [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
->  RSP <ffff88063f203da0>
-> CR2: 000000000000027c
-> ---[ end trace a057af0b3004c67a ]---
-> Kernel panic - not syncing: Fatal exception in interrupt
-> Pid: 0, comm: swapper Tainted: G      D    N  3.0.26-0.2-default #1
-> Call Trace:
->  [<ffffffff81004672>] dump_trace+0x82/0x380
->  [<ffffffff813f4fa2>] dump_stack+0x69/0x6f
->  [<ffffffff813f5050>] panic+0xa8/0x20c
->  [<ffffffff813f9b21>] oops_end+0xe1/0xf0
->  [<ffffffff81030e50>] no_context+0x100/0x270
->  [<ffffffff81031135>] __bad_area_nosemaphore+0x175/0x220
->  [<ffffffff813fbb36>] do_page_fault+0x3a6/0x590
->  [<ffffffff813f8d15>] page_fault+0x25/0x30
->  [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
->  [<ffffffffa04c453e>] ctnetlink_conntrack_event+0x51e/0x570 [nf_conntrack=
-_netlink]
->  [<ffffffffa042a27b>] death_by_timeout+0x12b/0x190 [nf_conntrack]
->  [<ffffffff810608ec>] run_timer_softirq+0x14c/0x270
->  [<ffffffff81059d25>] __do_softirq+0xa5/0x180
->  [<ffffffff813ff43c>] call_softirq+0x1c/0x30
->  [<ffffffff810043f5>] do_softirq+0x65/0xa0
->  [<ffffffff81059b15>] irq_exit+0xc5/0x100
->  [<ffffffff8101f5a9>] smp_apic_timer_interrupt+0x69/0xa0
->  [<ffffffff813febf3>] apic_timer_interrupt+0x13/0x20
->  [<ffffffffa0230806>] acpi_idle_enter_bm+0x255/0x28f [processor]
->  [<ffffffff813179e2>] cpuidle_idle_call+0xd2/0x120
->  [<ffffffff810019f3>] cpu_idle+0x63/0xd0
->  [<ffffffff81bf0f65>] start_kernel+0x3e4/0x4bf
->  [<ffffffff81bf03c3>] x86_64_start_kernel+0x114/0x12f
-> Rebooting in 1 seconds..
-> --
-> Regards=20
-> Hans Schillstrom
->=20
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel=
-" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+Change Notes:
+V2)
+	* Removed unused variable as per Dave M. Request
+	* Delayed rwnd adjustment until we are sure we will sack (Vlad Y.)
+V3)
+	* Switched test to use pkt->transport rather than chunk->transport
+	* Modified detection of sacka-able transport.  Instead of just setting
+	  and clearning a flag, we now mark each transport and association with
+	  a sack generation tag.  We increment the associations generation on
+	  every sack, and assign that generation tag to every transport that
+	  updates the ctsn.  This prevents us from having to iterate over a for
+	  loop on every sack, which is much more scalable.
+---
+ include/net/sctp/structs.h |    4 ++++
+ include/net/sctp/tsnmap.h  |    3 ++-
+ net/sctp/associola.c       |    1 +
+ net/sctp/output.c          |    9 +++++++--
+ net/sctp/sm_make_chunk.c   |   10 ++++++++++
+ net/sctp/sm_sideeffect.c   |    2 +-
+ net/sctp/transport.c       |    2 ++
+ net/sctp/tsnmap.c          |    6 +++++-
+ net/sctp/ulpevent.c        |    3 ++-
+ net/sctp/ulpqueue.c        |    2 +-
+ 10 files changed, 35 insertions(+), 7 deletions(-)
 
---XsQoSWH+UP9D9v3l
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="missing-rcu_access_pointer.patch"
-
-diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
-index a88fb69..e1ce104 100644
---- a/include/net/netfilter/nf_conntrack_ecache.h
-+++ b/include/net/netfilter/nf_conntrack_ecache.h
-@@ -78,7 +78,7 @@ nf_conntrack_event_cache(enum ip_conntrack_events event, struct nf_conn *ct)
- 	struct net *net = nf_ct_net(ct);
- 	struct nf_conntrack_ecache *e;
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index e4652fe..fecdf31 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -912,6 +912,9 @@ struct sctp_transport {
+ 		/* Is this structure kfree()able? */
+ 		malloced:1;
  
--	if (net->ct.nf_conntrack_event_cb == NULL)
-+	if (!rcu_access_pointer(net->ct.nf_conntrack_event_cb))
- 		return;
++	/* Has this transport moved the ctsn since we last sacked */
++	__u32 sack_generation;
++
+ 	struct flowi fl;
  
- 	e = nf_ct_ecache_find(ct);
-
---XsQoSWH+UP9D9v3l--
+ 	/* This is the peer's IP address and port. */
+@@ -1584,6 +1587,7 @@ struct sctp_association {
+ 		 */
+ 		__u8    sack_needed;     /* Do we need to sack the peer? */
+ 		__u32	sack_cnt;
++		__u32	sack_generation;
+ 
+ 		/* These are capabilities which our peer advertised.  */
+ 		__u8	ecn_capable:1,	    /* Can peer do ECN? */
+diff --git a/include/net/sctp/tsnmap.h b/include/net/sctp/tsnmap.h
+index e7728bc..2c5d2b4 100644
+--- a/include/net/sctp/tsnmap.h
++++ b/include/net/sctp/tsnmap.h
+@@ -117,7 +117,8 @@ void sctp_tsnmap_free(struct sctp_tsnmap *map);
+ int sctp_tsnmap_check(const struct sctp_tsnmap *, __u32 tsn);
+ 
+ /* Mark this TSN as seen.  */
+-int sctp_tsnmap_mark(struct sctp_tsnmap *, __u32 tsn);
++int sctp_tsnmap_mark(struct sctp_tsnmap *, __u32 tsn,
++		     struct sctp_transport *trans);
+ 
+ /* Mark this TSN and all lower as seen. */
+ void sctp_tsnmap_skip(struct sctp_tsnmap *map, __u32 tsn);
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 5bc9ab1..6c66adb 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -271,6 +271,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+ 	 */
+ 	asoc->peer.sack_needed = 1;
+ 	asoc->peer.sack_cnt = 0;
++	asoc->peer.sack_generation=0;
+ 
+ 	/* Assume that the peer will tell us if he recognizes ASCONF
+ 	 * as part of INIT exchange.
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index f1b7d4b..0de6cd5 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -240,14 +240,19 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct sctp_packet *pkt,
+ 	 */
+ 	if (sctp_chunk_is_data(chunk) && !pkt->has_sack &&
+ 	    !pkt->has_cookie_echo) {
+-		struct sctp_association *asoc;
+ 		struct timer_list *timer;
+-		asoc = pkt->transport->asoc;
++		struct sctp_association *asoc = pkt->transport->asoc;
++
+ 		timer = &asoc->timers[SCTP_EVENT_TIMEOUT_SACK];
+ 
+ 		/* If the SACK timer is running, we have a pending SACK */
+ 		if (timer_pending(timer)) {
+ 			struct sctp_chunk *sack;
++
++			if (pkt->transport->sack_generation !=
++			    pkt->transport->asoc->peer.sack_generation)
++				return retval;
++
+ 			asoc->a_rwnd = asoc->rwnd;
+ 			sack = sctp_make_sack(asoc);
+ 			if (sack) {
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index a85eeeb..ffa2a8e 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -736,6 +736,7 @@ struct sctp_chunk *sctp_make_sack(const struct sctp_association *asoc)
+ 	__u16 num_gabs, num_dup_tsns;
+ 	struct sctp_tsnmap *map = (struct sctp_tsnmap *)&asoc->peer.tsn_map;
+ 	struct sctp_gap_ack_block gabs[SCTP_MAX_GABS];
++	struct sctp_transport *trans;
+ 
+ 	memset(gabs, 0, sizeof(gabs));
+ 	ctsn = sctp_tsnmap_get_ctsn(map);
+@@ -805,6 +806,15 @@ struct sctp_chunk *sctp_make_sack(const struct sctp_association *asoc)
+ 		sctp_addto_chunk(retval, sizeof(__u32) * num_dup_tsns,
+ 				 sctp_tsnmap_get_dups(map));
+ 
++	/*
++	 * Once we have a sack generated, clear the moved_tsn information
++	 * from all the transports
++	 */
++	if (!asoc->peer.sack_generation)
++		list_for_each_entry(trans, &asoc->peer.transport_addr_list,
++				    transports)
++			trans->sack_generation = UINT_MAX;
++	((struct sctp_association *)asoc)->peer.sack_generation++;
+ nodata:
+ 	return retval;
+ }
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index c96d1a8..8716da1 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -1268,7 +1268,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 		case SCTP_CMD_REPORT_TSN:
+ 			/* Record the arrival of a TSN.  */
+ 			error = sctp_tsnmap_mark(&asoc->peer.tsn_map,
+-						 cmd->obj.u32);
++						 cmd->obj.u32, NULL);
+ 			break;
+ 
+ 		case SCTP_CMD_REPORT_FWDTSN:
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index b026ba0..1dcceb6 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -68,6 +68,8 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
+ 	peer->af_specific = sctp_get_af_specific(addr->sa.sa_family);
+ 	memset(&peer->saddr, 0, sizeof(union sctp_addr));
+ 
++	peer->sack_generation = 0;
++
+ 	/* From 6.3.1 RTO Calculation:
+ 	 *
+ 	 * C1) Until an RTT measurement has been made for a packet sent to the
+diff --git a/net/sctp/tsnmap.c b/net/sctp/tsnmap.c
+index f1e40ceb..b5fb7c4 100644
+--- a/net/sctp/tsnmap.c
++++ b/net/sctp/tsnmap.c
+@@ -114,7 +114,8 @@ int sctp_tsnmap_check(const struct sctp_tsnmap *map, __u32 tsn)
+ 
+ 
+ /* Mark this TSN as seen.  */
+-int sctp_tsnmap_mark(struct sctp_tsnmap *map, __u32 tsn)
++int sctp_tsnmap_mark(struct sctp_tsnmap *map, __u32 tsn,
++		     struct sctp_transport *trans)
+ {
+ 	u16 gap;
+ 
+@@ -133,6 +134,9 @@ int sctp_tsnmap_mark(struct sctp_tsnmap *map, __u32 tsn)
+ 		 */
+ 		map->max_tsn_seen++;
+ 		map->cumulative_tsn_ack_point++;
++		if (trans)
++			trans->sack_generation =
++				trans->asoc->peer.sack_generation;
+ 		map->base_tsn++;
+ 	} else {
+ 		/* Either we already have a gap, or about to record a gap, so
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index 8a84017..33d8947 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -715,7 +715,8 @@ struct sctp_ulpevent *sctp_ulpevent_make_rcvmsg(struct sctp_association *asoc,
+ 	 * can mark it as received so the tsn_map is updated correctly.
+ 	 */
+ 	if (sctp_tsnmap_mark(&asoc->peer.tsn_map,
+-			     ntohl(chunk->subh.data_hdr->tsn)))
++			     ntohl(chunk->subh.data_hdr->tsn),
++			     chunk->transport))
+ 		goto fail_mark;
+ 
+ 	/* First calculate the padding, so we don't inadvertently
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index f2d1de7..f5a6a4f 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -1051,7 +1051,7 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
+ 	if (chunk && (freed >= needed)) {
+ 		__u32 tsn;
+ 		tsn = ntohl(chunk->subh.data_hdr->tsn);
+-		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn);
++		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn, chunk->transport);
+ 		sctp_ulpq_tail_data(ulpq, chunk, gfp);
+ 
+ 		sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
+-- 
+1.7.7.6
