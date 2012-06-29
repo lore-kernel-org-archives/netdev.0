@@ -1,118 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: l2tp_eth: provide tx_dropped counter
-Date: Fri, 29 Jun 2012 08:15:13 +0200
-Message-ID: <1340950513.29822.103.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 1/1] netxen_nic: restrict force firmware dump when dump is disabled.
+Date: Fri, 29 Jun 2012 02:12:21 -0400
+Message-ID: <1340950341-27252-2-git-send-email-rajesh.borundia@qlogic.com>
+References: <1340950341-27252-1-git-send-email-rajesh.borundia@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Manish chopra <manish.chopra@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:47688 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991Ab2F2GPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 02:15:16 -0400
-Received: by eaak11 with SMTP id k11so1156019eaa.19
-        for <netdev@vger.kernel.org>; Thu, 28 Jun 2012 23:15:15 -0700 (PDT)
+Received: from mvnat01.qlogic.com ([198.186.3.73]:32920 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751751Ab2F2G2u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 02:28:50 -0400
+In-Reply-To: <1340950341-27252-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Manish chopra <manish.chopra@qlogic.com>
 
-Change l2tp_xmit_skb() to return NET_XMIT_DROP in case skb is dropped.
+o Set the ethtool_dump flag (=ETH_FW_DUMP_DISABLE) when dump is disabled.
+o update driver version to 4.0.80
 
-Use kfree_skb() instead dev_kfree_skb() for drop_monitor pleasure.
-
-Support tx_dropped counter for l2tp_eth
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: James Chapman <jchapman@katalix.com>
+Signed-off-by: Manish chopra <manish.chopra@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
- net/l2tp/l2tp_core.c |   11 ++++++-----
- net/l2tp/l2tp_eth.c  |   15 ++++++++++-----
- 2 files changed, 16 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/qlogic/netxen/netxen_nic.h    |    4 ++--
+ .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |   13 ++++++++++---
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 32b2155..393355d 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1128,6 +1128,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 	int headroom;
- 	int uhlen = (tunnel->encap == L2TP_ENCAPTYPE_UDP) ? sizeof(struct udphdr) : 0;
- 	int udp_len;
-+	int ret = NET_XMIT_SUCCESS;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+index 37ccbe5..eb3dfdb 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic.h
+@@ -53,8 +53,8 @@
  
- 	/* Check that there's enough headroom in the skb to insert IP,
- 	 * UDP and L2TP headers. If not enough, expand it to
-@@ -1137,8 +1138,8 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 		uhlen + hdr_len;
- 	old_headroom = skb_headroom(skb);
- 	if (skb_cow_head(skb, headroom)) {
--		dev_kfree_skb(skb);
--		goto abort;
-+		kfree_skb(skb);
-+		return NET_XMIT_DROP;
- 	}
+ #define _NETXEN_NIC_LINUX_MAJOR 4
+ #define _NETXEN_NIC_LINUX_MINOR 0
+-#define _NETXEN_NIC_LINUX_SUBVERSION 79
+-#define NETXEN_NIC_LINUX_VERSIONID  "4.0.79"
++#define _NETXEN_NIC_LINUX_SUBVERSION 80
++#define NETXEN_NIC_LINUX_VERSIONID  "4.0.80"
  
- 	new_headroom = skb_headroom(skb);
-@@ -1156,7 +1157,8 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 
- 	bh_lock_sock(sk);
- 	if (sock_owned_by_user(sk)) {
--		dev_kfree_skb(skb);
-+		kfree_skb(skb);
-+		ret = NET_XMIT_DROP;
- 		goto out_unlock;
- 	}
- 
-@@ -1215,8 +1217,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- out_unlock:
- 	bh_unlock_sock(sk);
- 
--abort:
--	return 0;
-+	return ret;
+ #define NETXEN_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
+ #define _major(v)	(((v) >> 24) & 0xff)
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+index 9103e3e..10468e7 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+@@ -826,7 +826,12 @@ netxen_get_dump_flag(struct net_device *netdev, struct ethtool_dump *dump)
+ 		dump->len = mdump->md_dump_size;
+ 	else
+ 		dump->len = 0;
+-	dump->flag = mdump->md_capture_mask;
++
++	if (!mdump->md_enabled)
++		dump->flag = ETH_FW_DUMP_DISABLE;
++	else
++		dump->flag = mdump->md_capture_mask;
++
+ 	dump->version = adapter->fw_version;
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(l2tp_xmit_skb);
+@@ -840,8 +845,10 @@ netxen_set_dump(struct net_device *netdev, struct ethtool_dump *val)
  
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 47b259f..f9ee74d 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -44,6 +44,7 @@ struct l2tp_eth {
- 	struct list_head	list;
- 	atomic_long_t		tx_bytes;
- 	atomic_long_t		tx_packets;
-+	atomic_long_t		tx_dropped;
- 	atomic_long_t		rx_bytes;
- 	atomic_long_t		rx_packets;
- 	atomic_long_t		rx_errors;
-@@ -92,12 +93,15 @@ static int l2tp_eth_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct l2tp_eth *priv = netdev_priv(dev);
- 	struct l2tp_session *session = priv->session;
-+	unsigned int len = skb->len;
-+	int ret = l2tp_xmit_skb(session, skb, session->hdr_len);
- 
--	atomic_long_add(skb->len, &priv->tx_bytes);
--	atomic_long_inc(&priv->tx_packets);
--
--	l2tp_xmit_skb(session, skb, session->hdr_len);
--
-+	if (likely(ret == NET_XMIT_SUCCESS)) {
-+		atomic_long_add(len, &priv->tx_bytes);
-+		atomic_long_inc(&priv->tx_packets);
-+	} else {
-+		atomic_long_inc(&priv->tx_dropped);
-+	}
- 	return NETDEV_TX_OK;
- }
- 
-@@ -108,6 +112,7 @@ static struct rtnl_link_stats64 *l2tp_eth_get_stats64(struct net_device *dev,
- 
- 	stats->tx_bytes   = atomic_long_read(&priv->tx_bytes);
- 	stats->tx_packets = atomic_long_read(&priv->tx_packets);
-+	stats->tx_dropped = atomic_long_read(&priv->tx_dropped);
- 	stats->rx_bytes   = atomic_long_read(&priv->rx_bytes);
- 	stats->rx_packets = atomic_long_read(&priv->rx_packets);
- 	stats->rx_errors  = atomic_long_read(&priv->rx_errors);
+ 	switch (val->flag) {
+ 	case NX_FORCE_FW_DUMP_KEY:
+-		if (!mdump->md_enabled)
+-			mdump->md_enabled = 1;
++		if (!mdump->md_enabled) {
++			netdev_info(netdev, "FW dump not enabled\n");
++			return 0;
++		}
+ 		if (adapter->fw_mdump_rdy) {
+ 			netdev_info(netdev, "Previous dump not cleared, not forcing dump\n");
+ 			return 0;
+-- 
+1.7.3.3
