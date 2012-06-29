@@ -1,43 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 2/6] qlge: Stand-up card should not report supporting wol.
-Date: Sat, 30 Jun 2012 01:02:00 +0200
-Message-ID: <20120629230200.GA22193@electric-eye.fr.zoreil.com>
-References: <1340994290-28832-1-git-send-email-jitendra.kalsaria@qlogic.com> <1340994290-28832-3-git-send-email-jitendra.kalsaria@qlogic.com> <20120629213747.GB19152@electric-eye.fr.zoreil.com> <5E4F49720D0BAD499EE1F01232234BA877435B23DA@AVEXMB1.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: AF_BUS socket address family
+Date: Fri, 29 Jun 2012 16:18:21 -0700 (PDT)
+Message-ID: <20120629.161821.948325645333976311.davem@davemloft.net>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
+	<20120629.153656.1141845894730637434.davem@davemloft.net>
+	<20120629231236.GA28593@mail.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:40435 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164Ab2F2XND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jun 2012 19:13:03 -0400
-Content-Disposition: inline
-In-Reply-To: <5E4F49720D0BAD499EE1F01232234BA877435B23DA@AVEXMB1.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: vincent.sanders@collabora.co.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120629231236.GA28593@mail.collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-(linux-zupk.site removed)
+From: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Date: Sat, 30 Jun 2012 00:12:37 +0100
 
-Jitendra Kalsaria <jitendra.kalsaria@qlogic.com> :
-[...]
-> - broken indent
-> - netif_err(... "cleared successfully" ...)
-> [JK] I don't think so, %s will be replace with "cleared successfully" or with "clear failed" depend upon status value.
+> I had hoped you would have at least read the opening list where I
+> outlined the underlying features which explain why none of the
+> existing IPC match the requirements.
 
-I would not netif_err when everything is ok.
+I had hoped that you had read the part we told you last time where
+we explained why multicast and "reliable delivery" are fundamentally
+incompatible attributes.
 
-[...]
-> If I read things correctly, WAKE_MAGIC can not be cleared and it makes no
-> difference on the status code. It should be fixed.
-> 
-> [JK] You right, here we are not clearing WAKE_MAGIC but we are making sure that wol is disable when no option is set.
-
-Imho wol should be disabled as well when neither WAKE_MAGIC nor any option
-is set at all.
-
--- 
-Ueimor
+We are not creating a full address family in the kernel which exists
+for one, and only one, specific and difficult user.
