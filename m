@@ -1,10 +1,10 @@
 From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Subject: [PATCH net-next 13/15] netfilter: nfdbus: Add D-bus message parsing
-Date: Fri, 29 Jun 2012 17:45:52 +0100
-Message-ID: <1340988354-26981-14-git-send-email-vincent.sanders@collabora.co.uk>
+Subject: [PATCH net-next 09/15] net: bus: Add garbage collector for AF_BUS sockets.
+Date: Fri, 29 Jun 2012 17:45:48 +0100
+Message-ID: <1340988354-26981-10-git-send-email-vincent.sanders@collabora.co.uk>
 References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Alban Crequy <alban.crequy@collabora.co.uk>
+	Vincent Sanders <vincent.sanders@collabora.co.uk>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -14,295 +14,342 @@ List-Id: netdev.vger.kernel.org
 
 From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
 
-The netfilter D-Bus module needs to parse D-bus messages sent by
-applications to decide whether a peer can receive or not a D-Bus
-message. Add D-bus message parsing logic to be able to analyze.
+This patch adds a garbage collector for AF_BUS sockets.
 
 Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
+Signed-off-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
 ---
- net/netfilter/nfdbus/message.c |  194 ++++++++++++++++++++++++++++++++++++++++
- net/netfilter/nfdbus/message.h |   71 +++++++++++++++
- 2 files changed, 265 insertions(+)
- create mode 100644 net/netfilter/nfdbus/message.c
- create mode 100644 net/netfilter/nfdbus/message.h
+ net/bus/garbage.c |  322 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 322 insertions(+)
+ create mode 100644 net/bus/garbage.c
 
-diff --git a/net/netfilter/nfdbus/message.c b/net/netfilter/nfdbus/message.c
+diff --git a/net/bus/garbage.c b/net/bus/garbage.c
 new file mode 100644
-index 0000000..93c409c
+index 0000000..2435f38
 --- /dev/null
-+++ b/net/netfilter/nfdbus/message.c
-@@ -0,0 +1,194 @@
++++ b/net/bus/garbage.c
+@@ -0,0 +1,322 @@
 +/*
-+ * message.c  Basic D-Bus message parsing
++ * Garbage Collector For AF_BUS sockets
 + *
-+ * Copyright (C) 2010-2012  Collabora Ltd
-+ * Authors:	Alban Crequy <alban.crequy@collabora.co.uk>
-+ * Copyright (C) 2002, 2003, 2004, 2005  Red Hat Inc.
-+ * Copyright (C) 2002, 2003  CodeFactory AB
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
-+ *
++ * Based on Garbage Collector For AF_UNIX sockets (net/unix/garbage.c).
 + */
 +
-+#include <linux/slab.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/socket.h>
++#include <linux/un.h>
++#include <linux/net.h>
++#include <linux/fs.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/file.h>
++#include <linux/proc_fs.h>
++#include <linux/mutex.h>
++#include <linux/wait.h>
 +
-+#include "message.h"
++#include <net/sock.h>
++#include <net/af_bus.h>
++#include <net/scm.h>
++#include <net/tcp_states.h>
 +
-+int dbus_message_type_from_string(const char *type_str)
++/* Internal data structures and random procedures: */
++
++static LIST_HEAD(gc_inflight_list);
++static LIST_HEAD(gc_candidates);
++static DEFINE_SPINLOCK(bus_gc_lock);
++static DECLARE_WAIT_QUEUE_HEAD(bus_gc_wait);
++
++unsigned int bus_tot_inflight;
++
++
++struct sock *bus_get_socket(struct file *filp)
 +{
-+	if (strcmp(type_str, "method_call") == 0)
-+		return DBUS_MESSAGE_TYPE_METHOD_CALL;
-+	if (strcmp(type_str, "method_return") == 0)
-+		return DBUS_MESSAGE_TYPE_METHOD_RETURN;
-+	else if (strcmp(type_str, "signal") == 0)
-+		return DBUS_MESSAGE_TYPE_SIGNAL;
-+	else if (strcmp(type_str, "error") == 0)
-+		return DBUS_MESSAGE_TYPE_ERROR;
-+	else
-+		return DBUS_MESSAGE_TYPE_INVALID;
++	struct sock *u_sock = NULL;
++	struct inode *inode = filp->f_path.dentry->d_inode;
++
++	/*
++	 *	Socket ?
++	 */
++	if (S_ISSOCK(inode->i_mode) && !(filp->f_mode & FMODE_PATH)) {
++		struct socket *sock = SOCKET_I(inode);
++		struct sock *s = sock->sk;
++
++		/*
++		 *	PF_BUS ?
++		 */
++		if (s && sock->ops && sock->ops->family == PF_BUS)
++			u_sock = s;
++	}
++	return u_sock;
 +}
 +
-+int dbus_message_parse(unsigned char *message, size_t len,
-+		       struct dbus_message *dbus_message)
++/*
++ *	Keep the number of times in flight count for the file
++ *	descriptor if it is for an AF_BUS socket.
++ */
++
++void bus_inflight(struct file *fp)
 +{
-+	unsigned char *cur;
-+	int array_header_len;
-+
-+	dbus_message->message = message;
-+
-+	if (len < 4 + 4 + 4 + 4 || message[1] == 0 || message[1] > 4)
-+		return -EINVAL;
-+
-+	dbus_message->type = message[1];
-+	dbus_message->body_length = *((u32 *)(message + 4));
-+	cur = message + 12;
-+	array_header_len = *(u32 *)cur;
-+	dbus_message->len_offset = 12;
-+	cur += 4;
-+	while (cur < message + len
-+	       && cur < message + 12 + 4 + array_header_len) {
-+		int header_code;
-+		int signature_len;
-+		unsigned char *signature;
-+		int str_len;
-+		unsigned char *str;
-+
-+		/* D-Bus alignment craziness */
-+		if ((cur - message) % 8 != 0)
-+			cur += 8 - (cur - message) % 8;
-+
-+		header_code = *(char *)cur;
-+		cur++;
-+		signature_len = *(char *)cur;
-+		/* All header fields of the current D-Bus spec have a simple
-+		 * type, either o, s, g, or u */
-+		if (signature_len != 1)
-+			return -EINVAL;
-+		cur++;
-+		signature = cur;
-+		cur += signature_len + 1;
-+		if (signature[0] != 'o' &&
-+		    signature[0] != 's' &&
-+		    signature[0] != 'g' &&
-+		    signature[0] != 'u')
-+			return -EINVAL;
-+
-+		if (signature[0] == 'u') {
-+			cur += 4;
-+			continue;
-+		}
-+
-+		if (signature[0] != 'g') {
-+			str_len = *(u32 *)cur;
-+			cur += 4;
++	struct sock *s = bus_get_socket(fp);
++	if (s) {
++		struct bus_sock *u = bus_sk(s);
++		spin_lock(&bus_gc_lock);
++		if (atomic_long_inc_return(&u->inflight) == 1) {
++			BUG_ON(!list_empty(&u->link));
++			list_add_tail(&u->link, &gc_inflight_list);
 +		} else {
-+			str_len = *(char *)cur;
-+			cur += 1;
++			BUG_ON(list_empty(&u->link));
 +		}
-+
-+		str = cur;
-+		switch (header_code) {
-+		case 1:
-+			dbus_message->path = str;
-+			break;
-+		case 2:
-+			dbus_message->interface = str;
-+			break;
-+		case 3:
-+			dbus_message->member = str;
-+			break;
-+		case 6:
-+			dbus_message->destination = str;
-+			break;
-+		case 7:
-+			dbus_message->sender = str;
-+			break;
-+		case 8:
-+			dbus_message->body_signature = str;
-+			break;
-+		}
-+		cur += str_len + 1;
++		bus_tot_inflight++;
++		spin_unlock(&bus_gc_lock);
 +	}
-+
-+	dbus_message->padding_end = (8 - (cur - message) % 8) % 8;
-+
-+	/* Jump to body D-Bus alignment craziness */
-+	if ((cur - message) % 8 != 0)
-+		cur += 8 - (cur - message) % 8;
-+	dbus_message->new_header_offset = cur - message;
-+
-+	if (dbus_message->new_header_offset
-+	    + dbus_message->body_length != len) {
-+		pr_warn("Message truncated? " \
-+			"Header %d + Body %d != Length %zd\n",
-+			dbus_message->new_header_offset,
-+			dbus_message->body_length, len);
-+		return -EINVAL;
-+	}
-+
-+	if (dbus_message->body_signature &&
-+	    dbus_message->body_signature[0] == 's') {
-+		int str_len;
-+		str_len = *(u32 *)cur;
-+		cur += 4;
-+		dbus_message->arg0 = cur;
-+		cur += str_len + 1;
-+	}
-+
-+	if ((cur - message) % 4 != 0)
-+		cur += 4 - (cur - message) % 4;
-+
-+	if (dbus_message->body_signature &&
-+	    dbus_message->body_signature[0] == 's' &&
-+	    dbus_message->body_signature[1] == 's') {
-+		int str_len;
-+		str_len = *(u32 *)cur;
-+		cur += 4;
-+		dbus_message->arg1 = cur;
-+		cur += str_len + 1;
-+	}
-+
-+	if ((cur - message) % 4 != 0)
-+		cur += 4 - (cur - message) % 4;
-+
-+	if (dbus_message->body_signature &&
-+	    dbus_message->body_signature[0] == 's' &&
-+	    dbus_message->body_signature[1] == 's' &&
-+	    dbus_message->body_signature[2] == 's') {
-+		int str_len;
-+		str_len = *(u32 *)cur;
-+		cur += 4;
-+		dbus_message->arg2 = cur;
-+		cur += str_len + 1;
-+	}
-+
-+	if ((cur - message) % 4 != 0)
-+		cur += 4 - (cur - message) % 4;
-+
-+	if (dbus_message->type == DBUS_MESSAGE_TYPE_SIGNAL &&
-+	    dbus_message->sender && dbus_message->path &&
-+	    dbus_message->interface && dbus_message->member &&
-+	    dbus_message->arg0 &&
-+	    strcmp(dbus_message->sender, "org.freedesktop.DBus") == 0 &&
-+	    strcmp(dbus_message->interface, "org.freedesktop.DBus") == 0 &&
-+	    strcmp(dbus_message->path, "/org/freedesktop/DBus") == 0) {
-+		if (strcmp(dbus_message->member, "NameAcquired") == 0)
-+			dbus_message->name_acquired = dbus_message->arg0;
-+		else if (strcmp(dbus_message->member, "NameLost") == 0)
-+			dbus_message->name_lost = dbus_message->arg0;
-+	}
-+
-+	return 0;
 +}
-diff --git a/net/netfilter/nfdbus/message.h b/net/netfilter/nfdbus/message.h
-new file mode 100644
-index 0000000..e3ea4d3
---- /dev/null
-+++ b/net/netfilter/nfdbus/message.h
-@@ -0,0 +1,71 @@
-+/*
-+ * message.h  Basic D-Bus message parsing
-+ *
-+ * Copyright (C) 2010  Collabora Ltd
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
-+ *
-+ */
 +
-+#ifndef DBUS_MESSAGE_H
-+#define DBUS_MESSAGE_H
++void bus_notinflight(struct file *fp)
++{
++	struct sock *s = bus_get_socket(fp);
++	if (s) {
++		struct bus_sock *u = bus_sk(s);
++		spin_lock(&bus_gc_lock);
++		BUG_ON(list_empty(&u->link));
++		if (atomic_long_dec_and_test(&u->inflight))
++			list_del_init(&u->link);
++		bus_tot_inflight--;
++		spin_unlock(&bus_gc_lock);
++	}
++}
 +
-+#include <linux/list.h>
++static void scan_inflight(struct sock *x, void (*func)(struct bus_sock *),
++			  struct sk_buff_head *hitlist)
++{
++	struct sk_buff *skb;
++	struct sk_buff *next;
 +
-+#define DBUS_MAXIMUM_MATCH_RULE_LENGTH 1024
++	spin_lock(&x->sk_receive_queue.lock);
++	skb_queue_walk_safe(&x->sk_receive_queue, skb, next) {
++		/*
++		 *	Do we have file descriptors ?
++		 */
++		if (BUSCB(skb).fp) {
++			bool hit = false;
++			/*
++			 *	Process the descriptors of this socket
++			 */
++			int nfd = BUSCB(skb).fp->count;
++			struct file **fp = BUSCB(skb).fp->fp;
++			while (nfd--) {
++				/*
++				 *	Get the socket the fd matches
++				 *	if it indeed does so
++				 */
++				struct sock *sk = bus_get_socket(*fp++);
++				if (sk) {
++					struct bus_sock *u = bus_sk(sk);
 +
-+/* Types of message */
++					/*
++					 * Ignore non-candidates, they could
++					 * have been added to the queues after
++					 * starting the garbage collection
++					 */
++					if (u->gc_candidate) {
++						hit = true;
++						func(u);
++					}
++				}
++			}
++			if (hit && hitlist != NULL) {
++				__skb_unlink(skb, &x->sk_receive_queue);
++				__skb_queue_tail(hitlist, skb);
++			}
++		}
++	}
++	spin_unlock(&x->sk_receive_queue.lock);
++}
 +
-+#define DBUS_MESSAGE_TYPE_INVALID       0
-+#define DBUS_MESSAGE_TYPE_METHOD_CALL   1
-+#define DBUS_MESSAGE_TYPE_METHOD_RETURN 2
-+#define DBUS_MESSAGE_TYPE_ERROR         3
-+#define DBUS_MESSAGE_TYPE_SIGNAL        4
-+#define DBUS_NUM_MESSAGE_TYPES          5
++static void scan_children(struct sock *x, void (*func)(struct bus_sock *),
++			  struct sk_buff_head *hitlist)
++{
++	if (x->sk_state != TCP_LISTEN)
++		scan_inflight(x, func, hitlist);
++	else {
++		struct sk_buff *skb;
++		struct sk_buff *next;
++		struct bus_sock *u;
++		LIST_HEAD(embryos);
 +
-+/* No need to implement a feature-complete parser. It only implement what is
-+ * needed by the bus. */
-+struct dbus_message {
-+	char *message;
-+	size_t len;
-+	size_t new_len;
++		/*
++		 * For a listening socket collect the queued embryos
++		 * and perform a scan on them as well.
++		 */
++		spin_lock(&x->sk_receive_queue.lock);
++		skb_queue_walk_safe(&x->sk_receive_queue, skb, next) {
++			u = bus_sk(skb->sk);
 +
-+	/* direct pointers to the fields */
-+	int type;
-+	char *path;
-+	char *interface;
-+	char *member;
-+	char *destination;
-+	char *sender;
-+	char *body_signature;
-+	int body_length;
-+	char *arg0;
-+	char *arg1;
-+	char *arg2;
-+	char *name_acquired;
-+	char *name_lost;
++			/*
++			 * An embryo cannot be in-flight, so it's safe
++			 * to use the list link.
++			 */
++			BUG_ON(!list_empty(&u->link));
++			list_add_tail(&u->link, &embryos);
++		}
++		spin_unlock(&x->sk_receive_queue.lock);
 +
-+	/* How to add the 'sender' field in the headers */
-+	int new_header_offset;
-+	int len_offset;
-+	int padding_end;
-+};
++		while (!list_empty(&embryos)) {
++			u = list_entry(embryos.next, struct bus_sock, link);
++			scan_inflight(&u->sk, func, hitlist);
++			list_del_init(&u->link);
++		}
++	}
++}
 +
-+int dbus_message_type_from_string(const char *type_str);
++static void dec_inflight(struct bus_sock *usk)
++{
++	atomic_long_dec(&usk->inflight);
++}
 +
-+int dbus_message_parse(unsigned char *message, size_t len,
-+		       struct dbus_message *dbus_message);
++static void inc_inflight(struct bus_sock *usk)
++{
++	atomic_long_inc(&usk->inflight);
++}
 +
-+#endif /* DBUS_MESSAGE_H */
++static void inc_inflight_move_tail(struct bus_sock *u)
++{
++	atomic_long_inc(&u->inflight);
++	/*
++	 * If this still might be part of a cycle, move it to the end
++	 * of the list, so that it's checked even if it was already
++	 * passed over
++	 */
++	if (u->gc_maybe_cycle)
++		list_move_tail(&u->link, &gc_candidates);
++}
++
++static bool gc_in_progress = false;
++#define BUS_INFLIGHT_TRIGGER_GC 16000
++
++void wait_for_bus_gc(void)
++{
++	/*
++	 * If number of inflight sockets is insane,
++	 * force a garbage collect right now.
++	 */
++	if (bus_tot_inflight > BUS_INFLIGHT_TRIGGER_GC && !gc_in_progress)
++		bus_gc();
++	wait_event(bus_gc_wait, gc_in_progress == false);
++}
++
++/* The external entry point: bus_gc() */
++void bus_gc(void)
++{
++	struct bus_sock *u;
++	struct bus_sock *next;
++	struct sk_buff_head hitlist;
++	struct list_head cursor;
++	LIST_HEAD(not_cycle_list);
++
++	spin_lock(&bus_gc_lock);
++
++	/* Avoid a recursive GC. */
++	if (gc_in_progress)
++		goto out;
++
++	gc_in_progress = true;
++	/*
++	 * First, select candidates for garbage collection.  Only
++	 * in-flight sockets are considered, and from those only ones
++	 * which don't have any external reference.
++	 *
++	 * Holding bus_gc_lock will protect these candidates from
++	 * being detached, and hence from gaining an external
++	 * reference.  Since there are no possible receivers, all
++	 * buffers currently on the candidates' queues stay there
++	 * during the garbage collection.
++	 *
++	 * We also know that no new candidate can be added onto the
++	 * receive queues.  Other, non candidate sockets _can_ be
++	 * added to queue, so we must make sure only to touch
++	 * candidates.
++	 */
++	list_for_each_entry_safe(u, next, &gc_inflight_list, link) {
++		long total_refs;
++		long inflight_refs;
++
++		total_refs = file_count(u->sk.sk_socket->file);
++		inflight_refs = atomic_long_read(&u->inflight);
++
++		BUG_ON(inflight_refs < 1);
++		BUG_ON(total_refs < inflight_refs);
++		if (total_refs == inflight_refs) {
++			list_move_tail(&u->link, &gc_candidates);
++			u->gc_candidate = 1;
++			u->gc_maybe_cycle = 1;
++		}
++	}
++
++	/*
++	 * Now remove all internal in-flight reference to children of
++	 * the candidates.
++	 */
++	list_for_each_entry(u, &gc_candidates, link)
++		scan_children(&u->sk, dec_inflight, NULL);
++
++	/*
++	 * Restore the references for children of all candidates,
++	 * which have remaining references.  Do this recursively, so
++	 * only those remain, which form cyclic references.
++	 *
++	 * Use a "cursor" link, to make the list traversal safe, even
++	 * though elements might be moved about.
++	 */
++	list_add(&cursor, &gc_candidates);
++	while (cursor.next != &gc_candidates) {
++		u = list_entry(cursor.next, struct bus_sock, link);
++
++		/* Move cursor to after the current position. */
++		list_move(&cursor, &u->link);
++
++		if (atomic_long_read(&u->inflight) > 0) {
++			list_move_tail(&u->link, &not_cycle_list);
++			u->gc_maybe_cycle = 0;
++			scan_children(&u->sk, inc_inflight_move_tail, NULL);
++		}
++	}
++	list_del(&cursor);
++
++	/*
++	 * not_cycle_list contains those sockets which do not make up a
++	 * cycle.  Restore these to the inflight list.
++	 */
++	while (!list_empty(&not_cycle_list)) {
++		u = list_entry(not_cycle_list.next, struct bus_sock, link);
++		u->gc_candidate = 0;
++		list_move_tail(&u->link, &gc_inflight_list);
++	}
++
++	/*
++	 * Now gc_candidates contains only garbage.  Restore original
++	 * inflight counters for these as well, and remove the skbuffs
++	 * which are creating the cycle(s).
++	 */
++	skb_queue_head_init(&hitlist);
++	list_for_each_entry(u, &gc_candidates, link)
++	scan_children(&u->sk, inc_inflight, &hitlist);
++
++	spin_unlock(&bus_gc_lock);
++
++	/* Here we are. Hitlist is filled. Die. */
++	__skb_queue_purge(&hitlist);
++
++	spin_lock(&bus_gc_lock);
++
++	/* All candidates should have been detached by now. */
++	BUG_ON(!list_empty(&gc_candidates));
++	gc_in_progress = false;
++	wake_up(&bus_gc_wait);
++
++ out:
++	spin_unlock(&bus_gc_lock);
++}
 -- 
 1.7.10
