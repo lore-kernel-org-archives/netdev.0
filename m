@@ -1,198 +1,78 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] e1000e: remove use of IP payload checksum
-Date: Sat, 30 Jun 2012 03:35:28 -0700
-Message-ID: <1341052528-2444-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Elide fib_validate_source() completely when
+ possible.
+Date: Sat, 30 Jun 2012 13:45:52 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1206301300530.1593@ja.ssi.bg>
+References: <20120629.020552.2190372012516348013.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2901 "EHLO mga02.intel.com"
+Received: from ja.ssi.bg ([178.16.129.10]:35937 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752970Ab2F3Kgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2012 06:36:37 -0400
+	id S1753091Ab2F3Kjw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jun 2012 06:39:52 -0400
+In-Reply-To: <20120629.020552.2190372012516348013.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
 
-Currently only used when packet split mode is enabled with jumbo frames,
-IP payload checksum (for fragmented UDP packets) is mutually exclusive with
-receive hashing offload since the hardware uses the same space in the
-receive descriptor for the hardware-provided packet checksum and the RSS
-hash, respectively.  Users currently must disable jumbos when receive
-hashing offload is enabled, or vice versa, because of this incompatibility.
-Since testing has shown that IP payload checksum does not provide any real
-benefit, just remove it so that there is no longer a choice between jumbos
-or receive hashing offload but not both as done in other Intel GbE drivers
-(e.g. e1000, igb).
+	Hello,
 
-Also, add a missing check for IP checksum error reported by the hardware;
-let the stack verify the checksum when this happens.
+On Fri, 29 Jun 2012, David Miller wrote:
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/defines.h |    1 +
- drivers/net/ethernet/intel/e1000e/netdev.c  |   75 +++++----------------------
- 2 files changed, 15 insertions(+), 61 deletions(-)
+> If rpfilter is off (or the SKB has an IPSEC path) and there are not
+> tclassid users, we don't have to do anything at all when
+> fib_validate_source() is invoked besides setting the itag to zero.
+> 
+> We monitor tclassid uses with a counter (modified only under RTNL and
+> marked __read_mostly) and we protect the fib_validate_source() real
+> work with a test against this counter and whether rpfilter is to be
+> done.
+> 
+> Having a way to know whether we need no tclassid processing or not
+> also opens the door for future optimized rpfilter algorithms that do
+> not perform full FIB lookups.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 351a409..76edbc1 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -103,6 +103,7 @@
- #define E1000_RXD_ERR_SEQ       0x04    /* Sequence Error */
- #define E1000_RXD_ERR_CXE       0x10    /* Carrier Extension Error */
- #define E1000_RXD_ERR_TCPE      0x20    /* TCP/UDP Checksum Error */
-+#define E1000_RXD_ERR_IPE       0x40    /* IP Checksum Error */
- #define E1000_RXD_ERR_RXE       0x80    /* Rx Data Error */
- #define E1000_RXD_SPC_VLAN_MASK 0x0FFF  /* VLAN ID is in lower 12 bits */
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index ba86b3f..a166efc 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -496,7 +496,7 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
-  * @sk_buff: socket buffer with received data
-  **/
- static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
--			      __le16 csum, struct sk_buff *skb)
-+			      struct sk_buff *skb)
- {
- 	u16 status = (u16)status_err;
- 	u8 errors = (u8)(status_err >> 24);
-@@ -511,8 +511,8 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 	if (status & E1000_RXD_STAT_IXSM)
- 		return;
- 
--	/* TCP/UDP checksum error bit is set */
--	if (errors & E1000_RXD_ERR_TCPE) {
-+	/* TCP/UDP checksum error bit or IP checksum error bit is set */
-+	if (errors & (E1000_RXD_ERR_TCPE | E1000_RXD_ERR_IPE)) {
- 		/* let the stack verify checksum errors */
- 		adapter->hw_csum_err++;
- 		return;
-@@ -523,19 +523,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 		return;
- 
- 	/* It must be a TCP or UDP packet with a valid checksum */
--	if (status & E1000_RXD_STAT_TCPCS) {
--		/* TCP checksum is good */
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--	} else {
--		/*
--		 * IP fragment with UDP payload
--		 * Hardware complements the payload checksum, so we undo it
--		 * and then put the value in host order for further stack use.
--		 */
--		__sum16 sum = (__force __sum16)swab16((__force u16)csum);
--		skb->csum = csum_unfold(~sum);
--		skb->ip_summed = CHECKSUM_COMPLETE;
--	}
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	adapter->hw_csum_good++;
- }
- 
-@@ -954,8 +942,7 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 		skb_put(skb, length);
- 
- 		/* Receive Checksum Offload */
--		e1000_rx_checksum(adapter, staterr,
--				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
-+		e1000_rx_checksum(adapter, staterr, skb);
- 
- 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
- 
-@@ -1341,8 +1328,7 @@ copydone:
- 		total_rx_bytes += skb->len;
- 		total_rx_packets++;
- 
--		e1000_rx_checksum(adapter, staterr,
--				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
-+		e1000_rx_checksum(adapter, staterr, skb);
- 
- 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
- 
-@@ -1512,9 +1498,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 			}
- 		}
- 
--		/* Receive Checksum Offload XXX recompute due to CRC strip? */
--		e1000_rx_checksum(adapter, staterr,
--				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
-+		/* Receive Checksum Offload */
-+		e1000_rx_checksum(adapter, staterr, skb);
- 
- 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
- 
-@@ -3098,19 +3083,10 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 
- 	/* Enable Receive Checksum Offload for TCP and UDP */
- 	rxcsum = er32(RXCSUM);
--	if (adapter->netdev->features & NETIF_F_RXCSUM) {
-+	if (adapter->netdev->features & NETIF_F_RXCSUM)
- 		rxcsum |= E1000_RXCSUM_TUOFL;
--
--		/*
--		 * IPv4 payload checksum for UDP fragments must be
--		 * used in conjunction with packet-split.
--		 */
--		if (adapter->rx_ps_pages)
--			rxcsum |= E1000_RXCSUM_IPPCSE;
--	} else {
-+	else
- 		rxcsum &= ~E1000_RXCSUM_TUOFL;
--		/* no need to clear IPPCSE as it defaults to 0 */
--	}
- 	ew32(RXCSUM, rxcsum);
- 
- 	if (adapter->hw.mac.type == e1000_pch2lan) {
-@@ -5241,22 +5217,10 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
- 
- 	/* Jumbo frame support */
--	if (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) {
--		if (!(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
--			e_err("Jumbo Frames not supported.\n");
--			return -EINVAL;
--		}
--
--		/*
--		 * IP payload checksum (enabled with jumbos/packet-split when
--		 * Rx checksum is enabled) and generation of RSS hash is
--		 * mutually exclusive in the hardware.
--		 */
--		if ((netdev->features & NETIF_F_RXCSUM) &&
--		    (netdev->features & NETIF_F_RXHASH)) {
--			e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
--			return -EINVAL;
--		}
-+	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
-+	    !(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
-+		e_err("Jumbo Frames not supported.\n");
-+		return -EINVAL;
- 	}
- 
- 	/* Supported frame sizes */
-@@ -6030,17 +5994,6 @@ static int e1000_set_features(struct net_device *netdev,
- 			 NETIF_F_RXALL)))
- 		return 0;
- 
--	/*
--	 * IP payload checksum (enabled with jumbos/packet-split when Rx
--	 * checksum is enabled) and generation of RSS hash is mutually
--	 * exclusive in the hardware.
--	 */
--	if (adapter->rx_ps_pages &&
--	    (features & NETIF_F_RXCSUM) && (features & NETIF_F_RXHASH)) {
--		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
--		return -EINVAL;
--	}
--
- 	if (changed & NETIF_F_RXFCS) {
- 		if (features & NETIF_F_RXFCS) {
- 			adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
--- 
-1.7.10.4
+> +/* Ignore rp_filter for packets protected by IPsec. */
+> +int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+> +			u8 tos, int oif, struct net_device *dev,
+> +			struct in_device *idev, u32 *itag)
+> +{
+> +	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
+> +
+
+	It seems now we change the IN_DEV_ACCEPT_LOCAL policy
+to depend on IN_DEV_RPFILTER. Isn't that dangerous for
+home routers that disable rp_filter when using 2 or more
+uplinks? I know that now rp_filter can be enabled for such
+setups but sometimes users just update the kernel and can
+miss such change.
+
+	If we need the old behavior we should also check
+IN_DEV_ACCEPT_LOCAL here. Then servers protected by firewall
+can avoid this check by enabling accept_local. Established
+stream sockets are anyways optimized by the new demux code.
+
+	Not sure how fatal is the case of forwarding with
+saddr=local_address. May be the risks for loops are same.
+
+	If we really want a change in behavior we should
+at least update the accept_local info in
+Documentation/networking/ip-sysctl.txt ?
+
+> +	if (!r && !fib_num_tclassid_users) {
+> +		*itag = 0;
+> +		return 0;
+> +	}
+> +	return __fib_validate_source(skb, src, dst, tos, oif, dev, r, idev, itag);
+> +}
+> +
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
