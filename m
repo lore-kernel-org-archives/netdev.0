@@ -1,78 +1,32 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipv4: Elide fib_validate_source() completely when
- possible.
-Date: Sat, 30 Jun 2012 13:45:52 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1206301300530.1593@ja.ssi.bg>
-References: <20120629.020552.2190372012516348013.davem@davemloft.net>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: one pci_id missing in sky2 driver
+Date: Sat, 30 Jun 2012 13:10:05 +0200
+Message-ID: <4FEEDE8D.1000403@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: mlindner@marvell.com, netdev@vger.kernel.org, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35937 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753091Ab2F3Kjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2012 06:39:52 -0400
-In-Reply-To: <20120629.020552.2190372012516348013.davem@davemloft.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:57827 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539Ab2F3LKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 07:10:09 -0400
+Received: by werb14 with SMTP id b14so1564280wer.19
+        for <netdev@vger.kernel.org>; Sat, 30 Jun 2012 04:10:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Mirko Lindner wrote:
 
-	Hello,
+ > On Sunday, April 01, 2012 12:22:35 PM Stephen Hemminger wrote:
 
-On Fri, 29 Jun 2012, David Miller wrote:
+ >> I would like to use this opportunity to have the developers at Marvell, test
+ >> and submit this. They have the hardware (I don't) and often new chips
+ >> require other special tweaks.  Marvell expressed interest in taking over
+ >> maintaining the sky2 driver, this would be a good first step.
 
-> If rpfilter is off (or the SKB has an IPSEC path) and there are not
-> tclassid users, we don't have to do anything at all when
-> fib_validate_source() is invoked besides setting the itag to zero.
-> 
-> We monitor tclassid uses with a counter (modified only under RTNL and
-> marked __read_mostly) and we protect the fib_validate_source() real
-> work with a test against this counter and whether rpfilter is to be
-> done.
-> 
-> Having a way to know whether we need no tclassid processing or not
-> also opens the door for future optimized rpfilter algorithms that do
-> not perform full FIB lookups.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Thanks Stephen. The ID belongs to our newest device. We'll include the code
+> into the driver and send a patch to the list as soon the driver has passed our
+> internal tests.
 
-> +/* Ignore rp_filter for packets protected by IPsec. */
-> +int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
-> +			u8 tos, int oif, struct net_device *dev,
-> +			struct in_device *idev, u32 *itag)
-> +{
-> +	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
-> +
-
-	It seems now we change the IN_DEV_ACCEPT_LOCAL policy
-to depend on IN_DEV_RPFILTER. Isn't that dangerous for
-home routers that disable rp_filter when using 2 or more
-uplinks? I know that now rp_filter can be enabled for such
-setups but sometimes users just update the kernel and can
-miss such change.
-
-	If we need the old behavior we should also check
-IN_DEV_ACCEPT_LOCAL here. Then servers protected by firewall
-can avoid this check by enabling accept_local. Established
-stream sockets are anyways optimized by the new demux code.
-
-	Not sure how fatal is the case of forwarding with
-saddr=local_address. May be the risks for loops are same.
-
-	If we really want a change in behavior we should
-at least update the accept_local info in
-Documentation/networking/ip-sysctl.txt ?
-
-> +	if (!r && !fib_num_tclassid_users) {
-> +		*itag = 0;
-> +		return 0;
-> +	}
-> +	return __fib_validate_source(skb, src, dst, tos, oif, dev, r, idev, itag);
-> +}
-> +
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Mirko, any news on this ?
