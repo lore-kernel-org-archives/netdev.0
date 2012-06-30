@@ -1,146 +1,39 @@
-From: John <linux@8192.net>
-Subject: [PATCH V3 1/2] bonding support for IPv6 transmit hashing
-Date: Fri, 29 Jun 2012 23:17:11 -0700
-Message-ID: <4FEE99E7.9010504@8192.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 1/2] bonding support for IPv6 transmit hashing
+Date: Sat, 30 Jun 2012 01:05:14 -0700 (PDT)
+Message-ID: <20120630.010514.79398765104671796.davem@davemloft.net>
+References: <4FEE99E7.9010504@8192.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: linux@8192.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp153.dfw.emailsrvr.com ([67.192.241.153]:34254 "EHLO
-	smtp153.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751492Ab2F3G0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 02:26:38 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by smtp32.relay.dfw1a.emailsrvr.com (SMTP Server) with ESMTP id 466A5504A0
-	for <netdev@vger.kernel.org>; Sat, 30 Jun 2012 02:17:08 -0400 (EDT)
-Received: by smtp32.relay.dfw1a.emailsrvr.com (Authenticated sender: john-AT-8192.net) with ESMTPSA id EC24C50433
-	for <netdev@vger.kernel.org>; Sat, 30 Jun 2012 02:17:07 -0400 (EDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:41076 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751761Ab2F3IFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 04:05:19 -0400
+In-Reply-To: <4FEE99E7.9010504@8192.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f5a40b9..b138d84 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3345,56 +3345,93 @@ static struct notifier_block bond_netdev_notifier = {
-  /*---------------------------- Hashing Policies -----------------------------*/
 
-  /*
-+ * Hash for the output device based upon layer 2 data
-+ */
-+static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
-+{
-+	struct ethhdr *data = (struct ethhdr *)skb->data;
-+
-+	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
-+		return (data->h_dest[5] ^ data->h_source[5]) % count;
-+
-+	return 0;
-+}
-+
-+/*
-   * Hash for the output device based upon layer 2 and layer 3 data. If
-- * the packet is not IP mimic bond_xmit_hash_policy_l2()
-+ * the packet is not IP, fall back on bond_xmit_hash_policy_l2()
-   */
-  static int bond_xmit_hash_policy_l23(struct sk_buff *skb, int count)
-  {
-  	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph = ip_hdr(skb);
-+	struct iphdr *iph;
-+	struct ipv6hdr *ipv6h;
-+	u32 v6hash;
+If you're going to post multiple patches, give them unique
+subject line texts describing what each change does uniquely.
+Do not use identical subject lines ever, that is very unhelpful
+for the people reading your changes.
 
--	if (skb->protocol == htons(ETH_P_IP)) {
-+	if (skb->protocol == htons(ETH_P_IP) &&
-+		skb_network_header_len(skb) >= sizeof(struct iphdr)) {
-+		iph = ip_hdr(skb);
-  		return ((ntohl(iph->saddr ^ iph->daddr) & 0xffff) ^
-  			(data->h_dest[5] ^ data->h_source[5])) % count;
--	}
--
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
-+	} else if (skb->protocol == htons(ETH_P_IPV6) &&
-+		skb_network_header_len(skb) >= sizeof(struct ipv6hdr)) {
-+		ipv6h = ipv6_hdr(skb);
-+		v6hash =
-+			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
-+			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
-+			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
-+		v6hash = (v6hash >> 16) ^ (v6hash >> 8) ^ v6hash;
-+		return (v6hash ^ data->h_dest[5] ^ data->h_source[5]) % count;
-+	}
-+
-+	return bond_xmit_hash_policy_l2(skb, count);
-  }
+From: John <linux@8192.net>
+Date: Fri, 29 Jun 2012 23:17:11 -0700
 
-  /*
-   * Hash for the output device based upon layer 3 and layer 4 data. If
-   * the packet is a frag or not TCP or UDP, just use layer 3 data.  If it is
-- * altogether not IP, mimic bond_xmit_hash_policy_l2()
-+ * altogether not IP, fall back on bond_xmit_hash_policy_l2()
-   */
-  static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
-  {
--	struct ethhdr *data = (struct ethhdr *)skb->data;
--	struct iphdr *iph = ip_hdr(skb);
--	__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
--	int layer4_xor = 0;
-+	u32 layer4_xor = 0;
-+	struct iphdr *iph;
-+	struct ipv6hdr *ipv6h;
+> + skb_network_header_len(skb) >= sizeof(struct ipv6hdr)) {
+> +		ipv6h = ipv6_hdr(skb);
+> +		v6hash =
+> + (ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
+> + (ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
+> + (ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
+> +		v6hash = (v6hash >> 16) ^ (v6hash >> 8) ^ v6hash;
+> + return (v6hash ^ data->h_dest[5] ^ data->h_source[5]) % count;
 
-  	if (skb->protocol == htons(ETH_P_IP)) {
-+		iph = ip_hdr(skb);
-  		if (!ip_is_fragment(iph) &&
--		    (iph->protocol == IPPROTO_TCP ||
--		     iph->protocol == IPPROTO_UDP)) {
-+			(iph->protocol == IPPROTO_TCP ||
-+			iph->protocol == IPPROTO_UDP)) {
-+			__be16 *layer4hdr = (__be16 *)((u32 *)iph + iph->ihl);
-+			if (iph->ihl * sizeof(u32) + sizeof(__be16) * 2 >
-+				skb_headlen(skb) - skb_network_offset(skb))
-+				goto short_header;
-  			layer4_xor = ntohs((*layer4hdr ^ *(layer4hdr + 1)));
-+		} else if (skb_network_header_len(skb) < sizeof(struct iphdr)) {
-+			goto short_header;
-  		}
--		return (layer4_xor ^
--			((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
--
-+		return (layer4_xor ^ ((ntohl(iph->saddr ^ iph->daddr)) & 0xffff)) % count;
-+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		ipv6h = ipv6_hdr(skb);
-+		if (ipv6h->nexthdr == IPPROTO_TCP || ipv6h->nexthdr == IPPROTO_UDP) {
-+			__be16 *layer4hdrv6 = (__be16 *)((u8 *)ipv6h + sizeof(struct ipv6hdr));
-+			if (sizeof(struct ipv6hdr) + sizeof(__be16) * 2 >
-+				skb_headlen(skb) - skb_network_offset(skb))
-+				goto short_header;
-+			layer4_xor = (*layer4hdrv6 ^ *(layer4hdrv6 + 1));
-+		} else if (skb_network_header_len(skb) < sizeof(struct ipv6hdr)) {
-+			goto short_header;
-+		}
-+		layer4_xor ^=
-+			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
-+			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
-+			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
-+		return ((layer4_xor >> 16) ^ (layer4_xor >> 8) ^ layer4_xor) % count;
-  	}
-
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
--}
--
--/*
-- * Hash for the output device based upon layer 2 data
-- */
--static int bond_xmit_hash_policy_l2(struct sk_buff *skb, int count)
--{
--	struct ethhdr *data = (struct ethhdr *)skb->data;
--
--	return (data->h_dest[5] ^ data->h_source[5]) % count;
-+short_header:
-+	return bond_xmit_hash_policy_l2(skb, count);
-  }
-
-  /*-------------------------- Device entry points ----------------------------*/
+Either you formatted this terribly, or your email client corrupted
+your patches.
