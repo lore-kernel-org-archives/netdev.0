@@ -1,31 +1,88 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [BUG, regression, bisected] Marvell 88E8055 NIC (sky2) fails to detect link after resume from S3
-Date: Sat, 30 Jun 2012 22:02:36 +0200
-Message-ID: <20120630200236.GA30058@electric-eye.fr.zoreil.com>
-References: <op.wgon84tw16tawo@esprimo> <20120629164610.1f343434@nehalam.linuxnetplumber.net> <CAKKZj2DVX7Kr4Ag7jubtr7fSa5sSLYR=kt2b6=PV=8fV6q0d8Q@mail.gmail.com>
+From: "Hans-Peter Jansen" <hpj@urpla.net>
+Subject: Re: AF_BUS socket address family
+Date: Sat, 30 Jun 2012 22:41:08 +0200
+Message-ID: <201206302241.08662.hpj@urpla.net>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: Michal Zatloukal <myxal.mxl@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41242 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158Ab2F3UNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 16:13:41 -0400
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Content-Disposition: inline
-In-Reply-To: <CAKKZj2DVX7Kr4Ag7jubtr7fSa5sSLYR=kt2b6=PV=8fV6q0d8Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Michal Zatloukal <myxal.mxl@gmail.com> :
-[...]
-> Is there something I can try?
+Dear Vincent,
 
-I have not used it for quite some time but comparing mmiotrace output
-(see Documentation/trace/mmiotrace.txt) before and after the regression
-commit may give some hint.
+On Friday 29 June 2012, 18:45:39 Vincent Sanders wrote:
+> This series adds the bus address family (AF_BUS) it is against
+> net-next as of yesterday.
+>
+> AF_BUS is a message oriented inter process communication system.
+>
+> The principle features are:
+>
+>  - Reliable datagram based communication (all sockets are of type
+>    SOCK_SEQPACKET)
+>
+>  - Multicast message delivery (one to many, unicast as a subset)
+>
+>  - Strict ordering (messages are delivered to every client in the
+> same order)
+>
+>  - Ability to pass file descriptors
+>
+>  - Ability to pass credentials
+>
+> The basic concept is to provide a virtual bus on which multiple
+> processes can communicate and policy is imposed by a "bus master".
+>
+> Introduction
+> ------------
+>
+> AF_BUS is based upon AF_UNIX but extended for multicast operation and
+> removes stream operation, responding to extensive feedback on
+> previous approaches we have made the implementation as isolated as
+> possible. There are opportunities in the future to integrate the
+> socket garbage collector with that of the unix socket implementation.
+>
+> The impetus for creating this IPC mechanism is to replace the
+> underlying transport for D-Bus. The D-Bus system currently emulates
+> this IPC mechanism using AF_UNIX sockets in userspace and has
+> numerous undesirable behaviours. D-Bus is now widely deployed in many
+> areas and has become a de-facto IPC standard. Using this IPC
+> mechanism as a transport gives a significant (100% or more)
+> improvement to throughput with comparable improvement to latency.
 
-Otherwise I would ask for help on linux-pm@vger.kernel.org
+Your introduction is missing a comprehensive "Discussion" section, where 
+you compare the AF_UNIX based implementation with AF_BUS ones. 
 
--- 
-Ueimor
+You should elaborate on each of the above noted undesirable behaviours, 
+why and how AF_BUS is advantageous. Show the workarounds, that are 
+needed by AF_UNIX to operate (properly?!?) and how the new 
+implementation is going to improve this situation.
+
+This will help to get some progress into the indurated discussion here.
+
+Please also note, that, while your aims are nice and sound, it's even 
+more important for IPC mechanisms to operate properly - even during 
+persisting error conditions (crashed bus master and clients, 
+misbehaving or even abusing members). It would be cool to create a 
+D-BUS test rig, that not only measures performance numbers, but also 
+checks for dead locks, corner cases and abuse attempts in both IPC 
+implementations.
+
+It's a juggling act: while AF_UNIX might suffer from downsides, the code 
+is heavily exercised in every aspect. Your implementation will only be 
+exercised by a handful of users (basically one lib), but in order to 
+rectify its existence in kernel space, such extensions need different 
+kinds of users, and the basic concepts need to fit in the whole kernel 
+picture as well, or you need to call it AF_DBUS with even less chance 
+to get it into mainstream.
+
+Wishing you all the best and good luck,
+Pete
