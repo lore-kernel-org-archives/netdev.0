@@ -1,69 +1,34 @@
-From: Vincent Sanders <vincent.sanders@collabora.co.uk>
+From: Benjamin LaHaise <bcrl@kvack.org>
 Subject: Re: AF_BUS socket address family
-Date: Sat, 30 Jun 2012 01:09:54 +0100
-Message-ID: <20120630000954.GB11480@kyllikki.org>
-References: <20120629231236.GA28593@mail.collabora.co.uk>
- <20120629.161821.948325645333976311.davem@davemloft.net>
- <20120629234230.GA11480@kyllikki.org>
- <20120629.165023.1605284574408858612.davem@davemloft.net>
+Date: Fri, 29 Jun 2012 20:13:50 -0400
+Message-ID: <20120630001350.GS21968@kvack.org>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk> <20120629.153656.1141845894730637434.davem@davemloft.net> <20120629231236.GA28593@mail.collabora.co.uk> <20120629.161821.948325645333976311.davem@davemloft.net> <20120629234230.GA11480@kyllikki.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:56043 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754115Ab2F3ANy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 20:13:54 -0400
 Content-Disposition: inline
-In-Reply-To: <20120629.165023.1605284574408858612.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120629234230.GA11480@kyllikki.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 29, 2012 at 04:50:23PM -0700, David Miller wrote:
-> From: Vincent Sanders <vincent.sanders@collabora.co.uk>
-> Date: Sat, 30 Jun 2012 00:42:30 +0100
-> 
-> > Basically you are indicating you would be completely opposed to any
-> > mechanism involving D-Bus IPC and the kernel? 
-> 
-> I would not oppose existing mechanisms, which I do not believe is
-> impossible to use in your scenerio.
-> 
+On Sat, Jun 30, 2012 at 12:42:30AM +0100, Vincent Sanders wrote:
+> The current users are suffering from the issues outlined in my
+> introductory mail all the time. These issues are caused by emulating an
+> IPC system over AF_UNIX in userspace.
 
-You keep saying that yet have offered no concrete way to achive the
-semantics we require. To pass fd and credentials currently *requires*
-the use of AF_UNIX does it not? And D-Bus already emulates its IPC
-over AF_UNIX because of that.
+Nothing in your introductory statements indicate how your requirements 
+can't be met through a hybrid socket + shared memory solution.  The IPC 
+facilities of the kernel are already quite rich, and sufficient for 
+building many kinds of complex systems.  What's so different about DBus' 
+requirements?
 
-> What you really don't get is that packet drops and event losses are
-> absolutely fundamental.
-
-not within an IPC surely? there cannot be packet drops within AF_BUS
-we simply do not do it. The rrecive queues are checked for capability
-of reciving the message before it is delivered to them all or none.
-
-> 
-> As long as receivers lack infinite receive queue this will always be
-> the case.
-
-Indeed, I would not question that.
-
-> 
-> Multicast operates in non-reliable transports only so that one stuck
-> or malfunctioning receiver doesn't screw things over for everyone nor
-> unduly brudon the sender.
-> 
-
-We have addressed this within AF_BUS by the reciver and bus master
-being told if all recepients cannot receive the message (and therefor
-it cannot be sent). 
-
-The policy decision of how to handle this situation is therefore
-handled by the userspace clients on a protocol level. D-Bus *already*
-has to handle this situation, its just currently done over AF_UNIX
-sockets so once it occours the problem is harder to rectify as the
-ordering constraint is broken (which causes even more issues).
-
-I am afraid it is rather late here and I may not be able to continue
-this conversation untill the morning, I apologise if this is
-inconveniant, but I must sleep.
-
+		-ben
 -- 
-Regards Vincent
+"Thought is the essence of where you are now."
