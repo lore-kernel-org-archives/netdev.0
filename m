@@ -1,79 +1,198 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] igbvf: fix divide by zero
-Date: Sat, 30 Jun 2012 03:23:19 -0700
-Message-ID: <1341051799-8824-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	stable@vger.kernel.org, daahern@cisco.com,
+Subject: [net-next] e1000e: remove use of IP payload checksum
+Date: Sat, 30 Jun 2012 03:35:28 -0700
+Message-ID: <1341052528-2444-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7259 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:2901 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752847Ab2F3KXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2012 06:23:21 -0400
+	id S1752970Ab2F3Kgh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jun 2012 06:36:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch A Williams <mitch.a.williams@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Using ethtool -C ethX rx-usecs 0 crashes with a divide by zero.
-Refactor this function to fix this issue and make it more clear
-what the intent of each conditional is. Add comment regarding
-using a setting of zero.
+Currently only used when packet split mode is enabled with jumbo frames,
+IP payload checksum (for fragmented UDP packets) is mutually exclusive with
+receive hashing offload since the hardware uses the same space in the
+receive descriptor for the hardware-provided packet checksum and the RSS
+hash, respectively.  Users currently must disable jumbos when receive
+hashing offload is enabled, or vice versa, because of this incompatibility.
+Since testing has shown that IP payload checksum does not provide any real
+benefit, just remove it so that there is no longer a choice between jumbos
+or receive hashing offload but not both as done in other Intel GbE drivers
+(e.g. e1000, igb).
 
-CC: stable <stable@vger.kernel.org> [3.3+]
-CC: David Ahern <daahern@cisco.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Also, add a missing check for IP checksum error reported by the hardware;
+let the stack verify the checksum when this happens.
+
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igbvf/ethtool.c |   29 +++++++++++++++++-----------
- 1 file changed, 18 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h |    1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c  |   75 +++++----------------------
+ 2 files changed, 15 insertions(+), 61 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
-index 8ce6706..90eef07 100644
---- a/drivers/net/ethernet/intel/igbvf/ethtool.c
-+++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
-@@ -357,21 +357,28 @@ static int igbvf_set_coalesce(struct net_device *netdev,
- 	struct igbvf_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 351a409..76edbc1 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -103,6 +103,7 @@
+ #define E1000_RXD_ERR_SEQ       0x04    /* Sequence Error */
+ #define E1000_RXD_ERR_CXE       0x10    /* Carrier Extension Error */
+ #define E1000_RXD_ERR_TCPE      0x20    /* TCP/UDP Checksum Error */
++#define E1000_RXD_ERR_IPE       0x40    /* IP Checksum Error */
+ #define E1000_RXD_ERR_RXE       0x80    /* Rx Data Error */
+ #define E1000_RXD_SPC_VLAN_MASK 0x0FFF  /* VLAN ID is in lower 12 bits */
  
--	if ((ec->rx_coalesce_usecs > IGBVF_MAX_ITR_USECS) ||
--	    ((ec->rx_coalesce_usecs > 3) &&
--	     (ec->rx_coalesce_usecs < IGBVF_MIN_ITR_USECS)) ||
--	    (ec->rx_coalesce_usecs == 2))
--		return -EINVAL;
--
--	/* convert to rate of irq's per second */
--	if (ec->rx_coalesce_usecs && ec->rx_coalesce_usecs <= 3) {
-+	if ((ec->rx_coalesce_usecs >= IGBVF_MIN_ITR_USECS) &&
-+	     (ec->rx_coalesce_usecs <= IGBVF_MAX_ITR_USECS)) {
-+		adapter->current_itr = ec->rx_coalesce_usecs << 2;
-+		adapter->requested_itr = 1000000000 /
-+					(adapter->current_itr * 256);
-+	} else if ((ec->rx_coalesce_usecs == 3) ||
-+		   (ec->rx_coalesce_usecs == 2)) {
- 		adapter->current_itr = IGBVF_START_ITR;
- 		adapter->requested_itr = ec->rx_coalesce_usecs;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index ba86b3f..a166efc 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -496,7 +496,7 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
+  * @sk_buff: socket buffer with received data
+  **/
+ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+-			      __le16 csum, struct sk_buff *skb)
++			      struct sk_buff *skb)
+ {
+ 	u16 status = (u16)status_err;
+ 	u8 errors = (u8)(status_err >> 24);
+@@ -511,8 +511,8 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+ 	if (status & E1000_RXD_STAT_IXSM)
+ 		return;
+ 
+-	/* TCP/UDP checksum error bit is set */
+-	if (errors & E1000_RXD_ERR_TCPE) {
++	/* TCP/UDP checksum error bit or IP checksum error bit is set */
++	if (errors & (E1000_RXD_ERR_TCPE | E1000_RXD_ERR_IPE)) {
+ 		/* let the stack verify checksum errors */
+ 		adapter->hw_csum_err++;
+ 		return;
+@@ -523,19 +523,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
+ 		return;
+ 
+ 	/* It must be a TCP or UDP packet with a valid checksum */
+-	if (status & E1000_RXD_STAT_TCPCS) {
+-		/* TCP checksum is good */
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
 -	} else {
--		adapter->current_itr = ec->rx_coalesce_usecs << 2;
-+	} else if (ec->rx_coalesce_usecs == 0) {
-+		/*
-+		 * The user's desire is to turn off interrupt throttling
-+		 * altogether, but due to HW limitations, we can't do that.
-+		 * Instead we set a very small value in EITR, which would
-+		 * allow ~967k interrupts per second, but allow the adapter's
-+		 * internal clocking to still function properly.
-+		 */
-+		adapter->current_itr = 4;
- 		adapter->requested_itr = 1000000000 /
- 					(adapter->current_itr * 256);
+-		/*
+-		 * IP fragment with UDP payload
+-		 * Hardware complements the payload checksum, so we undo it
+-		 * and then put the value in host order for further stack use.
+-		 */
+-		__sum16 sum = (__force __sum16)swab16((__force u16)csum);
+-		skb->csum = csum_unfold(~sum);
+-		skb->ip_summed = CHECKSUM_COMPLETE;
 -	}
-+	} else
-+		return -EINVAL;
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	adapter->hw_csum_good++;
+ }
  
- 	writel(adapter->current_itr,
- 	       hw->hw_addr + adapter->rx_ring->itr_register);
+@@ -954,8 +942,7 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
+ 		skb_put(skb, length);
+ 
+ 		/* Receive Checksum Offload */
+-		e1000_rx_checksum(adapter, staterr,
+-				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
++		e1000_rx_checksum(adapter, staterr, skb);
+ 
+ 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
+ 
+@@ -1341,8 +1328,7 @@ copydone:
+ 		total_rx_bytes += skb->len;
+ 		total_rx_packets++;
+ 
+-		e1000_rx_checksum(adapter, staterr,
+-				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
++		e1000_rx_checksum(adapter, staterr, skb);
+ 
+ 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
+ 
+@@ -1512,9 +1498,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
+ 			}
+ 		}
+ 
+-		/* Receive Checksum Offload XXX recompute due to CRC strip? */
+-		e1000_rx_checksum(adapter, staterr,
+-				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
++		/* Receive Checksum Offload */
++		e1000_rx_checksum(adapter, staterr, skb);
+ 
+ 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
+ 
+@@ -3098,19 +3083,10 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 
+ 	/* Enable Receive Checksum Offload for TCP and UDP */
+ 	rxcsum = er32(RXCSUM);
+-	if (adapter->netdev->features & NETIF_F_RXCSUM) {
++	if (adapter->netdev->features & NETIF_F_RXCSUM)
+ 		rxcsum |= E1000_RXCSUM_TUOFL;
+-
+-		/*
+-		 * IPv4 payload checksum for UDP fragments must be
+-		 * used in conjunction with packet-split.
+-		 */
+-		if (adapter->rx_ps_pages)
+-			rxcsum |= E1000_RXCSUM_IPPCSE;
+-	} else {
++	else
+ 		rxcsum &= ~E1000_RXCSUM_TUOFL;
+-		/* no need to clear IPPCSE as it defaults to 0 */
+-	}
+ 	ew32(RXCSUM, rxcsum);
+ 
+ 	if (adapter->hw.mac.type == e1000_pch2lan) {
+@@ -5241,22 +5217,10 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
+ 
+ 	/* Jumbo frame support */
+-	if (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) {
+-		if (!(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
+-			e_err("Jumbo Frames not supported.\n");
+-			return -EINVAL;
+-		}
+-
+-		/*
+-		 * IP payload checksum (enabled with jumbos/packet-split when
+-		 * Rx checksum is enabled) and generation of RSS hash is
+-		 * mutually exclusive in the hardware.
+-		 */
+-		if ((netdev->features & NETIF_F_RXCSUM) &&
+-		    (netdev->features & NETIF_F_RXHASH)) {
+-			e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
+-			return -EINVAL;
+-		}
++	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
++	    !(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
++		e_err("Jumbo Frames not supported.\n");
++		return -EINVAL;
+ 	}
+ 
+ 	/* Supported frame sizes */
+@@ -6030,17 +5994,6 @@ static int e1000_set_features(struct net_device *netdev,
+ 			 NETIF_F_RXALL)))
+ 		return 0;
+ 
+-	/*
+-	 * IP payload checksum (enabled with jumbos/packet-split when Rx
+-	 * checksum is enabled) and generation of RSS hash is mutually
+-	 * exclusive in the hardware.
+-	 */
+-	if (adapter->rx_ps_pages &&
+-	    (features & NETIF_F_RXCSUM) && (features & NETIF_F_RXHASH)) {
+-		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (changed & NETIF_F_RXFCS) {
+ 		if (features & NETIF_F_RXFCS) {
+ 			adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
 -- 
 1.7.10.4
