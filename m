@@ -1,42 +1,43 @@
-From: Marc Haber <mh+netdev@zugschlus.de>
-Subject: [IPv6] How to wait for pending SLAAC
-Date: Sat, 30 Jun 2012 13:10:34 +0200
-Message-ID: <20120630111033.GA17266@torres.zugschlus.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] netfilter: use kfree_skb() not kfree()
+Date: Sat, 30 Jun 2012 14:48:53 +0300
+Message-ID: <20120630114853.GA22767@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from torres.zugschlus.de ([85.214.131.164]:51838 "EHLO
-	torres.zugschlus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196Ab2F3LkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 07:40:03 -0400
-Received: from mh by torres.zugschlus.de with local (Exim 4.72)
-	(envelope-from <mh+netdev@zugschlus.de>)
-	id 1SkvZS-0004VY-0T
-	for netdev@vger.kernel.org; Sat, 30 Jun 2012 13:10:34 +0200
+Content-Type: text/plain; charset=us-ascii
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Bart De Schuymer <bart.de.schuymer@pandora.be>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This was should be a kfree_skb() here to free the sk_buff pointer.
 
-I would like to have my system wait for the first SLAAC attempt during
-bootup. To do this, I have written a script that waits until no more
-IP address is found in "tentative" state.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Unfortunately, this is so fast that the script terminates before the
-first address reaches "tentative" state.
-
-Is there a way to find out whether the system is trying to do SLAAC on
-any interface (for example information inside /proc or /sys), so that
-one can wait for the IP address to appear, or is a fixed "sleep 5" the
-only thing one can do here?
-
-Greetings
-Marc
-
--- 
------------------------------------------------------------------------------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
-Mannheim, Germany  |  lose things."    Winona Ryder | Fon: *49 621 31958061
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 621 31958062
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index 1bd1732..dfbb019 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -156,7 +156,7 @@ static void ebt_ulog_packet(unsigned int hooknr, const struct sk_buff *skb,
+ 	nlh = nlmsg_put(ub->skb, 0, ub->qlen, 0,
+ 			size - NLMSG_ALIGN(sizeof(*nlh)), 0);
+ 	if (!nlh) {
+-		kfree(ub->skb);
++		kfree_skb(ub->skb);
+ 		ub->skb = NULL;
+ 		goto unlock;
+ 	}
