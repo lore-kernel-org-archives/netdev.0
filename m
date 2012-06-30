@@ -1,52 +1,42 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: problems with iproute2 m_xt again...
-Date: Sat, 30 Jun 2012 15:17:55 +0200 (CEST)
-Message-ID: <alpine.LNX.2.01.1206301512520.27385@frira.zrqbmnf.qr>
-References: <20120630120939.GA18134@amd64.fatal.se>
+From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] iwlegacy: print how long queue was actually stuck
+Date: Sat, 30 Jun 2012 21:18:04 +0300
+Message-ID: <CANUX_P3kypkUv+-meABAOGa6GQ9cR5ugySJj+SjvVfCykCQuYQ@mail.gmail.com>
+References: <1340786187.1911.24.camel@x61.thuisdomein>
+	<1341062406.1911.76.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: shemminger@vyatta.com,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>, YANG Zhe <yangzhe1990@gmail.com>
-To: Andreas Henriksson <andreas@fatal.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from seven.medozas.de ([5.9.24.206]:33103 "EHLO seven.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753820Ab2F3N2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2012 09:28:11 -0400
-In-Reply-To: <20120630120939.GA18134@amd64.fatal.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paul Bolle <pebolle-IWqWACnzNjzz+pZb47iToQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1341062406.1911.76.camel-uMdlDhfIn7prKue/0VVhAg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 2012-06-30 14:09, Andreas Henriksson wrote:
-
->Hello!
 >
->Mailing you in hope that you could help out with the xt module of iproute2 tc
->once more, as you've done in the past.... It seems to be broken again. sigh.
+> On Wed, 2012-06-27 at 10:36 +0200, Paul Bolle wrote:
+> > Every now and then, after resuming from suspend, the iwlegacy drive=
+r
+> > prints
+> > =A0 =A0 iwl4965 0000:03:00.0: Queue 2 stuck for 2000 ms.
+> > =A0 =A0 iwl4965 0000:03:00.0: On demand firmware reload
+> >
+> > I have no idea what causes these errors. But the code currently use=
+s
+> > wd_timeout in the first error. wd_timeout will generally be set at
+> > IL_DEF_WD_TIMEOUT (ie, 2000). Perhaps printing for how long the que=
+ue
+> > was actually stuck can clarify the cause of these errors.
 >
->amd64:~# iptables -nL | grep test
->Chain test (0 references)
->amd64:~# tc filter add dev fon parent ffff: protocol ip prio 10 u32 action xt -j test
-> failed to find target test
->
->bad action parsing
->parse_action: bad value (3:xt)!
->Illegal "action"
->amd64:~#
 
-Looks more like a syntax error. I don't see any functions of m_xt.so 
-being ever called (and it only has two).
-
->And maybe even more interesting is when I try to use a built-in chain 
->like DROP:
-
-DROP is not a chain, but a verdict.
-
->amd64:~# tc filter add dev fon parent ffff: protocol ip prio 10 u32 
->action xt -j DROP
->tablename: mangle hook: NF_IP_PRE_ROUTING
->Segmentation fault
-
-Rather than a segfault, this gets me "bad action parsing" in 
-iproute2-3.4.0 as well.
+You may want to try this one:
+http://www.spinics.net/lists/stable-commits/msg18110.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
