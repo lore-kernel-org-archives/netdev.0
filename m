@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH 02/10] net: Add functions netif_reset_xps_queue and
-	netif_set_xps_queue
-Date: Fri, 29 Jun 2012 17:16:23 -0700
-Message-ID: <20120630001623.29939.36063.stgit@gitlad.jf.intel.com>
+Subject: [RFC PATCH 04/10] net: Rewrite netif_set_xps_queues to address
+	several issues
+Date: Fri, 29 Jun 2012 17:16:33 -0700
+Message-ID: <20120630001633.29939.76609.stgit@gitlad.jf.intel.com>
 References: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,315 +12,128 @@ Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
 	therbert@google.com, alexander.duyck@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59124 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:23073 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755927Ab2F3AQE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2012 20:16:04 -0400
+	id S1755999Ab2F3AQP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 20:16:15 -0400
 In-Reply-To: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds two functions, netif_reset_xps_queue and
-netif_set_xps_queue.  The main idea behind these to functions is to provide
-a mechanism through which drivers can update their defaults in regards to
-XPS.
+This change is meant to address several issues I found within the
+netif_set_xps_queues function.
 
-Currently no such mechanism exists and as a result we cannot use XPS for
-things such as ATR which would require a basic configuration to start in
-which the Tx queues are mapped to CPUs via a 1:1 mapping.  With this change
-I am making it possible for drivers such as ixgbe to be able to use the XPS
-feature by controlling the default configuration.
+If the allocation of one of the maps to be assigned to new_dev_maps failed
+we could end up with the device map in an inconsistent state since we had
+already worked through a number of CPUs and removed or added the queue.  To
+address that I split the process into several steps.  The first of which is
+just the allocation of updated maps for CPUs that will need larger maps to
+store the queue.  By doing this we can fail gracefully without actually
+altering the contents of the current device map.
+
+The second issue I found was the fact that we were always allocating a new
+device map even if we were not adding any queues.  I have updated the code
+so that we only allocate a new device map if we are adding queues,
+otherwise if we are not adding any queues to CPUs we just skip to the
+removal process.
+
+The last change I made was to reuse the code from remove_xps_queue to remove
+the queue from the CPU.  By making this change we can be consistent in how
+we go about adding and removing the queues from the CPUs.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
 
- include/linux/netdevice.h |   13 ++++
- net/core/dev.c            |  155 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/net-sysfs.c      |  148 +------------------------------------------
- 3 files changed, 173 insertions(+), 143 deletions(-)
+ net/core/dev.c |  183 ++++++++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 117 insertions(+), 66 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3329d70..e9e74b7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2072,6 +2072,19 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
- 		__netif_schedule(txq->qdisc);
- }
- 
-+#ifdef CONFIG_XPS
-+extern void netif_reset_xps_queue(struct net_device *dev, u16 index);
-+extern int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask,
-+			       u16 index);
-+#else
-+static inline int netif_set_xps_queue(struct net_device *dev,
-+				      struct cpumask *mask,
-+				      u16 index)
-+{
-+	return 0;
-+}
-+#endif
-+
- /*
-  * Returns a Tx hash for the given packet when dev->real_num_tx_queues is used
-  * as a distribution range limit for the returned value.
 diff --git a/net/core/dev.c b/net/core/dev.c
-index b31a9ff..4c0981b 100644
+index 8e259d4..5f0550b 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1728,6 +1728,161 @@ static void netif_setup_tc(struct net_device *dev, unsigned int txq)
- 	}
+@@ -1786,107 +1786,158 @@ out_no_maps:
+ 	mutex_unlock(&xps_map_mutex);
  }
  
-+#ifdef CONFIG_XPS
-+static DEFINE_MUTEX(xps_map_mutex);
-+#define xmap_dereference(P)		\
-+	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
-+
-+void netif_reset_xps_queue(struct net_device *dev, u16 index)
++static struct xps_map *expand_xps_map(struct xps_map *map,
++				      int cpu, u16 index)
 +{
-+	struct xps_dev_maps *dev_maps;
-+	struct xps_map *map;
-+	int i, pos, nonempty = 0;
++	struct xps_map *new_map;
++	int alloc_len = XPS_MIN_MAP_ALLOC;
++	int i, pos;
 +
-+	mutex_lock(&xps_map_mutex);
-+	dev_maps = xmap_dereference(dev->xps_maps);
-+
-+	if (!dev_maps)
-+		goto out_no_maps;
-+
-+	for_each_possible_cpu(i) {
-+		map = xmap_dereference(dev_maps->cpu_map[i]);
-+		if (!map)
++	for (pos = 0; map && pos < map->len; pos++) {
++		if (map->queues[pos] != index)
 +			continue;
-+
-+		for (pos = 0; pos < map->len; pos++)
-+			if (map->queues[pos] == index)
-+				break;
-+
-+		if (pos < map->len) {
-+			if (map->len > 1) {
-+				map->queues[pos] = map->queues[--map->len];
-+			} else {
-+				RCU_INIT_POINTER(dev_maps->cpu_map[i], NULL);
-+				kfree_rcu(map, rcu);
-+				map = NULL;
-+			}
-+		}
-+		if (map)
-+			nonempty = 1;
++		return map;
 +	}
 +
-+	if (!nonempty) {
-+		RCU_INIT_POINTER(dev->xps_maps, NULL);
-+		kfree_rcu(dev_maps, rcu);
++	/* Need to add queue to this CPU's existing map */
++	if (map) {
++		if (pos < map->alloc_len)
++			return map;
++
++		alloc_len = map->alloc_len * 2;
 +	}
 +
-+out_no_maps:
-+	mutex_unlock(&xps_map_mutex);
++	/* Need to allocate new map to store queue on this CPU's map */
++	new_map = kzalloc_node(XPS_MAP_SIZE(alloc_len), GFP_KERNEL,
++			       cpu_to_node(cpu));
++	if (!new_map)
++		return NULL;
++
++	for (i = 0; i < pos; i++)
++		new_map->queues[i] = map->queues[i];
++	new_map->alloc_len = alloc_len;
++	new_map->len = pos;
++
++	return new_map;
 +}
 +
-+int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask, u16 index)
-+{
-+	int i, cpu, pos, map_len, alloc_len, need_set;
-+	struct xps_map *map, *new_map;
-+	struct xps_dev_maps *dev_maps, *new_dev_maps;
-+	int nonempty = 0;
-+	int numa_node_id = -2;
-+	int maps_sz = max_t(unsigned int, XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES);
-+
-+	new_dev_maps = kzalloc(maps_sz, GFP_KERNEL);
-+	if (!new_dev_maps)
-+		return -ENOMEM;
-+
-+	mutex_lock(&xps_map_mutex);
-+
-+	dev_maps = xmap_dereference(dev->xps_maps);
-+
-+	for_each_possible_cpu(cpu) {
-+		map = dev_maps ?
-+			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
-+		new_map = map;
-+		if (map) {
-+			for (pos = 0; pos < map->len; pos++)
-+				if (map->queues[pos] == index)
-+					break;
-+			map_len = map->len;
-+			alloc_len = map->alloc_len;
-+		} else
-+			pos = map_len = alloc_len = 0;
-+
-+		need_set = cpumask_test_cpu(cpu, mask) && cpu_online(cpu);
-+#ifdef CONFIG_NUMA
-+		if (need_set) {
-+			if (numa_node_id == -2)
-+				numa_node_id = cpu_to_node(cpu);
-+			else if (numa_node_id != cpu_to_node(cpu))
-+				numa_node_id = -1;
-+		}
-+#endif
-+		if (need_set && pos >= map_len) {
-+			/* Need to add queue to this CPU's map */
-+			if (map_len >= alloc_len) {
-+				alloc_len = alloc_len ?
-+				    2 * alloc_len : XPS_MIN_MAP_ALLOC;
-+				new_map = kzalloc_node(XPS_MAP_SIZE(alloc_len),
-+						       GFP_KERNEL,
-+						       cpu_to_node(cpu));
-+				if (!new_map)
-+					goto error;
-+				new_map->alloc_len = alloc_len;
-+				for (i = 0; i < map_len; i++)
-+					new_map->queues[i] = map->queues[i];
-+				new_map->len = map_len;
-+			}
-+			new_map->queues[new_map->len++] = index;
-+		} else if (!need_set && pos < map_len) {
-+			/* Need to remove queue from this CPU's map */
-+			if (map_len > 1)
-+				new_map->queues[pos] =
-+				    new_map->queues[--new_map->len];
-+			else
-+				new_map = NULL;
-+		}
-+		RCU_INIT_POINTER(new_dev_maps->cpu_map[cpu], new_map);
-+	}
-+
-+	/* Cleanup old maps */
-+	for_each_possible_cpu(cpu) {
-+		map = dev_maps ?
-+			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
-+		if (map && xmap_dereference(new_dev_maps->cpu_map[cpu]) != map)
-+			kfree_rcu(map, rcu);
-+		if (new_dev_maps->cpu_map[cpu])
-+			nonempty = 1;
-+	}
-+
-+	if (nonempty) {
-+		rcu_assign_pointer(dev->xps_maps, new_dev_maps);
-+	} else {
-+		kfree(new_dev_maps);
-+		RCU_INIT_POINTER(dev->xps_maps, NULL);
-+	}
-+
-+	if (dev_maps)
-+		kfree_rcu(dev_maps, rcu);
-+
-+	netdev_queue_numa_node_write(netdev_get_tx_queue(dev, index),
-+				     (numa_node_id >= 0) ? numa_node_id :
-+				     NUMA_NO_NODE);
-+
-+	mutex_unlock(&xps_map_mutex);
-+
-+	return 0;
-+error:
-+	mutex_unlock(&xps_map_mutex);
-+
-+	if (new_dev_maps)
-+		for_each_possible_cpu(i)
-+			kfree(rcu_dereference_protected(
-+				new_dev_maps->cpu_map[i],
-+				1));
-+	kfree(new_dev_maps);
-+	return -ENOMEM;
-+}
-+EXPORT_SYMBOL(netif_set_xps_queue);
-+
-+#endif
- /*
-  * Routine to help set real_num_tx_queues. To avoid skbs mapped to queues
-  * greater then real_num_tx_queues stale skbs on the qdisc must be flushed.
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 7260717..092d338 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -963,54 +963,14 @@ static ssize_t show_xps_map(struct netdev_queue *queue,
- 	return len;
- }
- 
--static DEFINE_MUTEX(xps_map_mutex);
--#define xmap_dereference(P)		\
--	rcu_dereference_protected((P), lockdep_is_held(&xps_map_mutex))
--
- static void xps_queue_release(struct netdev_queue *queue)
+ int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask, u16 index)
  {
- 	struct net_device *dev = queue->dev;
--	struct xps_dev_maps *dev_maps;
--	struct xps_map *map;
- 	unsigned long index;
--	int i, pos, nonempty = 0;
- 
- 	index = get_netdev_queue_index(queue);
- 
--	mutex_lock(&xps_map_mutex);
--	dev_maps = xmap_dereference(dev->xps_maps);
--
--	if (dev_maps) {
--		for_each_possible_cpu(i) {
--			map = xmap_dereference(dev_maps->cpu_map[i]);
--			if (!map)
--				continue;
--
--			for (pos = 0; pos < map->len; pos++)
--				if (map->queues[pos] == index)
--					break;
--
--			if (pos < map->len) {
--				if (map->len > 1)
--					map->queues[pos] =
--					    map->queues[--map->len];
--				else {
--					RCU_INIT_POINTER(dev_maps->cpu_map[i],
--					    NULL);
--					kfree_rcu(map, rcu);
--					map = NULL;
--				}
--			}
--			if (map)
--				nonempty = 1;
--		}
--
--		if (!nonempty) {
--			RCU_INIT_POINTER(dev->xps_maps, NULL);
--			kfree_rcu(dev_maps, rcu);
--		}
--	}
--	mutex_unlock(&xps_map_mutex);
-+	netif_reset_xps_queue(dev, index);
- }
- 
- static ssize_t store_xps_map(struct netdev_queue *queue,
-@@ -1018,13 +978,9 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 		      const char *buf, size_t len)
- {
- 	struct net_device *dev = queue->dev;
--	cpumask_var_t mask;
--	int err, i, cpu, pos, map_len, alloc_len, need_set;
- 	unsigned long index;
--	struct xps_map *map, *new_map;
+-	int i, cpu, pos, map_len, alloc_len, need_set;
++	struct xps_dev_maps *dev_maps, *new_dev_maps = NULL;
+ 	struct xps_map *map, *new_map;
 -	struct xps_dev_maps *dev_maps, *new_dev_maps;
 -	int nonempty = 0;
 -	int numa_node_id = -2;
-+	cpumask_var_t mask;
-+	int err;
- 
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
-@@ -1040,105 +996,11 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 		return err;
- 	}
- 
--	new_dev_maps = kzalloc(max_t(unsigned int,
--	    XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES), GFP_KERNEL);
--	if (!new_dev_maps) {
--		free_cpumask_var(mask);
+ 	int maps_sz = max_t(unsigned int, XPS_DEV_MAPS_SIZE, L1_CACHE_BYTES);
+-
+-	new_dev_maps = kzalloc(maps_sz, GFP_KERNEL);
+-	if (!new_dev_maps)
 -		return -ENOMEM;
--	}
--
--	mutex_lock(&xps_map_mutex);
--
--	dev_maps = xmap_dereference(dev->xps_maps);
--
--	for_each_possible_cpu(cpu) {
++	int cpu, numa_node_id = -2;
++	bool active = false;
+ 
+ 	mutex_lock(&xps_map_mutex);
+ 
+ 	dev_maps = xmap_dereference(dev->xps_maps);
+ 
++	/* allocate memory for queue storage */
++	for_each_online_cpu(cpu) {
++		if (!cpumask_test_cpu(cpu, mask))
++			continue;
++
++		if (!new_dev_maps)
++			new_dev_maps = kzalloc(maps_sz, GFP_KERNEL);
++		if (!new_dev_maps)
++			return -ENOMEM;
++
++		map = dev_maps ? xmap_dereference(dev_maps->cpu_map[cpu]) :
++				 NULL;
++
++		map = expand_xps_map(map, cpu, index);
++		if (!map)
++			goto error;
++
++		RCU_INIT_POINTER(new_dev_maps->cpu_map[cpu], map);
++	}
++
++	if (!new_dev_maps)
++		goto out_no_new_maps;
++
+ 	for_each_possible_cpu(cpu) {
 -		map = dev_maps ?
 -			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
 -		new_map = map;
@@ -332,16 +145,25 @@ index 7260717..092d338 100644
 -			alloc_len = map->alloc_len;
 -		} else
 -			pos = map_len = alloc_len = 0;
--
++		if (cpumask_test_cpu(cpu, mask) && cpu_online(cpu)) {
++			/* add queue to CPU maps */
++			int pos = 0;
+ 
 -		need_set = cpumask_test_cpu(cpu, mask) && cpu_online(cpu);
--#ifdef CONFIG_NUMA
++			map = xmap_dereference(new_dev_maps->cpu_map[cpu]);
++			while ((pos < map->len) && (map->queues[pos] != index))
++				pos++;
++
++			if (pos == map->len)
++				map->queues[map->len++] = index;
+ #ifdef CONFIG_NUMA
 -		if (need_set) {
--			if (numa_node_id == -2)
--				numa_node_id = cpu_to_node(cpu);
--			else if (numa_node_id != cpu_to_node(cpu))
--				numa_node_id = -1;
+ 			if (numa_node_id == -2)
+ 				numa_node_id = cpu_to_node(cpu);
+ 			else if (numa_node_id != cpu_to_node(cpu))
+ 				numa_node_id = -1;
 -		}
--#endif
+ #endif
 -		if (need_set && pos >= map_len) {
 -			/* Need to add queue to this CPU's map */
 -			if (map_len >= alloc_len) {
@@ -365,11 +187,18 @@ index 7260717..092d338 100644
 -				    new_map->queues[--new_map->len];
 -			else
 -				new_map = NULL;
--		}
++		} else if (dev_maps) {
++			/* fill in the new device map from the old device map */
++			map = xmap_dereference(dev_maps->cpu_map[cpu]);
++			RCU_INIT_POINTER(new_dev_maps->cpu_map[cpu], map);
+ 		}
 -		RCU_INIT_POINTER(new_dev_maps->cpu_map[cpu], new_map);
--	}
--
--	/* Cleanup old maps */
++
+ 	}
+ 
++	rcu_assign_pointer(dev->xps_maps, new_dev_maps);
++
+ 	/* Cleanup old maps */
 -	for_each_possible_cpu(cpu) {
 -		map = dev_maps ?
 -			xmap_dereference(dev_maps->cpu_map[cpu]) : NULL;
@@ -378,38 +207,72 @@ index 7260717..092d338 100644
 -		if (new_dev_maps->cpu_map[cpu])
 -			nonempty = 1;
 -	}
--
++	if (dev_maps) {
++		for_each_possible_cpu(cpu) {
++			new_map = xmap_dereference(new_dev_maps->cpu_map[cpu]);
++			map = xmap_dereference(dev_maps->cpu_map[cpu]);
++			if (map && map != new_map)
++				kfree_rcu(map, rcu);
++		}
+ 
 -	if (nonempty) {
 -		rcu_assign_pointer(dev->xps_maps, new_dev_maps);
 -	} else {
 -		kfree(new_dev_maps);
 -		RCU_INIT_POINTER(dev->xps_maps, NULL);
--	}
--
++		kfree_rcu(dev_maps, rcu);
+ 	}
+ 
 -	if (dev_maps)
 -		kfree_rcu(dev_maps, rcu);
--
--	netdev_queue_numa_node_write(queue, (numa_node_id >= 0) ? numa_node_id :
--					    NUMA_NO_NODE);
--
--	mutex_unlock(&xps_map_mutex);
-+	err = netif_set_xps_queue(dev, mask, index);
++	dev_maps = new_dev_maps;
++	active = true;
  
- 	free_cpumask_var(mask);
--	return len;
++out_no_new_maps:
++	/* update Tx queue numa node */
+ 	netdev_queue_numa_node_write(netdev_get_tx_queue(dev, index),
+ 				     (numa_node_id >= 0) ? numa_node_id :
+ 				     NUMA_NO_NODE);
  
--error:
--	mutex_unlock(&xps_map_mutex);
--
++	if (!dev_maps)
++		goto out_no_maps;
++
++	/* removes queue from unused CPUs */
++	for_each_possible_cpu(cpu) {
++		if (cpumask_test_cpu(cpu, mask) && cpu_online(cpu))
++			continue;
++
++		if (remove_xps_queue(dev_maps, cpu, index))
++			active = true;
++	}
++
++	/* free map if not active */
++	if (!active) {
++		RCU_INIT_POINTER(dev->xps_maps, NULL);
++		kfree_rcu(dev_maps, rcu);
++	}
++
++out_no_maps:
+ 	mutex_unlock(&xps_map_mutex);
+ 
+ 	return 0;
+ error:
++	/* remove any maps that we added */
++	for_each_possible_cpu(cpu) {
++		new_map = xmap_dereference(new_dev_maps->cpu_map[cpu]);
++		map = dev_maps ? xmap_dereference(dev_maps->cpu_map[cpu]) :
++				 NULL;
++		if (new_map && new_map != map)
++			kfree(new_map);
++	}
++
+ 	mutex_unlock(&xps_map_mutex);
+ 
 -	if (new_dev_maps)
 -		for_each_possible_cpu(i)
 -			kfree(rcu_dereference_protected(
 -				new_dev_maps->cpu_map[i],
 -				1));
--	kfree(new_dev_maps);
--	free_cpumask_var(mask);
--	return -ENOMEM;
-+	return err ? : len;
+ 	kfree(new_dev_maps);
+ 	return -ENOMEM;
  }
- 
- static struct netdev_queue_attribute xps_cpus_attribute =
