@@ -1,62 +1,92 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: AF_BUS socket address family
-Date: Sat, 30 Jun 2012 14:12:22 +0100
-Message-ID: <20120630141222.60df95a5@pyramind.ukuu.org.uk>
-References: <20120629231236.GA28593@mail.collabora.co.uk>
-	<20120629.161821.948325645333976311.davem@davemloft.net>
-	<20120629234230.GA11480@kyllikki.org>
-	<20120629.165023.1605284574408858612.davem@davemloft.net>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH] iwlegacy: print how long queue was actually stuck
+Date: Sat, 30 Jun 2012 15:20:06 +0200
+Message-ID: <1341062406.1911.76.camel@x61.thuisdomein>
+References: <1340786187.1911.24.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120629.165023.1605284574408858612.davem@davemloft.net>
+In-Reply-To: <1340786187.1911.24.camel@x61.thuisdomein>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> What you really don't get is that packet drops and event losses are
-> absolutely fundamental.
-
-The world is full of "receiver reliable" multicast transport providers
-which provide ordered defined message delivery properties.
-
-They are reliable in the sense that a message is either queued to the
-other ends or is not queued. They are not reliable in the sense of "we
-wait forever".
-
-In fact if you look up the stack you'll find a large number of multicast
-messaging systems which do reliable transport built on top of IP. In fact
-Red Hat provides a high level messaging cluster service that does exactly
-this. (as well as dbus which does it on the deskop level) plus a ton of
-stuff on top of that (JGroups etc)
-
-Everybody at the application level has been using these 'receiver
-reliable'  multicast services for years (Websphere MQ, TIBCO, RTPGM,
-OpenPGM, MS-PGM, you name it). There are even accelerators for PGM based
-protocols in things like Cisco routers and Solarflare can do much of it
-on the card for 10Gbit.
-
-> As long as receivers lack infinite receive queue this will always be
-> the case.
+On Wed, 2012-06-27 at 10:36 +0200, Paul Bolle wrote:
+> Every now and then, after resuming from suspend, the iwlegacy driver
+> prints
+>     iwl4965 0000:03:00.0: Queue 2 stuck for 2000 ms.
+>     iwl4965 0000:03:00.0: On demand firmware reload
 > 
-> Multicast operates in non-reliable transports only so that one stuck
-> or malfunctioning receiver doesn't screw things over for everyone nor
-> unduly brudon the sender.
+> I have no idea what causes these errors. But the code currently uses
+> wd_timeout in the first error. wd_timeout will generally be set at
+> IL_DEF_WD_TIMEOUT (ie, 2000). Perhaps printing for how long the queue
+> was actually stuck can clarify the cause of these errors.
 
-All the world is not IP. Dealing with a malfunctioning receiver is
-something dbus already has to deal with. "Unduly burden the sender" is
-you talking out of your underwear. The sender is already implementing
-this property set - in user space. So there can't be any more burdening,
-in fact the point of this is to get rid of excess burdens caused by lack
-of kernel support.
+0) It's not just after resume! I just found the following lines through
+dmesg (note that it's a period that all messages in dmesg were wlan
+related, for some reason):
 
-This is a latency issue not a throughput one so you can't hide it with
-buffers. A few ms shaved off desktop behaviour here and there makes a
-massive difference to perceived responsiveness. Less task switches and
-daemons means a lot less tasks bouncing around processors which means
-less power consumption.
+[...]
+[114649.872338] wlan0: associated
+[115837.970798] wlan0: deauthenticated from [...] (Reason: 7)
+[115837.993405] cfg80211: Calling CRDA to update world regulatory domain
+[115838.011979] cfg80211: World regulatory domain updated:
+[115838.011986] cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp)
+[115838.011995] cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+[115838.012033] cfg80211:   (2457000 KHz - 2482000 KHz @ 20000 KHz), (300 mBi, 2000 mBm)
+[115838.012041] cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz), (300 mBi, 2000 mBm)
+[115838.012048] cfg80211:   (5170000 KHz - 5250000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+[115838.012055] cfg80211:   (5735000 KHz - 5835000 KHz @ 40000 KHz), (300 mBi, 2000 mBm)
+[115838.012108] cfg80211: Calling CRDA for country: NL
+[115838.022615] cfg80211: Regulatory domain changed to country: NL
+[115838.022622] cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp)
+[115838.022630] cfg80211:   (2402000 KHz - 2482000 KHz @ 40000 KHz), (N/A, 2000 mBm)
+[115838.022637] cfg80211:   (5170000 KHz - 5250000 KHz @ 40000 KHz), (N/A, 2000 mBm)
+[115838.022644] cfg80211:   (5250000 KHz - 5330000 KHz @ 40000 KHz), (N/A, 2000 mBm)
+[115838.022651] cfg80211:   (5490000 KHz - 5710000 KHz @ 40000 KHz), (N/A, 2700 mBm)
+[115840.219977] wlan0: authenticate with [...]
+[115840.228865] wlan0: send auth to [...] (try 1/3)
+[115840.429054] wlan0: send auth to [...] (try 2/3)
+[115840.630026] wlan0: send auth to [...] (try 3/3)
+[115840.831051] wlan0: authentication with [...] timed out
+[115848.022336] wlan0: authenticate with [...]
+[115848.022495] wlan0: direct probe to [...] (try 1/3)
+[115848.223052] wlan0: direct probe to [...] (try 2/3)
+[115848.424052] wlan0: direct probe to [...] (try 3/3)
+[115848.625048] wlan0: authentication with [...] timed out
+[115855.702461] wlan0: authenticate with [...]
+[115855.702623] wlan0: direct probe to [...] (try 1/3)
+[115855.903053] wlan0: direct probe to [...] (try 2/3)
+[115856.104061] wlan0: direct probe to [...] (try 3/3)
+[115856.305050] wlan0: authentication with [...] timed out
+[115863.464067] wlan0: authenticate with [...]
+[115863.464221] wlan0: direct probe to [...] (try 1/3)
+[115863.665054] wlan0: direct probe to [...] (try 2/3)
+[115863.866058] wlan0: direct probe to [...] (try 3/3)
+[115864.067051] wlan0: authentication with [...] timed out
+[115871.267216] wlan0: authenticate with [...]
+[115871.267376] wlan0: send auth to [...] (try 1/3)
+[115871.269191] wlan0: authenticated
+[115871.279459] wlan0: associate with [...] (try 1/3)
+[115871.281715] wlan0: RX AssocResp from [...] (capab=0x411 status=0 aid=2)
+[115871.281723] wlan0: associated
+[115871.457043] iwl4965 0000:03:00.0: Queue 2 stuck for 33487 ms.
+[115871.457048] iwl4965 0000:03:00.0: On demand firmware reload
+[115871.457149] ieee80211 phy0: Hardware restart was requested
+[117985.197630] wlan0: deauthenticating from [...] by local choice (reason=3)
+[...]
 
-Alan
+1) My guess is that I left my laptop unattended for quite some time (so
+_perhaps_ generating little to no wlan traffic), and in that period
+NetworkManager and friends ran into trouble re-authenticating to my
+wireless router. By the time authentication succeeded it just looked
+like "Queue 2" was stuck. Wild, uneducated guess, actually.
+
+2) It's always "Queue 2" that's stuck. What does that queue do?
+
+
+Paul Bolle
