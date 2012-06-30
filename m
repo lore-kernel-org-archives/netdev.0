@@ -1,34 +1,62 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: AF_BUS socket address family
-Date: Fri, 29 Jun 2012 20:13:50 -0400
-Message-ID: <20120630001350.GS21968@kvack.org>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk> <20120629.153656.1141845894730637434.davem@davemloft.net> <20120629231236.GA28593@mail.collabora.co.uk> <20120629.161821.948325645333976311.davem@davemloft.net> <20120629234230.GA11480@kyllikki.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [RFC PATCH 00/10] Make XPS usable within ixgbe
+Date: Fri, 29 Jun 2012 17:16:12 -0700
+Message-ID: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	edumazet@google.com, bhutchings@solarflare.com,
+	therbert@google.com, alexander.duyck@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:56043 "EHLO kanga.kvack.org"
+Received: from mga09.intel.com ([134.134.136.24]:5406 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754115Ab2F3ANy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jun 2012 20:13:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20120629234230.GA11480@kyllikki.org>
+	id S1752363Ab2F3APy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jun 2012 20:15:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 30, 2012 at 12:42:30AM +0100, Vincent Sanders wrote:
-> The current users are suffering from the issues outlined in my
-> introductory mail all the time. These issues are caused by emulating an
-> IPC system over AF_UNIX in userspace.
+The following patch series makes it so that the ixgbe driver can support
+ATR even when the number of queues is less than the number of CPUs.  To do
+this I have updated the kernel to support letting drivers set their own XPS
+configuration.  To do this it was necessary to move the code out of the
+sysfs specific code and into the dev specific regions.
 
-Nothing in your introductory statements indicate how your requirements 
-can't be met through a hybrid socket + shared memory solution.  The IPC 
-facilities of the kernel are already quite rich, and sufficient for 
-building many kinds of complex systems.  What's so different about DBus' 
-requirements?
+I am still working out a few issues such as the fact that with routing I
+only ever seem to be able to get the first queue that is mapped to the CPU
+when XPS is enabled.
 
-		-ben
+Also I am looking for input on if it is acceptable to only let the
+set_channels/get_channels calls report/set the number of queues per traffic
+class as I implemented the code this way to avoid any significant conflicts
+between the DCB traffic classes code and these functions.
+
+---
+
+Alexander Duyck (10):
+      ixgbe: Add support for set_channels ethtool operation
+      ixgbe: Add support for displaying the number of Tx/Rx channels
+      ixgbe: Update ixgbe driver to use __dev_pick_tx in ixgbe_select_queue
+      ixgbe: Add function for setting XPS queue mapping
+      ixgbe: Define FCoE and Flow director limits much sooner to allow for changes
+      net: Add support for XPS without SYSFS being defined
+      net: Rewrite netif_set_xps_queues to address several issues
+      net: Rewrite netif_reset_xps_queue to allow for better code reuse
+      net: Add functions netif_reset_xps_queue and netif_set_xps_queue
+      net: Split core bits of dev_pick_tx into __dev_pick_tx
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  112 +++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     |   10 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   48 +++-
+ include/linux/netdevice.h                        |   15 +
+ net/Kconfig                                      |    2 
+ net/core/dev.c                                   |  283 ++++++++++++++++++++--
+ net/core/net-sysfs.c                             |  160 ------------
+ 7 files changed, 428 insertions(+), 202 deletions(-)
+
 -- 
-"Thought is the essence of where you are now."
+Thanks,
+
+Alex
