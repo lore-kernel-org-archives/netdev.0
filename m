@@ -1,77 +1,71 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
-Date: Sat, 30 Jun 2012 12:25:53 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1206301218150.1593@ja.ssi.bg>
-References: <20120628.035946.1026666621448892198.davem@davemloft.net> <alpine.LFD.2.00.1206282309340.1722@ja.ssi.bg> <20120628.184500.114483408843364230.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35919 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752197Ab2F3JTz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jun 2012 05:19:55 -0400
-In-Reply-To: <20120628.184500.114483408843364230.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH] NFC: Prevent NULL deref when getting socket name
+Date: Sat, 30 Jun 2012 11:56:47 +0200
+Message-ID: <1341050207-13145-1-git-send-email-levinsasha928@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Sasha Levin <levinsasha928@gmail.com>
+To: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+llcp_sock_getname can be called without a device attached to the nfc_llcp_sock.
 
-	Hello,
+This would lead to the following BUG:
 
-On Thu, 28 Jun 2012, David Miller wrote:
+[  362.341807] BUG: unable to handle kernel NULL pointer dereference at           (null)
+[  362.341815] IP: [<ffffffff836258e5>] llcp_sock_getname+0x75/0xc0
+[  362.341818] PGD 31b35067 PUD 30631067 PMD 0
+[  362.341821] Oops: 0000 [#627] PREEMPT SMP DEBUG_PAGEALLOC
+[  362.341826] CPU 3
+[  362.341827] Pid: 7816, comm: trinity-child55 Tainted: G      D W    3.5.0-rc4-next-20120628-sasha-00005-g9f23eb7 #479
+[  362.341831] RIP: 0010:[<ffffffff836258e5>]  [<ffffffff836258e5>] llcp_sock_getname+0x75/0xc0
+[  362.341832] RSP: 0018:ffff8800304fde88  EFLAGS: 00010286
+[  362.341834] RAX: 0000000000000000 RBX: ffff880033cb8000 RCX: 0000000000000001
+[  362.341835] RDX: ffff8800304fdec4 RSI: ffff8800304fdec8 RDI: ffff8800304fdeda
+[  362.341836] RBP: ffff8800304fdea8 R08: 7ebcebcb772b7ffb R09: 5fbfcb9c35bdfd53
+[  362.341838] R10: 4220020c54326244 R11: 0000000000000246 R12: ffff8800304fdec8
+[  362.341839] R13: ffff8800304fdec4 R14: ffff8800304fdec8 R15: 0000000000000044
+[  362.341841] FS:  00007effa376e700(0000) GS:ffff880035a00000(0000) knlGS:0000000000000000
+[  362.341843] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  362.341844] CR2: 0000000000000000 CR3: 0000000030438000 CR4: 00000000000406e0
+[  362.341851] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  362.341856] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[  362.341858] Process trinity-child55 (pid: 7816, threadinfo ffff8800304fc000, task ffff880031270000)
+[  362.341858] Stack:
+[  362.341862]  ffff8800304fdea8 ffff880035156780 0000000000000000 0000000000001000
+[  362.341865]  ffff8800304fdf78 ffffffff83183b40 00000000304fdec8 0000006000000000
+[  362.341868]  ffff8800304f0027 ffffffff83729649 ffff8800304fdee8 ffff8800304fdf48
+[  362.341869] Call Trace:
+[  362.341874]  [<ffffffff83183b40>] sys_getpeername+0xa0/0x110
+[  362.341877]  [<ffffffff83729649>] ? _raw_spin_unlock_irq+0x59/0x80
+[  362.341882]  [<ffffffff810f342b>] ? do_setitimer+0x23b/0x290
+[  362.341886]  [<ffffffff81985ede>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+[  362.341889]  [<ffffffff8372a539>] system_call_fastpath+0x16/0x1b
+[  362.341921] Code: 84 00 00 00 00 00 b8 b3 ff ff ff 48 85 db 74 54 66 41 c7 04 24 27 00 49 8d 7c 24 12 41 c7 45 00 60 00 00 00 48 8b 83 28 05 00 00 <8b> 00 41 89 44 24 04 0f b6 83 41 05 00 00 41 88 44 24 10 0f b6
+[  362.341924] RIP  [<ffffffff836258e5>] llcp_sock_getname+0x75/0xc0
+[  362.341925]  RSP <ffff8800304fde88>
+[  362.341926] CR2: 0000000000000000
+[  362.341928] ---[ end trace 6d450e935ee18bf3 ]---
 
-> ipv4: Fix bugs in fib_compute_spec_dst().
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+---
+ net/nfc/llcp/sock.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-	Some more thoughts on this topic...
-
-	I'm wondering, may be ip_options_echo wants to put
-local IP for srr. ip_options_echo is called by ip_send_unicast_reply.
-ip_send_unicast_reply supports source address spoofing for
-tproxy (arg.flags & IP_REPLY_ARG_NOSRCCHECK).
-
-	May be the tproxy users add local routes to redirect
-the traffic to local stack but daddr is preserved (non-local).
-So, rt_flags will have RTCF_LOCAL but for srr purposes we
-need local address, right?
-
-	There can be optimization in ip_options_echo to
-avoid fib_compute_spec_dst if daddr is not needed. It seems
-it is needed only in the sopt->srr case.
-
-	It seems ip_options_compile can be called by
-ip_rcv_options (ip_rcv_finish) just after ip_route_input_noref
-but before dst_input. It means, it can happen for forwarding,
-not just for local delivery.
-
-	To summarize, we can not rely on iph->daddr to be
-local address if RTCF_LOCAL is set. There is always the risk to
-work with redirected or forwarded traffic. Even for the PKTINFO
-case we should make sure ipi_spec_dst is a local address (original
-daddr goes to ipi_addr anyways), in case later ipi_spec_dst
-is used again for sending in PKTINFO.
-
-	For now, I see only one possible optimization.
-When fib_lookup returns res.fi and res.type is RTN_LOCAL
-we can check fib_protocol. If fib_protocol is not
-RTPROT_KERNEL we will add RTCF_MAYBE_LOCAL (new flag) to rt_flags.
-It will lead to slow lookups to validate the iph->daddr
-if used later as source address, like in the spec_dst case.
-
-	For the common case of local routes created by fib_magic()
-we will use iph->daddr in fib_compute_spec_dst as follows:
-
-	if (rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST |
-			    RTCF_LOCAL | RTCF_MAYBE_LOCAL) == RTCF_LOCAL))
-		return ip_hdr(skb)->daddr;
-	/* For mcast, forwarding and spoofing we take the slow path */
-
-	If users add local RTPROT_KERNEL routes, later
-the outgoing traffic will anyways fail in some output route lookup
-because FLOWI_FLAG_ANYSRC is set in rare cases. But also
-users can break srr in this way, so there is some risk.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/nfc/llcp/sock.c b/net/nfc/llcp/sock.c
+index 2c0b317..05ca5a6 100644
+--- a/net/nfc/llcp/sock.c
++++ b/net/nfc/llcp/sock.c
+@@ -292,7 +292,7 @@ static int llcp_sock_getname(struct socket *sock, struct sockaddr *addr,
+ 
+ 	pr_debug("%p\n", sk);
+ 
+-	if (llcp_sock == NULL)
++	if (llcp_sock == NULL || llcp_sock->dev == NULL)
+ 		return -EBADFD;
+ 
+ 	addr->sa_family = AF_NFC;
+-- 
+1.7.8.6
