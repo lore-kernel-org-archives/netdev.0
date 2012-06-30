@@ -1,42 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 0/4] net: introduce and use
-	IFF_LIFE_ADDR_CHANGE
-Date: Sat, 30 Jun 2012 01:08:16 -0700 (PDT)
-Message-ID: <20120630.010816.2007410210681854681.davem@davemloft.net>
-References: <1340982608-897-1-git-send-email-jpirko@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Update netdev_alloc_frag to work more efficiently
+ with TCP and GRO
+Date: Sat, 30 Jun 2012 10:39:40 +0200
+Message-ID: <1341045580.21162.38.camel@edumazet-glaptop>
+References: <20120620004306.17814.58369.stgit@gitlad.jf.intel.com>
+	 <1340170590.4604.784.camel@edumazet-glaptop>
+	 <1340180223.4604.828.camel@edumazet-glaptop>
+	 <1340198514.4604.970.camel@edumazet-glaptop>  <4FE29DE4.1010705@gmail.com>
+	 <1340255226.4604.3774.camel@edumazet-glaptop>
+	 <1340368430.4604.10280.camel@edumazet-glaptop> <4FEE3487.9080408@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, shimoda.hiroaki@gmail.com,
-	virtualization@lists.linux-foundation.org,
-	danny.kukawka@bisect.de, edumazet@google.com
-To: jpirko@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1340982608-897-1-git-send-email-jpirko@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:64278 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab2F3Ijp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 04:39:45 -0400
+Received: by wgbds11 with SMTP id ds11so1465586wgb.1
+        for <netdev@vger.kernel.org>; Sat, 30 Jun 2012 01:39:43 -0700 (PDT)
+In-Reply-To: <4FEE3487.9080408@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Fri, 29 Jun 2012 17:10:04 +0200
+On Fri, 2012-06-29 at 16:04 -0700, Alexander Duyck wrote:
 
-> three drivers updated, but this can be used in many others.
+> I was wondering if there were any plans to clean this patch up and
+> submit it to net-next?  If not, I can probably work on that since this
+> addressed the concerns I had in my original patch.
 > 
-> v1->v2:
-> %s/LIFE/LIVE
-> 
-> Jiri Pirko (4):
->   net: introduce new priv_flag indicating iface capable of change mac
->     when running
->   virtio_net: use IFF_LIVE_ADDR_CHANGE priv_flag
->   team: use IFF_LIVE_ADDR_CHANGE priv_flag
->   dummy: use IFF_LIVE_ADDR_CHANGE priv_flag
 
-Applied, thanks Jiri.
+I used this patch for a while on my machines, but I am working on
+something allowing fallback to order-0 allocations if memory gets
+fragmented. This fallback should almost never happen, but we should have
+it just in case ?
