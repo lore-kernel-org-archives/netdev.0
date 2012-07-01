@@ -1,45 +1,50 @@
-From: John Eaglesham <linux@8192.net>
-Subject: Re: [PATCH v5] bonding support for IPv6 transmit hashing
-Date: Sun, 01 Jul 2012 12:01:57 -0700
-Message-ID: <4FF09EA5.5030605@8192.net>
-References: <cover.1341125875.git.linux@8192.net> <c390ff662ede0f304398a88ca1a96e3773065c60.1341129744.git.linux@8192.net> <20120701.033354.539821533277159165.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 09/10] net/mlx4_en: Manage flow steering rules
+ with ethtool
+Date: Sun, 01 Jul 2012 12:52:32 -0700
+Message-ID: <1341172352.8675.5.camel@joe2Laptop>
+References: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
+	 <1341135823-29039-10-git-send-email-ogerlitz@mellanox.com>
+	 <1341158452.4852.107.camel@deadeye.wl.decadent.org.uk>
+	 <1341160685.2032.15.camel@joe2Laptop> <1341163872.2032.29.camel@joe2Laptop>
+	 <m2ipe72u78.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
+	roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
+	netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.co.il>
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp145.dfw.emailsrvr.com ([67.192.241.145]:37947 "EHLO
-	smtp145.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862Ab2GATB6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 15:01:58 -0400
-In-Reply-To: <20120701.033354.539821533277159165.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:32976 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756172Ab2GATwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jul 2012 15:52:33 -0400
+In-Reply-To: <m2ipe72u78.fsf@igel.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/1/2012 3:33 AM, David Miller wrote:
-> From: John Eaglesham <linux@8192.net>
-> Date: Sun,  1 Jul 2012 01:07:43 -0700
->
->> +		v6hash =
->> +			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
->> +			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
->> +			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
->
-> You completely ignored my feedback:
->
-> 	This is rediculous, just put &ipv6h->saddr into a local
-> 	pointer named 's' and then you won't have use such gymnastics
-> 	to indent the code.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+On Sun, 2012-07-01 at 20:48 +0200, Andreas Schwab wrote:
+> Joe Perches <joe@perches.com> writes:
+> > On Sun, 2012-07-01 at 09:38 -0700, Joe Perches wrote:
+> >> Perhaps it's better as:
+> >> 
+> >> #define all_zeros_or_all_ones(field)		\
+> >> ({						\
+> >> 	field && (typeof(field))~field;		\
+> >> })
+> >
+> > Umm, or not.
+> >
+> > It helps when I actually test the code not just type
+> > it into an email client.
+> >
+> > 	!(field && (typeof(field))~field)
+> 
+> Or write it as (!field || !(typeof(field))~field) which more closely
+> resembles what the macro name expresses.
 
-My apologies, I completely misunderstood your feedback. I will make the 
-correction and re-submit.
+Better still, or maybe:
 
-Thanks.
-
-John
+	field == 0 || field == (typeof field)~0
