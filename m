@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on
- bundled sacks
-Date: Sun, 01 Jul 2012 14:43:19 -0700 (PDT)
-Message-ID: <20120701.144319.1120248166079750922.davem@davemloft.net>
-References: <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
-	<20120630.173945.173993639982489712.davem@davemloft.net>
-	<20120701124750.GA19498@neilslaptop.think-freely.org>
+Subject: Re: AF_BUS socket address family
+Date: Sun, 01 Jul 2012 14:45:45 -0700 (PDT)
+Message-ID: <20120701.144545.1360987440451468585.davem@davemloft.net>
+References: <20120630141222.60df95a5@pyramind.ukuu.org.uk>
+	<20120630.173346.670086962166528527.davem@davemloft.net>
+	<20120701151659.2be61475@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51692 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753846Ab2GAVnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 17:43:20 -0400
-In-Reply-To: <20120701124750.GA19498@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: alan@lxorguk.ukuu.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120701151659.2be61475@pyramind.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Sun, 1 Jul 2012 08:47:50 -0400
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Sun, 1 Jul 2012 15:16:59 +0100
 
-> Perhaps we could modify the SubmittingPatches document to indicate that an
-> Acked-by from a subsystem maintainer implicitly confers authority on the
-> upstream receiver to request reasonable stylistic changes that don't affect the
-> functionality of the patch in the interests of maintaining coding conventions.
+>> The issue is that what to do when a receiver goes deaf is a policy
+>> issue.
+> 
+> Something all these protocols alredy recognize and have done for years.
+> The real issue for AF_BUS versus the current slow AF_UNIX approach is
+> that you really need to know *who* is blocked up.
+> 
+> That's no different to UDP multicast and needing to know how errored the
+> frame.
 
-Yes, that would make sense.
+And the policy on what to do about such UDP multicast errors is in
+userspace, which is precisely my point.
