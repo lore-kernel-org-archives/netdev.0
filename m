@@ -1,94 +1,75 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on bundled sacks
-Date: Sat, 30 Jun 2012 23:17:52 -0400
-Message-ID: <a1fb36e6-783a-4a89-9771-a7010c2da4fb@email.android.com>
-References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com> <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com> <20120630.173945.173993639982489712.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@mailcolloid.de>
+Subject: Re: [PATCH V3 2/2] bonding support for IPv6 transmit hashing
+Date: Sun, 1 Jul 2012 05:57:57 +0200
+Message-ID: <CAMEyesDY898iOUmtzPqp1ZGckDwNVWdP9AhZemLV8a0v+eJ9_Q@mail.gmail.com>
+References: <4FEE99EE.2000001@8192.net>
+	<CAMEyesBOj2cd6sAmowjk1vATrMjxHreeJoDEdksVwENkEWWqLQ@mail.gmail.com>
+	<4FEF55A7.6070502@8192.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: John <linux@8192.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:33897 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754737Ab2GADR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 23:17:57 -0400
-In-Reply-To: <20120630.173945.173993639982489712.davem@davemloft.net>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:43177 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754737Ab2GAD57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 23:57:59 -0400
+Received: by lbbgm6 with SMTP id gm6so6315904lbb.19
+        for <netdev@vger.kernel.org>; Sat, 30 Jun 2012 20:57:58 -0700 (PDT)
+In-Reply-To: <4FEF55A7.6070502@8192.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-
->From: Neil Horman <nhorman@tuxdriver.com>
->Date: Sat, 30 Jun 2012 09:04:26 -0400
+On Sat, Jun 30, 2012 at 9:38 PM, John <linux@8192.net> wrote:
+> On 6/30/2012 4:59 AM, Hannes Frederic Sowa wrote:
+>> On Sat, Jun 30, 2012 at 8:17 AM, John <linux@8192.net> wrote:
+>>>
+>>> diff --git a/Documentation/networking/bonding.txt
+>>> b/Documentation/networking/bonding.txt
+>>> index bfea8a3..5db14fe 100644
+>>> --- a/Documentation/networking/bonding.txt
+>>> +++ b/Documentation/networking/bonding.txt
+>>> @@ -752,12 +752,22 @@ xmit_hash_policy
+>>>                  protocol information to generate the hash.
+>>>
+>>>                  Uses XOR of hardware MAC addresses and IP addresses to
+>>> -               generate the hash.  The formula is
+>>> +               generate the hash.  The IPv4 formula is
+>>>
+>>>                  (((source IP XOR dest IP) AND 0xffff) XOR
+>>>                          ( source MAC XOR destination MAC ))
+>>>                                  modulo slave count
+>>>
+>>> +               The IPv6 forumla is
+>>> +
+>>> +               iphash =
+>>> +                       (source ip quad 2 XOR dest IP quad 2) XOR
+>>> +                       (source ip quad 3 XOR dest IP quad 3) XOR
+>>> +                       (source ip quad 4 XOR dest IP quad 4)
+>>> +
+>>> +               ((iphash >> 16) XOR (iphash >> 8) XOR iphash)
+>>> +                       modulo slave count
+>>> +
+>>
+>>
+>> Wouldn't it be beneficial to include the ipv6 flow label in the hash
+>> calculation?
 >
->> It was noticed recently that when we send data on a transport, its
->possible that
->> we might bundle a sack that arrived on a different transport.  While
->this isn't
->> a major problem, it does go against the SHOULDAcm requirement in section
->6.4 of RFC
->> 2960:
->> 
->>  An endpoint SHOULD transmit reply chunks (e.g., SACK, HEARTBEAT ACK,
->>    etc.) to the same destination transport address from which it
->>    received the DATA or control chunk to which it is replying.  This
->>    rule should also be followed if the endpoint is bundling DATA
->chunks
->>    together with the reply chunk.
->> 
->> This patch seeks to correct that.  It restricts the bundling of sack
->operations
->> to only those transports which have moved the ctsn of the association
->forward
->> since the last sack.  By doing this we guarantee that we only bundle
->outbound
->> saks on a transport that has received a chunk since the last sack. 
->This brings
->> us into stricter compliance with the RFC.
->> 
->> Vlad had initially suggested that we strictly allow only sack
->bundling on the
->> transport that last moved the ctsn forward.  While this makes sense,
->I was
->> concerned that doing so prevented us from bundling in the case where
->we had
->> received chunks that moved the ctsn on multiple transports.  In those
->cases, the
->> RFC allows us to select any of the transports having received chunks
->to bundle
->> the sack on.  so I've modified the approach to allow for that, by
->adding a state
->> variable to each transport that tracks weather it has moved the ctsn
->since the
->> last sack.  This I think keeps our behavior (and performance), close
->enough to
->> our current profile that I think we can do this without a sysctl knob
->to
->> enable/disable it.
->> 
->> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->> CC: Vlad Yaseivch <vyasevich@gmail.com>
->> CC: David S. Miller <davem@davemloft.net>
->> CC: linux-sctp@vger.kernel.org
->> Reported-by: Michele Baldessari <michele@redhat.com>
->> Reported-by: sorin serban <sserban@redhat.com>
+> Hannes,
 >
->Once this has Vlad's ACK I'll apply it.
+> In all of the traffic I inspected I don't believe I saw a single flow label
+> set. Even if it were set 100% of the time by Linux, any packets routed or
+> bridged from another operating system wouldn't see any benefit. The current
+> algorithm distributes the traffic very well, I don't believe adding the flow
+> label would be beneficial even if it were set more frequently.
 >
+> If you feel strongly about its inclusion, though, I am willing to
+> reconsider.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+It would definitely help to load balance tunnelled traffic over a
+bonded interface. But as I currently don't use such a setup, I don't
+have a strong opinion on that.
 
-Sorry for the delay.
+Greetings,
 
--vlad
-
->There has to be a better way to handle this situation, wherein the
->responsible party has ACK'd the patch but I just ask for a few coding
->style fixups and whatnot.  As it stands now I have to twiddle my
->thumbs waiting for the new ACK.
-
-
--- 
-Sent from my Android phone with SkitMail. Please excuse my brevity.
+  Hannes
