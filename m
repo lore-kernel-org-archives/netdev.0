@@ -1,35 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: AF_BUS socket address family
-Date: Sat, 30 Jun 2012 17:33:46 -0700 (PDT)
-Message-ID: <20120630.173346.670086962166528527.davem@davemloft.net>
-References: <20120629234230.GA11480@kyllikki.org>
-	<20120629.165023.1605284574408858612.davem@davemloft.net>
-	<20120630141222.60df95a5@pyramind.ukuu.org.uk>
+Subject: Re: [net-next] e1000e: remove use of IP payload checksum
+Date: Sat, 30 Jun 2012 17:37:52 -0700 (PDT)
+Message-ID: <20120630.173752.1993136000245136259.davem@davemloft.net>
+References: <1341052528-2444-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1341092196.4852.43.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120630141222.60df95a5@pyramind.ukuu.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45167 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932069Ab2GAAhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 20:37:53 -0400
+In-Reply-To: <1341092196.4852.43.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Sat, 30 Jun 2012 14:12:22 +0100
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sat, 30 Jun 2012 22:36:36 +0100
 
-> In fact if you look up the stack you'll find a large number of multicast
-> messaging systems which do reliable transport built on top of IP. In fact
-> Red Hat provides a high level messaging cluster service that does exactly
-> this. (as well as dbus which does it on the deskop level) plus a ton of
-> stuff on top of that (JGroups etc)
+> On Sat, 2012-06-30 at 03:35 -0700, Jeff Kirsher wrote:
+>> From: Bruce Allan <bruce.w.allan@intel.com>
+>> 
+>> Currently only used when packet split mode is enabled with jumbo frames,
+>> IP payload checksum (for fragmented UDP packets) is mutually exclusive with
+>> receive hashing offload since the hardware uses the same space in the
+>> receive descriptor for the hardware-provided packet checksum and the RSS
+>> hash, respectively.  Users currently must disable jumbos when receive
+>> hashing offload is enabled, or vice versa, because of this incompatibility.
+>> Since testing has shown that IP payload checksum does not provide any real
+>> benefit, just remove it so that there is no longer a choice between jumbos
+>> or receive hashing offload but not both as done in other Intel GbE drivers
+>> (e.g. e1000, igb).
+>> 
+>> Also, add a missing check for IP checksum error reported by the hardware;
+>> let the stack verify the checksum when this happens.
+> [...]
 > 
-> Everybody at the application level has been using these 'receiver
-> reliable'  multicast services for years (Websphere MQ, TIBCO, RTPGM,
-> OpenPGM, MS-PGM, you name it). There are even accelerators for PGM based
-> protocols in things like Cisco routers and Solarflare can do much of it
-> on the card for 10Gbit.
+> The change to enable RX hashing in 3.4, with this odd restriction seems
+> to have broken most existing systems using jumbo MTU on e1000e.  None of
+> the distro scripts or network management daemons will automatically
+> change offload configuration before MTU; how could they know?
+> 
+> Therefore this needs to be fixed in 3.5 and 3.4.y, not net-next.
 
-The issue is that what to do when a receiver goes deaf is a policy
-issue.
+Agreed.
