@@ -1,62 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Elide fib_validate_source() completely when
- possible.
-Date: Sat, 30 Jun 2012 22:39:43 -0700 (PDT)
-Message-ID: <20120630.223943.43292530650353283.davem@davemloft.net>
-References: <20120629.020552.2190372012516348013.davem@davemloft.net>
-	<alpine.LFD.2.00.1206301300530.1593@ja.ssi.bg>
+Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on
+ bundled sacks
+Date: Sat, 30 Jun 2012 22:44:48 -0700 (PDT)
+Message-ID: <20120630.224448.464749313108060273.davem@davemloft.net>
+References: <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
+	<20120630.173945.173993639982489712.davem@davemloft.net>
+	<a1fb36e6-783a-4a89-9771-a7010c2da4fb@email.android.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46204 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46230 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132Ab2GAFjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 01:39:46 -0400
-In-Reply-To: <alpine.LFD.2.00.1206301300530.1593@ja.ssi.bg>
+	with ESMTP id S1751132Ab2GAFos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 01:44:48 -0400
+In-Reply-To: <a1fb36e6-783a-4a89-9771-a7010c2da4fb@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sat, 30 Jun 2012 13:45:52 +0300 (EEST)
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Sat, 30 Jun 2012 23:17:52 -0400
 
-> 	If we really want a change in behavior we should
-> at least update the accept_local info in
-> Documentation/networking/ip-sysctl.txt ?
+> David Miller <davem@davemloft.net> wrote:
+> 
+>>Once this has Vlad's ACK I'll apply it.
+> 
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Thanks for pointing this out, that's what I will do.
-
-====================
-ipv4: Clarify in docs that accept_local requires rp_filter.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- Documentation/networking/ip-sysctl.txt |   11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 99d0e05..47b6c79 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -857,9 +857,14 @@ accept_source_route - BOOLEAN
- 		FALSE (host)
- 
- accept_local - BOOLEAN
--	Accept packets with local source addresses. In combination with
--	suitable routing, this can be used to direct packets between two
--	local interfaces over the wire and have them accepted properly.
-+	Accept packets with local source addresses. In combination
-+	with suitable routing, this can be used to direct packets
-+	between two local interfaces over the wire and have them
-+	accepted properly.
-+
-+	rp_filter must be set to a non-zero value in order for
-+	accept_local to have an effect.
-+
- 	default FALSE
- 
- route_localnet - BOOLEAN
--- 
-1.7.10.4
+Applied, thanks everyone.
