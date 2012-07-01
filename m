@@ -1,44 +1,42 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 08/11] tg3: set maximal number of default RSS
+Subject: [PATCH net-next 10/11] bnx2x: set maximal number of default RSS
  queues
-Date: Sun, 1 Jul 2012 16:18:57 +0300
-Message-ID: <1341148740-7375-9-git-send-email-yuvalmin@broadcom.com>
+Date: Sun, 1 Jul 2012 16:18:59 +0300
+Message-ID: <1341148740-7375-11-git-send-email-yuvalmin@broadcom.com>
 References: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Matt Carlson" <mcarlson@broadcom.com>
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:3380 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755390Ab2GANUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jul 2012 09:20:46 -0400
+	id S932370Ab2GANUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jul 2012 09:20:51 -0400
 In-Reply-To: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-
-Cc: Matt Carlson <mcarlson@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index e47ff8b..6cbab03 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -9908,7 +9908,7 @@ static bool tg3_enable_msix(struct tg3 *tp)
- 	int i, rc;
- 	struct msix_entry msix_ent[tp->irq_max];
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index daa894b..53659f3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -822,7 +822,8 @@ static inline int bnx2x_calc_num_queues(struct bnx2x *bp)
+ {
+ 	return  num_queues ?
+ 		 min_t(int, num_queues, BNX2X_MAX_QUEUES(bp)) :
+-		 min_t(int, num_online_cpus(), BNX2X_MAX_QUEUES(bp));
++		 min_t(int, netif_get_num_default_rss_queues(),
++		       BNX2X_MAX_QUEUES(bp));
+ }
  
--	tp->irq_cnt = num_online_cpus();
-+	tp->irq_cnt = netif_get_num_default_rss_queues();
- 	if (tp->irq_cnt > 1) {
- 		/* We want as many rx rings enabled as there are cpus.
- 		 * In multiqueue MSI-X mode, the first MSI-X vector
+ static inline void bnx2x_clear_sge_mask_next_elems(struct bnx2x_fastpath *fp)
 -- 
 1.7.9.rc2
