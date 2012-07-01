@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] netfilter: use kfree_skb() not kfree()
-Date: Sat, 30 Jun 2012 17:27:08 -0700 (PDT)
-Message-ID: <20120630.172708.1209859499944103648.davem@davemloft.net>
-References: <20120630114853.GA22767@elgon.mountain>
+Subject: Re: AF_BUS socket address family
+Date: Sat, 30 Jun 2012 17:33:46 -0700 (PDT)
+Message-ID: <20120630.173346.670086962166528527.davem@davemloft.net>
+References: <20120629234230.GA11480@kyllikki.org>
+	<20120629.165023.1605284574408858612.davem@davemloft.net>
+	<20120630141222.60df95a5@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter@vger.kernel.org, coreteam@netfilter.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	kernel-janitors@vger.kernel.org, bart.de.schuymer@pandora.be,
-	netfilter-devel@vger.kernel.org, shemminger@vyatta.com, pablo@netfilter.org
-To: dan.carpenter@oracle.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120630114853.GA22767@elgon.mountain>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: alan@lxorguk.ukuu.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120630141222.60df95a5@pyramind.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Sat, 30 Jun 2012 14:48:53 +0300
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Sat, 30 Jun 2012 14:12:22 +0100
 
-> This was should be a kfree_skb() here to free the sk_buff pointer.
+> In fact if you look up the stack you'll find a large number of multicast
+> messaging systems which do reliable transport built on top of IP. In fact
+> Red Hat provides a high level messaging cluster service that does exactly
+> this. (as well as dbus which does it on the deskop level) plus a ton of
+> stuff on top of that (JGroups etc)
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Everybody at the application level has been using these 'receiver
+> reliable'  multicast services for years (Websphere MQ, TIBCO, RTPGM,
+> OpenPGM, MS-PGM, you name it). There are even accelerators for PGM based
+> protocols in things like Cisco routers and Solarflare can do much of it
+> on the card for 10Gbit.
 
-My bad, applied, thanks Dan.
+The issue is that what to do when a receiver goes deaf is a policy
+issue.
