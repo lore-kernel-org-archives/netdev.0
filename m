@@ -1,16 +1,16 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 09/10] net/mlx4_en: Manage flow steering rules with ethtool
-Date: Sun,  1 Jul 2012 12:43:42 +0300
-Message-ID: <1341135823-29039-10-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow steering firmware API
+Date: Sun,  1 Jul 2012 12:43:39 +0300
+Message-ID: <1341135823-29039-7-git-send-email-ogerlitz@mellanox.com>
 References: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:56061 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754996Ab2GAJn6 (ORCPT
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:41379 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754885Ab2GAJn6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:43:58 -0400
 In-Reply-To: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,463 +18,1363 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-Implement the ethtool APIs for attaching L2/L3/L4 based flow steering
-rules to the netdevice RX rings. Added set_rxnfc callback and enhanced
-the existing get_rxnfc callback.
+The driver is modified to support three operation modes.
+
+If supported by firmware use the device managed flow steering
+API, that which we call device managed steering mode. Else, if
+the firmware supports the B0 steering mode use it, and finally,
+if none of the above, use the A0 steering mode.
+
+When the steering mode is device managed, the code is modified
+such that L2 based rules set by the mlx4_en driver for Ethernet
+unicast and multicast, and the IB stack multicast attach calls
+done through the mlx4_ib driver are all routed to use the device
+managed API.
+
+When attaching rule using device managed flow steering API,
+the firmware returns a 64 bit registration id, which is to be
+provided during detach.
+
+Set the firmware to use either standard L2 or L3/L4 optimized flow
+steering configuration. Currently there's no dedicated firmware
+command to set this, and it has to be provided to the device during
+initialization, hence a module param was used here.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  373 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    7 +
- 2 files changed, 380 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/mlx4/main.c                  |   62 +++-
+ drivers/infiniband/hw/mlx4/mlx4_ib.h               |    1 +
+ drivers/infiniband/hw/mlx4/qp.c                    |    1 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   21 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |   90 ++++-
+ drivers/net/ethernet/mellanox/mlx4/fw.h            |    3 +
+ drivers/net/ethernet/mellanox/mlx4/main.c          |   63 +++-
+ drivers/net/ethernet/mellanox/mlx4/mcg.c           |  365 +++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   13 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |    2 +
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  102 ++++--
+ drivers/net/ethernet/mellanox/mlx4/profile.c       |   12 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    6 +
+ include/linux/mlx4/device.h                        |  108 ++++++-
+ 14 files changed, 766 insertions(+), 83 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 72901ce..30de264 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -38,6 +38,10 @@
- #include "mlx4_en.h"
- #include "en_port.h"
- 
-+#define EN_ETHTOOL_QP_ATTACH (1ull << 63)
-+#define EN_ETHTOOL_MAC_MASK 0xffffffffffffULL
-+#define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
-+#define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
- 
- static void
- mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
-@@ -599,16 +603,360 @@ static int mlx4_en_set_rxfh_indir(struct net_device *dev,
- 	return err;
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index 3530c41..8a3a203 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -718,26 +718,53 @@ int mlx4_ib_add_mc(struct mlx4_ib_dev *mdev, struct mlx4_ib_qp *mqp,
+ 	return ret;
  }
  
-+#define not_all_zeros_or_all_ones(field, type) \
-+	(field && (type)~field)
-+
-+static int mlx4_en_validate_flow(struct net_device *dev,
-+				 struct ethtool_rxnfc *cmd)
-+{
-+	struct ethtool_usrip4_spec *l3_mask;
-+	struct ethtool_tcpip4_spec *l4_mask;
-+	struct ethhdr *eth_mask;
-+	u64 full_mac = ~0ull;
-+	u64 zero_mac = 0;
-+
-+	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
-+		return -EINVAL;
-+
-+	switch (cmd->fs.flow_type & ~FLOW_EXT) {
-+	case TCP_V4_FLOW:
-+	case UDP_V4_FLOW:
-+		if (cmd->fs.h_u.tcp_ip4_spec.tos)
-+			return -EOPNOTSUPP;
-+		l4_mask = &cmd->fs.m_u.tcp_ip4_spec;
-+		/* don't allow mask which isn't all 0 or 1 */
-+		if (not_all_zeros_or_all_ones(l4_mask->ip4src, __be32) ||
-+		    not_all_zeros_or_all_ones(l4_mask->ip4dst, __be32) ||
-+		    not_all_zeros_or_all_ones(l4_mask->psrc, __be16) ||
-+		    not_all_zeros_or_all_ones(l4_mask->pdst, __be16))
-+			return -EOPNOTSUPP;
-+		break;
-+	case IP_USER_FLOW:
-+		l3_mask = &cmd->fs.m_u.usr_ip4_spec;
-+		if (cmd->fs.h_u.usr_ip4_spec.l4_4_bytes ||
-+		    cmd->fs.h_u.usr_ip4_spec.tos ||
-+		    cmd->fs.h_u.usr_ip4_spec.proto ||
-+		    cmd->fs.h_u.usr_ip4_spec.ip_ver != ETH_RX_NFC_IP4 ||
-+		    (!cmd->fs.h_u.usr_ip4_spec.ip4src &&
-+		     !cmd->fs.h_u.usr_ip4_spec.ip4dst) ||
-+		    not_all_zeros_or_all_ones(l3_mask->ip4src, __be32) ||
-+		    not_all_zeros_or_all_ones(l3_mask->ip4dst, __be32))
-+			return -EOPNOTSUPP;
-+		break;
-+	case ETHER_FLOW:
-+		eth_mask = &cmd->fs.m_u.ether_spec;
-+		if (memcmp(eth_mask->h_source, &zero_mac, ETH_ALEN))
-+			return -EOPNOTSUPP;
-+		if (!memcmp(eth_mask->h_dest, &zero_mac, ETH_ALEN))
-+			return -EOPNOTSUPP;
-+		if (not_all_zeros_or_all_ones(eth_mask->h_proto, __be16) ||
-+		    (memcmp(eth_mask->h_dest, &zero_mac, ETH_ALEN) &&
-+		     memcmp(eth_mask->h_dest, &full_mac, ETH_ALEN)))
-+			return -EOPNOTSUPP;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if ((cmd->fs.flow_type & FLOW_EXT)) {
-+		if (cmd->fs.m_ext.vlan_etype ||
-+		    not_all_zeros_or_all_ones(cmd->fs.m_ext.vlan_tci,
-+					       __be16)) {
-+			return -EOPNOTSUPP;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static void add_ip_rule(struct mlx4_en_priv *priv,
-+			struct ethtool_rxnfc *cmd,
-+			struct list_head *list_h)
-+{
-+	struct mlx4_spec_list *spec_l3;
-+
-+	spec_l3 = kzalloc(sizeof *spec_l3, GFP_KERNEL);
-+	if (!spec_l3) {
-+		en_err(priv, "Fail to alloc ethtool rule.\n");
-+		return;
-+	}
-+
-+	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
-+	spec_l3->ipv4.src_ip = cmd->fs.h_u.usr_ip4_spec.ip4src;
-+	if (spec_l3->ipv4.src_ip)
-+		spec_l3->ipv4.src_ip_msk = EN_ETHTOOL_WORD_MASK;
-+	spec_l3->ipv4.dst_ip = cmd->fs.h_u.usr_ip4_spec.ip4dst;
-+	if (spec_l3->ipv4.dst_ip)
-+		spec_l3->ipv4.dst_ip_msk = EN_ETHTOOL_WORD_MASK;
-+	list_add_tail(&spec_l3->list, list_h);
-+}
-+
-+static void add_tcp_udp_rule(struct mlx4_en_priv *priv,
-+			     struct ethtool_rxnfc *cmd,
-+			     struct list_head *list_h, int proto)
-+{
-+	struct mlx4_spec_list *spec_l3;
-+	struct mlx4_spec_list *spec_l4;
-+
-+	spec_l3 = kzalloc(sizeof *spec_l3, GFP_KERNEL);
-+	spec_l4 = kzalloc(sizeof *spec_l4, GFP_KERNEL);
-+	if (!spec_l4 || !spec_l3) {
-+		en_err(priv, "Fail to alloc ethtool rule.\n");
-+		return;
-+	}
-+
-+	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
-+
-+	if (proto == TCP_V4_FLOW) {
-+		spec_l4->id = MLX4_NET_TRANS_RULE_ID_TCP;
-+		spec_l3->ipv4.src_ip = cmd->fs.h_u.tcp_ip4_spec.ip4src;
-+		spec_l3->ipv4.dst_ip = cmd->fs.h_u.tcp_ip4_spec.ip4dst;
-+		spec_l4->tcp_udp.src_port = cmd->fs.h_u.tcp_ip4_spec.psrc;
-+		spec_l4->tcp_udp.dst_port = cmd->fs.h_u.tcp_ip4_spec.pdst;
-+	} else {
-+		spec_l4->id = MLX4_NET_TRANS_RULE_ID_UDP;
-+		spec_l3->ipv4.src_ip = cmd->fs.h_u.udp_ip4_spec.ip4src;
-+		spec_l3->ipv4.dst_ip = cmd->fs.h_u.udp_ip4_spec.ip4dst;
-+		spec_l4->tcp_udp.src_port = cmd->fs.h_u.udp_ip4_spec.psrc;
-+		spec_l4->tcp_udp.dst_port = cmd->fs.h_u.udp_ip4_spec.pdst;
-+	}
-+
-+	if (spec_l3->ipv4.src_ip)
-+		spec_l3->ipv4.src_ip_msk = EN_ETHTOOL_WORD_MASK;
-+	if (spec_l3->ipv4.dst_ip)
-+		spec_l3->ipv4.dst_ip_msk = EN_ETHTOOL_WORD_MASK;
-+
-+	if (spec_l4->tcp_udp.src_port)
-+		spec_l4->tcp_udp.src_port_msk = EN_ETHTOOL_SHORT_MASK;
-+	if (spec_l4->tcp_udp.dst_port)
-+		spec_l4->tcp_udp.dst_port_msk = EN_ETHTOOL_SHORT_MASK;
-+
-+	list_add_tail(&spec_l3->list, list_h);
-+	list_add_tail(&spec_l4->list, list_h);
-+}
-+
-+static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
-+					     struct ethtool_rxnfc *cmd,
-+					     struct list_head *rule_list_h)
-+{
-+	int err;
-+	u64 mac;
-+	__be64 be_mac;
-+	struct ethhdr *eth_spec;
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_spec_list *spec_l2;
-+	__be64 mac_msk = cpu_to_be64(EN_ETHTOOL_MAC_MASK << 16);
-+
-+	err = mlx4_en_validate_flow(dev, cmd);
-+	if (err)
-+		return err;
-+
-+	spec_l2 = kzalloc(sizeof *spec_l2, GFP_KERNEL);
-+	if (!spec_l2)
-+		return -ENOMEM;
-+
-+	mac = priv->mac & EN_ETHTOOL_MAC_MASK;
-+	be_mac = cpu_to_be64(mac << 16);
-+
-+	spec_l2->id = MLX4_NET_TRANS_RULE_ID_ETH;
-+	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
-+	if ((cmd->fs.flow_type & ~FLOW_EXT) != ETHER_FLOW)
-+		memcpy(spec_l2->eth.dst_mac, &be_mac, ETH_ALEN);
-+
-+	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
-+		spec_l2->eth.vlan_id = cmd->fs.h_ext.vlan_tci;
-+		spec_l2->eth.vlan_id_msk = cpu_to_be16(0xfff);
-+	}
-+
-+	list_add_tail(&spec_l2->list, rule_list_h);
-+
-+	switch (cmd->fs.flow_type & ~FLOW_EXT) {
-+	case ETHER_FLOW:
-+		eth_spec = &cmd->fs.h_u.ether_spec;
-+		memcpy(&spec_l2->eth.dst_mac, eth_spec->h_dest, ETH_ALEN);
-+		spec_l2->eth.ether_type = eth_spec->h_proto;
-+		if (eth_spec->h_proto)
-+			spec_l2->eth.ether_type_enable = 1;
-+		break;
-+	case IP_USER_FLOW:
-+		add_ip_rule(priv, cmd, rule_list_h);
-+		break;
-+	case TCP_V4_FLOW:
-+		add_tcp_udp_rule(priv, cmd, rule_list_h, TCP_V4_FLOW);
-+		break;
-+	case UDP_V4_FLOW:
-+		add_tcp_udp_rule(priv, cmd, rule_list_h, UDP_V4_FLOW);
-+		break;
-+	}
-+	return 0;
-+}
-+
-+static int mlx4_en_flow_replace(struct net_device *dev,
-+				struct ethtool_rxnfc *cmd)
-+{
-+	int err;
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct ethtool_flow_id *loc_rule;
-+	struct mlx4_spec_list *spec, *tmp_spec;
-+	u32 qpn;
++struct mlx4_ib_steering {
++	struct list_head list;
 +	u64 reg_id;
-+
-+	struct mlx4_net_trans_rule rule = {
-+		.queue_mode = MLX4_NET_TRANS_Q_FIFO,
-+		.exclusive = 0,
-+		.allow_loopback = 1,
-+		.promisc_mode = MLX4_FS_PROMISC_NONE,
-+	};
-+
-+	rule.port = priv->port;
-+	rule.priority = MLX4_DOMAIN_ETHTOOL | cmd->fs.location;
-+	INIT_LIST_HEAD(&rule.list);
-+
-+	/* Allow direct QP attaches if the EN_ETHTOOL_QP_ATTACH flag is set */
-+	if (cmd->fs.ring_cookie == RX_CLS_FLOW_DISC)
-+		return -EOPNOTSUPP;
-+	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
-+		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
-+	} else {
-+		if (cmd->fs.ring_cookie >= priv->rx_ring_num) {
-+			en_warn(priv, "rxnfc: RX ring (%llu) doesn't exist.\n",
-+				cmd->fs.ring_cookie);
-+			return -EINVAL;
-+		}
-+		qpn = priv->rss_map.qps[cmd->fs.ring_cookie].qpn;
-+		if (!qpn) {
-+			en_warn(priv, "rxnfc: RX ring (%llu) is inactive.\n",
-+				cmd->fs.ring_cookie);
-+			return -EINVAL;
-+		}
-+	}
-+	rule.qpn = qpn;
-+	err = mlx4_en_ethtool_to_net_trans_rule(dev, cmd, &rule.list);
-+	if (err)
-+		goto out_free_list;
-+
-+	loc_rule = &priv->ethtool_rules[cmd->fs.location];
-+	if (loc_rule->id) {
-+		err = mlx4_flow_detach(priv->mdev->dev, loc_rule->id);
-+		if (err) {
-+			en_err(priv, "Fail to detach network rule at location %d. registration id = %llx\n"
-+			       , cmd->fs.location, loc_rule->id);
-+			goto out_free_list;
-+		}
-+		loc_rule->id = 0;
-+		memset(&loc_rule->flow_spec, 0,
-+		       sizeof(struct ethtool_rx_flow_spec));
-+	}
-+	err = mlx4_flow_attach(priv->mdev->dev, &rule, &reg_id);
-+	if (err) {
-+		en_err(priv, "Fail to attach network rule at location %d.\n"
-+		       , cmd->fs.location);
-+		goto out_free_list;
-+	}
-+	loc_rule->id = reg_id;
-+	memcpy(&loc_rule->flow_spec, &cmd->fs,
-+	       sizeof(struct ethtool_rx_flow_spec));
-+
-+out_free_list:
-+	list_for_each_entry_safe(spec, tmp_spec, &rule.list, list) {
-+		list_del(&spec->list);
-+		kfree(spec);
-+	}
-+	return err;
-+}
-+
-+static int mlx4_en_flow_detach(struct net_device *dev,
-+			       struct ethtool_rxnfc *cmd)
-+{
-+	int err = 0;
-+	struct ethtool_flow_id *rule;
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
-+		return -EINVAL;
-+
-+	rule = &priv->ethtool_rules[cmd->fs.location];
-+	if (!rule->id) {
-+		err =  -ENOENT;
-+		goto out;
-+	}
-+
-+	err = mlx4_flow_detach(priv->mdev->dev, rule->id);
-+	if (err) {
-+		en_err(priv, "Fail to detach network rule at location %d. registration id = 0x%llx\n"
-+		       , cmd->fs.location, rule->id);
-+		goto out;
-+	}
-+	rule->id = 0;
-+	memset(&rule->flow_spec, 0, sizeof(struct ethtool_rx_flow_spec));
-+out:
-+	return err;
-+
-+}
-+
-+static int mlx4_en_get_flow(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			    int loc)
-+{
-+	int err = 0;
-+	struct ethtool_flow_id *rule;
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	if (loc < 0 || loc >= MAX_NUM_OF_FS_RULES)
-+		return -EINVAL;
-+
-+	rule = &priv->ethtool_rules[loc];
-+	if (rule->id)
-+		memcpy(&cmd->fs, &rule->flow_spec,
-+		       sizeof(struct ethtool_rx_flow_spec));
-+	else
-+		err = -ENOENT;
-+
-+	return err;
-+}
-+
-+static int mlx4_en_get_num_flows(struct mlx4_en_priv *priv)
-+{
-+
-+	int i, res = 0;
-+	for (i = 0; i < MAX_NUM_OF_FS_RULES; i++) {
-+		if (priv->ethtool_rules[i].id)
-+			res++;
-+	}
-+	return res;
-+
-+}
-+
- static int mlx4_en_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
- 			     u32 *rule_locs)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
- 	int err = 0;
-+	int i = 0, priority = 0;
-+
-+	if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED)
-+		return -EOPNOTSUPP;
- 
- 	switch (cmd->cmd) {
- 	case ETHTOOL_GRXRINGS:
- 		cmd->data = priv->rx_ring_num;
- 		break;
-+	case ETHTOOL_GRXCLSRLCNT:
-+		cmd->rule_cnt = mlx4_en_get_num_flows(priv);
-+		break;
-+	case ETHTOOL_GRXCLSRULE:
-+		err = mlx4_en_get_flow(dev, cmd, cmd->fs.location);
-+		break;
-+	case ETHTOOL_GRXCLSRLALL:
-+		while (!err || err == -ENOENT) {
-+			err = mlx4_en_get_flow(dev, cmd, i);
-+			if (!err)
-+				((u32 *)(rule_locs))[priority++] = i;
-+			i++;
-+		}
-+		if (priority)
-+			err = 0;
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -617,6 +965,30 @@ static int mlx4_en_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
- 	return err;
- }
- 
-+static int mlx4_en_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	int err = 0;
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+
-+	if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED)
-+		return -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_SRXCLSRLINS:
-+		err = mlx4_en_flow_replace(dev, cmd);
-+		break;
-+	case ETHTOOL_SRXCLSRLDEL:
-+		err = mlx4_en_flow_detach(dev, cmd);
-+		break;
-+	default:
-+		en_warn(priv, "Unsupported ethtool command. (%d)\n", cmd->cmd);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return err;
-+}
-+
- const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.get_drvinfo = mlx4_en_get_drvinfo,
- 	.get_settings = mlx4_en_get_settings,
-@@ -637,6 +1009,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
- 	.get_ringparam = mlx4_en_get_ringparam,
- 	.set_ringparam = mlx4_en_set_ringparam,
- 	.get_rxnfc = mlx4_en_get_rxnfc,
-+	.set_rxnfc = mlx4_en_set_rxnfc,
- 	.get_rxfh_indir_size = mlx4_en_get_rxfh_indir_size,
- 	.get_rxfh_indir = mlx4_en_get_rxfh_indir,
- 	.set_rxfh_indir = mlx4_en_set_rxfh_indir,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 2d6dabe..8882e70 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -75,6 +75,7 @@
- #define STAMP_SHIFT		31
- #define STAMP_VAL		0x7fffffff
- #define STATS_DELAY		(HZ / 4)
-+#define MAX_NUM_OF_FS_RULES	256
- 
- /* Typical TSO descriptor with 16 gather entries is 352 bytes... */
- #define MAX_DESC_SIZE		512
-@@ -435,6 +436,11 @@ struct mlx4_en_frag_info {
- 
- #endif
- 
-+struct ethtool_flow_id {
-+	struct ethtool_rx_flow_spec flow_spec;
-+	u64 id;
++	union ib_gid gid;
 +};
 +
- struct mlx4_en_priv {
- 	struct mlx4_en_dev *mdev;
- 	struct mlx4_en_port_profile *prof;
-@@ -444,6 +450,7 @@ struct mlx4_en_priv {
- 	struct net_device_stats ret_stats;
- 	struct mlx4_en_port_state port_state;
- 	spinlock_t stats_lock;
-+	struct ethtool_flow_id ethtool_rules[MAX_NUM_OF_FS_RULES];
+ static int mlx4_ib_mcg_attach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
+ {
+ 	int err;
+ 	struct mlx4_ib_dev *mdev = to_mdev(ibqp->device);
+ 	struct mlx4_ib_qp *mqp = to_mqp(ibqp);
++	u64 reg_id;
++	struct mlx4_ib_steering *ib_steering = NULL;
++
++	if (mdev->dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		ib_steering = kmalloc(sizeof(*ib_steering), GFP_KERNEL);
++		if (!ib_steering)
++			return -ENOMEM;
++	}
  
- 	unsigned long last_moder_packets[MAX_RX_RINGS];
- 	unsigned long last_moder_tx_packets;
+-	err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw,
+-				    !!(mqp->flags & MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
+-				    MLX4_PROT_IB_IPV6);
++	err = mlx4_multicast_attach(mdev->dev, &mqp->mqp, gid->raw, mqp->port,
++				    !!(mqp->flags &
++				       MLX4_IB_QP_BLOCK_MULTICAST_LOOPBACK),
++				    MLX4_PROT_IB_IPV6, &reg_id);
+ 	if (err)
+-		return err;
++		goto err_malloc;
+ 
+ 	err = add_gid_entry(ibqp, gid);
+ 	if (err)
+ 		goto err_add;
+ 
++	if (ib_steering) {
++		memcpy(ib_steering->gid.raw, gid->raw, 16);
++		ib_steering->reg_id = reg_id;
++		mutex_lock(&mqp->mutex);
++		list_add(&ib_steering->list, &mqp->steering_rules);
++		mutex_unlock(&mqp->mutex);
++	}
+ 	return 0;
+ 
+ err_add:
+-	mlx4_multicast_detach(mdev->dev, &mqp->mqp, gid->raw, MLX4_PROT_IB_IPV6);
++	mlx4_multicast_detach(mdev->dev, &mqp->mqp, gid->raw,
++			      MLX4_PROT_IB_IPV6, reg_id);
++err_malloc:
++	kfree(ib_steering);
++
+ 	return err;
+ }
+ 
+@@ -765,9 +792,30 @@ static int mlx4_ib_mcg_detach(struct ib_qp *ibqp, union ib_gid *gid, u16 lid)
+ 	u8 mac[6];
+ 	struct net_device *ndev;
+ 	struct mlx4_ib_gid_entry *ge;
++	u64 reg_id = 0;
++
++	if (mdev->dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		struct mlx4_ib_steering *ib_steering;
++
++		mutex_lock(&mqp->mutex);
++		list_for_each_entry(ib_steering, &mqp->steering_rules, list) {
++			if (!memcmp(ib_steering->gid.raw, gid->raw, 16)) {
++				list_del(&ib_steering->list);
++				break;
++			}
++		}
++		mutex_unlock(&mqp->mutex);
++		if (&ib_steering->list == &mqp->steering_rules) {
++			pr_err("Couldn't find reg_id for mgid. Steering rule is left attached\n");
++			return -EINVAL;
++		}
++		reg_id = ib_steering->reg_id;
++		kfree(ib_steering);
++	}
+ 
+-	err = mlx4_multicast_detach(mdev->dev,
+-				    &mqp->mqp, gid->raw, MLX4_PROT_IB_IPV6);
++	err = mlx4_multicast_detach(mdev->dev, &mqp->mqp, gid->raw,
++				    MLX4_PROT_IB_IPV6, reg_id);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+index ff36655..42df4f7 100644
+--- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
++++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+@@ -163,6 +163,7 @@ struct mlx4_ib_qp {
+ 	u8			state;
+ 	int			mlx_type;
+ 	struct list_head	gid_list;
++	struct list_head	steering_rules;
+ };
+ 
+ struct mlx4_ib_srq {
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index 8d4ed24..6af19f6 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -495,6 +495,7 @@ static int create_qp_common(struct mlx4_ib_dev *dev, struct ib_pd *pd,
+ 	spin_lock_init(&qp->sq.lock);
+ 	spin_lock_init(&qp->rq.lock);
+ 	INIT_LIST_HEAD(&qp->gid_list);
++	INIT_LIST_HEAD(&qp->steering_rules);
+ 
+ 	qp->state	 = IB_QPS_RESET;
+ 	if (init_attr->sq_sig_type == IB_SIGNAL_ALL_WR)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index f9a4a00..62f0601 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -460,7 +460,8 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 				err = mlx4_multicast_detach(mdev->dev,
+ 							    &priv->rss_map.indir_qp,
+ 							    mc_list,
+-							    MLX4_PROT_ETH);
++							    MLX4_PROT_ETH,
++							    mclist->reg_id);
+ 				if (err)
+ 					en_err(priv, "Fail to detach multicast address\n");
+ 
+@@ -472,11 +473,14 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 			if (mclist->action == MCLIST_ADD) {
+ 				/* attach the address */
+ 				memcpy(&mc_list[10], mclist->addr, ETH_ALEN);
++				/* needed for B0 steering support */
+ 				mc_list[5] = priv->port;
+ 				err = mlx4_multicast_attach(mdev->dev,
+ 							    &priv->rss_map.indir_qp,
+-							    mc_list, 0,
+-							    MLX4_PROT_ETH);
++							    mc_list,
++							    priv->port, 0,
++							    MLX4_PROT_ETH,
++							    &mclist->reg_id);
+ 				if (err)
+ 					en_err(priv, "Fail to attach multicast address\n");
+ 
+@@ -824,9 +828,10 @@ int mlx4_en_start_port(struct net_device *dev)
+ 
+ 	/* Attach rx QP to bradcast address */
+ 	memset(&mc_list[10], 0xff, ETH_ALEN);
+-	mc_list[5] = priv->port;
++	mc_list[5] = priv->port; /* needed for B0 steering support */
+ 	if (mlx4_multicast_attach(mdev->dev, &priv->rss_map.indir_qp, mc_list,
+-				  0, MLX4_PROT_ETH))
++				  priv->port, 0, MLX4_PROT_ETH,
++				  &priv->broadcast_id))
+ 		mlx4_warn(mdev, "Failed Attaching Broadcast\n");
+ 
+ 	/* Must redo promiscuous mode setup. */
+@@ -883,14 +888,14 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 
+ 	/* Detach All multicasts */
+ 	memset(&mc_list[10], 0xff, ETH_ALEN);
+-	mc_list[5] = priv->port;
++	mc_list[5] = priv->port; /* needed for B0 steering support */
+ 	mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp, mc_list,
+-			      MLX4_PROT_ETH);
++			      MLX4_PROT_ETH, priv->broadcast_id);
+ 	list_for_each_entry(mclist, &priv->curr_list, list) {
+ 		memcpy(&mc_list[10], mclist->addr, ETH_ALEN);
+ 		mc_list[5] = priv->port;
+ 		mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp,
+-				      mc_list, MLX4_PROT_ETH);
++				      mc_list, MLX4_PROT_ETH, mclist->reg_id);
+ 	}
+ 	mlx4_en_clear_list(dev);
+ 	list_for_each_entry_safe(mclist, tmp, &priv->curr_list, list) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 40e048b..c7fb921 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -123,7 +123,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 	static const char * const fname[] = {
+ 		[0] = "RSS support",
+ 		[1] = "RSS Toeplitz Hash Function support",
+-		[2] = "RSS XOR Hash Function support"
++		[2] = "RSS XOR Hash Function support",
++		[3] = "Device manage flow steering support"
+ 	};
+ 	int i;
+ 
+@@ -391,6 +392,8 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ #define QUERY_DEV_CAP_RSVD_XRC_OFFSET		0x66
+ #define QUERY_DEV_CAP_MAX_XRC_OFFSET		0x67
+ #define QUERY_DEV_CAP_MAX_COUNTERS_OFFSET	0x68
++#define QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET	0x76
++#define QUERY_DEV_CAP_FLOW_STEERING_MAX_QP_OFFSET	0x77
+ #define QUERY_DEV_CAP_RDMARC_ENTRY_SZ_OFFSET	0x80
+ #define QUERY_DEV_CAP_QPC_ENTRY_SZ_OFFSET	0x82
+ #define QUERY_DEV_CAP_AUX_ENTRY_SZ_OFFSET	0x84
+@@ -474,6 +477,12 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	dev_cap->num_ports = field & 0xf;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_MSG_SZ_OFFSET);
+ 	dev_cap->max_msg_sz = 1 << (field & 0x1f);
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET);
++	if (field & 0x80)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FS_EN;
++	dev_cap->fs_log_max_ucast_qp_range_size = field & 0x1f;
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_FLOW_STEERING_MAX_QP_OFFSET);
++	dev_cap->fs_max_num_qp_per_entry = field;
+ 	MLX4_GET(stat_rate, outbox, QUERY_DEV_CAP_RATE_SUPPORT_OFFSET);
+ 	dev_cap->stat_rate_support = stat_rate;
+ 	MLX4_GET(ext_flags, outbox, QUERY_DEV_CAP_EXT_FLAGS_OFFSET);
+@@ -1061,6 +1070,15 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
+ #define	 INIT_HCA_LOG_MC_HASH_SZ_OFFSET	 (INIT_HCA_MCAST_OFFSET + 0x16)
+ #define  INIT_HCA_UC_STEERING_OFFSET	 (INIT_HCA_MCAST_OFFSET + 0x18)
+ #define	 INIT_HCA_LOG_MC_TABLE_SZ_OFFSET (INIT_HCA_MCAST_OFFSET + 0x1b)
++#define  INIT_HCA_DEVICE_MANAGED_FLOW_STEERING_EN	0x6
++#define  INIT_HCA_FS_PARAM_OFFSET         0x1d0
++#define  INIT_HCA_FS_BASE_OFFSET          (INIT_HCA_FS_PARAM_OFFSET + 0x00)
++#define  INIT_HCA_FS_LOG_ENTRY_SZ_OFFSET  (INIT_HCA_FS_PARAM_OFFSET + 0x12)
++#define  INIT_HCA_FS_LOG_TABLE_SZ_OFFSET  (INIT_HCA_FS_PARAM_OFFSET + 0x1b)
++#define  INIT_HCA_FS_ETH_BITS_OFFSET      (INIT_HCA_FS_PARAM_OFFSET + 0x21)
++#define  INIT_HCA_FS_ETH_NUM_ADDRS_OFFSET (INIT_HCA_FS_PARAM_OFFSET + 0x22)
++#define  INIT_HCA_FS_IB_BITS_OFFSET       (INIT_HCA_FS_PARAM_OFFSET + 0x25)
++#define  INIT_HCA_FS_IB_NUM_ADDRS_OFFSET  (INIT_HCA_FS_PARAM_OFFSET + 0x26)
+ #define INIT_HCA_TPT_OFFSET		 0x0f0
+ #define	 INIT_HCA_DMPT_BASE_OFFSET	 (INIT_HCA_TPT_OFFSET + 0x00)
+ #define	 INIT_HCA_LOG_MPT_SZ_OFFSET	 (INIT_HCA_TPT_OFFSET + 0x0b)
+@@ -1119,14 +1137,44 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
+ 	MLX4_PUT(inbox, param->rdmarc_base,   INIT_HCA_RDMARC_BASE_OFFSET);
+ 	MLX4_PUT(inbox, param->log_rd_per_qp, INIT_HCA_LOG_RD_OFFSET);
+ 
+-	/* multicast attributes */
++	/* steering attributes */
++	if (dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		*(inbox + INIT_HCA_FLAGS_OFFSET / 4) |=
++			cpu_to_be32(1 <<
++				    INIT_HCA_DEVICE_MANAGED_FLOW_STEERING_EN);
++
++		MLX4_PUT(inbox, param->mc_base, INIT_HCA_FS_BASE_OFFSET);
++		MLX4_PUT(inbox, param->log_mc_entry_sz,
++			 INIT_HCA_FS_LOG_ENTRY_SZ_OFFSET);
++		MLX4_PUT(inbox, param->log_mc_table_sz,
++			 INIT_HCA_FS_LOG_TABLE_SZ_OFFSET);
++		/* Enable Ethernet flow steering
++		 * with udp unicast and tcp unicast */
++		MLX4_PUT(inbox, param->fs_hash_enable_bits,
++			 INIT_HCA_FS_ETH_BITS_OFFSET);
++		MLX4_PUT(inbox, (u16) MLX4_FS_NUM_OF_L2_ADDR,
++			 INIT_HCA_FS_ETH_NUM_ADDRS_OFFSET);
++		/* Enable IPoIB flow steering
++		 * with udp unicast and tcp unicast */
++		MLX4_PUT(inbox, param->fs_hash_enable_bits,
++			 INIT_HCA_FS_IB_BITS_OFFSET);
++		MLX4_PUT(inbox, (u16) MLX4_FS_NUM_OF_L2_ADDR,
++			 INIT_HCA_FS_IB_NUM_ADDRS_OFFSET);
+ 
+-	MLX4_PUT(inbox, param->mc_base,		INIT_HCA_MC_BASE_OFFSET);
+-	MLX4_PUT(inbox, param->log_mc_entry_sz, INIT_HCA_LOG_MC_ENTRY_SZ_OFFSET);
+-	MLX4_PUT(inbox, param->log_mc_hash_sz,  INIT_HCA_LOG_MC_HASH_SZ_OFFSET);
+-	if (dev->caps.steering_mode == MLX4_STEERING_MODE_B0)
+-		MLX4_PUT(inbox, (u8) (1 << 3),	INIT_HCA_UC_STEERING_OFFSET);
+-	MLX4_PUT(inbox, param->log_mc_table_sz, INIT_HCA_LOG_MC_TABLE_SZ_OFFSET);
++	} else {
++
++		MLX4_PUT(inbox, param->mc_base,	INIT_HCA_MC_BASE_OFFSET);
++		MLX4_PUT(inbox, param->log_mc_entry_sz,
++			 INIT_HCA_LOG_MC_ENTRY_SZ_OFFSET);
++		MLX4_PUT(inbox, param->log_mc_hash_sz,
++			 INIT_HCA_LOG_MC_HASH_SZ_OFFSET);
++		MLX4_PUT(inbox, param->log_mc_table_sz,
++			 INIT_HCA_LOG_MC_TABLE_SZ_OFFSET);
++		if (dev->caps.steering_mode == MLX4_STEERING_MODE_B0)
++			MLX4_PUT(inbox, (u8) (1 << 3),
++				 INIT_HCA_UC_STEERING_OFFSET);
++	}
+ 
+ 	/* TPT attributes */
+ 
+@@ -1188,15 +1236,25 @@ int mlx4_QUERY_HCA(struct mlx4_dev *dev,
+ 	MLX4_GET(param->rdmarc_base,   outbox, INIT_HCA_RDMARC_BASE_OFFSET);
+ 	MLX4_GET(param->log_rd_per_qp, outbox, INIT_HCA_LOG_RD_OFFSET);
+ 
+-	/* multicast attributes */
++	/* steering attributes */
++	if (dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
+ 
+-	MLX4_GET(param->mc_base,         outbox, INIT_HCA_MC_BASE_OFFSET);
+-	MLX4_GET(param->log_mc_entry_sz, outbox,
+-		 INIT_HCA_LOG_MC_ENTRY_SZ_OFFSET);
+-	MLX4_GET(param->log_mc_hash_sz,  outbox,
+-		 INIT_HCA_LOG_MC_HASH_SZ_OFFSET);
+-	MLX4_GET(param->log_mc_table_sz, outbox,
+-		 INIT_HCA_LOG_MC_TABLE_SZ_OFFSET);
++		MLX4_GET(param->mc_base, outbox, INIT_HCA_FS_BASE_OFFSET);
++		MLX4_GET(param->log_mc_entry_sz, outbox,
++			 INIT_HCA_FS_LOG_ENTRY_SZ_OFFSET);
++		MLX4_GET(param->log_mc_table_sz, outbox,
++			 INIT_HCA_FS_LOG_TABLE_SZ_OFFSET);
++	} else {
++
++		MLX4_GET(param->mc_base, outbox, INIT_HCA_MC_BASE_OFFSET);
++		MLX4_GET(param->log_mc_entry_sz, outbox,
++			 INIT_HCA_LOG_MC_ENTRY_SZ_OFFSET);
++		MLX4_GET(param->log_mc_hash_sz,  outbox,
++			 INIT_HCA_LOG_MC_HASH_SZ_OFFSET);
++		MLX4_GET(param->log_mc_table_sz, outbox,
++			 INIT_HCA_LOG_MC_TABLE_SZ_OFFSET);
++	}
+ 
+ 	/* TPT attributes */
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+index 64c0399..83fcbbf 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.h
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+@@ -78,6 +78,8 @@ struct mlx4_dev_cap {
+ 	u16 wavelength[MLX4_MAX_PORTS + 1];
+ 	u64 trans_code[MLX4_MAX_PORTS + 1];
+ 	u16 stat_rate_support;
++	int fs_log_max_ucast_qp_range_size;
++	int fs_max_num_qp_per_entry;
+ 	u64 flags;
+ 	u64 flags2;
+ 	int reserved_uars;
+@@ -165,6 +167,7 @@ struct mlx4_init_hca_param {
+ 	u8  log_mpt_sz;
+ 	u8  log_uar_sz;
+ 	u8  uar_page_sz; /* log pg sz in 4k chunks */
++	u8  fs_hash_enable_bits;
+ };
+ 
+ struct mlx4_init_ib_param {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 7df0517..cf5eb2c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -90,7 +90,9 @@ module_param_named(log_num_mgm_entry_size,
+ MODULE_PARM_DESC(log_num_mgm_entry_size, "log mgm size, that defines the num"
+ 					 " of qp per mcg, for example:"
+ 					 " 10 gives 248.range: 9<="
+-					 " log_num_mgm_entry_size <= 12");
++					 " log_num_mgm_entry_size <= 12."
++					 " Not in use with device managed"
++					 " flow steering");
+ 
+ #define MLX4_VF                                        (1 << 0)
+ 
+@@ -136,6 +138,11 @@ module_param_array(port_type_array, int, &arr_argc, 0444);
+ MODULE_PARM_DESC(port_type_array, "Array of port types: HW_DEFAULT (0) is default "
+ 				"1 for IB, 2 for Ethernet");
+ 
++static int mlx4_flow_steering_hash;
++module_param_named(flow_steering_hash, mlx4_flow_steering_hash, int, 0444);
++MODULE_PARM_DESC(flow_steering_hash,
++		 "Flow steering hash function configuration. Config options: L2 = 0, L2_L3_L4 = 1 (default: L2).");
++
+ struct mlx4_port_config {
+ 	struct list_head list;
+ 	enum mlx4_port_type port_type[MLX4_MAX_PORTS + 1];
+@@ -273,21 +280,29 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	dev->caps.max_gso_sz	     = dev_cap->max_gso_sz;
+ 	dev->caps.max_rss_tbl_sz     = dev_cap->max_rss_tbl_sz;
+ 
+-	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER &&
+-	    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER) {
+-		dev->caps.steering_mode = MLX4_STEERING_MODE_B0;
+-
++	if (dev_cap->flags2 & MLX4_DEV_CAP_FLAG2_FS_EN) {
++		dev->caps.steering_mode = MLX4_STEERING_MODE_DEVICE_MANAGED;
++		dev->caps.num_qp_per_mgm = dev_cap->fs_max_num_qp_per_entry;
++		dev->caps.fs_log_max_ucast_qp_range_size =
++			dev_cap->fs_log_max_ucast_qp_range_size;
+ 	} else {
+-		dev->caps.steering_mode = MLX4_STEERING_MODE_A0;
++		if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER &&
++		    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER) {
++			dev->caps.steering_mode = MLX4_STEERING_MODE_B0;
++
++		} else {
++
++			dev->caps.steering_mode = MLX4_STEERING_MODE_A0;
+ 
+-		if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER ||
+-		    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER)
+-			mlx4_warn(dev, "Must have UC_STEER and MC_STEER flags "
+-				       "set to use B0 steering. Falling back to A0 steering mode.\n");
++			if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER ||
++			    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER)
++				mlx4_warn(dev, "Must have UC_STEER and MC_STEER flags "
++						"set to use B0 steering. Falling back to A0 steering mode.\n");
++		}
++		dev->caps.num_qp_per_mgm = mlx4_get_qp_per_mgm(dev);
+ 	}
+ 	mlx4_dbg(dev, "Steering mode is: %s\n",
+ 		 mlx4_steering_mode_str(dev->caps.steering_mode));
+-	dev->caps.num_qp_per_mgm = mlx4_get_qp_per_mgm(dev);
+ 
+ 	/* Sense port always allowed on supported devices for ConnectX1 and 2 */
+ 	if (dev->pdev->device != 0x1003)
+@@ -982,9 +997,11 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
+ 	}
+ 
+ 	/*
+-	 * It's not strictly required, but for simplicity just map the
+-	 * whole multicast group table now.  The table isn't very big
+-	 * and it's a lot easier than trying to track ref counts.
++	 * For flow steering device managed mode it is required to use
++	 * mlx4_init_icm_table. For B0 steering mode it's not strictly
++	 * required, but for simplicity just map the whole multicast
++	 * group table now.  The table isn't very big and it's a lot
++	 * easier than trying to track ref counts.
+ 	 */
+ 	err = mlx4_init_icm_table(dev, &priv->mcg_table.table,
+ 				  init_hca->mc_base,
+@@ -1220,7 +1237,25 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
+ 			goto err_stop_fw;
+ 		}
+ 
++		priv->fs_hash_mode = mlx4_flow_steering_hash;
++
++		switch (priv->fs_hash_mode) {
++		case MLX4_FS_L2_HASH:
++			init_hca.fs_hash_enable_bits = 0;
++			break;
++
++		case MLX4_FS_L2_L3_L4_HASH:
++			/* Enable flow steering with
++			   udp unicast and tcp unicast*/
++			init_hca.fs_hash_enable_bits =
++				MLX4_FS_UDP_UC_EN | MLX4_FS_TCP_UC_EN;
++			break;
++		}
++
+ 		profile = default_profile;
++		if (dev->caps.steering_mode ==
++		    MLX4_STEERING_MODE_DEVICE_MANAGED)
++			profile.num_mcg = MLX4_FS_NUM_MCG;
+ 
+ 		icm_size = mlx4_make_profile(dev, &profile, &dev_cap,
+ 					     &init_hca);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 3c59a33..c567655 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -41,6 +41,7 @@
+ 
+ #define MGM_QPN_MASK       0x00FFFFFF
+ #define MGM_BLCK_LB_BIT    30
++#define MLX4_MAC_MASK	   0xffffffffffffULL
+ 
+ static const u8 zero_gid[16];	/* automatically initialized to 0 */
+ 
+@@ -54,7 +55,12 @@ struct mlx4_mgm {
+ 
+ int mlx4_get_mgm_entry_size(struct mlx4_dev *dev)
+ {
+-	return min((1 << mlx4_log_num_mgm_entry_size), MLX4_MAX_MGM_ENTRY_SIZE);
++	if (dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED)
++		return 1 << MLX4_FS_MGM_LOG_ENTRY_SIZE;
++	else
++		return min((1 << mlx4_log_num_mgm_entry_size),
++			   MLX4_MAX_MGM_ENTRY_SIZE);
+ }
+ 
+ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev)
+@@ -643,6 +649,311 @@ static int find_entry(struct mlx4_dev *dev, u8 port,
+ 	return err;
+ }
+ 
++struct mlx4_net_trans_rule_hw_ctrl {
++	__be32 ctrl;
++	__be32 vf_vep_port;
++	__be32 qpn;
++	__be32 reserved;
++};
++
++static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
++				struct mlx4_net_trans_rule_hw_ctrl *hw)
++{
++	static const u8 __promisc_mode[] = {
++		[MLX4_FS_PROMISC_NONE]   = 0x0,
++		[MLX4_FS_PROMISC_UPLINK] = 0x1,
++		[MLX4_FS_PROMISC_FUNCTION_PORT] = 0x2,
++		[MLX4_FS_PROMISC_ALL_MULTI] = 0x3,
++	};
++
++	u32 dw = 0;
++
++	dw = ctrl->queue_mode == MLX4_NET_TRANS_Q_LIFO ? 1 : 0;
++	dw |= ctrl->exclusive ? (1 << 2) : 0;
++	dw |= ctrl->allow_loopback ? (1 << 3) : 0;
++	dw |= __promisc_mode[ctrl->promisc_mode] << 8;
++	dw |= ctrl->priority << 16;
++
++	hw->ctrl = cpu_to_be32(dw);
++	hw->vf_vep_port = cpu_to_be32(ctrl->port);
++	hw->qpn = cpu_to_be32(ctrl->qpn);
++}
++
++struct mlx4_net_trans_rule_hw_ib {
++	u8	size;
++	u8	rsvd1;
++	__be16	id;
++	u32	rsvd2;
++	__be32	qpn;
++	__be32	qpn_mask;
++	u8	dst_gid[16];
++	u8	dst_gid_msk[16];
++} __packed;
++
++struct mlx4_net_trans_rule_hw_eth {
++	u8	size;
++	u8	rsvd;
++	__be16	id;
++	u8	rsvd1[6];
++	u8	dst_mac[6];
++	u16	rsvd2;
++	u8	dst_mac_msk[6];
++	u16	rsvd3;
++	u8	src_mac[6];
++	u16	rsvd4;
++	u8	src_mac_msk[6];
++	u8      rsvd5;
++	u8      ether_type_enable;
++	__be16  ether_type;
++	__be16  vlan_id_msk;
++	__be16  vlan_id;
++} __packed;
++
++struct mlx4_net_trans_rule_hw_tcp_udp {
++	u8	size;
++	u8	rsvd;
++	__be16	id;
++	__be16	rsvd1[3];
++	__be16	dst_port;
++	__be16	rsvd2;
++	__be16	dst_port_msk;
++	__be16	rsvd3;
++	__be16	src_port;
++	__be16	rsvd4;
++	__be16	src_port_msk;
++} __packed;
++
++struct mlx4_net_trans_rule_hw_ipv4 {
++	u8	size;
++	u8	rsvd;
++	__be16	id;
++	__be32	rsvd1;
++	__be32	dst_ip;
++	__be32	dst_ip_msk;
++	__be32	src_ip;
++	__be32	src_ip_msk;
++} __packed;
++
++struct _rule_hw {
++	union {
++		struct {
++			u8 size;
++			u8 rsvd;
++			__be16 id;
++		};
++		struct mlx4_net_trans_rule_hw_eth eth;
++		struct mlx4_net_trans_rule_hw_ib ib;
++		struct mlx4_net_trans_rule_hw_ipv4 ipv4;
++		struct mlx4_net_trans_rule_hw_tcp_udp tcp_udp;
++	};
++};
++
++static int parse_trans_rule(struct mlx4_dev *dev, struct mlx4_spec_list *spec,
++			    struct _rule_hw *rule_hw)
++{
++	static const u16 __sw_id_hw[] = {
++		[MLX4_NET_TRANS_RULE_ID_ETH]     = 0xE001,
++		[MLX4_NET_TRANS_RULE_ID_IB]      = 0xE005,
++		[MLX4_NET_TRANS_RULE_ID_IPV6]    = 0xE003,
++		[MLX4_NET_TRANS_RULE_ID_IPV4]    = 0xE002,
++		[MLX4_NET_TRANS_RULE_ID_TCP]     = 0xE004,
++		[MLX4_NET_TRANS_RULE_ID_UDP]     = 0xE006
++	};
++
++	static const size_t __rule_hw_sz[] = {
++		[MLX4_NET_TRANS_RULE_ID_ETH] =
++			sizeof(struct mlx4_net_trans_rule_hw_eth),
++		[MLX4_NET_TRANS_RULE_ID_IB] =
++			sizeof(struct mlx4_net_trans_rule_hw_ib),
++		[MLX4_NET_TRANS_RULE_ID_IPV6] = 0,
++		[MLX4_NET_TRANS_RULE_ID_IPV4] =
++			sizeof(struct mlx4_net_trans_rule_hw_ipv4),
++		[MLX4_NET_TRANS_RULE_ID_TCP] =
++			sizeof(struct mlx4_net_trans_rule_hw_tcp_udp),
++		[MLX4_NET_TRANS_RULE_ID_UDP] =
++			sizeof(struct mlx4_net_trans_rule_hw_tcp_udp)
++	};
++	if (spec->id > MLX4_NET_TRANS_RULE_NUM) {
++		mlx4_err(dev, "Invalid network rule id. id = %d\n", spec->id);
++		return -EINVAL;
++	}
++	memset(rule_hw, 0, __rule_hw_sz[spec->id]);
++	rule_hw->id = cpu_to_be16(__sw_id_hw[spec->id]);
++	rule_hw->size = __rule_hw_sz[spec->id] >> 2;
++
++	switch (spec->id) {
++	case MLX4_NET_TRANS_RULE_ID_ETH:
++		memcpy(rule_hw->eth.dst_mac, spec->eth.dst_mac, ETH_ALEN);
++		memcpy(rule_hw->eth.dst_mac_msk, spec->eth.dst_mac_msk,
++								ETH_ALEN);
++		memcpy(rule_hw->eth.src_mac, spec->eth.src_mac, ETH_ALEN);
++		memcpy(rule_hw->eth.src_mac_msk, spec->eth.src_mac_msk,
++								ETH_ALEN);
++		if (spec->eth.ether_type_enable) {
++			rule_hw->eth.ether_type_enable = 1;
++			rule_hw->eth.ether_type = spec->eth.ether_type;
++		}
++		rule_hw->eth.vlan_id = spec->eth.vlan_id;
++		rule_hw->eth.vlan_id_msk = spec->eth.vlan_id_msk;
++		break;
++
++	case MLX4_NET_TRANS_RULE_ID_IB:
++		rule_hw->ib.qpn = spec->ib.r_qpn;
++		rule_hw->ib.qpn_mask = spec->ib.qpn_msk;
++		memcpy(&rule_hw->ib.dst_gid, &spec->ib.dst_gid, 16);
++		memcpy(&rule_hw->ib.dst_gid_msk, &spec->ib.dst_gid_msk, 16);
++		break;
++
++	case MLX4_NET_TRANS_RULE_ID_IPV6:
++		return -EOPNOTSUPP;
++
++	case MLX4_NET_TRANS_RULE_ID_IPV4:
++		rule_hw->ipv4.src_ip = spec->ipv4.src_ip;
++		rule_hw->ipv4.src_ip_msk = spec->ipv4.src_ip_msk;
++		rule_hw->ipv4.dst_ip = spec->ipv4.dst_ip;
++		rule_hw->ipv4.dst_ip_msk = spec->ipv4.dst_ip_msk;
++		break;
++
++	case MLX4_NET_TRANS_RULE_ID_TCP:
++	case MLX4_NET_TRANS_RULE_ID_UDP:
++		rule_hw->tcp_udp.dst_port = spec->tcp_udp.dst_port;
++		rule_hw->tcp_udp.dst_port_msk = spec->tcp_udp.dst_port_msk;
++		rule_hw->tcp_udp.src_port = spec->tcp_udp.src_port;
++		rule_hw->tcp_udp.src_port_msk = spec->tcp_udp.src_port_msk;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	return __rule_hw_sz[spec->id];
++}
++
++static void mlx4_err_rule(struct mlx4_dev *dev, char *str,
++			  struct mlx4_net_trans_rule *rule)
++{
++#define BUF_SIZE 256
++	struct mlx4_spec_list *cur;
++	char buf[BUF_SIZE];
++	int len = 0;
++
++	mlx4_err(dev, "%s", str);
++	len += snprintf(buf + len, BUF_SIZE - len,
++			"port = %d prio = 0x%x qp = 0x%x ",
++			rule->port, rule->priority, rule->qpn);
++
++	list_for_each_entry(cur, &rule->list, list) {
++		switch (cur->id) {
++		case MLX4_NET_TRANS_RULE_ID_ETH:
++			len += snprintf(buf + len, BUF_SIZE - len,
++					"dmac = %pM ", &cur->eth.dst_mac);
++			if (cur->eth.ether_type)
++				len += snprintf(buf + len, BUF_SIZE - len,
++						"ethertype = 0x%x ",
++						be16_to_cpu(cur->eth.ether_type));
++			if (cur->eth.vlan_id)
++				len += snprintf(buf + len, BUF_SIZE - len,
++						"vlan-id = %d ",
++						be16_to_cpu(cur->eth.vlan_id));
++			break;
++
++		case MLX4_NET_TRANS_RULE_ID_IPV4:
++			if (cur->ipv4.src_ip)
++				len += snprintf(buf + len, BUF_SIZE - len,
++						"src-ip = %pI4 ",
++						&cur->ipv4.src_ip);
++			if (cur->ipv4.dst_ip)
++				len += snprintf(buf + len, BUF_SIZE - len,
++						"dst-ip = %pI4 ",
++						&cur->ipv4.dst_ip);
++			break;
++
++		case MLX4_NET_TRANS_RULE_ID_TCP:
++		case MLX4_NET_TRANS_RULE_ID_UDP:
++			if (cur->tcp_udp.src_port)
++				len += snprintf(buf + len, BUF_SIZE - len,
++						"src-port = %d ",
++						be16_to_cpu(cur->tcp_udp.src_port));
++			if (cur->tcp_udp.dst_port)
++				len += snprintf(buf + len, BUF_SIZE - len,
++						"dst-port = %d ",
++						be16_to_cpu(cur->tcp_udp.dst_port));
++			break;
++
++		case MLX4_NET_TRANS_RULE_ID_IB:
++			len += snprintf(buf + len, BUF_SIZE - len,
++					"dst-gid = %pI6\n", cur->ib.dst_gid);
++			len += snprintf(buf + len, BUF_SIZE - len,
++					"dst-gid-mask = %pI6\n",
++					cur->ib.dst_gid_msk);
++			break;
++
++		case MLX4_NET_TRANS_RULE_ID_IPV6:
++			break;
++
++		default:
++			break;
++		}
++	}
++	len += snprintf(buf + len, BUF_SIZE - len, "\n");
++	mlx4_err(dev, "%s", buf);
++
++	if (len >= BUF_SIZE)
++		mlx4_err(dev, "Network rule error message was truncated, print buffer is too small.\n");
++}
++
++int mlx4_flow_attach(struct mlx4_dev *dev,
++		     struct mlx4_net_trans_rule *rule, u64 *reg_id)
++{
++	struct mlx4_cmd_mailbox *mailbox;
++	struct mlx4_spec_list *cur;
++	u32 size = 0;
++	int ret;
++
++	mailbox = mlx4_alloc_cmd_mailbox(dev);
++	if (IS_ERR(mailbox))
++		return PTR_ERR(mailbox);
++
++	memset(mailbox->buf, 0, sizeof(struct mlx4_net_trans_rule_hw_ctrl));
++	trans_rule_ctrl_to_hw(rule, mailbox->buf);
++
++	size += sizeof(struct mlx4_net_trans_rule_hw_ctrl);
++
++	list_for_each_entry(cur, &rule->list, list) {
++		ret = parse_trans_rule(dev, cur, mailbox->buf + size);
++		if (ret < 0) {
++			mlx4_free_cmd_mailbox(dev, mailbox);
++			return -EINVAL;
++		}
++		size += ret;
++	}
++
++	ret = mlx4_QP_FLOW_STEERING_ATTACH(dev, mailbox, size >> 2, reg_id);
++	if (ret == -ENOMEM)
++		mlx4_err_rule(dev,
++			      "mcg table is full. Fail to register network rule.\n",
++			      rule);
++	else if (ret)
++		mlx4_err_rule(dev, "Fail to register network rule.\n", rule);
++
++	mlx4_free_cmd_mailbox(dev, mailbox);
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(mlx4_flow_attach);
++
++int mlx4_flow_detach(struct mlx4_dev *dev, u64 reg_id)
++{
++	int err;
++
++	err = mlx4_QP_FLOW_STEERING_DETACH(dev, reg_id);
++	if (err)
++		mlx4_err(dev, "Fail to detach network rule. registration id = 0x%llx\n"
++								, reg_id);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx4_flow_detach);
++
+ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 			  int block_mcast_loopback, enum mlx4_protocol prot,
+ 			  enum mlx4_steer_type steer)
+@@ -895,7 +1206,8 @@ static int mlx4_QP_ATTACH(struct mlx4_dev *dev, struct mlx4_qp *qp,
+ }
+ 
+ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+-			  int block_mcast_loopback, enum mlx4_protocol prot)
++			  u8 port, int block_mcast_loopback,
++			  enum mlx4_protocol prot, u64 *reg_id)
+ {
+ 
+ 	switch (dev->caps.steering_mode) {
+@@ -914,6 +1226,42 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 					     block_mcast_loopback, prot,
+ 					     MLX4_MC_STEER);
+ 
++	case MLX4_STEERING_MODE_DEVICE_MANAGED: {
++		struct mlx4_spec_list spec = { {NULL} };
++		__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
++
++		struct mlx4_net_trans_rule rule = {
++			.queue_mode = MLX4_NET_TRANS_Q_FIFO,
++			.exclusive = 0,
++			.promisc_mode = MLX4_FS_PROMISC_NONE,
++			.priority = MLX4_DOMAIN_NIC,
++		};
++
++		rule.allow_loopback = ~block_mcast_loopback;
++		rule.port = port;
++		rule.qpn = qp->qpn;
++		INIT_LIST_HEAD(&rule.list);
++
++		switch (prot) {
++		case MLX4_PROT_ETH:
++			spec.id = MLX4_NET_TRANS_RULE_ID_ETH;
++			memcpy(spec.eth.dst_mac, &gid[10], ETH_ALEN);
++			memcpy(spec.eth.dst_mac_msk, &mac_mask, ETH_ALEN);
++			break;
++
++		case MLX4_PROT_IB_IPV6:
++			spec.id = MLX4_NET_TRANS_RULE_ID_IB;
++			memcpy(spec.ib.dst_gid, gid, 16);
++			memset(&spec.ib.dst_gid_msk, 0xff, 16);
++			break;
++		default:
++			return -EINVAL;
++		}
++		list_add_tail(&spec.list, &rule.list);
++
++		return  mlx4_flow_attach(dev, &rule, reg_id);
++	}
++
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -921,7 +1269,7 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ EXPORT_SYMBOL_GPL(mlx4_multicast_attach);
+ 
+ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+-			  enum mlx4_protocol prot)
++			  enum mlx4_protocol prot, u64 reg_id)
+ {
+ 	switch (dev->caps.steering_mode) {
+ 	case MLX4_STEERING_MODE_A0:
+@@ -938,6 +1286,9 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 		return mlx4_qp_detach_common(dev, qp, gid, prot,
+ 					     MLX4_MC_STEER);
+ 
++	case MLX4_STEERING_MODE_DEVICE_MANAGED:
++		return mlx4_flow_detach(dev, reg_id);
++
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1042,6 +1393,10 @@ int mlx4_init_mcg_table(struct mlx4_dev *dev)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	int err;
+ 
++	/* No need for mcg_table when fw managed the mcg table*/
++	if (dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED)
++		return 0;
+ 	err = mlx4_bitmap_init(&priv->mcg_table.bitmap, dev->caps.num_amgms,
+ 			       dev->caps.num_amgms - 1, 0, 0);
+ 	if (err)
+@@ -1054,5 +1409,7 @@ int mlx4_init_mcg_table(struct mlx4_dev *dev)
+ 
+ void mlx4_cleanup_mcg_table(struct mlx4_dev *dev)
+ {
+-	mlx4_bitmap_cleanup(&mlx4_priv(dev)->mcg_table.bitmap);
++	if (dev->caps.steering_mode !=
++	    MLX4_STEERING_MODE_DEVICE_MANAGED)
++		mlx4_bitmap_cleanup(&mlx4_priv(dev)->mcg_table.bitmap);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index c07e882..0084967 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -54,6 +54,17 @@
+ #define DRV_VERSION	"1.1"
+ #define DRV_RELDATE	"Dec, 2011"
+ 
++#define MLX4_FS_UDP_UC_EN		(1 << 1)
++#define MLX4_FS_TCP_UC_EN		(1 << 2)
++#define MLX4_FS_NUM_OF_L2_ADDR		8
++#define MLX4_FS_MGM_LOG_ENTRY_SIZE	7
++#define MLX4_FS_NUM_MCG			(1 << 17)
++
++enum {
++	MLX4_FS_L2_HASH = 0,
++	MLX4_FS_L2_L3_L4_HASH,
++};
++
+ #define MLX4_NUM_UP		8
+ #define MLX4_NUM_TC		8
+ #define MLX4_RATELIMIT_UNITS 3 /* 100 Mbps */
+@@ -704,6 +715,7 @@ struct mlx4_set_port_rqp_calc_context {
+ 
+ struct mlx4_mac_entry {
+ 	u64 mac;
++	u64 reg_id;
+ };
+ 
+ struct mlx4_port_info {
+@@ -777,6 +789,7 @@ struct mlx4_priv {
+ 	struct mutex		bf_mutex;
+ 	struct io_mapping	*bf_mapping;
+ 	int			reserved_mtts;
++	int			fs_hash_mode;
+ };
+ 
+ static inline struct mlx4_priv *mlx4_priv(struct mlx4_dev *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 1bb00cd..2d6dabe 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -414,6 +414,7 @@ struct mlx4_en_mc_list {
+ 	struct list_head	list;
+ 	enum mlx4_en_mclist_act	action;
+ 	u8			addr[ETH_ALEN];
++	u64			reg_id;
+ };
+ 
+ struct mlx4_en_frag_info {
+@@ -503,6 +504,7 @@ struct mlx4_en_priv {
+ 	u64 stats_bitmap;
+ 	struct list_head mc_list;
+ 	struct list_head curr_list;
++	u64 broadcast_id;
+ 	struct mlx4_en_stat_out_mbox hw_stats;
+ 	int vids[128];
+ 	bool wol;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 58de723..a51d1b9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -75,21 +75,54 @@ void mlx4_init_vlan_table(struct mlx4_dev *dev, struct mlx4_vlan_table *table)
+ 	table->total = 0;
+ }
+ 
+-static int mlx4_uc_steer_add(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
++static int mlx4_uc_steer_add(struct mlx4_dev *dev, u8 port,
++			     u64 mac, int *qpn, u64 *reg_id)
+ {
+-	struct mlx4_qp qp;
+-	u8 gid[16] = {0};
+ 	__be64 be_mac;
+ 	int err;
+ 
+-	qp.qpn = *qpn;
+-
+-	mac &= 0xffffffffffffULL;
++	mac &= MLX4_MAC_MASK;
+ 	be_mac = cpu_to_be64(mac << 16);
+-	memcpy(&gid[10], &be_mac, ETH_ALEN);
+-	gid[5] = port;
+ 
+-	err = mlx4_unicast_attach(dev, &qp, gid, 0, MLX4_PROT_ETH);
++	switch (dev->caps.steering_mode) {
++	case MLX4_STEERING_MODE_B0: {
++		struct mlx4_qp qp;
++		u8 gid[16] = {0};
++
++		qp.qpn = *qpn;
++		memcpy(&gid[10], &be_mac, ETH_ALEN);
++		gid[5] = port;
++
++		err = mlx4_unicast_attach(dev, &qp, gid, 0, MLX4_PROT_ETH);
++		break;
++	}
++	case MLX4_STEERING_MODE_DEVICE_MANAGED: {
++		struct mlx4_spec_list spec_eth = { {NULL} };
++		__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
++
++		struct mlx4_net_trans_rule rule = {
++			.queue_mode = MLX4_NET_TRANS_Q_FIFO,
++			.exclusive = 0,
++			.allow_loopback = 1,
++			.promisc_mode = MLX4_FS_PROMISC_NONE,
++			.priority = MLX4_DOMAIN_NIC,
++		};
++
++		rule.port = port;
++		rule.qpn = *qpn;
++		INIT_LIST_HEAD(&rule.list);
++
++		spec_eth.id = MLX4_NET_TRANS_RULE_ID_ETH;
++		memcpy(spec_eth.eth.dst_mac, &be_mac, ETH_ALEN);
++		memcpy(spec_eth.eth.dst_mac_msk, &mac_mask, ETH_ALEN);
++		list_add_tail(&spec_eth.list, &rule.list);
++
++		err = mlx4_flow_attach(dev, &rule, reg_id);
++		break;
++	}
++	default:
++		return -EINVAL;
++	}
+ 	if (err)
+ 		mlx4_warn(dev, "Failed Attaching Unicast\n");
+ 
+@@ -97,19 +130,30 @@ static int mlx4_uc_steer_add(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
+ }
+ 
+ static void mlx4_uc_steer_release(struct mlx4_dev *dev, u8 port,
+-				  u64 mac, int qpn)
++				  u64 mac, int qpn, u64 reg_id)
+ {
+-	struct mlx4_qp qp;
+-	u8 gid[16] = {0};
+-	__be64 be_mac;
++	switch (dev->caps.steering_mode) {
++	case MLX4_STEERING_MODE_B0: {
++		struct mlx4_qp qp;
++		u8 gid[16] = {0};
++		__be64 be_mac;
+ 
+-	qp.qpn = qpn;
+-	mac &= 0xffffffffffffULL;
+-	be_mac = cpu_to_be64(mac << 16);
+-	memcpy(&gid[10], &be_mac, ETH_ALEN);
+-	gid[5] = port;
++		qp.qpn = qpn;
++		mac &= MLX4_MAC_MASK;
++		be_mac = cpu_to_be64(mac << 16);
++		memcpy(&gid[10], &be_mac, ETH_ALEN);
++		gid[5] = port;
+ 
+-	mlx4_unicast_detach(dev, &qp, gid, MLX4_PROT_ETH);
++		mlx4_unicast_detach(dev, &qp, gid, MLX4_PROT_ETH);
++		break;
++	}
++	case MLX4_STEERING_MODE_DEVICE_MANAGED: {
++		mlx4_flow_detach(dev, reg_id);
++		break;
++	}
++	default:
++		mlx4_err(dev, "Invalid steering mode.\n");
++	}
+ }
+ 
+ static int validate_index(struct mlx4_dev *dev,
+@@ -144,6 +188,7 @@ int mlx4_get_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
+ 	struct mlx4_mac_entry *entry;
+ 	int index = 0;
+ 	int err = 0;
++	u64 reg_id;
+ 
+ 	mlx4_dbg(dev, "Registering MAC: 0x%llx for adding\n",
+ 			(unsigned long long) mac);
+@@ -167,7 +212,7 @@ int mlx4_get_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
+ 		goto qp_err;
+ 	}
+ 
+-	err = mlx4_uc_steer_add(dev, port, mac, qpn);
++	err = mlx4_uc_steer_add(dev, port, mac, qpn, &reg_id);
+ 	if (err)
+ 		goto steer_err;
+ 
+@@ -177,6 +222,7 @@ int mlx4_get_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
+ 		goto alloc_err;
+ 	}
+ 	entry->mac = mac;
++	entry->reg_id = reg_id;
+ 	err = radix_tree_insert(&info->mac_tree, *qpn, entry);
+ 	if (err)
+ 		goto insert_err;
+@@ -186,7 +232,7 @@ insert_err:
+ 	kfree(entry);
+ 
+ alloc_err:
+-	mlx4_uc_steer_release(dev, port, mac, *qpn);
++	mlx4_uc_steer_release(dev, port, mac, *qpn, reg_id);
+ 
+ steer_err:
+ 	mlx4_qp_release_range(dev, *qpn, 1);
+@@ -212,7 +258,8 @@ void mlx4_put_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int qpn)
+ 			mlx4_dbg(dev, "Releasing qp: port %d, mac 0x%llx,"
+ 				 " qpn %d\n", port,
+ 				 (unsigned long long) mac, qpn);
+-			mlx4_uc_steer_release(dev, port, entry->mac, qpn);
++			mlx4_uc_steer_release(dev, port, entry->mac,
++					      qpn, entry->reg_id);
+ 			mlx4_qp_release_range(dev, qpn, 1);
+ 			radix_tree_delete(&info->mac_tree, qpn);
+ 			kfree(entry);
+@@ -363,11 +410,14 @@ int mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac)
+ 		entry = radix_tree_lookup(&info->mac_tree, qpn);
+ 		if (!entry)
+ 			return -EINVAL;
+-		mlx4_uc_steer_release(dev, port, entry->mac, qpn);
++		mlx4_uc_steer_release(dev, port, entry->mac,
++				      qpn, entry->reg_id);
+ 		mlx4_unregister_mac(dev, port, entry->mac);
+ 		entry->mac = new_mac;
++		entry->reg_id = 0;
+ 		mlx4_register_mac(dev, port, new_mac);
+-		err = mlx4_uc_steer_add(dev, port, entry->mac, &qpn);
++		err = mlx4_uc_steer_add(dev, port, entry->mac,
++					&qpn, &entry->reg_id);
+ 		return err;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/profile.c b/drivers/net/ethernet/mellanox/mlx4/profile.c
+index b83bc92..9ee4725 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/profile.c
++++ b/drivers/net/ethernet/mellanox/mlx4/profile.c
+@@ -237,13 +237,19 @@ u64 mlx4_make_profile(struct mlx4_dev *dev,
+ 			init_hca->mtt_base	 = profile[i].start;
+ 			break;
+ 		case MLX4_RES_MCG:
+-			dev->caps.num_mgms	  = profile[i].num >> 1;
+-			dev->caps.num_amgms	  = profile[i].num >> 1;
+ 			init_hca->mc_base	  = profile[i].start;
+ 			init_hca->log_mc_entry_sz =
+ 					ilog2(mlx4_get_mgm_entry_size(dev));
+ 			init_hca->log_mc_table_sz = profile[i].log_num;
+-			init_hca->log_mc_hash_sz  = profile[i].log_num - 1;
++			if (dev->caps.steering_mode ==
++			    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++				dev->caps.num_mgms = profile[i].num;
++			} else {
++				init_hca->log_mc_hash_sz =
++						profile[i].log_num - 1;
++				dev->caps.num_mgms = profile[i].num >> 1;
++				dev->caps.num_amgms = profile[i].num >> 1;
++			}
+ 			break;
+ 		default:
+ 			break;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 4301aa5..ce73772 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -2746,6 +2746,9 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_cmd_mailbox *outbox,
+ 					 struct mlx4_cmd_info *cmd)
+ {
++	if (dev->caps.steering_mode !=
++	    MLX4_STEERING_MODE_DEVICE_MANAGED)
++		return -EOPNOTSUPP;
+ 	return mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
+ 			    vhcr->in_modifier, 0,
+ 			    MLX4_QP_FLOW_STEERING_ATTACH,
+@@ -2759,6 +2762,9 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_cmd_mailbox *outbox,
+ 					 struct mlx4_cmd_info *cmd)
+ {
++	if (dev->caps.steering_mode !=
++	    MLX4_STEERING_MODE_DEVICE_MANAGED)
++		return -EOPNOTSUPP;
+ 	return mlx4_cmd(dev, vhcr->in_param, 0, 0,
+ 			MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
+ 			MLX4_CMD_NATIVE);
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 80891a4..a22a851 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -70,14 +70,17 @@ enum {
+ 	MLX4_MFUNC_EQE_MASK     = (MLX4_MFUNC_MAX_EQES - 1)
+ };
+ 
+-/* Driver supports 2 diffrent device methods to manage traffic steering:
++/* Driver supports 3 diffrent device methods to manage traffic steering:
++	-device managed - High level API for ib and eth flow steering. FW is
++			  managing flow steering tables.
+ 	- B0 steering mode - Common low level API for ib and (if supported) eth.
+ 	- A0 steering mode - Limited low level API for eth. In case of IB,
+ 			     B0 mode is in use.
+  */
+ enum {
+ 	MLX4_STEERING_MODE_A0,
+-	MLX4_STEERING_MODE_B0
++	MLX4_STEERING_MODE_B0,
++	MLX4_STEERING_MODE_DEVICE_MANAGED
+ };
+ 
+ static inline const char *mlx4_steering_mode_str(int steering_mode)
+@@ -88,6 +91,10 @@ static inline const char *mlx4_steering_mode_str(int steering_mode)
+ 
+ 	case MLX4_STEERING_MODE_B0:
+ 		return "B0 steering";
++
++	case MLX4_STEERING_MODE_DEVICE_MANAGED:
++		return "Device managed flow steering";
++
+ 	default:
+ 		return "Unrecognize steering mode";
+ 	}
+@@ -125,7 +132,8 @@ enum {
+ enum {
+ 	MLX4_DEV_CAP_FLAG2_RSS			= 1LL <<  0,
+ 	MLX4_DEV_CAP_FLAG2_RSS_TOP		= 1LL <<  1,
+-	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2
++	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
++	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3
+ };
+ 
+ #define MLX4_ATTR_EXTENDED_PORT_INFO	cpu_to_be16(0xff90)
+@@ -319,6 +327,7 @@ struct mlx4_caps {
+ 	int			reserved_mcgs;
+ 	int			num_qp_per_mgm;
+ 	int			steering_mode;
++	int			fs_log_max_ucast_qp_range_size;
+ 	int			num_pds;
+ 	int			reserved_pds;
+ 	int			max_xrcds;
+@@ -647,9 +656,94 @@ int mlx4_unicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ int mlx4_unicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 			enum mlx4_protocol prot);
+ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+-			  int block_mcast_loopback, enum mlx4_protocol protocol);
++			  u8 port, int block_mcast_loopback,
++			  enum mlx4_protocol protocol, u64 *reg_id);
+ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+-			  enum mlx4_protocol protocol);
++			  enum mlx4_protocol protocol, u64 reg_id);
++
++enum {
++	MLX4_DOMAIN_UVERBS	= 0x1000,
++	MLX4_DOMAIN_ETHTOOL     = 0x2000,
++	MLX4_DOMAIN_RFS         = 0x3000,
++	MLX4_DOMAIN_NIC    = 0x5000,
++};
++
++enum mlx4_net_trans_rule_id {
++	MLX4_NET_TRANS_RULE_ID_ETH = 0,
++	MLX4_NET_TRANS_RULE_ID_IB,
++	MLX4_NET_TRANS_RULE_ID_IPV6,
++	MLX4_NET_TRANS_RULE_ID_IPV4,
++	MLX4_NET_TRANS_RULE_ID_TCP,
++	MLX4_NET_TRANS_RULE_ID_UDP,
++	MLX4_NET_TRANS_RULE_NUM, /* should be last */
++};
++
++enum mlx4_net_trans_promisc_mode {
++	MLX4_FS_PROMISC_NONE = 0,
++	MLX4_FS_PROMISC_UPLINK,
++	MLX4_FS_PROMISC_FUNCTION_PORT,
++	MLX4_FS_PROMISC_ALL_MULTI,
++};
++
++struct mlx4_spec_eth {
++	u8	dst_mac[6];
++	u8	dst_mac_msk[6];
++	u8	src_mac[6];
++	u8	src_mac_msk[6];
++	u8	ether_type_enable;
++	__be16	ether_type;
++	__be16	vlan_id_msk;
++	__be16	vlan_id;
++};
++
++struct mlx4_spec_tcp_udp {
++	__be16 dst_port;
++	__be16 dst_port_msk;
++	__be16 src_port;
++	__be16 src_port_msk;
++};
++
++struct mlx4_spec_ipv4 {
++	__be32 dst_ip;
++	__be32 dst_ip_msk;
++	__be32 src_ip;
++	__be32 src_ip_msk;
++};
++
++struct mlx4_spec_ib {
++	__be32	r_qpn;
++	__be32	qpn_msk;
++	u8	dst_gid[16];
++	u8	dst_gid_msk[16];
++};
++
++struct mlx4_spec_list {
++	struct	list_head list;
++	enum	mlx4_net_trans_rule_id id;
++	union {
++		struct mlx4_spec_eth eth;
++		struct mlx4_spec_ib ib;
++		struct mlx4_spec_ipv4 ipv4;
++		struct mlx4_spec_tcp_udp tcp_udp;
++	};
++};
++
++enum mlx4_net_trans_hw_rule_queue {
++	MLX4_NET_TRANS_Q_FIFO,
++	MLX4_NET_TRANS_Q_LIFO,
++};
++
++struct mlx4_net_trans_rule {
++	struct	list_head list;
++	enum	mlx4_net_trans_hw_rule_queue queue_mode;
++	bool	exclusive;
++	bool	allow_loopback;
++	enum	mlx4_net_trans_promisc_mode promisc_mode;
++	u8	port;
++	u16	priority;
++	u32	qpn;
++};
++
+ int mlx4_multicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port);
+ int mlx4_multicast_promisc_remove(struct mlx4_dev *dev, u32 qpn, u8 port);
+ int mlx4_unicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port);
+@@ -692,4 +786,8 @@ int mlx4_wol_write(struct mlx4_dev *dev, u64 config, int port);
+ int mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx);
+ void mlx4_counter_free(struct mlx4_dev *dev, u32 idx);
+ 
++int mlx4_flow_attach(struct mlx4_dev *dev,
++		     struct mlx4_net_trans_rule *rule, u64 *reg_id);
++int mlx4_flow_detach(struct mlx4_dev *dev, u64 reg_id);
++
+ #endif /* MLX4_DEVICE_H */
 -- 
 1.7.1
