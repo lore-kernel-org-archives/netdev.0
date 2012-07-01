@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 03/10] net/mlx4_en: Re-design multicast
- attachments flow
-Date: Sun, 01 Jul 2012 03:32:00 -0700 (PDT)
-Message-ID: <20120701.033200.1718108360478891914.davem@davemloft.net>
-References: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
-	<1341135823-29039-4-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH v5] bonding support for IPv6 transmit hashing
+Date: Sun, 01 Jul 2012 03:33:54 -0700 (PDT)
+Message-ID: <20120701.033354.539821533277159165.davem@davemloft.net>
+References: <cover.1341125875.git.linux@8192.net>
+	<c390ff662ede0f304398a88ca1a96e3773065c60.1341129744.git.linux@8192.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
-	netdev@vger.kernel.org, yevgenyp@mellanox.co.il,
-	sbohrer@rgmadvisors.com, hadarh@mellanox.co.il
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org
+To: linux@8192.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47627 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47638 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932069Ab2GAKcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 06:32:01 -0400
-In-Reply-To: <1341135823-29039-4-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1755042Ab2GAKdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 06:33:54 -0400
+In-Reply-To: <c390ff662ede0f304398a88ca1a96e3773065c60.1341129744.git.linux@8192.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Sun,  1 Jul 2012 12:43:36 +0300
+From: John Eaglesham <linux@8192.net>
+Date: Sun,  1 Jul 2012 01:07:43 -0700
 
-> +	/* Find all the entries that should be removed from dst,
-> +	 * These are the entries that are not found in src */
+> +		v6hash =
+> +			(ipv6h->saddr.s6_addr32[1] ^ ipv6h->daddr.s6_addr32[1]) ^
+> +			(ipv6h->saddr.s6_addr32[2] ^ ipv6h->daddr.s6_addr32[2]) ^
+> +			(ipv6h->saddr.s6_addr32[3] ^ ipv6h->daddr.s6_addr32[3]);
 
-Improperly formatted comment.
+You completely ignored my feedback:
 
-> +			new_mc = kmalloc(sizeof(struct mlx4_en_mc_list),
-> +					     GFP_KERNEL);
-
-Improperly indented second line.
+	This is rediculous, just put &ipv6h->saddr into a local
+	pointer named 's' and then you won't have use such gymnastics
+	to indent the code.
