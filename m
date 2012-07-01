@@ -1,301 +1,256 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 03/10] net/mlx4_en: Re-design multicast attachments flow
-Date: Sun,  1 Jul 2012 12:43:36 +0300
-Message-ID: <1341135823-29039-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 07/10] net/mlx4_core: Add resource tracking for device managed flow steering rules
+Date: Sun,  1 Jul 2012 12:43:40 +0300
+Message-ID: <1341135823-29039-8-git-send-email-ogerlitz@mellanox.com>
 References: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
-	netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	Hadar Hen Zion <hadarh@mellanox.co.il>
+	netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:47125 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755035Ab2GAJoC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:44:02 -0400
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:44390 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754901Ab2GAJn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:43:58 -0400
 In-Reply-To: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-Currently, for every change in the net device multicast list, the driver
-detaches all the addresses from the HW device, and then attaches the
-updated list. This behavior is wrong from two aspects: first, it causes
-a load of firmware commands and second, there is period of time where
-the correct addresses are not attached, which turned into packet loss.
+As with other device resources, the resource tracker is needed for supporting
+device managed flow steering rules under SRIOV: make sure virtual functions
+delete only rules created by them, and clean all rules attached by a crashed VF.
 
-To improve - a copy of the multicast list is saved by the driver. For
-every change in the multicast list, the multicast list copy is used
-to find the delta between those two lists and add or remove multicast
-addresses as needed. 
-
-Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  141 ++++++++++++++++++------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |   16 +++-
- 2 files changed, 122 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    1 +
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  132 ++++++++++++++++++--
+ 2 files changed, 125 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 073b85b..35c64f2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -170,33 +170,79 @@ static void mlx4_en_do_set_mac(struct work_struct *work)
- static void mlx4_en_clear_list(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_mc_list *tmp, *mc_to_del;
- 
--	kfree(priv->mc_addrs);
--	priv->mc_addrs = NULL;
--	priv->mc_addrs_cnt = 0;
-+	list_for_each_entry_safe(mc_to_del, tmp, &priv->mc_list, list) {
-+		list_del(&mc_to_del->list);
-+		kfree(mc_to_del);
-+	}
- }
- 
- static void mlx4_en_cache_mclist(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct netdev_hw_addr *ha;
--	char *mc_addrs;
--	int mc_addrs_cnt = netdev_mc_count(dev);
--	int i;
-+	struct mlx4_en_mc_list *tmp;
- 
--	mc_addrs = kmalloc(mc_addrs_cnt * ETH_ALEN, GFP_ATOMIC);
--	if (!mc_addrs) {
--		en_err(priv, "failed to allocate multicast list\n");
--		return;
--	}
--	i = 0;
--	netdev_for_each_mc_addr(ha, dev)
--		memcpy(mc_addrs + i++ * ETH_ALEN, ha->addr, ETH_ALEN);
- 	mlx4_en_clear_list(dev);
--	priv->mc_addrs = mc_addrs;
--	priv->mc_addrs_cnt = mc_addrs_cnt;
-+	netdev_for_each_mc_addr(ha, dev) {
-+		tmp = kzalloc(sizeof(struct mlx4_en_mc_list), GFP_ATOMIC);
-+		if (!tmp) {
-+			en_err(priv, "failed to allocate multicast list\n");
-+			mlx4_en_clear_list(dev);
-+			return;
-+		}
-+		memcpy(tmp->addr, ha->addr, ETH_ALEN);
-+		list_add_tail(&tmp->list, &priv->mc_list);
-+	}
- }
- 
-+static void update_mclist_flags(struct mlx4_en_priv *priv,
-+				struct list_head *dst,
-+				struct list_head *src)
-+{
-+	struct mlx4_en_mc_list *dst_tmp, *src_tmp, *new_mc;
-+	bool found;
-+
-+	/* Find all the entries that should be removed from dst,
-+	 * These are the entries that are not found in src */
-+	list_for_each_entry(dst_tmp, dst, list) {
-+		found = false;
-+		list_for_each_entry(src_tmp, src, list) {
-+			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
-+				found = true;
-+				break;
-+			}
-+		}
-+		if (!found)
-+			dst_tmp->action = MCLIST_REM;
-+	}
-+
-+	/* Add entries that exist in src but not in dst
-+	 * mark them as need to add */
-+	list_for_each_entry(src_tmp, src, list) {
-+		found = false;
-+		list_for_each_entry(dst_tmp, dst, list) {
-+			if (!memcmp(dst_tmp->addr, src_tmp->addr, ETH_ALEN)) {
-+				dst_tmp->action = MCLIST_NONE;
-+				found = true;
-+				break;
-+			}
-+		}
-+		if (!found) {
-+			new_mc = kmalloc(sizeof(struct mlx4_en_mc_list),
-+					     GFP_KERNEL);
-+			if (!new_mc) {
-+				en_err(priv, "Failed to allocate current multicast list\n");
-+				return;
-+			}
-+			memcpy(new_mc, src_tmp,
-+			       sizeof(struct mlx4_en_mc_list));
-+			new_mc->action = MCLIST_ADD;
-+			list_add_tail(&new_mc->list, dst);
-+		}
-+	}
-+}
- 
- static void mlx4_en_set_multicast(struct net_device *dev)
- {
-@@ -214,6 +260,7 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 						 mcast_task);
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct net_device *dev = priv->dev;
-+	struct mlx4_en_mc_list *mclist, *tmp;
- 	u64 mcast_addr = 0;
- 	u8 mc_list[16] = {0};
- 	int err;
-@@ -336,7 +383,6 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 			priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
- 		}
- 	} else {
--		int i;
- 		/* Disable Multicast promisc */
- 		if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
- 			err = mlx4_multicast_promisc_remove(mdev->dev, priv->base_qpn,
-@@ -351,13 +397,6 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 		if (err)
- 			en_err(priv, "Failed disabling multicast filter\n");
- 
--		/* Detach our qp from all the multicast addresses */
--		for (i = 0; i < priv->mc_addrs_cnt; i++) {
--			memcpy(&mc_list[10], priv->mc_addrs + i * ETH_ALEN, ETH_ALEN);
--			mc_list[5] = priv->port;
--			mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp,
--					      mc_list, MLX4_PROT_ETH);
--		}
- 		/* Flush mcast filter and init it with broadcast address */
- 		mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, ETH_BCAST,
- 				    1, MLX4_MCAST_CONFIG);
-@@ -367,13 +406,8 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 		netif_tx_lock_bh(dev);
- 		mlx4_en_cache_mclist(dev);
- 		netif_tx_unlock_bh(dev);
--		for (i = 0; i < priv->mc_addrs_cnt; i++) {
--			mcast_addr =
--			      mlx4_en_mac_to_u64(priv->mc_addrs + i * ETH_ALEN);
--			memcpy(&mc_list[10], priv->mc_addrs + i * ETH_ALEN, ETH_ALEN);
--			mc_list[5] = priv->port;
--			mlx4_multicast_attach(mdev->dev, &priv->rss_map.indir_qp,
--					      mc_list, 0, MLX4_PROT_ETH);
-+		list_for_each_entry(mclist, &priv->mc_list, list) {
-+			mcast_addr = mlx4_en_mac_to_u64(mclist->addr);
- 			mlx4_SET_MCAST_FLTR(mdev->dev, priv->port,
- 					    mcast_addr, 0, MLX4_MCAST_CONFIG);
- 		}
-@@ -381,6 +415,38 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 					  0, MLX4_MCAST_ENABLE);
- 		if (err)
- 			en_err(priv, "Failed enabling multicast filter\n");
-+
-+		update_mclist_flags(priv, &priv->curr_list, &priv->mc_list);
-+		list_for_each_entry_safe(mclist, tmp, &priv->curr_list, list) {
-+			if (mclist->action == MCLIST_REM) {
-+				/* detach this address and delete from list */
-+				memcpy(&mc_list[10], mclist->addr, ETH_ALEN);
-+				mc_list[5] = priv->port;
-+				err = mlx4_multicast_detach(mdev->dev,
-+							    &priv->rss_map.indir_qp,
-+							    mc_list,
-+							    MLX4_PROT_ETH);
-+				if (err)
-+					en_err(priv, "Fail to detach multicast address\n");
-+
-+				/* remove from list */
-+				list_del(&mclist->list);
-+				kfree(mclist);
-+			}
-+
-+			if (mclist->action == MCLIST_ADD) {
-+				/* attach the address */
-+				memcpy(&mc_list[10], mclist->addr, ETH_ALEN);
-+				mc_list[5] = priv->port;
-+				err = mlx4_multicast_attach(mdev->dev,
-+							    &priv->rss_map.indir_qp,
-+							    mc_list, 0,
-+							    MLX4_PROT_ETH);
-+				if (err)
-+					en_err(priv, "Fail to attach multicast address\n");
-+
-+			}
-+		}
- 	}
- out:
- 	mutex_unlock(&mdev->state_lock);
-@@ -605,6 +671,9 @@ int mlx4_en_start_port(struct net_device *dev)
- 		return 0;
- 	}
- 
-+	INIT_LIST_HEAD(&priv->mc_list);
-+	INIT_LIST_HEAD(&priv->curr_list);
-+
- 	/* Calculate Rx buf size */
- 	dev->mtu = min(dev->mtu, priv->max_mtu);
- 	mlx4_en_calc_rx_buf(dev);
-@@ -760,6 +829,7 @@ void mlx4_en_stop_port(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
-+	struct mlx4_en_mc_list *mclist, *tmp;
- 	int i;
- 	u8 mc_list[16] = {0};
- 
-@@ -781,13 +851,18 @@ void mlx4_en_stop_port(struct net_device *dev)
- 	mc_list[5] = priv->port;
- 	mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp, mc_list,
- 			      MLX4_PROT_ETH);
--	for (i = 0; i < priv->mc_addrs_cnt; i++) {
--		memcpy(&mc_list[10], priv->mc_addrs + i * ETH_ALEN, ETH_ALEN);
-+	list_for_each_entry(mclist, &priv->curr_list, list) {
-+		memcpy(&mc_list[10], mclist->addr, ETH_ALEN);
- 		mc_list[5] = priv->port;
- 		mlx4_multicast_detach(mdev->dev, &priv->rss_map.indir_qp,
- 				      mc_list, MLX4_PROT_ETH);
- 	}
- 	mlx4_en_clear_list(dev);
-+	list_for_each_entry_safe(mclist, tmp, &priv->curr_list, list) {
-+		list_del(&mclist->list);
-+		kfree(mclist);
-+	}
-+
- 	/* Flush multicast filter */
- 	mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0, 1, MLX4_MCAST_CONFIG);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 225c20d..1bb00cd 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -404,6 +404,18 @@ struct mlx4_en_perf_stats {
- #define NUM_PERF_COUNTERS		6
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 0084967..d2c436b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -149,6 +149,7 @@ enum mlx4_resource {
+ 	RES_VLAN,
+ 	RES_EQ,
+ 	RES_COUNTER,
++	RES_FS_RULE,
+ 	MLX4_NUM_OF_RESOURCE_TYPE
  };
  
-+enum mlx4_en_mclist_act {
-+	MCLIST_NONE,
-+	MCLIST_REM,
-+	MCLIST_ADD,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index ce73772..b4480de 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -190,6 +190,15 @@ struct res_xrcdn {
+ 	int			port;
+ };
+ 
++enum res_fs_rule_states {
++	RES_FS_RULE_BUSY = RES_ANY_BUSY,
++	RES_FS_RULE_ALLOCATED,
 +};
 +
-+struct mlx4_en_mc_list {
-+	struct list_head	list;
-+	enum mlx4_en_mclist_act	action;
-+	u8			addr[ETH_ALEN];
++struct res_fs_rule {
++	struct res_common	com;
 +};
 +
- struct mlx4_en_frag_info {
- 	u16 frag_size;
- 	u16 frag_prefix_size;
-@@ -489,8 +501,8 @@ struct mlx4_en_priv {
- 	struct mlx4_en_pkt_stats pkstats;
- 	struct mlx4_en_port_stats port_stats;
- 	u64 stats_bitmap;
--	char *mc_addrs;
--	int mc_addrs_cnt;
-+	struct list_head mc_list;
-+	struct list_head curr_list;
- 	struct mlx4_en_stat_out_mbox hw_stats;
- 	int vids[128];
- 	bool wol;
+ static struct res_common *res_tracker_lookup(struct rb_root *root, u64 res_id)
+ {
+ 	struct rb_node *node = root->rb_node;
+@@ -245,6 +254,7 @@ static const char *ResourceType(enum mlx4_resource rt)
+ 	case RES_MAC: return  "RES_MAC";
+ 	case RES_EQ: return "RES_EQ";
+ 	case RES_COUNTER: return "RES_COUNTER";
++	case RES_FS_RULE: return "RES_FS_RULE";
+ 	case RES_XRCD: return "RES_XRCD";
+ 	default: return "Unknown resource type !!!";
+ 	};
+@@ -516,6 +526,20 @@ static struct res_common *alloc_xrcdn_tr(int id)
+ 	return &ret->com;
+ }
+ 
++static struct res_common *alloc_fs_rule_tr(u64 id)
++{
++	struct res_fs_rule *ret;
++
++	ret = kzalloc(sizeof *ret, GFP_KERNEL);
++	if (!ret)
++		return NULL;
++
++	ret->com.res_id = id;
++	ret->com.state = RES_FS_RULE_ALLOCATED;
++
++	return &ret->com;
++}
++
+ static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
+ 				   int extra)
+ {
+@@ -549,6 +573,9 @@ static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
+ 	case RES_XRCD:
+ 		ret = alloc_xrcdn_tr(id);
+ 		break;
++	case RES_FS_RULE:
++		ret = alloc_fs_rule_tr(id);
++		break;
+ 	default:
+ 		return NULL;
+ 	}
+@@ -681,6 +708,16 @@ static int remove_xrcdn_ok(struct res_xrcdn *res)
+ 	return 0;
+ }
+ 
++static int remove_fs_rule_ok(struct res_fs_rule *res)
++{
++	if (res->com.state == RES_FS_RULE_BUSY)
++		return -EBUSY;
++	else if (res->com.state != RES_FS_RULE_ALLOCATED)
++		return -EPERM;
++
++	return 0;
++}
++
+ static int remove_cq_ok(struct res_cq *res)
+ {
+ 	if (res->com.state == RES_CQ_BUSY)
+@@ -722,6 +759,8 @@ static int remove_ok(struct res_common *res, enum mlx4_resource type, int extra)
+ 		return remove_counter_ok((struct res_counter *)res);
+ 	case RES_XRCD:
+ 		return remove_xrcdn_ok((struct res_xrcdn *)res);
++	case RES_FS_RULE:
++		return remove_fs_rule_ok((struct res_fs_rule *)res);
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -2746,14 +2785,28 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_cmd_mailbox *outbox,
+ 					 struct mlx4_cmd_info *cmd)
+ {
++	int err;
++
+ 	if (dev->caps.steering_mode !=
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+ 		return -EOPNOTSUPP;
+-	return mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
+-			    vhcr->in_modifier, 0,
+-			    MLX4_QP_FLOW_STEERING_ATTACH,
+-			    MLX4_CMD_TIME_CLASS_A,
+-			    MLX4_CMD_NATIVE);
++
++	err = mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
++			   vhcr->in_modifier, 0,
++			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
++			   MLX4_CMD_NATIVE);
++	if (err)
++		return err;
++
++	err = add_res_range(dev, slave, vhcr->out_param, 1, RES_FS_RULE, 0);
++	if (err) {
++		mlx4_err(dev, "Fail to add flow steering resources.\n ");
++		/* detach rule*/
++		mlx4_cmd(dev, vhcr->out_param, 0, 0,
++			 MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
++			 MLX4_CMD_NATIVE);
++	}
++	return err;
+ }
+ 
+ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+@@ -2762,12 +2815,22 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
+ 					 struct mlx4_cmd_mailbox *outbox,
+ 					 struct mlx4_cmd_info *cmd)
+ {
++	int err;
++
+ 	if (dev->caps.steering_mode !=
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+ 		return -EOPNOTSUPP;
+-	return mlx4_cmd(dev, vhcr->in_param, 0, 0,
+-			MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
+-			MLX4_CMD_NATIVE);
++
++	err = rem_res_range(dev, slave, vhcr->in_param, 1, RES_FS_RULE, 0);
++	if (err) {
++		mlx4_err(dev, "Fail to remove flow steering resources.\n ");
++		return err;
++	}
++
++	err = mlx4_cmd(dev, vhcr->in_param, 0, 0,
++		       MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
++		       MLX4_CMD_NATIVE);
++	return err;
+ }
+ 
+ enum {
+@@ -3179,6 +3242,58 @@ static void rem_slave_mtts(struct mlx4_dev *dev, int slave)
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ }
+ 
++static void rem_slave_fs_rule(struct mlx4_dev *dev, int slave)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_resource_tracker *tracker =
++		&priv->mfunc.master.res_tracker;
++	struct list_head *fs_rule_list =
++		&tracker->slave_list[slave].res_list[RES_FS_RULE];
++	struct res_fs_rule *fs_rule;
++	struct res_fs_rule *tmp;
++	int state;
++	u64 base;
++	int err;
++
++	err = move_all_busy(dev, slave, RES_FS_RULE);
++	if (err)
++		mlx4_warn(dev, "rem_slave_fs_rule: Could not move all mtts to busy for slave %d\n",
++			  slave);
++
++	spin_lock_irq(mlx4_tlock(dev));
++	list_for_each_entry_safe(fs_rule, tmp, fs_rule_list, com.list) {
++		spin_unlock_irq(mlx4_tlock(dev));
++		if (fs_rule->com.owner == slave) {
++			base = fs_rule->com.res_id;
++			state = fs_rule->com.from_state;
++			while (state != 0) {
++				switch (state) {
++				case RES_FS_RULE_ALLOCATED:
++					/* detach rule */
++					err = mlx4_cmd(dev, base, 0, 0,
++						MLX4_QP_FLOW_STEERING_DETACH,
++						MLX4_CMD_TIME_CLASS_A,
++						MLX4_CMD_NATIVE);
++
++					spin_lock_irq(mlx4_tlock(dev));
++					rb_erase(&fs_rule->com.node,
++						 &tracker->res_tree[RES_FS_RULE]);
++					list_del(&fs_rule->com.list);
++					spin_unlock_irq(mlx4_tlock(dev));
++					kfree(fs_rule);
++					state = 0;
++					break;
++
++				default:
++					state = 0;
++				}
++			}
++		}
++		spin_lock_irq(mlx4_tlock(dev));
++	}
++	spin_unlock_irq(mlx4_tlock(dev));
++}
++
+ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -3320,5 +3435,6 @@ void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave)
+ 	rem_slave_mtts(dev, slave);
+ 	rem_slave_counters(dev, slave);
+ 	rem_slave_xrcdns(dev, slave);
++	rem_slave_fs_rule(dev, slave);
+ 	mutex_unlock(&priv->mfunc.master.res_tracker.slave_list[slave].mutex);
+ }
 -- 
 1.7.1
