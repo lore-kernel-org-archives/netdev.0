@@ -1,199 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] e1000e: remove use of IP payload checksum
-Date: Sat, 30 Jun 2012 23:02:42 -0700
-Message-ID: <1341122562-17382-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: John Eaglesham <linux@8192.net>
+Subject: [PATCH v4 0/2] bonding support for IPv6 transmit hashing
+Date: Sun,  1 Jul 2012 00:01:37 -0700
+Message-ID: <cover.1341125875.git.linux@8192.net>
+Cc: John Eaglesham <linux@8192.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:28025 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751353Ab2GAGC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jul 2012 02:02:58 -0400
+Received: from smtp171.dfw.emailsrvr.com ([67.192.241.171]:56370 "EHLO
+	smtp171.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544Ab2GAHCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 03:02:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Currently the "bonding" driver does not support load balancing outgoing
+traffic in LACP mode for IPv6 traffic. IPv4 (and TCP or UDP over IPv4)
+are currently supported; this patch adds transmit hashing for IPv6 (and
+TCP or UDP over IPv6), bringing IPv6 up to par with IPv4 support in the
+bonding driver.
 
-Currently only used when packet split mode is enabled with jumbo frames,
-IP payload checksum (for fragmented UDP packets) is mutually exclusive with
-receive hashing offload since the hardware uses the same space in the
-receive descriptor for the hardware-provided packet checksum and the RSS
-hash, respectively.  Users currently must disable jumbos when receive
-hashing offload is enabled, or vice versa, because of this incompatibility.
-Since testing has shown that IP payload checksum does not provide any real
-benefit, just remove it so that there is no longer a choice between jumbos
-or receive hashing offload but not both as done in other Intel GbE drivers
-(e.g. e1000, igb).
+The algorithm chosen (xor'ing the bottom three quads and then xor'ing
+the bottom three bytes of that) was chosen after testing almost 400,000
+unique IPv6 addresses harvested from server logs. This algorithm had the
+most even distribution for both big- and little-endian architectures while
+still using few instructions.
 
-Also, add a missing check for IP checksum error reported by the hardware;
-let the stack verify the checksum when this happens.
+The IPv6 flow label was intentionally not included in the hash as it appears
+to be unset in the vast majority of IPv6 traffic sampled, and the current
+algorithm not using the flow label already offers a very even distribution.
 
-CC: stable <stable@vger.kernel.org> [3.4]
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/defines.h |    1 +
- drivers/net/ethernet/intel/e1000e/netdev.c  |   75 +++++----------------------
- 2 files changed, 15 insertions(+), 61 deletions(-)
+Fragmented IPv6 packets are handled the same way as fragmented IPv4 packets,
+ie, they are not balanced based on layer 4 information. Additionally,
+IPv6 packets with intermediate headers are not balanced based on layer
+4 information. In practice these intermediate headers are not common and
+this should not cause any problems, and the alternative (a packet-parsing
+loop and look-up table) seemed slow and complicated for little gain.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 351a409..76edbc1 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -103,6 +103,7 @@
- #define E1000_RXD_ERR_SEQ       0x04    /* Sequence Error */
- #define E1000_RXD_ERR_CXE       0x10    /* Carrier Extension Error */
- #define E1000_RXD_ERR_TCPE      0x20    /* TCP/UDP Checksum Error */
-+#define E1000_RXD_ERR_IPE       0x40    /* IP Checksum Error */
- #define E1000_RXD_ERR_RXE       0x80    /* Rx Data Error */
- #define E1000_RXD_SPC_VLAN_MASK 0x0FFF  /* VLAN ID is in lower 12 bits */
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 31d37a2..623e30b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -496,7 +496,7 @@ static void e1000_receive_skb(struct e1000_adapter *adapter,
-  * @sk_buff: socket buffer with received data
-  **/
- static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
--			      __le16 csum, struct sk_buff *skb)
-+			      struct sk_buff *skb)
- {
- 	u16 status = (u16)status_err;
- 	u8 errors = (u8)(status_err >> 24);
-@@ -511,8 +511,8 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 	if (status & E1000_RXD_STAT_IXSM)
- 		return;
- 
--	/* TCP/UDP checksum error bit is set */
--	if (errors & E1000_RXD_ERR_TCPE) {
-+	/* TCP/UDP checksum error bit or IP checksum error bit is set */
-+	if (errors & (E1000_RXD_ERR_TCPE | E1000_RXD_ERR_IPE)) {
- 		/* let the stack verify checksum errors */
- 		adapter->hw_csum_err++;
- 		return;
-@@ -523,19 +523,7 @@ static void e1000_rx_checksum(struct e1000_adapter *adapter, u32 status_err,
- 		return;
- 
- 	/* It must be a TCP or UDP packet with a valid checksum */
--	if (status & E1000_RXD_STAT_TCPCS) {
--		/* TCP checksum is good */
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--	} else {
--		/*
--		 * IP fragment with UDP payload
--		 * Hardware complements the payload checksum, so we undo it
--		 * and then put the value in host order for further stack use.
--		 */
--		__sum16 sum = (__force __sum16)swab16((__force u16)csum);
--		skb->csum = csum_unfold(~sum);
--		skb->ip_summed = CHECKSUM_COMPLETE;
--	}
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	adapter->hw_csum_good++;
- }
- 
-@@ -954,8 +942,7 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 		skb_put(skb, length);
- 
- 		/* Receive Checksum Offload */
--		e1000_rx_checksum(adapter, staterr,
--				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
-+		e1000_rx_checksum(adapter, staterr, skb);
- 
- 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
- 
-@@ -1341,8 +1328,7 @@ copydone:
- 		total_rx_bytes += skb->len;
- 		total_rx_packets++;
- 
--		e1000_rx_checksum(adapter, staterr,
--				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
-+		e1000_rx_checksum(adapter, staterr, skb);
- 
- 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
- 
-@@ -1512,9 +1498,8 @@ static bool e1000_clean_jumbo_rx_irq(struct e1000_ring *rx_ring, int *work_done,
- 			}
- 		}
- 
--		/* Receive Checksum Offload XXX recompute due to CRC strip? */
--		e1000_rx_checksum(adapter, staterr,
--				  rx_desc->wb.lower.hi_dword.csum_ip.csum, skb);
-+		/* Receive Checksum Offload */
-+		e1000_rx_checksum(adapter, staterr, skb);
- 
- 		e1000_rx_hash(netdev, rx_desc->wb.lower.hi_dword.rss, skb);
- 
-@@ -3098,19 +3083,10 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 
- 	/* Enable Receive Checksum Offload for TCP and UDP */
- 	rxcsum = er32(RXCSUM);
--	if (adapter->netdev->features & NETIF_F_RXCSUM) {
-+	if (adapter->netdev->features & NETIF_F_RXCSUM)
- 		rxcsum |= E1000_RXCSUM_TUOFL;
--
--		/*
--		 * IPv4 payload checksum for UDP fragments must be
--		 * used in conjunction with packet-split.
--		 */
--		if (adapter->rx_ps_pages)
--			rxcsum |= E1000_RXCSUM_IPPCSE;
--	} else {
-+	else
- 		rxcsum &= ~E1000_RXCSUM_TUOFL;
--		/* no need to clear IPPCSE as it defaults to 0 */
--	}
- 	ew32(RXCSUM, rxcsum);
- 
- 	if (adapter->hw.mac.type == e1000_pch2lan) {
-@@ -5241,22 +5217,10 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
- 
- 	/* Jumbo frame support */
--	if (max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) {
--		if (!(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
--			e_err("Jumbo Frames not supported.\n");
--			return -EINVAL;
--		}
--
--		/*
--		 * IP payload checksum (enabled with jumbos/packet-split when
--		 * Rx checksum is enabled) and generation of RSS hash is
--		 * mutually exclusive in the hardware.
--		 */
--		if ((netdev->features & NETIF_F_RXCSUM) &&
--		    (netdev->features & NETIF_F_RXHASH)) {
--			e_err("Jumbo frames cannot be enabled when both receive checksum offload and receive hashing are enabled.  Disable one of the receive offload features before enabling jumbos.\n");
--			return -EINVAL;
--		}
-+	if ((max_frame > ETH_FRAME_LEN + ETH_FCS_LEN) &&
-+	    !(adapter->flags & FLAG_HAS_JUMBO_FRAMES)) {
-+		e_err("Jumbo Frames not supported.\n");
-+		return -EINVAL;
- 	}
- 
- 	/* Supported frame sizes */
-@@ -6030,17 +5994,6 @@ static int e1000_set_features(struct net_device *netdev,
- 			 NETIF_F_RXALL)))
- 		return 0;
- 
--	/*
--	 * IP payload checksum (enabled with jumbos/packet-split when Rx
--	 * checksum is enabled) and generation of RSS hash is mutually
--	 * exclusive in the hardware.
--	 */
--	if (adapter->rx_ps_pages &&
--	    (features & NETIF_F_RXCSUM) && (features & NETIF_F_RXHASH)) {
--		e_err("Enabling both receive checksum offload and receive hashing is not possible with jumbo frames.  Disable jumbos or enable only one of the receive offload features.\n");
--		return -EINVAL;
--	}
--
- 	if (changed & NETIF_F_RXFCS) {
- 		if (features & NETIF_F_RXFCS) {
- 			adapter->flags2 &= ~FLAG2_CRC_STRIPPING;
+This is an update to a prior patch I submitted. This version includes
+a clarified description, thorough bounds checking, updates functions to
+call bond_xmit_hash_policy_l2 rather than re-implement the same logic,
+incorporates Jay's style suggestions, and patches against net-next. Patch
+has been tested and performs as expected.
+
+John Eaglesham (2):
+  Add support for IPv6 and bounds checking to transmit hashing
+    functions.
+  Update bonding driver documentation to include IPv6 transmit hashing
+    algorithm.
+
+ Documentation/networking/bonding.txt | 31 ++++++++++--
+ drivers/net/bonding/bond_main.c      | 91 +++++++++++++++++++++++++-----------
+ 2 files changed, 90 insertions(+), 32 deletions(-)
+
 -- 
-1.7.10.4
+1.7.11
