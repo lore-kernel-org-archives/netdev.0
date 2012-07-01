@@ -1,63 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: cgroup: null ptr dereference in netprio
- cgroup during init
-Date: Wed, 18 Jul 2012 09:39:58 -0700 (PDT)
-Message-ID: <20120718.093958.816641632074995342.davem@davemloft.net>
-References: <20120718152520.GG25563@hmsreliant.think-freely.org>
-	<20120718.085303.2226773601811613983.davem@davemloft.net>
-	<20120718163721.GH25563@hmsreliant.think-freely.org>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH 0/3] net: various tilegx networking fixes
+Date: Sun, 1 Jul 2012 14:43:47 -0400
+Message-ID: <201207181640.q6IGet7P007227@lab-41.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
-	mark.d.rustad@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: nhorman@tuxdriver.com
+Content-Type: text/plain
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35663 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751867Ab2GRQkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:40:03 -0400
-In-Reply-To: <20120718163721.GH25563@hmsreliant.think-freely.org>
+Received: from usmamail.tilera.com ([12.216.194.151]:32144 "EHLO
+	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751867Ab2GRQk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:40:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 18 Jul 2012 12:37:21 -0400
+This series of fixes corrects a few bugs or style issues observed
+in the tilegx network driver.
 
-> On Wed, Jul 18, 2012 at 08:53:03AM -0700, David Miller wrote:
->> From: Neil Horman <nhorman@tuxdriver.com>
->> Date: Wed, 18 Jul 2012 11:25:20 -0400
->> 
->> > Yeah, I see what you mean.  Seems like what we need is to either:
->> > 1) move cgroup_init to later in the boot process.  If you're not early_init,
->> > then I don't see why the subsystem can't wait until later in the boot process
->> > (i.e. make cgroup_init a late_initcall or some such).
->> > 
->> > or
->> > 
->> > 2) Allow module based cgroups to flag themselves as needing late init after the
->> > rest of the kernel has booted.
->> 
->> These are way too complicated compared to John's currently proposed
->> fix for this recently introduced regression.
->> 
->> I want a one liner which I can prove is going to remove the crash.
->> 
->> All of this talk of rearranging initcall ordering for cgroup stuff
->> is too ambitious this late in the -rc.
->> 
-> Thats a fair point. I'd still like to look into this further, as I think theres
-> a more correct answer than the current proposal.
+David, once any potential issues with these patches are resolved,
+would you prefer to take them from email, pull them from my net tree,
+or have me push them as part of the tile tree?
 
-I totally agree, and such investigations can target net-next.
+The tree is at:
 
-> But since we're looking to fix a specific problem at the end of rc:
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+  git://git.kernel.org/pub/scm/linux/kernel/git/cmetcalf/linux-tile.git net
 
-Thanks Neil.
+Chris Metcalf (3):
+      net: tilegx driver bugfix (be explicit about percpu queue number)
+      tilegx net driver: handle payload data not in frags
+      tilegx net: use eth_hw_addr_random(), not random_ether_addr()
 
-John can you respin your patch with the minor change I asked for?  I'll
-apply it as soon as you send it.
+ drivers/net/ethernet/tile/tilegx.c |   61 ++++++++++++++++++++----------------
+ 1 file changed, 34 insertions(+), 27 deletions(-)
 
-Thanks.
+Thanks!
