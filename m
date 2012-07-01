@@ -1,20 +1,20 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 06/11] cxgb4: set maximal number of default RSS
+Subject: [PATCH net-next 09/11] bnx2: set maximal number of default RSS
  queues
-Date: Sun, 1 Jul 2012 16:18:55 +0300
-Message-ID: <1341148740-7375-7-git-send-email-yuvalmin@broadcom.com>
+Date: Sun, 1 Jul 2012 16:18:58 +0300
+Message-ID: <1341148740-7375-10-git-send-email-yuvalmin@broadcom.com>
 References: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Divy Le Ray" <divy@chelsio.com>
+	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3380 "EHLO mms3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4176 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932282Ab2GANUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jul 2012 09:20:41 -0400
+	id S1755721Ab2GANUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jul 2012 09:20:46 -0400
 In-Reply-To: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,25 +22,23 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Cc: Divy Le Ray <divy@chelsio.com>
+Cc: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index e1f96fb..5ed49af 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3493,8 +3493,8 @@ static void __devinit cfg_queues(struct adapter *adap)
- 	 */
- 	if (n10g)
- 		q10g = (MAX_ETH_QSETS - (adap->params.nports - n10g)) / n10g;
--	if (q10g > num_online_cpus())
--		q10g = num_online_cpus();
-+	if (q10g > netif_get_num_default_rss_queues())
-+		q10g = netif_get_num_default_rss_queues();
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 9eb7624..1901da1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -6250,7 +6250,7 @@ bnx2_enable_msix(struct bnx2 *bp, int msix_vecs)
+ static int
+ bnx2_setup_int_mode(struct bnx2 *bp, int dis_msi)
+ {
+-	int cpus = num_online_cpus();
++	int cpus = netif_get_num_default_rss_queues();
+ 	int msix_vecs;
  
- 	for_each_port(adap, i) {
- 		struct port_info *pi = adap2pinfo(adap, i);
+ 	if (!bp->num_req_rx_rings)
 -- 
 1.7.9.rc2
