@@ -1,20 +1,20 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 07/11] myri10ge: set maximal number of default
- RSS queues
-Date: Sun, 1 Jul 2012 16:18:56 +0300
-Message-ID: <1341148740-7375-8-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 05/11] cxgb3: set maximal number of default RSS
+ queues
+Date: Sun, 1 Jul 2012 16:18:54 +0300
+Message-ID: <1341148740-7375-6-git-send-email-yuvalmin@broadcom.com>
 References: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Jon Mason" <mason@myri.com>
+	"Divy Le Ray" <divy@chelsio.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3426 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4181 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755726Ab2GANUr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jul 2012 09:20:47 -0400
+	id S932329Ab2GANUl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jul 2012 09:20:41 -0400
 In-Reply-To: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,23 +22,23 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Cc: Jon Mason <mason@myri.com>
+Cc: Divy Le Ray <divy@chelsio.com>
 ---
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    2 +-
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 90153fc..fa85cf1 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -3775,7 +3775,7 @@ static void myri10ge_probe_slices(struct myri10ge_priv *mgp)
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index abb6ce7..9b08749 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3050,7 +3050,7 @@ static struct pci_error_handlers t3_err_handler = {
+ static void set_nqsets(struct adapter *adap)
+ {
+ 	int i, j = 0;
+-	int num_cpus = num_online_cpus();
++	int num_cpus = netif_get_num_default_rss_queues();
+ 	int hwports = adap->params.nports;
+ 	int nqsets = adap->msix_nvectors - 1;
  
- 	mgp->num_slices = 1;
- 	msix_cap = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
--	ncpus = num_online_cpus();
-+	ncpus = netif_get_num_default_rss_queues();
- 
- 	if (myri10ge_max_slices == 1 || msix_cap == 0 ||
- 	    (myri10ge_max_slices == -1 && ncpus < 2))
 -- 
 1.7.9.rc2
