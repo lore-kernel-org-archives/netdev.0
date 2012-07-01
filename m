@@ -1,178 +1,144 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx4_core: Add firmware commands to support device managed flow steering
-Date: Sun,  1 Jul 2012 12:43:38 +0300
-Message-ID: <1341135823-29039-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 10/10] net/mlx4_en: Add support for drop action through ethtool
+Date: Sun,  1 Jul 2012 12:43:43 +0300
+Message-ID: <1341135823-29039-11-git-send-email-ogerlitz@mellanox.com>
 References: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:42659 "HELO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754737Ab2GAJoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:44:19 -0400
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:35977 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755002Ab2GAJn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:43:58 -0400
 In-Reply-To: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-Add support for firmware commands to attach/detach a new device managed
-steering mode. Such network steering rules allow the user to provide an
-L2/L3/L4 flow specification to the firmware and have the device to steer
-traffic that matches that specification to the provided QP.
+The drop action is implemented by allocating a QP and keeping it in a reset state
+such that the HW drops any packets which are steered to that QP. When a drop action
+is requested, we attach the relevant flow to that QP.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
+Sign-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   19 +++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |   29 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   10 +++++++
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   24 ++++++++++++++++
- include/linux/mlx4/cmd.h                           |    4 +++
- 5 files changed, 86 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    9 ++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c      |   30 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    3 ++
+ 4 files changed, 42 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 842c8ce..7e94987 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1080,6 +1080,25 @@ static struct mlx4_cmd_info cmd_info[] = {
- 		.verify = NULL,
- 		.wrapper = NULL
- 	},
-+	/* flow steering commands */
-+	{
-+		.opcode = MLX4_QP_FLOW_STEERING_ATTACH,
-+		.has_inbox = true,
-+		.has_outbox = false,
-+		.out_is_imm = true,
-+		.encode_slave_id = false,
-+		.verify = NULL,
-+		.wrapper = mlx4_QP_FLOW_STEERING_ATTACH_wrapper
-+	},
-+	{
-+		.opcode = MLX4_QP_FLOW_STEERING_DETACH,
-+		.has_inbox = false,
-+		.has_outbox = false,
-+		.out_is_imm = false,
-+		.encode_slave_id = false,
-+		.verify = NULL,
-+		.wrapper = mlx4_QP_FLOW_STEERING_DETACH_wrapper
-+	},
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 30de264..6c44047 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -814,7 +814,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
  
- static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 319c9d4..3c59a33 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -62,6 +62,35 @@ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev)
- 	return 4 * (mlx4_get_mgm_entry_size(dev) / 16 - 2);
- }
+ 	/* Allow direct QP attaches if the EN_ETHTOOL_QP_ATTACH flag is set */
+ 	if (cmd->fs.ring_cookie == RX_CLS_FLOW_DISC)
+-		return -EOPNOTSUPP;
++		qpn = priv->drop_qp.qpn;
+ 	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
+ 		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
+ 	} else {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 46b58d8..ed121dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -793,6 +793,10 @@ int mlx4_en_start_port(struct net_device *dev)
+ 		goto mac_err;
+ 	}
  
-+static int mlx4_QP_FLOW_STEERING_ATTACH(struct mlx4_dev *dev,
-+					struct mlx4_cmd_mailbox *mailbox,
-+					u32 size,
-+					u64 *reg_id)
-+{
-+	u64 imm;
-+	int err = 0;
-+
-+	err = mlx4_cmd_imm(dev, mailbox->dma, &imm, size, 0,
-+			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
-+			   MLX4_CMD_NATIVE);
++	err = mlx4_en_create_drop_qp(priv);
 +	if (err)
-+		return err;
-+	*reg_id = imm;
++		goto rss_err;
 +
-+	return err;
-+}
-+
-+static int mlx4_QP_FLOW_STEERING_DETACH(struct mlx4_dev *dev, u64 regid)
-+{
-+	int err = 0;
-+
-+	err = mlx4_cmd(dev, regid, 0, 0,
-+		       MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
-+		       MLX4_CMD_NATIVE);
-+
-+	return err;
-+}
-+
- static int mlx4_READ_ENTRY(struct mlx4_dev *dev, int index,
- 			   struct mlx4_cmd_mailbox *mailbox)
- {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index a425a98..c07e882 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1118,6 +1118,16 @@ int mlx4_QUERY_IF_STAT_wrapper(struct mlx4_dev *dev, int slave,
- 			       struct mlx4_cmd_mailbox *inbox,
- 			       struct mlx4_cmd_mailbox *outbox,
- 			       struct mlx4_cmd_info *cmd);
-+int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd);
-+int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd);
+ 	/* Configure tx cq's and rings */
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		/* Configure cq */
+@@ -892,7 +896,8 @@ tx_err:
+ 		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[tx_index]);
+ 		mlx4_en_deactivate_cq(priv, &priv->tx_cq[tx_index]);
+ 	}
+-
++	mlx4_en_destroy_drop_qp(priv);
++rss_err:
+ 	mlx4_en_release_rss_steer(priv);
+ mac_err:
+ 	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
+@@ -947,6 +952,8 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 	/* Flush multicast filter */
+ 	mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0, 1, MLX4_MCAST_CONFIG);
  
- int mlx4_get_mgm_entry_size(struct mlx4_dev *dev);
- int mlx4_get_qp_per_mgm(struct mlx4_dev *dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index b8e8969..4301aa5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -2740,6 +2740,30 @@ ex_put:
++	mlx4_en_destroy_drop_qp(priv);
++
+ 	/* Free TX Rings */
+ 	for (i = 0; i < priv->tx_ring_num; i++) {
+ 		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[i]);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index d49a7ac..a04cbf7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -844,6 +844,36 @@ out:
  	return err;
  }
  
-+int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd)
++int mlx4_en_create_drop_qp(struct mlx4_en_priv *priv)
 +{
-+	return mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
-+			    vhcr->in_modifier, 0,
-+			    MLX4_QP_FLOW_STEERING_ATTACH,
-+			    MLX4_CMD_TIME_CLASS_A,
-+			    MLX4_CMD_NATIVE);
++	int err;
++	u32 qpn;
++
++	err = mlx4_qp_reserve_range(priv->mdev->dev, 1, 1, &qpn);
++	if (err) {
++		en_err(priv, "Failed reserving drop qpn\n");
++		return err;
++	}
++	err = mlx4_qp_alloc(priv->mdev->dev, qpn, &priv->drop_qp);
++	if (err) {
++		en_err(priv, "Failed allocating drop qp\n");
++		mlx4_qp_release_range(priv->mdev->dev, qpn, 1);
++		return err;
++	}
++
++	return 0;
 +}
 +
-+int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd)
++void mlx4_en_destroy_drop_qp(struct mlx4_en_priv *priv)
 +{
-+	return mlx4_cmd(dev, vhcr->in_param, 0, 0,
-+			MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
-+			MLX4_CMD_NATIVE);
++	u32 qpn;
++
++	qpn = priv->drop_qp.qpn;
++	mlx4_qp_remove(priv->mdev->dev, &priv->drop_qp);
++	mlx4_qp_free(priv->mdev->dev, &priv->drop_qp);
++	mlx4_qp_release_range(priv->mdev->dev, qpn, 1);
 +}
 +
- enum {
- 	BUSY_MAX_RETRIES = 10
- };
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 1f3860a..2606951 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -154,6 +154,10 @@ enum {
- 	/* set port opcode modifiers */
- 	MLX4_SET_PORT_PRIO2TC = 0x8,
- 	MLX4_SET_PORT_SCHEDULER  = 0x9,
-+
-+	/* register/delete flow steering network rules */
-+	MLX4_QP_FLOW_STEERING_ATTACH = 0x65,
-+	MLX4_QP_FLOW_STEERING_DETACH = 0x66,
- };
+ /* Allocate rx qp's and configure them according to rss map */
+ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 8882e70..a126321 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -500,6 +500,7 @@ struct mlx4_en_priv {
+ 	struct mlx4_en_rx_ring rx_ring[MAX_RX_RINGS];
+ 	struct mlx4_en_cq *tx_cq;
+ 	struct mlx4_en_cq rx_cq[MAX_RX_RINGS];
++	struct mlx4_qp drop_qp;
+ 	struct work_struct mcast_task;
+ 	struct work_struct mac_task;
+ 	struct work_struct watchdog_task;
+@@ -586,6 +587,8 @@ void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
+ void mlx4_en_calc_rx_buf(struct net_device *dev);
+ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv);
+ void mlx4_en_release_rss_steer(struct mlx4_en_priv *priv);
++int mlx4_en_create_drop_qp(struct mlx4_en_priv *priv);
++void mlx4_en_destroy_drop_qp(struct mlx4_en_priv *priv);
+ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring);
+ void mlx4_en_rx_irq(struct mlx4_cq *mcq);
  
- enum {
 -- 
 1.7.1
