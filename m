@@ -1,144 +1,174 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 10/10] net/mlx4_en: Add support for drop action through ethtool
-Date: Sun,  1 Jul 2012 12:43:43 +0300
-Message-ID: <1341135823-29039-11-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 02/10] net/mlx4_core: Change resource tracking ID to be 64 bit
+Date: Sun,  1 Jul 2012 12:43:35 +0300
+Message-ID: <1341135823-29039-3-git-send-email-ogerlitz@mellanox.com>
 References: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:35977 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755002Ab2GAJn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:43:58 -0400
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:58152 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754536Ab2GAJn5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 05:43:57 -0400
 In-Reply-To: <1341135823-29039-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-The drop action is implemented by allocating a QP and keeping it in a reset state
-such that the HW drops any packets which are steered to that QP. When a drop action
-is requested, we attach the relevant flow to that QP.
+Currently the IDs used by the resource tracker are of type u32, so far this was
+ok since all the different resources we were tracking could be encoded in 32bit.
 
-Sign-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
+As a preparation step for tracking of resources whose IDs need > 32 bits such
+as network flow steering rules, who are 64 bit in size, move to use 64 bit
+based resource IDs.
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |    9 ++++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      |   30 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    3 ++
- 4 files changed, 42 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    2 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   28 ++++++++++----------
+ 2 files changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 30de264..6c44047 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -814,7 +814,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 1a2f372..a425a98 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1033,7 +1033,7 @@ int mlx4_SET_PORT(struct mlx4_dev *dev, u8 port);
+ /* resource tracker functions*/
+ int mlx4_get_slave_from_resource_id(struct mlx4_dev *dev,
+ 				    enum mlx4_resource resource_type,
+-				    int resource_id, int *slave);
++				    u64 resource_id, int *slave);
+ void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave_id);
+ int mlx4_init_resource_tracker(struct mlx4_dev *dev);
  
- 	/* Allow direct QP attaches if the EN_ETHTOOL_QP_ATTACH flag is set */
- 	if (cmd->fs.ring_cookie == RX_CLS_FLOW_DISC)
--		return -EOPNOTSUPP;
-+		qpn = priv->drop_qp.qpn;
- 	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
- 		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
- 	} else {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 46b58d8..ed121dc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -793,6 +793,10 @@ int mlx4_en_start_port(struct net_device *dev)
- 		goto mac_err;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 6f89d44..b8e8969 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -58,7 +58,7 @@ struct mac_res {
+ struct res_common {
+ 	struct list_head	list;
+ 	struct rb_node		node;
+-	u32		        res_id;
++	u64		        res_id;
+ 	int			owner;
+ 	int			state;
+ 	int			from_state;
+@@ -315,7 +315,7 @@ static int mpt_mask(struct mlx4_dev *dev)
+ 	return dev->caps.num_mpts - 1;
+ }
  
-+	err = mlx4_en_create_drop_qp(priv);
-+	if (err)
-+		goto rss_err;
-+
- 	/* Configure tx cq's and rings */
- 	for (i = 0; i < priv->tx_ring_num; i++) {
- 		/* Configure cq */
-@@ -892,7 +896,8 @@ tx_err:
- 		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[tx_index]);
- 		mlx4_en_deactivate_cq(priv, &priv->tx_cq[tx_index]);
- 	}
--
-+	mlx4_en_destroy_drop_qp(priv);
-+rss_err:
- 	mlx4_en_release_rss_steer(priv);
- mac_err:
- 	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
-@@ -947,6 +952,8 @@ void mlx4_en_stop_port(struct net_device *dev)
- 	/* Flush multicast filter */
- 	mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0, 1, MLX4_MCAST_CONFIG);
+-static struct res_common *find_res(struct mlx4_dev *dev, int res_id,
++static struct res_common *find_res(struct mlx4_dev *dev, u64 res_id,
+ 				   enum mlx4_resource type)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+@@ -324,7 +324,7 @@ static struct res_common *find_res(struct mlx4_dev *dev, int res_id,
+ 				  res_id);
+ }
  
-+	mlx4_en_destroy_drop_qp(priv);
-+
- 	/* Free TX Rings */
- 	for (i = 0; i < priv->tx_ring_num; i++) {
- 		mlx4_en_deactivate_tx_ring(priv, &priv->tx_ring[i]);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index d49a7ac..a04cbf7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -844,6 +844,36 @@ out:
+-static int get_res(struct mlx4_dev *dev, int slave, int res_id,
++static int get_res(struct mlx4_dev *dev, int slave, u64 res_id,
+ 		   enum mlx4_resource type,
+ 		   void *res)
+ {
+@@ -350,7 +350,7 @@ static int get_res(struct mlx4_dev *dev, int slave, int res_id,
+ 
+ 	r->from_state = r->state;
+ 	r->state = RES_ANY_BUSY;
+-	mlx4_dbg(dev, "res %s id 0x%x to busy\n",
++	mlx4_dbg(dev, "res %s id 0x%llx to busy\n",
+ 		 ResourceType(type), r->res_id);
+ 
+ 	if (res)
+@@ -363,7 +363,7 @@ exit:
+ 
+ int mlx4_get_slave_from_resource_id(struct mlx4_dev *dev,
+ 				    enum mlx4_resource type,
+-				    int res_id, int *slave)
++				    u64 res_id, int *slave)
+ {
+ 
+ 	struct res_common *r;
+@@ -384,7 +384,7 @@ int mlx4_get_slave_from_resource_id(struct mlx4_dev *dev,
  	return err;
  }
  
-+int mlx4_en_create_drop_qp(struct mlx4_en_priv *priv)
-+{
-+	int err;
-+	u32 qpn;
-+
-+	err = mlx4_qp_reserve_range(priv->mdev->dev, 1, 1, &qpn);
-+	if (err) {
-+		en_err(priv, "Failed reserving drop qpn\n");
-+		return err;
-+	}
-+	err = mlx4_qp_alloc(priv->mdev->dev, qpn, &priv->drop_qp);
-+	if (err) {
-+		en_err(priv, "Failed allocating drop qp\n");
-+		mlx4_qp_release_range(priv->mdev->dev, qpn, 1);
-+		return err;
-+	}
-+
-+	return 0;
-+}
-+
-+void mlx4_en_destroy_drop_qp(struct mlx4_en_priv *priv)
-+{
-+	u32 qpn;
-+
-+	qpn = priv->drop_qp.qpn;
-+	mlx4_qp_remove(priv->mdev->dev, &priv->drop_qp);
-+	mlx4_qp_free(priv->mdev->dev, &priv->drop_qp);
-+	mlx4_qp_release_range(priv->mdev->dev, qpn, 1);
-+}
-+
- /* Allocate rx qp's and configure them according to rss map */
- int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv)
+-static void put_res(struct mlx4_dev *dev, int slave, int res_id,
++static void put_res(struct mlx4_dev *dev, int slave, u64 res_id,
+ 		    enum mlx4_resource type)
  {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 8882e70..a126321 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -500,6 +500,7 @@ struct mlx4_en_priv {
- 	struct mlx4_en_rx_ring rx_ring[MAX_RX_RINGS];
- 	struct mlx4_en_cq *tx_cq;
- 	struct mlx4_en_cq rx_cq[MAX_RX_RINGS];
-+	struct mlx4_qp drop_qp;
- 	struct work_struct mcast_task;
- 	struct work_struct mac_task;
- 	struct work_struct watchdog_task;
-@@ -586,6 +587,8 @@ void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
- void mlx4_en_calc_rx_buf(struct net_device *dev);
- int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv);
- void mlx4_en_release_rss_steer(struct mlx4_en_priv *priv);
-+int mlx4_en_create_drop_qp(struct mlx4_en_priv *priv);
-+void mlx4_en_destroy_drop_qp(struct mlx4_en_priv *priv);
- int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring);
- void mlx4_en_rx_irq(struct mlx4_cq *mcq);
+ 	struct res_common *r;
+@@ -516,7 +516,7 @@ static struct res_common *alloc_xrcdn_tr(int id)
+ 	return &ret->com;
+ }
  
+-static struct res_common *alloc_tr(int id, enum mlx4_resource type, int slave,
++static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
+ 				   int extra)
+ {
+ 	struct res_common *ret;
+@@ -558,7 +558,7 @@ static struct res_common *alloc_tr(int id, enum mlx4_resource type, int slave,
+ 	return ret;
+ }
+ 
+-static int add_res_range(struct mlx4_dev *dev, int slave, int base, int count,
++static int add_res_range(struct mlx4_dev *dev, int slave, u64 base, int count,
+ 			 enum mlx4_resource type, int extra)
+ {
+ 	int i;
+@@ -727,10 +727,10 @@ static int remove_ok(struct res_common *res, enum mlx4_resource type, int extra)
+ 	}
+ }
+ 
+-static int rem_res_range(struct mlx4_dev *dev, int slave, int base, int count,
++static int rem_res_range(struct mlx4_dev *dev, int slave, u64 base, int count,
+ 			 enum mlx4_resource type, int extra)
+ {
+-	int i;
++	u64 i;
+ 	int err;
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
+@@ -784,7 +784,7 @@ static int qp_res_start_move_to(struct mlx4_dev *dev, int slave, int qpn,
+ 	else {
+ 		switch (state) {
+ 		case RES_QP_BUSY:
+-			mlx4_dbg(dev, "%s: failed RES_QP, 0x%x\n",
++			mlx4_dbg(dev, "%s: failed RES_QP, 0x%llx\n",
+ 				 __func__, r->com.res_id);
+ 			err = -EBUSY;
+ 			break;
+@@ -793,7 +793,7 @@ static int qp_res_start_move_to(struct mlx4_dev *dev, int slave, int qpn,
+ 			if (r->com.state == RES_QP_MAPPED && !alloc)
+ 				break;
+ 
+-			mlx4_dbg(dev, "failed RES_QP, 0x%x\n", r->com.res_id);
++			mlx4_dbg(dev, "failed RES_QP, 0x%llx\n", r->com.res_id);
+ 			err = -EINVAL;
+ 			break;
+ 
+@@ -802,7 +802,7 @@ static int qp_res_start_move_to(struct mlx4_dev *dev, int slave, int qpn,
+ 			    r->com.state == RES_QP_HW)
+ 				break;
+ 			else {
+-				mlx4_dbg(dev, "failed RES_QP, 0x%x\n",
++				mlx4_dbg(dev, "failed RES_QP, 0x%llx\n",
+ 					  r->com.res_id);
+ 				err = -EINVAL;
+ 			}
+@@ -2796,7 +2796,7 @@ static int _move_all_busy(struct mlx4_dev *dev, int slave,
+ 				if (r->state == RES_ANY_BUSY) {
+ 					if (print)
+ 						mlx4_dbg(dev,
+-							 "%s id 0x%x is busy\n",
++							 "%s id 0x%llx is busy\n",
+ 							  ResourceType(type),
+ 							  r->res_id);
+ 					++busy;
 -- 
 1.7.1
