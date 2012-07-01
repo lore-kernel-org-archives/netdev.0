@@ -1,48 +1,52 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 04/11] qlge: set maximal number of default RSS
- queues
-Date: Sun, 1 Jul 2012 16:18:53 +0300
-Message-ID: <1341148740-7375-5-git-send-email-yuvalmin@broadcom.com>
-References: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
+From: Michal Zatloukal <myxal.mxl@gmail.com>
+Subject: Re: [BUG, regression, bisected] Marvell 88E8055 NIC (sky2) fails to
+ detect link after resume from S3
+Date: Sun, 1 Jul 2012 15:30:12 +0200
+Message-ID: <CAKKZj2DZprXcEg1tRDnt9fnFahLnOEMQNno9hS2UJzQ-n13JHA@mail.gmail.com>
+References: <op.wgon84tw16tawo@esprimo>
+	<20120629164610.1f343434@nehalam.linuxnetplumber.net>
+	<CAKKZj2DVX7Kr4Ag7jubtr7fSa5sSLYR=kt2b6=PV=8fV6q0d8Q@mail.gmail.com>
+	<20120630200236.GA30058@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Anirban Chakraborty" <anirban.chakraborty@qlogic.com>,
-	"Jitendra Kalsaria" <jitendra.kalsaria@qlogic.com>,
-	"Ron Mercer" <ron.mercer@qlogic.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3426 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932354Ab2GANUm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jul 2012 09:20:42 -0400
-In-Reply-To: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:59277 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932326Ab2GANaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 09:30:13 -0400
+Received: by obbuo13 with SMTP id uo13so6643168obb.19
+        for <netdev@vger.kernel.org>; Sun, 01 Jul 2012 06:30:13 -0700 (PDT)
+In-Reply-To: <20120630200236.GA30058@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Breaking news:
+Fiddling with mmiotrace, I was able to get the "phy I/O error" on
+previously-thought-good kernel (non-reliably; it took several
+suspend-resume cycles), and also vice versa - in vty, I was able to
+suspend and resume the "bad" kernel with the NIC still working (also
+not reliably - in GUI, it still flaked out after first
+suspend-resume).
 
-Cc: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Cc: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Anyway, I've gathered traces of both good and bad behaviour, each from
+the respective kernel (not that it seems to matter much). Now, what's
+the recommended way of posting them? Each is over 3MB in size and
+pastebin won't take them. :-(
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 09d8d33..3c3499d 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -4649,7 +4649,7 @@ static int __devinit qlge_probe(struct pci_dev *pdev,
- 	int err = 0;
- 
- 	ndev = alloc_etherdev_mq(sizeof(struct ql_adapter),
--			min(MAX_CPUS, (int)num_online_cpus()));
-+			min(MAX_CPUS, netif_get_num_default_rss_queues()));
- 	if (!ndev)
- 		return -ENOMEM;
- 
--- 
-1.7.9.rc2
+MZ
+
+On Sat, Jun 30, 2012 at 10:02 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Michal Zatloukal <myxal.mxl@gmail.com> :
+> [...]
+>> Is there something I can try?
+>
+> I have not used it for quite some time but comparing mmiotrace output
+> (see Documentation/trace/mmiotrace.txt) before and after the regression
+> commit may give some hint.
+>
+> Otherwise I would ask for help on linux-pm@vger.kernel.org
+>
+> --
+> Ueimor
