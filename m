@@ -1,55 +1,87 @@
 From: John Eaglesham <linux@8192.net>
-Subject: [PATCH v4 0/2] bonding support for IPv6 transmit hashing
-Date: Sun,  1 Jul 2012 00:01:37 -0700
-Message-ID: <cover.1341125875.git.linux@8192.net>
+Subject: [PATCH v4 2/2] Update bonding driver documentation to include IPv6 transmit hashing algorithm.
+Date: Sun,  1 Jul 2012 00:01:39 -0700
+Message-ID: <f9bff286392a4778369fa35dac2fafaff3d3a1b8.1341125875.git.linux@8192.net>
+References: <cover.1341125875.git.linux@8192.net>
 Cc: John Eaglesham <linux@8192.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp171.dfw.emailsrvr.com ([67.192.241.171]:56370 "EHLO
+Received: from smtp171.dfw.emailsrvr.com ([67.192.241.171]:45260 "EHLO
 	smtp171.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544Ab2GAHCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 03:02:22 -0400
+	with ESMTP id S1751835Ab2GAHCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 03:02:43 -0400
+In-Reply-To: <cover.1341125875.git.linux@8192.net>
+In-Reply-To: <cover.1341125875.git.linux@8192.net>
+References: <cover.1341125875.git.linux@8192.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the "bonding" driver does not support load balancing outgoing
-traffic in LACP mode for IPv6 traffic. IPv4 (and TCP or UDP over IPv4)
-are currently supported; this patch adds transmit hashing for IPv6 (and
-TCP or UDP over IPv6), bringing IPv6 up to par with IPv4 support in the
-bonding driver.
+---
+ Documentation/networking/bonding.txt | 31 ++++++++++++++++++++++++++-----
+ 1 file changed, 26 insertions(+), 5 deletions(-)
 
-The algorithm chosen (xor'ing the bottom three quads and then xor'ing
-the bottom three bytes of that) was chosen after testing almost 400,000
-unique IPv6 addresses harvested from server logs. This algorithm had the
-most even distribution for both big- and little-endian architectures while
-still using few instructions.
-
-The IPv6 flow label was intentionally not included in the hash as it appears
-to be unset in the vast majority of IPv6 traffic sampled, and the current
-algorithm not using the flow label already offers a very even distribution.
-
-Fragmented IPv6 packets are handled the same way as fragmented IPv4 packets,
-ie, they are not balanced based on layer 4 information. Additionally,
-IPv6 packets with intermediate headers are not balanced based on layer
-4 information. In practice these intermediate headers are not common and
-this should not cause any problems, and the alternative (a packet-parsing
-loop and look-up table) seemed slow and complicated for little gain.
-
-This is an update to a prior patch I submitted. This version includes
-a clarified description, thorough bounds checking, updates functions to
-call bond_xmit_hash_policy_l2 rather than re-implement the same logic,
-incorporates Jay's style suggestions, and patches against net-next. Patch
-has been tested and performs as expected.
-
-John Eaglesham (2):
-  Add support for IPv6 and bounds checking to transmit hashing
-    functions.
-  Update bonding driver documentation to include IPv6 transmit hashing
-    algorithm.
-
- Documentation/networking/bonding.txt | 31 ++++++++++--
- drivers/net/bonding/bond_main.c      | 91 +++++++++++++++++++++++++-----------
- 2 files changed, 90 insertions(+), 32 deletions(-)
-
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index bfea8a3..5db14fe 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -752,12 +752,22 @@ xmit_hash_policy
+ 		protocol information to generate the hash.
+ 
+ 		Uses XOR of hardware MAC addresses and IP addresses to
+-		generate the hash.  The formula is
++		generate the hash.  The IPv4 formula is
+ 
+ 		(((source IP XOR dest IP) AND 0xffff) XOR
+ 			( source MAC XOR destination MAC ))
+ 				modulo slave count
+ 
++		The IPv6 forumla is
++
++		iphash =
++			(source ip quad 2 XOR dest IP quad 2) XOR
++			(source ip quad 3 XOR dest IP quad 3) XOR
++			(source ip quad 4 XOR dest IP quad 4)
++
++		((iphash >> 16) XOR (iphash >> 8) XOR iphash)
++			modulo slave count
++
+ 		This algorithm will place all traffic to a particular
+ 		network peer on the same slave.  For non-IP traffic,
+ 		the formula is the same as for the layer2 transmit
+@@ -778,19 +788,30 @@ xmit_hash_policy
+ 		slaves, although a single connection will not span
+ 		multiple slaves.
+ 
+-		The formula for unfragmented TCP and UDP packets is
++		The formula for unfragmented IPv4 TCP and UDP packets is
+ 
+ 		((source port XOR dest port) XOR
+ 			 ((source IP XOR dest IP) AND 0xffff)
+ 				modulo slave count
+ 
+-		For fragmented TCP or UDP packets and all other IP
+-		protocol traffic, the source and destination port
++		The formula for unfragmented IPv6 TCP and UDP packets is
++
++		iphash =
++			(source ip quad 2 XOR dest IP quad 2) XOR
++			(source ip quad 3 XOR dest IP quad 3) XOR
++			(source ip quad 4 XOR dest IP quad 4)
++
++		((source port XOR dest port) XOR
++			(iphash >> 16) XOR (iphash >> 8) XOR iphash)
++				modulo slave count
++
++		For fragmented TCP or UDP packets and all other IPv4 and
++		IPv6 protocol traffic, the source and destination port
+ 		information is omitted.  For non-IP traffic, the
+ 		formula is the same as for the layer2 transmit hash
+ 		policy.
+ 
+-		This policy is intended to mimic the behavior of
++		The IPv4 policy is intended to mimic the behavior of
+ 		certain switches, notably Cisco switches with PFC2 as
+ 		well as some Foundry and IBM products.
+ 
 -- 
 1.7.11
