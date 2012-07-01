@@ -1,11 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] sctp: be more restrictive in transport selection on
+Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on
  bundled sacks
-Date: Sat, 30 Jun 2012 17:38:48 -0700 (PDT)
-Message-ID: <20120630.173848.305653960513565624.davem@davemloft.net>
-References: <1341000929-22933-1-git-send-email-nhorman@tuxdriver.com>
-	<20120629.163408.1111786778802302299.davem@davemloft.net>
-	<20120630122647.GA22647@neilslaptop.think-freely.org>
+Date: Sat, 30 Jun 2012 17:39:45 -0700 (PDT)
+Message-ID: <20120630.173945.173993639982489712.davem@davemloft.net>
+References: <1340742704-2192-1-git-send-email-nhorman@tuxdriver.com>
+	<1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,20 +12,55 @@ Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
 	linux-sctp@vger.kernel.org
 To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45175 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45183 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932069Ab2GAAit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 20:38:49 -0400
-In-Reply-To: <20120630122647.GA22647@neilslaptop.think-freely.org>
+	with ESMTP id S932069Ab2GAAjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jun 2012 20:39:46 -0400
+In-Reply-To: <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Neil Horman <nhorman@tuxdriver.com>
-Date: Sat, 30 Jun 2012 08:26:47 -0400
+Date: Sat, 30 Jun 2012 09:04:26 -0400
 
-> This is wrong.  Its a counter that increments every time we call sctp_make_sack,
-> so that we can create a unique generation identifier for use in tagging which
-> transports move ctsn in a given generation.  It saves us from having to iterate
-> over a list every time we send a sack. 
+> It was noticed recently that when we send data on a transport, its possible that
+> we might bundle a sack that arrived on a different transport.  While this isn't
+> a major problem, it does go against the SHOULD requirement in section 6.4 of RFC
+> 2960:
+> 
+>  An endpoint SHOULD transmit reply chunks (e.g., SACK, HEARTBEAT ACK,
+>    etc.) to the same destination transport address from which it
+>    received the DATA or control chunk to which it is replying.  This
+>    rule should also be followed if the endpoint is bundling DATA chunks
+>    together with the reply chunk.
+> 
+> This patch seeks to correct that.  It restricts the bundling of sack operations
+> to only those transports which have moved the ctsn of the association forward
+> since the last sack.  By doing this we guarantee that we only bundle outbound
+> saks on a transport that has received a chunk since the last sack.  This brings
+> us into stricter compliance with the RFC.
+> 
+> Vlad had initially suggested that we strictly allow only sack bundling on the
+> transport that last moved the ctsn forward.  While this makes sense, I was
+> concerned that doing so prevented us from bundling in the case where we had
+> received chunks that moved the ctsn on multiple transports.  In those cases, the
+> RFC allows us to select any of the transports having received chunks to bundle
+> the sack on.  so I've modified the approach to allow for that, by adding a state
+> variable to each transport that tracks weather it has moved the ctsn since the
+> last sack.  This I think keeps our behavior (and performance), close enough to
+> our current profile that I think we can do this without a sysctl knob to
+> enable/disable it.
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Vlad Yaseivch <vyasevich@gmail.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: linux-sctp@vger.kernel.org
+> Reported-by: Michele Baldessari <michele@redhat.com>
+> Reported-by: sorin serban <sserban@redhat.com>
 
-Sorry, I missed the counter bump.
+Once this has Vlad's ACK I'll apply it.
+
+There has to be a better way to handle this situation, wherein the
+responsible party has ACK'd the patch but I just ask for a few coding
+style fixups and whatnot.  As it stands now I have to twiddle my
+thumbs waiting for the new ACK.
