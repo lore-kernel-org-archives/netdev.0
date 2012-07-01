@@ -1,112 +1,229 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: pull request: batman-adv 2012-07-01
-Date: Mon,  2 Jul 2012 01:43:30 +0200
-Message-ID: <1341186226-10549-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from investici.nine.ch ([217.150.252.179]:23526 "EHLO
-	confino.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233Ab2GAXng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 19:43:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 01/16] batman-adv: Prefix gateway enum with
+	BATADV_
+Date: Mon,  2 Jul 2012 01:43:31 +0200
+Message-ID: <1341186226-10549-2-git-send-email-ordex@autistici.org>
+References: <1341186226-10549-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1341186226-10549-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-this should be our last planned pull request intended for net-next/linux-3.6 :-)
+Reported-by: Martin Hundeb=C3=B8ll <martin-SHBFXCSm21MJGwgDXS7ZQA@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+---
+ net/batman-adv/bat_iv_ogm.c     |    4 ++--
+ net/batman-adv/bat_sysfs.c      |   14 +++++++-------
+ net/batman-adv/gateway_client.c |    8 ++++----
+ net/batman-adv/gateway_common.h |    8 ++++----
+ net/batman-adv/soft-interface.c |   10 +++++-----
+ 5 files changed, 22 insertions(+), 22 deletions(-)
 
-In this batch you have patch 15/16 that fixes a variable declaration
-in the ethtool support code; patch 16/16 that fixes a non-critical bug which
-makes nodes send unicast packets with an uninitialised header field.
-The rest is the last part of our namespace renaming operation plus a couple of
-style fixes.
-
-Please let me know if there are problems!
-
-Thank you very much,
-		Antonio
-
-The following changes since commit a59a4d1921664da63d801ba477950114c71c88c9:
-
-  phy: add the EEE support and the way to access to the MMD registers. (2012-07-01 03:34:50 -0700)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 162d549c6905485262635fe594db337efb2828b5:
-
-  batman-adv: Don't leak information through uninitialized packet fields (2012-07-01 22:47:24 +0200)
-
-----------------------------------------------------------------
-Included changes:
-- The last batch of patches aimed to clean the batman-adv namespace
-- a couple of style fixes
-- a fix for the ethtool support
-- a fix to prevent sending unicast packets with an uninitialised header
-  field
-
-----------------------------------------------------------------
-Marek Lindner (1):
-      batman-adv: fix counter summary length
-
-Sven Eckelmann (15):
-      batman-adv: Prefix gateway enum with BATADV_
-      batman-adv: Prefix hard-interface enum with BATADV_
-      batman-adv: Prefix types enum with BATADV_
-      batman-adv: Prefix packet enum with BATADV_
-      batman-adv: Prefix main enum with BATADV_
-      batman-adv: Prefix local debugfs structs with batadv_
-      batman-adv: Prefix hash struct and typedef with batadv_
-      batman-adv: Prefix local sysfs struct with batadv_
-      batman-adv: Prefix packet structs with batadv_
-      batman-adv: Prefix types structs with batadv_
-      batman-adv: Transform BATADV_LOG_BUFF(idx) into function
-      batman-adv: Remove bat_ prefix from bat_{debugfs, sysfs}.{c, h}
-      batman-adv: Remove space before semicolon
-      batman-adv: Fix alignment after opened parentheses
-      batman-adv: Don't leak information through uninitialized packet fields
-
- net/batman-adv/Makefile                     |    4 +-
- net/batman-adv/bat_iv_ogm.c                 |  459 +++++++--------
- net/batman-adv/bitarray.c                   |    6 +-
- net/batman-adv/bridge_loop_avoidance.c      |  302 +++++-----
- net/batman-adv/bridge_loop_avoidance.h      |   48 +-
- net/batman-adv/{bat_debugfs.c => debugfs.c} |   76 ++-
- net/batman-adv/{bat_debugfs.h => debugfs.h} |    0
- net/batman-adv/gateway_client.c             |  127 +++--
- net/batman-adv/gateway_client.h             |   24 +-
- net/batman-adv/gateway_common.c             |    2 +-
- net/batman-adv/gateway_common.h             |    8 +-
- net/batman-adv/hard-interface.c             |  125 +++--
- net/batman-adv/hard-interface.h             |   28 +-
- net/batman-adv/hash.c                       |   12 +-
- net/batman-adv/hash.h                       |   33 +-
- net/batman-adv/icmp_socket.c                |   81 +--
- net/batman-adv/icmp_socket.h                |    4 +-
- net/batman-adv/main.c                       |   82 +--
- net/batman-adv/main.h                       |   63 ++-
- net/batman-adv/originator.c                 |  151 ++---
- net/batman-adv/originator.h                 |   37 +-
- net/batman-adv/packet.h                     |  132 ++---
- net/batman-adv/routing.c                    |  300 +++++-----
- net/batman-adv/routing.h                    |   52 +-
- net/batman-adv/send.c                       |   75 +--
- net/batman-adv/send.h                       |   12 +-
- net/batman-adv/soft-interface.c             |   55 +-
- net/batman-adv/soft-interface.h             |    2 +-
- net/batman-adv/{bat_sysfs.c => sysfs.c}     |  134 +++--
- net/batman-adv/{bat_sysfs.h => sysfs.h}     |    6 +-
- net/batman-adv/translation-table.c          |  808 ++++++++++++++-------------
- net/batman-adv/translation-table.h          |   43 +-
- net/batman-adv/types.h                      |  154 ++---
- net/batman-adv/unicast.c                    |   95 ++--
- net/batman-adv/unicast.h                    |   19 +-
- net/batman-adv/vis.c                        |  284 +++++-----
- net/batman-adv/vis.h                        |   12 +-
- 37 files changed, 2011 insertions(+), 1844 deletions(-)
- rename net/batman-adv/{bat_debugfs.c => debugfs.c} (81%)
- rename net/batman-adv/{bat_debugfs.h => debugfs.h} (100%)
- rename net/batman-adv/{bat_sysfs.c => sysfs.c} (85%)
- rename net/batman-adv/{bat_sysfs.h => sysfs.h} (89%)
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index bbe0f12..d3fc581 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -611,7 +611,7 @@ static void batadv_iv_ogm_schedule(struct hard_iface =
+*hard_iface)
+ 		batman_ogm_packet->flags &=3D ~VIS_SERVER;
+=20
+ 	if ((hard_iface =3D=3D primary_if) &&
+-	    (atomic_read(&bat_priv->gw_mode) =3D=3D GW_MODE_SERVER))
++	    (atomic_read(&bat_priv->gw_mode) =3D=3D BATADV_GW_MODE_SERVER))
+ 		batman_ogm_packet->gw_flags =3D
+ 				(uint8_t)atomic_read(&bat_priv->gw_bandwidth);
+ 	else
+@@ -760,7 +760,7 @@ update_tt:
+=20
+ 	/* restart gateway selection if fast or late switching was enabled */
+ 	if ((orig_node->gw_flags) &&
+-	    (atomic_read(&bat_priv->gw_mode) =3D=3D GW_MODE_CLIENT) &&
++	    (atomic_read(&bat_priv->gw_mode) =3D=3D BATADV_GW_MODE_CLIENT) &&
+ 	    (atomic_read(&bat_priv->gw_sel_class) > 2))
+ 		batadv_gw_check_election(bat_priv, orig_node);
+=20
+diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
+index 95d80d1..561ec31 100644
+--- a/net/batman-adv/bat_sysfs.c
++++ b/net/batman-adv/bat_sysfs.c
+@@ -360,11 +360,11 @@ static ssize_t batadv_show_gw_mode(struct kobject *=
+kobj, struct attribute *attr,
+ 	int bytes_written;
+=20
+ 	switch (atomic_read(&bat_priv->gw_mode)) {
+-	case GW_MODE_CLIENT:
++	case BATADV_GW_MODE_CLIENT:
+ 		bytes_written =3D sprintf(buff, "%s\n",
+ 					BATADV_GW_MODE_CLIENT_NAME);
+ 		break;
+-	case GW_MODE_SERVER:
++	case BATADV_GW_MODE_SERVER:
+ 		bytes_written =3D sprintf(buff, "%s\n",
+ 					BATADV_GW_MODE_SERVER_NAME);
+ 		break;
+@@ -391,15 +391,15 @@ static ssize_t batadv_store_gw_mode(struct kobject =
+*kobj,
+=20
+ 	if (strncmp(buff, BATADV_GW_MODE_OFF_NAME,
+ 		    strlen(BATADV_GW_MODE_OFF_NAME)) =3D=3D 0)
+-		gw_mode_tmp =3D GW_MODE_OFF;
++		gw_mode_tmp =3D BATADV_GW_MODE_OFF;
+=20
+ 	if (strncmp(buff, BATADV_GW_MODE_CLIENT_NAME,
+ 		    strlen(BATADV_GW_MODE_CLIENT_NAME)) =3D=3D 0)
+-		gw_mode_tmp =3D GW_MODE_CLIENT;
++		gw_mode_tmp =3D BATADV_GW_MODE_CLIENT;
+=20
+ 	if (strncmp(buff, BATADV_GW_MODE_SERVER_NAME,
+ 		    strlen(BATADV_GW_MODE_SERVER_NAME)) =3D=3D 0)
+-		gw_mode_tmp =3D GW_MODE_SERVER;
++		gw_mode_tmp =3D BATADV_GW_MODE_SERVER;
+=20
+ 	if (gw_mode_tmp < 0) {
+ 		batadv_info(net_dev,
+@@ -412,10 +412,10 @@ static ssize_t batadv_store_gw_mode(struct kobject =
+*kobj,
+ 		return count;
+=20
+ 	switch (atomic_read(&bat_priv->gw_mode)) {
+-	case GW_MODE_CLIENT:
++	case BATADV_GW_MODE_CLIENT:
+ 		curr_gw_mode_str =3D BATADV_GW_MODE_CLIENT_NAME;
+ 		break;
+-	case GW_MODE_SERVER:
++	case BATADV_GW_MODE_SERVER:
+ 		curr_gw_mode_str =3D BATADV_GW_MODE_SERVER_NAME;
+ 		break;
+ 	default:
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_cli=
+ent.c
+index 5fc162c..2fcf26f 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -194,7 +194,7 @@ void batadv_gw_election(struct bat_priv *bat_priv)
+ 	 * hear about. This check is based on the daemon's uptime which we
+ 	 * don't have.
+ 	 */
+-	if (atomic_read(&bat_priv->gw_mode) !=3D GW_MODE_CLIENT)
++	if (atomic_read(&bat_priv->gw_mode) !=3D BATADV_GW_MODE_CLIENT)
+ 		goto out;
+=20
+ 	if (!batadv_atomic_dec_not_zero(&bat_priv->gw_reselect))
+@@ -663,13 +663,13 @@ bool batadv_gw_out_of_range(struct bat_priv *bat_pr=
+iv,
+ 		goto out;
+=20
+ 	switch (atomic_read(&bat_priv->gw_mode)) {
+-	case GW_MODE_SERVER:
++	case BATADV_GW_MODE_SERVER:
+ 		/* If we are a GW then we are our best GW. We can artificially
+ 		 * set the tq towards ourself as the maximum value
+ 		 */
+ 		curr_tq_avg =3D BATADV_TQ_MAX_VALUE;
+ 		break;
+-	case GW_MODE_CLIENT:
++	case BATADV_GW_MODE_CLIENT:
+ 		curr_gw =3D batadv_gw_get_selected_gw_node(bat_priv);
+ 		if (!curr_gw)
+ 			goto out;
+@@ -689,7 +689,7 @@ bool batadv_gw_out_of_range(struct bat_priv *bat_priv=
+,
+=20
+ 		curr_tq_avg =3D neigh_curr->tq_avg;
+ 		break;
+-	case GW_MODE_OFF:
++	case BATADV_GW_MODE_OFF:
+ 	default:
+ 		goto out;
+ 	}
+diff --git a/net/batman-adv/gateway_common.h b/net/batman-adv/gateway_com=
+mon.h
+index 31bbc3c..13697f6 100644
+--- a/net/batman-adv/gateway_common.h
++++ b/net/batman-adv/gateway_common.h
+@@ -20,10 +20,10 @@
+ #ifndef _NET_BATMAN_ADV_GATEWAY_COMMON_H_
+ #define _NET_BATMAN_ADV_GATEWAY_COMMON_H_
+=20
+-enum gw_modes {
+-	GW_MODE_OFF,
+-	GW_MODE_CLIENT,
+-	GW_MODE_SERVER,
++enum batadv_gw_modes {
++	BATADV_GW_MODE_OFF,
++	BATADV_GW_MODE_CLIENT,
++	BATADV_GW_MODE_SERVER,
+ };
+=20
+ #define BATADV_GW_MODE_OFF_NAME	"off"
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interf=
+ace.c
+index c1b2ab2..b77e598 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -177,7 +177,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
+ 		do_bcast =3D true;
+=20
+ 		switch (atomic_read(&bat_priv->gw_mode)) {
+-		case GW_MODE_SERVER:
++		case BATADV_GW_MODE_SERVER:
+ 			/* gateway servers should not send dhcp
+ 			 * requests into the mesh
+ 			 */
+@@ -185,7 +185,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
+ 			if (ret)
+ 				goto dropped;
+ 			break;
+-		case GW_MODE_CLIENT:
++		case BATADV_GW_MODE_CLIENT:
+ 			/* gateway clients should send dhcp requests
+ 			 * via unicast to their gateway
+ 			 */
+@@ -193,7 +193,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
+ 			if (ret)
+ 				do_bcast =3D false;
+ 			break;
+-		case GW_MODE_OFF:
++		case BATADV_GW_MODE_OFF:
+ 		default:
+ 			break;
+ 		}
+@@ -234,7 +234,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
+=20
+ 	/* unicast packet */
+ 	} else {
+-		if (atomic_read(&bat_priv->gw_mode) !=3D GW_MODE_OFF) {
++		if (atomic_read(&bat_priv->gw_mode) !=3D BATADV_GW_MODE_OFF) {
+ 			ret =3D batadv_gw_out_of_range(bat_priv, skb, ethhdr);
+ 			if (ret)
+ 				goto dropped;
+@@ -387,7 +387,7 @@ struct net_device *batadv_softif_create(const char *n=
+ame)
+ 	atomic_set(&bat_priv->bridge_loop_avoidance, 0);
+ 	atomic_set(&bat_priv->ap_isolation, 0);
+ 	atomic_set(&bat_priv->vis_mode, VIS_TYPE_CLIENT_UPDATE);
+-	atomic_set(&bat_priv->gw_mode, GW_MODE_OFF);
++	atomic_set(&bat_priv->gw_mode, BATADV_GW_MODE_OFF);
+ 	atomic_set(&bat_priv->gw_sel_class, 20);
+ 	atomic_set(&bat_priv->gw_bandwidth, 41);
+ 	atomic_set(&bat_priv->orig_interval, 1000);
+--=20
+1.7.9.4
