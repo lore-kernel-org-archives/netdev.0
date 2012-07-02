@@ -1,57 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow
- steering firmware API
-Date: Mon, 02 Jul 2012 01:36:26 -0700 (PDT)
-Message-ID: <20120702.013626.13785263551119133.davem@davemloft.net>
-References: <4FF153F0.8080707@mellanox.com>
-	<CAG4TOxNyxP8FpzNdMZR3WMvFCQtEx_r3oLh6s7sZOcBnqN=6tA@mail.gmail.com>
-	<4FF15BA2.5000104@mellanox.com>
+From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+Subject: AW: AW: RFC: replace packets already in queue
+Date: Mon, 2 Jul 2012 08:38:55 +0000
+Message-ID: <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>
+References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
+	 <4FEC854E.8080603@hp.com>
+	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
+	 <1340960817.15719.6.camel@edumazet-glaptop>
+	 <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
+ <1341214310.5269.27.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
-	netdev@vger.kernel.org, hadarh@mellanox.co.il
-To: ogerlitz@mellanox.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54735 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755343Ab2GBIg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 04:36:27 -0400
-In-Reply-To: <4FF15BA2.5000104@mellanox.com>
+Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:56561 "EHLO
+	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932324Ab2GBIjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 04:39:00 -0400
+In-Reply-To: <1341214310.5269.27.camel@edumazet-glaptop>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 2 Jul 2012 11:28:18 +0300
-
-> On 7/2/2012 11:14 AM, Roland Dreier wrote:
->> What was wrong with Dave's initial suggestion of ethtool? All the
->> other steering stuff is configured that way, why not this hash?
-> 
-> Roland, as I wrote earlier on this thread --> [...] pointed out in the
-> change-log, note that this policy is **global** to the HCA, that is
-> effects all the Ethernet (and down the road, also when adding support
-> for IPoIB flow-steering, under a config of card with one IB port and
-> one Eth port) net-devices that relate to that mlx4 device instance.
-> 
-> In a system with (say) one card and two Ethernet ports, where for each
-> port there's corresponding ethN interface, **both** mlx4_en
-> net-devices use the same instance of struct mlx4_device, which means
-> that if we let the user to set through ethtool the flow steering hash
-> of ethN1 this will evetually change also the hash used for packets
-> going to ethN2, or in other words, in mlx4 language this param belong
-> to the mlx4_core module. In that respect, I was thinking on using
-> sysfs as we do for the port link type and IB mtu, hope this makes
-> things clearer, SB the relevant code, now with the global module param
-> which can change to using per mlx4_core device sysfs.
-
-I frankly don't care what your special unique situation is.
-
-You cannot create chipset specific interfaces like module parms
-and randomly named sysfs files as an interface to configure your
-hardware.
-
-Other chipsets will want the same thing or something similar.
-
-So you must create a real generic interface that other chipsets
-in similar situations can hook into as well.
+PiA+IEV2ZW4gaWYgdGhlIHdpcmVsZXNzIHF1ZXVlIGlzIGEgcHJvYmxlbSAoYmVjYXVzZSBvZiBv
+dXIgc2V0dXAsIHRoaXMNCj4gaXMNCj4gPiBub3QgYSBwcm9ibGVtKSwgdGhlIG5ldHdvcmsgc3Rh
+Y2sgcXVldWUgKCopIGlzIHRoZSBiaWdnZXN0IHF1ZXVlLCBhbmQNCj4gPiBhIGdvb2QgcG9pbnQg
+dG8gb3B0aW1pemUuDQo+IA0KPiBIbW0sIEkgYW0gbm90IGNvbnZpbmNlZCB5b3UgaGF2ZSBubyBx
+dWV1ZXMgb24gd2lyZWxlc3MuDQo+IA0KPiBQbGVhc2UgZGVzY3JpYmUgaG93IHlvdSBtYW5hZ2Vk
+IHRoaXMuDQo+IA0KPiBJbiBmYWN0IHRoaXMgaXMgdGhlIGJpZ2dlc3QgcHJvYmxlbSB3aXRoIHdp
+cmVsZXNzIDogbWFjODIwMTEgZnJhbWV3b3JrDQo+IGFnZ3Jlc3NpdmVseSBwdWxsIHBhY2tldHMg
+ZnJvbSBMaW51eCBwYWNrZXQgcWRpc2MgaW4gb3JkZXIgdG8gcGVyZm9ybQ0KPiBwYWNrZXQgYWdn
+cmVnYXRpb24uDQoNCkkgZGlkIG5vdCB0YWxraW5nIGFib3V0IFctTEFOICg4MDIuMTEpLiBJJ20g
+dGFsa2luZyBhYm91dCBhbiBwcm9wZXJ0eSB0ZWNobm9sb2d5IHdoaWNoIGlzIGFibGUgdG8gc2Vu
+ZCBvdmVyIEtJTE9NRVRFUnMgKFdMQU4gPCAxMDBtKSBidXQgd2l0aCBWRVJZIGxvdyBiYW5kd2lk
+dGg6IDk2MDAgYml0IChubyBNZWdhLCBHaWdhIG9yIEtpbG8hKSAoVy1MQU46IHNsb3dlc3Q6IDFN
+Yml0KS4NClRoZSBkZXZpY2VzIGlzIGxvb3NlbHkgY29ubmVjdGVkIHRvIG91ciBib3hlczogTm8g
+bGludXggZHJpdmVyIGJ1dCBhIHByb2dyYW0gd2hpY2ggY3JlYXRlIGFuIHZpcnR1YWwgbmV0d29y
+ayBkZXZpY2UuIFRoaXMganVzdCBzZW5kcyBvbmUgcGFja2V0IHRvIHRoZSBkZXZpY2VzIGFuZCB0
+aGVuIHdhaXRzIGZvciB0aGUgYWNrbm93bGVkZ2VtZW50IHRoYXQgdGhlIHBhY2tldCB3YXMgc2Vu
+dC4gVEhFTiB0aGUgbmV4dCBwYWNrZXQgd2lsbCBiZSBzZW5kLiBUaGVyZSBpcyBubyBmdXJ0aGVy
+IHF1ZXVlLCBiZWNhdXNlIHRoZSB3aXJlbGVzcyBpcyBzbyBsYW1lLCB0aGF0IHRoZXJlIGlzIG5v
+IG5lZWQgZm9yIHRoYXQhDQooQlRXOiB0aGUgcWRpc2MgYW5kIHRoZSBjb25uZWN0b3IgYXJlIGRp
+c3RpbmN0IHByb2JsZW1zL3Byb2dyYW1zLiBUaGVyZSBpcyBubyBkZXBlbmRlbmN5LikNCg0KDQo+
+IE1vc3QgcGFja2V0cyBkb24ndCBzdGF5IGluIHFkaXNjIGJ1dCBhcmUgc2l0dGluZyBpbiB3aXJl
+bGVzcyBkcml2ZXIsDQo+IHVubGVzcyB5b3UgcmVhbGx5IGZsb29kIGl0LiBJZiBpdCBoYXBwZW5z
+LCB5b3UgYWxyZWFkeSBhcmUgaW4gdHJvdWJsZS4NCg0KV2UgQVJFIGluIHRyb3VibGUuLi4gOi0v
+DQoNCg0KPiBTbyBjb2RlIHlvdXIgcWRpc2MgdGhpbmcsIGJ1dCBJIGFtIG5vdCBzdXJlIHlvdSds
+bCBnZXQgbXVjaA0KPiBpbXByb3ZlbWVudC4NCg0KSXQncyBpbXBsZW1lbnRlZCBhbHJlYWR5IChp
+dCdzIGp1c3QgYSBsaXR0bGUgc291cmNlIGZpbGUpLCBhbmQgaXQgd29ya2VkIGluIHRoZSBzaW11
+bGF0aW9uLiBCdXQgSSBjYW5ub3QgdGVzdCB0aGVtIG9uIHJlYWwgZGV2aWNlcyBBVE0uDQoNCk15
+IHF1ZXN0aW9uIGlzOiBTaG91bGQgSSBkbyB0aGUgd29yayB0byBjcmVhdGUgYW5kIHJlbGVhc2Ug
+YSBrZXJuZWwgcGF0Y2ggYW5kIG1ha2UgaXQgcGVyZmVjdCBvdmVyIHRoZSB0aW1lLCBvciBpcyB0
+aGlzIGp1c3Qgb3VyIGludGVybmFsIGNvZGUsIHdoaWNoIEkgY2FuIGxlYXZlIGF0IHRoZSBjdXJy
+ZW50IHN0YXRlPyBJIGtub3cgb3VyIG1vZHVsZSB3b24ndCBiZSB1c2VkIHdpZGVseSAodG9vIHNw
+ZWNpYWwpLCBidXQgSSdtIHN1cmUsIHRoZXJlIGFyZSBhIGZldyBwZW9wbGUgb3V0IHRoZXJlLCB3
+aGljaCB3b3VsZCBiZSB0aGFua2Z1bCBmb3IgdGhpcy4NCg0K
