@@ -1,41 +1,61 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: AF_BUS socket address family
-Date: Sun, 01 Jul 2012 22:49:06 -0600
-Message-ID: <4FF12842.8080802@genband.com>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>	<20120629.153656.1141845894730637434.davem@davemloft.net>	<20120629231236.GA28593@mail.collabora.co.uk> <20120629.161821.948325645333976311.davem@davemloft.net>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next 00/11] default maximal number of RSS queues
+ in mq drivers
+Date: Mon, 2 Jul 2012 07:55:25 +0300
+Message-ID: <4FF129BD.8070904@broadcom.com>
+References: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
+ <4FF0663C.1070306@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120629.161821.948325645333976311.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
+	"Divy Le Ray" <divy@chelsio.com>, "Jon Mason" <jdmason@kudzu.us>,
+	"Anirban Chakraborty" <anirban.chakraborty@qlogic.com>,
+	"Jitendra Kalsaria" <jitendra.kalsaria@qlogic.com>,
+	"Ron Mercer" <ron.mercer@qlogic.com>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	"Jon Mason" <mason@myri.com>,
+	"Andrew Gallatin" <gallatin@myri.com>,
+	"Sathya Perla" <sathya.perla@emulex.com>,
+	"Subbu Seetharaman" <subbu.seetharaman@emulex.com>,
+	"Ajit Khaparde" <ajit.khaparde@emulex.com>,
+	"Matt Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
+To: "Or Gerlitz" <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2342 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752034Ab2GBE4u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2012 00:56:50 -0400
+In-Reply-To: <4FF0663C.1070306@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/29/2012 05:18 PM, David Miller wrote:
-> From: Vincent Sanders<vincent.sanders@collabora.co.uk>
-> Date: Sat, 30 Jun 2012 00:12:37 +0100
->
->> I had hoped you would have at least read the opening list where I
->> outlined the underlying features which explain why none of the
->> existing IPC match the requirements.
-> I had hoped that you had read the part we told you last time where
-> we explained why multicast and "reliable delivery" are fundamentally
-> incompatible attributes.
->
-> We are not creating a full address family in the kernel which exists
-> for one, and only one, specific and difficult user.
+> I assume this posting is actually v3 of "[RFC net-next (v2) 00/14] default maximal number of RSS queues in mq drivers" see http://marc.info/?l=linux-netdev&m=134062509310404&w=2?
+> 
 
-For what it's worth, the company I work for (and a number of other 
-companies) currently use an out-of-tree datagram multicast messaging 
-protocol family based on AF_UNIX.
 
-If AF_BUS were to be accepted, it would be essentially trivial for us to 
-port our existing userspace messaging library to use it instead of our 
-current protocol family, and we would almost certainly do so.
+Of course you are correct - the fact that it's based on that RFC is stated
+explicitly in PATCH 0 of this series.
 
-I'd love to see AF_BUS go in.
+> correct? so what has been changed along v0/v1/v2 --> v3?  It would be very helpful to follow
+> if you make sure to mark the patches that makes Vn with "PATCH net-next Vn" and specify the changes
+> from Vn-1, Vn-2...V1, V0.
 
-Chris Friesen
+
+
+Certainly -
+
+Changes from RFC v2:
+	- Removed changes for igb, igbxe, and igxbevf drivers.
+
+Changes from RFC v1:
+	- Use 'netif_get_num_default_rss_queues()' wrapper function instead
+	  of using a hard-coded define value directly.
+	- Corrected be2net implementation of this fix.
+
+Cheers,
+Yuval
