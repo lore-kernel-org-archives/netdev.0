@@ -1,60 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/5] rtcache remove respin
-Date: Mon, 02 Jul 2012 12:44:01 +0200
-Message-ID: <1341225841.5269.69.camel@edumazet-glaptop>
-References: <20120701.050243.908285695895815999.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
+ strings
+Date: Mon, 2 Jul 2012 13:48:43 +0300
+Message-ID: <20120702104843.GB4519@mwanda>
+References: <20120630114935.GB22767@elgon.mountain>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B6F6F@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:45423 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932931Ab2GBKoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 06:44:04 -0400
-Received: by eaak11 with SMTP id k11so2021660eaa.19
-        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 03:44:03 -0700 (PDT)
-In-Reply-To: <20120701.050243.908285695895815999.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "James E.J. Bottomley" <JBottomley@parallels.com>,
+	Barak Witkowski <barak@broadcom.com>,
+	Eddie Wai <eddie.wai@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6F@saturn3.aculab.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-07-01 at 05:02 -0700, David Miller wrote:
-> It's been a while and there were of course a lot of merge hassles with
-> the most recent set I posted, so I respun these patches tonight
-> because I wanted to see the effects of the recent rpfilter hacks on an
-> rtcache-less system.
+On Mon, Jul 02, 2012 at 11:09:19AM +0100, David Laight wrote:
+> > Subject: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
+> strings
+> > 
+> > DRV_MODULE_VERSION here is "2.7.2.2" which is only 8 chars but we copy
+> > 12 bytes from the stack so it's a small information leak.
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > ---
+> > This was just added to linux-next yesterday, but I'm not sure 
+> > which tree it came from.
+> > 
+> > diff --git a/drivers/scsi/bnx2i/bnx2i_init.c 
+> > b/drivers/scsi/bnx2i/bnx2i_init.c
+> > index 7729a52..b17637a 100644
+> > --- a/drivers/scsi/bnx2i/bnx2i_init.c
+> > +++ b/drivers/scsi/bnx2i/bnx2i_init.c
+> > @@ -400,7 +400,7 @@ int bnx2i_get_stats(void *handle)
+> >  	if (!stats)
+> >  		return -ENOMEM;
+> >  
+> > -	memcpy(stats->version, DRV_MODULE_VERSION,
+> sizeof(stats->version));
+> > +	strlcpy(stats->version, DRV_MODULE_VERSION,
+> sizeof(stats->version));
+> >  	memcpy(stats->mac_add1 + 2, hba->cnic->mac_addr, ETH_ALEN);
 > 
-> On a SPARC T3-1:
-> 
-> 1) Output route lookup: ~2800 cycles
-> 2) Input route lookups: ~3000 cycles (rpfilter=0)
->                         ~4300 cycles (rpfilter=1)
-> 
-> Another nice part is how small struct rtable is after this patch set:
-> 
-> struct rtable {
-> 	struct dst_entry        dst;
-> 	int                     rt_genid;
-> 	unsigned int            rt_flags;
-> 	__u16                   rt_type;
-> 	__be32                  rt_dst;
-> 	int                     rt_route_iif;
-> 	int                     rt_iif;
-> 	int                     rt_oif;
-> 	__be32                  rt_gateway;
-> 	u32                     rt_peer_genid;
-> 	unsigned long           _peer;
-> 	struct fib_info         *fi;
-> };
-> 
-> which is about 208 bytes on sparc64.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Doesn't that leak the original contents of the last bytes of
+> stats->version instead?
 
-Can be <= 192 actually
+I'm pretty sure we set those to zero in bnx2x_handle_drv_info_req().
 
-rcu_head not needed anymore in dst_entry
+regards,
+dan carpenter
 
-If we still want __refcnt being on cache line boundary, we might find a
-better way to accomplish this.
