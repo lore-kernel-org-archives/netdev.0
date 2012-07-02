@@ -1,61 +1,108 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [PATCH net-next 00/11] default maximal number of RSS queues
- in mq drivers
-Date: Mon, 2 Jul 2012 07:55:25 +0300
-Message-ID: <4FF129BD.8070904@broadcom.com>
-References: <1341148740-7375-1-git-send-email-yuvalmin@broadcom.com>
- <4FF0663C.1070306@mellanox.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net-next] em_canid: Ematch rule to match CAN frames according
+ to their identifiers
+Date: Mon, 02 Jul 2012 07:04:01 +0200
+Message-ID: <4FF12BC1.9030906@hartkopp.net>
+References: <1340903231-9561-1-git-send-email-lisovy@gmail.com> <4FEDCD42.8010203@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
-	"Divy Le Ray" <divy@chelsio.com>, "Jon Mason" <jdmason@kudzu.us>,
-	"Anirban Chakraborty" <anirban.chakraborty@qlogic.com>,
-	"Jitendra Kalsaria" <jitendra.kalsaria@qlogic.com>,
-	"Ron Mercer" <ron.mercer@qlogic.com>,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
-	"Jon Mason" <mason@myri.com>,
-	"Andrew Gallatin" <gallatin@myri.com>,
-	"Sathya Perla" <sathya.perla@emulex.com>,
-	"Subbu Seetharaman" <subbu.seetharaman@emulex.com>,
-	"Ajit Khaparde" <ajit.khaparde@emulex.com>,
-	"Matt Carlson" <mcarlson@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>
-To: "Or Gerlitz" <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2342 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752034Ab2GBE4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jul 2012 00:56:50 -0400
-In-Reply-To: <4FF0663C.1070306@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
+To: Rostislav Lisovy <lisovy@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4FEDCD42.8010203@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I assume this posting is actually v3 of "[RFC net-next (v2) 00/14] default maximal number of RSS queues in mq drivers" see http://marc.info/?l=linux-netdev&m=134062509310404&w=2?
+One additional remark:
+
+When applying your patch on Dave Millers net-next tree there are some offsets
+in the patch ...
+
+Please send the next patch based on the net-next tree, as this would be the
+tree, it will be applied to. See URLs at:
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git
+
+Tnx!
+
+Oliver
+
+On 29.06.2012 17:44, Oliver Hartkopp wrote:
+
+> Hello Rostislav,
 > 
+> looks really good now.
+> 
+> 1. Your Signed-off-by: is missing.
+> 
+> 2. One remark to a removed length check:
+> 
+> (..)
+> 
+>> +static int em_canid_change(struct tcf_proto *tp, void *data, int len,
+>> +			  struct tcf_ematch *m)
+>> +{
+>> +	struct can_filter *conf = data; /* Array with rules,
+>> +					 * fixed size EM_CAN_RULES_SIZE
+>> +					 */
+>> +	struct canid_match *cm;
+>> +	struct canid_match *cm_old = (struct canid_match *) m->data;
+>> +	int i;
+>> +	int rulescnt;
+>> +
+> 
+> 
+> What about a zero length check here?
+> 
+> 	if (!len)
+> 		return -EINVAL;
+> 
+> ???
+> 
+>> +	if (len % sizeof(struct can_filter))
+>> +		return -EINVAL;
+>> +
+>> +	if (len > sizeof(struct can_filter) * EM_CAN_RULES_MAX)
+>> +		return -EINVAL;
+>> +
+>> +	rulescnt = len / sizeof(struct can_filter);
+>> +
+>> +	cm = kzalloc(sizeof(struct canid_match) + sizeof(struct can_filter) *
+>> +		rulescnt, GFP_KERNEL);
+>> +	if (!cm)
+>> +		return -ENOMEM;
+> 
+> 
+> The length could alternatively be checked here too
+> 
+> http://lxr.linux.no/#linux+v3.4.4/net/sched/ematch.c#L235
+> 
+> if em->ops->datalen is set.
+> 
+> But here's no
+> 
+> 	.datalen = sizeof(struct can_filter),
+> 
+> defined, right?
+> 
+>> +static struct tcf_ematch_ops em_canid_ops = {
+>> +	.kind	  = TCF_EM_CANID,
+>> +	.change	  = em_canid_change,
+>> +	.match	  = em_canid_match,
+>> +	.destroy  = em_canid_destroy,
+>> +	.dump	  = em_canid_dump,
+>> +	.owner	  = THIS_MODULE,
+>> +	.link	  = LIST_HEAD_INIT(em_canid_ops.link)
+>> +};
+> 
+> 
+> Regards,
+> Oliver
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-can" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-Of course you are correct - the fact that it's based on that RFC is stated
-explicitly in PATCH 0 of this series.
-
-> correct? so what has been changed along v0/v1/v2 --> v3?  It would be very helpful to follow
-> if you make sure to mark the patches that makes Vn with "PATCH net-next Vn" and specify the changes
-> from Vn-1, Vn-2...V1, V0.
-
-
-
-Certainly -
-
-Changes from RFC v2:
-	- Removed changes for igb, igbxe, and igxbevf drivers.
-
-Changes from RFC v1:
-	- Use 'netif_get_num_default_rss_queues()' wrapper function instead
-	  of using a hard-coded define value directly.
-	- Corrected be2net implementation of this fix.
-
-Cheers,
-Yuval
