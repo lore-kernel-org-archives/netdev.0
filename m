@@ -1,48 +1,55 @@
-From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
-Subject: AW: RFC: replace packets already in queue
-Date: Mon, 2 Jul 2012 07:02:08 +0000
-Message-ID: <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
-References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
-	 <4FEC854E.8080603@hp.com>
-	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
- <1340960817.15719.6.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ieee802154: sparse warnings: make symbols
+ static
+Date: Mon, 02 Jul 2012 09:09:02 +0200
+Message-ID: <1341212942.5269.10.camel@edumazet-glaptop>
+References: <1341209912-6030-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+	 <1341209912-6030-2-git-send-email-alex.bluesman.smirnov@gmail.com>
+	 <1341211072.5269.0.camel@edumazet-glaptop>
+	 <1341211476.5269.2.camel@edumazet-glaptop>
+	 <1341211751.5269.6.camel@edumazet-glaptop>
+	 <CAJmB2rDB6McXg=O_z-M3xFa0OrB5hkTWT=ZHM975GDTPvuGjtQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, dbaryshkov@gmail.com
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:55618 "EHLO
-	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754159Ab2GBHCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 03:02:12 -0400
-In-Reply-To: <1340960817.15719.6.camel@edumazet-glaptop>
-Content-Language: de-DE
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57275 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871Ab2GBHJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 03:09:04 -0400
+Received: by eeit10 with SMTP id t10so1930211eei.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 00:09:03 -0700 (PDT)
+In-Reply-To: <CAJmB2rDB6McXg=O_z-M3xFa0OrB5hkTWT=ZHM975GDTPvuGjtQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gRXJpYyBEdW1hemV0LA0KDQpzb3JyeSBmb3IgdGhlIGxhdGUgYW5zd2VyLCBidXQgc29t
-ZXRpbWVzIGl0J3Mgbm90IGVhc3kgaGVyZS4uLg0KDQo+IFByb2JsZW0gaXMgOiB3aXRoIHdpcmVs
-ZXNzLCBjaGFuY2VzIGFyZSBoaWdoIHRoYXQgdGhlIG9sZCBwYWNrZXQgaXMgbm90DQo+IHdhaXRp
-bmcgaW4gcWRpc2MsIGJ1dCBpbiB3aXJlbGVzcyBxdWV1ZXMuDQoNCkV2ZW4gaWYgdGhlIHdpcmVs
-ZXNzIHF1ZXVlIGlzIGEgcHJvYmxlbSAoYmVjYXVzZSBvZiBvdXIgc2V0dXAsIHRoaXMgaXMgbm90
-IGEgcHJvYmxlbSksIHRoZSBuZXR3b3JrIHN0YWNrIHF1ZXVlICgqKSBpcyB0aGUgYmlnZ2VzdCBx
-dWV1ZSwgYW5kIGEgZ29vZCBwb2ludCB0byBvcHRpbWl6ZS4gQW5kIGl0cyBpbXBvc3NpYmxlIGRv
-aW5nIHRoaW5ncyAxMDAlLiBXZSBhcmUgaGFwcHkgdG8gZ2V0IDk5JS4gVGhpcyBpcyBhIGdyZWF0
-IGltcHJvdmVtZW50IGNvbXBhcmVkIHRvIHRoZSBwcmV2aW91cyBzaXR1YXRpb24uDQoNCigqIFdo
-ZW4gSSdtIGdldHRpbmcgdGhlIHBpY3R1cmUgaW4gaHR0cDovL2xhcnRjLm9yZy9ob3d0by9sYXJ0
-Yy5xZGlzYy50ZXJtaW5vbG9neS5odG1sIGNvcnJlY3QsIHRoZSBxZGlzYyBpcyB0aGUgb3V0Z29p
-bmcgcXVldWUgYW5kIHRoZSBsYXN0IHF1ZXVlIG9mIHRoZSBrZXJuZWwuIEFmdGVyIHRoaXMgcXVl
-dWUsIHRoZXJlIGFyZSBvbmx5IHRoZSBoYXJkd2FyZSBxdWV1ZXMuKQ0KDQo+IEFueXdheSwgYWRk
-aW5nIGEgbWF4ZGVsYXkgdG8gY29kZWwgLyBmcV9jb2RlbCBpcyByZWFsbHkgZWFzeSA6IFRoaXMN
-Cj4gd291bGQgZHJvcCBwYWNrZXQgaWYgaXRzIHNlam91cm4gdGltZSBpcyBhYm92ZSBhIGdpdmVu
-IGxpbWl0Lg0KDQpKdXN0IGRyb3BwaW5nIHdoZW4gdG8gb2xkIGlzIG5vdCBvdXIgZ29hbC4gSW4g
-ZmFjdCB3ZSBhcmUgYXZvaWRpbmcgYmxpbmQgZHJvcHBpbmchIFdpdGggb3VyIHJlcGxhY2Ugd2Ug
-bWFrZSBzdXJlIHRoYXQgYSBwYWNrZXQgb2Ygb25lIGNsYXNzIHdpbGwgZ28gb3ZlciB0aGUgYWly
-IHdoZW4gdGhpcyBwYWNrZXQgaXMgaW4gbGluZS4gQnV0IHRoZSBpbmZvcm1hdGlvbiB3YXMgcmVw
-bGFjZWQgZHVyaW5nIHRoZSBzdGF5IGluIHRoZSBxdWV1ZSwgc28gdGhhdCB0aGUgbmV3ZXN0IGlu
-Zm9ybWF0aW9uIGdvdCBzZW50Lg0KDQo+IElmIHlvdSB3YW50IEkgY2FuIGNvb2sgdGhpcyBwYXRj
-aC4NCg0KVGhhbmsgZm9yIHlvdSBvZmZlci9zdXBwb3J0LiBCdXQgYXMgZGVzY3JpYmVkIGFib3Zl
-LCB0aGlzIGlzIG5vdCBhIHNvbHV0aW9uIGZvciB1cyAod2UgZGlzY3Vzc2VkIHRoaXMgYWdhaW4g
-aW4gb3VyIGdyb3VwKS4gIA0KDQpHcmVldGluZ3MNClJhbHBoIEVyZHQNCg==
+On Mon, 2012-07-02 at 10:53 +0400, Alexander Smirnov wrote:
+> Dear Eric,
+> 
+> >> > static DEFINE_SPINLOCK(flist_lock);
+> >>
+> >>
+> >> and of course commit 768f7c7c121e80f4 (6lowpan: add missing
+> >> spin_lock_init() ) must be reverted.
+> >
+> > You should validate this code with LOCKDEP
+> >
+> > lowpan_dellink() does a spin_lock(&flist_lock);
+> > while same lock can be taken by lowpan_fragment_timer_expired() from
+> > timer irq, -> deadlock.
+> >
+> > del_timer() probably needs a del_timer_sync() too
+> >
+> 
+> Thanks a lot for the hints!
+
+While you are changing this code, please add in
+lowpan_alloc_new_frame() :
+
+- use netdev_alloc_skb_ip_align() instead of alloc_skb() to get some
+extra headroom in case we need to forward this frame in a tunnel or
+something...
+
+- initialize frame->lock
