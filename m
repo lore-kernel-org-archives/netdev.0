@@ -1,69 +1,57 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 0/2] Part 1: handle addr_assign_type for random
- addresses
-Date: Mon, 02 Jul 2012 12:23:32 -0700
-Message-ID: <1341257012.1987.2.camel@jtkirshe-mobl>
-References: <1328816934-11508-1-git-send-email-danny.kukawka@bisect.de>
-	 <1328818164.3639.15.camel@jtkirshe-mobl> <1341255355.2750.23.camel@lorien2>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
+Date: Mon, 2 Jul 2012 15:41:19 -0400
+Message-ID: <CAAsGZS6ahzUo+QRcLOyPcj5=mp53O+M9kqByOwPb0zZcr-cgwQ@mail.gmail.com>
+References: <1341237299.22621.88.camel@edumazet-glaptop>
+	<1341245191.2177.40.camel@schurl.lan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-h+bkIv7LmP5Hq7QsdV/3"
-Cc: Danny Kukawka <danny.kukawka@bisect.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Danny Kukawka <dkukawka@suse.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: shuah.khan@hp.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andreas Gruenbacher <agruen@linbit.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341255355.2750.23.camel@lorien2>
+In-Reply-To: <1341245191.2177.40.camel@schurl.lan>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jul 2, 2012 at 12:06 PM, Andreas Gruenbacher <agruen@linbit.com> wrote:
+> On Mon, 2012-07-02 at 15:54 +0200, Eric Dumazet wrote:
+>> So I will just say no to your patches, unless you demonstrate the
+>> splice() problems, and how you can fix the alignment problem in a new
+>> layer instead of in the existing zero copy standard one.
+>
+> Again, splice or not is not the issue here. It does not, by itself, allow zero
+> copy from the network directly to disk but it could likely be made to support
+> that if we can get the alignment right first.  The proposed MSG_NEW_PACKET flag
+> helps with that, but maybe someone has a better idea.
+>
 
---=-h+bkIv7LmP5Hq7QsdV/3
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Eric - by using splice do you mean something like:
 
-On Mon, 2012-07-02 at 12:55 -0600, Shuah Khan wrote:
-> On Thu, 2012-02-09 at 12:09 -0800, Jeff Kirsher wrote:
->=20
-> >=20
-> > Thanks Danny, I will add both patches to my queue so that we can
-> > validate the changes for ixgbevf and igbvf.
->=20
-> Jeff,
->=20
-> Which upstream kernel did this patch end up in? Also did it make it into
-> any of the stable releases?
->=20
-> Thanks,
-> -- Shuah
->=20
+int filedes[2];
+PIPE_SIZE (64*1024)
+pipe(filedes);
+ret = splice (sock_fd_from, &from_offset, filedes [1], NULL, PIPE_SIZE,
+                     SPLICE_F_MORE | SPLICE_F_MOVE);
 
-It looks like it was accepted into kernel 3.3.  I am not aware of any
-stable kernels earlier than 3.3 that picked up the patch.
 
---=-h+bkIv7LmP5Hq7QsdV/3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+ret = splice (filedes [0], NULL, file_fd_to,
+                         &to_offset, ret,
+                         SPLICE_F_MORE | SPLICE_F_MOVE);
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJP8fU0AAoJEOVv75VaS+3OwDoP/0FEP18HiKfht7IwkReesmc1
-4kmMjrPQesbdK/bfjVko+sVQEaIGmpJEhf424gqPRbGQWNmYBSmwOUS29PWsG351
-jzbJA1iFUC/FX5QcM4foJCrONC9ztsIbXJtZ9NysEUMrScpFoabkjm2wgtQzHcHZ
-x8X1m6f0IdTGFArgTU+oiVTUVMIwTH1BhQnKPDtJtymTn9l5DYm5iyGNV0W1pE56
-0WyFN7YAJ94ql8vxjepxzvkDOvB/Z40cDuecPl6sWEUIRUau6zu4fuwSApeI+qNX
-SMB3CS1oWbuvmjcOiAp2uMHldP9vmjBnAfU682NM4ZGSezjCD6sgsBjCH5Yk9JMZ
-qG1NDOMobCDzMaiB8nwlOQpNqtBjT699nLqxaAqdRusVsR0hpa9sW/9rizjGxd9g
-nMyj1JKK/wpU8nxcF8+WkdTD7srT8L7Tjzkbgur8cuNQdykq8aTtlnrgH1lh0mgz
-5S8AjpXl4BxRi5mD0E6iNgrEZt6nfOD409i1f7QiejR4wsWrN5ykfX99+B8LzQKT
-tWjHHeRZ/u+udXLohBngegbtAVo8ceCky07O8virwrfGOuzW0bi2ho5VLdFsXZhT
-DgwOMKSRu1VDpnzoz/EyquuQYgzLI+R+bb5REYmI1yqz/S018eyCY1EoDYb+OVpD
-ECp+P99zG3ga/3kuhFMf
-=Mfp3
------END PGP SIGNATURE-----
+i.e. splice-in from socket to pipe, and splice-out from pipe to destination?
 
---=-h+bkIv7LmP5Hq7QsdV/3--
+Andreas - if the above assumption is true then can you apply the
+'MSG_NEW_PACKET' on the sender and see if the above pseudo-splice code
+achieves something similar to what you expect on the receive side(you
+can also play w/ F_SETPIPE_SZ -  although I found very little
+reduction in CPU usage)? Note: My personal experience - using splice
+from an input-file-A to output-file-B bought very minimal cpu
+reduction(yes, both the files used O_DIRECT). Instead, a simple
+read/write w/ O_DIRECT from file-A to file-B was much much faster.
+
+
+Chetan
