@@ -1,65 +1,84 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
- strings
-Date: Mon, 2 Jul 2012 08:13:38 -0700
-Message-ID: <1341242018.7472.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <20120630114935.GB22767@elgon.mountain>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6F6F@saturn3.aculab.com>
- <20120702104843.GB4519@mwanda>
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Subject: Re: AF_BUS socket address family
+Date: Mon, 02 Jul 2012 17:18:45 +0200
+Message-ID: <4FF1BBD5.8080804@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David Laight" <David.Laight@ACULAB.COM>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	"Barak Witkowski" <barak@broadcom.com>,
-	"Eddie Wai" <eddie.wai@broadcom.com>, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: "Dan Carpenter" <dan.carpenter@oracle.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20120702104843.GB4519@mwanda>
-Sender: linux-scsi-owner@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>,
+	David Miller <davem@davemloft.net>,
+	vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-07-02 at 13:48 +0300, Dan Carpenter wrote: 
-> On Mon, Jul 02, 2012 at 11:09:19AM +0100, David Laight wrote:
-> > > Subject: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
-> > strings
-> > > 
-> > > DRV_MODULE_VERSION here is "2.7.2.2" which is only 8 chars but we copy
-> > > 12 bytes from the stack so it's a small information leak.
-> > > 
-> > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > > ---
-> > > This was just added to linux-next yesterday, but I'm not sure 
-> > > which tree it came from.
-> > > 
-> > > diff --git a/drivers/scsi/bnx2i/bnx2i_init.c 
-> > > b/drivers/scsi/bnx2i/bnx2i_init.c
-> > > index 7729a52..b17637a 100644
-> > > --- a/drivers/scsi/bnx2i/bnx2i_init.c
-> > > +++ b/drivers/scsi/bnx2i/bnx2i_init.c
-> > > @@ -400,7 +400,7 @@ int bnx2i_get_stats(void *handle)
-> > >  	if (!stats)
-> > >  		return -ENOMEM;
-> > >  
-> > > -	memcpy(stats->version, DRV_MODULE_VERSION,
-> > sizeof(stats->version));
-> > > +	strlcpy(stats->version, DRV_MODULE_VERSION,
-> > sizeof(stats->version));
-> > >  	memcpy(stats->mac_add1 + 2, hba->cnic->mac_addr, ETH_ALEN);
-> > 
-> > Doesn't that leak the original contents of the last bytes of
-> > stats->version instead?
-> 
-> I'm pretty sure we set those to zero in bnx2x_handle_drv_info_req().
-> 
-
-Yes, bnx2x zeros the whole stats structure, so strlcpy() is correct.
-
-This came from the net-next tree, so David is the right persion to apply
-this.  Thanks.
-
-Acked-by: Michael Chan <mchan@broadcom.com>
 
 
+On Mon, Jul 2, 2012 at 6:49 AM, Chris Friesen <chris.friesen@genband.com> wrote:
+> On 06/29/2012 05:18 PM, David Miller wrote:
+>>
+>> From: Vincent Sanders<vincent.sanders@collabora.co.uk>
+>> Date: Sat, 30 Jun 2012 00:12:37 +0100
+>>
+>>> I had hoped you would have at least read the opening list where I
+>>> outlined the underlying features which explain why none of the
+>>> existing IPC match the requirements.
+>>
+>> I had hoped that you had read the part we told you last time where
+>> we explained why multicast and "reliable delivery" are fundamentally
+>> incompatible attributes.
+>>
+>> We are not creating a full address family in the kernel which exists
+>> for one, and only one, specific and difficult user.
+>
+>
+> For what it's worth, the company I work for (and a number of other
+> companies) currently use an out-of-tree datagram multicast messaging
+> protocol family based on AF_UNIX.
+>
+> If AF_BUS were to be accepted, it would be essentially trivial for us to
+> port our existing userspace messaging library to use it instead of our
+> current protocol family, and we would almost certainly do so.
+>
+> I'd love to see AF_BUS go in.
+>
+> Chris Friesen
+>
+
+Hi Chris,
+
+Thanks a lot for your comments and feedback.
+
+We tried different approaches before developing the AF_BUS socket family and one
+of them was extending AF_UNIX to support multicast. We posted our patches [1]
+and the feedback was that the AF_UNIX code was already a complex and difficult
+code to maintain. So, we decided to implement a new family (AF_BUS) that is
+orthogonal to the rest of the networking stack and no added complexity nor
+performance penalty would pay a user not using our IPC solution.
+
+Looking at netdev archives I saw that you both raised the question about
+multicast on unix sockets and post an implementation on early 2003. So if I
+understand correctly you are maintaining an out-of-tree solution for around 9
+years now.
+
+We developed AF_BUS to improve the performance of the D-Bus IPC system (and our
+results show us a 2X speedup) but design it to be as generic as possible so
+other users can take advantage of it.
+
+It would be a great help if you can join the discussion and explain the
+arguments of your company (and the others companies you were talking about) in
+favor of a simpler multicast socket family.
+
+The fact that your company spent lots of engineering resources to maintain an
+out-of-tree patch-set for 9 years should raise some eyebrows and convince more
+than one people that a simpler local multicast solution is needed on the Linux
+kernel (which was one of the reasons why Google also developed Binder I guess).
+
+[1]: https://lkml.org/lkml/2012/2/20/84
+[2]: https://lkml.org/lkml/2003/2/27/150
+[3]: http://lwn.net/Articles/27001/
+
+Thanks a lot and best regards,
+
+Javier
