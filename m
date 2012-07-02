@@ -1,55 +1,32 @@
-From: Andreas Gruenbacher <agruen@linbit.com>
-Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
-Date: Mon, 02 Jul 2012 15:02:57 +0200
-Message-ID: <1341234177.29646.69.camel@gurkel.linbit>
-References: <1340981632.25226.2.camel@gurkel.linbit>
-	 <1340982523.21162.1.camel@edumazet-glaptop>
-	 <1341229532.29646.39.camel@gurkel.linbit>
-	 <1341232568.22621.8.camel@edumazet-glaptop>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow
+ steering firmware API
+Date: Mon, 2 Jul 2012 16:00:21 +0300
+Message-ID: <4FF19B65.9080502@mellanox.com>
+References: <4FF153F0.8080707@mellanox.com> <CAG4TOxNyxP8FpzNdMZR3WMvFCQtEx_r3oLh6s7sZOcBnqN=6tA@mail.gmail.com> <4FF15BA2.5000104@mellanox.com> <20120702.013626.13785263551119133.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341232568.22621.8.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <roland@kernel.org>, <yevgenyp@mellanox.com>, <oren@mellanox.com>,
+	<netdev@vger.kernel.org>, <hadarh@mellanox.co.il>,
+	Amir Vadai <amirv@mellanox.co.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:45811 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750793Ab2GBNF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 09:05:27 -0400
+In-Reply-To: <20120702.013626.13785263551119133.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-02 at 14:36 +0200, Eric Dumazet wrote:
-> No files or page cache are needed for splice() usage, for example from
-> socket to another socket.
-> 
-> It just works (check haproxy for an example), with 10Gb performance out
-> of the box.
+On 7/2/2012 11:36 AM, David Miller wrote:
+> So you must create a real generic interface that other chipsets in similar situations can hook into as well.
 
-bio_vec's have some alignment requirements that must be met, and
-anything that doesn't meet those requirements can't be passed to the
-block layer (without copying it first).  Additional layers between the
-network and block layers, like a pipe, won't make that problem go away.
+OK, understood.
 
-> The pipe is only a container for buffers, in case the data fetched from
-> producer cannot be fully sent to consumer. You don't want to lose this
-> data.
+We will remove the module param from the patch set, such that at this point
+of submission,  there's no run time setting for the flow steering hash 
+function.
 
-Stuff that isn't pulled out of a socket receive buffer will stay there,
-it won't magically be lost.
-
-> > We want to go directly to the block layer instead.  This requires that
-> > the network hardware receives the data into sector aligned buffers.
-> > Hence the proposed MSG_NEW_PACKET flag.
-> 
-> This only is a hint something is wrong with the approach.
-
-It just means that I'm trying to do something that isn't currently
-supported.
-
-> You only need proper splice() support (from pipe to bio), if not already
-> there.
-
-It's not already there, it requires the alignment issue to be addresses
-first.
-
-Andreas
+Or.
