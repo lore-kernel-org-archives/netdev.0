@@ -1,57 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow
- steering firmware API
-Date: Mon, 2 Jul 2012 19:07:25 +0100
-Message-ID: <1341252445.2590.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4FF042B5.1000303@mellanox.com>
-	 <20120701.144252.792146486861614931.davem@davemloft.net>
-	 <4FF153F0.8080707@mellanox.com>
-	 <20120702.013445.1273332212099485403.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: dont use __netdev_alloc_skb for bounce buffer
+Date: Mon, 02 Jul 2012 20:36:12 +0200
+Message-ID: <1341254172.22621.456.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <ogerlitz@mellanox.com>, <roland@kernel.org>,
-	<yevgenyp@mellanox.com>, <oren@mellanox.com>,
-	<netdev@vger.kernel.org>, <hadarh@mellanox.co.il>
+Cc: netdev <netdev@vger.kernel.org>,
+	Stefan Bader <stefan.bader@canonical.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:59189 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932293Ab2GBSH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 14:07:29 -0400
-In-Reply-To: <20120702.013445.1273332212099485403.davem@davemloft.net>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:44530 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755752Ab2GBSgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 14:36:16 -0400
+Received: by eaak11 with SMTP id k11so2214056eaa.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 11:36:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-02 at 01:34 -0700, David Miller wrote:
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Mon, 2 Jul 2012 10:55:28 +0300
-> 
-> > On 7/2/2012 12:42 AM, David Miller wrote:
-> >> [...] Module parameters stink because every driver is going to provide
-> >> the knob differently, with a different name, and different
-> >> semantics. This creates a terrible user experience, and I will not
-> >> allow it.
-> > 
-> > OK, so if looking on what we are left with on the table, seems that
-> > sysfs entry on the mlx4_core
-> > level (as we do for the port link type {IB, Eth} or IB port MTU) could
-> > be fine here, Roland, agree?
-> 
-> No way.
-> 
-> You have to create a real interface, that other vendors with similar
-> chips can consistently use.
+From: Eric Dumazet <edumazet@google.com>
 
-But there may not be enough commonality to define a non- vendor-specific
-API.  And ethtool really isn't a good way to expose parameters that are
-per-controller rather than per-net-device, particularly if changing them
-may disrupt all running net devices on that controller and not just the
-one used to invoke SIOCETHTOOL.
+commit a1c7fff7e1 (net: netdev_alloc_skb() use build_skb()) broke b44 on
+some 64bit machines.
 
-Ben.
+It appears b44 and b43 use __netdev_alloc_skb() instead of alloc_skb()
+for their bounce buffers.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+There is no need to add an extra NET_SKB_PAD reservation for bounce
+buffers :
+
+- In TX path, NET_SKB_PAD is useless
+
+- In RX path in b44, we force a copy of incoming frames if
+  GFP_DMA allocations were needed.
+
+Reported-and-bisected-by: Stefan Bader <stefan.bader@canonical.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/broadcom/b44.c  |    4 ++--
+ drivers/net/wireless/b43legacy/dma.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 46b8b7d..d09c6b5 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -656,7 +656,7 @@ static int b44_alloc_rx_skb(struct b44 *bp, int src_idx, u32 dest_idx_unmasked)
+ 			dma_unmap_single(bp->sdev->dma_dev, mapping,
+ 					     RX_PKT_BUF_SZ, DMA_FROM_DEVICE);
+ 		dev_kfree_skb_any(skb);
+-		skb = __netdev_alloc_skb(bp->dev, RX_PKT_BUF_SZ, GFP_ATOMIC|GFP_DMA);
++		skb = alloc_skb(RX_PKT_BUF_SZ, GFP_ATOMIC | GFP_DMA);
+ 		if (skb == NULL)
+ 			return -ENOMEM;
+ 		mapping = dma_map_single(bp->sdev->dma_dev, skb->data,
+@@ -967,7 +967,7 @@ static netdev_tx_t b44_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			dma_unmap_single(bp->sdev->dma_dev, mapping, len,
+ 					     DMA_TO_DEVICE);
+ 
+-		bounce_skb = __netdev_alloc_skb(dev, len, GFP_ATOMIC | GFP_DMA);
++		bounce_skb = alloc_skb(len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb)
+ 			goto err_out;
+ 
+diff --git a/drivers/net/wireless/b43legacy/dma.c b/drivers/net/wireless/b43legacy/dma.c
+index f1f8bd0..c8baf02 100644
+--- a/drivers/net/wireless/b43legacy/dma.c
++++ b/drivers/net/wireless/b43legacy/dma.c
+@@ -1072,7 +1072,7 @@ static int dma_tx_fragment(struct b43legacy_dmaring *ring,
+ 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
+ 	/* create a bounce buffer in zone_dma on mapping failure. */
+ 	if (b43legacy_dma_mapping_error(ring, meta->dmaaddr, skb->len, 1)) {
+-		bounce_skb = __dev_alloc_skb(skb->len, GFP_ATOMIC | GFP_DMA);
++		bounce_skb = alloc_skb(skb->len, GFP_ATOMIC | GFP_DMA);
+ 		if (!bounce_skb) {
+ 			ring->current_slot = old_top_slot;
+ 			ring->used_slots = old_used_slots;
