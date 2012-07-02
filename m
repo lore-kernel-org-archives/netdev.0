@@ -1,49 +1,52 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: linux-next BUG: held lock freed!
-Date: Mon, 2 Jul 2012 13:22:41 +0800
-Message-ID: <20120702052241.GA8476@localhost>
-References: <20120626145432.GA15289@localhost>
- <20120626172918.GA16446@localhost>
- <20120627122306.GA19252@localhost>
- <20120702025625.GA6531@localhost>
- <CA++bM2txX2f=SC3r3bwxLcB8CUCuELW-NhytrKW7-07kysfA2A@mail.gmail.com>
- <20120702122858.029946db@feng-i7>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ipv6: remove unnecessary codes in tcp_ipv6.c
+Date: Mon, 2 Jul 2012 13:23:09 +0800
+Message-ID: <CAJFZqHxyR0PErHV8cqLLe6eqL0fCYS9gjPRc9zpthpevsU7wkA@mail.gmail.com>
+References: <1341199140-17135-1-git-send-email-roy.qing.li@gmail.com>
+	<20120701.202610.12425223200611171.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <cl@linux.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, penberg@kernel.org,
-	linux-mm@kvack.org, Stephen Rothwell <sfr@canb.auug.org.au>,
-	bfields@fieldses.org
-To: Feng Tang <feng.tang@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120702122858.029946db@feng-i7>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:51388 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754819Ab2GBFXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 01:23:10 -0400
+Received: by obbuo13 with SMTP id uo13so7685867obb.19
+        for <netdev@vger.kernel.org>; Sun, 01 Jul 2012 22:23:09 -0700 (PDT)
+In-Reply-To: <20120701.202610.12425223200611171.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -3890,7 +3890,7 @@ void kmem_cache_free(struct kmem_cache *cachep, void *objp)
->         unsigned long flags;
->  
->         local_irq_save(flags);
-> -       debug_check_no_locks_freed(objp, cachep->size);
-> +       debug_check_no_locks_freed(objp, cachep->object_size);
->         if (!(cachep->flags & SLAB_DEBUG_OBJECTS))
->                 debug_check_no_obj_freed(objp, cachep->object_size);
->         __cache_free(cachep, objp, __builtin_return_address(0));
+2012/7/2 David Miller <davem@davemloft.net>:
+> From: roy.qing.li@gmail.com
+> Date: Mon,  2 Jul 2012 11:18:59 +0800
+>
+>> -     if (opt) {
+>> -             newnp->opt = ipv6_dup_options(newsk, opt);
+>> -             if (opt != np->opt)
+>> -                     sock_kfree_s(sk, opt, opt->tot_len);
+>
+> This is bogus, if we copy the options into a new copy in
+> ipv6_dup_options() we have to free the old one or else we
+> leak it.
 
-It works! No single error after a dozen reboots :-)
+Do you mean I should free newnp->opt firstly ?
 
-Tested-by: Fengguang Wu <wfg@linux.intel.com>
+If I understand it right, I think we do not need to free it. the
+process is below:
 
-Thanks,
-Fengguang
+newsk = tcp_v4_syn_recv_sock(sk, skb, req, dst);
+..
+newnp = inet6_sk(newsk);
+..
+memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+..
+newnp->opt         = NULL;
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+So newnp->opt is not a effective memory.
+
+
+Thanks.
+-Roy
