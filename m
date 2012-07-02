@@ -1,66 +1,67 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on
- bundled sacks
-Date: Mon, 2 Jul 2012 08:25:31 -0400
-Message-ID: <20120702122531.GA29681@hmsreliant.think-freely.org>
-References: <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
- <20120630.173945.173993639982489712.davem@davemloft.net>
- <20120701124750.GA19498@neilslaptop.think-freely.org>
- <20120701.144319.1120248166079750922.davem@davemloft.net>
- <20120701234424.GA23935@neilslaptop.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
+Date: Mon, 02 Jul 2012 14:36:08 +0200
+Message-ID: <1341232568.22621.8.camel@edumazet-glaptop>
+References: <1340981632.25226.2.camel@gurkel.linbit>
+	 <1340982523.21162.1.camel@edumazet-glaptop>
+	 <1341229532.29646.39.camel@gurkel.linbit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50654 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450Ab2GBMZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 08:25:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20120701234424.GA23935@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andreas Gruenbacher <agruen@linbit.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341229532.29646.39.camel@gurkel.linbit>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 01, 2012 at 07:44:25PM -0400, Neil Horman wrote:
-> On Sun, Jul 01, 2012 at 02:43:19PM -0700, David Miller wrote:
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Sun, 1 Jul 2012 08:47:50 -0400
-> > 
-> > > Perhaps we could modify the SubmittingPatches document to indicate that an
-> > > Acked-by from a subsystem maintainer implicitly confers authority on the
-> > > upstream receiver to request reasonable stylistic changes that don't affect the
-> > > functionality of the patch in the interests of maintaining coding conventions.
-> > 
-> > Yes, that would make sense.
-> > 
+On Mon, 2012-07-02 at 13:45 +0200, Andreas Gruenbacher wrote:
+> On Fri, 2012-06-29 at 17:08 +0200, Eric Dumazet wrote:
+> > This looks like yet another zero copy, needing another couple of hundred
+> > of lines.
 > 
+> Kind of, yes.  We really want to make no copies at all though; the cpu
+> just passes buffers from one device to the other.
 > 
-> I'll propose it in a few days.
-> Neil
+> > Why splice infrastructure doesnt fit your needs ?
 > 
-How does this language sound to you?
+> The pipe api that splice is based on saves a copy between the kernel and
+> user space, but it currently writes to files, going through the page
+> cache.  For that, the alignment of data in the network receive buffers
+> doesn't matter.
+> 
+
+No files or page cache are needed for splice() usage, for example from
+socket to another socket.
+
+It just works (check haproxy for an example), with 10Gb performance out
+of the box.
+
+The pipe is only a container for buffers, in case the data fetched from
+producer cannot be fully sent to consumer. You don't want to lose this
+data.
 
 
-diff --git a/Documentation/SubmittingPatches b/Documentation/SubmittingPatches
-index c379a2a..1eaaeb1 100644
---- a/Documentation/SubmittingPatches
-+++ b/Documentation/SubmittingPatches
-@@ -414,6 +414,16 @@ the part which affects that maintainer's code.  Judgement should be used here.
- When in doubt people should refer to the original discussion in the mailing
- list archives.
- 
-+Note that an Acked-by: From a subsystem maintainer on a given patch confers
-+upon the tree maintainer integrating the path the authority to carry those Acks
-+forward through subsequent versions of a patch, as long as those versions do not
-+significantly impact the functionality of the patch.  For example, say the isdn
-+subsystem maintainer sends an Acked-by: on version 1 of a patch bound for the
-+networking tree.  The networking maintainer then requests that some comments in
-+the code be modified to comply with the CodingStyle document.  The networking
-+tree maintanier may reapply the subsystem maintainers Acked-by: to the new
-+version as no significant changes were made to the patch functionality.
-+
- If a person has had the opportunity to comment on a patch, but has not
- provided such comments, you may optionally add a "Cc:" tag to the patch.
- This is the only tag which might be added without an explicit action by the
+> We want to go directly to the block layer instead.  This requires that
+> the network hardware receives the data into sector aligned buffers.
+> Hence the proposed MSG_NEW_PACKET flag.
+> 
+
+This only is a hint something is wrong with the approach.
+
+> With that, it might be possible to implement a pipe "sink" that goes to
+> a bio instead of writing to a file.  Going through the pipe
+> infrastructure doesn't actually help in this case though, it's just
+> overhead.
+
+There is no expensive overhead in splice() infrastructure, only some
+small details that should be eventually solved instead of designing a
+new zero copy mode.
+
+You didnt actually tried splice() if you believe a regular file is
+needed.
+
+You only need proper splice() support (from pipe to bio), if not already
+there.
