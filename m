@@ -1,76 +1,49 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: Re: possible integer underflow in __sctp_auth_cid()
-Date: Mon, 2 Jul 2012 13:06:37 +0800
-Message-ID: <CAPgLHd_irof=D+R=HfqQR1Yo4MxvRP7S4WWHCyV65-QpYJziBQ@mail.gmail.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: linux-next BUG: held lock freed!
+Date: Mon, 2 Jul 2012 13:22:41 +0800
+Message-ID: <20120702052241.GA8476@localhost>
+References: <20120626145432.GA15289@localhost>
+ <20120626172918.GA16446@localhost>
+ <20120627122306.GA19252@localhost>
+ <20120702025625.GA6531@localhost>
+ <CA++bM2txX2f=SC3r3bwxLcB8CUCuELW-NhytrKW7-07kysfA2A@mail.gmail.com>
+ <20120702122858.029946db@feng-i7>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:45847 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157Ab2GBFGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 01:06:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Lameter <cl@linux.com>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>, penberg@kernel.org,
+	linux-mm@kvack.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	bfields@fieldses.org
+To: Feng Tang <feng.tang@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120702122858.029946db@feng-i7>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 06/30/2012 08:17 PM, Dan Carpenter wrote:
-> In 555d3d5d "SCTP: Fix chunk acceptance when no authenticated chunks
-> were listed.", we added a check for if (param->param_hdr.length == 0).
-> Shouldn't that check be a check for if
-> (param->param_hdr.length < sizeos(sizeof(sctp_paramhdr_t)))?  Otherwise,
-> when we do the substraction on the next line we would unintentionally
-> end up with a high positive number.
->
-> I had a similar question about sctp_auth_ep_add_chunkid():
->
-> net/sctp/auth.c
->    770          /* Check if we can add this chunk to the array */
->    771          param_len = ntohs(p->param_hdr.length);
->    772          nchunks = param_len - sizeof(sctp_paramhdr_t);
->    773          if (nchunks == SCTP_NUM_CHUNK_TYPES)
->    774                  return -EINVAL;
->    775
->    776          p->chunks[nchunks] = chunk_id;
->
-> If param_len is less than sizeof(sctp_paramhdr_t) we could write past
-> the end of the array.  There are a couple other places with this same
-> subtraction as well.
+> --- a/mm/slab.c
+> +++ b/mm/slab.c
+> @@ -3890,7 +3890,7 @@ void kmem_cache_free(struct kmem_cache *cachep, void *objp)
+>         unsigned long flags;
+>  
+>         local_irq_save(flags);
+> -       debug_check_no_locks_freed(objp, cachep->size);
+> +       debug_check_no_locks_freed(objp, cachep->object_size);
+>         if (!(cachep->flags & SLAB_DEBUG_OBJECTS))
+>                 debug_check_no_obj_freed(objp, cachep->object_size);
+>         __cache_free(cachep, objp, __builtin_return_address(0));
 
+It works! No single error after a dozen reboots :-)
 
-This will not happen because that p which means ep->auth_chunk_list
-is maintained by the endpoint itself, and the default value is
-sizeof(sctp_paramhdr_t) or sizeof(sctp_paramhdr_t) + 2.
+Tested-by: Fengguang Wu <wfg@linux.intel.com>
 
-Instead, I found that if user enable AUTH after the endpoint is
-created, set the AUTH chunk may cause panic, because the
-ep->auth_chunk_list is NULL.
+Thanks,
+Fengguang
 
-I think we should introduce a help function to check whether the
-AUTH is enabled instead only check sctp_auth_enable, may like:
-
-bool sctp_auth_ep_enabled(struct sctp_endpoint *ep)
-{
-	if (!sctp_auth_enable)
-		return false;
-
-	if (!ep->auth_chunk_list || !ep->auth_hmacs_list)
-		return false;
-
-	return true;
-}
-
-
-Regards
-Yongjun Wei
-
->
-> regards,
-> dan carpenter
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
