@@ -1,138 +1,73 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next v3] em_canid: Ematch rule to match CAN frames
- according to their identifiers
-Date: Mon, 02 Jul 2012 19:50:29 +0200
-Message-ID: <4FF1DF65.5080306@hartkopp.net>
-References: <1341241568-13438-1-git-send-email-lisovy@gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net] net: qmi_wwan: add ZTE MF60
+Date: Mon,  2 Jul 2012 19:53:17 +0200
+Message-ID: <1341251597-21124-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Rostislav Lisovy <lisovy@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1341241568-13438-1-git-send-email-lisovy@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:57797 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755899Ab2GBRxW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jul 2012 13:53:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ugh - sorry.
+Adding a device with limited QMI support. It does not support
+normal QMI_WDS commands for connection management. Instead,
+sending a QMI_CTL SET_INSTANCE_ID command is required to
+enable the network interface:
 
-I still found some issues ...
+  01 0f 00 00 00 00 00 00  20 00 04 00 01 01 00 00
 
-On 02.07.2012 17:06, Rostislav Lisovy wrote:
+A number of QMI_DMS and QMI_NAS commands are also supported
+for optional device management.
 
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/qmi_wwan.c |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-
-> +
-> +static int em_canid_change(struct tcf_proto *tp, void *data, int len,
-> +			  struct tcf_ematch *m)
-> +{
-> +	struct can_filter *conf = data; /* Array with rules,
-> +					 * fixed size EM_CAN_RULES_SIZE
-> +					 */
-
-
-Remove this comment.
-
-It's only an "array with rules" - but EM_CAN_RULES_SIZE is absent in the code now.
-
-> +	struct canid_match *cm;
-> +	struct canid_match *cm_old = (struct canid_match *)m->data;
-> +	int i;
-> +	int rulescnt;
-> +
-> +	if (!len)
-> +		return -EINVAL;
-> +
-> +	if (len % sizeof(struct can_filter))
-> +		return -EINVAL;
-> +
-> +	if (len > sizeof(struct can_filter) * EM_CAN_RULES_MAX)
-> +		return -EINVAL;
-> +
-> +	rulescnt = len / sizeof(struct can_filter);
-> +
-> +	cm = kzalloc(sizeof(struct canid_match) + sizeof(struct can_filter) *
-> +		rulescnt, GFP_KERNEL);
-> +	if (!cm)
-> +		return -ENOMEM;
-> +
-> +	cm->sff_rules_count = 0;
-> +	cm->eff_rules_count = 0;
-
-
-These two lines are obsolete as you used kzalloc(), right?
-
-> +	cm->rules_count = rulescnt;
-> +
-> +	/*
-> +	 * We need two for() loops for copying rules into
-> +	 * two contiguous areas in rules_raw
-> +	 */
-> +
-> +	/* Process EFF frame rules*/
-> +	for (i = 0; i < cm->rules_count; i++) {
-
-
-use rulescnt instead of cm->rules_count (no need to derefence data)
-
-> +		if (((conf[i].can_id & CAN_EFF_FLAG) &&
-> +		    (conf[i].can_mask & CAN_EFF_FLAG)) ||
-> +		    !(conf[i].can_mask & CAN_EFF_FLAG)) {
-> +			memcpy(cm->rules_raw + cm->eff_rules_count,
-> +				&conf[i],
-> +				sizeof(struct can_filter));
-> +
-> +			cm->eff_rules_count++;
-> +		} else {
-> +			continue;
-> +		}
-> +	}
-> +
-> +	/* Process SFF frame rules */
-> +	for (i = 0; i < cm->rules_count; i++) {
-
-
-use rulescnt instead of cm->rules_count (no need to derefence data)
-
-> +		if ((conf[i].can_id & CAN_EFF_FLAG) &&
-> +		    (conf[i].can_mask & CAN_EFF_FLAG)) {
-
-
-
-|| !(conf[i].can_mask & CAN_EFF_FLAG)) {
-
-is missing here (must be the same as the condition above!)
-
-> +			continue;
-> +		} else {
-> +			memcpy(cm->rules_raw
-> +				+ cm->eff_rules_count
-> +				+ cm->sff_rules_count,
-> +				&conf[i], sizeof(struct can_filter));
-> +
-> +			cm->sff_rules_count++;
-> +
-> +			em_canid_sff_match_add(cm,
-> +				conf[i].can_id, conf[i].can_mask);
-> +		}
-> +	}
-> +
-> +	m->datalen = sizeof(*cm);
-
-
-*cm is no longer a fixed structure as it was in the first patches.
-
-Must be:
-
-m->datalen = sizeof(struct canid_match) + sizeof(struct can_filter) * rulescnt
-
-> +	m->data = (unsigned long)cm;
-> +
-
-
-Sorry, that i didn't see that before :-(
-
-Regards,
-Oliver
-
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index b01960f..5badafd 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -346,6 +346,15 @@ static const struct driver_info	qmi_wwan_force_int=
+1 =3D {
+ 	.data		=3D BIT(1), /* interface whitelist bitmap */
+ };
+=20
++static const struct driver_info	qmi_wwan_force_int2 =3D {
++	.description	=3D "Qualcomm WWAN/QMI device",
++	.flags		=3D FLAG_WWAN,
++	.bind		=3D qmi_wwan_bind_shared,
++	.unbind		=3D qmi_wwan_unbind_shared,
++	.manage_power	=3D qmi_wwan_manage_power,
++	.data		=3D BIT(2), /* interface whitelist bitmap */
++};
++
+ static const struct driver_info	qmi_wwan_force_int3 =3D {
+ 	.description	=3D "Qualcomm WWAN/QMI device",
+ 	.flags		=3D FLAG_WWAN,
+@@ -498,6 +507,15 @@ static const struct usb_device_id products[] =3D {
+ 		.bInterfaceProtocol =3D 0xff,
+ 		.driver_info        =3D (unsigned long)&qmi_wwan_force_int4,
+ 	},
++	{	/* ZTE MF60 */
++		.match_flags	    =3D USB_DEVICE_ID_MATCH_DEVICE | USB_DEVICE_ID_MATC=
+H_INT_INFO,
++		.idVendor           =3D 0x19d2,
++		.idProduct          =3D 0x1402,
++		.bInterfaceClass    =3D 0xff,
++		.bInterfaceSubClass =3D 0xff,
++		.bInterfaceProtocol =3D 0xff,
++		.driver_info        =3D (unsigned long)&qmi_wwan_force_int2,
++	},
+ 	{	/* Sierra Wireless MC77xx in QMI mode */
+ 		.match_flags	    =3D USB_DEVICE_ID_MATCH_DEVICE | USB_DEVICE_ID_MATC=
+H_INT_INFO,
+ 		.idVendor           =3D 0x1199,
+--=20
+1.7.10
