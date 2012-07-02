@@ -1,90 +1,58 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 00/13] drivers: hv: kvp
-Date: Mon, 2 Jul 2012 15:22:25 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <1340314200-27078-1-git-send-email-kys@microsoft.com>
- <20120621224737.GA5933@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155EC47A@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120622132547.GA2639@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED14D@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120626213954.GA4840@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED64A@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120626222205.GA5948@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED68D@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120628142340.GA21537@aepfle.de>
+From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Subject: Re: [PATCH net-next 13/15] netfilter: nfdbus: Add D-bus message parsing
+Date: Mon, 02 Jul 2012 17:43:43 +0200
+Message-ID: <4FF1C1AF.9080104@collabora.co.uk>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk> <1340988354-26981-14-git-send-email-vincent.sanders@collabora.co.uk> <20120629171108.GA6287@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Olaf Hering <olaf@aepfle.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alban Crequy <alban.crequy@collabora.co.uk>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120628142340.GA21537@aepfle.de>
-Content-Language: en-US
+In-Reply-To: <20120629171108.GA6287@1984>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
-aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogVGh1cnNkYXksIEp1bmUgMjgsIDIwMTIgMTA6
-MjQgQU0NCj4gVG86IEtZIFNyaW5pdmFzYW4NCj4gQ2M6IEdyZWcgS0g7IGFwd0BjYW5vbmljYWwu
-Y29tOyBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnOw0KPiB2aXJ0dWFsaXphdGlvbkBsaXN0
-cy5vc2RsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTog
-W1BBVENIIDAwLzEzXSBkcml2ZXJzOiBodjoga3ZwDQo+IA0KPiBPbiBUdWUsIEp1biAyNiwgS1kg
-U3Jpbml2YXNhbiB3cm90ZToNCj4gDQo+ID4gPiBGcm9tOiBHcmVnIEtIIFttYWlsdG86Z3JlZ2to
-QGxpbnV4Zm91bmRhdGlvbi5vcmddDQo+ID4gPiBUaGUgZmFjdCB0aGF0IGl0IHdhcyBSZWQgSGF0
-IHNwZWNpZmljIHdhcyB0aGUgbWFpbiBwYXJ0LCB0aGlzIHNob3VsZCBiZQ0KPiA+ID4gZG9uZSBp
-biBhIHN0YW5kYXJkIHdheSwgd2l0aCBzdGFuZGFyZCB0b29scywgcmlnaHQ/DQo+ID4NCj4gPiBU
-aGUgcmVhc29uIEkgYXNrZWQgdGhpcyBxdWVzdGlvbiB3YXMgdG8gbWFrZSBzdXJlIEkgYWRkcmVz
-cyB0aGVzZQ0KPiA+IGlzc3VlcyBpbiBhZGRpdGlvbiB0byB3aGF0ZXZlciBJIGFtIGRlYnVnZ2lu
-ZyBub3cuIEkgdXNlIHRoZSBzdGFuZGFyZA0KPiA+IHRvb2xzIGFuZCBjYWxscyB0byByZXRyaWV2
-ZSBhbGwgdGhlIElQIGNvbmZpZ3VyYXRpb24uIEFzIEkgbG9vayBhdA0KPiA+IGVhY2ggZGlzdHJp
-YnV0aW9uIHRoZSBmaWxlcyB0aGV5IGtlZXAgcGVyc2lzdGVudCBJUCBjb25maWd1cmF0aW9uDQo+
-ID4gSW5mb3JtYXRpb24gaXMgZGlmZmVyZW50IGFuZCB0aGF0IGlzIHRoZSByZWFzb24gSSBjaG9z
-ZSB0byBzdGFydCB3aXRoDQo+ID4gUmVkSGF0LiBJZiB0aGVyZSBpcyBhIHN0YW5kYXJkIHdheSB0
-byBzdG9yZSB0aGUgY29uZmlndXJhdGlvbiwgSSB3aWxsDQo+ID4gZG8gdGhhdC4NCj4gDQo+IA0K
-PiBLWSwNCj4gDQo+IGluc3RlYWQgb2YgdXNpbmcgc3lzdGVtKCkgaW4ga3ZwX2dldF9pcGNvbmZp
-Z19pbmZvIGFuZCBrdnBfc2V0X2lwX2luZm8sDQo+IHdvdWxkbnQgaXQgYmUgZWFzaWVyIHRvIGNh
-bGwgYW4gZXh0ZXJuYWwgaGVscGVyIHNjcmlwdCB3aGljaCBkb2VzIGFsbA0KPiB0aGUgZGlzdHJp
-YnV0aW9uIHNwZWNpZmljIHdvcms/IEp1c3QgZGVmaW5lIHNvbWUgQVBJIHRvIHBhc3MgdmFsdWVz
-IHRvDQo+IHRoZSBzY3JpcHQsIGFuZCBzb21ldGhpbmcgdG8gcmVhZCB2YWx1ZXMgY29sbGVjdGVk
-IGJ5IHRoZSBzY3JpcHQgYmFjaw0KPiBpbnRvIHRoZSBkYWVtb24uDQoNCk9uIHRoZSAiR2V0IiBz
-aWRlIEkgbW9zdGx5IHVzZSBzdGFuZGFyZCBjb21tYW5kcy9BUElzIHRvIGdldCBhbGwgdGhlIGlu
-Zm9ybWF0aW9uOg0KDQoxKSBJUCBhZGRyZXNzIGluZm9ybWF0aW9uIGFuZCBzdWJuZXQgbWFzazog
-Z2V0aWZhZGRycygpDQoyKSBETlMgaW5mb3JtYXRpb246ICBQYXJzaW5nIC9ldGMvcmVzb2x2LmNv
-bmYNCjMpIC9zYmluL2lwIGNvbW1hbmQgZm9yIGFsbCB0aGUgcm91dGluZyBpbmZvcm1hdGlvbg0K
-NCkgIFBhcnNlIC9ldGMvc3lzY29uZmlnL25ldHdvcmstc2NyaXB0cy9pZmNmZy1ldGh4IGZvciBi
-b290IHByb3RvY29sDQoNCkFzIHlvdSBjYW4gc2VlLCBhbGwgYnV0IHRoZSBib290IHByb3RvY29s
-IGlzIGdhdGhlcmVkIHVzaW5nIHRoZSAic3RhbmRhcmQgZGlzdHJvDQppbmRlcGVuZGVudCBtZWNo
-YW5pc21zLiBJIHdhcyBsb29raW5nIGF0IE5ldHdvcmtNYW5hZ2VyIGNsaSBhbmQgaXQgbG9va3MN
-Cmxpa2UgSSBjb3VsZCBnYXRoZXIgYWxsIHRoZSBpbmZvcm1hdGlvbiBleGNlcHQgdGhlIGJvb3Qg
-cHJvdG9jb2wgaW5mb3JtYXRpb24uIEkgYW0gDQpub3Qgc3VyZSBob3cgdG8gZ2F0aGVyIHRoZSBi
-b290IHByb3RvY29sIGluZm9ybWF0aW9uIGluIGEgZGlzdHJvIGluZGVwZW5kZW50IGZhc2hpb24u
-DQoNCk9uIHRoZSBTRVQgc2lkZSwgSSBuZWVkIHRvIHBlcnNpc3RlbnRseSBzdG9yZSB0aGUgc2V0
-dGluZ3MgaW4gYW4gYXBwcm9wcmlhdGUgY29uZmlndXJhdGlvbg0KZmlsZSBhbmQgZmx1c2ggdGhl
-c2Ugc2V0dGluZ3MgZG93biBzbyB0aGF0IHRoZSBpbnRlcmZhY2UgaXMgYXBwcm9wcmlhdGVseSBj
-b25maWd1cmVkLiBJdCBpcyBoZXJlDQp0aGF0IEkgYW0gc3RydWdnbGluZyB0byBmaW5kIGEgZGlz
-dHJvIGluZGVwZW5kZW50IHdheSBvZiBkb2luZyB0aGluZ3MuIEl0IHdvdWxkIGJlIGdyZWF0IGlm
-IEkgY2FuDQp1c2UgTmV0d29ya01hbmFnZXIgY2xpIChubWNsaSkgdG8gYWNjb21wbGlzaCB0aGlz
-LiBBbnkgaGVscCBoZXJlIHdvdWxkIGJlIGdyZWF0bHkgYXBwcmVjaWF0ZWQuDQoNCldoaWxlIEkg
-dG95ZWQgd2l0aCB5b3VyIHByb3Bvc2FsLCBJIGZlZWwgaXQganVzdCBwdXNoZXMgdGhlIHByb2Js
-ZW0gb3V0IG9mIHRoZSBkYWVtb24gY29kZSAtDQp3ZSB3b3VsZCBzdGlsbCBuZWVkIHRvIHdyaXRl
-IGRpc3RybyBzcGVjaWZpYyBzY3JpcHRzLiBJZiB0aGlzIGFwcHJvYWNoIGlzIHNvbWV0aGluZyB0
-aGF0IGV2ZXJ5Ym9keQ0KaXMgY29tZm9ydGFibGUgd2l0aCwgSSBjYW4gdGFrZSBhIHN0YWIgYXQg
-aW1wbGVtZW50aW5nIHRoYXQuIA0KDQo+IA0KPiBJZiB0aGUgd29yayBpcyBkb25lIGluIGEgc2Ny
-aXB0IGl0IHdpbGwgYmUgbXVjaCBlYXNpZXIgZm9yIGFuIGFkbWluIHRvDQo+IGRlYnVnIGFuZCBh
-ZGp1c3QgaXQuDQo+IA0KPiBJIHRoaW5rIHRoZXJlIGlzIG5vIHN0YW5kYXJkIHdheSB0byBjb25m
-aWd1cmUgYWxsIHJlbGV2YW50IGRpc3Ryb3MgaW4NCj4gdGhlIHNhbWUgd2F5LiBNYXliZSBvbmUg
-ZGF5IE5ldHdvcmtNYW5hZ2VyIGNhbiBmaW5hbGx5IGhhbmRsZSBhbGwNCj4gcG9zc2libGUgd2F5
-cyB0byBjb25maWd1cmUgbmV0d29yayByZWxhdGVkIHRoaW5ncy4gQnV0IHVudGlsIHRoYXQNCj4g
-aGFwcGVucyB0aGUgY29uZmlnIGZpbGVzIG5lZWQgdG8gYmUgYWRqdXN0ZWQgbWFudWFsbHkuDQo+
-IA0KPiANCj4gDQo+IFNvbWUgb2YgdGhlIGZ1bmN0aW9ucyBoYXZlIGRlZXAgaW5kZW50aW9uIGxl
-dmVscyBkdWUgdG8gJ3doaWxlKCkgew0KPiBzd2l0Y2goKSB9JyB1c2FnZS4gUGVyaGFwcyBzdWNo
-IGNvZGUgY291bGQgYmUgbW92ZWQgaW50byBpdHMgb3duDQo+IGZ1bmN0aW9uIHNvIHRoYXQgbGlu
-ZXMgZG9udCBuZWVkIHRvIGJlIHdyYXBwZWQgdGhhdCBtdWNoIGR1ZSB0byB0aGUgb2RkDQo+IDgw
-IGNvbHVtbiBsaW1pdC4NCg0KSSB3aWxsIHRha2UgY2FyZSBvZiB0aGlzLiBBcyBzdWdnZXN0ZWQg
-YnkgR3JlZywgSSBhbSBhZGRpbmcgbmV0ZGV2IGRldmVsb3BlcnMgaGVyZSB0bw0Kc2VlayB0aGVp
-ciBpbnB1dC4gDQoNClJlZ2FyZHMsDQoNCksuIFkNCg==
+On 06/29/2012 07:11 PM, Pablo Neira Ayuso wrote:
+> On Fri, Jun 29, 2012 at 05:45:52PM +0100, Vincent Sanders wrote:
+>> From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+>> 
+>> The netfilter D-Bus module needs to parse D-bus messages sent by
+>> applications to decide whether a peer can receive or not a D-Bus
+>> message. Add D-bus message parsing logic to be able to analyze.
+> 
+> Not talking about the entire patchset, only about the part I'm
+> responsible for.
+> 
+> I don't see why you think this belong to netfilter at all.
+> 
+> This doesn't integrate into the existing filtering infrastructure,
+> neither it extends it in any way.
+> 
+
+Hello Pablo,
+
+Thanks a lot for your feedback.
+
+This is the first of a set of patches that adds a netfilter module to parse
+D-Bus messages, the complete patch-set is:
+
+[PATCH 13/15] netfilter: nfdbus: Add D-bus message parsing
+[PATCH 14/15] netfilter: nfdbus: Add D-bus match rule implementation
+[PATCH 15/15] netfilter: add netfilter D-Bus module
+
+patches 13 and 14 just include D-Bus helper code to be used by the netfilter
+module (added on patch 15) and specially the dbus_filter netfilter hook function.
+
+For the next post version we will reorganize the patches so first the D-Bus
+netfilter module is added with an empty dbus_filter function and then added the
+D-Bus helper code.
+
+Also, we will move the nfdbus netfilter module to net/bus so is not inside the
+netfilter core code.
+
+Thanks a lot and best regards,
+Javier
