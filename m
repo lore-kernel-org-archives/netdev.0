@@ -1,83 +1,63 @@
-From: =?UTF-8?B?Vm9sa2FuIFlhesSxY8Sx?= <volkan.yazici@gmail.com>
-Subject: Deleting an alias causes rest to get deleted
-Date: Mon, 02 Jul 2012 22:54:28 +0300
-Message-ID: <4FF1FC74.8080401@gmail.com>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: AW: AW: RFC: replace packets already in queue
+Date: Mon, 02 Jul 2012 22:32:23 +0200
+Message-ID: <4FF20557.4090501@gmail.com>
+References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>  <4FEC854E.8080603@hp.com>  <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>  <1340960817.15719.6.camel@edumazet-glaptop>  <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de> <1341214310.5269.27.camel@edumazet-glaptop> <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:35987 "EHLO
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:55551 "EHLO
 	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753236Ab2GBUD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 16:03:56 -0400
-Received: by eeit10 with SMTP id t10so2224522eei.19
-        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 13:03:55 -0700 (PDT)
+	with ESMTP id S932104Ab2GBUbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 16:31:21 -0400
+Received: by eeit10 with SMTP id t10so2231796eei.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 13:31:20 -0700 (PDT)
+In-Reply-To: <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Le 02/07/2012 10:38, Erdt, Ralph a =C3=A9crit :
+>>> Even if the wireless queue is a problem (because of our setup, this
+>> is
+>>> not a problem), the network stack queue (*) is the biggest queue, a=
+nd
+>>> a good point to optimize.
+>>
+>> Hmm, I am not convinced you have no queues on wireless.
+>>
+>> Please describe how you managed this.
+>>
+>> In fact this is the biggest problem with wireless : mac82011 framewo=
+rk
+>> aggressively pull packets from Linux packet qdisc in order to perfor=
+m
+>> packet aggregation.
+>
+> I did not talking about W-LAN (802.11). I'm talking about an property=
+ technology which is able to
+> send over KILOMETERs (WLAN<  100m) but with VERY low bandwidth: 9600 =
+bit (no Mega, Giga or Kilo!)
+> (W-LAN: slowest: 1Mbit). The devices is loosely connected to our boxe=
+s: No linux driver but a
+> program which create an virtual network device. This just sends one p=
+acket to the devices and
+> then waits for the acknowledgement that the packet was sent. THEN the=
+ next packet will be send.
+> There is no further queue, because the wireless is so lame, that ther=
+e is no need for that! (BTW:
+> the qdisc and the connector are distinct problems/programs. There is =
+no dependency.)
 
-I observe an IP aliasing anomaly that occurs when I try to delete an IP 
-alias from an interface. That is, when I delete the first address in a 
-set of IP aliased addresses assigned according to a particular subnet, 
-rest of the aliases get deleted as well. Check out the below snippet.
+If I were you, I would use a tun/tap interface and manage a private pac=
+ket queue in userspace. This=20
+way, you wouldn't have to manage the overhead of porting your kernel co=
+de to every new kernel versions.
 
-    $ *for I in `seq 1 6`; do sudo ip addr add 192.168.2.$I/29 dev eth0;
-    done*
-    $ ip addr list
-    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-         inet 127.0.0.1/8 scope host lo
-         inet6 ::1/128 scope host
-            valid_lft forever preferred_lft forever
-    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-    state UP qlen 1000
-         link/ether 00:24:54:b9:1c:f8 brd ff:ff:ff:ff:ff:ff
-    *inet 192.168.1.200/24 brd 192.168.1.255 scope global eth0**
-         inet 192.168.2.1/29 scope global eth0
-         inet 192.168.2.2/29 scope global secondary eth0
-         inet 192.168.2.3/29 scope global secondary eth0
-         inet 192.168.2.4/29 scope global secondary eth0
-         inet 192.168.2.5/29 scope global secondary eth0
-         inet 192.168.2.6/29 scope global secondary eth0*
-         inet6 fe80::224:54ff:feb9:1cf8/64 scope link
-            valid_lft forever preferred_lft forever
-    3: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-         link/ether e8:39:df:6a:21:2a brd ff:ff:ff:ff:ff:ff
-    $ *sudo ip addr del 192.168.2.1/29 dev eth0*
-    $ ip addr list
-    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-         inet 127.0.0.1/8 scope host lo
-         inet6 ::1/128 scope host
-            valid_lft forever preferred_lft forever
-    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-    state UP qlen 1000
-         link/ether 00:24:54:b9:1c:f8 brd ff:ff:ff:ff:ff:ff
-    *inet 192.168.1.200/24 brd 192.168.1.255 scope global eth0*
-         inet6 fe80::224:54ff:feb9:1cf8/64 scope link
-            valid_lft forever preferred_lft forever
-    3: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-         link/ether e8:39:df:6a:21:2a brd ff:ff:ff:ff:ff:ff
-
-Per see, deleting 192.168.2.1/29 causes the rest of the aliased 
-interfaces get deleted as well. This is something that is slightly 
-documented in the ifconfig manual: /for every scope (i.e. same net with 
-address/netmask combination) all aliases are deleted, if you delete the 
-first (primary)/. So what is the right way of just deleting the first 
-(primary) alias without affecting the rest? If this is a scoping issue, 
-is it possible to assign each alias as primary within its own dedicated 
-scope?
-
-As a side note, when I first asked this question to Stephen Hemminger 
-(he forwarded me to this mailing list) he also told me that "/In Linux 
-the interface aliases are really a legacy from the BSD style addressing, 
-and don't act the same. It is not common practice to use them./" Is that 
-really the case? Because, as you know, IP aliasing is the heart of a 
-majority of the high-availability and clustering solutions in Linux. Is 
-IP aliasing a really deprecated technology in Linux? Should we avoid 
-using it? If so, what do you recommend as an alternative?
-
-
-Best.
+	Nicolas.
