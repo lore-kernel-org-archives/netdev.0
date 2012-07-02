@@ -1,44 +1,48 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: Re: [PATCH net-next 1/2] ieee802154: sparse warnings: make symbols static
-Date: Mon, 2 Jul 2012 10:53:03 +0400
-Message-ID: <CAJmB2rDB6McXg=O_z-M3xFa0OrB5hkTWT=ZHM975GDTPvuGjtQ@mail.gmail.com>
-References: <1341209912-6030-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<1341209912-6030-2-git-send-email-alex.bluesman.smirnov@gmail.com>
-	<1341211072.5269.0.camel@edumazet-glaptop>
-	<1341211476.5269.2.camel@edumazet-glaptop>
-	<1341211751.5269.6.camel@edumazet-glaptop>
+From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+Subject: AW: RFC: replace packets already in queue
+Date: Mon, 2 Jul 2012 07:02:08 +0000
+Message-ID: <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
+References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
+	 <4FEC854E.8080603@hp.com>
+	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
+ <1340960817.15719.6.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org, dbaryshkov@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:48478 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963Ab2GBGxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 02:53:05 -0400
-Received: by lbbgm6 with SMTP id gm6so7238471lbb.19
-        for <netdev@vger.kernel.org>; Sun, 01 Jul 2012 23:53:03 -0700 (PDT)
-In-Reply-To: <1341211751.5269.6.camel@edumazet-glaptop>
+Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:55618 "EHLO
+	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754159Ab2GBHCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 03:02:12 -0400
+In-Reply-To: <1340960817.15719.6.camel@edumazet-glaptop>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Eric,
-
->> > static DEFINE_SPINLOCK(flist_lock);
->>
->>
->> and of course commit 768f7c7c121e80f4 (6lowpan: add missing
->> spin_lock_init() ) must be reverted.
->
-> You should validate this code with LOCKDEP
->
-> lowpan_dellink() does a spin_lock(&flist_lock);
-> while same lock can be taken by lowpan_fragment_timer_expired() from
-> timer irq, -> deadlock.
->
-> del_timer() probably needs a del_timer_sync() too
->
-
-Thanks a lot for the hints!
-
-Alex
+SGVsbG8gRXJpYyBEdW1hemV0LA0KDQpzb3JyeSBmb3IgdGhlIGxhdGUgYW5zd2VyLCBidXQgc29t
+ZXRpbWVzIGl0J3Mgbm90IGVhc3kgaGVyZS4uLg0KDQo+IFByb2JsZW0gaXMgOiB3aXRoIHdpcmVs
+ZXNzLCBjaGFuY2VzIGFyZSBoaWdoIHRoYXQgdGhlIG9sZCBwYWNrZXQgaXMgbm90DQo+IHdhaXRp
+bmcgaW4gcWRpc2MsIGJ1dCBpbiB3aXJlbGVzcyBxdWV1ZXMuDQoNCkV2ZW4gaWYgdGhlIHdpcmVs
+ZXNzIHF1ZXVlIGlzIGEgcHJvYmxlbSAoYmVjYXVzZSBvZiBvdXIgc2V0dXAsIHRoaXMgaXMgbm90
+IGEgcHJvYmxlbSksIHRoZSBuZXR3b3JrIHN0YWNrIHF1ZXVlICgqKSBpcyB0aGUgYmlnZ2VzdCBx
+dWV1ZSwgYW5kIGEgZ29vZCBwb2ludCB0byBvcHRpbWl6ZS4gQW5kIGl0cyBpbXBvc3NpYmxlIGRv
+aW5nIHRoaW5ncyAxMDAlLiBXZSBhcmUgaGFwcHkgdG8gZ2V0IDk5JS4gVGhpcyBpcyBhIGdyZWF0
+IGltcHJvdmVtZW50IGNvbXBhcmVkIHRvIHRoZSBwcmV2aW91cyBzaXR1YXRpb24uDQoNCigqIFdo
+ZW4gSSdtIGdldHRpbmcgdGhlIHBpY3R1cmUgaW4gaHR0cDovL2xhcnRjLm9yZy9ob3d0by9sYXJ0
+Yy5xZGlzYy50ZXJtaW5vbG9neS5odG1sIGNvcnJlY3QsIHRoZSBxZGlzYyBpcyB0aGUgb3V0Z29p
+bmcgcXVldWUgYW5kIHRoZSBsYXN0IHF1ZXVlIG9mIHRoZSBrZXJuZWwuIEFmdGVyIHRoaXMgcXVl
+dWUsIHRoZXJlIGFyZSBvbmx5IHRoZSBoYXJkd2FyZSBxdWV1ZXMuKQ0KDQo+IEFueXdheSwgYWRk
+aW5nIGEgbWF4ZGVsYXkgdG8gY29kZWwgLyBmcV9jb2RlbCBpcyByZWFsbHkgZWFzeSA6IFRoaXMN
+Cj4gd291bGQgZHJvcCBwYWNrZXQgaWYgaXRzIHNlam91cm4gdGltZSBpcyBhYm92ZSBhIGdpdmVu
+IGxpbWl0Lg0KDQpKdXN0IGRyb3BwaW5nIHdoZW4gdG8gb2xkIGlzIG5vdCBvdXIgZ29hbC4gSW4g
+ZmFjdCB3ZSBhcmUgYXZvaWRpbmcgYmxpbmQgZHJvcHBpbmchIFdpdGggb3VyIHJlcGxhY2Ugd2Ug
+bWFrZSBzdXJlIHRoYXQgYSBwYWNrZXQgb2Ygb25lIGNsYXNzIHdpbGwgZ28gb3ZlciB0aGUgYWly
+IHdoZW4gdGhpcyBwYWNrZXQgaXMgaW4gbGluZS4gQnV0IHRoZSBpbmZvcm1hdGlvbiB3YXMgcmVw
+bGFjZWQgZHVyaW5nIHRoZSBzdGF5IGluIHRoZSBxdWV1ZSwgc28gdGhhdCB0aGUgbmV3ZXN0IGlu
+Zm9ybWF0aW9uIGdvdCBzZW50Lg0KDQo+IElmIHlvdSB3YW50IEkgY2FuIGNvb2sgdGhpcyBwYXRj
+aC4NCg0KVGhhbmsgZm9yIHlvdSBvZmZlci9zdXBwb3J0LiBCdXQgYXMgZGVzY3JpYmVkIGFib3Zl
+LCB0aGlzIGlzIG5vdCBhIHNvbHV0aW9uIGZvciB1cyAod2UgZGlzY3Vzc2VkIHRoaXMgYWdhaW4g
+aW4gb3VyIGdyb3VwKS4gIA0KDQpHcmVldGluZ3MNClJhbHBoIEVyZHQNCg==
