@@ -1,36 +1,42 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow
- steering firmware API
-Date: Mon, 2 Jul 2012 10:55:28 +0300
-Message-ID: <4FF153F0.8080707@mellanox.com>
-References: <1341135823-29039-7-git-send-email-ogerlitz@mellanox.com> <20120701.033055.489908836962064737.davem@davemloft.net> <4FF042B5.1000303@mellanox.com> <20120701.144252.792146486861614931.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ipv6: remove unnecessary codes in
+ tcp_ipv6.c
+Date: Mon, 02 Jul 2012 10:13:36 +0200
+Message-ID: <1341216816.5269.32.camel@edumazet-glaptop>
+References: <1341199140-17135-1-git-send-email-roy.qing.li@gmail.com>
+	 <20120701.202610.12425223200611171.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <yevgenyp@mellanox.com>, <oren@mellanox.com>,
-	<netdev@vger.kernel.org>, <hadarh@mellanox.co.il>
-To: David Miller <davem@davemloft.net>, <roland@kernel.org>
+Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:35470 "HELO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751362Ab2GBHzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 03:55:43 -0400
-In-Reply-To: <20120701.144252.792146486861614931.davem@davemloft.net>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:44952 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753289Ab2GBINj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 04:13:39 -0400
+Received: by eaak11 with SMTP id k11so1967610eaa.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 01:13:38 -0700 (PDT)
+In-Reply-To: <20120701.202610.12425223200611171.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/2/2012 12:42 AM, David Miller wrote:
-> [...] Module parameters stink because every driver is going to provide 
-> the knob differently, with a different name, and different semantics. 
-> This creates a terrible user experience, and I will not allow it. 
+On Sun, 2012-07-01 at 20:26 -0700, David Miller wrote:
+> From: roy.qing.li@gmail.com
+> Date: Mon,  2 Jul 2012 11:18:59 +0800
+> 
+> > -	if (opt) {
+> > -		newnp->opt = ipv6_dup_options(newsk, opt);
+> > -		if (opt != np->opt)
+> > -			sock_kfree_s(sk, opt, opt->tot_len);
+> 
+> This is bogus, if we copy the options into a new copy in
+> ipv6_dup_options() we have to free the old one or else we
+> leak it.
 
-OK, so if looking on what we are left with on the table, seems that 
-sysfs entry on the mlx4_core
-level (as we do for the port link type {IB, Eth} or IB port MTU) could 
-be fine here, Roland, agree?
+Note that the old one is the np->opt of the listener, not the child.
 
-Or.
+I dont understand how np->opt could change under us, since we have
+the listener socket locked.
 
-We're talking on the /sys/bus/pci/devices entry for the card, e.g for a 
-card sitting
-in 06:00.0 this new entry will be under /sys/bus/pci/devices/0000:06:00.0/
+If np->opt can change under us, we are doomed and need to add refcounts.
