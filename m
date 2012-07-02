@@ -1,43 +1,56 @@
-From: Andreas Gruenbacher <agruen@linbit.com>
-Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
-Date: Mon, 02 Jul 2012 13:45:32 +0200
-Message-ID: <1341229532.29646.39.camel@gurkel.linbit>
-References: <1340981632.25226.2.camel@gurkel.linbit>
-	 <1340982523.21162.1.camel@edumazet-glaptop>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 09/10] net/mlx4_en: Manage flow steering rules with ethtool
+Date: Mon, 2 Jul 2012 13:15:12 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F71@saturn3.aculab.com>
+References: <m28vf2o0oa.fsf@igel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340982523.21162.1.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Joe Perches" <joe@perches.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>, <davem@davemloft.net>,
+	<roland@kernel.org>, <yevgenyp@mellanox.com>, <oren@mellanox.com>,
+	<netdev@vger.kernel.org>, "Hadar Hen Zion" <hadarh@mellanox.co.il>
+To: "Andreas Schwab" <schwab@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:42292 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750878Ab2GBMSs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 08:18:48 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03910-04 for <netdev@vger.kernel.org>;
+ Mon,  2 Jul 2012 13:18:41 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <m28vf2o0oa.fsf@igel.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-06-29 at 17:08 +0200, Eric Dumazet wrote:
-> This looks like yet another zero copy, needing another couple of hundred
-> of lines.
+ 
+> "David Laight" <David.Laight@ACULAB.COM> writes:
+> 
+> >  
+> >> > Or write it as (!field || !(typeof(field))~field) which more
+closely
+> >> > resembles what the macro name expresses.
+> >> 
+> >> Better still, or maybe:
+> >> 
+> >> 	field == 0 || field == (typeof field)~0
+> >
+> > Which doesn't work when sizeof(field) > sizeof(int).
+> > Needs another cast.
+> >
+> > 	field == 0 || field == (typeof field)~(typeof field)0
+> 
+> You can avoid that by using (typeof field)-1.
 
-Kind of, yes.  We really want to make no copies at all though; the cpu
-just passes buffers from one device to the other.
+Gah, I thought I knew the integral promotion rules!
+-1 and ~0 are both 'integer' and get treated the same.
 
-> Why splice infrastructure doesnt fit your needs ?
+A quick test shows that gcc does sign extend when converting
+32bit int to 64bit unsigned long long.
+Which probably means that is required by the standard!
 
-The pipe api that splice is based on saves a copy between the kernel and
-user space, but it currently writes to files, going through the page
-cache.  For that, the alignment of data in the network receive buffers
-doesn't matter.
-
-We want to go directly to the block layer instead.  This requires that
-the network hardware receives the data into sector aligned buffers.
-Hence the proposed MSG_NEW_PACKET flag.
-
-With that, it might be possible to implement a pipe "sink" that goes to
-a bio instead of writing to a file.  Going through the pipe
-infrastructure doesn't actually help in this case though, it's just
-overhead.
-
-Thanks,
-Andreas
+	David
