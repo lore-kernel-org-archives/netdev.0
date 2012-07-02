@@ -1,29 +1,46 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] NFC: Don't warn when closing uninitialized socket
-Date: Mon,  2 Jul 2012 13:31:42 +0200
-Message-ID: <1341228702-9924-1-git-send-email-levinsasha928@gmail.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-	sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [PATCH net-next 09/10] net/mlx4_en: Manage flow steering rules with ethtool
+Date: Mon, 02 Jul 2012 13:35:49 +0200
+Message-ID: <m28vf2o0oa.fsf@igel.home>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F70@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "Joe Perches" <joe@perches.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>, <davem@davemloft.net>,
+	<roland@kernel.org>, <yevgenyp@mellanox.com>, <oren@mellanox.com>,
+	<netdev@vger.kernel.org>, "Hadar Hen Zion" <hadarh@mellanox.co.il>
+To: "David Laight" <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:58825 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750849Ab2GBLf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 07:35:58 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F70@saturn3.aculab.com>
+	(David Laight's message of "Mon, 2 Jul 2012 11:19:50 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is possible to close a NFC socket without initializing it first,
-there's no need to warn about it.
+"David Laight" <David.Laight@ACULAB.COM> writes:
 
-Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/nfc/llcp/llcp.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+>  
+>> > Or write it as (!field || !(typeof(field))~field) which more closely
+>> > resembles what the macro name expresses.
+>> 
+>> Better still, or maybe:
+>> 
+>> 	field == 0 || field == (typeof field)~0
+>
+> Which doesn't work when sizeof(field) > sizeof(int).
+> Needs another cast.
+>
+> 	field == 0 || field == (typeof field)~(typeof field)0
 
-diff --git a/net/nfc/llcp/llcp.c b/net/nfc/llcp/llcp.c
-index 5d503ee..cf84544 100644
---- a/net/nfc/llcp/llcp.c
-+++ b/net/nfc/llcp/llcp.c
-@@ -118,8 +118,6 @@ static void local_release(struct kref *ref)
- 
- int nfc_llcp_local_put(struct nfc_llcp_local *local)
- {
--	WARN_ON(local == NULL);
+You can avoid that by using (typeof field)-1.
+
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
