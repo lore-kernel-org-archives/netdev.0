@@ -1,108 +1,76 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net-next] em_canid: Ematch rule to match CAN frames according
- to their identifiers
-Date: Mon, 02 Jul 2012 07:04:01 +0200
-Message-ID: <4FF12BC1.9030906@hartkopp.net>
-References: <1340903231-9561-1-git-send-email-lisovy@gmail.com> <4FEDCD42.8010203@hartkopp.net>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: Re: possible integer underflow in __sctp_auth_cid()
+Date: Mon, 2 Jul 2012 13:06:37 +0800
+Message-ID: <CAPgLHd_irof=D+R=HfqQR1Yo4MxvRP7S4WWHCyV65-QpYJziBQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz
-To: Rostislav Lisovy <lisovy@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4FEDCD42.8010203@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:45847 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752157Ab2GBFGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 01:06:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-One additional remark:
+On 06/30/2012 08:17 PM, Dan Carpenter wrote:
+> In 555d3d5d "SCTP: Fix chunk acceptance when no authenticated chunks
+> were listed.", we added a check for if (param->param_hdr.length == 0).
+> Shouldn't that check be a check for if
+> (param->param_hdr.length < sizeos(sizeof(sctp_paramhdr_t)))?  Otherwise,
+> when we do the substraction on the next line we would unintentionally
+> end up with a high positive number.
+>
+> I had a similar question about sctp_auth_ep_add_chunkid():
+>
+> net/sctp/auth.c
+>    770          /* Check if we can add this chunk to the array */
+>    771          param_len = ntohs(p->param_hdr.length);
+>    772          nchunks = param_len - sizeof(sctp_paramhdr_t);
+>    773          if (nchunks == SCTP_NUM_CHUNK_TYPES)
+>    774                  return -EINVAL;
+>    775
+>    776          p->chunks[nchunks] = chunk_id;
+>
+> If param_len is less than sizeof(sctp_paramhdr_t) we could write past
+> the end of the array.  There are a couple other places with this same
+> subtraction as well.
 
-When applying your patch on Dave Millers net-next tree there are some offsets
-in the patch ...
 
-Please send the next patch based on the net-next tree, as this would be the
-tree, it will be applied to. See URLs at:
+This will not happen because that p which means ep->auth_chunk_list
+is maintained by the endpoint itself, and the default value is
+sizeof(sctp_paramhdr_t) or sizeof(sctp_paramhdr_t) + 2.
 
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git
+Instead, I found that if user enable AUTH after the endpoint is
+created, set the AUTH chunk may cause panic, because the
+ep->auth_chunk_list is NULL.
 
-Tnx!
+I think we should introduce a help function to check whether the
+AUTH is enabled instead only check sctp_auth_enable, may like:
 
-Oliver
+bool sctp_auth_ep_enabled(struct sctp_endpoint *ep)
+{
+	if (!sctp_auth_enable)
+		return false;
 
-On 29.06.2012 17:44, Oliver Hartkopp wrote:
+	if (!ep->auth_chunk_list || !ep->auth_hmacs_list)
+		return false;
 
-> Hello Rostislav,
-> 
-> looks really good now.
-> 
-> 1. Your Signed-off-by: is missing.
-> 
-> 2. One remark to a removed length check:
-> 
-> (..)
-> 
->> +static int em_canid_change(struct tcf_proto *tp, void *data, int len,
->> +			  struct tcf_ematch *m)
->> +{
->> +	struct can_filter *conf = data; /* Array with rules,
->> +					 * fixed size EM_CAN_RULES_SIZE
->> +					 */
->> +	struct canid_match *cm;
->> +	struct canid_match *cm_old = (struct canid_match *) m->data;
->> +	int i;
->> +	int rulescnt;
->> +
-> 
-> 
-> What about a zero length check here?
-> 
-> 	if (!len)
-> 		return -EINVAL;
-> 
-> ???
-> 
->> +	if (len % sizeof(struct can_filter))
->> +		return -EINVAL;
->> +
->> +	if (len > sizeof(struct can_filter) * EM_CAN_RULES_MAX)
->> +		return -EINVAL;
->> +
->> +	rulescnt = len / sizeof(struct can_filter);
->> +
->> +	cm = kzalloc(sizeof(struct canid_match) + sizeof(struct can_filter) *
->> +		rulescnt, GFP_KERNEL);
->> +	if (!cm)
->> +		return -ENOMEM;
-> 
-> 
-> The length could alternatively be checked here too
-> 
-> http://lxr.linux.no/#linux+v3.4.4/net/sched/ematch.c#L235
-> 
-> if em->ops->datalen is set.
-> 
-> But here's no
-> 
-> 	.datalen = sizeof(struct can_filter),
-> 
-> defined, right?
-> 
->> +static struct tcf_ematch_ops em_canid_ops = {
->> +	.kind	  = TCF_EM_CANID,
->> +	.change	  = em_canid_change,
->> +	.match	  = em_canid_match,
->> +	.destroy  = em_canid_destroy,
->> +	.dump	  = em_canid_dump,
->> +	.owner	  = THIS_MODULE,
->> +	.link	  = LIST_HEAD_INIT(em_canid_ops.link)
->> +};
-> 
-> 
-> Regards,
-> Oliver
+	return true;
+}
+
+
+Regards
+Yongjun Wei
+
+>
+> regards,
+> dan carpenter
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-can" in
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+>
+>
