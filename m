@@ -1,33 +1,25 @@
-From: saeed bishara <saeed.bishara@gmail.com>
-Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
-Date: Mon, 2 Jul 2012 16:39:28 +0300
-Message-ID: <CAMAG_eeDXghHXYxBXK08cweimvdFVr_vCk2f47_OHGZgux7zuw@mail.gmail.com>
-References: <1340981632.25226.2.camel@gurkel.linbit> <1340982523.21162.1.camel@edumazet-glaptop>
- <1341229532.29646.39.camel@gurkel.linbit>
+From: =?windows-1251?Q?=CC=E8=EB=E5=ED=EA=E0_=CC=FF=F1=ED=E8=EA=EE=E2=E0?=
+	<jdaneshg@usc.edu>
+Subject: =?windows-1251?Q?=E7=E0=E9=F7=E8=EA_=EC=EE=E9?=
+Date: Mon, 02 Jul 2012 15:37:56 +0700
+Message-ID: <8550903731.2012072153756@usc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=windows-1251
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andreas Gruenbacher <agruen@linbit.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341229532.29646.39.camel@gurkel.linbit>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from msg-ironport2.usc.edu ([128.125.137.216]:61704 "EHLO
+	msg-ironport2.usc.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412Ab2GBNoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 09:44:17 -0400
+Received: from usc.edu ([46.4.74.241])
+ by msg-mx10.usc.edu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
+ 2006)) with ESMTPSA id <0M6J00I68CJCGD00@msg-mx10.usc.edu> for
+ netdev@vger.kernel.org; Mon, 02 Jul 2012 06:38:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 2, 2012 at 2:45 PM, Andreas Gruenbacher <agruen@linbit.com>=
- wrote:
-
->
-> We want to go directly to the block layer instead. =C2=A0This require=
-s that
-> the network hardware receives the data into sector aligned buffers.
-> Hence the proposed MSG_NEW_PACKET flag.
-Andreas,
- I didn't read your patches, but what are you looking for can't be
-achieved using "normal" NICs, for that you need to use RDMA protocol
-with a hardware that supports RDMA.
-
-saeed
+=E7=E4=E0=F0=EE=E2.!))=20
+=E5=F1=EB=E8 =F1=EA=F3=F7=E0=E5=F8=FC =E8 =E5=F1=F2=FC =E6=E5=EB=E0=ED=E8=
+=E5 =EF=EE=E4=F0=F3=E6=E8=F2=FC=F1=FF, www.newpol.by/show_photos.php =F7=
+=E5=F0=E5=E7 =EF=EE=E8=F1=EA =E8=F9=E8..!)=20
