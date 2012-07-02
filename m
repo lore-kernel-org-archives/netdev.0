@@ -1,136 +1,190 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
+From: Feng Tang <feng.tang@intel.com>
 Subject: Re: linux-next BUG: held lock freed!
-Date: Mon, 2 Jul 2012 11:42:41 +0800
-Message-ID: <20120702034241.GA7511@localhost>
+Date: Mon, 2 Jul 2012 12:28:58 +0800
+Message-ID: <20120702122858.029946db@feng-i7>
 References: <20120626145432.GA15289@localhost>
- <20120626172918.GA16446@localhost>
- <20120627122306.GA19252@localhost>
- <20120702025625.GA6531@localhost>
- <20120702033914.GA7433@localhost>
+	<20120626172918.GA16446@localhost>
+	<20120627122306.GA19252@localhost>
+	<20120702025625.GA6531@localhost>
+	<CA++bM2txX2f=SC3r3bwxLcB8CUCuELW-NhytrKW7-07kysfA2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>, linux-nfs@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Pekka Enberg <penberg@kernel.org>,
-	Linux Memory Management List <linux-mm@kvack.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-To: Christoph Lameter <cl@linux.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>, linux-nfs@vger.kernel.org,
+ linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+ penberg@kernel.org, linux-mm@kvack.org, Stephen Rothwell
+ <sfr@canb.auug.org.au>, bfields@fieldses.org
+To: Fengguang Wu <fengguang.wu@intel.com>, Christoph Lameter <cl@linux.com>
 Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120702033914.GA7433@localhost>
+In-Reply-To: <CA++bM2txX2f=SC3r3bwxLcB8CUCuELW-NhytrKW7-07kysfA2A@mail.gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 02, 2012 at 11:39:14AM +0800, Fengguang Wu wrote:
-> On Mon, Jul 02, 2012 at 10:56:25AM +0800, Fengguang Wu wrote:
-> > Hi all,
-> > 
-> > More observations on this bug:
-> > 
-> > The slab tree itself actually boots fine. So Christoph's commit may be
-> > merely disclosing some bug hidden in another for-next tree which
-> > happens to be merged before the slab tree..
-> 
-> Sorry: the bug does appear in the standalone slab tree, where the
-> dmesg is
-> 
-> [  307.648802] blkid (2963) used greatest stack depth: 2832 bytes left
-> [  307.892070] vhci_hcd: changed 0
-> [  308.766647] 
-> [  308.766648] =========================
-> [  308.766649] [ BUG: held lock freed! ]
-> [  308.766651] 3.5.0-rc1+ #44 Not tainted
-> [  308.766651] -------------------------
-> [  308.766653] mtd_probe/3040 is freeing memory ffff880006defdd0-ffff880006df0dcf, with a lock still held there!
-> [  308.766662]  (&type->s_umount_key#31/1){+.+.+.}, at: [<ffffffff81187166>] sget+0x299/0x463
-> [  308.766663] 3 locks held by mtd_probe/3040:
-> [  308.766667]  #0:  (&type->s_umount_key#31/1){+.+.+.}, at: [<ffffffff81187166>] sget+0x299/0x463
-> [  308.766671]  #1:  (sb_lock){+.+.-.}, at: [<ffffffff81186f00>] sget+0x33/0x463
-> [  308.766675]  #2:  (unnamed_dev_lock){+.+...}, at: [<ffffffff81186711>] get_anon_bdev+0x38/0xe8
-> [  308.766675] 
-> [  308.766675] stack backtrace:
-> [  308.766677] Pid: 3040, comm: mtd_probe Not tainted 3.5.0-rc1+ #44
-> [  308.766678] Call Trace:
-> [  308.766683]  [<ffffffff810ddc6e>] debug_check_no_locks_freed+0x109/0x14b
-> [  308.766703]  [<ffffffff81173f7c>] kmem_cache_free+0x2e/0xa7
-> [  308.766708]  [<ffffffff816a5d9d>] ida_get_new_above+0x173/0x184
-> [  308.766711]  [<ffffffff810db9a4>] ? lock_acquired+0x1e4/0x219
-> [  308.766713]  [<ffffffff81186727>] get_anon_bdev+0x4e/0xe8
-> [  308.766715]  [<ffffffff811867d8>] set_anon_super+0x17/0x2a
-> [  308.766717]  [<ffffffff81187270>] sget+0x3a3/0x463
-> [  308.766719]  [<ffffffff811867c1>] ? get_anon_bdev+0xe8/0xe8
-> [  308.766722]  [<ffffffff811a1fbe>] mount_pseudo+0x31/0x152
-> [  308.766727]  [<ffffffff81cb1f54>] mtd_inodefs_mount+0x24/0x26
-> [  308.766729]  [<ffffffff81187e34>] mount_fs+0x69/0x155
-> [  308.766733]  [<ffffffff811531b2>] ? __alloc_percpu+0x10/0x12
-> [  308.766736]  [<ffffffff8119ca4c>] vfs_kern_mount+0x62/0xd9
-> [  308.766739]  [<ffffffff811a1b43>] simple_pin_fs+0x4c/0x9b
-> [  308.766741]  [<ffffffff81cb338a>] mtdchar_open+0x42/0x188
-> [  308.766744]  [<ffffffff811886ef>] chrdev_open+0x11f/0x14a
-> [  308.766747]  [<ffffffff810c0880>] ? local_clock+0x19/0x52
-> [  308.766750]  [<ffffffff811885d0>] ? cdev_put+0x26/0x26
-> [  308.766752]  [<ffffffff811836cc>] do_dentry_open+0x1e4/0x2b2
-> [  308.766754]  [<ffffffff8118434a>] nameidata_to_filp+0x5e/0xa3
-> [  308.766756]  [<ffffffff8119118f>] do_last+0x68f/0x6d3
-> [  308.766759]  [<ffffffff811912d8>] path_openat+0xd2/0x32a
-> [  308.766762]  [<ffffffff8111eed8>] ? time_hardirqs_off+0x26/0x2a
-> [  308.766765]  [<ffffffff810d9e88>] ? trace_hardirqs_off+0xd/0xf
-> [  308.766767]  [<ffffffff81191630>] do_filp_open+0x38/0x86
-> [  308.766771]  [<ffffffff82e95e22>] ? _raw_spin_unlock+0x28/0x3b
-> [  308.766773]  [<ffffffff8119baa7>] ? alloc_fd+0xe5/0xf7
-> [  308.766776]  [<ffffffff811843fd>] do_sys_open+0x6e/0xfb
-> [  308.766777]  [<ffffffff811844ab>] sys_open+0x21/0x23
-> [  308.766780]  [<ffffffff82e9cb69>] system_call_fastpath+0x16/0x1b
 
-Another dmesg on the slab tree:
 
-[   54.522438] Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled
-[   54.567847] serial8250: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
-[   54.591289] 
-[   54.591290] =========================
-[   54.591291] [ BUG: held lock freed! ]
-[   54.591293] 3.5.0-rc1+ #45 Not tainted
-[   54.591293] -------------------------
-[   54.591295] swapper/0/1 is freeing memory ffff88000f45fdd0-ffff88000f460dcf, with a lock still held there!
-[   54.591304]  (&port->mutex){+.+.+.}, at: [<ffffffff817df6d2>] uart_add_one_port+0x84/0x356
-[   54.591306] 3 locks held by swapper/0/1:
-[   54.591310]  #0:  (port_mutex){+.+.+.}, at: [<ffffffff817df6c0>] uart_add_one_port+0x72/0x356
-[   54.591314]  #1:  (&port->mutex){+.+.+.}, at: [<ffffffff817df6d2>] uart_add_one_port+0x84/0x356
-[   54.591319]  #2:  (sysfs_ino_lock){+.+...}, at: [<ffffffff811e273f>] sysfs_new_dirent+0x6b/0x10c
-[   54.591320] 
-[   54.591320] stack backtrace:
-[   54.591322] Pid: 1, comm: swapper/0 Not tainted 3.5.0-rc1+ #45
-[   54.591323] Call Trace:
-[   54.591338]  [<ffffffff810ddc6e>] debug_check_no_locks_freed+0x109/0x14b
-[   54.591342]  [<ffffffff81173fa0>] kmem_cache_free+0x2e/0xa7
-[   54.591346]  [<ffffffff816a5d9d>] ida_get_new_above+0x173/0x184
-[   54.591351]  [<ffffffff810db9a4>] ? lock_acquired+0x1e4/0x219
-[   54.591354]  [<ffffffff811e2754>] sysfs_new_dirent+0x80/0x10c
-[   54.591357]  [<ffffffff811e1cad>] sysfs_add_file_mode+0x4e/0xce
-[   54.591366]  [<ffffffff811e1d3f>] sysfs_add_file+0x12/0x14
-[   54.591368]  [<ffffffff811e4296>] sysfs_merge_group+0x45/0x97
-[   54.591372]  [<ffffffff819bff1b>] dpm_sysfs_add+0x54/0xab
-[   54.591374]  [<ffffffff819b9394>] device_add+0x3ba/0x5d7
-[   54.591377]  [<ffffffff819b95cc>] device_register+0x1b/0x1f
-[   54.591379]  [<ffffffff819b9661>] device_create_vargs+0x91/0xc8
-[   54.591381]  [<ffffffff819b96c9>] device_create+0x31/0x33
-[   54.591385]  [<ffffffff817c1792>] tty_register_device+0xde/0xfb
-[   54.591388]  [<ffffffff817df90f>] uart_add_one_port+0x2c1/0x356
-[   54.591406]  [<ffffffff84641c95>] serial8250_init+0x12b/0x189
-[   54.591409]  [<ffffffff84641095>] ? r3964_init+0x25/0x41
-[   54.591411]  [<ffffffff84641b6a>] ? serial8250_console_init+0x2c/0x2c
-[   54.591414]  [<ffffffff81002099>] do_one_initcall+0x7f/0x13a
-[   54.591419]  [<ffffffff84603d39>] kernel_init+0x170/0x1f8
-[   54.591422]  [<ffffffff84603590>] ? do_early_param+0x8c/0x8c
-[   54.591435]  [<ffffffff82e9dfb4>] kernel_thread_helper+0x4/0x10
-[   54.591438]  [<ffffffff82e961f0>] ? retint_restore_args+0x13/0x13
-[   54.591441]  [<ffffffff84603bc9>] ? start_kernel+0x3e7/0x3e7
-[   54.591443]  [<ffffffff82e9dfb0>] ? gs_change+0x13/0x13
-[   54.625113] 00:06: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
+> From: Fengguang Wu <fengguang.wu@intel.com>
+> Date: 2012/7/2
+> Subject: linux-next BUG: held lock freed!
+> To: Christoph Lameter <cl@linux.com>
+> Cc: Trond Myklebust <Trond.Myklebust@netapp.com>, "J. Bruce Fields" <
+> bfields@fieldses.org>, linux-nfs@vger.kernel.org, LKML <
+> linux-kernel@vger.kernel.org>, netdev <netdev@vger.kernel.org>, Pekka
+> Enberg <penberg@kernel.org>, Linux Memory Management List <
+> linux-mm@kvack.org>, Stephen Rothwell <sfr@canb.auug.org.au>
+> 
+> 
+> Hi all,
+> 
+> More observations on this bug:
+> 
+> The slab tree itself actually boots fine. So Christoph's commit may be
+> merely disclosing some bug hidden in another for-next tree which
+> happens to be merged before the slab tree..
+> 
+> Attached are some more back traces related to this bug (obviuosly, not
+> only network locks are affected by the bug), as well as the kconfig that
+> can relatively easily (but not always) trigger this bug.
+> 
+> Thanks,
+> Fengguang
+> 
+> On Wed, Jun 27, 2012 at 08:23:06PM +0800, Fengguang Wu wrote:
+> > Hi Christoph,
+> >
+> > It's a surprise that it bisects down to this commit. I confirmed
+> > that it boots reliably if reverting this commit on top of linux-next.
+> >
+> > 8c138bc00925521c4e764269db3a903bd2a51592 is the first bad commit
+> > commit 8c138bc00925521c4e764269db3a903bd2a51592
+> > Author: Christoph Lameter <cl@linux.com>
+> > Date:   Wed Jun 13 10:24:58 2012 -0500
+> >
+> >     slab: Get rid of obj_size macro
+> >
+> >     The size of the slab object is frequently needed. Since we now
+> >     have a size field directly in the kmem_cache structure there is no
+> >     need anymore of the obj_size macro/function.
+> >
+> >     Signed-off-by: Christoph Lameter <cl@linux.com>
+> >     Signed-off-by: Pekka Enberg <penberg@kernel.org>
+
+Seems there is a typo in the original patch 8c138bc0:
+
+@@ -3896,9 +3890,9 @@ void kmem_cache_free(struct kmem_cache *cachep, void *objp)
+        unsigned long flags;
+
+        local_irq_save(flags);
+-       debug_check_no_locks_freed(objp, obj_size(cachep));
++       debug_check_no_locks_freed(objp, cachep->size);
+					====> this should be cachep->object_size				
+        if (!(cachep->flags & SLAB_DEBUG_OBJECTS))
+-               debug_check_no_obj_freed(objp, obj_size(cachep));
++               debug_check_no_obj_freed(objp, cachep->object_size);
+
+
+So the following small patch may fix it:
+
+----------------------
+diff --git a/mm/slab.c b/mm/slab.c
+index 64c3d03..605b3b7 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -3890,7 +3890,7 @@ void kmem_cache_free(struct kmem_cache *cachep, void *objp)
+        unsigned long flags;
+ 
+        local_irq_save(flags);
+-       debug_check_no_locks_freed(objp, cachep->size);
++       debug_check_no_locks_freed(objp, cachep->object_size);
+        if (!(cachep->flags & SLAB_DEBUG_OBJECTS))
+                debug_check_no_obj_freed(objp, cachep->object_size);
+        __cache_free(cachep, objp, __builtin_return_address(0));
+
 
 Thanks,
-Fengguang
+Feng
+
+> >
+> > :040000 040000 e0418be654b66b2364add59bb469024fd6958791
+> f6be0da4d4740844ab8a4c561dbe3815a3f9b8b4 M      mm
+> > bisect run success
+> >
+> > > > [  133.909702] =========================
+> > > > [  133.910694] [ BUG: held lock freed! ]
+> > > > [  133.911700] 3.5.0-rc4+ #5 Not tainted
+> > > > [  133.912672] -------------------------
+> > > > [  133.912969] swapper/0/0 is freeing memory
+> ffff88001233ce08-ffff88001233de07, with a lock still held there!
+> > > > [  133.912969]  (slock-AF_INET-RPC/1){+.-...}, at:
+> [<ffffffff82ae84ee>] tcp_v4_rcv+0x28b/0x6fc
+> > > > [  133.912969] 3 locks held by swapper/0/0:
+> > > > [  133.912969]  #0:  (rcu_read_lock){.+.+..}, at:
+> [<ffffffff82a1ea8a>] rcu_lock_acquire+0x0/0x29
+> > > > [  133.912969]  #1:  (rcu_read_lock){.+.+..}, at:
+> [<ffffffff82aca483>] rcu_lock_acquire.constprop.14+0x0/0x30
+> > > > [  133.912969]  #2:  (slock-AF_INET-RPC/1){+.-...}, at:
+> [<ffffffff82ae84ee>] tcp_v4_rcv+0x28b/0x6fc
+> > > > [  133.912969]
+> > > > [  133.912969] stack backtrace:
+> > > > [  133.912969] Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc4+ #5
+> > > > [  133.912969] Call Trace:
+> > > > [  133.912969]  <IRQ>  [<ffffffff810e09ae>]
+> debug_check_no_locks_freed+0x109/0x14b
+> > > > [  133.912969]  [<ffffffff811774e0>] kmem_cache_free+0x2e/0xa7
+> > > > [  133.912969]  [<ffffffff82a191e5>] __kfree_skb+0x7f/0x83
+> > > > [  133.912969]  [<ffffffff82adeccd>] tcp_ack+0x45d/0xc6a
+> > > > [  133.912969]  [<ffffffff810c22ae>] ? local_clock+0x3b/0x52
+> > > > [  133.912969]  [<ffffffff82adff44>] tcp_rcv_state_process+0x15a/0x7c6
+> > > > [  133.912969]  [<ffffffff82ae79e7>] tcp_v4_do_rcv+0x341/0x390
+> > > > [  133.912969]  [<ffffffff82ae88db>] tcp_v4_rcv+0x678/0x6fc
+> > > > [  133.912969]  [<ffffffff82aca618>]
+> ip_local_deliver_finish+0x165/0x1e4
+> > > > [  133.912969]  [<ffffffff82acab4a>] ip_local_deliver+0x53/0x84
+> > > > [  133.912969]  [<ffffffff810c228c>] ? local_clock+0x19/0x52
+> > > > [  133.912969]  [<ffffffff82aca9c6>] ip_rcv_finish+0x32f/0x367
+> > > > [  133.912969]  [<ffffffff82acad8b>] ip_rcv+0x210/0x269
+> > > > [  133.912969]  [<ffffffff82a1eab1>] ? rcu_lock_acquire+0x27/0x29
+> > > > [  133.912969]  [<ffffffff82a1ea8a>] ? softnet_seq_show+0x68/0x68
+> > > > [  133.912969]  [<ffffffff82a21ede>] __netif_receive_skb+0x3cd/0x464
+> > > > [  133.912969]  [<ffffffff82a21fda>] netif_receive_skb+0x65/0x9c
+> > > > [  133.912969]  [<ffffffff82a227c5>] ? __napi_gro_receive+0xf2/0xff
+> > > > [  133.912969]  [<ffffffff82a2209e>] napi_skb_finish+0x26/0x58
+> > > > [  133.912969]  [<ffffffff810c228c>] ? local_clock+0x19/0x52
+> > > > [  133.912969]  [<ffffffff82a228c5>] napi_gro_receive+0x2f/0x34
+> > > > [  133.912969]  [<ffffffff81e36d12>] e1000_receive_skb+0x57/0x60
+> > > > [  133.912969]  [<ffffffff81e39b23>] e1000_clean_rx_irq+0x2f2/0x387
+> > > > [  133.912969]  [<ffffffff81e390f3>] e1000_clean+0x541/0x695
+> > > > [  133.912969]  [<ffffffff8106c57b>] ? kvm_clock_read+0x2e/0x36
+> > > > [  133.912969]  [<ffffffff82a22402>] ? net_rx_action+0x1b3/0x1f8
+> > > > [  133.912969]  [<ffffffff82a22302>] net_rx_action+0xb3/0x1f8
+> > > > [  133.912969]  [<ffffffff810984ab>] ? __do_softirq+0x76/0x1e8
+> > > > [  133.912969]  [<ffffffff81098515>] __do_softirq+0xe0/0x1e8
+> > > > [  133.912969]  [<ffffffff81122190>] ? time_hardirqs_off+0x26/0x2a
+> > > > [  133.912969]  [<ffffffff82ea7fec>] call_softirq+0x1c/0x30
+> > > > [  133.912969]  [<ffffffff81049cc8>] do_softirq+0x4a/0xa2
+> > > > [  133.912969]  [<ffffffff8109888e>] irq_exit+0x51/0xbc
+> > > > [  133.912969]  [<ffffffff82ea88ae>] do_IRQ+0x8e/0xa5
+> > > > [  133.912969]  [<ffffffff82ea002f>] common_interrupt+0x6f/0x6f
+> > > > [  133.912969]  <EOI>  [<ffffffff8106c76b>] ? native_safe_halt+0x6/0x8
+> > > > [  133.912969]  [<ffffffff810e08a3>] ? trace_hardirqs_on+0xd/0xf
+> > > > [  133.912969]  [<ffffffff8104f384>] default_idle+0x53/0x90
+> > > > [  133.912969]  [<ffffffff8104fc09>] cpu_idle+0xcc/0x123
+> > > > [  133.912969]  [<ffffffff82d1d8dd>] rest_init+0xd1/0xda
+> > > > [  133.912969]  [<ffffffff82d1d80c>] ?
+> csum_partial_copy_generic+0x16c/0x16c
+> > > > [  133.912969]  [<ffffffff8460dbbc>] start_kernel+0x3da/0x3e7
+> > > > [  133.912969]  [<ffffffff8460d5ea>] ? repair_env_string+0x5a/0x5a
+> > > > [  133.912969]  [<ffffffff8460d2d6>]
+> x86_64_start_reservations+0xb1/0xb5
+> > > > [  133.912969]  [<ffffffff8460d3d8>] x86_64_start_kernel+0xfe/0x10b
+> > > > [  134.024230] VFS: Mounted root (nfs filesystem) on device 0:14.
+> >
+> > Thanks,
+> > Fengguang
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
