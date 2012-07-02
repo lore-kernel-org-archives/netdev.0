@@ -1,43 +1,28 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH] iwlegacy: print how long queue was actually stuck
-Date: Mon, 02 Jul 2012 11:53:09 +0200
-Message-ID: <1341222789.1911.145.camel@x61.thuisdomein>
-References: <1340786187.1911.24.camel@x61.thuisdomein>
-	 <1341062406.1911.76.camel@x61.thuisdomein>
-	 <20120702090602.GA8286@redhat.com>
-	 <1341221563.1911.141.camel@x61.thuisdomein>
-	 <20120702093913.GA9045@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5] ipv4: Delete routing cache.
+Date: Mon, 02 Jul 2012 03:15:07 -0700 (PDT)
+Message-ID: <20120702.031507.2093058758983732563.davem@davemloft.net>
+References: <20120701.050249.1959437975207758368.davem@davemloft.net>
+	<1341221712.5269.40.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120702093913.GA9045@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55405 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932909Ab2GBKPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 06:15:18 -0400
+In-Reply-To: <1341221712.5269.40.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-02 at 11:39 +0200, Stanislaw Gruszka wrote:
-> On Mon, Jul 02, 2012 at 11:32:43AM +0200, Paul Bolle wrote:
-> Oh, you were not CCed, and lkml too, v2 patch is here:
-> http://marc.info/?l=linux-wireless&m=134121823510017&w=2
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 02 Jul 2012 11:35:12 +0200
 
-Thanks.
+> When testing this patch, I had to disable CONFIG_IP_ROUTE_VERBOSE to
+> avoid a compile error at the end of ip_rt_redirect()
 
-> > Should I report whether the iwlegacy version works
-> > or not?
-> Actually I'll post it anyway. But if this patch and Emmanuel's will not 
-> fix the problem you should report it. 
-
-I'll try to report any oddities I notice.
-
-> > Any thoughts on my patch (ie, the patch that is actually the subject of
-> > this thread?
-> It was applied to wireless-testing.
-
-That's nice.
-
-
-Paul Bolle
+I'll try to get that fixed the next time I respin, thanks for the
+report Eric.
