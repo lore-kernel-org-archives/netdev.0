@@ -1,59 +1,35 @@
-From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
-Subject: AW: AW: RFC: replace packets already in queue
-Date: Mon, 2 Jul 2012 08:38:55 +0000
-Message-ID: <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>
-References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
-	 <4FEC854E.8080603@hp.com>
-	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
-	 <1340960817.15719.6.camel@edumazet-glaptop>
-	 <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
- <1341214310.5269.27.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ipv6: remove unnecessary codes in
+ tcp_ipv6.c
+Date: Mon, 02 Jul 2012 10:54:41 +0200
+Message-ID: <1341219281.5269.36.camel@edumazet-glaptop>
+References: <1341199140-17135-1-git-send-email-roy.qing.li@gmail.com>
+	 <20120701.202610.12425223200611171.davem@davemloft.net>
+	 <1341216816.5269.32.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:56561 "EHLO
-	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932324Ab2GBIjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 04:39:00 -0400
-In-Reply-To: <1341214310.5269.27.camel@edumazet-glaptop>
-Content-Language: de-DE
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:42196 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932170Ab2GBIyq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 04:54:46 -0400
+Received: by eaak11 with SMTP id k11so1982105eaa.19
+        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 01:54:44 -0700 (PDT)
+In-Reply-To: <1341216816.5269.32.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IEV2ZW4gaWYgdGhlIHdpcmVsZXNzIHF1ZXVlIGlzIGEgcHJvYmxlbSAoYmVjYXVzZSBvZiBv
-dXIgc2V0dXAsIHRoaXMNCj4gaXMNCj4gPiBub3QgYSBwcm9ibGVtKSwgdGhlIG5ldHdvcmsgc3Rh
-Y2sgcXVldWUgKCopIGlzIHRoZSBiaWdnZXN0IHF1ZXVlLCBhbmQNCj4gPiBhIGdvb2QgcG9pbnQg
-dG8gb3B0aW1pemUuDQo+IA0KPiBIbW0sIEkgYW0gbm90IGNvbnZpbmNlZCB5b3UgaGF2ZSBubyBx
-dWV1ZXMgb24gd2lyZWxlc3MuDQo+IA0KPiBQbGVhc2UgZGVzY3JpYmUgaG93IHlvdSBtYW5hZ2Vk
-IHRoaXMuDQo+IA0KPiBJbiBmYWN0IHRoaXMgaXMgdGhlIGJpZ2dlc3QgcHJvYmxlbSB3aXRoIHdp
-cmVsZXNzIDogbWFjODIwMTEgZnJhbWV3b3JrDQo+IGFnZ3Jlc3NpdmVseSBwdWxsIHBhY2tldHMg
-ZnJvbSBMaW51eCBwYWNrZXQgcWRpc2MgaW4gb3JkZXIgdG8gcGVyZm9ybQ0KPiBwYWNrZXQgYWdn
-cmVnYXRpb24uDQoNCkkgZGlkIG5vdCB0YWxraW5nIGFib3V0IFctTEFOICg4MDIuMTEpLiBJJ20g
-dGFsa2luZyBhYm91dCBhbiBwcm9wZXJ0eSB0ZWNobm9sb2d5IHdoaWNoIGlzIGFibGUgdG8gc2Vu
-ZCBvdmVyIEtJTE9NRVRFUnMgKFdMQU4gPCAxMDBtKSBidXQgd2l0aCBWRVJZIGxvdyBiYW5kd2lk
-dGg6IDk2MDAgYml0IChubyBNZWdhLCBHaWdhIG9yIEtpbG8hKSAoVy1MQU46IHNsb3dlc3Q6IDFN
-Yml0KS4NClRoZSBkZXZpY2VzIGlzIGxvb3NlbHkgY29ubmVjdGVkIHRvIG91ciBib3hlczogTm8g
-bGludXggZHJpdmVyIGJ1dCBhIHByb2dyYW0gd2hpY2ggY3JlYXRlIGFuIHZpcnR1YWwgbmV0d29y
-ayBkZXZpY2UuIFRoaXMganVzdCBzZW5kcyBvbmUgcGFja2V0IHRvIHRoZSBkZXZpY2VzIGFuZCB0
-aGVuIHdhaXRzIGZvciB0aGUgYWNrbm93bGVkZ2VtZW50IHRoYXQgdGhlIHBhY2tldCB3YXMgc2Vu
-dC4gVEhFTiB0aGUgbmV4dCBwYWNrZXQgd2lsbCBiZSBzZW5kLiBUaGVyZSBpcyBubyBmdXJ0aGVy
-IHF1ZXVlLCBiZWNhdXNlIHRoZSB3aXJlbGVzcyBpcyBzbyBsYW1lLCB0aGF0IHRoZXJlIGlzIG5v
-IG5lZWQgZm9yIHRoYXQhDQooQlRXOiB0aGUgcWRpc2MgYW5kIHRoZSBjb25uZWN0b3IgYXJlIGRp
-c3RpbmN0IHByb2JsZW1zL3Byb2dyYW1zLiBUaGVyZSBpcyBubyBkZXBlbmRlbmN5LikNCg0KDQo+
-IE1vc3QgcGFja2V0cyBkb24ndCBzdGF5IGluIHFkaXNjIGJ1dCBhcmUgc2l0dGluZyBpbiB3aXJl
-bGVzcyBkcml2ZXIsDQo+IHVubGVzcyB5b3UgcmVhbGx5IGZsb29kIGl0LiBJZiBpdCBoYXBwZW5z
-LCB5b3UgYWxyZWFkeSBhcmUgaW4gdHJvdWJsZS4NCg0KV2UgQVJFIGluIHRyb3VibGUuLi4gOi0v
-DQoNCg0KPiBTbyBjb2RlIHlvdXIgcWRpc2MgdGhpbmcsIGJ1dCBJIGFtIG5vdCBzdXJlIHlvdSds
-bCBnZXQgbXVjaA0KPiBpbXByb3ZlbWVudC4NCg0KSXQncyBpbXBsZW1lbnRlZCBhbHJlYWR5IChp
-dCdzIGp1c3QgYSBsaXR0bGUgc291cmNlIGZpbGUpLCBhbmQgaXQgd29ya2VkIGluIHRoZSBzaW11
-bGF0aW9uLiBCdXQgSSBjYW5ub3QgdGVzdCB0aGVtIG9uIHJlYWwgZGV2aWNlcyBBVE0uDQoNCk15
-IHF1ZXN0aW9uIGlzOiBTaG91bGQgSSBkbyB0aGUgd29yayB0byBjcmVhdGUgYW5kIHJlbGVhc2Ug
-YSBrZXJuZWwgcGF0Y2ggYW5kIG1ha2UgaXQgcGVyZmVjdCBvdmVyIHRoZSB0aW1lLCBvciBpcyB0
-aGlzIGp1c3Qgb3VyIGludGVybmFsIGNvZGUsIHdoaWNoIEkgY2FuIGxlYXZlIGF0IHRoZSBjdXJy
-ZW50IHN0YXRlPyBJIGtub3cgb3VyIG1vZHVsZSB3b24ndCBiZSB1c2VkIHdpZGVseSAodG9vIHNw
-ZWNpYWwpLCBidXQgSSdtIHN1cmUsIHRoZXJlIGFyZSBhIGZldyBwZW9wbGUgb3V0IHRoZXJlLCB3
-aGljaCB3b3VsZCBiZSB0aGFua2Z1bCBmb3IgdGhpcy4NCg0K
+On Mon, 2012-07-02 at 10:13 +0200, Eric Dumazet wrote:
+
+> Note that the old one is the np->opt of the listener, not the child.
+> 
+> I dont understand how np->opt could change under us, since we have
+> the listener socket locked.
+> 
+> If np->opt can change under us, we are doomed and need to add refcounts.
+
+Hmm, it seems net/ipv6/udp.c uses np->opt outside of the
+lock_sock()/release_sock(sk) boundary.
