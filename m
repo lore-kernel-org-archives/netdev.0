@@ -1,45 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: AW: RFC: replace packets already in queue
-Date: Mon, 02 Jul 2012 09:31:50 +0200
-Message-ID: <1341214310.5269.27.camel@edumazet-glaptop>
-References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
-	 <4FEC854E.8080603@hp.com>
-	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
-	 <1340960817.15719.6.camel@edumazet-glaptop>
-	 <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow
+ steering firmware API
+Date: Mon, 2 Jul 2012 10:55:28 +0300
+Message-ID: <4FF153F0.8080707@mellanox.com>
+References: <1341135823-29039-7-git-send-email-ogerlitz@mellanox.com> <20120701.033055.489908836962064737.davem@davemloft.net> <4FF042B5.1000303@mellanox.com> <20120701.144252.792146486861614931.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+Cc: <yevgenyp@mellanox.com>, <oren@mellanox.com>,
+	<netdev@vger.kernel.org>, <hadarh@mellanox.co.il>
+To: David Miller <davem@davemloft.net>, <roland@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:49194 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752594Ab2GBHbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 03:31:53 -0400
-Received: by eeit10 with SMTP id t10so1937828eei.19
-        for <netdev@vger.kernel.org>; Mon, 02 Jul 2012 00:31:52 -0700 (PDT)
-In-Reply-To: <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:35470 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751362Ab2GBHzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 03:55:43 -0400
+In-Reply-To: <20120701.144252.792146486861614931.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-02 at 07:02 +0000, Erdt, Ralph wrote:
+On 7/2/2012 12:42 AM, David Miller wrote:
+> [...] Module parameters stink because every driver is going to provide 
+> the knob differently, with a different name, and different semantics. 
+> This creates a terrible user experience, and I will not allow it. 
 
-> Even if the wireless queue is a problem (because of our setup, this is
-> not a problem), the network stack queue (*) is the biggest queue, and
-> a good point to optimize. 
+OK, so if looking on what we are left with on the table, seems that 
+sysfs entry on the mlx4_core
+level (as we do for the port link type {IB, Eth} or IB port MTU) could 
+be fine here, Roland, agree?
 
-Hmm, I am not convinced you have no queues on wireless.
+Or.
 
-Please describe how you managed this.
-
-In fact this is the biggest problem with wireless : mac82011 framework
-aggressively pull packets from Linux packet qdisc in order to perform
-packet aggregation.
-
-Most packets don't stay in qdisc but are sitting in wireless driver,
-unless you really flood it. If it happens, you already are in trouble.
-
-So code your qdisc thing, but I am not sure you'll get much improvement.
-You would need to implement it in wireless code instead.
+We're talking on the /sys/bus/pci/devices entry for the card, e.g for a 
+card sitting
+in 06:00.0 this new entry will be under /sys/bus/pci/devices/0000:06:00.0/
