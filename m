@@ -1,28 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] ipv4: Delete routing cache.
-Date: Mon, 02 Jul 2012 03:15:07 -0700 (PDT)
-Message-ID: <20120702.031507.2093058758983732563.davem@davemloft.net>
-References: <20120701.050249.1959437975207758368.davem@davemloft.net>
-	<1341221712.5269.40.camel@edumazet-glaptop>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for strings
+Date: Mon, 2 Jul 2012 11:09:19 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6F@saturn3.aculab.com>
+References: <20120630114935.GB22767@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Eddie Wai" <eddie.wai@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>, <linux-scsi@vger.kernel.org>,
+	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: "Dan Carpenter" <dan.carpenter@oracle.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	"Barak Witkowski" <barak@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55405 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932909Ab2GBKPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 06:15:18 -0400
-In-Reply-To: <1341221712.5269.40.camel@edumazet-glaptop>
+Received: from mx0.aculab.com ([213.249.233.131]:40388 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S932938Ab2GBKVN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 06:21:13 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 13408-04 for <netdev@vger.kernel.org>;
+ Mon,  2 Jul 2012 11:21:10 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20120630114935.GB22767@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 Jul 2012 11:35:12 +0200
+> Subject: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
+strings
+> 
+> DRV_MODULE_VERSION here is "2.7.2.2" which is only 8 chars but we copy
+> 12 bytes from the stack so it's a small information leak.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> This was just added to linux-next yesterday, but I'm not sure 
+> which tree it came from.
+> 
+> diff --git a/drivers/scsi/bnx2i/bnx2i_init.c 
+> b/drivers/scsi/bnx2i/bnx2i_init.c
+> index 7729a52..b17637a 100644
+> --- a/drivers/scsi/bnx2i/bnx2i_init.c
+> +++ b/drivers/scsi/bnx2i/bnx2i_init.c
+> @@ -400,7 +400,7 @@ int bnx2i_get_stats(void *handle)
+>  	if (!stats)
+>  		return -ENOMEM;
+>  
+> -	memcpy(stats->version, DRV_MODULE_VERSION,
+sizeof(stats->version));
+> +	strlcpy(stats->version, DRV_MODULE_VERSION,
+sizeof(stats->version));
+>  	memcpy(stats->mac_add1 + 2, hba->cnic->mac_addr, ETH_ALEN);
 
-> When testing this patch, I had to disable CONFIG_IP_ROUTE_VERBOSE to
-> avoid a compile error at the end of ip_rt_redirect()
+Doesn't that leak the original contents of the last bytes of
+stats->version instead?
 
-I'll try to get that fixed the next time I respin, thanks for the
-report Eric.
+	David
