@@ -1,46 +1,39 @@
-From: "Stefan Lippers-Hollmann" <s.L-H@gmx.de>
-Subject: Re: 3.4.x regression: rtl8169: frequent resets
-Date: Mon, 2 Jul 2012 02:43:24 +0200
-Message-ID: <201207020243.34213.s.L-H@gmx.de>
-References: <87y5n7qup0.fsf@spindle.srvr.nix> <20120628193026.GA31627@electric-eye.fr.zoreil.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2012-07-01
+Date: Sun, 01 Jul 2012 17:58:35 -0700 (PDT)
+Message-ID: <20120701.175835.878095157336843029.davem@davemloft.net>
+References: <1341186226-10549-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p05-ob.rzone.de ([81.169.146.181]:10428 "EHLO
-	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807Ab2GBAno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jul 2012 20:43:44 -0400
-In-Reply-To: <20120628193026.GA31627@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1341186226-10549-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Mon,  2 Jul 2012 01:43:30 +0200
 
-On Thursday 28 June 2012, Francois Romieu wrote:
-> Nix <nix@esperi.org.uk> :
-> > I recently upgraded from 3.3.x to 3.4.4, and am now experiencing
-> > networking problems with my desktop box's r8169 card. The symptoms are
-> > that all traffic ceases for five to ten seconds, then the card appears
-> > to reset and everything is back to normal -- until it happens again. It
-> > can happen quite a lot:
+> this should be our last planned pull request intended for net-next/linux-3.6 :-)
 > 
-> Can you try and revert 036dafa28da1e2565a8529de2ae663c37b7a0060 ?
+> In this batch you have patch 15/16 that fixes a variable declaration
+> in the ethtool support code; patch 16/16 that fixes a non-critical bug which
+> makes nodes send unicast packets with an uninitialised header field.
+> The rest is the last part of our namespace renaming operation plus a couple of
+> style fixes.
 > 
-> I would welcome a complete dmesg including the XID line from the
-> r8169 driver.
+> Please let me know if there are problems!
 
-r8169 0000:04:00.0: eth0: RTL8168d/8111d at 0xffffc90000c72000, 00:24:1d:72:7c:75, XID 081000c0 IRQ 44
-r8169 0000:05:00.0: eth1: RTL8168d/8111d at 0xffffc90000c70000, 00:24:1d:72:7c:77, XID 081000c0 IRQ 45
-
-Kernel 3.4.4 with 036dafa28da1e2565a8529de2ae663c37b7a0060 (r8169: add 
-byte queue limit support) reverted is now running just about 60 hours 
-on the afformentioned hardware. No traces of "NETDEV WATCHDOG: eth0 
-(r8169): transmit queue 0 timed out" so far, while it usually triggers 
-within an hour (5 hours at most) with plain 3.4.4 on that system.
-
-Regards
-	Stefan Lippers-Hollmann
+Pulled, thanks Antonio.
