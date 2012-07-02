@@ -1,46 +1,43 @@
-From: Andreas Schwab <schwab@linux-m68k.org>
-Subject: Re: [PATCH net-next 09/10] net/mlx4_en: Manage flow steering rules with ethtool
-Date: Mon, 02 Jul 2012 13:35:49 +0200
-Message-ID: <m28vf2o0oa.fsf@igel.home>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F70@saturn3.aculab.com>
+From: Andreas Gruenbacher <agruen@linbit.com>
+Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
+Date: Mon, 02 Jul 2012 13:45:32 +0200
+Message-ID: <1341229532.29646.39.camel@gurkel.linbit>
+References: <1340981632.25226.2.camel@gurkel.linbit>
+	 <1340982523.21162.1.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Joe Perches" <joe@perches.com>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>, <davem@davemloft.net>,
-	<roland@kernel.org>, <yevgenyp@mellanox.com>, <oren@mellanox.com>,
-	<netdev@vger.kernel.org>, "Hadar Hen Zion" <hadarh@mellanox.co.il>
-To: "David Laight" <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:58825 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849Ab2GBLf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 07:35:58 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F70@saturn3.aculab.com>
-	(David Laight's message of "Mon, 2 Jul 2012 11:19:50 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340982523.21162.1.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"David Laight" <David.Laight@ACULAB.COM> writes:
+On Fri, 2012-06-29 at 17:08 +0200, Eric Dumazet wrote:
+> This looks like yet another zero copy, needing another couple of hundred
+> of lines.
 
->  
->> > Or write it as (!field || !(typeof(field))~field) which more closely
->> > resembles what the macro name expresses.
->> 
->> Better still, or maybe:
->> 
->> 	field == 0 || field == (typeof field)~0
->
-> Which doesn't work when sizeof(field) > sizeof(int).
-> Needs another cast.
->
-> 	field == 0 || field == (typeof field)~(typeof field)0
+Kind of, yes.  We really want to make no copies at all though; the cpu
+just passes buffers from one device to the other.
 
-You can avoid that by using (typeof field)-1.
+> Why splice infrastructure doesnt fit your needs ?
 
-Andreas.
+The pipe api that splice is based on saves a copy between the kernel and
+user space, but it currently writes to files, going through the page
+cache.  For that, the alignment of data in the network receive buffers
+doesn't matter.
 
--- 
-Andreas Schwab, schwab@linux-m68k.org
-GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+We want to go directly to the block layer instead.  This requires that
+the network hardware receives the data into sector aligned buffers.
+Hence the proposed MSG_NEW_PACKET flag.
+
+With that, it might be possible to implement a pipe "sink" that goes to
+a bio instead of writing to a file.  Going through the pipe
+infrastructure doesn't actually help in this case though, it's just
+overhead.
+
+Thanks,
+Andreas
