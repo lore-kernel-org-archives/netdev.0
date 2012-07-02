@@ -1,99 +1,168 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 00/13] drivers: hv: kvp
-Date: Mon, 2 Jul 2012 20:57:21 +0100
-Message-ID: <20120702195721.GE1894@decadent.org.uk>
-References: <20120621224737.GA5933@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155EC47A@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120622132547.GA2639@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED14D@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120626213954.GA4840@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED64A@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120626222205.GA5948@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED68D@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120628142340.GA21537@aepfle.de>
- <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olaf Hering <olaf@aepfle.de>, Greg KH <gregkh@linuxfoundation.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: KY Srinivasan <kys@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: refactor sctp_packet_append_chunk and clenup some memory leaks
+Date: Mon,  2 Jul 2012 15:59:24 -0400
+Message-ID: <1341259164-7396-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55888 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932078Ab2GBT7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 15:59:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 02, 2012 at 03:22:25PM +0000, KY Srinivasan wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Olaf Hering [mailto:olaf@aepfle.de]
-> > Sent: Thursday, June 28, 2012 10:24 AM
-> > To: KY Srinivasan
-> > Cc: Greg KH; apw@canonical.com; devel@linuxdriverproject.org;
-> > virtualization@lists.osdl.org; linux-kernel@vger.kernel.org
-> > Subject: Re: [PATCH 00/13] drivers: hv: kvp
-> > 
-> > On Tue, Jun 26, KY Srinivasan wrote:
-> > 
-> > > > From: Greg KH [mailto:gregkh@linuxfoundation.org]
-> > > > The fact that it was Red Hat specific was the main part, this should be
-> > > > done in a standard way, with standard tools, right?
-> > >
-> > > The reason I asked this question was to make sure I address these
-> > > issues in addition to whatever I am debugging now. I use the standard
-> > > tools and calls to retrieve all the IP configuration. As I look at
-> > > each distribution the files they keep persistent IP configuration
-> > > Information is different and that is the reason I chose to start with
-> > > RedHat. If there is a standard way to store the configuration, I will
-> > > do that.
-> > 
-> > 
-> > KY,
-> > 
-> > instead of using system() in kvp_get_ipconfig_info and kvp_set_ip_info,
-> > wouldnt it be easier to call an external helper script which does all
-> > the distribution specific work? Just define some API to pass values to
-> > the script, and something to read values collected by the script back
-> > into the daemon.
-> 
-> On the "Get" side I mostly use standard commands/APIs to get all the information:
-> 
-> 1) IP address information and subnet mask: getifaddrs()
-> 2) DNS information:  Parsing /etc/resolv.conf
-> 3) /sbin/ip command for all the routing information
+While doing some recent work on sctp sack bundling I noted that
+sctp_packet_append_chunk was pretty inefficient.  Specifially, it was called
+recursively while trying to bundle auth and sack chunks.  Because of that we
+call sctp_packet_bundle_sack and sctp_packet_bundle_auth a total of 4 times for
+every call to sctp_packet_append_chunk, knowing that at least 3 of those calls
+will do nothing.
 
-If you're interested in the *current* configuration then (1) and (3)
-are OK but you should really use the rtnetlink API.
+So lets refactor sctp_packet_bundle_auth to have an outer part that does the
+attempted bundling, and an inner part that just does the chunk appends.  This
+saves us several calls per iteration that we just don't need.
 
-However, I suspect that Hyper-V assumes that current and persistent
-configuration are the same thing, which is obviously not true in
-general on Linux.  But if NetworkManager is running then you can
-assume they are.
+Also, noticed that the auth and sack bundling fail to free the chunks they
+allocate if the append fails, so make sure we add that in
 
-> 4)  Parse /etc/sysconfig/network-scripts/ifcfg-ethx for boot protocol
-> 
-> As you can see, all but the boot protocol is gathered using the "standard distro
-> independent mechanisms. I was looking at NetworkManager cli and it looks
-> like I could gather all the information except the boot protocol information. I am 
-> not sure how to gather the boot protocol information in a distro independent fashion.
-> 
-> On the SET side, I need to persistently store the settings in an appropriate configuration
-> file and flush these settings down so that the interface is appropriately configured. It is here
-> that I am struggling to find a distro independent way of doing things. It would be great if I can
-> use NetworkManager cli (nmcli) to accomplish this. Any help here would be greatly appreciated.
-[...]
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: linux-sctp@vger.kernel.org
+---
+ net/sctp/output.c |   80 +++++++++++++++++++++++++++++++++++------------------
+ 1 files changed, 53 insertions(+), 27 deletions(-)
 
-What was wrong with the NetworkManager D-Bus API I pointed you at?
-I don't see how it makes sense to use nmcli as an API.
-
-Ben.
-
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 0de6cd5..0b62f6c 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -64,6 +64,8 @@
+ #include <net/sctp/checksum.h>
+ 
+ /* Forward declarations for private helpers. */
++static sctp_xmit_t __sctp_packet_append_chunk(struct sctp_packet *packet,
++					      struct sctp_chunk *chunk);
+ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+ 					   struct sctp_chunk *chunk);
+ static void sctp_packet_append_data(struct sctp_packet *packet,
+@@ -224,7 +226,10 @@ static sctp_xmit_t sctp_packet_bundle_auth(struct sctp_packet *pkt,
+ 	if (!auth)
+ 		return retval;
+ 
+-	retval = sctp_packet_append_chunk(pkt, auth);
++	retval = __sctp_packet_append_chunk(pkt, auth);
++
++	if (retval != SCTP_XMIT_OK)
++		sctp_chunk_free(auth);
+ 
+ 	return retval;
+ }
+@@ -256,48 +261,31 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct sctp_packet *pkt,
+ 			asoc->a_rwnd = asoc->rwnd;
+ 			sack = sctp_make_sack(asoc);
+ 			if (sack) {
+-				retval = sctp_packet_append_chunk(pkt, sack);
++				retval = __sctp_packet_append_chunk(pkt, sack);
++				if (retval != SCTP_XMIT_OK) {
++					sctp_chunk_free(sack);
++					goto out;
++				}
+ 				asoc->peer.sack_needed = 0;
+ 				if (del_timer(timer))
+ 					sctp_association_put(asoc);
+ 			}
+ 		}
+ 	}
++out:
+ 	return retval;
+ }
+ 
++
+ /* Append a chunk to the offered packet reporting back any inability to do
+  * so.
+  */
+-sctp_xmit_t sctp_packet_append_chunk(struct sctp_packet *packet,
+-				     struct sctp_chunk *chunk)
++static sctp_xmit_t __sctp_packet_append_chunk(struct sctp_packet *packet,
++					      struct sctp_chunk *chunk)
+ {
+ 	sctp_xmit_t retval = SCTP_XMIT_OK;
+ 	__u16 chunk_len = WORD_ROUND(ntohs(chunk->chunk_hdr->length));
+ 
+-	SCTP_DEBUG_PRINTK("%s: packet:%p chunk:%p\n", __func__, packet,
+-			  chunk);
+-
+-	/* Data chunks are special.  Before seeing what else we can
+-	 * bundle into this packet, check to see if we are allowed to
+-	 * send this DATA.
+-	 */
+-	if (sctp_chunk_is_data(chunk)) {
+-		retval = sctp_packet_can_append_data(packet, chunk);
+-		if (retval != SCTP_XMIT_OK)
+-			goto finish;
+-	}
+-
+-	/* Try to bundle AUTH chunk */
+-	retval = sctp_packet_bundle_auth(packet, chunk);
+-	if (retval != SCTP_XMIT_OK)
+-		goto finish;
+-
+-	/* Try to bundle SACK chunk */
+-	retval = sctp_packet_bundle_sack(packet, chunk);
+-	if (retval != SCTP_XMIT_OK)
+-		goto finish;
+-
+ 	/* Check to see if this chunk will fit into the packet */
+ 	retval = sctp_packet_will_fit(packet, chunk, chunk_len);
+ 	if (retval != SCTP_XMIT_OK)
+@@ -339,6 +327,44 @@ finish:
+ 	return retval;
+ }
+ 
++/* Append a chunk to the offered packet reporting back any inability to do
++ * so.
++ */
++sctp_xmit_t sctp_packet_append_chunk(struct sctp_packet *packet,
++				     struct sctp_chunk *chunk)
++{
++	sctp_xmit_t retval = SCTP_XMIT_OK;
++	__u16 chunk_len = WORD_ROUND(ntohs(chunk->chunk_hdr->length));
++
++	SCTP_DEBUG_PRINTK("%s: packet:%p chunk:%p\n", __func__, packet,
++			  chunk);
++
++	/* Data chunks are special.  Before seeing what else we can
++	 * bundle into this packet, check to see if we are allowed to
++	 * send this DATA.
++	 */
++	if (sctp_chunk_is_data(chunk)) {
++		retval = sctp_packet_can_append_data(packet, chunk);
++		if (retval != SCTP_XMIT_OK)
++			goto finish;
++	}
++
++	/* Try to bundle AUTH chunk */
++	retval = sctp_packet_bundle_auth(packet, chunk);
++	if (retval != SCTP_XMIT_OK)
++		goto finish;
++
++	/* Try to bundle SACK chunk */
++	retval = sctp_packet_bundle_sack(packet, chunk);
++	if (retval != SCTP_XMIT_OK)
++		goto finish;
++
++	retval = __sctp_packet_append_chunk(packet, chunk);
++
++finish:
++	return retval;
++}
++
+ /* All packets are sent to the network through this function from
+  * sctp_outq_tail().
+  *
 -- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+1.7.7.6
