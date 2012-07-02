@@ -1,25 +1,55 @@
-From: =?windows-1251?Q?=CC=E8=EB=E5=ED=EA=E0_=CC=FF=F1=ED=E8=EA=EE=E2=E0?=
-	<jdaneshg@usc.edu>
-Subject: =?windows-1251?Q?=E7=E0=E9=F7=E8=EA_=EC=EE=E9?=
-Date: Mon, 02 Jul 2012 15:37:56 +0700
-Message-ID: <8550903731.2012072153756@usc.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] [TCP 0/3] Receive from socket into bio without copying
+Date: Mon, 02 Jul 2012 15:54:59 +0200
+Message-ID: <1341237299.22621.88.camel@edumazet-glaptop>
+References: <1340981632.25226.2.camel@gurkel.linbit>
+	 <1340982523.21162.1.camel@edumazet-glaptop>
+	 <1341229532.29646.39.camel@gurkel.linbit>
+	 <1341232568.22621.8.camel@edumazet-glaptop>
+	 <1341234177.29646.69.camel@gurkel.linbit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from msg-ironport2.usc.edu ([128.125.137.216]:61704 "EHLO
-	msg-ironport2.usc.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412Ab2GBNoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 09:44:17 -0400
-Received: from usc.edu ([46.4.74.241])
- by msg-mx10.usc.edu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
- 2006)) with ESMTPSA id <0M6J00I68CJCGD00@msg-mx10.usc.edu> for
- netdev@vger.kernel.org; Mon, 02 Jul 2012 06:38:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andreas Gruenbacher <agruen@linbit.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341234177.29646.69.camel@gurkel.linbit>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E7=E4=E0=F0=EE=E2.!))=20
-=E5=F1=EB=E8 =F1=EA=F3=F7=E0=E5=F8=FC =E8 =E5=F1=F2=FC =E6=E5=EB=E0=ED=E8=
-=E5 =EF=EE=E4=F0=F3=E6=E8=F2=FC=F1=FF, www.newpol.by/show_photos.php =F7=
-=E5=F0=E5=E7 =EF=EE=E8=F1=EA =E8=F9=E8..!)=20
+On Mon, 2012-07-02 at 15:02 +0200, Andreas Gruenbacher wrote:
+
+> bio_vec's have some alignment requirements that must be met, and
+> anything that doesn't meet those requirements can't be passed to the
+> block layer (without copying it first).  Additional layers between the
+> network and block layers, like a pipe, won't make that problem go away.
+> 
+
+What are the "some alignment requirements" exactly, and how do you use
+TCP exactly to meet them ? (MSS= multiple of 512 ?)
+
+I believe you try to escape from the real problem.
+
+If the NIC driver provides non aligned data, neither splice() or your
+new stuff will magically align it. You _need_ a copy in either cases.
+
+If NIC driver provides aligned data, splice(socket -> pipe) will keep
+this alignment for you at 0 cost.
+
+> It's not already there, it requires the alignment issue to be addresses
+> first.
+
+
+There is no guarantee TCP payload is aligned to a bio, ever, in linux
+ethernet/ip/tcp stack.
+
+Really, your patches work for you, by pure luck, because you use one
+particular NIC driver that happens to prepare things for you (presumably
+doing header split). Nothing guarantee this wont change even for the
+same hardware in linux-3.8
+
+So I will just say no to your patches, unless you demonstrate the
+splice() problems, and how you can fix the alignment problem in a new
+layer instead of in the existing zero copy standard one.
