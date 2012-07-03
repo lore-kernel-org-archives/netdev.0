@@ -1,55 +1,84 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v2 net-next 1/2] r8169: support RTL8106E
-Date: Tue, 3 Jul 2012 13:01:01 +0200
-Message-ID: <20120703110101.GA4779@electric-eye.fr.zoreil.com>
-References: <1340966060-2749-1-git-send-email-hayeswang@realtek.com> <1341221002-1522-1-git-send-email-hayeswang@realtek.com>
+From: Alban Crequy <alban.crequy@collabora.co.uk>
+Subject: Re: [PATCH net-next 09/15] net: bus: Add garbage collector for
+ AF_BUS sockets.
+Date: Tue, 3 Jul 2012 13:11:26 +0100
+Message-ID: <20120703131126.79d0ea05@rainbow.cbg.collabora.co.uk>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
+	<1340988354-26981-10-git-send-email-vincent.sanders@collabora.co.uk>
+	<1341251063.2590.5.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1341221002-1522-1-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <1341251063.2590.5.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hayes Wang <hayeswang@realtek.com> :
-> Support the new chip RTL8106E.
+Mon, 2 Jul 2012 18:44:23 +0100,
+Ben Hutchings <bhutchings@solarflare.com> wrote :
+
+> On Fri, 2012-06-29 at 17:45 +0100, Vincent Sanders wrote:
+> > From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+> > 
+> > This patch adds a garbage collector for AF_BUS sockets.
+> [...]
+> > +struct sock *bus_get_socket(struct file *filp)
+> > +{
+> > +	struct sock *u_sock = NULL;
+> > +	struct inode *inode = filp->f_path.dentry->d_inode;
+> > +
+> > +	/*
+> > +	 *	Socket ?
+> > +	 */
+> > +	if (S_ISSOCK(inode->i_mode) && !(filp->f_mode &
+> > FMODE_PATH)) {
+> > +		struct socket *sock = SOCKET_I(inode);
+> > +		struct sock *s = sock->sk;
+> > +
+> > +		/*
+> > +		 *	PF_BUS ?
+> > +		 */
+> > +		if (s && sock->ops && sock->ops->family == PF_BUS)
+> > +			u_sock = s;
+> > +	}
+> > +	return u_sock;
+> > +}
+> [...]
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> What about references cycles involving both AF_BUS and AF_UNIX
+> sockets? I think you must either specifically prevent passing AF_UNIX
+> sockets through AF_BUS sockets, or make a single garbage collector
+> handle them both.
 
-Almost-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Indeed. Thanks for the feedback.
 
-Simple bidirectional traffic worked fine (rsync + wget + ping) both
-with and without tx checksumming offload.
+As far as I know, the current users of fd passing in D-Bus are Bluez
+and Ofono and they pass AF_BLUETOOTH sockets. There might be
+others, I am not sure what is in the wild. Passing AF_UNIX sockets in
+D-Bus would be useful for Telepathy (for Tubes and File Transfer).
 
-Wol g or u worked as well. Link was ok and traffic flowing after a
-suspend to ram.
+So I would like to be able to pass AF_UNIX sockets through AF_BUS
+sockets.
 
-No problem with module removal / insertion / device up / traffic loop.
+I wrote the following small program to test this bug based on the
+previous code <https://lkml.org/lkml/2010/11/25/8> referred by commit
+25888e30:
+http://people.collabora.com/~alban/d/2012/07/fd-passing/cmsg.c
 
-> +#define FIRMWARE_8106E_1	"rtl_nic/rtl8106e-1.fw"
+The effect of the bug is to reach the file limit
+in /proc/sys/fs/file-max and print "VFS: file-max limit 101771 reached"
+even when the maximum of file descriptors per process ("ulimit -n") is
+small.
 
-I did not notice it. Was it submitted ?
+I am not sure what is the best way to fix this. The easiest could be to
+move the garbage collector related fields (recursion_level,
+gc_candidate, etc.) from struct unix_sock and struct bus_sock to
+struct sock and make a generic garbage collector for all sockets.
 
-It was obviously not required for testing :o)
-
-> @@ -1933,6 +1941,8 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
->  		{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
->  
->  		/* 8101 family. */
-> +		{ 0x7cf00000, 0x44900000,	RTL_GIGA_MAC_VER_39 },
-> +		{ 0x7c800000, 0x44800000,	RTL_GIGA_MAC_VER_39 },
->  		{ 0x7c800000, 0x44000000,	RTL_GIGA_MAC_VER_37 },
->  		{ 0x7cf00000, 0x40b00000,	RTL_GIGA_MAC_VER_30 },
->  		{ 0x7cf00000, 0x40a00000,	RTL_GIGA_MAC_VER_30 },
-
-Realtek's 1.022.00 8101 driver only maps { 0x7c800000; 0x44800000 } to
-a generic device - if at all - and it maps { 0x7cf00000; 0x44800000 }
-to a different chipset (namely CFG_METHOD_15 where RTL_GIGA_MAC_VER_39
-is CFG_METHOD_16).
-
-Why should both drivers diverge ?
-
--- 
-Ueimor
+Best regards,
+Alban
