@@ -1,71 +1,73 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 00/13] drivers: hv: kvp
-Date: Tue, 3 Jul 2012 15:35:23 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF9155EF804@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <20120703132049.GA10663@aepfle.de>
- <642e6af6-fc6b-4c54-a4a6-f5bdd38512c7@tahiti.vyatta.com>
+From: Arvid Brodin <Arvid.Brodin@xdin.com>
+Subject: Re: "ADDRCONF(NETDEV_UP): eth0: link is not ready" with IPv6
+Date: Tue, 3 Jul 2012 15:47:03 +0000
+Message-ID: <4FF313F6.7010600@xdin.com>
+References: <4FED14C2.9020200@xdin.com>
+ <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "apw@canonical.com" <apw@canonical.com>,
- Greg KH <gregkh@linuxfoundation.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>, Olaf Hering
- <olaf@aepfle.de>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <642e6af6-fc6b-4c54-a4a6-f5bdd38512c7@tahiti.vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spam1.webland.se ([91.207.112.90]:53237 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755297Ab2GCPrG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2012 11:47:06 -0400
+In-Reply-To: <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com>
 Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-ID: <5E5F78D16448FA4FBD6744F7B9CB912B@redbull.xdin.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen.hemminger@vyatta.com]
-> Sent: Tuesday, July 03, 2012 11:03 AM
-> To: Olaf Hering
-> Cc: Greg KH; apw@canonical.com; devel@linuxdriverproject.org; linux-
-> kernel@vger.kernel.org; netdev@vger.kernel.org; KY Srinivasan
-> Subject: Re: [PATCH 00/13] drivers: hv: kvp
-> 
-> 
-> > On Mon, Jul 02, KY Srinivasan wrote:
-> >
-> > > While I toyed with your proposal, I feel it just pushes the problem
-> > > out of the daemon code - we would still need to write distro
-> > > specific
-> > > scripts. If this approach is something that everybody is
-> > > comfortable
-> > > with, I can take a stab at implementing that.
-> >
-> > Until NetworkManager is feature complete and until every distro is
-> > using
-> > NetworkManager per default the kvp_daemon needs distro specific code
-> > to
-> > get and set network related settings.
-> > Doing it with an external script will simplify debugging and changes
-> > to
-> > the code.
-> 
-> Although,  Network Manager is a good tool for what it does;
-> it is not appropriate for every distro. It is overkill
-> in embedded systems, and it's GUI dependency makes it unmanageable
-> on servers.
-
-Thanks Stephen. I will retain the code that I currently have for the "GET" side and
-I will implement a script as Olaf suggested that can be distro specific to implement
-the SET operation.
-
-Regards,
-
-K. Y
+KEFkZGVkIE1BQ0IgInBhdGNoIiBjb250YWN0IE5pY29sYXMgRmVycmUgdG8gQ0MgbGlzdC4pDQoN
+Ck9uIDIwMTItMDYtMjkgMTc6MjQsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6DQo+IE9uIEZyaSwgMjAx
+Mi0wNi0yOSBhdCAwMjozNiArMDAwMCwgQXJ2aWQgQnJvZGluIHdyb3RlOg0KPj4gSGksDQo+Pg0K
+Pj4gQWZ0ZXIgJ2lwIGxpbmsgc2V0IGV0aDAgdXAnIG9uIGFuIGF2cjMyIGJvYXJkIChuZXR3b3Jr
+IGRyaXZlciBtYWNiKSwgdGhlIGRldmljZSBlbmRzIHVwIGluDQo+PiBvcGVyYXRpb25hbCBtb2Rl
+ICJVTktOT1dOIjoNCj4+DQo+PiAjIGlwIGxpbmsNCj4+IDI6IGV0aDA6IDxCUk9BRENBU1QsTVVM
+VElDQVNULFVQLExPV0VSX1VQPiBtdHUgMTUwMCBxZGlzYyBwZmlmb19mYXN0IHN0YXRlIFVOS05P
+V04gcWxlbiAxMDAwDQo+PiAgICAgbGluay9ldGhlciAwMDoyNDo3NDowMDoxNzo5ZCBicmQgZmY6
+ZmY6ZmY6ZmY6ZmY6ZmYNCj4+DQo+PiBVbnBsdWdnaW5nIGFuZCBwbHVnZ2luZyBpbiB0aGUgbmV0
+d29yayBjYWJsZSBnZXRzIHRoZSBkZXZpY2UgdG8gbW9kZSAiVVAiLg0KPj4NCj4+IFRoaXMgaXMg
+YSBwcm9ibGVtIGZvciBtZSBiZWNhdXNlIEknbSB0cnlpbmcgdG8gdXNlIHRoaXMgZGV2aWNlIGFz
+IGEgInNsYXZlIiBkZXZpY2UgKGZvciBhDQo+PiB2aXJ0dWFsIEhTUiBkZXZpY2UqKSBhbmQgSSBu
+ZWVkIHRvIGJlIGFibGUgdG8gZGVjaWRlIGlmIHRoZSBzbGF2ZSBkZXZpY2UgaXMgb3BlcmF0aW9u
+YWwgb3INCj4+IG5vdC4NCj4+DQo+PiBGb2xsb3dpbmcgU3RlcGhlbidzIGFkdmljZSBoZXJlOg0K
+Pj4gaHR0cDovL2tlcm5lbHRyYXAub3JnL21haWxhcmNoaXZlL2xpbnV4LW5ldGRldi8yMDA4Lzkv
+MjQvMzM5ODgzNCBJIGNoZWNrZWQgdGhlIG1hY2IuYyBjb2RlDQo+PiBhbmQgbm90aWNlZCB0aGV5
+IGRvIG5vdCBjYWxsIG5ldGlmX2NhcnJpZXJfb2ZmKCkgbmVpdGhlciBiZWZvcmUgcmVnaXN0ZXJf
+bmV0ZGV2KCkgbm9yIGluDQo+PiBkZXZfb3BlbigpLg0KPiANCj4gSXQgc2hvdWxkIGJlIGNhbGxl
+ZCBhZnRlciByZWdpc3Rlcl9uZXRkZXYoKSBhbmQgYmVmb3JlIHRoZSBkcml2ZXIncw0KPiBuZG9f
+b3BlbiBpbXBsZW1lbnRhdGlvbiByZXR1cm5zLg0KDQpJJ20gZ3Vlc3NpbmcgdGhpcyBhbGxvd3Mg
+bGlua3dhdGNoIHRvIGRvIG5ldGlmX2NhcnJpZXJfb24oKSBzb21lIHRpbWUgYWZ0ZXIgdGhlIGRl
+dl9vcGVuKCk/DQoNCkJlc2lkZXMgbm90IGNhbGxpbmcgbmV0aWZfY2Fycmllcl9vZmYoKSBpbiBk
+ZXZfb3BlbigpLCB0aGUgQ2FkZW5jZS9NQUNCIGRyaXZlciBjYWxscw0KbmV0aWZfY2Fycmllcl9v
+ZmYoKSBpbiBkZXZfY2xvc2UoKS4gSXMgdGhpcyBjb3JyZWN0Pw0KDQoNCkhvdyBzaG91bGQgSSBo
+YW5kbGUgY2FycmllciBzdGF0ZSBmb3IgYSB2aXJ0dWFsIGRldmljZT8gVGhlIGRldmljZSBzaG91
+bGQgaGF2ZSAiY2FycmllciINCmFzIGxvbmcgYXMgYXQgbGVhc3Qgb25lIG9mIHRoZSB1bmRlcmx5
+aW5nIHBoeXNpY2FsIGludGVyZmFjZXMgaXMgb3BlcmF0aW9uYWwgKHdoaWNoIEkNCmd1ZXNzIG1l
+YW5zIG9wZXJhdGlvbmFsIHN0YXRlIFVQKS4gV291bGQgaXQgYmUgY29ycmVjdCB0byB3YXRjaCBO
+RVRERVZfQ0hBTkdFIGFuZCBET1dOL1VQDQpldmVudHMgb2YgdGhlIHNsYXZlcyBhbmQgY2FsbCBu
+ZXRpZl9jYXJyaWVyX29uKCkvb2ZmKCkgb24gdGhlIHZpcnR1YWwgZGV2aWNlIGRlcGVuZGluZyBv
+bg0KdGhlIHNsYXZlcycgc3RhdGVzPw0KDQoNCj4gDQo+PiBJIGFkZGVkIHRoZSBjYWxsIGJlZm9y
+ZSByZWdpc3Rlcl9uZXRkZXYoKSwgd2hpY2ggZml4ZWQgdGhlIHByb2JsZW0uIEhvd2V2ZXIsIGlm
+IEkgdGhlbg0KPj4gZW5hYmxlIElQdjY6DQo+Pg0KPj4gIyBpcCBsaW5rIHNldCBldGgwIHVwDQo+
+PiBBRERSQ09ORihORVRERVZfVVApOiBldGgwOiBsaW5rIGlzIG5vdCByZWFkeQ0KPj4gZXRoMDog
+bGluayB1cCAoMTAwL0Z1bGwpDQo+PiBBRERSQ09ORihORVRERVZfQ0hBTkdFKTogZXRoMDogbGlu
+ayBiZWNvbWVzIHJlYWR5DQo+IA0KPiBUaGlzIGxvb2tzIG5vcm1hbC4NCg0KR29vZCwgdGhhdCBu
+YXJyb3dzIGl0IGRvd24gYSBiaXQuDQoNCj4gDQo+PiBBbnkgaWRlYSB3aGF0IGlzIGhhcHBlbmlu
+ZyAvIHdoYXQgSSdtIGRvaW5nIHdyb25nPyAoVGhpcyBpcyBub3QganVzdCBjb3NtZXRpYzsgaXMg
+c29tZQ0KPj4gc2l0dWF0aW9ucyB0aGlzIHNlZW1zIHRvIGtpbGwgdGhlIGludGVyZmFjZSAtIGUu
+Zy4gcGluZyBkb2VzIG5vdCB3b3JrLCBkb3duL3VwIGRvZXMgbm90DQo+PiBoZWxwLi4uKSBUaGlu
+Z3Mgd29yayBmaW5lIHdpdGhvdXQgSVB2NiBjb25maWd1cmVkLg0KPiANCj4gUGVyaGFwcyBzb21l
+IHBhY2tldHMgc2VudCBhdXRvbWF0aWNhbGx5IGJ5IElQdjYgYXJlIHRyaWdnZXJpbmcgYSBkcml2
+ZXINCj4gYnVnPyAgT3IgdGhlcmUgaXMgYSBidWcgaW4gbXVsdGljYXN0IHN1cHBvcnQsIHdoaWNo
+IElQdjYgYWx3YXlzIHVzZXMuDQo+IA0KPiBCZW4uDQo+IA0KPj4gKk4uQi4gSSdtIHdyaXRpbmcg
+YSBkcml2ZXIgZm9yIGEgbmV0d29yayBwcm90b2NvbCBjYWxsZWQgIkhpZ2gtYXZhaWxhYmlsaXR5
+IFNlYW1sZXNzDQo+PiBSZWR1bmRhbmN5Ii4NCj4gDQoNCg0KLS0gDQpBcnZpZCBCcm9kaW4gfCBD
+b25zdWx0YW50IChMaW51eCkNClhESU4gQUIgfCBKYW4gU3RlbmJlY2tzIFRvcmcgMTcgfCBTRS0x
+NjQgNDAgS2lzdGEgfCBTd2VkZW4gfCB4ZGluLmNvbQ==
