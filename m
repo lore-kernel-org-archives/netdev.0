@@ -1,50 +1,71 @@
 From: KY Srinivasan <kys@microsoft.com>
 Subject: RE: [PATCH 00/13] drivers: hv: kvp
-Date: Tue, 3 Jul 2012 15:32:46 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF9155EF7F0@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <20120621224737.GA5933@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155EC47A@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120622132547.GA2639@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED14D@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120626213954.GA4840@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED64A@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120626222205.GA5948@kroah.com>
- <426367E2313C2449837CD2DE46E7EAF9155ED68D@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120628142340.GA21537@aepfle.de>
- <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120703132049.GA10663@aepfle.de>
+Date: Tue, 3 Jul 2012 15:35:23 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9155EF804@SN2PRD0310MB382.namprd03.prod.outlook.com>
+References: <20120703132049.GA10663@aepfle.de>
+ <642e6af6-fc6b-4c54-a4a6-f5bdd38512c7@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120703132049.GA10663@aepfle.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "apw@canonical.com" <apw@canonical.com>,
+ Greg KH <gregkh@linuxfoundation.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Stephen Hemminger <stephen.hemminger@vyatta.com>, Olaf Hering
+ <olaf@aepfle.de>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <642e6af6-fc6b-4c54-a4a6-f5bdd38512c7@tahiti.vyatta.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
-aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogVHVlc2RheSwgSnVseSAwMywgMjAxMiA5OjIx
-IEFNDQo+IFRvOiBLWSBTcmluaXZhc2FuDQo+IENjOiBHcmVnIEtIOyBhcHdAY2Fub25pY2FsLmNv
-bTsgZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtl
-cm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAw
-MC8xM10gZHJpdmVyczogaHY6IGt2cA0KPiANCj4gT24gTW9uLCBKdWwgMDIsIEtZIFNyaW5pdmFz
-YW4gd3JvdGU6DQo+IA0KPiA+IFdoaWxlIEkgdG95ZWQgd2l0aCB5b3VyIHByb3Bvc2FsLCBJIGZl
-ZWwgaXQganVzdCBwdXNoZXMgdGhlIHByb2JsZW0NCj4gPiBvdXQgb2YgdGhlIGRhZW1vbiBjb2Rl
-IC0gd2Ugd291bGQgc3RpbGwgbmVlZCB0byB3cml0ZSBkaXN0cm8gc3BlY2lmaWMNCj4gPiBzY3Jp
-cHRzLiBJZiB0aGlzIGFwcHJvYWNoIGlzIHNvbWV0aGluZyB0aGF0IGV2ZXJ5Ym9keSBpcyBjb21m
-b3J0YWJsZQ0KPiA+IHdpdGgsIEkgY2FuIHRha2UgYSBzdGFiIGF0IGltcGxlbWVudGluZyB0aGF0
-Lg0KPiANCj4gVW50aWwgTmV0d29ya01hbmFnZXIgaXMgZmVhdHVyZSBjb21wbGV0ZSBhbmQgdW50
-aWwgZXZlcnkgZGlzdHJvIGlzIHVzaW5nDQo+IE5ldHdvcmtNYW5hZ2VyIHBlciBkZWZhdWx0IHRo
-ZSBrdnBfZGFlbW9uIG5lZWRzIGRpc3RybyBzcGVjaWZpYyBjb2RlIHRvDQo+IGdldCBhbmQgc2V0
-IG5ldHdvcmsgcmVsYXRlZCBzZXR0aW5ncy4NCj4gRG9pbmcgaXQgd2l0aCBhbiBleHRlcm5hbCBz
-Y3JpcHQgd2lsbCBzaW1wbGlmeSBkZWJ1Z2dpbmcgYW5kIGNoYW5nZXMgdG8NCj4gdGhlIGNvZGUu
-DQoNCkZhaXIgZW5vdWdoLiBJIHdpbGwga2VlcCBteSBjdXJyZW50IGltcGxlbWVudGF0aW9uIG9m
-IHRoZSBHRVQgb3BlcmF0aW9uIGFzIGlzIHNpbmNlDQppdCBpcyBkaXN0cm8gaW5kZXBlbmRlbnQu
-IE9uIHRoZSBTRVQgc2lkZSwgSSB3aWxsIGltcGxlbWVudCBhIHNjcmlwdCBhcyB5b3UgaGF2ZSBz
-dWdnZXN0ZWQuDQoNClJlZ2FyZHMsDQoNCksuIFkNCg0KPiANCj4gT2xhZg0KPiANCj4gDQoNCg==
+
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen.hemminger@vyatta.com]
+> Sent: Tuesday, July 03, 2012 11:03 AM
+> To: Olaf Hering
+> Cc: Greg KH; apw@canonical.com; devel@linuxdriverproject.org; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org; KY Srinivasan
+> Subject: Re: [PATCH 00/13] drivers: hv: kvp
+> 
+> 
+> > On Mon, Jul 02, KY Srinivasan wrote:
+> >
+> > > While I toyed with your proposal, I feel it just pushes the problem
+> > > out of the daemon code - we would still need to write distro
+> > > specific
+> > > scripts. If this approach is something that everybody is
+> > > comfortable
+> > > with, I can take a stab at implementing that.
+> >
+> > Until NetworkManager is feature complete and until every distro is
+> > using
+> > NetworkManager per default the kvp_daemon needs distro specific code
+> > to
+> > get and set network related settings.
+> > Doing it with an external script will simplify debugging and changes
+> > to
+> > the code.
+> 
+> Although,  Network Manager is a good tool for what it does;
+> it is not appropriate for every distro. It is overkill
+> in embedded systems, and it's GUI dependency makes it unmanageable
+> on servers.
+
+Thanks Stephen. I will retain the code that I currently have for the "GET" side and
+I will implement a script as Olaf suggested that can be distro specific to implement
+the SET operation.
+
+Regards,
+
+K. Y
