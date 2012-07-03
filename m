@@ -1,45 +1,57 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] netem: fix rate extension and drop accounting
-Date: Wed, 4 Jul 2012 00:04:43 +0200
-Message-ID: <20120703220442.GC5064@nuttenaction>
-References: <1341307524.2583.115.camel@edumazet-glaptop>
- <1341309257.2583.153.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 12/19] neigh: Convert over to dst_neigh_lookup_skb().
+Date: Tue, 3 Jul 2012 23:08:29 +0100
+Message-ID: <1341353309.2839.19.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120703.024644.638173463391088464.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Andreas Terzis <aterzis@google.com>,
-	Mark Gordon <msg@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:50367 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756518Ab2GCWEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 18:04:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1341309257.2583.153.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:63941 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756313Ab2GCWIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 18:08:36 -0400
+In-Reply-To: <20120703.024644.638173463391088464.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Eric Dumazet | 2012-07-03 11:54:17 [+0200]:
+On Tue, 2012-07-03 at 02:46 -0700, David Miller wrote:
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/core/neighbour.c |   10 ++++++++--
+>  1 file changed, 8 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index a793af9..eb3efdc 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -1202,9 +1202,15 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  
+>  			rcu_read_lock();
+>  			/* On shaper/eql skb->dst->neighbour != neigh :( */
 
->> commit 7bc0f28c7a0c (netem: rate extension) did wrong maths when packet
->> is enqueued while queue is not empty.
->> 
->> Result is unexpected cumulative delays
->> 
->> # tc qd add dev eth0 root est 1sec 4sec netem delay 200ms rate 100kbit
->> # ping -i 0.1 172.30.42.18
->> PING 172.30.42.18 (172.30.42.18) 56(84) bytes of data.
->> 64 bytes from 172.30.42.18: icmp_req=1 ttl=64 time=208 ms
->> 64 bytes from 172.30.42.18: icmp_req=2 ttl=64 time=424 ms
->> 64 bytes from 172.30.42.18: icmp_req=3 ttl=64 time=838 ms
->> 64 bytes from 172.30.42.18: icmp_req=4 ttl=64 time=1142 ms
->> 64 bytes from 172.30.42.18: icmp_req=5 ttl=64 time=1335 ms
->> 64 bytes from 172.30.42.18: icmp_req=6 ttl=64 time=1949 ms
->> 64 bytes from 172.30.42.18: icmp_req=7 ttl=64 time=2450 ms
->> 64 bytes from 172.30.42.18: icmp_req=8 ttl=64 time=2840 ms
->> 64 bytes from 172.30.42.18: icmp_req=9 ttl=64 time=3121 ms
->> 64 bytes from 172.30.42.18: icmp_req=10 ttl=64 time=3291 ms
->> 64 bytes from 172.30.42.18: icmp_req=11 ttl=64 time=3784 ms
+It might be time to delete that comment too.
 
-Strange, we test the patch in detail. I will take a look ...
+Ben.
+
+> -			if (dst && (n2 = dst_get_neighbour_noref(dst)) != NULL)
+> -				n1 = n2;
+> +			n2 = NULL;
+> +			if (dst) {
+> +				n2 = dst_neigh_lookup_skb(dst, skb);
+> +				if (n2)
+> +					n1 = n2;
+> +			}
+>  			n1->output(n1, skb);
+> +			if (n2)
+> +				neigh_release(n2);
+>  			rcu_read_unlock();
+>  
+>  			write_lock_bh(&neigh->lock);
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
