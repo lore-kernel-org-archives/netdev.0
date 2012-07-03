@@ -1,53 +1,48 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH] netdev: driver: ethernet: add sysfs interface for ti
- cpsw
-Date: Tue, 03 Jul 2012 16:38:08 -0700
-Message-ID: <4FF38260.2040702@intel.com>
-References: <1341345086-25093-1-git-send-email-s-paulraj@ti.com> <20120703.161623.1843927245895613219.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on
+ bundled sacks
+Date: Tue, 3 Jul 2012 19:42:16 -0400
+Message-ID: <20120703234216.GB10224@neilslaptop.think-freely.org>
+References: <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
+ <20120630.173945.173993639982489712.davem@davemloft.net>
+ <20120701124750.GA19498@neilslaptop.think-freely.org>
+ <20120701.144319.1120248166079750922.davem@davemloft.net>
+ <20120701234424.GA23935@neilslaptop.think-freely.org>
+ <20120702122531.GA29681@hmsreliant.think-freely.org>
+ <4FF33DBE.7060103@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, cyril@ti.com,
-	mugunthanvnm@ti.com, netdev@vger.kernel.org
-To: s-paulraj@ti.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vyasevich@gmail.com, linux-sctp@vger.kernel.org
+To: Jan Ceuleers <jan.ceuleers@computer.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:54298 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998Ab2GCXiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2012 19:38:09 -0400
-In-Reply-To: <20120703.161623.1843927245895613219.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43596 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750731Ab2GCXm1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 19:42:27 -0400
+Content-Disposition: inline
+In-Reply-To: <4FF33DBE.7060103@computer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/3/2012 4:16 PM, David Miller wrote:
-> From: <s-paulraj@ti.com>
-> Date: Tue, 3 Jul 2012 15:51:26 -0400
->
->> From: Sandeep Paulraj <s-paulraj@ti.com>
->>
->> This patch adds sysfs entries for address lookup engine entries and
->> control for the ALE(address lookup engine) found in TI SOC's.
->>
->>
->> Signed-off-by: Sandeep Paulraj <s-paulraj@ti.com>
->
-> You may not create private, driver specific, unique interfaces to
-> configure your hardware.
->
-> You must use existing facilities such as ethtool to add such things.
-> If the existing facilities are insufficient, you must extend them to
-> meet your (and potentially other's) needs.
+On Tue, Jul 03, 2012 at 08:45:18PM +0200, Jan Ceuleers wrote:
+> On 07/02/2012 02:25 PM, Neil Horman wrote:
+> ...
+> 
+> > How does this language sound to you?
+> ...
+> 
+> > +tree maintanier may reapply the subsystem maintainers Acked-by: to the new
+> 
+> s/maintanier/maintainer/
+> 
+> HTH, Jan
+Thanks Jan, I've fixed it in my local tree, it'll get rolled in the next
+version. 
+Neil
+
 > --
-
-I can't seem to dig up the original email perhaps my server is slow
-today but did you consider using these hooks ndo_fdb_add(),
-ndo_fdb_del(), and ndo_fdb_dump() added recently.
-
-These are for adding/deleting and dumping the address forwarding
-databases. Failing that would something like this RFC with another
-attribute work,
-
-http://comments.gmane.org/gmane.linux.network/232104
-
-Thanks,
-John
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
