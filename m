@@ -1,73 +1,78 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: "ADDRCONF(NETDEV_UP): eth0: link is not ready" with IPv6
-Date: Tue, 3 Jul 2012 15:47:03 +0000
-Message-ID: <4FF313F6.7010600@xdin.com>
+Date: Tue, 3 Jul 2012 16:55:09 +0100
+Message-ID: <1341330909.4852.151.camel@deadeye.wl.decadent.org.uk>
 References: <4FED14C2.9020200@xdin.com>
- <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com>
+	 <4FF313F6.7010600@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	Stephen Hemminger <shemminger@vyatta.com>,
 	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Arvid Brodin <Arvid.Brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:53237 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755297Ab2GCPrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2012 11:47:06 -0400
-In-Reply-To: <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-Content-ID: <5E5F78D16448FA4FBD6744F7B9CB912B@redbull.xdin.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:63449 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752339Ab2GCPzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 11:55:17 -0400
+In-Reply-To: <4FF313F6.7010600@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-KEFkZGVkIE1BQ0IgInBhdGNoIiBjb250YWN0IE5pY29sYXMgRmVycmUgdG8gQ0MgbGlzdC4pDQoN
-Ck9uIDIwMTItMDYtMjkgMTc6MjQsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6DQo+IE9uIEZyaSwgMjAx
-Mi0wNi0yOSBhdCAwMjozNiArMDAwMCwgQXJ2aWQgQnJvZGluIHdyb3RlOg0KPj4gSGksDQo+Pg0K
-Pj4gQWZ0ZXIgJ2lwIGxpbmsgc2V0IGV0aDAgdXAnIG9uIGFuIGF2cjMyIGJvYXJkIChuZXR3b3Jr
-IGRyaXZlciBtYWNiKSwgdGhlIGRldmljZSBlbmRzIHVwIGluDQo+PiBvcGVyYXRpb25hbCBtb2Rl
-ICJVTktOT1dOIjoNCj4+DQo+PiAjIGlwIGxpbmsNCj4+IDI6IGV0aDA6IDxCUk9BRENBU1QsTVVM
-VElDQVNULFVQLExPV0VSX1VQPiBtdHUgMTUwMCBxZGlzYyBwZmlmb19mYXN0IHN0YXRlIFVOS05P
-V04gcWxlbiAxMDAwDQo+PiAgICAgbGluay9ldGhlciAwMDoyNDo3NDowMDoxNzo5ZCBicmQgZmY6
-ZmY6ZmY6ZmY6ZmY6ZmYNCj4+DQo+PiBVbnBsdWdnaW5nIGFuZCBwbHVnZ2luZyBpbiB0aGUgbmV0
-d29yayBjYWJsZSBnZXRzIHRoZSBkZXZpY2UgdG8gbW9kZSAiVVAiLg0KPj4NCj4+IFRoaXMgaXMg
-YSBwcm9ibGVtIGZvciBtZSBiZWNhdXNlIEknbSB0cnlpbmcgdG8gdXNlIHRoaXMgZGV2aWNlIGFz
-IGEgInNsYXZlIiBkZXZpY2UgKGZvciBhDQo+PiB2aXJ0dWFsIEhTUiBkZXZpY2UqKSBhbmQgSSBu
-ZWVkIHRvIGJlIGFibGUgdG8gZGVjaWRlIGlmIHRoZSBzbGF2ZSBkZXZpY2UgaXMgb3BlcmF0aW9u
-YWwgb3INCj4+IG5vdC4NCj4+DQo+PiBGb2xsb3dpbmcgU3RlcGhlbidzIGFkdmljZSBoZXJlOg0K
-Pj4gaHR0cDovL2tlcm5lbHRyYXAub3JnL21haWxhcmNoaXZlL2xpbnV4LW5ldGRldi8yMDA4Lzkv
-MjQvMzM5ODgzNCBJIGNoZWNrZWQgdGhlIG1hY2IuYyBjb2RlDQo+PiBhbmQgbm90aWNlZCB0aGV5
-IGRvIG5vdCBjYWxsIG5ldGlmX2NhcnJpZXJfb2ZmKCkgbmVpdGhlciBiZWZvcmUgcmVnaXN0ZXJf
-bmV0ZGV2KCkgbm9yIGluDQo+PiBkZXZfb3BlbigpLg0KPiANCj4gSXQgc2hvdWxkIGJlIGNhbGxl
-ZCBhZnRlciByZWdpc3Rlcl9uZXRkZXYoKSBhbmQgYmVmb3JlIHRoZSBkcml2ZXIncw0KPiBuZG9f
-b3BlbiBpbXBsZW1lbnRhdGlvbiByZXR1cm5zLg0KDQpJJ20gZ3Vlc3NpbmcgdGhpcyBhbGxvd3Mg
-bGlua3dhdGNoIHRvIGRvIG5ldGlmX2NhcnJpZXJfb24oKSBzb21lIHRpbWUgYWZ0ZXIgdGhlIGRl
-dl9vcGVuKCk/DQoNCkJlc2lkZXMgbm90IGNhbGxpbmcgbmV0aWZfY2Fycmllcl9vZmYoKSBpbiBk
-ZXZfb3BlbigpLCB0aGUgQ2FkZW5jZS9NQUNCIGRyaXZlciBjYWxscw0KbmV0aWZfY2Fycmllcl9v
-ZmYoKSBpbiBkZXZfY2xvc2UoKS4gSXMgdGhpcyBjb3JyZWN0Pw0KDQoNCkhvdyBzaG91bGQgSSBo
-YW5kbGUgY2FycmllciBzdGF0ZSBmb3IgYSB2aXJ0dWFsIGRldmljZT8gVGhlIGRldmljZSBzaG91
-bGQgaGF2ZSAiY2FycmllciINCmFzIGxvbmcgYXMgYXQgbGVhc3Qgb25lIG9mIHRoZSB1bmRlcmx5
-aW5nIHBoeXNpY2FsIGludGVyZmFjZXMgaXMgb3BlcmF0aW9uYWwgKHdoaWNoIEkNCmd1ZXNzIG1l
-YW5zIG9wZXJhdGlvbmFsIHN0YXRlIFVQKS4gV291bGQgaXQgYmUgY29ycmVjdCB0byB3YXRjaCBO
-RVRERVZfQ0hBTkdFIGFuZCBET1dOL1VQDQpldmVudHMgb2YgdGhlIHNsYXZlcyBhbmQgY2FsbCBu
-ZXRpZl9jYXJyaWVyX29uKCkvb2ZmKCkgb24gdGhlIHZpcnR1YWwgZGV2aWNlIGRlcGVuZGluZyBv
-bg0KdGhlIHNsYXZlcycgc3RhdGVzPw0KDQoNCj4gDQo+PiBJIGFkZGVkIHRoZSBjYWxsIGJlZm9y
-ZSByZWdpc3Rlcl9uZXRkZXYoKSwgd2hpY2ggZml4ZWQgdGhlIHByb2JsZW0uIEhvd2V2ZXIsIGlm
-IEkgdGhlbg0KPj4gZW5hYmxlIElQdjY6DQo+Pg0KPj4gIyBpcCBsaW5rIHNldCBldGgwIHVwDQo+
-PiBBRERSQ09ORihORVRERVZfVVApOiBldGgwOiBsaW5rIGlzIG5vdCByZWFkeQ0KPj4gZXRoMDog
-bGluayB1cCAoMTAwL0Z1bGwpDQo+PiBBRERSQ09ORihORVRERVZfQ0hBTkdFKTogZXRoMDogbGlu
-ayBiZWNvbWVzIHJlYWR5DQo+IA0KPiBUaGlzIGxvb2tzIG5vcm1hbC4NCg0KR29vZCwgdGhhdCBu
-YXJyb3dzIGl0IGRvd24gYSBiaXQuDQoNCj4gDQo+PiBBbnkgaWRlYSB3aGF0IGlzIGhhcHBlbmlu
-ZyAvIHdoYXQgSSdtIGRvaW5nIHdyb25nPyAoVGhpcyBpcyBub3QganVzdCBjb3NtZXRpYzsgaXMg
-c29tZQ0KPj4gc2l0dWF0aW9ucyB0aGlzIHNlZW1zIHRvIGtpbGwgdGhlIGludGVyZmFjZSAtIGUu
-Zy4gcGluZyBkb2VzIG5vdCB3b3JrLCBkb3duL3VwIGRvZXMgbm90DQo+PiBoZWxwLi4uKSBUaGlu
-Z3Mgd29yayBmaW5lIHdpdGhvdXQgSVB2NiBjb25maWd1cmVkLg0KPiANCj4gUGVyaGFwcyBzb21l
-IHBhY2tldHMgc2VudCBhdXRvbWF0aWNhbGx5IGJ5IElQdjYgYXJlIHRyaWdnZXJpbmcgYSBkcml2
-ZXINCj4gYnVnPyAgT3IgdGhlcmUgaXMgYSBidWcgaW4gbXVsdGljYXN0IHN1cHBvcnQsIHdoaWNo
-IElQdjYgYWx3YXlzIHVzZXMuDQo+IA0KPiBCZW4uDQo+IA0KPj4gKk4uQi4gSSdtIHdyaXRpbmcg
-YSBkcml2ZXIgZm9yIGEgbmV0d29yayBwcm90b2NvbCBjYWxsZWQgIkhpZ2gtYXZhaWxhYmlsaXR5
-IFNlYW1sZXNzDQo+PiBSZWR1bmRhbmN5Ii4NCj4gDQoNCg0KLS0gDQpBcnZpZCBCcm9kaW4gfCBD
-b25zdWx0YW50IChMaW51eCkNClhESU4gQUIgfCBKYW4gU3RlbmJlY2tzIFRvcmcgMTcgfCBTRS0x
-NjQgNDAgS2lzdGEgfCBTd2VkZW4gfCB4ZGluLmNvbQ==
+On Tue, 2012-07-03 at 15:47 +0000, Arvid Brodin wrote:
+> (Added MACB "patch" contact Nicolas Ferre to CC list.)
+> 
+> On 2012-06-29 17:24, Ben Hutchings wrote:
+> > On Fri, 2012-06-29 at 02:36 +0000, Arvid Brodin wrote:
+> >> Hi,
+> >>
+> >> After 'ip link set eth0 up' on an avr32 board (network driver macb), the device ends up in
+> >> operational mode "UNKNOWN":
+> >>
+> >> # ip link
+> >> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000
+> >>     link/ether 00:24:74:00:17:9d brd ff:ff:ff:ff:ff:ff
+> >>
+> >> Unplugging and plugging in the network cable gets the device to mode "UP".
+> >>
+> >> This is a problem for me because I'm trying to use this device as a "slave" device (for a
+> >> virtual HSR device*) and I need to be able to decide if the slave device is operational or
+> >> not.
+> >>
+> >> Following Stephen's advice here:
+> >> http://kerneltrap.org/mailarchive/linux-netdev/2008/9/24/3398834 I checked the macb.c code
+> >> and noticed they do not call netif_carrier_off() neither before register_netdev() nor in
+> >> dev_open().
+> > 
+> > It should be called after register_netdev() and before the driver's
+> > ndo_open implementation returns.
+> 
+> I'm guessing this allows linkwatch to do netif_carrier_on() some time after the dev_open()?
+
+No, the driver is always responsible for calling
+netif_carrier_{on,off}() in a timely manner.  link_watch takes care of
+stopping the software TX queues if the link goes down.
+
+> Besides not calling netif_carrier_off() in dev_open(), the Cadence/MACB driver calls
+> netif_carrier_off() in dev_close(). Is this correct?
+
+Unnecessary but harmless.
+
+> How should I handle carrier state for a virtual device? The device should have "carrier"
+> as long as at least one of the underlying physical interfaces is operational (which I
+> guess means operational state UP). Would it be correct to watch NETDEV_CHANGE and DOWN/UP
+> events of the slaves and call netif_carrier_on()/off() on the virtual device depending on
+> the slaves' states?
+[...]
+
+That sounds about right.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
