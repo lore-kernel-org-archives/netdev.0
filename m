@@ -1,40 +1,47 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH 00/13] drivers: hv: kvp
-Date: Tue, 03 Jul 2012 08:03:09 -0700 (PDT)
-Message-ID: <642e6af6-fc6b-4c54-a4a6-f5bdd38512c7@tahiti.vyatta.com>
-References: <20120703132049.GA10663@aepfle.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] etherdevice: introduce broadcast_ether_addr
+Date: Tue, 03 Jul 2012 08:13:22 -0700
+Message-ID: <1341328402.2164.3.camel@joe2Laptop>
+References: <1341310587.5131.2.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@linuxfoundation.org>, apw@canonical.com,
-	devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, KY Srinivasan <kys@microsoft.com>
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120703132049.GA10663@aepfle.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:48188 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751081Ab2GCPNX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2012 11:13:23 -0400
+In-Reply-To: <1341310587.5131.2.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> On Mon, Jul 02, KY Srinivasan wrote:
+On Tue, 2012-07-03 at 12:16 +0200, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> > While I toyed with your proposal, I feel it just pushes the problem
-> > out of the daemon code - we would still need to write distro
-> > specific
-> > scripts. If this approach is something that everybody is
-> > comfortable
-> > with, I can take a stab at implementing that.
-> 
-> Until NetworkManager is feature complete and until every distro is
-> using
-> NetworkManager per default the kvp_daemon needs distro specific code
-> to
-> get and set network related settings.
-> Doing it with an external script will simplify debugging and changes
-> to
-> the code.
+> A lot of code has either the memset or an
+> inefficient copy from a static array that
+> contains the all-ones broadcast address.
+> Introduce broadcast_ether_addr() to fill
+> an address with all ones, making the code
+> clearer and allowing us to get rid of the
+> various constant arrays.
+[]
+> diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+[]
+> +static inline void broadcast_ether_addr(u8 *addr)
+> +{
+> +	memset(addr, 0xff, ETH_ALEN);
+> +}
 
-Although,  Network Manager is a good tool for what it does;
-it is not appropriate for every distro. It is overkill
-in embedded systems, and it's GUI dependency makes it unmanageable
-on servers. 
+I think this sort of patch should come as the first
+patch in a series with some example conversions.
+
+It might be too easy to confuse is_broadcast_ether_addr
+with this function name too.  Maybe set_broadcast_ether_addr
+might be better.
+
+I really don't see an issue with using memset though.
+Everyone already knows what that does.
