@@ -1,123 +1,84 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 06/19] sch_teql: Convert over to dev_neigh_lookup_skb().
-Date: Tue, 03 Jul 2012 02:46:17 -0700 (PDT)
-Message-ID: <20120703.024617.1895786139124903203.davem@davemloft.net>
+Subject: [PATCH 07/19] ipoib: Convert over to dev_lookup_neigh_skb().
+Date: Tue, 03 Jul 2012 02:46:21 -0700 (PDT)
+Message-ID: <20120703.024621.984205798135187428.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36825 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36829 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932420Ab2GCJqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:46:18 -0400
+	with ESMTP id S932420Ab2GCJqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:46:22 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 8E2F658411C
-	for <netdev@vger.kernel.org>; Tue,  3 Jul 2012 02:46:19 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id C7D0F58411D
+	for <netdev@vger.kernel.org>; Tue,  3 Jul 2012 02:46:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/sched/sch_teql.c |   39 +++++++++++++--------------------------
- 1 file changed, 13 insertions(+), 26 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib_main.c      |    4 +++-
+ drivers/infiniband/ulp/ipoib/ipoib_multicast.c |   22 +++++++++++++---------
+ 2 files changed, 16 insertions(+), 10 deletions(-)
 
-diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
-index ca0c296..6cd7174 100644
---- a/net/sched/sch_teql.c
-+++ b/net/sched/sch_teql.c
-@@ -67,7 +67,6 @@ struct teql_master {
- struct teql_sched_data {
- 	struct Qdisc *next;
- 	struct teql_master *m;
--	struct neighbour *ncache;
- 	struct sk_buff_head q;
- };
- 
-@@ -134,7 +133,6 @@ teql_reset(struct Qdisc *sch)
- 
- 	skb_queue_purge(&dat->q);
- 	sch->q.qlen = 0;
--	teql_neigh_release(xchg(&dat->ncache, NULL));
- }
- 
- static void
-@@ -166,7 +164,6 @@ teql_destroy(struct Qdisc *sch)
- 					}
- 				}
- 				skb_queue_purge(&dat->q);
--				teql_neigh_release(xchg(&dat->ncache, NULL));
- 				break;
- 			}
- 
-@@ -225,21 +222,15 @@ static int teql_qdisc_init(struct Qdisc *sch, struct nlattr *opt)
- static int
- __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res,
- 	       struct net_device *dev, struct netdev_queue *txq,
--	       struct neighbour *mn)
-+	       struct dst_entry *dst)
- {
--	struct teql_sched_data *q = qdisc_priv(txq->qdisc);
--	struct neighbour *n = q->ncache;
-+	struct neighbour *n;
-+	int err = 0;
-+
-+	n = dst_neigh_lookup_skb(dst, skb);
-+	if (!n)
-+		return -ENOENT;
- 
--	if (mn->tbl == NULL)
--		return -EINVAL;
--	if (n && n->tbl == mn->tbl &&
--	    memcmp(n->primary_key, mn->primary_key, mn->tbl->key_len) == 0) {
--		atomic_inc(&n->refcnt);
--	} else {
--		n = __neigh_lookup_errno(mn->tbl, mn->primary_key, dev);
--		if (IS_ERR(n))
--			return PTR_ERR(n);
--	}
- 	if (neigh_event_send(n, skb_res) == 0) {
- 		int err;
- 		char haddr[MAX_ADDR_LEN];
-@@ -248,15 +239,13 @@ __teql_resolve(struct sk_buff *skb, struct sk_buff *skb_res,
- 		err = dev_hard_header(skb, dev, ntohs(skb->protocol), haddr,
- 				      NULL, skb->len);
- 
--		if (err < 0) {
--			neigh_release(n);
--			return -EINVAL;
--		}
--		teql_neigh_release(xchg(&q->ncache, n));
--		return 0;
-+		if (err < 0)
-+			err = -EINVAL;
-+	} else {
-+		err = (skb_res == NULL) ? -EAGAIN : 1;
- 	}
- 	neigh_release(n);
--	return (skb_res == NULL) ? -EAGAIN : 1;
-+	return err;
- }
- 
- static inline int teql_resolve(struct sk_buff *skb,
-@@ -265,7 +254,6 @@ static inline int teql_resolve(struct sk_buff *skb,
- 			       struct netdev_queue *txq)
- {
- 	struct dst_entry *dst = skb_dst(skb);
--	struct neighbour *mn;
- 	int res;
- 
- 	if (txq->qdisc == &noop_qdisc)
-@@ -275,8 +263,7 @@ static inline int teql_resolve(struct sk_buff *skb,
- 		return 0;
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 3974c29..bbee4b2 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -715,7 +715,7 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
  	rcu_read_lock();
--	mn = dst_get_neighbour_noref(dst);
--	res = mn ? __teql_resolve(skb, skb_res, dev, txq, mn) : 0;
-+	res = __teql_resolve(skb, skb_res, dev, txq, dst);
+ 	if (likely(skb_dst(skb))) {
+-		n = dst_get_neighbour_noref(skb_dst(skb));
++		n = dst_neigh_lookup_skb(skb_dst(skb), skb);
+ 		if (!n) {
+ 			++dev->stats.tx_dropped;
+ 			dev_kfree_skb_any(skb);
+@@ -797,6 +797,8 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ unlock:
++	if (n)
++		neigh_release(n);
  	rcu_read_unlock();
+ 	return NETDEV_TX_OK;
+ }
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+index 20ebc6f..fbb95ee 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+@@ -720,16 +720,20 @@ out:
  
- 	return res;
+ 		rcu_read_lock();
+ 		if (dst)
+-			n = dst_get_neighbour_noref(dst);
+-		if (n && !*to_ipoib_neigh(n)) {
+-			struct ipoib_neigh *neigh = ipoib_neigh_alloc(n,
+-								      skb->dev);
+-
+-			if (neigh) {
+-				kref_get(&mcast->ah->ref);
+-				neigh->ah	= mcast->ah;
+-				list_add_tail(&neigh->list, &mcast->neigh_list);
++			n = dst_neigh_lookup_skb(dst, skb);
++		if (n) {
++			if (!*to_ipoib_neigh(n)) {
++				struct ipoib_neigh *neigh;
++
++				neigh = ipoib_neigh_alloc(n, skb->dev);
++				if (neigh) {
++					kref_get(&mcast->ah->ref);
++					neigh->ah	= mcast->ah;
++					list_add_tail(&neigh->list,
++						      &mcast->neigh_list);
++				}
+ 			}
++			neigh_release(n);
+ 		}
+ 		rcu_read_unlock();
+ 		spin_unlock_irqrestore(&priv->lock, flags);
 -- 
 1.7.10
