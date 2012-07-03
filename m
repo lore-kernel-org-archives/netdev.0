@@ -1,34 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] bonding support for IPv6 transmit hashing
-Date: Mon, 02 Jul 2012 22:14:25 -0700 (PDT)
-Message-ID: <20120702.221425.418792617776598841.davem@davemloft.net>
-References: <eb20e8f67e6aad94c233219e058c3e793ed755cb.1341167171.git.linux@8192.net>
-	<18390.1341272010@death.nxdomain>
-	<4FF27CA0.7030708@8192.net>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Awaiting upsteam? - Re: [PATCH net-next v3] em_canid: Ematch rule
+ to match CAN frames according to their identifiers
+Date: Tue, 03 Jul 2012 07:15:49 +0200
+Message-ID: <4FF28005.4050108@hartkopp.net>
+References: <1341241568-13438-1-git-send-email-lisovy@gmail.com> <4FF1DF65.5080306@hartkopp.net> <4FF1E26F.5000106@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org
-To: linux@8192.net
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, lartc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35230 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751843Ab2GCFO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 01:14:28 -0400
-In-Reply-To: <4FF27CA0.7030708@8192.net>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:33335 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843Ab2GCFPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 01:15:53 -0400
+In-Reply-To: <4FF1E26F.5000106@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Eaglesham <linux@8192.net>
-Date: Mon, 02 Jul 2012 22:01:20 -0700
+Hello Dave,
 
-> I replaced the mixed tabs and spaces with all tabs when I updated that
-> function, but in retrospect the tabs and spaces were likely
-> intentional. I will revert.
+i've seen that you tagged this patch as "Awaiting upstream" in Patchwork.
 
-They were.  Don't change existing coding style unless you are certain
-it is wrong.
+Does this mean, that *you* are waiting for another re-spin of the patch OR do
+you expect this patch go through a sub-tree like Marcs can-next tree?
 
-Besides any such changes are completely outside of the scope of
-the changes you are making, so you should have left them out in
-any event.
+Who is committing these "awaiting upstream" patches?
+
+Thanks for clarification,
+Oliver
