@@ -1,53 +1,49 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH 00/10] Make XPS usable within ixgbe
-Date: Tue, 03 Jul 2012 15:41:59 -0700
-Message-ID: <4FF37537.20104@intel.com>
-References: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com> <CA+mtBx-ZGFUT6JcxiLcTOMteN1-DS5_eoAC5CgU7UEFup1FaqQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/7] qlge: Fixed packet transmit errors due to
+ potential driver errors.
+Date: Tue, 03 Jul 2012 16:14:24 -0700 (PDT)
+Message-ID: <20120703.161424.1399041252994063483.davem@davemloft.net>
+References: <20120702.183826.1521103644475572622.davem@davemloft.net>
+	<20120702.184134.1131493483786674336.davem@davemloft.net>
+	<5E4F49720D0BAD499EE1F01232234BA877435B2797@AVEXMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com,
-	bhutchings@solarflare.com, alexander.duyck@gmail.com
-To: Tom Herbert <therbert@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com
+To: jitendra.kalsaria@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45932 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756267Ab2GCWmA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2012 18:42:00 -0400
-In-Reply-To: <CA+mtBx-ZGFUT6JcxiLcTOMteN1-DS5_eoAC5CgU7UEFup1FaqQ@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44294 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536Ab2GCXO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 19:14:26 -0400
+In-Reply-To: <5E4F49720D0BAD499EE1F01232234BA877435B2797@AVEXMB1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/3/2012 3:30 PM, Tom Herbert wrote:
-> Hi Alexander,
->
-> Thanks for this work!
->
-> Some general comments:
->
-> 1) skb_tx_hash is called from a handful of drivers (bnx2x, ixgbe,
-> mlx4, and bonding).  Would it make sent to call xps_get_cpu from that
-> function (unfortunately the use of ndo_select_queue is likely
-> bypassing xps unnecessarily in these drivers).
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Date: Tue, 3 Jul 2012 12:38:04 -0700
 
-I suspect we can get rid of the select_queue cases for at least
-bnx2x, ixgbe, and mlx4. We might need to be a bit clever to resolve
-the mlx4 case but should be doable.
+> This patch was intended to remove the line that increments the
+> tx_error statistic when the queue is correctly stopped.
 
-Anyways I would like to see these cases refactored away.
+It isn't correctly stopped, for the millionth time this condition is a
+BUG, there is a kernel log message there because it is a BUG, are you
+blind?
+	if (unlikely(atomic_read(&tx_ring->tx_count) < 2)) {
+		netif_info(qdev, tx_queued, qdev->ndev,
+			   "%s: shutting down tx queue %d du to lack of resources.\n",
+			   __func__, tx_ring_idx);
+		netif_stop_subqueue(ndev, tx_ring->wq_id);
+		atomic_inc(&tx_ring->queue_stopped);
+		tx_ring->tx_errors++;
+		return NETDEV_TX_BUSY;
+	}
 
-> 2) Instead of (or maybe in addition to) allowing driver to program xps
-> maps, we could parameterize get_xps_cpu to optionally include a bit
-> map of acceptable queues.  This would be useful to define a
-> hierarchical queue selection (like first choose a set for QoS, then
-> amongst those chose one base on xps).
->
+THIS CODE BLOCK SHOULD NEVER EXECUTE.  It's a driver bug, it should
+never happen.
 
-Agreed.
+Even if the driver recovers correctly, it's still an error condition.
 
-We likely need something like (2) to get this to work with mqprio and
-other QOS schemes in use.
-
-.John
+It's a bug, and bumping the statistic is not wrong at all.  You should
+find out why this happens, because it's a bug, and it should be fixed.
