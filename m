@@ -1,114 +1,229 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 15/19] cxgb3: Convert t3_l2t_get() over to
- dst_neigh_lookup().
-Date: Tue, 03 Jul 2012 02:46:56 -0700 (PDT)
-Message-ID: <20120703.024656.2146388003201411071.davem@davemloft.net>
+Subject: [PATCH 16/19] ipv6: Store route neighbour in rt6_info struct.
+Date: Tue, 03 Jul 2012 02:47:00 -0700 (PDT)
+Message-ID: <20120703.024700.1627207600679312181.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36855 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36859 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264Ab2GCJq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:46:57 -0400
+	with ESMTP id S932362Ab2GCJrC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:47:02 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 2149A584122
-	for <netdev@vger.kernel.org>; Tue,  3 Jul 2012 02:46:59 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 0E79158411D
+	for <netdev@vger.kernel.org>; Tue,  3 Jul 2012 02:47:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This means passing in a suitable destination address.
+This makes for a simplified conversion away from dst_get_neighbour*().
+
+All code outside of ipv6 will use neigh lookups via dst_neigh_lookup*().
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/infiniband/hw/cxgb3/iwch_cm.c    |    5 +++--
- drivers/net/ethernet/chelsio/cxgb3/l2t.c |    6 ++++--
- drivers/net/ethernet/chelsio/cxgb3/l2t.h |    2 +-
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.c       |    3 ++-
- 4 files changed, 10 insertions(+), 6 deletions(-)
+ include/net/ip6_fib.h   |    2 ++
+ net/ipv6/ip6_output.c   |    8 ++++++--
+ net/ipv6/route.c        |   42 ++++++++++++++++++++++++++----------------
+ net/ipv6/xfrm6_policy.c |    1 +
+ 4 files changed, 35 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-index 740dcc0..77b6b18 100644
---- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-+++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-@@ -1374,7 +1374,7 @@ static int pass_accept_req(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
- 		goto reject;
- 	}
- 	dst = &rt->dst;
--	l2t = t3_l2t_get(tdev, dst, NULL);
-+	l2t = t3_l2t_get(tdev, dst, NULL, &req->peer_ip);
- 	if (!l2t) {
- 		printk(KERN_ERR MOD "%s - failed to allocate l2t entry!\n",
- 		       __func__);
-@@ -1942,7 +1942,8 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 		goto fail3;
- 	}
- 	ep->dst = &rt->dst;
--	ep->l2t = t3_l2t_get(ep->com.tdev, ep->dst, NULL);
-+	ep->l2t = t3_l2t_get(ep->com.tdev, ep->dst, NULL,
-+			     &cm_id->remote_addr.sin_addr.s_addr);
- 	if (!ep->l2t) {
- 		printk(KERN_ERR MOD "%s - cannot alloc l2e.\n", __func__);
- 		err = -ENOMEM;
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/l2t.c b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
-index 3fa3c88..8d53438 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/l2t.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
-@@ -299,7 +299,7 @@ static inline void reuse_entry(struct l2t_entry *e, struct neighbour *neigh)
- }
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index a192f78..0fedbd8 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -86,6 +86,8 @@ struct fib6_table;
+ struct rt6_info {
+ 	struct dst_entry		dst;
  
- struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
--			     struct net_device *dev)
-+			     struct net_device *dev, const void *daddr)
- {
- 	struct l2t_entry *e = NULL;
++	struct neighbour		*n;
++
+ 	/*
+ 	 * Tail elements of dst_entry (__refcnt etc.)
+ 	 * and these elements (rarely used in hot path) are in
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index c94e4aa..6d9c0ab 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -88,6 +88,7 @@ static int ip6_finish_output2(struct sk_buff *skb)
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *dev = dst->dev;
  	struct neighbour *neigh;
-@@ -311,7 +311,7 @@ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
- 	int smt_idx;
++	struct rt6_info *rt;
+ 
+ 	skb->protocol = htons(ETH_P_IPV6);
+ 	skb->dev = dev;
+@@ -123,7 +124,8 @@ static int ip6_finish_output2(struct sk_buff *skb)
+ 	}
  
  	rcu_read_lock();
 -	neigh = dst_get_neighbour_noref(dst);
-+	neigh = dst_neigh_lookup(dst, daddr);
- 	if (!neigh)
- 		goto done_rcu;
++	rt = (struct rt6_info *) dst;
++	neigh = rt->n;
+ 	if (neigh) {
+ 		int res = dst_neigh_output(dst, neigh, skb);
  
-@@ -360,6 +360,8 @@ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
- done_unlock:
- 	write_unlock_bh(&d->lock);
- done_rcu:
-+	if (neigh)
-+		neigh_release(neigh);
- 	rcu_read_unlock();
- 	return e;
+@@ -944,6 +946,7 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 	struct net *net = sock_net(sk);
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 	struct neighbour *n;
++	struct rt6_info *rt;
+ #endif
+ 	int err;
+ 
+@@ -972,7 +975,8 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 	 * dst entry of the nexthop router
+ 	 */
+ 	rcu_read_lock();
+-	n = dst_get_neighbour_noref(*dst);
++	rt = (struct rt6_info *) dst;
++	n = rt->n;
+ 	if (n && !(n->nud_state & NUD_VALID)) {
+ 		struct inet6_ifaddr *ifp;
+ 		struct flowi6 fl_gw6;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 24034d7..b4ecea0 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -155,7 +155,7 @@ static int rt6_bind_neighbour(struct rt6_info *rt, struct net_device *dev)
+ 		if (IS_ERR(n))
+ 			return PTR_ERR(n);
+ 	}
+-	dst_set_neighbour(&rt->dst, n);
++	rt->n = n;
+ 
+ 	return 0;
  }
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/l2t.h b/drivers/net/ethernet/chelsio/cxgb3/l2t.h
-index c4e8643..8cffcdf 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/l2t.h
-+++ b/drivers/net/ethernet/chelsio/cxgb3/l2t.h
-@@ -110,7 +110,7 @@ static inline void set_arp_failure_handler(struct sk_buff *skb,
- void t3_l2e_free(struct l2t_data *d, struct l2t_entry *e);
- void t3_l2t_update(struct t3cdev *dev, struct neighbour *neigh);
- struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
--			     struct net_device *dev);
-+			     struct net_device *dev, const void *daddr);
- int t3_l2t_send_slow(struct t3cdev *dev, struct sk_buff *skb,
- 		     struct l2t_entry *e);
- void t3_l2t_send_event(struct t3cdev *dev, struct l2t_entry *e);
-diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-index 36739da..49692a1 100644
---- a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-+++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-@@ -966,7 +966,8 @@ static int init_act_open(struct cxgbi_sock *csk)
- 		csk->saddr.sin_addr.s_addr = chba->ipv4addr;
+@@ -285,6 +285,9 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	struct rt6_info *rt = (struct rt6_info *)dst;
+ 	struct inet6_dev *idev = rt->rt6i_idev;
  
- 	csk->rss_qid = 0;
--	csk->l2t = t3_l2t_get(t3dev, dst, ndev);
-+	csk->l2t = t3_l2t_get(t3dev, dst, ndev,
-+			      &csk->daddr.sin_addr.s_addr);
- 	if (!csk->l2t) {
- 		pr_err("NO l2t available.\n");
- 		return -EINVAL;
++	if (rt->n)
++		neigh_release(rt->n);
++
+ 	if (!(rt->dst.flags & DST_HOST))
+ 		dst_destroy_metrics_generic(dst);
+ 
+@@ -335,12 +338,19 @@ static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 	struct net_device *loopback_dev =
+ 		dev_net(dev)->loopback_dev;
+ 
+-	if (dev != loopback_dev && idev && idev->dev == dev) {
+-		struct inet6_dev *loopback_idev =
+-			in6_dev_get(loopback_dev);
+-		if (loopback_idev) {
+-			rt->rt6i_idev = loopback_idev;
+-			in6_dev_put(idev);
++	if (dev != loopback_dev) {
++		if (idev && idev->dev == dev) {
++			struct inet6_dev *loopback_idev =
++				in6_dev_get(loopback_dev);
++			if (loopback_idev) {
++				rt->rt6i_idev = loopback_idev;
++				in6_dev_put(idev);
++			}
++		}
++		if (rt->n && rt->n->dev == dev) {
++			rt->n->dev = loopback_dev;
++			dev_hold(loopback_dev);
++			dev_put(dev);
+ 		}
+ 	}
+ }
+@@ -430,7 +440,7 @@ static void rt6_probe(struct rt6_info *rt)
+ 	 * to no more than one per minute.
+ 	 */
+ 	rcu_read_lock();
+-	neigh = rt ? dst_get_neighbour_noref(&rt->dst) : NULL;
++	neigh = rt ? rt->n : NULL;
+ 	if (!neigh || (neigh->nud_state & NUD_VALID))
+ 		goto out;
+ 	read_lock_bh(&neigh->lock);
+@@ -477,7 +487,7 @@ static inline int rt6_check_neigh(struct rt6_info *rt)
+ 	int m;
+ 
+ 	rcu_read_lock();
+-	neigh = dst_get_neighbour_noref(&rt->dst);
++	neigh = rt->n;
+ 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
+ 	    !(rt->rt6i_flags & RTF_GATEWAY))
+ 		m = 1;
+@@ -824,7 +834,7 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
+ 
+ 	if (rt) {
+ 		rt->rt6i_flags |= RTF_CACHE;
+-		dst_set_neighbour(&rt->dst, neigh_clone(dst_get_neighbour_noref_raw(&ort->dst)));
++		rt->n = neigh_clone(ort->n);
+ 	}
+ 	return rt;
+ }
+@@ -858,7 +868,7 @@ restart:
+ 	dst_hold(&rt->dst);
+ 	read_unlock_bh(&table->tb6_lock);
+ 
+-	if (!dst_get_neighbour_noref_raw(&rt->dst) && !(rt->rt6i_flags & RTF_NONEXTHOP))
++	if (!rt->n && !(rt->rt6i_flags & RTF_NONEXTHOP))
+ 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+ 	else if (!(rt->dst.flags & DST_HOST))
+ 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+@@ -1178,7 +1188,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 
+ 	rt->dst.flags |= DST_HOST;
+ 	rt->dst.output  = ip6_output;
+-	dst_set_neighbour(&rt->dst, neigh);
++	rt->n = neigh;
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	rt->rt6i_dst.addr = fl6->daddr;
+ 	rt->rt6i_dst.plen = 128;
+@@ -1715,7 +1725,7 @@ void rt6_redirect(const struct in6_addr *dest, const struct in6_addr *src,
+ 	dst_confirm(&rt->dst);
+ 
+ 	/* Duplicate redirect: silently ignore. */
+-	old_neigh = dst_get_neighbour_noref_raw(&rt->dst);
++	old_neigh = rt->n;
+ 	if (neigh == old_neigh)
+ 		goto out;
+ 
+@@ -1728,7 +1738,7 @@ void rt6_redirect(const struct in6_addr *dest, const struct in6_addr *src,
+ 		nrt->rt6i_flags &= ~RTF_GATEWAY;
+ 
+ 	nrt->rt6i_gateway = *(struct in6_addr *)neigh->primary_key;
+-	dst_set_neighbour(&nrt->dst, neigh_clone(neigh));
++	nrt->n = neigh_clone(neigh);
+ 
+ 	if (ip6_ins_rt(nrt))
+ 		goto out;
+@@ -2441,7 +2451,7 @@ static int rt6_fill_node(struct net *net,
+ 		goto nla_put_failure;
+ 
+ 	rcu_read_lock();
+-	n = dst_get_neighbour_noref(&rt->dst);
++	n = rt->n;
+ 	if (n) {
+ 		if (nla_put(skb, RTA_GATEWAY, 16, &n->primary_key) < 0) {
+ 			rcu_read_unlock();
+@@ -2665,7 +2675,7 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
+ 	seq_puts(m, "00000000000000000000000000000000 00 ");
+ #endif
+ 	rcu_read_lock();
+-	n = dst_get_neighbour_noref(&rt->dst);
++	n = rt->n;
+ 	if (n) {
+ 		seq_printf(m, "%pi6", n->primary_key);
+ 	} else {
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index d749484..bb02038 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -103,6 +103,7 @@ static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 
+ 	/* Sheit... I remember I did this right. Apparently,
+ 	 * it was magically lost, so this code needs audit */
++	xdst->u.rt6.n = neigh_clone(rt->n);
+ 	xdst->u.rt6.rt6i_flags = rt->rt6i_flags & (RTF_ANYCAST |
+ 						   RTF_LOCAL);
+ 	xdst->u.rt6.rt6i_metric = rt->rt6i_metric;
 -- 
 1.7.10
