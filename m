@@ -1,68 +1,40 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-Date: Tue, 3 Jul 2012 13:04:26 +0000
-Message-ID: <157393863283F442885425D2C454285623DB7BEC@NASANEXD02A.na.qualcomm.com>
-References: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH 00/13] drivers: hv: kvp
+Date: Tue, 3 Jul 2012 15:20:49 +0200
+Message-ID: <20120703132049.GA10663@aepfle.de>
+References: <20120621224737.GA5933@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155EC47A@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120622132547.GA2639@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155ED14D@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120626213954.GA4840@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155ED64A@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120626222205.GA5948@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155ED68D@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120628142340.GA21537@aepfle.de>
+ <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: "Ren, Cloud" <cjren@qca.qualcomm.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Greg KH <gregkh@linuxfoundation.org>, apw@canonical.com,
+	devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: KY Srinivasan <kys@microsoft.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cloud,  why your patch contains :  'From: Cloud Ren <cjren@qca.qualcomm.com>'
-I don't find it in other people's patch.
+On Mon, Jul 02, KY Srinivasan wrote:
 
-Doesn't David Miller think your time is wrong ?
+> While I toyed with your proposal, I feel it just pushes the problem
+> out of the daemon code - we would still need to write distro specific
+> scripts. If this approach is something that everybody is comfortable
+> with, I can take a stab at implementing that. 
 
+Until NetworkManager is feature complete and until every distro is using
+NetworkManager per default the kvp_daemon needs distro specific code to
+get and set network related settings.
+Doing it with an external script will simplify debugging and changes to
+the code.
 
-> -----Original Message-----
-> From: Ren, Cloud
-> Sent: Tuesday, July 03, 2012 21:28
-> To: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org
-> Cc: qca-linux-team; nic-devel; Ren, Cloud
-> Subject: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-> 
-> From: Cloud Ren <cjren@qca.qualcomm.com>
-> 
-> some people report atl1c could cause system hang with following kernel trace
-> info:
-> ---------------------------------------
-> WARNING: at.../net/sched/sch_generic.c:258 dev_watchdog+0x1db/0x1d0() ...
-> NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out ...
-> ---------------------------------------
-> This is caused by netif_stop_queue calling when cable Link is down.
-> So remove netif_stop_queue, because link_watch will take it over.
-> 
-> Signed-off-by: xiong <xiong@qca.qualcomm.com>
-> Cc: stable <stable@vger.kernel.org>
-> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
-> ---
->  drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> index 85717cb..7901831 100644
-> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-> @@ -261,7 +261,6 @@ static void atl1c_check_link_status(struct
-> atl1c_adapter *adapter)
->  	if ((phy_data & BMSR_LSTATUS) == 0) {
->  		/* link down */
->  		netif_carrier_off(netdev);
-> -		netif_stop_queue(netdev);
->  		hw->hibernate = true;
->  		if (atl1c_reset_mac(hw) != 0)
->  			if (netif_msg_hw(adapter))
-> --
-> 1.7.7
+Olaf
