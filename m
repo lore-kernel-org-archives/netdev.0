@@ -1,85 +1,48 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC PATCH 00/10] Make XPS usable within ixgbe
-Date: Tue, 3 Jul 2012 15:30:33 -0700
-Message-ID: <CA+mtBx-ZGFUT6JcxiLcTOMteN1-DS5_eoAC5CgU7UEFup1FaqQ@mail.gmail.com>
-References: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH net 1/7] qlge: Fixed packet transmit errors due to
+ potential driver errors.
+Date: Tue, 3 Jul 2012 15:33:37 -0700
+Message-ID: <5E4F49720D0BAD499EE1F01232234BA877435B27EC@AVEXMB1.qlogic.org>
+References: <20120702.171854.1585295090835924398.davem@davemloft.net>
+	 <5E4F49720D0BAD499EE1F01232234BA877435B266A@AVEXMB1.qlogic.org>
+	 <20120702.183826.1521103644475572622.davem@davemloft.net>
+	 <20120702.184134.1131493483786674336.davem@davemloft.net>
+	 <5E4F49720D0BAD499EE1F01232234BA877435B2797@AVEXMB1.qlogic.org>
+ <1341347235.2583.796.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com,
-	bhutchings@solarflare.com, alexander.duyck@gmail.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ron Mercer <ron.mercer@qlogic.com>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	"krkumar2@in.ibm.com" <krkumar2@in.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:41966 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751913Ab2GCWae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 18:30:34 -0400
-Received: by yhmm54 with SMTP id m54so6667611yhm.19
-        for <netdev@vger.kernel.org>; Tue, 03 Jul 2012 15:30:34 -0700 (PDT)
-In-Reply-To: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com>
+Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:16863
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751998Ab2GCWdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 18:33:43 -0400
+In-Reply-To: <1341347235.2583.796.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alexander,
-
-Thanks for this work!
-
-Some general comments:
-
-1) skb_tx_hash is called from a handful of drivers (bnx2x, ixgbe,
-mlx4, and bonding).  Would it make sent to call xps_get_cpu from that
-function (unfortunately the use of ndo_select_queue is likely
-bypassing xps unnecessarily in these drivers).
-2) Instead of (or maybe in addition to) allowing driver to program xps
-maps, we could parameterize get_xps_cpu to optionally include a bit
-map of acceptable queues.  This would be useful to define a
-hierarchical queue selection (like first choose a set for QoS, then
-amongst those chose one base on xps).
-
-Tom
-
-On Fri, Jun 29, 2012 at 5:16 PM, Alexander Duyck
-<alexander.h.duyck@intel.com> wrote:
-> The following patch series makes it so that the ixgbe driver can support
-> ATR even when the number of queues is less than the number of CPUs.  To do
-> this I have updated the kernel to support letting drivers set their own XPS
-> configuration.  To do this it was necessary to move the code out of the
-> sysfs specific code and into the dev specific regions.
->
-> I am still working out a few issues such as the fact that with routing I
-> only ever seem to be able to get the first queue that is mapped to the CPU
-> when XPS is enabled.
->
-> Also I am looking for input on if it is acceptable to only let the
-> set_channels/get_channels calls report/set the number of queues per traffic
-> class as I implemented the code this way to avoid any significant conflicts
-> between the DCB traffic classes code and these functions.
->
-> ---
->
-> Alexander Duyck (10):
->       ixgbe: Add support for set_channels ethtool operation
->       ixgbe: Add support for displaying the number of Tx/Rx channels
->       ixgbe: Update ixgbe driver to use __dev_pick_tx in ixgbe_select_queue
->       ixgbe: Add function for setting XPS queue mapping
->       ixgbe: Define FCoE and Flow director limits much sooner to allow for changes
->       net: Add support for XPS without SYSFS being defined
->       net: Rewrite netif_set_xps_queues to address several issues
->       net: Rewrite netif_reset_xps_queue to allow for better code reuse
->       net: Add functions netif_reset_xps_queue and netif_set_xps_queue
->       net: Split core bits of dev_pick_tx into __dev_pick_tx
->
->
->  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  112 +++++++++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c     |   10 -
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   48 +++-
->  include/linux/netdevice.h                        |   15 +
->  net/Kconfig                                      |    2
->  net/core/dev.c                                   |  283 ++++++++++++++++++++--
->  net/core/net-sysfs.c                             |  160 ------------
->  7 files changed, 428 insertions(+), 202 deletions(-)
->
-> --
-> Thanks,
->
-> Alex
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRXJpYyBEdW1hemV0IFttYWls
+dG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0gDQo+U2VudDogVHVlc2RheSwgSnVseSAwMywgMjAx
+MiAxOjI3IFBNDQo+VG86IEppdGVuZHJhIEthbHNhcmlhDQo+Q2M6IERhdmlkIE1pbGxlcjsgbmV0
+ZGV2OyBSb24gTWVyY2VyOyBEZXB0LU5YIExpbnV4IE5JQyBEcml2ZXINCj5TdWJqZWN0OiBSRTog
+W1BBVENIIG5ldCAxLzddIHFsZ2U6IEZpeGVkIHBhY2tldCB0cmFuc21pdCBlcnJvcnMgZHVlIHRv
+IHBvdGVudGlhbCBkcml2ZXIgZXJyb3JzLg0KPg0KPk9uIFR1ZSwgMjAxMi0wNy0wMyBhdCAxMjoz
+OCAtMDcwMCwgSml0ZW5kcmEgS2Fsc2FyaWEgd3JvdGU6DQo+DQo+SSBiZWxpZXZlIGV2ZXJ5Ym9k
+eSBraW5kbHkgYXNrIHlvdSB0byBmaXggdGhlIGRyaXZlciBsb2dpYyBpbnN0ZWFkDQo+b2YgdHJ5
+aW5nIHRvIGhpZGUgdG8geW91ciBjdXN0b21lcnMgdGhlIHByb2JsZW1zLg0KPg0KPkluIGZhY3Qs
+IHlvdSBjb3VsZCBqdXN0IEJVRygpIGF0IHRoaXMgcG9pbnQsIGFuZCBtYXliZSBEYXZpZCB3aWxs
+IGFjY2VwdA0KPnN1Y2ggYSBwYXRjaC4NCj4NCj50ZXN0aW5nIGF0b21pY19yZWFkKCZ0eF9yaW5n
+LT50eF9jb3VudCkgYXQgdGhlIGJlZ2lubmluZyBvZiBxbGdlX3NlbmQoKQ0KPmlzIHRvbyBsYXRl
+LiBORVRERVZfVFhfQlVTWSBpcyBkZXByZWNhdGVkLg0KPg0KPldlbGwgYmVoYXZpbmcgZHJpdmVy
+cyBzaG91bGQgcGVyZm9ybSB0aGUgdGVzdCBhdCB0aGUgZW5kIG9mIHRoZWlyDQo+bmRvX3N0YXJ0
+X3htaXQoKSBhbmQgc3RvcCB0aGUgcXVldWUgc28gdGhhdCBuZXh0IHBhY2tldCB3b250IGNvbWUg
+YXQNCj5hbGwuDQoNClRoYW5rcyBldmVyeW9uZSBhbmQgd2lsbCBkZWZpbml0ZWx5IGNoYW5nZSB0
+aGUgbG9naWMuDQoNCg0KDQo=
