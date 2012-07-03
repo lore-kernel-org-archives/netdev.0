@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Awaiting upsteam? - Re: [PATCH net-next v3] em_canid: Ematch
- rule to match CAN frames according to their identifiers
-Date: Mon, 02 Jul 2012 22:22:17 -0700 (PDT)
-Message-ID: <20120702.222217.541183616724956971.davem@davemloft.net>
-References: <4FF1DF65.5080306@hartkopp.net>
-	<4FF1E26F.5000106@hartkopp.net>
-	<4FF28005.4050108@hartkopp.net>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Tue, 3 Jul 2012 10:27:36 -0300
+Message-ID: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, lartc@vger.kernel.org
-To: socketcan@hartkopp.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35271 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751843Ab2GCFWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 01:22:19 -0400
-In-Reply-To: <4FF28005.4050108@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
+	Cloud Ren <cjren@qca.qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Tue, 03 Jul 2012 07:15:49 +0200
+From: Cloud Ren <cjren@qca.qualcomm.com>
 
-> Hello Dave,
-> 
-> i've seen that you tagged this patch as "Awaiting upstream" in Patchwork.
-> 
-> Does this mean, that *you* are waiting for another re-spin of the patch OR do
-> you expect this patch go through a sub-tree like Marcs can-next tree?
+some people report atl1c could cause system hang with following
+kernel trace info:
+---------------------------------------
+WARNING: at.../net/sched/sch_generic.c:258 dev_watchdog+0x1db/0x1d0()
+...
+NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
+...
+---------------------------------------
+This is caused by netif_stop_queue calling when cable Link is down.
+So remove netif_stop_queue, because link_watch will take it over.
 
-It should go through the CAN tree.
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Cc: stable <stable@vger.kernel.org>
+Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 85717cb..7901831 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -261,7 +261,6 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
+ 	if ((phy_data & BMSR_LSTATUS) == 0) {
+ 		/* link down */
+ 		netif_carrier_off(netdev);
+-		netif_stop_queue(netdev);
+ 		hw->hibernate = true;
+ 		if (atl1c_reset_mac(hw) != 0)
+ 			if (netif_msg_hw(adapter))
+-- 
+1.7.7
