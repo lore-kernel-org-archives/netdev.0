@@ -1,66 +1,117 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [PATCH net 4/7] qlge: Fixed double pci free upon tx_ring->q
- allocation failure.
-Date: Mon, 2 Jul 2012 22:56:57 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA877435B2684@AVEXMB1.qlogic.org>
-References: <1341272514-5156-1-git-send-email-jitendra.kalsaria@qlogic.com>
-	 <1341272514-5156-5-git-send-email-jitendra.kalsaria@qlogic.com>
- <1341278521.2590.30.camel@bwh-desktop.uk.solarflarecom.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Deleting an alias causes rest to get deleted
+Date: Tue, 3 Jul 2012 09:34:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207030924300.1622@ja.ssi.bg>
+References: <4FF1FC74.8080401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1752084190-1341297295=:1622"
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?Q?Volkan_Yaz=C4=B1c=C4=B1?= <volkan.yazici@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:32294 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752874Ab2GCF5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 01:57:03 -0400
-In-Reply-To: <1341278521.2590.30.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from ja.ssi.bg ([178.16.129.10]:46215 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932672Ab2GCG2i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2012 02:28:38 -0400
+In-Reply-To: <4FF1FC74.8080401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0gDQpTZW50OiBNb25kYXksIEp1bHkgMDIsIDIw
-MTIgNjoyMiBQTQ0KVG86IEppdGVuZHJhIEthbHNhcmlhDQpDYzogRGF2aWQgTWlsbGVyOyBuZXRk
-ZXY7IFJvbiBNZXJjZXI7IERlcHQtTlggTGludXggTklDIERyaXZlcg0KU3ViamVjdDogUmU6IFtQ
-QVRDSCBuZXQgNC83XSBxbGdlOiBGaXhlZCBkb3VibGUgcGNpIGZyZWUgdXBvbiB0eF9yaW5nLT5x
-IGFsbG9jYXRpb24gZmFpbHVyZS4NCg0KT24gTW9uLCAyMDEyLTA3LTAyIGF0IDE5OjQxIC0wNDAw
-LCBKaXRlbmRyYSBLYWxzYXJpYSB3cm90ZToNCj4gRnJvbTogSml0ZW5kcmEgS2Fsc2FyaWEgPGpp
-dGVuZHJhLmthbHNhcmlhQHFsb2dpYy5jb20+DQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBKaXRlbmRy
-YSBLYWxzYXJpYSA8aml0ZW5kcmEua2Fsc2FyaWFAcWxvZ2ljLmNvbT4NCj4gLS0tDQo+ICBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxnZS9xbGdlX21haW4uYyB8ICAgMTQgKysrKysrKy0t
-LS0tLS0NCj4gIDEgZmlsZXMgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA3IGRlbGV0aW9ucygt
-KQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGdlL3Fs
-Z2VfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsZ2UvcWxnZV9tYWluLmMN
-Cj4gaW5kZXggY2RiYzg2MC4uOWVjZDE1ZiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvcWxvZ2ljL3FsZ2UvcWxnZV9tYWluLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvcWxvZ2ljL3FsZ2UvcWxnZV9tYWluLmMNCj4gQEAgLTI3MDEsMjAgKzI3MDEsMjAgQEAgc3Rh
-dGljIGludCBxbF9hbGxvY190eF9yZXNvdXJjZXMoc3RydWN0IHFsX2FkYXB0ZXIgKnFkZXYsDQo+
-ICAJICAgIHBjaV9hbGxvY19jb25zaXN0ZW50KHFkZXYtPnBkZXYsIHR4X3JpbmctPndxX3NpemUs
-DQo+ICAJCQkJICZ0eF9yaW5nLT53cV9iYXNlX2RtYSk7DQo+ICANCj4gLQlpZiAoKHR4X3Jpbmct
-PndxX2Jhc2UgPT0gTlVMTCkgfHwNCj4gLQkgICAgdHhfcmluZy0+d3FfYmFzZV9kbWEgJiBXUV9B
-RERSX0FMSUdOKSB7DQo+IC0JCW5ldGlmX2VycihxZGV2LCBpZnVwLCBxZGV2LT5uZGV2LCAidHhf
-cmluZyBhbGxvYyBmYWlsZWQuXG4iKTsNCj4gLQkJcmV0dXJuIC1FTk9NRU07DQo+IC0JfQ0KPiAr
-CWlmICghdHhfcmluZy0+d3FfYmFzZSB8fCB0eF9yaW5nLT53cV9iYXNlX2RtYSAmIFdRX0FERFJf
-QUxJR04pDQo+ICsJCWdvdG8gZXJyOw0KPiArDQoNClNvIGluIGNhc2UgcGNpX2FsbG9jX2NvbnNp
-c3RlbnQoKSBmYWlscywgeW91IG5vdyB0cnkgdG8gZnJlZSBhbnl3YXkuDQpOb3Qgc3VyZSB3aGV0
-aGVyIHRoYXQncyBzYWZlOyBkbyB5b3UgZmVlbCBsdWNreT8NCg0KW0pLXSBBaGgsIG15IGFwb2xv
-Z3kuIA0KDQo+ICAJdHhfcmluZy0+cSA9DQo+ICAJICAgIGttYWxsb2ModHhfcmluZy0+d3FfbGVu
-ICogc2l6ZW9mKHN0cnVjdCB0eF9yaW5nX2Rlc2MpLCBHRlBfS0VSTkVMKTsNCj4gLQlpZiAodHhf
-cmluZy0+cSA9PSBOVUxMKQ0KPiArCWlmICghdHhfcmluZy0+cSkNCj4gIAkJZ290byBlcnI7DQoN
-ClVucmVsYXRlZCBjaGFuZ2UuDQoNCj4gIAlyZXR1cm4gMDsNCj4gIGVycjoNCj4gIAlwY2lfZnJl
-ZV9jb25zaXN0ZW50KHFkZXYtPnBkZXYsIHR4X3JpbmctPndxX3NpemUsDQo+IC0JCQkgICAgdHhf
-cmluZy0+d3FfYmFzZSwgdHhfcmluZy0+d3FfYmFzZV9kbWEpOw0KPiArCQkJdHhfcmluZy0+d3Ff
-YmFzZSwgdHhfcmluZy0+d3FfYmFzZV9kbWEpOw0KDQpUaGlzIHdhcyBuaWNlbHkgaW5kZW50ZWQg
-YmVmb3JlLi4uDQoNCj4gKwl0eF9yaW5nLT53cV9iYXNlID0gTlVMTDsNCj4gKwluZXRpZl9lcnIo
-cWRldiwgaWZ1cCwgcWRldi0+bmRldiwgInR4X3JpbmcgYWxsb2MgZmFpbGVkLlxuIik7DQo+ICAJ
-cmV0dXJuIC1FTk9NRU07DQo+ICB9DQo+ICANCg0KLS0gDQpCZW4gSHV0Y2hpbmdzLCBTdGFmZiBF
-bmdpbmVlciwgU29sYXJmbGFyZQ0KTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdz
-IHRoZSBtYXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NClRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0
-aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg0K
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---1463811672-1752084190-1341297295=:1622
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+
+
+	Hello,
+
+On Mon, 2 Jul 2012, Volkan Yazıcı wrote:
+
+> Hi!
+> 
+> I observe an IP aliasing anomaly that occurs when I try to delete an IP alias
+> from an interface. That is, when I delete the first address in a set of IP
+> aliased addresses assigned according to a particular subnet, rest of the
+> aliases get deleted as well. Check out the below snippet.
+
+	This is in Linux may be from the 2.3/2.4 times
+
+> 
+>    $ *for I in `seq 1 6`; do sudo ip addr add 192.168.2.$I/29 dev eth0;
+>    done*
+>    $ ip addr list
+>    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+>         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>         inet 127.0.0.1/8 scope host lo
+>         inet6 ::1/128 scope host
+>            valid_lft forever preferred_lft forever
+>    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+>    state UP qlen 1000
+>         link/ether 00:24:54:b9:1c:f8 brd ff:ff:ff:ff:ff:ff
+>    *inet 192.168.1.200/24 brd 192.168.1.255 scope global eth0**
+>         inet 192.168.2.1/29 scope global eth0
+>         inet 192.168.2.2/29 scope global secondary eth0
+>         inet 192.168.2.3/29 scope global secondary eth0
+>         inet 192.168.2.4/29 scope global secondary eth0
+>         inet 192.168.2.5/29 scope global secondary eth0
+>         inet 192.168.2.6/29 scope global secondary eth0*
+>         inet6 fe80::224:54ff:feb9:1cf8/64 scope link
+>            valid_lft forever preferred_lft forever
+>    3: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+>         link/ether e8:39:df:6a:21:2a brd ff:ff:ff:ff:ff:ff
+>    $ *sudo ip addr del 192.168.2.1/29 dev eth0*
+>    $ ip addr list
+>    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+>         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>         inet 127.0.0.1/8 scope host lo
+>         inet6 ::1/128 scope host
+>            valid_lft forever preferred_lft forever
+>    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+>    state UP qlen 1000
+>         link/ether 00:24:54:b9:1c:f8 brd ff:ff:ff:ff:ff:ff
+>    *inet 192.168.1.200/24 brd 192.168.1.255 scope global eth0*
+>         inet6 fe80::224:54ff:feb9:1cf8/64 scope link
+>            valid_lft forever preferred_lft forever
+>    3: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+>         link/ether e8:39:df:6a:21:2a brd ff:ff:ff:ff:ff:ff
+> 
+> Per see, deleting 192.168.2.1/29 causes the rest of the aliased interfaces get
+> deleted as well. This is something that is slightly documented in the ifconfig
+> manual: /for every scope (i.e. same net with address/netmask combination) all
+> aliases are deleted, if you delete the first (primary)/. So what is the right
+> way of just deleting the first (primary) alias without affecting the rest? If
+> this is a scoping issue, is it possible to assign each alias as primary within
+> its own dedicated scope?
+
+	There is (yet) undocumented feature for the
+interfaces:
+
+/proc/sys/net/ipv4/conf/*/promote_secondaries
+
+	You set it for specific interface _or_ for "all".
+It defaults to 0. When you enable it, deleting a primary
+address will not delete all secondary addresses but will
+change the next secondary as primary. The term alias may
+refer for addresses on same interface while here the
+problem is for a subset of addresses - from same subnet.
+Primary is the first address added for the configured
+subnet, all next addresses in subnet are added as
+secondaries as shown by ip addr list.
+
+> As a side note, when I first asked this question to Stephen Hemminger (he
+> forwarded me to this mailing list) he also told me that "/In Linux the
+> interface aliases are really a legacy from the BSD style addressing, and don't
+> act the same. It is not common practice to use them./" Is that really the
+> case? Because, as you know, IP aliasing is the heart of a majority of the
+> high-availability and clustering solutions in Linux. Is IP aliasing a really
+> deprecated technology in Linux? Should we avoid using it? If so, what do you
+> recommend as an alternative?
+
+	Please do not stop using aliases!
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+---1463811672-1752084190-1341297295=:1622--
