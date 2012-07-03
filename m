@@ -1,137 +1,114 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 14/19] net: Pass neighbours into the NETEVENT_REDIRECT
- event.
-Date: Tue, 03 Jul 2012 02:46:52 -0700 (PDT)
-Message-ID: <20120703.024652.1026785408745771924.davem@davemloft.net>
+Subject: [PATCH 15/19] cxgb3: Convert t3_l2t_get() over to
+ dst_neigh_lookup().
+Date: Tue, 03 Jul 2012 02:46:56 -0700 (PDT)
+Message-ID: <20120703.024656.2146388003201411071.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36853 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36855 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264Ab2GCJqx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:46:53 -0400
+	with ESMTP id S1752264Ab2GCJq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:46:57 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 1329558411C
-	for <netdev@vger.kernel.org>; Tue,  3 Jul 2012 02:46:55 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 2149A584122
+	for <netdev@vger.kernel.org>; Tue,  3 Jul 2012 02:46:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+This means passing in a suitable destination address.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |   23 ++++++++------------
- include/net/netevent.h                             |    3 +++
- net/ipv6/route.c                                   |    6 ++++-
- 3 files changed, 17 insertions(+), 15 deletions(-)
+ drivers/infiniband/hw/cxgb3/iwch_cm.c    |    5 +++--
+ drivers/net/ethernet/chelsio/cxgb3/l2t.c |    6 ++++--
+ drivers/net/ethernet/chelsio/cxgb3/l2t.h |    2 +-
+ drivers/scsi/cxgbi/cxgb3i/cxgb3i.c       |    3 ++-
+ 4 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-index 55cf72a..633c602 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-@@ -62,7 +62,8 @@ static const unsigned int MAX_ATIDS = 64 * 1024;
- static const unsigned int ATID_BASE = 0x10000;
- 
- static void cxgb_neigh_update(struct neighbour *neigh);
--static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new);
-+static void cxgb_redirect(struct dst_entry *old, struct neighbour *old_neigh,
-+			  struct dst_entry *new, struct neighbour *new_neigh);
- 
- static inline int offload_activated(struct t3cdev *tdev)
- {
-@@ -968,8 +969,9 @@ static int nb_callback(struct notifier_block *self, unsigned long event,
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+index 740dcc0..77b6b18 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -1374,7 +1374,7 @@ static int pass_accept_req(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
+ 		goto reject;
  	}
- 	case (NETEVENT_REDIRECT):{
- 		struct netevent_redirect *nr = ctx;
--		cxgb_redirect(nr->old, nr->new);
--		cxgb_neigh_update(dst_get_neighbour_noref(nr->new));
-+		cxgb_redirect(nr->old, nr->old_neigh,
-+			      nr->new, nr->new_neigh);
-+		cxgb_neigh_update(nr->new_neigh);
- 		break;
+ 	dst = &rt->dst;
+-	l2t = t3_l2t_get(tdev, dst, NULL);
++	l2t = t3_l2t_get(tdev, dst, NULL, &req->peer_ip);
+ 	if (!l2t) {
+ 		printk(KERN_ERR MOD "%s - failed to allocate l2t entry!\n",
+ 		       __func__);
+@@ -1942,7 +1942,8 @@ int iwch_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
+ 		goto fail3;
  	}
- 	default:
-@@ -1107,10 +1109,10 @@ static void set_l2t_ix(struct t3cdev *tdev, u32 tid, struct l2t_entry *e)
- 	tdev->send(tdev, skb);
+ 	ep->dst = &rt->dst;
+-	ep->l2t = t3_l2t_get(ep->com.tdev, ep->dst, NULL);
++	ep->l2t = t3_l2t_get(ep->com.tdev, ep->dst, NULL,
++			     &cm_id->remote_addr.sin_addr.s_addr);
+ 	if (!ep->l2t) {
+ 		printk(KERN_ERR MOD "%s - cannot alloc l2e.\n", __func__);
+ 		err = -ENOMEM;
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/l2t.c b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
+index 3fa3c88..8d53438 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/l2t.c
+@@ -299,7 +299,7 @@ static inline void reuse_entry(struct l2t_entry *e, struct neighbour *neigh)
  }
  
--static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
-+static void cxgb_redirect(struct dst_entry *old, struct neighbour *old_neigh,
-+			  struct dst_entry *new, struct neighbour *new_neigh)
+ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
+-			     struct net_device *dev)
++			     struct net_device *dev, const void *daddr)
  {
- 	struct net_device *olddev, *newdev;
--	struct neighbour *n;
- 	struct tid_info *ti;
- 	struct t3cdev *tdev;
- 	u32 tid;
-@@ -1118,15 +1120,8 @@ static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
- 	struct l2t_entry *e;
- 	struct t3c_tid_entry *te;
+ 	struct l2t_entry *e = NULL;
+ 	struct neighbour *neigh;
+@@ -311,7 +311,7 @@ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
+ 	int smt_idx;
  
--	n = dst_get_neighbour_noref(old);
--	if (!n)
--		return;
--	olddev = n->dev;
--
--	n = dst_get_neighbour_noref(new);
--	if (!n)
--		return;
--	newdev = n->dev;
-+	olddev = old_neigh->dev;
-+	newdev = new_neigh->dev;
+ 	rcu_read_lock();
+-	neigh = dst_get_neighbour_noref(dst);
++	neigh = dst_neigh_lookup(dst, daddr);
+ 	if (!neigh)
+ 		goto done_rcu;
  
- 	if (!is_offloading(olddev))
- 		return;
-diff --git a/include/net/netevent.h b/include/net/netevent.h
-index 086f8a5..56e9862 100644
---- a/include/net/netevent.h
-+++ b/include/net/netevent.h
-@@ -12,10 +12,13 @@
-  */
+@@ -360,6 +360,8 @@ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
+ done_unlock:
+ 	write_unlock_bh(&d->lock);
+ done_rcu:
++	if (neigh)
++		neigh_release(neigh);
+ 	rcu_read_unlock();
+ 	return e;
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/l2t.h b/drivers/net/ethernet/chelsio/cxgb3/l2t.h
+index c4e8643..8cffcdf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/l2t.h
++++ b/drivers/net/ethernet/chelsio/cxgb3/l2t.h
+@@ -110,7 +110,7 @@ static inline void set_arp_failure_handler(struct sk_buff *skb,
+ void t3_l2e_free(struct l2t_data *d, struct l2t_entry *e);
+ void t3_l2t_update(struct t3cdev *dev, struct neighbour *neigh);
+ struct l2t_entry *t3_l2t_get(struct t3cdev *cdev, struct dst_entry *dst,
+-			     struct net_device *dev);
++			     struct net_device *dev, const void *daddr);
+ int t3_l2t_send_slow(struct t3cdev *dev, struct sk_buff *skb,
+ 		     struct l2t_entry *e);
+ void t3_l2t_send_event(struct t3cdev *dev, struct l2t_entry *e);
+diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
+index 36739da..49692a1 100644
+--- a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
++++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
+@@ -966,7 +966,8 @@ static int init_act_open(struct cxgbi_sock *csk)
+ 		csk->saddr.sin_addr.s_addr = chba->ipv4addr;
  
- struct dst_entry;
-+struct neighbour;
- 
- struct netevent_redirect {
- 	struct dst_entry *old;
-+	struct neighbour *old_neigh;
- 	struct dst_entry *new;
-+	struct neighbour *new_neigh;
- };
- 
- enum netevent_notif_type {
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4b581c6..24034d7 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1687,6 +1687,7 @@ void rt6_redirect(const struct in6_addr *dest, const struct in6_addr *src,
- 	struct rt6_info *rt, *nrt = NULL;
- 	struct netevent_redirect netevent;
- 	struct net *net = dev_net(neigh->dev);
-+	struct neighbour *old_neigh;
- 
- 	rt = ip6_route_redirect(dest, src, saddr, neigh->dev);
- 
-@@ -1714,7 +1715,8 @@ void rt6_redirect(const struct in6_addr *dest, const struct in6_addr *src,
- 	dst_confirm(&rt->dst);
- 
- 	/* Duplicate redirect: silently ignore. */
--	if (neigh == dst_get_neighbour_noref_raw(&rt->dst))
-+	old_neigh = dst_get_neighbour_noref_raw(&rt->dst);
-+	if (neigh == old_neigh)
- 		goto out;
- 
- 	nrt = ip6_rt_copy(rt, dest);
-@@ -1732,7 +1734,9 @@ void rt6_redirect(const struct in6_addr *dest, const struct in6_addr *src,
- 		goto out;
- 
- 	netevent.old = &rt->dst;
-+	netevent.old_neigh = old_neigh;
- 	netevent.new = &nrt->dst;
-+	netevent.new_neigh = neigh;
- 	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
- 
- 	if (rt->rt6i_flags & RTF_CACHE) {
+ 	csk->rss_qid = 0;
+-	csk->l2t = t3_l2t_get(t3dev, dst, ndev);
++	csk->l2t = t3_l2t_get(t3dev, dst, ndev,
++			      &csk->daddr.sin_addr.s_addr);
+ 	if (!csk->l2t) {
+ 		pr_err("NO l2t available.\n");
+ 		return -EINVAL;
 -- 
 1.7.10
