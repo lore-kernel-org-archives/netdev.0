@@ -1,48 +1,49 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v6] sctp: be more restrictive in transport selection on
- bundled sacks
-Date: Tue, 3 Jul 2012 19:42:16 -0400
-Message-ID: <20120703234216.GB10224@neilslaptop.think-freely.org>
-References: <1341061466-4186-1-git-send-email-nhorman@tuxdriver.com>
- <20120630.173945.173993639982489712.davem@davemloft.net>
- <20120701124750.GA19498@neilslaptop.think-freely.org>
- <20120701.144319.1120248166079750922.davem@davemloft.net>
- <20120701234424.GA23935@neilslaptop.think-freely.org>
- <20120702122531.GA29681@hmsreliant.think-freely.org>
- <4FF33DBE.7060103@computer.org>
+From: Arvid Brodin <Arvid.Brodin@xdin.com>
+Subject: [RFC v2 0/2] net/hsr: Add support for IEC 62439-3 High-availability
+ Seamless Redundancy
+Date: Tue, 3 Jul 2012 23:58:03 +0000
+Message-ID: <4FF3870B.7080004@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org
-To: Jan Ceuleers <jan.ceuleers@computer.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Javier Boticario <jboticario@gmail.com>,
+	Bruno Ferreira <balferreira@googlemail.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43596 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731Ab2GCXm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 19:42:27 -0400
-Content-Disposition: inline
-In-Reply-To: <4FF33DBE.7060103@computer.org>
+Received: from spam1.webland.se ([91.207.112.90]:54275 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933512Ab2GCX6H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2012 19:58:07 -0400
+Content-Language: en-US
+Content-ID: <C71C87EE37EB62458B053B68733AB244@redbull.xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 03, 2012 at 08:45:18PM +0200, Jan Ceuleers wrote:
-> On 07/02/2012 02:25 PM, Neil Horman wrote:
-> ...
-> 
-> > How does this language sound to you?
-> ...
-> 
-> > +tree maintanier may reapply the subsystem maintainers Acked-by: to the new
-> 
-> s/maintanier/maintainer/
-> 
-> HTH, Jan
-Thanks Jan, I've fixed it in my local tree, it'll get rolled in the next
-version. 
-Neil
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+SGksDQoNClRoaXMgaXMgdjIgb2YgdGhpcyBSRkMuIEJhY2tncm91bmQgaW5mb3JtYXRpb24gYWJv
+dXQgdGhpcyBwYXRjaCBhbmQgSFNSIGNhbiBiZSBmb3VuZCBpbg0KdGhlIHYxIHN1Ym1pdDogaHR0
+cDovL3d3dy5zcGluaWNzLm5ldC9saXN0cy9uZXRkZXYvbXNnMTkyODE3Lmh0bWwuDQoNClRoaXMg
+cGF0Y2ggaXMgbm93IHF1aXRlIHVzZWFibGUuDQoNCktub3duIG1ham9yIGZ1bmN0aW9uYWwgcHJv
+YmxlbXM6DQogKiBTb21ldGltZXMsIHdoZW4gdXNlZCB3aXRoIHNsYXZlcyB0aGF0IGFyZSBhbHJl
+YWR5IHVwIGFuZCB1c2luZyBJUHY2LCBubyBwYWNrZXRzIHNlZW0NCiAgIHRvIGdldCB0aHJvdWdo
+LiAoUG9zc2libHkgYSBidWcgaW4gdGhlIGRyaXZlciBmb3IgbXkgc2xhdmUgaW50ZXJmYWNlcyAt
+IG5vdCBzdXJlIHlldC4pDQoNCk90aGVyIHByb2JsZW1zOg0KICogVGhlcmUgYXJlIGEgZmV3IEZJ
+WE1FcyB0aGF0IG1pZ2h0IG5lZWQgYXR0ZW50aW9uIC0gZXhjZXB0ICJyZXNldCBzdGF0dXMgb2Yg
+c2xhdmVzIiwNCiAgIHRoZXNlIGFyZSB0aGluZ3MgSSBjb3VsZCB1c2Ugc29tZSBoZWxwIHdpdGgu
+DQogKiBUaGUga2VybmVsIHBhdGNoIGlzIGFnYWluc3QgbGludXgtbmV4dC0xMjAzMzAgKHNvIG5v
+dCBxdWl0ZSB1cCB0byBkYXRlKS4NCiAqIFRoZSBpcHJvdXRlIHBhdGNoIGlzIGFnYWluc3QgaXBy
+b3V0ZS0yLjYuMzUuDQogKiBUaGUgY29kZSBuZWVkcyBjbGVhbnVwLCB0aGVyZSBhcmUgc29tZSBj
+b21tZW50ZWQgZGVidWcgcHJpbnRvdXRzIGFuZCBzdWNoLg0KDQpNYWpvciBjaGFuZ2VzIHRvIHYx
+Og0KICogQWRkZWQgaXByb3V0ZSBwYXRjaC4NCiAqIEZpeGVkIGxvY2tkZXAgcHJvYmxlbS4NCiAq
+IE1vdmVkIHRvIEdlbmVyaWMgTmV0bGluayBmb3IgSFNSLXNwZWNpZmljIHVzZXJzcGFjZSBjb21t
+cy4NCiAqIEFkZGVkIHVzZXJzcGFjZSBHZW5lcmljIE5ldGxpbmsgZXhhbXBsZS4NCiAqIEFkZGVk
+IEhTUiBhZGRyZXNzIHN1YnN0aXR1dGlvbiAoc28gc2xhdmVzIGthbiBrZWVwIHRoZWlyIE1BQyBh
+ZGRyZXNzZXMpLg0KDQoNClBhcnQgMS8yIGNvbnRhaW5zIHRoZSBrZXJuZWwgcGF0Y2ggKGluY2x1
+ZGluZyB0aGUgdXNlcnNwYWNlIGV4YW1wbGUpLg0KUGFydCAyLzIgY29udGFpbnMgdGhlIGlwcm91
+dGUgcGF0Y2ggKGFwcGxpZXMgdG8gaXByb3V0ZS0yLjYuMzUpLg0KDQoNCihJJ20gZ29pbmcgb24g
+aG9saWRheSBvbiB0aHVyc2RheSBzbyBkb24ndCBmZWVsIGh1cnQgaWYgeW91IHdyaXRlIG1lIGFu
+ZCBkb24ndCBnZXQgYQ0KcmVwbHkuIEknbGwgY2hlY2sgeW91ciBtZXNzYWdlcyB3aGVuIEkgZ2V0
+IGJhY2sgZWFybHkgYXVndXN0IHRob3VnaCEpDQoNCi0tIA0KQXJ2aWQgQnJvZGluIHwgQ29uc3Vs
+dGFudCAoTGludXgpDQpYRElOIEFCIHwgSmFuIFN0ZW5iZWNrcyBUb3JnIDE3IHwgU0UtMTY0IDQw
+IEtpc3RhIHwgU3dlZGVuIHwgeGRpbi5jb20=
