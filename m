@@ -1,30 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BNX2 MIPS06 firmware in tree is 6.2.1, driver wants 6.2.3
-Date: Tue, 03 Jul 2012 11:30:52 +0200
-Message-ID: <1341307852.2583.123.camel@edumazet-glaptop>
-References: <4FF2B263.4080000@linx.net>
-	 <1341306334.2583.81.camel@edumazet-glaptop>  <4FF2B64A.5020002@linx.net>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH] qlge: fix endian issue
+Date: Tue, 3 Jul 2012 17:44:58 +0800
+Message-ID: <CAJFZqHz7tn6AduKguFe7rRP6adiMo+VKe-mVvO5nbAM6QsoBHg@mail.gmail.com>
+References: <1341305276-17053-1-git-send-email-roy.qing.li@gmail.com>
+	<20120703.022250.295045256493986282.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Anthony G. Basile" <basile@virtual.dyc.edu>
-To: Tony Vroon <tony@linx.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FF2B64A.5020002@linx.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:47006 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752872Ab2GCJo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 05:44:58 -0400
+Received: by mail-ob0-f174.google.com with SMTP id uo13so9580621obb.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jul 2012 02:44:58 -0700 (PDT)
+In-Reply-To: <20120703.022250.295045256493986282.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-03 at 10:07 +0100, Tony Vroon wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> On 03/07/12 10:05, Eric Dumazet wrote:
-> > You're supposed to upgrade firmware blobs on your own.
-> 
-> But the firmware is in the kernel tree still, should the outdated
-> files be removed?
+2012/7/3 David Miller <davem@davemloft.net>:
+> From: roy.qing.li@gmail.com
+> Date: Tue,  3 Jul 2012 16:47:56 +0800
+>
+>> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
+>
+> Is "RongQing.Li" really how you would write your name?
 
-I believe firmware/README.AddingFirmware contains the rationale.
+Yes
+
+Chinese name, Li RongQing
+
+I maybe should not add the dot.
+
+-RongQing
