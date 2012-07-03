@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 06/10] {NET,IB}/mlx4: Add device managed flow
- steering firmware API
-Date: Mon, 02 Jul 2012 18:04:58 -0700 (PDT)
-Message-ID: <20120702.180458.2296165153479998120.davem@davemloft.net>
-References: <20120702.013445.1273332212099485403.davem@davemloft.net>
-	<1341252445.2590.12.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120702.171507.1288066003825644221.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Deleting an alias causes rest to get deleted
+Date: Tue, 3 Jul 2012 02:12:17 +0100
+Message-ID: <1341277937.2590.25.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FF1FC74.8080401@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, roland@kernel.org, yevgenyp@mellanox.com,
-	oren@mellanox.com, netdev@vger.kernel.org, hadarh@mellanox.co.il
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Volkan =?UTF-8?Q?Yaz=C4=B1c=C4=B1?= <volkan.yazici@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33978 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932831Ab2GCBFA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 21:05:00 -0400
-In-Reply-To: <20120702.171507.1288066003825644221.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:27330 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932793Ab2GCBMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 21:12:20 -0400
+In-Reply-To: <4FF1FC74.8080401@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2012-07-02 at 22:54 +0300, Volkan Yaz=C4=B1c=C4=B1 wrote:
+> Hi!
+>=20
+> I observe an IP aliasing anomaly that occurs when I try to delete an =
+IP=20
+> alias from an interface. That is, when I delete the first address in =
+a=20
+> set of IP aliased addresses assigned according to a particular subnet=
+,=20
+> rest of the aliases get deleted as well. Check out the below snippet.
+[...]
+> As a side note, when I first asked this question to Stephen Hemminger=
+=20
+> (he forwarded me to this mailing list) he also told me that "/In Linu=
+x=20
+> the interface aliases are really a legacy from the BSD style addressi=
+ng,=20
+> and don't act the same. It is not common practice to use them./" Is t=
+hat=20
+> really the case?
+[...]
 
-Just in case you guys _really_ and _truly_ are so unable to think
-outside the box that you can't come up with something reasonable, I'll
-get you started with two ideas:
+If you didn't give him the full details shown above, it's possible he
+thought you meant alias interfaces such as 'eth0:0'.
 
-1) A special "chipset" dummy netdev that a special class of ethtool
-   commands can run on to set these things.
+Ben.
 
-2) A "chipset" genetlink family with suitable operations and
-   attributes.
-
-In both cases appropriate mechanisms are added to make for keys that
-are used for chipset matching, and device drivers simply register
-a notifier handler that is called on two occaisions:
-
-1) When settings are changed.
-
-2) Upon initial handler registry, to acquire the initial settings.
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
