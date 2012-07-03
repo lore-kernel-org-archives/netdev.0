@@ -1,95 +1,46 @@
-From: "Anita George" <no1mudman@aol.com>
-Subject: Urgent Assitance Needed
-Date: Tue, 03 Jul 2012 00:15:29 -0700
-Message-ID: <201207030718.q637Ig5R010956@ims-d13.mx.aol.com>
-Reply-To: georgeanita0125@yahoo.co.jp
+From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+Subject: AW: AW: AW: RFC: replace packets already in queue
+Date: Tue, 3 Jul 2012 07:29:35 +0000
+Message-ID: <FB112703C4930F4ABEBB5B763F96491139379DC7@MAILSERV2A.lorien.fkie.fgan.de>
+References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
+	 <4FEC854E.8080603@hp.com>
+	 <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
+	 <1340960817.15719.6.camel@edumazet-glaptop>
+	 <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
+	 <1341214310.5269.27.camel@edumazet-glaptop>
+	 <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>
+	 <4FF20557.4090501@gmail.com> <1341266168.22621.466.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0289136791=="
-To: Recipients <no1mudman@aol.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?iso-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ims-d13.mx.aol.com ([205.188.249.150]:40995 "EHLO
-	ims-d13.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751309Ab2GCHSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 03:18:46 -0400
-Received: from oms-mb04.r1000.mx.aol.com (oms-mb04.r1000.mx.aol.com [64.12.102.140])
-	by ims-d13.mx.aol.com (8.14.1/8.14.1) with ESMTP id q637Ig5R010956
-	for <netdev@vger.kernel.org>; Tue, 3 Jul 2012 03:18:42 -0400
+Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:35677 "EHLO
+	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753277Ab2GCH3j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 03:29:39 -0400
+In-Reply-To: <1341266168.22621.466.camel@edumazet-glaptop>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You will not see this in a MIME-aware mail reader.
---===============0289136791==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Description: Mail message body
+> > If I were you, I would use a tun/tap interface and manage a private
+> > packet queue in userspace. This way, you wouldn't have to manage the
+> overhead of porting your kernel code to every new kernel versions.
+> >
+> 
+> This seems a good idea.
+> 
+> Then you can do other coalescing stuff, like TCP ACK that could be
+> aggregated to single ACK as well.
 
-OPEN AND READ THE ATTACHMENT  FILE..
---===============0289136791==
-Content-Type: application/octet-stream
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="George.rtf"
+Thanks for the idea. But this is option when just doing the replace thing.
+But the charm of the qdisc solution is the complete integration to TC. It's complete compatible to the other options, so that you can create a bigger TC rule set. And creating the rules is a standard operation for the administrators - they know TC.
 
-e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZvbnR0Ymx7XGYwXGZz
-d2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4yMS4y
-NTA5O31cdmlld2tpbmQ0XHVjMVxwYXJkXGYwXGZzMjAgR3JlZXRpbmdzLFxwYXINClxwYXINCkkg
-a25vdyB5b3Ugd2lsbCBiZSBzdXJwcmlzZWQgdG8gcmVhZCBteSBlbWFpbC4gSSBnb3QgeW91ciBj
-b250YWN0IGZyb20geW91ciBFbWFpbCBkb21haW4sIGFwYXJ0IGZyb20gYmVpbmcgc3VycHJpc2Ug
-eW91IG1heSBiZSBza2VwdGljYWwgdG8gcmVwbHkgbWUgYmVjYXVzZSBiYXNlZCBvbiB3aGF0IGlz
-IGhhcHBlbmluZyBvbiB0aGUgaW50ZXJuZXQgd29ybGQsIG9uZSBoYXMgdG8gYmUgdmVyeSBjYXJl
-ZnVsIGJlY2F1c2UgYSBsb3Qgb2Ygc2NhbW1lcnMgYXJlIG91dCB0aGVyZSB0byBzY2FtIGlubm9j
-ZW50IGNpdGl6ZW5zIGFuZCB0aGlzIGhhcyBtYWRlIGl0IHZlcnkgZGlmZmljdWx0IGZvciBwZW9w
-bGUgdG8gYmVsaWV2ZSBhbnl0aGluZyB0aGF0IGNvbWVzIHRocm91Z2ggdGhlIGludGVybmV0IGJ1
-dCB0aGlzIGlzIGEgZGlmZmVyZW50IGNhc2UuXHBhcg0KXHBhcg0KbGYgeW91IGFyZSB3aWxsaW5n
-IHRvIHNob3cgbWUgeW91ciBob25lc3R5IGFuZCB0cnVzdCwgSSB0aGluayBJIHdpbGwgYmUgYWJs
-ZSB0byB0cnVzdCBhbmQgd29yayB3aXRoIHlvdS4gSSBhbSBhbiBBbWVyaWNhbiBhbmQgeW91IHNo
-b3VsZCBiZSByZXN0IGFzc3VyZWQgdGhhdCBJIGNhbm5vdCBiZSBpbnZvbHZlZCBpbiBzY2FtXHBh
-cg0KXHBhcg0KXHBhcg0KXHBhcg0KTXkgbmFtZSBpcyBDYXB0LiBBbml0YSBHZW9yZ2UgLCBhIG1l
-bWJlciBvZiB0aGUgVS5TLiBBUk1ZIFVTQVJQQUMgbWVkaWNhbCB0ZWFtLCB3aGljaCB3YXMgZGVw
-bG95ZWQgdG8gSXJhcSBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSB3YXIgaW4gSXJhcS4gQWx0aG91
-Z2ggdGhlIHdhciBoYXMgZW5kZWQsIGZvciBtZSB0byBwcm92ZWQgdGhpcyB0byB5b3UsIHNlZSB0
-aGUgc2l0ZSBiZWxvdyBmb3IgbW9yZSBpbmZvcm1hdGlvbixccGFyDQpccGFyDQpodHRwOi8vd3d3
-Lmh1ZmZpbmd0b25wb3N0LmNvbS8yMDExLzEyLzMwL2lyYXEtdXMtdHJvb3Atd2l0aGRyYXdhbC1j
-ZWxlYnJhdGlvbnNfbl8xMTc2MzMwLmh0bWxccGFyDQpodHRwOi8vZGFpbHljYWxsZXIuY29tLzIw
-MTEvMTIvMjcvYXMtaXJhcS13YXItZW5kcy1uby1wYXJhZGUtZm9yLXRyb29wcy1pcy1pbW1pbmVu
-dC9ccGFyDQpccGFyDQpCdXQgSSByZWZ1c2VkIHRvIGNvbWUgYWxvbmcgd2l0aCB0aGVtIGluIHJl
-c3BlY3RpdmUgb2YgdGhlIGZhY3QgdGhhdCB0aGUgd2FyIGhhcyBlbmRlZC4gVGhlIHJlYXNvbiBm
-b3IgdGhpcyBpcyB0aGF0IEkgZGVwb3NpdGVkIHR3byBjb25zaWdubWVudCBib3hlcyB3aXRoIGEg
-c2VjdXJpdHkgY29tcGFueSBpbiBJcmFxLiBBcyBhIHJlc3VsdCBvZiB0aGlzLCBJIGhhdmUgdG8g
-ZXNjYXBlIGFuZCBzdGF5ZWQgYmVoaW5kIHRvIG1ha2Ugc3VyZSB0aGF0IEkgYW0gYWJsZSB0byBn
-ZXQgdGhlc2UgYm94ZXMgb3V0IGJlZm9yZSBjb21pbmcgdG8gQW1lcmljYSwga25vd2luZ2x5LCB0
-aGF0IGlmIEkgYW0gYWJsZSB0byBnZXQgdGhpcyBkb25lIEkgd2lsbCBsaXZlIGEgYmV0dGVyIGxp
-ZmUuIFBsZWFzZSwgSSB3YW50IHRoaXMgdG8gYmUgYmV0d2VlbiBtZSBhbmQgeW91IFNpbmNlIEkg
-YW0gYXQgbGFyZ2UuXHBhcg0KVG8gUHJvdmUgbXkgc2luY2VyaXR5LCB5b3UgYXJlIG5vdCBzZW5k
-aW5nIG1lIGFueSBtb25leS4gQmVjYXVzZSBtb3N0IG9mIHRoaXMgc2NhbSBpcyBhYm91dCBzZW5k
-aW5nIG1vbmV5LlxwYXINClxwYXINClRob3VnaCwgSSB3b3VsZCBsaWtlIHRvIGhvbGQgYmFjayBz
-b21lIGluZm9ybWF0aW9ucyBmb3Igc2VjdXJpdHkgcmVhc29ucyBmb3Igbm93IHVudGlsIHlvdSBo
-YXZlIGZvdW5kIHRpbWUgdG8gdmlzaXQgdGhlIEJCQyB3ZWJzaXRlIHN0YXRlZCBiZWxvdyB0byBl
-bmFibGUgeW91IGhhdmUgYW4gaW5zaWdodCBpbnRvIHdoYXQgSSBpbnRlbmQgc2hhcmluZyB3aXRo
-IHlvdSwgYmVsaWV2aW5nIHRoYXQgaXQgd291bGQgYmUgb2YgeW91ciBkZXNpcmVkIGludGVyZXN0
-IG9uZS13YXkgb3IgdGhlIG90aGVyLlxwYXINClxwYXINCmh0dHA6Ly9uZXdzLmJiYy5jby51ay8y
-L2hpL21pZGRsZV9lYXN0LzI5ODg0NTUuc3RtXHBhcg0KaHR0cDovL25ld3MuYmJjLmNvLnVrLzIv
-aGkvbWlkZGxlX2Vhc3QvMjk4ODQ1NS5zdG1ccGFyDQpodHRwOi8vd3d3LmpvbmF0aGFuZm9yZW1h
-bi5jb20vbWlsaXRhcnkvbnlwX2lyYXEvMDQxOTIwMDNfY2hlc3QuaHRtbFxwYXINCmh0dHA6Ly93
-d3cudm9hbmV3cy5jb20vYnVybWVzZS9hcmNoaXZlLzIwMDMtMDQvYS0yMDAzLTA0LTIwLTEtMS5j
-Zm0gKFZPQSBORVdTKVxwYXINClxwYXINCkFsc28sIGNvdWxkIHlvdSBnZXQgYmFjayB0byBtZSBo
-YXZpbmcgdmlzaXRlZCB0aGUgYWJvdmUgd2Vic2l0ZSB0byBlbmFibGUgdXMgZGlzY3VzcyBpbiBh
-IG1vcmUgY2xhcmlmeWluZyBtYW5uZXIgdG8gdGhlIGJlc3Qgb2YgeW91ciB1bmRlcnN0YW5kaW5n
-LiBJIG11c3Qgc2F5IHRoYXQgSSdtIHZlcnkgdW5jb21mb3J0YWJsZSBzZW5kaW5nIHRoaXMgbWVz
-c2FnZSB0byB5b3Ugd2l0aG91dCBrbm93aW5nIHRydWx5IGlmIHlvdSB3b3VsZCBtaXNjb25zdHJ1
-ZSB0aGUgaW1wb3J0YW5jZSBhbmQgZGVjaWRlcyB0byBnbyBwdWJsaWMuIEluIHRoaXMgcmVnYXJk
-cywgSSB3aWxsIG5vdCBob2xkIGJhY2sgdG8gc2F5IHRoYXQgdGhlIGVzc2VuY2Ugb2YgdGhpcyBt
-ZXNzYWdlIGlzIHN0cmljdGx5IGZvciBtdXR1YWwgYmVuZWZpdCBiZXR3ZWVuIHlvdSBhbmQgSSBh
-bmQgbm90aGluZyBtb3JlLlxwYXINCkkgd2lsbCBiZSB2aXZpZCBhbmQgY29oZXJlbnQgaW4gbXkg
-bmV4dCBtZXNzYWdlIGluIHRoaXMgcmVnYXJkcywgbWVhbndoaWxlLCBjb3VsZCB5b3Ugc2VuZCBt
-ZSBhbiBlbWFpbCBjb25maXJtaW5nIHRoYXQgeW91IGhhdmUgdmlzaXRlZCB0aGUgc2l0ZSBhbmQg
-dGhhdCB5b3UgaGF2ZSB1bmRlcnN0b29kIG15IGludGVudGlvbnM/IEkgd291bGQgbGlrZSB5b3Ug
-dG8gZ2V0IGJhY2sgdG8gbWUgd2l0aCB3aXRoIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb25zO1xw
-YXINClxwYXINCjEuIEZ1bGwgTmFtZVxwYXINCjIuIEFkZHJlc3NccGFyDQozLk9jY3VwYXRpb25c
-cGFyDQo0LkFnZVxwYXINClxwYXINCkkgZG8gbm90IG5lZWQgeW91ciB0ZWxlcGhvbmUgbnVtYmVy
-IGJlY2F1c2UgSSBjYW5ub3QgY2FsbCB5b3UsIHdlIGNhbiBvbmx5IGNvbW11bmljYXRlIHRocm91
-Z2ggZW1haWwuXHBhcg0KXHBhcg0KSSB3aWxsIGF3YWl0IHlvdXIgcmVwbHkgdmlhIG15IGVtYWls
-LlxwYXINClxwYXINClRoYW5rcyxccGFyDQpccGFyDQpCZXN0IFJlZ2FyZHNccGFyDQpccGFyDQpD
-YXB0LiBBbml0YSBHZW9yZ2VccGFyDQp9DQoA
---===============0289136791==--
+In terms of the other coalescing stuff (we didn't use TCP, because it's not possible) - it's already done in the device "driver" I mentioned. Yes, we can extend the "driver", but the qdisc solution has the benefit that there is a clear separation.
+
+Nevertheless we will discuss the idea internally. Maybe the group got another idea based on this.
