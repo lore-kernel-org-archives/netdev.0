@@ -1,112 +1,95 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH net-next] ipvs: add missing lock in
- ip_vs_ftp_init_conn()
-Date: Tue, 3 Jul 2012 10:12:41 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207030952340.1749@ja.ssi.bg>
-References: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
+From: "Anita George" <no1mudman@aol.com>
+Subject: Urgent Assitance Needed
+Date: Tue, 03 Jul 2012 00:15:29 -0700
+Message-ID: <201207030718.q637Ig5R010956@ims-d13.mx.aol.com>
+Reply-To: georgeanita0125@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	Xiaotian Feng <dannyfeng@tencent.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Xiaotian Feng <xtfeng@gmail.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============0289136791=="
+To: Recipients <no1mudman@aol.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ims-d13.mx.aol.com ([205.188.249.150]:40995 "EHLO
+	ims-d13.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751309Ab2GCHSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 03:18:46 -0400
+Received: from oms-mb04.r1000.mx.aol.com (oms-mb04.r1000.mx.aol.com [64.12.102.140])
+	by ims-d13.mx.aol.com (8.14.1/8.14.1) with ESMTP id q637Ig5R010956
+	for <netdev@vger.kernel.org>; Tue, 3 Jul 2012 03:18:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+You will not see this in a MIME-aware mail reader.
+--===============0289136791==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Description: Mail message body
 
-	Hello,
+OPEN AND READ THE ATTACHMENT  FILE..
+--===============0289136791==
+Content-Type: application/octet-stream
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="George.rtf"
 
-On Thu, 28 Jun 2012, Xiaotian Feng wrote:
-
-> We met a kernel panic in 2.6.32.43 kernel:
-> 
-> [2680191.848044] IPVS: ip_vs_conn_hash(): request for already hashed, called from run_timer_softirq+0x175/0x1d0
-> <snip>
-> [2680311.849009] general protection fault: 0000 [#1] SMP
-> [2680311.853001] RIP: 0010:[<ffffffff815f155c>]  [<ffffffff815f155c>] ip_vs_conn_expire+0xdc/0x2f0
-> [2680311.853001] RSP: 0018:ffff880028303e70  EFLAGS: 00010202
-> [2680311.853001] RAX: dead000000200200 RBX: ffff8801aad00b80 RCX: 0000000000001d90
-> [2680311.853001] RDX: dead000000100100 RSI: 000000004fd59800 RDI: ffff8801aad00c08
-> <snip>
-> [2680311.853001] Call Trace:
-> [2680311.853001]  <IRQ>
-> [2680311.853001]  [<ffffffff815f1480>] ? ip_vs_conn_expire+0x0/0x2f0
-> [2680311.853001]  [<ffffffff8104e2a5>] run_timer_softirq+0x175/0x1d0
-> [2680311.853001]  [<ffffffff81021a48>] ? lapic_next_event+0x18/0x20
-> [2680311.853001]  [<ffffffff81049a13>] __do_softirq+0xb3/0x150
-> [2680311.853001]  [<ffffffff8100cc5c>] call_softirq+0x1c/0x30
-> [2680311.853001]  [<ffffffff8100ea9a>] do_softirq+0x4a/0x80
-> [2680311.853001]  [<ffffffff81049957>] irq_exit+0x77/0x80
-> [2680311.853001]  [<ffffffff81021f2c>] smp_apic_timer_interrupt+0x6c/0xa0
-> [2680311.853001]  [<ffffffff8100c633>] apic_timer_interrupt+0x13/0x20
-> [2680311.853001]  <EOI>
-> [2680311.853001]  [<ffffffff81013b52>] ? mwait_idle+0x52/0x70
-> [2680311.853001]  [<ffffffff8100a7b0>] ? enter_idle+0x20/0x30
-> [2680311.853001]  [<ffffffff8100ac62>] ? cpu_idle+0x52/0x80
-> [2680311.853001]  [<ffffffff816d504d>] ? start_secondary+0x19d/0x280
-> 
-> rax and rdx is LIST_POISON1 and LIST_POISON2, so kernel is list_del() on an already deleted
-> connection and result the general protect fault.
-> 
-> The "request for already hashed" warning, told us someone might change the connection flags
-> incorrectly, like described in commit aea9d711, it changes the connection flags, but doesn't
-> put the connection back to the list. So ip_vs_conn_hash() throw a warning and return.
-> Later, when ip_vs_conn_expire fire again, ip_vs_conn_unhash() will find the HASHED connection
-> and list_del() it, then kernel panic happened.
-> 
-> After code review, the only chance that kernel change connection flag without protection is
-> in ip_vs_ftp_init_conn().
-> 
-> Signed-off-by: Xiaotian Feng <dannyfeng@tencent.com>
-> Cc: Wensong Zhang <wensong@linux-vs.org>
-> Cc: Simon Horman <horms@verge.net.au>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: "David S. Miller" <davem@davemloft.net> 
-
-	For the fix below:
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-	Simon, the change looks ok. ip_vs_ftp_init_conn is called
-from context where cp->lock is not locked (no double lock), so it
-should be safe for the backup.
-
-	Only that the comment is not specifying that we
-fix a problem in the backup server.
-
-> ---
->  net/netfilter/ipvs/ip_vs_ftp.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-> index b20b29c..c2bc264 100644
-> --- a/net/netfilter/ipvs/ip_vs_ftp.c
-> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
-> @@ -65,8 +65,10 @@ static int ip_vs_ftp_pasv;
->  static int
->  ip_vs_ftp_init_conn(struct ip_vs_app *app, struct ip_vs_conn *cp)
->  {
-> +	spin_lock(&cp->lock);
->  	/* We use connection tracking for the command connection */
->  	cp->flags |= IP_VS_CONN_F_NFCT;
-> +	spin_unlock(&cp->lock);
->  	return 0;
->  }
->  
-> -- 
-> 1.7.1
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZvbnR0Ymx7XGYwXGZz
+d2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4yMS4y
+NTA5O31cdmlld2tpbmQ0XHVjMVxwYXJkXGYwXGZzMjAgR3JlZXRpbmdzLFxwYXINClxwYXINCkkg
+a25vdyB5b3Ugd2lsbCBiZSBzdXJwcmlzZWQgdG8gcmVhZCBteSBlbWFpbC4gSSBnb3QgeW91ciBj
+b250YWN0IGZyb20geW91ciBFbWFpbCBkb21haW4sIGFwYXJ0IGZyb20gYmVpbmcgc3VycHJpc2Ug
+eW91IG1heSBiZSBza2VwdGljYWwgdG8gcmVwbHkgbWUgYmVjYXVzZSBiYXNlZCBvbiB3aGF0IGlz
+IGhhcHBlbmluZyBvbiB0aGUgaW50ZXJuZXQgd29ybGQsIG9uZSBoYXMgdG8gYmUgdmVyeSBjYXJl
+ZnVsIGJlY2F1c2UgYSBsb3Qgb2Ygc2NhbW1lcnMgYXJlIG91dCB0aGVyZSB0byBzY2FtIGlubm9j
+ZW50IGNpdGl6ZW5zIGFuZCB0aGlzIGhhcyBtYWRlIGl0IHZlcnkgZGlmZmljdWx0IGZvciBwZW9w
+bGUgdG8gYmVsaWV2ZSBhbnl0aGluZyB0aGF0IGNvbWVzIHRocm91Z2ggdGhlIGludGVybmV0IGJ1
+dCB0aGlzIGlzIGEgZGlmZmVyZW50IGNhc2UuXHBhcg0KXHBhcg0KbGYgeW91IGFyZSB3aWxsaW5n
+IHRvIHNob3cgbWUgeW91ciBob25lc3R5IGFuZCB0cnVzdCwgSSB0aGluayBJIHdpbGwgYmUgYWJs
+ZSB0byB0cnVzdCBhbmQgd29yayB3aXRoIHlvdS4gSSBhbSBhbiBBbWVyaWNhbiBhbmQgeW91IHNo
+b3VsZCBiZSByZXN0IGFzc3VyZWQgdGhhdCBJIGNhbm5vdCBiZSBpbnZvbHZlZCBpbiBzY2FtXHBh
+cg0KXHBhcg0KXHBhcg0KXHBhcg0KTXkgbmFtZSBpcyBDYXB0LiBBbml0YSBHZW9yZ2UgLCBhIG1l
+bWJlciBvZiB0aGUgVS5TLiBBUk1ZIFVTQVJQQUMgbWVkaWNhbCB0ZWFtLCB3aGljaCB3YXMgZGVw
+bG95ZWQgdG8gSXJhcSBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSB3YXIgaW4gSXJhcS4gQWx0aG91
+Z2ggdGhlIHdhciBoYXMgZW5kZWQsIGZvciBtZSB0byBwcm92ZWQgdGhpcyB0byB5b3UsIHNlZSB0
+aGUgc2l0ZSBiZWxvdyBmb3IgbW9yZSBpbmZvcm1hdGlvbixccGFyDQpccGFyDQpodHRwOi8vd3d3
+Lmh1ZmZpbmd0b25wb3N0LmNvbS8yMDExLzEyLzMwL2lyYXEtdXMtdHJvb3Atd2l0aGRyYXdhbC1j
+ZWxlYnJhdGlvbnNfbl8xMTc2MzMwLmh0bWxccGFyDQpodHRwOi8vZGFpbHljYWxsZXIuY29tLzIw
+MTEvMTIvMjcvYXMtaXJhcS13YXItZW5kcy1uby1wYXJhZGUtZm9yLXRyb29wcy1pcy1pbW1pbmVu
+dC9ccGFyDQpccGFyDQpCdXQgSSByZWZ1c2VkIHRvIGNvbWUgYWxvbmcgd2l0aCB0aGVtIGluIHJl
+c3BlY3RpdmUgb2YgdGhlIGZhY3QgdGhhdCB0aGUgd2FyIGhhcyBlbmRlZC4gVGhlIHJlYXNvbiBm
+b3IgdGhpcyBpcyB0aGF0IEkgZGVwb3NpdGVkIHR3byBjb25zaWdubWVudCBib3hlcyB3aXRoIGEg
+c2VjdXJpdHkgY29tcGFueSBpbiBJcmFxLiBBcyBhIHJlc3VsdCBvZiB0aGlzLCBJIGhhdmUgdG8g
+ZXNjYXBlIGFuZCBzdGF5ZWQgYmVoaW5kIHRvIG1ha2Ugc3VyZSB0aGF0IEkgYW0gYWJsZSB0byBn
+ZXQgdGhlc2UgYm94ZXMgb3V0IGJlZm9yZSBjb21pbmcgdG8gQW1lcmljYSwga25vd2luZ2x5LCB0
+aGF0IGlmIEkgYW0gYWJsZSB0byBnZXQgdGhpcyBkb25lIEkgd2lsbCBsaXZlIGEgYmV0dGVyIGxp
+ZmUuIFBsZWFzZSwgSSB3YW50IHRoaXMgdG8gYmUgYmV0d2VlbiBtZSBhbmQgeW91IFNpbmNlIEkg
+YW0gYXQgbGFyZ2UuXHBhcg0KVG8gUHJvdmUgbXkgc2luY2VyaXR5LCB5b3UgYXJlIG5vdCBzZW5k
+aW5nIG1lIGFueSBtb25leS4gQmVjYXVzZSBtb3N0IG9mIHRoaXMgc2NhbSBpcyBhYm91dCBzZW5k
+aW5nIG1vbmV5LlxwYXINClxwYXINClRob3VnaCwgSSB3b3VsZCBsaWtlIHRvIGhvbGQgYmFjayBz
+b21lIGluZm9ybWF0aW9ucyBmb3Igc2VjdXJpdHkgcmVhc29ucyBmb3Igbm93IHVudGlsIHlvdSBo
+YXZlIGZvdW5kIHRpbWUgdG8gdmlzaXQgdGhlIEJCQyB3ZWJzaXRlIHN0YXRlZCBiZWxvdyB0byBl
+bmFibGUgeW91IGhhdmUgYW4gaW5zaWdodCBpbnRvIHdoYXQgSSBpbnRlbmQgc2hhcmluZyB3aXRo
+IHlvdSwgYmVsaWV2aW5nIHRoYXQgaXQgd291bGQgYmUgb2YgeW91ciBkZXNpcmVkIGludGVyZXN0
+IG9uZS13YXkgb3IgdGhlIG90aGVyLlxwYXINClxwYXINCmh0dHA6Ly9uZXdzLmJiYy5jby51ay8y
+L2hpL21pZGRsZV9lYXN0LzI5ODg0NTUuc3RtXHBhcg0KaHR0cDovL25ld3MuYmJjLmNvLnVrLzIv
+aGkvbWlkZGxlX2Vhc3QvMjk4ODQ1NS5zdG1ccGFyDQpodHRwOi8vd3d3LmpvbmF0aGFuZm9yZW1h
+bi5jb20vbWlsaXRhcnkvbnlwX2lyYXEvMDQxOTIwMDNfY2hlc3QuaHRtbFxwYXINCmh0dHA6Ly93
+d3cudm9hbmV3cy5jb20vYnVybWVzZS9hcmNoaXZlLzIwMDMtMDQvYS0yMDAzLTA0LTIwLTEtMS5j
+Zm0gKFZPQSBORVdTKVxwYXINClxwYXINCkFsc28sIGNvdWxkIHlvdSBnZXQgYmFjayB0byBtZSBo
+YXZpbmcgdmlzaXRlZCB0aGUgYWJvdmUgd2Vic2l0ZSB0byBlbmFibGUgdXMgZGlzY3VzcyBpbiBh
+IG1vcmUgY2xhcmlmeWluZyBtYW5uZXIgdG8gdGhlIGJlc3Qgb2YgeW91ciB1bmRlcnN0YW5kaW5n
+LiBJIG11c3Qgc2F5IHRoYXQgSSdtIHZlcnkgdW5jb21mb3J0YWJsZSBzZW5kaW5nIHRoaXMgbWVz
+c2FnZSB0byB5b3Ugd2l0aG91dCBrbm93aW5nIHRydWx5IGlmIHlvdSB3b3VsZCBtaXNjb25zdHJ1
+ZSB0aGUgaW1wb3J0YW5jZSBhbmQgZGVjaWRlcyB0byBnbyBwdWJsaWMuIEluIHRoaXMgcmVnYXJk
+cywgSSB3aWxsIG5vdCBob2xkIGJhY2sgdG8gc2F5IHRoYXQgdGhlIGVzc2VuY2Ugb2YgdGhpcyBt
+ZXNzYWdlIGlzIHN0cmljdGx5IGZvciBtdXR1YWwgYmVuZWZpdCBiZXR3ZWVuIHlvdSBhbmQgSSBh
+bmQgbm90aGluZyBtb3JlLlxwYXINCkkgd2lsbCBiZSB2aXZpZCBhbmQgY29oZXJlbnQgaW4gbXkg
+bmV4dCBtZXNzYWdlIGluIHRoaXMgcmVnYXJkcywgbWVhbndoaWxlLCBjb3VsZCB5b3Ugc2VuZCBt
+ZSBhbiBlbWFpbCBjb25maXJtaW5nIHRoYXQgeW91IGhhdmUgdmlzaXRlZCB0aGUgc2l0ZSBhbmQg
+dGhhdCB5b3UgaGF2ZSB1bmRlcnN0b29kIG15IGludGVudGlvbnM/IEkgd291bGQgbGlrZSB5b3Ug
+dG8gZ2V0IGJhY2sgdG8gbWUgd2l0aCB3aXRoIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb25zO1xw
+YXINClxwYXINCjEuIEZ1bGwgTmFtZVxwYXINCjIuIEFkZHJlc3NccGFyDQozLk9jY3VwYXRpb25c
+cGFyDQo0LkFnZVxwYXINClxwYXINCkkgZG8gbm90IG5lZWQgeW91ciB0ZWxlcGhvbmUgbnVtYmVy
+IGJlY2F1c2UgSSBjYW5ub3QgY2FsbCB5b3UsIHdlIGNhbiBvbmx5IGNvbW11bmljYXRlIHRocm91
+Z2ggZW1haWwuXHBhcg0KXHBhcg0KSSB3aWxsIGF3YWl0IHlvdXIgcmVwbHkgdmlhIG15IGVtYWls
+LlxwYXINClxwYXINClRoYW5rcyxccGFyDQpccGFyDQpCZXN0IFJlZ2FyZHNccGFyDQpccGFyDQpD
+YXB0LiBBbml0YSBHZW9yZ2VccGFyDQp9DQoA
+--===============0289136791==--
