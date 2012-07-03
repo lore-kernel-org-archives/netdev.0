@@ -1,84 +1,68 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: Re: [PATCH net-next 09/15] net: bus: Add garbage collector for
- AF_BUS sockets.
-Date: Tue, 3 Jul 2012 13:11:26 +0100
-Message-ID: <20120703131126.79d0ea05@rainbow.cbg.collabora.co.uk>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
-	<1340988354-26981-10-git-send-email-vincent.sanders@collabora.co.uk>
-	<1341251063.2590.5.camel@bwh-desktop.uk.solarflarecom.com>
+From: <Parav.Pandit@Emulex.Com>
+Subject: speed specific port cost calculation in br_if.c and how to make it
+ generic based on 802.1d Table-17-3?
+Date: Tue, 3 Jul 2012 12:40:26 +0000
+Message-ID: <fb3586f4-ce51-4d38-a3a1-c9be04b2b131@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Vincent Sanders <vincent.sanders@collabora.co.uk>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341251063.2590.5.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <Parav.Pandit@Emulex.Com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:17745 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177Ab2GCMkd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 08:40:33 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, 2 Jul 2012 18:44:23 +0100,
-Ben Hutchings <bhutchings@solarflare.com> wrote :
+Hi,
 
-> On Fri, 2012-06-29 at 17:45 +0100, Vincent Sanders wrote:
-> > From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-> > 
-> > This patch adds a garbage collector for AF_BUS sockets.
-> [...]
-> > +struct sock *bus_get_socket(struct file *filp)
-> > +{
-> > +	struct sock *u_sock = NULL;
-> > +	struct inode *inode = filp->f_path.dentry->d_inode;
-> > +
-> > +	/*
-> > +	 *	Socket ?
-> > +	 */
-> > +	if (S_ISSOCK(inode->i_mode) && !(filp->f_mode &
-> > FMODE_PATH)) {
-> > +		struct socket *sock = SOCKET_I(inode);
-> > +		struct sock *s = sock->sk;
-> > +
-> > +		/*
-> > +		 *	PF_BUS ?
-> > +		 */
-> > +		if (s && sock->ops && sock->ops->family == PF_BUS)
-> > +			u_sock = s;
-> > +	}
-> > +	return u_sock;
-> > +}
-> [...]
-> 
-> What about references cycles involving both AF_BUS and AF_UNIX
-> sockets? I think you must either specifically prevent passing AF_UNIX
-> sockets through AF_BUS sockets, or make a single garbage collector
-> handle them both.
+I am trying to add further support to bridging portion of stack for 40G and 100G speeds.
+net/bridge/br_if.c function port_cost() has hard coded values of 2, 4, 19, 100 for speed of 10G, 1G, 100M, 10Mbps respectively.
+Comment mentions about based on 802.1d standard.
 
-Indeed. Thanks for the feedback.
+I am referring to 802.1d-2004 Table 17-3-Port Path Cost values.
+It mentions port cost value of 2000, 20000, 200000 respectively for speed of 10G, 1G, 100Mbps respectively.
+This makes sense to me as the post cost value is inversely proportional and scalar function of its speed.
 
-As far as I know, the current users of fd passing in D-Bus are Bluez
-and Ofono and they pass AF_BLUETOOTH sockets. There might be
-others, I am not sure what is in the wild. Passing AF_UNIX sockets in
-D-Bus would be useful for Telepathy (for Tubes and File Transfer).
+Can anyone please guide me on 
+1. how the current calculation of path/port cost is being done so that I can enhance it for other speeds too in generic way if possible?
+2. How can I incorporate for other speed settings in generic way based on 802.1a-2004 spec, Table 17-3?
 
-So I would like to be able to pass AF_UNIX sockets through AF_BUS
-sockets.
+Current code snippet:
+/* Determine initial path cost based on speed.
+ * using recommendations from 802.1d standard
+ *
+ * Since driver might sleep need to not be holding any locks.
+ */
+static int port_cost(struct net_device *dev)
+{
+        struct ethtool_cmd ecmd;
 
-I wrote the following small program to test this bug based on the
-previous code <https://lkml.org/lkml/2010/11/25/8> referred by commit
-25888e30:
-http://people.collabora.com/~alban/d/2012/07/fd-passing/cmsg.c
+        if (!__ethtool_get_settings(dev, &ecmd)) {
+                switch (ethtool_cmd_speed(&ecmd)) {
+                case SPEED_10000:
+                        return 2;
+                case SPEED_1000:
+                        return 4;
+                case SPEED_100:
+                        return 19;
+                case SPEED_10:
+                        return 100;
+                }
+        }
 
-The effect of the bug is to reach the file limit
-in /proc/sys/fs/file-max and print "VFS: file-max limit 101771 reached"
-even when the maximum of file descriptors per process ("ulimit -n") is
-small.
+        /* Old silly heuristics based on name */
+        if (!strncmp(dev->name, "lec", 3))
+                return 7;
 
-I am not sure what is the best way to fix this. The easiest could be to
-move the garbage collector related fields (recursion_level,
-gc_candidate, etc.) from struct unix_sock and struct bus_sock to
-struct sock and make a generic garbage collector for all sockets.
+        if (!strncmp(dev->name, "plip", 4))
+                return 2500;
 
-Best regards,
-Alban
+        return 100;     /* assume old 10Mbps */
+}
+
+Regards,
+Parav Pandit
