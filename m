@@ -1,105 +1,46 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH] net/fsl_pq_mdio: use spin_event_timeout() to poll the indicator register
-Date: Tue, 3 Jul 2012 18:16:21 -0500
-Message-ID: <1341357381-10861-1-git-send-email-timur@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 12/19] neigh: Convert over to dst_neigh_lookup_skb().
+Date: Tue, 03 Jul 2012 16:18:38 -0700 (PDT)
+Message-ID: <20120703.161838.1454152280922745017.davem@davemloft.net>
+References: <20120703.024644.638173463391088464.davem@davemloft.net>
+	<1341353309.2839.19.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: Andy Fleming <afleming@freescale.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:5104
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757324Ab2GCXQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 19:16:27 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:44327 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913Ab2GCXSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 19:18:39 -0400
+In-Reply-To: <1341353309.2839.19.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Macro spin_event_timeout() was designed for simple polling of hardware
-registers with a timeout, so use it when we poll the MIIMIND register.
-This allows us to return an error code instead of polling indefinitely.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 3 Jul 2012 23:08:29 +0100
 
-Note that PHY_INIT_TIMEOUT is a count of loop iterations, so we can't use
-it for spin_event_timeout(), which asks for microseconds.
+> On Tue, 2012-07-03 at 02:46 -0700, David Miller wrote:
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>> ---
+>>  net/core/neighbour.c |   10 ++++++++--
+>>  1 file changed, 8 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>> index a793af9..eb3efdc 100644
+>> --- a/net/core/neighbour.c
+>> +++ b/net/core/neighbour.c
+>> @@ -1202,9 +1202,15 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>>  
+>>  			rcu_read_lock();
+>>  			/* On shaper/eql skb->dst->neighbour != neigh :( */
+> 
+> It might be time to delete that comment too.
 
-Signed-off-by: Timur Tabi <timur@freescale.com>
----
- drivers/net/ethernet/freescale/fsl_pq_mdio.c |   25 +++++++++++++++----------
- 1 files changed, 15 insertions(+), 10 deletions(-)
+It's still accurate, so it needs to be adjusted rather then removed.
+sch_teql creates this situation as well.
 
-diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-index 9eb8159..ab0fabd 100644
---- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-+++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
-@@ -64,6 +64,8 @@ struct fsl_pq_mdio_priv {
- int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
- 		int regnum, u16 value)
- {
-+	u32 status;
-+
- 	/* Set the PHY address and the register address we want to write */
- 	out_be32(&regs->miimadd, (mii_id << 8) | regnum);
- 
-@@ -71,10 +73,10 @@ int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
- 	out_be32(&regs->miimcon, value);
- 
- 	/* Wait for the transaction to finish */
--	while (in_be32(&regs->miimind) & MIIMIND_BUSY)
--		cpu_relax();
-+	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
-+		1000, 0);
- 
--	return 0;
-+	return status ? 0 : -ETIMEDOUT;
- }
- 
- /*
-@@ -91,6 +93,7 @@ int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs,
- 		int mii_id, int regnum)
- {
- 	u16 value;
-+	u32 status;
- 
- 	/* Set the PHY address and the register address we want to read */
- 	out_be32(&regs->miimadd, (mii_id << 8) | regnum);
-@@ -99,9 +102,11 @@ int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs,
- 	out_be32(&regs->miimcom, 0);
- 	out_be32(&regs->miimcom, MII_READ_COMMAND);
- 
--	/* Wait for the transaction to finish */
--	while (in_be32(&regs->miimind) & (MIIMIND_NOTVALID | MIIMIND_BUSY))
--		cpu_relax();
-+	/* Wait for the transaction to finish, normally less than 100us */
-+	status = spin_event_timeout(!(in_be32(&regs->miimind) &
-+		(MIIMIND_NOTVALID | MIIMIND_BUSY)), 1000, 0);
-+	if (!status)
-+		return -ETIMEDOUT;
- 
- 	/* Grab the value of the register from miimstat */
- 	value = in_be32(&regs->miimstat);
-@@ -144,7 +149,7 @@ int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- static int fsl_pq_mdio_reset(struct mii_bus *bus)
- {
- 	struct fsl_pq_mdio __iomem *regs = fsl_pq_mdio_get_regs(bus);
--	int timeout = PHY_INIT_TIMEOUT;
-+	u32 status;
- 
- 	mutex_lock(&bus->mdio_lock);
- 
-@@ -155,12 +160,12 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
- 	out_be32(&regs->miimcfg, MIIMCFG_INIT_VALUE);
- 
- 	/* Wait until the bus is free */
--	while ((in_be32(&regs->miimind) & MIIMIND_BUSY) && timeout--)
--		cpu_relax();
-+	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
-+		1000, 0);
- 
- 	mutex_unlock(&bus->mdio_lock);
- 
--	if (timeout < 0) {
-+	if (!status) {
- 		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
- 				bus->name);
- 		return -EBUSY;
--- 
-1.7.3.4
+What this code is effectively doing is reinjecting the packet back to
+the top-most neigh, and it will filter back down to the thing that
+uses a different neigh for packet output.
