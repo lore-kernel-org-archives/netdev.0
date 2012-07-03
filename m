@@ -1,51 +1,130 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] etherdevice: introduce broadcast_ether_addr
-Date: Tue, 03 Jul 2012 17:16:55 +0200
-Message-ID: <1341328615.20124.5.camel@jlt3.sipsolutions.net>
-References: <1341310587.5131.2.camel@jlt3.sipsolutions.net>
-	 <1341328402.2164.3.camel@joe2Laptop>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 00/13] drivers: hv: kvp
+Date: Tue, 3 Jul 2012 15:24:15 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9155EF7C6@SN2PRD0310MB382.namprd03.prod.outlook.com>
+References: <20120621224737.GA5933@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155EC47A@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120622132547.GA2639@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155ED14D@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120626213954.GA4840@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155ED64A@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120626222205.GA5948@kroah.com>
+ <426367E2313C2449837CD2DE46E7EAF9155ED68D@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120628142340.GA21537@aepfle.de>
+ <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
+ <20120702195721.GE1894@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:38478 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933032Ab2GCPQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 11:16:56 -0400
-In-Reply-To: <1341328402.2164.3.camel@joe2Laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Olaf Hering <olaf@aepfle.de>, Greg KH <gregkh@linuxfoundation.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120702195721.GE1894@decadent.org.uk>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-03 at 08:13 -0700, Joe Perches wrote:
-> On Tue, 2012-07-03 at 12:16 +0200, Johannes Berg wrote:
-> > From: Johannes Berg <johannes.berg@intel.com>
-> > 
-> > A lot of code has either the memset or an
-> > inefficient copy from a static array that
-> > contains the all-ones broadcast address.
-> > Introduce broadcast_ether_addr() to fill
-> > an address with all ones, making the code
-> > clearer and allowing us to get rid of the
-> > various constant arrays.
-> []
-> > diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-> []
-> > +static inline void broadcast_ether_addr(u8 *addr)
-> > +{
-> > +	memset(addr, 0xff, ETH_ALEN);
-> > +}
+
+
+> -----Original Message-----
+> From: Ben Hutchings [mailto:ben@decadent.org.uk]
+> Sent: Monday, July 02, 2012 3:57 PM
+> To: KY Srinivasan
+> Cc: Olaf Hering; Greg KH; apw@canonical.com; devel@linuxdriverproject.org;
+> virtualization@lists.osdl.org; linux-kernel@vger.kernel.org;
+> netdev@vger.kernel.org
+> Subject: Re: [PATCH 00/13] drivers: hv: kvp
 > 
-> I think this sort of patch should come as the first
-> patch in a series with some example conversions.
+> On Mon, Jul 02, 2012 at 03:22:25PM +0000, KY Srinivasan wrote:
+> >
+> >
+> > > -----Original Message-----
+> > > From: Olaf Hering [mailto:olaf@aepfle.de]
+> > > Sent: Thursday, June 28, 2012 10:24 AM
+> > > To: KY Srinivasan
+> > > Cc: Greg KH; apw@canonical.com; devel@linuxdriverproject.org;
+> > > virtualization@lists.osdl.org; linux-kernel@vger.kernel.org
+> > > Subject: Re: [PATCH 00/13] drivers: hv: kvp
+> > >
+> > > On Tue, Jun 26, KY Srinivasan wrote:
+> > >
+> > > > > From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> > > > > The fact that it was Red Hat specific was the main part, this should be
+> > > > > done in a standard way, with standard tools, right?
+> > > >
+> > > > The reason I asked this question was to make sure I address these
+> > > > issues in addition to whatever I am debugging now. I use the standard
+> > > > tools and calls to retrieve all the IP configuration. As I look at
+> > > > each distribution the files they keep persistent IP configuration
+> > > > Information is different and that is the reason I chose to start with
+> > > > RedHat. If there is a standard way to store the configuration, I will
+> > > > do that.
+> > >
+> > >
+> > > KY,
+> > >
+> > > instead of using system() in kvp_get_ipconfig_info and kvp_set_ip_info,
+> > > wouldnt it be easier to call an external helper script which does all
+> > > the distribution specific work? Just define some API to pass values to
+> > > the script, and something to read values collected by the script back
+> > > into the daemon.
+> >
+> > On the "Get" side I mostly use standard commands/APIs to get all the
+> information:
+> >
+> > 1) IP address information and subnet mask: getifaddrs()
+> > 2) DNS information:  Parsing /etc/resolv.conf
+> > 3) /sbin/ip command for all the routing information
 > 
-> It might be too easy to confuse is_broadcast_ether_addr
-> with this function name too.  Maybe set_broadcast_ether_addr
-> might be better.
+> If you're interested in the *current* configuration then (1) and (3)
+> are OK but you should really use the rtnetlink API.
+> 
+> However, I suspect that Hyper-V assumes that current and persistent
+> configuration are the same thing, which is obviously not true in
+> general on Linux.  But if NetworkManager is running then you can
+> assume they are.
 
-Well, it's void so that'd be a compiler error :-)
-Also, it's more like random_ether_addr()
+I am only interested in the currently active information. Why do you
+recommend the use of rtnetlink API over the "ip" command. If I am not
+mistaken, the ip command uses netlink to get the information. 
 
-johannes
+> 
+> > 4)  Parse /etc/sysconfig/network-scripts/ifcfg-ethx for boot protocol
+
+This is the only information that requires parsing a distro specific configuration file. Do
+you have any suggestion on how I may get this information in a distro independent way.
+ 
+> >
+> > As you can see, all but the boot protocol is gathered using the "standard distro
+> > independent mechanisms. I was looking at NetworkManager cli and it looks
+> > like I could gather all the information except the boot protocol information. I am
+> > not sure how to gather the boot protocol information in a distro independent
+> fashion.
+> >
+> > On the SET side, I need to persistently store the settings in an appropriate
+> configuration
+> > file and flush these settings down so that the interface is appropriately
+> configured. It is here
+> > that I am struggling to find a distro independent way of doing things. It would
+> be great if I can
+> > use NetworkManager cli (nmcli) to accomplish this. Any help here would be
+> greatly appreciated.
+> [...]
+> 
+> What was wrong with the NetworkManager D-Bus API I pointed you at?
+> I don't see how it makes sense to use nmcli as an API.
+
+I saw some documentation that claimed that nmcli could be used to accomplish
+all that can be done with the GUI interface. I am looking for a portable way
+to accomplish configuring an interface. If nmcli can do that, I would use it. With
+regards to D-BUS API, I took a cursory look at the APIs. I am still evaluating
+my options.
+
+Regards,
+
+K. Y
