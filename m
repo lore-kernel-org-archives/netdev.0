@@ -1,68 +1,68 @@
-From: <Parav.Pandit@Emulex.Com>
-Subject: speed specific port cost calculation in br_if.c and how to make it
- generic based on 802.1d Table-17-3?
-Date: Tue, 3 Jul 2012 12:40:26 +0000
-Message-ID: <fb3586f4-ce51-4d38-a3a1-c9be04b2b131@CMEXHTCAS2.ad.emulex.com>
+From: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Subject: RE: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Tue, 3 Jul 2012 13:04:26 +0000
+Message-ID: <157393863283F442885425D2C454285623DB7BEC@NASANEXD02A.na.qualcomm.com>
+References: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <Parav.Pandit@Emulex.Com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:17745 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177Ab2GCMkd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 08:40:33 -0400
+Cc: qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>
+To: "Ren, Cloud" <cjren@qca.qualcomm.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Cloud,  why your patch contains :  'From: Cloud Ren <cjren@qca.qualcomm.com>'
+I don't find it in other people's patch.
 
-I am trying to add further support to bridging portion of stack for 40G and 100G speeds.
-net/bridge/br_if.c function port_cost() has hard coded values of 2, 4, 19, 100 for speed of 10G, 1G, 100M, 10Mbps respectively.
-Comment mentions about based on 802.1d standard.
+Doesn't David Miller think your time is wrong ?
 
-I am referring to 802.1d-2004 Table 17-3-Port Path Cost values.
-It mentions port cost value of 2000, 20000, 200000 respectively for speed of 10G, 1G, 100Mbps respectively.
-This makes sense to me as the post cost value is inversely proportional and scalar function of its speed.
 
-Can anyone please guide me on 
-1. how the current calculation of path/port cost is being done so that I can enhance it for other speeds too in generic way if possible?
-2. How can I incorporate for other speed settings in generic way based on 802.1a-2004 spec, Table 17-3?
-
-Current code snippet:
-/* Determine initial path cost based on speed.
- * using recommendations from 802.1d standard
- *
- * Since driver might sleep need to not be holding any locks.
- */
-static int port_cost(struct net_device *dev)
-{
-        struct ethtool_cmd ecmd;
-
-        if (!__ethtool_get_settings(dev, &ecmd)) {
-                switch (ethtool_cmd_speed(&ecmd)) {
-                case SPEED_10000:
-                        return 2;
-                case SPEED_1000:
-                        return 4;
-                case SPEED_100:
-                        return 19;
-                case SPEED_10:
-                        return 100;
-                }
-        }
-
-        /* Old silly heuristics based on name */
-        if (!strncmp(dev->name, "lec", 3))
-                return 7;
-
-        if (!strncmp(dev->name, "plip", 4))
-                return 2500;
-
-        return 100;     /* assume old 10Mbps */
-}
-
-Regards,
-Parav Pandit
+> -----Original Message-----
+> From: Ren, Cloud
+> Sent: Tuesday, July 03, 2012 21:28
+> To: davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Cc: qca-linux-team; nic-devel; Ren, Cloud
+> Subject: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+> 
+> From: Cloud Ren <cjren@qca.qualcomm.com>
+> 
+> some people report atl1c could cause system hang with following kernel trace
+> info:
+> ---------------------------------------
+> WARNING: at.../net/sched/sch_generic.c:258 dev_watchdog+0x1db/0x1d0() ...
+> NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out ...
+> ---------------------------------------
+> This is caused by netif_stop_queue calling when cable Link is down.
+> So remove netif_stop_queue, because link_watch will take it over.
+> 
+> Signed-off-by: xiong <xiong@qca.qualcomm.com>
+> Cc: stable <stable@vger.kernel.org>
+> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
+> ---
+>  drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> index 85717cb..7901831 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+> @@ -261,7 +261,6 @@ static void atl1c_check_link_status(struct
+> atl1c_adapter *adapter)
+>  	if ((phy_data & BMSR_LSTATUS) == 0) {
+>  		/* link down */
+>  		netif_carrier_off(netdev);
+> -		netif_stop_queue(netdev);
+>  		hw->hibernate = true;
+>  		if (atl1c_reset_mac(hw) != 0)
+>  			if (netif_msg_hw(adapter))
+> --
+> 1.7.7
