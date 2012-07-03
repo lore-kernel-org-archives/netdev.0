@@ -1,98 +1,71 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: "ADDRCONF(NETDEV_UP): eth0: link is not ready" with IPv6
-Date: Tue, 3 Jul 2012 18:15:21 +0200
-Message-ID: <4FF31A99.9010806@atmel.com>
-References: <4FED14C2.9020200@xdin.com> <1340983473.3066.6.camel@bwh-desktop.uk.solarflarecom.com> <4FF313F6.7010600@xdin.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: AF_BUS socket address family
+Date: Tue, 03 Jul 2012 10:52:34 -0600
+Message-ID: <4FF32352.5040800@genband.com>
+References: <4FF1BBD5.8080804@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Arvid Brodin <Arvid.Brodin@xdin.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:33937 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752339Ab2GCQPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 12:15:30 -0400
-In-Reply-To: <4FF313F6.7010600@xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	vincent.sanders@collabora.co.uk, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FF1BBD5.8080804@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/03/2012 05:47 PM, Arvid Brodin :
-> (Added MACB "patch" contact Nicolas Ferre to CC list.)
+On 07/02/2012 09:18 AM, Javier Martinez Canillas wrote:
 
-Hi,
+> We tried different approaches before developing the AF_BUS socket family and one
+> of them was extending AF_UNIX to support multicast. We posted our patches [1]
+> and the feedback was that the AF_UNIX code was already a complex and difficult
+> code to maintain. So, we decided to implement a new family (AF_BUS) that is
+> orthogonal to the rest of the networking stack and no added complexity nor
+> performance penalty would pay a user not using our IPC solution.
 
-(adding linux-arm-kernel)
+That's what I ended up doing as well.  In our case it's basically a 
+stripped-down AF_UNIX with only datagram support, no security, no fd 
+passing, etc., but with with the addition of multicast and wildcard (for 
+debugging).
 
-> On 2012-06-29 17:24, Ben Hutchings wrote:
->> On Fri, 2012-06-29 at 02:36 +0000, Arvid Brodin wrote:
->>> Hi,
->>>
->>> After 'ip link set eth0 up' on an avr32 board (network driver macb), the device ends up in
->>> operational mode "UNKNOWN":
->>>
->>> # ip link
->>> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000
->>>     link/ether 00:24:74:00:17:9d brd ff:ff:ff:ff:ff:ff
->>>
->>> Unplugging and plugging in the network cable gets the device to mode "UP".
->>>
->>> This is a problem for me because I'm trying to use this device as a "slave" device (for a
->>> virtual HSR device*) and I need to be able to decide if the slave device is operational or
->>> not.
->>>
->>> Following Stephen's advice here:
->>> http://kerneltrap.org/mailarchive/linux-netdev/2008/9/24/3398834 I checked the macb.c code
->>> and noticed they do not call netif_carrier_off() neither before register_netdev() nor in
->>> dev_open().
+> Looking at netdev archives I saw that you both raised the question about
+> multicast on unix sockets and post an implementation on early 2003. So if I
+> understand correctly you are maintaining an out-of-tree solution for around 9
+> years now.
+
+That's correct.
+
+> It would be a great help if you can join the discussion and explain the
+> arguments of your company (and the others companies you were talking about) in
+> favor of a simpler multicast socket family.
 >
->> It should be called after register_netdev() and before the driver's
->> ndo_open implementation returns.
+> The fact that your company spent lots of engineering resources to maintain an
+> out-of-tree patch-set for 9 years should raise some eyebrows and convince more
+> than one people that a simpler local multicast solution is needed on the Linux
+> kernel (which was one of the reasons why Google also developed Binder I guess).
 
-After having read several drivers, it seems that some are calling
-netif_carrier_off() *before* register_netdev() and some *after*... What
-is the proper way?
+To be fair, since it was implemented as a separate protocol family the 
+maintenance burden actually hasn't been large--it's been fairly simple 
+to port between versions.  Also, we do embedded telecom stuff and don't 
+jump kernel versions all that often.  (It's a big headache, requires 
+coordinating between multiple vendors, etc.)
 
+In our case we typically send small (100-200 byte) messages to a 
+smallish (1-10) number of listeners, though there are exceptions of 
+course.  Back before I started the original implementation used a 
+userspace daemon, but it had a number of issues.  Originally I was 
+focussed on the performance gains but I must admit that since then other 
+factors have made that less of an issue.
 
-> I'm guessing this allows linkwatch to do netif_carrier_on() some time after the dev_open()?
-> 
-> Besides not calling netif_carrier_off() in dev_open(), the Cadence/MACB driver calls
-> netif_carrier_off() in dev_close(). Is this correct?
-> 
-> 
-> How should I handle carrier state for a virtual device? The device should have "carrier"
-> as long as at least one of the underlying physical interfaces is operational (which I
-> guess means operational state UP). Would it be correct to watch NETDEV_CHANGE and DOWN/UP
-> events of the slaves and call netif_carrier_on()/off() on the virtual device depending on
-> the slaves' states? 
->>
->>> I added the call before register_netdev(), which fixed the problem. However, if I then
->>> enable IPv6:
->>>
->>> # ip link set eth0 up
->>> ADDRCONF(NETDEV_UP): eth0: link is not ready
->>> eth0: link up (100/Full)
->>> ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
->>
->> This looks normal.
-> 
-> Good, that narrows it down a bit.
-> 
->>
->>> Any idea what is happening / what I'm doing wrong? (This is not just cosmetic; is some
->>> situations this seems to kill the interface - e.g. ping does not work, down/up does not
->>> help...) Things work fine without IPv6 configured.
->>
->> Perhaps some packets sent automatically by IPv6 are triggering a driver
->> bug?  Or there is a bug in multicast support, which IPv6 always uses.
+Among other things, this messaging is used on some systems to configure 
+the IP addressing for the system, so it does simplify things to not use 
+an IP-based protocol for this purpose.
 
-Sorry, I have no clue on this topic. But I am eager to know if you find
-something. I can queue your patch for netif_carrier_off() at least...
+Also, back when I did my original implementation IP multicast wasn't 
+supported on the loopback device--David, has that changed since then? 
+If it has, then we probably could figure out a way to make it work using 
+IP multicast, but I don't know that it would be worth the effort given 
+the minimal ongoing maintenance costs for our patch.
 
-Best regards,
--- 
-Nicolas Ferre
+Chris
