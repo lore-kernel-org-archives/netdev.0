@@ -1,117 +1,112 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Deleting an alias causes rest to get deleted
-Date: Tue, 3 Jul 2012 09:34:55 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207030924300.1622@ja.ssi.bg>
-References: <4FF1FC74.8080401@gmail.com>
+Subject: Re: [RFC PATCH net-next] ipvs: add missing lock in
+ ip_vs_ftp_init_conn()
+Date: Tue, 3 Jul 2012 10:12:41 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207030952340.1749@ja.ssi.bg>
+References: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1752084190-1341297295=:1622"
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Volkan_Yaz=C4=B1c=C4=B1?= <volkan.yazici@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46215 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932672Ab2GCG2i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2012 02:28:38 -0400
-In-Reply-To: <4FF1FC74.8080401@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----1463811672-1752084190-1341297295=:1622
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	Xiaotian Feng <dannyfeng@tencent.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Xiaotian Feng <xtfeng@gmail.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <1340890587-8169-1-git-send-email-xtfeng@gmail.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 	Hello,
 
-On Mon, 2 Jul 2012, Volkan Yazıcı wrote:
+On Thu, 28 Jun 2012, Xiaotian Feng wrote:
 
-> Hi!
+> We met a kernel panic in 2.6.32.43 kernel:
 > 
-> I observe an IP aliasing anomaly that occurs when I try to delete an IP alias
-> from an interface. That is, when I delete the first address in a set of IP
-> aliased addresses assigned according to a particular subnet, rest of the
-> aliases get deleted as well. Check out the below snippet.
-
-	This is in Linux may be from the 2.3/2.4 times
-
+> [2680191.848044] IPVS: ip_vs_conn_hash(): request for already hashed, called from run_timer_softirq+0x175/0x1d0
+> <snip>
+> [2680311.849009] general protection fault: 0000 [#1] SMP
+> [2680311.853001] RIP: 0010:[<ffffffff815f155c>]  [<ffffffff815f155c>] ip_vs_conn_expire+0xdc/0x2f0
+> [2680311.853001] RSP: 0018:ffff880028303e70  EFLAGS: 00010202
+> [2680311.853001] RAX: dead000000200200 RBX: ffff8801aad00b80 RCX: 0000000000001d90
+> [2680311.853001] RDX: dead000000100100 RSI: 000000004fd59800 RDI: ffff8801aad00c08
+> <snip>
+> [2680311.853001] Call Trace:
+> [2680311.853001]  <IRQ>
+> [2680311.853001]  [<ffffffff815f1480>] ? ip_vs_conn_expire+0x0/0x2f0
+> [2680311.853001]  [<ffffffff8104e2a5>] run_timer_softirq+0x175/0x1d0
+> [2680311.853001]  [<ffffffff81021a48>] ? lapic_next_event+0x18/0x20
+> [2680311.853001]  [<ffffffff81049a13>] __do_softirq+0xb3/0x150
+> [2680311.853001]  [<ffffffff8100cc5c>] call_softirq+0x1c/0x30
+> [2680311.853001]  [<ffffffff8100ea9a>] do_softirq+0x4a/0x80
+> [2680311.853001]  [<ffffffff81049957>] irq_exit+0x77/0x80
+> [2680311.853001]  [<ffffffff81021f2c>] smp_apic_timer_interrupt+0x6c/0xa0
+> [2680311.853001]  [<ffffffff8100c633>] apic_timer_interrupt+0x13/0x20
+> [2680311.853001]  <EOI>
+> [2680311.853001]  [<ffffffff81013b52>] ? mwait_idle+0x52/0x70
+> [2680311.853001]  [<ffffffff8100a7b0>] ? enter_idle+0x20/0x30
+> [2680311.853001]  [<ffffffff8100ac62>] ? cpu_idle+0x52/0x80
+> [2680311.853001]  [<ffffffff816d504d>] ? start_secondary+0x19d/0x280
 > 
->    $ *for I in `seq 1 6`; do sudo ip addr add 192.168.2.$I/29 dev eth0;
->    done*
->    $ ip addr list
->    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->         inet 127.0.0.1/8 scope host lo
->         inet6 ::1/128 scope host
->            valid_lft forever preferred_lft forever
->    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
->    state UP qlen 1000
->         link/ether 00:24:54:b9:1c:f8 brd ff:ff:ff:ff:ff:ff
->    *inet 192.168.1.200/24 brd 192.168.1.255 scope global eth0**
->         inet 192.168.2.1/29 scope global eth0
->         inet 192.168.2.2/29 scope global secondary eth0
->         inet 192.168.2.3/29 scope global secondary eth0
->         inet 192.168.2.4/29 scope global secondary eth0
->         inet 192.168.2.5/29 scope global secondary eth0
->         inet 192.168.2.6/29 scope global secondary eth0*
->         inet6 fe80::224:54ff:feb9:1cf8/64 scope link
->            valid_lft forever preferred_lft forever
->    3: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
->         link/ether e8:39:df:6a:21:2a brd ff:ff:ff:ff:ff:ff
->    $ *sudo ip addr del 192.168.2.1/29 dev eth0*
->    $ ip addr list
->    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->         link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->         inet 127.0.0.1/8 scope host lo
->         inet6 ::1/128 scope host
->            valid_lft forever preferred_lft forever
->    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
->    state UP qlen 1000
->         link/ether 00:24:54:b9:1c:f8 brd ff:ff:ff:ff:ff:ff
->    *inet 192.168.1.200/24 brd 192.168.1.255 scope global eth0*
->         inet6 fe80::224:54ff:feb9:1cf8/64 scope link
->            valid_lft forever preferred_lft forever
->    3: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
->         link/ether e8:39:df:6a:21:2a brd ff:ff:ff:ff:ff:ff
+> rax and rdx is LIST_POISON1 and LIST_POISON2, so kernel is list_del() on an already deleted
+> connection and result the general protect fault.
 > 
-> Per see, deleting 192.168.2.1/29 causes the rest of the aliased interfaces get
-> deleted as well. This is something that is slightly documented in the ifconfig
-> manual: /for every scope (i.e. same net with address/netmask combination) all
-> aliases are deleted, if you delete the first (primary)/. So what is the right
-> way of just deleting the first (primary) alias without affecting the rest? If
-> this is a scoping issue, is it possible to assign each alias as primary within
-> its own dedicated scope?
+> The "request for already hashed" warning, told us someone might change the connection flags
+> incorrectly, like described in commit aea9d711, it changes the connection flags, but doesn't
+> put the connection back to the list. So ip_vs_conn_hash() throw a warning and return.
+> Later, when ip_vs_conn_expire fire again, ip_vs_conn_unhash() will find the HASHED connection
+> and list_del() it, then kernel panic happened.
+> 
+> After code review, the only chance that kernel change connection flag without protection is
+> in ip_vs_ftp_init_conn().
+> 
+> Signed-off-by: Xiaotian Feng <dannyfeng@tencent.com>
+> Cc: Wensong Zhang <wensong@linux-vs.org>
+> Cc: Simon Horman <horms@verge.net.au>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: "David S. Miller" <davem@davemloft.net> 
 
-	There is (yet) undocumented feature for the
-interfaces:
+	For the fix below:
 
-/proc/sys/net/ipv4/conf/*/promote_secondaries
+Acked-by: Julian Anastasov <ja@ssi.bg>
 
-	You set it for specific interface _or_ for "all".
-It defaults to 0. When you enable it, deleting a primary
-address will not delete all secondary addresses but will
-change the next secondary as primary. The term alias may
-refer for addresses on same interface while here the
-problem is for a subset of addresses - from same subnet.
-Primary is the first address added for the configured
-subnet, all next addresses in subnet are added as
-secondaries as shown by ip addr list.
+	Simon, the change looks ok. ip_vs_ftp_init_conn is called
+from context where cp->lock is not locked (no double lock), so it
+should be safe for the backup.
 
-> As a side note, when I first asked this question to Stephen Hemminger (he
-> forwarded me to this mailing list) he also told me that "/In Linux the
-> interface aliases are really a legacy from the BSD style addressing, and don't
-> act the same. It is not common practice to use them./" Is that really the
-> case? Because, as you know, IP aliasing is the heart of a majority of the
-> high-availability and clustering solutions in Linux. Is IP aliasing a really
-> deprecated technology in Linux? Should we avoid using it? If so, what do you
-> recommend as an alternative?
+	Only that the comment is not specifying that we
+fix a problem in the backup server.
 
-	Please do not stop using aliases!
+> ---
+>  net/netfilter/ipvs/ip_vs_ftp.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> index b20b29c..c2bc264 100644
+> --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> @@ -65,8 +65,10 @@ static int ip_vs_ftp_pasv;
+>  static int
+>  ip_vs_ftp_init_conn(struct ip_vs_app *app, struct ip_vs_conn *cp)
+>  {
+> +	spin_lock(&cp->lock);
+>  	/* We use connection tracking for the command connection */
+>  	cp->flags |= IP_VS_CONN_F_NFCT;
+> +	spin_unlock(&cp->lock);
+>  	return 0;
+>  }
+>  
+> -- 
+> 1.7.1
 
 Regards
 
 --
 Julian Anastasov <ja@ssi.bg>
----1463811672-1752084190-1341297295=:1622--
