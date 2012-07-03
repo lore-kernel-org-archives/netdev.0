@@ -1,48 +1,45 @@
-From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Subject: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-Date: Tue, 3 Jul 2012 10:27:36 -0300
-Message-ID: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
+From: John Eaglesham <linux@8192.net>
+Subject: Re: [PATCH v6] bonding support for IPv6 transmit hashing
+Date: Mon, 02 Jul 2012 22:38:05 -0700
+Message-ID: <4FF2853D.9070707@8192.net>
+References: <eb20e8f67e6aad94c233219e058c3e793ed755cb.1341167171.git.linux@8192.net> <18390.1341272010@death.nxdomain> <4FF27CA0.7030708@8192.net> <20120702.221425.418792617776598841.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>,
-	Cloud Ren <cjren@qca.qualcomm.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp171.dfw.emailsrvr.com ([67.192.241.171]:38221 "EHLO
+	smtp171.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793Ab2GCFiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 01:38:06 -0400
+In-Reply-To: <20120702.221425.418792617776598841.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cloud Ren <cjren@qca.qualcomm.com>
+On 7/2/2012 10:14 PM, David Miller wrote:
+> From: John Eaglesham <linux@8192.net>
+> Date: Mon, 02 Jul 2012 22:01:20 -0700
+>
+>> I replaced the mixed tabs and spaces with all tabs when I updated that
+>> function, but in retrospect the tabs and spaces were likely
+>> intentional. I will revert.
+>
+> They were.  Don't change existing coding style unless you are certain
+> it is wrong.
+>
+> Besides any such changes are completely outside of the scope of
+> the changes you are making, so you should have left them out in
+> any event.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-some people report atl1c could cause system hang with following
-kernel trace info:
----------------------------------------
-WARNING: at.../net/sched/sch_generic.c:258 dev_watchdog+0x1db/0x1d0()
-...
-NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
-...
----------------------------------------
-This is caused by netif_stop_queue calling when cable Link is down.
-So remove netif_stop_queue, because link_watch will take it over.
+Should the indents in the code I am adding follow the style guide and 
+use only tabs, or follow the style already present and mix spaces and 
+tabs for indentation?
 
-Signed-off-by: xiong <xiong@qca.qualcomm.com>
-Cc: stable <stable@vger.kernel.org>
-Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
----
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 85717cb..7901831 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -261,7 +261,6 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
- 	if ((phy_data & BMSR_LSTATUS) == 0) {
- 		/* link down */
- 		netif_carrier_off(netdev);
--		netif_stop_queue(netdev);
- 		hw->hibernate = true;
- 		if (atl1c_reset_mac(hw) != 0)
- 			if (netif_msg_hw(adapter))
--- 
-1.7.7
+Thanks,
+John
