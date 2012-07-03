@@ -1,64 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net 1/7] qlge: Fixed packet transmit errors due to potential driver errors.
-Date: Wed, 4 Jul 2012 00:22:35 +0200
-Message-ID: <20120703222235.GA14926@electric-eye.fr.zoreil.com>
-References: <20120702.171854.1585295090835924398.davem@davemloft.net> <5E4F49720D0BAD499EE1F01232234BA877435B266A@AVEXMB1.qlogic.org> <20120702.183826.1521103644475572622.davem@davemloft.net> <20120702.184134.1131493483786674336.davem@davemloft.net> <5E4F49720D0BAD499EE1F01232234BA877435B2797@AVEXMB1.qlogic.org> <1341347235.2583.796.camel@edumazet-glaptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH 00/10] Make XPS usable within ixgbe
+Date: Tue, 03 Jul 2012 15:41:59 -0700
+Message-ID: <4FF37537.20104@intel.com>
+References: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com> <CA+mtBx-ZGFUT6JcxiLcTOMteN1-DS5_eoAC5CgU7UEFup1FaqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com,
+	bhutchings@solarflare.com, alexander.duyck@gmail.com
+To: Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47319 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119Ab2GCWeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 18:34:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1341347235.2583.796.camel@edumazet-glaptop>
+Received: from mga09.intel.com ([134.134.136.24]:45932 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756267Ab2GCWmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2012 18:42:00 -0400
+In-Reply-To: <CA+mtBx-ZGFUT6JcxiLcTOMteN1-DS5_eoAC5CgU7UEFup1FaqQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> :
-> On Tue, 2012-07-03 at 12:38 -0700, Jitendra Kalsaria wrote:
-> 
-> > I think my patch description might have been misleading. We are not
-> > fixing a logical problem but rather a statistics reporting problem.
-> > Our transmit function is not getting called when queue is full but
-> > when we stop the queue it increment tx_error statistic and one of our
-> > customers is running a test that deliberately floods the queue causing
-> > it to periodically be stopped. The customer has not reported logical
-> > problem with the test were driver perform very well but they merely
-> > pointed out that we were incorrectly reporting the queue full
-> > condition as a tx_error.
-> > 
-> > This patch was intended to remove the line that increments the
-> > tx_error statistic when the queue is correctly stopped.
-> 
-> I believe everybody kindly ask you to fix the driver logic instead
-> of trying to hide to your customers the problems.
+On 7/3/2012 3:30 PM, Tom Herbert wrote:
+> Hi Alexander,
+>
+> Thanks for this work!
+>
+> Some general comments:
+>
+> 1) skb_tx_hash is called from a handful of drivers (bnx2x, ixgbe,
+> mlx4, and bonding).  Would it make sent to call xps_get_cpu from that
+> function (unfortunately the use of ndo_select_queue is likely
+> bypassing xps unnecessarily in these drivers).
 
-:o/
+I suspect we can get rid of the select_queue cases for at least
+bnx2x, ixgbe, and mlx4. We might need to be a bit clever to resolve
+the mlx4 case but should be doable.
 
-Jitendra was speaking about qlge_ethtool_ops.self_test(). It will need
-fixing as well.
+Anyways I would like to see these cases refactored away.
 
-> In fact, you could just BUG() at this point, and maybe David will accept
-> such a patch.
+> 2) Instead of (or maybe in addition to) allowing driver to program xps
+> maps, we could parameterize get_xps_cpu to optionally include a bit
+> map of acceptable queues.  This would be useful to define a
+> hierarchical queue selection (like first choose a set for QoS, then
+> amongst those chose one base on xps).
+>
 
-Mildly. It would turn qlge_ethtool_ops.self_test() into a system killer.
+Agreed.
 
-[...]
-> testing atomic_read(&tx_ring->tx_count) at the beginning of qlge_send()
-> is too late. NETDEV_TX_BUSY is deprecated.
+We likely need something like (2) to get this to work with mqprio and
+other QOS schemes in use.
 
-Yes.
-
-Returning NETDEV_TX_BUSY when dma mapping fails in ql_map_send isn't nice
-either.
-
--- 
-Ueimor
+.John
