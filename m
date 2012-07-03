@@ -1,51 +1,56 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Deleting an alias causes rest to get deleted
-Date: Mon, 2 Jul 2012 19:44:29 -0700
-Message-ID: <20120702194429.7c865c94@nehalam.linuxnetplumber.net>
-References: <4FF1FC74.8080401@gmail.com>
-	<1341277937.2590.25.camel@bwh-desktop.uk.solarflarecom.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH net 1/7] qlge: Fixed packet transmit errors due to potential
+ driver errors.
+Date: Tue, 3 Jul 2012 08:58:35 +0530
+Message-ID: <OFE8F5E8D9.DB59CE9B-ON65257A30.00128DF8-65257A30.00132AAC@in.ibm.com>
+References: <20120702.171854.1585295090835924398.davem@davemloft.net>	<5E4F49720D0BAD499EE1F01232234BA877435B266A@AVEXMB1.qlogic.org>
+	<20120702.183826.1521103644475572622.davem@davemloft.net> <20120702.184134.1131493483786674336.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Volkan =?UTF-8?B?WWF6xLFjxLE=?= <volkan.yazici@gmail.com>,
-	<netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Dept_NX_Linux_NIC_Driver@qlogic.com, jitendra.kalsaria@qlogic.com,
+	netdev@vger.kernel.org, ron.mercer@qlogic.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50502 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753460Ab2GCCon convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 22:44:43 -0400
-In-Reply-To: <1341277937.2590.25.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from e28smtp07.in.ibm.com ([122.248.162.7]:34610 "EHLO
+	e28smtp07.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755317Ab2GCDaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jul 2012 23:30:00 -0400
+Received: from /spool/local
+	by e28smtp07.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
+	Tue, 3 Jul 2012 08:59:56 +0530
+Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
+	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q633TNSm9044330
+	for <netdev@vger.kernel.org>; Tue, 3 Jul 2012 08:59:23 +0530
+Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
+	by d28av01.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q638wv9b006068
+	for <netdev@vger.kernel.org>; Tue, 3 Jul 2012 14:28:57 +0530
+In-Reply-To: <20120702.184134.1131493483786674336.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Jul 2012 02:12:17 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+> David Miller <davem@davemloft.net> 07/03/2012 07:11 AM
+>
+> >> As per your comments, TX ring full is not expected behavior? All I
+> >> can think of increasing the TX queue to 1024 and clean-up in timer
+> >> instead of interrupt?
+> >
+> > Your transmit function should never be invoked when the queue is
+> > full, logic elsewhere in your driver should have stopped the queue
+> > therefore preventing further invocations of your transmit function
+> > until you wake the queue when space is liberated in the TX ring.
+>
+> BTW, did it even occur to you that there is a kernel log message here
+> in this code path for a reason?
+>
+> That log message is there because this event is unexpected and a
+> driver error.
 
-> On Mon, 2012-07-02 at 22:54 +0300, Volkan Yaz=C4=B1c=C4=B1 wrote:
-> > Hi!
-> >=20
-> > I observe an IP aliasing anomaly that occurs when I try to delete a=
-n IP=20
-> > alias from an interface. That is, when I delete the first address i=
-n a=20
-> > set of IP aliased addresses assigned according to a particular subn=
-et,=20
-> > rest of the aliases get deleted as well. Check out the below snippe=
-t.
-> [...]
-> > As a side note, when I first asked this question to Stephen Hemming=
-er=20
-> > (he forwarded me to this mailing list) he also told me that "/In Li=
-nux=20
-> > the interface aliases are really a legacy from the BSD style addres=
-sing,=20
-> > and don't act the same. It is not common practice to use them./" Is=
- that=20
-> > really the case?
-> [...]
->=20
-> If you didn't give him the full details shown above, it's possible he
-> thought you meant alias interfaces such as 'eth0:0'.
+Correctly coded drivers check for this condition:
+"atomic_read(&tx_ring->tx_count) < 2" (without the
+unlikely) once again at the end of the xmit and stop
+the queue if required. Also, the message should be changed
+to show that reaching here is an error.
 
-Yes, that is what I was assuming by the word 'alias'
+thanks,
+- KK
