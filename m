@@ -1,71 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] ieee802154: sparse warnings: make symbols
- static
-Date: Wed, 04 Jul 2012 15:45:27 +0200
-Message-ID: <1341409527.2583.1986.camel@edumazet-glaptop>
-References: <1341209912-6030-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	 <1341209912-6030-2-git-send-email-alex.bluesman.smirnov@gmail.com>
-	 <1341211072.5269.0.camel@edumazet-glaptop>
-	 <1341211476.5269.2.camel@edumazet-glaptop>
-	 <1341211751.5269.6.camel@edumazet-glaptop>
-	 <CAJmB2rAdDvpGhEDzBQddJBi5fJ55McN8uJEzLQiF_froR4hxVA@mail.gmail.com>
+From: Massimo Cetra <mcetra@navynet.it>
+Subject: Re: Bridged networking panics
+Date: Wed, 04 Jul 2012 15:50:44 +0200
+Message-ID: <4FF44A34.4030901@navynet.it>
+References: <4FEC62DD.6000303@navynet.it>  <4FF41E1A.4070102@navynet.it> <1341408298.2583.1963.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, dbaryshkov@gmail.com
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:58022 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987Ab2GDNpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 09:45:32 -0400
-Received: by eaak11 with SMTP id k11so2911119eaa.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jul 2012 06:45:31 -0700 (PDT)
-In-Reply-To: <CAJmB2rAdDvpGhEDzBQddJBi5fJ55McN8uJEzLQiF_froR4hxVA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341408298.2583.1963.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-07-04 at 17:38 +0400, Alexander Smirnov wrote:
+On 04/07/2012 15:24, Eric Dumazet wrote:
 
-> Do I need to create 2 separate patches: one for revert and second to
-> initialize spinlock correctly, or I can combine these changes in one
-> patch?
-> 
+> Posting a bug report is not enough to get people working for free on the
+> problem.
 
-you can combine patch
+Thanks for the reply.
 
-> >
-> > You should validate this code with LOCKDEP
-> 
-> Nothing was shown by LOCKDEP for 6lowpan. :-(
-> 
+I'd like to point out that without a reply of what is need of what i'm 
+doing wrong i cannot provide anything useful.
 
-Because path was not hit ( fragment expire )
+> Apparently your configuration is kind of special if nobody but you hits
+> the problem so often.
 
-You would have to simulate a drop or something to trigger the lockdep
-splat, when lowpan_fragment_timer_expired() fires.
+> So it would help if you can reproduce the bug using current kernel and
+> provide all necessary steps to reproduce the bug. Ideally a script.sh
+> file doing all the configuration you use to trigger the bug, assuming
+> a basic machine freshly booted with no special config already done.
 
-> I've selected the following options:
-> 
-> -*- Spinlock and rw-lock debugging: basic checks
-> -*- Mutex debugging: basic checks
-> -*- Lock debugging: detect incorrect freeing of live locks
-> [*] Lock usage statistics
-> [*] Lock dependency engine debugging
-> 
-> >
-> > lowpan_dellink() does a spin_lock(&flist_lock);
-> > while same lock can be taken by lowpan_fragment_timer_expired() from
-> > timer irq, -> deadlock.
-> 
-> What would be the best way to solve this context mismatch? Can I do
-> something like following:
-> 1. create some 6lowpan internal workqueue
-> 2. replace lowpan_fragment_timer_expired() body by queue_work() with
-> current list_deleting routine
-> 3. when 6lowpan is going to be deleted - I'll flush the queue and
-> remove all the timers and respective fragments
-> 
+I can try to setup a fresh KVM image and see if the bug is reproduceable 
+there. Would it be ok ?
 
-Just use the spin_lock_bh() variant to disable BH, so that timer doesnt
-deadlock with you.
+> The panics dont happen in the bridge code itself, but in the
+> BRIDGE_NETFILTER one. Do you need it, and why ?
+>
+> Are you using vlans ?
+
+No, no VLANS.
+
+I have 2 real network cards (Broadcom Corporation NetXtreme II BCM5716) 
+configured as bridges.
+
+Each bridge (br0 and br1) has an ip address which is fixed (does never 
+change).
+
+The server(s) run KVM machines which are attached to tun interfaces 
+(created with "vde_tunctl -u $user -t $IFACE)
+
+Each virtual KVM server has an IP address that is forwarded through the 
+bridge and has as gateway the router of the main server.
+
+Up to this point there is nothing strange in the configuration and if 
+the system is used this way, there are no panics.
+
+
+The (maybe) peculiar configs are:
+
+1) heartbeat is installed and creates alias interfaces for the bridge 
+and assigns them an IP address. So the server has br0:1 and br1:1 that 
+are associated with a couple of IP addresses.
+
+2) the server runs ipvs (to redirect HTTP requests to two KVM servers 
+that are natted behind the br0:1 br1:1 addresses).
+
+
+IF i remove the br0:1 and br1:1 interfaces (that are configured with the 
+ip addresses used by IPVS i don't have any single problem and the crash 
+(at least with 3.2.21) doesn't happen.
+
+So, if i turn off heartbeat (and the alias ip addresses used by IPVSare 
+switched to the other host) there are no panics.
+
+The more the traffic, the quicker the panic happens.
+
+Note that up to 2.6.36 this configuration was working without problems.
+
+Ah, the last setting that i modified is disabling tcp_sack in sysctl.conf.
+
+> Please try following patch
+
+I will try on the latest 3.2.y for now, trying to replicate the problem.
+
+Thanks again,
+
+MC
