@@ -1,90 +1,77 @@
-From: Massimo Cetra <mcetra@navynet.it>
-Subject: Re: Bridged networking panics
-Date: Wed, 04 Jul 2012 15:50:44 +0200
-Message-ID: <4FF44A34.4030901@navynet.it>
-References: <4FEC62DD.6000303@navynet.it>  <4FF41E1A.4070102@navynet.it> <1341408298.2583.1963.camel@edumazet-glaptop>
+From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: Using interface number probing for usbnet drivers before
+ 3.6-rc1? (was: Re: [PATCH net] net: qmi_wwan: fix Gobi device probing)
+Date: Wed, 4 Jul 2012 07:46:49 -0700
+Message-ID: <20120704144649.GC23020@kroah.com>
+References: <1340282758-18085-1-git-send-email-bjorn@mork.no>
+ <20120622.171735.637204872051168180.davem@davemloft.net>
+ <87y5neidk1.fsf@nemi.mork.no>
+ <20120623.023749.1066357959466872561.davem@davemloft.net>
+ <87mx3flqns.fsf_-_@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341408298.2583.1963.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87mx3flqns.fsf_-_-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/07/2012 15:24, Eric Dumazet wrote:
+On Wed, Jul 04, 2012 at 01:19:35PM +0200, Bj=F8rn Mork wrote:
+> David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
+> > From: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> > Date: Sat, 23 Jun 2012 11:26:54 +0200
+> >
+> >> Is waiting for 3.6-rc1 the best alternative, or is cherry-picking =
+them
+> >> an option?
+> >
+> > I'm extremely reluctant to have a dependency on another tree.
+> >
+> > The USB tree, on the other hand, could pull the net-next tree
+> > in so you can continue your dependent work there.
+>=20
+> Hello Greg,
+>=20
+> I know I said I would be more careful about cross-tree dependencies, =
+but
+> here I am again...
+>=20
+> The context is: How should I proceed with interface number based prob=
+ing
+> for usbnet drivers, in particular qmi_wwan which already has a few
+> patches in net-next?
+>=20
+> I see two possible remaining options:
+>=20
+>  1) you pull the net-next changes into usb-next so that I can do the
+>     work against usb-next now, or
+>  2) I wait for 3.6-rc1 and do the work against the net tree after
+>     3.6-rc1 is merged there
+>=20
+> I have decided to go for option #2 unless either of you have other
+> preferences, as I believe that is going to cause the least work and
+> merge trouble for you both.
 
-> Posting a bug report is not enough to get people working for free on the
-> problem.
+What about:
+   3) You send the usb interface number matching patches again for them
+   to be included in the net-next tree as well, causing duplicates to b=
+e
+   in linux-next, but allowing you to send your patches into net-next.
 
-Thanks for the reply.
+That is what we have done at times for other patches, and if David is o=
+k
+with it, so am I.  Odds are, the merge will happen automatically, but i=
+f
+not, I can handle it when 3.6-rc1 comes around.
 
-I'd like to point out that without a reply of what is need of what i'm 
-doing wrong i cannot provide anything useful.
+Sound good?
 
-> Apparently your configuration is kind of special if nobody but you hits
-> the problem so often.
-
-> So it would help if you can reproduce the bug using current kernel and
-> provide all necessary steps to reproduce the bug. Ideally a script.sh
-> file doing all the configuration you use to trigger the bug, assuming
-> a basic machine freshly booted with no special config already done.
-
-I can try to setup a fresh KVM image and see if the bug is reproduceable 
-there. Would it be ok ?
-
-> The panics dont happen in the bridge code itself, but in the
-> BRIDGE_NETFILTER one. Do you need it, and why ?
->
-> Are you using vlans ?
-
-No, no VLANS.
-
-I have 2 real network cards (Broadcom Corporation NetXtreme II BCM5716) 
-configured as bridges.
-
-Each bridge (br0 and br1) has an ip address which is fixed (does never 
-change).
-
-The server(s) run KVM machines which are attached to tun interfaces 
-(created with "vde_tunctl -u $user -t $IFACE)
-
-Each virtual KVM server has an IP address that is forwarded through the 
-bridge and has as gateway the router of the main server.
-
-Up to this point there is nothing strange in the configuration and if 
-the system is used this way, there are no panics.
-
-
-The (maybe) peculiar configs are:
-
-1) heartbeat is installed and creates alias interfaces for the bridge 
-and assigns them an IP address. So the server has br0:1 and br1:1 that 
-are associated with a couple of IP addresses.
-
-2) the server runs ipvs (to redirect HTTP requests to two KVM servers 
-that are natted behind the br0:1 br1:1 addresses).
-
-
-IF i remove the br0:1 and br1:1 interfaces (that are configured with the 
-ip addresses used by IPVS i don't have any single problem and the crash 
-(at least with 3.2.21) doesn't happen.
-
-So, if i turn off heartbeat (and the alias ip addresses used by IPVSare 
-switched to the other host) there are no panics.
-
-The more the traffic, the quicker the panic happens.
-
-Note that up to 2.6.36 this configuration was working without problems.
-
-Ah, the last setting that i modified is disabling tcp_sack in sysctl.conf.
-
-> Please try following patch
-
-I will try on the latest 3.2.y for now, trying to replicate the problem.
-
-Thanks again,
-
-MC
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
