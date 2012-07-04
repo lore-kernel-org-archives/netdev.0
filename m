@@ -1,83 +1,48 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: Using interface number probing for usbnet drivers before 3.6-rc1?
-Date: Wed, 04 Jul 2012 16:50:53 +0200
-Message-ID: <87ipe3lgvm.fsf@nemi.mork.no>
-References: <1340282758-18085-1-git-send-email-bjorn@mork.no>
-	<20120622.171735.637204872051168180.davem@davemloft.net>
-	<87y5neidk1.fsf@nemi.mork.no>
-	<20120623.023749.1066357959466872561.davem@davemloft.net>
-	<87mx3flqns.fsf_-_@nemi.mork.no> <20120704144649.GC23020@kroah.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/2] net: add support for NS8390 based eth controllers
+ on some ColdFire CPU boards
+Date: Wed, 04 Jul 2012 07:52:35 -0700
+Message-ID: <1341413555.3627.33.camel@joe2Laptop>
+References: <1341377789-12970-1-git-send-email-gerg@snapgear.com>
+	 <1341377789-12970-3-git-send-email-gerg@snapgear.com>
+	 <1341379091.3627.15.camel@joe2Laptop> <4FF3E031.5040703@snapgear.com>
+	 <1341383999.3627.20.camel@joe2Laptop>
+	 <CAMuHMdVYiQyurOQOoeLbd6zXnaVK8Y9bUC=wXkHxhQO+cQwecQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:40190 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752593Ab2GDOvD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 10:51:03 -0400
-In-Reply-To: <20120704144649.GC23020@kroah.com> (Greg Kroah-Hartman's message
-	of "Wed, 4 Jul 2012 07:46:49 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg Ungerer <gerg@snapgear.com>, netdev@vger.kernel.org,
+	linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdVYiQyurOQOoeLbd6zXnaVK8Y9bUC=wXkHxhQO+cQwecQ@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greg Kroah-Hartman <gregkh@linuxfoundation.org> writes:
-> On Wed, Jul 04, 2012 at 01:19:35PM +0200, Bj=C3=B8rn Mork wrote:
->> David Miller <davem@davemloft.net> writes:
->> > From: Bj=C3=B8rn Mork <bjorn@mork.no>
->> > Date: Sat, 23 Jun 2012 11:26:54 +0200
->> >
->> >> Is waiting for 3.6-rc1 the best alternative, or is cherry-picking=
- them
->> >> an option?
->> >
->> > I'm extremely reluctant to have a dependency on another tree.
->> >
->> > The USB tree, on the other hand, could pull the net-next tree
->> > in so you can continue your dependent work there.
->>=20
->> Hello Greg,
->>=20
->> I know I said I would be more careful about cross-tree dependencies,=
- but
->> here I am again...
->>=20
->> The context is: How should I proceed with interface number based pro=
-bing
->> for usbnet drivers, in particular qmi_wwan which already has a few
->> patches in net-next?
->>=20
->> I see two possible remaining options:
->>=20
->>  1) you pull the net-next changes into usb-next so that I can do the
->>     work against usb-next now, or
->>  2) I wait for 3.6-rc1 and do the work against the net tree after
->>     3.6-rc1 is merged there
->>=20
->> I have decided to go for option #2 unless either of you have other
->> preferences, as I believe that is going to cause the least work and
->> merge trouble for you both.
->
-> What about:
->    3) You send the usb interface number matching patches again for th=
-em
->    to be included in the net-next tree as well, causing duplicates to=
- be
->    in linux-next, but allowing you to send your patches into net-next=
-=2E
->
-> That is what we have done at times for other patches, and if David is=
- ok
-> with it, so am I.  Odds are, the merge will happen automatically, but=
- if
-> not, I can handle it when 3.6-rc1 comes around.
->
-> Sound good?
+On Wed, 2012-07-04 at 09:52 +0200, Geert Uytterhoeven wrote:
+> On Wed, Jul 4, 2012 at 8:39 AM, Joe Perches <joe@perches.com> wrote:
+> >> >> +static int mcf8390_init(struct net_device *dev)
+> >> >> +{
+> >> >> +  static u32 offsets[] = {
+> >> >> +          0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+> >> >> +          0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+> >> >> +  };
+> >> >
+> >> > const?  u8?
+> >>
+> >> That is assigned to the "reg_offset" field of "struct ei_device"
+> >> (defined in the existing 8390.h) and that is:
+> >>
+> >>      u32 *reg_offset;         /* Register mapping table */
+> >>
+> >> So I can't change this.
+> >
+> > Sure you can, you can assign a u8 to a u32 just fine.
+> 
+> It's not the value that's assigned, but a pointer to the table, so
+> for now it must be non-const u32 *.
 
-I could have misunderstood, but I thought that was out of the question
-given that David didn't want to cherry-pick them from usb-next.
+Oh, then of course you and Greg are correct.
 
-
-Bj=C3=B8rn=20
+It looks like the code in ax88796.c may actually
+need u32 sizes too.
