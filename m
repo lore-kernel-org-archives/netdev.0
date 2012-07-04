@@ -1,114 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] net: add support for NS8390 based eth controllers
- on some ColdFire CPU boards
-Date: Tue, 03 Jul 2012 22:18:11 -0700
-Message-ID: <1341379091.3627.15.camel@joe2Laptop>
-References: <1341377789-12970-1-git-send-email-gerg@snapgear.com>
-	 <1341377789-12970-3-git-send-email-gerg@snapgear.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netem: fix rate extension and drop accounting
+Date: Wed, 04 Jul 2012 07:58:08 +0200
+Message-ID: <1341381488.2583.1395.camel@edumazet-glaptop>
+References: <1341307524.2583.115.camel@edumazet-glaptop>
+	 <1341309257.2583.153.camel@edumazet-glaptop>
+	 <20120703220442.GC5064@nuttenaction>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org,
-	Greg Ungerer <gerg@uclinux.org>
-To: gerg@snapgear.com
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <1341377789-12970-3-git-send-email-gerg@snapgear.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Andreas Terzis <aterzis@google.com>,
+	Mark Gordon <msg@google.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:41681 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770Ab2GDF6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 01:58:13 -0400
+Received: by eaak11 with SMTP id k11so2747639eaa.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jul 2012 22:58:11 -0700 (PDT)
+In-Reply-To: <20120703220442.GC5064@nuttenaction>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-04 at 14:56 +1000, gerg@snapgear.com wrote:
-> From: Greg Ungerer <gerg@uclinux.org>
-> 
-> A number of older ColdFire CPU based boards use NS8390 based network
-> controllers. Most use the Davicom 9008F or the UMC 9008F. This driver
-> provides the support code to get these devices working on these platforms.
+On Wed, 2012-07-04 at 00:04 +0200, Hagen Paul Pfeifer wrote:
 
-Hi Greg, just some trivia:
+> Strange, we test the patch in detail. I will take a look ...
 
-[]
+I tried to fix the thing but lacked time yesterday.
 
-> diff --git a/drivers/net/ethernet/8390/mcf8390.c b/drivers/net/ethernet/8390/mcf8390.c
 
-[]
+I had to use the good old way for my tests.
 
-> +#ifdef NE2000_ODDOFFSET
-> +/*
-> + * A lot of the ColdFire boards use a separate address region for odd offset
-> + * register addresses. The following macros and functions convert and map
-> + * as required. Note that the data port accesses are treated a little
-> + * differently, and always accessed via the insX/outsX functions.
-> + */
-> +#define	NE_PTR(a)	(((a) & 0x1) ? (NE2000_ODDOFFSET + (a) - 1) : (a))
 
-Maybe use static inlines instead of macros?
+DEV=eth0
+tc qdisc del dev $DEV root
+tc qdisc add dev $DEV root handle 30: est 1sec 4sec netem \
+        delay 100ms 10ms reorder 3
+tc qdisc add dev $DEV handle 40:0 parent 30:0 tbf \
+        burst 5000 limit 10000 mtu 1514 rate 100kbit
+tc qdisc add dev $DEV handle 50:00 parent 40:0 pfifo limit 200
 
-static inline void *NE_PTR(void *ptr)
-{
-	if ((unsigned long)ptr & 1)
-		return ptr - 1 + NE2000_ODDOFFSET;
-	return ptr;
-}
+fundamentally, mixing the TBF is going to be hard with "delay ..."
+especially with jitter.
 
-[]
+Same problem for reorder : since packets are put at head of queue,
+they have no effect on the 'time_to_send' of packets already in queue
+and netem use more bandwidth than allowed.
 
-> +static void mcf8390_get_8390_hdr(struct net_device *dev,
-> +				 struct e8390_pkt_hdr *hdr, int ring_page)
-> +{
-[]
-> +	/*
-> +	 * This *shouldn't* happen.
-> +	 * If it does, it's the last thing you'll see
-> +	 */
-> +	if (ei_status.dmaing) {
-> +		netdev_err(dev,
-> +			"%s: DMAing conflict [DMAstat:%d][irqlock:%d]\n",
-> +			 __func__, ei_local->dmaing, ei_local->irqlock);
+I'll send the patch on the double drop accounting problem because the
+fix is easy enough, but fir the rate limiting, I prefer letting you work
+on it if you dont mind ?
 
-This message seems to get repeated a few times.
-Maybe another function/macro or maybe a BUG?
-
-		some_dma_err(dev, __func__, ei_local);
-
-> +static void mcf8390_block_input(struct net_device *dev, int count,
-> +				struct sk_buff *skb, int ring_offset)
-> +{
-[]
-> +	/*
-> +	 * This *shouldn't* happen.
-> +	 * If it does, it's the last thing you'll see
-> +	 */
-> +	if (ei_local->dmaing) {
-> +		netdev_err(dev,
-> +			"%s: DMAing conflict [DMAstat:%d][irqlock:%d]\n",
-> +			__func__, ei_local->dmaing, ei_local->irqlock);
-> +		return;
-> +	}
-
-> +static void mcf8390_block_output(struct net_device *dev, int count,
-> +				 const unsigned char *buf,
-> +				 const int start_page)
-> +{
-[]
-> +	/*
-> +	 *This *shouldn't* happen.
-> +	 * If it does, it's the last thing you'll see
-> +	 */
-> +	if (ei_local->dmaing) {
-> +		netdev_err(dev,
-> +			"%s: DMAing conflict [DMAstat:%d][irqlock:%d]\n",
-> +			__func__, ei_local->dmaing, ei_local->irqlock);
-> +		return;
-> +	}
-
-> +static int mcf8390_init(struct net_device *dev)
-> +{
-> +	static u32 offsets[] = {
-> +		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-> +		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-> +	};
-
-const?  u8?
-
-> +	pr_debug("Found ethernet address: %pM\n", dev->dev_addr);
-
-netdev_dbg ?
+Thanks
