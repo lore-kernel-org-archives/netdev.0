@@ -1,97 +1,33 @@
-From: "Dr. Nelson Walter" <post@feldker-grosssittiche.de>
-Subject: RE:CASH PAYMENT DELIVERY (Read the attached file below).
-Date: Thu, 05 Jul 2012 01:19:38 +0200
-Message-ID: <501dffo64LGY3L.RZmta@mo-p03-ob.rzone.de>
-Reply-To: nelsonwalter021@e-mail.ua
+From: <gerg@snapgear.com>
+Subject: [PATCH v2 0/2] net: support for NS8390 based ethernet on ColdFire CPU boards
+Date: Thu, 5 Jul 2012 09:49:58 +1000
+Message-ID: <1341445800-396-1-git-send-email-gerg@snapgear.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0788145816=="
-To: Recipients <post@feldker-grosssittiche.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p03-ob.rzone.de ([81.169.146.172]:24027 "EHLO
-	mo-p03-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755588Ab2GDXal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 19:30:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-You will not see this in a MIME-aware mail reader.
---===============0788145816==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Description: Mail message body
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <linux-m68k@vger.kernel.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---===============0788145816==
-Content-Type: application/octet-stream
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="Dr. Nelson Walter.rtf"
+This is version 2 of patches that add platform support for using the NS8390
+based ethernet ports used on some ColdFire CPU boards. This version
+incorporates only minor changes from the first.
 
-e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzF7XGZvbnR0Ymx7XGYwXGZu
-aWxcZmNoYXJzZXQwIENhbGlicmk7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4yMS4y
-NTEwO31cdmlld2tpbmQ0XHVjMVxwYXJkXHNhMjAwXHNsMjc2XHNsbXVsdDFcbGFuZzlcZjBcZnMy
-MiBGcm9tIHRoZSBEZXNrIG9mIERyLiBOZWxzb24gV2FsdGVyLFxwYXINCkFjY291bnRhbnQgR2Vu
-ZXJhbCxDZW50cmFsIEJhbmsgT2YgTmlnZXJpYSAoIENCTiApLlxwYXINClRlbGVwaG9uZTogICAg
-KzIzNDgwMjMzNjg0OTkgICAgICAgICAgICAgIFxwYXINClxwYXINCiBccGFyDQogICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIENPTkZJREVOVElBTCAvIENBU0ggUEFZTUVOVCBERUxJVkVS
-WVxwYXINCiBccGFyDQogXHBhcg0KQXR0ZW50aW9uOiBccGFyDQogXHBhcg0KSSBBbSBEci4gTmVs
-c29uIFdhbHRlciwgQWNjb3VudGFudCBHZW5lcmFsIENlbnRyYWwgQmFuayBPZiBOaWdlcmlhLCBJ
-IGRlY2lkZWQgIHRvIGNvbnRhY3QgeW91IGJhc2VkIG9uIHRoZSBpbmZvcm1hdGlvbiB3ZSBnYXRo
-ZXJlZCBjb25jZXJuaW5nIHlvdXIgIGNvbnRyYWN0L2luaGVyaXRhbmNlIGZ1bmRzLCB3aGljaCB3
-ZSBhcmUgc3RpbGwgdW5hYmxlIHRvIHBheSB5b3UuXHBhcg0KIFxwYXINCkFmdGVyIG91ciB5ZWFy
-IDIwMTIgQXVkaXQsIHdlIGRpc2NvdmVyZWQgdGhyb3VnaCBvdXIgcGF5bWVudCBmaWxlcyB0aGF0
-IHlvdXIgIGNvbnRyYWN0L2luaGVyaXRhbmNlIHBheW1lbnQgYXJlIHN0aWxsIHVucGFpZCB0byB5
-b3UgYW5kIHdlIHRyaWVkIHRvIGZpbmQgb3V0XHBhcg0Kd2h5IHlvdSBoYXZlIG5vdCByZWNlaXZl
-ZCB5b3VyIHBheW1lbnQgdXAgdGlsbCB0aGlzIG1vbWVudCBhbmQgd2UgY291bGQgbm90IGZpbmQg
-b3V0IGFueSBnb29kIHJlYXNvbiB3aHkgaGUgb2ZmaWNpYWxzIG9mIHRoaXMgYmFuayBkZWNpZGVk
-IHRvIHN0b3AgeW91ciBwYXltZW50IGFuZCB3ZSBhbHNvIGRpc2NvdmVyZWQgaW4gb3VyIGZpbGVz
-IHRoYXQgeW91IGhhdmUgbWFkZSBzZXZlcmFsIHBheW1lbnQgaW4gb3JkZXIgdG8gcmVjZWl2ZSB5
-b3VyIHBheW1lbnQgYnV0IGFsbCB0byBubyBhdmFpbC5ccGFyDQogXHBhcg0KV2UgaGF2ZSBzdW1t
-b25lZCBzb21lIG9mIG91ciBvZmZpY2lhbHMgbGlrZTogTXIuIFR1bmRlIExlbW8sTXIuIE1heHdl
-bGwgUmljaGFyZCwgRHIuIFBhdHJpY2sgVXpvLCBQcm9mLiBDaGFybGVzIFNvbHVkbywgRHIuIEph
-bWVzIE9rdWt1IGFuZCBNcnMuIFN0ZWxsYSBEaWtlIGFuZCB0aGUgcmVzdCBvZiB0aGUgZGlyZWN0
-b3JzIHRvIHF1ZXJ5IHRoZW0gd2h5IHRoZXkgaGF2ZSBub3QgcGFpZCB5b3UgYWZ0ZXIgYWxsIHRo
-ZSB0aW1lIGFuZCBtb25leSB5b3UgaGF2ZSBzcGVudCBzbyBmYXIgYW5kIGF0IHRoZSBlbmQgb2Yg
-b3VyIHF1ZXJ5IGFuZCBpbnZlc3RpZ2F0aW9uIHdlIGRpc2NvdmVyZWQgdGhhdCB0aGV5IHdhbnQg
-dG8gZnJ1c3RyYXRlIHlvdSBzbyB0aGF0IHlvdSB3aWxsIGFiYW5kb24geW91ciBmdW5kcyBmb3Ig
-dGhlbSB0byBkaXZlcnQgaW50byB0aGVpciBwZXJzb25hbCBhY2NvdW50IGZvciB0aGVyZSBwZXJz
-b25hbCB1c2UuXHBhcg0KIFxwYXINCkJhc2VkIG9uIHRoaXMgd2UgaGF2ZSBzdG9wcGVkIHRoZW0g
-ZnJvbSBoYW5kbGluZyBhbnkgZm9yZWlnbiBjb250cmFjdG9ycy9pbmhlcml0YW5jZSBwYXltZW50
-cyB0byBhdm9pZCB0aGVtIG5vdCB0byB0YXJuaXNoIHRoZSBpbWFnZSBvZiBvdXIgY291bnRyeSBh
-bmQgYmFuayBzbyBpZiB5b3UgYXJlIGluIGFueSB3YXkgY29tbXVuaWNhdGluZyBvciBkZWFsaW5n
-IHdpdGggYW55IGJvZHkgb3IgcGVyc29uKHMpIGluIHJlZ2FyZHMgdG8geW91ciBwYXltZW50LCB5
-b3UgYXJlIG5vdyBhZHZpc2VkIHRvIHN0b3AgYW5kIGFueSBtb25leSB5b3Ugc2VuZCB0byBhbnkg
-b2YgdGhlbSBpcyBhdCB5b3VyIG93biByaXNrLiBGb3IgdGhlIGZhY3QgdGhhdCB5b3VyIHBheW1l
-bnQgaGFzIGJlZW4gZGVsYXllZCBmb3Igc28gbG9uZyB3aXRoIHVzIGFuZCB5b3UgaGF2ZSBnb25l
-IG1hbnkgd2F5cyB0byByZWNlaXZlIHRoZSBwYXltZW50IGJ5IGJhbmsgdG8gYmFuayB0cmFuc2Zl
-ciBhbGwgYXQgdG8gbm8gYXZhaWwgYmVjYXVzZSBvZiB0aGUgc3RvcCBvcmRlciBhbmQgZGVtYW5k
-cyBvZiBzZXZlcmFsIGNlcnRpZmljYXRlcyBhbmQgZG9jdW1lbnRhdGlvbnMuXHBhcg0KIFxwYXIN
-CldlIGhhdmUgdGhlcmVmb3JlIGNvbmNsdWRlZCBhZnRlciBvdXIgeWVzdGVyZGF5IG1lZXRpbmcg
-d2l0aCB0aGUgUHJlc2lkZW5jeSB0aGF0IGFsbCB0aGUgY29udHJhY3RvcnMvaW5oZXJpdGFuY2Ug
-YmVuZWZpY2lhcmllcyB3aWxsIGJlIHJlY2VpdmluZyB0aGVpclxwYXINCm92ZXJkdWUgcGF5bWVu
-dCB2aWEgQ2FzaCBEaXBsb21hdGljIFBheW1lbnQgRGVsaXZlcnkgRGlyZWN0IHRvIGhvbWUgY291
-bnRyeSB3aGVyZSB5b3Ugd2lsbCByZWNlaXZlIHlvdXIgcGF5bWVudC4gVGhpcyBpcyB0aGUgb25s
-eSB3YXkgeW91IHdpbGwgcmVjZWl2ZSB5b3VyIHBheW1lbnQgd2l0aG91dCBzdHJlc3Mgb3IgbW9y
-ZSBleHBlbnNlcy4gQWxsIHRoZSBuZWNlc3NhcnkgYXJyYW5nZW1lbnRzIHJlZ2FyZGluZyB0aGUg
-ZGVsaXZlcnkgb2YgeW91ciBwYXltZW50IGhhcyBiZWVuIHB1dCB0byBwbGFjZSBvbmx5IHdhaXRp
-bmdccGFyDQp0byBoZWFyIGZyb20geW91IGFzIHNvb24gYXMgeW91IHJlY2VpdmUgdGhpcyBtZXNz
-YWdlIHRvZGF5LlxwYXINClxwYXINCkFzIHNvb24gYXMgd2UgaGVhciBmcm9tIHlvdSB3ZSBzaGFs
-bCBkaXNjbG9zZSB0byB5b3UgdGhlIGFtb3VudCB0byBiZSBwYWlkIHRvIHlvdSBhbmQgaG93IHRo
-ZSBtb25leSBpcyBhcnJhbmdlZCBmb3IgZGVsaXZlcnkgYW5kIHRoZSBuYW1lIG9mIHRoZSBwZXJz
-b24gaW4gY2hhcmdlIG9mIGRlbGl2ZXJpbmcgdGhlIG1vbmV5IHRvIHlvdS4gQWZ0ZXIgZ29pbmcg
-dGhyb3VnaCB0aGlzIG1haWwsICB5b3UgYXJlIHJlcXVpcmVkIHRvIGZ1cm5pc2ggdXMgd2l0aCB0
-aGUgZm9sbG93aW5nIGluZm9ybWF0aW9uIGJlbG93IHNvIHRvIGF2b2lkIGltcG9zdG9ycyBvciBw
-YXlpbmcgdG8gdGhlIHdyb25nIHBlcnNvbihzXHBhcg0KXHBhcg0KMS4gWW91ciBmdWxsIGhvdXNl
-IGFkZHJlc3M6XHBhcg0KMi4gWW91ciBpZGVudGl0eSBzdWNoIGFzLCBpbnRlcm5hdGlvbmFsIHBh
-c3Nwb3J0IG9yIGRyaXZlcidzIGxpY2Vuc2U6XHBhcg0KMy4gWW91ciBjb250YWN0IGNlbGwgcGhv
-bmUgbnVtYmVyczogKERpcmVjdCBMaW5lKVxwYXINCjQuIFlvdXIgRnVsbCBOYW1lOlxwYXINCjUu
-IFlvdXIgb2NjdXBhdGlvbjpccGFyDQpccGFyDQpOb3RlOiBJdCB3YXMgbWFuZGF0ZWQgYnkgRmVk
-ZXJhbCBHb3Zlcm5tZW50IG9mIE5pZ2VyaWEgdG8gZmluYWxpemUgd2l0aCB5b3VyIHBheW1lbnQg
-b24gb3IgYmVmb3JlIG5leHQgd2VlayBXZWRuZXNkYXkgc28gYXMgdG8gdXBkYXRlIG91ciBwYXlt
-ZW50IHJlY29yZCBiZWZvcmUgdGhlIG1vbnRoIHJ1bnMgb3V0LiBUaGVyZWZvcmUsIHlvdSBhcmUg
-YWR2aWNlIHRvIHJlc3BvbmQgdG8gdGhpcyBtZXNzYWdlIGltbWVkaWF0ZWx5IGFuZCBjYWxsIG1l
-IGFzIHlvdSByZWFkIHRoaXMgbWFpbC5ccGFyDQogXHBhcg0KQmVzdCBSZWdhcmRzLFxwYXINCiBc
-cGFyDQpEci4gTmVsc29uIFdhbHRlcixccGFyDQpBY2NvdW50YW50IEdlbmVyYWwsXHBhcg0KQ2Vu
-dHJhbCBCYW5rIG9mIE5pZ2VyaWFccGFyDQp9DQoA
---===============0788145816==--
+Patches to use these NS8390 devices on ColdFire boards have existed
+out-of-tree for years. Some of the base IO definitions (those in
+arch/m68k/include/asm/mcfne.h) have been in mainline, but unused for most
+of that time.
+
+The first patch just neatens up mcfne.h (moving it to mcf8390.h). The
+second patch is the platform driver. The first patch would normaly just
+go through the m68knommu git tree, but I figured keeping these together made
+more sense.
+
+---
+ arch/m68k/include/asm/mcf8390.h     |  371 ++++++++++++++++++---------
+ arch/m68k/include/asm/mcfne.h       |  242 ------------------
+ drivers/net/ethernet/8390/Kconfig   |   14 +
+ drivers/net/ethernet/8390/Makefile  |    1 
+ drivers/net/ethernet/8390/mcf8390.c |  480 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 746 insertions(+), 362 deletions(-)
