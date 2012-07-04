@@ -1,48 +1,104 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] net: add support for NS8390 based eth controllers
- on some ColdFire CPU boards
-Date: Wed, 04 Jul 2012 07:52:35 -0700
-Message-ID: <1341413555.3627.33.camel@joe2Laptop>
-References: <1341377789-12970-1-git-send-email-gerg@snapgear.com>
-	 <1341377789-12970-3-git-send-email-gerg@snapgear.com>
-	 <1341379091.3627.15.camel@joe2Laptop> <4FF3E031.5040703@snapgear.com>
-	 <1341383999.3627.20.camel@joe2Laptop>
-	 <CAMuHMdVYiQyurOQOoeLbd6zXnaVK8Y9bUC=wXkHxhQO+cQwecQ@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2012-07-04
+Date: Wed, 04 Jul 2012 17:00:49 +0200
+Message-ID: <4FF45AA1.2040907@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Ungerer <gerg@snapgear.com>, netdev@vger.kernel.org,
-	linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdVYiQyurOQOoeLbd6zXnaVK8Y9bUC=wXkHxhQO+cQwecQ@mail.gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig20E4119E0561333F34AD204C"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-07-04 at 09:52 +0200, Geert Uytterhoeven wrote:
-> On Wed, Jul 4, 2012 at 8:39 AM, Joe Perches <joe@perches.com> wrote:
-> >> >> +static int mcf8390_init(struct net_device *dev)
-> >> >> +{
-> >> >> +  static u32 offsets[] = {
-> >> >> +          0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-> >> >> +          0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-> >> >> +  };
-> >> >
-> >> > const?  u8?
-> >>
-> >> That is assigned to the "reg_offset" field of "struct ei_device"
-> >> (defined in the existing 8390.h) and that is:
-> >>
-> >>      u32 *reg_offset;         /* Register mapping table */
-> >>
-> >> So I can't change this.
-> >
-> > Sure you can, you can assign a u8 to a u32 just fine.
-> 
-> It's not the value that's assigned, but a pointer to the table, so
-> for now it must be non-const u32 *.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig20E4119E0561333F34AD204C
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Oh, then of course you and Greg are correct.
+Hello David,
 
-It looks like the code in ax88796.c may actually
-need u32 sizes too.
+our third pull request for upcoming v3.6 net-next. First Oliver and me
+fix some sparse warnings, then 3 patches by Hui Wang and Shawn Guo
+which improve flexcan support and finally the patch by Rostislav Lisovy
+that adds CAN frame classifier.
+
+regards,
+Marc
+
+---
+
+The following changes since commit e87183c2b5ab1f55ebad2f260a7eb4d31549ce=
+25:
+
+  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge=
+ (2012-07-01 17:56:33 -0700)
+
+are available in the git repository at:
+
+
+  git://gitorious.org/linux-can/linux-can-next.git for-davem
+
+for you to fetch changes up to f057bbb6f9ed0fb61ea11105c9ef0ed5ac1a354d:
+
+  net: em_canid: Ematch rule to match CAN frames according to their ident=
+ifiers (2012-07-04 13:07:05 +0200)
+
+----------------------------------------------------------------
+Hui Wang (2):
+      can: flexcan: use of_property_read_u32 to get DT entry value
+      can: flexcan: add hardware controller version support
+
+Marc Kleine-Budde (2):
+      can: cc770: fix sparse warning for cc770_interrupt
+      can: dev: fix sparse warning for can_restart
+
+Oliver Hartkopp (1):
+      can: fix sparse warning in af_can.c
+
+Rostislav Lisovy (1):
+      net: em_canid: Ematch rule to match CAN frames according to their i=
+dentifiers
+
+Shawn Guo (1):
+      net: flexcan: clock-frequency is optional for device tree probe
+
+ .../devicetree/bindings/net/can/fsl-flexcan.txt    |    3 +
+ drivers/net/can/cc770/cc770.c                      |    2 +-
+ drivers/net/can/dev.c                              |    2 +-
+ drivers/net/can/flexcan.c                          |   71 ++++--
+ include/linux/can.h                                |    3 +
+ include/linux/pkt_cls.h                            |    5 +-
+ net/can/af_can.h                                   |    3 +
+ net/can/proc.c                                     |    3 -
+ net/sched/Kconfig                                  |   10 +
+ net/sched/Makefile                                 |    1 +
+ net/sched/em_canid.c                               |  240 ++++++++++++++=
+++++++
+ 11 files changed, 320 insertions(+), 23 deletions(-)
+ create mode 100644 net/sched/em_canid.c
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig20E4119E0561333F34AD204C
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk/0WqUACgkQjTAFq1RaXHNxagCfToJGZP9LCeSUofneRwxe3JtM
+ELoAniEtfpOVyJoGM89CYjxYNoaZggoj
+=xTaG
+-----END PGP SIGNATURE-----
+
+--------------enig20E4119E0561333F34AD204C--
