@@ -1,68 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Using interface number probing for usbnet drivers before 3.6-rc1? (was: Re: [PATCH net] net: qmi_wwan: fix Gobi device probing)
-Date: Wed, 04 Jul 2012 13:19:35 +0200
-Message-ID: <87mx3flqns.fsf_-_@nemi.mork.no>
-References: <1340282758-18085-1-git-send-email-bjorn@mork.no>
-	<20120622.171735.637204872051168180.davem@davemloft.net>
-	<87y5neidk1.fsf@nemi.mork.no>
-	<20120623.023749.1066357959466872561.davem@davemloft.net>
+From: "David Mason" <EMKBLK@aol.com>
+Subject: VIEW ATTACHED FOR DETAILS AND GET BACK TO ME
+Date: Wed, 04 Jul 2012 06:34:53 -0500
+Message-ID: <201207041136.q64Bas05021520@ims-m12.mx.aol.com>
+Reply-To: mrdavims1@yahoo.com.ph
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Content-Type: multipart/mixed; boundary="===============0558902503=="
+To: David Mason <EMKBLK@aol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:37700 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932541Ab2GDLTs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 07:19:48 -0400
-In-Reply-To: <20120623.023749.1066357959466872561.davem@davemloft.net> (David
-	Miller's message of "Sat, 23 Jun 2012 02:37:49 -0700 (PDT)")
+Received: from ims-m12.mx.aol.com ([64.12.207.145]:53221 "EHLO
+	ims-m12.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750735Ab2GDLg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 07:36:56 -0400
+Received: from oms-db02.r1000.mx.aol.com (oms-db02.r1000.mx.aol.com [205.188.58.2])
+	by ims-m12.mx.aol.com (8.14.1/8.14.1) with ESMTP id q64Bas05021520
+	for <netdev@vger.kernel.org>; Wed, 4 Jul 2012 07:36:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-> From: Bj=C3=B8rn Mork <bjorn@mork.no>
-> Date: Sat, 23 Jun 2012 11:26:54 +0200
->
->> Is waiting for 3.6-rc1 the best alternative, or is cherry-picking th=
-em
->> an option?
->
-> I'm extremely reluctant to have a dependency on another tree.
->
-> The USB tree, on the other hand, could pull the net-next tree
-> in so you can continue your dependent work there.
-
-Hello Greg,
-
-I know I said I would be more careful about cross-tree dependencies, bu=
-t
-here I am again...
-
-The context is: How should I proceed with interface number based probin=
-g
-for usbnet drivers, in particular qmi_wwan which already has a few
-patches in net-next?
-
-I see two possible remaining options:
-
- 1) you pull the net-next changes into usb-next so that I can do the
-    work against usb-next now, or
- 2) I wait for 3.6-rc1 and do the work against the net tree after
-    3.6-rc1 is merged there
-
-I have decided to go for option #2 unless either of you have other
-preferences, as I believe that is going to cause the least work and
-merge trouble for you both.
-
-The changes are mostly device IDs, but I am also going to rip out all
-the whitelist probing logic becoming redundant. This is a single driver
-and pretty obvious low risk though, so I believe it is appropriate for
-an -rc2.
-
-But please let me know if I'm on the wrong track here.
+You will not see this in a MIME-aware mail reader.
+--===============0558902503==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Description: Mail message body
 
 
-Bj=C3=B8rn
+--===============0558902503==
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="Details.txt"
+
+Hello, this is a management replacement on behalf of an investor whose anon=
+ymity is held in strict confidence because obvious reasons.
+
+We got your details from the United Kingdom Chambers of Commerce and Indust=
+ry while searching for a reliable partner to act as trustee to this funds. =
+The investor is interested in a joint partnership venture with you or your =
+company for a period of 10years,he the investor is willing to re-assign the=
+ proceed of his investment Bond to facilitate the term of agreement that we=
+ may enter with you.
+
+If you are vast in business and would be capable to handle a capital projec=
+t,please present your details along with your business plan to
+enable us review and set up meeting with you and our brokers here in Europe=
+. Upon the receipt of your information, we shall present the agreement bind=
+ing this transaction for your perusal and signature. I will await your mess=
+age.
+
+Regards,
+Mr David Mason.
+--===============0558902503==--
