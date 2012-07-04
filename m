@@ -1,104 +1,38 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2012-07-04
-Date: Wed, 04 Jul 2012 17:00:49 +0200
-Message-ID: <4FF45AA1.2040907@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig20E4119E0561333F34AD204C"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] bcm87xx: fix reg-init comment typo
+Date: Wed,  4 Jul 2012 17:05:45 +0200
+Message-ID: <1341414345-16626-1-git-send-email-jacmet@sunsite.dk>
+Cc: Peter Korsgaard <jacmet@sunsite.dk>
+To: netdev@vger.kernel.org, david.daney@cavium.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:59528 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752576Ab2GDPFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 11:05:54 -0400
+Received: by werb14 with SMTP id b14so4475122wer.19
+        for <netdev@vger.kernel.org>; Wed, 04 Jul 2012 08:05:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig20E4119E0561333F34AD204C
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+broadcom, not marvell.
 
-Hello David,
-
-our third pull request for upcoming v3.6 net-next. First Oliver and me
-fix some sparse warnings, then 3 patches by Hui Wang and Shawn Guo
-which improve flexcan support and finally the patch by Rostislav Lisovy
-that adds CAN frame classifier.
-
-regards,
-Marc
-
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
 ---
+ drivers/net/phy/bcm87xx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The following changes since commit e87183c2b5ab1f55ebad2f260a7eb4d31549ce=
-25:
-
-  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge=
- (2012-07-01 17:56:33 -0700)
-
-are available in the git repository at:
-
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to f057bbb6f9ed0fb61ea11105c9ef0ed5ac1a354d:
-
-  net: em_canid: Ematch rule to match CAN frames according to their ident=
-ifiers (2012-07-04 13:07:05 +0200)
-
-----------------------------------------------------------------
-Hui Wang (2):
-      can: flexcan: use of_property_read_u32 to get DT entry value
-      can: flexcan: add hardware controller version support
-
-Marc Kleine-Budde (2):
-      can: cc770: fix sparse warning for cc770_interrupt
-      can: dev: fix sparse warning for can_restart
-
-Oliver Hartkopp (1):
-      can: fix sparse warning in af_can.c
-
-Rostislav Lisovy (1):
-      net: em_canid: Ematch rule to match CAN frames according to their i=
-dentifiers
-
-Shawn Guo (1):
-      net: flexcan: clock-frequency is optional for device tree probe
-
- .../devicetree/bindings/net/can/fsl-flexcan.txt    |    3 +
- drivers/net/can/cc770/cc770.c                      |    2 +-
- drivers/net/can/dev.c                              |    2 +-
- drivers/net/can/flexcan.c                          |   71 ++++--
- include/linux/can.h                                |    3 +
- include/linux/pkt_cls.h                            |    5 +-
- net/can/af_can.h                                   |    3 +
- net/can/proc.c                                     |    3 -
- net/sched/Kconfig                                  |   10 +
- net/sched/Makefile                                 |    1 +
- net/sched/em_canid.c                               |  240 ++++++++++++++=
-++++++
- 11 files changed, 320 insertions(+), 23 deletions(-)
- create mode 100644 net/sched/em_canid.c
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig20E4119E0561333F34AD204C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk/0WqUACgkQjTAFq1RaXHNxagCfToJGZP9LCeSUofneRwxe3JtM
-ELoAniEtfpOVyJoGM89CYjxYNoaZggoj
-=xTaG
------END PGP SIGNATURE-----
-
---------------enig20E4119E0561333F34AD204C--
+diff --git a/drivers/net/phy/bcm87xx.c b/drivers/net/phy/bcm87xx.c
+index 9a90dcf..a6df68c 100644
+--- a/drivers/net/phy/bcm87xx.c
++++ b/drivers/net/phy/bcm87xx.c
+@@ -22,7 +22,7 @@
+ 
+ #if IS_ENABLED(CONFIG_OF_MDIO)
+ /* Set and/or override some configuration registers based on the
+- * marvell,reg-init property stored in the of_node for the phydev.
++ * broadcom,c45-reg-init property stored in the of_node for the phydev.
+  *
+  * broadcom,c45-reg-init = <devid reg mask value>,...;
+  *
+-- 
+1.7.10
