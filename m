@@ -1,97 +1,196 @@
-From: Arvid Brodin <Arvid.Brodin@xdin.com>
-Subject: [RFC v2 2/2] net/hsr: Add support for IEC 62439-3 High-availability
- Seamless Redundancy
-Date: Wed, 4 Jul 2012 00:18:12 +0000
-Message-ID: <4FF38BC4.9090901@xdin.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC v2 1/2] net/hsr: Add support for IEC 62439-3
+ High-availability Seamless Redundancy
+Date: Tue, 03 Jul 2012 17:30:24 -0700
+Message-ID: <1341361824.1993.16.camel@joe2Laptop>
+References: <4FF38A5C.9000802@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	Javier Boticario <jboticario@gmail.com>,
 	Bruno Ferreira <balferreira@googlemail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arvid Brodin <Arvid.Brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:51130 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756396Ab2GDASP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2012 20:18:15 -0400
-Content-Language: en-US
-Content-ID: <7D8EB42388137749BEEB56C3E3AEA8E5@redbull.xdin.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:38179 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751754Ab2GDAaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jul 2012 20:30:25 -0400
+In-Reply-To: <4FF38A5C.9000802@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VGhlIGlwcm91dGUgcGF0Y2guDQoNClN5bnRheDoNCiMgaXAgbGluayBhZGQgbmFtZSBoc3IwIHR5
-cGUgaHNyIGV0aDAgZXRoMQ0KIyBpcCBsaW5rIGRlbCBkZXYgaHNyMA0KDQoNCmRpZmYgLU51cnAg
-aXByb3V0ZTItMi42LjM1LW9yaWcvaXAvTWFrZWZpbGUgaXByb3V0ZTItMi42LjM1LWhzci9pcC9N
-YWtlZmlsZQ0KLS0tIGlwcm91dGUyLTIuNi4zNS1vcmlnL2lwL01ha2VmaWxlCTIwMTAtMDgtMDQg
-MTk6NDU6NTkuMDAwMDAwMDAwICswMjAwDQorKysgaXByb3V0ZTItMi42LjM1LWhzci9pcC9NYWtl
-ZmlsZQkyMDExLTEyLTEzIDE5OjQzOjE0LjI3MTkxMzI0NyArMDEwMA0KQEAgLTMsNyArMyw3IEBA
-IElQT0JKPWlwLm8gaXBhZGRyZXNzLm8gaXBhZGRybGFiZWwubyBpcHINCiAgICAgaXBtYWRkci5v
-IGlwbW9uaXRvci5vIGlwbXJvdXRlLm8gaXBwcmVmaXgubyBpcHR1bnRhcC5vIFwNCiAgICAgaXB4
-ZnJtLm8geGZybV9zdGF0ZS5vIHhmcm1fcG9saWN5Lm8geGZybV9tb25pdG9yLm8gXA0KICAgICBp
-cGxpbmtfdmxhbi5vIGxpbmtfdmV0aC5vIGxpbmtfZ3JlLm8gaXBsaW5rX2Nhbi5vIFwNCi0gICAg
-aXBsaW5rX21hY3ZsYW4ubw0KKyAgICBpcGxpbmtfbWFjdmxhbi5vIGlwbGlua19oc3Iubw0KDQog
-UlRNT05PQko9cnRtb24ubw0KDQpkaWZmIC1OdXJwIGlwcm91dGUyLTIuNi4zNS1vcmlnL2lwL2lw
-bGlua19oc3IuYyBpcHJvdXRlMi0yLjYuMzUtaHNyL2lwL2lwbGlua19oc3IuYw0KLS0tIGlwcm91
-dGUyLTIuNi4zNS1vcmlnL2lwL2lwbGlua19oc3IuYwkxOTcwLTAxLTAxIDAxOjAwOjAwLjAwMDAw
-MDAwMCArMDEwMA0KKysrIGlwcm91dGUyLTIuNi4zNS1oc3IvaXAvaXBsaW5rX2hzci5jCTIwMTEt
-MTItMTMgMTk6NDM6MTQuMjUyOTEzMDQzICswMTAwDQpAQCAtMCwwICsxLDEwMSBAQA0KKy8qDQor
-ICogaXBsaW5rX2hzci5jCUhTUiBkZXZpY2Ugc3VwcG9ydA0KKyAqDQorICogICAgICAgICAgICAg
-IFRoaXMgcHJvZ3JhbSBpcyBmcmVlIHNvZnR3YXJlOyB5b3UgY2FuIHJlZGlzdHJpYnV0ZSBpdCBh
-bmQvb3INCisgKiAgICAgICAgICAgICAgbW9kaWZ5IGl0IHVuZGVyIHRoZSB0ZXJtcyBvZiB0aGUg
-R05VIEdlbmVyYWwgUHVibGljIExpY2Vuc2UNCisgKiAgICAgICAgICAgICAgYXMgcHVibGlzaGVk
-IGJ5IHRoZSBGcmVlIFNvZnR3YXJlIEZvdW5kYXRpb247IGVpdGhlciB2ZXJzaW9uDQorICogICAg
-ICAgICAgICAgIDIgb2YgdGhlIExpY2Vuc2UsIG9yIChhdCB5b3VyIG9wdGlvbikgYW55IGxhdGVy
-IHZlcnNpb24uDQorICoNCisgKiBBdXRob3JzOiAgICAgQXJ2aWQgQnJvZGluIDxhcnZpZC5icm9k
-aW5AZW5lYS5jb20+DQorICoNCisgKiAJCUJhc2VkIG9uIGlwbGlua192bGFuLmMgYnkgUGF0cmlj
-ayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+DQorICovDQorDQorI2luY2x1ZGUgPHN0ZGlvLmg+
-DQorI2luY2x1ZGUgPHN0ZGxpYi5oPg0KKyNpbmNsdWRlIDxzdHJpbmcuaD4NCisjaW5jbHVkZSA8
-c3lzL3NvY2tldC5oPiAgLyogTmVlZGVkIGJ5IGxpbnV4L2lmLmggZm9yIHNvbWUgcmVhc29uICov
-DQorI2luY2x1ZGUgPGxpbnV4L2lmLmg+DQorI2luY2x1ZGUgPGxpbnV4L2lmX3ZsYW4uaD4NCisN
-CisjaW5jbHVkZSAicnRfbmFtZXMuaCINCisjaW5jbHVkZSAidXRpbHMuaCINCisjaW5jbHVkZSAi
-aXBfY29tbW9uLmgiDQorDQorc3RhdGljIHZvaWQgZXhwbGFpbih2b2lkKQ0KK3sNCisJZnByaW50
-ZihzdGRlcnIsDQorCQkiVXNhZ2U6IGlwIGxpbmsgYWRkIG5hbWUgTkFNRSB0eXBlIGhzciBTTEFW
-RTEgU0xBVkUyXG4iDQorCQkiXG4iDQorCQkiTkFNRQkJCW5hbWUgb2YgbmV3IGhzciBkZXZpY2Ug
-KGUuZy4gaHNyMClcbiINCisJCSJTTEFWRTEsIFNMQVZFMgkJdGhlIHR3byBzbGF2ZSBkZXZpY2Vz
-IGJvdW5kIGJ5IGhzcjBcbiINCisJKTsNCit9DQorDQorc3RhdGljIGludCBoc3JfcGFyc2Vfb3B0
-KHN0cnVjdCBsaW5rX3V0aWwgKmx1LCBpbnQgYXJnYywgY2hhciAqKmFyZ3YsDQorCQkJICBzdHJ1
-Y3Qgbmxtc2doZHIgKm4pDQorew0KKwljaGFyICpuYW1lLCAqbGluazsNCisJaW50IGlmaW5kZXgs
-IGxlbjsNCisNCisJaWYgKGFyZ2MgIT0gMikgew0KKwkJZXhwbGFpbigpOw0KKwkJcmV0dXJuIC0x
-Ow0KKwl9DQorDQorCXN3aXRjaCAobi0+bmxtc2dfdHlwZSkgew0KKwljYXNlIFJUTV9ORVdMSU5L
-Og0KKwkJaWYgKGFyZ2MgIT0gMikgew0KKwkJCWV4cGxhaW4oKTsNCisJCQlyZXR1cm4gLTE7DQor
-CQl9DQorCQl3aGlsZSAoYXJnYyA+IDApIHsNCisJCQlsaW5rID0gICphcmd2Ow0KKwkJCWlmaW5k
-ZXggPSBsbF9uYW1lX3RvX2luZGV4KGxpbmspOw0KKwkJCWlmIChhcmdjID09IDIpDQorCQkJCWFk
-ZGF0dHJfbChuLCAxMDI0LCBJRkxBX0hTUl9TTEFWRTEsICZpZmluZGV4LCA0KTsNCisJCQllbHNl
-DQorCQkJCWFkZGF0dHJfbChuLCAxMDI0LCBJRkxBX0hTUl9TTEFWRTIsICZpZmluZGV4LCA0KTsN
-CisJCQlwcmludGYoIlNsYXZlICVkOiAlczsgJWRcbiIsIDMtYXJnYywgbGluaywgaWZpbmRleCk7
-DQorCQkJYXJnYy0tOw0KKwkJCWFyZ3YrKzsNCisJCX0NCisJCWJyZWFrOw0KKw0KKwljYXNlIFJU
-TV9ERUxMSU5LOg0KKwkJaWYgKGFyZ2MgIT0gMCkgew0KKwkJCWV4cGxhaW4oKTsNCisJCQlyZXR1
-cm4gLTE7DQorCQl9DQorCQlicmVhazsNCisNCisJZGVmYXVsdDoNCisJCXJldHVybiAtMTsNCisJ
-fQ0KKw0KKwlyZXR1cm4gMDsNCisNCisvKg0KKwkJaWYgKGlmaW5kZXggIT0gMCkgew0KKwkJCWZw
-cmludGYoc3RkZXJyLCAiTGluayBkZXZpY2UgXCIlc1wiIGFscmVhZHkgZXhpc3RcbiIsIG5hbWUp
-Ow0KKwkJCXJldHVybiAtMTsNCisJCX0NCisJCWlmIChpZmluZGV4ID09IDApIHsNCisJCQlmcHJp
-bnRmKHN0ZGVyciwgIkNhbm5vdCBmaW5kIGRldmljZSBcIiVzXCJcbiIsDQorCQkJCWxpbmspOw0K
-KwkJCXJldHVybiAtMTsNCisJCX0NCisqLw0KK30NCisNCitzdGF0aWMgdm9pZCBoc3JfcHJpbnRf
-b3B0KHN0cnVjdCBsaW5rX3V0aWwgKmx1LCBGSUxFICpmLCBzdHJ1Y3QgcnRhdHRyICp0YltdKQ0K
-K3sNCisJZnByaW50ZihmLCAiaHNyX3ByaW50X29wdCgpIGNhbGxlZFxuIik7DQorfQ0KKw0KK3N0
-cnVjdCBsaW5rX3V0aWwgaHNyX2xpbmtfdXRpbCA9IHsNCisJLmlkCQk9ICJoc3IiLA0KKwkubWF4
-YXR0cgk9IElGTEFfVkxBTl9NQVgsDQorCS5wYXJzZV9vcHQJPSBoc3JfcGFyc2Vfb3B0LA0KKwku
-cHJpbnRfb3B0CT0gaHNyX3ByaW50X29wdCwNCit9Ow0KLS0tIGlwcm91dGUyLTIuNi4zNS1vcmln
-L2lwL2lwbGluay5jCTIwMTAtMDgtMDQgMTk6NDU6NTkuMDAwMDAwMDAwICswMjAwDQorKysgaXBy
-b3V0ZTItMi42LjM1LWJ1aWxkL2lwL2lwbGluay5jCTIwMTEtMTItMDcgMDA6MTI6MDkuNTg4NjA0
-ODE3ICswMTAwDQpAQCAtNDMzLDYgKzQzMyw2IEBAIHN0YXRpYyBpbnQgaXBsaW5rX21vZGlmeShp
-bnQgY21kLCB1bnNpZ24NCg0KIAkJbHUgPSBnZXRfbGlua19raW5kKHR5cGUpOw0KLQkJaWYgKGx1
-ICYmIGFyZ2MpIHsNCisJCWlmIChsdSkgew0KIAkJCXN0cnVjdCBydGF0dHIgKiBkYXRhID0gTkxN
-U0dfVEFJTCgmcmVxLm4pOw0KIAkJCWFkZGF0dHJfbCgmcmVxLm4sIHNpemVvZihyZXEpLCBJRkxB
-X0lORk9fREFUQSwgTlVMTCwgMCk7DQoNCi0tLSBpcHJvdXRlMi0yLjYuMzUtb3JpZy9pbmNsdWRl
-L2xpbnV4L2lmX2xpbmsuaAkyMDEwLTA4LTA0IDE5OjQ1OjU5LjAwMDAwMDAwMCArMDIwMA0KKysr
-IGlwcm91dGUyLTIuNi4zNS1oc3IvaW5jbHVkZS9saW51eC9pZl9saW5rLmgJMjAxMS0xMi0xMyAx
-OTo1MToyMi42MzkxMjkwMDQgKzAxMDANCkBAIC0zNDcsNCArMzQ3LDE1IEBAIHN0cnVjdCBpZmxh
-X3BvcnRfdnNpIHsNCiAJX191OCBwYWRbM107DQogfTsNCg0KKy8qIEhTUiBzZWN0aW9uICovDQor
-DQorZW51bSB7DQorCUlGTEFfSFNSX1VOU1BFQywNCisJSUZMQV9IU1JfU0xBVkUxLA0KKwlJRkxB
-X0hTUl9TTEFWRTIsDQorCV9fSUZMQV9IU1JfTUFYLA0KK307DQorDQorI2RlZmluZSBJRkxBX0hT
-Ul9NQVggKF9fSUZMQV9IU1JfTUFYIC0gMSkNCisNCiAjZW5kaWYgLyogX0xJTlVYX0lGX0xJTktf
-SCAqLw0KDQoNCi0tIA0KQXJ2aWQgQnJvZGluIHwgQ29uc3VsdGFudCAoTGludXgpDQpYRElOIEFC
-IHwgSmFuIFN0ZW5iZWNrcyBUb3JnIDE3IHwgU0UtMTY0IDQwIEtpc3RhIHwgU3dlZGVuIHwgeGRp
-bi5jb20=
+On Wed, 2012-07-04 at 00:12 +0000, Arvid Brodin wrote:
+> The kernel patch.
+
+[]
+
+> diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
+
+> @@ -0,0 +1,531 @@
+
+> +static int is_admin_up(struct net_device *dev)
+> +{
+> +	return (dev->flags & IFF_UP);
+> +}
+> +
+> +static int is_operstate_up(struct net_device *dev)
+> +{
+> +	return (dev->operstate == IF_OPER_UP);
+> +}
+
+bool?
+
+> +static void __hsr_set_operstate(struct net_device *dev, int transition)
+> +{
+> +	if (dev->operstate != transition) {
+> +/*
+> +		switch (transition) {
+> +		case IF_OPER_UP:
+> +			printk(KERN_INFO "%s: new operstate is IF_OPER_UP\n", dev->name);
+
+	netdev_info(dev, "new operstate is IF_OPER_UP\n");
+
+> +			break;
+> +		default:
+> +			printk(KERN_INFO "%s: new operstate is !IF_OPER_UP (%d)\n", dev->name, transition);
+
+etc.
+
+> +void hsr_set_operstate(struct net_device *hsr_dev, struct net_device *slave1,
+> +						struct net_device *slave2)
+> +{
+> +	if (!is_admin_up(hsr_dev)) {
+> +		__hsr_set_operstate(hsr_dev, IF_OPER_DOWN);
+> +		return;
+> +	}
+> +/*
+> +	printk(KERN_INFO "Slave1/2 operstate: %d/%d\n",
+> +					slave1->operstate, slave2->operstate);
+> +*/
+
+Please remove commented out code.
+
+> +static void restore_slaves(struct net_device *hsr_dev)
+> +{
+> +	struct hsr_priv *hsr_priv;
+> +	struct net_device *slave[2];
+> +	int i;
+> +	int res;
+> +
+> +	hsr_priv = netdev_priv(hsr_dev);
+> +	for (i = 0; i < 2; i++)
+> +		slave[i] = hsr_priv->slave_data[i].dev;
+> +
+> +	rtnl_lock();
+> +
+> +	/* Restore promiscuity */
+> +	for (i = 0; i < 2; i++) {
+> +		if (!hsr_priv->slave_data[i].promisc)
+> +			continue;
+> +		res = dev_set_promiscuity(slave[i],
+> +					-hsr_priv->slave_data[i].promisc);
+> +		if (res)
+> +			pr_info("HSR: Cannot restore promiscuity (%s, %d)\n",
+> +							slave[i]->name,
+> +							res);
+
+shouldn't this just be:
+
+			netdev_info(slave[i], "cannot restore promiscuity: %d\n",
+				    res);
+
+If you must use pr_<level> please add
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+before any include and let the printk subsystem
+add MODNAME as a prefix.
+
+
+> +static int check_slave_ok(struct net_device *dev)
+> +{
+> +	/* Don't allow HSR on non-ethernet like devices */
+> +	if ((dev->flags & IFF_LOOPBACK) || (dev->type != ARPHRD_ETHER) ||
+> +						(dev->addr_len != ETH_ALEN)) {
+> +		pr_info("%s: Cannot enslave loopback or non-ethernet device\n",
+> +								dev->name);
+
+		netdev_info(dev, "Cannot enslave...");
+
+> +		return -EINVAL;
+> +	}
+> +
+> +	/* Don't allow enslaving hsr devices */
+> +	if (is_hsr_master(dev)) {
+> +		pr_info("%s: Don't try to create trees of hsr devices!\n",
+> +								dev->name);
+
+
+		netdev_err(dev, "Cannot create trees of hsr devices\n");
+
+
+> +int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2])
+> +{
+
+> +	/* Set hsr_dev's MAC address to that of mac_slave1 */
+> +	memcpy(hsr_dev->dev_addr, hsr_priv->slave_data[0].dev->dev_addr,
+> +							hsr_dev->addr_len);
+
+ETH_ALEN?
+
+> diff --git a/net/hsr/hsr_device.h b/net/hsr/hsr_device.h
+[]
+> @@ -0,0 +1,27 @@
+
+> +void hsr_dev_setup(struct net_device *dev);
+> +int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2]);
+> +void hsr_set_operstate(struct net_device *hsr_dev, struct net_device *slave1,
+> +						struct net_device *slave2);
+
+please align arguments immediately after the open parenthesis.
+
+> diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
+[]
+> +static struct node_entry *find_node_by_AddrA(struct list_head *node_db,
+> +						unsigned char addr[ETH_ALEN])
+
+static struct node_entry *find_node_by_AddrA(struct list_head *node_db,
+					     unsigned char addr[ETH_ALEN])
+[]
+> +static struct node_entry *find_node_by_AddrB(struct list_head *node_db,
+> +						unsigned char addr[ETH_ALEN])
+
+Alignment...
+
+> +int framereg_merge_node(struct hsr_priv *hsr_priv, enum hsr_dev_idx dev_idx,
+> +							struct sk_buff *skb)
+> +{
+[]
+> +	node = find_node_by_AddrA(&hsr_priv->node_db, hsr_stag->MacAddressA);
+> +	if (!node) {
+> +		rcu_read_unlock();
+> +		found = 0;
+> +		node = kmalloc(sizeof(*node), GFP_ATOMIC);
+
+why GFP_ATOMIC?
+
+> +		if (!node)
+> +			return -ENOMEM;
+> +
+> +		memcpy(node->MacAddressA, hsr_stag->MacAddressA, ETH_ALEN);
+> +		memcpy(node->MacAddressB, ethhdr->h_source, ETH_ALEN);
+> +
+> +		for (i = 0; i < HSR_MAX_SLAVE; i++)
+> +			node->time_in[i] = 0;
+> +		for (i = 0; i < HSR_MAX_DEV; i++)
+> +			node->seq_out[i] = 0;
+> +/*
+> +		printk(KERN_INFO "HSR: Added node %pM / %pM\n",
+> +							node->MacAddressA,
+> +							node->MacAddressB);
+> +*/
+
+Please remove commented out code here and everywhere else...
+
+[too long, stopped reading]
