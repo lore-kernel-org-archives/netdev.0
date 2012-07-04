@@ -1,60 +1,49 @@
-From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Subject: RE: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
-Date: Wed, 4 Jul 2012 01:56:41 +0000
-Message-ID: <6349D7A510622448B1BA0967850A8438012EBAE2@nasanexd02d.na.qualcomm.com>
-References: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
- <157393863283F442885425D2C454285623DB7BEC@NASANEXD02A.na.qualcomm.com>
+From: <cjren@qca.qualcomm.com>
+Subject: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Wed, 4 Jul 2012 10:51:48 +0800
+Message-ID: <1341370308-23233-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>
-To: "Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <157393863283F442885425D2C454285623DB7BEC@NASANEXD02A.na.qualcomm.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:17878 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754426Ab2GDCvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jul 2012 22:51:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WGlvbmcsIEl0IGxvb2tzIG15IHN5c3RlbSB0aW1lIGlzIHdyb25nLiBBZnRlciBjb3JyZWN0IGl0
-LCBJIHdpbGwgcmVzZW5kIGl0Lg0KDQpDbG91ZCByZW4NCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdl
-LS0tLS0NCkZyb206IEh1YW5nLCBYaW9uZyANClNlbnQ6IDIwMTLE6jfUwjPI1SAyMTowNA0KVG86
-IFJlbiwgQ2xvdWQ7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
-IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCkNjOiBxY2EtbGludXgtdGVhbTsgbmljLWRl
-dmVsDQpTdWJqZWN0OiBSRTogW1BBVENIIDEvMV0gYXRsMWM6IGZpeCBpc3N1ZSBvZiB0cmFuc21p
-dCBxdWV1ZSAwIHRpbWVkIG91dA0KDQpDbG91ZCwgIHdoeSB5b3VyIHBhdGNoIGNvbnRhaW5zIDog
-ICdGcm9tOiBDbG91ZCBSZW4gPGNqcmVuQHFjYS5xdWFsY29tbS5jb20+Jw0KSSBkb26hr3QgZmlu
-ZCBpdCBpbiBvdGhlciBwZW9wbGUncyBwYXRjaC4NCg0KRG9lc24ndCBEYXZpZCBNaWxsZXIgdGhp
-bmsgeW91ciB0aW1lIGlzIHdyb25nID8NCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
-DQo+IEZyb206IFJlbiwgQ2xvdWQNCj4gU2VudDogVHVlc2RheSwgSnVseSAwMywgMjAxMiAyMToy
-OA0KPiBUbzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGlu
-dXgtIA0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IENjOiBxY2EtbGludXgtdGVhbTsgbmlj
-LWRldmVsOyBSZW4sIENsb3VkDQo+IFN1YmplY3Q6IFtQQVRDSCAxLzFdIGF0bDFjOiBmaXggaXNz
-dWUgb2YgdHJhbnNtaXQgcXVldWUgMCB0aW1lZCBvdXQNCj4gDQo+IEZyb206IENsb3VkIFJlbiA8
-Y2pyZW5AcWNhLnF1YWxjb21tLmNvbT4NCj4gDQo+IHNvbWUgcGVvcGxlIHJlcG9ydCBhdGwxYyBj
-b3VsZCBjYXVzZSBzeXN0ZW0gaGFuZyB3aXRoIGZvbGxvd2luZyBrZXJuZWwgDQo+IHRyYWNlDQo+
-IGluZm86DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiBXQVJO
-SU5HOiBhdC4uLi9uZXQvc2NoZWQvc2NoX2dlbmVyaWMuYzoyNTggZGV2X3dhdGNoZG9nKzB4MWRi
-LzB4MWQwKCkgLi4uDQo+IE5FVERFViBXQVRDSERPRzogZXRoMCAoYXRsMWMpOiB0cmFuc21pdCBx
-dWV1ZSAwIHRpbWVkIG91dCAuLi4NCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tDQo+IFRoaXMgaXMgY2F1c2VkIGJ5IG5ldGlmX3N0b3BfcXVldWUgY2FsbGluZyB3aGVu
-IGNhYmxlIExpbmsgaXMgZG93bi4NCj4gU28gcmVtb3ZlIG5ldGlmX3N0b3BfcXVldWUsIGJlY2F1
-c2UgbGlua193YXRjaCB3aWxsIHRha2UgaXQgb3Zlci4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IHhp
-b25nIDx4aW9uZ0BxY2EucXVhbGNvbW0uY29tPg0KPiBDYzogc3RhYmxlIDxzdGFibGVAdmdlci5r
-ZXJuZWwub3JnPg0KPiBTaWduZWQtb2ZmLWJ5OiBDbG91ZCBSZW4gPGNqcmVuQHFjYS5xdWFsY29t
-bS5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwx
-Y19tYWluLmMgfCAgICAxIC0NCj4gIDEgZmlsZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25zKCspLCAx
-IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0
-aGVyb3MvYXRsMWMvYXRsMWNfbWFpbi5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJv
-cy9hdGwxYy9hdGwxY19tYWluLmMNCj4gaW5kZXggODU3MTdjYi4uNzkwMTgzMSAxMDA2NDQNCj4g
-LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19tYWluLmMNCj4g
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19tYWluLmMNCj4g
-QEAgLTI2MSw3ICsyNjEsNiBAQCBzdGF0aWMgdm9pZCBhdGwxY19jaGVja19saW5rX3N0YXR1cyhz
-dHJ1Y3QgDQo+IGF0bDFjX2FkYXB0ZXIgKmFkYXB0ZXIpDQo+ICAJaWYgKChwaHlfZGF0YSAmIEJN
-U1JfTFNUQVRVUykgPT0gMCkgew0KPiAgCQkvKiBsaW5rIGRvd24gKi8NCj4gIAkJbmV0aWZfY2Fy
-cmllcl9vZmYobmV0ZGV2KTsNCj4gLQkJbmV0aWZfc3RvcF9xdWV1ZShuZXRkZXYpOw0KPiAgCQlo
-dy0+aGliZXJuYXRlID0gdHJ1ZTsNCj4gIAkJaWYgKGF0bDFjX3Jlc2V0X21hYyhodykgIT0gMCkN
-Cj4gIAkJCWlmIChuZXRpZl9tc2dfaHcoYWRhcHRlcikpDQo+IC0tDQo+IDEuNy43DQoNCg==
+some people report atl1c could cause system hang with following
+kernel trace info:
+---------------------------------------
+WARNING: at.../net/sched/sch_generic.c:258 dev_watchdog+0x1db/0x1d0()
+...
+NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
+...
+---------------------------------------
+This is caused by netif_stop_queue calling when cable Link is down.
+So remove netif_stop_queue, because link_watch will take it over.
+
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+Cc: stable <stable@vger.kernel.org>
+Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 85717cb..7901831 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -261,7 +261,6 @@ static void atl1c_check_link_status(struct atl1c_adapter *adapter)
+ 	if ((phy_data & BMSR_LSTATUS) == 0) {
+ 		/* link down */
+ 		netif_carrier_off(netdev);
+-		netif_stop_queue(netdev);
+ 		hw->hibernate = true;
+ 		if (atl1c_reset_mac(hw) != 0)
+ 			if (netif_msg_hw(adapter))
+-- 
+1.7.7
