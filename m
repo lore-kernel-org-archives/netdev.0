@@ -1,62 +1,128 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: RFC: (now non Base64) replace packets already in queue
-Date: Wed, 04 Jul 2012 22:32:51 +0200
-Message-ID: <4FF4A873.1000001@gmail.com>
-References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>  <4FEC854E.8080603@hp.com>  <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>  <1340960817.15719.6.camel@edumazet-glaptop>  <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>  <1341214310.5269.27.camel@edumazet-glaptop>  <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>  <4FF20557.4090501@gmail.com> <1341266168.22621.466.camel@edumazet-glaptop> <FB112703C4930F4ABEBB5B763F96491139379DC7@MAILSERV2A.lorien.fkie.fgan.de> <FB112703C4930F4ABEBB5B763F96491139379ECF@MAILSERV2A.lorien.fkie.fgan.de>
+From: Arvid Brodin <Arvid.Brodin@xdin.com>
+Subject: Re: [RFC v2 1/2] net/hsr: Add support for IEC 62439-3
+ High-availability Seamless Redundancy
+Date: Wed, 4 Jul 2012 22:02:16 +0000
+Message-ID: <4FF4BD68.1090304@xdin.com>
+References: <4FF38A5C.9000802@xdin.com> <1341361824.1993.16.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>
-To: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Javier Boticario <jboticario@gmail.com>,
+	Bruno Ferreira <balferreira@googlemail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:60634 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754586Ab2GDUby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 16:31:54 -0400
-Received: by eeit10 with SMTP id t10so3014948eei.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jul 2012 13:31:53 -0700 (PDT)
-In-Reply-To: <FB112703C4930F4ABEBB5B763F96491139379ECF@MAILSERV2A.lorien.fkie.fgan.de>
+Received: from spam1.webland.se ([91.207.112.90]:55503 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755360Ab2GDWCU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jul 2012 18:02:20 -0400
+In-Reply-To: <1341361824.1993.16.camel@joe2Laptop>
+Content-Language: en-US
+Content-ID: <0A1CDD2AE6FA5244800B43552A202A6A@redbull.xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/07/2012 12:02, Erdt, Ralph a =E9crit :
-> My question is: Should I do the work to create and release a kernel p=
-atch and make
-> it perfect over the time, or is this just our internal code, which I =
-can leave at
-> the current state? I know our module won't be used widely (too specia=
-l), but I'm
-> sure, there are a few people out there, which would be thankful for t=
-his.
-
-I suggest you try and send a properly formated patch with your code, so=
- that people here can have a=20
-look at it and evaluate the interest of integrating it into main line k=
-ernel.
-
-That being said, I really think you should try to manage a userspace qu=
-eue, in particular if you=20
-already have most of the job done in userspace using a tun/tap. I don't=
- know the details of the=20
-special device you work with, but if you manage both side of the link, =
-you can add many nice=20
-features into userspace to enhance the speed/quality :
-
-- Compression (including very clever one if you know the meaning of the=
- data you are transmitting).
-- Packet numbering, to allow the remote side to ACK packet, the same wa=
-y TCP does.
-- Early ACK on TCP, if you get an ACK from the other side of your link =
-and you assure that this link=20
-is the worst part of the path. This may help TCP to work on this low sp=
-eed/high RTT link.
-
-And I really see your packet replacement system as one of those nice fe=
-atures and cannot imagine a=20
-good reason not to put it in userspace.
-
-	Nicolas.
+T24gMjAxMi0wNy0wNCAwMjozMCwgSm9lIFBlcmNoZXMgd3JvdGU6DQo+IE9uIFdlZCwgMjAxMi0w
+Ny0wNCBhdCAwMDoxMiArMDAwMCwgQXJ2aWQgQnJvZGluIHdyb3RlOg0KPj4gVGhlIGtlcm5lbCBw
+YXRjaC4NCj4gDQo+IFtdDQoNCldoYXQgZG9lcyB0aGlzIG1lYW4gKHRoZSAiW10iKT8NCg0KPiAN
+Cj4+IGRpZmYgLS1naXQgYS9uZXQvaHNyL2hzcl9kZXZpY2UuYyBiL25ldC9oc3IvaHNyX2Rldmlj
+ZS5jDQo+IA0KPj4gQEAgLTAsMCArMSw1MzEgQEANCj4gDQo+PiArc3RhdGljIGludCBpc19hZG1p
+bl91cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPj4gK3sNCj4+ICsJcmV0dXJuIChkZXYtPmZs
+YWdzICYgSUZGX1VQKTsNCj4+ICt9DQo+PiArDQo+PiArc3RhdGljIGludCBpc19vcGVyc3RhdGVf
+dXAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCj4+ICt7DQo+PiArCXJldHVybiAoZGV2LT5vcGVy
+c3RhdGUgPT0gSUZfT1BFUl9VUCk7DQo+PiArfQ0KPiANCj4gYm9vbD8NCg0KWWVwLCBkaWRuJ3Qg
+a25vdyB0aGUgYm9vbCB0eXBlIGV4aXN0ZWQuDQoNCj4gDQo+PiArc3RhdGljIHZvaWQgX19oc3Jf
+c2V0X29wZXJzdGF0ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdHJhbnNpdGlvbikNCj4+
+ICt7DQo+PiArCWlmIChkZXYtPm9wZXJzdGF0ZSAhPSB0cmFuc2l0aW9uKSB7DQo+PiArLyoNCj4+
+ICsJCXN3aXRjaCAodHJhbnNpdGlvbikgew0KPj4gKwkJY2FzZSBJRl9PUEVSX1VQOg0KPj4gKwkJ
+CXByaW50ayhLRVJOX0lORk8gIiVzOiBuZXcgb3BlcnN0YXRlIGlzIElGX09QRVJfVVBcbiIsIGRl
+di0+bmFtZSk7DQo+IA0KPiAJbmV0ZGV2X2luZm8oZGV2LCAibmV3IG9wZXJzdGF0ZSBpcyBJRl9P
+UEVSX1VQXG4iKTsNCj4gDQo+PiArCQkJYnJlYWs7DQo+PiArCQlkZWZhdWx0Og0KPj4gKwkJCXBy
+aW50ayhLRVJOX0lORk8gIiVzOiBuZXcgb3BlcnN0YXRlIGlzICFJRl9PUEVSX1VQICglZClcbiIs
+IGRldi0+bmFtZSwgdHJhbnNpdGlvbik7DQo+IA0KPiBldGMuDQo+IA0KPj4gK3ZvaWQgaHNyX3Nl
+dF9vcGVyc3RhdGUoc3RydWN0IG5ldF9kZXZpY2UgKmhzcl9kZXYsIHN0cnVjdCBuZXRfZGV2aWNl
+ICpzbGF2ZTEsDQo+PiArCQkJCQkJc3RydWN0IG5ldF9kZXZpY2UgKnNsYXZlMikNCj4+ICt7DQo+
+PiArCWlmICghaXNfYWRtaW5fdXAoaHNyX2RldikpIHsNCj4+ICsJCV9faHNyX3NldF9vcGVyc3Rh
+dGUoaHNyX2RldiwgSUZfT1BFUl9ET1dOKTsNCj4+ICsJCXJldHVybjsNCj4+ICsJfQ0KPj4gKy8q
+DQo+PiArCXByaW50ayhLRVJOX0lORk8gIlNsYXZlMS8yIG9wZXJzdGF0ZTogJWQvJWRcbiIsDQo+
+PiArCQkJCQlzbGF2ZTEtPm9wZXJzdGF0ZSwgc2xhdmUyLT5vcGVyc3RhdGUpOw0KPj4gKyovDQo+
+IA0KPiBQbGVhc2UgcmVtb3ZlIGNvbW1lbnRlZCBvdXQgY29kZS4NCg0KSSBpbnRlbmRlZCB0byBk
+byBzbyB3aGVuIEkgc2VuZCB0aGUgcGF0Y2ggb2YgY291cnNlLiBJIGRpZG4ndCBrbm93IGl0IHdv
+dWxkIGJlIHNvIGZyb3duZWQNCnVwb24gaW4gYSBSRkMsIEkgdGhvdWdodCBpdCB3b3VsZCBiZSBl
+bm91Z2ggdG8gbm90ZSB0aGUgZXhpc3RlbmNlIG9mIHRoZSBjb21tZW50ZWQgb3V0DQpjb2RlIHVu
+ZGVyIGtub3duIHByb2JsZW1zLCBhcyBJIGRpZCBpbiBSRkMgcGFydCAwLiBMZXNzb24gbGVhcm5l
+ZCENCg0KPiANCj4+ICtzdGF0aWMgdm9pZCByZXN0b3JlX3NsYXZlcyhzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqaHNyX2RldikNCj4+ICt7DQo+PiArCXN0cnVjdCBoc3JfcHJpdiAqaHNyX3ByaXY7DQo+PiAr
+CXN0cnVjdCBuZXRfZGV2aWNlICpzbGF2ZVsyXTsNCj4+ICsJaW50IGk7DQo+PiArCWludCByZXM7
+DQo+PiArDQo+PiArCWhzcl9wcml2ID0gbmV0ZGV2X3ByaXYoaHNyX2Rldik7DQo+PiArCWZvciAo
+aSA9IDA7IGkgPCAyOyBpKyspDQo+PiArCQlzbGF2ZVtpXSA9IGhzcl9wcml2LT5zbGF2ZV9kYXRh
+W2ldLmRldjsNCj4+ICsNCj4+ICsJcnRubF9sb2NrKCk7DQo+PiArDQo+PiArCS8qIFJlc3RvcmUg
+cHJvbWlzY3VpdHkgKi8NCj4+ICsJZm9yIChpID0gMDsgaSA8IDI7IGkrKykgew0KPj4gKwkJaWYg
+KCFoc3JfcHJpdi0+c2xhdmVfZGF0YVtpXS5wcm9taXNjKQ0KPj4gKwkJCWNvbnRpbnVlOw0KPj4g
+KwkJcmVzID0gZGV2X3NldF9wcm9taXNjdWl0eShzbGF2ZVtpXSwNCj4+ICsJCQkJCS1oc3JfcHJp
+di0+c2xhdmVfZGF0YVtpXS5wcm9taXNjKTsNCj4+ICsJCWlmIChyZXMpDQo+PiArCQkJcHJfaW5m
+bygiSFNSOiBDYW5ub3QgcmVzdG9yZSBwcm9taXNjdWl0eSAoJXMsICVkKVxuIiwNCj4+ICsJCQkJ
+CQkJc2xhdmVbaV0tPm5hbWUsDQo+PiArCQkJCQkJCXJlcyk7DQo+IA0KPiBzaG91bGRuJ3QgdGhp
+cyBqdXN0IGJlOg0KPiANCj4gCQkJbmV0ZGV2X2luZm8oc2xhdmVbaV0sICJjYW5ub3QgcmVzdG9y
+ZSBwcm9taXNjdWl0eTogJWRcbiIsDQo+IAkJCQkgICAgcmVzKTsNCj4gDQo+IElmIHlvdSBtdXN0
+IHVzZSBwcl88bGV2ZWw+IHBsZWFzZSBhZGQNCj4gI2RlZmluZSBwcl9mbXQoZm10KSBLQlVJTERf
+TU9ETkFNRSAiOiAiIGZtdA0KPiBiZWZvcmUgYW55IGluY2x1ZGUgYW5kIGxldCB0aGUgcHJpbnRr
+IHN1YnN5c3RlbQ0KPiBhZGQgTU9ETkFNRSBhcyBhIHByZWZpeC4NCj4gDQo+IA0KPj4gK3N0YXRp
+YyBpbnQgY2hlY2tfc2xhdmVfb2soc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCj4+ICt7DQo+PiAr
+CS8qIERvbid0IGFsbG93IEhTUiBvbiBub24tZXRoZXJuZXQgbGlrZSBkZXZpY2VzICovDQo+PiAr
+CWlmICgoZGV2LT5mbGFncyAmIElGRl9MT09QQkFDSykgfHwgKGRldi0+dHlwZSAhPSBBUlBIUkRf
+RVRIRVIpIHx8DQo+PiArCQkJCQkJKGRldi0+YWRkcl9sZW4gIT0gRVRIX0FMRU4pKSB7DQo+PiAr
+CQlwcl9pbmZvKCIlczogQ2Fubm90IGVuc2xhdmUgbG9vcGJhY2sgb3Igbm9uLWV0aGVybmV0IGRl
+dmljZVxuIiwNCj4+ICsJCQkJCQkJCWRldi0+bmFtZSk7DQo+IA0KPiAJCW5ldGRldl9pbmZvKGRl
+diwgIkNhbm5vdCBlbnNsYXZlLi4uIik7DQo+IA0KPj4gKwkJcmV0dXJuIC1FSU5WQUw7DQo+PiAr
+CX0NCj4+ICsNCj4+ICsJLyogRG9uJ3QgYWxsb3cgZW5zbGF2aW5nIGhzciBkZXZpY2VzICovDQo+
+PiArCWlmIChpc19oc3JfbWFzdGVyKGRldikpIHsNCj4+ICsJCXByX2luZm8oIiVzOiBEb24ndCB0
+cnkgdG8gY3JlYXRlIHRyZWVzIG9mIGhzciBkZXZpY2VzIVxuIiwNCj4+ICsJCQkJCQkJCWRldi0+
+bmFtZSk7DQo+IA0KPiANCj4gCQluZXRkZXZfZXJyKGRldiwgIkNhbm5vdCBjcmVhdGUgdHJlZXMg
+b2YgaHNyIGRldmljZXNcbiIpOw0KPiANCj4gDQo+PiAraW50IGhzcl9kZXZfZmluYWxpemUoc3Ry
+dWN0IG5ldF9kZXZpY2UgKmhzcl9kZXYsIHN0cnVjdCBuZXRfZGV2aWNlICpzbGF2ZVsyXSkNCj4+
+ICt7DQo+IA0KPj4gKwkvKiBTZXQgaHNyX2RldidzIE1BQyBhZGRyZXNzIHRvIHRoYXQgb2YgbWFj
+X3NsYXZlMSAqLw0KPj4gKwltZW1jcHkoaHNyX2Rldi0+ZGV2X2FkZHIsIGhzcl9wcml2LT5zbGF2
+ZV9kYXRhWzBdLmRldi0+ZGV2X2FkZHIsDQo+PiArCQkJCQkJCWhzcl9kZXYtPmFkZHJfbGVuKTsN
+Cj4gDQo+IEVUSF9BTEVOPw0KPiANCj4+IGRpZmYgLS1naXQgYS9uZXQvaHNyL2hzcl9kZXZpY2Uu
+aCBiL25ldC9oc3IvaHNyX2RldmljZS5oDQo+IFtdDQo+PiBAQCAtMCwwICsxLDI3IEBADQo+IA0K
+Pj4gK3ZvaWQgaHNyX2Rldl9zZXR1cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KTsNCj4+ICtpbnQg
+aHNyX2Rldl9maW5hbGl6ZShzdHJ1Y3QgbmV0X2RldmljZSAqaHNyX2Rldiwgc3RydWN0IG5ldF9k
+ZXZpY2UgKnNsYXZlWzJdKTsNCj4+ICt2b2lkIGhzcl9zZXRfb3BlcnN0YXRlKHN0cnVjdCBuZXRf
+ZGV2aWNlICpoc3JfZGV2LCBzdHJ1Y3QgbmV0X2RldmljZSAqc2xhdmUxLA0KPj4gKwkJCQkJCXN0
+cnVjdCBuZXRfZGV2aWNlICpzbGF2ZTIpOw0KPiANCj4gcGxlYXNlIGFsaWduIGFyZ3VtZW50cyBp
+bW1lZGlhdGVseSBhZnRlciB0aGUgb3BlbiBwYXJlbnRoZXNpcy4NCj4gDQo+PiBkaWZmIC0tZ2l0
+IGEvbmV0L2hzci9oc3JfZnJhbWVyZWcuYyBiL25ldC9oc3IvaHNyX2ZyYW1lcmVnLmMNCj4gW10N
+Cj4+ICtzdGF0aWMgc3RydWN0IG5vZGVfZW50cnkgKmZpbmRfbm9kZV9ieV9BZGRyQShzdHJ1Y3Qg
+bGlzdF9oZWFkICpub2RlX2RiLA0KPj4gKwkJCQkJCXVuc2lnbmVkIGNoYXIgYWRkcltFVEhfQUxF
+Tl0pDQo+IA0KPiBzdGF0aWMgc3RydWN0IG5vZGVfZW50cnkgKmZpbmRfbm9kZV9ieV9BZGRyQShz
+dHJ1Y3QgbGlzdF9oZWFkICpub2RlX2RiLA0KPiAJCQkJCSAgICAgdW5zaWduZWQgY2hhciBhZGRy
+W0VUSF9BTEVOXSkNCj4gW10NCj4+ICtzdGF0aWMgc3RydWN0IG5vZGVfZW50cnkgKmZpbmRfbm9k
+ZV9ieV9BZGRyQihzdHJ1Y3QgbGlzdF9oZWFkICpub2RlX2RiLA0KPj4gKwkJCQkJCXVuc2lnbmVk
+IGNoYXIgYWRkcltFVEhfQUxFTl0pDQo+IA0KPiBBbGlnbm1lbnQuLi4NCj4gDQo+PiAraW50IGZy
+YW1lcmVnX21lcmdlX25vZGUoc3RydWN0IGhzcl9wcml2ICpoc3JfcHJpdiwgZW51bSBoc3JfZGV2
+X2lkeCBkZXZfaWR4LA0KPj4gKwkJCQkJCQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPj4gK3sNCj4g
+W10NCj4+ICsJbm9kZSA9IGZpbmRfbm9kZV9ieV9BZGRyQSgmaHNyX3ByaXYtPm5vZGVfZGIsIGhz
+cl9zdGFnLT5NYWNBZGRyZXNzQSk7DQo+PiArCWlmICghbm9kZSkgew0KPj4gKwkJcmN1X3JlYWRf
+dW5sb2NrKCk7DQo+PiArCQlmb3VuZCA9IDA7DQo+PiArCQlub2RlID0ga21hbGxvYyhzaXplb2Yo
+Km5vZGUpLCBHRlBfQVRPTUlDKTsNCj4gDQo+IHdoeSBHRlBfQVRPTUlDPw0KDQpUaGlzIGZ1bmN0
+aW9uIGlzIChpbmRpcmVjdGx5KSBjYWxsZWQgYnkgdGhlIHJlY2VpdmUgY2FsbGJhY2sgZm9yIHBh
+Y2tldCB0eXBlIEVUSF9QX0hTUg0KKGhzcl9yY3YoKSBpbiBoc3JfbWFpbi5jKS4gSWYgSSByZWNh
+bGwgY29ycmVjdGx5LCBJIHRyaWVkIEdGUF9LRVJORUwgZmlyc3QgYnV0IHRoZSBrZXJuZWwNCmNv
+bXBsYWluZWQgb3ZlciBzbGVlcGluZyBpbiBhdG9taWMgY29udGV4dC4gSSdsbCBjaGVjayBpdCBv
+dXQgYWdhaW4uDQoNCg0KPiANCj4+ICsJCWlmICghbm9kZSkNCj4+ICsJCQlyZXR1cm4gLUVOT01F
+TTsNCj4+ICsNCj4+ICsJCW1lbWNweShub2RlLT5NYWNBZGRyZXNzQSwgaHNyX3N0YWctPk1hY0Fk
+ZHJlc3NBLCBFVEhfQUxFTik7DQo+PiArCQltZW1jcHkobm9kZS0+TWFjQWRkcmVzc0IsIGV0aGhk
+ci0+aF9zb3VyY2UsIEVUSF9BTEVOKTsNCj4+ICsNCj4+ICsJCWZvciAoaSA9IDA7IGkgPCBIU1Jf
+TUFYX1NMQVZFOyBpKyspDQo+PiArCQkJbm9kZS0+dGltZV9pbltpXSA9IDA7DQo+PiArCQlmb3Ig
+KGkgPSAwOyBpIDwgSFNSX01BWF9ERVY7IGkrKykNCj4+ICsJCQlub2RlLT5zZXFfb3V0W2ldID0g
+MDsNCj4+ICsvKg0KPj4gKwkJcHJpbnRrKEtFUk5fSU5GTyAiSFNSOiBBZGRlZCBub2RlICVwTSAv
+ICVwTVxuIiwNCj4+ICsJCQkJCQkJbm9kZS0+TWFjQWRkcmVzc0EsDQo+PiArCQkJCQkJCW5vZGUt
+Pk1hY0FkZHJlc3NCKTsNCj4+ICsqLw0KPiANCj4gUGxlYXNlIHJlbW92ZSBjb21tZW50ZWQgb3V0
+IGNvZGUgaGVyZSBhbmQgZXZlcnl3aGVyZSBlbHNlLi4uDQo+IA0KPiBbdG9vIGxvbmcsIHN0b3Bw
+ZWQgcmVhZGluZ10NCj4gDQoNClRoYW5rIHlvdSBmb3IgeW91ciB0aW1lLiBJIHdpbGwgdGFrZSBj
+YXJlIG9mIHRoZXNlIGlzc3VlcyB3aGVuIEkgZ2V0IGJhY2sgZnJvbSBteSB2YWNhdGlvbi4gOikN
+Cg0KDQotLSANCkFydmlkIEJyb2RpbiB8IENvbnN1bHRhbnQgKExpbnV4KQ0KWERJTiBBQiB8IEph
+biBTdGVuYmVja3MgVG9yZyAxNyB8IFNFLTE2NCA0MCBLaXN0YSB8IFN3ZWRlbiB8IHhkaW4uY29t
