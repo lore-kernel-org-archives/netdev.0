@@ -1,86 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
-Date: Wed, 04 Jul 2012 16:13:35 -0700 (PDT)
-Message-ID: <20120704.161335.1503971699878518173.davem@davemloft.net>
-References: <alpine.LFD.2.00.1206282309340.1722@ja.ssi.bg>
-	<20120628.184500.114483408843364230.davem@davemloft.net>
-	<1341415267.2583.2120.camel@edumazet-glaptop>
+From: "Dr. Nelson Walter" <post@feldker-grosssittiche.de>
+Subject: RE:CASH PAYMENT DELIVERY (Read the attached file below).
+Date: Thu, 05 Jul 2012 01:19:38 +0200
+Message-ID: <501dffo64LGY3L.RZmta@mo-p03-ob.rzone.de>
+Reply-To: nelsonwalter021@e-mail.ua
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: multipart/mixed; boundary="===============0788145816=="
+To: Recipients <post@feldker-grosssittiche.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52121 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755978Ab2GDXNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 19:13:35 -0400
-In-Reply-To: <1341415267.2583.2120.camel@edumazet-glaptop>
+Received: from mo-p03-ob.rzone.de ([81.169.146.172]:24027 "EHLO
+	mo-p03-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755588Ab2GDXal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jul 2012 19:30:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 04 Jul 2012 17:21:07 +0200
+You will not see this in a MIME-aware mail reader.
+--===============0788145816==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Description: Mail message body
 
-> David I tried to setup a bridge to investigate problems reported on
-> another thread and got immediate crash because of this patch.
-> 
-> Crash in fib_compute_spec_dst() if skb_rtable(skb) is NULL
 
-I mixed up the tests in ip_options_compile(), I've pushed the following.
+--===============0788145816==
+Content-Type: application/octet-stream
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="Dr. Nelson Walter.rtf"
 
-Thanks.
-
-====================
-ipv4: Fix crashes in ip_options_compile().
-
-The spec_dst uses should be guarded by skb_rtable() being non-NULL
-not just the SKB being non-null.
-
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/ip_options.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index 766dfe56..1f02251 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -253,12 +253,15 @@ int ip_options_compile(struct net *net,
- {
- 	__be32 spec_dst = (__force __be32) 0;
- 	unsigned char *pp_ptr = NULL;
-+	struct rtable *rt = NULL;
- 	unsigned char *optptr;
- 	unsigned char *iph;
- 	int optlen, l;
- 
- 	if (skb != NULL) {
--		spec_dst = fib_compute_spec_dst(skb);
-+		rt = skb_rtable(skb);
-+		if (rt)
-+			spec_dst = fib_compute_spec_dst(skb);
- 		optptr = (unsigned char *)&(ip_hdr(skb)[1]);
- 	} else
- 		optptr = opt->__data;
-@@ -330,7 +333,7 @@ int ip_options_compile(struct net *net,
- 					pp_ptr = optptr + 2;
- 					goto error;
- 				}
--				if (skb) {
-+				if (rt) {
- 					memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
- 					opt->is_changed = 1;
- 				}
-@@ -372,7 +375,7 @@ int ip_options_compile(struct net *net,
- 						goto error;
- 					}
- 					opt->ts = optptr - iph;
--					if (skb)  {
-+					if (rt)  {
- 						memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
- 						timeptr = &optptr[optptr[2]+3];
- 					}
--- 
-1.7.10.4
+e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzF7XGZvbnR0Ymx7XGYwXGZu
+aWxcZmNoYXJzZXQwIENhbGlicmk7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4yMS4y
+NTEwO31cdmlld2tpbmQ0XHVjMVxwYXJkXHNhMjAwXHNsMjc2XHNsbXVsdDFcbGFuZzlcZjBcZnMy
+MiBGcm9tIHRoZSBEZXNrIG9mIERyLiBOZWxzb24gV2FsdGVyLFxwYXINCkFjY291bnRhbnQgR2Vu
+ZXJhbCxDZW50cmFsIEJhbmsgT2YgTmlnZXJpYSAoIENCTiApLlxwYXINClRlbGVwaG9uZTogICAg
+KzIzNDgwMjMzNjg0OTkgICAgICAgICAgICAgIFxwYXINClxwYXINCiBccGFyDQogICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIENPTkZJREVOVElBTCAvIENBU0ggUEFZTUVOVCBERUxJVkVS
+WVxwYXINCiBccGFyDQogXHBhcg0KQXR0ZW50aW9uOiBccGFyDQogXHBhcg0KSSBBbSBEci4gTmVs
+c29uIFdhbHRlciwgQWNjb3VudGFudCBHZW5lcmFsIENlbnRyYWwgQmFuayBPZiBOaWdlcmlhLCBJ
+IGRlY2lkZWQgIHRvIGNvbnRhY3QgeW91IGJhc2VkIG9uIHRoZSBpbmZvcm1hdGlvbiB3ZSBnYXRo
+ZXJlZCBjb25jZXJuaW5nIHlvdXIgIGNvbnRyYWN0L2luaGVyaXRhbmNlIGZ1bmRzLCB3aGljaCB3
+ZSBhcmUgc3RpbGwgdW5hYmxlIHRvIHBheSB5b3UuXHBhcg0KIFxwYXINCkFmdGVyIG91ciB5ZWFy
+IDIwMTIgQXVkaXQsIHdlIGRpc2NvdmVyZWQgdGhyb3VnaCBvdXIgcGF5bWVudCBmaWxlcyB0aGF0
+IHlvdXIgIGNvbnRyYWN0L2luaGVyaXRhbmNlIHBheW1lbnQgYXJlIHN0aWxsIHVucGFpZCB0byB5
+b3UgYW5kIHdlIHRyaWVkIHRvIGZpbmQgb3V0XHBhcg0Kd2h5IHlvdSBoYXZlIG5vdCByZWNlaXZl
+ZCB5b3VyIHBheW1lbnQgdXAgdGlsbCB0aGlzIG1vbWVudCBhbmQgd2UgY291bGQgbm90IGZpbmQg
+b3V0IGFueSBnb29kIHJlYXNvbiB3aHkgaGUgb2ZmaWNpYWxzIG9mIHRoaXMgYmFuayBkZWNpZGVk
+IHRvIHN0b3AgeW91ciBwYXltZW50IGFuZCB3ZSBhbHNvIGRpc2NvdmVyZWQgaW4gb3VyIGZpbGVz
+IHRoYXQgeW91IGhhdmUgbWFkZSBzZXZlcmFsIHBheW1lbnQgaW4gb3JkZXIgdG8gcmVjZWl2ZSB5
+b3VyIHBheW1lbnQgYnV0IGFsbCB0byBubyBhdmFpbC5ccGFyDQogXHBhcg0KV2UgaGF2ZSBzdW1t
+b25lZCBzb21lIG9mIG91ciBvZmZpY2lhbHMgbGlrZTogTXIuIFR1bmRlIExlbW8sTXIuIE1heHdl
+bGwgUmljaGFyZCwgRHIuIFBhdHJpY2sgVXpvLCBQcm9mLiBDaGFybGVzIFNvbHVkbywgRHIuIEph
+bWVzIE9rdWt1IGFuZCBNcnMuIFN0ZWxsYSBEaWtlIGFuZCB0aGUgcmVzdCBvZiB0aGUgZGlyZWN0
+b3JzIHRvIHF1ZXJ5IHRoZW0gd2h5IHRoZXkgaGF2ZSBub3QgcGFpZCB5b3UgYWZ0ZXIgYWxsIHRo
+ZSB0aW1lIGFuZCBtb25leSB5b3UgaGF2ZSBzcGVudCBzbyBmYXIgYW5kIGF0IHRoZSBlbmQgb2Yg
+b3VyIHF1ZXJ5IGFuZCBpbnZlc3RpZ2F0aW9uIHdlIGRpc2NvdmVyZWQgdGhhdCB0aGV5IHdhbnQg
+dG8gZnJ1c3RyYXRlIHlvdSBzbyB0aGF0IHlvdSB3aWxsIGFiYW5kb24geW91ciBmdW5kcyBmb3Ig
+dGhlbSB0byBkaXZlcnQgaW50byB0aGVpciBwZXJzb25hbCBhY2NvdW50IGZvciB0aGVyZSBwZXJz
+b25hbCB1c2UuXHBhcg0KIFxwYXINCkJhc2VkIG9uIHRoaXMgd2UgaGF2ZSBzdG9wcGVkIHRoZW0g
+ZnJvbSBoYW5kbGluZyBhbnkgZm9yZWlnbiBjb250cmFjdG9ycy9pbmhlcml0YW5jZSBwYXltZW50
+cyB0byBhdm9pZCB0aGVtIG5vdCB0byB0YXJuaXNoIHRoZSBpbWFnZSBvZiBvdXIgY291bnRyeSBh
+bmQgYmFuayBzbyBpZiB5b3UgYXJlIGluIGFueSB3YXkgY29tbXVuaWNhdGluZyBvciBkZWFsaW5n
+IHdpdGggYW55IGJvZHkgb3IgcGVyc29uKHMpIGluIHJlZ2FyZHMgdG8geW91ciBwYXltZW50LCB5
+b3UgYXJlIG5vdyBhZHZpc2VkIHRvIHN0b3AgYW5kIGFueSBtb25leSB5b3Ugc2VuZCB0byBhbnkg
+b2YgdGhlbSBpcyBhdCB5b3VyIG93biByaXNrLiBGb3IgdGhlIGZhY3QgdGhhdCB5b3VyIHBheW1l
+bnQgaGFzIGJlZW4gZGVsYXllZCBmb3Igc28gbG9uZyB3aXRoIHVzIGFuZCB5b3UgaGF2ZSBnb25l
+IG1hbnkgd2F5cyB0byByZWNlaXZlIHRoZSBwYXltZW50IGJ5IGJhbmsgdG8gYmFuayB0cmFuc2Zl
+ciBhbGwgYXQgdG8gbm8gYXZhaWwgYmVjYXVzZSBvZiB0aGUgc3RvcCBvcmRlciBhbmQgZGVtYW5k
+cyBvZiBzZXZlcmFsIGNlcnRpZmljYXRlcyBhbmQgZG9jdW1lbnRhdGlvbnMuXHBhcg0KIFxwYXIN
+CldlIGhhdmUgdGhlcmVmb3JlIGNvbmNsdWRlZCBhZnRlciBvdXIgeWVzdGVyZGF5IG1lZXRpbmcg
+d2l0aCB0aGUgUHJlc2lkZW5jeSB0aGF0IGFsbCB0aGUgY29udHJhY3RvcnMvaW5oZXJpdGFuY2Ug
+YmVuZWZpY2lhcmllcyB3aWxsIGJlIHJlY2VpdmluZyB0aGVpclxwYXINCm92ZXJkdWUgcGF5bWVu
+dCB2aWEgQ2FzaCBEaXBsb21hdGljIFBheW1lbnQgRGVsaXZlcnkgRGlyZWN0IHRvIGhvbWUgY291
+bnRyeSB3aGVyZSB5b3Ugd2lsbCByZWNlaXZlIHlvdXIgcGF5bWVudC4gVGhpcyBpcyB0aGUgb25s
+eSB3YXkgeW91IHdpbGwgcmVjZWl2ZSB5b3VyIHBheW1lbnQgd2l0aG91dCBzdHJlc3Mgb3IgbW9y
+ZSBleHBlbnNlcy4gQWxsIHRoZSBuZWNlc3NhcnkgYXJyYW5nZW1lbnRzIHJlZ2FyZGluZyB0aGUg
+ZGVsaXZlcnkgb2YgeW91ciBwYXltZW50IGhhcyBiZWVuIHB1dCB0byBwbGFjZSBvbmx5IHdhaXRp
+bmdccGFyDQp0byBoZWFyIGZyb20geW91IGFzIHNvb24gYXMgeW91IHJlY2VpdmUgdGhpcyBtZXNz
+YWdlIHRvZGF5LlxwYXINClxwYXINCkFzIHNvb24gYXMgd2UgaGVhciBmcm9tIHlvdSB3ZSBzaGFs
+bCBkaXNjbG9zZSB0byB5b3UgdGhlIGFtb3VudCB0byBiZSBwYWlkIHRvIHlvdSBhbmQgaG93IHRo
+ZSBtb25leSBpcyBhcnJhbmdlZCBmb3IgZGVsaXZlcnkgYW5kIHRoZSBuYW1lIG9mIHRoZSBwZXJz
+b24gaW4gY2hhcmdlIG9mIGRlbGl2ZXJpbmcgdGhlIG1vbmV5IHRvIHlvdS4gQWZ0ZXIgZ29pbmcg
+dGhyb3VnaCB0aGlzIG1haWwsICB5b3UgYXJlIHJlcXVpcmVkIHRvIGZ1cm5pc2ggdXMgd2l0aCB0
+aGUgZm9sbG93aW5nIGluZm9ybWF0aW9uIGJlbG93IHNvIHRvIGF2b2lkIGltcG9zdG9ycyBvciBw
+YXlpbmcgdG8gdGhlIHdyb25nIHBlcnNvbihzXHBhcg0KXHBhcg0KMS4gWW91ciBmdWxsIGhvdXNl
+IGFkZHJlc3M6XHBhcg0KMi4gWW91ciBpZGVudGl0eSBzdWNoIGFzLCBpbnRlcm5hdGlvbmFsIHBh
+c3Nwb3J0IG9yIGRyaXZlcidzIGxpY2Vuc2U6XHBhcg0KMy4gWW91ciBjb250YWN0IGNlbGwgcGhv
+bmUgbnVtYmVyczogKERpcmVjdCBMaW5lKVxwYXINCjQuIFlvdXIgRnVsbCBOYW1lOlxwYXINCjUu
+IFlvdXIgb2NjdXBhdGlvbjpccGFyDQpccGFyDQpOb3RlOiBJdCB3YXMgbWFuZGF0ZWQgYnkgRmVk
+ZXJhbCBHb3Zlcm5tZW50IG9mIE5pZ2VyaWEgdG8gZmluYWxpemUgd2l0aCB5b3VyIHBheW1lbnQg
+b24gb3IgYmVmb3JlIG5leHQgd2VlayBXZWRuZXNkYXkgc28gYXMgdG8gdXBkYXRlIG91ciBwYXlt
+ZW50IHJlY29yZCBiZWZvcmUgdGhlIG1vbnRoIHJ1bnMgb3V0LiBUaGVyZWZvcmUsIHlvdSBhcmUg
+YWR2aWNlIHRvIHJlc3BvbmQgdG8gdGhpcyBtZXNzYWdlIGltbWVkaWF0ZWx5IGFuZCBjYWxsIG1l
+IGFzIHlvdSByZWFkIHRoaXMgbWFpbC5ccGFyDQogXHBhcg0KQmVzdCBSZWdhcmRzLFxwYXINCiBc
+cGFyDQpEci4gTmVsc29uIFdhbHRlcixccGFyDQpBY2NvdW50YW50IEdlbmVyYWwsXHBhcg0KQ2Vu
+dHJhbCBCYW5rIG9mIE5pZ2VyaWFccGFyDQp9DQoA
+--===============0788145816==--
