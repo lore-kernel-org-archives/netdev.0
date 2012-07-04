@@ -1,52 +1,60 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH next-next] ppp: change default for incoming protocol filter to NPMODE_DROP
-Date: Tue, 3 Jul 2012 21:32:58 -0400
-Message-ID: <20120704013258.GA26225@kvack.org>
+From: "Ren, Cloud" <cjren@qca.qualcomm.com>
+Subject: RE: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Wed, 4 Jul 2012 01:56:41 +0000
+Message-ID: <6349D7A510622448B1BA0967850A8438012EBAE2@nasanexd02d.na.qualcomm.com>
+References: <1341322056-26582-1-git-send-email-cjren@qca.qualcomm.com>
+ <157393863283F442885425D2C454285623DB7BEC@NASANEXD02A.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:33556 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756179Ab2GDBc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jul 2012 21:32:59 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: qca-linux-team <qca-linux-team@qualcomm.com>,
+	nic-devel <nic-devel@qualcomm.com>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <157393863283F442885425D2C454285623DB7BEC@NASANEXD02A.na.qualcomm.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-By default, the ppp_generic code initializes the npmode array that filters
-incoming packet to accept packets for all protocols.  This behaviour is
-incorrect, as it results in packets for protocols that an older version
-of a PPP implementation may not be aware of to be incorrectly accepted.
-This behaviour is visible, for example, when sending IPv6 packets across a
-ppp link where pppd has only been configured to use IPv4.
-
-This change should be safe since pppd will correctly set the protocols it
-negotiates to NPMODE_PASS as the appropriate protocols transition to an Up
-state.
-
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
----
- drivers/net/ppp/ppp_generic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 5c05572..404ac50 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -2619,7 +2619,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
- 	init_ppp_file(&ppp->file, INTERFACE);
- 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
- 	for (i = 0; i < NUM_NP; ++i)
--		ppp->npmode[i] = NPMODE_PASS;
-+		ppp->npmode[i] = NPMODE_DROP;
- 	INIT_LIST_HEAD(&ppp->channels);
- 	spin_lock_init(&ppp->rlock);
- 	spin_lock_init(&ppp->wlock);
--- 
-1.7.4.1
-
-
--- 
-"Thought is the essence of where you are now."
+WGlvbmcsIEl0IGxvb2tzIG15IHN5c3RlbSB0aW1lIGlzIHdyb25nLiBBZnRlciBjb3JyZWN0IGl0
+LCBJIHdpbGwgcmVzZW5kIGl0Lg0KDQpDbG91ZCByZW4NCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdl
+LS0tLS0NCkZyb206IEh1YW5nLCBYaW9uZyANClNlbnQ6IDIwMTLE6jfUwjPI1SAyMTowNA0KVG86
+IFJlbiwgQ2xvdWQ7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCkNjOiBxY2EtbGludXgtdGVhbTsgbmljLWRl
+dmVsDQpTdWJqZWN0OiBSRTogW1BBVENIIDEvMV0gYXRsMWM6IGZpeCBpc3N1ZSBvZiB0cmFuc21p
+dCBxdWV1ZSAwIHRpbWVkIG91dA0KDQpDbG91ZCwgIHdoeSB5b3VyIHBhdGNoIGNvbnRhaW5zIDog
+ICdGcm9tOiBDbG91ZCBSZW4gPGNqcmVuQHFjYS5xdWFsY29tbS5jb20+Jw0KSSBkb26hr3QgZmlu
+ZCBpdCBpbiBvdGhlciBwZW9wbGUncyBwYXRjaC4NCg0KRG9lc24ndCBEYXZpZCBNaWxsZXIgdGhp
+bmsgeW91ciB0aW1lIGlzIHdyb25nID8NCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
+DQo+IEZyb206IFJlbiwgQ2xvdWQNCj4gU2VudDogVHVlc2RheSwgSnVseSAwMywgMjAxMiAyMToy
+OA0KPiBUbzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGlu
+dXgtIA0KPiBrZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IENjOiBxY2EtbGludXgtdGVhbTsgbmlj
+LWRldmVsOyBSZW4sIENsb3VkDQo+IFN1YmplY3Q6IFtQQVRDSCAxLzFdIGF0bDFjOiBmaXggaXNz
+dWUgb2YgdHJhbnNtaXQgcXVldWUgMCB0aW1lZCBvdXQNCj4gDQo+IEZyb206IENsb3VkIFJlbiA8
+Y2pyZW5AcWNhLnF1YWxjb21tLmNvbT4NCj4gDQo+IHNvbWUgcGVvcGxlIHJlcG9ydCBhdGwxYyBj
+b3VsZCBjYXVzZSBzeXN0ZW0gaGFuZyB3aXRoIGZvbGxvd2luZyBrZXJuZWwgDQo+IHRyYWNlDQo+
+IGluZm86DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiBXQVJO
+SU5HOiBhdC4uLi9uZXQvc2NoZWQvc2NoX2dlbmVyaWMuYzoyNTggZGV2X3dhdGNoZG9nKzB4MWRi
+LzB4MWQwKCkgLi4uDQo+IE5FVERFViBXQVRDSERPRzogZXRoMCAoYXRsMWMpOiB0cmFuc21pdCBx
+dWV1ZSAwIHRpbWVkIG91dCAuLi4NCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tDQo+IFRoaXMgaXMgY2F1c2VkIGJ5IG5ldGlmX3N0b3BfcXVldWUgY2FsbGluZyB3aGVu
+IGNhYmxlIExpbmsgaXMgZG93bi4NCj4gU28gcmVtb3ZlIG5ldGlmX3N0b3BfcXVldWUsIGJlY2F1
+c2UgbGlua193YXRjaCB3aWxsIHRha2UgaXQgb3Zlci4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IHhp
+b25nIDx4aW9uZ0BxY2EucXVhbGNvbW0uY29tPg0KPiBDYzogc3RhYmxlIDxzdGFibGVAdmdlci5r
+ZXJuZWwub3JnPg0KPiBTaWduZWQtb2ZmLWJ5OiBDbG91ZCBSZW4gPGNqcmVuQHFjYS5xdWFsY29t
+bS5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwx
+Y19tYWluLmMgfCAgICAxIC0NCj4gIDEgZmlsZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25zKCspLCAx
+IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2F0
+aGVyb3MvYXRsMWMvYXRsMWNfbWFpbi5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJv
+cy9hdGwxYy9hdGwxY19tYWluLmMNCj4gaW5kZXggODU3MTdjYi4uNzkwMTgzMSAxMDA2NDQNCj4g
+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19tYWluLmMNCj4g
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwxYy9hdGwxY19tYWluLmMNCj4g
+QEAgLTI2MSw3ICsyNjEsNiBAQCBzdGF0aWMgdm9pZCBhdGwxY19jaGVja19saW5rX3N0YXR1cyhz
+dHJ1Y3QgDQo+IGF0bDFjX2FkYXB0ZXIgKmFkYXB0ZXIpDQo+ICAJaWYgKChwaHlfZGF0YSAmIEJN
+U1JfTFNUQVRVUykgPT0gMCkgew0KPiAgCQkvKiBsaW5rIGRvd24gKi8NCj4gIAkJbmV0aWZfY2Fy
+cmllcl9vZmYobmV0ZGV2KTsNCj4gLQkJbmV0aWZfc3RvcF9xdWV1ZShuZXRkZXYpOw0KPiAgCQlo
+dy0+aGliZXJuYXRlID0gdHJ1ZTsNCj4gIAkJaWYgKGF0bDFjX3Jlc2V0X21hYyhodykgIT0gMCkN
+Cj4gIAkJCWlmIChuZXRpZl9tc2dfaHcoYWRhcHRlcikpDQo+IC0tDQo+IDEuNy43DQoNCg==
