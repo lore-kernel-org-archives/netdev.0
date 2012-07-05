@@ -1,86 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Thu, 05 Jul 2012 16:56:36 +0200
-Message-ID: <1341500196.2583.4222.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	 <1341474192.2583.3299.camel@edumazet-glaptop>
-	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	 <1341477192.2583.3415.camel@edumazet-glaptop>
-	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	 <1341481760.2583.3579.camel@edumazet-glaptop>
-	 <CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
-	 <1341484919.2583.3688.camel@edumazet-glaptop>
-	 <CACVXFVPksMd8CGZWEGBXBXB5NZCg3QOZreOLavkV-Z2pjE-M_A@mail.gmail.com>
+Subject: Re: [PATCH net-next] ipv6: Initialize the neighbour pointer of
+ rt6_info on allocation
+Date: Thu, 05 Jul 2012 17:16:44 +0200
+Message-ID: <1341501404.2583.4267.camel@edumazet-glaptop>
+References: <20120705131828.GE1869@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:33264 "EHLO
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:45321 "EHLO
 	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756525Ab2GEO4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:56:42 -0400
-Received: by eaak11 with SMTP id k11so3284025eaa.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 07:56:41 -0700 (PDT)
-In-Reply-To: <CACVXFVPksMd8CGZWEGBXBXB5NZCg3QOZreOLavkV-Z2pjE-M_A@mail.gmail.com>
+	with ESMTP id S1752718Ab2GEPQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 11:16:49 -0400
+Received: by eaak11 with SMTP id k11so3295104eaa.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 08:16:48 -0700 (PDT)
+In-Reply-To: <20120705131828.GE1869@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 22:01 +0800, Ming Lei wrote:
+On Thu, 2012-07-05 at 15:18 +0200, Steffen Klassert wrote:
+> git commit 97cac082 (ipv6: Store route neighbour in rt6_info struct)
+> added a neighbour pointer to rt6_info. Currently we don't initialize
+> this pointer at allocation time. We assume this pointer to be valid
+> if it is not a null pointer, so initialize it on allocation.
+> 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv6/route.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index ceff71d..6cc6c88 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -273,7 +273,7 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
+>  					0, 0, flags);
+>  
+>  	if (rt) {
+> -		memset(&rt->rt6i_table, 0,
+> +		memset(&rt->n, 0,
+>  		       sizeof(*rt) - sizeof(struct dst_entry));
+>  		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
+>  	}
 
-> At default SMSC95xx turbo mode is true, rx buffer will be very big
-> (17.5K). Or the large rx buffer size puts limit on concurrent URBs/SKBs
-> count.  Both two may cause the problem.
+Hmm, could we find a way to avoid this for future changes ?
 
-I see. So we should try to recycle these large rx buffers in usbnet
-instead of allocating/freeing them for each incoming packet.
+We know dst_entry is the first field, so maybe :
 
-Following patch does the copybreak of all incoming frames.
+if (rt) {
+	struct dst_entry *dst = (struct dst_entry *)rt;
 
-It has nice property of not lying anymore on skb truesize ;)
-
-It should be applied on both sender and receiver
-
- drivers/net/usb/smsc95xx.c |   19 +++----------------
- 1 file changed, 3 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index b1112e7..3d9566f 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1080,30 +1080,17 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 				return 0;
- 			}
- 
--			/* last frame in this batch */
--			if (skb->len == size) {
--				if (dev->net->features & NETIF_F_RXCSUM)
--					smsc95xx_rx_csum_offload(skb);
--				skb_trim(skb, skb->len - 4); /* remove fcs */
--				skb->truesize = size + sizeof(struct sk_buff);
--
--				return 1;
--			}
--
--			ax_skb = skb_clone(skb, GFP_ATOMIC);
-+			ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
- 			if (unlikely(!ax_skb)) {
- 				netdev_warn(dev->net, "Error allocating skb\n");
- 				return 0;
- 			}
- 
--			ax_skb->len = size;
--			ax_skb->data = packet;
--			skb_set_tail_pointer(ax_skb, size);
-+			memcpy(skb_put(ax_skb, size), packet, size);
- 
- 			if (dev->net->features & NETIF_F_RXCSUM)
- 				smsc95xx_rx_csum_offload(ax_skb);
--			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
--			ax_skb->truesize = size + sizeof(struct sk_buff);
-+			__skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
- 
- 			usbnet_skb_return(dev, ax_skb);
- 		}
+	memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
