@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 05/10] net/mlx4_core: Add firmware commands to support device managed flow steering
-Date: Thu,  5 Jul 2012 17:03:45 +0300
-Message-ID: <1341497030-1818-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 08/10] net/mlx4: Implement promiscuous mode with device managed flow-steering
+Date: Thu,  5 Jul 2012 17:03:48 +0300
+Message-ID: <1341497030-1818-9-git-send-email-ogerlitz@mellanox.com>
 References: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, amirv@mellanox.com,
@@ -9,9 +9,9 @@ Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:53850 "HELO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756174Ab2GEOEF (ORCPT
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:41562 "HELO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756327Ab2GEOEF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:05 -0400
 In-Reply-To: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,161 +19,205 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-Add support for firmware commands to attach/detach a new device managed
-steering mode. Such network steering rules allow the user to provide an
-L2/L3/L4 flow specification to the firmware and have the device to steer
-traffic that matches that specification to the provided QP.
+The device managed flow steering API has three promiscuous modes:
+
+1. Uplink - captures all the packets that arrive to the port.
+2. Allmulti - captures all multicast packets arriving to the port.
+3. Function port - for future use, this mode is not implemented yet.
+
+Use these modes with the flow_attach and flow_detach firmware commands
+according to the promiscuous state of the netdevice.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   19 +++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |   29 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   10 +++++++
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   24 ++++++++++++++++
- include/linux/mlx4/cmd.h                           |    4 +++
- 5 files changed, 86 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   41 ++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mcg.c       |   60 ++++++++++++++++++++++++
+ include/linux/mlx4/device.h                    |    7 +++
+ 3 files changed, 108 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 842c8ce..7e94987 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1080,6 +1080,25 @@ static struct mlx4_cmd_info cmd_info[] = {
- 		.verify = NULL,
- 		.wrapper = NULL
- 	},
-+	/* flow steering commands */
-+	{
-+		.opcode = MLX4_QP_FLOW_STEERING_ATTACH,
-+		.has_inbox = true,
-+		.has_outbox = false,
-+		.out_is_imm = true,
-+		.encode_slave_id = false,
-+		.verify = NULL,
-+		.wrapper = mlx4_QP_FLOW_STEERING_ATTACH_wrapper
-+	},
-+	{
-+		.opcode = MLX4_QP_FLOW_STEERING_DETACH,
-+		.has_inbox = false,
-+		.has_outbox = false,
-+		.out_is_imm = false,
-+		.encode_slave_id = false,
-+		.verify = NULL,
-+		.wrapper = mlx4_QP_FLOW_STEERING_DETACH_wrapper
-+	},
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index eb5ed8e..b7945a8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -301,6 +301,16 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
  
- static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
+ 			/* Enable promiscouos mode */
+ 			switch (mdev->dev->caps.steering_mode) {
++			case MLX4_STEERING_MODE_DEVICE_MANAGED:
++				err = mlx4_flow_steer_promisc_add(mdev->dev,
++								  priv->port,
++								  priv->base_qpn,
++								  MLX4_FS_PROMISC_UPLINK);
++				if (err)
++					en_err(priv, "Failed enabling promiscuous mode\n");
++				priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
++				break;
++
+ 			case MLX4_STEERING_MODE_B0:
+ 				err = mlx4_unicast_promisc_add(mdev->dev,
+ 							       priv->base_qpn,
+@@ -357,6 +367,15 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 
+ 		/* Disable promiscouos mode */
+ 		switch (mdev->dev->caps.steering_mode) {
++		case MLX4_STEERING_MODE_DEVICE_MANAGED:
++			err = mlx4_flow_steer_promisc_remove(mdev->dev,
++							     priv->port,
++							     MLX4_FS_PROMISC_UPLINK);
++			if (err)
++				en_err(priv, "Failed disabling promiscuous mode\n");
++			priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
++			break;
++
+ 		case MLX4_STEERING_MODE_B0:
+ 			err = mlx4_unicast_promisc_remove(mdev->dev,
+ 							  priv->base_qpn,
+@@ -399,6 +418,13 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 		/* Add the default qp number as multicast promisc */
+ 		if (!(priv->flags & MLX4_EN_FLAG_MC_PROMISC)) {
+ 			switch (mdev->dev->caps.steering_mode) {
++			case MLX4_STEERING_MODE_DEVICE_MANAGED:
++				err = mlx4_flow_steer_promisc_add(mdev->dev,
++								  priv->port,
++								  priv->base_qpn,
++								  MLX4_FS_PROMISC_ALL_MULTI);
++				break;
++
+ 			case MLX4_STEERING_MODE_B0:
+ 				err = mlx4_multicast_promisc_add(mdev->dev,
+ 								 priv->base_qpn,
+@@ -416,6 +442,12 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 		/* Disable Multicast promisc */
+ 		if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
+ 			switch (mdev->dev->caps.steering_mode) {
++			case MLX4_STEERING_MODE_DEVICE_MANAGED:
++				err = mlx4_flow_steer_promisc_remove(mdev->dev,
++								     priv->port,
++								     MLX4_FS_PROMISC_ALL_MULTI);
++				break;
++
+ 			case MLX4_STEERING_MODE_B0:
+ 				err = mlx4_multicast_promisc_remove(mdev->dev,
+ 								    priv->base_qpn,
+@@ -839,6 +871,15 @@ int mlx4_en_start_port(struct net_device *dev)
+ 
+ 	/* Must redo promiscuous mode setup. */
+ 	priv->flags &= ~(MLX4_EN_FLAG_PROMISC | MLX4_EN_FLAG_MC_PROMISC);
++	if (mdev->dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		mlx4_flow_steer_promisc_remove(mdev->dev,
++					       priv->port,
++					       MLX4_FS_PROMISC_UPLINK);
++		mlx4_flow_steer_promisc_remove(mdev->dev,
++					       priv->port,
++					       MLX4_FS_PROMISC_ALL_MULTI);
++	}
+ 
+ 	/* Schedule multicast task to populate multicast list */
+ 	queue_work(mdev->workqueue, &priv->mcast_task);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 319c9d4..3c59a33 100644
+index 768a2a4..bc62f53 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -62,6 +62,35 @@ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev)
- 	return 4 * (mlx4_get_mgm_entry_size(dev) / 16 - 2);
+@@ -1295,6 +1295,66 @@ int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
  }
+ EXPORT_SYMBOL_GPL(mlx4_multicast_detach);
  
-+static int mlx4_QP_FLOW_STEERING_ATTACH(struct mlx4_dev *dev,
-+					struct mlx4_cmd_mailbox *mailbox,
-+					u32 size,
-+					u64 *reg_id)
++int mlx4_flow_steer_promisc_add(struct mlx4_dev *dev, u8 port,
++				u32 qpn, enum mlx4_net_trans_promisc_mode mode)
 +{
-+	u64 imm;
-+	int err = 0;
++	struct mlx4_net_trans_rule rule;
++	u64 *regid_p;
 +
-+	err = mlx4_cmd_imm(dev, mailbox->dma, &imm, size, 0,
-+			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
-+			   MLX4_CMD_NATIVE);
-+	if (err)
-+		return err;
-+	*reg_id = imm;
++	switch (mode) {
++	case MLX4_FS_PROMISC_UPLINK:
++	case MLX4_FS_PROMISC_FUNCTION_PORT:
++		regid_p = &dev->regid_promisc_array[port];
++		break;
++	case MLX4_FS_PROMISC_ALL_MULTI:
++		regid_p = &dev->regid_allmulti_array[port];
++		break;
++	default:
++		return -1;
++	}
 +
-+	return err;
++	if (*regid_p != 0)
++		return -1;
++
++	rule.promisc_mode = mode;
++	rule.port = port;
++	rule.qpn = qpn;
++	INIT_LIST_HEAD(&rule.list);
++	mlx4_err(dev, "going promisc on %x\n", port);
++
++	return  mlx4_flow_attach(dev, &rule, regid_p);
 +}
++EXPORT_SYMBOL_GPL(mlx4_flow_steer_promisc_add);
 +
-+static int mlx4_QP_FLOW_STEERING_DETACH(struct mlx4_dev *dev, u64 regid)
++int mlx4_flow_steer_promisc_remove(struct mlx4_dev *dev, u8 port,
++				   enum mlx4_net_trans_promisc_mode mode)
 +{
-+	int err = 0;
++	int ret;
++	u64 *regid_p;
 +
-+	err = mlx4_cmd(dev, regid, 0, 0,
-+		       MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
-+		       MLX4_CMD_NATIVE);
++	switch (mode) {
++	case MLX4_FS_PROMISC_UPLINK:
++	case MLX4_FS_PROMISC_FUNCTION_PORT:
++		regid_p = &dev->regid_promisc_array[port];
++		break;
++	case MLX4_FS_PROMISC_ALL_MULTI:
++		regid_p = &dev->regid_allmulti_array[port];
++		break;
++	default:
++		return -1;
++	}
 +
-+	return err;
++	if (*regid_p == 0)
++		return -1;
++
++	ret =  mlx4_flow_detach(dev, *regid_p);
++	if (ret == 0)
++		*regid_p = 0;
++
++	return ret;
 +}
++EXPORT_SYMBOL_GPL(mlx4_flow_steer_promisc_remove);
 +
- static int mlx4_READ_ENTRY(struct mlx4_dev *dev, int index,
- 			   struct mlx4_cmd_mailbox *mailbox)
- {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index a425a98..c07e882 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1118,6 +1118,16 @@ int mlx4_QUERY_IF_STAT_wrapper(struct mlx4_dev *dev, int slave,
- 			       struct mlx4_cmd_mailbox *inbox,
- 			       struct mlx4_cmd_mailbox *outbox,
- 			       struct mlx4_cmd_info *cmd);
-+int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd);
-+int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd);
- 
- int mlx4_get_mgm_entry_size(struct mlx4_dev *dev);
- int mlx4_get_qp_per_mgm(struct mlx4_dev *dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 6bdac29..a8ca960 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -2738,6 +2738,30 @@ ex_put:
- 	return err;
- }
- 
-+int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd)
-+{
-+	return mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
-+			    vhcr->in_modifier, 0,
-+			    MLX4_QP_FLOW_STEERING_ATTACH,
-+			    MLX4_CMD_TIME_CLASS_A,
-+			    MLX4_CMD_NATIVE);
-+}
-+
-+int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
-+					 struct mlx4_vhcr *vhcr,
-+					 struct mlx4_cmd_mailbox *inbox,
-+					 struct mlx4_cmd_mailbox *outbox,
-+					 struct mlx4_cmd_info *cmd)
-+{
-+	return mlx4_cmd(dev, vhcr->in_param, 0, 0,
-+			MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
-+			MLX4_CMD_NATIVE);
-+}
-+
- enum {
- 	BUSY_MAX_RETRIES = 10
- };
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 1f3860a..2606951 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -154,6 +154,10 @@ enum {
- 	/* set port opcode modifiers */
- 	MLX4_SET_PORT_PRIO2TC = 0x8,
- 	MLX4_SET_PORT_SCHEDULER  = 0x9,
-+
-+	/* register/delete flow steering network rules */
-+	MLX4_QP_FLOW_STEERING_ATTACH = 0x65,
-+	MLX4_QP_FLOW_STEERING_DETACH = 0x66,
+ int mlx4_unicast_attach(struct mlx4_dev *dev,
+ 			struct mlx4_qp *qp, u8 gid[16],
+ 			int block_mcast_loopback, enum mlx4_protocol prot)
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index e45fc20..6f0d133 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -542,6 +542,8 @@ struct mlx4_dev {
+ 	u8			rev_id;
+ 	char			board_id[MLX4_BOARD_ID_LEN];
+ 	int			num_vfs;
++	u64			regid_promisc_array[MLX4_MAX_PORTS + 1];
++	u64			regid_allmulti_array[MLX4_MAX_PORTS + 1];
  };
  
- enum {
+ struct mlx4_init_port_param {
+@@ -681,6 +683,7 @@ enum mlx4_net_trans_rule_id {
+ enum mlx4_net_trans_promisc_mode {
+ 	MLX4_FS_PROMISC_NONE = 0,
+ 	MLX4_FS_PROMISC_UPLINK,
++	/* For future use. Not implemented yet */
+ 	MLX4_FS_PROMISC_FUNCTION_PORT,
+ 	MLX4_FS_PROMISC_ALL_MULTI,
+ };
+@@ -744,6 +747,10 @@ struct mlx4_net_trans_rule {
+ 	u32	qpn;
+ };
+ 
++int mlx4_flow_steer_promisc_add(struct mlx4_dev *dev, u8 port, u32 qpn,
++				enum mlx4_net_trans_promisc_mode mode);
++int mlx4_flow_steer_promisc_remove(struct mlx4_dev *dev, u8 port,
++				   enum mlx4_net_trans_promisc_mode mode);
+ int mlx4_multicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port);
+ int mlx4_multicast_promisc_remove(struct mlx4_dev *dev, u32 qpn, u8 port);
+ int mlx4_unicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port);
 -- 
 1.7.1
