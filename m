@@ -1,99 +1,41 @@
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: Re: [PATCH net-next 13/15] netfilter: nfdbus: Add D-bus message parsing
-Date: Thu, 5 Jul 2012 19:54:21 +0200
-Message-ID: <CAAwP0s3b0JjT9BvrGvynNJm5Pq0eQuHem352T3tDyxvVosbA+g@mail.gmail.com>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
- <1340988354-26981-14-git-send-email-vincent.sanders@collabora.co.uk>
- <20120629171108.GA6287@1984> <4FF1C1AF.9080104@collabora.co.uk> <20120704173047.GA8864@1984>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/5] rtcache remove respin
+Date: Thu, 05 Jul 2012 21:03:37 +0200
+Message-ID: <1341515017.3265.6.camel@edumazet-glaptop>
+References: <20120701.050243.908285695895815999.davem@davemloft.net>
+	 <1341225841.5269.69.camel@edumazet-glaptop>
+	 <20120705.031539.2275742387594459652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
-	Vincent Sanders <vincent.sanders@collabora.co.uk>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alban Crequy <alban.crequy@collabora.co.uk>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120704173047.GA8864@1984>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:65196 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628Ab2GETDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 15:03:42 -0400
+Received: by werb14 with SMTP id b14so5563367wer.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 12:03:41 -0700 (PDT)
+In-Reply-To: <20120705.031539.2275742387594459652.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 4, 2012 at 7:30 PM, Pablo Neira Ayuso <pablo@netfilter.org>=
- wrote:
-> On Mon, Jul 02, 2012 at 05:43:43PM +0200, Javier Martinez Canillas wr=
-ote:
->> On 06/29/2012 07:11 PM, Pablo Neira Ayuso wrote:
->> > On Fri, Jun 29, 2012 at 05:45:52PM +0100, Vincent Sanders wrote:
->> >> From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
->> >>
->> >> The netfilter D-Bus module needs to parse D-bus messages sent by
->> >> applications to decide whether a peer can receive or not a D-Bus
->> >> message. Add D-bus message parsing logic to be able to analyze.
->> >
->> > Not talking about the entire patchset, only about the part I'm
->> > responsible for.
->> >
->> > I don't see why you think this belong to netfilter at all.
->> >
->> > This doesn't integrate into the existing filtering infrastructure,
->> > neither it extends it in any way.
->> >
->>
->> Hello Pablo,
->>
->> Thanks a lot for your feedback.
->>
->> This is the first of a set of patches that adds a netfilter module t=
-o parse
->> D-Bus messages, the complete patch-set is:
->>
->> [PATCH 13/15] netfilter: nfdbus: Add D-bus message parsing
->> [PATCH 14/15] netfilter: nfdbus: Add D-bus match rule implementation
->> [PATCH 15/15] netfilter: add netfilter D-Bus module
->>
->> patches 13 and 14 just include D-Bus helper code to be used by the n=
-etfilter
->> module (added on patch 15) and specially the dbus_filter netfilter h=
-ook function.
->
-> I see, the use of the netfilter hooks seems to be the only reason why
-> you consider these chunks belong to netfilter.
->
->> For the next post version we will reorganize the patches so first th=
-e D-Bus
->> netfilter module is added with an empty dbus_filter function and the=
-n added the
->> D-Bus helper code.
->>
->> Also, we will move the nfdbus netfilter module to net/bus so is not =
-inside the
->> netfilter core code.
->
-> Yes, please, remove this stuff from my directory tree, I believe this
-> filtering infrastructure has not much to do with Netfilter itself.
->
-> It uses the connector to communicate kernel <-> userspace instead of
-> nfnetlink and, as said, it does neither integrate into existing
-> filtering kernel/userspace infrastructure nor integrates into it.
->
-> So, please, if you plan to give another try to this patchset, move
-> this to your net/bus directory as you propose and find a different
-> (better) name for the filtering part (just to avoid confusion in the
-> future).
->
-> Thanks.
+On Thu, 2012-07-05 at 03:15 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 02 Jul 2012 12:44:01 +0200
+> 
+> > If we still want __refcnt being on cache line boundary, we might find a
+> > better way to accomplish this.
+> 
+> Back to this issue again.
+> 
+> Eric, if you take a look at net-next right now, I left a dummy padding
+> in dst_entry where the neighbour pointer used to be.
+> 
+> Can you come up with some way to make use of that new space?
+> 
 
-Hi Pablo,
+If route cache is removed, I believe we can remove all paddings.
 
-Thanks a lot for your feedback and comments.
-
-On a next patch-set post I'll move to net/bus and change the name as
-you suggest.
-
-Best regards,
-
---=20
-Javier Mart=C3=ADnez Canillas
-(+34) 682 39 81 69
-Barcelona, Spain
+Each tcp session will have its own dst_entry, instead of being shared.
