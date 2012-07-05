@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: TCP transmit performance regression
-Date: Thu, 05 Jul 2012 03:02:23 -0700 (PDT)
-Message-ID: <20120705.030223.1974303916133819272.davem@davemloft.net>
-References: <1341477192.2583.3415.camel@edumazet-glaptop>
-	<CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	<1341481760.2583.3579.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next v2] ipv4: defer fib_compute_spec_dst() call
+Date: Thu, 05 Jul 2012 03:03:58 -0700 (PDT)
+Message-ID: <20120705.030358.1169757448115476785.davem@davemloft.net>
+References: <1341477009.2583.3406.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom.leiming@gmail.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55031 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55038 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751283Ab2GEKCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:02:24 -0400
-In-Reply-To: <1341481760.2583.3579.camel@edumazet-glaptop>
+	with ESMTP id S1751437Ab2GEKD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:03:59 -0400
+In-Reply-To: <1341477009.2583.3406.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Jul 2012 11:49:20 +0200
+Date: Thu, 05 Jul 2012 10:30:09 +0200
 
-> -			ax_skb->data = packet;
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> ip_options_compile() can avoid calling fib_compute_spec_dst()
+> by default, and perform the call only if needed.
+> 
+> David suggested to add a helper to make the call only once.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-That's really scary.
+Applied, thanks a lot Eric.
