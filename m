@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 07/10] net/mlx4_core: Add resource tracking for device managed flow steering rules
-Date: Thu,  5 Jul 2012 17:03:47 +0300
-Message-ID: <1341497030-1818-8-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 09/10] net/mlx4_en: Manage flow steering rules with ethtool
+Date: Thu,  5 Jul 2012 17:03:49 +0300
+Message-ID: <1341497030-1818-10-git-send-email-ogerlitz@mellanox.com>
 References: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, amirv@mellanox.com,
@@ -9,249 +9,483 @@ Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:49428 "HELO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756307Ab2GEOEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:05 -0400
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:52639 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756463Ab2GEOEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:06 -0400
 In-Reply-To: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-As with other device resources, the resource tracker is needed for supporting
-device managed flow steering rules under SRIOV: make sure virtual functions
-delete only rules created by them, and clean all rules attached by a crashed VF.
+Implement the ethtool APIs for attaching L2/L3/L4 based flow steering
+rules to the netdevice RX rings. Added set_rxnfc callback and enhanced
+the existing get_rxnfc callback.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    1 +
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  132 ++++++++++++++++++--
- 2 files changed, 125 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  382 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    7 +
+ 2 files changed, 389 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 0084967..d2c436b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -149,6 +149,7 @@ enum mlx4_resource {
- 	RES_VLAN,
- 	RES_EQ,
- 	RES_COUNTER,
-+	RES_FS_RULE,
- 	MLX4_NUM_OF_RESOURCE_TYPE
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 72901ce..3e72a20 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -38,6 +38,10 @@
+ #include "mlx4_en.h"
+ #include "en_port.h"
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 5a6f355..c3fa919 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -190,6 +190,15 @@ struct res_xrcdn {
- 	int			port;
- };
++#define EN_ETHTOOL_QP_ATTACH (1ull << 63)
++#define EN_ETHTOOL_MAC_MASK 0xffffffffffffULL
++#define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
++#define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
  
-+enum res_fs_rule_states {
-+	RES_FS_RULE_BUSY = RES_ANY_BUSY,
-+	RES_FS_RULE_ALLOCATED,
-+};
-+
-+struct res_fs_rule {
-+	struct res_common	com;
-+};
-+
- static void *res_tracker_lookup(struct rb_root *root, u64 res_id)
- {
- 	struct rb_node *node = root->rb_node;
-@@ -245,6 +254,7 @@ static const char *ResourceType(enum mlx4_resource rt)
- 	case RES_MAC: return  "RES_MAC";
- 	case RES_EQ: return "RES_EQ";
- 	case RES_COUNTER: return "RES_COUNTER";
-+	case RES_FS_RULE: return "RES_FS_RULE";
- 	case RES_XRCD: return "RES_XRCD";
- 	default: return "Unknown resource type !!!";
- 	};
-@@ -516,6 +526,20 @@ static struct res_common *alloc_xrcdn_tr(int id)
- 	return &ret->com;
+ static void
+ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+@@ -599,16 +603,369 @@ static int mlx4_en_set_rxfh_indir(struct net_device *dev,
+ 	return err;
  }
  
-+static struct res_common *alloc_fs_rule_tr(u64 id)
++#define all_zeros_or_all_ones(field)		\
++	((field) == 0 || (field) == (__force typeof(field))-1)
++
++static int mlx4_en_validate_flow(struct net_device *dev,
++				 struct ethtool_rxnfc *cmd)
 +{
-+	struct res_fs_rule *ret;
++	struct ethtool_usrip4_spec *l3_mask;
++	struct ethtool_tcpip4_spec *l4_mask;
++	struct ethhdr *eth_mask;
++	u64 full_mac = ~0ull;
++	u64 zero_mac = 0;
 +
-+	ret = kzalloc(sizeof *ret, GFP_KERNEL);
-+	if (!ret)
-+		return NULL;
++	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
++		return -EINVAL;
 +
-+	ret->com.res_id = id;
-+	ret->com.state = RES_FS_RULE_ALLOCATED;
-+
-+	return &ret->com;
-+}
-+
- static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
- 				   int extra)
- {
-@@ -549,6 +573,9 @@ static struct res_common *alloc_tr(u64 id, enum mlx4_resource type, int slave,
- 	case RES_XRCD:
- 		ret = alloc_xrcdn_tr(id);
- 		break;
-+	case RES_FS_RULE:
-+		ret = alloc_fs_rule_tr(id);
++	switch (cmd->fs.flow_type & ~FLOW_EXT) {
++	case TCP_V4_FLOW:
++	case UDP_V4_FLOW:
++		if (cmd->fs.m_u.tcp_ip4_spec.tos)
++			return -EINVAL;
++		l4_mask = &cmd->fs.m_u.tcp_ip4_spec;
++		/* don't allow mask which isn't all 0 or 1 */
++		if (!all_zeros_or_all_ones(l4_mask->ip4src) ||
++		    !all_zeros_or_all_ones(l4_mask->ip4dst) ||
++		    !all_zeros_or_all_ones(l4_mask->psrc) ||
++		    !all_zeros_or_all_ones(l4_mask->pdst))
++			return -EINVAL;
 +		break;
- 	default:
- 		return NULL;
- 	}
-@@ -681,6 +708,16 @@ static int remove_xrcdn_ok(struct res_xrcdn *res)
- 	return 0;
- }
- 
-+static int remove_fs_rule_ok(struct res_fs_rule *res)
-+{
-+	if (res->com.state == RES_FS_RULE_BUSY)
-+		return -EBUSY;
-+	else if (res->com.state != RES_FS_RULE_ALLOCATED)
-+		return -EPERM;
++	case IP_USER_FLOW:
++		l3_mask = &cmd->fs.m_u.usr_ip4_spec;
++		if (l3_mask->l4_4_bytes || l3_mask->tos || l3_mask->proto ||
++		    cmd->fs.h_u.usr_ip4_spec.ip_ver != ETH_RX_NFC_IP4 ||
++		    (!l3_mask->ip4src && !l3_mask->ip4dst) ||
++		    !all_zeros_or_all_ones(l3_mask->ip4src) ||
++		    !all_zeros_or_all_ones(l3_mask->ip4dst))
++			return -EINVAL;
++		break;
++	case ETHER_FLOW:
++		eth_mask = &cmd->fs.m_u.ether_spec;
++		/* source mac mask must not be set */
++		if (memcmp(eth_mask->h_source, &zero_mac, ETH_ALEN))
++			return -EINVAL;
++
++		/* dest mac mask must be ff:ff:ff:ff:ff:ff */
++		if (memcmp(eth_mask->h_dest, &full_mac, ETH_ALEN))
++			return -EINVAL;
++
++		if (!all_zeros_or_all_ones(eth_mask->h_proto))
++			return -EINVAL;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	if ((cmd->fs.flow_type & FLOW_EXT)) {
++		if (cmd->fs.m_ext.vlan_etype ||
++		    !(cmd->fs.m_ext.vlan_tci == 0 ||
++		      cmd->fs.m_ext.vlan_tci == cpu_to_be16(0xfff)))
++			return -EINVAL;
++	}
 +
 +	return 0;
 +}
 +
- static int remove_cq_ok(struct res_cq *res)
- {
- 	if (res->com.state == RES_CQ_BUSY)
-@@ -722,6 +759,8 @@ static int remove_ok(struct res_common *res, enum mlx4_resource type, int extra)
- 		return remove_counter_ok((struct res_counter *)res);
- 	case RES_XRCD:
- 		return remove_xrcdn_ok((struct res_xrcdn *)res);
-+	case RES_FS_RULE:
-+		return remove_fs_rule_ok((struct res_fs_rule *)res);
- 	default:
- 		return -EINVAL;
- 	}
-@@ -2744,14 +2783,28 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 					 struct mlx4_cmd_mailbox *outbox,
- 					 struct mlx4_cmd_info *cmd)
- {
-+	int err;
-+
- 	if (dev->caps.steering_mode !=
- 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
- 		return -EOPNOTSUPP;
--	return mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
--			    vhcr->in_modifier, 0,
--			    MLX4_QP_FLOW_STEERING_ATTACH,
--			    MLX4_CMD_TIME_CLASS_A,
--			    MLX4_CMD_NATIVE);
-+
-+	err = mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
-+			   vhcr->in_modifier, 0,
-+			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
-+			   MLX4_CMD_NATIVE);
-+	if (err)
-+		return err;
-+
-+	err = add_res_range(dev, slave, vhcr->out_param, 1, RES_FS_RULE, 0);
-+	if (err) {
-+		mlx4_err(dev, "Fail to add flow steering resources.\n ");
-+		/* detach rule*/
-+		mlx4_cmd(dev, vhcr->out_param, 0, 0,
-+			 MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
-+			 MLX4_CMD_NATIVE);
-+	}
-+	return err;
- }
- 
- int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
-@@ -2760,12 +2813,22 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
- 					 struct mlx4_cmd_mailbox *outbox,
- 					 struct mlx4_cmd_info *cmd)
- {
-+	int err;
-+
- 	if (dev->caps.steering_mode !=
- 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
- 		return -EOPNOTSUPP;
--	return mlx4_cmd(dev, vhcr->in_param, 0, 0,
--			MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
--			MLX4_CMD_NATIVE);
-+
-+	err = rem_res_range(dev, slave, vhcr->in_param, 1, RES_FS_RULE, 0);
-+	if (err) {
-+		mlx4_err(dev, "Fail to remove flow steering resources.\n ");
-+		return err;
-+	}
-+
-+	err = mlx4_cmd(dev, vhcr->in_param, 0, 0,
-+		       MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
-+		       MLX4_CMD_NATIVE);
-+	return err;
- }
- 
- enum {
-@@ -3177,6 +3240,58 @@ static void rem_slave_mtts(struct mlx4_dev *dev, int slave)
- 	spin_unlock_irq(mlx4_tlock(dev));
- }
- 
-+static void rem_slave_fs_rule(struct mlx4_dev *dev, int slave)
++static int add_ip_rule(struct mlx4_en_priv *priv,
++			struct ethtool_rxnfc *cmd,
++			struct list_head *list_h)
 +{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker =
-+		&priv->mfunc.master.res_tracker;
-+	struct list_head *fs_rule_list =
-+		&tracker->slave_list[slave].res_list[RES_FS_RULE];
-+	struct res_fs_rule *fs_rule;
-+	struct res_fs_rule *tmp;
-+	int state;
-+	u64 base;
-+	int err;
++	struct mlx4_spec_list *spec_l3;
++	struct ethtool_usrip4_spec *l3_mask = &cmd->fs.m_u.usr_ip4_spec;
 +
-+	err = move_all_busy(dev, slave, RES_FS_RULE);
-+	if (err)
-+		mlx4_warn(dev, "rem_slave_fs_rule: Could not move all mtts to busy for slave %d\n",
-+			  slave);
-+
-+	spin_lock_irq(mlx4_tlock(dev));
-+	list_for_each_entry_safe(fs_rule, tmp, fs_rule_list, com.list) {
-+		spin_unlock_irq(mlx4_tlock(dev));
-+		if (fs_rule->com.owner == slave) {
-+			base = fs_rule->com.res_id;
-+			state = fs_rule->com.from_state;
-+			while (state != 0) {
-+				switch (state) {
-+				case RES_FS_RULE_ALLOCATED:
-+					/* detach rule */
-+					err = mlx4_cmd(dev, base, 0, 0,
-+						       MLX4_QP_FLOW_STEERING_DETACH,
-+						       MLX4_CMD_TIME_CLASS_A,
-+						       MLX4_CMD_NATIVE);
-+
-+					spin_lock_irq(mlx4_tlock(dev));
-+					rb_erase(&fs_rule->com.node,
-+						 &tracker->res_tree[RES_FS_RULE]);
-+					list_del(&fs_rule->com.list);
-+					spin_unlock_irq(mlx4_tlock(dev));
-+					kfree(fs_rule);
-+					state = 0;
-+					break;
-+
-+				default:
-+					state = 0;
-+				}
-+			}
-+		}
-+		spin_lock_irq(mlx4_tlock(dev));
++	spec_l3 = kzalloc(sizeof *spec_l3, GFP_KERNEL);
++	if (!spec_l3) {
++		en_err(priv, "Fail to alloc ethtool rule.\n");
++		return -ENOMEM;
 +	}
-+	spin_unlock_irq(mlx4_tlock(dev));
++
++	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
++	spec_l3->ipv4.src_ip = cmd->fs.h_u.usr_ip4_spec.ip4src;
++	if (l3_mask->ip4src)
++		spec_l3->ipv4.src_ip_msk = EN_ETHTOOL_WORD_MASK;
++	spec_l3->ipv4.dst_ip = cmd->fs.h_u.usr_ip4_spec.ip4dst;
++	if (l3_mask->ip4dst)
++		spec_l3->ipv4.dst_ip_msk = EN_ETHTOOL_WORD_MASK;
++	list_add_tail(&spec_l3->list, list_h);
++
++	return 0;
 +}
 +
- static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
++static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
++			     struct ethtool_rxnfc *cmd,
++			     struct list_head *list_h, int proto)
++{
++	struct mlx4_spec_list *spec_l3;
++	struct mlx4_spec_list *spec_l4;
++	struct ethtool_tcpip4_spec *l4_mask = &cmd->fs.m_u.tcp_ip4_spec;
++
++	spec_l3 = kzalloc(sizeof *spec_l3, GFP_KERNEL);
++	spec_l4 = kzalloc(sizeof *spec_l4, GFP_KERNEL);
++	if (!spec_l4 || !spec_l3) {
++		en_err(priv, "Fail to alloc ethtool rule.\n");
++		kfree(spec_l3);
++		kfree(spec_l4);
++		return -ENOMEM;
++	}
++
++	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
++
++	if (proto == TCP_V4_FLOW) {
++		spec_l4->id = MLX4_NET_TRANS_RULE_ID_TCP;
++		spec_l3->ipv4.src_ip = cmd->fs.h_u.tcp_ip4_spec.ip4src;
++		spec_l3->ipv4.dst_ip = cmd->fs.h_u.tcp_ip4_spec.ip4dst;
++		spec_l4->tcp_udp.src_port = cmd->fs.h_u.tcp_ip4_spec.psrc;
++		spec_l4->tcp_udp.dst_port = cmd->fs.h_u.tcp_ip4_spec.pdst;
++	} else {
++		spec_l4->id = MLX4_NET_TRANS_RULE_ID_UDP;
++		spec_l3->ipv4.src_ip = cmd->fs.h_u.udp_ip4_spec.ip4src;
++		spec_l3->ipv4.dst_ip = cmd->fs.h_u.udp_ip4_spec.ip4dst;
++		spec_l4->tcp_udp.src_port = cmd->fs.h_u.udp_ip4_spec.psrc;
++		spec_l4->tcp_udp.dst_port = cmd->fs.h_u.udp_ip4_spec.pdst;
++	}
++
++	if (l4_mask->ip4src)
++		spec_l3->ipv4.src_ip_msk = EN_ETHTOOL_WORD_MASK;
++	if (l4_mask->ip4dst)
++		spec_l3->ipv4.dst_ip_msk = EN_ETHTOOL_WORD_MASK;
++
++	if (l4_mask->psrc)
++		spec_l4->tcp_udp.src_port_msk = EN_ETHTOOL_SHORT_MASK;
++	if (l4_mask->pdst)
++		spec_l4->tcp_udp.dst_port_msk = EN_ETHTOOL_SHORT_MASK;
++
++	list_add_tail(&spec_l3->list, list_h);
++	list_add_tail(&spec_l4->list, list_h);
++
++	return 0;
++}
++
++static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
++					     struct ethtool_rxnfc *cmd,
++					     struct list_head *rule_list_h)
++{
++	int err;
++	u64 mac;
++	__be64 be_mac;
++	struct ethhdr *eth_spec;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_spec_list *spec_l2;
++	__be64 mac_msk = cpu_to_be64(EN_ETHTOOL_MAC_MASK << 16);
++
++	err = mlx4_en_validate_flow(dev, cmd);
++	if (err)
++		return err;
++
++	spec_l2 = kzalloc(sizeof *spec_l2, GFP_KERNEL);
++	if (!spec_l2)
++		return -ENOMEM;
++
++	mac = priv->mac & EN_ETHTOOL_MAC_MASK;
++	be_mac = cpu_to_be64(mac << 16);
++
++	spec_l2->id = MLX4_NET_TRANS_RULE_ID_ETH;
++	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
++	if ((cmd->fs.flow_type & ~FLOW_EXT) != ETHER_FLOW)
++		memcpy(spec_l2->eth.dst_mac, &be_mac, ETH_ALEN);
++
++	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
++		spec_l2->eth.vlan_id = cmd->fs.h_ext.vlan_tci;
++		spec_l2->eth.vlan_id_msk = cpu_to_be16(0xfff);
++	}
++
++	list_add_tail(&spec_l2->list, rule_list_h);
++
++	switch (cmd->fs.flow_type & ~FLOW_EXT) {
++	case ETHER_FLOW:
++		eth_spec = &cmd->fs.h_u.ether_spec;
++		memcpy(&spec_l2->eth.dst_mac, eth_spec->h_dest, ETH_ALEN);
++		spec_l2->eth.ether_type = eth_spec->h_proto;
++		if (eth_spec->h_proto)
++			spec_l2->eth.ether_type_enable = 1;
++		break;
++	case IP_USER_FLOW:
++		err = add_ip_rule(priv, cmd, rule_list_h);
++		break;
++	case TCP_V4_FLOW:
++		err = add_tcp_udp_rule(priv, cmd, rule_list_h, TCP_V4_FLOW);
++		break;
++	case UDP_V4_FLOW:
++		err = add_tcp_udp_rule(priv, cmd, rule_list_h, UDP_V4_FLOW);
++		break;
++	}
++
++	return err;
++}
++
++static int mlx4_en_flow_replace(struct net_device *dev,
++				struct ethtool_rxnfc *cmd)
++{
++	int err;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct ethtool_flow_id *loc_rule;
++	struct mlx4_spec_list *spec, *tmp_spec;
++	u32 qpn;
++	u64 reg_id;
++
++	struct mlx4_net_trans_rule rule = {
++		.queue_mode = MLX4_NET_TRANS_Q_FIFO,
++		.exclusive = 0,
++		.allow_loopback = 1,
++		.promisc_mode = MLX4_FS_PROMISC_NONE,
++	};
++
++	rule.port = priv->port;
++	rule.priority = MLX4_DOMAIN_ETHTOOL | cmd->fs.location;
++	INIT_LIST_HEAD(&rule.list);
++
++	/* Allow direct QP attaches if the EN_ETHTOOL_QP_ATTACH flag is set */
++	if (cmd->fs.ring_cookie == RX_CLS_FLOW_DISC)
++		return -EINVAL;
++	else if (cmd->fs.ring_cookie & EN_ETHTOOL_QP_ATTACH) {
++		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
++	} else {
++		if (cmd->fs.ring_cookie >= priv->rx_ring_num) {
++			en_warn(priv, "rxnfc: RX ring (%llu) doesn't exist.\n",
++				cmd->fs.ring_cookie);
++			return -EINVAL;
++		}
++		qpn = priv->rss_map.qps[cmd->fs.ring_cookie].qpn;
++		if (!qpn) {
++			en_warn(priv, "rxnfc: RX ring (%llu) is inactive.\n",
++				cmd->fs.ring_cookie);
++			return -EINVAL;
++		}
++	}
++	rule.qpn = qpn;
++	err = mlx4_en_ethtool_to_net_trans_rule(dev, cmd, &rule.list);
++	if (err)
++		goto out_free_list;
++
++	loc_rule = &priv->ethtool_rules[cmd->fs.location];
++	if (loc_rule->id) {
++		err = mlx4_flow_detach(priv->mdev->dev, loc_rule->id);
++		if (err) {
++			en_err(priv, "Fail to detach network rule at location %d. registration id = %llx\n",
++			       cmd->fs.location, loc_rule->id);
++			goto out_free_list;
++		}
++		loc_rule->id = 0;
++		memset(&loc_rule->flow_spec, 0,
++		       sizeof(struct ethtool_rx_flow_spec));
++	}
++	err = mlx4_flow_attach(priv->mdev->dev, &rule, &reg_id);
++	if (err) {
++		en_err(priv, "Fail to attach network rule at location %d.\n",
++		       cmd->fs.location);
++		goto out_free_list;
++	}
++	loc_rule->id = reg_id;
++	memcpy(&loc_rule->flow_spec, &cmd->fs,
++	       sizeof(struct ethtool_rx_flow_spec));
++
++out_free_list:
++	list_for_each_entry_safe(spec, tmp_spec, &rule.list, list) {
++		list_del(&spec->list);
++		kfree(spec);
++	}
++	return err;
++}
++
++static int mlx4_en_flow_detach(struct net_device *dev,
++			       struct ethtool_rxnfc *cmd)
++{
++	int err = 0;
++	struct ethtool_flow_id *rule;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++
++	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
++		return -EINVAL;
++
++	rule = &priv->ethtool_rules[cmd->fs.location];
++	if (!rule->id) {
++		err =  -ENOENT;
++		goto out;
++	}
++
++	err = mlx4_flow_detach(priv->mdev->dev, rule->id);
++	if (err) {
++		en_err(priv, "Fail to detach network rule at location %d. registration id = 0x%llx\n",
++		       cmd->fs.location, rule->id);
++		goto out;
++	}
++	rule->id = 0;
++	memset(&rule->flow_spec, 0, sizeof(struct ethtool_rx_flow_spec));
++out:
++	return err;
++
++}
++
++static int mlx4_en_get_flow(struct net_device *dev, struct ethtool_rxnfc *cmd,
++			    int loc)
++{
++	int err = 0;
++	struct ethtool_flow_id *rule;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++
++	if (loc < 0 || loc >= MAX_NUM_OF_FS_RULES)
++		return -EINVAL;
++
++	rule = &priv->ethtool_rules[loc];
++	if (rule->id)
++		memcpy(&cmd->fs, &rule->flow_spec,
++		       sizeof(struct ethtool_rx_flow_spec));
++	else
++		err = -ENOENT;
++
++	return err;
++}
++
++static int mlx4_en_get_num_flows(struct mlx4_en_priv *priv)
++{
++
++	int i, res = 0;
++	for (i = 0; i < MAX_NUM_OF_FS_RULES; i++) {
++		if (priv->ethtool_rules[i].id)
++			res++;
++	}
++	return res;
++
++}
++
+ static int mlx4_en_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 			     u32 *rule_locs)
  {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-@@ -3318,5 +3433,6 @@ void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave)
- 	rem_slave_mtts(dev, slave);
- 	rem_slave_counters(dev, slave);
- 	rem_slave_xrcdns(dev, slave);
-+	rem_slave_fs_rule(dev, slave);
- 	mutex_unlock(&priv->mfunc.master.res_tracker.slave_list[slave].mutex);
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int err = 0;
++	int i = 0, priority = 0;
++
++	if ((cmd->cmd == ETHTOOL_GRXCLSRLCNT ||
++	     cmd->cmd == ETHTOOL_GRXCLSRULE ||
++	     cmd->cmd == ETHTOOL_GRXCLSRLALL) &&
++	    mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED)
++		return -EINVAL;
+ 
+ 	switch (cmd->cmd) {
+ 	case ETHTOOL_GRXRINGS:
+ 		cmd->data = priv->rx_ring_num;
+ 		break;
++	case ETHTOOL_GRXCLSRLCNT:
++		cmd->rule_cnt = mlx4_en_get_num_flows(priv);
++		break;
++	case ETHTOOL_GRXCLSRULE:
++		err = mlx4_en_get_flow(dev, cmd, cmd->fs.location);
++		break;
++	case ETHTOOL_GRXCLSRLALL:
++		while ((!err || err == -ENOENT) && priority < cmd->rule_cnt) {
++			err = mlx4_en_get_flow(dev, cmd, i);
++			if (!err)
++				rule_locs[priority++] = i;
++			i++;
++		}
++		err = 0;
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -617,6 +974,30 @@ static int mlx4_en_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
+ 	return err;
  }
+ 
++static int mlx4_en_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
++{
++	int err = 0;
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_en_dev *mdev = priv->mdev;
++
++	if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_DEVICE_MANAGED)
++		return -EINVAL;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXCLSRLINS:
++		err = mlx4_en_flow_replace(dev, cmd);
++		break;
++	case ETHTOOL_SRXCLSRLDEL:
++		err = mlx4_en_flow_detach(dev, cmd);
++		break;
++	default:
++		en_warn(priv, "Unsupported ethtool command. (%d)\n", cmd->cmd);
++		return -EINVAL;
++	}
++
++	return err;
++}
++
+ const struct ethtool_ops mlx4_en_ethtool_ops = {
+ 	.get_drvinfo = mlx4_en_get_drvinfo,
+ 	.get_settings = mlx4_en_get_settings,
+@@ -637,6 +1018,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
+ 	.get_ringparam = mlx4_en_get_ringparam,
+ 	.set_ringparam = mlx4_en_set_ringparam,
+ 	.get_rxnfc = mlx4_en_get_rxnfc,
++	.set_rxnfc = mlx4_en_set_rxnfc,
+ 	.get_rxfh_indir_size = mlx4_en_get_rxfh_indir_size,
+ 	.get_rxfh_indir = mlx4_en_get_rxfh_indir,
+ 	.set_rxfh_indir = mlx4_en_set_rxfh_indir,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 2d6dabe..8882e70 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -75,6 +75,7 @@
+ #define STAMP_SHIFT		31
+ #define STAMP_VAL		0x7fffffff
+ #define STATS_DELAY		(HZ / 4)
++#define MAX_NUM_OF_FS_RULES	256
+ 
+ /* Typical TSO descriptor with 16 gather entries is 352 bytes... */
+ #define MAX_DESC_SIZE		512
+@@ -435,6 +436,11 @@ struct mlx4_en_frag_info {
+ 
+ #endif
+ 
++struct ethtool_flow_id {
++	struct ethtool_rx_flow_spec flow_spec;
++	u64 id;
++};
++
+ struct mlx4_en_priv {
+ 	struct mlx4_en_dev *mdev;
+ 	struct mlx4_en_port_profile *prof;
+@@ -444,6 +450,7 @@ struct mlx4_en_priv {
+ 	struct net_device_stats ret_stats;
+ 	struct mlx4_en_port_state port_state;
+ 	spinlock_t stats_lock;
++	struct ethtool_flow_id ethtool_rules[MAX_NUM_OF_FS_RULES];
+ 
+ 	unsigned long last_moder_packets[MAX_RX_RINGS];
+ 	unsigned long last_moder_tx_packets;
 -- 
 1.7.1
