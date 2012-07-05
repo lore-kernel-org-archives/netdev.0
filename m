@@ -1,350 +1,47 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next RFC V5 5/5] virtio_net: support negotiating the number of
-	queues through ctrl vq
-Date: Thu,  5 Jul 2012 18:29:54 +0800
-Message-ID: <1341484194-8108-6-git-send-email-jasowang@redhat.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP transmit performance regression
+Date: Thu, 05 Jul 2012 12:41:59 +0200
+Message-ID: <1341484919.2583.3688.camel@edumazet-glaptop>
+References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+	 <1341474192.2583.3299.camel@edumazet-glaptop>
+	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+	 <1341477192.2583.3415.camel@edumazet-glaptop>
+	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+	 <1341481760.2583.3579.camel@edumazet-glaptop>
+	 <CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, sri@us.ibm.com
-To: mst@redhat.com, mashirle@us.ibm.com, krkumar2@in.ibm.com,
-	habanero@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr, davem@davemloft.net
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:33866 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755430Ab2GEKmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:42:05 -0400
+Received: by eaak11 with SMTP id k11so3175990eaa.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 03:42:03 -0700 (PDT)
+In-Reply-To: <CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch let the virtio_net driver can negotiate the number of queues it
-wishes to use through control virtqueue and export an ethtool interface to let
-use tweak it.
+On Thu, 2012-07-05 at 18:32 +0800, Ming Lei wrote:
 
-As current multiqueue virtio-net implementation has optimizations on per-cpu
-virtuqueues, so only two modes were support:
+> After testing on beagle-xm, the patch is good and network is OK, but
+> iperf performance is still no improvement, see below:
+> 
+> [root@root]#iperf -c 192.168.0.103 -w 131072 -t 10
+> ------------------------------------------------------------
+> Client connecting to 192.168.0.103, TCP port 5001
+> TCP window size:   256 KByte (WARNING: requested   128 KByte)
+> ------------------------------------------------------------
+> [  3] local 192.168.0.119 port 46776 connected with 192.168.0.103 port 5001
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0-10.0 sec  41.4 MBytes  34.7 Mbits/sec
+> 
 
-- single queue pair mode
-- multiple queue paris mode, the number of queues matches the number of vcpus
+I fear there are copies in the tx path as well, in smsc95xx_tx_fixup()
 
-The single queue mode were used by default currently due to regression of
-multiqueue mode in some test (especially in stream test).
-
-Since virtio core does not support paritially deleting virtqueues, so during
-mode switching the whole virtqueue were deleted and the driver would re-create
-the virtqueues it would used.
-
-btw. The queue number negotiating were defered to .ndo_open(), this is because
-only after feature negotitaion could we send the command to control virtqueue
-(as it may also use event index).
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c   |  171 ++++++++++++++++++++++++++++++++++---------
- include/linux/virtio_net.h |    7 ++
- 2 files changed, 142 insertions(+), 36 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 7410187..3339eeb 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -88,6 +88,7 @@ struct receive_queue {
- 
- struct virtnet_info {
- 	u16 num_queue_pairs;		/* # of RX/TX vq pairs */
-+	u16 total_queue_pairs;
- 
- 	struct send_queue *sq[MAX_QUEUES] ____cacheline_aligned_in_smp;
- 	struct receive_queue *rq[MAX_QUEUES] ____cacheline_aligned_in_smp;
-@@ -137,6 +138,8 @@ struct padded_vnet_hdr {
- 	char padding[6];
- };
- 
-+static const struct ethtool_ops virtnet_ethtool_ops;
-+
- static inline int txq_get_qnum(struct virtnet_info *vi, struct virtqueue *vq)
- {
- 	int ret = virtqueue_get_queue_index(vq);
-@@ -802,22 +805,6 @@ static void virtnet_netpoll(struct net_device *dev)
- }
- #endif
- 
--static int virtnet_open(struct net_device *dev)
--{
--	struct virtnet_info *vi = netdev_priv(dev);
--	int i;
--
--	for (i = 0; i < vi->num_queue_pairs; i++) {
--		/* Make sure we have some buffers: if oom use wq. */
--		if (!try_fill_recv(vi->rq[i], GFP_KERNEL))
--			queue_delayed_work(system_nrt_wq,
--					   &vi->rq[i]->refill, 0);
--		virtnet_napi_enable(vi->rq[i]);
--	}
--
--	return 0;
--}
--
- /*
-  * Send command via the control virtqueue and check status.  Commands
-  * supported by the hypervisor, as indicated by feature bits, should
-@@ -873,6 +860,43 @@ static void virtnet_ack_link_announce(struct virtnet_info *vi)
- 	rtnl_unlock();
- }
- 
-+static int virtnet_set_queues(struct virtnet_info *vi)
-+{
-+	struct scatterlist sg;
-+	struct net_device *dev = vi->dev;
-+	sg_init_one(&sg, &vi->num_queue_pairs, sizeof(vi->num_queue_pairs));
-+
-+	if (!vi->has_cvq)
-+		return -EINVAL;
-+
-+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MULTIQUEUE,
-+				  VIRTIO_NET_CTRL_MULTIQUEUE_QNUM, &sg, 1, 0)){
-+		dev_warn(&dev->dev, "Fail to set the number of queue pairs to"
-+			 " %d\n", vi->num_queue_pairs);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int virtnet_open(struct net_device *dev)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	int i;
-+
-+	for (i = 0; i < vi->num_queue_pairs; i++) {
-+		/* Make sure we have some buffers: if oom use wq. */
-+		if (!try_fill_recv(vi->rq[i], GFP_KERNEL))
-+			queue_delayed_work(system_nrt_wq,
-+					   &vi->rq[i]->refill, 0);
-+		virtnet_napi_enable(vi->rq[i]);
-+	}
-+
-+	virtnet_set_queues(vi);
-+
-+	return 0;
-+}
-+
- static int virtnet_close(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -1013,12 +1037,6 @@ static void virtnet_get_drvinfo(struct net_device *dev,
- 
- }
- 
--static const struct ethtool_ops virtnet_ethtool_ops = {
--	.get_drvinfo = virtnet_get_drvinfo,
--	.get_link = ethtool_op_get_link,
--	.get_ringparam = virtnet_get_ringparam,
--};
--
- #define MIN_MTU 68
- #define MAX_MTU 65535
- 
-@@ -1235,7 +1253,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
- 
- err:
- 	if (ret && names)
--		for (i = 0; i < vi->num_queue_pairs * 2; i++)
-+		for (i = 0; i < total_vqs * 2; i++)
- 			kfree(names[i]);
- 
- 	kfree(names);
-@@ -1373,7 +1391,6 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	mutex_init(&vi->config_lock);
- 	vi->config_enable = true;
- 	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
--	vi->num_queue_pairs = num_queue_pairs;
- 
- 	/* If we can receive ANY GSO packets, we must allocate large ones. */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-@@ -1387,6 +1404,10 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
- 
-+	/* Use single tx/rx queue pair as default */
-+	vi->num_queue_pairs = 1;
-+	vi->total_queue_pairs = num_queue_pairs;
-+
- 	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
- 	err = virtnet_setup_vqs(vi);
- 	if (err)
-@@ -1396,6 +1417,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
- 		dev->features |= NETIF_F_HW_VLAN_FILTER;
- 
-+	netif_set_real_num_tx_queues(dev, 1);
-+	netif_set_real_num_rx_queues(dev, 1);
-+
- 	err = register_netdev(dev);
- 	if (err) {
- 		pr_debug("virtio_net: registering device failed\n");
-@@ -1403,7 +1427,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	}
- 
- 	/* Last of all, set up some receive buffers. */
--	for (i = 0; i < num_queue_pairs; i++) {
-+	for (i = 0; i < vi->num_queue_pairs; i++) {
- 		try_fill_recv(vi->rq[i], GFP_KERNEL);
- 
- 		/* If we didn't even get one input buffer, we're useless. */
-@@ -1474,10 +1498,8 @@ static void __devexit virtnet_remove(struct virtio_device *vdev)
- 	free_netdev(vi->dev);
- }
- 
--#ifdef CONFIG_PM
--static int virtnet_freeze(struct virtio_device *vdev)
-+static void virtnet_stop(struct virtnet_info *vi)
- {
--	struct virtnet_info *vi = vdev->priv;
- 	int i;
- 
- 	/* Prevent config work handler from accessing the device */
-@@ -1493,17 +1515,10 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 		for (i = 0; i < vi->num_queue_pairs; i++)
- 			napi_disable(&vi->rq[i]->napi);
- 
--
--	remove_vq_common(vi);
--
--	flush_work(&vi->config_work);
--
--	return 0;
- }
- 
--static int virtnet_restore(struct virtio_device *vdev)
-+static int virtnet_start(struct virtnet_info *vi)
- {
--	struct virtnet_info *vi = vdev->priv;
- 	int err, i;
- 
- 	err = virtnet_setup_vqs(vi);
-@@ -1527,6 +1542,29 @@ static int virtnet_restore(struct virtio_device *vdev)
- 
- 	return 0;
- }
-+
-+#ifdef CONFIG_PM
-+static int virtnet_freeze(struct virtio_device *vdev)
-+{
-+	struct virtnet_info *vi = vdev->priv;
-+
-+	virtnet_stop(vi);
-+
-+	remove_vq_common(vi);
-+
-+	flush_work(&vi->config_work);
-+
-+	return 0;
-+}
-+
-+static int virtnet_restore(struct virtio_device *vdev)
-+{
-+	struct virtnet_info *vi = vdev->priv;
-+
-+	virtnet_start(vi);
-+
-+	return 0;
-+}
- #endif
- 
- static struct virtio_device_id id_table[] = {
-@@ -1560,6 +1598,67 @@ static struct virtio_driver virtio_net_driver = {
- #endif
- };
- 
-+static int virtnet_set_channels(struct net_device *dev,
-+				struct ethtool_channels *channels)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	u16 queues = channels->rx_count;
-+	unsigned status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
-+
-+	if (channels->rx_count != channels->tx_count)
-+		return -EINVAL;
-+	/* Only two modes were support currently */
-+	if (queues != vi->total_queue_pairs && queues != 1)
-+		return -EINVAL;
-+	if (!vi->has_cvq)
-+		return -EINVAL;
-+
-+	virtnet_stop(vi);
-+
-+	netif_set_real_num_tx_queues(dev, queues);
-+	netif_set_real_num_rx_queues(dev, queues);
-+
-+	remove_vq_common(vi);
-+	flush_work(&vi->config_work);
-+
-+	vi->num_queue_pairs = queues;
-+	virtnet_start(vi);
-+
-+	vi->vdev->config->finalize_features(vi->vdev);
-+
-+	if (virtnet_set_queues(vi))
-+		status |= VIRTIO_CONFIG_S_FAILED;
-+	else
-+		status |= VIRTIO_CONFIG_S_DRIVER_OK;
-+
-+	vi->vdev->config->set_status(vi->vdev, status);
-+
-+	return 0;
-+}
-+
-+static void virtnet_get_channels(struct net_device *dev,
-+				 struct ethtool_channels *channels)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+
-+	channels->max_rx = vi->total_queue_pairs;
-+	channels->max_tx = vi->total_queue_pairs;
-+	channels->max_other = 0;
-+	channels->max_combined = 0;
-+	channels->rx_count = vi->num_queue_pairs;
-+	channels->tx_count = vi->num_queue_pairs;
-+	channels->other_count = 0;
-+	channels->combined_count = 0;
-+}
-+
-+static const struct ethtool_ops virtnet_ethtool_ops = {
-+	.get_drvinfo = virtnet_get_drvinfo,
-+	.get_link = ethtool_op_get_link,
-+	.get_ringparam = virtnet_get_ringparam,
-+	.set_channels = virtnet_set_channels,
-+	.get_channels = virtnet_get_channels,
-+};
-+
- static int __init init(void)
- {
- 	return register_virtio_driver(&virtio_net_driver);
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 60f09ff..0d21e08 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -169,4 +169,11 @@ struct virtio_net_ctrl_mac {
- #define VIRTIO_NET_CTRL_ANNOUNCE       3
-  #define VIRTIO_NET_CTRL_ANNOUNCE_ACK         0
- 
-+/*
-+ * Control multiqueue
-+ *
-+ */
-+#define VIRTIO_NET_CTRL_MULTIQUEUE       4
-+ #define VIRTIO_NET_CTRL_MULTIQUEUE_QNUM         0
-+
- #endif /* _LINUX_VIRTIO_NET_H */
--- 
-1.7.1
+Could you add traces in this function to check if skb_copy_expand() is
+called ?
