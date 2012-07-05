@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 04/10] net/mlx4: Set steering mode according to device capabilities
-Date: Thu,  5 Jul 2012 17:03:44 +0300
-Message-ID: <1341497030-1818-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 01/10] net/mlx4_core: Change resource tracking mechanism to use red-black tree
+Date: Thu,  5 Jul 2012 17:03:41 +0300
+Message-ID: <1341497030-1818-2-git-send-email-ogerlitz@mellanox.com>
 References: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, amirv@mellanox.com,
@@ -9,466 +9,327 @@ Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:44681 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756038Ab2GEOEI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:08 -0400
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:37735 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751460Ab2GEOE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:28 -0400
 In-Reply-To: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-Instead of checking the firmware supported steering mode in various
-places in the code, add a dedicated field in the mlx4 device capabilities
-structure which is written once during the initialization flow and read
-across the code.
-
-This also set the grounds for add new steering modes. Currently two modes
-are supported, and are named after the ConnectX HW versions A0 and B0.
-
-A0 steering uses mac_index, vlan_index and priority to steer traffic
-into pre-defined range of QPs.
-
-B0 steering uses Ethernet L2 hashing rules and is enabled only
-if the firmware supports both unicast and multicast B0 steering,
-
-The current steering modes are relevant for Ethernet traffic only,
-such that Infiniband steering remains untouched.
+Change the data structure used for managing the SRIOV resource tracking
+mechanism from radix tree to red-black tree. This is preparation step
+for supporting resource IDs which are 64bit long, such as network flow
+steering rules. Such IDs can't be used as radix-tree keys on 32bit
+architectures and hence the reason for the change.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  108 ++++++++++++++++--------
- drivers/net/ethernet/mellanox/mlx4/fw.c        |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c      |   16 ++++-
- drivers/net/ethernet/mellanox/mlx4/mcg.c       |   70 +++++++--------
- drivers/net/ethernet/mellanox/mlx4/port.c      |    9 +-
- include/linux/mlx4/device.h                    |   24 +++++
- 6 files changed, 148 insertions(+), 81 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    3 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  106 ++++++++++++++------
+ 2 files changed, 77 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index bedcbb3..44ff7cd 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -265,7 +265,7 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 	struct mlx4_en_mc_list *mclist, *tmp;
- 	u64 mcast_addr = 0;
- 	u8 mc_list[16] = {0};
--	int err;
-+	int err = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index e5d2022..1a2f372 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -39,6 +39,7 @@
  
- 	mutex_lock(&mdev->state_lock);
- 	if (!mdev->device_up) {
-@@ -300,16 +300,36 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 			priv->flags |= MLX4_EN_FLAG_PROMISC;
+ #include <linux/mutex.h>
+ #include <linux/radix-tree.h>
++#include <linux/rbtree.h>
+ #include <linux/timer.h>
+ #include <linux/semaphore.h>
+ #include <linux/workqueue.h>
+@@ -509,7 +510,7 @@ struct slave_list {
+ struct mlx4_resource_tracker {
+ 	spinlock_t lock;
+ 	/* tree for each resources */
+-	struct radix_tree_root res_tree[MLX4_NUM_OF_RESOURCE_TYPE];
++	struct rb_root res_tree[MLX4_NUM_OF_RESOURCE_TYPE];
+ 	/* num_of_slave's lists, one per slave */
+ 	struct slave_list *slave_list;
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 766b8c5..80c03c8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -57,6 +57,7 @@ struct mac_res {
  
- 			/* Enable promiscouos mode */
--			if (!(mdev->dev->caps.flags &
--						MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
--				err = mlx4_SET_PORT_qpn_calc(mdev->dev, priv->port,
--							     priv->base_qpn, 1);
--			else
--				err = mlx4_unicast_promisc_add(mdev->dev, priv->base_qpn,
-+			switch (mdev->dev->caps.steering_mode) {
-+			case MLX4_STEERING_MODE_B0:
-+				err = mlx4_unicast_promisc_add(mdev->dev,
-+							       priv->base_qpn,
- 							       priv->port);
--			if (err)
--				en_err(priv, "Failed enabling "
--					     "promiscuous mode\n");
-+				if (err)
-+					en_err(priv, "Failed enabling unicast promiscuous mode\n");
-+
-+				/* Add the default qp number as multicast
-+				 * promisc
-+				 */
-+				if (!(priv->flags & MLX4_EN_FLAG_MC_PROMISC)) {
-+					err = mlx4_multicast_promisc_add(mdev->dev,
-+									 priv->base_qpn,
-+									 priv->port);
-+					if (err)
-+						en_err(priv, "Failed enabling multicast promiscuous mode\n");
-+					priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
-+				}
-+				break;
-+
-+			case MLX4_STEERING_MODE_A0:
-+				err = mlx4_SET_PORT_qpn_calc(mdev->dev,
-+							     priv->port,
-+							     priv->base_qpn,
-+							     1);
-+				if (err)
-+					en_err(priv, "Failed enabling promiscuous mode\n");
-+				break;
-+			}
- 
- 			/* Disable port multicast filter (unconditionally) */
- 			err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
-@@ -318,15 +338,6 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 				en_err(priv, "Failed disabling "
- 					     "multicast filter\n");
- 
--			/* Add the default qp number as multicast promisc */
--			if (!(priv->flags & MLX4_EN_FLAG_MC_PROMISC)) {
--				err = mlx4_multicast_promisc_add(mdev->dev, priv->base_qpn,
--								 priv->port);
--				if (err)
--					en_err(priv, "Failed entering multicast promisc mode\n");
--				priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
--			}
--
- 			/* Disable port VLAN filter */
- 			err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
- 			if (err)
-@@ -345,22 +356,31 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 		priv->flags &= ~MLX4_EN_FLAG_PROMISC;
- 
- 		/* Disable promiscouos mode */
--		if (!(mdev->dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
--			err = mlx4_SET_PORT_qpn_calc(mdev->dev, priv->port,
--						     priv->base_qpn, 0);
--		else
--			err = mlx4_unicast_promisc_remove(mdev->dev, priv->base_qpn,
-+		switch (mdev->dev->caps.steering_mode) {
-+		case MLX4_STEERING_MODE_B0:
-+			err = mlx4_unicast_promisc_remove(mdev->dev,
-+							  priv->base_qpn,
- 							  priv->port);
--		if (err)
--			en_err(priv, "Failed disabling promiscuous mode\n");
-+			if (err)
-+				en_err(priv, "Failed disabling unicast promiscuous mode\n");
-+			/* Disable Multicast promisc */
-+			if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
-+				err = mlx4_multicast_promisc_remove(mdev->dev,
-+								    priv->base_qpn,
-+								    priv->port);
-+				if (err)
-+					en_err(priv, "Failed disabling multicast promiscuous mode\n");
-+				priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
-+			}
-+			break;
- 
--		/* Disable Multicast promisc */
--		if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
--			err = mlx4_multicast_promisc_remove(mdev->dev, priv->base_qpn,
--							    priv->port);
-+		case MLX4_STEERING_MODE_A0:
-+			err = mlx4_SET_PORT_qpn_calc(mdev->dev,
-+						     priv->port,
-+						     priv->base_qpn, 0);
- 			if (err)
--				en_err(priv, "Failed disabling multicast promiscuous mode\n");
--			priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
-+				en_err(priv, "Failed disabling promiscuous mode\n");
-+			break;
- 		}
- 
- 		/* Enable port VLAN filter */
-@@ -378,8 +398,16 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 
- 		/* Add the default qp number as multicast promisc */
- 		if (!(priv->flags & MLX4_EN_FLAG_MC_PROMISC)) {
--			err = mlx4_multicast_promisc_add(mdev->dev, priv->base_qpn,
--							 priv->port);
-+			switch (mdev->dev->caps.steering_mode) {
-+			case MLX4_STEERING_MODE_B0:
-+				err = mlx4_multicast_promisc_add(mdev->dev,
-+								 priv->base_qpn,
-+								 priv->port);
-+				break;
-+
-+			case MLX4_STEERING_MODE_A0:
-+				break;
-+			}
- 			if (err)
- 				en_err(priv, "Failed entering multicast promisc mode\n");
- 			priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
-@@ -387,8 +415,16 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
- 	} else {
- 		/* Disable Multicast promisc */
- 		if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
--			err = mlx4_multicast_promisc_remove(mdev->dev, priv->base_qpn,
--							    priv->port);
-+			switch (mdev->dev->caps.steering_mode) {
-+			case MLX4_STEERING_MODE_B0:
-+				err = mlx4_multicast_promisc_remove(mdev->dev,
-+								    priv->base_qpn,
-+								    priv->port);
-+				break;
-+
-+			case MLX4_STEERING_MODE_A0:
-+				break;
-+			}
- 			if (err)
- 				en_err(priv, "Failed disabling multicast promiscuous mode\n");
- 			priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 9c83bb8..40e048b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -1124,7 +1124,7 @@ int mlx4_INIT_HCA(struct mlx4_dev *dev, struct mlx4_init_hca_param *param)
- 	MLX4_PUT(inbox, param->mc_base,		INIT_HCA_MC_BASE_OFFSET);
- 	MLX4_PUT(inbox, param->log_mc_entry_sz, INIT_HCA_LOG_MC_ENTRY_SZ_OFFSET);
- 	MLX4_PUT(inbox, param->log_mc_hash_sz,  INIT_HCA_LOG_MC_HASH_SZ_OFFSET);
--	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER)
-+	if (dev->caps.steering_mode == MLX4_STEERING_MODE_B0)
- 		MLX4_PUT(inbox, (u8) (1 << 3),	INIT_HCA_UC_STEERING_OFFSET);
- 	MLX4_PUT(inbox, param->log_mc_table_sz, INIT_HCA_LOG_MC_TABLE_SZ_OFFSET);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index a0313de..5783275 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -243,7 +243,6 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev->caps.reserved_srqs	     = dev_cap->reserved_srqs;
- 	dev->caps.max_sq_desc_sz     = dev_cap->max_sq_desc_sz;
- 	dev->caps.max_rq_desc_sz     = dev_cap->max_rq_desc_sz;
--	dev->caps.num_qp_per_mgm     = mlx4_get_qp_per_mgm(dev);
- 	/*
- 	 * Subtract 1 from the limit because we need to allocate a
- 	 * spare CQE so the HCA HW can tell the difference between an
-@@ -274,6 +273,21 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	dev->caps.max_gso_sz	     = dev_cap->max_gso_sz;
- 	dev->caps.max_rss_tbl_sz     = dev_cap->max_rss_tbl_sz;
- 
-+	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER &&
-+	    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER) {
-+		dev->caps.steering_mode = MLX4_STEERING_MODE_B0;
-+	} else {
-+		dev->caps.steering_mode = MLX4_STEERING_MODE_A0;
-+
-+		if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER ||
-+		    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER)
-+			mlx4_warn(dev, "Must have UC_STEER and MC_STEER flags "
-+				       "set to use B0 steering. Falling back to A0 steering mode.\n");
-+	}
-+	mlx4_dbg(dev, "Steering mode is: %s\n",
-+		 mlx4_steering_mode_str(dev->caps.steering_mode));
-+	dev->caps.num_qp_per_mgm = mlx4_get_qp_per_mgm(dev);
-+
- 	/* Sense port always allowed on supported devices for ConnectX1 and 2 */
- 	if (dev->pdev->device != 0x1003)
- 		dev->caps.flags |= MLX4_DEV_CAP_FLAG_SENSE_SUPPORT;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index f4a8f98..319c9d4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -868,36 +868,50 @@ static int mlx4_QP_ATTACH(struct mlx4_dev *dev, struct mlx4_qp *qp,
- int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 			  int block_mcast_loopback, enum mlx4_protocol prot)
- {
--	if (prot == MLX4_PROT_ETH &&
--			!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER))
--		return 0;
- 
--	if (prot == MLX4_PROT_ETH)
--		gid[7] |= (MLX4_MC_STEER << 1);
-+	switch (dev->caps.steering_mode) {
-+	case MLX4_STEERING_MODE_A0:
-+		if (prot == MLX4_PROT_ETH)
-+			return 0;
- 
--	if (mlx4_is_mfunc(dev))
--		return mlx4_QP_ATTACH(dev, qp, gid, 1,
--					block_mcast_loopback, prot);
-+	case MLX4_STEERING_MODE_B0:
-+		if (prot == MLX4_PROT_ETH)
-+			gid[7] |= (MLX4_MC_STEER << 1);
- 
--	return mlx4_qp_attach_common(dev, qp, gid, block_mcast_loopback,
--					prot, MLX4_MC_STEER);
-+		if (mlx4_is_mfunc(dev))
-+			return mlx4_QP_ATTACH(dev, qp, gid, 1,
-+					      block_mcast_loopback, prot);
-+		return mlx4_qp_attach_common(dev, qp, gid,
-+					     block_mcast_loopback, prot,
-+					     MLX4_MC_STEER);
-+
-+	default:
-+		return -EINVAL;
-+	}
- }
- EXPORT_SYMBOL_GPL(mlx4_multicast_attach);
- 
- int mlx4_multicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 			  enum mlx4_protocol prot)
- {
--	if (prot == MLX4_PROT_ETH &&
--			!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER))
--		return 0;
-+	switch (dev->caps.steering_mode) {
-+	case MLX4_STEERING_MODE_A0:
-+		if (prot == MLX4_PROT_ETH)
-+			return 0;
- 
--	if (prot == MLX4_PROT_ETH)
--		gid[7] |= (MLX4_MC_STEER << 1);
-+	case MLX4_STEERING_MODE_B0:
-+		if (prot == MLX4_PROT_ETH)
-+			gid[7] |= (MLX4_MC_STEER << 1);
- 
--	if (mlx4_is_mfunc(dev))
--		return mlx4_QP_ATTACH(dev, qp, gid, 0, 0, prot);
-+		if (mlx4_is_mfunc(dev))
-+			return mlx4_QP_ATTACH(dev, qp, gid, 0, 0, prot);
-+
-+		return mlx4_qp_detach_common(dev, qp, gid, prot,
-+					     MLX4_MC_STEER);
- 
--	return mlx4_qp_detach_common(dev, qp, gid, prot, MLX4_MC_STEER);
-+	default:
-+		return -EINVAL;
-+	}
- }
- EXPORT_SYMBOL_GPL(mlx4_multicast_detach);
- 
-@@ -905,10 +919,6 @@ int mlx4_unicast_attach(struct mlx4_dev *dev,
- 			struct mlx4_qp *qp, u8 gid[16],
- 			int block_mcast_loopback, enum mlx4_protocol prot)
- {
--	if (prot == MLX4_PROT_ETH &&
--			!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
--		return 0;
--
- 	if (prot == MLX4_PROT_ETH)
- 		gid[7] |= (MLX4_UC_STEER << 1);
- 
-@@ -924,10 +934,6 @@ EXPORT_SYMBOL_GPL(mlx4_unicast_attach);
- int mlx4_unicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp,
- 			       u8 gid[16], enum mlx4_protocol prot)
- {
--	if (prot == MLX4_PROT_ETH &&
--			!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
--		return 0;
--
- 	if (prot == MLX4_PROT_ETH)
- 		gid[7] |= (MLX4_UC_STEER << 1);
- 
-@@ -968,9 +974,6 @@ static int mlx4_PROMISC(struct mlx4_dev *dev, u32 qpn,
- 
- int mlx4_multicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port)
- {
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER))
--		return 0;
--
- 	if (mlx4_is_mfunc(dev))
- 		return mlx4_PROMISC(dev, qpn, MLX4_MC_STEER, 1, port);
- 
-@@ -980,9 +983,6 @@ EXPORT_SYMBOL_GPL(mlx4_multicast_promisc_add);
- 
- int mlx4_multicast_promisc_remove(struct mlx4_dev *dev, u32 qpn, u8 port)
- {
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER))
--		return 0;
--
- 	if (mlx4_is_mfunc(dev))
- 		return mlx4_PROMISC(dev, qpn, MLX4_MC_STEER, 0, port);
- 
-@@ -992,9 +992,6 @@ EXPORT_SYMBOL_GPL(mlx4_multicast_promisc_remove);
- 
- int mlx4_unicast_promisc_add(struct mlx4_dev *dev, u32 qpn, u8 port)
- {
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
--		return 0;
--
- 	if (mlx4_is_mfunc(dev))
- 		return mlx4_PROMISC(dev, qpn, MLX4_UC_STEER, 1, port);
- 
-@@ -1004,9 +1001,6 @@ EXPORT_SYMBOL_GPL(mlx4_unicast_promisc_add);
- 
- int mlx4_unicast_promisc_remove(struct mlx4_dev *dev, u32 qpn, u8 port)
- {
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER))
--		return 0;
--
- 	if (mlx4_is_mfunc(dev))
- 		return mlx4_PROMISC(dev, qpn, MLX4_UC_STEER, 0, port);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index a8fb529..58de723 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -155,7 +155,7 @@ int mlx4_get_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int *qpn)
- 		return err;
- 	}
- 
--	if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER)) {
-+	if (dev->caps.steering_mode == MLX4_STEERING_MODE_A0) {
- 		*qpn = info->base_qpn + index;
- 		return 0;
- 	}
-@@ -206,7 +206,7 @@ void mlx4_put_eth_qp(struct mlx4_dev *dev, u8 port, u64 mac, int qpn)
- 		 (unsigned long long) mac);
- 	mlx4_unregister_mac(dev, port, mac);
- 
--	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER) {
-+	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
- 		entry = radix_tree_lookup(&info->mac_tree, qpn);
- 		if (entry) {
- 			mlx4_dbg(dev, "Releasing qp: port %d, mac 0x%llx,"
-@@ -359,7 +359,7 @@ int mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac)
- 	int index = qpn - info->base_qpn;
- 	int err = 0;
- 
--	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER) {
-+	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
- 		entry = radix_tree_lookup(&info->mac_tree, qpn);
- 		if (!entry)
- 			return -EINVAL;
-@@ -803,8 +803,7 @@ int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
- 	u32 m_promisc = (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER) ?
- 		MCAST_DIRECT : MCAST_DEFAULT;
- 
--	if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER  &&
--	    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER)
-+	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0)
- 		return 0;
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 6a8f002..7f5c9ee 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -70,6 +70,29 @@ enum {
- 	MLX4_MFUNC_EQE_MASK     = (MLX4_MFUNC_MAX_EQES - 1)
+ struct res_common {
+ 	struct list_head	list;
++	struct rb_node		node;
+ 	u32		        res_id;
+ 	int			owner;
+ 	int			state;
+@@ -189,6 +190,49 @@ struct res_xrcdn {
+ 	int			port;
  };
  
-+/* Driver supports 2 diffrent device methods to manage traffic steering:
-+ *	- B0 steering mode - Common low level API for ib and (if supported) eth.
-+ *	- A0 steering mode - Limited low level API for eth. In case of IB,
-+ *			     B0 mode is in use.
-+ */
-+enum {
-+	MLX4_STEERING_MODE_A0,
-+	MLX4_STEERING_MODE_B0
-+};
-+
-+static inline const char *mlx4_steering_mode_str(int steering_mode)
++static void *res_tracker_lookup(struct rb_root *root, u64 res_id)
 +{
-+	switch (steering_mode) {
-+	case MLX4_STEERING_MODE_A0:
-+		return "A0 steering";
++	struct rb_node *node = root->rb_node;
 +
-+	case MLX4_STEERING_MODE_B0:
-+		return "B0 steering";
-+	default:
-+		return "Unrecognize steering mode";
++	while (node) {
++		struct res_common *res = container_of(node, struct res_common,
++						      node);
++
++		if (res_id < res->res_id)
++			node = node->rb_left;
++		else if (res_id > res->res_id)
++			node = node->rb_right;
++		else
++			return res;
 +	}
++	return NULL;
 +}
 +
- enum {
- 	MLX4_DEV_CAP_FLAG_RC		= 1LL <<  0,
- 	MLX4_DEV_CAP_FLAG_UC		= 1LL <<  1,
-@@ -295,6 +318,7 @@ struct mlx4_caps {
- 	int			num_amgms;
- 	int			reserved_mcgs;
- 	int			num_qp_per_mgm;
-+	int			steering_mode;
- 	int			num_pds;
- 	int			reserved_pds;
- 	int			max_xrcds;
++static int res_tracker_insert(struct rb_root *root, struct res_common *res)
++{
++	struct rb_node **new = &(root->rb_node), *parent = NULL;
++
++	/* Figure out where to put new node */
++	while (*new) {
++		struct res_common *this = container_of(*new, struct res_common,
++						       node);
++
++		parent = *new;
++		if (res->res_id < this->res_id)
++			new = &((*new)->rb_left);
++		else if (res->res_id > this->res_id)
++			new = &((*new)->rb_right);
++		else
++			return -EEXIST;
++	}
++
++	/* Add new node and rebalance tree. */
++	rb_link_node(&res->node, parent, new);
++	rb_insert_color(&res->node, root);
++
++	return 0;
++}
++
+ /* For Debug uses */
+ static const char *ResourceType(enum mlx4_resource rt)
+ {
+@@ -228,8 +272,7 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
+ 	mlx4_dbg(dev, "Started init_resource_tracker: %ld slaves\n",
+ 		 dev->num_slaves);
+ 	for (i = 0 ; i < MLX4_NUM_OF_RESOURCE_TYPE; i++)
+-		INIT_RADIX_TREE(&priv->mfunc.master.res_tracker.res_tree[i],
+-				GFP_ATOMIC|__GFP_NOWARN);
++		priv->mfunc.master.res_tracker.res_tree[i] = RB_ROOT;
+ 
+ 	spin_lock_init(&priv->mfunc.master.res_tracker.lock);
+ 	return 0 ;
+@@ -277,8 +320,8 @@ static void *find_res(struct mlx4_dev *dev, int res_id,
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+-	return radix_tree_lookup(&priv->mfunc.master.res_tracker.res_tree[type],
+-				 res_id);
++	return res_tracker_lookup(&priv->mfunc.master.res_tracker.res_tree[type],
++				  res_id);
+ }
+ 
+ static int get_res(struct mlx4_dev *dev, int slave, int res_id,
+@@ -523,7 +566,7 @@ static int add_res_range(struct mlx4_dev *dev, int slave, int base, int count,
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct res_common **res_arr;
+ 	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
+-	struct radix_tree_root *root = &tracker->res_tree[type];
++	struct rb_root *root = &tracker->res_tree[type];
+ 
+ 	res_arr = kzalloc(count * sizeof *res_arr, GFP_KERNEL);
+ 	if (!res_arr)
+@@ -546,7 +589,7 @@ static int add_res_range(struct mlx4_dev *dev, int slave, int base, int count,
+ 			err = -EEXIST;
+ 			goto undo;
+ 		}
+-		err = radix_tree_insert(root, base + i, res_arr[i]);
++		err = res_tracker_insert(root, res_arr[i]);
+ 		if (err)
+ 			goto undo;
+ 		list_add_tail(&res_arr[i]->list,
+@@ -559,7 +602,7 @@ static int add_res_range(struct mlx4_dev *dev, int slave, int base, int count,
+ 
+ undo:
+ 	for (--i; i >= base; --i)
+-		radix_tree_delete(&tracker->res_tree[type], i);
++		rb_erase(&res_arr[i]->node, root);
+ 
+ 	spin_unlock_irq(mlx4_tlock(dev));
+ 
+@@ -695,7 +738,7 @@ static int rem_res_range(struct mlx4_dev *dev, int slave, int base, int count,
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+ 	for (i = base; i < base + count; ++i) {
+-		r = radix_tree_lookup(&tracker->res_tree[type], i);
++		r = res_tracker_lookup(&tracker->res_tree[type], i);
+ 		if (!r) {
+ 			err = -ENOENT;
+ 			goto out;
+@@ -710,8 +753,8 @@ static int rem_res_range(struct mlx4_dev *dev, int slave, int base, int count,
+ 	}
+ 
+ 	for (i = base; i < base + count; ++i) {
+-		r = radix_tree_lookup(&tracker->res_tree[type], i);
+-		radix_tree_delete(&tracker->res_tree[type], i);
++		r = res_tracker_lookup(&tracker->res_tree[type], i);
++		rb_erase(&r->node, &tracker->res_tree[type]);
+ 		list_del(&r->list);
+ 		kfree(r);
+ 	}
+@@ -733,7 +776,7 @@ static int qp_res_start_move_to(struct mlx4_dev *dev, int slave, int qpn,
+ 	int err = 0;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[RES_QP], qpn);
++	r = res_tracker_lookup(&tracker->res_tree[RES_QP], qpn);
+ 	if (!r)
+ 		err = -ENOENT;
+ 	else if (r->com.owner != slave)
+@@ -797,7 +840,7 @@ static int mr_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
+ 	int err = 0;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[RES_MPT], index);
++	r = res_tracker_lookup(&tracker->res_tree[RES_MPT], index);
+ 	if (!r)
+ 		err = -ENOENT;
+ 	else if (r->com.owner != slave)
+@@ -850,7 +893,7 @@ static int eq_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
+ 	int err = 0;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[RES_EQ], index);
++	r = res_tracker_lookup(&tracker->res_tree[RES_EQ], index);
+ 	if (!r)
+ 		err = -ENOENT;
+ 	else if (r->com.owner != slave)
+@@ -898,7 +941,7 @@ static int cq_res_start_move_to(struct mlx4_dev *dev, int slave, int cqn,
+ 	int err;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[RES_CQ], cqn);
++	r = res_tracker_lookup(&tracker->res_tree[RES_CQ], cqn);
+ 	if (!r)
+ 		err = -ENOENT;
+ 	else if (r->com.owner != slave)
+@@ -952,7 +995,7 @@ static int srq_res_start_move_to(struct mlx4_dev *dev, int slave, int index,
+ 	int err = 0;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[RES_SRQ], index);
++	r = res_tracker_lookup(&tracker->res_tree[RES_SRQ], index);
+ 	if (!r)
+ 		err = -ENOENT;
+ 	else if (r->com.owner != slave)
+@@ -1001,7 +1044,7 @@ static void res_abort_move(struct mlx4_dev *dev, int slave,
+ 	struct res_common *r;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[type], id);
++	r = res_tracker_lookup(&tracker->res_tree[type], id);
+ 	if (r && (r->owner == slave))
+ 		r->state = r->from_state;
+ 	spin_unlock_irq(mlx4_tlock(dev));
+@@ -1015,7 +1058,7 @@ static void res_end_move(struct mlx4_dev *dev, int slave,
+ 	struct res_common *r;
+ 
+ 	spin_lock_irq(mlx4_tlock(dev));
+-	r = radix_tree_lookup(&tracker->res_tree[type], id);
++	r = res_tracker_lookup(&tracker->res_tree[type], id);
+ 	if (r && (r->owner == slave))
+ 		r->state = r->to_state;
+ 	spin_unlock_irq(mlx4_tlock(dev));
+@@ -2817,8 +2860,8 @@ static void rem_slave_qps(struct mlx4_dev *dev, int slave)
+ 				switch (state) {
+ 				case RES_QP_RESERVED:
+ 					spin_lock_irq(mlx4_tlock(dev));
+-					radix_tree_delete(&tracker->res_tree[RES_QP],
+-							  qp->com.res_id);
++					rb_erase(&qp->com.node,
++						 &tracker->res_tree[RES_QP]);
+ 					list_del(&qp->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
+ 					kfree(qp);
+@@ -2888,8 +2931,8 @@ static void rem_slave_srqs(struct mlx4_dev *dev, int slave)
+ 				case RES_SRQ_ALLOCATED:
+ 					__mlx4_srq_free_icm(dev, srqn);
+ 					spin_lock_irq(mlx4_tlock(dev));
+-					radix_tree_delete(&tracker->res_tree[RES_SRQ],
+-							  srqn);
++					rb_erase(&srq->com.node,
++						 &tracker->res_tree[RES_SRQ]);
+ 					list_del(&srq->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
+ 					kfree(srq);
+@@ -2954,8 +2997,8 @@ static void rem_slave_cqs(struct mlx4_dev *dev, int slave)
+ 				case RES_CQ_ALLOCATED:
+ 					__mlx4_cq_free_icm(dev, cqn);
+ 					spin_lock_irq(mlx4_tlock(dev));
+-					radix_tree_delete(&tracker->res_tree[RES_CQ],
+-							  cqn);
++					rb_erase(&cq->com.node,
++						 &tracker->res_tree[RES_CQ]);
+ 					list_del(&cq->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
+ 					kfree(cq);
+@@ -3017,8 +3060,8 @@ static void rem_slave_mrs(struct mlx4_dev *dev, int slave)
+ 				case RES_MPT_RESERVED:
+ 					__mlx4_mr_release(dev, mpt->key);
+ 					spin_lock_irq(mlx4_tlock(dev));
+-					radix_tree_delete(&tracker->res_tree[RES_MPT],
+-							  mptn);
++					rb_erase(&mpt->com.node,
++						 &tracker->res_tree[RES_MPT]);
+ 					list_del(&mpt->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
+ 					kfree(mpt);
+@@ -3086,8 +3129,8 @@ static void rem_slave_mtts(struct mlx4_dev *dev, int slave)
+ 					__mlx4_free_mtt_range(dev, base,
+ 							      mtt->order);
+ 					spin_lock_irq(mlx4_tlock(dev));
+-					radix_tree_delete(&tracker->res_tree[RES_MTT],
+-							  base);
++					rb_erase(&mtt->com.node,
++						 &tracker->res_tree[RES_MTT]);
+ 					list_del(&mtt->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
+ 					kfree(mtt);
+@@ -3133,8 +3176,8 @@ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
+ 				switch (state) {
+ 				case RES_EQ_RESERVED:
+ 					spin_lock_irq(mlx4_tlock(dev));
+-					radix_tree_delete(&tracker->res_tree[RES_EQ],
+-							  eqn);
++					rb_erase(&eq->com.node,
++						 &tracker->res_tree[RES_EQ]);
+ 					list_del(&eq->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
+ 					kfree(eq);
+@@ -3191,7 +3234,8 @@ static void rem_slave_counters(struct mlx4_dev *dev, int slave)
+ 	list_for_each_entry_safe(counter, tmp, counter_list, com.list) {
+ 		if (counter->com.owner == slave) {
+ 			index = counter->com.res_id;
+-			radix_tree_delete(&tracker->res_tree[RES_COUNTER], index);
++			rb_erase(&counter->com.node,
++				 &tracker->res_tree[RES_COUNTER]);
+ 			list_del(&counter->com.list);
+ 			kfree(counter);
+ 			__mlx4_counter_free(dev, index);
+@@ -3220,7 +3264,7 @@ static void rem_slave_xrcdns(struct mlx4_dev *dev, int slave)
+ 	list_for_each_entry_safe(xrcd, tmp, xrcdn_list, com.list) {
+ 		if (xrcd->com.owner == slave) {
+ 			xrcdn = xrcd->com.res_id;
+-			radix_tree_delete(&tracker->res_tree[RES_XRCD], xrcdn);
++			rb_erase(&xrcd->com.node, &tracker->res_tree[RES_XRCD]);
+ 			list_del(&xrcd->com.list);
+ 			kfree(xrcd);
+ 			__mlx4_xrcd_free(dev, xrcdn);
 -- 
 1.7.1
