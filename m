@@ -1,109 +1,179 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 00/10] net/mlx4: Add flow-steering support
-Date: Thu,  5 Jul 2012 17:03:40 +0300
-Message-ID: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 05/10] net/mlx4_core: Add firmware commands to support device managed flow steering
+Date: Thu,  5 Jul 2012 17:03:45 +0300
+Message-ID: <1341497030-1818-6-git-send-email-ogerlitz@mellanox.com>
+References: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, yevgenyp@mellanox.com, oren@mellanox.com,
 	netdev@vger.kernel.org, amirv@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.co.il>
+	Hadar Hen Zion <hadarh@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:48776 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756508Ab2GEOEH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:07 -0400
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:53850 "HELO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756174Ab2GEOEF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:04:05 -0400
+In-Reply-To: <1341497030-1818-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series from Hadar adds code to manage L2/L3/L4 network 
-flow steering rules, a feature which is supported by the ConnectX-3 device.
+From: Hadar Hen Zion <hadarh@mellanox.co.il>
 
-The series is built as follows:
+Add support for firmware commands to attach/detach a new device managed
+steering mode. Such network steering rules allow the user to provide an
+L2/L3/L4 flow specification to the firmware and have the device to steer
+traffic that matches that specification to the provided QP.
 
-The first two patches deal with SRIOV resource tracker, whose mechanism 
-is changed to use red-black tree instead of radix tree. The reason for 
-this change is that the coming steering patches use flow IDs which are 64 
-bits in size, where radix tree keys can't be 64bit on 32bit architecture, 
-while RB tree can do that.
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   19 +++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mcg.c           |   29 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   10 +++++++
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   24 ++++++++++++++++
+ include/linux/mlx4/cmd.h                           |    4 +++
+ 5 files changed, 86 insertions(+), 0 deletions(-)
 
-Patch #3 is little re-design of the Ethernet driver multicast attachments 
-flow to be more efficient and robust.
-
-The fourth patch does a re-org of the checks that deal with the current 
-"older" steering modes such that we can easily add soon the new steering 
-mode and the code remains easy to manage.
-
-Patch #5 adds the firmware commands for the new steering mode, which is 
-called "device managed flow steeering".
-
-Patch 6 is the main patch of this series. It adds support for device-managed flow 
-steering all across the place. We had to have this patch also to touch the mlx4 
-IB driver, since the steering mode is global to the HCA -- so when being enabled, 
-multicast attachment calls done by the IB driver into the mlx4 core driver, 
-are now routed to the flow steering firmware commands whose API is a bit different, 
-something that the IB driver had to be aware to. Following that, the 7th patch 
-adds resource tracking for device-managed flow steering rules.
-
-The 8th patch adds promiscuous mode support under device-managed flow steering,
-next, the 9th patch adds implementation for the ethtool APIs for attaching 
-L2/L3/L4 based flow steering rules, and the last patch adds support for drop 
-action through ethtool.
-
-changes from V0:
-- fixed coding convention issues raised by Dave (across the place)
-- patch 6/10 - Add device managed flow steering firmware API
-  - changed both code and commit message: hash function is hard coded instead
-    of a module param
-- patch 9/10 - Manage flow steering rules with ethtool
-  - not_all_zeros_or_all_ones => all_zeros_or_all_ones + enhance macro
-  - check masks instead of values in many places
-  - return EINVAL when bad arguments and not ENOTSUPP
-  - cleanup ETHER_FLOW validation
-  - VLAN tag mask specified by the user must be 12 bits only
-  - all functions must return error code
-  - fixed potential memory leak in an error flow
-  - allow to get number of rings when not in device managed flow steering
-  - limit get rules to rule_cnt
-  - if no rules exists, do not return error - only return empty list
-  <--- MANY thanks to Ben Hutchings for the detailed review of the 
-  <--- ethtool and to Amir Vadai for helping with the fixes
-- patch 10/10 - Add support for drop action through ethtool
-  - return EINVAL instead of ENOTSUPP  
-
-Hadar Hen Zion (9):
-  net/mlx4_core: Change resource tracking mechanism to use red-black tree
-  net/mlx4_core: Change resource tracking ID to be 64 bit
-  net/mlx4: Set steering mode according to device capabilities
-  net/mlx4_core: Add firmware commands to support device managed flow steering
-  {NET,IB}/mlx4: Add device managed flow steering firmware API
-  net/mlx4_core: Add resource tracking for device managed flow steering rules
-  net/mlx4: Implement promiscuous mode with device managed flow-steering
-  net/mlx4_en: Manage flow steering rules with ethtool
-  net/mlx4_en: Add support for drop action through ethtool
-
-Yevgeny Petrilin (1):
-  net/mlx4_en: Re-design multicast attachments flow
-
- drivers/infiniband/hw/mlx4/main.c                  |   62 ++-
- drivers/infiniband/hw/mlx4/mlx4_ib.h               |    1 +
- drivers/infiniband/hw/mlx4/qp.c                    |    1 +
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |   19 +
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  382 ++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  316 +++++++++---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |   30 ++
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   91 +++-
- drivers/net/ethernet/mellanox/mlx4/fw.h            |    3 +
- drivers/net/ethernet/mellanox/mlx4/main.c          |   54 ++-
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |  524 ++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   29 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |   28 +-
- drivers/net/ethernet/mellanox/mlx4/port.c          |  111 +++--
- drivers/net/ethernet/mellanox/mlx4/profile.c       |   12 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  278 +++++++++--
- include/linux/mlx4/cmd.h                           |    4 +
- include/linux/mlx4/device.h                        |  135 +++++-
- 18 files changed, 1849 insertions(+), 231 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 842c8ce..7e94987 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -1080,6 +1080,25 @@ static struct mlx4_cmd_info cmd_info[] = {
+ 		.verify = NULL,
+ 		.wrapper = NULL
+ 	},
++	/* flow steering commands */
++	{
++		.opcode = MLX4_QP_FLOW_STEERING_ATTACH,
++		.has_inbox = true,
++		.has_outbox = false,
++		.out_is_imm = true,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = mlx4_QP_FLOW_STEERING_ATTACH_wrapper
++	},
++	{
++		.opcode = MLX4_QP_FLOW_STEERING_DETACH,
++		.has_inbox = false,
++		.has_outbox = false,
++		.out_is_imm = false,
++		.encode_slave_id = false,
++		.verify = NULL,
++		.wrapper = mlx4_QP_FLOW_STEERING_DETACH_wrapper
++	},
+ };
+ 
+ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 319c9d4..3c59a33 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -62,6 +62,35 @@ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev)
+ 	return 4 * (mlx4_get_mgm_entry_size(dev) / 16 - 2);
+ }
+ 
++static int mlx4_QP_FLOW_STEERING_ATTACH(struct mlx4_dev *dev,
++					struct mlx4_cmd_mailbox *mailbox,
++					u32 size,
++					u64 *reg_id)
++{
++	u64 imm;
++	int err = 0;
++
++	err = mlx4_cmd_imm(dev, mailbox->dma, &imm, size, 0,
++			   MLX4_QP_FLOW_STEERING_ATTACH, MLX4_CMD_TIME_CLASS_A,
++			   MLX4_CMD_NATIVE);
++	if (err)
++		return err;
++	*reg_id = imm;
++
++	return err;
++}
++
++static int mlx4_QP_FLOW_STEERING_DETACH(struct mlx4_dev *dev, u64 regid)
++{
++	int err = 0;
++
++	err = mlx4_cmd(dev, regid, 0, 0,
++		       MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
++		       MLX4_CMD_NATIVE);
++
++	return err;
++}
++
+ static int mlx4_READ_ENTRY(struct mlx4_dev *dev, int index,
+ 			   struct mlx4_cmd_mailbox *mailbox)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index a425a98..c07e882 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -1118,6 +1118,16 @@ int mlx4_QUERY_IF_STAT_wrapper(struct mlx4_dev *dev, int slave,
+ 			       struct mlx4_cmd_mailbox *inbox,
+ 			       struct mlx4_cmd_mailbox *outbox,
+ 			       struct mlx4_cmd_info *cmd);
++int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
++					 struct mlx4_vhcr *vhcr,
++					 struct mlx4_cmd_mailbox *inbox,
++					 struct mlx4_cmd_mailbox *outbox,
++					 struct mlx4_cmd_info *cmd);
++int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
++					 struct mlx4_vhcr *vhcr,
++					 struct mlx4_cmd_mailbox *inbox,
++					 struct mlx4_cmd_mailbox *outbox,
++					 struct mlx4_cmd_info *cmd);
+ 
+ int mlx4_get_mgm_entry_size(struct mlx4_dev *dev);
+ int mlx4_get_qp_per_mgm(struct mlx4_dev *dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 6bdac29..a8ca960 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -2738,6 +2738,30 @@ ex_put:
+ 	return err;
+ }
+ 
++int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
++					 struct mlx4_vhcr *vhcr,
++					 struct mlx4_cmd_mailbox *inbox,
++					 struct mlx4_cmd_mailbox *outbox,
++					 struct mlx4_cmd_info *cmd)
++{
++	return mlx4_cmd_imm(dev, inbox->dma, &vhcr->out_param,
++			    vhcr->in_modifier, 0,
++			    MLX4_QP_FLOW_STEERING_ATTACH,
++			    MLX4_CMD_TIME_CLASS_A,
++			    MLX4_CMD_NATIVE);
++}
++
++int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
++					 struct mlx4_vhcr *vhcr,
++					 struct mlx4_cmd_mailbox *inbox,
++					 struct mlx4_cmd_mailbox *outbox,
++					 struct mlx4_cmd_info *cmd)
++{
++	return mlx4_cmd(dev, vhcr->in_param, 0, 0,
++			MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
++			MLX4_CMD_NATIVE);
++}
++
+ enum {
+ 	BUSY_MAX_RETRIES = 10
+ };
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 1f3860a..2606951 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -154,6 +154,10 @@ enum {
+ 	/* set port opcode modifiers */
+ 	MLX4_SET_PORT_PRIO2TC = 0x8,
+ 	MLX4_SET_PORT_SCHEDULER  = 0x9,
++
++	/* register/delete flow steering network rules */
++	MLX4_QP_FLOW_STEERING_ATTACH = 0x65,
++	MLX4_QP_FLOW_STEERING_DETACH = 0x66,
+ };
+ 
+ enum {
 -- 
-1.7.8.2
-
-Cc: Hadar Hen Zion <hadarh@mellanox.co.il>
+1.7.1
