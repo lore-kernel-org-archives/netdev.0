@@ -1,38 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 4 2/4] NET ethernet introduce mac_platform helper
-Date: Wed, 04 Jul 2012 20:25:50 -0700
-Message-ID: <1341458750.2058.15.camel@joe2Laptop>
-References: <20120705024259.26317.16000.stgit@build.warmcat.com>
-	 <20120705024446.26317.49693.stgit@build.warmcat.com>
-	 <1341457963.2058.13.camel@joe2Laptop> <4FF507FF.3000604@linaro.org>
+From: <Somnath.Kotur@Emulex.Com>
+Subject: RE: [PATCH 1/2] be2net: Fix Endian
+Date: Wed, 4 Jul 2012 21:00:41 -0700
+Message-ID: <3367B80B08154D42A3B2BC708B5D41F647C6CE076B@EXMAIL.ad.emulex.com>
+References: <1341453942-4198-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-omap@vger.kernel.org, s-jan@ti.com, arnd@arndb.de,
-	patches@linaro.org, tony@atomide.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-	linux-arm-kernel@lists.infradead.org
-To: Andy Green <andy.green@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FF507FF.3000604@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <roy.qing.li@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:43729 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956Ab2GEEAr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 00:00:47 -0400
+In-Reply-To: <1341453942-4198-1-git-send-email-roy.qing.li@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 11:20 +0800, Andy Green wrote:
-> On 05/07/12 11:12, the mail apparently from Joe Perches included:
-[]
-> >> diff --git a/net/ethernet/mac-platform.c b/net/ethernet/mac-platform.c
-> > []
-> >> +static int mac_platform_netdev_event(struct notifier_block *this,
-> >> +						unsigned long event, void *ptr)
-> >
-> > alignment to parenthesis please.
+
+
+> -----Original Message-----
+> From: roy.qing.li@gmail.com [mailto:roy.qing.li@gmail.com]
+> Sent: Thursday, July 05, 2012 7:36 AM
+> To: netdev@vger.kernel.org
+> Cc: Kotur, Somnath
+> Subject: [PATCH 1/2] be2net: Fix Endian
 > 
-> OK.  Although different places in the kernel seem to have different 
-> expectations about that.
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> ETH_P_IP is host Endian, skb->protocol is big Endian, when compare them,
+> we should change ETH_P_IP from host endian to big endian, htons, not
+> ntohs.
+> 
+> CC: Somnath Kotur <somnath.kotur@emulex.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-net and drivers/net is pretty consistent.
-Most of the exceptions are old code.
-Some of those exceptions are being slowly updated too.
-
-cheers, Joe
+Oops!  Unintended...Thanks! 
+Acked-by: Somnath Kotur <somnath.kotur@emulex.com>
