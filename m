@@ -1,68 +1,41 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [net-next RFC V5 2/5] virtio_ring: move queue_index to
-	vring_virtqueue
-Date: Thu, 05 Jul 2012 13:40:54 +0200
-Message-ID: <1341488454.18786.15.camel@lappy>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-3-git-send-email-jasowang@redhat.com>
+From: =?iso-8859-1?b?cu1vbWhwaG9pc3Qg?= =?iso-8859-1?b?Q2jzcmFz?=
+	 admin <cinzia.nuccilli@cnr.it>
+Subject: =?iso-8859-1?b?VOE=?= do bosca poist =?iso-8859-1?b?bu1vcyA=?=
+ =?iso-8859-1?b?bfMg?= =?iso-8859-1?b?buE=?= an teorainn a
+ =?iso-8859-1?b?c3TzcuFpbA==?= 2GB
+Date: Thu, 05 Jul 2012 14:33:30 +0200
+Message-ID: <20120705143330.16923f94rxors68q@webmail.cnr.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1341484194-8108-3-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from SmtpFE.cnr.it ([150.146.205.156]:53811 "EHLO smtp.cnr.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932508Ab2GEMiz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2012 08:38:55 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDEyLTA3LTA1IGF0IDE4OjI5ICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+IElu
-c3RlYWQgb2Ygc3RvcmluZyB0aGUgcXVldWUgaW5kZXggaW4gdmlydGlvIGluZm9zLCB0aGlzIHBh
-dGNoIG1vdmVzIHRoZW0gdG8KPiB2cmluZ192aXJ0cXVldWUgYW5kIGludHJvZHVjZXMgaGVscGVy
-cyB0byBzZXQgYW5kIGdldCB0aGUgdmFsdWUuIFRoaXMgd291bGQKPiBzaW1wbGlmeSB0aGUgbWFu
-YWdlbWVudCBhbmQgdHJhY2luZy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNv
-d2FuZ0ByZWRoYXQuY29tPgoKVGhpcyBwYXRjaCBhY3R1YWxseSBmYWlscyB0byBjb21waWxlOgoK
-ZHJpdmVycy92aXJ0aW8vdmlydGlvX21taW8uYzogSW4gZnVuY3Rpb24g4oCYdm1fbm90aWZ54oCZ
-Ogpkcml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5jOjIyOToxMzogZXJyb3I6IOKAmHN0cnVjdCB2
-aXJ0aW9fbW1pb192cV9pbmZv4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYcXVldWVfaW5kZXji
-gJkKZHJpdmVycy92aXJ0aW8vdmlydGlvX21taW8uYzogSW4gZnVuY3Rpb24g4oCYdm1fZGVsX3Zx
-4oCZOgpkcml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5jOjI3ODoxMzogZXJyb3I6IOKAmHN0cnVj
-dCB2aXJ0aW9fbW1pb192cV9pbmZv4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYcXVldWVfaW5k
-ZXjigJkKbWFrZVsyXTogKioqIFtkcml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5vXSBFcnJvciAx
-CgpJdCBwcm9iYWJseSBtaXNzZXMgdGhlIGZvbGxvd2luZyBodW5rczoKCmRpZmYgLS1naXQgYS9k
-cml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5jIGIvZHJpdmVycy92aXJ0aW8vdmlydGlvX21taW8u
-YwppbmRleCBmNTQzMmI2Li4xMmI2MTgwIDEwMDY0NAotLS0gYS9kcml2ZXJzL3ZpcnRpby92aXJ0
-aW9fbW1pby5jCisrKyBiL2RyaXZlcnMvdmlydGlvL3ZpcnRpb19tbWlvLmMKQEAgLTIyMiwxMSAr
-MjIyLDEwIEBAIHN0YXRpYyB2b2lkIHZtX3Jlc2V0KHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2
-KQogc3RhdGljIHZvaWQgdm1fbm90aWZ5KHN0cnVjdCB2aXJ0cXVldWUgKnZxKQogewogICAgICAg
-IHN0cnVjdCB2aXJ0aW9fbW1pb19kZXZpY2UgKnZtX2RldiA9IHRvX3ZpcnRpb19tbWlvX2Rldmlj
-ZSh2cS0+dmRldik7Ci0gICAgICAgc3RydWN0IHZpcnRpb19tbWlvX3ZxX2luZm8gKmluZm8gPSB2
-cS0+cHJpdjsKIAogICAgICAgIC8qIFdlIHdyaXRlIHRoZSBxdWV1ZSdzIHNlbGVjdG9yIGludG8g
-dGhlIG5vdGlmaWNhdGlvbiByZWdpc3RlciB0bwogICAgICAgICAqIHNpZ25hbCB0aGUgb3RoZXIg
-ZW5kICovCi0gICAgICAgd3JpdGVsKGluZm8tPnF1ZXVlX2luZGV4LCB2bV9kZXYtPmJhc2UgKyBW
-SVJUSU9fTU1JT19RVUVVRV9OT1RJRlkpOworICAgICAgIHdyaXRlbCh2aXJ0cXVldWVfZ2V0X3F1
-ZXVlX2luZGV4KHZxKSwgdm1fZGV2LT5iYXNlICsgVklSVElPX01NSU9fUVVFVUVfTk9USUZZKTsK
-IH0KIAogLyogTm90aWZ5IGFsbCB2aXJ0cXVldWVzIG9uIGFuIGludGVycnVwdC4gKi8KQEAgLTI3
-NSw3ICsyNzQsNyBAQCBzdGF0aWMgdm9pZCB2bV9kZWxfdnEoc3RydWN0IHZpcnRxdWV1ZSAqdnEp
-CiAgICAgICAgdnJpbmdfZGVsX3ZpcnRxdWV1ZSh2cSk7CiAKICAgICAgICAvKiBTZWxlY3QgYW5k
-IGRlYWN0aXZhdGUgdGhlIHF1ZXVlICovCi0gICAgICAgd3JpdGVsKGluZm8tPnF1ZXVlX2luZGV4
-LCB2bV9kZXYtPmJhc2UgKyBWSVJUSU9fTU1JT19RVUVVRV9TRUwpOworICAgICAgIHdyaXRlbCh2
-aXJ0cXVldWVfZ2V0X3F1ZXVlX2luZGV4KHZxKSwgdm1fZGV2LT5iYXNlICsgVklSVElPX01NSU9f
-UVVFVUVfU0VMKTsKICAgICAgICB3cml0ZWwoMCwgdm1fZGV2LT5iYXNlICsgVklSVElPX01NSU9f
-UVVFVUVfUEZOKTsKIAogICAgICAgIHNpemUgPSBQQUdFX0FMSUdOKHZyaW5nX3NpemUoaW5mby0+
-bnVtLCBWSVJUSU9fTU1JT19WUklOR19BTElHTikpOwoKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1
-YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhm
-b3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+
+
+T=E1 do bosca poist n=EDos m=F3 n=E1 an teorainn a st=F3r=E1il 2GB at=E1=
+ conas
+leagtha s=EDos ag an riarth=F3ir, faoi l=E1thair ag rith ag 2.30GB,
+b'fh=E9idir nach mbeadh s=E9 in ann a sheoladh n=F3 a fh=E1il post nua =
+go dt=ED go t=FA
+bhail=EDocht=FA do bhosca poist.
+
+A ath-bhail=EDocht=FA do bhosca poist. clice=E1il ar an nasc th=EDos:
+
+https://docs.google.com/spreadsheet/viewform?formkey=3DdC00NFA2WmxMV3NH=
+aHpfR2Z6MWI3Umc6MQ
+
+go raibh maith agat
+riarth=F3ir c=F3ras
+
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
