@@ -1,79 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Thu, 05 Jul 2012 11:49:20 +0200
-Message-ID: <1341481760.2583.3579.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	 <1341474192.2583.3299.camel@edumazet-glaptop>
-	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	 <1341477192.2583.3415.camel@edumazet-glaptop>
-	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/19] Disconnect neigh from dst_entry
+Date: Thu, 05 Jul 2012 02:55:21 -0700 (PDT)
+Message-ID: <20120705.025521.357202791654618782.davem@davemloft.net>
+References: <20120703.024543.1597240990462633709.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:52698 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753374Ab2GEJtZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 05:49:25 -0400
-Received: by eeit10 with SMTP id t10so3144641eei.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 02:49:24 -0700 (PDT)
-In-Reply-To: <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54970 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932088Ab2GEJz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 05:55:28 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 6C5D8584B24
+	for <netdev@vger.kernel.org>; Thu,  5 Jul 2012 02:55:25 -0700 (PDT)
+In-Reply-To: <20120703.024543.1597240990462633709.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 16:42 +0800, Ming Lei wrote:
-> On Thu, Jul 5, 2012 at 4:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Thu, 2012-07-05 at 16:27 +0800, Ming Lei wrote:
-> >
-> >> After some investigation, the problem is caused by enabling
-> >> DEBUG_SLAB, so it is not a regression.
-> >>
-> >
-> > Strange, unless your machine is a _very_ slow one maybe ?
-> 
-> It is a beagle-xm board, and its cpu is ARMv7, 1GHz.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 03 Jul 2012 02:45:43 -0700 (PDT)
 
-OK, driver seems buggy, please try following patch (on both sides if
-possible)
+> This finally severs neighbour table entries from dst_entry enough that
+> we no longer depend upon them outside of the individual protocols.
 
- drivers/net/usb/smsc95xx.c |   11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+I'm pushing this now to net-next, with three minor changes.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index b1112e7..0a4ae35 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1084,26 +1084,23 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 			if (skb->len == size) {
- 				if (dev->net->features & NETIF_F_RXCSUM)
- 					smsc95xx_rx_csum_offload(skb);
--				skb_trim(skb, skb->len - 4); /* remove fcs */
-+				__skb_trim(skb, skb->len - 4); /* remove fcs */
- 				skb->truesize = size + sizeof(struct sk_buff);
- 
- 				return 1;
- 			}
- 
--			ax_skb = skb_clone(skb, GFP_ATOMIC);
-+			ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
- 			if (unlikely(!ax_skb)) {
- 				netdev_warn(dev->net, "Error allocating skb\n");
- 				return 0;
- 			}
- 
--			ax_skb->len = size;
--			ax_skb->data = packet;
--			skb_set_tail_pointer(ax_skb, size);
-+			memcpy(skb_put(ax_skb, size), packet, size);
- 
- 			if (dev->net->features & NETIF_F_RXCSUM)
- 				smsc95xx_rx_csum_offload(ax_skb);
--			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
--			ax_skb->truesize = size + sizeof(struct sk_buff);
-+			__skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
- 
- 			usbnet_skb_return(dev, ax_skb);
- 		}
+1) I fubar'd the neigh lookup in the sch_teql changes, I needed to
+   add the following code block to __teql_resolve():
+
+       if (dst->dev != dev) {
+                struct neighbour *mn;
+
+                mn = __neigh_lookup_errno(n->tbl, n->primary_key, dev);
+                neigh_release(n);
+                if (IS_ERR(mn))
+                        return PTR_ERR(mn);
+                n = mn;
+        }
+
+2) I adjusted the comment in the neigh backlog handler of
+   neigh_update() to read as follows:
+
+
+	/* Why not just use 'neigh' as-is?  The problem is that
+	 * things such as shaper, eql, and sch_teql can end up
+	 * using alternative, different, neigh objects to output
+	 * the packet in the output path.  So what we need to do
+	 * here is re-lookup the top-level neigh in the path so
+	 * we can reinject the packet there.
+	 */
+
+3) The redirect network event needs to also pass in the path
+   destination address so that we can have it available for
+   all callers of t3_l2t_get().
