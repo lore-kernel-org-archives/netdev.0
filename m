@@ -1,36 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
-Date: Thu, 05 Jul 2012 10:10:21 +0200
-Message-ID: <1341475821.2583.3362.camel@edumazet-glaptop>
-References: <1341415267.2583.2120.camel@edumazet-glaptop>
-	 <20120704.161335.1503971699878518173.davem@davemloft.net>
-	 <1341474745.2583.3325.camel@edumazet-glaptop>
-	 <20120705.005940.1078811938047681715.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] [AX.25]: small cleanup in ax25_addr_parse()
+Date: Thu, 5 Jul 2012 11:27:18 +0300
+Message-ID: <20120705082718.GA14993@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:63747 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754047Ab2GEIKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 04:10:25 -0400
-Received: by eaak11 with SMTP id k11so3122238eaa.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 01:10:24 -0700 (PDT)
-In-Reply-To: <20120705.005940.1078811938047681715.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-05 at 00:59 -0700, David Miller wrote:
+The comments were wrong here because "AX25_MAX_DIGIS" is 8 but the
+comments say 6.  Also I've changed the "7" to "AX25_ADDR_LEN".
 
-> Yes, this is a great idea.  Actually in some obscure cases your
-> change can cause us to compute it more than once I think.
-> 
-> I'd suggest we do something like create a helper function above this
-> code in ip_options.c that checks whether spec_dst is INADDR_ANY or
-> not, to guard computing it multiple times.
-> 
-> Could you put together a quick patch like that?
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Sure I'll do that.
+diff --git a/net/ax25/ax25_addr.c b/net/ax25/ax25_addr.c
+index 9162409..e7c9b0e 100644
+--- a/net/ax25/ax25_addr.c
++++ b/net/ax25/ax25_addr.c
+@@ -189,8 +189,10 @@ const unsigned char *ax25_addr_parse(const unsigned char *buf, int len,
+ 	digi->ndigi      = 0;
+ 
+ 	while (!(buf[-1] & AX25_EBIT)) {
+-		if (d >= AX25_MAX_DIGIS)  return NULL;	/* Max of 6 digis */
+-		if (len < 7) return NULL;	/* Short packet */
++		if (d >= AX25_MAX_DIGIS)
++			return NULL;
++		if (len < AX25_ADDR_LEN)
++			return NULL;
+ 
+ 		memcpy(&digi->calls[d], buf, AX25_ADDR_LEN);
+ 		digi->ndigi = d + 1;
