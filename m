@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next RFC V5 2/5] virtio_ring: move queue_index to vring_virtqueue
-Date: Thu,  5 Jul 2012 18:29:51 +0800
-Message-ID: <1341484194-8108-3-git-send-email-jasowang@redhat.com>
+Subject: [net-next RFC V5 3/5] virtio: intorduce an API to set affinity for a
+	virtqueue
+Date: Thu,  5 Jul 2012 18:29:52 +0800
+Message-ID: <1341484194-8108-4-git-send-email-jasowang@redhat.com>
 References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,151 +26,161 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Instead of storing the queue index in virtio infos, this patch moves them to
-vring_virtqueue and introduces helpers to set and get the value. This would
-simplify the management and tracing.
+Sometimes, virtio device need to configure irq affiniry hint to maximize the
+performance. Instead of just exposing the irq of a virtqueue, this patch
+introduce an API to set the affinity for a virtqueue.
+
+The api is best-effort, the affinity hint may not be set as expected due to
+platform support, irq sharing or irq type. Currently, only pci method were
+implemented and we set the affinity according to:
+
+- if device uses INTX, we just ignore the request
+- if device has per vq vector, we force the affinity hint
+- if the virtqueues share MSI, make the affinity OR over all affinities
+ requested
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/virtio/virtio_mmio.c |    5 +----
- drivers/virtio/virtio_pci.c  |   12 +++++-------
- drivers/virtio/virtio_ring.c |   17 +++++++++++++++++
- include/linux/virtio.h       |    4 ++++
- 4 files changed, 27 insertions(+), 11 deletions(-)
+ drivers/virtio/virtio_pci.c   |   46 +++++++++++++++++++++++++++++++++++++++++
+ include/linux/virtio_config.h |   21 ++++++++++++++++++
+ 2 files changed, 67 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/virtio/virtio_mmio.c b/drivers/virtio/virtio_mmio.c
-index 453db0c..f5432b6 100644
---- a/drivers/virtio/virtio_mmio.c
-+++ b/drivers/virtio/virtio_mmio.c
-@@ -131,9 +131,6 @@ struct virtio_mmio_vq_info {
- 	/* the number of entries in the queue */
- 	unsigned int num;
- 
--	/* the index of the queue */
--	int queue_index;
--
- 	/* the virtual address of the ring queue */
- 	void *queue;
- 
-@@ -324,7 +321,6 @@ static struct virtqueue *vm_setup_vq(struct virtio_device *vdev, unsigned index,
- 		err = -ENOMEM;
- 		goto error_kmalloc;
- 	}
--	info->queue_index = index;
- 
- 	/* Allocate pages for the queue - start with a queue as big as
- 	 * possible (limited by maximum size allowed by device), drop down
-@@ -363,6 +359,7 @@ static struct virtqueue *vm_setup_vq(struct virtio_device *vdev, unsigned index,
- 		goto error_new_virtqueue;
- 	}
- 
-+	virtqueue_set_queue_index(vq, index);
- 	vq->priv = info;
- 	info->vq = vq;
- 
 diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-index 2e03d41..adb24f2 100644
+index adb24f2..2ff0451 100644
 --- a/drivers/virtio/virtio_pci.c
 +++ b/drivers/virtio/virtio_pci.c
-@@ -79,9 +79,6 @@ struct virtio_pci_vq_info
- 	/* the number of entries in the queue */
- 	int num;
+@@ -48,6 +48,7 @@ struct virtio_pci_device
+ 	int msix_enabled;
+ 	int intx_enabled;
+ 	struct msix_entry *msix_entries;
++	cpumask_var_t *msix_affinity_masks;
+ 	/* Name strings for interrupts. This size should be enough,
+ 	 * and I'm too lazy to allocate each name separately. */
+ 	char (*msix_names)[256];
+@@ -276,6 +277,10 @@ static void vp_free_vectors(struct virtio_device *vdev)
+ 	for (i = 0; i < vp_dev->msix_used_vectors; ++i)
+ 		free_irq(vp_dev->msix_entries[i].vector, vp_dev);
  
--	/* the index of the queue */
--	int queue_index;
--
- 	/* the virtual address of the ring queue */
- 	void *queue;
- 
-@@ -202,11 +199,11 @@ static void vp_reset(struct virtio_device *vdev)
- static void vp_notify(struct virtqueue *vq)
- {
- 	struct virtio_pci_device *vp_dev = to_vp_device(vq->vdev);
--	struct virtio_pci_vq_info *info = vq->priv;
- 
- 	/* we write the queue's selector into the notification register to
- 	 * signal the other end */
--	iowrite16(info->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_NOTIFY);
-+	iowrite16(virtqueue_get_queue_index(vq),
-+		  vp_dev->ioaddr + VIRTIO_PCI_QUEUE_NOTIFY);
- }
- 
- /* Handle a configuration change: Tell driver if it wants to know. */
-@@ -402,7 +399,6 @@ static struct virtqueue *setup_vq(struct virtio_device *vdev, unsigned index,
- 	if (!info)
- 		return ERR_PTR(-ENOMEM);
- 
--	info->queue_index = index;
- 	info->num = num;
- 	info->msix_vector = msix_vec;
- 
-@@ -425,6 +421,7 @@ static struct virtqueue *setup_vq(struct virtio_device *vdev, unsigned index,
- 		goto out_activate_queue;
- 	}
- 
-+	virtqueue_set_queue_index(vq, index);
- 	vq->priv = info;
- 	info->vq = vq;
- 
-@@ -467,7 +464,8 @@ static void vp_del_vq(struct virtqueue *vq)
- 	list_del(&info->node);
- 	spin_unlock_irqrestore(&vp_dev->lock, flags);
- 
--	iowrite16(info->queue_index, vp_dev->ioaddr + VIRTIO_PCI_QUEUE_SEL);
-+	iowrite16(virtqueue_get_queue_index(vq),
-+		vp_dev->ioaddr + VIRTIO_PCI_QUEUE_SEL);
- 
++	for (i = 0; i < vp_dev->msix_vectors; i++)
++		if (vp_dev->msix_affinity_masks[i])
++			free_cpumask_var(vp_dev->msix_affinity_masks[i]);
++
  	if (vp_dev->msix_enabled) {
+ 		/* Disable the vector used for configuration */
  		iowrite16(VIRTIO_MSI_NO_VECTOR,
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index 5aa43c3..9c5aeea 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -106,6 +106,9 @@ struct vring_virtqueue
- 	/* How to notify other side. FIXME: commonalize hcalls! */
- 	void (*notify)(struct virtqueue *vq);
- 
-+	/* Index of the queue */
-+	int queue_index;
-+
- #ifdef DEBUG
- 	/* They're supposed to lock for us. */
- 	unsigned int in_use;
-@@ -171,6 +174,20 @@ static int vring_add_indirect(struct vring_virtqueue *vq,
- 	return head;
+@@ -293,6 +298,8 @@ static void vp_free_vectors(struct virtio_device *vdev)
+ 	vp_dev->msix_names = NULL;
+ 	kfree(vp_dev->msix_entries);
+ 	vp_dev->msix_entries = NULL;
++	kfree(vp_dev->msix_affinity_masks);
++	vp_dev->msix_affinity_masks = NULL;
  }
  
-+void virtqueue_set_queue_index(struct virtqueue *_vq, int queue_index)
-+{
-+	struct vring_virtqueue *vq = to_vvq(_vq);
-+	vq->queue_index = queue_index;
-+}
-+EXPORT_SYMBOL_GPL(virtqueue_set_queue_index);
-+
-+int virtqueue_get_queue_index(struct virtqueue *_vq)
-+{
-+	struct vring_virtqueue *vq = to_vvq(_vq);
-+	return vq->queue_index;
-+}
-+EXPORT_SYMBOL_GPL(virtqueue_get_queue_index);
-+
- /**
-  * virtqueue_add_buf - expose buffer to other end
-  * @vq: the struct virtqueue we're talking about.
-diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index 8efd28a..0d8ed46 100644
---- a/include/linux/virtio.h
-+++ b/include/linux/virtio.h
-@@ -50,6 +50,10 @@ void *virtqueue_detach_unused_buf(struct virtqueue *vq);
+ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+@@ -311,6 +318,15 @@ static int vp_request_msix_vectors(struct virtio_device *vdev, int nvectors,
+ 				     GFP_KERNEL);
+ 	if (!vp_dev->msix_names)
+ 		goto error;
++	vp_dev->msix_affinity_masks
++		= kzalloc(nvectors * sizeof *vp_dev->msix_affinity_masks,
++			  GFP_KERNEL);
++	if (!vp_dev->msix_affinity_masks)
++		goto error;
++	for (i = 0; i < nvectors; ++i)
++		if (!alloc_cpumask_var(&vp_dev->msix_affinity_masks[i],
++					GFP_KERNEL))
++			goto error;
  
- unsigned int virtqueue_get_vring_size(struct virtqueue *vq);
+ 	for (i = 0; i < nvectors; ++i)
+ 		vp_dev->msix_entries[i].entry = i;
+@@ -607,6 +623,35 @@ static const char *vp_bus_name(struct virtio_device *vdev)
+ 	return pci_name(vp_dev->pci_dev);
+ }
  
-+void virtqueue_set_queue_index(struct virtqueue *vq, int queue_index);
++/* Setup the affinity for a virtqueue:
++ * - force the affinity for per vq vector
++ * - OR over all affinities for shared MSI
++ * - ignore the affinity request if we're using INTX
++ */
++static int vp_set_vq_affinity(struct virtqueue *vq, int cpu)
++{
++	struct virtio_device *vdev = vq->vdev;
++	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
++	struct virtio_pci_vq_info *info = vq->priv;
++	struct cpumask *mask;
++	unsigned int irq;
 +
-+int virtqueue_get_queue_index(struct virtqueue *vq);
++	if (!vq->callback)
++		return -EINVAL;
 +
- /**
-  * virtio_device - representation of a device using virtio
-  * @index: unique position on the virtio bus
++	if (vp_dev->msix_enabled) {
++		mask = vp_dev->msix_affinity_masks[info->msix_vector];
++		irq = vp_dev->msix_entries[info->msix_vector].vector;
++		if (cpu == -1)
++			irq_set_affinity_hint(irq, NULL);
++		else {
++			cpumask_set_cpu(cpu, mask);
++			irq_set_affinity_hint(irq, mask);
++		}
++	}
++	return 0;
++}
++
+ static struct virtio_config_ops virtio_pci_config_ops = {
+ 	.get		= vp_get,
+ 	.set		= vp_set,
+@@ -618,6 +663,7 @@ static struct virtio_config_ops virtio_pci_config_ops = {
+ 	.get_features	= vp_get_features,
+ 	.finalize_features = vp_finalize_features,
+ 	.bus_name	= vp_bus_name,
++	.set_vq_affinity = vp_set_vq_affinity,
+ };
+ 
+ static void virtio_pci_release_dev(struct device *_d)
+diff --git a/include/linux/virtio_config.h b/include/linux/virtio_config.h
+index fc457f4..2c4a989 100644
+--- a/include/linux/virtio_config.h
++++ b/include/linux/virtio_config.h
+@@ -98,6 +98,7 @@
+  *	vdev: the virtio_device
+  *      This returns a pointer to the bus name a la pci_name from which
+  *      the caller can then copy.
++ * @set_vq_affinity: set the affinity for a virtqueue.
+  */
+ typedef void vq_callback_t(struct virtqueue *);
+ struct virtio_config_ops {
+@@ -116,6 +117,7 @@ struct virtio_config_ops {
+ 	u32 (*get_features)(struct virtio_device *vdev);
+ 	void (*finalize_features)(struct virtio_device *vdev);
+ 	const char *(*bus_name)(struct virtio_device *vdev);
++	int (*set_vq_affinity)(struct virtqueue *vq, int cpu);
+ };
+ 
+ /* If driver didn't advertise the feature, it will never appear. */
+@@ -190,5 +192,24 @@ const char *virtio_bus_name(struct virtio_device *vdev)
+ 	return vdev->config->bus_name(vdev);
+ }
+ 
++/**
++ * virtqueue_set_affinity - setting affinity for a virtqueue
++ * @vq: the virtqueue
++ * @cpu: the cpu no.
++ *
++ * Pay attention the function are best-effort: the affinity hint may not be set
++ * due to config support, irq type and sharing.
++ *
++ */
++static inline
++int virtqueue_set_affinity(struct virtqueue *vq, int cpu)
++{
++	struct virtio_device *vdev = vq->vdev;
++	if (vdev->config->set_vq_affinity)
++		return vdev->config->set_vq_affinity(vq, cpu);
++	return 0;
++}
++
++
+ #endif /* __KERNEL__ */
+ #endif /* _LINUX_VIRTIO_CONFIG_H */
 -- 
 1.7.1
