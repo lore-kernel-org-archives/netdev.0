@@ -1,39 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
-Date: Thu, 05 Jul 2012 00:59:40 -0700 (PDT)
-Message-ID: <20120705.005940.1078811938047681715.davem@davemloft.net>
-References: <1341415267.2583.2120.camel@edumazet-glaptop>
-	<20120704.161335.1503971699878518173.davem@davemloft.net>
-	<1341474745.2583.3325.camel@edumazet-glaptop>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: AF_BUS socket address family
+Date: Thu, 5 Jul 2012 09:59:53 +0200
+Message-ID: <CAKnu2Mr_TWvBXmL+ORfddpEgPdPxPXFpJdCtvPe+imj6o6Y+1w@mail.gmail.com>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54423 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754174Ab2GEH7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 03:59:43 -0400
-In-Reply-To: <1341474745.2583.3325.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	=?ISO-8859-1?Q?Arve_Hj=F8nnev=E5g?= <arve@android.com>,
+	Daniel Walker <dwalker@fifo99.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Anton Vorontsov <anton.vorontsov@linaro.org>,
+	Greg Kroah-Hartman <greg@kroah.com>
+To: Vincent Sanders <vincent.sanders@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 05 Jul 2012 09:52:25 +0200
+2012/6/29 Vincent Sanders <vincent.sanders@collabora.co.uk>:
 
-> [PATCH] ipv4: defer fib_compute_spec_dst() call
-> 
-> ip_options_compile() can avoid calling fib_compute_spec_dst()
-> by default, and perform the call if needed.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> AF_BUS is a message oriented inter process communication system.
 
-Yes, this is a great idea.  Actually in some obscure cases your
-change can cause us to compute it more than once I think.
+We have a very huge and important in-kernel IPC message passer
+in drivers/staging/android/binder.c
 
-I'd suggest we do something like create a helper function above this
-code in ip_options.c that checks whether spec_dst is INADDR_ANY or
-not, to guard computing it multiple times.
+It's deployed in some 400 million devices according to latest reports.
+John Stultz & Anton Vorontsov are trying to look after these Android
+drivers a bit...
 
-Could you put together a quick patch like that?
+I and others discussed this in the past with the Android folks. Dianne
+makes an excellent summary of how it works here:
+https://lkml.org/lkml/2009/6/25/3
+
+If we could all be convinced that this thing also fulfills the needs
+of what binder does, this is a pretty solid case for it too. I can
+sure see that some of the shortcuts that Android is taking with
+binder try to address the same issue of high-speed IPC loopholes
+through the kernel and some kind of security model.
+
+Whether Android would actually use it (or wrap it) is a totally
+different question, but what I think we need to know is whether it
+*could*. And staging code has to move forward, maybe this
+is the direction it should move?
+
+Yours,
+Linus Walleij
