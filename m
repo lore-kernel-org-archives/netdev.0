@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] rtcache remove respin
-Date: Thu, 05 Jul 2012 03:15:39 -0700 (PDT)
-Message-ID: <20120705.031539.2275742387594459652.davem@davemloft.net>
-References: <20120701.050243.908285695895815999.davem@davemloft.net>
-	<1341225841.5269.69.camel@edumazet-glaptop>
+Subject: Re: [PATCH net] net: qmi_wwan: add ZTE MF60
+Date: Thu, 05 Jul 2012 03:16:48 -0700 (PDT)
+Message-ID: <20120705.031648.85978116859244029.davem@davemloft.net>
+References: <1341251597-21124-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55112 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55117 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752950Ab2GEKPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:15:39 -0400
-In-Reply-To: <1341225841.5269.69.camel@edumazet-glaptop>
+	with ESMTP id S1752950Ab2GEKQt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:16:49 -0400
+In-Reply-To: <1341251597-21124-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 Jul 2012 12:44:01 +0200
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Mon,  2 Jul 2012 19:53:17 +0200
 
-> If we still want __refcnt being on cache line boundary, we might find a
-> better way to accomplish this.
+> +static const struct driver_info	qmi_wwan_force_int2 =3D {
 
-Back to this issue again.
-
-Eric, if you take a look at net-next right now, I left a dummy padding
-in dst_entry where the neighbour pointer used to be.
-
-Can you come up with some way to make use of that new space?
+Please get rid of that strange tab character and resubmit.
