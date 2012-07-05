@@ -1,71 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] gianfar: fix potential sk_wmem_alloc imbalance
-Date: Thu, 05 Jul 2012 23:45:13 +0200
-Message-ID: <1341524713.3265.41.camel@edumazet-glaptop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next] cnic: Fix mmap regression.
+Date: Thu, 5 Jul 2012 14:59:46 -0700
+Message-ID: <1341525586.7472.25.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1340998365-15753-1-git-send-email-mchan@broadcom.com>
+ <20120629.153425.24594752441419170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Manfred Rudigier <manfred.rudigier@omicron.at>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Jiajun Wu <b06378@freescale.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Andy Fleming <afleming@freescale.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:62270 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756525Ab2GEVpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 17:45:20 -0400
-Received: by wibhm11 with SMTP id hm11so125481wib.1
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 14:45:19 -0700 (PDT)
+Received: from mms2.broadcom.com ([216.31.210.18]:3578 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752103Ab2GEWAV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jul 2012 18:00:21 -0400
+In-Reply-To: <20120629.153425.24594752441419170.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2012-06-29 at 15:34 -0700, David Miller wrote: 
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Fri, 29 Jun 2012 12:32:45 -0700
+> 
+> > commit 1f85d58cdf15354a7120fc9ccc9bb9c45b53af88
+> >     cnic: Remove uio mem[0].
+> > 
+> > introduced a regression as older versions of userspace app still rely
+> > on this mmap.  Restore the mmap functionality and get the base address
+> > from pci_resource_start() as the nedev->base_addr has been deprecated for
+> > PCI devices.
+> > 
+> > Update version to 2.5.12.
+> > 
+> > Signed-off-by: Michael Chan <mchan@broadocm.com>
+> 
+> I really couldn't believe what you guys were doing in the original
+> commit, but I decided to let you do stupid things and find out the
+> hard way that removing any user visible interface is basically
+> impossible.
+> 
+> Applied, thanks.
+> 
 
-commit db83d136d7f753 (gianfar: Fix missing sock reference when
-processing TX time stamps) added a potential sk_wmem_alloc imbalance
-
-If the new skb has a different truesize than old one, we can get a
-negative sk_wmem_alloc once new skb is orphaned at TX completion.
-
-Now we no longer early orphan skbs in dev_hard_start_xmit(), this
-probably can lead to fatal bugs.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Manfred Rudigier <manfred.rudigier@omicron.at>
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-Cc: Jiajun Wu <b06378@freescale.com>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: Andy Fleming <afleming@freescale.com>
----
-
-Note : I don't have the hardware and discovered this problem by code
-analysis. So please compile and run this patch before Acking it,
-thanks !
-
-BTW, dev->needed_headroom should be set to GMAC_FCB_LEN + GMAC_TXPAL_LEN
-to avoid reallocations...
-
- drivers/net/ethernet/freescale/gianfar.c |    7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index f2db8fc..ab1d80f 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2063,10 +2063,9 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			return NETDEV_TX_OK;
- 		}
- 
--		/* Steal sock reference for processing TX time stamps */
--		swap(skb_new->sk, skb->sk);
--		swap(skb_new->destructor, skb->destructor);
--		kfree_skb(skb);
-+		if (skb->sk)
-+			skb_set_owner_w(skb_new, skb->sk);
-+		consume_skb(skb);
- 		skb = skb_new;
- 	}
- 
+David, this patch plus the earlier commit are also needed for the net
+tree because netdev->base_addr was removed there.  Can you apply these
+directly to the net tree?  Or you want me to send you the equivalent
+patches for net.  Thanks.
