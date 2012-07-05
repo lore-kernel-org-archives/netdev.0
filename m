@@ -1,64 +1,86 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] NFC: Prevent NULL deref when getting socket name
-Date: Mon, 2 Jul 2012 14:24:38 -0400
-Message-ID: <20120702182438.GB2010@tuxdriver.com>
-References: <1341050207-13145-1-git-send-email-levinsasha928@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP transmit performance regression
+Date: Thu, 05 Jul 2012 16:56:36 +0200
+Message-ID: <1341500196.2583.4222.camel@edumazet-glaptop>
+References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+	 <1341474192.2583.3299.camel@edumazet-glaptop>
+	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+	 <1341477192.2583.3415.camel@edumazet-glaptop>
+	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+	 <1341481760.2583.3579.camel@edumazet-glaptop>
+	 <CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
+	 <1341484919.2583.3688.camel@edumazet-glaptop>
+	 <CACVXFVPksMd8CGZWEGBXBXB5NZCg3QOZreOLavkV-Z2pjE-M_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-	sameo@linux.intel.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1341050207-13145-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:33264 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756525Ab2GEO4m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 10:56:42 -0400
+Received: by eaak11 with SMTP id k11so3284025eaa.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 07:56:41 -0700 (PDT)
+In-Reply-To: <CACVXFVPksMd8CGZWEGBXBXB5NZCg3QOZreOLavkV-Z2pjE-M_A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 30, 2012 at 11:56:47AM +0200, Sasha Levin wrote:
-> llcp_sock_getname can be called without a device attached to the nfc_llcp_sock.
-> 
-> This would lead to the following BUG:
-> 
-> [  362.341807] BUG: unable to handle kernel NULL pointer dereference at           (null)
-> [  362.341815] IP: [<ffffffff836258e5>] llcp_sock_getname+0x75/0xc0
-> [  362.341818] PGD 31b35067 PUD 30631067 PMD 0
-> [  362.341821] Oops: 0000 [#627] PREEMPT SMP DEBUG_PAGEALLOC
-> [  362.341826] CPU 3
-> [  362.341827] Pid: 7816, comm: trinity-child55 Tainted: G      D W    3.5.0-rc4-next-20120628-sasha-00005-g9f23eb7 #479
-> [  362.341831] RIP: 0010:[<ffffffff836258e5>]  [<ffffffff836258e5>] llcp_sock_getname+0x75/0xc0
-> [  362.341832] RSP: 0018:ffff8800304fde88  EFLAGS: 00010286
-> [  362.341834] RAX: 0000000000000000 RBX: ffff880033cb8000 RCX: 0000000000000001
-> [  362.341835] RDX: ffff8800304fdec4 RSI: ffff8800304fdec8 RDI: ffff8800304fdeda
-> [  362.341836] RBP: ffff8800304fdea8 R08: 7ebcebcb772b7ffb R09: 5fbfcb9c35bdfd53
-> [  362.341838] R10: 4220020c54326244 R11: 0000000000000246 R12: ffff8800304fdec8
-> [  362.341839] R13: ffff8800304fdec4 R14: ffff8800304fdec8 R15: 0000000000000044
-> [  362.341841] FS:  00007effa376e700(0000) GS:ffff880035a00000(0000) knlGS:0000000000000000
-> [  362.341843] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [  362.341844] CR2: 0000000000000000 CR3: 0000000030438000 CR4: 00000000000406e0
-> [  362.341851] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [  362.341856] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> [  362.341858] Process trinity-child55 (pid: 7816, threadinfo ffff8800304fc000, task ffff880031270000)
-> [  362.341858] Stack:
-> [  362.341862]  ffff8800304fdea8 ffff880035156780 0000000000000000 0000000000001000
-> [  362.341865]  ffff8800304fdf78 ffffffff83183b40 00000000304fdec8 0000006000000000
-> [  362.341868]  ffff8800304f0027 ffffffff83729649 ffff8800304fdee8 ffff8800304fdf48
-> [  362.341869] Call Trace:
-> [  362.341874]  [<ffffffff83183b40>] sys_getpeername+0xa0/0x110
-> [  362.341877]  [<ffffffff83729649>] ? _raw_spin_unlock_irq+0x59/0x80
-> [  362.341882]  [<ffffffff810f342b>] ? do_setitimer+0x23b/0x290
-> [  362.341886]  [<ffffffff81985ede>] ? trace_hardirqs_on_thunk+0x3a/0x3f
-> [  362.341889]  [<ffffffff8372a539>] system_call_fastpath+0x16/0x1b
-> [  362.341921] Code: 84 00 00 00 00 00 b8 b3 ff ff ff 48 85 db 74 54 66 41 c7 04 24 27 00 49 8d 7c 24 12 41 c7 45 00 60 00 00 00 48 8b 83 28 05 00 00 <8b> 00 41 89 44 24 04 0f b6 83 41 05 00 00 41 88 44 24 10 0f b6
-> [  362.341924] RIP  [<ffffffff836258e5>] llcp_sock_getname+0x75/0xc0
-> [  362.341925]  RSP <ffff8800304fde88>
-> [  362.341926] CR2: 0000000000000000
-> [  362.341928] ---[ end trace 6d450e935ee18bf3 ]---
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+On Thu, 2012-07-05 at 22:01 +0800, Ming Lei wrote:
 
-Samuel, I'm taking this one directly.
+> At default SMSC95xx turbo mode is true, rx buffer will be very big
+> (17.5K). Or the large rx buffer size puts limit on concurrent URBs/SKBs
+> count.  Both two may cause the problem.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+I see. So we should try to recycle these large rx buffers in usbnet
+instead of allocating/freeing them for each incoming packet.
+
+Following patch does the copybreak of all incoming frames.
+
+It has nice property of not lying anymore on skb truesize ;)
+
+It should be applied on both sender and receiver
+
+ drivers/net/usb/smsc95xx.c |   19 +++----------------
+ 1 file changed, 3 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index b1112e7..3d9566f 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1080,30 +1080,17 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 				return 0;
+ 			}
+ 
+-			/* last frame in this batch */
+-			if (skb->len == size) {
+-				if (dev->net->features & NETIF_F_RXCSUM)
+-					smsc95xx_rx_csum_offload(skb);
+-				skb_trim(skb, skb->len - 4); /* remove fcs */
+-				skb->truesize = size + sizeof(struct sk_buff);
+-
+-				return 1;
+-			}
+-
+-			ax_skb = skb_clone(skb, GFP_ATOMIC);
++			ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
+ 			if (unlikely(!ax_skb)) {
+ 				netdev_warn(dev->net, "Error allocating skb\n");
+ 				return 0;
+ 			}
+ 
+-			ax_skb->len = size;
+-			ax_skb->data = packet;
+-			skb_set_tail_pointer(ax_skb, size);
++			memcpy(skb_put(ax_skb, size), packet, size);
+ 
+ 			if (dev->net->features & NETIF_F_RXCSUM)
+ 				smsc95xx_rx_csum_offload(ax_skb);
+-			skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+-			ax_skb->truesize = size + sizeof(struct sk_buff);
++			__skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+ 
+ 			usbnet_skb_return(dev, ax_skb);
+ 		}
