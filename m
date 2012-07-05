@@ -1,41 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/5] rtcache remove respin
-Date: Thu, 05 Jul 2012 21:03:37 +0200
-Message-ID: <1341515017.3265.6.camel@edumazet-glaptop>
-References: <20120701.050243.908285695895815999.davem@davemloft.net>
-	 <1341225841.5269.69.camel@edumazet-glaptop>
-	 <20120705.031539.2275742387594459652.davem@davemloft.net>
+From: Amos Kong <akong@redhat.com>
+Subject: Re: [net-next RFC V5 4/5] virtio_net: multiqueue support
+Date: Fri, 06 Jul 2012 04:02:58 +0800
+Message-ID: <4FF5F2F2.9050307@redhat.com>
+References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+	<1341484194-8108-5-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:65196 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628Ab2GETDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 15:03:42 -0400
-Received: by werb14 with SMTP id b14so5563367wer.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 12:03:41 -0700 (PDT)
-In-Reply-To: <20120705.031539.2275742387594459652.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
+	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, sri@us.ibm.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1341484194-8108-5-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-05 at 03:15 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 02 Jul 2012 12:44:01 +0200
+On 07/05/2012 06:29 PM, Jason Wang wrote:
+> This patch converts virtio_net to a multi queue device. After negotiated
+> VIRTIO_NET_F_MULTIQUEUE feature, the virtio device has many tx/rx queue pairs,
+> and driver could read the number from config space.
 > 
-> > If we still want __refcnt being on cache line boundary, we might find a
-> > better way to accomplish this.
+> The driver expects the number of rx/tx queue paris is equal to the number of
+> vcpus. To maximize the performance under this per-cpu rx/tx queue pairs, some
+> optimization were introduced:
 > 
-> Back to this issue again.
+> - Txq selection is based on the processor id in order to avoid contending a lock
+>   whose owner may exits to host.
+> - Since the txq/txq were per-cpu, affinity hint were set to the cpu that owns
+>   the queue pairs.
 > 
-> Eric, if you take a look at net-next right now, I left a dummy padding
-> in dst_entry where the neighbour pointer used to be.
-> 
-> Can you come up with some way to make use of that new space?
-> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
 
-If route cache is removed, I believe we can remove all paddings.
+...
 
-Each tcp session will have its own dst_entry, instead of being shared.
+>  
+>  static int virtnet_probe(struct virtio_device *vdev)
+>  {
+> -	int err;
+> +	int i, err;
+>  	struct net_device *dev;
+>  	struct virtnet_info *vi;
+> +	u16 num_queues, num_queue_pairs;
+> +
+> +	/* Find if host supports multiqueue virtio_net device */
+> +	err = virtio_config_val(vdev, VIRTIO_NET_F_MULTIQUEUE,
+> +				offsetof(struct virtio_net_config,
+> +				num_queues), &num_queues);
+> +
+> +	/* We need atleast 2 queue's */
+
+
+s/atleast/at least/
+
+
+> +	if (err || num_queues < 2)
+> +		num_queues = 2;
+> +	if (num_queues > MAX_QUEUES * 2)
+> +		num_queues = MAX_QUEUES;
+
+                num_queues = MAX_QUEUES * 2;
+
+MAX_QUEUES is the limitation of RX or TX.
+
+> +
+> +	num_queue_pairs = num_queues / 2;
+
+...
+
+-- 
+			Amos.
