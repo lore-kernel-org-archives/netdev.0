@@ -1,53 +1,56 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net 3/7] qlge: Garbage values shown in extra info during selftest.
-Date: Mon,  2 Jul 2012 19:41:50 -0400
-Message-ID: <1341272514-5156-4-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1341272514-5156-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:43406 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751107Ab2GECev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jul 2012 22:34:51 -0400
-In-Reply-To: <1341272514-5156-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Green <andy@warmcat.com>
+Subject: [PATCH 4 0/4] Add ability to set defaultless network device MAC
+ addresses to deterministic computed locally administered values
+Date: Thu, 05 Jul 2012 10:44:33 +0800
+Message-ID: <20120705024259.26317.16000.stgit@build.warmcat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: s-jan@ti.com, arnd@arndb.de, patches@linaro.org, tony@atomide.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rostedt@goodmis.org, linux-arm-kernel@lists.infradead.org
+To: linux-omap@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+The following series adds some code to generate legal, locally administered
+MAC addresses from OMAP4 CPU Die ID fuse data, and then adds a helper at
+net/ethernet taking care of accepting device path / MAC mapping registrations
+and running a notifier to enforce the requested MAC when the matching network
+device turns up.
 
-while running selftest 'ethtool -t' multiple times will get
-different values in the 'extra info' section, which was garbage.
+On PandaBoard / ES, two devices have no board-level MAC either assigned by
+the manufacturer or stored on the board, the last patch in the series adds
+these device paths and gets them set when the network device is registered.
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Lastly for convenient testing, there's a little patch on omap2plus_defconfig
+that will get Ethernet and WLAN up on Pandaboard.
+
+The patches are against today's linux-omap.
+
+Thanks to Tony Lindgren and Arnd Bergmann for comments leading to the
+helper in net/ethernet.
+
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-index 98f04d7..31ee6dc 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-@@ -248,6 +248,9 @@ static char ql_stats_str_arr[][ETH_GSTRING_LEN] = {
- static void ql_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
- {
- 	switch (stringset) {
-+	case ETH_SS_TEST:
-+		memcpy(buf, *ql_gstrings_test, QLGE_TEST_LEN * ETH_GSTRING_LEN);
-+		break;
- 	case ETH_SS_STATS:
- 		memcpy(buf, ql_stats_str_arr, sizeof(ql_stats_str_arr));
- 		break;
-@@ -538,6 +541,8 @@ static void ql_self_test(struct net_device *ndev,
- {
- 	struct ql_adapter *qdev = netdev_priv(ndev);
- 
-+	memset(data, 0, sizeof(u64) * QLGE_TEST_LEN);
-+
- 	if (netif_running(ndev)) {
- 		set_bit(QL_SELFTEST, &qdev->flags);
- 		if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
--- 
-1.7.1
+Andy Green (4):
+      OMAP: add cpu id register to MAC address helper
+      NET ethernet introduce mac_platform helper
+      OMAP4 PANDA register ethernet and wlan for automatic mac allocation
+      config test config extending omap2plus with wl12xx etc
+
+
+ arch/arm/configs/omap2plus_defconfig   |   35 +++----
+ arch/arm/mach-omap2/Kconfig            |    1 
+ arch/arm/mach-omap2/board-omap4panda.c |   30 ++++++
+ arch/arm/mach-omap2/id.c               |   39 ++++++++
+ arch/arm/mach-omap2/include/mach/id.h  |    1 
+ include/net/mac-platform.h             |   39 ++++++++
+ net/Kconfig                            |    5 +
+ net/ethernet/Makefile                  |    3 +
+ net/ethernet/mac-platform.c            |  151 ++++++++++++++++++++++++++++++++
+ 9 files changed, 282 insertions(+), 22 deletions(-)
+ create mode 100644 include/net/mac-platform.h
+ create mode 100644 net/ethernet/mac-platform.c
+
