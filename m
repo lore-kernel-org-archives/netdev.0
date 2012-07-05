@@ -1,47 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Thu, 05 Jul 2012 12:41:59 +0200
-Message-ID: <1341484919.2583.3688.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	 <1341474192.2583.3299.camel@edumazet-glaptop>
-	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	 <1341477192.2583.3415.camel@edumazet-glaptop>
-	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	 <1341481760.2583.3579.camel@edumazet-glaptop>
-	 <CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net] net: qmi_wwan: add ZTE MF60
+Date: Thu, 05 Jul 2012 13:09:31 +0200
+Message-ID: <87obnujwgk.fsf@nemi.mork.no>
+References: <1341251597-21124-1-git-send-email-bjorn@mork.no>
+	<20120705.031648.85978116859244029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:33866 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755430Ab2GEKmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:42:05 -0400
-Received: by eaak11 with SMTP id k11so3175990eaa.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 03:42:03 -0700 (PDT)
-In-Reply-To: <CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
+Received: from canardo.mork.no ([148.122.252.1]:58340 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751182Ab2GELJi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 07:09:38 -0400
+In-Reply-To: <20120705.031648.85978116859244029.davem@davemloft.net> (David
+	Miller's message of "Thu, 05 Jul 2012 03:16:48 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 18:32 +0800, Ming Lei wrote:
+David Miller <davem@davemloft.net> writes:
 
-> After testing on beagle-xm, the patch is good and network is OK, but
-> iperf performance is still no improvement, see below:
-> 
-> [root@root]#iperf -c 192.168.0.103 -w 131072 -t 10
-> ------------------------------------------------------------
-> Client connecting to 192.168.0.103, TCP port 5001
-> TCP window size:   256 KByte (WARNING: requested   128 KByte)
-> ------------------------------------------------------------
-> [  3] local 192.168.0.119 port 46776 connected with 192.168.0.103 port 5001
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0-10.0 sec  41.4 MBytes  34.7 Mbits/sec
-> 
+> From: Bj=C3=B8rn Mork <bjorn@mork.no>
+> Date: Mon,  2 Jul 2012 19:53:17 +0200
+>
+>> +static const struct driver_info	qmi_wwan_force_int2 =3D {
+>
+> Please get rid of that strange tab character and resubmit.
 
-I fear there are copies in the tx path as well, in smsc95xx_tx_fixup()
+Sure. Will do.
 
-Could you add traces in this function to check if skb_copy_expand() is
-called ?
+Looks like a thoughtless copy-paste thing originally coming from
+cdc_ether.  Funny thing is that it has survived several incarnations
+already, as this specific instance came from a copy-paste within the
+same driver.
+
+It's all checkpatch'es fault for not warning me :-)
+
+Luckily all of these will go away when the whitelisting is removed
+(i.e. when the USB interface number matching in 3.6 is available).
+
+
+Bj=C3=B8rn
