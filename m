@@ -1,65 +1,77 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Thu, 05 Jul 2012 09:43:12 +0200
-Message-ID: <1341474192.2583.3299.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+Subject: Re: [PATCH] ipv4: Create and use fib_compute_spec_dst() helper.
+Date: Thu, 05 Jul 2012 09:52:25 +0200
+Message-ID: <1341474745.2583.3325.camel@edumazet-glaptop>
+References: <alpine.LFD.2.00.1206282309340.1722@ja.ssi.bg>
+	 <20120628.184500.114483408843364230.davem@davemloft.net>
+	 <1341415267.2583.2120.camel@edumazet-glaptop>
+	 <20120704.161335.1503971699878518173.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
+Cc: ja@ssi.bg, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:41882 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754404Ab2GEHnQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 03:43:16 -0400
-Received: by eaak11 with SMTP id k11so3113162eaa.19
-        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 00:43:15 -0700 (PDT)
-In-Reply-To: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:54513 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754174Ab2GEHwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 03:52:30 -0400
+Received: by eeit10 with SMTP id t10so3103056eei.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 00:52:29 -0700 (PDT)
+In-Reply-To: <20120704.161335.1503971699878518173.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 09:45 +0800, Ming Lei wrote:
-> Hi,
+On Wed, 2012-07-04 at 16:13 -0700, David Miller wrote:
+
+> ====================
+> ipv4: Fix crashes in ip_options_compile().
 > 
-> I observed that on both 3.5-rc5 and 3.5-rc5-next, TCP transmit performance
-> degrades a lot, see my below simple test:
+> The spec_dst uses should be guarded by skb_rtable() being non-NULL
+> not just the SKB being non-null.
 > 
-> 1, test box
-> NIC: 100M USB, normally can reach > 90Mbits/sec
-> 
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
 
-What was the last "OK" kernel version ?
+Seems good to me thanks.
 
-What NIC driver is it ?
+By the way, maybe we can defer fib_compute_spec_dst() call to the point
+we really need it ?
 
-> 2, run below command on the box:
-> [root@root]#iperf -c 192.168.0.103 -w 131072 -t 10
-> ------------------------------------------------------------
-> Client connecting to 192.168.0.103, TCP port 5001
-> TCP window size:   256 KByte (WARNING: requested   128 KByte)
-> ------------------------------------------------------------
-> [  3] local 192.168.0.108 port 59315 connected with 192.168.0.103 port 5001
-> [ ID] Interval       Transfer     Bandwidth
-> [  3]  0.0-10.0 sec  40.4 MBytes  33.9 Mbits/sec
-> 
-> note: 192.168.0.103 is another production machine running 'iperf -s -w 131072'
-> 
-> 3, from traffic captured in wireshark, the window size of most of tcp packets
-> from the test box to 192.168.0.103 is set as 229, looks very weird and should
-> be the cause of performance regression.
-> 
+[PATCH] ipv4: defer fib_compute_spec_dst() call
 
-Packets sent to 192.168.0.103 announce the window suitable for packets
-in the other way, so not relevant to your problem.
+ip_options_compile() can avoid calling fib_compute_spec_dst()
+by default, and perform the call if needed.
 
-Could you do
-
-# tcpdump -i eth0 -s 100 -c 1000 -w tcp.pcap host 192.168.0.103 &
-# iperf -c 192.168.0.103 -w 131072 -t 10
-
-and post the tcp.pcap file ?
-
-By the way, if you remove -w 131072 (on both sides), I guess throughput
-will increase.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index 1f02251..54ab83f 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -260,8 +260,6 @@ int ip_options_compile(struct net *net,
+ 
+ 	if (skb != NULL) {
+ 		rt = skb_rtable(skb);
+-		if (rt)
+-			spec_dst = fib_compute_spec_dst(skb);
+ 		optptr = (unsigned char *)&(ip_hdr(skb)[1]);
+ 	} else
+ 		optptr = opt->__data;
+@@ -334,6 +332,7 @@ int ip_options_compile(struct net *net,
+ 					goto error;
+ 				}
+ 				if (rt) {
++					spec_dst = fib_compute_spec_dst(skb);
+ 					memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
+ 					opt->is_changed = 1;
+ 				}
+@@ -376,6 +375,7 @@ int ip_options_compile(struct net *net,
+ 					}
+ 					opt->ts = optptr - iph;
+ 					if (rt)  {
++						spec_dst = fib_compute_spec_dst(skb);
+ 						memcpy(&optptr[optptr[2]-1], &spec_dst, 4);
+ 						timeptr = &optptr[optptr[2]+3];
+ 					}
