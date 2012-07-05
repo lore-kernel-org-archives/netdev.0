@@ -1,48 +1,40 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] cgroup: fix panic in netprio_cgroup
-Date: Thu, 5 Jul 2012 16:31:42 +0800
-Message-ID: <1341477102-16988-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nhorman@tuxdriver.com, tj@kernel.org, lizefan@huawei.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP transmit performance regression
+Date: Thu, 05 Jul 2012 10:33:12 +0200
+Message-ID: <1341477192.2583.3415.camel@edumazet-glaptop>
+References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+	 <1341474192.2583.3299.camel@edumazet-glaptop>
+	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Ming Lei <tom.leiming@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:32782 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754507Ab2GEIdR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 04:33:17 -0400
+Received: by eaak11 with SMTP id k11so3130105eaa.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 01:33:16 -0700 (PDT)
+In-Reply-To: <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-we set max_prioidx to the first zero bit index of prioidx_map in
-function get_prioidx.
+On Thu, 2012-07-05 at 16:27 +0800, Ming Lei wrote:
 
-So when we delete the low index netprio cgroup and adding a new
-netprio cgroup again,the max_prioidx will be set to the low index.
+> After some investigation, the problem is caused by enabling
+> DEBUG_SLAB, so it is not a regression.
+> 
 
-when we set the high index cgroup's net_prio.ifpriomap,the function
-write_priomap will call update_netdev_tables to alloc memory which
-size is sizeof(struct netprio_map) + sizeof(u32) * (max_prioidx + 1),
-so the size of array that map->priomap point to is max_prioidx +1,
-which is low than what we actually need.
+Strange, unless your machine is a _very_ slow one maybe ?
 
-fix this by adding check in get_prioidx,only set max_prioidx when
-max_prioidx low than the new prioidx.
+> 
+> Looks no improvement. I still don't know why the window size becomes so
+> small even in good situation(disabling DEBUG_SLAB), and the small
+> window size will cause almost every tcp data packet acked.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/core/netprio_cgroup.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+You are probably missing the fact that window scaling is enabled.
 
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 5b8aa2f..586f7d9 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -50,7 +50,8 @@ static int get_prioidx(u32 *prio)
- 	}
- 	set_bit(prioidx, prioidx_map);
- 	spin_unlock_irqrestore(&prioidx_map_lock, flags);
--	atomic_set(&max_prioidx, prioidx);
-+	if (atomic_read(&max_prioidx) < prioidx)
-+		atomic_set(&max_prioidx, prioidx);
- 	*prio = prioidx;
- 	return 0;
- }
--- 
-1.7.7.6
+If you dont post a pcap, I am afraid we cant really help.
