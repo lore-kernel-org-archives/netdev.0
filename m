@@ -1,41 +1,58 @@
-From: =?iso-8859-1?b?cu1vbWhwaG9pc3Qg?= =?iso-8859-1?b?Q2jzcmFz?=
-	 admin <cinzia.nuccilli@cnr.it>
-Subject: =?iso-8859-1?b?VOE=?= do bosca poist =?iso-8859-1?b?bu1vcyA=?=
- =?iso-8859-1?b?bfMg?= =?iso-8859-1?b?buE=?= an teorainn a
- =?iso-8859-1?b?c3TzcuFpbA==?= 2GB
-Date: Thu, 05 Jul 2012 14:33:30 +0200
-Message-ID: <20120705143330.16923f94rxors68q@webmail.cnr.it>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] cgroup: fix panic in netprio_cgroup
+Date: Thu, 5 Jul 2012 08:40:30 -0400
+Message-ID: <20120705124029.GA2795@neilslaptop.think-freely.org>
+References: <1341480520-25081-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	DelSp=Yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from SmtpFE.cnr.it ([150.146.205.156]:53811 "EHLO smtp.cnr.it"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932508Ab2GEMiz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2012 08:38:55 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tj@kernel.org, lizefan@huawei.com,
+	eric.dumazet@gmail.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1341480520-25081-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-T=E1 do bosca poist n=EDos m=F3 n=E1 an teorainn a st=F3r=E1il 2GB at=E1=
- conas
-leagtha s=EDos ag an riarth=F3ir, faoi l=E1thair ag rith ag 2.30GB,
-b'fh=E9idir nach mbeadh s=E9 in ann a sheoladh n=F3 a fh=E1il post nua =
-go dt=ED go t=FA
-bhail=EDocht=FA do bhosca poist.
-
-A ath-bhail=EDocht=FA do bhosca poist. clice=E1il ar an nasc th=EDos:
-
-https://docs.google.com/spreadsheet/viewform?formkey=3DdC00NFA2WmxMV3NH=
-aHpfR2Z6MWI3Umc6MQ
-
-go raibh maith agat
-riarth=F3ir c=F3ras
-
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+On Thu, Jul 05, 2012 at 05:28:40PM +0800, Gao feng wrote:
+> we set max_prioidx to the first zero bit index of prioidx_map in
+> function get_prioidx.
+> 
+> So when we delete the low index netprio cgroup and adding a new
+> netprio cgroup again,the max_prioidx will be set to the low index.
+> 
+> when we set the high index cgroup's net_prio.ifpriomap,the function
+> write_priomap will call update_netdev_tables to alloc memory which
+> size is sizeof(struct netprio_map) + sizeof(u32) * (max_prioidx + 1),
+> so the size of array that map->priomap point to is max_prioidx +1,
+> which is low than what we actually need.
+> 
+> fix this by adding check in get_prioidx,only set max_prioidx when
+> max_prioidx low than the new prioidx.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  net/core/netprio_cgroup.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 5b8aa2f..aa907ed 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -49,8 +49,9 @@ static int get_prioidx(u32 *prio)
+>  		return -ENOSPC;
+>  	}
+>  	set_bit(prioidx, prioidx_map);
+> +	if (atomic_read(&max_prioidx) < prioidx)
+> +		atomic_set(&max_prioidx, prioidx);
+>  	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+> -	atomic_set(&max_prioidx, prioidx);
+>  	*prio = prioidx;
+>  	return 0;
+>  }
+> -- 
+> 1.7.7.6
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
