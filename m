@@ -1,7 +1,7 @@
 From: Andy Green <andy.green@linaro.org>
-Subject: [PATCH 4 1/4] OMAP: add cpu id register to MAC address helper
-Date: Thu, 05 Jul 2012 10:44:41 +0800
-Message-ID: <20120705024439.26317.84637.stgit@build.warmcat.com>
+Subject: [PATCH 4 2/4] NET ethernet introduce mac_platform helper
+Date: Thu, 05 Jul 2012 10:44:49 +0800
+Message-ID: <20120705024446.26317.49693.stgit@build.warmcat.com>
 References: <20120705024259.26317.16000.stgit@build.warmcat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,87 +17,282 @@ List-Id: netdev.vger.kernel.org
 
 From: Andy Green <andy@warmcat.com>
 
-Introduce a generic helper function that can generate a valid MAC
-address using data from the OMAP unique CPU ID register.
+This introduces a small helper in net/ethernet, which registers a network
+notifier at core_initcall time, and accepts registrations mapping expected
+asynchronously-probed network device paths (like, "usb1/1-1/1-1.1/1-1.1:1.0")
+and the MAC that is needed to be assigned to the device when it appears.
 
-For comparison purposes this produces a MAC address of
+This allows platform code to enforce valid, consistent MAC addresses on to
+devices that have not been probed at boot-time, but due to being wired on the
+board are always present at the same interface.  It has been tested with USB
+and SDIO probed devices.
 
-  2e:20:3c:ea:46:01
+Other parts of this series provide an OMAP API that computes a valid
+locally administered MAC address from CPU ID bits that are unique for each
+physical SoC, and register those against devices wired to the board.
 
-for the ethernet device on my PandaBoard ES.
+This solves a longstanding problem in at least Panda case that there are no
+reserved MACs for either onboard Ethernet nor onboard WLAN module, and without
+this patch a randomized MAC is assigned to Ethernet and 00:00:00:00:00:00 or
+0xdeadbeef is assigned as the WLAN MAC address.  The series provides sane,
+constant locally-administered MAC addresses that have a high probability of
+differing between boards.
 
-The MAC address space has space set aside for these kind of "locally
-administered" MAC addresses, analogous to IPv4 10.x.x.x range, and this
-patch marks the generated MAC addresses as such.
+To make use of this safely you also need to make sure that any drivers that
+may compete for the bus ordinal you are using (eg, mUSB and ehci in Panda
+case) are loaded in a deterministic order.
 
-The patch leaves two bits allowing elaborating 4 different MACs from the
-generated data.
+At registration it makes a copy of the incoming data, so the data may be
+__initdata or otherwise transitory.  Registration can be called multiple times
+so registrations from Device Tree and platform may be mixed.
 
+Since it needs to be called quite early in boot and there is no lifecycle for
+what it does, it could not be modular and is not a driver.
+
+Via suggestions from Arnd Bergmann and Tony Lindgren (and Alan Cox for the
+network notifier concept).
+
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 Signed-off-by: Andy Green <andy.green@linaro.org>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Nicolas Pitre <nicolas.pitre@linaro.org>
-Tested-by: Steven Rostedt <rostedt@goodmis.org>
 ---
- arch/arm/mach-omap2/id.c              |   39 +++++++++++++++++++++++++++++++++
- arch/arm/mach-omap2/include/mach/id.h |    1 +
- 2 files changed, 40 insertions(+)
+ include/net/mac-platform.h  |   39 +++++++++++
+ net/Kconfig                 |    5 +
+ net/ethernet/Makefile       |    3 +
+ net/ethernet/mac-platform.c |  151 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 197 insertions(+), 1 deletion(-)
+ create mode 100644 include/net/mac-platform.h
+ create mode 100644 net/ethernet/mac-platform.c
 
-diff --git a/arch/arm/mach-omap2/id.c b/arch/arm/mach-omap2/id.c
-index 37eb95a..3ab5d4d 100644
---- a/arch/arm/mach-omap2/id.c
-+++ b/arch/arm/mach-omap2/id.c
-@@ -530,3 +530,42 @@ void __init omap2_set_globals_tap(struct omap_globals *omap2_globals)
- 	else
- 		tap_prod_id = 0x0208;
- }
-+
+diff --git a/include/net/mac-platform.h b/include/net/mac-platform.h
+new file mode 100644
+index 0000000..3a59098
+--- /dev/null
++++ b/include/net/mac-platform.h
+@@ -0,0 +1,39 @@
 +/*
-+ * this uses the unique per-cpu info from the cpu fuses set at factory to
-+ * generate a 6-byte MAC address.  Two bits in the generated code are used
-+ * to elaborate the generated address into four, so it can be used on multiple
-+ * network interfaces.
++ * mac-platform.h:  Enforces platform-defined MAC for Async probed devices
 + */
 +
-+void omap_die_id_to_ethernet_mac(u8 *mac, int subtype)
++#ifndef __NET_MAC_PLATFORM_H__
++#define __NET_MAC_PLATFORM_H__
++
++#include <linux/if_ether.h>
++
++/**
++ * struct mac_platform - associates asynchronously probed device path with
++ *			 MAC address to be assigned to the device when it
++ *			 is created
++ *
++ * @device_path: device path name of network device
++ * @mac: MAC address to assign to network device matching device path
++ * @list: can be left uninitialized when passing from platform
++ */
++
++struct mac_platform {
++	char *device_path;
++	u8 mac[ETH_ALEN];
++	struct list_head list; /* unused in platform data usage */
++};
++
++#ifdef CONFIG_NET
++/**
++ * mac_platform_register_device_macs - add an array of device path to monitor
++ *                                  and MAC to apply when the network device
++ *                                  at the device path appears
++ * @macs: array of struct mac_platform terminated by entry with
++ *	  NULL device_path
++ */
++int mac_platform_register_device_macs(const struct mac_platform *macs);
++#else
++static inline int mac_platform_register_device_macs(macs) { return 0; }
++#endif /* !CONFIG_NET */
++
++#endif /* __NET_MAC_PLATFORM_H__ */
+diff --git a/net/Kconfig b/net/Kconfig
+index 245831b..487c9e6 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -335,9 +335,12 @@ source "net/caif/Kconfig"
+ source "net/ceph/Kconfig"
+ source "net/nfc/Kconfig"
+ 
+-
+ endif   # if NET
+ 
++# used by board / dt platform to enforce MACs for Async-probed devices
++config MAC_PLATFORM
++	bool
++
+ # Used by archs to tell that they support BPF_JIT
+ config HAVE_BPF_JIT
+ 	bool
+diff --git a/net/ethernet/Makefile b/net/ethernet/Makefile
+index 7cef1d8..475db2b 100644
+--- a/net/ethernet/Makefile
++++ b/net/ethernet/Makefile
+@@ -5,3 +5,6 @@
+ obj-y					+= eth.o
+ obj-$(subst m,y,$(CONFIG_IPX))		+= pe2.o
+ obj-$(subst m,y,$(CONFIG_ATALK))	+= pe2.o
++ifneq ($(CONFIG_NET),)
++obj-$(CONFIG_MAC_PLATFORM)		+= mac-platform.o
++endif
+diff --git a/net/ethernet/mac-platform.c b/net/ethernet/mac-platform.c
+new file mode 100644
+index 0000000..88e50ce
+--- /dev/null
++++ b/net/ethernet/mac-platform.c
+@@ -0,0 +1,151 @@
++/*
++ * Helper to allow platform code to enforce association of a locally-
++ * administered MAC address automatically on asynchronously probed devices,
++ * such as SDIO and USB based devices.
++ *
++ * Because the "device path" is used for matching, this is only useful for
++ * network assets physcally wired on the board, and also requires any
++ * different drivers that can compete for bus ordinals (eg mUSB vs ehci) to
++ * have fixed initialization ordering, eg, by having ehci in monolithic
++ * kernel
++ *
++ * Neither a driver nor a module as needs to be callable from machine file
++ * before the network devices are registered.
++ *
++ * (c) 2012 Andy Green <andy.green@linaro.org>
++ */
++
++#include <linux/netdevice.h>
++#include <net/mac-platform.h>
++
++static LIST_HEAD(mac_platform_list);
++static DEFINE_MUTEX(mac_platform_mutex);
++
++static struct mac_platform *__mac_platform_check(struct device *dev)
 +{
-+	struct omap_die_id odi;
-+	u32 tap = read_tap_reg(OMAP_TAP_IDCODE);
++	const char *path;
++	const char *p;
++	const char *try;
++	int len;
++	struct device *devn;
++	struct mac_platform *tmp;
++	struct list_head *pos;
 +
-+	omap_get_die_id(&odi);
++	list_for_each(pos, &mac_platform_list) {
 +
-+	mac[0] = odi.id_2;
-+	mac[1] = odi.id_2 >> 8;
-+	mac[2] = odi.id_1;
-+	mac[3] = odi.id_1 >> 8;
-+	mac[4] = odi.id_1 >> 16;
-+	mac[5] = odi.id_1 >> 24;
++		tmp = list_entry(pos, struct mac_platform, list);
 +
-+	/* XOR other chip-specific data with ID */
++		try = tmp->device_path;
 +
-+	tap ^= odi.id_3;
++		p = try + strlen(try);
++		devn = dev;
 +
-+	mac[0] ^= tap;
-+	mac[1] ^= tap >> 8;
-+	mac[2] ^= tap >> 16;
-+	mac[3] ^= tap >> 24;
++		while (devn) {
 +
-+	/* allow four MACs from this same basic data */
++			path = dev_name(devn);
++			len = strlen(path);
 +
-+	mac[1] = (mac[1] & ~0xc0) | ((subtype & 3) << 6);
++			if ((p - try) < len) {
++				devn = NULL;
++				continue;
++			}
 +
-+	/* mark it as not multicast, and outside official 80211 MAC namespace */
++			p -= len;
 +
-+	mac[0] = (mac[0] & ~1) | 2;
++			if (strncmp(path, p, len)) {
++				devn = NULL;
++				continue;
++			}
++
++			devn = devn->parent;
++			if (p == try)
++				return tmp;
++
++			if (devn != NULL && (p - try) < 2)
++				devn = NULL;
++
++			p--;
++			if (devn != NULL && *p != '/')
++				devn = NULL;
++		}
++	}
++
++	return NULL;
 +}
-diff --git a/arch/arm/mach-omap2/include/mach/id.h b/arch/arm/mach-omap2/include/mach/id.h
-index 02ed3aa..d6c8d63 100644
---- a/arch/arm/mach-omap2/include/mach/id.h
-+++ b/arch/arm/mach-omap2/include/mach/id.h
-@@ -18,5 +18,6 @@ struct omap_die_id {
- };
- 
- void omap_get_die_id(struct omap_die_id *odi);
-+void omap_die_id_to_ethernet_mac(u8 *mac, int subtype);
- 
- #endif
++
++static int mac_platform_netdev_event(struct notifier_block *this,
++						unsigned long event, void *ptr)
++{
++	struct net_device *dev = ptr;
++	struct sockaddr sa;
++	struct mac_platform *match;
++
++	if (event != NETDEV_REGISTER)
++		return NOTIFY_DONE;
++
++	mutex_lock(&mac_platform_mutex);
++
++	match = __mac_platform_check(dev->dev.parent);
++	if (match == NULL)
++		goto bail;
++
++	sa.sa_family = dev->type;
++	memcpy(sa.sa_data, match->mac, sizeof match->mac);
++	dev->netdev_ops->ndo_set_mac_address(dev, &sa);
++
++bail:
++	mutex_unlock(&mac_platform_mutex);
++
++	return NOTIFY_DONE;
++}
++
++int mac_platform_register_device_macs(const struct mac_platform *macs)
++{
++	struct mac_platform *next;
++	int ret = 0;
++
++	mutex_lock(&mac_platform_mutex);
++
++	while (macs->device_path) {
++
++		next = kmalloc(sizeof(struct mac_platform), GFP_KERNEL);
++		if (!next) {
++			ret = -ENOMEM;
++			goto bail;
++		}
++
++		next->device_path = kmalloc(strlen(macs->device_path) + 1,
++								   GFP_KERNEL);
++		if (!next->device_path) {
++			ret = -ENOMEM;
++			goto bail;
++		}
++
++		strcpy(next->device_path, macs->device_path);
++		memcpy(next->mac, macs->mac, sizeof macs->mac);
++		list_add(&next->list, &mac_platform_list);
++
++		macs++;
++	}
++
++bail:
++	mutex_unlock(&mac_platform_mutex);
++
++	return ret;
++}
++
++static struct notifier_block mac_platform_netdev_notifier = {
++	.notifier_call = mac_platform_netdev_event,
++	.priority = 1,
++};
++
++static int __init mac_platform_init(void)
++{
++	int ret = register_netdevice_notifier(&mac_platform_netdev_notifier);
++	if (ret)
++		pr_err("mac_platform_init: Notifier registration failed\n");
++
++	return ret;
++}
++
++core_initcall(mac_platform_init);
 
