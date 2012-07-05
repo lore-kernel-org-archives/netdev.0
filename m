@@ -1,35 +1,49 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] cgroup: fix panic in netprio_cgroup
-Date: Thu, 05 Jul 2012 17:15:15 +0800
-Message-ID: <4FF55B23.40402@cn.fujitsu.com>
-References: <1341477102-16988-1-git-send-email-gaofeng@cn.fujitsu.com> <20120705.015841.2231353345763821829.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH v2] cgroup: fix panic in netprio_cgroup
+Date: Thu, 5 Jul 2012 17:28:40 +0800
+Message-ID: <1341480520-25081-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nhorman@tuxdriver.com, tj@kernel.org, lizefan@huawei.com
-To: David Miller <davem@davemloft.net>
+	nhorman@tuxdriver.com, tj@kernel.org, lizefan@huawei.com,
+	eric.dumazet@gmail.com, Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120705.015841.2231353345763821829.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012=E5=B9=B407=E6=9C=8805=E6=97=A5 16:58, David Miller =E5=86=
-=99=E9=81=93:
->=20
-> Why did you post this twice?
+we set max_prioidx to the first zero bit index of prioidx_map in
+function get_prioidx.
 
-Sorry to confuse you, there are something wrong with my git sendmail co=
-nfig.
-I sent the first patch but I can't find it in the maillist,so I
-sent it again.
+So when we delete the low index netprio cgroup and adding a new
+netprio cgroup again,the max_prioidx will be set to the low index.
 
+when we set the high index cgroup's net_prio.ifpriomap,the function
+write_priomap will call update_netdev_tables to alloc memory which
+size is sizeof(struct netprio_map) + sizeof(u32) * (max_prioidx + 1),
+so the size of array that map->priomap point to is max_prioidx +1,
+which is low than what we actually need.
 
->=20
-> Is there a difference between the first patch and the second
-> one you posted?  If so, what is that difference?
+fix this by adding check in get_prioidx,only set max_prioidx when
+max_prioidx low than the new prioidx.
 
-there isn't a difference between them.
-Sorry again.
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/core/netprio_cgroup.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Thanks.
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 5b8aa2f..aa907ed 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -49,8 +49,9 @@ static int get_prioidx(u32 *prio)
+ 		return -ENOSPC;
+ 	}
+ 	set_bit(prioidx, prioidx_map);
++	if (atomic_read(&max_prioidx) < prioidx)
++		atomic_set(&max_prioidx, prioidx);
+ 	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+-	atomic_set(&max_prioidx, prioidx);
+ 	*prio = prioidx;
+ 	return 0;
+ }
+-- 
+1.7.7.6
