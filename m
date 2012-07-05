@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] ipv6: remove unnecessary codes in
- tcp_ipv6.c
-Date: Thu, 05 Jul 2012 03:13:33 -0700 (PDT)
-Message-ID: <20120705.031333.1076060553032699410.davem@davemloft.net>
-References: <1341199140-17135-1-git-send-email-roy.qing.li@gmail.com>
-	<1341220067.5269.37.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] 6lowpan: revert 'reuse eth_mac_addr()'
+Date: Thu, 05 Jul 2012 03:13:51 -0700 (PDT)
+Message-ID: <20120705.031351.63082130704857819.davem@davemloft.net>
+References: <1341208726-2793-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, danny.kukawka@bisect.de,
+	dbaryshkov@gmail.com
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55088 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55101 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752950Ab2GEKNd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:13:33 -0400
-In-Reply-To: <1341220067.5269.37.camel@edumazet-glaptop>
+	with ESMTP id S1755428Ab2GEKNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 06:13:52 -0400
+In-Reply-To: <1341208726-2793-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 02 Jul 2012 11:07:47 +0200
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Mon,  2 Jul 2012 09:58:46 +0400
 
-> On Mon, 2012-07-02 at 11:18 +0800, roy.qing.li@gmail.com wrote:
->> From: RongQing.Li <roy.qing.li@gmail.com>
->> 
->> opt always equals np->opts, so it is meaningless to define opt, and
->> check if opt does not equal np->opts and then try to free opt.
->> 
->> Signed-off-by: RongQing.Li <roy.qing.li@gmail.com>
->> ---
->>  net/ipv6/tcp_ipv6.c |   16 +++-------------
->>  1 files changed, 3 insertions(+), 13 deletions(-)
+> This reverts the commit cdf49c283e2e105da86ca575ad35b453f5ff24ea which
+> replaces lowpan '.ndo_set_mac_address' method by ethernet's one.
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Accorind to the IEEE 802.15.4 standard, device has 8-byte length address,
+> so this hook loses the last 2 bytes which may rise a compatibility problems
+> with other IEEE 802.15.4 standard implementations.
+> 
+> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 
-Ok I now understand better why these changes are correct,
-applied.
+Applied.
