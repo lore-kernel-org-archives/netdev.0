@@ -1,75 +1,68 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2] net: qmi_wwan: add ZTE MF60
-Date: Thu,  5 Jul 2012 13:13:33 +0200
-Message-ID: <1341486813-27600-1-git-send-email-bjorn@mork.no>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [net-next RFC V5 2/5] virtio_ring: move queue_index to
+	vring_virtqueue
+Date: Thu, 05 Jul 2012 13:40:54 +0200
+Message-ID: <1341488454.18786.15.camel@lappy>
+References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+	<1341484194-8108-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:58396 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753277Ab2GELOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jul 2012 07:14:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
+	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, sri@us.ibm.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1341484194-8108-3-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Adding a device with limited QMI support. It does not support
-normal QMI_WDS commands for connection management. Instead,
-sending a QMI_CTL SET_INSTANCE_ID command is required to
-enable the network interface:
-
-  01 0f 00 00 00 00 00 00  20 00 04 00 01 01 00 00
-
-A number of QMI_DMS and QMI_NAS commands are also supported
-for optional device management.
-
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-v2: replaced spurious tab with space as requested by David M
-
- drivers/net/usb/qmi_wwan.c |   18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index b01960f..a051ced 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -346,6 +346,15 @@ static const struct driver_info	qmi_wwan_force_int=
-1 =3D {
- 	.data		=3D BIT(1), /* interface whitelist bitmap */
- };
-=20
-+static const struct driver_info qmi_wwan_force_int2 =3D {
-+	.description	=3D "Qualcomm WWAN/QMI device",
-+	.flags		=3D FLAG_WWAN,
-+	.bind		=3D qmi_wwan_bind_shared,
-+	.unbind		=3D qmi_wwan_unbind_shared,
-+	.manage_power	=3D qmi_wwan_manage_power,
-+	.data		=3D BIT(2), /* interface whitelist bitmap */
-+};
-+
- static const struct driver_info	qmi_wwan_force_int3 =3D {
- 	.description	=3D "Qualcomm WWAN/QMI device",
- 	.flags		=3D FLAG_WWAN,
-@@ -498,6 +507,15 @@ static const struct usb_device_id products[] =3D {
- 		.bInterfaceProtocol =3D 0xff,
- 		.driver_info        =3D (unsigned long)&qmi_wwan_force_int4,
- 	},
-+	{	/* ZTE MF60 */
-+		.match_flags	    =3D USB_DEVICE_ID_MATCH_DEVICE | USB_DEVICE_ID_MATC=
-H_INT_INFO,
-+		.idVendor           =3D 0x19d2,
-+		.idProduct          =3D 0x1402,
-+		.bInterfaceClass    =3D 0xff,
-+		.bInterfaceSubClass =3D 0xff,
-+		.bInterfaceProtocol =3D 0xff,
-+		.driver_info        =3D (unsigned long)&qmi_wwan_force_int2,
-+	},
- 	{	/* Sierra Wireless MC77xx in QMI mode */
- 		.match_flags	    =3D USB_DEVICE_ID_MATCH_DEVICE | USB_DEVICE_ID_MATC=
-H_INT_INFO,
- 		.idVendor           =3D 0x1199,
---=20
-1.7.10
+T24gVGh1LCAyMDEyLTA3LTA1IGF0IDE4OjI5ICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+IElu
+c3RlYWQgb2Ygc3RvcmluZyB0aGUgcXVldWUgaW5kZXggaW4gdmlydGlvIGluZm9zLCB0aGlzIHBh
+dGNoIG1vdmVzIHRoZW0gdG8KPiB2cmluZ192aXJ0cXVldWUgYW5kIGludHJvZHVjZXMgaGVscGVy
+cyB0byBzZXQgYW5kIGdldCB0aGUgdmFsdWUuIFRoaXMgd291bGQKPiBzaW1wbGlmeSB0aGUgbWFu
+YWdlbWVudCBhbmQgdHJhY2luZy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNv
+d2FuZ0ByZWRoYXQuY29tPgoKVGhpcyBwYXRjaCBhY3R1YWxseSBmYWlscyB0byBjb21waWxlOgoK
+ZHJpdmVycy92aXJ0aW8vdmlydGlvX21taW8uYzogSW4gZnVuY3Rpb24g4oCYdm1fbm90aWZ54oCZ
+Ogpkcml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5jOjIyOToxMzogZXJyb3I6IOKAmHN0cnVjdCB2
+aXJ0aW9fbW1pb192cV9pbmZv4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYcXVldWVfaW5kZXji
+gJkKZHJpdmVycy92aXJ0aW8vdmlydGlvX21taW8uYzogSW4gZnVuY3Rpb24g4oCYdm1fZGVsX3Zx
+4oCZOgpkcml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5jOjI3ODoxMzogZXJyb3I6IOKAmHN0cnVj
+dCB2aXJ0aW9fbW1pb192cV9pbmZv4oCZIGhhcyBubyBtZW1iZXIgbmFtZWQg4oCYcXVldWVfaW5k
+ZXjigJkKbWFrZVsyXTogKioqIFtkcml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5vXSBFcnJvciAx
+CgpJdCBwcm9iYWJseSBtaXNzZXMgdGhlIGZvbGxvd2luZyBodW5rczoKCmRpZmYgLS1naXQgYS9k
+cml2ZXJzL3ZpcnRpby92aXJ0aW9fbW1pby5jIGIvZHJpdmVycy92aXJ0aW8vdmlydGlvX21taW8u
+YwppbmRleCBmNTQzMmI2Li4xMmI2MTgwIDEwMDY0NAotLS0gYS9kcml2ZXJzL3ZpcnRpby92aXJ0
+aW9fbW1pby5jCisrKyBiL2RyaXZlcnMvdmlydGlvL3ZpcnRpb19tbWlvLmMKQEAgLTIyMiwxMSAr
+MjIyLDEwIEBAIHN0YXRpYyB2b2lkIHZtX3Jlc2V0KHN0cnVjdCB2aXJ0aW9fZGV2aWNlICp2ZGV2
+KQogc3RhdGljIHZvaWQgdm1fbm90aWZ5KHN0cnVjdCB2aXJ0cXVldWUgKnZxKQogewogICAgICAg
+IHN0cnVjdCB2aXJ0aW9fbW1pb19kZXZpY2UgKnZtX2RldiA9IHRvX3ZpcnRpb19tbWlvX2Rldmlj
+ZSh2cS0+dmRldik7Ci0gICAgICAgc3RydWN0IHZpcnRpb19tbWlvX3ZxX2luZm8gKmluZm8gPSB2
+cS0+cHJpdjsKIAogICAgICAgIC8qIFdlIHdyaXRlIHRoZSBxdWV1ZSdzIHNlbGVjdG9yIGludG8g
+dGhlIG5vdGlmaWNhdGlvbiByZWdpc3RlciB0bwogICAgICAgICAqIHNpZ25hbCB0aGUgb3RoZXIg
+ZW5kICovCi0gICAgICAgd3JpdGVsKGluZm8tPnF1ZXVlX2luZGV4LCB2bV9kZXYtPmJhc2UgKyBW
+SVJUSU9fTU1JT19RVUVVRV9OT1RJRlkpOworICAgICAgIHdyaXRlbCh2aXJ0cXVldWVfZ2V0X3F1
+ZXVlX2luZGV4KHZxKSwgdm1fZGV2LT5iYXNlICsgVklSVElPX01NSU9fUVVFVUVfTk9USUZZKTsK
+IH0KIAogLyogTm90aWZ5IGFsbCB2aXJ0cXVldWVzIG9uIGFuIGludGVycnVwdC4gKi8KQEAgLTI3
+NSw3ICsyNzQsNyBAQCBzdGF0aWMgdm9pZCB2bV9kZWxfdnEoc3RydWN0IHZpcnRxdWV1ZSAqdnEp
+CiAgICAgICAgdnJpbmdfZGVsX3ZpcnRxdWV1ZSh2cSk7CiAKICAgICAgICAvKiBTZWxlY3QgYW5k
+IGRlYWN0aXZhdGUgdGhlIHF1ZXVlICovCi0gICAgICAgd3JpdGVsKGluZm8tPnF1ZXVlX2luZGV4
+LCB2bV9kZXYtPmJhc2UgKyBWSVJUSU9fTU1JT19RVUVVRV9TRUwpOworICAgICAgIHdyaXRlbCh2
+aXJ0cXVldWVfZ2V0X3F1ZXVlX2luZGV4KHZxKSwgdm1fZGV2LT5iYXNlICsgVklSVElPX01NSU9f
+UVVFVUVfU0VMKTsKICAgICAgICB3cml0ZWwoMCwgdm1fZGV2LT5iYXNlICsgVklSVElPX01NSU9f
+UVVFVUVfUEZOKTsKIAogICAgICAgIHNpemUgPSBQQUdFX0FMSUdOKHZyaW5nX3NpemUoaW5mby0+
+bnVtLCBWSVJUSU9fTU1JT19WUklOR19BTElHTikpOwoKX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1
+YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhm
+b3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
