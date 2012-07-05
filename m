@@ -1,64 +1,99 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [net-next RFC V5 0/5] Multiqueue virtio-net
-Date: Thu, 05 Jul 2012 10:45:27 -0700
-Message-ID: <4FF5D2B7.6080602@hp.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+From: Javier Martinez Canillas <martinez.javier@gmail.com>
+Subject: Re: [PATCH net-next 13/15] netfilter: nfdbus: Add D-bus message parsing
+Date: Thu, 5 Jul 2012 19:54:21 +0200
+Message-ID: <CAAwP0s3b0JjT9BvrGvynNJm5Pq0eQuHem352T3tDyxvVosbA+g@mail.gmail.com>
+References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk>
+ <1340988354-26981-14-git-send-email-vincent.sanders@collabora.co.uk>
+ <20120629171108.GA6287@1984> <4FF1C1AF.9080104@collabora.co.uk> <20120704173047.GA8864@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Javier Martinez Canillas <javier.martinez@collabora.co.uk>,
+	Vincent Sanders <vincent.sanders@collabora.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alban Crequy <alban.crequy@collabora.co.uk>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120704173047.GA8864@1984>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/05/2012 03:29 AM, Jason Wang wrote:
-
+On Wed, Jul 4, 2012 at 7:30 PM, Pablo Neira Ayuso <pablo@netfilter.org>=
+ wrote:
+> On Mon, Jul 02, 2012 at 05:43:43PM +0200, Javier Martinez Canillas wr=
+ote:
+>> On 06/29/2012 07:11 PM, Pablo Neira Ayuso wrote:
+>> > On Fri, Jun 29, 2012 at 05:45:52PM +0100, Vincent Sanders wrote:
+>> >> From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+>> >>
+>> >> The netfilter D-Bus module needs to parse D-bus messages sent by
+>> >> applications to decide whether a peer can receive or not a D-Bus
+>> >> message. Add D-bus message parsing logic to be able to analyze.
+>> >
+>> > Not talking about the entire patchset, only about the part I'm
+>> > responsible for.
+>> >
+>> > I don't see why you think this belong to netfilter at all.
+>> >
+>> > This doesn't integrate into the existing filtering infrastructure,
+>> > neither it extends it in any way.
+>> >
+>>
+>> Hello Pablo,
+>>
+>> Thanks a lot for your feedback.
+>>
+>> This is the first of a set of patches that adds a netfilter module t=
+o parse
+>> D-Bus messages, the complete patch-set is:
+>>
+>> [PATCH 13/15] netfilter: nfdbus: Add D-bus message parsing
+>> [PATCH 14/15] netfilter: nfdbus: Add D-bus match rule implementation
+>> [PATCH 15/15] netfilter: add netfilter D-Bus module
+>>
+>> patches 13 and 14 just include D-Bus helper code to be used by the n=
+etfilter
+>> module (added on patch 15) and specially the dbus_filter netfilter h=
+ook function.
 >
-> Test result:
+> I see, the use of the netfilter hooks seems to be the only reason why
+> you consider these chunks belong to netfilter.
 >
-> 1) 1 vm 2 vcpu 1q vs 2q, 1 - 1q, 2 - 2q, no pinning
+>> For the next post version we will reorganize the patches so first th=
+e D-Bus
+>> netfilter module is added with an empty dbus_filter function and the=
+n added the
+>> D-Bus helper code.
+>>
+>> Also, we will move the nfdbus netfilter module to net/bus so is not =
+inside the
+>> netfilter core code.
 >
-> - Guest to External Host TCP STREAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 650.55 655.61 100% 24.88 24.86 99%
-> 2 64 1446.81 1309.44 90% 30.49 27.16 89%
-> 4 64 1430.52 1305.59 91% 30.78 26.80 87%
-> 8 64 1450.89 1270.82 87% 30.83 25.95 84%
+> Yes, please, remove this stuff from my directory tree, I believe this
+> filtering infrastructure has not much to do with Netfilter itself.
+>
+> It uses the connector to communicate kernel <-> userspace instead of
+> nfnetlink and, as said, it does neither integrate into existing
+> filtering kernel/userspace infrastructure nor integrates into it.
+>
+> So, please, if you plan to give another try to this patchset, move
+> this to your net/bus directory as you propose and find a different
+> (better) name for the filtering part (just to avoid confusion in the
+> future).
+>
+> Thanks.
 
-Was the -D test-specific option used to set TCP_NODELAY?  I'm guessing 
-from your description of how packet sizes were smaller with multiqueue 
-and your need to hack tcp_write_xmit() it wasn't but since we don't have 
-the specific netperf command lines (hint hint :) I wanted to make certain.
+Hi Pablo,
 
-Instead of calling them throughput1 and throughput2, it might be more 
-clear in future to identify them as singlequeue and multiqueue.
+Thanks a lot for your feedback and comments.
 
-Also, how are you combining the concurrent netperf results?  Are you 
-taking sums of what netperf reports, or are you gathering statistics 
-outside of netperf?
+On a next patch-set post I'll move to net/bus and change the name as
+you suggest.
 
-> - TCP RR
-> sessions size throughput1 throughput2   norm1 norm2
-> 50 1 54695.41 84164.98 153% 1957.33 1901.31 97%
+Best regards,
 
-A single instance TCP_RR test would help confirm/refute any non-trivial 
-change in (effective) path length between the two cases.
-
-happy benchmarking,
-
-rick jones
+--=20
+Javier Mart=C3=ADnez Canillas
+(+34) 682 39 81 69
+Barcelona, Spain
