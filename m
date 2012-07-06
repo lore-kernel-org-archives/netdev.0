@@ -1,109 +1,112 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network namespace and bonding WARNING at fs/proc/generic.c remove_proc_entry
-Date: Thu, 05 Jul 2012 17:41:54 -0700
-Message-ID: <87ehopu3e5.fsf@xmission.com>
-References: <1340900320.3441.88.camel@pro6455b.example.com>
-	<20120705220749.GA11255@mail.hallyn.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: TCP transmit performance regression
+Date: Fri, 6 Jul 2012 08:45:14 +0800
+Message-ID: <CACVXFVMgwbz1fDC=_9dhVUZ_btiO3fNdFiuXm-7gMXFUAMtmsw@mail.gmail.com>
+References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+	<1341474192.2583.3299.camel@edumazet-glaptop>
+	<CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+	<1341477192.2583.3415.camel@edumazet-glaptop>
+	<CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+	<1341481760.2583.3579.camel@edumazet-glaptop>
+	<CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
+	<1341484919.2583.3688.camel@edumazet-glaptop>
+	<CACVXFVPksMd8CGZWEGBXBXB5NZCg3QOZreOLavkV-Z2pjE-M_A@mail.gmail.com>
+	<1341500196.2583.4222.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Dilip Daya <dilip.daya@hp.com>, linux-kernel@vger.kernel.org,
-	containers@lists.linux-foundation.org, <netdev@vger.kernel.org>
-To: "Serge E. Hallyn" <serge@hallyn.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120705220749.GA11255@mail.hallyn.com> (Serge E. Hallyn's
-	message of "Thu, 5 Jul 2012 22:07:49 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:63139 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025Ab2GFApP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 20:45:15 -0400
+Received: by obbuo13 with SMTP id uo13so14037952obb.19
+        for <netdev@vger.kernel.org>; Thu, 05 Jul 2012 17:45:14 -0700 (PDT)
+In-Reply-To: <1341500196.2583.4222.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Serge E. Hallyn" <serge@hallyn.com> writes:
-
-> Quoting Dilip Daya (dilip.daya@hp.com):
->> Hi,
->> 
->> I'd discussed the following with Serge Hallyn.
->> 
->> => Environment based on 3.2.18 / x86_64 kernel.
->> => WARNING: at fs/proc/generic.c:808 remove_proc_entry+0xdb/0x21f()
->> => WARNING: at fs/proc/generic.c:849 remove_proc_entry+0x208/0x21f()
+On Thu, Jul 5, 2012 at 10:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2012-07-05 at 22:01 +0800, Ming Lei wrote:
 >
-> Hi,
+>> At default SMSC95xx turbo mode is true, rx buffer will be very big
+>> (17.5K). Or the large rx buffer size puts limit on concurrent URBs/SKBs
+>> count.  Both two may cause the problem.
 >
-> thanks much for sending this.  I'm still getting this error on
-> 3.5.0-2-generic (today's ubuntu quantal kernel)
+> I see. So we should try to recycle these large rx buffers in usbnet
+> instead of allocating/freeing them for each incoming packet.
 >
->> network namespace and bonding
->> -----------------------------
->> 
->> * Migrate two phy nics from host to netns (netns0).
->>   - ip link set ethX netns netns0
->> 
->> * In host environment:
->>   - load bonding module, /sbin/modprobe -v bonding mode=1 miimon=100
->>   - /sys/class/net/bond0 exists.
->>   - /proc/net/bonding/bond0 exists.
->>   - /sys/class/net/bonding_masters has bond0.
->> 
->> * Migrate bond0 to netns (netns0):
->>   - ip link set bond0 netns netns0.
->> 
->> * Within netns (netns0):
->>   - /sys/class/net/bonding_masters is empty.
->>   - /sys/class/net/bond0 exist.
->>   - configure bond0 and ifenslave with two phy nics.
->>   - /proc/net/bonding/bond0 does not exist within netns0, but does
->>     exist in the host environment.
->>   - /sys/class/net/bonding_masters is empty.
+> Following patch does the copybreak of all incoming frames.
 >
-> mine is not empty, fwiw.  However
+> It has nice property of not lying anymore on skb truesize ;)
 >
->>   - ping to remote end of bond0 works.
->> 
->> * Within netns (netns0), flushing ethX and bondY:
->>   - down bond0 and its phy nic interfaces:
->>   - ip link set ... down
->>   - ip addr flush dev [bond0 | eth#]
->>   - deleting bond0, /sbin/ip link del dev bond0
+> It should be applied on both sender and receiver
+
+In fact, I run the below command in the test beagle-xm box with SMSC95xx
+NIC:
+
+             iperf -c 192.168.0.103 -w 131072 -t 10
+
+and run the below command in one x86 production machine(e1000e NIC)
+running ubuntu 12.04:
+
+            iperf -s -w 131072
+
+The current problem is that the transmit performance on beagle-xm is
+not good with the above iperf test if DEBUG_SLAB is enabled. But if
+I set dev->rx_usb_size as 2048, the transmit performance can be
+doubled, looks it is caused by the large rx buffer.
+
 >
-> Yup I still get a remove_proc_entry WARNING at fs/proc/generic.c:808,
-> which is the warning when (!de)
+>  drivers/net/usb/smsc95xx.c |   19 +++----------------
+>  1 file changed, 3 insertions(+), 16 deletions(-)
+>
+> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+> index b1112e7..3d9566f 100644
+> --- a/drivers/net/usb/smsc95xx.c
+> +++ b/drivers/net/usb/smsc95xx.c
+> @@ -1080,30 +1080,17 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+>                                 return 0;
+>                         }
+>
+> -                       /* last frame in this batch */
+> -                       if (skb->len == size) {
+> -                               if (dev->net->features & NETIF_F_RXCSUM)
+> -                                       smsc95xx_rx_csum_offload(skb);
+> -                               skb_trim(skb, skb->len - 4); /* remove fcs */
+> -                               skb->truesize = size + sizeof(struct sk_buff);
+> -
+> -                               return 1;
+> -                       }
+> -
+> -                       ax_skb = skb_clone(skb, GFP_ATOMIC);
+> +                       ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
+>                         if (unlikely(!ax_skb)) {
+>                                 netdev_warn(dev->net, "Error allocating skb\n");
+>                                 return 0;
+>                         }
+>
+> -                       ax_skb->len = size;
+> -                       ax_skb->data = packet;
+> -                       skb_set_tail_pointer(ax_skb, size);
+> +                       memcpy(skb_put(ax_skb, size), packet, size);
+>
+>                         if (dev->net->features & NETIF_F_RXCSUM)
+>                                 smsc95xx_rx_csum_offload(ax_skb);
+> -                       skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+> -                       ax_skb->truesize = size + sizeof(struct sk_buff);
+> +                       __skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
+>
+>                         usbnet_skb_return(dev, ax_skb);
+>                 }
+>
+>
 
-It looks like Dilip is running an old kernel.  There should have been
-some version of /sys/class/net/bonding_masters in every network
-namespace since sometime in 2009.
+Unfortunately, the patch still hasn't any improvement on the transmit
+performance of beagle-xm.
 
->From the warning it looks like the proc files are being added/removed
-to the wrong network namespace.  So in one namespace we get an error
-when we delete the moved device and in the other network namespace
-we get an error when we remove the /proc/directory.
-
-An old kernel without proper network namespace support is the only
-reason I can imagine someone would be moving an existing bond device
-between network namespaces.
-
-If there are other reasons for wanting to move a bonding device between
-network namespaces it is possible to catch the NETDEV_UNREGISTER and
-NETDEV_REGISTER events to remove/add the per device proc files at the
-appropriate time.
-
-However since moving bonding devices appears to be an unneded operation
-let's just do things simply and forbid moving bonding devices between
-network namespaces.  Serge, Dilip can you two test the patch below
-and see if it fixes the warnings.
-
-Eric
-
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 2ee8cf9..818ed64 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4345,6 +4345,9 @@ static void bond_setup(struct net_device *bond_dev)
-        bond_dev->priv_flags |= IFF_BONDING;
-        bond_dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
- 
-+       /* Don't allow bond devices to change network namespaces. */
-+       bond_dev->features |= NETIF_F_LOCAL;
-+
-        /* At first, we block adding VLANs. That's the only way to
-         * prevent problems that occur when adding VLANs over an
-         * empty bond. The block will be removed once non-challenged
+Thanks,
+-- 
+Ming Lei
