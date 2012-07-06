@@ -1,58 +1,84 @@
-From: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Network namespace and bonding WARNING at fs/proc/generic.c
-	remove_proc_entry
-Date: Fri, 6 Jul 2012 19:47:41 +0000
-Message-ID: <20120706194741.GA22113@mail.hallyn.com>
-References: <1340900320.3441.88.camel@pro6455b.example.com>
-	<20120705220749.GA11255@mail.hallyn.com>
-	<87ehopu3e5.fsf@xmission.com>
-	<20120706170538.GA31679@mail.hallyn.com>
-	<87fw94g1kq.fsf@xmission.com>
+From: <s-paulraj@ti.com>
+Subject: [PATCH 0/4] phylib: add context argument to adjust link callbacks
+Date: Fri, 6 Jul 2012 15:57:33 -0400
+Message-ID: <1341604653-19944-1-git-send-email-s-paulraj@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Dilip Daya <dilip.daya-VXdhtT5mjnY@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <87fw94g1kq.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Sandeep Paulraj <s-paulraj@ti.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>, <cyril@ti.com>,
+	<grant.likely@secretlab.ca>, <linux-keystone@list.ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:54324 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483Ab2GFT5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 15:57:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org):
-> "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org> writes:
-> 
-> >> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> >> index 2ee8cf9..818ed64 100644
-> >> --- a/drivers/net/bonding/bond_main.c
-> >> +++ b/drivers/net/bonding/bond_main.c
-> >> @@ -4345,6 +4345,9 @@ static void bond_setup(struct net_device *bond_dev)
-> >>         bond_dev->priv_flags |= IFF_BONDING;
-> >>         bond_dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
-> >>  
-> >> +       /* Don't allow bond devices to change network namespaces. */
-> >> +       bond_dev->features |= NETIF_F_LOCAL;
-> >
-> > I believe this needs to be NETIF_F_NETNS_LOCAL.  Test build still going with
-> > that change.
-> 
-> Yes that is what I mean.
+From: Sandeep Paulraj <s-paulraj@ti.com>
 
-With that change, build is fine, boots fine, I can't pass a bond to another
-netns (preventing the problem), and I can create a bond in a child netns
-just fine.
+This series of 4 patches adds a new context argument for the adjust link
+callbacks. The existing phy_connect() and its variants don't have a way to
+pass any private context information. This becomes necessary when, a SOC
+has an on chip switch with multiple ports. We need port specific information
+to figure out which port a given callback belongs to.
+We can pass this context information in the phy_connect() and its
+variants. This in turn gets passed into the adjust link callbacks on link
+state change events.
 
-Thanks!
+NOTE: At this point of time patch 4 in this series passes a "NULL" to
+the phy_connect() and its variants for all drivers that currently use
+phy_connect() and its variants. This patch has been tested on a
+Texas Instruments SOC, patches for which, as of now have not yet been
+upstreamed; as a result of which this patch series does not yet
+have an example of how this new feature is being actually used.
 
-Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sandeep Paulraj (4):
+  phylib: factor out handler callouts into helper
+  phylib: add context argument to adjust link callback
+  of/mdio: add context argument to adjust link callback
+  net: add context callback parameter to phy connect
 
--serge
+ drivers/net/ethernet/8390/ax88796.c                |    4 ++--
+ drivers/net/ethernet/adi/bfin_mac.c                |    4 ++--
+ drivers/net/ethernet/aeroflex/greth.c              |    7 +++---
+ drivers/net/ethernet/amd/au1000_eth.c              |    4 ++--
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c       |    4 ++--
+ drivers/net/ethernet/broadcom/sb1250-mac.c         |    6 ++---
+ drivers/net/ethernet/broadcom/tg3.c                |    4 ++--
+ drivers/net/ethernet/cadence/macb.c                |    4 ++--
+ drivers/net/ethernet/dnet.c                        |    6 ++---
+ drivers/net/ethernet/ethoc.c                       |    4 ++--
+ drivers/net/ethernet/faraday/ftgmac100.c           |    4 ++--
+ drivers/net/ethernet/freescale/fec.c               |    4 ++--
+ drivers/net/ethernet/freescale/fec_mpc52xx.c       |    5 ++--
+ .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    6 ++---
+ drivers/net/ethernet/freescale/gianfar.c           |    8 +++----
+ drivers/net/ethernet/freescale/ucc_geth.c          |    6 ++---
+ drivers/net/ethernet/lantiq_etop.c                 |    4 ++--
+ drivers/net/ethernet/nxp/lpc_eth.c                 |    5 ++--
+ drivers/net/ethernet/octeon/octeon_mgmt.c          |    4 ++--
+ drivers/net/ethernet/pasemi/pasemi_mac.c           |    4 ++--
+ drivers/net/ethernet/rdc/r6040.c                   |    4 ++--
+ drivers/net/ethernet/renesas/sh_eth.c              |    4 ++--
+ drivers/net/ethernet/s6gmac.c                      |    4 ++--
+ drivers/net/ethernet/smsc/smsc911x.c               |    4 ++--
+ drivers/net/ethernet/smsc/smsc9420.c               |    5 ++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    6 +++--
+ drivers/net/ethernet/ti/cpmac.c                    |    4 ++--
+ drivers/net/ethernet/ti/cpsw.c                     |    5 ++--
+ drivers/net/ethernet/ti/davinci_emac.c             |    4 ++--
+ drivers/net/ethernet/toshiba/tc35815.c             |    5 ++--
+ drivers/net/ethernet/xilinx/ll_temac_main.c        |    4 ++--
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c  |    3 ++-
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c      |    5 ++--
+ drivers/net/ethernet/xscale/ixp4xx_eth.c           |    4 ++--
+ drivers/net/phy/phy.c                              |   25 ++++++++++++--------
+ drivers/net/phy/phy_device.c                       |   23 +++++++++++-------
+ drivers/of/of_mdio.c                               |   24 ++++++++++++-------
+ include/linux/of_mdio.h                            |   15 ++++++------
+ include/linux/phy.h                                |   20 +++++++++-------
+ 39 files changed, 149 insertions(+), 116 deletions(-)
+
+-- 
+1.7.9.5
