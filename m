@@ -1,44 +1,23 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] asix: Fix checkpatch warnings
-Date: Fri, 06 Jul 2012 05:02:46 -0700 (PDT)
-Message-ID: <20120706.050246.2187095151022601094.davem@davemloft.net>
-References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
-	<1341574388-7464-2-git-send-email-christian.riesch@omicron.at>
-	<1341575919.3265.499.camel@edumazet-glaptop>
+From: "C Y Ling" <Sandor.lingcy@cfd.tu-berlin.de>
+Subject: Partnership
+Date: Fri, 6 Jul 2012 13:47:00 +0200 (CEST)
+Message-ID: <19123.41.203.64.133.1341575220.squirrel@webmail.cfd.tu-berlin.de>
+Reply-To: cying.cyttt@kimo.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christian.riesch@omicron.at, netdev@vger.kernel.org,
-	oneukum@suse.de, edumazet@google.com, allan@asix.com.tw,
-	kernel@teksavvy.com, grundler@chromium.org, tom.leiming@gmail.com,
-	michael@riesch.at
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35769 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030264Ab2GFMCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 08:02:49 -0400
-In-Reply-To: <1341575919.3265.499.camel@edumazet-glaptop>
+Received: from mail.tu-berlin.de ([130.149.7.33]:29439 "EHLO mail.tu-berlin.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030326Ab2GFMF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 08:05:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 Jul 2012 13:58:39 +0200
-
-> On Fri, 2012-07-06 at 13:33 +0200, Christian Riesch wrote:
->> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
->> ---
-> 
->> -		netdev_err(dev->net, "Error reading PHYID register: %02x\n", ret);
->> +		netdev_err(dev->net, "Error reading PHYID register: %02x\n",
->> +			   ret);
-> 
-> 
-> Thats ridiculous
-> 
-> Not all checkpatch warnings are meaningful.
-> 
-> I mean, they probably are for new code, but for existing one this is a
-> waste of time.
-
-Agreed.
+Hello
+I am Mr. C.Y. Ling, Director, Corporate Services of CITIC Bank
+International, China. I have a proposal for you in tune of One Hundred &
+Five Million EUR, Please reply for specifics DETAILS
+Warmest,
+Mr. C.Y. Ling
