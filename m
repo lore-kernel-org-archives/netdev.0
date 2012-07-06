@@ -1,60 +1,76 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ipv4: Avoid overhead when no custom FIB rules are
- installed.
-Date: Fri, 6 Jul 2012 18:19:31 +0100
-Message-ID: <1341595171.2923.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120705.223142.2236039770560842377.davem@davemloft.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH next-next] ppp: change default for incoming protocol filter to NPMODE_DROP
+Date: Fri, 6 Jul 2012 13:28:00 -0400
+Message-ID: <20120706172800.GC19462@kvack.org>
+References: <20120704013258.GA26225@kvack.org> <20120705.030027.655926012207641451.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28217 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757873Ab2GFRTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 13:19:37 -0400
-In-Reply-To: <20120705.223142.2236039770560842377.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120705.030027.655926012207641451.davem@davemloft.net>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-05 at 22:31 -0700, David Miller wrote:
-> If the user hasn't actually installed any custom rules, or fiddled
-> with the default ones, don't go through the whole FIB rules layer.
+On Thu, Jul 05, 2012 at 03:00:27AM -0700, David Miller wrote:
+> As far as I can tell, this has been this way for a very long time.
 > 
-> It's just pure overhead.
-> 
-> Instead do what we do with CONFIG_IP_MULTIPLE_TABLES disabled, check
-> the individual tables by hand, one by one.
-> 
-> Also, move fib_num_tclassid_users into the ipv4 network namespace.
-[...]
-> --- a/net/ipv4/fib_rules.c
-> +++ b/net/ipv4/fib_rules.c
-[...]
-> @@ -189,12 +190,14 @@ errout:
->  
->  static void fib4_rule_delete(struct fib_rule *rule)
->  {
-> +	struct net *net = rule->fr_net;
->  #ifdef CONFIG_IP_ROUTE_CLASSID
->  	struct fib4_rule *rule4 = (struct fib4_rule *) rule;
->  
->  	if (rule4->tclassid)
-> -		fib_num_tclassid_users--;
-> +		net->ipv4.fib_num_tclassid_users--;
->  #endif
-> +	net->ipv4.fib_has_custom_rules = true;
->  }
-[...]
+> Therefore it is the applications responsibility to adjust the filters
+> to suit their needs and we really can't make such adjustments to this
+> behavior.
 
-Do you really mean to set fib_has_custom_rules = true on deletion?
-Shouldn't it conditionally be set false?  (Though the condition may be
-too expensive to evaluate here without maintaining a separate counter.)
+Okay.  Clearing all the protocols the kernel may support in the future is a 
+bit expensive due to a lack of a way to get the protocols supported -- the 
+code would have to walk the entire protocol id space.  How about the 
+following addition instead to provide a list of protocols to disable?
 
-Ben.
+		-ben
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+[PATCH net-next] ppp: add PPPIOCGPROTOS ioctl to get the list of protocols
+
+At present there is no means for a userspace ppp implementation to get a 
+list of protocols supported by the kernel.  Add an ioctl, PPPIOCGPROTOS to 
+get the protocol list array where [0] is the number of protocols in the 
+array.
+
+Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 5c05572..daf50aa 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -565,6 +565,20 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	void __user *argp = (void __user *)arg;
+ 	int __user *p = argp;
+ 
++	if (cmd == PPPIOCGPROTOS) {
++		if (get_user(val, p))
++			return err;
++		if (val <= 0)
++			return -EINVAL;
++		if (NUM_NP < val)
++			val = NUM_NP;
++		if (put_user(val, p))
++			return err;
++		if (copy_to_user(p + 1, &npindex_to_proto, sizeof(int) * val))
++			return err;
++		return 0;
++	}
++
+ 	if (!pf)
+ 		return ppp_unattached_ioctl(current->nsproxy->net_ns,
+ 					pf, file, cmd, arg);
+diff --git a/include/linux/ppp-ioctl.h b/include/linux/ppp-ioctl.h
+index 2d9a885..d2cc304 100644
+--- a/include/linux/ppp-ioctl.h
++++ b/include/linux/ppp-ioctl.h
+@@ -81,6 +81,7 @@ struct pppol2tp_ioc_stats {
+  * Ioctl definitions.
+  */
+ 
++#define	PPPIOCGPROTOS	_IOWR('t', 90, int)	/* get protocol list array */
+ #define	PPPIOCGFLAGS	_IOR('t', 90, int)	/* get configuration flags */
+ #define	PPPIOCSFLAGS	_IOW('t', 89, int)	/* set configuration flags */
+ #define	PPPIOCGASYNCMAP	_IOR('t', 88, int)	/* get async map */
