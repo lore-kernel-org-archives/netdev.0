@@ -1,7 +1,8 @@
 From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH 0/4] Add a driver for the ASIX AX88172A
-Date: Fri, 6 Jul 2012 13:33:04 +0200
-Message-ID: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
+Subject: [PATCH 4/4] asix: Add a new driver for the AX88172A
+Date: Fri, 6 Jul 2012 13:33:08 +0200
+Message-ID: <1341574388-7464-5-git-send-email-christian.riesch@omicron.at>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Oliver Neukum <oneukum@suse.de>,
@@ -16,70 +17,475 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from ns.omicron.at ([212.183.10.25]:54477 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030243Ab2GFLqw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 07:46:52 -0400
+	id S1030257Ab2GFLqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 07:46:53 -0400
+In-Reply-To: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The Asix AX88172A is a USB 2.0 Ethernet interface that supports both an
+internal PHY as well as an external PHY (connected via MII).
 
-this patch adds a driver for the ASIX AX88172A USB 2.0 to 10/100M
-Fast Ethernet Controller.
+This patch adds a driver for the AX88172A and provides support for
+both modes and supports phylib.
 
-Although this chip is already supported by the AX88772 code in
-drivers/net/usb/asix.c, I submit a new driver since the existing
-driver lacks an important feature: It only supports an
-Ethernet connection using the internal PHY embedded in the AX88172A.
-
-The driver for the AX88172A is based on drivers/net/usb/asix.c
-and the work of Michael Riesch <michael@riesch.at>.
-
-The first patch in the patchset fixes checkpatch warnings in asix.c.
-
-The second and the third patch factor out common code which is shared
-between the existing drivers and the new driver for the AX88172A.
-
-The fourth patch finally adds support for the AX88172A.
-
-The patchset applies on top of net-next.
-
-I have a few questions:
-
-1) Is it ok to factor out the common code like I did? Or should
-   it go into a separate kernel module?
-
-2) phylib/usbnet: Currently I have an empty .status function
-   in my const struct driver_info ax88172a_info. I think this
-   notifies me of a link change, right? I don't know
-   what I should do in this function. Trigger the phy state machine
-   like a phy interrupt would do, since link changes are handled
-   by the phy state machine?
-
-I have tested the patch with the ASIX AX88172A demo board (using the
-internal PHY) and a custom board (AX88172A and National DP83640 PHY).
-
-I am looking forward to your comments. Since this is my first submission
-of a larger patchset to a kernel mailing list, I would like to thank you
-in advance for your patience :-) The patch is in an early state and
-certainly needs improvement!
-
-Regards, Christian
-
-Christian Riesch (4):
-  asix: Fix checkpatch warnings
-  asix: Rename asix.c to asix_devices.c
-  asix: Factor out common code
-  asix: Add a new driver for the AX88172A
-
- drivers/net/usb/Makefile       |    1 +
- drivers/net/usb/asix.c         | 1660 ----------------------------------------
- drivers/net/usb/asix.h         |  211 +++++
- drivers/net/usb/asix_common.c  |  525 +++++++++++++
- drivers/net/usb/asix_devices.c | 1033 +++++++++++++++++++++++++
- drivers/net/usb/ax88172a.c     |  407 ++++++++++
- 6 files changed, 2177 insertions(+), 1660 deletions(-)
- delete mode 100644 drivers/net/usb/asix.c
- create mode 100644 drivers/net/usb/asix.h
- create mode 100644 drivers/net/usb/asix_common.c
- create mode 100644 drivers/net/usb/asix_devices.c
+Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+---
+ drivers/net/usb/Makefile       |    2 +-
+ drivers/net/usb/asix_devices.c |    6 +
+ drivers/net/usb/ax88172a.c     |  407 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 414 insertions(+), 1 deletions(-)
  create mode 100644 drivers/net/usb/ax88172a.c
+
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index a9490d9..bf06300 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -8,7 +8,7 @@ obj-$(CONFIG_USB_PEGASUS)	+= pegasus.o
+ obj-$(CONFIG_USB_RTL8150)	+= rtl8150.o
+ obj-$(CONFIG_USB_HSO)		+= hso.o
+ obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
+-asix-y := asix_devices.o asix_common.o
++asix-y := asix_devices.o asix_common.o ax88172a.o
+ obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
+ obj-$(CONFIG_USB_NET_CDC_EEM)	+= cdc_eem.o
+ obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index c8682a5..02b8c21 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -877,6 +877,8 @@ static const struct driver_info ax88178_info = {
+ 	.tx_fixup = asix_tx_fixup,
+ };
+ 
++extern const struct driver_info ax88172a_info;
++
+ static const struct usb_device_id	products[] = {
+ {
+ 	/* Linksys USB200M */
+@@ -1002,6 +1004,10 @@ static const struct usb_device_id	products[] = {
+ 	/* Asus USB Ethernet Adapter */
+ 	USB_DEVICE(0x0b95, 0x7e2b),
+ 	.driver_info = (unsigned long) &ax88772_info,
++}, {
++	/* ASIX 88172a demo board */
++	USB_DEVICE(0x0b95, 0x172a),
++	.driver_info = (unsigned long) &ax88172a_info,
+ },
+ 	{ },		/* END */
+ };
+diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
+new file mode 100644
+index 0000000..9f2d1fd
+--- /dev/null
++++ b/drivers/net/usb/ax88172a.c
+@@ -0,0 +1,407 @@
++/*
++ * ASIX AX88172A based USB 2.0 Ethernet Devices
++ * Copyright (C) 2012 OMICRON electronics GmbH
++ *
++ * Supports external PHYs via phylib. Based on the driver for the
++ * AX88772. Original copyrights follow:
++ *
++ * Copyright (C) 2003-2006 David Hollis <dhollis@davehollis.com>
++ * Copyright (C) 2005 Phil Chang <pchang23@sbcglobal.net>
++ * Copyright (C) 2006 James Painter <jamie.painter@iname.com>
++ * Copyright (c) 2002-2003 TiVo Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include "asix.h"
++#include <linux/phy.h>
++
++struct ax88172a_private {
++	int use_embdphy;
++	struct mii_bus *mdio;
++	struct phy_device *phydev;
++	char phy_name[20];
++	u16 phy_addr;
++	u16 oldmode;
++};
++
++static inline int asix_read_phy_addr(struct usbnet *dev, int internal)
++{
++	int offset = (internal ? 1 : 0);
++	u8 buf[2];
++	int ret = asix_read_cmd(dev, AX_CMD_READ_PHY_ID, 0, 0, 2, buf);
++
++	netdev_dbg(dev->net, "asix_get_phy_addr()\n");
++
++	if (ret < 0) {
++		netdev_err(dev->net, "Error reading PHYID register: %02x\n",
++			   ret);
++		goto out;
++	}
++	netdev_dbg(dev->net, "asix_get_phy_addr() returning 0x%04x\n",
++		   *((__le16 *)buf));
++	ret = buf[offset];
++
++out:
++	return ret;
++}
++
++static int ax88172a_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
++{
++	return phy_mii_ioctl(net->phydev, rq, cmd);
++}
++
++/* MDIO read and write wrappers for phylib */
++static int asix_mdio_bus_read(struct mii_bus *bus, int phy_id, int regnum)
++{
++	return asix_mdio_read(((struct usbnet *)bus->priv)->net, phy_id,
++			      regnum);
++}
++
++static int asix_mdio_bus_write(struct mii_bus *bus, int phy_id, int regnum,
++			       u16 val)
++{
++	asix_mdio_write(((struct usbnet *)bus->priv)->net, phy_id, regnum,
++			val);
++	return 0;
++}
++
++/* set MAC link settings according to information from phylib */
++static void asix_adjust_link(struct net_device *netdev)
++{
++	struct phy_device *phydev = netdev->phydev;
++	struct usbnet *dev = netdev_priv(netdev);
++	struct ax88172a_private *priv =
++		(struct ax88172a_private *)dev->driver_priv;
++	u16 mode = 0;
++
++	dbg("asix_adjust_link called\n");
++
++	if (phydev->link) {
++		mode = AX88772_MEDIUM_DEFAULT;
++
++		if (phydev->duplex == DUPLEX_HALF)
++			mode &= ~AX_MEDIUM_FD;
++
++		if (phydev->speed != SPEED_100)
++			mode &= ~AX_MEDIUM_PS;
++	}
++
++	if (mode != priv->oldmode) {
++		asix_write_medium_mode(dev, mode);
++		priv->oldmode = mode;
++		dbg("asix_adjust_link  speed: %u duplex: %d setting mode to 0x%04x\n",
++		    phydev->speed, phydev->duplex, mode);
++		phy_print_status(phydev);
++	}
++}
++
++static void ax88172a_status(struct usbnet *dev, struct urb *urb)
++{
++}
++
++/* use phylib infrastructure */
++static int ax88172a_init_mdio(struct usbnet *dev)
++{
++	struct ax88172a_private *priv =
++		(struct ax88172a_private *)dev->driver_priv;
++	int ret, i;
++
++	priv->mdio = mdiobus_alloc();
++	if (!priv->mdio) {
++		dbg("Could not allocate MDIO bus");
++		return -1;
++	}
++
++	priv->mdio->priv = (void *)dev;
++	priv->mdio->read = &asix_mdio_bus_read;
++	priv->mdio->write = &asix_mdio_bus_write;
++	priv->mdio->name = "Asix MDIO Bus";
++	snprintf(priv->mdio->id, MII_BUS_ID_SIZE, "asix-%s",
++		 dev_name(dev->net->dev.parent));
++
++	priv->mdio->irq = kzalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!priv->mdio->irq) {
++		dbg("Could not allocate MDIO->IRQ");
++		ret = -ENOMEM;
++		goto mfree;
++	}
++	for (i = 0; i < PHY_MAX_ADDR; i++)
++		priv->mdio->irq[i] = PHY_POLL;
++
++	ret = mdiobus_register(priv->mdio);
++	if (ret) {
++		dbg("Could not register MDIO bus");
++		goto ifree;
++	}
++	snprintf(priv->phy_name, 20, PHY_ID_FMT,
++		 priv->mdio->id, priv->phy_addr);
++
++	priv->phydev = phy_connect(dev->net, priv->phy_name, &asix_adjust_link,
++				   0, PHY_INTERFACE_MODE_MII);
++	if (IS_ERR(priv->phydev)) {
++		dbg("Could not connect to PHY device");
++		ret = PTR_ERR(priv->phydev);
++		goto munreg;
++	}
++	dbg("dev->net->phydev (%s) is now 0x%p", priv->phy_name,
++	    dev->net->phydev);
++
++	/* During power-up, the AX88172A set the power down (BMCR_PDOWN)
++	 *   bit of the PHY. Bring the PHY up again.
++	 */
++	genphy_resume(priv->phydev);
++
++	phy_start(priv->phydev);
++
++	return 0;
++munreg:
++	mdiobus_unregister(priv->mdio);
++ifree:
++	kfree(priv->mdio->irq);
++mfree:
++	mdiobus_free(priv->mdio);
++	return ret;
++}
++
++static void ax88172a_remove_mdio(struct usbnet *dev)
++{
++	struct ax88172a_private *priv =
++		(struct ax88172a_private *)dev->driver_priv;
++
++	phy_stop(priv->phydev);
++	phy_disconnect(priv->phydev);
++	mdiobus_unregister(priv->mdio);
++	kfree(priv->mdio->irq);
++	mdiobus_free(priv->mdio);
++}
++
++static const struct net_device_ops ax88172a_netdev_ops = {
++	.ndo_open		= usbnet_open,
++	.ndo_stop		= usbnet_stop,
++	.ndo_start_xmit		= usbnet_start_xmit,
++	.ndo_tx_timeout		= usbnet_tx_timeout,
++	.ndo_change_mtu		= usbnet_change_mtu,
++	.ndo_set_mac_address	= asix_set_mac_address,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_do_ioctl		= ax88172a_ioctl,
++	.ndo_set_rx_mode        = asix_set_multicast,
++};
++
++int ax88172a_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
++{
++	return phy_ethtool_gset(net->phydev, cmd);
++}
++
++int ax88172a_set_settings(struct net_device *net, struct ethtool_cmd *cmd)
++{
++	return phy_ethtool_sset(net->phydev, cmd);
++}
++
++int ax88172a_nway_reset(struct net_device *net)
++{
++	return phy_start_aneg(net->phydev);
++}
++
++static const struct ethtool_ops ax88172a_ethtool_ops = {
++	.get_drvinfo		= asix_get_drvinfo,
++	.get_link		= usbnet_get_link,
++	.get_msglevel		= usbnet_get_msglevel,
++	.set_msglevel		= usbnet_set_msglevel,
++	.get_wol		= asix_get_wol,
++	.set_wol		= asix_set_wol,
++	.get_eeprom_len		= asix_get_eeprom_len,
++	.get_eeprom		= asix_get_eeprom,
++	.get_settings		= ax88172a_get_settings,
++	.set_settings		= ax88172a_set_settings,
++	.nway_reset		= ax88172a_nway_reset,
++};
++
++static int ax88172a_reset_phy(struct usbnet *dev, int embd_phy)
++{
++	int ret;
++
++	ret = asix_sw_reset(dev, AX_SWRESET_IPPD);
++	if (ret < 0)
++		goto err;
++
++	msleep(150);
++	ret = asix_sw_reset(dev, AX_SWRESET_CLEAR);
++	if (ret < 0)
++		goto err;
++
++	msleep(150);
++
++	ret = asix_sw_reset(dev, embd_phy ? AX_SWRESET_IPRL : AX_SWRESET_IPPD);
++	if (ret < 0)
++		goto err;
++
++	return 0;
++
++err:
++	return ret;
++}
++
++
++static int ax88172a_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int ret;
++	struct asix_data *data = (struct asix_data *)&dev->data;
++	u8 buf[ETH_ALEN];
++	struct ax88172a_private *priv;
++
++	data->eeprom_len = AX88772_EEPROM_LEN;
++
++	usbnet_get_endpoints(dev, intf);
++
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv) {
++		dbg("Could not allocate memory for private data");
++		return -ENOMEM;
++	}
++	dev->driver_priv = priv;
++
++	/* Get the MAC address */
++	ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID, 0, 0, ETH_ALEN, buf);
++	if (ret < 0) {
++		dbg("Failed to read MAC address: %d", ret);
++		goto free;
++	}
++	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
++
++	dev->net->netdev_ops = &ax88172a_netdev_ops;
++	dev->net->ethtool_ops = &ax88172a_ethtool_ops;
++
++	/* are we using the internal or the external phy? */
++	ret = asix_read_cmd(dev, AX_CMD_SW_PHY_STATUS, 0, 0, 1, buf);
++	if (ret < 0) {
++		dbg("Failed to read software interface selection register: %d",
++		    ret);
++		goto free;
++	}
++	dbg("AX_CMD_SW_PHY_STATUS = 0x%02x\n", buf[0]);
++	switch ((buf[0] & 0x0c) >> 2) {
++	case 0:
++		dbg("use internal phy\n");
++		priv->use_embdphy = 1;
++		break;
++	case 1:
++		dbg("use external phy\n");
++		priv->use_embdphy = 0;
++		break;
++	default:
++		dbg("Interface mode not supported by driver\n");
++		goto free;
++	}
++
++	priv->phy_addr = asix_read_phy_addr(dev, priv->use_embdphy);
++	ax88172a_reset_phy(dev, priv->use_embdphy);
++
++	/* Asix framing packs multiple eth frames into a 2K usb bulk transfer */
++	if (dev->driver_info->flags & FLAG_FRAMING_AX) {
++		/* hard_mtu  is still the default - the device does not support
++		   jumbo eth frames */
++		dev->rx_urb_size = 2048;
++	}
++
++	/* init MDIO bus */
++	ret = ax88172a_init_mdio(dev);
++	if (ret)
++		goto free;
++
++	return 0;
++
++free:
++	kfree(priv);
++	return ret;
++}
++
++static void ax88172a_unbind(struct usbnet *dev, struct usb_interface *intf)
++{
++	struct ax88172a_private *priv =
++		(struct ax88172a_private *)dev->driver_priv;
++
++	ax88172a_remove_mdio(dev);
++	kfree(priv);
++}
++
++static int ax88172a_reset(struct usbnet *dev)
++{
++	struct asix_data *data = (struct asix_data *)&dev->data;
++	struct ax88172a_private *priv =
++		(struct ax88172a_private *)dev->driver_priv;
++	int ret;
++	u16 rx_ctl;
++
++	ax88172a_reset_phy(dev, priv->use_embdphy);
++
++	msleep(150);
++	rx_ctl = asix_read_rx_ctl(dev);
++	dbg("RX_CTL is 0x%04x after software reset", rx_ctl);
++	ret = asix_write_rx_ctl(dev, 0x0000);
++	if (ret < 0)
++		goto out;
++
++	rx_ctl = asix_read_rx_ctl(dev);
++	dbg("RX_CTL is 0x%04x setting to 0x0000", rx_ctl);
++
++	msleep(150);
++
++	ax88172a_nway_reset(dev->net);
++
++	ret = asix_write_cmd(dev, AX_CMD_WRITE_IPG0,
++				AX88772_IPG0_DEFAULT | AX88772_IPG1_DEFAULT,
++				AX88772_IPG2_DEFAULT, 0, NULL);
++	if (ret < 0) {
++		dbg("Write IPG,IPG1,IPG2 failed: %d", ret);
++		goto out;
++	}
++
++	/* Rewrite MAC address */
++	memcpy(data->mac_addr, dev->net->dev_addr, ETH_ALEN);
++	ret = asix_write_cmd(dev, AX_CMD_WRITE_NODE_ID, 0, 0, ETH_ALEN,
++							data->mac_addr);
++	if (ret < 0)
++		goto out;
++
++	/* Set RX_CTL to default values with 2k buffer, and enable cactus */
++	ret = asix_write_rx_ctl(dev, AX_DEFAULT_RX_CTL);
++	if (ret < 0)
++		goto out;
++
++	rx_ctl = asix_read_rx_ctl(dev);
++	dbg("RX_CTL is 0x%04x after all initializations", rx_ctl);
++
++	rx_ctl = asix_read_medium_status(dev);
++	dbg("Medium Status is 0x%04x after all initializations", rx_ctl);
++
++	return 0;
++
++out:
++	return ret;
++
++}
++
++const struct driver_info ax88172a_info = {
++	.description = "ASIX AX88172A USB 2.0 Ethernet",
++	.bind = ax88172a_bind,
++	.unbind = ax88172a_unbind,
++	.status = ax88172a_status,
++	.reset = ax88172a_reset,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR |
++		 FLAG_MULTI_PACKET,
++	.rx_fixup = asix_rx_fixup,
++	.tx_fixup = asix_tx_fixup,
++};
+-- 
+1.7.0.4
