@@ -1,34 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: fix a bad cast in ip6_dst_lookup_tail()
-Date: Fri, 06 Jul 2012 00:24:58 -0700 (PDT)
-Message-ID: <20120706.002458.1826403917382395625.davem@davemloft.net>
-References: <1341557587.3265.107.camel@edumazet-glaptop>
-	<20120706.000341.755169655502291970.davem@davemloft.net>
-	<1341559145.3265.141.camel@edumazet-glaptop>
+From: Fengguang Wu <wfg@linux.intel.com>
+Subject: Re: BUG: unable to handle kernel paging request at 00000000d8be176d
+Date: Fri, 6 Jul 2012 15:37:45 +0800
+Message-ID: <20120706073745.GA28197@localhost>
+References: <20120705.142200.1828988382587831318.davem@davemloft.net>
+ <20120706055859.GA27693@localhost>
+ <1341555227.3265.54.camel@edumazet-glaptop>
+ <20120705.234229.526162609862035833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wfg@linux.intel.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
 	steffen.klassert@secunet.com
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33846 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932084Ab2GFHep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 03:34:45 -0400
-In-Reply-To: <1341559145.3265.141.camel@edumazet-glaptop>
+Received: from mga11.intel.com ([192.55.52.93]:7185 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754003Ab2GFHhs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 03:37:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20120705.234229.526162609862035833.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 06 Jul 2012 09:19:05 +0200
+Hi David,
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Fix a bug in ip6_dst_lookup_tail(), where typeof(dst) is 
-> "struct dst_entry **", not "struct dst_entry *"
-> 
-> Reported-by: Fengguang Wu <wfg@linux.intel.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fengguang Wu can I ask you politely not to quote the quilty patch in
+> it's entirety when reporting bugs?  That screws up my workflow because
+> that patch goes then gets installed as a new patch in patchwork and I
+> have to therefore tick it off every time you report a bug.
 
-Applied, thanks Eric.
+Sorry for that!  Is it fine to _attach_ the referenced patch, or just
+a raw diff?  Or, the commit SHA and subject are all you want to see?
+
+Thanks,
+Fengguang
