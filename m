@@ -1,55 +1,102 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/2] ksz884x: fix Endian
-Date: Fri, 6 Jul 2012 23:40:16 +0100
-Message-ID: <1341614416.2923.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1341454003-11227-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH 4 2/4] NET ethernet introduce mac_platform helper
+Date: Fri, 6 Jul 2012 23:40:31 +0100
+Message-ID: <1341614431.2923.13.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120705024259.26317.16000.stgit@build.warmcat.com>
+	 <20120705024446.26317.49693.stgit@build.warmcat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <Tristram.Ha@micrel.com>
-To: <roy.qing.li@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30660 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756548Ab2GFWkS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 18:40:18 -0400
-In-Reply-To: <1341454003-11227-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-omap@vger.kernel.org>, <s-jan@ti.com>, <arnd@arndb.de>,
+	<patches@linaro.org>, <tony@atomide.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <rostedt@goodmis.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Andy Green <andy.green@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120705024446.26317.49693.stgit@build.warmcat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-05 at 10:06 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> ETH_P_IP is host Endian, skb->protocol is big Endian, when
-> compare them, we should change skb->protocol from big endian
-> to host endian, ntohs, not htons.
-> 
-> CC: Tristram Ha <Tristram.Ha@micrel.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  drivers/net/ethernet/micrel/ksz884x.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-> index eaf9ff0..d9727f7 100644
-> --- a/drivers/net/ethernet/micrel/ksz884x.c
-> +++ b/drivers/net/ethernet/micrel/ksz884x.c
-> @@ -4882,7 +4882,7 @@ static netdev_tx_t netdev_tx(struct sk_buff *skb, struct net_device *dev)
->  	if (left) {
->  		if (left < num ||
->  				((CHECKSUM_PARTIAL == skb->ip_summed) &&
-> -				(ETH_P_IPV6 == htons(skb->protocol)))) {
-> +				(ETH_P_IPV6 == ntohs(skb->protocol)))) {
+On Thu, 2012-07-05 at 10:44 +0800, Andy Green wrote:
+[...]
+> To make use of this safely you also need to make sure that any drivers that
+> may compete for the bus ordinal you are using (eg, mUSB and ehci in Panda
+> case) are loaded in a deterministic order.
+[...]
 
-This should really be changed to the idiomatic 'skb->protocol ==
-htons(ETH_P_IPV6)'.  For the current code, the compiler will probably
-generate a run-time byte-swap for little-endian systems.
+This seems very restrictive... would it be practical to also allow a
+driver name as a path component?
+
+[...]
+> --- /dev/null
+> +++ b/include/net/mac-platform.h
+> @@ -0,0 +1,39 @@
+> +/*
+> + * mac-platform.h:  Enforces platform-defined MAC for Async probed devices
+> + */
+> +
+> +#ifndef __NET_MAC_PLATFORM_H__
+> +#define __NET_MAC_PLATFORM_H__
+> +
+> +#include <linux/if_ether.h>
+> +
+> +/**
+> + * struct mac_platform - associates asynchronously probed device path with
+> + *			 MAC address to be assigned to the device when it
+> + *			 is created
+
+A kernel-doc summary is strictly limited to one line.  The longer
+explanation can go in a paragraph under the field descriptions.
+
+> + * @device_path: device path name of network device
+> + * @mac: MAC address to assign to network device matching device path
+> + * @list: can be left uninitialized when passing from platform
+> + */
+> +
+> +struct mac_platform {
+> +	char *device_path;
+> +	u8 mac[ETH_ALEN];
+> +	struct list_head list; /* unused in platform data usage */
+> +};
+[...]
+> --- /dev/null
+> +++ b/net/ethernet/mac-platform.c
+[...]
+> +static struct mac_platform *__mac_platform_check(struct device *dev)
+> +{
+> +	const char *path;
+> +	const char *p;
+> +	const char *try;
+> +	int len;
+> +	struct device *devn;
+> +	struct mac_platform *tmp;
+> +	struct list_head *pos;
+> +
+> +	list_for_each(pos, &mac_platform_list) {
+> +
+> +		tmp = list_entry(pos, struct mac_platform, list);
+> +
+> +		try = tmp->device_path;
+> +
+> +		p = try + strlen(try);
+> +		devn = dev;
+> +
+> +		while (devn) {
+> +
+> +			path = dev_name(devn);
+> +			len = strlen(path);
+> +
+> +			if ((p - try) < len) {
+> +				devn = NULL;
+> +				continue;
+> +			}
+> +
+> +			p -= len;
+[...]
+
+There are so many blank lines here, it's hard to see much code at once.
 
 Ben.
-
->  			struct sk_buff *org_skb = skb;
->  
->  			skb = netdev_alloc_skb(dev, org_skb->len);
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
