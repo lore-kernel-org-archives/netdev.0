@@ -1,77 +1,86 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: [PATCH v2] fail dentry revalidation after namespace change
-Date: Fri,  6 Jul 2012 13:09:07 +0400
-Message-ID: <1341565747-15374-1-git-send-email-glommer@parallels.com>
-Cc: <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Greg Thelen <gthelen@google.com>,
-	Serge Hallyn <serge.hallyn@canonical.com>,
-	Glauber Costa <glommer@parallels.com>,
-	Tejun Heo <tj@kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.4.1 and 3.5-rc1 Packet lost at 250Mb/s
+Date: Fri, 06 Jul 2012 12:13:29 +0200
+Message-ID: <1341569609.3265.389.camel@edumazet-glaptop>
+References: <2d2806e8e8ecad5646524acf2c4c5bcf@justnet.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: adam.niescierowicz@justnet.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:49846 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755712Ab2GFKNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 06:13:36 -0400
+Received: by eaak11 with SMTP id k11so3559996eaa.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 03:13:34 -0700 (PDT)
+In-Reply-To: <2d2806e8e8ecad5646524acf2c4c5bcf@justnet.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When we change the namespace tag of a sysfs entry, the associated dentry
-is still kept around. readdir() will work correctly and not display the
-old entries, but open() will still succeed, so will reads and writes.
+On Fri, 2012-07-06 at 11:47 +0200, Nie=C5=9Bcierowicz Adam wrote:
+> Hello,
+> Can I send something that will help determine the cause of the proble=
+m?
+>=20
+>=20
+> W dniu 08.06.2012 11:41, Eric Dumazet napisa=C5=82(a):
+>=20
+> > On Fri, 2012-06-08 at 10:58 +0200, Nie=C5=9Bcierowicz Adam wrote:
+> >
+> >> Hello, recently we changed on the router kernel from 2.6.38.1 to=20
+> >> 3.4.1
+> >> and noticed 30% packet loss when traffic increases up to 250MB / s=
+=2E
+> >> Similar is for kernel 3.5-rc1 Here a link to ifstat
+> >> http://wklej.org/id/767577/ [2]
+> >
+> > You should give as much as possible delails on your setup (hardware=
+,
+> > software)
+> >
+> > lspci
+> > cat /proc/cpuinfo
+> > cat /proc/interrupts
+> > ifconfig -a
+> > tc -s -d qdisc
+> > dmesg
+> > netstat -s
+>=20
+> currently running on 2.6.38.1 and traffic is 100Mb / s
+>=20
+> lspci: http://wklej.org/id/769102/
+> /proc/cpuinfo: http://wklej.org/id/769104/
+> /proc/interrupts: http://wklej.org/id/769106/
+> ifconfig -a: http://wklej.org/id/769108/
+> tc -s -d qdisc: http://wklej.org/id/769109/
+> dmesg: here are some logs from iptables
+> netstat -s: http://wklej.org/id/769110/
+> lsmod: http://wklej.org/id/769117/
+> /proc/net/softnet_stat: http://wklej.org/id/769116/
 
-This will no longer happen if sysfs is remounted, hinting that this is a
-cache-related problem.
 
-I am using the following sequence to demonstrate that:
+Same infos of 3.5-rcX kernel would be nice.
 
-shell1:
-ip link add type veth
-unshare -nm
+What NIC is eth0 ?  (dmesg please)
 
-shell2:
-ip link set veth1 <pid_of_shell_1>
-cat /sys/devices/virtual/net/veth1/ifindex
+It seems all network traffic on 2.6.38 is handled by a single cpu (cpu0=
+)
 
-Before that patch, this will succeed (fail to fail). After it, it will
-correctly return an error. Differently from a normal rename, which we
-handle fine, changing the object namespace will keep it's path intact.
-So this check seems necessary as well.
+(seen in /proc/interrupts)
 
-[ v2: get type from parent, as suggested by Eric Biederman ]
+I suspect that with 3.4 or 3.5 kernels, traffic is handled by many cpus
+and they hit false sharing and contention.
 
-Signed-off-by: Glauber Costa <glommer@parallels.com>
-CC: Tejun Heo <tj@kernel.org>
-CC: Eric W. Biederman <ebiederm@xmission.com>
-CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- fs/sysfs/dir.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
+You probably get better performance doing some affinity tuning :
 
-diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
-index e6bb9b2..c0bf38a 100644
---- a/fs/sysfs/dir.c
-+++ b/fs/sysfs/dir.c
-@@ -307,6 +307,7 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
- {
- 	struct sysfs_dirent *sd;
- 	int is_dir;
-+	int type;
- 
- 	if (nd->flags & LOOKUP_RCU)
- 		return -ECHILD;
-@@ -326,6 +327,13 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
- 	if (strcmp(dentry->d_name.name, sd->s_name) != 0)
- 		goto out_bad;
- 
-+	/* The sysfs dirent has been moved to a different namespace */
-+	type = KOBJ_NS_TYPE_NONE;
-+	if (sd->s_parent)
-+		type = sysfs_ns_type(sd->s_parent);
-+	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
-+		goto out_bad;
-+
- 	mutex_unlock(&sysfs_mutex);
- out_valid:
- 	return 1;
--- 
-1.7.10.4
+=46or example,=20
+  eth0 serviced by cpu0
+  eth2 serviced by cpu1
+  eth3 serviced by cpu2
+  eth5 serviced by cpu3
+
+and so on...
+
+check and/or set /proc/irq/${NUM}/smp_affinity
