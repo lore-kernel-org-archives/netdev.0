@@ -1,110 +1,116 @@
-From: =?utf-8?Q?=C3=89meric?= Vigier
-	<emeric.vigier@savoirfairelinux.com>
-Subject: Re: [PATCH] smsc95xx: support ethtool get_regs
-Date: Fri, 6 Jul 2012 17:26:45 -0400 (EDT)
-Message-ID: <2138981415.303377.1341610005571.JavaMail.root@mail.savoirfairelinux.com>
-References: <20120706200146.GA11931@electric-eye.fr.zoreil.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 0/4] phylib: add context argument to adjust link callbacks
+Date: Fri, 6 Jul 2012 23:41:33 +0200
+Message-ID: <201207062341.33700.florian@openwrt.org>
+References: <1341604653-19944-1-git-send-email-s-paulraj@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=iso-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Glendinning <steve@shawell.net>,
-	steve glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org, Nancy Lin <nancy.lin@smsc.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, cyril@ti.com,
+	grant.likely@secretlab.ca, linux-keystone@list.ti.com
+To: s-paulraj@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:42870 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932123Ab2GFV0s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 17:26:48 -0400
-In-Reply-To: <20120706200146.GA11931@electric-eye.fr.zoreil.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57654 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755486Ab2GFVlb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 17:41:31 -0400
+Received: by eeit10 with SMTP id t10so3782332eei.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 14:41:30 -0700 (PDT)
+In-Reply-To: <1341604653-19944-1-git-send-email-s-paulraj@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Mail original -----
-> De: "Francois Romieu" <romieu@fr.zoreil.com>
-> =C3=80: "=C3=89meric Vigier" <emeric.vigier@savoirfairelinux.com>
-> Cc: "Steve Glendinning" <steve@shawell.net>, "steve glendinning" <ste=
-ve.glendinning@smsc.com>,
-> netdev@vger.kernel.org, "Nancy Lin" <nancy.lin@smsc.com>
-> Envoy=C3=A9: Vendredi 6 Juillet 2012 16:01:46
-> Objet: Re: [PATCH] smsc95xx: support ethtool get_regs
->=20
-> =C3=89meric Vigier <emeric.vigier@savoirfairelinux.com> :
-> [...]
-> > +static int smsc95xx_ethtool_getregslen(struct net_device *dev)
-> > +{
-> > +	/* all smsc95xx registers plus all phy registers */
-> > +	return COE_CR - ID_REV + 1 + 32 * sizeof(u32);
->=20
-> I do not see where ID_REV is accounted for in the loops below.
->=20
-> s/32 */PHY_SPECIAL */ or s/PHY_SPECIAL/32/ below.
+Hello Sandeep,
 
-I will go for the second proposal. I love your sed syntax btw :-)
-
+Le vendredi 06 juillet 2012 21:57:33, s-paulraj@ti.com a =E9crit :
+> From: Sandeep Paulraj <s-paulraj@ti.com>
 >=20
-> I thought PHY registers were 16 bits wide. Moreover they are already
-> available through smsc95xx_ioctl().
+> This series of 4 patches adds a new context argument for the adjust l=
+ink
+> callbacks. The existing phy_connect() and its variants don't have a w=
+ay to
+> pass any private context information. This becomes necessary when, a =
+SOC
+> has an on chip switch with multiple ports. We need port specific
+> information to figure out which port a given callback belongs to.
+> We can pass this context information in the phy_connect() and its
+> variants. This in turn gets passed into the adjust link callbacks on =
+link
+> state change events.
 
-Yes, there are 16 bits wide according to smsc95xx.h.
-But other smsc drivers define 32bit wide PHY regs. I made myself believ=
-e that smsc would use the same PHY for each ethernet chip.
-So would something like s/32 * sizeof(u32)/PHY_SPECIAL * sizeof(u16)/ s=
-olve the issue here?
-
-Concerning the ioctl, I found ethtool much easier to use. And I believe=
- smsc9514 is a very popular chipset, so this could help others debuggin=
-g it.
+Assuming that you want to use a phydev per one of your switch port, thi=
+s would=20
+mean that you register multiple phydevs within your ethernet driver. If=
+ so,=20
+each phydev is already unique, and most likely also has an unique MDIO =
+bus=20
+address, this makes me wonder what is the purpose of the private pointe=
+r then?
 
 >=20
-> > +}
-> > +
-> > +static void
-> > +smsc95xx_ethtool_getregs(struct net_device *netdev, struct
-> > ethtool_regs *regs,
-> > +			 void *buf)
-> > +{
-> > +	struct usbnet *dev =3D netdev_priv(netdev);
-> > +	unsigned int i, j =3D 0, retval;
->=20
-> 	unsigned int i, j, retval;
->=20
-> > +	u32 *data =3D buf;
-> > +
-> > +	netif_dbg(dev, hw, dev->net, "ethtool_getregs\n");
->=20
-> The tracing framework does provide almost the same information.
+> NOTE: At this point of time patch 4 in this series passes a "NULL" to
+> the phy_connect() and its variants for all drivers that currently use
+> phy_connect() and its variants. This patch has been tested on a
+> Texas Instruments SOC, patches for which, as of now have not yet been
+> upstreamed; as a result of which this patch series does not yet
+> have an example of how this new feature is being actually used.
 
-Do you mean LTT? I am not familiar with it, I should have a look.
-I remove netif_dbg then.
+As David will probably tell you, introducing a new interface without an=
+y user=20
+does not increase the chance of geting your patches merged ;)
 
 >=20
-> > +
-> > +	retval =3D smsc95xx_read_reg(dev, ID_REV, &regs->version);
-> > +	if (retval < 0) {
-> > +		netdev_warn(dev->net, "REGS: cannot read ID_REV\n");
+> Sandeep Paulraj (4):
+>   phylib: factor out handler callouts into helper
+>   phylib: add context argument to adjust link callback
+>   of/mdio: add context argument to adjust link callback
+>   net: add context callback parameter to phy connect
 >=20
-> s/dev->net/netdev/ ?
+>  drivers/net/ethernet/8390/ax88796.c                |    4 ++--
+>  drivers/net/ethernet/adi/bfin_mac.c                |    4 ++--
+>  drivers/net/ethernet/aeroflex/greth.c              |    7 +++---
+>  drivers/net/ethernet/amd/au1000_eth.c              |    4 ++--
+>  drivers/net/ethernet/broadcom/bcm63xx_enet.c       |    4 ++--
+>  drivers/net/ethernet/broadcom/sb1250-mac.c         |    6 ++---
+>  drivers/net/ethernet/broadcom/tg3.c                |    4 ++--
+>  drivers/net/ethernet/cadence/macb.c                |    4 ++--
+>  drivers/net/ethernet/dnet.c                        |    6 ++---
+>  drivers/net/ethernet/ethoc.c                       |    4 ++--
+>  drivers/net/ethernet/faraday/ftgmac100.c           |    4 ++--
+>  drivers/net/ethernet/freescale/fec.c               |    4 ++--
+>  drivers/net/ethernet/freescale/fec_mpc52xx.c       |    5 ++--
+>  .../net/ethernet/freescale/fs_enet/fs_enet-main.c  |    6 ++---
+>  drivers/net/ethernet/freescale/gianfar.c           |    8 +++----
+>  drivers/net/ethernet/freescale/ucc_geth.c          |    6 ++---
+>  drivers/net/ethernet/lantiq_etop.c                 |    4 ++--
+>  drivers/net/ethernet/nxp/lpc_eth.c                 |    5 ++--
+>  drivers/net/ethernet/octeon/octeon_mgmt.c          |    4 ++--
+>  drivers/net/ethernet/pasemi/pasemi_mac.c           |    4 ++--
+>  drivers/net/ethernet/rdc/r6040.c                   |    4 ++--
+>  drivers/net/ethernet/renesas/sh_eth.c              |    4 ++--
+>  drivers/net/ethernet/s6gmac.c                      |    4 ++--
+>  drivers/net/ethernet/smsc/smsc911x.c               |    4 ++--
+>  drivers/net/ethernet/smsc/smsc9420.c               |    5 ++--
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    6 +++--
+>  drivers/net/ethernet/ti/cpmac.c                    |    4 ++--
+>  drivers/net/ethernet/ti/cpsw.c                     |    5 ++--
+>  drivers/net/ethernet/ti/davinci_emac.c             |    4 ++--
+>  drivers/net/ethernet/toshiba/tc35815.c             |    5 ++--
+>  drivers/net/ethernet/xilinx/ll_temac_main.c        |    4 ++--
+>  drivers/net/ethernet/xilinx/xilinx_axienet_main.c  |    3 ++-
+>  drivers/net/ethernet/xilinx/xilinx_emaclite.c      |    5 ++--
+>  drivers/net/ethernet/xscale/ixp4xx_eth.c           |    4 ++--
+>  drivers/net/phy/phy.c                              |   25
+> ++++++++++++-------- drivers/net/phy/phy_device.c                    =
+   |=20
+>  23 +++++++++++------- drivers/of/of_mdio.c                          =
+   =20
+> |   24 ++++++++++++------- include/linux/of_mdio.h                   =
+    =20
+>    |   15 ++++++------ include/linux/phy.h                           =
+   =20
+> |   20 +++++++++------- 39 files changed, 149 insertions(+), 116
+> deletions(-)
 
-You are right, I also changed smsc95xx_ethtool_getregslen() definition =
-to match this syntax.
-
->=20
->=20
-> > +		return;
-> > +	}
-> > +
-> > +	for (i =3D 0; i <=3D COE_CR; i +=3D (sizeof(u32))) {
-> > +		retval =3D smsc95xx_read_reg(dev, i, &data[j++]);
->=20
-> 	for (i =3D 0, j =3D 0; i <=3D COE_CR; i +=3D sizeof(u32), j++) {
-> 		retval =3D smsc95xx_read_reg(dev, i, data + j);
-
-I should change that in previous "for" loop as well I suppose?
-
->=20
-> --
-> Ueimor
->=20
-
-Emeric
+--=20
+=46lorian
