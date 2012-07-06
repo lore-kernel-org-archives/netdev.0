@@ -1,128 +1,109 @@
-From: =?UTF-8?B?QWxleCBWaWxsYWPDrXMgTGFzc28=?= <a_villacis@palosanto.com>
-Subject: Re: BISECTED: Re: REGRESSION: 3.4.0->3.5.0-rc2 kernel WARNING on
- cable plug on Acer Aspire One, no network
-Date: Thu, 05 Jul 2012 19:35:08 -0500
-Message-ID: <4FF632BC.9010507@palosanto.com>
-References: <4FF25A05.7050007@palosanto.com> <4FF25CC2.3050101@palosanto.com> <03be01cd58de$6c2a06d0$447e1470$%szyprowski@samsung.com> <4FF30129.5000702@palosanto.com> <000901cd59b2$f2a542e0$d7efc8a0$%szyprowski@samsung.com> <4FF514B2.4050000@palosanto.com> <012601cd5a7b$886fd4c0$994f7e40$%szyprowski@samsung.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespace and bonding WARNING at fs/proc/generic.c remove_proc_entry
+Date: Thu, 05 Jul 2012 17:41:54 -0700
+Message-ID: <87ehopu3e5.fsf@xmission.com>
+References: <1340900320.3441.88.camel@pro6455b.example.com>
+	<20120705220749.GA11255@mail.hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Francois Romieu' <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.palosanto.com ([201.234.196.171]:46216 "EHLO
-	pbx.palosanto.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932793Ab2GFAfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jul 2012 20:35:12 -0400
-In-Reply-To: <012601cd5a7b$886fd4c0$994f7e40$%szyprowski@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Dilip Daya <dilip.daya@hp.com>, linux-kernel@vger.kernel.org,
+	containers@lists.linux-foundation.org, <netdev@vger.kernel.org>
+To: "Serge E. Hallyn" <serge@hallyn.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120705220749.GA11255@mail.hallyn.com> (Serge E. Hallyn's
+	message of "Thu, 5 Jul 2012 22:07:49 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-El 05/07/12 01:58, Marek Szyprowski escribi=C3=B3:
-> Hello,
+"Serge E. Hallyn" <serge@hallyn.com> writes:
+
+> Quoting Dilip Daya (dilip.daya@hp.com):
+>> Hi,
+>> 
+>> I'd discussed the following with Serge Hallyn.
+>> 
+>> => Environment based on 3.2.18 / x86_64 kernel.
+>> => WARNING: at fs/proc/generic.c:808 remove_proc_entry+0xdb/0x21f()
+>> => WARNING: at fs/proc/generic.c:849 remove_proc_entry+0x208/0x21f()
 >
-> On Thursday, July 05, 2012 6:15 AM Alex Villac=C3=ADs Lasso wrote:
+> Hi,
 >
->> El 04/07/12 02:02, Marek Szyprowski escribi=C3=B3:
->>> Hello,
->>>
->>> On Tuesday, July 03, 2012 4:27 PM Alex Villac=C3=AD=C2=ACs Lasso wr=
-ote:
->>>
->>>> El 03/07/12 00:40, Marek Szyprowski escribi=C3=B3:
->>>>> Hi Alex,
->>>>>
->>>>> On Tuesday, July 03, 2012 4:45 AM Alex Villac=C3=ADs Lasso wrote:
->>>>>
->>>>>> -------- Mensaje original --------
->>>>>> Asunto:  BISECTED: Re: REGRESSION: 3.4.0->3.5.0-rc2 kernel WARNI=
-NG on cable
->>>>>> plug on Acer Aspire One, no network Fecha:  Mon, 02 Jul 2012 21:=
-33:41 -0500 De:
->>>>>>     Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com> Para:  F=
-rancois Romieu
->>>>>> <romieu@fr.zoreil.com> CC:  netdev@vger.kernel.org
->>>>>> El 01/07/12 08:50, Alex Villac=C3=ADs Lasso escribi=C3=B3:
->>>>>>> El 11/06/12 16:38, Francois Romieu escribi=C3=B3:
->>>>>>>> Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com> :
->>>>>>>> [...]
->>>>>>>>> $ grep XID dmesg-3.5.0-rc2.txt
->>>>>>>>> [   15.873858] r8169 0000:02:00.0: eth0: RTL8102e at 0xf7c0e0=
-00,
->>>>>>>>> 00:1e:68:e5:5d:b1, XID 04a00000 IRQ 44
->>>>>>>> The 8102e has not been touched by that many suspect patches bu=
-t I do
->>>>>>>> not see where the problem is :o(
->>>>>>>>
->>>>>>>> Can you peel off the r8169 patches between 3.4.0 and 3.5-rc ?
->>>>>>>>
->>>>>>> Still present in 3.5-rc5. Bisection still in progress.
->>>>>>>
->>>>>>> --
->>>>>>> To unsubscribe from this list: send the line "unsubscribe netde=
-v" in
->>>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.h=
-tml
->>>>>> My full bisection points to this commit:
->>>>>>
->>>>>> commit 0a2b9a6ea93650b8a00f9fd5ee8fdd25671e2df6
->>>>>> Author: Marek Szyprowski <m.szyprowski@samsung.com>
->>>>>> Date:   Thu Dec 29 13:09:51 2011 +0100
->>>>>>
->>>>>>        X86: integrate CMA with DMA-mapping subsystem
->>>>>>
->>>>>>        This patch adds support for CMA to dma-mapping subsystem =
-for x86
->>>>>>        architecture that uses common pci-dma/pci-nommu implement=
-ation. This
->>>>>>        allows to test CMA on KVM/QEMU and a lot of common x86 bo=
-xes.
->>>>>>
->>>>>>        Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com=
+> thanks much for sending this.  I'm still getting this error on
+> 3.5.0-2-generic (today's ubuntu quantal kernel)
 >
->>>>>>        Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
->>>>>>        CC: Michal Nazarewicz <mina86@mina86.com>
->>>>>>        Acked-by: Arnd Bergmann <arnd@arndb.de>
->>>>>>
->>>>>> Is this commit somehow messing with the network card DMA?
->>>>> This commit in fact touches DMA-mapping subsystem and introduces =
-a bug,
->>>>> which has been finally fixed by commit c080e26edc3a2a3 merged to =
-v3.5-rc3.
->>>>> After applying it the DMA-mapping subsystem should work exactly t=
-he same was
->>>>> as in v3.4. Could you please check if it fixes this issue?
->>>>>
->>>>> Best regards
->>>> No. It still fails in 3.5-rc5, as mentioned before.
->>> Hmm. I was a bit confused, because both the subject and git bisect =
-log pointed to v3.5-rc2,
->>> which had that bug. Maybe there is one some other issue present in =
-v3.5-rc5 not related to
->>> my patches?
->>>
->>> Could you check with v3.5-rc5 if reverting patch c080e26edc3a2a3cdf=
-a4c430c663ee1c3bbd8fae
->>> and 0a2b9a6ea93650b8a00f9fd5ee8fdd25671e2df6 fixes the problems wit=
-h rtl driver?
->>>
->>> Best regards
->> Reverting the two patches indeed fixes the bug on -rc5.
-> That's really strange. Could you check if you have CMA disabled in th=
-e config? After preparing
-> a c080e26edc3a2a3cdfa4c430c663ee1c3bbd8fae fixup patch, I was really =
-convinced that there are
-> no functional changes in x86 dma mapping code when CMA is disabled. I=
- will provide some
-> patches to revert different parts of my changes, so we will find whic=
-h line causes issues.
+>> network namespace and bonding
+>> -----------------------------
+>> 
+>> * Migrate two phy nics from host to netns (netns0).
+>>   - ip link set ethX netns netns0
+>> 
+>> * In host environment:
+>>   - load bonding module, /sbin/modprobe -v bonding mode=1 miimon=100
+>>   - /sys/class/net/bond0 exists.
+>>   - /proc/net/bonding/bond0 exists.
+>>   - /sys/class/net/bonding_masters has bond0.
+>> 
+>> * Migrate bond0 to netns (netns0):
+>>   - ip link set bond0 netns netns0.
+>> 
+>> * Within netns (netns0):
+>>   - /sys/class/net/bonding_masters is empty.
+>>   - /sys/class/net/bond0 exist.
+>>   - configure bond0 and ifenslave with two phy nics.
+>>   - /proc/net/bonding/bond0 does not exist within netns0, but does
+>>     exist in the host environment.
+>>   - /sys/class/net/bonding_masters is empty.
 >
-> Best regards
-The affected system is an Acer Aspire One, a 32-bit only system. The=20
-option to enable or disable CMA simply does not appear as available in=20
-menuconfig to either enable or disable, and it also does not appear in=20
-the .config file as either set or unset. I assume this means that CMA i=
-s=20
-disabled.
+> mine is not empty, fwiw.  However
+>
+>>   - ping to remote end of bond0 works.
+>> 
+>> * Within netns (netns0), flushing ethX and bondY:
+>>   - down bond0 and its phy nic interfaces:
+>>   - ip link set ... down
+>>   - ip addr flush dev [bond0 | eth#]
+>>   - deleting bond0, /sbin/ip link del dev bond0
+>
+> Yup I still get a remove_proc_entry WARNING at fs/proc/generic.c:808,
+> which is the warning when (!de)
+
+It looks like Dilip is running an old kernel.  There should have been
+some version of /sys/class/net/bonding_masters in every network
+namespace since sometime in 2009.
+
+>From the warning it looks like the proc files are being added/removed
+to the wrong network namespace.  So in one namespace we get an error
+when we delete the moved device and in the other network namespace
+we get an error when we remove the /proc/directory.
+
+An old kernel without proper network namespace support is the only
+reason I can imagine someone would be moving an existing bond device
+between network namespaces.
+
+If there are other reasons for wanting to move a bonding device between
+network namespaces it is possible to catch the NETDEV_UNREGISTER and
+NETDEV_REGISTER events to remove/add the per device proc files at the
+appropriate time.
+
+However since moving bonding devices appears to be an unneded operation
+let's just do things simply and forbid moving bonding devices between
+network namespaces.  Serge, Dilip can you two test the patch below
+and see if it fixes the warnings.
+
+Eric
+
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2ee8cf9..818ed64 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4345,6 +4345,9 @@ static void bond_setup(struct net_device *bond_dev)
+        bond_dev->priv_flags |= IFF_BONDING;
+        bond_dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
+ 
++       /* Don't allow bond devices to change network namespaces. */
++       bond_dev->features |= NETIF_F_LOCAL;
++
+        /* At first, we block adding VLANs. That's the only way to
+         * prevent problems that occur when adding VLANs over an
+         * empty bond. The block will be removed once non-challenged
