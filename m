@@ -1,104 +1,99 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic in br_nf_forward_finish
-Date: Fri, 6 Jul 2012 23:37:50 +0800
-Message-ID: <CAF1ivSagm=MZTog1L+o5dqV72v9BGV+QYT_2ZrRnUcPkqA+xPQ@mail.gmail.com>
-References: <1341584394.4789.34.camel@chief-river-32>
-	<1341587206.3265.696.camel@edumazet-glaptop>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [net-next RFC V5 0/5] Multiqueue virtio-net
+Date: Fri, 06 Jul 2012 09:23:25 -0700
+Message-ID: <4FF710FD.2090100@hp.com>
+References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+	<4FF5D2B7.6080602@hp.com> <4FF696C9.5070907@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:40390 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1757665Ab2GFPif (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 11:38:35 -0400
-Received: from mail-vb0-f46.google.com (mail-vb0-f46.google.com [209.85.212.46])
-	(Authenticated sender: mlin@ss.pku.edu.cn)
-	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 8FF4CDBCC7
-	for <netdev@vger.kernel.org>; Fri,  6 Jul 2012 23:37:56 +0800 (CST)
-Received: by vbbff1 with SMTP id ff1so6225490vbb.19
-        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 08:37:50 -0700 (PDT)
-In-Reply-To: <1341587206.3265.696.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
+	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, sri@us.ibm.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4FF696C9.5070907@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 6, 2012 at 11:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2012-07-06 at 22:19 +0800, Lin Ming wrote:
->> I can reproduce similiar panic with 3.5-rc5 kernel as Massimo reported at:
->> http://marc.info/?l=linux-netdev&m=134089242113979&w=2
->>
->> The steps to reproduce as follow,
->>
->> 1. On Host1, setup brige br0(192.168.1.106)
->> 2. Boot a kvm guest(192.168.1.105) on Host1 and start httpd
->> 3. Start IPVS service on Host1
->>    ipvsadm -A -t 192.168.1.106:80 -s rr
->>    ipvsadm -a -t 192.168.1.106:80 -r 192.168.1.105:80 -m
->> 4. Run apache benchmark on Host2(192.168.1.101)
->>    ab -n 1000 http://192.168.1.106/
->>
->> The panic happened in br_nf_forward_finish because skb->nf_bridge is NULL.
->> skb->nf_bridge is set to NULL in ip_vs_reply4 hook.
->>
->> br_nf_forward_ip():
->>   NF_HOOK(pf, NF_INET_FORWARD, skb, brnf_get_logical_dev(skb, in), parent,
->>                 br_nf_forward_finish);
->>
->> This calls IPVS hook ip_vs_reply4.
->>
->> ip_vs_reply4
->>   ip_vs_out
->>     handle_response
->>       ip_vs_notrack
->>         nf_reset()
->>         {
->>           skb->nf_bridge = NULL;
->>         }
->>
->> This patch added skb->nf_bridge check in br_nf_forward_finish and the panic gone.
->> But I am really not sure if this is the right fix.
->> Please help to review.
->>
->> The panic log attached.
-> ...
->> Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
->> ---
->>  net/bridge/br_netfilter.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
->> index e41456b..10da415 100644
->> --- a/net/bridge/br_netfilter.c
->> +++ b/net/bridge/br_netfilter.c
->> @@ -719,7 +719,7 @@ static int br_nf_forward_finish(struct sk_buff *skb)
->>       struct nf_bridge_info *nf_bridge = skb->nf_bridge;
->>       struct net_device *in;
->>
->> -     if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
->> +     if (!IS_ARP(skb) && !IS_VLAN_ARP(skb) && nf_bridge) {
->>               in = nf_bridge->physindev;
->>               if (nf_bridge->mask & BRNF_PKT_TYPE) {
->>                       skb->pkt_type = PACKET_OTHERHOST;
->
-> So after your patch we have the code in the else clause :
->
-> } else {
->         in = *((struct net_device **)(skb->cb));
-> }
->
-> But do we really have a "struct net_device" pointer stored in skb->cb[]
-> at this stage ?
->
-> AFAIK this is set only for ARP_FORWARD (br_nf_forward_arp() line 838 :
-> *d = (struct net_device *)in;),
-> not in br_nf_forward_ip()
->
-> If we have garbage instead, we can have other bugs later...
+On 07/06/2012 12:42 AM, Jason Wang wrote:
+> I'm not expert of tcp, but looks like the changes are reasonable:
+> - we can do full-sized TSO check in tcp_tso_should_defer() only for
+> westwood, according to tcp westwood
+> - run tcp_tso_should_defer for tso_segs = 1 when tso is enabled.
 
-You are right.
+I'm sure Eric and David will weigh-in on the TCP change.  My initial 
+inclination would have been to say "well, if multiqueue is draining 
+faster, that means ACKs come-back faster, which means the "race" between 
+more data being queued by netperf and ACKs will go more to the ACKs 
+which means the segments being sent will be smaller - as TCP_NODELAY is 
+not set, the Nagle algorithm is in force, which means once there is data 
+outstanding on the connection, no more will be sent until either the 
+outstanding data is ACKed, or there is an accumulation of > MSS worth of 
+data to send.
 
-The fundamental problem maybe in IPVS hook ip_vs_reply4 ......
+>> Also, how are you combining the concurrent netperf results?  Are you
+>> taking sums of what netperf reports, or are you gathering statistics
+>> outside of netperf?
+>>
+>
+> The throughput were just sumed from netperf result like what netperf
+> manual suggests. The cpu utilization were measured by mpstat.
+
+Which mechanism to address skew error?  The netperf manual describes 
+more than one:
+
+http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
+
+Personally, my preference these days is to use the "demo mode" method of 
+aggregate results as it can be rather faster than (ab)using the 
+confidence intervals mechanism, which I suspect may not really scale all 
+that well to large numbers of concurrent netperfs.
+
+I also tend to use the --enable-burst configure option to allow me to 
+minimize the number of concurrent netperfs in the first place.  Set 
+TCP_NODELAY (the test-specific -D option) and then have several 
+transactions outstanding at one time (test-specific -b option with a 
+number of additional in-flight transactions).
+
+This is expressed in the runemomniaggdemo.sh script:
+
+http://www.netperf.org/svn/netperf2/trunk/doc/examples/runemomniaggdemo.sh
+
+which uses the find_max_burst.sh script:
+
+http://www.netperf.org/svn/netperf2/trunk/doc/examples/find_max_burst.sh
+
+to pick the burst size to use in the concurrent netperfs, the results of 
+which can be post-processed with:
+
+http://www.netperf.org/svn/netperf2/trunk/doc/examples/post_proc.py
+
+The nice feature of using the "demo mode" mechanism is when it is 
+coupled with systems with reasonably synchronized clocks (eg NTP) it can 
+be used for many-to-many testing in addition to one-to-many testing 
+(which cannot be dealt with by the confidence interval method of dealing 
+with skew error)
+
+>> A single instance TCP_RR test would help confirm/refute any
+>> non-trivial change in (effective) path length between the two cases.
+>>
+>
+> Yes, I would test this thanks.
+
+Excellent.
+
+happy benchmarking,
+
+rick jones
