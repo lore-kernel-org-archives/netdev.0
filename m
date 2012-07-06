@@ -1,103 +1,77 @@
-From: Jerome Glisse <j.glisse@gmail.com>
-Subject: Unusual power consumption of ethernet device r8169 and backlight
-Date: Fri, 6 Jul 2012 17:52:14 -0400
-Message-ID: <CAH3drwYVw-k7zgdZ6+0SXdLY=SBK+BNEUC5s3DsOv5z2oYzJgg@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] smsc95xx: support ethtool get_regs
+Date: Sat, 7 Jul 2012 00:11:02 +0200
+Message-ID: <20120706221102.GA14276@electric-eye.fr.zoreil.com>
+References: <20120706200146.GA11931@electric-eye.fr.zoreil.com> <2138981415.303377.1341610005571.JavaMail.root@mail.savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steve Glendinning <steve@shawell.net>,
+	steve glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org, Nancy Lin <nancy.lin@smsc.com>
+To: =?utf-8?Q?=C3=89meric?= Vigier
+	<emeric.vigier@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54532 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753116Ab2GFWWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 18:22:48 -0400
+Content-Disposition: inline
+In-Reply-To: <2138981415.303377.1341610005571.JavaMail.root@mail.savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I am seeing somewhat very high power consumption usage of the network
-device and backlight
+=C3=89meric Vigier <emeric.vigier@savoirfairelinux.com> :
+[...]
+> Yes, there are 16 bits wide according to smsc95xx.h.
+> But other smsc drivers define 32bit wide PHY regs. I made myself beli=
+eve
+> that smsc would use the same PHY for each ethernet chip.
 
-Here is what report powertop, network can go as high as 9W
-  8.03 W    100.0%                      Device         Display backlight
-  5.19 W     23.1 pkts/s                Device         Network
-interface: p20p1 (r8169)
+SMSC people would surely answer before I find the relevant datasheet.
 
-When turning off backlight , it effectively vanish and reflect in
-power usage, i can't turn off the network device.
+Anyway the PHY registers are accessed indirectly through the MII_{ADDR,=
+ DATA}
+registers and MII_DATA r/w mask is limited to the lower 16 bits.
 
-So question is this backlight consumption expected ? And am i right
-assuming that the network driver is doing something horribly wrong
-that the consumption is so high (i must stress that it doesn't matter
-if there is network activities or not, plug or unplugged it doesn't
-change).
+> So would something like s/32 * sizeof(u32)/PHY_SPECIAL * sizeof(u16)/=
+ solve the issue here?
 
-Cheers,
-Jerome Glisse
+You would have to pack data[] as well. Or use u16 *.
 
-r8169 0000:01:00.0: eth0: RTL8168evl/8111evl at 0xffffc90000052000,
-e8:03:9a:b4:a3:90, XID 0c900800 IRQ 45
+> Concerning the ioctl, I found ethtool much easier to use. And I belie=
+ve
+> smsc9514 is a very popular chipset, so this could help others debuggi=
+ng it.
 
-lspci -vv -s 01:00.0
-01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
-RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 06)
-	Subsystem: Samsung Electronics Co Ltd Device c660
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-Stepping- SERR- FastB2B- DisINTx+
-	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-	Latency: 0, Cache Line Size: 64 bytes
-	Interrupt: pin A routed to IRQ 42
-	Region 0: I/O ports at e000 [size=256]
-	Region 2: Memory at d0004000 (64-bit, prefetchable) [size=4K]
-	Region 4: Memory at d0000000 (64-bit, prefetchable) [size=16K]
-	Capabilities: [40] Power Management version 3
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
-		Address: 00000000fee0300c  Data: 4169
-	Capabilities: [70] Express (v2) Endpoint, MSI 01
-		DevCap:	MaxPayload 128 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
-			ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
-			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
-			MaxPayload 128 bytes, MaxReadReq 4096 bytes
-		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
-		LnkCap:	Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0
-unlimited, L1 <64us
-			ClockPM+ Surprise- LLActRep- BwNot-
-		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
-			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive-
-BWMgmt- ABWMgmt-
-		DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
-		DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-
-		LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-,
-Selectable De-emphasis: -6dB
-			 Transmit Margin: Normal Operating Range, EnterModifiedCompliance-
-ComplianceSOS-
-			 Compliance De-emphasis: -6dB
-		LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-,
-EqualizationPhase1-
-			 EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
-	Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
-		Vector table: BAR=4 offset=00000000
-		PBA: BAR=4 offset=00000800
-	Capabilities: [d0] Vital Product Data
-		No end tag found
-	Capabilities: [100 v1] Advanced Error Reporting
-		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF-
-MalfTLP- ECRC- UnsupReq- ACSViol-
-		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF-
-MalfTLP- ECRC- UnsupReq- ACSViol-
-		UESvrt:	DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+
-MalfTLP+ ECRC- UnsupReq- ACSViol-
-		CESta:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
-		CEMsk:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-		AERCap:	First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
-	Capabilities: [140 v1] Virtual Channel
-		Caps:	LPEVC=0 RefClk=100ns PATEntryBits=1
-		Arb:	Fixed- WRR32- WRR64- WRR128-
-		Ctrl:	ArbSelect=Fixed
-		Status:	InProgress-
-		VC0:	Caps:	PATOffset=00 MaxTimeSlots=1 RejSnoopTrans-
-			Arb:	Fixed- WRR32- WRR64- WRR128- TWRR128- WRR256-
-			Ctrl:	Enable+ ID=0 ArbSelect=Fixed TC/VC=01
-			Status:	NegoPending- InProgress-
-	Capabilities: [160 v1] Device Serial Number 01-00-00-00-68-4c-e0-00
-	Kernel driver in use: r8169
+# mii-tool -vv e1000
+Using SIOCGMIIPHY=3D0x8947
+e1000: no autonegotiation, 10baseT-HD, link ok
+  registers for MII PHY 0:=20
+    1140 796d 0141 0c30 0de1 0021 0004 0000
+    0000 0200 0000 0000 0000 0000 0000 3000
+    0000 0000 0000 0000 0174 0000 0000 0000
+    4100 0000 000d 000f 0000 0000 0000 0000
+  product info: vendor 00:50:43, model 3 rev 0
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10bas=
+eT-HD
+  advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10bas=
+eT-HD flow-control
+  link partner: 10baseT-HD
+
+It is not that bad for the first 32 PHY registers.
+
+[...]
+> Do you mean LTT? I am not familiar with it, I should have a look.
+
+Documentation/trace/ftrace.txt
+
+[...]
+> I should change that in previous "for" loop as well I suppose?
+
+You may.
+
+--=20
+Ueimor
