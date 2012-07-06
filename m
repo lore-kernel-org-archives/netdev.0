@@ -1,62 +1,85 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net-next 1/2] ipv6: Initialize the struct rt6_info behind
- the dst_enty field
-Date: Fri, 6 Jul 2012 11:37:09 +0200
-Message-ID: <20120706093709.GH1869@secunet.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH v2] fail dentry revalidation after namespace change
+Date: Fri, 06 Jul 2012 02:37:00 -0700
+Message-ID: <87hatli62r.fsf@xmission.com>
+References: <1341565747-15374-1-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:42045 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752549Ab2GFJhU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 05:37:20 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Greg Thelen <gthelen@google.com>,
+	Serge Hallyn <serge.hallyn@canonical.com>,
+	Tejun Heo <tj@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341565747-15374-1-git-send-email-glommer@parallels.com>
+	(Glauber Costa's message of "Fri, 6 Jul 2012 13:09:07 +0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We start initializing the struct rt6_info at the first field
-behind the struct dst_enty. This is error prone because it
-might leave a new field uninitialized. So start initializing
-the struct rt6_info right behind the dst_entry.
+Glauber Costa <glommer@parallels.com> writes:
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/route.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
+> When we change the namespace tag of a sysfs entry, the associated dentry
+> is still kept around. readdir() will work correctly and not display the
+> old entries, but open() will still succeed, so will reads and writes.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 6cc6c88..1d8459b 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -273,8 +273,9 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 					0, 0, flags);
- 
- 	if (rt) {
--		memset(&rt->n, 0,
--		       sizeof(*rt) - sizeof(struct dst_entry));
-+		struct dst_entry *dst = (struct dst_entry *)rt;
-+
-+		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
- 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
- 	}
- 	return rt;
-@@ -975,10 +976,10 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
- 
- 	rt = dst_alloc(&ip6_dst_blackhole_ops, ort->dst.dev, 1, 0, 0);
- 	if (rt) {
--		memset(&rt->rt6i_table, 0, sizeof(*rt) - sizeof(struct dst_entry));
--		rt6_init_peer(rt, net->ipv6.peers);
-+		new = (struct dst_entry *)rt;
- 
--		new = &rt->dst;
-+		memset(new + 1, 0, sizeof(*rt) - sizeof(*new));
-+		rt6_init_peer(rt, net->ipv6.peers);
- 
- 		new->__use = 1;
- 		new->input = dst_discard;
--- 
-1.7.0.4
+Note reads and writes of file handles open before the move should
+continue to work.
+
+> This will no longer happen if sysfs is remounted, hinting that this is a
+> cache-related problem.
+>
+> I am using the following sequence to demonstrate that:
+>
+> shell1:
+> ip link add type veth
+> unshare -nm
+>
+> shell2:
+> ip link set veth1 <pid_of_shell_1>
+> cat /sys/devices/virtual/net/veth1/ifindex
+>
+> Before that patch, this will succeed (fail to fail). After it, it will
+> correctly return an error. Differently from a normal rename, which we
+> handle fine, changing the object namespace will keep it's path intact.
+> So this check seems necessary as well.
+>
+> [ v2: get type from parent, as suggested by Eric Biederman ]
+
+Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+> Signed-off-by: Glauber Costa <glommer@parallels.com>
+> CC: Tejun Heo <tj@kernel.org>
+> CC: Eric W. Biederman <ebiederm@xmission.com>
+> CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> ---
+>  fs/sysfs/dir.c |    8 ++++++++
+>  1 file changed, 8 insertions(+)
+>
+> diff --git a/fs/sysfs/dir.c b/fs/sysfs/dir.c
+> index e6bb9b2..c0bf38a 100644
+> --- a/fs/sysfs/dir.c
+> +++ b/fs/sysfs/dir.c
+> @@ -307,6 +307,7 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
+>  {
+>  	struct sysfs_dirent *sd;
+>  	int is_dir;
+> +	int type;
+>  
+>  	if (nd->flags & LOOKUP_RCU)
+>  		return -ECHILD;
+> @@ -326,6 +327,13 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
+>  	if (strcmp(dentry->d_name.name, sd->s_name) != 0)
+>  		goto out_bad;
+>  
+> +	/* The sysfs dirent has been moved to a different namespace */
+> +	type = KOBJ_NS_TYPE_NONE;
+> +	if (sd->s_parent)
+> +		type = sysfs_ns_type(sd->s_parent);
+> +	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
+> +		goto out_bad;
+> +
+>  	mutex_unlock(&sysfs_mutex);
+>  out_valid:
+>  	return 1;
