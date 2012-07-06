@@ -1,55 +1,62 @@
-From: Fengguang Wu <wfg@linux.intel.com>
-Subject: Re: BUG: unable to handle kernel paging request at 00000000d8be176d
-Date: Fri, 6 Jul 2012 16:34:29 +0800
-Message-ID: <20120706083429.GA28983@localhost>
-References: <20120705.234229.526162609862035833.davem@davemloft.net>
- <20120706073745.GA28197@localhost>
- <20120706075245.GA28521@localhost>
- <20120706.012921.1688197243231281609.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net-next 1/2] ipv6: Initialize the struct rt6_info behind
+ the dst_enty field
+Date: Fri, 6 Jul 2012 11:37:09 +0200
+Message-ID: <20120706093709.GH1869@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	steffen.klassert@secunet.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:24605 "EHLO mga11.intel.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:42045 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753337Ab2GFJ0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 05:26:01 -0400
+	id S1752549Ab2GFJhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 05:37:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20120706.012921.1688197243231281609.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 06, 2012 at 01:29:21AM -0700, David Miller wrote:
-> From: Fengguang Wu <wfg@linux.intel.com>
-> Date: Fri, 6 Jul 2012 15:52:45 +0800
-> 
-> > On Fri, Jul 06, 2012 at 03:37:45PM +0800, Fengguang Wu wrote:
-> >> Hi David,
-> >> 
-> >> > Fengguang Wu can I ask you politely not to quote the quilty patch in
-> >> > it's entirety when reporting bugs?  That screws up my workflow because
-> >> > that patch goes then gets installed as a new patch in patchwork and I
-> >> > have to therefore tick it off every time you report a bug.
-> >> 
-> >> Sorry for that!  Is it fine to _attach_ the referenced patch, or just
-> >> a raw diff?  Or, the commit SHA and subject are all you want to see?
-> > 
-> > I used git-format-patch which makes a formal patch. How about git-show?
-> > The output will be less like a formal patch, for example:
-> 
-> No patch, in any format.
-> 
-> It's completely pointless to attach the diff, anyone can use the
-> commit log message and SHA ID to fetch the patch if they want.
+We start initializing the struct rt6_info at the first field
+behind the struct dst_enty. This is error prone because it
+might leave a new field uninitialized. So start initializing
+the struct rt6_info right behind the dst_entry.
 
-OK!
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/route.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-> It's redundancy therefore also makes it a huge waste of bandwidth.  I
-> have no idea why you provide it in the first place.
-
-I find it very convenient on myself for confirming the error/warning..
-
-Thanks,
-Fengguang
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6cc6c88..1d8459b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -273,8 +273,9 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
+ 					0, 0, flags);
+ 
+ 	if (rt) {
+-		memset(&rt->n, 0,
+-		       sizeof(*rt) - sizeof(struct dst_entry));
++		struct dst_entry *dst = (struct dst_entry *)rt;
++
++		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+ 		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
+ 	}
+ 	return rt;
+@@ -975,10 +976,10 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
+ 
+ 	rt = dst_alloc(&ip6_dst_blackhole_ops, ort->dst.dev, 1, 0, 0);
+ 	if (rt) {
+-		memset(&rt->rt6i_table, 0, sizeof(*rt) - sizeof(struct dst_entry));
+-		rt6_init_peer(rt, net->ipv6.peers);
++		new = (struct dst_entry *)rt;
+ 
+-		new = &rt->dst;
++		memset(new + 1, 0, sizeof(*rt) - sizeof(*new));
++		rt6_init_peer(rt, net->ipv6.peers);
+ 
+ 		new->__use = 1;
+ 		new->input = dst_discard;
+-- 
+1.7.0.4
