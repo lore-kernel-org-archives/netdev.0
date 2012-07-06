@@ -1,61 +1,69 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [net-next RFC V5 5/5] virtio_net: support negotiating the
-	number of queues through ctrl vq
-Date: Fri, 06 Jul 2012 10:10:04 +0200
-Message-ID: <1341562204.3377.5.camel@lappy>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-6-git-send-email-jasowang@redhat.com>
-	<1341492679.18786.18.camel@lappy> <4FF65966.9040600@redhat.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [net-next:master 294/295] drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:287:3:
+ error: implicit declaration of function 'phy_init_eee'
+Date: Fri, 06 Jul 2012 10:08:58 +0200
+Message-ID: <4FF69D1A.2030903@st.com>
+References: <20120701113521.GA11294@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4FF65966.9040600@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: wfg@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:43677 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751867Ab2GFIJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 04:09:20 -0400
+In-Reply-To: <20120701113521.GA11294@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-06 at 11:20 +0800, Jason Wang wrote:
-> On 07/05/2012 08:51 PM, Sasha Levin wrote:
-> > On Thu, 2012-07-05 at 18:29 +0800, Jason Wang wrote:
-> >> @@ -1387,6 +1404,10 @@ static int virtnet_probe(struct virtio_device *vdev)
-> >>          if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
-> >>                  vi->has_cvq = true;
-> >>
-> >> +       /* Use single tx/rx queue pair as default */
-> >> +       vi->num_queue_pairs = 1;
-> >> +       vi->total_queue_pairs = num_queue_pairs;
-> > The code is using this "default" even if the amount of queue pairs it
-> > wants was specified during initialization. This basically limits any
-> > device to use 1 pair when starting up.
-> >
+On 7/1/2012 1:35 PM, wfg@linux.intel.com wrote:
+> Hi Giuseppe,
 > 
-> Yes, currently the virtio-net driver would use 1 txq/txq by default 
-> since multiqueue may not outperform in all kinds of workload. So it's 
-> better to keep it as default and let user enable multiqueue by ethtool -L.
+> Here is a build dependency: the below commit used some functions
+> provided by the immediate next commit "phy: add the EEE support and
+> the way to access to the MMD registers."
+> 
 
-I think it makes sense to set it to 1 if the amount of initial queue
-pairs wasn't specified.
+I had built all w/o issues (on arm/sh/x86) but I'm looking at the build
+again.
+I hope to fix it in case of I am able to reproduce the problem because
+I'm on business trip and I have some issue to run tests :-(
 
-On the other hand, if a virtio-net driver was probed to provide
-VIRTIO_NET_F_MULTIQUEUE and has set something reasonable in
-virtio_net_config.num_queues, then that setting shouldn't be quietly
-ignored and reset back to 1.
+I'll try
 
-What I'm basically saying is that I agree that the *default* should be 1
-- but if the user has explicitly asked for something else during
-initialization, then the default should be overridden.
+Peppe
+
+> ---
+> Kernel build failed on
+> 
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> head:   a59a4d1921664da63d801ba477950114c71c88c9
+> commit: d765955d2ae0b88781a0db3a5bacfe4241925e09 [294/295] stmmac: add the Energy Efficient Ethernet support
+> config: x86_64-allmodconfig
+> 
+> All related error/warning messages:
+> 
+> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function 'stmmac_eee_init':
+> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:287:3: error: implicit declaration of function 'phy_init_eee' [-Werror=implicit-function-declaration]
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c: In function 'stmmac_get_ethtool_stats':
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c:380:4: error: implicit declaration of function 'phy_get_eee_err' [-Werror=implicit-function-declaration]
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c: In function 'stmmac_ethtool_op_get_eee':
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c:494:2: error: implicit declaration of function 'phy_ethtool_get_eee' [-Werror=implicit-function-declaration]
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c: In function 'stmmac_ethtool_op_set_eee':
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c:519:2: error: implicit declaration of function 'phy_ethtool_set_eee' [-Werror=implicit-function-declaration]
+> 
+> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:287:
+>    284		/* MAC core supports the EEE feature. */
+>    285		if (priv->dma_cap.eee) {
+>    286			/* Check if the PHY supports EEE */
+>  > 287			if (phy_init_eee(priv->phydev, 1))
+>    288				goto out;
+>    289	
+>    290			priv->eee_active = 1;
+> 
+> ---
+> 0-DAY kernel build testing backend         Open Source Technology Centre
+> Fengguang Wu <wfg@linux.intel.com>                     Intel Corporation
+> 
