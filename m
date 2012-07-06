@@ -1,46 +1,56 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/2] Netfilter updates for 3.5-rc5
-Date: Fri,  6 Jul 2012 13:39:37 +0200
-Message-ID: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/2] netfilter: nf_ct_ecache: fix crash with multiple containers, one shutting down
+Date: Fri,  6 Jul 2012 13:39:39 +0200
+Message-ID: <1341574779-3373-3-git-send-email-pablo@netfilter.org>
+References: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Hi David,
+Hans reports that he's still hitting:
 
-The following patches provide two fixes:
+BUG: unable to handle kernel NULL pointer dereference at 000000000000027c
+IP: [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
+PGD 0
+Oops: 0000 [#3] PREEMPT SMP
+CPU 0
 
-* One to get the timeout special parameter for the SET target back working
-  (this was introduced while trying to fix another bug in 3.4) from
-  Jozsef Kadlecsik.
+It happens when adding a number of containers with do:
 
-* One crash fix if containers and nf_conntrack are used reported by Hans
-  Schillstrom by myself.
+nfct_query(h, NFCT_Q_CREATE, ct);
 
-You can pull these fixes from:
+and most likely one namespace shuts down.
 
-git://1984.lsi.us.es/nf master
+this problem was supposed to be fixed by:
+70e9942 netfilter: nf_conntrack: make event callback registration per-netns
 
-Thanks.
+Still, it was missing one rcu_access_pointer to check if the callback
+is set or not.
 
-little notice: I forgot to add my Signed-off-by while manually applying
-Jozsef's patch, sorry. It was a bit too late to fix, I already pushed out
-to my master branch.
-
-Jozsef Kadlecsik (1):
-  netfilter: ipset: timeout fixing bug broke SET target special timeout value
-
-Pablo Neira Ayuso (1):
-  netfilter: nf_ct_ecache: fix crash with multiple containers, one shutting down
-
+Reported-by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  include/net/netfilter/nf_conntrack_ecache.h |    2 +-
- net/netfilter/xt_set.c                      |    4 +++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
+index a88fb69..e1ce104 100644
+--- a/include/net/netfilter/nf_conntrack_ecache.h
++++ b/include/net/netfilter/nf_conntrack_ecache.h
+@@ -78,7 +78,7 @@ nf_conntrack_event_cache(enum ip_conntrack_events event, struct nf_conn *ct)
+ 	struct net *net = nf_ct_net(ct);
+ 	struct nf_conntrack_ecache *e;
+ 
+-	if (net->ct.nf_conntrack_event_cb == NULL)
++	if (!rcu_access_pointer(net->ct.nf_conntrack_event_cb))
+ 		return;
+ 
+ 	e = nf_ct_ecache_find(ct);
 -- 
 1.7.10
 
