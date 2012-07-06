@@ -1,253 +1,153 @@
 From: pablo@netfilter.org
-Subject: [PATCH 05/18] netfilter: nf_conntrack: use l4proto->users as refcount for per-net data
-Date: Fri,  6 Jul 2012 13:16:55 +0200
-Message-ID: <1341573428-3204-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/18] netfilter: nf_ct_sctp: merge sctpv[4,6]_net_init into sctp_net_init
+Date: Fri,  6 Jul 2012 13:17:00 +0200
+Message-ID: <1341573428-3204-11-git-send-email-pablo@netfilter.org>
 References: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43520 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933543Ab2GFLTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 07:19:09 -0400
 In-Reply-To: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-Currently, nf_proto_net's l4proto->users meaning is quite confusing
-since it depends on the compilation tweaks.
+Merge sctpv4_net_init and sctpv6_net_init into sctp_net_init to
+remove redundant code now that we have the u_int16_t proto
+parameter.
 
-To resolve this, we cleanup this code to regard it as the refcount
-for l4proto's per-net data, since there may be two l4protos use the
-same per-net data.
-
-Thus, we increment pn->users when nf_conntrack_l4proto_register
-successfully, and decrement it for nf_conntrack_l4_unregister case.
-
-The users refcnt is not required form layer 3 protocol trackers.
+And use nf_proto_net.users to identify if it's the first time
+we use the nf_proto_net, in that case, we initialize i
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_proto.c |   76 ++++++++++++++++++++++--------------
- 1 file changed, 46 insertions(+), 30 deletions(-)
+ net/netfilter/nf_conntrack_proto_sctp.c |   65 +++++++++++--------------------
+ 1 file changed, 22 insertions(+), 43 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 9d6b6ab..63612e6 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -39,16 +39,13 @@ static int
- nf_ct_register_sysctl(struct net *net,
- 		      struct ctl_table_header **header,
- 		      const char *path,
--		      struct ctl_table *table,
--		      unsigned int *users)
-+		      struct ctl_table *table)
- {
- 	if (*header == NULL) {
- 		*header = register_net_sysctl(net, path, table);
- 		if (*header == NULL)
- 			return -ENOMEM;
- 	}
--	if (users != NULL)
--		(*users)++;
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 1e7836c..c746d61 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -707,23 +707,10 @@ static struct ctl_table sctp_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif
  
+-static void sctp_init_net_data(struct sctp_net *sn)
+-{
+-	int i;
+-#ifdef CONFIG_SYSCTL
+-	if (!sn->pn.ctl_table) {
+-#else
+-	if (!sn->pn.users++) {
+-#endif
+-		for (i = 0; i < SCTP_CONNTRACK_MAX; i++)
+-			sn->timeouts[i] = sctp_timeouts[i];
+-	}
+-}
+-
+-static int sctp_kmemdup_sysctl_table(struct nf_proto_net *pn)
++static int sctp_kmemdup_sysctl_table(struct nf_proto_net *pn,
++				     struct sctp_net *sn)
+ {
+ #ifdef CONFIG_SYSCTL
+-	struct sctp_net *sn = (struct sctp_net *)pn;
+ 	if (pn->ctl_table)
+ 		return 0;
+ 
+@@ -744,11 +731,11 @@ static int sctp_kmemdup_sysctl_table(struct nf_proto_net *pn)
  	return 0;
  }
-@@ -56,9 +53,9 @@ nf_ct_register_sysctl(struct net *net,
- static void
- nf_ct_unregister_sysctl(struct ctl_table_header **header,
- 			struct ctl_table **table,
--			unsigned int *users)
-+			unsigned int users)
+ 
+-static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
++static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
++					    struct sctp_net *sn)
  {
--	if (users != NULL && --*users > 0)
-+	if (users > 0)
- 		return;
- 
- 	unregister_net_sysctl_table(*header);
-@@ -191,8 +188,7 @@ static int nf_ct_l3proto_register_sysctl(struct net *net,
- 		err = nf_ct_register_sysctl(net,
- 					    &in->ctl_table_header,
- 					    l3proto->ctl_table_path,
--					    in->ctl_table,
--					    NULL);
-+					    in->ctl_table);
- 		if (err < 0) {
- 			kfree(in->ctl_table);
- 			in->ctl_table = NULL;
-@@ -213,7 +209,7 @@ static void nf_ct_l3proto_unregister_sysctl(struct net *net,
- 	if (in->ctl_table_header != NULL)
- 		nf_ct_unregister_sysctl(&in->ctl_table_header,
- 					&in->ctl_table,
--					NULL);
-+					0);
- #endif
- }
- 
-@@ -329,20 +325,17 @@ static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
- 
- static
- int nf_ct_l4proto_register_sysctl(struct net *net,
-+				  struct nf_proto_net *pn,
- 				  struct nf_conntrack_l4proto *l4proto)
- {
- 	int err = 0;
--	struct nf_proto_net *pn = nf_ct_l4proto_net(net, l4proto);
--	if (pn == NULL)
--		return 0;
- 
  #ifdef CONFIG_SYSCTL
- 	if (pn->ctl_table != NULL) {
- 		err = nf_ct_register_sysctl(net,
- 					    &pn->ctl_table_header,
- 					    "net/netfilter",
--					    pn->ctl_table,
--					    &pn->users);
-+					    pn->ctl_table);
- 		if (err < 0) {
- 			if (!pn->users) {
- 				kfree(pn->ctl_table);
-@@ -356,15 +349,14 @@ int nf_ct_l4proto_register_sysctl(struct net *net,
- 		err = nf_ct_register_sysctl(net,
- 					    &pn->ctl_compat_header,
- 					    "net/ipv4/netfilter",
--					    pn->ctl_compat_table,
--					    NULL);
-+					    pn->ctl_compat_table);
- 		if (err == 0)
- 			goto out;
- 
- 		nf_ct_kfree_compat_sysctl_table(pn);
- 		nf_ct_unregister_sysctl(&pn->ctl_table_header,
- 					&pn->ctl_table,
--					&pn->users);
-+					pn->users);
- 	}
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
- out:
-@@ -374,25 +366,21 @@ out:
- 
- static
- void nf_ct_l4proto_unregister_sysctl(struct net *net,
-+				     struct nf_proto_net *pn,
- 				     struct nf_conntrack_l4proto *l4proto)
- {
--	struct nf_proto_net *pn = nf_ct_l4proto_net(net, l4proto);
--	if (pn == NULL)
--		return;
- #ifdef CONFIG_SYSCTL
- 	if (pn->ctl_table_header != NULL)
- 		nf_ct_unregister_sysctl(&pn->ctl_table_header,
- 					&pn->ctl_table,
--					&pn->users);
-+					pn->users);
- 
  #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
- 	if (l4proto->l3proto != AF_INET6 && pn->ctl_compat_header != NULL)
- 		nf_ct_unregister_sysctl(&pn->ctl_compat_header,
- 					&pn->ctl_compat_table,
--					NULL);
-+					0);
- #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
--#else
--	pn->users--;
- #endif /* CONFIG_SYSCTL */
+-	struct sctp_net *sn = (struct sctp_net *)pn;
+ 	pn->ctl_compat_table = kmemdup(sctp_compat_sysctl_table,
+ 				       sizeof(sctp_compat_sysctl_table),
+ 				       GFP_KERNEL);
+@@ -767,41 +754,33 @@ static int sctp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+ 	return 0;
  }
  
-@@ -458,23 +446,32 @@ int nf_conntrack_l4proto_register(struct net *net,
- 				  struct nf_conntrack_l4proto *l4proto)
+-static int sctpv4_init_net(struct net *net, u_int16_t proto)
++static int sctp_init_net(struct net *net, u_int16_t proto)
  {
- 	int ret = 0;
-+	struct nf_proto_net *pn = NULL;
+ 	int ret;
+ 	struct sctp_net *sn = sctp_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)sn;
++	struct nf_proto_net *pn = &sn->pn;
  
- 	if (l4proto->init_net) {
- 		ret = l4proto->init_net(net, l4proto->l3proto);
- 		if (ret < 0)
--			return ret;
-+			goto out;
- 	}
+-	sctp_init_net_data(sn);
++	if (!pn->users) {
++		int i;
  
--	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
-+	pn = nf_ct_l4proto_net(net, l4proto);
-+	if (pn == NULL)
-+		goto out;
-+
-+	ret = nf_ct_l4proto_register_sysctl(net, pn, l4proto);
- 	if (ret < 0)
+-	ret = sctp_kmemdup_compat_sysctl_table(pn);
+-	if (ret < 0)
 -		return ret;
-+		goto out;
++		for (i = 0; i < SCTP_CONNTRACK_MAX; i++)
++			sn->timeouts[i] = sctp_timeouts[i];
++	}
  
- 	if (net == &init_net) {
- 		ret = nf_conntrack_l4proto_register_net(l4proto);
--		if (ret < 0)
--			nf_ct_l4proto_unregister_sysctl(net, l4proto);
-+		if (ret < 0) {
-+			nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-+			goto out;
-+		}
- 	}
+-	ret = sctp_kmemdup_sysctl_table(pn);
++	if (proto == AF_INET) {
++		ret = sctp_kmemdup_compat_sysctl_table(pn, sn);
++		if (ret < 0)
++			return ret;
  
-+	pn->users++;
-+out:
+-#ifdef CONFIG_SYSCTL
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	if (ret < 0) {
++		ret = sctp_kmemdup_sysctl_table(pn, sn);
++		if (ret < 0)
++			nf_ct_kfree_compat_sysctl_table(pn);
++	} else
++		ret = sctp_kmemdup_sysctl_table(pn, sn);
+ 
+-		kfree(pn->ctl_compat_table);
+-		pn->ctl_compat_table = NULL;
+-	}
+-#endif
+-#endif
  	return ret;
  }
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
-@@ -499,10 +496,18 @@ nf_conntrack_l4proto_unregister_net(struct nf_conntrack_l4proto *l4proto)
- void nf_conntrack_l4proto_unregister(struct net *net,
- 				     struct nf_conntrack_l4proto *l4proto)
- {
-+	struct nf_proto_net *pn = NULL;
-+
- 	if (net == &init_net)
- 		nf_conntrack_l4proto_unregister_net(l4proto);
  
--	nf_ct_l4proto_unregister_sysctl(net, l4proto);
-+	pn = nf_ct_l4proto_net(net, l4proto);
-+	if (pn == NULL)
-+		return;
-+
-+	pn->users--;
-+	nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
-+
- 	/* Remove all contrack entries for this protocol */
- 	rtnl_lock();
- 	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
-@@ -514,11 +519,15 @@ int nf_conntrack_proto_init(struct net *net)
- {
- 	unsigned int i;
- 	int err;
-+	struct nf_proto_net *pn = nf_ct_l4proto_net(net,
-+					&nf_conntrack_l4proto_generic);
-+
- 	err = nf_conntrack_l4proto_generic.init_net(net,
- 					nf_conntrack_l4proto_generic.l3proto);
- 	if (err < 0)
- 		return err;
- 	err = nf_ct_l4proto_register_sysctl(net,
-+					    pn,
- 					    &nf_conntrack_l4proto_generic);
- 	if (err < 0)
- 		return err;
-@@ -528,13 +537,20 @@ int nf_conntrack_proto_init(struct net *net)
- 			rcu_assign_pointer(nf_ct_l3protos[i],
- 					   &nf_conntrack_l3proto_generic);
- 	}
-+
-+	pn->users++;
- 	return 0;
- }
+-static int sctpv6_init_net(struct net *net, u_int16_t proto)
+-{
+-	struct sctp_net *sn = sctp_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)sn;
+-
+-	sctp_init_net_data(sn);
+-	return sctp_kmemdup_sysctl_table(pn);
+-}
+-
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	.l3proto		= PF_INET,
+ 	.l4proto 		= IPPROTO_SCTP,
+@@ -833,7 +812,7 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ 	.net_id			= &sctp_net_id,
+-	.init_net		= sctpv4_init_net,
++	.init_net		= sctp_init_net,
+ };
  
- void nf_conntrack_proto_fini(struct net *net)
- {
- 	unsigned int i;
-+	struct nf_proto_net *pn = nf_ct_l4proto_net(net,
-+					&nf_conntrack_l4proto_generic);
-+
-+	pn->users--;
- 	nf_ct_l4proto_unregister_sysctl(net,
-+					pn,
- 					&nf_conntrack_l4proto_generic);
- 	if (net == &init_net) {
- 		/* free l3proto protocol tables */
+ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+@@ -867,7 +846,7 @@ static struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+ #endif
+ 	.net_id			= &sctp_net_id,
+-	.init_net		= sctpv6_init_net,
++	.init_net		= sctp_init_net,
+ };
+ 
+ static int sctp_net_init(struct net *net)
 -- 
 1.7.10
-
