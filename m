@@ -1,115 +1,81 @@
-From: Andy Green <andy.green@linaro.org>
-Subject: [PATCH 5 2/2] OMAP4 PANDA register ethernet and wlan for automatic
- mac allocation
-Date: Fri, 06 Jul 2012 12:09:48 +0800
-Message-ID: <20120706040946.6669.1040.stgit@build.warmcat.com>
-References: <20120706040938.6669.77083.stgit@build.warmcat.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: net-next warning at kernel/softirq.c:159 local_bh_enable
+Date: Fri, 6 Jul 2012 07:17:33 +0300
+Message-ID: <alpine.LRH.2.00.1207060716390.32599@ogerlitz.voltaire.com>
+References: <alpine.LRH.2.00.1207060616590.21283@ogerlitz.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: s-jan@ti.com, arnd@arndb.de, patches@linaro.org, tony@atomide.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	rostedt@goodmis.org, linux-arm-kernel@lists.infradead.org
-To: linux-omap@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: <netdev@vger.kernel.org>, Shlomo Pongratz <shlomop@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warmcat.com ([87.106.134.80]:42661 "EHLO warmcat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750911Ab2GFEJx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 00:09:53 -0400
-In-Reply-To: <20120706040938.6669.77083.stgit@build.warmcat.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:49576 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751237Ab2GFESC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 00:18:02 -0400
+In-Reply-To: <alpine.LRH.2.00.1207060616590.21283@ogerlitz.voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Green <andy@warmcat.com>
+FWIW - I've updated my net-next clone to the lastest and still
+see this, even after the IPv6 related fix.
 
-This provides the board-specific device paths needed to get
-the panda boardfile working with the eth-mac-platform api.
+Or.
 
-On Pandaboard / ES, neither the onboard Ethernet or onboard WLAN
-module have onboard arrangements for MAC storage, without this
-series yielding randomized MAC per-boot and consequent DHCP problems,
-or in the case of wlan0 a MAC set by a firmware file in the rootfs
-which unless customized yields a MAC of 00:00:00:00:00:00.  No
-official MAC is reserved for either network device even if you do
-take the approach to customize the firmware file.
 
-This gets sane, consistent MAC addresses on both devices which
-should stand a good probability of differing between PandaBoards.
-
-Signed-off-by: Andy Green <andy.green@linaro.org>
----
- arch/arm/mach-omap2/Kconfig            |    1 +
- arch/arm/mach-omap2/board-omap4panda.c |   30 ++++++++++++++++++++++++++++++
- 2 files changed, 31 insertions(+)
-
-diff --git a/arch/arm/mach-omap2/Kconfig b/arch/arm/mach-omap2/Kconfig
-index 83fb31c..61c6a3d 100644
---- a/arch/arm/mach-omap2/Kconfig
-+++ b/arch/arm/mach-omap2/Kconfig
-@@ -358,6 +358,7 @@ config MACH_OMAP4_PANDA
- 	select OMAP_PACKAGE_CBL
- 	select OMAP_PACKAGE_CBS
- 	select REGULATOR_FIXED_VOLTAGE if REGULATOR
-+	select ETH_MAC_PLATFORM
- 
- config MACH_PCM049
- 	bool "OMAP4 based phyCORE OMAP4"
-diff --git a/arch/arm/mach-omap2/board-omap4panda.c b/arch/arm/mach-omap2/board-omap4panda.c
-index 982fb26..75d93cc 100644
---- a/arch/arm/mach-omap2/board-omap4panda.c
-+++ b/arch/arm/mach-omap2/board-omap4panda.c
-@@ -32,7 +32,10 @@
- #include <linux/wl12xx.h>
- #include <linux/platform_data/omap-abe-twl6040.h>
- 
-+#include <net/eth-mac-platform.h>
-+
- #include <mach/hardware.h>
-+#include <mach/id.h>
- #include <asm/hardware/gic.h>
- #include <asm/mach-types.h>
- #include <asm/mach/arch.h>
-@@ -486,16 +489,43 @@ static void omap4_panda_init_rev(void)
- 	}
- }
- 
-+/*
-+ * These device paths represent onboard network devices which have
-+ * no MAC address set at boot, and need synthetic ones assigning
-+ */
-+static __initdata struct eth_mac_platform panda_eth_mac_platform[] = {
-+
-+	{ /* smsc USB <-> Ethernet bridge */
-+		.device_path = "usb1/1-1/1-1.1/1-1.1:1.0",
-+	},
-+	{ /* wlan0 module */
-+		.device_path = "wl12xx",
-+	},
-+	{ /* terminator */
-+	}
-+};
-+
- static void __init omap4_panda_init(void)
- {
- 	int package = OMAP_PACKAGE_CBS;
- 	int ret;
-+	int n;
- 
- 	if (omap_rev() == OMAP4430_REV_ES1_0)
- 		package = OMAP_PACKAGE_CBL;
- 	omap4_mux_init(board_mux, NULL, package);
- 
- 	omap_panda_wlan_data.irq = gpio_to_irq(GPIO_WIFI_IRQ);
-+
-+	/*
-+	 * provide MAC addresses computed from device ID for network
-+	 * devices that have no MAC address otherwise on Panda
-+	 */
-+	for (n = 0; n < ARRAY_SIZE(panda_eth_mac_platform) - 1; n++)
-+		omap_die_id_to_ethernet_mac(panda_eth_mac_platform[n].mac, n);
-+	if (eth_mac_platform_register_device_macs(panda_eth_mac_platform))
-+		pr_err("Unable to register eth_mac_platform devices\n");
-+
- 	ret = wl12xx_set_platform_data(&omap_panda_wlan_data);
- 	if (ret)
- 		pr_err("error setting wl12xx data: %d\n", ret);
+IPv6: ADDRCONF(NETDEV_UP): ib0: link is not ready
+IPv6: ADDRCONF(NETDEV_CHANGE): ib0: link becomes ready
+------------[ cut here ]------------
+WARNING: at kernel/softirq.c:159 local_bh_enable+0x45/0xc2()
+Hardware name: X7DWU
+Modules linked in: ib_ipoib ib_cm ib_sa ib_uverbs netconsole nfs lockd auth_rpcgss nfs_acl autofs4 sunrpc fcoe libfcoe libfc scsi_transport_fc 8021q ipmi_devintf ipmi_si ipmi_msghandler ipv6 dm_mirror dm_region_hash dm_log uinput igb ptp pps_core mlx4_ib ib_mad ib_core mlx4_en mlx4_core sg kvm_intel kvm microcode pcspkr rng_core ioatdma dca dm_mod shpchp button sr_mod ext3 jbd usb_storage sd_mod ata_piix libata scsi_mod ehci_hcd uhci_hcd floppy [last unloaded: scsi_wait_scan]
+Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc5-12501-g1405080-dirty #86
+Call Trace:
+ <IRQ>  [<ffffffff81027f1d>] warn_slowpath_common+0x80/0x98
+ [<ffffffffa0245266>] ? ip6_neigh_lookup+0x157/0x187 [ipv6]
+ [<ffffffff81027f4a>] warn_slowpath_null+0x15/0x17
+ [<ffffffff8102f56a>] local_bh_enable+0x45/0xc2
+ [<ffffffffa0245266>] ip6_neigh_lookup+0x157/0x187 [ipv6]
+ [<ffffffffa0245168>] ? ip6_neigh_lookup+0x59/0x187 [ipv6]
+ [<ffffffffa030895d>] ipoib_mcast_send+0x375/0x48b [ib_ipoib]
+ [<ffffffffa0308908>] ? ipoib_mcast_send+0x320/0x48b [ib_ipoib]
+ [<ffffffff8102f5e2>] ? local_bh_enable+0xbd/0xc2
+ [<ffffffffa030494f>] ipoib_path_lookup+0x2f3/0x331 [ib_ipoib]
+ [<ffffffffa0245168>] ? ip6_neigh_lookup+0x59/0x187 [ipv6]
+ [<ffffffffa0304b4d>] ipoib_start_xmit+0x1c0/0x54f [ib_ipoib]
+ [<ffffffffa030498d>] ? ipoib_path_lookup+0x331/0x331 [ib_ipoib]
+ [<ffffffff812c1be3>] dev_hard_start_xmit+0x449/0x60e
+ [<ffffffff812c1804>] ? dev_hard_start_xmit+0x6a/0x60e
+ [<ffffffff812d95b9>] sch_direct_xmit+0x72/0x201
+ [<ffffffff812c2221>] dev_queue_xmit+0x479/0x70e
+ [<ffffffff812c1da8>] ? dev_hard_start_xmit+0x60e/0x60e
+ [<ffffffff812ca20e>] neigh_connected_output+0xb6/0xd4
+ [<ffffffffa023c85b>] ip6_finish_output2+0x304/0x38e [ipv6]
+ [<ffffffffa023c777>] ? ip6_finish_output2+0x220/0x38e [ipv6]
+ [<ffffffffa0245057>] ? ip6_mtu+0x88/0xa1 [ipv6]
+ [<ffffffffa023ca29>] ip6_finish_output+0x144/0x149 [ipv6]
+ [<ffffffffa023cb41>] ip6_output+0x113/0x11c [ipv6]
+ [<ffffffffa024c51f>] ndisc_send_skb+0x176/0x200 [ipv6]
+ [<ffffffffa024c413>] ? ndisc_send_skb+0x6a/0x200 [ipv6]
+ [<ffffffff81065350>] ? mark_held_locks+0xcd/0xf5
+ [<ffffffffa024ce1a>] __ndisc_send+0x51/0x5d [ipv6]
+ [<ffffffffa024e4a0>] ndisc_send_ns+0x75/0x82 [ipv6]
+ [<ffffffffa02413ee>] addrconf_dad_timer+0x118/0x136 [ipv6]
+ [<ffffffff8103547a>] run_timer_softirq+0x27a/0x38b
+ [<ffffffff810353b5>] ? run_timer_softirq+0x1b5/0x38b
+ [<ffffffffa02412d6>] ? addrconf_rs_timer+0xf2/0xf2 [ipv6]
+ [<ffffffff8102f746>] __do_softirq+0xff/0x1de
+ [<ffffffff81362dcc>] call_softirq+0x1c/0x26
+ [<ffffffff81003090>] do_softirq+0x38/0x80
+ [<ffffffff8102f41f>] irq_exit+0x4e/0x83
+ [<ffffffff81019d2e>] smp_apic_timer_interrupt+0x86/0x94
+ [<ffffffff8136255c>] apic_timer_interrupt+0x6c/0x80
+ <EOI>  [<ffffffff810083ec>] ? mwait_idle+0x13c/0x208
+ [<ffffffff810083e3>] ? mwait_idle+0x133/0x208
+ [<ffffffff810088d1>] cpu_idle+0x6e/0xab
+ [<ffffffff81343a23>] rest_init+0xc7/0xce
+ [<ffffffff8134395c>] ? csum_partial_copy_generic+0x16c/0x16c
+ [<ffffffff8167fbf3>] start_kernel+0x332/0x33f
+ [<ffffffff8167f6f6>] ? kernel_init+0x19d/0x19d
+ [<ffffffff8167f2b4>] x86_64_start_reservations+0xb8/0xbd
+ [<ffffffff8167f3a6>] x86_64_start_kernel+0xed/0xf4
+---[ end trace f71d7a59b646ab87 ]---
