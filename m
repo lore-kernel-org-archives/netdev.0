@@ -1,43 +1,30 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: Re: [PATCH net-next v2 0/4] 6lowpan: Various bug fixes
-Date: Fri, 6 Jul 2012 13:17:56 +0400
-Message-ID: <CAJmB2rDZCNDtXYK9UNx-1Hy=Q-JdQcg1ub-ApR6mHJz=YXqCVg@mail.gmail.com>
-References: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BUG: unable to handle kernel paging request at 00000000d8be176d
+Date: Fri, 06 Jul 2012 01:26:00 -0700 (PDT)
+Message-ID: <20120706.012600.1789044422848881518.davem@davemloft.net>
+References: <1341555227.3265.54.camel@edumazet-glaptop>
+	<20120705.234229.526162609862035833.davem@davemloft.net>
+	<20120706073745.GA28197@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tony Cheneau <tony.cheneau@amnesiak.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com
+To: wfg@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:46231 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378Ab2GFJR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 05:17:58 -0400
-Received: by lbbgm6 with SMTP id gm6so14779032lbb.19
-        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 02:17:57 -0700 (PDT)
-In-Reply-To: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34427 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143Ab2GFJTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 05:19:44 -0400
+In-Reply-To: <20120706073745.GA28197@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> After reading and playing with the 6lowpan code, I found out a few issues. This
-> patchset fixes them. This patchset should apply cleanly against the current
-> net-next. It contains only bug fixes, I'll send later on an other patchset that
-> will contain new functionalities.
->
-> Alexander commented on the previous version of this patchset and made me
-> understand that the commit messages were not specific enough. This new version
-> hopefully improves that.
->
-> This is a set of 4 small patches that correct bugs in 6lowpan:
-> - patch 1 fixes a potential crash when reassembling UDP fragments
-> - patch 2 fixes a type length issues that prevent the fragmentation reassembly
->   to operate properly.
-> - patch 3 and 4 corrects field encoding issues (byte order was not right)
->
-> Hope it helps.
+From: Fengguang Wu <wfg@linux.intel.com>
+Date: Fri, 6 Jul 2012 15:37:45 +0800
 
-Looks good.
+> Sorry for that!  Is it fine to _attach_ the referenced patch, or just
+> a raw diff?  Or, the commit SHA and subject are all you want to see?
 
-Just one note. Please add the project name into the header of your
-patches, something like:
-
-6lowpan: blablabla
+Don't provide the diff at all, in any form.  Even if you attach it
+patchwork can still parse it and queued it up.
