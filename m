@@ -1,25 +1,33 @@
-From: Amberly Towles <marquisdubcd@yahoo.com>
-Subject: Hello! I guess you don't mind meeting an attractive and interesting girl, do you?)
-Date: Fri, 6 Jul 2012 11:36:20 +0100 (BST)
-Message-ID: <1341570980.50406.YahooMailNeo@web29806.mail.ird.yahoo.com>
-Reply-To: Amberly Towles <amberly.towles@techie.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] ipv6: Initialize the struct rt6_info
+ behind the dst_enty field
+Date: Fri, 06 Jul 2012 03:57:39 -0700 (PDT)
+Message-ID: <20120706.035739.572666246297042175.davem@davemloft.net>
+References: <20120706093709.GH1869@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: "r_bracewell@yahoo.com" <r_bracewell@yahoo.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm5-vm1.bullet.mail.ird.yahoo.com ([77.238.189.202]:41805 "HELO
-	nm5-vm1.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932546Ab2GFKgW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 06:36:22 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:34989 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753632Ab2GFK5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 06:57:42 -0400
+In-Reply-To: <20120706093709.GH1869@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey, honey! How are u? What's new?
-I am Amberly.
-So, I don't know from what to start. Maybe from this..
-One of friends of mine showed me ur pics and I felt in love them so much! 
-I'm searching for smart, sedate man for such a long time but there r so many dolts who are just banging and then leaving me. 
-I am sure u're from their quantity! 
-So, if you're a good fellow then I wait for your answer.
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 6 Jul 2012 11:37:09 +0200
+
+> +		new = (struct dst_entry *)rt;
+>  
+> -		new = &rt->dst;
+
+Please do not fight the typing system, the existing "net = &rt->dst;"
+assignment is the correct way to do this.
+
+The same issue should be fixed in patch #2 as well.
+
+Thank you.
