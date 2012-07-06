@@ -1,96 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic
- in br_nf_forward_finish
-Date: Fri, 06 Jul 2012 17:06:46 +0200
-Message-ID: <1341587206.3265.696.camel@edumazet-glaptop>
-References: <1341584394.4789.34.camel@chief-river-32>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/4] asix: Fix checkpatch warnings
+Date: Fri, 06 Jul 2012 08:25:34 -0700
+Message-ID: <1341588334.2011.21.camel@joe2Laptop>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
+	 <1341574388-7464-2-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>
-To: Lin Ming <mlin@ss.pku.edu.cn>
+Cc: netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Allan Chou <allan@asix.com.tw>,
+	Mark Lord <kernel@teksavvy.com>,
+	Grant Grundler <grundler@chromium.org>,
+	Ming Lei <tom.leiming@gmail.com>,
+	Michael Riesch <michael@riesch.at>
+To: Christian Riesch <christian.riesch@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:58694 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194Ab2GFPGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 11:06:51 -0400
-Received: by eeit10 with SMTP id t10so3679740eei.19
-        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 08:06:50 -0700 (PDT)
-In-Reply-To: <1341584394.4789.34.camel@chief-river-32>
+Received: from perches-mx.perches.com ([206.117.179.246]:46389 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750906Ab2GFPZf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 11:25:35 -0400
+In-Reply-To: <1341574388-7464-2-git-send-email-christian.riesch@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-06 at 22:19 +0800, Lin Ming wrote:
-> I can reproduce similiar panic with 3.5-rc5 kernel as Massimo reported at:
-> http://marc.info/?l=linux-netdev&m=134089242113979&w=2
-> 
-> The steps to reproduce as follow,
-> 
-> 1. On Host1, setup brige br0(192.168.1.106)
-> 2. Boot a kvm guest(192.168.1.105) on Host1 and start httpd
-> 3. Start IPVS service on Host1
->    ipvsadm -A -t 192.168.1.106:80 -s rr
->    ipvsadm -a -t 192.168.1.106:80 -r 192.168.1.105:80 -m
-> 4. Run apache benchmark on Host2(192.168.1.101)
->    ab -n 1000 http://192.168.1.106/
-> 
-> The panic happened in br_nf_forward_finish because skb->nf_bridge is NULL.
-> skb->nf_bridge is set to NULL in ip_vs_reply4 hook.
-> 
-> br_nf_forward_ip():
->   NF_HOOK(pf, NF_INET_FORWARD, skb, brnf_get_logical_dev(skb, in), parent,
->                 br_nf_forward_finish);
-> 
-> This calls IPVS hook ip_vs_reply4.
-> 
-> ip_vs_reply4
->   ip_vs_out
->     handle_response
->       ip_vs_notrack
->         nf_reset()
->         {
->           skb->nf_bridge = NULL;
->         }
-> 
-> This patch added skb->nf_bridge check in br_nf_forward_finish and the panic gone.
-> But I am really not sure if this is the right fix.
-> Please help to review.
-> 
-> The panic log attached.
-...
-> Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
-> ---
->  net/bridge/br_netfilter.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-> index e41456b..10da415 100644
-> --- a/net/bridge/br_netfilter.c
-> +++ b/net/bridge/br_netfilter.c
-> @@ -719,7 +719,7 @@ static int br_nf_forward_finish(struct sk_buff *skb)
->  	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
->  	struct net_device *in;
+On Fri, 2012-07-06 at 13:33 +0200, Christian Riesch wrote:
+>
+
+Hi Christian.  Just some trivial comments for a
+trivial cleanup patch.
+
+> diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+> index 3ae80ec..9210f40 100644
+> --- a/drivers/net/usb/asix.c
+> +++ b/drivers/net/usb/asix.c
+> @@ -20,8 +20,8 @@
+>   * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+>   */
 >  
-> -	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
-> +	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb) && nf_bridge) {
->  		in = nf_bridge->physindev;
->  		if (nf_bridge->mask & BRNF_PKT_TYPE) {
->  			skb->pkt_type = PACKET_OTHERHOST;
+> -// #define	DEBUG			// error path messages, extra info
+> -// #define	VERBOSE			// more; success messages
+> +/* #define	DEBUG	*/		/* error path messages, extra info */
+> +/* #define	VERBOSE	*/		/* more; success messages */
 
-So after your patch we have the code in the else clause :
+Might as well delete as change the comment style.
+It isn't applicable after the patch.
 
-} else {
-	in = *((struct net_device **)(skb->cb));
-}
+> @@ -253,8 +253,8 @@ static void asix_async_cmd_callback(struct urb *urb)
+>  	int status = urb->status;
+>  
+>  	if (status < 0)
+> -		printk(KERN_DEBUG "asix_async_cmd_callback() failed with %d",
+> -			status);
+> +		pr_debug("asix_async_cmd_callback() failed with %d",
+> +			 status);
 
-But do we really have a "struct net_device" pointer stored in skb->cb[]
-at this stage ?
+Probably better with "%s: "..., __func__, ...
+Missing a newline too.
+There are several other uses of embedded function names
+that could be modified.
 
-AFAIK this is set only for ARP_FORWARD (br_nf_forward_arp() line 838 :
-*d = (struct net_device *)in;),
-not in br_nf_forward_ip()
+> @@ -432,7 +433,8 @@ static inline int asix_get_phy_addr(struct usbnet *dev)
+>  	netdev_dbg(dev->net, "asix_get_phy_addr()\n");
+>  
+>  	if (ret < 0) {
+> -		netdev_err(dev->net, "Error reading PHYID register: %02x\n", ret);
+> +		netdev_err(dev->net, "Error reading PHYID register: %02x\n",
+> +			   ret);
 
-If we have garbage instead, we can have other bugs later...
+80 column zealotry?  If you want, but it's probably past
+the time that's really desirable or necessary.
+
+> @@ -575,7 +580,7 @@ static int asix_mdio_read(struct net_device *netdev, int phy_id, int loc)
+>  	mutex_lock(&dev->phy_mutex);
+>  	asix_set_sw_mii(dev);
+>  	asix_read_cmd(dev, AX_CMD_READ_MII_REG, phy_id,
+> -				(__u16)loc, 2, &res);
+> +		      (__u16)loc, 2, &res);
+
+Fits on 1 line.
+
+> +static void asix_get_drvinfo(struct net_device *net,
+> +			     struct ethtool_drvinfo *info)
+>  {
+>  	struct usbnet *dev = netdev_priv(net);
+>  	struct asix_data *data = (struct asix_data *)&dev->data;
+>  
+>  	/* Inherit standard device info */
+>  	usbnet_get_drvinfo(net, info);
+> -	strncpy (info->driver, DRIVER_NAME, sizeof info->driver);
+> -	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+> +	strncpy(info->driver, DRIVER_NAME, sizeof info->driver);
+> +	strncpy(info->version, DRIVER_VERSION, sizeof info->version);
+
+Most every kernel use of sizeof uses parens like:
+
+	strncpy(info->driver, DRIVER_NAME, sizeof(info->driver));
+	strncpy(info->version, DRIVER_VERSION, sizeof(info->version));
+ 
+@@ -1510,133 +1520,133 @@ static const struct driver_info ax88178_info = {
+>  	.tx_fixup = asix_tx_fixup,
+>  };
+>  
+> -static const struct usb_device_id	products [] = {
+> +static const struct usb_device_id	products[] = {
+
+Maybe use a space not a tab after usb_device_id.
+
+>  {
+> -	// Linksys USB200M
+> -	USB_DEVICE (0x077b, 0x2226),
+> +	/* Linksys USB200M */
+> +	USB_DEVICE(0x077b, 0x2226),
+>  	.driver_info =	(unsigned long) &ax8817x_info,
+>  }, {
+
+I think all of these would look more reasonable on single
+lines like
+
+	{ USB_DEVICE(0xxxxx, 0xxxxx), .driver_info = (unsigned long)&func },
+
+or maybe add another macro like:
+
+#define ASIX_USB_DEVICE(vendor, product, driver)	\
+	USB_DEVICE(vendor, product), .driver_info = (unsigned long)driver)
+
+and make these
+
+	{ ASIX_USB_DEVICE(0xxxxx, 0xxxxx, &func) },	/* description */
+
+Come to think of it, the & for the function address
+isn't necessary either.
+
+cheers, Joe
