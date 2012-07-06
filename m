@@ -1,51 +1,38 @@
-From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Subject: [PATCH net-next v2 3/4] Change byte order when storing/accessing tag field
-Date: Fri,  6 Jul 2012 00:50:24 -0400
-Message-ID: <1341550225-13112-4-git-send-email-tony.cheneau@amnesiak.org>
-References: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
-Cc: netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.amnesiak.org ([95.130.11.136]:41241 "EHLO amnesiak.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752544Ab2GFEwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 00:52:21 -0400
-In-Reply-To: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH can-next v4] em_canid: Ematch rule to match CAN frames
+ according to their identifiers
+Date: Fri, 06 Jul 2012 06:52:46 +0200
+Message-ID: <4FF66F1E.5060203@hartkopp.net>
+References: <4FF3C2AE.9010106@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Rostislav Lisovy <lisovy@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4FF3C2AE.9010106@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The tag field should be stored and accessed using big endian byte order (as
-intended in the specs). Or else, when displayed with a trafic analyser, such a
-Wireshark, the field not properly displayed (e.g. 0x01 00 instead of 0x00 01).
+On 04.07.2012 06:12, Oliver Hartkopp wrote:
 
----
- net/ieee802154/6lowpan.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+> This ematch makes it possible to classify CAN frames (AF_CAN) according
+> to their identifiers. This functionality can not be easily achieved with
+> existing classifiers, such as u32, because CAN identifier is always stored
+> in native endianness, whereas u32 expects Network byte order.
+> 
+> Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
+> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 5884d29..b886e07 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -303,7 +303,7 @@ static inline int lowpan_fetch_skb_u16(struct sk_buff *skb, u16 *val)
- 	if (unlikely(!pskb_may_pull(skb, 2)))
- 		return -EINVAL;
- 
--	*val = skb->data[0] | (skb->data[1] << 8);
-+	*val = (skb->data[0] << 8) | skb->data[1];
- 	skb_pull(skb, 2);
- 
- 	return 0;
-@@ -1010,8 +1010,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb)
- 	/* first fragment header */
- 	head[0] = LOWPAN_DISPATCH_FRAG1 | (payload_length & 0x7);
- 	head[1] = (payload_length >> 3) & 0xff;
--	head[2] = tag & 0xff;
--	head[3] = tag >> 8;
-+	head[2] = tag >> 8;
-+	head[3] = tag & 0xff;
- 
- 	err = lowpan_fragment_xmit(skb, head, header_length, 0, 0);
- 
--- 
-1.7.3.4
+
+This patch is originally from Rostislav and is already part of this can-next
+pull request:
+
+http://marc.info/?l=linux-netdev&m=134141429413608&w=2
+
+Tnx & regards,
+Oliver
+
