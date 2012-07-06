@@ -1,67 +1,159 @@
 From: pablo@netfilter.org
-Subject: [PATCH 04/18] netfilter: nf_conntrack: add nf_ct_kfree_compat_sysctl_table
-Date: Fri,  6 Jul 2012 13:16:54 +0200
-Message-ID: <1341573428-3204-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/18] netfilter: nf_ct_tcp: merge tcpv[4,6]_net_init into tcp_net_init
+Date: Fri,  6 Jul 2012 13:16:57 +0200
+Message-ID: <1341573428-3204-8-git-send-email-pablo@netfilter.org>
 References: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43396 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933508Ab2GFLS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 07:18:56 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This patch is a cleanup.
+Merge tcpv4_net_init and tcpv6_net_init into tcp_net_init to
+remove redundant code now that we have the u_int16_t proto
+parameter.
 
-It adds nf_ct_kfree_compat_sysctl_table to release l4proto's
-compat sysctl table and set the compat sysctl table point to NULL.
-
-This new function will be used by follow-up patches.
+And use nf_proto_net.users to identify if it's the first time
+we use the nf_proto_net, in that case, we initialize it.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_l4proto.h |    8 ++++++++
- net/netfilter/nf_conntrack_proto.c           |    3 +--
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |   71 ++++++++++----------------------
+ 1 file changed, 21 insertions(+), 50 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index 5dd60f2..08bb571 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -124,6 +124,14 @@ extern int nf_conntrack_l4proto_register(struct net *net,
- extern void nf_conntrack_l4proto_unregister(struct net *net,
- 					    struct nf_conntrack_l4proto *proto);
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 6db9d3c..44f0da8 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -1533,11 +1533,10 @@ static struct ctl_table tcp_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
  
-+static inline void nf_ct_kfree_compat_sysctl_table(struct nf_proto_net *pn)
-+{
-+#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-+	kfree(pn->ctl_compat_table);
-+	pn->ctl_compat_table = NULL;
-+#endif
-+}
+-static int tcp_kmemdup_sysctl_table(struct nf_proto_net *pn)
++static int tcp_kmemdup_sysctl_table(struct nf_proto_net *pn,
++				    struct nf_tcp_net *tn)
+ {
+ #ifdef CONFIG_SYSCTL
+-	struct nf_tcp_net *tn = (struct nf_tcp_net *)pn;
+-
+ 	if (pn->ctl_table)
+ 		return 0;
+ 
+@@ -1564,11 +1563,11 @@ static int tcp_kmemdup_sysctl_table(struct nf_proto_net *pn)
+ 	return 0;
+ }
+ 
+-static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
++static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
++					   struct nf_tcp_net *tn)
+ {
+ #ifdef CONFIG_SYSCTL
+ #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	struct nf_tcp_net *tn = (struct nf_tcp_net *)pn;
+ 	pn->ctl_compat_table = kmemdup(tcp_compat_sysctl_table,
+ 				       sizeof(tcp_compat_sysctl_table),
+ 				       GFP_KERNEL);
+@@ -1593,18 +1592,15 @@ static int tcp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn)
+ 	return 0;
+ }
+ 
+-static int tcpv4_init_net(struct net *net, u_int16_t proto)
++static int tcp_init_net(struct net *net, u_int16_t proto)
+ {
+-	int i;
+-	int ret = 0;
++	int ret;
+ 	struct nf_tcp_net *tn = tcp_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)tn;
++	struct nf_proto_net *pn = &tn->pn;
 +
- /* Generic netlink helpers */
- extern int nf_ct_port_tuple_to_nlattr(struct sk_buff *skb,
- 				      const struct nf_conntrack_tuple *tuple);
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 6f4b6f3..9d6b6ab 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -361,8 +361,7 @@ int nf_ct_l4proto_register_sysctl(struct net *net,
- 		if (err == 0)
- 			goto out;
++	if (!pn->users) {
++		int i;
  
+-#ifdef CONFIG_SYSCTL
+-	if (!pn->ctl_table) {
+-#else
+-	if (!pn->users++) {
+-#endif
+ 		for (i = 0; i < TCP_CONNTRACK_TIMEOUT_MAX; i++)
+ 			tn->timeouts[i] = tcp_timeouts[i];
+ 
+@@ -1613,45 +1609,20 @@ static int tcpv4_init_net(struct net *net, u_int16_t proto)
+ 		tn->tcp_max_retrans = nf_ct_tcp_max_retrans;
+ 	}
+ 
+-	ret = tcp_kmemdup_compat_sysctl_table(pn);
+-
+-	if (ret < 0)
+-		return ret;
++	if (proto == AF_INET) {
++		ret = tcp_kmemdup_compat_sysctl_table(pn, tn);
++		if (ret < 0)
++			return ret;
+ 
+-	ret = tcp_kmemdup_sysctl_table(pn);
++		ret = tcp_kmemdup_sysctl_table(pn, tn);
++		if (ret < 0)
++			nf_ct_kfree_compat_sysctl_table(pn);
++	} else
++		ret = tcp_kmemdup_sysctl_table(pn, tn);
+ 
+-#ifdef CONFIG_SYSCTL
+-#ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+-	if (ret < 0) {
 -		kfree(pn->ctl_compat_table);
 -		pn->ctl_compat_table = NULL;
-+		nf_ct_kfree_compat_sysctl_table(pn);
- 		nf_ct_unregister_sysctl(&pn->ctl_table_header,
- 					&pn->ctl_table,
- 					&pn->users);
+-	}
+-#endif
+-#endif
+ 	return ret;
+ }
+ 
+-static int tcpv6_init_net(struct net *net, u_int16_t proto)
+-{
+-	int i;
+-	struct nf_tcp_net *tn = tcp_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)tn;
+-
+-#ifdef CONFIG_SYSCTL
+-	if (!pn->ctl_table) {
+-#else
+-	if (!pn->users++) {
+-#endif
+-		for (i = 0; i < TCP_CONNTRACK_TIMEOUT_MAX; i++)
+-			tn->timeouts[i] = tcp_timeouts[i];
+-		tn->tcp_loose = nf_ct_tcp_loose;
+-		tn->tcp_be_liberal = nf_ct_tcp_be_liberal;
+-		tn->tcp_max_retrans = nf_ct_tcp_max_retrans;
+-	}
+-
+-	return tcp_kmemdup_sysctl_table(pn);
+-}
+-
+ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
+ {
+ 	.l3proto		= PF_INET,
+@@ -1684,7 +1655,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 __read_mostly =
+ 		.nla_policy	= tcp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-	.init_net		= tcpv4_init_net,
++	.init_net		= tcp_init_net,
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp4);
+ 
+@@ -1720,6 +1691,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6 __read_mostly =
+ 		.nla_policy	= tcp_timeout_nla_policy,
+ 	},
+ #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
+-	.init_net		= tcpv6_init_net,
++	.init_net		= tcp_init_net,
+ };
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_tcp6);
 -- 
 1.7.10
+
