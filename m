@@ -1,42 +1,51 @@
 From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Subject: [PATCH net-next v2 1/4] Fix null pointer dereference in UDP uncompression function
-Date: Fri,  6 Jul 2012 00:50:22 -0400
-Message-ID: <1341550225-13112-2-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next v2 3/4] Change byte order when storing/accessing tag field
+Date: Fri,  6 Jul 2012 00:50:24 -0400
+Message-ID: <1341550225-13112-4-git-send-email-tony.cheneau@amnesiak.org>
 References: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
 Cc: netdev@vger.kernel.org,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.amnesiak.org ([95.130.11.136]:41214 "EHLO amnesiak.org"
+Received: from ns.amnesiak.org ([95.130.11.136]:41241 "EHLO amnesiak.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751076Ab2GFEvc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 00:51:32 -0400
+	id S1752544Ab2GFEwV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 00:52:21 -0400
 In-Reply-To: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a UDP packet gets fragmented, a crash will occur at reassembly time.
-This is because skb->transport_header is not set during earlier period of fragment reassembly.
-As a consequence, call to udp_hdr() return NULL and uh (which is NULL) gets
-dereferenced without much test.
+The tag field should be stored and accessed using big endian byte order (as
+intended in the specs). Or else, when displayed with a trafic analyser, such a
+Wireshark, the field not properly displayed (e.g. 0x01 00 instead of 0x00 01).
 
 ---
- net/ieee802154/6lowpan.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ net/ieee802154/6lowpan.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index f4070e5..07fa200 100644
+index 5884d29..b886e07 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -314,6 +314,9 @@ lowpan_uncompress_udp_header(struct sk_buff *skb)
- {
- 	struct udphdr *uh = udp_hdr(skb);
- 	u8 tmp;
-+
-+	if (!uh)
-+		goto err;
+@@ -303,7 +303,7 @@ static inline int lowpan_fetch_skb_u16(struct sk_buff *skb, u16 *val)
+ 	if (unlikely(!pskb_may_pull(skb, 2)))
+ 		return -EINVAL;
  
- 	if (lowpan_fetch_skb_u8(skb, &tmp))
- 		goto err;
+-	*val = skb->data[0] | (skb->data[1] << 8);
++	*val = (skb->data[0] << 8) | skb->data[1];
+ 	skb_pull(skb, 2);
+ 
+ 	return 0;
+@@ -1010,8 +1010,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb)
+ 	/* first fragment header */
+ 	head[0] = LOWPAN_DISPATCH_FRAG1 | (payload_length & 0x7);
+ 	head[1] = (payload_length >> 3) & 0xff;
+-	head[2] = tag & 0xff;
+-	head[3] = tag >> 8;
++	head[2] = tag >> 8;
++	head[3] = tag & 0xff;
+ 
+ 	err = lowpan_fragment_xmit(skb, head, header_length, 0, 0);
+ 
 -- 
 1.7.3.4
