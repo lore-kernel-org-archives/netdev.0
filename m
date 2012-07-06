@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 09/18] netfilter: nf_ct_udplite: add udplite_kmemdup_sysctl_table function
-Date: Fri,  6 Jul 2012 13:16:59 +0200
-Message-ID: <1341573428-3204-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/18] netfilter: nf_conntrack: fix nf_conntrack_l3proto_register
+Date: Fri,  6 Jul 2012 13:16:52 +0200
+Message-ID: <1341573428-3204-3-git-send-email-pablo@netfilter.org>
 References: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,79 +12,91 @@ List-Id: netdev.vger.kernel.org
 
 From: Gao feng <gaofeng@cn.fujitsu.com>
 
-This cleans up nf_conntrack_l4proto_udplite[4,6] and it prepares
-the moving of the sysctl code to nf_conntrack_proto_*_sysctl.c
-to reduce the ifdef pollution.
+Before commit 2c352f444ccfa966a1aa4fd8e9ee29381c467448
+(netfilter: nf_conntrack: prepare namespace support for
+l4 protocol trackers), we register sysctl before register
+protocol tracker. Thus, if sysctl is registration fails,
+the protocol tracker will not be registered.
 
-And use nf_proto_net.users to identify if it's the first time
-we use the nf_proto_net, in that case, we initialize it.
+After that commit, if sysctl registration fails, protocol
+registration still remains, so we leave things in intermediate
+state.
+
+To fix this, this patch registers sysctl before protocols.
+And if protocol registration fail, sysctl is unregistered.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_proto_udplite.c |   43 +++++++++++++++++-----------
- 1 file changed, 26 insertions(+), 17 deletions(-)
+ net/netfilter/nf_conntrack_proto.c |   36 +++++++++++++++++++++++-------------
+ 1 file changed, 23 insertions(+), 13 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index d33e511..4b66df2 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -234,29 +234,38 @@ static struct ctl_table udplite_sysctl_table[] = {
- };
- #endif /* CONFIG_SYSCTL */
- 
--static int udplite_init_net(struct net *net, u_int16_t proto)
-+static int udplite_kmemdup_sysctl_table(struct nf_proto_net *pn,
-+					struct udplite_net *un)
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 1ea9194..9bd88aa 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -253,18 +253,23 @@ int nf_conntrack_l3proto_register(struct net *net,
  {
--	int i;
--	struct udplite_net *un = udplite_pernet(net);
--	struct nf_proto_net *pn = (struct nf_proto_net *)un;
- #ifdef CONFIG_SYSCTL
--	if (!pn->ctl_table) {
--#else
--	if (!pn->users++) {
-+	if (pn->ctl_table)
-+		return 0;
-+
-+	pn->ctl_table = kmemdup(udplite_sysctl_table,
-+				sizeof(udplite_sysctl_table),
-+				GFP_KERNEL);
-+	if (!pn->ctl_table)
-+		return -ENOMEM;
-+
-+	pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
-+	pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
- #endif
-+	return 0;
-+}
-+
-+static int udplite_init_net(struct net *net, u_int16_t proto)
-+{
-+	struct udplite_net *un = udplite_pernet(net);
-+	struct nf_proto_net *pn = &un->pn;
-+
-+	if (!pn->users) {
-+		int i;
-+
- 		for (i = 0 ; i < UDPLITE_CT_MAX; i++)
- 			un->timeouts[i] = udplite_timeouts[i];
--#ifdef CONFIG_SYSCTL
--		pn->ctl_table = kmemdup(udplite_sysctl_table,
--					sizeof(udplite_sysctl_table),
--					GFP_KERNEL);
--		if (!pn->ctl_table)
--			return -ENOMEM;
--		pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
--		pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
--#endif
- 	}
--	return 0;
-+
-+	return udplite_kmemdup_sysctl_table(pn, un);
- }
+ 	int ret = 0;
  
- static struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
+-	if (net == &init_net)
+-		ret = nf_conntrack_l3proto_register_net(proto);
++	if (proto->init_net) {
++		ret = proto->init_net(net);
++		if (ret < 0)
++			return ret;
++	}
+ 
++	ret = nf_ct_l3proto_register_sysctl(net, proto);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (proto->init_net) {
+-		ret = proto->init_net(net);
++	if (net == &init_net) {
++		ret = nf_conntrack_l3proto_register_net(proto);
+ 		if (ret < 0)
+-			return ret;
++			nf_ct_l3proto_unregister_sysctl(net, proto);
+ 	}
+-	return nf_ct_l3proto_register_sysctl(net, proto);
++
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
+ 
+@@ -454,19 +459,24 @@ int nf_conntrack_l4proto_register(struct net *net,
+ 				  struct nf_conntrack_l4proto *l4proto)
+ {
+ 	int ret = 0;
+-	if (net == &init_net)
+-		ret = nf_conntrack_l4proto_register_net(l4proto);
+ 
+-	if (ret < 0)
+-		return ret;
+-
+-	if (l4proto->init_net)
++	if (l4proto->init_net) {
+ 		ret = l4proto->init_net(net);
++		if (ret < 0)
++			return ret;
++	}
+ 
++	ret = nf_ct_l4proto_register_sysctl(net, l4proto);
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	return nf_ct_l4proto_register_sysctl(net, l4proto);
++	if (net == &init_net) {
++		ret = nf_conntrack_l4proto_register_net(l4proto);
++		if (ret < 0)
++			nf_ct_l4proto_unregister_sysctl(net, l4proto);
++	}
++
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_register);
+ 
 -- 
 1.7.10
 
