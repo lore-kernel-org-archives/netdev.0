@@ -1,45 +1,39 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] ipv6: Initialize the neighbour pointer of
- rt6_info on allocation
-Date: Fri, 6 Jul 2012 08:54:26 +0200
-Message-ID: <20120706065426.GF1869@secunet.com>
-References: <20120705131828.GE1869@secunet.com>
- <1341501404.2583.4267.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BUG: unable to handle kernel paging request at 00000000d8be176d
+Date: Fri, 06 Jul 2012 00:03:41 -0700 (PDT)
+Message-ID: <20120706.000341.755169655502291970.davem@davemloft.net>
+References: <1341556907.3265.93.camel@edumazet-glaptop>
+	<20120705.234413.823095842284954048.davem@davemloft.net>
+	<1341557587.3265.107.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wfg@linux.intel.com, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39184 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754154Ab2GFGy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 02:54:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1341501404.2583.4267.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33746 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932224Ab2GFHDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 03:03:42 -0400
+In-Reply-To: <1341557587.3265.107.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 05, 2012 at 05:16:44PM +0200, Eric Dumazet wrote:
-> On Thu, 2012-07-05 at 15:18 +0200, Steffen Klassert wrote:
-> >  
-> >  	if (rt) {
-> > -		memset(&rt->rt6i_table, 0,
-> > +		memset(&rt->n, 0,
-> >  		       sizeof(*rt) - sizeof(struct dst_entry));
-> >  		rt6_init_peer(rt, table ? &table->tb6_peers : net->ipv6.peers);
-> >  	}
-> 
-> Hmm, could we find a way to avoid this for future changes ?
-> 
-> We know dst_entry is the first field, so maybe :
-> 
-> if (rt) {
-> 	struct dst_entry *dst = (struct dst_entry *)rt;
-> 
-> 	memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 06 Jul 2012 08:53:07 +0200
 
-Yes, I think we need to do something like this.
+> Not sure what you mean. I dont use address of pointer.
 
-I've just noticed that ip6_blackhole_route, xfrm_alloc_dst,
-dn_route_output_slow and dn_route_input_slow have the same issue.
+I'm talking about the cases where this caused a bug here.
+
+Passing "struct dst_entry **dst" as an argument.
+
+It's just stupid, and a relic of code that wants to return
+a route and a locallized error at the same time.
+
+I'm saying that in the end we should simply return "struct dst_entry
+*" from such functions.
+
+Anyways, please submit your original patch in this thread so I
+can get this simple case fixed in net-next.
