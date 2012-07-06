@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/2] netfilter: nf_ct_ecache: fix crash with multiple containers, one shutting down
-Date: Fri,  6 Jul 2012 13:39:39 +0200
-Message-ID: <1341574779-3373-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/2] netfilter: ipset: timeout fixing bug broke SET target special timeout value
+Date: Fri,  6 Jul 2012 13:39:38 +0200
+Message-ID: <1341574779-3373-2-git-send-email-pablo@netfilter.org>
 References: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,47 +10,39 @@ In-Reply-To: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Hans reports that he's still hitting:
+The patch "127f559 netfilter: ipset: fix timeout value overflow bug"
+broke the SET target when no timeout was specified.
 
-BUG: unable to handle kernel NULL pointer dereference at 000000000000027c
-IP: [<ffffffff813615db>] netlink_has_listeners+0xb/0x60
-PGD 0
-Oops: 0000 [#3] PREEMPT SMP
-CPU 0
-
-It happens when adding a number of containers with do:
-
-nfct_query(h, NFCT_Q_CREATE, ct);
-
-and most likely one namespace shuts down.
-
-this problem was supposed to be fixed by:
-70e9942 netfilter: nf_conntrack: make event callback registration per-netns
-
-Still, it was missing one rcu_access_pointer to check if the callback
-is set or not.
-
-Reported-by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Reported-by: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- include/net/netfilter/nf_conntrack_ecache.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_set.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
-index a88fb69..e1ce104 100644
---- a/include/net/netfilter/nf_conntrack_ecache.h
-+++ b/include/net/netfilter/nf_conntrack_ecache.h
-@@ -78,7 +78,7 @@ nf_conntrack_event_cache(enum ip_conntrack_events event, struct nf_conn *ct)
- 	struct net *net = nf_ct_net(ct);
- 	struct nf_conntrack_ecache *e;
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index 035960e..b172cbc 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -16,6 +16,7 @@
  
--	if (net->ct.nf_conntrack_event_cb == NULL)
-+	if (!rcu_access_pointer(net->ct.nf_conntrack_event_cb))
- 		return;
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_set.h>
++#include <linux/netfilter/ipset/ip_set_timeout.h>
  
- 	e = nf_ct_ecache_find(ct);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -310,7 +311,8 @@ set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
+ 		info->del_set.flags, 0, UINT_MAX);
+ 
+ 	/* Normalize to fit into jiffies */
+-	if (add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
++	if (add_opt.timeout != IPSET_NO_TIMEOUT
++	    && add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
+ 		add_opt.timeout = UINT_MAX/MSEC_PER_SEC;
+ 	if (info->add_set.index != IPSET_INVALID_ID)
+ 		ip_set_add(info->add_set.index, skb, par, &add_opt);
 -- 
 1.7.10
 
