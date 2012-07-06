@@ -1,103 +1,61 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH v2 net-next 2/2] r8169: support RTL8168G
-Date: Fri, 6 Jul 2012 15:57:09 +0800
-Message-ID: <43E32504589B47B9846C4E9DAF98BF60@realtek.com.tw>
-References: <1340966060-2749-1-git-send-email-hayeswang@realtek.com> <1341221002-1522-1-git-send-email-hayeswang@realtek.com> <1341221002-1522-2-git-send-email-hayeswang@realtek.com> <20120704220458.GA1621@electric-eye.fr.zoreil.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [net-next RFC V5 5/5] virtio_net: support negotiating the
+	number of queues through ctrl vq
+Date: Fri, 06 Jul 2012 10:10:04 +0200
+Message-ID: <1341562204.3377.5.camel@lappy>
+References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+	<1341484194-8108-6-git-send-email-jasowang@redhat.com>
+	<1341492679.18786.18.camel@lappy> <4FF65966.9040600@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0007_01CD5B90.000B6F20"
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120704220458.GA1621@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-------=_NextPart_000_0007_01CD5B90.000B6F20
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
+	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, sri@us.ibm.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <4FF65966.9040600@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu [romieu@fr.zoreil.com]
-[...]
+On Fri, 2012-07-06 at 11:20 +0800, Jason Wang wrote:
+> On 07/05/2012 08:51 PM, Sasha Levin wrote:
+> > On Thu, 2012-07-05 at 18:29 +0800, Jason Wang wrote:
+> >> @@ -1387,6 +1404,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >>          if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+> >>                  vi->has_cvq = true;
+> >>
+> >> +       /* Use single tx/rx queue pair as default */
+> >> +       vi->num_queue_pairs = 1;
+> >> +       vi->total_queue_pairs = num_queue_pairs;
+> > The code is using this "default" even if the amount of queue pairs it
+> > wants was specified during initialization. This basically limits any
+> > device to use 1 pair when starting up.
+> >
 > 
-> Any objection against merging it with the patch below ?
-> 
-> - more BUG() avoidance
-> - save Joe P. some work
-> - remove useless parenthesis
-> - fix r8168g_mdio_write (if (reg_addr == 0x1f) { if (reg_addr == 0) snafu)
->   -> Please check this one.
+> Yes, currently the virtio-net driver would use 1 txq/txq by default 
+> since multiqueue may not outperform in all kinds of workload. So it's 
+> better to keep it as default and let user enable multiqueue by ethtool -L.
 
-That is fine.
+I think it makes sense to set it to 1 if the amount of initial queue
+pairs wasn't specified.
 
-> - long declarations before short ones
-> - avoid unbounded loops
-> - use a descriptive name for the 0xe8de value in rtl_hw_init_8168g.
->   -> Please suggest something better than "PLOP"
+On the other hand, if a virtio-net driver was probed to provide
+VIRTIO_NET_F_MULTIQUEUE and has set something reasonable in
+virtio_net_config.num_queues, then that setting shouldn't be quietly
+ignored and reset back to 1.
 
-I have no idea about naming 0xe8de. Our hardware engineers don't release any
-datasheet about it. It seems to be related with oob settings. 
-
-------=_NextPart_000_0007_01CD5B90.000B6F20
-Content-Type: application/octet-stream; name="fix.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment; filename="fix.patch"
-
-=0A=
-Fix some code.=0A=
- =0A=
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>=0A=
----=0A=
- drivers/net/ethernet/realtek/r8169.c |   11 ++++++-----=0A=
- 1 file changed, 6 insertions(+), 5 deletions(-)=0A=
-=0A=
-diff --git a/drivers/net/ethernet/realtek/r8169.c =
-b/drivers/net/ethernet/realtek/r8169.c=0A=
-index c37aed9..1d7d6f0 100644=0A=
---- a/drivers/net/ethernet/realtek/r8169.c=0A=
-+++ b/drivers/net/ethernet/realtek/r8169.c=0A=
-@@ -3392,7 +3392,7 @@ static void rtl8168g_1_hw_phy_config(struct =
-rtl8169_private *tp)=0A=
- 	};=0A=
- =0A=
- 	/* patch code for GPHY reset */=0A=
--	for (i =3D 0; ARRAY_SIZE(mac_ocp_patch); i++)=0A=
-+	for (i =3D 0; i < ARRAY_SIZE(mac_ocp_patch); i++)=0A=
- 		r8168_mac_ocp_write(tp, 0xf800 + 2*i, mac_ocp_patch[i]);=0A=
- 	r8168_mac_ocp_write(tp, 0xfc26, 0x8000);=0A=
- 	r8168_mac_ocp_write(tp, 0xfc28, 0x0075);=0A=
-@@ -6764,6 +6764,7 @@ static void __devinit rtl_hw_init_8168g(struct =
-rtl8169_private *tp)=0A=
- 	u32 data;=0A=
- 	int i;=0A=
- =0A=
-+	tp->ocp_base =3D OCP_STD_PHY_BASE;=0A=
- 	RTL_W32(MISC, RTL_R32(MISC) | RXDV_GATED_EN);=0A=
- =0A=
- 	for (i =3D 0; i < RTL_LOOP_MAX; i++) {=0A=
-@@ -6782,15 +6783,15 @@ static void __devinit rtl_hw_init_8168g(struct =
-rtl8169_private *tp)=0A=
- 	msleep(1);=0A=
- 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);=0A=
- =0A=
--	data =3D r8168_mac_ocp_read(ioaddr, PLOP);=0A=
-+	data =3D r8168_mac_ocp_read(tp, PLOP);=0A=
- 	data &=3D ~(1 << 14);=0A=
--	r8168_mac_ocp_write(ioaddr, PLOP, data);=0A=
-+	r8168_mac_ocp_write(tp, PLOP, data);=0A=
- =0A=
- 	rtl_mcu_wait_list_ready(ioaddr);=0A=
- =0A=
--	data =3D r8168_mac_ocp_read(ioaddr, PLOP);=0A=
-+	data =3D r8168_mac_ocp_read(tp, PLOP);=0A=
- 	data |=3D (1 << 15);=0A=
--	r8168_mac_ocp_write(ioaddr, PLOP, data);=0A=
-+	r8168_mac_ocp_write(tp, PLOP, data);=0A=
- =0A=
- 	rtl_mcu_wait_list_ready(ioaddr);=0A=
- }=0A=
--- =0A=
-1.7.10.2=0A=
-=0A=
-
-------=_NextPart_000_0007_01CD5B90.000B6F20--
+What I'm basically saying is that I agree that the *default* should be 1
+- but if the user has explicitly asked for something else during
+initialization, then the default should be overridden.
