@@ -1,38 +1,41 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH can-next v4] em_canid: Ematch rule to match CAN frames
- according to their identifiers
-Date: Fri, 06 Jul 2012 06:52:46 +0200
-Message-ID: <4FF66F1E.5060203@hartkopp.net>
-References: <4FF3C2AE.9010106@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Rostislav Lisovy <lisovy@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4FF3C2AE.9010106@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tony Cheneau <tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next v2 2/4] Incorrect type length in lowpan_alloc_new_frame():tag is u8 but should be u16
+Date: Fri,  6 Jul 2012 00:50:23 -0400
+Message-ID: <1341550225-13112-3-git-send-email-tony.cheneau@amnesiak.org>
+References: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
+Cc: netdev@vger.kernel.org,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.amnesiak.org ([95.130.11.136]:41237 "EHLO amnesiak.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751357Ab2GFEwV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 00:52:21 -0400
+In-Reply-To: <1341550225-13112-1-git-send-email-tony.cheneau@amnesiak.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04.07.2012 06:12, Oliver Hartkopp wrote:
+Function lowpan_alloc_new_frame() takes u8 tag as an argument. However,
+its only caller, lowpan_process_data() passes down a u16. Hence,
+the tag value can get corrupted. This prevent 6lowpan fragment reassembly of a
+message when the fragment tag value is over 256.
 
-> This ematch makes it possible to classify CAN frames (AF_CAN) according
-> to their identifiers. This functionality can not be easily achieved with
-> existing classifiers, such as u32, because CAN identifier is always stored
-> in native endianness, whereas u32 expects Network byte order.
-> 
-> Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+---
+ net/ieee802154/6lowpan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-This patch is originally from Rostislav and is already part of this can-next
-pull request:
-
-http://marc.info/?l=linux-netdev&m=134141429413608&w=2
-
-Tnx & regards,
-Oliver
-
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 07fa200..5884d29 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -649,7 +649,7 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
+ }
+ 
+ static struct lowpan_fragment *
+-lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
++lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u16 tag)
+ {
+ 	struct lowpan_fragment *frame;
+ 
+-- 
+1.7.3.4
