@@ -1,148 +1,196 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic in
- br_nf_forward_finish
-Date: Fri, 6 Jul 2012 23:34:39 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207062324270.1957@ja.ssi.bg>
-References: <1341584394.4789.34.camel@chief-river-32>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Lin Ming <mlin@ss.pku.edu.cn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:37344 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754224Ab2GFU2g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 16:28:36 -0400
-In-Reply-To: <1341584394.4789.34.camel@chief-river-32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net,1/1] hyperv: Add support for setting MAC from within guests
+Date: Fri,  6 Jul 2012 14:25:32 -0700
+Message-ID: <1341609932-18971-1-git-send-email-haiyangz@microsoft.com>
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This adds support for setting synthetic NIC MAC address from within Linux
+guests. Before using this feature, the option "spoofing of MAC address"
+should be enabled at the Hyper-V manager / Settings of the synthetic
+NIC.
 
-	Hello,
+Thanks to Kin Cho <kcho@infoblox.com> for the initial implementation and
+tests. And, thanks to Long Li <longli@microsoft.com> for the debugging
+works.
 
-On Fri, 6 Jul 2012, Lin Ming wrote:
+Reported-and-tested-by: Kin Cho <kcho@infoblox.com>
+Reported-by: Long Li <longli@microsoft.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   |    1 +
+ drivers/net/hyperv/netvsc_drv.c   |   30 +++++++++++++-
+ drivers/net/hyperv/rndis_filter.c |   79 +++++++++++++++++++++++++++++++++++++
+ 3 files changed, 109 insertions(+), 1 deletions(-)
 
-> I can reproduce similiar panic with 3.5-rc5 kernel as Massimo reported at:
-> http://marc.info/?l=linux-netdev&m=134089242113979&w=2
-> 
-> The steps to reproduce as follow,
-> 
-> 1. On Host1, setup brige br0(192.168.1.106)
-> 2. Boot a kvm guest(192.168.1.105) on Host1 and start httpd
-> 3. Start IPVS service on Host1
->    ipvsadm -A -t 192.168.1.106:80 -s rr
->    ipvsadm -a -t 192.168.1.106:80 -r 192.168.1.105:80 -m
-> 4. Run apache benchmark on Host2(192.168.1.101)
->    ab -n 1000 http://192.168.1.106/
-> 
-> The panic happened in br_nf_forward_finish because skb->nf_bridge is NULL.
-> skb->nf_bridge is set to NULL in ip_vs_reply4 hook.
-> 
-> br_nf_forward_ip():
->   NF_HOOK(pf, NF_INET_FORWARD, skb, brnf_get_logical_dev(skb, in), parent,
->                 br_nf_forward_finish);
-> 
-> This calls IPVS hook ip_vs_reply4.
-> 
-> ip_vs_reply4
->   ip_vs_out
->     handle_response
->       ip_vs_notrack
->         nf_reset()
->         {
->           skb->nf_bridge = NULL;
->         }
-
-	Actually, IPVS wants in this case just to replace nfct
-with untracked version. May be it is better to replace
-the nf_reset(skb) call in ip_vs_notrack() with a
-nf_conntrack_put(skb->nfct) call. Can you test and post
-such patch?
-
-> This patch added skb->nf_bridge check in br_nf_forward_finish and the panic gone.
-> But I am really not sure if this is the right fix.
-> Please help to review.
-> 
-> The panic log attached.
-> 
-> [  579.781508] BUG: unable to handle kernel NULL pointer dereference at 0000000000000004
-> [  579.781669] IP: [<ffffffff817b1ca5>] br_nf_forward_finish+0x58/0x112
-> [  579.781792] PGD 218f9067 PUD 0 
-> [  579.781865] Oops: 0000 [#1] SMP 
-> [  579.781945] CPU 0 
-> [  579.781983] Modules linked in:
-> [  579.782047] 
-> [  579.782080] 
-> [  579.782114] Pid: 4644, comm: qemu Tainted: G        W    3.5.0-rc5-00006-g95e69f9 #282 Hewlett-Packard  /30E8
-> [  579.782300] RIP: 0010:[<ffffffff817b1ca5>]  [<ffffffff817b1ca5>] br_nf_forward_finish+0x58/0x112
-> [  579.782455] RSP: 0018:ffff88007b003a98  EFLAGS: 00010287
-> [  579.782541] RAX: 0000000000000008 RBX: ffff8800762ead00 RCX: 000000000001670a
-> [  579.782653] RDX: 0000000000000000 RSI: 000000000000000a RDI: ffff8800762ead00
-> [  579.782845] RBP: ffff88007b003ac8 R08: 0000000000016630 R09: ffff88007b003a90
-> [  579.782957] R10: ffff88007b0038e8 R11: ffff88002da37540 R12: ffff88002da01a02
-> [  579.783066] R13: ffff88002da01a80 R14: ffff88002d83c000 R15: ffff88002d82a000
-> [  579.783177] FS:  0000000000000000(0000) GS:ffff88007b000000(0063) knlGS:00000000f62d1b70
-> [  579.783306] CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
-> [  579.783395] CR2: 0000000000000004 CR3: 00000000218fe000 CR4: 00000000000027f0
-> [  579.783505] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [  579.783684] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> [  579.783795] Process qemu (pid: 4644, threadinfo ffff880021b20000, task ffff880021aba760)
-> [  579.783919] Stack:
-> [  579.783959]  ffff88007693cedc ffff8800762ead00 ffff88002da01a02 ffff8800762ead00
-> [  579.784110]  ffff88002da01a02 ffff88002da01a80 ffff88007b003b18 ffffffff817b26c7
-> [  579.784260]  ffff880080000000 ffffffff81ef59f0 ffff8800762ead00 ffffffff81ef58b0
-> [  579.784477] Call Trace:
-> [  579.784523]  <IRQ> 
-> [  579.784562] 
-> [  579.784603]  [<ffffffff817b26c7>] br_nf_forward_ip+0x275/0x2c8
-> [  579.784707]  [<ffffffff81704b58>] nf_iterate+0x47/0x7d
-> [  579.784797]  [<ffffffff817ac32e>] ? br_dev_queue_push_xmit+0xae/0xae
-> [  579.784906]  [<ffffffff81704bfb>] nf_hook_slow+0x6d/0x102
-> [  579.784995]  [<ffffffff817ac32e>] ? br_dev_queue_push_xmit+0xae/0xae
-> [  579.785175]  [<ffffffff8187fa95>] ? _raw_write_unlock_bh+0x19/0x1b
-> [  579.785179]  [<ffffffff817ac417>] __br_forward+0x97/0xa2
-> [  579.785179]  [<ffffffff817ad366>] br_handle_frame_finish+0x1a6/0x257
-> [  579.785179]  [<ffffffff817b2386>] br_nf_pre_routing_finish+0x26d/0x2cb
-> [  579.785179]  [<ffffffff817b2cf0>] br_nf_pre_routing+0x55d/0x5c1
-> [  579.785179]  [<ffffffff81704b58>] nf_iterate+0x47/0x7d
-> [  579.785179]  [<ffffffff817ad1c0>] ? br_handle_local_finish+0x44/0x44
-> [  579.785179]  [<ffffffff81704bfb>] nf_hook_slow+0x6d/0x102
-> [  579.785179]  [<ffffffff817ad1c0>] ? br_handle_local_finish+0x44/0x44
-> [  579.785179]  [<ffffffff81551525>] ? sky2_poll+0xb35/0xb54
-> [  579.785179]  [<ffffffff817ad62a>] br_handle_frame+0x213/0x229
-> [  579.785179]  [<ffffffff817ad417>] ? br_handle_frame_finish+0x257/0x257
-> [  579.785179]  [<ffffffff816e3b47>] __netif_receive_skb+0x2b4/0x3f1
-> [  579.785179]  [<ffffffff816e69fc>] process_backlog+0x99/0x1e2
-> [  579.785179]  [<ffffffff816e6800>] net_rx_action+0xdf/0x242
-> [  579.785179]  [<ffffffff8107e8a8>] __do_softirq+0xc1/0x1e0
-> [  579.785179]  [<ffffffff8135a5ba>] ? trace_hardirqs_off_thunk+0x3a/0x6c
-> [  579.785179]  [<ffffffff8188812c>] call_softirq+0x1c/0x30
-> 
-> Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
-> ---
->  net/bridge/br_netfilter.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-> index e41456b..10da415 100644
-> --- a/net/bridge/br_netfilter.c
-> +++ b/net/bridge/br_netfilter.c
-> @@ -719,7 +719,7 @@ static int br_nf_forward_finish(struct sk_buff *skb)
->  	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
->  	struct net_device *in;
->  
-> -	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
-> +	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb) && nf_bridge) {
->  		in = nf_bridge->physindev;
->  		if (nf_bridge->mask & BRNF_PKT_TYPE) {
->  			skb->pkt_type = PACKET_OTHERHOST;
-> -- 
-> 1.7.2.5
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 2857ab0..95ceb35 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -131,6 +131,7 @@ int rndis_filter_send(struct hv_device *dev,
+ 			struct hv_netvsc_packet *pkt);
+ 
+ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
++int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
+ 
+ 
+ #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 8f8ed33..8e23c08 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -341,6 +341,34 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	return 0;
+ }
+ 
++
++static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
++{
++	struct net_device_context *ndevctx = netdev_priv(ndev);
++	struct hv_device *hdev =  ndevctx->device_ctx;
++	struct sockaddr *addr = p;
++	char save_adr[14];
++	unsigned char save_aatype;
++	int err;
++
++	memcpy(save_adr, ndev->dev_addr, ETH_ALEN);
++	save_aatype = ndev->addr_assign_type;
++
++	err = eth_mac_addr(ndev, p);
++	if (err != 0)
++		return err;
++
++	err = rndis_filter_set_device_mac(hdev, addr->sa_data);
++	if (err != 0) {
++		/* roll back to saved MAC */
++		memcpy(ndev->dev_addr, save_adr, ETH_ALEN);
++		ndev->addr_assign_type = save_aatype;
++	}
++
++	return err;
++}
++
++
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo	= netvsc_get_drvinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -353,7 +381,7 @@ static const struct net_device_ops device_ops = {
+ 	.ndo_set_rx_mode =		netvsc_set_multicast_list,
+ 	.ndo_change_mtu =		netvsc_change_mtu,
+ 	.ndo_validate_addr =		eth_validate_addr,
+-	.ndo_set_mac_address =		eth_mac_addr,
++	.ndo_set_mac_address =		netvsc_set_mac_addr,
+ };
+ 
+ /*
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 981ebb1..fbf5394 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -27,6 +27,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/netdevice.h>
+ #include <linux/if_vlan.h>
++#include <linux/nls.h>
+ 
+ #include "hyperv_net.h"
+ 
+@@ -47,6 +48,7 @@ struct rndis_request {
+ 	struct hv_page_buffer buf;
+ 	/* FIXME: We assumed a fixed size request here. */
+ 	struct rndis_message request_msg;
++	u8 ext[100];
+ };
+ 
+ static void rndis_filter_send_completion(void *ctx);
+@@ -511,6 +513,83 @@ static int rndis_filter_query_device_mac(struct rndis_device *dev)
+ 				      dev->hw_mac_adr, &size);
+ }
+ 
++#define NWADR_STR "NetworkAddress"
++#define NWADR_STRLEN 14
++
++int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
++{
++	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
++	struct rndis_device *rdev = nvdev->extension;
++	struct net_device *ndev = nvdev->ndev;
++	struct rndis_request *request;
++	struct rndis_set_request *set;
++	struct rndis_config_parameter_info *cpi;
++	wchar_t *cfg_nwadr, *cfg_mac;
++	struct rndis_set_complete *set_complete;
++	char macstr[2*ETH_ALEN+1];
++	u32 extlen = sizeof(struct rndis_config_parameter_info) +
++		2*NWADR_STRLEN + 4*ETH_ALEN;
++	int ret, t;
++
++	request = get_rndis_request(rdev, RNDIS_MSG_SET,
++		RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
++	if (!request)
++		return -ENOMEM;
++
++	set = &request->request_msg.msg.set_req;
++	set->oid = RNDIS_OID_GEN_RNDIS_CONFIG_PARAMETER;
++	set->info_buflen = extlen;
++	set->info_buf_offset = sizeof(struct rndis_set_request);
++	set->dev_vc_handle = 0;
++
++	cpi = (struct rndis_config_parameter_info *)((ulong)set +
++		set->info_buf_offset);
++	cpi->parameter_name_offset =
++		sizeof(struct rndis_config_parameter_info);
++	/* Multiply by 2 because host needs 2 bytes (utf16) for each char */
++	cpi->parameter_name_length = 2*NWADR_STRLEN;
++	cpi->parameter_type = RNDIS_CONFIG_PARAM_TYPE_STRING;
++	cpi->parameter_value_offset =
++		cpi->parameter_name_offset + cpi->parameter_name_length;
++	/* Multiply by 4 because each MAC byte displayed as 2 utf16 chars */
++	cpi->parameter_value_length = 4*ETH_ALEN;
++
++	cfg_nwadr = (wchar_t *)((ulong)cpi + cpi->parameter_name_offset);
++	cfg_mac = (wchar_t *)((ulong)cpi + cpi->parameter_value_offset);
++	ret = utf8s_to_utf16s(NWADR_STR, NWADR_STRLEN, UTF16_HOST_ENDIAN,
++			      cfg_nwadr, NWADR_STRLEN);
++	if (ret < 0)
++		goto cleanup;
++	snprintf(macstr, 2*ETH_ALEN+1, "%pm", mac);
++	ret = utf8s_to_utf16s(macstr, 2*ETH_ALEN, UTF16_HOST_ENDIAN,
++			      cfg_mac, 2*ETH_ALEN);
++	if (ret < 0)
++		goto cleanup;
++
++	ret = rndis_filter_send_request(rdev, request);
++	if (ret != 0)
++		goto cleanup;
++
++	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
++	if (t == 0) {
++		netdev_err(ndev, "timeout before we got a set response...\n");
++		/*
++		 * can't put_rndis_request, since we may still receive a
++		 * send-completion.
++		 */
++		return -EBUSY;
++	} else {
++		set_complete = &request->response_msg.msg.set_complete;
++		if (set_complete->status != RNDIS_STATUS_SUCCESS)
++			ret = -EINVAL;
++	}
++
++cleanup:
++	put_rndis_request(rdev, request);
++	return ret;
++}
++
++
+ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+ {
+ 	u32 size = sizeof(u32);
+-- 
+1.7.4.1
