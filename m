@@ -1,102 +1,163 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4 2/4] NET ethernet introduce mac_platform helper
-Date: Fri, 6 Jul 2012 23:40:31 +0100
-Message-ID: <1341614431.2923.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120705024259.26317.16000.stgit@build.warmcat.com>
-	 <20120705024446.26317.49693.stgit@build.warmcat.com>
+Subject: [PATCH net-next 0/5] Cleanup, mostly kernel-doc
+Date: Fri, 6 Jul 2012 23:42:41 +0100
+Message-ID: <1341614561.2923.15.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <s-jan@ti.com>, <arnd@arndb.de>,
-	<patches@linaro.org>, <tony@atomide.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <rostedt@goodmis.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Andy Green <andy.green@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120705024446.26317.49693.stgit@build.warmcat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:30697 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756548Ab2GFWmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 18:42:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 10:44 +0800, Andy Green wrote:
-[...]
-> To make use of this safely you also need to make sure that any drivers that
-> may compete for the bus ordinal you are using (eg, mUSB and ehci in Panda
-> case) are loaded in a deterministic order.
-[...]
+I spotted some minor errors in the RSS policy changes, and one thing led
+to another and I ended up with all this:
 
-This seems very restrictive... would it be practical to also allow a
-driver name as a path component?
+Ben Hutchings (5):
+  net: Properly define functions with no parameters
+  net: Fix (nearly-)kernel-doc comments for various functions
+  net: Fix non-kernel-doc comments with kernel-doc start marker
+  drivers/net/ethernet: Fix (nearly-)kernel-doc comments for various
+    functions
+  drivers/net/ethernet: Fix non-kernel-doc comments with kernel-doc
+    start markers
 
-[...]
-> --- /dev/null
-> +++ b/include/net/mac-platform.h
-> @@ -0,0 +1,39 @@
-> +/*
-> + * mac-platform.h:  Enforces platform-defined MAC for Async probed devices
-> + */
-> +
-> +#ifndef __NET_MAC_PLATFORM_H__
-> +#define __NET_MAC_PLATFORM_H__
-> +
-> +#include <linux/if_ether.h>
-> +
-> +/**
-> + * struct mac_platform - associates asynchronously probed device path with
-> + *			 MAC address to be assigned to the device when it
-> + *			 is created
+ drivers/net/cris/eth_v10.c                         |    2 +-
+ drivers/net/ethernet/3com/3c501.c                  |    2 +-
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |   68 ++---
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c    |   70 ++---
+ drivers/net/ethernet/atheros/atl1e/atl1e_param.c   |    2 +-
+ drivers/net/ethernet/atheros/atlx/atl1.c           |   41 ++--
+ drivers/net/ethernet/atheros/atlx/atl2.c           |   56 ++---
+ drivers/net/ethernet/atheros/atlx/atlx.c           |   10 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    9 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    2 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h    |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h   |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h    |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |   35 ++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |    4 +-
+ drivers/net/ethernet/broadcom/cnic.c               |    2 +-
+ drivers/net/ethernet/brocade/bna/bfa_cee.c         |   61 ++----
+ drivers/net/ethernet/brocade/bna/bfa_cs.h          |   24 +-
+ drivers/net/ethernet/brocade/bna/bfa_defs.h        |   34 ++--
+ drivers/net/ethernet/brocade/bna/bfa_defs_cna.h    |    9 +-
+ .../net/ethernet/brocade/bna/bfa_defs_mfg_comm.h   |   18 +-
+ drivers/net/ethernet/brocade/bna/bfa_defs_status.h |    2 +-
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c         |  267 ++++++++++----------
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h         |   24 +-
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c      |   24 +-
+ drivers/net/ethernet/brocade/bna/bfa_msgq.c        |    4 +-
+ drivers/net/ethernet/brocade/bna/bfi.h             |   42 ++--
+ drivers/net/ethernet/brocade/bna/bfi_cna.h         |   20 +-
+ drivers/net/ethernet/brocade/bna/bfi_enet.h        |   64 +++---
+ drivers/net/ethernet/brocade/bna/bfi_reg.h         |    2 +-
+ drivers/net/ethernet/brocade/bna/bna.h             |   22 +-
+ drivers/net/ethernet/brocade/bna/bna_enet.c        |    6 +-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h     |   12 +-
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c       |    8 +-
+ drivers/net/ethernet/brocade/bna/bna_types.h       |   22 +-
+ drivers/net/ethernet/brocade/bna/bnad.c            |    8 +-
+ drivers/net/ethernet/brocade/bna/bnad.h            |    2 +-
+ drivers/net/ethernet/chelsio/cxgb3/sge.c           |    2 +-
+ drivers/net/ethernet/chelsio/cxgb3/t3_hw.c         |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |    2 +-
+ drivers/net/ethernet/ethoc.c                       |    4 +-
+ drivers/net/ethernet/freescale/fec.c               |    4 +-
+ drivers/net/ethernet/ibm/ehea/ehea_qmr.c           |    2 +-
+ drivers/net/ethernet/intel/e1000/e1000_hw.c        |    8 +-
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |    8 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c         |    2 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          |    1 +
+ drivers/net/ethernet/intel/igbvf/netdev.c          |    1 +
+ drivers/net/ethernet/intel/igbvf/vf.c              |    5 +-
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c        |    6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   41 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |   38 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c     |    8 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |    6 +-
+ drivers/net/ethernet/micrel/ks8851_mll.c           |    6 +-
+ drivers/net/ethernet/micrel/ksz884x.c              |    2 +-
+ drivers/net/ethernet/neterion/s2io.c               |   10 +-
+ drivers/net/ethernet/neterion/vxge/vxge-main.h     |    2 +-
+ drivers/net/ethernet/nvidia/forcedeth.c            |    4 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c    |   12 +-
+ .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |   10 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c  |    4 +-
+ drivers/net/ethernet/sfc/mcdi_pcol.h               |    2 +-
+ drivers/net/ethernet/sfc/net_driver.h              |    2 +-
+ drivers/net/ethernet/sfc/rx.c                      |    1 +
+ drivers/net/ethernet/smsc/smc911x.c                |    6 +-
+ drivers/net/ethernet/smsc/smc91x.c                 |    6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    2 +-
+ drivers/net/ethernet/tehuti/tehuti.c               |  177 ++++++++------
+ drivers/net/ethernet/ti/davinci_emac.c             |   74 +++---
+ drivers/net/ethernet/toshiba/spider_net.c          |    6 +-
+ drivers/net/ethernet/xilinx/ll_temac_main.c        |    2 +-
+ net/9p/trans_virtio.c                              |    2 +-
+ net/appletalk/ddp.c                                |    8 +-
+ net/batman-adv/bridge_loop_avoidance.c             |   51 +++--
+ net/batman-adv/hash.h                              |    3 +-
+ net/batman-adv/main.h                              |    3 +-
+ net/batman-adv/types.h                             |    3 +-
+ net/ceph/pagelist.c                                |    6 +-
+ net/core/dev.c                                     |   10 +-
+ net/core/rtnetlink.c                               |    2 +-
+ net/core/skbuff.c                                  |    5 +-
+ net/dcb/dcbnl.c                                    |    2 +-
+ net/dccp/ackvec.h                                  |    7 +-
+ net/dccp/ccid.c                                    |    1 +
+ net/dccp/ccids/ccid3.c                             |    8 +-
+ net/dccp/ccids/lib/loss_interval.c                 |    1 +
+ net/dccp/ccids/lib/packet_history.c                |    3 +-
+ net/dccp/ccids/lib/tfrc_equation.c                 |    2 +
+ net/dccp/dccp.h                                    |    1 +
+ net/dccp/feat.c                                    |   10 +
+ net/dccp/input.c                                   |    1 +
+ net/dccp/options.c                                 |    1 +
+ net/dccp/output.c                                  |    1 +
+ net/ethernet/eth.c                                 |    3 +
+ net/ipv4/ipmr.c                                    |    4 +-
+ net/ipv4/tcp.c                                     |    2 +-
+ net/ipv6/ip6_tunnel.c                              |    2 +-
+ net/llc/af_llc.c                                   |    2 +-
+ net/llc/llc_station.c                              |   16 +-
+ net/mac80211/mesh.c                                |    2 +-
+ net/mac80211/mesh_hwmp.c                           |    7 +-
+ net/mac80211/mesh_pathtbl.c                        |    4 +-
+ net/mac80211/mesh_plink.c                          |    5 +-
+ net/mac80211/rx.c                                  |    2 +-
+ net/netfilter/xt_TPROXY.c                          |    4 +-
+ net/netlink/genetlink.c                            |    2 +-
+ net/rds/page.c                                     |    9 +-
+ net/rxrpc/ar-output.c                              |    2 +-
+ net/sunrpc/backchannel_rqst.c                      |    9 +-
+ net/sunrpc/clnt.c                                  |    2 +-
+ net/sunrpc/xdr.c                                   |   12 +-
+ net/sunrpc/xprt.c                                  |    2 +-
+ net/tipc/bcast.c                                   |   10 +-
+ net/tipc/bearer.c                                  |    7 +-
+ net/tipc/bearer.h                                  |    2 +-
+ net/tipc/link.c                                    |   22 +-
+ net/tipc/name_table.c                              |   10 +-
+ net/tipc/port.c                                    |    2 +-
+ net/tipc/port.h                                    |    1 +
+ net/tipc/socket.c                                  |    2 +-
+ net/x25/x25_route.c                                |    2 +-
+ 126 files changed, 871 insertions(+), 878 deletions(-)
 
-A kernel-doc summary is strictly limited to one line.  The longer
-explanation can go in a paragraph under the field descriptions.
+-- 
+1.7.7.6
 
-> + * @device_path: device path name of network device
-> + * @mac: MAC address to assign to network device matching device path
-> + * @list: can be left uninitialized when passing from platform
-> + */
-> +
-> +struct mac_platform {
-> +	char *device_path;
-> +	u8 mac[ETH_ALEN];
-> +	struct list_head list; /* unused in platform data usage */
-> +};
-[...]
-> --- /dev/null
-> +++ b/net/ethernet/mac-platform.c
-[...]
-> +static struct mac_platform *__mac_platform_check(struct device *dev)
-> +{
-> +	const char *path;
-> +	const char *p;
-> +	const char *try;
-> +	int len;
-> +	struct device *devn;
-> +	struct mac_platform *tmp;
-> +	struct list_head *pos;
-> +
-> +	list_for_each(pos, &mac_platform_list) {
-> +
-> +		tmp = list_entry(pos, struct mac_platform, list);
-> +
-> +		try = tmp->device_path;
-> +
-> +		p = try + strlen(try);
-> +		devn = dev;
-> +
-> +		while (devn) {
-> +
-> +			path = dev_name(devn);
-> +			len = strlen(path);
-> +
-> +			if ((p - try) < len) {
-> +				devn = NULL;
-> +				continue;
-> +			}
-> +
-> +			p -= len;
-[...]
-
-There are so many blank lines here, it's hard to see much code at once.
-
-Ben.
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
