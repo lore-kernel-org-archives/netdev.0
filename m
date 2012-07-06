@@ -1,36 +1,104 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next 2/2] r8169: support RTL8168G
-Date: Fri, 06 Jul 2012 08:37:57 -0700
-Message-ID: <1341589077.3661.3.camel@joe2Laptop>
-References: <1340966060-2749-1-git-send-email-hayeswang@realtek.com>
-	 <1341221002-1522-1-git-send-email-hayeswang@realtek.com>
-	 <1341221002-1522-2-git-send-email-hayeswang@realtek.com>
-	 <20120704220458.GA1621@electric-eye.fr.zoreil.com>
-	 <1341449507.2058.6.camel@joe2Laptop>
-	 <20120706152046.GB6981@electric-eye.fr.zoreil.com>
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic in br_nf_forward_finish
+Date: Fri, 6 Jul 2012 23:37:50 +0800
+Message-ID: <CAF1ivSagm=MZTog1L+o5dqV72v9BGV+QYT_2ZrRnUcPkqA+xPQ@mail.gmail.com>
+References: <1341584394.4789.34.camel@chief-river-32>
+	<1341587206.3265.696.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120706152046.GB6981@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [124.207.24.138] ([124.207.24.138]:40390 "EHLO
+	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1757665Ab2GFPif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 11:38:35 -0400
+Received: from mail-vb0-f46.google.com (mail-vb0-f46.google.com [209.85.212.46])
+	(Authenticated sender: mlin@ss.pku.edu.cn)
+	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 8FF4CDBCC7
+	for <netdev@vger.kernel.org>; Fri,  6 Jul 2012 23:37:56 +0800 (CST)
+Received: by vbbff1 with SMTP id ff1so6225490vbb.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 08:37:50 -0700 (PDT)
+In-Reply-To: <1341587206.3265.696.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-06 at 17:20 +0200, Francois Romieu wrote:
-> Joe Perches <joe@perches.com> :
-> [...]
-> > This pattern is used a couple more times.
-> > There's no failure handling either.
-> 
-> I can do something for the initialize path. Other than that it's mostly
-> deeply burried hardware failure so I'd rather concentrate a bit on 
-> current problem reports.
-> 
-> This series already took me a bit further than expected (see below).
+On Fri, Jul 6, 2012 at 11:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2012-07-06 at 22:19 +0800, Lin Ming wrote:
+>> I can reproduce similiar panic with 3.5-rc5 kernel as Massimo reported at:
+>> http://marc.info/?l=linux-netdev&m=134089242113979&w=2
+>>
+>> The steps to reproduce as follow,
+>>
+>> 1. On Host1, setup brige br0(192.168.1.106)
+>> 2. Boot a kvm guest(192.168.1.105) on Host1 and start httpd
+>> 3. Start IPVS service on Host1
+>>    ipvsadm -A -t 192.168.1.106:80 -s rr
+>>    ipvsadm -a -t 192.168.1.106:80 -r 192.168.1.105:80 -m
+>> 4. Run apache benchmark on Host2(192.168.1.101)
+>>    ab -n 1000 http://192.168.1.106/
+>>
+>> The panic happened in br_nf_forward_finish because skb->nf_bridge is NULL.
+>> skb->nf_bridge is set to NULL in ip_vs_reply4 hook.
+>>
+>> br_nf_forward_ip():
+>>   NF_HOOK(pf, NF_INET_FORWARD, skb, brnf_get_logical_dev(skb, in), parent,
+>>                 br_nf_forward_finish);
+>>
+>> This calls IPVS hook ip_vs_reply4.
+>>
+>> ip_vs_reply4
+>>   ip_vs_out
+>>     handle_response
+>>       ip_vs_notrack
+>>         nf_reset()
+>>         {
+>>           skb->nf_bridge = NULL;
+>>         }
+>>
+>> This patch added skb->nf_bridge check in br_nf_forward_finish and the panic gone.
+>> But I am really not sure if this is the right fix.
+>> Please help to review.
+>>
+>> The panic log attached.
+> ...
+>> Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
+>> ---
+>>  net/bridge/br_netfilter.c |    2 +-
+>>  1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+>> index e41456b..10da415 100644
+>> --- a/net/bridge/br_netfilter.c
+>> +++ b/net/bridge/br_netfilter.c
+>> @@ -719,7 +719,7 @@ static int br_nf_forward_finish(struct sk_buff *skb)
+>>       struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+>>       struct net_device *in;
+>>
+>> -     if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
+>> +     if (!IS_ARP(skb) && !IS_VLAN_ARP(skb) && nf_bridge) {
+>>               in = nf_bridge->physindev;
+>>               if (nf_bridge->mask & BRNF_PKT_TYPE) {
+>>                       skb->pkt_type = PACKET_OTHERHOST;
+>
+> So after your patch we have the code in the else clause :
+>
+> } else {
+>         in = *((struct net_device **)(skb->cb));
+> }
+>
+> But do we really have a "struct net_device" pointer stored in skb->cb[]
+> at this stage ?
+>
+> AFAIK this is set only for ARP_FORWARD (br_nf_forward_arp() line 838 :
+> *d = (struct net_device *)in;),
+> not in br_nf_forward_ip()
+>
+> If we have garbage instead, we can have other bugs later...
 
-Allez Francois.
+You are right.
 
-When you take up a suggestion, you really go with it.
+The fundamental problem maybe in IPVS hook ip_vs_reply4 ......
