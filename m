@@ -1,74 +1,148 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] smsc95xx: support ethtool get_regs
-Date: Fri, 6 Jul 2012 22:01:46 +0200
-Message-ID: <20120706200146.GA11931@electric-eye.fr.zoreil.com>
-References: <1291035348.223127.1341596173191.JavaMail.root@mail.savoirfairelinux.com> <1847398984.224080.1341598531284.JavaMail.root@mail.savoirfairelinux.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic in
+ br_nf_forward_finish
+Date: Fri, 6 Jul 2012 23:34:39 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207062324270.1957@ja.ssi.bg>
+References: <1341584394.4789.34.camel@chief-river-32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Glendinning <steve@shawell.net>,
-	steve glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org, Nancy Lin <nancy.lin@smsc.com>
-To: =?utf-8?Q?=C3=89meric?= Vigier
-	<emeric.vigier@savoirfairelinux.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Lin Ming <mlin@ss.pku.edu.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:54241 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261Ab2GFUN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jul 2012 16:13:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1847398984.224080.1341598531284.JavaMail.root@mail.savoirfairelinux.com>
+Received: from ja.ssi.bg ([178.16.129.10]:37344 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754224Ab2GFU2g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jul 2012 16:28:36 -0400
+In-Reply-To: <1341584394.4789.34.camel@chief-river-32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=C3=89meric Vigier <emeric.vigier@savoirfairelinux.com> :
-[...]
-> +static int smsc95xx_ethtool_getregslen(struct net_device *dev)
-> +{
-> +	/* all smsc95xx registers plus all phy registers */
-> +	return COE_CR - ID_REV + 1 + 32 * sizeof(u32);
 
-I do not see where ID_REV is accounted for in the loops below.
+	Hello,
 
-s/32 */PHY_SPECIAL */ or s/PHY_SPECIAL/32/ below.
+On Fri, 6 Jul 2012, Lin Ming wrote:
 
-I thought PHY registers were 16 bits wide. Moreover they are already
-available through smsc95xx_ioctl().
+> I can reproduce similiar panic with 3.5-rc5 kernel as Massimo reported at:
+> http://marc.info/?l=linux-netdev&m=134089242113979&w=2
+> 
+> The steps to reproduce as follow,
+> 
+> 1. On Host1, setup brige br0(192.168.1.106)
+> 2. Boot a kvm guest(192.168.1.105) on Host1 and start httpd
+> 3. Start IPVS service on Host1
+>    ipvsadm -A -t 192.168.1.106:80 -s rr
+>    ipvsadm -a -t 192.168.1.106:80 -r 192.168.1.105:80 -m
+> 4. Run apache benchmark on Host2(192.168.1.101)
+>    ab -n 1000 http://192.168.1.106/
+> 
+> The panic happened in br_nf_forward_finish because skb->nf_bridge is NULL.
+> skb->nf_bridge is set to NULL in ip_vs_reply4 hook.
+> 
+> br_nf_forward_ip():
+>   NF_HOOK(pf, NF_INET_FORWARD, skb, brnf_get_logical_dev(skb, in), parent,
+>                 br_nf_forward_finish);
+> 
+> This calls IPVS hook ip_vs_reply4.
+> 
+> ip_vs_reply4
+>   ip_vs_out
+>     handle_response
+>       ip_vs_notrack
+>         nf_reset()
+>         {
+>           skb->nf_bridge = NULL;
+>         }
 
-> +}
-> +
-> +static void
-> +smsc95xx_ethtool_getregs(struct net_device *netdev, struct ethtool_r=
-egs *regs,
-> +			 void *buf)
-> +{
-> +	struct usbnet *dev =3D netdev_priv(netdev);
-> +	unsigned int i, j =3D 0, retval;
+	Actually, IPVS wants in this case just to replace nfct
+with untracked version. May be it is better to replace
+the nf_reset(skb) call in ip_vs_notrack() with a
+nf_conntrack_put(skb->nfct) call. Can you test and post
+such patch?
 
-	unsigned int i, j, retval;
+> This patch added skb->nf_bridge check in br_nf_forward_finish and the panic gone.
+> But I am really not sure if this is the right fix.
+> Please help to review.
+> 
+> The panic log attached.
+> 
+> [  579.781508] BUG: unable to handle kernel NULL pointer dereference at 0000000000000004
+> [  579.781669] IP: [<ffffffff817b1ca5>] br_nf_forward_finish+0x58/0x112
+> [  579.781792] PGD 218f9067 PUD 0 
+> [  579.781865] Oops: 0000 [#1] SMP 
+> [  579.781945] CPU 0 
+> [  579.781983] Modules linked in:
+> [  579.782047] 
+> [  579.782080] 
+> [  579.782114] Pid: 4644, comm: qemu Tainted: G        W    3.5.0-rc5-00006-g95e69f9 #282 Hewlett-Packard  /30E8
+> [  579.782300] RIP: 0010:[<ffffffff817b1ca5>]  [<ffffffff817b1ca5>] br_nf_forward_finish+0x58/0x112
+> [  579.782455] RSP: 0018:ffff88007b003a98  EFLAGS: 00010287
+> [  579.782541] RAX: 0000000000000008 RBX: ffff8800762ead00 RCX: 000000000001670a
+> [  579.782653] RDX: 0000000000000000 RSI: 000000000000000a RDI: ffff8800762ead00
+> [  579.782845] RBP: ffff88007b003ac8 R08: 0000000000016630 R09: ffff88007b003a90
+> [  579.782957] R10: ffff88007b0038e8 R11: ffff88002da37540 R12: ffff88002da01a02
+> [  579.783066] R13: ffff88002da01a80 R14: ffff88002d83c000 R15: ffff88002d82a000
+> [  579.783177] FS:  0000000000000000(0000) GS:ffff88007b000000(0063) knlGS:00000000f62d1b70
+> [  579.783306] CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
+> [  579.783395] CR2: 0000000000000004 CR3: 00000000218fe000 CR4: 00000000000027f0
+> [  579.783505] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [  579.783684] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> [  579.783795] Process qemu (pid: 4644, threadinfo ffff880021b20000, task ffff880021aba760)
+> [  579.783919] Stack:
+> [  579.783959]  ffff88007693cedc ffff8800762ead00 ffff88002da01a02 ffff8800762ead00
+> [  579.784110]  ffff88002da01a02 ffff88002da01a80 ffff88007b003b18 ffffffff817b26c7
+> [  579.784260]  ffff880080000000 ffffffff81ef59f0 ffff8800762ead00 ffffffff81ef58b0
+> [  579.784477] Call Trace:
+> [  579.784523]  <IRQ> 
+> [  579.784562] 
+> [  579.784603]  [<ffffffff817b26c7>] br_nf_forward_ip+0x275/0x2c8
+> [  579.784707]  [<ffffffff81704b58>] nf_iterate+0x47/0x7d
+> [  579.784797]  [<ffffffff817ac32e>] ? br_dev_queue_push_xmit+0xae/0xae
+> [  579.784906]  [<ffffffff81704bfb>] nf_hook_slow+0x6d/0x102
+> [  579.784995]  [<ffffffff817ac32e>] ? br_dev_queue_push_xmit+0xae/0xae
+> [  579.785175]  [<ffffffff8187fa95>] ? _raw_write_unlock_bh+0x19/0x1b
+> [  579.785179]  [<ffffffff817ac417>] __br_forward+0x97/0xa2
+> [  579.785179]  [<ffffffff817ad366>] br_handle_frame_finish+0x1a6/0x257
+> [  579.785179]  [<ffffffff817b2386>] br_nf_pre_routing_finish+0x26d/0x2cb
+> [  579.785179]  [<ffffffff817b2cf0>] br_nf_pre_routing+0x55d/0x5c1
+> [  579.785179]  [<ffffffff81704b58>] nf_iterate+0x47/0x7d
+> [  579.785179]  [<ffffffff817ad1c0>] ? br_handle_local_finish+0x44/0x44
+> [  579.785179]  [<ffffffff81704bfb>] nf_hook_slow+0x6d/0x102
+> [  579.785179]  [<ffffffff817ad1c0>] ? br_handle_local_finish+0x44/0x44
+> [  579.785179]  [<ffffffff81551525>] ? sky2_poll+0xb35/0xb54
+> [  579.785179]  [<ffffffff817ad62a>] br_handle_frame+0x213/0x229
+> [  579.785179]  [<ffffffff817ad417>] ? br_handle_frame_finish+0x257/0x257
+> [  579.785179]  [<ffffffff816e3b47>] __netif_receive_skb+0x2b4/0x3f1
+> [  579.785179]  [<ffffffff816e69fc>] process_backlog+0x99/0x1e2
+> [  579.785179]  [<ffffffff816e6800>] net_rx_action+0xdf/0x242
+> [  579.785179]  [<ffffffff8107e8a8>] __do_softirq+0xc1/0x1e0
+> [  579.785179]  [<ffffffff8135a5ba>] ? trace_hardirqs_off_thunk+0x3a/0x6c
+> [  579.785179]  [<ffffffff8188812c>] call_softirq+0x1c/0x30
+> 
+> Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
+> ---
+>  net/bridge/br_netfilter.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+> index e41456b..10da415 100644
+> --- a/net/bridge/br_netfilter.c
+> +++ b/net/bridge/br_netfilter.c
+> @@ -719,7 +719,7 @@ static int br_nf_forward_finish(struct sk_buff *skb)
+>  	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+>  	struct net_device *in;
+>  
+> -	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb)) {
+> +	if (!IS_ARP(skb) && !IS_VLAN_ARP(skb) && nf_bridge) {
+>  		in = nf_bridge->physindev;
+>  		if (nf_bridge->mask & BRNF_PKT_TYPE) {
+>  			skb->pkt_type = PACKET_OTHERHOST;
+> -- 
+> 1.7.2.5
 
-> +	u32 *data =3D buf;
-> +
-> +	netif_dbg(dev, hw, dev->net, "ethtool_getregs\n");
+Regards
 
-The tracing framework does provide almost the same information.
-
-> +
-> +	retval =3D smsc95xx_read_reg(dev, ID_REV, &regs->version);
-> +	if (retval < 0) {
-> +		netdev_warn(dev->net, "REGS: cannot read ID_REV\n");
-
-s/dev->net/netdev/ ?
-
-
-> +		return;
-> +	}
-> +
-> +	for (i =3D 0; i <=3D COE_CR; i +=3D (sizeof(u32))) {
-> +		retval =3D smsc95xx_read_reg(dev, i, &data[j++]);
-
-	for (i =3D 0, j =3D 0; i <=3D COE_CR; i +=3D sizeof(u32), j++) {
-		retval =3D smsc95xx_read_reg(dev, i, data + j);
-
---=20
-Ueimor
+--
+Julian Anastasov <ja@ssi.bg>
