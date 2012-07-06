@@ -1,56 +1,97 @@
 From: pablo@netfilter.org
-Subject: [PATCH 18/18] netfilter: nfnetlink_queue: do not allow to set unsupported flag bits
-Date: Fri,  6 Jul 2012 13:17:08 +0200
-Message-ID: <1341573428-3204-19-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/18] netfilter: nf_ct_icmp: add icmp_kmemdup[_compat]_sysctl_table function
+Date: Fri,  6 Jul 2012 13:17:03 +0200
+Message-ID: <1341573428-3204-14-git-send-email-pablo@netfilter.org>
 References: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43598 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933543Ab2GFLTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jul 2012 07:19:16 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1341573428-3204-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-Allow setting of only supported flag bits in queue->flags.
+Split sysctl function into smaller chucks to cleanup code and prepare
+patches to reduce ifdef pollution.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/nfnetlink_queue.h |    1 +
- net/netfilter/nfnetlink_queue_core.c      |    5 +++++
- 2 files changed, 6 insertions(+)
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c |   41 ++++++++++++++++++++------
+ 1 file changed, 32 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/netfilter/nfnetlink_queue.h b/include/linux/netfilter/nfnetlink_queue.h
-index e0d8fd8..3b1c136 100644
---- a/include/linux/netfilter/nfnetlink_queue.h
-+++ b/include/linux/netfilter/nfnetlink_queue.h
-@@ -95,5 +95,6 @@ enum nfqnl_attr_config {
- /* Flags for NFQA_CFG_FLAGS */
- #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
- #define NFQA_CFG_F_CONNTRACK			(1 << 1)
-+#define NFQA_CFG_F_MAX				(1 << 2)
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index 76f7a2f..9c2095c 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -337,34 +337,57 @@ static struct ctl_table icmp_compat_sysctl_table[] = {
+ #endif /* CONFIG_NF_CONNTRACK_PROC_COMPAT */
+ #endif /* CONFIG_SYSCTL */
  
- #endif /* _NFNETLINK_QUEUE_H */
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index a0b6492..c0496a5 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -910,6 +910,11 @@ nfqnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 		flags = ntohl(nla_get_be32(nfqa[NFQA_CFG_FLAGS]));
- 		mask = ntohl(nla_get_be32(nfqa[NFQA_CFG_MASK]));
- 
-+		if (flags >= NFQA_CFG_F_MAX) {
-+			ret = -EOPNOTSUPP;
-+			goto err_out_unlock;
-+		}
+-static int icmp_init_net(struct net *net, u_int16_t proto)
++static int icmp_kmemdup_sysctl_table(struct nf_proto_net *pn,
++				     struct nf_icmp_net *in)
+ {
+-	struct nf_icmp_net *in = icmp_pernet(net);
+-	struct nf_proto_net *pn = (struct nf_proto_net *)in;
+-	in->timeout = nf_ct_icmp_timeout;
+-
+ #ifdef CONFIG_SYSCTL
+ 	pn->ctl_table = kmemdup(icmp_sysctl_table,
+ 				sizeof(icmp_sysctl_table),
+ 				GFP_KERNEL);
+ 	if (!pn->ctl_table)
+ 		return -ENOMEM;
 +
- 		spin_lock_bh(&queue->lock);
- 		queue->flags &= ~mask;
- 		queue->flags |= flags & mask;
+ 	pn->ctl_table[0].data = &in->timeout;
++#endif
++	return 0;
++}
++
++static int icmp_kmemdup_compat_sysctl_table(struct nf_proto_net *pn,
++					    struct nf_icmp_net *in)
++{
++#ifdef CONFIG_SYSCTL
+ #ifdef CONFIG_NF_CONNTRACK_PROC_COMPAT
+ 	pn->ctl_compat_table = kmemdup(icmp_compat_sysctl_table,
+ 				       sizeof(icmp_compat_sysctl_table),
+ 				       GFP_KERNEL);
+-	if (!pn->ctl_compat_table) {
+-		kfree(pn->ctl_table);
+-		pn->ctl_table = NULL;
++	if (!pn->ctl_compat_table)
+ 		return -ENOMEM;
+-	}
++
+ 	pn->ctl_compat_table[0].data = &in->timeout;
+ #endif
+ #endif
+ 	return 0;
+ }
+ 
++static int icmp_init_net(struct net *net, u_int16_t proto)
++{
++	int ret;
++	struct nf_icmp_net *in = icmp_pernet(net);
++	struct nf_proto_net *pn = &in->pn;
++
++	in->timeout = nf_ct_icmp_timeout;
++
++	ret = icmp_kmemdup_compat_sysctl_table(pn, in);
++	if (ret < 0)
++		return ret;
++
++	ret = icmp_kmemdup_sysctl_table(pn, in);
++	if (ret < 0)
++		nf_ct_kfree_compat_sysctl_table(pn);
++
++	return ret;
++}
++
+ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp __read_mostly =
+ {
+ 	.l3proto		= PF_INET,
 -- 
 1.7.10
+
