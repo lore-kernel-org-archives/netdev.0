@@ -1,40 +1,40 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: pre-fetching skb for delayed send
-Date: Sat, 7 Jul 2012 10:18:08 -0400
-Message-ID: <20120707141808.GE19462@kvack.org>
-References: <4FF77070.7040705@candelatech.com> <20120706235258.GD19462@kvack.org> <4FF7B7E1.4000602@candelatech.com>
+From: John Herbert <eva@pif.co.id>
+Subject: =?utf-8?Q?Kedves_Gy=C5=91ztes?=
+Date: Sat, 7 Jul 2012 21:49:33 +0700 (WIT)
+Message-ID: <8742822.42.1341672573230.JavaMail.root__36663.1756107838$1341674965$gmane$org@mail.pif.co.id>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:38478 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751104Ab2GGOSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Jul 2012 10:18:09 -0400
-Content-Disposition: inline
-In-Reply-To: <4FF7B7E1.4000602@candelatech.com>
+Received: from ns2.gghost.indo.net.id ([202.53.253.80]:59775 "EHLO
+	smtp-1.indo.net.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673Ab2GGP2c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 11:28:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 06, 2012 at 09:15:29PM -0700, Ben Greear wrote:
-> Well, to start with..I at least know the next skb to transmit,
-> so I figured I'd prefetch it before starting tx of the current
-> skb.
+Kedves Gy=C5=91ztes
 
-Prefetching data you're just about to immediately access doesn't actually 
-help improve performance -- it's better to just access the data.  Prefetching 
-subsequent skbs should be of more benefit.
+E-mail c=C3=ADmed szerencs=C3=A9sen v=C3=A1lasztotta az ENSZ k=C3=A1rt=C3=
+=A9r=C3=ADt=C3=A9sre jogosult / kedvezm=C3=A9nyezett =C3=B6sszege $ 1,0=
+00,000,00 =C3=A9s a bank Bankk=C3=A1rtya m=C3=A1r let=C3=A9tbe helyezet=
+t Ezex Courier Express sz=C3=A1ll=C3=ADt nekik, hogy az =C3=96n sz=C3=A1=
+m=C3=A1ra. =C3=96n javasoljuk, hogy forduljon a fut=C3=A1r tiszt nekik =
+sz=C3=A1ll=C3=ADtani a Bank Bankk=C3=A1rtya =C3=96nnek az al=C3=A1bbi i=
+nformation.When kapcsolatba vele, k=C3=A9rj=C3=BCk, k=C3=BCldje el neki=
+ a partner c=C3=ADme =C3=A9s azonos=C3=ADt=C3=B3sz=C3=A1ma, hogy tudja =
+teljes=C3=ADteni a Bank Bankk=C3=A1rtya =C3=96nnek
 
-> My question is more basic though:  Given an skb, how do you prefetch
-> it...do you just prefetch the skb pointer, or do you need to dig into
-> the guts of the skb?
+kapcsolatot a fut=C3=A1r tiszt az al=C3=A1bbi inform=C3=A1ci=C3=B3kat
 
-See prefetch.h for details.  Just pass the pointer to the cacheline you want 
-to trigger prefetch on to prefetch() or prefetchw(), or use prefetch_range() 
-(probably useful for skbs given that they're larger than one cacheline).  
-For an skb, you may have to prefetch the frag list as well.
+Kapcsolattart=C3=B3 szem=C3=A9ly: Harry Richard
 
-		-ben
--- 
-"Thought is the essence of where you are now."
+E-mail: harry.richard@diplomats.com
+
+
+K=C3=A9rj=C3=BCk k=C3=A9rek
+
+
+=C3=9Cdv=C3=B6zlettel
+ Mr.John Herbert
