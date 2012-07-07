@@ -1,90 +1,66 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [PATCH net-next 3/5] net: Fix non-kernel-doc comments with
- kernel-doc start marker
-Date: Sat, 7 Jul 2012 09:04:42 +0200
-Message-ID: <20120707070442.GB27557@ritirata.org>
-References: <1341614561.2923.15.camel@bwh-desktop.uk.solarflarecom.com>
- <1341614742.2923.18.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/4] asix: Fix checkpatch warnings
+Date: Sat, 07 Jul 2012 10:36:49 +0200
+Message-ID: <1341650209.3265.1320.camel@edumazet-glaptop>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
+	 <1341574388-7464-2-git-send-email-christian.riesch@omicron.at>
+	 <1341575919.3265.499.camel@edumazet-glaptop>
+	 <CANEJEGvEUYNpWd6FPFnONk4AUFqLsD-oXG7ZRqibqhqxfUYKZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="SUOF0GtieIMvvwua"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Christian Riesch <christian.riesch@omicron.at>,
+	netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Allan Chou <allan@asix.com.tw>,
+	Mark Lord <kernel@teksavvy.com>,
+	Ming Lei <tom.leiming@gmail.com>,
+	Michael Riesch <michael@riesch.at>
+To: Grant Grundler <grundler@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:21716 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750846Ab2GGHEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 03:04:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1341614742.2923.18.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:41075 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751016Ab2GGIgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 04:36:54 -0400
+Received: by wgbdr13 with SMTP id dr13so9952336wgb.1
+        for <netdev@vger.kernel.org>; Sat, 07 Jul 2012 01:36:53 -0700 (PDT)
+In-Reply-To: <CANEJEGvEUYNpWd6FPFnONk4AUFqLsD-oXG7ZRqibqhqxfUYKZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2012-07-06 at 14:43 -0700, Grant Grundler wrote:
 
---SUOF0GtieIMvvwua
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Christian is clearly running checkpatch.pl as suggested in
+> Documentation/SubmittingPatches. He missed the part about "You should
+> be able to justify all violations that remain in your patch." and/or
+> didn't know about "fixing existing code is a waste of time".
+> 
+> Given the extent of the changes Christian is making (factoring out
+> asix common code from model specific code), it's helpful to have clean
+> checkpatch runs. I don't believe it's a waste of time to apply this
+> patch. Is it conflicting with any other code changes that are in
+> flight now?
 
-On Fri, Jul 06, 2012 at 11:45:42PM +0100, Ben Hutchings wrote:
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  net/ceph/pagelist.c |    6 +++---
->  net/dcb/dcbnl.c     |    2 +-
->  net/ipv4/tcp.c      |    2 +-
->  net/tipc/socket.c   |    2 +-
->  4 files changed, 6 insertions(+), 6 deletions(-)
->=20
-> diff --git a/net/ceph/pagelist.c b/net/ceph/pagelist.c
-> index 13cb409..693852f 100644
-> --- a/net/ceph/pagelist.c
-> +++ b/net/ceph/pagelist.c
-> @@ -95,7 +95,7 @@ int ceph_pagelist_reserve(struct ceph_pagelist *pl, siz=
-e_t space)
->  }
->  EXPORT_SYMBOL(ceph_pagelist_reserve);
-> =20
-> -/**
-> +/*
->   * Free any pages that have been preallocated.
->   */
+It was a waste of time for me, at least (Since I was CCed for the
+patch), and just sent my personal opinion on checkpatch generated
+patches.
 
+Splitting a perfectly good line :
 
-Am I wrong or this kind of comment should be:
+netdev_err(dev->net, "Error reading PHYID register: %02x\n", ret);
 
-/* Free any pages that have been preallocated. */
+into
 
+netdev_err(dev->net, "Error reading PHYID register: %02x\n",
+	   ret);
 
-> -/**
-> +/*
->   * Truncate a pagelist to the given point. Move extra pages to reserve.
->   * This won't sleep.
->   * Returns: 0 on success,
+is a clear sign of how stupid checkpatch is.
 
-And this also should start like:
+And fact we can spend time on discussions about checkpatch is
+astonishing.
 
-/* Truncate a pagelist to the given point. Move extra pages to reserve.
- * .....
+Automatic tools should be smart and ease people tasks, not
+slowing them.
 
-?
-
-Cheers,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---SUOF0GtieIMvvwua
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iEYEARECAAYFAk/334oACgkQpGgxIkP9cwflswCeMzTvjZgY41Mbah2tFT8vD+aH
-bAMAn2iB9655NWvvGZ96L0VKn6zBrFQK
-=dd8V
------END PGP SIGNATURE-----
-
---SUOF0GtieIMvvwua--
+Note that Christian patch serie in itself is good, I don't want to block
+it at all.
