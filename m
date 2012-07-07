@@ -1,52 +1,84 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: Re: Question: eth0 and wlan0 traffic load
-Date: Sat, 7 Jul 2012 12:55:01 +0800
-Message-ID: <CAF1ivSZeqebqDa0NqSKJ9GXb1MW5_36LwKYJdLvsRwNwMuNXiw@mail.gmail.com>
-References: <CAF1ivSaY3s-Vjbe7_vziCRCEsaXduug3+2G9R55SUBQ8HPT6hQ@mail.gmail.com>
-	<4FF7B826.4010007@candelatech.com>
+From: <Parav.Pandit@Emulex.Com>
+Subject: RE: speed specific port cost calculation in br_if.c and how to make
+ it generic based on 802.1d Table-17-3?
+Date: Sat, 7 Jul 2012 05:54:38 +0000
+Message-ID: <a0d0373b-e4b5-4ce1-a070-f93cb3381e71@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <Parav.Pandit@Emulex.Com>, <buytenh@gnu.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:43242 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082Ab2GGEzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 00:55:38 -0400
-Received: from mail-vb0-f46.google.com (mail-vb0-f46.google.com [209.85.212.46])
-	(Authenticated sender: mlin@ss.pku.edu.cn)
-	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id C5346DB96D
-	for <netdev@vger.kernel.org>; Sat,  7 Jul 2012 12:55:04 +0800 (CST)
-Received: by vbbff1 with SMTP id ff1so6544331vbb.19
-        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 21:55:01 -0700 (PDT)
-In-Reply-To: <4FF7B826.4010007@candelatech.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:12182 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808Ab2GGFyn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 01:54:43 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 7, 2012 at 12:16 PM, Ben Greear <greearb@candelatech.com> wrote:
-> On 07/06/2012 08:28 PM, Lin Ming wrote:
->>
->> On Host1
->>    eth0: 192.168.1.102
->> wlan0: 192.168.1.103
->>
->> On Host2, scp a file to Host1 via wlan0
->> # scp tmp.file 192.168.1.103:/tmp
->>
->> But ifstat shows all traffic goes to eth0.
->> Why does kernel choose eth0 although I use wlan0's address?
->> Is this an intended behavior?
->
->
-> You have to be clever with routing rules, arp-filtering, and such
-> to ensure that works as you want.
+Can any one point me on how to go about it?
+Parav
 
-Ah, right.
-The arp cache on Host2 for .102 and .103 points to Host1's eth0.
-
-Host2 # arp -a
-chief-river-32.local (192.168.1.102) at 00:1c:c4:a4:33:9e [ether] on eth0
-chief-river-32.local (192.168.1.103) at 00:1c:c4:a4:33:9e [ether] on eth0
-
-Thanks,
-Lin Ming
+> -----Original Message-----
+> From: Pandit, Parav
+> Sent: Tuesday, July 03, 2012 6:10 PM
+> To: 'netdev@vger.kernel.org'
+> Cc: Parav Pandit
+> Subject: speed specific port cost calculation in br_if.c and how to make it
+> generic based on 802.1d Table-17-3?
+> 
+> Hi,
+> 
+> I am trying to add further support to bridging portion of stack for 40G and
+> 100G speeds.
+> net/bridge/br_if.c function port_cost() has hard coded values of 2, 4, 19, 100
+> for speed of 10G, 1G, 100M, 10Mbps respectively.
+> Comment mentions about based on 802.1d standard.
+> 
+> I am referring to 802.1d-2004 Table 17-3-Port Path Cost values.
+> It mentions port cost value of 2000, 20000, 200000 respectively for speed of
+> 10G, 1G, 100Mbps respectively.
+> This makes sense to me as the post cost value is inversely proportional and
+> scalar function of its speed.
+> 
+> Can anyone please guide me on
+> 1. how the current calculation of path/port cost is being done so that I can
+> enhance it for other speeds too in generic way if possible?
+> 2. How can I incorporate for other speed settings in generic way based on
+> 802.1a-2004 spec, Table 17-3?
+> 
+> Current code snippet:
+> /* Determine initial path cost based on speed.
+>  * using recommendations from 802.1d standard
+>  *
+>  * Since driver might sleep need to not be holding any locks.
+>  */
+> static int port_cost(struct net_device *dev) {
+>         struct ethtool_cmd ecmd;
+> 
+>         if (!__ethtool_get_settings(dev, &ecmd)) {
+>                 switch (ethtool_cmd_speed(&ecmd)) {
+>                 case SPEED_10000:
+>                         return 2;
+>                 case SPEED_1000:
+>                         return 4;
+>                 case SPEED_100:
+>                         return 19;
+>                 case SPEED_10:
+>                         return 100;
+>                 }
+>         }
+> 
+>         /* Old silly heuristics based on name */
+>         if (!strncmp(dev->name, "lec", 3))
+>                 return 7;
+> 
+>         if (!strncmp(dev->name, "plip", 4))
+>                 return 2500;
+> 
+>         return 100;     /* assume old 10Mbps */
+> }
+> 
+> Regards,
+> Parav Pandit
