@@ -1,29 +1,43 @@
-From: "Fabien C." <kczy1jafrl3jpq1@jetable.org>
-Subject: Re: [iproute2] display vlan configuration
-Date: Sat, 07 Jul 2012 18:03:44 +0200
-Message-ID: <4FF85DE0.2000102@jetable.org>
-References: <4FF61DE9.7000507@jetable.org> <4FF62146.9070702@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: [PATCH] net: fix non-ANSI function declaration warning
+Date: Sat,  7 Jul 2012 20:47:51 +0200
+Message-ID: <1341686871-21822-1-git-send-email-emilgoode@gmail.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Emil Goode <emilgoode@gmail.com>
+To: edumazet@google.com, mirq-linux@rere.qmqm.pl, jpirko@redhat.com,
+	therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:57192 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751360Ab2GGQD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Jul 2012 12:03:59 -0400
-In-Reply-To: <4FF62146.9070702@intel.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:49034 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751031Ab2GGSpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 14:45:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/07/2012 01:20, John Fastabend a =C3=A9crit :
-> Here you need to show the details,
-> #ip -d link show dev eth2.333
+Sparse is warning about non-ANSI function declaration.
+Add void to the parameterless function.
 
-Thanks for your answer!=20
+net/core/dev.c:1804:38: warning:
+	non-ANSI function declaration of function
+	'netif_get_num_default_rss_queues'
 
-The man page doesn't document this option (-d), but "ip help" does, so =
-I guess I didn't search enough.=20
+Signed-off-by: Emil Goode <emilgoode@gmail.com>
+---
+ net/core/dev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-=46abien=20
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 07c1251..fc6fbce 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1801,7 +1801,7 @@ EXPORT_SYMBOL(netif_set_real_num_rx_queues);
+  * This routine should set an upper limit on the number of RSS queues
+  * used by default by multiqueue devices.
+  */
+-int netif_get_num_default_rss_queues()
++int netif_get_num_default_rss_queues(void)
+ {
+ 	return min_t(int, DEFAULT_MAX_NUM_RSS_QUEUES, num_online_cpus());
+ }
+-- 
+1.7.10.4
