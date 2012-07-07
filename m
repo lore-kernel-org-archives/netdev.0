@@ -1,26 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next-next] ppp: change default for incoming protocol
- filter to NPMODE_DROP
-Date: Sat, 07 Jul 2012 16:15:04 -0700 (PDT)
-Message-ID: <20120707.161504.686059289738005570.davem@davemloft.net>
-References: <20120704013258.GA26225@kvack.org>
-	<20120705.030027.655926012207641451.davem@davemloft.net>
-	<20120706172800.GC19462@kvack.org>
+Subject: Re: [PATCH] r6040: remove duplicate call to the pci_set_drvdata
+Date: Sat, 07 Jul 2012 16:16:24 -0700 (PDT)
+Message-ID: <20120707.161624.852350945325551955.davem@davemloft.net>
+References: <1341641255-26429-1-git-send-email-devendra.aaru@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: bcrl@kvack.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20120706172800.GC19462@kvack.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: florian@openwrt.org, netdev@vger.kernel.org
+To: devendra.aaru@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45934 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725Ab2GGXQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 19:16:25 -0400
+In-Reply-To: <1341641255-26429-1-git-send-email-devendra.aaru@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Fri, 6 Jul 2012 13:28:00 -0400
+From: Devendra Naga <devendra.aaru@gmail.com>
+Date: Sat,  7 Jul 2012 11:37:35 +0530
 
-> How about the following addition instead to provide a list of
-> protocols to disable?
+> pci_set_drvdata is called twice at the remove path of driver,
+> call it once.
+> 
+> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 
-The userspace programs must accomodate all existing kernels, so
-the addition of this feature is rather pointless.
+Applied, thanks.
