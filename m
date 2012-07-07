@@ -1,84 +1,38 @@
-From: <Parav.Pandit@Emulex.Com>
-Subject: RE: speed specific port cost calculation in br_if.c and how to make
- it generic based on 802.1d Table-17-3?
-Date: Sat, 7 Jul 2012 05:54:38 +0000
-Message-ID: <a0d0373b-e4b5-4ce1-a070-f93cb3381e71@CMEXHTCAS2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <Parav.Pandit@Emulex.Com>, <buytenh@gnu.org>
-To: <netdev@vger.kernel.org>
+From: Devendra Naga <devendra.aaru@gmail.com>
+Subject: [PATCH] r6040: remove duplicate call to the pci_set_drvdata
+Date: Sat,  7 Jul 2012 11:37:35 +0530
+Message-ID: <1341641255-26429-1-git-send-email-devendra.aaru@gmail.com>
+Cc: Devendra Naga <devendra.aaru@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:12182 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808Ab2GGFyn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 01:54:43 -0400
-Content-Language: en-US
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:34107 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555Ab2GGGHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 02:07:44 -0400
+Received: by pbbrp8 with SMTP id rp8so15817535pbb.19
+        for <netdev@vger.kernel.org>; Fri, 06 Jul 2012 23:07:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Can any one point me on how to go about it?
-Parav
+pci_set_drvdata is called twice at the remove path of driver,
+call it once.
 
-> -----Original Message-----
-> From: Pandit, Parav
-> Sent: Tuesday, July 03, 2012 6:10 PM
-> To: 'netdev@vger.kernel.org'
-> Cc: Parav Pandit
-> Subject: speed specific port cost calculation in br_if.c and how to make it
-> generic based on 802.1d Table-17-3?
-> 
-> Hi,
-> 
-> I am trying to add further support to bridging portion of stack for 40G and
-> 100G speeds.
-> net/bridge/br_if.c function port_cost() has hard coded values of 2, 4, 19, 100
-> for speed of 10G, 1G, 100M, 10Mbps respectively.
-> Comment mentions about based on 802.1d standard.
-> 
-> I am referring to 802.1d-2004 Table 17-3-Port Path Cost values.
-> It mentions port cost value of 2000, 20000, 200000 respectively for speed of
-> 10G, 1G, 100Mbps respectively.
-> This makes sense to me as the post cost value is inversely proportional and
-> scalar function of its speed.
-> 
-> Can anyone please guide me on
-> 1. how the current calculation of path/port cost is being done so that I can
-> enhance it for other speeds too in generic way if possible?
-> 2. How can I incorporate for other speed settings in generic way based on
-> 802.1a-2004 spec, Table 17-3?
-> 
-> Current code snippet:
-> /* Determine initial path cost based on speed.
->  * using recommendations from 802.1d standard
->  *
->  * Since driver might sleep need to not be holding any locks.
->  */
-> static int port_cost(struct net_device *dev) {
->         struct ethtool_cmd ecmd;
-> 
->         if (!__ethtool_get_settings(dev, &ecmd)) {
->                 switch (ethtool_cmd_speed(&ecmd)) {
->                 case SPEED_10000:
->                         return 2;
->                 case SPEED_1000:
->                         return 4;
->                 case SPEED_100:
->                         return 19;
->                 case SPEED_10:
->                         return 100;
->                 }
->         }
-> 
->         /* Old silly heuristics based on name */
->         if (!strncmp(dev->name, "lec", 3))
->                 return 7;
-> 
->         if (!strncmp(dev->name, "plip", 4))
->                 return 2500;
-> 
->         return 100;     /* assume old 10Mbps */
-> }
-> 
-> Regards,
-> Parav Pandit
+Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+---
+ drivers/net/ethernet/rdc/r6040.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index d1827e8..9acc026 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1256,7 +1256,6 @@ static void __devexit r6040_remove_one(struct pci_dev *pdev)
+ 	kfree(lp->mii_bus->irq);
+ 	mdiobus_free(lp->mii_bus);
+ 	netif_napi_del(&lp->napi);
+-	pci_set_drvdata(pdev, NULL);
+ 	pci_iounmap(pdev, lp->base);
+ 	pci_release_regions(pdev);
+ 	free_netdev(dev);
+-- 
+1.7.9.5
