@@ -1,127 +1,93 @@
 From: =?utf-8?Q?=C3=89meric?= Vigier
 	<emeric.vigier@savoirfairelinux.com>
 Subject: Re: [PATCH] smsc95xx: support ethtool get_regs
-Date: Sat, 7 Jul 2012 09:58:04 -0400 (EDT)
-Message-ID: <203906907.2074.1341669484945.JavaMail.root@mail.savoirfairelinux.com>
-References: <1341620651.2923.49.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Sat, 7 Jul 2012 10:13:42 -0400 (EDT)
+Message-ID: <2060381397.2115.1341670422805.JavaMail.root@mail.savoirfairelinux.com>
+References: <20120706221102.GA14276@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Glendinning <steve@shawell.net>,
-	steve glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org, Nancy Lin <nancy.lin@smsc.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Steve Glendinning <steve@shawell.net>, netdev@vger.kernel.org,
+	Nancy Lin <nancy.lin@smsc.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([209.172.62.77]:60453 "EHLO
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:57842 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095Ab2GGN6L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 09:58:11 -0400
-In-Reply-To: <1341620651.2923.49.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1751104Ab2GGONu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 10:13:50 -0400
+In-Reply-To: <20120706221102.GA14276@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
 ----- Mail original -----
-> On Fri, 2012-07-06 at 14:15 -0400, =C3=89meric Vigier wrote:
-> > From: Emeric Vigier <emeric.vigier@savoirfairelinux.com>
-> >=20
-> > Inspired by implementation in smsc911x.c and smsc9420.c
-> > Tested on ARM/pandaboard rev A3
-> >=20
-> > Signed-off-by: Emeric Vigier <emeric.vigier@savoirfairelinux.com>
-> > ---
-> >  drivers/net/usb/smsc95xx.c |   37
-> >  +++++++++++++++++++++++++++++++++++++
-> >  1 files changed, 37 insertions(+), 0 deletions(-)
-> >=20
-> > diff --git a/drivers/net/usb/smsc95xx.c
-> > b/drivers/net/usb/smsc95xx.c
-> > index b1112e7..bce14f6 100644
-> > --- a/drivers/net/usb/smsc95xx.c
-> > +++ b/drivers/net/usb/smsc95xx.c
-> > @@ -578,6 +578,41 @@ static int smsc95xx_ethtool_set_eeprom(struct
-> > net_device *netdev,
-> >  	return smsc95xx_write_eeprom(dev, ee->offset, ee->len, data);
-> >  }
-> > =20
-> > +
-> > +static int smsc95xx_ethtool_getregslen(struct net_device *dev)
-> > +{
-> > +	/* all smsc95xx registers plus all phy registers */
-> > +	return COE_CR - ID_REV + 1 + 32 * sizeof(u32);
-> > +}
-> > +
-> > +static void
-> > +smsc95xx_ethtool_getregs(struct net_device *netdev, struct
-> > ethtool_regs *regs,
-> > +			 void *buf)
-> > +{
-> > +	struct usbnet *dev =3D netdev_priv(netdev);
-> > +	unsigned int i, j =3D 0, retval;
-> > +	u32 *data =3D buf;
-> > +
-> > +	netif_dbg(dev, hw, dev->net, "ethtool_getregs\n");
-> > +
-> > +	retval =3D smsc95xx_read_reg(dev, ID_REV, &regs->version);
-> > +	if (retval < 0) {
-> > +		netdev_warn(dev->net, "REGS: cannot read ID_REV\n");
-> > +		return;
-> > +	}
-> > +
-> > +	for (i =3D 0; i <=3D COE_CR; i +=3D (sizeof(u32))) {
-> > +		retval =3D smsc95xx_read_reg(dev, i, &data[j++]);
-> > +		if (retval < 0) {
-> > +			netdev_warn(dev->net, "REGS: cannot read reg[%x]\n", i);
-> > +			return;
-> > +		}
-> > +	}
+> =C3=89meric Vigier <emeric.vigier@savoirfairelinux.com> :
+> [...]
+> > Yes, there are 16 bits wide according to smsc95xx.h.
+> > But other smsc drivers define 32bit wide PHY regs. I made myself
+> > believe
+> > that smsc would use the same PHY for each ethernet chip.
 >=20
-> Why does this start with i =3D 0 whereas the calculation of the lengt=
-h
-> uses ID_REV as the starting point?  Maybe ID_REV =3D=3D 0, but you sh=
-ould
-> be
-> consistent in whether you use the name or literal number.
+> SMSC people would surely answer before I find the relevant datasheet.
+>=20
+> Anyway the PHY registers are accessed indirectly through the
+> MII_{ADDR, DATA}
+> registers and MII_DATA r/w mask is limited to the lower 16 bits.
+>=20
+> > So would something like s/32 * sizeof(u32)/PHY_SPECIAL *
+> > sizeof(u16)/ solve the issue here?
+>=20
+> You would have to pack data[] as well. Or use u16 *.
 
-You are right. I will broadcast ID_REV usage.
+I will check this out next week.
 
 >=20
-> > +	for (i =3D 0; i <=3D PHY_SPECIAL; i++)
-> > +		data[j++] =3D smsc95xx_mdio_read(netdev, dev->mii.phy_id, i);
-> > +}
+> > Concerning the ioctl, I found ethtool much easier to use. And I
+> > believe
+> > smsc9514 is a very popular chipset, so this could help others
+> > debugging it.
 >=20
-> Again, why use PHY_SPECIAL (+ 1) here as opposed to 32 in the
-> calculation of the length?
+> # mii-tool -vv e1000
+> Using SIOCGMIIPHY=3D0x8947
+> e1000: no autonegotiation, 10baseT-HD, link ok
+>   registers for MII PHY 0:
+>     1140 796d 0141 0c30 0de1 0021 0004 0000
+>     0000 0200 0000 0000 0000 0000 0000 3000
+>     0000 0000 0000 0000 0174 0000 0000 0000
+>     4100 0000 000d 000f 0000 0000 0000 0000
+>   product info: vendor 00:50:43, model 3 rev 0
+>   basic mode:   autonegotiation enabled
+>   basic status: autonegotiation complete, link ok
+>   capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD
+>   10baseT-HD
+>   advertising:  1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD
+>   10baseT-HD flow-control
+>   link partner: 10baseT-HD
+>=20
+> It is not that bad for the first 32 PHY registers.
 
-32 was ok, but I hesitated between defining a SMSC95XX_PHY_END or using=
- the last defined register.
-Are 32 register-PHY generic to most devices? I mean could 32 be use wid=
-ely?
+I didn't know about mii-tool. Thanks.
 
 >=20
-> Ben.
+> [...]
+> > Do you mean LTT? I am not familiar with it, I should have a look.
 >=20
-> >  static const struct ethtool_ops smsc95xx_ethtool_ops =3D {
-> >  	.get_link	=3D usbnet_get_link,
-> >  	.nway_reset	=3D usbnet_nway_reset,
-> > @@ -589,6 +624,8 @@ static const struct ethtool_ops
-> > smsc95xx_ethtool_ops =3D {
-> >  	.get_eeprom_len	=3D smsc95xx_ethtool_get_eeprom_len,
-> >  	.get_eeprom	=3D smsc95xx_ethtool_get_eeprom,
-> >  	.set_eeprom	=3D smsc95xx_ethtool_set_eeprom,
-> > +	.get_regs_len	=3D smsc95xx_ethtool_getregslen,
-> > +	.get_regs	=3D smsc95xx_ethtool_getregs,
-> >  };
-> > =20
-> >  static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq
-> >  *rq, int cmd)
+> Documentation/trace/ftrace.txt
+
+ok
+
+>=20
+> [...]
+> > I should change that in previous "for" loop as well I suppose?
+>=20
+> You may.
+
+Thanks for your patience.
+
 >=20
 > --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->=20
+> Ueimor
 >=20
 
 --=20
