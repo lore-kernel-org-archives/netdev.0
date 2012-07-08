@@ -1,44 +1,44 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/7] drivers/isdn/mISDN/stack.c: remove invalid reference to list iterator variable
-Date: Sun,  8 Jul 2012 13:37:38 +0200
-Message-ID: <1341747464-1772-2-git-send-email-Julia.Lawall@lip6.fr>
-References: <1341747464-1772-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341747464-1772-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next patch] bnx2x: Add run-time CNIC support
+Date: Sun, 08 Jul 2012 05:15:50 -0700 (PDT)
+Message-ID: <20120708.051550.2116528390715127326.davem@davemloft.net>
+References: <1341740914-3181-1-git-send-email-meravs@broadcom.com>
+	<20120708.033122.2108511545126626834.davem@davemloft.net>
+	<1341745239.27284.13.camel@lb-tlvb-meravs.il.broadcom.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, dmitry@broadcom.com
+To: meravs@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49041 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901Ab2GHMPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 08:15:53 -0400
+In-Reply-To: <1341745239.27284.13.camel@lb-tlvb-meravs.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+From: "Merav Sicron" <meravs@broadcom.com>
+Date: Sun, 8 Jul 2012 14:00:39 +0300
 
-If list_for_each_entry, etc complete a traversal of the list, the iterator
-variable ends up pointing to an address at an offset from the list head,
-and not a meaningful structure.  Thus this value should not be used after
-the end of the iterator.  The dereferences are just deleted from the
-debugging statement.
+> static int set_is_cnic_enabled(bool is_vf)
+> {
+>         if (is_vf)
+>                 return 0;
+> #if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
+>         return 1;
+> #else
+>         return 0;
+> #endif
+> }
 
-This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
+I still think this is beyond ugly.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+This ifdef just wants to die completely.  It serves no real
+purpose as every distribution vendor that turns on your driver
+will turn CNIC on as well.
 
----
- drivers/isdn/mISDN/stack.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/mISDN/stack.c b/drivers/isdn/mISDN/stack.c
-index 1a0ae44..5f21f62 100644
---- a/drivers/isdn/mISDN/stack.c
-+++ b/drivers/isdn/mISDN/stack.c
-@@ -135,8 +135,8 @@ send_layer2(struct mISDNstack *st, struct sk_buff *skb)
- 			skb = NULL;
- 		else if (*debug & DEBUG_SEND_ERR)
- 			printk(KERN_DEBUG
--			       "%s ch%d mgr prim(%x) addr(%x) err %d\n",
--			       __func__, ch->nr, hh->prim, ch->addr, ret);
-+			       "%s mgr prim(%x) err %d\n",
-+			       __func__, hh->prim, ret);
- 	}
- out:
- 	mutex_unlock(&st->lmutex);
+And you have to address the lost of const'ness of the netdevice ops.
+If you absolutely must have runtime method choices, you must use
+multiple instances of netdevice ops and assign the appropriate one.
