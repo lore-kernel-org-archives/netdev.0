@@ -1,50 +1,37 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net,1/1] hyperv: Add support for setting MAC from within
- guests
-Date: Sun, 8 Jul 2012 00:29:38 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DDC74F4@TK5EX14MBXC222.redmond.corp.microsoft.com>
-References: <1341609932-18971-1-git-send-email-haiyangz@microsoft.com>
- <1341620355.2923.46.camel@bwh-desktop.uk.solarflarecom.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH next-next] ppp: change default for incoming protocol filter to NPMODE_DROP
+Date: Sat, 7 Jul 2012 20:38:04 -0400
+Message-ID: <20120708003804.GH19462@kvack.org>
+References: <20120704013258.GA26225@kvack.org> <20120705.030027.655926012207641451.davem@davemloft.net> <20120706172800.GC19462@kvack.org> <20120707.161504.686059289738005570.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341620355.2923.46.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120707.161504.686059289738005570.davem@davemloft.net>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IEZyaWRheSwgSnVseSAw
-NiwgMjAxMiA4OjE5IFBNDQo+IFRvOiBIYWl5YW5nIFpoYW5nDQo+IENjOiBkYXZlbUBkYXZlbWxv
-ZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuOw0KPiBvbGFmQGFl
-cGZsZS5kZTsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgZGV2ZWxAbGludXhkcml2ZXJw
-cm9qZWN0Lm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCwxLzFdIGh5cGVydjogQWRkIHN1
-cHBvcnQgZm9yIHNldHRpbmcgTUFDIGZyb20NCj4gd2l0aGluIGd1ZXN0cw0KPiANCj4gT24gRnJp
-LCAyMDEyLTA3LTA2IGF0IDE0OjI1IC0wNzAwLCBIYWl5YW5nIFpoYW5nIHdyb3RlOg0KPiA+IFRo
-aXMgYWRkcyBzdXBwb3J0IGZvciBzZXR0aW5nIHN5bnRoZXRpYyBOSUMgTUFDIGFkZHJlc3MgZnJv
-bSB3aXRoaW4NCj4gPiBMaW51eCBndWVzdHMuIEJlZm9yZSB1c2luZyB0aGlzIGZlYXR1cmUsIHRo
-ZSBvcHRpb24gInNwb29maW5nIG9mIE1BQw0KPiBhZGRyZXNzIg0KPiA+IHNob3VsZCBiZSBlbmFi
-bGVkIGF0IHRoZSBIeXBlci1WIG1hbmFnZXIgLyBTZXR0aW5ncyBvZiB0aGUgc3ludGhldGljDQo+
-ID4gTklDLg0KPiBbLi4uXQ0KPiA+ICtpbnQgcm5kaXNfZmlsdGVyX3NldF9kZXZpY2VfbWFjKHN0
-cnVjdCBodl9kZXZpY2UgKmhkZXYsIGNoYXIgKm1hYykgew0KPiBbLi4uXQ0KPiA+ICsJdCA9IHdh
-aXRfZm9yX2NvbXBsZXRpb25fdGltZW91dCgmcmVxdWVzdC0+d2FpdF9ldmVudCwgNSpIWik7DQo+
-ID4gKwlpZiAodCA9PSAwKSB7DQo+ID4gKwkJbmV0ZGV2X2VycihuZGV2LCAidGltZW91dCBiZWZv
-cmUgd2UgZ290IGEgc2V0DQo+IHJlc3BvbnNlLi4uXG4iKTsNCj4gPiArCQkvKg0KPiA+ICsJCSAq
-IGNhbid0IHB1dF9ybmRpc19yZXF1ZXN0LCBzaW5jZSB3ZSBtYXkgc3RpbGwgcmVjZWl2ZSBhDQo+
-ID4gKwkJICogc2VuZC1jb21wbGV0aW9uLg0KPiA+ICsJCSAqLw0KPiA+ICsJCXJldHVybiAtRUJV
-U1k7DQo+ID4gKwl9IGVsc2Ugew0KPiA+ICsJCXNldF9jb21wbGV0ZSA9ICZyZXF1ZXN0LT5yZXNw
-b25zZV9tc2cubXNnLnNldF9jb21wbGV0ZTsNCj4gPiArCQlpZiAoc2V0X2NvbXBsZXRlLT5zdGF0
-dXMgIT0gUk5ESVNfU1RBVFVTX1NVQ0NFU1MpDQo+ID4gKwkJCXJldCA9IC1FSU5WQUw7DQo+IFsu
-Li5dDQo+IA0KPiBJcyB0aGVyZSBhIHNwZWNpZmljIGVycm9yIGNvZGUgdGhhdCBpbmRpY2F0ZXMg
-dGhlIGh5cGVydmlzb3IgaXMgY29uZmlndXJlZCBub3QNCj4gdG8gYWxsb3cgTUFDIGFkZHJlc3Mg
-Y2hhbmdlcz8gIElmIHNvLCBzaG91bGRuJ3QgdGhhdCBiZSB0cmFuc2xhdGVkIHRvIHJldHVybg0K
-PiBFUEVSTSByYXRoZXIgdGhhbiBFSU5WQUw/DQoNCldpbGwgZG8uIA0KDQpUaGFua3MsDQotIEhh
-aXlhbmcNCg0K
+On Sat, Jul 07, 2012 at 04:15:04PM -0700, David Miller wrote:
+> From: Benjamin LaHaise <bcrl@kvack.org>
+> Date: Fri, 6 Jul 2012 13:28:00 -0400
+> 
+> > How about the following addition instead to provide a list of
+> > protocols to disable?
+> 
+> The userspace programs must accomodate all existing kernels, so
+> the addition of this feature is rather pointless.
+
+It's not existing kernels that this guards against, but the use of older 
+versions of the API users on new kernels that support additional protocols.  
+I'm in the middle of porting a PPP stack to using the ppp_generic interface, 
+and there is no way for me to prevent packet types for protocols which are 
+newly added to the kernel from getting these new packet types leaked.  I 
+came across this exactly because I was testing this case.  I suppose I can 
+ignore the issue, but I'd prefer to get it right since it is technically a 
+security hole that bypasses PPP session authentication.
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
