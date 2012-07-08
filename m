@@ -1,56 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/4] asix: Add a new driver for the AX88172A
-Date: Sun, 8 Jul 2012 16:50:56 +0100
-Message-ID: <1341762656.25597.230.camel@deadeye.wl.decadent.org.uk>
-References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
-	 <1341574388-7464-5-git-send-email-christian.riesch@omicron.at>
-	 <1341596255.2923.7.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1341761975.2038.28.camel@schesaplana>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Christian Riesch <christian.riesch@omicron.at>,
-	<netdev@vger.kernel.org>, Oliver Neukum <oneukum@suse.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Allan Chou <allan@asix.com.tw>,
-	Mark Lord <kernel@teksavvy.com>,
-	Grant Grundler <grundler@chromium.org>,
-	Ming Lei <tom.leiming@gmail.com>
-To: <michael@riesch.at>
+From: Devendra Naga <devendra.aaru@gmail.com>
+Subject: [PATCH] r6040: use module_pci_driver macro
+Date: Sun,  8 Jul 2012 21:27:57 +0530
+Message-ID: <1341763077-938-1-git-send-email-devendra.aaru@gmail.com>
+Cc: Devendra Naga <devendra.aaru@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:25051 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751859Ab2GHPvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 11:51:02 -0400
-In-Reply-To: <1341761975.2038.28.camel@schesaplana>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:62650 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752189Ab2GHP6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 11:58:07 -0400
+Received: by pbbrp8 with SMTP id rp8so17836171pbb.19
+        for <netdev@vger.kernel.org>; Sun, 08 Jul 2012 08:58:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-07-08 at 17:39 +0200, Michael Riesch wrote:
-> On Fri, 2012-07-06 at 18:37 +0100, Ben Hutchings wrote:
-> > > +	priv->mdio->priv = (void *)dev;
-> > > +	priv->mdio->read = &asix_mdio_bus_read;
-> > > +	priv->mdio->write = &asix_mdio_bus_write;
-> > > +	priv->mdio->name = "Asix MDIO Bus";
-> > > +	snprintf(priv->mdio->id, MII_BUS_ID_SIZE, "asix-%s",
-> > > +		 dev_name(dev->net->dev.parent));
-> > [...]
-> > 
-> > I think you need to ensure that the bus identifier is unique throughout
-> > its lifetime, but net devices can be renamed and that could lead to a
-> > collision.  Perhaps you could use the ifindex or the USB device path
-> 
-> Ben,
-> 
-> the dev_name function in the code above returns the sysfs filename of
-> the USB device (e.g. 1-0:1.0).
-[...]
+as the manual of module_pci_driver says that
+it can be used when the init and exit functions of
+the module does nothing but the pci_register_driver
+and pci_unregister_driver.
 
-Sorry, I didn't read that carefully enough.
+use it for rdc's r6040 driver, as the init and exit
+paths does as above, and also this reduces a little
+amount of code.
 
-Ben.
+Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
+---
+ drivers/net/ethernet/rdc/r6040.c |   15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
 
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 9acc026..557a265 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1277,17 +1277,4 @@ static struct pci_driver r6040_driver = {
+ 	.remove		= __devexit_p(r6040_remove_one),
+ };
+ 
+-
+-static int __init r6040_init(void)
+-{
+-	return pci_register_driver(&r6040_driver);
+-}
+-
+-
+-static void __exit r6040_cleanup(void)
+-{
+-	pci_unregister_driver(&r6040_driver);
+-}
+-
+-module_init(r6040_init);
+-module_exit(r6040_cleanup);
++module_pci_driver(r6040_driver);
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.9.5
