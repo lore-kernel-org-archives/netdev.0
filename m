@@ -1,390 +1,66 @@
-From: Ronen Hod <rhod@redhat.com>
-Subject: Re: [net-next RFC V5 0/5] Multiqueue virtio-net
-Date: Sun, 08 Jul 2012 11:19:38 +0300
-Message-ID: <4FF9429A.8020508@redhat.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+From: <Menny_Hamburger@Dell.com>
+Subject: RE: IPV6 ndisc::  Bad NIC causing  IPV6 NDP to stop working
+Date: Sun, 8 Jul 2012 09:46:37 +0100
+Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34FD4FD1@DUBX7MCDUB01.EMEA.DELL.COM>
+References: <D8C50530D6022F40A817A35C40CC06A70B34DBEFCF@DUBX7MCDUB01.EMEA.DELL.COM>
+	 <1340266972.4604.4404.camel@edumazet-glaptop>
+	 <D8C50530D6022F40A817A35C40CC06A70B34DBF05D@DUBX7MCDUB01.EMEA.DELL.COM>
+ <1340270190.4604.4640.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:18933 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512Ab2GHIql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 04:46:41 -0400
+In-Reply-To: <1340270190.4604.4640.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/05/2012 01:29 PM, Jason Wang wrote:
-> Hello All:
->
-> This series is an update version of multiqueue virtio-net driver based on
-> Krishna Kumar's work to let virtio-net use multiple rx/tx queues to do the
-> packets reception and transmission. Please review and comments.
->
-> Test Environment:
-> - Intel(R) Xeon(R) CPU E5620 @ 2.40GHz, 8 cores 2 numa nodes
-> - Two directed connected 82599
->
-> Test Summary:
->
-> - Highlights: huge improvements on TCP_RR test
-
-Hi Jason,
-
-It might be that the good TCP_RR results are due to the large number of sessions (50-250). Can you test it also with small number of sessions?
-
-> - Lowlights: regression on small packet transmission, higher cpu utilization
->               than single queue, need further optimization
->
-> Analysis of the performance result:
->
-> - I count the number of packets sending/receiving during the test, and
->    multiqueue show much more ability in terms of packets per second.
->
-> - For the tx regression, multiqueue send about 1-2 times of more packets
->    compared to single queue, and the packets size were much smaller than single
->    queue does. I suspect tcp does less batching in multiqueue, so I hack the
->    tcp_write_xmit() to forece more batching, multiqueue works as well as
->    singlequeue for both small transmission and throughput
-
-Could it be that since the CPUs are not busy they are available for immediate handling of the packets (little batching)? In such scenario the CPU utilization is not really interesting. What will happen on a busy machine?
-
-Ronen.
-
->
-> - I didn't pack the accelerate RFS with virtio-net in this sereis as it still
->    need further shaping, for the one that interested in this please see:
->    http://www.mail-archive.com/kvm@vger.kernel.org/msg64111.html
->
-> Changes from V4:
-> - Add ability to negotiate the number of queues through control virtqueue
-> - Ethtool -{L|l} support and default the tx/rx queue number to 1
-> - Expose the API to set irq affinity instead of irq itself
->
-> Changes from V3:
->
-> - Rebase to the net-next
-> - Let queue 2 to be the control virtqueue to obey the spec
-> - Prodives irq affinity
-> - Choose txq based on processor id
->
-> References:
->
-> - V4: https://lkml.org/lkml/2012/6/25/120
-> - V3: http://lwn.net/Articles/467283/
->
-> Test result:
->
-> 1) 1 vm 2 vcpu 1q vs 2q, 1 - 1q, 2 - 2q, no pinning
->
-> - Guest to External Host TCP STREAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 650.55 655.61 100% 24.88 24.86 99%
-> 2 64 1446.81 1309.44 90% 30.49 27.16 89%
-> 4 64 1430.52 1305.59 91% 30.78 26.80 87%
-> 8 64 1450.89 1270.82 87% 30.83 25.95 84%
-> 1 256 1699.45 1779.58 104% 56.75 59.08 104%
-> 2 256 4902.71 3446.59 70% 98.53 62.78 63%
-> 4 256 4803.76 2980.76 62% 97.44 54.68 56%
-> 8 256 5128.88 3158.74 61% 104.68 58.61 55%
-> 1 512 2837.98 2838.42 100% 89.76 90.41 100%
-> 2 512 6742.59 5495.83 81% 155.03 99.07 63%
-> 4 512 9193.70 5900.17 64% 202.84 106.44 52%
-> 8 512 9287.51 7107.79 76% 202.18 129.08 63%
-> 1 1024 4166.42 4224.98 101% 128.55 129.86 101%
-> 2 1024 6196.94 7823.08 126% 181.80 168.81 92%
-> 4 1024 9113.62 9219.49 101% 235.15 190.93 81%
-> 8 1024 9324.25 9402.66 100% 239.10 179.99 75%
-> 1 2048 7441.63 6534.04 87% 248.01 215.63 86%
-> 2 2048 7024.61 7414.90 105% 225.79 219.62 97%
-> 4 2048 8971.49 9269.00 103% 278.94 220.84 79%
-> 8 2048 9314.20 9359.96 100% 268.36 192.23 71%
-> 1 4096 8282.60 8990.08 108% 277.45 320.05 115%
-> 2 4096 9194.80 9293.78 101% 317.02 248.76 78%
-> 4 4096 9340.73 9313.19 99% 300.34 230.35 76%
-> 8 4096 9148.23 9347.95 102% 279.49 199.43 71%
-> 1 16384 8787.89 8766.31 99% 312.38 316.53 101%
-> 2 16384 9306.35 9156.14 98% 319.53 279.83 87%
-> 4 16384 9177.81 9307.50 101% 312.69 230.07 73%
-> 8 16384 9035.82 9188.00 101% 298.32 199.17 66%
-> - TCP RR
-> sessions size throughput1 throughput2   norm1 norm2
-> 50 1 54695.41 84164.98 153% 1957.33 1901.31 97%
-> 100 1 60141.88 88598.94 147% 2157.90 2000.45 92%
-> 250 1 74763.56 135584.22 181% 2541.94 2628.59 103%
-> 50 64 51628.38 82867.50 160% 1872.55 1812.16 96%
-> 100 64 60367.73 84080.60 139% 2215.69 1867.69 84%
-> 250 64 68502.70 124910.59 182% 2321.43 2495.76 107%
-> 50 128 53477.08 77625.07 145% 1905.10 1870.99 98%
-> 100 128 59697.56 74902.37 125% 2230.66 1751.03 78%
-> 250 128 71248.74 133963.55 188% 2453.12 2711.72 110%
-> 50 256 47663.86 67742.63 142% 1880.45 1735.30 92%
-> 100 256 54051.84 68738.57 127% 2123.03 1778.59 83%
-> 250 256 68250.06 124487.90 182% 2321.89 2598.60 111%
-> - External Host to Guest TCP STRAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 847.71 864.83 102% 57.99 57.93 99%
-> 2 64 1690.82 1544.94 91% 80.13 55.09 68%
-> 4 64 3434.98 3455.53 100% 127.17 89.00 69%
-> 8 64 5890.19 6557.35 111% 194.70 146.52 75%
-> 1 256 2094.04 2109.14 100% 130.73 127.14 97%
-> 2 256 5218.13 3731.97 71% 219.15 114.02 52%
-> 4 256 6734.51 9213.47 136% 227.87 208.31 91%
-> 8 256 6452.86 9402.78 145% 224.83 207.77 92%
-> 1 512 3945.07 4203.68 106% 279.72 273.30 97%
-> 2 512 7878.96 8122.55 103% 278.25 231.71 83%
-> 4 512 7645.89 9402.13 122% 252.10 217.42 86%
-> 8 512 6657.06 9403.71 141% 239.81 214.89 89%
-> 1 1024 5729.06 5111.21 89% 289.38 303.09 104%
-> 2 1024 8097.27 8159.67 100% 269.29 242.97 90%
-> 4 1024 7778.93 8919.02 114% 261.28 205.50 78%
-> 8 1024 6458.02 9360.02 144% 221.26 208.09 94%
-> 1 2048 6426.94 5195.59 80% 292.52 307.47 105%
-> 2 2048 8221.90 9025.66 109% 283.80 242.25 85%
-> 4 2048 7364.72 8527.79 115% 248.10 198.36 79%
-> 8 2048 6760.63 9161.07 135% 230.53 205.12 88%
-> 1 4096 7247.02 6874.21 94% 276.23 287.68 104%
-> 2 4096 8346.04 8818.65 105% 281.49 254.81 90%
-> 4 4096 6710.00 9354.59 139% 216.41 210.13 97%
-> 8 4096 6265.69 9406.87 150% 206.69 210.92 102%
-> 1 16384 8159.50 8048.79 98% 266.94 283.11 106%
-> 2 16384 8525.66 8552.41 100% 294.36 239.27 81%
-> 4 16384 6042.24 8447.86 139% 200.21 196.40 98%
-> 8 16384 6432.63 9403.49 146% 211.48 206.13 97%
->
-> 2) 1 vm 4 vcpu 1q vs 4q, 1 - 1q, 2 - 4q, no pinning
->
-> - Guest to External Host TCP STREAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 636.93 657.69 103% 23.55 24.42 103%
-> 2 64 1457.46 1268.78 87% 30.97 26.02 84%
-> 4 64 3062.86 2302.43 75% 41.00 29.64 72%
-> 8 64 3107.68 2308.32 74% 41.62 29.07 69%
-> 1 256 1743.50 1750.11 100% 59.00 56.63 95%
-> 2 256 4582.61 2870.31 62% 92.47 51.97 56%
-> 4 256 8440.96 4795.37 56% 135.10 56.39 41%
-> 8 256 9240.31 6654.82 72% 144.76 74.89 51%
-> 1 512 2918.25 2735.26 93% 91.08 86.47 94%
-> 2 512 8978.32 5107.95 56% 200.00 94.97 47%
-> 4 512 8850.39 6864.37 77% 190.32 101.09 53%
-> 8 512 9270.30 8483.01 91% 193.44 118.73 61%
-> 1 1024 4416.10 3679.70 83% 135.54 110.63 81%
-> 2 1024 9085.20 8770.48 96% 242.23 175.59 72%
-> 4 1024 9158.57 9011.56 98% 234.39 159.17 67%
-> 8 1024 9345.89 9067.43 97% 233.35 138.73 59%
-> 1 2048 8455.19 6077.94 71% 338.52 190.16 56%
-> 2 2048 9223.32 8237.73 89% 270.00 198.27 73%
-> 4 2048 9080.75 9257.63 101% 261.30 172.80 66%
-> 8 2048 9177.39 8977.10 97% 256.89 147.50 57%
-> 1 4096 8665.35 8394.78 96% 289.63 289.85 100%
-> 2 4096 7850.73 8857.86 112% 253.33 252.62 99%
-> 4 4096 9332.55 8508.37 91% 289.19 151.29 52%
-> 8 4096 8482.30 9146.80 107% 255.41 156.02 61%
-> 1 16384 8825.72 8778.26 99% 314.60 308.89 98%
-> 2 16384 9283.85 8927.40 96% 316.48 246.98 78%
-> 4 16384 7766.95 8708.06 112% 265.25 155.59 58%
-> 8 16384 8945.55 8940.23 99% 298.45 151.32 50%
-> - TCP_RR
-> sessions size throughput1 throughput2   norm1 norm2
-> 50 1 60848.70 81719.39 134% 2196.86 1551.05 70%
-> 100 1 61886.19 81425.02 131% 2215.76 1517.52 68%
-> 250 1 72058.41 162597.84 225% 2441.84 2278.14 93%
-> 50 64 51646.93 74160.10 143% 1861.07 1322.22 71%
-> 100 64 57574.86 83488.26 145% 2076.54 1479.79 71%
-> 250 64 67583.35 138482.15 204% 2314.46 2022.83 87%
-> 50 128 59931.51 71633.03 119% 2244.60 1309.18 58%
-> 100 128 58329.80 73104.90 125% 2202.98 1329.52 60%
-> 250 128 71021.55 161067.73 226% 2469.11 2205.28 89%
-> 50 256 47509.24 64330.24 135% 1915.75 1269.90 66%
-> 100 256 49293.03 68507.94 138% 1939.75 1263.64 65%
-> 250 256 63169.07 138390.68 219% 2255.47 2098.13 93%
-> - External Host to Guest TCP STREAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 850.18 854.96 100% 56.94 58.25 102%
-> 2 64 1659.12 1730.25 104% 81.65 67.57 82%
-> 4 64 3254.70 3397.17 104% 118.57 76.21 64%
-> 8 64 6251.97 6389.29 102% 207.68 104.21 50%
-> 1 256 2029.14 2105.18 103% 116.45 119.69 102%
-> 2 256 5412.02 4260.32 78% 240.87 139.73 58%
-> 4 256 7777.28 8743.12 112% 263.20 174.65 66%
-> 8 256 6459.51 9388.93 145% 218.94 158.37 72%
-> 1 512 4566.31 4269.30 93% 274.74 289.83 105%
-> 2 512 7444.52 8240.64 110% 286.24 243.74 85%
-> 4 512 7722.29 9391.16 121% 261.96 180.36 68%
-> 8 512 6228.50 9134.52 146% 209.17 161.00 76%
-> 1 1024 4965.50 4953.68 99% 307.64 280.48 91%
-> 2 1024 8270.08 7733.71 93% 288.32 197.04 68%
-> 4 1024 7551.04 9394.58 124% 268.41 206.62 76%
-> 8 1024 6307.78 9179.03 145% 216.67 159.63 73%
-> 1 2048 5741.12 5948.80 103% 290.34 268.66 92%
-> 2 2048 7932.79 8766.05 110% 262.96 215.90 82%
-> 4 2048 6907.55 9255.97 133% 233.56 203.96 87%
-> 8 2048 6037.22 9399.41 155% 197.14 164.09 83%
-> 1 4096 7131.70 7535.10 105% 279.43 275.12 98%
-> 2 4096 8109.17 9348.04 115% 274.29 211.49 77%
-> 4 4096 6878.92 9319.13 135% 244.21 192.06 78%
-> 8 4096 6265.92 9408.35 150% 211.85 159.26 75%
-> 1 16384 8288.01 8596.39 103% 272.85 290.22 106%
-> 2 16384 8166.29 9280.12 113% 277.04 236.61 85%
-> 4 16384 6446.97 9382.22 145% 222.91 187.24 83%
-> 8 16384 6066.98 9405.51 155% 198.98 157.09 78%
->
-> 3) 2 vms each with 2 vcpus, 1q vs 2q - pin vhost/vcpu in the same node
->
-> - 2 Guests to External Hosts TCP STREAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 1442.07 1475.11 102% 30.82 31.21 101%
-> 2 64 3124.87 2900.93 92% 40.29 35.95 89%
-> 4 64 3166.52 2864.04 90% 40.70 35.47 87%
-> 8 64 3141.45 2848.94 90% 40.38 35.34 87%
-> 1 256 3628.54 3711.73 102% 68.47 70.22 102%
-> 2 256 7806.95 7586.69 97% 111.23 84.38 75%
-> 4 256 8823.65 7612.74 86% 132.92 85.04 63%
-> 8 256 9194.89 9373.41 101% 135.98 119.62 87%
-> 1 512 7106.67 7128.00 100% 124.79 124.30 99%
-> 2 512 9190.22 9397.33 102% 180.84 149.34 82%
-> 4 512 9401.01 9376.67 99% 173.00 140.15 81%
-> 8 512 8572.84 9032.90 105% 150.49 127.58 84%
-> 1 1024 9361.93 9379.24 100% 205.81 202.94 98%
-> 2 1024 9386.69 9389.04 100% 201.78 165.75 82%
-> 4 1024 9403.43 9378.54 99% 195.33 152.06 77%
-> 8 1024 9213.63 9180.64 99% 178.99 141.51 79%
-> 1 2048 9338.95 9384.67 100% 223.22 227.86 102%
-> 2 2048 9389.28 9389.45 100% 202.37 170.08 84%
-> 4 2048 9405.86 9388.71 99% 193.76 161.54 83%
-> 8 2048 9352.40 9384.06 100% 189.16 157.06 83%
-> 1 4096 9380.74 9384.90 100% 239.37 241.56 100%
-> 2 4096 9393.47 9376.74 99% 213.84 195.61 91%
-> 4 4096 9393.85 9381.50 99% 198.06 170.18 85%
-> 8 4096 9400.41 9232.31 98% 192.87 163.56 84%
-> 1 16384 9348.18 9335.55 99% 253.02 254.86 100%
-> 2 16384 9384.97 9359.53 99% 218.56 208.59 95%
-> 4 16384 9326.60 9382.15 100% 206.24 179.72 87%
-> 8 16384 9355.82 9392.85 100% 198.22 172.89 87%
-> - TCP RR
-> sessions size throughput1 throughput2   norm1 norm2
-> 50 1 200340.33 261750.19 130% 2935.27 3018.59 102%
-> 100 1 236141.58 266304.49 112% 3452.16 3071.74 88%
-> 250 1 361574.59 320825.08 88% 4972.98 3705.70 74%
-> 50 64 225748.53 242671.12 107% 3011.48 2869.07 95%
-> 100 64 249885.37 260453.72 104% 3240.21 3063.67 94%
-> 250 64 360341.12 310775.60 86% 4682.42 3657.91 78%
-> 50 128 227995.27 289320.38 126% 2950.92 3479.37 117%
-> 100 128 239491.11 291135.77 121% 3099.55 3508.75 113%
-> 250 128 390390.68 362484.35 92% 5042.30 4368.52 86%
-> 50 256 222604.51 317140.97 142% 3058.08 3839.39 125%
-> 100 256 254770.92 335606.03 131% 3326.16 4046.65 121%
-> 250 256 400584.52 436749.22 109% 5220.79 5278.86 101%
-> - External Host to 2 Guests
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 1667.99 1684.50 100% 59.66 60.77 101%
-> 2 64 3338.83 3379.97 101% 83.61 64.82 77%
-> 4 64 6613.65 6619.11 100% 131.00 97.19 74%
-> 8 64 6553.07 6418.31 97% 141.35 98.27 69%
-> 1 256 3938.40 4068.52 103% 125.21 123.76 98%
-> 2 256 9215.57 9210.88 99% 185.31 154.27 83%
-> 4 256 9407.29 9008.13 95% 186.72 150.01 80%
-> 8 256 9377.17 9385.57 100% 190.28 137.59 72%
-> 1 512 7360.19 6984.80 94% 214.09 211.66 98%
-> 2 512 9392.91 9401.88 100% 193.92 173.11 89%
-> 4 512 9382.64 9394.34 100% 189.27 145.80 77%
-> 8 512 9308.60 9094.08 97% 189.70 141.26 74%
-> 1 1024 9153.26 9066.06 99% 223.07 219.95 98%
-> 2 1024 9393.38 9398.43 100% 194.02 173.82 89%
-> 4 1024 9395.92 8960.73 95% 192.61 145.82 75%
-> 8 1024 9388.92 9399.08 100% 191.18 143.87 75%
-> 1 2048 9355.32 9240.63 98% 221.50 223.03 100%
-> 2 2048 9395.68 9399.62 100% 193.31 177.21 91%
-> 4 2048 9397.67 9399.56 100% 195.25 157.53 80%
-> 8 2048 9397.89 9401.70 100% 197.57 146.96 74%
-> 1 4096 9375.84 9381.72 100% 223.06 225.06 100%
-> 2 4096 9389.47 9396.00 100% 193.91 197.13 101%
-> 4 4096 9397.45 9400.11 100% 192.33 163.60 85%
-> 8 4096 9105.40 9415.76 103% 192.71 140.41 72%
-> 1 16384 9381.53 9381.40 99% 223.53 225.66 100%
-> 2 16384 9387.90 9395.44 100% 193.34 177.03 91%
-> 4 16384 9397.92 9410.98 100% 195.04 151.14 77%
-> 8 16384 9259.00 9419.48 101% 194.91 153.48 78%
->
-> 4) Local vm to vm 2 vcpu 1q vs 2q - pin vcpu/thread in the same numa node
->
-> - VM to VM TCP STREAM
-> sessions size throughput1 throughput2   norm1 norm2
-> 1 64 576.05 576.14 100% 12.25 12.32 100%
-> 2 64 1266.75 1160.04 91% 19.10 16.05 84%
-> 4 64 1267.34 1123.70 88% 19.08 15.51 81%
-> 8 64 1230.88 1174.70 95% 18.53 15.58 84%
-> 1 256 1311.00 1303.02 99% 25.34 25.35 100%
-> 2 256 5400.26 2794.00 51% 75.92 36.43 47%
-> 4 256 5200.67 2818.88 54% 72.81 33.92 46%
-> 8 256 5234.55 2893.74 55% 73.10 34.97 47%
-> 1 512 3244.09 3263.72 100% 56.48 56.65 100%
-> 2 512 8172.16 4661.15 57% 119.05 67.89 57%
-> 4 512 10567.44 7063.25 66% 147.76 77.27 52%
-> 8 512 10477.87 8471.33 80% 145.94 102.91 70%
-> 1 1024 5432.54 5333.99 98% 93.69 92.38 98%
-> 2 1024 12590.24 9259.97 73% 185.37 135.28 72%
-> 4 1024 15600.53 10731.93 68% 222.20 123.60 55%
-> 8 1024 16222.87 10704.85 65% 227.05 113.81 50%
-> 1 2048 6667.61 7484.37 112% 116.75 129.72 111%
-> 2 2048 8180.43 11500.88 140% 137.84 156.64 113%
-> 4 2048 15127.93 14416.16 95% 227.60 154.59 67%
-> 8 2048 16381.79 14794.10 90% 244.29 158.45 64%
-> 1 4096 7375.63 8948.90 121% 131.97 156.57 118%
-> 2 4096 9321.16 14443.21 154% 161.24 163.74 101%
-> 4 4096 13028.45 15984.94 122% 212.78 171.26 80%
-> 8 4096 15611.28 18810.54 120% 245.15 198.65 81%
-> 1 16384 15304.38 14202.08 92% 259.94 244.04 93%
-> 2 16384 15508.97 15913.09 102% 261.30 244.26 93%
-> 4 16384 14859.98 20164.34 135% 248.29 214.26 86%
-> 8 16384 15594.59 19960.99 127% 253.79 211.27 83%
-> - TCP RR
-> sessions size throughput1 throughput2   norm1 norm2
-> 50 1 54972.51 69820.99 127% 1133.58 1063.58 93%
-> 100 1 55847.16 72407.93 129% 1155.73 1024.35 88%
-> 250 1 60066.23 108266.50 180% 1114.30 1323.55 118%
-> 50 64 48727.63 62378.32 128% 1014.29 888.78 87%
-> 100 64 51804.65 69250.51 133% 1077.78 986.97 91%
-> 250 64 61278.68 100015.78 163% 1076.93 1243.18 115%
-> 50 256 51593.29 62046.22 120% 1069.14 871.08 81%
-> 100 256 51647.00 68197.43 132% 1071.66 958.51 89%
-> 250 256 60433.88 99072.59 163% 1072.41 1199.10 111%
-> 50 512 52177.79 66483.77 127% 1082.65 960.82 88%
-> 100 512 50351.67 62537.63 124% 1041.61 876.41 84%
-> 250 512 60510.14 103856.79 171% 1055.21 1245.17 118%
->
->
-> Jason Wang (4):
->    virtio_ring: move queue_index to vring_virtqueue
->    virtio: intorduce an API to set affinity for a virtqueue
->    virtio_net: multiqueue support
->    virtio_net: support negotiating the number of queues through ctrl vq
->
-> Krishna Kumar (1):
->    virtio_net: Introduce VIRTIO_NET_F_MULTIQUEUE
->
->   drivers/net/virtio_net.c      |  792 +++++++++++++++++++++++++++++------------
->   drivers/virtio/virtio_mmio.c  |    5 +-
->   drivers/virtio/virtio_pci.c   |   58 +++-
->   drivers/virtio/virtio_ring.c  |   17 +
->   include/linux/virtio.h        |    4 +
->   include/linux/virtio_config.h |   21 ++
->   include/linux/virtio_net.h    |   10 +
->   7 files changed, 677 insertions(+), 230 deletions(-)
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+QWZ0ZXIgc29tZSBkZWJ1Z2dpbmcgd2UgZm91bmQgdGhhdCBvdXIgbmV0d29yayBkcml2ZXIgc29t
+ZXRpbWVzIGZhaWxzIHRvIHJlbGVhc2UgdGhlIHNrYiBhZnRlciBjYWxscyB0byB0eF9zdGFydF94
+bWl0LCB3aGljaCBjYXVzZWQgdGhlIG5kaXNjIHNvY2tldCBzZW5kIGJ1ZmZlciB0byBiZWNvbWUg
+ZnVsbC4NCihzb2NrX2FsbG9jX3NlbmRfc2tiIHdvdWxkIGZhaWwgb24gKGF0b21pY19yZWFkKCZz
+ay0+c2tfd213bV9hbGxvYykgPCBzay0+c2tfc25kYnVmKSApLiANCldlIGFsc28gd2l0bmVzc2Vk
+IGFsbG9jYXRpb24gZmFpbHVyZXMgaW4gY2FzZXMgd2hlcmUgd2UgaGF2ZSBhIG51bWJlciBvZiBk
+aWZmZXJlbnQgTklDUyAoMUdCLCAxMEdCLCAuLi4pIC0gdGhlIHNsb3dlc3QgTklDIGJlY29tZXMg
+YSBib3R0bGVuZWNrLg0KVXNpbmcgYWxsb2Nfc2tiIGluc3RlYWQgb2Ygc29ja19hbGxvY19za2Ig
+Zml4ZXMgdGhpcyBwcm9ibGVtOyBteSBvbmx5IGNvbmNlcm4gaXMgdGhhdCBpbiB0aGUgZXh0cmVt
+ZSBjYXNlcyBvZiBhIHN0cmF5IGRyaXZlciBvciBzb21lIG1lbW9yeSBjb3JydXB0aW9uLCB0aGUg
+YWJzZW5jZSBvZiBhbiB1cHBlciBsaW1pdCB0byB0aGUgc2tiIA0KYWxsb2NhdGlvbiBtYXkgY29u
+c3VtZSB0aGUgc2tidWZmIGNhY2hlIGFuZCBjYXVzZSBhbGwgbmV0d29ya2luZyB0byBiZWhhdmUg
+YmFkbHkuDQoNClRoYW5rcywNCk1lbm55DQoNCm5ldC9pcHY2L25kaXNjLmMgfCAgIDI0ICsrKysr
+Ky0tLS0tLS0tLS0tLS0tLS0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDE4
+IGRlbGV0aW9ucygtKQ0KDQoNCmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9uZGlzYy5jIGIvbmV0L2lw
+djYvbmRpc2MuYw0KaW5kZXggNjlhNjMzMC4uZjE0OWQ4NSAxMDA2NDQNCi0tLSBhL25ldC9pcHY2
+L25kaXNjLmMNCisrKyBiL25ldC9pcHY2L25kaXNjLmMNCkBAIC00MjksNyArNDI5LDYgQEAgc3Ry
+dWN0IHNrX2J1ZmYgKm5kaXNjX2J1aWxkX3NrYihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KIAlp
+bnQgaGxlbiA9IExMX1JFU0VSVkVEX1NQQUNFKGRldik7DQogCWludCB0bGVuID0gZGV2LT5uZWVk
+ZWRfdGFpbHJvb207DQogCWludCBsZW47DQotCWludCBlcnI7DQogCXU4ICpvcHQ7DQogDQogCWlm
+ICghZGV2LT5hZGRyX2xlbikNCkBAIC00MzksMTUgKzQzOCwxMCBAQCBzdHJ1Y3Qgc2tfYnVmZiAq
+bmRpc2NfYnVpbGRfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQogCWlmIChsbGluZm8pDQog
+CQlsZW4gKz0gbmRpc2Nfb3B0X2FkZHJfc3BhY2UoZGV2KTsNCiANCi0Jc2tiID0gc29ja19hbGxv
+Y19zZW5kX3NrYihzaywNCi0JCQkJICAoTUFYX0hFQURFUiArIHNpemVvZihzdHJ1Y3QgaXB2Nmhk
+cikgKw0KLQkJCQkgICBsZW4gKyBobGVuICsgdGxlbiksDQotCQkJCSAgMSwgJmVycik7DQotCWlm
+ICghc2tiKSB7DQotCQlORF9QUklOVEsoMCwgZXJyLCAiTkQ6ICVzIGZhaWxlZCB0byBhbGxvY2F0
+ZSBhbiBza2IsIGVycj0lZFxuIiwNCi0JCQkgIF9fZnVuY19fLCBlcnIpOw0KKwlza2IgPSBhbGxv
+Y19za2IoTUFYX0hFQURFUiArIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikgKyBsZW4gKyBobGVuICsg
+dGxlbiwNCisJCQlHRlBfQVRPTUlDKTsNCisJaWYgKCFza2IpDQogCQlyZXR1cm4gTlVMTDsNCi0J
+fQ0KIA0KIAlza2JfcmVzZXJ2ZShza2IsIGhsZW4pOw0KIAlpcDZfbmRfaGRyKHNrLCBza2IsIGRl
+diwgc2FkZHIsIGRhZGRyLCBJUFBST1RPX0lDTVBWNiwgbGVuKTsNCkBAIC0xNTUwLDE2ICsxNTQ0
+LDEwIEBAIHZvaWQgbmRpc2Nfc2VuZF9yZWRpcmVjdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25z
+dCBzdHJ1Y3QgaW42X2FkZHIgKnRhcmdldCkNCiANCiAJaGxlbiA9IExMX1JFU0VSVkVEX1NQQUNF
+KGRldik7DQogCXRsZW4gPSBkZXYtPm5lZWRlZF90YWlscm9vbTsNCi0JYnVmZiA9IHNvY2tfYWxs
+b2Nfc2VuZF9za2Ioc2ssDQotCQkJCSAgIChNQVhfSEVBREVSICsgc2l6ZW9mKHN0cnVjdCBpcHY2
+aGRyKSArDQotCQkJCSAgICBsZW4gKyBobGVuICsgdGxlbiksDQotCQkJCSAgIDEsICZlcnIpOw0K
+LQlpZiAoYnVmZiA9PSBOVUxMKSB7DQotCQlORF9QUklOVEsoMCwgZXJyLA0KLQkJCSAgIlJlZGly
+ZWN0OiAlcyBmYWlsZWQgdG8gYWxsb2NhdGUgYW4gc2tiLCBlcnI9JWRcbiIsDQotCQkJICBfX2Z1
+bmNfXywgZXJyKTsNCisJYnVmZiA9IGFsbG9jX3NrYihNQVhfSEVBREVSICsgc2l6ZW9mKHN0cnVj
+dCBpcHY2aGRyKSArIGxlbiArIGhsZW4gKyB0bGVuLA0KKwkJCSBHRlBfQVRPTUlDKTsNCisJaWYg
+KCFidWZmKQ0KIAkJZ290byByZWxlYXNlOw0KLQl9DQogDQogCXNrYl9yZXNlcnZlKGJ1ZmYsIGhs
+ZW4pOw0KIAlpcDZfbmRfaGRyKHNrLCBidWZmLCBkZXYsICZzYWRkcl9idWYsICZpcHY2X2hkcihz
+a2IpLT5zYWRkciwNCg0KDQo=
