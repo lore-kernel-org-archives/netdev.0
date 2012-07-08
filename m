@@ -1,125 +1,76 @@
-From: =?UTF-8?B?QWxleCBWaWxsYWPDrXMgTGFzc28=?= <a_villacis@palosanto.com>
-Subject: Re: BISECTED: Re: REGRESSION: 3.4.0->3.5.0-rc2 kernel WARNING on
- cable plug on Acer Aspire One, no network
-Date: Sun, 08 Jul 2012 12:14:03 -0500
-Message-ID: <4FF9BFDB.6040309@palosanto.com>
-References: <4FF25A05.7050007@palosanto.com> <4FF25CC2.3050101@palosanto.com> <03be01cd58de$6c2a06d0$447e1470$%szyprowski@samsung.com> <4FF30129.5000702@palosanto.com> <000901cd59b2$f2a542e0$d7efc8a0$%szyprowski@samsung.com> <4FF514B2.4050000@palosanto.com> <012601cd5a7b$886fd4c0$994f7e40$%szyprowski@samsung.com>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH 04/16] mm: allow PF_MEMALLOC from softirq context
+Date: Sun, 8 Jul 2012 20:12:11 +0200
+Message-ID: <20120708181211.GE2872@breakpoint.cc>
+References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
+ <1340375443-22455-5-git-send-email-mgorman@suse.de>
+ <20120626165513.GD6509@breakpoint.cc>
+ <20120627082614.GE8271@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Francois Romieu' <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.palosanto.com ([201.234.196.171]:58790 "EHLO
-	pbx.palosanto.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211Ab2GHROd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 13:14:33 -0400
-In-Reply-To: <012601cd5a7b$886fd4c0$994f7e40$%szyprowski@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120627082614.GE8271@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-El 05/07/12 01:58, Marek Szyprowski escribi=C3=B3:
-> Hello,
->
-> On Thursday, July 05, 2012 6:15 AM Alex Villac=C3=ADs Lasso wrote:
->
->> El 04/07/12 02:02, Marek Szyprowski escribi=C3=B3:
->>> Hello,
->>>
->>> On Tuesday, July 03, 2012 4:27 PM Alex Villac=C3=AD=C2=ACs Lasso wr=
-ote:
->>>
->>>> El 03/07/12 00:40, Marek Szyprowski escribi=C3=B3:
->>>>> Hi Alex,
->>>>>
->>>>> On Tuesday, July 03, 2012 4:45 AM Alex Villac=C3=ADs Lasso wrote:
->>>>>
->>>>>> -------- Mensaje original --------
->>>>>> Asunto:  BISECTED: Re: REGRESSION: 3.4.0->3.5.0-rc2 kernel WARNI=
-NG on cable
->>>>>> plug on Acer Aspire One, no network Fecha:  Mon, 02 Jul 2012 21:=
-33:41 -0500 De:
->>>>>>     Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com> Para:  F=
-rancois Romieu
->>>>>> <romieu@fr.zoreil.com> CC:  netdev@vger.kernel.org
->>>>>> El 01/07/12 08:50, Alex Villac=C3=ADs Lasso escribi=C3=B3:
->>>>>>> El 11/06/12 16:38, Francois Romieu escribi=C3=B3:
->>>>>>>> Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com> :
->>>>>>>> [...]
->>>>>>>>> $ grep XID dmesg-3.5.0-rc2.txt
->>>>>>>>> [   15.873858] r8169 0000:02:00.0: eth0: RTL8102e at 0xf7c0e0=
-00,
->>>>>>>>> 00:1e:68:e5:5d:b1, XID 04a00000 IRQ 44
->>>>>>>> The 8102e has not been touched by that many suspect patches bu=
-t I do
->>>>>>>> not see where the problem is :o(
->>>>>>>>
->>>>>>>> Can you peel off the r8169 patches between 3.4.0 and 3.5-rc ?
->>>>>>>>
->>>>>>> Still present in 3.5-rc5. Bisection still in progress.
->>>>>>>
->>>>>>> --
->>>>>>> To unsubscribe from this list: send the line "unsubscribe netde=
-v" in
->>>>>>> the body of a message to majordomo@vger.kernel.org
->>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.h=
-tml
->>>>>> My full bisection points to this commit:
->>>>>>
->>>>>> commit 0a2b9a6ea93650b8a00f9fd5ee8fdd25671e2df6
->>>>>> Author: Marek Szyprowski <m.szyprowski@samsung.com>
->>>>>> Date:   Thu Dec 29 13:09:51 2011 +0100
->>>>>>
->>>>>>        X86: integrate CMA with DMA-mapping subsystem
->>>>>>
->>>>>>        This patch adds support for CMA to dma-mapping subsystem =
-for x86
->>>>>>        architecture that uses common pci-dma/pci-nommu implement=
-ation. This
->>>>>>        allows to test CMA on KVM/QEMU and a lot of common x86 bo=
-xes.
->>>>>>
->>>>>>        Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com=
->
->>>>>>        Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
->>>>>>        CC: Michal Nazarewicz <mina86@mina86.com>
->>>>>>        Acked-by: Arnd Bergmann <arnd@arndb.de>
->>>>>>
->>>>>> Is this commit somehow messing with the network card DMA?
->>>>> This commit in fact touches DMA-mapping subsystem and introduces =
-a bug,
->>>>> which has been finally fixed by commit c080e26edc3a2a3 merged to =
-v3.5-rc3.
->>>>> After applying it the DMA-mapping subsystem should work exactly t=
-he same was
->>>>> as in v3.4. Could you please check if it fixes this issue?
->>>>>
->>>>> Best regards
->>>> No. It still fails in 3.5-rc5, as mentioned before.
->>> Hmm. I was a bit confused, because both the subject and git bisect =
-log pointed to v3.5-rc2,
->>> which had that bug. Maybe there is one some other issue present in =
-v3.5-rc5 not related to
->>> my patches?
->>>
->>> Could you check with v3.5-rc5 if reverting patch c080e26edc3a2a3cdf=
-a4c430c663ee1c3bbd8fae
->>> and 0a2b9a6ea93650b8a00f9fd5ee8fdd25671e2df6 fixes the problems wit=
-h rtl driver?
->>>
->>> Best regards
->> Reverting the two patches indeed fixes the bug on -rc5.
-> That's really strange. Could you check if you have CMA disabled in th=
-e config? After preparing
-> a c080e26edc3a2a3cdfa4c430c663ee1c3bbd8fae fixup patch, I was really =
-convinced that there are
-> no functional changes in x86 dma mapping code when CMA is disabled. I=
- will provide some
-> patches to revert different parts of my changes, so we will find whic=
-h line causes issues.
->
-> Best regards
-I checked out v3.5-rc6 from git, without reverting any patches. I then=20
-compiled this release with my old config and verified the bug is=20
-currently fixed.
+On Wed, Jun 27, 2012 at 09:26:14AM +0100, Mel Gorman wrote:
+> > > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> > > index b6c0727..5c6d9c6 100644
+> > > --- a/mm/page_alloc.c
+> > > +++ b/mm/page_alloc.c
+> > > @@ -2265,7 +2265,11 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+> > >  	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
+> > >  		if (gfp_mask & __GFP_MEMALLOC)
+> > >  			alloc_flags |= ALLOC_NO_WATERMARKS;
+> > > -		else if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
+> > > +		else if (in_serving_softirq() && (current->flags & PF_MEMALLOC))
+> > > +			alloc_flags |= ALLOC_NO_WATERMARKS;
+> > > +		else if (!in_interrupt() &&
+> > > +				((current->flags & PF_MEMALLOC) ||
+> > > +				 unlikely(test_thread_flag(TIF_MEMDIE))))
+> > >  			alloc_flags |= ALLOC_NO_WATERMARKS;
+> > >  	}
+> > 
+> > You allocate in RX path with __GFP_MEMALLOC and your sk->sk_allocation has
+> > also __GFP_MEMALLOC set. That means you should get ALLOC_NO_WATERMARKS in
+> > alloc_flags.
+> 
+> In the cases where they are annotated correctly, yes. It is recordeed if
+> the page gets allocated from the PFMEMALLOC reserves. If the received
+> packet is not SOCK_MEMALLOC and the page was allocated from PFMEMALLOC
+> reserves it is then discarded and the packet must be retransmitted.
+
+Let me try again:
+- lets assume your allocation happens with alloc_page(), without
+  __GFP_MEMALLOC in GFP_FLAGS and with PF_MEMALLOC in current->flags. Now
+  you may get memory which you wouldn't receive otherwise (without
+  PF_MEMALLOC). Okay, understood. So you don't have to annotate each page
+  allocation in your receive path for instance as long as the process has the
+  flag set.
+- lets assume your allocation happens with kmalloc() without __GFP_MEMALLOC
+  and current->flags has PF_MEMALLOC ORed and your SLAB pool is empty. This
+  forces SLAB to allocate more pages from the buddy allocator with it will
+  receive more likely (due to ->current->flags + PF_MEMALLOC) but SLAB will
+  drop this extra memory because the page has ->pf_memory (or something like
+  that) set and the GFP_FLAGS do not have __GFP_MEMALLOC set.
+
+Is there something I missed?
+
+Sebastian
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
