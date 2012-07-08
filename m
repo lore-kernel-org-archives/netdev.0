@@ -1,43 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next patch] bnx2x: Add run-time CNIC support
-Date: Sun, 08 Jul 2012 13:14:03 +0200
-Message-ID: <1341746043.3265.1653.camel@edumazet-glaptop>
-References: <1341740914-3181-1-git-send-email-meravs@broadcom.com>
-	 <20120708.033122.2108511545126626834.davem@davemloft.net>
-	 <1341745239.27284.13.camel@lb-tlvb-meravs.il.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	eilong@broadcom.com, dmitry@broadcom.com
-To: Merav Sicron <meravs@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:35014 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748Ab2GHLOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 07:14:07 -0400
-Received: by wgbdr13 with SMTP id dr13so10576043wgb.1
-        for <netdev@vger.kernel.org>; Sun, 08 Jul 2012 04:14:06 -0700 (PDT)
-In-Reply-To: <1341745239.27284.13.camel@lb-tlvb-meravs.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 6/7] drivers/net/ethernet/broadcom/cnic.c: remove invalid reference to list iterator variable
+Date: Sun,  8 Jul 2012 13:37:43 +0200
+Message-ID: <1341747464-1772-7-git-send-email-Julia.Lawall@lip6.fr>
+References: <1341747464-1772-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341747464-1772-1-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-07-08 at 14:00 +0300, Merav Sicron wrote:
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-> static int set_is_cnic_enabled(bool is_vf)
-> {
->         if (is_vf)
->                 return 0;
-> #if defined(CONFIG_CNIC) || defined(CONFIG_CNIC_MODULE)
->         return 1;
-> #else
->         return 0;
-> #endif
-> }
+If list_for_each_entry, etc complete a traversal of the list, the iterator
+variable ends up pointing to an address at an offset from the list head,
+and not a meaningful structure.  Thus this value should not be used after
+the end of the iterator.  There does not seem to be a meaningful value to
+provide to netdev_warn.  Replace with pr_warn, since pr_err is used
+elsewhere.
 
-Small note : this should use booleans and can use
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
 
-if (is_vf)
-	return false;
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-return IS_ENABLED(CONFIG_CNIC);
+---
+ drivers/net/ethernet/broadcom/cnic.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 22ad7b6..6eaca60 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -542,7 +542,8 @@ int cnic_unregister_driver(int ulp_type)
+ 	}
+ 
+ 	if (atomic_read(&ulp_ops->ref_count) != 0)
+-		netdev_warn(dev->netdev, "Failed waiting for ref count to go to zero\n");
++		pr_warn("%s: Failed waiting for ref count to go to zero\n",
++			__func__);
+ 	return 0;
+ 
+ out_unlock:
