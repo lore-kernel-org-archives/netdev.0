@@ -1,55 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix non-ANSI function declaration warning
-Date: Sat, 07 Jul 2012 17:26:45 -0700 (PDT)
-Message-ID: <20120707.172645.1551059619722271983.davem@davemloft.net>
-References: <20120707.161235.1181930264623743070.davem@davemloft.net>
-	<1341706563.25597.170.camel@deadeye.wl.decadent.org.uk>
-	<20120707.172539.1943659609718696447.davem@davemloft.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net,1/1] hyperv: Add support for setting MAC from within
+ guests
+Date: Sun, 8 Jul 2012 00:29:38 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DDC74F4@TK5EX14MBXC222.redmond.corp.microsoft.com>
+References: <1341609932-18971-1-git-send-email-haiyangz@microsoft.com>
+ <1341620355.2923.46.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: emilgoode@gmail.com, edumazet@google.com, mirq-linux@rere.qmqm.pl,
-	jpirko@redhat.com, therbert@google.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46332 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751497Ab2GHA0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jul 2012 20:26:45 -0400
-In-Reply-To: <20120707.172539.1943659609718696447.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341620355.2923.46.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sat, 07 Jul 2012 17:25:39 -0700 (PDT)
-
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Sun, 8 Jul 2012 01:16:03 +0100
-> 
->> On Sat, 2012-07-07 at 16:12 -0700, David Miller wrote:
->>> From: Ben Hutchings <bhutchings@solarflare.com>
->>> Date: Sat, 7 Jul 2012 20:57:29 +0100
->>> 
->>> > On Sat, 2012-07-07 at 20:47 +0200, Emil Goode wrote:
->>> >> Sparse is warning about non-ANSI function declaration.
->>> >> Add void to the parameterless function.
->>> >> 
->>> >> net/core/dev.c:1804:38: warning:
->>> >> 	non-ANSI function declaration of function
->>> >> 	'netif_get_num_default_rss_queues'
->>> > 
->>> > I also posted a patch for this (and another instance I found).
->>> 
->>> But you were asked to fix up the comment formatting in on of those
->>> patches so you need to fix that up and resubmit the entire set.
->> 
->> You have got to be kidding.  I fixed one thing, so I have to fix
->> another?
-> 
-> You're fixing up a comment, fix it fully.
-
-And btw when you don't respond to someone who gives you feedback I
-have to assume you agree with them and intend to fix it, and thus I
-automatically move all of your patches to changes-requested state
-in patchwork and that's the last I will look at them.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IEZyaWRheSwgSnVseSAw
+NiwgMjAxMiA4OjE5IFBNDQo+IFRvOiBIYWl5YW5nIFpoYW5nDQo+IENjOiBkYXZlbUBkYXZlbWxv
+ZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuOw0KPiBvbGFmQGFl
+cGZsZS5kZTsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsgZGV2ZWxAbGludXhkcml2ZXJw
+cm9qZWN0Lm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCwxLzFdIGh5cGVydjogQWRkIHN1
+cHBvcnQgZm9yIHNldHRpbmcgTUFDIGZyb20NCj4gd2l0aGluIGd1ZXN0cw0KPiANCj4gT24gRnJp
+LCAyMDEyLTA3LTA2IGF0IDE0OjI1IC0wNzAwLCBIYWl5YW5nIFpoYW5nIHdyb3RlOg0KPiA+IFRo
+aXMgYWRkcyBzdXBwb3J0IGZvciBzZXR0aW5nIHN5bnRoZXRpYyBOSUMgTUFDIGFkZHJlc3MgZnJv
+bSB3aXRoaW4NCj4gPiBMaW51eCBndWVzdHMuIEJlZm9yZSB1c2luZyB0aGlzIGZlYXR1cmUsIHRo
+ZSBvcHRpb24gInNwb29maW5nIG9mIE1BQw0KPiBhZGRyZXNzIg0KPiA+IHNob3VsZCBiZSBlbmFi
+bGVkIGF0IHRoZSBIeXBlci1WIG1hbmFnZXIgLyBTZXR0aW5ncyBvZiB0aGUgc3ludGhldGljDQo+
+ID4gTklDLg0KPiBbLi4uXQ0KPiA+ICtpbnQgcm5kaXNfZmlsdGVyX3NldF9kZXZpY2VfbWFjKHN0
+cnVjdCBodl9kZXZpY2UgKmhkZXYsIGNoYXIgKm1hYykgew0KPiBbLi4uXQ0KPiA+ICsJdCA9IHdh
+aXRfZm9yX2NvbXBsZXRpb25fdGltZW91dCgmcmVxdWVzdC0+d2FpdF9ldmVudCwgNSpIWik7DQo+
+ID4gKwlpZiAodCA9PSAwKSB7DQo+ID4gKwkJbmV0ZGV2X2VycihuZGV2LCAidGltZW91dCBiZWZv
+cmUgd2UgZ290IGEgc2V0DQo+IHJlc3BvbnNlLi4uXG4iKTsNCj4gPiArCQkvKg0KPiA+ICsJCSAq
+IGNhbid0IHB1dF9ybmRpc19yZXF1ZXN0LCBzaW5jZSB3ZSBtYXkgc3RpbGwgcmVjZWl2ZSBhDQo+
+ID4gKwkJICogc2VuZC1jb21wbGV0aW9uLg0KPiA+ICsJCSAqLw0KPiA+ICsJCXJldHVybiAtRUJV
+U1k7DQo+ID4gKwl9IGVsc2Ugew0KPiA+ICsJCXNldF9jb21wbGV0ZSA9ICZyZXF1ZXN0LT5yZXNw
+b25zZV9tc2cubXNnLnNldF9jb21wbGV0ZTsNCj4gPiArCQlpZiAoc2V0X2NvbXBsZXRlLT5zdGF0
+dXMgIT0gUk5ESVNfU1RBVFVTX1NVQ0NFU1MpDQo+ID4gKwkJCXJldCA9IC1FSU5WQUw7DQo+IFsu
+Li5dDQo+IA0KPiBJcyB0aGVyZSBhIHNwZWNpZmljIGVycm9yIGNvZGUgdGhhdCBpbmRpY2F0ZXMg
+dGhlIGh5cGVydmlzb3IgaXMgY29uZmlndXJlZCBub3QNCj4gdG8gYWxsb3cgTUFDIGFkZHJlc3Mg
+Y2hhbmdlcz8gIElmIHNvLCBzaG91bGRuJ3QgdGhhdCBiZSB0cmFuc2xhdGVkIHRvIHJldHVybg0K
+PiBFUEVSTSByYXRoZXIgdGhhbiBFSU5WQUw/DQoNCldpbGwgZG8uIA0KDQpUaGFua3MsDQotIEhh
+aXlhbmcNCg0K
