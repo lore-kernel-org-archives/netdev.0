@@ -1,110 +1,63 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v5 4/7] ARM: davinci: net: davinci_emac: add OF support
-Date: Sun, 8 Jul 2012 19:56:47 +0530
-Message-ID: <4FF998A7.50309@ti.com>
-References: <1338373143-7467-1-git-send-email-hs@denx.de>
- <1338373143-7467-5-git-send-email-hs@denx.de>
+From: Michael Riesch <michael@riesch.at>
+Subject: Re: [PATCH 4/4] asix: Add a new driver for the AX88172A
+Date: Sun, 08 Jul 2012 17:39:35 +0200
+Message-ID: <1341761975.2038.28.camel@schesaplana>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
+	 <1341574388-7464-5-git-send-email-christian.riesch@omicron.at>
+	 <1341596255.2923.7.camel@bwh-desktop.uk.solarflarecom.com>
+Reply-To: michael@riesch.at
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Anatoly Sivov <mm05-JGs/UdohzUI@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1338373143-7467-5-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Christian Riesch <christian.riesch@omicron.at>,
+	netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Allan Chou <allan@asix.com.tw>,
+	Mark Lord <kernel@teksavvy.com>,
+	Grant Grundler <grundler@chromium.org>,
+	Ming Lei <tom.leiming@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay03.ispgateway.de ([80.67.29.28]:49058 "EHLO
+	smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859Ab2GHPvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 11:51:36 -0400
+In-Reply-To: <1341596255.2923.7.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Heiko,
-
-On 5/30/2012 3:49 PM, Heiko Schocher wrote:
-> add of support for the davinci_emac driver.
+On Fri, 2012-07-06 at 18:37 +0100, Ben Hutchings wrote:
+> > +	priv->mdio->priv = (void *)dev;
+> > +	priv->mdio->read = &asix_mdio_bus_read;
+> > +	priv->mdio->write = &asix_mdio_bus_write;
+> > +	priv->mdio->name = "Asix MDIO Bus";
+> > +	snprintf(priv->mdio->id, MII_BUS_ID_SIZE, "asix-%s",
+> > +		 dev_name(dev->net->dev.parent));
+> [...]
 > 
-> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-> Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
-> Cc: Anatoly Sivov <mm05-JGs/UdohzUI@public.gmane.org>
-> 
-> ---
+> I think you need to ensure that the bus identifier is unique throughout
+> its lifetime, but net devices can be renamed and that could lead to a
+> collision.  Perhaps you could use the ifindex or the USB device path
 
-> +#ifdef CONFIG_OF
-> +static struct emac_platform_data
-> +	*davinci_emac_of_get_pdata(struct platform_device *pdev,
-> +	struct emac_priv *priv)
-> +{
-> +	struct device_node *np;
-> +	struct emac_platform_data *pdata = NULL;
-> +	const u8 *mac_addr;
-> +	u32 data;
-> +	int ret;
-> +
-> +	pdata = pdev->dev.platform_data;
-> +	if (!pdata) {
-> +		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-> +		if (!pdata)
-> +			goto nodata;
-> +	}
-> +
-> +	np = pdev->dev.of_node;
-> +	if (!np)
-> +		goto nodata;
-> +	else
-> +		pdata->version = EMAC_VERSION_2;
-> +
-> +	mac_addr = of_get_mac_address(np);
-> +	if (mac_addr)
-> +		memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
+Ben,
 
-I suspect that even in the DT case, many boards will continue to
-read mac address from on-board EEPROMs or from an on-chip eFUSE.
-To take care of such cases, I propose use mac address in DT data
-only if no valid address is passed through platform data. The
-attached patch does this change.
+the dev_name function in the code above returns the sysfs filename of
+the USB device (e.g. 1-0:1.0).
 
-If you are OK with this modification, can you please merge it and
-repost just this patch for review? Please CC David Miller
-(davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org) on your next post as he is the netdev maintainer
-and this patch needs to be merged through him or at least needs his ack.
+> (though that might be too long).
 
-With this modification, you can add my:
+This may be a problem. The bus identifier may be 17 characters long, so
+if we leave the endpoint/configuration part (:1.0) and the prefix away
+it should be fine in any "normal" system. However, on a system with a
+more-than-9-root-hubs 5-tier 127-devices-each USB infrastructure it
+results in collisions. So is this approach acceptable?
 
-Acked-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Using the ifindex sounds good to me,
 
-Thanks,
-Sekhar
+snprintf(priv->mdio->id, MII_BUS_ID_SIZE, "asix-%d",
+	dev->net->ifindex);
 
----8<----
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 645618d..6b4b0fe 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1795,9 +1795,11 @@ static struct emac_platform_data
- 	else
- 		pdata->version = EMAC_VERSION_2;
- 
--	mac_addr = of_get_mac_address(np);
--	if (mac_addr)
--		memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
-+	if (!is_valid_ether_addr(pdata->mac_addr)) {
-+		mac_addr = of_get_mac_address(np);
-+		if (mac_addr)
-+			memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
-+	}
- 
- 	ret = of_property_read_u32(np, "ti,davinci-ctrl-reg-offset", &data);
- 	if (!ret)
+works on any system with less than 10^12 network interfaces.
+
+Regards,
+Michael
