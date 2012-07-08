@@ -1,66 +1,68 @@
-From: <Menny_Hamburger@Dell.com>
-Subject: RE: IPV6 ndisc::  Bad NIC causing  IPV6 NDP to stop working
-Date: Sun, 8 Jul 2012 09:46:37 +0100
-Message-ID: <D8C50530D6022F40A817A35C40CC06A70B34FD4FD1@DUBX7MCDUB01.EMEA.DELL.COM>
-References: <D8C50530D6022F40A817A35C40CC06A70B34DBEFCF@DUBX7MCDUB01.EMEA.DELL.COM>
-	 <1340266972.4604.4404.camel@edumazet-glaptop>
-	 <D8C50530D6022F40A817A35C40CC06A70B34DBF05D@DUBX7MCDUB01.EMEA.DELL.COM>
- <1340270190.4604.4640.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] gianfar: fix potential sk_wmem_alloc imbalance
+Date: Sun, 08 Jul 2012 11:09:02 +0200
+Message-ID: <1341738542.3265.1406.camel@edumazet-glaptop>
+References: <1341524713.3265.41.camel@edumazet-glaptop>
+	 <20120706180947.GI1817@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Manfred Rudigier <manfred.rudigier@omicron.at>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Jiajun Wu <b06378@freescale.com>,
+	Andy Fleming <afleming@freescale.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:18933 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512Ab2GHIql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 04:46:41 -0400
-In-Reply-To: <1340270190.4604.4640.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:37569 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013Ab2GHJJJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jul 2012 05:09:09 -0400
+Received: by wgbdr13 with SMTP id dr13so10523690wgb.1
+        for <netdev@vger.kernel.org>; Sun, 08 Jul 2012 02:09:07 -0700 (PDT)
+In-Reply-To: <20120706180947.GI1817@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QWZ0ZXIgc29tZSBkZWJ1Z2dpbmcgd2UgZm91bmQgdGhhdCBvdXIgbmV0d29yayBkcml2ZXIgc29t
-ZXRpbWVzIGZhaWxzIHRvIHJlbGVhc2UgdGhlIHNrYiBhZnRlciBjYWxscyB0byB0eF9zdGFydF94
-bWl0LCB3aGljaCBjYXVzZWQgdGhlIG5kaXNjIHNvY2tldCBzZW5kIGJ1ZmZlciB0byBiZWNvbWUg
-ZnVsbC4NCihzb2NrX2FsbG9jX3NlbmRfc2tiIHdvdWxkIGZhaWwgb24gKGF0b21pY19yZWFkKCZz
-ay0+c2tfd213bV9hbGxvYykgPCBzay0+c2tfc25kYnVmKSApLiANCldlIGFsc28gd2l0bmVzc2Vk
-IGFsbG9jYXRpb24gZmFpbHVyZXMgaW4gY2FzZXMgd2hlcmUgd2UgaGF2ZSBhIG51bWJlciBvZiBk
-aWZmZXJlbnQgTklDUyAoMUdCLCAxMEdCLCAuLi4pIC0gdGhlIHNsb3dlc3QgTklDIGJlY29tZXMg
-YSBib3R0bGVuZWNrLg0KVXNpbmcgYWxsb2Nfc2tiIGluc3RlYWQgb2Ygc29ja19hbGxvY19za2Ig
-Zml4ZXMgdGhpcyBwcm9ibGVtOyBteSBvbmx5IGNvbmNlcm4gaXMgdGhhdCBpbiB0aGUgZXh0cmVt
-ZSBjYXNlcyBvZiBhIHN0cmF5IGRyaXZlciBvciBzb21lIG1lbW9yeSBjb3JydXB0aW9uLCB0aGUg
-YWJzZW5jZSBvZiBhbiB1cHBlciBsaW1pdCB0byB0aGUgc2tiIA0KYWxsb2NhdGlvbiBtYXkgY29u
-c3VtZSB0aGUgc2tidWZmIGNhY2hlIGFuZCBjYXVzZSBhbGwgbmV0d29ya2luZyB0byBiZWhhdmUg
-YmFkbHkuDQoNClRoYW5rcywNCk1lbm55DQoNCm5ldC9pcHY2L25kaXNjLmMgfCAgIDI0ICsrKysr
-Ky0tLS0tLS0tLS0tLS0tLS0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDE4
-IGRlbGV0aW9ucygtKQ0KDQoNCmRpZmYgLS1naXQgYS9uZXQvaXB2Ni9uZGlzYy5jIGIvbmV0L2lw
-djYvbmRpc2MuYw0KaW5kZXggNjlhNjMzMC4uZjE0OWQ4NSAxMDA2NDQNCi0tLSBhL25ldC9pcHY2
-L25kaXNjLmMNCisrKyBiL25ldC9pcHY2L25kaXNjLmMNCkBAIC00MjksNyArNDI5LDYgQEAgc3Ry
-dWN0IHNrX2J1ZmYgKm5kaXNjX2J1aWxkX3NrYihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KIAlp
-bnQgaGxlbiA9IExMX1JFU0VSVkVEX1NQQUNFKGRldik7DQogCWludCB0bGVuID0gZGV2LT5uZWVk
-ZWRfdGFpbHJvb207DQogCWludCBsZW47DQotCWludCBlcnI7DQogCXU4ICpvcHQ7DQogDQogCWlm
-ICghZGV2LT5hZGRyX2xlbikNCkBAIC00MzksMTUgKzQzOCwxMCBAQCBzdHJ1Y3Qgc2tfYnVmZiAq
-bmRpc2NfYnVpbGRfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQogCWlmIChsbGluZm8pDQog
-CQlsZW4gKz0gbmRpc2Nfb3B0X2FkZHJfc3BhY2UoZGV2KTsNCiANCi0Jc2tiID0gc29ja19hbGxv
-Y19zZW5kX3NrYihzaywNCi0JCQkJICAoTUFYX0hFQURFUiArIHNpemVvZihzdHJ1Y3QgaXB2Nmhk
-cikgKw0KLQkJCQkgICBsZW4gKyBobGVuICsgdGxlbiksDQotCQkJCSAgMSwgJmVycik7DQotCWlm
-ICghc2tiKSB7DQotCQlORF9QUklOVEsoMCwgZXJyLCAiTkQ6ICVzIGZhaWxlZCB0byBhbGxvY2F0
-ZSBhbiBza2IsIGVycj0lZFxuIiwNCi0JCQkgIF9fZnVuY19fLCBlcnIpOw0KKwlza2IgPSBhbGxv
-Y19za2IoTUFYX0hFQURFUiArIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikgKyBsZW4gKyBobGVuICsg
-dGxlbiwNCisJCQlHRlBfQVRPTUlDKTsNCisJaWYgKCFza2IpDQogCQlyZXR1cm4gTlVMTDsNCi0J
-fQ0KIA0KIAlza2JfcmVzZXJ2ZShza2IsIGhsZW4pOw0KIAlpcDZfbmRfaGRyKHNrLCBza2IsIGRl
-diwgc2FkZHIsIGRhZGRyLCBJUFBST1RPX0lDTVBWNiwgbGVuKTsNCkBAIC0xNTUwLDE2ICsxNTQ0
-LDEwIEBAIHZvaWQgbmRpc2Nfc2VuZF9yZWRpcmVjdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25z
-dCBzdHJ1Y3QgaW42X2FkZHIgKnRhcmdldCkNCiANCiAJaGxlbiA9IExMX1JFU0VSVkVEX1NQQUNF
-KGRldik7DQogCXRsZW4gPSBkZXYtPm5lZWRlZF90YWlscm9vbTsNCi0JYnVmZiA9IHNvY2tfYWxs
-b2Nfc2VuZF9za2Ioc2ssDQotCQkJCSAgIChNQVhfSEVBREVSICsgc2l6ZW9mKHN0cnVjdCBpcHY2
-aGRyKSArDQotCQkJCSAgICBsZW4gKyBobGVuICsgdGxlbiksDQotCQkJCSAgIDEsICZlcnIpOw0K
-LQlpZiAoYnVmZiA9PSBOVUxMKSB7DQotCQlORF9QUklOVEsoMCwgZXJyLA0KLQkJCSAgIlJlZGly
-ZWN0OiAlcyBmYWlsZWQgdG8gYWxsb2NhdGUgYW4gc2tiLCBlcnI9JWRcbiIsDQotCQkJICBfX2Z1
-bmNfXywgZXJyKTsNCisJYnVmZiA9IGFsbG9jX3NrYihNQVhfSEVBREVSICsgc2l6ZW9mKHN0cnVj
-dCBpcHY2aGRyKSArIGxlbiArIGhsZW4gKyB0bGVuLA0KKwkJCSBHRlBfQVRPTUlDKTsNCisJaWYg
-KCFidWZmKQ0KIAkJZ290byByZWxlYXNlOw0KLQl9DQogDQogCXNrYl9yZXNlcnZlKGJ1ZmYsIGhs
-ZW4pOw0KIAlpcDZfbmRfaGRyKHNrLCBidWZmLCBkZXYsICZzYWRkcl9idWYsICZpcHY2X2hkcihz
-a2IpLT5zYWRkciwNCg0KDQo=
+On Fri, 2012-07-06 at 14:09 -0400, Paul Gortmaker wrote:
+
+> Aside from the one line change at driver init, is there more to it than
+> that?  More specifically, it currently does:
+> 
+> fcb_length = GMAC_FCB_LEN;
+> 
+> if (...timestamps...)
+> 	fcb_length = GMAC_FCB_LEN + GMAC_TXPAL_LEN;
+> 
+> if (... && (skb_headroom(skb) < fcb_length))
+> 	...
+> 	skb_new = skb_realloc_headroom(skb, fcb_length);
+> 
+> and I don't know the code well enough to know if setting the
+> needed_headroom value _guarantees_ the above fcb_length comparison
+> will always be false, and hence can be deleted.  It kind of looks
+> like it via LL_RESERVED_SPACE, but I'm not 100% sure...
+
+This is not a guarantee but should take care of most cases.
+
+So we should keep the test anyway.
+
+And init needed_headroom to the largest room. Existing tests seems to
+ignore vlan case and timestamping.
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index af16f9f..b4517b7 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1084,9 +1084,7 @@ static int gfar_probe(struct platform_device *ofdev)
+ 	else
+ 		priv->padding = 0;
+ 
+-	if (dev->features & NETIF_F_IP_CSUM ||
+-	    priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)
+-		dev->needed_headroom = GMAC_FCB_LEN;
++	dev->needed_headroom = GMAC_FCB_LEN + GMAC_TXPAL_LEN;
+ 
+ 	/* Program the isrg regs only if number of grps > 1 */
+ 	if (priv->num_grps > 1) {
