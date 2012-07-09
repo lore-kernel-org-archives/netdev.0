@@ -1,64 +1,41 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [RFC PATCH] ppp: add support for L2 multihop / tunnel switching
-Date: Mon, 09 Jul 2012 12:52:15 +0100
-Message-ID: <4FFAC5EF.6030003@katalix.com>
-References: <20120708214930.GI19462@kvack.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: cgroup: fix out of bounds accesses
+Date: Mon, 9 Jul 2012 08:13:50 -0400
+Message-ID: <20120709121350.GC9186@hmsreliant.think-freely.org>
+References: <1341819910.3265.2106.camel@edumazet-glaptop>
+ <20120709110154.GB9186@hmsreliant.think-freely.org>
+ <1341834652.3265.2642.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20120708214930.GI19462@kvack.org>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1341834652.3265.2642.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/07/12 22:49, Benjamin LaHaise wrote:
-> Hello folks,
+On Mon, Jul 09, 2012 at 01:50:52PM +0200, Eric Dumazet wrote:
+> On Mon, 2012-07-09 at 07:01 -0400, Neil Horman wrote:
 > 
-> Below is a first cut at implementing multihop L2TP, also known as tunnel 
-> switching.  The feature is similar in scope to how PPPoE relaying works -- 
-> L2 packets that are received on one PPP interface are forwarded to another.  
-> This feature is typically used for traffic aggregation and backhaul for 
-> ISPs, with incoming sessions (often PPPoE) being partially authenticated 
-> by a LAC, and then forwarded over an L2TP session to an LNS (selected by the 
-> user's domain) which then provides network access to the client.
+> > Thank you for doing this Eric, Gao.  Just to be sure (I asked in the previous
+> > thread), would it be better to avoid the length check in skb_update_prio, and
+> > instead update the netdev tables to be long enough in cgrp_create and in
+> > netprio_device_event on device registration?
+> 
+> Yes probably, and it is even needed because extend_netdev_table() can
+> acutally fail to expand the table if kzalloc() returned NULL.
+> 
+> Current code just ignores this allocation failure so we also can crash
+> in write_priomap()
+> 
+ACK, can you follow up with a patch please?
 
-As a mechanism for switching PPP interfaces together, this patch is
-good. For L2TP though, I prefer an approach that would be applicable for
-all L2TP traffic types, not just PPP.
+Thanks!
+Neil
 
-L2TP supports many different pseudowire types, and this patch will only
-be useful for tunnel switching between PPP pseudowires. Whereas if we
-implement it within the L2TP core, rather than in the PPP code, we would
-get switching between all pseudowire types. If we add this patch and
-then subsequently add switching between other pseudowires in the L2TP
-core (which we're likely to want to do), then we're left with two
-different interfaces for doing L2TP tunnel switching in the kernel.
-
-The L2TP core allows traffic to be passed directly into an L2TP session.
-In the case of PPPoE, for example, the PPP data can be  extracted from a
-PPPoE packet and passed into an L2TP tunnel/session, with no PPP
-interface(s) involved.
-
-That said, your approach allows two PPP interfaces to be switched
-together, which has its own advantages.
-
-> The reasoning behind using dev_queue_xmit() rather than outputting directly 
-> to another PPP channel is to enable the use of the traffic shaping and 
-> queuing features of the kernel on multihop sessions.
-
-I'm not sure about using a pseudo packet type to do this. For L2TP, it
-would seem better to add netfilter/tc support for L2TP data packets,
-which would let people add rules for, say, traffic in L2TP tunnel x /
-session y. This would avoid the need for ETH_P_PPP and you could then
-output directly to the ppp channel.
-
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
-
+> 
+> 
+> 
