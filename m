@@ -1,90 +1,38 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/2] netfilter: ipset: timeout fixing bug broke SET
- target special timeout value
-Date: Mon, 9 Jul 2012 10:58:27 +0200
-Message-ID: <20120709085827.GA10776@1984>
-References: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
- <1341574779-3373-2-git-send-email-pablo@netfilter.org>
- <20120709.002903.592402805831614695.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Mon, 09 Jul 2012 11:21:17 +0200
+Message-ID: <1341825677.3265.2330.camel@edumazet-glaptop>
+References: <4FFA9B96.6040901@oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="r5Pyd7+fXNt84Ff3"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120709.002903.592402805831614695.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sf.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FFA9B96.6040901@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---r5Pyd7+fXNt84Ff3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Mon, Jul 09, 2012 at 12:29:03AM -0700, David Miller wrote:
-> From: pablo@netfilter.org
-> Date: Fri,  6 Jul 2012 13:39:38 +0200
+On Mon, 2012-07-09 at 16:51 +0800, Joe Jin wrote:
+> Hi list,
 > 
-> > +	if (add_opt.timeout != IPSET_NO_TIMEOUT
-> > +	    && add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
+> I'm seeing a Unit Hang even with the latest e1000e driver 2.0.0 when doing
+> scp test. this issue is easy do reproduced on SUN FIRE X2270 M2, just copy
+> a big file (>500M) from another server will hit it at once. 
 > 
-> We do not write conditionals like this, with operators beginning
-> a continued line.  Instead, write this as:
+> Would you please help on this?
 > 
-> 	if (a &&
-> 	    b)
 
-Oops, indeed, sorry. New patch attached.
+Its a known problem.
 
-I've also rebased my tree to include this change. Should I send a new
-pull request?
+But apparently Intel guys are not very responsive, as they have another
+patch than the following :
 
-Let me know what you prefer.
-
---r5Pyd7+fXNt84Ff3
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-netfilter-ipset-timeout-fixing-bug-broke-SET-target-.patch"
-
->From a73f89a61f92b364f0b4a3be412b5b70553afc23 Mon Sep 17 00:00:00 2001
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Date: Fri, 29 Jun 2012 09:42:28 +0000
-Subject: [PATCH] netfilter: ipset: timeout fixing bug broke SET target
- special timeout value
-
-The patch "127f559 netfilter: ipset: fix timeout value overflow bug"
-broke the SET target when no timeout was specified.
-
-Reported-by: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_set.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
-index 035960e..c6f7db7 100644
---- a/net/netfilter/xt_set.c
-+++ b/net/netfilter/xt_set.c
-@@ -16,6 +16,7 @@
- 
- #include <linux/netfilter/x_tables.h>
- #include <linux/netfilter/xt_set.h>
-+#include <linux/netfilter/ipset/ip_set_timeout.h>
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
-@@ -310,7 +311,8 @@ set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
- 		info->del_set.flags, 0, UINT_MAX);
- 
- 	/* Normalize to fit into jiffies */
--	if (add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
-+	if (add_opt.timeout != IPSET_NO_TIMEOUT &&
-+	    add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
- 		add_opt.timeout = UINT_MAX/MSEC_PER_SEC;
- 	if (info->add_set.index != IPSET_INVALID_ID)
- 		ip_set_add(info->add_set.index, skb, par, &add_opt);
--- 
-1.7.10
+http://permalink.gmane.org/gmane.linux.network/232669
 
 
---r5Pyd7+fXNt84Ff3--
+We only have to wait they push their alternative patch, eventually.
+
+In the mean time, you can use Hiroaki SHIMODA patch, it works.
