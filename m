@@ -1,55 +1,73 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [net-next RFC V5 0/5] Multiqueue virtio-net
-Date: Mon, 09 Jul 2012 09:46:47 -0700
-Message-ID: <4FFB0AF7.1080604@hp.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<4FF5D2B7.6080602@hp.com> <4FF696C9.5070907@redhat.com>
-	<4FF710FD.2090100@hp.com> <4FFA4EAD.7000707@redhat.com>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH 04/16] mm: allow PF_MEMALLOC from softirq context
+Date: Mon, 9 Jul 2012 18:57:10 +0200
+Message-ID: <20120709165710.GC3515@breakpoint.cc>
+References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
+ <1340375443-22455-5-git-send-email-mgorman@suse.de>
+ <20120626165513.GD6509@breakpoint.cc>
+ <20120627082614.GE8271@suse.de>
+ <20120708181211.GE2872@breakpoint.cc>
+ <20120709100442.GZ14154@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <4FFA4EAD.7000707@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20120709100442.GZ14154@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 07/08/2012 08:23 PM, Jason Wang wrote:
-> On 07/07/2012 12:23 AM, Rick Jones wrote:
->> On 07/06/2012 12:42 AM, Jason Wang wrote:
->> Which mechanism to address skew error?  The netperf manual describes
->> more than one:
->
-> This mechanism is missed in my test, I would add them to my test scripts.
->>
->> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
->>
->>
->> Personally, my preference these days is to use the "demo mode" method
->> of aggregate results as it can be rather faster than (ab)using the
->> confidence intervals mechanism, which I suspect may not really scale
->> all that well to large numbers of concurrent netperfs.
->
-> During my test, the confidence interval would even hard to achieved in
-> RR test when I pin vhost/vcpus in the processors, so I didn't use it.
+On Mon, Jul 09, 2012 at 11:04:42AM +0100, Mel Gorman wrote:
+> > - lets assume your allocation happens with kmalloc() without __GFP_MEMALLOC
+> >   and current->flags has PF_MEMALLOC ORed and your SLAB pool is empty. This
+> >   forces SLAB to allocate more pages from the buddy allocator with it will
+> >   receive more likely (due to ->current->flags + PF_MEMALLOC) but SLAB will
+> >   drop this extra memory because the page has ->pf_memory (or something like
+> >   that) set and the GFP_FLAGS do not have __GFP_MEMALLOC set.
+> > 
+> 
+> It's recorded if the slab page was allocated from PFMEMALLOC reserves (see
+> patch 2 from the swap over NBD series). slab will use this page for objects
+> but only allocate them to callers that pass a gfp_pfmemalloc_allowed() check.
+> kmalloc() users with either __GFP_MEMALLOC or PF_MEMALLOC will get
+> the pages they need but they will not "leak" to !_GFP_MEMALLOC users as
+> that would potentially deadlock.
 
-When running aggregate netperfs, *something* has to be done to address 
-the prospect of skew error.  Otherwise the results are suspect.
+Argh, I missed that gfp_to_alloc_flags() is not only called from
+within the buddy allocater but also from slab. So this is fine then :)
 
-happy benchmarking,
+One thing:
+You only get current->flags |= PF_MEMALLOC in softirq _if_ the skb, which is 
+passed to netif_receive_skb(), was allocated with __GFP_MEMALLOC. That
+means if the NIC's RX allocation did not require an allocation from the
+emergency pool (without ->pfmemalloc set) then you never use this extra
+pool, even if this skb would end up in your swap socket. Also, the other way
+around, where you allocate it from the emergency pool but it is a user
+socket and you could drop it.
 
-rick jones
+What about extending sk_set_memalloc() to record socket's ips + ports
+in a separate list so that skb_pfmemalloc_protocol() might use that
+information and decide on per-protocol basis if the skb is worth to
+spend more ressource to deliver it. That means you would enable the
+extra pool if the currently received skb is part of your swap socket and
+not if the skb was allocated from the emergency pool.
+
+That said, there is nothing wrong with the code as of now and this
+optimization could be added later (if at all).
+
+Sebastian
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
