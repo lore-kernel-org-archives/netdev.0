@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
- strings
-Date: Sun, 08 Jul 2012 23:51:30 -0700 (PDT)
-Message-ID: <20120708.235130.1792833004317144162.davem@davemloft.net>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6F@saturn3.aculab.com>
-	<20120702104843.GB4519@mwanda>
-	<1341242018.7472.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Subject: Re: [PATCH] net: dont use __netdev_alloc_skb for bounce buffer
+Date: Sun, 08 Jul 2012 23:52:53 -0700 (PDT)
+Message-ID: <20120708.235253.2142432557468408142.davem@davemloft.net>
+References: <1341254172.22621.456.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, David.Laight@ACULAB.COM,
-	JBottomley@parallels.com, barak@broadcom.com,
-	eddie.wai@broadcom.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, stefan.bader@canonical.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53360 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53373 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752285Ab2GIGvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:51:31 -0400
-In-Reply-To: <1341242018.7472.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	with ESMTP id S1752130Ab2GIGwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:52:54 -0400
+In-Reply-To: <1341254172.22621.456.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 2 Jul 2012 08:13:38 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 02 Jul 2012 20:36:12 +0200
 
-> This came from the net-next tree, so David is the right persion to apply
-> this.  Thanks.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Acked-by: Michael Chan <mchan@broadcom.com>
+> commit a1c7fff7e1 (net: netdev_alloc_skb() use build_skb()) broke b44 on
+> some 64bit machines.
+> 
+> It appears b44 and b43 use __netdev_alloc_skb() instead of alloc_skb()
+> for their bounce buffers.
+> 
+> There is no need to add an extra NET_SKB_PAD reservation for bounce
+> buffers :
+> 
+> - In TX path, NET_SKB_PAD is useless
+> 
+> - In RX path in b44, we force a copy of incoming frames if
+>   GFP_DMA allocations were needed.
+> 
+> Reported-and-bisected-by: Stefan Bader <stefan.bader@canonical.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
