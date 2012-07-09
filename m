@@ -1,34 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] Pull request for 'davem-next.r8169' branch
-Date: Mon, 09 Jul 2012 16:11:28 -0700 (PDT)
-Message-ID: <20120709.161128.1205277249328260399.davem@davemloft.net>
-References: <cover.1341872752.git.romieu@fr.zoreil.com>
-	<20120709.155744.1602820618256838850.davem@davemloft.net>
-	<20120709225106.GA23772@electric-eye.fr.zoreil.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2] fail dentry revalidation after namespace change
+Date: Mon, 9 Jul 2012 16:13:36 -0700
+Message-ID: <20120709161336.0ec23592.akpm@linux-foundation.org>
+References: <1341565747-15374-1-git-send-email-glommer@parallels.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60348 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701Ab2GIXL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 19:11:29 -0400
-In-Reply-To: <20120709225106.GA23772@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Greg Thelen <gthelen@google.com>,
+	Serge Hallyn <serge.hallyn@canonical.com>,
+	Tejun Heo <tj@kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Glauber Costa <glommer@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341565747-15374-1-git-send-email-glommer@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 10 Jul 2012 00:51:06 +0200
+On Fri,  6 Jul 2012 13:09:07 +0400
+Glauber Costa <glommer@parallels.com> wrote:
 
-> David Miller <davem@davemloft.net> :
-> [...]
->> [davem@dokdo net-next]$ git pull git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
->> remote: error: object directory /home/romieu/git/linux-bare.git/objects does not exist; check .git/objects/info/alternates.        
+> When we change the namespace tag of a sysfs entry, the associated dentry
+> is still kept around. readdir() will work correctly and not display the
+> old entries, but open() will still succeed, so will reads and writes.
 > 
-> It should be exorcised.
+> This will no longer happen if sysfs is remounted, hinting that this is a
+> cache-related problem.
+> 
+> I am using the following sequence to demonstrate that:
+> 
+> shell1:
+> ip link add type veth
+> unshare -nm
+> 
+> shell2:
+> ip link set veth1 <pid_of_shell_1>
+> cat /sys/devices/virtual/net/veth1/ifindex
+> 
+> Before that patch, this will succeed (fail to fail). After it, it will
+> correctly return an error. Differently from a normal rename, which we
+> handle fine, changing the object namespace will keep it's path intact.
+> So this check seems necessary as well.
+> 
+> ...
+>
+> --- a/fs/sysfs/dir.c
+> +++ b/fs/sysfs/dir.c
+> @@ -307,6 +307,7 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
+>  {
+>  	struct sysfs_dirent *sd;
+>  	int is_dir;
+> +	int type;
+>  
+>  	if (nd->flags & LOOKUP_RCU)
+>  		return -ECHILD;
+> @@ -326,6 +327,13 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
+>  	if (strcmp(dentry->d_name.name, sd->s_name) != 0)
+>  		goto out_bad;
+>  
+> +	/* The sysfs dirent has been moved to a different namespace */
+> +	type = KOBJ_NS_TYPE_NONE;
+> +	if (sd->s_parent)
+> +		type = sysfs_ns_type(sd->s_parent);
+> +	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
 
-Yep, looks good now, pulled.
+eww, the code is assuming that KOBJ_NS_TYPE_NONE has a value of zero. 
+Don't do that; it smells bad.
 
-Thanks!
+I renamed my version of this patch to "sysfs: fail dentry revalidation
+after namespace change", as carefully explained in section 15 of the
+excellent Documentation/SubmittingPatches, then queued this:
+
+
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: sysfs-fail-dentry-revalidation-after-namespace-change-fix
+
+don't assume that KOBJ_NS_TYPE_NONE==0.  Also save a test-n-branch.
+
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Glauber Costa <glommer@parallels.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Tejun Heo <tj@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ fs/sysfs/dir.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff -puN fs/sysfs/dir.c~sysfs-fail-dentry-revalidation-after-namespace-change-fix fs/sysfs/dir.c
+--- a/fs/sysfs/dir.c~sysfs-fail-dentry-revalidation-after-namespace-change-fix
++++ a/fs/sysfs/dir.c
+@@ -329,10 +329,12 @@ static int sysfs_dentry_revalidate(struc
+ 
+ 	/* The sysfs dirent has been moved to a different namespace */
+ 	type = KOBJ_NS_TYPE_NONE;
+-	if (sd->s_parent)
++	if (sd->s_parent) {
+ 		type = sysfs_ns_type(sd->s_parent);
+-	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
+-		goto out_bad;
++		if (type != KOBJ_NS_TYPE_NONE &&
++				sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns)
++			goto out_bad;
++	}
+ 
+ 	mutex_unlock(&sysfs_mutex);
+ out_valid:
+_
