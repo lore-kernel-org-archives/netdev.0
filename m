@@ -1,98 +1,45 @@
 From: "Andy Cress" <andy.cress@us.kontron.com>
-Subject: [PATCH 1/4] pch_gbe: fix the checksum fill to the error location
-Date: Mon, 9 Jul 2012 06:30:10 -0700
-Message-ID: <40680C535D6FE6498883F1640FACD44D010BFC0F@ka-exchange-1.kontronamerica.local>
+Subject: [PATCH 2/4] pch_gbe: fix transmit watchdog timeout
+Date: Mon, 9 Jul 2012 06:24:13 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D010BFC09@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.kontron.com ([209.118.138.70]:40032 "EHLO
+Received: from mail.us.kontron.com ([209.118.138.70]:60137 "EHLO
 	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753377Ab2GINaO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:30:14 -0400
-Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id BR4ve32suejZS2R2 for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:30:14 -0700 (PDT)
+	with ESMTP id S1753888Ab2GINfE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:35:04 -0400
+Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id JFzPOKSlfaRGoKpP for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:24:14 -0700 (PDT)
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhong Hongbo <hongbo.zhong@windriver.com>
-Date: Mon, 9 Apr 2012 10:51:28 +0800
+Author: Andy Cress <andy.cress@us.kontron.com>
 
-Due to some unknown hardware limitations the pch_gbe hardware cannot
-calculate checksums when the length of network package is less
-than 64 bytes, where we will surprisingly encounter a problem of
-the destination IP incorrectly changed.
+An extended ping and iperf test with 6 vlans resulted in transmit
+timeout stats 
+and sometimes a driver oops with a netdev watchdog transmit timeout.
+Fix WATCHDOG_TIMEOUT to be more like e1000e at 5 * HZ, to avoid 
+unnecessary transmit timeouts.
 
-When forwarding network packages at the network layer the IP packages
-won't be relayed to the upper transport layer and analyzed there,
-consequently, skb->transport_header pointer will be mistakenly remained
-the same as that of skb->network_header, resulting in TCP checksum
-wrongly
-filled into the field of destination IP in IP header.
-
-We can fix this issue by manually calculate the offset of the TCP
-checksum
- and update it accordingly.
-
-Signed-off-by: Zhong Hongbo <hongbo.zhong@windriver.com>
-Merged-by: Andy Cress <andy.cress@us.kontron.com>
-
----
- drivers/net/pch_gbe/pch_gbe_main.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+Signed-off-by: Andy Cress <andy.cress@us.kontron.com>
 
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 3787c64..4c04843 100644
+index 4c04843..a746064 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -1180,30 +1180,32 @@ static void pch_gbe_tx_queue(struct
-pch_gbe_adapter *adapter,
- 	 * when the received data size is less than 64 bytes.
- 	 */
- 	if (skb->len < PCH_GBE_SHORT_PKT && skb->ip_summed !=
-CHECKSUM_NONE) {
-+		struct iphdr *iph = ip_hdr(skb);
- 		frame_ctrl |= PCH_GBE_TXD_CTRL_APAD |
- 			      PCH_GBE_TXD_CTRL_TCPIP_ACC_OFF;
- 		if (skb->protocol == htons(ETH_P_IP)) {
--			struct iphdr *iph = ip_hdr(skb);
- 			unsigned int offset;
--			offset = skb_transport_offset(skb);
-+			offset = (unsigned char *)((u8 *)iph + iph->ihl
-* 4) - skb->data;
- 			if (iph->protocol == IPPROTO_TCP) {
-+				struct tcphdr *tcphdr_point = (struct
-tcphdr *)((u8 *)iph + iph->ihl * 4);
- 				skb->csum = 0;
--				tcp_hdr(skb)->check = 0;
-+				tcphdr_point->check = 0;
- 				skb->csum = skb_checksum(skb, offset,
- 							 skb->len -
-offset, 0);
--				tcp_hdr(skb)->check =
-+				tcphdr_point->check = 
- 					csum_tcpudp_magic(iph->saddr,
- 							  iph->daddr,
- 							  skb->len -
-offset,
- 							  IPPROTO_TCP,
- 							  skb->csum);
- 			} else if (iph->protocol == IPPROTO_UDP) {
-+				struct udphdr *udphdr_point = (struct
-udphdr *)((u8 *)iph + iph->ihl * 4);
- 				skb->csum = 0;
--				udp_hdr(skb)->check = 0;
-+				udphdr_point->check = 0;
- 				skb->csum =
- 					skb_checksum(skb, offset,
- 						     skb->len - offset,
-0);
--				udp_hdr(skb)->check =
-+				udphdr_point->check = 
- 					csum_tcpudp_magic(iph->saddr,
- 							  iph->daddr,
- 							  skb->len -
-offset,
+@@ -35,7 +35,7 @@ const char pch_driver_version[] = DRV_VERSION;
+ #define DSC_INIT16			0xC000
+ #define PCH_GBE_DMA_ALIGN		0
+ #define PCH_GBE_DMA_PADDING		2
+-#define PCH_GBE_WATCHDOG_PERIOD		(1 * HZ)	/*
+watchdog time */
++#define PCH_GBE_WATCHDOG_PERIOD		(5 * HZ)	/*
+watchdog time */
+ #define PCH_GBE_COPYBREAK_DEFAULT	256
+ #define PCH_GBE_PCI_BAR			1
+ #define PCH_GBE_RESERVE_MEMORY		0x200000	/* 2MB */
