@@ -1,44 +1,89 @@
-From: Tabi Timur-B04825 <B04825@freescale.com>
-Subject: Re: [PATCH] net/fsl_pq_mdio: use spin_event_timeout() to poll the
- indicator register
-Date: Mon, 9 Jul 2012 14:31:33 +0000
-Message-ID: <4FFAEB44.2030600@freescale.com>
-References: <1341357381-10861-1-git-send-email-timur@freescale.com>
- <20120708.235926.1117975937932919247.davem@davemloft.net>
+From: Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] ip.7: Improve explanation about calling listen or connect
+Date: Mon, 09 Jul 2012 16:53:13 +0200
+Message-ID: <4FFAF059.9070701@redhat.com>
+References: <1336566636-14713-1-git-send-email-fbl@redhat.com> <4FBF66D8.7060007@redhat.com> <20120606114426.0595fbac@asterix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Fleming Andy-AFLEMING <afleming@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:36205
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750882Ab2GIOcC convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2012 10:32:02 -0400
-In-Reply-To: <20120708.235926.1117975937932919247.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <3AA3F27BBAAE1D4BB0CA8212FA257A2C@mgd.freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120606114426.0595fbac-xCsz71Izw+A8CFLZRvg3uA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
+ping
 
-> Define a macro for the timeout value rather than use an arbitrary
-> constant.
-
-Ok.
-
->> +	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
->> +		1000, 0);
+On 06/06/2012 04:44 PM, Flavio Leitner wrote:
+> Hi,
 >
-> This indentation is absolutely terrible.
+> Could someone tell me what's the patch current state?
+> It has been a month already with no feedback.
+> thanks,
+> fbl
+>
+> On Fri, 25 May 2012 13:02:48 +0200
+> Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>
+>> Hi Michael,
+>>
+>> do you have any comments for this update? Or do you need some supporting
+>> info?
+>>
+>> peter
+>>
+>> On 05/09/2012 02:30 PM, Flavio Leitner wrote:
+>>> Signed-off-by: Flavio Leitner<fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>> ---
+>>>    man7/ip.7 |   15 +++++++++------
+>>>    1 files changed, 9 insertions(+), 6 deletions(-)
+>>>
+>>> diff --git a/man7/ip.7 b/man7/ip.7
+>>> index 9f560df..84fe32d 100644
+>>> --- a/man7/ip.7
+>>> +++ b/man7/ip.7
+>>> @@ -69,12 +69,11 @@ For
+>>>    you may specify a valid IANA IP protocol defined in
+>>>    RFC\ 1700 assigned numbers.
+>>>    .PP
+>>> -.\" FIXME ip current does an autobind in listen, but I'm not sure
+>>> -.\" if that should be documented.
+>>>    When a process wants to receive new incoming packets or connections, it
+>>>    should bind a socket to a local interface address using
+>>>    .BR bind (2).
+>>> -Only one IP socket may be bound to any given local (address, port) pair.
+>>> +In this case, only one IP socket may be bound to any given local
+>>> +(address, port) pair.
+>>>    When
+>>>    .B INADDR_ANY
+>>>    is specified in the bind call, the socket will be bound to
+>>> @@ -82,10 +81,14 @@ is specified in the bind call, the socket will be bound to
+>>>    local interfaces.
+>>>    When
+>>>    .BR listen (2)
+>>> -or
+>>> +is called on an unbound socket, the socket is automatically bound
+>>> +to a random free port with the local address set to
+>>> +.BR INADDR_ANY .
+>>> +When
+>>>    .BR connect (2)
+>>> -are called on an unbound socket, it is automatically bound to a
+>>> -random free port with the local address set to
+>>> +is called on an unbound socket, the socket is automatically bound
+>>> +to a random free port or an usable shared port with the local address
+>>> +set to
+>>>    .BR INADDR_ANY .
+>>>
+>>>    A TCP local socket address that has been bound is unavailable for
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-man" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Can you give me a clue as to how you think it should look?  I could not 
-come up with a good way to break up these lines and keep them under 80 
-characters.
 
--- 
-Timur Tabi
-Linux kernel developer at Freescale
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
