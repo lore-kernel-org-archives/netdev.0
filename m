@@ -1,113 +1,90 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: 82571EB: Detected Hardware Unit Hang
-Date: Mon, 09 Jul 2012 16:51:34 +0800
-Message-ID: <4FFA9B96.6040901@oracle.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] netfilter: ipset: timeout fixing bug broke SET
+ target special timeout value
+Date: Mon, 9 Jul 2012 10:58:27 +0200
+Message-ID: <20120709085827.GA10776@1984>
+References: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
+ <1341574779-3373-2-git-send-email-pablo@netfilter.org>
+ <20120709.002903.592402805831614695.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: e1000-devel@lists.sf.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="r5Pyd7+fXNt84Ff3"
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120709.002903.592402805831614695.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi list,
 
-I'm seeing a Unit Hang even with the latest e1000e driver 2.0.0 when doing
-scp test. this issue is easy do reproduced on SUN FIRE X2270 M2, just copy
-a big file (>500M) from another server will hit it at once. 
+--r5Pyd7+fXNt84Ff3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Would you please help on this?
+On Mon, Jul 09, 2012 at 12:29:03AM -0700, David Miller wrote:
+> From: pablo@netfilter.org
+> Date: Fri,  6 Jul 2012 13:39:38 +0200
+> 
+> > +	if (add_opt.timeout != IPSET_NO_TIMEOUT
+> > +	    && add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
+> 
+> We do not write conditionals like this, with operators beginning
+> a continued line.  Instead, write this as:
+> 
+> 	if (a &&
+> 	    b)
 
-device info:
-# lspci -s 05:00.0 
-05:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
+Oops, indeed, sorry. New patch attached.
 
-# lspci -s 05:00.0 -n
-05:00.0 0200: 8086:10bc (rev 06)
+I've also rebased my tree to include this change. Should I send a new
+pull request?
 
-# ethtool -i eth0
-driver: e1000e
-version: 2.0.0-NAPI
-firmware-version: 5.10-2
-bus-info: 0000:05:00.0
+Let me know what you prefer.
 
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: on
-udp fragmentation offload: off
-generic segmentation offload: on
-generic-receive-offload: on
+--r5Pyd7+fXNt84Ff3
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-ipset-timeout-fixing-bug-broke-SET-target-.patch"
 
-kernel log:
------------
-e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
-  TDH                  <6c>
-  TDT                  <81>
-  next_to_use          <81>
-  next_to_clean        <6b>
-buffer_info[next_to_clean]:
-  time_stamp           <fffc7a23>
-  next_to_watch        <71>
-  jiffies              <fffc8c0c>
-  next_to_watch.status <0>
-MAC Status             <80387>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3c00>
-PHY Extended Status    <3000>
-PCI Status             <10>
-e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
-  TDH                  <6c>
-  TDT                  <81>
-  next_to_use          <81>
-  next_to_clean        <6b>
-buffer_info[next_to_clean]:
-  time_stamp           <fffc7a23>
-  next_to_watch        <71>
-  jiffies              <fffc9bac>
-  next_to_watch.status <0>
-MAC Status             <80387>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3c00>
-PHY Extended Status    <3000>
-PCI Status             <10>
-------------[ cut here ]------------
-WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x225/0x230()
-Hardware name: SUN FIRE X2270 M2
-NETDEV WATCHDOG: eth0 (e1000e): transmit queue 0 timed out
-Modules linked in: autofs4 hidp rfcomm bluetooth rfkill lockd sunrpc cpufreq_ondemand acpi_cpufreq mperf be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3 mdio libiscsi_tcp libiscsi scsi_transport_iscsi video sbs sbshc acpi_pad acpi_ipmi ipmi_msghandler parport_pc lp parport e1000e(U) snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device igb snd_pcm_oss serio_raw snd_mixer_oss snd_pcm tpm_infineon snd_timer snd soundcore snd_page_alloc i2c_i801 iTCO_wdt i2c_core pcspkr i7core_edac iTCO_vendor_support ioatdma ghes dca edac_core hed dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage sd_mod crc_t10dif sg ahci libahci ext3 jbd mbcache [last unloaded: microcode]
-Pid: 0, comm: swapper Not tainted 2.6.39-200.24.1.el5uek #1
-Call Trace:
- [<c07d9ac5>] ? dev_watchdog+0x225/0x230
- [<c045ba61>] warn_slowpath_common+0x81/0xa0
- [<c07d9ac5>] ? dev_watchdog+0x225/0x230
- [<c045bb23>] warn_slowpath_fmt+0x33/0x40
- [<c07d9ac5>] dev_watchdog+0x225/0x230
- [<c07d98a0>] ? dev_activate+0xb0/0xb0
- [<c0468e82>] call_timer_fn+0x32/0xf0
- [<c04bceb0>] ? rcu_check_callbacks+0x80/0x80
- [<c046a76d>] run_timer_softirq+0xed/0x1b0
- [<c07d98a0>] ? dev_activate+0xb0/0xb0
- [<c0461a81>] __do_softirq+0x91/0x1a0
- [<c04619f0>] ? local_bh_enable+0x80/0x80
- <IRQ>  [<c0462295>] ? irq_exit+0x95/0xa0
- [<c087f8b8>] ? smp_apic_timer_interrupt+0x38/0x42
- [<c08784f5>] ? apic_timer_interrupt+0x31/0x38
- [<c046007b>] ? do_exit+0x11b/0x370
- [<c065eae4>] ? intel_idle+0xa4/0x100
- [<c078d9b9>] ? cpuidle_idle_call+0xb9/0x1e0
- [<c0411d77>] ? cpu_idle+0x97/0xd0
- [<c085cbbd>] ? rest_init+0x5d/0x70
- [<c0b07a7a>] ? start_kernel+0x28a/0x340
- [<c0b074b0>] ? obsolete_checksetup+0xb0/0xb0
- [<c0b070a4>] ? i386_start_kernel+0x64/0xb0
----[ end trace 5502b55cd4d4e5cb ]---
-e1000e 0000:05:00.0: eth0: Reset adapter
-e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+>From a73f89a61f92b364f0b4a3be412b5b70553afc23 Mon Sep 17 00:00:00 2001
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Date: Fri, 29 Jun 2012 09:42:28 +0000
+Subject: [PATCH] netfilter: ipset: timeout fixing bug broke SET target
+ special timeout value
 
-Thanks,
-Joe
+The patch "127f559 netfilter: ipset: fix timeout value overflow bug"
+broke the SET target when no timeout was specified.
+
+Reported-by: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/xt_set.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+index 035960e..c6f7db7 100644
+--- a/net/netfilter/xt_set.c
++++ b/net/netfilter/xt_set.c
+@@ -16,6 +16,7 @@
+ 
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_set.h>
++#include <linux/netfilter/ipset/ip_set_timeout.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -310,7 +311,8 @@ set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
+ 		info->del_set.flags, 0, UINT_MAX);
+ 
+ 	/* Normalize to fit into jiffies */
+-	if (add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
++	if (add_opt.timeout != IPSET_NO_TIMEOUT &&
++	    add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
+ 		add_opt.timeout = UINT_MAX/MSEC_PER_SEC;
+ 	if (info->add_set.index != IPSET_INVALID_ID)
+ 		ip_set_add(info->add_set.index, skb, par, &add_opt);
+-- 
+1.7.10
+
+
+--r5Pyd7+fXNt84Ff3--
