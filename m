@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bcm87xx: fix reg-init comment typo
-Date: Mon, 09 Jul 2012 00:12:01 -0700 (PDT)
-Message-ID: <20120709.001201.40281913552167448.davem@davemloft.net>
-References: <1341414345-16626-1-git-send-email-jacmet@sunsite.dk>
-	<4FF47BDE.3010002@gmail.com>
+Subject: Re: [PATCH] netdev/phy: Fixup lockdep warnings in mdio-mux.c
+Date: Mon, 09 Jul 2012 00:13:08 -0700 (PDT)
+Message-ID: <20120709.001308.1467096850382631360.davem@davemloft.net>
+References: <1341439576-1413-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jacmet@sunsite.dk, netdev@vger.kernel.org, david.daney@cavium.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	david.daney@cavium.com
 To: ddaney.cavm@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53578 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729Ab2GIHMB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 03:12:01 -0400
-In-Reply-To: <4FF47BDE.3010002@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341439576-1413-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed, 04 Jul 2012 10:22:38 -0700
+Date: Wed,  4 Jul 2012 15:06:16 -0700
 
-> On 07/04/2012 08:05 AM, Peter Korsgaard wrote:
->> broadcom, not marvell.
->>
->> Signed-off-by: Peter Korsgaard<jacmet@sunsite.dk>
+> From: David Daney <david.daney@cavium.com>
 > 
-> Indeed, it was a cut-and-paste error.  Thanks for fixing it...
+> With lockdep enabled we get:
+ ...
+> This is a false positive, since we are indeed using 'nested' locking,
+> we need to use mutex_lock_nested().
 > 
-> Acked-by: David Daney <david.daney@cavium.com>
+> Now in theory we can stack multiple MDIO multiplexers, but that would
+> require passing the nesting level (which is difficult to know) to
+> mutex_lock_nested().  Instead we assume the simple case of a single
+> level of nesting.  Since these are only warning messages, it isn't so
+> important to solve the general case.
+> 
+> Signed-off-by: David Daney <david.daney@cavium.com>
 
-Applied to net-next, thanks.
+Applied to 'net', thanks.
