@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phylib: Support registering a bunch of drivers
-Date: Mon, 09 Jul 2012 00:11:14 -0700 (PDT)
-Message-ID: <20120709.001114.1511546237738881062.davem@davemloft.net>
-References: <20120704154434.GZ19422@elara.bln.innominate.local>
+Subject: Re: [PATCH] bcm87xx: fix reg-init comment typo
+Date: Mon, 09 Jul 2012 00:12:01 -0700 (PDT)
+Message-ID: <20120709.001201.40281913552167448.davem@davemloft.net>
+References: <1341414345-16626-1-git-send-email-jacmet@sunsite.dk>
+	<4FF47BDE.3010002@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chohnstaedt@innominate.com
+Cc: jacmet@sunsite.dk, netdev@vger.kernel.org, david.daney@cavium.com
+To: ddaney.cavm@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53568 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53578 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751729Ab2GIHLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 03:11:15 -0400
-In-Reply-To: <20120704154434.GZ19422@elara.bln.innominate.local>
+	with ESMTP id S1751729Ab2GIHMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 03:12:01 -0400
+In-Reply-To: <4FF47BDE.3010002@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christian Hohnstaedt <chohnstaedt@innominate.com>
-Date: Wed, 4 Jul 2012 17:44:34 +0200
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 04 Jul 2012 10:22:38 -0700
 
-> If registering of one of them fails, all already registered drivers
-> of this module will be unregistered.
+> On 07/04/2012 08:05 AM, Peter Korsgaard wrote:
+>> broadcom, not marvell.
+>>
+>> Signed-off-by: Peter Korsgaard<jacmet@sunsite.dk>
 > 
-> Use the new register/unregister functions in all drivers
-> registering more than one driver.
+> Indeed, it was a cut-and-paste error.  Thanks for fixing it...
 > 
-> amd.c, realtek.c: Simplify: directly return registration result.
-> 
-> Tested with broadcom.c
-> All others compile-tested.
-> 
-> Signed-off-by: Christian Hohnstaedt <chohnstaedt@innominate.com>
+> Acked-by: David Daney <david.daney@cavium.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
