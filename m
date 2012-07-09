@@ -1,27 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] netfilter: ipset: timeout fixing bug broke SET
- target special timeout value
-Date: Mon, 09 Jul 2012 02:50:14 -0700 (PDT)
-Message-ID: <20120709.025014.442910116644796169.davem@davemloft.net>
-References: <1341574779-3373-2-git-send-email-pablo@netfilter.org>
-	<20120709.002903.592402805831614695.davem@davemloft.net>
-	<20120709085827.GA10776@1984>
+From: "Webmail Account Upgrade" <noreply@webmail.net>
+Subject: Warning! Your mailbox is almost full.
+Date: Mon, 9 Jul 2012 10:46:06 -0100
+Message-ID: <a74fe181a4a9a957de4e8bfa692bd7a1.squirrel@webmail.africaonline.com.gh>
+Reply-To: noreply@webmail.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120709085827.GA10776@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: recipient list not shown:;
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from av1.africaonline.com.gh ([212.85.196.22]:44435 "EHLO
+	mx1.africaonline.com.gh" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751764Ab2GIKAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 06:00:42 -0400
+Received: from mx1.africaonline.com.gh (localhost [127.0.0.1])
+	by mx1.africaonline.com.gh (Postfix) with ESMTP id 3A3D835B3C8
+	for <netdev@vger.kernel.org>; Mon,  9 Jul 2012 09:39:01 +0000 (GMT)
+Received: from pop.africaonline.com.gh (gh2.africaonline.com.gh [212.85.196.2])
+	by mx1.africaonline.com.gh (Postfix) with ESMTP id AD2F235EA48
+	for <netdev@vger.kernel.org>; Mon,  9 Jul 2012 09:38:39 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 9 Jul 2012 10:58:27 +0200
+You have exceeded your email limit quota of 450MB. You need to upgrade =
+your email
+limit quota to 2GB within the next 48 hours. Use the below web link to =
+upgrade your
+email account:
 
-> I've also rebased my tree to include this change. Should I send a new
-> pull request?
+click link below:
+  https://docs.google.com/spreadsheet/viewform?formkey=3DdHBNRUIzNFZ5d3=
+E3c2xCWlVYZmQxYnc6MQ
 
-Next time send a new pull request.
-
-This time, I re-pulled, thanks.
+Thank you for using our email.
+Copyright =A92012 Email Helpdesk Centre.
