@@ -1,60 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/4] pch_gbe: vlan skb len fix
-Date: Mon, 9 Jul 2012 21:33:23 +0100
-Message-ID: <1341866003.2535.60.camel@bwh-desktop.uk.solarflarecom.com>
-References: <40680C535D6FE6498883F1640FACD44D010BFC0E@ka-exchange-1.kontronamerica.local>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: [PATCH 1/2] bonding: Manage /proc/net/bonding/ entries from the
+	netdev events
+Date: Mon, 09 Jul 2012 13:51:45 -0700
+Message-ID: <87y5ms3bfi.fsf_-_@xmission.com>
+References: <1340900320.3441.88.camel@pro6455b.example.com>
+	<20120705220749.GA11255@mail.hallyn.com> <87ehopu3e5.fsf@xmission.com>
+	<20120706170538.GA31679@mail.hallyn.com> <87fw94g1kq.fsf@xmission.com>
+	<20120706194741.GA22113@mail.hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Andy Cress <andy.cress@us.kontron.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:63651 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753182Ab2GIUd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 16:33:27 -0400
-In-Reply-To: <40680C535D6FE6498883F1640FACD44D010BFC0E@ka-exchange-1.kontronamerica.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Dilip Daya <dilip.daya-VXdhtT5mjnY@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20120706194741.GA22113-7LNsyQBKDXoIagZqoN9o3w@public.gmane.org> (Serge E. Hallyn's
+	message of "Fri, 6 Jul 2012 19:47:41 +0000")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-07-09 at 06:30 -0700, Andy Cress wrote:
-> Author: Veaceslav Falico <vfalico@redhat.com>
-> Date:   Tue Apr 10 08:14:17 2012 +0200
-> 
->     pch_gbe: correctly verify skb->len in vlan case
->              to avoid bogus transfer length errors.
 
-This check shouldn't be necessary at all.  Maybe you should remove it
-instead of correcting the check?
+It was recently reported that moving a bonding device between network
+namespaces causes warnings from /proc.  It turns out after the move we
+were trying to add and to remove the /proc/net/bonding entries from the
+wrong network namespace.
 
-Also, these patches are word-wrapped, and would not be applicable in
-this form.  See Documentation/email-clients.txt.
+Move the bonding /proc registration code into the NETDEV_REGISTER and
+NETDEV_UNREGISTER events where the proc registration and unregistration
+will always happen at the right time.
 
-Ben.
+Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+---
+ drivers/net/bonding/bond_main.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
-> Signed-off-by: Andy Cress <andy.cress@us.kontron.com>
-> 
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> index 30ef285..04b0e49 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> @@ -2158,8 +2158,10 @@ static int pch_gbe_xmit_frame(struct sk_buff
-> *skb, struct net_device *netdev)
->  	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
->  	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
->  	unsigned long flags;
-> +	int offset;
->  
-> -	if (unlikely(skb->len > (adapter->hw.mac.max_frame_size - 4))) {
-> +	offset = skb->protocol == htons(ETH_P_8021Q) ? 0 : 4;
-> +	if (unlikely(skb->len > (adapter->hw.mac.max_frame_size -
-> offset))) {
->  		pr_err("Transfer length Error: skb len: %d > max: %d\n",
->  		       skb->len, adapter->hw.mac.max_frame_size);
->  		dev_kfree_skb_any(skb);
-
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2ee8cf9..50de0fe 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3226,6 +3226,12 @@ static int bond_master_netdev_event(unsigned long event,
+ 	switch (event) {
+ 	case NETDEV_CHANGENAME:
+ 		return bond_event_changename(event_bond);
++	case NETDEV_UNREGISTER:
++		bond_remove_proc_entry(event_bond);
++		break;
++	case NETDEV_REGISTER:
++		bond_create_proc_entry(event_bond);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -4410,8 +4416,6 @@ static void bond_uninit(struct net_device *bond_dev)
+ 
+ 	bond_work_cancel_all(bond);
+ 
+-	bond_remove_proc_entry(bond);
+-
+ 	bond_debug_unregister(bond);
+ 
+ 	__hw_addr_flush(&bond->mc_list);
+@@ -4813,7 +4817,6 @@ static int bond_init(struct net_device *bond_dev)
+ 
+ 	bond_set_lockdep_class(bond_dev);
+ 
+-	bond_create_proc_entry(bond);
+ 	list_add_tail(&bond->bond_list, &bn->dev_list);
+ 
+ 	bond_prepare_sysfs_group(bond);
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.5.4
