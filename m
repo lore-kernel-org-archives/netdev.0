@@ -1,31 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-07-06
-Date: Mon, 09 Jul 2012 00:31:55 -0700 (PDT)
-Message-ID: <20120709.003155.284089706826738623.davem@davemloft.net>
-References: <20120706192034.GA1879@tuxdriver.com>
+From: Denis Ovsienko <infrastation@yandex.ru>
+Subject: [PATCH] fix RTPROT_RA markup of some RA routes in netlink
+Date: Mon, 09 Jul 2012 11:37:53 +0400
+Message-ID: <1405671341819473@web18d.yandex.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed;
+	boundary="----==--bound.140568.web18d.yandex.ru"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward4.mail.yandex.net ([77.88.46.9]:53657 "EHLO
+	forward4.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752155Ab2GIHoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 03:44:18 -0400
+Received: from web18d.yandex.ru (web18d.yandex.ru [77.88.47.163])
+	by forward4.mail.yandex.net (Yandex) with ESMTP id D969D1BC1367
+	for <netdev@vger.kernel.org>; Mon,  9 Jul 2012 11:37:54 +0400 (MSK)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+------==--bound.140568.web18d.yandex.ru
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120706192034.GA1879@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 6 Jul 2012 15:20:35 -0400
+Hello, list.
 
-> Please let me know if there are problems!
+This is a small patch I have produced after thoroughly studying the coupling between addrconf and FIB6 functions. I believe this change to improve the transparency of FIB6 as viewed from userspace (by iproute2 in particular). It does resolve an issue I was debugging, where a default route derived from a router advertisement couldn't be told from kernel routes derived from other sources. The difference is meaningful at least for dynamic routing purposes, but other good uses are also possible.
 
-This indentation is not correct:
+Thank you.
 
-commit 01f9cb073c827c60c43f769763b49a2026f1a897
-Author: Thomas Huehn <thomas@net.t-labs.tu-berlin.de>
-Date:   Thu Jun 28 14:39:51 2012 -0700
+-- 
+    Denis Ovsienko
 
-    mwl8k: fix possible race condition in info->control.sta use
- ...
-+			sta = ieee80211_find_sta_by_ifaddr(hw, wh->addr1,
-+								wh->addr2);
+------==--bound.140568.web18d.yandex.ru
+Content-Disposition: attachment;
+	filename="0001-fix-RTPROT_RA-markup-of-some-RA-routes-in-netlink.patch"
+Content-Transfer-Encoding: base64
+Content-Type: text/plain;
+	name="0001-fix-RTPROT_RA-markup-of-some-RA-routes-in-netlink.patch"
+
+RnJvbSAxZDk2OTkwM2M2MjIxOTgwMzYwZjc2YWJiNWUwNjMzMDBlNWNmM2JiIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBEZW5pcyBPdnNpZW5rbyA8aW5mcmFzdGF0aW9uQHlhbmRleC5y
+dT4KRGF0ZTogRnJpLCA2IEp1bCAyMDEyIDE4OjA4OjE4ICswNDAwClN1YmplY3Q6IFtQQVRDSF0g
+Zml4IFJUUFJPVF9SQSBtYXJrdXAgb2Ygc29tZSBSQSByb3V0ZXMgaW4gbmV0bGluawoKVGhlcmUg
+YXJlIHRocmVlIHR5cGVzIG9mIElQdjYgcm91dGVzIG9yaWdpbmF0ZWQgYnkga2VybmVsIE5EIFJB
+IGNvZGU6CgoqIERlZmF1bHQgcm91dGVzIHN0YW5kaW5nIGZvciBSQSBwYWNrZXRzIHdpdGggbm9u
+LXplcm8gcm91dGVyIGxpZmV0aW1lLgoqIENvbm5lY3RlZCBwcmVmaXggcm91dGVzIHN0YW5kaW5n
+IGZvciBhIFByZWZpeCBJbmZvcm1hdGlvbiAoMykgUkEgVExWLgoqIEFueSBwcmVmaXggcm91dGVz
+IHN0YW5kaW5nIGZvciBhIFJvdXRlIEluZm9ybWF0aW9uICgyNCkgUkEgVExWLgoKQWxsIHRocmVl
+IHR5cGVzIGFyZSBpbnRlcm5hbGx5IHN0b3JlZCB1c2luZyBSVFBST1RfS0VSTkVMIG9yIFJUUFJP
+VF9CT09UCnByb3RvY29sIGNvZGUgYW5kIFJURl9BRERSQ09ORiByb3V0ZSBmbGFnICh0aGlzIGlz
+IHRoZSBvbmx5IHB1cnBvc2UgZm9yCnRoaXMgZmxhZykuIFRoZSBmbGFnIGlzbid0IGRpcmVjdGx5
+IGF2YWlsYWJsZSBpbiBuZXRsaW5rIHNvY2tldCBzcGFjZS4KR2l2ZW4gdGhlIG5lZWQgdG8gdGVs
+bCByb3V0ZSBvcmlnaW4gaW4gdXNlcnNwYWNlLCBmb3Igcm91dGVzIHdpdGgKbmV4dGhvcHMgaW4g
+dGhlIGZpcnN0IHR1cm4sIHJ0Nl9maWxsX25vZGUoKSB0cmllcyB0byBkaXN0aW5ndWlzaCBkZWZh
+dWx0CnJvdXRlciBjYXNlIHNlbmRpbmcgdGhlIG5ldGxpbmsgcm91dGUgc3RydWN0dXJlIHdpdGgg
+UlRQUk9UX1JBICh0aGlzIGlzCnJlc3BlY3RpdmVseSB0aGUgb25seSB1c2UgY2FzZSBmb3IgdGhp
+cyBwcm90b2NvbCBjb2RlKSwgYnV0IHRvIG5vCnN1Y2Nlc3MgZHVlIHRvIGEgdGVzdCBjb25kaXRp
+b24gdGFrZW4gd3JvbmcuIEFsbCB0aHJlZSB0eXBlcyBhcmUKZGVsaXZlcmVkIHdpdGggUlRQUk9U
+X0tFUk5FTC4KClRoaXMgY2hhbmdlIGlzIG1vZGVsbGVkIGFmdGVyIHRoZSBvcmlnaW5hbCBtYWls
+aW5nIGxpc3QgcG9zdGluZyBieSBKZWZmCkhhcmFuLiBJdCBmaXhlcyB0aGUgdGVzdCBjb25kaXRp
+b24gZm9yIHRoZSBkZWZhdWx0IHJvdXRlciBjYXNlIGFuZApleHRlbmRzIGl0IGZvciB0aGUgUm91
+dGUgSW5mb3JtYXRpb24gY2FzZS4KLS0tCiBuZXQvaXB2Ni9yb3V0ZS5jIHwgICAxMiArKysrKysr
+KystLS0KIDEgZmlsZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQoK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3JvdXRlLmMgYi9uZXQvaXB2Ni9yb3V0ZS5jCmluZGV4IDk5
+OWE5ODIuLjJmMDcwZDYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3JvdXRlLmMKKysrIGIvbmV0L2lw
+djYvcm91dGUuYwpAQCAtMjQ0MSw5ICsyNDQxLDE1IEBAIHN0YXRpYyBpbnQgcnQ2X2ZpbGxfbm9k
+ZShzdHJ1Y3QgbmV0ICpuZXQsCiAJaWYgKHJ0LT5ydDZpX2ZsYWdzICYgUlRGX0RZTkFNSUMpCiAJ
+CXJ0bS0+cnRtX3Byb3RvY29sID0gUlRQUk9UX1JFRElSRUNUOwogCWVsc2UgaWYgKHJ0LT5ydDZp
+X2ZsYWdzICYgUlRGX0FERFJDT05GKQotCQlydG0tPnJ0bV9wcm90b2NvbCA9IFJUUFJPVF9LRVJO
+RUw7Ci0JZWxzZSBpZiAocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfREVGQVVMVCkKLQkJcnRtLT5ydG1f
+cHJvdG9jb2wgPSBSVFBST1RfUkE7CisJeworCQkvKiBhbnkgTkQgUkEgcm91dGUsIG1vc3QgcHJv
+YmFibHkgb3JpZ2luYXRlZCBieSBrZXJuZWwgKi8KKwkJaWYgKHJ0LT5ydDZpX2ZsYWdzICYgUlRG
+X0RFRkFVTFQpIC8qIGRlZmF1bHQgcm91dGVyICovCisJCQlydG0tPnJ0bV9wcm90b2NvbCA9IFJU
+UFJPVF9SQTsKKwkJZWxzZSBpZiAocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfUk9VVEVJTkZPKSAvKiBh
+bnkgcm91dGUgdy9uZXh0aG9wICovCisJCQlydG0tPnJ0bV9wcm90b2NvbCA9IFJUUFJPVF9SQTsK
+KwkJZWxzZSAvKiBSVEZfUFJFRklYX1JULCBpbnRlcmZhY2UgY29ubmVjdGVkIHByZWZpeCByb3V0
+ZSAqLworCQkJcnRtLT5ydG1fcHJvdG9jb2wgPSBSVFBST1RfS0VSTkVMOworCX0KIAogCWlmIChy
+dC0+cnQ2aV9mbGFncyAmIFJURl9DQUNIRSkKIAkJcnRtLT5ydG1fZmxhZ3MgfD0gUlRNX0ZfQ0xP
+TkVEOwotLSAKMS43LjcuNgoK
+------==--bound.140568.web18d.yandex.ru--
