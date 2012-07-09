@@ -1,91 +1,157 @@
-From: Ming Lei <tom.leiming@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Mon, 9 Jul 2012 21:23:18 +0800
-Message-ID: <CACVXFVNYwNrdWS_EiQ4O0-ou369AQ2tB4qbvmzY1rt5T3QnyUw@mail.gmail.com>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	<1341474192.2583.3299.camel@edumazet-glaptop>
-	<CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	<1341477192.2583.3415.camel@edumazet-glaptop>
-	<CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	<1341481760.2583.3579.camel@edumazet-glaptop>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: [PATCH 3/4] pch_gbe: add extra clean tx
+Date: Mon, 9 Jul 2012 06:28:05 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D010BFC0D@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:56291 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871Ab2GINXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:23:19 -0400
-Received: by mail-ob0-f174.google.com with SMTP id uo13so20529015obb.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:23:19 -0700 (PDT)
-In-Reply-To: <1341481760.2583.3579.camel@edumazet-glaptop>
+Received: from mail.us.kontron.com ([209.118.138.70]:60587 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753528Ab2GIN2M convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:28:12 -0400
+Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id 4e6nwnrHrJidAuM3 for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:28:11 -0700 (PDT)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 5, 2012 at 5:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2012-07-05 at 16:42 +0800, Ming Lei wrote:
->> On Thu, Jul 5, 2012 at 4:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Thu, 2012-07-05 at 16:27 +0800, Ming Lei wrote:
->> >
->> >> After some investigation, the problem is caused by enabling
->> >> DEBUG_SLAB, so it is not a regression.
->> >>
->> >
->> > Strange, unless your machine is a _very_ slow one maybe ?
->>
->> It is a beagle-xm board, and its cpu is ARMv7, 1GHz.
->
-> OK, driver seems buggy, please try following patch (on both sides if
-> possible)
->
->  drivers/net/usb/smsc95xx.c |   11 ++++-------
->  1 file changed, 4 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> index b1112e7..0a4ae35 100644
-> --- a/drivers/net/usb/smsc95xx.c
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -1084,26 +1084,23 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
->                         if (skb->len == size) {
->                                 if (dev->net->features & NETIF_F_RXCSUM)
->                                         smsc95xx_rx_csum_offload(skb);
-> -                               skb_trim(skb, skb->len - 4); /* remove fcs */
-> +                               __skb_trim(skb, skb->len - 4); /* remove fcs */
->                                 skb->truesize = size + sizeof(struct sk_buff);
->
->                                 return 1;
->                         }
->
-> -                       ax_skb = skb_clone(skb, GFP_ATOMIC);
-> +                       ax_skb = netdev_alloc_skb_ip_align(dev->net, size);
->                         if (unlikely(!ax_skb)) {
->                                 netdev_warn(dev->net, "Error allocating skb\n");
->                                 return 0;
->                         }
->
-> -                       ax_skb->len = size;
-> -                       ax_skb->data = packet;
-> -                       skb_set_tail_pointer(ax_skb, size);
-> +                       memcpy(skb_put(ax_skb, size), packet, size);
->
->                         if (dev->net->features & NETIF_F_RXCSUM)
->                                 smsc95xx_rx_csum_offload(ax_skb);
-> -                       skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
-> -                       ax_skb->truesize = size + sizeof(struct sk_buff);
-> +                       __skb_trim(ax_skb, ax_skb->len - 4); /* remove fcs */
->
->                         usbnet_skb_return(dev, ax_skb);
->                 }
->
->
+Author: Andy Cress <andy.cress@us.kontron.com>
 
-Looks the patch replaces skb_clone with netdev_alloc_skb_ip_align and
-introduces extra copies on incoming data, so would you mind explaining
-it in a bit detail? And why is skb_clone not OK for the purpose?
+This adds extra cleaning to the pch_gbe_clean_tx routine to avoid 
+transmit timeouts on some PHYs that have different timing.
+Also update the DRV_VERSION to 1.01, and show it.
 
+Signed-off-by: Andy Cress <andy.cress@us.kontron.com>
 
-Thanks,
--- 
-Ming Lei
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index a746064..30ef285 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -26,7 +26,7 @@
+ #include <linux/ptp_classify.h>
+ #endif
+ 
+-#define DRV_VERSION     "1.00"
++#define DRV_VERSION     "1.01"
+ const char pch_driver_version[] = DRV_VERSION;
+ 
+ #define PCI_DEVICE_ID_INTEL_IOH1_GBE	0x8802		/* Pci device ID
+*/
+@@ -1581,7 +1581,8 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 	struct sk_buff *skb;
+ 	unsigned int i;
+ 	unsigned int cleaned_count = 0;
+-	bool cleaned = true;
++	bool cleaned = false;
++	int unused, thresh;
+ 
+ 	pr_debug("next_to_clean : %d\n", tx_ring->next_to_clean);
+ 
+@@ -1590,10 +1591,36 @@ pch_gbe_clean_tx(struct pch_gbe_adapter
+*adapter,
+ 	pr_debug("gbec_status:0x%04x  dma_status:0x%04x\n",
+ 		 tx_desc->gbec_status, tx_desc->dma_status);
+ 
++	unused = PCH_GBE_DESC_UNUSED(tx_ring);
++	thresh = tx_ring->count - PCH_GBE_TX_WEIGHT;
++	if ((tx_desc->gbec_status == DSC_INIT16) && (unused < thresh))
++	{  /* current marked clean, tx queue filling up, do extra clean
+*/
++		int j, k;
++		if (unused < 8) {  /* tx queue nearly full */
++			pr_debug("clean_tx: transmit queue warning
+(%x,%x) unused=%d\n",
++
+tx_ring->next_to_clean,tx_ring->next_to_use,unused);
++		}
++	   
++		/* current marked clean, scan for more that need
+cleaning. */
++		k = i;
++		for (j = 0; j < PCH_GBE_TX_WEIGHT; j++) 
++		{
++			tx_desc = PCH_GBE_TX_DESC(*tx_ring, k);
++			if (tx_desc->gbec_status != DSC_INIT16) break;
+/*found*/
++			if (++k >= tx_ring->count) k = 0;  /*increment,
+wrap*/
++		}
++		if (j < PCH_GBE_TX_WEIGHT) {
++			pr_debug("clean_tx: unused=%d loops=%d found
+tx_desc[%x,%x:%x].gbec_status=%04x\n",
++				unused,j, i,k, tx_ring->next_to_use,
+tx_desc->gbec_status);
++			i = k;  /*found one to clean, usu
+gbec_status==2000.*/
++		}
++	}
++
+ 	while ((tx_desc->gbec_status & DSC_INIT16) == 0x0000) {
+ 		pr_debug("gbec_status:0x%04x\n", tx_desc->gbec_status);
+ 		buffer_info = &tx_ring->buffer_info[i];
+ 		skb = buffer_info->skb;
++		cleaned = true;
+ 
+ 		if ((tx_desc->gbec_status & PCH_GBE_TXD_GMAC_STAT_ABT))
+{
+ 			adapter->stats.tx_aborted_errors++;
+@@ -1641,18 +1668,21 @@ pch_gbe_clean_tx(struct pch_gbe_adapter
+*adapter,
+ 	}
+ 	pr_debug("called pch_gbe_unmap_and_free_tx_resource() %d
+count\n",
+ 		 cleaned_count);
+-	/* Recover from running out of Tx resources in xmit_frame */
+-	spin_lock(&tx_ring->tx_lock);
+-	if (unlikely(cleaned && (netif_queue_stopped(adapter->netdev))))
+{
+-		netif_wake_queue(adapter->netdev);
+-		adapter->stats.tx_restart_count++;
+-		pr_debug("Tx wake queue\n");
+-	}
++	if (cleaned_count > 0)  { /*skip this if nothing cleaned*/
++		/* Recover from running out of Tx resources in
+xmit_frame */
++		spin_lock(&tx_ring->tx_lock);
++		if (unlikely(cleaned &&
+(netif_queue_stopped(adapter->netdev))))
++		{
++			netif_wake_queue(adapter->netdev);
++			adapter->stats.tx_restart_count++;
++			pr_debug("Tx wake queue\n");
++		}
+ 
+-	tx_ring->next_to_clean = i;
++		tx_ring->next_to_clean = i;
+ 
+-	pr_debug("next_to_clean : %d\n", tx_ring->next_to_clean);
+-	spin_unlock(&tx_ring->tx_lock);
++		pr_debug("next_to_clean : %d\n",
+tx_ring->next_to_clean);
++		spin_unlock(&tx_ring->tx_lock);
++	}
+ 	return cleaned;
+ }
+ 
+@@ -2389,7 +2419,7 @@ static int pch_gbe_napi_poll(struct napi_struct
+*napi, int budget)
+ 	pch_gbe_clean_rx(adapter, adapter->rx_ring, &work_done, budget);
+ 	cleaned = pch_gbe_clean_tx(adapter, adapter->tx_ring);
+ 
+-	if (!cleaned)
++	if (cleaned)
+ 		work_done = budget;
+ 	/* If no Tx and not enough Rx work done,
+ 	 * exit the polling mode
+@@ -2795,6 +2825,7 @@ static int __init pch_gbe_init_module(void)
+ {
+ 	int ret;
+ 
++	pr_info("EG20T PCH Gigabit Ethernet Driver - version
+%s\n",DRV_VERSION);
+ 	ret = pci_register_driver(&pch_gbe_driver);
+ 	if (copybreak != PCH_GBE_COPYBREAK_DEFAULT) {
+ 		if (copybreak == 0) {
