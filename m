@@ -1,85 +1,44 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next RFC V5 5/5] virtio_net: support negotiating the
-	number of queues through ctrl vq
-Date: Mon, 9 Jul 2012 21:13:23 +0100
-Message-ID: <1341864803.2535.53.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-6-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH 1/4] pch_gbe: fix the checksum fill to the error location
+Date: Mon, 9 Jul 2012 21:16:03 +0100
+Message-ID: <1341864963.2535.55.camel@bwh-desktop.uk.solarflarecom.com>
+References: <40680C535D6FE6498883F1640FACD44D010BFC0F@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1341484194-8108-6-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Andy Cress <andy.cress@us.kontron.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:64609 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752966Ab2GIUQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 16:16:06 -0400
+In-Reply-To: <40680C535D6FE6498883F1640FACD44D010BFC0F@ka-exchange-1.kontronamerica.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-05 at 18:29 +0800, Jason Wang wrote:
-> This patch let the virtio_net driver can negotiate the number of queues it
-> wishes to use through control virtqueue and export an ethtool interface to let
-> use tweak it.
+On Mon, 2012-07-09 at 06:30 -0700, Andy Cress wrote:
+> From: Zhong Hongbo <hongbo.zhong@windriver.com>
+> Date: Mon, 9 Apr 2012 10:51:28 +0800
 > 
-> As current multiqueue virtio-net implementation has optimizations on per-cpu
-> virtuqueues, so only two modes were support:
+> Due to some unknown hardware limitations the pch_gbe hardware cannot
+> calculate checksums when the length of network package is less
+> than 64 bytes, where we will surprisingly encounter a problem of
+> the destination IP incorrectly changed.
 > 
-> - single queue pair mode
-> - multiple queue paris mode, the number of queues matches the number of vcpus
-> 
-> The single queue mode were used by default currently due to regression of
-> multiqueue mode in some test (especially in stream test).
-> 
-> Since virtio core does not support paritially deleting virtqueues, so during
-> mode switching the whole virtqueue were deleted and the driver would re-create
-> the virtqueues it would used.
-> 
-> btw. The queue number negotiating were defered to .ndo_open(), this is because
-> only after feature negotitaion could we send the command to control virtqueue
-> (as it may also use event index).
-[...]
-> +static int virtnet_set_channels(struct net_device *dev,
-> +				struct ethtool_channels *channels)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +	u16 queues = channels->rx_count;
-> +	unsigned status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
-> +
-> +	if (channels->rx_count != channels->tx_count)
-> +		return -EINVAL;
-[...]
-> +static void virtnet_get_channels(struct net_device *dev,
-> +				 struct ethtool_channels *channels)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +
-> +	channels->max_rx = vi->total_queue_pairs;
-> +	channels->max_tx = vi->total_queue_pairs;
-> +	channels->max_other = 0;
-> +	channels->max_combined = 0;
-> +	channels->rx_count = vi->num_queue_pairs;
-> +	channels->tx_count = vi->num_queue_pairs;
-> +	channels->other_count = 0;
-> +	channels->combined_count = 0;
-> +}
+> When forwarding network packages at the network layer the IP packages
+> won't be relayed to the upper transport layer and analyzed there,
+> consequently, skb->transport_header pointer will be mistakenly remained
+> the same as that of skb->network_header, resulting in TCP checksum
+> wrongly
+> filled into the field of destination IP in IP header.
+>
+> We can fix this issue by manually calculate the offset of the TCP
+> checksum
+>  and update it accordingly.
 [...]
 
-It looks like the queue-pairs should be treated as 'combined channels',
-not separate RX and TX channels.  Also you don't need to clear the other
-members; you can assume that the ethtool core will zero-initialise
-structures for 'get' operations.
+You should be using skb_checksum_start_offset() instead.
 
 Ben.
 
