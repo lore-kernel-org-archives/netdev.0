@@ -1,45 +1,64 @@
-From: "Andy Cress" <andy.cress@us.kontron.com>
-Subject: [PATCH 2/4] pch_gbe: fix transmit watchdog timeout
-Date: Mon, 9 Jul 2012 06:24:13 -0700
-Message-ID: <40680C535D6FE6498883F1640FACD44D010BFC09@ka-exchange-1.kontronamerica.local>
+From: =?utf-8?Q?=C3=89meric?= Vigier
+	<emeric.vigier@savoirfairelinux.com>
+Subject: Re: [PATCH] smsc95xx: support ethtool get_regs
+Date: Mon, 9 Jul 2012 09:44:26 -0400 (EDT)
+Message-ID: <1804367527.89256.1341841466229.JavaMail.root@mail.savoirfairelinux.com>
+References: <1341690959.25597.168.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steve Glendinning <steve@shawell.net>,
+	steve glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org, Nancy Lin <nancy.lin@smsc.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.kontron.com ([209.118.138.70]:60137 "EHLO
-	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753888Ab2GINfE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:35:04 -0400
-Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id JFzPOKSlfaRGoKpP for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:24:14 -0700 (PDT)
-Content-class: urn:content-classes:message
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:47016 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753664Ab2GINod convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:44:33 -0400
+In-Reply-To: <1341690959.25597.168.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Author: Andy Cress <andy.cress@us.kontron.com>
+----- Mail original -----
+> On Sat, 2012-07-07 at 09:58 -0400, =C3=89meric Vigier wrote:
+> [...]
+> > > > +	for (i =3D 0; i <=3D PHY_SPECIAL; i++)
+> > > > +		data[j++] =3D smsc95xx_mdio_read(netdev, dev->mii.phy_id, i)=
+;
+> > > > +}
+> > >=20
+> > > Again, why use PHY_SPECIAL (+ 1) here as opposed to 32 in the
+> > > calculation of the length?
+> >=20
+> > 32 was ok, but I hesitated between defining a SMSC95XX_PHY_END or
+> > using the last defined register.
+> > Are 32 register-PHY generic to most devices? I mean could 32 be use
+> > widely?
+>=20
+> Yes, the address space for the original MDIO protocol ('clause 22')
+> allows for 32 registers.  Perhaps that number should be named in
+> <linux/mii.h>.
 
-An extended ping and iperf test with 6 vlans resulted in transmit
-timeout stats 
-and sometimes a driver oops with a netdev watchdog transmit timeout.
-Fix WATCHDOG_TIMEOUT to be more like e1000e at 5 * HZ, to avoid 
-unnecessary transmit timeouts.
+I have not found any definition of this in mii.h.
 
-Signed-off-by: Andy Cress <andy.cress@us.kontron.com>
+>=20
+> As another reviewer commented, though, MDIO PHY registers should be
+> accessible with SIOCGMIIREG and mii-tool so it's not really necessary
+> to
+> duplicate them here.
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 4c04843..a746064 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -35,7 +35,7 @@ const char pch_driver_version[] = DRV_VERSION;
- #define DSC_INIT16			0xC000
- #define PCH_GBE_DMA_ALIGN		0
- #define PCH_GBE_DMA_PADDING		2
--#define PCH_GBE_WATCHDOG_PERIOD		(1 * HZ)	/*
-watchdog time */
-+#define PCH_GBE_WATCHDOG_PERIOD		(5 * HZ)	/*
-watchdog time */
- #define PCH_GBE_COPYBREAK_DEFAULT	256
- #define PCH_GBE_PCI_BAR			1
- #define PCH_GBE_RESERVE_MEMORY		0x200000	/* 2MB */
+Ok, I remove this then.
+
+>=20
+> Ben.
+>=20
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>=20
+>=20
+
+--=20
+Emeric
