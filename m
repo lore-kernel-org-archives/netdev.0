@@ -1,41 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] tcp: limit data skbs in qdisc layer
-Date: Mon, 09 Jul 2012 10:03:56 +0200
-Message-ID: <1341821036.3265.2161.camel@edumazet-glaptop>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
-	<1340945457.29822.7.camel@edumazet-glaptop>
-	<1341396687.2583.1757.camel@edumazet-glaptop>
-	<20120709.000834.1182150057463599677.davem@davemloft.net>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] net: cgroup: fix out of bounds accesses
+Date: Mon, 09 Jul 2012 16:15:29 +0800
+Message-ID: <4FFA9321.4030407@cn.fujitsu.com>
+References: <1341819910.3265.2106.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nanditad@google.com, netdev@vger.kernel.org, ycheng@google.com,
-	codel@lists.bufferbloat.net, mattmathis@google.com, ncardwell@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <20120709.000834.1182150057463599677.davem@davemloft.net>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, nhorman@tuxdriver.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	lizefan@huawei.com, tj@kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341819910.3265.2106.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-07-09 at 00:08 -0700, David Miller wrote:
+=E4=BA=8E 2012=E5=B9=B407=E6=9C=8809=E6=97=A5 15:45, Eric Dumazet =E5=86=
+=99=E9=81=93:
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> dev->priomap is allocated by extend_netdev_table() called from
+> update_netdev_tables().
+> And this is only called if write_priomap() is called.
+>=20
+> But if write_priomap() is not called, it seems we can have out of bou=
+nds
+> accesses in cgrp_destroy(), read_priomap() & skb_update_prio()
+>=20
+> With help from Gao Feng
+>=20
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+> net/core/dev.c            |    8 ++++++--
+> net/core/netprio_cgroup.c |    4 ++--
+> 2 files changed, 8 insertions(+), 4 deletions(-)
 
-> I'm suspicious and anticipate that 10G will need more queueing than
-> you are able to get away with tg3 at 1G speeds.  But it is an exciting
-> idea nonetheless :-)
-
-I tested the patch on 10G NIC and had no problem on netperf tests.
-
-Only that ixgbe is not yet BQL enabled so I could not add
-skb_try_orphan() in its start_xmit() : So if TX completion is a bit
-delayed, we can have a throughput slowdown.
-
-I added a /proc/sys/net/ipv4/tcp_limit_output_segs to play with various
-limits.
+Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
