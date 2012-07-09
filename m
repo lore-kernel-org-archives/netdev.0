@@ -1,75 +1,80 @@
-From: Huang Qiang <h.huangqiang@huawei.com>
-Subject: [PATCH] netns: correctly use per-netns ipv4 sysctl_tcp_mem
-Date: Mon, 9 Jul 2012 14:05:09 +0800
-Message-ID: <4FFA7495.5070702@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 02/02] net/ipv4: VTI support new module for
+ ip_vti.
+Date: Sun, 08 Jul 2012 23:47:47 -0700 (PDT)
+Message-ID: <20120708.234747.2210170159486826750.davem@davemloft.net>
+References: <20120629013017.GA4649@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <containers@lists.linux-foundation.org>,
-	<yangzhenzhang@huawei.com>
-To: <davem@davemloft.net>, <glommer@parallels.com>
+Cc: netdev@vger.kernel.org
+To: saurabh.mohan@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:64521 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751043Ab2GIGIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:08:54 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:53330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926Ab2GIGru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:47:50 -0400
+In-Reply-To: <20120629013017.GA4649@debian-saurabh-64.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Zhenzhang <yangzhenzhang@huawei.com>
+From: Saurabh <saurabh.mohan@vyatta.com>
+Date: Thu, 28 Jun 2012 18:30:17 -0700
 
-Now, kernel allows each net namespace to independently set up its levels
-for tcp memory pressure thresholds.
+> +#define HASH_SIZE  16
+> +#define HASH(addr) (((__force u32)addr^((__force u32)addr>>4))&0xF)
 
-But it seems there is a bug, as using the following steps:
+Define HASH such that it masks with (HASH_SIZE - 1) instead of
+0xf, so that if HASH_SIZE is changed everything automatically
+still works without having to remember to update the value in
+HASH()'s definition too.
 
-[root@host socket]# lxc-start -n test -f config /bin/bash
-[root@net-test socket]# ip route add default via 192.168.58.2
-[root@net-test socket]# echo 0 0 0 > /proc/sys/net/ipv4/tcp_mem
-[root@net-test socket]# scp root@192.168.58.174:/home/tcp_mem_test .
+> +	if (skb->protocol != htons(ETH_P_IP))
+> +		goto tx_error;
 
-and it still can transport the "tcp_mem_test" file which we hope it
-would not.
+We are really past the point where we can add major inet protocol
+features without supporting ipv6 as well.
 
-It's because inet_init() (net/ipv4/af_inet.c)initialize the
-tcp_prot.sysctl_mem:
-tcp_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
+> +	if (IS_ERR(rt)) {
+> +		dev->stats.tx_carrier_errors++;
+> +		goto tx_error_icmp;
+> +	}
+> +#ifdef CONFIG_XFRM
+> +		/* if there is no transform then this tunnel is not functional.
+> +		 * Or if the xfrm is not mode tunnel.
+> +		 */
+> +		if (!rt->dst.xfrm ||
+> +		    rt->dst.xfrm->props.mode != XFRM_MODE_TUNNEL) {
+> +			stats->tx_carrier_errors++;
+> +			goto tx_error_icmp;
+> +		}
+> +#endif
 
-So when the protocal is TCP, sk->sk_prot->sysctl_mem(following code)
-always use the ipv4 sysctl_tcp_mem of init_net namespace rather than
-it's own net namespace.
-This patch simply set "prot" equal to net->ipv4.sysctl_tcp_mem when
-the protocol type is TCP.
+This code in the CONFIG_XFRM block is not indented properly.
 
-Signed-off-by: Yang Zhenzhang <yangzhenzhang@huawei.com>
----
- include/net/sock.h |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+And this is a pointless CONFIG_* check, you can't even register
+this tunnel outside of the XFRM code.  In fact the code already
+depends upon INET_XFRM_MODE_TUNNEL which therefore automatically
+means that CONFIG_XFRM must be set for this code.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4a45216..b62a8d9 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -59,6 +59,7 @@
- #include <linux/static_key.h>
- #include <linux/aio.h>
- #include <linux/sched.h>
-+#include <linux/in.h>
+> +	}
+> +
+> +
+> +	if (tunnel->err_count > 0) {
 
- #include <linux/filter.h>
- #include <linux/rculist_nulls.h>
-@@ -1062,7 +1063,12 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
+Get rid of these extra blank lines.
 
- static inline long sk_prot_mem_limits(const struct sock *sk, int index)
- {
-+	struct net *net = sock_net(sk);
- 	long *prot = sk->sk_prot->sysctl_mem;
-+	
-+	if (sk->protocol == IPPROTO_TCP)
-+		prot = net->ipv4.sysctl_tcp_mem;
-+
- 	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
- 		prot = sk->sk_cgrp->sysctl_mem;
- 	return prot[index];
--- 
-1.7.1
+> +	}
+> +
+> +
+> +	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+
+Again.
+
+The reason there are long periods of time between my attempts to
+review your code (and probably the reason I'm the only person still
+reviewing your work at all) is that I know there are going to be so
+many problems to let you know about.  It's really painful to review
+your work and I've spent so much time on the coding style and the
+simpler issues that I really haven't considered the high level issues
+of what your code is trying to do.
