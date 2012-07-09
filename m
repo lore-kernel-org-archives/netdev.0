@@ -1,71 +1,56 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH v2] cgroup: fix panic in netprio_cgroup
-Date: Mon, 09 Jul 2012 08:16:51 +0800
-Message-ID: <4FFA22F3.9000704@cn.fujitsu.com>
-References: <1341480520-25081-1-git-send-email-gaofeng@cn.fujitsu.com> <1341777043.3265.1786.camel@edumazet-glaptop>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH firmware 1/4] rtl_nic: update firmware for RTL8168F
+Date: Mon, 9 Jul 2012 11:11:49 +0800
+Message-ID: <1341803512-1309-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nhorman@tuxdriver.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tj@kernel.org, lizefan@huawei.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <dwmw2@infradead.org>, <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341777043.3265.1786.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012=E5=B9=B407=E6=9C=8809=E6=97=A5 03:50, Eric Dumazet =E5=86=
-=99=E9=81=93:
-> On Thu, 2012-07-05 at 17:28 +0800, Gao feng wrote:
->> we set max_prioidx to the first zero bit index of prioidx_map in
->> function get_prioidx.
->>
->> So when we delete the low index netprio cgroup and adding a new
->> netprio cgroup again,the max_prioidx will be set to the low index.
->>
->> when we set the high index cgroup's net_prio.ifpriomap,the function
->> write_priomap will call update_netdev_tables to alloc memory which
->> size is sizeof(struct netprio_map) + sizeof(u32) * (max_prioidx + 1)=
-,
->> so the size of array that map->priomap point to is max_prioidx +1,
->> which is low than what we actually need.
->>
->> fix this by adding check in get_prioidx,only set max_prioidx when
->> max_prioidx low than the new prioidx.
->>
->> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
->> ---
->>  net/core/netprio_cgroup.c |    3 ++-
->>  1 files changed, 2 insertions(+), 1 deletions(-)
->>
->> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
->> index 5b8aa2f..aa907ed 100644
->> --- a/net/core/netprio_cgroup.c
->> +++ b/net/core/netprio_cgroup.c
->> @@ -49,8 +49,9 @@ static int get_prioidx(u32 *prio)
->>  		return -ENOSPC;
->>  	}
->>  	set_bit(prioidx, prioidx_map);
->> +	if (atomic_read(&max_prioidx) < prioidx)
->> +		atomic_set(&max_prioidx, prioidx);
->>  	spin_unlock_irqrestore(&prioidx_map_lock, flags);
->> -	atomic_set(&max_prioidx, prioidx);
->>  	*prio =3D prioidx;
->>  	return 0;
->>  }
->=20
-> This patch seems fine to me.
->=20
-> Acked-by: Eric Dumazet <edumazet@google.com>
->=20
-> Neil, looking at this file, I believe something is wrong.
->=20
-> dev->priomap is allocated by extend_netdev_table() called from
-> update_netdev_tables(). And this is only called if write_priomap() is
-> called.
->=20
-> But if write_priomap() is not called, it seems we can have out of bou=
-nds
-> accesses in cgrp_destroy() and read_priomap()
+File: rtl_nic/rtl8168f-1.fw
+Version: 0.0.5
 
-Agree,and the function skb_update_prio has the same problem.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ WHENCE                |    2 +-
+ rtl_nic/rtl8168f-1.fw |  Bin 3136 -> 3424 bytes
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/WHENCE b/WHENCE
+index 13cbcab..676ebb1 100644
+--- a/WHENCE
++++ b/WHENCE
+@@ -1802,7 +1802,7 @@ File: rtl_nic/rtl8168e-3.fw
+ Version: 0.0.4
+ 
+ File: rtl_nic/rtl8168f-1.fw
+-Version: 0.0.4
++Version: 0.0.5
+ 
+ File: rtl_nic/rtl8168f-2.fw
+ Version: 0.0.4
+diff --git a/rtl_nic/rtl8168f-1.fw b/rtl_nic/rtl8168f-1.fw
+index 41822b54ef44c37400db3ddac26d0e6655e1faa7..bf7883163e3dbed22420dec369ed51a3ee8247d4 100644
+GIT binary patch
+delta 487
+zcmZuuJxc>Y6uex*5QyRjDq^7#zab`j7d#Ie(Z)hSv9hxh0;$A8M9Cne3RVFdK??;z
+zG${E2T3MUY$_vCgor;J!CkhrWEbqP9dGls>?|Os26-#S#EAKm=zcJ~oo3u$!C5@MH
+z{EXv<hgu<NK5AKcYjw$UT{E}t8pk!B@zZY7$<9n=XN+SV9EIGQmAKt;Rs?+;tnGof
+z5%9d6vrkbJV)s-#qfaq&1@8G^q$a2dwzPxS9boH+8Wb=73RtSEgYm^^;ra(|O84^+
+zjENq+fyELyD#^frUZ7Y9>(k(@@b&?4=ol<Dz{^=Mkpu@XmA8UzBjA|wibmR<;6h3k
+zD$<kF%CfLHm=hKima<Xc$1eC51Do$U%z=3s3N*0Z1$HZjCTeQB?FS##7(T*(X2-;P
+z$Vejr?t9v6+S}mpiHwGNE|~o>-zW18y^mXx;P<d`a6+Wit7_fq`L}-gTbFkd_p$It
+Fz5vSno%R3#
+
+delta 196
+zcmaDLbwDD30SJmpax4tZEYfrh;|=r-^h^{CjP;Go^$m?cl0X1b^qYx+VJ<_EkC~B?
+zfn&UpfuWIsv5}#Ip_!G5nU#?xL+=t5kkSbo12~uj#ah`KEST6DF4nR&>}O<aker;!
+zw3tl?D8j_IS%~>Qi-9~_L#+i{1LH-Y(0jH99s#z74T5Y9ynlcifV2#<0SrL?W<?Hf
+TW<DjT@Oz-S|E5iz#&Zk+TtzbT
+
+-- 
+1.7.10.2
