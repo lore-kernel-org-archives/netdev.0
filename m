@@ -1,150 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/6] 6lowpan: rework fragment-deleting routine
-Date: Mon, 09 Jul 2012 12:53:35 +0200
-Message-ID: <1341831215.3265.2523.camel@edumazet-glaptop>
-References: <1341829351-18485-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-	 <1341829351-18485-5-git-send-email-alex.bluesman.smirnov@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] cgroup: fix panic in netprio_cgroup
+Date: Mon, 9 Jul 2012 06:59:51 -0400
+Message-ID: <20120709105951.GA9186@hmsreliant.think-freely.org>
+References: <1341480520-25081-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1341777043.3265.1786.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:38594 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab2GIKxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 06:53:41 -0400
-Received: by eeit10 with SMTP id t10so4262582eei.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 03:53:40 -0700 (PDT)
-In-Reply-To: <1341829351-18485-5-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tj@kernel.org, lizefan@huawei.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1341777043.3265.1786.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-07-09 at 14:22 +0400, Alexander Smirnov wrote:
-> 6lowpan module starts collecting incomming frames and fragments
-> right after lowpan_module_init() therefor it will be better to
-> clean unfinished fragments in lowpan_cleanup_module() function
-> instead of doing it when link goes down.
+On Sun, Jul 08, 2012 at 09:50:43PM +0200, Eric Dumazet wrote:
+> On Thu, 2012-07-05 at 17:28 +0800, Gao feng wrote:
+> > we set max_prioidx to the first zero bit index of prioidx_map in
+> > function get_prioidx.
+> > 
+> > So when we delete the low index netprio cgroup and adding a new
+> > netprio cgroup again,the max_prioidx will be set to the low index.
+> > 
+> > when we set the high index cgroup's net_prio.ifpriomap,the function
+> > write_priomap will call update_netdev_tables to alloc memory which
+> > size is sizeof(struct netprio_map) + sizeof(u32) * (max_prioidx + 1),
+> > so the size of array that map->priomap point to is max_prioidx +1,
+> > which is low than what we actually need.
+> > 
+> > fix this by adding check in get_prioidx,only set max_prioidx when
+> > max_prioidx low than the new prioidx.
+> > 
+> > Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> > ---
+> >  net/core/netprio_cgroup.c |    3 ++-
+> >  1 files changed, 2 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> > index 5b8aa2f..aa907ed 100644
+> > --- a/net/core/netprio_cgroup.c
+> > +++ b/net/core/netprio_cgroup.c
+> > @@ -49,8 +49,9 @@ static int get_prioidx(u32 *prio)
+> >  		return -ENOSPC;
+> >  	}
+> >  	set_bit(prioidx, prioidx_map);
+> > +	if (atomic_read(&max_prioidx) < prioidx)
+> > +		atomic_set(&max_prioidx, prioidx);
+> >  	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+> > -	atomic_set(&max_prioidx, prioidx);
+> >  	*prio = prioidx;
+> >  	return 0;
+> >  }
 > 
-> Changed spinlocks type to prevent deadlock with expired timer event
-> and removed unused one.
+> This patch seems fine to me.
 > 
-> Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-> ---
->  net/ieee802154/6lowpan.c |   28 ++++++++++++++++------------
->  1 files changed, 16 insertions(+), 12 deletions(-)
+> Acked-by: Eric Dumazet <edumazet@google.com>
 > 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index b872515..e7de085 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -113,7 +113,6 @@ struct lowpan_dev_record {
->  
->  struct lowpan_fragment {
->  	struct sk_buff		*skb;		/* skb to be assembled */
-> -	spinlock_t		lock;		/* concurency lock */
->  	u16			length;		/* length to be assemled */
->  	u32			bytes_rcv;	/* bytes received */
->  	u16			tag;		/* current fragment tag */
-> @@ -761,7 +760,7 @@ lowpan_process_data(struct sk_buff *skb)
->  		if ((frame->bytes_rcv == frame->length) &&
->  		     frame->timer.expires > jiffies) {
->  			/* if timer haven't expired - first of all delete it */
-> -			del_timer(&frame->timer);
-> +			del_timer_sync(&frame->timer);
->  			list_del(&frame->list);
->  			spin_unlock(&flist_lock);
->  
-> @@ -1196,19 +1195,9 @@ static void lowpan_dellink(struct net_device *dev, struct list_head *head)
->  	struct lowpan_dev_info *lowpan_dev = lowpan_dev_info(dev);
->  	struct net_device *real_dev = lowpan_dev->real_dev;
->  	struct lowpan_dev_record *entry, *tmp;
-> -	struct lowpan_fragment *frame, *tframe;
->  
->  	ASSERT_RTNL();
->  
-> -	spin_lock(&flist_lock);
-> -	list_for_each_entry_safe(frame, tframe, &lowpan_fragments, list) {
-> -		del_timer(&frame->timer);
-> -		list_del(&frame->list);
-> -		dev_kfree_skb(frame->skb);
-> -		kfree(frame);
-> -	}
-> -	spin_unlock(&flist_lock);
-> -
->  	mutex_lock(&lowpan_dev_info(dev)->dev_list_mtx);
->  	list_for_each_entry_safe(entry, tmp, &lowpan_devices, list) {
->  		if (entry->ldev == dev) {
-> @@ -1264,9 +1253,24 @@ out:
->  
->  static void __exit lowpan_cleanup_module(void)
->  {
-> +	struct lowpan_fragment *frame, *tframe;
-> +
->  	lowpan_netlink_fini();
->  
->  	dev_remove_pack(&lowpan_packet_type);
-> +
-> +	/* Now 6lowpan packet_type is removed, so no new fragments are
-> +	 * expected on RX, therefore that's the time to clean incomplete
-> +	 * fragments.
-> +	 */
-> +	spin_lock_bh(&flist_lock);
-> +	list_for_each_entry_safe(frame, tframe, &lowpan_fragments, list) {
-> +		del_timer_sync(&frame->timer);
-> +		list_del(&frame->list);
-> +		dev_kfree_skb(frame->skb);
-> +		kfree(frame);
-> +	}
-> +	spin_unlock_bh(&flist_lock);
->  }
->  
->  module_init(lowpan_init_module);
+> Neil, looking at this file, I believe something is wrong.
+> 
+> dev->priomap is allocated by extend_netdev_table() called from
+> update_netdev_tables(). And this is only called if write_priomap() is
+> called.
+> 
+> But if write_priomap() is not called, it seems we can have out of bounds
+> accesses in cgrp_destroy() and read_priomap()
+> 
+> What do you think of following patch ?
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 5b8aa2f..80150d2 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -141,7 +141,7 @@ static void cgrp_destroy(struct cgroup *cgrp)
+>  	rtnl_lock();
+>  	for_each_netdev(&init_net, dev) {
+>  		map = rtnl_dereference(dev->priomap);
+> -		if (map)
+> +		if (map && cs->prioidx < map->priomap_len)
+>  			map->priomap[cs->prioidx] = 0;
+>  	}
+>  	rtnl_unlock();
+> @@ -165,7 +165,7 @@ static int read_priomap(struct cgroup *cont, struct cftype *cft,
+>  	rcu_read_lock();
+>  	for_each_netdev_rcu(&init_net, dev) {
+>  		map = rcu_dereference(dev->priomap);
+> -		priority = map ? map->priomap[prioidx] : 0;
+> +		priority = (map && prioidx < map->priomap_len) ? map->priomap[prioidx] : 0;
+>  		cb->fill(cb, dev->name, priority);
+>  	}
+>  	rcu_read_unlock();
+> 
+> 
+> 
+You're right,  If we create a cgroup after a net device is registered the group
+priority index will likely be out of bounds for those devices.  We can fix it
+like you propose above (including the additional prioidx < map->priomap_len
+check in skb_update_prio as Gao notes), or we can call update_netdev_tables
+iteratively for every net device in cgrp_create, and on device_registration in
+netprio_device_event.
 
-Problem is lowpan_fragment_timer_expired() can race with this code.
+I'm not sure how adventageous one is over the other, but it does seem that,
+given that skb_update_prio is in the transmit path, it might be nice to avoid
+the additional length check there if possible.
 
-del_timer_sync() might block here if lowpan_fragment_timer_expired() is
-waiting/spinning for spin_lock(&flist_lock)
-
-You cant call del_timer_sync() holding flist_lock, you should find
-another way to solve the problem.
-
-Its explained in kernel/timer.c :
-
-#ifdef CONFIG_SMP
-/**
- * del_timer_sync - deactivate a timer and wait for the handler to finish.
- * @timer: the timer to be deactivated
- *
- * This function only differs from del_timer() on SMP: besides deactivating
- * the timer it also makes sure the handler has finished executing on other
- * CPUs.
- *
- * Synchronization rules: Callers must prevent restarting of the timer,
- * otherwise this function is meaningless. It must not be called from
- * interrupt contexts. The caller must not hold locks which would prevent
- * completion of the timer's handler. The timer's handler must not call
- * add_timer_on(). Upon exit the timer is not queued and the handler is
- * not running on any CPU.
- *
- * Note: You must not hold locks that are held in interrupt context
- *   while calling this function. Even if the lock has nothing to do
- *   with the timer in question.  Here's why:
- *
- *    CPU0                             CPU1
- *    ----                             ----
- *                                   <SOFTIRQ>
- *                                   call_timer_fn();
- *                                     base->running_timer = mytimer;
- *  spin_lock_irq(somelock);
- *                                     <IRQ>
- *                                        spin_lock(somelock);
- *  del_timer_sync(mytimer);
- *   while (base->running_timer == mytimer);
- *
- * Now del_timer_sync() will never return and never release somelock.
- * The interrupt on the other CPU is waiting to grab somelock but
- * it has interrupted the softirq that CPU0 is waiting to finish.
- *
- * The function returns whether it has deactivated a pending timer or not.
- */
+Thanks!
+Neil
