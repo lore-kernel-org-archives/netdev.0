@@ -1,34 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/7] net/rxrpc/ar-peer.c: remove invalid reference to
- list iterator variable
-Date: Mon, 09 Jul 2012 15:24:55 -0700 (PDT)
-Message-ID: <20120709.152455.950070482948785087.davem@davemloft.net>
-References: <1341747464-1772-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1341747464-1772-3-git-send-email-Julia.Lawall@lip6.fr>
+From: Mark Lord <kernel@teksavvy.com>
+Subject: Re: [PATCH 0/4] Add a driver for the ASIX AX88172A
+Date: Mon, 09 Jul 2012 18:27:18 -0400
+Message-ID: <4FFB5AC6.3000506@teksavvy.com>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at> <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341747464-1772-3-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Christian Riesch <christian.riesch@omicron.at>,
+	netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Allan Chou <allan@asix.com.tw>,
+	Ming Lei <tom.leiming@gmail.com>,
+	Michael Riesch <michael@riesch.at>
+To: Grant Grundler <grundler@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ironport2-out.teksavvy.com ([206.248.154.182]:28530 "EHLO
+	ironport2-out.teksavvy.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752246Ab2GIW1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 18:27:24 -0400
+In-Reply-To: <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sun,  8 Jul 2012 13:37:39 +0200
+On 12-07-09 01:45 PM, Grant Grundler wrote:
+> Christian,
+> Here's my $0.02 response to your questions.
+> 
+> On Fri, Jul 6, 2012 at 4:33 AM, Christian Riesch
+> <christian.riesch@omicron.at> wrote:
+> ...
+>> I have a few questions:
+>>
+>> 1) Is it ok to factor out the common code like I did? Or should
+>>    it go into a separate kernel module?
+> 
+> I think it's ok. I'd rather not see additional kernel modules unless
+> the driver is substantially different.
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> If list_for_each_entry, etc complete a traversal of the list, the iterator
-> variable ends up pointing to an address at an offset from the list head,
-> and not a meaningful structure.  Thus this value should not be used after
-> the end of the iterator.  This seems to be a copy-paste bug from a previous
-> debugging message, and so the meaningless value is just deleted.
-> 
-> This problem was found using Coccinelle (http://coccinelle.lip6.fr/).
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+I'll second that.  Ideally, somebody should pick up the pieces
+from my aborted efforts last fall, and just get the real ASIX driver
+itself tidied and into the kernel.  Then *everything* would work.
 
-Applied.
+But I doubt that would be feasible at this point.
+
+Cheers
