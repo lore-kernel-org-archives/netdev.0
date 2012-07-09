@@ -1,51 +1,75 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] ksz884x: fix Endian
-Date: Sun, 08 Jul 2012 22:44:56 -0700
-Message-ID: <1341812696.13174.46.camel@joe2Laptop>
-References: <1341454003-11227-1-git-send-email-roy.qing.li@gmail.com>
-	 <1341614416.2923.12.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAJFZqHzm7=-PpsiNZJ9TgkDY2bt5WW7XwY6nBOa_E4eerRh1pg@mail.gmail.com>
+From: Huang Qiang <h.huangqiang@huawei.com>
+Subject: [PATCH] netns: correctly use per-netns ipv4 sysctl_tcp_mem
+Date: Mon, 9 Jul 2012 14:05:09 +0800
+Message-ID: <4FFA7495.5070702@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	Tristram.Ha@micrel.com
-To: RongQing Li <roy.qing.li@gmail.com>
+Cc: <netdev@vger.kernel.org>, <containers@lists.linux-foundation.org>,
+	<yangzhenzhang@huawei.com>
+To: <davem@davemloft.net>, <glommer@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:46570 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751073Ab2GIFo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jul 2012 01:44:57 -0400
-In-Reply-To: <CAJFZqHzm7=-PpsiNZJ9TgkDY2bt5WW7XwY6nBOa_E4eerRh1pg@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:64521 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751043Ab2GIGIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:08:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-09 at 13:26 +0800, RongQing Li wrote:
-> 2012/7/7, Ben Hutchings <bhutchings@solarflare.com>:
-> > On Thu, 2012-07-05 at 10:06 +0800, roy.qing.li@gmail.com wrote:
-> >> ETH_P_IP is host Endian, skb->protocol is big Endian, when
-> >> compare them, we should change skb->protocol from big endian
-> >> to host endian, ntohs, not htons.
-[]
-> >> diff --git a/drivers/net/ethernet/micrel/ksz884x.c
-[]
-> >> @@ -4882,7 +4882,7 @@ static netdev_tx_t netdev_tx(struct sk_buff *skb,
-> >> struct net_device *dev)
-> >>  	if (left) {
-> >>  		if (left < num ||
-> >>  				((CHECKSUM_PARTIAL == skb->ip_summed) &&
-> >> -				(ETH_P_IPV6 == htons(skb->protocol)))) {
-> >> +				(ETH_P_IPV6 == ntohs(skb->protocol)))) {
-> >
-> > This should really be changed to the idiomatic 'skb->protocol ==
-> > htons(ETH_P_IPV6)'.  For the current code, the compiler will probably
-> > generate a run-time byte-swap for little-endian systems.
+From: Yang Zhenzhang <yangzhenzhang@huawei.com>
 
-True.  Perhaps this would be better written as:
+Now, kernel allows each net namespace to independently set up its levels
+for tcp memory pressure thresholds.
 
-	if (left) {
-		if (left < num ||
-		    (ip->ip_summed == CHECKSUM_PARTIAL &&
-		     skb->protocol == htons(ETH_P_IPV6))) {
+But it seems there is a bug, as using the following steps:
 
-			etc...
+[root@host socket]# lxc-start -n test -f config /bin/bash
+[root@net-test socket]# ip route add default via 192.168.58.2
+[root@net-test socket]# echo 0 0 0 > /proc/sys/net/ipv4/tcp_mem
+[root@net-test socket]# scp root@192.168.58.174:/home/tcp_mem_test .
+
+and it still can transport the "tcp_mem_test" file which we hope it
+would not.
+
+It's because inet_init() (net/ipv4/af_inet.c)initialize the
+tcp_prot.sysctl_mem:
+tcp_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
+
+So when the protocal is TCP, sk->sk_prot->sysctl_mem(following code)
+always use the ipv4 sysctl_tcp_mem of init_net namespace rather than
+it's own net namespace.
+This patch simply set "prot" equal to net->ipv4.sysctl_tcp_mem when
+the protocol type is TCP.
+
+Signed-off-by: Yang Zhenzhang <yangzhenzhang@huawei.com>
+---
+ include/net/sock.h |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 4a45216..b62a8d9 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -59,6 +59,7 @@
+ #include <linux/static_key.h>
+ #include <linux/aio.h>
+ #include <linux/sched.h>
++#include <linux/in.h>
+
+ #include <linux/filter.h>
+ #include <linux/rculist_nulls.h>
+@@ -1062,7 +1063,12 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
+
+ static inline long sk_prot_mem_limits(const struct sock *sk, int index)
+ {
++	struct net *net = sock_net(sk);
+ 	long *prot = sk->sk_prot->sysctl_mem;
++	
++	if (sk->protocol == IPPROTO_TCP)
++		prot = net->ipv4.sysctl_tcp_mem;
++
+ 	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+ 		prot = sk->sk_cgrp->sysctl_mem;
+ 	return prot[index];
+-- 
+1.7.1
