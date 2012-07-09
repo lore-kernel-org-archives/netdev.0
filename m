@@ -1,122 +1,74 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH net-next 05/15] security: selinux: Add AF_BUS socket SELinux hooks
-Date: Mon, 09 Jul 2012 14:38:44 -0400
-Message-ID: <27959382.kdMZfHm1r3@sifl>
-References: <1340988354-26981-1-git-send-email-vincent.sanders@collabora.co.uk> <1340988354-26981-6-git-send-email-vincent.sanders@collabora.co.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: New commands to configure IOV features
+Date: Mon, 9 Jul 2012 19:39:15 +0100
+Message-ID: <1341859155.2535.43.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FA7AF62.8000405@broadcom.com>
+	 <20120507081634.000003f8.gregory.v.rose@intel.com>
+	 <4FE9A963.7020602@broadcom.com> <20120626101903.0000791c@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-To: Vincent Sanders <vincent.sanders@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1340988354-26981-6-git-send-email-vincent.sanders@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Yuval Mintz <yuvalmin@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Greg Rose <gregory.v.rose@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:38370 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752707Ab2GISjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 14:39:19 -0400
+In-Reply-To: <20120626101903.0000791c@unknown>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, June 29, 2012 05:45:44 PM Vincent Sanders wrote:
-> From: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
+On Tue, 2012-06-26 at 10:19 -0700, Greg Rose wrote:
+> On Tue, 26 Jun 2012 15:21:55 +0300
+> Yuval Mintz <yuvalmin@broadcom.com> wrote:
 > 
-> Add Security-Enhanced Linux (SELinux) hook for AF_BUS socket address family.
+> > On 05/07/2012 06:16 PM, Greg Rose wrote:
+> > 
+> > > On Mon, 7 May 2012 14:17:54 +0300
+> > > Yuval Mintz <yuvalmin@broadcom.com> wrote:
+> > > 
+> > >> I've tried to figure out if there was a standard interface
+> > >> (ethtool/iproute) through which a user could configure the number
+> > >> of vfs in his system.
+> > >>
+> > >> I've seen the RFC suggested in
+> > >> http://markmail.org/thread/qblfcv7zbxsxp7q6, and
+> > >> http://markmail.org/thread/fw54dcppmxuxoe6n, but failed to see any
+> > >> later references to it (commits or further discussion on this
+> > >> topic).
+> > >>
+> > >> How exactly are things standing with these RFCs? Were they
+> > >> abandoned?
+> > > 
+> > > The only way to configure the number of VFs continues to be through
+> > > the max_vfs module parameter.  I've got a patch to do it through
+> > > ethtool sitting on the back burner but due to other requirements of
+> > > my day job I've not been able to work on it since last fall.
+> > > 
+> > > - Greg
+> > 
+> > 
+> > Hi Ben,
+> > 
+> > If I want to pick the RFCs and add support for configuring the number
+> > of VFs - do you think ethtool's the right place for such added
+> > support?
+> > 
+> > I'm asking since as far as I can see, ethtool (today) doesn't contain
+> > any features related to virtual functions.
 > 
-> Signed-off-by: Javier Martinez Canillas <javier.martinez@collabora.co.uk>
-> Signed-off-by: Vincent Sanders <vincent.sanders@collabora.co.uk>
+> I think a PCI utility tool would be better, SR-IOV is not limited to
+> network devices.  That's one of the reasons I dropped the RFC.  I
+> haven't gotten back to the idea since then due to my day job keeping me
+> pretty busy.
 
-It would be very helpful to include a description of how the access controls 
-would work.
+For what it's worth, I agree with this.
 
->From looking at the other patches, it would appear that when a new socket 
-tries to connect to the AF_BUS bus it is checked against the security label of 
-the bus master, yes?  Further, if no bus master is present, the connect() is 
-denied at the AF_BUS level in the bus_connect() function, yes?
-
-Have you considered the socket_getpeersec_dgram() hook?  Since AF_BUS does not 
-appear to be stream oriented I think you can safely ignore 
-socket_getpeersec_stream().
-
-Have you considered the unix_may_send() hook?  Ignoring the AF_UNIX specific 
-name, it seems like a reasonable hook for AF_BUS; unless you don't expect to 
-have any read-only AF_BUS clients in which case the connect() hook should be 
-enough (it would implicitly grant read/write access to each socket in that 
-case).
-
-Finally, as others have said, you need to ensure that you CC the LSM and 
-SELinux lists on the relevant patches as well as provide LSM hook 
-implementations for LSMs other than SELinux where it makes sense (not all LSMs 
-will require implementations for the new hooks). 
-
-> ---
->  security/selinux/hooks.c |   35 +++++++++++++++++++++++++++++++++++
->  1 file changed, 35 insertions(+)
-> 
-> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> index 4ee6f23..5bacbe2 100644
-> --- a/security/selinux/hooks.c
-> +++ b/security/selinux/hooks.c
-> @@ -67,6 +67,7 @@
->  #include <linux/quota.h>
->  #include <linux/un.h>		/* for Unix socket types */
->  #include <net/af_unix.h>	/* for Unix socket types */
-> +#include <net/af_bus.h>	/* for Bus socket types */
->  #include <linux/parser.h>
->  #include <linux/nfs_mount.h>
->  #include <net/ipv6.h>
-> @@ -4101,6 +4102,39 @@ static int selinux_socket_unix_may_send(struct socket
-> *sock, &ad);
->  }
-> 
-> +static int selinux_socket_bus_connect(struct sock *sock, struct sock
-> *other, +				      struct sock *newsk)
-> +{
-> +	struct sk_security_struct *sksec_sock = sock->sk_security;
-> +	struct sk_security_struct *sksec_other = other->sk_security;
-> +	struct sk_security_struct *sksec_new = newsk->sk_security;
-> +	struct common_audit_data ad;
-> +	struct lsm_network_audit net = {0,};
-> +	int err;
-> +
-> +	ad.type = LSM_AUDIT_DATA_NET;
-> +	ad.u.net = &net;
-> +	ad.u.net->sk = other;
-> +
-> +	err = avc_has_perm(sksec_sock->sid, sksec_other->sid,
-> +			   sksec_other->sclass,
-> +			   UNIX_STREAM_SOCKET__CONNECTTO, &ad);
-
-See my earlier comments about the similarities between this new hook and the 
-existing AF_UNIX hook.  The fact that you are reusing the 
-UNIX_STREAM_SOCKET__CONNECTTO permission (which is likely a no-no BTW) only 
-reinforces the similarities between the two.
-
-> +	if (err)
-> +		return err;
-> +
-> +	/* server child socket */
-> +	sksec_new->peer_sid = sksec_sock->sid;
-> +	err = security_sid_mls_copy(sksec_other->sid, sksec_sock->sid,
-> +				    &sksec_new->sid);
-> +	if (err)
-> +		return err;
-> +
-> +	/* connecting socket */
-> +	sksec_sock->peer_sid = sksec_new->sid;
-> +
-> +	return 0;
-> +}
-> +
->  static int selinux_inet_sys_rcv_skb(int ifindex, char *addrp, u16 family,
->  				    u32 peer_sid,
->  				    struct common_audit_data *ad)
-> @@ -5643,6 +5677,7 @@ static struct security_operations selinux_ops = {
-> 
->  	.unix_stream_connect =		selinux_socket_unix_stream_connect,
->  	.unix_may_send =		selinux_socket_unix_may_send,
-> +	.bus_connect =		        selinux_socket_bus_connect,
-> 
->  	.socket_create =		selinux_socket_create,
->  	.socket_post_create =		selinux_socket_post_create,
+Ben.
 
 -- 
-paul moore
-www.paul-moore.com
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
