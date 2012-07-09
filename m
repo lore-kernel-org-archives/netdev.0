@@ -1,46 +1,98 @@
 From: "Andy Cress" <andy.cress@us.kontron.com>
-Subject: [PATCH 4/4] pch_gbe: vlan skb len fix
-Date: Mon, 9 Jul 2012 06:30:05 -0700
-Message-ID: <40680C535D6FE6498883F1640FACD44D010BFC0E@ka-exchange-1.kontronamerica.local>
+Subject: [PATCH 1/4] pch_gbe: fix the checksum fill to the error location
+Date: Mon, 9 Jul 2012 06:30:10 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D010BFC0F@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.kontron.com ([209.118.138.70]:40026 "EHLO
+Received: from mail.us.kontron.com ([209.118.138.70]:40032 "EHLO
 	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753892Ab2GINaG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:30:06 -0400
-Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id JMWXaQdF6MDUDMva for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:30:06 -0700 (PDT)
+	with ESMTP id S1753377Ab2GINaO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:30:14 -0400
+Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id BR4ve32suejZS2R2 for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:30:14 -0700 (PDT)
 Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Author: Veaceslav Falico <vfalico@redhat.com>
-Date:   Tue Apr 10 08:14:17 2012 +0200
+From: Zhong Hongbo <hongbo.zhong@windriver.com>
+Date: Mon, 9 Apr 2012 10:51:28 +0800
 
-    pch_gbe: correctly verify skb->len in vlan case
-             to avoid bogus transfer length errors.
+Due to some unknown hardware limitations the pch_gbe hardware cannot
+calculate checksums when the length of network package is less
+than 64 bytes, where we will surprisingly encounter a problem of
+the destination IP incorrectly changed.
 
-Signed-off-by: Andy Cress <andy.cress@us.kontron.com>
+When forwarding network packages at the network layer the IP packages
+won't be relayed to the upper transport layer and analyzed there,
+consequently, skb->transport_header pointer will be mistakenly remained
+the same as that of skb->network_header, resulting in TCP checksum
+wrongly
+filled into the field of destination IP in IP header.
+
+We can fix this issue by manually calculate the offset of the TCP
+checksum
+ and update it accordingly.
+
+Signed-off-by: Zhong Hongbo <hongbo.zhong@windriver.com>
+Merged-by: Andy Cress <andy.cress@us.kontron.com>
+
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 30ef285..04b0e49 100644
+index 3787c64..4c04843 100644
 --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
 +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -2158,8 +2158,10 @@ static int pch_gbe_xmit_frame(struct sk_buff
-*skb, struct net_device *netdev)
- 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
- 	struct pch_gbe_tx_ring *tx_ring = adapter->tx_ring;
- 	unsigned long flags;
-+	int offset;
- 
--	if (unlikely(skb->len > (adapter->hw.mac.max_frame_size - 4))) {
-+	offset = skb->protocol == htons(ETH_P_8021Q) ? 0 : 4;
-+	if (unlikely(skb->len > (adapter->hw.mac.max_frame_size -
-offset))) {
- 		pr_err("Transfer length Error: skb len: %d > max: %d\n",
- 		       skb->len, adapter->hw.mac.max_frame_size);
- 		dev_kfree_skb_any(skb);
+@@ -1180,30 +1180,32 @@ static void pch_gbe_tx_queue(struct
+pch_gbe_adapter *adapter,
+ 	 * when the received data size is less than 64 bytes.
+ 	 */
+ 	if (skb->len < PCH_GBE_SHORT_PKT && skb->ip_summed !=
+CHECKSUM_NONE) {
++		struct iphdr *iph = ip_hdr(skb);
+ 		frame_ctrl |= PCH_GBE_TXD_CTRL_APAD |
+ 			      PCH_GBE_TXD_CTRL_TCPIP_ACC_OFF;
+ 		if (skb->protocol == htons(ETH_P_IP)) {
+-			struct iphdr *iph = ip_hdr(skb);
+ 			unsigned int offset;
+-			offset = skb_transport_offset(skb);
++			offset = (unsigned char *)((u8 *)iph + iph->ihl
+* 4) - skb->data;
+ 			if (iph->protocol == IPPROTO_TCP) {
++				struct tcphdr *tcphdr_point = (struct
+tcphdr *)((u8 *)iph + iph->ihl * 4);
+ 				skb->csum = 0;
+-				tcp_hdr(skb)->check = 0;
++				tcphdr_point->check = 0;
+ 				skb->csum = skb_checksum(skb, offset,
+ 							 skb->len -
+offset, 0);
+-				tcp_hdr(skb)->check =
++				tcphdr_point->check = 
+ 					csum_tcpudp_magic(iph->saddr,
+ 							  iph->daddr,
+ 							  skb->len -
+offset,
+ 							  IPPROTO_TCP,
+ 							  skb->csum);
+ 			} else if (iph->protocol == IPPROTO_UDP) {
++				struct udphdr *udphdr_point = (struct
+udphdr *)((u8 *)iph + iph->ihl * 4);
+ 				skb->csum = 0;
+-				udp_hdr(skb)->check = 0;
++				udphdr_point->check = 0;
+ 				skb->csum =
+ 					skb_checksum(skb, offset,
+ 						     skb->len - offset,
+0);
+-				udp_hdr(skb)->check =
++				udphdr_point->check = 
+ 					csum_tcpudp_magic(iph->saddr,
+ 							  iph->daddr,
+ 							  skb->len -
+offset,
