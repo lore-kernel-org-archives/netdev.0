@@ -1,49 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/fsl_pq_mdio: use spin_event_timeout() to poll the
- indicator register
-Date: Sun, 08 Jul 2012 23:59:26 -0700 (PDT)
-Message-ID: <20120708.235926.1117975937932919247.davem@davemloft.net>
-References: <1341357381-10861-1-git-send-email-timur@freescale.com>
+Subject: Re: [PATCH 1/1] atl1c: fix issue of transmit queue 0 timed out
+Date: Mon, 09 Jul 2012 00:00:23 -0700 (PDT)
+Message-ID: <20120709.000023.862144144755024401.davem@davemloft.net>
+References: <1341370308-23233-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: afleming@freescale.com, netdev@vger.kernel.org
-To: timur@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752224Ab2GIG71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:59:27 -0400
-In-Reply-To: <1341357381-10861-1-git-send-email-timur@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
+To: cjren@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341370308-23233-1-git-send-email-cjren@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@freescale.com>
-Date: Tue, 3 Jul 2012 18:16:21 -0500
+From: <cjren@qca.qualcomm.com>
+Date: Wed, 4 Jul 2012 10:51:48 +0800
 
-> Macro spin_event_timeout() was designed for simple polling of hardware
-> registers with a timeout, so use it when we poll the MIIMIND register.
-> This allows us to return an error code instead of polling indefinitely.
+> some people report atl1c could cause system hang with following
+> kernel trace info:
+> ---------------------------------------
+> WARNING: at.../net/sched/sch_generic.c:258 dev_watchdog+0x1db/0x1d0()
+> ...
+> NETDEV WATCHDOG: eth0 (atl1c): transmit queue 0 timed out
+> ...
+> ---------------------------------------
+> This is caused by netif_stop_queue calling when cable Link is down.
+> So remove netif_stop_queue, because link_watch will take it over.
 > 
-> Note that PHY_INIT_TIMEOUT is a count of loop iterations, so we can't use
-> it for spin_event_timeout(), which asks for microseconds.
-> 
-> Signed-off-by: Timur Tabi <timur@freescale.com>
+> Signed-off-by: xiong <xiong@qca.qualcomm.com>
+> Cc: stable <stable@vger.kernel.org>
+> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
 
-Define a macro for the timeout value rather than use an arbitrary
-constant.
-
-> +	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
-> +		1000, 0);
-
-This indentation is absolutely terrible.
-
-> +	status = spin_event_timeout(!(in_be32(&regs->miimind) &
-> +		(MIIMIND_NOTVALID | MIIMIND_BUSY)), 1000, 0);
-
-Same here.
-
-> +	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
-> +		1000, 0);
-
-And here too.
+Applied, thanks.
