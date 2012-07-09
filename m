@@ -1,46 +1,45 @@
-From: Mark Lord <kernel@teksavvy.com>
-Subject: Re: [PATCH 0/4] Add a driver for the ASIX AX88172A
-Date: Mon, 09 Jul 2012 18:27:18 -0400
-Message-ID: <4FFB5AC6.3000506@teksavvy.com>
-References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at> <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gianfar: fix potential sk_wmem_alloc imbalance
+Date: Mon, 09 Jul 2012 15:28:27 -0700 (PDT)
+Message-ID: <20120709.152827.1547447409352502785.davem@davemloft.net>
+References: <1341524713.3265.41.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Christian Riesch <christian.riesch@omicron.at>,
-	netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Allan Chou <allan@asix.com.tw>,
-	Ming Lei <tom.leiming@gmail.com>,
-	Michael Riesch <michael@riesch.at>
-To: Grant Grundler <grundler@chromium.org>
+Cc: netdev@vger.kernel.org, manfred.rudigier@omicron.at,
+	claudiu.manoil@freescale.com, b06378@freescale.com,
+	paul.gortmaker@windriver.com, afleming@freescale.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport2-out.teksavvy.com ([206.248.154.182]:28530 "EHLO
-	ironport2-out.teksavvy.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752246Ab2GIW1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 18:27:24 -0400
-In-Reply-To: <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59840 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752246Ab2GIW22 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 18:28:28 -0400
+In-Reply-To: <1341524713.3265.41.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12-07-09 01:45 PM, Grant Grundler wrote:
-> Christian,
-> Here's my $0.02 response to your questions.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Jul 2012 23:45:13 +0200
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> On Fri, Jul 6, 2012 at 4:33 AM, Christian Riesch
-> <christian.riesch@omicron.at> wrote:
-> ...
->> I have a few questions:
->>
->> 1) Is it ok to factor out the common code like I did? Or should
->>    it go into a separate kernel module?
+> commit db83d136d7f753 (gianfar: Fix missing sock reference when
+> processing TX time stamps) added a potential sk_wmem_alloc imbalance
 > 
-> I think it's ok. I'd rather not see additional kernel modules unless
-> the driver is substantially different.
+> If the new skb has a different truesize than old one, we can get a
+> negative sk_wmem_alloc once new skb is orphaned at TX completion.
+> 
+> Now we no longer early orphan skbs in dev_hard_start_xmit(), this
+> probably can lead to fatal bugs.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Manfred Rudigier <manfred.rudigier@omicron.at>
+> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Cc: Jiajun Wu <b06378@freescale.com>
+> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Cc: Andy Fleming <afleming@freescale.com>
 
-I'll second that.  Ideally, somebody should pick up the pieces
-from my aborted efforts last fall, and just get the real ASIX driver
-itself tidied and into the kernel.  Then *everything* would work.
+Now that this has been tested by Paul, I've applied it.
 
-But I doubt that would be feasible at this point.
-
-Cheers
+Thanks.
