@@ -1,81 +1,75 @@
-From: Denis Ovsienko <infrastation@yandex.ru>
-Subject: [PATCH] fix RTPROT_RA markup of some RA routes in netlink
-Date: Mon, 09 Jul 2012 11:37:53 +0400
-Message-ID: <1405671341819473@web18d.yandex.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: cgroup: fix out of bounds accesses
+Date: Mon, 09 Jul 2012 09:45:10 +0200
+Message-ID: <1341819910.3265.2106.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----==--bound.140568.web18d.yandex.ru"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward4.mail.yandex.net ([77.88.46.9]:53657 "EHLO
-	forward4.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155Ab2GIHoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 03:44:18 -0400
-Received: from web18d.yandex.ru (web18d.yandex.ru [77.88.47.163])
-	by forward4.mail.yandex.net (Yandex) with ESMTP id D969D1BC1367
-	for <netdev@vger.kernel.org>; Mon,  9 Jul 2012 11:37:54 +0400 (MSK)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
-------==--bound.140568.web18d.yandex.ru
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Type: text/plain
+Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello, list.
+From: Eric Dumazet <edumazet@google.com>
 
-This is a small patch I have produced after thoroughly studying the coupling between addrconf and FIB6 functions. I believe this change to improve the transparency of FIB6 as viewed from userspace (by iproute2 in particular). It does resolve an issue I was debugging, where a default route derived from a router advertisement couldn't be told from kernel routes derived from other sources. The difference is meaningful at least for dynamic routing purposes, but other good uses are also possible.
+dev->priomap is allocated by extend_netdev_table() called from
+update_netdev_tables().
+And this is only called if write_priomap() is called.
 
-Thank you.
+But if write_priomap() is not called, it seems we can have out of bounds
+accesses in cgrp_destroy(), read_priomap() & skb_update_prio()
 
--- 
-    Denis Ovsienko
+With help from Gao Feng
 
-------==--bound.140568.web18d.yandex.ru
-Content-Disposition: attachment;
-	filename="0001-fix-RTPROT_RA-markup-of-some-RA-routes-in-netlink.patch"
-Content-Transfer-Encoding: base64
-Content-Type: text/plain;
-	name="0001-fix-RTPROT_RA-markup-of-some-RA-routes-in-netlink.patch"
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Gao feng <gaofeng@cn.fujitsu.com>
+---
+net/core/dev.c            |    8 ++++++--
+net/core/netprio_cgroup.c |    4 ++--
+2 files changed, 8 insertions(+), 4 deletions(-)
 
-RnJvbSAxZDk2OTkwM2M2MjIxOTgwMzYwZjc2YWJiNWUwNjMzMDBlNWNmM2JiIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBEZW5pcyBPdnNpZW5rbyA8aW5mcmFzdGF0aW9uQHlhbmRleC5y
-dT4KRGF0ZTogRnJpLCA2IEp1bCAyMDEyIDE4OjA4OjE4ICswNDAwClN1YmplY3Q6IFtQQVRDSF0g
-Zml4IFJUUFJPVF9SQSBtYXJrdXAgb2Ygc29tZSBSQSByb3V0ZXMgaW4gbmV0bGluawoKVGhlcmUg
-YXJlIHRocmVlIHR5cGVzIG9mIElQdjYgcm91dGVzIG9yaWdpbmF0ZWQgYnkga2VybmVsIE5EIFJB
-IGNvZGU6CgoqIERlZmF1bHQgcm91dGVzIHN0YW5kaW5nIGZvciBSQSBwYWNrZXRzIHdpdGggbm9u
-LXplcm8gcm91dGVyIGxpZmV0aW1lLgoqIENvbm5lY3RlZCBwcmVmaXggcm91dGVzIHN0YW5kaW5n
-IGZvciBhIFByZWZpeCBJbmZvcm1hdGlvbiAoMykgUkEgVExWLgoqIEFueSBwcmVmaXggcm91dGVz
-IHN0YW5kaW5nIGZvciBhIFJvdXRlIEluZm9ybWF0aW9uICgyNCkgUkEgVExWLgoKQWxsIHRocmVl
-IHR5cGVzIGFyZSBpbnRlcm5hbGx5IHN0b3JlZCB1c2luZyBSVFBST1RfS0VSTkVMIG9yIFJUUFJP
-VF9CT09UCnByb3RvY29sIGNvZGUgYW5kIFJURl9BRERSQ09ORiByb3V0ZSBmbGFnICh0aGlzIGlz
-IHRoZSBvbmx5IHB1cnBvc2UgZm9yCnRoaXMgZmxhZykuIFRoZSBmbGFnIGlzbid0IGRpcmVjdGx5
-IGF2YWlsYWJsZSBpbiBuZXRsaW5rIHNvY2tldCBzcGFjZS4KR2l2ZW4gdGhlIG5lZWQgdG8gdGVs
-bCByb3V0ZSBvcmlnaW4gaW4gdXNlcnNwYWNlLCBmb3Igcm91dGVzIHdpdGgKbmV4dGhvcHMgaW4g
-dGhlIGZpcnN0IHR1cm4sIHJ0Nl9maWxsX25vZGUoKSB0cmllcyB0byBkaXN0aW5ndWlzaCBkZWZh
-dWx0CnJvdXRlciBjYXNlIHNlbmRpbmcgdGhlIG5ldGxpbmsgcm91dGUgc3RydWN0dXJlIHdpdGgg
-UlRQUk9UX1JBICh0aGlzIGlzCnJlc3BlY3RpdmVseSB0aGUgb25seSB1c2UgY2FzZSBmb3IgdGhp
-cyBwcm90b2NvbCBjb2RlKSwgYnV0IHRvIG5vCnN1Y2Nlc3MgZHVlIHRvIGEgdGVzdCBjb25kaXRp
-b24gdGFrZW4gd3JvbmcuIEFsbCB0aHJlZSB0eXBlcyBhcmUKZGVsaXZlcmVkIHdpdGggUlRQUk9U
-X0tFUk5FTC4KClRoaXMgY2hhbmdlIGlzIG1vZGVsbGVkIGFmdGVyIHRoZSBvcmlnaW5hbCBtYWls
-aW5nIGxpc3QgcG9zdGluZyBieSBKZWZmCkhhcmFuLiBJdCBmaXhlcyB0aGUgdGVzdCBjb25kaXRp
-b24gZm9yIHRoZSBkZWZhdWx0IHJvdXRlciBjYXNlIGFuZApleHRlbmRzIGl0IGZvciB0aGUgUm91
-dGUgSW5mb3JtYXRpb24gY2FzZS4KLS0tCiBuZXQvaXB2Ni9yb3V0ZS5jIHwgICAxMiArKysrKysr
-KystLS0KIDEgZmlsZXMgY2hhbmdlZCwgOSBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQoK
-ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3JvdXRlLmMgYi9uZXQvaXB2Ni9yb3V0ZS5jCmluZGV4IDk5
-OWE5ODIuLjJmMDcwZDYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3JvdXRlLmMKKysrIGIvbmV0L2lw
-djYvcm91dGUuYwpAQCAtMjQ0MSw5ICsyNDQxLDE1IEBAIHN0YXRpYyBpbnQgcnQ2X2ZpbGxfbm9k
-ZShzdHJ1Y3QgbmV0ICpuZXQsCiAJaWYgKHJ0LT5ydDZpX2ZsYWdzICYgUlRGX0RZTkFNSUMpCiAJ
-CXJ0bS0+cnRtX3Byb3RvY29sID0gUlRQUk9UX1JFRElSRUNUOwogCWVsc2UgaWYgKHJ0LT5ydDZp
-X2ZsYWdzICYgUlRGX0FERFJDT05GKQotCQlydG0tPnJ0bV9wcm90b2NvbCA9IFJUUFJPVF9LRVJO
-RUw7Ci0JZWxzZSBpZiAocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfREVGQVVMVCkKLQkJcnRtLT5ydG1f
-cHJvdG9jb2wgPSBSVFBST1RfUkE7CisJeworCQkvKiBhbnkgTkQgUkEgcm91dGUsIG1vc3QgcHJv
-YmFibHkgb3JpZ2luYXRlZCBieSBrZXJuZWwgKi8KKwkJaWYgKHJ0LT5ydDZpX2ZsYWdzICYgUlRG
-X0RFRkFVTFQpIC8qIGRlZmF1bHQgcm91dGVyICovCisJCQlydG0tPnJ0bV9wcm90b2NvbCA9IFJU
-UFJPVF9SQTsKKwkJZWxzZSBpZiAocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfUk9VVEVJTkZPKSAvKiBh
-bnkgcm91dGUgdy9uZXh0aG9wICovCisJCQlydG0tPnJ0bV9wcm90b2NvbCA9IFJUUFJPVF9SQTsK
-KwkJZWxzZSAvKiBSVEZfUFJFRklYX1JULCBpbnRlcmZhY2UgY29ubmVjdGVkIHByZWZpeCByb3V0
-ZSAqLworCQkJcnRtLT5ydG1fcHJvdG9jb2wgPSBSVFBST1RfS0VSTkVMOworCX0KIAogCWlmIChy
-dC0+cnQ2aV9mbGFncyAmIFJURl9DQUNIRSkKIAkJcnRtLT5ydG1fZmxhZ3MgfD0gUlRNX0ZfQ0xP
-TkVEOwotLSAKMS43LjcuNgoK
-------==--bound.140568.web18d.yandex.ru--
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 84f01ba..0f28a9e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2444,8 +2444,12 @@ static void skb_update_prio(struct sk_buff *skb)
+ {
+ 	struct netprio_map *map = rcu_dereference_bh(skb->dev->priomap);
+ 
+-	if ((!skb->priority) && (skb->sk) && map)
+-		skb->priority = map->priomap[skb->sk->sk_cgrp_prioidx];
++	if (!skb->priority && skb->sk && map) {
++		unsigned int prioidx = skb->sk->sk_cgrp_prioidx;
++
++		if (prioidx < map->priomap_len)
++			skb->priority = map->priomap[prioidx];
++	}
+ }
+ #else
+ #define skb_update_prio(skb)
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index aa907ed..3e953ea 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -142,7 +142,7 @@ static void cgrp_destroy(struct cgroup *cgrp)
+ 	rtnl_lock();
+ 	for_each_netdev(&init_net, dev) {
+ 		map = rtnl_dereference(dev->priomap);
+-		if (map)
++		if (map && cs->prioidx < map->priomap_len)
+ 			map->priomap[cs->prioidx] = 0;
+ 	}
+ 	rtnl_unlock();
+@@ -166,7 +166,7 @@ static int read_priomap(struct cgroup *cont, struct cftype *cft,
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(&init_net, dev) {
+ 		map = rcu_dereference(dev->priomap);
+-		priority = map ? map->priomap[prioidx] : 0;
++		priority = (map && prioidx < map->priomap_len) ? map->priomap[prioidx] : 0;
+ 		cb->fill(cb, dev->name, priority);
+ 	}
+ 	rcu_read_unlock();
