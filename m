@@ -1,73 +1,56 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: Re: [PATCH 04/16] mm: allow PF_MEMALLOC from softirq context
-Date: Mon, 9 Jul 2012 18:57:10 +0200
-Message-ID: <20120709165710.GC3515@breakpoint.cc>
-References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
- <1340375443-22455-5-git-send-email-mgorman@suse.de>
- <20120626165513.GD6509@breakpoint.cc>
- <20120627082614.GE8271@suse.de>
- <20120708181211.GE2872@breakpoint.cc>
- <20120709100442.GZ14154@suse.de>
+From: Grant Grundler <grundler@chromium.org>
+Subject: Re: [PATCH 0/4] Add a driver for the ASIX AX88172A
+Date: Mon, 9 Jul 2012 10:45:28 -0700
+Message-ID: <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120709100442.GZ14154@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+	Eric Dumazet <edumazet@google.com>,
+	Allan Chou <allan@asix.com.tw>,
+	Mark Lord <kernel@teksavvy.com>,
+	Ming Lei <tom.leiming@gmail.com>,
+	Michael Riesch <michael@riesch.at>
+To: Christian Riesch <christian.riesch@omicron.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:55498 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522Ab2GIRpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 13:45:30 -0400
+Received: by yhmm54 with SMTP id m54so11151343yhm.19
+        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 10:45:29 -0700 (PDT)
+In-Reply-To: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 09, 2012 at 11:04:42AM +0100, Mel Gorman wrote:
-> > - lets assume your allocation happens with kmalloc() without __GFP_MEMALLOC
-> >   and current->flags has PF_MEMALLOC ORed and your SLAB pool is empty. This
-> >   forces SLAB to allocate more pages from the buddy allocator with it will
-> >   receive more likely (due to ->current->flags + PF_MEMALLOC) but SLAB will
-> >   drop this extra memory because the page has ->pf_memory (or something like
-> >   that) set and the GFP_FLAGS do not have __GFP_MEMALLOC set.
-> > 
-> 
-> It's recorded if the slab page was allocated from PFMEMALLOC reserves (see
-> patch 2 from the swap over NBD series). slab will use this page for objects
-> but only allocate them to callers that pass a gfp_pfmemalloc_allowed() check.
-> kmalloc() users with either __GFP_MEMALLOC or PF_MEMALLOC will get
-> the pages they need but they will not "leak" to !_GFP_MEMALLOC users as
-> that would potentially deadlock.
+Christian,
+Here's my $0.02 response to your questions.
 
-Argh, I missed that gfp_to_alloc_flags() is not only called from
-within the buddy allocater but also from slab. So this is fine then :)
+On Fri, Jul 6, 2012 at 4:33 AM, Christian Riesch
+<christian.riesch@omicron.at> wrote:
+...
+> I have a few questions:
+>
+> 1) Is it ok to factor out the common code like I did? Or should
+>    it go into a separate kernel module?
 
-One thing:
-You only get current->flags |= PF_MEMALLOC in softirq _if_ the skb, which is 
-passed to netif_receive_skb(), was allocated with __GFP_MEMALLOC. That
-means if the NIC's RX allocation did not require an allocation from the
-emergency pool (without ->pfmemalloc set) then you never use this extra
-pool, even if this skb would end up in your swap socket. Also, the other way
-around, where you allocate it from the emergency pool but it is a user
-socket and you could drop it.
+I think it's ok. I'd rather not see additional kernel modules unless
+the driver is substantially different.
 
-What about extending sk_set_memalloc() to record socket's ips + ports
-in a separate list so that skb_pfmemalloc_protocol() might use that
-information and decide on per-protocol basis if the skb is worth to
-spend more ressource to deliver it. That means you would enable the
-extra pool if the currently received skb is part of your swap socket and
-not if the skb was allocated from the emergency pool.
 
-That said, there is nothing wrong with the code as of now and this
-optimization could be added later (if at all).
+> 2) phylib/usbnet: Currently I have an empty .status function
+>    in my const struct driver_info ax88172a_info. I think this
+>    notifies me of a link change, right? I don't know
+>    what I should do in this function. Trigger the phy state machine
+>    like a phy interrupt would do, since link changes are handled
+>    by the phy state machine?
 
-Sebastian
+I don't see any Documentation for this entry point. My reading of the
+code is driver_info->status (include/linux/usb/usbnet.h) is to poll
+current link status from URBs. See  usbnet_probe()  (calls
+init_status()) and intr_complete() (calls your stub).  I also looked
+at usbnet_cdc_status() in cdc_ethernet.c. Maybe other drivers are
+better examples.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+hth,
+grant
