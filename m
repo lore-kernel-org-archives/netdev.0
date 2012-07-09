@@ -1,105 +1,57 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [RFC] Introduce to batch variants of accept() and epoll_ctl()
- syscall
-Date: Mon, 09 Jul 2012 11:36:38 +0800
-Message-ID: <4FFA51C6.3070306@gmail.com>
-References: <4FDAB652.6070201@gmail.com>  <CABa6K_H3NrvvZ3Bh7JqsR6h33BSqYPBenUDG5Yt1U=2VvP700g@mail.gmail.com>  <4FDACA26.70004@gmail.com> <1339750318.7491.70.camel@edumazet-glaptop> <4FF6B20E.7000402@gmail.com>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: TCP transmit performance regression
+Date: Mon, 9 Jul 2012 13:13:26 +0800
+Message-ID: <CACVXFVP6DAfrRsYT_=uTi4C35SQAic9=KTyetAz-cnZO+es35w@mail.gmail.com>
+References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+	<1341474192.2583.3299.camel@edumazet-glaptop>
+	<CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+	<1341477192.2583.3415.camel@edumazet-glaptop>
+	<CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+	<1341481760.2583.3579.camel@edumazet-glaptop>
+	<CACVXFVNZ=64+=w1ZapXeXq7oYz0OBbBRLuH8rNSeDHyz7zGOZw@mail.gmail.com>
+	<1341484919.2583.3688.camel@edumazet-glaptop>
+	<CACVXFVPksMd8CGZWEGBXBXB5NZCg3QOZreOLavkV-Z2pjE-M_A@mail.gmail.com>
+	<1341500196.2583.4222.camel@edumazet-glaptop>
+	<CACVXFVMgwbz1fDC=_9dhVUZ_btiO3fNdFiuXm-7gMXFUAMtmsw@mail.gmail.com>
+	<1341550714.3265.44.camel@edumazet-glaptop>
+	<1341551764.3265.47.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	davidel@xmailserver.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FF6B20E.7000402@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:63119 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751073Ab2GIFN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 01:13:27 -0400
+Received: by obbuo13 with SMTP id uo13so19997276obb.19
+        for <netdev@vger.kernel.org>; Sun, 08 Jul 2012 22:13:26 -0700 (PDT)
+In-Reply-To: <1341551764.3265.47.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B407=E6=9C=8806=E6=97=A5 17:38, Li Yu =E5=86=99=E9=
-=81=93:
-> =E4=BA=8E 2012=E5=B9=B406=E6=9C=8815=E6=97=A5 16:51, Eric Dumazet =E5=
-=86=99=E9=81=93:
->> On Fri, 2012-06-15 at 13:37 +0800, Li Yu wrote:
+On Fri, Jul 6, 2012 at 1:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2012-07-06 at 06:58 +0200, Eric Dumazet wrote:
+>> On Fri, 2012-07-06 at 08:45 +0800, Ming Lei wrote:
 >>
->>> Of course, I think that implementing them should not be a hard work=
- :)
->>>
->>> Em. I really do not know whether it is necessary to introduce to a =
-new
->>> syscall here. An alternative solution to add new socket option to h=
-andle
->>> such batch requirement, so applications also can detect if kernel h=
-as
->>> this extended ability with a easy getsockopt() call.
->>>
->>> Any way, I am going to try to write a prototype first.
+>> > Unfortunately, the patch still hasn't any improvement on the transmit
+>> > performance of beagle-xm.
 >>
->> Before that, could you post the result of "perf top", or "perf
->> record ...;perf report"
+>> Ah yes, I need to change usbnet as well to be able to fully recycle the
+>> big skbs allocated in turbo mode.
 >>
+>> Right now they are constantly allocated/freed and this sucks if SLAB
+>> wants to check poison bytes in debug mode.
 >
-> Sorry for I just have time to write a benchmark to reproduce this
-> problem on my test bed, below are results of "perf record -g -C 0".
-> kernel is 3.4.0:
->
-> Events: 7K cycles
-> +  54.87%  swapper  [kernel.kallsyms]  [k] poll_idle
-> -   3.10%   :22984  [kernel.kallsyms]  [k] _raw_spin_lock
->     - _raw_spin_lock
->        - 64.62% sch_direct_xmit
->             dev_queue_xmit
->             ip_finish_output
->             ip_output
->           - ip_local_out
->              + 49.48% ip_queue_xmit
->              + 37.48% ip_build_and_send_pkt
->              + 13.04% ip_send_skb
->
-> I can not reproduce complete same high CPU usage on my testing
-> environment, but top show that it has similar ratio of sys% and
-> si% on one CPU:
->
-> Tasks: 125 total,   2 running, 123 sleeping,   0 stopped,   0 zombie
-> Cpu0  :  1.0%us, 30.7%sy,  0.0%ni, 18.8%id,  0.0%wa,  0.0%hi, 49.5%si=
-,
-> 0.0%st
->
-> Well, it seem that I must acknowledge I was wrong here. however,
-> I recall that I indeed ever encountered this in another benchmarking =
-a
-> small packets performance.
->
-> I guess, this is since TX softirq and syscall context contend same lo=
-ck
-> in sch_direct_xmit(), is this right?
->
+> In the mean time, you also can use the following patch I have to polish,
+> but this should give you a nice boost, since the big skb skb->head wont
+> be checked by SLAB debug :
 
-Em, do we have some means to decrease the lock contention here?
+Unfortunately, the patch makes the result of the same test  worsen than
+without the patch, :-(
 
-> thanks
->
-> Yu
->
->>>   The top shows the kernel is most cpu hog, the testing is simple,
->>> just a accept() -> epoll_ctl(ADD) loop, the ratio of cpu util sys% =
-to
->>> si% is about 2:5.
->>
->> This ratio is not meaningful, if we dont know where time is spent.
->>
->>
->> I doubt epoll_ctl(ADD) is a problem here...
->>
->> If it is, batching the fds wont speed the thing anyway...
->>
->> I believe accept() is the problem here, because it contends with the
->> softirq processing the tcp session handshake.
->>
->>
->>
->>
->
->
+
+Thanks,
+-- 
+Ming Lei
