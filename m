@@ -1,116 +1,59 @@
-From: Serge Hallyn <serge.hallyn@canonical.com>
-Subject: Re: [PATCH v2] fail dentry revalidation after namespace change
-Date: Mon, 9 Jul 2012 18:43:59 -0500
-Message-ID: <20120709234359.GA6800@sergelap>
-References: <1341565747-15374-1-git-send-email-glommer@parallels.com>
- <20120709161336.0ec23592.akpm@linux-foundation.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH firmware 1/4] rtl_nic: update firmware for RTL8168F
+Date: Tue, 10 Jul 2012 00:58:02 +0100
+Message-ID: <1341878282.25597.302.camel@deadeye.wl.decadent.org.uk>
+References: <1341803512-1309-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Glauber Costa <glommer@parallels.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Greg Thelen <gthelen@google.com>, Tejun Heo <tj@kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-2ahnEX1hLGnInRm2MQwu"
+Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120709161336.0ec23592.akpm@linux-foundation.org>
+In-Reply-To: <1341803512-1309-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Andrew Morton (akpm@linux-foundation.org):
-> On Fri,  6 Jul 2012 13:09:07 +0400
-> Glauber Costa <glommer@parallels.com> wrote:
-> 
-> > When we change the namespace tag of a sysfs entry, the associated dentry
-> > is still kept around. readdir() will work correctly and not display the
-> > old entries, but open() will still succeed, so will reads and writes.
-> > 
-> > This will no longer happen if sysfs is remounted, hinting that this is a
-> > cache-related problem.
-> > 
-> > I am using the following sequence to demonstrate that:
-> > 
-> > shell1:
-> > ip link add type veth
-> > unshare -nm
-> > 
-> > shell2:
-> > ip link set veth1 <pid_of_shell_1>
-> > cat /sys/devices/virtual/net/veth1/ifindex
-> > 
-> > Before that patch, this will succeed (fail to fail). After it, it will
-> > correctly return an error. Differently from a normal rename, which we
-> > handle fine, changing the object namespace will keep it's path intact.
-> > So this check seems necessary as well.
-> > 
-> > ...
-> >
-> > --- a/fs/sysfs/dir.c
-> > +++ b/fs/sysfs/dir.c
-> > @@ -307,6 +307,7 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
-> >  {
-> >  	struct sysfs_dirent *sd;
-> >  	int is_dir;
-> > +	int type;
-> >  
-> >  	if (nd->flags & LOOKUP_RCU)
-> >  		return -ECHILD;
-> > @@ -326,6 +327,13 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
-> >  	if (strcmp(dentry->d_name.name, sd->s_name) != 0)
-> >  		goto out_bad;
-> >  
-> > +	/* The sysfs dirent has been moved to a different namespace */
-> > +	type = KOBJ_NS_TYPE_NONE;
-> > +	if (sd->s_parent)
-> > +		type = sysfs_ns_type(sd->s_parent);
-> > +	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
-> 
-> eww, the code is assuming that KOBJ_NS_TYPE_NONE has a value of zero. 
-> Don't do that; it smells bad.
-> 
-> I renamed my version of this patch to "sysfs: fail dentry revalidation
-> after namespace change", as carefully explained in section 15 of the
-> excellent Documentation/SubmittingPatches, then queued this:
-> 
-> 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Subject: sysfs-fail-dentry-revalidation-after-namespace-change-fix
-> 
-> don't assume that KOBJ_NS_TYPE_NONE==0.  Also save a test-n-branch.
-> 
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Cc: Glauber Costa <glommer@parallels.com>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Tejun Heo <tj@kernel.org>
 
-Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
+--=-2ahnEX1hLGnInRm2MQwu
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  fs/sysfs/dir.c |    8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff -puN fs/sysfs/dir.c~sysfs-fail-dentry-revalidation-after-namespace-change-fix fs/sysfs/dir.c
-> --- a/fs/sysfs/dir.c~sysfs-fail-dentry-revalidation-after-namespace-change-fix
-> +++ a/fs/sysfs/dir.c
-> @@ -329,10 +329,12 @@ static int sysfs_dentry_revalidate(struc
->  
->  	/* The sysfs dirent has been moved to a different namespace */
->  	type = KOBJ_NS_TYPE_NONE;
-> -	if (sd->s_parent)
-> +	if (sd->s_parent) {
->  		type = sysfs_ns_type(sd->s_parent);
-> -	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
-> -		goto out_bad;
-> +		if (type != KOBJ_NS_TYPE_NONE &&
-> +				sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns)
-> +			goto out_bad;
-> +	}
->  
->  	mutex_unlock(&sysfs_mutex);
->  out_valid:
-> _
-> 
-> 
+On Mon, 2012-07-09 at 11:11 +0800, Hayes Wang wrote:
+> File: rtl_nic/rtl8168f-1.fw
+> Version: 0.0.5
+[...]
+
+Applied.
+
+Ben.
+
+--=20
+Ben Hutchings
+The generation of random numbers is too important to be left to chance.
+                                                            - Robert Coveyo=
+u
+
+--=-2ahnEX1hLGnInRm2MQwu
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAT/twCue/yOyVhhEJAQr4Ww/+JHt2k/z1unipydRIdqyA7/B/4LdtJSnE
+KjK3tgVsxjNDvcCjac6MnWNOYJC/p+tXUdT2vdHTpsYhYCt7cAO9GxDvC8JT5B4I
+sZrUWGAThUXPwEon2tgClFU9dU8tvGTAit7b9rPwJb1H8cbv+4Yh/s3BfY5/quLT
+xDpZjkkGOvEcFigP49QWDitUvBjcvR4sArkerw1ARVgRCVmjWZ8tlmY9KEyRbDy2
+a1tvlCI6SAleFsRKVgH00UcCZgsXEjA2aaUQhYV+YHd5awysJtVUW6Kw6pDpRBNt
+jbiP5M+rS5mSE8FTm6g1yvLPrBs7HX0vzBI561niCatUcUeRmP0ZjY4ASOwUt/HK
+r4M8WpI61Z/KLz/ycgDq2SVuJiXwM2/kOYROZ5OLomS6xQ+BRyV5BKzQvYW3WP4K
+mwBPSP/b5pt9CEzjlXSoAjIgrN8fH1YM+IuTB+6SANoYyK0irVOlfYgXI3hc6hMP
+n6UoMycIgoBUpKVz6BCi8FohQdGHKh8Ca7Vvj8GkrBI/W630XcjOcvdtfIx0Q5fQ
+wbPhwOwRg9O3UTpDzpz7unuhRcNCG6qtxrrTXE5FbV8QmgBGJxl29je/IprMBZu7
+VZaKksWDVjFbsUy+jMGPApp/7HZnFkxIMsDZHCwoBYpUUYaOYaFwgg8qgR7+117h
+rmINAnFzfqc=
+=RUi8
+-----END PGP SIGNATURE-----
+
+--=-2ahnEX1hLGnInRm2MQwu--
