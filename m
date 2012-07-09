@@ -1,41 +1,53 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless 2012-07-06
-Date: Mon, 9 Jul 2012 14:43:51 -0400
-Message-ID: <20120709184351.GB1348@tuxdriver.com>
-References: <20120706192034.GA1879@tuxdriver.com>
- <20120709.003155.284089706826738623.davem@davemloft.net>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: [PATCH 11/16] netvm: Propagate page->pfmemalloc from
+ skb_alloc_page to skb
+Date: Mon, 9 Jul 2012 21:18:56 +0200
+Message-ID: <20120709191856.GD3515@breakpoint.cc>
+References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
+ <1340375443-22455-12-git-send-email-mgorman@suse.de>
+ <20120626201328.GI6509@breakpoint.cc>
+ <20120627084348.GG8271@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Thomas Huehn <thomas@net.t-labs.tu-berlin.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20120709.003155.284089706826738623.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20120627084348.GG8271@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 09, 2012 at 12:31:55AM -0700, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Fri, 6 Jul 2012 15:20:35 -0400
+On Wed, Jun 27, 2012 at 09:43:48AM +0100, Mel Gorman wrote:
+> > You did not touch all drivers which use alloc_page(s)() like e1000(e). Was
+> > this on purpose?
 > 
-> > Please let me know if there are problems!
-> 
-> This indentation is not correct:
-> 
-> commit 01f9cb073c827c60c43f769763b49a2026f1a897
-> Author: Thomas Huehn <thomas@net.t-labs.tu-berlin.de>
-> Date:   Thu Jun 28 14:39:51 2012 -0700
-> 
->     mwl8k: fix possible race condition in info->control.sta use
->  ...
-> +			sta = ieee80211_find_sta_by_ifaddr(hw, wh->addr1,
-> +								wh->addr2);
+> Yes. The ones I changed were the semi-obvious ones and carried over from
+> when the patches were completely out of tree.  As the changelog notes
+> it is not critical that these annotation happens and can be fixed on a
+> per-driver basis if there are complains about network swapping being slow.
+okay, I was just curious why some drivers were updated and others not.
 
-OK, I'll drop this patch and send a new pull request with a couple more fixes as well.
+> I can update e1000 if you like but it's not critical
+> to do so and in fact getting a bug reporting saying that network swap
+> was slow on e1000 would be useful to me in its own way :)
+No, leave as it, I was just curious.
+One thing: Do you think it makes sense to you introduce
+	#define GFP_NET_RX     (GFP_ATOMIC | __GFP_MEMALLOC)
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+and use it within the receive path instead of GFP_ATOMIC?
+
+Sebastian
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
