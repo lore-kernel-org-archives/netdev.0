@@ -1,75 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: cgroup: fix out of bounds accesses
-Date: Mon, 09 Jul 2012 09:45:10 +0200
-Message-ID: <1341819910.3265.2106.camel@edumazet-glaptop>
+Subject: Re: [RFC PATCH] tcp: limit data skbs in qdisc layer
+Date: Mon, 09 Jul 2012 10:03:56 +0200
+Message-ID: <1341821036.3265.2161.camel@edumazet-glaptop>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	<1340945457.29822.7.camel@edumazet-glaptop>
+	<1341396687.2583.1757.camel@edumazet-glaptop>
+	<20120709.000834.1182150057463599677.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
-	Gao feng <gaofeng@cn.fujitsu.com>
+Cc: nanditad@google.com, netdev@vger.kernel.org, ycheng@google.com,
+	codel@lists.bufferbloat.net, mattmathis@google.com, ncardwell@google.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <20120709.000834.1182150057463599677.davem@davemloft.net>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2012-07-09 at 00:08 -0700, David Miller wrote:
 
-dev->priomap is allocated by extend_netdev_table() called from
-update_netdev_tables().
-And this is only called if write_priomap() is called.
+> I'm suspicious and anticipate that 10G will need more queueing than
+> you are able to get away with tg3 at 1G speeds.  But it is an exciting
+> idea nonetheless :-)
 
-But if write_priomap() is not called, it seems we can have out of bounds
-accesses in cgrp_destroy(), read_priomap() & skb_update_prio()
+I tested the patch on 10G NIC and had no problem on netperf tests.
 
-With help from Gao Feng
+Only that ixgbe is not yet BQL enabled so I could not add
+skb_try_orphan() in its start_xmit() : So if TX completion is a bit
+delayed, we can have a throughput slowdown.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
----
-net/core/dev.c            |    8 ++++++--
-net/core/netprio_cgroup.c |    4 ++--
-2 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 84f01ba..0f28a9e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2444,8 +2444,12 @@ static void skb_update_prio(struct sk_buff *skb)
- {
- 	struct netprio_map *map = rcu_dereference_bh(skb->dev->priomap);
- 
--	if ((!skb->priority) && (skb->sk) && map)
--		skb->priority = map->priomap[skb->sk->sk_cgrp_prioidx];
-+	if (!skb->priority && skb->sk && map) {
-+		unsigned int prioidx = skb->sk->sk_cgrp_prioidx;
-+
-+		if (prioidx < map->priomap_len)
-+			skb->priority = map->priomap[prioidx];
-+	}
- }
- #else
- #define skb_update_prio(skb)
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index aa907ed..3e953ea 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -142,7 +142,7 @@ static void cgrp_destroy(struct cgroup *cgrp)
- 	rtnl_lock();
- 	for_each_netdev(&init_net, dev) {
- 		map = rtnl_dereference(dev->priomap);
--		if (map)
-+		if (map && cs->prioidx < map->priomap_len)
- 			map->priomap[cs->prioidx] = 0;
- 	}
- 	rtnl_unlock();
-@@ -166,7 +166,7 @@ static int read_priomap(struct cgroup *cont, struct cftype *cft,
- 	rcu_read_lock();
- 	for_each_netdev_rcu(&init_net, dev) {
- 		map = rcu_dereference(dev->priomap);
--		priority = map ? map->priomap[prioidx] : 0;
-+		priority = (map && prioidx < map->priomap_len) ? map->priomap[prioidx] : 0;
- 		cb->fill(cb, dev->name, priority);
- 	}
- 	rcu_read_unlock();
+I added a /proc/sys/net/ipv4/tcp_limit_output_segs to play with various
+limits.
