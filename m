@@ -1,51 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Mon, 09 Jul 2012 15:54:03 +0200
-Message-ID: <1341842043.3265.2914.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	 <1341474192.2583.3299.camel@edumazet-glaptop>
-	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	 <1341477192.2583.3415.camel@edumazet-glaptop>
-	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	 <1341481760.2583.3579.camel@edumazet-glaptop>
-	 <CACVXFVNYwNrdWS_EiQ4O0-ou369AQ2tB4qbvmzY1rt5T3QnyUw@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [RFC PATCH] ppp: add support for L2 multihop / tunnel switching
+Date: Mon, 9 Jul 2012 10:15:11 -0400
+Message-ID: <20120709141511.GL19462@kvack.org>
+References: <20120708214930.GI19462@kvack.org> <4FFAC5EF.6030003@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:51116 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753679Ab2GINyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 09:54:08 -0400
-Received: by eaak11 with SMTP id k11so4336739eaa.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 06:54:07 -0700 (PDT)
-In-Reply-To: <CACVXFVNYwNrdWS_EiQ4O0-ou369AQ2tB4qbvmzY1rt5T3QnyUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4FFAC5EF.6030003@katalix.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-07-09 at 21:23 +0800, Ming Lei wrote:
+On Mon, Jul 09, 2012 at 12:52:15PM +0100, James Chapman wrote:
+> As a mechanism for switching PPP interfaces together, this patch is
+> good. For L2TP though, I prefer an approach that would be applicable for
+> all L2TP traffic types, not just PPP.
 
-> Looks the patch replaces skb_clone with netdev_alloc_skb_ip_align and
-> introduces extra copies on incoming data, so would you mind explaining
-> it in a bit detail? And why is skb_clone not OK for the purpose?
+*nod*  This seems like a reasonable consideration.
 
-Problem with cloning is that some paths will have to make a private copy
-of the skb.
+> L2TP supports many different pseudowire types, and this patch will only
+> be useful for tunnel switching between PPP pseudowires. Whereas if we
+> implement it within the L2TP core, rather than in the PPP code, we would
+> get switching between all pseudowire types. If we add this patch and
+> then subsequently add switching between other pseudowires in the L2TP
+> core (which we're likely to want to do), then we're left with two
+> different interfaces for doing L2TP tunnel switching in the kernel.
 
-So you dont see the cost here in the driver, but later in upper stacks.
+At least for ethernet pseudowires, it can already be implemented by using 
+an ethernet bridge device.  Besides PPP and ethernet pseudowires, what 
+other types are supported at present by the L2TP core?
 
-Since this driver defaults to a huge RX area of more than 16Kbytes,
-a copy to a much smaller skb (we call this 'copybreak' in our jargon )
-is more than welcome to avoid OOM problems anyway.
+> The L2TP core allows traffic to be passed directly into an L2TP session.
+> In the case of PPPoE, for example, the PPP data can be  extracted from a
+> PPPoE packet and passed into an L2TP tunnel/session, with no PPP
+> interface(s) involved.
+> 
+> That said, your approach allows two PPP interfaces to be switched
+> together, which has its own advantages.
 
-TCP coalescing (skb_try_coalesce) for example wont work for cloned skbs,
-so TCP receive window will close pretty fast, and performance sucks in
-lossy environments (like the Internet)
+I think the approach I'm using should be reasonably efficient for PPPoE 
+to L2TP, although the locking overhead in the PPP core probably needs to 
+be reduced to improve scaling.  I haven't yet done any benchmarking on this 
+approach to see how much overhead there is compared to the other code I'd 
+written which took a more direct approach (this wasn't on top of the 
+ppp_generic core, but the old Babylon kernel modules which have had this 
+functionality for a long time).
 
-Actually, since this driver lies about skb->truesize, a single UDP frame
-consumes 32Kbytes of memory, escaping normal memory limits we have in
-kernel by a factor of 64. Thats pretty bad, especially for a beagle
-board.
+> > The reasoning behind using dev_queue_xmit() rather than outputting directly 
+> > to another PPP channel is to enable the use of the traffic shaping and 
+> > queuing features of the kernel on multihop sessions.
+> 
+> I'm not sure about using a pseudo packet type to do this. For L2TP, it
+> would seem better to add netfilter/tc support for L2TP data packets,
+> which would let people add rules for, say, traffic in L2TP tunnel x /
+> session y. This would avoid the need for ETH_P_PPP and you could then
+> output directly to the ppp channel.
+
+The downside of an L2TP specific method is that all the mechanisms need to 
+be duplicated, resulting in a much higher maintenance overhead for the 
+code and functionality, not to mention all the tool changes to go along 
+with that.
+
+As for the pseudo packet type, it may indeed be better to avoid the pseudo 
+packet type for known PPP packet types.  One of the benefits of going the 
+network device route is that it makes it much easier to implement additional 
+functionality like lawful intercept, which would be yet more functionality 
+that would have to be implemented if the mechanism is L2TP specific.  The 
+pseudo packet type would still be needed for forwarding PPP frames that the 
+kernel doesn't know about (all the *CP packet types and MLPPP come to mind)
+
+I had thought about doing the packet forwarding in a manner similar to the 
+bridging code -- that is, as a pseudowire bridge in the network core that 
+only works between 2 devices.  That approach might work better for L2TP, as 
+it would be able to pass packets of any type between the 2 endpoints.
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
