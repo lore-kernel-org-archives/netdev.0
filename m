@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ieee802154: verify packet size before trying to
- allocate it
-Date: Sun, 08 Jul 2012 23:50:05 -0700 (PDT)
-Message-ID: <20120708.235005.1770661412478433472.davem@davemloft.net>
-References: <1341228595-9883-1-git-send-email-levinsasha928@gmail.com>
+Subject: Re: [patch] [SCSI] bnx2i: use strlcpy() instead of memcpy() for
+ strings
+Date: Sun, 08 Jul 2012 23:51:30 -0700 (PDT)
+Message-ID: <20120708.235130.1792833004317144162.davem@davemloft.net>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F6F@saturn3.aculab.com>
+	<20120702104843.GB4519@mwanda>
+	<1341242018.7472.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dbaryshkov@gmail.com, slapin@ossfans.org,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: levinsasha928@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341228595-9883-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dan.carpenter@oracle.com, David.Laight@ACULAB.COM,
+	JBottomley@parallels.com, barak@broadcom.com,
+	eddie.wai@broadcom.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53360 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752285Ab2GIGvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 02:51:31 -0400
+In-Reply-To: <1341242018.7472.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <levinsasha928@gmail.com>
-Date: Mon,  2 Jul 2012 13:29:55 +0200
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 2 Jul 2012 08:13:38 -0700
 
-> Currently when sending data over datagram, the send function will attempt to
-> allocate any size passed on from the userspace.
+> This came from the net-next tree, so David is the right persion to apply
+> this.  Thanks.
 > 
-> We should make sure that this size is checked and limited. We'll limit it
-> to the MTU of the device, which is checked later anyway.
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> Acked-by: Michael Chan <mchan@broadcom.com>
 
-Applied.
+Applied, thanks.
