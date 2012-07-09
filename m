@@ -1,44 +1,117 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cgroup: fix out of bounds accesses
-Date: Mon, 09 Jul 2012 14:51:25 -0700 (PDT)
-Message-ID: <20120709.145125.1903343847210013668.davem@davemloft.net>
-References: <1341819910.3265.2106.camel@edumazet-glaptop>
-	<4FFA9321.4030407@cn.fujitsu.com>
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH] [v2] net/fsl_pq_mdio: use spin_event_timeout() to poll the indicator register
+Date: Mon, 9 Jul 2012 16:57:36 -0500
+Message-ID: <1341871056-6658-1-git-send-email-timur@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nhorman@tuxdriver.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	lizefan@huawei.com, tj@kernel.org
-To: gaofeng@cn.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FFA9321.4030407@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: Andy Fleming <afleming@freescale.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<jan.ceuleers@computer.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:41147
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754383Ab2GIV5v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 17:57:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Mon, 09 Jul 2012 16:15:29 +0800
+Macro spin_event_timeout() was designed for simple polling of hardware
+registers with a timeout, so use it when we poll the MIIMIND register.
+This allows us to return an error code instead of polling indefinitely.
 
-> 于 2012年07月09日 15:45, Eric Dumazet 写道:
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> dev->priomap is allocated by extend_netdev_table() called from
->> update_netdev_tables().
->> And this is only called if write_priomap() is called.
->> 
->> But if write_priomap() is not called, it seems we can have out of bounds
->> accesses in cgrp_destroy(), read_priomap() & skb_update_prio()
->> 
->> With help from Gao Feng
->> 
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: Gao feng <gaofeng@cn.fujitsu.com>
->> ---
->> net/core/dev.c            |    8 ++++++--
->> net/core/netprio_cgroup.c |    4 ++--
->> 2 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
+Note that PHY_INIT_TIMEOUT is a count of loop iterations, so we can't use
+it for spin_event_timeout(), which asks for microseconds.
 
-Applied.
+Signed-off-by: Timur Tabi <timur@freescale.com>
+---
+ drivers/net/ethernet/freescale/fsl_pq_mdio.c |   29 +++++++++++++++++---------
+ 1 files changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fsl_pq_mdio.c b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+index f7f0bf5..9527b28 100644
+--- a/drivers/net/ethernet/freescale/fsl_pq_mdio.c
++++ b/drivers/net/ethernet/freescale/fsl_pq_mdio.c
+@@ -47,6 +47,9 @@
+ #include "gianfar.h"
+ #include "fsl_pq_mdio.h"
+ 
++/* Number of microseconds to wait for an MII register to respond */
++#define MII_TIMEOUT	1000
++
+ struct fsl_pq_mdio_priv {
+ 	void __iomem *map;
+ 	struct fsl_pq_mdio __iomem *regs;
+@@ -64,6 +67,8 @@ struct fsl_pq_mdio_priv {
+ int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
+ 		int regnum, u16 value)
+ {
++	u32 status;
++
+ 	/* Set the PHY address and the register address we want to write */
+ 	out_be32(&regs->miimadd, (mii_id << 8) | regnum);
+ 
+@@ -71,10 +76,10 @@ int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
+ 	out_be32(&regs->miimcon, value);
+ 
+ 	/* Wait for the transaction to finish */
+-	while (in_be32(&regs->miimind) & MIIMIND_BUSY)
+-		cpu_relax();
++	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
++				    MII_TIMEOUT, 0);
+ 
+-	return 0;
++	return status ? 0 : -ETIMEDOUT;
+ }
+ 
+ /*
+@@ -91,6 +96,7 @@ int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs,
+ 		int mii_id, int regnum)
+ {
+ 	u16 value;
++	u32 status;
+ 
+ 	/* Set the PHY address and the register address we want to read */
+ 	out_be32(&regs->miimadd, (mii_id << 8) | regnum);
+@@ -99,9 +105,12 @@ int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs,
+ 	out_be32(&regs->miimcom, 0);
+ 	out_be32(&regs->miimcom, MII_READ_COMMAND);
+ 
+-	/* Wait for the transaction to finish */
+-	while (in_be32(&regs->miimind) & (MIIMIND_NOTVALID | MIIMIND_BUSY))
+-		cpu_relax();
++	/* Wait for the transaction to finish, normally less than 100us */
++	status = spin_event_timeout(!(in_be32(&regs->miimind) &
++				    (MIIMIND_NOTVALID | MIIMIND_BUSY)),
++				    MII_TIMEOUT, 0);
++	if (!status)
++		return -ETIMEDOUT;
+ 
+ 	/* Grab the value of the register from miimstat */
+ 	value = in_be32(&regs->miimstat);
+@@ -144,7 +153,7 @@ int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct fsl_pq_mdio __iomem *regs = fsl_pq_mdio_get_regs(bus);
+-	int timeout = PHY_INIT_TIMEOUT;
++	u32 status;
+ 
+ 	mutex_lock(&bus->mdio_lock);
+ 
+@@ -155,12 +164,12 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ 	out_be32(&regs->miimcfg, MIIMCFG_INIT_VALUE);
+ 
+ 	/* Wait until the bus is free */
+-	while ((in_be32(&regs->miimind) & MIIMIND_BUSY) && timeout--)
+-		cpu_relax();
++	status = spin_event_timeout(!(in_be32(&regs->miimind) &	MIIMIND_BUSY),
++				    MII_TIMEOUT, 0);
+ 
+ 	mutex_unlock(&bus->mdio_lock);
+ 
+-	if (timeout < 0) {
++	if (!status) {
+ 		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
+ 				bus->name);
+ 		return -EBUSY;
+-- 
+1.7.3.4
