@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: qmi_wwan: add ZTE MF60
-Date: Mon, 09 Jul 2012 00:18:24 -0700 (PDT)
-Message-ID: <20120709.001824.719281318429771941.davem@davemloft.net>
-References: <1341486813-27600-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH 1/2] netfilter: ipset: timeout fixing bug broke SET
+ target special timeout value
+Date: Mon, 09 Jul 2012 00:29:03 -0700 (PDT)
+Message-ID: <20120709.002903.592402805831614695.davem@davemloft.net>
+References: <1341574779-3373-1-git-send-email-pablo@netfilter.org>
+	<1341574779-3373-2-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53642 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752499Ab2GIHSZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 03:18:25 -0400
-In-Reply-To: <1341486813-27600-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1341574779-3373-2-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu,  5 Jul 2012 13:13:33 +0200
+From: pablo@netfilter.org
+Date: Fri,  6 Jul 2012 13:39:38 +0200
 
-> Adding a device with limited QMI support. It does not support
-> normal QMI_WDS commands for connection management. Instead,
-> sending a QMI_CTL SET_INSTANCE_ID command is required to
-> enable the network interface:
->=20
->   01 0f 00 00 00 00 00 00  20 00 04 00 01 01 00 00
->=20
-> A number of QMI_DMS and QMI_NAS commands are also supported
-> for optional device management.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> +	if (add_opt.timeout != IPSET_NO_TIMEOUT
+> +	    && add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
 
-Applied.
+We do not write conditionals like this, with operators beginning
+a continued line.  Instead, write this as:
+
+	if (a &&
+	    b)
+
+Thanks.
