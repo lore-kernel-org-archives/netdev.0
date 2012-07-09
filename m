@@ -1,7 +1,7 @@
 From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next 6/6] mac802154: sparse warnings: make symbols static
-Date: Mon,  9 Jul 2012 14:22:31 +0400
-Message-ID: <1341829351-18485-7-git-send-email-alex.bluesman.smirnov@gmail.com>
+Subject: [PATCH net-next 1/6] 6lowpan: revert: add missing spin_lock_init()
+Date: Mon,  9 Jul 2012 14:22:26 +0400
+Message-ID: <1341829351-18485-2-git-send-email-alex.bluesman.smirnov@gmail.com>
 References: <1341829351-18485-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Cc: netdev@vger.kernel.org,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
@@ -9,50 +9,44 @@ To: davem@davemloft.net, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bk0-f46.google.com ([209.85.214.46]:33420 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753053Ab2GIK0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 06:26:46 -0400
+	with ESMTP id S1752998Ab2GIK0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 06:26:36 -0400
 Received: by mail-bk0-f46.google.com with SMTP id j10so5787740bkw.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 03:26:46 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 03:26:35 -0700 (PDT)
 In-Reply-To: <1341829351-18485-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make symbols static to avoid the following warning shown up
-by sparse:
-
-    warning: symbol ... was not declared. Should it be static?
+Revert the commit 768f7c7c121e80f458a9d013b2e8b169e5dfb1e5 to initialize
+spinlock in the more preferable way and make it static to avoid sparse
+warning.
 
 Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 ---
- net/mac802154/mac_cmd.c |    2 +-
- net/mac802154/mib.c     |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/ieee802154/6lowpan.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
-index 5d9a47b..d8d2770 100644
---- a/net/mac802154/mac_cmd.c
-+++ b/net/mac802154/mac_cmd.c
-@@ -55,7 +55,7 @@ static int mac802154_mlme_start_req(struct net_device *dev,
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index f4070e5..b872515 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -123,7 +123,7 @@ struct lowpan_fragment {
+ 
+ static unsigned short fragment_tag;
+ static LIST_HEAD(lowpan_fragments);
+-spinlock_t flist_lock;
++static DEFINE_SPINLOCK(flist_lock);
+ 
+ static inline struct
+ lowpan_dev_info *lowpan_dev_info(const struct net_device *dev)
+@@ -1186,8 +1186,6 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
+ 	list_add_tail(&entry->list, &lowpan_devices);
+ 	mutex_unlock(&lowpan_dev_info(dev)->dev_list_mtx);
+ 
+-	spin_lock_init(&flist_lock);
+-
+ 	register_netdevice(dev);
+ 
  	return 0;
- }
- 
--struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
-+static struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
- {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
- 
-diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index 5c66b8f..f47781a 100644
---- a/net/mac802154/mib.c
-+++ b/net/mac802154/mib.c
-@@ -39,7 +39,7 @@ struct hw_addr_filt_notify_work {
- 	unsigned long changed;
- };
- 
--struct mac802154_priv *mac802154_slave_get_priv(struct net_device *dev)
-+static struct mac802154_priv *mac802154_slave_get_priv(struct net_device *dev)
- {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
- 
 -- 
 1.7.2.3
