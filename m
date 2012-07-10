@@ -1,67 +1,77 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: Re: [RFC PATCH] tcp: limit data skbs in qdisc layer
-Date: Tue, 10 Jul 2012 21:28:21 +0800
-Message-ID: <CAF1ivSZPqzjV_O7kXUskhy9BtKhbhdWixn8OS7sTpYgM8Z4afw@mail.gmail.com>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
-	<1340945457.29822.7.camel@edumazet-glaptop>
-	<1341396687.2583.1757.camel@edumazet-glaptop>
-	<20120709.000834.1182150057463599677.davem@davemloft.net>
-	<1341845722.3265.3065.camel@edumazet-glaptop>
+From: Ming Lei <tom.leiming@gmail.com>
+Subject: Re: TCP transmit performance regression
+Date: Tue, 10 Jul 2012 21:37:29 +0800
+Message-ID: <CACVXFVM-fhQJX+EFNoFSnuVAjqfRM7OjzbQML7H+tMEjxG7Rug@mail.gmail.com>
+References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
+	<1341474192.2583.3299.camel@edumazet-glaptop>
+	<CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
+	<1341477192.2583.3415.camel@edumazet-glaptop>
+	<CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
+	<1341481760.2583.3579.camel@edumazet-glaptop>
+	<CACVXFVNYwNrdWS_EiQ4O0-ou369AQ2tB4qbvmzY1rt5T3QnyUw@mail.gmail.com>
+	<1341842043.3265.2914.camel@edumazet-glaptop>
+	<CACVXFVNdiwVn1Mo--N4N0HdYrEJizExtd_cppT4tS=mjog2PKw@mail.gmail.com>
+	<1341895143.3265.4049.camel@edumazet-glaptop>
+	<CACVXFVPgqtSN3BrEXRxSv4yxaxCni495SxZNXBmYQpagmxk2tQ@mail.gmail.com>
+	<1341908908.3265.4508.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
-	dave.taht@gmail.com, netdev@vger.kernel.org,
-	codel@lists.bufferbloat.net, therbert@google.com,
-	mattmathis@google.com, nanditad@google.com, ncardwell@google.com,
-	andrewmcgr@gmail.com
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:60281 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859Ab2GJN3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 09:29:09 -0400
-Received: from mail-vc0-f174.google.com (mail-vc0-f174.google.com [209.85.220.174])
-	(Authenticated sender: mlin@ss.pku.edu.cn)
-	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 1EAF1DBC4A
-	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 21:28:24 +0800 (CST)
-Received: by vcbf11 with SMTP id f11so7990507vcb.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 06:28:21 -0700 (PDT)
-In-Reply-To: <1341845722.3265.3065.camel@edumazet-glaptop>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:37216 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753387Ab2GJNha (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 09:37:30 -0400
+Received: by gglu4 with SMTP id u4so11239920ggl.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 06:37:29 -0700 (PDT)
+In-Reply-To: <1341908908.3265.4508.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 9, 2012 at 10:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2012-07-09 at 00:08 -0700, David Miller wrote:
+On Tue, Jul 10, 2012 at 4:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2012-07-10 at 15:22 +0800, Ming Lei wrote:
 >
->> I'm suspicious and anticipate that 10G will need more queueing than
->> you are able to get away with tg3 at 1G speeds.  But it is an exciting
->> idea nonetheless :-)
+>> Kernel stack size is 8KB or more, so could you find process creation failure
+>> in your ChromeBooks machine at the same time?
 >
-> There is a fundamental problem calling any xmit function from skb
-> destructor.
+> I believe you mix a lot of things.
 >
-> skb destructor can be called while qdisc lock is taken, so we can
-> deadlock trying to reacquire it.
+> Have you ever heard of sockets limits ?
 >
-> One such path is the dev_deactivate_queue() -> qdisc_reset() ->
-> qdisc_reset_queue(), but also any dropped skbs in qdisc.
+> All available ram on a machine is not for whoever wants it, thanks God.
 >
-> So I should only do this stuff from a separate context, for example a
-> tasklet or timer.
+> No : TCP stack was dropping frames, because of socket limits.
 >
-> Alternative would be to use dev_kfree_skb_irq() for all dropped skbs in
-> qdisc layer.
+> Only because skbs were fat (8KB allocated/truesize, for a single 1500
+> bytes frame)
 
-Hi Eric,
+Could you explain why the truesize of SKB is 8KB for single
+1500bytes frame?
 
-Maybe a bit off topic ...
+I observed it is 2560bytes for RX SKBs inside asix_rx_fixup with
+rx_urb_size of 2048 on beagle-xm.
 
-Could you share how to test qdisc related change?
-Assume I'm testing qdisc performance, for example, codel qdisc,
-then how to setup the test environment?
+>
+> If application is fast and read skb as soon as the arrive, no problem is
+> detected.
+>
+> But if  application is slow, or a TCP packet is lost on network,
+> man packets are queued into ofo queue. And eventually not enough room is
+> avalable -> we drop incoming frames, and sender has to restransmit them.
+>
+> So instead of loading your web pages as fast as possible, you have to
+> wait for retransmits.
+>
+> So you see nothing at all, no kernel logs, no failed memory attempts.
+>
+> Only its slower than necessary
+>
+>
+>
 
-Do you use some network simulator, for example, using the special netem qdisc to
-simulate slow network/packet loss/network delay, etc?
 
 Thanks,
-Lin Ming
+-- 
+Ming Lei
