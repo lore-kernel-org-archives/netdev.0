@@ -1,58 +1,43 @@
-From: "devendra.aaru" <devendra.aaru@gmail.com>
-Subject: Re: [PATCH] bridge: fix endian
-Date: Tue, 10 Jul 2012 15:34:38 +0530
-Message-ID: <CAHdPZaP-eokSqBPWdxBg7fA-ETqvo0ivqG67KyJr3s6qb1xKBA@mail.gmail.com>
-References: <1341914172-22075-1-git-send-email-roy.qing.li@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: getting warn once around skb_try_coalesce
+Date: Tue, 10 Jul 2012 12:18:30 +0200
+Message-ID: <1341915510.3265.4734.camel@edumazet-glaptop>
+References: <4FFBFBD2.6030004@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shlomo Pongratz <shlomop@mellanox.com>,
+	Erez Shitrit <erezsh@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:46618 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751608Ab2GJKEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 06:04:39 -0400
-Received: by vbbff1 with SMTP id ff1so7914925vbb.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 03:04:38 -0700 (PDT)
-In-Reply-To: <1341914172-22075-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:54960 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752261Ab2GJKSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 06:18:36 -0400
+Received: by eaak11 with SMTP id k11so4619694eaa.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 03:18:34 -0700 (PDT)
+In-Reply-To: <4FFBFBD2.6030004@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As you are doing the same change to the drivers in drivers/net/*** i
-think a patchset would be better.
+On Tue, 2012-07-10 at 12:54 +0300, Or Gerlitz wrote:
+> Hi Dave, Eric,
+> 
+> Another trace that I see here with net-next is this one-time warning. I 
+> get it always
+> on the passive side of TCP, something that seems related to GRO, it 
+> happens only with
+> IPoIB, not with mlx4_en and igb (when igb get to work on net-next...)
+> 
+> The latest commit in this area is bad43ca8325f493dcaa0896c2f036276af059c7e
+> "net: introduce skb_try_coalesce()" from Eric.
+> 
+> Or.
+> 
+> -----------[ cut here ]------------
+> WARNING: at net/core/skbuff.c:3413 skb_try_coalesce+0x1f8/0x31d()
 
-but that's just upto you. ;-)
-
-Thanks,
-
-On Tue, Jul 10, 2012 at 3:26 PM,  <roy.qing.li@gmail.com> wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
-> mld->mld_maxdelay is net endian, so we should use ntohs, not htons
->
-> CC: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/bridge/br_multicast.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index b665812..2d9a066 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1160,7 +1160,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
->                         goto out;
->                 }
->                 mld = (struct mld_msg *) icmp6_hdr(skb);
-> -               max_delay = msecs_to_jiffies(htons(mld->mld_maxdelay));
-> +               max_delay = msecs_to_jiffies(ntohs(mld->mld_maxdelay));
->                 if (max_delay)
->                         group = &mld->mld_mca;
->         } else if (skb->len >= sizeof(*mld2q)) {
-> --
-> 1.7.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This warning catch skb truesize offenders, most probably its a driver
+issue.
