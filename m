@@ -1,64 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
-Date: Tue, 10 Jul 2012 14:26:20 +0200
-Message-ID: <1341923180.3265.5005.camel@edumazet-glaptop>
-References: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
-	 <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [net-next patch v2] bnx2x: Add run-time CNIC support
+Date: Tue, 10 Jul 2012 15:33:54 +0300
+Message-ID: <1341923634.27035.6.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1341828055-4467-1-git-send-email-meravs@broadcom.com>
+ <20120709.141010.996787793429264956.davem@davemloft.net>
+ <1341922620.27284.16.camel@lb-tlvb-meravs.il.broadcom.com>
+ <20120710.052149.792836375666491854.davem@davemloft.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
-	ali@mellanox.com, sean.hefty@intel.com,
-	Erez Shitrit <erezsh@mellanox.co.il>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: meravs@broadcom.com, netdev@vger.kernel.org, dmitry@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:47454 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755382Ab2GJM00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:26:26 -0400
-Received: by eaak11 with SMTP id k11so4664342eaa.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 05:26:24 -0700 (PDT)
-In-Reply-To: <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4281 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751568Ab2GJMeE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2012 08:34:04 -0400
+In-Reply-To: <20120710.052149.792836375666491854.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-10 at 15:16 +0300, Or Gerlitz wrote:
-> From: Erez Shitrit <erezsh@mellanox.co.il>
+On Tue, 2012-07-10 at 05:21 -0700, David Miller wrote:
+> From: "Merav Sicron" <meravs@broadcom.com>
+> Date: Tue, 10 Jul 2012 15:17:00 +0300
 > 
-> When IPoIB interface acts as a VIF for an eIPoIB interface, it uses
-> the skb cb storage area on the RX flow, to place information which
-> can be of use to the upper layer device.
+> > There are still two advantages in disabling CNIC in bnx2x: Saving
+> > resources (MSI-X vector and memory) as well as reducing some latency.
 > 
-> One such usage example, is when an eIPoIB inteface needs to generate
-> a source mac for incoming Ethernet frames.
+> But, nobody does this.  No end user can do this easily, this
+> is therefore of zero value to him.
+
+Most do not, but I'm aware of two customers that play with their own
+kernel that do that - they can play with the driver and tweak it to
+disable this mode manually, but that is similar to supporting something
+outside the tree.
+
+> > While it is true that distributions enable the CNIC Kconfig option, some
+> > users that care about resources and latency compile a kernel without it.
 > 
-> The IPoIB code checks the VIF private flag on the RX path, and accoriding
-> to the value of the flag prepares the skb CB data, etc.
+> This, therefore, results in a terrible user experience.
+
+We are using the Kconfig since it is meant for advanced users that
+customize their kernel to their needs.
+
+> > Can you please re-consider this patch?
 > 
+> Absolutely not.
+> 
+> Make it really dynamic, and properly configurable at run time, so
+> people don't have to go through hoops to get the "advantages" you
+> speak so highly of.
 
-...
-
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-> index 5c1bc99..da28799 100644
-> --- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-> +++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-> @@ -300,7 +300,13 @@ static void ipoib_ib_handle_rx_wc(struct net_device *dev, struct ib_wc *wc)
->  			likely(wc->wc_flags & IB_WC_IP_CSUM_OK))
->  		skb->ip_summed = CHECKSUM_UNNECESSARY;
->  
-> -	napi_gro_receive(&priv->napi, skb);
-> +	/* if handler is registered on top of ipoib, set skb oob data */
-> +	if (dev->priv_flags & IFF_EIPOIB_VIF) {
-> +		set_skb_oob_cb_data(skb, wc, &priv->napi);
-> +		/* the registered handler will take care of the skb */
-> +		netif_receive_skb(skb);
-> +	} else
-> +		napi_gro_receive(&priv->napi, skb);
-
-skb->cb[] can be destroyed in netif_receive_skb() /
-__netif_receive_skb()
-
-#ifdef CONFIG_NET_CLS_ACT
-	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
-	...
-#endif
+This is possible for the resources, but not for the latency - we cannot
+change the HW mode once traffic started to run. Why is that so bad to
+support Kconfig as a working mode like we did thus far? We are using it
+specifically for users that wants to optimize the kernel, so Kconfig
+does not sound that bad in that context.
