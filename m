@@ -1,60 +1,95 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH firmware 2/4] rtl_nic: update firmware for RTL8411
-Date: Tue, 10 Jul 2012 00:58:17 +0100
-Message-ID: <1341878297.25597.303.camel@deadeye.wl.decadent.org.uk>
-References: <1341803512-1309-1-git-send-email-hayeswang@realtek.com>
-	 <1341803512-1309-2-git-send-email-hayeswang@realtek.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-HRduMFbK8kIwKsZWyLq6"
-Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341803512-1309-2-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Mason <jdmason@kudzu.us>
+Subject: [PATCH] vxge/s2io: remove dead URLs
+Date: Mon,  9 Jul 2012 17:07:57 -0700
+Message-ID: <1341878877-10507-1-git-send-email-jdmason@kudzu.us>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:53357 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755034Ab2GJAHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 20:07:25 -0400
+Received: by pbbrp8 with SMTP id rp8so20016740pbb.19
+        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 17:07:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+URLs to neterion.com and s2io.com no longer resolve.  Remove all references to
+these URLs in the driver source and documentation.
 
---=-HRduMFbK8kIwKsZWyLq6
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Jon Mason <jdmason@kudzu.us>
+---
+ Documentation/networking/s2io.txt              |   14 ++------------
+ Documentation/networking/vxge.txt              |    7 -------
+ MAINTAINERS                                    |    2 --
+ drivers/net/ethernet/neterion/vxge/vxge-main.c |    4 +---
+ 4 files changed, 3 insertions(+), 24 deletions(-)
 
-On Mon, 2012-07-09 at 11:11 +0800, Hayes Wang wrote:
-> File: rtl_nic/rtl8411-1.fw
-> Version: 0.0.3
-[...]
-
-Applied.
-
-Ben.
-
---=20
-Ben Hutchings
-The generation of random numbers is too important to be left to chance.
-                                                            - Robert Coveyo=
-u
-
---=-HRduMFbK8kIwKsZWyLq6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAT/twGee/yOyVhhEJAQrnIQ/7B0KMH7leBEG4XYSBEpHwhOlpqx87Zxn2
-iP1XjKGoo6s3uYYqhGPD577l0oxwsKj0vEziHwfLEWUMm3jjci7LQMEExW5qF1yq
-BPlLIuDFd1wGf7ztsW6/e+16fcm+SeZs0xFh+bvhb1e7N2Bg8zPqgzVvGVhvZx21
-ck+5tGQeP3oF76mYi5vcohnYxnN7NBNct4pMqBGLeA+iENFcTA8X7VSWTCg6NTNY
-JLyI1yR6FcPuGHQyQHXP9HLYh+F/ksTlHJkqjGIed9z09Yt/cqW0VatBwjLekqUy
-hpwE6/bk5v+8N2+se4+PScHK8mBckcYnuM3rpgWlwXHGn4CB88kUZNldq5Ay8RcW
-SCeunATXz4j65kKWpjhdINIyzkwuHw0MbXr3O7HOrkXTX3PwGs340TEar0xknmN6
-Xrf8TO87sZn3A6LVkPfjKIxWnUYdXbESOLgBb564qnYhD/WlXDXPupvdCvrUtZyY
-/Ne066ua23f1li5rz44LjnUrlKclrXxVIPArTpc2KamSrOPojHTO22s8mNYa/5Yf
-4MDCeygrs1AdHC8Ok73WgB/yCXU3ICD9ejrD5oONxR3p0uV5G/MVii7Icr+Jv56O
-/5MDbQXpMSPy945Aw3qQHCUBaeQDnzJocuKpWWynZmFypB5TuzybKGy8LJYdAnr3
-EFeNZJMn1b4=
-=KmZx
------END PGP SIGNATURE-----
-
---=-HRduMFbK8kIwKsZWyLq6--
+diff --git a/Documentation/networking/s2io.txt b/Documentation/networking/s2io.txt
+index 4be0c03..6b5cbfa 100644
+--- a/Documentation/networking/s2io.txt
++++ b/Documentation/networking/s2io.txt
+@@ -136,16 +136,6 @@ For more information, please review the AMD8131 errata at
+ http://vip.amd.com/us-en/assets/content_type/white_papers_and_tech_docs/
+ 26310_AMD-8131_HyperTransport_PCI-X_Tunnel_Revision_Guide_rev_3_18.pdf
+ 
+-6.  Available Downloads
+-Neterion "s2io" driver in Red Hat and Suse 2.6-based distributions is kept up 
+-to date, also the latest "s2io" code (including support for 2.4 kernels) is 
+-available via "Support" link on the Neterion site:  http://www.neterion.com.
+-
+-For Xframe User Guide (Programming manual), visit ftp site ns1.s2io.com,
+-user: linuxdocs password: HALdocs
+-
+-7. Support 
++6. Support 
+ For further support please contact either your 10GbE Xframe NIC vendor (IBM, 
+-HP, SGI etc.) or click on the "Support" link on the Neterion site:  
+-http://www.neterion.com.
+-
++HP, SGI etc.)
+diff --git a/Documentation/networking/vxge.txt b/Documentation/networking/vxge.txt
+index d2e2997..bb76c66 100644
+--- a/Documentation/networking/vxge.txt
++++ b/Documentation/networking/vxge.txt
+@@ -91,10 +91,3 @@ v)  addr_learn_en
+        virtualization environment.
+        Valid range: 0,1 (disabled, enabled respectively)
+        Default: 0
+-
+-4) Troubleshooting:
+--------------------
+-
+-To resolve an issue with the source code or X3100 series adapter, please collect
+-the statistics, register dumps using ethool, relevant logs and email them to
+-support@neterion.com.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 8da1373..ce7398e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4638,8 +4638,6 @@ F:	net/sched/sch_netem.c
+ NETERION 10GbE DRIVERS (s2io/vxge)
+ M:	Jon Mason <jdmason@kudzu.us>
+ L:	netdev@vger.kernel.org
+-W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/Linux?Anonymous
+-W:	http://trac.neterion.com/cgi-bin/trac.cgi/wiki/X3100Linux?Anonymous
+ S:	Supported
+ F:	Documentation/networking/s2io.txt
+ F:	Documentation/networking/vxge.txt
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+index 2fd1edb..24824fcc 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -4261,9 +4261,7 @@ static int vxge_probe_fw_update(struct vxgedev *vdev)
+ 	if (VXGE_FW_VER(VXGE_CERT_FW_VER_MAJOR, VXGE_CERT_FW_VER_MINOR, 0) >
+ 	    VXGE_FW_VER(maj, min, 0)) {
+ 		vxge_debug_init(VXGE_ERR, "%s: Firmware %d.%d.%d is too old to"
+-				" be used with this driver.\n"
+-				"Please get the latest version from "
+-				"ftp://ftp.s2io.com/pub/X3100-Drivers/FIRMWARE",
++				" be used with this driver."
+ 				VXGE_DRIVER_NAME, maj, min, bld);
+ 		return -EINVAL;
+ 	}
+-- 
+1.7.9.5
