@@ -1,209 +1,91 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net,
- 1/1] hyperv: Add support for setting MAC from within guests
-Date: Tue, 10 Jul 2012 10:19:22 -0700
-Message-ID: <1341940762-18307-1-git-send-email-haiyangz@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
+Date: Tue, 10 Jul 2012 19:06:27 +0200
+Message-ID: <1341939987.3265.5741.camel@edumazet-glaptop>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	<1340945457.29822.7.camel@edumazet-glaptop>
+	<1341396687.2583.1757.camel@edumazet-glaptop>
+	<20120709.000834.1182150057463599677.davem@davemloft.net>
+	<1341845722.3265.3065.camel@edumazet-glaptop>
+	<1341933215.3265.5476.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, haiyangz@microsoft.com, olaf@aepfle.de,
- linux-kernel@vger.kernel.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
+Cc: nanditad@google.com, netdev@vger.kernel.org, ycheng@google.com,
+	codel@lists.bufferbloat.net, mattmathis@google.com, ncardwell@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1341933215.3265.5476.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-This adds support for setting synthetic NIC MAC address from within Linux
-guests. Before using this feature, the option "spoofing of MAC address"
-should be enabled at the Hyper-V manager / Settings of the synthetic
-NIC.
+On Tue, 2012-07-10 at 17:13 +0200, Eric Dumazet wrote:
+> This introduce TSQ (TCP Small Queues)
+> 
+> TSQ goal is to reduce number of TCP packets in xmit queues (qdisc &
+> device queues), to reduce RTT and cwnd bias, part of the bufferbloat
+> problem.
+> 
+> sk->sk_wmem_alloc not allowed to grow above a given limit,
+> allowing no more than ~128KB [1] per tcp socket in qdisc/dev layers at a
+> given time.
+> 
+> TSO packets are sized/capped to half the limit, so that we have two
+> TSO packets in flight, allowing better bandwidth use.
+> 
+> As a side effect, setting the limit to 40000 automatically reduces the
+> standard gso max limit (65536) to 40000/2 : It can help to reduce
+> latencies of high prio packets, having smaller TSO packets.
+> 
+> This means we divert sock_wfree() to a tcp_wfree() handler, to
+> queue/send following frames when skb_orphan() [2] is called for the
+> already queued skbs.
+> 
+> Results on my dev machine (tg3 nic) are really impressive, using
+> standard pfifo_fast, and with or without TSO/GSO. Without reduction of
+> nominal bandwidth.
+> 
+> I no longer have 3MBytes backlogged in qdisc by a single netperf
+> session, and both side socket autotuning no longer use 4 Mbytes.
+> 
+> As skb destructor cannot restart xmit itself ( as qdisc lock might be
+> taken at this point ), we delegate the work to a tasklet. We use one
+> tasklest per cpu for performance reasons.
+> 
+> 
+> 
+> [1] New /proc/sys/net/ipv4/tcp_limit_output_bytes tunable
+> [2] skb_orphan() is usually called at TX completion time,
+>   but some drivers call it in their start_xmit() handler.
+>   These drivers should at least use BQL, or else a single TCP
+>   session can still fill the whole NIC TX ring, since TSQ will
+>   have no effect.
+> 
+> Not-Yet-Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-Thanks to Kin Cho <kcho@infoblox.com> for the initial implementation and
-tests. And, thanks to Long Li <longli@microsoft.com> for the debugging
-works.
+By the way, Rick Jones asked me :
 
-Reported-and-tested-by: Kin Cho <kcho@infoblox.com>
-Reported-by: Long Li <longli@microsoft.com>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |    1 +
- drivers/net/hyperv/netvsc_drv.c   |   30 +++++++++++++-
- drivers/net/hyperv/rndis_filter.c |   79 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 109 insertions(+), 1 deletions(-)
+"Is there also any chance in service demand?"
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 2857ab0..95ceb35 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -131,6 +131,7 @@ int rndis_filter_send(struct hv_device *dev,
- 			struct hv_netvsc_packet *pkt);
- 
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
-+int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
- 
- 
- #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 8f8ed33..8e23c08 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -341,6 +341,34 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	return 0;
- }
- 
-+
-+static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
-+{
-+	struct net_device_context *ndevctx = netdev_priv(ndev);
-+	struct hv_device *hdev =  ndevctx->device_ctx;
-+	struct sockaddr *addr = p;
-+	char save_adr[14];
-+	unsigned char save_aatype;
-+	int err;
-+
-+	memcpy(save_adr, ndev->dev_addr, ETH_ALEN);
-+	save_aatype = ndev->addr_assign_type;
-+
-+	err = eth_mac_addr(ndev, p);
-+	if (err != 0)
-+		return err;
-+
-+	err = rndis_filter_set_device_mac(hdev, addr->sa_data);
-+	if (err != 0) {
-+		/* roll back to saved MAC */
-+		memcpy(ndev->dev_addr, save_adr, ETH_ALEN);
-+		ndev->addr_assign_type = save_aatype;
-+	}
-+
-+	return err;
-+}
-+
-+
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
-@@ -353,7 +381,7 @@ static const struct net_device_ops device_ops = {
- 	.ndo_set_rx_mode =		netvsc_set_multicast_list,
- 	.ndo_change_mtu =		netvsc_change_mtu,
- 	.ndo_validate_addr =		eth_validate_addr,
--	.ndo_set_mac_address =		eth_mac_addr,
-+	.ndo_set_mac_address =		netvsc_set_mac_addr,
- };
- 
- /*
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 981ebb1..fbf5394 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -27,6 +27,7 @@
- #include <linux/if_ether.h>
- #include <linux/netdevice.h>
- #include <linux/if_vlan.h>
-+#include <linux/nls.h>
- 
- #include "hyperv_net.h"
- 
-@@ -47,6 +48,7 @@ struct rndis_request {
- 	struct hv_page_buffer buf;
- 	/* FIXME: We assumed a fixed size request here. */
- 	struct rndis_message request_msg;
-+	u8 ext[100];
- };
- 
- static void rndis_filter_send_completion(void *ctx);
-@@ -511,6 +513,83 @@ static int rndis_filter_query_device_mac(struct rndis_device *dev)
- 				      dev->hw_mac_adr, &size);
- }
- 
-+#define NWADR_STR "NetworkAddress"
-+#define NWADR_STRLEN 14
-+
-+int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
-+{
-+	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
-+	struct rndis_device *rdev = nvdev->extension;
-+	struct net_device *ndev = nvdev->ndev;
-+	struct rndis_request *request;
-+	struct rndis_set_request *set;
-+	struct rndis_config_parameter_info *cpi;
-+	wchar_t *cfg_nwadr, *cfg_mac;
-+	struct rndis_set_complete *set_complete;
-+	char macstr[2*ETH_ALEN+1];
-+	u32 extlen = sizeof(struct rndis_config_parameter_info) +
-+		2*NWADR_STRLEN + 4*ETH_ALEN;
-+	int ret, t;
-+
-+	request = get_rndis_request(rdev, RNDIS_MSG_SET,
-+		RNDIS_MESSAGE_SIZE(struct rndis_set_request) + extlen);
-+	if (!request)
-+		return -ENOMEM;
-+
-+	set = &request->request_msg.msg.set_req;
-+	set->oid = RNDIS_OID_GEN_RNDIS_CONFIG_PARAMETER;
-+	set->info_buflen = extlen;
-+	set->info_buf_offset = sizeof(struct rndis_set_request);
-+	set->dev_vc_handle = 0;
-+
-+	cpi = (struct rndis_config_parameter_info *)((ulong)set +
-+		set->info_buf_offset);
-+	cpi->parameter_name_offset =
-+		sizeof(struct rndis_config_parameter_info);
-+	/* Multiply by 2 because host needs 2 bytes (utf16) for each char */
-+	cpi->parameter_name_length = 2*NWADR_STRLEN;
-+	cpi->parameter_type = RNDIS_CONFIG_PARAM_TYPE_STRING;
-+	cpi->parameter_value_offset =
-+		cpi->parameter_name_offset + cpi->parameter_name_length;
-+	/* Multiply by 4 because each MAC byte displayed as 2 utf16 chars */
-+	cpi->parameter_value_length = 4*ETH_ALEN;
-+
-+	cfg_nwadr = (wchar_t *)((ulong)cpi + cpi->parameter_name_offset);
-+	cfg_mac = (wchar_t *)((ulong)cpi + cpi->parameter_value_offset);
-+	ret = utf8s_to_utf16s(NWADR_STR, NWADR_STRLEN, UTF16_HOST_ENDIAN,
-+			      cfg_nwadr, NWADR_STRLEN);
-+	if (ret < 0)
-+		goto cleanup;
-+	snprintf(macstr, 2*ETH_ALEN+1, "%pm", mac);
-+	ret = utf8s_to_utf16s(macstr, 2*ETH_ALEN, UTF16_HOST_ENDIAN,
-+			      cfg_mac, 2*ETH_ALEN);
-+	if (ret < 0)
-+		goto cleanup;
-+
-+	ret = rndis_filter_send_request(rdev, request);
-+	if (ret != 0)
-+		goto cleanup;
-+
-+	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
-+	if (t == 0) {
-+		netdev_err(ndev, "timeout before we got a set response...\n");
-+		/*
-+		 * can't put_rndis_request, since we may still receive a
-+		 * send-completion.
-+		 */
-+		return -EBUSY;
-+	} else {
-+		set_complete = &request->response_msg.msg.set_complete;
-+		if (set_complete->status != RNDIS_STATUS_SUCCESS)
-+			ret = -EINVAL;
-+	}
-+
-+cleanup:
-+	put_rndis_request(rdev, request);
-+	return ret;
-+}
-+
-+
- static int rndis_filter_query_device_link_status(struct rndis_device *dev)
- {
- 	u32 size = sizeof(u32);
--- 
-1.7.4.1
+I copy here my answer since its a very good point:
+
+I worked on the idea of a CoDel like feedback, to have a timed limit
+instead of byte limit ("allow up to 1ms" delay in qdisc/dev queue.)
+
+But it seemed a bit complex : I would need to add skb fields to properly
+track the residence time (sojourn time) of queued packets.
+
+Alternative would be to have a per tcp socket tracking array,
+but it might be expensive to search a packet in it...
+
+With multi queue devices or bad qdiscs, we can have reordering in skb
+orphanings. So the lookup can be relatively expensive.
