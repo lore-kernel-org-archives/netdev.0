@@ -1,109 +1,228 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2/2] bonding: debugfs and network namespaces are incompatible
-Date: Tue, 10 Jul 2012 12:13:01 -0700
-Message-ID: <16903.1341947581@death.nxdomain>
-References: <20120706194741.GA22113@mail.hallyn.com> <87y5ms3bfi.fsf_-_@xmission.com> <87sjd03bdw.fsf_-_@xmission.com> <20120709.144932.243254122059983829.davem@davemloft.net> <15459.1341941772@death.nxdomain> <367b470c-c3f5-4555-be11-02223125b741@email.android.com>
-Cc: netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:45605 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751423Ab2GJTOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 15:14:49 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Tue, 10 Jul 2012 13:14:48 -0600
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 11F8919D8070
-	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 19:14:00 +0000 (WET)
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6AJD3En268752
-	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 13:13:03 -0600
-Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6AJD2EP005651
-	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 13:13:02 -0600
-In-reply-to: <367b470c-c3f5-4555-be11-02223125b741@email.android.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Tue, 10 Jul 2012 19:17:46 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891274EE767@ORSMSX102.amr.corp.intel.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 
-	[ adding netdev back to cc: ]
-
-Eric W. Biederman <ebiederm@xmission.com> wrote:
-
->Jay Vosburgh <fubar@us.ibm.com> wrote:
+>-----Original Message-----
+>From: Dave, Tushar N
+>Sent: Tuesday, July 10, 2012 12:02 PM
+>To: Joe Jin
+>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org; Dave, Tushar N
+>Subject: RE: 82571EB: Detected Hardware Unit Hang
 >
->>David Miller <davem@davemloft.net> wrote:
+>>-----Original Message-----
+>>From: netdev-owner@vger.kernel.org
+>>[mailto:netdev-owner@vger.kernel.org]
+>>On Behalf Of Joe Jin
+>>Sent: Tuesday, July 10, 2012 12:40 AM
+>>To: Joe Jin
+>>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>>kernel@vger.kernel.org
+>>Subject: Re: 82571EB: Detected Hardware Unit Hang
 >>
->>>From: ebiederm@xmission.com (Eric W. Biederman)
->>>Date: Mon, 09 Jul 2012 13:52:43 -0700
->>>
->>>> 
->>>> The bonding debugfs support has been broken in the presence of
->>network
->>>> namespaces since it has been added.  The debugfs support does not
->>handle
->>>> multiple bonding devices with the same name in different network
->>>> namespaces.
->>>> 
->>>> I haven't had any bug reports, and I'm not interested in getting
->>any.
->>>> Disable the debugfs support when network namespaces are enabled.
->>>> 
->>>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->>>
->>>Applied.
+>>When I debug the driver I found before Detected HW hang, driver unable
+>>to clean and reclaim the resources:
 >>
->>	Since distro kernels appear to set CONFIG_NET_NS, doesn't this
->>effectively disable debugfs for bonding on most distros?
+>>1457         while ((eop_desc->upper.data &
+>>cpu_to_le32(E1000_TXD_STAT_DD)) &&  <== at here upper.data always is
+>0x300
+>>1458                (count < tx_ring->count)) {
+>>     <--- snip --->
+>>1487         }
+>>
+>>
+>>I checked all driver codes I did not found anywhere will set the
+>>upper.data with E1000_TXD_STAT_DD, I guess upper.data be set by hardware?
 >
->Yes.
+>Yes upper.data (part of it is STATUS byte) is set by HW. Basically driver
+>checks E1000_TXD_STAT_DD (Descriptor Done) bit. If this bit is set that
+>means HW has processed that descriptor and driver can now clean that
+>descriptor.
+>With value 0x300 , DD bit is not set. That means HW has not processed that
+>descriptor.
 >
->>	Do the other network device drivers that support debugfs have a
->>similar problem?  E.g., if each of two namespaces have an skge device
->>with the same name, will there be a debugfs conflict there as well?
+>How fast does tx hang reproduce? I suggest you to enable debug code in
+>driver so when tx hang occurs it will dump the HW desc ring info into
+>kernel log.
+>You can run "ethtool -s ethx msglvl 0x2c00" to enable debug.
+>Once tx hang occurs please send me the full dmesg log.
 >
->I haven't run across any of those network devices, but if they create a
->debugfs entry that embeds the device name it will be a problem.
-
-	A quick grep suggests that cxgb4, skge, sky2, stmmac, ipoib and
-half a dozen of the wireless drivers all create files in debugfs.  I did
-not check exhaustively, but at least some of them include the device
-name.
-
->Last I looked any custom user space interface from network devices was
->rare and bonding using debugfs is the first instance of using debugfs
->from networking devices I have seen.
+>Does tx hang occur with in-kernel e1000e driver too?
 >
->I think the problem will be a little less severe for physical network
->devices as they all start in the initial network namespace and so start
->with distinct names.
+>Thanks.
 >
->With bonding I can do "ip link add type bond" in any network namespace
->and get another bond0.  So name conflicts are very much expeted with all
->virtual networking devices.
+>-Tushar
+One change , please use " ethtool -s ethx msglvl 0x2c01" so to keep default 'drv' msglvl enabled.
+Confirm the message level set correctly by running command 'ethtool ethx'.
+Last few will be
 
-	Fair enough, although it is trivial to rename any network device
-such that a conflict would occur.
+	Current message level: 0x00002c01 (11265)
+			       drv tx_done rx_status hw
 
-	It looks like some of the drivers use fixed names for some
-things as well.
 
->But if you know of any other networking devices using debugsfs that
->code should probably get the same treatment as the bonding debugfs code.
+>
+>
+>>If OS is 32bit system, what which happen?
+>
+>
+>>
+>>Thanks in advance,
+>>Joe
+>>
+>>On 07/09/12 16:51, Joe Jin wrote:
+>>> Hi list,
+>>>
+>>> I'm seeing a Unit Hang even with the latest e1000e driver 2.0.0 when
+>>> doing scp test. this issue is easy do reproduced on SUN FIRE X2270
+>>> M2, just copy a big file (>500M) from another server will hit it at
+>once.
+>>>
+>>> Would you please help on this?
+>>>
+>>> device info:
+>>> # lspci -s 05:00.0
+>>> 05:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit
+>>> Ethernet Controller (Copper) (rev 06)
+>>>
+>>> # lspci -s 05:00.0 -n
+>>> 05:00.0 0200: 8086:10bc (rev 06)
+>>>
+>>> # ethtool -i eth0
+>>> driver: e1000e
+>>> version: 2.0.0-NAPI
+>>> firmware-version: 5.10-2
+>>> bus-info: 0000:05:00.0
+>>>
+>>> # ethtool -k eth0
+>>> Offload parameters for eth0:
+>>> rx-checksumming: on
+>>> tx-checksumming: on
+>>> scatter-gather: on
+>>> tcp segmentation offload: on
+>>> udp fragmentation offload: off
+>>> generic segmentation offload: on
+>>> generic-receive-offload: on
+>>>
+>>> kernel log:
+>>> -----------
+>>> e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
+>>>   TDH                  <6c>
+>>>   TDT                  <81>
+>>>   next_to_use          <81>
+>>>   next_to_clean        <6b>
+>>> buffer_info[next_to_clean]:
+>>>   time_stamp           <fffc7a23>
+>>>   next_to_watch        <71>
+>>>   jiffies              <fffc8c0c>
+>>>   next_to_watch.status <0>
+>>> MAC Status             <80387>
+>>> PHY Status             <792d>
+>>> PHY 1000BASE-T Status  <3c00>
+>>> PHY Extended Status    <3000>
+>>> PCI Status             <10>
+>>> e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
+>>>   TDH                  <6c>
+>>>   TDT                  <81>
+>>>   next_to_use          <81>
+>>>   next_to_clean        <6b>
+>>> buffer_info[next_to_clean]:
+>>>   time_stamp           <fffc7a23>
+>>>   next_to_watch        <71>
+>>>   jiffies              <fffc9bac>
+>>>   next_to_watch.status <0>
+>>> MAC Status             <80387>
+>>> PHY Status             <792d>
+>>> PHY 1000BASE-T Status  <3c00>
+>>> PHY Extended Status    <3000>
+>>> PCI Status             <10>
+>>> ------------[ cut here ]------------
+>>> WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x225/0x230()
+>>> Hardware name: SUN FIRE X2270 M2 NETDEV WATCHDOG: eth0 (e1000e):
+>>> transmit queue 0 timed out Modules linked in: autofs4 hidp rfcomm
+>>> bluetooth rfkill lockd sunrpc cpufreq_ondemand acpi_cpufreq mperf
+>>> be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad
+>>> ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3
+>>> mdio libiscsi_tcp libiscsi scsi_transport_iscsi video sbs sbshc
+>>> acpi_pad acpi_ipmi ipmi_msghandler parport_pc lp parport e1000e(U)
+>>> snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device
+>>> igb snd_pcm_oss serio_raw snd_mixer_oss snd_pcm tpm_infineon
+>>> snd_timer snd soundcore snd_page_alloc i2c_i801 iTCO_wdt i2c_core
+>>> pcspkr i7core_edac iTCO_vendor_support ioatdma ghes dca edac_core hed
+>>> dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod
+>>> usb_storage sd_mod crc_t10dif sg ahci libahci ext3 jbd mbcache [last
+>unloaded:
+>>> microcode]
+>>> Pid: 0, comm: swapper Not tainted 2.6.39-200.24.1.el5uek #1 Call
+>>> Trace:
+>>>  [<c07d9ac5>] ? dev_watchdog+0x225/0x230  [<c045ba61>]
+>>> warn_slowpath_common+0x81/0xa0  [<c07d9ac5>] ?
+>>> dev_watchdog+0x225/0x230  [<c045bb23>] warn_slowpath_fmt+0x33/0x40
+>>> [<c07d9ac5>] dev_watchdog+0x225/0x230  [<c07d98a0>] ?
+>>> dev_activate+0xb0/0xb0  [<c0468e82>] call_timer_fn+0x32/0xf0
+>>> [<c04bceb0>] ? rcu_check_callbacks+0x80/0x80  [<c046a76d>]
+>>> run_timer_softirq+0xed/0x1b0  [<c07d98a0>] ? dev_activate+0xb0/0xb0
+>>> [<c0461a81>] __do_softirq+0x91/0x1a0  [<c04619f0>] ?
+>>> local_bh_enable+0x80/0x80  <IRQ>  [<c0462295>] ? irq_exit+0x95/0xa0
+>>> [<c087f8b8>] ? smp_apic_timer_interrupt+0x38/0x42
+>>>  [<c08784f5>] ? apic_timer_interrupt+0x31/0x38  [<c046007b>] ?
+>>> do_exit+0x11b/0x370  [<c065eae4>] ? intel_idle+0xa4/0x100
+>>> [<c078d9b9>] ? cpuidle_idle_call+0xb9/0x1e0  [<c0411d77>] ?
+>>> cpu_idle+0x97/0xd0  [<c085cbbd>] ? rest_init+0x5d/0x70  [<c0b07a7a>] ?
+>>> start_kernel+0x28a/0x340  [<c0b074b0>] ?
+>>> obsolete_checksetup+0xb0/0xb0 [<c0b070a4>] ?
+>>> i386_start_kernel+0x64/0xb0 ---[ end trace 5502b55cd4d4e5cb ]---
+>>> e1000e 0000:05:00.0: eth0: Reset adapter
+>>> e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control:
+>>> Rx/Tx
+>>>
+>>> Thanks,
+>>> Joe
+>>>
+>>
+>>
+>>--
+>>Oracle <http://www.oracle.com>
+>>Joe Jin | Software Development Senior Manager | +8610.6106.5624 ORACLE
+>>| Linux and Virtualization No. 24 Zhongguancun Software Park, Haidian
+>>District | 100193 Beijing
+>>
+>>
+>>--
+>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>the body of a message to majordomo@vger.kernel.org More majordomo info
+>>at  http://vger.kernel.org/majordomo-info.html
 
-	Is there no alternative than simply disabling debugfs whenever
-network namespaces are enabled?  The information bonding displays via
-debugfs is useful, and having it unavailable on all distro kernels seems
-a bit harsh.
-
-	Why is the logic already in the driver not sufficient?  If the
-attempt to create the debugfs directory with the interface name fails,
-then it merely prints a warning and continues without the debugfs for
-that interface.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
