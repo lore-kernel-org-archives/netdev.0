@@ -1,492 +1,376 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 01/16] tcp: Move dynamnic metrics handling into seperate
- file.
-Date: Tue, 10 Jul 2012 08:07:08 -0700 (PDT)
-Message-ID: <20120710.080708.201390738580969426.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC PATCH v2] tcp: TCP Small Queues
+Date: Tue, 10 Jul 2012 17:13:35 +0200
+Message-ID: <1341933215.3265.5476.camel@edumazet-glaptop>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	<1340945457.29822.7.camel@edumazet-glaptop>
+	<1341396687.2583.1757.camel@edumazet-glaptop>
+	<20120709.000834.1182150057463599677.davem@davemloft.net>
+	<1341845722.3265.3065.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38402 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753698Ab2GJPHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 11:07:09 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 2E824586620
-	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 08:07:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nanditad@google.com, netdev@vger.kernel.org, ycheng@google.com,
+	codel@lists.bufferbloat.net, mattmathis@google.com, ncardwell@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1341845722.3265.3065.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
+
+This introduce TSQ (TCP Small Queues)
+
+TSQ goal is to reduce number of TCP packets in xmit queues (qdisc &
+device queues), to reduce RTT and cwnd bias, part of the bufferbloat
+problem.
+
+sk->sk_wmem_alloc not allowed to grow above a given limit,
+allowing no more than ~128KB [1] per tcp socket in qdisc/dev layers at a
+given time.
+
+TSO packets are sized/capped to half the limit, so that we have two
+TSO packets in flight, allowing better bandwidth use.
+
+As a side effect, setting the limit to 40000 automatically reduces the
+standard gso max limit (65536) to 40000/2 : It can help to reduce
+latencies of high prio packets, having smaller TSO packets.
+
+This means we divert sock_wfree() to a tcp_wfree() handler, to
+queue/send following frames when skb_orphan() [2] is called for the
+already queued skbs.
+
+Results on my dev machine (tg3 nic) are really impressive, using
+standard pfifo_fast, and with or without TSO/GSO. Without reduction of
+nominal bandwidth.
+
+I no longer have 3MBytes backlogged in qdisc by a single netperf
+session, and both side socket autotuning no longer use 4 Mbytes.
+
+As skb destructor cannot restart xmit itself ( as qdisc lock might be
+taken at this point ), we delegate the work to a tasklet. We use one
+tasklest per cpu for performance reasons.
 
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+
+[1] New /proc/sys/net/ipv4/tcp_limit_output_bytes tunable
+[2] skb_orphan() is usually called at TX completion time,
+  but some drivers call it in their start_xmit() handler.
+  These drivers should at least use BQL, or else a single TCP
+  session can still fill the whole NIC TX ring, since TSQ will
+  have no effect.
+
+Not-Yet-Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h      |    4 +
- net/ipv4/Makefile      |    2 +-
- net/ipv4/tcp_input.c   |  188 +----------------------------------------------
- net/ipv4/tcp_metrics.c |  192 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 199 insertions(+), 187 deletions(-)
- create mode 100644 net/ipv4/tcp_metrics.c
+ include/linux/tcp.h        |    9 ++
+ include/net/tcp.h          |    3 
+ net/ipv4/sysctl_net_ipv4.c |    7 +
+ net/ipv4/tcp.c             |   14 ++-
+ net/ipv4/tcp_minisocks.c   |    1 
+ net/ipv4/tcp_output.c      |  132 ++++++++++++++++++++++++++++++++++-
+ 6 files changed, 160 insertions(+), 6 deletions(-)
 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 7d3bced..55b8cf9 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -339,6 +339,9 @@ struct tcp_sock {
+ 	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) */
+ 	u32	lsndtime;	/* timestamp of last sent data packet (for restart window) */
+ 
++	struct list_head tsq_node; /* anchor in tsq_tasklet.head list */
++	unsigned long	tsq_flags;
++
+ 	/* Data for direct copy to user */
+ 	struct {
+ 		struct sk_buff_head	prequeue;
+@@ -494,6 +497,12 @@ struct tcp_sock {
+ 	struct tcp_cookie_values  *cookie_values;
+ };
+ 
++enum tsq_flags {
++	TSQ_THROTTLED,
++	TSQ_QUEUED,
++	TSQ_OWNED, /* tcp_tasklet_func() found socket was locked */
++};
++
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+ {
+ 	return (struct tcp_sock *)sk;
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 53fb7d8..98ca797 100644
+index 53fb7d8..3a6ed09 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -388,6 +388,8 @@ extern void tcp_enter_frto(struct sock *sk);
- extern void tcp_enter_loss(struct sock *sk, int how);
- extern void tcp_clear_retrans(struct tcp_sock *tp);
- extern void tcp_update_metrics(struct sock *sk);
-+extern void tcp_init_metrics(struct sock *sk);
-+extern void tcp_disable_fack(struct tcp_sock *tp);
- extern void tcp_close(struct sock *sk, long timeout);
- extern void tcp_init_sock(struct sock *sk);
- extern unsigned int tcp_poll(struct file * file, struct socket *sock,
-@@ -556,6 +558,8 @@ static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
- 	return (tp->srtt >> 3) + tp->rttvar;
- }
+@@ -253,6 +253,7 @@ extern int sysctl_tcp_cookie_size;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
+ extern int sysctl_tcp_early_retrans;
++extern int sysctl_tcp_limit_output_bytes;
  
-+extern void tcp_set_rto(struct sock *sk);
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+@@ -321,6 +322,8 @@ extern struct proto tcp_prot;
+ 
+ extern void tcp_init_mem(struct net *net);
+ 
++extern void tcp_tasklet_init(void);
 +
- static inline void __tcp_fast_path_on(struct tcp_sock *tp, u32 snd_wnd)
+ extern void tcp_v4_err(struct sk_buff *skb, u32);
+ 
+ extern void tcp_shutdown (struct sock *sk, int how);
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 12aa0c5..70730f7 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -598,6 +598,13 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "tcp_limit_output_bytes",
++		.data		= &sysctl_tcp_limit_output_bytes,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ #ifdef CONFIG_NET_DMA
+ 	{
+ 		.procname	= "tcp_dma_copybreak",
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 3ba605f..8838bd2 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -376,6 +376,7 @@ void tcp_init_sock(struct sock *sk)
+ 	skb_queue_head_init(&tp->out_of_order_queue);
+ 	tcp_init_xmit_timers(sk);
+ 	tcp_prequeue_init(tp);
++	INIT_LIST_HEAD(&tp->tsq_node);
+ 
+ 	icsk->icsk_rto = TCP_TIMEOUT_INIT;
+ 	tp->mdev = TCP_TIMEOUT_INIT;
+@@ -786,15 +787,17 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+ 				       int large_allowed)
  {
- 	tp->pred_flags = htonl((tp->tcp_header_len << 26) |
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index ff75d3b..5a23e8b 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -7,7 +7,7 @@ obj-y     := route.o inetpeer.o protocol.o \
- 	     ip_output.o ip_sockglue.o inet_hashtables.o \
- 	     inet_timewait_sock.o inet_connection_sock.o \
- 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
--	     tcp_minisocks.o tcp_cong.o \
-+	     tcp_minisocks.o tcp_cong.o tcp_metrics.o \
- 	     datagram.o raw.o udp.o udplite.o \
- 	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
- 	     fib_frontend.o fib_semantics.o fib_trie.o \
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ca0d0e7..055ac49 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -93,7 +93,6 @@ int sysctl_tcp_rfc1337 __read_mostly;
- int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
- int sysctl_tcp_frto __read_mostly = 2;
- int sysctl_tcp_frto_response __read_mostly;
--int sysctl_tcp_nometrics_save __read_mostly;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	u32 xmit_size_goal, old_size_goal;
++	u32 xmit_size_goal, old_size_goal, gso_max_size;
  
- int sysctl_tcp_thin_dupack __read_mostly;
+ 	xmit_size_goal = mss_now;
  
-@@ -701,7 +700,7 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)
- /* Calculate rto without backoff.  This is the second half of Van Jacobson's
-  * routine referred to above.
+ 	if (large_allowed && sk_can_gso(sk)) {
+-		xmit_size_goal = ((sk->sk_gso_max_size - 1) -
+-				  inet_csk(sk)->icsk_af_ops->net_header_len -
+-				  inet_csk(sk)->icsk_ext_hdr_len -
+-				  tp->tcp_header_len);
++		gso_max_size = min_t(u32, sk->sk_gso_max_size,
++				     sysctl_tcp_limit_output_bytes >> 1);
++		xmit_size_goal = (gso_max_size - 1) -
++				 inet_csk(sk)->icsk_af_ops->net_header_len -
++				 inet_csk(sk)->icsk_ext_hdr_len -
++				 tp->tcp_header_len;
+ 
+ 		xmit_size_goal = tcp_bound_to_half_wnd(tp, xmit_size_goal);
+ 
+@@ -3573,4 +3576,5 @@ void __init tcp_init(void)
+ 	tcp_secret_primary = &tcp_secret_one;
+ 	tcp_secret_retiring = &tcp_secret_two;
+ 	tcp_secret_secondary = &tcp_secret_two;
++	tcp_tasklet_init();
+ }
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 72b7c63..83b358f 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -482,6 +482,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+ 			treq->snt_isn + 1 + tcp_s_data_size(oldtp);
+ 
+ 		tcp_prequeue_init(newtp);
++		INIT_LIST_HEAD(&newtp->tsq_node);
+ 
+ 		tcp_init_wl(newtp, treq->rcv_isn);
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c465d3e..991ae45 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -50,6 +50,9 @@ int sysctl_tcp_retrans_collapse __read_mostly = 1;
   */
--static inline void tcp_set_rto(struct sock *sk)
-+void tcp_set_rto(struct sock *sk)
- {
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	/* Old crap is replaced with new one. 8)
-@@ -728,109 +727,6 @@ static inline void tcp_set_rto(struct sock *sk)
- 	tcp_bound_rto(sk);
+ int sysctl_tcp_workaround_signed_windows __read_mostly = 0;
+ 
++/* Default TSQ limit of two TSO segments */
++int sysctl_tcp_limit_output_bytes __read_mostly = 131072;
++
+ /* This limits the percentage of the congestion window which we
+  * will allow a single TSO frame to consume.  Building TSO frames
+  * which are too large can cause TCP streams to be bursty.
+@@ -65,6 +68,8 @@ int sysctl_tcp_slow_start_after_idle __read_mostly = 1;
+ int sysctl_tcp_cookie_size __read_mostly = 0; /* TCP_COOKIE_MAX */
+ EXPORT_SYMBOL_GPL(sysctl_tcp_cookie_size);
+ 
++static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
++			   int push_one, gfp_t gfp);
+ 
+ /* Account for new data that has been sent to the network. */
+ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
+@@ -783,6 +788,118 @@ static unsigned int tcp_established_options(struct sock *sk, struct sk_buff *skb
+ 	return size;
  }
  
--/* Save metrics learned by this TCP session.
--   This function is called only, when TCP finishes successfully
--   i.e. when it enters TIME-WAIT or goes from LAST-ACK to CLOSE.
-- */
--void tcp_update_metrics(struct sock *sk)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
--	struct dst_entry *dst = __sk_dst_get(sk);
--
--	if (sysctl_tcp_nometrics_save)
--		return;
--
--	if (dst && (dst->flags & DST_HOST)) {
--		const struct inet_connection_sock *icsk = inet_csk(sk);
--		int m;
--		unsigned long rtt;
--
--		dst_confirm(dst);
--
--		if (icsk->icsk_backoff || !tp->srtt) {
--			/* This session failed to estimate rtt. Why?
--			 * Probably, no packets returned in time.
--			 * Reset our results.
--			 */
--			if (!(dst_metric_locked(dst, RTAX_RTT)))
--				dst_metric_set(dst, RTAX_RTT, 0);
--			return;
--		}
--
--		rtt = dst_metric_rtt(dst, RTAX_RTT);
--		m = rtt - tp->srtt;
--
--		/* If newly calculated rtt larger than stored one,
--		 * store new one. Otherwise, use EWMA. Remember,
--		 * rtt overestimation is always better than underestimation.
--		 */
--		if (!(dst_metric_locked(dst, RTAX_RTT))) {
--			if (m <= 0)
--				set_dst_metric_rtt(dst, RTAX_RTT, tp->srtt);
--			else
--				set_dst_metric_rtt(dst, RTAX_RTT, rtt - (m >> 3));
--		}
--
--		if (!(dst_metric_locked(dst, RTAX_RTTVAR))) {
--			unsigned long var;
--			if (m < 0)
--				m = -m;
--
--			/* Scale deviation to rttvar fixed point */
--			m >>= 1;
--			if (m < tp->mdev)
--				m = tp->mdev;
--
--			var = dst_metric_rtt(dst, RTAX_RTTVAR);
--			if (m >= var)
--				var = m;
--			else
--				var -= (var - m) >> 2;
--
--			set_dst_metric_rtt(dst, RTAX_RTTVAR, var);
--		}
--
--		if (tcp_in_initial_slowstart(tp)) {
--			/* Slow start still did not finish. */
--			if (dst_metric(dst, RTAX_SSTHRESH) &&
--			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
--			    (tp->snd_cwnd >> 1) > dst_metric(dst, RTAX_SSTHRESH))
--				dst_metric_set(dst, RTAX_SSTHRESH, tp->snd_cwnd >> 1);
--			if (!dst_metric_locked(dst, RTAX_CWND) &&
--			    tp->snd_cwnd > dst_metric(dst, RTAX_CWND))
--				dst_metric_set(dst, RTAX_CWND, tp->snd_cwnd);
--		} else if (tp->snd_cwnd > tp->snd_ssthresh &&
--			   icsk->icsk_ca_state == TCP_CA_Open) {
--			/* Cong. avoidance phase, cwnd is reliable. */
--			if (!dst_metric_locked(dst, RTAX_SSTHRESH))
--				dst_metric_set(dst, RTAX_SSTHRESH,
--					       max(tp->snd_cwnd >> 1, tp->snd_ssthresh));
--			if (!dst_metric_locked(dst, RTAX_CWND))
--				dst_metric_set(dst, RTAX_CWND,
--					       (dst_metric(dst, RTAX_CWND) +
--						tp->snd_cwnd) >> 1);
--		} else {
--			/* Else slow start did not finish, cwnd is non-sense,
--			   ssthresh may be also invalid.
--			 */
--			if (!dst_metric_locked(dst, RTAX_CWND))
--				dst_metric_set(dst, RTAX_CWND,
--					       (dst_metric(dst, RTAX_CWND) +
--						tp->snd_ssthresh) >> 1);
--			if (dst_metric(dst, RTAX_SSTHRESH) &&
--			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
--			    tp->snd_ssthresh > dst_metric(dst, RTAX_SSTHRESH))
--				dst_metric_set(dst, RTAX_SSTHRESH, tp->snd_ssthresh);
--		}
--
--		if (!dst_metric_locked(dst, RTAX_REORDERING)) {
--			if (dst_metric(dst, RTAX_REORDERING) < tp->reordering &&
--			    tp->reordering != sysctl_tcp_reordering)
--				dst_metric_set(dst, RTAX_REORDERING, tp->reordering);
--		}
--	}
--}
--
- __u32 tcp_init_cwnd(const struct tcp_sock *tp, const struct dst_entry *dst)
- {
- 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
-@@ -867,7 +763,7 @@ void tcp_enter_cwr(struct sock *sk, const int set_ssthresh)
-  * Packet counting of FACK is based on in-order assumptions, therefore TCP
-  * disables it when reordering is detected
-  */
--static void tcp_disable_fack(struct tcp_sock *tp)
-+void tcp_disable_fack(struct tcp_sock *tp)
- {
- 	/* RFC3517 uses different metric in lost marker => reset on change */
- 	if (tcp_is_fack(tp))
-@@ -881,86 +777,6 @@ static void tcp_dsack_seen(struct tcp_sock *tp)
- 	tp->rx_opt.sack_ok |= TCP_DSACK_SEEN;
- }
- 
--/* Initialize metrics on socket. */
--
--static void tcp_init_metrics(struct sock *sk)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
--	struct dst_entry *dst = __sk_dst_get(sk);
--
--	if (dst == NULL)
--		goto reset;
--
--	dst_confirm(dst);
--
--	if (dst_metric_locked(dst, RTAX_CWND))
--		tp->snd_cwnd_clamp = dst_metric(dst, RTAX_CWND);
--	if (dst_metric(dst, RTAX_SSTHRESH)) {
--		tp->snd_ssthresh = dst_metric(dst, RTAX_SSTHRESH);
--		if (tp->snd_ssthresh > tp->snd_cwnd_clamp)
--			tp->snd_ssthresh = tp->snd_cwnd_clamp;
--	} else {
--		/* ssthresh may have been reduced unnecessarily during.
--		 * 3WHS. Restore it back to its initial default.
--		 */
--		tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
--	}
--	if (dst_metric(dst, RTAX_REORDERING) &&
--	    tp->reordering != dst_metric(dst, RTAX_REORDERING)) {
--		tcp_disable_fack(tp);
--		tcp_disable_early_retrans(tp);
--		tp->reordering = dst_metric(dst, RTAX_REORDERING);
--	}
--
--	if (dst_metric(dst, RTAX_RTT) == 0 || tp->srtt == 0)
--		goto reset;
--
--	/* Initial rtt is determined from SYN,SYN-ACK.
--	 * The segment is small and rtt may appear much
--	 * less than real one. Use per-dst memory
--	 * to make it more realistic.
--	 *
--	 * A bit of theory. RTT is time passed after "normal" sized packet
--	 * is sent until it is ACKed. In normal circumstances sending small
--	 * packets force peer to delay ACKs and calculation is correct too.
--	 * The algorithm is adaptive and, provided we follow specs, it
--	 * NEVER underestimate RTT. BUT! If peer tries to make some clever
--	 * tricks sort of "quick acks" for time long enough to decrease RTT
--	 * to low value, and then abruptly stops to do it and starts to delay
--	 * ACKs, wait for troubles.
--	 */
--	if (dst_metric_rtt(dst, RTAX_RTT) > tp->srtt) {
--		tp->srtt = dst_metric_rtt(dst, RTAX_RTT);
--		tp->rtt_seq = tp->snd_nxt;
--	}
--	if (dst_metric_rtt(dst, RTAX_RTTVAR) > tp->mdev) {
--		tp->mdev = dst_metric_rtt(dst, RTAX_RTTVAR);
--		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
--	}
--	tcp_set_rto(sk);
--reset:
--	if (tp->srtt == 0) {
--		/* RFC6298: 5.7 We've failed to get a valid RTT sample from
--		 * 3WHS. This is most likely due to retransmission,
--		 * including spurious one. Reset the RTO back to 3secs
--		 * from the more aggressive 1sec to avoid more spurious
--		 * retransmission.
--		 */
--		tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_FALLBACK;
--		inet_csk(sk)->icsk_rto = TCP_TIMEOUT_FALLBACK;
--	}
--	/* Cut cwnd down to 1 per RFC5681 if SYN or SYN-ACK has been
--	 * retransmitted. In light of RFC6298 more aggressive 1sec
--	 * initRTO, we only reset cwnd when more than 1 SYN/SYN-ACK
--	 * retransmission has occurred.
--	 */
--	if (tp->total_retrans > 1)
--		tp->snd_cwnd = 1;
--	else
--		tp->snd_cwnd = tcp_init_cwnd(tp, dst);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
--}
--
- static void tcp_update_reordering(struct sock *sk, const int metric,
- 				  const int ts)
- {
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-new file mode 100644
-index 0000000..2793ecf
---- /dev/null
-+++ b/net/ipv4/tcp_metrics.c
-@@ -0,0 +1,192 @@
-+#include <linux/cache.h>
-+#include <linux/tcp.h>
 +
-+#include <net/inet_connection_sock.h>
-+#include <net/sock.h>
-+#include <net/dst.h>
-+#include <net/tcp.h>
-+
-+int sysctl_tcp_nometrics_save __read_mostly;
-+
-+/* Save metrics learned by this TCP session.  This function is called
-+ * only, when TCP finishes successfully i.e. when it enters TIME-WAIT
-+ * or goes from LAST-ACK to CLOSE.
++/* TCP SMALL QUEUES (TSQ)
++ *
++ * TSQ goal is to keep small amount of skbs per tcp flow in tx queues (qdisc+dev)
++ * to reduce RTT and bufferbloat.
++ * We do this using a special skb destructor (tcp_wfree).
++ *
++ * Its important tcp_wfree() can be replaced by sock_wfree() in the event skb
++ * needs to be reallocated in a driver.
++ * The invariant being skb->truesize substracted from sk->sk_wmem_alloc
++ *
++ * Since transmit from skb destructor is forbidden, we use a tasklet
++ * to process all sockets that eventually need to send more skbs.
++ * We use one tasklet per cpu, with its own queue of sockets.
 + */
-+void tcp_update_metrics(struct sock *sk)
++struct tsq_tasklet {
++	struct tasklet_struct	tasklet;
++	struct list_head	head; /* queue of tcp sockets */
++};
++static DEFINE_PER_CPU(struct tsq_tasklet, tsq_tasklet);
++
++/*
++ * One tasklest per cpu tries to send more skbs.
++ * We run in tasklet context but need to disable irqs when
++ * transfering tsq->head because tcp_wfree() might
++ * interrupt us (non NAPI drivers)
++ */
++static void tcp_tasklet_func(unsigned long data)
 +{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct dst_entry *dst = __sk_dst_get(sk);
++	struct tsq_tasklet *tsq = (struct tsq_tasklet *)data;
++	LIST_HEAD(list);
++	unsigned long flags;
++	struct list_head *q, *n;
++	struct tcp_sock *tp;
++	struct sock *sk;
 +
-+	if (sysctl_tcp_nometrics_save)
-+		return;
++	local_irq_save(flags);
++	list_splice_init(&tsq->head, &list);
++	local_irq_restore(flags);
 +
-+	if (dst && (dst->flags & DST_HOST)) {
-+		const struct inet_connection_sock *icsk = inet_csk(sk);
-+		int m;
-+		unsigned long rtt;
++	list_for_each_safe(q, n, &list) {
++		tp = list_entry(q, struct tcp_sock, tsq_node);
++		list_del(&tp->tsq_node);
 +
-+		dst_confirm(dst);
++		sk = (struct sock *)tp;
++		bh_lock_sock(sk);
 +
-+		if (icsk->icsk_backoff || !tp->srtt) {
-+			/* This session failed to estimate rtt. Why?
-+			 * Probably, no packets returned in time.
-+			 * Reset our results.
-+			 */
-+			if (!(dst_metric_locked(dst, RTAX_RTT)))
-+				dst_metric_set(dst, RTAX_RTT, 0);
-+			return;
-+		}
-+
-+		rtt = dst_metric_rtt(dst, RTAX_RTT);
-+		m = rtt - tp->srtt;
-+
-+		/* If newly calculated rtt larger than stored one,
-+		 * store new one. Otherwise, use EWMA. Remember,
-+		 * rtt overestimation is always better than underestimation.
-+		 */
-+		if (!(dst_metric_locked(dst, RTAX_RTT))) {
-+			if (m <= 0)
-+				set_dst_metric_rtt(dst, RTAX_RTT, tp->srtt);
-+			else
-+				set_dst_metric_rtt(dst, RTAX_RTT, rtt - (m >> 3));
-+		}
-+
-+		if (!(dst_metric_locked(dst, RTAX_RTTVAR))) {
-+			unsigned long var;
-+			if (m < 0)
-+				m = -m;
-+
-+			/* Scale deviation to rttvar fixed point */
-+			m >>= 1;
-+			if (m < tp->mdev)
-+				m = tp->mdev;
-+
-+			var = dst_metric_rtt(dst, RTAX_RTTVAR);
-+			if (m >= var)
-+				var = m;
-+			else
-+				var -= (var - m) >> 2;
-+
-+			set_dst_metric_rtt(dst, RTAX_RTTVAR, var);
-+		}
-+
-+		if (tcp_in_initial_slowstart(tp)) {
-+			/* Slow start still did not finish. */
-+			if (dst_metric(dst, RTAX_SSTHRESH) &&
-+			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
-+			    (tp->snd_cwnd >> 1) > dst_metric(dst, RTAX_SSTHRESH))
-+				dst_metric_set(dst, RTAX_SSTHRESH, tp->snd_cwnd >> 1);
-+			if (!dst_metric_locked(dst, RTAX_CWND) &&
-+			    tp->snd_cwnd > dst_metric(dst, RTAX_CWND))
-+				dst_metric_set(dst, RTAX_CWND, tp->snd_cwnd);
-+		} else if (tp->snd_cwnd > tp->snd_ssthresh &&
-+			   icsk->icsk_ca_state == TCP_CA_Open) {
-+			/* Cong. avoidance phase, cwnd is reliable. */
-+			if (!dst_metric_locked(dst, RTAX_SSTHRESH))
-+				dst_metric_set(dst, RTAX_SSTHRESH,
-+					       max(tp->snd_cwnd >> 1, tp->snd_ssthresh));
-+			if (!dst_metric_locked(dst, RTAX_CWND))
-+				dst_metric_set(dst, RTAX_CWND,
-+					       (dst_metric(dst, RTAX_CWND) +
-+						tp->snd_cwnd) >> 1);
++		if (!sock_owned_by_user(sk)) {
++			if ((1 << sk->sk_state) &
++			    (TCPF_CLOSE_WAIT | TCPF_ESTABLISHED))
++				tcp_write_xmit(sk,
++					       tcp_current_mss(sk),
++					       0, 0,
++					       GFP_ATOMIC);
 +		} else {
-+			/* Else slow start did not finish, cwnd is non-sense,
-+			   ssthresh may be also invalid.
++			/* TODO:
++			 * setup a timer, or check TSQ_OWNED in release_sock()
 +			 */
-+			if (!dst_metric_locked(dst, RTAX_CWND))
-+				dst_metric_set(dst, RTAX_CWND,
-+					       (dst_metric(dst, RTAX_CWND) +
-+						tp->snd_ssthresh) >> 1);
-+			if (dst_metric(dst, RTAX_SSTHRESH) &&
-+			    !dst_metric_locked(dst, RTAX_SSTHRESH) &&
-+			    tp->snd_ssthresh > dst_metric(dst, RTAX_SSTHRESH))
-+				dst_metric_set(dst, RTAX_SSTHRESH, tp->snd_ssthresh);
++			set_bit(TSQ_OWNED, &tp->tsq_flags);
 +		}
++		bh_unlock_sock(sk);
 +
-+		if (!dst_metric_locked(dst, RTAX_REORDERING)) {
-+			if (dst_metric(dst, RTAX_REORDERING) < tp->reordering &&
-+			    tp->reordering != sysctl_tcp_reordering)
-+				dst_metric_set(dst, RTAX_REORDERING, tp->reordering);
-+		}
++		clear_bit(TSQ_QUEUED, &tp->tsq_flags);
++		sk_free(sk);
 +	}
 +}
 +
-+/* Initialize metrics on socket. */
-+
-+void tcp_init_metrics(struct sock *sk)
++void __init tcp_tasklet_init(void)
 +{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct dst_entry *dst = __sk_dst_get(sk);
++	int i;
 +
-+	if (dst == NULL)
-+		goto reset;
++	for_each_possible_cpu(i) {
++		struct tsq_tasklet *tsq = &per_cpu(tsq_tasklet, i);
 +
-+	dst_confirm(dst);
-+
-+	if (dst_metric_locked(dst, RTAX_CWND))
-+		tp->snd_cwnd_clamp = dst_metric(dst, RTAX_CWND);
-+	if (dst_metric(dst, RTAX_SSTHRESH)) {
-+		tp->snd_ssthresh = dst_metric(dst, RTAX_SSTHRESH);
-+		if (tp->snd_ssthresh > tp->snd_cwnd_clamp)
-+			tp->snd_ssthresh = tp->snd_cwnd_clamp;
-+	} else {
-+		/* ssthresh may have been reduced unnecessarily during.
-+		 * 3WHS. Restore it back to its initial default.
-+		 */
-+		tp->snd_ssthresh = TCP_INFINITE_SSTHRESH;
++		INIT_LIST_HEAD(&tsq->head);
++		tasklet_init(&tsq->tasklet,
++			     tcp_tasklet_func,
++			     (unsigned long)tsq);
 +	}
-+	if (dst_metric(dst, RTAX_REORDERING) &&
-+	    tp->reordering != dst_metric(dst, RTAX_REORDERING)) {
-+		tcp_disable_fack(tp);
-+		tcp_disable_early_retrans(tp);
-+		tp->reordering = dst_metric(dst, RTAX_REORDERING);
-+	}
-+
-+	if (dst_metric(dst, RTAX_RTT) == 0 || tp->srtt == 0)
-+		goto reset;
-+
-+	/* Initial rtt is determined from SYN,SYN-ACK.
-+	 * The segment is small and rtt may appear much
-+	 * less than real one. Use per-dst memory
-+	 * to make it more realistic.
-+	 *
-+	 * A bit of theory. RTT is time passed after "normal" sized packet
-+	 * is sent until it is ACKed. In normal circumstances sending small
-+	 * packets force peer to delay ACKs and calculation is correct too.
-+	 * The algorithm is adaptive and, provided we follow specs, it
-+	 * NEVER underestimate RTT. BUT! If peer tries to make some clever
-+	 * tricks sort of "quick acks" for time long enough to decrease RTT
-+	 * to low value, and then abruptly stops to do it and starts to delay
-+	 * ACKs, wait for troubles.
-+	 */
-+	if (dst_metric_rtt(dst, RTAX_RTT) > tp->srtt) {
-+		tp->srtt = dst_metric_rtt(dst, RTAX_RTT);
-+		tp->rtt_seq = tp->snd_nxt;
-+	}
-+	if (dst_metric_rtt(dst, RTAX_RTTVAR) > tp->mdev) {
-+		tp->mdev = dst_metric_rtt(dst, RTAX_RTTVAR);
-+		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
-+	}
-+	tcp_set_rto(sk);
-+reset:
-+	if (tp->srtt == 0) {
-+		/* RFC6298: 5.7 We've failed to get a valid RTT sample from
-+		 * 3WHS. This is most likely due to retransmission,
-+		 * including spurious one. Reset the RTO back to 3secs
-+		 * from the more aggressive 1sec to avoid more spurious
-+		 * retransmission.
-+		 */
-+		tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_FALLBACK;
-+		inet_csk(sk)->icsk_rto = TCP_TIMEOUT_FALLBACK;
-+	}
-+	/* Cut cwnd down to 1 per RFC5681 if SYN or SYN-ACK has been
-+	 * retransmitted. In light of RFC6298 more aggressive 1sec
-+	 * initRTO, we only reset cwnd when more than 1 SYN/SYN-ACK
-+	 * retransmission has occurred.
-+	 */
-+	if (tp->total_retrans > 1)
-+		tp->snd_cwnd = 1;
-+	else
-+		tp->snd_cwnd = tcp_init_cwnd(tp, dst);
-+	tp->snd_cwnd_stamp = tcp_time_stamp;
 +}
--- 
-1.7.10.4
++
++/*
++ * Write buffer destructor automatically called from kfree_skb.
++ * We cant xmit new skbs from this context, as we might already
++ * hold qdisc lock.
++ */
++void tcp_wfree(struct sk_buff *skb)
++{
++	struct sock *sk = skb->sk;
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	if (test_and_clear_bit(TSQ_THROTTLED, &tp->tsq_flags) &&
++	    !test_and_set_bit(TSQ_QUEUED, &tp->tsq_flags)) {
++		unsigned long flags;
++		struct tsq_tasklet *tsq;
++
++		/* Keep a ref on socket.
++		 * This last ref will be released in tcp_tasklet_func()
++		 */
++		atomic_sub(skb->truesize - 1, &sk->sk_wmem_alloc);
++
++		/* queue this socket to tasklet queue */
++		local_irq_save(flags);
++		tsq = &__get_cpu_var(tsq_tasklet);
++		list_add(&tp->tsq_node, &tsq->head);
++		tasklet_schedule(&tsq->tasklet);
++		local_irq_restore(flags);
++	} else {
++		sock_wfree(skb);
++	}
++}
++
+ /* This routine actually transmits TCP packets queued in by
+  * tcp_do_sendmsg().  This is used by both the initial
+  * transmission and possible later retransmissions.
+@@ -844,7 +961,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 
+ 	skb_push(skb, tcp_header_size);
+ 	skb_reset_transport_header(skb);
+-	skb_set_owner_w(skb, sk);
++
++	skb_orphan(skb);
++	skb->sk = sk;
++	skb->destructor = (sysctl_tcp_limit_output_bytes > 0) ?
++			  tcp_wfree : sock_wfree;
++	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+ 
+ 	/* Build TCP header and checksum it. */
+ 	th = tcp_hdr(skb);
+@@ -1780,6 +1902,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
+ 
++
+ 		tso_segs = tcp_init_tso_segs(sk, skb, mss_now);
+ 		BUG_ON(!tso_segs);
+ 
+@@ -1800,6 +1923,13 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 				break;
+ 		}
+ 
++		/* TSQ : sk_wmem_alloc accounts skb truesize,
++		 * including skb overhead. But thats OK.
++		 */
++		if (atomic_read(&sk->sk_wmem_alloc) >= sysctl_tcp_limit_output_bytes) {
++			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
++			break;
++		}
+ 		limit = mss_now;
+ 		if (tso_segs > 1 && !tcp_urg_mode(tp))
+ 			limit = tcp_mss_split_point(sk, skb, mss_now,
