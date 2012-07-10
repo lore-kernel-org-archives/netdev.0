@@ -1,47 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Tue, 10 Jul 2012 16:45:58 +0200
-Message-ID: <1341931558.3265.5399.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	 <1341474192.2583.3299.camel@edumazet-glaptop>
-	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	 <1341477192.2583.3415.camel@edumazet-glaptop>
-	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	 <1341481760.2583.3579.camel@edumazet-glaptop>
-	 <CACVXFVNYwNrdWS_EiQ4O0-ou369AQ2tB4qbvmzY1rt5T3QnyUw@mail.gmail.com>
-	 <1341842043.3265.2914.camel@edumazet-glaptop>
-	 <CACVXFVNdiwVn1Mo--N4N0HdYrEJizExtd_cppT4tS=mjog2PKw@mail.gmail.com>
-	 <1341895143.3265.4049.camel@edumazet-glaptop>
-	 <CACVXFVPgqtSN3BrEXRxSv4yxaxCni495SxZNXBmYQpagmxk2tQ@mail.gmail.com>
-	 <1341908908.3265.4508.camel@edumazet-glaptop>
-	 <CACVXFVM-fhQJX+EFNoFSnuVAjqfRM7OjzbQML7H+tMEjxG7Rug@mail.gmail.com>
-	 <1341928931.3265.5263.camel@edumazet-glaptop>
-	 <CACVXFVPmec5_3Up9qM4iA90Xua9J_E-aRT-2g7Hu7TR4zRKQtA@mail.gmail.com>
+From: Denis Ovsienko <infrastation@yandex.ru>
+Subject: [PATCH] ipv6: fix RTPROT_RA markup of RA routes w/nexthops
+Date: Tue, 10 Jul 2012 18:45:50 +0400
+Message-ID: <20120710184550.7a5a8d89802473b4c28d07bf@yandex.ru>
+References: <1405671341819473@web18d.yandex.ru>
+	<20120709.144002.6394436211445151.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:33720 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753033Ab2GJOqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 10:46:04 -0400
-Received: by eeit10 with SMTP id t10so26326eei.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 07:46:02 -0700 (PDT)
-In-Reply-To: <CACVXFVPmec5_3Up9qM4iA90Xua9J_E-aRT-2g7Hu7TR4zRKQtA@mail.gmail.com>
+Received: from forward16.mail.yandex.net ([95.108.253.141]:35707 "EHLO
+	forward16.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430Ab2GJOxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 10:53:17 -0400
+Received: from smtp17.mail.yandex.net (smtp17.mail.yandex.net [95.108.252.17])
+	by forward16.mail.yandex.net (Yandex) with ESMTP id 69359D216D5
+	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 18:45:51 +0400 (MSK)
+Received: from smtp17.mail.yandex.net (localhost [127.0.0.1])
+	by smtp17.mail.yandex.net (Yandex) with ESMTP id 56BB819003A1
+	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 18:45:51 +0400 (MSK)
+In-Reply-To: <20120709.144002.6394436211445151.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-10 at 22:22 +0800, Ming Lei wrote:
+From: Denis Ovsienko <infrastation@yandex.ru>
 
-> Looks single page allocation won't put too much pressure on MM, that is
-> why I suggested to avoid copy if the skb buffer size is less or equal one
-> page. Anyway, unnecessary copy will increase computation and consume power.
+Userspace implementations of network routing protocols sometimes need to
+tell RA-originated IPv6 routes from other kernel routes to make proper
+routing decisions. This makes most sense for RA routes with nexthops,
+namely, default routes and Route Information routes.
 
-AFAIK this long thread started with drivers/net/usb/smsc95xx.c using
-32KB buffers, thats order-3 pages, not 'single page'
+The intended mean of preserving RA route origin in a netlink message is
+through indicating RTPROT_RA as protocol code. Function rt6_fill_node()
+tried to do that for default routes, but its test condition was taken
+wrong. This change is modeled after the original mailing list posting
+by Jeff Haran. It fixes the test condition for default route case and
+sets the same behaviour for Route Information case (both types use
+nexthops). Handling of the 3rd RA route type, Prefix Information, is
+left unchanged, as it stands for interface connected routes (without
+nexthops).
 
-Definitely very wrong. You can try to claim the contrary, it wont be
-wise.
+Signed-off-by: Denis Ovsienko <infrastation@yandex.ru>
+---
+ net/ipv6/route.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 999a982..238b1ee 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2440,10 +2440,12 @@ static int rt6_fill_node(struct net *net,
+ 	rtm->rtm_protocol = rt->rt6i_protocol;
+ 	if (rt->rt6i_flags & RTF_DYNAMIC)
+ 		rtm->rtm_protocol = RTPROT_REDIRECT;
+-	else if (rt->rt6i_flags & RTF_ADDRCONF)
+-		rtm->rtm_protocol = RTPROT_KERNEL;
+-	else if (rt->rt6i_flags & RTF_DEFAULT)
+-		rtm->rtm_protocol = RTPROT_RA;
++	else if (rt->rt6i_flags & RTF_ADDRCONF) {
++		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ROUTEINFO))
++			rtm->rtm_protocol = RTPROT_RA;
++		else
++			rtm->rtm_protocol = RTPROT_KERNEL;
++	}
+ 
+ 	if (rt->rt6i_flags & RTF_CACHE)
+ 		rtm->rtm_flags |= RTM_F_CLONED;
+-- 
+1.7.7.6
