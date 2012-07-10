@@ -1,81 +1,1680 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] IPoIB: fix skb truesize underestimatiom
-Date: Tue, 10 Jul 2012 22:03:41 +0200
-Message-ID: <1341950621.3265.6331.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Erez Shitrit <erezsh@mellanox.com>,
-	Roland Dreier <roland@purestorage.com>,
-	netdev <netdev@vger.kernel.org>,
-	Shlomo Pongartz <shlomop@mellanox.com>
-To: David Miller <davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [RFC 1/2] i2400m: remove SDIO device support
+Date: Tue, 10 Jul 2012 16:27:28 -0400
+Message-ID: <1341952049-32193-1-git-send-email-linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org,
+	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
+	Samuel Ortiz <samuel.ortiz@intel.com>, linux-wimax@intel.com,
+	wimax@linuxwimax.org, "John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:54049 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640Ab2GJUDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 16:03:46 -0400
-Received: by eaak11 with SMTP id k11so145069eaa.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 13:03:45 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35758 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798Ab2GJUdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 16:33:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: "John W. Linville" <linville@tuxdriver.com>
 
-Or Gerlitz reported triggering of WARN_ON_ONCE(delta < len); in
-skb_try_coalesce()
-This warning tracks drivers that incorrectly set skb->truesize
+SDIO support in this driver was intended to support the iwmc3200
+device.  This hardware never became available to normal humans.
+Leaving this driver imposes unwelcome maintenance costs for no clear
+benefit.
 
-IPoIB indeed allocates a full page to store a fragment, but only
-accounts in skb->truesize the used part of the page (frame length)
-
-This patch fixes skb truesize underestimation, and
-also fixes a performance issue, because RX skbs have not enough tailroom
-to allow IP and TCP stacks to pull their header in skb linear part
-without an expensive call to pskb_expand_head()
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
-Cc: Erez Shitrit <erezsh@mellanox.com>
-Cc: Shlomo Pongartz <shlomop@mellanox.com>
-Cc: Roland Dreier <roland@purestorage.com>
+Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
- drivers/infiniband/ulp/ipoib/ipoib_ib.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+If there are no objections, I'll push this series through the 
+wireless-next tree along with the iwmc3200wifi removal.
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-index 5c1bc99..f10221f 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-@@ -123,7 +123,7 @@ static void ipoib_ud_skb_put_frags(struct ipoib_dev_priv *priv,
+ drivers/net/wimax/i2400m/Kconfig             |   22 -
+ drivers/net/wimax/i2400m/Makefile            |    8 -
+ drivers/net/wimax/i2400m/driver.c            |    3 +-
+ drivers/net/wimax/i2400m/fw.c                |    3 +-
+ drivers/net/wimax/i2400m/i2400m-sdio.h       |  157 -------
+ drivers/net/wimax/i2400m/i2400m.h            |   13 +-
+ drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 -
+ drivers/net/wimax/i2400m/sdio-fw.c           |  210 ---------
+ drivers/net/wimax/i2400m/sdio-rx.c           |  301 -------------
+ drivers/net/wimax/i2400m/sdio-tx.c           |  177 --------
+ drivers/net/wimax/i2400m/sdio.c              |  602 --------------------------
+ 11 files changed, 8 insertions(+), 1510 deletions(-)
+ delete mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
+ delete mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
+ delete mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
+ delete mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
+ delete mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
+ delete mode 100644 drivers/net/wimax/i2400m/sdio.c
+
+diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
+index 672de18..71453db 100644
+--- a/drivers/net/wimax/i2400m/Kconfig
++++ b/drivers/net/wimax/i2400m/Kconfig
+@@ -7,9 +7,6 @@ config WIMAX_I2400M
+ comment "Enable USB support to see WiMAX USB drivers"
+ 	depends on USB = n
  
- 		skb_frag_size_set(frag, size);
- 		skb->data_len += size;
--		skb->truesize += size;
-+		skb->truesize += PAGE_SIZE;
- 	} else
- 		skb_put(skb, length);
+-comment "Enable MMC support to see WiMAX SDIO drivers"
+-	depends on MMC = n
+-
+ config WIMAX_I2400M_USB
+ 	tristate "Intel Wireless WiMAX Connection 2400 over USB (including 5x50)"
+ 	depends on WIMAX && USB
+@@ -21,25 +18,6 @@ config WIMAX_I2400M_USB
  
-@@ -156,14 +156,18 @@ static struct sk_buff *ipoib_alloc_rx_skb(struct net_device *dev, int id)
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
- 	struct sk_buff *skb;
- 	int buf_size;
-+	int tailroom;
- 	u64 *mapping;
+ 	  If unsure, it is safe to select M (module).
  
--	if (ipoib_ud_need_sg(priv->max_ib_mtu))
-+	if (ipoib_ud_need_sg(priv->max_ib_mtu)) {
- 		buf_size = IPOIB_UD_HEAD_SIZE;
+-config WIMAX_I2400M_SDIO
+-	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
+-	depends on WIMAX && MMC
+-	select WIMAX_I2400M
+-	help
+-	  Select if you have a device based on the Intel WiMAX
+-	  Connection 2400 over SDIO.
+-
+-	  If unsure, it is safe to select M (module).
+-
+-config WIMAX_IWMC3200_SDIO
+-	bool "Intel Wireless Multicom WiMAX Connection 3200 over SDIO (EXPERIMENTAL)"
+-	depends on WIMAX_I2400M_SDIO
+-	depends on EXPERIMENTAL
+-	select IWMC3200TOP
+-	help
+-	  Select if you have a device based on the Intel Multicom WiMAX
+-          Connection 3200 over SDIO.
+-
+ config WIMAX_I2400M_DEBUG_LEVEL
+ 	int "WiMAX i2400m debug level"
+ 	depends on WIMAX_I2400M
+diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
+index 5d9e018..f6d19c3 100644
+--- a/drivers/net/wimax/i2400m/Makefile
++++ b/drivers/net/wimax/i2400m/Makefile
+@@ -1,7 +1,6 @@
+ 
+ obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
+ obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
+-obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
+ 
+ i2400m-y :=		\
+ 	control.o	\
+@@ -21,10 +20,3 @@ i2400m-usb-y :=			\
+ 	usb-tx.o		\
+ 	usb-rx.o		\
+ 	usb.o
+-
+-
+-i2400m-sdio-y := 		\
+-	sdio.o      		\
+-	sdio-tx.o   		\
+-	sdio-fw.o	 	\
+-	sdio-rx.o
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index 47cae71..850b8bc 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -754,8 +754,7 @@ EXPORT_SYMBOL_GPL(i2400m_error_recovery);
+ /*
+  * Alloc the command and ack buffers for boot mode
+  *
+- * Get the buffers needed to deal with boot mode messages.  These
+- * buffers need to be allocated before the sdio receive irq is setup.
++ * Get the buffers needed to deal with boot mode messages.
+  */
+ static
+ int i2400m_bm_buf_alloc(struct i2400m *i2400m)
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index 7cbd7d2..7632f8c 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -51,8 +51,7 @@
+  * firmware. Normal hardware takes only signed firmware.
+  *
+  * On boot mode, in USB, we write to the device using the bulk out
+- * endpoint and read from it in the notification endpoint. In SDIO we
+- * talk to it via the write address and read from the read address.
++ * endpoint and read from it in the notification endpoint.
+  *
+  * Upon entrance to boot mode, the device sends (preceded with a few
+  * zero length packets (ZLPs) on the notification endpoint in USB) a
+diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
+deleted file mode 100644
+index 1d63ffd..0000000
+--- a/drivers/net/wimax/i2400m/i2400m-sdio.h
++++ /dev/null
+@@ -1,157 +0,0 @@
+-/*
+- * Intel Wireless WiMAX Connection 2400m
+- * SDIO-specific i2400m driver definitions
+- *
+- *
+- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *
+- *   * Redistributions of source code must retain the above copyright
+- *     notice, this list of conditions and the following disclaimer.
+- *   * Redistributions in binary form must reproduce the above copyright
+- *     notice, this list of conditions and the following disclaimer in
+- *     the documentation and/or other materials provided with the
+- *     distribution.
+- *   * Neither the name of Intel Corporation nor the names of its
+- *     contributors may be used to endorse or promote products derived
+- *     from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- *
+- *
+- * Intel Corporation <linux-wimax@intel.com>
+- * Brian Bian <brian.bian@intel.com>
+- * Dirk Brandewie <dirk.j.brandewie@intel.com>
+- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+- * Yanir Lubetkin <yanirx.lubetkin@intel.com>
+- *  - Initial implementation
+- *
+- *
+- * This driver implements the bus-specific part of the i2400m for
+- * SDIO. Check i2400m.h for a generic driver description.
+- *
+- * ARCHITECTURE
+- *
+- * This driver sits under the bus-generic i2400m driver, providing the
+- * connection to the device.
+- *
+- * When probed, all the function pointers are setup and then the
+- * bus-generic code called. The generic driver will then use the
+- * provided pointers for uploading firmware (i2400ms_bus_bm*() in
+- * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
+- * sdio.c).
+- *
+- * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
+- * data is ready for transmission in the TX fifo; then the SDIO IRQ is
+- * fired and data is available (sdio-rx.c), it is sent to the generic
+- * driver for processing with i2400m_rx.
+- */
+-
+-#ifndef __I2400M_SDIO_H__
+-#define __I2400M_SDIO_H__
+-
+-#include "i2400m.h"
+-
+-/* Host-Device interface for SDIO */
+-enum {
+-	I2400M_SDIO_BOOT_RETRIES = 3,
+-	I2400MS_BLK_SIZE = 256,
+-	I2400MS_PL_SIZE_MAX = 0x3E00,
+-
+-	I2400MS_DATA_ADDR = 0x0,
+-	I2400MS_INTR_STATUS_ADDR = 0x13,
+-	I2400MS_INTR_CLEAR_ADDR = 0x13,
+-	I2400MS_INTR_ENABLE_ADDR = 0x14,
+-	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
+-	/* The number of ticks to wait for the device to signal that
+-	 * it is ready */
+-	I2400MS_INIT_SLEEP_INTERVAL = 100,
+-	/* How long to wait for the device to settle after reset */
+-	I2400MS_SETTLE_TIME = 40,
+-	/* The number of msec to wait for IOR after sending IOE */
+-	IWMC3200_IOR_TIMEOUT = 10,
+-};
+-
+-
+-/**
+- * struct i2400ms - descriptor for a SDIO connected i2400m
+- *
+- * @i2400m: bus-generic i2400m implementation; has to be first (see
+- *     it's documentation in i2400m.h).
+- *
+- * @func: pointer to our SDIO function
+- *
+- * @tx_worker: workqueue struct used to TX data when the bus-generic
+- *     code signals packets are pending for transmission to the device.
+- *
+- * @tx_workqueue: workqeueue used for data TX; we don't use the
+- *     system's workqueue as that might cause deadlocks with code in
+- *     the bus-generic driver. The read/write operation to the queue
+- *     is protected with spinlock (tx_lock in struct i2400m) to avoid
+- *     the queue being destroyed in the middle of a the queue read/write
+- *     operation.
+- *
+- * @debugfs_dentry: dentry for the SDIO specific debugfs files
+- *
+- *     Note this value is set to NULL upon destruction; this is
+- *     because some routinges use it to determine if we are inside the
+- *     probe() path or some other path. When debugfs is disabled,
+- *     creation sets the dentry to '(void*) -ENODEV', which is valid
+- *     for the test.
+- */
+-struct i2400ms {
+-	struct i2400m i2400m;		/* FIRST! See doc */
+-	struct sdio_func *func;
+-
+-	struct work_struct tx_worker;
+-	struct workqueue_struct *tx_workqueue;
+-	char tx_wq_name[32];
+-
+-	struct dentry *debugfs_dentry;
+-
+-	wait_queue_head_t bm_wfa_wq;
+-	int bm_wait_result;
+-	size_t bm_ack_size;
+-
+-	/* Device is any of the iwmc3200 SKUs */
+-	unsigned iwmc3200:1;
+-};
+-
+-
+-static inline
+-void i2400ms_init(struct i2400ms *i2400ms)
+-{
+-	i2400m_init(&i2400ms->i2400m);
+-}
+-
+-
+-extern int i2400ms_rx_setup(struct i2400ms *);
+-extern void i2400ms_rx_release(struct i2400ms *);
+-
+-extern int i2400ms_tx_setup(struct i2400ms *);
+-extern void i2400ms_tx_release(struct i2400ms *);
+-extern void i2400ms_bus_tx_kick(struct i2400m *);
+-
+-extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
+-				       const struct i2400m_bootrom_header *,
+-				       size_t, int);
+-extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
+-					   struct i2400m_bootrom_header *,
+-					   size_t);
+-extern void i2400ms_bus_bm_release(struct i2400m *);
+-extern int i2400ms_bus_bm_setup(struct i2400m *);
+-
+-#endif /* #ifndef __I2400M_SDIO_H__ */
+diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
+index c806d45..79c6505 100644
+--- a/drivers/net/wimax/i2400m/i2400m.h
++++ b/drivers/net/wimax/i2400m/i2400m.h
+@@ -46,7 +46,7 @@
+  *  - bus generic driver (this part)
+  *
+  * The bus specific driver sets up stuff specific to the bus the
+- * device is connected to (USB, SDIO, PCI, tam-tam...non-authoritative
++ * device is connected to (USB, PCI, tam-tam...non-authoritative
+  * nor binding list) which is basically the device-model management
+  * (probe/disconnect, etc), moving data from device to kernel and
+  * back, doing the power saving details and reseting the device.
+@@ -238,14 +238,13 @@ struct i2400m_barker_db;
+  * amount needed for loading firmware, where us dev_start/stop setup
+  * the rest needed to do full data/control traffic.
+  *
+- * @bus_tx_block_size: [fill] SDIO imposes a 256 block size, USB 16,
+- *     so we have a tx_blk_size variable that the bus layer sets to
+- *     tell the engine how much of that we need.
++ * @bus_tx_block_size: [fill] USB imposes a 16 block size, but other
++ *     busses will differ.  So we have a tx_blk_size variable that the
++ *     bus layer sets to tell the engine how much of that we need.
+  *
+  * @bus_tx_room_min: [fill] Minimum room required while allocating
+- *     TX queue's buffer space for message header. SDIO requires
+- *     224 bytes and USB 16 bytes. Refer bus specific driver code
+- *     for details.
++ *     TX queue's buffer space for message header. USB requires
++ *     16 bytes. Refer to bus specific driver code for details.
+  *
+  * @bus_pl_size_max: [fill] Maximum payload size.
+  *
+diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+deleted file mode 100644
+index c519987..0000000
+--- a/drivers/net/wimax/i2400m/sdio-debug-levels.h
++++ /dev/null
+@@ -1,22 +0,0 @@
+-/*
+- * debug levels control file for the i2400m module's
+- */
+-#ifndef __debug_levels__h__
+-#define __debug_levels__h__
+-
+-/* Maximum compile and run time debug level for all submodules */
+-#define D_MODULENAME i2400m_sdio
+-#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
+-
+-#include <linux/wimax/debug.h>
+-
+-/* List of all the enabled modules */
+-enum d_module {
+-	D_SUBMODULE_DECLARE(main),
+-	D_SUBMODULE_DECLARE(tx),
+-	D_SUBMODULE_DECLARE(rx),
+-	D_SUBMODULE_DECLARE(fw)
+-};
+-
+-
+-#endif /* #ifndef __debug_levels__h__ */
+diff --git a/drivers/net/wimax/i2400m/sdio-fw.c b/drivers/net/wimax/i2400m/sdio-fw.c
+deleted file mode 100644
+index 8e02541..0000000
+--- a/drivers/net/wimax/i2400m/sdio-fw.c
++++ /dev/null
+@@ -1,210 +0,0 @@
+-/*
+- * Intel Wireless WiMAX Connection 2400m
+- * Firmware uploader's SDIO specifics
+- *
+- *
+- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *
+- *   * Redistributions of source code must retain the above copyright
+- *     notice, this list of conditions and the following disclaimer.
+- *   * Redistributions in binary form must reproduce the above copyright
+- *     notice, this list of conditions and the following disclaimer in
+- *     the documentation and/or other materials provided with the
+- *     distribution.
+- *   * Neither the name of Intel Corporation nor the names of its
+- *     contributors may be used to endorse or promote products derived
+- *     from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- *
+- *
+- * Intel Corporation <linux-wimax@intel.com>
+- * Yanir Lubetkin <yanirx.lubetkin@intel.com>
+- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+- *  - Initial implementation
+- *
+- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+- *  - Bus generic/specific split for USB
+- *
+- * Dirk Brandewie <dirk.j.brandewie@intel.com>
+- *  - Initial implementation for SDIO
+- *
+- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+- *  - SDIO rehash for changes in the bus-driver model
+- *
+- * Dirk Brandewie <dirk.j.brandewie@intel.com>
+- *  - Make it IRQ based, not polling
+- *
+- * THE PROCEDURE
+- *
+- * See fw.c for the generic description of this procedure.
+- *
+- * This file implements only the SDIO specifics. It boils down to how
+- * to send a command and waiting for an acknowledgement from the
+- * device.
+- *
+- * All this code is sequential -- all i2400ms_bus_bm_*() functions are
+- * executed in the same thread, except i2400ms_bm_irq() [on its own by
+- * the SDIO driver]. This makes it possible to avoid locking.
+- *
+- * COMMAND EXECUTION
+- *
+- * The generic firmware upload code will call i2400m_bus_bm_cmd_send()
+- * to send commands.
+- *
+- * The SDIO devices expects things in 256 byte blocks, so it will pad
+- * it, compute the checksum (if needed) and pass it to SDIO.
+- *
+- * ACK RECEPTION
+- *
+- * This works in IRQ mode -- the fw loader says when to wait for data
+- * and for that it calls i2400ms_bus_bm_wait_for_ack().
+- *
+- * This checks if there is any data available (RX size > 0); if not,
+- * waits for the IRQ handler to notify about it. Once there is data,
+- * it is read and passed to the caller. Doing it this way we don't
+- * need much coordination/locking, and it makes it much more difficult
+- * for an interrupt to be lost and the wait_for_ack() function getting
+- * stuck even when data is pending.
+- */
+-#include <linux/mmc/sdio_func.h>
+-#include "i2400m-sdio.h"
+-
+-
+-#define D_SUBMODULE fw
+-#include "sdio-debug-levels.h"
+-
+-
+-/*
+- * Send a boot-mode command to the SDIO function
+- *
+- * We use a bounce buffer (i2400m->bm_cmd_buf) because we need to
+- * touch the header if the RAW flag is not set.
+- *
+- * @flags: pass thru from i2400m_bm_cmd()
+- * @return: cmd_size if ok, < 0 errno code on error.
+- *
+- * Note the command is padded to the SDIO block size for the device.
+- */
+-ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *i2400m,
+-				const struct i2400m_bootrom_header *_cmd,
+-				size_t cmd_size, int flags)
+-{
+-	ssize_t result;
+-	struct device *dev = i2400m_dev(i2400m);
+-	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
+-	struct i2400m_bootrom_header *cmd;
+-	/* SDIO restriction */
+-	size_t cmd_size_a = ALIGN(cmd_size, I2400MS_BLK_SIZE);
+-
+-	d_fnstart(5, dev, "(i2400m %p cmd %p size %zu)\n",
+-		  i2400m, _cmd, cmd_size);
+-	result = -E2BIG;
+-	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
+-		goto error_too_big;
+-
+-	if (_cmd != i2400m->bm_cmd_buf)
+-		memmove(i2400m->bm_cmd_buf, _cmd, cmd_size);
+-	cmd = i2400m->bm_cmd_buf;
+-	if (cmd_size_a > cmd_size)			/* Zero pad space */
+-		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
+-	if ((flags & I2400M_BM_CMD_RAW) == 0) {
+-		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
+-			dev_warn(dev, "SW BUG: response_required == 0\n");
+-		i2400m_bm_cmd_prepare(cmd);
+-	}
+-	d_printf(4, dev, "BM cmd %d: %zu bytes (%zu padded)\n",
+-		 opcode, cmd_size, cmd_size_a);
+-	d_dump(5, dev, cmd, cmd_size);
+-
+-	sdio_claim_host(i2400ms->func);			/* Send & check */
+-	result = sdio_memcpy_toio(i2400ms->func, I2400MS_DATA_ADDR,
+-				  i2400m->bm_cmd_buf, cmd_size_a);
+-	sdio_release_host(i2400ms->func);
+-	if (result < 0) {
+-		dev_err(dev, "BM cmd %d: cannot send: %ld\n",
+-			opcode, (long) result);
+-		goto error_cmd_send;
+-	}
+-	result = cmd_size;
+-error_cmd_send:
+-error_too_big:
+-	d_fnend(5, dev, "(i2400m %p cmd %p size %zu) = %d\n",
+-		i2400m, _cmd, cmd_size, (int) result);
+-	return result;
+-}
+-
+-
+-/*
+- * Read an ack from the device's boot-mode
+- *
+- * @i2400m:
+- * @_ack: pointer to where to store the read data
+- * @ack_size: how many bytes we should read
+- *
+- * Returns: < 0 errno code on error; otherwise, amount of received bytes.
+- *
+- * The ACK for a BM command is always at least sizeof(*ack) bytes, so
+- * check for that. We don't need to check for device reboots
+- *
+- */
+-ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *i2400m,
+-				    struct i2400m_bootrom_header *ack,
+-				    size_t ack_size)
+-{
+-	ssize_t result;
+-	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-	int size;
+-
+-	BUG_ON(sizeof(*ack) > ack_size);
+-
+-	d_fnstart(5, dev, "(i2400m %p ack %p size %zu)\n",
+-		  i2400m, ack, ack_size);
+-
+-	result = wait_event_timeout(i2400ms->bm_wfa_wq,
+-				    i2400ms->bm_ack_size != -EINPROGRESS,
+-				    2 * HZ);
+-	if (result == 0) {
+-		result = -ETIMEDOUT;
+-		dev_err(dev, "BM: error waiting for an ack\n");
+-		goto error_timeout;
+-	}
+-
+-	spin_lock(&i2400m->rx_lock);
+-	result = i2400ms->bm_ack_size;
+-	BUG_ON(result == -EINPROGRESS);
+-	if (result < 0)        /* so we exit when rx_release() is called */
+-		dev_err(dev, "BM: %s failed: %zd\n", __func__, result);
+-	else {
+-		size = min(ack_size, i2400ms->bm_ack_size);
+-		memcpy(ack, i2400m->bm_ack_buf, size);
+-	}
+-	/*
+-	 * Remember always to clear the bm_ack_size to -EINPROGRESS
+-	 * after the RX data is processed
+-	 */
+-	i2400ms->bm_ack_size = -EINPROGRESS;
+-	spin_unlock(&i2400m->rx_lock);
+-
+-error_timeout:
+-	d_fnend(5, dev, "(i2400m %p ack %p size %zu) = %zd\n",
+-		i2400m, ack, ack_size, result);
+-	return result;
+-}
+diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
+deleted file mode 100644
+index fb6396d..0000000
+--- a/drivers/net/wimax/i2400m/sdio-rx.c
++++ /dev/null
+@@ -1,301 +0,0 @@
+-/*
+- * Intel Wireless WiMAX Connection 2400m
+- * SDIO RX handling
+- *
+- *
+- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *
+- *   * Redistributions of source code must retain the above copyright
+- *     notice, this list of conditions and the following disclaimer.
+- *   * Redistributions in binary form must reproduce the above copyright
+- *     notice, this list of conditions and the following disclaimer in
+- *     the documentation and/or other materials provided with the
+- *     distribution.
+- *   * Neither the name of Intel Corporation nor the names of its
+- *     contributors may be used to endorse or promote products derived
+- *     from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- *
+- *
+- * Intel Corporation <linux-wimax@intel.com>
+- * Dirk Brandewie <dirk.j.brandewie@intel.com>
+- *  - Initial implementation
+- *
+- *
+- * This handles the RX path on SDIO.
+- *
+- * The SDIO bus driver calls the "irq" routine when data is available.
+- * This is not a traditional interrupt routine since the SDIO bus
+- * driver calls us from its irq thread context.  Because of this
+- * sleeping in the SDIO RX IRQ routine is okay.
+- *
+- * From there on, we obtain the size of the data that is available,
+- * allocate an skb, copy it and then pass it to the generic driver's
+- * RX routine [i2400m_rx()].
+- *
+- * ROADMAP
+- *
+- * i2400ms_irq()
+- *   i2400ms_rx()
+- *     __i2400ms_rx_get_size()
+- *     i2400m_is_boot_barker()
+- *     i2400m_rx()
+- *
+- * i2400ms_rx_setup()
+- *
+- * i2400ms_rx_release()
+- */
+-#include <linux/workqueue.h>
+-#include <linux/wait.h>
+-#include <linux/skbuff.h>
+-#include <linux/mmc/sdio.h>
+-#include <linux/mmc/sdio_func.h>
+-#include <linux/slab.h>
+-#include "i2400m-sdio.h"
+-
+-#define D_SUBMODULE rx
+-#include "sdio-debug-levels.h"
+-
+-static const __le32 i2400m_ACK_BARKER[4] = {
+-	__constant_cpu_to_le32(I2400M_ACK_BARKER),
+-	__constant_cpu_to_le32(I2400M_ACK_BARKER),
+-	__constant_cpu_to_le32(I2400M_ACK_BARKER),
+-	__constant_cpu_to_le32(I2400M_ACK_BARKER)
+-};
+-
+-
+-/*
+- * Read and return the amount of bytes available for RX
+- *
+- * The RX size has to be read like this: byte reads of three
+- * sequential locations; then glue'em together.
+- *
+- * sdio_readl() doesn't work.
+- */
+-static ssize_t __i2400ms_rx_get_size(struct i2400ms *i2400ms)
+-{
+-	int ret, cnt, val;
+-	ssize_t rx_size;
+-	unsigned xfer_size_addr;
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &i2400ms->func->dev;
+-
+-	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
+-	xfer_size_addr = I2400MS_INTR_GET_SIZE_ADDR;
+-	rx_size = 0;
+-	for (cnt = 0; cnt < 3; cnt++) {
+-		val = sdio_readb(func, xfer_size_addr + cnt, &ret);
+-		if (ret < 0) {
+-			dev_err(dev, "RX: Can't read byte %d of RX size from "
+-				"0x%08x: %d\n", cnt, xfer_size_addr + cnt, ret);
+-			rx_size = ret;
+-			goto error_read;
+-		}
+-		rx_size = rx_size << 8 | (val & 0xff);
+-	}
+-	d_printf(6, dev, "RX: rx_size is %ld\n", (long) rx_size);
+-error_read:
+-	d_fnend(7, dev, "(i2400ms %p) = %ld\n", i2400ms, (long) rx_size);
+-	return rx_size;
+-}
+-
+-
+-/*
+- * Read data from the device (when in normal)
+- *
+- * Allocate an SKB of the right size, read the data in and then
+- * deliver it to the generic layer.
+- *
+- * We also check for a reboot barker. That means the device died and
+- * we have to reboot it.
+- */
+-static
+-void i2400ms_rx(struct i2400ms *i2400ms)
+-{
+-	int ret;
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-	struct sk_buff *skb;
+-	ssize_t rx_size;
+-
+-	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
+-	rx_size = __i2400ms_rx_get_size(i2400ms);
+-	if (rx_size < 0) {
+-		ret = rx_size;
+-		goto error_get_size;
+-	}
+-	/*
+-	 * Hardware quirk: make sure to clear the INTR status register
+-	 * AFTER getting the data transfer size.
+-	 */
+-	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
+-
+-	ret = -ENOMEM;
+-	skb = alloc_skb(rx_size, GFP_ATOMIC);
+-	if (NULL == skb) {
+-		dev_err(dev, "RX: unable to alloc skb\n");
+-		goto error_alloc_skb;
+-	}
+-	ret = sdio_memcpy_fromio(func, skb->data,
+-				 I2400MS_DATA_ADDR, rx_size);
+-	if (ret < 0) {
+-		dev_err(dev, "RX: SDIO data read failed: %d\n", ret);
+-		goto error_memcpy_fromio;
+-	}
+-
+-	rmb();	/* make sure we get boot_mode from dev_reset_handle */
+-	if (unlikely(i2400m->boot_mode == 1)) {
+-		spin_lock(&i2400m->rx_lock);
+-		i2400ms->bm_ack_size = rx_size;
+-		spin_unlock(&i2400m->rx_lock);
+-		memcpy(i2400m->bm_ack_buf, skb->data, rx_size);
+-		wake_up(&i2400ms->bm_wfa_wq);
+-		d_printf(5, dev, "RX: SDIO boot mode message\n");
+-		kfree_skb(skb);
+-		goto out;
+-	}
+-	ret = -EIO;
+-	if (unlikely(rx_size < sizeof(__le32))) {
+-		dev_err(dev, "HW BUG? only %zu bytes received\n", rx_size);
+-		goto error_bad_size;
+-	}
+-	if (likely(i2400m_is_d2h_barker(skb->data))) {
+-		skb_put(skb, rx_size);
+-		i2400m_rx(i2400m, skb);
+-	} else if (unlikely(i2400m_is_boot_barker(i2400m,
+-						  skb->data, rx_size))) {
+-		ret = i2400m_dev_reset_handle(i2400m, "device rebooted");
+-		dev_err(dev, "RX: SDIO reboot barker\n");
+-		kfree_skb(skb);
+-	} else {
+-		i2400m_unknown_barker(i2400m, skb->data, rx_size);
+-		kfree_skb(skb);
+-	}
+-out:
+-	d_fnend(7, dev, "(i2400ms %p) = void\n", i2400ms);
+-	return;
+-
+-error_memcpy_fromio:
+-	kfree_skb(skb);
+-error_alloc_skb:
+-error_get_size:
+-error_bad_size:
+-	d_fnend(7, dev, "(i2400ms %p) = %d\n", i2400ms, ret);
+-}
+-
+-
+-/*
+- * Process an interrupt from the SDIO card
+- *
+- * FIXME: need to process other events that are not just ready-to-read
+- *
+- * Checks there is data ready and then proceeds to read it.
+- */
+-static
+-void i2400ms_irq(struct sdio_func *func)
+-{
+-	int ret;
+-	struct i2400ms *i2400ms = sdio_get_drvdata(func);
+-	struct device *dev = &func->dev;
+-	int val;
+-
+-	d_fnstart(6, dev, "(i2400ms %p)\n", i2400ms);
+-	val = sdio_readb(func, I2400MS_INTR_STATUS_ADDR, &ret);
+-	if (ret < 0) {
+-		dev_err(dev, "RX: Can't read interrupt status: %d\n", ret);
+-		goto error_no_irq;
+-	}
+-	if (!val) {
+-		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
+-		goto error_no_irq;
+-	}
+-	i2400ms_rx(i2400ms);
+-error_no_irq:
+-	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
+-}
+-
+-
+-/*
+- * Setup SDIO RX
+- *
+- * Hooks up the IRQ handler and then enables IRQs.
+- */
+-int i2400ms_rx_setup(struct i2400ms *i2400ms)
+-{
+-	int result;
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-
+-	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
+-
+-	init_waitqueue_head(&i2400ms->bm_wfa_wq);
+-	spin_lock(&i2400m->rx_lock);
+-	i2400ms->bm_wait_result = -EINPROGRESS;
+-	/*
+-	 * Before we are about to enable the RX interrupt, make sure
+-	 * bm_ack_size is cleared to -EINPROGRESS which indicates
+-	 * no RX interrupt happened yet or the previous interrupt
+-	 * has been handled, we are ready to take the new interrupt
+-	 */
+-	i2400ms->bm_ack_size = -EINPROGRESS;
+-	spin_unlock(&i2400m->rx_lock);
+-
+-	sdio_claim_host(func);
+-	result = sdio_claim_irq(func, i2400ms_irq);
+-	if (result < 0) {
+-		dev_err(dev, "Cannot claim IRQ: %d\n", result);
+-		goto error_irq_claim;
+-	}
+-	result = 0;
+-	sdio_writeb(func, 1, I2400MS_INTR_ENABLE_ADDR, &result);
+-	if (result < 0) {
+-		sdio_release_irq(func);
+-		dev_err(dev, "Failed to enable interrupts %d\n", result);
+-	}
+-error_irq_claim:
+-	sdio_release_host(func);
+-	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
+-	return result;
+-}
+-
+-
+-/*
+- * Tear down SDIO RX
+- *
+- * Disables IRQs in the device and removes the IRQ handler.
+- */
+-void i2400ms_rx_release(struct i2400ms *i2400ms)
+-{
+-	int result;
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-
+-	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
+-	spin_lock(&i2400m->rx_lock);
+-	i2400ms->bm_ack_size = -EINTR;
+-	spin_unlock(&i2400m->rx_lock);
+-	wake_up_all(&i2400ms->bm_wfa_wq);
+-	sdio_claim_host(func);
+-	sdio_writeb(func, 0, I2400MS_INTR_ENABLE_ADDR, &result);
+-	sdio_release_irq(func);
+-	sdio_release_host(func);
+-	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
+-}
+diff --git a/drivers/net/wimax/i2400m/sdio-tx.c b/drivers/net/wimax/i2400m/sdio-tx.c
+deleted file mode 100644
+index b53cd1c..0000000
+--- a/drivers/net/wimax/i2400m/sdio-tx.c
++++ /dev/null
+@@ -1,177 +0,0 @@
+-/*
+- * Intel Wireless WiMAX Connection 2400m
+- * SDIO TX transaction backends
+- *
+- *
+- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- *
+- *   * Redistributions of source code must retain the above copyright
+- *     notice, this list of conditions and the following disclaimer.
+- *   * Redistributions in binary form must reproduce the above copyright
+- *     notice, this list of conditions and the following disclaimer in
+- *     the documentation and/or other materials provided with the
+- *     distribution.
+- *   * Neither the name of Intel Corporation nor the names of its
+- *     contributors may be used to endorse or promote products derived
+- *     from this software without specific prior written permission.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- *
+- *
+- * Intel Corporation <linux-wimax@intel.com>
+- * Dirk Brandewie <dirk.j.brandewie@intel.com>
+- *  - Initial implementation
+- *
+- *
+- * Takes the TX messages in the i2400m's driver TX FIFO and sends them
+- * to the device until there are no more.
+- *
+- * If we fail sending the message, we just drop it. There isn't much
+- * we can do at this point. Most of the traffic is network, which has
+- * recovery methods for dropped packets.
+- *
+- * The SDIO functions are not atomic, so we can't run from the context
+- * where i2400m->bus_tx_kick() [i2400ms_bus_tx_kick()] is being called
+- * (some times atomic). Thus, the actual TX work is deferred to a
+- * workqueue.
+- *
+- * ROADMAP
+- *
+- * i2400ms_bus_tx_kick()
+- *   i2400ms_tx_submit()     [through workqueue]
+- *
+- * i2400m_tx_setup()
+- *
+- * i2400m_tx_release()
+- */
+-#include <linux/mmc/sdio_func.h>
+-#include "i2400m-sdio.h"
+-
+-#define D_SUBMODULE tx
+-#include "sdio-debug-levels.h"
+-
+-
+-/*
+- * Pull TX transations from the TX FIFO and send them to the device
+- * until there are no more.
+- */
+-static
+-void i2400ms_tx_submit(struct work_struct *ws)
+-{
+-	int result;
+-	struct i2400ms *i2400ms = container_of(ws, struct i2400ms, tx_worker);
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-	struct i2400m_msg_hdr *tx_msg;
+-	size_t tx_msg_size;
+-
+-	d_fnstart(4, dev, "(i2400ms %p, i2400m %p)\n", i2400ms, i2400ms);
+-
+-	while (NULL != (tx_msg = i2400m_tx_msg_get(i2400m, &tx_msg_size))) {
+-		d_printf(2, dev, "TX: submitting %zu bytes\n", tx_msg_size);
+-		d_dump(5, dev, tx_msg, tx_msg_size);
+-
+-		sdio_claim_host(func);
+-		result = sdio_memcpy_toio(func, 0, tx_msg, tx_msg_size);
+-		sdio_release_host(func);
+-
+-		i2400m_tx_msg_sent(i2400m);
+-
+-		if (result < 0) {
+-			dev_err(dev, "TX: cannot submit TX; tx_msg @%zu %zu B:"
+-				" %d\n", (void *) tx_msg - i2400m->tx_buf,
+-				tx_msg_size, result);
+-		}
+-
+-		if (result == -ETIMEDOUT) {
+-			i2400m_error_recovery(i2400m);
+-			break;
+-		}
+-		d_printf(2, dev, "TX: %zub submitted\n", tx_msg_size);
+-	}
+-
+-	d_fnend(4, dev, "(i2400ms %p) = void\n", i2400ms);
+-}
+-
+-
+-/*
+- * The generic driver notifies us that there is data ready for TX
+- *
+- * Schedule a run of i2400ms_tx_submit() to handle it.
+- */
+-void i2400ms_bus_tx_kick(struct i2400m *i2400m)
+-{
+-	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	struct device *dev = &i2400ms->func->dev;
+-	unsigned long flags;
+-
+-	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
+-
+-	/* schedule tx work, this is because tx may block, therefore
+-	 * it has to run in a thread context.
+-	 */
+-	spin_lock_irqsave(&i2400m->tx_lock, flags);
+-	if (i2400ms->tx_workqueue != NULL)
+-		queue_work(i2400ms->tx_workqueue, &i2400ms->tx_worker);
+-	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
+-
+-	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
+-}
+-
+-int i2400ms_tx_setup(struct i2400ms *i2400ms)
+-{
+-	int result;
+-	struct device *dev = &i2400ms->func->dev;
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-	struct workqueue_struct *tx_workqueue;
+-	unsigned long flags;
+-
+-	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
+-
+-	INIT_WORK(&i2400ms->tx_worker, i2400ms_tx_submit);
+-	snprintf(i2400ms->tx_wq_name, sizeof(i2400ms->tx_wq_name),
+-		 "%s-tx", i2400m->wimax_dev.name);
+-	tx_workqueue =
+-		create_singlethread_workqueue(i2400ms->tx_wq_name);
+-	if (tx_workqueue == NULL) {
+-		dev_err(dev, "TX: failed to create workqueue\n");
+-		result = -ENOMEM;
+-	} else
+-		result = 0;
+-	spin_lock_irqsave(&i2400m->tx_lock, flags);
+-	i2400ms->tx_workqueue = tx_workqueue;
+-	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
+-	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
+-	return result;
+-}
+-
+-void i2400ms_tx_release(struct i2400ms *i2400ms)
+-{
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-	struct workqueue_struct *tx_workqueue;
+-	unsigned long flags;
+-
+-	tx_workqueue = i2400ms->tx_workqueue;
+-
+-	spin_lock_irqsave(&i2400m->tx_lock, flags);
+-	i2400ms->tx_workqueue = NULL;
+-	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
+-
+-	if (tx_workqueue)
+-		destroy_workqueue(tx_workqueue);
+-}
+diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
+deleted file mode 100644
+index 21a9edd..0000000
+--- a/drivers/net/wimax/i2400m/sdio.c
++++ /dev/null
+@@ -1,602 +0,0 @@
+-/*
+- * Intel Wireless WiMAX Connection 2400m
+- * Linux driver model glue for the SDIO device, reset & fw upload
+- *
+- *
+- * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
+- * Dirk Brandewie <dirk.j.brandewie@intel.com>
+- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+- * Yanir Lubetkin <yanirx.lubetkin@intel.com>
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * See i2400m-sdio.h for a general description of this driver.
+- *
+- * This file implements driver model glue, and hook ups for the
+- * generic driver to implement the bus-specific functions (device
+- * communication setup/tear down, firmware upload and resetting).
+- *
+- * ROADMAP
+- *
+- * i2400m_probe()
+- *   alloc_netdev()
+- *     i2400ms_netdev_setup()
+- *       i2400ms_init()
+- *       i2400m_netdev_setup()
+- *   i2400ms_enable_function()
+- *   i2400m_setup()
+- *
+- * i2400m_remove()
+- *     i2400m_release()
+- *     free_netdev(net_dev)
+- *
+- * i2400ms_bus_reset()            Called by i2400m_reset
+- *   __i2400ms_reset()
+- *     __i2400ms_send_barker()
+- */
+-
+-#include <linux/slab.h>
+-#include <linux/debugfs.h>
+-#include <linux/mmc/sdio_ids.h>
+-#include <linux/mmc/sdio.h>
+-#include <linux/mmc/sdio_func.h>
+-#include "i2400m-sdio.h"
+-#include <linux/wimax/i2400m.h>
+-#include <linux/module.h>
+-
+-#define D_SUBMODULE main
+-#include "sdio-debug-levels.h"
+-
+-/* IOE WiMAX function timeout in seconds */
+-static int ioe_timeout = 2;
+-module_param(ioe_timeout, int, 0);
+-
+-static char i2400ms_debug_params[128];
+-module_param_string(debug, i2400ms_debug_params, sizeof(i2400ms_debug_params),
+-		    0644);
+-MODULE_PARM_DESC(debug,
+-		 "String of space-separated NAME:VALUE pairs, where NAMEs "
+-		 "are the different debug submodules and VALUE are the "
+-		 "initial debug value to set.");
+-
+-/* Our firmware file name list */
+-static const char *i2400ms_bus_fw_names[] = {
+-#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-1.3.sbcf"
+-	I2400MS_FW_FILE_NAME,
+-	NULL
+-};
+-
+-
+-static const struct i2400m_poke_table i2400ms_pokes[] = {
+-	I2400M_FW_POKE(0x6BE260, 0x00000088),
+-	I2400M_FW_POKE(0x080550, 0x00000005),
+-	I2400M_FW_POKE(0xAE0000, 0x00000000),
+-	I2400M_FW_POKE(0x000000, 0x00000000), /* MUST be 0 terminated or bad
+-					       * things will happen */
+-};
+-
+-/*
+- * Enable the SDIO function
+- *
+- * Tries to enable the SDIO function; might fail if it is still not
+- * ready (in some hardware, the SDIO WiMAX function is only enabled
+- * when we ask it to explicitly doing). Tries until a timeout is
+- * reached.
+- *
+- * The @maxtries argument indicates how many times (at most) it should
+- * be tried to enable the function. 0 means forever. This acts along
+- * with the timeout (ie: it'll stop trying as soon as the maximum
+- * number of tries is reached _or_ as soon as the timeout is reached).
+- *
+- * The reverse of this is...sdio_disable_function()
+- *
+- * Returns: 0 if the SDIO function was enabled, < 0 errno code on
+- *     error (-ENODEV when it was unable to enable the function).
+- */
+-static
+-int i2400ms_enable_function(struct i2400ms *i2400ms, unsigned maxtries)
+-{
+-	struct sdio_func *func = i2400ms->func;
+-	u64 timeout;
+-	int err;
+-	struct device *dev = &func->dev;
+-	unsigned tries = 0;
+-
+-	d_fnstart(3, dev, "(func %p)\n", func);
+-	/* Setup timeout (FIXME: This needs to read the CIS table to
+-	 * get a real timeout) and then wait for the device to signal
+-	 * it is ready */
+-	timeout = get_jiffies_64() + ioe_timeout * HZ;
+-	err = -ENODEV;
+-	while (err != 0 && time_before64(get_jiffies_64(), timeout)) {
+-		sdio_claim_host(func);
+-		/*
+-		 * There is a sillicon bug on the IWMC3200, where the
+-		 * IOE timeout will cause problems on Moorestown
+-		 * platforms (system hang). We explicitly overwrite
+-		 * func->enable_timeout here to work around the issue.
+-		 */
+-		if (i2400ms->iwmc3200)
+-			func->enable_timeout = IWMC3200_IOR_TIMEOUT;
+-		err = sdio_enable_func(func);
+-		if (0 == err) {
+-			sdio_release_host(func);
+-			d_printf(2, dev, "SDIO function enabled\n");
+-			goto function_enabled;
+-		}
+-		d_printf(2, dev, "SDIO function failed to enable: %d\n", err);
+-		sdio_release_host(func);
+-		if (maxtries > 0 && ++tries >= maxtries) {
+-			err = -ETIME;
+-			break;
+-		}
+-		msleep(I2400MS_INIT_SLEEP_INTERVAL);
+-	}
+-	/* If timed out, device is not there yet -- get -ENODEV so
+-	 * the device driver core will retry later on. */
+-	if (err == -ETIME) {
+-		dev_err(dev, "Can't enable WiMAX function; "
+-			" has the function been enabled?\n");
+-		err = -ENODEV;
+-	}
+-function_enabled:
+-	d_fnend(3, dev, "(func %p) = %d\n", func, err);
+-	return err;
+-}
+-
+-
+-/*
+- * Setup minimal device communication infrastructure needed to at
+- * least be able to update the firmware.
+- *
+- * Note the ugly trick: if we are in the probe path
+- * (i2400ms->debugfs_dentry == NULL), we only retry function
+- * enablement one, to avoid racing with the iwmc3200 top controller.
+- */
+-static
+-int i2400ms_bus_setup(struct i2400m *i2400m)
+-{
+-	int result;
+-	struct i2400ms *i2400ms =
+-		container_of(i2400m, struct i2400ms, i2400m);
+-	struct device *dev = i2400m_dev(i2400m);
+-	struct sdio_func *func = i2400ms->func;
+-	int retries;
+-
+-	sdio_claim_host(func);
+-	result = sdio_set_block_size(func, I2400MS_BLK_SIZE);
+-	sdio_release_host(func);
+-	if (result < 0) {
+-		dev_err(dev, "Failed to set block size: %d\n", result);
+-		goto error_set_blk_size;
+-	}
+-
+-	if (i2400ms->iwmc3200 && i2400ms->debugfs_dentry == NULL)
+-		retries = 1;
 -	else
-+		tailroom = 128; /* reserve some tailroom for IP/TCP headers */
-+	} else {
- 		buf_size = IPOIB_UD_BUF_SIZE(priv->max_ib_mtu);
-+		tailroom = 0;
-+	}
- 
--	skb = dev_alloc_skb(buf_size + 4);
-+	skb = dev_alloc_skb(buf_size + tailroom + 4);
- 	if (unlikely(!skb))
- 		return NULL;
- 
+-		retries = 0;
+-	result = i2400ms_enable_function(i2400ms, retries);
+-	if (result < 0) {
+-		dev_err(dev, "Cannot enable SDIO function: %d\n", result);
+-		goto error_func_enable;
+-	}
+-
+-	result = i2400ms_tx_setup(i2400ms);
+-	if (result < 0)
+-		goto error_tx_setup;
+-	result = i2400ms_rx_setup(i2400ms);
+-	if (result < 0)
+-		goto error_rx_setup;
+-	return 0;
+-
+-error_rx_setup:
+-	i2400ms_tx_release(i2400ms);
+-error_tx_setup:
+-	sdio_claim_host(func);
+-	sdio_disable_func(func);
+-	sdio_release_host(func);
+-error_func_enable:
+-error_set_blk_size:
+-	return result;
+-}
+-
+-
+-/*
+- * Tear down minimal device communication infrastructure needed to at
+- * least be able to update the firmware.
+- */
+-static
+-void i2400ms_bus_release(struct i2400m *i2400m)
+-{
+-	struct i2400ms *i2400ms =
+-		container_of(i2400m, struct i2400ms, i2400m);
+-	struct sdio_func *func = i2400ms->func;
+-
+-	i2400ms_rx_release(i2400ms);
+-	i2400ms_tx_release(i2400ms);
+-	sdio_claim_host(func);
+-	sdio_disable_func(func);
+-	sdio_release_host(func);
+-}
+-
+-
+-/*
+- * Setup driver resources needed to communicate with the device
+- *
+- * The fw needs some time to settle, and it was just uploaded,
+- * so give it a break first. I'd prefer to just wait for the device to
+- * send something, but seems the poking we do to enable SDIO stuff
+- * interferes with it, so just give it a break before starting...
+- */
+-static
+-int i2400ms_bus_dev_start(struct i2400m *i2400m)
+-{
+-	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-
+-	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
+-	msleep(200);
+-	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, 0);
+-	return 0;
+-}
+-
+-
+-/*
+- * Sends a barker buffer to the device
+- *
+- * This helper will allocate a kmalloced buffer and use it to transmit
+- * (then free it). Reason for this is that the SDIO host controller
+- * expects alignment (unknown exactly which) which the stack won't
+- * really provide and certain arches/host-controller combinations
+- * cannot use stack/vmalloc/text areas for DMA transfers.
+- */
+-static
+-int __i2400ms_send_barker(struct i2400ms *i2400ms,
+-			  const __le32 *barker, size_t barker_size)
+-{
+-	int  ret;
+-	struct sdio_func *func = i2400ms->func;
+-	struct device *dev = &func->dev;
+-	void *buffer;
+-
+-	ret = -ENOMEM;
+-	buffer = kmalloc(I2400MS_BLK_SIZE, GFP_KERNEL);
+-	if (buffer == NULL)
+-		goto error_kzalloc;
+-
+-	memcpy(buffer, barker, barker_size);
+-	sdio_claim_host(func);
+-	ret = sdio_memcpy_toio(func, 0, buffer, I2400MS_BLK_SIZE);
+-	sdio_release_host(func);
+-
+-	if (ret < 0)
+-		d_printf(0, dev, "E: barker error: %d\n", ret);
+-
+-	kfree(buffer);
+-error_kzalloc:
+-	return ret;
+-}
+-
+-
+-/*
+- * Reset a device at different levels (warm, cold or bus)
+- *
+- * @i2400ms: device descriptor
+- * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
+- *
+- * FIXME: not tested -- need to confirm expected effects
+- *
+- * Warm and cold resets get an SDIO reset if they fail (unimplemented)
+- *
+- * Warm reset:
+- *
+- * The device will be fully reset internally, but won't be
+- * disconnected from the bus (so no reenumeration will
+- * happen). Firmware upload will be necessary.
+- *
+- * The device will send a reboot barker that will trigger the driver
+- * to reinitialize the state via __i2400m_dev_reset_handle.
+- *
+- *
+- * Cold and bus reset:
+- *
+- * The device will be fully reset internally, disconnected from the
+- * bus an a reenumeration will happen. Firmware upload will be
+- * necessary. Thus, we don't do any locking or struct
+- * reinitialization, as we are going to be fully disconnected and
+- * reenumerated.
+- *
+- * Note we need to return -ENODEV if a warm reset was requested and we
+- * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
+- * and wimax_dev->op_reset.
+- *
+- * WARNING: no driver state saved/fixed
+- */
+-static
+-int i2400ms_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
+-{
+-	int result = 0;
+-	struct i2400ms *i2400ms =
+-		container_of(i2400m, struct i2400ms, i2400m);
+-	struct device *dev = i2400m_dev(i2400m);
+-	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
+-		cpu_to_le32(I2400M_WARM_RESET_BARKER),
+-		cpu_to_le32(I2400M_WARM_RESET_BARKER),
+-		cpu_to_le32(I2400M_WARM_RESET_BARKER),
+-		cpu_to_le32(I2400M_WARM_RESET_BARKER),
+-	};
+-	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
+-		cpu_to_le32(I2400M_COLD_RESET_BARKER),
+-		cpu_to_le32(I2400M_COLD_RESET_BARKER),
+-		cpu_to_le32(I2400M_COLD_RESET_BARKER),
+-		cpu_to_le32(I2400M_COLD_RESET_BARKER),
+-	};
+-
+-	if (rt == I2400M_RT_WARM)
+-		result = __i2400ms_send_barker(i2400ms, i2400m_WARM_BOOT_BARKER,
+-					       sizeof(i2400m_WARM_BOOT_BARKER));
+-	else if (rt == I2400M_RT_COLD)
+-		result = __i2400ms_send_barker(i2400ms, i2400m_COLD_BOOT_BARKER,
+-					       sizeof(i2400m_COLD_BOOT_BARKER));
+-	else if (rt == I2400M_RT_BUS) {
+-do_bus_reset:
+-
+-		i2400ms_bus_release(i2400m);
+-
+-		/* Wait for the device to settle */
+-		msleep(40);
+-
+-		result =  i2400ms_bus_setup(i2400m);
+-	} else
+-		BUG();
+-	if (result < 0 && rt != I2400M_RT_BUS) {
+-		dev_err(dev, "%s reset failed (%d); trying SDIO reset\n",
+-			rt == I2400M_RT_WARM ? "warm" : "cold", result);
+-		rt = I2400M_RT_BUS;
+-		goto do_bus_reset;
+-	}
+-	return result;
+-}
+-
+-
+-static
+-void i2400ms_netdev_setup(struct net_device *net_dev)
+-{
+-	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
+-	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	i2400ms_init(i2400ms);
+-	i2400m_netdev_setup(net_dev);
+-}
+-
+-
+-/*
+- * Debug levels control; see debug.h
+- */
+-struct d_level D_LEVEL[] = {
+-	D_SUBMODULE_DEFINE(main),
+-	D_SUBMODULE_DEFINE(tx),
+-	D_SUBMODULE_DEFINE(rx),
+-	D_SUBMODULE_DEFINE(fw),
+-};
+-size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
+-
+-
+-#define __debugfs_register(prefix, name, parent)			\
+-do {									\
+-	result = d_level_register_debugfs(prefix, name, parent);	\
+-	if (result < 0)							\
+-		goto error;						\
+-} while (0)
+-
+-
+-static
+-int i2400ms_debugfs_add(struct i2400ms *i2400ms)
+-{
+-	int result;
+-	struct dentry *dentry = i2400ms->i2400m.wimax_dev.debugfs_dentry;
+-
+-	dentry = debugfs_create_dir("i2400m-sdio", dentry);
+-	result = PTR_ERR(dentry);
+-	if (IS_ERR(dentry)) {
+-		if (result == -ENODEV)
+-			result = 0;	/* No debugfs support */
+-		goto error;
+-	}
+-	i2400ms->debugfs_dentry = dentry;
+-	__debugfs_register("dl_", main, dentry);
+-	__debugfs_register("dl_", tx, dentry);
+-	__debugfs_register("dl_", rx, dentry);
+-	__debugfs_register("dl_", fw, dentry);
+-
+-	return 0;
+-
+-error:
+-	debugfs_remove_recursive(i2400ms->debugfs_dentry);
+-	i2400ms->debugfs_dentry = NULL;
+-	return result;
+-}
+-
+-
+-static struct device_type i2400ms_type = {
+-	.name	= "wimax",
+-};
+-
+-/*
+- * Probe a i2400m interface and register it
+- *
+- * @func:    SDIO function
+- * @id:      SDIO device ID
+- * @returns: 0 if ok, < 0 errno code on error.
+- *
+- * Alloc a net device, initialize the bus-specific details and then
+- * calls the bus-generic initialization routine. That will register
+- * the wimax and netdev devices, upload the firmware [using
+- * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
+- * communication with the device and then will start to talk to it to
+- * finnish setting it up.
+- *
+- * Initialization is tricky; some instances of the hw are packed with
+- * others in a way that requires a third driver that enables the WiMAX
+- * function. In those cases, we can't enable the SDIO function and
+- * we'll return with -ENODEV. When the driver that enables the WiMAX
+- * function does its thing, it has to do a bus_rescan_devices() on the
+- * SDIO bus so this driver is called again to enumerate the WiMAX
+- * function.
+- */
+-static
+-int i2400ms_probe(struct sdio_func *func,
+-		  const struct sdio_device_id *id)
+-{
+-	int result;
+-	struct net_device *net_dev;
+-	struct device *dev = &func->dev;
+-	struct i2400m *i2400m;
+-	struct i2400ms *i2400ms;
+-
+-	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
+-	result = -ENOMEM;
+-	net_dev = alloc_netdev(sizeof(*i2400ms), "wmx%d",
+-			       i2400ms_netdev_setup);
+-	if (net_dev == NULL) {
+-		dev_err(dev, "no memory for network device instance\n");
+-		goto error_alloc_netdev;
+-	}
+-	SET_NETDEV_DEV(net_dev, dev);
+-	SET_NETDEV_DEVTYPE(net_dev, &i2400ms_type);
+-	i2400m = net_dev_to_i2400m(net_dev);
+-	i2400ms = container_of(i2400m, struct i2400ms, i2400m);
+-	i2400m->wimax_dev.net_dev = net_dev;
+-	i2400ms->func = func;
+-	sdio_set_drvdata(func, i2400ms);
+-
+-	i2400m->bus_tx_block_size = I2400MS_BLK_SIZE;
+-	/*
+-	 * Room required in the TX queue for SDIO message to accommodate
+-	 * a smallest payload while allocating header space is 224 bytes,
+-	 * which is the smallest message size(the block size 256 bytes)
+-	 * minus the smallest message header size(32 bytes).
+-	 */
+-	i2400m->bus_tx_room_min = I2400MS_BLK_SIZE - I2400M_PL_ALIGN * 2;
+-	i2400m->bus_pl_size_max = I2400MS_PL_SIZE_MAX;
+-	i2400m->bus_setup = i2400ms_bus_setup;
+-	i2400m->bus_dev_start = i2400ms_bus_dev_start;
+-	i2400m->bus_dev_stop = NULL;
+-	i2400m->bus_release = i2400ms_bus_release;
+-	i2400m->bus_tx_kick = i2400ms_bus_tx_kick;
+-	i2400m->bus_reset = i2400ms_bus_reset;
+-	/* The iwmc3200-wimax sometimes requires the driver to try
+-	 * hard when we paint it into a corner. */
+-	i2400m->bus_bm_retries = I2400M_SDIO_BOOT_RETRIES;
+-	i2400m->bus_bm_cmd_send = i2400ms_bus_bm_cmd_send;
+-	i2400m->bus_bm_wait_for_ack = i2400ms_bus_bm_wait_for_ack;
+-	i2400m->bus_fw_names = i2400ms_bus_fw_names;
+-	i2400m->bus_bm_mac_addr_impaired = 1;
+-	i2400m->bus_bm_pokes_table = &i2400ms_pokes[0];
+-
+-	switch (func->device) {
+-	case SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX:
+-	case SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX_2G5:
+-		i2400ms->iwmc3200 = 1;
+-		break;
+-	default:
+-		i2400ms->iwmc3200 = 0;
+-	}
+-
+-	result = i2400m_setup(i2400m, I2400M_BRI_NO_REBOOT);
+-	if (result < 0) {
+-		dev_err(dev, "cannot setup device: %d\n", result);
+-		goto error_setup;
+-	}
+-
+-	result = i2400ms_debugfs_add(i2400ms);
+-	if (result < 0) {
+-		dev_err(dev, "cannot create SDIO debugfs: %d\n",
+-			result);
+-		goto error_debugfs_add;
+-	}
+-	return 0;
+-
+-error_debugfs_add:
+-	i2400m_release(i2400m);
+-error_setup:
+-	sdio_set_drvdata(func, NULL);
+-	free_netdev(net_dev);
+-error_alloc_netdev:
+-	return result;
+-}
+-
+-
+-static
+-void i2400ms_remove(struct sdio_func *func)
+-{
+-	struct device *dev = &func->dev;
+-	struct i2400ms *i2400ms = sdio_get_drvdata(func);
+-	struct i2400m *i2400m = &i2400ms->i2400m;
+-	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
+-
+-	d_fnstart(3, dev, "SDIO func %p\n", func);
+-	debugfs_remove_recursive(i2400ms->debugfs_dentry);
+-	i2400ms->debugfs_dentry = NULL;
+-	i2400m_release(i2400m);
+-	sdio_set_drvdata(func, NULL);
+-	free_netdev(net_dev);
+-	d_fnend(3, dev, "SDIO func %p\n", func);
+-}
+-
+-static
+-const struct sdio_device_id i2400ms_sdio_ids[] = {
+-	/* Intel: i2400m WiMAX (iwmc3200) over SDIO */
+-	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL,
+-		      SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX) },
+-	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL,
+-		      SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX_2G5) },
+-	{ /* end: all zeroes */ },
+-};
+-MODULE_DEVICE_TABLE(sdio, i2400ms_sdio_ids);
+-
+-
+-static
+-struct sdio_driver i2400m_sdio_driver = {
+-	.name		= KBUILD_MODNAME,
+-	.probe		= i2400ms_probe,
+-	.remove		= i2400ms_remove,
+-	.id_table	= i2400ms_sdio_ids,
+-};
+-
+-
+-static
+-int __init i2400ms_driver_init(void)
+-{
+-	d_parse_params(D_LEVEL, D_LEVEL_SIZE, i2400ms_debug_params,
+-		       "i2400m_sdio.debug");
+-	return sdio_register_driver(&i2400m_sdio_driver);
+-}
+-module_init(i2400ms_driver_init);
+-
+-
+-static
+-void __exit i2400ms_driver_exit(void)
+-{
+-	sdio_unregister_driver(&i2400m_sdio_driver);
+-}
+-module_exit(i2400ms_driver_exit);
+-
+-
+-MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
+-MODULE_DESCRIPTION("Intel 2400M WiMAX networking for SDIO");
+-MODULE_LICENSE("GPL");
+-MODULE_FIRMWARE(I2400MS_FW_FILE_NAME);
+-- 
+1.7.10.2
