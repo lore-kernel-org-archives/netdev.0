@@ -1,53 +1,66 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH 11/16] netvm: Propagate page->pfmemalloc from
- skb_alloc_page to skb
-Date: Tue, 10 Jul 2012 12:12:42 +0100
-Message-ID: <20120710111242.GD14154@suse.de>
-References: <1340375443-22455-1-git-send-email-mgorman@suse.de>
- <1340375443-22455-12-git-send-email-mgorman@suse.de>
- <20120626201328.GI6509@breakpoint.cc>
- <20120627084348.GG8271@suse.de>
- <20120709191856.GD3515@breakpoint.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: getting warn once around skb_try_coalesce
+Date: Tue, 10 Jul 2012 13:14:08 +0200
+Message-ID: <1341918848.3265.4853.camel@edumazet-glaptop>
+References: <4FFBFBD2.6030004@mellanox.com>
+	 <1341915510.3265.4734.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>, Linux-Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Mike Christie <michaelc@cs.wisc.edu>,
-	Eric B Munson <emunson@mgebm.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120709191856.GD3515@breakpoint.cc>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Shlomo Pongratz <shlomop@mellanox.com>,
+	Erez Shitrit <erezsh@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:54796 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754720Ab2GJLOM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 07:14:12 -0400
+Received: by eeit10 with SMTP id t10so4633604eei.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 04:14:11 -0700 (PDT)
+In-Reply-To: <1341915510.3265.4734.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 09, 2012 at 09:18:56PM +0200, Sebastian Andrzej Siewior wrote:
+On Tue, 2012-07-10 at 12:18 +0200, Eric Dumazet wrote:
+> On Tue, 2012-07-10 at 12:54 +0300, Or Gerlitz wrote:
+> > Hi Dave, Eric,
+> > 
+> > Another trace that I see here with net-next is this one-time warning. I 
+> > get it always
+> > on the passive side of TCP, something that seems related to GRO, it 
+> > happens only with
+> > IPoIB, not with mlx4_en and igb (when igb get to work on net-next...)
+> > 
+> > The latest commit in this area is bad43ca8325f493dcaa0896c2f036276af059c7e
+> > "net: introduce skb_try_coalesce()" from Eric.
+> > 
+> > Or.
+> > 
+> > -----------[ cut here ]------------
+> > WARNING: at net/core/skbuff.c:3413 skb_try_coalesce+0x1f8/0x31d()
 > 
-> > I can update e1000 if you like but it's not critical
-> > to do so and in fact getting a bug reporting saying that network swap
-> > was slow on e1000 would be useful to me in its own way :)
-> No, leave as it, I was just curious.
-> One thing: Do you think it makes sense to you introduce
-> 	#define GFP_NET_RX     (GFP_ATOMIC | __GFP_MEMALLOC)
-> 
-> and use it within the receive path instead of GFP_ATOMIC?
+> This warning catch skb truesize offenders, most probably its a driver
+> issue.
 > 
 
-For now, I'd prefer to keep the __GFP_MEMALLOC flag at the different
-callsites because it forces people to think about what it means.  I fear
-that GFP_NET_RX may be too easy to misuse without thinking about what the
-consequences are.
+By the way, this driver allocates not enough tailroom in skbs, so IP/TCP
+stacks need to reallocate skb head to pull IP/TCP headers. Thats not
+efficient.
 
--- 
-Mel Gorman
-SUSE Labs
+I suggest using following patch :
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+index 5c1bc99..9939869 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+@@ -159,7 +159,7 @@ static struct sk_buff *ipoib_alloc_rx_skb(struct net_device *dev, int id)
+ 	u64 *mapping;
+ 
+ 	if (ipoib_ud_need_sg(priv->max_ib_mtu))
+-		buf_size = IPOIB_UD_HEAD_SIZE;
++		buf_size = IPOIB_UD_HEAD_SIZE + 128; /* reserve some tailroom for IP/TCP headers */
+ 	else
+ 		buf_size = IPOIB_UD_BUF_SIZE(priv->max_ib_mtu);
+ 
