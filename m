@@ -1,41 +1,29 @@
-From: Massimo Cetra <mcetra@navynet.it>
-Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic
- in br_nf_forward_finish
-Date: Tue, 10 Jul 2012 08:58:17 +0200
-Message-ID: <4FFBD289.7050909@navynet.it>
-References: <1341584394.4789.34.camel@chief-river-32> <4FFAA3CE.1090504@navynet.it> <CAF1ivSZBMWYc5iKxhX5d_ykkMD4LauFP9M10dBwfmqvpYj=pHg@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 6/6] r8169: support RTL8168G
+Date: Tue, 10 Jul 2012 08:50:10 +0200
+Message-ID: <20120710065010.GA30193@electric-eye.fr.zoreil.com>
+References: <c558386b836ee97762e12495101c6e373f20e69d.1341872752.git.romieu@fr.zoreil.com> <1341898590-1253-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>
-To: Lin Ming <mlin@ss.pku.edu.cn>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host180-6-static.238-77-b.business.telecomitalia.it ([77.238.6.180]:59641
-	"EHLO mailhub2.navynet.it" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751928Ab2GJG6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 02:58:48 -0400
-In-Reply-To: <CAF1ivSZBMWYc5iKxhX5d_ykkMD4LauFP9M10dBwfmqvpYj=pHg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wfg@linux.intel.com
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1341898590-1253-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/07/2012 14:00, Lin Ming wrote:
+Hayes Wang <hayeswang@realtek.com> :
+> fix incorrct argument in rtl_hw_init_8168g.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
->> i spent a couple of days trying to figure out how to reproduce but you were
->> quicker and smarter than me.
->
-> Could you also test it ? :-)
->
+Thanks Hayes.
 
-Of course.
+It's available with proper attribution and subject at:
 
-I have already installed a 3.5-rc and a 3.2.22 with this patch and, by 
-now, i see no problems.
+git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
 
-I'm only waiting a couple of days before reporting, to be sure the issue 
-is gone.
-
-Massimo
+-- 
+Ueimor
