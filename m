@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next patch v2] bnx2x: Add run-time CNIC support
-Date: Tue, 10 Jul 2012 06:06:16 -0700 (PDT)
-Message-ID: <20120710.060616.2081630953053267615.davem@davemloft.net>
-References: <1341923634.27035.6.camel@lb-tlvb-eilong.il.broadcom.com>
-	<20120710.053724.1002197670026212780.davem@davemloft.net>
-	<1341924089.27035.7.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH 4 0/4] Add ability to set defaultless network device MAC
+ addresses to deterministic computed locally administered values
+Date: Tue, 10 Jul 2012 09:08:49 -0400
+Message-ID: <1341925729.14828.17.camel@gandalf.stny.rr.com>
+References: <20120705024259.26317.16000.stgit@build.warmcat.com>
+	 <201207101437.54877.florian@openwrt.org> <4FFC2712.9020208@warmcat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: meravs@broadcom.com, netdev@vger.kernel.org, dmitry@broadcom.com
-To: eilong@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752880Ab2GJNGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 09:06:18 -0400
-In-Reply-To: <1341924089.27035.7.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Fainelli <florian@openwrt.org>,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	s-jan@ti.com, arnd@arndb.de, patches@linaro.org, tony@atomide.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "\"Andy Green" =?UTF-8?Q?=28=E6=9E=97=E5=AE=89=E5=BB=B8=29=22?=
+	<andy@warmcat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FFC2712.9020208@warmcat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Tue, 10 Jul 2012 15:41:29 +0300
+On Tue, 2012-07-10 at 20:58 +0800, "Andy Green (=E6=9E=97=E5=AE=89=E5=BB=
+=B8)" wrote:
+> On 10/07/12 20:37, the mail apparently from Florian Fainelli included=
+:
+>=20
 
-> OK. Since it blocks the ability to add SR-IOV support, is it acceptable
-> to submit it as constant enabled for PF and disabled for VF (SR-IOV)?
+> Why should Ubuntu, Fedora etc stink up their OSes with Panda-specific=
+=20
+> workarounds?  And Panda is not the only device with this issue.
 
-You're not describing to me why you guys are turning on features like
-the CNIC mode before you necessarily have any users of that feature.
+Actually I think you just answered your own question ;-)
 
-Why can't you turn CNIC off at the start, and if a CNIC user actually
-arrives and is activated, reset the entire chip and put it into CNIC
-mode?
+Anyway, I don't think an initrd solution is the best. Yeah, it's fine
+for a work around, but then I need to go and screw with the initrd if i=
+t
+doesn't have support for the board. If the network card already has a
+MAC address, why should the kernel give it another *random* one?
 
-And if CNIC being on is such a latency killer, why in the world
-haven't you done things more reasonably like that from the very
-beginning?
+This isn't a complex patch set, where the complexity should be put into
+userspace. And it makes it very convenient for people that just want th=
+e
+board to boot so they can test it. I'm not developing any SoC or BSP,
+I'm just using it to make sure my kernel changes can also be implemente=
+d
+for ARM.
 
-Why are you making it so that lower latency with your chips is only
-available to a group of users who are effectively statistically
-insignificant?
+-- Steve
