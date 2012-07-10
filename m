@@ -1,44 +1,37 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: [PATCH 01/11] lance: remove unnecessary setting of skb->dev
-Date: Mon,  9 Jul 2012 17:09:25 -0700
-Message-ID: <1341878975-10577-1-git-send-email-jdmason@kudzu.us>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:56424 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755148Ab2GJAJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 20:09:03 -0400
-Received: by pbbrp8 with SMTP id rp8so20018595pbb.19
-        for <netdev@vger.kernel.org>; Mon, 09 Jul 2012 17:09:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH 1/4] net: calxedaxgmac: fix net timeout recovery
+Date: Mon,  9 Jul 2012 19:16:07 -0500
+Message-ID: <1341879370-23385-2-git-send-email-robherring2@gmail.com>
+References: <1341879370-23385-1-git-send-email-robherring2@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Rob Herring <rob.herring@calxeda.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341879370-23385-1-git-send-email-robherring2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb->dev is being unnecessarily set during ring init.  It is already being set
-to the proper value when eth_type_trans is called on packet receive, and the
-skb->dev is not referenced anywhere else in the code.
+From: Rob Herring <rob.herring@calxeda.com>
 
-Signed-off-by: Jon Mason <jdmason@kudzu.us>
+Fix net tx watchdog timeout recovery. The descriptor ring was reset,
+but the DMA engine was not reset to the beginning of the ring.
+
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 ---
- drivers/net/ethernet/amd/lance.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/calxeda/xgmac.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/amd/lance.c b/drivers/net/ethernet/amd/lance.c
-index a6e2e84..5c72843 100644
---- a/drivers/net/ethernet/amd/lance.c
-+++ b/drivers/net/ethernet/amd/lance.c
-@@ -873,10 +873,9 @@ lance_init_ring(struct net_device *dev, gfp_t gfp)
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 11f667f..c4fd2e3 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -933,6 +933,7 @@ static void xgmac_tx_err(struct xgmac_priv *priv)
+ 	desc_init_tx_desc(priv->dma_tx, DMA_TX_RING_SZ);
+ 	priv->tx_tail = 0;
+ 	priv->tx_head = 0;
++	writel(priv->dma_tx_phy, priv->base + XGMAC_DMA_TX_BASE_ADDR);
+ 	writel(reg | DMA_CONTROL_ST, priv->base + XGMAC_DMA_CONTROL);
  
- 		skb = alloc_skb(PKT_BUF_SZ, GFP_DMA | gfp);
- 		lp->rx_skbuff[i] = skb;
--		if (skb) {
--			skb->dev = dev;
-+		if (skb)
- 			rx_buff = skb->data;
--		} else
-+		else
- 			rx_buff = kmalloc(PKT_BUF_SZ, GFP_DMA | gfp);
- 		if (rx_buff == NULL)
- 			lp->rx_ring[i].base = 0;
+ 	writel(DMA_STATUS_TU | DMA_STATUS_TPS | DMA_STATUS_NIS | DMA_STATUS_AIS,
 -- 
 1.7.9.5
