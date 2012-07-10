@@ -1,61 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP transmit performance regression
-Date: Tue, 10 Jul 2012 10:28:28 +0200
-Message-ID: <1341908908.3265.4508.camel@edumazet-glaptop>
-References: <CACVXFVNM-Db=_793SVfRj+nxGtNG0pRFrwc_F9TGbU0FfES63A@mail.gmail.com>
-	 <1341474192.2583.3299.camel@edumazet-glaptop>
-	 <CACVXFVNxcdEYd-KmkUe9=8+x_9s-ZVuoM=FfZ=QXa7w_qRiTnw@mail.gmail.com>
-	 <1341477192.2583.3415.camel@edumazet-glaptop>
-	 <CACVXFVPTXB7t=zwkm+HTgDaF3bA02bzff_52S+UAr51PfpvpCg@mail.gmail.com>
-	 <1341481760.2583.3579.camel@edumazet-glaptop>
-	 <CACVXFVNYwNrdWS_EiQ4O0-ou369AQ2tB4qbvmzY1rt5T3QnyUw@mail.gmail.com>
-	 <1341842043.3265.2914.camel@edumazet-glaptop>
-	 <CACVXFVNdiwVn1Mo--N4N0HdYrEJizExtd_cppT4tS=mjog2PKw@mail.gmail.com>
-	 <1341895143.3265.4049.camel@edumazet-glaptop>
-	 <CACVXFVPgqtSN3BrEXRxSv4yxaxCni495SxZNXBmYQpagmxk2tQ@mail.gmail.com>
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Subject: Re: [RFC PATCH] bridge: netfilter: fix skb->nf_bridge NULL panic in br_nf_forward_finish
+Date: Tue, 10 Jul 2012 16:34:26 +0800
+Message-ID: <CAF1ivSaYQ1YspOfJDi7S1MqvZ2LC1__o4+z4dexD6Z7nuX-oSQ@mail.gmail.com>
+References: <1341584394.4789.34.camel@chief-river-32>
+	<4FFAA3CE.1090504@navynet.it>
+	<CAF1ivSZBMWYc5iKxhX5d_ykkMD4LauFP9M10dBwfmqvpYj=pHg@mail.gmail.com>
+	<4FFBD289.7050909@navynet.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Ming Lei <tom.leiming@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Massimo Cetra <ctrix+debianbugs@navynet.it>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>
+To: Massimo Cetra <mcetra@navynet.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:35314 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751939Ab2GJI2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 04:28:33 -0400
-Received: by eeit10 with SMTP id t10so4575478eei.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 01:28:32 -0700 (PDT)
-In-Reply-To: <CACVXFVPgqtSN3BrEXRxSv4yxaxCni495SxZNXBmYQpagmxk2tQ@mail.gmail.com>
+Received: from [124.207.24.138] ([124.207.24.138]:59162 "EHLO
+	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1753849Ab2GJIfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 04:35:12 -0400
+Received: from mail-vc0-f174.google.com (mail-vc0-f174.google.com [209.85.220.174])
+	(Authenticated sender: mlin@ss.pku.edu.cn)
+	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id D3C9DDBCB4
+	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 16:34:30 +0800 (CST)
+Received: by vcbf11 with SMTP id f11so7850318vcb.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 01:34:26 -0700 (PDT)
+In-Reply-To: <4FFBD289.7050909@navynet.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-10 at 15:22 +0800, Ming Lei wrote:
+On Tue, Jul 10, 2012 at 2:58 PM, Massimo Cetra <mcetra@navynet.it> wrote:
+> On 09/07/2012 14:00, Lin Ming wrote:
+>
+>>> i spent a couple of days trying to figure out how to reproduce but you
+>>> were
+>>> quicker and smarter than me.
+>>
+>>
+>> Could you also test it ? :-)
+>>
+>
+> Of course.
+>
+> I have already installed a 3.5-rc and a 3.2.22 with this patch and, by now,
+> i see no problems.
+>
+> I'm only waiting a couple of days before reporting, to be sure the issue is
+> gone.
 
-> Kernel stack size is 8KB or more, so could you find process creation failure
-> in your ChromeBooks machine at the same time?
+Then could you reply to below thread after you confirm the issue is gone?
 
-I believe you mix a lot of things.
+http://marc.info/?l=linux-netdev&m=134165707424765&w=2
 
-Have you ever heard of sockets limits ?
+Nice to add your "Reported-and-tested-by:".
 
-All available ram on a machine is not for whoever wants it, thanks God.
+Thanks,
+Lin Ming
 
-No : TCP stack was dropping frames, because of socket limits.
-
-Only because skbs were fat (8KB allocated/truesize, for a single 1500
-bytes frame)
-
-If application is fast and read skb as soon as the arrive, no problem is
-detected.
-
-But if  application is slow, or a TCP packet is lost on network,
-man packets are queued into ofo queue. And eventually not enough room is
-avalable -> we drop incoming frames, and sender has to restransmit them.
-
-So instead of loading your web pages as fast as possible, you have to
-wait for retransmits.
-
-So you see nothing at all, no kernel logs, no failed memory attempts.
-
-Only its slower than necessary
+>
+>
+> Massimo
