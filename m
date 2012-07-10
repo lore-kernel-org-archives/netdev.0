@@ -1,119 +1,145 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: net-next kernel NULL pointer dereference at fib_rules_tclass
-Date: Tue, 10 Jul 2012 10:29:10 +0300
-Message-ID: <4FFBD9C6.2030705@mellanox.com>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Tue, 10 Jul 2012 15:40:00 +0800
+Message-ID: <4FFBDC50.5090800@oracle.com>
+References: <4FFA9B96.6040901@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.co.il>,
-	Shlomo Pongratz <shlomop@mellanox.com>,
-	Erez Shitrit <erezsh@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Cc: e1000-devel@lists.sf.net,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Jin <joe.jin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:47077 "HELO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751844Ab2GJHeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 03:34:14 -0400
+Received: from acsinet15.oracle.com ([141.146.126.227]:24666 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751663Ab2GJHkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 03:40:18 -0400
+In-Reply-To: <4FFA9B96.6040901@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+When I debug the driver I found before Detected HW hang, driver unable to clean
+and reclaim the resources:
 
-Using latest net-next (061a5c316b6526dbc729049a16243ec27937cc31) I
-get the below crash during the boot cycle. The crash happens on a set of
-nodes which use igb for their onboard 1g nic, as soon as the device goes
-up. Another group, that uses a 2nd lab, where the nodes use bnx2 for 1g
-NIC doesn't get this crash, but the kernel there is built by a different
-.config
-
-Or.
+1457         while ((eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) &&  <== at here upper.data always is 0x300
+1458                (count < tx_ring->count)) {
+     <--- snip --->
+1487         }
 
 
-Bringing up loopback interface:  [  OK  ]
-Bringing up interface eth1:
-Determining IP information for eth1...IPv6: ADDRCONF(NETDEV_UP): eth1:
-link is not ready
-igb: eth1 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: RX/TX
-IPv6: ADDRCONF(NETDEV_CHANGE): eth1: link becomes ready
-Starting system logger: BUG: unable to handle kernel NULL pointer
-dereference at 00000000000000ac
-IP: [<ffffffff81320393>] fib_rules_tclass+0xf/0x17
-PGD 223171067 PUD 22353e067 PMD 0
-Oops: 0000 [#1] SMP
-CPU 0
-Modules linked in:
-  ipv6 dm_mirror dm_region_hash dm_log uinput igb ptp pps_core mlx4_ib
-ib_mad ib_core mlx4_en mlx4_core sg kvm_intel kvm microcode pcspkr
-rng_core ioatdma dca shpchp dm_mod button sr_mod ext3 jbd sd_mod
-usb_storage ata_piix libata scsi_mod ehci_hcd uhci_hcd floppy [last
-unloaded: scsi_wait_scan]
+I checked all driver codes I did not found anywhere will set the upper.data with 
+E1000_TXD_STAT_DD, I guess upper.data be set by hardware?
+If OS is 32bit system, what which happen?
 
-Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc5-12540-g061a5c3-dirty #94
-Supermicro X7DWU/X7DWU
-RIP: 0010:[<ffffffff81320393>]  [<ffffffff81320393>]
-fib_rules_tclass+0xf/0x17
-RSP: 0018:ffff88022fc03a30  EFLAGS: 00010202
-RAX: 0000000000000000 RBX: ffff88022fc03b54 RCX: 0000000000000050
-RDX: 0000000000000020 RSI: 0000000000000001 RDI: ffff88022fc03a40
-RBP: ffff88022fc03a30 R08: ffff88022fc03a70 R09: ffff88022fc03a40
-R10: 0000000000000020 R11: ffff880225390a80 R12: 0000000000000001
-R13: ffff88021cc7a000 R14: 0000000000000000 R15: ffff8802269c26c0
-FS:  0000000000000000(0000) GS:ffff88022fc00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 00000000000000ac CR3: 0000000222aeb000 CR4: 00000000000007f0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper/0 (pid: 0, threadinfo ffffffff81600000, task
-ffffffff81613410)
-Stack:
-  ffff88022fc03ac0 ffffffff81318956 ffff8802fd010010 ffff8802232d5a80
-  ffff880222add880 ffff880223269a98 0000000000000020 ffff880200000000
-  0000000100000000 ffff000000000000 12311eac2540eaf0 ffff88027e001eac
-Call Trace:
-  <IRQ>
+Thanks in advance,
+Joe 
 
-  [<ffffffff81318956>] fib_validate_source+0x170/0x2a5
-  [<ffffffff812e6603>] ip_route_input_common+0x6fe/0xd12
-  [<ffffffff812e8380>] ? ip_rcv_finish+0x70/0x457
-  [<ffffffff812e8461>] ip_rcv_finish+0x151/0x457
-  [<ffffffff812e8380>] ? ip_rcv_finish+0x70/0x457
-  [<ffffffff812e89a1>] ip_rcv+0x23a/0x260
-  [<ffffffff812beae7>] __netif_receive_skb+0x3ac/0x415
-  [<ffffffff812be86f>] ? __netif_receive_skb+0x134/0x415
-  [<ffffffff81312ae5>] ? inet_gro_receive+0x81/0x23f
-  [<ffffffff812b68da>] ? skb_free_head+0x47/0x49
-  [<ffffffff812c035d>] netif_receive_skb+0xee/0xf7
-[<ffffffff812c071d>] ? dev_gro_receive+0x15f/0x2fb
-  [<ffffffff812c063a>] ? dev_gro_receive+0x7c/0x2fb
-  [<ffffffff81065644>] ? trace_hardirqs_on+0xd/0xf
-  [<ffffffff812c044c>] napi_skb_finish+0x24/0x56
-  [<ffffffff812c0bf0>] napi_gro_receive+0x10f/0x11e
-  [<ffffffffa0216e85>] igb_poll+0x843/0xae5 [igb]
-  [<ffffffff812c0e01>] ? net_rx_action+0x14c/0x1ee
-  [<ffffffff812c0d76>] net_rx_action+0xc1/0x1ee
-  [<ffffffff8102f746>] __do_softirq+0xff/0x1de
-  [<ffffffff813631cc>] call_softirq+0x1c/0x26
-  [<ffffffff81003090>] do_softirq+0x38/0x80
-  [<ffffffff8102f41f>] irq_exit+0x4e/0x83
-  [<ffffffff810028f9>] do_IRQ+0x98/0xaf
-  [<ffffffff8135b52c>] common_interrupt+0x6c/0x6c
-  <EOI>
+On 07/09/12 16:51, Joe Jin wrote:
+> Hi list,
+> 
+> I'm seeing a Unit Hang even with the latest e1000e driver 2.0.0 when doing
+> scp test. this issue is easy do reproduced on SUN FIRE X2270 M2, just copy
+> a big file (>500M) from another server will hit it at once. 
+> 
+> Would you please help on this?
+> 
+> device info:
+> # lspci -s 05:00.0 
+> 05:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
+> 
+> # lspci -s 05:00.0 -n
+> 05:00.0 0200: 8086:10bc (rev 06)
+> 
+> # ethtool -i eth0
+> driver: e1000e
+> version: 2.0.0-NAPI
+> firmware-version: 5.10-2
+> bus-info: 0000:05:00.0
+> 
+> # ethtool -k eth0
+> Offload parameters for eth0:
+> rx-checksumming: on
+> tx-checksumming: on
+> scatter-gather: on
+> tcp segmentation offload: on
+> udp fragmentation offload: off
+> generic segmentation offload: on
+> generic-receive-offload: on
+> 
+> kernel log:
+> -----------
+> e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
+>   TDH                  <6c>
+>   TDT                  <81>
+>   next_to_use          <81>
+>   next_to_clean        <6b>
+> buffer_info[next_to_clean]:
+>   time_stamp           <fffc7a23>
+>   next_to_watch        <71>
+>   jiffies              <fffc8c0c>
+>   next_to_watch.status <0>
+> MAC Status             <80387>
+> PHY Status             <792d>
+> PHY 1000BASE-T Status  <3c00>
+> PHY Extended Status    <3000>
+> PCI Status             <10>
+> e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
+>   TDH                  <6c>
+>   TDT                  <81>
+>   next_to_use          <81>
+>   next_to_clean        <6b>
+> buffer_info[next_to_clean]:
+>   time_stamp           <fffc7a23>
+>   next_to_watch        <71>
+>   jiffies              <fffc9bac>
+>   next_to_watch.status <0>
+> MAC Status             <80387>
+> PHY Status             <792d>
+> PHY 1000BASE-T Status  <3c00>
+> PHY Extended Status    <3000>
+> PCI Status             <10>
+> ------------[ cut here ]------------
+> WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x225/0x230()
+> Hardware name: SUN FIRE X2270 M2
+> NETDEV WATCHDOG: eth0 (e1000e): transmit queue 0 timed out
+> Modules linked in: autofs4 hidp rfcomm bluetooth rfkill lockd sunrpc cpufreq_ondemand acpi_cpufreq mperf be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3 mdio libiscsi_tcp libiscsi scsi_transport_iscsi video sbs sbshc acpi_pad acpi_ipmi ipmi_msghandler parport_pc lp parport e1000e(U) snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device igb snd_pcm_oss serio_raw snd_mixer_oss snd_pcm tpm_infineon snd_timer snd soundcore snd_page_alloc i2c_i801 iTCO_wdt i2c_core pcspkr i7core_edac iTCO_vendor_support ioatdma ghes dca edac_core hed dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage sd_mod crc_t10dif sg ahci libahci ext3 jbd mbcache [last unloaded: microcode]
+> Pid: 0, comm: swapper Not tainted 2.6.39-200.24.1.el5uek #1
+> Call Trace:
+>  [<c07d9ac5>] ? dev_watchdog+0x225/0x230
+>  [<c045ba61>] warn_slowpath_common+0x81/0xa0
+>  [<c07d9ac5>] ? dev_watchdog+0x225/0x230
+>  [<c045bb23>] warn_slowpath_fmt+0x33/0x40
+>  [<c07d9ac5>] dev_watchdog+0x225/0x230
+>  [<c07d98a0>] ? dev_activate+0xb0/0xb0
+>  [<c0468e82>] call_timer_fn+0x32/0xf0
+>  [<c04bceb0>] ? rcu_check_callbacks+0x80/0x80
+>  [<c046a76d>] run_timer_softirq+0xed/0x1b0
+>  [<c07d98a0>] ? dev_activate+0xb0/0xb0
+>  [<c0461a81>] __do_softirq+0x91/0x1a0
+>  [<c04619f0>] ? local_bh_enable+0x80/0x80
+>  <IRQ>  [<c0462295>] ? irq_exit+0x95/0xa0
+>  [<c087f8b8>] ? smp_apic_timer_interrupt+0x38/0x42
+>  [<c08784f5>] ? apic_timer_interrupt+0x31/0x38
+>  [<c046007b>] ? do_exit+0x11b/0x370
+>  [<c065eae4>] ? intel_idle+0xa4/0x100
+>  [<c078d9b9>] ? cpuidle_idle_call+0xb9/0x1e0
+>  [<c0411d77>] ? cpu_idle+0x97/0xd0
+>  [<c085cbbd>] ? rest_init+0x5d/0x70
+>  [<c0b07a7a>] ? start_kernel+0x28a/0x340
+>  [<c0b074b0>] ? obsolete_checksetup+0xb0/0xb0
+>  [<c0b070a4>] ? i386_start_kernel+0x64/0xb0
+> ---[ end trace 5502b55cd4d4e5cb ]---
+> e1000e 0000:05:00.0: eth0: Reset adapter
+> e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+> 
+> Thanks,
+> Joe
+> 
 
-  [<ffffffff810083ec>] ? mwait_idle+0x13c/0x208
-  [<ffffffff810083e3>] ? mwait_idle+0x133/0x208
-  [<ffffffff810088d1>] cpu_idle+0x6e/0xab
-  [<ffffffff81343e13>] rest_init+0xc7/0xce
-  [<ffffffff81343d4c>] ? csum_partial_copy_generic+0x16c/0x16c
-  [<ffffffff8167fbf3>] start_kernel+0x332/0x33f
-  [<ffffffff8167f6f6>] ? kernel_init+0x19d/0x19d
-  [<ffffffff8167f2b4>] x86_64_start_reservations+0xb8/0xbd
-  [<ffffffff8167f3a6>] x86_64_start_kernel+0xed/0xf4
-Code: 81 31 c0 e8 a5 bb dd ff 48 83 c4 28 31 c0 5b 41 5c 41 5d 41 5e 41
-5f c9 c3 90 90 90 48 8b 57 20 55 31 c0 48 89 e5 48 85 d2 74 06 <8b> 82
-8c 00 00 00 c9 c3 8b 47 7c 33 46 14 85 87 80 00 00 00 55
-RIP  [<ffffffff81320393>] fib_rules_tclass+0xf/0x17
-  RSP <ffff88022fc03a30>
-CR2: 00000000000000ac
----[ end trace e7c6714b8de1c341 ]---
-Kernel panic - not syncing: Fatal exception in interrupt
+
+-- 
+Oracle <http://www.oracle.com>
+Joe Jin | Software Development Senior Manager | +8610.6106.5624
+ORACLE | Linux and Virtualization
+No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
