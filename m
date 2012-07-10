@@ -1,43 +1,30 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] tc: filter: validate filter priority in userspace.
-Date: Tue, 10 Jul 2012 16:45:28 +0800
-Message-ID: <4FFBEBA8.1050802@cn.fujitsu.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] net: cgroup: fix access the unallocated memory in netprio
+ cgroup
+Date: Tue, 10 Jul 2012 16:53:24 +0800
+Message-ID: <4FFBED84.1030905@cn.fujitsu.com>
+References: <1341837625.3265.2748.camel@edumazet-glaptop>  <1341887508-20302-1-git-send-email-gaofeng@cn.fujitsu.com> <1341893650.3265.3974.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:58868 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753392Ab2GJI7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2012 04:59:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@tuxdriver.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	lizefan@huawei.com, tj@kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341893650.3265.3974.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Because we use the high 16 bits of tcm_info to pass prio value to
-kernel, thus it's range would be [0, 0xffff], without validation
-in tc when user pass a lager(>65535) priority, the actual priority
-set in kernel would confuse the user.
+> Hi Gao
+> 
+> Is it still needed to call update_netdev_tables() from write_priomap() ?
+> 
 
-So, add a validation to ensure prio in the range.
----
- tc/tc_filter.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Yes, I think it's needed,because read_priomap will show all of the net devices,
 
-diff --git a/tc/tc_filter.c b/tc/tc_filter.c
-index 207302f..04c3b82 100644
---- a/tc/tc_filter.c
-+++ b/tc/tc_filter.c
-@@ -105,7 +105,7 @@ int tc_filter_modify(int cmd, unsigned flags, int argc, char **argv)
- 			NEXT_ARG();
- 			if (prio)
- 				duparg("priority", *argv);
--			if (get_u32(&prio, *argv, 0))
-+			if (get_u32(&prio, *argv, 0) || prio > 0xFFFF)
- 				invarg(*argv, "invalid priority value");
- 		} else if (matches(*argv, "protocol") == 0) {
- 			__u16 id;
--- 
-1.7.1
+But we may add the netdev after create a netprio cgroup, so the new added netdev's
+priomap will not be allocated. if we don't call update_netdev_tables in write_priomap,
+we may access this unallocated memory.
