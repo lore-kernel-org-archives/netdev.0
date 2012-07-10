@@ -1,67 +1,58 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: net-next kernel NULL pointer dereference at fib_rules_tclass
-Date: Tue, 10 Jul 2012 11:14:34 -0700
-Message-ID: <20120710111434.00003ba8@unknown>
-References: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
-	<20120710.094428.1167234955738653678.davem@davemloft.net>
-	<1341941101.3265.5799.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
+Date: Tue, 10 Jul 2012 20:32:00 +0200
+Message-ID: <1341945120.3265.6030.camel@edumazet-glaptop>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	 <1340945457.29822.7.camel@edumazet-glaptop>
+	 <1341396687.2583.1757.camel@edumazet-glaptop>
+	 <20120709.000834.1182150057463599677.davem@davemloft.net>
+	 <1341845722.3265.3065.camel@edumazet-glaptop>
+	 <1341933215.3265.5476.camel@edumazet-glaptop>
+	 <CAK6E8=eXMBzG=Zo0N8KWQSNaoekAqAh5N5eY2gE7+BYKJLaOQg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <ogerlitz@mellanox.com>,
-	<netdev@vger.kernel.org>, <shlomop@mellanox.com>,
-	<amirv@mellanox.com>, <erezsh@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, dave.taht@gmail.com,
+	netdev@vger.kernel.org, codel@lists.bufferbloat.net,
+	therbert@google.com, mattmathis@google.com, nanditad@google.com,
+	ncardwell@google.com, andrewmcgr@gmail.com
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:7304 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751265Ab2GJSOs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2012 14:14:48 -0400
-In-Reply-To: <1341941101.3265.5799.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:39400 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069Ab2GJScG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 14:32:06 -0400
+Received: by eeit10 with SMTP id t10so119110eei.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 11:32:04 -0700 (PDT)
+In-Reply-To: <CAK6E8=eXMBzG=Zo0N8KWQSNaoekAqAh5N5eY2gE7+BYKJLaOQg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 10 Jul 2012 19:25:01 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, 2012-07-10 at 10:37 -0700, Yuchung Cheng wrote:
+> On Tue, Jul 10, 2012 at 8:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Tue, 2012-07-10 at 09:44 -0700, David Miller wrote:
-> > From: Or Gerlitz <ogerlitz@mellanox.com>
-> > Date: Tue, 10 Jul 2012 10:16:55 +0300
-> > 
-> > > Starting system logger: BUG: unable to handle kernel NULL pointer
-> > > dereference at 00000000000000ac IP: [<ffffffff81320393>]
-> > > fib_rules_tclass+0xf/0x17
-> > 
-> > Ok, fib_rules_tclass() checks for res->r being NULL and only
-> > dereferences it if it is not.
-> > 
-> > fib4_rule->tclassid has offset ~0x8c on x86-64, and this fault
-> > address is 0x10 bytes off.
-> > 
-> > Does this patch fix the problem?
-> > 
-> > diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-> > index 539c672..000c467 100644
-> > --- a/include/net/ip_fib.h
-> > +++ b/include/net/ip_fib.h
-> > @@ -230,6 +230,7 @@ static inline int fib_lookup(struct net *net,
-> > struct flowi4 *flp, struct fib_result *res)
-> >  {
-> >  	if (!net->ipv4.fib_has_custom_rules) {
-> > +		res->r = NULL;
-> >  		if (net->ipv4.fib_local &&
-> >  		    !fib_table_lookup(net->ipv4.fib_local, flp,
-> > res, FIB_LOOKUP_NOREF))
+> > +
+> > +               if (!sock_owned_by_user(sk)) {
+> > +                       if ((1 << sk->sk_state) &
+> > +                           (TCPF_CLOSE_WAIT | TCPF_ESTABLISHED))
+> > +                               tcp_write_xmit(sk,
+> > +                                              tcp_current_mss(sk),
+> > +                                              0, 0,
+> > +                                              GFP_ATOMIC);
+> Is this case possible: app does a large send and immediately closes
+> the socket. then
+> the queue is throttled and tcp_write_xmit is called back when state is
+> in TCP_FIN_WAIT1.
 > 
-> It does here, thanks
-
-Works for me too.
-
-Thanks,
-
+> I think tcp_write_xmit should continue regardless of the current state
+> because the
+> send maybe throttled/delayed but state change is synchronous.
 > 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+I need testing some allowed states, I think.
+
+Maybe I missed some states, but I dont think we should call
+tcp_write_xmit() if socket is now in TIMEWAIT state ?
+
+(because of tasklet delay, we might handle TX completion _after_ socket
+state change)
