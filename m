@@ -1,58 +1,198 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
-Date: Tue, 10 Jul 2012 20:32:00 +0200
-Message-ID: <1341945120.3265.6030.camel@edumazet-glaptop>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
-	 <1340945457.29822.7.camel@edumazet-glaptop>
-	 <1341396687.2583.1757.camel@edumazet-glaptop>
-	 <20120709.000834.1182150057463599677.davem@davemloft.net>
-	 <1341845722.3265.3065.camel@edumazet-glaptop>
-	 <1341933215.3265.5476.camel@edumazet-glaptop>
-	 <CAK6E8=eXMBzG=Zo0N8KWQSNaoekAqAh5N5eY2gE7+BYKJLaOQg@mail.gmail.com>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Tue, 10 Jul 2012 19:02:29 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, dave.taht@gmail.com,
-	netdev@vger.kernel.org, codel@lists.bufferbloat.net,
-	therbert@google.com, mattmathis@google.com, nanditad@google.com,
-	ncardwell@google.com, andrewmcgr@gmail.com
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39400 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069Ab2GJScG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 14:32:06 -0400
-Received: by eeit10 with SMTP id t10so119110eei.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 11:32:04 -0700 (PDT)
-In-Reply-To: <CAK6E8=eXMBzG=Zo0N8KWQSNaoekAqAh5N5eY2gE7+BYKJLaOQg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4FFBDC50.5090800@oracle.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-10 at 10:37 -0700, Yuchung Cheng wrote:
-> On Tue, Jul 10, 2012 at 8:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of Joe Jin
+>Sent: Tuesday, July 10, 2012 12:40 AM
+>To: Joe Jin
+>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org
+>Subject: Re: 82571EB: Detected Hardware Unit Hang
+>
+>When I debug the driver I found before Detected HW hang, driver unable to
+>clean and reclaim the resources:
+>
+>1457         while ((eop_desc->upper.data &
+>cpu_to_le32(E1000_TXD_STAT_DD)) &&  <== at here upper.data always is 0x300
+>1458                (count < tx_ring->count)) {
+>     <--- snip --->
+>1487         }
+>
+>
+>I checked all driver codes I did not found anywhere will set the
+>upper.data with E1000_TXD_STAT_DD, I guess upper.data be set by hardware?
 
-> > +
-> > +               if (!sock_owned_by_user(sk)) {
-> > +                       if ((1 << sk->sk_state) &
-> > +                           (TCPF_CLOSE_WAIT | TCPF_ESTABLISHED))
-> > +                               tcp_write_xmit(sk,
-> > +                                              tcp_current_mss(sk),
-> > +                                              0, 0,
-> > +                                              GFP_ATOMIC);
-> Is this case possible: app does a large send and immediately closes
-> the socket. then
-> the queue is throttled and tcp_write_xmit is called back when state is
-> in TCP_FIN_WAIT1.
-> 
-> I think tcp_write_xmit should continue regardless of the current state
-> because the
-> send maybe throttled/delayed but state change is synchronous.
-> 
+Yes upper.data (part of it is STATUS byte) is set by HW. Basically driver checks E1000_TXD_STAT_DD (Descriptor Done) bit. If this bit is set that means HW has processed that descriptor and driver can now clean that descriptor.
+With value 0x300 , DD bit is not set. That means HW has not processed that descriptor.
 
-I need testing some allowed states, I think.
+How fast does tx hang reproduce? I suggest you to enable debug code in driver so when tx hang occurs it will dump the HW desc ring info into kernel log.
+You can run "ethtool -s ethx msglvl 0x2c00" to enable debug.
+Once tx hang occurs please send me the full dmesg log.
 
-Maybe I missed some states, but I dont think we should call
-tcp_write_xmit() if socket is now in TIMEWAIT state ?
+Does tx hang occur with in-kernel e1000e driver too?
 
-(because of tasklet delay, we might handle TX completion _after_ socket
-state change)
+Thanks.
+
+-Tushar
+
+
+>If OS is 32bit system, what which happen?
+
+
+>
+>Thanks in advance,
+>Joe
+>
+>On 07/09/12 16:51, Joe Jin wrote:
+>> Hi list,
+>>
+>> I'm seeing a Unit Hang even with the latest e1000e driver 2.0.0 when
+>> doing scp test. this issue is easy do reproduced on SUN FIRE X2270 M2,
+>> just copy a big file (>500M) from another server will hit it at once.
+>>
+>> Would you please help on this?
+>>
+>> device info:
+>> # lspci -s 05:00.0
+>> 05:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit
+>> Ethernet Controller (Copper) (rev 06)
+>>
+>> # lspci -s 05:00.0 -n
+>> 05:00.0 0200: 8086:10bc (rev 06)
+>>
+>> # ethtool -i eth0
+>> driver: e1000e
+>> version: 2.0.0-NAPI
+>> firmware-version: 5.10-2
+>> bus-info: 0000:05:00.0
+>>
+>> # ethtool -k eth0
+>> Offload parameters for eth0:
+>> rx-checksumming: on
+>> tx-checksumming: on
+>> scatter-gather: on
+>> tcp segmentation offload: on
+>> udp fragmentation offload: off
+>> generic segmentation offload: on
+>> generic-receive-offload: on
+>>
+>> kernel log:
+>> -----------
+>> e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
+>>   TDH                  <6c>
+>>   TDT                  <81>
+>>   next_to_use          <81>
+>>   next_to_clean        <6b>
+>> buffer_info[next_to_clean]:
+>>   time_stamp           <fffc7a23>
+>>   next_to_watch        <71>
+>>   jiffies              <fffc8c0c>
+>>   next_to_watch.status <0>
+>> MAC Status             <80387>
+>> PHY Status             <792d>
+>> PHY 1000BASE-T Status  <3c00>
+>> PHY Extended Status    <3000>
+>> PCI Status             <10>
+>> e1000e 0000:05:00.0: eth0: Detected Hardware Unit Hang:
+>>   TDH                  <6c>
+>>   TDT                  <81>
+>>   next_to_use          <81>
+>>   next_to_clean        <6b>
+>> buffer_info[next_to_clean]:
+>>   time_stamp           <fffc7a23>
+>>   next_to_watch        <71>
+>>   jiffies              <fffc9bac>
+>>   next_to_watch.status <0>
+>> MAC Status             <80387>
+>> PHY Status             <792d>
+>> PHY 1000BASE-T Status  <3c00>
+>> PHY Extended Status    <3000>
+>> PCI Status             <10>
+>> ------------[ cut here ]------------
+>> WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x225/0x230()
+>> Hardware name: SUN FIRE X2270 M2 NETDEV WATCHDOG: eth0 (e1000e):
+>> transmit queue 0 timed out Modules linked in: autofs4 hidp rfcomm
+>> bluetooth rfkill lockd sunrpc cpufreq_ondemand acpi_cpufreq mperf
+>> be2iscsi iscsi_boot_sysfs ib_iser rdma_cm ib_cm iw_cm ib_sa ib_mad
+>> ib_core ib_addr iscsi_tcp bnx2i cnic uio ipv6 cxgb3i libcxgbi cxgb3
+>> mdio libiscsi_tcp libiscsi scsi_transport_iscsi video sbs sbshc
+>> acpi_pad acpi_ipmi ipmi_msghandler parport_pc lp parport e1000e(U)
+>> snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device
+>> igb snd_pcm_oss serio_raw snd_mixer_oss snd_pcm tpm_infineon snd_timer
+>> snd soundcore snd_page_alloc i2c_i801 iTCO_wdt i2c_core pcspkr
+>> i7core_edac iTCO_vendor_support ioatdma ghes dca edac_core hed
+>> dm_snapshot dm_zero dm_mirror dm_region_hash dm_log dm_mod usb_storage
+>> sd_mod crc_t10dif sg ahci libahci ext3 jbd mbcache [last unloaded:
+>> microcode]
+>> Pid: 0, comm: swapper Not tainted 2.6.39-200.24.1.el5uek #1 Call
+>> Trace:
+>>  [<c07d9ac5>] ? dev_watchdog+0x225/0x230  [<c045ba61>]
+>> warn_slowpath_common+0x81/0xa0  [<c07d9ac5>] ?
+>> dev_watchdog+0x225/0x230  [<c045bb23>] warn_slowpath_fmt+0x33/0x40
+>> [<c07d9ac5>] dev_watchdog+0x225/0x230  [<c07d98a0>] ?
+>> dev_activate+0xb0/0xb0  [<c0468e82>] call_timer_fn+0x32/0xf0
+>> [<c04bceb0>] ? rcu_check_callbacks+0x80/0x80  [<c046a76d>]
+>> run_timer_softirq+0xed/0x1b0  [<c07d98a0>] ? dev_activate+0xb0/0xb0
+>> [<c0461a81>] __do_softirq+0x91/0x1a0  [<c04619f0>] ?
+>> local_bh_enable+0x80/0x80  <IRQ>  [<c0462295>] ? irq_exit+0x95/0xa0
+>> [<c087f8b8>] ? smp_apic_timer_interrupt+0x38/0x42
+>>  [<c08784f5>] ? apic_timer_interrupt+0x31/0x38  [<c046007b>] ?
+>> do_exit+0x11b/0x370  [<c065eae4>] ? intel_idle+0xa4/0x100
+>> [<c078d9b9>] ? cpuidle_idle_call+0xb9/0x1e0  [<c0411d77>] ?
+>> cpu_idle+0x97/0xd0  [<c085cbbd>] ? rest_init+0x5d/0x70  [<c0b07a7a>] ?
+>> start_kernel+0x28a/0x340  [<c0b074b0>] ? obsolete_checksetup+0xb0/0xb0
+>> [<c0b070a4>] ? i386_start_kernel+0x64/0xb0 ---[ end trace
+>> 5502b55cd4d4e5cb ]--- e1000e 0000:05:00.0: eth0: Reset adapter
+>> e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow Control: Rx/Tx
+>>
+>> Thanks,
+>> Joe
+>>
+>
+>
+>--
+>Oracle <http://www.oracle.com>
+>Joe Jin | Software Development Senior Manager | +8610.6106.5624 ORACLE |
+>Linux and Virtualization No. 24 Zhongguancun Software Park, Haidian
+>District | 100193 Beijing
+>
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
