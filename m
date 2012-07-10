@@ -1,102 +1,74 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2] fail dentry revalidation after namespace change
-Date: Mon, 9 Jul 2012 19:15:05 -0700
-Message-ID: <20120709191505.bcce7947.akpm@linux-foundation.org>
-References: <1341565747-15374-1-git-send-email-glommer@parallels.com>
-	<20120709161336.0ec23592.akpm@linux-foundation.org>
-	<87txxgxxs7.fsf@xmission.com>
-	<20120709174705.0e2078c8.akpm@linux-foundation.org>
-	<87629wxu1i.fsf@xmission.com>
+From: "ASIX Allan Email [office]" <allan@asix.com.tw>
+Subject: RE: [PATCH 0/4] Add a driver for the ASIX AX88172A
+Date: Tue, 10 Jul 2012 10:20:21 +0800
+Message-ID: <000001cd5e42$93d6c1f0$bb8445d0$@com.tw>
+References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at> <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com> <4FFB5AC6.3000506@teksavvy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Glauber Costa <glommer@parallels.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Greg Thelen <gthelen@google.com>,
-	Serge Hallyn <serge.hallyn@canonical.com>,
-	Tejun Heo <tj@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87629wxu1i.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "'Christian Riesch'" <christian.riesch@omicron.at>,
+	<netdev@vger.kernel.org>, "'Oliver Neukum'" <oneukum@suse.de>,
+	"'Eric Dumazet'" <edumazet@google.com>,
+	"'Ming Lei'" <tom.leiming@gmail.com>,
+	"'Michael Riesch'" <michael@riesch.at>
+To: "'Mark Lord'" <kernel@teksavvy.com>,
+	"'Grant Grundler'" <grundler@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from asix.com.tw ([113.196.140.82]:56372 "EHLO asix.com.tw"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752890Ab2GJCUh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 22:20:37 -0400
+In-Reply-To: <4FFB5AC6.3000506@teksavvy.com>
+Content-Language: zh-tw
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 09 Jul 2012 18:51:37 -0700 ebiederm@xmission.com (Eric W. Biederman) wrote:
+Dear All,
 
-> Andrew Morton <akpm@linux-foundation.org> writes:
+>From ASIX support viewpoint, it might be hard to support all AX88172A target applications on Linux kernel native ax88172a.c driver because some of AX88172A applications are embedded on customers' special target applications such as the AX88172A (PHY mode or Dual-PHY mode) + external MAC controller on-board design applications. For these kinds of AX88172A applications, the AX88172A Linux driver was qualified in our customers' site directly. It means ASIX doesn't have those customers' AX88172A devices in our site for testing. 
+
+But for some AX88172A target applications such as AX88172A + external Fiber PHY and AX88172A + external National DP83640 PHY (Christian is testing under), etc. USB dongle applications, it is possible to support them on Linux kernel native ax88172a.c driver but *** the readme of this driver source might need to indicate clearly what kinds of AX88172A devices had been verified on this ax88172a.c native driver source ***. It will avoid users were confusing why their AX88172A devices couldn't work fine on Linux kernel native driver in future. 
+
+Please let us know if you need more information. Thanks a lot. 
+
+
+---
+Best regards,
+Allan Chou
+Technical Support Division
+ASIX Electronics Corporation
+TEL: 886-3-5799500 ext.228
+FAX: 886-3-5799558
+E-mail: allan@asix.com.tw 
+http://www.asix.com.tw/ 
+
+-----Original Message-----
+From: Mark Lord [mailto:kernel@teksavvy.com] 
+Sent: Tuesday, July 10, 2012 6:27 AM
+To: Grant Grundler
+Cc: Christian Riesch; netdev@vger.kernel.org; Oliver Neukum; Eric Dumazet; Allan Chou; Ming Lei; Michael Riesch
+Subject: Re: [PATCH 0/4] Add a driver for the ASIX AX88172A
+
+On 12-07-09 01:45 PM, Grant Grundler wrote:
+> Christian,
+> Here's my $0.02 response to your questions.
 > 
-> > On Mon, 09 Jul 2012 17:30:48 -0700 ebiederm@xmission.com (Eric W. Biederman) wrote:
-> >
-> >> Andrew Morton <akpm@linux-foundation.org> writes:
-> >> 
-> >> >>  {
-> >> >>  	struct sysfs_dirent *sd;
-> >> >>  	int is_dir;
-> >> >> +	int type;
-> >> >>  
-> >> >>  	if (nd->flags & LOOKUP_RCU)
-> >> >>  		return -ECHILD;
-> >> >> @@ -326,6 +327,13 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
-> >> >>  	if (strcmp(dentry->d_name.name, sd->s_name) != 0)
-> >> >>  		goto out_bad;
-> >> >>  
-> >> >> +	/* The sysfs dirent has been moved to a different namespace */
-> >> >> +	type = KOBJ_NS_TYPE_NONE;
-> >> >> +	if (sd->s_parent)
-> >> >> +		type = sysfs_ns_type(sd->s_parent);
-> >> >> +	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
-> >> >
-> >> > eww, the code is assuming that KOBJ_NS_TYPE_NONE has a value of zero. 
-> >> > Don't do that; it smells bad.
-> >> 
-> >> Gag.  An incomplete change in idiom.
-> >> 
-> >> KOBJ_NS_TYPE_NONE is explicitly defined as 0 so that it can be used
-> >> this way, and every where else in fs/sysfs/dir.c uses this idiom.
-> >
-> > One man's idiom is another man's idiocy.
+> On Fri, Jul 6, 2012 at 4:33 AM, Christian Riesch
+> <christian.riesch@omicron.at> wrote:
+> ...
+>> I have a few questions:
+>>
+>> 1) Is it ok to factor out the common code like I did? Or should
+>>    it go into a separate kernel module?
 > 
-> And code that uses inconsistent idioms is even harder to read.
+> I think it's ok. I'd rather not see additional kernel modules unless
+> the driver is substantially different.
 
-Not true.  That patch is more readable when it is changed to use
-correct types.  If only because readers don't need to go in and check
-that KOBJ_NS_TYPE_NONE has value zero.
+I'll second that.  Ideally, somebody should pick up the pieces
+from my aborted efforts last fall, and just get the real ASIX driver
+itself tidied and into the kernel.  Then *everything* would work.
 
-> > Seriously.  What sort of idea is that?  Create an enumerated type and
-> > then just ignore it?
-> 
-> It isn't ignored.  It just has a well defined NULL value. That is hardly
-> controversial.
+But I doubt that would be feasible at this point.
 
-If it's uncontroversial, why are we talking about it?  Why did I, an
-experienced C and kernel developer, think that it looked stupid and
-possibly buggy?
-
-I'm uncomfortable with propagating this idiotic and unnecessary trick
-any further.  It's better to fix it.
-
-> >> Pray tell in what parallel universe is that monstrosity above more
-> >> readable than the line it replaces?
-> >
-> > Don't be silly, it is not a "monstrosity".  The code it is modifying
-> > contains an unneeded test-and-branch.  It's a test and branch which the
-> > compiler might be able to avoid.  If we can demonstrate that the
-> > compiler does indeed optimise it, or if we can find a less monstrous
-> > way of implementing it then fine.  Otherwise, efficiency wins.
-> 
-> Efficiency wins?  In a rarely used function?  Which kernel are you
-> working on?
-
-One in which we frequently optimise uncommon code paths.
-
-> Readable maintainable code wins.  Unreadable code causes regressions.
-
-Dude, the whole reason for having enums and enumerated types is for
-readability and maintainability.  If we didn't care about that, we'd
-use literal constants everywhere.  And here you are arguing against
-that readability and maintainability.
-
-If you want to say "yes, the sysfs code is bad but I can't be bothered
-fixing it all" then grumble, but OK.  But for heavens sake, don't go
-and *defend* what that code is doing.
+Cheers
