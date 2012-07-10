@@ -1,30 +1,41 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] net: cgroup: fix access the unallocated memory in netprio
- cgroup
-Date: Tue, 10 Jul 2012 16:53:24 +0800
-Message-ID: <4FFBED84.1030905@cn.fujitsu.com>
-References: <1341837625.3265.2748.camel@edumazet-glaptop>  <1341887508-20302-1-git-send-email-gaofeng@cn.fujitsu.com> <1341893650.3265.3974.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next kernel NULL pointer dereference at fib_rules_tclass
+Date: Tue, 10 Jul 2012 02:00:31 -0700 (PDT)
+Message-ID: <20120710.020031.167904887947454063.davem@davemloft.net>
+References: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
+	<CAF1ivSbw50US9dPxs63C8_hjdBq6K6_He7_Foi5bW1MvefunHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	lizefan@huawei.com, tj@kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341893650.3265.3974.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org,
+	shlomop@mellanox.com, amirv@mellanox.com, erezsh@mellanox.com
+To: mlin@ss.pku.edu.cn
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35774 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754516Ab2GJJAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 05:00:33 -0400
+In-Reply-To: <CAF1ivSbw50US9dPxs63C8_hjdBq6K6_He7_Foi5bW1MvefunHw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Date: Tue, 10 Jul 2012 16:42:29 +0800
 
-> Hi Gao
+> On Tue, Jul 10, 2012 at 3:16 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>> Hi Dave,
+>>
+>> Using latest net-next (061a5c316b6526dbc729049a16243ec27937cc31) I
+>> get the below crash during the boot cycle. The crash happens on a set of
+>> nodes which use igb for their onboard 1g nic, as soon as the device goes
+>> up. Another group, that uses a 2nd lab, where the nodes use bnx2 for 1g
+>> NIC doesn't get this crash, but the kernel there is built by a different
+>> .config .
 > 
-> Is it still needed to call update_netdev_tables() from write_priomap() ?
+> Hi,
 > 
+> I got similar panic, but not at boot time.
+> I'll look for the cause.
 
-Yes, I think it's needed,because read_priomap will show all of the net devices,
-
-But we may add the netdev after create a netprio cgroup, so the new added netdev's
-priomap will not be allocated. if we don't call update_netdev_tables in write_priomap,
-we may access this unallocated memory.
+Don't worry about it, I am sure that I added this bug and therefore
+I will fix it.
