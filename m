@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/16] tcp: Move timestamps from inetpeer to metrics
- cache.
-Date: Tue, 10 Jul 2012 09:17:44 -0700 (PDT)
-Message-ID: <20120710.091744.730481765624036830.davem@davemloft.net>
-References: <20120710.080726.1369956163447074824.davem@davemloft.net>
-	<CAF1ivSZ--OKqu-PgTf82Rho4N8tUn+HCaDuh5V4p89KusHauWQ@mail.gmail.com>
+Subject: Re: [PATCH 0/16] Metrics restructuring.
+Date: Tue, 10 Jul 2012 09:18:25 -0700 (PDT)
+Message-ID: <20120710.091825.136189827254363527.davem@davemloft.net>
+References: <20120710.080703.916560084659556593.davem@davemloft.net>
+	<1341936694.6118.119.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: mlin@ss.pku.edu.cn
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38951 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38960 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756034Ab2GJQRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 12:17:46 -0400
-In-Reply-To: <CAF1ivSZ--OKqu-PgTf82Rho4N8tUn+HCaDuh5V4p89KusHauWQ@mail.gmail.com>
+	with ESMTP id S1754030Ab2GJQSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 12:18:25 -0400
+In-Reply-To: <1341936694.6118.119.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Date: Wed, 11 Jul 2012 00:14:50 +0800
+From: Joe Perches <joe@perches.com>
+Date: Tue, 10 Jul 2012 09:11:34 -0700
 
-> A trivial thing when "git am" this patch.
-> 
-> ERROR: trailing whitespace
-> #315: FILE: net/ipv4/tcp_metrics.c:595:
-> +^I}^I^I$
+> I hope the good information below here will go into the
+> git log via a merge message too.
 
-Thanks, I'll fix that up.
+Is there some voodoo to force a merge commit in what
+would otherwise be a fast-forward?
