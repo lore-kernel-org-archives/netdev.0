@@ -1,26 +1,46 @@
-From: Christian Franke <nobody@nowhere.ws>
-Subject: Re: [PATCH 0/16] Metrics restructuring.
-Date: Tue, 10 Jul 2012 18:34:27 +0200
-Message-ID: <4FFC5993.4000702@nowhere.ws>
-References: <20120710.080703.916560084659556593.davem@davemloft.net> <1341936694.6118.119.camel@joe2Laptop> <20120710.091825.136189827254363527.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-next kernel NULL pointer dereference at fib_rules_tclass
+Date: Tue, 10 Jul 2012 09:44:28 -0700 (PDT)
+Message-ID: <20120710.094428.1167234955738653678.davem@davemloft.net>
+References: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, shlomop@mellanox.com, amirv@mellanox.com,
+	erezsh@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus.nowhere.ws ([78.111.67.33]:52885 "EHLO zeus.nowhere.ws"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754057Ab2GJQea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2012 12:34:30 -0400
-In-Reply-To: <20120710.091825.136189827254363527.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39137 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753999Ab2GJQo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 12:44:29 -0400
+In-Reply-To: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/10/2012 06:18 PM, David Miller wrote:
-> Is there some voodoo to force a merge commit in what
-> would otherwise be a fast-forward?
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Tue, 10 Jul 2012 10:16:55 +0300
 
-git merge --no-ff
+> Starting system logger: BUG: unable to handle kernel NULL pointer dereference at 00000000000000ac
+> IP: [<ffffffff81320393>] fib_rules_tclass+0xf/0x17
 
--Christian
+Ok, fib_rules_tclass() checks for res->r being NULL and only
+dereferences it if it is not.
+
+fib4_rule->tclassid has offset ~0x8c on x86-64, and this fault
+address is 0x10 bytes off.
+
+Does this patch fix the problem?
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 539c672..000c467 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -230,6 +230,7 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+ 			     struct fib_result *res)
+ {
+ 	if (!net->ipv4.fib_has_custom_rules) {
++		res->r = NULL;
+ 		if (net->ipv4.fib_local &&
+ 		    !fib_table_lookup(net->ipv4.fib_local, flp, res,
+ 				      FIB_LOOKUP_NOREF))
