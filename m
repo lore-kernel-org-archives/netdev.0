@@ -1,52 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next kernel NULL pointer dereference at fib_rules_tclass
-Date: Tue, 10 Jul 2012 19:25:01 +0200
-Message-ID: <1341941101.3265.5799.camel@edumazet-glaptop>
-References: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
-	 <20120710.094428.1167234955738653678.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org,
-	shlomop@mellanox.com, amirv@mellanox.com, erezsh@mellanox.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2/2] bonding: debugfs and network namespaces are incompatible
+Date: Tue, 10 Jul 2012 10:36:12 -0700
+Message-ID: <15459.1341941772@death.nxdomain>
+References: <20120706194741.GA22113@mail.hallyn.com> <87y5ms3bfi.fsf_-_@xmission.com> <87sjd03bdw.fsf_-_@xmission.com> <20120709.144932.243254122059983829.davem@davemloft.net>
+Cc: ebiederm@xmission.com, dilip.daya@hp.com,
+	linux-kernel@vger.kernel.org,
+	containers@lists.linux-foundation.org, netdev@vger.kernel.org,
+	serge@hallyn.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:59967 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754281Ab2GJRZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 13:25:07 -0400
-Received: by eeit10 with SMTP id t10so99972eei.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 10:25:05 -0700 (PDT)
-In-Reply-To: <20120710.094428.1167234955738653678.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20120709.144932.243254122059983829.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-10 at 09:44 -0700, David Miller wrote:
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Tue, 10 Jul 2012 10:16:55 +0300
-> 
-> > Starting system logger: BUG: unable to handle kernel NULL pointer dereference at 00000000000000ac
-> > IP: [<ffffffff81320393>] fib_rules_tclass+0xf/0x17
-> 
-> Ok, fib_rules_tclass() checks for res->r being NULL and only
-> dereferences it if it is not.
-> 
-> fib4_rule->tclassid has offset ~0x8c on x86-64, and this fault
-> address is 0x10 bytes off.
-> 
-> Does this patch fix the problem?
-> 
-> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-> index 539c672..000c467 100644
-> --- a/include/net/ip_fib.h
-> +++ b/include/net/ip_fib.h
-> @@ -230,6 +230,7 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
->  			     struct fib_result *res)
->  {
->  	if (!net->ipv4.fib_has_custom_rules) {
-> +		res->r = NULL;
->  		if (net->ipv4.fib_local &&
->  		    !fib_table_lookup(net->ipv4.fib_local, flp, res,
->  				      FIB_LOOKUP_NOREF))
+David Miller <davem@davemloft.net> wrote:
 
-It does here, thanks
+>From: ebiederm@xmission.com (Eric W. Biederman)
+>Date: Mon, 09 Jul 2012 13:52:43 -0700
+>
+>> 
+>> The bonding debugfs support has been broken in the presence of network
+>> namespaces since it has been added.  The debugfs support does not handle
+>> multiple bonding devices with the same name in different network
+>> namespaces.
+>> 
+>> I haven't had any bug reports, and I'm not interested in getting any.
+>> Disable the debugfs support when network namespaces are enabled.
+>> 
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>
+>Applied.
+
+	Since distro kernels appear to set CONFIG_NET_NS, doesn't this
+effectively disable debugfs for bonding on most distros?
+
+	Do the other network device drivers that support debugfs have a
+similar problem?  E.g., if each of two namespaces have an skge device
+with the same name, will there be a debugfs conflict there as well?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
