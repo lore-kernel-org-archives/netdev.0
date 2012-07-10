@@ -1,1088 +1,150 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [RFC 1/2] i2400m: remove SDIO device support
-Date: Tue, 10 Jul 2012 16:27:28 -0400
-Message-ID: <1341952049-32193-1-git-send-email-linville@tuxdriver.com>
-Cc: linux-wireless@vger.kernel.org,
-	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	Samuel Ortiz <samuel.ortiz@intel.com>, linux-wimax@intel.com,
-	wimax@linuxwimax.org, "John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35758 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752798Ab2GJUdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 16:33:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [RFC 2/2] iwmc3200top: remove driver for unavailable hardware
+Date: Tue, 10 Jul 2012 16:27:29 -0400
+Message-ID: <1341952049-32193-2-git-send-email-linville@tuxdriver.com>
+References: <1341952049-32193-1-git-send-email-linville@tuxdriver.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Inaky Perez-Gonzalez <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Samuel Ortiz <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-wimax-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	wimax-BPSAo7wm5JOHVYUYWc+uSQ@public.gmane.org, "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1341952049-32193-1-git-send-email-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
-SDIO support in this driver was intended to support the iwmc3200
-device.  This hardware never became available to normal humans.
-Leaving this driver imposes unwelcome maintenance costs for no clear
-benefit.
+This hardware never became available to normal humans.  Leaving this
+driver imposes unwelcome maintenance costs for no clear benefit.
 
-Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Samuel Ortiz <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 ---
-If there are no objections, I'll push this series through the 
+If there are no objections, I'll push this series through the
 wireless-next tree along with the iwmc3200wifi removal.
 
- drivers/net/wimax/i2400m/Kconfig             |   22 -
- drivers/net/wimax/i2400m/Makefile            |    8 -
- drivers/net/wimax/i2400m/driver.c            |    3 +-
- drivers/net/wimax/i2400m/fw.c                |    3 +-
- drivers/net/wimax/i2400m/i2400m-sdio.h       |  157 -------
- drivers/net/wimax/i2400m/i2400m.h            |   13 +-
- drivers/net/wimax/i2400m/sdio-debug-levels.h |   22 -
- drivers/net/wimax/i2400m/sdio-fw.c           |  210 ---------
- drivers/net/wimax/i2400m/sdio-rx.c           |  301 -------------
- drivers/net/wimax/i2400m/sdio-tx.c           |  177 --------
- drivers/net/wimax/i2400m/sdio.c              |  602 --------------------------
- 11 files changed, 8 insertions(+), 1510 deletions(-)
- delete mode 100644 drivers/net/wimax/i2400m/i2400m-sdio.h
- delete mode 100644 drivers/net/wimax/i2400m/sdio-debug-levels.h
- delete mode 100644 drivers/net/wimax/i2400m/sdio-fw.c
- delete mode 100644 drivers/net/wimax/i2400m/sdio-rx.c
- delete mode 100644 drivers/net/wimax/i2400m/sdio-tx.c
- delete mode 100644 drivers/net/wimax/i2400m/sdio.c
+ drivers/misc/Kconfig                   |    1 -
+ drivers/misc/Makefile                  |    1 -
+ drivers/misc/iwmc3200top/Kconfig       |   20 -
+ drivers/misc/iwmc3200top/Makefile      |   29 --
+ drivers/misc/iwmc3200top/debugfs.c     |  137 -------
+ drivers/misc/iwmc3200top/debugfs.h     |   58 ---
+ drivers/misc/iwmc3200top/fw-download.c |  358 -----------------
+ drivers/misc/iwmc3200top/fw-msg.h      |  113 ------
+ drivers/misc/iwmc3200top/iwmc3200top.h |  205 ----------
+ drivers/misc/iwmc3200top/log.c         |  348 -----------------
+ drivers/misc/iwmc3200top/log.h         |  171 ---------
+ drivers/misc/iwmc3200top/main.c        |  662 --------------------------------
+ 12 files changed, 2103 deletions(-)
+ delete mode 100644 drivers/misc/iwmc3200top/Kconfig
+ delete mode 100644 drivers/misc/iwmc3200top/Makefile
+ delete mode 100644 drivers/misc/iwmc3200top/debugfs.c
+ delete mode 100644 drivers/misc/iwmc3200top/debugfs.h
+ delete mode 100644 drivers/misc/iwmc3200top/fw-download.c
+ delete mode 100644 drivers/misc/iwmc3200top/fw-msg.h
+ delete mode 100644 drivers/misc/iwmc3200top/iwmc3200top.h
+ delete mode 100644 drivers/misc/iwmc3200top/log.c
+ delete mode 100644 drivers/misc/iwmc3200top/log.h
+ delete mode 100644 drivers/misc/iwmc3200top/main.c
 
-diff --git a/drivers/net/wimax/i2400m/Kconfig b/drivers/net/wimax/i2400m/Kconfig
-index 672de18..71453db 100644
---- a/drivers/net/wimax/i2400m/Kconfig
-+++ b/drivers/net/wimax/i2400m/Kconfig
-@@ -7,9 +7,6 @@ config WIMAX_I2400M
- comment "Enable USB support to see WiMAX USB drivers"
- 	depends on USB = n
- 
--comment "Enable MMC support to see WiMAX SDIO drivers"
--	depends on MMC = n
--
- config WIMAX_I2400M_USB
- 	tristate "Intel Wireless WiMAX Connection 2400 over USB (including 5x50)"
- 	depends on WIMAX && USB
-@@ -21,25 +18,6 @@ config WIMAX_I2400M_USB
- 
- 	  If unsure, it is safe to select M (module).
- 
--config WIMAX_I2400M_SDIO
--	tristate "Intel Wireless WiMAX Connection 2400 over SDIO"
--	depends on WIMAX && MMC
--	select WIMAX_I2400M
--	help
--	  Select if you have a device based on the Intel WiMAX
--	  Connection 2400 over SDIO.
--
--	  If unsure, it is safe to select M (module).
--
--config WIMAX_IWMC3200_SDIO
--	bool "Intel Wireless Multicom WiMAX Connection 3200 over SDIO (EXPERIMENTAL)"
--	depends on WIMAX_I2400M_SDIO
--	depends on EXPERIMENTAL
--	select IWMC3200TOP
--	help
--	  Select if you have a device based on the Intel Multicom WiMAX
--          Connection 3200 over SDIO.
--
- config WIMAX_I2400M_DEBUG_LEVEL
- 	int "WiMAX i2400m debug level"
- 	depends on WIMAX_I2400M
-diff --git a/drivers/net/wimax/i2400m/Makefile b/drivers/net/wimax/i2400m/Makefile
-index 5d9e018..f6d19c3 100644
---- a/drivers/net/wimax/i2400m/Makefile
-+++ b/drivers/net/wimax/i2400m/Makefile
-@@ -1,7 +1,6 @@
- 
- obj-$(CONFIG_WIMAX_I2400M) += i2400m.o
- obj-$(CONFIG_WIMAX_I2400M_USB) += i2400m-usb.o
--obj-$(CONFIG_WIMAX_I2400M_SDIO) += i2400m-sdio.o
- 
- i2400m-y :=		\
- 	control.o	\
-@@ -21,10 +20,3 @@ i2400m-usb-y :=			\
- 	usb-tx.o		\
- 	usb-rx.o		\
- 	usb.o
--
--
--i2400m-sdio-y := 		\
--	sdio.o      		\
--	sdio-tx.o   		\
--	sdio-fw.o	 	\
--	sdio-rx.o
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 47cae71..850b8bc 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -754,8 +754,7 @@ EXPORT_SYMBOL_GPL(i2400m_error_recovery);
- /*
-  * Alloc the command and ack buffers for boot mode
-  *
-- * Get the buffers needed to deal with boot mode messages.  These
-- * buffers need to be allocated before the sdio receive irq is setup.
-+ * Get the buffers needed to deal with boot mode messages.
-  */
- static
- int i2400m_bm_buf_alloc(struct i2400m *i2400m)
-diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
-index 7cbd7d2..7632f8c 100644
---- a/drivers/net/wimax/i2400m/fw.c
-+++ b/drivers/net/wimax/i2400m/fw.c
-@@ -51,8 +51,7 @@
-  * firmware. Normal hardware takes only signed firmware.
-  *
-  * On boot mode, in USB, we write to the device using the bulk out
-- * endpoint and read from it in the notification endpoint. In SDIO we
-- * talk to it via the write address and read from the read address.
-+ * endpoint and read from it in the notification endpoint.
-  *
-  * Upon entrance to boot mode, the device sends (preceded with a few
-  * zero length packets (ZLPs) on the notification endpoint in USB) a
-diff --git a/drivers/net/wimax/i2400m/i2400m-sdio.h b/drivers/net/wimax/i2400m/i2400m-sdio.h
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 2661f6e..154f3ef 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -511,7 +511,6 @@ config USB_SWITCH_FSA9480
+ source "drivers/misc/c2port/Kconfig"
+ source "drivers/misc/eeprom/Kconfig"
+ source "drivers/misc/cb710/Kconfig"
+-source "drivers/misc/iwmc3200top/Kconfig"
+ source "drivers/misc/ti-st/Kconfig"
+ source "drivers/misc/lis3lv02d/Kconfig"
+ source "drivers/misc/carma/Kconfig"
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 456972f..b88df7a 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -36,7 +36,6 @@ obj-$(CONFIG_EP93XX_PWM)	+= ep93xx_pwm.o
+ obj-$(CONFIG_DS1682)		+= ds1682.o
+ obj-$(CONFIG_TI_DAC7512)	+= ti_dac7512.o
+ obj-$(CONFIG_C2PORT)		+= c2port/
+-obj-$(CONFIG_IWMC3200TOP)      += iwmc3200top/
+ obj-$(CONFIG_HMC6352)		+= hmc6352.o
+ obj-y				+= eeprom/
+ obj-y				+= cb710/
+diff --git a/drivers/misc/iwmc3200top/Kconfig b/drivers/misc/iwmc3200top/Kconfig
 deleted file mode 100644
-index 1d63ffd..0000000
---- a/drivers/net/wimax/i2400m/i2400m-sdio.h
+index 9e4b88f..0000000
+--- a/drivers/misc/iwmc3200top/Kconfig
 +++ /dev/null
-@@ -1,157 +0,0 @@
--/*
-- * Intel Wireless WiMAX Connection 2400m
-- * SDIO-specific i2400m driver definitions
-- *
-- *
-- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-- *
-- * Redistribution and use in source and binary forms, with or without
-- * modification, are permitted provided that the following conditions
-- * are met:
-- *
-- *   * Redistributions of source code must retain the above copyright
-- *     notice, this list of conditions and the following disclaimer.
-- *   * Redistributions in binary form must reproduce the above copyright
-- *     notice, this list of conditions and the following disclaimer in
-- *     the documentation and/or other materials provided with the
-- *     distribution.
-- *   * Neither the name of Intel Corporation nor the names of its
-- *     contributors may be used to endorse or promote products derived
-- *     from this software without specific prior written permission.
-- *
-- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-- *
-- *
-- * Intel Corporation <linux-wimax@intel.com>
-- * Brian Bian <brian.bian@intel.com>
-- * Dirk Brandewie <dirk.j.brandewie@intel.com>
-- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-- * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-- *  - Initial implementation
-- *
-- *
-- * This driver implements the bus-specific part of the i2400m for
-- * SDIO. Check i2400m.h for a generic driver description.
-- *
-- * ARCHITECTURE
-- *
-- * This driver sits under the bus-generic i2400m driver, providing the
-- * connection to the device.
-- *
-- * When probed, all the function pointers are setup and then the
-- * bus-generic code called. The generic driver will then use the
-- * provided pointers for uploading firmware (i2400ms_bus_bm*() in
-- * sdio-fw.c) and then setting up the device (i2400ms_dev_*() in
-- * sdio.c).
-- *
-- * Once firmware is uploaded, TX functions (sdio-tx.c) are called when
-- * data is ready for transmission in the TX fifo; then the SDIO IRQ is
-- * fired and data is available (sdio-rx.c), it is sent to the generic
-- * driver for processing with i2400m_rx.
-- */
+@@ -1,20 +0,0 @@
+-config IWMC3200TOP
+-        tristate "Intel Wireless MultiCom Top Driver"
+-        depends on MMC && EXPERIMENTAL
+-        select FW_LOADER
+-	---help---
+-	  Intel Wireless MultiCom 3200 Top driver is responsible for
+-	  for firmware load and enabled coms enumeration
 -
--#ifndef __I2400M_SDIO_H__
--#define __I2400M_SDIO_H__
+-config IWMC3200TOP_DEBUG
+-	bool "Enable full debug output of iwmc3200top Driver"
+-	depends on IWMC3200TOP
+-	---help---
+-	  Enable full debug output of iwmc3200top Driver
 -
--#include "i2400m.h"
+-config IWMC3200TOP_DEBUGFS
+-	bool "Enable Debugfs debugging interface for iwmc3200top"
+-	depends on IWMC3200TOP
+-	---help---
+-	  Enable creation of debugfs files for iwmc3200top
 -
--/* Host-Device interface for SDIO */
--enum {
--	I2400M_SDIO_BOOT_RETRIES = 3,
--	I2400MS_BLK_SIZE = 256,
--	I2400MS_PL_SIZE_MAX = 0x3E00,
--
--	I2400MS_DATA_ADDR = 0x0,
--	I2400MS_INTR_STATUS_ADDR = 0x13,
--	I2400MS_INTR_CLEAR_ADDR = 0x13,
--	I2400MS_INTR_ENABLE_ADDR = 0x14,
--	I2400MS_INTR_GET_SIZE_ADDR = 0x2C,
--	/* The number of ticks to wait for the device to signal that
--	 * it is ready */
--	I2400MS_INIT_SLEEP_INTERVAL = 100,
--	/* How long to wait for the device to settle after reset */
--	I2400MS_SETTLE_TIME = 40,
--	/* The number of msec to wait for IOR after sending IOE */
--	IWMC3200_IOR_TIMEOUT = 10,
--};
--
--
--/**
-- * struct i2400ms - descriptor for a SDIO connected i2400m
-- *
-- * @i2400m: bus-generic i2400m implementation; has to be first (see
-- *     it's documentation in i2400m.h).
-- *
-- * @func: pointer to our SDIO function
-- *
-- * @tx_worker: workqueue struct used to TX data when the bus-generic
-- *     code signals packets are pending for transmission to the device.
-- *
-- * @tx_workqueue: workqeueue used for data TX; we don't use the
-- *     system's workqueue as that might cause deadlocks with code in
-- *     the bus-generic driver. The read/write operation to the queue
-- *     is protected with spinlock (tx_lock in struct i2400m) to avoid
-- *     the queue being destroyed in the middle of a the queue read/write
-- *     operation.
-- *
-- * @debugfs_dentry: dentry for the SDIO specific debugfs files
-- *
-- *     Note this value is set to NULL upon destruction; this is
-- *     because some routinges use it to determine if we are inside the
-- *     probe() path or some other path. When debugfs is disabled,
-- *     creation sets the dentry to '(void*) -ENODEV', which is valid
-- *     for the test.
-- */
--struct i2400ms {
--	struct i2400m i2400m;		/* FIRST! See doc */
--	struct sdio_func *func;
--
--	struct work_struct tx_worker;
--	struct workqueue_struct *tx_workqueue;
--	char tx_wq_name[32];
--
--	struct dentry *debugfs_dentry;
--
--	wait_queue_head_t bm_wfa_wq;
--	int bm_wait_result;
--	size_t bm_ack_size;
--
--	/* Device is any of the iwmc3200 SKUs */
--	unsigned iwmc3200:1;
--};
--
--
--static inline
--void i2400ms_init(struct i2400ms *i2400ms)
--{
--	i2400m_init(&i2400ms->i2400m);
--}
--
--
--extern int i2400ms_rx_setup(struct i2400ms *);
--extern void i2400ms_rx_release(struct i2400ms *);
--
--extern int i2400ms_tx_setup(struct i2400ms *);
--extern void i2400ms_tx_release(struct i2400ms *);
--extern void i2400ms_bus_tx_kick(struct i2400m *);
--
--extern ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *,
--				       const struct i2400m_bootrom_header *,
--				       size_t, int);
--extern ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *,
--					   struct i2400m_bootrom_header *,
--					   size_t);
--extern void i2400ms_bus_bm_release(struct i2400m *);
--extern int i2400ms_bus_bm_setup(struct i2400m *);
--
--#endif /* #ifndef __I2400M_SDIO_H__ */
-diff --git a/drivers/net/wimax/i2400m/i2400m.h b/drivers/net/wimax/i2400m/i2400m.h
-index c806d45..79c6505 100644
---- a/drivers/net/wimax/i2400m/i2400m.h
-+++ b/drivers/net/wimax/i2400m/i2400m.h
-@@ -46,7 +46,7 @@
-  *  - bus generic driver (this part)
-  *
-  * The bus specific driver sets up stuff specific to the bus the
-- * device is connected to (USB, SDIO, PCI, tam-tam...non-authoritative
-+ * device is connected to (USB, PCI, tam-tam...non-authoritative
-  * nor binding list) which is basically the device-model management
-  * (probe/disconnect, etc), moving data from device to kernel and
-  * back, doing the power saving details and reseting the device.
-@@ -238,14 +238,13 @@ struct i2400m_barker_db;
-  * amount needed for loading firmware, where us dev_start/stop setup
-  * the rest needed to do full data/control traffic.
-  *
-- * @bus_tx_block_size: [fill] SDIO imposes a 256 block size, USB 16,
-- *     so we have a tx_blk_size variable that the bus layer sets to
-- *     tell the engine how much of that we need.
-+ * @bus_tx_block_size: [fill] USB imposes a 16 block size, but other
-+ *     busses will differ.  So we have a tx_blk_size variable that the
-+ *     bus layer sets to tell the engine how much of that we need.
-  *
-  * @bus_tx_room_min: [fill] Minimum room required while allocating
-- *     TX queue's buffer space for message header. SDIO requires
-- *     224 bytes and USB 16 bytes. Refer bus specific driver code
-- *     for details.
-+ *     TX queue's buffer space for message header. USB requires
-+ *     16 bytes. Refer to bus specific driver code for details.
-  *
-  * @bus_pl_size_max: [fill] Maximum payload size.
-  *
-diff --git a/drivers/net/wimax/i2400m/sdio-debug-levels.h b/drivers/net/wimax/i2400m/sdio-debug-levels.h
+diff --git a/drivers/misc/iwmc3200top/Makefile b/drivers/misc/iwmc3200top/Makefile
 deleted file mode 100644
-index c519987..0000000
---- a/drivers/net/wimax/i2400m/sdio-debug-levels.h
+index fbf53fb..0000000
+--- a/drivers/misc/iwmc3200top/Makefile
 +++ /dev/null
-@@ -1,22 +0,0 @@
--/*
-- * debug levels control file for the i2400m module's
-- */
--#ifndef __debug_levels__h__
--#define __debug_levels__h__
+@@ -1,29 +0,0 @@
+-# iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+-# drivers/misc/iwmc3200top/Makefile
+-#
+-# Copyright (C) 2009 Intel Corporation. All rights reserved.
+-#
+-# This program is free software; you can redistribute it and/or
+-# modify it under the terms of the GNU General Public License version
+-# 2 as published by the Free Software Foundation.
+-#
+-# This program is distributed in the hope that it will be useful,
+-# but WITHOUT ANY WARRANTY; without even the implied warranty of
+-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-# GNU General Public License for more details.
+-#
+-# You should have received a copy of the GNU General Public License
+-# along with this program; if not, write to the Free Software
+-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+-# 02110-1301, USA.
+-#
+-#
+-# Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+-#  -
+-#
+-#
 -
--/* Maximum compile and run time debug level for all submodules */
--#define D_MODULENAME i2400m_sdio
--#define D_MASTER CONFIG_WIMAX_I2400M_DEBUG_LEVEL
--
--#include <linux/wimax/debug.h>
--
--/* List of all the enabled modules */
--enum d_module {
--	D_SUBMODULE_DECLARE(main),
--	D_SUBMODULE_DECLARE(tx),
--	D_SUBMODULE_DECLARE(rx),
--	D_SUBMODULE_DECLARE(fw)
--};
--
--
--#endif /* #ifndef __debug_levels__h__ */
-diff --git a/drivers/net/wimax/i2400m/sdio-fw.c b/drivers/net/wimax/i2400m/sdio-fw.c
+-obj-$(CONFIG_IWMC3200TOP)	+= iwmc3200top.o
+-iwmc3200top-objs	:= main.o fw-download.o
+-iwmc3200top-$(CONFIG_IWMC3200TOP_DEBUG) += log.o
+-iwmc3200top-$(CONFIG_IWMC3200TOP_DEBUGFS) += debugfs.o
+diff --git a/drivers/misc/iwmc3200top/debugfs.c b/drivers/misc/iwmc3200top/debugfs.c
 deleted file mode 100644
-index 8e02541..0000000
---- a/drivers/net/wimax/i2400m/sdio-fw.c
+index 62fbaec..0000000
+--- a/drivers/misc/iwmc3200top/debugfs.c
 +++ /dev/null
-@@ -1,210 +0,0 @@
+@@ -1,137 +0,0 @@
 -/*
-- * Intel Wireless WiMAX Connection 2400m
-- * Firmware uploader's SDIO specifics
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/debufs.c
 - *
-- *
-- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-- *
-- * Redistribution and use in source and binary forms, with or without
-- * modification, are permitted provided that the following conditions
-- * are met:
-- *
-- *   * Redistributions of source code must retain the above copyright
-- *     notice, this list of conditions and the following disclaimer.
-- *   * Redistributions in binary form must reproduce the above copyright
-- *     notice, this list of conditions and the following disclaimer in
-- *     the documentation and/or other materials provided with the
-- *     distribution.
-- *   * Neither the name of Intel Corporation nor the names of its
-- *     contributors may be used to endorse or promote products derived
-- *     from this software without specific prior written permission.
-- *
-- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-- *
-- *
-- * Intel Corporation <linux-wimax@intel.com>
-- * Yanir Lubetkin <yanirx.lubetkin@intel.com>
-- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-- *  - Initial implementation
-- *
-- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-- *  - Bus generic/specific split for USB
-- *
-- * Dirk Brandewie <dirk.j.brandewie@intel.com>
-- *  - Initial implementation for SDIO
-- *
-- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-- *  - SDIO rehash for changes in the bus-driver model
-- *
-- * Dirk Brandewie <dirk.j.brandewie@intel.com>
-- *  - Make it IRQ based, not polling
-- *
-- * THE PROCEDURE
-- *
-- * See fw.c for the generic description of this procedure.
-- *
-- * This file implements only the SDIO specifics. It boils down to how
-- * to send a command and waiting for an acknowledgement from the
-- * device.
-- *
-- * All this code is sequential -- all i2400ms_bus_bm_*() functions are
-- * executed in the same thread, except i2400ms_bm_irq() [on its own by
-- * the SDIO driver]. This makes it possible to avoid locking.
-- *
-- * COMMAND EXECUTION
-- *
-- * The generic firmware upload code will call i2400m_bus_bm_cmd_send()
-- * to send commands.
-- *
-- * The SDIO devices expects things in 256 byte blocks, so it will pad
-- * it, compute the checksum (if needed) and pass it to SDIO.
-- *
-- * ACK RECEPTION
-- *
-- * This works in IRQ mode -- the fw loader says when to wait for data
-- * and for that it calls i2400ms_bus_bm_wait_for_ack().
-- *
-- * This checks if there is any data available (RX size > 0); if not,
-- * waits for the IRQ handler to notify about it. Once there is data,
-- * it is read and passed to the caller. Doing it this way we don't
-- * need much coordination/locking, and it makes it much more difficult
-- * for an interrupt to be lost and the wait_for_ack() function getting
-- * stuck even when data is pending.
-- */
--#include <linux/mmc/sdio_func.h>
--#include "i2400m-sdio.h"
--
--
--#define D_SUBMODULE fw
--#include "sdio-debug-levels.h"
--
--
--/*
-- * Send a boot-mode command to the SDIO function
-- *
-- * We use a bounce buffer (i2400m->bm_cmd_buf) because we need to
-- * touch the header if the RAW flag is not set.
-- *
-- * @flags: pass thru from i2400m_bm_cmd()
-- * @return: cmd_size if ok, < 0 errno code on error.
-- *
-- * Note the command is padded to the SDIO block size for the device.
-- */
--ssize_t i2400ms_bus_bm_cmd_send(struct i2400m *i2400m,
--				const struct i2400m_bootrom_header *_cmd,
--				size_t cmd_size, int flags)
--{
--	ssize_t result;
--	struct device *dev = i2400m_dev(i2400m);
--	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
--	int opcode = _cmd == NULL ? -1 : i2400m_brh_get_opcode(_cmd);
--	struct i2400m_bootrom_header *cmd;
--	/* SDIO restriction */
--	size_t cmd_size_a = ALIGN(cmd_size, I2400MS_BLK_SIZE);
--
--	d_fnstart(5, dev, "(i2400m %p cmd %p size %zu)\n",
--		  i2400m, _cmd, cmd_size);
--	result = -E2BIG;
--	if (cmd_size > I2400M_BM_CMD_BUF_SIZE)
--		goto error_too_big;
--
--	if (_cmd != i2400m->bm_cmd_buf)
--		memmove(i2400m->bm_cmd_buf, _cmd, cmd_size);
--	cmd = i2400m->bm_cmd_buf;
--	if (cmd_size_a > cmd_size)			/* Zero pad space */
--		memset(i2400m->bm_cmd_buf + cmd_size, 0, cmd_size_a - cmd_size);
--	if ((flags & I2400M_BM_CMD_RAW) == 0) {
--		if (WARN_ON(i2400m_brh_get_response_required(cmd) == 0))
--			dev_warn(dev, "SW BUG: response_required == 0\n");
--		i2400m_bm_cmd_prepare(cmd);
--	}
--	d_printf(4, dev, "BM cmd %d: %zu bytes (%zu padded)\n",
--		 opcode, cmd_size, cmd_size_a);
--	d_dump(5, dev, cmd, cmd_size);
--
--	sdio_claim_host(i2400ms->func);			/* Send & check */
--	result = sdio_memcpy_toio(i2400ms->func, I2400MS_DATA_ADDR,
--				  i2400m->bm_cmd_buf, cmd_size_a);
--	sdio_release_host(i2400ms->func);
--	if (result < 0) {
--		dev_err(dev, "BM cmd %d: cannot send: %ld\n",
--			opcode, (long) result);
--		goto error_cmd_send;
--	}
--	result = cmd_size;
--error_cmd_send:
--error_too_big:
--	d_fnend(5, dev, "(i2400m %p cmd %p size %zu) = %d\n",
--		i2400m, _cmd, cmd_size, (int) result);
--	return result;
--}
--
--
--/*
-- * Read an ack from the device's boot-mode
-- *
-- * @i2400m:
-- * @_ack: pointer to where to store the read data
-- * @ack_size: how many bytes we should read
-- *
-- * Returns: < 0 errno code on error; otherwise, amount of received bytes.
-- *
-- * The ACK for a BM command is always at least sizeof(*ack) bytes, so
-- * check for that. We don't need to check for device reboots
-- *
-- */
--ssize_t i2400ms_bus_bm_wait_for_ack(struct i2400m *i2400m,
--				    struct i2400m_bootrom_header *ack,
--				    size_t ack_size)
--{
--	ssize_t result;
--	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--	int size;
--
--	BUG_ON(sizeof(*ack) > ack_size);
--
--	d_fnstart(5, dev, "(i2400m %p ack %p size %zu)\n",
--		  i2400m, ack, ack_size);
--
--	result = wait_event_timeout(i2400ms->bm_wfa_wq,
--				    i2400ms->bm_ack_size != -EINPROGRESS,
--				    2 * HZ);
--	if (result == 0) {
--		result = -ETIMEDOUT;
--		dev_err(dev, "BM: error waiting for an ack\n");
--		goto error_timeout;
--	}
--
--	spin_lock(&i2400m->rx_lock);
--	result = i2400ms->bm_ack_size;
--	BUG_ON(result == -EINPROGRESS);
--	if (result < 0)        /* so we exit when rx_release() is called */
--		dev_err(dev, "BM: %s failed: %zd\n", __func__, result);
--	else {
--		size = min(ack_size, i2400ms->bm_ack_size);
--		memcpy(ack, i2400m->bm_ack_buf, size);
--	}
--	/*
--	 * Remember always to clear the bm_ack_size to -EINPROGRESS
--	 * after the RX data is processed
--	 */
--	i2400ms->bm_ack_size = -EINPROGRESS;
--	spin_unlock(&i2400m->rx_lock);
--
--error_timeout:
--	d_fnend(5, dev, "(i2400m %p ack %p size %zu) = %zd\n",
--		i2400m, ack, ack_size, result);
--	return result;
--}
-diff --git a/drivers/net/wimax/i2400m/sdio-rx.c b/drivers/net/wimax/i2400m/sdio-rx.c
-deleted file mode 100644
-index fb6396d..0000000
---- a/drivers/net/wimax/i2400m/sdio-rx.c
-+++ /dev/null
-@@ -1,301 +0,0 @@
--/*
-- * Intel Wireless WiMAX Connection 2400m
-- * SDIO RX handling
-- *
-- *
-- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-- *
-- * Redistribution and use in source and binary forms, with or without
-- * modification, are permitted provided that the following conditions
-- * are met:
-- *
-- *   * Redistributions of source code must retain the above copyright
-- *     notice, this list of conditions and the following disclaimer.
-- *   * Redistributions in binary form must reproduce the above copyright
-- *     notice, this list of conditions and the following disclaimer in
-- *     the documentation and/or other materials provided with the
-- *     distribution.
-- *   * Neither the name of Intel Corporation nor the names of its
-- *     contributors may be used to endorse or promote products derived
-- *     from this software without specific prior written permission.
-- *
-- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-- *
-- *
-- * Intel Corporation <linux-wimax@intel.com>
-- * Dirk Brandewie <dirk.j.brandewie@intel.com>
-- *  - Initial implementation
-- *
-- *
-- * This handles the RX path on SDIO.
-- *
-- * The SDIO bus driver calls the "irq" routine when data is available.
-- * This is not a traditional interrupt routine since the SDIO bus
-- * driver calls us from its irq thread context.  Because of this
-- * sleeping in the SDIO RX IRQ routine is okay.
-- *
-- * From there on, we obtain the size of the data that is available,
-- * allocate an skb, copy it and then pass it to the generic driver's
-- * RX routine [i2400m_rx()].
-- *
-- * ROADMAP
-- *
-- * i2400ms_irq()
-- *   i2400ms_rx()
-- *     __i2400ms_rx_get_size()
-- *     i2400m_is_boot_barker()
-- *     i2400m_rx()
-- *
-- * i2400ms_rx_setup()
-- *
-- * i2400ms_rx_release()
-- */
--#include <linux/workqueue.h>
--#include <linux/wait.h>
--#include <linux/skbuff.h>
--#include <linux/mmc/sdio.h>
--#include <linux/mmc/sdio_func.h>
--#include <linux/slab.h>
--#include "i2400m-sdio.h"
--
--#define D_SUBMODULE rx
--#include "sdio-debug-levels.h"
--
--static const __le32 i2400m_ACK_BARKER[4] = {
--	__constant_cpu_to_le32(I2400M_ACK_BARKER),
--	__constant_cpu_to_le32(I2400M_ACK_BARKER),
--	__constant_cpu_to_le32(I2400M_ACK_BARKER),
--	__constant_cpu_to_le32(I2400M_ACK_BARKER)
--};
--
--
--/*
-- * Read and return the amount of bytes available for RX
-- *
-- * The RX size has to be read like this: byte reads of three
-- * sequential locations; then glue'em together.
-- *
-- * sdio_readl() doesn't work.
-- */
--static ssize_t __i2400ms_rx_get_size(struct i2400ms *i2400ms)
--{
--	int ret, cnt, val;
--	ssize_t rx_size;
--	unsigned xfer_size_addr;
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &i2400ms->func->dev;
--
--	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
--	xfer_size_addr = I2400MS_INTR_GET_SIZE_ADDR;
--	rx_size = 0;
--	for (cnt = 0; cnt < 3; cnt++) {
--		val = sdio_readb(func, xfer_size_addr + cnt, &ret);
--		if (ret < 0) {
--			dev_err(dev, "RX: Can't read byte %d of RX size from "
--				"0x%08x: %d\n", cnt, xfer_size_addr + cnt, ret);
--			rx_size = ret;
--			goto error_read;
--		}
--		rx_size = rx_size << 8 | (val & 0xff);
--	}
--	d_printf(6, dev, "RX: rx_size is %ld\n", (long) rx_size);
--error_read:
--	d_fnend(7, dev, "(i2400ms %p) = %ld\n", i2400ms, (long) rx_size);
--	return rx_size;
--}
--
--
--/*
-- * Read data from the device (when in normal)
-- *
-- * Allocate an SKB of the right size, read the data in and then
-- * deliver it to the generic layer.
-- *
-- * We also check for a reboot barker. That means the device died and
-- * we have to reboot it.
-- */
--static
--void i2400ms_rx(struct i2400ms *i2400ms)
--{
--	int ret;
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--	struct i2400m *i2400m = &i2400ms->i2400m;
--	struct sk_buff *skb;
--	ssize_t rx_size;
--
--	d_fnstart(7, dev, "(i2400ms %p)\n", i2400ms);
--	rx_size = __i2400ms_rx_get_size(i2400ms);
--	if (rx_size < 0) {
--		ret = rx_size;
--		goto error_get_size;
--	}
--	/*
--	 * Hardware quirk: make sure to clear the INTR status register
--	 * AFTER getting the data transfer size.
--	 */
--	sdio_writeb(func, 1, I2400MS_INTR_CLEAR_ADDR, &ret);
--
--	ret = -ENOMEM;
--	skb = alloc_skb(rx_size, GFP_ATOMIC);
--	if (NULL == skb) {
--		dev_err(dev, "RX: unable to alloc skb\n");
--		goto error_alloc_skb;
--	}
--	ret = sdio_memcpy_fromio(func, skb->data,
--				 I2400MS_DATA_ADDR, rx_size);
--	if (ret < 0) {
--		dev_err(dev, "RX: SDIO data read failed: %d\n", ret);
--		goto error_memcpy_fromio;
--	}
--
--	rmb();	/* make sure we get boot_mode from dev_reset_handle */
--	if (unlikely(i2400m->boot_mode == 1)) {
--		spin_lock(&i2400m->rx_lock);
--		i2400ms->bm_ack_size = rx_size;
--		spin_unlock(&i2400m->rx_lock);
--		memcpy(i2400m->bm_ack_buf, skb->data, rx_size);
--		wake_up(&i2400ms->bm_wfa_wq);
--		d_printf(5, dev, "RX: SDIO boot mode message\n");
--		kfree_skb(skb);
--		goto out;
--	}
--	ret = -EIO;
--	if (unlikely(rx_size < sizeof(__le32))) {
--		dev_err(dev, "HW BUG? only %zu bytes received\n", rx_size);
--		goto error_bad_size;
--	}
--	if (likely(i2400m_is_d2h_barker(skb->data))) {
--		skb_put(skb, rx_size);
--		i2400m_rx(i2400m, skb);
--	} else if (unlikely(i2400m_is_boot_barker(i2400m,
--						  skb->data, rx_size))) {
--		ret = i2400m_dev_reset_handle(i2400m, "device rebooted");
--		dev_err(dev, "RX: SDIO reboot barker\n");
--		kfree_skb(skb);
--	} else {
--		i2400m_unknown_barker(i2400m, skb->data, rx_size);
--		kfree_skb(skb);
--	}
--out:
--	d_fnend(7, dev, "(i2400ms %p) = void\n", i2400ms);
--	return;
--
--error_memcpy_fromio:
--	kfree_skb(skb);
--error_alloc_skb:
--error_get_size:
--error_bad_size:
--	d_fnend(7, dev, "(i2400ms %p) = %d\n", i2400ms, ret);
--}
--
--
--/*
-- * Process an interrupt from the SDIO card
-- *
-- * FIXME: need to process other events that are not just ready-to-read
-- *
-- * Checks there is data ready and then proceeds to read it.
-- */
--static
--void i2400ms_irq(struct sdio_func *func)
--{
--	int ret;
--	struct i2400ms *i2400ms = sdio_get_drvdata(func);
--	struct device *dev = &func->dev;
--	int val;
--
--	d_fnstart(6, dev, "(i2400ms %p)\n", i2400ms);
--	val = sdio_readb(func, I2400MS_INTR_STATUS_ADDR, &ret);
--	if (ret < 0) {
--		dev_err(dev, "RX: Can't read interrupt status: %d\n", ret);
--		goto error_no_irq;
--	}
--	if (!val) {
--		dev_err(dev, "RX: BUG? got IRQ but no interrupt ready?\n");
--		goto error_no_irq;
--	}
--	i2400ms_rx(i2400ms);
--error_no_irq:
--	d_fnend(6, dev, "(i2400ms %p) = void\n", i2400ms);
--}
--
--
--/*
-- * Setup SDIO RX
-- *
-- * Hooks up the IRQ handler and then enables IRQs.
-- */
--int i2400ms_rx_setup(struct i2400ms *i2400ms)
--{
--	int result;
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--	struct i2400m *i2400m = &i2400ms->i2400m;
--
--	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
--
--	init_waitqueue_head(&i2400ms->bm_wfa_wq);
--	spin_lock(&i2400m->rx_lock);
--	i2400ms->bm_wait_result = -EINPROGRESS;
--	/*
--	 * Before we are about to enable the RX interrupt, make sure
--	 * bm_ack_size is cleared to -EINPROGRESS which indicates
--	 * no RX interrupt happened yet or the previous interrupt
--	 * has been handled, we are ready to take the new interrupt
--	 */
--	i2400ms->bm_ack_size = -EINPROGRESS;
--	spin_unlock(&i2400m->rx_lock);
--
--	sdio_claim_host(func);
--	result = sdio_claim_irq(func, i2400ms_irq);
--	if (result < 0) {
--		dev_err(dev, "Cannot claim IRQ: %d\n", result);
--		goto error_irq_claim;
--	}
--	result = 0;
--	sdio_writeb(func, 1, I2400MS_INTR_ENABLE_ADDR, &result);
--	if (result < 0) {
--		sdio_release_irq(func);
--		dev_err(dev, "Failed to enable interrupts %d\n", result);
--	}
--error_irq_claim:
--	sdio_release_host(func);
--	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
--	return result;
--}
--
--
--/*
-- * Tear down SDIO RX
-- *
-- * Disables IRQs in the device and removes the IRQ handler.
-- */
--void i2400ms_rx_release(struct i2400ms *i2400ms)
--{
--	int result;
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--	struct i2400m *i2400m = &i2400ms->i2400m;
--
--	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
--	spin_lock(&i2400m->rx_lock);
--	i2400ms->bm_ack_size = -EINTR;
--	spin_unlock(&i2400m->rx_lock);
--	wake_up_all(&i2400ms->bm_wfa_wq);
--	sdio_claim_host(func);
--	sdio_writeb(func, 0, I2400MS_INTR_ENABLE_ADDR, &result);
--	sdio_release_irq(func);
--	sdio_release_host(func);
--	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
--}
-diff --git a/drivers/net/wimax/i2400m/sdio-tx.c b/drivers/net/wimax/i2400m/sdio-tx.c
-deleted file mode 100644
-index b53cd1c..0000000
---- a/drivers/net/wimax/i2400m/sdio-tx.c
-+++ /dev/null
-@@ -1,177 +0,0 @@
--/*
-- * Intel Wireless WiMAX Connection 2400m
-- * SDIO TX transaction backends
-- *
-- *
-- * Copyright (C) 2007-2008 Intel Corporation. All rights reserved.
-- *
-- * Redistribution and use in source and binary forms, with or without
-- * modification, are permitted provided that the following conditions
-- * are met:
-- *
-- *   * Redistributions of source code must retain the above copyright
-- *     notice, this list of conditions and the following disclaimer.
-- *   * Redistributions in binary form must reproduce the above copyright
-- *     notice, this list of conditions and the following disclaimer in
-- *     the documentation and/or other materials provided with the
-- *     distribution.
-- *   * Neither the name of Intel Corporation nor the names of its
-- *     contributors may be used to endorse or promote products derived
-- *     from this software without specific prior written permission.
-- *
-- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-- *
-- *
-- * Intel Corporation <linux-wimax@intel.com>
-- * Dirk Brandewie <dirk.j.brandewie@intel.com>
-- *  - Initial implementation
-- *
-- *
-- * Takes the TX messages in the i2400m's driver TX FIFO and sends them
-- * to the device until there are no more.
-- *
-- * If we fail sending the message, we just drop it. There isn't much
-- * we can do at this point. Most of the traffic is network, which has
-- * recovery methods for dropped packets.
-- *
-- * The SDIO functions are not atomic, so we can't run from the context
-- * where i2400m->bus_tx_kick() [i2400ms_bus_tx_kick()] is being called
-- * (some times atomic). Thus, the actual TX work is deferred to a
-- * workqueue.
-- *
-- * ROADMAP
-- *
-- * i2400ms_bus_tx_kick()
-- *   i2400ms_tx_submit()     [through workqueue]
-- *
-- * i2400m_tx_setup()
-- *
-- * i2400m_tx_release()
-- */
--#include <linux/mmc/sdio_func.h>
--#include "i2400m-sdio.h"
--
--#define D_SUBMODULE tx
--#include "sdio-debug-levels.h"
--
--
--/*
-- * Pull TX transations from the TX FIFO and send them to the device
-- * until there are no more.
-- */
--static
--void i2400ms_tx_submit(struct work_struct *ws)
--{
--	int result;
--	struct i2400ms *i2400ms = container_of(ws, struct i2400ms, tx_worker);
--	struct i2400m *i2400m = &i2400ms->i2400m;
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--	struct i2400m_msg_hdr *tx_msg;
--	size_t tx_msg_size;
--
--	d_fnstart(4, dev, "(i2400ms %p, i2400m %p)\n", i2400ms, i2400ms);
--
--	while (NULL != (tx_msg = i2400m_tx_msg_get(i2400m, &tx_msg_size))) {
--		d_printf(2, dev, "TX: submitting %zu bytes\n", tx_msg_size);
--		d_dump(5, dev, tx_msg, tx_msg_size);
--
--		sdio_claim_host(func);
--		result = sdio_memcpy_toio(func, 0, tx_msg, tx_msg_size);
--		sdio_release_host(func);
--
--		i2400m_tx_msg_sent(i2400m);
--
--		if (result < 0) {
--			dev_err(dev, "TX: cannot submit TX; tx_msg @%zu %zu B:"
--				" %d\n", (void *) tx_msg - i2400m->tx_buf,
--				tx_msg_size, result);
--		}
--
--		if (result == -ETIMEDOUT) {
--			i2400m_error_recovery(i2400m);
--			break;
--		}
--		d_printf(2, dev, "TX: %zub submitted\n", tx_msg_size);
--	}
--
--	d_fnend(4, dev, "(i2400ms %p) = void\n", i2400ms);
--}
--
--
--/*
-- * The generic driver notifies us that there is data ready for TX
-- *
-- * Schedule a run of i2400ms_tx_submit() to handle it.
-- */
--void i2400ms_bus_tx_kick(struct i2400m *i2400m)
--{
--	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
--	struct device *dev = &i2400ms->func->dev;
--	unsigned long flags;
--
--	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
--
--	/* schedule tx work, this is because tx may block, therefore
--	 * it has to run in a thread context.
--	 */
--	spin_lock_irqsave(&i2400m->tx_lock, flags);
--	if (i2400ms->tx_workqueue != NULL)
--		queue_work(i2400ms->tx_workqueue, &i2400ms->tx_worker);
--	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
--
--	d_fnend(3, dev, "(i2400m %p) = void\n", i2400m);
--}
--
--int i2400ms_tx_setup(struct i2400ms *i2400ms)
--{
--	int result;
--	struct device *dev = &i2400ms->func->dev;
--	struct i2400m *i2400m = &i2400ms->i2400m;
--	struct workqueue_struct *tx_workqueue;
--	unsigned long flags;
--
--	d_fnstart(5, dev, "(i2400ms %p)\n", i2400ms);
--
--	INIT_WORK(&i2400ms->tx_worker, i2400ms_tx_submit);
--	snprintf(i2400ms->tx_wq_name, sizeof(i2400ms->tx_wq_name),
--		 "%s-tx", i2400m->wimax_dev.name);
--	tx_workqueue =
--		create_singlethread_workqueue(i2400ms->tx_wq_name);
--	if (tx_workqueue == NULL) {
--		dev_err(dev, "TX: failed to create workqueue\n");
--		result = -ENOMEM;
--	} else
--		result = 0;
--	spin_lock_irqsave(&i2400m->tx_lock, flags);
--	i2400ms->tx_workqueue = tx_workqueue;
--	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
--	d_fnend(5, dev, "(i2400ms %p) = %d\n", i2400ms, result);
--	return result;
--}
--
--void i2400ms_tx_release(struct i2400ms *i2400ms)
--{
--	struct i2400m *i2400m = &i2400ms->i2400m;
--	struct workqueue_struct *tx_workqueue;
--	unsigned long flags;
--
--	tx_workqueue = i2400ms->tx_workqueue;
--
--	spin_lock_irqsave(&i2400m->tx_lock, flags);
--	i2400ms->tx_workqueue = NULL;
--	spin_unlock_irqrestore(&i2400m->tx_lock, flags);
--
--	if (tx_workqueue)
--		destroy_workqueue(tx_workqueue);
--}
-diff --git a/drivers/net/wimax/i2400m/sdio.c b/drivers/net/wimax/i2400m/sdio.c
-deleted file mode 100644
-index 21a9edd..0000000
---- a/drivers/net/wimax/i2400m/sdio.c
-+++ /dev/null
-@@ -1,602 +0,0 @@
--/*
-- * Intel Wireless WiMAX Connection 2400m
-- * Linux driver model glue for the SDIO device, reset & fw upload
-- *
-- *
-- * Copyright (C) 2007-2008 Intel Corporation <linux-wimax@intel.com>
-- * Dirk Brandewie <dirk.j.brandewie@intel.com>
-- * Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-- * Yanir Lubetkin <yanirx.lubetkin@intel.com>
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
 - *
 - * This program is free software; you can redistribute it and/or
 - * modify it under the terms of the GNU General Public License version
@@ -1099,582 +161,2075 @@ index 21a9edd..0000000
 - * 02110-1301, USA.
 - *
 - *
-- * See i2400m-sdio.h for a general description of this driver.
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
 - *
-- * This file implements driver model glue, and hook ups for the
-- * generic driver to implement the bus-specific functions (device
-- * communication setup/tear down, firmware upload and resetting).
-- *
-- * ROADMAP
-- *
-- * i2400m_probe()
-- *   alloc_netdev()
-- *     i2400ms_netdev_setup()
-- *       i2400ms_init()
-- *       i2400m_netdev_setup()
-- *   i2400ms_enable_function()
-- *   i2400m_setup()
-- *
-- * i2400m_remove()
-- *     i2400m_release()
-- *     free_netdev(net_dev)
-- *
-- * i2400ms_bus_reset()            Called by i2400m_reset
-- *   __i2400ms_reset()
-- *     __i2400ms_send_barker()
 - */
 -
+-#include <linux/kernel.h>
 -#include <linux/slab.h>
--#include <linux/debugfs.h>
--#include <linux/mmc/sdio_ids.h>
--#include <linux/mmc/sdio.h>
+-#include <linux/string.h>
+-#include <linux/ctype.h>
 -#include <linux/mmc/sdio_func.h>
--#include "i2400m-sdio.h"
--#include <linux/wimax/i2400m.h>
--#include <linux/module.h>
+-#include <linux/mmc/sdio.h>
+-#include <linux/debugfs.h>
 -
--#define D_SUBMODULE main
--#include "sdio-debug-levels.h"
--
--/* IOE WiMAX function timeout in seconds */
--static int ioe_timeout = 2;
--module_param(ioe_timeout, int, 0);
--
--static char i2400ms_debug_params[128];
--module_param_string(debug, i2400ms_debug_params, sizeof(i2400ms_debug_params),
--		    0644);
--MODULE_PARM_DESC(debug,
--		 "String of space-separated NAME:VALUE pairs, where NAMEs "
--		 "are the different debug submodules and VALUE are the "
--		 "initial debug value to set.");
--
--/* Our firmware file name list */
--static const char *i2400ms_bus_fw_names[] = {
--#define I2400MS_FW_FILE_NAME "i2400m-fw-sdio-1.3.sbcf"
--	I2400MS_FW_FILE_NAME,
--	NULL
--};
+-#include "iwmc3200top.h"
+-#include "fw-msg.h"
+-#include "log.h"
+-#include "debugfs.h"
 -
 -
--static const struct i2400m_poke_table i2400ms_pokes[] = {
--	I2400M_FW_POKE(0x6BE260, 0x00000088),
--	I2400M_FW_POKE(0x080550, 0x00000005),
--	I2400M_FW_POKE(0xAE0000, 0x00000000),
--	I2400M_FW_POKE(0x000000, 0x00000000), /* MUST be 0 terminated or bad
--					       * things will happen */
--};
+-
+-/*      Constants definition        */
+-#define HEXADECIMAL_RADIX	16
+-
+-/*      Functions definition        */
+-
+-
+-#define DEBUGFS_ADD(name, parent) do {					\
+-	dbgfs->dbgfs_##parent##_files.file_##name =			\
+-	debugfs_create_file(#name, 0644, dbgfs->dir_##parent, priv,	\
+-				&iwmct_dbgfs_##name##_ops);		\
+-} while (0)
+-
+-#define DEBUGFS_RM(name)  do {		\
+-	debugfs_remove(name);		\
+-	name = NULL;			\
+-} while (0)
+-
+-#define DEBUGFS_READ_FUNC(name)						\
+-ssize_t iwmct_dbgfs_##name##_read(struct file *file,			\
+-				  char __user *user_buf,		\
+-				  size_t count, loff_t *ppos);
+-
+-#define DEBUGFS_WRITE_FUNC(name)					\
+-ssize_t iwmct_dbgfs_##name##_write(struct file *file,			\
+-				   const char __user *user_buf,		\
+-				   size_t count, loff_t *ppos);
+-
+-#define DEBUGFS_READ_FILE_OPS(name)					\
+-	DEBUGFS_READ_FUNC(name)						\
+-	static const struct file_operations iwmct_dbgfs_##name##_ops = {  \
+-		.read = iwmct_dbgfs_##name##_read,			\
+-		.open = iwmct_dbgfs_open_file_generic,			\
+-		.llseek = generic_file_llseek,				\
+-	};
+-
+-#define DEBUGFS_WRITE_FILE_OPS(name)					\
+-	DEBUGFS_WRITE_FUNC(name)					\
+-	static const struct file_operations iwmct_dbgfs_##name##_ops = {  \
+-		.write = iwmct_dbgfs_##name##_write,			\
+-		.open = iwmct_dbgfs_open_file_generic,			\
+-		.llseek = generic_file_llseek,				\
+-	};
+-
+-#define DEBUGFS_READ_WRITE_FILE_OPS(name)				\
+-	DEBUGFS_READ_FUNC(name)						\
+-	DEBUGFS_WRITE_FUNC(name)					\
+-	static const struct file_operations iwmct_dbgfs_##name##_ops = {\
+-		.write = iwmct_dbgfs_##name##_write,			\
+-		.read = iwmct_dbgfs_##name##_read,			\
+-		.open = iwmct_dbgfs_open_file_generic,			\
+-		.llseek = generic_file_llseek,				\
+-	};
+-
+-
+-/*      Debugfs file ops definitions        */
 -
 -/*
-- * Enable the SDIO function
+- * Create the debugfs files and directories
 - *
-- * Tries to enable the SDIO function; might fail if it is still not
-- * ready (in some hardware, the SDIO WiMAX function is only enabled
-- * when we ask it to explicitly doing). Tries until a timeout is
-- * reached.
-- *
-- * The @maxtries argument indicates how many times (at most) it should
-- * be tried to enable the function. 0 means forever. This acts along
-- * with the timeout (ie: it'll stop trying as soon as the maximum
-- * number of tries is reached _or_ as soon as the timeout is reached).
-- *
-- * The reverse of this is...sdio_disable_function()
-- *
-- * Returns: 0 if the SDIO function was enabled, < 0 errno code on
-- *     error (-ENODEV when it was unable to enable the function).
 - */
--static
--int i2400ms_enable_function(struct i2400ms *i2400ms, unsigned maxtries)
+-void iwmct_dbgfs_register(struct iwmct_priv *priv, const char *name)
 -{
--	struct sdio_func *func = i2400ms->func;
--	u64 timeout;
--	int err;
--	struct device *dev = &func->dev;
--	unsigned tries = 0;
+-	struct iwmct_debugfs *dbgfs;
 -
--	d_fnstart(3, dev, "(func %p)\n", func);
--	/* Setup timeout (FIXME: This needs to read the CIS table to
--	 * get a real timeout) and then wait for the device to signal
--	 * it is ready */
--	timeout = get_jiffies_64() + ioe_timeout * HZ;
--	err = -ENODEV;
--	while (err != 0 && time_before64(get_jiffies_64(), timeout)) {
--		sdio_claim_host(func);
--		/*
--		 * There is a sillicon bug on the IWMC3200, where the
--		 * IOE timeout will cause problems on Moorestown
--		 * platforms (system hang). We explicitly overwrite
--		 * func->enable_timeout here to work around the issue.
--		 */
--		if (i2400ms->iwmc3200)
--			func->enable_timeout = IWMC3200_IOR_TIMEOUT;
--		err = sdio_enable_func(func);
--		if (0 == err) {
--			sdio_release_host(func);
--			d_printf(2, dev, "SDIO function enabled\n");
--			goto function_enabled;
+-	dbgfs = kzalloc(sizeof(struct iwmct_debugfs), GFP_KERNEL);
+-	if (!dbgfs) {
+-		LOG_ERROR(priv, DEBUGFS, "failed to allocate %zd bytes\n",
+-					sizeof(struct iwmct_debugfs));
+-		return;
+-	}
+-
+-	priv->dbgfs = dbgfs;
+-	dbgfs->name = name;
+-	dbgfs->dir_drv = debugfs_create_dir(name, NULL);
+-	if (!dbgfs->dir_drv) {
+-		LOG_ERROR(priv, DEBUGFS, "failed to create debugfs dir\n");
+-		return;
+-	}
+-
+-	return;
+-}
+-
+-/**
+- * Remove the debugfs files and directories
+- *
+- */
+-void iwmct_dbgfs_unregister(struct iwmct_debugfs *dbgfs)
+-{
+-	if (!dbgfs)
+-		return;
+-
+-	DEBUGFS_RM(dbgfs->dir_drv);
+-	kfree(dbgfs);
+-	dbgfs = NULL;
+-}
+-
+diff --git a/drivers/misc/iwmc3200top/debugfs.h b/drivers/misc/iwmc3200top/debugfs.h
+deleted file mode 100644
+index 71d4575..0000000
+--- a/drivers/misc/iwmc3200top/debugfs.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/debufs.h
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#ifndef __DEBUGFS_H__
+-#define __DEBUGFS_H__
+-
+-
+-#ifdef CONFIG_IWMC3200TOP_DEBUGFS
+-
+-struct iwmct_debugfs {
+-	const char *name;
+-	struct dentry *dir_drv;
+-	struct dir_drv_files {
+-	} dbgfs_drv_files;
+-};
+-
+-void iwmct_dbgfs_register(struct iwmct_priv *priv, const char *name);
+-void iwmct_dbgfs_unregister(struct iwmct_debugfs *dbgfs);
+-
+-#else /* CONFIG_IWMC3200TOP_DEBUGFS */
+-
+-struct iwmct_debugfs;
+-
+-static inline void
+-iwmct_dbgfs_register(struct iwmct_priv *priv, const char *name)
+-{}
+-
+-static inline void
+-iwmct_dbgfs_unregister(struct iwmct_debugfs *dbgfs)
+-{}
+-
+-#endif /* CONFIG_IWMC3200TOP_DEBUGFS */
+-
+-#endif /* __DEBUGFS_H__ */
+-
+diff --git a/drivers/misc/iwmc3200top/fw-download.c b/drivers/misc/iwmc3200top/fw-download.c
+deleted file mode 100644
+index e27afde..0000000
+--- a/drivers/misc/iwmc3200top/fw-download.c
++++ /dev/null
+@@ -1,358 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/fw-download.c
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#include <linux/firmware.h>
+-#include <linux/mmc/sdio_func.h>
+-#include <linux/slab.h>
+-#include <asm/unaligned.h>
+-
+-#include "iwmc3200top.h"
+-#include "log.h"
+-#include "fw-msg.h"
+-
+-#define CHECKSUM_BYTES_NUM sizeof(u32)
+-
+-/**
+-  init parser struct with file
+- */
+-static int iwmct_fw_parser_init(struct iwmct_priv *priv, const u8 *file,
+-			      size_t file_size, size_t block_size)
+-{
+-	struct iwmct_parser *parser = &priv->parser;
+-	struct iwmct_fw_hdr *fw_hdr = &parser->versions;
+-
+-	LOG_TRACE(priv, FW_DOWNLOAD, "-->\n");
+-
+-	LOG_INFO(priv, FW_DOWNLOAD, "file_size=%zd\n", file_size);
+-
+-	parser->file = file;
+-	parser->file_size = file_size;
+-	parser->cur_pos = 0;
+-	parser->entry_point = 0;
+-	parser->buf = kzalloc(block_size, GFP_KERNEL);
+-	if (!parser->buf) {
+-		LOG_ERROR(priv, FW_DOWNLOAD, "kzalloc error\n");
+-		return -ENOMEM;
+-	}
+-	parser->buf_size = block_size;
+-
+-	/* extract fw versions */
+-	memcpy(fw_hdr, parser->file, sizeof(struct iwmct_fw_hdr));
+-	LOG_INFO(priv, FW_DOWNLOAD, "fw versions are:\n"
+-		"top %u.%u.%u gps %u.%u.%u bt %u.%u.%u tic %s\n",
+-		fw_hdr->top_major, fw_hdr->top_minor, fw_hdr->top_revision,
+-		fw_hdr->gps_major, fw_hdr->gps_minor, fw_hdr->gps_revision,
+-		fw_hdr->bt_major, fw_hdr->bt_minor, fw_hdr->bt_revision,
+-		fw_hdr->tic_name);
+-
+-	parser->cur_pos += sizeof(struct iwmct_fw_hdr);
+-
+-	LOG_TRACE(priv, FW_DOWNLOAD, "<--\n");
+-	return 0;
+-}
+-
+-static bool iwmct_checksum(struct iwmct_priv *priv)
+-{
+-	struct iwmct_parser *parser = &priv->parser;
+-	__le32 *file = (__le32 *)parser->file;
+-	int i, pad, steps;
+-	u32 accum = 0;
+-	u32 checksum;
+-	u32 mask = 0xffffffff;
+-
+-	pad = (parser->file_size - CHECKSUM_BYTES_NUM) % 4;
+-	steps =  (parser->file_size - CHECKSUM_BYTES_NUM) / 4;
+-
+-	LOG_INFO(priv, FW_DOWNLOAD, "pad=%d steps=%d\n", pad, steps);
+-
+-	for (i = 0; i < steps; i++)
+-		accum += le32_to_cpu(file[i]);
+-
+-	if (pad) {
+-		mask <<= 8 * (4 - pad);
+-		accum += le32_to_cpu(file[steps]) & mask;
+-	}
+-
+-	checksum = get_unaligned_le32((__le32 *)(parser->file +
+-			parser->file_size - CHECKSUM_BYTES_NUM));
+-
+-	LOG_INFO(priv, FW_DOWNLOAD,
+-		"compare checksum accum=0x%x to checksum=0x%x\n",
+-		accum, checksum);
+-
+-	return checksum == accum;
+-}
+-
+-static int iwmct_parse_next_section(struct iwmct_priv *priv, const u8 **p_sec,
+-				  size_t *sec_size, __le32 *sec_addr)
+-{
+-	struct iwmct_parser *parser = &priv->parser;
+-	struct iwmct_dbg *dbg = &priv->dbg;
+-	struct iwmct_fw_sec_hdr *sec_hdr;
+-
+-	LOG_TRACE(priv, FW_DOWNLOAD, "-->\n");
+-
+-	while (parser->cur_pos + sizeof(struct iwmct_fw_sec_hdr)
+-		<= parser->file_size) {
+-
+-		sec_hdr = (struct iwmct_fw_sec_hdr *)
+-				(parser->file + parser->cur_pos);
+-		parser->cur_pos += sizeof(struct iwmct_fw_sec_hdr);
+-
+-		LOG_INFO(priv, FW_DOWNLOAD,
+-			"sec hdr: type=%s addr=0x%x size=%d\n",
+-			sec_hdr->type, sec_hdr->target_addr,
+-			sec_hdr->data_size);
+-
+-		if (strcmp(sec_hdr->type, "ENT") == 0)
+-			parser->entry_point = le32_to_cpu(sec_hdr->target_addr);
+-		else if (strcmp(sec_hdr->type, "LBL") == 0)
+-			strcpy(dbg->label_fw, parser->file + parser->cur_pos);
+-		else if (((strcmp(sec_hdr->type, "TOP") == 0) &&
+-			  (priv->barker & BARKER_DNLOAD_TOP_MSK)) ||
+-			 ((strcmp(sec_hdr->type, "GPS") == 0) &&
+-			  (priv->barker & BARKER_DNLOAD_GPS_MSK)) ||
+-			 ((strcmp(sec_hdr->type, "BTH") == 0) &&
+-			  (priv->barker & BARKER_DNLOAD_BT_MSK))) {
+-			*sec_addr = sec_hdr->target_addr;
+-			*sec_size = le32_to_cpu(sec_hdr->data_size);
+-			*p_sec = parser->file + parser->cur_pos;
+-			parser->cur_pos += le32_to_cpu(sec_hdr->data_size);
+-			return 1;
+-		} else if (strcmp(sec_hdr->type, "LOG") != 0)
+-			LOG_WARNING(priv, FW_DOWNLOAD,
+-				    "skipping section type %s\n",
+-				    sec_hdr->type);
+-
+-		parser->cur_pos += le32_to_cpu(sec_hdr->data_size);
+-		LOG_INFO(priv, FW_DOWNLOAD,
+-			"finished with section cur_pos=%zd\n", parser->cur_pos);
+-	}
+-
+-	LOG_TRACE(priv, INIT, "<--\n");
+-	return 0;
+-}
+-
+-static int iwmct_download_section(struct iwmct_priv *priv, const u8 *p_sec,
+-				size_t sec_size, __le32 addr)
+-{
+-	struct iwmct_parser *parser = &priv->parser;
+-	struct iwmct_fw_load_hdr *hdr = (struct iwmct_fw_load_hdr *)parser->buf;
+-	const u8 *cur_block = p_sec;
+-	size_t sent = 0;
+-	int cnt = 0;
+-	int ret = 0;
+-	u32 cmd = 0;
+-
+-	LOG_TRACE(priv, FW_DOWNLOAD, "-->\n");
+-	LOG_INFO(priv, FW_DOWNLOAD, "Download address 0x%x size 0x%zx\n",
+-				addr, sec_size);
+-
+-	while (sent < sec_size) {
+-		int i;
+-		u32 chksm = 0;
+-		u32 reset = atomic_read(&priv->reset);
+-		/* actual FW data */
+-		u32 data_size = min(parser->buf_size - sizeof(*hdr),
+-				    sec_size - sent);
+-		/* Pad to block size */
+-		u32 trans_size = (data_size + sizeof(*hdr) +
+-				  IWMC_SDIO_BLK_SIZE - 1) &
+-				  ~(IWMC_SDIO_BLK_SIZE - 1);
+-		++cnt;
+-
+-		/* in case of reset, interrupt FW DOWNLAOD */
+-		if (reset) {
+-			LOG_INFO(priv, FW_DOWNLOAD,
+-				 "Reset detected. Abort FW download!!!");
+-			ret = -ECANCELED;
+-			goto exit;
 -		}
--		d_printf(2, dev, "SDIO function failed to enable: %d\n", err);
--		sdio_release_host(func);
--		if (maxtries > 0 && ++tries >= maxtries) {
--			err = -ETIME;
+-
+-		memset(parser->buf, 0, parser->buf_size);
+-		cmd |= IWMC_OPCODE_WRITE << CMD_HDR_OPCODE_POS;
+-		cmd |= IWMC_CMD_SIGNATURE << CMD_HDR_SIGNATURE_POS;
+-		cmd |= (priv->dbg.direct ? 1 : 0) << CMD_HDR_DIRECT_ACCESS_POS;
+-		cmd |= (priv->dbg.checksum ? 1 : 0) << CMD_HDR_USE_CHECKSUM_POS;
+-		hdr->data_size = cpu_to_le32(data_size);
+-		hdr->target_addr = addr;
+-
+-		/* checksum is allowed for sizes divisible by 4 */
+-		if (data_size & 0x3)
+-			cmd &= ~CMD_HDR_USE_CHECKSUM_MSK;
+-
+-		memcpy(hdr->data, cur_block, data_size);
+-
+-
+-		if (cmd & CMD_HDR_USE_CHECKSUM_MSK) {
+-
+-			chksm = data_size + le32_to_cpu(addr) + cmd;
+-			for (i = 0; i < data_size >> 2; i++)
+-				chksm += ((u32 *)cur_block)[i];
+-
+-			hdr->block_chksm = cpu_to_le32(chksm);
+-			LOG_INFO(priv, FW_DOWNLOAD, "Checksum = 0x%X\n",
+-				 hdr->block_chksm);
+-		}
+-
+-		LOG_INFO(priv, FW_DOWNLOAD, "trans#%d, len=%d, sent=%zd, "
+-				"sec_size=%zd, startAddress 0x%X\n",
+-				cnt, trans_size, sent, sec_size, addr);
+-
+-		if (priv->dbg.dump)
+-			LOG_HEXDUMP(FW_DOWNLOAD, parser->buf, trans_size);
+-
+-
+-		hdr->cmd = cpu_to_le32(cmd);
+-		/* send it down */
+-		/* TODO: add more proper sending and error checking */
+-		ret = iwmct_tx(priv, parser->buf, trans_size);
+-		if (ret != 0) {
+-			LOG_INFO(priv, FW_DOWNLOAD,
+-				"iwmct_tx returned %d\n", ret);
+-			goto exit;
+-		}
+-
+-		addr = cpu_to_le32(le32_to_cpu(addr) + data_size);
+-		sent += data_size;
+-		cur_block = p_sec + sent;
+-
+-		if (priv->dbg.blocks && (cnt + 1) >= priv->dbg.blocks) {
+-			LOG_INFO(priv, FW_DOWNLOAD,
+-				"Block number limit is reached [%d]\n",
+-				priv->dbg.blocks);
 -			break;
 -		}
--		msleep(I2400MS_INIT_SLEEP_INTERVAL);
 -	}
--	/* If timed out, device is not there yet -- get -ENODEV so
--	 * the device driver core will retry later on. */
--	if (err == -ETIME) {
--		dev_err(dev, "Can't enable WiMAX function; "
--			" has the function been enabled?\n");
--		err = -ENODEV;
--	}
--function_enabled:
--	d_fnend(3, dev, "(func %p) = %d\n", func, err);
--	return err;
+-
+-	if (sent < sec_size)
+-		ret = -EINVAL;
+-exit:
+-	LOG_TRACE(priv, FW_DOWNLOAD, "<--\n");
+-	return ret;
 -}
 -
--
--/*
-- * Setup minimal device communication infrastructure needed to at
-- * least be able to update the firmware.
-- *
-- * Note the ugly trick: if we are in the probe path
-- * (i2400ms->debugfs_dentry == NULL), we only retry function
-- * enablement one, to avoid racing with the iwmc3200 top controller.
-- */
--static
--int i2400ms_bus_setup(struct i2400m *i2400m)
+-static int iwmct_kick_fw(struct iwmct_priv *priv, bool jump)
 -{
--	int result;
--	struct i2400ms *i2400ms =
--		container_of(i2400m, struct i2400ms, i2400m);
--	struct device *dev = i2400m_dev(i2400m);
--	struct sdio_func *func = i2400ms->func;
--	int retries;
+-	struct iwmct_parser *parser = &priv->parser;
+-	struct iwmct_fw_load_hdr *hdr = (struct iwmct_fw_load_hdr *)parser->buf;
+-	int ret;
+-	u32 cmd;
 -
--	sdio_claim_host(func);
--	result = sdio_set_block_size(func, I2400MS_BLK_SIZE);
--	sdio_release_host(func);
--	if (result < 0) {
--		dev_err(dev, "Failed to set block size: %d\n", result);
--		goto error_set_blk_size;
+-	LOG_TRACE(priv, FW_DOWNLOAD, "-->\n");
+-
+-	memset(parser->buf, 0, parser->buf_size);
+-	cmd = IWMC_CMD_SIGNATURE << CMD_HDR_SIGNATURE_POS;
+-	if (jump) {
+-		cmd |= IWMC_OPCODE_JUMP << CMD_HDR_OPCODE_POS;
+-		hdr->target_addr = cpu_to_le32(parser->entry_point);
+-		LOG_INFO(priv, FW_DOWNLOAD, "jump address 0x%x\n",
+-				parser->entry_point);
+-	} else {
+-		cmd |= IWMC_OPCODE_LAST_COMMAND << CMD_HDR_OPCODE_POS;
+-		LOG_INFO(priv, FW_DOWNLOAD, "last command\n");
 -	}
 -
--	if (i2400ms->iwmc3200 && i2400ms->debugfs_dentry == NULL)
--		retries = 1;
+-	hdr->cmd = cpu_to_le32(cmd);
+-
+-	LOG_HEXDUMP(FW_DOWNLOAD, parser->buf, sizeof(*hdr));
+-	/* send it down */
+-	/* TODO: add more proper sending and error checking */
+-	ret = iwmct_tx(priv, parser->buf, IWMC_SDIO_BLK_SIZE);
+-	if (ret)
+-		LOG_INFO(priv, FW_DOWNLOAD, "iwmct_tx returned %d", ret);
+-
+-	LOG_TRACE(priv, FW_DOWNLOAD, "<--\n");
+-	return 0;
+-}
+-
+-int iwmct_fw_load(struct iwmct_priv *priv)
+-{
+-	const u8 *fw_name = FW_NAME(FW_API_VER);
+-	const struct firmware *raw;
+-	const u8 *pdata;
+-	size_t len;
+-	__le32 addr;
+-	int ret;
+-
+-
+-	LOG_INFO(priv, FW_DOWNLOAD, "barker download request 0x%x is:\n",
+-			priv->barker);
+-	LOG_INFO(priv, FW_DOWNLOAD, "*******  Top FW %s requested ********\n",
+-			(priv->barker & BARKER_DNLOAD_TOP_MSK) ? "was" : "not");
+-	LOG_INFO(priv, FW_DOWNLOAD, "*******  GPS FW %s requested ********\n",
+-			(priv->barker & BARKER_DNLOAD_GPS_MSK) ? "was" : "not");
+-	LOG_INFO(priv, FW_DOWNLOAD, "*******  BT FW %s requested ********\n",
+-			(priv->barker & BARKER_DNLOAD_BT_MSK) ? "was" : "not");
+-
+-
+-	/* get the firmware */
+-	ret = request_firmware(&raw, fw_name, &priv->func->dev);
+-	if (ret < 0) {
+-		LOG_ERROR(priv, FW_DOWNLOAD, "%s request_firmware failed %d\n",
+-			  fw_name, ret);
+-		goto exit;
+-	}
+-
+-	if (raw->size < sizeof(struct iwmct_fw_sec_hdr)) {
+-		LOG_ERROR(priv, FW_DOWNLOAD, "%s smaller then (%zd) (%zd)\n",
+-			  fw_name, sizeof(struct iwmct_fw_sec_hdr), raw->size);
+-		goto exit;
+-	}
+-
+-	LOG_INFO(priv, FW_DOWNLOAD, "Read firmware '%s'\n", fw_name);
+-
+-	/* clear parser struct */
+-	ret = iwmct_fw_parser_init(priv, raw->data, raw->size, priv->trans_len);
+-	if (ret < 0) {
+-		LOG_ERROR(priv, FW_DOWNLOAD,
+-			  "iwmct_parser_init failed: Reason %d\n", ret);
+-		goto exit;
+-	}
+-
+-	if (!iwmct_checksum(priv)) {
+-		LOG_ERROR(priv, FW_DOWNLOAD, "checksum error\n");
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+-	/* download firmware to device */
+-	while (iwmct_parse_next_section(priv, &pdata, &len, &addr)) {
+-		ret = iwmct_download_section(priv, pdata, len, addr);
+-		if (ret) {
+-			LOG_ERROR(priv, FW_DOWNLOAD,
+-				  "%s download section failed\n", fw_name);
+-			goto exit;
+-		}
+-	}
+-
+-	ret = iwmct_kick_fw(priv, !!(priv->barker & BARKER_DNLOAD_JUMP_MSK));
+-
+-exit:
+-	kfree(priv->parser.buf);
+-	release_firmware(raw);
+-	return ret;
+-}
+diff --git a/drivers/misc/iwmc3200top/fw-msg.h b/drivers/misc/iwmc3200top/fw-msg.h
+deleted file mode 100644
+index 9e26b75..0000000
+--- a/drivers/misc/iwmc3200top/fw-msg.h
++++ /dev/null
+@@ -1,113 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/fw-msg.h
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#ifndef __FWMSG_H__
+-#define __FWMSG_H__
+-
+-#define COMM_TYPE_D2H           	0xFF
+-#define COMM_TYPE_H2D           	0xEE
+-
+-#define COMM_CATEGORY_OPERATIONAL      	0x00
+-#define COMM_CATEGORY_DEBUG            	0x01
+-#define COMM_CATEGORY_TESTABILITY      	0x02
+-#define COMM_CATEGORY_DIAGNOSTICS      	0x03
+-
+-#define OP_DBG_ZSTR_MSG			cpu_to_le16(0x1A)
+-
+-#define FW_LOG_SRC_MAX			32
+-#define FW_LOG_SRC_ALL			255
+-
+-#define FW_STRING_TABLE_ADDR		cpu_to_le32(0x0C000000)
+-
+-#define CMD_DBG_LOG_LEVEL		cpu_to_le16(0x0001)
+-#define CMD_TST_DEV_RESET		cpu_to_le16(0x0060)
+-#define CMD_TST_FUNC_RESET		cpu_to_le16(0x0062)
+-#define CMD_TST_IFACE_RESET		cpu_to_le16(0x0064)
+-#define CMD_TST_CPU_UTILIZATION		cpu_to_le16(0x0065)
+-#define CMD_TST_TOP_DEEP_SLEEP		cpu_to_le16(0x0080)
+-#define CMD_TST_WAKEUP			cpu_to_le16(0x0081)
+-#define CMD_TST_FUNC_WAKEUP		cpu_to_le16(0x0082)
+-#define CMD_TST_FUNC_DEEP_SLEEP_REQUEST	cpu_to_le16(0x0083)
+-#define CMD_TST_GET_MEM_DUMP		cpu_to_le16(0x0096)
+-
+-#define OP_OPR_ALIVE			cpu_to_le16(0x0010)
+-#define OP_OPR_CMD_ACK			cpu_to_le16(0x001F)
+-#define OP_OPR_CMD_NACK			cpu_to_le16(0x0020)
+-#define OP_TST_MEM_DUMP			cpu_to_le16(0x0043)
+-
+-#define CMD_FLAG_PADDING_256		0x80
+-
+-#define FW_HCMD_BLOCK_SIZE      	256
+-
+-struct msg_hdr {
+-	u8 type;
+-	u8 category;
+-	__le16 opcode;
+-	u8 seqnum;
+-	u8 flags;
+-	__le16 length;
+-} __attribute__((__packed__));
+-
+-struct log_hdr {
+-	__le32 timestamp;
+-	u8 severity;
+-	u8 logsource;
+-	__le16 reserved;
+-} __attribute__((__packed__));
+-
+-struct mdump_hdr {
+-	u8 dmpid;
+-	u8 frag;
+-	__le16 size;
+-	__le32 addr;
+-} __attribute__((__packed__));
+-
+-struct top_msg {
+-	struct msg_hdr hdr;
+-	union {
+-		/* D2H messages */
+-		struct {
+-			struct log_hdr log_hdr;
+-			u8 data[1];
+-		} __attribute__((__packed__)) log;
+-
+-		struct {
+-			struct log_hdr log_hdr;
+-			struct mdump_hdr md_hdr;
+-			u8 data[1];
+-		} __attribute__((__packed__)) mdump;
+-
+-		/* H2D messages */
+-		struct {
+-			u8 logsource;
+-			u8 sevmask;
+-		} __attribute__((__packed__)) logdefs[FW_LOG_SRC_MAX];
+-		struct mdump_hdr mdump_req;
+-	} u;
+-} __attribute__((__packed__));
+-
+-
+-#endif /* __FWMSG_H__ */
+diff --git a/drivers/misc/iwmc3200top/iwmc3200top.h b/drivers/misc/iwmc3200top/iwmc3200top.h
+deleted file mode 100644
+index 620973e..0000000
+--- a/drivers/misc/iwmc3200top/iwmc3200top.h
++++ /dev/null
+@@ -1,205 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/iwmc3200top.h
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#ifndef __IWMC3200TOP_H__
+-#define __IWMC3200TOP_H__
+-
+-#include <linux/workqueue.h>
+-
+-#define DRV_NAME "iwmc3200top"
+-#define FW_API_VER 1
+-#define _FW_NAME(api) DRV_NAME "." #api ".fw"
+-#define FW_NAME(api) _FW_NAME(api)
+-
+-#define IWMC_SDIO_BLK_SIZE			256
+-#define IWMC_DEFAULT_TR_BLK			64
+-#define IWMC_SDIO_DATA_ADDR			0x0
+-#define IWMC_SDIO_INTR_ENABLE_ADDR		0x14
+-#define IWMC_SDIO_INTR_STATUS_ADDR		0x13
+-#define IWMC_SDIO_INTR_CLEAR_ADDR		0x13
+-#define IWMC_SDIO_INTR_GET_SIZE_ADDR		0x2C
+-
+-#define COMM_HUB_HEADER_LENGTH 16
+-#define LOGGER_HEADER_LENGTH   10
+-
+-
+-#define BARKER_DNLOAD_BT_POS		0
+-#define BARKER_DNLOAD_BT_MSK		BIT(BARKER_DNLOAD_BT_POS)
+-#define BARKER_DNLOAD_GPS_POS		1
+-#define BARKER_DNLOAD_GPS_MSK		BIT(BARKER_DNLOAD_GPS_POS)
+-#define BARKER_DNLOAD_TOP_POS		2
+-#define BARKER_DNLOAD_TOP_MSK		BIT(BARKER_DNLOAD_TOP_POS)
+-#define BARKER_DNLOAD_RESERVED1_POS	3
+-#define BARKER_DNLOAD_RESERVED1_MSK	BIT(BARKER_DNLOAD_RESERVED1_POS)
+-#define BARKER_DNLOAD_JUMP_POS		4
+-#define BARKER_DNLOAD_JUMP_MSK		BIT(BARKER_DNLOAD_JUMP_POS)
+-#define BARKER_DNLOAD_SYNC_POS		5
+-#define BARKER_DNLOAD_SYNC_MSK		BIT(BARKER_DNLOAD_SYNC_POS)
+-#define BARKER_DNLOAD_RESERVED2_POS	6
+-#define BARKER_DNLOAD_RESERVED2_MSK	(0x3 << BARKER_DNLOAD_RESERVED2_POS)
+-#define BARKER_DNLOAD_BARKER_POS	8
+-#define BARKER_DNLOAD_BARKER_MSK	(0xffffff << BARKER_DNLOAD_BARKER_POS)
+-
+-#define IWMC_BARKER_REBOOT 	(0xdeadbe << BARKER_DNLOAD_BARKER_POS)
+-/* whole field barker */
+-#define IWMC_BARKER_ACK 	0xfeedbabe
+-
+-#define IWMC_CMD_SIGNATURE 	0xcbbc
+-
+-#define CMD_HDR_OPCODE_POS		0
+-#define CMD_HDR_OPCODE_MSK_MSK		(0xf << CMD_HDR_OPCODE_MSK_POS)
+-#define CMD_HDR_RESPONSE_CODE_POS	4
+-#define CMD_HDR_RESPONSE_CODE_MSK	(0xf << CMD_HDR_RESPONSE_CODE_POS)
+-#define CMD_HDR_USE_CHECKSUM_POS	8
+-#define CMD_HDR_USE_CHECKSUM_MSK	BIT(CMD_HDR_USE_CHECKSUM_POS)
+-#define CMD_HDR_RESPONSE_REQUIRED_POS	9
+-#define CMD_HDR_RESPONSE_REQUIRED_MSK	BIT(CMD_HDR_RESPONSE_REQUIRED_POS)
+-#define CMD_HDR_DIRECT_ACCESS_POS	10
+-#define CMD_HDR_DIRECT_ACCESS_MSK	BIT(CMD_HDR_DIRECT_ACCESS_POS)
+-#define CMD_HDR_RESERVED_POS		11
+-#define CMD_HDR_RESERVED_MSK		BIT(0x1f << CMD_HDR_RESERVED_POS)
+-#define CMD_HDR_SIGNATURE_POS		16
+-#define CMD_HDR_SIGNATURE_MSK		BIT(0xffff << CMD_HDR_SIGNATURE_POS)
+-
+-enum {
+-	IWMC_OPCODE_PING = 0,
+-	IWMC_OPCODE_READ = 1,
+-	IWMC_OPCODE_WRITE = 2,
+-	IWMC_OPCODE_JUMP = 3,
+-	IWMC_OPCODE_REBOOT = 4,
+-	IWMC_OPCODE_PERSISTENT_WRITE = 5,
+-	IWMC_OPCODE_PERSISTENT_READ = 6,
+-	IWMC_OPCODE_READ_MODIFY_WRITE = 7,
+-	IWMC_OPCODE_LAST_COMMAND = 15
+-};
+-
+-struct iwmct_fw_load_hdr {
+-	__le32 cmd;
+-	__le32 target_addr;
+-	__le32 data_size;
+-	__le32 block_chksm;
+-	u8 data[0];
+-};
+-
+-/**
+- * struct iwmct_fw_hdr
+- * holds all sw components versions
+- */
+-struct iwmct_fw_hdr {
+-	u8 top_major;
+-	u8 top_minor;
+-	u8 top_revision;
+-	u8 gps_major;
+-	u8 gps_minor;
+-	u8 gps_revision;
+-	u8 bt_major;
+-	u8 bt_minor;
+-	u8 bt_revision;
+-	u8 tic_name[31];
+-};
+-
+-/**
+- * struct iwmct_fw_sec_hdr
+- * @type: function type
+- * @data_size: section's data size
+- * @target_addr: download address
+- */
+-struct iwmct_fw_sec_hdr {
+-	u8 type[4];
+-	__le32 data_size;
+-	__le32 target_addr;
+-};
+-
+-/**
+- * struct iwmct_parser
+- * @file: fw image
+- * @file_size: fw size
+- * @cur_pos: position in file
+- * @buf: temp buf for download
+- * @buf_size: size of buf
+- * @entry_point: address to jump in fw kick-off
+- */
+-struct iwmct_parser {
+-	const u8 *file;
+-	size_t file_size;
+-	size_t cur_pos;
+-	u8 *buf;
+-	size_t buf_size;
+-	u32 entry_point;
+-	struct iwmct_fw_hdr versions;
+-};
+-
+-
+-struct iwmct_work_struct {
+-	struct list_head list;
+-	ssize_t iosize;
+-};
+-
+-struct iwmct_dbg {
+-	int blocks;
+-	bool dump;
+-	bool jump;
+-	bool direct;
+-	bool checksum;
+-	bool fw_download;
+-	int block_size;
+-	int download_trans_blks;
+-
+-	char label_fw[256];
+-};
+-
+-struct iwmct_debugfs;
+-
+-struct iwmct_priv {
+-	struct sdio_func *func;
+-	struct iwmct_debugfs *dbgfs;
+-	struct iwmct_parser parser;
+-	atomic_t reset;
+-	atomic_t dev_sync;
+-	u32 trans_len;
+-	u32 barker;
+-	struct iwmct_dbg dbg;
+-
+-	/* drivers work items */
+-	struct work_struct bus_rescan_worker;
+-	struct work_struct isr_worker;
+-
+-	/* drivers wait queue */
+-	wait_queue_head_t wait_q;
+-
+-	/* rx request list */
+-	struct list_head read_req_list;
+-};
+-
+-extern int iwmct_tx(struct iwmct_priv *priv, void *src, int count);
+-extern int iwmct_fw_load(struct iwmct_priv *priv);
+-
+-extern void iwmct_dbg_init_params(struct iwmct_priv *drv);
+-extern void iwmct_dbg_init_drv_attrs(struct device_driver *drv);
+-extern void iwmct_dbg_remove_drv_attrs(struct device_driver *drv);
+-extern int iwmct_send_hcmd(struct iwmct_priv *priv, u8 *cmd, u16 len);
+-
+-#endif  /*  __IWMC3200TOP_H__  */
+diff --git a/drivers/misc/iwmc3200top/log.c b/drivers/misc/iwmc3200top/log.c
+deleted file mode 100644
+index a36a55a..0000000
+--- a/drivers/misc/iwmc3200top/log.c
++++ /dev/null
+@@ -1,348 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/log.c
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#include <linux/kernel.h>
+-#include <linux/mmc/sdio_func.h>
+-#include <linux/slab.h>
+-#include <linux/ctype.h>
+-#include "fw-msg.h"
+-#include "iwmc3200top.h"
+-#include "log.h"
+-
+-/* Maximal hexadecimal string size of the FW memdump message */
+-#define LOG_MSG_SIZE_MAX		12400
+-
+-/* iwmct_logdefs is a global used by log macros */
+-u8 iwmct_logdefs[LOG_SRC_MAX];
+-static u8 iwmct_fw_logdefs[FW_LOG_SRC_MAX];
+-
+-
+-static int _log_set_log_filter(u8 *logdefs, int size, u8 src, u8 logmask)
+-{
+-	int i;
+-
+-	if (src < size)
+-		logdefs[src] = logmask;
+-	else if (src == LOG_SRC_ALL)
+-		for (i = 0; i < size; i++)
+-			logdefs[i] = logmask;
 -	else
--		retries = 0;
--	result = i2400ms_enable_function(i2400ms, retries);
--	if (result < 0) {
--		dev_err(dev, "Cannot enable SDIO function: %d\n", result);
--		goto error_func_enable;
+-		return -1;
+-
+-	return 0;
+-}
+-
+-
+-int iwmct_log_set_filter(u8 src, u8 logmask)
+-{
+-	return _log_set_log_filter(iwmct_logdefs, LOG_SRC_MAX, src, logmask);
+-}
+-
+-
+-int iwmct_log_set_fw_filter(u8 src, u8 logmask)
+-{
+-	return _log_set_log_filter(iwmct_fw_logdefs,
+-				   FW_LOG_SRC_MAX, src, logmask);
+-}
+-
+-
+-static int log_msg_format_hex(char *str, int slen, u8 *ibuf,
+-			      int ilen, char *pref)
+-{
+-	int pos = 0;
+-	int i;
+-	int len;
+-
+-	for (pos = 0, i = 0; pos < slen - 2 && pref[i] != '\0'; i++, pos++)
+-		str[pos] = pref[i];
+-
+-	for (i = 0; pos < slen - 2 && i < ilen; pos += len, i++)
+-		len = snprintf(&str[pos], slen - pos - 1, " %2.2X", ibuf[i]);
+-
+-	if (i < ilen)
+-		return -1;
+-
+-	return 0;
+-}
+-
+-/*	NOTE: This function is not thread safe.
+-	Currently it's called only from sdio rx worker - no race there
+-*/
+-void iwmct_log_top_message(struct iwmct_priv *priv, u8 *buf, int len)
+-{
+-	struct top_msg *msg;
+-	static char logbuf[LOG_MSG_SIZE_MAX];
+-
+-	msg = (struct top_msg *)buf;
+-
+-	if (len < sizeof(msg->hdr) + sizeof(msg->u.log.log_hdr)) {
+-		LOG_ERROR(priv, FW_MSG, "Log message from TOP "
+-			  "is too short %d (expected %zd)\n",
+-			  len, sizeof(msg->hdr) + sizeof(msg->u.log.log_hdr));
+-		return;
 -	}
 -
--	result = i2400ms_tx_setup(i2400ms);
--	if (result < 0)
--		goto error_tx_setup;
--	result = i2400ms_rx_setup(i2400ms);
--	if (result < 0)
--		goto error_rx_setup;
--	return 0;
+-	if (!(iwmct_fw_logdefs[msg->u.log.log_hdr.logsource] &
+-		BIT(msg->u.log.log_hdr.severity)) ||
+-	    !(iwmct_logdefs[LOG_SRC_FW_MSG] & BIT(msg->u.log.log_hdr.severity)))
+-		return;
 -
--error_rx_setup:
--	i2400ms_tx_release(i2400ms);
--error_tx_setup:
--	sdio_claim_host(func);
--	sdio_disable_func(func);
--	sdio_release_host(func);
--error_func_enable:
--error_set_blk_size:
--	return result;
+-	switch (msg->hdr.category) {
+-	case COMM_CATEGORY_TESTABILITY:
+-		if (!(iwmct_logdefs[LOG_SRC_TST] &
+-		      BIT(msg->u.log.log_hdr.severity)))
+-			return;
+-		if (log_msg_format_hex(logbuf, LOG_MSG_SIZE_MAX, buf,
+-				       le16_to_cpu(msg->hdr.length) +
+-				       sizeof(msg->hdr), "<TST>"))
+-			LOG_WARNING(priv, TST,
+-				  "TOP TST message is too long, truncating...");
+-		LOG_WARNING(priv, TST, "%s\n", logbuf);
+-		break;
+-	case COMM_CATEGORY_DEBUG:
+-		if (msg->hdr.opcode == OP_DBG_ZSTR_MSG)
+-			LOG_INFO(priv, FW_MSG, "%s %s", "<DBG>",
+-				       ((u8 *)msg) + sizeof(msg->hdr)
+-					+ sizeof(msg->u.log.log_hdr));
+-		else {
+-			if (log_msg_format_hex(logbuf, LOG_MSG_SIZE_MAX, buf,
+-					le16_to_cpu(msg->hdr.length)
+-						+ sizeof(msg->hdr),
+-					"<DBG>"))
+-				LOG_WARNING(priv, FW_MSG,
+-					"TOP DBG message is too long,"
+-					"truncating...");
+-			LOG_WARNING(priv, FW_MSG, "%s\n", logbuf);
+-		}
+-		break;
+-	default:
+-		break;
+-	}
 -}
 -
--
--/*
-- * Tear down minimal device communication infrastructure needed to at
-- * least be able to update the firmware.
-- */
--static
--void i2400ms_bus_release(struct i2400m *i2400m)
+-static int _log_get_filter_str(u8 *logdefs, int logdefsz, char *buf, int size)
 -{
--	struct i2400ms *i2400ms =
--		container_of(i2400m, struct i2400ms, i2400m);
--	struct sdio_func *func = i2400ms->func;
+-	int i, pos, len;
+-	for (i = 0, pos = 0; (pos < size-1) && (i < logdefsz); i++) {
+-		len = snprintf(&buf[pos], size - pos - 1, "0x%02X%02X,",
+-				i, logdefs[i]);
+-		pos += len;
+-	}
+-	buf[pos-1] = '\n';
+-	buf[pos] = '\0';
 -
--	i2400ms_rx_release(i2400ms);
--	i2400ms_tx_release(i2400ms);
--	sdio_claim_host(func);
--	sdio_disable_func(func);
--	sdio_release_host(func);
--}
--
--
--/*
-- * Setup driver resources needed to communicate with the device
-- *
-- * The fw needs some time to settle, and it was just uploaded,
-- * so give it a break first. I'd prefer to just wait for the device to
-- * send something, but seems the poking we do to enable SDIO stuff
-- * interferes with it, so just give it a break before starting...
-- */
--static
--int i2400ms_bus_dev_start(struct i2400m *i2400m)
--{
--	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--
--	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
--	msleep(200);
--	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, 0);
+-	if (i < logdefsz)
+-		return -1;
 -	return 0;
 -}
 -
--
--/*
-- * Sends a barker buffer to the device
-- *
-- * This helper will allocate a kmalloced buffer and use it to transmit
-- * (then free it). Reason for this is that the SDIO host controller
-- * expects alignment (unknown exactly which) which the stack won't
-- * really provide and certain arches/host-controller combinations
-- * cannot use stack/vmalloc/text areas for DMA transfers.
-- */
--static
--int __i2400ms_send_barker(struct i2400ms *i2400ms,
--			  const __le32 *barker, size_t barker_size)
+-int log_get_filter_str(char *buf, int size)
 -{
--	int  ret;
--	struct sdio_func *func = i2400ms->func;
--	struct device *dev = &func->dev;
--	void *buffer;
+-	return _log_get_filter_str(iwmct_logdefs, LOG_SRC_MAX, buf, size);
+-}
 -
--	ret = -ENOMEM;
--	buffer = kmalloc(I2400MS_BLK_SIZE, GFP_KERNEL);
--	if (buffer == NULL)
--		goto error_kzalloc;
+-int log_get_fw_filter_str(char *buf, int size)
+-{
+-	return _log_get_filter_str(iwmct_fw_logdefs, FW_LOG_SRC_MAX, buf, size);
+-}
 -
--	memcpy(buffer, barker, barker_size);
--	sdio_claim_host(func);
--	ret = sdio_memcpy_toio(func, 0, buffer, I2400MS_BLK_SIZE);
--	sdio_release_host(func);
+-#define HEXADECIMAL_RADIX	16
+-#define LOG_SRC_FORMAT		7 /* log level is in format of "0xXXXX," */
 -
+-ssize_t show_iwmct_log_level(struct device *d,
+-				struct device_attribute *attr, char *buf)
+-{
+-	struct iwmct_priv *priv = dev_get_drvdata(d);
+-	char *str_buf;
+-	int buf_size;
+-	ssize_t ret;
+-
+-	buf_size = (LOG_SRC_FORMAT * LOG_SRC_MAX) + 1;
+-	str_buf = kzalloc(buf_size, GFP_KERNEL);
+-	if (!str_buf) {
+-		LOG_ERROR(priv, DEBUGFS,
+-			"failed to allocate %d bytes\n", buf_size);
+-		ret = -ENOMEM;
+-		goto exit;
+-	}
+-
+-	if (log_get_filter_str(str_buf, buf_size) < 0) {
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+-	ret = sprintf(buf, "%s", str_buf);
+-
+-exit:
+-	kfree(str_buf);
+-	return ret;
+-}
+-
+-ssize_t store_iwmct_log_level(struct device *d,
+-			struct device_attribute *attr,
+-			const char *buf, size_t count)
+-{
+-	struct iwmct_priv *priv = dev_get_drvdata(d);
+-	char *token, *str_buf = NULL;
+-	long val;
+-	ssize_t ret = count;
+-	u8 src, mask;
+-
+-	if (!count)
+-		goto exit;
+-
+-	str_buf = kzalloc(count, GFP_KERNEL);
+-	if (!str_buf) {
+-		LOG_ERROR(priv, DEBUGFS,
+-			"failed to allocate %zd bytes\n", count);
+-		ret = -ENOMEM;
+-		goto exit;
+-	}
+-
+-	memcpy(str_buf, buf, count);
+-
+-	while ((token = strsep(&str_buf, ",")) != NULL) {
+-		while (isspace(*token))
+-			++token;
+-		if (strict_strtol(token, HEXADECIMAL_RADIX, &val)) {
+-			LOG_ERROR(priv, DEBUGFS,
+-				  "failed to convert string to long %s\n",
+-				  token);
+-			ret = -EINVAL;
+-			goto exit;
+-		}
+-
+-		mask  = val & 0xFF;
+-		src = (val & 0XFF00) >> 8;
+-		iwmct_log_set_filter(src, mask);
+-	}
+-
+-exit:
+-	kfree(str_buf);
+-	return ret;
+-}
+-
+-ssize_t show_iwmct_log_level_fw(struct device *d,
+-			struct device_attribute *attr, char *buf)
+-{
+-	struct iwmct_priv *priv = dev_get_drvdata(d);
+-	char *str_buf;
+-	int buf_size;
+-	ssize_t ret;
+-
+-	buf_size = (LOG_SRC_FORMAT * FW_LOG_SRC_MAX) + 2;
+-
+-	str_buf = kzalloc(buf_size, GFP_KERNEL);
+-	if (!str_buf) {
+-		LOG_ERROR(priv, DEBUGFS,
+-			"failed to allocate %d bytes\n", buf_size);
+-		ret = -ENOMEM;
+-		goto exit;
+-	}
+-
+-	if (log_get_fw_filter_str(str_buf, buf_size) < 0) {
+-		ret = -EINVAL;
+-		goto exit;
+-	}
+-
+-	ret = sprintf(buf, "%s", str_buf);
+-
+-exit:
+-	kfree(str_buf);
+-	return ret;
+-}
+-
+-ssize_t store_iwmct_log_level_fw(struct device *d,
+-			struct device_attribute *attr,
+-			const char *buf, size_t count)
+-{
+-	struct iwmct_priv *priv = dev_get_drvdata(d);
+-	struct top_msg cmd;
+-	char *token, *str_buf = NULL;
+-	ssize_t ret = count;
+-	u16 cmdlen = 0;
+-	int i;
+-	long val;
+-	u8 src, mask;
+-
+-	if (!count)
+-		goto exit;
+-
+-	str_buf = kzalloc(count, GFP_KERNEL);
+-	if (!str_buf) {
+-		LOG_ERROR(priv, DEBUGFS,
+-			"failed to allocate %zd bytes\n", count);
+-		ret = -ENOMEM;
+-		goto exit;
+-	}
+-
+-	memcpy(str_buf, buf, count);
+-
+-	cmd.hdr.type = COMM_TYPE_H2D;
+-	cmd.hdr.category = COMM_CATEGORY_DEBUG;
+-	cmd.hdr.opcode = CMD_DBG_LOG_LEVEL;
+-
+-	for (i = 0; ((token = strsep(&str_buf, ",")) != NULL) &&
+-		     (i < FW_LOG_SRC_MAX); i++) {
+-
+-		while (isspace(*token))
+-			++token;
+-
+-		if (strict_strtol(token, HEXADECIMAL_RADIX, &val)) {
+-			LOG_ERROR(priv, DEBUGFS,
+-				  "failed to convert string to long %s\n",
+-				  token);
+-			ret = -EINVAL;
+-			goto exit;
+-		}
+-
+-		mask  = val & 0xFF; /* LSB */
+-		src = (val & 0XFF00) >> 8; /* 2nd least significant byte. */
+-		iwmct_log_set_fw_filter(src, mask);
+-
+-		cmd.u.logdefs[i].logsource = src;
+-		cmd.u.logdefs[i].sevmask = mask;
+-	}
+-
+-	cmd.hdr.length = cpu_to_le16(i * sizeof(cmd.u.logdefs[0]));
+-	cmdlen = (i * sizeof(cmd.u.logdefs[0]) + sizeof(cmd.hdr));
+-
+-	ret = iwmct_send_hcmd(priv, (u8 *)&cmd, cmdlen);
+-	if (ret) {
+-		LOG_ERROR(priv, DEBUGFS,
+-			  "Failed to send %d bytes of fwcmd, ret=%zd\n",
+-			  cmdlen, ret);
+-		goto exit;
+-	} else
+-		LOG_INFO(priv, DEBUGFS, "fwcmd sent (%d bytes)\n", cmdlen);
+-
+-	ret = count;
+-
+-exit:
+-	kfree(str_buf);
+-	return ret;
+-}
+-
+diff --git a/drivers/misc/iwmc3200top/log.h b/drivers/misc/iwmc3200top/log.h
+deleted file mode 100644
+index 4434bb1..0000000
+--- a/drivers/misc/iwmc3200top/log.h
++++ /dev/null
+@@ -1,171 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/log.h
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#ifndef __LOG_H__
+-#define __LOG_H__
+-
+-
+-/* log severity:
+- * The log levels here match FW log levels
+- * so values need to stay as is */
+-#define LOG_SEV_CRITICAL		0
+-#define LOG_SEV_ERROR			1
+-#define LOG_SEV_WARNING			2
+-#define LOG_SEV_INFO			3
+-#define LOG_SEV_INFOEX			4
+-
+-/* Log levels not defined for FW */
+-#define LOG_SEV_TRACE			5
+-#define LOG_SEV_DUMP			6
+-
+-#define LOG_SEV_FW_FILTER_ALL		\
+-	(BIT(LOG_SEV_CRITICAL)	|	\
+-	 BIT(LOG_SEV_ERROR)	|	\
+-	 BIT(LOG_SEV_WARNING)	| 	\
+-	 BIT(LOG_SEV_INFO)	|	\
+-	 BIT(LOG_SEV_INFOEX))
+-
+-#define LOG_SEV_FILTER_ALL		\
+-	(BIT(LOG_SEV_CRITICAL)	|	\
+-	 BIT(LOG_SEV_ERROR)	|	\
+-	 BIT(LOG_SEV_WARNING)	| 	\
+-	 BIT(LOG_SEV_INFO)	|	\
+-	 BIT(LOG_SEV_INFOEX)	|	\
+-	 BIT(LOG_SEV_TRACE)	|	\
+-	 BIT(LOG_SEV_DUMP))
+-
+-/* log source */
+-#define LOG_SRC_INIT			0
+-#define LOG_SRC_DEBUGFS			1
+-#define LOG_SRC_FW_DOWNLOAD		2
+-#define LOG_SRC_FW_MSG			3
+-#define LOG_SRC_TST			4
+-#define LOG_SRC_IRQ			5
+-
+-#define	LOG_SRC_MAX			6
+-#define	LOG_SRC_ALL			0xFF
+-
+-/**
+- * Default intitialization runtime log level
+- */
+-#ifndef LOG_SEV_FILTER_RUNTIME
+-#define LOG_SEV_FILTER_RUNTIME			\
+-	(BIT(LOG_SEV_CRITICAL)	|		\
+-	 BIT(LOG_SEV_ERROR)	|		\
+-	 BIT(LOG_SEV_WARNING))
+-#endif
+-
+-#ifndef FW_LOG_SEV_FILTER_RUNTIME
+-#define FW_LOG_SEV_FILTER_RUNTIME	LOG_SEV_FILTER_ALL
+-#endif
+-
+-#ifdef CONFIG_IWMC3200TOP_DEBUG
+-/**
+- * Log macros
+- */
+-
+-#define priv2dev(priv) (&(priv->func)->dev)
+-
+-#define LOG_CRITICAL(priv, src, fmt, args...)				\
+-do {									\
+-	if (iwmct_logdefs[LOG_SRC_ ## src] & BIT(LOG_SEV_CRITICAL))	\
+-		dev_crit(priv2dev(priv), "%s %d: " fmt,			\
+-			__func__, __LINE__, ##args);			\
+-} while (0)
+-
+-#define LOG_ERROR(priv, src, fmt, args...)				\
+-do {									\
+-	if (iwmct_logdefs[LOG_SRC_ ## src] & BIT(LOG_SEV_ERROR))	\
+-		dev_err(priv2dev(priv), "%s %d: " fmt,			\
+-			__func__, __LINE__, ##args);			\
+-} while (0)
+-
+-#define LOG_WARNING(priv, src, fmt, args...)				\
+-do {									\
+-	if (iwmct_logdefs[LOG_SRC_ ## src] & BIT(LOG_SEV_WARNING))	\
+-		dev_warn(priv2dev(priv), "%s %d: " fmt,			\
+-			 __func__, __LINE__, ##args);			\
+-} while (0)
+-
+-#define LOG_INFO(priv, src, fmt, args...)				\
+-do {									\
+-	if (iwmct_logdefs[LOG_SRC_ ## src] & BIT(LOG_SEV_INFO))		\
+-		dev_info(priv2dev(priv), "%s %d: " fmt,			\
+-			 __func__, __LINE__, ##args);			\
+-} while (0)
+-
+-#define LOG_TRACE(priv, src, fmt, args...)				\
+-do {									\
+-	if (iwmct_logdefs[LOG_SRC_ ## src] & BIT(LOG_SEV_TRACE))	\
+-		dev_dbg(priv2dev(priv), "%s %d: " fmt,			\
+-			 __func__, __LINE__, ##args);			\
+-} while (0)
+-
+-#define LOG_HEXDUMP(src, ptr, len)					\
+-do {									\
+-	if (iwmct_logdefs[LOG_SRC_ ## src] & BIT(LOG_SEV_DUMP))	\
+-		print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_NONE,	\
+-				16, 1, ptr, len, false);		\
+-} while (0)
+-
+-void iwmct_log_top_message(struct iwmct_priv *priv, u8 *buf, int len);
+-
+-extern u8 iwmct_logdefs[];
+-
+-int iwmct_log_set_filter(u8 src, u8 logmask);
+-int iwmct_log_set_fw_filter(u8 src, u8 logmask);
+-
+-ssize_t show_iwmct_log_level(struct device *d,
+-			struct device_attribute *attr, char *buf);
+-ssize_t store_iwmct_log_level(struct device *d,
+-			struct device_attribute *attr,
+-			const char *buf, size_t count);
+-ssize_t show_iwmct_log_level_fw(struct device *d,
+-			struct device_attribute *attr, char *buf);
+-ssize_t store_iwmct_log_level_fw(struct device *d,
+-			struct device_attribute *attr,
+-			const char *buf, size_t count);
+-
+-#else
+-
+-#define LOG_CRITICAL(priv, src, fmt, args...)
+-#define LOG_ERROR(priv, src, fmt, args...)
+-#define LOG_WARNING(priv, src, fmt, args...)
+-#define LOG_INFO(priv, src, fmt, args...)
+-#define LOG_TRACE(priv, src, fmt, args...)
+-#define LOG_HEXDUMP(src, ptr, len)
+-
+-static inline void iwmct_log_top_message(struct iwmct_priv *priv,
+-					 u8 *buf, int len) {}
+-static inline int iwmct_log_set_filter(u8 src, u8 logmask) { return 0; }
+-static inline int iwmct_log_set_fw_filter(u8 src, u8 logmask) { return 0; }
+-
+-#endif /* CONFIG_IWMC3200TOP_DEBUG */
+-
+-int log_get_filter_str(char *buf, int size);
+-int log_get_fw_filter_str(char *buf, int size);
+-
+-#endif /* __LOG_H__ */
+diff --git a/drivers/misc/iwmc3200top/main.c b/drivers/misc/iwmc3200top/main.c
+deleted file mode 100644
+index 701eb60..0000000
+--- a/drivers/misc/iwmc3200top/main.c
++++ /dev/null
+@@ -1,662 +0,0 @@
+-/*
+- * iwmc3200top - Intel Wireless MultiCom 3200 Top Driver
+- * drivers/misc/iwmc3200top/main.c
+- *
+- * Copyright (C) 2009 Intel Corporation. All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version
+- * 2 as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+- * 02110-1301, USA.
+- *
+- *
+- * Author Name: Maxim Grabarnik <maxim.grabarnink-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+- *  -
+- *
+- */
+-
+-#include <linux/module.h>
+-#include <linux/slab.h>
+-#include <linux/init.h>
+-#include <linux/kernel.h>
+-#include <linux/debugfs.h>
+-#include <linux/mmc/sdio_ids.h>
+-#include <linux/mmc/sdio_func.h>
+-#include <linux/mmc/sdio.h>
+-
+-#include "iwmc3200top.h"
+-#include "log.h"
+-#include "fw-msg.h"
+-#include "debugfs.h"
+-
+-
+-#define DRIVER_DESCRIPTION "Intel(R) IWMC 3200 Top Driver"
+-#define DRIVER_COPYRIGHT "Copyright (c) 2008 Intel Corporation."
+-
+-#define DRIVER_VERSION  "0.1.62"
+-
+-MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
+-MODULE_VERSION(DRIVER_VERSION);
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR(DRIVER_COPYRIGHT);
+-MODULE_FIRMWARE(FW_NAME(FW_API_VER));
+-
+-
+-static inline int __iwmct_tx(struct iwmct_priv *priv, void *src, int count)
+-{
+-	return sdio_memcpy_toio(priv->func, IWMC_SDIO_DATA_ADDR, src, count);
+-
+-}
+-int iwmct_tx(struct iwmct_priv *priv, void *src, int count)
+-{
+-	int ret;
+-	sdio_claim_host(priv->func);
+-	ret =  __iwmct_tx(priv, src, count);
+-	sdio_release_host(priv->func);
+-	return ret;
+-}
+-/*
+- * This workers main task is to wait for OP_OPR_ALIVE
+- * from TOP FW until ALIVE_MSG_TIMOUT timeout is elapsed.
+- * When OP_OPR_ALIVE received it will issue
+- * a call to "bus_rescan_devices".
+- */
+-static void iwmct_rescan_worker(struct work_struct *ws)
+-{
+-	struct iwmct_priv *priv;
+-	int ret;
+-
+-	priv = container_of(ws, struct iwmct_priv, bus_rescan_worker);
+-
+-	LOG_INFO(priv, FW_MSG, "Calling bus_rescan\n");
+-
+-	ret = bus_rescan_devices(priv->func->dev.bus);
 -	if (ret < 0)
--		d_printf(0, dev, "E: barker error: %d\n", ret);
+-		LOG_INFO(priv, INIT, "bus_rescan_devices FAILED!!!\n");
+-}
 -
--	kfree(buffer);
--error_kzalloc:
+-static void op_top_message(struct iwmct_priv *priv, struct top_msg *msg)
+-{
+-	switch (msg->hdr.opcode) {
+-	case OP_OPR_ALIVE:
+-		LOG_INFO(priv, FW_MSG, "Got ALIVE from device, wake rescan\n");
+-		schedule_work(&priv->bus_rescan_worker);
+-		break;
+-	default:
+-		LOG_INFO(priv, FW_MSG, "Received msg opcode 0x%X\n",
+-			msg->hdr.opcode);
+-		break;
+-	}
+-}
+-
+-
+-static void handle_top_message(struct iwmct_priv *priv, u8 *buf, int len)
+-{
+-	struct top_msg *msg;
+-
+-	msg = (struct top_msg *)buf;
+-
+-	if (msg->hdr.type != COMM_TYPE_D2H) {
+-		LOG_ERROR(priv, FW_MSG,
+-			"Message from TOP with invalid message type 0x%X\n",
+-			msg->hdr.type);
+-		return;
+-	}
+-
+-	if (len < sizeof(msg->hdr)) {
+-		LOG_ERROR(priv, FW_MSG,
+-			"Message from TOP is too short for message header "
+-			"received %d bytes, expected at least %zd bytes\n",
+-			len, sizeof(msg->hdr));
+-		return;
+-	}
+-
+-	if (len < le16_to_cpu(msg->hdr.length) + sizeof(msg->hdr)) {
+-		LOG_ERROR(priv, FW_MSG,
+-			"Message length (%d bytes) is shorter than "
+-			"in header (%d bytes)\n",
+-			len, le16_to_cpu(msg->hdr.length));
+-		return;
+-	}
+-
+-	switch (msg->hdr.category) {
+-	case COMM_CATEGORY_OPERATIONAL:
+-		op_top_message(priv, (struct top_msg *)buf);
+-		break;
+-
+-	case COMM_CATEGORY_DEBUG:
+-	case COMM_CATEGORY_TESTABILITY:
+-	case COMM_CATEGORY_DIAGNOSTICS:
+-		iwmct_log_top_message(priv, buf, len);
+-		break;
+-
+-	default:
+-		LOG_ERROR(priv, FW_MSG,
+-			"Message from TOP with unknown category 0x%X\n",
+-			msg->hdr.category);
+-		break;
+-	}
+-}
+-
+-int iwmct_send_hcmd(struct iwmct_priv *priv, u8 *cmd, u16 len)
+-{
+-	int ret;
+-	u8 *buf;
+-
+-	LOG_TRACE(priv, FW_MSG, "Sending hcmd:\n");
+-
+-	/* add padding to 256 for IWMC */
+-	((struct top_msg *)cmd)->hdr.flags |= CMD_FLAG_PADDING_256;
+-
+-	LOG_HEXDUMP(FW_MSG, cmd, len);
+-
+-	if (len > FW_HCMD_BLOCK_SIZE) {
+-		LOG_ERROR(priv, FW_MSG, "size %d exceeded hcmd max size %d\n",
+-			  len, FW_HCMD_BLOCK_SIZE);
+-		return -1;
+-	}
+-
+-	buf = kzalloc(FW_HCMD_BLOCK_SIZE, GFP_KERNEL);
+-	if (!buf) {
+-		LOG_ERROR(priv, FW_MSG, "kzalloc error, buf size %d\n",
+-			  FW_HCMD_BLOCK_SIZE);
+-		return -1;
+-	}
+-
+-	memcpy(buf, cmd, len);
+-	ret = iwmct_tx(priv, buf, FW_HCMD_BLOCK_SIZE);
+-
+-	kfree(buf);
 -	return ret;
 -}
 -
 -
--/*
-- * Reset a device at different levels (warm, cold or bus)
-- *
-- * @i2400ms: device descriptor
-- * @reset_type: soft, warm or bus reset (I2400M_RT_WARM/SOFT/BUS)
-- *
-- * FIXME: not tested -- need to confirm expected effects
-- *
-- * Warm and cold resets get an SDIO reset if they fail (unimplemented)
-- *
-- * Warm reset:
-- *
-- * The device will be fully reset internally, but won't be
-- * disconnected from the bus (so no reenumeration will
-- * happen). Firmware upload will be necessary.
-- *
-- * The device will send a reboot barker that will trigger the driver
-- * to reinitialize the state via __i2400m_dev_reset_handle.
-- *
-- *
-- * Cold and bus reset:
-- *
-- * The device will be fully reset internally, disconnected from the
-- * bus an a reenumeration will happen. Firmware upload will be
-- * necessary. Thus, we don't do any locking or struct
-- * reinitialization, as we are going to be fully disconnected and
-- * reenumerated.
-- *
-- * Note we need to return -ENODEV if a warm reset was requested and we
-- * had to resort to a bus reset. See i2400m_op_reset(), wimax_reset()
-- * and wimax_dev->op_reset.
-- *
-- * WARNING: no driver state saved/fixed
-- */
--static
--int i2400ms_bus_reset(struct i2400m *i2400m, enum i2400m_reset_type rt)
+-static void iwmct_irq_read_worker(struct work_struct *ws)
 -{
--	int result = 0;
--	struct i2400ms *i2400ms =
--		container_of(i2400m, struct i2400ms, i2400m);
--	struct device *dev = i2400m_dev(i2400m);
--	static const __le32 i2400m_WARM_BOOT_BARKER[4] = {
--		cpu_to_le32(I2400M_WARM_RESET_BARKER),
--		cpu_to_le32(I2400M_WARM_RESET_BARKER),
--		cpu_to_le32(I2400M_WARM_RESET_BARKER),
--		cpu_to_le32(I2400M_WARM_RESET_BARKER),
--	};
--	static const __le32 i2400m_COLD_BOOT_BARKER[4] = {
--		cpu_to_le32(I2400M_COLD_RESET_BARKER),
--		cpu_to_le32(I2400M_COLD_RESET_BARKER),
--		cpu_to_le32(I2400M_COLD_RESET_BARKER),
--		cpu_to_le32(I2400M_COLD_RESET_BARKER),
--	};
+-	struct iwmct_priv *priv;
+-	struct iwmct_work_struct *read_req;
+-	__le32 *buf = NULL;
+-	int ret;
+-	int iosize;
+-	u32 barker;
+-	bool is_barker;
 -
--	if (rt == I2400M_RT_WARM)
--		result = __i2400ms_send_barker(i2400ms, i2400m_WARM_BOOT_BARKER,
--					       sizeof(i2400m_WARM_BOOT_BARKER));
--	else if (rt == I2400M_RT_COLD)
--		result = __i2400ms_send_barker(i2400ms, i2400m_COLD_BOOT_BARKER,
--					       sizeof(i2400m_COLD_BOOT_BARKER));
--	else if (rt == I2400M_RT_BUS) {
--do_bus_reset:
+-	priv = container_of(ws, struct iwmct_priv, isr_worker);
 -
--		i2400ms_bus_release(i2400m);
+-	LOG_TRACE(priv, IRQ, "enter iwmct_irq_read_worker %p\n", ws);
 -
--		/* Wait for the device to settle */
--		msleep(40);
+-	/* --------------------- Handshake with device -------------------- */
+-	sdio_claim_host(priv->func);
 -
--		result =  i2400ms_bus_setup(i2400m);
--	} else
--		BUG();
--	if (result < 0 && rt != I2400M_RT_BUS) {
--		dev_err(dev, "%s reset failed (%d); trying SDIO reset\n",
--			rt == I2400M_RT_WARM ? "warm" : "cold", result);
--		rt = I2400M_RT_BUS;
--		goto do_bus_reset;
+-	/* all list manipulations have to be protected by
+-	 * sdio_claim_host/sdio_release_host */
+-	if (list_empty(&priv->read_req_list)) {
+-		LOG_ERROR(priv, IRQ, "read_req_list empty in read worker\n");
+-		goto exit_release;
 -	}
--	return result;
+-
+-	read_req = list_entry(priv->read_req_list.next,
+-			      struct iwmct_work_struct, list);
+-
+-	list_del(&read_req->list);
+-	iosize = read_req->iosize;
+-	kfree(read_req);
+-
+-	buf = kzalloc(iosize, GFP_KERNEL);
+-	if (!buf) {
+-		LOG_ERROR(priv, IRQ, "kzalloc error, buf size %d\n", iosize);
+-		goto exit_release;
+-	}
+-
+-	LOG_INFO(priv, IRQ, "iosize=%d, buf=%p, func=%d\n",
+-				iosize, buf, priv->func->num);
+-
+-	/* read from device */
+-	ret = sdio_memcpy_fromio(priv->func, buf, IWMC_SDIO_DATA_ADDR, iosize);
+-	if (ret) {
+-		LOG_ERROR(priv, IRQ, "error %d reading buffer\n", ret);
+-		goto exit_release;
+-	}
+-
+-	LOG_HEXDUMP(IRQ, (u8 *)buf, iosize);
+-
+-	barker = le32_to_cpu(buf[0]);
+-
+-	/* Verify whether it's a barker and if not - treat as regular Rx */
+-	if (barker == IWMC_BARKER_ACK ||
+-	    (barker & BARKER_DNLOAD_BARKER_MSK) == IWMC_BARKER_REBOOT) {
+-
+-		/* Valid Barker is equal on first 4 dwords */
+-		is_barker = (buf[1] == buf[0]) &&
+-			    (buf[2] == buf[0]) &&
+-			    (buf[3] == buf[0]);
+-
+-		if (!is_barker) {
+-			LOG_WARNING(priv, IRQ,
+-				"Potentially inconsistent barker "
+-				"%08X_%08X_%08X_%08X\n",
+-				le32_to_cpu(buf[0]), le32_to_cpu(buf[1]),
+-				le32_to_cpu(buf[2]), le32_to_cpu(buf[3]));
+-		}
+-	} else {
+-		is_barker = false;
+-	}
+-
+-	/* Handle Top CommHub message */
+-	if (!is_barker) {
+-		sdio_release_host(priv->func);
+-		handle_top_message(priv, (u8 *)buf, iosize);
+-		goto exit;
+-	} else if (barker == IWMC_BARKER_ACK) { /* Handle barkers */
+-		if (atomic_read(&priv->dev_sync) == 0) {
+-			LOG_ERROR(priv, IRQ,
+-				  "ACK barker arrived out-of-sync\n");
+-			goto exit_release;
+-		}
+-
+-		/* Continuing to FW download (after Sync is completed)*/
+-		atomic_set(&priv->dev_sync, 0);
+-		LOG_INFO(priv, IRQ, "ACK barker arrived "
+-				"- starting FW download\n");
+-	} else { /* REBOOT barker */
+-		LOG_INFO(priv, IRQ, "Received reboot barker: %x\n", barker);
+-		priv->barker = barker;
+-
+-		if (barker & BARKER_DNLOAD_SYNC_MSK) {
+-			/* Send the same barker back */
+-			ret = __iwmct_tx(priv, buf, iosize);
+-			if (ret) {
+-				LOG_ERROR(priv, IRQ,
+-					 "error %d echoing barker\n", ret);
+-				goto exit_release;
+-			}
+-			LOG_INFO(priv, IRQ, "Echoing barker to device\n");
+-			atomic_set(&priv->dev_sync, 1);
+-			goto exit_release;
+-		}
+-
+-		/* Continuing to FW download (without Sync) */
+-		LOG_INFO(priv, IRQ, "No sync requested "
+-				    "- starting FW download\n");
+-	}
+-
+-	sdio_release_host(priv->func);
+-
+-	if (priv->dbg.fw_download)
+-		iwmct_fw_load(priv);
+-	else
+-		LOG_ERROR(priv, IRQ, "FW download not allowed\n");
+-
+-	goto exit;
+-
+-exit_release:
+-	sdio_release_host(priv->func);
+-exit:
+-	kfree(buf);
+-	LOG_TRACE(priv, IRQ, "exit iwmct_irq_read_worker\n");
 -}
 -
--
--static
--void i2400ms_netdev_setup(struct net_device *net_dev)
+-static void iwmct_irq(struct sdio_func *func)
 -{
--	struct i2400m *i2400m = net_dev_to_i2400m(net_dev);
--	struct i2400ms *i2400ms = container_of(i2400m, struct i2400ms, i2400m);
--	i2400ms_init(i2400ms);
--	i2400m_netdev_setup(net_dev);
--}
+-	struct iwmct_priv *priv;
+-	int val, ret;
+-	int iosize;
+-	int addr = IWMC_SDIO_INTR_GET_SIZE_ADDR;
+-	struct iwmct_work_struct *read_req;
 -
+-	priv = sdio_get_drvdata(func);
 -
--/*
-- * Debug levels control; see debug.h
-- */
--struct d_level D_LEVEL[] = {
--	D_SUBMODULE_DEFINE(main),
--	D_SUBMODULE_DEFINE(tx),
--	D_SUBMODULE_DEFINE(rx),
--	D_SUBMODULE_DEFINE(fw),
--};
--size_t D_LEVEL_SIZE = ARRAY_SIZE(D_LEVEL);
+-	LOG_TRACE(priv, IRQ, "enter iwmct_irq\n");
 -
+-	/* read the function's status register */
+-	val = sdio_readb(func, IWMC_SDIO_INTR_STATUS_ADDR, &ret);
 -
--#define __debugfs_register(prefix, name, parent)			\
--do {									\
--	result = d_level_register_debugfs(prefix, name, parent);	\
--	if (result < 0)							\
--		goto error;						\
--} while (0)
+-	LOG_TRACE(priv, IRQ, "iir value = %d, ret=%d\n", val, ret);
 -
--
--static
--int i2400ms_debugfs_add(struct i2400ms *i2400ms)
--{
--	int result;
--	struct dentry *dentry = i2400ms->i2400m.wimax_dev.debugfs_dentry;
--
--	dentry = debugfs_create_dir("i2400m-sdio", dentry);
--	result = PTR_ERR(dentry);
--	if (IS_ERR(dentry)) {
--		if (result == -ENODEV)
--			result = 0;	/* No debugfs support */
--		goto error;
+-	if (!val) {
+-		LOG_ERROR(priv, IRQ, "iir = 0, exiting ISR\n");
+-		goto exit_clear_intr;
 -	}
--	i2400ms->debugfs_dentry = dentry;
--	__debugfs_register("dl_", main, dentry);
--	__debugfs_register("dl_", tx, dentry);
--	__debugfs_register("dl_", rx, dentry);
--	__debugfs_register("dl_", fw, dentry);
--
--	return 0;
--
--error:
--	debugfs_remove_recursive(i2400ms->debugfs_dentry);
--	i2400ms->debugfs_dentry = NULL;
--	return result;
--}
 -
 -
--static struct device_type i2400ms_type = {
--	.name	= "wimax",
--};
--
--/*
-- * Probe a i2400m interface and register it
-- *
-- * @func:    SDIO function
-- * @id:      SDIO device ID
-- * @returns: 0 if ok, < 0 errno code on error.
-- *
-- * Alloc a net device, initialize the bus-specific details and then
-- * calls the bus-generic initialization routine. That will register
-- * the wimax and netdev devices, upload the firmware [using
-- * _bus_bm_*()], call _bus_dev_start() to finalize the setup of the
-- * communication with the device and then will start to talk to it to
-- * finnish setting it up.
-- *
-- * Initialization is tricky; some instances of the hw are packed with
-- * others in a way that requires a third driver that enables the WiMAX
-- * function. In those cases, we can't enable the SDIO function and
-- * we'll return with -ENODEV. When the driver that enables the WiMAX
-- * function does its thing, it has to do a bus_rescan_devices() on the
-- * SDIO bus so this driver is called again to enumerate the WiMAX
-- * function.
-- */
--static
--int i2400ms_probe(struct sdio_func *func,
--		  const struct sdio_device_id *id)
--{
--	int result;
--	struct net_device *net_dev;
--	struct device *dev = &func->dev;
--	struct i2400m *i2400m;
--	struct i2400ms *i2400ms;
--
--	/* Allocate instance [calls i2400m_netdev_setup() on it]. */
--	result = -ENOMEM;
--	net_dev = alloc_netdev(sizeof(*i2400ms), "wmx%d",
--			       i2400ms_netdev_setup);
--	if (net_dev == NULL) {
--		dev_err(dev, "no memory for network device instance\n");
--		goto error_alloc_netdev;
--	}
--	SET_NETDEV_DEV(net_dev, dev);
--	SET_NETDEV_DEVTYPE(net_dev, &i2400ms_type);
--	i2400m = net_dev_to_i2400m(net_dev);
--	i2400ms = container_of(i2400m, struct i2400ms, i2400m);
--	i2400m->wimax_dev.net_dev = net_dev;
--	i2400ms->func = func;
--	sdio_set_drvdata(func, i2400ms);
--
--	i2400m->bus_tx_block_size = I2400MS_BLK_SIZE;
 -	/*
--	 * Room required in the TX queue for SDIO message to accommodate
--	 * a smallest payload while allocating header space is 224 bytes,
--	 * which is the smallest message size(the block size 256 bytes)
--	 * minus the smallest message header size(32 bytes).
+-	 * read 2 bytes of the transaction size
+-	 * IMPORTANT: sdio transaction size has to be read before clearing
+-	 * sdio interrupt!!!
 -	 */
--	i2400m->bus_tx_room_min = I2400MS_BLK_SIZE - I2400M_PL_ALIGN * 2;
--	i2400m->bus_pl_size_max = I2400MS_PL_SIZE_MAX;
--	i2400m->bus_setup = i2400ms_bus_setup;
--	i2400m->bus_dev_start = i2400ms_bus_dev_start;
--	i2400m->bus_dev_stop = NULL;
--	i2400m->bus_release = i2400ms_bus_release;
--	i2400m->bus_tx_kick = i2400ms_bus_tx_kick;
--	i2400m->bus_reset = i2400ms_bus_reset;
--	/* The iwmc3200-wimax sometimes requires the driver to try
--	 * hard when we paint it into a corner. */
--	i2400m->bus_bm_retries = I2400M_SDIO_BOOT_RETRIES;
--	i2400m->bus_bm_cmd_send = i2400ms_bus_bm_cmd_send;
--	i2400m->bus_bm_wait_for_ack = i2400ms_bus_bm_wait_for_ack;
--	i2400m->bus_fw_names = i2400ms_bus_fw_names;
--	i2400m->bus_bm_mac_addr_impaired = 1;
--	i2400m->bus_bm_pokes_table = &i2400ms_pokes[0];
+-	val = sdio_readb(priv->func, addr++, &ret);
+-	iosize = val;
+-	val = sdio_readb(priv->func, addr++, &ret);
+-	iosize += val << 8;
 -
--	switch (func->device) {
--	case SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX:
--	case SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX_2G5:
--		i2400ms->iwmc3200 = 1;
--		break;
--	default:
--		i2400ms->iwmc3200 = 0;
+-	LOG_INFO(priv, IRQ, "READ size %d\n", iosize);
+-
+-	if (iosize == 0) {
+-		LOG_ERROR(priv, IRQ, "READ size %d, exiting ISR\n", iosize);
+-		goto exit_clear_intr;
 -	}
 -
--	result = i2400m_setup(i2400m, I2400M_BRI_NO_REBOOT);
--	if (result < 0) {
--		dev_err(dev, "cannot setup device: %d\n", result);
--		goto error_setup;
+-	/* allocate a work structure to pass iosize to the worker */
+-	read_req = kzalloc(sizeof(struct iwmct_work_struct), GFP_KERNEL);
+-	if (!read_req) {
+-		LOG_ERROR(priv, IRQ, "failed to allocate read_req, exit ISR\n");
+-		goto exit_clear_intr;
 -	}
 -
--	result = i2400ms_debugfs_add(i2400ms);
--	if (result < 0) {
--		dev_err(dev, "cannot create SDIO debugfs: %d\n",
--			result);
--		goto error_debugfs_add;
--	}
--	return 0;
+-	INIT_LIST_HEAD(&read_req->list);
+-	read_req->iosize = iosize;
 -
--error_debugfs_add:
--	i2400m_release(i2400m);
--error_setup:
--	sdio_set_drvdata(func, NULL);
--	free_netdev(net_dev);
--error_alloc_netdev:
--	return result;
+-	list_add_tail(&priv->read_req_list, &read_req->list);
+-
+-	/* clear the function's interrupt request bit (write 1 to clear) */
+-	sdio_writeb(func, 1, IWMC_SDIO_INTR_CLEAR_ADDR, &ret);
+-
+-	schedule_work(&priv->isr_worker);
+-
+-	LOG_TRACE(priv, IRQ, "exit iwmct_irq\n");
+-
+-	return;
+-
+-exit_clear_intr:
+-	/* clear the function's interrupt request bit (write 1 to clear) */
+-	sdio_writeb(func, 1, IWMC_SDIO_INTR_CLEAR_ADDR, &ret);
 -}
 -
 -
--static
--void i2400ms_remove(struct sdio_func *func)
+-static int blocks;
+-module_param(blocks, int, 0604);
+-MODULE_PARM_DESC(blocks, "max_blocks_to_send");
+-
+-static bool dump;
+-module_param(dump, bool, 0604);
+-MODULE_PARM_DESC(dump, "dump_hex_content");
+-
+-static bool jump = 1;
+-module_param(jump, bool, 0604);
+-
+-static bool direct = 1;
+-module_param(direct, bool, 0604);
+-
+-static bool checksum = 1;
+-module_param(checksum, bool, 0604);
+-
+-static bool fw_download = 1;
+-module_param(fw_download, bool, 0604);
+-
+-static int block_size = IWMC_SDIO_BLK_SIZE;
+-module_param(block_size, int, 0404);
+-
+-static int download_trans_blks = IWMC_DEFAULT_TR_BLK;
+-module_param(download_trans_blks, int, 0604);
+-
+-static bool rubbish_barker;
+-module_param(rubbish_barker, bool, 0604);
+-
+-#ifdef CONFIG_IWMC3200TOP_DEBUG
+-static int log_level[LOG_SRC_MAX];
+-static unsigned int log_level_argc;
+-module_param_array(log_level, int, &log_level_argc, 0604);
+-MODULE_PARM_DESC(log_level, "log_level");
+-
+-static int log_level_fw[FW_LOG_SRC_MAX];
+-static unsigned int log_level_fw_argc;
+-module_param_array(log_level_fw, int, &log_level_fw_argc, 0604);
+-MODULE_PARM_DESC(log_level_fw, "log_level_fw");
+-#endif
+-
+-void iwmct_dbg_init_params(struct iwmct_priv *priv)
 -{
--	struct device *dev = &func->dev;
--	struct i2400ms *i2400ms = sdio_get_drvdata(func);
--	struct i2400m *i2400m = &i2400ms->i2400m;
--	struct net_device *net_dev = i2400m->wimax_dev.net_dev;
+-#ifdef CONFIG_IWMC3200TOP_DEBUG
+-	int i;
 -
--	d_fnstart(3, dev, "SDIO func %p\n", func);
--	debugfs_remove_recursive(i2400ms->debugfs_dentry);
--	i2400ms->debugfs_dentry = NULL;
--	i2400m_release(i2400m);
--	sdio_set_drvdata(func, NULL);
--	free_netdev(net_dev);
--	d_fnend(3, dev, "SDIO func %p\n", func);
+-	for (i = 0; i < log_level_argc; i++) {
+-		dev_notice(&priv->func->dev, "log_level[%d]=0x%X\n",
+-						i, log_level[i]);
+-		iwmct_log_set_filter((log_level[i] >> 8) & 0xFF,
+-			       log_level[i] & 0xFF);
+-	}
+-	for (i = 0; i < log_level_fw_argc; i++) {
+-		dev_notice(&priv->func->dev, "log_level_fw[%d]=0x%X\n",
+-						i, log_level_fw[i]);
+-		iwmct_log_set_fw_filter((log_level_fw[i] >> 8) & 0xFF,
+-				  log_level_fw[i] & 0xFF);
+-	}
+-#endif
+-
+-	priv->dbg.blocks = blocks;
+-	LOG_INFO(priv, INIT, "blocks=%d\n", blocks);
+-	priv->dbg.dump = (bool)dump;
+-	LOG_INFO(priv, INIT, "dump=%d\n", dump);
+-	priv->dbg.jump = (bool)jump;
+-	LOG_INFO(priv, INIT, "jump=%d\n", jump);
+-	priv->dbg.direct = (bool)direct;
+-	LOG_INFO(priv, INIT, "direct=%d\n", direct);
+-	priv->dbg.checksum = (bool)checksum;
+-	LOG_INFO(priv, INIT, "checksum=%d\n", checksum);
+-	priv->dbg.fw_download = (bool)fw_download;
+-	LOG_INFO(priv, INIT, "fw_download=%d\n", fw_download);
+-	priv->dbg.block_size = block_size;
+-	LOG_INFO(priv, INIT, "block_size=%d\n", block_size);
+-	priv->dbg.download_trans_blks = download_trans_blks;
+-	LOG_INFO(priv, INIT, "download_trans_blks=%d\n", download_trans_blks);
 -}
 -
--static
--const struct sdio_device_id i2400ms_sdio_ids[] = {
--	/* Intel: i2400m WiMAX (iwmc3200) over SDIO */
--	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL,
--		      SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX) },
--	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL,
--		      SDIO_DEVICE_ID_INTEL_IWMC3200WIMAX_2G5) },
--	{ /* end: all zeroes */ },
+-/*****************************************************************************
+- *
+- * sysfs attributes
+- *
+- *****************************************************************************/
+-static ssize_t show_iwmct_fw_version(struct device *d,
+-				  struct device_attribute *attr, char *buf)
+-{
+-	struct iwmct_priv *priv = dev_get_drvdata(d);
+-	return sprintf(buf, "%s\n", priv->dbg.label_fw);
+-}
+-static DEVICE_ATTR(cc_label_fw, S_IRUGO, show_iwmct_fw_version, NULL);
+-
+-#ifdef CONFIG_IWMC3200TOP_DEBUG
+-static DEVICE_ATTR(log_level, S_IWUSR | S_IRUGO,
+-		   show_iwmct_log_level, store_iwmct_log_level);
+-static DEVICE_ATTR(log_level_fw, S_IWUSR | S_IRUGO,
+-		   show_iwmct_log_level_fw, store_iwmct_log_level_fw);
+-#endif
+-
+-static struct attribute *iwmct_sysfs_entries[] = {
+-	&dev_attr_cc_label_fw.attr,
+-#ifdef CONFIG_IWMC3200TOP_DEBUG
+-	&dev_attr_log_level.attr,
+-	&dev_attr_log_level_fw.attr,
+-#endif
+-	NULL
 -};
--MODULE_DEVICE_TABLE(sdio, i2400ms_sdio_ids);
 -
--
--static
--struct sdio_driver i2400m_sdio_driver = {
--	.name		= KBUILD_MODNAME,
--	.probe		= i2400ms_probe,
--	.remove		= i2400ms_remove,
--	.id_table	= i2400ms_sdio_ids,
+-static struct attribute_group iwmct_attribute_group = {
+-	.name = NULL,		/* put in device directory */
+-	.attrs = iwmct_sysfs_entries,
 -};
 -
 -
--static
--int __init i2400ms_driver_init(void)
+-static int iwmct_probe(struct sdio_func *func,
+-			   const struct sdio_device_id *id)
 -{
--	d_parse_params(D_LEVEL, D_LEVEL_SIZE, i2400ms_debug_params,
--		       "i2400m_sdio.debug");
--	return sdio_register_driver(&i2400m_sdio_driver);
+-	struct iwmct_priv *priv;
+-	int ret;
+-	int val = 1;
+-	int addr = IWMC_SDIO_INTR_ENABLE_ADDR;
+-
+-	dev_dbg(&func->dev, "enter iwmct_probe\n");
+-
+-	dev_dbg(&func->dev, "IRQ polling period id %u msecs, HZ is %d\n",
+-		jiffies_to_msecs(2147483647), HZ);
+-
+-	priv = kzalloc(sizeof(struct iwmct_priv), GFP_KERNEL);
+-	if (!priv) {
+-		dev_err(&func->dev, "kzalloc error\n");
+-		return -ENOMEM;
+-	}
+-	priv->func = func;
+-	sdio_set_drvdata(func, priv);
+-
+-	INIT_WORK(&priv->bus_rescan_worker, iwmct_rescan_worker);
+-	INIT_WORK(&priv->isr_worker, iwmct_irq_read_worker);
+-
+-	init_waitqueue_head(&priv->wait_q);
+-
+-	sdio_claim_host(func);
+-	/* FIXME: Remove after it is fixed in the Boot ROM upgrade */
+-	func->enable_timeout = 10;
+-
+-	/* In our HW, setting the block size also wakes up the boot rom. */
+-	ret = sdio_set_block_size(func, priv->dbg.block_size);
+-	if (ret) {
+-		LOG_ERROR(priv, INIT,
+-			"sdio_set_block_size() failure: %d\n", ret);
+-		goto error_sdio_enable;
+-	}
+-
+-	ret = sdio_enable_func(func);
+-	if (ret) {
+-		LOG_ERROR(priv, INIT, "sdio_enable_func() failure: %d\n", ret);
+-		goto error_sdio_enable;
+-	}
+-
+-	/* init reset and dev_sync states */
+-	atomic_set(&priv->reset, 0);
+-	atomic_set(&priv->dev_sync, 0);
+-
+-	/* init read req queue */
+-	INIT_LIST_HEAD(&priv->read_req_list);
+-
+-	/* process configurable parameters */
+-	iwmct_dbg_init_params(priv);
+-	ret = sysfs_create_group(&func->dev.kobj, &iwmct_attribute_group);
+-	if (ret) {
+-		LOG_ERROR(priv, INIT, "Failed to register attributes and "
+-			 "initialize module_params\n");
+-		goto error_dev_attrs;
+-	}
+-
+-	iwmct_dbgfs_register(priv, DRV_NAME);
+-
+-	if (!priv->dbg.direct && priv->dbg.download_trans_blks > 8) {
+-		LOG_INFO(priv, INIT,
+-			 "Reducing transaction to 8 blocks = 2K (from %d)\n",
+-			 priv->dbg.download_trans_blks);
+-		priv->dbg.download_trans_blks = 8;
+-	}
+-	priv->trans_len = priv->dbg.download_trans_blks * priv->dbg.block_size;
+-	LOG_INFO(priv, INIT, "Transaction length = %d\n", priv->trans_len);
+-
+-	ret = sdio_claim_irq(func, iwmct_irq);
+-	if (ret) {
+-		LOG_ERROR(priv, INIT, "sdio_claim_irq() failure: %d\n", ret);
+-		goto error_claim_irq;
+-	}
+-
+-
+-	/* Enable function's interrupt */
+-	sdio_writeb(priv->func, val, addr, &ret);
+-	if (ret) {
+-		LOG_ERROR(priv, INIT, "Failure writing to "
+-			  "Interrupt Enable Register (%d): %d\n", addr, ret);
+-		goto error_enable_int;
+-	}
+-
+-	sdio_release_host(func);
+-
+-	LOG_INFO(priv, INIT, "exit iwmct_probe\n");
+-
+-	return ret;
+-
+-error_enable_int:
+-	sdio_release_irq(func);
+-error_claim_irq:
+-	sdio_disable_func(func);
+-error_dev_attrs:
+-	iwmct_dbgfs_unregister(priv->dbgfs);
+-	sysfs_remove_group(&func->dev.kobj, &iwmct_attribute_group);
+-error_sdio_enable:
+-	sdio_release_host(func);
+-	return ret;
 -}
--module_init(i2400ms_driver_init);
 -
--
--static
--void __exit i2400ms_driver_exit(void)
+-static void iwmct_remove(struct sdio_func *func)
 -{
--	sdio_unregister_driver(&i2400m_sdio_driver);
+-	struct iwmct_work_struct *read_req;
+-	struct iwmct_priv *priv = sdio_get_drvdata(func);
+-
+-	LOG_INFO(priv, INIT, "enter\n");
+-
+-	sdio_claim_host(func);
+-	sdio_release_irq(func);
+-	sdio_release_host(func);
+-
+-	/* Make sure works are finished */
+-	flush_work_sync(&priv->bus_rescan_worker);
+-	flush_work_sync(&priv->isr_worker);
+-
+-	sdio_claim_host(func);
+-	sdio_disable_func(func);
+-	sysfs_remove_group(&func->dev.kobj, &iwmct_attribute_group);
+-	iwmct_dbgfs_unregister(priv->dbgfs);
+-	sdio_release_host(func);
+-
+-	/* free read requests */
+-	while (!list_empty(&priv->read_req_list)) {
+-		read_req = list_entry(priv->read_req_list.next,
+-			struct iwmct_work_struct, list);
+-
+-		list_del(&read_req->list);
+-		kfree(read_req);
+-	}
+-
+-	kfree(priv);
 -}
--module_exit(i2400ms_driver_exit);
 -
 -
--MODULE_AUTHOR("Intel Corporation <linux-wimax@intel.com>");
--MODULE_DESCRIPTION("Intel 2400M WiMAX networking for SDIO");
--MODULE_LICENSE("GPL");
--MODULE_FIRMWARE(I2400MS_FW_FILE_NAME);
--- 
-1.7.10.2
+-static const struct sdio_device_id iwmct_ids[] = {
+-	/* Intel Wireless MultiCom 3200 Top Driver */
+-	{ SDIO_DEVICE(SDIO_VENDOR_ID_INTEL, 0x1404)},
+-	{ },	/* Terminating entry */
+-};
+-
+-MODULE_DEVICE_TABLE(sdio, iwmct_ids);
+-
+-static struct sdio_driver iwmct_driver = {
+-	.probe		= iwmct_probe,
+-	.remove		= iwmct_remove,
+-	.name		= DRV_NAME,
+-	.id_table	= iwmct_ids,
+-};
+-
+-static int __init iwmct_init(void)
+-{
+-	int rc;
+-
+-	/* Default log filter settings */
+-	iwmct_log_set_filter(LOG_SRC_ALL, LOG_SEV_FILTER_RUNTIME);
+-	iwmct_log_set_filter(LOG_SRC_FW_MSG, LOG_SEV_FW_FILTER_ALL);
+-	iwmct_log_set_fw_filter(LOG_SRC_ALL, FW_LOG_SEV_FILTER_RUNTIME);
+-
+-	rc = sdio_register_driver(&iwmct_driver);
+-
+-	return rc;
+-}
+-
+-static void __exit iwmct_exit(void)
+-{
+-	sdio_unregister_driver(&iwmct_driver);
+-}
+-
+-module_init(iwmct_init);
+-module_exit(iwmct_exit);
