@@ -1,39 +1,39 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 5/9] net/eipoib: Add ethtool file support
-Date: Tue, 10 Jul 2012 15:16:05 +0300
-Message-ID: <1341922569-4118-6-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 4/9] net/eipoib: Add private header file
+Date: Tue, 10 Jul 2012 15:16:04 +0300
+Message-ID: <1341922569-4118-5-git-send-email-ogerlitz@mellanox.com>
 References: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
 	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:49009 "HELO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755396Ab2GJMQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:16:26 -0400
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:53613 "HELO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755331Ab2GJMQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:16:23 -0400
 In-Reply-To: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Erez Shitrit <erezsh@mellanox.co.il>
 
-Via ethtool the driver describes its version, ABI version, on what PIF
-interface it runs and various statistics.
+The header file includes all structures, macros and non-static
+functions which are of use by the driver.
 
 Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/eipoib/eth_ipoib_ethtool.c |  147 ++++++++++++++++++++++++++++++++
- 1 files changed, 147 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/eipoib/eth_ipoib_ethtool.c
+ drivers/net/eipoib/eth_ipoib.h |  224 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 224 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/eipoib/eth_ipoib.h
 
-diff --git a/drivers/net/eipoib/eth_ipoib_ethtool.c b/drivers/net/eipoib/eth_ipoib_ethtool.c
+diff --git a/drivers/net/eipoib/eth_ipoib.h b/drivers/net/eipoib/eth_ipoib.h
 new file mode 100644
-index 0000000..b5c20ec
+index 0000000..45871c9
 --- /dev/null
-+++ b/drivers/net/eipoib/eth_ipoib_ethtool.c
-@@ -0,0 +1,147 @@
++++ b/drivers/net/eipoib/eth_ipoib.h
+@@ -0,0 +1,224 @@
 +/*
 + * Copyright (c) 2012 Mellanox Technologies. All rights reserved
 + *
@@ -66,120 +66,197 @@ index 0000000..b5c20ec
 + * SOFTWARE.
 + */
 +
-+#include "eth_ipoib.h"
++#ifndef _LINUX_ETH_IPOIB_H
++#define _LINUX_ETH_IPOIB_H
 +
-+static void parent_ethtool_get_drvinfo(struct net_device *parent_dev,
-+				       struct ethtool_drvinfo *drvinfo)
-+{
-+	struct parent *parent = netdev_priv(parent_dev);
++#include <linux/module.h>
++#include <linux/errno.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <net/arp.h>
++#include <linux/if_vlan.h>
++#include <net/net_namespace.h>
++#include <net/netns/generic.h>
++#include <rdma/e_ipoib.h>
 +
-+	if (strlen(DRV_NAME) + strlen(parent->ipoib_main_interface) > 31)
-+		strncpy(drvinfo->driver, "driver name is too long", 32);
-+	else
-+		sprintf(drvinfo->driver, "%s:%s",
-+			DRV_NAME, parent->ipoib_main_interface);
++/* macros and definitions */
++#define DRV_VERSION		"1.0.0"
++#define DRV_RELDATE		"June 1, 2012"
++#define DRV_NAME		"eth_ipoib"
++#define SDRV_NAME		"ipoib"
++#define DRV_DESCRIPTION		"IP-over-InfiniBand Para Virtualized Driver"
++#define EIPOIB_ABI_VER	1
 +
-+	strncpy(drvinfo->version, DRV_VERSION, 32);
++#undef  pr_fmt
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
-+	/* indicates ABI version */
-+	snprintf(drvinfo->fw_version, 32, "%d", EIPOIB_ABI_VER);
-+}
++#define GID_LEN			16
++#define GUID_LEN		8
 +
-+static const char parent_strings[][ETH_GSTRING_LEN] = {
-+	/* public statistics */
-+	"rx_packets", "tx_packets", "rx_bytes",
-+	"tx_bytes", "rx_errors", "tx_errors",
-+	"rx_dropped", "tx_dropped", "multicast",
-+	"collisions", "rx_length_errors", "rx_over_errors",
-+	"rx_crc_errors", "rx_frame_errors", "rx_fifo_errors",
-+	"rx_missed_errors", "tx_aborted_errors", "tx_carrier_errors",
-+	"tx_fifo_errors", "tx_heartbeat_errors", "tx_window_errors",
-+#define PUB_STATS_LEN	21
++#define PARENT_VLAN_FEATURES \
++	(NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX | \
++	 NETIF_F_HW_VLAN_FILTER)
 +
-+	/* private statistics */
-+	"tx_parent_dropped",
-+	"tx_vif_miss",
-+	"tx_neigh_miss",
-+	"tx_vlan",
-+	"tx_shared",
-+	"tx_proto_errors",
-+	"tx_skb_errors",
-+	"tx_slave_err",
++#define parent_for_each_slave(_parent, slave)		\
++		list_for_each_entry(slave, &(_parent)->slave_list, list)\
 +
-+	"rx_parent_dropped",
-+	"rx_vif_miss",
-+	"rx_neigh_miss",
-+	"rx_vlan",
-+	"rx_shared",
-+	"rx_proto_errors",
-+	"rx_skb_errors",
-+	"rx_slave_err",
-+#define PORT_STATS_LEN	(8 * 2)
++#define PARENT_IS_OK(_parent)				\
++		(((_parent)->dev->flags & IFF_UP) &&	\
++		 netif_running((_parent)->dev)    &&	\
++		 ((_parent)->slave_cnt > 0))
 +
++#define IS_E_IPOIB_PROTO(_proto)			\
++		 (((_proto) == htons(ETH_P_ARP)) ||	\
++		 ((_proto) == htons(ETH_P_RARP)) ||	\
++		 ((_proto) == htons(ETH_P_IP)))
++
++enum eipoib_emac_guest_info {
++	VALID,
++	MIGRATED_OUT,
++	INVALID,
 +};
 +
-+#define PARENT_STATS_LEN (sizeof(parent_strings) / ETH_GSTRING_LEN)
++/* structs */
++struct eth_arp_data {
++	u8 arp_sha[ETH_ALEN];
++	__be32 arp_sip;
++	u8 arp_dha[ETH_ALEN];
++	__be32 arp_dip;
++} __packed;
 +
-+static void parent_get_strings(struct net_device *parent_dev,
-+			       uint32_t stringset, uint8_t *data)
-+{
-+	int index = 0, stats_off = 0, i;
++struct ipoib_arp_data {
++	u8 arp_sha[INFINIBAND_ALEN];
++	__be32 arp_sip;
++	u8 arp_dha[INFINIBAND_ALEN];
++	__be32 arp_dip;
++} __packed;
 +
-+	if (stringset != ETH_SS_STATS)
-+		return;
-+
-+	/* Add main counters */
-+	for (i = 0; i < PUB_STATS_LEN; i++)
-+		strcpy(data + (index++) * ETH_GSTRING_LEN,
-+		       parent_strings[i + stats_off]);
-+	stats_off += PUB_STATS_LEN;
-+
-+	for (i = 0; i < PORT_STATS_LEN; i++)
-+		strcpy(data + (index++) * ETH_GSTRING_LEN,
-+		       parent_strings[i + stats_off]);
-+	stats_off += PORT_STATS_LEN;
-+
-+}
-+
-+static void parent_get_ethtool_stats(struct net_device *parent_dev,
-+				     struct ethtool_stats *stats,
-+				     uint64_t *data)
-+{
-+	struct parent *parent = netdev_priv(parent_dev);
-+	int index = 0, i;
-+
-+	read_lock(&parent->lock);
-+
-+	for (i = 0; i < PUB_STATS_LEN; i++)
-+		data[index++] = ((unsigned long *) &parent->stats)[i];
-+
-+	for (i = 0; i < PORT_STATS_LEN; i++)
-+		data[index++] = ((unsigned long *) &parent->port_stats)[i];
-+
-+	read_unlock(&parent->lock);
-+}
-+
-+static int parent_get_sset_count(struct net_device *parent_dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return PARENT_STATS_LEN;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static const struct ethtool_ops parent_ethtool_ops = {
-+	.get_drvinfo		= parent_ethtool_get_drvinfo,
-+	.get_strings		= parent_get_strings,
-+	.get_ethtool_stats	= parent_get_ethtool_stats,
-+	.get_sset_count		= parent_get_sset_count,
-+	.get_link		= ethtool_op_get_link,
++/* live migration support structures: */
++struct ip_member {
++	__be32 ip;
++	struct list_head list;
 +};
 +
-+void parent_set_ethtool_ops(struct net_device *dev)
-+{
-+	SET_ETHTOOL_OPS(dev, &parent_ethtool_ops);
-+}
++/*
++ * for each slave (emac) saves all the ip over that mac.
++ * the parent keeps that list for live migration.
++ */
++struct guest_emac_info {
++	u8 emac[ETH_ALEN];
++	u16 vlan;
++	struct list_head ip_list;
++	struct list_head list;
++	enum eipoib_emac_guest_info rec_state;
++	int num_of_retries;
++};
++
++struct neigh {
++	struct list_head list;
++	u8 emac[ETH_ALEN];
++	u8 imac[INFINIBAND_ALEN];
++	/* this part is used for neigh_add_list */
++	char cmd[PAGE_SIZE];
++};
++
++struct slave {
++	struct net_device *dev;
++	struct slave *next;
++	struct slave *prev;
++	int    index;
++	struct list_head list;
++	unsigned long jiffies;
++	s8     link;
++	s8     state;
++	u16    pkey;
++	u16    vlan;
++	u8     emac[ETH_ALEN];
++	u8     imac[INFINIBAND_ALEN];
++	struct list_head neigh_list;
++	/* this part is used for vif_add_list */
++	char cmd[PAGE_SIZE];
++};
++
++struct port_stats {
++	/* update PORT_STATS_LEN (number of stat fields)accordingly */
++	unsigned long tx_parent_dropped;
++	unsigned long tx_vif_miss;
++	unsigned long tx_neigh_miss;
++	unsigned long tx_vlan;
++	unsigned long tx_shared;
++	unsigned long tx_proto_errors;
++	unsigned long tx_skb_errors;
++	unsigned long tx_slave_err;
++
++	unsigned long rx_parent_dropped;
++	unsigned long rx_vif_miss;
++	unsigned long rx_neigh_miss;
++	unsigned long rx_vlan;
++	unsigned long rx_shared;
++	unsigned long rx_proto_errors;
++	unsigned long rx_skb_errors;
++	unsigned long rx_slave_err;
++};
++
++struct parent {
++	struct   net_device *dev;
++	int      index;
++	struct   neigh_parms nparms;
++	struct   list_head slave_list;
++	/* never change this value outside the attach/detach wrappers */
++	s32      slave_cnt;
++	rwlock_t lock;
++	struct   net_device_stats stats;
++	struct   port_stats port_stats;
++	struct   list_head parent_list;
++	struct   dev_mc_list *mc_list;
++	u16      flags;
++	struct   list_head vlan_list;
++	struct   workqueue_struct *wq;
++	s8       kill_timers;
++	struct   delayed_work neigh_learn_work;
++	struct   delayed_work vif_learn_work;
++	struct   list_head neigh_add_list;
++	union    ib_gid gid;
++	char     ipoib_main_interface[IFNAMSIZ];
++	struct   list_head emac_ip_list;
++	struct   delayed_work emac_ip_work;
++	struct   delayed_work migrate_out_work;
++};
++
++#define eipoib_slave_get_rcu(dev) \
++	((struct slave *) rcu_dereference(dev->rx_handler_data))
++
++/* name space support for sys/fs */
++struct eipoib_net {
++	struct net	*net;	/* Associated network namespace */
++	struct class_attribute class_attr_eipoib_interfaces;
++};
++
++/* exported from main.c */
++extern int eipoib_net_id;
++extern struct list_head parent_dev_list;
++
++/* functions prototypes */
++int mod_create_sysfs(struct eipoib_net *eipoib_n);
++void mod_destroy_sysfs(struct eipoib_net *eipoib_n);
++void parent_destroy_sysfs_entry(struct parent *parent);
++int parent_create_sysfs_entry(struct parent *parent);
++int create_slave_symlinks(struct net_device *master,
++			  struct net_device *slave);
++void destroy_slave_symlinks(struct net_device *master,
++			    struct net_device *slave);
++int parent_enslave(struct net_device *parent_dev,
++		   struct net_device *slave_dev);
++int parent_release_slave(struct net_device *parent_dev,
++			 struct net_device *slave_dev);
++struct neigh *parent_get_neigh_cmd(char op, char *ifname,
++				   u8 *remac, u8 *rimac);
++struct slave *parent_get_vif_cmd(char op, char *ifname, u8 *lemac);
++ssize_t __parent_store_neighs(struct device *d,
++			      struct device_attribute *attr,
++			      const char *buffer, size_t count);
++void parent_set_ethtool_ops(struct net_device *dev);
++
++#endif /* _LINUX_ETH_IPOIB_H */
 -- 
 1.7.1
