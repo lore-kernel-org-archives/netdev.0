@@ -1,46 +1,67 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: 82571EB: Detected Hardware Unit Hang
-Date: Tue, 10 Jul 2012 18:14:23 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B62627502B8E@ORSMSX102.amr.corp.intel.com>
-References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: net-next kernel NULL pointer dereference at fib_rules_tclass
+Date: Tue, 10 Jul 2012 11:14:34 -0700
+Message-ID: <20120710111434.00003ba8@unknown>
+References: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
+	<20120710.094428.1167234955738653678.davem@davemloft.net>
+	<1341941101.3265.5799.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Jin <joe.jin@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FFBDC50.5090800@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <ogerlitz@mellanox.com>,
+	<netdev@vger.kernel.org>, <shlomop@mellanox.com>,
+	<amirv@mellanox.com>, <erezsh@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:7304 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751265Ab2GJSOs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2012 14:14:48 -0400
+In-Reply-To: <1341941101.3265.5799.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 10 Jul 2012 19:25:01 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Joe Jin
->Sent: Tuesday, July 10, 2012 12:40 AM
->To: Joe Jin
->Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
->kernel@vger.kernel.org
->Subject: Re: 82571EB: Detected Hardware Unit Hang
-[..]
->I checked all driver codes I did not found anywhere will set the
->upper.data with
->E1000_TXD_STAT_DD, I guess upper.data be set by hardware?
+> On Tue, 2012-07-10 at 09:44 -0700, David Miller wrote:
+> > From: Or Gerlitz <ogerlitz@mellanox.com>
+> > Date: Tue, 10 Jul 2012 10:16:55 +0300
+> > 
+> > > Starting system logger: BUG: unable to handle kernel NULL pointer
+> > > dereference at 00000000000000ac IP: [<ffffffff81320393>]
+> > > fib_rules_tclass+0xf/0x17
+> > 
+> > Ok, fib_rules_tclass() checks for res->r being NULL and only
+> > dereferences it if it is not.
+> > 
+> > fib4_rule->tclassid has offset ~0x8c on x86-64, and this fault
+> > address is 0x10 bytes off.
+> > 
+> > Does this patch fix the problem?
+> > 
+> > diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> > index 539c672..000c467 100644
+> > --- a/include/net/ip_fib.h
+> > +++ b/include/net/ip_fib.h
+> > @@ -230,6 +230,7 @@ static inline int fib_lookup(struct net *net,
+> > struct flowi4 *flp, struct fib_result *res)
+> >  {
+> >  	if (!net->ipv4.fib_has_custom_rules) {
+> > +		res->r = NULL;
+> >  		if (net->ipv4.fib_local &&
+> >  		    !fib_table_lookup(net->ipv4.fib_local, flp,
+> > res, FIB_LOOKUP_NOREF))
+> 
+> It does here, thanks
 
-Yes, the hw sets this bit after transmit, its how the driver knows to reclaim it.
+Works for me too.
 
->> Would you please help on this?
+Thanks,
 
-Yes, we'll attempt to reproduce it and get back to you with any more needed info.  I'm sorry you're having problems with our parts.
-
-Thanks for the report,
-
-Carolyn
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
