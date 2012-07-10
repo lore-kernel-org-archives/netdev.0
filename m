@@ -1,230 +1,294 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
-Date: Tue, 10 Jul 2012 15:16:03 +0300
-Message-ID: <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/9] IB/ipoib: Add support for clones / multiple childs on the same partition
+Date: Tue, 10 Jul 2012 15:16:01 +0300
+Message-ID: <1341922569-4118-2-git-send-email-ogerlitz@mellanox.com>
 References: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+	sean.hefty@intel.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	Erez Shitrit <erezsh@mellanox.co.il>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:46106 "HELO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755323Ab2GJMQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:16:23 -0400
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:36698 "HELO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755397Ab2GJMQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:16:25 -0400
 In-Reply-To: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erez Shitrit <erezsh@mellanox.co.il>
+Allow creating "clone" child interfaces which further partition an
+IPoIB interface to sub interfaces who either use the same pkey as
+their parent or use the same pkey as already created child interface.
 
-When IPoIB interface acts as a VIF for an eIPoIB interface, it uses
-the skb cb storage area on the RX flow, to place information which
-can be of use to the upper layer device.
+Each child now has a child index, which together with the pkey is
+used as the identifier of the created network device.
 
-One such usage example, is when an eIPoIB inteface needs to generate
-a source mac for incoming Ethernet frames.
+All sorts of childs are still created/deleted through sysfs, in a
+similar manner to the way legacy child interfaces are.
 
-The IPoIB code checks the VIF private flag on the RX path, and accoriding
-to the value of the flag prepares the skb CB data, etc.
+A major use case for clone childs is for virtualization purposes, where
+a per VM NIC is desired at the hypervisor level, such as the solution
+provided by the newly introduced Ethernet IPoIB driver.
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
 ---
- drivers/infiniband/ulp/ipoib/ipoib.h      |    6 +++
- drivers/infiniband/ulp/ipoib/ipoib_cm.c   |    9 +++++
- drivers/infiniband/ulp/ipoib/ipoib_ib.c   |    8 ++++-
- drivers/infiniband/ulp/ipoib/ipoib_main.c |   28 ++++++++++++++++
- include/rdma/e_ipoib.h                    |   51 +++++++++++++++++++++++++++++
- 5 files changed, 101 insertions(+), 1 deletions(-)
- create mode 100644 include/rdma/e_ipoib.h
+ Documentation/infiniband/ipoib.txt         |   24 ++++++++++++++
+ drivers/infiniband/ulp/ipoib/ipoib.h       |    7 +++-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c  |   48 +++++++++++++++++++++-------
+ drivers/infiniband/ulp/ipoib/ipoib_verbs.c |    3 +-
+ drivers/infiniband/ulp/ipoib/ipoib_vlan.c  |   46 ++++++++++++++++++--------
+ 5 files changed, 99 insertions(+), 29 deletions(-)
 
+diff --git a/Documentation/infiniband/ipoib.txt b/Documentation/infiniband/ipoib.txt
+index 64eeb55..b3a704d 100644
+--- a/Documentation/infiniband/ipoib.txt
++++ b/Documentation/infiniband/ipoib.txt
+@@ -24,6 +24,30 @@ Partitions and P_Keys
+   The P_Key for any interface is given by the "pkey" file, and the
+   main interface for a subinterface is in "parent."
+ 
++Clones
+++
++  Its possible to further partition an IPoIB interfaces, and create
++  "clone" child interfaces which either use the same pkey as their
++  parent, or as an already created child interface. Each child now has
++  a child index, which together with the pkey is used as the identifier
++  of the created network device.
++
++ All sorts of childs are still created/deleted through sysfs, in a
++ similar manner to the way legacy child interfaces are, for example:
++
++    echo 0x8001.1 > /sys/class/net/ib0/create_child
++
++  will create an interface named ib0.8001.1 with P_Key 0x8001 and index 1
++
++    echo .1 > /sys/class/net/ib0/create_child
++
++  will create an interface named ib0.1 with same P_Key as ib0 and index 1
++
++  remove a subinterface, use the "delete_child" file:
++
++    echo 0x8001.1 > /sys/class/net/ib0/create_child
++    echo .1  > /sys/class/net/ib0/create_child
++
+ Datagram vs Connected modes
+ 
+   The IPoIB driver supports two modes of operation: datagram and
 diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
-index a57db27..1d28774 100644
+index 86df632..a57db27 100644
 --- a/drivers/infiniband/ulp/ipoib/ipoib.h
 +++ b/drivers/infiniband/ulp/ipoib/ipoib.h
-@@ -52,6 +52,7 @@
- #include <rdma/ib_pack.h>
- #include <rdma/ib_sa.h>
- #include <linux/sched.h>
-+#include <rdma/e_ipoib.h>
+@@ -332,6 +332,7 @@ struct ipoib_dev_priv {
+ 	struct net_device *parent;
+ 	struct list_head child_intfs;
+ 	struct list_head list;
++	int child_index;
  
- /* constants */
+ #ifdef CONFIG_INFINIBAND_IPOIB_CM
+ 	struct ipoib_cm_dev_priv cm;
+@@ -490,8 +491,10 @@ void ipoib_transport_dev_cleanup(struct net_device *dev);
+ void ipoib_event(struct ib_event_handler *handler,
+ 		 struct ib_event *record);
  
-@@ -209,6 +210,7 @@ struct ipoib_cm_rx {
- 	unsigned long		jiffies;
- 	enum ipoib_cm_state	state;
- 	int			recv_count;
-+	u32			qpn;
- };
+-int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey);
+-int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey);
++int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey,
++						unsigned char clone_index);
++int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey,
++						unsigned char clone_index);
  
- struct ipoib_cm_tx {
-@@ -695,6 +697,10 @@ extern int ipoib_recvq_size;
- 
- extern struct ib_sa_client ipoib_sa_client;
- 
-+
-+inline void set_skb_oob_cb_data(struct sk_buff *skb, struct ib_wc *wc,
-+				struct napi_struct *napi);
-+
- #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG
- extern int ipoib_debug_level;
- 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_cm.c b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-index 014504d..dca7952 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
-@@ -440,6 +440,7 @@ static int ipoib_cm_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *even
- 	struct net_device *dev = cm_id->context;
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
- 	struct ipoib_cm_rx *p;
-+	struct ipoib_cm_data *data = event->private_data;
- 	unsigned psn;
- 	int ret;
- 
-@@ -452,6 +453,10 @@ static int ipoib_cm_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *even
- 	cm_id->context = p;
- 	p->state = IPOIB_CM_RX_LIVE;
- 	p->jiffies = jiffies;
-+
-+	/* used to keep track of base qpn in CM mode */
-+	p->qpn = be32_to_cpu(data->qpn);
-+
- 	INIT_LIST_HEAD(&p->list);
- 
- 	p->qp = ipoib_cm_create_rx_qp(dev, p);
-@@ -669,6 +674,10 @@ copied:
- 	skb->dev = dev;
- 	/* XXX get correct PACKET_ type here */
- 	skb->pkt_type = PACKET_HOST;
-+	/* if handler is registered on top of ipoib, set skb oob data. */
-+	if (skb->dev->priv_flags & IFF_EIPOIB_VIF)
-+		set_skb_oob_cb_data(skb, wc, NULL);
-+
- 	netif_receive_skb(skb);
- 
- repost:
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-index 5c1bc99..da28799 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-@@ -300,7 +300,13 @@ static void ipoib_ib_handle_rx_wc(struct net_device *dev, struct ib_wc *wc)
- 			likely(wc->wc_flags & IB_WC_IP_CSUM_OK))
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--	napi_gro_receive(&priv->napi, skb);
-+	/* if handler is registered on top of ipoib, set skb oob data */
-+	if (dev->priv_flags & IFF_EIPOIB_VIF) {
-+		set_skb_oob_cb_data(skb, wc, &priv->napi);
-+		/* the registered handler will take care of the skb */
-+		netif_receive_skb(skb);
-+	} else
-+		napi_gro_receive(&priv->napi, skb);
- 
- repost:
- 	if (unlikely(ipoib_ib_post_receive(dev, wr_id)))
+ void ipoib_pkey_poll(struct work_struct *work);
+ int ipoib_pkey_dev_delay_open(struct net_device *dev);
 diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 704d068..1ccd42f 100644
+index bbee4b2..704d068 100644
 --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
 +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -91,6 +91,31 @@ static struct ib_client ipoib_client = {
- 	.remove = ipoib_remove_one
- };
+@@ -1095,17 +1095,44 @@ int ipoib_add_umcast_attr(struct net_device *dev)
+ 	return device_create_file(&dev->dev, &dev_attr_umcast);
+ }
  
-+inline void set_skb_oob_cb_data(struct sk_buff *skb, struct ib_wc *wc,
-+				struct napi_struct *napi)
++int parse_child(struct device *dev, const char *buf, int *pkey,
++		int *child_index)
 +{
-+	struct ipoib_cm_rx *p_cm_ctx = NULL;
-+	union skb_cb_data *data = NULL;
-+	struct ib_grh *grh = NULL;
++	int ret;
++	struct ipoib_dev_priv *priv = netdev_priv(to_net_dev(dev));
 +
-+	p_cm_ctx = wc->qp->qp_context;
-+	data = IPOIB_HANDLER_CB(skb);
++	*pkey = *child_index = -1;
 +
-+	data->rx.slid = wc->slid;
-+	data->rx.sqpn = wc->src_qp;
-+	data->rx.napi = napi;
++	/* 'pkey' or 'pkey.child_index' or '.child_index' are allowed */
++	ret = sscanf(buf, "%i.%i", pkey, child_index);
++	if (ret == 1)  /* just pkey, implicit child index is 0 */
++		*child_index = 0;
++	else  if (ret != 2) { /* pkey same as parent, specified child index */
++		*pkey = priv->pkey;
++		ret  = sscanf(buf, ".%i", child_index);
++		if (ret != 1 || *child_index == 0)
++			return -EINVAL;
++	}
 +
-+	/* if dqpn is mcast, fetch the dgid */
-+	grh = (struct ib_grh *)(skb->data - IB_GRH_BYTES - IPOIB_ENCAP_LEN);
++	if (*child_index < 0 || *child_index > 0xff)
++		return -EINVAL;
 +
-+	if ((wc->wc_flags & IB_WC_GRH) && grh)
-+		memcpy(data->rx.dgid, grh->dgid.raw, 16);
++	if (*pkey < 0 || *pkey > 0xffff)
++		return -EINVAL;
 +
-+	/* in CM mode, use the "base" qpn as sqpn */
-+	if (p_cm_ctx)
-+		data->rx.sqpn = p_cm_ctx->qpn;
++	ipoib_dbg(priv, "parse_child inp %s out pkey %04x index %d\n",
++		buf, *pkey, *child_index);
++	return 0;
 +}
 +
- int ipoib_open(struct net_device *dev)
+ static ssize_t create_child(struct device *dev,
+ 			    struct device_attribute *attr,
+ 			    const char *buf, size_t count)
  {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
-@@ -1277,6 +1302,9 @@ static struct net_device *ipoib_add_port(const char *format,
- 		goto event_failed;
+-	int pkey;
++	int pkey, child_index;
+ 	int ret;
+ 
+-	if (sscanf(buf, "%i", &pkey) != 1)
+-		return -EINVAL;
+-
+-	if (pkey < 0 || pkey > 0xffff)
++	if (parse_child(dev, buf, &pkey, &child_index))
+ 		return -EINVAL;
+ 
+ 	/*
+@@ -1114,7 +1141,7 @@ static ssize_t create_child(struct device *dev,
+ 	 */
+ 	pkey |= 0x8000;
+ 
+-	ret = ipoib_vlan_add(to_net_dev(dev), pkey);
++	ret = ipoib_vlan_add(to_net_dev(dev), pkey, child_index);
+ 
+ 	return ret ? ret : count;
+ }
+@@ -1124,16 +1151,13 @@ static ssize_t delete_child(struct device *dev,
+ 			    struct device_attribute *attr,
+ 			    const char *buf, size_t count)
+ {
+-	int pkey;
++	int pkey, child_index;
+ 	int ret;
+ 
+-	if (sscanf(buf, "%i", &pkey) != 1)
+-		return -EINVAL;
+-
+-	if (pkey < 0 || pkey > 0xffff)
++	if (parse_child(dev, buf, &pkey, &child_index))
+ 		return -EINVAL;
+ 
+-	ret = ipoib_vlan_delete(to_net_dev(dev), pkey);
++	ret = ipoib_vlan_delete(to_net_dev(dev), pkey, child_index);
+ 
+ 	return ret ? ret : count;
+ 
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_verbs.c b/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
+index 049a997..2131772 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
+@@ -167,7 +167,8 @@ int ipoib_transport_dev_init(struct net_device *dev, struct ib_device *ca)
+ 			size += ipoib_recvq_size * ipoib_max_conn_qp;
  	}
  
-+	/* indicates pif port */
-+	priv->dev->priv_flags |= IFF_EIPOIB_PIF;
+-	priv->recv_cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, dev, size, 0);
++	priv->recv_cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, dev, size,
++				     priv->child_index % priv->ca->num_comp_vectors);
+ 	if (IS_ERR(priv->recv_cq)) {
+ 		printk(KERN_WARNING "%s: failed to create receive CQ\n", ca->name);
+ 		goto out_free_mr;
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+index d7e9740..2d35cb4 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+@@ -49,7 +49,8 @@ static ssize_t show_parent(struct device *d, struct device_attribute *attr,
+ }
+ static DEVICE_ATTR(parent, S_IRUGO, show_parent, NULL);
+ 
+-int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
++int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey,
++		unsigned char child_index)
+ {
+ 	struct ipoib_dev_priv *ppriv, *priv;
+ 	char intf_name[IFNAMSIZ];
+@@ -65,25 +66,40 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
+ 	mutex_lock(&ppriv->vlan_mutex);
+ 
+ 	/*
+-	 * First ensure this isn't a duplicate. We check the parent device and
+-	 * then all of the child interfaces to make sure the Pkey doesn't match.
++	 * First ensure this isn't a duplicate. We check all of the child
++	 * interfaces to make sure the Pkey AND the child index
++	 * don't match.
+ 	 */
+-	if (ppriv->pkey == pkey) {
+-		result = -ENOTUNIQ;
+-		priv = NULL;
+-		goto err;
+-	}
+-
+ 	list_for_each_entry(priv, &ppriv->child_intfs, list) {
+-		if (priv->pkey == pkey) {
++		if (priv->pkey == pkey && priv->child_index == child_index) {
+ 			result = -ENOTUNIQ;
+ 			priv = NULL;
+ 			goto err;
+ 		}
+ 	}
+ 
+-	snprintf(intf_name, sizeof intf_name, "%s.%04x",
+-		 ppriv->dev->name, pkey);
++	/*
++	 * for the case of non-legacy and same pkey childs we wanted to use
++	 * a notation of ibN.pkey:index and ibN:index but this is problematic
++	 * with tools like ifconfig who treat devices with ":" in their names
++	 * as aliases which are restriced, e.t w.r.t counters, etc
++	 */
++	if (ppriv->pkey != pkey && child_index == 0) /* legacy child */
++		snprintf(intf_name, sizeof intf_name, "%s.%04x",
++			 ppriv->dev->name, pkey);
++	else if (ppriv->pkey != pkey && child_index != 0) /* non-legacy child */
++		snprintf(intf_name, sizeof intf_name, "%s.%04x.%d",
++			 ppriv->dev->name, pkey, child_index);
++	else if (ppriv->pkey == pkey && child_index != 0) /* same pkey child */
++		snprintf(intf_name, sizeof intf_name, "%s.%d",
++			 ppriv->dev->name, child_index);
++	else  {
++		ipoib_warn(ppriv, "wrong pkey/child_index pairing %04x %d\n",
++			   pkey, child_index);
++		result = -EINVAL;
++		goto err;
++	}
 +
- 	result = register_netdev(priv->dev);
- 	if (result) {
- 		printk(KERN_WARNING "%s: couldn't register ipoib port %d; error %d\n",
-diff --git a/include/rdma/e_ipoib.h b/include/rdma/e_ipoib.h
-new file mode 100644
-index 0000000..481514e
---- /dev/null
-+++ b/include/rdma/e_ipoib.h
-@@ -0,0 +1,51 @@
-+/*
-+ * Copyright (c) 2012 Mellanox Technologies. All rights reserved
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * openfabric.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef _LINUX_ETH_IB_IPOIB_H
-+#define _LINUX_ETH_IB_IPOIB_H
-+#include <linux/skbuff.h>
-+#include <linux/if_infiniband.h>
-+#include <rdma/ib_verbs.h>
-+
-+/* must be <= 48 bytes */
-+union skb_cb_data {
-+	struct {
-+		u32 sqpn;
-+		u16 slid;
-+		u8  dgid[16];
-+		struct napi_struct *napi;
-+	} rx;
-+};
-+
-+#define IPOIB_HANDLER_CB(skb) ((union skb_cb_data *)(skb)->cb)
-+
-+#endif /* _LINUX_ETH_IB_IPOIB_H */
+ 	priv = ipoib_intf_alloc(intf_name);
+ 	if (!priv) {
+ 		result = -ENOMEM;
+@@ -101,6 +117,7 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
+ 		goto err;
+ 
+ 	priv->pkey = pkey;
++	priv->child_index = child_index;
+ 
+ 	memcpy(priv->dev->dev_addr, ppriv->dev->dev_addr, INFINIBAND_ALEN);
+ 	priv->dev->broadcast[8] = pkey >> 8;
+@@ -157,7 +174,8 @@ err:
+ 	return result;
+ }
+ 
+-int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey)
++int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey,
++		unsigned char child_index)
+ {
+ 	struct ipoib_dev_priv *ppriv, *priv, *tpriv;
+ 	struct net_device *dev = NULL;
+@@ -171,7 +189,7 @@ int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey)
+ 		return restart_syscall();
+ 	mutex_lock(&ppriv->vlan_mutex);
+ 	list_for_each_entry_safe(priv, tpriv, &ppriv->child_intfs, list) {
+-		if (priv->pkey == pkey) {
++		if (priv->pkey == pkey && priv->child_index == child_index) {
+ 			unregister_netdevice(priv->dev);
+ 			ipoib_dev_cleanup(priv->dev);
+ 			list_del(&priv->list);
 -- 
 1.7.1
