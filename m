@@ -1,42 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 03/16] tcp: Maintain dynamic metrics in local cache.
-Date: Tue, 10 Jul 2012 08:33:06 -0700 (PDT)
-Message-ID: <20120710.083306.1003488340031629044.davem@davemloft.net>
-References: <20120710.080714.2272376193166978850.davem@davemloft.net>
-	<1341934298.3265.5514.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/16] Metrics restructuring.
+Date: Tue, 10 Jul 2012 17:35:10 +0200
+Message-ID: <1341934510.3265.5521.camel@edumazet-glaptop>
+References: <20120710.080703.916560084659556593.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38637 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751661Ab2GJPdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 11:33:07 -0400
-In-Reply-To: <1341934298.3265.5514.camel@edumazet-glaptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:44814 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751952Ab2GJPfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 11:35:15 -0400
+Received: by eaak11 with SMTP id k11so57511eaa.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 08:35:14 -0700 (PDT)
+In-Reply-To: <20120710.080703.916560084659556593.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 Jul 2012 17:31:38 +0200
-
-> On Tue, 2012-07-10 at 08:07 -0700, David Miller wrote:
->> Maintain a local hash table of TCP dynamic metrics blobs.
->> 
->> Computed TCP metrics are no longer maintained in the route metrics.
->> 
->> The table uses RCU and an extremely simple hash so that it has low
->> latency and low overhead.  A simple hash is legitimate because we only
->> make metrics blobs for fully established connections.
->> 
->> Some tweaking of the default hash table sizes, metric timeouts, and
->> the hash chain length limit certainly could use some tweaking.  But
->> the basic design seems sound.
->> 
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->> ---
+On Tue, 2012-07-10 at 08:07 -0700, David Miller wrote:
+> This patch series works towards the goal of minimizing the amount
+> of things that can change in an ipv4 route.
 > 
-> Seems to lack namespace support, or maybe I missed something ?
+> In a regime where the routing cache is removed, route changes will
+> lead to cloning in the FIB tables or similar.
+> 
+> The largest trigger of route metrics writes, TCP, now has it's own
+> cache of dynamic metric state.  The timewait timestamps are stored
+> there now as well.
+> 
+> As a result of that, pre-cowing metrics is no longer necessary,
+> and therefore FLOWI_FLAG_PRECOW_METRICS is removed.
+> 
+> Redirect and PMTU handling is moved back into the ipv4 routes.  I'm
+> sorry for all the headaches trying to do this in the inetpeer has
+> caused, it was the wrong approach for sure.
+> 
+> Since metrics become read-only for ipv4 we no longer need the inetpeer
+> hung off of the ipv4 routes either.  So those disappear too.
+> 
+> Also, timewait sockets no longer need to hold onto an inetpeer either.
+> 
+> After this series, we still have some details to resolve wrt. PMTU and
+> redirects for a route-cache-less system:
+> 
+> 1) With just the plain route cache removal, PMTU will continue to
+>    work mostly fine.  This is because of how the local route users
+>    call down into the PMTU update code with the route they already
+>    hold.
+> 
+>    However, if we wish to cache pre-computed routes in fib_info
+>    nexthops (which we want for performance), then we need to add
+>    route cloning for PMTU events.
+> 
+> 2) Redirects require more work.  First, redirects must be changed to
+>    be handled like PMTU.  Wherein we call down into the sockets and
+>    other entities, and then they call back into the routing code with
+>    the route they were using.
+> 
+>    So we'll be adding an ->update_nexthop() method alongside
+>    ->update_pmtu().
+> 
+>    And then, like for PMTU, we'll need cloning support once we start
+>    caching routes in the fib_info nexthops.
+> 
+> But that's it, we can completely pull the trigger and remove the
+> routing cache with minimal disruptions.
+> 
+> As it is, this patch series alone helps a lot of things.  For one,
+> routing cache entry creation should be a lot faster, because we no
+> longer do inetpeer lookups (even to check if an entry exists).
+> 
+> This patch series also opens the door for non-DST_HOST ipv4 routes,
+> because nothing fundamentally cares about rt->rt_dst any more.  It
+> can be removed with the base routing cache removal patch.  In fact,
+> that was the primary goal of this patch series.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-It does, I'll have to add it.  Thanks for catching that.
+This looks great !
