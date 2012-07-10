@@ -1,74 +1,143 @@
-From: "ASIX Allan Email [office]" <allan@asix.com.tw>
-Subject: RE: [PATCH 0/4] Add a driver for the ASIX AX88172A
-Date: Tue, 10 Jul 2012 10:20:21 +0800
-Message-ID: <000001cd5e42$93d6c1f0$bb8445d0$@com.tw>
-References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at> <CANEJEGuiw7w0aV47AnRQGzqBNCyAb7jj9t+Dh2XbzwMtV=doWw@mail.gmail.com> <4FFB5AC6.3000506@teksavvy.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "'Christian Riesch'" <christian.riesch@omicron.at>,
-	<netdev@vger.kernel.org>, "'Oliver Neukum'" <oneukum@suse.de>,
-	"'Eric Dumazet'" <edumazet@google.com>,
-	"'Ming Lei'" <tom.leiming@gmail.com>,
-	"'Michael Riesch'" <michael@riesch.at>
-To: "'Mark Lord'" <kernel@teksavvy.com>,
-	"'Grant Grundler'" <grundler@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from asix.com.tw ([113.196.140.82]:56372 "EHLO asix.com.tw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752890Ab2GJCUh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jul 2012 22:20:37 -0400
-In-Reply-To: <4FFB5AC6.3000506@teksavvy.com>
-Content-Language: zh-tw
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH] net: cgroup: fix access the unallocated memory in netprio cgroup
+Date: Tue, 10 Jul 2012 10:31:48 +0800
+Message-ID: <1341887508-20302-1-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1341837625.3265.2748.camel@edumazet-glaptop>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Eric Dumazet <edumazet@google.com>
+To: eric.dumazet@gmail.com, nhorman@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341837625.3265.2748.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear All,
+there are some out of bound accesses in netprio cgroup.
+when creating a new netprio cgroup,we only set a prioidx for
+the new cgroup,without allocate memory for dev->priomap.
 
->From ASIX support viewpoint, it might be hard to support all AX88172A target applications on Linux kernel native ax88172a.c driver because some of AX88172A applications are embedded on customers' special target applications such as the AX88172A (PHY mode or Dual-PHY mode) + external MAC controller on-board design applications. For these kinds of AX88172A applications, the AX88172A Linux driver was qualified in our customers' site directly. It means ASIX doesn't have those customers' AX88172A devices in our site for testing. 
+because we don't want to see additional bound checkings in
+fast path, so I think the best way is to allocate memory when we
+creating a new netprio cgroup.
 
-But for some AX88172A target applications such as AX88172A + external Fiber PHY and AX88172A + external National DP83640 PHY (Christian is testing under), etc. USB dongle applications, it is possible to support them on Linux kernel native ax88172a.c driver but *** the readme of this driver source might need to indicate clearly what kinds of AX88172A devices had been verified on this ax88172a.c native driver source ***. It will avoid users were confusing why their AX88172A devices couldn't work fine on Linux kernel native driver in future. 
+and because netdev can be created or registered after cgroup being
+created, so extend_netdev_table is also needed in write_priomap.
 
-Please let us know if you need more information. Thanks a lot. 
+this patch add a return value for update_netdev_tables & extend_netdev_table,
+so when new_priomap is allocated failed,write_priomap will stop to access
+the priomap,and return -ENOMEM back to the userspace to tell the user
+what happend.
 
-
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Eric Dumazet <edumazet@google.com>
 ---
-Best regards,
-Allan Chou
-Technical Support Division
-ASIX Electronics Corporation
-TEL: 886-3-5799500 ext.228
-FAX: 886-3-5799558
-E-mail: allan@asix.com.tw 
-http://www.asix.com.tw/ 
+ net/core/netprio_cgroup.c |   43 +++++++++++++++++++++++++++++--------------
+ 1 files changed, 29 insertions(+), 14 deletions(-)
 
------Original Message-----
-From: Mark Lord [mailto:kernel@teksavvy.com] 
-Sent: Tuesday, July 10, 2012 6:27 AM
-To: Grant Grundler
-Cc: Christian Riesch; netdev@vger.kernel.org; Oliver Neukum; Eric Dumazet; Allan Chou; Ming Lei; Michael Riesch
-Subject: Re: [PATCH 0/4] Add a driver for the ASIX AX88172A
-
-On 12-07-09 01:45 PM, Grant Grundler wrote:
-> Christian,
-> Here's my $0.02 response to your questions.
-> 
-> On Fri, Jul 6, 2012 at 4:33 AM, Christian Riesch
-> <christian.riesch@omicron.at> wrote:
-> ...
->> I have a few questions:
->>
->> 1) Is it ok to factor out the common code like I did? Or should
->>    it go into a separate kernel module?
-> 
-> I think it's ok. I'd rather not see additional kernel modules unless
-> the driver is substantially different.
-
-I'll second that.  Ideally, somebody should pick up the pieces
-from my aborted efforts last fall, and just get the real ASIX driver
-itself tidied and into the kernel.  Then *everything* would work.
-
-But I doubt that would be feasible at this point.
-
-Cheers
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index aa907ed..3554f28 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -65,7 +65,7 @@ static void put_prioidx(u32 idx)
+ 	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+ }
+ 
+-static void extend_netdev_table(struct net_device *dev, u32 new_len)
++static int extend_netdev_table(struct net_device *dev, u32 new_len)
+ {
+ 	size_t new_size = sizeof(struct netprio_map) +
+ 			   ((sizeof(u32) * new_len));
+@@ -77,7 +77,7 @@ static void extend_netdev_table(struct net_device *dev, u32 new_len)
+ 
+ 	if (!new_priomap) {
+ 		pr_warn("Unable to alloc new priomap!\n");
+-		return;
++		return -ENOMEM;
+ 	}
+ 
+ 	for (i = 0;
+@@ -90,10 +90,12 @@ static void extend_netdev_table(struct net_device *dev, u32 new_len)
+ 	rcu_assign_pointer(dev->priomap, new_priomap);
+ 	if (old_priomap)
+ 		kfree_rcu(old_priomap, rcu);
++	return 0;
+ }
+ 
+-static void update_netdev_tables(void)
++static int update_netdev_tables(void)
+ {
++	int ret = 0;
+ 	struct net_device *dev;
+ 	u32 max_len = atomic_read(&max_prioidx) + 1;
+ 	struct netprio_map *map;
+@@ -102,34 +104,44 @@ static void update_netdev_tables(void)
+ 	for_each_netdev(&init_net, dev) {
+ 		map = rtnl_dereference(dev->priomap);
+ 		if ((!map) ||
+-		    (map->priomap_len < max_len))
+-			extend_netdev_table(dev, max_len);
++		    (map->priomap_len < max_len)) {
++			ret = extend_netdev_table(dev, max_len);
++			if (ret < 0)
++				break;
++		}
+ 	}
+ 	rtnl_unlock();
++	return ret;
+ }
+ 
+ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+ {
+ 	struct cgroup_netprio_state *cs;
+-	int ret;
++	int ret = -EINVAL;
+ 
+ 	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
+ 	if (!cs)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx) {
+-		kfree(cs);
+-		return ERR_PTR(-EINVAL);
+-	}
++	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx)
++		goto out;
+ 
+ 	ret = get_prioidx(&cs->prioidx);
+-	if (ret != 0) {
++	if (ret < 0) {
+ 		pr_warn("No space in priority index array\n");
+-		kfree(cs);
+-		return ERR_PTR(ret);
++		goto out;
++	}
++
++	ret = update_netdev_tables();
++	if (ret < 0) {
++		put_prioidx(cs->prioidx);
++		goto out;
+ 	}
+ 
+ 	return &cs->css;
++out:
++	kfree(cs);
++	return ERR_PTR(ret);
+ }
+ 
+ static void cgrp_destroy(struct cgroup *cgrp)
+@@ -221,7 +233,10 @@ static int write_priomap(struct cgroup *cgrp, struct cftype *cft,
+ 	if (!dev)
+ 		goto out_free_devname;
+ 
+-	update_netdev_tables();
++	ret = update_netdev_tables();
++	if (ret < 0)
++		goto out_free_devname;
++
+ 	ret = 0;
+ 	rcu_read_lock();
+ 	map = rcu_dereference(dev->priomap);
+-- 
+1.7.7.6
