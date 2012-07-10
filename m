@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH v2 net-next 4/5] drivers/net/ethernet: Fix
- (nearly-)kernel-doc comments for various functions
-Date: Tue, 10 Jul 2012 21:56:00 +0100
-Message-ID: <1341953760.2605.28.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH v2 net-next 5/5] drivers/net/ethernet: Fix non-kernel-doc
+ comments with kernel-doc start markers
+Date: Tue, 10 Jul 2012 21:56:59 +0100
+Message-ID: <1341953819.2605.29.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1341953604.2605.24.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,3010 +10,3219 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:41180 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:41202 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753537Ab2GJU4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 16:56:03 -0400
+	by vger.kernel.org with ESMTP id S1751996Ab2GJU5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 16:57:03 -0400
 In-Reply-To: <1341953604.2605.24.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix incorrect start markers, wrapped summary lines, missing section
-breaks, incorrect separators, and some name mismatches.  Delete
-a few that are content-free.
+Convert doxygen (or similar) formatted comments to kernel-doc or
+unformatted comment.  Delete a few that are content-free.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/3com/3c501.c                  |    2 +-
- drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |   68 +++-----
- drivers/net/ethernet/atheros/atl1e/atl1e_main.c    |   70 +++-----
- drivers/net/ethernet/atheros/atl1e/atl1e_param.c   |    2 +-
- drivers/net/ethernet/atheros/atlx/atl1.c           |   41 ++---
- drivers/net/ethernet/atheros/atlx/atl2.c           |   56 +++----
- drivers/net/ethernet/atheros/atlx/atlx.c           |   10 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |    2 +-
- drivers/net/ethernet/brocade/bna/bfa_cee.c         |   36 +---
- drivers/net/ethernet/chelsio/cxgb3/sge.c           |    2 +-
- drivers/net/ethernet/chelsio/cxgb3/t3_hw.c         |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |    2 +-
- drivers/net/ethernet/ethoc.c                       |    4 +-
- drivers/net/ethernet/freescale/fec.c               |    4 +-
- drivers/net/ethernet/intel/e1000/e1000_hw.c        |    8 +-
- drivers/net/ethernet/intel/e1000e/netdev.c         |    2 +-
- drivers/net/ethernet/intel/igb/igb_main.c          |    1 +
- drivers/net/ethernet/intel/igbvf/netdev.c          |    1 +
- drivers/net/ethernet/intel/igbvf/vf.c              |    5 +-
- drivers/net/ethernet/intel/ixgb/ixgb_main.c        |    6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |    3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   10 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   41 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |   38 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c     |    8 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |    6 +-
- drivers/net/ethernet/micrel/ks8851_mll.c           |    2 +-
- drivers/net/ethernet/micrel/ksz884x.c              |    2 +-
- drivers/net/ethernet/neterion/s2io.c               |   10 +-
- drivers/net/ethernet/nvidia/forcedeth.c            |    2 +-
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c    |   12 +-
- .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |   10 +-
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   42 +++---
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c  |    4 +-
- drivers/net/ethernet/sfc/net_driver.h              |    2 +-
- drivers/net/ethernet/sfc/rx.c                      |    1 +
- drivers/net/ethernet/smsc/smc911x.c                |    6 +-
- drivers/net/ethernet/smsc/smc91x.c                 |    6 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   |    2 +-
- drivers/net/ethernet/tehuti/tehuti.c               |  177 ++++++++++++--------
- drivers/net/ethernet/ti/davinci_emac.c             |   70 ++++----
- drivers/net/ethernet/toshiba/spider_net.c          |    6 +-
- drivers/net/ethernet/xilinx/ll_temac_main.c        |    2 +-
- 44 files changed, 378 insertions(+), 410 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    9 -
+ .../net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h    |    4 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h   |    3 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    3 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h    |    3 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h     |   36 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |    5 +-
+ drivers/net/ethernet/broadcom/cnic.c               |    4 +-
+ drivers/net/ethernet/brocade/bna/bfa_cee.c         |   61 +---
+ drivers/net/ethernet/brocade/bna/bfa_cs.h          |   34 +--
+ drivers/net/ethernet/brocade/bna/bfa_defs.h        |   63 +---
+ drivers/net/ethernet/brocade/bna/bfa_defs_cna.h    |   15 +-
+ .../net/ethernet/brocade/bna/bfa_defs_mfg_comm.h   |   35 +--
+ drivers/net/ethernet/brocade/bna/bfa_defs_status.h |    3 +-
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c         |  393 +++++++-------------
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h         |   43 +--
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c      |   48 +--
+ drivers/net/ethernet/brocade/bna/bfa_msgq.c        |    4 +-
+ drivers/net/ethernet/brocade/bna/bfi.h             |   81 +---
+ drivers/net/ethernet/brocade/bna/bfi_cna.h         |   42 +--
+ drivers/net/ethernet/brocade/bna/bfi_enet.h        |  107 ++----
+ drivers/net/ethernet/brocade/bna/bfi_reg.h         |    4 +-
+ drivers/net/ethernet/brocade/bna/bna.h             |   51 +--
+ drivers/net/ethernet/brocade/bna/bna_enet.c        |   15 +-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h     |   33 +--
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c       |   17 +-
+ drivers/net/ethernet/brocade/bna/bna_types.h       |   66 +---
+ drivers/net/ethernet/brocade/bna/bnad.c            |   12 +-
+ drivers/net/ethernet/brocade/bna/bnad.h            |    4 +-
+ drivers/net/ethernet/ibm/ehea/ehea_qmr.c           |    4 +-
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |    9 +-
+ drivers/net/ethernet/micrel/ks8851_mll.c           |    6 +-
+ drivers/net/ethernet/neterion/vxge/vxge-main.h     |    3 +-
+ drivers/net/ethernet/nvidia/forcedeth.c            |    3 +-
+ drivers/net/ethernet/sfc/mcdi_pcol.h               |    3 +-
+ drivers/net/ethernet/ti/davinci_emac.c             |    8 +-
+ 36 files changed, 342 insertions(+), 892 deletions(-)
 
-diff --git a/drivers/net/ethernet/3com/3c501.c b/drivers/net/ethernet/3com/3c501.c
-index bf73e1a..2038eaa 100644
---- a/drivers/net/ethernet/3com/3c501.c
-+++ b/drivers/net/ethernet/3com/3c501.c
-@@ -143,7 +143,7 @@ static int irq = 5;
- static int mem_start;
- 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 362d16f..cdd3a8a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1740,15 +1740,6 @@ int bnx2x_set_mac_one(struct bnx2x *bp, u8 *mac,
+ 		      struct bnx2x_vlan_mac_obj *obj, bool set,
+ 		      int mac_type, unsigned long *ramrod_flags);
  /**
-- * el1_probe:		-	probe for a 3c501
-+ * el1_probe		-	probe for a 3c501
-  * @dev: The device structure passed in to probe.
-  *
-  * This can be called from two places. The network layer will probe using
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-index 85717cb..42c13d8 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
-@@ -166,7 +166,7 @@ static void atl1c_reset_pcie(struct atl1c_hw *hw, u32 flag)
- 	msleep(5);
- }
- 
--/*
-+/**
-  * atl1c_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-  */
-@@ -179,7 +179,7 @@ static inline void atl1c_irq_enable(struct atl1c_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1c_irq_disable - Mask off interrupt generation on the NIC
-  * @adapter: board private structure
-  */
-@@ -192,7 +192,7 @@ static inline void atl1c_irq_disable(struct atl1c_adapter *adapter)
- 	synchronize_irq(adapter->pdev->irq);
- }
- 
--/*
-+/**
-  * atl1c_irq_reset - reset interrupt confiure on the NIC
-  * @adapter: board private structure
-  */
-@@ -220,7 +220,7 @@ static u32 atl1c_wait_until_idle(struct atl1c_hw *hw, u32 modu_ctrl)
- 	return data;
- }
- 
--/*
-+/**
-  * atl1c_phy_config - Timer Call-back
-  * @data: pointer to netdev cast into an unsigned long
-  */
-@@ -361,7 +361,7 @@ static void atl1c_del_timer(struct atl1c_adapter *adapter)
- }
- 
-
--/*
-+/**
-  * atl1c_tx_timeout - Respond to a Tx Hang
-  * @netdev: network interface device structure
-  */
-@@ -374,7 +374,7 @@ static void atl1c_tx_timeout(struct net_device *netdev)
- 	schedule_work(&adapter->common_task);
- }
- 
--/*
-+/**
-  * atl1c_set_multi - Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-  *
-@@ -453,7 +453,7 @@ static void atl1c_restore_vlan(struct atl1c_adapter *adapter)
- 	atl1c_vlan_mode(adapter->netdev, adapter->netdev->features);
- }
- 
--/*
-+/**
-  * atl1c_set_mac - Change the Ethernet Address of the NIC
-  * @netdev: network interface device structure
-  * @p: pointer to an address structure
-@@ -518,7 +518,7 @@ static int atl1c_set_features(struct net_device *netdev,
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1c_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-  * @new_mtu: new value for maximum frame size
-@@ -577,12 +577,6 @@ static void atl1c_mdio_write(struct net_device *netdev, int phy_id,
- 	atl1c_write_phy_reg(&adapter->hw, reg_num, val);
- }
- 
--/*
-- * atl1c_mii_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
+- * Deletes all MACs configured for the specific MAC object.
+- *
+- * @param bp Function driver instance
+- * @param mac_obj MAC object to cleanup
+- *
+- * @return zero if all MACs were cleaned
 - */
- static int atl1c_mii_ioctl(struct net_device *netdev,
- 			   struct ifreq *ifr, int cmd)
- {
-@@ -633,12 +627,6 @@ out:
- 	return retval;
- }
- 
--/*
-- * atl1c_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
- static int atl1c_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
- 	switch (cmd) {
-@@ -651,7 +639,7 @@ static int atl1c_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	}
- }
- 
--/*
-+/**
-  * atl1c_alloc_queues - Allocate memory for all rings
-  * @adapter: board private structure to initialize
-  *
-@@ -755,7 +743,7 @@ static void __devinit atl1c_patch_assign(struct atl1c_hw *hw)
- 		i++;
- 	}
- }
--/*
-+/**
-  * atl1c_sw_init - Initialize general software structures (struct atl1c_adapter)
-  * @adapter: board private structure to initialize
-  *
-@@ -853,7 +841,7 @@ static inline void atl1c_clean_buffer(struct pci_dev *pdev,
- 	buffer_info->skb = NULL;
- 	ATL1C_SET_BUFFER_STATE(buffer_info, ATL1C_BUFFER_FREE);
- }
--/*
-+/**
-  * atl1c_clean_tx_ring - Free Tx-skb
-  * @adapter: board private structure
-  */
-@@ -878,7 +866,7 @@ static void atl1c_clean_tx_ring(struct atl1c_adapter *adapter,
- 	tpd_ring->next_to_use = 0;
- }
- 
--/*
-+/**
-  * atl1c_clean_rx_ring - Free rx-reservation skbs
-  * @adapter: board private structure
-  */
-@@ -931,7 +919,7 @@ static void atl1c_init_ring_ptrs(struct atl1c_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1c_free_ring_resources - Free Tx / RX descriptor Resources
-  * @adapter: board private structure
-  *
-@@ -954,7 +942,7 @@ static void atl1c_free_ring_resources(struct atl1c_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1c_setup_mem_resources - allocate Tx / RX descriptor resources
-  * @adapter: board private structure
-  *
-@@ -1363,7 +1351,7 @@ static void atl1c_set_aspm(struct atl1c_hw *hw, u16 link_speed)
- 	return;
- }
- 
--/*
-+/**
-  * atl1c_configure - Configure Transmit&Receive Unit after Reset
-  * @adapter: board private structure
-  *
-@@ -1477,7 +1465,7 @@ static void atl1c_update_hw_stats(struct atl1c_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1c_get_stats - Get System Network Statistics
-  * @netdev: network interface device structure
-  *
-@@ -1558,11 +1546,10 @@ static bool atl1c_clean_tx_irq(struct atl1c_adapter *adapter,
- 	return true;
- }
- 
--/*
-+/**
-  * atl1c_intr - Interrupt Handler
-  * @irq: interrupt number
-  * @data: pointer to a network interface device structure
-- * @pt_regs: CPU registers structure
-  */
- static irqreturn_t atl1c_intr(int irq, void *data)
- {
-@@ -1813,9 +1800,8 @@ rrs_checked:
- 		atl1c_alloc_rx_buffer(adapter);
- }
- 
--/*
-+/**
-  * atl1c_clean - NAPI Rx polling callback
-- * @adapter: board private structure
-  */
- static int atl1c_clean(struct napi_struct *napi, int budget)
- {
-@@ -2270,7 +2256,7 @@ static void atl1c_down(struct atl1c_adapter *adapter)
- 	atl1c_reset_dma_ring(adapter);
- }
- 
--/*
-+/**
-  * atl1c_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-@@ -2309,7 +2295,7 @@ err_up:
- 	return err;
- }
- 
--/*
-+/**
-  * atl1c_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -2432,7 +2418,7 @@ static int atl1c_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1c_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in atl1c_pci_tbl
-@@ -2579,7 +2565,7 @@ err_dma:
- 	return err;
- }
- 
--/*
-+/**
-  * atl1c_remove - Device Removal Routine
-  * @pdev: PCI device information struct
-  *
-@@ -2605,7 +2591,7 @@ static void __devexit atl1c_remove(struct pci_dev *pdev)
- 	free_netdev(netdev);
- }
- 
--/*
-+/**
-  * atl1c_io_error_detected - called when PCI error is detected
-  * @pdev: Pointer to PCI device
-  * @state: The current pci connection state
-@@ -2633,7 +2619,7 @@ static pci_ers_result_t atl1c_io_error_detected(struct pci_dev *pdev,
- 	return PCI_ERS_RESULT_NEED_RESET;
- }
- 
--/*
-+/**
-  * atl1c_io_slot_reset - called after the pci bus has been reset.
-  * @pdev: Pointer to PCI device
-  *
-@@ -2661,7 +2647,7 @@ static pci_ers_result_t atl1c_io_slot_reset(struct pci_dev *pdev)
- 	return PCI_ERS_RESULT_RECOVERED;
- }
- 
--/*
-+/**
-  * atl1c_io_resume - called when traffic can start flowing again.
-  * @pdev: Pointer to PCI device
-  *
-@@ -2704,7 +2690,7 @@ static struct pci_driver atl1c_driver = {
- 	.driver.pm = &atl1c_pm_ops,
- };
- 
--/*
-+/**
-  * atl1c_init_module - Driver Registration Routine
-  *
-  * atl1c_init_module is the first routine called when the driver is
-@@ -2715,7 +2701,7 @@ static int __init atl1c_init_module(void)
- 	return pci_register_driver(&atl1c_driver);
- }
- 
--/*
-+/**
-  * atl1c_exit_module - Driver Exit Cleanup Routine
-  *
-  * atl1c_exit_module is called just before the driver is removed
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-index 0aed82e..a98acc8 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
-@@ -89,7 +89,7 @@ static const u16 atl1e_pay_load_size[] = {
- 	128, 256, 512, 1024, 2048, 4096,
- };
- 
--/*
-+/**
-  * atl1e_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-  */
-@@ -102,7 +102,7 @@ static inline void atl1e_irq_enable(struct atl1e_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1e_irq_disable - Mask off interrupt generation on the NIC
-  * @adapter: board private structure
-  */
-@@ -114,7 +114,7 @@ static inline void atl1e_irq_disable(struct atl1e_adapter *adapter)
- 	synchronize_irq(adapter->pdev->irq);
- }
- 
--/*
-+/**
-  * atl1e_irq_reset - reset interrupt confiure on the NIC
-  * @adapter: board private structure
-  */
-@@ -126,7 +126,7 @@ static inline void atl1e_irq_reset(struct atl1e_adapter *adapter)
- 	AT_WRITE_FLUSH(&adapter->hw);
- }
- 
--/*
-+/**
-  * atl1e_phy_config - Timer Call-back
-  * @data: pointer to netdev cast into an unsigned long
-  */
-@@ -210,7 +210,7 @@ static int atl1e_check_link(struct atl1e_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1e_link_chg_task - deal with link change event Out of interrupt context
-  * @netdev: network interface device structure
-  */
-@@ -259,7 +259,7 @@ static void atl1e_cancel_work(struct atl1e_adapter *adapter)
- 	cancel_work_sync(&adapter->link_chg_task);
- }
- 
--/*
-+/**
-  * atl1e_tx_timeout - Respond to a Tx Hang
-  * @netdev: network interface device structure
-  */
-@@ -271,7 +271,7 @@ static void atl1e_tx_timeout(struct net_device *netdev)
- 	schedule_work(&adapter->reset_task);
- }
- 
--/*
-+/**
-  * atl1e_set_multi - Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-  *
-@@ -345,7 +345,7 @@ static void atl1e_restore_vlan(struct atl1e_adapter *adapter)
- 	atl1e_vlan_mode(adapter->netdev, adapter->netdev->features);
- }
- 
--/*
-+/**
-  * atl1e_set_mac - Change the Ethernet Address of the NIC
-  * @netdev: network interface device structure
-  * @p: pointer to an address structure
-@@ -397,7 +397,7 @@ static int atl1e_set_features(struct net_device *netdev,
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1e_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-  * @new_mtu: new value for maximum frame size
-@@ -449,12 +449,6 @@ static void atl1e_mdio_write(struct net_device *netdev, int phy_id,
- 	atl1e_write_phy_reg(&adapter->hw, reg_num & MDIO_REG_ADDR_MASK, val);
- }
- 
--/*
-- * atl1e_mii_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
- static int atl1e_mii_ioctl(struct net_device *netdev,
- 			   struct ifreq *ifr, int cmd)
- {
-@@ -505,12 +499,6 @@ out:
- 
- }
- 
--/*
-- * atl1e_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
- static int atl1e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
- 	switch (cmd) {
-@@ -541,7 +529,7 @@ static void atl1e_setup_pcicmd(struct pci_dev *pdev)
- 	msleep(1);
- }
- 
--/*
-+/**
-  * atl1e_alloc_queues - Allocate memory for all rings
-  * @adapter: board private structure to initialize
-  *
-@@ -551,7 +539,7 @@ static int __devinit atl1e_alloc_queues(struct atl1e_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1e_sw_init - Initialize general software structures (struct atl1e_adapter)
-  * @adapter: board private structure to initialize
-  *
-@@ -635,7 +623,7 @@ static int __devinit atl1e_sw_init(struct atl1e_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1e_clean_tx_ring - Free Tx-skb
-  * @adapter: board private structure
-  */
-@@ -678,7 +666,7 @@ static void atl1e_clean_tx_ring(struct atl1e_adapter *adapter)
- 				ring_count);
- }
- 
--/*
-+/**
-  * atl1e_clean_rx_ring - Free rx-reservation skbs
-  * @adapter: board private structure
-  */
-@@ -761,7 +749,7 @@ static void atl1e_init_ring_ptrs(struct atl1e_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1e_free_ring_resources - Free Tx / RX descriptor Resources
-  * @adapter: board private structure
-  *
-@@ -786,7 +774,7 @@ static void atl1e_free_ring_resources(struct atl1e_adapter *adapter)
- 	}
- }
- 
--/*
-+/**
-  * atl1e_setup_mem_resources - allocate Tx / RX descriptor resources
-  * @adapter: board private structure
-  *
-@@ -1075,7 +1063,7 @@ static void atl1e_setup_mac_ctrl(struct atl1e_adapter *adapter)
- 	AT_WRITE_REG(hw, REG_MAC_CTRL, value);
- }
- 
--/*
-+/**
-  * atl1e_configure - Configure Transmit&Receive Unit after Reset
-  * @adapter: board private structure
-  *
-@@ -1145,7 +1133,7 @@ static int atl1e_configure(struct atl1e_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1e_get_stats - Get System Network Statistics
-  * @netdev: network interface device structure
-  *
-@@ -1257,11 +1245,10 @@ static bool atl1e_clean_tx_irq(struct atl1e_adapter *adapter)
- 	return true;
- }
- 
--/*
-+/**
-  * atl1e_intr - Interrupt Handler
-  * @irq: interrupt number
-  * @data: pointer to a network interface device structure
-- * @pt_regs: CPU registers structure
-  */
- static irqreturn_t atl1e_intr(int irq, void *data)
- {
-@@ -1489,9 +1476,8 @@ fatal_err:
- 		schedule_work(&adapter->reset_task);
- }
- 
--/*
-+/**
-  * atl1e_clean - NAPI Rx polling callback
-- * @adapter: board private structure
-  */
- static int atl1e_clean(struct napi_struct *napi, int budget)
- {
-@@ -1956,7 +1942,7 @@ void atl1e_down(struct atl1e_adapter *adapter)
- 	atl1e_clean_rx_ring(adapter);
- }
- 
--/*
-+/**
-  * atl1e_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-@@ -2002,7 +1988,7 @@ err_req_irq:
- 	return err;
- }
- 
--/*
-+/**
-  * atl1e_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -2238,7 +2224,7 @@ static int atl1e_init_netdev(struct net_device *netdev, struct pci_dev *pdev)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1e_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in atl1e_pci_tbl
-@@ -2392,7 +2378,7 @@ err_dma:
- 	return err;
- }
- 
--/*
-+/**
-  * atl1e_remove - Device Removal Routine
-  * @pdev: PCI device information struct
-  *
-@@ -2424,7 +2410,7 @@ static void __devexit atl1e_remove(struct pci_dev *pdev)
- 	pci_disable_device(pdev);
- }
- 
--/*
-+/**
-  * atl1e_io_error_detected - called when PCI error is detected
-  * @pdev: Pointer to PCI device
-  * @state: The current pci connection state
-@@ -2452,7 +2438,7 @@ atl1e_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
- 	return PCI_ERS_RESULT_NEED_RESET;
- }
- 
--/*
-+/**
-  * atl1e_io_slot_reset - called after the pci bus has been reset.
-  * @pdev: Pointer to PCI device
-  *
-@@ -2479,7 +2465,7 @@ static pci_ers_result_t atl1e_io_slot_reset(struct pci_dev *pdev)
- 	return PCI_ERS_RESULT_RECOVERED;
- }
- 
--/*
-+/**
-  * atl1e_io_resume - called when traffic can start flowing again.
-  * @pdev: Pointer to PCI device
-  *
-@@ -2523,7 +2509,7 @@ static struct pci_driver atl1e_driver = {
- 	.err_handler = &atl1e_err_handler
- };
- 
--/*
-+/**
-  * atl1e_init_module - Driver Registration Routine
-  *
-  * atl1e_init_module is the first routine called when the driver is
-@@ -2534,7 +2520,7 @@ static int __init atl1e_init_module(void)
- 	return pci_register_driver(&atl1e_driver);
- }
- 
--/*
-+/**
-  * atl1e_exit_module - Driver Exit Cleanup Routine
-  *
-  * atl1e_exit_module is called just before the driver is removed
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_param.c b/drivers/net/ethernet/atheros/atl1e/atl1e_param.c
-index 0ce60b6..b5086f1 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_param.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_param.c
-@@ -168,7 +168,7 @@ static int __devinit atl1e_validate_option(int *value, struct atl1e_option *opt,
- 	return -1;
- }
- 
--/*
-+/**
-  * atl1e_check_options - Range Checking for Command Line Parameters
-  * @adapter: board private structure
-  *
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 149a294..f2402f3 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -195,7 +195,7 @@ static int __devinit atl1_validate_option(int *value, struct atl1_option *opt,
- 	return -1;
- }
- 
--/*
-+/**
-  * atl1_check_options - Range Checking for Command Line Parameters
-  * @adapter: board private structure
-  *
-@@ -937,7 +937,7 @@ static void atl1_set_mac_addr(struct atl1_hw *hw)
- 	iowrite32(value, (hw->hw_addr + REG_MAC_STA_ADDR) + (1 << 2));
- }
- 
--/*
-+/**
-  * atl1_sw_init - Initialize general software structures (struct atl1_adapter)
-  * @adapter: board private structure to initialize
-  *
-@@ -1014,12 +1014,6 @@ static void mdio_write(struct net_device *netdev, int phy_id, int reg_num,
- 	atl1_write_phy_reg(&adapter->hw, reg_num, val);
- }
- 
--/*
-- * atl1_mii_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
- static int atl1_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
- 	struct atl1_adapter *adapter = netdev_priv(netdev);
-@@ -1036,7 +1030,7 @@ static int atl1_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	return retval;
- }
- 
--/*
-+/**
-  * atl1_setup_mem_resources - allocate Tx / RX descriptor resources
-  * @adapter: board private structure
-  *
-@@ -1147,7 +1141,7 @@ static void atl1_init_ring_ptrs(struct atl1_adapter *adapter)
- 	atomic_set(&rrd_ring->next_to_clean, 0);
- }
- 
--/*
-+/**
-  * atl1_clean_rx_ring - Free RFD Buffers
-  * @adapter: board private structure
-  */
-@@ -1187,7 +1181,7 @@ static void atl1_clean_rx_ring(struct atl1_adapter *adapter)
- 	atomic_set(&rrd_ring->next_to_clean, 0);
- }
- 
--/*
-+/**
-  * atl1_clean_tx_ring - Free Tx Buffers
-  * @adapter: board private structure
-  */
-@@ -1227,7 +1221,7 @@ static void atl1_clean_tx_ring(struct atl1_adapter *adapter)
- 	atomic_set(&tpd_ring->next_to_clean, 0);
- }
- 
--/*
-+/**
-  * atl1_free_ring_resources - Free Tx / RX descriptor Resources
-  * @adapter: board private structure
-  *
-@@ -1470,7 +1464,7 @@ static void set_flow_ctrl_new(struct atl1_hw *hw)
- 	iowrite32(value, hw->hw_addr + REG_RXQ_RRD_PAUSE_THRESH);
- }
- 
--/*
-+/**
-  * atl1_configure - Configure Transmit&Receive Unit after Reset
-  * @adapter: board private structure
-  *
-@@ -1844,7 +1838,7 @@ static void atl1_rx_checksum(struct atl1_adapter *adapter,
- 	}
- }
- 
--/*
-+/**
-  * atl1_alloc_rx_buffers - Replace used receive buffers
-  * @adapter: address of board private structure
-  */
-@@ -2489,11 +2483,10 @@ static inline int atl1_sched_rings_clean(struct atl1_adapter* adapter)
- 	return 1;
- }
- 
--/*
-+/**
-  * atl1_intr - Interrupt Handler
-  * @irq: interrupt number
-  * @data: pointer to a network interface device structure
-- * @pt_regs: CPU registers structure
-  */
- static irqreturn_t atl1_intr(int irq, void *data)
- {
-@@ -2574,7 +2567,7 @@ static irqreturn_t atl1_intr(int irq, void *data)
- }
- 
-
--/*
-+/**
-  * atl1_phy_config - Timer Call-back
-  * @data: pointer to netdev cast into an unsigned long
-  */
-@@ -2693,7 +2686,7 @@ static void atl1_reset_dev_task(struct work_struct *work)
- 	netif_device_attach(netdev);
- }
- 
--/*
-+/**
-  * atl1_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-  * @new_mtu: new value for maximum frame size
-@@ -2727,7 +2720,7 @@ static int atl1_change_mtu(struct net_device *netdev, int new_mtu)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl1_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-@@ -2762,7 +2755,7 @@ err_up:
- 	return err;
- }
- 
--/*
-+/**
-  * atl1_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -2930,7 +2923,7 @@ static const struct net_device_ops atl1_netdev_ops = {
- #endif
- };
- 
--/*
-+/**
-  * atl1_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in atl1_pci_tbl
-@@ -3111,7 +3104,7 @@ err_request_regions:
- 	return err;
- }
- 
--/*
-+/**
-  * atl1_remove - Device Removal Routine
-  * @pdev: PCI device information struct
-  *
-@@ -3158,7 +3151,7 @@ static struct pci_driver atl1_driver = {
- 	.driver.pm = ATL1_PM_OPS,
- };
- 
--/*
-+/**
-  * atl1_exit_module - Driver Exit Cleanup Routine
-  *
-  * atl1_exit_module is called just before the driver is removed
-@@ -3169,7 +3162,7 @@ static void __exit atl1_exit_module(void)
- 	pci_unregister_driver(&atl1_driver);
- }
- 
--/*
-+/**
-  * atl1_init_module - Driver Registration Routine
-  *
-  * atl1_init_module is the first routine called when the driver is
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
-index 6762dc4..7c0b7e2 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.c
-@@ -75,7 +75,7 @@ static void atl2_set_ethtool_ops(struct net_device *netdev);
- 
- static void atl2_check_options(struct atl2_adapter *adapter);
- 
--/*
-+/**
-  * atl2_sw_init - Initialize general software structures (struct atl2_adapter)
-  * @adapter: board private structure to initialize
-  *
-@@ -123,7 +123,7 @@ static int __devinit atl2_sw_init(struct atl2_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl2_set_multi - Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-  *
-@@ -177,7 +177,7 @@ static void init_ring_ptrs(struct atl2_adapter *adapter)
- 	adapter->txs_next_clear = 0;
- }
- 
--/*
-+/**
-  * atl2_configure - Configure Transmit&Receive Unit after Reset
-  * @adapter: board private structure
-  *
-@@ -283,7 +283,7 @@ static int atl2_configure(struct atl2_adapter *adapter)
- 	return value;
- }
- 
--/*
-+/**
-  * atl2_setup_ring_resources - allocate Tx / RX descriptor resources
-  * @adapter: board private structure
-  *
-@@ -340,7 +340,7 @@ static s32 atl2_setup_ring_resources(struct atl2_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl2_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-  */
-@@ -350,7 +350,7 @@ static inline void atl2_irq_enable(struct atl2_adapter *adapter)
- 	ATL2_WRITE_FLUSH(&adapter->hw);
- }
- 
--/*
-+/**
-  * atl2_irq_disable - Mask off interrupt generation on the NIC
-  * @adapter: board private structure
-  */
-@@ -599,11 +599,10 @@ static inline void atl2_clear_phy_int(struct atl2_adapter *adapter)
- 	spin_unlock(&adapter->stats_lock);
- }
- 
--/*
-+/**
-  * atl2_intr - Interrupt Handler
-  * @irq: interrupt number
-  * @data: pointer to a network interface device structure
-- * @pt_regs: CPU registers structure
-  */
- static irqreturn_t atl2_intr(int irq, void *data)
- {
-@@ -679,7 +678,7 @@ static int atl2_request_irq(struct atl2_adapter *adapter)
- 		netdev);
- }
- 
--/*
-+/**
-  * atl2_free_ring_resources - Free Tx / RX descriptor Resources
-  * @adapter: board private structure
-  *
-@@ -692,7 +691,7 @@ static void atl2_free_ring_resources(struct atl2_adapter *adapter)
- 		adapter->ring_dma);
- }
- 
--/*
-+/**
-  * atl2_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-@@ -798,7 +797,7 @@ static void atl2_free_irq(struct atl2_adapter *adapter)
- #endif
- }
- 
--/*
-+/**
-  * atl2_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -918,7 +917,7 @@ static netdev_tx_t atl2_xmit_frame(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- }
- 
--/*
-+/**
-  * atl2_change_mtu - Change the Maximum Transfer Unit
-  * @netdev: network interface device structure
-  * @new_mtu: new value for maximum frame size
-@@ -943,7 +942,7 @@ static int atl2_change_mtu(struct net_device *netdev, int new_mtu)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl2_set_mac - Change the Ethernet Address of the NIC
-  * @netdev: network interface device structure
-  * @p: pointer to an address structure
-@@ -969,12 +968,6 @@ static int atl2_set_mac(struct net_device *netdev, void *p)
- 	return 0;
- }
- 
--/*
-- * atl2_mii_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
- static int atl2_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
- 	struct atl2_adapter *adapter = netdev_priv(netdev);
-@@ -1011,12 +1004,6 @@ static int atl2_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	return 0;
- }
- 
--/*
-- * atl2_ioctl -
-- * @netdev:
-- * @ifreq:
-- * @cmd:
-- */
- static int atl2_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
- 	switch (cmd) {
-@@ -1033,7 +1020,7 @@ static int atl2_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	}
- }
- 
--/*
-+/**
-  * atl2_tx_timeout - Respond to a Tx Hang
-  * @netdev: network interface device structure
-  */
-@@ -1045,7 +1032,7 @@ static void atl2_tx_timeout(struct net_device *netdev)
- 	schedule_work(&adapter->reset_task);
- }
- 
--/*
-+/**
-  * atl2_watchdog - Timer Call-back
-  * @data: pointer to netdev cast into an unsigned long
-  */
-@@ -1070,7 +1057,7 @@ static void atl2_watchdog(unsigned long data)
- 	}
- }
- 
--/*
-+/**
-  * atl2_phy_config - Timer Call-back
-  * @data: pointer to netdev cast into an unsigned long
-  */
-@@ -1274,9 +1261,8 @@ static int atl2_check_link(struct atl2_adapter *adapter)
- 	return 0;
- }
- 
--/*
-+/**
-  * atl2_link_chg_task - deal with link change event Out of interrupt context
-- * @netdev: network interface device structure
-  */
- static void atl2_link_chg_task(struct work_struct *work)
- {
-@@ -1341,7 +1327,7 @@ static const struct net_device_ops atl2_netdev_ops = {
- #endif
- };
- 
--/*
-+/**
-  * atl2_probe - Device Initialization Routine
-  * @pdev: PCI device information struct
-  * @ent: entry in atl2_pci_tbl
-@@ -1501,7 +1487,7 @@ err_dma:
- 	return err;
- }
- 
--/*
-+/**
-  * atl2_remove - Device Removal Routine
-  * @pdev: PCI device information struct
-  *
-@@ -1728,7 +1714,7 @@ static struct pci_driver atl2_driver = {
- 	.shutdown = atl2_shutdown,
- };
- 
--/*
-+/**
-  * atl2_init_module - Driver Registration Routine
-  *
-  * atl2_init_module is the first routine called when the driver is
-@@ -1743,7 +1729,7 @@ static int __init atl2_init_module(void)
- }
- module_init(atl2_init_module);
- 
--/*
-+/**
-  * atl2_exit_module - Driver Exit Cleanup Routine
-  *
-  * atl2_exit_module is called just before the driver is removed
-@@ -2997,7 +2983,7 @@ static int __devinit atl2_validate_option(int *value, struct atl2_option *opt)
- 	return -1;
- }
- 
--/*
-+/**
-  * atl2_check_options - Range Checking for Command Line Parameters
-  * @adapter: board private structure
-  *
-diff --git a/drivers/net/ethernet/atheros/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
-index b4f3aa4..77ffbc4 100644
---- a/drivers/net/ethernet/atheros/atlx/atlx.c
-+++ b/drivers/net/ethernet/atheros/atlx/atlx.c
-@@ -64,7 +64,7 @@ static int atlx_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	}
- }
- 
--/*
-+/**
-  * atlx_set_mac - Change the Ethernet Address of the NIC
-  * @netdev: network interface device structure
-  * @p: pointer to an address structure
-@@ -115,7 +115,7 @@ static void atlx_check_for_link(struct atlx_adapter *adapter)
- 	schedule_work(&adapter->link_chg_task);
- }
- 
--/*
-+/**
-  * atlx_set_multi - Multicast and Promiscuous mode set
-  * @netdev: network interface device structure
-  *
-@@ -162,7 +162,7 @@ static inline void atlx_imr_set(struct atlx_adapter *adapter,
- 	ioread32(adapter->hw.hw_addr + REG_IMR);
- }
- 
--/*
-+/**
-  * atlx_irq_enable - Enable default interrupt generation settings
-  * @adapter: board private structure
-  */
-@@ -172,7 +172,7 @@ static void atlx_irq_enable(struct atlx_adapter *adapter)
- 	adapter->int_enabled = true;
- }
- 
--/*
-+/**
-  * atlx_irq_disable - Mask off interrupt generation on the NIC
-  * @adapter: board private structure
-  */
-@@ -193,7 +193,7 @@ static void atlx_clear_phy_int(struct atlx_adapter *adapter)
- 	spin_unlock_irqrestore(&adapter->lock, flags);
- }
- 
--/*
-+/**
-  * atlx_tx_timeout - Respond to a Tx Hang
-  * @netdev: network interface device structure
-  */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 53659f3..dfa757e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -90,7 +90,7 @@ void bnx2x_send_unload_done(struct bnx2x *bp);
-  * bnx2x_config_rss_pf - configure RSS parameters in a PF.
+-
+-/**
+  * bnx2x_del_all_macs - delete all MACs configured for the specific MAC object
   *
   * @bp:			driver handle
-- * @rss_obj		RSS object to use
-+ * @rss_obj:		RSS object to use
-  * @ind_table:		indirection table to configure
-  * @config_hash:	re-configure RSS hash keys configuration
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+index 426f77a..bbc66ce 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+@@ -321,9 +321,7 @@
+ #define DISABLE_STATISTIC_COUNTER_ID_VALUE 0
+ 
+
+-/**
+- * This file defines HSI constants common to all microcode flows
+- */
++/* This file defines HSI constants common to all microcode flows */
+ 
+ #define PROTOCOL_STATE_BIT_OFFSET 6
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+index c05f9d9..51cac81 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.h
+@@ -493,8 +493,7 @@ struct bnx2x_ets_params {
+ 	struct bnx2x_ets_cos_params cos[DCBX_MAX_NUM_COS];
+ };
+ 
+-/**
+- * Used to update the PFC attributes in EMAC, BMAC, NIG and BRB
++/* Used to update the PFC attributes in EMAC, BMAC, NIG and BRB
+  * when link is already up
   */
+ int bnx2x_update_pfc(struct link_params *params,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 5b8b521..08eca3f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11560,8 +11560,7 @@ static void bnx2x_prep_ops(const u8 *_source, u8 *_target, u32 n)
+ 	}
+ }
+ 
+-/**
+- * IRO array is stored in the following format:
++/* IRO array is stored in the following format:
+  * {base(24bit), m1(16bit), m2(16bit), m3(16bit), size(16bit) }
+  */
+ static void bnx2x_prep_iro(const u8 *_source, u8 *_target, u32 n)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index f371e3c..ec62a5c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -7275,8 +7275,7 @@ Theotherbitsarereservedandshouldbezero*/
+ #define CDU_REGION_NUMBER_UCM_AG 4
+ 
+
+-/**
+- * String-to-compress [31:8] = CID (all 24 bits)
++/* String-to-compress [31:8] = CID (all 24 bits)
+  * String-to-compress [7:4] = Region
+  * String-to-compress [3:0] = Type
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index 76818ef..f83e033 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -167,9 +167,8 @@ typedef int (*exe_q_remove)(struct bnx2x *bp,
+ 			    union bnx2x_qable_obj *o,
+ 			    struct bnx2x_exeq_elem *elem);
+ 
+-/**
+- * @return positive is entry was optimized, 0 - if not, negative
+- *         in case of an error.
++/* Return positive if entry was optimized, 0 - if not, negative
++ * in case of an error.
+  */
+ typedef int (*exe_q_optimize)(struct bnx2x *bp,
+ 			      union bnx2x_qable_obj *o,
+@@ -1286,12 +1285,11 @@ void bnx2x_init_rx_mode_obj(struct bnx2x *bp,
+ 			    struct bnx2x_rx_mode_obj *o);
+ 
+ /**
+- * Send and RX_MODE ramrod according to the provided parameters.
++ * bnx2x_config_rx_mode - Send and RX_MODE ramrod according to the provided parameters.
+  *
+- * @param bp
+- * @param p Command parameters
++ * @p: Command parameters
+  *
+- * @return 0 - if operation was successfull and there is no pending completions,
++ * Return: 0 - if operation was successfull and there is no pending completions,
+  *         positive number - if there are pending completions,
+  *         negative - if there were errors
+  */
+@@ -1308,7 +1306,11 @@ void bnx2x_init_mcast_obj(struct bnx2x *bp,
+ 			  bnx2x_obj_type type);
+ 
+ /**
+- * Configure multicast MACs list. May configure a new list
++ * bnx2x_config_mcast - Configure multicast MACs list.
++ *
++ * @cmd: command to execute: BNX2X_MCAST_CMD_X
++ *
++ * May configure a new list
+  * provided in p->mcast_list (BNX2X_MCAST_CMD_ADD), clean up
+  * (BNX2X_MCAST_CMD_DEL) or restore (BNX2X_MCAST_CMD_RESTORE) a current
+  * configuration, continue to execute the pending commands
+@@ -1319,11 +1321,7 @@ void bnx2x_init_mcast_obj(struct bnx2x *bp,
+  * the current command will be enqueued to the tail of the
+  * pending commands list.
+  *
+- * @param bp
+- * @param p
+- * @param command to execute: BNX2X_MCAST_CMD_X
+- *
+- * @return 0 is operation was sucessfull and there are no pending completions,
++ * Return: 0 is operation was sucessfull and there are no pending completions,
+  *         negative if there were errors, positive if there are pending
+  *         completions.
+  */
+@@ -1348,21 +1346,17 @@ void bnx2x_init_rss_config_obj(struct bnx2x *bp,
+ 			       bnx2x_obj_type type);
+ 
+ /**
+- * Updates RSS configuration according to provided parameters.
+- *
+- * @param bp
+- * @param p
++ * bnx2x_config_rss - Updates RSS configuration according to provided parameters
+  *
+- * @return 0 in case of success
++ * Return: 0 in case of success
+  */
+ int bnx2x_config_rss(struct bnx2x *bp,
+ 		     struct bnx2x_config_rss_params *p);
+ 
+ /**
+- * Return the current ind_table configuration.
++ * bnx2x_get_rss_ind_table - Return the current ind_table configuration.
+  *
+- * @param bp
+- * @param ind_table buffer to fill with the current indirection
++ * @ind_table: buffer to fill with the current indirection
+  *                  table content. Should be at least
+  *                  T_ETH_INDIRECTION_TABLE_SIZE bytes long.
+  */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 514a528..667d890 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1321,12 +1321,9 @@ static void bnx2x_port_stats_base_init(struct bnx2x *bp)
+ 	bnx2x_stats_comp(bp);
+ }
+ 
+-/**
+- * This function will prepare the statistics ramrod data the way
++/* This function will prepare the statistics ramrod data the way
+  * we will only have to increment the statistics counter and
+  * send the ramrod each time we have to.
+- *
+- * @param bp
+  */
+ static void bnx2x_prep_fw_stats_req(struct bnx2x *bp)
+ {
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 22ad7b6..650c545 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -5542,9 +5542,7 @@ static void cnic_rcv_netevent(struct cnic_local *cp, unsigned long event,
+ 	rcu_read_unlock();
+ }
+ 
+-/**
+- * netdev event handler
+- */
++/* netdev event handler */
+ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
+ 							 void *ptr)
+ {
 diff --git a/drivers/net/ethernet/brocade/bna/bfa_cee.c b/drivers/net/ethernet/brocade/bna/bfa_cee.c
-index 689e5e1..8532a81 100644
+index 8532a81..550d252 100644
 --- a/drivers/net/ethernet/brocade/bna/bfa_cee.c
 +++ b/drivers/net/ethernet/brocade/bna/bfa_cee.c
-@@ -52,13 +52,7 @@ bfa_cee_format_lldp_cfg(struct bfa_cee_lldp_cfg *lldp_cfg)
+@@ -127,13 +127,7 @@ bfa_cee_reset_stats_isr(struct bfa_cee *cee, enum bfa_status status)
+ 		cee->cbfn.reset_stats_cbfn(cee->cbfn.reset_stats_cbarg, status);
  }
- 
  /**
-- * bfa_cee_attr_meminfo()
+- * bfa_nw_cee_meminfo()
 - *
-- * @brief Returns the size of the DMA memory needed by CEE attributes
+- * @brief Returns the size of the DMA memory needed by CEE module
 - *
 - * @param[in] void
 - *
 - * @return Size of DMA region
-+ * bfa_cee_attr_meminfo - Returns the size of the DMA memory needed by CEE attributes
++ * bfa_nw_cee_meminfo - Returns the size of the DMA memory needed by CEE module
   */
- static u32
- bfa_cee_attr_meminfo(void)
-@@ -66,13 +60,7 @@ bfa_cee_attr_meminfo(void)
- 	return roundup(sizeof(struct bfa_cee_attr), BFA_DMA_ALIGN_SZ);
- }
- /**
-- * bfa_cee_stats_meminfo()
-- *
-- * @brief Returns the size of the DMA memory needed by CEE stats
-- *
-- * @param[in] void
-- *
-- * @return Size of DMA region
-+ * bfa_cee_stats_meminfo - Returns the size of the DMA memory needed by CEE stats
-  */
- static u32
- bfa_cee_stats_meminfo(void)
-@@ -81,14 +69,10 @@ bfa_cee_stats_meminfo(void)
+ u32
+ bfa_nw_cee_meminfo(void)
+@@ -142,15 +136,11 @@ bfa_nw_cee_meminfo(void)
  }
  
  /**
-- * bfa_cee_get_attr_isr()
-+ * bfa_cee_get_attr_isr - CEE ISR for get-attributes responses from f/w
-  *
-- * @brief CEE ISR for get-attributes responses from f/w
+- * bfa_nw_cee_mem_claim()
 - *
-- * @param[in] cee - Pointer to the CEE module
-- *            status - Return status from the f/w
+- * @brief Initialized CEE DMA Memory
+- *
+- * @param[in] cee CEE module pointer
+- *	      dma_kva Kernel Virtual Address of CEE DMA Memory
+- *	      dma_pa  Physical Address of CEE DMA Memory
++ * bfa_nw_cee_mem_claim - Initialized CEE DMA Memory
+  *
+- * @return void
++ * @cee: CEE module pointer
++ * @dma_kva: Kernel Virtual Address of CEE DMA Memory
++ * @dma_pa:  Physical Address of CEE DMA Memory
+  */
+ void
+ bfa_nw_cee_mem_claim(struct bfa_cee *cee, u8 *dma_kva, u64 dma_pa)
+@@ -165,13 +155,11 @@ bfa_nw_cee_mem_claim(struct bfa_cee *cee, u8 *dma_kva, u64 dma_pa)
+ }
+ 
+ /**
+- * bfa_cee_get_attr()
+- *
+- * @brief	Send the request to the f/w to fetch CEE attributes.
++ * bfa_cee_get_attr - Send the request to the f/w to fetch CEE attributes.
+  *
+- * @param[in]	Pointer to the CEE module data structure.
++ * @cee: Pointer to the CEE module data structure.
+  *
+- * @return	Status
++ * Return: status
+  */
+ enum bfa_status
+ bfa_nw_cee_get_attr(struct bfa_cee *cee, struct bfa_cee_attr *attr,
+@@ -200,13 +188,7 @@ bfa_nw_cee_get_attr(struct bfa_cee *cee, struct bfa_cee_attr *attr,
+ }
+ 
+ /**
+- * bfa_cee_isrs()
+- *
+- * @brief Handles Mail-box interrupts for CEE module.
+- *
+- * @param[in] Pointer to the CEE module data structure.
 - *
 - * @return void
-+ * @cee: Pointer to the CEE module
-+ * @status: Return status from the f/w
++ * bfa_cee_isrs - Handles Mail-box interrupts for CEE module.
   */
+ 
  static void
- bfa_cee_get_attr_isr(struct bfa_cee *cee, enum bfa_status status)
-@@ -105,14 +89,10 @@ bfa_cee_get_attr_isr(struct bfa_cee *cee, enum bfa_status status)
+@@ -233,14 +215,9 @@ bfa_cee_isr(void *cbarg, struct bfi_mbmsg *m)
  }
  
  /**
-- * bfa_cee_get_attr_isr()
-+ * bfa_cee_get_attr_isr - CEE ISR for get-stats responses from f/w
-  *
-- * @brief CEE ISR for get-stats responses from f/w
+- * bfa_cee_notify()
 - *
-- * @param[in] cee - Pointer to the CEE module
-- *            status - Return status from the f/w
+- * @brief CEE module heart-beat failure handler.
+- * @brief CEE module IOC event handler.
+- *
+- * @param[in] IOC event type
++ * bfa_cee_notify - CEE module heart-beat failure handler.
+  *
+- * @return void
++ * @event: IOC event type
+  */
+ 
+ static void
+@@ -287,17 +264,13 @@ bfa_cee_notify(void *arg, enum bfa_ioc_event event)
+ }
+ 
+ /**
+- * bfa_nw_cee_attach()
+- *
+- * @brief CEE module-attach API
++ * bfa_nw_cee_attach - CEE module-attach API
+  *
+- * @param[in] cee - Pointer to the CEE module data structure
+- *            ioc - Pointer to the ioc module data structure
+- *            dev - Pointer to the device driver module data structure
+- *                  The device driver specific mbox ISR functions have
+- *                  this pointer as one of the parameters.
 - *
 - * @return void
-+ * @cee: Pointer to the CEE module
-+ * @status: Return status from the f/w
++ * @cee: Pointer to the CEE module data structure
++ * @ioc: Pointer to the ioc module data structure
++ * @dev: Pointer to the device driver module data structure.
++ *       The device driver specific mbox ISR functions have
++ *       this pointer as one of the parameters.
   */
- static void
- bfa_cee_get_stats_isr(struct bfa_cee *cee, enum bfa_status status)
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-index cfb60e1..dd901c5 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-@@ -2877,7 +2877,7 @@ static void sge_timer_tx(unsigned long data)
- 	mod_timer(&qs->tx_reclaim_timer, jiffies + next_period);
+ void
+ bfa_nw_cee_attach(struct bfa_cee *cee, struct bfa_ioc *ioc,
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_cs.h b/drivers/net/ethernet/brocade/bna/bfa_cs.h
+index 3da1a94..ad004a4 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_cs.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_cs.h
+@@ -16,23 +16,18 @@
+  * www.brocade.com
+  */
+ 
+-/**
+- * @file bfa_cs.h BFA common services
+- */
++/* BFA common services */
+ 
+ #ifndef __BFA_CS_H__
+ #define __BFA_CS_H__
+ 
+ #include "cna.h"
+ 
+-/**
+- * @ BFA state machine interfaces
+- */
++/* BFA state machine interfaces */
+ 
+ typedef void (*bfa_sm_t)(void *sm, int event);
+ 
+-/**
+- * oc - object class eg. bfa_ioc
++/* oc - object class eg. bfa_ioc
+  * st - state, eg. reset
+  * otype - object type, eg. struct bfa_ioc
+  * etype - object type, eg. enum ioc_event
+@@ -45,9 +40,7 @@ typedef void (*bfa_sm_t)(void *sm, int event);
+ #define bfa_sm_get_state(_sm)		((_sm)->sm)
+ #define bfa_sm_cmp_state(_sm, _state)	((_sm)->sm == (bfa_sm_t)(_state))
+ 
+-/**
+- * For converting from state machine function to state encoding.
+- */
++/* For converting from state machine function to state encoding. */
+ struct bfa_sm_table {
+ 	bfa_sm_t	sm;	/*!< state machine function	*/
+ 	int		state;	/*!< state machine encoding	*/
+@@ -55,13 +48,10 @@ struct bfa_sm_table {
+ };
+ #define BFA_SM(_sm)		((bfa_sm_t)(_sm))
+ 
+-/**
+- * State machine with entry actions.
+- */
++/* State machine with entry actions. */
+ typedef void (*bfa_fsm_t)(void *fsm, int event);
+ 
+-/**
+- * oc - object class eg. bfa_ioc
++/* oc - object class eg. bfa_ioc
+  * st - state, eg. reset
+  * otype - object type, eg. struct bfa_ioc
+  * etype - object type, eg. enum ioc_event
+@@ -90,9 +80,7 @@ bfa_sm_to_state(const struct bfa_sm_table *smt, bfa_sm_t sm)
+ 	return smt[i].state;
  }
  
--/*
-+/**
-  *	sge_timer_rx - perform periodic maintenance of an SGE qset
-  *	@data: the SGE queue set to maintain
-  *
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-index 44ac2f4..bff8a3c 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
-@@ -1076,7 +1076,7 @@ static int t3_flash_erase_sectors(struct adapter *adapter, int start, int end)
- 	return 0;
+-/**
+- * @ Generic wait counter.
+- */
++/* Generic wait counter. */
+ 
+ typedef void (*bfa_wc_resume_t) (void *cbarg);
+ 
+@@ -116,9 +104,7 @@ bfa_wc_down(struct bfa_wc *wc)
+ 		wc->wc_resume(wc->wc_cbarg);
  }
  
--/*
-+/**
-  *	t3_load_fw - download firmware
-  *	@adapter: the adapter
-  *	@fw_data: the firmware image to write
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 32e1dd5..fa947df 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2010,7 +2010,7 @@ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
- 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+-/**
+- * Initialize a waiting counter.
+- */
++/* Initialize a waiting counter. */
+ static inline void
+ bfa_wc_init(struct bfa_wc *wc, bfa_wc_resume_t wc_resume, void *wc_cbarg)
+ {
+@@ -128,9 +114,7 @@ bfa_wc_init(struct bfa_wc *wc, bfa_wc_resume_t wc_resume, void *wc_cbarg)
+ 	bfa_wc_up(wc);
  }
  
--/*
-+/**
-  *     t4_mem_win_read_len - read memory through PCIE memory window
-  *     @adap: the adapter
-  *     @addr: address of first byte requested aligned on 32b.
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index a381678..2029788 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -902,7 +902,7 @@ static const struct net_device_ops ethoc_netdev_ops = {
+-/**
+- * Wait for counter to reach zero
+- */
++/* Wait for counter to reach zero */
+ static inline void
+ bfa_wc_wait(struct bfa_wc *wc)
+ {
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs.h b/drivers/net/ethernet/brocade/bna/bfa_defs.h
+index 48f8773..e423f82 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs.h
+@@ -26,13 +26,9 @@
+ #define BFA_STRING_32	32
+ #define BFA_VERSION_LEN 64
+ 
+-/**
+- * ---------------------- adapter definitions ------------
+- */
++/* ---------------------- adapter definitions ------------ */
+ 
+-/**
+- * BFA adapter level attributes.
+- */
++/* BFA adapter level attributes. */
+ enum {
+ 	BFA_ADAPTER_SERIAL_NUM_LEN = STRSZ(BFA_MFG_SERIALNUM_SIZE),
+ 					/*
+@@ -74,18 +70,14 @@ struct bfa_adapter_attr {
+ 	u8		trunk_capable;
  };
  
- /**
-- * ethoc_probe() - initialize OpenCores ethernet MAC
-+ * ethoc_probe - initialize OpenCores ethernet MAC
-  * pdev:	platform device
+-/**
+- * ---------------------- IOC definitions ------------
+- */
++/* ---------------------- IOC definitions ------------ */
+ 
+ enum {
+ 	BFA_IOC_DRIVER_LEN	= 16,
+ 	BFA_IOC_CHIP_REV_LEN	= 8,
+ };
+ 
+-/**
+- * Driver and firmware versions.
+- */
++/* Driver and firmware versions. */
+ struct bfa_ioc_driver_attr {
+ 	char		driver[BFA_IOC_DRIVER_LEN];	/*!< driver name */
+ 	char		driver_ver[BFA_VERSION_LEN];	/*!< driver version */
+@@ -95,9 +87,7 @@ struct bfa_ioc_driver_attr {
+ 	char		ob_ver[BFA_VERSION_LEN];	/*!< openboot version */
+ };
+ 
+-/**
+- * IOC PCI device attributes
+- */
++/* IOC PCI device attributes */
+ struct bfa_ioc_pci_attr {
+ 	u16	vendor_id;	/*!< PCI vendor ID */
+ 	u16	device_id;	/*!< PCI device ID */
+@@ -108,9 +98,7 @@ struct bfa_ioc_pci_attr {
+ 	char		chip_rev[BFA_IOC_CHIP_REV_LEN];	 /*!< chip revision */
+ };
+ 
+-/**
+- * IOC states
+- */
++/* IOC states */
+ enum bfa_ioc_state {
+ 	BFA_IOC_UNINIT		= 1,	/*!< IOC is in uninit state */
+ 	BFA_IOC_RESET		= 2,	/*!< IOC is in reset state */
+@@ -127,9 +115,7 @@ enum bfa_ioc_state {
+ 	BFA_IOC_HWFAIL		= 13,	/*!< PCI mapping doesn't exist */
+ };
+ 
+-/**
+- * IOC firmware stats
+- */
++/* IOC firmware stats */
+ struct bfa_fw_ioc_stats {
+ 	u32	enable_reqs;
+ 	u32	disable_reqs;
+@@ -139,9 +125,7 @@ struct bfa_fw_ioc_stats {
+ 	u32	unknown_reqs;
+ };
+ 
+-/**
+- * IOC driver stats
+- */
++/* IOC driver stats */
+ struct bfa_ioc_drv_stats {
+ 	u32	ioc_isrs;
+ 	u32	ioc_enables;
+@@ -157,9 +141,7 @@ struct bfa_ioc_drv_stats {
+ 	u32	rsvd;
+ };
+ 
+-/**
+- * IOC statistics
+- */
++/* IOC statistics */
+ struct bfa_ioc_stats {
+ 	struct bfa_ioc_drv_stats drv_stats; /*!< driver IOC stats */
+ 	struct bfa_fw_ioc_stats fw_stats;  /*!< firmware IOC stats */
+@@ -171,9 +153,7 @@ enum bfa_ioc_type {
+ 	BFA_IOC_TYPE_LL		= 3,
+ };
+ 
+-/**
+- * IOC attributes returned in queries
+- */
++/* IOC attributes returned in queries */
+ struct bfa_ioc_attr {
+ 	enum bfa_ioc_type ioc_type;
+ 	enum bfa_ioc_state		state;		/*!< IOC state      */
+@@ -187,22 +167,16 @@ struct bfa_ioc_attr {
+ 	u8				rsvd[4];	/*!< 64bit align */
+ };
+ 
+-/**
+- * Adapter capability mask definition
+- */
++/* Adapter capability mask definition */
+ enum {
+ 	BFA_CM_HBA	=	0x01,
+ 	BFA_CM_CNA	=	0x02,
+ 	BFA_CM_NIC	=	0x04,
+ };
+ 
+-/**
+- * ---------------------- mfg definitions ------------
+- */
++/* ---------------------- mfg definitions ------------ */
+ 
+-/**
+- * Checksum size
+- */
++/* Checksum size */
+ #define BFA_MFG_CHKSUM_SIZE			16
+ 
+ #define BFA_MFG_PARTNUM_SIZE			14
+@@ -213,8 +187,7 @@ enum {
+ 
+ #pragma pack(1)
+ 
+-/**
+- * @brief BFA adapter manufacturing block definition.
++/* BFA adapter manufacturing block definition.
+  *
+  * All numerical fields are in big-endian format.
   */
- static int __devinit ethoc_probe(struct platform_device *pdev)
-@@ -1140,7 +1140,7 @@ out:
- }
+@@ -256,9 +229,7 @@ struct bfa_mfg_block {
  
- /**
-- * ethoc_remove() - shutdown OpenCores ethernet MAC
-+ * ethoc_remove - shutdown OpenCores ethernet MAC
-  * @pdev:	platform device
+ #pragma pack()
+ 
+-/**
+- * ---------------------- pci definitions ------------
+- */
++/* ---------------------- pci definitions ------------ */
+ 
+ /*
+  * PCI device ID information
+@@ -275,9 +246,7 @@ enum {
+ #define bfa_asic_id_ctc(device)			\
+ 	(bfa_asic_id_ct(device) || bfa_asic_id_ct2(device))
+ 
+-/**
+- * PCI sub-system device and vendor ID information
+- */
++/* PCI sub-system device and vendor ID information */
+ enum {
+ 	BFA_PCI_FCOE_SSDEVICE_ID	= 0x14,
+ 	BFA_PCI_CT2_SSID_FCoE		= 0x22,
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+index 8ab33ee..b39c5f2 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs_cna.h
+@@ -20,10 +20,7 @@
+ 
+ #include "bfa_defs.h"
+ 
+-/**
+- * @brief
+- * FC physical port statistics.
+- */
++/* FC physical port statistics. */
+ struct bfa_port_fc_stats {
+ 	u64	secs_reset;	/*!< Seconds since stats is reset */
+ 	u64	tx_frames;	/*!< Tx frames			*/
+@@ -59,10 +56,7 @@ struct bfa_port_fc_stats {
+ 	u64	bbsc_link_resets; /*!< Credit Recovery-Link Resets   */
+ };
+ 
+-/**
+- * @brief
+- * Eth Physical Port statistics.
+- */
++/* Eth Physical Port statistics. */
+ struct bfa_port_eth_stats {
+ 	u64	secs_reset;	/*!< Seconds since stats is reset */
+ 	u64	frame_64;	/*!< Frames 64 bytes		*/
+@@ -108,10 +102,7 @@ struct bfa_port_eth_stats {
+ 	u64	tx_iscsi_zero_pause; /*!< Tx iSCSI zero pause	*/
+ };
+ 
+-/**
+- * @brief
+- *		Port statistics.
+- */
++/* Port statistics. */
+ union bfa_port_stats_u {
+ 	struct bfa_port_fc_stats fc;
+ 	struct bfa_port_eth_stats eth;
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+index 6681fe8..7fb396f 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h
+@@ -20,33 +20,23 @@
+ 
+ #include "bfa_defs.h"
+ 
+-/**
+- * Manufacturing block version
+- */
++/* Manufacturing block version */
+ #define BFA_MFG_VERSION				3
+ #define BFA_MFG_VERSION_UNINIT			0xFF
+ 
+-/**
+- * Manufacturing block encrypted version
+- */
++/* Manufacturing block encrypted version */
+ #define BFA_MFG_ENC_VER				2
+ 
+-/**
+- * Manufacturing block version 1 length
+- */
++/* Manufacturing block version 1 length */
+ #define BFA_MFG_VER1_LEN			128
+ 
+-/**
+- * Manufacturing block header length
+- */
++/* Manufacturing block header length */
+ #define BFA_MFG_HDR_LEN				4
+ 
+ #define BFA_MFG_SERIALNUM_SIZE			11
+ #define STRSZ(_n)				(((_n) + 4) & ~3)
+ 
+-/**
+- * Manufacturing card type
+- */
++/* Manufacturing card type */
+ enum {
+ 	BFA_MFG_TYPE_CB_MAX  = 825,      /*!< Crossbow card type max	*/
+ 	BFA_MFG_TYPE_FC8P2   = 825,      /*!< 8G 2port FC card		*/
+@@ -70,9 +60,7 @@ enum {
+ 
+ #pragma pack(1)
+ 
+-/**
+- * Check if Mezz card
+- */
++/* Check if Mezz card */
+ #define bfa_mfg_is_mezz(type) (( \
+ 	(type) == BFA_MFG_TYPE_JAYHAWK || \
+ 	(type) == BFA_MFG_TYPE_WANCHESE || \
+@@ -127,9 +115,7 @@ do {								\
+ 	}							\
+ } while (0)
+ 
+-/**
+- * VPD data length
+- */
++/* VPD data length */
+ #define BFA_MFG_VPD_LEN			512
+ #define BFA_MFG_VPD_LEN_INVALID		0
+ 
+@@ -137,9 +123,7 @@ do {								\
+ #define BFA_MFG_VPD_PCI_VER_MASK	0x07	/*!< version mask 3 bits */
+ #define BFA_MFG_VPD_PCI_VDR_MASK	0xf8	/*!< vendor mask 5 bits */
+ 
+-/**
+- * VPD vendor tag
+- */
++/* VPD vendor tag */
+ enum {
+ 	BFA_MFG_VPD_UNKNOWN	= 0,     /*!< vendor unknown		*/
+ 	BFA_MFG_VPD_IBM		= 1,     /*!< vendor IBM		*/
+@@ -151,8 +135,7 @@ enum {
+ 	BFA_MFG_VPD_PCI_BRCD	= 0xf8,  /*!< PCI VPD Brocade		*/
+ };
+ 
+-/**
+- * @brief BFA adapter flash vpd data definition.
++/* BFA adapter flash vpd data definition.
+  *
+  * All numerical fields are in big-endian format.
   */
- static int __devexit ethoc_remove(struct platform_device *pdev)
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index dafd797..fffd205 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1389,8 +1389,8 @@ fec_set_mac_address(struct net_device *ndev, void *p)
- }
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_defs_status.h b/drivers/net/ethernet/brocade/bna/bfa_defs_status.h
+index 7c5fe6c..ea9af9a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_defs_status.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_defs_status.h
+@@ -18,8 +18,7 @@
+ #ifndef __BFA_DEFS_STATUS_H__
+ #define __BFA_DEFS_STATUS_H__
  
- #ifdef CONFIG_NET_POLL_CONTROLLER
--/*
-- * fec_poll_controller: FEC Poll controller function
-+/**
-+ * fec_poll_controller - FEC Poll controller function
-  * @dev: The FEC network adapter
+-/**
+- * API status return values
++/* API status return values
   *
-  * Polled functionality used by netconsole and others in non interrupt mode
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index c526279e4..3d68395 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -399,7 +399,7 @@ void e1000_set_media_type(struct e1000_hw *hw)
- }
+  * NOTE: The error msgs are auto generated from the comments. Only singe line
+  * comments are supported
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+index 0b640fa..959c58e 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+@@ -20,13 +20,9 @@
+ #include "bfi_reg.h"
+ #include "bfa_defs.h"
  
- /**
-- * e1000_reset_hw: reset the hardware completely
-+ * e1000_reset_hw - reset the hardware completely
-  * @hw: Struct containing variables accessed by shared code
-  *
-  * Reset the transmit and receive units; mask and clear all interrupts.
-@@ -546,7 +546,7 @@ s32 e1000_reset_hw(struct e1000_hw *hw)
- }
+-/**
+- * IOC local definitions
+- */
++/* IOC local definitions */
  
- /**
-- * e1000_init_hw: Performs basic configuration of the adapter.
-+ * e1000_init_hw - Performs basic configuration of the adapter.
-  * @hw: Struct containing variables accessed by shared code
-  *
-  * Assumes that the controller has previously been reset and is in a
-@@ -2591,7 +2591,7 @@ s32 e1000_check_for_link(struct e1000_hw *hw)
-  * @hw: Struct containing variables accessed by shared code
-  * @speed: Speed of the connection
-  * @duplex: Duplex setting of the connection
--
-+ *
-  * Detects the current speed and duplex settings of the hardware.
-  */
- s32 e1000_get_speed_and_duplex(struct e1000_hw *hw, u16 *speed, u16 *duplex)
-@@ -2959,7 +2959,7 @@ static s32 e1000_read_phy_reg_ex(struct e1000_hw *hw, u32 reg_addr,
-  * @hw: Struct containing variables accessed by shared code
-  * @reg_addr: address of the PHY register to write
-  * @data: data to write to the PHY
--
-+ *
-  * Writes a value to a PHY register
-  */
- s32 e1000_write_phy_reg(struct e1000_hw *hw, u32 reg_addr, u16 phy_data)
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index a166efc..ca477e8 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2159,7 +2159,7 @@ void e1000e_release_hw_control(struct e1000_adapter *adapter)
- }
+-/**
+- * Asic specific macros : see bfa_hw_cb.c and bfa_hw_ct.c for details.
+- */
++/* Asic specific macros : see bfa_hw_cb.c and bfa_hw_ct.c for details. */
  
- /**
-- * @e1000_alloc_ring - allocate memory for a ring structure
-+ * e1000_alloc_ring_dma - allocate memory for a ring structure
-  **/
- static int e1000_alloc_ring_dma(struct e1000_adapter *adapter,
- 				struct e1000_ring *ring)
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 01ced68..60e3075 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5777,6 +5777,7 @@ static void igb_tx_hwtstamp(struct igb_q_vector *q_vector,
- /**
-  * igb_clean_tx_irq - Reclaim resources after transmit completes
-  * @q_vector: pointer to q_vector containing needed info
-+ *
-  * returns true if ring is completely cleaned
-  **/
- static bool igb_clean_tx_irq(struct igb_q_vector *q_vector)
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 8ec74b0..0696abf 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -766,6 +766,7 @@ static void igbvf_set_itr(struct igbvf_adapter *adapter)
- /**
-  * igbvf_clean_tx_irq - Reclaim resources after transmit completes
-  * @adapter: board private structure
-+ *
-  * returns true if ring is completely cleaned
-  **/
- static bool igbvf_clean_tx_irq(struct igbvf_ring *tx_ring)
-diff --git a/drivers/net/ethernet/intel/igbvf/vf.c b/drivers/net/ethernet/intel/igbvf/vf.c
-index 30a6cc4..eea0e10 100644
---- a/drivers/net/ethernet/intel/igbvf/vf.c
-+++ b/drivers/net/ethernet/intel/igbvf/vf.c
-@@ -283,7 +283,8 @@ static s32 e1000_set_vfta_vf(struct e1000_hw *hw, u16 vid, bool set)
- 	return err;
- }
+ #define bfa_ioc_firmware_lock(__ioc)			\
+ 			((__ioc)->ioc_hwif->ioc_firmware_lock(__ioc))
+@@ -96,9 +92,7 @@ static void bfa_ioc_get_adapter_manufacturer(struct bfa_ioc *ioc,
+ static void bfa_ioc_get_adapter_model(struct bfa_ioc *ioc, char *model);
+ static u64 bfa_ioc_get_pwwn(struct bfa_ioc *ioc);
  
--/** e1000_rlpml_set_vf - Set the maximum receive packet length
-+/**
-+ *  e1000_rlpml_set_vf - Set the maximum receive packet length
-  *  @hw: pointer to the HW structure
-  *  @max_size: value to assign to max frame size
-  **/
-@@ -302,7 +303,7 @@ void e1000_rlpml_set_vf(struct e1000_hw *hw, u16 max_size)
-  *  e1000_rar_set_vf - set device MAC address
-  *  @hw: pointer to the HW structure
-  *  @addr: pointer to the receive address
-- *  @index receive address array register
-+ *  @index: receive address array register
-  **/
- static void e1000_rar_set_vf(struct e1000_hw *hw, u8 * addr, u32 index)
+-/**
+- * IOC state machine definitions/declarations
+- */
++/* IOC state machine definitions/declarations */
+ enum ioc_event {
+ 	IOC_E_RESET		= 1,	/*!< IOC reset request		*/
+ 	IOC_E_ENABLE		= 2,	/*!< IOC enable request		*/
+@@ -148,9 +142,7 @@ static void bfa_iocpf_initfail(struct bfa_ioc *ioc);
+ static void bfa_iocpf_getattrfail(struct bfa_ioc *ioc);
+ static void bfa_iocpf_stop(struct bfa_ioc *ioc);
+ 
+-/**
+- * IOCPF state machine events
+- */
++/* IOCPF state machine events */
+ enum iocpf_event {
+ 	IOCPF_E_ENABLE		= 1,	/*!< IOCPF enable request	*/
+ 	IOCPF_E_DISABLE		= 2,	/*!< IOCPF disable request	*/
+@@ -166,9 +158,7 @@ enum iocpf_event {
+ 	IOCPF_E_SEM_ERROR	= 12,   /*!< h/w sem mapping error	*/
+ };
+ 
+-/**
+- * IOCPF states
+- */
++/* IOCPF states */
+ enum bfa_iocpf_state {
+ 	BFA_IOCPF_RESET		= 1,	/*!< IOC is in reset state */
+ 	BFA_IOCPF_SEMWAIT	= 2,	/*!< Waiting for IOC h/w semaphore */
+@@ -215,21 +205,15 @@ static struct bfa_sm_table iocpf_sm_table[] = {
+ 	{BFA_SM(bfa_iocpf_sm_disabled), BFA_IOCPF_DISABLED},
+ };
+ 
+-/**
+- * IOC State Machine
+- */
++/* IOC State Machine */
+ 
+-/**
+- * Beginning state. IOC uninit state.
+- */
++/* Beginning state. IOC uninit state. */
+ static void
+ bfa_ioc_sm_uninit_entry(struct bfa_ioc *ioc)
  {
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-index 5fce363..aab649f 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-@@ -2276,9 +2276,9 @@ static void ixgb_netpoll(struct net_device *dev)
- #endif
- 
- /**
-- * ixgb_io_error_detected() - called when PCI error is detected
-- * @pdev    pointer to pci device with error
-- * @state   pci channel state after error
-+ * ixgb_io_error_detected - called when PCI error is detected
-+ * @pdev:    pointer to pci device with error
-+ * @state:   pci channel state after error
-  *
-  * This callback is called by the PCI subsystem whenever
-  * a PCI bus error is detected.
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 77ac41f..bb7fde4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3132,7 +3132,7 @@ s32 ixgbe_check_mac_link_generic(struct ixgbe_hw *hw, ixgbe_link_speed *speed,
  }
  
- /**
-- *  ixgbe_get_wwn_prefix_generic Get alternative WWNN/WWPN prefix from
-+ *  ixgbe_get_wwn_prefix_generic - Get alternative WWNN/WWPN prefix from
-  *  the EEPROM
-  *  @hw: pointer to hardware structure
-  *  @wwnn_prefix: the alternative WWNN prefix
-@@ -3325,6 +3325,7 @@ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw,
-  *  ixgbe_calculate_checksum - Calculate checksum for buffer
-  *  @buffer: pointer to EEPROM
-  *  @length: size of EEPROM to calculate a checksum for
-+ *
-  *  Calculates the checksum for some buffer on a specified length.  The
-  *  checksum calculated is returned.
-  **/
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index bc07933..0ee4dbf 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -38,7 +38,7 @@
- 
- /**
-  * ixgbe_fcoe_clear_ddp - clear the given ddp context
-- * @ddp - ptr to the ixgbe_fcoe_ddp
-+ * @ddp: ptr to the ixgbe_fcoe_ddp
-  *
-  * Returns : none
-  *
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index c377706..f36c3c3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -252,7 +252,7 @@ static void ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
- }
- 
- /**
-- * ixgbe_set_sriov_queues: Allocate queues for IOV use
-+ * ixgbe_set_sriov_queues - Allocate queues for IOV use
-  * @adapter: board private structure to initialize
-  *
-  * IOV doesn't actually use anything, so just NAK the
-@@ -265,7 +265,7 @@ static inline bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
- }
- 
- /**
-- * ixgbe_set_rss_queues: Allocate queues for RSS
-+ * ixgbe_set_rss_queues - Allocate queues for RSS
-  * @adapter: board private structure to initialize
-  *
-  * This is our "base" multiqueue mode.  RSS (Receive Side Scaling) will try
-@@ -288,7 +288,7 @@ static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
- }
- 
- /**
-- * ixgbe_set_fdir_queues: Allocate queues for Flow Director
-+ * ixgbe_set_fdir_queues - Allocate queues for Flow Director
-  * @adapter: board private structure to initialize
-  *
-  * Flow Director is an advanced Rx filter, attempting to get Rx flows back
-@@ -323,7 +323,7 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
- 
- #ifdef IXGBE_FCOE
- /**
-- * ixgbe_set_fcoe_queues: Allocate queues for Fiber Channel over Ethernet (FCoE)
-+ * ixgbe_set_fcoe_queues - Allocate queues for Fiber Channel over Ethernet (FCoE)
-  * @adapter: board private structure to initialize
-  *
-  * FCoE RX FCRETA can use up to 8 rx queues for up to 8 different exchanges.
-@@ -410,7 +410,7 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
- #endif
- 
- /**
-- * ixgbe_set_num_queues: Allocate queues for device, feature dependent
-+ * ixgbe_set_num_queues - Allocate queues for device, feature dependent
-  * @adapter: board private structure to initialize
-  *
-  * This is the top level queue allocation routine.  The order here is very
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5afbb37..9313f5c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -516,7 +516,7 @@ static void ixgbe_get_hw_control(struct ixgbe_adapter *adapter)
- 			ctrl_ext | IXGBE_CTRL_EXT_DRV_LOAD);
- }
- 
--/*
-+/**
-  * ixgbe_set_ivar - set the IVAR registers, mapping interrupt causes to vectors
-  * @adapter: pointer to adapter struct
-  * @direction: 0 for Rx, 1 for Tx, -1 for other causes
-@@ -3591,7 +3591,7 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
- }
- 
- #ifdef CONFIG_IXGBE_DCB
--/*
-+/**
-  * ixgbe_configure_dcb - Configure DCB hardware
-  * @adapter: ixgbe adapter struct
-  *
-@@ -3658,11 +3658,11 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- /* Additional bittime to account for IXGBE framing */
- #define IXGBE_ETH_FRAMING 20
- 
--/*
-+/**
-  * ixgbe_hpbthresh - calculate high water mark for flow control
-  *
-  * @adapter: board private structure to calculate for
-- * @pb - packet buffer to calculate
-+ * @pb: packet buffer to calculate
-  */
- static int ixgbe_hpbthresh(struct ixgbe_adapter *adapter, int pb)
+-/**
+- * IOC is in uninit state.
+- */
++/* IOC is in uninit state. */
+ static void
+ bfa_ioc_sm_uninit(struct bfa_ioc *ioc, enum ioc_event event)
  {
-@@ -3722,11 +3722,11 @@ static int ixgbe_hpbthresh(struct ixgbe_adapter *adapter, int pb)
- 	return marker;
- }
- 
--/*
-+/**
-  * ixgbe_lpbthresh - calculate low water mark for for flow control
-  *
-  * @adapter: board private structure to calculate for
-- * @pb - packet buffer to calculate
-+ * @pb: packet buffer to calculate
-  */
- static int ixgbe_lpbthresh(struct ixgbe_adapter *adapter)
- {
-@@ -5243,7 +5243,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_fdir_reinit_subtask - worker thread to reinit FDIR filter table
-- * @adapter - pointer to the device adapter structure
-+ * @adapter: pointer to the device adapter structure
-  **/
- static void ixgbe_fdir_reinit_subtask(struct ixgbe_adapter *adapter)
- {
-@@ -5279,7 +5279,7 @@ static void ixgbe_fdir_reinit_subtask(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_check_hang_subtask - check for hung queues and dropped interrupts
-- * @adapter - pointer to the device adapter structure
-+ * @adapter: pointer to the device adapter structure
-  *
-  * This function serves two purposes.  First it strobes the interrupt lines
-  * in order to make certain interrupts are occurring.  Secondly it sets the
-@@ -5327,8 +5327,8 @@ static void ixgbe_check_hang_subtask(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_watchdog_update_link - update the link status
-- * @adapter - pointer to the device adapter structure
-- * @link_speed - pointer to a u32 to store the link_speed
-+ * @adapter: pointer to the device adapter structure
-+ * @link_speed: pointer to a u32 to store the link_speed
-  **/
- static void ixgbe_watchdog_update_link(struct ixgbe_adapter *adapter)
- {
-@@ -5371,7 +5371,7 @@ static void ixgbe_watchdog_update_link(struct ixgbe_adapter *adapter)
- /**
-  * ixgbe_watchdog_link_is_up - update netif_carrier status and
-  *                             print link up message
-- * @adapter - pointer to the device adapter structure
-+ * @adapter: pointer to the device adapter structure
-  **/
- static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
- {
-@@ -5431,7 +5431,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
- /**
-  * ixgbe_watchdog_link_is_down - update netif_carrier status and
-  *                               print link down message
-- * @adapter - pointer to the adapter structure
-+ * @adapter: pointer to the adapter structure
-  **/
- static void ixgbe_watchdog_link_is_down(struct ixgbe_adapter *adapter)
- {
-@@ -5459,7 +5459,7 @@ static void ixgbe_watchdog_link_is_down(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_watchdog_flush_tx - flush queues on link down
-- * @adapter - pointer to the device adapter structure
-+ * @adapter: pointer to the device adapter structure
-  **/
- static void ixgbe_watchdog_flush_tx(struct ixgbe_adapter *adapter)
- {
-@@ -5508,7 +5508,7 @@ static void ixgbe_spoof_check(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_watchdog_subtask - check and bring link up
-- * @adapter - pointer to the device adapter structure
-+ * @adapter: pointer to the device adapter structure
-  **/
- static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
- {
-@@ -5532,7 +5532,7 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_sfp_detection_subtask - poll for SFP+ cable
-- * @adapter - the ixgbe adapter structure
-+ * @adapter: the ixgbe adapter structure
-  **/
- static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
- {
-@@ -5599,7 +5599,7 @@ sfp_out:
- 
- /**
-  * ixgbe_sfp_link_config_subtask - set up link SFP after module install
-- * @adapter - the ixgbe adapter structure
-+ * @adapter: the ixgbe adapter structure
-  **/
- static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
- {
-@@ -6586,8 +6586,9 @@ static struct rtnl_link_stats64 *ixgbe_get_stats64(struct net_device *netdev,
- }
- 
- #ifdef CONFIG_IXGBE_DCB
--/* ixgbe_validate_rtr - verify 802.1Qp to Rx packet buffer mapping is valid.
-- * #adapter: pointer to ixgbe_adapter
-+/**
-+ * ixgbe_validate_rtr - verify 802.1Qp to Rx packet buffer mapping is valid.
-+ * @adapter: pointer to ixgbe_adapter
-  * @tc: number of traffic classes currently enabled
-  *
-  * Configure a valid 802.1Qp to Rx packet buffer mapping ie confirm
-@@ -6622,8 +6623,8 @@ static void ixgbe_validate_rtr(struct ixgbe_adapter *adapter, u8 tc)
- 	return;
- }
- 
--/* ixgbe_setup_tc - routine to configure net_device for multiple traffic
-- * classes.
-+/**
-+ * ixgbe_setup_tc - configure net_device for multiple traffic classes
-  *
-  * @netdev: net device to configure
-  * @tc: number of traffic classes to enable
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index daddd84..3456d56 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -107,7 +107,7 @@ static struct sock_filter ptp_filter[] = {
- 
- /**
-  * ixgbe_ptp_read - read raw cycle counter (to be used by time counter)
-- * @cc - the cyclecounter structure
-+ * @cc: the cyclecounter structure
-  *
-  * this function reads the cyclecounter registers and is called by the
-  * cyclecounter structure used to construct a ns counter from the
-@@ -128,8 +128,8 @@ static cycle_t ixgbe_ptp_read(const struct cyclecounter *cc)
- 
- /**
-  * ixgbe_ptp_adjfreq
-- * @ptp - the ptp clock structure
-- * @ppb - parts per billion adjustment from base
-+ * @ptp: the ptp clock structure
-+ * @ppb: parts per billion adjustment from base
-  *
-  * adjust the frequency of the ptp cycle counter by the
-  * indicated ppb from the base frequency.
-@@ -175,8 +175,8 @@ static int ixgbe_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 
- /**
-  * ixgbe_ptp_adjtime
-- * @ptp - the ptp clock structure
-- * @delta - offset to adjust the cycle counter by
-+ * @ptp: the ptp clock structure
-+ * @delta: offset to adjust the cycle counter by
-  *
-  * adjust the timer by resetting the timecounter structure.
-  */
-@@ -203,8 +203,8 @@ static int ixgbe_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- 
- /**
-  * ixgbe_ptp_gettime
-- * @ptp - the ptp clock structure
-- * @ts - timespec structure to hold the current time value
-+ * @ptp: the ptp clock structure
-+ * @ts: timespec structure to hold the current time value
-  *
-  * read the timecounter and return the correct value on ns,
-  * after converting it into a struct timespec.
-@@ -229,8 +229,8 @@ static int ixgbe_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
- 
- /**
-  * ixgbe_ptp_settime
-- * @ptp - the ptp clock structure
-- * @ts - the timespec containing the new time for the cycle counter
-+ * @ptp: the ptp clock structure
-+ * @ts: the timespec containing the new time for the cycle counter
-  *
-  * reset the timecounter to use a new base value instead of the kernel
-  * wall timer value.
-@@ -256,9 +256,9 @@ static int ixgbe_ptp_settime(struct ptp_clock_info *ptp,
- 
- /**
-  * ixgbe_ptp_enable
-- * @ptp - the ptp clock structure
-- * @rq - the requested feature to change
-- * @on - whether to enable or disable the feature
-+ * @ptp: the ptp clock structure
-+ * @rq: the requested feature to change
-+ * @on: whether to enable or disable the feature
-  *
-  * enable (or disable) ancillary features of the phc subsystem.
-  * our driver only supports the PPS feature on the X540
-@@ -294,8 +294,8 @@ static int ixgbe_ptp_enable(struct ptp_clock_info *ptp,
- 
- /**
-  * ixgbe_ptp_check_pps_event
-- * @adapter - the private adapter structure
-- * @eicr - the interrupt cause register value
-+ * @adapter: the private adapter structure
-+ * @eicr: the interrupt cause register value
-  *
-  * This function is called by the interrupt routine when checking for
-  * interrupts. It will check and handle a pps event.
-@@ -325,8 +325,8 @@ void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr)
- 
- /**
-  * ixgbe_ptp_enable_sdp
-- * @hw - the hardware private structure
-- * @shift - the clock shift for calculating nanoseconds
-+ * @hw: the hardware private structure
-+ * @shift: the clock shift for calculating nanoseconds
-  *
-  * this function enables the clock out feature on the sdp0 for the
-  * X540 device. It will create a 1second periodic output that can be
-@@ -399,7 +399,7 @@ static void ixgbe_ptp_enable_sdp(struct ixgbe_hw *hw, int shift)
- 
- /**
-  * ixgbe_ptp_disable_sdp
-- * @hw - the private hardware structure
-+ * @hw: the private hardware structure
-  *
-  * this function disables the auxiliary SDP clock out feature
-  */
-@@ -769,7 +769,7 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 
- /**
-  * ixgbe_ptp_start_cyclecounter - create the cycle counter from hw
-- * @adapter - pointer to the adapter structure
-+ * @adapter: pointer to the adapter structure
-  *
-  * this function initializes the timecounter and cyclecounter
-  * structures for use in generated a ns counter from the arbitrary
-@@ -905,7 +905,7 @@ void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_ptp_init
-- * @adapter - the ixgbe private adapter structure
-+ * @adapter: the ixgbe private adapter structure
-  *
-  * This function performs the required steps for enabling ptp
-  * support. If ptp support has already been loaded it simply calls the
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-index 2334fce..16ddf14 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-@@ -95,11 +95,11 @@ static ssize_t ixgbe_hwmon_show_maxopthresh(struct device *dev,
- 	return sprintf(buf, "%u\n", value);
- }
- 
--/*
-+/**
-  * ixgbe_add_hwmon_attr - Create hwmon attr table for a hwmon sysfs file.
-- * @ adapter: pointer to the adapter structure
-- * @ offset: offset in the eeprom sensor data table
-- * @ type: type of sensor data to display
-+ * @adapter: pointer to the adapter structure
-+ * @offset: offset in the eeprom sensor data table
-+ * @type: type of sensor data to display
-  *
-  * For each file we want in hwmon's sysfs interface we need a device_attribute
-  * This is included in our hwmon_attr struct that contains the references to
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index f69ec42..0368160 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -115,7 +115,7 @@ static inline void ixgbevf_release_rx_desc(struct ixgbe_hw *hw,
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRDT(rx_ring->reg_idx), val);
- }
- 
--/*
-+/**
-  * ixgbevf_set_ivar - set IVAR registers - maps interrupt causes to vectors
-  * @adapter: pointer to adapter struct
-  * @direction: 0 for Rx, 1 for Tx, -1 for other causes
-@@ -1942,8 +1942,8 @@ static void ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
+@@ -243,18 +227,14 @@ bfa_ioc_sm_uninit(struct bfa_ioc *ioc, enum ioc_event event)
  	}
  }
  
--/*
-- * ixgbevf_set_num_queues: Allocate queues for device, feature dependent
-+/**
-+ * ixgbevf_set_num_queues - Allocate queues for device, feature dependent
-  * @adapter: board private structure to initialize
+-/**
+- * Reset entry actions -- initialize state machine
+- */
++/* Reset entry actions -- initialize state machine */
+ static void
+ bfa_ioc_sm_reset_entry(struct bfa_ioc *ioc)
+ {
+ 	bfa_fsm_set_state(&ioc->iocpf, bfa_iocpf_sm_reset);
+ }
+ 
+-/**
+- * IOC is in reset state.
+- */
++/* IOC is in reset state. */
+ static void
+ bfa_ioc_sm_reset(struct bfa_ioc *ioc, enum ioc_event event)
+ {
+@@ -282,8 +262,7 @@ bfa_ioc_sm_enabling_entry(struct bfa_ioc *ioc)
+ 	bfa_iocpf_enable(ioc);
+ }
+ 
+-/**
+- * Host IOC function is being enabled, awaiting response from firmware.
++/* Host IOC function is being enabled, awaiting response from firmware.
+  * Semaphore is acquired.
+  */
+ static void
+@@ -325,9 +304,7 @@ bfa_ioc_sm_enabling(struct bfa_ioc *ioc, enum ioc_event event)
+ 	}
+ }
+ 
+-/**
+- * Semaphore should be acquired for version check.
+- */
++/* Semaphore should be acquired for version check. */
+ static void
+ bfa_ioc_sm_getattr_entry(struct bfa_ioc *ioc)
+ {
+@@ -336,9 +313,7 @@ bfa_ioc_sm_getattr_entry(struct bfa_ioc *ioc)
+ 	bfa_ioc_send_getattr(ioc);
+ }
+ 
+-/**
+- * IOC configuration in progress. Timer is active.
+- */
++/* IOC configuration in progress. Timer is active. */
+ static void
+ bfa_ioc_sm_getattr(struct bfa_ioc *ioc, enum ioc_event event)
+ {
+@@ -419,9 +394,7 @@ bfa_ioc_sm_disabling_entry(struct bfa_ioc *ioc)
+ 	bfa_iocpf_disable(ioc);
+ }
+ 
+-/**
+- * IOC is being disabled
+- */
++/* IOC is being disabled */
+ static void
+ bfa_ioc_sm_disabling(struct bfa_ioc *ioc, enum ioc_event event)
+ {
+@@ -449,9 +422,7 @@ bfa_ioc_sm_disabling(struct bfa_ioc *ioc, enum ioc_event event)
+ 	}
+ }
+ 
+-/**
+- * IOC disable completion entry.
+- */
++/* IOC disable completion entry. */
+ static void
+ bfa_ioc_sm_disabled_entry(struct bfa_ioc *ioc)
+ {
+@@ -485,9 +456,7 @@ bfa_ioc_sm_fail_retry_entry(struct bfa_ioc *ioc)
+ {
+ }
+ 
+-/**
+- * Hardware initialization retry.
+- */
++/* Hardware initialization retry. */
+ static void
+ bfa_ioc_sm_fail_retry(struct bfa_ioc *ioc, enum ioc_event event)
+ {
+@@ -534,9 +503,7 @@ bfa_ioc_sm_fail_entry(struct bfa_ioc *ioc)
+ {
+ }
+ 
+-/**
+- * IOC failure.
+- */
++/* IOC failure. */
+ static void
+ bfa_ioc_sm_fail(struct bfa_ioc *ioc, enum ioc_event event)
+ {
+@@ -568,9 +535,7 @@ bfa_ioc_sm_hwfail_entry(struct bfa_ioc *ioc)
+ {
+ }
+ 
+-/**
+- * IOC failure.
+- */
++/* IOC failure. */
+ static void
+ bfa_ioc_sm_hwfail(struct bfa_ioc *ioc, enum ioc_event event)
+ {
+@@ -593,13 +558,9 @@ bfa_ioc_sm_hwfail(struct bfa_ioc *ioc, enum ioc_event event)
+ 	}
+ }
+ 
+-/**
+- * IOCPF State Machine
+- */
++/* IOCPF State Machine */
+ 
+-/**
+- * Reset entry actions -- initialize state machine
+- */
++/* Reset entry actions -- initialize state machine */
+ static void
+ bfa_iocpf_sm_reset_entry(struct bfa_iocpf *iocpf)
+ {
+@@ -607,9 +568,7 @@ bfa_iocpf_sm_reset_entry(struct bfa_iocpf *iocpf)
+ 	iocpf->auto_recover = bfa_nw_auto_recover;
+ }
+ 
+-/**
+- * Beginning state. IOC is in reset state.
+- */
++/* Beginning state. IOC is in reset state. */
+ static void
+ bfa_iocpf_sm_reset(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -626,9 +585,7 @@ bfa_iocpf_sm_reset(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 	}
+ }
+ 
+-/**
+- * Semaphore should be acquired for version check.
+- */
++/* Semaphore should be acquired for version check. */
+ static void
+ bfa_iocpf_sm_fwcheck_entry(struct bfa_iocpf *iocpf)
+ {
+@@ -636,9 +593,7 @@ bfa_iocpf_sm_fwcheck_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_hw_sem_get(iocpf->ioc);
+ }
+ 
+-/**
+- * Awaiting h/w semaphore to continue with version check.
+- */
++/* Awaiting h/w semaphore to continue with version check. */
+ static void
+ bfa_iocpf_sm_fwcheck(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -683,9 +638,7 @@ bfa_iocpf_sm_fwcheck(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 	}
+ }
+ 
+-/**
+- * Notify enable completion callback
+- */
++/* Notify enable completion callback */
+ static void
+ bfa_iocpf_sm_mismatch_entry(struct bfa_iocpf *iocpf)
+ {
+@@ -698,9 +651,7 @@ bfa_iocpf_sm_mismatch_entry(struct bfa_iocpf *iocpf)
+ 		msecs_to_jiffies(BFA_IOC_TOV));
+ }
+ 
+-/**
+- * Awaiting firmware version match.
+- */
++/* Awaiting firmware version match. */
+ static void
+ bfa_iocpf_sm_mismatch(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -727,18 +678,14 @@ bfa_iocpf_sm_mismatch(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 	}
+ }
+ 
+-/**
+- * Request for semaphore.
+- */
++/* Request for semaphore. */
+ static void
+ bfa_iocpf_sm_semwait_entry(struct bfa_iocpf *iocpf)
+ {
+ 	bfa_ioc_hw_sem_get(iocpf->ioc);
+ }
+ 
+-/**
+- * Awaiting semaphore for h/w initialzation.
+- */
++/* Awaiting semaphore for h/w initialzation. */
+ static void
+ bfa_iocpf_sm_semwait(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -778,8 +725,7 @@ bfa_iocpf_sm_hwinit_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_reset(iocpf->ioc, false);
+ }
+ 
+-/**
+- * Hardware is being initialized. Interrupts are enabled.
++/* Hardware is being initialized. Interrupts are enabled.
+  * Holding hardware semaphore lock.
+  */
+ static void
+@@ -822,8 +768,7 @@ bfa_iocpf_sm_enabling_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_send_enable(iocpf->ioc);
+ }
+ 
+-/**
+- * Host IOC function is being enabled, awaiting response from firmware.
++/* Host IOC function is being enabled, awaiting response from firmware.
+  * Semaphore is acquired.
+  */
+ static void
+@@ -896,9 +841,7 @@ bfa_iocpf_sm_disabling_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_send_disable(iocpf->ioc);
+ }
+ 
+-/**
+- * IOC is being disabled
+- */
++/* IOC is being disabled */
+ static void
+ bfa_iocpf_sm_disabling(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -935,9 +878,7 @@ bfa_iocpf_sm_disabling_sync_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_hw_sem_get(iocpf->ioc);
+ }
+ 
+-/**
+- * IOC hb ack request is being removed.
+- */
++/* IOC hb ack request is being removed. */
+ static void
+ bfa_iocpf_sm_disabling_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -963,9 +904,7 @@ bfa_iocpf_sm_disabling_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 	}
+ }
+ 
+-/**
+- * IOC disable completion entry.
+- */
++/* IOC disable completion entry. */
+ static void
+ bfa_iocpf_sm_disabled_entry(struct bfa_iocpf *iocpf)
+ {
+@@ -1000,9 +939,7 @@ bfa_iocpf_sm_initfail_sync_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_hw_sem_get(iocpf->ioc);
+ }
+ 
+-/**
+- * Hardware initialization failed.
+- */
++/* Hardware initialization failed. */
+ static void
+ bfa_iocpf_sm_initfail_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -1046,9 +983,7 @@ bfa_iocpf_sm_initfail_entry(struct bfa_iocpf *iocpf)
+ {
+ }
+ 
+-/**
+- * Hardware initialization failed.
+- */
++/* Hardware initialization failed. */
+ static void
+ bfa_iocpf_sm_initfail(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -1084,9 +1019,7 @@ bfa_iocpf_sm_fail_sync_entry(struct bfa_iocpf *iocpf)
+ 	bfa_ioc_hw_sem_get(iocpf->ioc);
+ }
+ 
+-/**
+- * IOC is in failed state.
+- */
++/* IOC is in failed state. */
+ static void
+ bfa_iocpf_sm_fail_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -1134,10 +1067,7 @@ bfa_iocpf_sm_fail_entry(struct bfa_iocpf *iocpf)
+ {
+ }
+ 
+-/**
+- * @brief
+- * IOC is in failed state.
+- */
++/* IOC is in failed state. */
+ static void
+ bfa_iocpf_sm_fail(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ {
+@@ -1151,13 +1081,9 @@ bfa_iocpf_sm_fail(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 	}
+ }
+ 
+-/**
+- * BFA IOC private functions
+- */
++/* BFA IOC private functions */
+ 
+-/**
+- * Notify common modules registered for notification.
+- */
++/* Notify common modules registered for notification. */
+ static void
+ bfa_ioc_event_notify(struct bfa_ioc *ioc, enum bfa_ioc_event event)
+ {
+@@ -1298,10 +1224,7 @@ bfa_ioc_hw_sem_get_cancel(struct bfa_ioc *ioc)
+ 	del_timer(&ioc->sem_timer);
+ }
+ 
+-/**
+- * @brief
+- * Initialize LPU local memory (aka secondary memory / SRAM)
+- */
++/* Initialize LPU local memory (aka secondary memory / SRAM) */
+ static void
+ bfa_ioc_lmem_init(struct bfa_ioc *ioc)
+ {
+@@ -1366,9 +1289,7 @@ bfa_ioc_lpu_stop(struct bfa_ioc *ioc)
+ 	writel(pss_ctl, ioc->ioc_regs.pss_ctl_reg);
+ }
+ 
+-/**
+- * Get driver and firmware versions.
+- */
++/* Get driver and firmware versions. */
+ void
+ bfa_nw_ioc_fwver_get(struct bfa_ioc *ioc, struct bfi_ioc_image_hdr *fwhdr)
+ {
+@@ -1388,9 +1309,7 @@ bfa_nw_ioc_fwver_get(struct bfa_ioc *ioc, struct bfi_ioc_image_hdr *fwhdr)
+ 	}
+ }
+ 
+-/**
+- * Returns TRUE if same.
+- */
++/* Returns TRUE if same. */
+ bool
+ bfa_nw_ioc_fwver_cmp(struct bfa_ioc *ioc, struct bfi_ioc_image_hdr *fwhdr)
+ {
+@@ -1408,8 +1327,7 @@ bfa_nw_ioc_fwver_cmp(struct bfa_ioc *ioc, struct bfi_ioc_image_hdr *fwhdr)
+ 	return true;
+ }
+ 
+-/**
+- * Return true if current running version is valid. Firmware signature and
++/* Return true if current running version is valid. Firmware signature and
+  * execution context (driver/bios) must match.
+  */
+ static bool
+@@ -1430,9 +1348,7 @@ bfa_ioc_fwver_valid(struct bfa_ioc *ioc, u32 boot_env)
+ 	return bfa_nw_ioc_fwver_cmp(ioc, &fwhdr);
+ }
+ 
+-/**
+- * Conditionally flush any pending message from firmware at start.
+- */
++/* Conditionally flush any pending message from firmware at start. */
+ static void
+ bfa_ioc_msgflush(struct bfa_ioc *ioc)
+ {
+@@ -1443,9 +1359,6 @@ bfa_ioc_msgflush(struct bfa_ioc *ioc)
+ 		writel(1, ioc->ioc_regs.lpu_mbox_cmd);
+ }
+ 
+-/**
+- * @img ioc_init_logic.jpg
+- */
+ static void
+ bfa_ioc_hwinit(struct bfa_ioc *ioc, bool force)
+ {
+@@ -1603,10 +1516,7 @@ bfa_ioc_hb_stop(struct bfa_ioc *ioc)
+ 	del_timer(&ioc->hb_timer);
+ }
+ 
+-/**
+- * @brief
+- *	Initiate a full firmware download.
+- */
++/* Initiate a full firmware download. */
+ static void
+ bfa_ioc_download_fw(struct bfa_ioc *ioc, u32 boot_type,
+ 		    u32 boot_env)
+@@ -1672,9 +1582,7 @@ bfa_ioc_reset(struct bfa_ioc *ioc, bool force)
+ 	bfa_ioc_hwinit(ioc, force);
+ }
+ 
+-/**
+- * BFA ioc enable reply by firmware
+- */
++/* BFA ioc enable reply by firmware */
+ static void
+ bfa_ioc_enable_reply(struct bfa_ioc *ioc, enum bfa_mode port_mode,
+ 			u8 cap_bm)
+@@ -1686,10 +1594,7 @@ bfa_ioc_enable_reply(struct bfa_ioc *ioc, enum bfa_mode port_mode,
+ 	bfa_fsm_send_event(iocpf, IOCPF_E_FWRSP_ENABLE);
+ }
+ 
+-/**
+- * @brief
+- * Update BFA configuration from firmware configuration.
+- */
++/* Update BFA configuration from firmware configuration. */
+ static void
+ bfa_ioc_getattr_reply(struct bfa_ioc *ioc)
+ {
+@@ -1702,9 +1607,7 @@ bfa_ioc_getattr_reply(struct bfa_ioc *ioc)
+ 	bfa_fsm_send_event(ioc, IOC_E_FWRSP_GETATTR);
+ }
+ 
+-/**
+- * Attach time initialization of mbox logic.
+- */
++/* Attach time initialization of mbox logic. */
+ static void
+ bfa_ioc_mbox_attach(struct bfa_ioc *ioc)
+ {
+@@ -1718,9 +1621,7 @@ bfa_ioc_mbox_attach(struct bfa_ioc *ioc)
+ 	}
+ }
+ 
+-/**
+- * Mbox poll timer -- restarts any pending mailbox requests.
+- */
++/* Mbox poll timer -- restarts any pending mailbox requests. */
+ static void
+ bfa_ioc_mbox_poll(struct bfa_ioc *ioc)
+ {
+@@ -1760,9 +1661,7 @@ bfa_ioc_mbox_poll(struct bfa_ioc *ioc)
+ 	}
+ }
+ 
+-/**
+- * Cleanup any pending requests.
+- */
++/* Cleanup any pending requests. */
+ static void
+ bfa_ioc_mbox_flush(struct bfa_ioc *ioc)
+ {
+@@ -1774,12 +1673,12 @@ bfa_ioc_mbox_flush(struct bfa_ioc *ioc)
+ }
+ 
+ /**
+- * Read data from SMEM to host through PCI memmap
++ * bfa_nw_ioc_smem_read - Read data from SMEM to host through PCI memmap
   *
-  * This is the top level queue allocation routine.  The order here is very
+- * @param[in]  ioc     memory for IOC
+- * @param[in]  tbuf    app memory to store data from smem
+- * @param[in]  soff    smem offset
+- * @param[in]  sz      size of smem in bytes
++ * @ioc:     memory for IOC
++ * @tbuf:    app memory to store data from smem
++ * @soff:    smem offset
++ * @sz:      size of smem in bytes
+  */
+ static int
+ bfa_nw_ioc_smem_read(struct bfa_ioc *ioc, void *tbuf, u32 soff, u32 sz)
+@@ -1826,9 +1725,7 @@ bfa_nw_ioc_smem_read(struct bfa_ioc *ioc, void *tbuf, u32 soff, u32 sz)
+ 	return 0;
+ }
+ 
+-/**
+- * Retrieve saved firmware trace from a prior IOC failure.
+- */
++/* Retrieve saved firmware trace from a prior IOC failure. */
+ int
+ bfa_nw_ioc_debug_fwtrc(struct bfa_ioc *ioc, void *trcdata, int *trclen)
+ {
+@@ -1844,9 +1741,7 @@ bfa_nw_ioc_debug_fwtrc(struct bfa_ioc *ioc, void *trcdata, int *trclen)
+ 	return status;
+ }
+ 
+-/**
+- * Save firmware trace if configured.
+- */
++/* Save firmware trace if configured. */
+ static void
+ bfa_nw_ioc_debug_save_ftrc(struct bfa_ioc *ioc)
+ {
+@@ -1861,9 +1756,7 @@ bfa_nw_ioc_debug_save_ftrc(struct bfa_ioc *ioc)
+ 	}
+ }
+ 
+-/**
+- * Retrieve saved firmware trace from a prior IOC failure.
+- */
++/* Retrieve saved firmware trace from a prior IOC failure. */
+ int
+ bfa_nw_ioc_debug_fwsave(struct bfa_ioc *ioc, void *trcdata, int *trclen)
+ {
+@@ -1892,9 +1785,7 @@ bfa_ioc_fail_notify(struct bfa_ioc *ioc)
+ 	bfa_nw_ioc_debug_save_ftrc(ioc);
+ }
+ 
+-/**
+- * IOCPF to IOC interface
+- */
++/* IOCPF to IOC interface */
+ static void
+ bfa_ioc_pf_enabled(struct bfa_ioc *ioc)
+ {
+@@ -1928,9 +1819,7 @@ bfa_ioc_pf_fwmismatch(struct bfa_ioc *ioc)
+ 	ioc->cbfn->enable_cbfn(ioc->bfa, BFA_STATUS_IOC_FAILURE);
+ }
+ 
+-/**
+- * IOC public
+- */
++/* IOC public */
+ static enum bfa_status
+ bfa_ioc_pll_init(struct bfa_ioc *ioc)
+ {
+@@ -1954,8 +1843,7 @@ bfa_ioc_pll_init(struct bfa_ioc *ioc)
+ 	return BFA_STATUS_OK;
+ }
+ 
+-/**
+- * Interface used by diag module to do firmware boot with memory test
++/* Interface used by diag module to do firmware boot with memory test
+  * as the entry vector.
+  */
+ static void
+@@ -1983,9 +1871,7 @@ bfa_ioc_boot(struct bfa_ioc *ioc, enum bfi_fwboot_type boot_type,
+ 	bfa_ioc_lpu_start(ioc);
+ }
+ 
+-/**
+- * Enable/disable IOC failure auto recovery.
+- */
++/* Enable/disable IOC failure auto recovery. */
+ void
+ bfa_nw_ioc_auto_recover(bool auto_recover)
+ {
+@@ -2056,10 +1942,10 @@ bfa_ioc_isr(struct bfa_ioc *ioc, struct bfi_mbmsg *m)
+ }
+ 
+ /**
+- * IOC attach time initialization and setup.
++ * bfa_nw_ioc_attach - IOC attach time initialization and setup.
+  *
+- * @param[in]	ioc	memory for IOC
+- * @param[in]	bfa	driver instance structure
++ * @ioc:	memory for IOC
++ * @bfa:	driver instance structure
+  */
+ void
+ bfa_nw_ioc_attach(struct bfa_ioc *ioc, void *bfa, struct bfa_ioc_cbfn *cbfn)
+@@ -2078,9 +1964,7 @@ bfa_nw_ioc_attach(struct bfa_ioc *ioc, void *bfa, struct bfa_ioc_cbfn *cbfn)
+ 	bfa_fsm_send_event(ioc, IOC_E_RESET);
+ }
+ 
+-/**
+- * Driver detach time IOC cleanup.
+- */
++/* Driver detach time IOC cleanup. */
+ void
+ bfa_nw_ioc_detach(struct bfa_ioc *ioc)
+ {
+@@ -2091,9 +1975,9 @@ bfa_nw_ioc_detach(struct bfa_ioc *ioc)
+ }
+ 
+ /**
+- * Setup IOC PCI properties.
++ * bfa_nw_ioc_pci_init - Setup IOC PCI properties.
+  *
+- * @param[in]	pcidev	PCI device information for this IOC
++ * @pcidev:	PCI device information for this IOC
+  */
+ void
+ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
+@@ -2160,10 +2044,10 @@ bfa_nw_ioc_pci_init(struct bfa_ioc *ioc, struct bfa_pcidev *pcidev,
+ }
+ 
+ /**
+- * Initialize IOC dma memory
++ * bfa_nw_ioc_mem_claim - Initialize IOC dma memory
+  *
+- * @param[in]	dm_kva	kernel virtual address of IOC dma memory
+- * @param[in]	dm_pa	physical address of IOC dma memory
++ * @dm_kva:	kernel virtual address of IOC dma memory
++ * @dm_pa:	physical address of IOC dma memory
+  */
+ void
+ bfa_nw_ioc_mem_claim(struct bfa_ioc *ioc,  u8 *dm_kva, u64 dm_pa)
+@@ -2176,9 +2060,7 @@ bfa_nw_ioc_mem_claim(struct bfa_ioc *ioc,  u8 *dm_kva, u64 dm_pa)
+ 	ioc->attr = (struct bfi_ioc_attr *) dm_kva;
+ }
+ 
+-/**
+- * Return size of dma memory required.
+- */
++/* Return size of dma memory required. */
+ u32
+ bfa_nw_ioc_meminfo(void)
+ {
+@@ -2201,9 +2083,7 @@ bfa_nw_ioc_disable(struct bfa_ioc *ioc)
+ 	bfa_fsm_send_event(ioc, IOC_E_DISABLE);
+ }
+ 
+-/**
+- * Initialize memory for saving firmware trace.
+- */
++/* Initialize memory for saving firmware trace. */
+ void
+ bfa_nw_ioc_debug_memclaim(struct bfa_ioc *ioc, void *dbg_fwsave)
+ {
+@@ -2217,9 +2097,7 @@ bfa_ioc_smem_pgnum(struct bfa_ioc *ioc, u32 fmaddr)
+ 	return PSS_SMEM_PGNUM(ioc->ioc_regs.smem_pg0, fmaddr);
+ }
+ 
+-/**
+- * Register mailbox message handler function, to be called by common modules
+- */
++/* Register mailbox message handler function, to be called by common modules */
+ void
+ bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+ 		    bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg)
+@@ -2231,11 +2109,12 @@ bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+ }
+ 
+ /**
+- * Queue a mailbox command request to firmware. Waits if mailbox is busy.
+- * Responsibility of caller to serialize
++ * bfa_nw_ioc_mbox_queue - Queue a mailbox command request to firmware.
+  *
+- * @param[in]	ioc	IOC instance
+- * @param[i]	cmd	Mailbox command
++ * @ioc:	IOC instance
++ * @cmd:	Mailbox command
++ *
++ * Waits if mailbox is busy. Responsibility of caller to serialize
+  */
+ bool
+ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd,
+@@ -2272,9 +2151,7 @@ bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc, struct bfa_mbox_cmd *cmd,
+ 	return false;
+ }
+ 
+-/**
+- * Handle mailbox interrupts
+- */
++/* Handle mailbox interrupts */
+ void
+ bfa_nw_ioc_mbox_isr(struct bfa_ioc *ioc)
+ {
+@@ -2314,9 +2191,7 @@ bfa_nw_ioc_error_isr(struct bfa_ioc *ioc)
+ 	bfa_fsm_send_event(ioc, IOC_E_HWERROR);
+ }
+ 
+-/**
+- * return true if IOC is disabled
+- */
++/* return true if IOC is disabled */
+ bool
+ bfa_nw_ioc_is_disabled(struct bfa_ioc *ioc)
+ {
+@@ -2324,17 +2199,14 @@ bfa_nw_ioc_is_disabled(struct bfa_ioc *ioc)
+ 		bfa_fsm_cmp_state(ioc, bfa_ioc_sm_disabled);
+ }
+ 
+-/**
+- * return true if IOC is operational
+- */
++/* return true if IOC is operational */
+ bool
+ bfa_nw_ioc_is_operational(struct bfa_ioc *ioc)
+ {
+ 	return bfa_fsm_cmp_state(ioc, bfa_ioc_sm_op);
+ }
+ 
+-/**
+- * Add to IOC heartbeat failure notification queue. To be used by common
++/* Add to IOC heartbeat failure notification queue. To be used by common
+  * modules such as cee, port, diag.
+  */
+ void
+@@ -2518,9 +2390,7 @@ bfa_nw_ioc_get_attr(struct bfa_ioc *ioc, struct bfa_ioc_attr *ioc_attr)
+ 	bfa_ioc_get_pci_chip_rev(ioc, ioc_attr->pci_attr.chip_rev);
+ }
+ 
+-/**
+- * WWN public
+- */
++/* WWN public */
+ static u64
+ bfa_ioc_get_pwwn(struct bfa_ioc *ioc)
+ {
+@@ -2533,9 +2403,7 @@ bfa_nw_ioc_get_mac(struct bfa_ioc *ioc)
+ 	return ioc->attr->mac;
+ }
+ 
+-/**
+- * Firmware failure detected. Start recovery actions.
+- */
++/* Firmware failure detected. Start recovery actions. */
+ static void
+ bfa_ioc_recover(struct bfa_ioc *ioc)
+ {
+@@ -2545,10 +2413,7 @@ bfa_ioc_recover(struct bfa_ioc *ioc)
+ 	bfa_fsm_send_event(ioc, IOC_E_HBFAIL);
+ }
+ 
+-/**
+- * @dg hal_iocpf_pvt BFA IOC PF private functions
+- * @{
+- */
++/* BFA IOC PF private functions */
+ 
+ static void
+ bfa_iocpf_enable(struct bfa_ioc *ioc)
+@@ -2669,8 +2534,6 @@ bfa_flash_notify(void *cbarg, enum bfa_ioc_event event)
+ 
+ /*
+  * Send flash write request.
+- *
+- * @param[in] cbarg - callback argument
+  */
+ static void
+ bfa_flash_write_send(struct bfa_flash *flash)
+@@ -2699,10 +2562,10 @@ bfa_flash_write_send(struct bfa_flash *flash)
+ 	flash->offset += len;
+ }
+ 
+-/*
+- * Send flash read request.
++/**
++ * bfa_flash_read_send - Send flash read request.
+  *
+- * @param[in] cbarg - callback argument
++ * @cbarg: callback argument
+  */
+ static void
+ bfa_flash_read_send(void *cbarg)
+@@ -2724,11 +2587,11 @@ bfa_flash_read_send(void *cbarg)
+ 	bfa_nw_ioc_mbox_queue(flash->ioc, &flash->mb, NULL, NULL);
+ }
+ 
+-/*
+- * Process flash response messages upon receiving interrupts.
++/**
++ * bfa_flash_intr - Process flash response messages upon receiving interrupts.
+  *
+- * @param[in] flasharg - flash structure
+- * @param[in] msg - message structure
++ * @flasharg: flash structure
++ * @msg: message structure
+  */
+ static void
+ bfa_flash_intr(void *flasharg, struct bfi_mbmsg *msg)
+@@ -2821,12 +2684,12 @@ bfa_nw_flash_meminfo(void)
+ 	return roundup(BFA_FLASH_DMA_BUF_SZ, BFA_DMA_ALIGN_SZ);
+ }
+ 
+-/*
+- * Flash attach API.
++/**
++ * bfa_nw_flash_attach - Flash attach API.
+  *
+- * @param[in] flash - flash structure
+- * @param[in] ioc  - ioc structure
+- * @param[in] dev  - device structure
++ * @flash: flash structure
++ * @ioc: ioc structure
++ * @dev: device structure
+  */
+ void
+ bfa_nw_flash_attach(struct bfa_flash *flash, struct bfa_ioc *ioc, void *dev)
+@@ -2842,12 +2705,12 @@ bfa_nw_flash_attach(struct bfa_flash *flash, struct bfa_ioc *ioc, void *dev)
+ 	list_add_tail(&flash->ioc_notify.qe, &flash->ioc->notify_q);
+ }
+ 
+-/*
+- * Claim memory for flash
++/**
++ * bfa_nw_flash_memclaim - Claim memory for flash
+  *
+- * @param[in] flash - flash structure
+- * @param[in] dm_kva - pointer to virtual memory address
+- * @param[in] dm_pa - physical memory address
++ * @flash: flash structure
++ * @dm_kva: pointer to virtual memory address
++ * @dm_pa: physical memory address
+  */
+ void
+ bfa_nw_flash_memclaim(struct bfa_flash *flash, u8 *dm_kva, u64 dm_pa)
+@@ -2859,13 +2722,13 @@ bfa_nw_flash_memclaim(struct bfa_flash *flash, u8 *dm_kva, u64 dm_pa)
+ 	dm_pa += roundup(BFA_FLASH_DMA_BUF_SZ, BFA_DMA_ALIGN_SZ);
+ }
+ 
+-/*
+- * Get flash attribute.
++/**
++ * bfa_nw_flash_get_attr - Get flash attribute.
+  *
+- * @param[in] flash - flash structure
+- * @param[in] attr - flash attribute structure
+- * @param[in] cbfn - callback function
+- * @param[in] cbarg - callback argument
++ * @flash: flash structure
++ * @attr: flash attribute structure
++ * @cbfn: callback function
++ * @cbarg: callback argument
+  *
+  * Return status.
+  */
+@@ -2895,17 +2758,17 @@ bfa_nw_flash_get_attr(struct bfa_flash *flash, struct bfa_flash_attr *attr,
+ 	return BFA_STATUS_OK;
+ }
+ 
+-/*
+- * Update flash partition.
++/**
++ * bfa_nw_flash_update_part - Update flash partition.
+  *
+- * @param[in] flash - flash structure
+- * @param[in] type - flash partition type
+- * @param[in] instance - flash partition instance
+- * @param[in] buf - update data buffer
+- * @param[in] len - data buffer length
+- * @param[in] offset - offset relative to the partition starting address
+- * @param[in] cbfn - callback function
+- * @param[in] cbarg - callback argument
++ * @flash: flash structure
++ * @type: flash partition type
++ * @instance: flash partition instance
++ * @buf: update data buffer
++ * @len: data buffer length
++ * @offset: offset relative to the partition starting address
++ * @cbfn: callback function
++ * @cbarg: callback argument
+  *
+  * Return status.
+  */
+@@ -2944,17 +2807,17 @@ bfa_nw_flash_update_part(struct bfa_flash *flash, u32 type, u8 instance,
+ 	return BFA_STATUS_OK;
+ }
+ 
+-/*
+- * Read flash partition.
++/**
++ * bfa_nw_flash_read_part - Read flash partition.
+  *
+- * @param[in] flash - flash structure
+- * @param[in] type - flash partition type
+- * @param[in] instance - flash partition instance
+- * @param[in] buf - read data buffer
+- * @param[in] len - data buffer length
+- * @param[in] offset - offset relative to the partition starting address
+- * @param[in] cbfn - callback function
+- * @param[in] cbarg - callback argument
++ * @flash: flash structure
++ * @type: flash partition type
++ * @instance: flash partition instance
++ * @buf: read data buffer
++ * @len: data buffer length
++ * @offset: offset relative to the partition starting address
++ * @cbfn: callback function
++ * @cbarg: callback argument
+  *
+  * Return status.
+  */
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+index 3b4460fd..63a85e5 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+@@ -30,9 +30,7 @@
+ #define BNA_DBG_FWTRC_LEN      (BFI_IOC_TRC_ENTS * BFI_IOC_TRC_ENT_SZ + \
+ 				BFI_IOC_TRC_HDR_SZ)
+ 
+-/**
+- * PCI device information required by IOC
+- */
++/* PCI device information required by IOC */
+ struct bfa_pcidev {
+ 	int	pci_slot;
+ 	u8	pci_func;
+@@ -41,8 +39,7 @@ struct bfa_pcidev {
+ 	void	__iomem *pci_bar_kva;
+ };
+ 
+-/**
+- * Structure used to remember the DMA-able memory block's KVA and Physical
++/* Structure used to remember the DMA-able memory block's KVA and Physical
+  * Address
+  */
+ struct bfa_dma {
+@@ -52,15 +49,11 @@ struct bfa_dma {
+ 
+ #define BFA_DMA_ALIGN_SZ	256
+ 
+-/**
+- * smem size for Crossbow and Catapult
+- */
++/* smem size for Crossbow and Catapult */
+ #define BFI_SMEM_CB_SIZE	0x200000U	/* ! 2MB for crossbow	*/
+ #define BFI_SMEM_CT_SIZE	0x280000U	/* ! 2.5MB for catapult	*/
+ 
+-/**
+- * @brief BFA dma address assignment macro. (big endian format)
+- */
++/* BFA dma address assignment macro. (big endian format) */
+ #define bfa_dma_be_addr_set(dma_addr, pa)	\
+ 		__bfa_dma_be_addr_set(&dma_addr, (u64)pa)
+ static inline void
+@@ -108,9 +101,7 @@ struct bfa_ioc_regs {
+ 	u32	smem_pg0;
+ };
+ 
+-/**
+- * IOC Mailbox structures
+- */
++/* IOC Mailbox structures */
+ typedef void (*bfa_mbox_cmd_cbfn_t)(void *cbarg);
+ struct bfa_mbox_cmd {
+ 	struct list_head	qe;
+@@ -119,9 +110,7 @@ struct bfa_mbox_cmd {
+ 	u32     msg[BFI_IOC_MSGSZ];
+ };
+ 
+-/**
+- * IOC mailbox module
+- */
++/* IOC mailbox module */
+ typedef void (*bfa_ioc_mbox_mcfunc_t)(void *cbarg, struct bfi_mbmsg *m);
+ struct bfa_ioc_mbox_mod {
+ 	struct list_head	cmd_q;		/*!< pending mbox queue	*/
+@@ -132,9 +121,7 @@ struct bfa_ioc_mbox_mod {
+ 	} mbhdlr[BFI_MC_MAX];
+ };
+ 
+-/**
+- * IOC callback function interfaces
+- */
++/* IOC callback function interfaces */
+ typedef void (*bfa_ioc_enable_cbfn_t)(void *bfa, enum bfa_status status);
+ typedef void (*bfa_ioc_disable_cbfn_t)(void *bfa);
+ typedef void (*bfa_ioc_hbfail_cbfn_t)(void *bfa);
+@@ -146,9 +133,7 @@ struct bfa_ioc_cbfn {
+ 	bfa_ioc_reset_cbfn_t	reset_cbfn;
+ };
+ 
+-/**
+- * IOC event notification mechanism.
+- */
++/* IOC event notification mechanism. */
+ enum bfa_ioc_event {
+ 	BFA_IOC_E_ENABLED	= 1,
+ 	BFA_IOC_E_DISABLED	= 2,
+@@ -163,9 +148,7 @@ struct bfa_ioc_notify {
+ 	void			*cbarg;
+ };
+ 
+-/**
+- * Initialize a IOC event notification structure
+- */
++/* Initialize a IOC event notification structure */
+ #define bfa_ioc_notify_init(__notify, __cbfn, __cbarg) do {	\
+ 	(__notify)->cbfn = (__cbfn);				\
+ 	(__notify)->cbarg = (__cbarg);				\
+@@ -261,9 +244,7 @@ struct bfa_ioc_hwif {
+ #define BFA_IOC_FLASH_OFFSET_IN_CHUNK(off)	(off % BFI_FLASH_CHUNK_SZ_WORDS)
+ #define BFA_IOC_FLASH_CHUNK_ADDR(chunkno)  (chunkno * BFI_FLASH_CHUNK_SZ_WORDS)
+ 
+-/**
+- * IOC mailbox interface
+- */
++/* IOC mailbox interface */
+ bool bfa_nw_ioc_mbox_queue(struct bfa_ioc *ioc,
+ 			struct bfa_mbox_cmd *cmd,
+ 			bfa_mbox_cmd_cbfn_t cbfn, void *cbarg);
+@@ -271,9 +252,7 @@ void bfa_nw_ioc_mbox_isr(struct bfa_ioc *ioc);
+ void bfa_nw_ioc_mbox_regisr(struct bfa_ioc *ioc, enum bfi_mclass mc,
+ 		bfa_ioc_mbox_mcfunc_t cbfn, void *cbarg);
+ 
+-/**
+- * IOC interfaces
+- */
++/* IOC interfaces */
+ 
+ #define bfa_ioc_pll_init_asic(__ioc) \
+ 	((__ioc)->ioc_hwif->ioc_pll_init((__ioc)->pcidev.pci_bar_kva, \
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+index b6b036a..5df0b0c 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+@@ -87,9 +87,7 @@ static const struct bfa_ioc_hwif nw_hwif_ct2 = {
+ 	.ioc_sync_complete   = bfa_ioc_ct_sync_complete,
+ };
+ 
+-/**
+- * Called from bfa_ioc_attach() to map asic specific calls.
+- */
++/* Called from bfa_ioc_attach() to map asic specific calls. */
+ void
+ bfa_nw_ioc_set_ct_hwif(struct bfa_ioc *ioc)
+ {
+@@ -102,9 +100,7 @@ bfa_nw_ioc_set_ct2_hwif(struct bfa_ioc *ioc)
+ 	ioc->ioc_hwif = &nw_hwif_ct2;
+ }
+ 
+-/**
+- * Return true if firmware of current driver matches the running firmware.
+- */
++/* Return true if firmware of current driver matches the running firmware. */
+ static bool
+ bfa_ioc_ct_firmware_lock(struct bfa_ioc *ioc)
+ {
+@@ -182,9 +178,7 @@ bfa_ioc_ct_firmware_unlock(struct bfa_ioc *ioc)
+ 	bfa_nw_ioc_sem_release(ioc->ioc_regs.ioc_usage_sem_reg);
+ }
+ 
+-/**
+- * Notify other functions on HB failure.
+- */
++/* Notify other functions on HB failure. */
+ static void
+ bfa_ioc_ct_notify_fail(struct bfa_ioc *ioc)
+ {
+@@ -195,9 +189,7 @@ bfa_ioc_ct_notify_fail(struct bfa_ioc *ioc)
+ 	readl(ioc->ioc_regs.alt_ll_halt);
+ }
+ 
+-/**
+- * Host to LPU mailbox message addresses
+- */
++/* Host to LPU mailbox message addresses */
+ static const struct {
+ 	u32	hfn_mbox;
+ 	u32	lpu_mbox;
+@@ -209,9 +201,7 @@ static const struct {
+ 	{ HOSTFN3_LPU_MBOX0_8, LPU_HOSTFN3_MBOX0_8, HOST_PAGE_NUM_FN3 }
+ };
+ 
+-/**
+- * Host <-> LPU mailbox command/status registers - port 0
+- */
++/* Host <-> LPU mailbox command/status registers - port 0 */
+ static const struct {
+ 	u32	hfn;
+ 	u32	lpu;
+@@ -222,9 +212,7 @@ static const struct {
+ 	{ HOSTFN3_LPU0_CMD_STAT, LPU0_HOSTFN3_CMD_STAT }
+ };
+ 
+-/**
+- * Host <-> LPU mailbox command/status registers - port 1
+- */
++/* Host <-> LPU mailbox command/status registers - port 1 */
+ static const struct {
+ 	u32	hfn;
+ 	u32	lpu;
+@@ -368,9 +356,7 @@ bfa_ioc_ct2_reg_init(struct bfa_ioc *ioc)
+ 	ioc->ioc_regs.err_set = rb + ERR_SET_REG;
+ }
+ 
+-/**
+- * Initialize IOC to port mapping.
+- */
++/* Initialize IOC to port mapping. */
+ 
+ #define FNC_PERS_FN_SHIFT(__fn)	((__fn) * 8)
+ static void
+@@ -398,9 +384,7 @@ bfa_ioc_ct2_map_port(struct bfa_ioc *ioc)
+ 	ioc->port_id = ((r32 & __FC_LL_PORT_MAP__MK) >> __FC_LL_PORT_MAP__SH);
+ }
+ 
+-/**
+- * Set interrupt mode for a function: INTX or MSIX
+- */
++/* Set interrupt mode for a function: INTX or MSIX */
+ static void
+ bfa_ioc_ct_isr_mode_set(struct bfa_ioc *ioc, bool msix)
+ {
+@@ -443,9 +427,7 @@ bfa_ioc_ct2_lpu_read_stat(struct bfa_ioc *ioc)
+ 	return false;
+ }
+ 
+-/**
+- * MSI-X resource allocation for 1860 with no asic block
+- */
++/* MSI-X resource allocation for 1860 with no asic block */
+ #define HOSTFN_MSIX_DEFAULT		64
+ #define HOSTFN_MSIX_VT_INDEX_MBOX_ERR	0x30138
+ #define HOSTFN_MSIX_VT_OFST_NUMVT	0x3013c
+@@ -473,9 +455,7 @@ bfa_nw_ioc_ct2_poweron(struct bfa_ioc *ioc)
+ 			rb + HOSTFN_MSIX_VT_INDEX_MBOX_ERR);
+ }
+ 
+-/**
+- * Cleanup hw semaphore and usecnt registers
+- */
++/* Cleanup hw semaphore and usecnt registers */
+ static void
+ bfa_ioc_ct_ownership_reset(struct bfa_ioc *ioc)
+ {
+@@ -492,9 +472,7 @@ bfa_ioc_ct_ownership_reset(struct bfa_ioc *ioc)
+ 	bfa_nw_ioc_hw_sem_release(ioc);
+ }
+ 
+-/**
+- * Synchronized IOC failure processing routines
+- */
++/* Synchronized IOC failure processing routines */
+ static bool
+ bfa_ioc_ct_sync_start(struct bfa_ioc *ioc)
+ {
+@@ -518,9 +496,7 @@ bfa_ioc_ct_sync_start(struct bfa_ioc *ioc)
+ 
+ 	return bfa_ioc_ct_sync_complete(ioc);
+ }
+-/**
+- * Synchronized IOC failure processing routines
+- */
++/* Synchronized IOC failure processing routines */
+ static void
+ bfa_ioc_ct_sync_join(struct bfa_ioc *ioc)
+ {
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_msgq.c b/drivers/net/ethernet/brocade/bna/bfa_msgq.c
+index dd36427..55067d0 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_msgq.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_msgq.c
+@@ -16,9 +16,7 @@
+  * www.brocade.com
+  */
+ 
+-/**
+- * @file bfa_msgq.c MSGQ module source file.
+- */
++/* MSGQ module source file. */
+ 
+ #include "bfi.h"
+ #include "bfa_msgq.h"
+diff --git a/drivers/net/ethernet/brocade/bna/bfi.h b/drivers/net/ethernet/brocade/bna/bfi.h
+index 0d9df69..1f24c23 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi.h
++++ b/drivers/net/ethernet/brocade/bna/bfi.h
+@@ -22,15 +22,11 @@
+ 
+ #pragma pack(1)
+ 
+-/**
+- * BFI FW image type
+- */
++/* BFI FW image type */
+ #define	BFI_FLASH_CHUNK_SZ			256	/*!< Flash chunk size */
+ #define	BFI_FLASH_CHUNK_SZ_WORDS	(BFI_FLASH_CHUNK_SZ/sizeof(u32))
+ 
+-/**
+- * Msg header common to all msgs
+- */
++/* Msg header common to all msgs */
+ struct bfi_mhdr {
+ 	u8		msg_class;	/*!< @ref enum bfi_mclass	    */
+ 	u8		msg_id;		/*!< msg opcode with in the class   */
+@@ -65,17 +61,14 @@ struct bfi_mhdr {
+ #define BFI_I2H_OPCODE_BASE	128
+ #define BFA_I2HM(_x)			((_x) + BFI_I2H_OPCODE_BASE)
+ 
+-/**
+- ****************************************************************************
++/****************************************************************************
+  *
+  * Scatter Gather Element and Page definition
+  *
+  ****************************************************************************
+  */
+ 
+-/**
+- * DMA addresses
+- */
++/* DMA addresses */
+ union bfi_addr_u {
+ 	struct {
+ 		u32	addr_lo;
+@@ -83,9 +76,7 @@ union bfi_addr_u {
+ 	} a32;
+ };
+ 
+-/**
+- * Generic DMA addr-len pair.
+- */
++/* Generic DMA addr-len pair. */
+ struct bfi_alen {
+ 	union bfi_addr_u	al_addr;	/* DMA addr of buffer	*/
+ 	u32			al_len;		/* length of buffer */
+@@ -98,26 +89,20 @@ struct bfi_alen {
+ #define BFI_LMSG_PL_WSZ	\
+ 			((BFI_LMSG_SZ - sizeof(struct bfi_mhdr)) / 4)
+ 
+-/**
+- * Mailbox message structure
+- */
++/* Mailbox message structure */
+ #define BFI_MBMSG_SZ		7
+ struct bfi_mbmsg {
+ 	struct bfi_mhdr mh;
+ 	u32		pl[BFI_MBMSG_SZ];
+ };
+ 
+-/**
+- * Supported PCI function class codes (personality)
+- */
++/* Supported PCI function class codes (personality) */
+ enum bfi_pcifn_class {
+ 	BFI_PCIFN_CLASS_FC	= 0x0c04,
+ 	BFI_PCIFN_CLASS_ETH	= 0x0200,
+ };
+ 
+-/**
+- * Message Classes
+- */
++/* Message Classes */
+ enum bfi_mclass {
+ 	BFI_MC_IOC		= 1,	/*!< IO Controller (IOC)	    */
+ 	BFI_MC_DIAG		= 2,	/*!< Diagnostic Msgs		    */
+@@ -159,15 +144,12 @@ enum bfi_mclass {
+ 
+ #define BFI_FWBOOT_ENV_OS		0
+ 
+-/**
+- *----------------------------------------------------------------------
++/*----------------------------------------------------------------------
+  *				IOC
+  *----------------------------------------------------------------------
+  */
+ 
+-/**
+- * Different asic generations
+- */
++/* Different asic generations */
+ enum bfi_asic_gen {
+ 	BFI_ASIC_GEN_CB		= 1,
+ 	BFI_ASIC_GEN_CT		= 2,
+@@ -196,9 +178,7 @@ enum bfi_ioc_i2h_msgs {
+ 	BFI_IOC_I2H_HBEAT		= BFA_I2HM(4),
+ };
+ 
+-/**
+- * BFI_IOC_H2I_GETATTR_REQ message
+- */
++/* BFI_IOC_H2I_GETATTR_REQ message */
+ struct bfi_ioc_getattr_req {
+ 	struct bfi_mhdr mh;
+ 	union bfi_addr_u	attr_addr;
+@@ -231,30 +211,22 @@ struct bfi_ioc_attr {
+ 	u32	card_type;	/*!< card type			*/
+ };
+ 
+-/**
+- * BFI_IOC_I2H_GETATTR_REPLY message
+- */
++/* BFI_IOC_I2H_GETATTR_REPLY message */
+ struct bfi_ioc_getattr_reply {
+ 	struct bfi_mhdr mh;	/*!< Common msg header		*/
+ 	u8			status;	/*!< cfg reply status		*/
+ 	u8			rsvd[3];
+ };
+ 
+-/**
+- * Firmware memory page offsets
+- */
++/* Firmware memory page offsets */
+ #define BFI_IOC_SMEM_PG0_CB	(0x40)
+ #define BFI_IOC_SMEM_PG0_CT	(0x180)
+ 
+-/**
+- * Firmware statistic offset
+- */
++/* Firmware statistic offset */
+ #define BFI_IOC_FWSTATS_OFF	(0x6B40)
+ #define BFI_IOC_FWSTATS_SZ	(4096)
+ 
+-/**
+- * Firmware trace offset
+- */
++/* Firmware trace offset */
+ #define BFI_IOC_TRC_OFF		(0x4b00)
+ #define BFI_IOC_TRC_ENTS	256
+ #define BFI_IOC_TRC_ENT_SZ	16
+@@ -299,9 +271,7 @@ struct bfi_ioc_hbeat {
+ 	u32	   hb_count;	/*!< current heart beat count	*/
+ };
+ 
+-/**
+- * IOC hardware/firmware state
+- */
++/* IOC hardware/firmware state */
+ enum bfi_ioc_state {
+ 	BFI_IOC_UNINIT		= 0,	/*!< not initialized		     */
+ 	BFI_IOC_INITING		= 1,	/*!< h/w is being initialized	     */
+@@ -345,9 +315,7 @@ enum {
+ 	((__adap_type) & (BFI_ADAPTER_TTV | BFI_ADAPTER_PROTO |	\
+ 			BFI_ADAPTER_UNSUPP))
+ 
+-/**
+- * BFI_IOC_H2I_ENABLE_REQ & BFI_IOC_H2I_DISABLE_REQ messages
+- */
++/* BFI_IOC_H2I_ENABLE_REQ & BFI_IOC_H2I_DISABLE_REQ messages */
+ struct bfi_ioc_ctrl_req {
+ 	struct bfi_mhdr mh;
+ 	u16			clscode;
+@@ -355,9 +323,7 @@ struct bfi_ioc_ctrl_req {
+ 	u32		tv_sec;
+ };
+ 
+-/**
+- * BFI_IOC_I2H_ENABLE_REPLY & BFI_IOC_I2H_DISABLE_REPLY messages
+- */
++/* BFI_IOC_I2H_ENABLE_REPLY & BFI_IOC_I2H_DISABLE_REPLY messages */
+ struct bfi_ioc_ctrl_reply {
+ 	struct bfi_mhdr mh;			/*!< Common msg header     */
+ 	u8			status;		/*!< enable/disable status */
+@@ -367,9 +333,7 @@ struct bfi_ioc_ctrl_reply {
+ };
+ 
+ #define BFI_IOC_MSGSZ   8
+-/**
+- * H2I Messages
+- */
++/* H2I Messages */
+ union bfi_ioc_h2i_msg_u {
+ 	struct bfi_mhdr mh;
+ 	struct bfi_ioc_ctrl_req enable_req;
+@@ -378,17 +342,14 @@ union bfi_ioc_h2i_msg_u {
+ 	u32			mboxmsg[BFI_IOC_MSGSZ];
+ };
+ 
+-/**
+- * I2H Messages
+- */
++/* I2H Messages */
+ union bfi_ioc_i2h_msg_u {
+ 	struct bfi_mhdr mh;
+ 	struct bfi_ioc_ctrl_reply fw_event;
+ 	u32			mboxmsg[BFI_IOC_MSGSZ];
+ };
+ 
+-/**
+- *----------------------------------------------------------------------
++/*----------------------------------------------------------------------
+  *				MSGQ
+  *----------------------------------------------------------------------
+  */
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_cna.h b/drivers/net/ethernet/brocade/bna/bfi_cna.h
+index 4eecabe..6704a43 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_cna.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_cna.h
+@@ -37,18 +37,14 @@ enum bfi_port_i2h {
+ 	BFI_PORT_I2H_CLEAR_STATS_RSP	= BFA_I2HM(4),
+ };
+ 
+-/**
+- * Generic REQ type
+- */
++/* Generic REQ type */
+ struct bfi_port_generic_req {
+ 	struct bfi_mhdr mh;		/*!< msg header			    */
+ 	u32	msgtag;		/*!< msgtag for reply		    */
+ 	u32	rsvd;
+ };
+ 
+-/**
+- * Generic RSP type
+- */
++/* Generic RSP type */
+ struct bfi_port_generic_rsp {
+ 	struct bfi_mhdr mh;		/*!< common msg header		    */
+ 	u8		status;		/*!< port enable status		    */
+@@ -56,44 +52,12 @@ struct bfi_port_generic_rsp {
+ 	u32	msgtag;		/*!< msgtag for reply		    */
+ };
+ 
+-/**
+- * @todo
+- * BFI_PORT_H2I_ENABLE_REQ
+- */
+-
+-/**
+- * @todo
+- * BFI_PORT_I2H_ENABLE_RSP
+- */
+-
+-/**
+- * BFI_PORT_H2I_DISABLE_REQ
+- */
+-
+-/**
+- * BFI_PORT_I2H_DISABLE_RSP
+- */
+-
+-/**
+- * BFI_PORT_H2I_GET_STATS_REQ
+- */
++/* BFI_PORT_H2I_GET_STATS_REQ */
+ struct bfi_port_get_stats_req {
+ 	struct bfi_mhdr mh;		/*!< common msg header		    */
+ 	union bfi_addr_u   dma_addr;
+ };
+ 
+-/**
+- * BFI_PORT_I2H_GET_STATS_RSP
+- */
+-
+-/**
+- * BFI_PORT_H2I_CLEAR_STATS_REQ
+- */
+-
+-/**
+- * BFI_PORT_I2H_CLEAR_STATS_RSP
+- */
+-
+ union bfi_port_h2i_msg_u {
+ 	struct bfi_mhdr mh;
+ 	struct bfi_port_generic_req enable_req;
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+index a90f1cf..eef6e1f 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+@@ -16,12 +16,9 @@
+  * www.brocade.com
+  */
+ 
+-/**
+- * @file bfi_enet.h BNA Hardware and Firmware Interface
+- */
++/* BNA Hardware and Firmware Interface */
+ 
+-/**
+- * Skipping statistics collection to avoid clutter.
++/* Skipping statistics collection to avoid clutter.
+  * Command is no longer needed:
+  *	MTU
+  *	TxQ Stop
+@@ -64,9 +61,7 @@ union bfi_addr_be_u {
+ 	} a32;
+ };
+ 
+-/**
+- *	T X   Q U E U E   D E F I N E S
+- */
++/*	T X   Q U E U E   D E F I N E S      */
+ /* TxQ Vector (a.k.a. Tx-Buffer Descriptor) */
+ /* TxQ Entry Opcodes */
+ #define BFI_ENET_TXQ_WI_SEND		(0x402)	/* Single Frame Transmission */
+@@ -106,10 +101,7 @@ struct bfi_enet_txq_wi_vector {			/* Tx Buffer Descriptor */
+ 	union bfi_addr_be_u	addr;
+ };
+ 
+-/**
+- *  TxQ Entry Structure
+- *
+- */
++/*  TxQ Entry Structure  */
+ struct bfi_enet_txq_entry {
+ 	union {
+ 		struct bfi_enet_txq_wi_base	base;
+@@ -124,16 +116,12 @@ struct bfi_enet_txq_entry {
+ #define BFI_ENET_TXQ_WI_L4_HDR_N_OFFSET(_hdr_size, _offset) \
+ 		(((_hdr_size) << 10) | ((_offset) & 0x3FF))
+ 
+-/**
+- *   R X   Q U E U E   D E F I N E S
+- */
++/*   R X   Q U E U E   D E F I N E S   */
+ struct bfi_enet_rxq_entry {
+ 	union bfi_addr_be_u  rx_buffer;
+ };
+ 
+-/**
+- *   R X   C O M P L E T I O N   Q U E U E   D E F I N E S
+- */
++/*   R X   C O M P L E T I O N   Q U E U E   D E F I N E S   */
+ /* CQ Entry Flags */
+ #define	BFI_ENET_CQ_EF_MAC_ERROR	(1 <<  0)
+ #define	BFI_ENET_CQ_EF_FCS_ERROR	(1 <<  1)
+@@ -174,9 +162,7 @@ struct bfi_enet_cq_entry {
+ 	u8	rxq_id;
+ };
+ 
+-/**
+- *   E N E T   C O N T R O L   P A T H   C O M M A N D S
+- */
++/*   E N E T   C O N T R O L   P A T H   C O M M A N D S   */
+ struct bfi_enet_q {
+ 	union bfi_addr_u	pg_tbl;
+ 	union bfi_addr_u	first_entry;
+@@ -222,9 +208,7 @@ struct bfi_enet_ib {
+ 	u16		rsvd;
+ };
+ 
+-/**
+- * ENET command messages
+- */
++/* ENET command messages */
+ enum bfi_enet_h2i_msgs {
+ 	/* Rx Commands */
+ 	BFI_ENET_H2I_RX_CFG_SET_REQ = 1,
+@@ -350,9 +334,7 @@ enum bfi_enet_i2h_msgs {
+ 	BFI_ENET_I2H_BW_UPDATE_AEN = BFA_I2HM(BFI_ENET_H2I_MAX + 4),
+ };
+ 
+-/**
+- *  The following error codes can be returned by the enet commands
+- */
++/* The following error codes can be returned by the enet commands */
+ enum bfi_enet_err {
+ 	BFI_ENET_CMD_OK		= 0,
+ 	BFI_ENET_CMD_FAIL	= 1,
+@@ -364,8 +346,7 @@ enum bfi_enet_err {
+ 	BFI_ENET_CMD_PORT_DISABLED = 7,	/* !< port in disabled state */
+ };
+ 
+-/**
+- * Generic Request
++/* Generic Request
+  *
+  * bfi_enet_req is used by:
+  *	BFI_ENET_H2I_RX_CFG_CLR_REQ
+@@ -375,8 +356,7 @@ struct bfi_enet_req {
+ 	struct bfi_msgq_mhdr mh;
+ };
+ 
+-/**
+- * Enable/Disable Request
++/* Enable/Disable Request
+  *
+  * bfi_enet_enable_req is used by:
+  *	BFI_ENET_H2I_RSS_ENABLE_REQ	(enet_id must be zero)
+@@ -391,9 +371,7 @@ struct bfi_enet_enable_req {
+ 	u8		rsvd[3];
+ };
+ 
+-/**
+- * Generic Response
+- */
++/* Generic Response */
+ struct bfi_enet_rsp {
+ 	struct bfi_msgq_mhdr mh;
+ 	u8		error;		/*!< if error see cmd_offset */
+@@ -401,20 +379,16 @@ struct bfi_enet_rsp {
+ 	u16		cmd_offset;	/*!< offset to invalid parameter */
+ };
+ 
+-/**
+- * GLOBAL CONFIGURATION
+- */
++/* GLOBAL CONFIGURATION */
+ 
+-/**
+- * bfi_enet_attr_req is used by:
++/* bfi_enet_attr_req is used by:
+  *	BFI_ENET_H2I_GET_ATTR_REQ
+  */
+ struct bfi_enet_attr_req {
+ 	struct bfi_msgq_mhdr	mh;
+ };
+ 
+-/**
+- * bfi_enet_attr_rsp is used by:
++/* bfi_enet_attr_rsp is used by:
+  *	BFI_ENET_I2H_GET_ATTR_RSP
+  */
+ struct bfi_enet_attr_rsp {
+@@ -427,8 +401,7 @@ struct bfi_enet_attr_rsp {
+ 	u32		rit_size;
+ };
+ 
+-/**
+- * Tx Configuration
++/* Tx Configuration
+  *
+  * bfi_enet_tx_cfg is used by:
+  *	BFI_ENET_H2I_TX_CFG_SET_REQ
+@@ -477,8 +450,7 @@ struct bfi_enet_tx_cfg_rsp {
+ 	} q_handles[BFI_ENET_TXQ_PRIO_MAX];
+ };
+ 
+-/**
+- * Rx Configuration
++/* Rx Configuration
+  *
+  * bfi_enet_rx_cfg is used by:
+  *	BFI_ENET_H2I_RX_CFG_SET_REQ
+@@ -553,8 +525,7 @@ struct bfi_enet_rx_cfg_rsp {
+ 	} q_handles[BFI_ENET_RX_QSET_MAX];
+ };
+ 
+-/**
+- * RIT
++/* RIT
+  *
+  * bfi_enet_rit_req is used by:
+  *	BFI_ENET_H2I_RIT_CFG_REQ
+@@ -566,8 +537,7 @@ struct bfi_enet_rit_req {
+ 	u8	table[BFI_ENET_RSS_RIT_MAX];
+ };
+ 
+-/**
+- * RSS
++/* RSS
+  *
+  * bfi_enet_rss_cfg_req is used by:
+  *	BFI_ENET_H2I_RSS_CFG_REQ
+@@ -591,8 +561,7 @@ struct bfi_enet_rss_cfg_req {
+ 	struct bfi_enet_rss_cfg	cfg;
+ };
+ 
+-/**
+- * MAC Unicast
++/* MAC Unicast
+  *
+  * bfi_enet_rx_vlan_req is used by:
+  *	BFI_ENET_H2I_MAC_UCAST_SET_REQ
+@@ -606,17 +575,14 @@ struct bfi_enet_ucast_req {
+ 	u8			rsvd[2];
+ };
+ 
+-/**
+- * MAC Unicast + VLAN
+- */
++/* MAC Unicast + VLAN */
+ struct bfi_enet_mac_n_vlan_req {
+ 	struct bfi_msgq_mhdr	mh;
+ 	u16			vlan_id;
+ 	mac_t			mac_addr;
+ };
+ 
+-/**
+- * MAC Multicast
++/* MAC Multicast
+  *
+  * bfi_enet_mac_mfilter_add_req is used by:
+  *	BFI_ENET_H2I_MAC_MCAST_ADD_REQ
+@@ -627,8 +593,7 @@ struct bfi_enet_mcast_add_req {
+ 	u8			rsvd[2];
+ };
+ 
+-/**
+- * bfi_enet_mac_mfilter_add_rsp is used by:
++/* bfi_enet_mac_mfilter_add_rsp is used by:
+  *	BFI_ENET_I2H_MAC_MCAST_ADD_RSP
+  */
+ struct bfi_enet_mcast_add_rsp {
+@@ -640,8 +605,7 @@ struct bfi_enet_mcast_add_rsp {
+ 	u8			rsvd1[2];
+ };
+ 
+-/**
+- * bfi_enet_mac_mfilter_del_req is used by:
++/* bfi_enet_mac_mfilter_del_req is used by:
+  *	BFI_ENET_H2I_MAC_MCAST_DEL_REQ
+  */
+ struct bfi_enet_mcast_del_req {
+@@ -650,8 +614,7 @@ struct bfi_enet_mcast_del_req {
+ 	u8			rsvd[2];
+ };
+ 
+-/**
+- * VLAN
++/* VLAN
+  *
+  * bfi_enet_rx_vlan_req is used by:
+  *	BFI_ENET_H2I_RX_VLAN_SET_REQ
+@@ -663,8 +626,7 @@ struct bfi_enet_rx_vlan_req {
+ 	u32			bit_mask[BFI_ENET_VLAN_WORDS_MAX];
+ };
+ 
+-/**
+- * PAUSE
++/* PAUSE
+  *
+  * bfi_enet_set_pause_req is used by:
+  *	BFI_ENET_H2I_SET_PAUSE_REQ
+@@ -676,8 +638,7 @@ struct bfi_enet_set_pause_req {
+ 	u8			rx_pause;	/* 1 = enable;  0 = disable */
+ };
+ 
+-/**
+- * DIAGNOSTICS
++/* DIAGNOSTICS
+  *
+  * bfi_enet_diag_lb_req is used by:
+  *      BFI_ENET_H2I_DIAG_LOOPBACK
+@@ -689,16 +650,13 @@ struct bfi_enet_diag_lb_req {
+ 	u8			enable;		/* 1 = enable;  0 = disable */
+ };
+ 
+-/**
+- * enum for Loopback opmodes
+- */
++/* enum for Loopback opmodes */
+ enum {
+ 	BFI_ENET_DIAG_LB_OPMODE_EXT = 0,
+ 	BFI_ENET_DIAG_LB_OPMODE_CBL = 1,
+ };
+ 
+-/**
+- * STATISTICS
++/* STATISTICS
+  *
+  * bfi_enet_stats_req is used by:
+  *    BFI_ENET_H2I_STATS_GET_REQ
+@@ -713,9 +671,7 @@ struct bfi_enet_stats_req {
+ 	union bfi_addr_u	host_buffer;
+ };
+ 
+-/**
+- * defines for "stats_mask" above.
+- */
++/* defines for "stats_mask" above. */
+ #define BFI_ENET_STATS_MAC    (1 << 0)    /* !< MAC Statistics */
+ #define BFI_ENET_STATS_BPC    (1 << 1)    /* !< Pause Stats from BPC */
+ #define BFI_ENET_STATS_RAD    (1 << 2)    /* !< Rx Admission Statistics */
+@@ -881,8 +837,7 @@ struct bfi_enet_stats_mac {
+ 	u64 tx_fragments;
+ };
+ 
+-/**
+- * Complete statistics, DMAed from fw to host followed by
++/* Complete statistics, DMAed from fw to host followed by
+  * BFI_ENET_I2H_STATS_GET_RSP
+  */
+ struct bfi_enet_stats {
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_reg.h b/drivers/net/ethernet/brocade/bna/bfi_reg.h
+index 0e094fe..c49fa31 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_reg.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_reg.h
+@@ -221,9 +221,7 @@ enum {
+ #define __PMM_1T_RESET_P		0x00000001
+ #define PMM_1T_RESET_REG_P1		0x00023c1c
+ 
+-/**
+- * Brocade 1860 Adapter specific defines
+- */
++/* Brocade 1860 Adapter specific defines */
+ #define CT2_PCI_CPQ_BASE		0x00030000
+ #define CT2_PCI_APP_BASE		0x00030100
+ #define CT2_PCI_ETH_BASE		0x00030400
+diff --git a/drivers/net/ethernet/brocade/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
+index 4d7a5de..ede532b 100644
+--- a/drivers/net/ethernet/brocade/bna/bna.h
++++ b/drivers/net/ethernet/brocade/bna/bna.h
+@@ -25,11 +25,7 @@
+ 
+ extern const u32 bna_napi_dim_vector[][BNA_BIAS_T_MAX];
+ 
+-/**
+- *
+- *  Macros and constants
+- *
+- */
++/*  Macros and constants  */
+ 
+ #define BNA_IOC_TIMER_FREQ		200
+ 
+@@ -356,11 +352,7 @@ do {									\
+ 	}								\
+ } while (0)
+ 
+-/**
+- *
+- *  Inline functions
+- *
+- */
++/*  Inline functions  */
+ 
+ static inline struct bna_mac *bna_mac_find(struct list_head *q, u8 *addr)
+ {
+@@ -377,15 +369,9 @@ static inline struct bna_mac *bna_mac_find(struct list_head *q, u8 *addr)
+ 
+ #define bna_attr(_bna) (&(_bna)->ioceth.attr)
+ 
+-/**
+- *
+- * Function prototypes
+- *
+- */
++/* Function prototypes */
+ 
+-/**
+- * BNA
+- */
++/* BNA */
+ 
+ /* FW response handlers */
+ void bna_bfi_stats_clr_rsp(struct bna *bna, struct bfi_msgq_mhdr *msghdr);
+@@ -413,24 +399,19 @@ struct bna_mcam_handle *bna_mcam_mod_handle_get(struct bna_mcam_mod *mod);
+ void bna_mcam_mod_handle_put(struct bna_mcam_mod *mcam_mod,
+ 			  struct bna_mcam_handle *handle);
+ 
+-/**
+- * MBOX
+- */
++/* MBOX */
+ 
+ /* API for BNAD */
+ void bna_mbox_handler(struct bna *bna, u32 intr_status);
+ 
+-/**
+- * ETHPORT
+- */
++/* ETHPORT */
+ 
+ /* Callbacks for RX */
+ void bna_ethport_cb_rx_started(struct bna_ethport *ethport);
+ void bna_ethport_cb_rx_stopped(struct bna_ethport *ethport);
+ 
+-/**
+- * TX MODULE AND TX
+- */
++/* TX MODULE AND TX */
++
+ /* FW response handelrs */
+ void bna_bfi_tx_enet_start_rsp(struct bna_tx *tx,
+ 			       struct bfi_msgq_mhdr *msghdr);
+@@ -462,9 +443,7 @@ void bna_tx_disable(struct bna_tx *tx, enum bna_cleanup_type type,
+ void bna_tx_cleanup_complete(struct bna_tx *tx);
+ void bna_tx_coalescing_timeo_set(struct bna_tx *tx, int coalescing_timeo);
+ 
+-/**
+- * RX MODULE, RX, RXF
+- */
++/* RX MODULE, RX, RXF */
+ 
+ /* FW response handlers */
+ void bna_bfi_rx_enet_start_rsp(struct bna_rx *rx,
+@@ -522,9 +501,7 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode rxmode,
+ void bna_rx_vlan_add(struct bna_rx *rx, int vlan_id);
+ void bna_rx_vlan_del(struct bna_rx *rx, int vlan_id);
+ void bna_rx_vlanfilter_enable(struct bna_rx *rx);
+-/**
+- * ENET
+- */
++/* ENET */
+ 
+ /* API for RX */
+ int bna_enet_mtu_get(struct bna_enet *enet);
+@@ -544,18 +521,14 @@ void bna_enet_mtu_set(struct bna_enet *enet, int mtu,
+ 		      void (*cbfn)(struct bnad *));
+ void bna_enet_perm_mac_get(struct bna_enet *enet, mac_t *mac);
+ 
+-/**
+- * IOCETH
+- */
++/* IOCETH */
+ 
+ /* APIs for BNAD */
+ void bna_ioceth_enable(struct bna_ioceth *ioceth);
+ void bna_ioceth_disable(struct bna_ioceth *ioceth,
+ 			enum bna_cleanup_type type);
+ 
+-/**
+- * BNAD
+- */
++/* BNAD */
+ 
+ /* Callbacks for ENET */
+ void bnad_cb_ethport_link_status(struct bnad *bnad,
+diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
+index 9ccc586..db14f69 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_enet.c
++++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
+@@ -378,9 +378,8 @@ bna_msgq_rsp_handler(void *arg, struct bfi_msgq_mhdr *msghdr)
+ 	}
+ }
+ 
+-/**
+- * ETHPORT
+- */
++/* ETHPORT */
++
+ #define call_ethport_stop_cbfn(_ethport)				\
+ do {									\
+ 	if ((_ethport)->stop_cbfn) {					\
+@@ -804,9 +803,8 @@ bna_ethport_cb_rx_stopped(struct bna_ethport *ethport)
+ 	}
+ }
+ 
+-/**
+- * ENET
+- */
++/* ENET */
++
+ #define bna_enet_chld_start(enet)					\
+ do {									\
+ 	enum bna_tx_type tx_type =					\
+@@ -1328,9 +1326,8 @@ bna_enet_perm_mac_get(struct bna_enet *enet, mac_t *mac)
+ 	*mac = bfa_nw_ioc_get_mac(&enet->bna->ioceth.ioc);
+ }
+ 
+-/**
+- * IOCETH
+- */
++/* IOCETH */
++
+ #define enable_mbox_intr(_ioceth)					\
+ do {									\
+ 	u32 intr_status;						\
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index 4c6aab2..b8c4e21 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -16,20 +16,15 @@
+  * www.brocade.com
+  */
+ 
+-/**
+- * File for interrupt macros and functions
+- */
++/* File for interrupt macros and functions */
+ 
+ #ifndef __BNA_HW_DEFS_H__
+ #define __BNA_HW_DEFS_H__
+ 
+ #include "bfi_reg.h"
+ 
+-/**
+- *
+- * SW imposed limits
+- *
+- */
++/* SW imposed limits */
++
+ #define BFI_ENET_DEF_TXQ		1
+ #define BFI_ENET_DEF_RXP		1
+ #define BFI_ENET_DEF_UCAM		1
+@@ -141,11 +136,8 @@
+ }
+ 
+ #define bna_port_id_get(_bna) ((_bna)->ioceth.ioc.port_id)
+-/**
+- *
+- *  Interrupt related bits, flags and macros
+- *
+- */
++
++/*  Interrupt related bits, flags and macros  */
+ 
+ #define IB_STATUS_BITS		0x0000ffff
+ 
+@@ -280,11 +272,7 @@ do {									\
+ 	(writel(BNA_DOORBELL_Q_PRD_IDX((_rcb)->producer_index), \
+ 		(_rcb)->q_dbell));
+ 
+-/**
+- *
+- * TxQ, RxQ, CQ related bits, offsets, macros
+- *
+- */
++/* TxQ, RxQ, CQ related bits, offsets, macros */
+ 
+ /* TxQ Entry Opcodes */
+ #define BNA_TXQ_WI_SEND			(0x402)	/* Single Frame Transmission */
+@@ -334,11 +322,7 @@ do {									\
+ 
+ #define	BNA_CQ_EF_LOCAL		(1 << 20)
+ 
+-/**
+- *
+- * Data structures
+- *
+- */
++/* Data structures */
+ 
+ struct bna_reg_offset {
+ 	u32 fn_int_status;
+@@ -371,8 +355,7 @@ struct bna_txq_wi_vector {
+ 	struct bna_dma_addr host_addr; /* Tx-Buf DMA addr */
+ };
+ 
+-/**
+- *  TxQ Entry Structure
++/*  TxQ Entry Structure
+  *
+  *  BEWARE:  Load values into this structure with correct endianess.
+  */
+diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+index 276fcb5..71144b39 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
++++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+@@ -18,9 +18,7 @@
+ #include "bna.h"
+ #include "bfi.h"
+ 
+-/**
+- * IB
+- */
++/* IB */
+ static void
+ bna_ib_coalescing_timeo_set(struct bna_ib *ib, u8 coalescing_timeo)
+ {
+@@ -29,9 +27,7 @@ bna_ib_coalescing_timeo_set(struct bna_ib *ib, u8 coalescing_timeo)
+ 				(u32)ib->coalescing_timeo, 0);
+ }
+ 
+-/**
+- * RXF
+- */
++/* RXF */
+ 
+ #define bna_rxf_vlan_cfg_soft_reset(rxf)				\
+ do {									\
+@@ -1312,9 +1308,7 @@ bna_rxf_vlan_strip_cfg_apply(struct bna_rxf *rxf)
+ 	return 0;
+ }
+ 
+-/**
+- * RX
+- */
++/* RX */
+ 
+ #define	BNA_GET_RXQS(qcfg)	(((qcfg)->rxp_type == BNA_RXP_SINGLE) ?	\
+ 	(qcfg)->num_paths : ((qcfg)->num_paths * 2))
+@@ -2791,9 +2785,8 @@ const u32 bna_napi_dim_vector[BNA_LOAD_T_MAX][BNA_BIAS_T_MAX] = {
+ 	{1, 2},
+ };
+ 
+-/**
+- * TX
+- */
++/* TX */
++
+ #define call_tx_stop_cbfn(tx)						\
+ do {									\
+ 	if ((tx)->stop_cbfn) {						\
+diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
+index e8d3ab7..d3eb8bd 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_types.h
++++ b/drivers/net/ethernet/brocade/bna/bna_types.h
+@@ -23,11 +23,7 @@
+ #include "bfa_cee.h"
+ #include "bfa_msgq.h"
+ 
+-/**
+- *
+- * Forward declarations
+- *
+- */
++/* Forward declarations */
+ 
+ struct bna_mcam_handle;
+ struct bna_txq;
+@@ -40,11 +36,7 @@ struct bna_enet;
+ struct bna;
+ struct bnad;
+ 
+-/**
+- *
+- * Enums, primitive data types
+- *
+- */
++/* Enums, primitive data types */
+ 
+ enum bna_status {
+ 	BNA_STATUS_T_DISABLED	= 0,
+@@ -331,11 +323,7 @@ struct bna_attr {
+ 	int			max_rit_size;
+ };
+ 
+-/**
+- *
+- * IOCEth
+- *
+- */
++/* IOCEth */
+ 
+ struct bna_ioceth {
+ 	bfa_fsm_t		fsm;
+@@ -351,11 +339,7 @@ struct bna_ioceth {
+ 	struct bna *bna;
+ };
+ 
+-/**
+- *
+- * Enet
+- *
+- */
++/* Enet */
+ 
+ /* Pause configuration */
+ struct bna_pause_config {
+@@ -390,11 +374,7 @@ struct bna_enet {
+ 	struct bna *bna;
+ };
+ 
+-/**
+- *
+- * Ethport
+- *
+- */
++/* Ethport */
+ 
+ struct bna_ethport {
+ 	bfa_fsm_t		fsm;
+@@ -419,11 +399,7 @@ struct bna_ethport {
+ 	struct bna *bna;
+ };
+ 
+-/**
+- *
+- * Interrupt Block
+- *
+- */
++/* Interrupt Block */
+ 
+ /* Doorbell structure */
+ struct bna_ib_dbell {
+@@ -447,11 +423,7 @@ struct bna_ib {
+ 	int			interpkt_timeo;
+ };
+ 
+-/**
+- *
+- * Tx object
+- *
+- */
++/* Tx object */
+ 
+ /* Tx datapath control structure */
+ #define BNA_Q_NAME_SIZE		16
+@@ -585,11 +557,7 @@ struct bna_tx_mod {
+ 	struct bna *bna;
+ };
+ 
+-/**
+- *
+- * Rx object
+- *
+- */
++/* Rx object */
+ 
+ /* Rx datapath control structure */
+ struct bna_rcb {
+@@ -898,11 +866,7 @@ struct bna_rx_mod {
+ 	u32		rid_mask;
+ };
+ 
+-/**
+- *
+- * CAM
+- *
+- */
++/* CAM */
+ 
+ struct bna_ucam_mod {
+ 	struct bna_mac *ucmac;		/* BFI_MAX_UCMAC entries */
+@@ -927,11 +891,7 @@ struct bna_mcam_mod {
+ 	struct bna *bna;
+ };
+ 
+-/**
+- *
+- * Statistics
+- *
+- */
++/* Statistics */
+ 
+ struct bna_stats {
+ 	struct bna_dma_addr	hw_stats_dma;
+@@ -949,11 +909,7 @@ struct bna_stats_mod {
+ 	struct bfi_enet_stats_req stats_clr;
+ };
+ 
+-/**
+- *
+- * BNA
+- *
+- */
++/* BNA */
+ 
+ struct bna {
+ 	struct bna_ident ident;
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 67cd2ed0..b441f33 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -1302,8 +1302,7 @@ bnad_txrx_irq_alloc(struct bnad *bnad, enum bnad_intr_source src,
+ 	return 0;
+ }
+ 
+-/**
+- * NOTE: Should be called for MSIX only
++/* NOTE: Should be called for MSIX only
+  * Unregisters Tx MSIX vector(s) from the kernel
+  */
+ static void
+@@ -1322,8 +1321,7 @@ bnad_tx_msix_unregister(struct bnad *bnad, struct bnad_tx_info *tx_info,
+ 	}
+ }
+ 
+-/**
+- * NOTE: Should be called for MSIX only
++/* NOTE: Should be called for MSIX only
+  * Registers Tx MSIX vector(s) and ISR(s), cookie with the kernel
+  */
+ static int
+@@ -1354,8 +1352,7 @@ err_return:
+ 	return -1;
+ }
+ 
+-/**
+- * NOTE: Should be called for MSIX only
++/* NOTE: Should be called for MSIX only
+  * Unregisters Rx MSIX vector(s) from the kernel
+  */
+ static void
+@@ -1375,8 +1372,7 @@ bnad_rx_msix_unregister(struct bnad *bnad, struct bnad_rx_info *rx_info,
+ 	}
+ }
+ 
+-/**
+- * NOTE: Should be called for MSIX only
++/* NOTE: Should be called for MSIX only
+  * Registers Tx MSIX vector(s) and ISR(s), cookie with the kernel
+  */
+ static int
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 72742be..d783392 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -389,9 +389,7 @@ extern void bnad_netdev_hwstats_fill(struct bnad *bnad,
+ void	bnad_debugfs_init(struct bnad *bnad);
+ void	bnad_debugfs_uninit(struct bnad *bnad);
+ 
+-/**
+- * MACROS
+- */
++/* MACROS */
+ /* To set & get the stats counters */
+ #define BNAD_UPDATE_CTR(_bnad, _ctr)				\
+ 				(((_bnad)->stats.drv_stats._ctr)++)
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+index 4fb47f1..cb66f57 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+@@ -376,9 +376,7 @@ int ehea_destroy_eq(struct ehea_eq *eq)
+ 	return 0;
+ }
+ 
+-/**
+- * allocates memory for a queue and registers pages in phyp
+- */
++/* allocates memory for a queue and registers pages in phyp */
+ static int ehea_qp_alloc_register(struct ehea_qp *qp, struct hw_queue *hw_queue,
+ 			   int nr_pages, int wqe_size, int act_nr_sges,
+ 			   struct ehea_adapter *adapter, int h_call_q_selector)
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 183a4a3..3bfbb8d 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -721,9 +721,7 @@ void e1000_reset(struct e1000_adapter *adapter)
+ 	e1000_release_manageability(adapter);
+ }
+ 
+-/**
+- *  Dump the eeprom for users having checksum issues
+- **/
++/* Dump the eeprom for users having checksum issues */
+ static void e1000_dump_eeprom(struct e1000_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+@@ -3056,14 +3054,13 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
+ 	mmiowb();
+ }
+ 
+-/**
+- * 82547 workaround to avoid controller hang in half-duplex environment.
++/* 82547 workaround to avoid controller hang in half-duplex environment.
+  * The workaround is to avoid queuing a large packet that would span
+  * the internal Tx FIFO ring boundary by notifying the stack to resend
+  * the packet at a later time.  This gives the Tx FIFO an opportunity to
+  * flush all packets.  When that occurs, we reset the Tx FIFO pointers
+  * to the beginning of the Tx FIFO.
+- **/
++ */
+ 
+ #define E1000_FIFO_HDR			0x10
+ #define E1000_82547_PAD_LEN		0x3E0
 diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index 875dd5e..76bf159 100644
+index 76bf159..59ef568 100644
 --- a/drivers/net/ethernet/micrel/ks8851_mll.c
 +++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -1103,7 +1103,7 @@ static void ks_set_grpaddr(struct ks_net *ks)
- 	}
- }  /* ks_set_grpaddr */
- 
--/*
-+/**
- * ks_clear_mcast - clear multicast information
- *
- * @ks : The chip information
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index eaf9ff0..24a4c57 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -3913,7 +3913,7 @@ static void hw_start_rx(struct ksz_hw *hw)
- 		hw->rx_stop = 2;
- }
- 
--/*
-+/**
-  * hw_stop_rx - stop receiving
-  * @hw: 	The hardware instance.
-  *
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index e7cd587..d958c22 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -3377,7 +3377,7 @@ static int wait_for_cmd_complete(void __iomem *addr, u64 busy_bit,
- 	} while (cnt < 20);
- 	return ret;
- }
--/*
-+/**
-  * check_pci_device_id - Checks if the device id is supported
-  * @id : device id
-  * Description: Function to check if the pci device id is supported by driver.
-@@ -5238,7 +5238,7 @@ static u64 do_s2io_read_unicast_mc(struct s2io_nic *sp, int offset)
- }
- 
- /**
-- * s2io_set_mac_addr driver entry point
-+ * s2io_set_mac_addr - driver entry point
+@@ -16,8 +16,7 @@
+  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
   */
  
- static int s2io_set_mac_addr(struct net_device *dev, void *p)
-@@ -6088,7 +6088,7 @@ static int s2io_bist_test(struct s2io_nic *sp, uint64_t *data)
- }
+-/**
+- * Supports:
++/* Supports:
+  * KS8851 16bit MLL chip from Micrel Inc.
+  */
  
- /**
-- * s2io-link_test - verifies the link state of the nic
-+ * s2io_link_test - verifies the link state of the nic
-  * @sp ; private member of the device structure, which is a pointer to the
-  * s2io_nic structure.
-  * @data: variable that returns the result of each of the test conducted by
-@@ -6116,9 +6116,9 @@ static int s2io_link_test(struct s2io_nic *sp, uint64_t *data)
+@@ -465,8 +464,7 @@ static int msg_enable;
+ #define BE1             0x2000      /* Byte Enable 1 */
+ #define BE0             0x1000      /* Byte Enable 0 */
  
- /**
-  * s2io_rldram_test - offline test for access to the RldRam chip on the NIC
-- * @sp - private member of the device structure, which is a pointer to the
-+ * @sp: private member of the device structure, which is a pointer to the
-  * s2io_nic structure.
-- * @data - variable that returns the result of each of the test
-+ * @data: variable that returns the result of each of the test
-  * conducted by the driver.
-  * Description:
-  *  This is one of the offline test that tests the read and write
+-/**
+- * register read/write calls.
++/* register read/write calls.
+  *
+  * All these calls issue transactions to access the chip's registers. They
+  * all require that the necessary lock is held to prevent accesses when the
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
+index 35f3e75..36ca40f 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.h
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.h
+@@ -430,8 +430,7 @@ void vxge_initialize_ethtool_ops(struct net_device *ndev);
+ enum vxge_hw_status vxge_reset_all_vpaths(struct vxgedev *vdev);
+ int vxge_fw_upgrade(struct vxgedev *vdev, char *fw_name, int override);
+ 
+-/**
+- * #define VXGE_DEBUG_INIT: debug for initialization functions
++/* #define VXGE_DEBUG_INIT: debug for initialization functions
+  * #define VXGE_DEBUG_TX	 : debug transmit related functions
+  * #define VXGE_DEBUG_RX  : debug recevice related functions
+  * #define VXGE_DEBUG_MEM : debug memory module
 diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 928913c..c503fbe 100644
+index c503fbe..8b7c512 100644
 --- a/drivers/net/ethernet/nvidia/forcedeth.c
 +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -3218,7 +3218,7 @@ static void nv_force_linkspeed(struct net_device *dev, int speed, int duplex)
+@@ -3552,8 +3552,7 @@ static irqreturn_t nv_nic_irq(int foo, void *data)
+ 	return IRQ_HANDLED;
  }
  
- /**
-- * nv_update_linkspeed: Setup the MAC according to the link partner
-+ * nv_update_linkspeed - Setup the MAC according to the link partner
-  * @dev: Network device to be configured
+-/**
+- * All _optimized functions are used to help increase performance
++/* All _optimized functions are used to help increase performance
+  * (reduce CPU and increase throughput). They use descripter version 3,
+  * compiler directives, and reduce memory accesses.
+  */
+diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+index 0310b9f0..db4beed 100644
+--- a/drivers/net/ethernet/sfc/mcdi_pcol.h
++++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
+@@ -48,8 +48,7 @@
+ 
+ /* Unused commands: 0x23, 0x27, 0x30, 0x31 */
+ 
+-/**
+- * MCDI version 1
++/* MCDI version 1
   *
-  * The function queries the PHY and checks if there is a link partner.
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-index e48f084..5ae03e8 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-@@ -60,7 +60,7 @@ static void pch_gbe_plat_get_bus_info(struct pch_gbe_hw *hw)
- /**
-  * pch_gbe_plat_init_hw - Initialize hardware
-  * @hw:	Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed-EBUSY
-  */
-@@ -108,7 +108,7 @@ static void pch_gbe_plat_init_function_pointers(struct pch_gbe_hw *hw)
- /**
-  * pch_gbe_hal_setup_init_funcs - Initializes function pointers
-  * @hw:	Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	ENOSYS:	Function is not registered
-  */
-@@ -137,7 +137,7 @@ inline void pch_gbe_hal_get_bus_info(struct pch_gbe_hw *hw)
- /**
-  * pch_gbe_hal_init_hw - Initialize hardware
-  * @hw:	Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	ENOSYS:	Function is not registered
-  */
-@@ -155,7 +155,7 @@ inline s32 pch_gbe_hal_init_hw(struct pch_gbe_hw *hw)
-  * @hw:	    Pointer to the HW structure
-  * @offset: The register to read
-  * @data:   The buffer to store the 16-bit read.
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
-@@ -172,7 +172,7 @@ inline s32 pch_gbe_hal_read_phy_reg(struct pch_gbe_hw *hw, u32 offset,
-  * @hw:	    Pointer to the HW structure
-  * @offset: The register to read
-  * @data:   The value to write.
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
-@@ -211,7 +211,7 @@ inline void pch_gbe_hal_phy_sw_reset(struct pch_gbe_hw *hw)
- /**
-  * pch_gbe_hal_read_mac_addr - Reads MAC address
-  * @hw:	Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	ENOSYS:	Function is not registered
-  */
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-index ac4e72d..9dbf38c 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-@@ -77,7 +77,7 @@ static const struct pch_gbe_stats pch_gbe_gstrings_stats[] = {
-  * pch_gbe_get_settings - Get device-specific settings
-  * @netdev: Network interface device structure
-  * @ecmd:   Ethtool command
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-@@ -100,7 +100,7 @@ static int pch_gbe_get_settings(struct net_device *netdev,
-  * pch_gbe_set_settings - Set device-specific settings
-  * @netdev: Network interface device structure
-  * @ecmd:   Ethtool command
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-@@ -220,7 +220,7 @@ static void pch_gbe_get_wol(struct net_device *netdev,
-  * pch_gbe_set_wol - Turn Wake-on-Lan on or off
-  * @netdev: Network interface device structure
-  * @wol:    Pointer of wake-on-Lan information straucture
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-@@ -248,7 +248,7 @@ static int pch_gbe_set_wol(struct net_device *netdev,
- /**
-  * pch_gbe_nway_reset - Restart autonegotiation
-  * @netdev: Network interface device structure
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-@@ -398,7 +398,7 @@ static void pch_gbe_get_pauseparam(struct net_device *netdev,
-  * pch_gbe_set_pauseparam - Set pause paramters
-  * @netdev:  Network interface device structure
-  * @pause:   Pause parameters structure
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 3787c64..b100656 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -301,7 +301,7 @@ inline void pch_gbe_mac_load_mac_addr(struct pch_gbe_hw *hw)
- /**
-  * pch_gbe_mac_read_mac_addr - Read MAC address
-  * @hw:	            Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  */
- s32 pch_gbe_mac_read_mac_addr(struct pch_gbe_hw *hw)
-@@ -483,7 +483,7 @@ static void pch_gbe_mac_mc_addr_list_update(struct pch_gbe_hw *hw,
- /**
-  * pch_gbe_mac_force_mac_fc - Force the MAC's flow control settings
-  * @hw:	            Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-@@ -639,7 +639,7 @@ static void pch_gbe_mac_set_pause_packet(struct pch_gbe_hw *hw)
- /**
-  * pch_gbe_alloc_queues - Allocate memory for all rings
-  * @adapter:  Board private structure to initialize
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
-@@ -670,7 +670,7 @@ static void pch_gbe_init_stats(struct pch_gbe_adapter *adapter)
- /**
-  * pch_gbe_init_phy - Initialize PHY
-  * @adapter:  Board private structure to initialize
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
-@@ -720,7 +720,7 @@ static int pch_gbe_init_phy(struct pch_gbe_adapter *adapter)
-  * @netdev: Network interface device structure
-  * @addr:   Phy ID
-  * @reg:    Access location
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
-@@ -1364,7 +1364,7 @@ static void pch_gbe_start_receive(struct pch_gbe_hw *hw)
-  * pch_gbe_intr - Interrupt Handler
-  * @irq:   Interrupt number
-  * @data:  Pointer to a network interface device structure
-- * Returns
-+ * Returns:
-  *	- IRQ_HANDLED:	Our interrupt
-  *	- IRQ_NONE:	Not our interrupt
-  */
-@@ -1566,7 +1566,7 @@ static void pch_gbe_alloc_tx_buffers(struct pch_gbe_adapter *adapter,
-  * pch_gbe_clean_tx - Reclaim resources after transmit completes
-  * @adapter:   Board private structure
-  * @tx_ring:   Tx descriptor ring
-- * Returns
-+ * Returns:
-  *	true:  Cleaned the descriptor
-  *	false: Not cleaned the descriptor
-  */
-@@ -1660,7 +1660,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
-  * @rx_ring:     Rx descriptor ring
-  * @work_done:   Completed count
-  * @work_to_do:  Request count
-- * Returns
-+ * Returns:
-  *	true:  Cleaned the descriptor
-  *	false: Not cleaned the descriptor
-  */
-@@ -1775,7 +1775,7 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
-  * pch_gbe_setup_tx_resources - Allocate Tx resources (Descriptors)
-  * @adapter:  Board private structure
-  * @tx_ring:  Tx descriptor ring (for a specific queue) to setup
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed
-  */
-@@ -1822,7 +1822,7 @@ int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
-  * pch_gbe_setup_rx_resources - Allocate Rx resources (Descriptors)
-  * @adapter:  Board private structure
-  * @rx_ring:  Rx descriptor ring (for a specific queue) to setup
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed
-  */
-@@ -1899,7 +1899,7 @@ void pch_gbe_free_rx_resources(struct pch_gbe_adapter *adapter,
- /**
-  * pch_gbe_request_irq - Allocate an interrupt line
-  * @adapter:  Board private structure
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed
-  */
-@@ -1932,7 +1932,7 @@ static int pch_gbe_request_irq(struct pch_gbe_adapter *adapter)
- /**
-  * pch_gbe_up - Up GbE network device
-  * @adapter:  Board private structure
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed
-  */
-@@ -2018,7 +2018,7 @@ void pch_gbe_down(struct pch_gbe_adapter *adapter)
- /**
-  * pch_gbe_sw_init - Initialize general software structures (struct pch_gbe_adapter)
-  * @adapter:  Board private structure to initialize
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed
-  */
-@@ -2057,7 +2057,7 @@ static int pch_gbe_sw_init(struct pch_gbe_adapter *adapter)
- /**
-  * pch_gbe_open - Called when a network interface is made active
-  * @netdev:	Network interface device structure
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	Negative value:	Failed
-  */
-@@ -2097,7 +2097,7 @@ err_setup_tx:
- /**
-  * pch_gbe_stop - Disables a network interface
-  * @netdev:  Network interface device structure
-- * Returns
-+ * Returns:
-  *	0: Successfully
-  */
- static int pch_gbe_stop(struct net_device *netdev)
-@@ -2117,7 +2117,7 @@ static int pch_gbe_stop(struct net_device *netdev)
-  * pch_gbe_xmit_frame - Packet transmitting start
-  * @skb:     Socket buffer structure
-  * @netdev:  Network interface device structure
-- * Returns
-+ * Returns:
-  *	- NETDEV_TX_OK:   Normal end
-  *	- NETDEV_TX_BUSY: Error end
-  */
-@@ -2225,7 +2225,7 @@ static void pch_gbe_set_multi(struct net_device *netdev)
-  * pch_gbe_set_mac - Change the Ethernet Address of the NIC
-  * @netdev: Network interface device structure
-  * @addr:   Pointer to an address structure
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	-EADDRNOTAVAIL:	Failed
-  */
-@@ -2256,7 +2256,7 @@ static int pch_gbe_set_mac(struct net_device *netdev, void *addr)
-  * pch_gbe_change_mtu - Change the Maximum Transfer Unit
-  * @netdev:   Network interface device structure
-  * @new_mtu:  New value for maximum frame size
-- * Returns
-+ * Returns:
-  *	0:		Successfully
-  *	-EINVAL:	Failed
-  */
-@@ -2309,7 +2309,7 @@ static int pch_gbe_change_mtu(struct net_device *netdev, int new_mtu)
-  * pch_gbe_set_features - Reset device after features changed
-  * @netdev:   Network interface device structure
-  * @features:  New features
-- * Returns
-+ * Returns:
-  *	0:		HW state updated successfully
-  */
- static int pch_gbe_set_features(struct net_device *netdev,
-@@ -2334,7 +2334,7 @@ static int pch_gbe_set_features(struct net_device *netdev,
-  * @netdev:   Network interface device structure
-  * @ifr:      Pointer to ifr structure
-  * @cmd:      Control command
-- * Returns
-+ * Returns:
-  *	0:	Successfully
-  *	Negative value:	Failed
-  */
-@@ -2369,7 +2369,7 @@ static void pch_gbe_tx_timeout(struct net_device *netdev)
-  * pch_gbe_napi_poll - NAPI receive and transfer polling callback
-  * @napi:    Pointer of polling device struct
-  * @budget:  The maximum number of a packet
-- * Returns
-+ * Returns:
-  *	false:  Exit the polling mode
-  *	true:   Continue the polling mode
-  */
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-index 29e23be..8653c3b 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_param.c
-@@ -139,7 +139,7 @@ MODULE_PARM_DESC(XsumTX, "Disable or enable Transmit Checksum offload");
- /**
-  * pch_gbe_option - Force the MAC's flow control settings
-  * @hw:	            Pointer to the HW structure
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-@@ -220,7 +220,7 @@ static const struct pch_gbe_opt_list fc_list[] = {
-  * @value:    value
-  * @opt:      option
-  * @adapter:  Board private structure
-- * Returns
-+ * Returns:
-  *	0:			Successful.
-  *	Negative value:		Failed.
-  */
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 0e57535..a1965c0 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -527,7 +527,7 @@ struct efx_phy_operations {
- };
- 
- /**
-- * @enum efx_phy_mode - PHY operating mode flags
-+ * enum efx_phy_mode - PHY operating mode flags
-  * @PHY_MODE_NORMAL: on and should pass traffic
-  * @PHY_MODE_TX_DISABLED: on with TX disabled
-  * @PHY_MODE_LOW_POWER: set to low power through MDIO
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 243e91f..fca61fe 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -336,6 +336,7 @@ static void efx_recycle_rx_buffer(struct efx_channel *channel,
- /**
-  * efx_fast_push_rx_descriptors - push new RX descriptors quickly
-  * @rx_queue:		RX descriptor queue
-+ *
-  * This will aim to fill the RX descriptor queue up to
-  * @rx_queue->@max_fill. If there is insufficient atomic
-  * memory to do so, a slow fill will be scheduled.
-diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
-index 8814b2f..8d15f7a 100644
---- a/drivers/net/ethernet/smsc/smc911x.c
-+++ b/drivers/net/ethernet/smsc/smc911x.c
-@@ -773,7 +773,7 @@ static int smc911x_phy_fixed(struct net_device *dev)
- 	return 1;
- }
- 
--/*
-+/**
-  * smc911x_phy_reset - reset the phy
-  * @dev: net device
-  * @phy: phy address
-@@ -819,7 +819,7 @@ static int smc911x_phy_reset(struct net_device *dev, int phy)
- 	return reg & PMT_CTRL_PHY_RST_;
- }
- 
--/*
-+/**
-  * smc911x_phy_powerdown - powerdown phy
-  * @dev: net device
-  * @phy: phy address
-@@ -837,7 +837,7 @@ static void smc911x_phy_powerdown(struct net_device *dev, int phy)
- 	SMC_SET_PHY_BMCR(lp, phy, bmcr);
- }
- 
--/*
-+/**
-  * smc911x_phy_check_media - check the media status and adjust BMCR
-  * @dev: net device
-  * @init: set true for initialisation
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index fee4493..318adc9 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -942,7 +942,7 @@ static int smc_phy_fixed(struct net_device *dev)
- 	return 1;
- }
- 
--/*
-+/**
-  * smc_phy_reset - reset the phy
-  * @dev: net device
-  * @phy: phy address
-@@ -976,7 +976,7 @@ static int smc_phy_reset(struct net_device *dev, int phy)
- 	return bmcr & BMCR_RESET;
- }
- 
--/*
-+/**
-  * smc_phy_powerdown - powerdown phy
-  * @dev: net device
-  *
-@@ -1000,7 +1000,7 @@ static void smc_phy_powerdown(struct net_device *dev)
- 	smc_phy_write(dev, phy, MII_BMCR, bmcr | BMCR_PDOWN);
- }
- 
--/*
-+/**
-  * smc_phy_check_media - check the media status and adjust TCR
-  * @dev: net device
-  * @init: set true for initialisation
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index cf826e6..13afb8e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -125,7 +125,7 @@ err_out_req_reg_failed:
- }
- 
- /**
-- * stmmac_dvr_remove
-+ * stmmac_pci_remove
-  *
-  * @pdev: platform device pointer
-  * Description: this function calls the main to free the net resources
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index 447a693..6ce9edd 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -137,14 +137,15 @@ static void print_eth_id(struct net_device *ndev)
- #define bdx_disable_interrupts(priv)	\
- 	do { WRITE_REG(priv, regIMR, 0); } while (0)
- 
--/* bdx_fifo_init
-- * create TX/RX descriptor fifo for host-NIC communication.
-+/**
-+ * bdx_fifo_init - create TX/RX descriptor fifo for host-NIC communication.
-+ * @priv: NIC private structure
-+ * @f: fifo to initialize
-+ * @fsz_type: fifo size type: 0-4KB, 1-8KB, 2-16KB, 3-32KB
-+ * @reg_XXX: offsets of registers relative to base address
-+ *
-  * 1K extra space is allocated at the end of the fifo to simplify
-  * processing of descriptors that wraps around fifo's end
-- * @priv - NIC private structure
-- * @f - fifo to initialize
-- * @fsz_type - fifo size type: 0-4KB, 1-8KB, 2-16KB, 3-32KB
-- * @reg_XXX - offsets of registers relative to base address
-  *
-  * Returns 0 on success, negative value on failure
-  *
-@@ -177,9 +178,10 @@ bdx_fifo_init(struct bdx_priv *priv, struct fifo *f, int fsz_type,
- 	RET(0);
- }
- 
--/* bdx_fifo_free - free all resources used by fifo
-- * @priv - NIC private structure
-- * @f - fifo to release
-+/**
-+ * bdx_fifo_free - free all resources used by fifo
-+ * @priv: NIC private structure
-+ * @f: fifo to release
-  */
- static void bdx_fifo_free(struct bdx_priv *priv, struct fifo *f)
- {
-@@ -192,9 +194,9 @@ static void bdx_fifo_free(struct bdx_priv *priv, struct fifo *f)
- 	RET();
- }
- 
--/*
-+/**
-  * bdx_link_changed - notifies OS about hw link state.
-- * @bdx_priv - hw adapter structure
-+ * @priv: hw adapter structure
-  */
- static void bdx_link_changed(struct bdx_priv *priv)
- {
-@@ -233,10 +235,10 @@ static void bdx_isr_extra(struct bdx_priv *priv, u32 isr)
- 
- }
- 
--/* bdx_isr - Interrupt Service Routine for Bordeaux NIC
-- * @irq - interrupt number
-- * @ndev - network device
-- * @regs - CPU registers
-+/**
-+ * bdx_isr_napi - Interrupt Service Routine for Bordeaux NIC
-+ * @irq: interrupt number
-+ * @dev: network device
-  *
-  * Return IRQ_NONE if it was not our interrupt, IRQ_HANDLED - otherwise
-  *
-@@ -307,8 +309,10 @@ static int bdx_poll(struct napi_struct *napi, int budget)
- 	return work_done;
- }
- 
--/* bdx_fw_load - loads firmware to NIC
-- * @priv - NIC private structure
-+/**
-+ * bdx_fw_load - loads firmware to NIC
-+ * @priv: NIC private structure
-+ *
-  * Firmware is loaded via TXD fifo, so it must be initialized first.
-  * Firware must be loaded once per NIC not per PCI device provided by NIC (NIC
-  * can have few of them). So all drivers use semaphore register to choose one
-@@ -380,8 +384,9 @@ static void bdx_restore_mac(struct net_device *ndev, struct bdx_priv *priv)
- 	RET();
- }
- 
--/* bdx_hw_start - inits registers and starts HW's Rx and Tx engines
-- * @priv - NIC private structure
-+/**
-+ * bdx_hw_start - inits registers and starts HW's Rx and Tx engines
-+ * @priv: NIC private structure
-  */
- static int bdx_hw_start(struct bdx_priv *priv)
- {
-@@ -691,12 +696,13 @@ static int bdx_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd)
- 		RET(-EOPNOTSUPP);
- }
- 
--/*
-+/**
-  * __bdx_vlan_rx_vid - private helper for adding/killing VLAN vid
-- *                     by passing VLAN filter table to hardware
-- * @ndev network device
-- * @vid  VLAN vid
-- * @op   add or kill operation
-+ * @ndev: network device
-+ * @vid:  VLAN vid
-+ * @op:   add or kill operation
-+ *
-+ * Passes VLAN filter table to hardware
-  */
- static void __bdx_vlan_rx_vid(struct net_device *ndev, uint16_t vid, int enable)
- {
-@@ -722,10 +728,10 @@ static void __bdx_vlan_rx_vid(struct net_device *ndev, uint16_t vid, int enable)
- 	RET();
- }
- 
--/*
-+/**
-  * bdx_vlan_rx_add_vid - kernel hook for adding VLAN vid to hw filtering table
-- * @ndev network device
-- * @vid  VLAN vid to add
-+ * @ndev: network device
-+ * @vid:  VLAN vid to add
-  */
- static int bdx_vlan_rx_add_vid(struct net_device *ndev, uint16_t vid)
- {
-@@ -733,10 +739,10 @@ static int bdx_vlan_rx_add_vid(struct net_device *ndev, uint16_t vid)
- 	return 0;
- }
- 
--/*
-+/**
-  * bdx_vlan_rx_kill_vid - kernel hook for killing VLAN vid in hw filtering table
-- * @ndev network device
-- * @vid  VLAN vid to kill
-+ * @ndev: network device
-+ * @vid:  VLAN vid to kill
-  */
- static int bdx_vlan_rx_kill_vid(struct net_device *ndev, unsigned short vid)
- {
-@@ -974,8 +980,9 @@ static inline void bdx_rxdb_free_elem(struct rxdb *db, int n)
-  *     Rx Init                                                           *
-  *************************************************************************/
- 
--/* bdx_rx_init - initialize RX all related HW and SW resources
-- * @priv - NIC private structure
-+/**
-+ * bdx_rx_init - initialize RX all related HW and SW resources
-+ * @priv: NIC private structure
-  *
-  * Returns 0 on success, negative value on failure
-  *
-@@ -1016,9 +1023,10 @@ err_mem:
- 	return -ENOMEM;
- }
- 
--/* bdx_rx_free_skbs - frees and unmaps all skbs allocated for the fifo
-- * @priv - NIC private structure
-- * @f - RXF fifo
-+/**
-+ * bdx_rx_free_skbs - frees and unmaps all skbs allocated for the fifo
-+ * @priv: NIC private structure
-+ * @f: RXF fifo
-  */
- static void bdx_rx_free_skbs(struct bdx_priv *priv, struct rxf_fifo *f)
- {
-@@ -1045,8 +1053,10 @@ static void bdx_rx_free_skbs(struct bdx_priv *priv, struct rxf_fifo *f)
- 	}
- }
- 
--/* bdx_rx_free - release all Rx resources
-- * @priv - NIC private structure
-+/**
-+ * bdx_rx_free - release all Rx resources
-+ * @priv: NIC private structure
-+ *
-  * It assumes that Rx is desabled in HW
-  */
- static void bdx_rx_free(struct bdx_priv *priv)
-@@ -1067,9 +1077,11 @@ static void bdx_rx_free(struct bdx_priv *priv)
-  *     Rx Engine                                                         *
-  *************************************************************************/
- 
--/* bdx_rx_alloc_skbs - fill rxf fifo with new skbs
-- * @priv - nic's private structure
-- * @f - RXF fifo that needs skbs
-+/**
-+ * bdx_rx_alloc_skbs - fill rxf fifo with new skbs
-+ * @priv: nic's private structure
-+ * @f: RXF fifo that needs skbs
-+ *
-  * It allocates skbs, build rxf descs and push it (rxf descr) into rxf fifo.
-  * skb's virtual and physical addresses are stored in skb db.
-  * To calculate free space, func uses cached values of RPTR and WPTR
-@@ -1179,13 +1191,15 @@ static void bdx_recycle_skb(struct bdx_priv *priv, struct rxd_desc *rxdd)
- 	RET();
- }
- 
--/* bdx_rx_receive - receives full packets from RXD fifo and pass them to OS
-+/**
-+ * bdx_rx_receive - receives full packets from RXD fifo and pass them to OS
-  * NOTE: a special treatment is given to non-continuous descriptors
-  * that start near the end, wraps around and continue at the beginning. a second
-  * part is copied right after the first, and then descriptor is interpreted as
-  * normal. fifo has an extra space to allow such operations
-- * @priv - nic's private structure
-- * @f - RXF fifo that needs skbs
-+ * @priv: nic's private structure
-+ * @f: RXF fifo that needs skbs
-+ * @budget: maximum number of packets to receive
-  */
- 
- /* TBD: replace memcpy func call by explicite inline asm */
-@@ -1375,9 +1389,10 @@ static inline int bdx_tx_db_size(struct txdb *db)
- 	return db->size - taken;
- }
- 
--/* __bdx_tx_ptr_next - helper function, increment read/write pointer + wrap
-- * @d   - tx data base
-- * @ptr - read or write pointer
-+/**
-+ * __bdx_tx_db_ptr_next - helper function, increment read/write pointer + wrap
-+ * @db: tx data base
-+ * @pptr: read or write pointer
-  */
- static inline void __bdx_tx_db_ptr_next(struct txdb *db, struct tx_map **pptr)
- {
-@@ -1394,8 +1409,9 @@ static inline void __bdx_tx_db_ptr_next(struct txdb *db, struct tx_map **pptr)
- 		*pptr = db->start;
- }
- 
--/* bdx_tx_db_inc_rptr - increment read pointer
-- * @d   - tx data base
-+/**
-+ * bdx_tx_db_inc_rptr - increment read pointer
-+ * @db: tx data base
-  */
- static inline void bdx_tx_db_inc_rptr(struct txdb *db)
- {
-@@ -1403,8 +1419,9 @@ static inline void bdx_tx_db_inc_rptr(struct txdb *db)
- 	__bdx_tx_db_ptr_next(db, &db->rptr);
- }
- 
--/* bdx_tx_db_inc_rptr - increment write pointer
-- * @d   - tx data base
-+/**
-+ * bdx_tx_db_inc_wptr - increment write pointer
-+ * @db: tx data base
-  */
- static inline void bdx_tx_db_inc_wptr(struct txdb *db)
- {
-@@ -1413,9 +1430,11 @@ static inline void bdx_tx_db_inc_wptr(struct txdb *db)
- 						   a result of write */
- }
- 
--/* bdx_tx_db_init - creates and initializes tx db
-- * @d       - tx data base
-- * @sz_type - size of tx fifo
-+/**
-+ * bdx_tx_db_init - creates and initializes tx db
-+ * @d: tx data base
-+ * @sz_type: size of tx fifo
-+ *
-  * Returns 0 on success, error code otherwise
-  */
- static int bdx_tx_db_init(struct txdb *d, int sz_type)
-@@ -1441,8 +1460,9 @@ static int bdx_tx_db_init(struct txdb *d, int sz_type)
- 	return 0;
- }
- 
--/* bdx_tx_db_close - closes tx db and frees all memory
-- * @d - tx data base
-+/**
-+ * bdx_tx_db_close - closes tx db and frees all memory
-+ * @d: tx data base
-  */
- static void bdx_tx_db_close(struct txdb *d)
- {
-@@ -1463,9 +1483,11 @@ static struct {
- 	u16 qwords;		/* qword = 64 bit */
- } txd_sizes[MAX_SKB_FRAGS + 1];
- 
--/* txdb_map_skb - creates and stores dma mappings for skb's data blocks
-- * @priv - NIC private structure
-- * @skb  - socket buffer to map
-+/**
-+ * bdx_tx_map_skb - creates and stores dma mappings for skb's data blocks
-+ * @priv: NIC private structure
-+ * @skb: socket buffer to map
-+ * @txdd: TX descriptor to use
-  *
-  * It makes dma mappings for skb's data blocks and writes them to PBL of
-  * new tx descriptor. It also stores them in the tx db, so they could be
-@@ -1562,9 +1584,10 @@ err_mem:
- 	return -ENOMEM;
- }
- 
--/*
-+/**
-  * bdx_tx_space - calculates available space in TX fifo
-- * @priv - NIC private structure
-+ * @priv: NIC private structure
-+ *
-  * Returns available space in TX fifo in bytes
-  */
- static inline int bdx_tx_space(struct bdx_priv *priv)
-@@ -1579,9 +1602,10 @@ static inline int bdx_tx_space(struct bdx_priv *priv)
- 	return fsize;
- }
- 
--/* bdx_tx_transmit - send packet to NIC
-- * @skb - packet to send
-- * ndev - network device assigned to NIC
-+/**
-+ * bdx_tx_transmit - send packet to NIC
-+ * @skb: packet to send
-+ * @ndev: network device assigned to NIC
-  * Return codes:
-  * o NETDEV_TX_OK everything ok.
-  * o NETDEV_TX_BUSY Cannot transmit packet, try later
-@@ -1699,8 +1723,10 @@ static netdev_tx_t bdx_tx_transmit(struct sk_buff *skb,
- 	return NETDEV_TX_OK;
- }
- 
--/* bdx_tx_cleanup - clean TXF fifo, run in the context of IRQ.
-- * @priv - bdx adapter
-+/**
-+ * bdx_tx_cleanup - clean TXF fifo, run in the context of IRQ.
-+ * @priv: bdx adapter
-+ *
-  * It scans TXF fifo for descriptors, frees DMA mappings and reports to OS
-  * that those packets were sent
-  */
-@@ -1761,7 +1787,8 @@ static void bdx_tx_cleanup(struct bdx_priv *priv)
- 	spin_unlock(&priv->tx_lock);
- }
- 
--/* bdx_tx_free_skbs - frees all skbs from TXD fifo.
-+/**
-+ * bdx_tx_free_skbs - frees all skbs from TXD fifo.
-  * It gets called when OS stops this dev, eg upon "ifconfig down" or rmmod
-  */
- static void bdx_tx_free_skbs(struct bdx_priv *priv)
-@@ -1790,10 +1817,11 @@ static void bdx_tx_free(struct bdx_priv *priv)
- 	bdx_tx_db_close(&priv->txdb);
- }
- 
--/* bdx_tx_push_desc - push descriptor to TxD fifo
-- * @priv - NIC private structure
-- * @data - desc's data
-- * @size - desc's size
-+/**
-+ * bdx_tx_push_desc - push descriptor to TxD fifo
-+ * @priv: NIC private structure
-+ * @data: desc's data
-+ * @size: desc's size
-  *
-  * Pushes desc to TxD fifo and overlaps it if needed.
-  * NOTE: this func does not check for available space. this is responsibility
-@@ -1819,10 +1847,11 @@ static void bdx_tx_push_desc(struct bdx_priv *priv, void *data, int size)
- 	WRITE_REG(priv, f->m.reg_WPTR, f->m.wptr & TXF_WPTR_WR_PTR);
- }
- 
--/* bdx_tx_push_desc_safe - push descriptor to TxD fifo in a safe way
-- * @priv - NIC private structure
-- * @data - desc's data
-- * @size - desc's size
-+/**
-+ * bdx_tx_push_desc_safe - push descriptor to TxD fifo in a safe way
-+ * @priv: NIC private structure
-+ * @data: desc's data
-+ * @size: desc's size
-  *
-  * NOTE: this func does check for available space and, if necessary, waits for
-  *   NIC to read existing data before writing new one.
+  * Each MCDI request starts with an MCDI_HEADER, which is a 32byte
+  * structure, filled in by the client.
 diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 4da93a5..9cdd619 100644
+index 9cdd619..ab0bbb7 100644
 --- a/drivers/net/ethernet/ti/davinci_emac.c
 +++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -375,7 +375,7 @@ static char *emac_rxhost_errcodes[16] = {
- #define emac_ctrl_write(reg, val) iowrite32(val, (priv->ctrl_base + (reg)))
- 
- /**
-- * emac_dump_regs: Dump important EMAC registers to debug terminal
-+ * emac_dump_regs - Dump important EMAC registers to debug terminal
-  * @priv: The DaVinci EMAC private adapter structure
-  *
-  * Executes ethtool set cmd & sets phy mode
-@@ -466,7 +466,7 @@ static void emac_dump_regs(struct emac_priv *priv)
+@@ -614,11 +614,9 @@ static int emac_set_coalesce(struct net_device *ndev,
  }
  
- /**
-- * emac_get_drvinfo: Get EMAC driver information
-+ * emac_get_drvinfo - Get EMAC driver information
-  * @ndev: The DaVinci EMAC network adapter
-  * @info: ethtool info structure containing name and version
+
+-/**
+- * ethtool_ops: DaVinci EMAC Ethtool structure
++/* ethtool_ops: DaVinci EMAC Ethtool structure
   *
-@@ -481,7 +481,7 @@ static void emac_get_drvinfo(struct net_device *ndev,
- }
- 
- /**
-- * emac_get_settings: Get EMAC settings
-+ * emac_get_settings - Get EMAC settings
-  * @ndev: The DaVinci EMAC network adapter
-  * @ecmd: ethtool command
-  *
-@@ -500,7 +500,7 @@ static int emac_get_settings(struct net_device *ndev,
- }
- 
- /**
-- * emac_set_settings: Set EMAC settings
-+ * emac_set_settings - Set EMAC settings
-  * @ndev: The DaVinci EMAC network adapter
-  * @ecmd: ethtool command
-  *
-@@ -518,7 +518,7 @@ static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
- }
- 
- /**
-- * emac_get_coalesce : Get interrupt coalesce settings for this device
-+ * emac_get_coalesce - Get interrupt coalesce settings for this device
-  * @ndev : The DaVinci EMAC network adapter
-  * @coal : ethtool coalesce settings structure
-  *
-@@ -536,7 +536,7 @@ static int emac_get_coalesce(struct net_device *ndev,
- }
- 
- /**
-- * emac_set_coalesce : Set interrupt coalesce settings for this device
-+ * emac_set_coalesce - Set interrupt coalesce settings for this device
-  * @ndev : The DaVinci EMAC network adapter
-  * @coal : ethtool coalesce settings structure
-  *
-@@ -631,7 +631,7 @@ static const struct ethtool_ops ethtool_ops = {
- };
- 
- /**
-- * emac_update_phystatus: Update Phy status
-+ * emac_update_phystatus - Update Phy status
-  * @priv: The DaVinci EMAC private adapter structure
-  *
-  * Updates phy status and takes action for network queue if required
-@@ -697,7 +697,7 @@ static void emac_update_phystatus(struct emac_priv *priv)
- }
- 
- /**
-- * hash_get: Calculate hash value from mac address
-+ * hash_get - Calculate hash value from mac address
-  * @addr: mac address to delete from hash table
-  *
-  * Calculates hash value from mac address
-@@ -723,9 +723,9 @@ static u32 hash_get(u8 *addr)
- }
- 
- /**
-- * hash_add: Hash function to add mac addr from hash table
-+ * hash_add - Hash function to add mac addr from hash table
-  * @priv: The DaVinci EMAC private adapter structure
-- * mac_addr: mac address to delete from hash table
-+ * @mac_addr: mac address to delete from hash table
-  *
-  * Adds mac address to the internal hash table
-  *
-@@ -765,9 +765,9 @@ static int hash_add(struct emac_priv *priv, u8 *mac_addr)
- }
- 
- /**
-- * hash_del: Hash function to delete mac addr from hash table
-+ * hash_del - Hash function to delete mac addr from hash table
-  * @priv: The DaVinci EMAC private adapter structure
-- * mac_addr: mac address to delete from hash table
-+ * @mac_addr: mac address to delete from hash table
-  *
-  * Removes mac address from the internal hash table
-  *
-@@ -807,7 +807,7 @@ static int hash_del(struct emac_priv *priv, u8 *mac_addr)
- #define EMAC_ALL_MULTI_CLR	3
- 
- /**
-- * emac_add_mcast: Set multicast address in the EMAC adapter (Internal)
-+ * emac_add_mcast - Set multicast address in the EMAC adapter (Internal)
-  * @priv: The DaVinci EMAC private adapter structure
-  * @action: multicast operation to perform
-  * mac_addr: mac address to set
-@@ -855,7 +855,7 @@ static void emac_add_mcast(struct emac_priv *priv, u32 action, u8 *mac_addr)
- }
- 
- /**
-- * emac_dev_mcast_set: Set multicast address in the EMAC adapter
-+ * emac_dev_mcast_set - Set multicast address in the EMAC adapter
-  * @ndev: The DaVinci EMAC network adapter
-  *
-  * Set multicast addresses in EMAC adapter
-@@ -901,7 +901,7 @@ static void emac_dev_mcast_set(struct net_device *ndev)
-  *************************************************************************/
- 
- /**
-- * emac_int_disable: Disable EMAC module interrupt (from adapter)
-+ * emac_int_disable - Disable EMAC module interrupt (from adapter)
-  * @priv: The DaVinci EMAC private adapter structure
-  *
-  * Disable EMAC interrupt on the adapter
-@@ -931,7 +931,7 @@ static void emac_int_disable(struct emac_priv *priv)
- }
- 
- /**
-- * emac_int_enable: Enable EMAC module interrupt (from adapter)
-+ * emac_int_enable - Enable EMAC module interrupt (from adapter)
-  * @priv: The DaVinci EMAC private adapter structure
-  *
-  * Enable EMAC interrupt on the adapter
-@@ -967,7 +967,7 @@ static void emac_int_enable(struct emac_priv *priv)
- }
- 
- /**
-- * emac_irq: EMAC interrupt handler
-+ * emac_irq - EMAC interrupt handler
-  * @irq: interrupt number
-  * @dev_id: EMAC network adapter data structure ptr
-  *
-@@ -1060,7 +1060,7 @@ static void emac_tx_handler(void *token, int len, int status)
- }
- 
- /**
-- * emac_dev_xmit: EMAC Transmit function
-+ * emac_dev_xmit - EMAC Transmit function
-  * @skb: SKB pointer
-  * @ndev: The DaVinci EMAC network adapter
-  *
-@@ -1111,7 +1111,7 @@ fail_tx:
- }
- 
- /**
-- * emac_dev_tx_timeout: EMAC Transmit timeout function
-+ * emac_dev_tx_timeout - EMAC Transmit timeout function
-  * @ndev: The DaVinci EMAC network adapter
-  *
-  * Called when system detects that a skb timeout period has expired
-@@ -1138,7 +1138,7 @@ static void emac_dev_tx_timeout(struct net_device *ndev)
- }
- 
- /**
-- * emac_set_type0addr: Set EMAC Type0 mac address
-+ * emac_set_type0addr - Set EMAC Type0 mac address
-  * @priv: The DaVinci EMAC private adapter structure
-  * @ch: RX channel number
-  * @mac_addr: MAC address to set in device
-@@ -1165,7 +1165,7 @@ static void emac_set_type0addr(struct emac_priv *priv, u32 ch, char *mac_addr)
- }
- 
- /**
-- * emac_set_type1addr: Set EMAC Type1 mac address
-+ * emac_set_type1addr - Set EMAC Type1 mac address
-  * @priv: The DaVinci EMAC private adapter structure
-  * @ch: RX channel number
-  * @mac_addr: MAC address to set in device
-@@ -1187,7 +1187,7 @@ static void emac_set_type1addr(struct emac_priv *priv, u32 ch, char *mac_addr)
- }
- 
- /**
-- * emac_set_type2addr: Set EMAC Type2 mac address
-+ * emac_set_type2addr - Set EMAC Type2 mac address
-  * @priv: The DaVinci EMAC private adapter structure
-  * @ch: RX channel number
-  * @mac_addr: MAC address to set in device
-@@ -1213,7 +1213,7 @@ static void emac_set_type2addr(struct emac_priv *priv, u32 ch,
- }
- 
- /**
-- * emac_setmac: Set mac address in the adapter (internal function)
-+ * emac_setmac - Set mac address in the adapter (internal function)
-  * @priv: The DaVinci EMAC private adapter structure
-  * @ch: RX channel number
-  * @mac_addr: MAC address to set in device
-@@ -1242,7 +1242,7 @@ static void emac_setmac(struct emac_priv *priv, u32 ch, char *mac_addr)
- }
- 
- /**
-- * emac_dev_setmac_addr: Set mac address in the adapter
-+ * emac_dev_setmac_addr - Set mac address in the adapter
-  * @ndev: The DaVinci EMAC network adapter
-  * @addr: MAC address to set in device
-  *
-@@ -1277,7 +1277,7 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
- }
- 
- /**
-- * emac_hw_enable: Enable EMAC hardware for packet transmission/reception
-+ * emac_hw_enable - Enable EMAC hardware for packet transmission/reception
-  * @priv: The DaVinci EMAC private adapter structure
-  *
-  * Enables EMAC hardware for packet processing - enables PHY, enables RX
-@@ -1347,7 +1347,7 @@ static int emac_hw_enable(struct emac_priv *priv)
- }
- 
- /**
-- * emac_poll: EMAC NAPI Poll function
-+ * emac_poll - EMAC NAPI Poll function
-  * @ndev: The DaVinci EMAC network adapter
-  * @budget: Number of receive packets to process (as told by NAPI layer)
-  *
-@@ -1430,7 +1430,7 @@ static int emac_poll(struct napi_struct *napi, int budget)
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
- /**
-- * emac_poll_controller: EMAC Poll controller function
-+ * emac_poll_controller - EMAC Poll controller function
-  * @ndev: The DaVinci EMAC network adapter
-  *
-  * Polled functionality used by netconsole and others in non interrupt mode
-@@ -1489,7 +1489,7 @@ static void emac_adjust_link(struct net_device *ndev)
-  *************************************************************************/
- 
- /**
-- * emac_devioctl: EMAC adapter ioctl
-+ * emac_devioctl - EMAC adapter ioctl
-  * @ndev: The DaVinci EMAC network adapter
-  * @ifrq: request parameter
-  * @cmd: command parameter
-@@ -1516,7 +1516,7 @@ static int match_first_device(struct device *dev, void *data)
- }
- 
- /**
-- * emac_dev_open: EMAC device open
-+ * emac_dev_open - EMAC device open
-  * @ndev: The DaVinci EMAC network adapter
-  *
-  * Called when system wants to start the interface. We init TX/RX channels
-@@ -1649,7 +1649,7 @@ rollback:
- }
- 
- /**
-- * emac_dev_stop: EMAC device stop
-+ * emac_dev_stop - EMAC device stop
-  * @ndev: The DaVinci EMAC network adapter
-  *
-  * Called when system wants to stop or down the interface. We stop the network
-@@ -1691,7 +1691,7 @@ static int emac_dev_stop(struct net_device *ndev)
- }
- 
- /**
-- * emac_dev_getnetstats: EMAC get statistics function
-+ * emac_dev_getnetstats - EMAC get statistics function
-  * @ndev: The DaVinci EMAC network adapter
-  *
-  * Called when system wants to get statistics from the device.
-@@ -1763,7 +1763,7 @@ static const struct net_device_ops emac_netdev_ops = {
- };
- 
- /**
-- * davinci_emac_probe: EMAC device probe
-+ * davinci_emac_probe - EMAC device probe
-  * @pdev: The DaVinci EMAC device that we are removing
-  *
-  * Called when probing for emac devicesr. We get details of instances and
-@@ -1949,7 +1949,7 @@ free_clk:
- }
- 
- /**
-- * davinci_emac_remove: EMAC device remove
-+ * davinci_emac_remove - EMAC device remove
-  * @pdev: The DaVinci EMAC device that we are removing
-  *
-  * Called when removing the device driver. We disable clock usage and release
-@@ -2029,7 +2029,7 @@ static struct platform_driver davinci_emac_driver = {
- };
- 
- /**
-- * davinci_emac_init: EMAC driver module init
-+ * davinci_emac_init - EMAC driver module init
-  *
-  * Called when initializing the driver. We register the driver with
-  * the platform.
-@@ -2041,7 +2041,7 @@ static int __init davinci_emac_init(void)
- late_initcall(davinci_emac_init);
- 
- /**
-- * davinci_emac_exit: EMAC driver module exit
-+ * davinci_emac_exit - EMAC driver module exit
-  *
-  * Called when exiting the driver completely. We unregister the driver with
-  * the platform and exit
-diff --git a/drivers/net/ethernet/toshiba/spider_net.c b/drivers/net/ethernet/toshiba/spider_net.c
-index 6199f6b..c1ebfe9 100644
---- a/drivers/net/ethernet/toshiba/spider_net.c
-+++ b/drivers/net/ethernet/toshiba/spider_net.c
-@@ -114,7 +114,8 @@ spider_net_write_reg(struct spider_net_card *card, u32 reg, u32 value)
- 	out_be32(card->regs + reg, value);
- }
- 
--/** spider_net_write_phy - write to phy register
-+/**
-+ * spider_net_write_phy - write to phy register
-  * @netdev: adapter to be written to
-  * @mii_id: id of MII
-  * @reg: PHY register
-@@ -137,7 +138,8 @@ spider_net_write_phy(struct net_device *netdev, int mii_id,
- 	spider_net_write_reg(card, SPIDER_NET_GPCWOPCMD, writevalue);
- }
- 
--/** spider_net_read_phy - read from phy register
-+/**
-+ * spider_net_read_phy - read from phy register
-  * @netdev: network device to be read from
-  * @mii_id: id of MII
-  * @reg: PHY register
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 1eaf712..1817d0e 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -197,7 +197,7 @@ static int temac_dcr_setup(struct temac_local *lp, struct platform_device *op,
- #endif
- 
- /**
-- *  * temac_dma_bd_release - Release buffer descriptor rings
-+ * temac_dma_bd_release - Release buffer descriptor rings
+  * Ethtool support for EMAC adapter
+- *
   */
- static void temac_dma_bd_release(struct net_device *ndev)
- {
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo = emac_get_drvinfo,
+@@ -2015,9 +2013,7 @@ static const struct dev_pm_ops davinci_emac_pm_ops = {
+ 	.resume		= davinci_emac_resume,
+ };
+ 
+-/**
+- * davinci_emac_driver: EMAC platform driver structure
+- */
++/* davinci_emac_driver: EMAC platform driver structure */
+ static struct platform_driver davinci_emac_driver = {
+ 	.driver = {
+ 		.name	 = "davinci_emac",
 -- 
 1.7.7.6
-
 
 
 -- 
