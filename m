@@ -1,37 +1,38 @@
-From: "Andy Cress" <andy.cress@us.kontron.com>
-Subject: RE: [PATCH 1/4] pch_gbe: fix the checksum fill to the error location
-Date: Tue, 10 Jul 2012 08:28:15 -0700
-Message-ID: <40680C535D6FE6498883F1640FACD44D011051CC@ka-exchange-1.kontronamerica.local>
-References: <40680C535D6FE6498883F1640FACD44D010BFC0F@ka-exchange-1.kontronamerica.local> <1341864963.2535.55.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 03/16] tcp: Maintain dynamic metrics in local cache.
+Date: Tue, 10 Jul 2012 17:31:38 +0200
+Message-ID: <1341934298.3265.5514.camel@edumazet-glaptop>
+References: <20120710.080714.2272376193166978850.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.kontron.com ([209.118.138.70]:48027 "EHLO
-	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753639Ab2GJP2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 11:28:16 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1341864963.2535.55.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:39372 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577Ab2GJPbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 11:31:42 -0400
+Received: by eaak11 with SMTP id k11so55552eaa.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 08:31:41 -0700 (PDT)
+In-Reply-To: <20120710.080714.2272376193166978850.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WWVzLCB0aGlzIG5lZWRzIHJld29yayB0byB1c2UgdGhlIHN0YW5kYXJkIHJv
-dXRpbmUuDQpUaGFua3MgZm9yIHRoZSBpbnB1dC4NCg0KQW5keQ0KDQotLS0t
-LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dIA0KU2VudDogTW9u
-ZGF5LCBKdWx5IDA5LCAyMDEyIDQ6MTYgUE0NClRvOiBBbmR5IENyZXNzDQpD
-YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFtQQVRD
-SCAxLzRdIHBjaF9nYmU6IGZpeCB0aGUgY2hlY2tzdW0gZmlsbCB0byB0aGUg
-ZXJyb3IgbG9jYXRpb24NCg0KT24gTW9uLCAyMDEyLTA3LTA5IGF0IDA2OjMw
-IC0wNzAwLCBBbmR5IENyZXNzIHdyb3RlOg0KPiBGcm9tOiBaaG9uZyBIb25n
-Ym8gPGhvbmdiby56aG9uZ0B3aW5kcml2ZXIuY29tPg0KPiBEYXRlOiBNb24s
-IDkgQXByIDIwMTIgMTA6NTE6MjggKzA4MDANCj4gDQpbLi4uXQ0KPg0KPiBX
-ZSBjYW4gZml4IHRoaXMgaXNzdWUgYnkgbWFudWFsbHkgY2FsY3VsYXRlIHRo
-ZSBvZmZzZXQgb2YgdGhlIFRDUA0KPiBjaGVja3N1bQ0KPiAgYW5kIHVwZGF0
-ZSBpdCBhY2NvcmRpbmdseS4NClsuLi5dDQoNCllvdSBzaG91bGQgYmUgdXNp
-bmcgc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldCgpIGluc3RlYWQuDQoNCkJl
-bi4NCg0KDQo=
+On Tue, 2012-07-10 at 08:07 -0700, David Miller wrote:
+> Maintain a local hash table of TCP dynamic metrics blobs.
+> 
+> Computed TCP metrics are no longer maintained in the route metrics.
+> 
+> The table uses RCU and an extremely simple hash so that it has low
+> latency and low overhead.  A simple hash is legitimate because we only
+> make metrics blobs for fully established connections.
+> 
+> Some tweaking of the default hash table sizes, metric timeouts, and
+> the hash chain length limit certainly could use some tweaking.  But
+> the basic design seems sound.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+
+Seems to lack namespace support, or maybe I missed something ?
