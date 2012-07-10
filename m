@@ -1,63 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: cgroup: fix access the unallocated memory in
- netprio cgroup
-Date: Tue, 10 Jul 2012 06:14:10 +0200
-Message-ID: <1341893650.3265.3974.camel@edumazet-glaptop>
-References: <1341837625.3265.2748.camel@edumazet-glaptop>
-	 <1341887508-20302-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: Re: [PATCH net-next 6/6] r8169: support RTL8168G
+Date: Tue, 10 Jul 2012 13:36:30 +0800
+Message-ID: <1341898590-1253-1-git-send-email-hayeswang@realtek.com>
+References: <c558386b836ee97762e12495101c6e373f20e69d.1341872752.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	lizefan@huawei.com, tj@kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:40969 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716Ab2GJEOQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 00:14:16 -0400
-In-Reply-To: <1341887508-20302-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<wfg@linux.intel.com>, Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c558386b836ee97762e12495101c6e373f20e69d.1341872752.git.romieu@fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-10 at 10:31 +0800, Gao feng wrote:
-> there are some out of bound accesses in netprio cgroup.
-> when creating a new netprio cgroup,we only set a prioidx for
-> the new cgroup,without allocate memory for dev->priomap.
-> 
-> because we don't want to see additional bound checkings in
-> fast path, so I think the best way is to allocate memory when we
-> creating a new netprio cgroup.
-> 
-> and because netdev can be created or registered after cgroup being
-> created, so extend_netdev_table is also needed in write_priomap.
-> 
-> this patch add a return value for update_netdev_tables & extend_netdev_table,
-> so when new_priomap is allocated failed,write_priomap will stop to access
-> the priomap,and return -ENOMEM back to the userspace to tell the user
-> what happend.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
+fix incorrct argument in rtl_hw_init_8168g.
 
->  static void cgrp_destroy(struct cgroup *cgrp)
-> @@ -221,7 +233,10 @@ static int write_priomap(struct cgroup *cgrp, struct cftype *cft,
->  	if (!dev)
->  		goto out_free_devname;
->  
-> -	update_netdev_tables();
-> +	ret = update_netdev_tables();
-> +	if (ret < 0)
-> +		goto out_free_devname;
-> +
->  	ret = 0;
->  	rcu_read_lock();
->  	map = rcu_dereference(dev->priomap);
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Hi Gao
-
-Is it still needed to call update_netdev_tables() from write_priomap() ?
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 7ff3423..c29c5fb 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6753,14 +6753,14 @@ static void __devinit rtl_hw_init_8168g(struct rtl8169_private *tp)
+ 	msleep(1);
+ 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
+ 
+-	data = r8168_mac_ocp_read(ioaddr, 0xe8de);
++	data = r8168_mac_ocp_read(tp, 0xe8de);
+ 	data &= ~(1 << 14);
+ 	r8168_mac_ocp_write(tp, 0xe8de, data);
+ 
+ 	if (!rtl_udelay_loop_wait_high(tp, &rtl_link_list_ready_cond, 100, 42))
+ 		return;
+ 
+-	data = r8168_mac_ocp_read(ioaddr, 0xe8de);
++	data = r8168_mac_ocp_read(tp, 0xe8de);
+ 	data |= (1 << 15);
+ 	r8168_mac_ocp_write(tp, 0xe8de, data);
+ 
+-- 
+1.7.10.4
