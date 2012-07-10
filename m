@@ -1,50 +1,91 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [net-next patch v2] bnx2x: Add run-time CNIC support
-Date: Tue, 10 Jul 2012 15:41:29 +0300
-Message-ID: <1341924089.27035.7.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1341922620.27284.16.camel@lb-tlvb-meravs.il.broadcom.com>
- <20120710.052149.792836375666491854.davem@davemloft.net>
- <1341923634.27035.6.camel@lb-tlvb-eilong.il.broadcom.com>
- <20120710.053724.1002197670026212780.davem@davemloft.net>
-Reply-To: eilong@broadcom.com
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 4 0/4] Add ability to set defaultless network device MAC addresses to deterministic computed locally administered values
+Date: Tue, 10 Jul 2012 14:37:51 +0200
+Message-ID: <201207101437.54877.florian@openwrt.org>
+References: <20120705024259.26317.16000.stgit@build.warmcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: meravs@broadcom.com, netdev@vger.kernel.org, dmitry@broadcom.com
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2469 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755396Ab2GJMlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jul 2012 08:41:42 -0400
-In-Reply-To: <20120710.053724.1002197670026212780.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Green <andy@warmcat.com>, linux-omap@vger.kernel.org,
+	s-jan@ti.com, arnd@arndb.de, patches@linaro.org, tony@atomide.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rostedt@goodmis.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120705024259.26317.16000.stgit@build.warmcat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-10 at 05:37 -0700, David Miller wrote:
-> From: "Eilon Greenstein" <eilong@broadcom.com>
-> Date: Tue, 10 Jul 2012 15:33:54 +0300
-> 
-> > On Tue, 2012-07-10 at 05:21 -0700, David Miller wrote:
-> >> Make it really dynamic, and properly configurable at run time, so
-> >> people don't have to go through hoops to get the "advantages" you
-> >> speak so highly of.
-> > 
-> > This is possible for the resources, but not for the latency - we cannot
-> > change the HW mode once traffic started to run. Why is that so bad to
-> > support Kconfig as a working mode like we did thus far? We are using it
-> > specifically for users that wants to optimize the kernel, so Kconfig
-> > does not sound that bad in that context.
-> 
-> Sure you can find a way to make this work, you just really aren't
-> trying hard enough.
-> 
-> The current situation is a huge and gross hack.  I'm not letting you
-> continue spreading this disease.
-> 
-> Implement this properly, I really mean it.
-> 
+Hi,
 
-OK. Since it blocks the ability to add SR-IOV support, is it acceptable
-to submit it as constant enabled for PF and disabled for VF (SR-IOV)?
+Le jeudi 05 juillet 2012 04:44:33, Andy Green a =E9crit :
+> The following series adds some code to generate legal, locally admini=
+stered
+> MAC addresses from OMAP4 CPU Die ID fuse data, and then adds a helper=
+ at
+> net/ethernet taking care of accepting device path / MAC mapping
+> registrations and running a notifier to enforce the requested MAC whe=
+n the
+> matching network device turns up.
+
+This looks like something you can solve by user-space entirely. Expose =
+the=20
+OMAP4 CPU Die ID using a sysfs attribute, and let user-space manage the=
+ MAC=20
+address pool.
+
+If you tell me you want to use this for nfsroot booting, what prevents =
+you=20
+from using an initramfs, assign a valid MAC to your interface and switc=
+h over=20
+your nfsroot once the interface setup is done?
+
+>=20
+> On PandaBoard / ES, two devices have no board-level MAC either assign=
+ed by
+> the manufacturer or stored on the board, the last patch in the series=
+ adds
+> these device paths and gets them set when the network device is regis=
+tered.
+>=20
+> Lastly for convenient testing, there's a little patch on
+> omap2plus_defconfig that will get Ethernet and WLAN up on Pandaboard.
+>=20
+> The patches are against today's linux-omap.
+>=20
+> Thanks to Tony Lindgren and Arnd Bergmann for comments leading to the
+> helper in net/ethernet.
+>=20
+> ---
+>=20
+> Andy Green (4):
+>       OMAP: add cpu id register to MAC address helper
+>       NET ethernet introduce mac_platform helper
+>       OMAP4 PANDA register ethernet and wlan for automatic mac alloca=
+tion
+>       config test config extending omap2plus with wl12xx etc
+>=20
+>=20
+>  arch/arm/configs/omap2plus_defconfig   |   35 +++----
+>  arch/arm/mach-omap2/Kconfig            |    1
+>  arch/arm/mach-omap2/board-omap4panda.c |   30 ++++++
+>  arch/arm/mach-omap2/id.c               |   39 ++++++++
+>  arch/arm/mach-omap2/include/mach/id.h  |    1
+>  include/net/mac-platform.h             |   39 ++++++++
+>  net/Kconfig                            |    5 +
+>  net/ethernet/Makefile                  |    3 +
+>  net/ethernet/mac-platform.c            |  151
+> ++++++++++++++++++++++++++++++++ 9 files changed, 282 insertions(+), =
+22
+> deletions(-)
+>  create mode 100644 include/net/mac-platform.h
+>  create mode 100644 net/ethernet/mac-platform.c
+>=20
+>=20
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+--=20
+=46lorian
