@@ -1,78 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH net,1/1] hyperv: Add support for setting MAC from within
- guests
-Date: Tue, 10 Jul 2012 18:23:09 +0100
-Message-ID: <1341940989.2605.17.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1341609932-18971-1-git-send-email-haiyangz@microsoft.com>
-	 <1341620355.2923.46.camel@bwh-desktop.uk.solarflarecom.com>
-	 <A1F3067C9B68744AA19F6802BAB8FFDC0DDC8C5E@TK5EX14MBXC222.redmond.corp.microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net-next kernel NULL pointer dereference at fib_rules_tclass
+Date: Tue, 10 Jul 2012 19:25:01 +0200
+Message-ID: <1341941101.3265.5799.camel@edumazet-glaptop>
+References: <alpine.LRH.2.00.1207101008270.9760@ogerlitz.voltaire.com>
+	 <20120710.094428.1167234955738653678.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <A1F3067C9B68744AA19F6802BAB8FFDC0DDC8C5E@TK5EX14MBXC222.redmond.corp.microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org,
+	shlomop@mellanox.com, amirv@mellanox.com, erezsh@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:59967 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754281Ab2GJRZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 13:25:07 -0400
+Received: by eeit10 with SMTP id t10so99972eei.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 10:25:05 -0700 (PDT)
+In-Reply-To: <20120710.094428.1167234955738653678.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-10 at 17:03 +0000, Haiyang Zhang wrote:
+On Tue, 2012-07-10 at 09:44 -0700, David Miller wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Tue, 10 Jul 2012 10:16:55 +0300
 > 
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > Sent: Friday, July 06, 2012 8:19 PM
-> > To: Haiyang Zhang
-> > Cc: davem@davemloft.net; netdev@vger.kernel.org; KY Srinivasan;
-> > olaf@aepfle.de; linux-kernel@vger.kernel.org;
-> > devel@linuxdriverproject.org
-> > Subject: Re: [PATCH net,1/1] hyperv: Add support for setting MAC from
-> > within guests
-> > 
-> > On Fri, 2012-07-06 at 14:25 -0700, Haiyang Zhang wrote:
-> > > This adds support for setting synthetic NIC MAC address from within
-> > Linux
-> > > guests. Before using this feature, the option "spoofing of MAC
-> > address"
-> > > should be enabled at the Hyper-V manager / Settings of the synthetic
-> > > NIC.
-> > [...]
-> > > +int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
-> > > +{
-> > [...]
-> > > +	t = wait_for_completion_timeout(&request->wait_event, 5*HZ);
-> > > +	if (t == 0) {
-> > > +		netdev_err(ndev, "timeout before we got a set
-> > response...\n");
-> > > +		/*
-> > > +		 * can't put_rndis_request, since we may still receive a
-> > > +		 * send-completion.
-> > > +		 */
-> > > +		return -EBUSY;
-> > > +	} else {
-> > > +		set_complete = &request->response_msg.msg.set_complete;
-> > > +		if (set_complete->status != RNDIS_STATUS_SUCCESS)
-> > > +			ret = -EINVAL;
-> > [...]
-> > 
-> > Is there a specific error code that indicates the hypervisor is
-> > configured not to allow MAC address changes?  If so, shouldn't that be
-> > translated to return EPERM rather than EINVAL?
+> > Starting system logger: BUG: unable to handle kernel NULL pointer dereference at 00000000000000ac
+> > IP: [<ffffffff81320393>] fib_rules_tclass+0xf/0x17
 > 
-> I have check the return code, 0xc000000d, which is returned both when MAC
-> spoofing is not enabled or the parameter contains other errors. So we can't
-> tell if it permission error or not. I will re-submit this patch still
-> using EINVAL.
+> Ok, fib_rules_tclass() checks for res->r being NULL and only
+> dereferences it if it is not.
+> 
+> fib4_rule->tclassid has offset ~0x8c on x86-64, and this fault
+> address is 0x10 bytes off.
+> 
+> Does this patch fix the problem?
+> 
+> diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+> index 539c672..000c467 100644
+> --- a/include/net/ip_fib.h
+> +++ b/include/net/ip_fib.h
+> @@ -230,6 +230,7 @@ static inline int fib_lookup(struct net *net, struct flowi4 *flp,
+>  			     struct fib_result *res)
+>  {
+>  	if (!net->ipv4.fib_has_custom_rules) {
+> +		res->r = NULL;
+>  		if (net->ipv4.fib_local &&
+>  		    !fib_table_lookup(net->ipv4.fib_local, flp, res,
+>  				      FIB_LOOKUP_NOREF))
 
-Oh well, thanks for trying!
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It does here, thanks
