@@ -1,45 +1,48 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/9] include/linux: Add private flags for IPoIB interfaces
-Date: Tue, 10 Jul 2012 15:16:02 +0300
-Message-ID: <1341922569-4118-3-git-send-email-ogerlitz@mellanox.com>
-References: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: "Merav Sicron" <meravs@broadcom.com>
+Subject: Re: [net-next patch v2] bnx2x: Add run-time CNIC support
+Date: Tue, 10 Jul 2012 15:17:00 +0300
+Message-ID: <1341922620.27284.16.camel@lb-tlvb-meravs.il.broadcom.com>
+References: <1341828055-4467-1-git-send-email-meravs@broadcom.com>
+ <20120709.141010.996787793429264956.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, dmitry@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:50489 "HELO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755191Ab2GJMQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:16:22 -0400
-In-Reply-To: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4201 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754775Ab2GJMSO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2012 08:18:14 -0400
+In-Reply-To: <20120709.141010.996787793429264956.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erez Shitrit <erezsh@mellanox.co.il>
+On Mon, 2012-07-09 at 14:10 -0700, David Miller wrote:
+> From: "Merav Sicron" <meravs@broadcom.com>
+> Date: Mon, 9 Jul 2012 13:00:55 +0300
+> 
+> > -	max_non_def_sbs = bnx2x_get_num_non_def_sbs(pdev);
+> > +	cnic_enabled = IS_ENABLED(CONFIG_CNIC) ? 1 : 0;
+> 
+> This, as I said, it pointless.
+> 
+> Every distribution is going to turn on this Kconfig option so guarding
+> this at all using the Kconfig option is largely valueless.
+> 
 
-The new 2 bits indicates whenever a device is considered PIF interface,
-which means the "main" interfaces (ib0, ib1 etc), or cloned interfaces
-(ib0.1, ib1.2 etc.) that is now in use by the eIPoIB driver.
+There are still two advantages in disabling CNIC in bnx2x: Saving
+resources (MSI-X vector and memory) as well as reducing some latency.
+When the HW is configured to storage-offload  (rather than NIC-only
+mode) it does connection search over the PCI, which is additional
+0.5usec - 2.5usec, depending on the system load. When CNIC is not
+enabled, the HW is configured to eliminate the search.
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- include/linux/if.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+While it is true that distributions enable the CNIC Kconfig option, some
+users that care about resources and latency compile a kernel without it.
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 1ec407b..f50dbf2 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -84,6 +84,8 @@
- #define IFF_LIVE_ADDR_CHANGE 0x100000	/* device supports hardware address
- 					 * change when it's running */
- 
-+#define IFF_EIPOIB_PIF  0x200000       /* IPoIB PIF intf (ib0, ib1 etc.) */
-+#define IFF_EIPOIB_VIF  0x400000       /* IPoIB VIF intf (ib0.x, ib1.x etc.) */
- 
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
--- 
-1.7.1
+Can you please re-consider this patch?
+
+Thanks,
+Merav
