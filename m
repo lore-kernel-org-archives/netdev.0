@@ -1,83 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: getting warn once around skb_try_coalesce
-Date: Tue, 10 Jul 2012 13:22:08 +0200
-Message-ID: <1341919328.3265.4871.camel@edumazet-glaptop>
-References: <4FFBFBD2.6030004@mellanox.com>
-	 <1341915510.3265.4734.camel@edumazet-glaptop>
-	 <1341918848.3265.4853.camel@edumazet-glaptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] net: cgroup: fix access the unallocated memory in
+ netprio cgroup
+Date: Tue, 10 Jul 2012 07:32:37 -0400
+Message-ID: <20120710113237.GB5215@hmsreliant.think-freely.org>
+References: <1341917043-13264-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1341918350.3265.4830.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Shlomo Pongratz <shlomop@mellanox.com>,
-	Erez Shitrit <erezsh@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:64499 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752940Ab2GJLWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 07:22:14 -0400
-Received: by eaak11 with SMTP id k11so4642006eaa.19
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 04:22:13 -0700 (PDT)
-In-Reply-To: <1341918848.3265.4853.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1341918350.3265.4830.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-10 at 13:14 +0200, Eric Dumazet wrote:
-> On Tue, 2012-07-10 at 12:18 +0200, Eric Dumazet wrote:
-> > On Tue, 2012-07-10 at 12:54 +0300, Or Gerlitz wrote:
-> > > Hi Dave, Eric,
-> > > 
-> > > Another trace that I see here with net-next is this one-time warning. I 
-> > > get it always
-> > > on the passive side of TCP, something that seems related to GRO, it 
-> > > happens only with
-> > > IPoIB, not with mlx4_en and igb (when igb get to work on net-next...)
-> > > 
-> > > The latest commit in this area is bad43ca8325f493dcaa0896c2f036276af059c7e
-> > > "net: introduce skb_try_coalesce()" from Eric.
-> > > 
-> > > Or.
-> > > 
-> > > -----------[ cut here ]------------
-> > > WARNING: at net/core/skbuff.c:3413 skb_try_coalesce+0x1f8/0x31d()
-> > 
-> > This warning catch skb truesize offenders, most probably its a driver
-> > issue.
-> > 
+On Tue, Jul 10, 2012 at 01:05:50PM +0200, Eric Dumazet wrote:
+> On Tue, 2012-07-10 at 18:44 +0800, Gao feng wrote:
+> > there are some out of bound accesses in netprio cgroup.
 > 
-> By the way, this driver allocates not enough tailroom in skbs, so IP/TCP
-> stacks need to reallocate skb head to pull IP/TCP headers. Thats not
-> efficient.
+> > -	update_netdev_tables();
+> > +	ret = extend_netdev_table(dev, max_len);
+> > +	if (ret < 0)
+> > +		goto out_free_devname;
+> > +
+> >  	ret = 0;
+> >  	rcu_read_lock();
+> >  	map = rcu_dereference(dev->priomap);
 > 
-> I suggest using following patch :
-
-And of course we also can fix the truesize bug.
-(Not sure it will fix the warning, but worth trying)
-
-Since this driver allocates a full page, it must use the PAGE_SIZE, not
-the used part in the fragment
-
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-index 5c1bc99..e611a924 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-@@ -123,7 +123,7 @@ static void ipoib_ud_skb_put_frags(struct ipoib_dev_priv *priv,
- 
- 		skb_frag_size_set(frag, size);
- 		skb->data_len += size;
--		skb->truesize += size;
-+		skb->truesize += PAGE_SIZE;
- 	} else
- 		skb_put(skb, length);
- 
-@@ -159,7 +159,7 @@ static struct sk_buff *ipoib_alloc_rx_skb(struct net_device *dev, int id)
- 	u64 *mapping;
- 
- 	if (ipoib_ud_need_sg(priv->max_ib_mtu))
--		buf_size = IPOIB_UD_HEAD_SIZE;
-+		buf_size = IPOIB_UD_HEAD_SIZE + 128; /* reserve some tailroom for IP/TCP headers */
- 	else
- 		buf_size = IPOIB_UD_BUF_SIZE(priv->max_ib_mtu);
- 
+> Its unfortunately adding a bug.
+> 
+> extend_netdev_table() is protected by RTNL.
+> 
+More specifically it needs to be protected by rtnl, and the call above isn't.
+Other than that it looks pretty good to me.
+Neil
