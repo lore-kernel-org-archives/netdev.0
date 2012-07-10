@@ -1,86 +1,81 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH 2/4] net: calxedaxgmac: fix hang on rx refill
-Date: Mon,  9 Jul 2012 19:16:08 -0500
-Message-ID: <1341879370-23385-3-git-send-email-robherring2@gmail.com>
-References: <1341879370-23385-1-git-send-email-robherring2@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Rob Herring <rob.herring@calxeda.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH v2] fail dentry revalidation after namespace change
+Date: Mon, 09 Jul 2012 17:30:48 -0700
+Message-ID: <87txxgxxs7.fsf@xmission.com>
+References: <1341565747-15374-1-git-send-email-glommer@parallels.com>
+	<20120709161336.0ec23592.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Glauber Costa <glommer@parallels.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Greg Thelen <gthelen@google.com>,
+	Serge Hallyn <serge.hallyn@canonical.com>,
+	Tejun Heo <tj@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341879370-23385-1-git-send-email-robherring2@gmail.com>
+In-Reply-To: <20120709161336.0ec23592.akpm@linux-foundation.org> (Andrew
+	Morton's message of "Mon, 9 Jul 2012 16:13:36 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rob Herring <rob.herring@calxeda.com>
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-Fix intermittent hangs in xgmac_rx_refill. If a ring buffer entry already
-had an skb allocated, then xgmac_rx_refill would get stuck in a loop. This
-can happen on a rx error when we just leave the skb allocated to the entry.
+>>  {
+>>  	struct sysfs_dirent *sd;
+>>  	int is_dir;
+>> +	int type;
+>>  
+>>  	if (nd->flags & LOOKUP_RCU)
+>>  		return -ECHILD;
+>> @@ -326,6 +327,13 @@ static int sysfs_dentry_revalidate(struct dentry *dentry, struct nameidata *nd)
+>>  	if (strcmp(dentry->d_name.name, sd->s_name) != 0)
+>>  		goto out_bad;
+>>  
+>> +	/* The sysfs dirent has been moved to a different namespace */
+>> +	type = KOBJ_NS_TYPE_NONE;
+>> +	if (sd->s_parent)
+>> +		type = sysfs_ns_type(sd->s_parent);
+>> +	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
+>
+> eww, the code is assuming that KOBJ_NS_TYPE_NONE has a value of zero. 
+> Don't do that; it smells bad.
 
-[ 7884.510000] INFO: rcu_preempt detected stall on CPU 0 (t=727315 jiffies)
-[ 7884.510000] [<c0010a59>] (unwind_backtrace+0x1/0x98) from [<c006fd93>] (__rcu_pending+0x11b/0x2c4)
-[ 7884.510000] [<c006fd93>] (__rcu_pending+0x11b/0x2c4) from [<c0070b95>] (rcu_check_callbacks+0xed/0x1a8)
-[ 7884.510000] [<c0070b95>] (rcu_check_callbacks+0xed/0x1a8) from [<c0036abb>] (update_process_times+0x2b/0x48)
-[ 7884.510000] [<c0036abb>] (update_process_times+0x2b/0x48) from [<c004e8fd>] (tick_sched_timer+0x51/0x94)
-[ 7884.510000] [<c004e8fd>] (tick_sched_timer+0x51/0x94) from [<c0045527>] (__run_hrtimer+0x4f/0x1e8)
-[ 7884.510000] [<c0045527>] (__run_hrtimer+0x4f/0x1e8) from [<c0046003>] (hrtimer_interrupt+0xd7/0x1e4)
-[ 7884.510000] [<c0046003>] (hrtimer_interrupt+0xd7/0x1e4) from [<c00101d3>] (twd_handler+0x17/0x24)
-[ 7884.510000] [<c00101d3>] (twd_handler+0x17/0x24) from [<c006be39>] (handle_percpu_devid_irq+0x59/0x114)
-[ 7884.510000] [<c006be39>] (handle_percpu_devid_irq+0x59/0x114) from [<c0069aab>] (generic_handle_irq+0x17/0x2c)
-[ 7884.510000] [<c0069aab>] (generic_handle_irq+0x17/0x2c) from [<c000cc8d>] (handle_IRQ+0x35/0x7c)
-[ 7884.510000] [<c000cc8d>] (handle_IRQ+0x35/0x7c) from [<c033b153>] (__irq_svc+0x33/0xb8)
-[ 7884.510000] [<c033b153>] (__irq_svc+0x33/0xb8) from [<c0244b06>] (xgmac_rx_refill+0x3a/0x140)
-[ 7884.510000] [<c0244b06>] (xgmac_rx_refill+0x3a/0x140) from [<c02458ed>] (xgmac_poll+0x265/0x3bc)
-[ 7884.510000] [<c02458ed>] (xgmac_poll+0x265/0x3bc) from [<c029fcbf>] (net_rx_action+0xc3/0x200)
-[ 7884.510000] [<c029fcbf>] (net_rx_action+0xc3/0x200) from [<c0030cab>] (__do_softirq+0xa3/0x1bc)
+Gag.  An incomplete change in idiom.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
----
- drivers/net/ethernet/calxeda/xgmac.c |   27 ++++++++++++---------------
- 1 file changed, 12 insertions(+), 15 deletions(-)
+KOBJ_NS_TYPE_NONE is explicitly defined as 0 so that it can be used
+this way, and every where else in fs/sysfs/dir.c uses this idiom.
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index c4fd2e3..3ca1d79 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -671,26 +671,23 @@ static void xgmac_rx_refill(struct xgmac_priv *priv)
- 
- 		p = priv->dma_rx + entry;
- 
--		if (priv->rx_skbuff[entry] != NULL)
--			continue;
--
--		skb = __skb_dequeue(&priv->rx_recycle);
--		if (skb == NULL)
--			skb = netdev_alloc_skb(priv->dev, priv->dma_buf_sz);
--		if (unlikely(skb == NULL))
--			break;
--
--		priv->rx_skbuff[entry] = skb;
--		paddr = dma_map_single(priv->device, skb->data,
--					 priv->dma_buf_sz, DMA_FROM_DEVICE);
--		desc_set_buf_addr(p, paddr, priv->dma_buf_sz);
-+		if (priv->rx_skbuff[entry] == NULL) {
-+			skb = __skb_dequeue(&priv->rx_recycle);
-+			if (skb == NULL)
-+				skb = netdev_alloc_skb(priv->dev, priv->dma_buf_sz);
-+			if (unlikely(skb == NULL))
-+				break;
-+
-+			priv->rx_skbuff[entry] = skb;
-+			paddr = dma_map_single(priv->device, skb->data,
-+					       priv->dma_buf_sz, DMA_FROM_DEVICE);
-+			desc_set_buf_addr(p, paddr, priv->dma_buf_sz);
-+		}
- 
- 		netdev_dbg(priv->dev, "rx ring: head %d, tail %d\n",
- 			priv->rx_head, priv->rx_tail);
- 
- 		priv->rx_head = dma_ring_incr(priv->rx_head, DMA_RX_RING_SZ);
--		/* Ensure descriptor is in memory before handing to h/w */
--		wmb();
- 		desc_set_rx_owner(p);
- 	}
- }
--- 
-1.7.9.5
+Furthermore your change below takes one line of readable code and turns
+it into something inappropriate to talk about in polite company.
+
+If you want the code to be perfect type should be defined as
+"enum kobj_ns_type type" instead of "int kobj_ns_type".
+
+Of course the truly perfect solution is to rework the sysfs
+code in a manner similar to proc, with magic internal symlinks
+and multiple parallel tress for the different namespaces.
+For the users of sysfs semantically there would be no changes
+but in the implementation there would many fewer special cases
+for namespaces.   The only special case would be reduced to
+the internal sysfs symlink that lookup would have to know
+about.
+
+> @@ -329,10 +329,12 @@ static int sysfs_dentry_revalidate(struc
+>  
+>  	/* The sysfs dirent has been moved to a different namespace */
+>  	type = KOBJ_NS_TYPE_NONE;
+> -	if (sd->s_parent)
+> +	if (sd->s_parent) {
+>  		type = sysfs_ns_type(sd->s_parent);
+> -	if (type && (sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns))
+> -		goto out_bad;
+> +		if (type != KOBJ_NS_TYPE_NONE &&
+> +				sysfs_info(dentry->d_sb)->ns[type] != sd->s_ns)
+> +			goto out_bad;
+> +	}
+
+Pray tell in what parallel universe is that monstrosity above more
+readable than the line it replaces?
+
+Eric
