@@ -1,16 +1,16 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 4/9] net/eipoib: Add private header file
-Date: Tue, 10 Jul 2012 15:16:04 +0300
-Message-ID: <1341922569-4118-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
+Date: Tue, 10 Jul 2012 15:16:03 +0300
+Message-ID: <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com>
 References: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
 	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:53613 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755331Ab2GJMQX (ORCPT
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:46106 "HELO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755323Ab2GJMQX (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 08:16:23 -0400
 In-Reply-To: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,22 +18,163 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Erez Shitrit <erezsh@mellanox.co.il>
 
-The header file includes all structures, macros and non-static
-functions which are of use by the driver.
+When IPoIB interface acts as a VIF for an eIPoIB interface, it uses
+the skb cb storage area on the RX flow, to place information which
+can be of use to the upper layer device.
+
+One such usage example, is when an eIPoIB inteface needs to generate
+a source mac for incoming Ethernet frames.
+
+The IPoIB code checks the VIF private flag on the RX path, and accoriding
+to the value of the flag prepares the skb CB data, etc.
 
 Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/eipoib/eth_ipoib.h |  224 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 224 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/eipoib/eth_ipoib.h
+ drivers/infiniband/ulp/ipoib/ipoib.h      |    6 +++
+ drivers/infiniband/ulp/ipoib/ipoib_cm.c   |    9 +++++
+ drivers/infiniband/ulp/ipoib/ipoib_ib.c   |    8 ++++-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |   28 ++++++++++++++++
+ include/rdma/e_ipoib.h                    |   51 +++++++++++++++++++++++++++++
+ 5 files changed, 101 insertions(+), 1 deletions(-)
+ create mode 100644 include/rdma/e_ipoib.h
 
-diff --git a/drivers/net/eipoib/eth_ipoib.h b/drivers/net/eipoib/eth_ipoib.h
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
+index a57db27..1d28774 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib.h
++++ b/drivers/infiniband/ulp/ipoib/ipoib.h
+@@ -52,6 +52,7 @@
+ #include <rdma/ib_pack.h>
+ #include <rdma/ib_sa.h>
+ #include <linux/sched.h>
++#include <rdma/e_ipoib.h>
+ 
+ /* constants */
+ 
+@@ -209,6 +210,7 @@ struct ipoib_cm_rx {
+ 	unsigned long		jiffies;
+ 	enum ipoib_cm_state	state;
+ 	int			recv_count;
++	u32			qpn;
+ };
+ 
+ struct ipoib_cm_tx {
+@@ -695,6 +697,10 @@ extern int ipoib_recvq_size;
+ 
+ extern struct ib_sa_client ipoib_sa_client;
+ 
++
++inline void set_skb_oob_cb_data(struct sk_buff *skb, struct ib_wc *wc,
++				struct napi_struct *napi);
++
+ #ifdef CONFIG_INFINIBAND_IPOIB_DEBUG
+ extern int ipoib_debug_level;
+ 
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_cm.c b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
+index 014504d..dca7952 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_cm.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
+@@ -440,6 +440,7 @@ static int ipoib_cm_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *even
+ 	struct net_device *dev = cm_id->context;
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+ 	struct ipoib_cm_rx *p;
++	struct ipoib_cm_data *data = event->private_data;
+ 	unsigned psn;
+ 	int ret;
+ 
+@@ -452,6 +453,10 @@ static int ipoib_cm_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *even
+ 	cm_id->context = p;
+ 	p->state = IPOIB_CM_RX_LIVE;
+ 	p->jiffies = jiffies;
++
++	/* used to keep track of base qpn in CM mode */
++	p->qpn = be32_to_cpu(data->qpn);
++
+ 	INIT_LIST_HEAD(&p->list);
+ 
+ 	p->qp = ipoib_cm_create_rx_qp(dev, p);
+@@ -669,6 +674,10 @@ copied:
+ 	skb->dev = dev;
+ 	/* XXX get correct PACKET_ type here */
+ 	skb->pkt_type = PACKET_HOST;
++	/* if handler is registered on top of ipoib, set skb oob data. */
++	if (skb->dev->priv_flags & IFF_EIPOIB_VIF)
++		set_skb_oob_cb_data(skb, wc, NULL);
++
+ 	netif_receive_skb(skb);
+ 
+ repost:
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+index 5c1bc99..da28799 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+@@ -300,7 +300,13 @@ static void ipoib_ib_handle_rx_wc(struct net_device *dev, struct ib_wc *wc)
+ 			likely(wc->wc_flags & IB_WC_IP_CSUM_OK))
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+-	napi_gro_receive(&priv->napi, skb);
++	/* if handler is registered on top of ipoib, set skb oob data */
++	if (dev->priv_flags & IFF_EIPOIB_VIF) {
++		set_skb_oob_cb_data(skb, wc, &priv->napi);
++		/* the registered handler will take care of the skb */
++		netif_receive_skb(skb);
++	} else
++		napi_gro_receive(&priv->napi, skb);
+ 
+ repost:
+ 	if (unlikely(ipoib_ib_post_receive(dev, wr_id)))
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 704d068..1ccd42f 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -91,6 +91,31 @@ static struct ib_client ipoib_client = {
+ 	.remove = ipoib_remove_one
+ };
+ 
++inline void set_skb_oob_cb_data(struct sk_buff *skb, struct ib_wc *wc,
++				struct napi_struct *napi)
++{
++	struct ipoib_cm_rx *p_cm_ctx = NULL;
++	union skb_cb_data *data = NULL;
++	struct ib_grh *grh = NULL;
++
++	p_cm_ctx = wc->qp->qp_context;
++	data = IPOIB_HANDLER_CB(skb);
++
++	data->rx.slid = wc->slid;
++	data->rx.sqpn = wc->src_qp;
++	data->rx.napi = napi;
++
++	/* if dqpn is mcast, fetch the dgid */
++	grh = (struct ib_grh *)(skb->data - IB_GRH_BYTES - IPOIB_ENCAP_LEN);
++
++	if ((wc->wc_flags & IB_WC_GRH) && grh)
++		memcpy(data->rx.dgid, grh->dgid.raw, 16);
++
++	/* in CM mode, use the "base" qpn as sqpn */
++	if (p_cm_ctx)
++		data->rx.sqpn = p_cm_ctx->qpn;
++}
++
+ int ipoib_open(struct net_device *dev)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+@@ -1277,6 +1302,9 @@ static struct net_device *ipoib_add_port(const char *format,
+ 		goto event_failed;
+ 	}
+ 
++	/* indicates pif port */
++	priv->dev->priv_flags |= IFF_EIPOIB_PIF;
++
+ 	result = register_netdev(priv->dev);
+ 	if (result) {
+ 		printk(KERN_WARNING "%s: couldn't register ipoib port %d; error %d\n",
+diff --git a/include/rdma/e_ipoib.h b/include/rdma/e_ipoib.h
 new file mode 100644
-index 0000000..45871c9
+index 0000000..481514e
 --- /dev/null
-+++ b/drivers/net/eipoib/eth_ipoib.h
-@@ -0,0 +1,224 @@
++++ b/include/rdma/e_ipoib.h
+@@ -0,0 +1,51 @@
 +/*
 + * Copyright (c) 2012 Mellanox Technologies. All rights reserved
 + *
@@ -66,197 +207,24 @@ index 0000000..45871c9
 + * SOFTWARE.
 + */
 +
-+#ifndef _LINUX_ETH_IPOIB_H
-+#define _LINUX_ETH_IPOIB_H
-+
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/netdevice.h>
++#ifndef _LINUX_ETH_IB_IPOIB_H
++#define _LINUX_ETH_IB_IPOIB_H
 +#include <linux/skbuff.h>
-+#include <net/arp.h>
-+#include <linux/if_vlan.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <rdma/e_ipoib.h>
++#include <linux/if_infiniband.h>
++#include <rdma/ib_verbs.h>
 +
-+/* macros and definitions */
-+#define DRV_VERSION		"1.0.0"
-+#define DRV_RELDATE		"June 1, 2012"
-+#define DRV_NAME		"eth_ipoib"
-+#define SDRV_NAME		"ipoib"
-+#define DRV_DESCRIPTION		"IP-over-InfiniBand Para Virtualized Driver"
-+#define EIPOIB_ABI_VER	1
-+
-+#undef  pr_fmt
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#define GID_LEN			16
-+#define GUID_LEN		8
-+
-+#define PARENT_VLAN_FEATURES \
-+	(NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX | \
-+	 NETIF_F_HW_VLAN_FILTER)
-+
-+#define parent_for_each_slave(_parent, slave)		\
-+		list_for_each_entry(slave, &(_parent)->slave_list, list)\
-+
-+#define PARENT_IS_OK(_parent)				\
-+		(((_parent)->dev->flags & IFF_UP) &&	\
-+		 netif_running((_parent)->dev)    &&	\
-+		 ((_parent)->slave_cnt > 0))
-+
-+#define IS_E_IPOIB_PROTO(_proto)			\
-+		 (((_proto) == htons(ETH_P_ARP)) ||	\
-+		 ((_proto) == htons(ETH_P_RARP)) ||	\
-+		 ((_proto) == htons(ETH_P_IP)))
-+
-+enum eipoib_emac_guest_info {
-+	VALID,
-+	MIGRATED_OUT,
-+	INVALID,
++/* must be <= 48 bytes */
++union skb_cb_data {
++	struct {
++		u32 sqpn;
++		u16 slid;
++		u8  dgid[16];
++		struct napi_struct *napi;
++	} rx;
 +};
 +
-+/* structs */
-+struct eth_arp_data {
-+	u8 arp_sha[ETH_ALEN];
-+	__be32 arp_sip;
-+	u8 arp_dha[ETH_ALEN];
-+	__be32 arp_dip;
-+} __packed;
++#define IPOIB_HANDLER_CB(skb) ((union skb_cb_data *)(skb)->cb)
 +
-+struct ipoib_arp_data {
-+	u8 arp_sha[INFINIBAND_ALEN];
-+	__be32 arp_sip;
-+	u8 arp_dha[INFINIBAND_ALEN];
-+	__be32 arp_dip;
-+} __packed;
-+
-+/* live migration support structures: */
-+struct ip_member {
-+	__be32 ip;
-+	struct list_head list;
-+};
-+
-+/*
-+ * for each slave (emac) saves all the ip over that mac.
-+ * the parent keeps that list for live migration.
-+ */
-+struct guest_emac_info {
-+	u8 emac[ETH_ALEN];
-+	u16 vlan;
-+	struct list_head ip_list;
-+	struct list_head list;
-+	enum eipoib_emac_guest_info rec_state;
-+	int num_of_retries;
-+};
-+
-+struct neigh {
-+	struct list_head list;
-+	u8 emac[ETH_ALEN];
-+	u8 imac[INFINIBAND_ALEN];
-+	/* this part is used for neigh_add_list */
-+	char cmd[PAGE_SIZE];
-+};
-+
-+struct slave {
-+	struct net_device *dev;
-+	struct slave *next;
-+	struct slave *prev;
-+	int    index;
-+	struct list_head list;
-+	unsigned long jiffies;
-+	s8     link;
-+	s8     state;
-+	u16    pkey;
-+	u16    vlan;
-+	u8     emac[ETH_ALEN];
-+	u8     imac[INFINIBAND_ALEN];
-+	struct list_head neigh_list;
-+	/* this part is used for vif_add_list */
-+	char cmd[PAGE_SIZE];
-+};
-+
-+struct port_stats {
-+	/* update PORT_STATS_LEN (number of stat fields)accordingly */
-+	unsigned long tx_parent_dropped;
-+	unsigned long tx_vif_miss;
-+	unsigned long tx_neigh_miss;
-+	unsigned long tx_vlan;
-+	unsigned long tx_shared;
-+	unsigned long tx_proto_errors;
-+	unsigned long tx_skb_errors;
-+	unsigned long tx_slave_err;
-+
-+	unsigned long rx_parent_dropped;
-+	unsigned long rx_vif_miss;
-+	unsigned long rx_neigh_miss;
-+	unsigned long rx_vlan;
-+	unsigned long rx_shared;
-+	unsigned long rx_proto_errors;
-+	unsigned long rx_skb_errors;
-+	unsigned long rx_slave_err;
-+};
-+
-+struct parent {
-+	struct   net_device *dev;
-+	int      index;
-+	struct   neigh_parms nparms;
-+	struct   list_head slave_list;
-+	/* never change this value outside the attach/detach wrappers */
-+	s32      slave_cnt;
-+	rwlock_t lock;
-+	struct   net_device_stats stats;
-+	struct   port_stats port_stats;
-+	struct   list_head parent_list;
-+	struct   dev_mc_list *mc_list;
-+	u16      flags;
-+	struct   list_head vlan_list;
-+	struct   workqueue_struct *wq;
-+	s8       kill_timers;
-+	struct   delayed_work neigh_learn_work;
-+	struct   delayed_work vif_learn_work;
-+	struct   list_head neigh_add_list;
-+	union    ib_gid gid;
-+	char     ipoib_main_interface[IFNAMSIZ];
-+	struct   list_head emac_ip_list;
-+	struct   delayed_work emac_ip_work;
-+	struct   delayed_work migrate_out_work;
-+};
-+
-+#define eipoib_slave_get_rcu(dev) \
-+	((struct slave *) rcu_dereference(dev->rx_handler_data))
-+
-+/* name space support for sys/fs */
-+struct eipoib_net {
-+	struct net	*net;	/* Associated network namespace */
-+	struct class_attribute class_attr_eipoib_interfaces;
-+};
-+
-+/* exported from main.c */
-+extern int eipoib_net_id;
-+extern struct list_head parent_dev_list;
-+
-+/* functions prototypes */
-+int mod_create_sysfs(struct eipoib_net *eipoib_n);
-+void mod_destroy_sysfs(struct eipoib_net *eipoib_n);
-+void parent_destroy_sysfs_entry(struct parent *parent);
-+int parent_create_sysfs_entry(struct parent *parent);
-+int create_slave_symlinks(struct net_device *master,
-+			  struct net_device *slave);
-+void destroy_slave_symlinks(struct net_device *master,
-+			    struct net_device *slave);
-+int parent_enslave(struct net_device *parent_dev,
-+		   struct net_device *slave_dev);
-+int parent_release_slave(struct net_device *parent_dev,
-+			 struct net_device *slave_dev);
-+struct neigh *parent_get_neigh_cmd(char op, char *ifname,
-+				   u8 *remac, u8 *rimac);
-+struct slave *parent_get_vif_cmd(char op, char *ifname, u8 *lemac);
-+ssize_t __parent_store_neighs(struct device *d,
-+			      struct device_attribute *attr,
-+			      const char *buffer, size_t count);
-+void parent_set_ethtool_ops(struct net_device *dev);
-+
-+#endif /* _LINUX_ETH_IPOIB_H */
++#endif /* _LINUX_ETH_IB_IPOIB_H */
 -- 
 1.7.1
