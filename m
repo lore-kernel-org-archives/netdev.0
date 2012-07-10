@@ -1,48 +1,67 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 4 0/4] Add ability to set defaultless network device MAC
- addresses to deterministic computed locally administered values
-Date: Tue, 10 Jul 2012 09:08:49 -0400
-Message-ID: <1341925729.14828.17.camel@gandalf.stny.rr.com>
-References: <20120705024259.26317.16000.stgit@build.warmcat.com>
-	 <201207101437.54877.florian@openwrt.org> <4FFC2712.9020208@warmcat.com>
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Subject: Re: [RFC PATCH] tcp: limit data skbs in qdisc layer
+Date: Tue, 10 Jul 2012 21:28:21 +0800
+Message-ID: <CAF1ivSZPqzjV_O7kXUskhy9BtKhbhdWixn8OS7sTpYgM8Z4afw@mail.gmail.com>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	<1340945457.29822.7.camel@edumazet-glaptop>
+	<1341396687.2583.1757.camel@edumazet-glaptop>
+	<20120709.000834.1182150057463599677.davem@davemloft.net>
+	<1341845722.3265.3065.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <florian@openwrt.org>,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	s-jan@ti.com, arnd@arndb.de, patches@linaro.org, tony@atomide.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "\"Andy Green" =?UTF-8?Q?=28=E6=9E=97=E5=AE=89=E5=BB=B8=29=22?=
-	<andy@warmcat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4FFC2712.9020208@warmcat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
+	dave.taht@gmail.com, netdev@vger.kernel.org,
+	codel@lists.bufferbloat.net, therbert@google.com,
+	mattmathis@google.com, nanditad@google.com, ncardwell@google.com,
+	andrewmcgr@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [124.207.24.138] ([124.207.24.138]:60281 "EHLO
+	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752859Ab2GJN3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 09:29:09 -0400
+Received: from mail-vc0-f174.google.com (mail-vc0-f174.google.com [209.85.220.174])
+	(Authenticated sender: mlin@ss.pku.edu.cn)
+	by mail.ss.pku.edu.cn (Postfix) with ESMTPA id 1EAF1DBC4A
+	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 21:28:24 +0800 (CST)
+Received: by vcbf11 with SMTP id f11so7990507vcb.19
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 06:28:21 -0700 (PDT)
+In-Reply-To: <1341845722.3265.3065.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-10 at 20:58 +0800, "Andy Green (=E6=9E=97=E5=AE=89=E5=BB=
-=B8)" wrote:
-> On 10/07/12 20:37, the mail apparently from Florian Fainelli included=
-:
->=20
+On Mon, Jul 9, 2012 at 10:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2012-07-09 at 00:08 -0700, David Miller wrote:
+>
+>> I'm suspicious and anticipate that 10G will need more queueing than
+>> you are able to get away with tg3 at 1G speeds.  But it is an exciting
+>> idea nonetheless :-)
+>
+> There is a fundamental problem calling any xmit function from skb
+> destructor.
+>
+> skb destructor can be called while qdisc lock is taken, so we can
+> deadlock trying to reacquire it.
+>
+> One such path is the dev_deactivate_queue() -> qdisc_reset() ->
+> qdisc_reset_queue(), but also any dropped skbs in qdisc.
+>
+> So I should only do this stuff from a separate context, for example a
+> tasklet or timer.
+>
+> Alternative would be to use dev_kfree_skb_irq() for all dropped skbs in
+> qdisc layer.
 
-> Why should Ubuntu, Fedora etc stink up their OSes with Panda-specific=
-=20
-> workarounds?  And Panda is not the only device with this issue.
+Hi Eric,
 
-Actually I think you just answered your own question ;-)
+Maybe a bit off topic ...
 
-Anyway, I don't think an initrd solution is the best. Yeah, it's fine
-for a work around, but then I need to go and screw with the initrd if i=
-t
-doesn't have support for the board. If the network card already has a
-MAC address, why should the kernel give it another *random* one?
+Could you share how to test qdisc related change?
+Assume I'm testing qdisc performance, for example, codel qdisc,
+then how to setup the test environment?
 
-This isn't a complex patch set, where the complexity should be put into
-userspace. And it makes it very convenient for people that just want th=
-e
-board to boot so they can test it. I'm not developing any SoC or BSP,
-I'm just using it to make sure my kernel changes can also be implemente=
-d
-for ARM.
+Do you use some network simulator, for example, using the special netem qdisc to
+simulate slow network/packet loss/network delay, etc?
 
--- Steve
+Thanks,
+Lin Ming
