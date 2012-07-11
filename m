@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: optimize ipv6 addresses compares
-Date: Tue, 10 Jul 2012 21:02:21 -0700 (PDT)
-Message-ID: <20120710.210221.559183284956265274.davem@davemloft.net>
-References: <1341978558.3265.6609.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC][PATCH 1/4] skbtrace: core feature
+Date: Wed, 11 Jul 2012 06:03:18 +0200
+Message-ID: <1341979398.3265.6648.camel@edumazet-glaptop>
+References: <4FFBC6B6.2000600@gmail.com>  <4FFCE241.6010305@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: eric.dumazet@gmail.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Li Yu <raise.sail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43660 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757Ab2GKECV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 00:02:21 -0400
-In-Reply-To: <1341978558.3265.6609.camel@edumazet-glaptop>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:45535 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750901Ab2GKEDX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 00:03:23 -0400
+Received: by wgbdr13 with SMTP id dr13so610102wgb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 21:03:21 -0700 (PDT)
+In-Reply-To: <4FFCE241.6010305@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 11 Jul 2012 05:49:18 +0200
-
-> From: Eric Dumazet <edumazet@google.com>
+On Wed, 2012-07-11 at 10:17 +0800, Li Yu wrote:
+> From: Li Yu <bingtian.ly@taobao.com>
 > 
-> On 64 bit arches having efficient unaligned accesses (eg x86_64) we can
-> use long words to reduce number of instructions for free.
+> This implements core feature of skbtrace, which contains glue code of
+> tracepoints subsystem and relay file system, and provide skbtrace API
+> for particular networking traces.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Joe Perches <joe@perches.com>
+> Thanks
 
-Maybe we can even be sure that they are 64-bit aligned too?
+Hi Li
 
-If there's an embedded u64 in the in6_addr union, they really should
-be.
+This seems a huge amount of code, on an already complex stack.
 
-It can't even be an issue in the protocol headers, because in the
-socket demux we read the two 32-bit ipv4 addresses in the packet
-header as one 64-bit chunk already.
+I am not convinced its needed. It looks like a debugging aid you had to
+write in order to understand better linux network stack.
+
+Lets see if you manage to maintain this for a while before considering
+upstreaming it.
+
+You said that some 'buggy' drivers set rxhash to zero, but its a valid
+operation.
+
+You said 'it seems that RPS hashing can not work well for some corner
+cases', but its a known fact.
+
+Thanks
