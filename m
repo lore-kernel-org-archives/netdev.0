@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/16] Metrics restructuring.
-Date: Tue, 10 Jul 2012 23:07:53 -0700 (PDT)
-Message-ID: <20120710.230753.888978552341612339.davem@davemloft.net>
-References: <20120710.080703.916560084659556593.davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/5] Cleanup, mostly kernel-doc
+Date: Tue, 10 Jul 2012 23:11:06 -0700 (PDT)
+Message-ID: <20120710.231106.1483494796263156631.davem@davemloft.net>
+References: <1341953604.2605.24.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44191 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44216 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab2GKGH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:07:56 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id B9CBD586999
-	for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 23:07:57 -0700 (PDT)
-In-Reply-To: <20120710.080703.916560084659556593.davem@davemloft.net>
+	with ESMTP id S1755672Ab2GKGLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:11:07 -0400
+In-Reply-To: <1341953604.2605.24.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 10 Jul 2012 21:53:24 +0100
 
-Ok, I've incorporated all the feedback and pushed the result
-into net-next:
+> I spotted some minor errors in the RSS policy changes, and one thing led
+> to another and I ended up with all this.
+> 
+> v2: Avoid leaving comments starting with '/*\n'.
+>     Fix a few more non-kernel-doc comments.
 
-1) Namespace support for TCP metrics cache.
-
-2) Cleanup address comparisons and add necessary sparse casts.
-
-3) Trailing whitespace.
-
-Thanks everyone.
+I'll apply this, thanks Ben.
