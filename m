@@ -1,37 +1,46 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
-Date: Wed, 11 Jul 2012 14:46:18 +0300
-Message-ID: <4FFD678A.3060701@mellanox.com>
-References: <4FFD33B8.5010604@mellanox.com>  <20120711.011912.2063611962030549397.davem@davemloft.net>  <4FFD4E8D.7040608@mellanox.com>  <20120711.030639.1906839917411889365.davem@davemloft.net> <1342002453.3265.7447.camel@edumazet-glaptop>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [RFC PATCH] tun: don't zeroize sock->file on detach
+Date: Wed, 11 Jul 2012 15:48:20 +0400
+Message-ID: <20120711114753.24395.53193.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <roland@kernel.org>,
-	<netdev@vger.kernel.org>, <ali@mellanox.com>,
-	<sean.hefty@intel.com>, <erezsh@mellanox.co.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:53864 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753842Ab2GKLq0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 07:46:26 -0400
-In-Reply-To: <1342002453.3265.7447.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, ruanzhijie@hotmail.com,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/11/2012 1:27 PM, Eric Dumazet wrote:
-> On Wed, 2012-07-11 at 03:06 -0700, David Miller wrote:
->> We have them on the RX flow too, they are called ingress qdiscs (as
->> opposed to egress qdiscs on the TX side).
->>
->> There is nothing mysterious about them, they've been there for more
->> than 15 years.
->
-> Sample script [...]
+This is a fix for bug, introduced in 3.4 kernel by commit
+1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things, replaced
+simple sock_put() by sk_release_kernel(). Below is sequence, which leads to
+oops for non-persistent devices:
 
-Hi Eric, thanks for the crash / detailed answer... would you agree to 
-what I wrote, so we can
-use the last twenty bytes of skb->cb[] e.g in a similar manner to the 
-way struct ipoib_cb works?
+tun_chr_close()
+tun_detach()				<== tun->socket.file = NULL
+tun_free_netdev()
+sk_release_sock()
+sock_release(sock->file == NULL)
+iput(SOCK_INODE(sock))			<== dereference on NULL pointer
 
-Or.
+This patch just removes zeroing of socket's file from __tun_detach().
+sock_release() will do this.
+
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+---
+ drivers/net/tun.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 987aeef..c1639f3 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -185,7 +185,6 @@ static void __tun_detach(struct tun_struct *tun)
+ 	netif_tx_lock_bh(tun->dev);
+ 	netif_carrier_off(tun->dev);
+ 	tun->tfile = NULL;
+-	tun->socket.file = NULL;
+ 	netif_tx_unlock_bh(tun->dev);
+ 
+ 	/* Drop read queue */
