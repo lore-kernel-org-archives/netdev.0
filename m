@@ -1,43 +1,23 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 07/10] ixgbe: Add function for setting XPS queue
- mapping
-Date: Wed, 11 Jul 2012 19:15:07 +0100
-Message-ID: <1342030507.2613.46.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120630000652.29939.11108.stgit@gitlad.jf.intel.com>
-	 <20120630001649.29939.725.stgit@gitlad.jf.intel.com>
+From: drdave@wowway.com
+Subject: Response
+Date: Wed, 11 Jul 2012 14:15:28 -0400 (EDT)
+Message-ID: <1514460781.289071.1342030528487.JavaMail.root@md02.wow.synacor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <edumazet@google.com>,
-	<therbert@google.com>, <alexander.duyck@gmail.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:15518 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754672Ab2GKSPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 14:15:12 -0400
-In-Reply-To: <20120630001649.29939.725.stgit@gitlad.jf.intel.com>
+Received: from smtp.wow.synacor.com ([64.8.70.55]:59661 "EHLO
+	smtp.mail.wowway.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754672Ab2GKSPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 14:15:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-06-29 at 17:16 -0700, Alexander Duyck wrote:
-> This change adds support for ixgbe to configure the XPS queue mapping on
-> load.  The result of this change is that on open we will now be resetting
-> the number of Tx queues, and then setting the default configuration for XPS
-> based on if ATR is enabled or disabled.
-[...]
+Gooday to you Sir/Ma,
+We here by pronounce you the lucky beneficiary of the (1Million GBP*) from Microsoft draw, which was held in the UK,you are to provide your full details to this desk.
+Required info:Full name,Full address,Country of residence,Originality,Tell number,Age,Occupation,Sex. Here is the reply to email (m.net.org@msn.com) kindly reply us via this email (m.net.org@msn.com)
 
-I didn't see where you're resetting the number of TX queues; was that
-actually added in an earlier patch?
-
-It seems strange to be resetting XPS configuration on open; normally net
-device configuration persists as long as the device is registered.
-Maybe only do this if the number of TX queues has to change?
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Kind Regards
+Lady Lisa.
+m.net.org@msn.com
