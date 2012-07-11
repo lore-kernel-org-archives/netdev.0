@@ -1,65 +1,50 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: 82571EB: Detected Hardware Unit Hang
-Date: Wed, 11 Jul 2012 15:53:11 +0800
-Message-ID: <4FFD30E7.3070404@oracle.com>
-References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com>
-	<4FFCCA22.8060006@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EEC8B@ORSMSX102.amr.corp.intel.com>
-	<4FFCDA6C.8020708@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EED74@ORSMSX102.amr.corp.intel.com>
-	<4FFCF314.6020400@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com>
-	<4FFD0908.6080506@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EEF38@ORSMSX102.amr.corp.intel.com>
-	<4FFD2896.3090209@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EEFD7@ORSMSX102.amr.corp.intel.com>
-	<4FFD2D7E.60801@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274EF055@ORSMSX102.amr.corp.intel.com>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: UDP ordering when using multiple rx queue
+Date: Wed, 11 Jul 2012 09:53:44 +0200
+Message-ID: <CAL8zT=g5nHd6FprhxFc21XTgfXeaokt4QN1fS4ekcNVkuvZE9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Dave, Tushar N" <tushar.n.dave@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA891274EF055@ORSMSX102.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:39197 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756767Ab2GKHyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 03:54:05 -0400
+Received: by wibhm11 with SMTP id hm11so5409118wib.1
+        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 00:54:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/11/12 15:50, Dave, Tushar N wrote:
-> Device status and AER sections show some errors that looks little suspicious to me but I'm not too sure. I will get back tomorrow.
-> 
+Hi list,
 
-Thanks a lot, Tushar!
+I am doing some experiments on several NICs and I have an issue with
+my application.
+This is a sending of raw data packets which consists of bursts each
+1/30s of 784 times 4000 bytes UDP packets.
+The packets are one a wired link, no switch or anything, so there is
+no chance of reordering or drop between the sender and receiver.
 
-Joe
+On receiver side, I need to get the packets ordered, or the
+application will consider the packets are late (and then, lost).
+(Yes, the application is badly written on that specific part, but it
+is not mine :)).
 
+Several tests lead to a simple conclusion : when the NIC has only one
+RX queue, everything is ok (like be2net for instance), but when it has
+more than one RX queue, then I can have "lost packets".
+This is the case for bnx2x or mlx4 for instance.
 
--- 
-Oracle <http://www.oracle.com>
-Joe Jin | Software Development Senior Manager | +8610.6106.5624
-ORACLE | Linux and Virtualization
-No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
+Here are my questions :
+- Is it possible to force a driver to use only one rx queue, even if
+it can use more without reloading the driver (and this is feasible
+only when a parameter exists for that !) ?
+- Is it possible to "force" the network stack to give the packets on
+the correct order (I would say no, as this is not specified in the
+protocol) ?
 
+My only bet is the first one (forcing one rx queue).
+The last and desperate solution would be rewriting the application,
+not easy to make it accepted.
 
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks !
+JM
