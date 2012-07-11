@@ -1,59 +1,100 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: UDP ordering when using multiple rx queue
-Date: Wed, 11 Jul 2012 16:50:27 -0600
-Message-ID: <4FFE0333.8040108@genband.com>
-References: <CAL8zT=g5nHd6FprhxFc21XTgfXeaokt4QN1fS4ekcNVkuvZE9g@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next 2012-07-11
+Date: Thu, 12 Jul 2012 00:13:09 +0100
+Message-ID: <1342048389.2613.59.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-q+hWtQGNCmEiO1Vu8Xhp"
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og124.obsmtp.com ([64.18.2.26]:53634 "EHLO
-	exprod7og124.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751558Ab2GKWzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 18:55:49 -0400
-In-Reply-To: <CAL8zT=g5nHd6FprhxFc21XTgfXeaokt4QN1fS4ekcNVkuvZE9g@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:34114 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1758437Ab2GKXNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 19:13:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2012 01:53 AM, Jean-Michel Hautbois wrote:
-> On receiver side, I need to get the packets ordered, or the
-> application will consider the packets are late (and then, lost).
-> (Yes, the application is badly written on that specific part, but it
-> is not mine :)).
+--=-q+hWtQGNCmEiO1Vu8Xhp
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Not the first such app I've seen.
+The following changes since commit c56bf6fe785abbd83751a462f0c7067f7145b97a=
+:
 
-> Several tests lead to a simple conclusion : when the NIC has only one
-> RX queue, everything is ok (like be2net for instance), but when it has
-> more than one RX queue, then I can have "lost packets".
-> This is the case for bnx2x or mlx4 for instance.
+  ipv6: fix a bad cast in ip6_dst_lookup_tail() (2012-07-06 00:23:41 -0700)
 
-This depends on the hardware.  The Intel NICs for example (and others, 
-I'm just most familiar with them) support multiple queues but they do 
-hardware hashing of "flows" such that a given flow will be routed to a 
-specific queue and thus stay in order.
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 
-> Here are my questions :
-> - Is it possible to force a driver to use only one rx queue, even if
-> it can use more without reloading the driver (and this is feasible
-> only when a parameter exists for that !) ?
+(commit 9a46fccdd28f9939c10f81748e1430afbb95138d)
 
-This depends on the driver, but generally I would expect this to be a 
-module parameter.
+1. 128-bit MMIO writes for TX push, by Stuart Hodgson.  We previously
+   tried to do this with write-combining, but that turned out to be
+   unsafe.  Now we use SSE (on x86_64 only).
+2. Fix potential badness when running a self-test with SR-IOV enabled.
+3. Fix calculation of some interface statistics that could run backward.
+4. Miscellaneous cleanup.
 
-> - Is it possible to "force" the network stack to give the packets on
-> the correct order (I would say no, as this is not specified in the
-> protocol) ?
+Ben.
 
-No, it's up to the hardware/driver.
+Ben Hutchings (10):
+      sfc: Work around bogus 'uninitialised variable' warning
+      sfc: Use generic DMA API, not PCI-DMA API
+      sfc: Remove dead write to tso_state::packet_space
+      sfc: Stop changing header offsets on TX
+      sfc: Use strlcpy() to copy ethtool stats names
+      sfc: Use dev_kfree_skb() in efx_end_loopback()
+      sfc: Explain why efx_mcdi_exit_assertion() ignores result of efx_mcdi=
+_rpc()
+      sfc: Disable VF queues during register self-test
+      sfc: Fix interface statistics running backward
+      sfc: Correct some comments on enum reset_type
+
+Stuart Hodgson (1):
+      sfc: Implement 128-bit writes for efx_writeo_page
+
+ drivers/net/ethernet/sfc/bitfield.h    |    5 ++
+ drivers/net/ethernet/sfc/efx.c         |   10 ++--
+ drivers/net/ethernet/sfc/enum.h        |    8 ++--
+ drivers/net/ethernet/sfc/ethtool.c     |    2 +-
+ drivers/net/ethernet/sfc/falcon.c      |   35 +++++++++++--
+ drivers/net/ethernet/sfc/falcon_xmac.c |   12 ++--
+ drivers/net/ethernet/sfc/filter.c      |    2 +-
+ drivers/net/ethernet/sfc/io.h          |   51 +++++++++++++++++
+ drivers/net/ethernet/sfc/mcdi.c        |   11 +++-
+ drivers/net/ethernet/sfc/net_driver.h  |    9 ++-
+ drivers/net/ethernet/sfc/nic.c         |   11 ++---
+ drivers/net/ethernet/sfc/nic.h         |   18 ++++++
+ drivers/net/ethernet/sfc/rx.c          |   22 ++++----
+ drivers/net/ethernet/sfc/selftest.c    |   64 ++++++----------------
+ drivers/net/ethernet/sfc/siena.c       |   37 ++++++++++---
+ drivers/net/ethernet/sfc/tx.c          |   93 ++++++++++++++--------------=
+----
+ 16 files changed, 237 insertions(+), 153 deletions(-)
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
 
-> My only bet is the first one (forcing one rx queue).
-> The last and desperate solution would be rewriting the application,
-> not easy to make it accepted.
+--=-q+hWtQGNCmEiO1Vu8Xhp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Depending on the hardware/driver you may be able to enable flow hashing.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Chris
+iQEcBAABCAAGBQJP/giFAAoJEGkILBsOca60bVIH/0+4MNYlyQZoJHUxIFMibmqy
+a0seOe8n9Xs8wiURH95ioArDZISxQme1pMrzva/75of6s/2o1zjbTriY8Ju0/s1V
+yUwKVfBS3TiVe+JlhNVZDqniYqHEtYpSnnYiloGaLPEMqBG5KQx71a6i+qsMoXJa
+xFMmpCN1i4OHvRTo8HCBmHzRWsS2msnjJmVaj4EMTb7fD9DahKF5seolY+eFXVc8
+YQz7EayAVE0goJqwiKqDkRm+Tawt/kWDP2w3dsZ98tNJCAq9LdDqKOfipo9SaAK5
+SCqq1wweqAYX8ohwZy7RUJDWVONBONhAhF7dKFJjT83qrNH50L1/eALHmGL+PiA=
+=M2gu
+-----END PGP SIGNATURE-----
+
+--=-q+hWtQGNCmEiO1Vu8Xhp--
