@@ -1,63 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
-Date: Wed, 11 Jul 2012 17:54:03 +0200
-Message-ID: <1342022043.3265.8179.camel@edumazet-glaptop>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
-	<1340945457.29822.7.camel@edumazet-glaptop>
-	<1341396687.2583.1757.camel@edumazet-glaptop>
-	<20120709.000834.1182150057463599677.davem@davemloft.net>
-	<1341845722.3265.3065.camel@edumazet-glaptop>
-	<1341933215.3265.5476.camel@edumazet-glaptop>
-	<1342019518.3265.8116.camel@edumazet-glaptop>
-	<4FFD98EA.1040301@candelatech.com>
-	<1342020306.3265.8129.camel@edumazet-glaptop>
-	<4FFD9F18.6030401@candelatech.com>
+Date: Wed, 11 Jul 2012 09:03:12 -0700
+Message-ID: <4FFDA3C0.9040909@candelatech.com>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>  <1340945457.29822.7.camel@edumazet-glaptop>  <1341396687.2583.1757.camel@edumazet-glaptop>  <20120709.000834.1182150057463599677.davem@davemloft.net>  <1341845722.3265.3065.camel@edumazet-glaptop>  <1341933215.3265.5476.camel@edumazet-glaptop>  <1342019518.3265.8116.camel@edumazet-glaptop>  <4FFD98EA.1040301@candelatech.com>  <1342020306.3265.8129.camel@edumazet-glaptop>  <4FFD9F18.6030401@candelatech.com> <1342022043.3265.8179.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nanditad@google.com, netdev@vger.kernel.org, mattmathis@google.com,
-	codel@lists.bufferbloat.net, ncardwell@google.com,
-	David Miller <davem@davemloft.net>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <4FFD9F18.6030401@candelatech.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
+	dave.taht@gmail.com, netdev@vger.kernel.org,
+	codel@lists.bufferbloat.net, therbert@google.com,
+	mattmathis@google.com, nanditad@google.com, ncardwell@google.com,
+	andrewmcgr@gmail.com, Rick Jones <rick.jones2@hp.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:42352 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932467Ab2GKQDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 12:03:20 -0400
+In-Reply-To: <1342022043.3265.8179.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-11 at 08:43 -0700, Ben Greear wrote:
-> On 07/11/2012 08:25 AM, Eric Dumazet wrote:
-> > On Wed, 2012-07-11 at 08:16 -0700, Ben Greear wrote:
-> >
-> >> I haven't read your patch in detail, but I was wondering if this feature
-> >> would cause trouble for applications that are servicing many sockets at once
-> >> and so might take several ms between handling each individual socket.
-> >>
-> >
-> > Well, this patch has no impact for such applications. In fact their
-> > send()/write() will return to userland faster than before (for very
-> > large send())
-> 
-> Maybe I'm just confused.  Is your patch just mucking with
-> the queues below the tcp xmit queues?  From the patch description
-> I was thinking you were somehow directly limiting the TCP xmit
-> queues...
-> 
+On 07/11/2012 08:54 AM, Eric Dumazet wrote:
+> On Wed, 2012-07-11 at 08:43 -0700, Ben Greear wrote:
+>> On 07/11/2012 08:25 AM, Eric Dumazet wrote:
+>>> On Wed, 2012-07-11 at 08:16 -0700, Ben Greear wrote:
+>>>
+>>>> I haven't read your patch in detail, but I was wondering if this feature
+>>>> would cause trouble for applications that are servicing many sockets at once
+>>>> and so might take several ms between handling each individual socket.
+>>>>
+>>>
+>>> Well, this patch has no impact for such applications. In fact their
+>>> send()/write() will return to userland faster than before (for very
+>>> large send())
+>>
+>> Maybe I'm just confused.  Is your patch just mucking with
+>> the queues below the tcp xmit queues?  From the patch description
+>> I was thinking you were somehow directly limiting the TCP xmit
+>> queues...
+>>
+>
+> I dont limit tcp xmit queues. I might avoid excessive autotuning.
+>
+>
+>
+>> If you are just draining the tcp xmit queues on a new/faster
+>> trigger, then I see no problem with that, and no need for
+>> a per-socket control.
+>
+> Thats the plan : limiting numer of bytes in Qdisc, not number of bytes
+> in socket write queue.
 
-I dont limit tcp xmit queues. I might avoid excessive autotuning.
+Thanks for the explanation.
 
+Out of curiosity, have you tried running multiple TCP streams
+with different processes driving each stream, where each is trying
+to drive, say, 700Mbps bi-directional traffic over a 1Gbps link?
 
+Perhaps with 50ms of latency generated by a network emulator.
 
-> If you are just draining the tcp xmit queues on a new/faster
-> trigger, then I see no problem with that, and no need for
-> a per-socket control.
+This used to cause some extremely high latency
+due to excessive TCP xmit queues (from what I could tell),
+but maybe this new patch will cure that.
 
-Thats the plan : limiting numer of bytes in Qdisc, not number of bytes
-in socket write queue.
+I'll re-run my tests with your patch eventually..but too bogged
+down to do so soon.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
