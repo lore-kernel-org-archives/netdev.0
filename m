@@ -1,49 +1,37 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH net-next] netxen: fix link notification order
-Date: Wed, 11 Jul 2012 15:56:55 -0300
-Message-ID: <1342033015-31442-1-git-send-email-fbl@redhat.com>
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2674 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751593Ab2GKS5I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 14:57:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-07-11
+Date: Wed, 11 Jul 2012 21:00:50 +0200
+Message-ID: <CACna6rwN+tBu=BG0TR2udq3PH9qvPg44jJQPGc4G3jH_t2=GjQ@mail.gmail.com>
+References: <20120711181721.GC1906@tuxdriver.com>
+	<20120711183320.GB1937@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120711183320.GB1937-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-First update the adapter variables with the current speed and
-mode before fire the notification. Otherwise, the get_settings()
-may provide old values.
+2012/7/11 John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+> Ugh, forgot the signature again...
+>
+> On Wed, Jul 11, 2012 at 02:17:22PM -0400, John W. Linville wrote:
+>> Rafa=C5=82 Mi=C5=82ecki (2):
+>>       b43: N-PHY: fix RSSI calibration
+>>       bcma: use custom printing functions
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+MIPS users: bcma patch breaks compilation for you (sorry!), please appl=
+y
+bcma: fix CC driver compilation on MIPS
+locally before it gets merged.
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-index b2c1b676..bc165f4 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-@@ -1437,8 +1437,6 @@ netxen_handle_linkevent(struct netxen_adapter *adapter, nx_fw_msg_t *msg)
- 				netdev->name, cable_len);
- 	}
- 
--	netxen_advert_link_change(adapter, link_status);
--
- 	/* update link parameters */
- 	if (duplex == LINKEVENT_FULL_DUPLEX)
- 		adapter->link_duplex = DUPLEX_FULL;
-@@ -1447,6 +1445,8 @@ netxen_handle_linkevent(struct netxen_adapter *adapter, nx_fw_msg_t *msg)
- 	adapter->module_type = module;
- 	adapter->link_autoneg = autoneg;
- 	adapter->link_speed = link_speed;
-+
-+	netxen_advert_link_change(adapter, link_status);
- }
- 
- static void
--- 
-1.7.10.4
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
