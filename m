@@ -1,41 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPoIB: fix skb truesize underestimatiom
-Date: Tue, 10 Jul 2012 23:37:43 -0700 (PDT)
-Message-ID: <20120710.233743.282062793119280863.davem@davemloft.net>
-References: <1341950621.3265.6331.camel@edumazet-glaptop>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: RE: 82571EB: Detected Hardware Unit Hang
+Date: Wed, 11 Jul 2012 07:11:43 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891274EEF38@ORSMSX102.amr.corp.intel.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com>
+ <4FFCCA22.8060006@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EEC8B@ORSMSX102.amr.corp.intel.com>
+ <4FFCDA6C.8020708@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EED74@ORSMSX102.amr.corp.intel.com>
+ <4FFCF314.6020400@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com>
+ <4FFD0908.6080506@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, erezsh@mellanox.com, roland@purestorage.com,
-	netdev@vger.kernel.org, shlomop@mellanox.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44445 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754324Ab2GKGhq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:37:46 -0400
-In-Reply-To: <1341950621.3265.6331.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FFD0908.6080506@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 Jul 2012 22:03:41 +0200
+>-----Original Message-----
+>From: Joe Jin [mailto:joe.jin@oracle.com]
+>Sent: Tuesday, July 10, 2012 10:03 PM
+>To: Dave, Tushar N
+>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org
+>Subject: Re: 82571EB: Detected Hardware Unit Hang
+>
+>On 07/11/12 12:05, Dave, Tushar N wrote:
+>> When you said you had this issue with RHEL5 and RHEL6 drivers, have you
+>install RHEl5/6 kernel and reproduced it? If so I think I should install
+>RHEL6 and try reproduce it locally!
+>>
+>Yes I reproduced this on both RHEL5 and RHEL6.
+>
+>So far I tried to scp big file (~1GB) will hit it at once.
+>
+>Thanks,
+>Joe
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Or Gerlitz reported triggering of WARN_ON_ONCE(delta < len); in
-> skb_try_coalesce()
-> This warning tracks drivers that incorrectly set skb->truesize
-> 
-> IPoIB indeed allocates a full page to store a fragment, but only
-> accounts in skb->truesize the used part of the page (frame length)
-> 
-> This patch fixes skb truesize underestimation, and
-> also fixes a performance issue, because RX skbs have not enough tailroom
-> to allow IP and TCP stacks to pull their header in skb linear part
-> without an expensive call to pskb_expand_head()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+Joe,
+Can you please send lspci -vvv output for failing port before issue occurs.
+Thanks.
 
-Applied to net, thanks.
+-Tushar
