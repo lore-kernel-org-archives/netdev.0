@@ -1,48 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
-Date: Wed, 11 Jul 2012 01:19:12 -0700 (PDT)
-Message-ID: <20120711.011912.2063611962030549397.davem@davemloft.net>
-References: <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com>
-	<1341923180.3265.5005.camel@edumazet-glaptop>
-	<4FFD33B8.5010604@mellanox.com>
+Subject: Re: [patch -next] net: writes past the end of the struct
+Date: Wed, 11 Jul 2012 01:27:45 -0700 (PDT)
+Message-ID: <20120711.012745.2202204429130083377.davem@davemloft.net>
+References: <20120711063214.GA11812@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, roland@kernel.org, netdev@vger.kernel.org,
-	ali@mellanox.com, sean.hefty@intel.com, erezsh@mellanox.co.il
-To: ogerlitz@mellanox.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44866 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44925 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752631Ab2GKITP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 04:19:15 -0400
-In-Reply-To: <4FFD33B8.5010604@mellanox.com>
+	with ESMTP id S1750987Ab2GKI1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 04:27:46 -0400
+In-Reply-To: <20120711063214.GA11812@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 11 Jul 2012 11:05:12 +0300
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 11 Jul 2012 09:32:14 +0300
 
-> On 7/10/2012 3:26 PM, Eric Dumazet wrote:
->> On Tue, 2012-07-10 at 15:16 +0300, Or Gerlitz wrote:
->>> The IPoIB code checks the VIF private flag on the RX path, and
->>> accoriding
->>> to the value of the flag prepares the skb CB data, etc.
->>>
->>
->> skb->cb[] can be destroyed in netif_receive_skb() /
->> __netif_receive_skb()
->>
->> #ifdef CONFIG_NET_CLS_ACT
->> 	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
->> 	...
->> #endif
+> There are a couple places that try to set part of the struct to 0 by
+> doing:
 > 
-> Eric,
+>     memset(&rt->rt6i_table, 0, sizeof(*rt) - sizeof(struct dst_entry));
 > 
-> Can you elaborate a little further? we're not sure to see where
-> skb->cb[] is touched on the flow
-> you pointed to.
+> It assumes that the first element is a dst_entry and the second element
+> is ->rt6_table.  The problem is we changed the struct in 97cac0821a
+> ('ipv6: Store route neighbour in rt6_info struct.') and we aren't
+> clearing rt->n but instead we're writing past the end of the array.
+> 
+> I've changed it to:
+>     memset(&rt->n, 0, sizeof(*rt) - offsetof(struct rt6_info, n));
+> 
+> The memset in ip6_dst_alloc() was ok but I changed it to use offsetof()
+> as a cleanup.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-handle_ing() goes into the packet scheduler and qdisc layer,
-the qdisc layer uses skb->cb[] via struct qdisc_skb_cb.
+Steffen Klassert had patches to do this more nicely, using "dst + 1"
+as the pointer calculation, which therefore works no matter what
+elements we add to struct rt6_info after the dst_entry.
+
+I asked him to fix some things, he did too much casting, but he never
+respun his patch set.  I definitely prefer this gets fixed his way.
+
+http://patchwork.ozlabs.org/patch/169391/
+http://patchwork.ozlabs.org/patch/169395/
