@@ -1,48 +1,37 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: Re: UDP ordering when using multiple rx queue
-Date: Wed, 11 Jul 2012 13:13:21 +0200
-Message-ID: <CAL8zT=jMPCv_Lc7gJYGHRhHZop9aWJfp2w1o_cD0Z8SRdtck7Q@mail.gmail.com>
-References: <CAL8zT=g5nHd6FprhxFc21XTgfXeaokt4QN1fS4ekcNVkuvZE9g@mail.gmail.com>
- <1342004939.27284.28.camel@lb-tlvb-meravs.il.broadcom.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
+Date: Wed, 11 Jul 2012 14:46:18 +0300
+Message-ID: <4FFD678A.3060701@mellanox.com>
+References: <4FFD33B8.5010604@mellanox.com>  <20120711.011912.2063611962030549397.davem@davemloft.net>  <4FFD4E8D.7040608@mellanox.com>  <20120711.030639.1906839917411889365.davem@davemloft.net> <1342002453.3265.7447.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Merav Sicron <meravs@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <roland@kernel.org>,
+	<netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, <erezsh@mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:34946 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642Ab2GKLNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 07:13:42 -0400
-Received: by wgbdr13 with SMTP id dr13so928332wgb.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 04:13:41 -0700 (PDT)
-In-Reply-To: <1342004939.27284.28.camel@lb-tlvb-meravs.il.broadcom.com>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:53864 "HELO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753842Ab2GKLq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 07:46:26 -0400
+In-Reply-To: <1342002453.3265.7447.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/7/11 Merav Sicron <meravs@broadcom.com>:
-> On Wed, 2012-07-11 at 00:53 -0700, Jean-Michel Hautbois wrote:
+On 7/11/2012 1:27 PM, Eric Dumazet wrote:
+> On Wed, 2012-07-11 at 03:06 -0700, David Miller wrote:
+>> We have them on the RX flow too, they are called ingress qdiscs (as
+>> opposed to egress qdiscs on the TX side).
+>>
+>> There is nothing mysterious about them, they've been there for more
+>> than 15 years.
 >
->> Several tests lead to a simple conclusion : when the NIC has only one
->> RX queue, everything is ok (like be2net for instance), but when it has
->> more than one RX queue, then I can have "lost packets".
->> This is the case for bnx2x or mlx4 for instance.
-> >From what you describe I assume that you use different source IP /
-> destination IP in each packet - is this something that you can control?
-> Because with the same IP addresses the traffic will be steered to the
-> same queue.
+> Sample script [...]
 
-OK, sorry for not having explained that : the packets are multicast
-with a port for each stream. Sending one stream multicast on a bnx2x
-based NIC can lead to several queues used (two, for what I can see)
-and then, to the problem reported.
+Hi Eric, thanks for the crash / detailed answer... would you agree to 
+what I wrote, so we can
+use the last twenty bytes of skb->cb[] e.g in a similar manner to the 
+way struct ipoib_cb works?
 
->> Here are my questions :
->> - Is it possible to force a driver to use only one rx queue, even if
->> it can use more without reloading the driver (and this is feasible
->> only when a parameter exists for that !) ?
-> You can reduce the number of queues using "ethtool -L ethX combined 1".
-> Note however that it will cause automatic driver unload/load.
-
-OK, thanks for this tip :).
-
-JM
+Or.
