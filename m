@@ -1,21 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] lance: remove unnecessary setting of skb->dev
-Date: Tue, 10 Jul 2012 23:18:38 -0700 (PDT)
-Message-ID: <20120710.231838.1603485992801415295.davem@davemloft.net>
-References: <1341878975-10577-1-git-send-email-jdmason@kudzu.us>
+Subject: Re: [PATCH] vxge/s2io: remove dead URLs
+Date: Tue, 10 Jul 2012 23:21:45 -0700 (PDT)
+Message-ID: <20120710.232145.512531453311572431.davem@davemloft.net>
+References: <1341878877-10507-1-git-send-email-jdmason@kudzu.us>
+	<20120710.231832.391247031231469078.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
 To: jdmason@kudzu.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44256 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44278 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab2GKGSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:18:41 -0400
-In-Reply-To: <1341878975-10577-1-git-send-email-jdmason@kudzu.us>
+	with ESMTP id S1754017Ab2GKGVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:21:46 -0400
+In-Reply-To: <20120710.231832.391247031231469078.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-All 11 patches applied, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAxMCBK
+dWwgMjAxMiAyMzoxODozMiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEpvbiBNYXNvbiA8amRtYXNv
+bkBrdWR6dS51cz4NCj4gRGF0ZTogTW9uLCAgOSBKdWwgMjAxMiAxNzowNzo1NyAtMDcwMA0KPiAN
+Cj4+IFVSTHMgdG8gbmV0ZXJpb24uY29tIGFuZCBzMmlvLmNvbSBubyBsb25nZXIgcmVzb2x2ZS4g
+IFJlbW92ZSBhbGwgcmVmZXJlbmNlcyB0bw0KPj4gdGhlc2UgVVJMcyBpbiB0aGUgZHJpdmVyIHNv
+dXJjZSBhbmQgZG9jdW1lbnRhdGlvbi4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogSm9uIE1hc29u
+IDxqZG1hc29uQGt1ZHp1LnVzPg0KPiANCj4gQXBwbGllZCwgYnV0IEkgaGFkIHRvIGZpeDoNCj4g
+DQo+PiAtNy4gU3VwcG9ydCANCj4+ICs2LiBTdXBwb3J0IA0KPiAgICAgICAgICAgICAgXl4NCj4g
+DQo+IHRoYXQgdHJhaWxpbmcgd2hpdGVzcGFjZS4NCg0KV293IHlvdSBkaWRuJ3QgZXZlbiBidWls
+ZCB0ZXN0IHRoaXMgcGF0Y2gsIG90aGVyd2lzZSB5b3Ugd291bGQgaGF2ZQ0Kc2VlbjoNCg0KZHJp
+dmVycy9uZXQvZXRoZXJuZXQvbmV0ZXJpb24vdnhnZS92eGdlLW1haW4uYzogSW4gZnVuY3Rpb24g
+oXZ4Z2VfcHJvYmVfZndfdXBkYXRlojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L25ldGVyaW9uL3Z4
+Z2UvdnhnZS1tYWluLmM6NDI2MzozOiB3YXJuaW5nOiBmb3JtYXQgoSVzoiBleHBlY3RzIGFyZ3Vt
+ZW50IG9mIHR5cGUgoWNoYXIgKqIsIGJ1dCBhcmd1bWVudCAyIGhhcyB0eXBlIKF1MzKiIFstV2Zv
+cm1hdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L25ldGVyaW9uL3Z4Z2UvdnhnZS1tYWluLmM6NDI2
+MzozOiB3YXJuaW5nOiBmb3JtYXQgoSVkoiBleHBlY3RzIGEgbWF0Y2hpbmcgoWludKIgYXJndW1l
+bnQgWy1XZm9ybWF0XQ0KDQpJJ20gZml4aW5nIHRoaXMgdXAsIGJ1dCBuZXh0IHRpbWUgdGhpcyB3
+aWxsIHB1dCB5b3Ugb24gbXkgc2hpdA0KbGlzdCBmb3Igc3VyZS4NCg==
