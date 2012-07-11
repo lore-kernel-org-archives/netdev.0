@@ -1,75 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
-Date: Wed, 11 Jul 2012 09:03:12 -0700
-Message-ID: <4FFDA3C0.9040909@candelatech.com>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>  <1340945457.29822.7.camel@edumazet-glaptop>  <1341396687.2583.1757.camel@edumazet-glaptop>  <20120709.000834.1182150057463599677.davem@davemloft.net>  <1341845722.3265.3065.camel@edumazet-glaptop>  <1341933215.3265.5476.camel@edumazet-glaptop>  <1342019518.3265.8116.camel@edumazet-glaptop>  <4FFD98EA.1040301@candelatech.com>  <1342020306.3265.8129.camel@edumazet-glaptop>  <4FFD9F18.6030401@candelatech.com> <1342022043.3265.8179.camel@edumazet-glaptop>
+From: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [RFC 1/2] i2400m: remove SDIO device support
+Date: Wed, 11 Jul 2012 16:50:27 +0000
+Message-ID: <3A78FAA0EC814D4B8ECC99B3AB32B33208141AC2@fmsmsx110.amr.corp.intel.com>
+References: <1341952049-32193-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
-	dave.taht@gmail.com, netdev@vger.kernel.org,
-	codel@lists.bufferbloat.net, therbert@google.com,
-	mattmathis@google.com, nanditad@google.com, ncardwell@google.com,
-	andrewmcgr@gmail.com, Rick Jones <rick.jones2@hp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:42352 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932467Ab2GKQDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 12:03:20 -0400
-In-Reply-To: <1342022043.3265.8179.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Ortiz, Samuel" <samuel.ortiz-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linux-wimax <linux-wimax-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"wimax-BPSAo7wm5JOHVYUYWc+uSQ@public.gmane.org" <wimax-BPSAo7wm5JOHVYUYWc+uSQ@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1341952049-32193-1-git-send-email-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 07/11/2012 08:54 AM, Eric Dumazet wrote:
-> On Wed, 2012-07-11 at 08:43 -0700, Ben Greear wrote:
->> On 07/11/2012 08:25 AM, Eric Dumazet wrote:
->>> On Wed, 2012-07-11 at 08:16 -0700, Ben Greear wrote:
->>>
->>>> I haven't read your patch in detail, but I was wondering if this feature
->>>> would cause trouble for applications that are servicing many sockets at once
->>>> and so might take several ms between handling each individual socket.
->>>>
->>>
->>> Well, this patch has no impact for such applications. In fact their
->>> send()/write() will return to userland faster than before (for very
->>> large send())
->>
->> Maybe I'm just confused.  Is your patch just mucking with
->> the queues below the tcp xmit queues?  From the patch description
->> I was thinking you were somehow directly limiting the TCP xmit
->> queues...
->>
->
-> I dont limit tcp xmit queues. I might avoid excessive autotuning.
->
->
->
->> If you are just draining the tcp xmit queues on a new/faster
->> trigger, then I see no problem with that, and no need for
->> a per-socket control.
->
-> Thats the plan : limiting numer of bytes in Qdisc, not number of bytes
-> in socket write queue.
+> From: John W. Linville [mailto:linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org]
+> 
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> 
+> SDIO support in this driver was intended to support the iwmc3200
+> device.  This hardware never became available to normal humans.
+> Leaving this driver imposes unwelcome maintenance costs for no clear
+> benefit.
+> 
+> Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> ---
+> If there are no objections, I'll push this series through the
+> wireless-next tree along with the iwmc3200wifi removal.
 
-Thanks for the explanation.
-
-Out of curiosity, have you tried running multiple TCP streams
-with different processes driving each stream, where each is trying
-to drive, say, 700Mbps bi-directional traffic over a 1Gbps link?
-
-Perhaps with 50ms of latency generated by a network emulator.
-
-This used to cause some extremely high latency
-due to excessive TCP xmit queues (from what I could tell),
-but maybe this new patch will cure that.
-
-I'll re-run my tests with your patch eventually..but too bogged
-down to do so soon.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Acked-by: Inaky Perez-Gonzalez <inaky.perez-gonzalez-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
