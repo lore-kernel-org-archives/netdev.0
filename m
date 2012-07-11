@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] net: Fix memory leak - vlan_info struct
-Date: Tue, 10 Jul 2012 23:36:51 -0700 (PDT)
-Message-ID: <20120710.233651.97700112989188430.davem@davemloft.net>
-References: <1341902839-13181-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] bnx2: Fix bug in bnx2_free_tx_skbs().
+Date: Tue, 10 Jul 2012 23:37:34 -0700 (PDT)
+Message-ID: <20120710.233734.1549210481505224976.davem@davemloft.net>
+References: <1341950680-12266-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amir.hanania@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44429 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44440 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752637Ab2GKGgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:36:52 -0400
-In-Reply-To: <1341902839-13181-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1754324Ab2GKGhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:37:35 -0400
+In-Reply-To: <1341950680-12266-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon,  9 Jul 2012 23:47:19 -0700
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 10 Jul 2012 13:04:40 -0700
 
-> From: Amir Hanania <amir.hanania@intel.com>
+> In rare cases, bnx2x_free_tx_skbs() can unmap the wrong DMA address
+> when it gets to the last entry of the tx ring.  We were not using
+> the proper macro to skip the last entry when advancing the tx index.
 > 
-> In driver reload test there is a memory leak.
-> The structure vlan_info was not freed when the driver was removed.
-> It was not released since the nr_vids var is one after last vlan was removed.
-> The nr_vids is one, since vlan zero is added to the interface when the interface
-> is being set, but the vlan zero is not deleted at unregister.
-> Fix - delete vlan zero when we unregister the device.
-> 
-> Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Reported-by: Zongyun Lai <zlai@vmware.com>
+> Reviewed-by: Jeffrey Huang <huangjw@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable.
