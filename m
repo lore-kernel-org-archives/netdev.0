@@ -1,18 +1,23 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] tcp: TCP Small Queues
-Date: Thu, 12 Jul 2012 01:47:37 +0200
-Message-ID: <1342050457.3265.8193.camel@edumazet-glaptop>
-References: <1342021831.3265.8174.camel@edumazet-glaptop>
-	<m2r4sirvmg.fsf@firstfloor.org>
+Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
+Date: Thu, 12 Jul 2012 01:49:52 +0200
+Message-ID: <1342050592.3265.8195.camel@edumazet-glaptop>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	<1340945457.29822.7.camel@edumazet-glaptop>
+	<1341396687.2583.1757.camel@edumazet-glaptop>
+	<20120709.000834.1182150057463599677.davem@davemloft.net>
+	<1341845722.3265.3065.camel@edumazet-glaptop>
+	<1341933215.3265.5476.camel@edumazet-glaptop>
+	<1342019518.3265.8116.camel@edumazet-glaptop> <4FFDC985.6050805@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nanditad@google.com, netdev@vger.kernel.org, codel@lists.bufferbloat.net,
-	mattmathis@google.com, ncardwell@google.com,
+Cc: nanditad@google.com, netdev@vger.kernel.org, mattmathis@google.com,
+	codel@lists.bufferbloat.net, ncardwell@google.com,
 	David Miller <davem@davemloft.net>
-To: Andi Kleen <andi@firstfloor.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <m2r4sirvmg.fsf@firstfloor.org>
+In-Reply-To: <4FFDC985.6050805@hp.com>
 List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
 	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
 List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
@@ -24,51 +29,41 @@ Sender: codel-bounces@lists.bufferbloat.net
 Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-07-11 at 11:38 -0700, Andi Kleen wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> > +
-> > +		if (!sock_owned_by_user(sk)) {
-> > +			if ((1 << sk->sk_state) &
-> > +			    (TCPF_ESTABLISHED | TCPF_FIN_WAIT1 |
-> > +			     TCPF_CLOSING | TCPF_CLOSE_WAIT))
-> > +				tcp_write_xmit(sk,
-> > +					       tcp_current_mss(sk),
-> > +					       0, 0,
-> > +					       GFP_ATOMIC);
+On Wed, 2012-07-11 at 11:44 -0700, Rick Jones wrote:
+> On 07/11/2012 08:11 AM, Eric Dumazet wrote:
+> >
+> > Some bench results about the choice of 128KB being the default value:
 > 
-> Did you have any problems with the GFP_ATOMIC allocation failing here?
-> I think you move some skb allocs from process context to ATOMIC, right?
+> What were the starting/baseline figures?
 > 
-> It relies on the VM somehow catching up in another context.
+> >
+> > Tests using a single TCP flow.
+> >
+> > Tests on 10Gbit links :
+> >
+> >
+> > echo 16384 >/proc/sys/net/ipv4/tcp_limit_output_bytes
+> > OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.99.2 (192.168.99.2) port 0 AF_INET
+> > tcpi_rto 201000 tcpi_ato 0 tcpi_pmtu 1500 tcpi_rcv_ssthresh 14600
+> > tcpi_rtt 1875 tcpi_rttvar 750 tcpi_snd_ssthresh 16 tpci_snd_cwnd 79
+> > tcpi_reordering 53 tcpi_total_retrans 0
+> > Local       Local       Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
+> > Send Socket Send Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
+> > Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
+> > Final       Final                                             %     Method %      Method
+> > 392360      392360      16384  20.00   1389.53    10^6bits/s  0.52  S      4.30   S      0.737   1.014   usec/KB
 > 
-> May be interesting to try out under very high memory pressure.
+> By the way, that double reporting of the local socket send size is fixed in:
+> 
+> ------------------------------------------------------------------------
+> r516 | raj | 2012-01-05 15:48:52 -0800 (Thu, 05 Jan 2012) | 1 line
+> 
+> report the rsr_size_end in an omni stream test rather than a copy of the 
+> lss_size_end
+> 
+> of netperf and later.  Also, any idea why the local socket send size got 
+> so much larger with 1GbE than 10 GbE at that setting of 
+> tcp_limit_output_bytes?
 
-AFAIK this patch has no effect on memory allocations, because :
-
-At write() time, we use GFP_KERNEL allocations to build the socket write
-queue.
-
-And each skb is "precloned", that is allocated from skbuff_fclone_cache.
-
-Then, when we select some skbs from write for transmission, we clone
-them. And this cloning doesnt allocate memory, because we use the fast
-cloning.
-
-There are some pathological cases were we do allocate memory, but TSQ
-should lower probabilities :
-
-1) when we skb_clone(skb), we might need an allocation if the previous
-clone is still in flight. This is a retransmit case, and TSQ only takes
-care of transmits (of previously unsent skbs : their fast clone is
-available)
-
-2) When we need to split the skb because not enough cwnd is available.
-   As TSQ tends to limit number of skbs in qdisc, we lower the
-probabilities of such splits. Anyway a TSO split only need an sk_buff,
-this is not a lot of memory.
-
-3) On bulk sends, most transmits are triggered by incoming ACKS, in
-softirq context, so already using GFP_ATOMIC "allocations", if
-ever needed (see point 1)
-
-Thanks
+The 10Gb receiver is a net-next kernel, but the 1Gb receiver is a 2.6.38
+ubuntu kernel. They probably have very different TCP behavior.
