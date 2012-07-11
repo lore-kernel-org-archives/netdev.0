@@ -1,47 +1,131 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net: cgroup: fix access the unallocated memory in
- netprio cgroup
-Date: Wed, 11 Jul 2012 10:59:04 +0200
-Message-ID: <1341997144.3265.7263.camel@edumazet-glaptop>
-References: <1341995406-12719-1-git-send-email-gaofeng@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
-	davem@davemloft.net, Eric Dumazet <edumazet@google.com>
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1341995406-12719-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/5] ixgbe: Add upper limit to ring features
+Date: Wed, 11 Jul 2012 02:09:26 -0700
+Message-ID: <1341997769-22034-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1341997769-22034-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:28647 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753957Ab2GKJJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 05:09:33 -0400
+In-Reply-To: <1341997769-22034-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-11 at 16:30 +0800, Gao feng wrote:
-> there are some out of bound accesses in netprio cgroup.
-> 
-> now before accessing the dev->priomap.priomap array,we only check
-> if the dev->priomap exist.and because we don't want to see
-> additional bound checkings in fast path, so we should make sure
-> that dev->priomap is null or array size of dev->priomap.priomap
-> is equal to max_prioidx + 1;
-> 
-> and it's not needed to call extend_netdev_tabel in write_priomap,
-> we can only allocate the net device's priomap which we change through
-> net_prio.ifpriomap.
-> 
-> this patch add a return value for update_netdev_tables & extend_netdev_table,
-> so when new_priomap is allocated failed,write_priomap will stop to access
-> the priomap,and return -ENOMEM back to the userspace to tell the user
-> what happend.
-> 
-> Change From v2:
-> 1. protect extend_netdev_table by RTNL.
-> 2. when extend_netdev_table failed,call dev_put to reduce device's refcount.
-> 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> ---
->  
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+We are currently using indices to indicate the upper limit on a ring
+feature.  However since we can switch back and forth on features such as
+DCB and that has effects on other features such as RSS it is preferable to
+instead store the upper limit separate from the current value for the
+number of rings related to the feature.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    3 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |    4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   13 +++++++++----
+ 4 files changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 24cd510..ae3da83 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -278,7 +278,8 @@ enum ixgbe_ring_f_enum {
+ #define MAX_TX_QUEUES IXGBE_MAX_FDIR_INDICES
+ #endif /* IXGBE_FCOE */
+ struct ixgbe_ring_feature {
+-	int indices;
++	u16 limit;	/* upper limit on feature indices */
++	u16 indices;	/* current value of indices */
+ 	int mask;
+ } ____cacheline_internodealigned_in_smp;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index 0ee4dbf..b4da760 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -770,7 +770,7 @@ int ixgbe_fcoe_enable(struct net_device *netdev)
+ 	ixgbe_clear_interrupt_scheme(adapter);
+ 
+ 	adapter->flags |= IXGBE_FLAG_FCOE_ENABLED;
+-	adapter->ring_feature[RING_F_FCOE].indices = IXGBE_FCRETA_SIZE;
++	adapter->ring_feature[RING_F_FCOE].limit = IXGBE_FCRETA_SIZE;
+ 	netdev->features |= NETIF_F_FCOE_CRC;
+ 	netdev->features |= NETIF_F_FSO;
+ 	netdev->features |= NETIF_F_FCOE_MTU;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 39a80d2..b64588a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -302,7 +302,7 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
+ 	bool ret = false;
+ 	struct ixgbe_ring_feature *f_fdir = &adapter->ring_feature[RING_F_FDIR];
+ 
+-	f_fdir->indices = min_t(int, num_online_cpus(), f_fdir->indices);
++	f_fdir->indices = min_t(int, num_online_cpus(), f_fdir->limit);
+ 	f_fdir->mask = 0;
+ 
+ 	/*
+@@ -339,7 +339,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+ 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+ 		return false;
+ 
+-	f->indices = min_t(int, num_online_cpus(), f->indices);
++	f->indices = min_t(int, num_online_cpus(), f->limit);
+ 
+ 	adapter->num_rx_queues = 1;
+ 	adapter->num_tx_queues = 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 903d165..8e83f15 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4386,7 +4386,7 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 
+ 	/* Set capability flags */
+ 	rss = min_t(int, IXGBE_MAX_RSS_INDICES, num_online_cpus());
+-	adapter->ring_feature[RING_F_RSS].indices = rss;
++	adapter->ring_feature[RING_F_RSS].limit = rss;
+ 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82598EB:
+@@ -4405,13 +4405,12 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		/* Flow Director hash filters enabled */
+ 		adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 		adapter->atr_sample_rate = 20;
+-		adapter->ring_feature[RING_F_FDIR].indices =
++		adapter->ring_feature[RING_F_FDIR].limit =
+ 							 IXGBE_MAX_FDIR_INDICES;
+ 		adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
+ #ifdef IXGBE_FCOE
+ 		adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
+ 		adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+-		adapter->ring_feature[RING_F_FCOE].indices = 0;
+ #ifdef CONFIG_IXGBE_DCB
+ 		/* Default traffic class to use for FCoE */
+ 		adapter->fcoe.up = IXGBE_FCOE_DEFTC;
+@@ -6206,8 +6205,14 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	if (((protocol == htons(ETH_P_FCOE)) ||
+ 	    (protocol == htons(ETH_P_FIP))) &&
+ 	    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
+-		txq &= (adapter->ring_feature[RING_F_FCOE].indices - 1);
++		struct ixgbe_ring_feature *f;
++
++		f = &adapter->ring_feature[RING_F_FCOE];
++
++		while (txq >= f->indices)
++			txq -= f->indices;
+ 		txq += adapter->ring_feature[RING_F_FCOE].mask;
++
+ 		return txq;
+ 	}
+ #endif
+-- 
+1.7.10.4
