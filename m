@@ -1,50 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
-Date: Wed, 11 Jul 2012 08:43:20 -0700
-Message-ID: <4FFD9F18.6030401@candelatech.com>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>  <1340945457.29822.7.camel@edumazet-glaptop>  <1341396687.2583.1757.camel@edumazet-glaptop>  <20120709.000834.1182150057463599677.davem@davemloft.net>  <1341845722.3265.3065.camel@edumazet-glaptop>  <1341933215.3265.5476.camel@edumazet-glaptop>  <1342019518.3265.8116.camel@edumazet-glaptop>  <4FFD98EA.1040301@candelatech.com> <1342020306.3265.8129.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [Ksummit-2012-discuss] Organising Mini Summits within the
+ Kernel Summit
+Date: Wed, 11 Jul 2012 08:44:17 -0700
+Message-ID: <20120711084417.4a8132ff@nehalam.linuxnetplumber.net>
+References: <1341994155.3522.16.camel@dabdike.int.hansenpartnership.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
-	dave.taht@gmail.com, netdev@vger.kernel.org,
-	codel@lists.bufferbloat.net, therbert@google.com,
-	mattmathis@google.com, nanditad@google.com, ncardwell@google.com,
-	andrewmcgr@gmail.com, Rick Jones <rick.jones2@hp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: ksummit-2012-discuss@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53181 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755310Ab2GKPna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 11:43:30 -0400
-In-Reply-To: <1342020306.3265.8129.camel@edumazet-glaptop>
+Received: from mail.vyatta.com ([76.74.103.46]:57670 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932837Ab2GKPoe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 11:44:34 -0400
+In-Reply-To: <1341994155.3522.16.camel@dabdike.int.hansenpartnership.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2012 08:25 AM, Eric Dumazet wrote:
-> On Wed, 2012-07-11 at 08:16 -0700, Ben Greear wrote:
->
->> I haven't read your patch in detail, but I was wondering if this feature
->> would cause trouble for applications that are servicing many sockets at once
->> and so might take several ms between handling each individual socket.
->>
->
-> Well, this patch has no impact for such applications. In fact their
-> send()/write() will return to userland faster than before (for very
-> large send())
+On Wed, 11 Jul 2012 09:09:15 +0100
+James Bottomley <James.Bottomley@HansenPartnership.com> wrote:
 
-Maybe I'm just confused.  Is your patch just mucking with
-the queues below the tcp xmit queues?  From the patch description
-I was thinking you were somehow directly limiting the TCP xmit
-queues...
+> Hi All,
+> 
+> We have set aside the second day of the kernel summit (Tuesday 28
+> August) as mini-summit day.  So far we have only the PCI mini summit on
+> this day, so if you can think of other topics, please send them to the
+> kernel summit discuss list:
+> 
+> ksummit-2012-discuss@lists.linux-foundation.org
+> 
+> Looking at the available rooms, we think we can run about four or five
+> mini summits.
+> 
+> As an added incentive, mini summit organisers get to pick who they
+> invite and all the people they pick will get an automatic invitation to
+> the third day of the kernel summit (but not the core first day) and the
+> evening events.
+> 
+> James
 
-If you are just draining the tcp xmit queues on a new/faster
-trigger, then I see no problem with that, and no need for
-a per-socket control.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Is there enough interest to have a networking mini-summit?
