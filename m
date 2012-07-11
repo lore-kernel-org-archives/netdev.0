@@ -1,46 +1,42 @@
-From: Fengguang Wu <wfg@linux.intel.com>
-Subject: Re: [net-next:master 73/84] net/ipv4/tcp_metrics.c:252:3: error:
- implicit declaration of function 'inet6_twsk'
-Date: Wed, 11 Jul 2012 17:44:50 +0800
-Message-ID: <20120711094450.GA24721@localhost>
-References: <20120711091233.GA24436@localhost>
- <20120711.023939.1269322960321058056.davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
+Date: Wed, 11 Jul 2012 12:59:41 +0300
+Message-ID: <4FFD4E8D.7040608@mellanox.com>
+References: <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com> <1341923180.3265.5005.camel@edumazet-glaptop> <4FFD33B8.5010604@mellanox.com> <20120711.011912.2063611962030549397.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <roland@kernel.org>, <netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, <erezsh@mellanox.co.il>
+To: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8610 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751148Ab2GKJpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 05:45:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20120711.023939.1269322960321058056.davem@davemloft.net>
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:46475 "HELO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752522Ab2GKKCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 06:02:31 -0400
+In-Reply-To: <20120711.011912.2063611962030549397.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 11, 2012 at 02:39:39AM -0700, David Miller wrote:
-> From: wfg@linux.intel.com
-> Date: Wed, 11 Jul 2012 17:12:33 +0800
-> 
-> > net/ipv4/tcp_metrics.c: In function '__tcp_get_metrics_tw':
-> > net/ipv4/tcp_metrics.c:252:3: error: implicit declaration of function 'inet6_twsk' [-Werror=implicit-function-declaration]
-> > net/ipv4/tcp_metrics.c:252:7: warning: assignment makes pointer from integer without a cast [enabled by default]
-> > net/ipv4/tcp_metrics.c:253:41: error: dereferencing pointer to incomplete type
-> 
-> Fixed as follows:
-> 
-> ====================
-> ipv6: Move ipv6 twsk accessors outside of CONFIG_IPV6 ifdefs.
-> 
-> Fixes build when ipv6 is disabled.
-> 
-> Reported-by: Fengguang Wu <wfg@linux.intel.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  include/linux/ipv6.h |   32 ++++++++++++++++----------------
->  1 file changed, 16 insertions(+), 16 deletions(-)
+On 7/11/2012 11:19 AM, David Miller wrote:
+> handle_ing() goes into the packet scheduler and qdisc layer, the qdisc 
+> layer uses skb->cb[] via struct qdisc_skb_cb
 
-It worked, thanks!
+Oh, I knew that the qdisc layer touches skb->cb[] but thought it only 
+happens on the TX flow...
 
-Fengguang
+Here, the flow Eric pointed on relates to skb which was received by 
+IPoIB and is soon going
+to be consumed by the eIPoIB driver once the rx handler planted by it is 
+executed on the skb.
+
+So even in this "simple" flow we can't assume that qdisc will not 
+interfere (why)?
+
+if indeed this is case - I understand that we still can deploy the 
+practice used by
+ipoib_hard_header which uses struct ipoib_cb, or in other words we can 
+use 20 out
+of the 48 bytes of the cb, starting from offset of 28 bytes, correct?
+
+Or.
