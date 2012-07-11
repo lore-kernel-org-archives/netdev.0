@@ -1,65 +1,63 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v2 4/5] cgroup: Make builtin vs. module build ifdefs consistent
-Date: Wed, 11 Jul 2012 11:35:40 +0200
-Message-ID: <1341999341-1808-5-git-send-email-wagi@monom.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: [PATCH v2 5/5] cgroup: Make builtin vs. module build ifdefs consistent
+Date: Wed, 11 Jul 2012 11:35:41 +0200
+Message-ID: <1341999341-1808-6-git-send-email-wagi@monom.org>
 References: <1341999341-1808-1-git-send-email-wagi@monom.org>
-Cc: netdev@vger.kernel.org, Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tejun Heo <tj@kernel.org>, Li Zefan <lizefan@huawei.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: cgroups@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:58355 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756705Ab2GKJfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 05:35:46 -0400
-In-Reply-To: <1341999341-1808-1-git-send-email-wagi@monom.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1341999341-1808-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 
 The header file is using IS_MODULE and IS_BUILTIN macros. So let's
 use them in the source file too.
 
-Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: Li Zefan <lizefan@huawei.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 ---
- net/sched/cls_cgroup.c | 6 +++---
+ net/core/netprio_cgroup.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
-index 7743ea8..4bfb8f7 100644
---- a/net/sched/cls_cgroup.c
-+++ b/net/sched/cls_cgroup.c
-@@ -77,7 +77,7 @@ struct cgroup_subsys net_cls_subsys = {
- 	.name		= "net_cls",
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 3e953ea..2707948 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -252,7 +252,7 @@ struct cgroup_subsys net_prio_subsys = {
+ 	.name		= "net_prio",
  	.create		= cgrp_create,
  	.destroy	= cgrp_destroy,
--#ifdef CONFIG_NET_CLS_CGROUP
-+#if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
- 	.subsys_id	= net_cls_subsys_id,
+-#ifdef CONFIG_NETPRIO_CGROUP
++#if IS_BUILTIN(CONFIG_NETPRIO_CGROUP)
+ 	.subsys_id	= net_prio_subsys_id,
  #endif
  	.base_cftypes	= ss_files,
-@@ -283,7 +283,7 @@ static int __init init_cgroup_cls(void)
+@@ -292,7 +292,7 @@ static int __init init_cgroup_netprio(void)
+ 	ret = cgroup_load_subsys(&net_prio_subsys);
  	if (ret)
  		goto out;
- 
--#ifndef CONFIG_NET_CLS_CGROUP
-+#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
- 	/* We can't use rcu_assign_pointer because this is an int. */
+-#ifndef CONFIG_NETPRIO_CGROUP
++#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
  	smp_wmb();
- 	net_cls_subsys_id = net_cls_subsys.subsys_id;
-@@ -301,7 +301,7 @@ static void __exit exit_cgroup_cls(void)
- {
- 	unregister_tcf_proto_ops(&cls_cgroup_ops);
+ 	net_prio_subsys_id = net_prio_subsys.subsys_id;
+ #endif
+@@ -312,7 +312,7 @@ static void __exit exit_cgroup_netprio(void)
  
--#ifndef CONFIG_NET_CLS_CGROUP
-+#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
- 	net_cls_subsys_id = -1;
+ 	cgroup_unload_subsys(&net_prio_subsys);
+ 
+-#ifndef CONFIG_NETPRIO_CGROUP
++#if IS_MODULE(CONFIG_NETPRIO_CGROUP)
+ 	net_prio_subsys_id = -1;
  	synchronize_rcu();
  #endif
 -- 
