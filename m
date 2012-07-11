@@ -1,38 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vxge/s2io: remove dead URLs
-Date: Tue, 10 Jul 2012 23:21:45 -0700 (PDT)
-Message-ID: <20120710.232145.512531453311572431.davem@davemloft.net>
-References: <1341878877-10507-1-git-send-email-jdmason@kudzu.us>
-	<20120710.231832.391247031231469078.davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Calxeda xgmac fixes and performance improvements
+Date: Tue, 10 Jul 2012 23:27:07 -0700 (PDT)
+Message-ID: <20120710.232707.261670879145165.davem@davemloft.net>
+References: <1341879370-23385-1-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: jdmason@kudzu.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44278 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754017Ab2GKGVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:21:46 -0400
-In-Reply-To: <20120710.231832.391247031231469078.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	rob.herring@calxeda.com
+To: robherring2@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1341879370-23385-1-git-send-email-robherring2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAxMCBK
-dWwgMjAxMiAyMzoxODozMiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEpvbiBNYXNvbiA8amRtYXNv
-bkBrdWR6dS51cz4NCj4gRGF0ZTogTW9uLCAgOSBKdWwgMjAxMiAxNzowNzo1NyAtMDcwMA0KPiAN
-Cj4+IFVSTHMgdG8gbmV0ZXJpb24uY29tIGFuZCBzMmlvLmNvbSBubyBsb25nZXIgcmVzb2x2ZS4g
-IFJlbW92ZSBhbGwgcmVmZXJlbmNlcyB0bw0KPj4gdGhlc2UgVVJMcyBpbiB0aGUgZHJpdmVyIHNv
-dXJjZSBhbmQgZG9jdW1lbnRhdGlvbi4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogSm9uIE1hc29u
-IDxqZG1hc29uQGt1ZHp1LnVzPg0KPiANCj4gQXBwbGllZCwgYnV0IEkgaGFkIHRvIGZpeDoNCj4g
-DQo+PiAtNy4gU3VwcG9ydCANCj4+ICs2LiBTdXBwb3J0IA0KPiAgICAgICAgICAgICAgXl4NCj4g
-DQo+IHRoYXQgdHJhaWxpbmcgd2hpdGVzcGFjZS4NCg0KV293IHlvdSBkaWRuJ3QgZXZlbiBidWls
-ZCB0ZXN0IHRoaXMgcGF0Y2gsIG90aGVyd2lzZSB5b3Ugd291bGQgaGF2ZQ0Kc2VlbjoNCg0KZHJp
-dmVycy9uZXQvZXRoZXJuZXQvbmV0ZXJpb24vdnhnZS92eGdlLW1haW4uYzogSW4gZnVuY3Rpb24g
-oXZ4Z2VfcHJvYmVfZndfdXBkYXRlojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L25ldGVyaW9uL3Z4
-Z2UvdnhnZS1tYWluLmM6NDI2MzozOiB3YXJuaW5nOiBmb3JtYXQgoSVzoiBleHBlY3RzIGFyZ3Vt
-ZW50IG9mIHR5cGUgoWNoYXIgKqIsIGJ1dCBhcmd1bWVudCAyIGhhcyB0eXBlIKF1MzKiIFstV2Zv
-cm1hdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L25ldGVyaW9uL3Z4Z2UvdnhnZS1tYWluLmM6NDI2
-MzozOiB3YXJuaW5nOiBmb3JtYXQgoSVkoiBleHBlY3RzIGEgbWF0Y2hpbmcgoWludKIgYXJndW1l
-bnQgWy1XZm9ybWF0XQ0KDQpJJ20gZml4aW5nIHRoaXMgdXAsIGJ1dCBuZXh0IHRpbWUgdGhpcyB3
-aWxsIHB1dCB5b3Ugb24gbXkgc2hpdA0KbGlzdCBmb3Igc3VyZS4NCg==
+From: Rob Herring <robherring2@gmail.com>
+Date: Mon,  9 Jul 2012 19:16:06 -0500
+
+> From: Rob Herring <rob.herring@calxeda.com>
+> 
+> A few fixes and performance improvements for the Calxeda xgmac driver for
+> 3.6. It would be nice to get the 2 fixes into 3.5, but since it is a bit
+> late in the cycle they can wait.
+
+All applied to net-nex, thanks.
