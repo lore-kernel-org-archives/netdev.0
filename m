@@ -1,36 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] etherdevice: introduce eth_broadcast_addr
-Date: Tue, 10 Jul 2012 17:41:42 -0700 (PDT)
-Message-ID: <20120710.174142.995966539991957646.davem@davemloft.net>
-References: <20120708.235808.1602900783296556684.davem@davemloft.net>
-	<1341937124.4475.27.camel@jlt3.sipsolutions.net>
-	<CAP=VYLqNyAF1gSsKTd3YojeJXK_-pEzXAKyVQbQfwhtwOyMmwg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 03/16] tcp: Maintain dynamic metrics in local cache.
+Date: Tue, 10 Jul 2012 17:44:46 -0700
+Message-ID: <1341967486.13724.9.camel@joe2Laptop>
+References: <20120710.080714.2272376193166978850.davem@davemloft.net>
+	 <1341939724.6118.145.camel@joe2Laptop>
+	 <20120710.172908.745359979722998717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42329 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754745Ab2GKAln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jul 2012 20:41:43 -0400
-In-Reply-To: <CAP=VYLqNyAF1gSsKTd3YojeJXK_-pEzXAKyVQbQfwhtwOyMmwg@mail.gmail.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:58407 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755413Ab2GKAos (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jul 2012 20:44:48 -0400
+In-Reply-To: <20120710.172908.745359979722998717.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 10 Jul 2012 20:09:44 -0400
-
-> On Tue, Jul 10, 2012 at 12:18 PM, Johannes Berg
-> <johannes@sipsolutions.net> wrote:
->> From: Johannes Berg <johannes.berg@intel.com>
->>
->> A lot of code has either the memset or an inefficient copy
->> from a static array that contains the all-ones broadcast
+On Tue, 2012-07-10 at 17:29 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 10 Jul 2012 10:02:04 -0700
 > 
-> Shouldn't we see all that "lot of code" here in this same
-> commit, now using this new shortcut?
+> > Maybe something like this is a bit more legible?
+> > {
+> > 	if (a->family != b->family)
+> > 		return false;
+> > 
+> > 	if (a->family == AF_INET)
+> > 		return a->addr.a4 == b->addr.a4;
+> > 
+> > 	return ipv6_addr_equal((const struct in6_addr *)&a->addr.a6,
+> > 			       (const struct in6_addr *)&b->addr.a6);
+> > }
+> 
+> My version was meant to be fast rather than legible :-)
 
-I disagree and I intend to apply Johannes's patch as-is to net-next.
+Fast to write you mean? ;)
+
+I'd guess the one above is faster to execute.
+
+If it's not, the code in ipv6_addr_equal
+should be reverted. commit fed85383ac34d82
+("[IPV6]: Use XOR and OR rather than mutiple ands for ipv6 address comparisons")
+
+cheers, Joe
