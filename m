@@ -1,38 +1,26 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv6: optimize ipv6 addresses compares
-Date: Wed, 11 Jul 2012 06:53:36 +0200
-Message-ID: <1341982416.3265.6764.camel@edumazet-glaptop>
-References: <1341978558.3265.6609.camel@edumazet-glaptop>
-	 <20120710.210221.559183284956265274.davem@davemloft.net>
-	 <1341979678.3265.6660.camel@edumazet-glaptop>
-	 <20120710.211304.1112522544390324120.davem@davemloft.net>
-	 <1341981861.3265.6740.camel@edumazet-glaptop>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Wed, 11 Jul 2012 13:03:04 +0800
+Message-ID: <4FFD0908.6080506@oracle.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com> <4FFCCA22.8060006@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EEC8B@ORSMSX102.amr.corp.intel.com> <4FFCDA6C.8020708@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EED74@ORSMSX102.amr.corp.intel.com> <4FFCF314.6020400@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:47426 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175Ab2GKExk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 00:53:40 -0400
-Received: by wgbdr13 with SMTP id dr13so640667wgb.1
-        for <netdev@vger.kernel.org>; Tue, 10 Jul 2012 21:53:39 -0700 (PDT)
-In-Reply-To: <1341981861.3265.6740.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-07-11 at 06:44 +0200, Eric Dumazet wrote:
+On 07/11/12 12:05, Dave, Tushar N wrote:
+> When you said you had this issue with RHEL5 and RHEL6 drivers, have you install RHEl5/6 kernel and reproduced it? If so I think I should install RHEL6 and try reproduce it locally!
+> 
+Yes I reproduced this on both RHEL5 and RHEL6.
 
-> I dont see where in demux code we have a 64bit access ?
+So far I tried to scp big file (~1GB) will hit it at once.
 
-I guess you meant the code in include/net/inet_hashtables.h ?
-
-INET_ADDR_COOKIE() loads the two 32bits into one 64bit register/var
-So there is no 64bit alignment in packet header itself.
-
-Then, INET_MATCH does a *(u64 *)&(inet_sk(__sk)->inet_daddr)))
-
-This happens to work because skc_daddr & skc_rcv_saddr are at the
-beginning of struct sock_common, and its 8bytes aligned on 64bit arches.
+Thanks,
+Joe
