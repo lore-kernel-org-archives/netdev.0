@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 07/11] sfc: Use dev_kfree_skb() in
- efx_end_loopback()
-Date: Thu, 12 Jul 2012 00:17:14 +0100
-Message-ID: <1342048634.2613.66.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 08/11] sfc: Explain why efx_mcdi_exit_assertion()
+ ignores result of efx_mcdi_rpc()
+Date: Thu, 12 Jul 2012 00:17:31 +0100
+Message-ID: <1342048651.2613.67.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1342048389.2613.59.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,41 +10,50 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:19019 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:19030 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751010Ab2GKXRR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 19:17:17 -0400
+	by vger.kernel.org with ESMTP id S1751010Ab2GKXRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 19:17:34 -0400
 In-Reply-To: <1342048389.2613.59.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix CID 102619 in the Coverity report on Linux.
+Fix CID 113952 in Coverity report on Linux.
 
-efx_end_loopback() iterates over an array of skb pointers of which
-some may be null (if efx_begin_loopback() failed).  It should not use
-dev_kfree_skb_irq(), which requires non-null pointers.  In practice
-this is safe because it does not run in interrupt context and
-therefore always ends up calling dev_kfree_skb(), which does allow
-null pointers.  But we should make that explicit.
+This is the one instance where we don't, and shouldn't, check the
+return code from efx_mcdi_rpc().  It wasn't immediately obvious to me
+why we didn't, so I think an explanation is in order.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/selftest.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index de4c006..ccc428f 100644
---- a/drivers/net/ethernet/sfc/selftest.c
-+++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -488,7 +488,7 @@ static int efx_end_loopback(struct efx_tx_queue *tx_queue,
- 		skb = state->skbs[i];
- 		if (skb && !skb_shared(skb))
- 			++tx_done;
--		dev_kfree_skb_any(skb);
-+		dev_kfree_skb(skb);
- 	}
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 17b6463..fc5e7bb 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -1001,12 +1001,17 @@ static void efx_mcdi_exit_assertion(struct efx_nic *efx)
+ {
+ 	u8 inbuf[MC_CMD_REBOOT_IN_LEN];
  
- 	netif_tx_unlock_bh(efx->net_dev);
+-	/* Atomically reboot the mcfw out of the assertion handler */
++	/* If the MC is running debug firmware, it might now be
++	 * waiting for a debugger to attach, but we just want it to
++	 * reboot.  We set a flag that makes the command a no-op if it
++	 * has already done so.  We don't know what return code to
++	 * expect (0 or -EIO), so ignore it.
++	 */
+ 	BUILD_BUG_ON(MC_CMD_REBOOT_OUT_LEN != 0);
+ 	MCDI_SET_DWORD(inbuf, REBOOT_IN_FLAGS,
+ 		       MC_CMD_REBOOT_FLAGS_AFTER_ASSERTION);
+-	efx_mcdi_rpc(efx, MC_CMD_REBOOT, inbuf, MC_CMD_REBOOT_IN_LEN,
+-		     NULL, 0, NULL);
++	(void) efx_mcdi_rpc(efx, MC_CMD_REBOOT, inbuf, MC_CMD_REBOOT_IN_LEN,
++			    NULL, 0, NULL);
+ }
+ 
+ int efx_mcdi_handle_assertion(struct efx_nic *efx)
 -- 
 1.7.7.6
 
