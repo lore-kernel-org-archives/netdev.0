@@ -1,56 +1,66 @@
 From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH v2 0/5] cgroup cls & netprio 'cleanups'
-Date: Wed, 11 Jul 2012 11:35:36 +0200
-Message-ID: <1341999341-1808-1-git-send-email-wagi@monom.org>
-Cc: netdev@vger.kernel.org, Daniel Wagner <daniel.wagner@bmw-carit.de>
+Subject: [PATCH v2 4/5] cgroup: Make builtin vs. module build ifdefs consistent
+Date: Wed, 11 Jul 2012 11:35:40 +0200
+Message-ID: <1341999341-1808-5-git-send-email-wagi@monom.org>
+References: <1341999341-1808-1-git-send-email-wagi@monom.org>
+Cc: netdev@vger.kernel.org, Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tejun Heo <tj@kernel.org>, Li Zefan <lizefan@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: cgroups@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:58337 "EHLO
+Received: from hotel311.server4you.de ([85.25.146.15]:58355 "EHLO
 	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913Ab2GKJfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 05:35:43 -0400
+	with ESMTP id S1756705Ab2GKJfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 05:35:46 -0400
+In-Reply-To: <1341999341-1808-1-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-Hi,
+The header file is using IS_MODULE and IS_BUILTIN macros. So let's
+use them in the source file too.
 
-While looking a bit at the cls and netprio controller I found a
-few things which I think are 'not optimal'.
+Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Li Zefan <lizefan@huawei.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+---
+ net/sched/cls_cgroup.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-The first patch makes sock_update_netprioidx() a bit smatter, so that
-only on changed value the sk->sk_cgroup_prioidx is written and not
-all the time.
-
-The next two patches are changing the built. In case someone 
-builds a kernel with cgroup support but disabled cls or netprio
-controller, there was still code added.
-
-And the last two patches change the cls and netprio source files in
-that way, that the use IS_BUILTIN and IS_MODULE as it used in the
-header files.
-
-The patches are against net-next.
-
-cheers,
-daniel
-
-Daniel Wagner (5):
-  cgroup: Only update sk_cgrp_prioidx on change
-  cgroup: Do not add sock_update_classid() when CONFIG_NET_CLS_CGROUP=0
-  cgroup: Do not add sock_update_netprioidx() when
-    CONFIG_NETPRIO_CGROUP=0
-  cgroup: Make builtin vs. module build ifdefs consistent
-  cgroup: Make builtin vs. module build ifdefs consistent
-
- include/net/cls_cgroup.h     | 33 +++++++++++++++++++++++----------
- include/net/netprio_cgroup.h | 31 ++++++++++++++-----------------
- include/net/sock.h           |  8 --------
- net/core/netprio_cgroup.c    |  6 +++---
- net/core/sock.c              | 14 +++++++++++---
- net/sched/cls_cgroup.c       |  6 +++---
- 6 files changed, 54 insertions(+), 44 deletions(-)
-
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 7743ea8..4bfb8f7 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -77,7 +77,7 @@ struct cgroup_subsys net_cls_subsys = {
+ 	.name		= "net_cls",
+ 	.create		= cgrp_create,
+ 	.destroy	= cgrp_destroy,
+-#ifdef CONFIG_NET_CLS_CGROUP
++#if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+ 	.subsys_id	= net_cls_subsys_id,
+ #endif
+ 	.base_cftypes	= ss_files,
+@@ -283,7 +283,7 @@ static int __init init_cgroup_cls(void)
+ 	if (ret)
+ 		goto out;
+ 
+-#ifndef CONFIG_NET_CLS_CGROUP
++#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+ 	/* We can't use rcu_assign_pointer because this is an int. */
+ 	smp_wmb();
+ 	net_cls_subsys_id = net_cls_subsys.subsys_id;
+@@ -301,7 +301,7 @@ static void __exit exit_cgroup_cls(void)
+ {
+ 	unregister_tcf_proto_ops(&cls_cgroup_ops);
+ 
+-#ifndef CONFIG_NET_CLS_CGROUP
++#if IS_MODULE(CONFIG_NET_CLS_CGROUP)
+ 	net_cls_subsys_id = -1;
+ 	synchronize_rcu();
+ #endif
 -- 
 1.7.11.1.165.g299666c
