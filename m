@@ -1,88 +1,219 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: 3.5rc6 modprobe -r ip_vs oopses
-Date: Wed, 11 Jul 2012 23:59:06 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207112347230.1744@ja.ssi.bg>
-References: <20120711190722.GA31185@redhat.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, wensong@linux-vs.org, horms@verge.net.au
-To: Dave Jones <davej@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/1] net: sched: add ipset ematch
+Date: Wed, 11 Jul 2012 22:56:57 +0200
+Message-ID: <1342040217-5637-1-git-send-email-fw@strlen.de>
+Cc: kadlec@blackhole.kfki.hu, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:45203 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030191Ab2GKUwc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 16:52:32 -0400
-In-Reply-To: <20120711190722.GA31185@redhat.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:45303 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030233Ab2GKU6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 16:58:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Can be used to match packets against netfilter ip sets created via ipset(8).
+skb->sk_iif is used as 'incoming interface', skb->dev is 'outgoing interface'.
 
-	Hello,
+Since ipset is usually called from netfilter, the ematch
+initializes a fake xt_action_param, pulls the ip header into the
+linear area and also sets skb->data to the IP header (otherwise
+matching Layer 4 set types doesn't work).
 
-On Wed, 11 Jul 2012, Dave Jones wrote:
+Tested-by: Mr Dash Four <mr.dash.four@googlemail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/linux/pkt_cls.h |    3 +-
+ net/sched/Kconfig       |   10 ++++
+ net/sched/Makefile      |    1 +
+ net/sched/em_ipset.c    |  135 +++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 148 insertions(+), 1 deletions(-)
+ create mode 100644 net/sched/em_ipset.c
 
-> Triggered during modprobe -r ip_vs
-> (W taint flag came from something unrelated: 80211 trying >MAX_ORDER alloc failing).
-> 
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000750
-> IP: [<ffffffffa4c9280b>] ip_vs_dst_event+0x18b/0x200 [ip_vs]
-> PGD ae993067 PUD 35cbb067 PMD 0 
-> Oops: 0000 [#1] SMP 
-> CPU 2 
-> 
-> Pid: 11534, comm: modprobe Tainted: G        WC   3.5.0-rc6+ #78
->  Dell Inc.                 Precision WorkStation 490    
-> /0DT031
-> 
-> RIP: 0010:[<ffffffffa4c9280b>]  [<ffffffffa4c9280b>] ip_vs_dst_event+0x18b/0x200 [ip_vs]
-> RSP: 0000:ffff8800c92b7e28  EFLAGS: 00010246
-> RAX: 0000000000000000 RBX: ffff880222fa22a0 RCX: 0000000000000006
-> RDX: ffffffffa4caba50 RSI: 2222222222222222 RDI: 2222222222222222
-> RBP: ffff8800c92b7e78 R08: 2222222222222222 R09: 2222222222222222
-> R10: 0000000000000000 R11: 0000000000000000 R12: ffffffff82bec540
-> R13: ffffffff82bec638 R14: ffffffff82bec540 R15: ffffffffa4caba40
-> FS:  00007f652be40700(0000) GS:ffff880226a00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 0000000000000750 CR3: 0000000035ea4000 CR4: 00000000000007e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process modprobe (pid: 11534, threadinfo ffff8800c92b6000, task ffff8801278d4900)
-> Stack:
->  2222222222222222 0000000000000100 ffffffffa4caba50 ffffffffa4caa7a0
->  ffffffffa4ca8750 ffff880222fa22a0 ffffffffa4ca8750 ffffffff82bec638
->  ffffffff82bec540 0000000000000000 ffff8800c92b7eb8 ffffffff8156adcf
-> 
-> Call Trace:
->  [<ffffffff8156adcf>] unregister_netdevice_notifier+0x7f/0x100
->  [<ffffffffa4c96005>] ip_vs_control_cleanup+0x15/0x20 [ip_vs]
->  [<ffffffffa4ca33b2>] ip_vs_cleanup+0x41/0xc8f [ip_vs]
->  [<ffffffff810e0b8c>] sys_delete_module+0x19c/0x2c0
->  [<ffffffff816c1615>] ? sysret_check+0x22/0x5d
->  [<ffffffff8133c04e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
->  [<ffffffff816c15e9>] system_call_fastpath+0x16/0x1b
-> Code: 18 75 cd 4c 89 ef e8 35 48 00 00 eb c3 0f 1f 00 48 83 45 b8 01 48 81 
-> 7d b8 00 01 00 00 0f 85 cd fe ff ff 49 8b 84 24 c0 0c 00 00 <4c> 8b a8 50 07 
-> 00 00 48 05 50 07 00 00 49 39 c5 75 38 48 c7 c7 
-> 
-> RIP 
->  [<ffffffffa4c9280b>] ip_vs_dst_event+0x18b/0x200 [ip_vs]
->  RSP <ffff8800c92b7e28>
-> CR2: 0000000000000750
-> ---[ end trace 83bf880b95bd63b8 ]---
-> 
-> That's here...
-> 
->         list_for_each_entry(dest, &net_ipvs(net)->dest_trash, n_list) {
->     226b:       4c 8b a8 50 07 00 00    mov    0x750(%rax),%r13
-> 
-
-	Yes, I got the same oops 4 days ago, we already
-have a fix:
-
-http://archive.linuxvirtualserver.org/html/lvs-devel/2012-07/msg00002.html
-http://archive.linuxvirtualserver.org/html/lvs-devel/2012-07/msg00020.html
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index 38fbd4b..082eafa 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -453,7 +453,8 @@ enum {
+ #define	TCF_EM_TEXT		5
+ #define	TCF_EM_VLAN		6
+ #define	TCF_EM_CANID		7
+-#define	TCF_EM_MAX		7
++#define	TCF_EM_IPSET		8
++#define	TCF_EM_MAX		8
+ 
+ enum {
+ 	TCF_EM_PROG_TC
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 4a5d2bd..62fb51f 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -517,6 +517,16 @@ config NET_EMATCH_CANID
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called em_canid.
+ 
++config NET_EMATCH_IPSET
++	tristate "IPset"
++	depends on NET_EMATCH && IP_SET
++	---help---
++	  Say Y here if you want to be able to classify packets based on
++	  ipset membership.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called em_ipset.
++
+ config NET_CLS_ACT
+ 	bool "Actions"
+ 	---help---
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index bcada75..978cbf0 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -56,3 +56,4 @@ obj-$(CONFIG_NET_EMATCH_U32)	+= em_u32.o
+ obj-$(CONFIG_NET_EMATCH_META)	+= em_meta.o
+ obj-$(CONFIG_NET_EMATCH_TEXT)	+= em_text.o
+ obj-$(CONFIG_NET_EMATCH_CANID)	+= em_canid.o
++obj-$(CONFIG_NET_EMATCH_IPSET)	+= em_ipset.o
+diff --git a/net/sched/em_ipset.c b/net/sched/em_ipset.c
+new file mode 100644
+index 0000000..3130320
+--- /dev/null
++++ b/net/sched/em_ipset.c
+@@ -0,0 +1,135 @@
++/*
++ * net/sched/em_ipset.c	ipset ematch
++ *
++ * Copyright (c) 2012 Florian Westphal <fw@strlen.de>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2 as published by the Free Software Foundation.
++ */
++
++#include <linux/gfp.h>
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/skbuff.h>
++#include <linux/netfilter/xt_set.h>
++#include <linux/ipv6.h>
++#include <net/ip.h>
++#include <net/pkt_cls.h>
++
++static int em_ipset_change(struct tcf_proto *tp, void *data, int data_len,
++			   struct tcf_ematch *em)
++{
++	struct xt_set_info *set = data;
++	ip_set_id_t index;
++
++	if (data_len != sizeof(*set))
++		return -EINVAL;
++
++	index = ip_set_nfnl_get_byindex(set->index);
++	if (index == IPSET_INVALID_ID)
++		return -ENOENT;
++
++	em->datalen = sizeof(*set);
++	em->data = (unsigned long)kmemdup(data, em->datalen, GFP_KERNEL);
++	if (em->data)
++		return 0;
++
++	ip_set_nfnl_put(index);
++	return -ENOMEM;
++}
++
++static void em_ipset_destroy(struct tcf_proto *p, struct tcf_ematch *em)
++{
++	const struct xt_set_info *set = (const void *) em->data;
++	if (set) {
++		ip_set_nfnl_put(set->index);
++		kfree((void *) em->data);
++	}
++}
++
++static int em_ipset_match(struct sk_buff *skb, struct tcf_ematch *em,
++			  struct tcf_pkt_info *info)
++{
++	struct ip_set_adt_opt opt;
++	struct xt_action_param acpar;
++	const struct xt_set_info *set = (const void *) em->data;
++	struct net_device *dev, *indev = NULL;
++	int ret, network_offset;
++
++	switch (skb->protocol) {
++	case htons(ETH_P_IP):
++		acpar.family = NFPROTO_IPV4;
++		if (!pskb_network_may_pull(skb, sizeof(struct iphdr)))
++			return 0;
++		acpar.thoff = ip_hdrlen(skb);
++		break;
++	case htons(ETH_P_IPV6):
++		acpar.family = NFPROTO_IPV6;
++		if (!pskb_network_may_pull(skb, sizeof(struct ipv6hdr)))
++			return 0;
++		/* doesn't call ipv6_find_hdr() because ipset doesn't use thoff, yet */
++		acpar.thoff = sizeof(struct ipv6hdr);
++		break;
++	default:
++		return 0;
++	}
++
++	acpar.hooknum = 0;
++
++	opt.family = acpar.family;
++	opt.dim = set->dim;
++	opt.flags = set->flags;
++	opt.cmdflags = 0;
++	opt.timeout = ~0u;
++
++	network_offset = skb_network_offset(skb);
++	skb_pull(skb, network_offset);
++
++	dev = skb->dev;
++
++	rcu_read_lock();
++
++	if (dev && skb->skb_iif)
++		indev = dev_get_by_index_rcu(dev_net(dev), skb->skb_iif);
++
++	acpar.in      = indev ? indev : dev;
++	acpar.out     = dev;
++
++	ret = ip_set_test(set->index, skb, &acpar, &opt);
++
++	rcu_read_unlock();
++
++	skb_push(skb, network_offset);
++	return ret;
++}
++
++static struct tcf_ematch_ops em_ipset_ops = {
++	.kind	  = TCF_EM_IPSET,
++	.change	  = em_ipset_change,
++	.destroy  = em_ipset_destroy,
++	.match	  = em_ipset_match,
++	.owner	  = THIS_MODULE,
++	.link	  = LIST_HEAD_INIT(em_ipset_ops.link)
++};
++
++static int __init init_em_ipset(void)
++{
++	return tcf_em_register(&em_ipset_ops);
++}
++
++static void __exit exit_em_ipset(void)
++{
++	tcf_em_unregister(&em_ipset_ops);
++}
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Florian Westphal <fw@strlen.de>");
++MODULE_DESCRIPTION("TC extended match for IP sets");
++
++module_init(init_em_ipset);
++module_exit(exit_em_ipset);
++
++MODULE_ALIAS_TCF_EMATCH(TCF_EM_IPSET);
+-- 
+1.7.3.4
