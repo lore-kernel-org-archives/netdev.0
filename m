@@ -1,167 +1,192 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/5] ixgbe: Add feature offset value to ring features
-Date: Wed, 11 Jul 2012 02:09:27 -0700
-Message-ID: <1341997769-22034-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/5] ixgbe: Merge RSS and flow director ring register caching and configuration
+Date: Wed, 11 Jul 2012 02:09:29 -0700
+Message-ID: <1341997769-22034-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1341997769-22034-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47130 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:11700 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753957Ab2GKJJi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 05:09:38 -0400
+	id S1754391Ab2GKJJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 05:09:40 -0400
 In-Reply-To: <1341997769-22034-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The mask value for ring features was overloaded for FCoE which can lead to
-some confusion.  In order to avoid any confusion I am splitting the mask
-value and adding an offset value.  This can be used for the start of the
-FCoE rings, and in the future I hope to use it to store the start of the
-registers for SR-IOV.
+There are really only 3 modes that can control the number of queues.  Those
+are RSS, DCB, and VMDq/SR-IOV.  Currently we have things much more broken
+up than they need to be for how we are configuring the rings.  In order to
+try and straiten some of this out I am going to start merging similar
+functionality into single functions.  To start with I am merging the Flow
+Director ring configuration into the RSS ring configuration since Flow
+Director cannot function with DCB or SR-IOV.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    3 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |    6 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |   23 ++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- 4 files changed, 16 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c |   98 +++++++-------------------
+ 1 file changed, 24 insertions(+), 74 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index ae3da83..2ffdc8f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -280,7 +280,8 @@ enum ixgbe_ring_f_enum {
- struct ixgbe_ring_feature {
- 	u16 limit;	/* upper limit on feature indices */
- 	u16 indices;	/* current value of indices */
--	int mask;
-+	u16 mask;	/* Mask used for feature to ring mapping */
-+	u16 offset;	/* offset to start of feature */
- } ____cacheline_internodealigned_in_smp;
- 
- /*
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index b4da760..0922ece 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -674,7 +674,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 	if (adapter->ring_feature[RING_F_FCOE].indices) {
- 		/* Use multiple rx queues for FCoE by redirection table */
- 		for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
--			fcoe_i = f->mask + i % f->indices;
-+			fcoe_i = f->offset + i % f->indices;
- 			fcoe_i &= IXGBE_FCRETA_ENTRY_MASK;
- 			fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
- 			IXGBE_WRITE_REG(hw, IXGBE_FCRETA(i), fcoe_q);
-@@ -683,7 +683,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 		IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE), 0);
- 	} else  {
- 		/* Use single rx queue for FCoE */
--		fcoe_i = f->mask;
-+		fcoe_i = f->offset;
- 		fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
- 		IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, 0);
- 		IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE),
-@@ -691,7 +691,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 				(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
- 	}
- 	/* send FIP frames to the first FCoE queue */
--	fcoe_i = f->mask;
-+	fcoe_i = f->offset;
- 	fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
- 	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FIP),
- 			IXGBE_ETQS_QUEUE_EN |
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index b64588a..47e54e8 100644
+index 47e54e8..83eadd0 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -185,12 +185,12 @@ static inline bool ixgbe_cache_ring_fcoe(struct ixgbe_adapter *adapter)
- 		else
- 			ixgbe_cache_ring_rss(adapter);
- 
--		fcoe_rx_i = f->mask;
--		fcoe_tx_i = f->mask;
-+		fcoe_rx_i = f->offset;
-+		fcoe_tx_i = f->offset;
- 	}
- 	for (i = 0; i < f->indices; i++, fcoe_rx_i++, fcoe_tx_i++) {
--		adapter->rx_ring[f->mask + i]->reg_idx = fcoe_rx_i;
--		adapter->tx_ring[f->mask + i]->reg_idx = fcoe_tx_i;
-+		adapter->rx_ring[f->offset + i]->reg_idx = fcoe_rx_i;
-+		adapter->tx_ring[f->offset + i]->reg_idx = fcoe_tx_i;
- 	}
- 	return true;
+@@ -138,30 +138,6 @@ static inline bool ixgbe_cache_ring_dcb(struct ixgbe_adapter *adapter)
  }
-@@ -327,10 +327,7 @@ static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
-  * @adapter: board private structure to initialize
-  *
-  * FCoE RX FCRETA can use up to 8 rx queues for up to 8 different exchanges.
-- * The ring feature mask is not used as a mask for FCoE, as it can take any 8
-- * rx queues out of the max number of rx queues, instead, it is used as the
-- * index of the first rx queue used by FCoE.
+ #endif
+ 
+-/**
+- * ixgbe_cache_ring_fdir - Descriptor ring to register mapping for Flow Director
+- * @adapter: board private structure to initialize
 - *
-+ * Offset is used as the index of the first rx queue used by FCoE.
+- * Cache the descriptor ring offsets for Flow Director to the assigned rings.
+- *
+- **/
+-static inline bool ixgbe_cache_ring_fdir(struct ixgbe_adapter *adapter)
+-{
+-	int i;
+-	bool ret = false;
+-
+-	if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
+-	    (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)) {
+-		for (i = 0; i < adapter->num_rx_queues; i++)
+-			adapter->rx_ring[i]->reg_idx = i;
+-		for (i = 0; i < adapter->num_tx_queues; i++)
+-			adapter->tx_ring[i]->reg_idx = i;
+-		ret = true;
+-	}
+-
+-	return ret;
+-}
+-
+ #ifdef IXGBE_FCOE
+ /**
+  * ixgbe_cache_ring_fcoe - Descriptor ring to register mapping for the FCoE
+@@ -180,10 +156,7 @@ static inline bool ixgbe_cache_ring_fcoe(struct ixgbe_adapter *adapter)
+ 		return false;
+ 
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+-			ixgbe_cache_ring_fdir(adapter);
+-		else
+-			ixgbe_cache_ring_rss(adapter);
++		ixgbe_cache_ring_rss(adapter);
+ 
+ 		fcoe_rx_i = f->offset;
+ 		fcoe_tx_i = f->offset;
+@@ -244,9 +217,6 @@ static void ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
+ 		return;
+ #endif /* IXGBE_FCOE */
+ 
+-	if (ixgbe_cache_ring_fdir(adapter))
+-		return;
+-
+ 	if (ixgbe_cache_ring_rss(adapter))
+ 		return;
+ }
+@@ -272,53 +242,39 @@ static inline bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
+  * to allocate one Rx queue per CPU, and if available, one Tx queue per CPU.
+  *
   **/
- static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+-static inline bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
++static bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
  {
-@@ -353,7 +350,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+-	bool ret = false;
+-	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_RSS];
++	struct ixgbe_ring_feature *f;
++	u16 rss_i;
+ 
+-	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+-		f->mask = 0xF;
+-		adapter->num_rx_queues = f->indices;
+-		adapter->num_tx_queues = f->indices;
+-		ret = true;
++	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED)) {
++		adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
++		return false;
+ 	}
+ 
+-	return ret;
+-}
++	/* set mask for 16 queue limit of RSS */
++	f = &adapter->ring_feature[RING_F_RSS];
++	rss_i = f->limit;
+ 
+-/**
+- * ixgbe_set_fdir_queues - Allocate queues for Flow Director
+- * @adapter: board private structure to initialize
+- *
+- * Flow Director is an advanced Rx filter, attempting to get Rx flows back
+- * to the original CPU that initiated the Tx session.  This runs in addition
+- * to RSS, so if a packet doesn't match an FDIR filter, we can still spread the
+- * Rx load across CPUs using RSS.
+- *
+- **/
+-static inline bool ixgbe_set_fdir_queues(struct ixgbe_adapter *adapter)
+-{
+-	bool ret = false;
+-	struct ixgbe_ring_feature *f_fdir = &adapter->ring_feature[RING_F_FDIR];
+-
+-	f_fdir->indices = min_t(int, num_online_cpus(), f_fdir->limit);
+-	f_fdir->mask = 0;
++	f->indices = rss_i;
++	f->mask = 0xF;
+ 
+ 	/*
+-	 * Use RSS in addition to Flow Director to ensure the best
++	 * Use Flow Director in addition to RSS to ensure the best
+ 	 * distribution of flows across cores, even when an FDIR flow
+ 	 * isn't matched.
+ 	 */
+-	if ((adapter->flags & IXGBE_FLAG_RSS_ENABLED) &&
+-	    (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)) {
+-		adapter->num_tx_queues = f_fdir->indices;
+-		adapter->num_rx_queues = f_fdir->indices;
+-		ret = true;
+-	} else {
+-		adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
++	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
++		f = &adapter->ring_feature[RING_F_FDIR];
++
++		f->indices = min_t(u16, num_online_cpus(), f->limit);
++		rss_i = max_t(u16, rss_i, f->indices);
+ 	}
+-	return ret;
++
++	adapter->num_rx_queues = rss_i;
++	adapter->num_tx_queues = rss_i;
++
++	return true;
+ }
+ 
+ #ifdef IXGBE_FCOE
+@@ -343,10 +299,7 @@ static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
+ 
+ 	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
+ 		e_info(probe, "FCoE enabled with RSS\n");
+-		if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE)
+-			ixgbe_set_fdir_queues(adapter);
+-		else
+-			ixgbe_set_rss_queues(adapter);
++		ixgbe_set_rss_queues(adapter);
  	}
  
  	/* adding FCoE rx rings to the end */
--	f->mask = adapter->num_rx_queues;
-+	f->offset = adapter->num_rx_queues;
- 	adapter->num_rx_queues += f->indices;
- 	adapter->num_tx_queues += f->indices;
+@@ -438,9 +391,6 @@ static int ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
+ 		goto done;
  
-@@ -388,7 +385,7 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
+ #endif /* IXGBE_FCOE */
+-	if (ixgbe_set_fdir_queues(adapter))
+-		goto done;
+-
+ 	if (ixgbe_set_rss_queues(adapter))
+ 		goto done;
  
- #ifdef IXGBE_FCOE
- 	/* FCoE enabled queues require special configuration indexed
--	 * by feature specific indices and mask. Here we map FCoE
-+	 * by feature specific indices and offset. Here we map FCoE
- 	 * indices onto the DCB queue pairs allowing FCoE to own
- 	 * configuration later.
- 	 */
-@@ -401,7 +398,7 @@ static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
- 		ixgbe_dcb_unpack_map(&adapter->dcb_cfg, DCB_TX_CONFIG, prio_tc);
- 		tc = prio_tc[adapter->fcoe.up];
- 		f->indices = dev->tc_to_txq[tc].count;
--		f->mask = dev->tc_to_txq[tc].offset;
-+		f->offset = dev->tc_to_txq[tc].offset;
- 	}
- #endif
- 
-@@ -632,8 +629,8 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
- 		if (adapter->netdev->features & NETIF_F_FCOE_MTU) {
- 			struct ixgbe_ring_feature *f;
- 			f = &adapter->ring_feature[RING_F_FCOE];
--			if ((rxr_idx >= f->mask) &&
--			    (rxr_idx < f->mask + f->indices))
-+			if ((rxr_idx >= f->offset) &&
-+			    (rxr_idx < f->offset + f->indices))
- 				set_bit(__IXGBE_RX_FCOE, &ring->state);
- 		}
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8e83f15..3a807ff 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6211,7 +6211,7 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
- 
- 		while (txq >= f->indices)
- 			txq -= f->indices;
--		txq += adapter->ring_feature[RING_F_FCOE].mask;
-+		txq += adapter->ring_feature[RING_F_FCOE].offset;
- 
- 		return txq;
- 	}
 -- 
 1.7.10.4
