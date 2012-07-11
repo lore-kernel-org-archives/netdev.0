@@ -1,33 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 6/6] r8169: support RTL8168G
-Date: Wed, 11 Jul 2012 01:29:14 -0700 (PDT)
-Message-ID: <20120711.012914.1392253290933011267.davem@davemloft.net>
-References: <c558386b836ee97762e12495101c6e373f20e69d.1341872752.git.romieu@fr.zoreil.com>
-	<1341898590-1253-1-git-send-email-hayeswang@realtek.com>
-	<20120710065010.GA30193@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, wfg@linux.intel.com
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120710065010.GA30193@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] bridge: Fix enforcement of multicast hash_max limit
+Date: Wed, 11 Jul 2012 10:29:19 +0200
+Message-ID: <417e2d4ff99d88014f288e9924c5a45d4650f474.1341995313.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51629 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754223Ab2GKI3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 04:29:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 10 Jul 2012 08:50:10 +0200
+The hash size is doubled when it needs to grow and compared against
+hash_max. The >= comparison will limit the hash table size to half
+of what is expected i.e. the default 512 hash_max will not allow
+the hash table to grow larger than 256.
 
-> Hayes Wang <hayeswang@realtek.com> :
->> fix incorrct argument in rtl_hw_init_8168g.
->> 
->> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> 
-> Thanks Hayes.
-> 
-> It's available with proper attribution and subject at:
-> 
-> git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
+Also print the hash table limit instead of the desirable size when
+the limit is reached.
 
-Pulled, thanks.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/bridge/br_multicast.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index b665812..8213618 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -540,10 +540,11 @@ static struct net_bridge_mdb_entry *br_multicast_get_group(
+ 
+ 	if (mdb->size >= max) {
+ 		max *= 2;
+-		if (unlikely(max >= br->hash_max)) {
+-			br_warn(br, "Multicast hash table maximum "
+-				"reached, disabling snooping: %s, %d\n",
+-				port ? port->dev->name : br->dev->name, max);
++		if (unlikely(max > br->hash_max)) {
++			br_warn(br, "Multicast hash table maximum of %d "
++				"reached, disabling snooping: %s\n",
++				br->hash_max,
++				port ? port->dev->name : br->dev->name);
+ 			err = -E2BIG;
+ disable:
+ 			br->multicast_disabled = 1;
+-- 
+1.7.7.6
