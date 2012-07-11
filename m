@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2: Fix bug in bnx2_free_tx_skbs().
-Date: Tue, 10 Jul 2012 23:37:34 -0700 (PDT)
-Message-ID: <20120710.233734.1549210481505224976.davem@davemloft.net>
-References: <1341950680-12266-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH] IPoIB: fix skb truesize underestimatiom
+Date: Tue, 10 Jul 2012 23:37:43 -0700 (PDT)
+Message-ID: <20120710.233743.282062793119280863.davem@davemloft.net>
+References: <1341950621.3265.6331.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: ogerlitz@mellanox.com, erezsh@mellanox.com, roland@purestorage.com,
+	netdev@vger.kernel.org, shlomop@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44440 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44445 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754324Ab2GKGhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:37:35 -0400
-In-Reply-To: <1341950680-12266-1-git-send-email-mchan@broadcom.com>
+	with ESMTP id S1754324Ab2GKGhq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 02:37:46 -0400
+In-Reply-To: <1341950621.3265.6331.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 10 Jul 2012 13:04:40 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 10 Jul 2012 22:03:41 +0200
 
-> In rare cases, bnx2x_free_tx_skbs() can unmap the wrong DMA address
-> when it gets to the last entry of the tx ring.  We were not using
-> the proper macro to skip the last entry when advancing the tx index.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Reported-by: Zongyun Lai <zlai@vmware.com>
-> Reviewed-by: Jeffrey Huang <huangjw@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Or Gerlitz reported triggering of WARN_ON_ONCE(delta < len); in
+> skb_try_coalesce()
+> This warning tracks drivers that incorrectly set skb->truesize
+> 
+> IPoIB indeed allocates a full page to store a fragment, but only
+> accounts in skb->truesize the used part of the page (frame length)
+> 
+> This patch fixes skb truesize underestimation, and
+> also fixes a performance issue, because RX skbs have not enough tailroom
+> to allow IP and TCP stacks to pull their header in skb linear part
+> without an expensive call to pskb_expand_head()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Applied and queued up for -stable.
+Applied to net, thanks.
