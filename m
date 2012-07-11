@@ -1,141 +1,55 @@
-From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-Subject: [PATCH net-next v2 7/7] 6lowpan: rework fragment-deleting routine
-Date: Wed, 11 Jul 2012 11:22:48 +0400
-Message-ID: <1341991368-11800-8-git-send-email-alex.bluesman.smirnov@gmail.com>
-References: <1341991368-11800-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: davem@davemloft.net, eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:32780 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932078Ab2GKH1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 03:27:09 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so745049wgb.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 00:27:08 -0700 (PDT)
-In-Reply-To: <1341991368-11800-1-git-send-email-alex.bluesman.smirnov@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] etherdevice: introduce eth_broadcast_addr
+Date: Wed, 11 Jul 2012 09:27:34 +0200
+Message-ID: <1341991654.4480.5.camel@jlt3.sipsolutions.net>
+References: <1341310587.5131.2.camel@jlt3.sipsolutions.net>
+	 <20120708.235808.1602900783296556684.davem@davemloft.net>
+	 <1341937124.4475.27.camel@jlt3.sipsolutions.net>
+	 <CAP=VYLqNyAF1gSsKTd3YojeJXK_-pEzXAKyVQbQfwhtwOyMmwg@mail.gmail.com>
+	 (sfid-20120711_021016_338821_DEFABE8B)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAP=VYLqNyAF1gSsKTd3YojeJXK_-pEzXAKyVQbQfwhtwOyMmwg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20120711_021016_338821_DEFABE8B)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-6lowpan module starts collecting incomming frames and fragments
-right after lowpan_module_init() therefor it will be better to
-clean unfinished fragments in lowpan_cleanup_module() function
-instead of doing it when link goes down.
+On Tue, 2012-07-10 at 20:09 -0400, Paul Gortmaker wrote:
+> On Tue, Jul 10, 2012 at 12:18 PM, Johannes Berg
+> <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> > From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> >
+> > A lot of code has either the memset or an inefficient copy
+> > from a static array that contains the all-ones broadcast
+> 
+> Shouldn't we see all that "lot of code" here in this same
+> commit, now using this new shortcut?  If we apply this, we
+> have a new function, but with no users.  If you have done
+> the audit, and found the inefficient cases, why isn't it here?
 
-Changed spinlocks type to prevent deadlock with expired timer event
-and removed unused one.
+I'm planning to fix the wireless uses (at least the ones I'm responsible
+for), but I'm just going to stick them into my mac80211-next tree after
+this patch percolates down there, I don't see a need to send around a
+ton of patches for it.
 
-Signed-off-by: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
----
- net/ieee802154/6lowpan.c |   39 ++++++++++++++++++++-------------------
- 1 files changed, 20 insertions(+), 19 deletions(-)
+> I would think it better to just fix those people who have a
+> pointless static array of all-ones to use the memset.  If it was a
+> multi line thing to achieve the eth_broadcast_addr() then it
+> might make sense to exist.  But as a one line alias, it does
+> seem somewhat pointless to me.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 2e790fb..6871ec1 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -113,7 +113,6 @@ struct lowpan_dev_record {
- 
- struct lowpan_fragment {
- 	struct sk_buff		*skb;		/* skb to be assembled */
--	spinlock_t		lock;		/* concurency lock */
- 	u16			length;		/* length to be assemled */
- 	u32			bytes_rcv;	/* bytes received */
- 	u16			tag;		/* current fragment tag */
-@@ -637,10 +636,7 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
- 
- 	pr_debug("timer expired for frame with tag %d\n", entry->tag);
- 
--	spin_lock(&flist_lock);
- 	list_del(&entry->list);
--	spin_unlock(&flist_lock);
--
- 	dev_kfree_skb(entry->skb);
- 	kfree(entry);
- }
-@@ -727,7 +723,7 @@ lowpan_process_data(struct sk_buff *skb)
- 		 * check if frame assembling with the same tag is
- 		 * already in progress
- 		 */
--		spin_lock(&flist_lock);
-+		spin_lock_bh(&flist_lock);
- 
- 		list_for_each_entry(frame, &lowpan_fragments, list)
- 			if (frame->tag == tag) {
-@@ -761,9 +757,9 @@ lowpan_process_data(struct sk_buff *skb)
- 		if ((frame->bytes_rcv == frame->length) &&
- 		     frame->timer.expires > jiffies) {
- 			/* if timer haven't expired - first of all delete it */
--			del_timer(&frame->timer);
-+			del_timer_sync(&frame->timer);
- 			list_del(&frame->list);
--			spin_unlock(&flist_lock);
-+			spin_unlock_bh(&flist_lock);
- 
- 			dev_kfree_skb(skb);
- 			skb = frame->skb;
-@@ -774,7 +770,7 @@ lowpan_process_data(struct sk_buff *skb)
- 
- 			break;
- 		}
--		spin_unlock(&flist_lock);
-+		spin_unlock_bh(&flist_lock);
- 
- 		return kfree_skb(skb), 0;
- 	}
-@@ -929,7 +925,7 @@ lowpan_process_data(struct sk_buff *skb)
- 	return lowpan_skb_deliver(skb, &hdr);
- 
- unlock_and_drop:
--	spin_unlock(&flist_lock);
-+	spin_unlock_bh(&flist_lock);
- drop:
- 	kfree_skb(skb);
- 	return -EINVAL;
-@@ -1196,19 +1192,9 @@ static void lowpan_dellink(struct net_device *dev, struct list_head *head)
- 	struct lowpan_dev_info *lowpan_dev = lowpan_dev_info(dev);
- 	struct net_device *real_dev = lowpan_dev->real_dev;
- 	struct lowpan_dev_record *entry, *tmp;
--	struct lowpan_fragment *frame, *tframe;
- 
- 	ASSERT_RTNL();
- 
--	spin_lock(&flist_lock);
--	list_for_each_entry_safe(frame, tframe, &lowpan_fragments, list) {
--		del_timer(&frame->timer);
--		list_del(&frame->list);
--		dev_kfree_skb(frame->skb);
--		kfree(frame);
--	}
--	spin_unlock(&flist_lock);
--
- 	mutex_lock(&lowpan_dev_info(dev)->dev_list_mtx);
- 	list_for_each_entry_safe(entry, tmp, &lowpan_devices, list) {
- 		if (entry->ldev == dev) {
-@@ -1264,9 +1250,24 @@ out:
- 
- static void __exit lowpan_cleanup_module(void)
- {
-+	struct lowpan_fragment *frame, *tframe;
-+
- 	lowpan_netlink_fini();
- 
- 	dev_remove_pack(&lowpan_packet_type);
-+
-+	/* Now 6lowpan packet_type is removed, so no new fragments are
-+	 * expected on RX, therefore that's the time to clean incomplete
-+	 * fragments.
-+	 */
-+	spin_lock_bh(&flist_lock);
-+	list_for_each_entry_safe(frame, tframe, &lowpan_fragments, list) {
-+		del_timer_sync(&frame->timer);
-+		list_del(&frame->list);
-+		dev_kfree_skb(frame->skb);
-+		kfree(frame);
-+	}
-+	spin_unlock_bh(&flist_lock);
- }
- 
- module_init(lowpan_init_module);
--- 
-1.7.2.3
+At least in my code I'm going to prefer this over the memset for
+documentation purposes. I'll agree that memset(..., 0xff, ETH_ALEN) is
+pretty obvious already, but eth_broadcast_addr(...) is even easier to
+read IMHO.
+
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
