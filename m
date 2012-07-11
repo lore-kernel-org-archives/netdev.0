@@ -1,53 +1,93 @@
 From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Subject: [PATCH net-next v3 2/3] 6lowpan: Change byte order when storing/accessing u16 tag
-Date: Wed, 11 Jul 2012 12:51:15 -0400
-Message-ID: <1342025476-20949-3-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next v3 3/3] 6lowpan: Change byte order when storing/accessing to len field
+Date: Wed, 11 Jul 2012 12:51:16 -0400
+Message-ID: <1342025476-20949-4-git-send-email-tony.cheneau@amnesiak.org>
 References: <1342025476-20949-1-git-send-email-tony.cheneau@amnesiak.org>
 Cc: netdev@vger.kernel.org,
 	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.amnesiak.org ([95.130.11.136]:43754 "EHLO amnesiak.org"
+Received: from ns.amnesiak.org ([95.130.11.136]:43760 "EHLO amnesiak.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932943Ab2GKQxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 12:53:25 -0400
+	id S932943Ab2GKQx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 12:53:28 -0400
 In-Reply-To: <1342025476-20949-1-git-send-email-tony.cheneau@amnesiak.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tag field should be stored and accessed using big endian byte order (as
-intended in the specs). Or else, when displayed with a trafic analyser, such a
-Wireshark, the field not properly displayed (e.g. 0x01 00 instead of 0x00 01,
-and so on).
+Lenght field should be encoded using big endian byte order, such as intend in the specs.
+As it is currently written, the len field would not be decoded properly on an implementation using the correct byte ordering. Hence, it could lead to interroperability issues.
+
+Also, I rewrote the code so that iphc0 argument of lowpan_alloc_new_frame could be removed.
 
 Signed-off-by: Tony Cheneau <tony.cheneau@amnesiak.org>
 ---
- net/ieee802154/6lowpan.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ net/ieee802154/6lowpan.c |   20 ++++++++++++--------
+ 1 files changed, 12 insertions(+), 8 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 0c9f6d1..9de1ece 100644
+index 9de1ece..75d91bb 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -303,7 +303,7 @@ static inline int lowpan_fetch_skb_u16(struct sk_buff *skb, u16 *val)
- 	if (unlikely(!pskb_may_pull(skb, 2)))
- 		return -EINVAL;
+@@ -649,7 +649,7 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
+ }
  
--	*val = skb->data[0] | (skb->data[1] << 8);
-+	*val = (skb->data[0] << 8) | skb->data[1];
- 	skb_pull(skb, 2);
+ static struct lowpan_fragment *
+-lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
++lowpan_alloc_new_frame(struct sk_buff *skb, u8 len, u8 tag)
+ {
+ 	struct lowpan_fragment *frame;
  
- 	return 0;
-@@ -1010,8 +1010,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb)
+@@ -660,7 +660,7 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
+ 
+ 	INIT_LIST_HEAD(&frame->list);
+ 
+-	frame->length = (iphc0 & 7) | (len << 3);
++	frame->length = len;
+ 	frame->tag = tag;
+ 
+ 	/* allocate buffer for frame assembling */
+@@ -718,14 +718,18 @@ lowpan_process_data(struct sk_buff *skb)
+ 	case LOWPAN_DISPATCH_FRAGN:
+ 	{
+ 		struct lowpan_fragment *frame;
+-		u8 len, offset;
+-		u16 tag;
++		/* slen stores the rightmost 8 bits of the 11 bits length */
++		u8 slen, offset;
++		u16 len, tag;
+ 		bool found = false;
+ 
+-		if (lowpan_fetch_skb_u8(skb, &len) || /* frame length */
++		if (lowpan_fetch_skb_u8(skb, &slen) || /* frame length */
+ 		    lowpan_fetch_skb_u16(skb, &tag))  /* fragment tag */
+ 			goto drop;
+ 
++		/* adds the 3 MSB to the 8 LSB to retrieve the 11 bits length */
++		len = ((iphc0 & 7) << 8) | slen;
++
+ 		/*
+ 		 * check if frame assembling with the same tag is
+ 		 * already in progress
+@@ -740,7 +744,7 @@ lowpan_process_data(struct sk_buff *skb)
+ 
+ 		/* alloc new frame structure */
+ 		if (!found) {
+-			frame = lowpan_alloc_new_frame(skb, iphc0, len, tag);
++			frame = lowpan_alloc_new_frame(skb, len, tag);
+ 			if (!frame)
+ 				goto unlock_and_drop;
+ 		}
+@@ -1008,8 +1012,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb)
+ 	tag = fragment_tag++;
+ 
  	/* first fragment header */
- 	head[0] = LOWPAN_DISPATCH_FRAG1 | (payload_length & 0x7);
- 	head[1] = (payload_length >> 3) & 0xff;
--	head[2] = tag & 0xff;
--	head[3] = tag >> 8;
-+	head[2] = tag >> 8;
-+	head[3] = tag & 0xff;
- 
- 	err = lowpan_fragment_xmit(skb, head, header_length, 0, 0);
+-	head[0] = LOWPAN_DISPATCH_FRAG1 | (payload_length & 0x7);
+-	head[1] = (payload_length >> 3) & 0xff;
++	head[0] = LOWPAN_DISPATCH_FRAG1 | ((payload_length >> 8) & 0x7);
++	head[1] = payload_length & 0xff;
+ 	head[2] = tag >> 8;
+ 	head[3] = tag & 0xff;
  
 -- 
 1.7.3.4
