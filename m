@@ -1,33 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] Bug fix for batman-adv 2012-07-06
-Date: Tue, 10 Jul 2012 23:36:08 -0700 (PDT)
-Message-ID: <20120710.233608.1063040661808593104.davem@davemloft.net>
-References: <1341528514-27906-1-git-send-email-ordex@autistici.org>
-	<20120705225140.GA9745@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 10 Jul 2012 23:36:38 -0700 (PDT)
+Message-ID: <20120710.233638.1081913772093556666.davem@davemloft.net>
+References: <20120710130848.1014fbe05e5146a33a3c7d39@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20120705225140.GA9745-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bjorn@mork.no
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120710130848.1014fbe05e5146a33a3c7d39@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Fri, 6 Jul 2012 00:51:40 +0200
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 10 Jul 2012 13:08:48 +1000
 
-> here you have our instructions to resolve the conflicts that you will hit while
-> merging net into net-next:
+> I added the following merge fix patch:
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 10 Jul 2012 13:06:01 +1000
+> Subject: [PATCH] net: fix for qmi_wwan_unbind_shared changes
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 
-Thanks for this.
+Thanks Stephen, I'll incorporate this when I merge net into net-next.
+
+Thanks again!
