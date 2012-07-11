@@ -1,93 +1,58 @@
-From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Subject: [PATCH net-next v3 3/3] 6lowpan: Change byte order when storing/accessing to len field
-Date: Wed, 11 Jul 2012 12:51:16 -0400
-Message-ID: <1342025476-20949-4-git-send-email-tony.cheneau@amnesiak.org>
-References: <1342025476-20949-1-git-send-email-tony.cheneau@amnesiak.org>
-Cc: netdev@vger.kernel.org,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: UDP ordering when using multiple rx queue
+Date: Wed, 11 Jul 2012 10:50:29 -0700
+Message-ID: <4FFDBCE5.9050201@hp.com>
+References: <CAL8zT=g5nHd6FprhxFc21XTgfXeaokt4QN1fS4ekcNVkuvZE9g@mail.gmail.com> <1342004939.27284.28.camel@lb-tlvb-meravs.il.broadcom.com> <CAL8zT=jMPCv_Lc7gJYGHRhHZop9aWJfp2w1o_cD0Z8SRdtck7Q@mail.gmail.com> <CAL8zT=hi9_Y4oGw=cVSnYE=km6MZBAAie-A5RWLy=47FR8aTag@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Merav Sicron <meravs@broadcom.com>, netdev <netdev@vger.kernel.org>
+To: Jean-Michel Hautbois <jhautbois@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.amnesiak.org ([95.130.11.136]:43760 "EHLO amnesiak.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932943Ab2GKQx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 12:53:28 -0400
-In-Reply-To: <1342025476-20949-1-git-send-email-tony.cheneau@amnesiak.org>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:3588 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755082Ab2GKRub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 13:50:31 -0400
+In-Reply-To: <CAL8zT=hi9_Y4oGw=cVSnYE=km6MZBAAie-A5RWLy=47FR8aTag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lenght field should be encoded using big endian byte order, such as intend in the specs.
-As it is currently written, the len field would not be decoded properly on an implementation using the correct byte ordering. Hence, it could lead to interroperability issues.
+On 07/11/2012 06:41 AM, Jean-Michel Hautbois wrote:
+> I confirm that using ethtool -L eth1 combined 1 solves my issue.
 
-Also, I rewrote the code so that iphc0 argument of lowpan_alloc_new_frame could be removed.
+My being pedantic or not, you have kludged around your issue, which is a 
+broken application.
 
-Signed-off-by: Tony Cheneau <tony.cheneau@amnesiak.org>
----
- net/ieee802154/6lowpan.c |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
+Can you actually ass-u-me that this application is deployed with just a 
+single back-to-back link between two systems?  I'm guessing that isn't 
+the way it is deployed in production or there would be zero call for 
+multicast.   There is *zero* guarantee of ordering with UDP, multicast 
+or otherwise - certainly not between sends involving different port 
+numbers, nor for that matter even between sends involving the same port 
+numbers.  Once you leave the NIC (and perhaps even before) all bets are off.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 9de1ece..75d91bb 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -649,7 +649,7 @@ static void lowpan_fragment_timer_expired(unsigned long entry_addr)
- }
- 
- static struct lowpan_fragment *
--lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
-+lowpan_alloc_new_frame(struct sk_buff *skb, u8 len, u8 tag)
- {
- 	struct lowpan_fragment *frame;
- 
-@@ -660,7 +660,7 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u8 iphc0, u8 len, u8 tag)
- 
- 	INIT_LIST_HEAD(&frame->list);
- 
--	frame->length = (iphc0 & 7) | (len << 3);
-+	frame->length = len;
- 	frame->tag = tag;
- 
- 	/* allocate buffer for frame assembling */
-@@ -718,14 +718,18 @@ lowpan_process_data(struct sk_buff *skb)
- 	case LOWPAN_DISPATCH_FRAGN:
- 	{
- 		struct lowpan_fragment *frame;
--		u8 len, offset;
--		u16 tag;
-+		/* slen stores the rightmost 8 bits of the 11 bits length */
-+		u8 slen, offset;
-+		u16 len, tag;
- 		bool found = false;
- 
--		if (lowpan_fetch_skb_u8(skb, &len) || /* frame length */
-+		if (lowpan_fetch_skb_u8(skb, &slen) || /* frame length */
- 		    lowpan_fetch_skb_u16(skb, &tag))  /* fragment tag */
- 			goto drop;
- 
-+		/* adds the 3 MSB to the 8 LSB to retrieve the 11 bits length */
-+		len = ((iphc0 & 7) << 8) | slen;
-+
- 		/*
- 		 * check if frame assembling with the same tag is
- 		 * already in progress
-@@ -740,7 +744,7 @@ lowpan_process_data(struct sk_buff *skb)
- 
- 		/* alloc new frame structure */
- 		if (!found) {
--			frame = lowpan_alloc_new_frame(skb, iphc0, len, tag);
-+			frame = lowpan_alloc_new_frame(skb, len, tag);
- 			if (!frame)
- 				goto unlock_and_drop;
- 		}
-@@ -1008,8 +1012,8 @@ lowpan_skb_fragmentation(struct sk_buff *skb)
- 	tag = fragment_tag++;
- 
- 	/* first fragment header */
--	head[0] = LOWPAN_DISPATCH_FRAG1 | (payload_length & 0x7);
--	head[1] = (payload_length >> 3) & 0xff;
-+	head[0] = LOWPAN_DISPATCH_FRAG1 | ((payload_length >> 8) & 0x7);
-+	head[1] = payload_length & 0xff;
- 	head[2] = tag >> 8;
- 	head[3] = tag & 0xff;
- 
--- 
-1.7.3.4
+Have you tested using bonded links?  Or through switches which 
+themselves are joined by bonded links? Various bonding modes can even 
+re-order traffic of a single flow (eg mode-rr).  As I understand it, the 
+moves to "break the bottlenecks" imposed by spanning tree will mean that 
+meshes of switches, even without bonded links, will send traffic of 
+different flows through different paths through the switch fabric.  In 
+those cases they might send traffic to the same multicast address along 
+the same path each time, but you probably cannot count on that, nor them 
+sending traffic to different multicast addresses along the same path. 
+Some clever meshed-switch folks may go ahead and look up at the 
+transport-layer port numbers when deciding on their splits - just like 
+some bonding modes can.
+
+Until you get the application re-written to handle out-of-order traffic, 
+it "works" only by chance.
+
+> Unicast traffic seems ok (I used netperf in order to check this assumption).
+
+Netperf does nothing to check the order of datagrams.  It is perfectly 
+content receiving datagrams in any order.  So you can use it to see that 
+a single flow of UDP unicast is not split-up by the NIC (by looking at 
+the per-queue stats) you can assume nothing about the final ordering of 
+those UDP datagrams from a "successful" netperf UDP_STREAM test.
+
+rick jones
