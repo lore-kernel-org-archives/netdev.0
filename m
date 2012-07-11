@@ -1,61 +1,65 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8169: Remove rtl_ocpdr_cond
-Date: Wed, 11 Jul 2012 20:31:56 +0800
-Message-ID: <1342009916-1519-1-git-send-email-hayeswang@realtek.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH v3] net: cgroup: fix access the unallocated memory in
+ netprio cgroup
+Date: Wed, 11 Jul 2012 20:51:42 +0800
+Message-ID: <4FFD76DE.4090308@cn.fujitsu.com>
+References: <1341995406-12719-1-git-send-email-gaofeng@cn.fujitsu.com> <20120711121102.GB26643@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, lizefan@huawei.com, tj@kernel.org,
+	davem@davemloft.net, Eric Dumazet <edumazet@google.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120711121102.GB26643@hmsreliant.think-freely.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-No waiting is needed for mac_ocp_{write / read}. And the bit 31 of
-OCPDR would not change, so rtl_udelay_loop_wait_high always return
-false. That is, the r8168_mac_ocp_read always retuen ~0.
+=E4=BA=8E 2012=E5=B9=B407=E6=9C=8811=E6=97=A5 20:11, Neil Horman =E5=86=
+=99=E9=81=93:
+> On Wed, Jul 11, 2012 at 04:30:06PM +0800, Gao feng wrote:
+>> there are some out of bound accesses in netprio cgroup.
+>>
+>> now before accessing the dev->priomap.priomap array,we only check
+>> if the dev->priomap exist.and because we don't want to see
+>> additional bound checkings in fast path, so we should make sure
+>> that dev->priomap is null or array size of dev->priomap.priomap
+>> is equal to max_prioidx + 1;
+>>
+>> and it's not needed to call extend_netdev_tabel in write_priomap,
+>> we can only allocate the net device's priomap which we change throug=
+h
+>> net_prio.ifpriomap.
+>>
+>> this patch add a return value for update_netdev_tables & extend_netd=
+ev_table,
+>> so when new_priomap is allocated failed,write_priomap will stop to a=
+ccess
+>> the priomap,and return -ENOMEM back to the userspace to tell the use=
+r
+>> what happend.
+>>
+>> Change From v2:
+>> 1. protect extend_netdev_table by RTNL.
+>> 2. when extend_netdev_table failed,call dev_put to reduce device's r=
+efcount.
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> ---
+>>  net/core/netprio_cgroup.c |   54 ++++++++++++++++++++++++++++++++--=
+----------
+>>  1 files changed, 39 insertions(+), 15 deletions(-)
+>>
+> I still think the use of max_priomap in write_priomap is racy (please=
+ see my
+> previous note).
+>=20
+> Neil
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c |   12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+Yes, you are right :(
+we need a v4 patch.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index c29c5fb..1f27318 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1043,13 +1043,6 @@ static void rtl_w1w0_phy_ocp(struct rtl8169_private *tp, int reg, int p, int m)
- 	r8168_phy_ocp_write(tp, reg, (val | p) & ~m);
- }
- 
--DECLARE_RTL_COND(rtl_ocpdr_cond)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--
--	return RTL_R32(OCPDR) & OCPAR_FLAG;
--}
--
- static void r8168_mac_ocp_write(struct rtl8169_private *tp, u32 reg, u32 data)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -1058,8 +1051,6 @@ static void r8168_mac_ocp_write(struct rtl8169_private *tp, u32 reg, u32 data)
- 		return;
- 
- 	RTL_W32(OCPDR, OCPAR_FLAG | (reg << 15) | data);
--
--	rtl_udelay_loop_wait_low(tp, &rtl_ocpdr_cond, 25, 10);
- }
- 
- static u16 r8168_mac_ocp_read(struct rtl8169_private *tp, u32 reg)
-@@ -1071,8 +1062,7 @@ static u16 r8168_mac_ocp_read(struct rtl8169_private *tp, u32 reg)
- 
- 	RTL_W32(OCPDR, reg << 15);
- 
--	return rtl_udelay_loop_wait_high(tp, &rtl_ocpdr_cond, 25, 10) ?
--		RTL_R32(OCPDR) : ~0;
-+	return RTL_R32(OCPDR);
- }
- 
- #define OCP_STD_PHY_BASE	0xa400
--- 
-1.7.10.4
+Thanks!
