@@ -1,50 +1,41 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: UDP ordering when using multiple rx queue
-Date: Wed, 11 Jul 2012 09:53:44 +0200
-Message-ID: <CAL8zT=g5nHd6FprhxFc21XTgfXeaokt4QN1fS4ekcNVkuvZE9g@mail.gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 3/9] IB/ipoib: Add support for acting as VIF
+Date: Wed, 11 Jul 2012 11:05:12 +0300
+Message-ID: <4FFD33B8.5010604@mellanox.com>
+References: <1341922569-4118-1-git-send-email-ogerlitz@mellanox.com>  <1341922569-4118-4-git-send-email-ogerlitz@mellanox.com> <1341923180.3265.5005.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <roland@kernel.org>,
+	<netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, Erez Shitrit <erezsh@mellanox.co.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:39197 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756767Ab2GKHyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 03:54:05 -0400
-Received: by wibhm11 with SMTP id hm11so5409118wib.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 00:54:04 -0700 (PDT)
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:57607 "HELO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752631Ab2GKIGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 04:06:32 -0400
+In-Reply-To: <1341923180.3265.5005.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi list,
+On 7/10/2012 3:26 PM, Eric Dumazet wrote:
+> On Tue, 2012-07-10 at 15:16 +0300, Or Gerlitz wrote:
+>> The IPoIB code checks the VIF private flag on the RX path, and accoriding
+>> to the value of the flag prepares the skb CB data, etc.
+>>
+>
+> skb->cb[] can be destroyed in netif_receive_skb() / __netif_receive_skb()
+>
+> #ifdef CONFIG_NET_CLS_ACT
+> 	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
+> 	...
+> #endif
 
-I am doing some experiments on several NICs and I have an issue with
-my application.
-This is a sending of raw data packets which consists of bursts each
-1/30s of 784 times 4000 bytes UDP packets.
-The packets are one a wired link, no switch or anything, so there is
-no chance of reordering or drop between the sender and receiver.
+Eric,
 
-On receiver side, I need to get the packets ordered, or the
-application will consider the packets are late (and then, lost).
-(Yes, the application is badly written on that specific part, but it
-is not mine :)).
+Can you elaborate a little further? we're not sure to see where 
+skb->cb[] is touched on the flow
+you pointed to.
 
-Several tests lead to a simple conclusion : when the NIC has only one
-RX queue, everything is ok (like be2net for instance), but when it has
-more than one RX queue, then I can have "lost packets".
-This is the case for bnx2x or mlx4 for instance.
-
-Here are my questions :
-- Is it possible to force a driver to use only one rx queue, even if
-it can use more without reloading the driver (and this is feasible
-only when a parameter exists for that !) ?
-- Is it possible to "force" the network stack to give the packets on
-the correct order (I would say no, as this is not specified in the
-protocol) ?
-
-My only bet is the first one (forcing one rx queue).
-The last and desperate solution would be rewriting the application,
-not easy to make it accepted.
-
-Thanks !
-JM
+Or.
