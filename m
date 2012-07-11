@@ -1,24 +1,48 @@
-From: OFFICE MAIL <Angels625@aol.com>
-Subject: YOUR DIPLOMAT HAS NOW ARRIVE WITH YOUR CASH CONSIGNMENT BOX AT J.F.KENNEDY
- INTERNATIONAL AIRPORT NEW YORK,
- CALL HIM NOW ( 1-347 441 3406) email: (john4321@yahoo.cn)
-Date: Wed, 11 Jul 2012 16:37:57 -0400
-Message-ID: <201207112030.q6BKUgTW023676@ims-m11.mx.aol.com>
-Reply-To: lamido4321@rediffmail.com
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-07-11
+Date: Wed, 11 Jul 2012 16:19:01 -0400
+Message-ID: <20120711201900.GE1937@tuxdriver.com>
+References: <20120711181721.GC1906@tuxdriver.com>
+ <20120711183320.GB1937@tuxdriver.com>
+ <CACna6rwN+tBu=BG0TR2udq3PH9qvPg44jJQPGc4G3jH_t2=GjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <Angels625@aol.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ims-m11.mx.aol.com ([64.12.207.144]:51156 "EHLO
-	ims-m11.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932350Ab2GKUay convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 16:30:54 -0400
-Received: from oms-da02.r1000.mx.aol.com (oms-da02.r1000.mx.aol.com [205.188.255.12])
-	by ims-m11.mx.aol.com (8.14.1/8.14.1) with ESMTP id q6BKUgTW023676
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 16:30:42 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CACna6rwN+tBu=BG0TR2udq3PH9qvPg44jJQPGc4G3jH_t2=GjQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is to notify you that your diplomat JOHN BENARD has now arrive with your cash consignment box loaded with $usd1.5m at J.F.Kennedy international airport new york city,from Dr.sanusi lamido the Governor of Central Bank of Nigeria.Contact him now with your Name home,address also your valid phone number through his email (john4321@yahoo.cn) for the release of your fund.
+On Wed, Jul 11, 2012 at 09:00:50PM +0200, Rafa=C5=82 Mi=C5=82ecki wrote=
+:
+> 2012/7/11 John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+> > Ugh, forgot the signature again...
+> >
+> > On Wed, Jul 11, 2012 at 02:17:22PM -0400, John W. Linville wrote:
+> >> Rafa=C5=82 Mi=C5=82ecki (2):
+> >>       b43: N-PHY: fix RSSI calibration
+> >>       bcma: use custom printing functions
+>=20
+> MIPS users: bcma patch breaks compilation for you (sorry!), please ap=
+ply
+> bcma: fix CC driver compilation on MIPS
+> locally before it gets merged.
+
+Ugh...
+
+Dave, I've got that patch queued-up now.  Disregard this request and
+I'll send you another one tomorrow or so.
+
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
