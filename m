@@ -1,35 +1,76 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: Re: [PATCH 02/16] ipv4: Deliver ICMP redirects to sockets too.
-Date: Fri, 13 Jul 2012 00:21:40 +0900
-Message-ID: <20120713002140.a441cc979fbdaa505dda2fbe@gmail.com>
-References: <20120712.011049.831106026936792516.davem@davemloft.net>
-	<20120712235837.4d611326830a16f9a035dd75@gmail.com>
-	<20120712.080653.1463195798230664640.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 2/2] net: Update alloc frag to reduce get/put page usage
+ and recycle pages
+Date: Thu, 12 Jul 2012 08:33:49 -0700
+Message-ID: <4FFEEE5D.7020305@intel.com>
+References: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com>  <20120712001810.26542.61967.stgit@gitlad.jf.intel.com>  <1342052967.3265.8210.camel@edumazet-glaptop>  <4FFE303F.8070902@gmail.com> <1342069601.3265.8218.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:47440 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932558Ab2GLPVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 11:21:44 -0400
-Received: by gglu4 with SMTP id u4so2523225ggl.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 08:21:43 -0700 (PDT)
-In-Reply-To: <20120712.080653.1463195798230664640.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:43591 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932560Ab2GLPdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2012 11:33:51 -0400
+In-Reply-To: <1342069601.3265.8218.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jul 2012 08:06:53 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On 07/11/2012 10:06 PM, Eric Dumazet wrote:
+> On Wed, 2012-07-11 at 19:02 -0700, Alexander Duyck wrote:
+>
+>> The gain will be minimal if any with the 1500 byte allocations, however 
+>> there shouldn't be a performance degradation.
+>>
+>> I was thinking more of the ixgbe case where we are working with only 256 
+>> byte allocations and can recycle pages in the case of GRO or TCP.  For 
+>> ixgbe the advantages are significant since we drop a number of the 
+>> get_page calls and get the advantage of the page recycling.  So for 
+>> example with GRO enabled we should only have to allocate 1 page for 
+>> headers every 16 buffers, and the 6 slots we use in that page have a 
+>> good likelihood of being warm in the cache since we just keep looping on 
+>> the same page.
+>>
+> Its not possible to get 16 buffers per 4096 bytes page.
+Actually I was talking about buffers from the device, not buffers from
+the page.  However, it is possible to get 16 head_frag buffers from the
+same 4K page if we consider recycling.  In the case of GRO we will end
+up with the first buffer keeping the head_frag, and all of the remaining
+head_frags will be freed before we call netdev_alloc_frag again.  So
+what will end up happening is that each GRO assembled frame from ixgbe
+would start with a recycled page used for the previously freed
+head_frags, the page will be dropped from netdev_alloc_frag after we run
+out of space, a new page will be allocated for use as head_frags, and
+finally those head_frags will be freed and recycled until we hit the end
+of the GRO frame and start over.  So if you count them all then we end
+up using the page up to 16 times, maybe even more depending on how the
+page offset reset aligns with the start of the GRO frame.
 
-> From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> Date: Thu, 12 Jul 2012 23:58:37 +0900
-> 
-> > So, I think avobe deleted checks about skb->len need to move to
-> > ping_err() in case of packets are malformed.
-> 
-> You would be wrong, the check belongs in icmp_socket_deliver().
+> sizeof(struct skb_shared_info)=0x140 320
+>
+> Add 192 bytes (NET_SKB_PAD + 128)
+>
+> Thats a minimum of 512 bytes (but ixgbe uses more) per skb.
+>
+> In practice for ixgbe, its :
+>
+> #define IXGBE_RXBUFFER_512   512    /* Used for packet split */
+> #define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_512 
+>
+> skb = netdev_alloc_skb_ip_align(rx_ring->netdev, IXGBE_RX_HDR_SIZE)
+>
+> So 4 buffers per PAGE
+>
+> Maybe you plan to use IXGBE_RXBUFFER_256 or IXGBE_RXBUFFER_128 ?
+I have a patch that is in testing in Jeff Kirsher's tree that uses
+IXGBE_RXBUFFER_256.  With your recent changes it didn't make sense to
+use 512 when we would only copy 256 bytes into the head.  With the size
+set to 256 we will get 6 buffers per page without any recycling.
 
-Ah, OK. Thanks ;)
+Thanks,
+
+Alex
