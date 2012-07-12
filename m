@@ -1,162 +1,55 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the infiniband
- tree
-Date: Thu, 12 Jul 2012 12:13:07 +1000
-Message-ID: <20120712121307.a482863a98848e3813690ef2@canb.auug.org.au>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Thu, 12 Jul 2012 10:23:01 +0800
+Message-ID: <4FFE3505.8060407@oracle.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com> <4FFCCA22.8060006@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EEC8B@ORSMSX102.amr.corp.intel.com> <4FFCDA6C.8020708@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EED74@ORSMSX102.amr.corp.intel.com> <4FFCF314.6020400@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com> <4FFD0908.6080506@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA891274EF8AD@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Thu__12_Jul_2012_12_13_07_+1000_tEWlQid_UR9sKBNS"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Roland Dreier <roland@kernel.org>, linux-rdma@vger.kernel.org
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA891274EF8AD@ORSMSX102.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__12_Jul_2012_12_13_07_+1000_tEWlQid_UR9sKBNS
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 07/12/12 02:51, Dave, Tushar N wrote:
+> 
+> Joe,
+> 
+> I see couple of errors in lspci output.
+> Device capability status register shows UnCorrectable PCIe error. This means there is certainly something went wrong. The only way to recover from Uncorrectable errors is reset.
+>    
+> 	DevSta:	CorrErr- *UncorrErr+ FatalErr+ UnsuppReq+ AuxPwr+ TransPend-
+> 
+> Also AER sections in lspci output shows PCIe completion timeout.
+> 	
+> 	Capabilities: [100 v1] Advanced Error Reporting
+> 		UESta:	DLP- SDES- TLP- FCP- *CmpltTO+ CmpltAbrt- UnxCmplt- RxOF- MalfTLP+ ECRC- UnsupReq+ ACSViol-
+> 
+> I suggest you should load AER driver and check for any error messages in log. Also please check any error message reported by system in BIOS log. Are there any machine check errors? 
+> 
+> When did you notice this issue? have 82571 ever been working before on this server?
+> 
+> One more thing, Cache line size 256 is little unusual( I never seen this value before, mostly it's 64). Does BIOS settings have been changed? Are you using default BIOS setting?
+> 
 
-Hi all,
+I checked BIOS's log found the fault from the device, I changed "PCI-E Payload Size"
+from 256(default) to 128, now the device works.
 
-Today's linux-next merge of the net-next tree got a conflict in
-include/linux/mlx4/device.h between commit 396f2feb05d7 ("mlx4_core:
-Implement mechanism for reserved Q_Keys") from the infiniband tree and
-commit 0ff1fb654bec ("{NET, IB}/mlx4: Add device managed flow steering
-firmware API") from the net-next tree.
+I compared lspci output found Address for data of MSI Capabilities's be changed:
 
-Just context changes.  I fixed it up (see below) and can carry the fix
-as necessary.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Old:
+        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+                Address: 00000000fee21000  Data: 40cb
 
-diff --cc include/linux/mlx4/device.h
-index 441caf1,6f0d133..0000000
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@@ -540,83 -542,10 +573,85 @@@ struct mlx4_dev=20
-  	u8			rev_id;
-  	char			board_id[MLX4_BOARD_ID_LEN];
-  	int			num_vfs;
-+ 	u64			regid_promisc_array[MLX4_MAX_PORTS + 1];
-+ 	u64			regid_allmulti_array[MLX4_MAX_PORTS + 1];
-  };
- =20
- +struct mlx4_eqe {
- +	u8			reserved1;
- +	u8			type;
- +	u8			reserved2;
- +	u8			subtype;
- +	union {
- +		u32		raw[6];
- +		struct {
- +			__be32	cqn;
- +		} __packed comp;
- +		struct {
- +			u16	reserved1;
- +			__be16	token;
- +			u32	reserved2;
- +			u8	reserved3[3];
- +			u8	status;
- +			__be64	out_param;
- +		} __packed cmd;
- +		struct {
- +			__be32	qpn;
- +		} __packed qp;
- +		struct {
- +			__be32	srqn;
- +		} __packed srq;
- +		struct {
- +			__be32	cqn;
- +			u32	reserved1;
- +			u8	reserved2[3];
- +			u8	syndrome;
- +		} __packed cq_err;
- +		struct {
- +			u32	reserved1[2];
- +			__be32	port;
- +		} __packed port_change;
- +		struct {
- +			#define COMM_CHANNEL_BIT_ARRAY_SIZE	4
- +			u32 reserved;
- +			u32 bit_vec[COMM_CHANNEL_BIT_ARRAY_SIZE];
- +		} __packed comm_channel_arm;
- +		struct {
- +			u8	port;
- +			u8	reserved[3];
- +			__be64	mac;
- +		} __packed mac_update;
- +		struct {
- +			__be32	slave_id;
- +		} __packed flr_event;
- +		struct {
- +			__be16  current_temperature;
- +			__be16  warning_threshold;
- +		} __packed warming;
- +		struct {
- +			u8 reserved[3];
- +			u8 port;
- +			union {
- +				struct {
- +					__be16 mstr_sm_lid;
- +					__be16 port_lid;
- +					__be32 changed_attr;
- +					u8 reserved[3];
- +					u8 mstr_sm_sl;
- +					__be64 gid_prefix;
- +				} __packed port_info;
- +				struct {
- +					__be32 block_ptr;
- +					__be32 tbl_entries_mask;
- +				} __packed tbl_change_info;
- +			} params;
- +		} __packed port_mgmt_change;
- +	}			event;
- +	u8			slave_id;
- +	u8			reserved3[2];
- +	u8			owner;
- +} __packed;
- +
-  struct mlx4_init_port_param {
-  	int			set_guid0;
-  	int			set_node_guid;
-@@@ -783,6 -793,8 +908,10 @@@ int mlx4_wol_write(struct mlx4_dev *dev
-  int mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx);
-  void mlx4_counter_free(struct mlx4_dev *dev, u32 idx);
- =20
- +int mlx4_get_parav_qkey(struct mlx4_dev *dev, u32 qpn, u32 *qkey);
- +
-+ int mlx4_flow_attach(struct mlx4_dev *dev,
-+ 		     struct mlx4_net_trans_rule *rule, u64 *reg_id);
-+ int mlx4_flow_detach(struct mlx4_dev *dev, u64 reg_id);
-+=20
-  #endif /* MLX4_DEVICE_H */
+New:
+        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+                Address: 00000000fee24000  Data: 405c
 
---Signature=_Thu__12_Jul_2012_12_13_07_+1000_tEWlQid_UR9sKBNS
-Content-Type: application/pgp-signature
+Mostly like it's a BIOS bug? please comments.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJP/jKzAAoJEECxmPOUX5FEiegP/16PKg/2wh3Ezcm6r34qQtnU
-Oc9+JOWdDVol1HusRZobFL7Ob9TPPW2XDYZ6ndJEmaqcfAgyHZVI26r4CQL0O1Zb
-v+FdQ1rOqmFd5oDppNFFZJm21FUyl4VUB8RUZ8BNreCyQaU4ylmK8T7elOdqbVry
-5YYX0IGKOO93Hb4FGTJt8UQZyj4MWcBXIdIeAc5xpY6GogJE/GdI41q/Dt5MtWIA
-vKYcCwciawoTydv+320u2O0RgK6Tex9x3A1pOcmutpBX4BNJMB73k+uSGXY/7XRA
-Bno6qYQq78owA/Hhz4ZIApBsSCCq5/flnfFBrT24aT/sIZUl9Qx+/H00pWAeb0yv
-d1/zbg82uLnH+tRdZ6jSyKyDEvAzvh3UJZyG3pRlPfi4r3U5DDglIIo8AhUO4+0/
-NcQbHD5oIVspcQvYpOCbgEO/UFCqz4UPfvYCP3HkmH4hmgtP0Ia+IBOJ0vLdu+/0
-GJiqr3FLhX5HDMEcKCwPDkhs2g3yTRuQhvcRIO+0aWPc7Tjn2o2bj6OA2HDqJxmu
-MO4ElNYoFDHakV5zaAa1M6Z1MTt/Z0fMgO9qDZ86PXP54NneizdTn3MIikMgOhZU
-pQQ4GiOz00m6y0qo5IsYSP+ZgYjhyfxWeXcsuTAPrAd2EjcfBCOzZaQjHKcPv8od
-0f7H/6pokzMaMrejGNut
-=ubhu
------END PGP SIGNATURE-----
-
---Signature=_Thu__12_Jul_2012_12_13_07_+1000_tEWlQid_UR9sKBNS--
+Thanks,
+Joe
