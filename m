@@ -1,43 +1,62 @@
-From: Karsten Keil <kkeil@linux-pingi.de>
-Subject: [PATCH] ISDN:Add check for return value of pnp_activate_dev()
-Date: Thu, 12 Jul 2012 19:01:10 +0200
-Message-ID: <1342112470-12301-1-git-send-email-kkeil@linux-pingi.de>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH 0/2] Coalesce MMIO writes for transmits
+Date: Thu, 12 Jul 2012 10:23:31 -0700
+Message-ID: <20120712102331.42a7b041@nehalam.linuxnetplumber.net>
+References: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com,
+	bhutchings@solarflare.com, therbert@google.com,
+	alexander.duyck@gmail.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:61042 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934096Ab2GLRBN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 13:01:13 -0400
-Received: from pingi6.linux-pingi.de (pingi6.linux-pingi.de [10.23.200.6])
-	by mailone.linux-pingi.de (Postfix) with ESMTPS id 55123B004A
-	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 19:01:09 +0200 (CEST)
+Received: from mail.vyatta.com ([76.74.103.46]:50968 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932586Ab2GLRXu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2012 13:23:50 -0400
+In-Reply-To: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pnp_activate_dev() return value needs to be checked to make sure that
-following calls calls to the PNP functions do work correctly.
-Fix for report #44491 on bugzilla.kernel.org.
+On Wed, 11 Jul 2012 17:25:58 -0700
+Alexander Duyck <alexander.h.duyck@intel.com> wrote:
 
-Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
----
- drivers/isdn/hisax/isurf.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+> This patch set is meant to address recent issues I found with ixgbe
+> performance being bound by Tx tail writes.  With these changes in place
+> and the dispatch_limit set to 1 or more I see a significant increase in
+> performance.
+> 
+> In the case of one of my systems I saw the routing rate for 7 queues jump
+> from 10.5 to 11.7Mpps.  The overall increase I have seen on most systems is
+> something on the order of about 15%.  In the case of pktgen I have also
+> seen a noticeable increase as the previous limit for transmits was
+> ~12.5Mpps, but with this patch set in place and the dispatch_limit enabled
+> the value increases to ~14.2Mpps.
+> 
+> I expected there to be an increase in latency, however so far I have not
+> ran into that.  I have tried running NPtcp tests for latency and seen no
+> difference in the coalesced and non-coalesced transaction times.  I welcome
+> any suggestions for tests I might run that might expose any latency issues
+> as a result of this patch.
+> 
+> ---
+> 
+> Alexander Duyck (2):
+>       ixgbe: Add functionality for delaying the MMIO write for Tx
+>       net: Add new network device function to allow for MMIO batching
+> 
+> 
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   22 +++++++-
+>  include/linux/netdevice.h                     |   57 +++++++++++++++++++++
+>  net/core/dev.c                                |   67 +++++++++++++++++++++++++
+>  net/core/net-sysfs.c                          |   36 +++++++++++++
+>  4 files changed, 180 insertions(+), 2 deletions(-)
+> 
 
-diff --git a/drivers/isdn/hisax/isurf.c b/drivers/isdn/hisax/isurf.c
-index ea27172..c1530fe 100644
---- a/drivers/isdn/hisax/isurf.c
-+++ b/drivers/isdn/hisax/isurf.c
-@@ -231,6 +231,11 @@ setup_isurf(struct IsdnCard *card)
- 				}
- 				pnp_disable_dev(pnp_d);
- 				err = pnp_activate_dev(pnp_d);
-+				if (err < 0) {
-+					pr_warn("%s: pnp_activate_dev ret=%d\n",
-+						__func__, err);
-+					return 0;
-+				}
- 				cs->hw.isurf.reset = pnp_port_start(pnp_d, 0);
- 				cs->hw.isurf.phymem = pnp_mem_start(pnp_d, 1);
- 				cs->irq = pnp_irq(pnp_d, 0);
--- 
-1.7.7
+This is a good idea. I was thinking of adding a multi-skb operation
+to netdevice_ops to allow this. Something like ndo_start_xmit_pkts but
+the problem is how to deal with the boundary case where there is only
+a limited number of slots in the ring.  Using a "that's all folks"
+operation seems better.
