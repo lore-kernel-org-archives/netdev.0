@@ -1,97 +1,291 @@
 From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-Subject: [PATCH net-next 2/7] be2net : Fix die temperature stat for Lancer
-Date: Thu, 12 Jul 2012 19:26:46 +0530
-Message-ID: <e48e1c11-ddcd-4e18-b4bd-694d044980fc@exht1.ad.emulex.com>
+Subject: [PATCH net-next 3/7] be2net: Fix initialization sequence for Lancer
+Date: Thu, 12 Jul 2012 19:26:58 +0530
+Message-ID: <67544f6d-a1ac-4433-96b1-53beceefe3e5@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:9040 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932522Ab2GLOAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 10:00:53 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:49161 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932522Ab2GLOBC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 10:01:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Query die temperature stat for Lancer to report it correctly
-in ethtool.
+Invoke only required initialization routines for Lancer.
+Remove invocation of unnecessary routines.
 
 Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_cmds.c |    8 +-------
- drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
- 3 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   76 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    4 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   75 +++-----------------------
+ 3 files changed, 87 insertions(+), 68 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 0490a04..748e870 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -435,6 +435,7 @@ struct be_adapter {
- 	u32 max_pmac_cnt;	/* Max secondary UC MACs programmable */
- 	u32 uc_macs;		/* Count of secondary UC MAC programmed */
- 	u32 msg_enable;
-+	int be_get_temp_freq;
- };
- 
- #define be_physfn(adapter)		(!adapter->virtfn)
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 5eab791..d75c9fb 100644
+index d75c9fb..431f774 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -19,9 +19,6 @@
- #include "be.h"
- #include "be_cmds.h"
+@@ -426,12 +426,65 @@ static int be_POST_stage_get(struct be_adapter *adapter, u16 *stage)
+ 		return 0;
+ }
  
--/* Must be a power of 2 or else MODULO will BUG_ON */
--static int be_get_temp_freq = 64;
--
- static inline void *embedded_payload(struct be_mcc_wrb *wrb)
+-int be_cmd_POST(struct be_adapter *adapter)
++int lancer_wait_ready(struct be_adapter *adapter)
++{
++#define SLIPORT_READY_TIMEOUT 30
++	u32 sliport_status;
++	int status = 0, i;
++
++	for (i = 0; i < SLIPORT_READY_TIMEOUT; i++) {
++		sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
++		if (sliport_status & SLIPORT_STATUS_RDY_MASK)
++			break;
++
++		msleep(1000);
++	}
++
++	if (i == SLIPORT_READY_TIMEOUT)
++		status = -1;
++
++	return status;
++}
++
++int lancer_test_and_set_rdy_state(struct be_adapter *adapter)
++{
++	int status;
++	u32 sliport_status, err, reset_needed;
++	status = lancer_wait_ready(adapter);
++	if (!status) {
++		sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
++		err = sliport_status & SLIPORT_STATUS_ERR_MASK;
++		reset_needed = sliport_status & SLIPORT_STATUS_RN_MASK;
++		if (err && reset_needed) {
++			iowrite32(SLI_PORT_CONTROL_IP_MASK,
++				  adapter->db + SLIPORT_CONTROL_OFFSET);
++
++			/* check adapter has corrected the error */
++			status = lancer_wait_ready(adapter);
++			sliport_status = ioread32(adapter->db +
++						  SLIPORT_STATUS_OFFSET);
++			sliport_status &= (SLIPORT_STATUS_ERR_MASK |
++						SLIPORT_STATUS_RN_MASK);
++			if (status || sliport_status)
++				status = -1;
++		} else if (err || reset_needed) {
++			status = -1;
++		}
++	}
++	return status;
++}
++
++int be_fw_wait_ready(struct be_adapter *adapter)
  {
- 	return wrb->payload.embedded_payload;
-@@ -115,7 +112,7 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 		}
- 	} else {
- 		if (opcode == OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES)
--			be_get_temp_freq = 0;
-+			adapter->be_get_temp_freq = 0;
+ 	u16 stage;
+ 	int status, timeout = 0;
+ 	struct device *dev = &adapter->pdev->dev;
  
- 		if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
- 			compl_status == MCC_STATUS_ILLEGAL_REQUEST)
-@@ -1206,9 +1203,6 @@ int be_cmd_get_stats(struct be_adapter *adapter, struct be_dma_mem *nonemb_cmd)
- 	struct be_cmd_req_hdr *hdr;
- 	int status = 0;
++	if (lancer_chip(adapter)) {
++		status = lancer_wait_ready(adapter);
++		return status;
++	}
++
+ 	do {
+ 		status = be_POST_stage_get(adapter, &stage);
+ 		if (status) {
+@@ -562,6 +615,9 @@ int be_cmd_fw_init(struct be_adapter *adapter)
+ 	u8 *wrb;
+ 	int status;
  
--	if (MODULO(adapter->work_counter, be_get_temp_freq) == 0)
--		be_cmd_get_die_temperature(adapter);
--
- 	spin_lock_bh(&adapter->mcc_lock);
++	if (lancer_chip(adapter))
++		return 0;
++
+ 	if (mutex_lock_interruptible(&adapter->mbox_lock))
+ 		return -1;
  
- 	wrb = wrb_from_mccq(adapter);
+@@ -589,6 +645,9 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
+ 	u8 *wrb;
+ 	int status;
+ 
++	if (lancer_chip(adapter))
++		return 0;
++
+ 	if (mutex_lock_interruptible(&adapter->mbox_lock))
+ 		return -1;
+ 
+@@ -607,6 +666,7 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
+ 	mutex_unlock(&adapter->mbox_lock);
+ 	return status;
+ }
++
+ int be_cmd_eq_create(struct be_adapter *adapter,
+ 		struct be_queue_info *eq, int eq_delay)
+ {
+@@ -1682,6 +1742,20 @@ int be_cmd_reset_function(struct be_adapter *adapter)
+ 	struct be_cmd_req_hdr *req;
+ 	int status;
+ 
++	if (lancer_chip(adapter)) {
++		status = lancer_wait_ready(adapter);
++		if (!status) {
++			iowrite32(SLI_PORT_CONTROL_IP_MASK,
++				  adapter->db + SLIPORT_CONTROL_OFFSET);
++			status = lancer_test_and_set_rdy_state(adapter);
++		}
++		if (status) {
++			dev_err(&adapter->pdev->dev,
++				"Adapter in non recoverable error\n");
++		}
++		return status;
++	}
++
+ 	if (mutex_lock_interruptible(&adapter->mbox_lock))
+ 		return -1;
+ 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 3c938f5..cfc0620 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1656,7 +1656,7 @@ struct be_cmd_req_set_ext_fat_caps {
+ };
+ 
+ extern int be_pci_fnum_get(struct be_adapter *adapter);
+-extern int be_cmd_POST(struct be_adapter *adapter);
++extern int be_fw_wait_ready(struct be_adapter *adapter);
+ extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
+ 			u8 type, bool permanent, u32 if_handle, u32 pmac_id);
+ extern int be_cmd_pmac_add(struct be_adapter *adapter, u8 *mac_addr,
+@@ -1765,4 +1765,6 @@ extern int be_cmd_get_ext_fat_capabilites(struct be_adapter *adapter,
+ extern int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
+ 					  struct be_dma_mem *cmd,
+ 					  struct be_fat_conf_params *cfgs);
++extern int lancer_wait_ready(struct be_adapter *adapter);
++extern int lancer_test_and_set_rdy_state(struct be_adapter *adapter);
+ 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2141bd7..2436c3a 100644
+index 2436c3a..a3641ba 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3567,6 +3567,9 @@ static int be_get_initial_config(struct be_adapter *adapter)
- 	if (be_is_wol_supported(adapter))
- 		adapter->wol = true;
+@@ -2573,9 +2573,6 @@ static int be_clear(struct be_adapter *adapter)
+ 	be_tx_queues_destroy(adapter);
+ 	be_evt_queues_destroy(adapter);
  
-+	/* Must be a power of 2 or else MODULO will BUG_ON */
-+	adapter->be_get_temp_freq = 64;
+-	/* tell fw we're done with firing cmds */
+-	be_cmd_fw_clean(adapter);
+-
+ 	be_msix_disable(adapter);
+ 	return 0;
+ }
+@@ -3476,6 +3473,9 @@ static void __devexit be_remove(struct pci_dev *pdev)
+ 
+ 	be_clear(adapter);
+ 
++	/* tell fw we're done with firing cmds */
++	be_cmd_fw_clean(adapter);
 +
- 	level = be_get_fw_log_level(adapter);
- 	adapter->msg_enable = level <= FW_LOG_LEVEL_DEFAULT ? NETIF_MSG_HW : 0;
+ 	be_stats_cleanup(adapter);
  
-@@ -3747,6 +3750,9 @@ static void be_worker(struct work_struct *work)
- 			be_cmd_get_stats(adapter, &adapter->stats_cmd);
+ 	be_ctrl_cleanup(adapter);
+@@ -3625,54 +3625,6 @@ static int be_dev_type_check(struct be_adapter *adapter)
+ 	return 0;
+ }
+ 
+-static int lancer_wait_ready(struct be_adapter *adapter)
+-{
+-#define SLIPORT_READY_TIMEOUT 30
+-	u32 sliport_status;
+-	int status = 0, i;
+-
+-	for (i = 0; i < SLIPORT_READY_TIMEOUT; i++) {
+-		sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
+-		if (sliport_status & SLIPORT_STATUS_RDY_MASK)
+-			break;
+-
+-		msleep(1000);
+-	}
+-
+-	if (i == SLIPORT_READY_TIMEOUT)
+-		status = -1;
+-
+-	return status;
+-}
+-
+-static int lancer_test_and_set_rdy_state(struct be_adapter *adapter)
+-{
+-	int status;
+-	u32 sliport_status, err, reset_needed;
+-	status = lancer_wait_ready(adapter);
+-	if (!status) {
+-		sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
+-		err = sliport_status & SLIPORT_STATUS_ERR_MASK;
+-		reset_needed = sliport_status & SLIPORT_STATUS_RN_MASK;
+-		if (err && reset_needed) {
+-			iowrite32(SLI_PORT_CONTROL_IP_MASK,
+-					adapter->db + SLIPORT_CONTROL_OFFSET);
+-
+-			/* check adapter has corrected the error */
+-			status = lancer_wait_ready(adapter);
+-			sliport_status = ioread32(adapter->db +
+-							SLIPORT_STATUS_OFFSET);
+-			sliport_status &= (SLIPORT_STATUS_ERR_MASK |
+-						SLIPORT_STATUS_RN_MASK);
+-			if (status || sliport_status)
+-				status = -1;
+-		} else if (err || reset_needed) {
+-			status = -1;
+-		}
+-	}
+-	return status;
+-}
+-
+ static void lancer_test_and_recover_fn_err(struct be_adapter *adapter)
+ {
+ 	int status;
+@@ -3820,22 +3772,9 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	if (status)
+ 		goto free_netdev;
+ 
+-	if (lancer_chip(adapter)) {
+-		status = lancer_wait_ready(adapter);
+-		if (!status) {
+-			iowrite32(SLI_PORT_CONTROL_IP_MASK,
+-					adapter->db + SLIPORT_CONTROL_OFFSET);
+-			status = lancer_test_and_set_rdy_state(adapter);
+-		}
+-		if (status) {
+-			dev_err(&pdev->dev, "Adapter in non recoverable error\n");
+-			goto ctrl_clean;
+-		}
+-	}
+-
+ 	/* sync up with fw's ready state */
+ 	if (be_physfn(adapter)) {
+-		status = be_cmd_POST(adapter);
++		status = be_fw_wait_ready(adapter);
+ 		if (status)
+ 			goto ctrl_clean;
  	}
+@@ -4033,7 +3972,7 @@ static pci_ers_result_t be_eeh_reset(struct pci_dev *pdev)
+ 	pci_restore_state(pdev);
  
-+	if (MODULO(adapter->work_counter, adapter->be_get_temp_freq) == 0)
-+		be_cmd_get_die_temperature(adapter);
+ 	/* Check if card is ok and fw is ready */
+-	status = be_cmd_POST(adapter);
++	status = be_fw_wait_ready(adapter);
+ 	if (status)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 
+@@ -4055,6 +3994,10 @@ static void be_eeh_resume(struct pci_dev *pdev)
+ 	if (status)
+ 		goto err;
+ 
++	status = be_cmd_reset_function(adapter);
++	if (status)
++		goto err;
 +
- 	for_all_rx_queues(adapter, rxo, i) {
- 		if (rxo->rx_post_starved) {
- 			rxo->rx_post_starved = false;
+ 	status = be_setup(adapter);
+ 	if (status)
+ 		goto err;
 -- 
 1.6.0.2
