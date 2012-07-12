@@ -1,29 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [patch -next] smsc95xx: signedness bug in get_regs()
-Date: Thu, 12 Jul 2012 07:55:44 -0700 (PDT)
-Message-ID: <20120712.075544.1808665763383467090.davem@davemloft.net>
-References: <20120711063251.GB11812@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/7] ieee802.15.4 general fixes
+Date: Thu, 12 Jul 2012 07:56:25 -0700 (PDT)
+Message-ID: <20120712.075625.2029928789684872933.davem@davemloft.net>
+References: <1341991368-11800-1-git-send-email-alex.bluesman.smirnov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning-sdUf+H5yV5I@public.gmane.org, emeric.vigier-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120711063251.GB11812-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57268 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932571Ab2GLO40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 10:56:26 -0400
+In-Reply-To: <1341991368-11800-1-git-send-email-alex.bluesman.smirnov@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 11 Jul 2012 09:32:51 +0300
+From: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Date: Wed, 11 Jul 2012 11:22:41 +0400
 
-> "retval" has to be a signed integer for the error handling to work.
+> Dear David, Eric,
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> this patch-set is mostly intended to fix sparse and LOCKDEP warnings.
+> It mostly contains some my previous patches reworked and extended according
+> to the hints from Eric Dumazet and Fengguang Wu. Many thanks to they!
+> 
+> Changes since v1:
+> 1. A new patch from Tony Cheneau was added. The fragmentation stops working
+> after some amount of packets sent. This patch fixes this issue.
+> 2. 6lowpan fragment deleting routine: I removed spinlocks from timer_expired
+> handler and use spin_lock_bh to disable concurrency races with timer interrupt.
+> 3. at86rf230 irq handler was a little bit modified
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, but you don't need to grab a spinlock to only
+load one interger from some datastructure.  I mean:
+
+	lock();
+	ret = p->foo;
+	unlock();
+
+is completely pointless.
