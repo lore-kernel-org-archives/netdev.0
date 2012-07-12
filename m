@@ -1,7 +1,8 @@
 From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH 00/16] Swap-over-NBD without deadlocking V15
-Date: Thu, 12 Jul 2012 07:40:16 +0100
-Message-ID: <1342075232-29267-1-git-send-email-mgorman@suse.de>
+Subject: [PATCH 03/16] mm: Introduce __GFP_MEMALLOC to allow access to emergency reserves
+Date: Thu, 12 Jul 2012 07:40:19 +0100
+Message-ID: <1342075232-29267-4-git-send-email-mgorman@suse.de>
+References: <1342075232-29267-1-git-send-email-mgorman@suse.de>
 Cc: Linux-MM <linux-mm@kvack.org>,
 	Linux-Netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
@@ -14,214 +15,156 @@ Cc: Linux-MM <linux-mm@kvack.org>,
 	Mel Gorman <mgorman@suse.de>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342075232-29267-1-git-send-email-mgorman@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a rebase onto current linux-next due to a minor collision with
-some NFS changes.
+__GFP_MEMALLOC will allow the allocation to disregard the watermarks,
+much like PF_MEMALLOC. It allows one to pass along the memalloc state
+in object related allocation flags as opposed to task related flags,
+such as sk->sk_allocation. This removes the need for ALLOC_PFMEMALLOC
+as callers using __GFP_MEMALLOC can get the ALLOC_NO_WATERMARK flag
+which is now enough to identify allocations related to page reclaim.
 
-Changelog since V14
-  o Rebase to linux-next 20120710
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ include/linux/gfp.h             |   10 ++++++++--
+ include/linux/mm_types.h        |    2 +-
+ include/trace/events/gfpflags.h |    1 +
+ mm/page_alloc.c                 |   22 ++++++++++------------
+ mm/slab.c                       |    2 +-
+ 5 files changed, 21 insertions(+), 16 deletions(-)
 
-Changelog since V13
-  o Rebase to linux-next 20120629
-
-Changelog since V12
-  o Rebase to linux-next-20120622
-  o Do not alter coalesce handling in the input path		      (eric.dumazet)
-  o Avoid unnecessary cast					      (sebastian)
-
-Changelog since V11
-  o Rebase to 3.5-rc3
-  o Correct order of page flag free				      (sebastian)
-
-Changelog since V10
-  o Rebase to 3.4-rc5
-  o Coding style fixups						      (davem)
-  o API consistency						      (davem)
-  o Rename sk_allocation to sk_gfp_atomic and use only when necessary (davem)
-  o Use static branches for sk_memalloc_socks			      (davem)
-  o Use static branch checks in fast paths			      (davem)
-  o Document concerns about PF_MEMALLOC leaking flags		      (davem)
-  o Locking fix in slab						      (mel)
-
-Changelog since V9
-  o Rebase to 3.4-rc5
-  o Clarify comment on why PF_MEMALLOC is cleared in softirq handling (akpm)
-  o Only set page->pfmemalloc if ALLOC_NO_WATERMARKS was required     (rientjes)
-
-Changelog since V8
-  o Rebase to 3.4-rc2
-  o Use page flag instead of slab fields to keep structures the same size
-  o Properly detect allocations from softirq context that use PF_MEMALLOC
-  o Ensure kswapd does not sleep while processes are throttled
-  o Do not accidentally throttle !_GFP_FS processes indefinitely
-
-Changelog since V7
-  o Rebase to 3.3-rc2
-  o Take greater care propagating page->pfmemalloc to skb
-  o Propagate pfmemalloc from netdev_alloc_page to skb where possible
-  o Release RCU lock properly on preempt kernel
-
-Changelog since V6
-  o Rebase to 3.1-rc8
-  o Use wake_up instead of wake_up_interruptible()
-  o Do not throttle kernel threads
-  o Avoid a potential race between kswapd going to sleep and processes being
-    throttled
-
-Changelog since V5
-  o Rebase to 3.1-rc5
-
-Changelog since V4
-  o Update comment clarifying what protocols can be used		(Michal)
-  o Rebase to 3.0-rc3
-
-Changelog since V3
-  o Propogate pfmemalloc from packet fragment pages to skb		(Neil)
-  o Rebase to 3.0-rc2
-
-Changelog since V2
-  o Document that __GFP_NOMEMALLOC overrides __GFP_MEMALLOC		(Neil)
-  o Use wait_event_interruptible					(Neil)
-  o Use !! when casting to bool to avoid any possibilitity of type
-    truncation								(Neil)
-  o Nicer logic when using skb_pfmemalloc_protocol			(Neil)
-
-Changelog since V1
-  o Rebase on top of mmotm
-  o Use atomic_t for memalloc_socks		(David Miller)
-  o Remove use of sk_memalloc_socks in vmscan	(Neil Brown)
-  o Check throttle within prepare_to_wait	(Neil Brown)
-  o Add statistics on throttling instead of printk
-
-When a user or administrator requires swap for their application, they
-create a swap partition and file, format it with mkswap and activate it
-with swapon. Swap over the network is considered as an option in diskless
-systems. The two likely scenarios are when blade servers are used as part
-of a cluster where the form factor or maintenance costs do not allow the
-use of disks and thin clients.
-
-The Linux Terminal Server Project recommends the use of the
-Network Block Device (NBD) for swap according to the manual at
-https://sourceforge.net/projects/ltsp/files/Docs-Admin-Guide/LTSPManual.pdf/download
-There is also documentation and tutorials on how to setup swap over NBD
-at places like https://help.ubuntu.com/community/UbuntuLTSP/EnableNBDSWAP
-The nbd-client also documents the use of NBD as swap. Despite this, the
-fact is that a machine using NBD for swap can deadlock within minutes if
-swap is used intensively. This patch series addresses the problem.
-
-The core issue is that network block devices do not use mempools like
-normal block devices do. As the host cannot control where they receive
-packets from, they cannot reliably work out in advance how much memory
-they might need. Some years ago, Peter Zijlstra developed a series of
-patches that supported swap over an NFS that at least one distribution
-is carrying within their kernels. This patch series borrows very heavily
-from Peter's work to support swapping over NBD as a pre-requisite to
-supporting swap-over-NFS. The bulk of the complexity is concerned with
-preserving memory that is allocated from the PFMEMALLOC reserves for use
-by the network layer which is needed for both NBD and NFS.
-
-Patch 1 adds knowledge of the PFMEMALLOC reserves to SLAB and SLUB to
-	preserve access to pages allocated under low memory situations
-	to callers that are freeing memory.
-
-Patch 2 optimises the SLUB fast path to avoid pfmemalloc checks
-
-Patch 3 introduces __GFP_MEMALLOC to allow access to the PFMEMALLOC
-	reserves without setting PFMEMALLOC.
-
-Patch 4 opens the possibility for softirqs to use PFMEMALLOC reserves
-	for later use by network packet processing.
-
-Patch 5 only sets page->pfmemalloc when ALLOC_NO_WATERMARKS was required
-
-Patch 6 ignores memory policies when ALLOC_NO_WATERMARKS is set.
-
-Patches 7-12 allows network processing to use PFMEMALLOC reserves when
-	the socket has been marked as being used by the VM to clean pages. If
-	packets are received and stored in pages that were allocated under
-	low-memory situations and are unrelated to the VM, the packets
-	are dropped.
-
-	Patch 11 reintroduces __skb_alloc_page which the networking
-	folk may object to but is needed in some cases to propogate
-	pfmemalloc from a newly allocated page to an skb. If there is a
-	strong objection, this patch can be dropped with the impact being
-	that swap-over-network will be slower in some cases but it should
-	not fail.
-
-Patch 13 is a micro-optimisation to avoid a function call in the
-	common case.
-
-Patch 14 tags NBD sockets as being SOCK_MEMALLOC so they can use
-	PFMEMALLOC if necessary.
-
-Patch 15 notes that it is still possible for the PFMEMALLOC reserve
-	to be depleted. To prevent this, direct reclaimers get throttled on
-	a waitqueue if 50% of the PFMEMALLOC reserves are depleted.  It is
-	expected that kswapd and the direct reclaimers already running
-	will clean enough pages for the low watermark to be reached and
-	the throttled processes are woken up.
-
-Patch 16 adds a statistic to track how often processes get throttled
-
-Some basic performance testing was run using kernel builds, netperf
-on loopback for UDP and TCP, hackbench (pipes and sockets), iozone
-and sysbench. Each of them were expected to use the sl*b allocators
-reasonably heavily but there did not appear to be significant
-performance variances.
-
-For testing swap-over-NBD, a machine was booted with 2G of RAM with a
-swapfile backed by NBD. 8*NUM_CPU processes were started that create
-anonymous memory mappings and read them linearly in a loop. The total
-size of the mappings were 4*PHYSICAL_MEMORY to use swap heavily under
-memory pressure.
-
-Without the patches and using SLUB, the machine locks up within minutes and
-runs to completion with them applied. With SLAB, the story is different
-as an unpatched kernel run to completion. However, the patched kernel
-completed the test 45% faster.
-
-MICRO
-                                         3.5.0-rc2 3.5.0-rc2
-					 vanilla     swapnbd
-Unrecognised test vmscan-anon-mmap-write
-MMTests Statistics: duration
-Sys Time Running Test (seconds)             197.80    173.07
-User+Sys Time Running Test (seconds)        206.96    182.03
-Total Elapsed Time (seconds)               3240.70   1762.09
-
- drivers/block/nbd.c                               |    6 +-
- drivers/net/ethernet/chelsio/cxgb4/sge.c          |    2 +-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c        |    2 +-
- drivers/net/ethernet/intel/igb/igb_main.c         |    2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |    4 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    3 +-
- drivers/net/usb/cdc-phonet.c                      |    2 +-
- drivers/usb/gadget/f_phonet.c                     |    2 +-
- include/linux/gfp.h                               |   13 +-
- include/linux/mm_types.h                          |    9 +
- include/linux/mmzone.h                            |    1 +
- include/linux/page-flags.h                        |   28 +++
- include/linux/sched.h                             |    7 +
- include/linux/skbuff.h                            |   80 +++++++-
- include/linux/vm_event_item.h                     |    1 +
- include/net/sock.h                                |   28 +++
- include/trace/events/gfpflags.h                   |    1 +
- kernel/softirq.c                                  |    9 +
- mm/page_alloc.c                                   |   46 ++++-
- mm/slab.c                                         |  216 +++++++++++++++++++--
- mm/slub.c                                         |   30 ++-
- mm/vmscan.c                                       |  131 ++++++++++++-
- mm/vmstat.c                                       |    1 +
- net/core/dev.c                                    |   53 ++++-
- net/core/filter.c                                 |    8 +
- net/core/skbuff.c                                 |  124 +++++++++---
- net/core/sock.c                                   |   43 ++++
- net/ipv4/tcp_output.c                             |   12 +-
- net/ipv6/tcp_ipv6.c                               |    8 +-
- 29 files changed, 782 insertions(+), 90 deletions(-)
-
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index 1e49be4..cbd7400 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -23,6 +23,7 @@ struct vm_area_struct;
+ #define ___GFP_REPEAT		0x400u
+ #define ___GFP_NOFAIL		0x800u
+ #define ___GFP_NORETRY		0x1000u
++#define ___GFP_MEMALLOC		0x2000u
+ #define ___GFP_COMP		0x4000u
+ #define ___GFP_ZERO		0x8000u
+ #define ___GFP_NOMEMALLOC	0x10000u
+@@ -76,9 +77,14 @@ struct vm_area_struct;
+ #define __GFP_REPEAT	((__force gfp_t)___GFP_REPEAT)	/* See above */
+ #define __GFP_NOFAIL	((__force gfp_t)___GFP_NOFAIL)	/* See above */
+ #define __GFP_NORETRY	((__force gfp_t)___GFP_NORETRY) /* See above */
++#define __GFP_MEMALLOC	((__force gfp_t)___GFP_MEMALLOC)/* Allow access to emergency reserves */
+ #define __GFP_COMP	((__force gfp_t)___GFP_COMP)	/* Add compound page metadata */
+ #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)	/* Return zeroed page on success */
+-#define __GFP_NOMEMALLOC ((__force gfp_t)___GFP_NOMEMALLOC) /* Don't use emergency reserves */
++#define __GFP_NOMEMALLOC ((__force gfp_t)___GFP_NOMEMALLOC) /* Don't use emergency reserves.
++							 * This takes precedence over the
++							 * __GFP_MEMALLOC flag if both are
++							 * set
++							 */
+ #define __GFP_HARDWALL   ((__force gfp_t)___GFP_HARDWALL) /* Enforce hardwall cpuset memory allocs */
+ #define __GFP_THISNODE	((__force gfp_t)___GFP_THISNODE)/* No fallback, no policies */
+ #define __GFP_RECLAIMABLE ((__force gfp_t)___GFP_RECLAIMABLE) /* Page is reclaimable */
+@@ -129,7 +135,7 @@ struct vm_area_struct;
+ /* Control page allocator reclaim behavior */
+ #define GFP_RECLAIM_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS|\
+ 			__GFP_NOWARN|__GFP_REPEAT|__GFP_NOFAIL|\
+-			__GFP_NORETRY|__GFP_NOMEMALLOC)
++			__GFP_NORETRY|__GFP_MEMALLOC|__GFP_NOMEMALLOC)
+ 
+ /* Control slab gfp mask during early boot */
+ #define GFP_BOOT_MASK (__GFP_BITS_MASK & ~(__GFP_WAIT|__GFP_IO|__GFP_FS))
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index ad0ad6f..8120fdc 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -55,7 +55,7 @@ struct page {
+ 			pgoff_t index;		/* Our offset within mapping. */
+ 			void *freelist;		/* slub/slob first free object */
+ 			bool pfmemalloc;	/* If set by the page allocator,
+-						 * ALLOC_PFMEMALLOC was set
++						 * ALLOC_NO_WATERMARKS was set
+ 						 * and the low watermark was not
+ 						 * met implying that the system
+ 						 * is under some pressure. The
+diff --git a/include/trace/events/gfpflags.h b/include/trace/events/gfpflags.h
+index 9fe3a366..d6fd8e5 100644
+--- a/include/trace/events/gfpflags.h
++++ b/include/trace/events/gfpflags.h
+@@ -30,6 +30,7 @@
+ 	{(unsigned long)__GFP_COMP,		"GFP_COMP"},		\
+ 	{(unsigned long)__GFP_ZERO,		"GFP_ZERO"},		\
+ 	{(unsigned long)__GFP_NOMEMALLOC,	"GFP_NOMEMALLOC"},	\
++	{(unsigned long)__GFP_MEMALLOC,		"GFP_MEMALLOC"},	\
+ 	{(unsigned long)__GFP_HARDWALL,		"GFP_HARDWALL"},	\
+ 	{(unsigned long)__GFP_THISNODE,		"GFP_THISNODE"},	\
+ 	{(unsigned long)__GFP_RECLAIMABLE,	"GFP_RECLAIMABLE"},	\
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index e4e2bb0..ace51cc 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1508,7 +1508,6 @@ failed:
+ #define ALLOC_HARDER		0x10 /* try to alloc harder */
+ #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
+ #define ALLOC_CPUSET		0x40 /* check for correct cpuset */
+-#define ALLOC_PFMEMALLOC	0x80 /* Caller has PF_MEMALLOC set */
+ 
+ #ifdef CONFIG_FAIL_PAGE_ALLOC
+ 
+@@ -2266,11 +2265,10 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+ 	} else if (unlikely(rt_task(current)) && !in_interrupt())
+ 		alloc_flags |= ALLOC_HARDER;
+ 
+-	if ((current->flags & PF_MEMALLOC) ||
+-			unlikely(test_thread_flag(TIF_MEMDIE))) {
+-		alloc_flags |= ALLOC_PFMEMALLOC;
+-
+-		if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
++	if (likely(!(gfp_mask & __GFP_NOMEMALLOC))) {
++		if (gfp_mask & __GFP_MEMALLOC)
++			alloc_flags |= ALLOC_NO_WATERMARKS;
++		else if (likely(!(gfp_mask & __GFP_NOMEMALLOC)) && !in_interrupt())
+ 			alloc_flags |= ALLOC_NO_WATERMARKS;
+ 	}
+ 
+@@ -2279,7 +2277,7 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+ 
+ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
+ {
+-	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_PFMEMALLOC);
++	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_NO_WATERMARKS);
+ }
+ 
+ static inline struct page *
+@@ -2470,12 +2468,12 @@ nopage:
+ 	return page;
+ got_pg:
+ 	/*
+-	 * page->pfmemalloc is set when the caller had PFMEMALLOC set or is
+-	 * been OOM killed. The expectation is that the caller is taking
+-	 * steps that will free more memory. The caller should avoid the
+-	 * page being used for !PFMEMALLOC purposes.
++	 * page->pfmemalloc is set when the caller had PFMEMALLOC set, is
++	 * been OOM killed or specified __GFP_MEMALLOC. The expectation is
++	 * that the caller is taking steps that will free more memory. The
++	 * caller should avoid the page being used for !PFMEMALLOC purposes.
+ 	 */
+-	page->pfmemalloc = !!(alloc_flags & ALLOC_PFMEMALLOC);
++	page->pfmemalloc = !!(alloc_flags & ALLOC_NO_WATERMARKS);
+ 
+ 	if (kmemcheck_enabled)
+ 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
+diff --git a/mm/slab.c b/mm/slab.c
+index 85e6743..54bbfe4 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -1906,7 +1906,7 @@ static void *kmem_getpages(struct kmem_cache *cachep, gfp_t flags, int nodeid)
+ 		return NULL;
+ 	}
+ 
+-	/* Record if ALLOC_PFMEMALLOC was set when allocating the slab */
++	/* Record if ALLOC_NO_WATERMARKS was set when allocating the slab */
+ 	if (unlikely(page->pfmemalloc))
+ 		pfmemalloc_active = true;
+ 
 -- 
 1.7.9.2
