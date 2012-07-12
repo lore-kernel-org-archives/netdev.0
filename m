@@ -1,56 +1,53 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [PATCH] tc_util: fix incorrect bare number process in get_rate.
-Date: Thu, 12 Jul 2012 09:16:48 +0800
-Message-ID: <4FFE2580.7020404@cn.fujitsu.com>
-References: <4FFD2A42.9080507@cn.fujitsu.com> <20120711075129.4f81eea8@nehalam.linuxnetplumber.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/2] tcp: Fix out of bounds access to tcpm_vals
+Date: Wed, 11 Jul 2012 18:46:51 -0700
+Message-ID: <4FFE2C8B.7080802@gmail.com>
+References: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com> <20120711.173249.1303803416502735349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:11677 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756049Ab2GLBR3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 21:17:29 -0400
-In-Reply-To: <20120711075129.4f81eea8@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:52536 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756196Ab2GLBq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 21:46:57 -0400
+Received: by pbbrp8 with SMTP id rp8so2892841pbb.19
+        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 18:46:56 -0700 (PDT)
+In-Reply-To: <20120711.173249.1303803416502735349.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012-7-11 22:51, Stephen Hemminger =E5=86=99=E9=81=93:
-> On Wed, 11 Jul 2012 15:24:50 +0800
-> Li Wei <lw@cn.fujitsu.com> wrote:
->=20
+On 7/11/2012 5:32 PM, David Miller wrote:
+> From: Alexander Duyck<alexander.h.duyck@intel.com>
+> Date: Wed, 11 Jul 2012 17:18:04 -0700
+>
+>> The recent patch "tcp: Maintain dynamic metrics in local cache." introduced
+>> an out of bounds access due to what appears to be a typo.   I believe this
+>> change should resolve the issue by replacing the access to RTAX_CWND with
+>> TCP_METRIC_CWND.
 >>
->> As the comment and manpage indicated that the bare number means
->> bytes per second, so the division is not needed.
->> ---
->>  tc/tc_util.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/tc/tc_util.c b/tc/tc_util.c
->> index 926ed08..e8d89c1 100644
->> --- a/tc/tc_util.c
->> +++ b/tc/tc_util.c
->> @@ -153,7 +153,7 @@ int get_rate(unsigned *rate, const char *str)
->>  		return -1;
->> =20
->>  	if (*p =3D=3D '\0') {
->> -		*rate =3D bps / 8.;	/* assume bytes/sec */
->> +		*rate =3D bps;	/* assume bytes/sec */
->>  		return 0;
->>  	}
->> =20
-> Thanks for finding this. The documentation, code and comment do
-> all need to be the same!
->=20
-> But changing the code as you propose would break existing usage
-> by scripts. Instead, the man page and comment need to change
-> to match the reality of the existing application.
->=20
->=20
-Well, I see, I'll send another patch to take care of this.
+>> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
+> Applied, thanks a lot.
+>
+> How did you spot this, did you get a compiler warning?
+>
+> I ask because while working on this, I at one point put the
+> tcp timestamp members after the metrics array in the
+> tcp_metrics_bucket struct.  And I got a warning from gcc about
+> an array bounds violation that I could not figure out.
+>
+> I am pretty certain this bug here is what it was warning about.  And
+> the problem is that if you put the array at the end gcc doesn't warn
+> in order to handle things similar to what people use zero length
+> arrays for.
+It came up as a compiler warning.  I suspect it may have something to do 
+with the optimizations I had turned on since it complained that the 
+issue was in tcp_update_metrics but then reported it on the one line in 
+tcp_metric_set.
 
 Thanks,
 
-Wei
+Alex
