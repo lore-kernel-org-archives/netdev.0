@@ -1,211 +1,130 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 14/16] ipv6: Use icmpv6_notify() to propagate redirect,
- instead of rt6_redirect().
-Date: Thu, 12 Jul 2012 01:12:20 -0700 (PDT)
-Message-ID: <20120712.011220.1572444012633788899.davem@davemloft.net>
+Subject: [PATCH 15/16] net: Add dummy dst_ops->redirect method where needed.
+Date: Thu, 12 Jul 2012 01:12:27 -0700 (PDT)
+Message-ID: <20120712.011227.770452085410994790.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54773 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54776 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932904Ab2GLIMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:12:21 -0400
+	with ESMTP id S932983Ab2GLIM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:12:28 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id C82475824C0
-	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:12:22 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 405045824C0
+	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:12:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-And delete rt6_redirect(), since it is no longer used.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/ip6_route.h |    2 -
- include/net/ipv6.h      |    2 +
- net/ipv6/icmp.c         |    2 +-
- net/ipv6/ndisc.c        |    2 +-
- net/ipv6/route.c        |  107 -----------------------------------------------
- 5 files changed, 4 insertions(+), 111 deletions(-)
+ net/bridge/br_netfilter.c |    5 +++++
+ net/decnet/dn_route.c     |    6 ++++++
+ net/ipv4/route.c          |    5 +++++
+ net/ipv6/route.c          |    5 +++++
+ 4 files changed, 21 insertions(+)
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 6939405..b6b6f7d 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -133,8 +133,6 @@ extern int			rt6_route_rcv(struct net_device *dev,
- 					      u8 *opt, int len,
- 					      const struct in6_addr *gwaddr);
- 
--extern void			rt6_redirect(struct sk_buff *skb);
--
- extern void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
- 			    int oif, u32 mark);
- extern void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk,
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index d4261d4..f695f39 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -251,6 +251,8 @@ static inline void fl6_sock_release(struct ip6_flowlabel *fl)
- 		atomic_dec(&fl->users);
- }
- 
-+extern void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info);
-+
- extern int 			ip6_ra_control(struct sock *sk, int sel);
- 
- extern int			ipv6_parse_hopopts(struct sk_buff *skb);
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index a113f7d..24d69db 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -598,7 +598,7 @@ out:
- 	icmpv6_xmit_unlock(sk);
- }
- 
--static void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
-+void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index b98d3d7..81f76c4 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -115,6 +115,10 @@ static void fake_update_pmtu(struct dst_entry *dst, u32 mtu)
  {
- 	const struct inet6_protocol *ipprot;
- 	int inner_offset;
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index b8d53e1..ff36194 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1350,7 +1350,7 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
- 		return;
- 	}
- 
--	rt6_redirect(skb);
-+	icmpv6_notify(skb, NDISC_REDIRECT, 0, 0);
  }
  
- void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
++static void fake_redirect(struct dst_entry *dst, struct sk_buff *skb)
++{
++}
++
+ static u32 *fake_cow_metrics(struct dst_entry *dst, unsigned long old)
+ {
+ 	return NULL;
+@@ -136,6 +140,7 @@ static struct dst_ops fake_dst_ops = {
+ 	.family =		AF_INET,
+ 	.protocol =		cpu_to_be16(ETH_P_IP),
+ 	.update_pmtu =		fake_update_pmtu,
++	.redirect =		fake_redirect,
+ 	.cow_metrics =		fake_cow_metrics,
+ 	.neigh_lookup =		fake_neigh_lookup,
+ 	.mtu =			fake_mtu,
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index b5594cc..e9c4e2e 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -118,6 +118,7 @@ static void dn_dst_ifdown(struct dst_entry *, struct net_device *dev, int how);
+ static struct dst_entry *dn_dst_negative_advice(struct dst_entry *);
+ static void dn_dst_link_failure(struct sk_buff *);
+ static void dn_dst_update_pmtu(struct dst_entry *dst, u32 mtu);
++static void dn_dst_redirect(struct dst_entry *dst, struct sk_buff *skb);
+ static struct neighbour *dn_dst_neigh_lookup(const struct dst_entry *dst,
+ 					     struct sk_buff *skb,
+ 					     const void *daddr);
+@@ -145,6 +146,7 @@ static struct dst_ops dn_dst_ops = {
+ 	.negative_advice =	dn_dst_negative_advice,
+ 	.link_failure =		dn_dst_link_failure,
+ 	.update_pmtu =		dn_dst_update_pmtu,
++	.redirect =		dn_dst_redirect,
+ 	.neigh_lookup =		dn_dst_neigh_lookup,
+ };
+ 
+@@ -292,6 +294,10 @@ static void dn_dst_update_pmtu(struct dst_entry *dst, u32 mtu)
+ 	}
+ }
+ 
++static void dn_dst_redirect(struct dst_entry *dst, struct sk_buff *skb)
++{
++}
++
+ /*
+  * When a route has been marked obsolete. (e.g. routing cache flush)
+  */
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e98207d..23bbe29 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2591,6 +2591,10 @@ static void ipv4_rt_blackhole_update_pmtu(struct dst_entry *dst, u32 mtu)
+ {
+ }
+ 
++static void ipv4_rt_blackhole_redirect(struct dst_entry *dst, struct sk_buff *skb)
++{
++}
++
+ static u32 *ipv4_rt_blackhole_cow_metrics(struct dst_entry *dst,
+ 					  unsigned long old)
+ {
+@@ -2605,6 +2609,7 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
+ 	.mtu			=	ipv4_blackhole_mtu,
+ 	.default_advmss		=	ipv4_default_advmss,
+ 	.update_pmtu		=	ipv4_rt_blackhole_update_pmtu,
++	.redirect		=	ipv4_rt_blackhole_redirect,
+ 	.cow_metrics		=	ipv4_rt_blackhole_cow_metrics,
+ 	.neigh_lookup		=	ipv4_neigh_lookup,
+ };
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f52cf83..7296af1 100644
+index 7296af1..3151aab 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1633,92 +1633,6 @@ static int ip6_route_del(struct fib6_config *cfg)
- 	return err;
- }
- 
--/*
-- *	Handle redirects
-- */
--struct ip6rd_flowi {
--	struct flowi6 fl6;
--	struct in6_addr gateway;
--};
--
--static struct rt6_info *__ip6_route_redirect(struct net *net,
--					     struct fib6_table *table,
--					     struct flowi6 *fl6,
--					     int flags)
--{
--	struct ip6rd_flowi *rdfl = (struct ip6rd_flowi *)fl6;
--	struct rt6_info *rt;
--	struct fib6_node *fn;
--
--	/*
--	 * Get the "current" route for this destination and
--	 * check if the redirect has come from approriate router.
--	 *
--	 * RFC 2461 specifies that redirects should only be
--	 * accepted if they come from the nexthop to the target.
--	 * Due to the way the routes are chosen, this notion
--	 * is a bit fuzzy and one might need to check all possible
--	 * routes.
--	 */
--
--	read_lock_bh(&table->tb6_lock);
--	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
--restart:
--	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
--		/*
--		 * Current route is on-link; redirect is always invalid.
--		 *
--		 * Seems, previous statement is not true. It could
--		 * be node, which looks for us as on-link (f.e. proxy ndisc)
--		 * But then router serving it might decide, that we should
--		 * know truth 8)8) --ANK (980726).
--		 */
--		if (rt6_check_expired(rt))
--			continue;
--		if (!(rt->rt6i_flags & RTF_GATEWAY))
--			continue;
--		if (fl6->flowi6_oif != rt->dst.dev->ifindex)
--			continue;
--		if (!ipv6_addr_equal(&rdfl->gateway, &rt->rt6i_gateway))
--			continue;
--		break;
--	}
--
--	if (!rt)
--		rt = net->ipv6.ip6_null_entry;
--	BACKTRACK(net, &fl6->saddr);
--out:
--	dst_hold(&rt->dst);
--
--	read_unlock_bh(&table->tb6_lock);
--
--	return rt;
--};
--
--static struct rt6_info *ip6_route_redirect(const struct in6_addr *dest,
--					   const struct in6_addr *src,
--					   const struct in6_addr *gateway,
--					   struct net_device *dev)
--{
--	int flags = RT6_LOOKUP_F_HAS_SADDR;
--	struct net *net = dev_net(dev);
--	struct ip6rd_flowi rdfl = {
--		.fl6 = {
--			.flowi6_oif = dev->ifindex,
--			.daddr = *dest,
--			.saddr = *src,
--		},
--	};
--
--	rdfl.gateway = *gateway;
--
--	if (rt6_need_strict(dest))
--		flags |= RT6_LOOKUP_F_IFACE;
--
--	return (struct rt6_info *)fib6_rule_lookup(net, &rdfl.fl6,
--						   flags, __ip6_route_redirect);
--}
--
- static void rt6_do_redirect(struct dst_entry *dst, struct sk_buff *skb)
+@@ -191,6 +191,10 @@ static void ip6_rt_blackhole_update_pmtu(struct dst_entry *dst, u32 mtu)
  {
- 	struct net *net = dev_net(skb->dev);
-@@ -1848,27 +1762,6 @@ out:
- 	neigh_release(neigh);
  }
  
--void rt6_redirect(struct sk_buff *skb)
--{
--	const struct in6_addr *target;
--	const struct in6_addr *dest;
--	const struct in6_addr *src;
--	const struct in6_addr *saddr;
--	struct icmp6hdr *icmph;
--	struct rt6_info *rt;
--
--	icmph = icmp6_hdr(skb);
--	target = (const struct in6_addr *) (icmph + 1);
--	dest = target + 1;
--
--	src = &ipv6_hdr(skb)->daddr;
--	saddr = &ipv6_hdr(skb)->saddr;
--
--	rt = ip6_route_redirect(dest, src, saddr, skb->dev);
--	rt6_do_redirect(&rt->dst, skb);
--	dst_release(&rt->dst);
--}
--
- /*
-  *	Misc support functions
-  */
++static void ip6_rt_blackhole_redirect(struct dst_entry *dst, struct sk_buff *skb)
++{
++}
++
+ static u32 *ip6_rt_blackhole_cow_metrics(struct dst_entry *dst,
+ 					 unsigned long old)
+ {
+@@ -205,6 +209,7 @@ static struct dst_ops ip6_dst_blackhole_ops = {
+ 	.mtu			=	ip6_blackhole_mtu,
+ 	.default_advmss		=	ip6_default_advmss,
+ 	.update_pmtu		=	ip6_rt_blackhole_update_pmtu,
++	.redirect		=	ip6_rt_blackhole_redirect,
+ 	.cow_metrics		=	ip6_rt_blackhole_cow_metrics,
+ 	.neigh_lookup		=	ip6_neigh_lookup,
+ };
 -- 
 1.7.10.4
