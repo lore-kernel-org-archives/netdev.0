@@ -1,37 +1,280 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: Apple Thunderbolt Ethernet device support
-Date: Thu, 12 Jul 2012 13:57:06 -0700
-Message-ID: <20120712205706.GB27999@kroah.com>
-References: <20120712202131.GA26436@kroah.com>
+From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
+Subject: resurrecting tcphealth
+Date: Thu, 12 Jul 2012 22:55:57 +0200
+Message-ID: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:47191 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932911Ab2GLU5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 16:57:13 -0400
-Received: by pbbrp8 with SMTP id rp8so4275760pbb.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 13:57:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20120712202131.GA26436@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 12, 2012 at 01:21:31PM -0700, Greg KH wrote:
-> I have an Apple Thunderbolt Ethernet device here, and running 3.5-rc6 it
-> isn't detected.  It has PCI id 14e4:1682, which seems like it should be
-> supported by the tg3 driver.  Any hints?
-> 
-> I guess I could just go and add the device id to the driver and see what
-> happens...
+hello! I haven't done any kernel-hacking before, so be patient.
 
-And that worked, patch sent.
+I got as far as to make tcphealth run, but now I need some help:
+how does read-locking work in the tcp_sock struct?
+the original code (for 2.5.1) made a read_lock(&head->lock) with
+struct tcp_ehash_bucket *head = &tcp_ehash[i];
+at the beginning of the for-loop over all sk=head->chain.
+i.e.
+       for (i=0; i < tcp_ehash_size; i++) {
+               struct tcp_ehash_bucket *head = &tcp_ehash[i];
+               struct sock *sk;
+               struct tcp_opt *tp;
 
-But, as the patch shows, odds are it has a "real" device type in it,
-so the #define I used isn't as descriptive as it should be.  Any hints
-on how I can figure out what to look at to make it more "correct"?
+               read_lock(&head->lock);
+               for (sk=head->chain; sk; sk=sk->next) {
+                       if (!TCP_INET_FAMILY(sk->family))
+                               continue;
 
-thanks,
+and in the new kernel this construction has been replaced by
 
-greg k-h
+        if (st->state==TCP_SEQ_STATE_ESTABLISHED)
+...
+static struct tcp_seq_afinfo tcphealth_seq_afinfo
+...
+
+and the example with proc/net/tcp is seemingly not locking anything. do I
+actually need a read-lock for diagnostic data from tcp_sock? why did the
+original author need to lock the whole chain of tcp_sock?
+
+here's my patch against 3.4.4 so far, any further comments welcome:
+
+diff -rub linux-3.4.4/include/linux/tcp.h
+linux-3.4.4-heal-lsm/include/linux/tcp.h
+--- linux-3.4.4/include/linux/tcp.h	2012-06-22 20:37:50.000000000 +0200
++++ linux-3.4.4-heal-lsm/include/linux/tcp.h	2012-07-06 10:23:13.000000000
++0200
+@@ -7,6 +7,8 @@
+  *
+  * Version:	@(#)tcp.h	1.0.2	04/28/93
+  *
++ *      Federico D. Sacerdoti	:	Added TCP health counters.
++ *
+  * Author:	Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
+  *
+  *		This program is free software; you can redistribute it and/or
+@@ -472,6 +474,15 @@
+ 	 * contains related tcp_cookie_transactions fields.
+ 	 */
+ 	struct tcp_cookie_values  *cookie_values;
++
++	/*
++	 * TCP health monitoring counters.
++	 */
++	__u32	dup_acks_sent;
++	__u32	dup_pkts_recv;
++	__u32	acks_sent;
++	__u32	pkts_recv;
++		__u32	last_ack_sent;	/* Sequence number of the last ack we sent. */
+ };
+
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+diff -rub linux-3.4.4/net/ipv4/tcp_input.c
+linux-3.4.4-heal-lsm/net/ipv4/tcp_input.c
+--- linux-3.4.4/net/ipv4/tcp_input.c	2012-06-22 20:37:50.000000000 +0200
++++ linux-3.4.4-heal-lsm/net/ipv4/tcp_input.c	2012-07-06
+10:12:12.000000000 +0200
+@@ -59,7 +59,8 @@
+  *		Panu Kuhlberg:		Experimental audit of TCP (re)transmission
+  *					engine. Lots of bugs are found.
+  *		Pasi Sarolahti:		F-RTO for dealing with spurious RTOs
+- */
++ *		Federico D. Sacerdoti:	Added TCP health monitoring.
++*/
+
+ #define pr_fmt(fmt) "TCP: " fmt
+
+@@ -4414,6 +4415,8 @@
+ 		}
+
+ 		if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
++			/* Course retransmit inefficiency- this packet has been received
+twice. */
++			tp->dup_pkts_recv++;
+ 			SOCK_DEBUG(sk, "ofo packet was already received\n");
+ 			__skb_unlink(skb, &tp->out_of_order_queue);
+ 			__kfree_skb(skb);
+@@ -4664,6 +4667,10 @@
+ 		return;
+ 	}
+
++	/* A packet is a "duplicate" if it contains bytes we have already
+received. */
++	if (before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt))
++		tp->dup_pkts_recv++;
++
+ 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
+ 		/* A retransmit, 2nd most common case.  Force an immediate ack. */
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
+@@ -5375,6 +5382,14 @@
+
+ 	tp->rx_opt.saw_tstamp = 0;
+
++	/*
++	 *	Tcp health monitoring is interested in
++	 *	total per-connection packet arrivals.
++	 *	This is in the fast path, but is quick.
++	 */
++
++	tp->pkts_recv++;
++
+ 	/*	pred_flags is 0xS?10 << 16 + snd_wnd
+ 	 *	if header_prediction is to be made
+ 	 *	'S' will always be tp->tcp_header_len >> 2
+diff -rub linux-3.4.4/net/ipv4/tcp_ipv4.c
+linux-3.4.4-heal-lsm/net/ipv4/tcp_ipv4.c
+--- linux-3.4.4/net/ipv4/tcp_ipv4.c	2012-06-22 20:37:50.000000000 +0200
++++ linux-3.4.4-heal-lsm/net/ipv4/tcp_ipv4.c	2012-07-11 09:34:22.000000000
++0200
+@@ -2533,6 +2533,82 @@
+ 	return 0;
+ }
+
++
++/*
++ *	Output /proc/net/tcphealth
++ */
++#define LINESZ 128
++
++int tcp_health_seq_show(struct seq_file *seq, void *v)
++{
++	int len, num;
++       char srcIP[32], destIP[32];
++
++	unsigned long  SmoothedRttEstimate,
++		AcksSent, DupAcksSent, PktsRecv, DupPktsRecv;
++	struct tcp_iter_state *st;
++
++	if (v == SEQ_START_TOKEN) {
++		seq_printf(seq,
++		"TCP Health Monitoring (established connections only)\n"
++		" -Duplicate ACKs indicate lost or reordered packets on the connection.\n"
++		" -Duplicate Packets Received signal a slow and badly inefficient
+connection.\n"
++		" -RttEst estimates how long future packets will take on a round trip
+over the connection.\n"
++		"id   Local Address        Remote Address       RttEst(ms) AcksSent "
++		"DupAcksSent PktsRecv DupPktsRecv\n");
++		goto out;
++	}
++
++	/* Loop through established TCP connections */
++	st = seq->private;
++
++
++	if (st->state==TCP_SEQ_STATE_ESTABLISHED)
++	{
++/*	; //insert read-lock here */
++		const struct tcp_sock *tp = tcp_sk(v);
++		const struct inet_sock *inet = inet_sk(v);
++		__be32 dest = inet->inet_daddr;
++		__be32 src = inet->inet_rcv_saddr;
++		__u16 destp = ntohs(inet->inet_dport);
++		__u16 srcp = ntohs(inet->inet_sport);
++
++		num=st->num;
++		SmoothedRttEstimate = (tp->srtt >> 3);
++		AcksSent = tp->acks_sent;
++		DupAcksSent = tp->dup_acks_sent;
++		PktsRecv = tp->pkts_recv;
++		DupPktsRecv = tp->dup_pkts_recv;
++
++		sprintf(srcIP, "%lu.%lu.%lu.%lu:%u",
++			((src >> 24) & 0xFF), ((src >> 16) & 0xFF), ((src >> 8) & 0xFF), (src
+& 0xFF),
++			srcp);
++		sprintf(destIP, "%3d.%3d.%3d.%3d:%u",
++			((dest >> 24) & 0xFF), ((dest >> 16) & 0xFF), ((dest >> 8) & 0xFF),
+(dest & 0xFF),
++			destp);
++
++		seq_printf(seq, "%d: %-21s %-21s "
++				"%8lu %8lu %8lu %8lu %8lu%n",
++				num,
++				srcIP,
++				destIP,
++				SmoothedRttEstimate,
++				AcksSent,
++				DupAcksSent,
++				PktsRecv,
++				DupPktsRecv,
++
++				&len
++			);
++
++		seq_printf(seq, "%*s\n", LINESZ - 1 - len, "");
++/*	; //insert read-unlock here */
++	}
++
++out:
++	return 0;
++}
++
+ static const struct file_operations tcp_afinfo_seq_fops = {
+ 	.owner   = THIS_MODULE,
+ 	.open    = tcp_seq_open,
+@@ -2541,6 +2617,15 @@
+ 	.release = seq_release_net
+ };
+
++static struct tcp_seq_afinfo tcphealth_seq_afinfo = {
++	.name		= "tcphealth",
++	.family		= AF_INET,
++	.seq_fops	= &tcp_afinfo_seq_fops,
++	.seq_ops	= {
++		.show		= tcp_health_seq_show,
++	},
++};
++
+ static struct tcp_seq_afinfo tcp4_seq_afinfo = {
+ 	.name		= "tcp",
+ 	.family		= AF_INET,
+@@ -2552,12 +2637,15 @@
+
+ static int __net_init tcp4_proc_init_net(struct net *net)
+ {
+-	return tcp_proc_register(net, &tcp4_seq_afinfo);
++	int ret=tcp_proc_register(net, &tcp4_seq_afinfo);
++	if(ret==0) ret=tcp_proc_register(net, &tcphealth_seq_afinfo);
++	return ret;
+ }
+
+ static void __net_exit tcp4_proc_exit_net(struct net *net)
+ {
+ 	tcp_proc_unregister(net, &tcp4_seq_afinfo);
++	tcp_proc_unregister(net, &tcphealth_seq_afinfo);
+ }
+
+ static struct pernet_operations tcp4_net_ops = {
+diff -rub linux-3.4.4/net/ipv4/tcp_output.c
+linux-3.4.4-heal-lsm/net/ipv4/tcp_output.c
+--- linux-3.4.4/net/ipv4/tcp_output.c	2012-06-22 20:37:50.000000000 +0200
++++ linux-3.4.4-heal-lsm/net/ipv4/tcp_output.c	2012-07-06
+17:15:14.000000000 +0200
+@@ -31,6 +31,7 @@
+  *		Andrea Arcangeli:	SYNACK carry ts_recent in tsecr.
+  *		Cacophonix Gaul :	draft-minshall-nagle-01
+  *		J Hadi Salim	:	ECN support
++ *	Federico D. Sacerdoti	:	Added TCP health monitoring.
+  *
+  */
+
+@@ -2754,8 +2755,15 @@
+ 	skb_reserve(buff, MAX_TCP_HEADER);
+ 	tcp_init_nondata_skb(buff, tcp_acceptable_seq(sk), TCPHDR_ACK);
+
++		/* If the rcv_nxt has not advanced since sending our last ACK, this is
+a duplicate. */
++		if (tcp_sk(sk)->rcv_nxt == tcp_sk(sk)->last_ack_sent)
++			tcp_sk(sk)->dup_acks_sent++;
++		/* Record the total number of acks sent on this connection. */
++		tcp_sk(sk)->acks_sent++;
++
+ 	/* Send it off, this clears delayed acks for us. */
+ 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
++		tcp_sk(sk)->last_ack_sent = tcp_sk(sk)->rcv_nxt;
+ 	tcp_transmit_skb(sk, buff, 0, GFP_ATOMIC);
+ }
