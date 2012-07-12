@@ -1,66 +1,89 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH net-next] netxen: fix link notification order
-Date: Thu, 12 Jul 2012 01:27:50 -0500
-Message-ID: <13A253B3F9BEFE43B93C09CF75F63CAA81A934387E@MNEXMB1.qlogic.org>
-References: <1342033015-31442-1-git-send-email-fbl@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sony Chacko <sony.chacko@qlogic.com>
-To: Flavio Leitner <fbl@redhat.com>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe003.messaging.microsoft.com ([216.32.180.186]:5494
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756640Ab2GLG2F convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2012 02:28:05 -0400
-In-Reply-To: <1342033015-31442-1-git-send-email-fbl@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH 02/16] mm: slub: Optimise the SLUB fast path to avoid pfmemalloc checks
+Date: Thu, 12 Jul 2012 07:40:18 +0100
+Message-ID: <1342075232-29267-3-git-send-email-mgorman@suse.de>
+References: <1342075232-29267-1-git-send-email-mgorman@suse.de>
+Cc: Linux-MM <linux-mm@kvack.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, Neil Brown <neilb@suse.de>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Mike Christie <michaelc@cs.wisc.edu>,
+	Eric B Munson <emunson@mgebm.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
+	Mel Gorman <mgorman@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1342075232-29267-1-git-send-email-mgorman@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Flavio Leitner [mailto:fbl@redhat.com]
-> Sent: Thursday, July 12, 2012 12:27 AM
-> To: netdev
-> Cc: Sony Chacko; Rajesh Borundia; Flavio Leitner
-> Subject: [PATCH net-next] netxen: fix link notification order
-> 
-> First update the adapter variables with the current speed and
-> mode before fire the notification. Otherwise, the get_settings()
-> may provide old values.
-> 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> ---
->  drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> index b2c1b676..bc165f4 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> @@ -1437,8 +1437,6 @@ netxen_handle_linkevent(struct netxen_adapter
-> *adapter, nx_fw_msg_t *msg)
->  				netdev->name, cable_len);
->  	}
-> 
-> -	netxen_advert_link_change(adapter, link_status);
-> -
->  	/* update link parameters */
->  	if (duplex == LINKEVENT_FULL_DUPLEX)
->  		adapter->link_duplex = DUPLEX_FULL;
-> @@ -1447,6 +1445,8 @@ netxen_handle_linkevent(struct netxen_adapter
-> *adapter, nx_fw_msg_t *msg)
->  	adapter->module_type = module;
->  	adapter->link_autoneg = autoneg;
->  	adapter->link_speed = link_speed;
-> +
-> +	netxen_advert_link_change(adapter, link_status);
->  }
-> 
->  static void
-> --
-> 1.7.10.4
-> 
-Acked-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+From: Christoph Lameter <cl@linux.com>
+
+This patch removes the check for pfmemalloc from the alloc hotpath and
+puts the logic after the election of a new per cpu slab. For a pfmemalloc
+page we do not use the fast path but force the use of the slow path which
+is also used for the debug case.
+
+This has the side-effect of weakening pfmemalloc processing in the
+following way;
+
+1. A process that is allocating for network swap calls __slab_alloc.
+   pfmemalloc_match is true so the freelist is loaded and c->freelist is
+   now pointing to a pfmemalloc page.
+
+2. A process that is attempting normal allocations calls slab_alloc,
+   finds the pfmemalloc page on the freelist and uses it because it did
+   not check pfmemalloc_match()
+
+The patch allows non-pfmemalloc allocations to use pfmemalloc pages with
+the kmalloc slabs being the most vunerable caches on the grounds they
+are most likely to have a mix of pfmemalloc and !pfmemalloc requests. A
+later patch will still protect the system as processes will get throttled
+if the pfmemalloc reserves get depleted but performance will not degrade
+as smoothly.
+
+[mgorman@suse.de: Expanded changelog]
+Signed-off-by: Christoph Lameter <cl@linux.com>
+Signed-off-by: Mel Gorman <mgorman@suse.de>
+---
+ mm/slub.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+index 98fecc2..8e2a2f3 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2287,11 +2287,11 @@ new_slab:
+ 	}
+ 
+ 	page = c->page;
+-	if (likely(!kmem_cache_debug(s)))
++	if (likely(!kmem_cache_debug(s) && pfmemalloc_match(page, gfpflags)))
+ 		goto load_freelist;
+ 
+ 	/* Only entered in the debug case */
+-	if (!alloc_debug_processing(s, page, freelist, addr))
++	if (kmem_cache_debug(s) && !alloc_debug_processing(s, page, freelist, addr))
+ 		goto new_slab;	/* Slab failed checks. Next slab needed */
+ 
+ 	deactivate_slab(s, page, get_freepointer(s, freelist));
+@@ -2343,8 +2343,7 @@ redo:
+ 
+ 	object = c->freelist;
+ 	page = c->page;
+-	if (unlikely(!object || !node_match(page, node)
+-					!pfmemalloc_match(page, gfpflags)))
++	if (unlikely(!object || !node_match(page, node)))
+ 		object = __slab_alloc(s, gfpflags, node, addr, c);
+ 
+ 	else {
+-- 
+1.7.9.2
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
