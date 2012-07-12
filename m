@@ -1,51 +1,94 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: RE: [patch] qlge: fix an "&&" vs "||" bug
-Date: Thu, 12 Jul 2012 11:15:56 -0700
-Message-ID: <5E4F49720D0BAD499EE1F01232234BA8774378FA29@AVEXMB1.qlogic.org>
-References: <20120712144702.GB24202@elgon.mountain>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: RE: 82571EB: Detected Hardware Unit Hang
+Date: Thu, 12 Jul 2012 18:19:49 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891274F0ACC@ORSMSX102.amr.corp.intel.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFBDC50.5090800@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EE41F@ORSMSX102.amr.corp.intel.com>
+ <4FFCCA22.8060006@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EEC8B@ORSMSX102.amr.corp.intel.com>
+ <4FFCDA6C.8020708@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EED74@ORSMSX102.amr.corp.intel.com>
+ <4FFCF314.6020400@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com>
+ <4FFD0908.6080506@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EF8AD@ORSMSX102.amr.corp.intel.com>
+ <4FFE3505.8060407@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F018D@ORSMSX102.amr.corp.intel.com>
+ <4FFE3D27.7020500@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F01BE@ORSMSX102.amr.corp.intel.com>
+ <4FFE40A9.4060807@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F02D7@ORSMSX102.amr.corp.intel.com>
+ <4FFE6BB9.4060106@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F033B@ORSMSX102.amr.corp.intel.com>
+ <4FFE787B.9050201@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Ron Mercer <ron.mercer@qlogic.com>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe006.messaging.microsoft.com ([216.32.180.189]:5711
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932690Ab2GLSQJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2012 14:16:09 -0400
-In-Reply-To: <20120712144702.GB24202@elgon.mountain>
+Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4FFE787B.9050201@oracle.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------Original Message-----
->From: Dan Carpenter [mailto:dan.carpenter@oracle.com] 
->Sent: Thursday, July 12, 2012 7:47 AM
->To: Anirban Chakraborty
->Cc: Jitendra Kalsaria; Ron Mercer; Dept-Eng Linux Driver; netdev; kernel-janitors@vger.kernel.org
->Subject: [patch] qlge: fix an "&&" vs "||" bug
+>-----Original Message-----
+>From: Joe Jin [mailto:joe.jin@oracle.com]
+>Sent: Thursday, July 12, 2012 12:11 AM
+>To: Dave, Tushar N
+>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org
+>Subject: Re: 82571EB: Detected Hardware Unit Hang
 >
->The condition is always true so WOL will never work.
+>On 07/12/12 14:41, Dave, Tushar N wrote:
+>>> On 07/12/12 13:57, Dave, Tushar N wrote:
+>>>>> -----Original Message-----
+>>>>> From: Joe Jin [mailto:joe.jin@oracle.com]
+>>>>> Sent: Wednesday, July 11, 2012 8:13 PM
+>>>>> To: Dave, Tushar N
+>>>>> Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>>>>> kernel@vger.kernel.org
+>>>>> Subject: Re: 82571EB: Detected Hardware Unit Hang
+>>>>>
+>>>>> On 07/12/12 11:07, Dave, Tushar N wrote:
+>>>>>>> -----Original Message-----
+>>>>>>> From: Joe Jin [mailto:joe.jin@oracle.com]
+>>>>>>> Sent: Wednesday, July 11, 2012 7:58 PM
+>>>>>>> To: Dave, Tushar N
+>>>>>>> Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>>>>>>> kernel@vger.kernel.org
+>>>>>>> Subject: Re: 82571EB: Detected Hardware Unit Hang
+>>>>>>>
+>>>>>>> On 07/12/12 10:52, Dave, Tushar N wrote:
+>>>>>>>> What is the exact error messages in BIOS log?
+>>>>>>>
+>>>>>>> Error message from BIOS event log:
+>>>>>>> 07/12/12 05:54:00
+>>>>>>>    PCI Express Non-Fatal Error
+>>>>>>>
+>>>>>>> Thanks,
+>>>>>>> Joe
+>>>>> Hi Tushar,
+>>>>>
+>>>>> Please find eeprom from attachment.
+>>>>
+>>>> Do you have lspci -vvv dump of entire system before and after issue
+>>> occurs? If you have can you send it to me?
+>>>>
+>>>
+>> Sorry but I meant the full lspci -vvv of *entire system* before and
+>after issue occurs and not of 82571 only.
+>>
 >
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
->diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
->index 3d4462b..6f316ab 100644
->--- a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
->+++ b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
->@@ -440,7 +440,7 @@ static int ql_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
-> 	unsigned short ssys_dev = qdev->pdev->subsystem_device;
-> 
-> 	/* WOL is only supported for mezz card. */
->-	if (ssys_dev != QLGE_MEZZ_SSYS_ID_068 ||
->+	if (ssys_dev != QLGE_MEZZ_SSYS_ID_068 &&
-> 			ssys_dev != QLGE_MEZZ_SSYS_ID_180) {
-> 		netif_info(qdev, drv, qdev->ndev,
-> 				"WOL is only supported for mezz card\n");
+>Before:
+>=======
+>00:00.0 Host bridge: Intel Corporation 5500 I/O Hub to ESI Port (rev 22)
+>	Subsystem: Oracle Corporation Device 5352
 
-Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Joe, thanks for all the data.
+You said you have changed max payload size and issue stop occurring. How did you change it? Where did you make that change in BIOS or EEPROM or in PCIe config space?
+Also please send me the full dmesg of entire system after you change max payload size.
+
+Thanks.
