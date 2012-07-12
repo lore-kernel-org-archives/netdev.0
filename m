@@ -1,99 +1,65 @@
-From: Huang Qiang <h.huangqiang@huawei.com>
-Subject: [PATCH v2] netns: correctly use per-netns ipv4 sysctl_tcp_mem
-Date: Thu, 12 Jul 2012 17:33:34 +0800
-Message-ID: <4FFE99EE.70003@huawei.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: iptables CLAMP MSS to PMTU not working?
+Date: Thu, 12 Jul 2012 13:24:19 +0300
+Message-ID: <20120712132419.50b4acaf@vostro>
+References: <20120712120021.3dc5cd68@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <containers@lists.linux-foundation.org>,
-	<yangzhenzhang@huawei.com>
-To: David Miller <davem@davemloft.net>, <glommer@parallels.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:46544 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757298Ab2GLJgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 05:36:48 -0400
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:38847 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932983Ab2GLKYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 06:24:37 -0400
+Received: by lbbgm6 with SMTP id gm6so3970301lbb.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 03:24:36 -0700 (PDT)
+In-Reply-To: <20120712120021.3dc5cd68@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Zhenzhang <yangzhenzhang@huawei.com>
+To reply my self for some additional notes.
 
-Now, kernel allows each net namespace to independently set up its levels
-for tcp memory pressure thresholds.
+On Thu, 12 Jul 2012 12:00:21 +0300 Timo Teras <timo.teras@iki.fi> wrote:
 
-But it seems there is a bug, as using the following steps:
+> We recently noticed that CLAMPMSS to path MTU does not seem to be
+> working properly. Most recently tested version is linux-3.3.6 which
+> does not work. linux-2.6.35 works for sure, but I suspect it to have
+> broken somewhere around 3.0'ish with the inetpeer changes.
+> 
+> In my case, the destination is on gre tunnel (that gets routed to
+> Internet over IPsec transport mode).
+> 
+> 'ip route' command verifies that in both boxes the path-MTU is
+> detected properly. That, is on both cases the static route MTU is
+> higher. And after large packets sent, ICMP frag-needed is received
+> and the cache route is updated properly.
+> 
+> On the new kernel, I get info like:
+> # ip route get 10.x.x.x
+> 10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
+>     cache  expires 68sec ipid 0x3153 mtu 1422
 
-[root@host socket]# lxc-start -n test -f config /bin/bash
-[root@net-test socket]# ip route add default via 192.168.58.2
-[root@net-test socket]# echo 0 0 0 > /proc/sys/net/ipv4/tcp_mem
-[root@net-test socket]# scp root@192.168.58.174:/home/tcp_mem_test .
+CLAMP MSS sets MSS to 1432. Which implies MTU 1472. This matches the
+gre1 interface MTU:
 
-and it still can transport the "tcp_mem_test" file which we hope it
-would not.
+14: gre1: <UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN 
 
-It's because inet_init() (net/ipv4/af_inet.c)initialize the tcp_prot.sysctl_mem:
-tcp_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
+So apparently CLAMPMSS is honoring the static route for gre1, instead
+of the cached pmtu route.
 
-So when the protocal is TCP, sk->sk_prot->sysctl_mem(following code)
-always use the ipv4 sysctl_tcp_mem of init_net namespace rather than
-it's own net namespace.
-This patch simply set "prot" equal to net->ipv4.sysctl_tcp_mem when
-the protocol type is TCP.
+> And the older kernel:
+> # ip route get 10.x.x.x
+> 10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
+>     cache  expires 595sec ipid 0xd241 mtu 1422 advmss 1432 hoplimit 64
+> 
+> For some reason, iptables CLAMPMSS seems to set incorrect MSS for this
+> route (or maybe it's using the static route instead?).
 
-Signed-off-by: Yang Zhenzhang <yangzhenzhang@huawei.com>
-Signed-off-by: Huang Qiang <h.huangqiang@huawei.com>
----
- include/net/sock.h |   24 ++++++++++++++++--------
- 1 files changed, 16 insertions(+), 8 deletions(-)
+And in this case MSS is set to 1382. That is, it's properly calculated
+from the path MTU (1422-40=1382). I would expect the advmss of the
+cached route to get updated on the TCP connects on the older kernels
+(the above paste is after pinging with large packets and no TCP
+connection done for the cached entry).
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4a45216..ee85d8b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -59,6 +59,7 @@
- #include <linux/static_key.h>
- #include <linux/aio.h>
- #include <linux/sched.h>
-+#include <linux/in.h>
-
- #include <linux/filter.h>
- #include <linux/rculist_nulls.h>
-@@ -1060,14 +1061,6 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
- 	sk->sk_prot->enter_memory_pressure(sk);
- }
-
--static inline long sk_prot_mem_limits(const struct sock *sk, int index)
--{
--	long *prot = sk->sk_prot->sysctl_mem;
--	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
--		prot = sk->sk_cgrp->sysctl_mem;
--	return prot[index];
--}
--
- static inline void memcg_memory_allocated_add(struct cg_proto *prot,
- 					      unsigned long amt,
- 					      int *parent_status)
-@@ -2150,6 +2143,21 @@ static inline void sk_change_net(struct sock *sk, struct net *net)
- 	sock_net_set(sk, hold_net(net));
- }
-
-+static inline long sk_prot_mem_limits(const struct sock *sk, int index)
-+{
-+	long *prot = sk->sk_prot->sysctl_mem;
-+
-+	if (sk->sk_protocol == IPPROTO_TCP) {
-+		struct net *net = sock_net(sk);
-+		prot = net->ipv4.sysctl_tcp_mem;
-+	}
-+
-+	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
-+		prot = sk->sk_cgrp->sysctl_mem;
-+
-+	return prot[index];
-+}
-+
- static inline struct sock *skb_steal_sock(struct sk_buff *skb)
- {
- 	if (unlikely(skb->sk)) {
--- 
-1.7.1
+- Timo
