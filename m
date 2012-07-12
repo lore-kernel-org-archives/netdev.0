@@ -1,45 +1,46 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: Re: [PATCH 4/4] asix: Add a new driver for the AX88172A
-Date: Thu, 12 Jul 2012 16:10:04 -0700
-Message-ID: <CANEJEGsvBbPYk4_W1jmFzSGu8cQ2VGAEyj9vyPBLrBYDO5_gfQ@mail.gmail.com>
-References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
-	<1341574388-7464-5-git-send-email-christian.riesch@omicron.at>
-	<CANEJEGu3iTDYJD+ZpcwgRCZTF8a_bi9kWSuKK4eaHzS1uL+ZxA@mail.gmail.com>
-	<CABkLObon+CkLJagu2pX0OBGpNzSn9NfyM353h2BQ68viy2Bq6Q@mail.gmail.com>
-	<CABkLObpRNpcEjFYaUUEjnEWN-8snQZaa27+CCO7pHnR7kPVMUg@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: Apple Thunderbolt Ethernet device support
+Date: Thu, 12 Jul 2012 16:18:34 -0700
+Message-ID: <20120712231834.GA26823@kroah.com>
+References: <20120712202131.GA26436@kroah.com>
+ <20120712205706.GB27999@kroah.com>
+ <4FFF59A9.4010009@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Allan Chou <allan@asix.com.tw>,
-	Mark Lord <kernel@teksavvy.com>,
-	Ming Lei <tom.leiming@gmail.com>,
-	Michael Riesch <michael@riesch.at>
-To: Christian Riesch <christian.riesch@omicron.at>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:35894 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964858Ab2GLXKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 19:10:05 -0400
-Received: by qadb17 with SMTP id b17so18301qad.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 16:10:04 -0700 (PDT)
-In-Reply-To: <CABkLObpRNpcEjFYaUUEjnEWN-8snQZaa27+CCO7pHnR7kPVMUg@mail.gmail.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:59657 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1162597Ab2GLXSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 19:18:39 -0400
+Received: by yenl2 with SMTP id l2so3027741yen.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 16:18:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4FFF59A9.4010009@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 12, 2012 at 12:22 AM, Christian Riesch
-<christian.riesch@omicron.at> wrote:
-> Hi Grant,
-...
-> After rethinking it I decided to keep the switch structure, but use
-> defines for the different modes and the bitmask. I think this will be
-> easier to understand. I will submit a new version of the patchset
-> later today, please have a look at it.
+On Thu, Jul 12, 2012 at 04:11:37PM -0700, Rick Jones wrote:
+> On 07/12/2012 01:57 PM, Greg KH wrote:
+> >On Thu, Jul 12, 2012 at 01:21:31PM -0700, Greg KH wrote:
+> >>I have an Apple Thunderbolt Ethernet device here, and running 3.5-rc6 it
+> >>isn't detected.  It has PCI id 14e4:1682, which seems like it should be
+> >>supported by the tg3 driver.  Any hints?
+> >>
+> >>I guess I could just go and add the device id to the driver and see what
+> >>happens...
+> >And that worked, patch sent.
+> >
+> >But, as the patch shows, odds are it has a "real" device type in it,
+> >so the #define I used isn't as descriptive as it should be.  Any hints
+> >on how I can figure out what to look at to make it more "correct"?
+> 
+> a long-shot, but maybe there is something in the pci.ids database?
 
-That's fine too. I agree the new version is easier to read.
+Ah, nice, there is something there:
+	1682 NetXtreme BCM57762 Gigabit Ethernet PCIe
 
-thanks!
-grant
+I'll redo the patch with that information, thanks.
 
-> Thanks!
-> Christian
+greg k-h
