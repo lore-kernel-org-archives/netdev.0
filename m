@@ -1,23 +1,17 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
-Date: Thu, 12 Jul 2012 01:49:52 +0200
-Message-ID: <1342050592.3265.8195.camel@edumazet-glaptop>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
-	<1340945457.29822.7.camel@edumazet-glaptop>
-	<1341396687.2583.1757.camel@edumazet-glaptop>
-	<20120709.000834.1182150057463599677.davem@davemloft.net>
-	<1341845722.3265.3065.camel@edumazet-glaptop>
-	<1341933215.3265.5476.camel@edumazet-glaptop>
-	<1342019518.3265.8116.camel@edumazet-glaptop> <4FFDC985.6050805@hp.com>
+Subject: Re: [PATCH v3 net-next] tcp: TCP Small Queues
+Date: Thu, 12 Jul 2012 02:00:33 +0200
+Message-ID: <1342051233.3265.8206.camel@edumazet-glaptop>
+References: <1342021831.3265.8174.camel@edumazet-glaptop>
+	<CAB_+Fg496FgQZkJE8uf_4RX_wW+fz1p5Rq8rY=BuA=c6KPakpA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nanditad@google.com, netdev@vger.kernel.org, mattmathis@google.com,
-	codel@lists.bufferbloat.net, ncardwell@google.com,
-	David Miller <davem@davemloft.net>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, codel@lists.bufferbloat.net, ncardwell@google.com,
+	David Miller <davem@davemloft.net>, mattmathis@google.com
+To: Nandita Dukkipati <nanditad@google.com>
 Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <4FFDC985.6050805@hp.com>
+In-Reply-To: <CAB_+Fg496FgQZkJE8uf_4RX_wW+fz1p5Rq8rY=BuA=c6KPakpA@mail.gmail.com>
 List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
 	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
 List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
@@ -29,41 +23,50 @@ Sender: codel-bounces@lists.bufferbloat.net
 Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-07-11 at 11:44 -0700, Rick Jones wrote:
-> On 07/11/2012 08:11 AM, Eric Dumazet wrote:
-> >
-> > Some bench results about the choice of 128KB being the default value:
-> 
-> What were the starting/baseline figures?
-> 
-> >
-> > Tests using a single TCP flow.
-> >
-> > Tests on 10Gbit links :
-> >
-> >
-> > echo 16384 >/proc/sys/net/ipv4/tcp_limit_output_bytes
-> > OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.99.2 (192.168.99.2) port 0 AF_INET
-> > tcpi_rto 201000 tcpi_ato 0 tcpi_pmtu 1500 tcpi_rcv_ssthresh 14600
-> > tcpi_rtt 1875 tcpi_rttvar 750 tcpi_snd_ssthresh 16 tpci_snd_cwnd 79
-> > tcpi_reordering 53 tcpi_total_retrans 0
-> > Local       Local       Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service
-> > Send Socket Send Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand
-> > Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units
-> > Final       Final                                             %     Method %      Method
-> > 392360      392360      16384  20.00   1389.53    10^6bits/s  0.52  S      4.30   S      0.737   1.014   usec/KB
-> 
-> By the way, that double reporting of the local socket send size is fixed in:
-> 
-> ------------------------------------------------------------------------
-> r516 | raj | 2012-01-05 15:48:52 -0800 (Thu, 05 Jan 2012) | 1 line
-> 
-> report the rsr_size_end in an omni stream test rather than a copy of the 
-> lss_size_end
-> 
-> of netperf and later.  Also, any idea why the local socket send size got 
-> so much larger with 1GbE than 10 GbE at that setting of 
-> tcp_limit_output_bytes?
+Note : netdev mailing list doesnt accept HTML ;)
 
-The 10Gb receiver is a net-next kernel, but the 1Gb receiver is a 2.6.38
-ubuntu kernel. They probably have very different TCP behavior.
+On Wed, 2012-07-11 at 12:29 -0700, Nandita Dukkipati wrote:
+> I have a couple of high level questions on the two solutions for
+> maintain small queues at qdisc: 1) using codel's feedback versus 2)
+> the approach in TSQ to explicitly limit bytes per-flow
+> to tcp_limit_output_bytes.
+> 
+> 
+> 1. multiple flows case: codel feedback (be it drop/ECN or direct
+> feedback like in your patch with fq_codel: report congestion
+> notification at enqueue time) seems to work in maintaining small
+> queues regardless of the number of connections. TSQ probably won't
+> achieve this goal when number of flows is large. Is this correct?
+
+
+Problem with codel/fq_codel is that the congestion is delayed.
+
+And my patch (signaling congestion to local tcp senders) raised several
+issues.
+
+I had then TSQ idea to have a more general mechanism (not depending on a
+particular qdisc setup)
+
+TCP Small Queue is effective even with a large number of flows because
+with standard pfifo_fast, we can without TCP Small Queue store 1000
+packets in Qdisc, each being 64KB. Thats 64 MBytes...
+
+With TCP Small Queue, you can reach this level of occupancy using 500
+flows (2 packets per flow)
+
+Without TCP Small Queue, you can reach this level using 16 flows.
+
+(This of course assumes TSO is on, but modern NIC are TSO enabled)
+
+> 2. cwnd adjustment: codel feedback directly and explicitly controls
+> snd_cwnd which in turn will also adjust the send buffer size to
+> appropriate value. That's a nice property, which TSQ probably won't
+> have because it doesn't explicitly adjust snd_cwnd. 
+> 
+> Considering these two points, why TSQ over the Codel feedback
+> approach?
+
+I dont think they compete. They are in fact complementary.
+
+If you use codel/fq_codel + TSQ, you have both per flow limitation in
+qdisc (TSQ) + sojourn time aware and multi flow aware feedback.
