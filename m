@@ -1,42 +1,41 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the infiniband
- tree
-Date: Thu, 12 Jul 2012 15:59:11 +0300
-Message-ID: <4FFECA1F.2020005@mellanox.com>
-References: <20120712120950.223be053857381046b7d5db6@canb.auug.org.au>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] sch_sfb: Fix missing NULL check
+Date: Thu, 12 Jul 2012 14:39:11 +0100
+Message-ID: <20120712133847.18719.77998.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"Jack Morgenstein" <jackm@dev.mellanox.co.il>,
-	Roland Dreier <roland@kernel.org>,
-	<linux-rdma@vger.kernel.org>,
-	Hadar Hen Zion <hadarh@mellanox.co.il>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120712120950.223be053857381046b7d5db6@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:59687 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759239Ab2GLNWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 09:22:24 -0400
+Received: from localhost.localdomain (earthlight.etchedpixels.co.uk [81.2.110.250])
+	by lxorguk.ukuu.org.uk (8.14.5/8.14.1) with ESMTP id q6CDtjev021410
+	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 14:55:56 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/12/2012 5:09 AM, Stephen Rothwell wrote:
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/mellanox/mlx4/main.c between commit 6634961c14d3
-> ("mlx4: Put physical GID and P_Key table sizes in mlx4_phys_caps struct
-> and paravirtualize them") from the infiniband tree and commit
-> 0ff1fb654bec ("{NET, IB}/mlx4: Add device managed flow steering firmware
-> API") from the net-next tree.
->
-> Just context changes (I think).  I have fixed it up (see below) and can
-> carry the fix as necessary.
->
+From: Alan Cox <alan@linux.intel.com>
 
-Thanks Stephen.
+Resolves-bug: https://bugzilla.kernel.org/show_bug.cgi?id=44461
+Signed-off-by: Alan Cox <alna@linux.intel.com>
+---
 
-Please add:
-Acked-by: Hadar Hen Zion <hadarh@mellanox.co.il>
+ net/sched/sch_sfb.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Hadar
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 74305c8..30ea467 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -570,6 +570,8 @@ static int sfb_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 
+ 	sch->qstats.backlog = q->qdisc->qstats.backlog;
+ 	opts = nla_nest_start(skb, TCA_OPTIONS);
++	if (opts == NULL)
++		goto nla_put_failure;
+ 	if (nla_put(skb, TCA_SFB_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
+ 	return nla_nest_end(skb, opts);
