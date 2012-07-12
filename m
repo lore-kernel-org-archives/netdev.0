@@ -1,66 +1,50 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [RFC PATCH 1/2] net: Add new network device function to allow
- for MMIO batching
-Date: Thu, 12 Jul 2012 08:39:05 -0700
-Message-ID: <4FFEEF99.7030707@intel.com>
-References: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>  <20120712002603.27846.23752.stgit@gitlad.jf.intel.com> <1342077259.3265.8232.camel@edumazet-glaptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] ipvs: ip_vs_ftp depends on nf_conntrack_ftp helper
+Date: Thu, 12 Jul 2012 17:39:37 +0200
+Message-ID: <20120712153937.GB18793@1984>
+References: <1341966327-16606-1-git-send-email-horms@verge.net.au>
+ <1341966327-16606-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	alexander.duyck@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10080 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932627Ab2GLPjR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2012 11:39:17 -0400
-In-Reply-To: <1342077259.3265.8232.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1341966327-16606-2-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/12/2012 12:14 AM, Eric Dumazet wrote:
-> On Wed, 2012-07-11 at 17:26 -0700, Alexander Duyck wrote:
->> This change adds capabilities to the driver for batching the MMIO write
->> involved with transmits.  Most of the logic is based off of the code for
->> the qdisc scheduling.
->>
->> What I did is break the transmit path into two parts.  We already had the
->> ndo_start_xmit function which has been there all along.  The part I added
->> was ndo_complete_xmit which is meant to handle notifying the hardware that
->> frames are ready for delivery.
->>
->> To control all of this I added a net sysfs value for the Tx queues called
->> dispatch_limit.  When 0 it indicates that all frames will notify hardware
->> immediately.  When 1 or more the netdev_complete_xmit call will queue up to
->> that number of packets, and when the value is exceeded it will notify the
->> hardware and reset the pending frame dispatch count.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
-> The idea is good, but do we really need so complex schem ?
->
-> Most of the transmits are done from __qdisc_run()
->
-> We could add logic in __qdisc_run()/qdisc_restart()
->
-> qdisc_run_end() would then have to call ndo_complete_xmit() to make
-> sure the MMIO is done.
+On Wed, Jul 11, 2012 at 09:25:26AM +0900, Simon Horman wrote:
+> From: Julian Anastasov <ja@ssi.bg>
+> 
+> 	The FTP application indirectly depends on the
+> nf_conntrack_ftp helper for proper NAT support. If the
+> module is not loaded, IPVS can resize the packets for the
+> command connection, eg. PASV response but the SEQ adjustment
+> logic in ipv4_confirm is not called without helper.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  net/netfilter/ipvs/Kconfig | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+> index f987138..8b2cffd 100644
+> --- a/net/netfilter/ipvs/Kconfig
+> +++ b/net/netfilter/ipvs/Kconfig
+> @@ -250,7 +250,8 @@ comment 'IPVS application helper'
+>  
+>  config	IP_VS_FTP
+>    	tristate "FTP protocol helper"
+> -        depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT
+> +	depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT && \
+> +		NF_CONNTRACK_FTP
 
-The problem is in both of the cases where I have seen the issue the
-qdisc is actually empty.
-
-In the case of pktgen it does not use the qdisc layer at all.  It just
-directly calls ndo_start_xmit.
-
-In the standard networking case we never fill the qdisc because the MMIO
-write stalls the entire CPU so the application never gets a chance to
-get ahead of the hardware.  From what I can tell the only case in which
-the qdisc_run solution would work is if the ndo_start_xmit was called on
-a different CPU from the application that is doing the transmitting.
-
-Thanks,
-
-Alex
+If you require FTP NAT support, then this depends on NF_NAT_FTP
+instead of NF_CONNTRACK_FTP.
