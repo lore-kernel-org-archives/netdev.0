@@ -1,130 +1,71 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2/2] bonding: debugfs and network namespaces are incompatible
-Date: Wed, 11 Jul 2012 18:57:33 -0700
-Message-ID: <9056.1342058253@death.nxdomain>
-References: <20120706194741.GA22113@mail.hallyn.com> <87y5ms3bfi.fsf_-_@xmission.com> <87sjd03bdw.fsf_-_@xmission.com> <20120709.144932.243254122059983829.davem@davemloft.net> <15459.1341941772@death.nxdomain> <367b470c-c3f5-4555-be11-02223125b741@email.android.com> <16903.1341947581@death.nxdomain> <877gu9omrr.fsf@xmission.com>
-Cc: netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH] tc: man: change man page and comment to confirm to code's
+ behavior.
+Date: Thu, 12 Jul 2012 09:56:57 +0800
+Message-ID: <4FFE2EE9.8030808@cn.fujitsu.com>
+References: <4FFD2A42.9080507@cn.fujitsu.com> <20120711075129.4f81eea8@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:48528 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756407Ab2GLB5i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 21:57:38 -0400
-Received: from /spool/local
-	by e5.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 11 Jul 2012 21:57:37 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id DFDB338C805A
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 21:57:35 -0400 (EDT)
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6C1vZ9t362852
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 21:57:35 -0400
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6C1vZCt014699
-	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 19:57:35 -0600
-In-reply-to: <877gu9omrr.fsf@xmission.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:3354 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756498Ab2GLB5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 21:57:42 -0400
+In-Reply-To: <20120711075129.4f81eea8@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric W. Biederman <ebiederm@xmission.com> wrote:
 
->Jay Vosburgh <fubar@us.ibm.com> writes:
->
->> Eric W. Biederman <ebiederm@xmission.com> wrote:
->
->>>I haven't run across any of those network devices, but if they create a
->>>debugfs entry that embeds the device name it will be a problem.
->>
->> 	A quick grep suggests that cxgb4, skge, sky2, stmmac, ipoib and
->> half a dozen of the wireless drivers all create files in debugfs.  I did
->> not check exhaustively, but at least some of them include the device
->> name.
->
->Yep.  It looks like imperfect habits are common.
->
->>>Last I looked any custom user space interface from network devices was
->>>rare and bonding using debugfs is the first instance of using debugfs
->>>from networking devices I have seen.
->>>
->>>I think the problem will be a little less severe for physical network
->>>devices as they all start in the initial network namespace and so start
->>>with distinct names.
->>>
->>>With bonding I can do "ip link add type bond" in any network namespace
->>>and get another bond0.  So name conflicts are very much expeted with all
->>>virtual networking devices.
->>
->> 	Fair enough, although it is trivial to rename any network device
->> such that a conflict would occur.
->
->Actually for userspace and administrative reasons frequently it isn't
->trivial to rename devices.
+Since the get_rate() code incorrectly interpreted bare number, the
+behavior is not the same as man page and comment described.
 
-	Well, perhaps it's uncommon for users to do so, but "ip link set
-dev eth0 name eth44" is pretty easy to do.
-
->>>But if you know of any other networking devices using debugsfs that
->>>code should probably get the same treatment as the bonding debugfs code.
->>
->> 	Is there no alternative than simply disabling debugfs whenever
->> network namespaces are enabled?  The information bonding displays via
->> debugfs is useful, and having it unavailable on all distro kernels seems
->> a bit harsh.
->
->
->I took a good hard look at debugfs while writing this reply and debufs
->scares me.  It is the kind of code that just about wants to me to throw
->in the towel seeing no hope of a good solid kernel. 
->
->I can definitely open a /sys/kernel/debug/bonding/bond0/rlb_hash_table
->and delete the bond and then read the file.  On a bad day that will oops
->the kernel, as there is nothing holding a reference to the network
->device.  I think only the BOND_MODE_ALB check makes keeps the kernel
->from oopsing in my quick tests.
->
->The fact that debugfs is enabled in distro kernels is actually apalling
->to me.  debugfs makes it easy to oops the kernel.
-
-	I'm not so sure things are that bad.  I cannot unload the
-bonding module while a program holds an open file descriptor on its
-debugfs file (it appears to hold a reference to the module), so uses
-that only remove the debugfs file on module unload shouldn't have a
-problem.
-
-	The /proc file that bonding removes when an interface is
-dynamically removed does not have this problem, as subsequent reads on
-that file descriptor will fail.  I suspect that's because
-remove_proc_entry NULLs the proc_fops, whereas debugfs_remove does not
-do the equivalent for its case.  It may not be that simple, though; I'm
-just looking at the code and have not tested anything.
-
->There are lots of alternatives to debugfs on where to put information
->and the bonding driver already uses most of them.
->
->> 	Why is the logic already in the driver not sufficient?  If the
->> attempt to create the debugfs directory with the interface name fails,
->> then it merely prints a warning and continues without the debugfs for
->> that interface.
->
->All I know for certain is the existing logic will eventually cause
->someone doing something reasonable to send me a bug report.
->
->I can see where you are coming from in that the bonding driver debugfs
->code really was built to gracefully fail and ignore problems of instead
->of just hapharzardly and sloppily ignore problems.  At the same time
->I can oops the kernel if I try with your debugfs in the bonding driver.
->
->But it causes the code to fail and issue a warning.  So if I don't
->disable the code now, I expect I will get a bug report, and who
->knows how many sill files in bonding will have in debugfs by then.
->what silly things bonding may be doing in debugfs by then.
-
-	Or perhaps we can fix the debugfs support to function correctly
-even in the face of network namespaces.  For example, do namespaces have
-a unique name or identifier than can go into the debugfs name?
-
-	-J
-
+We need to change the man page and comment for compatible with the
+existing usage by scripts.
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ man/man8/tc.8 |    7 +++++--
+ tc/tc_util.c  |    2 +-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 958ab98..f0e5613 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -259,6 +259,9 @@ All parameters accept a floating point number, possibly followed by a unit.
+ .P
+ Bandwidths or rates can be specified in:
+ .TP
++bps
++Bytes per second
++.TP
+ kbps
+ Kilobytes per second
+ .TP
+@@ -271,8 +274,8 @@ Kilobits per second
+ mbit
+ Megabits per second
+ .TP
+-bps or a bare number
+-Bytes per second
++bit or a bare number
++Bits per second
+ .P
+ Amounts of data can be specified in:
+ .TP
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 926ed08..ccf8fa4 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -153,7 +153,7 @@ int get_rate(unsigned *rate, const char *str)
+ 		return -1;
+ 
+ 	if (*p == '\0') {
+-		*rate = bps / 8.;	/* assume bytes/sec */
++		*rate = bps / 8.;	/* assume bits/sec */
+ 		return 0;
+ 	}
+ 
+-- 
+1.7.1
