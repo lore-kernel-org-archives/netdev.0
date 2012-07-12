@@ -1,111 +1,172 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 08/16] ipv4: Kill ip_rt_redirect().
-Date: Thu, 12 Jul 2012 01:11:29 -0700 (PDT)
-Message-ID: <20120712.011129.1512977418089187228.davem@davemloft.net>
+Subject: [PATCH 09/16] ipv6: Export ndisc option parsing from ndisc.c
+Date: Thu, 12 Jul 2012 01:11:37 -0700 (PDT)
+Message-ID: <20120712.011137.901142810809461522.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54748 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54753 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932104Ab2GLILa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:11:30 -0400
+	with ESMTP id S932104Ab2GLILi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:11:38 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id E71085824C0
-	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:11:31 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 5172A5824C5
+	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:11:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-No longer needed, as the protocol handlers now all properly
-propagate the redirect back into the routing code.
+This is going to be used internally by the rt6 redirect code.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/route.h |    1 -
- net/ipv4/icmp.c     |    1 -
- net/ipv4/route.c    |   44 --------------------------------------------
- 3 files changed, 46 deletions(-)
+ include/net/ndisc.h |   50 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ndisc.c    |   47 ++---------------------------------------------
+ 2 files changed, 52 insertions(+), 45 deletions(-)
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 6ab93ee..ace3cb4 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -108,7 +108,6 @@ extern struct ip_rt_acct __percpu *ip_rt_acct;
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index c02b6ad..96a3b5c 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -47,6 +47,8 @@ enum {
+ #include <linux/icmpv6.h>
+ #include <linux/in6.h>
+ #include <linux/types.h>
++#include <linux/if_arp.h>
++#include <linux/netdevice.h>
  
- struct in_device;
- extern int		ip_rt_init(void);
--extern void		ip_rt_redirect(struct sk_buff *skb, __be32 new_gw);
- extern void		rt_cache_flush(struct net *net, int how);
- extern void		rt_cache_flush_batch(struct net *net);
- extern struct rtable *__ip_route_output_key(struct net *, struct flowi4 *flp);
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 70a7935..d01aeb4 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -763,7 +763,6 @@ static void icmp_redirect(struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
- 		return;
+ #include <net/neighbour.h>
  
--	ip_rt_redirect(skb, icmp_hdr(skb)->un.gateway);
- 	icmp_socket_deliver(skb, icmp_hdr(skb)->un.gateway);
- }
+@@ -80,6 +82,54 @@ struct nd_opt_hdr {
+ 	__u8		nd_opt_len;
+ } __packed;
  
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index aabece6..e98207d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1345,50 +1345,6 @@ reject_redirect:
- 	;
- }
++/* ND options */
++struct ndisc_options {
++	struct nd_opt_hdr *nd_opt_array[__ND_OPT_ARRAY_MAX];
++#ifdef CONFIG_IPV6_ROUTE_INFO
++	struct nd_opt_hdr *nd_opts_ri;
++	struct nd_opt_hdr *nd_opts_ri_end;
++#endif
++	struct nd_opt_hdr *nd_useropts;
++	struct nd_opt_hdr *nd_useropts_end;
++};
++
++#define nd_opts_src_lladdr	nd_opt_array[ND_OPT_SOURCE_LL_ADDR]
++#define nd_opts_tgt_lladdr	nd_opt_array[ND_OPT_TARGET_LL_ADDR]
++#define nd_opts_pi		nd_opt_array[ND_OPT_PREFIX_INFO]
++#define nd_opts_pi_end		nd_opt_array[__ND_OPT_PREFIX_INFO_END]
++#define nd_opts_rh		nd_opt_array[ND_OPT_REDIRECT_HDR]
++#define nd_opts_mtu		nd_opt_array[ND_OPT_MTU]
++
++#define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
++
++extern struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
++						 struct ndisc_options *ndopts);
++
++/*
++ * Return the padding between the option length and the start of the
++ * link addr.  Currently only IP-over-InfiniBand needs this, although
++ * if RFC 3831 IPv6-over-Fibre Channel is ever implemented it may
++ * also need a pad of 2.
++ */
++static int ndisc_addr_option_pad(unsigned short type)
++{
++	switch (type) {
++	case ARPHRD_INFINIBAND: return 2;
++	default:                return 0;
++	}
++}
++
++static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
++				      struct net_device *dev)
++{
++	u8 *lladdr = (u8 *)(p + 1);
++	int lladdrlen = p->nd_opt_len << 3;
++	int prepad = ndisc_addr_option_pad(dev->type);
++	if (lladdrlen != NDISC_OPT_SPACE(dev->addr_len + prepad))
++		return NULL;
++	return lladdr + prepad;
++}
++
+ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, __u32 *hash_rnd)
+ {
+ 	const u32 *p32 = pkey;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 0fddd57..a3189ba 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -143,40 +143,8 @@ struct neigh_table nd_tbl = {
+ 	.gc_thresh3 =	1024,
+ };
  
--/* called in rcu_read_lock() section */
--void ip_rt_redirect(struct sk_buff *skb, __be32 new_gw)
+-/* ND options */
+-struct ndisc_options {
+-	struct nd_opt_hdr *nd_opt_array[__ND_OPT_ARRAY_MAX];
+-#ifdef CONFIG_IPV6_ROUTE_INFO
+-	struct nd_opt_hdr *nd_opts_ri;
+-	struct nd_opt_hdr *nd_opts_ri_end;
+-#endif
+-	struct nd_opt_hdr *nd_useropts;
+-	struct nd_opt_hdr *nd_useropts_end;
+-};
+-
+-#define nd_opts_src_lladdr	nd_opt_array[ND_OPT_SOURCE_LL_ADDR]
+-#define nd_opts_tgt_lladdr	nd_opt_array[ND_OPT_TARGET_LL_ADDR]
+-#define nd_opts_pi		nd_opt_array[ND_OPT_PREFIX_INFO]
+-#define nd_opts_pi_end		nd_opt_array[__ND_OPT_PREFIX_INFO_END]
+-#define nd_opts_rh		nd_opt_array[ND_OPT_REDIRECT_HDR]
+-#define nd_opts_mtu		nd_opt_array[ND_OPT_MTU]
+-
+ #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
+ 
+-/*
+- * Return the padding between the option length and the start of the
+- * link addr.  Currently only IP-over-InfiniBand needs this, although
+- * if RFC 3831 IPv6-over-Fibre Channel is ever implemented it may
+- * also need a pad of 2.
+- */
+-static int ndisc_addr_option_pad(unsigned short type)
 -{
--	const struct iphdr *iph = (const struct iphdr *) skb->data;
--	__be32 daddr = iph->daddr;
--	__be32 saddr = iph->saddr;
--	struct net_device *dev = skb->dev;
--	int    ikeys[2] = { dev->ifindex, 0 };
--	__be32 skeys[2] = { saddr, 0 };
--	struct net *net;
--	int s, i;
--
--	net = dev_net(dev);
--	for (s = 0; s < 2; s++) {
--		for (i = 0; i < 2; i++) {
--			unsigned int hash;
--			struct rtable __rcu **rthp;
--			struct rtable *rt;
--
--			hash = rt_hash(daddr, skeys[s], ikeys[i], rt_genid(net));
--
--			rthp = &rt_hash_table[hash].chain;
--
--			while ((rt = rcu_dereference(*rthp)) != NULL) {
--				rthp = &rt->dst.rt_next;
--
--				if (rt->rt_key_dst != daddr ||
--				    rt->rt_key_src != skeys[s] ||
--				    rt->rt_oif != ikeys[i] ||
--				    rt_is_input_route(rt) ||
--				    rt_is_expired(rt) ||
--				    !net_eq(dev_net(rt->dst.dev), net) ||
--				    rt->dst.error ||
--				    rt->dst.dev != dev)
--					continue;
--
--				ip_do_redirect(&rt->dst, skb);
--			}
--		}
+-	switch (type) {
+-	case ARPHRD_INFINIBAND: return 2;
+-	default:                return 0;
 -	}
--	return;
--
 -}
 -
- static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
+ static inline int ndisc_opt_addr_space(struct net_device *dev)
  {
- 	struct rtable *rt = (struct rtable *)dst;
+ 	return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
+@@ -233,8 +201,8 @@ static struct nd_opt_hdr *ndisc_next_useropt(struct nd_opt_hdr *cur,
+ 	return cur <= end && ndisc_is_useropt(cur) ? cur : NULL;
+ }
+ 
+-static struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
+-						 struct ndisc_options *ndopts)
++struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
++					  struct ndisc_options *ndopts)
+ {
+ 	struct nd_opt_hdr *nd_opt = (struct nd_opt_hdr *)opt;
+ 
+@@ -297,17 +265,6 @@ static struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
+ 	return ndopts;
+ }
+ 
+-static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
+-				      struct net_device *dev)
+-{
+-	u8 *lladdr = (u8 *)(p + 1);
+-	int lladdrlen = p->nd_opt_len << 3;
+-	int prepad = ndisc_addr_option_pad(dev->type);
+-	if (lladdrlen != NDISC_OPT_SPACE(dev->addr_len + prepad))
+-		return NULL;
+-	return lladdr + prepad;
+-}
+-
+ int ndisc_mc_map(const struct in6_addr *addr, char *buf, struct net_device *dev, int dir)
+ {
+ 	switch (dev->type) {
 -- 
 1.7.10.4
