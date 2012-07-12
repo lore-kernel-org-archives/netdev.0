@@ -1,47 +1,47 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next 0/3] team: couple of patches
-Date: Thu, 12 Jul 2012 17:53:36 +0200
-Message-ID: <20120712155336.GA1719@minipsycho.orion>
-References: <1342020844-3547-1-git-send-email-jpirko@redhat.com>
- <20120712.081124.1207448876900334978.davem@davemloft.net>
- <20120712.081443.1373285885474644661.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] Ability to compile iproute2 as shared library
+Date: Thu, 12 Jul 2012 09:03:30 -0700
+Message-ID: <20120712090330.38dd5b37@nehalam.linuxnetplumber.net>
+References: <1342093501.19963.11.camel@gol>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: hamid jafarian <hamid.jafarian@pdnsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49507 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:43100 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755142Ab2GLPxj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2012 11:53:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20120712.081443.1373285885474644661.davem@davemloft.net>
+	id S1030689Ab2GLQDu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2012 12:03:50 -0400
+In-Reply-To: <1342093501.19963.11.camel@gol>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jul 12, 2012 at 05:14:43PM CEST, davem@davemloft.net wrote:
->From: David Miller <davem@davemloft.net>
->Date: Thu, 12 Jul 2012 08:11:24 -0700 (PDT)
->
->> From: Jiri Pirko <jpirko@redhat.com>
->> Date: Wed, 11 Jul 2012 17:34:01 +0200
->> 
->>> Jiri Pirko (3):
->>>   team: use function team_port_txable() for determing enabled and up
->>>     port
->>>   team: add broadcast mode
->>>   team: make team_port_enabled() and team_port_txable() static inline
->> 
->> All applied, thanks.
->
->Jiri, btw, any chance I can convince you to remove the EXPERIMENTAL
->Kconfig dependency?
->
->Code I've written and checked in myself over the past few days is
->several orders of magnitude more experimental than the team driver
->is :-)
+On Thu, 12 Jul 2012 16:14:54 +0430
+hamid jafarian <hamid.jafarian@pdnsoft.com> wrote:
 
-Hehe :) Nevertheless, I would like to keep this flag for some more time.
-I will remove that once I have all planned basic functionality in.
+> Hi,
+> 
+> This is a try with minimum changes to compile iproute2 as shared
+> library.
+> Some functions would be used when we compile iproute2 as
+> shared library has been defined in "ip.c".
+> Also NICs caching strategy has been changed because, when we use
+> "libiproute2.so", system NIC list may change, so we should
+> re-cache all NICs at each call to NIC manipulation functions.
+> Also some call of "exit(*)" changed to "return *".
+> HOWTO Make: # export LIBIPROUTE2_SO=y; make
+> 
+> in attached files there is a simple wrapper to work with 
+> libiproute2.so ...
+> 
 
-Jirka
+Thank you for the contribution. I can see how this could be useful
+in some limited embedded applications, but at this moment it doesn't
+seem to be generally worth adding to the upstream code.
+
+The patch does contain some cleanup bits for where the existing
+code is not freeing stuff. This should be fixed, independent of
+whether library support is added, because it would remove the number
+of leaks reported when testing under valgrind. Could you resubmit
+that part please.
