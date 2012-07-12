@@ -1,52 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Add missing license tag to nci.
-Date: Wed, 11 Jul 2012 17:24:01 -0700 (PDT)
-Message-ID: <20120711.172401.2279394394116582200.davem@davemloft.net>
-References: <20120711183157.GA19417@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [RFC PATCH 0/2] Coalesce MMIO writes for transmits
+Date: Wed, 11 Jul 2012 17:25:58 -0700
+Message-ID: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilane@ti.com,
-	linux-wireless@vger.kernel.org
-To: davej@redhat.com
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	edumazet@google.com, bhutchings@solarflare.com,
+	therbert@google.com, alexander.duyck@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52152 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758512Ab2GLAYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 20:24:02 -0400
-In-Reply-To: <20120711183157.GA19417@redhat.com>
+Received: from mga01.intel.com ([192.55.52.88]:21069 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755954Ab2GLAZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 20:25:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
-Date: Wed, 11 Jul 2012 14:31:57 -0400
+This patch set is meant to address recent issues I found with ixgbe
+performance being bound by Tx tail writes.  With these changes in place
+and the dispatch_limit set to 1 or more I see a significant increase in
+performance.
 
-> nci: module license 'unspecified' taints kernel.
-> 
-> Signed-off-by: Dave Jones <davej@redhat.com>
+In the case of one of my systems I saw the routing rate for 7 queues jump
+from 10.5 to 11.7Mpps.  The overall increase I have seen on most systems is
+something on the order of about 15%.  In the case of pktgen I have also
+seen a noticeable increase as the previous limit for transmits was
+~12.5Mpps, but with this patch set in place and the dispatch_limit enabled
+the value increases to ~14.2Mpps.
 
-NFC patches go to linux-wireless, CC:'d
+I expected there to be an increase in latency, however so far I have not
+ran into that.  I have tried running NPtcp tests for latency and seen no
+difference in the coalesced and non-coalesced transaction times.  I welcome
+any suggestions for tests I might run that might expose any latency issues
+as a result of this patch.
 
-> diff --git a/net/nfc/nci/core.c b/net/nfc/nci/core.c
-> index d560e6f..f18f207 100644
-> --- a/net/nfc/nci/core.c
-> +++ b/net/nfc/nci/core.c
-> @@ -27,6 +27,7 @@
->  
->  #define pr_fmt(fmt) KBUILD_MODNAME ": %s: " fmt, __func__
->  
-> +#include <linux/module.h>
->  #include <linux/types.h>
->  #include <linux/workqueue.h>
->  #include <linux/completion.h>
-> @@ -878,3 +879,5 @@ static void nci_cmd_work(struct work_struct *work)
->  			  jiffies + msecs_to_jiffies(NCI_CMD_TIMEOUT));
->  	}
->  }
-> +
-> +MODULE_LICENSE("GPL");
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+---
+
+Alexander Duyck (2):
+      ixgbe: Add functionality for delaying the MMIO write for Tx
+      net: Add new network device function to allow for MMIO batching
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   22 +++++++-
+ include/linux/netdevice.h                     |   57 +++++++++++++++++++++
+ net/core/dev.c                                |   67 +++++++++++++++++++++++++
+ net/core/net-sysfs.c                          |   36 +++++++++++++
+ 4 files changed, 180 insertions(+), 2 deletions(-)
+
+-- 
+Thanks,
+
+Alex
