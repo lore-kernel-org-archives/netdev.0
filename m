@@ -1,53 +1,130 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 1/2] tcp: Fix out of bounds access to tcpm_vals
-Date: Wed, 11 Jul 2012 18:46:51 -0700
-Message-ID: <4FFE2C8B.7080802@gmail.com>
-References: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com> <20120711.173249.1303803416502735349.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2/2] bonding: debugfs and network namespaces are incompatible
+Date: Wed, 11 Jul 2012 18:57:33 -0700
+Message-ID: <9056.1342058253@death.nxdomain>
+References: <20120706194741.GA22113@mail.hallyn.com> <87y5ms3bfi.fsf_-_@xmission.com> <87sjd03bdw.fsf_-_@xmission.com> <20120709.144932.243254122059983829.davem@davemloft.net> <15459.1341941772@death.nxdomain> <367b470c-c3f5-4555-be11-02223125b741@email.android.com> <16903.1341947581@death.nxdomain> <877gu9omrr.fsf@xmission.com>
+Cc: netdev@vger.kernel.org
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:52536 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756196Ab2GLBq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 21:46:57 -0400
-Received: by pbbrp8 with SMTP id rp8so2892841pbb.19
-        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 18:46:56 -0700 (PDT)
-In-Reply-To: <20120711.173249.1303803416502735349.davem@davemloft.net>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:48528 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756407Ab2GLB5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 21:57:38 -0400
+Received: from /spool/local
+	by e5.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Wed, 11 Jul 2012 21:57:37 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id DFDB338C805A
+	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 21:57:35 -0400 (EDT)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6C1vZ9t362852
+	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 21:57:35 -0400
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6C1vZCt014699
+	for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 19:57:35 -0600
+In-reply-to: <877gu9omrr.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/11/2012 5:32 PM, David Miller wrote:
-> From: Alexander Duyck<alexander.h.duyck@intel.com>
-> Date: Wed, 11 Jul 2012 17:18:04 -0700
+Eric W. Biederman <ebiederm@xmission.com> wrote:
+
+>Jay Vosburgh <fubar@us.ibm.com> writes:
 >
->> The recent patch "tcp: Maintain dynamic metrics in local cache." introduced
->> an out of bounds access due to what appears to be a typo.   I believe this
->> change should resolve the issue by replacing the access to RTAX_CWND with
->> TCP_METRIC_CWND.
+>> Eric W. Biederman <ebiederm@xmission.com> wrote:
+>
+>>>I haven't run across any of those network devices, but if they create a
+>>>debugfs entry that embeds the device name it will be a problem.
 >>
->> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
-> Applied, thanks a lot.
+>> 	A quick grep suggests that cxgb4, skge, sky2, stmmac, ipoib and
+>> half a dozen of the wireless drivers all create files in debugfs.  I did
+>> not check exhaustively, but at least some of them include the device
+>> name.
 >
-> How did you spot this, did you get a compiler warning?
+>Yep.  It looks like imperfect habits are common.
 >
-> I ask because while working on this, I at one point put the
-> tcp timestamp members after the metrics array in the
-> tcp_metrics_bucket struct.  And I got a warning from gcc about
-> an array bounds violation that I could not figure out.
+>>>Last I looked any custom user space interface from network devices was
+>>>rare and bonding using debugfs is the first instance of using debugfs
+>>>from networking devices I have seen.
+>>>
+>>>I think the problem will be a little less severe for physical network
+>>>devices as they all start in the initial network namespace and so start
+>>>with distinct names.
+>>>
+>>>With bonding I can do "ip link add type bond" in any network namespace
+>>>and get another bond0.  So name conflicts are very much expeted with all
+>>>virtual networking devices.
+>>
+>> 	Fair enough, although it is trivial to rename any network device
+>> such that a conflict would occur.
 >
-> I am pretty certain this bug here is what it was warning about.  And
-> the problem is that if you put the array at the end gcc doesn't warn
-> in order to handle things similar to what people use zero length
-> arrays for.
-It came up as a compiler warning.  I suspect it may have something to do 
-with the optimizations I had turned on since it complained that the 
-issue was in tcp_update_metrics but then reported it on the one line in 
-tcp_metric_set.
+>Actually for userspace and administrative reasons frequently it isn't
+>trivial to rename devices.
 
-Thanks,
+	Well, perhaps it's uncommon for users to do so, but "ip link set
+dev eth0 name eth44" is pretty easy to do.
 
-Alex
+>>>But if you know of any other networking devices using debugsfs that
+>>>code should probably get the same treatment as the bonding debugfs code.
+>>
+>> 	Is there no alternative than simply disabling debugfs whenever
+>> network namespaces are enabled?  The information bonding displays via
+>> debugfs is useful, and having it unavailable on all distro kernels seems
+>> a bit harsh.
+>
+>
+>I took a good hard look at debugfs while writing this reply and debufs
+>scares me.  It is the kind of code that just about wants to me to throw
+>in the towel seeing no hope of a good solid kernel. 
+>
+>I can definitely open a /sys/kernel/debug/bonding/bond0/rlb_hash_table
+>and delete the bond and then read the file.  On a bad day that will oops
+>the kernel, as there is nothing holding a reference to the network
+>device.  I think only the BOND_MODE_ALB check makes keeps the kernel
+>from oopsing in my quick tests.
+>
+>The fact that debugfs is enabled in distro kernels is actually apalling
+>to me.  debugfs makes it easy to oops the kernel.
+
+	I'm not so sure things are that bad.  I cannot unload the
+bonding module while a program holds an open file descriptor on its
+debugfs file (it appears to hold a reference to the module), so uses
+that only remove the debugfs file on module unload shouldn't have a
+problem.
+
+	The /proc file that bonding removes when an interface is
+dynamically removed does not have this problem, as subsequent reads on
+that file descriptor will fail.  I suspect that's because
+remove_proc_entry NULLs the proc_fops, whereas debugfs_remove does not
+do the equivalent for its case.  It may not be that simple, though; I'm
+just looking at the code and have not tested anything.
+
+>There are lots of alternatives to debugfs on where to put information
+>and the bonding driver already uses most of them.
+>
+>> 	Why is the logic already in the driver not sufficient?  If the
+>> attempt to create the debugfs directory with the interface name fails,
+>> then it merely prints a warning and continues without the debugfs for
+>> that interface.
+>
+>All I know for certain is the existing logic will eventually cause
+>someone doing something reasonable to send me a bug report.
+>
+>I can see where you are coming from in that the bonding driver debugfs
+>code really was built to gracefully fail and ignore problems of instead
+>of just hapharzardly and sloppily ignore problems.  At the same time
+>I can oops the kernel if I try with your debugfs in the bonding driver.
+>
+>But it causes the code to fail and issue a warning.  So if I don't
+>disable the code now, I expect I will get a bug report, and who
+>knows how many sill files in bonding will have in debugfs by then.
+>what silly things bonding may be doing in debugfs by then.
+
+	Or perhaps we can fix the debugfs support to function correctly
+even in the face of network namespaces.  For example, do namespaces have
+a unique name or identifier than can go into the debugfs name?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
