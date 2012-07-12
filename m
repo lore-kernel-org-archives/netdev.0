@@ -1,114 +1,49 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: Re: [PATCH 4/4] asix: Add a new driver for the AX88172A
-Date: Thu, 12 Jul 2012 09:22:58 +0200
-Message-ID: <CABkLObpRNpcEjFYaUUEjnEWN-8snQZaa27+CCO7pHnR7kPVMUg@mail.gmail.com>
-References: <1341574388-7464-1-git-send-email-christian.riesch@omicron.at>
-	<1341574388-7464-5-git-send-email-christian.riesch@omicron.at>
-	<CANEJEGu3iTDYJD+ZpcwgRCZTF8a_bi9kWSuKK4eaHzS1uL+ZxA@mail.gmail.com>
-	<CABkLObon+CkLJagu2pX0OBGpNzSn9NfyM353h2BQ68viy2Bq6Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
+Date: Thu, 12 Jul 2012 09:34:19 +0200
+Message-ID: <1342078459.3265.8244.camel@edumazet-glaptop>
+References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
+	<1340945457.29822.7.camel@edumazet-glaptop>
+	<1341396687.2583.1757.camel@edumazet-glaptop>
+	<20120709.000834.1182150057463599677.davem@davemloft.net>
+	<1341845722.3265.3065.camel@edumazet-glaptop>
+	<1341933215.3265.5476.camel@edumazet-glaptop>
+	<1342019518.3265.8116.camel@edumazet-glaptop> <4FFDC985.6050805@hp.com>
+	<1342050592.3265.8195.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Allan Chou <allan@asix.com.tw>,
-	Mark Lord <kernel@teksavvy.com>,
-	Ming Lei <tom.leiming@gmail.com>,
-	Michael Riesch <michael@riesch.at>
-To: Grant Grundler <grundler@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:45896 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949Ab2GLHW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 03:22:58 -0400
-Received: by yhmm54 with SMTP id m54so2400394yhm.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 00:22:58 -0700 (PDT)
-In-Reply-To: <CABkLObon+CkLJagu2pX0OBGpNzSn9NfyM353h2BQ68viy2Bq6Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: nanditad@google.com, netdev@vger.kernel.org, mattmathis@google.com,
+	codel@lists.bufferbloat.net, ncardwell@google.com,
+	David Miller <davem@davemloft.net>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1342050592.3265.8195.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
 
-Hi Grant,
+On Thu, 2012-07-12 at 01:49 +0200, Eric Dumazet wrote:
 
-On Mon, Jul 9, 2012 at 12:22 PM, Christian Riesch
-<christian.riesch@omicron.at> wrote:
-> Grant,
->
-> On Fri, Jul 6, 2012 at 11:20 PM, Grant Grundler <grundler@chromium.org> wrote:
->> On Fri, Jul 6, 2012 at 4:33 AM, Christian Riesch
->> <christian.riesch@omicron.at> wrote:
->>> The Asix AX88172A is a USB 2.0 Ethernet interface that supports both an
->>> internal PHY as well as an external PHY (connected via MII).
->>>
->>> This patch adds a driver for the AX88172A and provides support for
->>> both modes and supports phylib.
->>
->> Christian,
->> In general this looks fine to me...but I wouldn't know about "bus
->> identifier life times" (Ben Hutchings comment).
->>
->> My nit pick is the declaration and of use_embdphy. An alternative
->> coding _suggestion_ below.  I'm not substantially altering the
->> functionality.
->>
->> thanks,
->> grant
->
-> [...]
->
->>> +
->>> +struct ax88172a_private {
->>> +       int use_embdphy;
->>
->> Can you move the "int" to the end of the struct?
->> It's cleaner to have fields "natively align". ie pointers should start
->> at 8 byte alignments when compiled for 64-bit.
->>
->>> +       struct mii_bus *mdio;
->>> +       struct phy_device *phydev;
->>> +       char phy_name[20];
->>> +       u16 phy_addr;
->>> +       u16 oldmode;
->>> +};
->>> +
->
-> [...]
->
->>> +       /* are we using the internal or the external phy? */
->>> +       ret = asix_read_cmd(dev, AX_CMD_SW_PHY_STATUS, 0, 0, 1, buf);
->>> +       if (ret < 0) {
->>> +               dbg("Failed to read software interface selection register: %d",
->>> +                   ret);
->>> +               goto free;
->>> +       }
->>> +       dbg("AX_CMD_SW_PHY_STATUS = 0x%02x\n", buf[0]);
->>> +       switch ((buf[0] & 0x0c) >> 2) {
->>> +       case 0:
->>> +               dbg("use internal phy\n");
->>> +               priv->use_embdphy = 1;
->>> +               break;
->>> +       case 1:
->>> +               dbg("use external phy\n");
->>> +               priv->use_embdphy = 0;
->>> +               break;
->>> +       default:
->>> +               dbg("Interface mode not supported by driver\n");
->>> +               goto free;
->>> +       }
->>
->> This switch statement inverts the existing logic. Much simpler code would be:
->>     /* buf[0] & 0xc describes phy interface mode */
->>     if (buf[0] &  8) {
->>          dbg("Interface mode not supported by driver\n");
->>          goto free;
->>     }
->>     priv->use_extphy = (buf[0] & 4) >> 2;
->>
->
-> Thank your for your comments! I'll change that in the next version!
-> Regards, Christian
+> The 10Gb receiver is a net-next kernel, but the 1Gb receiver is a 2.6.38
+> ubuntu kernel. They probably have very different TCP behavior.
 
-After rethinking it I decided to keep the switch structure, but use
-defines for the different modes and the bitmask. I think this will be
-easier to understand. I will submit a new version of the patchset
-later today, please have a look at it.
-Thanks!
-Christian
+
+I tested TSQ on bnx2x and 10Gb links.
+
+I get full rate even using 65536 bytes for
+the /proc/sys/net/ipv4/tcp_limit_output_bytes tunable
+
+OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.246.8.37 () port 0 AF_INET : histogram
+Local       Remote      Local  Elapsed Throughput Throughput  Local Local  Remote Remote Local   Remote  Service  
+Send Socket Recv Socket Send   Time               Units       CPU   CPU    CPU    CPU    Service Service Demand   
+Size        Size        Size   (sec)                          Util  Util   Util   Util   Demand  Demand  Units    
+Final       Final                                             %     Method %      Method                          
+1606536     2097152     16384  20.00   9411.12    10^6bits/s  2.40  S      4.27   S      0.502   0.892   usec/KB  
