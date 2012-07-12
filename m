@@ -1,306 +1,201 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 13/16] ipv6: Add redirect support to all protocol icmp
- error handlers.
-Date: Thu, 12 Jul 2012 01:12:12 -0700 (PDT)
-Message-ID: <20120712.011212.345092134877777384.davem@davemloft.net>
+Subject: [PATCH 11/16] ipv6: Pull main logic of rt6_redirect() into
+ rt6_do_redirect().
+Date: Thu, 12 Jul 2012 01:11:52 -0700 (PDT)
+Message-ID: <20120712.011152.2075702285333417131.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54769 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54762 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932904Ab2GLIMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:12:12 -0400
+	with ESMTP id S932465Ab2GLILx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:11:53 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 9A2215824C0
-	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:12:14 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 7D74E5824C5
+	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:11:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Hook it into dst_ops->redirect as well.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/sctp/sctp.h |    2 ++
- net/dccp/ipv6.c         |    7 +++++++
- net/ipv6/ah6.c          |   10 ++++++----
- net/ipv6/esp6.c         |   11 +++++++----
- net/ipv6/ip6_tunnel.c   |    7 +++++++
- net/ipv6/ipcomp6.c      |   11 +++++++----
- net/ipv6/raw.c          |    2 ++
- net/ipv6/sit.c          |    8 ++++++++
- net/ipv6/tcp_ipv6.c     |    7 +++++++
- net/ipv6/udp.c          |    2 ++
- net/ipv6/xfrm6_policy.c |    9 +++++++++
- net/sctp/input.c        |    4 ++--
- net/sctp/ipv6.c         |    3 +++
- 13 files changed, 69 insertions(+), 14 deletions(-)
+ net/ipv6/route.c |   80 +++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 49 insertions(+), 31 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index a2ef814..1f2735d 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -162,6 +162,8 @@ struct sock *sctp_err_lookup(int family, struct sk_buff *,
- void sctp_err_finish(struct sock *, struct sctp_association *);
- void sctp_icmp_frag_needed(struct sock *, struct sctp_association *,
- 			   struct sctp_transport *t, __u32 pmtu);
-+void sctp_icmp_redirect(struct sock *, struct sctp_transport *,
-+			struct sk_buff *);
- void sctp_icmp_proto_unreachable(struct sock *sk,
- 				 struct sctp_association *asoc,
- 				 struct sctp_transport *t);
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 02162cf..b4d7d28 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -130,6 +130,13 @@ static void dccp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 73cf3f78..545b152 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -79,6 +79,7 @@ static int		ip6_pkt_discard(struct sk_buff *skb);
+ static int		ip6_pkt_discard_out(struct sk_buff *skb);
+ static void		ip6_link_failure(struct sk_buff *skb);
+ static void		ip6_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
++static void		rt6_do_redirect(struct dst_entry *dst, struct sk_buff *skb);
  
- 	np = inet6_sk(sk);
- 
-+	if (type == NDISC_REDIRECT) {
-+		struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
-+
-+		if (dst && dst->ops->redirect)
-+			dst->ops->redirect(dst, skb);
-+	}
-+
- 	if (type == ICMPV6_PKT_TOOBIG) {
- 		struct dst_entry *dst = NULL;
- 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index 49d4d26..7e61395 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -613,16 +613,18 @@ static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	struct xfrm_state *x;
- 
- 	if (type != ICMPV6_DEST_UNREACH &&
--	    type != ICMPV6_PKT_TOOBIG)
-+	    type != ICMPV6_PKT_TOOBIG &&
-+	    type != NDISC_REDIRECT)
- 		return;
- 
- 	x = xfrm_state_lookup(net, skb->mark, (xfrm_address_t *)&iph->daddr, ah->spi, IPPROTO_AH, AF_INET6);
- 	if (!x)
- 		return;
- 
--	NETDEBUG(KERN_DEBUG "pmtu discovery on SA AH/%08x/%pI6\n",
--		 ntohl(ah->spi), &iph->daddr);
--	ip6_update_pmtu(skb, net, info, 0, 0);
-+	if (type == NDISC_REDIRECT)
-+		ip6_redirect(skb, net, 0, 0);
-+	else
-+		ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+ static struct rt6_info *rt6_add_route_info(struct net *net,
+@@ -174,6 +175,7 @@ static struct dst_ops ip6_dst_ops_template = {
+ 	.negative_advice	=	ip6_negative_advice,
+ 	.link_failure		=	ip6_link_failure,
+ 	.update_pmtu		=	ip6_rt_update_pmtu,
++	.redirect		=	rt6_do_redirect,
+ 	.local_out		=	__ip6_local_out,
+ 	.neigh_lookup		=	ip6_neigh_lookup,
+ };
+@@ -1690,28 +1692,26 @@ static struct rt6_info *ip6_route_redirect(const struct in6_addr *dest,
+ 						   flags, __ip6_route_redirect);
  }
  
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 89a615b..6dc7fd3 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -434,16 +434,19 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	struct xfrm_state *x;
+-void rt6_redirect(struct sk_buff *skb)
++static void rt6_do_redirect(struct dst_entry *dst, struct sk_buff *skb)
+ {
+ 	struct net *net = dev_net(skb->dev);
+ 	struct netevent_redirect netevent;
+ 	struct rt6_info *rt, *nrt = NULL;
+ 	const struct in6_addr *target;
+-	struct neighbour *old_neigh;
+-	const struct in6_addr *dest;
+-	const struct in6_addr *src;
+-	const struct in6_addr *saddr;
+ 	struct ndisc_options ndopts;
++	const struct in6_addr *dest;
++	struct neighbour *old_neigh;
+ 	struct inet6_dev *in6_dev;
+ 	struct neighbour *neigh;
+ 	struct icmp6hdr *icmph;
+-	int on_link, optlen;
+-	u8 *lladdr = NULL;
++	int optlen, on_link;
++	u8 *lladdr;
  
- 	if (type != ICMPV6_DEST_UNREACH &&
--	    type != ICMPV6_PKT_TOOBIG)
-+	    type != ICMPV6_PKT_TOOBIG &&
-+	    type != NDISC_REDIRECT)
- 		return;
+ 	optlen = skb->tail - skb->transport_header;
+ 	optlen -= sizeof(struct icmp6hdr) + 2 * sizeof(struct in6_addr);
  
- 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
- 			      esph->spi, IPPROTO_ESP, AF_INET6);
- 	if (!x)
+ 	if (optlen < 0) {
+-		net_dbg_ratelimited("rt6_redirect: packet too short\n");
++		net_dbg_ratelimited("rt6_do_redirect: packet too short\n");
  		return;
--	pr_debug("pmtu discovery on SA ESP/%08x/%pI6\n",
--		 ntohl(esph->spi), &iph->daddr);
--	ip6_update_pmtu(skb, net, info, 0, 0);
+ 	}
+ 
+@@ -1720,15 +1720,16 @@ void rt6_redirect(struct sk_buff *skb)
+ 	dest = target + 1;
+ 
+ 	if (ipv6_addr_is_multicast(dest)) {
+-		net_dbg_ratelimited("rt6_redirect: destination address is multicast\n");
++		net_dbg_ratelimited("rt6_do_redirect: destination address is multicast\n");
+ 		return;
+ 	}
+ 
++	on_link = 0;
+ 	if (ipv6_addr_equal(dest, target)) {
+ 		on_link = 1;
+ 	} else if (ipv6_addr_type(target) !=
+ 		   (IPV6_ADDR_UNICAST|IPV6_ADDR_LINKLOCAL)) {
+-		net_dbg_ratelimited("rt6_redirect: target address is not link-local unicast\n");
++		net_dbg_ratelimited("rt6_do_redirect: target address is not link-local unicast\n");
+ 		return;
+ 	}
+ 
+@@ -1747,6 +1748,8 @@ void rt6_redirect(struct sk_buff *skb)
+ 		net_dbg_ratelimited("rt6_redirect: invalid ND options\n");
+ 		return;
+ 	}
 +
-+	if (type == NDISC_REDIRECT)
-+		ip6_redirect(skb, net, 0, 0);
-+	else
-+		ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
- }
- 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 6af3fcf..0b5b60e 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -550,6 +550,9 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		rel_type = ICMP_DEST_UNREACH;
- 		rel_code = ICMP_FRAG_NEEDED;
- 		break;
-+	case NDISC_REDIRECT:
-+		rel_type = ICMP_REDIRECT;
-+		rel_code = ICMP_REDIR_HOST;
- 	default:
- 		return 0;
++	lladdr = NULL;
+ 	if (ndopts.nd_opts_tgt_lladdr) {
+ 		lladdr = ndisc_opt_addr_data(ndopts.nd_opts_tgt_lladdr,
+ 					     skb->dev);
+@@ -1756,19 +1759,26 @@ void rt6_redirect(struct sk_buff *skb)
+ 		}
  	}
-@@ -608,6 +611,10 @@ ip4ip6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
  
- 		skb_dst(skb2)->ops->update_pmtu(skb_dst(skb2), rel_info);
- 	}
-+	if (rel_type == ICMP_REDIRECT) {
-+		if (skb_dst(skb2)->ops->redirect)
-+			skb_dst(skb2)->ops->redirect(skb_dst(skb2), skb2);
+-	neigh = __neigh_lookup(&nd_tbl, target, skb->dev, 1);
+-	if (!neigh)
++	rt = (struct rt6_info *) dst;
++	if (rt == net->ipv6.ip6_null_entry) {
++		net_dbg_ratelimited("rt6_redirect: source isn't a valid nexthop for redirect target\n");
+ 		return;
 +	}
  
- 	icmp_send(skb2, rel_type, rel_code, htonl(rel_info));
+-	src = &ipv6_hdr(skb)->daddr;
+-	saddr = &ipv6_hdr(skb)->saddr;
++	/* Redirect received -> path was valid.
++	 * Look, redirects are sent only in response to data packets,
++	 * so that this nexthop apparently is reachable. --ANK
++	 */
++	dst_confirm(&rt->dst);
  
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index 9283238..7af5aee 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -64,7 +64,9 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		(struct ip_comp_hdr *)(skb->data + offset);
- 	struct xfrm_state *x;
+-	rt = ip6_route_redirect(dest, src, saddr, neigh->dev);
++	neigh = __neigh_lookup(&nd_tbl, target, skb->dev, 1);
++	if (!neigh)
++		return;
  
--	if (type != ICMPV6_DEST_UNREACH && type != ICMPV6_PKT_TOOBIG)
-+	if (type != ICMPV6_DEST_UNREACH &&
-+	    type != ICMPV6_PKT_TOOBIG &&
-+	    type != NDISC_REDIRECT)
- 		return;
- 
- 	spi = htonl(ntohs(ipcomph->cpi));
-@@ -73,9 +75,10 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	if (!x)
- 		return;
- 
--	pr_debug("pmtu discovery on SA IPCOMP/%08x/%pI6\n",
--		 spi, &iph->daddr);
--	ip6_update_pmtu(skb, net, info, 0, 0);
-+	if (type == NDISC_REDIRECT)
-+		ip6_redirect(skb, net, 0, 0);
-+	else
-+		ip6_update_pmtu(skb, net, info, 0, 0);
- 	xfrm_state_put(x);
- }
- 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index b5c1dcb..ef0579d 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -332,6 +332,8 @@ static void rawv6_err(struct sock *sk, struct sk_buff *skb,
- 		ip6_sk_update_pmtu(skb, sk, info);
- 		harderr = (np->pmtudisc == IPV6_PMTUDISC_DO);
- 	}
-+	if (type == NDISC_REDIRECT)
-+		ip6_sk_redirect(skb, sk);
- 	if (np->recverr) {
- 		u8 *payload = skb->data;
- 		if (!inet->hdrincl)
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 49aea94..fbf1622 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -539,6 +539,8 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 		if (code != ICMP_EXC_TTL)
- 			return 0;
- 		break;
-+	case ICMP_REDIRECT:
-+		break;
- 	}
- 
- 	err = -ENOENT;
-@@ -557,6 +559,12 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 		err = 0;
+-	if (rt == net->ipv6.ip6_null_entry) {
+-		net_dbg_ratelimited("rt6_redirect: source isn't a valid nexthop for redirect target\n");
++	/* Duplicate redirect: silently ignore. */
++	old_neigh = rt->n;
++	if (neigh == old_neigh)
  		goto out;
- 	}
-+	if (type == ICMP_REDIRECT) {
-+		ipv4_redirect(skb, dev_net(skb->dev), t->dev->ifindex, 0,
-+			      IPPROTO_IPV6, 0);
-+		err = 0;
-+		goto out;
-+	}
+-	}
  
- 	if (t->parms.iph.daddr == 0)
+ 	/*
+ 	 *	We have finally decided to accept it.
+@@ -1781,18 +1791,6 @@ void rt6_redirect(struct sk_buff *skb)
+ 				     NEIGH_UPDATE_F_ISROUTER))
+ 		     );
+ 
+-	/*
+-	 * Redirect received -> path was valid.
+-	 * Look, redirects are sent only in response to data packets,
+-	 * so that this nexthop apparently is reachable. --ANK
+-	 */
+-	dst_confirm(&rt->dst);
+-
+-	/* Duplicate redirect: silently ignore. */
+-	old_neigh = rt->n;
+-	if (neigh == old_neigh)
+-		goto out;
+-
+ 	nrt = ip6_rt_copy(rt, dest);
+ 	if (!nrt)
  		goto out;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 70458a9..7249e4b 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -363,6 +363,13 @@ static void tcp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+@@ -1815,12 +1813,32 @@ void rt6_redirect(struct sk_buff *skb)
+ 	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
  
- 	np = inet6_sk(sk);
+ 	if (rt->rt6i_flags & RTF_CACHE) {
++		rt = (struct rt6_info *) dst_clone(&rt->dst);
+ 		ip6_del_rt(rt);
+-		return;
+ 	}
  
-+	if (type == NDISC_REDIRECT) {
-+		struct dst_entry *dst = __sk_dst_check(sk, np->dst_cookie);
-+
-+		if (dst && dst->ops->redirect)
-+			dst->ops->redirect(dst,skb);
-+	}
-+
- 	if (type == ICMPV6_PKT_TOOBIG) {
- 		struct dst_entry *dst;
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1ecd102..99d0077 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -483,6 +483,8 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 
- 	if (type == ICMPV6_PKT_TOOBIG)
- 		ip6_sk_update_pmtu(skb, sk, info);
-+	if (type == NDISC_REDIRECT)
-+		ip6_sk_redirect(skb, sk);
- 
- 	np = inet6_sk(sk);
- 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index bb02038..f5a9cb8 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -215,6 +215,14 @@ static void xfrm6_update_pmtu(struct dst_entry *dst, u32 mtu)
- 	path->ops->update_pmtu(path, mtu);
- }
- 
-+static void xfrm6_redirect(struct dst_entry *dst, struct sk_buff *skb)
-+{
-+	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-+	struct dst_entry *path = xdst->route;
-+
-+	path->ops->redirect(path, skb);
+ out:
+ 	neigh_release(neigh);
 +}
 +
- static void xfrm6_dst_destroy(struct dst_entry *dst)
- {
- 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-@@ -261,6 +269,7 @@ static struct dst_ops xfrm6_dst_ops = {
- 	.protocol =		cpu_to_be16(ETH_P_IPV6),
- 	.gc =			xfrm6_garbage_collect,
- 	.update_pmtu =		xfrm6_update_pmtu,
-+	.redirect =		xfrm6_redirect,
- 	.cow_metrics =		dst_cow_metrics_generic,
- 	.destroy =		xfrm6_dst_destroy,
- 	.ifdown =		xfrm6_dst_ifdown,
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 9fb4247..5943b7d 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -423,8 +423,8 @@ void sctp_icmp_frag_needed(struct sock *sk, struct sctp_association *asoc,
- 	sctp_retransmit(&asoc->outqueue, t, SCTP_RTXR_PMTUD);
++void rt6_redirect(struct sk_buff *skb)
++{
++	const struct in6_addr *target;
++	const struct in6_addr *dest;
++	const struct in6_addr *src;
++	const struct in6_addr *saddr;
++	struct icmp6hdr *icmph;
++	struct rt6_info *rt;
++
++	icmph = icmp6_hdr(skb);
++	target = (const struct in6_addr *) (icmph + 1);
++	dest = target + 1;
++
++	src = &ipv6_hdr(skb)->daddr;
++	saddr = &ipv6_hdr(skb)->saddr;
++
++	rt = ip6_route_redirect(dest, src, saddr, skb->dev);
++	rt6_do_redirect(&rt->dst, skb);
+ 	dst_release(&rt->dst);
  }
  
--static void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
--			       struct sk_buff *skb)
-+void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
-+			struct sk_buff *skb)
- {
- 	struct dst_entry *dst;
- 
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 91f4791..ed7139e 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -185,6 +185,9 @@ SCTP_STATIC void sctp_v6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			goto out_unlock;
- 		}
- 		break;
-+	case NDISC_REDIRECT:
-+		sctp_icmp_redirect(sk, transport, skb);
-+		break;
- 	default:
- 		break;
- 	}
 -- 
 1.7.10.4
