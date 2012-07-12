@@ -1,48 +1,92 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 02/16] ipv4: Deliver ICMP redirects to sockets too.
-Date: Thu, 12 Jul 2012 01:10:49 -0700 (PDT)
-Message-ID: <20120712.011049.831106026936792516.davem@davemloft.net>
+Subject: [PATCH 03/16] ipv4: Pull redirect instantiation out into a helper
+ function.
+Date: Thu, 12 Jul 2012 01:10:56 -0700 (PDT)
+Message-ID: <20120712.011056.1351038732588424856.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54726 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54727 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753259Ab2GLIKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:10:50 -0400
+	with ESMTP id S1758807Ab2GLIK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 04:10:57 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 99B7C5824C0
-	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:10:51 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id C41615824C0
+	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 01:10:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-And thus, we can remove the ping_err() hack.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/icmp.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ net/ipv4/route.c |   37 ++++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 18e39d1..5885146 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -782,13 +782,7 @@ static void icmp_redirect(struct sk_buff *skb)
- 		break;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 95bfa1b..a4de87f 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1271,6 +1271,26 @@ static void rt_del(unsigned int hash, struct rtable *rt)
+ 	spin_unlock_bh(rt_hash_lock_addr(hash));
+ }
+ 
++static void ip_do_redirect(struct rtable *rt, __be32 old_gw, __be32 new_gw)
++{
++	struct neighbour *n;
++
++	if (rt->rt_gateway != old_gw)
++		return;
++
++	n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
++	if (n) {
++		if (!(n->nud_state & NUD_VALID)) {
++			neigh_event_send(n, NULL);
++		} else {
++			rt->rt_gateway = new_gw;
++			rt->rt_flags |= RTCF_REDIRECTED;
++			call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
++		}
++		neigh_release(n);
++	}
++}
++
+ /* called in rcu_read_lock() section */
+ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 		    __be32 saddr, struct net_device *dev)
+@@ -1311,8 +1331,6 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 			rthp = &rt_hash_table[hash].chain;
+ 
+ 			while ((rt = rcu_dereference(*rthp)) != NULL) {
+-				struct neighbour *n;
+-
+ 				rthp = &rt->dst.rt_next;
+ 
+ 				if (rt->rt_key_dst != daddr ||
+@@ -1322,21 +1340,10 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
+ 				    rt_is_expired(rt) ||
+ 				    !net_eq(dev_net(rt->dst.dev), net) ||
+ 				    rt->dst.error ||
+-				    rt->dst.dev != dev ||
+-				    rt->rt_gateway != old_gw)
++				    rt->dst.dev != dev)
+ 					continue;
+ 
+-				n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
+-				if (n) {
+-					if (!(n->nud_state & NUD_VALID)) {
+-						neigh_event_send(n, NULL);
+-					} else {
+-						rt->rt_gateway = new_gw;
+-						rt->rt_flags |= RTCF_REDIRECTED;
+-						call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
+-					}
+-					neigh_release(n);
+-				}
++				ip_do_redirect(rt, old_gw, new_gw);
+ 			}
+ 		}
  	}
- 
--	/* Ping wants to see redirects.
--         * Let's pretend they are errors of sorts... */
--	if (iph->protocol == IPPROTO_ICMP &&
--	    iph->ihl >= 5 &&
--	    pskb_may_pull(skb, (iph->ihl<<2)+8)) {
--		ping_err(skb, icmp_hdr(skb)->un.gateway);
--	}
-+	icmp_socket_deliver(skb, icmp_hdr(skb)->un.gateway);
- 
- out:
- 	return;
 -- 
 1.7.10.4
