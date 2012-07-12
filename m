@@ -1,49 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 05/16] ipv4: Generalize ip_do_redirect() and hook into
- new dst_ops->redirect.
-Date: Thu, 12 Jul 2012 02:05:25 -0700
-Message-ID: <1342083925.7969.6.camel@joe2Laptop>
-References: <20120712.011108.1163869605581840179.davem@davemloft.net>
+From: =?UTF-8?B?QWxla3NhbmRyIEtvdG92?= <a1k@mail.ru>
+Subject: =?UTF-8?B?QUZfUEFDS0VUICsgUEFDS0VUX0ZBTk9VVDogdHggcGFja2V0IGRlbGl2ZXJl?=
+ =?UTF-8?B?ZCBiYWNrIGluIHJ4?=
+Date: Thu, 12 Jul 2012 12:30:17 +0400
+Message-ID: <1342081817.394175102@f168.mail.ru>
+Reply-To: =?UTF-8?B?QWxla3NhbmRyIEtvdG92?= <a1k@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: =?UTF-8?B?RGF2aWQgTWlsbGVy?= <davem@davemloft.net>,
+	netdev@vger.kernel.org, =?UTF-8?B?TXZT?= <miquels@drinkel.ow.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:34464 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933143Ab2GLJFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2012 05:05:25 -0400
-In-Reply-To: <20120712.011108.1163869605581840179.davem@davemloft.net>
+Received: from fallback6.mail.ru ([94.100.176.134]:57472 "EHLO
+	fallback6.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932983Ab2GLJHm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 05:07:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-12 at 01:11 -0700, David Miller wrote:
-> All of the redirect acceptance policy is now contained within.
-[]
-> @@ -1271,42 +1273,18 @@ static void rt_del(unsigned int hash, struct rtable *rt)
->  	spin_unlock_bh(rt_hash_lock_addr(hash));
->  }
->  
-> -static void ip_do_redirect(struct rtable *rt, __be32 old_gw, __be32 new_gw)
-> -{
-> -	struct neighbour *n;
-> -
-> -	if (rt->rt_gateway != old_gw)
-> -		return;
-> -
-> -	n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
-> -	if (n) {
-> -		if (!(n->nud_state & NUD_VALID)) {
-> -			neigh_event_send(n, NULL);
-> -		} else {
-> -			rt->rt_gateway = new_gw;
-> -			rt->rt_flags |= RTCF_REDIRECTED;
-> -			call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
-> -		}
-> -		neigh_release(n);
-> -	}
-> -}
-
-Oh well, nevermind about the comment I made in 3/6.
-I should read the whole thing first.
+SSBoYXZlIGEgcHJvYmxlbSB1c2luZyBBRl9QQUNLRVQgc29ja2V0IHdpdGggUEFDS0VUX1JYX1JJ
+TkcsIFBBQ0tFVF9UWF9SSU5HIGFuZCBQQUNLRVRfRkFOT1VUIG9wdGlvbnMgZW5hYmxlZC4KSSBh
+bSBzZWVpbmcgbXkgVFggcGFja2V0cyBnZXQgYmFjayB0byB0aGUgc2FtZSBzb2NrZXQgaW4gUlgg
+cmluZy4gU29ja2V0IGlzIGNyZWF0ZWQgYW5kIGdldHMgYmluZCB3aXRoIEVUSF9QX0FMTCBwcm90
+b2NvbCB0eXBlLiBUaGUgcHJvYmxlbSBpcyBpbiB0aGUgZmFub3V0X2FkZCBmdW5jdGlvbiAKd2hp
+Y2ggc2V0cyBhZl9wYWNrZXRfcHJpdiB0byAibWF0Y2giIHZhcmlhYmxlLCBidXQgbm90IHNrIG9u
+ZSBkZXNjcmliaW5nIHNvY2tldCBhbmQgaW4gZGV2X3F1ZXVlX3htaXRfbml0IHNrYiBnZXQgYm91
+bmNlZCBiYWNrIHRvIHRoZSBzb2NrZXQgZGVzcGl0ZSB0aGUgY29tbWVudCBsZWZ0IGluIHRoZSBm
+dW5jdGlvbi4KCmZhbm91dF9hZGQoc3RydWN0IHNvY2sgKnNrLCB1MTYgaWQsIHUxNiB0eXBlX2Zs
+YWdzKQogICAgLi4uLgogICAgIG1hdGNoLT5wcm90X2hvb2suYWZfcGFja2V0X3ByaXYgPSBtYXRj
+aDsKICAgIC4uLi4KCmRldl9xdWV1ZV94bWl0X25pdAogICAgICAgbGlzdF9mb3JfZWFjaF9lbnRy
+eV9yY3UocHR5cGUsICZwdHlwZV9hbGwsIGxpc3QpIHsKICAgICAgICAgICAgICAgIC8qIE5ldmVy
+IHNlbmQgcGFja2V0cyBiYWNrIHRvIHRoZSBzb2NrZXQKICAgICAgICAgICAgICAgICAqIHRoZXkg
+b3JpZ2luYXRlZCBmcm9tIC0gTXZTIChtaXF1ZWxzQGRyaW5rZWwub3cub3JnKQogICAgICAgICAg
+ICAgICAgICovCiAgICAgICAgICAgICAgICBpZiAoKHB0eXBlLT5kZXYgPT0gZGV2IHx8ICFwdHlw
+ZS0+ZGV2KSAmJgogICAgICAgICAgICAgICAgICAgIChwdHlwZS0+YWZfcGFja2V0X3ByaXYgPT0g
+TlVMTCB8fAogICAgICAgICAgICAgICAgICAgICAoc3RydWN0IHNvY2sgKilwdHlwZS0+YWZfcGFj
+a2V0X3ByaXYgIT0gc2tiLT5zaykpIHsKCkFzIHNhaWQgaW4gRGF2aWQgTWlsbGVyIGNvbW1lbnQg
+Zm9yIFBBQ0tFVF9GQU5PVVQgcGF0Y2g6CgoiVGhlIGltcGxlbWVudGF0aW9uIGlzIGFnbm9zdGlj
+IHRvIHRoZSB0eXBlIG9mIEFGX1BBQ0tFVCBzb2NrZXRzIGluCnVzZS4gIFlvdSBjYW4gdXNlIF9t
+bWFwXyBiYXNlZCwgYW5kIG5vbi1tbWFwIGJhc2VkLCBBRl9QQUNLRVQgc29ja2V0cy4KSXQgc2lt
+cGx5IGRvZXNuJ3QgY2FyZS4iClNvIEkgdGhpbmsgaXQgaXMgbGVnYWwgdG8gdXNlZCBtbWFwZWQg
+QUZfUEFDS0VULy4KCgpJcyB0aGVyZSBhbnkgd2F5IHRvIHVzZSBpdCBjb3JyZWN0bHkgd2l0aCBw
+YWNrZXRzIG5vdCBtaXJyb3JpbmcgaW4gcng/IAoKQmVzdCByZWdhcmQsIEFsZWtzYW5kciBLb3Rv
+dgoKLS0gCgo=
