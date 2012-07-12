@@ -1,67 +1,63 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [RFC PATCH v2] tcp: TCP Small Queues
-Date: Thu, 12 Jul 2012 12:44:55 -0400
-Message-ID: <CABrhC0mONb3Ki5YYM1rfiBZnCKd2tYFvdYpuur-u3gDYRii1tw@mail.gmail.com>
-References: <CAA93jw7ywd0auqN=k2J4fLOGYMLRH+agWr4P+_CisgvRtvgJUw@mail.gmail.com>
-	<1340945457.29822.7.camel@edumazet-glaptop>
-	<1341396687.2583.1757.camel@edumazet-glaptop>
-	<20120709.000834.1182150057463599677.davem@davemloft.net>
-	<1341845722.3265.3065.camel@edumazet-glaptop>
-	<1341933215.3265.5476.camel@edumazet-glaptop>
-	<CABrhC0=Ls7G-noW1cjsyiF+G5v9f9R=bi6JvrOoT5ZDQB=gSXg@mail.gmail.com>
-	<1342100812.3265.8260.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Remove tb_peers from fib_table.
+Date: Thu, 12 Jul 2012 09:46:45 -0700 (PDT)
+Message-ID: <20120712.094645.1971211672785513777.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, ycheng@google.com,
-	dave.taht@gmail.com, netdev@vger.kernel.org,
-	codel@lists.bufferbloat.net, therbert@google.com,
-	mattmathis@google.com, nanditad@google.com, ncardwell@google.com,
-	andrewmcgr@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:33771 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755233Ab2GLQo4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 12:44:56 -0400
-Received: by gglu4 with SMTP id u4so2623483ggl.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 09:44:56 -0700 (PDT)
-In-Reply-To: <1342100812.3265.8260.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58397 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755233Ab2GLQqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 12:46:47 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 3912058347C
+	for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 09:46:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 12, 2012 at 9:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2012-07-12 at 09:33 -0400, John Heffner wrote:
->> One general question: why a per-connection limit?  I haven't been
->> following the bufferbloat conversation closely so I may have missed
->> some of the conversation.  But it seems that multiple connections will
->> still cause longer queue times.
->
-> We already have a per-device limit, in qdisc.
->
-> If you want to monitor several tcp sessions, I urge you use a controller
-> for that. Like codel or fq_codel.
->
-> Experiments show that limiting to two TSO packets in qdisc per tcp flow
-> is enough to stop insane qdisc queueing, without impact on throughput
-> for people wanting fast tcp sessions.
->
-> Thats not solving the more general problem of having 1000 competing
-> flows.
 
-Right, AQM (and probably some modifications to the congestion control)
-is the more general solution.
+No longer used.
 
-I guess I'm just trying to justify in my mind that the case of a small
-number of local connections is worth handling in this special way.  It
-seems like a generally reasonable thing, but it's definitely not a
-general solution to minimizing latency.  One thing worth noting: on a
-system routing traffic, local connections may be at a disadvantage
-relative to connections being forwarded, sharing the same interface
-queue, if that queue is the bottleneck.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip_fib.h |    1 -
+ net/ipv4/fib_trie.c  |    3 ---
+ 2 files changed, 4 deletions(-)
 
-Architecturally, the inconsistency between a local queue and a queue
-one hop away bothers me a bit, but it's something I can learn to live
-with if it really does improve a common case significantly. ;-)
-
-Thanks,
-  -John
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 000c467..e91fedd 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -162,7 +162,6 @@ struct fib_table {
+ 	u32			tb_id;
+ 	int			tb_default;
+ 	int			tb_num_default;
+-	struct inet_peer_base	tb_peers;
+ 	unsigned long		tb_data[0];
+ };
+ 
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 9b0f259..18cbc15 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1843,8 +1843,6 @@ int fib_table_flush(struct fib_table *tb)
+ 	if (ll && hlist_empty(&ll->list))
+ 		trie_leaf_remove(t, ll);
+ 
+-	inetpeer_invalidate_tree(&tb->tb_peers);
+-
+ 	pr_debug("trie_flush found=%d\n", found);
+ 	return found;
+ }
+@@ -1993,7 +1991,6 @@ struct fib_table *fib_trie_table(u32 id)
+ 	tb->tb_id = id;
+ 	tb->tb_default = -1;
+ 	tb->tb_num_default = 0;
+-	inet_peer_base_init(&tb->tb_peers);
+ 
+ 	t = (struct trie *) tb->tb_data;
+ 	memset(t, 0, sizeof(*t));
+-- 
+1.7.10.4
