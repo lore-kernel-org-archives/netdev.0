@@ -1,34 +1,47 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [net-next:master 90/102] net/ipv4/route.c:1283:9: warning:
- unused variable 'saddr'
-Date: Thu, 12 Jul 2012 18:47:58 +0300
-Message-ID: <20120712154758.GF6056@mwanda>
-References: <20120712143449.GA19890@localhost>
- <20120712.074058.753681400854318989.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next 0/3] team: couple of patches
+Date: Thu, 12 Jul 2012 17:53:36 +0200
+Message-ID: <20120712155336.GA1719@minipsycho.orion>
+References: <1342020844-3547-1-git-send-email-jpirko@redhat.com>
+ <20120712.081124.1207448876900334978.davem@davemloft.net>
+ <20120712.081443.1373285885474644661.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: fengguang.wu@intel.com, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:20651 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932676Ab2GLPsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 11:48:13 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:49507 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755142Ab2GLPxj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2012 11:53:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20120712.074058.753681400854318989.davem@davemloft.net>
+In-Reply-To: <20120712.081443.1373285885474644661.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 12, 2012 at 07:40:58AM -0700, David Miller wrote:
-> 
-> There's not need to report these to kernel-janitors if it's a
-> net-next specific issue and I'm going to fix it up 5 minutes
-> after you report it.
+Thu, Jul 12, 2012 at 05:14:43PM CEST, davem@davemloft.net wrote:
+>From: David Miller <davem@davemloft.net>
+>Date: Thu, 12 Jul 2012 08:11:24 -0700 (PDT)
+>
+>> From: Jiri Pirko <jpirko@redhat.com>
+>> Date: Wed, 11 Jul 2012 17:34:01 +0200
+>> 
+>>> Jiri Pirko (3):
+>>>   team: use function team_port_txable() for determing enabled and up
+>>>     port
+>>>   team: add broadcast mode
+>>>   team: make team_port_enabled() and team_port_txable() static inline
+>> 
+>> All applied, thanks.
+>
+>Jiri, btw, any chance I can convince you to remove the EXPERIMENTAL
+>Kconfig dependency?
+>
+>Code I've written and checked in myself over the past few days is
+>several orders of magnitude more experimental than the team driver
+>is :-)
 
-The kernel-janitors list is CC'd to prevent people from sending
-duplicate messages.  This has happened in the past and it's
-annoying for everyone.
+Hehe :) Nevertheless, I would like to keep this flag for some more time.
+I will remove that once I have all planned basic functionality in.
 
-regards,
-dan carpenter
+Jirka
