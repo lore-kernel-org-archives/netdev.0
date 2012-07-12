@@ -1,43 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] tcp: Fix out of bounds access to tcpm_vals
-Date: Wed, 11 Jul 2012 17:32:49 -0700 (PDT)
-Message-ID: <20120711.173249.1303803416502735349.davem@davemloft.net>
-References: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com>
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: Re: [PATCH v3 net-next] tcp: TCP Small Queues
+Date: Wed, 11 Jul 2012 17:46:35 -0700
+Message-ID: <CAB_+Fg5dwsNYkL+rQ4HsrDyHi-3w+EcLjWr0F=HbyLPyXT25AQ@mail.gmail.com>
+References: <1342021831.3265.8174.camel@edumazet-glaptop>
+	<CAB_+Fg496FgQZkJE8uf_4RX_wW+fz1p5Rq8rY=BuA=c6KPakpA@mail.gmail.com>
+	<1342051233.3265.8206.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	alexander.duyck@gmail.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52252 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755969Ab2GLAcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 20:32:50 -0400
-In-Reply-To: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, codel@lists.bufferbloat.net, ncardwell@google.com,
+	David Miller <davem@davemloft.net>, mattmathis@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1342051233.3265.8206.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Wed, 11 Jul 2012 17:18:04 -0700
+>> Considering these two points, why TSQ over the Codel feedback
+>> approach?
+>
+> I dont think they compete. They are in fact complementary.
+>
+> If you use codel/fq_codel + TSQ, you have both per flow limitation in
+> qdisc (TSQ) + sojourn time aware and multi flow aware feedback.
 
-> The recent patch "tcp: Maintain dynamic metrics in local cache." introduced
-> an out of bounds access due to what appears to be a typo.   I believe this
-> change should resolve the issue by replacing the access to RTAX_CWND with
-> TCP_METRIC_CWND.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-
-Applied, thanks a lot.
-
-How did you spot this, did you get a compiler warning?
-
-I ask because while working on this, I at one point put the
-tcp timestamp members after the metrics array in the
-tcp_metrics_bucket struct.  And I got a warning from gcc about
-an array bounds violation that I could not figure out.
-
-I am pretty certain this bug here is what it was warning about.  And
-the problem is that if you put the array at the end gcc doesn't warn
-in order to handle things similar to what people use zero length
-arrays for.
+Makes sense. My conjecture is when using codel/fq_codel qdisc, the
+need for TSQ will diminish. But as you said... good part of TSQ is it
+limits per-flow queuing for any qdisc structure, even those not using
+codel.
