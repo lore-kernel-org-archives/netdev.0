@@ -1,72 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] tcp: TCP Small Queues
-Date: Thu, 12 Jul 2012 02:00:33 +0200
-Message-ID: <1342051233.3265.8206.camel@edumazet-glaptop>
-References: <1342021831.3265.8174.camel@edumazet-glaptop>
-	<CAB_+Fg496FgQZkJE8uf_4RX_wW+fz1p5Rq8rY=BuA=c6KPakpA@mail.gmail.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH 1/2] tcp: Fix out of bounds access to tcpm_vals
+Date: Wed, 11 Jul 2012 17:18:04 -0700
+Message-ID: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, codel@lists.bufferbloat.net, ncardwell@google.com,
-	David Miller <davem@davemloft.net>, mattmathis@google.com
-To: Nandita Dukkipati <nanditad@google.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAB_+Fg496FgQZkJE8uf_4RX_wW+fz1p5Rq8rY=BuA=c6KPakpA@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	alexander.duyck@gmail.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:17193 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933503Ab2GLARo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jul 2012 20:17:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Note : netdev mailing list doesnt accept HTML ;)
+The recent patch "tcp: Maintain dynamic metrics in local cache." introduced
+an out of bounds access due to what appears to be a typo.   I believe this
+change should resolve the issue by replacing the access to RTAX_CWND with
+TCP_METRIC_CWND.
 
-On Wed, 2012-07-11 at 12:29 -0700, Nandita Dukkipati wrote:
-> I have a couple of high level questions on the two solutions for
-> maintain small queues at qdisc: 1) using codel's feedback versus 2)
-> the approach in TSQ to explicitly limit bytes per-flow
-> to tcp_limit_output_bytes.
-> 
-> 
-> 1. multiple flows case: codel feedback (be it drop/ECN or direct
-> feedback like in your patch with fq_codel: report congestion
-> notification at enqueue time) seems to work in maintaining small
-> queues regardless of the number of connections. TSQ probably won't
-> achieve this goal when number of flows is large. Is this correct?
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
+ net/ipv4/tcp_metrics.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Problem with codel/fq_codel is that the congestion is delayed.
-
-And my patch (signaling congestion to local tcp senders) raised several
-issues.
-
-I had then TSQ idea to have a more general mechanism (not depending on a
-particular qdisc setup)
-
-TCP Small Queue is effective even with a large number of flows because
-with standard pfifo_fast, we can without TCP Small Queue store 1000
-packets in Qdisc, each being 64KB. Thats 64 MBytes...
-
-With TCP Small Queue, you can reach this level of occupancy using 500
-flows (2 packets per flow)
-
-Without TCP Small Queue, you can reach this level using 16 flows.
-
-(This of course assumes TSO is on, but modern NIC are TSO enabled)
-
-> 2. cwnd adjustment: codel feedback directly and explicitly controls
-> snd_cwnd which in turn will also adjust the send buffer size to
-> appropriate value. That's a nice property, which TSQ probably won't
-> have because it doesn't explicitly adjust snd_cwnd. 
-> 
-> Considering these two points, why TSQ over the Codel feedback
-> approach?
-
-I dont think they compete. They are in fact complementary.
-
-If you use codel/fq_codel + TSQ, you have both per flow limitation in
-qdisc (TSQ) + sojourn time aware and multi flow aware feedback.
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 1fd83d3..5a38a2d 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -412,7 +412,7 @@ void tcp_update_metrics(struct sock *sk)
+ 				       max(tp->snd_cwnd >> 1, tp->snd_ssthresh));
+ 		if (!tcp_metric_locked(tm, TCP_METRIC_CWND)) {
+ 			val = tcp_metric_get(tm, TCP_METRIC_CWND);
+-			tcp_metric_set(tm, RTAX_CWND, (val + tp->snd_cwnd) >> 1);
++			tcp_metric_set(tm, TCP_METRIC_CWND, (val + tp->snd_cwnd) >> 1);
+ 		}
+ 	} else {
+ 		/* Else slow start did not finish, cwnd is non-sense,
