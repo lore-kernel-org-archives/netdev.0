@@ -1,71 +1,65 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] tc: man: change man page and comment to confirm to code's
- behavior.
-Date: Thu, 12 Jul 2012 09:56:57 +0800
-Message-ID: <4FFE2EE9.8030808@cn.fujitsu.com>
-References: <4FFD2A42.9080507@cn.fujitsu.com> <20120711075129.4f81eea8@nehalam.linuxnetplumber.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 2/2] net: Update alloc frag to reduce get/put page usage
+ and recycle pages
+Date: Wed, 11 Jul 2012 19:02:39 -0700
+Message-ID: <4FFE303F.8070902@gmail.com>
+References: <20120712001804.26542.2889.stgit@gitlad.jf.intel.com>  <20120712001810.26542.61967.stgit@gitlad.jf.intel.com> <1342052967.3265.8210.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:3354 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756498Ab2GLB5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jul 2012 21:57:42 -0400
-In-Reply-To: <20120711075129.4f81eea8@nehalam.linuxnetplumber.net>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:50387 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754161Ab2GLCCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jul 2012 22:02:44 -0400
+Received: by gglu4 with SMTP id u4so1938914ggl.19
+        for <netdev@vger.kernel.org>; Wed, 11 Jul 2012 19:02:44 -0700 (PDT)
+In-Reply-To: <1342052967.3265.8210.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 7/11/2012 5:29 PM, Eric Dumazet wrote:
+> On Wed, 2012-07-11 at 17:18 -0700, Alexander Duyck wrote:
+>> This patch does several things.
+>>
+>> First it reorders the netdev_alloc_frag code so that only one conditional
+>> check is needed in most cases instead of 2.
+>>
+>> Second it incorporates the atomic_set and atomic_sub_return logic from an
+>> earlier proposed patch by Eric Dumazet allowing for a reduction in the
+>> get_page/put_page overhead when dealing with frags.
+>>
+>> Finally it also incorporates the page reuse code so that if the page count
+>> is dropped to 0 we can just reinitialize the page and reuse it.
+>>
+>> Cc: Eric Dumazet<edumazet@google.com>
+>> Signed-off-by: Alexander Duyck<alexander.h.duyck@intel.com>
+>> ---
+>
+> Hmm, I was working on a version using order-3 pages if available.
+>
+> (or more exactly 32768 bytes chunks)
+>
+> I am not sure how your version can help with typical 1500 allocations
+> (2 skbs per page)
+>
+>
+The gain will be minimal if any with the 1500 byte allocations, however 
+there shouldn't be a performance degradation.
 
-Since the get_rate() code incorrectly interpreted bare number, the
-behavior is not the same as man page and comment described.
+I was thinking more of the ixgbe case where we are working with only 256 
+byte allocations and can recycle pages in the case of GRO or TCP.  For 
+ixgbe the advantages are significant since we drop a number of the 
+get_page calls and get the advantage of the page recycling.  So for 
+example with GRO enabled we should only have to allocate 1 page for 
+headers every 16 buffers, and the 6 slots we use in that page have a 
+good likelihood of being warm in the cache since we just keep looping on 
+the same page.
 
-We need to change the man page and comment for compatible with the
-existing usage by scripts.
----
- man/man8/tc.8 |    7 +++++--
- tc/tc_util.c  |    2 +-
- 2 files changed, 6 insertions(+), 3 deletions(-)
+Thanks,
 
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 958ab98..f0e5613 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -259,6 +259,9 @@ All parameters accept a floating point number, possibly followed by a unit.
- .P
- Bandwidths or rates can be specified in:
- .TP
-+bps
-+Bytes per second
-+.TP
- kbps
- Kilobytes per second
- .TP
-@@ -271,8 +274,8 @@ Kilobits per second
- mbit
- Megabits per second
- .TP
--bps or a bare number
--Bytes per second
-+bit or a bare number
-+Bits per second
- .P
- Amounts of data can be specified in:
- .TP
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 926ed08..ccf8fa4 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -153,7 +153,7 @@ int get_rate(unsigned *rate, const char *str)
- 		return -1;
- 
- 	if (*p == '\0') {
--		*rate = bps / 8.;	/* assume bytes/sec */
-+		*rate = bps / 8.;	/* assume bits/sec */
- 		return 0;
- 	}
- 
--- 
-1.7.1
+Alex
