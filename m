@@ -1,50 +1,49 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: iptables CLAMP MSS to PMTU not working?
-Date: Thu, 12 Jul 2012 12:00:21 +0300
-Message-ID: <20120712120021.3dc5cd68@vostro>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 05/16] ipv4: Generalize ip_do_redirect() and hook into
+ new dst_ops->redirect.
+Date: Thu, 12 Jul 2012 02:05:25 -0700
+Message-ID: <1342083925.7969.6.camel@joe2Laptop>
+References: <20120712.011108.1163869605581840179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:38599 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932826Ab2GLJAn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 05:00:43 -0400
-Received: by lbbgm6 with SMTP id gm6so3865240lbb.19
-        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 02:00:42 -0700 (PDT)
+Received: from perches-mx.perches.com ([206.117.179.246]:34464 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933143Ab2GLJFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2012 05:05:25 -0400
+In-Reply-To: <20120712.011108.1163869605581840179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2012-07-12 at 01:11 -0700, David Miller wrote:
+> All of the redirect acceptance policy is now contained within.
+[]
+> @@ -1271,42 +1273,18 @@ static void rt_del(unsigned int hash, struct rtable *rt)
+>  	spin_unlock_bh(rt_hash_lock_addr(hash));
+>  }
+>  
+> -static void ip_do_redirect(struct rtable *rt, __be32 old_gw, __be32 new_gw)
+> -{
+> -	struct neighbour *n;
+> -
+> -	if (rt->rt_gateway != old_gw)
+> -		return;
+> -
+> -	n = ipv4_neigh_lookup(&rt->dst, NULL, &new_gw);
+> -	if (n) {
+> -		if (!(n->nud_state & NUD_VALID)) {
+> -			neigh_event_send(n, NULL);
+> -		} else {
+> -			rt->rt_gateway = new_gw;
+> -			rt->rt_flags |= RTCF_REDIRECTED;
+> -			call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
+> -		}
+> -		neigh_release(n);
+> -	}
+> -}
 
-We recently noticed that CLAMPMSS to path MTU does not seem to be
-working properly. Most recently tested version is linux-3.3.6 which
-does not work. linux-2.6.35 works for sure, but I suspect it to have
-broken somewhere around 3.0'ish with the inetpeer changes.
-
-In my case, the destination is on gre tunnel (that gets routed to
-Internet over IPsec transport mode).
-
-'ip route' command verifies that in both boxes the path-MTU is detected
-properly. That, is on both cases the static route MTU is higher. And
-after large packets sent, ICMP frag-needed is received and the cache
-route is updated properly.
-
-On the new kernel, I get info like:
-# ip route get 10.x.x.x
-10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
-    cache  expires 68sec ipid 0x3153 mtu 1422
-
-And the older kernel:
-# ip route get 10.x.x.x
-10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
-    cache  expires 595sec ipid 0xd241 mtu 1422 advmss 1432 hoplimit 64
-
-For some reason, iptables CLAMPMSS seems to set incorrect MSS for this
-route (or maybe it's using the static route instead?).
-
-Any ideas?
-
-Thanks,
- Timo
+Oh well, nevermind about the comment I made in 3/6.
+I should read the whole thing first.
