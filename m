@@ -1,36 +1,56 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH 1/2] net: Add new network device function to allow
- for MMIO batching
-Date: Fri, 13 Jul 2012 08:50:07 -0700
-Message-ID: <20120713085007.596a2924@nehalam.linuxnetplumber.net>
-References: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>
-	<20120712002603.27846.23752.stgit@gitlad.jf.intel.com>
-	<1342077259.3265.8232.camel@edumazet-glaptop>
-	<4FFEEF99.7030707@intel.com>
-	<1342165129.3265.8320.camel@edumazet-glaptop>
+Subject: Re: [PATCH] iproute2: Fix memory hog of ip batched command.
+Date: Fri, 13 Jul 2012 09:10:02 -0700
+Message-ID: <20120713091002.3729398e@nehalam.linuxnetplumber.net>
+References: <1342142466-28270-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	alexander.duyck@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, jpettit@nicira.com, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56116 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:33701 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751923Ab2GMPuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2012 11:50:25 -0400
-In-Reply-To: <1342165129.3265.8320.camel@edumazet-glaptop>
+	id S1755260Ab2GMQKT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2012 12:10:19 -0400
+In-Reply-To: <1342142466-28270-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Jul 2012 09:38:49 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, 12 Jul 2012 18:21:06 -0700
+Pravin B Shelar <pshelar@nicira.com> wrote:
 
-> Frankly what percentage of linux powered machines act as high perf
-> routers ?
+> ipaddr_list_or_flush() builds list of all device at start of
+> every flush or list operation, but does not free memory at end.
+> This can hog lot of memory for large batched command.
+> Following patch fixes it.
+> 
+> Reported-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-More than you think, every Linux machine acting as hypervisor (Xen and KVM)
-is also doing this.
+
+Given all the conditional's and goto's this introduces, I prefer to
+refactor the code to split up the large function. 
+
+
+There is an additional leak here where element is pruned from list and not freed.
+
+
+
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 1db7fd0..5e03d1e 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1011,9 +1011,10 @@ flush_done:
+                                ok = 1;
+                                break;
+                        }
+-                       if (!ok)
++                       if (!ok) {
+                                *lp = l->next;
+-                       else
++                               free(l);
++                       } else
+                                lp = &l->next;
+                }
+        }
