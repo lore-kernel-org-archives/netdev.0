@@ -1,56 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: Fix memory hog of ip batched command.
-Date: Fri, 13 Jul 2012 09:10:02 -0700
-Message-ID: <20120713091002.3729398e@nehalam.linuxnetplumber.net>
-References: <1342142466-28270-1-git-send-email-pshelar@nicira.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] ax25: Fix missing break
+Date: Fri, 13 Jul 2012 17:33:08 +0100
+Message-ID: <20120713163247.22674.82793.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jpettit@nicira.com, jesse@nicira.com
-To: Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org, ralf@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33701 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755260Ab2GMQKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2012 12:10:19 -0400
-In-Reply-To: <1342142466-28270-1-git-send-email-pshelar@nicira.com>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:33480 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756667Ab2GMQQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 12:16:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jul 2012 18:21:06 -0700
-Pravin B Shelar <pshelar@nicira.com> wrote:
+From: Alan Cox <alan@linux.intel.com>
 
-> ipaddr_list_or_flush() builds list of all device at start of
-> every flush or list operation, but does not free memory at end.
-> This can hog lot of memory for large batched command.
-> Following patch fixes it.
-> 
-> Reported-by: Justin Pettit <jpettit@nicira.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+At least there seems to be no reason to disallow ROSE sockets when
+NETROM is loaded.
 
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
 
-Given all the conditional's and goto's this introduces, I prefer to
-refactor the code to split up the large function. 
+ net/ax25/af_ax25.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-
-There is an additional leak here where element is pruned from list and not freed.
-
-
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 1db7fd0..5e03d1e 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1011,9 +1011,10 @@ flush_done:
-                                ok = 1;
-                                break;
-                        }
--                       if (!ok)
-+                       if (!ok) {
-                                *lp = l->next;
--                       else
-+                               free(l);
-+                       } else
-                                lp = &l->next;
-                }
-        }
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index 051f7ab..779095d 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -842,6 +842,7 @@ static int ax25_create(struct net *net, struct socket *sock, int protocol,
+ 		case AX25_P_NETROM:
+ 			if (ax25_protocol_is_registered(AX25_P_NETROM))
+ 				return -ESOCKTNOSUPPORT;
++			break;
+ #endif
+ #ifdef CONFIG_ROSE_MODULE
+ 		case AX25_P_ROSE:
