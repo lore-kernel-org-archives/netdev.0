@@ -1,90 +1,53 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH] ixgbevf - Prevent RX/TX statistics getting reset to zero
-Date: Fri, 13 Jul 2012 05:36:37 -0700
-Message-ID: <E31FB011129F30488D5861F38390491520D0E082C7@BLRX7MCDC201.AMER.DELL.COM>
-References: <E31FB011129F30488D5861F38390491520D00B9F01@BLRX7MCDC201.AMER.DELL.COM>
- <4FFF16CA.1090705@gmail.com>
+From: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+Subject: [PATCH net-next 1/2] be2net: Add description about various RSS hash types
+Date: Fri, 13 Jul 2012 18:15:51 +0530
+Message-ID: <ecab14f7-24e9-4329-9d62-640086a29b52@exht1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>
-To: <jeffrey.t.kirsher@intel.com>, <gregory.v.rose@intel.com>
+Content-Type: text/plain
+Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:60333 "EHLO
-	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933135Ab2GMMgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 08:36:47 -0400
-In-Reply-To: <4FFF16CA.1090705@gmail.com>
-Content-Language: en-US
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:18977 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933050Ab2GMMqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 08:46:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZWZmIEtpcnNoZXIgW21haWx0
-bzp0YXJiYWxAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgSnVseSAxMiwgMjAxMiAxMTo1
-NiBQTQ0KPiBUbzogSywgTmFyZW5kcmE7IGdyZWdvcnkudi5yb3NlQGludGVsLmNvbQ0KPiBDYzog
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBpeGdiZXZmIC0g
-UHJldmVudCBSWC9UWCBzdGF0aXN0aWNzIGdldHRpbmcgcmVzZXQgdG8gemVybw0KPiANCj4gT24g
-MDcvMTIvMjAxMiAwNjo1NSBBTSwgTmFyZW5kcmFfS0BEZWxsLmNvbSB3cm90ZToNCj4gPiBIZWxs
-bywNCj4gPg0KPiA+IFtBcG9sb2dpZXMgaWYgeW91IGFyZSByZWNlaXZpbmcgdGhpcyBtZXNzYWdl
-IHR3aWNlLiBJIGFtIHJlc2VuZGluZyB0aGUNCj4gbWVzc2FnZSwgYXMgSSBnb3QgbWVzc2FnZSBk
-ZWxpdmVyeSBmYWlsdXJlIG5vdGVdLg0KPiA+DQo+ID4gV2hpbGUgZXhwbG9yaW5nIFNSLUlPViBv
-biBJbnRlbCA4MjU5OUVCIDEwLUdpZ2FiaXQgU0ZQKyBhZGFwdGVyLCBJIGhhZCB0aGUNCj4gZm9s
-bG93aW5nIG9ic2VydmF0aW9uLiAgSSBlbmFibGVkIHR3byBWRnMgYnkgcGFzc2luZyAnbWF4X3Zm
-cz0yJyB0byBpeGdiZQ0KPiBkcml2ZXIuIE9uZSBvZiB0aGUgVkZzIHdhcyBhc3NpZ25lZCB0byBh
-IGd1ZXN0Lg0KPiA+IEluIHRoZSBndWVzdCwgdGhlIGlmY29uZmlnIGFuZCBpcCB0b29scyByZXBv
-cnRlZCAnUlggcGFja2V0cycgYW5kICdUWCBwYWNrZXRzJw0KPiBhcyB6ZXJvLCBhZnRlciBwaW5n
-aW5nIHRvIGEgcmVtb3RlIGhvc3QuIExvb2tpbmcgaW50byBpdCBmdXJ0aGVyLCB0aGUgY29tbWl0
-DQo+IDQxOTdhYTdiYjgxODc3ZWJiMDZlNGYyY2MxYjVmZWEyZGEyM2E3YmQgaW1wbGVtZW50cyA2
-NCBiaXQgcGVyIHJpbmcNCj4gc3RhdGlzdGljcy4gSXQgc2VlbWVkIGxpa2UgdGhlICd0b3RhbF9i
-eXRlcycgYW5kICd0b3RhbF9wYWNrZXRzJyBvZiBSWCBhbmQgVFgNCj4gcmluZyB3ZXJlIGJlaW5n
-IHJlc2V0IHRvIHplcm8gYnkgdGhlIFJYIGFuZCBUWCBpbnRlcnJ1cHQgaGFuZGxlcnMsIHJlc3Vs
-dGluZyBpbg0KPiB0aGUgdXNlciBzcGFjZSB0b29scyByZXBvcnRpbmcgemVybyBSWCBhbmQgVFgg
-Ynl0ZXMuDQo+ID4NCj4gPiBUaGUgYXR0YWNoZWQgcGF0Y2ggYWRkcmVzc2VzIHRoZSBpc3N1ZSBi
-eSBwcmV2ZW50aW5nIHRoZSByZXNldHRpbmcgb2YgUlgNCj4gYW5kIFRYIHJpbmcgc3RhdGlzdGlj
-cyB0byB6ZXJvLiBUaGUgcGF0Y2ggd2FzIHRha2VuIGFnYWluc3QgbGF0ZXN0IG1haW5saW5lIDMu
-NS0NCj4gcmM2IGtlcm5lbC4NCj4gPg0KPiA+IEkgdGVzdGVkIHRoZSBwYXRjaCBieSBwaW5naW5n
-ICBmcm9tIHRoZSBndWVzdCBPUyB0byBhIHJlbW90ZSBob3N0Lg0KPiA+DQo+ID4gcGluZyAtZiA8
-cmVtb3RlIGhvc3Q+IC1jIDEwMDAwDQo+ID4NCj4gPiBUaGUgaXAgYW5kIGlmY29maWcgc2hvd2Vk
-IHRoZSBzdGF0aXN0aWNzIGluY3JlYXNlZCBieSAxMDAwMCBwYWNrZXRzLg0KPiA+DQo+ID4gIyBs
-c3BjaSB8IGdyZXAgODI1OTkNCj4gPiAwNDowMC4wIEV0aGVybmV0IGNvbnRyb2xsZXI6IEludGVs
-IENvcnBvcmF0aW9uIDgyNTk5RUIgMTAtR2lnYWJpdCBTRlArDQo+IE5ldHdvcmsgQ29ubmVjdGlv
-biAocmV2IDAxKQ0KPiA+IDA0OjAwLjEgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9y
-YXRpb24gODI1OTlFQiAxMC1HaWdhYml0IFNGUCsNCj4gTmV0d29yayBDb25uZWN0aW9uIChyZXYg
-MDEpDQo+ID4gMDQ6MTAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4
-MjU5OSBFdGhlcm5ldCBDb250cm9sbGVyDQo+IFZpcnR1YWwgRnVuY3Rpb24gKHJldiAwMSkNCj4g
-PiAwNDoxMC4xIEV0aGVybmV0IGNvbnRyb2xsZXI6IEludGVsIENvcnBvcmF0aW9uIDgyNTk5IEV0
-aGVybmV0IENvbnRyb2xsZXINCj4gVmlydHVhbCBGdW5jdGlvbiAocmV2IDAxKQ0KPiA+IDA0OjEw
-LjIgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODI1OTkgRXRoZXJuZXQg
-Q29udHJvbGxlcg0KPiBWaXJ0dWFsIEZ1bmN0aW9uIChyZXYgMDEpDQo+ID4gMDQ6MTAuMyBFdGhl
-cm5ldCBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjU5OSBFdGhlcm5ldCBDb250cm9s
-bGVyDQo+IFZpcnR1YWwgRnVuY3Rpb24gKHJldiAwMSkNCj4gPg0KPiA+ICMgbHNwY2kgLXMgMDQ6
-MDAuMCAtbg0KPiA+IDA0OjAwLjAgMDIwMDogODA4NjoxNTRkIChyZXYgMDEpDQo+ID4gIyBsc3Bj
-aSAtcyAwNDoxMC4wIC1uDQo+ID4gMDQ6MTAuMCAwMjAwOiA4MDg2OjEwZWQgKHJldiAwMSkNCj4g
-Pg0KPiA+IFBsZWFzZSBsZXQgbWUga25vdyBpZiBhZGRpdGlvbmFsIGRldGFpbHMgYW5kIGxvZ3Mg
-YXJlIHJlcXVpcmVkLls+XSAgDQo+ID4NCj4gPiBXaXRoIHJlZ2FyZHMsDQo+ID4gTmFyZW5kcmEg
-Sw0KPiA+DQo+ID4NCj4gPg0KPiANCj4gVGhhbmtzLCBJIHdpbGwgYWRkIHRoZSBwYXRjaCB0byBt
-eSBxdWV1ZQ0KPiANCls+XSANCiANCkhpIEdyZWcsDQoNCkkgd2FzIHJlLWxvb2tpbmcgYXQgd2h5
-ICcgcnhfcmluZy0+dG90YWxfcGFja2V0cycgYW5kICcgcnhfcmluZy0+dG90YWxfYnl0ZXMnIHdl
-cmUgYmVpbmcgc2V0IHRvIHplcm8gaW4gJyBpeGdiZXZmX21zaXhfY2xlYW5fcngnLiAgSXQgbG9v
-a3MgbGlrZSAnIHJ4X3JpbmctPnRvdGFsX3BhY2tldHMnIGFuZCAnIHJ4X3JpbmctPnRvdGFsX3Bh
-Y2tldHMnICBhcmUgY29tcHV0ZWQgcGVyIG9uZSBydW4gb2YgJ2l4Z2JldmZfY2xlYW5fcnhfaXJx
-JyAuICBUaGVuIGluICdpeGdiZXZmX2NsZWFuX3J4b25seScgaWYgJ2FkYXB0ZXItPml0cl9zZXR0
-aW5nICYgMScgaXMgdHJ1ZSwgdGhlIGNvdW50IGlzICB1c2VkIGluICAnaXhnYmV2Zl9zZXRfaXRy
-X21zaXgnLiBXaGVuIHRoZSBpbnRlcnJ1cHRzIGFyZSBlbmFibGVkLCB0aGUgDQonIHJ4X3Jpbmct
-PnRvdGFsX3BhY2tldHMnICBhbmQgJyByeF9yaW5nLT50b3RhbF9ieXRlcycgYXJlIHNldCB0byB6
-ZXJvIHNvIHRoYXQgdGhleSBjYW4gYmUgcmUtY29tcHV0ZWQgaW4gdGhlIHBvbGwgZnVuY3Rpb24g
-YW5kICBmZWQgdG8gdGhlICdpeGdiZXZmX3NldF9pdHJfbXNpeCcuDQoNClRoaXMgcmVzdWx0cyBp
-biBzdGF0aXN0aWNzIHJlcG9ydGVkIGJ5ICdpcCcgYW5kICdpZmNvbmZpZycgYXMgemVyby4gVGhl
-IHBhdGNoIGFkZHJlc3NlcyB0aGUgc2NlbmFyaW8uICBCdXQgaXQgc2VlbXMgaXQgd291bGQgY2hh
-bmdlIHRoZSBpbnRlbmRlZCBiZWhhdmlvciBpbiB0aGUgc2NlbmFyaW8gIHdoZW4gJ2FkYXB0ZXIt
-Pml0cl9zZXR0aW5nICYgMScgaXMgdHJ1ZS4gIEl0IGNvdWxkIGJlIGFkZHJlc3NlZCBieSBzdG9y
-aW5nIHRoZSAndG90YWxfcnhfcGFja2V0cycgYW5kICd0b3RhbF9yeF9ieXRlcycgIGNvbXB1dGVk
-IGV2ZXJ5IHRpbWUgaW4gdGhlIHBvbGwgZnVuY3Rpb24gaW4gJ3N0cnVjdCBpeGdiZXZmX2FkYXB0
-ZXInIC4gVGhlbiB0aGUgaW50ZXJydXB0IGhhbmRsZXIgY291bGQgcmVzZXQgdGhlbSB0byB6ZXJv
-IGluc3RlYWQgb2YgcmVzZXR0aW5nICAnIHJ4X3JpbmctPnRvdGFsX3BhY2tldHMnIGFuZCAgJyBy
-eF9yaW5nLT50b3RhbF9ieXRlcycuDQoNCkFsc28sIEkgb2JzZXJ2ZWQgdGhhdCAgJ2FkYXB0ZXIt
-Pml0cl9zZXR0aW5nICYgMScgIHdhcyBub3QgdHJ1ZSBieSBkZWZhdWx0LiAgSSB0cmllZCBzZXR0
-aW5nIGl0IGJ5ICdldGh0b29sICAtQyBldGgwIGFkYXB0aXZlLXJ4IG9uJywgYW5kIGl0IHJldHVy
-bmVkICdvcGVyYXRpb24gbm90IHN1cHBvcnRlZCcuIA0KDQpJIGNvdWxkIGJlIG1pc3Npbmcgc29t
-ZXRoaW5nIGhlcmUsIHBsZWFzZSBsZXQgbWUga25vdy4NCg0KV2l0aCByZWdhcmRzLA0KTmFyZW5k
-cmEgSw0KDQoNCg0KDQo=
+Incorporated review comment from Eric Dumazet. Added description
+about different RSS hash types which adapter is capable of.
+Will add support for ETHTOOL_GRXFH and ETHTOOL_SRXFX as suggested
+by Ben Hutchings in a later patch.
+
+Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_cmds.h |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 45d70de..d5a4ded 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1082,8 +1082,18 @@ struct be_cmd_resp_query_fw_cfg {
+ 	u32 function_caps;
+ };
+ 
+-/******************** RSS Config *******************/
+-/* RSS types */
++/******************** RSS Config ****************************************/
++/* RSS type		Input parameters used to compute RX hash
++ * RSS_ENABLE_IPV4	SRC IPv4, DST IPv4
++ * RSS_ENABLE_TCP_IPV4	SRC IPv4, DST IPv4, TCP SRC PORT, TCP DST PORT
++ * RSS_ENABLE_IPV6	SRC IPv6, DST IPv6
++ * RSS_ENABLE_TCP_IPV6	SRC IPv6, DST IPv6, TCP SRC PORT, TCP DST PORT
++ * RSS_ENABLE_UDP_IPV4	SRC IPv4, DST IPv4, UDP SRC PORT, UDP DST PORT
++ * RSS_ENABLE_UDP_IPV6	SRC IPv6, DST IPv6, UDP SRC PORT, UDP DST PORT
++ *
++ * When multiple RSS types are enabled, HW picks the best hash policy
++ * based on the type of the received packet.
++ */
+ #define RSS_ENABLE_NONE				0x0
+ #define RSS_ENABLE_IPV4				0x1
+ #define RSS_ENABLE_TCP_IPV4			0x2
+-- 
+1.6.0.2
