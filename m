@@ -1,91 +1,270 @@
-From: "Neel Patel (neepatel)" <neepatel@cisco.com>
-Subject: RE: [PATCH 02/11] enic: remove unnecessary setting of skb->dev
-Date: Fri, 13 Jul 2012 04:56:42 +0000
-Message-ID: <644DFB2E795E0348A1614A34EE0D3571014182@xmb-rcd-x05.cisco.com>
-References: <1341878975-10577-1-git-send-email-jdmason@kudzu.us>
-	<1341878975-10577-2-git-send-email-jdmason@kudzu.us>
- <CAPoiz9y2D15o4ueTCWPQHiNHexBVXSABO_1ghpKtYCruSDV-Ew@mail.gmail.com>
- <6CE81A2095B0024BBC77007BD04E5538053EA0@xmb-aln-x02.cisco.com>
+From: Jason Lin <kernel.jason@gmail.com>
+Subject: Re: [RFC] net:phy:phylib: phy shares the same interrupt with mac
+Date: Fri, 13 Jul 2012 13:29:14 +0800
+Message-ID: <CAGCDX1=Y_UWpmo0RiexYh-MJ8v6wwXZ=14h+NS5cmi5Nboytow@mail.gmail.com>
+References: <CAGCDX1nndpdGHZzhh_Y+2OMLZvvUmAqkAsmgHu9hdUXTJFE--Q@mail.gmail.com>
+	<4F7AB9AC.8000708@openwrt.org>
+	<CAGCDX1=EHJY1C=-w_YazeC9ByP=4T+hj8bjvZ=cizziSfa1J3g@mail.gmail.com>
+	<CAGCDX1kZo5f8_BpMgq75o0EoTRh9X=VbH2-rXDBYoKdCosO+VQ@mail.gmail.com>
+	<CAGCDX1mVk-4JpjDhWxJdsssmXCM+NM8sPOPyjKBZwbqMj-UTvA@mail.gmail.com>
+	<CAGCDX1nqBEWbAMNPeUZyf3KdtmhjnVKesV6TXZ-QDtb83R7LBw@mail.gmail.com>
+	<CAKWjMd7dXeZ8jj-LXkaNWr62fEc1+D1jZkmW0fKsYcOGoxnCaA@mail.gmail.com>
+	<CAGCDX1=-5i8uX1zXCHzofuqFJLbj+zBrNWDgMEpx8o8+rENmYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Nishank Trivedi (nistrive)" <nistrive@cisco.com>
-To: "Christian Benvenuti (benve)" <benve@cisco.com>,
-	Jon Mason <jdmason@kudzu.us>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
+To: Andy Fleming <afleming@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-1.cisco.com ([173.37.86.72]:33065 "EHLO
-	rcdn-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100Ab2GMFGH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 01:06:07 -0400
-In-Reply-To: <6CE81A2095B0024BBC77007BD04E5538053EA0@xmb-aln-x02.cisco.com>
-Content-Language: en-US
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:38141 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754410Ab2GMF3P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 01:29:15 -0400
+Received: by obbuo13 with SMTP id uo13so4374875obb.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 22:29:14 -0700 (PDT)
+In-Reply-To: <CAGCDX1=-5i8uX1zXCHzofuqFJLbj+zBrNWDgMEpx8o8+rENmYQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jon,
-The change in enic_main.c looks good.
-_ Neel
+Dear:
+But I think there have some performance issues.
+Because the phy should execute its own ISR only when the interrupt is
+issued by phy.
+This will cause some unnecessary MDIO access.
 
------Original Message-----
-From: Christian Benvenuti (benve) 
-Sent: Thursday, July 12, 2012 2:23 PM
-To: Jon Mason; David S. Miller
-Cc: netdev@vger.kernel.org; Neel Patel (neepatel); Nishank Trivedi (nistrive)
-Subject: RE: [PATCH 02/11] enic: remove unnecessary setting of skb->dev
+By the way, PHY_DUMMY_IRQ is defined in the platform definition file.
+One should get PHY_DUMMY_IRQ by platform_get_irq function.
+So the driver will look like this:
 
-Jon,
-  Roopa is not in the maintainer list anymore.
-Sorry about that.
-We will update MAINTAINERS. 
+/*** platform related file ***************/
+static struct resource mac_0_resources[] = {
+    {
+        .start  = MAC_PA_BASE,
+        .end    = MAC_PA_BASE + SZ_4K - 1,
+        .flags  = IORESOURCE_MEM,
+    }, {
+        .start  = IRQ_MAC,
+        .flags  = IORESOURCE_IRQ,
+    }, {
+        .start  = IRQ_PHY,
+        .flags  = IORESOURCE_IRQ,
+    },
+};
 
-BTW, the change in enic_main.c looks good.
 
-/Chris
+/*** driver file ***************/
+mydriver_probe(struct platform_device *pdev)
+{
+    int mac_irq, phy_irq, i;
 
-> -----Original Message-----
-> From: Jon Mason [mailto:jdmason@kudzu.us]
-> Sent: Thursday, July 12, 2012 2:19 PM
-> To: David S. Miller
-> Cc: netdev@vger.kernel.org; Christian Benvenuti (benve); Neel Patel 
-> (neepatel); Nishank Trivedi
-> (nistrive)
-> Subject: Re: [PATCH 02/11] enic: remove unnecessary setting of 
-> skb->dev
-> 
-> On Mon, Jul 9, 2012 at 5:09 PM, Jon Mason <jdmason@kudzu.us> wrote:
-> > skb->dev is being unnecessarily set after calling eth_type_trans.
-> > eth_type_trans already sets skb->dev to the proper value, thus 
-> > making this unnecessary.
-> >
-> > Signed-off-by: Jon Mason <jdmason@kudzu.us>
-> > Cc: Christian Benvenuti <benve@cisco.com>
-> > Cc: Roopa Prabhu <roprabhu@cisco.com>
-> 
-> This address bounced.  Anyone know of an updated address for Roopa or 
-> should they be removed from the MAINTAINERS list?
-> 
-> > Cc: Neel Patel <neepatel@cisco.com>
-> > Cc: Nishank Trivedi <nistrive@cisco.com>
-> > ---
-> >  drivers/net/ethernet/cisco/enic/enic_main.c |    2 --
-> >  1 file changed, 2 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c
-> b/drivers/net/ethernet/cisco/enic/enic_main.c
-> > index 8132c78..ad1468b 100644
-> > --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> > +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> > @@ -1300,8 +1300,6 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
-> >                         skb->ip_summed = CHECKSUM_COMPLETE;
-> >                 }
-> >
-> > -               skb->dev = netdev;
-> > -
-> >                 if (vlan_stripped)
-> >                         __vlan_hwaccel_put_tag(skb, vlan_tci);
-> >
-> > --
-> > 1.7.9.5
-> >
+    mac_irq = platform_get_irq(pdev, 0);
+    if (mac_irq < 0)
+        return mac_irq;
+
+    phy_irq = platform_get_irq(pdev, 1);
+    if (phy_irq < 0)
+        phy_irq = PHY_POLL;
+
+    for (i = 0; i < PHY_MAX_ADDR; i++)
+        priv->mii_bus->irq[i] = phy_irq;
+}
+
+mydriver_napi_poll(struct napi_struct *napi, int budget)
+{
+    struct mydriver_priv *priv = = container_of(napi, struct
+mydriver_priv, napi);
+    struct phy_device *phydev = priv->phydev;
+    unsigned int status = get_int_status();
+
+#ifdef CONFIG_MAC_CONTROL_PHY_INT
+    if (status & PHY_INT) {
+        tasklet_schedule(&phydev->phy_task);
+    }
+#endif
+
+}
+
+/**** phy lib modification ***************/
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 3cbda08..482f7e5 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -416,7 +416,7 @@ out_unlock:
+ }
+ EXPORT_SYMBOL(phy_start_aneg);
+
+-
++static void phy_tasklet(unsigned long data);
+ static void phy_change(struct work_struct *work);
+
+ /**
+@@ -523,10 +523,12 @@ static irqreturn_t phy_interrupt(int irq, void *phy_dat)
+     * context, so we need to disable the irq here.  A work
+     * queue will write the PHY to disable and clear the
+     * interrupt, and then reenable the irq line. */
+-   disable_irq_nosync(irq);
++/* disable_irq_nosync(irq);
+    atomic_inc(&phydev->irq_disable);
+
+-   schedule_work(&phydev->phy_queue);
++   schedule_work(&phydev->phy_queue);*/
++
++   tasklet_schedule(&phydev->phy_task);
+
+    return IRQ_HANDLED;
+ }
+@@ -591,6 +593,7 @@ int phy_start_interrupts(struct phy_device *phydev)
+ {
+    int err = 0;
+
++   tasklet_init(&phydev->phy_task, phy_tasklet, (unsigned long)phydev);
+    INIT_WORK(&phydev->phy_queue, phy_change);
+
+    atomic_set(&phydev->irq_disable, 0);
+@@ -633,6 +636,7 @@ int phy_stop_interrupts(struct phy_device *phydev)
+     * possibly pending and take care of the matter below.
+     */
+    cancel_work_sync(&phydev->phy_queue);
++   tasklet_kill(&phydev->phy_task);
+    /*
+     * If work indeed has been cancelled, disable_irq() will have
+     * been left unbalanced from phy_interrupt() and enable_irq()
+@@ -645,7 +649,13 @@ int phy_stop_interrupts(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_stop_interrupts);
+
+
+-
++static void phy_tasklet(unsigned long data)
++{
++   struct phy_device *phydev = (struct phy_device *)data;
++   disable_irq_nosync(phydev->irq);
++   atomic_inc(&phydev->irq_disable);
++   schedule_work(&phydev->phy_queue);
++}
+ /**
+  * phy_change - Scheduled by the phy_interrupt/timer to handle PHY changes
+  * @work: work_struct that describes the work to be done
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index c599f7e..04203a7 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -330,6 +330,7 @@ struct phy_device {
+    /* Interrupt and Polling infrastructure */
+    struct work_struct phy_queue;
+    struct delayed_work state_queue;
++   struct tasklet_struct phy_task;
+    atomic_t irq_disable;
+
+    struct mutex lock;
+
+/*** end modification **********************************/
+
+how about this modification?
+F.Y.I.
+Thanks.
+
+2012/7/13 Jason Lin <kernel.jason@gmail.com>:
+> Thank for your reply.
+> My case is the second one.
+> change request_irq with IRQF_SHARED, and assign the same MAC irq number to phy
+> (mii_bus->irq[i] = mac_irq)
+> This way can fix my issue.
+>
+> Thanks again.
+>
+> 2012/7/13 Andy Fleming <afleming@gmail.com>:
+>> On Tue, Jul 10, 2012 at 8:32 PM, Jason Lin <kernel.jason@gmail.com> wrote:
+>>> Dear :
+>>> I describe my situation again.
+>>> In my hardware design, the interrupt (INT) pin of phy is connected to
+>>> the INT input pin of MAC.
+>>> In other words, one of triggering interrupt condition of MAC is
+>>> related to phy's interrupt.
+>>> So the phy will share the same "IRQ pin" with MAC.
+>>> As described above, the best solution is the INT pin of phy is
+>>> connected to architecture independently.
+>>> But, the hardware architecture cannot modify easily.
+>>> So I think
+>>> 1. We can assign dummy IRQ number (which is a empty IRQ number but
+>>> large than zero) to phy.
+>>> phydev->irq = PHY_DUMMY_IRQ (this value is depend on architecture)
+>>> 2. Change to do the soft IRQ in phy's ISR.
+>>>     To schedule workqueue in this soft IRQ.
+>>> In this way, the MAC can schedule phy's soft IRQ to do phy's work
+>>> queue (to do ack phy's interrupt ... etc).
+>>>
+>>> Dose it make sense?
+>>>
+>>
+>> If PHY_IGNORE_INTERRUPT doesn't currently work to allow a MAC's driver
+>> to manage PHY interrupts, then we need to fix PHY Lib to support this
+>> correctly. PHY_IGNORE_INTERRUPT was meant for this purpose. We don't
+>> want to start defining interrupt numbers which may conflict with real
+>> numbers, and have to be constantly re-defined by various systems to
+>> avoid that.
+>>
+>> Your notion of making the phy_enable_interrupts() and
+>> phy_disable_interrupts() code available to the MAC drivers sounds like
+>> the right approach to me. But you might want to implement your own
+>> version. The biggest problem with PHY interrupts is that masking them
+>> requires an MDIO transaction, which is *slow*. If you can mask the
+>> interrupt by writing a bit in a memory-mapped register, it's far
+>> better to do it that way, at interrupt time, and *then* schedule the
+>> PHY code to be run from a work queue. However, your driver probably
+>> already *does* have a workqueue of some sort. If so, what you should
+>> probably do is implement a new version of phy_change(), that doesn't
+>> have to deal with the weird PHY interrupt masking issues. Something
+>> like this:
+>>
+>> mydriver_phy_change(struct mydriver_priv *priv)
+>> {
+>>         int err;
+>>         struct phy_device *phydev = priv->phydev;
+>>
+>>         if (phydev->drv->did_interrupt &&
+>>             !phydev->drv->did_interrupt(phydev))
+>>                 goto ignore;
+>>
+>>         err = phy_disable_interrupts(phydev);
+>>
+>>         if (err)
+>>                 goto phy_err;
+>>
+>>         mutex_lock(&phydev->lock);
+>>         if ((PHY_RUNNING == phydev->state) || (PHY_NOLINK == phydev->state))
+>>                 phydev->state = PHY_CHANGELINK;
+>>         mutex_unlock(&phydev->lock);
+>>
+>>         /* Reenable interrupts */
+>>         if (PHY_HALTED != phydev->state)
+>>                 err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
+>>
+>>         if (err)
+>>                 goto irq_enable_err;
+>>
+>>         /* reschedule state queue work to run as soon as possible */
+>>         cancel_delayed_work_sync(&phydev->state_queue);
+>>         schedule_delayed_work(&phydev->state_queue, 0);
+>>
+>>         return;
+>>
+>> ignore:
+>>         return;
+>>
+>> irq_enable_err:
+>> phy_err:
+>>         phy_error(phydev);
+>> }
+>>
+>>
+>> Of course, now I re-read your question, and I'm not sure I've
+>> interpreted it correctly. Are you saying your MAC has control of the
+>> PHY interrupt (ie - the interrupt sets a bit in some event register in
+>> your MAC, and you can MASK/ACK it from your driver), or that the PHY
+>> shares the same interrupt pin?
+>>
+>> If it's the second one, you don't need to do anything, but allow your
+>> MAC driver to register its interrupt as a shared interrupt, and allow
+>> the PHY to manage its own interrupts, as usual.
+>>
+>> Andy
