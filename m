@@ -1,42 +1,59 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] tc-bfifo: man: Add parameter value range.
-Date: Fri, 13 Jul 2012 15:08:00 +0800
-Message-ID: <4FFFC950.6020806@cn.fujitsu.com>
+From: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 4/8] wireless: Use
+	eth_random_addr
+Date: Fri, 13 Jul 2012 09:15:06 +0200
+Message-ID: <CAL1gcdP+USKVTpQ1+UeLj5VBRtpchCHjP=B=HATpW483f5bCYA@mail.gmail.com>
+References: <cover.1342157022.git.joe@perches.com>
+	<1341968967.13724.23.camel@joe2Laptop>
+	<93ab9a323e85d1b0d8c7eac4db7ab7835e61efe6.1342157022.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59109 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753666Ab2GMHIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2012 03:08:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+	Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+In-Reply-To: <93ab9a323e85d1b0d8c7eac4db7ab7835e61efe6.1342157022.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com>
+List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
+List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
+List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
+	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
+Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+Sender: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 13, 2012 at 7:33 AM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> Convert the existing uses of random_ether_addr to
+> the new eth_random_addr.
+>
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Add value range for 'limit' parameter.
+For the rt2x00 parts:
+
+Acked-by: Gertjan van Wingerde <gwingerde-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+> ---
+>  drivers/net/wireless/adm8211.c             |    2 +-
+>  drivers/net/wireless/p54/eeprom.c          |    2 +-
+>  drivers/net/wireless/rt2x00/rt2400pci.c    |    2 +-
+>  drivers/net/wireless/rt2x00/rt2500pci.c    |    2 +-
+>  drivers/net/wireless/rt2x00/rt2500usb.c    |    2 +-
+>  drivers/net/wireless/rt2x00/rt2800lib.c    |    2 +-
+>  drivers/net/wireless/rt2x00/rt61pci.c      |    2 +-
+>  drivers/net/wireless/rt2x00/rt73usb.c      |    2 +-
+>  drivers/net/wireless/rtl818x/rtl8180/dev.c |    2 +-
+>  drivers/net/wireless/rtl818x/rtl8187/dev.c |    2 +-
+>  10 files changed, 10 insertions(+), 10 deletions(-)
+>
+
 ---
- man/man8/tc-bfifo.8 |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/man/man8/tc-bfifo.8 b/man/man8/tc-bfifo.8
-index 8dda4bb..417e45c 100644
---- a/man/man8/tc-bfifo.8
-+++ b/man/man8/tc-bfifo.8
-@@ -40,8 +40,12 @@ to the interface txqueuelen, as specified with
- .BR ifconfig (8)
- or
- .BR ip (8).
-+The range for this parameter is [0, UINT32_MAX].
- 
- For bfifo, it defaults to the txqueuelen multiplied by the interface MTU.
-+The range for this parameter is [0, UINT32_MAX] bytes.
-+
-+Note: The link layer header was considered when couting packets length.
- 
- .SH OUTPUT
- The output of 
--- 
-1.7.1
+Gertjan
