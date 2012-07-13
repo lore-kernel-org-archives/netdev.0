@@ -1,97 +1,57 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [v2 PATCH] net: Update alloc frag to reduce get/put page usage and
-	recycle pages
-Date: Thu, 12 Jul 2012 17:23:50 -0700
-Message-ID: <20120713001922.27393.1358.stgit@gitlad.jf.intel.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [DANGER 8/7]: ipv4: Cache output routes in fib_info nexthops.
+Date: Thu, 12 Jul 2012 17:52:54 -0700
+Message-ID: <CAGK4HS_-fQYnmcbBwEE=JywzAO7_nnE8QAOCXk3-WQOjCimPiA@mail.gmail.com>
+References: <20120712.104758.253504708560401123.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	edumazet@google.com, alexander.duyck@gmail.com,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8308 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230Ab2GMAXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jul 2012 20:23:31 -0400
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:34602 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515Ab2GMAwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 20:52:55 -0400
+Received: by yenl2 with SMTP id l2so3078737yen.19
+        for <netdev@vger.kernel.org>; Thu, 12 Jul 2012 17:52:55 -0700 (PDT)
+In-Reply-To: <20120712.104758.253504708560401123.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is meant to help improve performance by reducing the number of
-locked operations required to allocate a frag on x86 and other platforms.
-This is accomplished by using atomic_set operations on the page count
-instead of calling get_page and put_page.  It is based on work originally
-provided by Eric Dumazet.
+>
+> Something is flaky about it, when I ssh into my test system
+> for the first time after a boot there is a strange delay of
+> some sort.  It's as if the SYN-ACK is dropped on the way out
+> of the test machine, and my desktop has to retry the initial
+> SYN.  I plan to investigate this after some sleep.
 
-In addition it also helps to reduce memory overhead when using TCP.  This
-is done by recycling the page if the only holder of the frame is the
-netdev_alloc_frag call itself.  This can occur when skb heads are stolen by
-either GRO or TCP and the driver providing the packets is using paged frags
-to store all of the data for the packets.
 
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+Dave,
+I applied these patches and got the same symptoms. It takes a long
+time for ssh to work right after boot but it starts working after
+about a minute.
+(I am sshing into the machine with the patches applied). My  knowledge
+of routing code is rudimentary but I traced the following.
 
-v2: Reverted back to something closer to the patch that Eric originally
-    submitted.  The main goal in all this is to get the removal of expensive
-    atomic ops and recycling added for now while Eric is still working on
-    an approach that uses larger pages.
+ I think this is because the SYN packets do not even reach the TCP
+handler. It looks like ip_route_input_slow() sets the dst.input
+function to ip_error().
 
- net/core/skbuff.c |   28 ++++++++++++++++++++--------
- 1 files changed, 20 insertions(+), 8 deletions(-)
+The code path I saw was as follows:
+ip_rcv_finish() eventually calls ip_route_input_slow() wherein
+fib_lookup() initially returns a res.type of RTN_UNICAST (why not
+RTN_LOCAL?).
+However, the following code
+ if (!IN_DEV_FORWARD(in_dev))
+                goto no_route;
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 506f678..a757a2c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -296,9 +296,12 @@ EXPORT_SYMBOL(build_skb);
- struct netdev_alloc_cache {
- 	struct page *page;
- 	unsigned int offset;
-+	unsigned int pagecnt_bias;
- };
- static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
- 
-+#define NETDEV_PAGECNT_BIAS (PAGE_SIZE / SMP_CACHE_BYTES)
-+
- /**
-  * netdev_alloc_frag - allocate a page fragment
-  * @fragsz: fragment size
-@@ -317,17 +320,26 @@ void *netdev_alloc_frag(unsigned int fragsz)
- 	if (unlikely(!nc->page)) {
- refill:
- 		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
-+		if (unlikely(!nc->page))
-+			goto end;
-+recycle:
-+		atomic_set(&nc->page->_count, NETDEV_PAGECNT_BIAS);
-+		nc->pagecnt_bias = NETDEV_PAGECNT_BIAS;
- 		nc->offset = 0;
- 	}
--	if (likely(nc->page)) {
--		if (nc->offset + fragsz > PAGE_SIZE) {
--			put_page(nc->page);
--			goto refill;
--		}
--		data = page_address(nc->page) + nc->offset;
--		nc->offset += fragsz;
--		get_page(nc->page);
-+
-+	if (nc->offset + fragsz > PAGE_SIZE) {
-+		/* avoid unnecessary locked operations if possible */
-+		if ((atomic_read(&nc->page->_count) == nc->pagecnt_bias) ||
-+		    atomic_sub_and_test(nc->pagecnt_bias, &nc->page->_count))
-+			goto recycle;
-+		goto refill;
- 	}
-+
-+	data = page_address(nc->page) + nc->offset;
-+	nc->offset += fragsz;
-+	nc->pagecnt_bias--;
-+end:
- 	local_irq_restore(flags);
- 	return data;
- }
+is executed and sets the res.type to RTN_UNREACHABLE.
+After the jump to local_input, rth->dst.input is set first to
+ip_local_deliver() but again to ip_error().
+Due to this, the SYN packet does not even make it to ip_local_deliver
+and so the TCP handler is never called.
+
+I did not get a chance to see why it suddenly starts working. Hope
+this helps. I will dig around more.
+
+Thanks,
+Vijay
