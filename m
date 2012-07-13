@@ -1,56 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: add LAST_ACK as a valid state for TSQ
-Date: Fri, 13 Jul 2012 10:46:09 +0200
-Message-ID: <1342169169.3265.8338.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Mahesh Bandewar <maheshb@google.com>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: [PATCH ISDN] Add check for usb_alloc_urb() result
+Date: Fri, 13 Jul 2012 10:59:46 +0200
+Message-ID: <1342169986-24268-1-git-send-email-kkeil@linux-pingi.de>
+Cc: netdev@vger.kernel.org, rucsoftsec@gmail.com, m.bachem@gmx.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36412 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419Ab2GMIqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 04:46:13 -0400
-Received: by bkwj10 with SMTP id j10so2916335bkw.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jul 2012 01:46:12 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.126.171]:50994 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752875Ab2GMI7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 04:59:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+usb_alloc_urb() return value needs to be checked to avoid
+later NULL pointer access.
+Reported by rucsoftsec@gmail.com via bugzilla.kernel.org #44601.
 
-Socket state LAST_ACK should allow TSQ to send additional frames,
-or else we rely on incoming ACKS or timers to send them.
-
-Reported-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Matt Mathis <mattmathis@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
 ---
- net/ipv4/tcp_output.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/isdn/hardware/mISDN/hfcsusb.c |   18 +++++++++++++-----
+ drivers/isdn/hisax/hfc_usb.c          |   18 +++++++++++++-----
+ 2 files changed, 26 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 03854ab..15a7c7b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -838,7 +838,7 @@ static void tcp_tasklet_func(unsigned long data)
- 		if (!sock_owned_by_user(sk)) {
- 			if ((1 << sk->sk_state) &
- 			    (TCPF_ESTABLISHED | TCPF_FIN_WAIT1 |
--			     TCPF_CLOSING | TCPF_CLOSE_WAIT))
-+			     TCPF_CLOSING | TCPF_CLOSE_WAIT | TCPF_LAST_ACK))
- 				tcp_write_xmit(sk,
- 					       tcp_current_mss(sk),
- 					       0, 0,
-@@ -868,7 +868,7 @@ void tcp_release_cb(struct sock *sk)
- 	if (test_and_clear_bit(TSQ_OWNED, &tp->tsq_flags)) {
- 		if ((1 << sk->sk_state) &
- 		    (TCPF_ESTABLISHED | TCPF_FIN_WAIT1 |
--		     TCPF_CLOSING | TCPF_CLOSE_WAIT))
-+		     TCPF_CLOSING | TCPF_CLOSE_WAIT | TCPF_LAST_ACK))
- 			tcp_write_xmit(sk,
- 				       tcp_current_mss(sk),
- 				       0, 0,
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+index c65c344..114f3bc 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.c
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+@@ -2084,13 +2084,21 @@ hfcsusb_probe(struct usb_interface *intf, const struct usb_device_id *id)
+ 	/* create the control pipes needed for register access */
+ 	hw->ctrl_in_pipe = usb_rcvctrlpipe(hw->dev, 0);
+ 	hw->ctrl_out_pipe = usb_sndctrlpipe(hw->dev, 0);
++
++	driver_info = (struct hfcsusb_vdata *)
++		      hfcsusb_idtab[vend_idx].driver_info;
++
+ 	hw->ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
++	if (!hw->ctrl_urb) {
++		pr_warn("%s: No memory for control urb\n",
++			driver_info->vend_name);
++		kfree(hw);
++		return -ENOMEM;
++	}
+ 
+-	driver_info =
+-		(struct hfcsusb_vdata *)hfcsusb_idtab[vend_idx].driver_info;
+-	printk(KERN_DEBUG "%s: %s: detected \"%s\" (%s, if=%d alt=%d)\n",
+-	       hw->name, __func__, driver_info->vend_name,
+-	       conf_str[small_match], ifnum, alt_used);
++	pr_info("%s: %s: detected \"%s\" (%s, if=%d alt=%d)\n",
++		hw->name, __func__, driver_info->vend_name,
++		conf_str[small_match], ifnum, alt_used);
+ 
+ 	if (setup_instance(hw, dev->dev.parent))
+ 		return -EIO;
+diff --git a/drivers/isdn/hisax/hfc_usb.c b/drivers/isdn/hisax/hfc_usb.c
+index 84f9c81..849a807 100644
+--- a/drivers/isdn/hisax/hfc_usb.c
++++ b/drivers/isdn/hisax/hfc_usb.c
+@@ -1483,13 +1483,21 @@ hfc_usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
+ 				usb_rcvctrlpipe(context->dev, 0);
+ 			context->ctrl_out_pipe =
+ 				usb_sndctrlpipe(context->dev, 0);
++
++			driver_info = (hfcsusb_vdata *)
++				      hfcusb_idtab[vend_idx].driver_info;
++
+ 			context->ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
+ 
+-			driver_info =
+-				(hfcsusb_vdata *) hfcusb_idtab[vend_idx].
+-				driver_info;
+-			printk(KERN_INFO "HFC-S USB: detected \"%s\"\n",
+-			       driver_info->vend_name);
++			if (!context->ctrl_urb) {
++				pr_warn("%s: No memory for control urb\n",
++					driver_info->vend_name);
++				kfree(context);
++				return -ENOMEM;
++			}
++
++			pr_info("HFC-S USB: detected \"%s\"\n",
++				driver_info->vend_name);
+ 
+ 			DBG(HFCUSB_DBG_INIT,
+ 			    "HFC-S USB: Endpoint-Config: %s (if=%d alt=%d), E-Channel(%d)",
+-- 
+1.7.7
