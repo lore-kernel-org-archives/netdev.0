@@ -1,205 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [DANGER 8/7]: ipv4: Cache output routes in fib_info nexthops.
-Date: Fri, 13 Jul 2012 04:10:03 -0700 (PDT)
-Message-ID: <20120713.041003.2251275100418141024.davem@davemloft.net>
-References: <20120712.104758.253504708560401123.davem@davemloft.net>
-	<CAGK4HS_-fQYnmcbBwEE=JywzAO7_nnE8QAOCXk3-WQOjCimPiA@mail.gmail.com>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH] ixgbevf - Prevent RX/TX statistics getting reset to zero
+Date: Fri, 13 Jul 2012 05:36:37 -0700
+Message-ID: <E31FB011129F30488D5861F38390491520D0E082C7@BLRX7MCDC201.AMER.DELL.COM>
+References: <E31FB011129F30488D5861F38390491520D00B9F01@BLRX7MCDC201.AMER.DELL.COM>
+ <4FFF16CA.1090705@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subramanian.vijay@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: <jeffrey.t.kirsher@intel.com>, <gregory.v.rose@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40429 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755993Ab2GMLKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 07:10:06 -0400
-In-Reply-To: <CAGK4HS_-fQYnmcbBwEE=JywzAO7_nnE8QAOCXk3-WQOjCimPiA@mail.gmail.com>
+Received: from ausc60ps301.us.dell.com ([143.166.148.206]:60333 "EHLO
+	ausc60ps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933135Ab2GMMgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 08:36:47 -0400
+In-Reply-To: <4FFF16CA.1090705@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Thu, 12 Jul 2012 17:52:54 -0700
-
-> I did not get a chance to see why it suddenly starts working. Hope
-> this helps. I will dig around more.
-
-The problem is the setting of ->rt_gateway for local subnet routes.
-
-In order for this to work with fib_info cached routes we have to
-convert rt_gateway to be set to zero when there is no explicit nexthop
-(local subnet) and to the non-zero gateway address otherwise.
-
-This would be applied right before the "DANGER" patch:
-
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index c38293f..672d6f3 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -476,7 +476,8 @@ int arp_find(unsigned char *haddr, struct sk_buff *skb)
- 	}
- 
- 	paddr = skb_rtable(skb)->rt_gateway;
--
-+	if (!paddr)
-+		paddr = ip_hdr(skb)->daddr;
- 	if (arp_set_predefined(inet_addr_type(dev_net(dev), paddr), haddr,
- 			       paddr, dev))
- 		return 0;
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 76825be..18f9854 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -389,7 +389,7 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
- 	rt = ip_route_output_flow(net, fl4, sk);
- 	if (IS_ERR(rt))
- 		goto no_route;
--	if (opt && opt->opt.is_strictroute && fl4->daddr != rt->rt_gateway)
-+	if (opt && opt->opt.is_strictroute && rt->rt_gateway)
- 		goto route_err;
- 	return &rt->dst;
- 
-@@ -422,7 +422,7 @@ struct dst_entry *inet_csk_route_child_sock(struct sock *sk,
- 	rt = ip_route_output_flow(net, fl4, sk);
- 	if (IS_ERR(rt))
- 		goto no_route;
--	if (opt && opt->opt.is_strictroute && fl4->daddr != rt->rt_gateway)
-+	if (opt && opt->opt.is_strictroute && rt->rt_gateway)
- 		goto route_err;
- 	return &rt->dst;
- 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 0c31235..5b77c2c 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -767,6 +767,8 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 		if (skb->protocol == htons(ETH_P_IP)) {
- 			rt = skb_rtable(skb);
- 			dst = rt->rt_gateway;
-+			if (!dst)
-+				dst = old_iph->daddr;
- 		}
- #if IS_ENABLED(CONFIG_IPV6)
- 		else if (skb->protocol == htons(ETH_P_IPV6)) {
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index cc52679..6b805e0 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -371,7 +371,7 @@ int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
- 	skb_dst_set_noref(skb, &rt->dst);
- 
- packet_routed:
--	if (inet_opt && inet_opt->opt.is_strictroute && fl4->daddr != rt->rt_gateway)
-+	if (inet_opt && inet_opt->opt.is_strictroute && rt->rt_gateway)
- 		goto no_route;
- 
- 	/* OK, we know where to send it, allocate and build IP header. */
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index c2d0e6d..095fec0 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -488,6 +488,8 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 			goto tx_error;
- 		}
- 		dst = rt->rt_gateway;
-+		if (!dst)
-+			dst = old_iph->daddr;
- 	}
- 
- 	rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
-diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
-index 2f210c7..b99746b 100644
---- a/net/ipv4/netfilter/ipt_MASQUERADE.c
-+++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
-@@ -52,7 +52,7 @@ masquerade_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	struct nf_nat_ipv4_range newrange;
- 	const struct nf_nat_ipv4_multi_range_compat *mr;
- 	const struct rtable *rt;
--	__be32 newsrc;
-+	__be32 newsrc, nh;
- 
- 	NF_CT_ASSERT(par->hooknum == NF_INET_POST_ROUTING);
- 
-@@ -70,7 +70,10 @@ masquerade_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 
- 	mr = par->targinfo;
- 	rt = skb_rtable(skb);
--	newsrc = inet_select_addr(par->out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
-+	nh = rt->rt_gateway;
-+	if (!nh)
-+		nh = ip_hdr(skb)->daddr;
-+	newsrc = inet_select_addr(par->out, nh, RT_SCOPE_UNIVERSE);
- 	if (!newsrc) {
- 		pr_info("%s ate my IP address\n", par->out->name);
- 		return NF_DROP;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c4b2df6..f594e4a 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -904,8 +904,10 @@ void ip_rt_get_source(u8 *addr, struct sk_buff *skb, struct rtable *rt)
- 		if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res) == 0)
- 			src = FIB_RES_PREFSRC(dev_net(rt->dst.dev), res);
- 		else
--			src = inet_select_addr(rt->dst.dev, rt->rt_gateway,
--					RT_SCOPE_UNIVERSE);
-+			src = inet_select_addr(rt->dst.dev, (rt->rt_gateway ?
-+							     rt->rt_gateway :
-+							     iph->daddr),
-+					       RT_SCOPE_UNIVERSE);
- 		rcu_read_unlock();
- 	}
- 	memcpy(addr, &src, 4);
-@@ -951,7 +953,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
- 	mtu = dst->dev->mtu;
- 
- 	if (unlikely(dst_metric_locked(dst, RTAX_MTU))) {
--		if (rt->rt_gateway != 0 && mtu > 576)
-+		if (rt->rt_gateway && mtu > 576)
- 			mtu = 576;
- 	}
- 
-@@ -1050,7 +1052,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rth->rt_iif	= dev->ifindex;
- 	rth->rt_oif	= 0;
- 	rth->rt_pmtu	= 0;
--	rth->rt_gateway	= daddr;
-+	rth->rt_gateway	= 0;
- 	rth->fi = NULL;
- 	if (our) {
- 		rth->dst.input= ip_local_deliver;
-@@ -1168,7 +1170,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->rt_iif 	= in_dev->dev->ifindex;
- 	rth->rt_oif 	= 0;
- 	rth->rt_pmtu	= 0;
--	rth->rt_gateway	= daddr;
-+	rth->rt_gateway	= 0;
- 	rth->fi = NULL;
- 
- 	rth->dst.input = ip_forward;
-@@ -1333,7 +1335,7 @@ local_input:
- 	rth->rt_iif	= dev->ifindex;
- 	rth->rt_oif	= 0;
- 	rth->rt_pmtu	= 0;
--	rth->rt_gateway	= daddr;
-+	rth->rt_gateway	= 0;
- 	rth->fi = NULL;
- 	if (res.type == RTN_UNREACHABLE) {
- 		rth->dst.input= ip_error;
-@@ -1483,7 +1485,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	rth->rt_iif	= orig_oif ? : dev_out->ifindex;
- 	rth->rt_oif	= orig_oif;
- 	rth->rt_pmtu	= 0;
--	rth->rt_gateway = fl4->daddr;
-+	rth->rt_gateway = 0;
- 	rth->fi = NULL;
- 
- 	RT_CACHE_STAT_INC(out_slow_tot);
-@@ -1845,7 +1847,7 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 		if (nla_put_be32(skb, RTA_PREFSRC, fl4->saddr))
- 			goto nla_put_failure;
- 	}
--	if (fl4->daddr != rt->rt_gateway &&
-+	if (rt->rt_gateway &&
- 	    nla_put_be32(skb, RTA_GATEWAY, rt->rt_gateway))
- 		goto nla_put_failure;
- 
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZWZmIEtpcnNoZXIgW21haWx0
+bzp0YXJiYWxAZ21haWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgSnVseSAxMiwgMjAxMiAxMTo1
+NiBQTQ0KPiBUbzogSywgTmFyZW5kcmE7IGdyZWdvcnkudi5yb3NlQGludGVsLmNvbQ0KPiBDYzog
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBpeGdiZXZmIC0g
+UHJldmVudCBSWC9UWCBzdGF0aXN0aWNzIGdldHRpbmcgcmVzZXQgdG8gemVybw0KPiANCj4gT24g
+MDcvMTIvMjAxMiAwNjo1NSBBTSwgTmFyZW5kcmFfS0BEZWxsLmNvbSB3cm90ZToNCj4gPiBIZWxs
+bywNCj4gPg0KPiA+IFtBcG9sb2dpZXMgaWYgeW91IGFyZSByZWNlaXZpbmcgdGhpcyBtZXNzYWdl
+IHR3aWNlLiBJIGFtIHJlc2VuZGluZyB0aGUNCj4gbWVzc2FnZSwgYXMgSSBnb3QgbWVzc2FnZSBk
+ZWxpdmVyeSBmYWlsdXJlIG5vdGVdLg0KPiA+DQo+ID4gV2hpbGUgZXhwbG9yaW5nIFNSLUlPViBv
+biBJbnRlbCA4MjU5OUVCIDEwLUdpZ2FiaXQgU0ZQKyBhZGFwdGVyLCBJIGhhZCB0aGUNCj4gZm9s
+bG93aW5nIG9ic2VydmF0aW9uLiAgSSBlbmFibGVkIHR3byBWRnMgYnkgcGFzc2luZyAnbWF4X3Zm
+cz0yJyB0byBpeGdiZQ0KPiBkcml2ZXIuIE9uZSBvZiB0aGUgVkZzIHdhcyBhc3NpZ25lZCB0byBh
+IGd1ZXN0Lg0KPiA+IEluIHRoZSBndWVzdCwgdGhlIGlmY29uZmlnIGFuZCBpcCB0b29scyByZXBv
+cnRlZCAnUlggcGFja2V0cycgYW5kICdUWCBwYWNrZXRzJw0KPiBhcyB6ZXJvLCBhZnRlciBwaW5n
+aW5nIHRvIGEgcmVtb3RlIGhvc3QuIExvb2tpbmcgaW50byBpdCBmdXJ0aGVyLCB0aGUgY29tbWl0
+DQo+IDQxOTdhYTdiYjgxODc3ZWJiMDZlNGYyY2MxYjVmZWEyZGEyM2E3YmQgaW1wbGVtZW50cyA2
+NCBiaXQgcGVyIHJpbmcNCj4gc3RhdGlzdGljcy4gSXQgc2VlbWVkIGxpa2UgdGhlICd0b3RhbF9i
+eXRlcycgYW5kICd0b3RhbF9wYWNrZXRzJyBvZiBSWCBhbmQgVFgNCj4gcmluZyB3ZXJlIGJlaW5n
+IHJlc2V0IHRvIHplcm8gYnkgdGhlIFJYIGFuZCBUWCBpbnRlcnJ1cHQgaGFuZGxlcnMsIHJlc3Vs
+dGluZyBpbg0KPiB0aGUgdXNlciBzcGFjZSB0b29scyByZXBvcnRpbmcgemVybyBSWCBhbmQgVFgg
+Ynl0ZXMuDQo+ID4NCj4gPiBUaGUgYXR0YWNoZWQgcGF0Y2ggYWRkcmVzc2VzIHRoZSBpc3N1ZSBi
+eSBwcmV2ZW50aW5nIHRoZSByZXNldHRpbmcgb2YgUlgNCj4gYW5kIFRYIHJpbmcgc3RhdGlzdGlj
+cyB0byB6ZXJvLiBUaGUgcGF0Y2ggd2FzIHRha2VuIGFnYWluc3QgbGF0ZXN0IG1haW5saW5lIDMu
+NS0NCj4gcmM2IGtlcm5lbC4NCj4gPg0KPiA+IEkgdGVzdGVkIHRoZSBwYXRjaCBieSBwaW5naW5n
+ICBmcm9tIHRoZSBndWVzdCBPUyB0byBhIHJlbW90ZSBob3N0Lg0KPiA+DQo+ID4gcGluZyAtZiA8
+cmVtb3RlIGhvc3Q+IC1jIDEwMDAwDQo+ID4NCj4gPiBUaGUgaXAgYW5kIGlmY29maWcgc2hvd2Vk
+IHRoZSBzdGF0aXN0aWNzIGluY3JlYXNlZCBieSAxMDAwMCBwYWNrZXRzLg0KPiA+DQo+ID4gIyBs
+c3BjaSB8IGdyZXAgODI1OTkNCj4gPiAwNDowMC4wIEV0aGVybmV0IGNvbnRyb2xsZXI6IEludGVs
+IENvcnBvcmF0aW9uIDgyNTk5RUIgMTAtR2lnYWJpdCBTRlArDQo+IE5ldHdvcmsgQ29ubmVjdGlv
+biAocmV2IDAxKQ0KPiA+IDA0OjAwLjEgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9y
+YXRpb24gODI1OTlFQiAxMC1HaWdhYml0IFNGUCsNCj4gTmV0d29yayBDb25uZWN0aW9uIChyZXYg
+MDEpDQo+ID4gMDQ6MTAuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4
+MjU5OSBFdGhlcm5ldCBDb250cm9sbGVyDQo+IFZpcnR1YWwgRnVuY3Rpb24gKHJldiAwMSkNCj4g
+PiAwNDoxMC4xIEV0aGVybmV0IGNvbnRyb2xsZXI6IEludGVsIENvcnBvcmF0aW9uIDgyNTk5IEV0
+aGVybmV0IENvbnRyb2xsZXINCj4gVmlydHVhbCBGdW5jdGlvbiAocmV2IDAxKQ0KPiA+IDA0OjEw
+LjIgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycG9yYXRpb24gODI1OTkgRXRoZXJuZXQg
+Q29udHJvbGxlcg0KPiBWaXJ0dWFsIEZ1bmN0aW9uIChyZXYgMDEpDQo+ID4gMDQ6MTAuMyBFdGhl
+cm5ldCBjb250cm9sbGVyOiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjU5OSBFdGhlcm5ldCBDb250cm9s
+bGVyDQo+IFZpcnR1YWwgRnVuY3Rpb24gKHJldiAwMSkNCj4gPg0KPiA+ICMgbHNwY2kgLXMgMDQ6
+MDAuMCAtbg0KPiA+IDA0OjAwLjAgMDIwMDogODA4NjoxNTRkIChyZXYgMDEpDQo+ID4gIyBsc3Bj
+aSAtcyAwNDoxMC4wIC1uDQo+ID4gMDQ6MTAuMCAwMjAwOiA4MDg2OjEwZWQgKHJldiAwMSkNCj4g
+Pg0KPiA+IFBsZWFzZSBsZXQgbWUga25vdyBpZiBhZGRpdGlvbmFsIGRldGFpbHMgYW5kIGxvZ3Mg
+YXJlIHJlcXVpcmVkLls+XSAgDQo+ID4NCj4gPiBXaXRoIHJlZ2FyZHMsDQo+ID4gTmFyZW5kcmEg
+Sw0KPiA+DQo+ID4NCj4gPg0KPiANCj4gVGhhbmtzLCBJIHdpbGwgYWRkIHRoZSBwYXRjaCB0byBt
+eSBxdWV1ZQ0KPiANCls+XSANCiANCkhpIEdyZWcsDQoNCkkgd2FzIHJlLWxvb2tpbmcgYXQgd2h5
+ICcgcnhfcmluZy0+dG90YWxfcGFja2V0cycgYW5kICcgcnhfcmluZy0+dG90YWxfYnl0ZXMnIHdl
+cmUgYmVpbmcgc2V0IHRvIHplcm8gaW4gJyBpeGdiZXZmX21zaXhfY2xlYW5fcngnLiAgSXQgbG9v
+a3MgbGlrZSAnIHJ4X3JpbmctPnRvdGFsX3BhY2tldHMnIGFuZCAnIHJ4X3JpbmctPnRvdGFsX3Bh
+Y2tldHMnICBhcmUgY29tcHV0ZWQgcGVyIG9uZSBydW4gb2YgJ2l4Z2JldmZfY2xlYW5fcnhfaXJx
+JyAuICBUaGVuIGluICdpeGdiZXZmX2NsZWFuX3J4b25seScgaWYgJ2FkYXB0ZXItPml0cl9zZXR0
+aW5nICYgMScgaXMgdHJ1ZSwgdGhlIGNvdW50IGlzICB1c2VkIGluICAnaXhnYmV2Zl9zZXRfaXRy
+X21zaXgnLiBXaGVuIHRoZSBpbnRlcnJ1cHRzIGFyZSBlbmFibGVkLCB0aGUgDQonIHJ4X3Jpbmct
+PnRvdGFsX3BhY2tldHMnICBhbmQgJyByeF9yaW5nLT50b3RhbF9ieXRlcycgYXJlIHNldCB0byB6
+ZXJvIHNvIHRoYXQgdGhleSBjYW4gYmUgcmUtY29tcHV0ZWQgaW4gdGhlIHBvbGwgZnVuY3Rpb24g
+YW5kICBmZWQgdG8gdGhlICdpeGdiZXZmX3NldF9pdHJfbXNpeCcuDQoNClRoaXMgcmVzdWx0cyBp
+biBzdGF0aXN0aWNzIHJlcG9ydGVkIGJ5ICdpcCcgYW5kICdpZmNvbmZpZycgYXMgemVyby4gVGhl
+IHBhdGNoIGFkZHJlc3NlcyB0aGUgc2NlbmFyaW8uICBCdXQgaXQgc2VlbXMgaXQgd291bGQgY2hh
+bmdlIHRoZSBpbnRlbmRlZCBiZWhhdmlvciBpbiB0aGUgc2NlbmFyaW8gIHdoZW4gJ2FkYXB0ZXIt
+Pml0cl9zZXR0aW5nICYgMScgaXMgdHJ1ZS4gIEl0IGNvdWxkIGJlIGFkZHJlc3NlZCBieSBzdG9y
+aW5nIHRoZSAndG90YWxfcnhfcGFja2V0cycgYW5kICd0b3RhbF9yeF9ieXRlcycgIGNvbXB1dGVk
+IGV2ZXJ5IHRpbWUgaW4gdGhlIHBvbGwgZnVuY3Rpb24gaW4gJ3N0cnVjdCBpeGdiZXZmX2FkYXB0
+ZXInIC4gVGhlbiB0aGUgaW50ZXJydXB0IGhhbmRsZXIgY291bGQgcmVzZXQgdGhlbSB0byB6ZXJv
+IGluc3RlYWQgb2YgcmVzZXR0aW5nICAnIHJ4X3JpbmctPnRvdGFsX3BhY2tldHMnIGFuZCAgJyBy
+eF9yaW5nLT50b3RhbF9ieXRlcycuDQoNCkFsc28sIEkgb2JzZXJ2ZWQgdGhhdCAgJ2FkYXB0ZXIt
+Pml0cl9zZXR0aW5nICYgMScgIHdhcyBub3QgdHJ1ZSBieSBkZWZhdWx0LiAgSSB0cmllZCBzZXR0
+aW5nIGl0IGJ5ICdldGh0b29sICAtQyBldGgwIGFkYXB0aXZlLXJ4IG9uJywgYW5kIGl0IHJldHVy
+bmVkICdvcGVyYXRpb24gbm90IHN1cHBvcnRlZCcuIA0KDQpJIGNvdWxkIGJlIG1pc3Npbmcgc29t
+ZXRoaW5nIGhlcmUsIHBsZWFzZSBsZXQgbWUga25vdy4NCg0KV2l0aCByZWdhcmRzLA0KTmFyZW5k
+cmEgSw0KDQoNCg0KDQo=
