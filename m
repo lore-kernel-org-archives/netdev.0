@@ -1,35 +1,58 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next] tipc: Use pr_fmt
-Date: Fri, 13 Jul 2012 11:45:44 -0400
-Message-ID: <20120713154544.GA31280@windriver.com>
-References: <1342111201-9426-1-git-send-email-paul.gortmaker@windriver.com>
- <1342115481.13046.5.camel@joe2Laptop>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [RFC PATCH 1/2] net: Add new network device function to allow
+ for MMIO batching
+Date: Fri, 13 Jul 2012 08:49:10 -0700
+Message-ID: <50004376.7060703@intel.com>
+References: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>  <20120712002603.27846.23752.stgit@gitlad.jf.intel.com> <1342163954.3265.8299.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Erik Hugne <erik.hugne@ericsson.com>, <ying.xue@windriver.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, edumazet@google.com,
+	bhutchings@solarflare.com, therbert@google.com,
+	alexander.duyck@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51743 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755899Ab2GMPpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 11:45:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1342115481.13046.5.camel@joe2Laptop>
+Received: from mga09.intel.com ([134.134.136.24]:17639 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751923Ab2GMPt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2012 11:49:27 -0400
+In-Reply-To: <1342163954.3265.8299.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[[PATCH net-next] tipc: Use pr_fmt] On 12/07/2012 (Thu 10:51) Joe Perches wrote:
-
-[...]
-
-> 
-> How about extending this to use the more common pr_fmt prefix?
-
-We can probably do that.  I'll incorporate that into the 3/8 patch,
-rather than have two similar patches in the series, with the 2nd just
-going in and touching all the same lines a second time.
+On 07/13/2012 12:19 AM, Eric Dumazet wrote:
+> On Wed, 2012-07-11 at 17:26 -0700, Alexander Duyck wrote:
+>
+>> +static inline void netdev_complete_xmit(struct netdev_queue *txq)
+>> +{
+>> +	struct net_device *dev = txq->dev;
+>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>> +
+>> +	if (txq->dispatch_pending < txq->dispatch_limit) {
+>> +		if (netif_tx_queue_delayed(txq)) {
+>> +			txq->dispatch_pending++;
+>> +			return;
+>> +		}
+>> +
+>> +		/* start of delayed write sequence */
+>> +		netif_tx_delay_queue(txq);
+> 	I dont understand this part. Isnt a return missing here ?
+>
+>> +	}
+>> +
+>> +	txq->dispatch_pending = 0;
+>> +
+>> +	ops->ndo_complete_xmit(dev, txq - &dev->_tx[0]);
+>> +}
+>> +
+>
+There is intentionally no return there.  The idea is that the first
+packet always gets through.  It is what is going to later force the
+interrupt that will force the final flush if it is needed.  That is one
+of the ways I am helping to reduce the latency of things such as TSO
+which will only be using one or two frames per interrupt anyway.
 
 Thanks,
-Paul.
+
+Alex
