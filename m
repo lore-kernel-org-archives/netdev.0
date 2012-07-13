@@ -1,51 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/2] net: Add new network device function to allow
- for MMIO batching
-Date: Fri, 13 Jul 2012 09:19:14 +0200
-Message-ID: <1342163954.3265.8299.camel@edumazet-glaptop>
-References: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>
-	 <20120712002603.27846.23752.stgit@gitlad.jf.intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH v3] tg3: add device id of Apple Thunderbolt Ethernet
+ device
+Date: Fri, 13 Jul 2012 00:19:42 -0700
+Message-ID: <1342163982.7472.83.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <20120712202131.GA26436@kroah.com>
+ <20120712205607.GA27999@kroah.com> <20120713013944.GB6445@kroah.com>
+ <CAL1RGDUK=q+_d2hnWbALde6602d92=x7+T7FUY1zPL8AtUcXcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	alexander.duyck@gmail.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: "Greg KH" <gregkh@linuxfoundation.org>,
+	"Matt Carlson" <mcarlson@broadcom.com>, netdev@vger.kernel.org
+To: "Roland Dreier" <roland@purestorage.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:43792 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378Ab2GMHTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 03:19:20 -0400
-Received: by bkwj10 with SMTP id j10so2873501bkw.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jul 2012 00:19:18 -0700 (PDT)
-In-Reply-To: <20120712002603.27846.23752.stgit@gitlad.jf.intel.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3215 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751861Ab2GMHT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2012 03:19:59 -0400
+In-Reply-To: <CAL1RGDUK=q+_d2hnWbALde6602d92=x7+T7FUY1zPL8AtUcXcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-11 at 17:26 -0700, Alexander Duyck wrote:
+On Thu, 2012-07-12 at 22:33 -0700, Roland Dreier wrote: 
+> On Thu, Jul 12, 2012 at 6:39 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> > The Apple Thunderbolt ethernet device is already listed in the driver,
+> > but not hooked up in the MODULE_DEVICE_TABLE().  This fixes that and
+> > allows it to work properly.
+> >
+> > Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> >
+> > ---
+> > Resent to Cc: the proper developers this time.
+> >
+> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> > index e47ff8b..3721833 100644
+> > --- a/drivers/net/ethernet/broadcom/tg3.c
+> > +++ b/drivers/net/ethernet/broadcom/tg3.c
+> > @@ -298,6 +298,7 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+> >         {PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57795)},
+> >         {PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5719)},
+> >         {PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5720)},
+> > +       {PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57762)},
+> >         {PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9DXX)},
+> >         {PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9MXX)},
+> >         {PCI_DEVICE(PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000)},
+> 
+> I realize there's no way Greg can know the answer to this or test the
+> corresponding change...
+> 
+> But for the Broadcom guys:
+> it looks like there simiarly is code in the driver for at least
+> 
+> TG3PCI_DEVICE_TIGON3_57766
+> TG3PCI_DEVICE_TIGON3_57782
+> TG3PCI_DEVICE_TIGON3_57786
+> 
+> without entries in the PCI device table.  Should those similarly be added?
+> 
 
-> +static inline void netdev_complete_xmit(struct netdev_queue *txq)
-> +{
-> +	struct net_device *dev = txq->dev;
-> +	const struct net_device_ops *ops = dev->netdev_ops;
-> +
-> +	if (txq->dispatch_pending < txq->dispatch_limit) {
-> +		if (netif_tx_queue_delayed(txq)) {
-> +			txq->dispatch_pending++;
-> +			return;
-> +		}
-> +
-> +		/* start of delayed write sequence */
-> +		netif_tx_delay_queue(txq);
-
-	I dont understand this part. Isnt a return missing here ?
-
-> +	}
-> +
-> +	txq->dispatch_pending = 0;
-> +
-> +	ops->ndo_complete_xmit(dev, txq - &dev->_tx[0]);
-> +}
-> +
+Yeah we need to add these as well, but there may be missing code to
+support these chips besides the PCI ID table entries.  We will get these
+chips tested and send the complete patches to support these chips.
