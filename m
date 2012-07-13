@@ -1,8 +1,7 @@
 From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH v3 1/3] asix: Rename asix.c to asix_devices.c
-Date: Fri, 13 Jul 2012 17:26:29 +0200
-Message-ID: <1342193191-18822-2-git-send-email-christian.riesch@omicron.at>
-References: <1342193191-18822-1-git-send-email-christian.riesch@omicron.at>
+Subject: [PATCH v3 0/3] Add a driver for the ASIX AX88172A with phylib support
+Date: Fri, 13 Jul 2012 17:26:28 +0200
+Message-ID: <1342193191-18822-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Oliver Neukum <oneukum@suse.de>,
@@ -16,52 +15,84 @@ Cc: Oliver Neukum <oneukum@suse.de>,
 	Christian Riesch <christian.riesch@omicron.at>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:49870 "EHLO ns.omicron.at"
+Received: from ns.omicron.at ([212.183.10.25]:49877 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755841Ab2GMPZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2012 11:25:29 -0400
-In-Reply-To: <1342193191-18822-1-git-send-email-christian.riesch@omicron.at>
+	id S1755841Ab2GMPZb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2012 11:25:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch further creates two additional copies of asix.c.
-In another patch these copies will be used to factor out
-common code.
+Hi,
 
-Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
----
- drivers/net/usb/Makefile                   |    1 +
- drivers/net/usb/{asix.c => asix.h}         |    0
- drivers/net/usb/{asix.c => asix_common.c}  |    0
- drivers/net/usb/{asix.c => asix_devices.c} |    0
- 4 files changed, 1 insertions(+), 0 deletions(-)
- copy drivers/net/usb/{asix.c => asix.h} (100%)
- copy drivers/net/usb/{asix.c => asix_common.c} (100%)
- rename drivers/net/usb/{asix.c => asix_devices.c} (100%)
+this is v3 of my patchset that adds a driver for the ASIX AX88172A USB 2.0
+to 10/100M Fast Ethernet Controller.
 
-diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
-index a2e2d72..2c8f7b4 100644
---- a/drivers/net/usb/Makefile
-+++ b/drivers/net/usb/Makefile
-@@ -8,6 +8,7 @@ obj-$(CONFIG_USB_PEGASUS)	+= pegasus.o
- obj-$(CONFIG_USB_RTL8150)	+= rtl8150.o
- obj-$(CONFIG_USB_HSO)		+= hso.o
- obj-$(CONFIG_USB_NET_AX8817X)	+= asix.o
-+asix-y := asix_devices.o
- obj-$(CONFIG_USB_NET_CDCETHER)	+= cdc_ether.o
- obj-$(CONFIG_USB_NET_CDC_EEM)	+= cdc_eem.o
- obj-$(CONFIG_USB_NET_DM9601)	+= dm9601.o
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix.h
-similarity index 100%
-copy from drivers/net/usb/asix.c
-copy to drivers/net/usb/asix.h
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix_common.c
-similarity index 100%
-copy from drivers/net/usb/asix.c
-copy to drivers/net/usb/asix_common.c
-diff --git a/drivers/net/usb/asix.c b/drivers/net/usb/asix_devices.c
-similarity index 100%
-rename from drivers/net/usb/asix.c
-rename to drivers/net/usb/asix_devices.c
--- 
-1.7.0.4
+Although this chip is already supported by the AX88772 code in
+drivers/net/usb/asix.c, I submit a new driver since the existing
+driver lacks an important feature: It only supports an
+Ethernet connection that is using the internal PHY embedded in the
+AX88172A, although the chip also provides an MII interface to connect
+an external PHY.
+
+The new driver supports both the internal and the external PHY using
+the phylib.
+
+The driver for the AX88172A is based on drivers/net/usb/asix.c
+and the work of Michael Riesch <michael@riesch.at>.
+
+The first and the second patch factor out common code which is shared
+between the existing drivers and the new driver for the AX88172A. The
+third patch adds support for the AX88172A.
+
+The patchset applies on top of net-next.
+
+Changes for v3:
+- Fixed coding style and netdev_<level> outputs (comments from
+  Joe Perches) in the third patch.
+
+Changes for v2:
+- Rebased to current net-next.
+- Dropped the first patch with ridiculous checkpatch fixes, the new version
+  of the patchset only fixes the code that it touches.
+- Changed the way the code is factored out in the patchset. This allows
+  git to detect that the code was just moved, not changed.
+- In v1 I accidentally duplicated the code for reading the phy address
+  from the asix chip. Now the drivers use common code in asix_common.c.
+- Moved phy_connect(), phy_start() to ax88172a_reset() (called when
+  the network interface is started) and phy_stop() to ax88172a_stop().
+  It seems to me that this is the way to do it since other drivers
+  do the same.
+- Changed the naming of the mdio bus, since the way it was done in v1
+  could lead to bus names that are too long. Now the mdio bus is labeled 
+  usb-<usb bus number>-<usb device number>.
+- Cleanup of debug and error messages, in v1 dbg() was used instead
+  of netdev_err() for some error messages.
+- Changed to order of the fields in struct ax88172a_private (comment from
+  Grant Grundler).
+- Use #defines instead of magic numbers in ax88172a_bind()
+
+I have tested the patch with the ASIX AX88172A demo board (using the
+internal PHY) and a custom board (AX88172A and National DP83640 PHY).
+
+I am looking forward to your comments! :-)
+
+Regards, Christian
+
+
+Christian Riesch (3):
+  asix: Rename asix.c to asix_devices.c
+  asix: Factor out common code
+  asix: Add a new driver for the AX88172A
+
+ drivers/net/usb/Makefile       |    1 +
+ drivers/net/usb/asix.c         | 1680 ----------------------------------------
+ drivers/net/usb/asix.h         |  217 ++++++
+ drivers/net/usb/asix_common.c  |  545 +++++++++++++
+ drivers/net/usb/asix_devices.c | 1028 ++++++++++++++++++++++++
+ drivers/net/usb/ax88172a.c     |  415 ++++++++++
+ 6 files changed, 2206 insertions(+), 1680 deletions(-)
+ delete mode 100644 drivers/net/usb/asix.c
+ create mode 100644 drivers/net/usb/asix.h
+ create mode 100644 drivers/net/usb/asix_common.c
+ create mode 100644 drivers/net/usb/asix_devices.c
+ create mode 100644 drivers/net/usb/ax88172a.c
