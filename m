@@ -1,45 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/2] net: Add new network device function to allow
- for MMIO batching
-Date: Fri, 13 Jul 2012 18:23:24 +0200
-Message-ID: <1342196604.3265.8485.camel@edumazet-glaptop>
-References: <20120712002103.27846.73812.stgit@gitlad.jf.intel.com>
-	 <20120712002603.27846.23752.stgit@gitlad.jf.intel.com>
-	 <1342077259.3265.8232.camel@edumazet-glaptop> <4FFEEF99.7030707@intel.com>
-	 <1342165129.3265.8320.camel@edumazet-glaptop>
-	 <20120713085007.596a2924@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] iproute2: Fix memory hog of ip batched command.
+Date: Fri, 13 Jul 2012 09:26:48 -0700
+Message-ID: <20120713092648.443ab0d8@nehalam.linuxnetplumber.net>
+References: <1342142466-28270-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, edumazet@google.com,
-	bhutchings@solarflare.com, therbert@google.com,
-	alexander.duyck@gmail.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: netdev@vger.kernel.org, jpettit@nicira.com, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63219 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756760Ab2GMQX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 12:23:29 -0400
-Received: by bkwj10 with SMTP id j10so3318768bkw.19
-        for <netdev@vger.kernel.org>; Fri, 13 Jul 2012 09:23:28 -0700 (PDT)
-In-Reply-To: <20120713085007.596a2924@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:37577 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756668Ab2GMQ1G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2012 12:27:06 -0400
+In-Reply-To: <1342142466-28270-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-13 at 08:50 -0700, Stephen Hemminger wrote:
-> On Fri, 13 Jul 2012 09:38:49 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, 12 Jul 2012 18:21:06 -0700
+Pravin B Shelar <pshelar@nicira.com> wrote:
+
+> ipaddr_list_or_flush() builds list of all device at start of
+> every flush or list operation, but does not free memory at end.
+> This can hog lot of memory for large batched command.
+> Following patch fixes it.
 > 
-> > Frankly what percentage of linux powered machines act as high perf
-> > routers ?
-> 
-> More than you think, every Linux machine acting as hypervisor (Xen and KVM)
-> is also doing this.
+> Reported-by: Justin Pettit <jpettit@nicira.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-
-High perf router meant : ability to route 10 Mpps, without help of TSO.
-
-If an hypervisor is enable to use TSO, I expect very bad performances
-anyway.
+The list of addresses (ainfo) also leaks here.
