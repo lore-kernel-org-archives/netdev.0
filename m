@@ -1,47 +1,49 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [ethtool PATCH] ethtool: Resolve use of uninitialized memory in
-	rxclass_get_dev_info
-Date: Fri, 13 Jul 2012 09:55:29 -0700
-Message-ID: <20120713165221.28140.92681.stgit@gitlad.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org, bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41699 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757109Ab2GMQzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jul 2012 12:55:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Claudiu Ghioc <claudiughioc@gmail.com>
+Subject: [PATCH] ipvs: fixed sparse warning
+Date: Fri, 13 Jul 2012 19:57:22 +0300
+Message-ID: <1342198642-22741-1-git-send-email-claudiu.ghioc@gmail.com>
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, pablo@netfilter.org,
+	kaber@trash.net, Claudiu Ghioc <claudiu.ghioc@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ethtool function for getting the rule count was not zeroing out the
-data field before passing it to the kernel.  As a result the value started
-uninitialized and was incorrectly returning a result indicating that
-devices supported setting new rule indexes.  In order to correct this I am
-adding a one line fix that sets data to zero before we pass the command to
-the kernel.
+Removed the following sparse warnings:
+*	warning: symbol 'ip_vs_control_net_init_sysctl' was not declared. Should
+	it be static?
+*	warning: symbol 'ip_vs_control_net_cleanup_sysctl' was not
+	declared. Should it be static?
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Claudiu Ghioc <claudiu.ghioc@gmail.com>
 ---
+ net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I am resending this since I didn't see any notification that it had been seen.
-I also realized that I had not clearly identified that this is an ethtool user
-space patch and not an ethtool kernel space patch.
-
- rxclass.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/rxclass.c b/rxclass.c
-index 4d49aa6..e1633a8 100644
---- a/rxclass.c
-+++ b/rxclass.c
-@@ -207,6 +207,7 @@ static int rxclass_get_dev_info(struct cmd_context *ctx, __u32 *count,
- 	int err;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index d43e3c1..3542c6b1 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3674,7 +3674,7 @@ static void ip_vs_genl_unregister(void)
+  * per netns intit/exit func.
+  */
+ #ifdef CONFIG_SYSCTL
+-int __net_init ip_vs_control_net_init_sysctl(struct net *net)
++static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ {
+ 	int idx;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+@@ -3742,7 +3742,7 @@ int __net_init ip_vs_control_net_init_sysctl(struct net *net)
+ 	return 0;
+ }
  
- 	nfccmd.cmd = ETHTOOL_GRXCLSRLCNT;
-+	nfccmd.data = 0;
- 	err = send_ioctl(ctx, &nfccmd);
- 	*count = nfccmd.rule_cnt;
- 	if (driver_select)
+-void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
++static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
+ {
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+-- 
+1.7.10.4
+
