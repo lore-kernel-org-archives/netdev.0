@@ -1,43 +1,97 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 7/7] be2net: Enable RSS UDP hashing for Lancer
- and Skyhawk
-Date: Thu, 12 Jul 2012 23:37:01 +0100
-Message-ID: <1342132621.2662.64.camel@bwh-desktop.uk.solarflarecom.com>
-References: <58046138-832a-49a2-84a8-fa682a74162e@exht1.ad.emulex.com>
-	 <1342102215.3265.8263.camel@edumazet-glaptop>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [v2 PATCH] net: Update alloc frag to reduce get/put page usage and
+	recycle pages
+Date: Thu, 12 Jul 2012 17:23:50 -0700
+Message-ID: <20120713001922.27393.1358.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	edumazet@google.com, alexander.duyck@gmail.com,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:48410 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759425Ab2GLWhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jul 2012 18:37:05 -0400
-In-Reply-To: <1342102215.3265.8263.camel@edumazet-glaptop>
+Received: from mga02.intel.com ([134.134.136.20]:8308 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751230Ab2GMAXb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jul 2012 20:23:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-12 at 16:10 +0200, Eric Dumazet wrote:
-> On Thu, 2012-07-12 at 19:27 +0530, Padmanabh Ratnakar wrote:
-> > Signed-off-by: Padmanabh Ratnakar <padmanabh.ratnakar@emulex.com>
-> > ---
-> >  drivers/net/ethernet/emulex/benet/be.h      |    3 +++
-> >  drivers/net/ethernet/emulex/benet/be_cmds.c |    7 +++++++
-> >  drivers/net/ethernet/emulex/benet/be_cmds.h |    2 ++
-> >  3 files changed, 12 insertions(+), 0 deletions(-)
-> 
-> It would be nice to add a bit of documentation on this, and what
-> components are used from the tuple (dst addr, src addr, dst port, src
-> port)
+This patch is meant to help improve performance by reducing the number of
+locked operations required to allocate a frag on x86 and other platforms.
+This is accomplished by using atomic_set operations on the page count
+instead of calling get_page and put_page.  It is based on work originally
+provided by Eric Dumazet.
 
-That's what ETHTOOL_GRXFH is for.
+In addition it also helps to reduce memory overhead when using TCP.  This
+is done by recycling the page if the only holder of the frame is the
+netdev_alloc_frag call itself.  This can occur when skb heads are stolen by
+either GRO or TCP and the driver providing the packets is using paged frags
+to store all of the data for the packets.
 
-Ben.
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+v2: Reverted back to something closer to the patch that Eric originally
+    submitted.  The main goal in all this is to get the removal of expensive
+    atomic ops and recycling added for now while Eric is still working on
+    an approach that uses larger pages.
+
+ net/core/skbuff.c |   28 ++++++++++++++++++++--------
+ 1 files changed, 20 insertions(+), 8 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 506f678..a757a2c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -296,9 +296,12 @@ EXPORT_SYMBOL(build_skb);
+ struct netdev_alloc_cache {
+ 	struct page *page;
+ 	unsigned int offset;
++	unsigned int pagecnt_bias;
+ };
+ static DEFINE_PER_CPU(struct netdev_alloc_cache, netdev_alloc_cache);
+ 
++#define NETDEV_PAGECNT_BIAS (PAGE_SIZE / SMP_CACHE_BYTES)
++
+ /**
+  * netdev_alloc_frag - allocate a page fragment
+  * @fragsz: fragment size
+@@ -317,17 +320,26 @@ void *netdev_alloc_frag(unsigned int fragsz)
+ 	if (unlikely(!nc->page)) {
+ refill:
+ 		nc->page = alloc_page(GFP_ATOMIC | __GFP_COLD);
++		if (unlikely(!nc->page))
++			goto end;
++recycle:
++		atomic_set(&nc->page->_count, NETDEV_PAGECNT_BIAS);
++		nc->pagecnt_bias = NETDEV_PAGECNT_BIAS;
+ 		nc->offset = 0;
+ 	}
+-	if (likely(nc->page)) {
+-		if (nc->offset + fragsz > PAGE_SIZE) {
+-			put_page(nc->page);
+-			goto refill;
+-		}
+-		data = page_address(nc->page) + nc->offset;
+-		nc->offset += fragsz;
+-		get_page(nc->page);
++
++	if (nc->offset + fragsz > PAGE_SIZE) {
++		/* avoid unnecessary locked operations if possible */
++		if ((atomic_read(&nc->page->_count) == nc->pagecnt_bias) ||
++		    atomic_sub_and_test(nc->pagecnt_bias, &nc->page->_count))
++			goto recycle;
++		goto refill;
+ 	}
++
++	data = page_address(nc->page) + nc->offset;
++	nc->offset += fragsz;
++	nc->pagecnt_bias--;
++end:
+ 	local_irq_restore(flags);
+ 	return data;
+ }
