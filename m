@@ -1,95 +1,109 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC PATCH] tun: don't zeroize sock->file on detach
-Date: Sat, 14 Jul 2012 09:15:14 +0100
-Message-ID: <20120714081513.GJ22927@ZenIV.linux.org.uk>
-References: <20120711114753.24395.53193.stgit@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: Silent data corruption when using sendfile()
+Date: Sat, 14 Jul 2012 10:20:41 +0200
+Message-ID: <1342254042.3265.9017.camel@edumazet-glaptop>
+References: <20120713171835.GA26052@vault.local>
+	 <CAJd=RBAntSubDBbJ292SzeoN4hTwBQ_Q23jt+Y6i-+vfrQ5EHQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	ruanzhijie@hotmail.com, linux-kernel@vger.kernel.org
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:33001 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756546Ab2GNIPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 04:15:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20120711114753.24395.53193.stgit@localhost6.localdomain6>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Truschnigg <johannes@truschnigg.info>,
+	linux-kernel@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
+	Linux-Netdev <netdev@vger.kernel.org>
+To: Hillf Danton <dhillf@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJd=RBAntSubDBbJ292SzeoN4hTwBQ_Q23jt+Y6i-+vfrQ5EHQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 11, 2012 at 03:48:20PM +0400, Stanislav Kinsbursky wrote:
-> This is a fix for bug, introduced in 3.4 kernel by commit
-> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things, replaced
-> simple sock_put() by sk_release_kernel(). Below is sequence, which leads to
-> oops for non-persistent devices:
+On Sat, 2012-07-14 at 16:04 +0800, Hillf Danton wrote:
+> On Sat, Jul 14, 2012 at 1:18 AM, Johannes Truschnigg
+> <johannes@truschnigg.info> wrote:
+> > Hello good people of linux-kernel.
+> >
+> > I've been bothered by silent data corruption from my personal fileserver - no
+> > matter the Layer 7 protocol used, huge transfers sporadically ended up damaged
+> > in-flight. I used Samba/CIFS, NFS(v4, via TCP), Apache httpd 2.2, thttpd,
+> > python and netcat to verify this.
+> >
+> > I think I managed to track down the culprit: as soon as I disable sendfile()
+> > for all programs that support such a configuration (netcat, afaik, won't ever
+> > use sendfile() to transmit data over a socket, so the problem was never
+> > reproducible there in the first place), everything reverts to perfect and
+> > proper working condition.
+> >
+> > I've been experiencing this problem with vanilla kernel releases from the 3.3
+> > up until 3.4.0 series. I do not know if it also occurs with earlier releases,
+> > but I can verify if that is useful. I set up the environment for a minimal
+> > kind of testcase (a large ISO image file available from the server's local
+> > filesystem, as well as from a mounted NFS export - once via lo, and once via
+> > br0/eth0), and proceeded to do the following:
+> >
+> > i=0; for i in {1..100}
+> > do
+> >   echo "pass $i:"; sync; echo 3 > /proc/sys/vm/drop_caches
+> >   cmp -b /mnt/nfs-test/lo/tmp/X15-65741.iso /srv/files/pub/tmp/X15-65741.iso
+> > done
+> >
+> > I then rotated the source of the data, and tested the network-mount against
+> > the loopback-mount, as well as the network-mount against the local filesystem.
+> >
+> > Computing the file's md5sum in a loop whilst dropping caches after each
+> > iteration by reading it directly from its location in the filesystem produces
+> > the very same hash every time - I therefore think it's safe to assume the
+> > corruption is introduced when traversing the networking stack. The hash also
+> > does not change if I repeadetly compute the md5sum of the file as transferred
+> > by, e. g., Apache httpd or smbd with sendfile explicitly disabled.
+> >
+> > Please take a look at the attachment to see the actual output of the above
+> > script. It does not matter if I do an actual transfer over the network from my
+> > server to one of its clients (I verified the problem with two different client
+> > machines, one even running Windows), or if the server is both source and
+> > destination of the transfer - as long as sendfile is involed, some of the data
+> > will always become garbled sooner or later. That also leads me to believe that
+> > my internetworking devices (my switch in particular) is working just fine;
+> > testing bulky transfers from one host to another confirms this insofar as thus
+> > all data makes it through unscathed.
+> >
+> > As soon as I switch off sendfile-support (in, e. g. Samba or Apache httpd), I
+> > can run a series of thousands and more transfers, and not experience any
+> > corruption at all. Whenever the data gets fubared, there is no hint at
+> > anything fishy going on in the debug ringbuffer - curruption takes place in
+> > total silence.
+> >
+> > The system in question has an Intel Pro/1000 PCI-e NIC for doing the networked
+> > file transfers, and is backed by a md RAID5-Array with LVM2 on top. The 4GB of
+> > system memory (ECC-enabled UDIMM) are operating in S4ECD4ED mode as reported
+> > by EDAC, and there are no reported errors. The CPU I have installed is an AMD
+> > Athlon II X2 245e on an ASUS M4A88TD-M/USB3 Motherboard. It's running Gentoo
+> > for amd64. The box can run prime96 in torture mode and linpack just fine for
+> > days - I'm therefore assuming the hardware to be working correctly.
+> >
+> > I have attached my kernel's config (from 3.4.0, as that's the image that I
+> > have running right now) attached for sake of completeness, as well as some
+> > information for you to see how I tested, and what these tests actually
+> > produced. If you need any other information to help track this down, please
+> > let me know.
+> >
+> > If you decide to answer please keep me CC'd, as I'm not subscribed to this
+> > list.
+> >
+> > Just in case the numerous attachments get scrubbed/removed, I've also uploaded
+> > them to http://johannes.truschnigg.info/tmp/sendfile_data_corruption/
+> >
+> > Thanks for reading, and have a nice weekend everyone :)
+> >
 > 
-> tun_chr_close()
-> tun_detach()				<== tun->socket.file = NULL
-> tun_free_netdev()
-> sk_release_sock()
-> sock_release(sock->file == NULL)
-> iput(SOCK_INODE(sock))			<== dereference on NULL pointer
+> Is the above corruption related to the one below?
 > 
-> This patch just removes zeroing of socket's file from __tun_detach().
-> sock_release() will do this.
 > 
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> ---
->  drivers/net/tun.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 987aeef..c1639f3 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -185,7 +185,6 @@ static void __tun_detach(struct tun_struct *tun)
->  	netif_tx_lock_bh(tun->dev);
->  	netif_carrier_off(tun->dev);
->  	tun->tfile = NULL;
-> -	tun->socket.file = NULL;
->  	netif_tx_unlock_bh(tun->dev);
+> On Tue, Jul 3, 2012 at 8:02 AM, Willy Tarreau <w@1wt.eu> wrote:
+> >
+> > In fact it has been true zero copy in 2.6.25 until we faced a large
+> > amount of data corruption and the zero copy was disabled in 2.6.25.X.
+> > Since then it remained that way until you brought your patches to
+> > re-instantiate it.
 
-ACK, but I have to say that I don't like the entire area.  The games around sock->file
-in general tend to be really nasty.  Examples:
-1) net/9p/trans_fd.c:p9_socket_open():
-	we come there with freshly created and connected struct socket in *csocket
-	we do sock_map_fd() and bugger off if it fails
-	we do get_file(csocket->file) twice and, having grabbed the references, close
-the damn fd.
-What happens if that races with close() on the same fd before we get to those get_file()?
-We hit sock_close(), which calls sock_release(), which clears csocket->file.  Boom -
-atomic_inc_long(&NULL->f_count) is not going to do us any good.  Outright bug, mitigated
-only by the fact that all callchains to that place go through mount(2), so you have elevated
-privs anyway.
+Might be, or not (could be a NIC bug)
 
-2) with this sucker we hit an interesting interplay with vhost; note that the total effect
-of tun_get_socket() does *not* include any refcount changes.  Nor should it - the caller
-has a valid reference to struct file, after all.  Eventually the caller proceeds to drop
-the same reference, by doing fput(sock->file).  And it will be the same struct file, but
-proving that takes a lot of digging through the tun.c guts; the crucial observation is that
-we never get to __tun_detach() as long as we have a reference to opened (cdev) file that
-has been successfully attached at some point and that ones that hadn't been attached at
-all wouldn't have passed through tun_get_socket().  IOW, it works, but it's brittle as hell.
-Unless I've missed something in the analysis and it's really broken, that is.
-
-Frankly, I would prefer to keep the reference to struct file for vhost explicitly in vhost
-data structures.  Would be less dependent on the guts of tun/macvtap/whatnot that way...
-
-3) iscsi goes as far as allocating fake struct file (with kzalloc(), and $DEITY help you
-if you ever call fput() on that), presumably for the sake of sctp.  The only place in sctp
-stack I see looking at sock->file is
-        /* in-kernel sockets don't generally have a file allocated to them
-         * if all they do is call sock_create_kern().
-         */
-        if (sk->sk_socket->file)
-                f_flags = sk->sk_socket->file->f_flags;
-
-        timeo = sock_sndtimeo(sk, f_flags & O_NONBLOCK);
-in __sctp_connect() and AFAICS we could bloody well have left it NULL - we leave ->f_flags
-zero in that code anyway and that's what __sctp_connect() will presume on NULL ->file.
-I'm not familiar enough with sctp or iscsi, but at the first look it seems to be asking
-for removal of all those games with ->file in the latter.
-
-I really wonder if we have a single legitimate case for anything other than sock_alloc_file()
-setting sock->file.  Anyone?
+Please Johannes could you try latest kernel tree ?
