@@ -1,74 +1,78 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/6] drivers/net/can/softing/softing_main.c: ensure a consistent return value in error case
-Date: Sat, 14 Jul 2012 18:43:04 +0200
-Message-ID: <1342284188-19176-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1342284188-19176-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1342284188-19176-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-can-owner@vger.kernel.org
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Sat, 14 Jul 2012 10:04:11 -0700
+Message-ID: <20120714170411.GA25775@kroah.com>
+References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Fri, Jul 13, 2012 at 02:44:59PM -0700, Jon Mason wrote:
+> The NTB device driver is needed to configure these memory windows, doorbell, and
+> scratch-pad registers as well as use them in such a way as they can be turned
+> into a viable communication channel to the remote system.  ntb_hw.[ch]
+> determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
+> the underlying hardware to provide access and a common interface to the doorbell
+> registers, scratch pads, and memory windows.  These hardware interfaces are
+> exported so that other, non-mainlined kernel drivers can access these.
 
-Typically, the return value desired for the failure of a function with an
-integer return value is a negative integer.  In these cases, the return
-value is sometimes a negative integer and sometimes 0, due to a subsequent
-initialization of the return variable within the loop.
+Why would you have non-mainlined drivers?
 
-A simplified version of the semantic match that finds this problem is:
-(http://coccinelle.lip6.fr/)
+Can you submit the drivers at the same time so we see how you are using
+these new interfaces?
 
-//<smpl>
-@r exists@
-identifier ret;
-position p;
-constant C;
-expression e1,e3,e4;
-statement S;
-@@
+> +++ b/drivers/ntb/ntb_hw.c
+> @@ -0,0 +1,1283 @@
+> +/*
+> + * This file is provided under a dual BSD/GPLv2 license.  When using or
+> + *   redistributing this file, you may do so under either license.
+> + *
+> + *   GPL LICENSE SUMMARY
+> + *
+> + *   Copyright(c) 2012 Intel Corporation. All rights reserved.
+> + *
+> + *   This program is free software; you can redistribute it and/or modify
+> + *   it under the terms of version 2 of the GNU General Public License as
+> + *   published by the Free Software Foundation.
+> + *
+> + *   This program is distributed in the hope that it will be useful, but
+> + *   WITHOUT ANY WARRANTY; without even the implied warranty of
+> + *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+> + *   General Public License for more details.
+> + *
+> + *   You should have received a copy of the GNU General Public License
+> + *   along with this program; if not, write to the Free Software
+> + *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+> + *   The full GNU General Public License is included in this distribution
+> + *   in the file called LICENSE.GPL.
 
-ret = -C
-... when != ret = e3
-    when any
-if@p (...) S
-... when any
-if (\(ret != 0\|ret < 0\|ret > 0\) || ...) { ... return ...; }
-... when != ret = e3
-    when any
-*if@p (...)
-{
-  ... when != ret = e4
-  return ret;
-}
-//</smpl>
+You really want to track the office movements of the FSF for the next 40
+years?  You should ask your lawyers if you can remove this paragraph.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> +/**
+> + * ntb_hw_link_status() - return the hardware link status
+> + * @ndev: pointer to ntb_device instance
+> + *
+> + * Returns true if the hardware is connected to the remote system
+> + *
+> + * RETURNS: true or false based on the hardware link state
+> + */
+> +bool ntb_hw_link_status(struct ntb_device *ndev)
+> +{
+> +	return ndev->link_status == NTB_LINK_UP;
+> +}
+> +EXPORT_SYMBOL(ntb_hw_link_status);
 
----
- drivers/net/can/softing/softing_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+EXPORT_SYMBOL_GPL() perhaps, for these, and the other symbols you are
+creating?
 
-diff --git a/drivers/net/can/softing/softing_main.c b/drivers/net/can/softing/softing_main.c
-index a7c77c7..f2a221e 100644
---- a/drivers/net/can/softing/softing_main.c
-+++ b/drivers/net/can/softing/softing_main.c
-@@ -826,12 +826,12 @@ static __devinit int softing_pdev_probe(struct platform_device *pdev)
- 		goto sysfs_failed;
- 	}
- 
--	ret = -ENOMEM;
- 	for (j = 0; j < ARRAY_SIZE(card->net); ++j) {
- 		card->net[j] = netdev =
- 			softing_netdev_create(card, card->id.chip[j]);
- 		if (!netdev) {
- 			dev_alert(&pdev->dev, "failed to make can[%i]", j);
-+			ret = -ENOMEM;
- 			goto netdev_failed;
- 		}
- 		priv = netdev_priv(card->net[j]);
+thanks,
 
+greg k-h
