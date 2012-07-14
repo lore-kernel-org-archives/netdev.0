@@ -1,52 +1,84 @@
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Subject: [PATCH] MAINTAINERS: reflect actual changes in IEEE 802.15.4 maintainership
-Date: Sat, 14 Jul 2012 10:15:34 +0400
-Message-ID: <1342246534-22562-1-git-send-email-dbaryshkov@gmail.com>
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:63578 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753329Ab2GNGPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 02:15:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Fri, 13 Jul 2012 23:19:54 -0700
+Message-ID: <20120714061953.GD4808@jonmason-lab>
+References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+ <20120713171344.1066d3b1@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120713171344.1066d3b1@nehalam.linuxnetplumber.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As the life flows, developers priorities shifts a bit. Reflect actual
-changes in the maintainership of IEEE 802.15.4 code: Sergey mostly
-stopped cared about this piece of code. Most of the work recently was
-done by Alexander, so put him to the MAINTAINERS file to reflect his
-status and to ease the life of respective patches.
+On Fri, Jul 13, 2012 at 05:13:44PM -0700, Stephen Hemminger wrote:
+> On Fri, 13 Jul 2012 14:44:59 -0700
+> Jon Mason <jon.mason@intel.com> wrote:
+> 
+> > A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
+> > connecting 2 systems, providing electrical isolation between the two subsystems.
+> > A non-transparent bridge is functionally similar to a transparent bridge except
+> > that both sides of the bridge have their own independent address domains.  The
+> > host on one side of the bridge will not have the visibility of the complete
+> > memory or I/O space on the other side of the bridge.  To communicate across the
+> > non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
+> > the local system.  Writes to these apertures are mirrored to memory on the
+> > remote system.  Communications can also occur through the use of doorbell
+> > registers that initiate interrupts to the alternate domain, and scratch-pad
+> > registers accessible from both sides.
+> > 
+> > The NTB device driver is needed to configure these memory windows, doorbell, and
+> > scratch-pad registers as well as use them in such a way as they can be turned
+> > into a viable communication channel to the remote system.  ntb_hw.[ch]
+> > determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
+> > the underlying hardware to provide access and a common interface to the doorbell
+> > registers, scratch pads, and memory windows.  These hardware interfaces are
+> > exported so that other, non-mainlined kernel drivers can access these.
+> > ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
+> > communication channel(s) and provide a reliable way of transferring data from
+> > one side to the other, which it then exports so that "client" drivers can access
+> > them.  These client drivers are used to provide a standard kernel interface
+> > (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
+> > system to the other in a standard way.
+> > 
+> > Signed-off-by: Jon Mason <jon.mason@intel.com>
+> 
+> This driver does some reimplementing of standard type operations is this
+> because you are trying to use the same code on multiple platforms?
+> 
+> Example:
+> +
+> +static void ntb_list_add_head(spinlock_t *lock, struct list_head *entry,
+> +			      struct list_head *list)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(lock, flags);
+> +	list_add(entry, list);
+> +	spin_unlock_irqrestore(lock, flags);
+> +}
+> +
+> +static void ntb_list_add_tail(spinlock_t *lock, struct list_head *entry,
+> +			      struct list_head *list)
+> +{
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(lock, flags);
+> +	list_add_tail(entry, list);
+> +	spin_unlock_irqrestore(lock, flags);
+> +}
+> 
+> Which are used on skb's and yet we already have sk_buff_head with locking?
+> 
+> I know you probably are committed to this API, but is there some way to
+> reuse existing shared memory used by virtio-net between two ports?
+> 
+> 
+The intention is to be able to have multiple client drivers/virtual devices that are able to use NTB as the transport to the remote system.  This is the reason why a void* is passed into the transport instead of skb*, making all of the extra book keeping necessary.  Currently, only the virtual Ethernet has been done, which may be part of the confusion.  I'd like to be able to find a way to have the virtio devices use ntb (and save me the work of reinventing the wheel), but step one is getting this code accepted :)
 
-Also add new net/mac802154/ directory to the list of maintained files.
-
-Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
----
- MAINTAINERS |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 150a29f..f03c703 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3403,13 +3403,14 @@ S:	Supported
- F:	drivers/idle/i7300_idle.c
- 
- IEEE 802.15.4 SUBSYSTEM
-+M:	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
- M:	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
--M:	Sergey Lapin <slapin@ossfans.org>
- L:	linux-zigbee-devel@lists.sourceforge.net (moderated for non-subscribers)
- W:	http://apps.sourceforge.net/trac/linux-zigbee
- T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lowpan/lowpan.git
- S:	Maintained
- F:	net/ieee802154/
-+F:	net/mac802154/
- F:	drivers/ieee802154/
- 
- IIO SUBSYSTEM AND DRIVERS
--- 
-1.7.10.4
+Thanks,
+Jon
