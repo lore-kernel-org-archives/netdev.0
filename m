@@ -1,406 +1,201 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/7] ixgbe: Merge FCoE set_num and cache_ring calls into RSS/DCB config
-Date: Sat, 14 Jul 2012 16:07:05 -0700
-Message-ID: <1342307225-28917-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1342307225-28917-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Valentin Ilie <valentin.ilie@gmail.com>
+Subject: [PATCH V2] drivers: connector: fixed coding style issues
+Date: Sun, 15 Jul 2012 02:08:29 +0300
+Message-ID: <1342307309-8280-1-git-send-email-valentin.ilie@gmail.com>
+References: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
+Cc: netdev@vger.kernel.org, Valentin Ilie <valentin.ilie@gmail.com>
+To: zbr@ioremap.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:23399 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754435Ab2GNXHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jul 2012 19:07:52 -0400
-In-Reply-To: <1342307225-28917-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:48122 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752196Ab2GNXJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 19:09:05 -0400
+Received: by wgbdr13 with SMTP id dr13so4187946wgb.1
+        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 16:09:04 -0700 (PDT)
+In-Reply-To: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+V2: Replaced assignment in if statement.
+Fixed coding style issues.
 
-This change merges the ixgbe_cache_ring_fcoe and ixgbe_set_fcoe_queues
-logic into the DCB and RSS initialization calls.
-
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Valentin Ilie <valentin.ilie@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |  257 +++++++++++--------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   19 +-
- 2 files changed, 129 insertions(+), 147 deletions(-)
+ drivers/connector/cn_proc.c   |   36 ++++++++++++++++++------------------
+ drivers/connector/cn_queue.c  |   12 +++++++-----
+ drivers/connector/connector.c |    5 +++--
+ 3 files changed, 28 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-index c0ff31e..d308e71 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
-@@ -28,28 +28,6 @@
- #include "ixgbe.h"
- #include "ixgbe_sriov.h"
- 
--/**
-- * ixgbe_cache_ring_rss - Descriptor ring to register mapping for RSS
-- * @adapter: board private structure to initialize
-- *
-- * Cache the descriptor ring offsets for RSS to the assigned rings.
-- *
-- **/
--static inline bool ixgbe_cache_ring_rss(struct ixgbe_adapter *adapter)
--{
--	int i;
--
--	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
--		return false;
--
--	for (i = 0; i < adapter->num_rx_queues; i++)
--		adapter->rx_ring[i]->reg_idx = i;
--	for (i = 0; i < adapter->num_tx_queues; i++)
--		adapter->tx_ring[i]->reg_idx = i;
--
--	return true;
--}
--
- #ifdef CONFIG_IXGBE_DCB
- /* ixgbe_get_first_reg_idx - Return first register index associated with ring */
- static void ixgbe_get_first_reg_idx(struct ixgbe_adapter *adapter, u8 tc,
-@@ -136,39 +114,8 @@ static inline bool ixgbe_cache_ring_dcb(struct ixgbe_adapter *adapter)
- 
- 	return true;
+diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
+index 77e1e6c..3e92b7d 100644
+--- a/drivers/connector/cn_proc.c
++++ b/drivers/connector/cn_proc.c
+@@ -46,7 +46,7 @@ static DEFINE_PER_CPU(__u32, proc_event_counts) = { 0 };
+ static inline void get_seq(__u32 *ts, int *cpu)
+ {
+ 	preempt_disable();
+-	*ts = __this_cpu_inc_return(proc_event_counts) -1;
++	*ts = __this_cpu_inc_return(proc_event_counts) - 1;
+ 	*cpu = smp_processor_id();
+ 	preempt_enable();
  }
--#endif
--
--#ifdef IXGBE_FCOE
--/**
-- * ixgbe_cache_ring_fcoe - Descriptor ring to register mapping for the FCoE
-- * @adapter: board private structure to initialize
-- *
-- * Cache the descriptor ring offsets for FCoE mode to the assigned rings.
-- *
-- */
--static inline bool ixgbe_cache_ring_fcoe(struct ixgbe_adapter *adapter)
--{
--	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_FCOE];
--	int i;
--	u8 fcoe_rx_i = 0, fcoe_tx_i = 0;
--
--	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
--		return false;
--
--	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
--		ixgbe_cache_ring_rss(adapter);
--
--		fcoe_rx_i = f->offset;
--		fcoe_tx_i = f->offset;
--	}
--	for (i = 0; i < f->indices; i++, fcoe_rx_i++, fcoe_tx_i++) {
--		adapter->rx_ring[f->offset + i]->reg_idx = fcoe_rx_i;
--		adapter->tx_ring[f->offset + i]->reg_idx = fcoe_tx_i;
--	}
--	return true;
--}
- 
--#endif /* IXGBE_FCOE */
-+#endif
- /**
-  * ixgbe_cache_ring_sriov - Descriptor ring to register mapping for sriov
-  * @adapter: board private structure to initialize
-@@ -188,6 +135,28 @@ static inline bool ixgbe_cache_ring_sriov(struct ixgbe_adapter *adapter)
- }
- 
- /**
-+ * ixgbe_cache_ring_rss - Descriptor ring to register mapping for RSS
-+ * @adapter: board private structure to initialize
-+ *
-+ * Cache the descriptor ring offsets for RSS to the assigned rings.
-+ *
-+ **/
-+static bool ixgbe_cache_ring_rss(struct ixgbe_adapter *adapter)
-+{
-+	int i;
-+
-+	if (!(adapter->flags & IXGBE_FLAG_RSS_ENABLED))
-+		return false;
-+
-+	for (i = 0; i < adapter->num_rx_queues; i++)
-+		adapter->rx_ring[i]->reg_idx = i;
-+	for (i = 0; i < adapter->num_tx_queues; i++)
-+		adapter->tx_ring[i]->reg_idx = i;
-+
-+	return true;
-+}
-+
-+/**
-  * ixgbe_cache_ring_register - Descriptor ring to register mapping
-  * @adapter: board private structure to initialize
-  *
-@@ -212,13 +181,7 @@ static void ixgbe_cache_ring_register(struct ixgbe_adapter *adapter)
+@@ -62,8 +62,8 @@ void proc_fork_connector(struct task_struct *task)
+ 	if (atomic_read(&proc_event_num_listeners) < 1)
  		return;
- #endif
  
--#ifdef IXGBE_FCOE
--	if (ixgbe_cache_ring_fcoe(adapter))
--		return;
--#endif /* IXGBE_FCOE */
+-	msg = (struct cn_msg*)buffer;
+-	ev = (struct proc_event*)msg->data;
++	msg = (struct cn_msg *)buffer;
++	ev = (struct proc_event *)msg->data;
+ 	get_seq(&msg->seq, &ev->cpu);
+ 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
+ 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
+@@ -93,8 +93,8 @@ void proc_exec_connector(struct task_struct *task)
+ 	if (atomic_read(&proc_event_num_listeners) < 1)
+ 		return;
+ 
+-	msg = (struct cn_msg*)buffer;
+-	ev = (struct proc_event*)msg->data;
++	msg = (struct cn_msg *)buffer;
++	ev = (struct proc_event *)msg->data;
+ 	get_seq(&msg->seq, &ev->cpu);
+ 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
+ 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
+@@ -119,8 +119,8 @@ void proc_id_connector(struct task_struct *task, int which_id)
+ 	if (atomic_read(&proc_event_num_listeners) < 1)
+ 		return;
+ 
+-	msg = (struct cn_msg*)buffer;
+-	ev = (struct proc_event*)msg->data;
++	msg = (struct cn_msg *)buffer;
++	ev = (struct proc_event *)msg->data;
+ 	ev->what = which_id;
+ 	ev->event_data.id.process_pid = task->pid;
+ 	ev->event_data.id.process_tgid = task->tgid;
+@@ -134,7 +134,7 @@ void proc_id_connector(struct task_struct *task, int which_id)
+ 		ev->event_data.id.e.egid = cred->egid;
+ 	} else {
+ 		rcu_read_unlock();
+-	     	return;
++		return;
+ 	}
+ 	rcu_read_unlock();
+ 	get_seq(&msg->seq, &ev->cpu);
+@@ -241,8 +241,8 @@ void proc_exit_connector(struct task_struct *task)
+ 	if (atomic_read(&proc_event_num_listeners) < 1)
+ 		return;
+ 
+-	msg = (struct cn_msg*)buffer;
+-	ev = (struct proc_event*)msg->data;
++	msg = (struct cn_msg *)buffer;
++	ev = (struct proc_event *)msg->data;
+ 	get_seq(&msg->seq, &ev->cpu);
+ 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
+ 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
+@@ -276,8 +276,8 @@ static void cn_proc_ack(int err, int rcvd_seq, int rcvd_ack)
+ 	if (atomic_read(&proc_event_num_listeners) < 1)
+ 		return;
+ 
+-	msg = (struct cn_msg*)buffer;
+-	ev = (struct proc_event*)msg->data;
++	msg = (struct cn_msg *)buffer;
++	ev = (struct proc_event *)msg->data;
+ 	msg->seq = rcvd_seq;
+ 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
+ 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
+@@ -303,7 +303,7 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
+ 	if (msg->len != sizeof(*mc_op))
+ 		return;
+ 
+-	mc_op = (enum proc_cn_mcast_op*)msg->data;
++	mc_op = (enum proc_cn_mcast_op *)msg->data;
+ 	switch (*mc_op) {
+ 	case PROC_CN_MCAST_LISTEN:
+ 		atomic_inc(&proc_event_num_listeners);
+@@ -325,11 +325,11 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
+  */
+ static int __init cn_proc_init(void)
+ {
+-	int err;
 -
--	if (ixgbe_cache_ring_rss(adapter))
--		return;
-+	ixgbe_cache_ring_rss(adapter);
- }
+-	if ((err = cn_add_callback(&cn_proc_event_id, "cn_proc",
+-	 			   &cn_proc_mcast_ctl))) {
+-		printk(KERN_WARNING "cn_proc failed to register\n");
++	int err = cn_add_callback(&cn_proc_event_id,
++				  "cn_proc",
++				  &cn_proc_mcast_ctl);
++	if (err) {
++		pr_warn("cn_proc failed to register\n");
+ 		return err;
+ 	}
+ 	return 0;
+diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
+index c42c9d5..1f8bf05 100644
+--- a/drivers/connector/cn_queue.c
++++ b/drivers/connector/cn_queue.c
+@@ -1,5 +1,5 @@
+ /*
+- * 	cn_queue.c
++ *	cn_queue.c
+  *
+  * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+  * All rights reserved.
+@@ -34,13 +34,14 @@
+ static struct cn_callback_entry *
+ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
+ 			      struct cb_id *id,
+-			      void (*callback)(struct cn_msg *, struct netlink_skb_parms *))
++			      void (*callback)(struct cn_msg *,
++					       struct netlink_skb_parms *))
+ {
+ 	struct cn_callback_entry *cbq;
  
- /**
-@@ -234,6 +197,74 @@ static inline bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
- 	return false;
- }
- 
-+#define IXGBE_RSS_16Q_MASK	0xF
-+#define IXGBE_RSS_8Q_MASK	0x7
-+#define IXGBE_RSS_4Q_MASK	0x3
-+#define IXGBE_RSS_2Q_MASK	0x1
-+#define IXGBE_RSS_DISABLED_MASK	0x0
-+
-+#ifdef CONFIG_IXGBE_DCB
-+static bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
-+{
-+	struct net_device *dev = adapter->netdev;
-+	struct ixgbe_ring_feature *f;
-+	int rss_i, rss_m, i;
-+	int tcs;
-+
-+	/* Map queue offset and counts onto allocated tx queues */
-+	tcs = netdev_get_num_tc(dev);
-+
-+	/* verify we have DCB queueing enabled before proceeding */
-+	if (tcs <= 1)
-+		return false;
-+
-+	/* determine the upper limit for our current DCB mode */
-+	rss_i = dev->num_tx_queues / tcs;
-+	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
-+		/* 8 TC w/ 4 queues per TC */
-+		rss_i = min_t(u16, rss_i, 4);
-+		rss_m = IXGBE_RSS_4Q_MASK;
-+	} else if (tcs > 4) {
-+		/* 8 TC w/ 8 queues per TC */
-+		rss_i = min_t(u16, rss_i, 8);
-+		rss_m = IXGBE_RSS_8Q_MASK;
-+	} else {
-+		/* 4 TC w/ 16 queues per TC */
-+		rss_i = min_t(u16, rss_i, 16);
-+		rss_m = IXGBE_RSS_16Q_MASK;
-+	}
-+
-+	/* set RSS mask and indices */
-+	f = &adapter->ring_feature[RING_F_RSS];
-+	rss_i = min_t(int, rss_i, f->limit);
-+	f->indices = rss_i;
-+	f->mask = rss_m;
-+
-+#ifdef IXGBE_FCOE
-+	/* FCoE enabled queues require special configuration indexed
-+	 * by feature specific indices and offset. Here we map FCoE
-+	 * indices onto the DCB queue pairs allowing FCoE to own
-+	 * configuration later.
-+	 */
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
-+		u8 tc = ixgbe_fcoe_get_tc(adapter);
-+
-+		f = &adapter->ring_feature[RING_F_FCOE];
-+		f->indices = min_t(u16, rss_i, f->limit);
-+		f->offset = rss_i * tc;
-+	}
-+
-+#endif /* IXGBE_FCOE */
-+	for (i = 0; i < tcs; i++)
-+		netdev_set_tc_queue(dev, i, rss_i, rss_i * i);
-+
-+	adapter->num_tx_queues = rss_i * tcs;
-+	adapter->num_rx_queues = rss_i * tcs;
-+
-+	return true;
-+}
-+
-+#endif
- /**
-  * ixgbe_set_rss_queues - Allocate queues for RSS
-  * @adapter: board private structure to initialize
-@@ -257,7 +288,7 @@ static bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
- 	rss_i = f->limit;
- 
- 	f->indices = rss_i;
--	f->mask = 0xF;
-+	f->mask = IXGBE_RSS_16Q_MASK;
- 
- 	/*
- 	 * Use Flow Director in addition to RSS to ensure the best
-@@ -271,90 +302,41 @@ static bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
- 		rss_i = max_t(u16, rss_i, f->indices);
+ 	cbq = kzalloc(sizeof(*cbq), GFP_KERNEL);
+ 	if (!cbq) {
+-		printk(KERN_ERR "Failed to create new callback queue.\n");
++		pr_err("Failed to create new callback queue.\n");
+ 		return NULL;
  	}
  
--	adapter->num_rx_queues = rss_i;
--	adapter->num_tx_queues = rss_i;
--
--	return true;
--}
--
- #ifdef IXGBE_FCOE
--/**
-- * ixgbe_set_fcoe_queues - Allocate queues for Fiber Channel over Ethernet (FCoE)
-- * @adapter: board private structure to initialize
-- *
-- * FCoE RX FCRETA can use up to 8 rx queues for up to 8 different exchanges.
-- * Offset is used as the index of the first rx queue used by FCoE.
-- **/
--static inline bool ixgbe_set_fcoe_queues(struct ixgbe_adapter *adapter)
--{
--	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_FCOE];
-+	/*
-+	 * FCoE can exist on the same rings as standard network traffic
-+	 * however it is preferred to avoid that if possible.  In order
-+	 * to get the best performance we allocate as many FCoE queues
-+	 * as we can and we place them at the end of the ring array to
-+	 * avoid sharing queues with standard RSS on systems with 24 or
-+	 * more CPUs.
-+	 */
-+	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
-+		struct net_device *dev = adapter->netdev;
-+		u16 fcoe_i;
+@@ -71,7 +72,8 @@ int cn_cb_equal(struct cb_id *i1, struct cb_id *i2)
  
--	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
--		return false;
-+		f = &adapter->ring_feature[RING_F_FCOE];
+ int cn_queue_add_callback(struct cn_queue_dev *dev, const char *name,
+ 			  struct cb_id *id,
+-			  void (*callback)(struct cn_msg *, struct netlink_skb_parms *))
++			  void (*callback)(struct cn_msg *,
++					   struct netlink_skb_parms *))
+ {
+ 	struct cn_callback_entry *cbq, *__cbq;
+ 	int found = 0;
+@@ -149,7 +151,7 @@ void cn_queue_free_dev(struct cn_queue_dev *dev)
+ 	spin_unlock_bh(&dev->queue_lock);
  
--	f->indices = min_t(int, num_online_cpus(), f->limit);
-+		/* merge FCoE queues with RSS queues */
-+		fcoe_i = min_t(u16, f->limit + rss_i, num_online_cpus());
-+		fcoe_i = min_t(u16, fcoe_i, dev->num_tx_queues);
- 
--	adapter->num_rx_queues = 1;
--	adapter->num_tx_queues = 1;
-+		/* limit indices to rss_i if MSI-X is disabled */
-+		if (!(adapter->flags & IXGBE_FLAG_MSIX_ENABLED))
-+			fcoe_i = rss_i;
- 
--	if (adapter->flags & IXGBE_FLAG_RSS_ENABLED) {
--		e_info(probe, "FCoE enabled with RSS\n");
--		ixgbe_set_rss_queues(adapter);
-+		/* attempt to reserve some queues for just FCoE */
-+		f->indices = min_t(u16, fcoe_i, f->limit);
-+		f->offset = fcoe_i - f->indices;
-+		rss_i = max_t(u16, fcoe_i, rss_i);
+ 	while (atomic_read(&dev->refcnt)) {
+-		printk(KERN_INFO "Waiting for %s to become free: refcnt=%d.\n",
++		pr_info("Waiting for %s to become free: refcnt=%d.\n",
+ 		       dev->name, atomic_read(&dev->refcnt));
+ 		msleep(1000);
  	}
- 
--	/* adding FCoE rx rings to the end */
--	f->offset = adapter->num_rx_queues;
--	adapter->num_rx_queues += f->indices;
--	adapter->num_tx_queues += f->indices;
--
--	return true;
--}
- #endif /* IXGBE_FCOE */
--
--/* Artificial max queue cap per traffic class in DCB mode */
--#define DCB_QUEUE_CAP 8
--
--#ifdef CONFIG_IXGBE_DCB
--static inline bool ixgbe_set_dcb_queues(struct ixgbe_adapter *adapter)
--{
--	int per_tc_q, q, i, offset = 0;
--	struct net_device *dev = adapter->netdev;
--	int tcs = netdev_get_num_tc(dev);
--
--	if (!tcs)
--		return false;
--
--	/* Map queue offset and counts onto allocated tx queues */
--	per_tc_q = min_t(unsigned int, dev->num_tx_queues / tcs, DCB_QUEUE_CAP);
--	q = min_t(int, num_online_cpus(), per_tc_q);
--
--	for (i = 0; i < tcs; i++) {
--		netdev_set_tc_queue(dev, i, q, offset);
--		offset += q;
--	}
--
--	adapter->num_tx_queues = q * tcs;
--	adapter->num_rx_queues = q * tcs;
--
--#ifdef IXGBE_FCOE
--	/* FCoE enabled queues require special configuration indexed
--	 * by feature specific indices and offset. Here we map FCoE
--	 * indices onto the DCB queue pairs allowing FCoE to own
--	 * configuration later.
--	 */
--	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED) {
--		u8 tc = ixgbe_fcoe_get_tc(adapter);
--		struct ixgbe_ring_feature *f =
--					&adapter->ring_feature[RING_F_FCOE];
--
--		f->indices = dev->tc_to_txq[tc].count;
--		f->offset = dev->tc_to_txq[tc].offset;
--	}
--#endif
-+	adapter->num_rx_queues = rss_i;
-+	adapter->num_tx_queues = rss_i;
- 
- 	return true;
- }
--#endif
- 
- /**
-  * ixgbe_set_num_queues - Allocate queues for device, feature dependent
-@@ -383,11 +365,6 @@ static int ixgbe_set_num_queues(struct ixgbe_adapter *adapter)
- 		goto done;
- 
- #endif
--#ifdef IXGBE_FCOE
--	if (ixgbe_set_fcoe_queues(adapter))
--		goto done;
--
--#endif /* IXGBE_FCOE */
- 	if (ixgbe_set_rss_queues(adapter))
- 		goto done;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3d7ce7e..ee230f5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3610,16 +3610,17 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
- 	if (hw->mac.type != ixgbe_mac_82598EB) {
- 		int i;
- 		u32 reg = 0;
-+		u8 msb = 0;
-+		u8 rss_i = adapter->netdev->tc_to_txq[0].count - 1;
- 
--		for (i = 0; i < MAX_TRAFFIC_CLASS; i++) {
--			u8 msb = 0;
--			u8 cnt = adapter->netdev->tc_to_txq[i].count;
--
--			while (cnt >>= 1)
--				msb++;
-+		while (rss_i) {
-+			msb++;
-+			rss_i >>= 1;
-+		}
- 
-+		for (i = 0; i < MAX_TRAFFIC_CLASS; i++)
- 			reg |= msb << IXGBE_RQTC_SHIFT_TC(i);
--		}
-+
- 		IXGBE_WRITE_REG(hw, IXGBE_RQTC, reg);
- 	}
- }
-@@ -7027,7 +7028,11 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- #endif
- 
- 	if (ii->mac == ixgbe_mac_82598EB)
-+#ifdef CONFIG_IXGBE_DCB
-+		indices = min_t(unsigned int, indices, MAX_TRAFFIC_CLASS * 4);
-+#else
- 		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
-+#endif
- 	else
- 		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
- 
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index dde6a0f..32174f0 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -1,5 +1,5 @@
+ /*
+- * 	connector.c
++ *	connector.c
+  *
+  * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+  * All rights reserved.
+@@ -185,7 +185,8 @@ static void cn_rx_skb(struct sk_buff *__skb)
+  * May sleep.
+  */
+ int cn_add_callback(struct cb_id *id, const char *name,
+-		    void (*callback)(struct cn_msg *, struct netlink_skb_parms *))
++		    void (*callback)(struct cn_msg *,
++				     struct netlink_skb_parms *))
+ {
+ 	int err;
+ 	struct cn_dev *dev = &cdev;
 -- 
 1.7.10.4
