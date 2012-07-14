@@ -1,76 +1,65 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Fri, 13 Jul 2012 17:13:44 -0700
-Message-ID: <20120713171344.1066d3b1@nehalam.linuxnetplumber.net>
-References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+From: valdis.kletnieks@vt.edu
+Subject: Re: resurrecting tcphealth
+Date: Fri, 13 Jul 2012 21:31:52 -0400
+Message-ID: <3436.1342229512@turing-police.cc.vt.edu>
+References: <e9caf38359467bfa8a1e2ac86f6ef2cc.squirrel@webmail.univie.ac.at>
+            <20120713165544.6767ea8f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1342229512_2294P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Jon Mason <jon.mason@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Piotr Sawuk" <a9702387@unet.univie.ac.at>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:57958 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753876Ab2GNBcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jul 2012 21:32:05 -0400
+Received: from zidane.cc.vt.edu (zidane.cc.vt.edu [198.82.163.227])
+	by lennier.cc.vt.edu (8.13.8/8.13.8) with ESMTP id q6E1SoXO009333
+	for <netdev@vger.kernel.org>; Fri, 13 Jul 2012 21:32:04 -0400
+Received: by qaeb19 with SMTP id b19so678992qae.4
+        for <netdev@vger.kernel.org>; Fri, 13 Jul 2012 18:31:54 -0700 (PDT)
+In-Reply-To: Your message of "Fri, 13 Jul 2012 16:55:44 -0700."
+             <20120713165544.6767ea8f@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Jul 2012 14:44:59 -0700
-Jon Mason <jon.mason@intel.com> wrote:
+--==_Exmh_1342229512_2294P
+Content-Type: text/plain; charset=us-ascii
 
-> A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
-> connecting 2 systems, providing electrical isolation between the two subsystems.
-> A non-transparent bridge is functionally similar to a transparent bridge except
-> that both sides of the bridge have their own independent address domains.  The
-> host on one side of the bridge will not have the visibility of the complete
-> memory or I/O space on the other side of the bridge.  To communicate across the
-> non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
-> the local system.  Writes to these apertures are mirrored to memory on the
-> remote system.  Communications can also occur through the use of doorbell
-> registers that initiate interrupts to the alternate domain, and scratch-pad
-> registers accessible from both sides.
-> 
-> The NTB device driver is needed to configure these memory windows, doorbell, and
-> scratch-pad registers as well as use them in such a way as they can be turned
-> into a viable communication channel to the remote system.  ntb_hw.[ch]
-> determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
-> the underlying hardware to provide access and a common interface to the doorbell
-> registers, scratch pads, and memory windows.  These hardware interfaces are
-> exported so that other, non-mainlined kernel drivers can access these.
-> ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
-> communication channel(s) and provide a reliable way of transferring data from
-> one side to the other, which it then exports so that "client" drivers can access
-> them.  These client drivers are used to provide a standard kernel interface
-> (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
-> system to the other in a standard way.
-> 
-> Signed-off-by: Jon Mason <jon.mason@intel.com>
+On Fri, 13 Jul 2012 16:55:44 -0700, Stephen Hemminger said:
 
-This driver does some reimplementing of standard type operations is this
-because you are trying to use the same code on multiple platforms?
+> >+			/* Course retransmit inefficiency- this packet has been received twice. */
+> >+			tp->dup_pkts_recv++;
+>
+> I don't understand that comment, could you use a better sentence please?
 
-Example:
-+
-+static void ntb_list_add_head(spinlock_t *lock, struct list_head *entry,
-+			      struct list_head *list)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(lock, flags);
-+	list_add(entry, list);
-+	spin_unlock_irqrestore(lock, flags);
-+}
-+
-+static void ntb_list_add_tail(spinlock_t *lock, struct list_head *entry,
-+			      struct list_head *list)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(lock, flags);
-+	list_add_tail(entry, list);
-+	spin_unlock_irqrestore(lock, flags);
-+}
+I think what was intended was:
 
-Which are used on skb's and yet we already have sk_buff_head with locking?
+/* Curse you, retransmit inefficiency! This packet has been received at least twice */
 
-I know you probably are committed to this API, but is there some way to
-reuse existing shared memory used by virtio-net between two ports?
+--==_Exmh_1342229512_2294P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBUADMBwdmEQWDXROgAQJUqw/9HmNIPSdsQleef27JibtBPdrjpDEqYugB
+TTgRHjWd2VTR4x6AP2OIqqSA/Fb4VWmo6t7jCuXK7fGkCVQ4ut9iA40NeTpcwUu/
+Qt8lQxmzIXJjj9fotdW6djrg3MOo/w7DMa+86XoQJ+XmmSKR9HMSw0XHNco8D2+l
+Q/SlDw53T0VTuK5V9sEddczAf83ZsOo/hbXXG/vlLcw+VNaM18l366ZGV7BDsHqk
+EC6tQmjOuSY6I3zuOX9fVv7uOiQPgvGS0aGLmUuWSxLUDgSyisuIZbF0ha9+0FRe
+/KQMOS4aW/ZEmnY7AtyqiViOtmrsSYL9pu4Ub4Nc8XFQZ8ONDBGQDHWUiUInxrzv
+sYwNHBvSzzpD5fK3jMQBPAto/oFWoH2ImNl8zeLEkAHaUe0LHv2L+ylXlzsOwBg+
+4kQi50eFZg1TjdnWUgI+Oo0CE9chSPh9eOEVzN3V0KKmCD4Ztv9XaiVxb/TqtyiX
+8IWS0+dv9RSiiCyao/eK8eHBVTfHknLKoZAn+gp6aV6HYPr0W23UXyR0jBlpeXTm
+IeJuShY6+cm4A15xhKzDnc9UodD9XU3D0rhbjilbSFBVaNjrcI8nroOZI1gWVRNx
+RSSPeY9VbVtjLgVOAq0c9+HCNaiA+l6YGtbiCpn6IyDnBlEMUbt4OcnzK+/MYNy4
+yV8ABGbq95k=
+=e6fp
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1342229512_2294P--
