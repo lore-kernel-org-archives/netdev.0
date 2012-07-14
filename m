@@ -1,84 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] netem: refine early skb orphaning
-Date: Sat, 14 Jul 2012 14:53:33 -0700
-Message-ID: <20120714145333.2c441166@nehalam.linuxnetplumber.net>
-References: <1342271787.3265.9632.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] drivers: connector: fixed coding style issues
+Date: Sat, 14 Jul 2012 14:56:20 -0700
+Message-ID: <1342302980.8377.43.camel@joe2Laptop>
+References: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
+	 <1342298026.8377.33.camel@joe2Laptop>
+	 <CAHuBVBYXAj7OUgo3UmLERbcmBw-sK8c66TuCq_7Fsp=CVzzYSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Mark Gordon <msg@google.com>,
-	Andreas Terzis <aterzis@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: zbr@ioremap.net, netdev@vger.kernel.org
+To: Valentin Ilie <valentin.ilie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59679 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752165Ab2GNVx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jul 2012 17:53:56 -0400
-In-Reply-To: <1342271787.3265.9632.camel@edumazet-glaptop>
+Received: from perches-mx.perches.com ([206.117.179.246]:44494 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752165Ab2GNV4V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jul 2012 17:56:21 -0400
+In-Reply-To: <CAHuBVBYXAj7OUgo3UmLERbcmBw-sK8c66TuCq_7Fsp=CVzzYSw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 14 Jul 2012 15:16:27 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Sun, 2012-07-15 at 00:51 +0300, Valentin Ilie wrote:
+> On 14 July 2012 23:33, Joe Perches <joe@perches.com> wrote:
+> > I think it would be better written by hoisting the
+> > function outside the if like [..]
+> 
+> OK.
+> 
+> Should I submit the whole patch again (with that change) or just
+> another small patch that does just that?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> netem does an early orphaning of skbs. Doing so breaks TCP Small Queue
-> or any mechanism relying on socket sk_wmem_alloc feedback.
-> 
-> Ideally, we should perform this orphaning after the rate module and
-> before the delay module, to mimic what happens on a real link :
-> 
-> skb orphaning is indeed normally done at TX completion, before the
-> transit on the link.
-> 
-> +-------+   +--------+  +---------------+  +-----------------+
-> + Qdisc +---> Device +--> TX completion +--> links / hops    +->
-> +       +   +  xmit  +  + skb orphaning +  + propagation     +
-> +-------+   +--------+  +---------------+  +-----------------+
->       < rate limiting >                  < delay, drops, reorders >
-> 
-> If netem is used without delay feature (drops, reorders, rate
-> limiting), then we should avoid early skb orphaning, to keep pressure
-> on sockets as long as packets are still in qdisc queue.
-> 
-> Ideally, netem should be refactored to implement delay module
-> as the last stage. Current algorithm merges the two phases
-> (rate limiting + delay) so its not correct.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Hagen Paul Pfeifer <hagen@jauu.net>
-> Cc: Mark Gordon <msg@google.com>
-> Cc: Andreas Terzis <aterzis@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/sched/sch_netem.c |    9 ++++++++-
->  1 file changed, 8 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-> index c412ad0..298c0dd 100644
-> --- a/net/sched/sch_netem.c
-> +++ b/net/sched/sch_netem.c
-> @@ -380,7 +380,14 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  		return NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
->  	}
->  
-> -	skb_orphan(skb);
-> +	/* If a delay is expected, orphan the skb. (orphaning usually takes
-> +	 * place at TX completion time, so _before_ the link transit delay)
-> +	 * Ideally, this orphaning should be done after the rate limiting
-> +	 * module, because this breaks TCP Small Queue, and other mechanisms
-> +	 * based on socket sk_wmem_alloc.
-> +	 */
-> +	if (q->latency || q->jitter)
-> +		skb_orphan(skb);
->  
->  	/*
->  	 * If we need to duplicate packet, then re-insert at top of the
-> 
+It's generally better to reply to the original patch
+with [PATCH V2] with the entire patch content updated.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+btw: there's a missing a semicolon in what I posted.
+
+Also add a changelog after the --- so the new patch
+email looks like:
+
+Subject: [PATCH V2] drivers: connectors: etc
+
+Patch description...
+
+Signed-off-by: etc
+---
+v2: Updated to do whatever
+
+actual patch...
+
+cheers, Joe
