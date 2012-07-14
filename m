@@ -1,177 +1,44 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC 2/2] net: Add support for NTB virtual ethernet device
-Date: Fri, 13 Jul 2012 22:55:09 -0700
-Message-ID: <20120714055508.GC4808@jonmason-lab>
-References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
- <1342215900-3358-2-git-send-email-jon.mason@intel.com>
- <20120713170826.09210b80@nehalam.linuxnetplumber.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2012-07-12
+Date: Fri, 13 Jul 2012 23:05:26 -0700 (PDT)
+Message-ID: <20120713.230526.350857505278321316.davem@davemloft.net>
+References: <20120712181539.GB25494@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120713170826.09210b80@nehalam.linuxnetplumber.net>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120712181539.GB25494-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 13, 2012 at 05:08:26PM -0700, Stephen Hemminger wrote:
-> On Fri, 13 Jul 2012 14:45:00 -0700
-> Jon Mason <jon.mason@intel.com> wrote:
-> 
-> > A virtual ethernet device that uses the NTB transport API to send/receive data.
-> > 
-> > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > ---
-> >  drivers/net/Kconfig      |    4 +
-> >  drivers/net/Makefile     |    1 +
-> >  drivers/net/ntb_netdev.c |  411 ++++++++++++++++++++++++++++++++++++++++++++++
-> >  3 files changed, 416 insertions(+), 0 deletions(-)
-> >  create mode 100644 drivers/net/ntb_netdev.c
-> 
-> 
-> > +static void ntb_get_drvinfo(__attribute__((unused)) struct net_device *dev,
-> > +			    struct ethtool_drvinfo *info)
-> > +{
-> > +	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
-> > +	strlcpy(info->version, NTB_NETDEV_VER, sizeof(info->version));
-> > +}
-> > +
-> > +static const char ntb_nic_stats[][ETH_GSTRING_LEN] = {
-> > +	"rx_packets", "rx_bytes", "rx_errors", "rx_dropped", "rx_length_errors",
-> > +	"rx_frame_errors", "rx_fifo_errors",
-> > +	"tx_packets", "tx_bytes", "tx_errors", "tx_dropped",
-> > +};
-> > +
-> > +static int ntb_get_stats_count(__attribute__((unused)) struct net_device *dev)
-> > +{
-> > +	return ARRAY_SIZE(ntb_nic_stats);
-> > +}
-> > +
-> > +static int ntb_get_sset_count(struct net_device *dev, int sset)
-> > +{
-> > +	switch (sset) {
-> > +	case ETH_SS_STATS:
-> > +		return ntb_get_stats_count(dev);
-> > +	default:
-> > +		return -EOPNOTSUPP;
-> > +	}
-> > +}
-> > +
-> > +static void ntb_get_strings(__attribute__((unused)) struct net_device *dev,
-> > +			    u32 sset, u8 *data)
-> > +{
-> > +	switch (sset) {
-> > +	case ETH_SS_STATS:
-> > +		memcpy(data, *ntb_nic_stats, sizeof(ntb_nic_stats));
-> > +	}
-> > +}
-> > +
-> > +static void
-> > +ntb_get_ethtool_stats(struct net_device *dev,
-> > +		      __attribute__((unused)) struct ethtool_stats *stats,
-> > +		      u64 *data)
-> > +{
-> > +	int i = 0;
-> > +
-> > +	data[i++] = dev->stats.rx_packets;
-> > +	data[i++] = dev->stats.rx_bytes;
-> > +	data[i++] = dev->stats.rx_errors;
-> > +	data[i++] = dev->stats.rx_dropped;
-> > +	data[i++] = dev->stats.rx_length_errors;
-> > +	data[i++] = dev->stats.rx_frame_errors;
-> > +	data[i++] = dev->stats.rx_fifo_errors;
-> > +	data[i++] = dev->stats.tx_packets;
-> > +	data[i++] = dev->stats.tx_bytes;
-> > +	data[i++] = dev->stats.tx_errors;
-> > +	data[i++] = dev->stats.tx_dropped;
-> > +}
-> 
-> These statistics add no value over existing network stats.
-> Don't implement ethtool stats unless device has something more
-> interesting to say.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 12 Jul 2012 14:15:40 -0400
 
-Fair enough
-
+> Several drivers see updates: mwifiex, ath9k, iwlwifi, brcmsmac,
+> wlcore/wl12xx/wl18xx, and a handful of others.  The bcma bus got a
+> lot of attention from Hauke Mehrtens.  The cfg80211 component gets
+> a flurry of patches for multi-channel support, and the mac80211
+> component gets the first few VHT (11ac) and 60GHz (11ad) patches.
+> This also includes the removal of the iwmc3200 drivers, since the
+> hardware never became available to normal people.
 > 
-> > +static const struct ethtool_ops ntb_ethtool_ops = {
-> > +	.get_drvinfo = ntb_get_drvinfo,
-> > +	.get_sset_count = ntb_get_sset_count,
-> > +	.get_strings = ntb_get_strings,
-> > +	.get_ethtool_stats = ntb_get_ethtool_stats,
-> > +	.get_link = ethtool_op_get_link,
-> > +};
+> Additionally, the NFC subsystem gets a series of updates.  According to
+> Samuel, "Here are the interesting bits:
 > 
-> If you want to implement bonding or bridging then implementing
-> get_settings would help.
-
-Will do.
-
-> > +static int __init ntb_netdev_init_module(void)
-> > +{
-> > +	struct ntb_netdev *dev;
-> > +	int rc;
-> > +
-> > +	pr_info("%s: Probe\n", KBUILD_MODNAME);
+> - A better error management for the HCI stack.
+> - An LLCP "late" binding implementation for a better NFC SAP usage. SAPs are
+>   now reserved only when there's a client for it.
+> - Support for Sony RC-S360 (a.k.a. PaSoRi) pn533 based dongle. We can read and
+>   write NFC tags and also establish a p2p link with this dongle now.
+> - A few LLCP fixes."
 > 
-> Useless message
+> Finally, this includes another pull of the fixes from the wireless
+> tree in order to resolve some merge issues.
 
-True, will remove.
-
-Thanks for the comments!
- 
-> > +	netdev = alloc_etherdev(sizeof(struct ntb_netdev));
-> > +	if (!netdev)
-> > +		return -ENOMEM;
-> > +
-> > +	dev = netdev_priv(netdev);
-> > +	dev->ndev = netdev;
-> > +	netdev->features = NETIF_F_HIGHDMA;
-> > +
-> > +	netdev->hw_features = netdev->features;
-> > +	netdev->watchdog_timeo = msecs_to_jiffies(NTB_TX_TIMEOUT_MS);
-> > +
-> > +	random_ether_addr(netdev->perm_addr);
-> > +	memcpy(netdev->dev_addr, netdev->perm_addr, netdev->addr_len);
-> > +
-> > +	netdev->netdev_ops = &ntb_netdev_ops;
-> > +	SET_ETHTOOL_OPS(netdev, &ntb_ethtool_ops);
-> > +
-> > +	dev->qp = ntb_transport_create_queue(ntb_netdev_rx_handler,
-> > +					     ntb_netdev_tx_handler,
-> > +					     ntb_netdev_event_handler);
-> > +	if (!dev->qp) {
-> > +		rc = -EIO;
-> > +		goto err;
-> > +	}
-> > +
-> > +	netdev->mtu = ntb_transport_max_size(dev->qp) - ETH_HLEN;
-> > +
-> > +	rc = register_netdev(netdev);
-> > +	if (rc)
-> > +		goto err1;
-> > +
-> > +	pr_info("%s: %s created\n", KBUILD_MODNAME, netdev->name);
-> > +	return 0;
-> > +
-> > +err1:
-> > +	ntb_transport_free_queue(dev->qp);
-> > +err:
-> > +	free_netdev(netdev);
-> > +	return rc;
-> > +}
-> > +module_init(ntb_netdev_init_module);
-> > +
-> > +static void __exit ntb_netdev_exit_module(void)
-> > +{
-> > +	struct ntb_netdev *dev = netdev_priv(netdev);
-> > +
-> > +	unregister_netdev(netdev);
-> > +	ntb_transport_free_queue(dev->qp);
-> > +	free_netdev(netdev);
-> > +
-> > +	pr_info("%s: Driver removed\n", KBUILD_MODNAME);
-> > +}
-> > +module_exit(ntb_netdev_exit_module);
-> 
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
