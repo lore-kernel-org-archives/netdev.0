@@ -1,162 +1,142 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: resurrecting tcphealth
-Date: Fri, 13 Jul 2012 16:55:44 -0700
-Message-ID: <20120713165544.6767ea8f@nehalam.linuxnetplumber.net>
-References: <e9caf38359467bfa8a1e2ac86f6ef2cc.squirrel@webmail.univie.ac.at>
+Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Fri, 13 Jul 2012 17:00:45 -0700
+Message-ID: <20120713170045.493dc213@nehalam.linuxnetplumber.net>
+References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e9caf38359467bfa8a1e2ac86f6ef2cc.squirrel@webmail.univie.ac.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38691 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756017Ab2GNABD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jul 2012 20:01:03 -0400
+In-Reply-To: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I am not sure if the is really necessary since the most
-of the stats are available elsewhere.
+On Fri, 13 Jul 2012 14:44:59 -0700
+Jon Mason <jon.mason@intel.com> wrote:
 
-Here are some comments on getting the simplified to match
-the kernel style.
+> A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
+> connecting 2 systems, providing electrical isolation between the two subsystems.
+> A non-transparent bridge is functionally similar to a transparent bridge except
+> that both sides of the bridge have their own independent address domains.  The
+> host on one side of the bridge will not have the visibility of the complete
+> memory or I/O space on the other side of the bridge.  To communicate across the
+> non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
+> the local system.  Writes to these apertures are mirrored to memory on the
+> remote system.  Communications can also occur through the use of doorbell
+> registers that initiate interrupts to the alternate domain, and scratch-pad
+> registers accessible from both sides.
+> 
+> The NTB device driver is needed to configure these memory windows, doorbell, and
+> scratch-pad registers as well as use them in such a way as they can be turned
+> into a viable communication channel to the remote system.  ntb_hw.[ch]
+> determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
+> the underlying hardware to provide access and a common interface to the doorbell
+> registers, scratch pads, and memory windows.  These hardware interfaces are
+> exported so that other, non-mainlined kernel drivers can access these.
+> ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
+> communication channel(s) and provide a reliable way of transferring data from
+> one side to the other, which it then exports so that "client" drivers can access
+> them.  These client drivers are used to provide a standard kernel interface
+> (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
+> system to the other in a standard way.
+> 
+> Signed-off-by: Jon Mason <jon.mason@intel.com>
 
->
-> static inline struct tcp_sock *tcp_sk(const struct sock *sk)
->diff -rub A/net/ipv4/tcp_input.c B/net/ipv4/tcp_input.c
->--- A/net/ipv4/tcp_input.c	2012-06-22 20:37:50.000000000 +0200
->+++ B/net/ipv4/tcp_input.c	2012-07-06 10:12:12.000000000 +0200
->@@ -4414,6 +4415,8 @@
-> 		}
->
-> 		if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
->+			/* Course retransmit inefficiency- this packet has been received twice. */
->+			tp->dup_pkts_recv++;
+> +
+> +static int max_num_cbs = 2;
+> +module_param(max_num_cbs, uint, 0644);
+> +MODULE_PARM_DESC(max_num_cbs, "Maximum number of NTB transport connections");
 
-I don't understand that comment, could you use a better sentence please?
+Rather than making it a fixed size, could you dynamically set these up
+with rtnl_link_ops?
 
->
-> 	tp->rx_opt.saw_tstamp = 0;
->
->+	/*
->+	 *	Tcp health monitoring is interested in
->+	 *	total per-connection packet arrivals.
->+	 *	This is in the fast path, but is quick.
->+	 */
->+	tp->pkts_recv++;
->+
+> +static struct ntb_device *ntbdev;
 
-Comment seems bigger justification than necessary for simple
-operation.
+What about multiple boards in system?
 
->diff -rub A/net/ipv4/tcp_ipv4.c B/net/ipv4/tcp_ipv4.c
->--- A/net/ipv4/tcp_ipv4.c	2012-06-22 20:37:50.000000000 +0200
->+++ B/net/ipv4/tcp_ipv4.c	2012-07-11 09:34:22.000000000 +0200
->@@ -2533,6 +2533,82 @@
-> 	return 0;
-> }
->
->+
->+/*
->+ *	Output /proc/net/tcphealth
->+ */
->+#define LINESZ 128
->+
->+int tcp_health_seq_show(struct seq_file *seq, void *v)
->+{
->+	int len, num;
->+	char srcIP[32], destIP[32];
-Unnecessary see below
+> +/**
+> + * ntb_hw_link_status() - return the hardware link status
+> + * @ndev: pointer to ntb_device instance
+> + *
+> + * Returns true if the hardware is connected to the remote system
+> + *
+> + * RETURNS: true or false based on the hardware link state
+> + */
+> +bool ntb_hw_link_status(struct ntb_device *ndev)
+> +{
+> +	return ndev->link_status == NTB_LINK_UP;
+> +}
+> +EXPORT_SYMBOL(ntb_hw_link_status);
 
->+
->+	unsigned long  SmoothedRttEstimate,
->+		AcksSent, DupAcksSent, PktsRecv, DupPktsRecv;
+Why isn't this inline in some header?
 
-Do not use CamelCase in kernel code.
-
->+	struct tcp_iter_state *st;
->+
->+	if (v == SEQ_START_TOKEN) {
->+		seq_printf(seq,
->+		"TCP Health Monitoring (established connections only)\n"
->+		" -Duplicate ACKs indicate lost or reordered packets on the
->connection.\n"
->+		" -Duplicate Packets Received signal a slow and badly inefficient
->connection.\n"
->+		" -RttEst estimates how long future packets will take on a round trip
->over the connection.\n"
->+		"id   Local Address        Remote Address       RttEst(ms) AcksSent "
-
-Header seems excessive, just put one line of header please.
-
-
->+		"DupAcksSent PktsRecv DupPktsRecv\n");
->+		goto out;
->+	}
->+
->+	/* Loop through established TCP connections */
->+	st = seq->private;
->+
->+
->+	if (st->state == TCP_SEQ_STATE_ESTABLISHED)
->+	{
->+/*	; //insert read-lock here */
-
-Don't think you need read-lock
-
->+		const struct tcp_sock *tp = tcp_sk(v);
->+		const struct inet_sock *inet = inet_sk(v);
->+		__be32 dest = inet->inet_daddr;
->+		__be32 src = inet->inet_rcv_saddr;
->+		__u16 destp = ntohs(inet->inet_dport);
->+		__u16 srcp = ntohs(inet->inet_sport);
->+
-
-These temp variables aren't redundant.
-
->+		num = st->num;
->+		SmoothedRttEstimate = (tp->srtt >> 3);
->+		AcksSent = tp->acks_sent;
->+		DupAcksSent = tp->dup_acks_sent;
->+		PktsRecv = tp->pkts_recv;
->+		DupPktsRecv = tp->dup_pkts_recv;
->+
->+		sprintf(srcIP, "%lu.%lu.%lu.%lu:%u",
->+			((src >> 24) & 0xFF), ((src >> 16) & 0xFF), ((src >> 8) & 0xFF), (src &
->0xFF),
->+			srcp);
->+		sprintf(destIP, "%3d.%3d.%3d.%3d:%u",
->+			((dest >> 24) & 0xFF), ((dest >> 16) & 0xFF), ((dest >> 8) & 0xFF),
->(dest & 0xFF),
->+			destp);
->+
->+		seq_printf(seq, "%d: %-21s %-21s "
->+				"%8lu %8lu %8lu %8lu %8lu%n",
->+				num,
->+				srcIP,
->+				destIP,
->+				SmoothedRttEstimate,
->+				AcksSent,
->+				DupAcksSent,
->+				PktsRecv,
->+				DupPktsRecv,
->+
->+				&len
->+			);
->+
-
-Kernel has %pI4 to print IP addresses. 
-
-	seq_printf(seq, "%d: %-21pI4 %-21pI4 "
-			"%8lu %8lu %8lu %8lu %8lu\n",
-			num,
-			&inet->inet_rcv_saddr,
-			&inet->inet_daddr,
-			tp->srtt >> 3,
-			tp->acks_sent,
-			tp->dup_acks_sent,
-			tp->pkts_recv,
-			tp->dup_pkts_recv);
-    
->+		seq_printf(seq, "%*s\n", LINESZ - 1 - len, "");
-
-This padding of line is bogus, just print variable length line.
-Are you trying to make it fixed length record file?
+> +/**
+> + * ntb_query_pdev() - return the pci_dev pointer
+> + * @ndev: pointer to ntb_device instance
+> + *
+> + * Given the ntb pointer return the pci_dev pointerfor the NTB hardware device
+> + *
+> + * RETURNS: a pointer to the ntb pci_dev
+> + */
+> +struct pci_dev *ntb_query_pdev(struct ntb_device *ndev)
+> +{
+> +	return ndev->pdev;
+> +}
+> +EXPORT_SYMBOL(ntb_query_pdev);
+> +
+> +/**
+> + * ntb_query_max_cbs() - return the maximum number of callback tuples
+> + * @ndev: pointer to ntb_device instance
+> + *
+> + * The number of callbacks can vary depending on the platform and MSI-X/MSI
+> + * enablement
+> + *
+> + * RETURNS: the maximum number of callback tuples (3, 15, or 33)
+> + */
+> +unsigned int ntb_query_max_cbs(struct ntb_device *ndev)
+> +{
+> +	return ndev->max_cbs > max_num_cbs ? max_num_cbs : ndev->max_cbs;
+> +}
+> +EXPORT_SYMBOL(ntb_query_max_cbs);
+> +
+> +/**
+> + * ntb_register_event_callback() - register event callback
+> + * @ndev: pointer to ntb_device instance
+> + * @func: callback function to register
+> + *
+> + * This function registers a callback for any HW driver events such as link
+> + * up/down, power management notices and etc.
+> + *
+> + * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+> + */
+> +int ntb_register_event_callback(struct ntb_device *ndev,
+> +				void (*func)(void *handle, unsigned int event))
+> +{
+> +	if (ndev->event_cb)
+> +		return -EINVAL;
+> +
+> +	ndev->event_cb = func;
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(ntb_register_event_callback);
+> +
+> +/**
+> + * ntb_unregister_event_callback() - unregisters the event callback
+> + * @ndev: pointer to ntb_device instance
+> + *
+> + * This function unregisters the existing callback from transport
+> + */
+> +void ntb_unregister_event_callback(struct ntb_device *ndev)
+> +{
+> +	ndev->event_cb = NULL;
+> +}
+> +EXPORT_SYMBOL(ntb_unregister_event_callback);
+> +
