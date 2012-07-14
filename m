@@ -1,87 +1,43 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC 2/2] net: Add support for NTB virtual ethernet device
-Date: Sat, 14 Jul 2012 10:30:33 +0200
-Message-ID: <20120714083033.GA1676@minipsycho.orion>
-References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
- <1342215900-3358-2-git-send-email-jon.mason@intel.com>
- <20120713231403.GA1712@minipsycho.orion>
- <20120714055034.GB4808@jonmason-lab>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: PROBLEM: Silent data corruption when using sendfile()
+Date: Sat, 14 Jul 2012 10:31:36 +0200
+Message-ID: <20120714083136.GO16256@1wt.eu>
+References: <20120713171835.GA26052@vault.local> <CAJd=RBAntSubDBbJ292SzeoN4hTwBQ_Q23jt+Y6i-+vfrQ5EHQ@mail.gmail.com> <1342254042.3265.9017.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Jon Mason <jon.mason@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:42508 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757386Ab2GNIah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 04:30:37 -0400
-Received: by wgbfm10 with SMTP id fm10so1149683wgb.1
-        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 01:30:35 -0700 (PDT)
+Cc: Hillf Danton <dhillf@gmail.com>,
+	Johannes Truschnigg <johannes@truschnigg.info>,
+	linux-kernel@vger.kernel.org, Linux-Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120714055034.GB4808@jonmason-lab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1342254042.3265.9017.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Jul 14, 2012 at 07:50:35AM CEST, jon.mason@intel.com wrote:
->On Sat, Jul 14, 2012 at 01:14:03AM +0200, Jiri Pirko wrote:
->> Fri, Jul 13, 2012 at 11:45:00PM CEST, jon.mason@intel.com wrote:
->> >A virtual ethernet device that uses the NTB transport API to send/receive data.
->> >
->> >Signed-off-by: Jon Mason <jon.mason@intel.com>
->> >---
->> > drivers/net/Kconfig      |    4 +
->> > drivers/net/Makefile     |    1 +
->> > drivers/net/ntb_netdev.c |  411 ++++++++++++++++++++++++++++++++++++++++++++++
->> > 3 files changed, 416 insertions(+), 0 deletions(-)
->> > create mode 100644 drivers/net/ntb_netdev.c
+On Sat, Jul 14, 2012 at 10:20:41AM +0200, Eric Dumazet wrote:
+> > On Tue, Jul 3, 2012 at 8:02 AM, Willy Tarreau <w@1wt.eu> wrote:
+> > >
+> > > In fact it has been true zero copy in 2.6.25 until we faced a large
+> > > amount of data corruption and the zero copy was disabled in 2.6.25.X.
+> > > Since then it remained that way until you brought your patches to
+> > > re-instantiate it.
+> 
+> Might be, or not (could be a NIC bug)
 
-<snip>
+I may be wrong but what I recall from this bug was an issue when
+forwarding TCP between two NICs, related to linear vs non-linear
+data (I have memories of something around data not yet ACKed being
+replaced before being retransmitted but I may be wrong). Anyway,
+the way it was fixed consisted in simply disabling the zero-copy
+code path. So this should be something different from what Johannes
+reports. Maybe a regression since then though.
 
->> >+
->> >+static const struct net_device_ops ntb_netdev_ops = {
->> >+	.ndo_open = ntb_netdev_open,
->> >+	.ndo_stop = ntb_netdev_close,
->> >+	.ndo_start_xmit = ntb_netdev_start_xmit,
->> >+	.ndo_change_mtu = ntb_netdev_change_mtu,
->> >+	.ndo_tx_timeout = ntb_netdev_tx_timeout,
->> >+	.ndo_set_mac_address = eth_mac_addr,
->> 
->> Does your device support mac change while it's up and running?
->
->It's virtual ethernet, so there is no hardware limitation, only what is acceptable for the remote side to receive.
+> Please Johannes could you try latest kernel tree ?
 
-In that case, it would be good to do:
-dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+It would be useful, especially given the amount of changes you performed
+in this area in latest version, it could be very possible that this new
+bug got fixed as a side effect !
 
-This enables mac change in eth_mac_addr() when iface is running.
-
-<snip>
-
->> >+
->> >+static int __init ntb_netdev_init_module(void)
->> >+{
->> >+	struct ntb_netdev *dev;
->> >+	int rc;
->> >+
->> >+	pr_info("%s: Probe\n", KBUILD_MODNAME);
->> >+
->> >+	netdev = alloc_etherdev(sizeof(struct ntb_netdev));
->> 
->> I might be missing something but this place (module init) does not seems
->> like a good place to do alloc_etherdev(). Do you want to support only
->> one netdevice instance?
->> 
->> Anyway, I think that using "static netdev" should be avoided in any case.
->> 
->
->It would fail the probe if there is no underlying ntb hardware, but it would make sense to check for that before allocing the etherdev.
-
-But isn't there possible to have multiple ntb hardware devices? It would make
-sense to register ntb device here with ntb core and let the core call
-probe which would actually create new netdev.
-
-Is there a limitation that one underlying ntb hardware ~ one ntb netdevice?
-
-Thanks,
-Jiri
+Regards,
+Willy
