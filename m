@@ -1,22 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: resurrecting tcphealth
-Date: Sat, 14 Jul 2012 14:48:00 -0700
-Message-ID: <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
-References: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
+From: Valentin Ilie <valentin.ilie@gmail.com>
+Subject: Re: [PATCH] drivers: connector: fixed coding style issues
+Date: Sun, 15 Jul 2012 00:51:06 +0300
+Message-ID: <CAHuBVBYXAj7OUgo3UmLERbcmBw-sK8c66TuCq_7Fsp=CVzzYSw@mail.gmail.com>
+References: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
+	<1342298026.8377.33.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: zbr@ioremap.net, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38537 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751615Ab2GNVsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jul 2012 17:48:19 -0400
-In-Reply-To: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:38605 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389Ab2GNVvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 17:51:08 -0400
+Received: by lbbgm6 with SMTP id gm6so7310760lbb.19
+        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 14:51:06 -0700 (PDT)
+In-Reply-To: <1342298026.8377.33.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maybe it would be better to use netlink info (for ss command)
-rather than a /proc/net interface.
-See how existing TCP values and MEMINFO are handled.
+On 14 July 2012 23:33, Joe Perches <joe@perches.com> wrote:
+> I think it would be better written by hoisting the
+> function outside the if like [..]
+
+OK.
+
+Should I submit the whole patch again (with that change) or just
+another small patch that does just that?
+
+-- 
+Valentin Ilie
