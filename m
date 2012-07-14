@@ -1,201 +1,75 @@
-From: Valentin Ilie <valentin.ilie@gmail.com>
-Subject: [PATCH V2] drivers: connector: fixed coding style issues
-Date: Sun, 15 Jul 2012 02:08:29 +0300
-Message-ID: <1342307309-8280-1-git-send-email-valentin.ilie@gmail.com>
-References: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
-Cc: netdev@vger.kernel.org, Valentin Ilie <valentin.ilie@gmail.com>
-To: zbr@ioremap.net
+From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
+Subject: Re: resurrecting tcphealth
+Date: Sun, 15 Jul 2012 01:43:18 +0200
+Message-ID: <b93cddfd0a19158ec59823140d1e2075.squirrel@webmail.univie.ac.at>
+References: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
+    <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:48122 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752196Ab2GNXJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 19:09:05 -0400
-Received: by wgbdr13 with SMTP id dr13so4187946wgb.1
-        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 16:09:04 -0700 (PDT)
-In-Reply-To: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
+Received: from grace.univie.ac.at ([131.130.3.115]:58192 "EHLO
+	grace.univie.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752031Ab2GNXnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 19:43:21 -0400
+In-Reply-To: <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V2: Replaced assignment in if statement.
-Fixed coding style issues.
+On Sa, 14.07.2012, 23:48, Stephen Hemminger wrote:
+> Maybe it would be better to use netlink info (for ss command)
+> rather than a /proc/net interface.
+> See how existing TCP values and MEMINFO are handled.
+>
 
-Signed-off-by: Valentin Ilie <valentin.ilie@gmail.com>
----
- drivers/connector/cn_proc.c   |   36 ++++++++++++++++++------------------
- drivers/connector/cn_queue.c  |   12 +++++++-----
- drivers/connector/connector.c |    5 +++--
- 3 files changed, 28 insertions(+), 25 deletions(-)
+I'm confused, what exactly do you mean?
+of course a library-interface might be more interesting than proc/net.
+the proc/net/tcphealth functionality probably could be done in userspace,
+although I'm wondering how userspace could traverse all tcp_sock structures
+for all clients -- but the gain would be a bit more security. and the rest
+of the patch still would need to stay in the kernel since that info it
+collects would otherwise be lost completely. so I somehow doubt this would
+be worth the effort. better would be optional tcphealth disabled by default
+for security-reasons. (i.e. if you're a server you don't want to enable it.)
 
-diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
-index 77e1e6c..3e92b7d 100644
---- a/drivers/connector/cn_proc.c
-+++ b/drivers/connector/cn_proc.c
-@@ -46,7 +46,7 @@ static DEFINE_PER_CPU(__u32, proc_event_counts) = { 0 };
- static inline void get_seq(__u32 *ts, int *cpu)
- {
- 	preempt_disable();
--	*ts = __this_cpu_inc_return(proc_event_counts) -1;
-+	*ts = __this_cpu_inc_return(proc_event_counts) - 1;
- 	*cpu = smp_processor_id();
- 	preempt_enable();
- }
-@@ -62,8 +62,8 @@ void proc_fork_connector(struct task_struct *task)
- 	if (atomic_read(&proc_event_num_listeners) < 1)
- 		return;
- 
--	msg = (struct cn_msg*)buffer;
--	ev = (struct proc_event*)msg->data;
-+	msg = (struct cn_msg *)buffer;
-+	ev = (struct proc_event *)msg->data;
- 	get_seq(&msg->seq, &ev->cpu);
- 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
- 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
-@@ -93,8 +93,8 @@ void proc_exec_connector(struct task_struct *task)
- 	if (atomic_read(&proc_event_num_listeners) < 1)
- 		return;
- 
--	msg = (struct cn_msg*)buffer;
--	ev = (struct proc_event*)msg->data;
-+	msg = (struct cn_msg *)buffer;
-+	ev = (struct proc_event *)msg->data;
- 	get_seq(&msg->seq, &ev->cpu);
- 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
- 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
-@@ -119,8 +119,8 @@ void proc_id_connector(struct task_struct *task, int which_id)
- 	if (atomic_read(&proc_event_num_listeners) < 1)
- 		return;
- 
--	msg = (struct cn_msg*)buffer;
--	ev = (struct proc_event*)msg->data;
-+	msg = (struct cn_msg *)buffer;
-+	ev = (struct proc_event *)msg->data;
- 	ev->what = which_id;
- 	ev->event_data.id.process_pid = task->pid;
- 	ev->event_data.id.process_tgid = task->tgid;
-@@ -134,7 +134,7 @@ void proc_id_connector(struct task_struct *task, int which_id)
- 		ev->event_data.id.e.egid = cred->egid;
- 	} else {
- 		rcu_read_unlock();
--	     	return;
-+		return;
- 	}
- 	rcu_read_unlock();
- 	get_seq(&msg->seq, &ev->cpu);
-@@ -241,8 +241,8 @@ void proc_exit_connector(struct task_struct *task)
- 	if (atomic_read(&proc_event_num_listeners) < 1)
- 		return;
- 
--	msg = (struct cn_msg*)buffer;
--	ev = (struct proc_event*)msg->data;
-+	msg = (struct cn_msg *)buffer;
-+	ev = (struct proc_event *)msg->data;
- 	get_seq(&msg->seq, &ev->cpu);
- 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
- 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
-@@ -276,8 +276,8 @@ static void cn_proc_ack(int err, int rcvd_seq, int rcvd_ack)
- 	if (atomic_read(&proc_event_num_listeners) < 1)
- 		return;
- 
--	msg = (struct cn_msg*)buffer;
--	ev = (struct proc_event*)msg->data;
-+	msg = (struct cn_msg *)buffer;
-+	ev = (struct proc_event *)msg->data;
- 	msg->seq = rcvd_seq;
- 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
- 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
-@@ -303,7 +303,7 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
- 	if (msg->len != sizeof(*mc_op))
- 		return;
- 
--	mc_op = (enum proc_cn_mcast_op*)msg->data;
-+	mc_op = (enum proc_cn_mcast_op *)msg->data;
- 	switch (*mc_op) {
- 	case PROC_CN_MCAST_LISTEN:
- 		atomic_inc(&proc_event_num_listeners);
-@@ -325,11 +325,11 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
-  */
- static int __init cn_proc_init(void)
- {
--	int err;
--
--	if ((err = cn_add_callback(&cn_proc_event_id, "cn_proc",
--	 			   &cn_proc_mcast_ctl))) {
--		printk(KERN_WARNING "cn_proc failed to register\n");
-+	int err = cn_add_callback(&cn_proc_event_id,
-+				  "cn_proc",
-+				  &cn_proc_mcast_ctl);
-+	if (err) {
-+		pr_warn("cn_proc failed to register\n");
- 		return err;
- 	}
- 	return 0;
-diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
-index c42c9d5..1f8bf05 100644
---- a/drivers/connector/cn_queue.c
-+++ b/drivers/connector/cn_queue.c
-@@ -1,5 +1,5 @@
- /*
-- * 	cn_queue.c
-+ *	cn_queue.c
-  *
-  * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
-  * All rights reserved.
-@@ -34,13 +34,14 @@
- static struct cn_callback_entry *
- cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
- 			      struct cb_id *id,
--			      void (*callback)(struct cn_msg *, struct netlink_skb_parms *))
-+			      void (*callback)(struct cn_msg *,
-+					       struct netlink_skb_parms *))
- {
- 	struct cn_callback_entry *cbq;
- 
- 	cbq = kzalloc(sizeof(*cbq), GFP_KERNEL);
- 	if (!cbq) {
--		printk(KERN_ERR "Failed to create new callback queue.\n");
-+		pr_err("Failed to create new callback queue.\n");
- 		return NULL;
- 	}
- 
-@@ -71,7 +72,8 @@ int cn_cb_equal(struct cb_id *i1, struct cb_id *i2)
- 
- int cn_queue_add_callback(struct cn_queue_dev *dev, const char *name,
- 			  struct cb_id *id,
--			  void (*callback)(struct cn_msg *, struct netlink_skb_parms *))
-+			  void (*callback)(struct cn_msg *,
-+					   struct netlink_skb_parms *))
- {
- 	struct cn_callback_entry *cbq, *__cbq;
- 	int found = 0;
-@@ -149,7 +151,7 @@ void cn_queue_free_dev(struct cn_queue_dev *dev)
- 	spin_unlock_bh(&dev->queue_lock);
- 
- 	while (atomic_read(&dev->refcnt)) {
--		printk(KERN_INFO "Waiting for %s to become free: refcnt=%d.\n",
-+		pr_info("Waiting for %s to become free: refcnt=%d.\n",
- 		       dev->name, atomic_read(&dev->refcnt));
- 		msleep(1000);
- 	}
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index dde6a0f..32174f0 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -1,5 +1,5 @@
- /*
-- * 	connector.c
-+ *	connector.c
-  *
-  * 2004+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
-  * All rights reserved.
-@@ -185,7 +185,8 @@ static void cn_rx_skb(struct sk_buff *__skb)
-  * May sleep.
-  */
- int cn_add_callback(struct cb_id *id, const char *name,
--		    void (*callback)(struct cn_msg *, struct netlink_skb_parms *))
-+		    void (*callback)(struct cn_msg *,
-+				     struct netlink_skb_parms *))
- {
- 	int err;
- 	struct cn_dev *dev = &cdev;
--- 
-1.7.10.4
+@"David Miller":
+sorry, I forgot an important info about this patch, an info that can be
+found in the paper I quoted:
+
+'We concentrate on client side metrics to make our results more applicable
+to web clients. We chose this strategy to help answer the often asked
+question: "Why is my Internet connection so slow?"
+...
+Since we only have access to the client node and not the server, we must
+find performance data using only the information coming downstream to us.
+Savage showed that the TCP protocol maintains data that we can leverage to
+our advantage and we use that idea to monitor per-connection TCP health at
+the client. This task is made difficult because of the TCP philosophy of
+"smart sender, dumb receiver". There is simply more information about the
+connection on the server side than on the client.' [1]
+
+tcp_info is such a server-side diagnosis, clients usually don't send enough
+data to make the info therein meaningful for checking the "health" of tcp.
+it's all about the senders, and the desktop-pc simply isn't that big of a
+tcp-sender to slashdot and co.
+
+@"Eric Dumazet":
+the same goes for you too. netstat -s and whatever kind of pooling together
+statistics on all internet-connections is useful for a server-admin only,
+slowness of particular sites can only be investigated with ping and this
+tcphealth patch when you're on client-side.
+
+as for userspace-tools, apart from tcp-health display in each
+downloading-progress-bar I can think of cron-jobs which wait for better
+tcp-health before spidering some site, or an altered wget in mirror-mode.
+the gkrellm-plugin that comes with this patch might count together all the
+data of tcphealth, but when a tcp_sock isn't stored anymore that data is
+forgotten and you get a concurrent info most likely for only one site, since
+the client wont have much connections open and will be closing old
+connections frequently.
+
+oh, and again I recommend the really short although outdated thesis
+
+[1] https://sacerdoti.org/tcphealth/tcphealth-paper.pdf
