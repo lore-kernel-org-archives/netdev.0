@@ -1,50 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] drivers: connector: fixed coding style issues
-Date: Sat, 14 Jul 2012 14:56:20 -0700
-Message-ID: <1342302980.8377.43.camel@joe2Laptop>
-References: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
-	 <1342298026.8377.33.camel@joe2Laptop>
-	 <CAHuBVBYXAj7OUgo3UmLERbcmBw-sK8c66TuCq_7Fsp=CVzzYSw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, netdev@vger.kernel.org
-To: Valentin Ilie <valentin.ilie@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 14 Jul 2012 16:06:58 -0700
+Message-ID: <1342307225-28917-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:44494 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752165Ab2GNV4V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jul 2012 17:56:21 -0400
-In-Reply-To: <CAHuBVBYXAj7OUgo3UmLERbcmBw-sK8c66TuCq_7Fsp=CVzzYSw@mail.gmail.com>
+Received: from mga14.intel.com ([143.182.124.37]:31575 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750839Ab2GNXHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jul 2012 19:07:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-07-15 at 00:51 +0300, Valentin Ilie wrote:
-> On 14 July 2012 23:33, Joe Perches <joe@perches.com> wrote:
-> > I think it would be better written by hoisting the
-> > function outside the if like [..]
-> 
-> OK.
-> 
-> Should I submit the whole patch again (with that change) or just
-> another small patch that does just that?
+This series contains updates to e1000e and ixgbe.
 
-It's generally better to reply to the original patch
-with [PATCH V2] with the entire patch content updated.
+The following are changes since commit 141e369de698f2e17bf716b83fcc647ddcb2220c:
+  xfrm: Initialize the struct xfrm_dst behind the dst_enty field
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-btw: there's a missing a semicolon in what I posted.
+Alexander Duyck (5):
+  ixgbe: Simplify logic for getting traffic class from user priority
+  ixgbe: Cleanup unpacking code for DCB
+  ixgbe: Populate the prio_tc_map in ixgbe_setup_tc
+  ixgbe: Add function for obtaining FCoE TC based on FCoE user priority
+  ixgbe: Merge FCoE set_num and cache_ring calls into RSS/DCB config
 
-Also add a changelog after the --- so the new patch
-email looks like:
+Matthew Vick (1):
+  e1000e: Program the correct register for ITR when using MSI-X.
 
-Subject: [PATCH V2] drivers: connectors: etc
+Tushar Dave (1):
+  e1000e: Cleanup code logic in e1000_check_for_serdes_link_82571()
 
-Patch description...
+ drivers/net/ethernet/intel/e1000e/82571.c       |   14 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h       |    1 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c     |    5 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |   32 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h        |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c    |   74 ++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h    |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |   26 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c   |   15 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c    |  260 ++++++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   61 ++++--
+ 11 files changed, 265 insertions(+), 225 deletions(-)
 
-Signed-off-by: etc
----
-v2: Updated to do whatever
-
-actual patch...
-
-cheers, Joe
+-- 
+1.7.10.4
