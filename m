@@ -1,43 +1,50 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: PROBLEM: Silent data corruption when using sendfile()
-Date: Sat, 14 Jul 2012 10:31:36 +0200
-Message-ID: <20120714083136.GO16256@1wt.eu>
-References: <20120713171835.GA26052@vault.local> <CAJd=RBAntSubDBbJ292SzeoN4hTwBQ_Q23jt+Y6i-+vfrQ5EHQ@mail.gmail.com> <1342254042.3265.9017.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hillf Danton <dhillf@gmail.com>,
-	Johannes Truschnigg <johannes@truschnigg.info>,
-	linux-kernel@vger.kernel.org, Linux-Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1342254042.3265.9017.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/2] e1000e: Correct link check logic for 82571 serdes
+Date: Sat, 14 Jul 2012 01:34:05 -0700
+Message-ID: <1342254845-28991-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+	dnelson@redhat.com, bruce.w.allan@intel.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:40510 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757866Ab2GNIeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jul 2012 04:34:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 14, 2012 at 10:20:41AM +0200, Eric Dumazet wrote:
-> > On Tue, Jul 3, 2012 at 8:02 AM, Willy Tarreau <w@1wt.eu> wrote:
-> > >
-> > > In fact it has been true zero copy in 2.6.25 until we faced a large
-> > > amount of data corruption and the zero copy was disabled in 2.6.25.X.
-> > > Since then it remained that way until you brought your patches to
-> > > re-instantiate it.
-> 
-> Might be, or not (could be a NIC bug)
+From: Tushar Dave <tushar.n.dave@intel.com>
 
-I may be wrong but what I recall from this bug was an issue when
-forwarding TCP between two NICs, related to linear vs non-linear
-data (I have memories of something around data not yet ACKed being
-replaced before being retransmitted but I may be wrong). Anyway,
-the way it was fixed consisted in simply disabling the zero-copy
-code path. So this should be something different from what Johannes
-reports. Maybe a regression since then though.
+SYNCH bit and IV bit of RXCW register are sticky. Before examining these bits,
+RXCW should be read twice to filter out one-time false events and have correct
+values for these bits. Incorrect values of these bits in link check logic can
+cause weird link stability issues if auto-negotiation fails.
 
-> Please Johannes could you try latest kernel tree ?
+CC: stable <stable@vger.kernel.org> [2.6.38+]
+Reported-by: Dean Nelson <dnelson@redhat.com>
+Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/82571.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-It would be useful, especially given the amount of changes you performed
-in this area in latest version, it could be very possible that this new
-bug got fixed as a side effect !
-
-Regards,
-Willy
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 36db4df..1f063dc 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1572,6 +1572,9 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
+ 	ctrl = er32(CTRL);
+ 	status = er32(STATUS);
+ 	rxcw = er32(RXCW);
++	/* SYNCH bit and IV bit are sticky */
++	udelay(10);
++	rxcw = er32(RXCW);
+ 
+ 	if ((rxcw & E1000_RXCW_SYNCH) && !(rxcw & E1000_RXCW_IV)) {
+ 
+-- 
+1.7.10.4
