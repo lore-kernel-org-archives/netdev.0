@@ -1,77 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: resurrecting tcphealth
-Date: Sat, 14 Jul 2012 10:27:03 +0200
-Message-ID: <1342254423.3265.9028.camel@edumazet-glaptop>
-References: <cc6495b92f1df180c1ad43057ceb0b98.squirrel@webmail.univie.ac.at>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC 2/2] net: Add support for NTB virtual ethernet device
+Date: Sat, 14 Jul 2012 10:30:33 +0200
+Message-ID: <20120714083033.GA1676@minipsycho.orion>
+References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+ <1342215900-3358-2-git-send-email-jon.mason@intel.com>
+ <20120713231403.GA1712@minipsycho.orion>
+ <20120714055034.GB4808@jonmason-lab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Piotr Sawuk <a9702387@unet.univie.ac.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cc6495b92f1df180c1ad43057ceb0b98.squirrel@webmail.univie.ac.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:42508 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757386Ab2GNIah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 04:30:37 -0400
+Received: by wgbfm10 with SMTP id fm10so1149683wgb.1
+        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 01:30:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120714055034.GB4808@jonmason-lab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-07-14 at 09:56 +0200, Piotr Sawuk wrote:
-> On Sa, 14.07.2012, 03:31, valdis.kletnieks@vt.edu wrote:
-> > On Fri, 13 Jul 2012 16:55:44 -0700, Stephen Hemminger said:
-> >
-> >> >+			/* Course retransmit inefficiency- this packet has been received
-> >> twice. */
-> >> >+			tp->dup_pkts_recv++;
-> >> I don't understand that comment, could you use a better sentence please?
-> >
-> > I think what was intended was:
-> >
-> > /* Curse you, retransmit inefficiency! This packet has been received at
-> least twice */
-> >
-> 
-> LOL, no. I think "course retransmit" is short for "course-grained timeout
-> caused retransmit" but I can't be sure since I'm not the author of these
-> lines. I'll replace that comment with the non-shorthand version though.
-> however, I think the real comment here should be:
-> 
-> /*A perceived shortcoming of the standard TCP implementation: A
-> TCP receiver can get duplicate packets from the sender because it cannot
-> acknowledge packets that arrive out of order. These duplicates would happen
-> when the sender mistakenly thinks some packets have been lost by the network
-> because it does not receive acks for them but in reality they were
-> successfully received out of order. Since the receiver has no way of letting
-> the sender know about the receipt of these packets, they could potentially
-> be re-sent and re-received at the receiver. Not only do duplicate packets
-> waste precious Internet bandwidth but they hurt performance because the
-> sender mistakenly detects congestion from packet losses. The SACK TCP
-> extension specically addresses this issue. A large number of duplicate
-> packets received would indicate a signicant benet to the wide adoption of
-> SACK. The duplicatepacketsreceived metric is computed at the
-> receiver and counts these packets on a per-connection basis.*/
-> 
-> as copied from his thesis at [1]. also in the thesis he writes:
-> 
-> In our limited experiment, the results indicated no duplicate packets were
-> received on any connection in the 18 hour run. This leads us to several
-> conclusions. Since duplicate ACKs were seen on many connections we know that
-> some packets were lost or reordered, but unACKed reordered packets never
-> caused a /coursegrainedtimeouts/ on our connections. Only these timeouts
-> will cause duplicate packets to be received since less severe out-of-order
-> conditions will be resolved with fast retransmits. The lack of course
-> timeouts
-> may be due to the quality of UCSD's ActiveWeb network or the paucity of
-> large gaps between received packet groups. It should be noted that Linux 2.2
-> implements fast retransmits for up to two packet gaps, thus reducing the
-> need for course grained timeouts due to the lack of SACK.
-> 
-> [1] https://sacerdoti.org/tcphealth/tcphealth-paper.pdf
+Sat, Jul 14, 2012 at 07:50:35AM CEST, jon.mason@intel.com wrote:
+>On Sat, Jul 14, 2012 at 01:14:03AM +0200, Jiri Pirko wrote:
+>> Fri, Jul 13, 2012 at 11:45:00PM CEST, jon.mason@intel.com wrote:
+>> >A virtual ethernet device that uses the NTB transport API to send/receive data.
+>> >
+>> >Signed-off-by: Jon Mason <jon.mason@intel.com>
+>> >---
+>> > drivers/net/Kconfig      |    4 +
+>> > drivers/net/Makefile     |    1 +
+>> > drivers/net/ntb_netdev.c |  411 ++++++++++++++++++++++++++++++++++++++++++++++
+>> > 3 files changed, 416 insertions(+), 0 deletions(-)
+>> > create mode 100644 drivers/net/ntb_netdev.c
 
-Not sure how pertinent is this paper today in 2012
+<snip>
 
-I would prefer you add global counters, instead of per tcp counters that
-most applications wont use at all.
+>> >+
+>> >+static const struct net_device_ops ntb_netdev_ops = {
+>> >+	.ndo_open = ntb_netdev_open,
+>> >+	.ndo_stop = ntb_netdev_close,
+>> >+	.ndo_start_xmit = ntb_netdev_start_xmit,
+>> >+	.ndo_change_mtu = ntb_netdev_change_mtu,
+>> >+	.ndo_tx_timeout = ntb_netdev_tx_timeout,
+>> >+	.ndo_set_mac_address = eth_mac_addr,
+>> 
+>> Does your device support mac change while it's up and running?
+>
+>It's virtual ethernet, so there is no hardware limitation, only what is acceptable for the remote side to receive.
 
-Example of a more useful patch : add a counter of packets queued in Out
-Of Order queue ( in tcp_data_queue_ofo() )
+In that case, it would be good to do:
+dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
 
-"netstat -s" will display the total count, without any changes in
-userland tools/applications.
+This enables mac change in eth_mac_addr() when iface is running.
+
+<snip>
+
+>> >+
+>> >+static int __init ntb_netdev_init_module(void)
+>> >+{
+>> >+	struct ntb_netdev *dev;
+>> >+	int rc;
+>> >+
+>> >+	pr_info("%s: Probe\n", KBUILD_MODNAME);
+>> >+
+>> >+	netdev = alloc_etherdev(sizeof(struct ntb_netdev));
+>> 
+>> I might be missing something but this place (module init) does not seems
+>> like a good place to do alloc_etherdev(). Do you want to support only
+>> one netdevice instance?
+>> 
+>> Anyway, I think that using "static netdev" should be avoided in any case.
+>> 
+>
+>It would fail the probe if there is no underlying ntb hardware, but it would make sense to check for that before allocing the etherdev.
+
+But isn't there possible to have multiple ntb hardware devices? It would make
+sense to register ntb device here with ntb core and let the core call
+probe which would actually create new netdev.
+
+Is there a limitation that one underlying ntb hardware ~ one ntb netdevice?
+
+Thanks,
+Jiri
