@@ -1,50 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] e1000e: Correct link check logic for 82571 serdes
-Date: Sat, 14 Jul 2012 01:34:05 -0700
-Message-ID: <1342254845-28991-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	dnelson@redhat.com, bruce.w.allan@intel.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:40510 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757866Ab2GNIeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jul 2012 04:34:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Truschnigg <johannes@truschnigg.info>
+Subject: Re: PROBLEM: Silent data corruption when using sendfile()
+Date: Sat, 14 Jul 2012 12:13:21 +0200
+Message-ID: <20120714101321.GA26329@vault.local>
+References: <20120713171835.GA26052@vault.local>
+ <CAJd=RBAntSubDBbJ292SzeoN4hTwBQ_Q23jt+Y6i-+vfrQ5EHQ@mail.gmail.com>
+ <1342254042.3265.9017.camel@edumazet-glaptop>
+ <20120714083136.GO16256@1wt.eu>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="G4iJoqBmSsgzjUCe"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Hillf Danton <dhillf@gmail.com>, linux-kernel@vger.kernel.org,
+	Linux-Netdev <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120714083136.GO16256@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tushar Dave <tushar.n.dave@intel.com>
 
-SYNCH bit and IV bit of RXCW register are sticky. Before examining these bits,
-RXCW should be read twice to filter out one-time false events and have correct
-values for these bits. Incorrect values of these bits in link check logic can
-cause weird link stability issues if auto-negotiation fails.
+--G4iJoqBmSsgzjUCe
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-CC: stable <stable@vger.kernel.org> [2.6.38+]
-Reported-by: Dean Nelson <dnelson@redhat.com>
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/82571.c |    3 +++
- 1 file changed, 3 insertions(+)
+On Sat, Jul 14, 2012 at 10:31:36AM +0200, Willy Tarreau wrote:
+> > Please Johannes could you try latest kernel tree ?
+>=20
+> It would be useful, especially given the amount of changes you performed
+> in this area in latest version, it could be very possible that this new
+> bug got fixed as a side effect !
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 36db4df..1f063dc 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1572,6 +1572,9 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 	ctrl = er32(CTRL);
- 	status = er32(STATUS);
- 	rxcw = er32(RXCW);
-+	/* SYNCH bit and IV bit are sticky */
-+	udelay(10);
-+	rxcw = er32(RXCW);
- 
- 	if ((rxcw & E1000_RXCW_SYNCH) && !(rxcw & E1000_RXCW_IV)) {
- 
--- 
-1.7.10.4
+I upgraded to 3.4.4 (identical config as the 3.4.0 build I've been running)
+and what can I say - the problem really seems to have disappeared. I perfor=
+med
+about 3700 iterations of my previos tests over the night, and the data alwa=
+ys
+turned out to be OK, not a single byte turned out kaput!
+
+I wish I would have tested that earlier, and spared you the noise... well,
+maybe someone who runs into a similar problem in the future will have this
+discovery save her/him some time and headaches and make her/him just upgrade
+kernels :)
+
+Thanks a lot for your polite and quick responses!
+
+--=20
+with best regards:
+- Johannes Truschnigg ( johannes@truschnigg.info )
+
+www:   http://johannes.truschnigg.info/
+phone: +43 650 2 133337
+xmpp:  johannes@truschnigg.info
+
+Please do not bother me with HTML-email or attachments. Thank you.
+
+--G4iJoqBmSsgzjUCe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAlABRkEACgkQnnUApj8OcoLtmQCfcdn0Om7SnCUO6R2WhXV/E0EC
+Z+EAoJe3gQApITV72Md9SBrvQgghjHQ+
+=IaNX
+-----END PGP SIGNATURE-----
+
+--G4iJoqBmSsgzjUCe--
