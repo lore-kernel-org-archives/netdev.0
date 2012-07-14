@@ -1,56 +1,60 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: [PATCH] iptables: =?UTF-8?Q?xt=5Frecent=3A=20Add=20optional?=
- =?UTF-8?Q?=20mask=20option=20for=20xt=5Frecent?=
-Date: Sat, 14 Jul 2012 20:55:57 +0300
-Message-ID: <a2feae54d7bd12b00614e679fd2fd4a9@visp.net.lb>
-References: <1337285337-13619-1-git-send-email-denys@visp.net.lb>
- <20120714150527.GA6271@1984>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: fix sparse warning for sctp_init_cause_fixed
+Date: Sat, 14 Jul 2012 14:01:25 -0400
+Message-ID: <d271696b-1103-4335-a734-3cda1e260557@email.android.com>
+References: <1342199797-11305-1-git-send-email-ioanorghici@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netfilter-devel@vger.kernel.org>,
-	Linux netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: Ioan Orghici <ioanorghici@gmail.com>, sri@us.ibm.com,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:43889 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941Ab2GNR4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 13:56:01 -0400
-In-Reply-To: <20120714150527.GA6271@1984>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:42357 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750915Ab2GNSBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 14:01:30 -0400
+Received: by qadb17 with SMTP id b17so919961qad.19
+        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 11:01:29 -0700 (PDT)
+In-Reply-To: <1342199797-11305-1-git-send-email-ioanorghici@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo
+Ioan Orghici <ioanorghici@gmail.com> wrote:
 
-On 2012-07-14 18:05, Pablo Neira Ayuso wrote:
-> Hi Denys,
+>Fix the following sparse warning:
+>	* symbol 'sctp_init_cause_fixed' was not declared. Should it be
+>	  static?
 >
-> On Thu, May 17, 2012 at 11:08:57PM +0300, Denys Fedoryshchenko wrote:
->> Use case for this feature:
->> 1)In some occasions if you need to allow,block,match specific 
->> subnet.
->> 2)I can use recent as a trigger when netfilter rule matches, with 
->> mask 0.0.0.0
->>
->> Tested for backward compatibility:
->> )old (userspace) iptables, new kernel
->> )old kernel, new iptables
->> )new kernel, new iptables
->
-> I've cleaned up this patch:
->
-> 
-> http://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commit;h=73bf03981dfaee48ac1d6da380d46501a96cc83e
->
-> It's not yet in master. Please, check that this is correct.
->
-> BTW, the man page update is still missing.
+>Signed-off-by: Ioan Orghici <ioanorghici@gmail.com>
 
-Thank you, everything looks ok, i will try to diff(to learn, not repeat 
-coding style mistakes in next submissions) and test. Since i'm in desert 
-now, it will take few days.
-I will prepare also man page patch for iptables.
+Looks good.
 
----
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+
+>---
+> net/sctp/sm_make_chunk.c |    2 +-
+> 1 files changed, 1 insertions(+), 1 deletions(-)
+>
+>diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+>index b6de71e..479a70e 100644
+>--- a/net/sctp/sm_make_chunk.c
+>+++ b/net/sctp/sm_make_chunk.c
+>@@ -132,7 +132,7 @@ void  sctp_init_cause(struct sctp_chunk *chunk,
+>__be16 cause_code,
+>  * abort chunk.  Differs from sctp_init_cause in that it won't oops
+>  * if there isn't enough space in the op error chunk
+>  */
+>-int sctp_init_cause_fixed(struct sctp_chunk *chunk, __be16 cause_code,
+>+static int sctp_init_cause_fixed(struct sctp_chunk *chunk, __be16
+>cause_code,
+> 		      size_t paylen)
+> {
+> 	sctp_errhdr_t err;
+>-- 
+>1.7.6.3
+
+
+-- 
+Sent from my Android phone with SkitMail. Please excuse my brevity.
