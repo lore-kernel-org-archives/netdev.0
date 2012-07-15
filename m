@@ -1,53 +1,48 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: [PATCH] gigaset: silence GCC warning for unused 'format_ie'
-Date: Sun, 15 Jul 2012 11:11:55 +0200
-Message-ID: <1342343515.1780.2.camel@x61.thuisdomein>
+From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
+Subject: Re: resurrecting tcphealth
+Date: Sun, 15 Jul 2012 11:17:53 +0200
+Message-ID: <3e426bd471b8a54bfa5320f05e88e635.squirrel@webmail.univie.ac.at>
+References: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
+    <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
+    <b93cddfd0a19158ec59823140d1e2075.squirrel@webmail.univie.ac.at>
+    <1342336597.3265.10617.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tilman Schmidt <tilman@imap.cc>, Hansjoerg Lipp <hjlipp@web.de>,
-	Karsten Keil <isdn@linux-pingi.de>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews07.kpnxchange.com ([213.75.39.10]:1397 "EHLO
-	cpsmtpb-ews07.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751060Ab2GOJMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2012 05:12:02 -0400
+Received: from grace.univie.ac.at ([131.130.3.115]:45120 "EHLO
+	grace.univie.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751730Ab2GOJR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2012 05:17:56 -0400
+In-Reply-To: <1342336597.3265.10617.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Building Gigaset's CAPI support without Gigaset's debugging enabled
-triggers this GCC warning:
-    'format_ie' defined but not used [-Wunused-function]
+On So, 15.07.2012, 09:16, Eric Dumazet wrote:
+> On Sun, 2012-07-15 at 01:43 +0200, Piotr Sawuk wrote:
+>
+>> oh, and again I recommend the really short although outdated thesis
+>>
+>> [1] https://sacerdoti.org/tcphealth/tcphealth-paper.pdf
+>
+> A thesis saying SACK are not useful is highly suspect.
+>
+> Instead of finding why they behave not so good and fix the bugs, just
+> say "SACK addition to TCP is not critical"
+the actual quotation is "We also found that the number of unnecessary
+duplicate packets were quite small potentially indicating that the SACK
+addition to TCP is not critical."
+>
+> Really ?
 
-Silence this warning by wrapping format_ie() in an "#ifdef
-CONFIG_GIGASET_DEBUG" and "#endif" pair.
-
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
----
- drivers/isdn/gigaset/capi.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index 27e4a3e..68452b7 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -288,6 +288,7 @@ static inline void dump_rawmsg(enum debuglevel level, const char *tag,
-  * format CAPI IE as string
-  */
- 
-+#ifdef CONFIG_GIGASET_DEBUG
- static const char *format_ie(const char *ie)
- {
- 	static char result[3 * MAX_FMT_IE_LEN];
-@@ -313,6 +314,7 @@ static const char *format_ie(const char *ie)
- 	*--pout = 0;
- 	return result;
- }
-+#endif
- 
- /*
-  * emit DATA_B3_CONF message
--- 
-1.7.7.6
+no, not really. he he actually said that SACK has been made mostly obsolete
+by "Linux 2.2 implements fast retransmits for up to two packet gaps, thus
+reducing the need for course grained timeouts due to the lack of SACK." and
+he was a bit more careful and admitted that further tests with tcphealth are
+needed to check if SACK really makes that big a difference. he admitted "It
+could be that SACK's advantage lies in other areas such as very large
+downloads or when using slow and unreliable network links." all these things
+could be checked again nowadays, with larger files available and wlan-users
+and higher traffic -- just find something without SACK...
