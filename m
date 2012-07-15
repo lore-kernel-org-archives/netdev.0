@@ -1,194 +1,74 @@
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Subject: [PATCH] b44: add 64 bit stats
-Date: Sat, 14 Jul 2012 21:51:55 -0400
-Message-ID: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: RE: 82571EB: Detected Hardware Unit Hang
+Date: Sun, 15 Jul 2012 03:42:25 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA891274F2354@ORSMSX102.amr.corp.intel.com>
+References: <4FFA9B96.6040901@oracle.com> <4FFCDA6C.8020708@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EED74@ORSMSX102.amr.corp.intel.com>
+ <4FFCF314.6020400@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EEDD7@ORSMSX102.amr.corp.intel.com>
+ <4FFD0908.6080506@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274EF8AD@ORSMSX102.amr.corp.intel.com>
+ <4FFE3505.8060407@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F018D@ORSMSX102.amr.corp.intel.com>
+ <4FFE3D27.7020500@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F01BE@ORSMSX102.amr.corp.intel.com>
+ <4FFE40A9.4060807@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F02D7@ORSMSX102.amr.corp.intel.com>
+ <4FFE6BB9.4060106@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F033B@ORSMSX102.amr.corp.intel.com>
+ <4FFE787B.9050201@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F0ACC@ORSMSX102.amr.corp.intel.com>
+ <4FFF61BD.1060604@oracle.com>
+ <061C8A8601E8EE4CA8D8FD6990CEA891274F11FF@ORSMSX102.amr.corp.intel.com>
+ <4FFFA532.1030208@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Jin <joe.jin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:50007 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751727Ab2GOBv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 21:51:56 -0400
-Received: by vcbfk26 with SMTP id fk26so293395vcb.19
-        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 18:51:55 -0700 (PDT)
+Received: from mga01.intel.com ([192.55.52.88]:41925 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751461Ab2GODm1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 23:42:27 -0400
+In-Reply-To: <4FFFA532.1030208@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
+>-----Original Message-----
+>From: Joe Jin [mailto:joe.jin@oracle.com]
+>Sent: Thursday, July 12, 2012 9:34 PM
+>To: Dave, Tushar N
+>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org
+>Subject: Re: 82571EB: Detected Hardware Unit Hang
+>
+>On 07/13/12 12:10, Dave, Tushar N wrote:
+>>> -----Original Message-----
+>>> From: Joe Jin [mailto:joe.jin@oracle.com]
+>>> Sent: Thursday, July 12, 2012 4:46 PM
+>>> To: Dave, Tushar N
+>>> Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>>> kernel@vger.kernel.org
+>>> Subject: Re: 82571EB: Detected Hardware Unit Hang
+>>>
+>> Thanks for sending full dmesg log. I am still investigating. I think
+>this issue can occur if two PCIe link partner *i.e pcie bridge and pcie
+>device do not have same max payload size.
+>> I need 2 more info.
+>> 1) PBA number of the card.
+>
+>This is a remote server and I could not get this.
+>
+>> 2) full lspci -vvv output of entire system 'after you have changed max
+>payload size to 128'.
 
-Add support for 64 bit stats to Broadcom b44 ethernet driver.
+Somehow setting max payload to 256 from BIOS does not set this value for all devices. I believe this is a BIOS bug.
+All devices in path from root complex to 82571, should have same max payload size otherwise it can cause hang. When you set max payload to 128 from BIOS, all device in path from root complex to 82571 got assigned same max payload size. This resolves the issue.
 
-Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
----
- drivers/net/ethernet/broadcom/b44.c |   96 ++++++++++++++++++++---------------
- drivers/net/ethernet/broadcom/b44.h |    3 +-
- 2 files changed, 58 insertions(+), 41 deletions(-)
+I hope this helps.
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c
-b/drivers/net/ethernet/broadcom/b44.c
-index 46b8b7d..c799b5c 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -483,9 +483,11 @@ out:
- static void b44_stats_update(struct b44 *bp)
- {
- 	unsigned long reg;
--	u32 *val;
-+	u64 *val;
-
- 	val = &bp->hw_stats.tx_good_octets;
-+	u64_stats_update_begin(&bp->hw_stats.syncp);
-+
- 	for (reg = B44_TX_GOOD_O; reg <= B44_TX_PAUSE; reg += 4UL) {
- 		*val++ += br32(bp, reg);
- 	}
-@@ -496,6 +498,8 @@ static void b44_stats_update(struct b44 *bp)
- 	for (reg = B44_RX_GOOD_O; reg <= B44_RX_NPAUSE; reg += 4UL) {
- 		*val++ += br32(bp, reg);
- 	}
-+
-+	u64_stats_update_end(&bp->hw_stats.syncp);
- }
-
- static void b44_link_report(struct b44 *bp)
-@@ -1635,44 +1639,49 @@ static int b44_close(struct net_device *dev)
- 	return 0;
- }
-
--static struct net_device_stats *b44_get_stats(struct net_device *dev)
-+static struct rtnl_link_stats64 *b44_get_stats64(struct net_device *dev,
-+					struct rtnl_link_stats64 *nstat)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	struct net_device_stats *nstat = &dev->stats;
- 	struct b44_hw_stats *hwstat = &bp->hw_stats;
--
--	/* Convert HW stats into netdevice stats. */
--	nstat->rx_packets = hwstat->rx_pkts;
--	nstat->tx_packets = hwstat->tx_pkts;
--	nstat->rx_bytes   = hwstat->rx_octets;
--	nstat->tx_bytes   = hwstat->tx_octets;
--	nstat->tx_errors  = (hwstat->tx_jabber_pkts +
--			     hwstat->tx_oversize_pkts +
--			     hwstat->tx_underruns +
--			     hwstat->tx_excessive_cols +
--			     hwstat->tx_late_cols);
--	nstat->multicast  = hwstat->tx_multicast_pkts;
--	nstat->collisions = hwstat->tx_total_cols;
--
--	nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
--				   hwstat->rx_undersize);
--	nstat->rx_over_errors   = hwstat->rx_missed_pkts;
--	nstat->rx_frame_errors  = hwstat->rx_align_errs;
--	nstat->rx_crc_errors    = hwstat->rx_crc_errs;
--	nstat->rx_errors        = (hwstat->rx_jabber_pkts +
--				   hwstat->rx_oversize_pkts +
--				   hwstat->rx_missed_pkts +
--				   hwstat->rx_crc_align_errs +
--				   hwstat->rx_undersize +
--				   hwstat->rx_crc_errs +
--				   hwstat->rx_align_errs +
--				   hwstat->rx_symbol_errs);
--
--	nstat->tx_aborted_errors = hwstat->tx_underruns;
-+	unsigned int start;
-+
-+	do {
-+		start = u64_stats_fetch_begin(&hwstat->syncp);
-+
-+		/* Convert HW stats into rtnl_link_stats64 stats. */
-+		nstat->rx_packets = hwstat->rx_pkts;
-+		nstat->tx_packets = hwstat->tx_pkts;
-+		nstat->rx_bytes   = hwstat->rx_octets;
-+		nstat->tx_bytes   = hwstat->tx_octets;
-+		nstat->tx_errors  = (hwstat->tx_jabber_pkts +
-+				     hwstat->tx_oversize_pkts +
-+				     hwstat->tx_underruns +
-+				     hwstat->tx_excessive_cols +
-+				     hwstat->tx_late_cols);
-+		nstat->multicast  = hwstat->tx_multicast_pkts;
-+		nstat->collisions = hwstat->tx_total_cols;
-+
-+		nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
-+					   hwstat->rx_undersize);
-+		nstat->rx_over_errors   = hwstat->rx_missed_pkts;
-+		nstat->rx_frame_errors  = hwstat->rx_align_errs;
-+		nstat->rx_crc_errors    = hwstat->rx_crc_errs;
-+		nstat->rx_errors        = (hwstat->rx_jabber_pkts +
-+					   hwstat->rx_oversize_pkts +
-+					   hwstat->rx_missed_pkts +
-+					   hwstat->rx_crc_align_errs +
-+					   hwstat->rx_undersize +
-+					   hwstat->rx_crc_errs +
-+					   hwstat->rx_align_errs +
-+					   hwstat->rx_symbol_errs);
-+
-+		nstat->tx_aborted_errors = hwstat->tx_underruns;
- #if 0
--	/* Carrier lost counter seems to be broken for some devices */
--	nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
-+		/* Carrier lost counter seems to be broken for some devices */
-+		nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
- #endif
-+	} while (u64_stats_fetch_retry(&hwstat->syncp, start));
-
- 	return nstat;
- }
-@@ -1993,17 +2002,24 @@ static void b44_get_ethtool_stats(struct
-net_device *dev,
- 				  struct ethtool_stats *stats, u64 *data)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	u32 *val = &bp->hw_stats.tx_good_octets;
-+	struct b44_hw_stats *hwstat = &bp->hw_stats;
-+	u64 *data_src, *data_dst;
-+	unsigned int start;
- 	u32 i;
-
- 	spin_lock_irq(&bp->lock);
--
- 	b44_stats_update(bp);
-+	spin_unlock_irq(&bp->lock);
-
--	for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
--		*data++ = *val++;
-+	do {
-+		data_src = &hwstat->tx_good_octets;
-+		data_dst = data;
-+		start = u64_stats_fetch_begin(&hwstat->syncp);
-
--	spin_unlock_irq(&bp->lock);
-+		for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
-+			*data_dst++ = *data_src++;
-+
-+	} while (u64_stats_fetch_retry(&hwstat->syncp, start));
- }
-
- static void b44_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-@@ -2113,7 +2129,7 @@ static const struct net_device_ops b44_netdev_ops = {
- 	.ndo_open		= b44_open,
- 	.ndo_stop		= b44_close,
- 	.ndo_start_xmit		= b44_start_xmit,
--	.ndo_get_stats		= b44_get_stats,
-+	.ndo_get_stats64	= b44_get_stats64,
- 	.ndo_set_rx_mode	= b44_set_rx_mode,
- 	.ndo_set_mac_address	= b44_set_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
-diff --git a/drivers/net/ethernet/broadcom/b44.h
-b/drivers/net/ethernet/broadcom/b44.h
-index e1905a4..8993d72 100644
---- a/drivers/net/ethernet/broadcom/b44.h
-+++ b/drivers/net/ethernet/broadcom/b44.h
-@@ -338,9 +338,10 @@ struct ring_info {
-  * the layout
-  */
- struct b44_hw_stats {
--#define _B44(x)	u32 x;
-+#define _B44(x)	u64 x;
- B44_STAT_REG_DECLARE
- #undef _B44
-+	struct u64_stats_sync	syncp;
- };
-
- struct ssb_device;
+-Tushar
