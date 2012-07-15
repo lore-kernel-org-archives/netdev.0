@@ -1,112 +1,92 @@
-From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
-Subject: Re: resurrecting tcphealth
-Date: Mon, 16 Jul 2012 00:17:51 +0200
-Message-ID: <5d2836fd8198ee5d4c0f586238902cbb.squirrel@webmail.univie.ac.at>
-References: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
-    <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
-    <b93cddfd0a19158ec59823140d1e2075.squirrel@webmail.univie.ac.at>
-    <1342336597.3265.10617.camel@edumazet-glaptop>
-    <3e426bd471b8a54bfa5320f05e88e635.squirrel@webmail.univie.ac.at>
-    <1342346010.3265.10966.camel@edumazet-glaptop>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Sun, 15 Jul 2012 16:50:41 -0700
+Message-ID: <20120715235041.GB7551@jonmason-lab>
+References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+ <20120714170411.GA25775@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from grace.univie.ac.at ([131.130.3.115]:53287 "EHLO
-	grace.univie.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003Ab2GOWRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2012 18:17:53 -0400
-In-Reply-To: <1342346010.3265.10966.camel@edumazet-glaptop>
+Received: from mga14.intel.com ([143.182.124.37]:23038 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750748Ab2GOXul (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 15 Jul 2012 19:50:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20120714170411.GA25775@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On So, 15.07.2012, 11:53, Eric Dumazet wrote:
-> On Sun, 2012-07-15 at 11:17 +0200, Piotr Sawuk wrote:
->> On So, 15.07.2012, 09:16, Eric Dumazet wrote:
->> > On Sun, 2012-07-15 at 01:43 +0200, Piotr Sawuk wrote:
->> >
->> >> oh, and again I recommend the really short although outdated thesis
->> >>
->> >> [1] https://sacerdoti.org/tcphealth/tcphealth-paper.pdf
->> >
->> > A thesis saying SACK are not useful is highly suspect.
->> >
->> > Instead of finding why they behave not so good and fix the bugs, just
->> > say "SACK addition to TCP is not critical"
->> the actual quotation is "We also found that the number of unnecessary
->> duplicate packets were quite small potentially indicating that the SACK
->> addition to TCP is not critical."
->> >
->> > Really ?
->>
->> no, not really. he he actually said that SACK has been made mostly
->> obsolete
->> by "Linux 2.2 implements fast retransmits for up to two packet gaps, thus
->> reducing the need for course grained timeouts due to the lack of SACK."
->> and
->> he was a bit more careful and admitted that further tests with tcphealth
->> are
->> needed to check if SACK really makes that big a difference. he admitted
->> "It
->> could be that SACK's advantage lies in other areas such as very large
->> downloads or when using slow and unreliable network links." all these
->> things
->> could be checked again nowadays, with larger files available and
->> wlan-users
->> and higher traffic -- just find something without SACK...
->
-> There are hundred of papers about TCP behavior. Many are very good.
->
-> This one seems not the best of them by far, and is based on measures
-> done on 2001 (!!!), on a single computer (!!!), connected to a
-> particular ISP (!!!), using a wireless pcmcia network card. (!!!)
->
-> At that time, almost no clients were using SACK. Because windows 98/XP
-> dont negociate SACK by default (you need to tweak registry)
->
-> Its like saying ECN is useless : If ECN users are under 1 % of total
-> number of users, network is still under pressure and ECN benefits cannot
-> rise because of misbehavior of other flows.
+On Sat, Jul 14, 2012 at 10:04:11AM -0700, Greg KH wrote:
+> On Fri, Jul 13, 2012 at 02:44:59PM -0700, Jon Mason wrote:
+> > The NTB device driver is needed to configure these memory windows, doorbell, and
+> > scratch-pad registers as well as use them in such a way as they can be turned
+> > into a viable communication channel to the remote system.  ntb_hw.[ch]
+> > determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
+> > the underlying hardware to provide access and a common interface to the doorbell
+> > registers, scratch pads, and memory windows.  These hardware interfaces are
+> > exported so that other, non-mainlined kernel drivers can access these.
+> 
+> Why would you have non-mainlined drivers?
+> 
+> Can you submit the drivers at the same time so we see how you are using
+> these new interfaces?
 
-I don't think it's in any way similar, but then you definitely are more
-knowledgeable on these matters. but it's quite straight-forward: SACK is
-supposed to speed up things by informing when a packet has been received and
-doesn't need to be resent. if the client doesn't get duplicate packets then
-SACK wont make a difference. tcphealth counts how many packets have been
-received correctly two or more times. why would tcphealth be useless for
-answering if you'll need SACK?
->
-> With RTT of 100 ms, SACK are clearly a win for long transferts.
->
-> A single drop shall retransmit a single packet instead of ~500 packets.
-> Only fools could deny this fact. Studying DuplicateAcks to detect
-> retransmits is clearly wrong.
+There are none at this time.  In the near future, the transport will be modified to use IOAT instead of the CPU copy to improve throughput performance, and it may be beneficial to have that separate.  If you wish for me to remove the hooks until it is necessary for that, then I can.
 
-as far as I understood DuplicateAcks means either the Acks were lost in the
-transfer or the same packet has been received twice one after the other.
-i.e. duplicate packets received should always be smaller-or-equal than
-duplicate acks sent. am I wrong? that's why tcphealth is only interested in
-these two values.
->
-> Really, dont recommend this paper, it contains a lot of false
-> statements.
->
-> One example : "we discovered some surprising things as the high
-> percentage of lost or reordered packets from supposedly highly reliable
-> and fast services as Akamai networks".
->
-> I cant believe such nonsense can be written, and recommended.
+> 
+> > +++ b/drivers/ntb/ntb_hw.c
+> > @@ -0,0 +1,1283 @@
+> > +/*
+> > + * This file is provided under a dual BSD/GPLv2 license.  When using or
+> > + *   redistributing this file, you may do so under either license.
+> > + *
+> > + *   GPL LICENSE SUMMARY
+> > + *
+> > + *   Copyright(c) 2012 Intel Corporation. All rights reserved.
+> > + *
+> > + *   This program is free software; you can redistribute it and/or modify
+> > + *   it under the terms of version 2 of the GNU General Public License as
+> > + *   published by the Free Software Foundation.
+> > + *
+> > + *   This program is distributed in the hope that it will be useful, but
+> > + *   WITHOUT ANY WARRANTY; without even the implied warranty of
+> > + *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+> > + *   General Public License for more details.
+> > + *
+> > + *   You should have received a copy of the GNU General Public License
+> > + *   along with this program; if not, write to the Free Software
+> > + *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+> > + *   The full GNU General Public License is included in this distribution
+> > + *   in the file called LICENSE.GPL.
+> 
+> You really want to track the office movements of the FSF for the next 40
+> years?  You should ask your lawyers if you can remove this paragraph.
 
-I agree, it's quite some mickey-mouse thesis. but still a manual for what
-tcphealth actually does do!
->
-> So you can add more counters to TCP stack because having them is good to
-> better understand TCP behavior and what can be done to improve it, but
-> dont base this work on dubious 'tcphealth'.
+Standard boilerplate junk, but it never hurts to ask.
+ 
+> > +/**
+> > + * ntb_hw_link_status() - return the hardware link status
+> > + * @ndev: pointer to ntb_device instance
+> > + *
+> > + * Returns true if the hardware is connected to the remote system
+> > + *
+> > + * RETURNS: true or false based on the hardware link state
+> > + */
+> > +bool ntb_hw_link_status(struct ntb_device *ndev)
+> > +{
+> > +	return ndev->link_status == NTB_LINK_UP;
+> > +}
+> > +EXPORT_SYMBOL(ntb_hw_link_status);
+> 
+> EXPORT_SYMBOL_GPL() perhaps, for these, and the other symbols you are
+> creating?
 
-what counters are you thinking of? how do you suggest an ordinary user could
-improve the download-speed from sites? imho tcphealth offers a good method:
-the more DuplicateAcks you send the less responsive the site is you want to
-reach, so try at another time and do some other downloads now...
+Will do.
+
+> 
+> thanks,
+> 
+> greg k-h
