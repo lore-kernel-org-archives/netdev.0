@@ -1,75 +1,194 @@
-From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
-Subject: Re: resurrecting tcphealth
-Date: Sun, 15 Jul 2012 01:43:18 +0200
-Message-ID: <b93cddfd0a19158ec59823140d1e2075.squirrel@webmail.univie.ac.at>
-References: <dee325378a2d3b7792da9640fc14905f.squirrel@webmail.univie.ac.at>
-    <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
+Subject: [PATCH] b44: add 64 bit stats
+Date: Sat, 14 Jul 2012 21:51:55 -0400
+Message-ID: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from grace.univie.ac.at ([131.130.3.115]:58192 "EHLO
-	grace.univie.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031Ab2GNXnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 19:43:21 -0400
-In-Reply-To: <20120714144800.7f8c97f6@nehalam.linuxnetplumber.net>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:50007 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727Ab2GOBv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jul 2012 21:51:56 -0400
+Received: by vcbfk26 with SMTP id fk26so293395vcb.19
+        for <netdev@vger.kernel.org>; Sat, 14 Jul 2012 18:51:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sa, 14.07.2012, 23:48, Stephen Hemminger wrote:
-> Maybe it would be better to use netlink info (for ss command)
-> rather than a /proc/net interface.
-> See how existing TCP values and MEMINFO are handled.
->
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
 
-I'm confused, what exactly do you mean?
-of course a library-interface might be more interesting than proc/net.
-the proc/net/tcphealth functionality probably could be done in userspace,
-although I'm wondering how userspace could traverse all tcp_sock structures
-for all clients -- but the gain would be a bit more security. and the rest
-of the patch still would need to stay in the kernel since that info it
-collects would otherwise be lost completely. so I somehow doubt this would
-be worth the effort. better would be optional tcphealth disabled by default
-for security-reasons. (i.e. if you're a server you don't want to enable it.)
+Add support for 64 bit stats to Broadcom b44 ethernet driver.
 
-@"David Miller":
-sorry, I forgot an important info about this patch, an info that can be
-found in the paper I quoted:
+Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
+---
+ drivers/net/ethernet/broadcom/b44.c |   96 ++++++++++++++++++++---------------
+ drivers/net/ethernet/broadcom/b44.h |    3 +-
+ 2 files changed, 58 insertions(+), 41 deletions(-)
 
-'We concentrate on client side metrics to make our results more applicable
-to web clients. We chose this strategy to help answer the often asked
-question: "Why is my Internet connection so slow?"
-...
-Since we only have access to the client node and not the server, we must
-find performance data using only the information coming downstream to us.
-Savage showed that the TCP protocol maintains data that we can leverage to
-our advantage and we use that idea to monitor per-connection TCP health at
-the client. This task is made difficult because of the TCP philosophy of
-"smart sender, dumb receiver". There is simply more information about the
-connection on the server side than on the client.' [1]
+diff --git a/drivers/net/ethernet/broadcom/b44.c
+b/drivers/net/ethernet/broadcom/b44.c
+index 46b8b7d..c799b5c 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -483,9 +483,11 @@ out:
+ static void b44_stats_update(struct b44 *bp)
+ {
+ 	unsigned long reg;
+-	u32 *val;
++	u64 *val;
 
-tcp_info is such a server-side diagnosis, clients usually don't send enough
-data to make the info therein meaningful for checking the "health" of tcp.
-it's all about the senders, and the desktop-pc simply isn't that big of a
-tcp-sender to slashdot and co.
+ 	val = &bp->hw_stats.tx_good_octets;
++	u64_stats_update_begin(&bp->hw_stats.syncp);
++
+ 	for (reg = B44_TX_GOOD_O; reg <= B44_TX_PAUSE; reg += 4UL) {
+ 		*val++ += br32(bp, reg);
+ 	}
+@@ -496,6 +498,8 @@ static void b44_stats_update(struct b44 *bp)
+ 	for (reg = B44_RX_GOOD_O; reg <= B44_RX_NPAUSE; reg += 4UL) {
+ 		*val++ += br32(bp, reg);
+ 	}
++
++	u64_stats_update_end(&bp->hw_stats.syncp);
+ }
 
-@"Eric Dumazet":
-the same goes for you too. netstat -s and whatever kind of pooling together
-statistics on all internet-connections is useful for a server-admin only,
-slowness of particular sites can only be investigated with ping and this
-tcphealth patch when you're on client-side.
+ static void b44_link_report(struct b44 *bp)
+@@ -1635,44 +1639,49 @@ static int b44_close(struct net_device *dev)
+ 	return 0;
+ }
 
-as for userspace-tools, apart from tcp-health display in each
-downloading-progress-bar I can think of cron-jobs which wait for better
-tcp-health before spidering some site, or an altered wget in mirror-mode.
-the gkrellm-plugin that comes with this patch might count together all the
-data of tcphealth, but when a tcp_sock isn't stored anymore that data is
-forgotten and you get a concurrent info most likely for only one site, since
-the client wont have much connections open and will be closing old
-connections frequently.
+-static struct net_device_stats *b44_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *b44_get_stats64(struct net_device *dev,
++					struct rtnl_link_stats64 *nstat)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	struct net_device_stats *nstat = &dev->stats;
+ 	struct b44_hw_stats *hwstat = &bp->hw_stats;
+-
+-	/* Convert HW stats into netdevice stats. */
+-	nstat->rx_packets = hwstat->rx_pkts;
+-	nstat->tx_packets = hwstat->tx_pkts;
+-	nstat->rx_bytes   = hwstat->rx_octets;
+-	nstat->tx_bytes   = hwstat->tx_octets;
+-	nstat->tx_errors  = (hwstat->tx_jabber_pkts +
+-			     hwstat->tx_oversize_pkts +
+-			     hwstat->tx_underruns +
+-			     hwstat->tx_excessive_cols +
+-			     hwstat->tx_late_cols);
+-	nstat->multicast  = hwstat->tx_multicast_pkts;
+-	nstat->collisions = hwstat->tx_total_cols;
+-
+-	nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
+-				   hwstat->rx_undersize);
+-	nstat->rx_over_errors   = hwstat->rx_missed_pkts;
+-	nstat->rx_frame_errors  = hwstat->rx_align_errs;
+-	nstat->rx_crc_errors    = hwstat->rx_crc_errs;
+-	nstat->rx_errors        = (hwstat->rx_jabber_pkts +
+-				   hwstat->rx_oversize_pkts +
+-				   hwstat->rx_missed_pkts +
+-				   hwstat->rx_crc_align_errs +
+-				   hwstat->rx_undersize +
+-				   hwstat->rx_crc_errs +
+-				   hwstat->rx_align_errs +
+-				   hwstat->rx_symbol_errs);
+-
+-	nstat->tx_aborted_errors = hwstat->tx_underruns;
++	unsigned int start;
++
++	do {
++		start = u64_stats_fetch_begin(&hwstat->syncp);
++
++		/* Convert HW stats into rtnl_link_stats64 stats. */
++		nstat->rx_packets = hwstat->rx_pkts;
++		nstat->tx_packets = hwstat->tx_pkts;
++		nstat->rx_bytes   = hwstat->rx_octets;
++		nstat->tx_bytes   = hwstat->tx_octets;
++		nstat->tx_errors  = (hwstat->tx_jabber_pkts +
++				     hwstat->tx_oversize_pkts +
++				     hwstat->tx_underruns +
++				     hwstat->tx_excessive_cols +
++				     hwstat->tx_late_cols);
++		nstat->multicast  = hwstat->tx_multicast_pkts;
++		nstat->collisions = hwstat->tx_total_cols;
++
++		nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
++					   hwstat->rx_undersize);
++		nstat->rx_over_errors   = hwstat->rx_missed_pkts;
++		nstat->rx_frame_errors  = hwstat->rx_align_errs;
++		nstat->rx_crc_errors    = hwstat->rx_crc_errs;
++		nstat->rx_errors        = (hwstat->rx_jabber_pkts +
++					   hwstat->rx_oversize_pkts +
++					   hwstat->rx_missed_pkts +
++					   hwstat->rx_crc_align_errs +
++					   hwstat->rx_undersize +
++					   hwstat->rx_crc_errs +
++					   hwstat->rx_align_errs +
++					   hwstat->rx_symbol_errs);
++
++		nstat->tx_aborted_errors = hwstat->tx_underruns;
+ #if 0
+-	/* Carrier lost counter seems to be broken for some devices */
+-	nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
++		/* Carrier lost counter seems to be broken for some devices */
++		nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
+ #endif
++	} while (u64_stats_fetch_retry(&hwstat->syncp, start));
 
-oh, and again I recommend the really short although outdated thesis
+ 	return nstat;
+ }
+@@ -1993,17 +2002,24 @@ static void b44_get_ethtool_stats(struct
+net_device *dev,
+ 				  struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	u32 *val = &bp->hw_stats.tx_good_octets;
++	struct b44_hw_stats *hwstat = &bp->hw_stats;
++	u64 *data_src, *data_dst;
++	unsigned int start;
+ 	u32 i;
 
-[1] https://sacerdoti.org/tcphealth/tcphealth-paper.pdf
+ 	spin_lock_irq(&bp->lock);
+-
+ 	b44_stats_update(bp);
++	spin_unlock_irq(&bp->lock);
+
+-	for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
+-		*data++ = *val++;
++	do {
++		data_src = &hwstat->tx_good_octets;
++		data_dst = data;
++		start = u64_stats_fetch_begin(&hwstat->syncp);
+
+-	spin_unlock_irq(&bp->lock);
++		for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
++			*data_dst++ = *data_src++;
++
++	} while (u64_stats_fetch_retry(&hwstat->syncp, start));
+ }
+
+ static void b44_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+@@ -2113,7 +2129,7 @@ static const struct net_device_ops b44_netdev_ops = {
+ 	.ndo_open		= b44_open,
+ 	.ndo_stop		= b44_close,
+ 	.ndo_start_xmit		= b44_start_xmit,
+-	.ndo_get_stats		= b44_get_stats,
++	.ndo_get_stats64	= b44_get_stats64,
+ 	.ndo_set_rx_mode	= b44_set_rx_mode,
+ 	.ndo_set_mac_address	= b44_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+diff --git a/drivers/net/ethernet/broadcom/b44.h
+b/drivers/net/ethernet/broadcom/b44.h
+index e1905a4..8993d72 100644
+--- a/drivers/net/ethernet/broadcom/b44.h
++++ b/drivers/net/ethernet/broadcom/b44.h
+@@ -338,9 +338,10 @@ struct ring_info {
+  * the layout
+  */
+ struct b44_hw_stats {
+-#define _B44(x)	u32 x;
++#define _B44(x)	u64 x;
+ B44_STAT_REG_DECLARE
+ #undef _B44
++	struct u64_stats_sync	syncp;
+ };
+
+ struct ssb_device;
