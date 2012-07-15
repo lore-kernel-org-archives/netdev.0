@@ -1,47 +1,72 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: 82571EB: Detected Hardware Unit Hang
-Date: Sun, 15 Jul 2012 10:35:10 -0300
-Message-ID: <20120715133510.GA5484@khazad-dum.debian.net>
-References: <4FFE40A9.4060807@oracle.com>
- <061C8A8601E8EE4CA8D8FD6990CEA891274F02D7@ORSMSX102.amr.corp.intel.com>
- <4FFE6BB9.4060106@oracle.com>
- <061C8A8601E8EE4CA8D8FD6990CEA891274F033B@ORSMSX102.amr.corp.intel.com>
- <4FFE787B.9050201@oracle.com>
- <061C8A8601E8EE4CA8D8FD6990CEA891274F0ACC@ORSMSX102.amr.corp.intel.com>
- <4FFF61BD.1060604@oracle.com>
- <061C8A8601E8EE4CA8D8FD6990CEA891274F11FF@ORSMSX102.amr.corp.intel.com>
- <4FFFA532.1030208@oracle.com>
- <061C8A8601E8EE4CA8D8FD6990CEA891274F2354@ORSMSX102.amr.corp.intel.com>
+From: Fernando Gont <fgont@si6networks.com>
+Subject: IPv6 toolkit v1.2
+Date: Sun, 15 Jul 2012 16:47:01 +0100
+Message-ID: <5002E5F5.5030009@si6networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Jin <joe.jin@oracle.com>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:51881 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751535Ab2GONfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2012 09:35:14 -0400
-Content-Disposition: inline
-In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA891274F2354@ORSMSX102.amr.corp.intel.com>
+Received: from web01.jbserver.net ([93.186.182.34]:40063 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751611Ab2GOQRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jul 2012 12:17:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 15 Jul 2012, Dave, Tushar N wrote:
-> Somehow setting max payload to 256 from BIOS does not set this value for all devices. I believe this is a BIOS bug.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-And preferably, Linux should complain about it.  Since we know it is going
-to cause problems, and since we know it does happen, we should be raising a
-ruckus about it in the kernel log (and probably fixing it to min(path) while
-at it)...
+Folks,
 
-Is this something that should be raised as a feature request with the
-PCI/PCIe subsystem?
+FYI, we've released "IPv6 toolkit v1.2": a set of IPv6 security
+assessment tools that were produced as part of a project I carried out
+on behalf of the UK CPNI. The toolkit compiles/runs on Linux and *BSD
+(and probably on Mac OS, too).
 
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+The tarball for version 1.2 of the tool is available at:
+http://www.si6networks.com/research/ipv6-toolkit-v1.2.tar.gz>
+
+Additionally, we have a git repository for the tool:
+<https://github.com/fgont/ipv6-toolkit.git>
+
+This toolkit can be employed to perform local IPv6 scans, assess a
+number of security aspects of IPv6 implementations, such as
+predictability of Fragment ID values, etc. It can also be employed to
+play with IPv6 address resolution, SLAAC, etc.
+
+Thanks,
+- -- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+
+
+
+
+- -- 
+Fernando Gont
+SI6 Networks
+e-mail: fgont@si6networks.com
+PGP Fingerprint: 6666 31C6 D484 63B2 8FB1 E3C4 AE25 0D55 1D4E 7492
+
+
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQIcBAEBAgAGBQJQAuXxAAoJEK4lDVUdTnSSNsQP+gJnHwyo75qkY9CeZFRhNYt1
+U1HqMvrBAPPPvO4UT4U611Ek8x1kfJ2jD9n7rpI4PZy04GlLyNbFWOCC6w7AtMHs
+c+GfX+rCW6W1W/EYFcrX7rZsZjPMOtgisDShPdMU4hA94blpTULlrry9rfS1CLTm
+npNPwqPHQFGSxUK3iNbxJ5G2QXfQ8sSsp+Bi+sk5KUmUmsGVmR/gL5QLzRhbDU58
+sA2vkDf0C1cHVRbP/nucyD0wI5x0BRRVLfHAwSm2uOvCGcqrbL9WNH9K35+wHdEa
+JFB/Ik01buI7/fci4v1C4QtDheSmcmsR2f2bRRTs7uvNMeMM/nbnHBNxL1t1W8HE
+TJWMhXNrEzaqpRNjdmPkpx7XHRqemo+vLvvpABrMfKOf2TqZpi2zuafucuKqbcAB
+CwY2QpfEUgQFgCzM9oQvKzn6HCndb39rMrs6VwPuWzg7WCsWGKFj7PIPN2ED4LLI
+E3W3xYioRmxCT4HTEunZfigzmbWyZnZuCgA/4gV9PJYKf21SwSkaDTVUzMWHRdSx
+wWLlETsv1Me8cAvH09DknImrHR67BIUm3WIlEm8k0IgqFpgNoWtJqfPqIuFSfmOK
+idrTKTVlfrtLHpgTiMuKiRPUZzuuxtpOOzCs4o3rfisz/wFPq/7Z7KcQ9vDzdh3u
+4Ufow79bF0GF84tL7v8H
+=rbry
+-----END PGP SIGNATURE-----
