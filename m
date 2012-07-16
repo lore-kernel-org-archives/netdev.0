@@ -1,37 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Is TCP vulneribility patch (as in RFC 5961) done in linux?
-Date: Mon, 16 Jul 2012 10:35:47 +0200
-Message-ID: <1342427747.4812.2.camel@edumazet-glaptop>
-References: <68700EDA775E5E47B5EBA9FF8AC0F15C076B03@SJEXCHMB09.corp.ad.broadcom.com>
-	 <68700EDA775E5E47B5EBA9FF8AC0F15C077FF3@SJEXCHMB09.corp.ad.broadcom.com>
-	 <1342427617.4812.0.camel@edumazet-glaptop>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: New commands to configure IOV features
+Date: Mon, 16 Jul 2012 12:19:23 +0300
+Message-ID: <5003DC9B.8000706@broadcom.com>
+References: <4FA7AF62.8000405@broadcom.com>
+ <20120507081634.000003f8.gregory.v.rose@intel.com>
+ <4FE9A963.7020602@broadcom.com> <20120626101903.0000791c@unknown>
+ <1341859155.2535.43.camel@bwh-desktop.uk.solarflarecom.com>
+ <4FFB4985.3040507@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kiran (Kiran Kumar) Kella" <kkiran@broadcom.com>
+Cc: "Chris Friesen" <chris.friesen@genband.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"Greg Rose" <gregory.v.rose@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-pci@vger.kernel.org
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:40057 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab2GPIfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 04:35:53 -0400
-Received: by eaak11 with SMTP id k11so1555694eaa.19
-        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 01:35:49 -0700 (PDT)
-In-Reply-To: <1342427617.4812.0.camel@edumazet-glaptop>
+Received: from mms2.broadcom.com ([216.31.210.18]:4185 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750754Ab2GPJUD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 05:20:03 -0400
+In-Reply-To: <4FFB4985.3040507@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-16 at 10:33 +0200, Eric Dumazet wrote:
-> On Mon, 2012-07-16 at 07:06 +0000, Kiran (Kiran Kumar) Kella wrote:
-> > Looking into the file tcp_input.c in the latest stable linux release 3.4.4 source, I understand the fix for this recommendation is not implemented in Linux.
-> > Any reason why it was not addressed?
+
+>>>> If I want to pick the RFCs and add support for configuring the number
+>>>> of VFs - do you think ethtool's the right place for such added
+>>>> support?
+>>>>
+>>> I think a PCI utility tool would be better, SR-IOV is not limited to
+>>> network devices.  That's one of the reasons I dropped the RFC.  I
+>>> haven't gotten back to the idea since then due to my day job keeping me
+>>> pretty busy.
+>>
+>> For what it's worth, I agree with this.
 > 
-> Nobody cared ?
-> 
-> Are you planning to send a patch ?
+> From my perspective it would be ideal if this could be exported via /sys or something
 > 
 
-By the way, if the attacker replaces the RST bit by FIN bit, how
-are we going to deal with the problem ?
 
-Also many middleboxes will drop the challenge ACK...
+Well, obviously unless there was a sudden change in our stance regarding
+sysfs we will not head that way.
+
+This thread got no replies from the pci community, and I'm unfamiliar
+with such a tool.
+
+Dave, What's your stance in the matter - do you wish us to continue pursuing
+some pci tool (which might or might not exist), or instead work on
+a networking solution to this issue?
+
+Do you happen to know such a tool?
+
+Thanks,
+Yuval
