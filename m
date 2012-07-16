@@ -1,55 +1,102 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] etherdevice: Rename
- random_ether_addr to eth_random_addr
-Date: Mon, 16 Jul 2012 03:29:01 -0700 (PDT)
-Message-ID: <20120716.032901.1657058688119342783.davem@davemloft.net>
-References: <1341968967.13724.23.camel@joe2Laptop>
-	<cover.1342157022.git.joe@perches.com>
-	<20120716101437.GC22638@arwen.pp.htv.fi>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: iptables CLAMP MSS to PMTU not working?
+Date: Mon, 16 Jul 2012 13:53:18 +0300
+Message-ID: <20120716135318.134d7f63@vostro>
+References: <20120712120021.3dc5cd68@vostro>
+	<20120712132419.50b4acaf@vostro>
+	<20120716084946.67b91a69@vostro>
+	<20120716092058.270f6008@vostro>
+	<20120716072305.GJ1869@secunet.com>
+	<20120716105546.14a6490d@vostro>
+	<20120716100844.GK1869@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org,
-	wimax@linuxwimax.org, linux-mips@linux-mips.org,
-	user-mode-linux-user@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	user-mode-linux-devel@lists.sourceforge.net, joe@perches.com,
-	uclinux-dist-devel@blackfin.uclinux.org, johannes@sipsolutions.net
-To: balbi@ti.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20120716101437.GC22638@arwen.pp.htv.fi>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:51729 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751542Ab2GPKxh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 06:53:37 -0400
+Received: by eaak11 with SMTP id k11so1601887eaa.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 03:53:36 -0700 (PDT)
+In-Reply-To: <20120716100844.GK1869@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Felipe Balbi <balbi@ti.com>
-Date: Mon, 16 Jul 2012 13:14:38 +0300
+On Mon, 16 Jul 2012 12:08:44 +0200 Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
 
-> if you're really renaming the function, then this patch alone will break
-> all of the below users. That should all be a single patch, I'm afraid.
+> On Mon, Jul 16, 2012 at 10:55:46AM +0300, Timo Teras wrote:
+> > On Mon, 16 Jul 2012 09:23:05 +0200 Steffen Klassert
+> > <steffen.klassert@secunet.com> wrote:
+> > > 
+> > > I did this patch to avoid to propagate learned PMTU informations.
+> > > It restores the behaviour we had before we moved the PMTU
+> > > informations to the inetpeer. Unfortunately CLAMPMSS really wants
+> > > to have the PMTU informations of an input route, which is not
+> > > possible any more after this patch.
+> > >
+> > > Anyway, this patch seems to be obsolete in the net-next tree, as
+> > > the cached pmtu informations are back in the route. So we should
+> > > remove the check for an output route from ipv4_mtu() in the
+> > > net-next tree. This should bring CLAMPMSS back to work, at least
+> > > for upcoming kernel versions.
+> > 
+> > Right, saw those commits. But before net-next hits release, I'd
+> > really need a fix for 3.3/3.4/3.5. Non-working fragmentation with
+> > IPsec, and this CLAMPMSS thingy are an upgrade stopper for me.
+> > 
+> > Would it be safe to just revert this commit, with the side-effect of
+> > exposing cached pmtu too agressively?
+> 
+> The router that can't send the packet to the next hop network has to
+> send the ICMP Destination Unreachable message. We never propagated
+> learned PMTU informations and I would not like to change this, in
+> particular not in a stable kernel.
 
-It would help if you actually read his patches before saying what they
-might or might not do.
+Ah, now I understand what you mean with "propagation". Leaking out the
+PMTU of locally originating traffic to the forward path.
 
-He provides a macro in the first patch that provides the old name,
-and this will get removed at the end.
+Makes sense. I'll probably just revert the change locally, as for my
+use this should not be a problem.
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> Maybe we could fix this for already released kernels within the
+> netfilter module. Perhaps we could add a function
+> 
+> static unsigned int tcpmss_mtu(const struct dst_entry *dst)
+> {
+>         unsigned int mtu = dst_metric_raw(dst, RTAX_MTU); 
+> 
+>         return mtu ? : dst_mtu(dst->path);
+> }
+> 
+> and use this instead of dst_mtu().
+
+Yes, of course this fixes TCPMSS; but not IPsec fragmentation which is
+even more critical.
+
+On forward path, if I send large IP-packets (e.g. ping -s 1500) with
+DF-bit not set to a destination that is XFRMed, I get now blackholed.
+
+This is because the large packet is fragmented according to the forward
+route MTU which now does not account the XFRM headers and the fragments
+are too large to be sent out. This causes the packets to get dropped
+to floor; and since DF was not set, there's no ICMP error sent out.
+With fragmentation the originator is not and does not want to be aware
+of the PMTU.
+
+Basically the MTU needs to be accurate for fragmentation to work.
+
+Just using the "device MTU" or "route MTU" is not enough. This is
+because XFRMed target MTU is currently learned dynamically. The
+per-packet overhead can depend on destination IP (e.g. per-IP SA can
+have different hash or encapsulation which affects the header size and
+thus the overall MTU).
+
+I guess it would be better if the XFRMed MTUs were calculated properly.
+This would avoid one lost packet -- the one that gets sent out using
+the device/route MTU, then triggers route pmtu to get updated, and
+dropped. Then further packets get fragmented according to the cached
+pmtu properly. Would be nice if this "learning" packet was not needed.
