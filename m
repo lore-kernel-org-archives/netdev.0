@@ -1,82 +1,32 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
-Date: Mon, 16 Jul 2012 23:36:31 +0300
-Message-ID: <CAJZOPZ+t+bw5u_nLZ21so7X5HeGYm41XFM_AHRihHK23M73a-Q@mail.gmail.com>
-References: <1342458113-10384-1-git-send-email-cascardo@linux.vnet.ibm.com>
- <50044F1D.6000703@hp.com>
- <20120716190611.GA1023@oc1711230544.ibm.com>
- <50046EB1.5040909@hp.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH 4/7] net-tcp: Fast Open client - receiving SYN-ACK
+Date: Mon, 16 Jul 2012 15:57:54 -0700
+Message-ID: <CAGK4HS9iEVy6NEx_dJgdEW8P2K9_G0vhziE+7O7iW+6WFc3VEw@mail.gmail.com>
+References: <1342473410-6265-1-git-send-email-ycheng@google.com>
+	<1342473410-6265-5-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4464545108669697078=="
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>,
- "amirv@mellanox.com" <amirv@mellanox.com>,
- "yevgenyp@mellanox.co.il" <yevgenyp@mellanox.co.il>,
- "klebers@linux.vnet.ibm.com" <klebers@linux.vnet.ibm.com>,
- Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
- "brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>,
- "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "anton@samba.org" <anton@samba.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <50046EB1.5040909@hp.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
-
---===============4464545108669697078==
-Content-Type: multipart/alternative; boundary=bcaec555510099512804c4f86279
-
---bcaec555510099512804c4f86279
 Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com, sivasankar@cs.ucsd.edu,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:47096 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753218Ab2GPW5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 18:57:55 -0400
+Received: by mail-yw0-f46.google.com with SMTP id m54so5889474yhm.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 15:57:54 -0700 (PDT)
+In-Reply-To: <1342473410-6265-5-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 16, 2012 at 10:42 PM, Rick Jones <rick.jones2@hp.com> wrote:
+On 16 July 2012 14:16, Yuchung Cheng <ycheng@google.com> wrote:
+> On receiving the SYN-ACK after SYN-data, the client needs to
+> a) update the cached MSS and cookie (if included in SYN-ACK)
+> b) retransmit the data yet acknowledged by the SYN-ACK in the final ACK of
+>    the handshake.
 
-> I was thinking more along the lines of an additional comparison,
-> explicitly using netperf TCP_RR or something like it, not just the packets
-> per second from a bulk transfer test.
->
+I think you mean "data not yet acknowledged " in point (b).
 
-TCP_STREAM would be good to know here as well
-
-Or.
-
---bcaec555510099512804c4f86279
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr">On Mon, Jul 16, 2012 at 10:42 PM, Rick Jones <span dir=3D"=
-ltr">&lt;<a href=3D"mailto:rick.jones2@hp.com" target=3D"_blank">rick.jones=
-2@hp.com</a>&gt;</span> wrote:<br><div class=3D"gmail_quote"><blockquote cl=
-ass=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;p=
-adding-left:1ex">
-I was thinking more along the lines of an additional comparison, explicitly=
- using netperf TCP_RR or something like it, not just the packets per second=
- from a bulk transfer test.<span class=3D"HOEnZb"><font color=3D"#888888"><=
-/font></span><br>
-</blockquote></div><br>TCP_STREAM would be good to know here as well<br><br=
->Or.<br></div>
-
---bcaec555510099512804c4f86279--
-
---===============4464545108669697078==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@lists.ozlabs.org
-https://lists.ozlabs.org/listinfo/linuxppc-dev
---===============4464545108669697078==--
+Vijay
