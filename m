@@ -1,43 +1,57 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: resurrecting tcphealth
-Date: Mon, 16 Jul 2012 17:24:37 +0200
-Message-ID: <1648678.899sL4YBmA@cpaasch-mac>
-References: <cc6495b92f1df180c1ad43057ceb0b98.squirrel@webmail.univie.ac.at> <1342445557.2523.8.camel@bwh-desktop.uk.solarflarecom.com> <436a23ea8f8df4e8e3c71c369f1e3649.squirrel@webmail.univie.ac.at>
-Reply-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Mon, 16 Jul 2012 16:47:25 +0100
+Message-ID: <1342453645.2523.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <4FFE40A9.4060807@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA891274F02D7@ORSMSX102.amr.corp.intel.com>
+	 <4FFE6BB9.4060106@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA891274F033B@ORSMSX102.amr.corp.intel.com>
+	 <4FFE787B.9050201@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA891274F0ACC@ORSMSX102.amr.corp.intel.com>
+	 <4FFF61BD.1060604@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA891274F11FF@ORSMSX102.amr.corp.intel.com>
+	 <4FFFA532.1030208@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA891274F2354@ORSMSX102.amr.corp.intel.com>
+	 <20120715133510.GA5484@khazad-dum.debian.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Piotr Sawuk <a9702387@unet.univie.ac.at>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Dave, Tushar N" <tushar.n.dave@intel.com>,
+	Joe Jin <joe.jin@oracle.com>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <436a23ea8f8df4e8e3c71c369f1e3649.squirrel@webmail.univie.ac.at>
+In-Reply-To: <20120715133510.GA5484@khazad-dum.debian.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 16 July 2012 17:12:26 Piotr Sawuk wrote:
-> +               seq_printf(seq, "%d: %-21pI4:%u %-21pI4:%u "
-> +                               "%8u %8lu %8lu %8lu %8lu%n",
-> +                               st->num,
-> +                               &inet->inet_rcv_saddr,
-> +                               ntohs(inet->inet_sport),
-> +                               &inet->inet_daddr,
-> +                               ntohs(inet->inet_dport),
-> +                               jiffies_to_msecs(tp->srtt),
+On Sun, 2012-07-15 at 10:35 -0300, Henrique de Moraes Holschuh wrote:
+> On Sun, 15 Jul 2012, Dave, Tushar N wrote:
+> > Somehow setting max payload to 256 from BIOS does not set this value for all devices. I believe this is a BIOS bug.
+> 
+> And preferably, Linux should complain about it.  Since we know it is going
+> to cause problems, and since we know it does happen, we should be raising a
+> ruckus about it in the kernel log (and probably fixing it to min(path) while
+> at it)...
+> 
+> Is this something that should be raised as a feature request with the
+> PCI/PCIe subsystem?
 
-This still doesn't gives you the correct RTT.
-srtt is in jiffies * 8.
+The feature is there, but we ended up with:
 
-You should do jiffies_to_msecs(tp->srtt) >> 3.
+commit 5f39e6705faade2e89d119958a8c51b9b6e2c53c
+Author: Jon Mason <mason@myri.com>
+Date:   Mon Oct 3 09:50:20 2011 -0500
 
-The RTT is already exposed by tcp_info anyway... (see tcp_get_info() - =
-where=20
-you also see the bitshift)
+    PCI: Disable MPS configuration by default
 
+But you are welcome to share use of the fixup_mpss_256() quirk.
 
-Christoph
+Ben.
 
---=20
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
-Universit=E9 Catholique de Louvain
---
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
