@@ -1,90 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.4.4/amd64 full interrupt hangs under big nfs copies
-Date: Mon, 16 Jul 2012 08:18:49 +0200
-Message-ID: <1342419529.3265.12217.camel@edumazet-glaptop>
-References: <20120409.143710.879746943062854492.davem@davemloft.net>
-	 <4F83316F.20504@lwfinger.net> <1333998672.3007.245.camel@edumazet-glaptop>
-	 <20120409.153452.1284163346306246866.davem@davemloft.net>
-	 <1334030180.13293.98.camel@edumazet-glaptop>
-	 <20120410051127.GA32048@merlins.org>
-	 <1334038263.2907.1.camel@edumazet-glaptop>
-	 <20120411052733.GA17352@merlins.org>  <20120715215935.GF24420@merlins.org>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: iptables CLAMP MSS to PMTU not working?
+Date: Mon, 16 Jul 2012 09:20:58 +0300
+Message-ID: <20120716092058.270f6008@vostro>
+References: <20120712120021.3dc5cd68@vostro>
+	<20120712132419.50b4acaf@vostro>
+	<20120716084946.67b91a69@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Larry.Finger@lwfinger.net,
-	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marc MERLIN <marc@merlins.org>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:60320 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab2GPGSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 02:18:54 -0400
-In-Reply-To: <20120715215935.GF24420@merlins.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:44469 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966Ab2GPGVS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 02:21:18 -0400
+Received: by eaak11 with SMTP id k11so1521417eaa.19
+        for <netdev@vger.kernel.org>; Sun, 15 Jul 2012 23:21:16 -0700 (PDT)
+In-Reply-To: <20120716084946.67b91a69@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-07-15 at 14:59 -0700, Marc MERLIN wrote:
-> On Tue, Apr 10, 2012 at 10:27:33PM -0700, Marc MERLIN wrote:
-> > On Tue, Apr 10, 2012 at 08:11:03AM +0200, Eric Dumazet wrote:
-> > > Please try following patch, as it solved the problem for me (no more
-> > > order-1 allocations in tx path)
+On Mon, 16 Jul 2012 08:49:46 +0300 Timo Teras <timo.teras@iki.fi> wrote:
+
+> On Thu, 12 Jul 2012 13:24:19 +0300 Timo Teras <timo.teras@iki.fi>
+> wrote:
+> 
+> > On Thu, 12 Jul 2012 12:00:21 +0300 Timo Teras <timo.teras@iki.fi>
+> > wrote:
 > > 
-> > I applied our patch to 3.3.1 and cannot reproduce the problem anymore.
+> > > We recently noticed that CLAMPMSS to path MTU does not seem to be
+> > > working properly. Most recently tested version is linux-3.3.6
+> > > which does not work. linux-2.6.35 works for sure, but I suspect
+> > > it to have broken somewhere around 3.0'ish with the inetpeer
+> > > changes.
+> > > 
+> > > In my case, the destination is on gre tunnel (that gets routed to
+> > > Internet over IPsec transport mode).
+> > > 
+> > > 'ip route' command verifies that in both boxes the path-MTU is
+> > > detected properly. That, is on both cases the static route MTU is
+> > > higher. And after large packets sent, ICMP frag-needed is received
+> > > and the cache route is updated properly.
+> > > 
+> > > On the new kernel, I get info like:
+> > > # ip route get 10.x.x.x
+> > > 10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
+> > >     cache  expires 68sec ipid 0x3153 mtu 1422
 > > 
-> > I'll leave a big wireless copy running overnight just in case, but I think
-> > you fixed it.
+> > CLAMP MSS sets MSS to 1432. Which implies MTU 1472. This matches the
+> > gre1 interface MTU:
+> > 
+> > 14: gre1: <UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN 
+> > 
+> > So apparently CLAMPMSS is honoring the static route for gre1,
+> > instead of the cached pmtu route.
+> > 
+> > > And the older kernel:
+> > > # ip route get 10.x.x.x
+> > > 10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
+> > >     cache  expires 595sec ipid 0xd241 mtu 1422 advmss 1432
+> > > hoplimit 64
+> > > 
+> > > For some reason, iptables CLAMPMSS seems to set incorrect MSS for
+> > > this route (or maybe it's using the static route instead?).
+> > 
+> > And in this case MSS is set to 1382. That is, it's properly
+> > calculated from the path MTU (1422-40=1382). I would expect the
+> > advmss of the cached route to get updated on the TCP connects on
+> > the older kernels (the above paste is after pinging with large
+> > packets and no TCP connection done for the cached entry).
 > 
-> Mmmh, so I'm running 3.4.4 and I had another full machine hang while copying
-> big files (gigabytes) over wireless via NFS.
-> The laptop self recovered after 5mn or so (mouse cursor would not even
-> move) and I was able to kill -9 the process (midnight commander).
-> mc did not actually stop for another 4mn or so (i.e. it took that long for
-> the process to come out of kernel hung state), but the machine was usable
-> during that time.
-> Note that copying the same data with scp works fine.
-> NFS mount looks like this:
-> gargamel:/mnt/dshelf2/ /net/gargamel/mnt/dshelf2 nfs4 rw,nosuid,nodev,relatime,vers=4.0,rsize=524288,wsize=524288,namlen=255,hard,proto=tcp,port=0,timeo=600,retrans=2,sec=sys,clientaddr=192.168.205.7,local_lock=none,addr=192.168.205.3 0 0
+> Looking at the changelog, this would likely be side effect of:
 > 
-> I didn't have anything like last time in the kernel logs, and more
-> annoyingly, ps -elf does not show anything for any process in WCHAN,
-> making pointing the finger a bit harder (procps-ng 3.3.3 does not show
-> anything other than '-' in WCHAN for any process with 3.4.4).
+> commit 261663b0ee2ee8e3947f4c11c1a08be18cd2cea1
+> Author: Steffen Klassert <steffen.klassert@secunet.com>
+> Date:   Wed Nov 23 02:14:50 2011 +0000
 > 
-> My understanding is that user space calling drivers that shut off all
-> interrupts for extended periods of time (as least I think so since my mouse
-> cursor would not move), is still a kernel bug.
+>     ipv4: Don't use the cached pmtu informations for input routes
 > 
-> For what it's worth, copying 1GB of data in lots of small files does not
-> cause problems, it seems that it's big files that cause a problem since they
-> likely fill a buffer somewhere while interrupts are disabled.
-> 
-> Do you have an idea of how I can find out where my mc process is stuck in
-> the kernel?
-> Should I reproduce with specific sysrq output?
+> At least from performance side, it would be better if CLAMPMSS to PMTU
+> would clamp to the learned, cached mtu.
 
-Just to clarify, you get this freeze when transferring a big file from a
-remote NFS server to your PC, (aka a download), not the reverse way ?
+Actually, this is worse. Since XFRM is ignored - it breaks
+fragmentation for IPsec targets.
 
-If so, you might hit OOM condition because iwlwifi uses big/fat RX
-buffers, I never understood why...
-
-(amsdu_size_8K = 1)
-
-Storing an MTU=1500 frams in 8KB of memory sounds really bad.
-
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-drv.c b/drivers/net/wireless/iwlwifi/iwl-drv.c
-index cc41cfa..434b924 100644
---- a/drivers/net/wireless/iwlwifi/iwl-drv.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-drv.c
-@@ -1006,7 +1006,7 @@ void iwl_drv_stop(struct iwl_drv *drv)
- 
- /* shared module parameters */
- struct iwl_mod_params iwlwifi_mod_params = {
--	.amsdu_size_8K = 1,
-+	.amsdu_size_8K = 0,
- 	.restart_fw = 1,
- 	.plcp_check = true,
- 	.bt_coex_active = true,
+Could this be reverted?
