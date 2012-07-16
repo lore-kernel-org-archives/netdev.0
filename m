@@ -1,47 +1,63 @@
-From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
-Subject: Re: resurrecting tcphealth
-Date: Mon, 16 Jul 2012 15:03:26 +0200
-Message-ID: <cc2022d86834a8798518f9cccc605d45.squirrel@webmail.univie.ac.at>
-References: <e9caf38359467bfa8a1e2ac86f6ef2cc.squirrel@webmail.univie.ac.at>
-    <20120713165544.6767ea8f@nehalam.linuxnetplumber.net>
-    <87741204cd72d363d54dadf9a94bb6fe.squirrel@webmail.univie.ac.at>
-    <1342439185.23494.19.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] natsemi: make cable length magic configurable
+Date: Mon, 16 Jul 2012 14:08:54 +0100
+Message-ID: <1342444134.2523.4.camel@bwh-desktop.uk.solarflarecom.com>
+References: <201111241443.59191.jdelvare@suse.de>
+	 <1322162739.2784.26.camel@bwh-desktop>
+	 <1342441581.4165.235.camel@amber.site>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Tim Hockin <thockin@hockin.org>,
+	Olaf Kirch <okir@suse.de>
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from grace.univie.ac.at ([131.130.3.115]:46222 "EHLO
-	grace.univie.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808Ab2GPND2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 09:03:28 -0400
-In-Reply-To: <1342439185.23494.19.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:33926 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751808Ab2GPNJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 09:09:02 -0400
+In-Reply-To: <1342441581.4165.235.camel@amber.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mo, 16.07.2012, 13:46, Eric Dumazet wrote:
-> On Mon, 2012-07-16 at 13:33 +0200, Piotr Sawuk wrote:
->> On Sa, 14.07.2012, 01:55, Stephen Hemminger wrote:
->> > I am not sure if the is really necessary since the most
->> > of the stats are available elsewhere.
->>
->> if by "most" you mean address and port then you're right.
->> but even the rtt reported by "ss -i" seems to differ from tcphealth.
->
-> Thats because tcphealth is wrong, it assumes HZ=1000 ?
->
-> tp->srtt unit is jiffies, not ms.
+On Mon, 2012-07-16 at 14:26 +0200, Jean Delvare wrote:
+[...]
+> > You would need to:
+> > 1. Number the flags starting from 0.  Well, that was easy.
+> > 2. Implement {get,set}_priv_flags() operations to access all flags as
+> >    a bitmask.
+> > 3. Expose the flag names as string set ETH_SS_PRIV_FLAGS accessed by
+> >    get_sset_count() and get_strings() operations.
+> 
+> I was looking for an example, but there doesn't seem to be any driver
+> implementing private flags at the moment?
 
-thanks. any conversion-functions in the kernel for that?
->
-> tcphealth is a gross hack.
+No.
 
-what would you do if you tried making it less gross?
+> I am also unsure if a private flag is a suitable solution to the problem
+> at hand. I am a little worried about the timing, as the non-default
+> value can't be set before the network device is available, I'm afraid
+> the network initialization scripts may kick in before one has a chance
+> to set the flag with ethtool. I suppose this could be problematic, but
+> then again I don't know much about network device drivers, I don't even
+> know for sure when method .ndo_open is called...
 
-I've not found any similar functionality, in the kernel.
-I want to know an estimate for the percentage of data lost in tcp.
-and I want to know that without actually sending much packets.
-afterall I'm on the receiving end most of the time.
-percentage of duplicate packets received is nice too.
-you have any suggestions?
+It's called when the interface is brought up (ifconfig up, ip link set
+up, start NetworkManager...).  Some distributions provide a
+configuration option(s) to run ethtool while bringing an interface up.
+
+> Furthermore I don't quite get why we can't just go with the module
+> parameter. As I understand it, this is a crappy driver for crappy, rare
+> hardware. The driver already has a module parameter to work around a
+> hardware bug (dspcfg_workaround), I don't quite see why adding a second
+> one would be a problem. At least it is consistent.
+
+David can be quite insistent about finding an alternative to module
+parameters.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
