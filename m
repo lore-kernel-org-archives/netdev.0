@@ -1,270 +1,68 @@
-From: Andrew Vagin <avagin@openvz.org>
-Subject: [PATCH] net-next: make sock diag per-namespace
-Date: Mon, 16 Jul 2012 16:14:09 +0400
-Message-ID: <1342440849-1757320-1-git-send-email-avagin@openvz.org>
-Cc: Andrew Vagin <avagin@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: =?utf-8?B?5pyJ5pWI5p6c5YaN5LuY5qy+?= <admin@wissky.com>
+Subject: =?utf-8?B?MjAxMuaYpeWtozExMeWxiuW5v+S6pOS8muS5sOWutu+8jOe+pOWPkei9r+S7tg==?=
+	=?utf-8?B?77yMQjJC6K+i55uY5Lmw5a6244CBdGhvbWFzbmV0IOmHhw==?=
+	=?utf-8?B?6LSt5ZWGLOa1t+WFs+aVsOaNrizlsZXkvJrkubDlrrYg5LuFMzAw5YWDIQ==?=
+Date: Mon, 16 Jul 2012 12:18:19 +0000 (UTC)
+Message-ID: <20210716201402457615@wissky.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <neuro@c-68-35-224-230.hsd1.fl.com>, <ncarroll@gatelesis.com>,
+	<neuwudan@163.com>, <nevanez@hotmail.com>,
+	<neveroverthehill@live.com>, <netdev@vger.kernel.org>,
+	<netdeck@hotmail.com>, <netzhj@163.com>, <netzu@yeah.net>,
+	<neucaijuan@126.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:16645 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751182Ab2GPMOq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2012 08:14:46 -0400
+Received: from [221.122.34.42] ([221.122.34.42]:7170 "HELO wissky.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
+	id S1752671Ab2GPMSL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 08:18:11 -0400
+Date: Fri, 16 Jul 2021 20:13:49 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before this patch sock_diag works for init_net only and dumps
-information about sockets from all namespaces.
-
-This patch expands sock_diag for all name-spaces.
-It creates a netlink kernel socket for each netns and filters
-data during dumping.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Pavel Emelyanov <xemul@parallels.com>
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Andrew Vagin <avagin@openvz.org>
----
- include/linux/sock_diag.h   |    1 -
- include/net/net_namespace.h |    1 +
- net/core/sock_diag.c        |   28 ++++++++++++++++++++++------
- net/ipv4/inet_diag.c        |   13 ++++++++++---
- net/ipv4/udp_diag.c         |    3 ++-
- net/unix/diag.c             |    9 +++++++--
- 6 files changed, 42 insertions(+), 13 deletions(-)
-
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index 6793fac..e3e395a 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -44,6 +44,5 @@ void sock_diag_save_cookie(void *sk, __u32 *cookie);
- 
- int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
- 
--extern struct sock *sock_diag_nlsk;
- #endif /* KERNEL */
- #endif
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index ac9195e..ae1cd6c 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -101,6 +101,7 @@ struct net {
- 	struct netns_xfrm	xfrm;
- #endif
- 	struct netns_ipvs	*ipvs;
-+	struct sock		*diag_nlsk;
- };
- 
- 
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 07a29eb..d060251 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -166,23 +166,39 @@ static void sock_diag_rcv(struct sk_buff *skb)
- 	mutex_unlock(&sock_diag_mutex);
- }
- 
--struct sock *sock_diag_nlsk;
--EXPORT_SYMBOL_GPL(sock_diag_nlsk);
-+struct sock *diag_nlsk;
-+EXPORT_SYMBOL_GPL(diag_nlsk);
- 
--static int __init sock_diag_init(void)
-+static int __net_init diag_net_init(struct net *net)
- {
- 	struct netlink_kernel_cfg cfg = {
- 		.input	= sock_diag_rcv,
- 	};
- 
--	sock_diag_nlsk = netlink_kernel_create(&init_net, NETLINK_SOCK_DIAG,
-+	net->diag_nlsk = netlink_kernel_create(net, NETLINK_SOCK_DIAG,
- 					       THIS_MODULE, &cfg);
--	return sock_diag_nlsk == NULL ? -ENOMEM : 0;
-+	return net->diag_nlsk == NULL ? -ENOMEM : 0;
-+}
-+
-+static void __net_exit diag_net_exit(struct net *net)
-+{
-+	netlink_kernel_release(net->diag_nlsk);
-+	net->diag_nlsk = NULL;
-+}
-+
-+static struct pernet_operations diag_net_ops = {
-+	.init = diag_net_init,
-+	.exit = diag_net_exit,
-+};
-+
-+static int __init sock_diag_init(void)
-+{
-+	return register_pernet_subsys(&diag_net_ops);
- }
- 
- static void __exit sock_diag_exit(void)
- {
--	netlink_kernel_release(sock_diag_nlsk);
-+	unregister_pernet_subsys(&diag_net_ops);
- }
- 
- module_init(sock_diag_init);
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 38064a2..4703c58 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -272,6 +272,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *in_s
- 	int err;
- 	struct sock *sk;
- 	struct sk_buff *rep;
-+	struct net *net = sock_net(in_skb->sk);
- 
- 	err = -EINVAL;
- 	if (req->sdiag_family == AF_INET) {
-@@ -317,7 +318,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *in_s
- 		nlmsg_free(rep);
- 		goto out;
- 	}
--	err = netlink_unicast(sock_diag_nlsk, rep, NETLINK_CB(in_skb).pid,
-+	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).pid,
- 			      MSG_DONTWAIT);
- 	if (err > 0)
- 		err = 0;
-@@ -724,6 +725,7 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
- {
- 	int i, num;
- 	int s_i, s_num;
-+	struct net *net = sock_net(skb->sk);
- 
- 	s_i = cb->args[1];
- 	s_num = num = cb->args[2];
-@@ -743,6 +745,9 @@ void inet_diag_dump_icsk(struct inet_hashinfo *hashinfo, struct sk_buff *skb,
- 			sk_nulls_for_each(sk, node, &ilb->head) {
- 				struct inet_sock *inet = inet_sk(sk);
- 
-+				if (!net_eq(sock_net(sk), net))
-+					continue;
-+
- 				if (num < s_num) {
- 					num++;
- 					continue;
-@@ -943,6 +948,7 @@ static int inet_diag_get_exact_compat(struct sk_buff *in_skb,
- static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
- 	int hdrlen = sizeof(struct inet_diag_req);
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (nlh->nlmsg_type >= INET_DIAG_GETSOCK_MAX ||
- 	    nlmsg_len(nlh) < hdrlen)
-@@ -963,7 +969,7 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
- 			struct netlink_dump_control c = {
- 				.dump = inet_diag_dump_compat,
- 			};
--			return netlink_dump_start(sock_diag_nlsk, skb, nlh, &c);
-+			return netlink_dump_start(net->diag_nlsk, skb, nlh, &c);
- 		}
- 	}
- 
-@@ -973,6 +979,7 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
- static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- {
- 	int hdrlen = sizeof(struct inet_diag_req_v2);
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (nlmsg_len(h) < hdrlen)
- 		return -EINVAL;
-@@ -991,7 +998,7 @@ static int inet_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 			struct netlink_dump_control c = {
- 				.dump = inet_diag_dump,
- 			};
--			return netlink_dump_start(sock_diag_nlsk, skb, h, &c);
-+			return netlink_dump_start(net->diag_nlsk, skb, h, &c);
- 		}
- 	}
- 
-diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
-index a7f86a3..52f42f9 100644
---- a/net/ipv4/udp_diag.c
-+++ b/net/ipv4/udp_diag.c
-@@ -34,6 +34,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
- 	int err = -EINVAL;
- 	struct sock *sk;
- 	struct sk_buff *rep;
-+	struct net *net = sock_net(in_skb->sk);
- 
- 	if (req->sdiag_family == AF_INET)
- 		sk = __udp4_lib_lookup(&init_net,
-@@ -75,7 +76,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
- 		kfree_skb(rep);
- 		goto out;
- 	}
--	err = netlink_unicast(sock_diag_nlsk, rep, NETLINK_CB(in_skb).pid,
-+	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).pid,
- 			      MSG_DONTWAIT);
- 	if (err > 0)
- 		err = 0;
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index a74864e..750b134 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -177,6 +177,7 @@ static int unix_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct unix_diag_req *req;
- 	int num, s_num, slot, s_slot;
-+	struct net *net = sock_net(skb->sk);
- 
- 	req = nlmsg_data(cb->nlh);
- 
-@@ -192,6 +193,8 @@ static int unix_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 		num = 0;
- 		sk_for_each(sk, node, &unix_socket_table[slot]) {
-+			if (!net_eq(sock_net(sk), net))
-+				continue;
- 			if (num < s_num)
- 				goto next;
- 			if (!(req->udiag_states & (1 << sk->sk_state)))
-@@ -243,6 +246,7 @@ static int unix_diag_get_exact(struct sk_buff *in_skb,
- 	struct sock *sk;
- 	struct sk_buff *rep;
- 	unsigned int extra_len;
-+	struct net *net = sock_net(in_skb->sk);
- 
- 	if (req->udiag_ino == 0)
- 		goto out_nosk;
-@@ -273,7 +277,7 @@ again:
- 
- 		goto again;
- 	}
--	err = netlink_unicast(sock_diag_nlsk, rep, NETLINK_CB(in_skb).pid,
-+	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).pid,
- 			      MSG_DONTWAIT);
- 	if (err > 0)
- 		err = 0;
-@@ -287,6 +291,7 @@ out_nosk:
- static int unix_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- {
- 	int hdrlen = sizeof(struct unix_diag_req);
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (nlmsg_len(h) < hdrlen)
- 		return -EINVAL;
-@@ -295,7 +300,7 @@ static int unix_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 		struct netlink_dump_control c = {
- 			.dump = unix_diag_dump,
- 		};
--		return netlink_dump_start(sock_diag_nlsk, skb, h, &c);
-+		return netlink_dump_start(net->diag_nlsk, skb, h, &c);
- 	} else
- 		return unix_diag_get_exact(skb, h, nlmsg_data(h));
- }
--- 
-1.7.1
+MjAxMuaYpeWtozExMeWxiuW5v+S6pOS8muS5sOWutu+8jOa1t+WFs+aVsOaNruaPkOWNlXBpZXJz
+54mI77yMMjAwOC0yMDEy5bm0OeWxiuW5v+S6pOS8muaVsOaNruOAgg0KDQrkuIDlhbExMOS4quWM
+hSjmlbDmja7mmK/lhajooYzkuJrnmoTvvIzlj6/ku6XmjInnhaflhbPplK7or43mj5Dlj5blh7rm
+naXnmoQp77yaIA0KMe+8jDIwMTLmmKXlraMxMTHlsYrlub/kuqTkvJrkubDlrrbnjrDlnLror6Ln
+m5jmlbDmja7lupPmlrDpspzlh7rngonvvIzotoXnuqfmlrDpspzkubDlrrbvvIzmlrDpspzmlbDm
+ja7vvIzlrrnmmJPmiJDljZXvvIEgDQoy77yM6LSt5Lmw5ZCO5Y+v5Lul5YWN6LS55pu05pawMjAx
+Mueni+Wto+W5v+S6pOS8muS5sOWutuaVsOaNruOAguWkqui2heWAvOS6huOAgg0KM++8jDIwMTLm
+nIDmlrDlhajnkIPlsZXkvJrnjrDlnLrkubDlrrblupMo5LiO6LS45Y+R5ZCM5q2lKSzlhbE0NuS4
+h+adoeaVsOaNruOAgiAo5oyJ54Wn6KGM5Lia5YiG57G7KQ0KNO+8jDIwMTEsMjAxMOW5tCwyMDA5
+5bm0LDIwMDjlubQg5pil5a2jK+eni+Wto+W5v+S6pOS8muS5sOWutuWQjeW9le+8jDEwMyAxMDQg
+MTA1IDEwNiAxMDcgMTA4LDEwOSwxMTAg5YWx5YWt5bGKIOWFsTEyMC425LiH5pWw5o2u44CCDQo1
+77yMNDguNjjkuIfmnaHmnIDmlrDkubDlrrbor6Lnm5jvvIzpg73luKbmnIlFbWFpbO+8jOacgOac
+ieS7t+WAvOeahOivouebmOOAgg0KNu+8jDIwMTHmnIDmlrAgQjJCIOiLseaWh+WbvemZheermTYw
+5LiH5bim6IGU57uc5pa55byP6K+i55uYIOacgOacieS7t+WAvOivouebmOS5i+S4gC4NCjfvvIwy
+MDEw5rW35YWz5o+Q5Y2VcGllcnPniYgxMDAw5LiH5pWw5o2uLg0KOO+8jDIwMTHlubTliLDpppnm
+uK/ph4fotK3nmoTlm73lpJblrqLkurrlkI3lvZUo6aaZ5riv6LS45Y+R5bGA5o+Q5L6bKe+8jOi2
+hee6p+mHjeimgeeahOS5sOWutuOAgg0KOe+8jDIwMTHlubTmlrDlop7liqDnmoQt576O5Zu9QjJC
+IHRob21hc25ldCDph4fotK3llYblkI3ljZXjgIINCjEw77yM576k5Y+R6L2v5Lu25a6J6KOF5LiO
+6YOo572y5pyN5Yqh44CCDQoNCui/meS6m+WFqOacie+8jOWFsTEyODDkuIcg5pWw5o2u44CCDQoN
+CiANCuimgeeahOaKk+e0p+iBlOezu1FROiA0NjAxMjI2NDEg5oiW6ICF56uL5Y2z5Zue5aSN6YKu
+566xOiA0NjAxMjI2NDFAcXEuY29tDQropoHnmoTmipPntKfogZTns7tRUTogNDYwMTIyNjQxIOaI
+luiAheeri+WNs+WbnuWkjemCrueusTogNDYwMTIyNjQxQHFxLmNvbQ0K6KaB55qE5oqT57Sn6IGU
+57O7UVE6IDQ2MDEyMjY0MSDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDQ2MDEyMjY0MUBxcS5j
+b20NCg0K6K+a5L+h5Li65pys77yM5aaC5p6c5LiN5L+h5Lu75pys5Lq6LOWPr+S7pei1sOa3mOWu
+neS6pOaYkyzmlLbliLDmlbDmja7pqozor4Ez5aSp5ZCO5YaN5LuY5qy+LOi/meaYr+WvueaCqOac
+gOWlveeahOS/nemanOS6huOAgiANCg0KDQoNCuWwj+aKgOW3p++8miANCuaKijUwMOS4h+S5sOWu
+tue+pOWPkeS7peS4gOmBje+8jOWdh+S8muacieaVsOWNg+S4quWbnuWkjeeahO+8jOi/meS6m+Ww
+seaYr+mdnuW4uOmrmOi0qOmHj+eahOS5sOWutuOAgiANCuS9v+eUqOaIkeS7rOmAgeeahOe+pOWP
+kei9r+S7tu+8jDEtMuWRqOWwseWPr+WujOWFqOWPkeWujOOAgg0KDQoNCg0KDQoNCuW5v+S6pOS8
+muS5sOWutuaMieS6p+WTgeexu+WIq+WIhuexu++8jOWIhuS4uuS7peS4i+WHoOexu++8mg0KMSDl
+ip7lhazorr7lpIcNCjIg57yW57uH5Y+K6Jek6ZOB5bel6Im65ZOBDQozIOeOu+eSgw0KNCDppJDl
+jqjnlKjlhbcNCjUg6L2m6L6GDQo2IOWkp+Wei+acuuaisOWPiuiuvuWkhw0KNyDnlLXlrZDnlLXm
+sJQNCjgg55S15a2Q5raI6LS55ZOBDQo5IOe6uue7hw0KMTAg5pyN6KOFDQoxMSDkuKrkurrmiqTn
+kIYNCjEyIOW3peeoi+acuuaisA0KMTMg5bel5YW3DQoxNCDljJblt6UNCjE1IOiuoeeul+acuuWP
+iumAmuiurw0KMTYg5a625bGF55So5ZOBDQoxNyDlrrblsYXoo4XppbANCjE4IOWutuWFtw0KMTkg
+5a6255So55S15ZmoDQoyMCDlu7rnrZHlj4roo4XppbDmnZDmlpkNCjIxIOiKguaXpeeUqOWTgQ0K
+MjIg56S85ZOB5Y+K6LWg5ZOBDQoyMyDmkanmiZjovaYNCjI0IOaxvei9pumFjeS7tg0KMjUg6aOf
+5ZOBDQoyNiDpmbbnk7cNCjI3IOmTgeefsw0KMjgg546p5YW3DQoyOSDljavmtbQNCjMwIOS6lOmH
+kQ0KMzEg5bCP5Z6L5py65qKwDQozMiDpnosNCjMzIOS8kemXsueUqOWTgQ0KMzQg5Yy755aXDQoz
+NSDmtbTlrqTkuqflk4ENCjM2IOWbreaelw0KMzcg54Wn5piO5Lqn5ZOBDQozOCDpkp/ooajnnLzp
+lZwNCjM5IOiHquihjOi9pg0KNDAg5YyFDQoNCg0K5paw6bKc5pWw5o2uLeaIkOWNleeOh+aegemr
+mA0K5paw6bKc5pWw5o2uLeaIkOWNleeOh+aegemrmA0K5paw6bKc5pWw5o2uLeaIkOWNleeOh+ae
+gemrmA0K5paw6bKc5pWw5o2uLeaIkOWNleeOh+aegemrmA0K5paw6bKc5pWw5o2uLeaIkOWNleeO
+h+aegemrmA0K
