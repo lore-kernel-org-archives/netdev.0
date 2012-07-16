@@ -1,71 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH] ethtool: Resolve use of uninitialized memory in
- rxclass_get_dev_info
-Date: Mon, 16 Jul 2012 21:03:37 +0100
-Message-ID: <1342469017.2523.33.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120713165221.28140.92681.stgit@gitlad.jf.intel.com>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: [PATCH 2/4] pch_gbe: fix transmit watchdog timeout
+Date: Mon, 16 Jul 2012 13:04:05 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D011432D7@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jeffrey.t.kirsher@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32357 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752991Ab2GPUDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 16:03:40 -0400
-In-Reply-To: <20120713165221.28140.92681.stgit@gitlad.jf.intel.com>
+Received: from mail.us.kontron.com ([209.118.138.70]:46053 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751699Ab2GPUEK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 16:04:10 -0400
+Received: from ka-exchange-1.kontronamerica.local ([10.100.2.39]) by mail.us.kontron.com with ESMTP id 9IhDSKbsrEWHppKm for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 13:04:09 -0700 (PDT)
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-13 at 09:55 -0700, Alexander Duyck wrote:
-> The ethtool function for getting the rule count was not zeroing out the
-> data field before passing it to the kernel.  As a result the value started
-> uninitialized and was incorrectly returning a result indicating that
-> devices supported setting new rule indexes.  In order to correct this I am
-> adding a one line fix that sets data to zero before we pass the command to
-> the kernel.
 
-Right.  For 'get' commands with no parameters (besides the device) the
-data copied back to userland is normally zero-initialised and then
-filled out by the driver, and I seem to have worked on that assumption.
-But because of the odd multiplexing of RX NFC commands
-ETHTOOL_GRXCLSRLCNT doesn't work like that.  And for 'my' driver that
-didn't matter.  Sorry about that.
+Author: Andy Cress <andy.cress@us.kontron.com>
 
-(We should really have some explicit documentation of responsibility for
-structure initialisation.)
+An extended ping test with 6 vlans resulted in a driver oops with a
+netdev transmit timeout.
+Fix WATCHDOG_TIMEOUT to be more like e1000e at 5 * HZ, to avoid
+unnecessary transmit timeouts.
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
-> I am resending this since I didn't see any notification that it had been seen.
-> I also realized that I had not clearly identified that this is an ethtool user
-> space patch and not an ethtool kernel space patch.
+Signed-off-by: Andy Cress <andy.cress@us.kontron.com>
 
-It was perfectly clear and I had queued it up to review but hadn't yet
-done so.
-
-Ben.
-
->  rxclass.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
-> 
-> diff --git a/rxclass.c b/rxclass.c
-> index 4d49aa6..e1633a8 100644
-> --- a/rxclass.c
-> +++ b/rxclass.c
-> @@ -207,6 +207,7 @@ static int rxclass_get_dev_info(struct cmd_context *ctx, __u32 *count,
->  	int err;
->  
->  	nfccmd.cmd = ETHTOOL_GRXCLSRLCNT;
-> +	nfccmd.data = 0;
->  	err = send_ioctl(ctx, &nfccmd);
->  	*count = nfccmd.rule_cnt;
->  	if (driver_select)
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 4c04843..a746064 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -35,7 +35,7 @@ const char pch_driver_version[] = DRV_VERSION;
+ #define DSC_INIT16			0xC000
+ #define PCH_GBE_DMA_ALIGN		0
+ #define PCH_GBE_DMA_PADDING		2
+-#define PCH_GBE_WATCHDOG_PERIOD		(1 * HZ)	/*
+watchdog time */
++#define PCH_GBE_WATCHDOG_PERIOD		(5 * HZ)	/*
+watchdog time */
+ #define PCH_GBE_COPYBREAK_DEFAULT	256
+ #define PCH_GBE_PCI_BAR			1
+ #define PCH_GBE_RESERVE_MEMORY		0x200000	/* 2MB */
