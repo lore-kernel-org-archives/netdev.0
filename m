@@ -1,308 +1,294 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH 2/7] net-tcp: Fast Open client - cookie cache
-Date: Mon, 16 Jul 2012 14:16:45 -0700
-Message-ID: <1342473410-6265-3-git-send-email-ycheng@google.com>
+Subject: [PATCH 3/7] net-tcp: Fast Open client - sending SYN-data
+Date: Mon, 16 Jul 2012 14:16:46 -0700
+Message-ID: <1342473410-6265-4-git-send-email-ycheng@google.com>
 References: <1342473410-6265-1-git-send-email-ycheng@google.com>
 Cc: sivasankar@cs.ucsd.edu, netdev@vger.kernel.org,
 	Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
 	ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f202.google.com ([209.85.212.202]:46712 "EHLO
-	mail-wi0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593Ab2GPVRF (ORCPT
+Received: from mail-wg0-f74.google.com ([74.125.82.74]:35850 "EHLO
+	mail-wg0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753212Ab2GPVRF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 17:17:05 -0400
-Received: by wibhr14 with SMTP id hr14so179197wib.1
-        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 14:17:03 -0700 (PDT)
+Received: by wgbdt11 with SMTP id dt11so328434wgb.1
+        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 14:17:04 -0700 (PDT)
 In-Reply-To: <1342473410-6265-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Fast Open cookie cache is used by a TCP Fast Open client to store
-remote servers' Fast Open cookies. It stores one Fast Open cookie
-per IP (v4 or v6) and by default 1024 cookies total. The size is
-tunable via /proc/sys/net/ipv4/tcp_fastopen_cookies. Setting it to 0
-will flush the cache.
+This patch implements sending SYN-data in tcp_connect(). The data is
+from tcp_sendmsg() with flag MSG_FASTOPEN (implemented in a later patch).
 
-The inetpeer cache also caches remote peer's information but the
-in-active cache entries are recycled on the scale of minutes. Therefore
-a separate storage is required but the lookup is done via inetpeer.
-Each inetpeer entry holds a cookie cache entry pointer (if TFO is used
-on that IP). On cache write, the cookie cache entry is allocated and
-stored in a list for LRU replacement. A spinlock protects any R/W
-operation on the cookie cache entry and the list.
+The length of the cookie in tcp_fastopen_req, init'd to 0, controls the
+type of the SYN. If the cookie is not cached (len==0), the host sends
+data-less SYN with Fast Open cookie request option to solicit a cookie
+from the remote. If cookie is not available (len > 0), the host sends
+a SYN-data with Fast Open cookie option. If cookie length is negative,
+  the SYN will not include any Fast Open option (for fall back operations).
+
+To deal with middleboxes that may drop SYN with data or experimental TCP
+option, the SYN-data is only sent once. SYN retransmits do not include
+data or Fast Open options. The connection will fall back to regular TCP
+handshake.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- include/net/inetpeer.h     |    2 +
- include/net/tcp.h          |    6 ++
- net/ipv4/inetpeer.c        |    2 +
- net/ipv4/sysctl_net_ipv4.c |   26 ++++++++
- net/ipv4/tcp_fastopen.c    |  140 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 176 insertions(+), 0 deletions(-)
+ include/linux/snmp.h  |    3 +-
+ include/linux/tcp.h   |    6 ++-
+ include/net/tcp.h     |    9 ++++
+ net/ipv4/af_inet.c    |    7 +++
+ net/ipv4/proc.c       |    1 +
+ net/ipv4/tcp_output.c |  115 +++++++++++++++++++++++++++++++++++++++++++++----
+ 6 files changed, 130 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/inetpeer.h b/include/net/inetpeer.h
-index 53f464d..0240709 100644
---- a/include/net/inetpeer.h
-+++ b/include/net/inetpeer.h
-@@ -11,6 +11,7 @@
- #include <linux/init.h>
- #include <linux/jiffies.h>
- #include <linux/spinlock.h>
-+#include <linux/tcp.h>
- #include <linux/rtnetlink.h>
- #include <net/ipv6.h>
- #include <linux/atomic.h>
-@@ -53,6 +54,7 @@ struct inet_peer {
- 		struct rcu_head         rcu;
- 		struct inet_peer	*gc_next;
- 	};
-+	struct fastopen_entry		*fastopen;
- 
- 	/* following fields might be frequently dirtied */
- 	__u32			dtime;	/* the time of last use of not referenced entries */
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 87f486f..4b29688 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -385,6 +385,12 @@ enum tcp_tw_status {
- 	TCP_TW_SYN = 3
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 2e68f5b..c0a34c6 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -233,7 +233,8 @@ enum
+ 	LINUX_MIB_TCPREQQFULLDOCOOKIES,		/* TCPReqQFullDoCookies */
+ 	LINUX_MIB_TCPREQQFULLDROP,		/* TCPReqQFullDrop */
+ 	LINUX_MIB_TCPRETRANSFAIL,		/* TCPRetransFail */
+-	LINUX_MIB_TCPRCVCOALESCE,			/* TCPRcvCoalesce */
++	LINUX_MIB_TCPRCVCOALESCE,		/* TCPRcvCoalesce */
++	LINUX_MIB_TCPFASTOPENACTIVE,		/* TCPFastOpenActive */
+ 	__LINUX_MIB_MAX
  };
  
-+/* From tcp_fastopen.c */
-+extern int tcp_fastopen_size_cache(int size);
-+extern void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-+				   struct tcp_fastopen_cookie *cookie);
-+extern void tcp_fastopen_cache_set(struct sock *sk, u16 *mss,
-+				   struct tcp_fastopen_cookie *cookie);
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 12948f5..1edf96a 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -386,7 +386,8 @@ struct tcp_sock {
+ 		unused      : 1;
+ 	u8	repair_queue;
+ 	u8	do_early_retrans:1,/* Enable RFC5827 early-retransmit  */
+-		early_retrans_delayed:1; /* Delayed ER timer installed */
++		early_retrans_delayed:1, /* Delayed ER timer installed */
++		syn_fastopen:1;	/* SYN includes Fast Open option */
  
- extern enum tcp_tw_status tcp_timewait_state_process(struct inet_timewait_sock *tw,
- 						     struct sk_buff *skb,
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index e1e0a4e..9151ddc 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -63,6 +63,7 @@
-  *		   usually under some other lock to prevent node disappearing
-  *		daddr: unchangeable
-  *		ip_id_count: atomic value (no lock needed)
-+ *		fastopen_entry: TCP Fast Open cookie cache. See tcp_fastopen.c
-  */
+ /* RTT measurement */
+ 	u32	srtt;		/* smoothed round trip time << 3	*/
+@@ -500,6 +501,9 @@ struct tcp_sock {
+ 	struct tcp_md5sig_info	__rcu *md5sig_info;
+ #endif
  
- static struct kmem_cache *peer_cachep __read_mostly;
-@@ -511,6 +512,7 @@ relookup:
- 		p->metrics[RTAX_LOCK-1] = INETPEER_METRICS_NEW;
- 		p->rate_tokens = 0;
- 		p->rate_last = 0;
-+		p->fastopen = NULL;
- 		INIT_LIST_HEAD(&p->gc_list);
- 
- 		/* Link the node. */
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 2a946a19..8d4571a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -29,6 +29,7 @@
- static int zero;
- static int two = 2;
- static int tcp_retr1_max = 255;
-+static int tcp_fastopen_cookies_max = 65536;
- static int ip_local_port_range_min[] = { 1, 1 };
- static int ip_local_port_range_max[] = { 65535, 65535 };
- static int tcp_adv_win_scale_min = -31;
-@@ -220,6 +221,25 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
- 	return 0;
- }
- 
-+static int proc_tcp_fastopen_cache_size(ctl_table *ctl, int write,
-+					void __user *buffer, size_t *lenp,
-+					loff_t *ppos)
-+{
-+	int ret;
-+	int max_cookies = tcp_fastopen_size_cache(-1);
-+	ctl_table tbl = {
-+		.data = &max_cookies,
-+		.maxlen = sizeof(max_cookies),
-+		.extra1 = &zero,
-+		.extra2 = &tcp_fastopen_cookies_max,
-+	};
++/* TCP fastopen related information */
++	struct tcp_fastopen_request *fastopen_req;
 +
-+	ret = proc_dointvec_minmax(&tbl, write, buffer, lenp, ppos);
-+	if (write && ret == 0)
-+		tcp_fastopen_size_cache(max_cookies);
-+	return ret;
-+}
-+
- static struct ctl_table ipv4_table[] = {
- 	{
- 		.procname	= "tcp_timestamps",
-@@ -374,6 +394,12 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- 	{
-+		.procname	= "tcp_fastopen_cookies",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_tcp_fastopen_cache_size,
-+	},
-+	{
- 		.procname	= "tcp_tw_recycle",
- 		.data		= &tcp_death_row.sysctl_tw_recycle,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index a7f729c..40fdf21 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -1,10 +1,150 @@
- #include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/list.h>
-+#include <linux/tcp.h>
-+#include <net/inetpeer.h>
+ 	/* When the cookie options are generated and exchanged, then this
+ 	 * object holds a reference to them (cookie_values->kref).  Also
+ 	 * contains related tcp_cookie_transactions fields.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 4b29688..2d3b09d2 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1290,6 +1290,15 @@ extern int tcp_md5_hash_skb_data(struct tcp_md5sig_pool *, const struct sk_buff
+ extern int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
+ 			    const struct tcp_md5sig_key *key);
  
- int sysctl_tcp_fastopen;
- 
-+/* The Fast Open cookie cache is used by a TCP Fast Open client to store
-+ * remote servers' Fast Open cookies. It stores one Fast Open cookie
-+ * per IP and by default 1024 cookies total. The size is tunable via
-+ * /proc/sys/net/ipv4/tcp_fastopen_cookies. Setting it to 0 will flush
-+ * the cache.
-+ *
-+ * The inetpeer cache also caches remote peer's information but the
-+ * in-active cache entries are recycled on the scale of minutes. Therefore
-+ * a separate storage is required but the lookup is done via inetpeer.
-+ * Each inetpeer entry holds a cookie cache entry pointer (if TFO is used
-+ * on that IP). On cache write, the cookie cache entry is allocated and
-+ * stored in a list for LRU replacement. A spinlock protects any R/W
-+ * operation on the cookie cache entry and the list.
-+ */
-+struct fastopen_entry {
-+	u16	mss;			/* TCP MSS value */
-+	struct	tcp_fastopen_cookie	cookie;	/* TCP Fast Open cookie */
-+	struct	list_head	lru_list;	/* cookie cache lru_list node */
-+	struct	inet_peer	*peer;	/* inetpeer entry (for fast lookup) */
++struct tcp_fastopen_request {
++	/* Fast Open cookie. Size 0 means a cookie request */
++	struct tcp_fastopen_cookie	cookie;
++	struct msghdr			*data;  /* data in MSG_FASTOPEN */
++	u16				copied;	/* queued in tcp_connect() */
 +};
 +
-+static struct tcp_fastopen_cookie_cache {
-+	spinlock_t lock;		/* for lru_list, cnt, size, entries */
-+	struct list_head lru_list;	/* head is the least recently used */
-+	int cnt;			/* size of lru_list */
-+	int size;			/* cache capacity */
-+} cookie_cache;
++void tcp_free_fastopen_req(struct tcp_sock *tp);
 +
-+/* Evict the LRU entry if cache is full. Caller must hold cooke_cache.lock */
-+static struct fastopen_entry *__tcp_fastopen_remove_lru(void)
-+{
-+	struct fastopen_entry *entry;
-+
-+	if (cookie_cache.cnt <= cookie_cache.size || cookie_cache.cnt <= 0)
-+		return NULL;
-+
-+	entry = list_first_entry(&cookie_cache.lru_list,
-+				 struct fastopen_entry, lru_list);
-+	list_del_init(&entry->lru_list);
-+	--cookie_cache.cnt;
-+	entry->peer->fastopen = NULL;
-+	return entry;
-+}
-+
-+int tcp_fastopen_size_cache(int size)
-+{
-+	while (size >= 0) {
-+		struct fastopen_entry *lru_entry;
-+
-+		spin_lock_bh(&cookie_cache.lock);
-+		cookie_cache.size = size;
-+		lru_entry = __tcp_fastopen_remove_lru();
-+		spin_unlock_bh(&cookie_cache.lock);
-+
-+		if (lru_entry == NULL)
-+			break;
-+		inet_putpeer(lru_entry->peer);
-+		kfree(lru_entry);
-+	}
-+	return cookie_cache.size;
-+}
-+
-+static struct inet_peer *tcp_fastopen_inetpeer(struct sock *sk, int create)
-+{
-+	struct net *net = dev_net(__sk_dst_get(sk)->dev);
-+
-+	if (sk->sk_family == AF_INET)
-+		return inet_getpeer_v4(net->ipv4.peers,
-+				       inet_sk(sk)->inet_daddr, create);
-+	else if (sk->sk_family == AF_INET6)
-+		return inet_getpeer_v6(net->ipv6.peers,
-+				       &inet6_sk(sk)->daddr, create);
-+	return NULL;
-+}
-+
-+void tcp_fastopen_cache_get(struct sock *sk, u32 *mss,
-+			    struct tcp_fastopen_cookie *cookie)
-+{
-+	struct inet_peer *peer = tcp_fastopen_inetpeer(sk, 0);
-+	struct fastopen_entry *entry;
-+
-+	if (peer == NULL)
-+		return;
-+
-+	spin_lock_bh(&cookie_cache.lock);
-+	entry = peer->fastopen;
-+	if (entry != NULL) {
-+		*mss = entry->mss;
-+		*cookie = entry->cookie;
-+		list_move_tail(&entry->lru_list, &cookie_cache.lru_list);
-+	}
-+	spin_unlock_bh(&cookie_cache.lock);
-+
-+	inet_putpeer(peer);
-+}
-+
-+void tcp_fastopen_cache_set(struct sock *sk, u32 *mss,
-+			    struct tcp_fastopen_cookie *cookie)
-+{
-+	struct inet_peer *peer = tcp_fastopen_inetpeer(sk, 1);
-+	struct fastopen_entry *entry = NULL, *new_entry = NULL;
-+
-+	if (peer == NULL)
-+		return;
-+
-+	spin_lock_bh(&cookie_cache.lock);
-+	if (peer->fastopen == NULL) {
-+		new_entry = kmalloc(sizeof(struct fastopen_entry), GFP_ATOMIC);
-+		if (new_entry == NULL) {
-+			spin_unlock_bh(&cookie_cache.lock);
-+			goto out;
-+		}
-+		new_entry->peer = peer;
-+		INIT_LIST_HEAD(&new_entry->lru_list);
-+		peer->fastopen = new_entry;
-+		++cookie_cache.cnt;
-+	}
-+	entry = peer->fastopen;
-+	entry->mss = *mss;
-+	if (cookie->len > 0)
-+		entry->cookie = *cookie;
-+	list_move_tail(&entry->lru_list, &cookie_cache.lru_list);
-+	entry = __tcp_fastopen_remove_lru();
-+	spin_unlock_bh(&cookie_cache.lock);
-+
-+	if (entry) {
-+		inet_putpeer(entry->peer);
-+		kfree(entry);
-+	}
-+out:
-+	if (new_entry == NULL)
-+		inet_putpeer(peer);
-+}
-+
- static int __init tcp_fastopen_init(void)
+ /* write queue abstraction */
+ static inline void tcp_write_queue_purge(struct sock *sk)
  {
-+	INIT_LIST_HEAD(&cookie_cache.lru_list);
-+	spin_lock_init(&cookie_cache.lock);
-+	cookie_cache.size = 1024;
- 	return 0;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 07a02f6..6ef67b7 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -558,9 +558,14 @@ EXPORT_SYMBOL(inet_dgram_connect);
+ 
+ static long inet_wait_for_connect(struct sock *sk, long timeo)
+ {
++	const bool write = (sk->sk_protocol == IPPROTO_TCP) &&
++			   tcp_sk(sk)->fastopen_req &&
++			   tcp_sk(sk)->fastopen_req->data;
+ 	DEFINE_WAIT(wait);
+ 
+ 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
++	if (write)
++		sk->sk_write_pending++;
+ 
+ 	/* Basic assumption: if someone sets sk->sk_err, he _must_
+ 	 * change state of the socket from TCP_SYN_*.
+@@ -576,6 +581,8 @@ static long inet_wait_for_connect(struct sock *sk, long timeo)
+ 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 	}
+ 	finish_wait(sk_sleep(sk), &wait);
++	if (write)
++		sk->sk_write_pending--;
+ 	return timeo;
  }
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 8af0d44..8f8c842 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -258,6 +258,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPReqQFullDrop", LINUX_MIB_TCPREQQFULLDROP),
+ 	SNMP_MIB_ITEM("TCPRetransFail", LINUX_MIB_TCPRETRANSFAIL),
+ 	SNMP_MIB_ITEM("TCPRcvCoalesce", LINUX_MIB_TCPRCVCOALESCE),
++	SNMP_MIB_ITEM("TCPFastOpenActive", LINUX_MIB_TCPFASTOPENACTIVE),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 4849be7..8869328 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -596,6 +596,7 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 	u8 cookie_size = (!tp->rx_opt.cookie_out_never && cvp != NULL) ?
+ 			 tcp_cookie_size_check(cvp->cookie_desired) :
+ 			 0;
++	struct tcp_fastopen_request *fastopen = tp->fastopen_req;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	*md5 = tp->af_specific->md5_lookup(sk, sk);
+@@ -636,6 +637,16 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 			remaining -= TCPOLEN_SACKPERM_ALIGNED;
+ 	}
+ 
++	if (fastopen && fastopen->cookie.len >= 0) {
++		u32 need = TCPOLEN_EXP_FASTOPEN_BASE + fastopen->cookie.len;
++		need = (need + 3) & ~3U;  /* Align to 32 bits */
++		if (remaining >= need) {
++			opts->options |= OPTION_FAST_OPEN_COOKIE;
++			opts->fastopen_cookie = &fastopen->cookie;
++			remaining -= need;
++			tp->syn_fastopen = 1;
++		}
++	}
+ 	/* Note that timestamps are required by the specification.
+ 	 *
+ 	 * Odd numbers of bytes are prohibited by the specification, ensuring
+@@ -2824,6 +2835,96 @@ void tcp_connect_init(struct sock *sk)
+ 	tcp_clear_retrans(tp);
+ }
+ 
++static void tcp_connect_queue_skb(struct sock *sk, struct sk_buff *skb)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
++
++	tcb->end_seq += skb->len;
++	skb_header_release(skb);
++	__tcp_add_write_queue_tail(sk, skb);
++	sk->sk_wmem_queued += skb->truesize;
++	sk_mem_charge(sk, skb->truesize);
++	tp->write_seq = tcb->end_seq;
++	tp->packets_out += tcp_skb_pcount(skb);
++}
++
++/* Build and send a SYN with data and (cached) Fast Open cookie. However,
++ * queue a data-only packet after the regular SYN, such that regular SYNs
++ * are retransmitted on timeouts. Also if the remote SYN-ACK acknowledges
++ * only the SYN sequence, the data are retransmitted in the first ACK.
++ * If cookie is not cached or other error occurs, falls back to send a
++ * regular SYN with Fast Open cookie request option.
++ */
++static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_fastopen_request *fo = tp->fastopen_req;
++	int space, i, err = 0, iovlen = fo->data->msg_iovlen;
++	struct sk_buff *syn_data = NULL, *data;
++
++	tcp_fastopen_cache_get(sk, &tp->rx_opt.mss_clamp, &fo->cookie);
++	if (fo->cookie.len <= 0)
++		goto fallback;
++
++	/* MSS for SYN-data is based on cached MSS and bounded by PMTU and
++	 * user-MSS. Reserve maximum option space for middleboxes that add
++	 * private TCP options. The cost is reduced data space in SYN :(
++	 */
++	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < tp->rx_opt.mss_clamp)
++		tp->rx_opt.mss_clamp = tp->rx_opt.user_mss;
++	space = tcp_mtu_to_mss(sk, inet_csk(sk)->icsk_pmtu_cookie) -
++		MAX_TCP_OPTION_SPACE;
++
++	syn_data = skb_copy_expand(syn, skb_headroom(syn), space,
++				   sk->sk_allocation);
++	if (syn_data == NULL)
++		goto fallback;
++
++	for (i = 0; i < iovlen && syn_data->len < space; ++i) {
++		struct iovec *iov = &fo->data->msg_iov[i];
++		unsigned char __user *from = iov->iov_base;
++		int len = iov->iov_len;
++
++		if (syn_data->len + len > space)
++			len = space - syn_data->len;
++		else if (i + 1 == iovlen)
++			/* No more data pending in inet_wait_for_connect() */
++			fo->data = NULL;
++
++		if (skb_add_data(syn_data, from, len))
++			goto fallback;
++	}
++
++	/* Queue a data-only packet after the regular SYN for retransmission */
++	data = pskb_copy(syn_data, sk->sk_allocation);
++	if (data == NULL)
++		goto fallback;
++	TCP_SKB_CB(data)->seq++;
++	TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
++	TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
++	tcp_connect_queue_skb(sk, data);
++	fo->copied = data->len;
++
++	if (tcp_transmit_skb(sk, syn_data, 0, sk->sk_allocation) == 0) {
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENACTIVE);
++		goto done;
++	}
++	syn_data = NULL;
++
++fallback:
++	/* Send a regular SYN with Fast Open cookie request option */
++	if (fo->cookie.len > 0)
++		fo->cookie.len = 0;
++	err = tcp_transmit_skb(sk, syn, 1, sk->sk_allocation);
++	if (err)
++		tp->syn_fastopen = 0;
++	kfree_skb(syn_data);
++done:
++	fo->cookie.len = -1;  /* Exclude Fast Open option for SYN retries */
++	return err;
++}
++
+ /* Build a SYN and send it off. */
+ int tcp_connect(struct sock *sk)
+ {
+@@ -2841,17 +2942,13 @@ int tcp_connect(struct sock *sk)
+ 	skb_reserve(buff, MAX_TCP_HEADER);
+ 
+ 	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
++	tp->retrans_stamp = TCP_SKB_CB(buff)->when = tcp_time_stamp;
++	tcp_connect_queue_skb(sk, buff);
+ 	TCP_ECN_send_syn(sk, buff);
+ 
+-	/* Send it off. */
+-	TCP_SKB_CB(buff)->when = tcp_time_stamp;
+-	tp->retrans_stamp = TCP_SKB_CB(buff)->when;
+-	skb_header_release(buff);
+-	__tcp_add_write_queue_tail(sk, buff);
+-	sk->sk_wmem_queued += buff->truesize;
+-	sk_mem_charge(sk, buff->truesize);
+-	tp->packets_out += tcp_skb_pcount(buff);
+-	err = tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
++	/* Send off SYN; include data in Fast Open. */
++	err = tp->fastopen_req ? tcp_send_syn_data(sk, buff) :
++	      tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
+ 	if (err == -ECONNREFUSED)
+ 		return err;
  
 -- 
 1.7.7.3
