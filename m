@@ -1,39 +1,111 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 0/2] Backward-compatibility for feature get/set
-Date: Mon, 16 Jul 2012 23:17:21 +0100
-Message-ID: <1342477041.2523.40.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH ethtool 1/2] Remove bogus error message when changing
+ offload settings on older kernels
+Date: Mon, 16 Jul 2012 23:18:39 +0100
+Message-ID: <1342477119.2523.41.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342477041.2523.40.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <linux-net-drivers@solarflare.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:52375 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:52401 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754128Ab2GPWRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 18:17:25 -0400
+	by vger.kernel.org with ESMTP id S1752540Ab2GPWSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 18:18:42 -0400
+In-Reply-To: <1342477041.2523.40.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've committed fixes for another 2 bugs in features (-k/-K options):
+We should not be checking for fixed features when we have no
+information about which are fixed.
 
-- A silly regression introduced in 3.4, not covered by unit tests which
-don't yet check the command output
-- An older bug (really a defect in the ETHTOOL_GFLAGS API) which we can
-work around
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ ethtool.c |   60 +++++++++++++++++++++++++++++++++---------------------------
+ 1 files changed, 33 insertions(+), 27 deletions(-)
 
-Ben.
-
-Ben Hutchings (2):
-  Remove bogus error message when changing offload settings on older
-    kernels
-  Fix reporting of VLAN tag offload flags for Linux 2.6.24-2.6.36
-
- ethtool.c |  101 ++++++++++++++++++++++++++++++++++++++++++++----------------
- 1 files changed, 74 insertions(+), 27 deletions(-)
-
+diff --git a/ethtool.c b/ethtool.c
+index 3c34273..b424756 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1962,39 +1962,45 @@ static int do_sfeatures(struct cmd_context *ctx)
+ 	if (!old_state)
+ 		return 1;
+ 
+-	/* For each offload that the user specified, update any
+-	 * related features that the user did not specify and that
+-	 * are not fixed.  Warn if all related features are fixed.
+-	 */
+-	for (i = 0; i < ARRAY_SIZE(off_flag_def); i++) {
+-		int fixed = 1;
+-
+-		if (!(off_flags_mask & off_flag_def[i].value))
+-			continue;
++	if (efeatures) {
++		/* For each offload that the user specified, update any
++		 * related features that the user did not specify and that
++		 * are not fixed.  Warn if all related features are fixed.
++		 */
++		for (i = 0; i < ARRAY_SIZE(off_flag_def); i++) {
++			int fixed = 1;
+ 
+-		for (j = 0; j < defs->n_features; j++) {
+-			if (defs->def[j].off_flag_index != i ||
+-			    !FEATURE_BIT_IS_SET(old_state->features.features,
+-						j, available) ||
+-			    FEATURE_BIT_IS_SET(old_state->features.features,
+-					       j, never_changed))
++			if (!(off_flags_mask & off_flag_def[i].value))
+ 				continue;
+ 
+-			fixed = 0;
+-			if (!FEATURE_BIT_IS_SET(efeatures->features, j, valid)) {
+-				FEATURE_BIT_SET(efeatures->features, j, valid);
+-				if (off_flags_wanted & off_flag_def[i].value)
+-					FEATURE_BIT_SET(efeatures->features, j,
+-							requested);
++			for (j = 0; j < defs->n_features; j++) {
++				if (defs->def[j].off_flag_index != i ||
++				    !FEATURE_BIT_IS_SET(
++					    old_state->features.features,
++					    j, available) ||
++				    FEATURE_BIT_IS_SET(
++					    old_state->features.features,
++					    j, never_changed))
++					continue;
++
++				fixed = 0;
++				if (!FEATURE_BIT_IS_SET(efeatures->features,
++							j, valid)) {
++					FEATURE_BIT_SET(efeatures->features,
++							j, valid);
++					if (off_flags_wanted &
++					    off_flag_def[i].value)
++						FEATURE_BIT_SET(
++							efeatures->features,
++							j, requested);
++				}
+ 			}
+-		}
+ 
+-		if (fixed)
+-			fprintf(stderr, "Cannot change %s\n",
+-				off_flag_def[i].long_name);
+-	}
++			if (fixed)
++				fprintf(stderr, "Cannot change %s\n",
++					off_flag_def[i].long_name);
++		}
+ 
+-	if (efeatures) {
+ 		err = send_ioctl(ctx, efeatures);
+ 		if (err < 0) {
+ 			perror("Cannot set device feature settings");
 -- 
 1.7.7.6
+
 
 
 -- 
