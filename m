@@ -1,198 +1,182 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Mon, 16 Jul 2012 11:38:16 -0700
-Message-ID: <20120716183816.GH9598@jonmason-lab>
-References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
- <CAAsGZS5uMArBVa+Rog1H60FVfKq84eqt5G2dvafDWXTP-RdiwQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAAsGZS5uMArBVa+Rog1H60FVfKq84eqt5G2dvafDWXTP-RdiwQ@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: Fix list corruption resulting from freeing an association on a list
+Date: Mon, 16 Jul 2012 14:39:30 -0400
+Message-ID: <1342463970-7457-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>, davej@redhat.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54814 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751584Ab2GPSkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 14:40:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 16, 2012 at 12:49:39PM -0400, chetan loke wrote:
-> Hi Jon,
-> 
-> On Fri, Jul 13, 2012 at 5:44 PM, Jon Mason <jon.mason@intel.com> wrote:
-> 
-> Just a few minor comments/questions:
-> 
-> ....
-> 
-> > +struct ntb_transport_qp {
-> > +       struct ntb_device *ndev;
-> > +
-> > +       bool client_ready;
-> > +       bool qp_link;
-> > +       u8 qp_num;      /* Only 64 QP's are allowed.  0-63 */
-> > +
-> > +       void (*tx_handler) (struct ntb_transport_qp *qp);
-> > +       struct tasklet_struct tx_work;
-> 
-> Is it ok to rename the following vars for convenience sake?
-> 
-> > +       struct list_head txq;
-> tx_pend_q - (pending_queue) or tx_out_q - (outstanding_queue) - or
-> pick any new string you like - other than a mono-syllable definition
-> 
-> > +       struct list_head txc;
-> tx_compl_q - completion queue
-> 
-> > +       struct list_head txe;
-> tx_avail_e - available entry queue
-> 
-> 
-> > +       spinlock_t txq_lock;
-> > +       spinlock_t txc_lock;
-> > +       spinlock_t txe_lock;
-> 
-> then match the variants accordingly.
-> 
-> > +       struct list_head rxq;
-> > +       struct list_head rxc;
-> > +       struct list_head rxe;
-> > +       spinlock_t rxq_lock;
-> > +       spinlock_t rxc_lock;
-> > +       spinlock_t rxe_lock;
-> 
-> similarly the rx-counterpart
+A few days ago Dave Jones reported this oops:
 
-Are they difficult to understand?  I can change them, but it seems rather moot since you seemed to immediately understand the logic behind the names.
+[22766.294255] general protection fault: 0000 [#1] PREEMPT SMP
+[22766.295376] CPU 0
+[22766.295384] Modules linked in:
+[22766.387137]  ffffffffa169f292 6b6b6b6b6b6b6b6b ffff880147c03a90
+ffff880147c03a74
+[22766.387135] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 00000000000
+[22766.387136] Process trinity-watchdo (pid: 10896, threadinfo ffff88013e7d2000,
+[22766.387137] Stack:
+[22766.387140]  ffff880147c03a10
+[22766.387140]  ffffffffa169f2b6
+[22766.387140]  ffff88013ed95728
+[22766.387143]  0000000000000002
+[22766.387143]  0000000000000000
+[22766.387143]  ffff880003fad062
+[22766.387144]  ffff88013c120000
+[22766.387144]
+[22766.387145] Call Trace:
+[22766.387145]  <IRQ>
+[22766.387150]  [<ffffffffa169f292>] ? __sctp_lookup_association+0x62/0xd0
+[sctp]
+[22766.387154]  [<ffffffffa169f2b6>] __sctp_lookup_association+0x86/0xd0 [sctp]
+[22766.387157]  [<ffffffffa169f597>] sctp_rcv+0x207/0xbb0 [sctp]
+[22766.387161]  [<ffffffff810d4da8>] ? trace_hardirqs_off_caller+0x28/0xd0
+[22766.387163]  [<ffffffff815827e3>] ? nf_hook_slow+0x133/0x210
+[22766.387166]  [<ffffffff815902fc>] ? ip_local_deliver_finish+0x4c/0x4c0
+[22766.387168]  [<ffffffff8159043d>] ip_local_deliver_finish+0x18d/0x4c0
+[22766.387169]  [<ffffffff815902fc>] ? ip_local_deliver_finish+0x4c/0x4c0
+[22766.387171]  [<ffffffff81590a07>] ip_local_deliver+0x47/0x80
+[22766.387172]  [<ffffffff8158fd80>] ip_rcv_finish+0x150/0x680
+[22766.387174]  [<ffffffff81590c54>] ip_rcv+0x214/0x320
+[22766.387176]  [<ffffffff81558c07>] __netif_receive_skb+0x7b7/0x910
+[22766.387178]  [<ffffffff8155856c>] ? __netif_receive_skb+0x11c/0x910
+[22766.387180]  [<ffffffff810d423e>] ? put_lock_stats.isra.25+0xe/0x40
+[22766.387182]  [<ffffffff81558f83>] netif_receive_skb+0x23/0x1f0
+[22766.387183]  [<ffffffff815596a9>] ? dev_gro_receive+0x139/0x440
+[22766.387185]  [<ffffffff81559280>] napi_skb_finish+0x70/0xa0
+[22766.387187]  [<ffffffff81559cb5>] napi_gro_receive+0xf5/0x130
+[22766.387218]  [<ffffffffa01c4679>] e1000_receive_skb+0x59/0x70 [e1000e]
+[22766.387242]  [<ffffffffa01c5aab>] e1000_clean_rx_irq+0x28b/0x460 [e1000e]
+[22766.387266]  [<ffffffffa01c9c18>] e1000e_poll+0x78/0x430 [e1000e]
+[22766.387268]  [<ffffffff81559fea>] net_rx_action+0x1aa/0x3d0
+[22766.387270]  [<ffffffff810a495f>] ? account_system_vtime+0x10f/0x130
+[22766.387273]  [<ffffffff810734d0>] __do_softirq+0xe0/0x420
+[22766.387275]  [<ffffffff8169826c>] call_softirq+0x1c/0x30
+[22766.387278]  [<ffffffff8101db15>] do_softirq+0xd5/0x110
+[22766.387279]  [<ffffffff81073bc5>] irq_exit+0xd5/0xe0
+[22766.387281]  [<ffffffff81698b03>] do_IRQ+0x63/0xd0
+[22766.387283]  [<ffffffff8168ee2f>] common_interrupt+0x6f/0x6f
+[22766.387283]  <EOI>
+[22766.387284]
+[22766.387285]  [<ffffffff8168eed9>] ? retint_swapgs+0x13/0x1b
+[22766.387285] Code: c0 90 5d c3 66 0f 1f 44 00 00 4c 89 c8 5d c3 0f 1f 00 55 48
+89 e5 48 83
+ec 20 48 89 5d e8 4c 89 65 f0 4c 89 6d f8 66 66 66 66 90 <0f> b7 87 98 00 00 00
+48 89 fb
+49 89 f5 66 c1 c0 08 66 39 46 02
+[22766.387307]
+[22766.387307] RIP
+[22766.387311]  [<ffffffffa168a2c9>] sctp_assoc_is_match+0x19/0x90 [sctp]
+[22766.387311]  RSP <ffff880147c039b0>
+[22766.387142]  ffffffffa16ab120
+[22766.599537] ---[ end trace 3f6dae82e37b17f5 ]---
+[22766.601221] Kernel panic - not syncing: Fatal exception in interrupt
 
-> 
-> 
-> ..................
-> 
-> > +static void ntb_tx_copy_task(struct ntb_transport_qp *qp,
-> > +                            struct ntb_queue_entry *entry,
-> > +                            void *offset)
-> > +{
-> > +       struct ntb_payload_header *hdr = offset;
-> > +       int rc;
-> > +
-> > +       offset += sizeof(struct ntb_payload_header);
-> > +       memcpy_toio(offset, entry->buf, entry->len);
-> > +
-> > +       hdr->len = entry->len;
-> > +       hdr->ver = qp->tx_pkts;
-> > +
-> > +       /* Ensure that the data is fully copied out before setting the flag */
-> > +       wmb();
-> > +       hdr->flags = entry->flags | DESC_DONE_FLAG;
-> > +
-> > +       rc = ntb_ring_sdb(qp->ndev, qp->qp_num);
-> > +       if (rc)
-> > +               pr_err("%s: error ringing db %d\n", __func__, qp->qp_num);
-> > +
-> > +       if (entry->len > 0) {
-> 
-> how do you interpret this len variable and decide if it's a good/bad completion?
+It appears from his analysis and some staring at the code that this is likely
+occuring because an association is getting freed while still on the
+sctp_assoc_hashtable.  As a result, we get a gpf when traversing the hashtable
+while a freed node corrupts part of the list.
 
-The length of 0 is for messages from the remote system, which currently only consists of a "link down" message notifying the local system to no longer send any messages to the remote side.
+Nominally I would think that an mibalanced refcount was responsible for this,
+but I can't seem to find any obvious imbalance.  What I did note however was
+that the two places where we create an association using
+sctp_primitive_ASSOCIATE (__sctp_connect and sctp_sendmsg), have failure paths
+which free a newly created association after calling sctp_primitive_ASSOCIATE.
+sctp_primitive_ASSOCIATE brings us into the sctp_sf_do_prm_asoc path, which
+issues a SCTP_CMD_NEW_ASOC side effect, which in turn adds a new association to
+the aforementioned hash table.  the sctp command interpreter that process side
+effects has not way to unwind previously processed commands, so freeing the
+association from the __sctp_connect or sctp_sendmsg error path would lead to a
+freed association remaining on this hash table.
 
-> 
-> > +               qp->tx_bytes += entry->len;
-> > +
-> > +               /* Add fully transmitted data to completion queue */
-> > +               ntb_list_add_tail(&qp->txc_lock, &entry->entry, &qp->txc);
-> > +
-> > +               if (qp->tx_handler)
-> > +                       qp->tx_handler(qp);
-> > +       } else
-> > +               ntb_list_add_tail(&qp->txe_lock, &entry->entry, &qp->txe);
-> 
-> I could be wrong but how is the original skb handled if the code path
-> goes in the else clause?
+I've fixed this but modifying sctp_[un]hash_established to use hlist_del_init,
+which allows us to proerly use hlist_unhashed to check if the node is on a
+hashlist safely during a delete.  That in turn alows us to safely call
+sctp_unhash_established in the __sctp_connect and sctp_sendmsg error paths
+before freeing them, regardles of what the associations state is on the hash
+list.
 
-There is no skb is the length is zero.  Since the only client is virtual ethernet, it will always be > 60.  However, I should add a sanity check for 0 length in tx_enqueue.
+I noted, while I was doing this, that the __sctp_unhash_endpoint was using
+hlist_unhsashed in a simmilar fashion, but never nullified any removed nodes
+pointers to make that function work properly, so I fixed that up in a simmilar
+fashion.
 
-> Also, in the else clause, how about a ntb_list_add_head rather than a _tail.
+I attempted to test this using a virtual guest running the SCTP_RR test from
+netperf in a loop while running the trinity fuzzer, both in a loop.  I wasn't
+able to recreate the problem prior to this fix, nor was I able to trigger the
+failure after (neither of which I suppose is suprising).  Given the trace above
+however, I think its likely that this is what we hit.
 
-Why add to the head, it was just used?
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: davej@redhat.com
+CC: davej@redhat.com
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: Sridhar Samudrala <sri@us.ibm.com>
+CC: linux-sctp@vger.kernel.org
+---
+ net/sctp/input.c  |    7 ++-----
+ net/sctp/socket.c |    8 +++++++-
+ 2 files changed, 9 insertions(+), 6 deletions(-)
 
-> > +
-> > +static int ntb_process_tx(struct ntb_transport_qp *qp,
-> > +                         struct ntb_queue_entry *entry)
-> > +{
-> > +       struct ntb_payload_header *hdr;
-> > +       void *offset;
-> > +
-> > +       offset = qp->tx_offset;
-> > +       hdr = offset;
-> > +
-> > +       pr_debug("%lld - offset %p, tx %p, entry len %d flags %x buff %p\n",
-> > +                qp->tx_pkts, offset, qp->tx_offset, entry->len, entry->flags,
-> > +                entry->buf);
-> > +       if (hdr->flags) {
-> > +               ntb_list_add_head(&qp->txq_lock, &entry->entry, &qp->txq);
-> > +               qp->tx_ring_full++;
-> > +               return -EAGAIN;
-> > +       }
-> > +
-> > +       if (entry->len > transport_mtu) {
-> > +               pr_err("Trying to send pkt size of %d\n", entry->len);
-> > +               entry->flags = HW_ERROR_FLAG;
-> > +
-> > +               ntb_list_add_tail(&qp->txc_lock, &entry->entry, &qp->txc);
-> > +
-> > +               if (qp->tx_handler)
-> > +                       qp->tx_handler(qp);
-> > +
-> > +               return 0;
-> > +       }
-> > +
-> > +       ntb_tx_copy_task(qp, entry, offset);
-> 
-> what happens when ntb_sdb_ring returns an error? would you still want
-> to increment tx_pkts below?
-
-It's not fatal if the remote side isn't notified.  It will hurt latency, since the next packet would be the one that triggers the next interrupt.  Also, the only way it could ever fail would be if it was an invalid interrupt bit being set, which should never happen.
-
-> > +
-> > +       qp->tx_offset =
-> > +           (qp->tx_offset +
-> > +            ((transport_mtu + sizeof(struct ntb_payload_header)) * 2) >=
-> > +            qp->tx_mw_end) ? qp->tx_mw_begin : qp->tx_offset + transport_mtu +
-> > +           sizeof(struct ntb_payload_header);
-> > +
-> > +       qp->tx_pkts++;
-> > +
-> > +       return 0;
-> > +}
-> > +
-> 
-> ........................
-> 
-> 
-> > +void *ntb_transport_tx_dequeue(struct ntb_transport_qp *qp, unsigned int *len)
-> > +{
-> > +       struct ntb_queue_entry *entry;
-> > +       void *buf;
-> > +
-> > +       if (!qp)
-> > +               return NULL;
-> > +
-> > +       entry = ntb_list_rm_head(&qp->txc_lock, &qp->txc);
-> > +       if (!entry)
-> > +               return NULL;
-> > +
-> > +       buf = entry->callback_data;
-> > +       if (entry->flags != HW_ERROR_FLAG)
-> > +               *len = entry->len;
-> > +       else
-> > +               *len = -EIO;
-> > +
-> > +       ntb_list_add_tail(&qp->txe_lock, &entry->entry, &qp->txe);
-> 
-> how about a ntb_list_add_head?
-
-Is there a benefit to adding to the head versus tail?  It makes more sense to me to pull from the head and add to the tail.
-
-> 
-> 
-> Chetan Loke
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index f050d45..05994374 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -752,15 +752,12 @@ static void __sctp_unhash_endpoint(struct sctp_endpoint *ep)
+ 
+ 	epb = &ep->base;
+ 
+-	if (hlist_unhashed(&epb->node))
+-		return;
+-
+ 	epb->hashent = sctp_ep_hashfn(epb->bind_addr.port);
+ 
+ 	head = &sctp_ep_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+-	__hlist_del(&epb->node);
++	hlist_del_init(&epb->node);
+ 	sctp_write_unlock(&head->lock);
+ }
+ 
+@@ -841,7 +838,7 @@ static void __sctp_unhash_established(struct sctp_association *asoc)
+ 	head = &sctp_assoc_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+-	__hlist_del(&epb->node);
++	hlist_del_init(&epb->node);
+ 	sctp_write_unlock(&head->lock);
+ }
+ 
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index b3b8a8d..d740db4 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1231,8 +1231,14 @@ out_free:
+ 	SCTP_DEBUG_PRINTK("About to exit __sctp_connect() free asoc: %p"
+ 			  " kaddrs: %p err: %d\n",
+ 			  asoc, kaddrs, err);
+-	if (asoc)
++	if (asoc) {
++		/* sctp_primitive_ASSOCIATE may have added this association
++		 * To the hash table, try to unhash it, just in case, its a noop
++		 * if it wasn't hashed so we're safe
++		 */
++		sctp_unhash_established(asoc);
+ 		sctp_association_free(asoc);
++	}
+ 	return err;
+ }
+ 
+-- 
+1.7.7.6
