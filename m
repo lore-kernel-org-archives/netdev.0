@@ -1,48 +1,53 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [PATCH v6 4/7] net, ethernet, davinci_emac: add OF support
-Date: Mon, 16 Jul 2012 22:57:33 +0530
-Message-ID: <50044F05.6060707@ti.com>
-References: <1341823456-32297-1-git-send-email-hs@denx.de>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Mon, 16 Jul 2012 10:55:06 -0700
+Message-ID: <20120716175505.GF9598@jonmason-lab>
+References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
+ <20120714171015.GB25775@kroah.com>
+ <20120715235548.GC7551@jonmason-lab>
+ <20120716001921.GA19775@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Heiko Schocher <hs@denx.de>,
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<devicetree-discuss@lists.ozlabs.org>, <netdev@vger.kernel.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Wolfgang Denk <wd@denx.de>, Anatoly Sivov <mm05@mail.ru>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:56583 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753381Ab2GPR2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2012 13:28:23 -0400
-In-Reply-To: <1341823456-32297-1-git-send-email-hs@denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120716001921.GA19775@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-On 7/9/2012 2:14 PM, Heiko Schocher wrote:
-> add of support for the davinci_emac driver.
+On Sun, Jul 15, 2012 at 05:19:21PM -0700, Greg KH wrote:
+> On Sun, Jul 15, 2012 at 04:55:48PM -0700, Jon Mason wrote:
+> > On Sat, Jul 14, 2012 at 10:10:15AM -0700, Greg KH wrote:
+> > > On Fri, Jul 13, 2012 at 02:44:59PM -0700, Jon Mason wrote:
+> > > > +static int max_num_cbs = 2;
+> > > > +module_param(max_num_cbs, uint, 0644);
+> > > > +MODULE_PARM_DESC(max_num_cbs, "Maximum number of NTB transport connections");
+> > > > +
+> > > > +static bool no_msix;
+> > > > +module_param(no_msix, bool, 0644);
+> > > > +MODULE_PARM_DESC(no_msix, "Do not allow MSI-X interrupts to be selected");
+> > > 
+> > > How would a user, or a distro, know to set these options?  Why are they
+> > > even options at all?
+> > 
+> > Good question.  There is actually a potential benefit to disabling
+> > MSI-X.  The NTB device on one of our platforms only has 3 MSI-X
+> > vectors.  In the current driver design, that would limit them to 3
+> > client/virtual devices.  However, there are 15bits in the ISR that can
+> > be used for the same purpose.  So, if you disable MSI-X, you can have
+> > 15 instead of 3.  
 > 
-> Signed-off-by: Heiko Schocher <hs@denx.de>
-> Acked-by: Sekhar Nori <nsekhar@ti.com>
-> Cc: davinci-linux-open-source@linux.davincidsp.com
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: devicetree-discuss@lists.ozlabs.org
-> Cc: netdev@vger.kernel.org
-> Cc: Grant Likely <grant.likely@secretlab.ca>
-> Cc: Sekhar Nori <nsekhar@ti.com>
-> Cc: Wolfgang Denk <wd@denx.de>
-> Cc: Anatoly Sivov <mm05@mail.ru>
-> Cc: David Miller <davem@davemloft.net>
+> But again, how would a user, or a distro, know to set these?  Where is
+> the documentation describing it?  Why really have these options at all
+> and not just fix the platform issues (only 3 MSI-X vectors?  Really?)
 
-Can you please consider this patch for v3.6? I tested it on DaVinci
-AM18x EVM with and without CONFIG_OF using NFS root.
+I believe we'll want multiple clients (or have multiqueue Ethernet).  I'm happy to add something to /Documentation to describe it and why it would be useful, or I can remove it and re-introduce it when I add multiqueue Ethernet.
 
-This patch can be independently queued and does not have any dependencies.
+3 MSI-X vectors (plus one for PCI-E link up/down) on Xeon NTB, and 33 for Atom NTB.  Yeah, really.
 
-Thanks,
-Sekhar
+> 
+> thanks,
+> 
+> greg k-h
