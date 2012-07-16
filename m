@@ -1,19 +1,90 @@
-From: Tess Bradley <web_tess202@att.net>
-Subject: (unknown)
-Date: Sun, 15 Jul 2012 23:14:58 -0700 (PDT)
-Message-ID: <1342419298.75593.YahooMailRC@web181206.mail.ne1.yahoo.com>
-Reply-To: Tess Bradley <raymond.bradfinanceinc@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.4.4/amd64 full interrupt hangs under big nfs copies
+Date: Mon, 16 Jul 2012 08:18:49 +0200
+Message-ID: <1342419529.3265.12217.camel@edumazet-glaptop>
+References: <20120409.143710.879746943062854492.davem@davemloft.net>
+	 <4F83316F.20504@lwfinger.net> <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org>  <20120715215935.GF24420@merlins.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: undisclosed recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Larry.Finger@lwfinger.net,
+	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marc MERLIN <marc@merlins.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm29.bullet.mail.sp2.yahoo.com ([98.139.91.99]:46297 "HELO
-	nm29.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751192Ab2GPGO7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 02:14:59 -0400
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:60320 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072Ab2GPGSy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 02:18:54 -0400
+In-Reply-To: <20120715215935.GF24420@merlins.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, 2012-07-15 at 14:59 -0700, Marc MERLIN wrote:
+> On Tue, Apr 10, 2012 at 10:27:33PM -0700, Marc MERLIN wrote:
+> > On Tue, Apr 10, 2012 at 08:11:03AM +0200, Eric Dumazet wrote:
+> > > Please try following patch, as it solved the problem for me (no more
+> > > order-1 allocations in tx path)
+> > 
+> > I applied our patch to 3.3.1 and cannot reproduce the problem anymore.
+> > 
+> > I'll leave a big wireless copy running overnight just in case, but I think
+> > you fixed it.
+> 
+> Mmmh, so I'm running 3.4.4 and I had another full machine hang while copying
+> big files (gigabytes) over wireless via NFS.
+> The laptop self recovered after 5mn or so (mouse cursor would not even
+> move) and I was able to kill -9 the process (midnight commander).
+> mc did not actually stop for another 4mn or so (i.e. it took that long for
+> the process to come out of kernel hung state), but the machine was usable
+> during that time.
+> Note that copying the same data with scp works fine.
+> NFS mount looks like this:
+> gargamel:/mnt/dshelf2/ /net/gargamel/mnt/dshelf2 nfs4 rw,nosuid,nodev,relatime,vers=4.0,rsize=524288,wsize=524288,namlen=255,hard,proto=tcp,port=0,timeo=600,retrans=2,sec=sys,clientaddr=192.168.205.7,local_lock=none,addr=192.168.205.3 0 0
+> 
+> I didn't have anything like last time in the kernel logs, and more
+> annoyingly, ps -elf does not show anything for any process in WCHAN,
+> making pointing the finger a bit harder (procps-ng 3.3.3 does not show
+> anything other than '-' in WCHAN for any process with 3.4.4).
+> 
+> My understanding is that user space calling drivers that shut off all
+> interrupts for extended periods of time (as least I think so since my mouse
+> cursor would not move), is still a kernel bug.
+> 
+> For what it's worth, copying 1GB of data in lots of small files does not
+> cause problems, it seems that it's big files that cause a problem since they
+> likely fill a buffer somewhere while interrupts are disabled.
+> 
+> Do you have an idea of how I can find out where my mc process is stuck in
+> the kernel?
+> Should I reproduce with specific sysrq output?
+
+Just to clarify, you get this freeze when transferring a big file from a
+remote NFS server to your PC, (aka a download), not the reverse way ?
+
+If so, you might hit OOM condition because iwlwifi uses big/fat RX
+buffers, I never understood why...
+
+(amsdu_size_8K = 1)
+
+Storing an MTU=1500 frams in 8KB of memory sounds really bad.
 
 
- Need urgent Loan? email me for more info.
+diff --git a/drivers/net/wireless/iwlwifi/iwl-drv.c b/drivers/net/wireless/iwlwifi/iwl-drv.c
+index cc41cfa..434b924 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-drv.c
++++ b/drivers/net/wireless/iwlwifi/iwl-drv.c
+@@ -1006,7 +1006,7 @@ void iwl_drv_stop(struct iwl_drv *drv)
+ 
+ /* shared module parameters */
+ struct iwl_mod_params iwlwifi_mod_params = {
+-	.amsdu_size_8K = 1,
++	.amsdu_size_8K = 0,
+ 	.restart_fw = 1,
+ 	.plcp_check = true,
+ 	.bt_coex_active = true,
