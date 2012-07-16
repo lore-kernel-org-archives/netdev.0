@@ -1,79 +1,62 @@
-From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
-Subject: Re: 82571EB: Detected Hardware Unit Hang
-Date: Mon, 16 Jul 2012 13:08:07 -0300
-Message-ID: <20120716160807.GB1765@khazad-dum.debian.net>
-References: <4FFE6BB9.4060106@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F033B@ORSMSX102.amr.corp.intel.com>
-	<4FFE787B.9050201@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F0ACC@ORSMSX102.amr.corp.intel.com>
-	<4FFF61BD.1060604@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F11FF@ORSMSX102.amr.corp.intel.com>
-	<4FFFA532.1030208@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F2354@ORSMSX102.amr.corp.intel.com>
-	<20120715133510.GA5484@khazad-dum.debian.net>
-	<1342453645.2523.17.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.4.4/amd64 full interrupt hangs under big nfs copies
+Date: Mon, 16 Jul 2012 18:21:57 +0200
+Message-ID: <1342455717.2830.14.camel@edumazet-glaptop>
+References: <20120409.143710.879746943062854492.davem@davemloft.net>
+	 <4F83316F.20504@lwfinger.net> <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	Joe Jin <joe.jin@oracle.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1342453645.2523.17.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, Larry.Finger@lwfinger.net,
+	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marc MERLIN <marc@merlins.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:43179 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752575Ab2GPQWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 12:22:03 -0400
+In-Reply-To: <20120716151826.GA10586@merlins.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Jul 2012, Ben Hutchings wrote:
-> On Sun, 2012-07-15 at 10:35 -0300, Henrique de Moraes Holschuh wrote:
-> > On Sun, 15 Jul 2012, Dave, Tushar N wrote:
-> > > Somehow setting max payload to 256 from BIOS does not set this value for all devices. I believe this is a BIOS bug.
+On Mon, 2012-07-16 at 08:18 -0700, Marc MERLIN wrote:
+> On Mon, Jul 16, 2012 at 08:18:49AM +0200, Eric Dumazet wrote:
+> > > My understanding is that user space calling drivers that shut off all
+> > > interrupts for extended periods of time (as least I think so since my mouse
+> > > cursor would not move), is still a kernel bug.
+> > > 
+> > > For what it's worth, copying 1GB of data in lots of small files does not
+> > > cause problems, it seems that it's big files that cause a problem since they
+> > > likely fill a buffer somewhere while interrupts are disabled.
+> > > 
+> > > Do you have an idea of how I can find out where my mc process is stuck in
+> > > the kernel?
+> > > Should I reproduce with specific sysrq output?
 > > 
-> > And preferably, Linux should complain about it.  Since we know it is going
-> > to cause problems, and since we know it does happen, we should be raising a
-> > ruckus about it in the kernel log (and probably fixing it to min(path) while
-> > at it)...
-> > 
-> > Is this something that should be raised as a feature request with the
-> > PCI/PCIe subsystem?
-> 
-> The feature is there, but we ended up with:
-> 
-> commit 5f39e6705faade2e89d119958a8c51b9b6e2c53c
-> Author: Jon Mason <mason@myri.com>
-> Date:   Mon Oct 3 09:50:20 2011 -0500
-> 
->     PCI: Disable MPS configuration by default
-> 
-> But you are welcome to share use of the fixup_mpss_256() quirk.
+> > Just to clarify, you get this freeze when transferring a big file from a
+> > remote NFS server to your PC, (aka a download), not the reverse way ?
+>  
+> No, it's atually when I'm 'uploading' from my laptop to my server.
+> One interesting thing is that my server is running lvm2 with snapshots,
+> which makes writes slower than my laptop can push data over the network, so
+> it's definitely causing buffers to fill up.
+> I just did a download test and got 4.5MB/s sustained without problems.
 
-Meh.  I'd be happy with a warning if MPSS decreases when walking up to
-the tree root... i.e. a warning if any child has a MPSS larger than the
-parent.
+Hmm, nfs apparently is able to push lot of data, try to reduce
+rsize/wsize to sane values, like 32K instead of 512K ?
 
--- 
-  "One disk to rule them all, One disk to find them. One disk to bring
-  them all and in the darkness grind them. In the Land of Redmond
-  where the shadows lie." -- The Silicon Valley Tarot
-  Henrique Holschuh
+gargamel:/mnt/dshelf2/ /net/gargamel/mnt/dshelf2 nfs4
+rw,nosuid,nodev,relatime,vers=4.0,rsize=524288,wsize=524288,namlen=255,hard,proto=tcp,port=0,timeo=600,retrans=2,sec=sys,clientaddr=192.168.205.7,local_lock=none,addr=192.168.205.3 0 0
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+You could trace svc_sock_setbufsize() and check how large is set
+sk_sndbuf
+
+(iwlwifi is unable to use sendpage anyway, since SG is not enabled)
