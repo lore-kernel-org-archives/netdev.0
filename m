@@ -1,181 +1,123 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "Kiran (Kiran Kumar) Kella" <kkiran@broadcom.com>
 Subject: RE: Is TCP vulneribility patch (as in RFC 5961) done in linux?
-Date: Mon, 16 Jul 2012 15:46:51 +0200
-Message-ID: <1342446411.23494.76.camel@edumazet-glaptop>
+Date: Mon, 16 Jul 2012 13:50:10 +0000
+Message-ID: <68700EDA775E5E47B5EBA9FF8AC0F15C078886@SJEXCHMB09.corp.ad.broadcom.com>
 References: <68700EDA775E5E47B5EBA9FF8AC0F15C076B03@SJEXCHMB09.corp.ad.broadcom.com>
-	 <68700EDA775E5E47B5EBA9FF8AC0F15C077FF3@SJEXCHMB09.corp.ad.broadcom.com>
-	 <1342427617.4812.0.camel@edumazet-glaptop>
+ <68700EDA775E5E47B5EBA9FF8AC0F15C077FF3@SJEXCHMB09.corp.ad.broadcom.com>
+ <1342427617.4812.0.camel@edumazet-glaptop>
+ <1342446411.23494.76.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kiran (Kiran Kumar) Kella" <kkiran@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:56864 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284Ab2GPNq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 09:46:56 -0400
-Received: by eekc13 with SMTP id c13so186699eek.19
-        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 06:46:55 -0700 (PDT)
-In-Reply-To: <1342427617.4812.0.camel@edumazet-glaptop>
+Received: from mms3.broadcom.com ([216.31.210.19]:3831 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751611Ab2GPNu2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 09:50:28 -0400
+In-Reply-To: <1342446411.23494.76.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-16 at 10:33 +0200, Eric Dumazet wrote:
-> On Mon, 2012-07-16 at 07:06 +0000, Kiran (Kiran Kumar) Kella wrote:
-> > Looking into the file tcp_input.c in the latest stable linux release 3.4.4 source, I understand the fix for this recommendation is not implemented in Linux.
-> > Any reason why it was not addressed?
-> 
-> Nobody cared ?
-> 
-> Are you planning to send a patch ?
-> 
-
-
-Here is an RFC patch implementing RFC 5961 3.2
-
-[PATCH net-next] tcp: implement RFC 5961 3.2
-
-Implement the RFC 5691 mitigation against Blind
-Reset attack using RST bit.
-
-Add a new sysctl, tcp_challengeack_limit, to limit
-number of challenge ACK sent per second.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Kiran Kumar Kella <kkiran@broadcom.com>
----
- Documentation/networking/ip-sysctl.txt |    5 +++
- include/linux/snmp.h                   |    1 
- include/net/tcp.h                      |    1 
- net/ipv4/proc.c                        |    1 
- net/ipv4/sysctl_net_ipv4.c             |    7 +++++
- net/ipv4/tcp_input.c                   |   31 ++++++++++++++++++++++-
- 6 files changed, 45 insertions(+), 1 deletion(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index e20c17a..f785fd1 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -565,6 +565,11 @@ tcp_limit_output_bytes - INTEGER
- 	reduce the size of individual GSO packet (64KB being the max)
- 	Default: 131072
- 
-+tcp_challengeack_limit - INTEGER
-+	Limits number of Challenge ACK sent per second, as recommended
-+	in RFC 5961 (Improving TCP's Robustness to Blind In-Window Attacks)
-+	Default: 100
-+
- UDP variables:
- 
- udp_mem - vector of 3 INTEGERs: min, pressure, max
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 2e68f5b..594638e 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -234,6 +234,7 @@ enum
- 	LINUX_MIB_TCPREQQFULLDROP,		/* TCPReqQFullDrop */
- 	LINUX_MIB_TCPRETRANSFAIL,		/* TCPRetransFail */
- 	LINUX_MIB_TCPRCVCOALESCE,			/* TCPRcvCoalesce */
-+	LINUX_MIB_TCPCHALLENGEACK,		/* TCPChallengeACK */
- 	__LINUX_MIB_MAX
- };
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 439984b..fc14419 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -254,6 +254,7 @@ extern int sysctl_tcp_thin_linear_timeouts;
- extern int sysctl_tcp_thin_dupack;
- extern int sysctl_tcp_early_retrans;
- extern int sysctl_tcp_limit_output_bytes;
-+extern int sysctl_tcp_challengeack_limit;
- 
- extern atomic_long_t tcp_memory_allocated;
- extern struct percpu_counter tcp_sockets_allocated;
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 8af0d44..d589468 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -258,6 +258,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPReqQFullDrop", LINUX_MIB_TCPREQQFULLDROP),
- 	SNMP_MIB_ITEM("TCPRetransFail", LINUX_MIB_TCPRETRANSFAIL),
- 	SNMP_MIB_ITEM("TCPRcvCoalesce", LINUX_MIB_TCPRCVCOALESCE),
-+	SNMP_MIB_ITEM("TCPChallengeACK", LINUX_MIB_TCPCHALLENGEACK),
- 	SNMP_MIB_SENTINEL
- };
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 70730f7..12df8e8 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -605,6 +605,13 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "tcp_challengeack_limit",
-+		.data		= &sysctl_tcp_challengeack_limit,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- #ifdef CONFIG_NET_DMA
- 	{
- 		.procname	= "tcp_dma_copybreak",
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 055ac49..8e7edff 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -88,6 +88,9 @@ int sysctl_tcp_app_win __read_mostly = 31;
- int sysctl_tcp_adv_win_scale __read_mostly = 1;
- EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
- 
-+/* rfc5961 challenge ack rate limiting */
-+int sysctl_tcp_challengeack_limit = 100;
-+
- int sysctl_tcp_stdurg __read_mostly;
- int sysctl_tcp_rfc1337 __read_mostly;
- int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
-@@ -5244,6 +5247,23 @@ out:
- }
- #endif /* CONFIG_NET_DMA */
- 
-+static void tcp_send_challenge_ack(struct sock *sk)
-+{
-+	/* unprotected vars, we dont care of overwrites */
-+	static u32 challenge_time;
-+	static unsigned int challenge_count;
-+	u32 now = tcp_time_stamp / HZ;
-+
-+	if (now != challenge_time) {
-+		challenge_time = now;
-+		challenge_count = 0;
-+	}
-+	if (++challenge_count <= sysctl_tcp_challengeack_limit) {
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
-+		tcp_send_ack(sk);
-+	}
-+}
-+
- /* Does PAWS and seqno based validation of an incoming segment, flags will
-  * play significant role here.
-  */
-@@ -5280,7 +5300,16 @@ static int tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 
- 	/* Step 2: check RST bit */
- 	if (th->rst) {
--		tcp_reset(sk);
-+		/* RFC 5961 3.2 : 
-+		 * If sequence number exactly matches RCV.NXT, then
-+		 *     RESET the connection
-+		 * else
-+		 *     Send a challenge ACK
-+		 */
-+		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt)
-+			tcp_reset(sk);
-+		else
-+			tcp_send_challenge_ack(sk);
- 		goto discard;
- 	}
- 
+VGhhbmtzIGEgbG90IEVyaWMgZm9yIHRoZSBwYXRjaC4NCkkgc2hhbGwgdHJ5IGl0IG91dC4NCg0K
+UmVnYXJkcywNCktpcmFuDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmlj
+IER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IE1vbmRheSwg
+SnVseSAxNiwgMjAxMiA3OjE3IFBNDQpUbzogS2lyYW4gKEtpcmFuIEt1bWFyKSBLZWxsYQ0KQ2M6
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IFJFOiBJcyBUQ1AgdnVsbmVyaWJpbGl0
+eSBwYXRjaCAoYXMgaW4gUkZDIDU5NjEpIGRvbmUgaW4gbGludXg/DQoNCk9uIE1vbiwgMjAxMi0w
+Ny0xNiBhdCAxMDozMyArMDIwMCwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPiBPbiBNb24sIDIwMTIt
+MDctMTYgYXQgMDc6MDYgKzAwMDAsIEtpcmFuIChLaXJhbiBLdW1hcikgS2VsbGEgd3JvdGU6DQo+
+ID4gTG9va2luZyBpbnRvIHRoZSBmaWxlIHRjcF9pbnB1dC5jIGluIHRoZSBsYXRlc3Qgc3RhYmxl
+IGxpbnV4IHJlbGVhc2UgMy40LjQgc291cmNlLCBJIHVuZGVyc3RhbmQgdGhlIGZpeCBmb3IgdGhp
+cyByZWNvbW1lbmRhdGlvbiBpcyBub3QgaW1wbGVtZW50ZWQgaW4gTGludXguDQo+ID4gQW55IHJl
+YXNvbiB3aHkgaXQgd2FzIG5vdCBhZGRyZXNzZWQ/DQo+IA0KPiBOb2JvZHkgY2FyZWQgPw0KPiAN
+Cj4gQXJlIHlvdSBwbGFubmluZyB0byBzZW5kIGEgcGF0Y2ggPw0KPiANCg0KDQpIZXJlIGlzIGFu
+IFJGQyBwYXRjaCBpbXBsZW1lbnRpbmcgUkZDIDU5NjEgMy4yDQoNCltQQVRDSCBuZXQtbmV4dF0g
+dGNwOiBpbXBsZW1lbnQgUkZDIDU5NjEgMy4yDQoNCkltcGxlbWVudCB0aGUgUkZDIDU2OTEgbWl0
+aWdhdGlvbiBhZ2FpbnN0IEJsaW5kDQpSZXNldCBhdHRhY2sgdXNpbmcgUlNUIGJpdC4NCg0KQWRk
+IGEgbmV3IHN5c2N0bCwgdGNwX2NoYWxsZW5nZWFja19saW1pdCwgdG8gbGltaXQNCm51bWJlciBv
+ZiBjaGFsbGVuZ2UgQUNLIHNlbnQgcGVyIHNlY29uZC4NCg0KU2lnbmVkLW9mZi1ieTogRXJpYyBE
+dW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KQ2M6IEtpcmFuIEt1bWFyIEtlbGxhIDxra2ly
+YW5AYnJvYWRjb20uY29tPg0KLS0tDQogRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0
+bC50eHQgfCAgICA1ICsrKw0KIGluY2x1ZGUvbGludXgvc25tcC5oICAgICAgICAgICAgICAgICAg
+IHwgICAgMSANCiBpbmNsdWRlL25ldC90Y3AuaCAgICAgICAgICAgICAgICAgICAgICB8ICAgIDEg
+DQogbmV0L2lwdjQvcHJvYy5jICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAxIA0KIG5ldC9p
+cHY0L3N5c2N0bF9uZXRfaXB2NC5jICAgICAgICAgICAgIHwgICAgNyArKysrKw0KIG5ldC9pcHY0
+L3RjcF9pbnB1dC5jICAgICAgICAgICAgICAgICAgIHwgICAzMSArKysrKysrKysrKysrKysrKysr
+KysrLQ0KIDYgZmlsZXMgY2hhbmdlZCwgNDUgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0K
+DQpkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9uZXR3b3JraW5nL2lwLXN5c2N0bC50eHQgYi9E
+b2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaXAtc3lzY3RsLnR4dA0KaW5kZXggZTIwYzE3YS4uZjc4
+NWZkMSAxMDA2NDQNCi0tLSBhL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNjdGwudHh0
+DQorKysgYi9Eb2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaXAtc3lzY3RsLnR4dA0KQEAgLTU2NSw2
+ICs1NjUsMTEgQEAgdGNwX2xpbWl0X291dHB1dF9ieXRlcyAtIElOVEVHRVINCiAJcmVkdWNlIHRo
+ZSBzaXplIG9mIGluZGl2aWR1YWwgR1NPIHBhY2tldCAoNjRLQiBiZWluZyB0aGUgbWF4KQ0KIAlE
+ZWZhdWx0OiAxMzEwNzINCiANCit0Y3BfY2hhbGxlbmdlYWNrX2xpbWl0IC0gSU5URUdFUg0KKwlM
+aW1pdHMgbnVtYmVyIG9mIENoYWxsZW5nZSBBQ0sgc2VudCBwZXIgc2Vjb25kLCBhcyByZWNvbW1l
+bmRlZA0KKwlpbiBSRkMgNTk2MSAoSW1wcm92aW5nIFRDUCdzIFJvYnVzdG5lc3MgdG8gQmxpbmQg
+SW4tV2luZG93IEF0dGFja3MpDQorCURlZmF1bHQ6IDEwMA0KKw0KIFVEUCB2YXJpYWJsZXM6DQog
+DQogdWRwX21lbSAtIHZlY3RvciBvZiAzIElOVEVHRVJzOiBtaW4sIHByZXNzdXJlLCBtYXgNCmRp
+ZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3NubXAuaCBiL2luY2x1ZGUvbGludXgvc25tcC5oDQpp
+bmRleCAyZTY4ZjViLi41OTQ2MzhlIDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9saW51eC9zbm1wLmgN
+CisrKyBiL2luY2x1ZGUvbGludXgvc25tcC5oDQpAQCAtMjM0LDYgKzIzNCw3IEBAIGVudW0NCiAJ
+TElOVVhfTUlCX1RDUFJFUVFGVUxMRFJPUCwJCS8qIFRDUFJlcVFGdWxsRHJvcCAqLw0KIAlMSU5V
+WF9NSUJfVENQUkVUUkFOU0ZBSUwsCQkvKiBUQ1BSZXRyYW5zRmFpbCAqLw0KIAlMSU5VWF9NSUJf
+VENQUkNWQ09BTEVTQ0UsCQkJLyogVENQUmN2Q29hbGVzY2UgKi8NCisJTElOVVhfTUlCX1RDUENI
+QUxMRU5HRUFDSywJCS8qIFRDUENoYWxsZW5nZUFDSyAqLw0KIAlfX0xJTlVYX01JQl9NQVgNCiB9
+Ow0KIA0KZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L3RjcC5oIGIvaW5jbHVkZS9uZXQvdGNwLmgN
+CmluZGV4IDQzOTk4NGIuLmZjMTQ0MTkgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL25ldC90Y3AuaA0K
+KysrIGIvaW5jbHVkZS9uZXQvdGNwLmgNCkBAIC0yNTQsNiArMjU0LDcgQEAgZXh0ZXJuIGludCBz
+eXNjdGxfdGNwX3RoaW5fbGluZWFyX3RpbWVvdXRzOw0KIGV4dGVybiBpbnQgc3lzY3RsX3RjcF90
+aGluX2R1cGFjazsNCiBleHRlcm4gaW50IHN5c2N0bF90Y3BfZWFybHlfcmV0cmFuczsNCiBleHRl
+cm4gaW50IHN5c2N0bF90Y3BfbGltaXRfb3V0cHV0X2J5dGVzOw0KK2V4dGVybiBpbnQgc3lzY3Rs
+X3RjcF9jaGFsbGVuZ2VhY2tfbGltaXQ7DQogDQogZXh0ZXJuIGF0b21pY19sb25nX3QgdGNwX21l
+bW9yeV9hbGxvY2F0ZWQ7DQogZXh0ZXJuIHN0cnVjdCBwZXJjcHVfY291bnRlciB0Y3Bfc29ja2V0
+c19hbGxvY2F0ZWQ7DQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvcHJvYy5jIGIvbmV0L2lwdjQvcHJv
+Yy5jDQppbmRleCA4YWYwZDQ0Li5kNTg5NDY4IDEwMDY0NA0KLS0tIGEvbmV0L2lwdjQvcHJvYy5j
+DQorKysgYi9uZXQvaXB2NC9wcm9jLmMNCkBAIC0yNTgsNiArMjU4LDcgQEAgc3RhdGljIGNvbnN0
+IHN0cnVjdCBzbm1wX21pYiBzbm1wNF9uZXRfbGlzdFtdID0gew0KIAlTTk1QX01JQl9JVEVNKCJU
+Q1BSZXFRRnVsbERyb3AiLCBMSU5VWF9NSUJfVENQUkVRUUZVTExEUk9QKSwNCiAJU05NUF9NSUJf
+SVRFTSgiVENQUmV0cmFuc0ZhaWwiLCBMSU5VWF9NSUJfVENQUkVUUkFOU0ZBSUwpLA0KIAlTTk1Q
+X01JQl9JVEVNKCJUQ1BSY3ZDb2FsZXNjZSIsIExJTlVYX01JQl9UQ1BSQ1ZDT0FMRVNDRSksDQor
+CVNOTVBfTUlCX0lURU0oIlRDUENoYWxsZW5nZUFDSyIsIExJTlVYX01JQl9UQ1BDSEFMTEVOR0VB
+Q0spLA0KIAlTTk1QX01JQl9TRU5USU5FTA0KIH07DQogDQpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQv
+c3lzY3RsX25ldF9pcHY0LmMgYi9uZXQvaXB2NC9zeXNjdGxfbmV0X2lwdjQuYw0KaW5kZXggNzA3
+MzBmNy4uMTJkZjhlOCAxMDA2NDQNCi0tLSBhL25ldC9pcHY0L3N5c2N0bF9uZXRfaXB2NC5jDQor
+KysgYi9uZXQvaXB2NC9zeXNjdGxfbmV0X2lwdjQuYw0KQEAgLTYwNSw2ICs2MDUsMTMgQEAgc3Rh
+dGljIHN0cnVjdCBjdGxfdGFibGUgaXB2NF90YWJsZVtdID0gew0KIAkJLm1vZGUJCT0gMDY0NCwN
+CiAJCS5wcm9jX2hhbmRsZXIJPSBwcm9jX2RvaW50dmVjDQogCX0sDQorCXsNCisJCS5wcm9jbmFt
+ZQk9ICJ0Y3BfY2hhbGxlbmdlYWNrX2xpbWl0IiwNCisJCS5kYXRhCQk9ICZzeXNjdGxfdGNwX2No
+YWxsZW5nZWFja19saW1pdCwNCisJCS5tYXhsZW4JCT0gc2l6ZW9mKGludCksDQorCQkubW9kZQkJ
+PSAwNjQ0LA0KKwkJLnByb2NfaGFuZGxlcgk9IHByb2NfZG9pbnR2ZWMNCisJfSwNCiAjaWZkZWYg
+Q09ORklHX05FVF9ETUENCiAJew0KIAkJLnByb2NuYW1lCT0gInRjcF9kbWFfY29weWJyZWFrIiwN
+CmRpZmYgLS1naXQgYS9uZXQvaXB2NC90Y3BfaW5wdXQuYyBiL25ldC9pcHY0L3RjcF9pbnB1dC5j
+DQppbmRleCAwNTVhYzQ5Li44ZTdlZGZmIDEwMDY0NA0KLS0tIGEvbmV0L2lwdjQvdGNwX2lucHV0
+LmMNCisrKyBiL25ldC9pcHY0L3RjcF9pbnB1dC5jDQpAQCAtODgsNiArODgsOSBAQCBpbnQgc3lz
+Y3RsX3RjcF9hcHBfd2luIF9fcmVhZF9tb3N0bHkgPSAzMTsNCiBpbnQgc3lzY3RsX3RjcF9hZHZf
+d2luX3NjYWxlIF9fcmVhZF9tb3N0bHkgPSAxOw0KIEVYUE9SVF9TWU1CT0woc3lzY3RsX3RjcF9h
+ZHZfd2luX3NjYWxlKTsNCiANCisvKiByZmM1OTYxIGNoYWxsZW5nZSBhY2sgcmF0ZSBsaW1pdGlu
+ZyAqLw0KK2ludCBzeXNjdGxfdGNwX2NoYWxsZW5nZWFja19saW1pdCA9IDEwMDsNCisNCiBpbnQg
+c3lzY3RsX3RjcF9zdGR1cmcgX19yZWFkX21vc3RseTsNCiBpbnQgc3lzY3RsX3RjcF9yZmMxMzM3
+IF9fcmVhZF9tb3N0bHk7DQogaW50IHN5c2N0bF90Y3BfbWF4X29ycGhhbnMgX19yZWFkX21vc3Rs
+eSA9IE5SX0ZJTEU7DQpAQCAtNTI0NCw2ICs1MjQ3LDIzIEBAIG91dDoNCiB9DQogI2VuZGlmIC8q
+IENPTkZJR19ORVRfRE1BICovDQogDQorc3RhdGljIHZvaWQgdGNwX3NlbmRfY2hhbGxlbmdlX2Fj
+ayhzdHJ1Y3Qgc29jayAqc2spDQorew0KKwkvKiB1bnByb3RlY3RlZCB2YXJzLCB3ZSBkb250IGNh
+cmUgb2Ygb3ZlcndyaXRlcyAqLw0KKwlzdGF0aWMgdTMyIGNoYWxsZW5nZV90aW1lOw0KKwlzdGF0
+aWMgdW5zaWduZWQgaW50IGNoYWxsZW5nZV9jb3VudDsNCisJdTMyIG5vdyA9IHRjcF90aW1lX3N0
+YW1wIC8gSFo7DQorDQorCWlmIChub3cgIT0gY2hhbGxlbmdlX3RpbWUpIHsNCisJCWNoYWxsZW5n
+ZV90aW1lID0gbm93Ow0KKwkJY2hhbGxlbmdlX2NvdW50ID0gMDsNCisJfQ0KKwlpZiAoKytjaGFs
+bGVuZ2VfY291bnQgPD0gc3lzY3RsX3RjcF9jaGFsbGVuZ2VhY2tfbGltaXQpIHsNCisJCU5FVF9J
+TkNfU1RBVFNfQkgoc29ja19uZXQoc2spLCBMSU5VWF9NSUJfVENQQ0hBTExFTkdFQUNLKTsNCisJ
+CXRjcF9zZW5kX2Fjayhzayk7DQorCX0NCit9DQorDQogLyogRG9lcyBQQVdTIGFuZCBzZXFubyBi
+YXNlZCB2YWxpZGF0aW9uIG9mIGFuIGluY29taW5nIHNlZ21lbnQsIGZsYWdzIHdpbGwNCiAgKiBw
+bGF5IHNpZ25pZmljYW50IHJvbGUgaGVyZS4NCiAgKi8NCkBAIC01MjgwLDcgKzUzMDAsMTYgQEAg
+c3RhdGljIGludCB0Y3BfdmFsaWRhdGVfaW5jb21pbmcoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiLA0KIA0KIAkvKiBTdGVwIDI6IGNoZWNrIFJTVCBiaXQgKi8NCiAJaWYgKHRo
+LT5yc3QpIHsNCi0JCXRjcF9yZXNldChzayk7DQorCQkvKiBSRkMgNTk2MSAzLjIgOiANCisJCSAq
+IElmIHNlcXVlbmNlIG51bWJlciBleGFjdGx5IG1hdGNoZXMgUkNWLk5YVCwgdGhlbg0KKwkJICog
+ICAgIFJFU0VUIHRoZSBjb25uZWN0aW9uDQorCQkgKiBlbHNlDQorCQkgKiAgICAgU2VuZCBhIGNo
+YWxsZW5nZSBBQ0sNCisJCSAqLw0KKwkJaWYgKFRDUF9TS0JfQ0Ioc2tiKS0+c2VxID09IHRwLT5y
+Y3Zfbnh0KQ0KKwkJCXRjcF9yZXNldChzayk7DQorCQllbHNlDQorCQkJdGNwX3NlbmRfY2hhbGxl
+bmdlX2Fjayhzayk7DQogCQlnb3RvIGRpc2NhcmQ7DQogCX0NCiANCg0KDQoNCg==
