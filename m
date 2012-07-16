@@ -1,84 +1,45 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PULL net-next] tipc: kill off struct print_buf/log
-Date: Mon, 16 Jul 2012 15:38:02 -0400
-Message-ID: <20120716193801.GA1838@windriver.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
+Date: Mon, 16 Jul 2012 12:42:41 -0700
+Message-ID: <50046EB1.5040909@hp.com>
+References: <1342458113-10384-1-git-send-email-cascardo@linux.vnet.ibm.com> <50044F1D.6000703@hp.com> <20120716190611.GA1023@oc1711230544.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
-	<erik.hugne@ericsson.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"yevgenyp@mellanox.co.il" <yevgenyp@mellanox.co.il>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>,
+	"leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>,
+	"klebers@linux.vnet.ibm.com" <klebers@linux.vnet.ibm.com>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"anton@samba.org" <anton@samba.org>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57275 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752293Ab2GPTiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 15:38:09 -0400
-Content-Disposition: inline
+Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:25258 "EHLO
+	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963Ab2GPTmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 15:42:52 -0400
+In-Reply-To: <20120716190611.GA1023@oc1711230544.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On 07/16/2012 12:06 PM, Thadeu Lima de Souza Cascardo wrote:
+> On Mon, Jul 16, 2012 at 10:27:57AM -0700, Rick Jones wrote:
+>
+>> What is the effect on packet-per-second performance?  (eg aggregate,
+>> burst-mode netperf TCP_RR with TCP_NODELAY set or perhaps UDP_RR)
+>>
+> I used uperf with TCP_NODELAY and 16 threads sending from another
+> machine 64000-sized writes for 60 seconds.
+>
+> I get 5898op/s (3.02Gb/s) without the patch against 18022ops/s
+> (9.23Gb/s) with the patch.
 
-This is the same eight commits as sent for review last week[1],
-with just the incorporation of the pr_fmt change as suggested
-by JoeP.  There was no additional change requests, so unless you
-can see something else you'd like me to change, please pull.
+I was thinking more along the lines of an additional comparison, 
+explicitly using netperf TCP_RR or something like it, not just the 
+packets per second from a bulk transfer test.
 
-Thanks,
-Paul.
-
-[1] http://www.spinics.net/lists/netdev/msg204448.html
-
----
-
-The following changes since commit 48ee3569f31d91084dc694fef5517eb782428083:
-
-  ipv6: Move ipv6 twsk accessors outside of CONFIG_IPV6 ifdefs. (2012-07-11 02:39:24 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc_net-next
-
-for you to fetch changes up to 869dd4662f90514cb92b44a389e85c737b464e25:
-
-  tipc: remove print_buf and deprecated log buffer code (2012-07-13 19:34:43 -0400)
-
-----------------------------------------------------------------
-Erik Hugne (5):
-      tipc: use standard printk shortcut macros (pr_err etc.)
-      tipc: remove TIPC packet debugging functions and macros
-      tipc: simplify print buffer handling in tipc_printf
-      tipc: phase out most of the struct print_buf usage
-      tipc: remove print_buf and deprecated log buffer code
-
-Paul Gortmaker (3):
-      tipc: factor stats struct out of the larger link struct
-      tipc: limit error messages relating to memory leak to one line
-      tipc: simplify link_print by divorcing it from using tipc_printf
-
- include/linux/tipc_config.h |    4 +-
- net/tipc/Kconfig            |   25 ----
- net/tipc/bcast.c            |   65 +++++----
- net/tipc/bearer.c           |   62 +++++----
- net/tipc/bearer.h           |    2 +-
- net/tipc/config.c           |   41 +++---
- net/tipc/core.c             |   18 +--
- net/tipc/core.h             |   65 +--------
- net/tipc/discover.c         |   10 +-
- net/tipc/handler.c          |    4 +-
- net/tipc/link.c             |  304 +++++++++++++++++++------------------------
- net/tipc/link.h             |   63 ++++-----
- net/tipc/log.c              |  302 ++----------------------------------------
- net/tipc/log.h              |   66 ----------
- net/tipc/msg.c              |  242 ----------------------------------
- net/tipc/name_distr.c       |   25 ++--
- net/tipc/name_table.c       |  132 ++++++++++---------
- net/tipc/net.c              |    8 +-
- net/tipc/netlink.c          |    2 +-
- net/tipc/node.c             |   22 ++--
- net/tipc/node_subscr.c      |    3 +-
- net/tipc/port.c             |   66 +++++-----
- net/tipc/ref.c              |   10 +-
- net/tipc/socket.c           |   10 +-
- net/tipc/subscr.c           |   14 +-
- 25 files changed, 439 insertions(+), 1126 deletions(-)
- delete mode 100644 net/tipc/log.h
+rick
