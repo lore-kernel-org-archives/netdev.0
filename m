@@ -1,59 +1,42 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH] SUNRPC: Prevent kernel stack corruption on long values of flush
-Date: Tue, 17 Jul 2012 00:01:26 +0200
-Message-ID: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
-Cc: davej@redhat.com, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sasha Levin <levinsasha928@gmail.com>
-To: Trond.Myklebust@netapp.com, bfields@fieldses.org,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH ethtool 0/2] Backward-compatibility for feature get/set
+Date: Mon, 16 Jul 2012 23:17:21 +0100
+Message-ID: <1342477041.2523.40.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:52375 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754128Ab2GPWRZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 18:17:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The buffer size in read_flush() is too small for the longest possible values
-for it. This can lead to a kernel stack corruption:
+I've committed fixes for another 2 bugs in features (-k/-K options):
 
-[   43.047329] Kernel panic - not syncing: stack-protector: Kernel stack is corrupted in: ffffffff833e64b4
-[   43.047329]
-[   43.049030] Pid: 6015, comm: trinity-child18 Tainted: G        W    3.5.0-rc7-next-20120716-sasha #221
-[   43.050038] Call Trace:
-[   43.050435]  [<ffffffff836c60c2>] panic+0xcd/0x1f4
-[   43.050931]  [<ffffffff833e64b4>] ? read_flush.isra.7+0xe4/0x100
-[   43.051602]  [<ffffffff810e94e6>] __stack_chk_fail+0x16/0x20
-[   43.052206]  [<ffffffff833e64b4>] read_flush.isra.7+0xe4/0x100
-[   43.052951]  [<ffffffff833e6500>] ? read_flush_pipefs+0x30/0x30
-[   43.053594]  [<ffffffff833e652c>] read_flush_procfs+0x2c/0x30
-[   43.053596]  [<ffffffff812b9a8c>] proc_reg_read+0x9c/0xd0
-[   43.053596]  [<ffffffff812b99f0>] ? proc_reg_write+0xd0/0xd0
-[   43.053596]  [<ffffffff81250d5b>] do_loop_readv_writev+0x4b/0x90
-[   43.053596]  [<ffffffff81250fd6>] do_readv_writev+0xf6/0x1d0
-[   43.053596]  [<ffffffff812510ee>] vfs_readv+0x3e/0x60
-[   43.053596]  [<ffffffff812511b8>] sys_readv+0x48/0xb0
-[   43.053596]  [<ffffffff8378167d>] system_call_fastpath+0x1a/0x1f
+- A silly regression introduced in 3.4, not covered by unit tests which
+don't yet check the command output
+- An older bug (really a defect in the ETHTOOL_GFLAGS API) which we can
+work around
 
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
----
- net/sunrpc/cache.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Ben.
 
-diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-index 2afd2a8..f86d95e 100644
---- a/net/sunrpc/cache.c
-+++ b/net/sunrpc/cache.c
-@@ -1409,11 +1409,11 @@ static ssize_t read_flush(struct file *file, char __user *buf,
- 			  size_t count, loff_t *ppos,
- 			  struct cache_detail *cd)
- {
--	char tbuf[20];
-+	char tbuf[22];
- 	unsigned long p = *ppos;
- 	size_t len;
- 
--	sprintf(tbuf, "%lu\n", convert_to_wallclock(cd->flush_time));
-+	snprintf(tbuf, sizeof(tbuf), "%lu\n", convert_to_wallclock(cd->flush_time));
- 	len = strlen(tbuf);
- 	if (p >= len)
- 		return 0;
+Ben Hutchings (2):
+  Remove bogus error message when changing offload settings on older
+    kernels
+  Fix reporting of VLAN tag offload flags for Linux 2.6.24-2.6.36
+
+ ethtool.c |  101 ++++++++++++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 74 insertions(+), 27 deletions(-)
+
 -- 
-1.7.8.6
+1.7.7.6
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
