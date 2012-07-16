@@ -1,49 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net-next: make sock diag per-namespace
-Date: Mon, 16 Jul 2012 15:00:59 +0100
-Message-ID: <1342447259.2523.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342440849-1757320-1-git-send-email-avagin@openvz.org>
+From: <Padmanabh.Ratnakar@Emulex.Com>
+Subject: RE: [PATCH net-next] be2net: dont pull too much data in skb linear
+ part
+Date: Mon, 16 Jul 2012 07:02:25 -0700
+Message-ID: <c15c3047-d45b-4781-9598-ffe24d3b2a1c@exht2.ad.emulex.com>
+References: <1342185581.3265.8355.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Andrew Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342440849-1757320-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <Sathya.Perla@Emulex.Com>
+To: <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:8218 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753458Ab2GPOCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 10:02:33 -0400
+In-Reply-To: <1342185581.3265.8355.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-16 at 16:14 +0400, Andrew Vagin wrote:
-> Before this patch sock_diag works for init_net only and dumps
-> information about sockets from all namespaces.
-> 
-> This patch expands sock_diag for all name-spaces.
-> It creates a netlink kernel socket for each netns and filters
-> data during dumping.
-[...]
-> --- a/net/core/sock_diag.c
-> +++ b/net/core/sock_diag.c
-> @@ -166,23 +166,39 @@ static void sock_diag_rcv(struct sk_buff *skb)
->  	mutex_unlock(&sock_diag_mutex);
->  }
->  
-> -struct sock *sock_diag_nlsk;
-> -EXPORT_SYMBOL_GPL(sock_diag_nlsk);
-> +struct sock *diag_nlsk;
-> +EXPORT_SYMBOL_GPL(diag_nlsk);
-[...]
-
-This new variable seems to be unused.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
+YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdWx5IDEzLCAy
+MDEyIDY6NTAgUE0NCj4gVG86IFJhdG5ha2FyLCBQYWRtYW5hYmgNCj4gQ2M6IG5ldGRldg0KPiBT
+dWJqZWN0OiBbUEFUQ0ggbmV0LW5leHRdIGJlMm5ldDogZG9udCBwdWxsIHRvbyBtdWNoIGRhdGEg
+aW4gc2tiIGxpbmVhciBwYXJ0DQo+IA0KPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
+b2dsZS5jb20+DQo+IA0KPiBza2JfZmlsbF9yeF9kYXRhKCkgcHVsbHMgNjQgYnl0ZSBvZiBkYXRh
+IGluIHNrYi0+ZGF0YQ0KPiANCj4gSXRzIHRvbyBtdWNoIGZvciBUQ1AgKHdpdGggbm8gb3B0aW9u
+cykgb24gSVB2NCwgYXMgdG90YWwgc2l6ZSBvZiBoZWFkZXJzIGlzIDE0ICsNCj4gNDAgPSA1NA0K
+PiANCj4gVGhpcyBtZWFucyB0Y3Agc3RhY2sgYW5kIHNwbGljZSgpIGFyZSBzdWJvcHRpbWFsLCBz
+aW5jZSB0Y3AgcGF5bG9hZCBpcyBpbiBwYXJ0IGluDQo+IHRjcC0+ZGF0YSwgYW5kIGluIHBhcnQg
+aW4gc2tiIGZyYWcuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0
+QGdvb2dsZS5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0
+L2JlX21haW4uYyB8ICAgIDYgKysrLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25z
+KCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2VtdWxleC9iZW5ldC9iZV9tYWluLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9lbXVs
+ZXgvYmVuZXQvYmVfbWFpbi5jDQo+IGluZGV4IDdlOTg5ZDAuLmYxODM3NWMgMTAwNjQ0DQo+IC0t
+LSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9tYWluLmMNCj4gKysrIGIv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0L2JlX21haW4uYw0KPiBAQCAtMTIyOCwx
+NiArMTIyOCwxNiBAQCBzdGF0aWMgdm9pZCBza2JfZmlsbF9yeF9kYXRhKHN0cnVjdCBiZV9yeF9v
+YmoNCj4gKnJ4bywgc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gIAkvKiBDb3B5IGRhdGEgaW4gdGhl
+IGZpcnN0IGRlc2NyaXB0b3Igb2YgdGhpcyBjb21wbGV0aW9uICovDQo+ICAJY3Vycl9mcmFnX2xl
+biA9IG1pbihyeGNwLT5wa3Rfc2l6ZSwgcnhfZnJhZ19zaXplKTsNCj4gDQo+IC0JLyogQ29weSB0
+aGUgaGVhZGVyIHBvcnRpb24gaW50byBza2JfZGF0YSAqLw0KPiAtCWhkcl9sZW4gPSBtaW4oQkVf
+SERSX0xFTiwgY3Vycl9mcmFnX2xlbik7DQo+IC0JbWVtY3B5KHNrYi0+ZGF0YSwgc3RhcnQsIGhk
+cl9sZW4pOw0KPiAgCXNrYi0+bGVuID0gY3Vycl9mcmFnX2xlbjsNCj4gIAlpZiAoY3Vycl9mcmFn
+X2xlbiA8PSBCRV9IRFJfTEVOKSB7IC8qIHRpbnkgcGFja2V0ICovDQo+ICsJCW1lbWNweShza2It
+PmRhdGEsIHN0YXJ0LCBjdXJyX2ZyYWdfbGVuKTsNCj4gIAkJLyogQ29tcGxldGUgcGFja2V0IGhh
+cyBub3cgYmVlbiBtb3ZlZCB0byBkYXRhICovDQo+ICAJCXB1dF9wYWdlKHBhZ2VfaW5mby0+cGFn
+ZSk7DQo+ICAJCXNrYi0+ZGF0YV9sZW4gPSAwOw0KPiAgCQlza2ItPnRhaWwgKz0gY3Vycl9mcmFn
+X2xlbjsNCj4gIAl9IGVsc2Ugew0KPiArCQloZHJfbGVuID0gRVRIX0hMRU47DQo+ICsJCW1lbWNw
+eShza2ItPmRhdGEsIHN0YXJ0LCBoZHJfbGVuKTsNCj4gIAkJc2tiX3NoaW5mbyhza2IpLT5ucl9m
+cmFncyA9IDE7DQo+ICAJCXNrYl9mcmFnX3NldF9wYWdlKHNrYiwgMCwgcGFnZV9pbmZvLT5wYWdl
+KTsNCj4gIAkJc2tiX3NoaW5mbyhza2IpLT5mcmFnc1swXS5wYWdlX29mZnNldCA9DQo+IA0KQ2hh
+bmdlIGxvb2tzIGdvb2QgdG8gbWUuIEkgdGVzdGVkIHRoaXMgYW5kIGl0IGlzIHdvcmtpbmcuDQpU
+aGFua3MNCkFja2VkLWJ5OiBQYWRtYW5hYmggUmF0bmFrYXIgPHBhZG1hbmFiaC5yYXRuYWthckBl
+bXVsZXguY29tPg0KDQoNCg==
