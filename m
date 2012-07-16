@@ -1,44 +1,52 @@
-From: "Kiran (Kiran Kumar) Kella" <kkiran@broadcom.com>
-Subject: RE: Is TCP vulneribility patch (as in RFC 5961) done in linux?
-Date: Mon, 16 Jul 2012 07:06:59 +0000
-Message-ID: <68700EDA775E5E47B5EBA9FF8AC0F15C077FF3@SJEXCHMB09.corp.ad.broadcom.com>
-References: <68700EDA775E5E47B5EBA9FF8AC0F15C076B03@SJEXCHMB09.corp.ad.broadcom.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: iptables CLAMP MSS to PMTU not working?
+Date: Mon, 16 Jul 2012 09:23:05 +0200
+Message-ID: <20120716072305.GJ1869@secunet.com>
+References: <20120712120021.3dc5cd68@vostro>
+ <20120712132419.50b4acaf@vostro>
+ <20120716084946.67b91a69@vostro>
+ <20120716092058.270f6008@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4310 "EHLO mms3.broadcom.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:46261 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751440Ab2GPHHP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 03:07:15 -0400
-In-Reply-To: <68700EDA775E5E47B5EBA9FF8AC0F15C076B03@SJEXCHMB09.corp.ad.broadcom.com>
-Content-Language: en-US
+	id S1751440Ab2GPHXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 03:23:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20120716092058.270f6008@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looking into the file tcp_input.c in the latest stable linux release 3.4.4 source, I understand the fix for this recommendation is not implemented in Linux.
-Any reason why it was not addressed?
+On Mon, Jul 16, 2012 at 09:20:58AM +0300, Timo Teras wrote:
+> On Mon, 16 Jul 2012 08:49:46 +0300 Timo Teras <timo.teras@iki.fi> wrote:
+> 
+> > Looking at the changelog, this would likely be side effect of:
+> > 
+> > commit 261663b0ee2ee8e3947f4c11c1a08be18cd2cea1
+> > Author: Steffen Klassert <steffen.klassert@secunet.com>
+> > Date:   Wed Nov 23 02:14:50 2011 +0000
+> > 
+> >     ipv4: Don't use the cached pmtu informations for input routes
+> > 
+> > At least from performance side, it would be better if CLAMPMSS to PMTU
+> > would clamp to the learned, cached mtu.
+> 
+> Actually, this is worse. Since XFRM is ignored - it breaks
+> fragmentation for IPsec targets.
+> 
+> Could this be reverted?
 
-Regards,
-Kiran
+I did this patch to avoid to propagate learned PMTU informations.
+It restores the behaviour we had before we moved the PMTU informations
+to the inetpeer. Unfortunately CLAMPMSS really wants to have the PMTU
+informations of an input route, which is not possible any more after
+this patch.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Kiran (Kiran Kumar) Kella
-Sent: Friday, July 13, 2012 11:48 AM
-To: netdev@vger.kernel.org
-Subject: Is TCP vulneribility patch (as in RFC 5961) done in linux?
-
-Hi,
-
-I just now checked in the kernel archives if the patch in section 3.2 mentioned in RFC 5961 for RST attacks with predictable sequence numbers.
-I see some discussion happened in 2004 timeframe.
-I was just wondering if in the latest linux source, the patch is made available.
-
-Appreciate your quick response in this regard.
-
-Thanks,
-Kiran
-
-
+Anyway, this patch seems to be obsolete in the net-next tree, as
+the cached pmtu informations are back in the route. So we should remove
+the check for an output route from ipv4_mtu() in the net-next tree.
+This should bring CLAMPMSS back to work, at least for upcoming
+kernel versions.
