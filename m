@@ -1,74 +1,107 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
-Date: Mon, 16 Jul 2012 14:08:30 -0700
-Message-ID: <500482CE.9000202@hp.com>
-References: <1342458113-10384-1-git-send-email-cascardo@linux.vnet.ibm.com> <50044F1D.6000703@hp.com> <20120716190611.GA1023@oc1711230544.ibm.com> <50046EB1.5040909@hp.com> <20120716204717.GA16137@oc1711230544.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"yevgenyp@mellanox.co.il" <yevgenyp@mellanox.co.il>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>,
-	"leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>,
-	"klebers@linux.vnet.ibm.com" <klebers@linux.vnet.ibm.com>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"anton@samba.org" <anton@samba.org>
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH 4/7] net-tcp: Fast Open client - receiving SYN-ACK
+Date: Mon, 16 Jul 2012 14:16:47 -0700
+Message-ID: <1342473410-6265-5-git-send-email-ycheng@google.com>
+References: <1342473410-6265-1-git-send-email-ycheng@google.com>
+Cc: sivasankar@cs.ucsd.edu, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:6621 "EHLO
-	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752291Ab2GPVIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 17:08:38 -0400
-In-Reply-To: <20120716204717.GA16137@oc1711230544.ibm.com>
+Received: from mail-gh0-f202.google.com ([209.85.160.202]:55036 "EHLO
+	mail-gh0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753052Ab2GPVRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 17:17:04 -0400
+Received: by ghbz15 with SMTP id z15so603232ghb.1
+        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 14:17:03 -0700 (PDT)
+In-Reply-To: <1342473410-6265-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On receiving the SYN-ACK after SYN-data, the client needs to
+a) update the cached MSS and cookie (if included in SYN-ACK)
+b) retransmit the data yet acknowledged by the SYN-ACK in the final ACK of
+   the handshake.
 
-I was thinking more along the lines of an additional comparison,
-explicitly using netperf TCP_RR or something like it, not just the
-packets per second from a bulk transfer test.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c |   40 +++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 35 insertions(+), 5 deletions(-)
 
-rick
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-> I used a uperf profile that is similar to TCP_RR. It writes, then reads
-> some bytes. I kept the TCP_NODELAY flag.
->
-> Without the patch, I saw the following:
->
-> packet size	ops/s		Gb/s
-> 1		337024		0.0027
-> 90		276620		0.199
-> 900		190455		1.37
-> 4000		68863		2.20
-> 9000		45638		3.29
-> 60000		9409		4.52
->
-> With the patch:
->
-> packet size	ops/s		Gb/s
-> 1		451738		0.0036
-> 90		345682		0.248
-> 900		272258		1.96
-> 4000		127055		4.07
-> 9000		106614		7.68
-> 60000		30671		14.72
->
-
-So, on the surface it looks like it did good things for PPS, though it 
-would be nice to know what the CPU utilizations/service demands were as 
-a sanity check - does uperf not have that sort of functionality?
-
-I'm guessing there were several writes at a time - the 1 byte packet 
-size (sic - that is payload, not packet, and without TCP_NODELAY not 
-even payload necessarily) How many writes does it have outstanding 
-before it does a read?  And does it take care to build-up to that number 
-of writes to avoid batching during slowstart, even with TCP_NODELAY set?
-
-rick jones
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d6e16e2..5b09f71 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5610,6 +5610,34 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	}
+ }
+ 
++static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
++				    struct tcp_fastopen_cookie *cookie)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct sk_buff *data = tcp_write_queue_head(sk);
++	u16 mss = tp->rx_opt.mss_clamp;
++
++	if (mss == tp->rx_opt.user_mss) {
++		struct tcp_options_received opt;
++		const u8 *hash_location;
++
++		/* Get original SYNACK MSS value if user MSS sets mss_clamp */
++		tcp_clear_options(&opt);
++		opt.user_mss = opt.mss_clamp = 0;
++		tcp_parse_options(synack, &opt, &hash_location, 0, NULL);
++		mss = opt.mss_clamp;
++	}
++
++	tcp_fastopen_cache_set(sk, &mss, cookie);
++
++	if (data) { /* Retransmit unacked data in SYN */
++		tcp_retransmit_skb(sk, data);
++		tcp_rearm_rto(sk);
++		return true;
++	}
++	return false;
++}
++
+ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 					 const struct tcphdr *th, unsigned int len)
+ {
+@@ -5617,9 +5645,10 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_cookie_values *cvp = tp->cookie_values;
++	struct tcp_fastopen_cookie foc = { .len = -1 };
+ 	int saved_clamp = tp->rx_opt.mss_clamp;
+ 
+-	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, NULL);
++	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, &foc);
+ 
+ 	if (th->ack) {
+ 		/* rfc793:
+@@ -5629,11 +5658,9 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 		 *	  If SEG.ACK =< ISS, or SEG.ACK > SND.NXT, send
+ 		 *        a reset (unless the RST bit is set, if so drop
+ 		 *        the segment and return)"
+-		 *
+-		 *  We do not send data with SYN, so that RFC-correct
+-		 *  test reduces to:
+ 		 */
+-		if (TCP_SKB_CB(skb)->ack_seq != tp->snd_nxt)
++		if (!after(TCP_SKB_CB(skb)->ack_seq, tp->snd_una) ||
++		    after(TCP_SKB_CB(skb)->ack_seq, tp->snd_nxt))
+ 			goto reset_and_undo;
+ 
+ 		if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+@@ -5745,6 +5772,9 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 
+ 		tcp_finish_connect(sk, skb);
+ 
++		if (tp->syn_fastopen && tcp_rcv_fastopen_synack(sk, skb, &foc))
++			return -1;
++
+ 		if (sk->sk_write_pending ||
+ 		    icsk->icsk_accept_queue.rskq_defer_accept ||
+ 		    icsk->icsk_ack.pingpong) {
+-- 
+1.7.7.3
