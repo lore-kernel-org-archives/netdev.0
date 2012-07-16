@@ -1,78 +1,70 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: iptables CLAMP MSS to PMTU not working?
-Date: Mon, 16 Jul 2012 08:49:46 +0300
-Message-ID: <20120716084946.67b91a69@vostro>
-References: <20120712120021.3dc5cd68@vostro>
-	<20120712132419.50b4acaf@vostro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next] bonding: Support for multi function NIC devices
+Date: Sun, 15 Jul 2012 22:50:03 -0700
+Message-ID: <22437.1342417803@death.nxdomain>
+References: <CC28EE8B.36B53%anirban.chakraborty@qlogic.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:56896 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769Ab2GPFuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 01:50:09 -0400
-Received: by eaak11 with SMTP id k11so1517406eaa.19
-        for <netdev@vger.kernel.org>; Sun, 15 Jul 2012 22:50:07 -0700 (PDT)
-In-Reply-To: <20120712132419.50b4acaf@vostro>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:40860 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769Ab2GPFuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 01:50:22 -0400
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Sun, 15 Jul 2012 23:50:21 -0600
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id A6AE13E40049
+	for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 05:50:05 +0000 (WET)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6G5o584225862
+	for <netdev@vger.kernel.org>; Sun, 15 Jul 2012 23:50:05 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6G5pBbY010626
+	for <netdev@vger.kernel.org>; Sun, 15 Jul 2012 23:51:12 -0600
+In-reply-to: <CC28EE8B.36B53%anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jul 2012 13:24:19 +0300 Timo Teras <timo.teras@iki.fi> wrote:
+Anirban Chakraborty <anirban.chakraborty@qlogic.com> wrote:
+>On 7/15/12 9:39 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
+[...]
+>>Also I'm not sure we need to explicitly block this.  It is clear from
+>>looking at 'ip' output what the topology is. And in the SR-IOV
+>>case would this still work if the functions are direct assigned? How
+>>about if I try to bond two stacked devices that are on the same
+>>physical link. In both case iirc the bus info wont match up.
+>>
+>>Seems easier to just call this a configuration error or not if for
+>>some reason this is really what someone intended.
+>>
+>>.John
+>
+>I agree that for SR-IOV case with VFs assigned directly to the guest, bus
+>info won't
+>match up. However, I was thinking from the point of view of NIC
+>partitioned mode (NPAR),
+>and for the use case of SR-IOV VFs assigned to the hypervisor. It would be
+>nice to
+>prevent the user from getting into misconfiguration.
 
-> On Thu, 12 Jul 2012 12:00:21 +0300 Timo Teras <timo.teras@iki.fi>
-> wrote:
-> 
-> > We recently noticed that CLAMPMSS to path MTU does not seem to be
-> > working properly. Most recently tested version is linux-3.3.6 which
-> > does not work. linux-2.6.35 works for sure, but I suspect it to have
-> > broken somewhere around 3.0'ish with the inetpeer changes.
-> > 
-> > In my case, the destination is on gre tunnel (that gets routed to
-> > Internet over IPsec transport mode).
-> > 
-> > 'ip route' command verifies that in both boxes the path-MTU is
-> > detected properly. That, is on both cases the static route MTU is
-> > higher. And after large packets sent, ICMP frag-needed is received
-> > and the cache route is updated properly.
-> > 
-> > On the new kernel, I get info like:
-> > # ip route get 10.x.x.x
-> > 10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
-> >     cache  expires 68sec ipid 0x3153 mtu 1422
-> 
-> CLAMP MSS sets MSS to 1432. Which implies MTU 1472. This matches the
-> gre1 interface MTU:
-> 
-> 14: gre1: <UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN 
-> 
-> So apparently CLAMPMSS is honoring the static route for gre1, instead
-> of the cached pmtu route.
-> 
-> > And the older kernel:
-> > # ip route get 10.x.x.x
-> > 10.x.x.x via 172.16.y.y dev gre1  src 172.16.z.z 
-> >     cache  expires 595sec ipid 0xd241 mtu 1422 advmss 1432 hoplimit
-> > 64
-> > 
-> > For some reason, iptables CLAMPMSS seems to set incorrect MSS for
-> > this route (or maybe it's using the static route instead?).
-> 
-> And in this case MSS is set to 1382. That is, it's properly calculated
-> from the path MTU (1422-40=1382). I would expect the advmss of the
-> cached route to get updated on the TCP connects on the older kernels
-> (the above paste is after pinging with large packets and no TCP
-> connection done for the cached entry).
+	If I'm understanding correctly, to hit the case you're worried
+about here would require assigning multiple VFs from one PF to the same
+linux instance as the PF itself, and then bonding those VFs together.
 
-Looking at the changelog, this would likely be side effect of:
+	Heck, there might be some arcane reason that somebody wants to
+do that on purpose, or the test may inadvertently prohibit legal
+configurations that happen to match the criteria.
 
-commit 261663b0ee2ee8e3947f4c11c1a08be18cd2cea1
-Author: Steffen Klassert <steffen.klassert@secunet.com>
-Date:   Wed Nov 23 02:14:50 2011 +0000
+	Has this been a real problem in practice?  I'm not seeing a
+compelling argument for doing this.
 
-    ipv4: Don't use the cached pmtu informations for input routes
+	-J
 
-At least from performance side, it would be better if CLAMPMSS to PMTU
-would clamp to the learned, cached mtu.
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
