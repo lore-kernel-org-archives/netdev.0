@@ -1,38 +1,22 @@
-From: Duan Jiong <djduanjiong@gmail.com>
-Subject: [PATCH] lpc_eth: remove duplicated include
-Date: Mon, 16 Jul 2012 17:48:18 +0800
-Message-ID: <5003E362.4060604@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: fix incorrect route 'expires' value passed to
+ userspace.
+Date: Mon, 16 Jul 2012 02:56:49 -0700 (PDT)
+Message-ID: <20120716.025649.1070277404591664104.davem@davemloft.net>
+References: <5003CC41.9080204@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: lw@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:56578 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751542Ab2GPJsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 05:48:24 -0400
-Received: by ghrr11 with SMTP id r11so4786080ghr.19
-        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 02:48:23 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:36069 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751262Ab2GPJ4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 05:56:55 -0400
+In-Reply-To: <5003CC41.9080204@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
----
- drivers/net/ethernet/nxp/lpc_eth.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 083d671..a1fe179 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -44,7 +44,6 @@
- #include <linux/of_net.h>
- #include <linux/types.h>
- 
--#include <linux/delay.h>
- #include <linux/io.h>
- #include <mach/board.h>
- #include <mach/platform.h>
--- 
-1.7.9.5
+Without a proper signoff, I won't apply your patch.
