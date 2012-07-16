@@ -1,59 +1,45 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] natsemi: make cable length magic configurable
-Date: Mon, 16 Jul 2012 14:08:54 +0100
-Message-ID: <1342444134.2523.4.camel@bwh-desktop.uk.solarflarecom.com>
-References: <201111241443.59191.jdelvare@suse.de>
-	 <1322162739.2784.26.camel@bwh-desktop>
-	 <1342441581.4165.235.camel@amber.site>
+Subject: Re: resurrecting tcphealth
+Date: Mon, 16 Jul 2012 14:32:37 +0100
+Message-ID: <1342445557.2523.8.camel@bwh-desktop.uk.solarflarecom.com>
+References: <cc6495b92f1df180c1ad43057ceb0b98.squirrel@webmail.univie.ac.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Tim Hockin <thockin@hockin.org>,
-	Olaf Kirch <okir@suse.de>
-To: Jean Delvare <jdelvare@suse.de>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Piotr Sawuk <a9702387@unet.univie.ac.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33926 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:24968 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751808Ab2GPNJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 09:09:02 -0400
-In-Reply-To: <1342441581.4165.235.camel@amber.site>
+	by vger.kernel.org with ESMTP id S1751484Ab2GPNck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 09:32:40 -0400
+In-Reply-To: <cc6495b92f1df180c1ad43057ceb0b98.squirrel@webmail.univie.ac.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-16 at 14:26 +0200, Jean Delvare wrote:
-[...]
-> > You would need to:
-> > 1. Number the flags starting from 0.  Well, that was easy.
-> > 2. Implement {get,set}_priv_flags() operations to access all flags as
-> >    a bitmask.
-> > 3. Expose the flag names as string set ETH_SS_PRIV_FLAGS accessed by
-> >    get_sset_count() and get_strings() operations.
+On Sat, 2012-07-14 at 09:56 +0200, Piotr Sawuk wrote:
+> On Sa, 14.07.2012, 03:31, valdis.kletnieks@vt.edu wrote:
+> > On Fri, 13 Jul 2012 16:55:44 -0700, Stephen Hemminger said:
+> >
+> >> >+			/* Course retransmit inefficiency- this packet has been received
+> >> twice. */
+> >> >+			tp->dup_pkts_recv++;
+> >> I don't understand that comment, could you use a better sentence please?
+> >
+> > I think what was intended was:
+> >
+> > /* Curse you, retransmit inefficiency! This packet has been received at
+> least twice */
+> >
 > 
-> I was looking for an example, but there doesn't seem to be any driver
-> implementing private flags at the moment?
+> LOL, no. I think "course retransmit" is short for "course-grained timeout
+> caused retransmit" but I can't be sure since I'm not the author of these
+> lines. I'll replace that comment with the non-shorthand version though.
+> however, I think the real comment here should be:
+[...]
 
-No.
-
-> I am also unsure if a private flag is a suitable solution to the problem
-> at hand. I am a little worried about the timing, as the non-default
-> value can't be set before the network device is available, I'm afraid
-> the network initialization scripts may kick in before one has a chance
-> to set the flag with ethtool. I suppose this could be problematic, but
-> then again I don't know much about network device drivers, I don't even
-> know for sure when method .ndo_open is called...
-
-It's called when the interface is brought up (ifconfig up, ip link set
-up, start NetworkManager...).  Some distributions provide a
-configuration option(s) to run ethtool while bringing an interface up.
-
-> Furthermore I don't quite get why we can't just go with the module
-> parameter. As I understand it, this is a crappy driver for crappy, rare
-> hardware. The driver already has a module parameter to work around a
-> hardware bug (dspcfg_workaround), I don't quite see why adding a second
-> one would be a problem. At least it is consistent.
-
-David can be quite insistent about finding an alternative to module
-parameters.
+The word you are looking for is 'coarse' not 'course' (they are
+generally pronounced the same, to confuse you).
 
 Ben.
 
