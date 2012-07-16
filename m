@@ -1,68 +1,39 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] ipv6: fix incorrect route 'expires' value passed to userspace.
-Date: Mon, 16 Jul 2012 16:09:37 +0800
-Message-ID: <5003CC41.9080204@cn.fujitsu.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: linux-next: manual merge of the net-next tree with the infiniband tree
+Date: Mon, 16 Jul 2012 11:33:16 +0300
+Message-ID: <201207161133.16886.jackm@dev.mellanox.co.il>
+References: <20120712120950.223be053857381046b7d5db6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:9515 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843Ab2GPIK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2012 04:10:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Roland Dreier <roland@kernel.org>, linux-rdma@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120712120950.223be053857381046b7d5db6@canb.auug.org.au>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thursday 12 July 2012 05:09, Stephen Rothwell wrote:
+> Hi all,
+> 
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/mellanox/mlx4/main.c between commit 6634961c14d3
+> ("mlx4: Put physical GID and P_Key table sizes in mlx4_phys_caps struct
+> and paravirtualize them") from the infiniband tree and commit
+> 0ff1fb654bec ("{NET, IB}/mlx4: Add device managed flow steering firmware
+> API") from the net-next tree.
+> 
+> Just context changes (I think).  I have fixed it up (see below) and can
+> carry the fix as necessary.
 
-When userspace use RTM_GETROUTE to dump route table, with a already
-expired route entry, we always got an 'expires' value(2147157)
-calculated base on INT_MAX.
+Thanks, Stephen!
 
-The reason of this problem is in the following satement:
-	rt->dst.expires - jiffies < INT_MAX
-gcc promoted the type of both sides of '<' to unsigned long, thus
-a small negative value would be considered greater than INT_MAX.
+Ack for IB side.
 
-This patch fix this by cast the result of subtraction to an 'int'
-which I think is large enough for the expires.
-
-Also we should do some fix in rtnl_put_cacheinfo() which use
-jiffies_to_clock_t(which take an unsigned log as parameter) to
-convert jiffies to clock_t to handle the negative expires.
----
- net/core/rtnetlink.c |    3 ++-
- net/ipv6/route.c     |    2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 21318d1..f92f3d8 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -641,7 +641,8 @@ int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst, u32 id,
- 	};
- 
- 	if (expires)
--		ci.rta_expires = jiffies_to_clock_t(expires);
-+		ci.rta_expires = expires > 0 ? jiffies_to_clock_t(expires)
-+			: -jiffies_to_clock_t(-expires);
- 
- 	return nla_put(skb, RTA_CACHEINFO, sizeof(ci), &ci);
- }
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index becb048..a7fec9d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2516,7 +2516,7 @@ static int rt6_fill_node(struct net *net,
- 		goto nla_put_failure;
- 	if (!(rt->rt6i_flags & RTF_EXPIRES))
- 		expires = 0;
--	else if (rt->dst.expires - jiffies < INT_MAX)
-+	else if ((int)(rt->dst.expires - jiffies) < INT_MAX)
- 		expires = rt->dst.expires - jiffies;
- 	else
- 		expires = INT_MAX;
--- 
-1.7.1
+-Jack
