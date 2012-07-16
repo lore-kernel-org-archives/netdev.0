@@ -1,106 +1,82 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool 2/2] Fix reporting of VLAN tag offload flags for
- Linux 2.6.24-2.6.36
-Date: Mon, 16 Jul 2012 23:20:20 +0100
-Message-ID: <1342477220.2523.43.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342477041.2523.40.camel@bwh-desktop.uk.solarflarecom.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
+Date: Mon, 16 Jul 2012 23:36:31 +0300
+Message-ID: <CAJZOPZ+t+bw5u_nLZ21so7X5HeGYm41XFM_AHRihHK23M73a-Q@mail.gmail.com>
+References: <1342458113-10384-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <50044F1D.6000703@hp.com>
+ <20120716190611.GA1023@oc1711230544.ibm.com>
+ <50046EB1.5040909@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed; boundary="===============4464545108669697078=="
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "leitao@linux.vnet.ibm.com" <leitao@linux.vnet.ibm.com>,
+ "amirv@mellanox.com" <amirv@mellanox.com>,
+ "yevgenyp@mellanox.co.il" <yevgenyp@mellanox.co.il>,
+ "klebers@linux.vnet.ibm.com" <klebers@linux.vnet.ibm.com>,
+ Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+ "brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>,
+ "ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "anton@samba.org" <anton@samba.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <50046EB1.5040909@hp.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
+
+--===============4464545108669697078==
+Content-Type: multipart/alternative; boundary=bcaec555510099512804c4f86279
+
+--bcaec555510099512804c4f86279
+Content-Type: text/plain; charset=ISO-8859-1
+
+On Mon, Jul 16, 2012 at 10:42 PM, Rick Jones <rick.jones2@hp.com> wrote:
+
+> I was thinking more along the lines of an additional comparison,
+> explicitly using netperf TCP_RR or something like it, not just the packets
+> per second from a bulk transfer test.
+>
+
+TCP_STREAM would be good to know here as well
+
+Or.
+
+--bcaec555510099512804c4f86279
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">On Mon, Jul 16, 2012 at 10:42 PM, Rick Jones <span dir=3D"=
+ltr">&lt;<a href=3D"mailto:rick.jones2@hp.com" target=3D"_blank">rick.jones=
+2@hp.com</a>&gt;</span> wrote:<br><div class=3D"gmail_quote"><blockquote cl=
+ass=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;p=
+adding-left:1ex">
+I was thinking more along the lines of an additional comparison, explicitly=
+ using netperf TCP_RR or something like it, not just the packets per second=
+ from a bulk transfer test.<span class=3D"HOEnZb"><font color=3D"#888888"><=
+/font></span><br>
+</blockquote></div><br>TCP_STREAM would be good to know here as well<br><br=
+>Or.<br></div>
+
+--bcaec555510099512804c4f86279--
+
+--===============4464545108669697078==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:52447 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752540Ab2GPWUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 18:20:23 -0400
-In-Reply-To: <1342477041.2523.40.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-These kernel versions implement ETHTOOL_GFLAGS but do not include the
-flags for VLAN tag offload (and do not implement ETHTOOL_GFEATURES).
-Since the VLAN tag offload features were already defined and
-implemented by many drivers, we shouldn't assume they are off.
-Instead, since these feature flag values were stable, read them from
-sysfs.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ethtool.c |   41 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
-
-diff --git a/ethtool.c b/ethtool.c
-index b424756..9991ce2 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -33,6 +33,8 @@
- #include <sys/utsname.h>
- #include <limits.h>
- #include <ctype.h>
-+#include <assert.h>
-+#include <sys/fcntl.h>
- 
- #include <sys/socket.h>
- #include <netinet/in.h>
-@@ -1417,6 +1419,31 @@ static struct feature_defs *get_feature_defs(struct cmd_context *ctx)
- 	return defs;
- }
- 
-+static int get_netdev_attr(struct cmd_context *ctx, const char *name,
-+		    char *buf, size_t buf_len)
-+{
-+#ifdef TEST_ETHTOOL
-+	errno = ENOENT;
-+	return -1;
-+#else
-+	char path[40 + IFNAMSIZ];
-+	ssize_t len;
-+	int fd;
-+
-+	len = snprintf(path, sizeof(path), "/sys/class/net/%s/%s",
-+		       ctx->devname, name);
-+	assert(len < sizeof(path));
-+	fd = open(path, O_RDONLY);
-+	if (fd < 0)
-+		return fd;
-+	len = read(fd, buf, buf_len - 1);
-+	if (len >= 0)
-+		buf[len] = 0;
-+	close(fd);
-+	return len;
-+#endif
-+}
-+
- static int do_gdrv(struct cmd_context *ctx)
- {
- 	int err;
-@@ -1858,6 +1885,20 @@ get_features(struct cmd_context *ctx, const struct feature_defs *defs)
- 			perror("Cannot get device generic features");
- 		else
- 			allfail = 0;
-+	} else {
-+		/* We should have got VLAN tag offload flags through
-+		 * ETHTOOL_GFLAGS.  However, prior to Linux 2.6.37
-+		 * they were not exposed in this way - and since VLAN
-+		 * tag offload was defined and implemented by many
-+		 * drivers, we shouldn't assume they are off.
-+		 * Instead, since these feature flag values were
-+		 * stable, read them from sysfs.
-+		 */
-+		char buf[20];
-+		if (get_netdev_attr(ctx, "features", buf, sizeof(buf)) > 0)
-+			state->off_flags |=
-+				strtoul(buf, NULL, 0) &
-+				(ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN);
- 	}
- 
- 	if (allfail) {
--- 
-1.7.7.6
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+--===============4464545108669697078==--
