@@ -1,39 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: add OFO snmp counters
-Date: Mon, 16 Jul 2012 22:12:32 -0700 (PDT)
-Message-ID: <20120716.221232.1581983057864739720.davem@davemloft.net>
-References: <1342438896.23494.15.camel@edumazet-glaptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 2/3] ipvs: add missing lock in ip_vs_ftp_init_conn()
+Date: Tue, 17 Jul 2012 14:14:57 +0900
+Message-ID: <20120717051457.GH29124@verge.net.au>
+References: <1341965963-7275-1-git-send-email-horms@verge.net.au>
+ <1341965963-7275-3-git-send-email-horms@verge.net.au>
+ <20120716210757.GA18026@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Xiaotian Feng <xtfeng@gmail.com>,
+	Xiaotian Feng <dannyfeng@tencent.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45899 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665Ab2GQFMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:12:35 -0400
-In-Reply-To: <1342438896.23494.15.camel@edumazet-glaptop>
+Received: from kirsty.vergenet.net ([202.4.237.240]:33089 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007Ab2GQFPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:15:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20120716210757.GA18026@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 16 Jul 2012 13:41:36 +0200
+On Mon, Jul 16, 2012 at 11:07:57PM +0200, Pablo Neira Ayuso wrote:
+> Hi Simon,
+> 
+> On Wed, Jul 11, 2012 at 09:19:22AM +0900, Simon Horman wrote:
+> > From: Xiaotian Feng <xtfeng@gmail.com>
+> > 
+> > We met a kernel panic in 2.6.32.43 kernel:
+> [...]
+> >  net/netfilter/ipvs/ip_vs_ftp.c | 2 ++
+> >  1 file changed, 2 insertions(+)
+> > 
+> > diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+> > index b20b29c..c2bc264 100644
+> > --- a/net/netfilter/ipvs/ip_vs_ftp.c
+> > +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+> > @@ -65,8 +65,10 @@ static int ip_vs_ftp_pasv;
+> >  static int
+> >  ip_vs_ftp_init_conn(struct ip_vs_app *app, struct ip_vs_conn *cp)
+> >  {
+> > +	spin_lock(&cp->lock);
+> >  	/* We use connection tracking for the command connection */
+> >  	cp->flags |= IP_VS_CONN_F_NFCT;
+> > +	spin_unlock(&cp->lock);
+> >  	return 0;
+> 
+> The conntrack support for FTP IPVS helper seems to be there since
+> 2.6.37.
+> 
+> However, the patch description mentions 2.6.32.43.
+> 
+> Something doesn't match here, could you clarify this?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Add three SNMP TCP counters, to better track TCP behavior
-> at global stage (netstat -s), when packets are received
-> Out Of Order (OFO)
-> 
-> TCPOFOQueue : Number of packets queued in OFO queue
-> 
-> TCPOFODrop  : Number of packets meant to be queued in OFO
->               but dropped because socket rcvbuf limit hit.
-> 
-> TCPOFOMerge : Number of packets in OFO that were merged with
->               other packets.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Looks good, applied, thanks Eric.
+My understanding is that the problem was observed with 2.6.32
+but that it has been around for much longer.
