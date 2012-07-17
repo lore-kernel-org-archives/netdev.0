@@ -1,31 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [RFC] r8169 : why SG / TX checksum are default disabled
-Date: Wed, 18 Jul 2012 00:39:41 +0200
-Message-ID: <1342564781.2626.1264.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 0/2] Pull request for 'davem-next.r8169' branch
+Date: Tue, 17 Jul 2012 15:46:41 -0700
+Message-ID: <1342565201.1898.6.camel@joe2Laptop>
+References: <cover.1342562326.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Hayes Wang <hayeswang@realtek.com>
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:39457 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754648Ab2GQWjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:39:46 -0400
-Received: by qadb17 with SMTP id b17so2648701qad.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:39:45 -0700 (PDT)
+Received: from perches-mx.perches.com ([206.117.179.246]:42699 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751857Ab2GQWqm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 18:46:42 -0400
+In-Reply-To: <cover.1342562326.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Francois
+On Wed, 2012-07-18 at 00:09 +0200, Francois Romieu wrote:
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
 
-I was wondering why Scatter Gather (NETIF_F_SG) and TX checksum
-(NETIF_F_IP_CSUM) were disabled by default on r8169.
+Hello Francois, just a bit of trivia:
 
-Couldnt we enable them by default, maybe for a whitelist of "good"
-nics ?
+> @@ -865,7 +865,8 @@ static bool rtl_loop_wait(struct rtl8169_private *tp, const struct rtl_cond *c,
+>  		if (c->check(tp) == high)
+>  			return true;
+>  	}
+> -	netif_err(tp, drv, tp->dev, c->msg);
+> +	netif_err(tp, drv, tp->dev, "%s == %d (loop: %d, delay: %d).\n",
+> +		  c->msg, !high, n, d);
 
-(I found that activating them with ethtool automatically enables GSO,
- and performance with GSO is not good)
+Please avoid adding the period to a message before a newline.
 
-Thanks
+$ git grep -E "[^\.]\\\\n\"" drivers/net/ethernet/realtek | wc -l
+113
+$ git grep -E "\.\\\\n\"" drivers/net/ethernet/realtek | wc -l
+12
