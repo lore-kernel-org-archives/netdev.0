@@ -1,53 +1,88 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
-Date: Tue, 17 Jul 2012 23:41:16 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
-References: <20120717.061418.1893307699868826531.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next PATCH 01/02] net/ipv4: VTI support rx-path hook in
+ xfrm4_mode_tunnel.
+Date: Tue, 17 Jul 2012 13:36:42 -0700
+Message-ID: <1342557402.15318.22.camel@joe2Laptop>
+References: <20120717194449.GA3350@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Saurabh <saurabh.mohan@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:54279 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753858Ab2GQUeI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 16:34:08 -0400
-In-Reply-To: <20120717.061418.1893307699868826531.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:35623 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753858Ab2GQUgo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 16:36:44 -0400
+In-Reply-To: <20120717194449.GA3350@debian-saurabh-64.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2012-07-17 at 12:44 -0700, Saurabh wrote:
+> Incorporated David and Steffen's comments.
+> Add hook for rx-path xfmr4_mode_tunnel for VTI tunnel module.
+[]
+> diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+[]
+> +int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
+> +{
+> +	struct xfrm_tunnel __rcu **pprev;
+> +	struct xfrm_tunnel *t;
+> +	int ret = -EEXIST;
+> +	int priority = handler->priority;
+> +
+> +	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
+> +
+> +	for (pprev = &rcv_notify_handlers;
+> +	     (t = rcu_dereference_protected(*pprev,
+> +	     lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) != NULL;
+> +	     pprev = &t->next) {
+> +		if (t->priority > priority)
+> +			break;
+> +		if (t->priority == priority)
+> +			goto err;
+> +
+> +	}
+> +
+> +	handler->next = *pprev;
+> +	rcu_assign_pointer(*pprev, handler);
+> +
+> +	ret = 0;
+> +
+> +err:
+> +	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(xfrm4_mode_tunnel_input_register);
 
-	Hello,
+Isn't the multiple indirection of **pprev unnecessary?
+Perhaps something like this is simpler and easier to read?
 
-On Tue, 17 Jul 2012, David Miller wrote:
+int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel *handler)
+{
+	struct xfrm_tunnel __rcu *prev;
+	struct xfrm_tunnel *t;
+	int ret = -EEXIST;
+	int priority = handler->priority;
 
-> These patches implement the final mechanism necessary to really allow
-> us to go without the route cache in ipv4.
-> 
-> We need a place to have long-term storage of PMTU/redirect information
-> which is independent of the routes themselves, yet does not get us
-> back into a situation where we have to write to metrics or anything
-> like that.
-> 
-> For this we use an "next-hop exception" table in the FIB nexthops.
-> 
-> Currently it is a simple linked list and uses a single global lock
-> for synchronization, but that can be easily adjusted as-needed.
-> 
-> The one thing I desperately want to avoid is having to create clone
-> routes in the FIB trie for this purpose, because that is very
-> expensive.   However, I'm willing to entertain such an idea later
-> if this current scheme proves to have downsides that the FIB trie
-> variant would not have.
+	mutex_lock(&xfrm4_mode_tunnel_input_mutex);
 
-	IIRC, struct fib_info was shared by different
-prefixes. It saves a lot of memory when thousands of
-routes are created to same GW. Now if we end up with 1 or
-2 fib_info structures for default routes, the nh_exceptions list
-can become very long. May be fib_info is not a good place
-to hide such data.
+	prev = rcv_notify_handlers;
+	while ((t = rcu_dereference_protected(prev,
+					      lockdep_is_held(&xfrm4_mode_tunnel_input_mutex))) {
+		if (t->priority > priority)
+			break;
+		if (t->priority == priority)
+			goto err;
+		prev = t->next;
+	}
 
-Regards
+	handler->next = prev;
+	rcu_assign_pointer(prev, handler);
 
---
-Julian Anastasov <ja@ssi.bg>
+	ret = 0;
+
+err:
+	mutex_unlock(&xfrm4_mode_tunnel_input_mutex);
+	return ret;
+}
