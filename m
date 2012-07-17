@@ -1,34 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
-Date: Tue, 17 Jul 2012 11:03:14 -0700 (PDT)
-Message-ID: <20120717.110314.1984735460095688066.davem@davemloft.net>
-References: <20120717.061418.1893307699868826531.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: pull request: sfc-next 2012-07-17
+Date: Tue, 17 Jul 2012 19:03:27 +0100
+Message-ID: <1342548207.2698.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120717.103103.655643871226631461.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53307 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751109Ab2GQSDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:03:17 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id AF76C5839B1
-	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 11:03:18 -0700 (PDT)
-In-Reply-To: <20120717.061418.1893307699868826531.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:49328 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752853Ab2GQSDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:03:31 -0400
+In-Reply-To: <20120717.103103.655643871226631461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 17 Jul 2012 06:14:18 -0700 (PDT)
+On Tue, 2012-07-17 at 10:31 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 17 Jul 2012 18:05:40 +0100
+> 
+> > The following changes since commit 141e369de698f2e17bf716b83fcc647ddcb2220c:
+> > 
+> >   xfrm: Initialize the struct xfrm_dst behind the dst_enty field (2012-07-14 00:29:12 -0700)
+> > 
+> > are available in the git repository at:
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+> > 
+> > (commit c2dbab39db1c3c2ccbdbb2c6bac6f07cc7a7c1f6)
+> > 
+> > 1. Fix potential badness when running a self-test with SR-IOV enabled.
+> > 2. Fix calculation of some interface statistics that could run backward.
+> > 3. Miscellaneous cleanup.
+> 
+> Please post the patches so that at least in theory people have the
+> opportunity to review them.
 
-> These patches implement the final mechanism necessary to really allow
-> us to go without the route cache in ipv4.
+Sorry, yes.  They're the same as last time modulo the MMIO, but I
+suppose they may have been ignored after the objections to that.
 
-Ok I pushed this out to net-next with the v2 of patch #5 and the merge
-commit message adjusted to suit.
+Ben.
 
-I think the routing cache will die in net-next for real some time
-later this week.
-
-I'll start respinning those patches.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
