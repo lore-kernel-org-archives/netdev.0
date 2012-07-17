@@ -1,49 +1,73 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH] net-next: make sock diag per-namespace (v2)
-Date: Tue, 17 Jul 2012 06:34:34 +0400
-Message-ID: <5004CF3A.6080704@parallels.com>
-References: <1342448929-1809316-1-git-send-email-avagin@openvz.org>
+From: Xiaotian Feng <xtfeng@gmail.com>
+Subject: Re: [PATCH 2/3] ipvs: add missing lock in ip_vs_ftp_init_conn()
+Date: Tue, 17 Jul 2012 10:34:43 +0800
+Message-ID: <CAJn8CcHPOMRt6SjP5YvH3=4UtihFJKbCOJP4TBcfzguPRxEggQ@mail.gmail.com>
+References: <1341965963-7275-1-git-send-email-horms@verge.net.au>
+	<1341965963-7275-3-git-send-email-horms@verge.net.au>
+	<20120716210757.GA18026@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Xiaotian Feng <dannyfeng@tencent.com>,
 	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Vagin <avagin@openvz.org>,
 	"David S. Miller" <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:34742 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754275Ab2GQCem (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2012 22:34:42 -0400
-In-Reply-To: <1342448929-1809316-1-git-send-email-avagin@openvz.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:38429 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754275Ab2GQCep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 22:34:45 -0400
+In-Reply-To: <20120716210757.GA18026@1984>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/16/2012 06:28 PM, Andrew Vagin wrote:
-> Before this patch sock_diag works for init_net only and dumps
-> information about sockets from all namespaces.
-> 
-> This patch expands sock_diag for all name-spaces.
-> It creates a netlink kernel socket for each netns and filters
-> data during dumping.
-> 
-> v2: filter accoding with netns in all places
->     remove an unused variable.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: linux-kernel@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Andrew Vagin <avagin@openvz.org>
+On Tue, Jul 17, 2012 at 5:07 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> Hi Simon,
+>
+> On Wed, Jul 11, 2012 at 09:19:22AM +0900, Simon Horman wrote:
+>> From: Xiaotian Feng <xtfeng@gmail.com>
+>>
+>> We met a kernel panic in 2.6.32.43 kernel:
+> [...]
+>>  net/netfilter/ipvs/ip_vs_ftp.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+>> index b20b29c..c2bc264 100644
+>> --- a/net/netfilter/ipvs/ip_vs_ftp.c
+>> +++ b/net/netfilter/ipvs/ip_vs_ftp.c
+>> @@ -65,8 +65,10 @@ static int ip_vs_ftp_pasv;
+>>  static int
+>>  ip_vs_ftp_init_conn(struct ip_vs_app *app, struct ip_vs_conn *cp)
+>>  {
+>> +     spin_lock(&cp->lock);
+>>       /* We use connection tracking for the command connection */
+>>       cp->flags |= IP_VS_CONN_F_NFCT;
+>> +     spin_unlock(&cp->lock);
+>>       return 0;
+>
+> The conntrack support for FTP IPVS helper seems to be there since
+> 2.6.37.
+>
+> However, the patch description mentions 2.6.32.43.
+>
+> Something doesn't match here, could you clarify this?
+>
 
-Acked-by: Pavel Emelyanov <xemul@parallels.com>
+Sorry for the misleading description in the patch. We found the panic
+in 2.6.32.43 is caused by changing cp->flags without protection. In
+2.6.32.43, ip_vs_process_message changes cp->flags without protection
+while update active/inactive flags for the connection.
+
+After code inspiration, we found in 3.x kernel, it is accidentally
+fixed by commit  f73181c. But with ip_vs_app changes,
+ip_vs_ftp_init_conn() will have chance to change cp->flags without
+protection. So it is a potential bug in 3.x kernel.
+
+
+> Thanks.
