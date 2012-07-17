@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: reflect actual changes in IEEE 802.15.4
- maintainership
-Date: Mon, 16 Jul 2012 23:20:10 -0700 (PDT)
-Message-ID: <20120716.232010.1943870566285657942.davem@davemloft.net>
-References: <1342246534-22562-1-git-send-email-dbaryshkov@gmail.com>
+Subject: Re: [PATCH] ax25: Fix missing break
+Date: Mon, 16 Jul 2012 23:22:54 -0700 (PDT)
+Message-ID: <20120716.232254.720684737816173031.davem@davemloft.net>
+References: <20120713163247.22674.82793.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alex.bluesman.smirnov@gmail.com
-To: dbaryshkov@gmail.com
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org
+To: alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46661 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46688 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866Ab2GQGUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:20:11 -0400
-In-Reply-To: <1342246534-22562-1-git-send-email-dbaryshkov@gmail.com>
+	with ESMTP id S1750991Ab2GQGWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:22:55 -0400
+In-Reply-To: <20120713163247.22674.82793.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Date: Sat, 14 Jul 2012 10:15:34 +0400
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Fri, 13 Jul 2012 17:33:08 +0100
 
-> As the life flows, developers priorities shifts a bit. Reflect actual
-> changes in the maintainership of IEEE 802.15.4 code: Sergey mostly
-> stopped cared about this piece of code. Most of the work recently was
-> done by Alexander, so put him to the MAINTAINERS file to reflect his
-> status and to ease the life of respective patches.
+> From: Alan Cox <alan@linux.intel.com>
 > 
-> Also add new net/mac802154/ directory to the list of maintained files.
+> At least there seems to be no reason to disallow ROSE sockets when
+> NETROM is loaded.
 > 
-> Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> Signed-off-by: Alan Cox <alan@linux.intel.com>
 
-Applied, thanks.
+Applied, thanks Alan.
