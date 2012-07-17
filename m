@@ -1,24 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Fix typo in irda
-Date: Mon, 16 Jul 2012 23:24:07 -0700 (PDT)
-Message-ID: <20120716.232407.1475883010139796416.davem@davemloft.net>
-References: <1342200167-14934-1-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH] drivers: connector: fixed coding style issues
+Date: Mon, 16 Jul 2012 23:24:41 -0700 (PDT)
+Message-ID: <20120716.232441.1586213661098921458.davem@davemloft.net>
+References: <1342297608-6872-1-git-send-email-valentin.ilie@gmail.com>
+	<1342298026.8377.33.camel@joe2Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, samuel@sortiz.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: standby24x7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342200167-14934-1-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: valentin.ilie@gmail.com, zbr@ioremap.net, netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46730 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907Ab2GQGYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:24:41 -0400
+In-Reply-To: <1342298026.8377.33.camel@joe2Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Sat, 14 Jul 2012 02:22:47 +0900
 
-> Correct spelling typo in irda.
-> 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
-
-Applied.
+I applied v2 of this patch, thanks.
