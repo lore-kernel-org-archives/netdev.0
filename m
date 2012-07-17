@@ -1,54 +1,61 @@
-From: BALAKUMARAN KANNAN <balakumarank@tataelxsi.co.in>
-Subject: RE: timer expiry check at icmp.c in ipv6
-Date: Tue, 17 Jul 2012 05:11:06 +0000
-Message-ID: <4A71D24947E78D43BC584A7CD4391A41017DBDB4@SIXPRD0410MB359.apcprd04.prod.outlook.com>
-References: <4A71D24947E78D43BC584A7CD4391A41017DBBAF@SIXPRD0410MB359.apcprd04.prod.outlook.com>,<1342449217.2830.3.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netem: fix rate extension and drop accounting
+Date: Tue, 17 Jul 2012 07:12:27 +0200
+Message-ID: <1342501947.2626.9.camel@edumazet-glaptop>
+References: <1341307524.2583.115.camel@edumazet-glaptop>
+	 <CAPVr9VP7DniPZj4vZi_myJWfL5JLYKYTXXtrXcKHo9LjEQzjYw@mail.gmail.com>
+	 <20120716232600.GI3415@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Gordon <msg@google.com>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Andreas Terzis <aterzis@google.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:25026
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752665Ab2GQFLV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 01:11:21 -0400
-In-Reply-To: <1342449217.2830.3.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:57769 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752665Ab2GQFMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:12:32 -0400
+Received: by eekc13 with SMTP id c13so2920eek.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 22:12:31 -0700 (PDT)
+In-Reply-To: <20120716232600.GI3415@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Eric,
-    Can you please explain it into bit further. Actually what I want to know is how the preferred lifetime value of a router advertisement is processed?, Where it is stored? and while sending the ICMP_REPLY how that preferred lifetime value considered before actually sending the packet? I cannot able to find the relation between icmpv6_echo_reply and fib6_run_gc(). I am very new to kernel source. Kindly help me.
+On Tue, 2012-07-17 at 01:26 +0200, Hagen Paul Pfeifer wrote:
 
-thank you.
-________________________________________
-From: netdev-owner@vger.kernel.org [netdev-owner@vger.kernel.org] on behalf of Eric Dumazet [eric.dumazet@gmail.com]
-Sent: Monday, July 16, 2012 8:03 PM
-To: BALAKUMARAN KANNAN
-Cc: netdev@vger.kernel.org
-Subject: Re: timer expiry check at icmp.c in ipv6
+> As Eric said: there are problems in combination with a static delay. During
+> rate extension development we tested the raw/vanilla "rate" functionality.
+> The rate part works faultless[TM] - at least independet of any other
+> "delay-latency generator".
 
-On Mon, 2012-07-16 at 13:44 +0000, BALAKUMARAN KANNAN wrote:
-> Dear all,
->
-> In kernel-3.0.26 code net/ipv6/icmp.c, while sending ICMP reply where
-> it checks for the timer expiry. It should check the value given by a
-> router advertisement. I think the expiry value is stored in
-> rt->rt6_expires in ndisc.c (line no: 1284). Then while sending an ICMP
-> reply, it should check with the expiry timer right? Where that check
-> is happening? Please somebody explain me.
->
-> Thank you.
+Well, to get correct rate, I use the following unofficial patch :
 
-Its probably done in net/ipv6/ip6_fib.c
-
-fib6_gc_timer_cb() -> fib6_run_gc()
-
-Every 30 seconds.
-
-(you can change /proc/sys/net/ipv6/route/gc_interval )
+(Or else, the rate is really wrong)
 
 
 
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index c412ad0..2740a75 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -433,16 +433,8 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 			delay += packet_len_2_sched_time(skb->len, q);
+ 
+-			if (!skb_queue_empty(list)) {
+-				/*
+-				 * Last packet in queue is reference point (now).
+-				 * First packet in queue is already in flight,
+-				 * calculate this time bonus and substract
+-				 * from delay.
+-				 */
+-				delay -= now - netem_skb_cb(skb_peek(list))->time_to_send;
++			if (!skb_queue_empty(list))
+ 				now = netem_skb_cb(skb_peek_tail(list))->time_to_send;
+-			}
+ 		}
+ 
+ 		cb->time_to_send = now + delay;
