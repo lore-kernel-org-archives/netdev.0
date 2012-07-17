@@ -1,84 +1,99 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull request: linux-can-next 2012-07-17
-Date: Tue, 17 Jul 2012 09:50:34 +0200
-Message-ID: <5005194A.4090900@pengutronix.de>
+From: Zhong Hongbo <hongbo.zhong@windriver.com>
+Subject: Re: [PATCH 1/4] pch_gbe: Fix the checksum fill to the error location
+Date: Tue, 17 Jul 2012 16:04:19 +0800
+Message-ID: <50051C83.7020504@windriver.com>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local> <1342508968.2626.148.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigD34CBA3DE871A24A88670F26"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: davem@davemloft.net
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Cress <andy.cress@us.kontron.com>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:58021 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750891Ab2GQIEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 04:04:12 -0400
+In-Reply-To: <1342508968.2626.148.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigD34CBA3DE871A24A88670F26
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 07/17/2012 03:09 PM, Eric Dumazet wrote:
+> On Mon, 2012-07-16 at 13:03 -0700, Andy Cress wrote:
+>> Author: Zhong Hongbo <hongbo.zhong@windriver.com>
+>>
+>> Due to some unknown hardware limitations the pch_gbe hardware cannot
+>> calculate checksums when the length of network package is less
+>> than 64 bytes, where we will surprisingly encounter a problem of
+>> the destination IP incorrectly changed.
+>>
+>> When forwarding network packages at the network layer the IP packages
+>> won't be relayed to the upper transport layer and analyzed there,
+>> consequently, skb->transport_header pointer will be mistakenly remained
+>> the same as that of skb->network_header, resulting in TCP checksum
+>> wrongly
+>> filled into the field of destination IP in IP header.
+>>
+>> We can fix this issue by manually calculate the offset of the TCP
+>> checksum
+>>  and update it accordingly.
+>>
+>> We would normally use the skb_checksum_start_offset(skb) here, but in
+>> this
+>> case it is sometimes -2 (csum_start=0 - skb_headroom=2 => -2), hence the
+>> manual calculation.
+>>
+>> Signed-off-by: Zhong Hongbo <hongbo.zhong@windriver.com>
+>> Merged-by: Andy Cress <andy.cress@us.kontron.com>
+>
+> Hmm... I fail to understand why you care about NIC doing checksums,
 
-Hello David,
+Hi Eric,
 
-the fifth pull request for upcoming v3.6 net-next. The first two
-patches (created by me) add const qualifiers to the flexcan and
-mpc5xxx_can driver. The next patch by Julia Lawall fixes a return value
-problem in the error path of the softing driver.
+When forwarding network packages at the network layer, the variable value of skb->transport_header is unknown. In my test, the variable value of skb->transport_header is equal to skb->network_header. So When you count the checksum as following:
 
-regards, Marc
+offset = skb_transport_offset(skb);
 
---
+skb->csum = skb_checksum(skb, offset, skb->len - offset, 0);
+We should only count the TCP checksum, But it maybe include IP part.
 
-The following changes since commit 6ba6047bf99cf4ade4f63b6b3d97cc3ad763b6=
-78:
+tcp_hdr(skb)->check = csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len - offset, IPPROTO_TCP, skb->csum);
+We should fill the checksum in TCP package, But maybe fill it in other location and cover the useful information, such as source ip.
 
-  gigaset: silence GCC warning for unused 'format_ie' (2012-07-16 23:23:5=
-3 -0700)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to da78b7998e365b3f90b2a1a55d3b6ba6cc0c5905:
-
-  can: softing: softing_main: ensure a consistent return value in error c=
-ase (2012-07-17 09:35:59 +0200)
-
-----------------------------------------------------------------
-Julia Lawall (1):
-      can: softing: softing_main: ensure a consistent return value in err=
-or case
-
-Marc Kleine-Budde (2):
-      can: flexcan: make flexcan_priv.devtype_data member point to const =
-data
-      can: mpc5xxx_can: make data in mpc5xxx_can_probe const
-
- drivers/net/can/flexcan.c              |    4 ++--
- drivers/net/can/mscan/mpc5xxx_can.c    |    2 +-
- drivers/net/can/softing/softing_main.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+So We should count the TCP checksum and fill it in the correct location. Or else the forwarding network package will be drop for the error checksum.
 
 
---------------enigD34CBA3DE871A24A88670F26
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> while pch_gbe_tx_queue() make a _copy_ of each outgoing
+> packets.
+>
+> There _must_ be a way to avoid most of these copies (ie not touching
+> payload), only mess with the header to insert these 2 nul bytes ?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+This is other fix, my patch just fix checksum error issue.
 
-iEYEARECAAYFAlAFGVAACgkQjTAFq1RaXHNXvACfUA4zsL47Y6Os2EzWNyCIPKgE
-5B0AnizaiOwAYitqltbRXMpatkvM5JOQ
-=HJdc
------END PGP SIGNATURE-----
+Thanks,
+hongbo
 
---------------enigD34CBA3DE871A24A88670F26--
+>
+> /* [Header:14][payload] ---> [Header:14][paddong:2][payload]    */
+>
+> So at device setup : dev->needed_headroom = 2;
+>
+> and in xmit,
+>
+> 	if (skb_headroom(skb) < 2) {
+> 		struct sk_buff *skb_new;
+>
+> 		skb_new = skb_realloc_headroom(skb, 2);
+> 		if (!skb_new) { handle error }
+> 		consume_skb(skb);
+> 		skb = skb_new;
+> 	}
+> 	ptr = skb_push(skb, 2);
+> 	memmove(ptr, ptr + 2, ETH_HLEN);
+> 	ptr[ETH_HLEN] = 0;
+> 	ptr[ETH_HLEN + 1] = 0;
+>
+>
+>
+>
+>
