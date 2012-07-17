@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
-Date: Tue, 17 Jul 2012 05:50:05 -0700 (PDT)
-Message-ID: <20120717.055005.1912765690890797652.davem@davemloft.net>
-References: <50044F1D.6000703@hp.com>
-	<20120716.222903.367603216293954363.davem@davemloft.net>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6F8B@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] [RFC] tcp: TSQ - do not always throttle.
+Date: Tue, 17 Jul 2012 15:10:54 +0200
+Message-ID: <1342530654.2626.563.camel@edumazet-glaptop>
+References: <20120717120358.16611.98190.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, cascardo@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, yevgenyp@mellanox.co.il,
-	ogerlitz@mellanox.com, amirv@mellanox.com,
-	brking@linux.vnet.ibm.com, leitao@linux.vnet.ibm.com,
-	klebers@linux.vnet.ibm.com
-To: David.Laight@ACULAB.COM
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49681 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751717Ab2GQNDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 09:03:54 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F8B@saturn3.aculab.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:36724 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807Ab2GQNK7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 09:10:59 -0400
+Received: by eekc13 with SMTP id c13so148382eek.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 06:10:58 -0700 (PDT)
+In-Reply-To: <20120717120358.16611.98190.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Tue, 17 Jul 2012 13:42:04 +0100
+On Tue, 2012-07-17 at 17:33 +0530, Krishna Kumar wrote:
+> Do not throttle if sysctl_tcp_limit_output_bytes==0.
+> 
+> Maybe it is better to throttle earlier in the loop, after
+> calling tcp_init_tso_segs().
+> 
 
-> Would there be any mileage in permanently allocating IOMMU
-> virtual address to the ring entries, then 'just' assigning
-> the correct physical address during rx/tx setup?
+I wonder why, and why you put this question in a changelog instead of
+outside of it...
 
-There is a not a one to one mapping between these two entities,
-in particular on the transmit side.
+Idea was to avoid setting TSQ_THROTTLED if we break out the loop.
 
-A transmit packet can have multiple segments, some of which are
-larger than one IOMMU page.
+
+About disabling TSQ, my initial intent was to instead use a negative
+sysctl_tcp_limit_output_bytes value.
+
+Thats why I have in tcp_transmit_skb() :
+
+skb->destructor = (sysctl_tcp_limit_output_bytes > 0) ?
+		  tcp_wfree : sock_wfree;
+
+So I suggest you change the tcp_write_xmit(() test to a single unsigned
+compare :
+
+if (atomic_read(&sk->sk_wmem_alloc) >=
+    (unsigned) sysctl_tcp_limit_output_bytes) {
+
+Also use :
+
+skb->destructor = (sysctl_tcp_limit_output_bytes >= 0) ?
+  tcp_wfree : sock_wfree;
+
+and document the 'negative value disables TSQ' in
+Documentation/networking/ip-sysctl.txt
