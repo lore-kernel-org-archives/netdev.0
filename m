@@ -1,44 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix RTPROT_RA markup of RA routes w/nexthops
-Date: Mon, 16 Jul 2012 22:56:11 -0700 (PDT)
-Message-ID: <20120716.225611.1570342975310166446.davem@davemloft.net>
-References: <1405671341819473@web18d.yandex.ru>
-	<20120709.144002.6394436211445151.davem@davemloft.net>
-	<20120710184550.7a5a8d89802473b4c28d07bf@yandex.ru>
+Subject: Re: [patch] net/mlx4: off by one in parse_trans_rule()
+Date: Mon, 16 Jul 2012 22:58:48 -0700 (PDT)
+Message-ID: <20120716.225848.2202032682404200150.davem@davemloft.net>
+References: <20120711063336.GC11812@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: infrastation@yandex.ru
+Cc: hadarh@mellanox.co.il, ogerlitz@mellanox.com,
+	eugenia@mellanox.co.il, yevgenyp@mellanox.co.il,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46368 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46377 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752090Ab2GQF4M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:56:12 -0400
-In-Reply-To: <20120710184550.7a5a8d89802473b4c28d07bf@yandex.ru>
+	with ESMTP id S1752419Ab2GQF6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:58:49 -0400
+In-Reply-To: <20120711063336.GC11812@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Ovsienko <infrastation@yandex.ru>
-Date: Tue, 10 Jul 2012 18:45:50 +0400
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 11 Jul 2012 09:33:36 +0300
 
-> From: Denis Ovsienko <infrastation@yandex.ru>
+> This should be ">=" here instead of ">".  MLX4_NET_TRANS_RULE_NUM is 6.
+> We use "spec->id" as an array offset into the __rule_hw_sz[] and
+> __sw_id_hw[] arrays which have 6 elements.
 > 
-> Userspace implementations of network routing protocols sometimes need to
-> tell RA-originated IPv6 routes from other kernel routes to make proper
-> routing decisions. This makes most sense for RA routes with nexthops,
-> namely, default routes and Route Information routes.
-> 
-> The intended mean of preserving RA route origin in a netlink message is
-> through indicating RTPROT_RA as protocol code. Function rt6_fill_node()
-> tried to do that for default routes, but its test condition was taken
-> wrong. This change is modeled after the original mailing list posting
-> by Jeff Haran. It fixes the test condition for default route case and
-> sets the same behaviour for Route Information case (both types use
-> nexthops). Handling of the 3rd RA route type, Prefix Information, is
-> left unchanged, as it stands for interface connected routes (without
-> nexthops).
-> 
-> Signed-off-by: Denis Ovsienko <infrastation@yandex.ru>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
+
+Dan, in the future please indicate clearly that your patches are
+targetted at net-next specifically.  Thanks.
