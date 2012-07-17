@@ -1,39 +1,145 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
-Date: Tue, 17 Jul 2012 13:46:51 -0700 (PDT)
-Message-ID: <20120717.134651.562831385960975623.davem@davemloft.net>
-References: <20120717.061418.1893307699868826531.davem@davemloft.net>
-	<alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH v4] net: cgroup: fix access the unallocated memory in
+ netprio cgroup
+Date: Tue, 17 Jul 2012 13:47:25 -0700
+Message-ID: <5005CF5D.9070905@intel.com>
+References: <1342079415-9631-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756506Ab2GQUq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 16:46:57 -0400
-In-Reply-To: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman@tuxdriver.com, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342079415-9631-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Tue, 17 Jul 2012 23:41:16 +0300 (EEST)
+On 7/12/2012 12:50 AM, Gao feng wrote:
+> there are some out of bound accesses in netprio cgroup.
+>
+> now before accessing the dev->priomap.priomap array,we only check
+> if the dev->priomap exist.and because we don't want to see
+> additional bound checkings in fast path, so we should make sure
+> that dev->priomap is null or array size of dev->priomap.priomap
+> is equal to max_prioidx + 1;
+>
+> so in write_priomap logic,we should call extend_netdev_table when
+> dev->priomap is null and dev->priomap.priomap_len < max_len.
+> and in cgrp_create->update_netdev_tables logic,we should call
+> extend_netdev_table only when dev->priomap exist and
+> dev->priomap.priomap_len < max_len.
+>
+> and it's not needed to call update_netdev_tables in write_priomap,
+> we can only allocate the net device's priomap which we change through
+> net_prio.ifpriomap.
+>
+> this patch also add a return value for update_netdev_tables &
+> extend_netdev_table, so when new_priomap is allocated failed,
+> write_priomap will stop to access the priomap,and return -ENOMEM
+> back to the userspace to tell the user what happend.
+>
+> Change From v3:
+> 1. add rtnl protect when reading max_prioidx in write_priomap.
+>
+> 2. only call extend_netdev_table when map->priomap_len < max_len,
+>     this will make sure array size of dev->map->priomap always
+>     bigger than any prioidx.
+>
+> 3. add a function write_update_netdev_table to make codes clear.
+>
+> Change From v2:
+> 1. protect extend_netdev_table by RTNL.
+> 2. when extend_netdev_table failed,call dev_put to reduce device's refcount.
+>
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> ---
+>   net/core/netprio_cgroup.c |   71 ++++++++++++++++++++++++++++++++++-----------
+>   1 files changed, 54 insertions(+), 17 deletions(-)
+>
 
-> 	IIRC, struct fib_info was shared by different
-> prefixes. It saves a lot of memory when thousands of
-> routes are created to same GW. Now if we end up with 1 or
-> 2 fib_info structures for default routes, the nh_exceptions list
-> can become very long. May be fib_info is not a good place
-> to hide such data.
+[...]
 
-Your analysis of what fib_info is and how it's intended to
-work is accurate.
+> +
+> +static int update_netdev_tables(void)
+> +{
+> +	int ret = 0;
+>   	struct net_device *dev;
+> -	u32 max_len = atomic_read(&max_prioidx) + 1;
+> +	u32 max_len;
+>   	struct netprio_map *map;
 
-But we don't use a linked list for the exceptions in the final
-version, we use a reclaiming RCU'd hash table like we use for TCP
-metrics.
 
-See the updated version of patch #5 and what I actually committed to
-net-next.
+need to check if net subsystem is initialized before we try
+to use it here...
+
+	if (some_check)     -> need to lookup what this check is
+		return ret;
+
+>
+>   	rtnl_lock();
+> +	max_len = atomic_read(&max_prioidx) + 1;
+>   	for_each_netdev(&init_net, dev) {
+>   		map = rtnl_dereference(dev->priomap);
+> -		if ((!map) ||
+> -		    (map->priomap_len < max_len))
+> -			extend_netdev_table(dev, max_len);
+> +		/*
+> +		 * don't allocate priomap if we didn't
+> +		 * change net_prio.ifpriomap (map == NULL),
+> +		 * this will speed up skb_update_prio.
+> +		 */
+> +		if (map && map->priomap_len < max_len) {
+> +			ret = extend_netdev_table(dev, max_len);
+> +			if (ret < 0)
+> +				break;
+> +		}
+>   	}
+>   	rtnl_unlock();
+> +	return ret;
+>   }
+>
+>   static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+>   {
+>   	struct cgroup_netprio_state *cs;
+> -	int ret;
+> +	int ret = -EINVAL;
+>
+>   	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
+>   	if (!cs)
+>   		return ERR_PTR(-ENOMEM);
+>
+> -	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx) {
+> -		kfree(cs);
+> -		return ERR_PTR(-EINVAL);
+> -	}
+> +	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx)
+> +		goto out;
+>
+>   	ret = get_prioidx(&cs->prioidx);
+> -	if (ret != 0) {
+> +	if (ret < 0) {
+>   		pr_warn("No space in priority index array\n");
+> -		kfree(cs);
+> -		return ERR_PTR(ret);
+> +		goto out;
+> +	}
+> +
+> +	ret = update_netdev_tables();
+> +	if (ret < 0) {
+> +		put_prioidx(cs->prioidx);
+> +		goto out;
+>   	}
+
+Gao,
+
+This introduces a null ptr dereference when netprio_cgroup is built
+into the kernel because update_netdev_tables() depends on init_net.
+However cgrp_create is being called by cgroup_init before
+do_initcalls() is called and before net_dev_init().
+
+.John
