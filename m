@@ -1,72 +1,144 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH] [RFC] tcp: TSQ - do not always throttle.
-Date: Tue, 17 Jul 2012 19:38:57 +0530
-Message-ID: <OFCF93D527.A65DD20D-ON65257A3E.004D15F6-65257A3E.004DCBB7@in.ibm.com>
-References: <20120717120358.16611.98190.sendpatchset@localhost.localdomain> <1342530654.2626.563.camel@edumazet-glaptop>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: RE: [PATCH 1/4] pch_gbe: Fix the checksum fill to the error location
+Date: Tue, 17 Jul 2012 07:20:03 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D011434C0@ka-exchange-1.kontronamerica.local>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local> <1342508968.2626.148.camel@edumazet-glaptop> <1342510387.2626.174.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>,
+	"Zhong Hongbo" <hongbo.zhong@windriver.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp04.in.ibm.com ([122.248.162.4]:46347 "EHLO
-	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035Ab2GQOJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 10:09:52 -0400
-Received: from /spool/local
-	by e28smtp04.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
-	Tue, 17 Jul 2012 19:39:49 +0530
-Received: from d28av02.in.ibm.com (d28av02.in.ibm.com [9.184.220.64])
-	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6HE9lsl63176728
-	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 19:39:47 +0530
-Received: from d28av02.in.ibm.com (loopback [127.0.0.1])
-	by d28av02.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6HJeRQ0017423
-	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 05:40:27 +1000
-In-Reply-To: <1342530654.2626.563.camel@edumazet-glaptop>
+Received: from mail.us.kontron.com ([209.118.138.70]:51483 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754977Ab2GQOUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 10:20:06 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1342510387.2626.174.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote on 07/17/2012 06:40:54 PM:
-
-> > Do not throttle if sysctl_tcp_limit_output_bytes==0.
-> >
-> > Maybe it is better to throttle earlier in the loop, after
-> > calling tcp_init_tso_segs().
-> >
->
-> I wonder why, and why you put this question in a changelog instead of
-> outside of it...
->
-> Idea was to avoid setting TSQ_THROTTLED if we break out the loop.
-
-The reason I mentioned it (in the wrong place) is because
-I thought this is a likely case and the checks before that
-might all pass only to get throttled. Some of the checks
-are quite lengthy.
-
-> About disabling TSQ, my initial intent was to instead use a negative
-> sysctl_tcp_limit_output_bytes value.
->
-> Thats why I have in tcp_transmit_skb() :
->
-> skb->destructor = (sysctl_tcp_limit_output_bytes > 0) ?
->         tcp_wfree : sock_wfree;
->
-> So I suggest you change the tcp_write_xmit(() test to a single unsigned
-> compare :
->
-> if (atomic_read(&sk->sk_wmem_alloc) >=
->     (unsigned) sysctl_tcp_limit_output_bytes) {
->
-> Also use :
->
-> skb->destructor = (sysctl_tcp_limit_output_bytes >= 0) ?
->   tcp_wfree : sock_wfree;
->
-> and document the 'negative value disables TSQ' in
-> Documentation/networking/ip-sysctl.txt
-
-Sure, will post with this change.
-
-thanks,
-- KK
+RXJpYywNCg0KVGhpcyBpcyBpbnRyaWd1aW5nLCBhbmQgdGhlIGRhdGEgY29w
+eSBhbHNvIHdvdWxkIGV4cGxhaW4gd2h5IHRoaXMgdHJhbnNtaXQgcGF0aCBp
+cyBzbG93LCBhbmQgaXMgc3VzY2VwdGlibGUgdG8gdHJhbnNtaXQgdGltZW91
+dHMuICANCkkgd2FudCB0byBhcHBseSBhbmQgdGVzdCB5b3VyIHByb3Bvc2Vk
+IHBhdGNoLCBidXQgSSdsbCBoYXZlIHRvIGRvIHRoYXQgbmV4dCB3ZWVrLg0K
+DQpBbmR5DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBF
+cmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSAN
+ClNlbnQ6IFR1ZXNkYXksIEp1bHkgMTcsIDIwMTIgMzozMyBBTQ0KVG86IEFu
+ZHkgQ3Jlc3MNCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBaaG9uZyBI
+b25nYm8NClN1YmplY3Q6IFJlOiBbUEFUQ0ggMS80XSBwY2hfZ2JlOiBGaXgg
+dGhlIGNoZWNrc3VtIGZpbGwgdG8gdGhlIGVycm9yIGxvY2F0aW9uDQoNCk9u
+IFR1ZSwgMjAxMi0wNy0xNyBhdCAwOTowOSArMDIwMCwgRXJpYyBEdW1hemV0
+IHdyb3RlOg0KDQo+IEhtbS4uLiBJIGZhaWwgdG8gdW5kZXJzdGFuZCB3aHkg
+eW91IGNhcmUgYWJvdXQgTklDIGRvaW5nIGNoZWNrc3VtcywNCj4gd2hpbGUg
+cGNoX2diZV90eF9xdWV1ZSgpIG1ha2UgYSBfY29weV8gb2YgZWFjaCBvdXRn
+b2luZw0KPiBwYWNrZXRzLg0KPiANCj4gVGhlcmUgX211c3RfIGJlIGEgd2F5
+IHRvIGF2b2lkIG1vc3Qgb2YgdGhlc2UgY29waWVzIChpZSBub3QgdG91Y2hp
+bmcNCj4gcGF5bG9hZCksIG9ubHkgbWVzcyB3aXRoIHRoZSBoZWFkZXIgdG8g
+aW5zZXJ0IHRoZXNlIDIgbnVsIGJ5dGVzID8NCj4gDQo+IC8qIFtIZWFkZXI6
+MTRdW3BheWxvYWRdIC0tLT4gW0hlYWRlcjoxNF1bcGFkZG9uZzoyXVtwYXls
+b2FkXSAgICAqLw0KPiANCj4gU28gYXQgZGV2aWNlIHNldHVwIDogZGV2LT5u
+ZWVkZWRfaGVhZHJvb20gPSAyOw0KPiANCj4gYW5kIGluIHhtaXQsDQo+IA0K
+PiAJaWYgKHNrYl9oZWFkcm9vbShza2IpIDwgMikgew0KPiAJCXN0cnVjdCBz
+a19idWZmICpza2JfbmV3Ow0KPiANCj4gCQlza2JfbmV3ID0gc2tiX3JlYWxs
+b2NfaGVhZHJvb20oc2tiLCAyKTsNCj4gCQlpZiAoIXNrYl9uZXcpIHsgaGFu
+ZGxlIGVycm9yIH0NCj4gCQljb25zdW1lX3NrYihza2IpOw0KPiAJCXNrYiA9
+IHNrYl9uZXc7DQo+IAl9DQo+IAlwdHIgPSBza2JfcHVzaChza2IsIDIpOw0K
+PiAJbWVtbW92ZShwdHIsIHB0ciArIDIsIEVUSF9ITEVOKTsNCj4gCXB0cltF
+VEhfSExFTl0gPSAwOw0KPiAJcHRyW0VUSF9ITEVOICsgMV0gPSAwOw0KPiAN
+Cj4gDQoNClNvbWV0aGluZyBsaWtlIHRoZSBmb2xsb3dpbmcgKHVudGVzdGVk
+KSBwYXRjaA0KDQoNCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9va2ktc2VtaS9w
+Y2hfZ2JlL3BjaF9nYmVfbWFpbi5jIHwgICA1NSArKysrKy0tLS0tDQogMSBm
+aWxlIGNoYW5nZWQsIDI5IGluc2VydGlvbnMoKyksIDI2IGRlbGV0aW9ucygt
+KQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNl
+bWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L29raS1zZW1pL3BjaF9nYmUvcGNoX2diZV9tYWluLmMNCmluZGV4IGIx
+MDA2NTYuLjJkM2Q5ODIgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFpbi5jDQorKysgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVf
+bWFpbi5jDQpAQCAtMTE2Myw3ICsxMTYzLDcgQEAgc3RhdGljIHZvaWQgcGNo
+X2diZV90eF9xdWV1ZShzdHJ1Y3QgcGNoX2diZV9hZGFwdGVyICphZGFwdGVy
+LA0KIAlzdHJ1Y3QgcGNoX2diZV9odyAqaHcgPSAmYWRhcHRlci0+aHc7DQog
+CXN0cnVjdCBwY2hfZ2JlX3R4X2Rlc2MgKnR4X2Rlc2M7DQogCXN0cnVjdCBw
+Y2hfZ2JlX2J1ZmZlciAqYnVmZmVyX2luZm87DQotCXN0cnVjdCBza19idWZm
+ICp0bXBfc2tiOw0KKwljaGFyICpwdHI7DQogCXVuc2lnbmVkIGludCBmcmFt
+ZV9jdHJsOw0KIAl1bnNpZ25lZCBpbnQgcmluZ19udW07DQogDQpAQCAtMTIy
+MSwxOCArMTIyMSwyNyBAQCBzdGF0aWMgdm9pZCBwY2hfZ2JlX3R4X3F1ZXVl
+KHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogDQogDQogCWJ1
+ZmZlcl9pbmZvID0gJnR4X3JpbmctPmJ1ZmZlcl9pbmZvW3JpbmdfbnVtXTsN
+Ci0JdG1wX3NrYiA9IGJ1ZmZlcl9pbmZvLT5za2I7DQorCWlmIChza2JfaGVh
+ZHJvb20oc2tiKSA8IDIpIHsNCisJCXN0cnVjdCBza19idWZmICpza2JfbmV3
+Ow0KKw0KKwkJc2tiX25ldyA9IHNrYl9yZWFsbG9jX2hlYWRyb29tKHNrYiwg
+Mik7DQorCQlpZiAoIXNrYl9uZXcpIHsNCisJCQl0eF9yaW5nLT5uZXh0X3Rv
+X3VzZSA9IHJpbmdfbnVtOw0KKwkJCWRldl9rZnJlZV9za2JfYW55KHNrYik7
+DQorCQkJcmV0dXJuOw0KKwkJfQ0KKwkJY29uc3VtZV9za2Ioc2tiKTsNCisJ
+CXNrYiA9IHNrYl9uZXc7DQorCX0NCiANCiAJLyogW0hlYWRlcjoxNF1bcGF5
+bG9hZF0gLS0tPiBbSGVhZGVyOjE0XVtwYWRkb25nOjJdW3BheWxvYWRdICAg
+ICovDQotCW1lbWNweSh0bXBfc2tiLT5kYXRhLCBza2ItPmRhdGEsIEVUSF9I
+TEVOKTsNCi0JdG1wX3NrYi0+ZGF0YVtFVEhfSExFTl0gPSAweDAwOw0KLQl0
+bXBfc2tiLT5kYXRhW0VUSF9ITEVOICsgMV0gPSAweDAwOw0KLQl0bXBfc2ti
+LT5sZW4gPSBza2ItPmxlbjsNCi0JbWVtY3B5KCZ0bXBfc2tiLT5kYXRhW0VU
+SF9ITEVOICsgMl0sICZza2ItPmRhdGFbRVRIX0hMRU5dLA0KLQkgICAgICAg
+KHNrYi0+bGVuIC0gRVRIX0hMRU4pKTsNCisJcHRyID0gc2tiX3B1c2goc2ti
+LCAyKTsNCisJbWVtbW92ZShwdHIsIHB0ciArIDIsIEVUSF9ITEVOKTsNCisJ
+cHRyW0VUSF9ITEVOXSA9IDB4MDA7DQorCXB0cltFVEhfSExFTiArIDFdID0g
+MHgwMDsNCiAJLyotLSBTZXQgQnVmZmVyIGluZm9ybWF0aW9uIC0tKi8NCi0J
+YnVmZmVyX2luZm8tPmxlbmd0aCA9IHRtcF9za2ItPmxlbjsNCi0JYnVmZmVy
+X2luZm8tPmRtYSA9IGRtYV9tYXBfc2luZ2xlKCZhZGFwdGVyLT5wZGV2LT5k
+ZXYsIHRtcF9za2ItPmRhdGEsDQorCWJ1ZmZlcl9pbmZvLT5sZW5ndGggPSBz
+a2ItPmxlbjsNCisJYnVmZmVyX2luZm8tPmRtYSA9IGRtYV9tYXBfc2luZ2xl
+KCZhZGFwdGVyLT5wZGV2LT5kZXYsIHNrYi0+ZGF0YSwNCiAJCQkJCSAgYnVm
+ZmVyX2luZm8tPmxlbmd0aCwNCiAJCQkJCSAgRE1BX1RPX0RFVklDRSk7DQog
+CWlmIChkbWFfbWFwcGluZ19lcnJvcigmYWRhcHRlci0+cGRldi0+ZGV2LCBi
+dWZmZXJfaW5mby0+ZG1hKSkgew0KQEAgLTEyNDAsMTggKzEyNDksMjAgQEAg
+c3RhdGljIHZvaWQgcGNoX2diZV90eF9xdWV1ZShzdHJ1Y3QgcGNoX2diZV9h
+ZGFwdGVyICphZGFwdGVyLA0KIAkJYnVmZmVyX2luZm8tPmRtYSA9IDA7DQog
+CQlidWZmZXJfaW5mby0+dGltZV9zdGFtcCA9IDA7DQogCQl0eF9yaW5nLT5u
+ZXh0X3RvX3VzZSA9IHJpbmdfbnVtOw0KKwkJZGV2X2tmcmVlX3NrYl9hbnko
+c2tiKTsNCiAJCXJldHVybjsNCiAJfQ0KIAlidWZmZXJfaW5mby0+bWFwcGVk
+ID0gdHJ1ZTsNCiAJYnVmZmVyX2luZm8tPnRpbWVfc3RhbXAgPSBqaWZmaWVz
+Ow0KKwlidWZmZXJfaW5mby0+c2tiID0gc2tiOw0KIA0KIAkvKi0tIFNldCBU
+eCBkZXNjcmlwdG9yIC0tKi8NCiAJdHhfZGVzYyA9IFBDSF9HQkVfVFhfREVT
+QygqdHhfcmluZywgcmluZ19udW0pOw0KLQl0eF9kZXNjLT5idWZmZXJfYWRk
+ciA9IChidWZmZXJfaW5mby0+ZG1hKTsNCi0JdHhfZGVzYy0+bGVuZ3RoID0g
+KHRtcF9za2ItPmxlbik7DQotCXR4X2Rlc2MtPnR4X3dvcmRzX2VvYiA9ICgo
+dG1wX3NrYi0+bGVuICsgMykpOw0KKwl0eF9kZXNjLT5idWZmZXJfYWRkciA9
+IGJ1ZmZlcl9pbmZvLT5kbWE7DQorCXR4X2Rlc2MtPmxlbmd0aCA9IHNrYi0+
+bGVuOw0KKwl0eF9kZXNjLT50eF93b3Jkc19lb2IgPSBza2ItPmxlbiArIDM7
+DQogCXR4X2Rlc2MtPnR4X2ZyYW1lX2N0cmwgPSAoZnJhbWVfY3RybCk7DQot
+CXR4X2Rlc2MtPmdiZWNfc3RhdHVzID0gKERTQ19JTklUMTYpOw0KKwl0eF9k
+ZXNjLT5nYmVjX3N0YXR1cyA9IERTQ19JTklUMTY7DQogDQogCWlmICh1bmxp
+a2VseSgrK3JpbmdfbnVtID09IHR4X3JpbmctPmNvdW50KSkNCiAJCXJpbmdf
+bnVtID0gMDsNCkBAIC0xMjY1LDcgKzEyNzYsNiBAQCBzdGF0aWMgdm9pZCBw
+Y2hfZ2JlX3R4X3F1ZXVlKHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0
+ZXIsDQogCXBjaF90eF90aW1lc3RhbXAoYWRhcHRlciwgc2tiKTsNCiAjZW5k
+aWYNCiANCi0JZGV2X2tmcmVlX3NrYl9hbnkoc2tiKTsNCiB9DQogDQogLyoq
+DQpAQCAtMTU0MywxOSArMTU1MywxMiBAQCBzdGF0aWMgdm9pZCBwY2hfZ2Jl
+X2FsbG9jX3R4X2J1ZmZlcnMoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRh
+cHRlciwNCiAJCQkJCXN0cnVjdCBwY2hfZ2JlX3R4X3JpbmcgKnR4X3Jpbmcp
+DQogew0KIAlzdHJ1Y3QgcGNoX2diZV9idWZmZXIgKmJ1ZmZlcl9pbmZvOw0K
+LQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOw0KIAl1bnNpZ25lZCBpbnQgaTsNCi0J
+dW5zaWduZWQgaW50IGJ1ZnN6Ow0KIAlzdHJ1Y3QgcGNoX2diZV90eF9kZXNj
+ICp0eF9kZXNjOw0KIA0KLQlidWZzeiA9DQotCSAgICBhZGFwdGVyLT5ody5t
+YWMubWF4X2ZyYW1lX3NpemUgKyBQQ0hfR0JFX0RNQV9BTElHTiArIE5FVF9J
+UF9BTElHTjsNCi0NCiAJZm9yIChpID0gMDsgaSA8IHR4X3JpbmctPmNvdW50
+OyBpKyspIHsNCiAJCWJ1ZmZlcl9pbmZvID0gJnR4X3JpbmctPmJ1ZmZlcl9p
+bmZvW2ldOw0KLQkJc2tiID0gbmV0ZGV2X2FsbG9jX3NrYihhZGFwdGVyLT5u
+ZXRkZXYsIGJ1ZnN6KTsNCi0JCXNrYl9yZXNlcnZlKHNrYiwgUENIX0dCRV9E
+TUFfQUxJR04pOw0KLQkJYnVmZmVyX2luZm8tPnNrYiA9IHNrYjsNCisJCWJ1
+ZmZlcl9pbmZvLT5za2IgPSBOVUxMOw0KIAkJdHhfZGVzYyA9IFBDSF9HQkVf
+VFhfREVTQygqdHhfcmluZywgaSk7DQogCQl0eF9kZXNjLT5nYmVjX3N0YXR1
+cyA9IChEU0NfSU5JVDE2KTsNCiAJfQ0KQEAgLTE2MjIsOSArMTYyNSw5IEBA
+IHBjaF9nYmVfY2xlYW5fdHgoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRh
+cHRlciwNCiAJCQkJCSBidWZmZXJfaW5mby0+bGVuZ3RoLCBETUFfVE9fREVW
+SUNFKTsNCiAJCQlidWZmZXJfaW5mby0+bWFwcGVkID0gZmFsc2U7DQogCQl9
+DQotCQlpZiAoYnVmZmVyX2luZm8tPnNrYikgew0KLQkJCXByX2RlYnVnKCJ0
+cmltIGJ1ZmZlcl9pbmZvLT5za2IgOiAlZFxuIiwgaSk7DQotCQkJc2tiX3Ry
+aW0oYnVmZmVyX2luZm8tPnNrYiwgMCk7DQorCQlpZiAoc2tiKSB7DQorCQkJ
+ZGV2X2tmcmVlX3NrYl9hbnkoc2tiKTsNCisJCQlidWZmZXJfaW5mby0+c2ti
+ID0gTlVMTDsNCiAJCX0NCiAJCXR4X2Rlc2MtPmdiZWNfc3RhdHVzID0gRFND
+X0lOSVQxNjsNCiAJCWlmICh1bmxpa2VseSgrK2kgPT0gdHhfcmluZy0+Y291
+bnQpKQ0KDQoNCg==
