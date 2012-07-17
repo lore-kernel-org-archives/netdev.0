@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] Add a driver for the ASIX AX88172A with phylib
- support
-Date: Mon, 16 Jul 2012 23:26:38 -0700 (PDT)
-Message-ID: <20120716.232638.370798024668534545.davem@davemloft.net>
-References: <1342193191-18822-1-git-send-email-christian.riesch@omicron.at>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [BUG] tg3: frequent freezes
+Date: Mon, 16 Jul 2012 23:56:29 -0700
+Message-ID: <1342508189.2168.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1342503329.2626.30.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oneukum@suse.de, edumazet@google.com,
-	allan@asix.com.tw, kernel@teksavvy.com, grundler@chromium.org,
-	bhutchings@solarflare.com, joe@perches.com, michael@riesch.at
-To: christian.riesch@omicron.at
+Cc: netdev <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46784 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315Ab2GQG0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:26:40 -0400
-In-Reply-To: <1342193191-18822-1-git-send-email-christian.riesch@omicron.at>
+Received: from mms2.broadcom.com ([216.31.210.18]:1853 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750812Ab2GQG4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 02:56:35 -0400
+In-Reply-To: <1342503329.2626.30.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christian Riesch <christian.riesch@omicron.at>
-Date: Fri, 13 Jul 2012 17:26:28 +0200
+On Tue, 2012-07-17 at 07:35 +0200, Eric Dumazet wrote:
+> [  266.248330] tg3 0000:09:00.0: eth0: 0x00004800: 0x080303fe,
+> 0x00000010, 0x00000000, 0x00000020
 
-> this is v3 of my patchset that adds a driver for the ASIX AX88172A USB 2.0
-> to 10/100M Fast Ethernet Controller.
+RDMAC_STATUS (0x4804) is showing 0x10 which is parity error.
 
-All applied, thanks.
+>[  266.247878] tg3 0000:09:00.0: eth0: 0x00000000: 0x167314e4,
+>0x40100506, 0x02000002, 0x00000010
+
+PCI Status (0x06) is also showing SERR (0x4000)
+
+Assuming your chip is not a bad chip, I'll have to look around for a
+5755M and see if I can duplicate the problem.
