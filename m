@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4 v3 net-next] tg3: Add hwmon support
-Date: Mon, 16 Jul 2012 23:11:28 -0700 (PDT)
-Message-ID: <20120716.231128.1113699431084132190.davem@davemloft.net>
-References: <1342491842-29818-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2: Try to recover from PCI block reset
+Date: Mon, 16 Jul 2012 23:12:27 -0700 (PDT)
+Message-ID: <20120716.231227.64964536904158545.davem@davemloft.net>
+References: <1342484756-29615-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com
 To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46573 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46583 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753057Ab2GQGL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:11:29 -0400
-In-Reply-To: <1342491842-29818-1-git-send-email-mchan@broadcom.com>
+	with ESMTP id S1751287Ab2GQGM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:12:28 -0400
+In-Reply-To: <1342484756-29615-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 16 Jul 2012 19:23:58 -0700
+Date: Mon, 16 Jul 2012 17:25:56 -0700
 
-> David, I've removed the binary sysfs attribute and now use
-> hwmon only.  Please consider this patchset for net-next.
+> If the PCI block has reset, the memory enable bit will be reset and
+> the device will not respond to MMIO access.  bnx2_reset_task() currently
+> will not recover when this happens.  Add code to detect this condition
+> and restore the PCI state.  This scenario has been reported by some
+> users.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 Applied, thanks Michael.
-
-You might want to add some Kconfig logic so that it's easier
-to get the hwmon stuff automatically when tg3 is selected.
