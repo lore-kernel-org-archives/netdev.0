@@ -1,51 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 10/10] sfc: Correct some comments on enum reset_type
-Date: Tue, 17 Jul 2012 19:07:59 +0100
-Message-ID: <1342548479.2698.28.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [Upstream PATCH 0/2] runtime PM support for cpsw and davinci
+ mdio
+Date: Tue, 17 Jul 2012 18:07:40 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293E9CBC9D@DBDE01.ent.ti.com>
+References: <1342548353-12153-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49468 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756093Ab2GQSIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:08:02 -0400
-In-Reply-To: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:34576 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756241Ab2GQSHn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:07:43 -0400
+In-Reply-To: <1342548353-12153-1-git-send-email-mugunthanvnm@ti.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/enum.h |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+> -----Original Message-----
+> From: N, Mugunthan V
+> Sent: Tuesday, July 17, 2012 11:36 PM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; N, Mugunthan V
+> Subject: [Upstream PATCH 0/2] runtime PM support for cpsw and davinci
+> mdio
+> 
+> This patch set adds support for runtime PM support for CPSW and Davinci
+> MDIO
+> drivers
+> 
+> Mugunthan V N (2):
+>   driver: net: ethernet: davinci_mdio: runtime PM support
+>   driver: net: ethernet: cpsw: runtime PM support
+> 
+>  drivers/net/ethernet/ti/cpsw.c         |   23 ++++++++++++++---------
+>  drivers/net/ethernet/ti/davinci_mdio.c |   25 ++++++++++++------------
+> -
+>  2 files changed, 26 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/enum.h b/drivers/net/ethernet/sfc/enum.h
-index d725a8f..182dbe2 100644
---- a/drivers/net/ethernet/sfc/enum.h
-+++ b/drivers/net/ethernet/sfc/enum.h
-@@ -136,10 +136,10 @@ enum efx_loopback_mode {
-  *
-  * Reset methods are numbered in order of increasing scope.
-  *
-- * @RESET_TYPE_INVISIBLE: don't reset the PHYs or interrupts
-- * @RESET_TYPE_ALL: reset everything but PCI core blocks
-- * @RESET_TYPE_WORLD: reset everything, save & restore PCI config
-- * @RESET_TYPE_DISABLE: disable NIC
-+ * @RESET_TYPE_INVISIBLE: Reset datapath and MAC (Falcon only)
-+ * @RESET_TYPE_ALL: Reset datapath, MAC and PHY
-+ * @RESET_TYPE_WORLD: Reset as much as possible
-+ * @RESET_TYPE_DISABLE: Reset datapath, MAC and PHY; leave NIC disabled
-  * @RESET_TYPE_TX_WATCHDOG: reset due to TX watchdog
-  * @RESET_TYPE_INT_ERROR: reset due to internal error
-  * @RESET_TYPE_RX_RECOVERY: reset to recover from RX datapath errors
--- 
-1.7.7.6
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Please ignore this patch series as it was sent by mistake.
