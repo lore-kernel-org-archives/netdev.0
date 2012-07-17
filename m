@@ -1,46 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
-Date: Tue, 17 Jul 2012 06:46:33 -0700 (PDT)
-Message-ID: <20120717.064633.1533728304261811367.davem@davemloft.net>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B6F8B@saturn3.aculab.com>
-	<20120717.055005.1912765690890797652.davem@davemloft.net>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6F8D@saturn3.aculab.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf] IPVS
+Date: Tue, 17 Jul 2012 22:50:18 +0900
+Message-ID: <20120717135018.GH17325@verge.net.au>
+References: <1341965963-7275-1-git-send-email-horms@verge.net.au>
+ <20120717101406.GC3812@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, cascardo@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, yevgenyp@mellanox.co.il,
-	ogerlitz@mellanox.com, amirv@mellanox.com,
-	brking@linux.vnet.ibm.com, leitao@linux.vnet.ibm.com,
-	klebers@linux.vnet.ibm.com
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50049 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754532Ab2GQNqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 09:46:36 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F8D@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120717101406.GC3812@1984>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Tue, 17 Jul 2012 14:36:11 +0100
+On Tue, Jul 17, 2012 at 12:14:06PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Jul 11, 2012 at 09:19:20AM +0900, Simon Horman wrote:
+> > 
+> > Hi Pablo,
+> > 
+> > this pull request consists of three bug fixes for IPVS.
+> > Please consider for inclusion in 3.5 and stable.
+> > 
+> > The bug fix from Julian, "ipvs: fix oops in ip_vs_dst_event on rmmod"
+> > fixes a regression introduced in 3.4 and thus I believe it is
+> > only relevant to 3.5 and 3.4-stable.
+> > 
+> > The other two fixes appear to have been present since at least 2.6.37
+> > (there were a lot of changes to IPVS around that time).
+> 
+> I have passed the two of these patches to David. The one for the FTP
+> needs a consistent description.
+> 
+> It's fairly late in the development cycle (-rc7), but these are small.
+> Let's see if David is still in time to accept them. Otherwise, they go
+> to net-next and we will ask for -stable submission.
 
-> The driver will already have to cope with 'too many segments'
-> (I remember being passed a full sized frame made of a list
-> of 1-byte message blocks...)
-
-Baring driver hardware bug workarounds, no it does not have to cope
-with that.  The code is extremely simple now.
-
-All the driver has to do is assume that a new TX packet can never
-consume more than MAX_SKB_FRAGS.
-
-Therefore it simply stops the queue if less than MAX_SKB_FRAGS
-segments remain after queueing a transmit.
-
-Your suggestion will significantly complicate driver TX paths.
-
-If you're going to suggest a solution, it has to be completely
-general enough to work in the current state of affairs, and
-your idea absolutely does not.
+Thanks, it seems that David was in an accepting mood.
