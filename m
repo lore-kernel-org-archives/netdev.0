@@ -1,47 +1,55 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: pull request: sfc-next 2012-07-17
-Date: Tue, 17 Jul 2012 19:03:27 +0100
-Message-ID: <1342548207.2698.18.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 01/10] sfc: Work around bogus 'uninitialised
+ variable' warning
+Date: Tue, 17 Jul 2012 19:05:42 +0100
+Message-ID: <1342548342.2698.19.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120717.103103.655643871226631461.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49328 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:49376 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752853Ab2GQSDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:03:31 -0400
-In-Reply-To: <20120717.103103.655643871226631461.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1752853Ab2GQSFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:05:45 -0400
+In-Reply-To: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-17 at 10:31 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Tue, 17 Jul 2012 18:05:40 +0100
-> 
-> > The following changes since commit 141e369de698f2e17bf716b83fcc647ddcb2220c:
-> > 
-> >   xfrm: Initialize the struct xfrm_dst behind the dst_enty field (2012-07-14 00:29:12 -0700)
-> > 
-> > are available in the git repository at:
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
-> > 
-> > (commit c2dbab39db1c3c2ccbdbb2c6bac6f07cc7a7c1f6)
-> > 
-> > 1. Fix potential badness when running a self-test with SR-IOV enabled.
-> > 2. Fix calculation of some interface statistics that could run backward.
-> > 3. Miscellaneous cleanup.
-> 
-> Please post the patches so that at least in theory people have the
-> opportunity to review them.
+With some gcc versions & optimisations, the compiler will warn that
+'depth' in efx_filter_insert_filter() may be used without being
+initialised, although this is not the case.
 
-Sorry, yes.  They're the same as last time modulo the MMIO, but I
-suppose they may have been ignored after the objections to that.
+This is related to inlining of efx_filter_search(), which only has
+one caller since commit 8db182f4a8a6e2dcb8b65905ea4af56210e65430
+('sfc: Remove now-unused filter function').
 
-Ben.
+Shut the compiler up by initialising it to 0.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/filter.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
+index fea7f73..c3fd61f 100644
+--- a/drivers/net/ethernet/sfc/filter.c
++++ b/drivers/net/ethernet/sfc/filter.c
+@@ -662,7 +662,7 @@ s32 efx_filter_insert_filter(struct efx_nic *efx, struct efx_filter_spec *spec,
+ 	struct efx_filter_table *table = efx_filter_spec_table(state, spec);
+ 	struct efx_filter_spec *saved_spec;
+ 	efx_oword_t filter;
+-	unsigned int filter_idx, depth;
++	unsigned int filter_idx, depth = 0;
+ 	u32 key;
+ 	int rc;
+ 
+-- 
+1.7.7.6
+
+
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
