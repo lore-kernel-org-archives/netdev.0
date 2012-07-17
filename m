@@ -1,161 +1,115 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 3/4 v3 net-next] tg3: Add APE scratchpad read function
-Date: Mon, 16 Jul 2012 19:24:01 -0700
-Message-ID: <1342491842-29818-4-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 2/4 v3 net-next] tg3: Add common function
+ tg3_ape_event_lock()
+Date: Mon, 16 Jul 2012 19:24:00 -0700
+Message-ID: <1342491842-29818-3-git-send-email-mchan@broadcom.com>
 References: <1342491842-29818-1-git-send-email-mchan@broadcom.com>
  <1342491842-29818-2-git-send-email-mchan@broadcom.com>
- <1342491842-29818-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3890 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4176 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754273Ab2GQCMa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2012 22:12:30 -0400
-In-Reply-To: <1342491842-29818-3-git-send-email-mchan@broadcom.com>
+	id S1754352Ab2GQCMc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 22:12:32 -0400
+In-Reply-To: <1342491842-29818-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matt Carlson <mcarlson@broadcom.com>
 
-for retreiving temperature sensor data.
+by refactoring code in tg3_ape_send_event().  The common function will
+be used in subsequent patches.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   79 +++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/tg3.h |    9 +++-
- 2 files changed, 86 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   56 ++++++++++++++++++++---------------
+ 1 files changed, 32 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 5dda3ce..26ca368 100644
+index 45dc6f5..5dda3ce 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -752,6 +752,85 @@ static int tg3_ape_event_lock(struct tg3 *tp, u32 timeout_us)
- 	return timeout_us ? 0 : -EBUSY;
+@@ -731,44 +731,52 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
+ 	tg3_ape_write32(tp, gnt + 4 * locknum, bit);
  }
  
-+static int tg3_ape_wait_for_event(struct tg3 *tp, u32 timeout_us)
-+{
-+	u32 i, apedata;
+-static void tg3_ape_send_event(struct tg3 *tp, u32 event)
++static int tg3_ape_event_lock(struct tg3 *tp, u32 timeout_us)
+ {
+-	int i;
+ 	u32 apedata;
+ 
+-	/* NCSI does not support APE events */
+-	if (tg3_flag(tp, APE_HAS_NCSI))
+-		return;
++	while (timeout_us) {
++		if (tg3_ape_lock(tp, TG3_APE_LOCK_MEM))
++			return -EBUSY;
 +
-+	for (i = 0; i < timeout_us / 10; i++) {
 +		apedata = tg3_ape_read32(tp, TG3_APE_EVENT_STATUS);
-+
 +		if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
 +			break;
 +
++		tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
++
 +		udelay(10);
++		timeout_us -= (timeout_us > 10) ? 10 : timeout_us;
 +	}
 +
-+	return i == timeout_us / 10;
++	return timeout_us ? 0 : -EBUSY;
 +}
 +
-+int tg3_ape_scratchpad_read(struct tg3 *tp, u32 *data, u32 base_off, u32 len)
++static int tg3_ape_send_event(struct tg3 *tp, u32 event)
 +{
 +	int err;
-+	u32 i, bufoff, msgoff, maxlen, apedata;
-+
-+	if (!tg3_flag(tp, APE_HAS_NCSI))
-+		return 0;
-+
-+	apedata = tg3_ape_read32(tp, TG3_APE_SEG_SIG);
-+	if (apedata != APE_SEG_SIG_MAGIC)
-+		return -ENODEV;
-+
-+	apedata = tg3_ape_read32(tp, TG3_APE_FW_STATUS);
-+	if (!(apedata & APE_FW_STATUS_READY))
++	u32 apedata;
+ 
+ 	apedata = tg3_ape_read32(tp, TG3_APE_SEG_SIG);
+ 	if (apedata != APE_SEG_SIG_MAGIC)
+-		return;
 +		return -EAGAIN;
-+
-+	bufoff = tg3_ape_read32(tp, TG3_APE_SEG_MSG_BUF_OFF) +
-+		 TG3_APE_SHMEM_BASE;
-+	msgoff = bufoff + 2 * sizeof(u32);
-+	maxlen = tg3_ape_read32(tp, TG3_APE_SEG_MSG_BUF_LEN);
-+
-+	while (len) {
-+		u32 length;
-+
-+		/* Cap xfer sizes to scratchpad limits. */
-+		length = (len > maxlen) ? maxlen : len;
-+		len -= length;
-+
-+		apedata = tg3_ape_read32(tp, TG3_APE_FW_STATUS);
-+		if (!(apedata & APE_FW_STATUS_READY))
-+			return -EAGAIN;
-+
-+		/* Wait for up to 1 msec for APE to service previous event. */
-+		err = tg3_ape_event_lock(tp, 1000);
-+		if (err)
-+			return err;
-+
-+		apedata = APE_EVENT_STATUS_DRIVER_EVNT |
-+			  APE_EVENT_STATUS_SCRTCHPD_READ |
-+			  APE_EVENT_STATUS_EVENT_PENDING;
-+		tg3_ape_write32(tp, TG3_APE_EVENT_STATUS, apedata);
-+
-+		tg3_ape_write32(tp, bufoff, base_off);
-+		tg3_ape_write32(tp, bufoff + sizeof(u32), length);
-+
-+		tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
-+		tg3_ape_write32(tp, TG3_APE_EVENT, APE_EVENT_1);
-+
-+		base_off += length;
-+
-+		if (tg3_ape_wait_for_event(tp, 30000))
-+			return -EAGAIN;
-+
-+		for (i = 0; length; i += 4, length -= 4) {
-+			u32 val = tg3_ape_read32(tp, msgoff + i);
-+			memcpy(data, &val, sizeof(u32));
-+			data++;
-+		}
-+	}
-+
+ 
+ 	apedata = tg3_ape_read32(tp, TG3_APE_FW_STATUS);
+ 	if (!(apedata & APE_FW_STATUS_READY))
+-		return;
++		return -EAGAIN;
+ 
+ 	/* Wait for up to 1 millisecond for APE to service previous event. */
+-	for (i = 0; i < 10; i++) {
+-		if (tg3_ape_lock(tp, TG3_APE_LOCK_MEM))
+-			return;
+-
+-		apedata = tg3_ape_read32(tp, TG3_APE_EVENT_STATUS);
+-
+-		if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
+-			tg3_ape_write32(tp, TG3_APE_EVENT_STATUS,
+-					event | APE_EVENT_STATUS_EVENT_PENDING);
++	err = tg3_ape_event_lock(tp, 1000);
++	if (err)
++		return err;
+ 
+-		tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
++	tg3_ape_write32(tp, TG3_APE_EVENT_STATUS,
++			event | APE_EVENT_STATUS_EVENT_PENDING);
+ 
+-		if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
+-			break;
++	tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
++	tg3_ape_write32(tp, TG3_APE_EVENT, APE_EVENT_1);
+ 
+-		udelay(100);
+-	}
+-
+-	if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
+-		tg3_ape_write32(tp, TG3_APE_EVENT, APE_EVENT_1);
 +	return 0;
-+}
-+
- static int tg3_ape_send_event(struct tg3 *tp, u32 event)
- {
- 	int err;
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 93865f8..f8a0d9c 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -2311,10 +2311,11 @@
- #define  APE_LOCK_REQ_DRIVER		 0x00001000
- #define TG3_APE_LOCK_GRANT		0x004c
- #define  APE_LOCK_GRANT_DRIVER		 0x00001000
--#define TG3_APE_SEG_SIG			0x4000
--#define  APE_SEG_SIG_MAGIC		 0x41504521
+ }
  
- /* APE shared memory.  Accessible through BAR1 */
-+#define TG3_APE_SHMEM_BASE		0x4000
-+#define TG3_APE_SEG_SIG			0x4000
-+#define  APE_SEG_SIG_MAGIC		 0x41504521
- #define TG3_APE_FW_STATUS		0x400c
- #define  APE_FW_STATUS_READY		 0x00000100
- #define TG3_APE_FW_FEATURES		0x4010
-@@ -2327,6 +2328,8 @@
- #define  APE_FW_VERSION_REVMSK		 0x0000ff00
- #define  APE_FW_VERSION_REVSFT		 8
- #define  APE_FW_VERSION_BLDMSK		 0x000000ff
-+#define TG3_APE_SEG_MSG_BUF_OFF		0x401c
-+#define TG3_APE_SEG_MSG_BUF_LEN		0x4020
- #define TG3_APE_HOST_SEG_SIG		0x4200
- #define  APE_HOST_SEG_SIG_MAGIC		 0x484f5354
- #define TG3_APE_HOST_SEG_LEN		0x4204
-@@ -2353,6 +2356,8 @@
- 
- #define  APE_EVENT_STATUS_DRIVER_EVNT	 0x00000010
- #define  APE_EVENT_STATUS_STATE_CHNGE	 0x00000500
-+#define  APE_EVENT_STATUS_SCRTCHPD_READ	 0x00001600
-+#define  APE_EVENT_STATUS_SCRTCHPD_WRITE 0x00001700
- #define  APE_EVENT_STATUS_STATE_START	 0x00010000
- #define  APE_EVENT_STATUS_STATE_UNLOAD	 0x00020000
- #define  APE_EVENT_STATUS_STATE_WOL	 0x00030000
+ static void tg3_ape_driver_state_change(struct tg3 *tp, int kind)
 -- 
 1.7.1
