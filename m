@@ -1,29 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: fix sparse warning for sctp_init_cause_fixed
-Date: Mon, 16 Jul 2012 23:24:02 -0700 (PDT)
-Message-ID: <20120716.232402.2125169265661605899.davem@davemloft.net>
-References: <1342199797-11305-1-git-send-email-ioanorghici@gmail.com>
+Subject: Re: [PATCH] irda: Fix typo in irda
+Date: Mon, 16 Jul 2012 23:24:07 -0700 (PDT)
+Message-ID: <20120716.232407.1475883010139796416.davem@davemloft.net>
+References: <1342200167-14934-1-git-send-email-standby24x7@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, sri@us.ibm.com, netdev@vger.kernel.org
-To: ioanorghici@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46696 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907Ab2GQGYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 02:24:03 -0400
-In-Reply-To: <1342199797-11305-1-git-send-email-ioanorghici@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, samuel@sortiz.org,
+	linux-kernel@vger.kernel.org, trivial@kernel.org
+To: standby24x7@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342200167-14934-1-git-send-email-standby24x7@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ioan Orghici <ioanorghici@gmail.com>
-Date: Fri, 13 Jul 2012 20:16:37 +0300
+From: Masanari Iida <standby24x7@gmail.com>
+Date: Sat, 14 Jul 2012 02:22:47 +0900
 
-> Fix the following sparse warning:
-> 	* symbol 'sctp_init_cause_fixed' was not declared. Should it be
-> 	  static?
+> Correct spelling typo in irda.
 > 
-> Signed-off-by: Ioan Orghici <ioanorghici@gmail.com>
+> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 
 Applied.
