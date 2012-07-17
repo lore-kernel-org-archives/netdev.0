@@ -1,93 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: implement RFC 5961 4.2
-Date: Tue, 17 Jul 2012 23:32:49 +0200
-Message-ID: <1342560769.2626.1165.camel@edumazet-glaptop>
-References: <1342525290.2626.459.camel@edumazet-glaptop>
-	 <CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
+Date: Wed, 18 Jul 2012 01:14:04 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207180052420.2128@ja.ssi.bg>
+References: <20120717.061418.1893307699868826531.davem@davemloft.net> <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg> <20120717.134651.562831385960975623.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Kiran Kumar Kella <kkiran@broadcom.com>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:55738 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756878Ab2GQVcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 17:32:54 -0400
-Received: by gglu4 with SMTP id u4so925923ggl.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 14:32:54 -0700 (PDT)
-In-Reply-To: <CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:54936 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757261Ab2GQWG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 18:06:59 -0400
+In-Reply-To: <20120717.134651.562831385960975623.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-17 at 14:02 -0700, Vijay Subramanian wrote:
-> On 17 July 2012 04:41, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > Implement the RFC 5691 mitigation against Blind
-> > Reset attack using SYN bit.
-> >
-> > Section 4.2 of RFC 5961 advises to send a Challenge ACK and drop
-> > incoming packet, instead of resetting the session.
-> 
-> Eric,
-> Section 4.2 has this to say:
-> "If the SYN bit is set, irrespective of the sequence number, TCP
->       MUST send an ACK (also referred to as challenge ACK) to the remote
->       peer:"
-> 
-> I believe your patch only sends challenge acks for in-window SYN packets.
-> After this patch, the code for out of window packets is like this:
-> 
->         /* Step 1: check sequence number */
->         if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)) {
->                 /* RFC793, page 37: "In all states except SYN-SENT, all reset
->                  * (RST) segments are validated by checking their SEQ-fields."
->                  * And page 69: "If an incoming segment is not acceptable,
->                  * an acknowledgment should be sent in reply (unless the RST
->                  * bit is set, if so drop the segment and return)".
->                  */
->                 if (!th->rst)
->                         tcp_send_dupack(sk, skb);
->                 goto discard;
->         }
-> 
-> 
-> For SYN packets that are not in window, we do end up calling
-> tcp_send_dupack() but not tcp_send_challenge_ack().  Will it be more
-> appropriate to call the latter so that
-> we do proper rate limiting of challenge acks and update SNMP counters correctly?
 
-Well, I only wanted to avoid RST ;)
+	Hello,
 
-But you probably are right, we could test th->syn here as well.
+On Tue, 17 Jul 2012, David Miller wrote:
 
-Something like that ?
+> > 	IIRC, struct fib_info was shared by different
+> > prefixes. It saves a lot of memory when thousands of
+> > routes are created to same GW. Now if we end up with 1 or
+> > 2 fib_info structures for default routes, the nh_exceptions list
+> > can become very long. May be fib_info is not a good place
+> > to hide such data.
+> 
+> Your analysis of what fib_info is and how it's intended to
+> work is accurate.
+> 
+> But we don't use a linked list for the exceptions in the final
+> version, we use a reclaiming RCU'd hash table like we use for TCP
+> metrics.
+> 
+> See the updated version of patch #5 and what I actually committed to
+> net-next.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 8aaec55..fdd49f1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5296,8 +5296,11 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 		 * an acknowledgment should be sent in reply (unless the RST
- 		 * bit is set, if so drop the segment and return)".
- 		 */
--		if (!th->rst)
-+		if (!th->rst) {
-+			if (th->syn)
-+				goto syn_challenge;
- 			tcp_send_dupack(sk, skb);
-+		}
- 		goto discard;
- 	}
- 
-@@ -5327,6 +5330,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 	 * RFC 5691 4.2 : Send a challenge ack
- 	 */
- 	if (th->syn) {
-+syn_challenge:
- 		if (syn_inerr)
- 			TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNCHALLENGE);
+	Aha, I see. Something around fnhe_oldest() and its
+daddr arg does not look good. If the goal is to hijack
+some entry, probably for another daddr and comparing it with
+tcpm_new(), may be we should remove this daddr arg and fully
+reset all parameters such as fnhe_pmtu, fnhe_gw, fnhe_expires
+because the find_or_create_fnhe() callers modify only specific
+fields, we should not end up with wrong gateway inherited from
+another daddr, for example.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
