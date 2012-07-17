@@ -1,111 +1,49 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [Upstream PATCH 2/2] driver: net: ethernet: cpsw: runtime PM support
-Date: Tue, 17 Jul 2012 23:35:53 +0530
-Message-ID: <1342548353-12153-3-git-send-email-mugunthanvnm@ti.com>
-References: <1342548353-12153-1-git-send-email-mugunthanvnm@ti.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 03/10] sfc: Remove dead write to
+ tso_state::packet_space
+Date: Tue, 17 Jul 2012 19:06:09 +0100
+Message-ID: <1342548369.2698.21.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:34467 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755603Ab2GQSGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:06:03 -0400
-In-Reply-To: <1342548353-12153-1-git-send-email-mugunthanvnm@ti.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:49397 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753259Ab2GQSGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:06:12 -0400
+In-Reply-To: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enabling runtime PM support for cpsw device
+tso_state::packet_space is always set in tso_start_packet(); the
+value set in tso_start() is not used, and is also incorrect.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |   23 ++++++++++++++---------
- 1 files changed, 14 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/sfc/tx.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 6685bbb..0a4a73b 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -27,6 +27,7 @@
- #include <linux/phy.h>
- #include <linux/workqueue.h>
- #include <linux/delay.h>
-+#include <linux/pm_runtime.h>
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 18860f2..cfa5f6d 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -926,7 +926,6 @@ static void tso_start(struct tso_state *st, const struct sk_buff *skb)
+ 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->syn);
+ 	EFX_BUG_ON_PARANOID(tcp_hdr(skb)->rst);
  
- #include <linux/platform_data/cpsw.h>
- 
-@@ -494,11 +495,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	cpsw_intr_disable(priv);
- 	netif_carrier_off(ndev);
- 
--	ret = clk_enable(priv->clk);
--	if (ret < 0) {
--		dev_err(priv->dev, "unable to turn on device clock\n");
--		return ret;
--	}
-+	pm_runtime_get_sync(&priv->pdev->dev);
- 
- 	reg = __raw_readl(&priv->regs->id_ver);
- 
-@@ -569,7 +566,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
- 	netif_carrier_off(priv->ndev);
- 	cpsw_ale_stop(priv->ale);
- 	for_each_slave(priv, cpsw_slave_stop, priv);
--	clk_disable(priv->clk);
-+	pm_runtime_put_sync(&priv->pdev->dev);
- 	return 0;
- }
- 
-@@ -763,10 +760,12 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	for (i = 0; i < data->slaves; i++)
- 		priv->slaves[i].slave_num = i;
- 
--	priv->clk = clk_get(&pdev->dev, NULL);
-+	pm_runtime_enable(&pdev->dev);
-+	priv->clk = clk_get(&pdev->dev, "fck");
- 	if (IS_ERR(priv->clk)) {
--		dev_err(priv->dev, "failed to get device clock)\n");
--		ret = -EBUSY;
-+		dev_err(&pdev->dev, "fck is not found\n");
-+		ret = -ENODEV;
-+		goto clean_slave_ret;
- 	}
- 
- 	priv->cpsw_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-@@ -935,6 +934,8 @@ clean_cpsw_iores_ret:
- 			   resource_size(priv->cpsw_res));
- clean_clk_ret:
- 	clk_put(priv->clk);
-+clean_slave_ret:
-+	pm_runtime_disable(&pdev->dev);
- 	kfree(priv->slaves);
- clean_ndev_ret:
- 	free_netdev(ndev);
-@@ -959,6 +960,7 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
- 			   resource_size(priv->cpsw_res));
- 	release_mem_region(priv->cpsw_ss_res->start,
- 			   resource_size(priv->cpsw_ss_res));
-+	pm_runtime_disable(&pdev->dev);
- 	clk_put(priv->clk);
- 	kfree(priv->slaves);
- 	free_netdev(ndev);
-@@ -973,6 +975,8 @@ static int cpsw_suspend(struct device *dev)
- 
- 	if (netif_running(ndev))
- 		cpsw_ndo_stop(ndev);
-+	pm_runtime_put_sync(&pdev->dev);
-+
- 	return 0;
- }
- 
-@@ -981,6 +985,7 @@ static int cpsw_resume(struct device *dev)
- 	struct platform_device	*pdev = to_platform_device(dev);
- 	struct net_device	*ndev = platform_get_drvdata(pdev);
- 
-+	pm_runtime_get_sync(&pdev->dev);
- 	if (netif_running(ndev))
- 		cpsw_ndo_open(ndev);
- 	return 0;
+-	st->packet_space = st->full_packet_size;
+ 	st->out_len = skb->len - st->header_len;
+ 	st->unmap_len = 0;
+ 	st->unmap_single = false;
 -- 
-1.7.0.4
+1.7.7.6
+
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
