@@ -1,33 +1,75 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [BUG] tg3: frequent freezes
-Date: Mon, 16 Jul 2012 23:56:29 -0700
-Message-ID: <1342508189.2168.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1342503329.2626.30.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/4] pch_gbe: Fix the checksum fill to the error
+ location
+Date: Tue, 17 Jul 2012 09:09:28 +0200
+Message-ID: <1342508968.2626.148.camel@edumazet-glaptop>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, Zhong Hongbo <hongbo.zhong@windriver.com>
+To: Andy Cress <andy.cress@us.kontron.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1853 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750812Ab2GQG4f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 02:56:35 -0400
-In-Reply-To: <1342503329.2626.30.camel@edumazet-glaptop>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:55518 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764Ab2GQHJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 03:09:34 -0400
+Received: by eaak11 with SMTP id k11so23086eaa.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 00:09:33 -0700 (PDT)
+In-Reply-To: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-17 at 07:35 +0200, Eric Dumazet wrote:
-> [  266.248330] tg3 0000:09:00.0: eth0: 0x00004800: 0x080303fe,
-> 0x00000010, 0x00000000, 0x00000020
+On Mon, 2012-07-16 at 13:03 -0700, Andy Cress wrote:
+> Author: Zhong Hongbo <hongbo.zhong@windriver.com>
+> 
+> Due to some unknown hardware limitations the pch_gbe hardware cannot
+> calculate checksums when the length of network package is less
+> than 64 bytes, where we will surprisingly encounter a problem of
+> the destination IP incorrectly changed.
+> 
+> When forwarding network packages at the network layer the IP packages
+> won't be relayed to the upper transport layer and analyzed there,
+> consequently, skb->transport_header pointer will be mistakenly remained
+> the same as that of skb->network_header, resulting in TCP checksum
+> wrongly
+> filled into the field of destination IP in IP header.
+> 
+> We can fix this issue by manually calculate the offset of the TCP
+> checksum
+>  and update it accordingly.
+> 
+> We would normally use the skb_checksum_start_offset(skb) here, but in
+> this
+> case it is sometimes -2 (csum_start=0 - skb_headroom=2 => -2), hence the
+> manual calculation.
+> 
+> Signed-off-by: Zhong Hongbo <hongbo.zhong@windriver.com>
+> Merged-by: Andy Cress <andy.cress@us.kontron.com>
 
-RDMAC_STATUS (0x4804) is showing 0x10 which is parity error.
 
->[  266.247878] tg3 0000:09:00.0: eth0: 0x00000000: 0x167314e4,
->0x40100506, 0x02000002, 0x00000010
+Hmm... I fail to understand why you care about NIC doing checksums,
+while pch_gbe_tx_queue() make a _copy_ of each outgoing
+packets.
 
-PCI Status (0x06) is also showing SERR (0x4000)
+There _must_ be a way to avoid most of these copies (ie not touching
+payload), only mess with the header to insert these 2 nul bytes ?
 
-Assuming your chip is not a bad chip, I'll have to look around for a
-5755M and see if I can duplicate the problem.
+/* [Header:14][payload] ---> [Header:14][paddong:2][payload]    */
+
+So at device setup : dev->needed_headroom = 2;
+
+and in xmit,
+
+	if (skb_headroom(skb) < 2) {
+		struct sk_buff *skb_new;
+
+		skb_new = skb_realloc_headroom(skb, 2);
+		if (!skb_new) { handle error }
+		consume_skb(skb);
+		skb = skb_new;
+	}
+	ptr = skb_push(skb, 2);
+	memmove(ptr, ptr + 2, ETH_HLEN);
+	ptr[ETH_HLEN] = 0;
+	ptr[ETH_HLEN + 1] = 0;
