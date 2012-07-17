@@ -1,91 +1,74 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next] net: qmi_wwan: make dynamic device IDs work
-Date: Tue, 17 Jul 2012 23:14:32 +0200
-Message-ID: <1342559672-5893-1-git-send-email-bjorn@mork.no>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] cipso: don't follow a NULL pointer when setsockopt() is called
+Date: Tue, 17 Jul 2012 17:24:50 -0400
+Message-ID: <16005876.GSA3ToWriD@sifl>
+References: <20120717210738.22790.23522.stgit@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51377 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756737Ab2GQVYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 17:24:53 -0400
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q6HLOrCA010459
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 17:24:53 -0400
+Received: from sifl.localnet (vpn-10-24.rdu.redhat.com [10.11.10.24])
+	by int-mx12.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q6HLOqD5014473
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 17:24:53 -0400
+In-Reply-To: <20120717210738.22790.23522.stgit@sifl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The usbnet API use the device ID table to store a pointer to
-a minidriver. Setting a generic pointer for dynamic device
-IDs will in most cases make them work as expected.  usbnet
-will otherwise treat the dynamic IDs as blacklisted. That is
-rarely useful.
+On Tuesday, July 17, 2012 05:07:47 PM Paul Moore wrote:
+> As reported by Alan Cox, and verified by Lin Ming, when a user
+> attempts to add a CIPSO option to a socket using the CIPSO_V4_TAG_LOCAL
+> tag the kernel dies a terrible death when it attempts to follow a NULL
+> pointer (the skb argument to cipso_v4_validate() is NULL when called via
+> the setsockopt() syscall).
+> 
+> This patch fixes this by first checking to ensure that the skb is
+> non-NULL before using it to find the incoming network interface.  In
+> the unlikely case where the skb is NULL and the user attempts to add
+> a CIPSO option with the _TAG_LOCAL tag we return an error as this is
+> not something we want to allow.
 
-There is no standard class describing devices supported by
-this driver, and most vendors don't even provide enough
-information to allow vendor specific wildcard matching. The
-result is that most of the supported devices must be
-explicitly listed in the device table.  Allowing dynamic IDs
-to work both simplifies testing and verification of new
-devices, and provides a way for end users to use a device
-before the ID is added to the driver.
+...
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
+> CC: Lin Ming <mlin@ss.pku.edu.cn>
+> Reported-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-I gave up on the generic solution to this problem.  Different
-drivers will have different needs, and even the different usbnet
-minidrivers are very different.  Some do mostly class based
-wildcard matching and rarely need an ID table update, while
-others, like qmi_wwan, will need frequent updates as new devices
-hit the market.
+Argh, I just realized I forgot to CC the stable folks.
 
-My conclusion was that it was best to add support like this
-in the few drivers actually needing it.  Each driver will have
-to make a policy decision wrt which data they will use for
-dynamic devices.  It just can't be done wholesale.
+David, if you don't queue this up for them, let me know and I'll resend it to 
+stable once it hits Linus' tree.
 
-
-
- drivers/net/usb/qmi_wwan.c |   19 ++++++++++++++++++-
- 1 file changed, 18 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index bc0469e..2ea126a 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -609,10 +609,27 @@ static const struct usb_device_id products[] =3D =
-{
- };
- MODULE_DEVICE_TABLE(usb, products);
-=20
-+static int qmi_wwan_probe(struct usb_interface *intf, const struct usb=
-_device_id *prod)
-+{
-+	struct usb_device_id *id =3D (struct usb_device_id *)prod;
-+
-+	/* Workaround to enable dynamic IDs.  This disables usbnet
-+	 * blacklisting functionality.  Which, if required, can be
-+	 * reimplemented here by using a magic "blacklist" value
-+	 * instead of 0 in the static device id table
-+	 */
-+	if (!id->driver_info) {
-+		dev_dbg(&intf->dev, "setting defaults for dynamic device id\n");
-+		id->driver_info =3D (unsigned long)&qmi_wwan_shared;
-+	}
-+
-+	return usbnet_probe(intf, id);
-+}
-+
- static struct usb_driver qmi_wwan_driver =3D {
- 	.name		      =3D "qmi_wwan",
- 	.id_table	      =3D products,
--	.probe		      =3D	usbnet_probe,
-+	.probe		      =3D qmi_wwan_probe,
- 	.disconnect	      =3D usbnet_disconnect,
- 	.suspend	      =3D qmi_wwan_suspend,
- 	.resume		      =3D	qmi_wwan_resume,
---=20
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>  net/ipv4/cipso_ipv4.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+> index c48adc5..667c1d4 100644
+> --- a/net/ipv4/cipso_ipv4.c
+> +++ b/net/ipv4/cipso_ipv4.c
+> @@ -1725,8 +1725,10 @@ int cipso_v4_validate(const struct sk_buff *skb,
+> unsigned char **option) case CIPSO_V4_TAG_LOCAL:
+>  			/* This is a non-standard tag that we only allow for
+>  			 * local connections, so if the incoming interface is
+> -			 * not the loopback device drop the packet. */
+> -			if (!(skb->dev->flags & IFF_LOOPBACK)) {
+> +			 * not the loopback device drop the packet. Further,
+> +			 * there is no legitimate reason for setting this from
+> +			 * userspace so reject it if skb is NULL. */
+> +			if (skb == NULL || !(skb->dev->flags & IFF_LOOPBACK)) {
+>  				err_offset = opt_iter;
+>  				goto validate_return_locked;
+>  			}
+-- 
+paul moore
+security and virtualization @ redhat
