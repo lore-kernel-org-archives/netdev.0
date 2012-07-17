@@ -1,61 +1,103 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net-next] tcp: implement RFC 5961 4.2
-Date: Tue, 17 Jul 2012 14:02:45 -0700
-Message-ID: <CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
-References: <1342525290.2626.459.camel@edumazet-glaptop>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] cipso: don't follow a NULL pointer when setsockopt() is
+ called
+Date: Tue, 17 Jul 2012 17:07:47 -0400
+Message-ID: <20120717210738.22790.23522.stgit@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Kiran Kumar Kella <kkiran@broadcom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:60512 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755248Ab2GQVCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 17:02:46 -0400
-Received: by ghrr11 with SMTP id r11so896579ghr.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 14:02:46 -0700 (PDT)
-In-Reply-To: <1342525290.2626.459.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:63619 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755374Ab2GQVHt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 17:07:49 -0400
+Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q6HL7md1017583
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 17:07:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17 July 2012 04:41, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Implement the RFC 5691 mitigation against Blind
-> Reset attack using SYN bit.
->
-> Section 4.2 of RFC 5961 advises to send a Challenge ACK and drop
-> incoming packet, instead of resetting the session.
+As reported by Alan Cox, and verified by Lin Ming, when a user
+attempts to add a CIPSO option to a socket using the CIPSO_V4_TAG_LOCAL
+tag the kernel dies a terrible death when it attempts to follow a NULL
+pointer (the skb argument to cipso_v4_validate() is NULL when called via
+the setsockopt() syscall).
 
-Eric,
-Section 4.2 has this to say:
-"If the SYN bit is set, irrespective of the sequence number, TCP
-      MUST send an ACK (also referred to as challenge ACK) to the remote
-      peer:"
+This patch fixes this by first checking to ensure that the skb is
+non-NULL before using it to find the incoming network interface.  In
+the unlikely case where the skb is NULL and the user attempts to add
+a CIPSO option with the _TAG_LOCAL tag we return an error as this is
+not something we want to allow.
 
-I believe your patch only sends challenge acks for in-window SYN packets.
-After this patch, the code for out of window packets is like this:
+A simple reproducer, kindly supplied by Lin Ming, although you must
+have the CIPSO DOI #3 configure on the system first or you will be
+caught early in cipso_v4_validate():
 
-        /* Step 1: check sequence number */
-        if (!tcp_sequence(tp, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq)) {
-                /* RFC793, page 37: "In all states except SYN-SENT, all reset
-                 * (RST) segments are validated by checking their SEQ-fields."
-                 * And page 69: "If an incoming segment is not acceptable,
-                 * an acknowledgment should be sent in reply (unless the RST
-                 * bit is set, if so drop the segment and return)".
-                 */
-                if (!th->rst)
-                        tcp_send_dupack(sk, skb);
-                goto discard;
-        }
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <linux/ip.h>
+	#include <linux/in.h>
+	#include <string.h>
 
+	struct local_tag {
+		char type;
+		char length;
+		char info[4];
+	};
 
-For SYN packets that are not in window, we do end up calling
-tcp_send_dupack() but not tcp_send_challenge_ack().  Will it be more
-appropriate to call the latter so that
-we do proper rate limiting of challenge acks and update SNMP counters correctly?
+	struct cipso {
+		char type;
+		char length;
+		char doi[4];
+		struct local_tag local;
+	};
 
-Thanks,
-Vijay
+	int main(int argc, char **argv)
+	{
+		int sockfd;
+		struct cipso cipso = {
+			.type = IPOPT_CIPSO,
+			.length = sizeof(struct cipso),
+			.local = {
+				.type = 128,
+				.length = sizeof(struct local_tag),
+			},
+		};
+
+		memset(cipso.doi, 0, 4);
+		cipso.doi[3] = 3;
+
+		sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+		#define SOL_IP 0
+		setsockopt(sockfd, SOL_IP, IP_OPTIONS,
+			&cipso, sizeof(struct cipso));
+
+		return 0;
+	}
+
+CC: Lin Ming <mlin@ss.pku.edu.cn>
+Reported-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Signed-off-by: Paul Moore <pmoore@redhat.com>
+---
+ net/ipv4/cipso_ipv4.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+index c48adc5..667c1d4 100644
+--- a/net/ipv4/cipso_ipv4.c
++++ b/net/ipv4/cipso_ipv4.c
+@@ -1725,8 +1725,10 @@ int cipso_v4_validate(const struct sk_buff *skb, unsigned char **option)
+ 		case CIPSO_V4_TAG_LOCAL:
+ 			/* This is a non-standard tag that we only allow for
+ 			 * local connections, so if the incoming interface is
+-			 * not the loopback device drop the packet. */
+-			if (!(skb->dev->flags & IFF_LOOPBACK)) {
++			 * not the loopback device drop the packet. Further,
++			 * there is no legitimate reason for setting this from
++			 * userspace so reject it if skb is NULL. */
++			if (skb == NULL || !(skb->dev->flags & IFF_LOOPBACK)) {
+ 				err_offset = opt_iter;
+ 				goto validate_return_locked;
+ 			}
