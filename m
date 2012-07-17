@@ -1,37 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 0/8] etherdevice: Rename random_ether_addr to
- eth_random_addr
-Date: Mon, 16 Jul 2012 22:39:47 -0700 (PDT)
-Message-ID: <20120716.223947.963699777040428903.davem@davemloft.net>
-References: <1341968967.13724.23.camel@joe2Laptop>
-	<cover.1342157022.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net] ixgbevf: Prevent RX/TX statistics getting reset to zero
+Date: Mon, 16 Jul 2012 22:45:00 -0700 (PDT)
+Message-ID: <20120716.224500.294857675537016703.davem@davemloft.net>
+References: <1342488281-8358-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	wimax-BPSAo7wm5JOHVYUYWc+uSQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
-	linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	user-mode-linux-user-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1342157022.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: narendra_k@dell.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46238 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754577Ab2GQFpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:45:01 -0400
+In-Reply-To: <1342488281-8358-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Date: Thu, 12 Jul 2012 22:33:04 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 16 Jul 2012 18:24:41 -0700
 
-> net-next commit ad7eee98be ("etherdevice: introduce eth_broadcast_addr")
-> added a new style API.  Rename random_ether_addr to eth_random_addr to
-> create some API symmetry.
+> From: Narendra K <narendra_k@dell.com>
+> 
+> The commit 4197aa7bb81877ebb06e4f2cc1b5fea2da23a7bd implements 64 bit
+> per ring statistics. But the driver resets the 'total_bytes' and
+> 'total_packets' from RX and TX rings in the RX and TX interrupt
+> handlers to zero. This results in statistics being lost and user space
+> reporting RX and TX statistics as zero. This patch addresses the
+> issue by preventing the resetting of RX and TX ring statistics to
+> zero.
+> 
+> Signed-off-by: Narendra K <narendra_k@dell.com>
+> Tested-by: Sibai Li <sibai.li@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Series applied, thanks Joe.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
