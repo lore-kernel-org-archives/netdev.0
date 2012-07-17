@@ -1,30 +1,20 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: fix incorrect route 'expires' value passed to userspace.
-Date: Tue, 17 Jul 2012 09:55:31 +0800
-Message-ID: <5004C613.5030208@cn.fujitsu.com>
-References: <5003CC41.9080204@cn.fujitsu.com> <20120716.025649.1070277404591664104.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 0/4 v3 net-next] tg3: Add hwmon support
+Date: Mon, 16 Jul 2012 19:23:58 -0700
+Message-ID: <1342491842-29818-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:39444 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750906Ab2GQB4P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 21:56:15 -0400
-In-Reply-To: <20120716.025649.1070277404591664104.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:3889 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754317Ab2GQCMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 22:12:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012-7-16 17:56, David Miller =E5=86=99=E9=81=93:
->=20
-> Without a proper signoff, I won't apply your patch.
->=20
->=20
 
-Sorry for that, I will append a signoff, do some code refactor
-and send a V2.
-
-Thanks,
-Wei
+David, I've removed the binary sysfs attribute and now use
+hwmon only.  Please consider this patchset for net-next.
