@@ -1,69 +1,38 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bonding: refine IFF_XMIT_DST_RELEASE capability
-Date: Wed, 18 Jul 2012 00:19:48 +0200
-Message-ID: <1342563588.2626.1224.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] tcp: implement RFC 5961 4.2
+Date: Wed, 18 Jul 2012 00:21:46 +0200
+Message-ID: <1342563706.2626.1228.camel@edumazet-glaptop>
+References: <1342525290.2626.459.camel@edumazet-glaptop>
+	 <CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
+	 <1342560769.2626.1165.camel@edumazet-glaptop>
+	 <CAGK4HS8MvP6L5Rvy4wJx2KhdTSSHfP7YPT44e9mrV_vsBZJ9jQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Kiran Kumar Kella <kkiran@broadcom.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:44302 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751516Ab2GQWTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:19:55 -0400
-Received: by qaas11 with SMTP id s11so650339qaa.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:19:54 -0700 (PDT)
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:45122 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516Ab2GQWVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:21:51 -0400
+Received: by qcro28 with SMTP id o28so635767qcr.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:21:50 -0700 (PDT)
+In-Reply-To: <CAGK4HS8MvP6L5Rvy4wJx2KhdTSSHfP7YPT44e9mrV_vsBZJ9jQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, 2012-07-17 at 15:10 -0700, Vijay Subramanian wrote:
 
-Some workloads greatly benefit of IFF_XMIT_DST_RELEASE capability
-on output net device, avoiding dirtying dst refcount.
+> Yes. This is what I had in mind (along with a change to make
+> tcp_sequence() return bool). I am not sure if this patch is official
+> (or will be picked up by patchwork) but
+> for what its worth
+> 
+> Acked-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 
-bonding currently disables IFF_XMIT_DST_RELEASE unconditionally.
+Well, I am going to send an official patch with all credits ASAP,
 
-If all slaves have the IFF_XMIT_DST_RELEASE bit set, then
-bonding master can also have it in its priv_flags
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Cc: Tom Herbert <therbert@google.com>
----
- drivers/net/bonding/bond_main.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1eb3979..3960b1b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1382,6 +1382,7 @@ static void bond_compute_features(struct bonding *bond)
- 	netdev_features_t vlan_features = BOND_VLAN_FEATURES;
- 	unsigned short max_hard_header_len = ETH_HLEN;
- 	int i;
-+	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
- 
- 	read_lock(&bond->lock);
- 
-@@ -1392,6 +1393,7 @@ static void bond_compute_features(struct bonding *bond)
- 		vlan_features = netdev_increment_features(vlan_features,
- 			slave->dev->vlan_features, BOND_VLAN_FEATURES);
- 
-+		dst_release_flag &= slave->dev->priv_flags;
- 		if (slave->dev->hard_header_len > max_hard_header_len)
- 			max_hard_header_len = slave->dev->hard_header_len;
- 	}
-@@ -1400,6 +1402,9 @@ done:
- 	bond_dev->vlan_features = vlan_features;
- 	bond_dev->hard_header_len = max_hard_header_len;
- 
-+	flags = bond_dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
-+	bond_dev->priv_flags = flags | dst_release_flag;
-+
- 	read_unlock(&bond->lock);
- 
- 	netdev_change_features(bond_dev);
+Thanks !
