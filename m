@@ -1,25 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: linux-can-next 2012-07-17
-Date: Tue, 17 Jul 2012 01:34:36 -0700 (PDT)
-Message-ID: <20120717.013436.390111943566970052.davem@davemloft.net>
-References: <5005194A.4090900@pengutronix.de>
+Subject: Re: [PATCH] ipv6: fix unappropriate errno returned for
+ non-multicast address
+Date: Tue, 17 Jul 2012 01:35:29 -0700 (PDT)
+Message-ID: <20120717.013529.750838300674618285.davem@davemloft.net>
+References: <5005143B.9000301@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5005194A.4090900@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: lw@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47767 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753000Ab2GQIfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 04:35:30 -0400
+In-Reply-To: <5005143B.9000301@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Tue, 17 Jul 2012 09:50:34 +0200
+From: Li Wei <lw@cn.fujitsu.com>
+Date: Tue, 17 Jul 2012 15:28:59 +0800
 
-> the fifth pull request for upcoming v3.6 net-next. The first two
-> patches (created by me) add const qualifiers to the flexcan and
-> mpc5xxx_can driver. The next patch by Julia Lawall fixes a return value
-> problem in the error path of the softing driver.
+> We need to check the passed in multicast address and return
+> appropriate errno(EINVAL) if it is not valid. And it's no need
+> to walk through the ipv6_mc_list in this situation.
+> 
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 
-Pulled, thanks.
+Applied to net-next, thanks.
