@@ -1,108 +1,100 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/8] ixgbevf: Cleanup accounting for space needed at start of xmit_frame
-Date: Tue, 17 Jul 2012 03:09:16 -0700
-Message-ID: <1342519759-25137-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/8] ixgbevf: Make use of NETIF_F_RXCSUM instead of keeping our own flag
+Date: Tue, 17 Jul 2012 03:09:14 -0700
+Message-ID: <1342519759-25137-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342519759-25137-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Greg Rose <gregory.v.rose@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:49016 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:4797 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755133Ab2GQKJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 06:09:25 -0400
+	id S1752664Ab2GQKJY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 06:09:24 -0400
 In-Reply-To: <1342519759-25137-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change cleans up the accounting needed at the start of xmit_frame so
-that we can avoid doing too much work to determine how many descriptors we
-will need.
+The IXGBE_FLAG_RX_CSUM_ENABLED flag is redundant since NETIF_F_RXCSUM is
+keeping the value we want to already have.  As such we can drop the
+redundant flag and just make use of NETIF_F_RXCSUM.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   46 +++++++++++----------
- 1 file changed, 24 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    3 +--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   19 +------------------
+ 2 files changed, 2 insertions(+), 20 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index ed19f7e..773dafa 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -207,8 +207,7 @@ struct ixgbevf_adapter {
+ 	 * thus the additional *_CAPABLE flags.
+ 	 */
+ 	u32 flags;
+-#define IXGBE_FLAG_RX_CSUM_ENABLED              (u32)(1)
+-#define IXGBE_FLAG_IN_WATCHDOG_TASK             (u32)(1 << 1)
++#define IXGBE_FLAG_IN_WATCHDOG_TASK             (u32)(1)
+ 
+ 	/* OS defined structs */
+ 	struct net_device *netdev;
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 75af192..855bb21 100644
+index 3cd8651..2e85d79 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -175,10 +175,8 @@ static void ixgbevf_unmap_and_free_tx_resource(struct ixgbevf_adapter *adapter,
- #define IXGBE_MAX_DATA_PER_TXD	(1 << IXGBE_MAX_TXD_PWR)
+@@ -307,7 +307,7 @@ static inline void ixgbevf_rx_checksum(struct ixgbevf_adapter *adapter,
+ 	skb_checksum_none_assert(skb);
  
- /* Tx Descriptors needed, worst case */
--#define TXD_USE_COUNT(S) (((S) >> IXGBE_MAX_TXD_PWR) + \
--			 (((S) & (IXGBE_MAX_DATA_PER_TXD - 1)) ? 1 : 0))
--#define DESC_NEEDED (TXD_USE_COUNT(IXGBE_MAX_DATA_PER_TXD) /* skb->data */ + \
--	MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE) + 1)      /* for context */
-+#define TXD_USE_COUNT(S) DIV_ROUND_UP((S), IXGBE_MAX_DATA_PER_TXD)
-+#define DESC_NEEDED (MAX_SKB_FRAGS + 4)
+ 	/* Rx csum disabled */
+-	if (!(adapter->flags & IXGBE_FLAG_RX_CSUM_ENABLED))
++	if (!(adapter->netdev->features & NETIF_F_RXCSUM))
+ 		return;
  
- static void ixgbevf_tx_timeout(struct net_device *netdev);
+ 	/* if IP and error */
+@@ -2077,9 +2077,6 @@ static int __devinit ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
+ 	adapter->tx_ring_count = IXGBEVF_DEFAULT_TXD;
+ 	adapter->rx_ring_count = IXGBEVF_DEFAULT_RXD;
  
-@@ -2932,33 +2930,37 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	unsigned int tx_flags = 0;
- 	u8 hdr_len = 0;
- 	int r_idx = 0, tso;
--	int count = 0;
+-	/* enable rx csum by default */
+-	adapter->flags |= IXGBE_FLAG_RX_CSUM_ENABLED;
 -
--	unsigned int f;
-+	u16 count = TXD_USE_COUNT(skb_headlen(skb));
-+#if PAGE_SIZE > IXGBE_MAX_DATA_PER_TXD
-+	unsigned short f;
-+#endif
+ 	set_bit(__IXGBEVF_DOWN, &adapter->state);
+ 	return 0;
  
- 	tx_ring = &adapter->tx_ring[r_idx];
+@@ -3112,19 +3109,6 @@ static struct rtnl_link_stats64 *ixgbevf_get_stats(struct net_device *netdev,
+ 	return stats;
+ }
  
-+	/*
-+	 * need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
-+	 *       + 1 desc for skb_headlen/IXGBE_MAX_DATA_PER_TXD,
-+	 *       + 2 desc gap to keep tail from touching head,
-+	 *       + 1 desc for context descriptor,
-+	 * otherwise try next time
-+	 */
-+#if PAGE_SIZE > IXGBE_MAX_DATA_PER_TXD
-+	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
-+		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
-+#else
-+	count += skb_shinfo(skb)->nr_frags;
-+#endif
-+	if (ixgbevf_maybe_stop_tx(netdev, tx_ring, count + 3)) {
-+		adapter->tx_busy++;
-+		return NETDEV_TX_BUSY;
-+	}
-+
- 	if (vlan_tx_tag_present(skb)) {
- 		tx_flags |= vlan_tx_tag_get(skb);
- 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
- 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
- 	}
- 
--	/* four things can cause us to need a context descriptor */
--	if (skb_is_gso(skb) ||
--	    (skb->ip_summed == CHECKSUM_PARTIAL) ||
--	    (tx_flags & IXGBE_TX_FLAGS_VLAN))
--		count++;
+-static int ixgbevf_set_features(struct net_device *netdev,
+-	netdev_features_t features)
+-{
+-	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
 -
--	count += TXD_USE_COUNT(skb_headlen(skb));
--	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
--		count += TXD_USE_COUNT(skb_frag_size(&skb_shinfo(skb)->frags[f]));
+-	if (features & NETIF_F_RXCSUM)
+-		adapter->flags |= IXGBE_FLAG_RX_CSUM_ENABLED;
+-	else
+-		adapter->flags &= ~IXGBE_FLAG_RX_CSUM_ENABLED;
 -
--	if (ixgbevf_maybe_stop_tx(netdev, tx_ring, count)) {
--		adapter->tx_busy++;
--		return NETDEV_TX_BUSY;
--	}
+-	return 0;
+-}
 -
- 	first = tx_ring->next_to_use;
+ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_open		= ixgbevf_open,
+ 	.ndo_stop		= ixgbevf_close,
+@@ -3137,7 +3121,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_tx_timeout		= ixgbevf_tx_timeout,
+ 	.ndo_vlan_rx_add_vid	= ixgbevf_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgbevf_vlan_rx_kill_vid,
+-	.ndo_set_features	= ixgbevf_set_features,
+ };
  
- 	if (skb->protocol == htons(ETH_P_IP))
+ static void ixgbevf_assign_netdev_ops(struct net_device *dev)
 -- 
 1.7.10.4
