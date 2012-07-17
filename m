@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] ixgbevf: Fix panic when loading driver
-Date: Tue, 17 Jul 2012 02:57:12 -0700 (PDT)
-Message-ID: <20120717.025712.301877208665987955.davem@davemloft.net>
-References: <1342518288-13522-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] ipvs fixes for 3.5
+Date: Tue, 17 Jul 2012 12:06:27 +0200
+Message-ID: <1342519589-3348-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48335 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754998Ab2GQJ5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 05:57:15 -0400
-In-Reply-To: <1342518288-13522-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.us.es ([193.147.175.20]:48085 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752141Ab2GQKHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 06:07:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 17 Jul 2012 02:44:48 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch addresses a kernel panic seen when setting up the interface.
-> Specifically we see a NULL pointer dereference on the Tx descriptor cleanup
-> path when enabling interrupts.  This change corrects that so it cannot
-> occur.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Acked-by: Greg Rose <gregory.v.rose@intel.com>
-> Tested-by: Sibai Li <sibai.li@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Hi David,
 
-Applied, thanks Jeff.
+I know that we're in fairly late stage to request pulls, but the IPVS people
+pinged me with little patches with oops fixes last week.
+
+One of them was recently introduced (during the 3.4 development cycle) while
+cleaning up the IPVS netns support. They are:
+
+* Fix one regression introduced in 3.4 while cleaning up the
+  netns support for IPVS, from Julian Anastasov.
+
+* Fix one oops triggered due to resetting the conntrack attached to the skb
+  instead of just putting it in the forward hook, from Lin Ming. This problem
+  seems to be there since 2.6.37 according to Simon Horman.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf master
+
+Thanks!
+
+Julian Anastasov (1):
+  ipvs: fix oops in ip_vs_dst_event on rmmod
+
+Lin Ming (1):
+  ipvs: fix oops on NAT reply in br_nf context
+
+ include/net/ip_vs.h            |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c |    5 +++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+--
+1.7.10
