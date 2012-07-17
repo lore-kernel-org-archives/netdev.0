@@ -1,40 +1,49 @@
-From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: That's pretty much it for 3.5.0
-Date: Tue, 17 Jul 2012 16:27:53 -0700
-Message-ID: <5005F4F9.6010208@intel.com>
-References: <5005D008.6060103@intel.com> <20120717.140241.1599386555723262095.davem@davemloft.net> <5005E390.7020706@intel.com> <20120717.151832.1306978935355646723.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Wed, 18 Jul 2012 01:40:37 +0200
+Message-ID: <20120717234037.GA26972@electric-eye.fr.zoreil.com>
+References: <1342564781.2626.1264.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120717.151832.1306978935355646723.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50077 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753420Ab2GQXxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 19:53:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1342564781.2626.1264.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/17/2012 3:18 PM, David Miller wrote:
-> From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Date: Tue, 17 Jul 2012 15:13:36 -0700
->
->> Perhaps the easiest way is to check net->count this should be zero
->> until setup_net is called.
->>
->> if (!atomic_read(&init_net.count))
->> 	return ret;
->>
->
-> Won't work, setup_net() runs via a pure_initcall().
->
+Eric Dumazet <eric.dumazet@gmail.com> :
+[...]
+> I was wondering why Scatter Gather (NETIF_F_SG) and TX checksum
+> (NETIF_F_IP_CSUM) were disabled by default on r8169.
 
-Why not must have missed something? cgroup_init() and
-cgroup_early_init() both run before _initcall() routines are
-called via kernel_init() so this will stop the update in
-netprio from occurring.
+It was not unconditionally stable. For a number of reasons:
+- incompatibility with jumbo frames.
+  rtl_chip_infos now allows to take care of it
+- lack of support for chipset dependent Tx descriptor 
+  rtl_tx_desc_info handles it. There are yet a few unused ipv6 bits. No idea
+  how useable they are.
+- some false alarms due to different issues and probably some others
+  I could hunt for in the archives.
 
-And I don't see any race elsewhere for this.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Couldnt we enable them by default, maybe for a whitelist of "good"
+> nics ?
+
+Sure.
+
+Hayes, should we not add into the kernel driver something similar to
+the rtl8168_start_xmit::skb_checksum_help stuff in Realtek's 8168 driver ?
+There seems to be a bug for (skb->len < 60 && RTL_GIGA_MAC_VER_34.
+
+> (I found that activating them with ethtool automatically enables GSO,
+>  and performance with GSO is not good)
+
+It's still an improvement though, isn't it ?
+
+-- 
+Ueimor
