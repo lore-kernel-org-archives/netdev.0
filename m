@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: That's pretty much it for 3.5.0
-Date: Tue, 17 Jul 2012 09:01:42 -0700 (PDT)
-Message-ID: <20120717.090142.125145009944045241.davem@davemloft.net>
+Subject: Re: [patch net-next 0/2] team: add netpoll support
+Date: Tue, 17 Jul 2012 09:02:46 -0700 (PDT)
+Message-ID: <20120717.090246.433539164805055819.davem@davemloft.net>
+References: <1342538556-22601-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51124 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669Ab2GQQCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 12:02:47 -0400
+In-Reply-To: <1342538556-22601-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 17 Jul 2012 17:22:34 +0200
 
-Linus was _extremely_ generous and took in all the stuff that was
-pending in the net tree just now.
+> Also contains a little change to netpoll core.
+> 
+> Jiri Pirko (2):
+>   netpoll: move np->dev and np->dev_name init into __netpoll_setup()
+>   team: add netpoll support
 
-Besides very serious issues, I'm not willing to consider any more bug
-fixes for the 'net' tree at this time.
-
-Only one pending known bug qualifies, and that's the CIPSO ip option
-processing OOPS'er.  And I'll work on that myself if Paul Moore
-doesn't show a sign of life in the next day.
-
-Thanks.
+Both applied, thanks Jiri.
