@@ -1,37 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/3] ipvs: fix oops in ip_vs_dst_event on rmmod
-Date: Tue, 17 Jul 2012 12:08:47 +0200
-Message-ID: <20120717100847.GB3812@1984>
-References: <1341965963-7275-1-git-send-email-horms@verge.net.au>
- <1341965963-7275-4-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Simon Horman <horms@verge.net.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 17 Jul 2012 03:09:11 -0700
+Message-ID: <1342519759-25137-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48476 "EHLO mail.us.es"
+Received: from mga02.intel.com ([134.134.136.20]:19415 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755148Ab2GQKIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 06:08:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1341965963-7275-4-git-send-email-horms@verge.net.au>
+	id S1754368Ab2GQKJW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 06:09:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 11, 2012 at 09:19:23AM +0900, Simon Horman wrote:
-> From: Julian Anastasov <ja@ssi.bg>
-> 
-> 	After commit 39f618b4fd95ae243d940ec64c961009c74e3333 (3.4)
-> "ipvs: reset ipvs pointer in netns" we can oops in
-> ip_vs_dst_event on rmmod ip_vs because ip_vs_control_cleanup
-> is called after the ipvs_core_ops subsys is unregistered and
-> net->ipvs is NULL. Fix it by exiting early from ip_vs_dst_event
-> if ipvs is NULL. It is safe because all services and dests
-> for the net are already freed.
+This series contains updates to ixgbevf.
 
-Applied, thanks.
+The following are changes since commit 282f23c6ee343126156dd41218b22ece96d747e3:
+  tcp: implement RFC 5961 3.2
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Duyck (8):
+  ixgbevf: Drop all dead or unnecessary code
+  ixgbevf: Drop netdev_registered value since that is already stored in
+    netdev
+  ixgbevf: Make use of NETIF_F_RXCSUM instead of keeping our own flag
+  ixgbevf: Drop use of eitr_low and eitr_high for hard coded values
+  ixgbevf: Cleanup accounting for space needed at start of xmit_frame
+  ixgbevf: Update q_vector to contain ring pointers instead of bitmaps
+  ixgbevf: Move Tx clean-up into NAPI context
+  ixgbevf: Use igb style interrupt masks instead of ixgbe style
+
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |   27 +-
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   13 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   99 +--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  820 ++++++---------------
+ 4 files changed, 276 insertions(+), 683 deletions(-)
+
+-- 
+1.7.10.4
