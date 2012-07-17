@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/3] 6lowpan: Various bug fixes
-Date: Mon, 16 Jul 2012 22:52:18 -0700 (PDT)
-Message-ID: <20120716.225218.390766894768297.davem@davemloft.net>
-References: <1342025476-20949-1-git-send-email-tony.cheneau@amnesiak.org>
+Subject: Re: [PATCH net,1/1] hyperv: Add support for setting MAC from
+ within guests
+Date: Mon, 16 Jul 2012 22:54:53 -0700 (PDT)
+Message-ID: <20120716.225453.1695509038616478796.davem@davemloft.net>
+References: <1341940762-18307-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alex.bluesman.smirnov@gmail.com
-To: tony.cheneau@amnesiak.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46280 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab2GQFwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:52:19 -0400
-In-Reply-To: <1342025476-20949-1-git-send-email-tony.cheneau@amnesiak.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, olaf@aepfle.de, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1341940762-18307-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Cheneau <tony.cheneau@amnesiak.org>
-Date: Wed, 11 Jul 2012 12:51:13 -0400
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Tue, 10 Jul 2012 10:19:22 -0700
 
-> After reading and playing with the 6lowpan code, I found out a few issues. This
-> patchset fixes them. This patchset should apply cleanly against the current
-> net-next. It contains only bug fixes, I'll send later on an other patchset that
-> will contain new functionalities.
+> This adds support for setting synthetic NIC MAC address from within Linux
+> guests. Before using this feature, the option "spoofing of MAC address"
+> should be enabled at the Hyper-V manager / Settings of the synthetic
+> NIC.
 > 
-> Changes since version 2:
-> - remove a patch that prevented fragmentation to work after few packets have
->   been send: Alexander included the patch in his patchset
-> - fix the title of the git commit to include the "6lowpan" tag
+> Thanks to Kin Cho <kcho@infoblox.com> for the initial implementation and
+> tests. And, thanks to Long Li <longli@microsoft.com> for the debugging
+> works.
+> 
+> Reported-and-tested-by: Kin Cho <kcho@infoblox.com>
+> Reported-by: Long Li <longli@microsoft.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Series applied, thanks.
+Applied to net-next, thanks.
