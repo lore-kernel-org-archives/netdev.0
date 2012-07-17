@@ -1,53 +1,34 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: That's pretty much it for 3.5.0
-Date: Tue, 17 Jul 2012 17:41:55 +0000
-Message-ID: <997C449C-D599-4F46-A0A3-A2B869DEE36E@intel.com>
-References: <20120717.090142.125145009944045241.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
+Date: Tue, 17 Jul 2012 11:03:14 -0700 (PDT)
+Message-ID: <20120717.110314.1984735460095688066.davem@davemloft.net>
+References: <20120717.061418.1893307699868826531.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-	"<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
-	"<netfilter-devel@vger.kernel.org>" <netfilter-devel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120717.090142.125145009944045241.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <2FAFF28D136CBE4EAF5701E586B8CEB7@intel.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53307 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109Ab2GQSDR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 14:03:17 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id AF76C5839B1
+	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 11:03:18 -0700 (PDT)
+In-Reply-To: <20120717.061418.1893307699868826531.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Jul 17, 2012, at 9:01 AM, David Miller wrote:
+From: David Miller <davem@davemloft.net>
+Date: Tue, 17 Jul 2012 06:14:18 -0700 (PDT)
 
-> Linus was _extremely_ generous and took in all the stuff that was
-> pending in the net tree just now.
+> These patches implement the final mechanism necessary to really allow
+> us to go without the route cache in ipv4.
 
-Maybe *too* generous. :-) I just updated and when I boot I get an early crash in update_netdev_tables which is in netprio_cgroup.c.
+Ok I pushed this out to net-next with the v2 of patch #5 and the merge
+commit message adjusted to suit.
 
-> Besides very serious issues, I'm not willing to consider any more bug
-> fixes for the 'net' tree at this time.
+I think the routing cache will die in net-next for real some time
+later this week.
 
-I think the above issue will have to be fixed, as it completely prevents booting for any kernel that includes the netprio_cgroup option.
-
-> Only one pending known bug qualifies, and that's the CIPSO ip option
-> processing OOPS'er.  And I'll work on that myself if Paul Moore
-> doesn't show a sign of life in the next day.
-> 
-> Thanks.
-
-
-I can start taking a look at this if you like, but I see that Gao feng has two patches in the last set of patches that may be related.
-
-To give you an idea how early the crash is, here are a few log messages leading up to it:
-
-[    0.003455] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes)
-[    0.005550] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes)
-[    0.007165] Mount-cache hash table entries: 256
-[    0.010289] Initializing cgroup subsys net_cls
-[    0.010947] Initializing cgroup subsys net_prio
-[    0.011039] BUG: unable to handle kernel NULL pointer dereference at 0000000000000828
-[    0.011998] IP: [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
-
--- 
-Mark Rustad, LAN Access Division, Intel Corporation
-
+I'll start respinning those patches.
