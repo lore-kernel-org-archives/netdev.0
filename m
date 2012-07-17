@@ -1,57 +1,62 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net-next] tcp: implement RFC 5961 4.2
-Date: Tue, 17 Jul 2012 15:10:06 -0700
-Message-ID: <CAGK4HS8MvP6L5Rvy4wJx2KhdTSSHfP7YPT44e9mrV_vsBZJ9jQ@mail.gmail.com>
-References: <1342525290.2626.459.camel@edumazet-glaptop>
-	<CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
-	<1342560769.2626.1165.camel@edumazet-glaptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: That's pretty much it for 3.5.0
+Date: Tue, 17 Jul 2012 15:13:36 -0700
+Message-ID: <5005E390.7020706@intel.com>
+References: <5005B881.8010505@intel.com> <20120717.122459.2240133900020140698.davem@davemloft.net> <5005D008.6060103@intel.com> <20120717.140241.1599386555723262095.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Kiran Kumar Kella <kkiran@broadcom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mark.d.rustad@intel.com, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:59572 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755558Ab2GQWKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:10:07 -0400
-Received: by yenl2 with SMTP id l2so962482yen.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:10:06 -0700 (PDT)
-In-Reply-To: <1342560769.2626.1165.camel@edumazet-glaptop>
+Received: from mga11.intel.com ([192.55.52.93]:29589 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753833Ab2GQWNh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 18:13:37 -0400
+In-Reply-To: <20120717.140241.1599386555723262095.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> But you probably are right, we could test th->syn here as well.
+On 7/17/2012 2:02 PM, David Miller wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Tue, 17 Jul 2012 13:50:16 -0700
 >
-> Something like that ?
-
-> -               if (!th->rst)
-> +               if (!th->rst) {
-> +                       if (th->syn)
-> +                               goto syn_challenge;
->                         tcp_send_dupack(sk, skb);
-> +               }
->                 goto discard;
->         }
+>> On 7/17/2012 12:24 PM, David Miller wrote:
+>>> From: John Fastabend <john.r.fastabend@intel.com>
+>>> Date: Tue, 17 Jul 2012 12:09:53 -0700
+>>>
+>>>> although we don't have an early_init hook for netprio_cgroup so this
+>>>> is probably not correct.
+>>>
+>>> The dependency is actually on net_dev_init (a subsys_initcall) rather
+>>> than a pure_initcall.
+>>>
+>>> net_dev_init is what registers the netdev_net_ops, which in turn
+>>> initializes the netdev list in namespaces such as &init_net
+>>>
+>>
+>> Ah right thanks sorry for the thrash. I guess we need to check if the
+>> netdev list in the init_net namespace is initialized.
 >
-> @@ -5327,6 +5330,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
->          * RFC 5691 4.2 : Send a challenge ack
->          */
->         if (th->syn) {
-> +syn_challenge:
->                 if (syn_inerr)
->                         TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
->                 NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNCHALLENGE);
+> It's a hack, but we could export and then test dev_boot_phase == 0,
+> and if that test is true then skip the init_net device walk in the
+> cgroup code.
+>
+> But I don't like that very much.
+>
+> The things this code cares about can't even be an issue until
+> net_dev_init() runs.
+>
+> There is a comment warning not to do this in linux/init.h, but we
+> could change the module_init() in netprio_cgroup.c to some level which
+> runs after subsys_inticall().  When built as a module, linux/init.h
+> will translate this into module_init() which is basically the behavior
+> we want.
 >
 
-Yes. This is what I had in mind (along with a change to make
-tcp_sequence() return bool). I am not sure if this patch is official
-(or will be picked up by patchwork) but
-for what its worth
+Perhaps the easiest way is to check net->count this should be zero
+until setup_net is called.
 
-Acked-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-
-I will send a separate patch to make tcp_sequence() return bool.
-Thanks!
-Vijay
+if (!atomic_read(&init_net.count))
+	return ret;
