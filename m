@@ -1,75 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netem: fix rate extension and drop accounting
-Date: Tue, 17 Jul 2012 19:39:33 +0200
-Message-ID: <1342546773.2626.909.camel@edumazet-glaptop>
-References: <1341307524.2583.115.camel@edumazet-glaptop>
-	 <CAPVr9VP7DniPZj4vZi_myJWfL5JLYKYTXXtrXcKHo9LjEQzjYw@mail.gmail.com>
-	 <20120716232600.GI3415@nuttenaction>
-	 <1342501947.2626.9.camel@edumazet-glaptop>
-	 <CAPVr9VMCYFO-7uEzO6ft2vpPhVvRgHB3EWJJG62OqGqux1LsZQ@mail.gmail.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: That's pretty much it for 3.5.0
+Date: Tue, 17 Jul 2012 17:41:55 +0000
+Message-ID: <997C449C-D599-4F46-A0A3-A2B869DEE36E@intel.com>
+References: <20120717.090142.125145009944045241.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Andreas Terzis <aterzis@google.com>
-To: Mark Gordon <msg@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:57524 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751109Ab2GQRji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 13:39:38 -0400
-Received: by yhmm54 with SMTP id m54so648336yhm.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 10:39:38 -0700 (PDT)
-In-Reply-To: <CAPVr9VMCYFO-7uEzO6ft2vpPhVvRgHB3EWJJG62OqGqux1LsZQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	"<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+	"<netfilter-devel@vger.kernel.org>" <netfilter-devel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120717.090142.125145009944045241.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <2FAFF28D136CBE4EAF5701E586B8CEB7@intel.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please Mark :
+On Jul 17, 2012, at 9:01 AM, David Miller wrote:
 
-1) Dont top post on netdev
+> Linus was _extremely_ generous and took in all the stuff that was
+> pending in the net tree just now.
 
-2) Dont write HTML mails on netdev (your mail never went to netdev,
-   only to CCed people). Only text mails are allowed.
+Maybe *too* generous. :-) I just updated and when I boot I get an early crash in update_netdev_tables which is in netprio_cgroup.c.
 
-On Tue, 2012-07-17 at 10:20 -0700, Mark Gordon wrote:
-> Even the static delay case seems wrong with the new patch.  Assume all
-> packets have the same sched_time.  Then if you spam packets that get
-> processed at the same time by netem they will all get scheduled with
-> the same time_to_send because the first packet will get time_to_send
-> of [1] = clock_time + sched_time.  Then packet n compute 'now' as
-> [n-1] and delay as sched_time - (clock_time - [1]) = 0 so that [n] =
-> [n-1].  Therefore every packet gets scheduled at the same time.
+> Besides very serious issues, I'm not willing to consider any more bug
+> fixes for the 'net' tree at this time.
+
+I think the above issue will have to be fixed, as it completely prevents booting for any kernel that includes the netprio_cgroup option.
+
+> Only one pending known bug qualifies, and that's the CIPSO ip option
+> processing OOPS'er.  And I'll work on that myself if Paul Moore
+> doesn't show a sign of life in the next day.
 > 
-> 
-> The above modification seems to fix the issue when latency/jitter is 0
-> but suffers from a missing non-linearity when delay is present.  Is
-> there a technical reason I'm missing that prevents us from doing rate
-> and latency here?  Why wouldn't the 'official' patch have correct
-> rate?
+> Thanks.
 
-Because delay is variable (jitter)
 
-netem as is is not working correctly if you have both a rate limit and
-delay.
+I can start taking a look at this if you like, but I see that Gao feng has two patches in the last set of patches that may be related.
 
-Hagen is working on a solution, but there is no easy fix.
+To give you an idea how early the crash is, here are a few log messages leading up to it:
 
-The right solution is to have :
+[    0.003455] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes)
+[    0.005550] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes)
+[    0.007165] Mount-cache hash table entries: 256
+[    0.010289] Initializing cgroup subsys net_cls
+[    0.010947] Initializing cgroup subsys net_prio
+[    0.011039] BUG: unable to handle kernel NULL pointer dereference at 0000000000000828
+[    0.011998] IP: [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
 
-1) A rate stage, using a child qdisc (that you can graft to install your
-own qdisc hierarchy if needed, say if you want codel or fq_codel ;))
+-- 
+Mark Rustad, LAN Access Division, Intel Corporation
 
-  Thats basically a TBF...
-
-2) skb orphan
-
-3) drops/reorders/corrupt/additional delay (variable delay)
-   using an internal tfifo, to mimic real networks behavior.
-
-Thats the reverse of how its currently done.
-
-Alternatively, this could be implemented as a special network device,
-like bonding, instead of a qdisc.
