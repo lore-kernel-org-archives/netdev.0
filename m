@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-next: make sock diag per-namespace (v2)
-Date: Mon, 16 Jul 2012 22:23:48 -0700 (PDT)
-Message-ID: <20120716.222348.382977548581101928.davem@davemloft.net>
-References: <1342448929-1809316-1-git-send-email-avagin@openvz.org>
+Subject: Re: [PATCH] ipv6: fix incorrect route 'expires' value passed to
+ userspace.
+Date: Mon, 16 Jul 2012 22:26:21 -0700 (PDT)
+Message-ID: <20120716.222621.1971297012045485414.davem@davemloft.net>
+References: <5003CC41.9080204@cn.fujitsu.com>
+	<20120716094124.0040561f@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, xemul@parallels.com, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: avagin@openvz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342448929-1809316-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: lw@cn.fujitsu.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46142 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257Ab2GQF0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 01:26:22 -0400
+In-Reply-To: <20120716094124.0040561f@s6510.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Vagin <avagin@openvz.org>
-Date: Mon, 16 Jul 2012 18:28:49 +0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Mon, 16 Jul 2012 09:41:24 -0700
 
-> Before this patch sock_diag works for init_net only and dumps
-> information about sockets from all namespaces.
+> On Mon, 16 Jul 2012 16:09:37 +0800
+> Li Wei <lw@cn.fujitsu.com> wrote:
 > 
-> This patch expands sock_diag for all name-spaces.
-> It creates a netlink kernel socket for each netns and filters
-> data during dumping.
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index becb048..a7fec9d 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -2516,7 +2516,7 @@ static int rt6_fill_node(struct net *net,
+>>  		goto nla_put_failure;
+>>  	if (!(rt->rt6i_flags & RTF_EXPIRES))
+>>  		expires = 0;
+>> -	else if (rt->dst.expires - jiffies < INT_MAX)
+>> +	else if ((int)(rt->dst.expires - jiffies) < INT_MAX)
+>>  		expires = rt->dst.expires - jiffies;
+>>  	else
+>>  		expires = INT_MAX;
 > 
-> v2: filter accoding with netns in all places
->     remove an unused variable.
-> 
-> Signed-off-by: Andrew Vagin <avagin@openvz.org>
+> Why not use time_is_after_jiffies() macro?
 
-Applied, thanks.
+This test has a wider window of acceptance.
