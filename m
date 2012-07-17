@@ -1,65 +1,72 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] skbuff: Use correct allocation in skb_copy_ubufs
-Date: Tue, 17 Jul 2012 17:35:29 +0530
-Message-ID: <20120717120529.16840.51108.sendpatchset@localhost.localdomain>
-Cc: xma@us.ibm.com, netdev@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>
-To: davem@davemloft.net
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] sctp: Fix list corruption resulting from freeing an
+ association on a list
+Date: Tue, 17 Jul 2012 08:25:27 -0400
+Message-ID: <20120717122527.GA10485@hmsreliant.think-freely.org>
+References: <1342463970-7457-1-git-send-email-nhorman@tuxdriver.com>
+ <1342466031-18025-1-git-send-email-nhorman@tuxdriver.com>
+ <20120716.223250.2238626170464909220.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davej@redhat.com, vyasevich@gmail.com,
+	sri@us.ibm.com, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp03.in.ibm.com ([122.248.162.3]:34760 "EHLO
-	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000Ab2GQMFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 08:05:52 -0400
-Received: from /spool/local
-	by e28smtp03.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <krkumar2@in.ibm.com>;
-	Tue, 17 Jul 2012 17:35:49 +0530
-Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
-	by d28relay02.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6HC5Vsa41222170
-	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 17:35:31 +0530
-Received: from d28av03.in.ibm.com (loopback [127.0.0.1])
-	by d28av03.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6HHYoRD025209
-	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 03:34:50 +1000
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35914 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752526Ab2GQMZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 08:25:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20120716.223250.2238626170464909220.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use correct allocation flags during copy of user space fragments
-to the kernel. Also "improve" couple of for loops.
+On Mon, Jul 16, 2012 at 10:32:50PM -0700, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 16 Jul 2012 15:13:51 -0400
+> 
+> > A few days ago Dave Jones reported this oops:
+>  ...
+> > It appears from his analysis and some staring at the code that this is likely
+> > occuring because an association is getting freed while still on the
+> > sctp_assoc_hashtable.  As a result, we get a gpf when traversing the hashtable
+> > while a freed node corrupts part of the list.
+> > 
+> > Nominally I would think that an mibalanced refcount was responsible for this,
+> > but I can't seem to find any obvious imbalance.  What I did note however was
+> > that the two places where we create an association using
+> > sctp_primitive_ASSOCIATE (__sctp_connect and sctp_sendmsg), have failure paths
+> > which free a newly created association after calling sctp_primitive_ASSOCIATE.
+> > sctp_primitive_ASSOCIATE brings us into the sctp_sf_do_prm_asoc path, which
+> > issues a SCTP_CMD_NEW_ASOC side effect, which in turn adds a new association to
+> > the aforementioned hash table.  the sctp command interpreter that process side
+> > effects has not way to unwind previously processed commands, so freeing the
+> > association from the __sctp_connect or sctp_sendmsg error path would lead to a
+> > freed association remaining on this hash table.
+> > 
+> > I've fixed this but modifying sctp_[un]hash_established to use hlist_del_init,
+> > which allows us to proerly use hlist_unhashed to check if the node is on a
+> > hashlist safely during a delete.  That in turn alows us to safely call
+> > sctp_unhash_established in the __sctp_connect and sctp_sendmsg error paths
+> > before freeing them, regardles of what the associations state is on the hash
+> > list.
+> > 
+> > I noted, while I was doing this, that the __sctp_unhash_endpoint was using
+> > hlist_unhsashed in a simmilar fashion, but never nullified any removed nodes
+> > pointers to make that function work properly, so I fixed that up in a simmilar
+> > fashion.
+> > 
+> > I attempted to test this using a virtual guest running the SCTP_RR test from
+> > netperf in a loop while running the trinity fuzzer, both in a loop.  I wasn't
+> > able to recreate the problem prior to this fix, nor was I able to trigger the
+> > failure after (neither of which I suppose is suprising).  Given the trace above
+> > however, I think its likely that this is what we hit.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > Reported-by: davej@redhat.com
+> 
+> Looks great, applied and queued up for -stable, thanks Neil.
+> 
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- skbuff.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff -ruNp org/net/core/skbuff.c new/net/core/skbuff.c
---- org/net/core/skbuff.c	2012-07-17 09:56:12.000000000 +0530
-+++ new/net/core/skbuff.c	2012-07-17 11:05:43.715853844 +0530
-@@ -751,7 +751,7 @@ int skb_copy_ubufs(struct sk_buff *skb, 
- 		u8 *vaddr;
- 		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
- 
--		page = alloc_page(GFP_ATOMIC);
-+		page = alloc_page(gfp_mask);
- 		if (!page) {
- 			while (head) {
- 				struct page *next = (struct page *)head->private;
-@@ -769,15 +769,15 @@ int skb_copy_ubufs(struct sk_buff *skb, 
- 	}
- 
- 	/* skb frags release userspace buffers */
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+	for (i = 0; i < num_frags; i++)
- 		skb_frag_unref(skb, i);
- 
- 	uarg->callback(uarg);
- 
- 	/* skb frags point to kernel buffers */
--	for (i = skb_shinfo(skb)->nr_frags; i > 0; i--) {
--		__skb_fill_page_desc(skb, i-1, head, 0,
--				     skb_shinfo(skb)->frags[i - 1].size);
-+	for (i = num_frags - 1; i >= 0; i--) {
-+		__skb_fill_page_desc(skb, i, head, 0,
-+				     skb_shinfo(skb)->frags[i].size);
- 		head = (struct page *)head->private;
- 	}
- 
+Thanks Dave!
+Neil
