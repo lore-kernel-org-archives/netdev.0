@@ -1,36 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
-Date: Tue, 17 Jul 2012 15:09:20 -0700 (PDT)
-Message-ID: <20120717.150920.1324071045620152376.davem@davemloft.net>
-References: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
-	<20120717.134651.562831385960975623.davem@davemloft.net>
-	<alpine.LFD.2.00.1207180052420.2128@ja.ssi.bg>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next] tcp: implement RFC 5961 4.2
+Date: Tue, 17 Jul 2012 15:10:06 -0700
+Message-ID: <CAGK4HS8MvP6L5Rvy4wJx2KhdTSSHfP7YPT44e9mrV_vsBZJ9jQ@mail.gmail.com>
+References: <1342525290.2626.459.camel@edumazet-glaptop>
+	<CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
+	<1342560769.2626.1165.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Kiran Kumar Kella <kkiran@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55403 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962Ab2GQWJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:09:21 -0400
-In-Reply-To: <alpine.LFD.2.00.1207180052420.2128@ja.ssi.bg>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:59572 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755558Ab2GQWKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:10:07 -0400
+Received: by yenl2 with SMTP id l2so962482yen.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:10:06 -0700 (PDT)
+In-Reply-To: <1342560769.2626.1165.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Wed, 18 Jul 2012 01:14:04 +0300 (EEST)
+> But you probably are right, we could test th->syn here as well.
+>
+> Something like that ?
 
-> 	Aha, I see. Something around fnhe_oldest() and its
-> daddr arg does not look good. If the goal is to hijack
-> some entry, probably for another daddr and comparing it with
-> tcpm_new(), may be we should remove this daddr arg and fully
-> reset all parameters such as fnhe_pmtu, fnhe_gw, fnhe_expires
-> because the find_or_create_fnhe() callers modify only specific
-> fields, we should not end up with wrong gateway inherited from
-> another daddr, for example.
+> -               if (!th->rst)
+> +               if (!th->rst) {
+> +                       if (th->syn)
+> +                               goto syn_challenge;
+>                         tcp_send_dupack(sk, skb);
+> +               }
+>                 goto discard;
+>         }
+>
+> @@ -5327,6 +5330,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+>          * RFC 5691 4.2 : Send a challenge ack
+>          */
+>         if (th->syn) {
+> +syn_challenge:
+>                 if (syn_inerr)
+>                         TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+>                 NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNCHALLENGE);
+>
 
-Better would be to use a seqlock when reading it's values.
+Yes. This is what I had in mind (along with a change to make
+tcp_sequence() return bool). I am not sure if this patch is official
+(or will be picked up by patchwork) but
+for what its worth
 
-Either way, patches welcome :-)
+Acked-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+
+I will send a separate patch to make tcp_sequence() return bool.
+Thanks!
+Vijay
