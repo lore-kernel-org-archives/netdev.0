@@ -1,33 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: That's pretty much it for 3.5.0
-Date: Tue, 17 Jul 2012 15:18:32 -0700 (PDT)
-Message-ID: <20120717.151832.1306978935355646723.davem@davemloft.net>
-References: <5005D008.6060103@intel.com>
-	<20120717.140241.1599386555723262095.davem@davemloft.net>
-	<5005E390.7020706@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] bonding: refine IFF_XMIT_DST_RELEASE capability
+Date: Wed, 18 Jul 2012 00:19:48 +0200
+Message-ID: <1342563588.2626.1224.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mark.d.rustad@intel.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: john.r.fastabend@intel.com
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55454 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751739Ab2GQWSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:18:33 -0400
-In-Reply-To: <5005E390.7020706@intel.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:44302 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516Ab2GQWTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:19:55 -0400
+Received: by qaas11 with SMTP id s11so650339qaa.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:19:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Tue, 17 Jul 2012 15:13:36 -0700
+From: Eric Dumazet <edumazet@google.com>
 
-> Perhaps the easiest way is to check net->count this should be zero
-> until setup_net is called.
-> 
-> if (!atomic_read(&init_net.count))
-> 	return ret;
-> 
+Some workloads greatly benefit of IFF_XMIT_DST_RELEASE capability
+on output net device, avoiding dirtying dst refcount.
 
-Won't work, setup_net() runs via a pure_initcall().
+bonding currently disables IFF_XMIT_DST_RELEASE unconditionally.
+
+If all slaves have the IFF_XMIT_DST_RELEASE bit set, then
+bonding master can also have it in its priv_flags
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Tom Herbert <therbert@google.com>
+---
+ drivers/net/bonding/bond_main.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1eb3979..3960b1b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1382,6 +1382,7 @@ static void bond_compute_features(struct bonding *bond)
+ 	netdev_features_t vlan_features = BOND_VLAN_FEATURES;
+ 	unsigned short max_hard_header_len = ETH_HLEN;
+ 	int i;
++	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
+ 
+ 	read_lock(&bond->lock);
+ 
+@@ -1392,6 +1393,7 @@ static void bond_compute_features(struct bonding *bond)
+ 		vlan_features = netdev_increment_features(vlan_features,
+ 			slave->dev->vlan_features, BOND_VLAN_FEATURES);
+ 
++		dst_release_flag &= slave->dev->priv_flags;
+ 		if (slave->dev->hard_header_len > max_hard_header_len)
+ 			max_hard_header_len = slave->dev->hard_header_len;
+ 	}
+@@ -1400,6 +1402,9 @@ done:
+ 	bond_dev->vlan_features = vlan_features;
+ 	bond_dev->hard_header_len = max_hard_header_len;
+ 
++	flags = bond_dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
++	bond_dev->priv_flags = flags | dst_release_flag;
++
+ 	read_unlock(&bond->lock);
+ 
+ 	netdev_change_features(bond_dev);
