@@ -1,44 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf] IPVS
-Date: Tue, 17 Jul 2012 22:50:18 +0900
-Message-ID: <20120717135018.GH17325@verge.net.au>
-References: <1341965963-7275-1-git-send-email-horms@verge.net.au>
- <20120717101406.GC3812@1984>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
+Date: Tue, 17 Jul 2012 15:50:59 +0200
+Message-ID: <1342533059.2626.661.camel@edumazet-glaptop>
+References: <50044F1D.6000703@hp.com>
+	 <20120716.222903.367603216293954363.davem@davemloft.net>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B6F8B@saturn3.aculab.com>
+	 <20120717.055005.1912765690890797652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120717101406.GC3812@1984>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@ACULAB.COM, rick.jones2@hp.com,
+	cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	yevgenyp@mellanox.co.il, ogerlitz@mellanox.com, amirv@mellanox.com,
+	brking@linux.vnet.ibm.com, leitao@linux.vnet.ibm.com,
+	klebers@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:43738 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359Ab2GQNvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 09:51:07 -0400
+Received: by eekc13 with SMTP id c13so165896eek.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 06:51:05 -0700 (PDT)
+In-Reply-To: <20120717.055005.1912765690890797652.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 17, 2012 at 12:14:06PM +0200, Pablo Neira Ayuso wrote:
-> On Wed, Jul 11, 2012 at 09:19:20AM +0900, Simon Horman wrote:
-> > 
-> > Hi Pablo,
-> > 
-> > this pull request consists of three bug fixes for IPVS.
-> > Please consider for inclusion in 3.5 and stable.
-> > 
-> > The bug fix from Julian, "ipvs: fix oops in ip_vs_dst_event on rmmod"
-> > fixes a regression introduced in 3.4 and thus I believe it is
-> > only relevant to 3.5 and 3.4-stable.
-> > 
-> > The other two fixes appear to have been present since at least 2.6.37
-> > (there were a lot of changes to IPVS around that time).
+On Tue, 2012-07-17 at 05:50 -0700, David Miller wrote:
+> From: "David Laight" <David.Laight@ACULAB.COM>
+> Date: Tue, 17 Jul 2012 13:42:04 +0100
 > 
-> I have passed the two of these patches to David. The one for the FTP
-> needs a consistent description.
+> > Would there be any mileage in permanently allocating IOMMU
+> > virtual address to the ring entries, then 'just' assigning
+> > the correct physical address during rx/tx setup?
 > 
-> It's fairly late in the development cycle (-rc7), but these are small.
-> Let's see if David is still in time to accept them. Otherwise, they go
-> to net-next and we will ask for -stable submission.
+> There is a not a one to one mapping between these two entities,
+> in particular on the transmit side.
+> 
+> A transmit packet can have multiple segments, some of which are
+> larger than one IOMMU page.
 
-Thanks, it seems that David was in an accepting mood.
+And on rx side, permanently allocating IOMMU would need to copy all
+incoming frames to newly allocated memory.
+
+Annot this IOMMU performance problem can be solved on its side,
+instead of having to shuffle things in all drivers ?
