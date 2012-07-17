@@ -1,46 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Crash in CIPSO_V4_TAG_LOCAL handling
-Date: Tue, 17 Jul 2012 10:28:34 -0700 (PDT)
-Message-ID: <20120717.102834.1867582159031908463.davem@davemloft.net>
-References: <1342286550.23395.12.camel@monkey32>
-	<20120714.130817.394766887121758073.davem@davemloft.net>
-	<CAHC9VhQKhoRt8yD4WAgD5tyqjY4bbp4Z4hr5cWfs-d6GJt0pjQ@mail.gmail.com>
+Subject: Re: pull request: sfc-next 2012-07-17
+Date: Tue, 17 Jul 2012 10:31:03 -0700 (PDT)
+Message-ID: <20120717.103103.655643871226631461.davem@davemloft.net>
+References: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mlin@ss.pku.edu.cn, alan@lxorguk.ukuu.org.uk,
-	netdev@vger.kernel.org
-To: paul@paul-moore.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52969 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53001 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754721Ab2GQR2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 13:28:35 -0400
-In-Reply-To: <CAHC9VhQKhoRt8yD4WAgD5tyqjY4bbp4Z4hr5cWfs-d6GJt0pjQ@mail.gmail.com>
+	with ESMTP id S1755321Ab2GQRbF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 13:31:05 -0400
+In-Reply-To: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul@paul-moore.com>
-Date: Tue, 17 Jul 2012 12:25:28 -0400
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 17 Jul 2012 18:05:40 +0100
 
-> On Sat, Jul 14, 2012 at 4:08 PM, David Miller <davem@davemloft.net> wrote:
->> From: Lin Ming <mlin@ss.pku.edu.cn>
->> Date: Sun, 15 Jul 2012 01:22:30 +0800
->>
->>> It's caused by below code added in commit 15c45f7b.
->>>
->>>                 case CIPSO_V4_TAG_LOCAL:
->>>                         /* This is a non-standard tag that we only allow for
->>>                          * local connections, so if the incoming interface is
->>>                          * not the loopback device drop the packet. */
->>>                         if (!(skb->dev->flags & IFF_LOOPBACK)) {
->>>                                 err_offset = opt_iter;
->>>                                 goto validate_return_locked;
->>>                         }
->>
->> Paul please fix this, as shown 'skb' can easily be NULL in this
->> code path.
+> The following changes since commit 141e369de698f2e17bf716b83fcc647ddcb2220c:
 > 
-> Just saw this ... I'll start looking into this today.
+>   xfrm: Initialize the struct xfrm_dst behind the dst_enty field (2012-07-14 00:29:12 -0700)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+> 
+> (commit c2dbab39db1c3c2ccbdbb2c6bac6f07cc7a7c1f6)
+> 
+> 1. Fix potential badness when running a self-test with SR-IOV enabled.
+> 2. Fix calculation of some interface statistics that could run backward.
+> 3. Miscellaneous cleanup.
 
-Thanks, sorry I messed up your email, I should have checked MAINTAINERS :)
+Please post the patches so that at least in theory people have the
+opportunity to review them.
