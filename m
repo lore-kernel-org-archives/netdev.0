@@ -1,76 +1,54 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: Re: 82571EB: Detected Hardware Unit Hang
-Date: Mon, 16 Jul 2012 21:48:56 -0700
-Message-ID: <CAPoiz9zKgaZLwcFgpQ7fmpjHEiX_3iO2uz5G50L4pL9x7oKi2w@mail.gmail.com>
-References: <4FFE6BB9.4060106@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F033B@ORSMSX102.amr.corp.intel.com>
-	<4FFE787B.9050201@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F0ACC@ORSMSX102.amr.corp.intel.com>
-	<4FFF61BD.1060604@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F11FF@ORSMSX102.amr.corp.intel.com>
-	<4FFFA532.1030208@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA891274F2354@ORSMSX102.amr.corp.intel.com>
-	<20120715133510.GA5484@khazad-dum.debian.net>
-	<1342453645.2523.17.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120716160807.GB1765@khazad-dum.debian.net>
+From: BALAKUMARAN KANNAN <balakumarank@tataelxsi.co.in>
+Subject: RE: timer expiry check at icmp.c in ipv6
+Date: Tue, 17 Jul 2012 05:11:06 +0000
+Message-ID: <4A71D24947E78D43BC584A7CD4391A41017DBDB4@SIXPRD0410MB359.apcprd04.prod.outlook.com>
+References: <4A71D24947E78D43BC584A7CD4391A41017DBBAF@SIXPRD0410MB359.apcprd04.prod.outlook.com>,<1342449217.2830.3.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"Dave, Tushar N" <tushar.n.dave@intel.com>,
-	Joe Jin <joe.jin@oracle.com>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:43300 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806Ab2GQEs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 00:48:58 -0400
-Received: by lbbgm6 with SMTP id gm6so102621lbb.19
-        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 21:48:56 -0700 (PDT)
-In-Reply-To: <20120716160807.GB1765@khazad-dum.debian.net>
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:25026
+	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752665Ab2GQFLV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 01:11:21 -0400
+In-Reply-To: <1342449217.2830.3.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 16, 2012 at 9:08 AM, Henrique de Moraes Holschuh
-<hmh@hmh.eng.br> wrote:
-> On Mon, 16 Jul 2012, Ben Hutchings wrote:
->> On Sun, 2012-07-15 at 10:35 -0300, Henrique de Moraes Holschuh wrote:
->> > On Sun, 15 Jul 2012, Dave, Tushar N wrote:
->> > > Somehow setting max payload to 256 from BIOS does not set this value for all devices. I believe this is a BIOS bug.
->> >
->> > And preferably, Linux should complain about it.  Since we know it is going
->> > to cause problems, and since we know it does happen, we should be raising a
->> > ruckus about it in the kernel log (and probably fixing it to min(path) while
->> > at it)...
->> >
->> > Is this something that should be raised as a feature request with the
->> > PCI/PCIe subsystem?
->>
->> The feature is there, but we ended up with:
->>
->> commit 5f39e6705faade2e89d119958a8c51b9b6e2c53c
->> Author: Jon Mason <mason@myri.com>
->> Date:   Mon Oct 3 09:50:20 2011 -0500
->>
->>     PCI: Disable MPS configuration by default
->>
->> But you are welcome to share use of the fixup_mpss_256() quirk.
+Dear Eric,
+    Can you please explain it into bit further. Actually what I want to know is how the preferred lifetime value of a router advertisement is processed?, Where it is stored? and while sending the ICMP_REPLY how that preferred lifetime value considered before actually sending the packet? I cannot able to find the relation between icmpv6_echo_reply and fib6_run_gc(). I am very new to kernel source. Kindly help me.
+
+thank you.
+________________________________________
+From: netdev-owner@vger.kernel.org [netdev-owner@vger.kernel.org] on behalf of Eric Dumazet [eric.dumazet@gmail.com]
+Sent: Monday, July 16, 2012 8:03 PM
+To: BALAKUMARAN KANNAN
+Cc: netdev@vger.kernel.org
+Subject: Re: timer expiry check at icmp.c in ipv6
+
+On Mon, 2012-07-16 at 13:44 +0000, BALAKUMARAN KANNAN wrote:
+> Dear all,
 >
-> Meh.  I'd be happy with a warning if MPSS decreases when walking up to
-> the tree root... i.e. a warning if any child has a MPSS larger than the
-> parent.
+> In kernel-3.0.26 code net/ipv6/icmp.c, while sending ICMP reply where
+> it checks for the timer expiry. It should check the value given by a
+> router advertisement. I think the expiry value is stored in
+> rt->rt6_expires in ndisc.c (line no: 1284). Then while sending an ICMP
+> reply, it should check with the expiry timer right? Where that check
+> is happening? Please somebody explain me.
+>
+> Thank you.
 
-You can add "pci=pcie_bus_safe" to the kernel params and it should
-resolve your issue.
+Its probably done in net/ipv6/ip6_fib.c
 
-> --
->   "One disk to rule them all, One disk to find them. One disk to bring
->   them all and in the darkness grind them. In the Land of Redmond
->   where the shadows lie." -- The Silicon Valley Tarot
->   Henrique Holschuh
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+fib6_gc_timer_cb() -> fib6_run_gc()
+
+Every 30 seconds.
+
+(you can change /proc/sys/net/ipv6/route/gc_interval )
+
+
+
