@@ -1,41 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] Intel Wired LAN Driver Updates
-Date: Tue, 17 Jul 2012 03:22:11 -0700 (PDT)
-Message-ID: <20120717.032211.1185174685338013597.davem@davemloft.net>
-References: <1342519759-25137-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] r8169: Remove rtl_ocpdr_cond
+Date: Tue, 17 Jul 2012 12:10:57 +0200
+Message-ID: <20120717101057.GA8547@electric-eye.fr.zoreil.com>
+References: <1342009916-1519-1-git-send-email-hayeswang@realtek.com> <20120711220045.GA8913@electric-eye.fr.zoreil.com> <20120712221453.GA1982@electric-eye.fr.zoreil.com> <33C8D1BCFFFF487FB7BC207EA9087C2E@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48638 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753448Ab2GQKWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 06:22:12 -0400
-In-Reply-To: <1342519759-25137-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <33C8D1BCFFFF487FB7BC207EA9087C2E@realtek.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 17 Jul 2012 03:09:11 -0700
+hayeswang <hayeswang@realtek.com> :
+[...]
+> rtt min/avg/max/mdev = 0.028/0.040/0.101/0.011 ms, pipe 4, ipg/ewma 0.021/0.035
+> rtt min/avg/max/mdev = 0.151/0.173/0.247/0.020 ms, pipe 4, ipg/ewma 0.048/0.168
+[...]
+> The attached file is my log. It seems fine.
 
-> This series contains updates to ixgbevf.
-> 
-> The following are changes since commit 282f23c6ee343126156dd41218b22ece96d747e3:
->   tcp: implement RFC 5961 3.2
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-> 
-> Alexander Duyck (8):
->   ixgbevf: Drop all dead or unnecessary code
->   ixgbevf: Drop netdev_registered value since that is already stored in
->     netdev
->   ixgbevf: Make use of NETIF_F_RXCSUM instead of keeping our own flag
->   ixgbevf: Drop use of eitr_low and eitr_high for hard coded values
->   ixgbevf: Cleanup accounting for space needed at start of xmit_frame
->   ixgbevf: Update q_vector to contain ring pointers instead of bitmaps
->   ixgbevf: Move Tx clean-up into NAPI context
->   ixgbevf: Use igb style interrupt masks instead of ixgbe style
+A few percents packet loss at this rate does not exactly qualify as fine.
 
-Pulled, thanks Jeff.
+I have reproduced something similar with a 8168evl in a different slot so
+it does not seem to be a 8168g only behavior. I'll ask davem to pull your
+changes.
+
+Thanks.
+
+-- 
+Ueimor
