@@ -1,223 +1,194 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Mon, 16 Jul 2012 17:23:06 -0700
-Message-ID: <20120717002306.GM9598@jonmason-lab>
-References: <1342215900-3358-1-git-send-email-jon.mason@intel.com>
- <CAAsGZS5uMArBVa+Rog1H60FVfKq84eqt5G2dvafDWXTP-RdiwQ@mail.gmail.com>
- <20120716183816.GH9598@jonmason-lab>
- <CAAsGZS43FkfTFkYnvFdaA+KSLD1ZVBfuFe7_2e7s29_X+rTmug@mail.gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH 1/4] pch_gbe: Fix the checksum fill to the error location
+Date: Mon, 16 Jul 2012 20:59:08 -0400
+Message-ID: <CAP=VYLqWW5qrP0Sp6Tr8+BuAHm7mfFTmU4e=9UyfSbTBijJjCA@mail.gmail.com>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAAsGZS43FkfTFkYnvFdaA+KSLD1ZVBfuFe7_2e7s29_X+rTmug@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Andy Cress <andy.cress@us.kontron.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:42261 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752693Ab2GQA7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jul 2012 20:59:40 -0400
+Received: by lbbgm6 with SMTP id gm6so9447481lbb.19
+        for <netdev@vger.kernel.org>; Mon, 16 Jul 2012 17:59:39 -0700 (PDT)
+In-Reply-To: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 16, 2012 at 03:27:48PM -0400, chetan loke wrote:
-> On Mon, Jul 16, 2012 at 2:38 PM, Jon Mason <jon.mason@intel.com> wrote:
-> > On Mon, Jul 16, 2012 at 12:49:39PM -0400, chetan loke wrote:
-> 
-> ....
-> 
-> >> Is it ok to rename the following vars for convenience sake?
-> >>
-> >> > +       struct list_head txq;
-> >> tx_pend_q - (pending_queue) or tx_out_q - (outstanding_queue) - or
-> >> pick any new string you like - other than a mono-syllable definition
-> >>
-> >> > +       struct list_head txc;
-> >> tx_compl_q - completion queue
-> >>
-> >> > +       struct list_head txe;
-> >> tx_avail_e - available entry queue
-> >>
-> >>
-> >> > +       spinlock_t txq_lock;
-> >> > +       spinlock_t txc_lock;
-> >> > +       spinlock_t txe_lock;
-> >>
-> >> then match the variants accordingly.
-> >>
-> >> > +       struct list_head rxq;
-> >> > +       struct list_head rxc;
-> >> > +       struct list_head rxe;
-> >> > +       spinlock_t rxq_lock;
-> >> > +       spinlock_t rxc_lock;
-> >> > +       spinlock_t rxe_lock;
-> >>
-> >> similarly the rx-counterpart
-> >
-> > Are they difficult to understand?  I can change them, but it seems rather moot since you seemed to immediately understand the logic behind the names.
-> >
-> 
-> Immediately understand? Not at first glance. I had to re-read the
-> functions. Its really is a minor change and variables will then become
-> self-explanatory. I can almost feel that a developer who works on this
-> code for the first time might end up choosing the wrong 'syllable' and
-> locking an entirely different lock.
-> 
-> Infact add a prefix 'ntb' to all the rx/tx locks. That way grep'ing
-> output of lockstat also becomes easier.
-> 
-> It now reads: ntb_tx_pend_lock
+Hi Andy,
 
-Makes sense
+On Mon, Jul 16, 2012 at 4:03 PM, Andy Cress <andy.cress@us.kontron.com> wrote:
+>
+> Author: Zhong Hongbo <hongbo.zhong@windriver.com>
 
-> 
-> >>
-> >>
-> >> ..................
-> >>
-> >> > +static void ntb_tx_copy_task(struct ntb_transport_qp *qp,
-> >> > +                            struct ntb_queue_entry *entry,
-> >> > +                            void *offset)
-> >> > +{
-> >> > +       struct ntb_payload_header *hdr = offset;
-> >> > +       int rc;
-> >> > +
-> >> > +       offset += sizeof(struct ntb_payload_header);
-> >> > +       memcpy_toio(offset, entry->buf, entry->len);
-> >> > +
-> >> > +       hdr->len = entry->len;
-> >> > +       hdr->ver = qp->tx_pkts;
-> >> > +
-> >> > +       /* Ensure that the data is fully copied out before setting the flag */
-> >> > +       wmb();
-> >> > +       hdr->flags = entry->flags | DESC_DONE_FLAG;
-> >> > +
-> >> > +       rc = ntb_ring_sdb(qp->ndev, qp->qp_num);
-> >> > +       if (rc)
-> >> > +               pr_err("%s: error ringing db %d\n", __func__, qp->qp_num);
-> >> > +
-> >> > +       if (entry->len > 0) {
-> >>
-> >> how do you interpret this len variable and decide if it's a good/bad completion?
-> >
-> > The length of 0 is for messages from the remote system, which currently only consists of a "link down" message notifying the local system to no longer send any messages to the remote side.
-> >
-> 
-> May be I didn't read the code properly. Is there a length-comment that
-> explains the above? If not then just by pure code inspection it would
-> seem that a skb was leaked. So add the above comment that way we can
-> save time for other netdev folks too.
+I'm curious as to how you are generating these mails, since if it
+were with the "normal" method, then the above would have a
+"From: " prefix, and not "Author: " prefix.  (More on what is the
+"normal" method below...)
 
-I'll add a comment.
+>
+> Due to some unknown hardware limitations the pch_gbe hardware cannot
+> calculate checksums when the length of network package is less
+> than 64 bytes, where we will surprisingly encounter a problem of
+> the destination IP incorrectly changed.
 
-> 
-> 
-> >>
-> >> > +               qp->tx_bytes += entry->len;
-> >> > +
-> >> > +               /* Add fully transmitted data to completion queue */
-> >> > +               ntb_list_add_tail(&qp->txc_lock, &entry->entry, &qp->txc);
-> >> > +
-> >> > +               if (qp->tx_handler)
-> >> > +                       qp->tx_handler(qp);
-> >> > +       } else
-> >> > +               ntb_list_add_tail(&qp->txe_lock, &entry->entry, &qp->txe);
-> >>
-> >> I could be wrong but how is the original skb handled if the code path
-> >> goes in the else clause?
-> >
-> > There is no skb is the length is zero.  Since the only client is virtual ethernet, it will always be > 60.  However, I should add a sanity check for 0 length in tx_enqueue.
-> >
-> >> Also, in the else clause, how about a ntb_list_add_head rather than a _tail.
-> >
-> > Why add to the head, it was just used?
-> 
-> Yes, just re-use what's hot(best guess).
-> 
-> >
-> >> > +
-> >> > +static int ntb_process_tx(struct ntb_transport_qp *qp,
-> >> > +                         struct ntb_queue_entry *entry)
-> >> > +{
-> >> > +       struct ntb_payload_header *hdr;
-> >> > +       void *offset;
-> >> > +
-> >> > +       offset = qp->tx_offset;
-> >> > +       hdr = offset;
-> >> > +
-> >> > +       pr_debug("%lld - offset %p, tx %p, entry len %d flags %x buff %p\n",
-> >> > +                qp->tx_pkts, offset, qp->tx_offset, entry->len, entry->flags,
-> >> > +                entry->buf);
-> >> > +       if (hdr->flags) {
-> >> > +               ntb_list_add_head(&qp->txq_lock, &entry->entry, &qp->txq);
-> >> > +               qp->tx_ring_full++;
-> >> > +               return -EAGAIN;
-> >> > +       }
-> >> > +
-> >> > +       if (entry->len > transport_mtu) {
-> >> > +               pr_err("Trying to send pkt size of %d\n", entry->len);
-> >> > +               entry->flags = HW_ERROR_FLAG;
-> >> > +
-> >> > +               ntb_list_add_tail(&qp->txc_lock, &entry->entry, &qp->txc);
-> >> > +
-> >> > +               if (qp->tx_handler)
-> >> > +                       qp->tx_handler(qp);
-> >> > +
-> >> > +               return 0;
-> >> > +       }
-> >> > +
-> >> > +       ntb_tx_copy_task(qp, entry, offset);
-> >>
-> >> what happens when ntb_sdb_ring returns an error? would you still want
-> >> to increment tx_pkts below?
-> >
-> > It's not fatal if the remote side isn't notified.  It will hurt latency, since the next packet would be the one that triggers the next interrupt.  Also, the only way it could ever fail would be if it was an invalid interrupt bit being set, which should never happen.
-> >
-> 
-> What happens when the 'db >= ndev->max_cbs' check fails? Under what
-> circumstances will that happen? When it does happen how does the
-> remote side then gets notified or should it even get notified?
+This has the feel of a problem that isn't properly understood, and
+a solution that is aimed at masking the symptom at the point
+where it rears its ugly head...  Not a good sign, when it comes to
+requesting upstream acceptance.
 
-It should never happen, as there are checks when enqueuing that the transport queue is valid.  It is more of a sanity check than anything else.
+>
+> When forwarding network packages at the network layer the IP packages
 
-> 'which should never happen'? FYI - I have seen and debugged(not this
-> one but doorbells and what not) weirdness while working on CLARiiON +
-> PCie-interconnects. Board bring-up is a PITA. So you get the idea ...
+s/packages/packets/
 
-I understand, that is why I had the sanity check code.  Paranoia can be a good thing.
- 
-> >>
-> >> > +void *ntb_transport_tx_dequeue(struct ntb_transport_qp *qp, unsigned int *len)
-> >> > +{
-> >> > +       struct ntb_queue_entry *entry;
-> >> > +       void *buf;
-> >> > +
-> >> > +       if (!qp)
-> >> > +               return NULL;
-> >> > +
-> >> > +       entry = ntb_list_rm_head(&qp->txc_lock, &qp->txc);
-> >> > +       if (!entry)
-> >> > +               return NULL;
-> >> > +
-> >> > +       buf = entry->callback_data;
-> >> > +       if (entry->flags != HW_ERROR_FLAG)
-> >> > +               *len = entry->len;
-> >> > +       else
-> >> > +               *len = -EIO;
-> >> > +
-> >> > +       ntb_list_add_tail(&qp->txe_lock, &entry->entry, &qp->txe);
-> >>
-> >> how about a ntb_list_add_head?
-> >
-> > Is there a benefit to adding to the head versus tail?  It makes more sense to me to pull from the head and add to the tail.
-> >
-> 
-> Yes, explained above. Today there are 100(..DEF_NUM...) entries.
-> Tomorrow there could be more. So why not re-use what's hot? You could
-> also think of this as yet another way of forcing detection of
-> double-use corruption/bug. I'm not saying that there's a bug here but
-> you get the idea.
+> won't be relayed to the upper transport layer and analyzed there,
+> consequently, skb->transport_header pointer will be mistakenly remained
+> the same as that of skb->network_header, resulting in TCP checksum
+> wrongly
+> filled into the field of destination IP in IP header.
 
-I'm fairly sure the list is suboptimal performance-wise, but it is much easier to use when developing.  Perhaps I should use a fixed size array instead.
+Similarly here, the one-word-per-line symptom seems to hint at it
+being a case of data manually entered into a GUI MUA, which
+generally translates into headaches for the maintainer who has
+to integrate your work.  If you can adopt a "standard" workflow,
+it will be easier for both you and the maintainer.  And that
+"standard" workflow could be something as simple as this:
 
-Thanks for the reviews!
+--------------------------
+cd /path/to/my/git-repo/of/net-next
+git pull
+git checkout -b pch-fixes master
+<create commits, by cherry-pick or manual creation>
+<validate with compilation, boot testing>
+git format-patch --subject-prefix="PATCH net-next" --cover-letter -o
+sendme master..pch-fixes
+vi sendme/0000-cover-letter.patch
+<enter text describing your series of patches>
+git send-email --to netdev@vger.kernel.org -cc maintainer@someaddress.com sendme
+-------------------------
 
-> 
-> Chetan Loke
+>
+> We can fix this issue by manually calculate the offset of the TCP
+> checksum
+>  and update it accordingly.
+>
+> We would normally use the skb_checksum_start_offset(skb) here, but in
+> this
+> case it is sometimes -2 (csum_start=0 - skb_headroom=2 => -2), hence the
+> manual calculation.
+>
+> Signed-off-by: Zhong Hongbo <hongbo.zhong@windriver.com>
+> Merged-by: Andy Cress <andy.cress@us.kontron.com>
+
+There really isn't a precedent for Merged-by: -- you may want to see:
+
+     http://kerneltrap.org/taxonomy/term/245
+
+A "real" merge actually creates a merge commit, which is unique
+in its own right.  So here, if you've carried forward an older patch,
+or similar, you'd be most likely to add your own SOB line underneath.
+
+Also a Cc: addition might be in order, say based on the output of:
+
+./scripts/get_maintainer.pl -f drivers/net/ethernet/oki-semi/pch_gbe
+
+A Cc: line put here goes on record.  If you use the --cc option
+mentioned above, the Cc: record is limited to the mail header in
+the netdev mail archive.
+
+>
+> ---
+>  drivers/net/pch_gbe/pch_gbe_main.c |   14 ++++++++------
+>  1 files changed, 8 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> index 3787c64..1642bff 100644
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> @@ -1178,32 +1178,35 @@ static void pch_gbe_tx_queue(struct
+> pch_gbe_adapter *adapter,
+>         /*
+>          * It is because the hardware accelerator does not support a
+> checksum,
+>          * when the received data size is less than 64 bytes.
+> +        * Note: skb_checksum_start_offset(skb) is sometimes -2 here.
+
+This comment is borderline useless, without some level of justification
+of how/why that happens, and why it is OK/acceptable.
+
+>          */
+>         if (skb->len < PCH_GBE_SHORT_PKT && skb->ip_summed !=
+> CHECKSUM_NONE) {
+> +               struct iphdr *iph = ip_hdr(skb);
+>                 frame_ctrl |= PCH_GBE_TXD_CTRL_APAD |
+>                               PCH_GBE_TXD_CTRL_TCPIP_ACC_OFF;
+>                 if (skb->protocol == htons(ETH_P_IP)) {
+> -                       struct iphdr *iph = ip_hdr(skb);
+>                         unsigned int offset;
+> -                       offset = skb_transport_offset(skb);
+> +                       offset = (unsigned char *)((u8 *)iph + iph->ihl
+> * 4) - skb->data;
+>                         if (iph->protocol == IPPROTO_TCP) {
+> +                               struct tcphdr *tcphdr_point = (struct
+> tcphdr *)((u8 *)iph + iph->ihl * 4);
+
+There are several things going on here that are not ideal.  There
+are casts of casts with unexplained math magic, there is the
+attempt to encode variable types ("_point") in the variable name,
+and there is apparently mailer munging which inserts rogue newlines.
+
+At this point, I'd have to suggest that you go back to trying to
+describe the use case, and the exact symptoms you are seeing
+there; describe that and how you believe it comes about as
+articulately as possible, and ask for input on how best to deal
+with it; giving reference to this as a workaround that was deployed
+some time in the past. In the end, this is a recipe for a good
+commit log anyways, i.e. describing the end user symptom,
+the use case that triggers it, the underlying reason as to why
+it happens, and finally the technically correct fix to deal with
+solving it (and indicate why it is the correct fix, if not obvious.)
+
+Hope this helps with basic process and expectations.
+
+Paul.
+--
+
+>                                 skb->csum = 0;
+> -                               tcp_hdr(skb)->check = 0;
+> +                               tcphdr_point->check = 0;
+>                                 skb->csum = skb_checksum(skb, offset,
+>                                                          skb->len -
+> offset, 0);
+> -                               tcp_hdr(skb)->check =
+> +                               tcphdr_point->check =
+>                                         csum_tcpudp_magic(iph->saddr,
+>                                                           iph->daddr,
+>                                                           skb->len -
+> offset,
+>                                                           IPPROTO_TCP,
+>                                                           skb->csum);
+>                         } else if (iph->protocol == IPPROTO_UDP) {
+> +                               struct udphdr *udphdr_point = (struct
+> udphdr *)((u8 *)iph + iph->ihl * 4);
+>                                 skb->csum = 0;
+> -                               udp_hdr(skb)->check = 0;
+> +                               udphdr_point->check = 0;
+>                                 skb->csum =
+>                                         skb_checksum(skb, offset,
+>                                                      skb->len - offset,
+> 0);
+> -                               udp_hdr(skb)->check =
+> +                               udphdr_point->check =
+>                                         csum_tcpudp_magic(iph->saddr,
+>                                                           iph->daddr,
+>                                                           skb->len -
+> offset,
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
