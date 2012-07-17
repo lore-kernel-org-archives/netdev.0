@@ -1,113 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: fix rcu splat
-Date: Tue, 17 Jul 2012 22:42:13 +0200
-Message-ID: <1342557733.2626.1103.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
+Date: Tue, 17 Jul 2012 13:46:51 -0700 (PDT)
+Message-ID: <20120717.134651.562831385960975623.davem@davemloft.net>
+References: <20120717.061418.1893307699868826531.davem@davemloft.net>
+	<alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:65351 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753858Ab2GQUmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 16:42:19 -0400
-Received: by ghrr11 with SMTP id r11so872388ghr.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 13:42:19 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756506Ab2GQUq5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 16:46:57 -0400
+In-Reply-To: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Date: Tue, 17 Jul 2012 23:41:16 +0300 (EEST)
 
-free_nh_exceptions() should use rcu_dereference_protected(..., 1)
-since its called after one RCU grace period.
+> 	IIRC, struct fib_info was shared by different
+> prefixes. It saves a lot of memory when thousands of
+> routes are created to same GW. Now if we end up with 1 or
+> 2 fib_info structures for default routes, the nh_exceptions list
+> can become very long. May be fib_info is not a good place
+> to hide such data.
 
-Also add some const-ification in recent code.
+Your analysis of what fib_info is and how it's intended to
+work is accurate.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/fib_semantics.c        |    4 ++--
- net/ipv4/inet_connection_sock.c |    4 ++--
- net/ipv4/route.c                |   13 +++++++------
- 3 files changed, 11 insertions(+), 10 deletions(-)
+But we don't use a linked list for the exceptions in the final
+version, we use a reclaiming RCU'd hash table like we use for TCP
+metrics.
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 1e09852..2b57d76 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -148,11 +148,11 @@ static void free_nh_exceptions(struct fib_nh *nh)
- 	for (i = 0; i < FNHE_HASH_SIZE; i++) {
- 		struct fib_nh_exception *fnhe;
- 
--		fnhe = rcu_dereference(hash[i].chain);
-+		fnhe = rcu_dereference_protected(hash[i].chain, 1);
- 		while (fnhe) {
- 			struct fib_nh_exception *next;
- 			
--			next = rcu_dereference(fnhe->fnhe_next);
-+			next = rcu_dereference_protected(fnhe->fnhe_next, 1);
- 			kfree(fnhe);
- 
- 			fnhe = next;
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 89e74a3..68bb5a6 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -806,8 +806,8 @@ EXPORT_SYMBOL_GPL(inet_csk_compat_setsockopt);
- 
- static struct dst_entry *inet_csk_rebuild_route(struct sock *sk, struct flowi *fl)
- {
--	struct inet_sock *inet = inet_sk(sk);
--	struct ip_options_rcu *inet_opt;
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const struct ip_options_rcu *inet_opt;
- 	__be32 daddr = inet->inet_daddr;
- 	struct flowi4 *fl4;
- 	struct rtable *rt;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 812e444..f67e702 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1275,7 +1275,7 @@ static void rt_del(unsigned int hash, struct rtable *rt)
- 	spin_unlock_bh(rt_hash_lock_addr(hash));
- }
- 
--static void __build_flow_key(struct flowi4 *fl4, struct sock *sk,
-+static void __build_flow_key(struct flowi4 *fl4, const struct sock *sk,
- 			     const struct iphdr *iph,
- 			     int oif, u8 tos,
- 			     u8 prot, u32 mark, int flow_flags)
-@@ -1294,7 +1294,8 @@ static void __build_flow_key(struct flowi4 *fl4, struct sock *sk,
- 			   iph->daddr, iph->saddr, 0, 0);
- }
- 
--static void build_skb_flow_key(struct flowi4 *fl4, struct sk_buff *skb, struct sock *sk)
-+static void build_skb_flow_key(struct flowi4 *fl4, const struct sk_buff *skb,
-+			       const struct sock *sk)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	int oif = skb->dev->ifindex;
-@@ -1305,10 +1306,10 @@ static void build_skb_flow_key(struct flowi4 *fl4, struct sk_buff *skb, struct s
- 	__build_flow_key(fl4, sk, iph, oif, tos, prot, mark, 0);
- }
- 
--static void build_sk_flow_key(struct flowi4 *fl4, struct sock *sk)
-+static void build_sk_flow_key(struct flowi4 *fl4, const struct sock *sk)
- {
- 	const struct inet_sock *inet = inet_sk(sk);
--	struct ip_options_rcu *inet_opt;
-+	const struct ip_options_rcu *inet_opt;
- 	__be32 daddr = inet->inet_daddr;
- 
- 	rcu_read_lock();
-@@ -1323,8 +1324,8 @@ static void build_sk_flow_key(struct flowi4 *fl4, struct sock *sk)
- 	rcu_read_unlock();
- }
- 
--static void ip_rt_build_flow_key(struct flowi4 *fl4, struct sock *sk,
--				 struct sk_buff *skb)
-+static void ip_rt_build_flow_key(struct flowi4 *fl4, const struct sock *sk,
-+				 const struct sk_buff *skb)
- {
- 	if (skb)
- 		build_skb_flow_key(fl4, skb, sk);
+See the updated version of patch #5 and what I actually committed to
+net-next.
