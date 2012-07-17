@@ -1,69 +1,71 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/2] r8169: remove rtl_ocpdr_cond.
-Date: Wed, 18 Jul 2012 00:09:43 +0200
-Message-ID: <3a83ad12b850c3c5b89fa9008bdd0c0782f0cf68.1342562326.git.romieu@fr.zoreil.com>
-References: <cover.1342562326.git.romieu@fr.zoreil.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: refine SYN handling in tcp_validate_incoming
+Date: Wed, 18 Jul 2012 00:29:30 +0200
+Message-ID: <1342564170.2626.1243.camel@edumazet-glaptop>
+References: <1342525290.2626.459.camel@edumazet-glaptop>
+	 <CAGK4HS-AMWZ0Ef7G1pvWJ7XADsvxqsiX3tMCe2=oq+_46won6g@mail.gmail.com>
+	 <1342560769.2626.1165.camel@edumazet-glaptop>
+	 <CAGK4HS8MvP6L5Rvy4wJx2KhdTSSHfP7YPT44e9mrV_vsBZJ9jQ@mail.gmail.com>
+	 <1342563706.2626.1228.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	Hayes Wang <hayeswang@realtek.com>
-To: netdev@vger.kernel.org
+	netdev <netdev@vger.kernel.org>,
+	Kiran Kumar Kella <kkiran@broadcom.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:49893 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756353Ab2GQWWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:22:45 -0400
-In-Reply-To: <cover.1342562326.git.romieu@fr.zoreil.com>
-In-Reply-To: <cover.1342562326.git.romieu@fr.zoreil.com>
-References: <cover.1342562326.git.romieu@fr.zoreil.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:47763 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757182Ab2GQW3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 18:29:35 -0400
+Received: by yhmm54 with SMTP id m54so971593yhm.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 15:29:35 -0700 (PDT)
+In-Reply-To: <1342563706.2626.1228.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
+From: Eric Dumazet <edumazet@google.com>
 
-It is not needed for mac_ocp_{write / read}. Actually bit 31 of OCPDR
-does not change and r8168_mac_ocp_read always returns ~0.
+Followup of commit 0c24604b68fc (tcp: implement RFC 5961 4.2)
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-Tested-by: Francois Romieu <romieu@fr.zoreil.com>
+As reported by Vijay Subramanian, we should send a challenge ACK
+instead of a dup ack if a SYN flag is set on a packet received out of
+window.
+
+This permits the ratelimiting to work as intended, and to increase
+correct SNMP counters.
+
+Suggested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+Cc: Kiran Kumar Kella <kkiran@broadcom.com>
 ---
- drivers/net/ethernet/realtek/r8169.c |   12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+ net/ipv4/tcp_input.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index c29c5fb..1f27318 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1043,13 +1043,6 @@ static void rtl_w1w0_phy_ocp(struct rtl8169_private *tp, int reg, int p, int m)
- 	r8168_phy_ocp_write(tp, reg, (val | p) & ~m);
- }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8aaec55..fdd49f1 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5296,8 +5296,11 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 		 * an acknowledgment should be sent in reply (unless the RST
+ 		 * bit is set, if so drop the segment and return)".
+ 		 */
+-		if (!th->rst)
++		if (!th->rst) {
++			if (th->syn)
++				goto syn_challenge;
+ 			tcp_send_dupack(sk, skb);
++		}
+ 		goto discard;
+ 	}
  
--DECLARE_RTL_COND(rtl_ocpdr_cond)
--{
--	void __iomem *ioaddr = tp->mmio_addr;
--
--	return RTL_R32(OCPDR) & OCPAR_FLAG;
--}
--
- static void r8168_mac_ocp_write(struct rtl8169_private *tp, u32 reg, u32 data)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -1058,8 +1051,6 @@ static void r8168_mac_ocp_write(struct rtl8169_private *tp, u32 reg, u32 data)
- 		return;
- 
- 	RTL_W32(OCPDR, OCPAR_FLAG | (reg << 15) | data);
--
--	rtl_udelay_loop_wait_low(tp, &rtl_ocpdr_cond, 25, 10);
- }
- 
- static u16 r8168_mac_ocp_read(struct rtl8169_private *tp, u32 reg)
-@@ -1071,8 +1062,7 @@ static u16 r8168_mac_ocp_read(struct rtl8169_private *tp, u32 reg)
- 
- 	RTL_W32(OCPDR, reg << 15);
- 
--	return rtl_udelay_loop_wait_high(tp, &rtl_ocpdr_cond, 25, 10) ?
--		RTL_R32(OCPDR) : ~0;
-+	return RTL_R32(OCPDR);
- }
- 
- #define OCP_STD_PHY_BASE	0xa400
--- 
-1.7.10.4
+@@ -5327,6 +5330,7 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 	 * RFC 5691 4.2 : Send a challenge ack
+ 	 */
+ 	if (th->syn) {
++syn_challenge:
+ 		if (syn_inerr)
+ 			TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNCHALLENGE);
