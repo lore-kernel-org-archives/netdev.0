@@ -1,10 +1,9 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/4 v3 net-next] tg3: Add common function
- tg3_ape_event_lock()
-Date: Mon, 16 Jul 2012 19:24:00 -0700
-Message-ID: <1342491842-29818-3-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 1/4 v3 net-next] tg3: Fix the setting of the
+ APE_HAS_NCSI flag
+Date: Mon, 16 Jul 2012 19:23:59 -0700
+Message-ID: <1342491842-29818-2-git-send-email-mchan@broadcom.com>
 References: <1342491842-29818-1-git-send-email-mchan@broadcom.com>
- <1342491842-29818-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -13,103 +12,97 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms2.broadcom.com ([216.31.210.18]:4176 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754352Ab2GQCMc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jul 2012 22:12:32 -0400
-In-Reply-To: <1342491842-29818-2-git-send-email-mchan@broadcom.com>
+	id S1753920Ab2GQCNB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jul 2012 22:13:01 -0400
+In-Reply-To: <1342491842-29818-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Carlson <mcarlson@broadcom.com>
+The driver currently skips setting this flag if the VPD contains the
+firmware version string.  We fix this by separating the probing of NCSI
+from the reading of the NCSI version string.  The APE_HAS_NCSI flag is
+needed to properly read sensor data.
 
-by refactoring code in tg3_ape_send_event().  The common function will
-be used in subsequent patches.
-
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   56 ++++++++++++++++++++---------------
- 1 files changed, 32 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   42 +++++++++++++++++-----------------
+ 1 files changed, 21 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 45dc6f5..5dda3ce 100644
+index ac9091f..45dc6f5 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -731,44 +731,52 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
- 	tg3_ape_write32(tp, gnt + 4 * locknum, bit);
+@@ -13858,14 +13858,9 @@ static void __devinit tg3_read_mgmtfw_ver(struct tg3 *tp)
+ 	}
  }
  
--static void tg3_ape_send_event(struct tg3 *tp, u32 event)
-+static int tg3_ape_event_lock(struct tg3 *tp, u32 timeout_us)
+-static void __devinit tg3_read_dash_ver(struct tg3 *tp)
++static void __devinit tg3_probe_ncsi(struct tg3 *tp)
  {
--	int i;
+-	int vlen;
  	u32 apedata;
- 
--	/* NCSI does not support APE events */
--	if (tg3_flag(tp, APE_HAS_NCSI))
+-	char *fwtype;
+-
+-	if (!tg3_flag(tp, ENABLE_APE) || !tg3_flag(tp, ENABLE_ASF))
 -		return;
-+	while (timeout_us) {
-+		if (tg3_ape_lock(tp, TG3_APE_LOCK_MEM))
-+			return -EBUSY;
-+
-+		apedata = tg3_ape_read32(tp, TG3_APE_EVENT_STATUS);
-+		if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
-+			break;
-+
-+		tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
-+
-+		udelay(10);
-+		timeout_us -= (timeout_us > 10) ? 10 : timeout_us;
-+	}
-+
-+	return timeout_us ? 0 : -EBUSY;
-+}
-+
-+static int tg3_ape_send_event(struct tg3 *tp, u32 event)
-+{
-+	int err;
-+	u32 apedata;
  
  	apedata = tg3_ape_read32(tp, TG3_APE_SEG_SIG);
  	if (apedata != APE_SEG_SIG_MAGIC)
--		return;
-+		return -EAGAIN;
- 
- 	apedata = tg3_ape_read32(tp, TG3_APE_FW_STATUS);
+@@ -13875,14 +13870,22 @@ static void __devinit tg3_read_dash_ver(struct tg3 *tp)
  	if (!(apedata & APE_FW_STATUS_READY))
--		return;
-+		return -EAGAIN;
+ 		return;
  
- 	/* Wait for up to 1 millisecond for APE to service previous event. */
--	for (i = 0; i < 10; i++) {
--		if (tg3_ape_lock(tp, TG3_APE_LOCK_MEM))
--			return;
--
--		apedata = tg3_ape_read32(tp, TG3_APE_EVENT_STATUS);
--
--		if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
--			tg3_ape_write32(tp, TG3_APE_EVENT_STATUS,
--					event | APE_EVENT_STATUS_EVENT_PENDING);
-+	err = tg3_ape_event_lock(tp, 1000);
-+	if (err)
-+		return err;
++	if (tg3_ape_read32(tp, TG3_APE_FW_FEATURES) & TG3_APE_FW_FEATURE_NCSI)
++		tg3_flag_set(tp, APE_HAS_NCSI);
++}
++
++static void __devinit tg3_read_dash_ver(struct tg3 *tp)
++{
++	int vlen;
++	u32 apedata;
++	char *fwtype;
++
+ 	apedata = tg3_ape_read32(tp, TG3_APE_FW_VERSION);
  
--		tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
-+	tg3_ape_write32(tp, TG3_APE_EVENT_STATUS,
-+			event | APE_EVENT_STATUS_EVENT_PENDING);
- 
--		if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
--			break;
-+	tg3_ape_unlock(tp, TG3_APE_LOCK_MEM);
-+	tg3_ape_write32(tp, TG3_APE_EVENT, APE_EVENT_1);
- 
--		udelay(100);
+-	if (tg3_ape_read32(tp, TG3_APE_FW_FEATURES) & TG3_APE_FW_FEATURE_NCSI) {
+-		tg3_flag_set(tp, APE_HAS_NCSI);
++	if (tg3_flag(tp, APE_HAS_NCSI))
+ 		fwtype = "NCSI";
+-	} else {
++	else
+ 		fwtype = "DASH";
 -	}
+ 
+ 	vlen = strlen(tp->fw_ver);
+ 
+@@ -13916,20 +13919,17 @@ static void __devinit tg3_read_fw_ver(struct tg3 *tp)
+ 		tg3_read_sb_ver(tp, val);
+ 	else if ((val & TG3_EEPROM_MAGIC_HW_MSK) == TG3_EEPROM_MAGIC_HW)
+ 		tg3_read_hwsb_ver(tp);
+-	else
+-		return;
+ 
+-	if (vpd_vers)
+-		goto done;
 -
--	if (!(apedata & APE_EVENT_STATUS_EVENT_PENDING))
--		tg3_ape_write32(tp, TG3_APE_EVENT, APE_EVENT_1);
-+	return 0;
+-	if (tg3_flag(tp, ENABLE_APE)) {
+-		if (tg3_flag(tp, ENABLE_ASF))
+-			tg3_read_dash_ver(tp);
+-	} else if (tg3_flag(tp, ENABLE_ASF)) {
+-		tg3_read_mgmtfw_ver(tp);
++	if (tg3_flag(tp, ENABLE_ASF)) {
++		if (tg3_flag(tp, ENABLE_APE)) {
++			tg3_probe_ncsi(tp);
++			if (!vpd_vers)
++				tg3_read_dash_ver(tp);
++		} else if (!vpd_vers) {
++			tg3_read_mgmtfw_ver(tp);
++		}
+ 	}
+ 
+-done:
+ 	tp->fw_ver[TG3_VER_SIZE - 1] = 0;
  }
  
- static void tg3_ape_driver_state_change(struct tg3 *tp, int kind)
 -- 
 1.7.1
