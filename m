@@ -1,49 +1,50 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH] MAINTAINERS: Changes in qlcnic and qlge maintainers list
-Date: Tue, 17 Jul 2012 15:22:09 -0400
-Message-ID: <1342552929-4529-1-git-send-email-anirban.chakraborty@qlogic.com>
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:36000 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752167Ab2GQTjV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 15:39:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: wireless.git frozen -- Re: That's pretty much it for 3.5.0
+Date: Tue, 17 Jul 2012 15:30:33 -0400
+Message-ID: <20120717193032.GA11732@tuxdriver.com>
+References: <20120717.090142.125145009944045241.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120717.090142.125145009944045241.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+On Tue, Jul 17, 2012 at 09:01:42AM -0700, David Miller wrote:
+> 
+> Linus was _extremely_ generous and took in all the stuff that was
+> pending in the net tree just now.
+> 
+> Besides very serious issues, I'm not willing to consider any more bug
+> fixes for the 'net' tree at this time.
+> 
+> Only one pending known bug qualifies, and that's the CIPSO ip option
+> processing OOPS'er.  And I'll work on that myself if Paul Moore
+> doesn't show a sign of life in the next day.
+> 
+> Thanks.
 
-Please apply.
+Now only fixes for truly "show stopper" bugs will be accepted for
+the 3.5 stream.  I don't believe that any of the handful of fixes
+currently in wireless.git (but not yet in net.git) are sufficiently
+important to make the cut.
 
-Thanks.
+I will pull the current wireless.git tree into the wireless-next.git
+tree, and then wireless.git will remain frozen until 3.6-rc1 is
+released.  If you have a wireless fix that you believe is sufficiently
+important to merit being in 3.5, then please post it to the netdev
+list (and Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org when you do so).
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- MAINTAINERS |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Thanks,
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b4321fb..7fda50f 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5554,7 +5554,7 @@ F:	Documentation/networking/LICENSE.qla3xxx
- F:	drivers/net/ethernet/qlogic/qla3xxx.*
- 
- QLOGIC QLCNIC (1/10)Gb ETHERNET DRIVER
--M:	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-+M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
- M:	Sony Chacko <sony.chacko@qlogic.com>
- M:	linux-driver@qlogic.com
- L:	netdev@vger.kernel.org
-@@ -5562,7 +5562,6 @@ S:	Supported
- F:	drivers/net/ethernet/qlogic/qlcnic/
- 
- QLOGIC QLGE 10Gb ETHERNET DRIVER
--M:	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
- M:	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
- M:	Ron Mercer <ron.mercer@qlogic.com>
- M:	linux-driver@qlogic.com
+John
 -- 
-1.7.1
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
