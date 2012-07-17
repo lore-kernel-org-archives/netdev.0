@@ -1,50 +1,99 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: wireless.git frozen -- Re: That's pretty much it for 3.5.0
-Date: Tue, 17 Jul 2012 15:30:33 -0400
-Message-ID: <20120717193032.GA11732@tuxdriver.com>
-References: <20120717.090142.125145009944045241.davem@davemloft.net>
+From: Saurabh <saurabh.mohan@vyatta.com>
+Subject: [net-next PATCH 00/02] net/ipv4: Add support for new tunnel type
+ VTI.
+Date: Tue, 17 Jul 2012 12:44:42 -0700
+Message-ID: <20120717194442.GA3333@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:53074 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752110Ab2GQTq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 15:46:26 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id B560D1410153
+	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 12:46:25 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id zdXixYm7oG4q for <netdev@vger.kernel.org>;
+	Tue, 17 Jul 2012 12:46:21 -0700 (PDT)
+Received: from localhost (eng-dhcp-126.vyatta.com [10.3.0.126])
+	by mail.vyatta.com (Postfix) with ESMTP id 0BD30141014E
+	for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 12:46:21 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20120717.090142.125145009944045241.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 17, 2012 at 09:01:42AM -0700, David Miller wrote:
-> 
-> Linus was _extremely_ generous and took in all the stuff that was
-> pending in the net tree just now.
-> 
-> Besides very serious issues, I'm not willing to consider any more bug
-> fixes for the 'net' tree at this time.
-> 
-> Only one pending known bug qualifies, and that's the CIPSO ip option
-> processing OOPS'er.  And I'll work on that myself if Paul Moore
-> doesn't show a sign of life in the next day.
-> 
-> Thanks.
 
-Now only fixes for truly "show stopper" bugs will be accepted for
-the 3.5 stream.  I don't believe that any of the handful of fixes
-currently in wireless.git (but not yet in net.git) are sufficiently
-important to make the cut.
 
-I will pull the current wireless.git tree into the wireless-next.git
-tree, and then wireless.git will remain frozen until 3.6-rc1 is
-released.  If you have a wireless fix that you believe is sufficiently
-important to merit being in 3.5, then please post it to the netdev
-list (and Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org when you do so).
+I have accommodated all the style comments so far. If there are any more
+style comments then send all your feedback in one email rather than in bits
+and pieces.
 
-Thanks,
+IPv6 support has not yet been developed. Once I have it developed and tested
+I'll submit it as well.  If this feature will not be accepted without IPv6
+then let me know and I'll stop wasting my time. 
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Incorporated David and Steffen's comments.
+Resubmitting after taking into account review comments:
+The VTI tunnel is applicable to esp, ah and ipcomp.
+
+Introduction:
+Virtual tunnel interface is a way to represent policy based IPsec tunnels as
+ virtual interfaces in linux. This is similar to Cisco's VTI (virtual tunnel
+ interface) and Juniper's representaion of secure tunnel (st.xx).
+ The advantage of representing an IPsec tunnel as an interface is that it is
+ possible to plug Ipsec tunnels into the routing protocol infrastructure of a
+ router. Therefore it becomes possible to influence the packet path by toggling
+ the link state of the tunnel or based on routing metrics.
+
+Overview:
+Natively linux kernel does not support ipsec as an interface. Also secure
+ interface assume a ipsec policy 4 tupple of {dst-ip-any, src-ip-any,
+ dst-port-any, src-port-any}. Applying this 4 tuple in linux would result in
+ all traffic matching the ipsec policy. What is needed is a tunnel
+ distinguisher. The linux kernel skbuff has fwmark which is used for policy
+ based routing (PBR). Linux kernel version 2.6.35 enhanced SPD/SADB to use
+ fwmark as part of the IPsec policy. Strongswan has also introduced support for
+ this kernel feature with version 4.5.0. We can therefore use the fwmark as the
+ distinguisher for tunnel interface. We can also create a light weight tunnel
+ kernel module (vti) to give the notion of an interface for rest of the kernel
+ routing system. The tunnel module does not do any encapsulation/decapsulation.
+ The kernel's xfrm modules still do the esp encryption/decryption.
+
+Usage:
+ip tunnel add sti15 mode vti remote 12.0.0.1 local 12.0.0.3 ikey 15
+or
+ip link add sti15 type vti key 15 remote 12.0.0.1 local 12.0.0.3
+
+Sample strongswan config would be:
+conn peer-12.0.0.1-tunnel-1
+   left=12.0.0.3
+   right=12.0.0.1
+   leftsubnet=0.0.0.0/0
+   rightsubnet=0.0.0.0/0
+   ike=aes128-sha1-modp1024!
+   ikelifetime=28800s
+   keyingtries=%forever
+   esp=aes128-sha1!
+   keylife=3600s
+   rekeymargin=540s
+   type=tunnel
+   pfs=yes
+   compress=no
+   authby=secret
+   auto=start
+   mark_in=0xf
+   mark_out=0xf
+   keyexchange=ikev1
+
+
+Also you need the iptables rule for ingress esp and udp-4500 packets:
+-A PREROUTING -s 12.0.0.1/32 -d 12.0.0.3/32 -p esp -j MARK --set-xmark 0xf/0xffffffff
+
+
+Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Reviewed-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
