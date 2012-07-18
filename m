@@ -1,119 +1,182 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH] net: cgroup: null ptr dereference in netprio cgroup
- during init
-Date: Wed, 18 Jul 2012 07:21:45 -0700
-Message-ID: <5006C679.2040605@intel.com>
-References: <20120718003316.2979.49278.stgit@jf-dev1-dcblab> <20120718124539.GC25563@hmsreliant.think-freely.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v4] net: cgroup: fix access the unallocated memory in
+ netprio cgroup
+Date: Wed, 18 Jul 2012 10:26:32 -0400
+Message-ID: <20120718142632.GF25563@hmsreliant.think-freely.org>
+References: <1342079415-9631-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <5005CF5D.9070905@intel.com>
+ <20120718122106.GB25563@hmsreliant.think-freely.org>
+ <5006C3CA.3010007@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, gaofeng@cn.fujitsu.com,
-	mark.d.rustad@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:7009 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754601Ab2GROVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 10:21:48 -0400
-In-Reply-To: <20120718124539.GC25563@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5006C3CA.3010007@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/18/2012 5:45 AM, Neil Horman wrote:
-> On Tue, Jul 17, 2012 at 05:33:16PM -0700, John Fastabend wrote:
->> When the netprio cgroup is built in the kernel cgroup_init will call
->> cgrp_create which eventually calls update_netdev_tables. This is
->> being called before do_initcalls() so a null ptr dereference occurs
->> on init_net.
->>
->> This patch adds a check on init_net.count to verify the structure
->> has been initialized. The failure was introduced here,
->>
->> commit ef209f15980360f6945873df3cd710c5f62f2a3e
->> Author: Gao feng <gaofeng@cn.fujitsu.com>
->> Date:   Wed Jul 11 21:50:15 2012 +0000
->>
->>      net: cgroup: fix access the unallocated memory in netprio cgroup
->>
->> Tested with ping with netprio_cgroup as a module and built in.
->>
->> Marked RFC for now I think DaveM might have a reason why this needs
->> some improvement.
->>
->> Reported-by: Mark Rustad <mark.d.rustad@intel.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Gao feng <gaofeng@cn.fujitsu.com>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>
->>   net/core/netprio_cgroup.c |    3 +++
->>   1 files changed, 3 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
->> index b2e9caa..e9fd7fd 100644
->> --- a/net/core/netprio_cgroup.c
->> +++ b/net/core/netprio_cgroup.c
->> @@ -116,6 +116,9 @@ static int update_netdev_tables(void)
->>   	u32 max_len;
->>   	struct netprio_map *map;
->>
->> +	if (!atomic_read(&init_net.count))
->> +		return ret;
->> +
->>   	rtnl_lock();
->>   	max_len = atomic_read(&max_prioidx) + 1;
->>   	for_each_netdev(&init_net, dev) {
->>
->>
->
-> John, do you have a stack trace of this.  I'm having a hard time seeing how we
-> get into this path prior to the network stack being initalized.
+On Wed, Jul 18, 2012 at 07:10:18AM -0700, John Fastabend wrote:
+> On 7/18/2012 5:21 AM, Neil Horman wrote:
+> >On Tue, Jul 17, 2012 at 01:47:25PM -0700, John Fastabend wrote:
+> >>On 7/12/2012 12:50 AM, Gao feng wrote:
+> >>>there are some out of bound accesses in netprio cgroup.
+> >>>
+> >>>now before accessing the dev->priomap.priomap array,we only check
+> >>>if the dev->priomap exist.and because we don't want to see
+> >>>additional bound checkings in fast path, so we should make sure
+> >>>that dev->priomap is null or array size of dev->priomap.priomap
+> >>>is equal to max_prioidx + 1;
+> >>>
+> >>>so in write_priomap logic,we should call extend_netdev_table when
+> >>>dev->priomap is null and dev->priomap.priomap_len < max_len.
+> >>>and in cgrp_create->update_netdev_tables logic,we should call
+> >>>extend_netdev_table only when dev->priomap exist and
+> >>>dev->priomap.priomap_len < max_len.
+> >>>
+> >>>and it's not needed to call update_netdev_tables in write_priomap,
+> >>>we can only allocate the net device's priomap which we change through
+> >>>net_prio.ifpriomap.
+> >>>
+> >>>this patch also add a return value for update_netdev_tables &
+> >>>extend_netdev_table, so when new_priomap is allocated failed,
+> >>>write_priomap will stop to access the priomap,and return -ENOMEM
+> >>>back to the userspace to tell the user what happend.
+> >>>
+> >>>Change From v3:
+> >>>1. add rtnl protect when reading max_prioidx in write_priomap.
+> >>>
+> >>>2. only call extend_netdev_table when map->priomap_len < max_len,
+> >>>    this will make sure array size of dev->map->priomap always
+> >>>    bigger than any prioidx.
+> >>>
+> >>>3. add a function write_update_netdev_table to make codes clear.
+> >>>
+> >>>Change From v2:
+> >>>1. protect extend_netdev_table by RTNL.
+> >>>2. when extend_netdev_table failed,call dev_put to reduce device's refcount.
+> >>>
+> >>>Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> >>>Cc: Neil Horman <nhorman@tuxdriver.com>
+> >>>Cc: Eric Dumazet <edumazet@google.com>
+> >>>---
+> >>>  net/core/netprio_cgroup.c |   71 ++++++++++++++++++++++++++++++++++-----------
+> >>>  1 files changed, 54 insertions(+), 17 deletions(-)
+> >>>
+> >>
+> >>[...]
+> >>
+> >>>+
+> >>>+static int update_netdev_tables(void)
+> >>>+{
+> >>>+	int ret = 0;
+> >>>  	struct net_device *dev;
+> >>>-	u32 max_len = atomic_read(&max_prioidx) + 1;
+> >>>+	u32 max_len;
+> >>>  	struct netprio_map *map;
+> >>
+> >>
+> >>need to check if net subsystem is initialized before we try
+> >>to use it here...
+> >>
+> >>	if (some_check)     -> need to lookup what this check is
+> >>		return ret;
+> >>
+> >>>
+> >>>  	rtnl_lock();
+> >>>+	max_len = atomic_read(&max_prioidx) + 1;
+> >>>  	for_each_netdev(&init_net, dev) {
+> >>>  		map = rtnl_dereference(dev->priomap);
+> >>>-		if ((!map) ||
+> >>>-		    (map->priomap_len < max_len))
+> >>>-			extend_netdev_table(dev, max_len);
+> >>>+		/*
+> >>>+		 * don't allocate priomap if we didn't
+> >>>+		 * change net_prio.ifpriomap (map == NULL),
+> >>>+		 * this will speed up skb_update_prio.
+> >>>+		 */
+> >>>+		if (map && map->priomap_len < max_len) {
+> >>>+			ret = extend_netdev_table(dev, max_len);
+> >>>+			if (ret < 0)
+> >>>+				break;
+> >>>+		}
+> >>>  	}
+> >>>  	rtnl_unlock();
+> >>>+	return ret;
+> >>>  }
+> >>>
+> >>>  static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+> >>>  {
+> >>>  	struct cgroup_netprio_state *cs;
+> >>>-	int ret;
+> >>>+	int ret = -EINVAL;
+> >>>
+> >>>  	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
+> >>>  	if (!cs)
+> >>>  		return ERR_PTR(-ENOMEM);
+> >>>
+> >>>-	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx) {
+> >>>-		kfree(cs);
+> >>>-		return ERR_PTR(-EINVAL);
+> >>>-	}
+> >>>+	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx)
+> >>>+		goto out;
+> >>>
+> >>>  	ret = get_prioidx(&cs->prioidx);
+> >>>-	if (ret != 0) {
+> >>>+	if (ret < 0) {
+> >>>  		pr_warn("No space in priority index array\n");
+> >>>-		kfree(cs);
+> >>>-		return ERR_PTR(ret);
+> >>>+		goto out;
+> >>>+	}
+> >>>+
+> >>>+	ret = update_netdev_tables();
+> >>>+	if (ret < 0) {
+> >>>+		put_prioidx(cs->prioidx);
+> >>>+		goto out;
+> >>>  	}
+> >>
+> >>Gao,
+> >>
+> >>This introduces a null ptr dereference when netprio_cgroup is built
+> >>into the kernel because update_netdev_tables() depends on init_net.
+> >>However cgrp_create is being called by cgroup_init before
+> >>do_initcalls() is called and before net_dev_init().
+> >>
+> >>.John
+> >>
+> >Not sure I follow here John.  Shouldn't init_net be initialized prior to any
+> >network devices getting registered?  In other words, shouldn't for_each_netdev
+> >just result in zero iterations through the loop?
+> >Neil
+> >
+> 
+> init_net _is_ initialized prior to any network devices getting
+> registered but not before cgrp_create called via cgroup_init.
+> 
+> #define for_each_netdev(net, d)         \
+>                 list_for_each_entry(d, &(net)->dev_base_head, dev_list)
+> 
+> but dev_base_head is zeroed at this time. In netdev_init we have,
+> 
+>         INIT_LIST_HEAD(&net->dev_base_head);
+> 
+> but we haven't got that far yet because cgroup_init is called
+> before do_initcalls().
+> 
+ok, I see that, and it makes sense, but at this point I'm more concerned with
+cgroups getting initalized twice.  The early_init flag is clear in the
+cgroup_subsystem for netprio, so we really shouldn't be getting initalized from
+cgroup_init.  We should be getting initalized from the module_init() call that
+we register
+Neil
 
-Mark had a partial trace
-
-[    0.003455] Dentry cache hash table entries: 262144 (order: 9, 
-2097152 bytes)
-[    0.005550] Inode-cache hash table entries: 131072 (order: 8, 1048576 
-bytes)
-[    0.007165] Mount-cache hash table entries: 256
-[    0.010289] Initializing cgroup subsys net_cls
-[    0.010947] Initializing cgroup subsys net_prio
-[    0.011039] BUG: unable to handle kernel NULL pointer dereference at 
-0000000000000828
-[    0.011998] IP: [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
-
-
->
-> It also brings up another point.  If this is happening, and we're creating the
-> root cgroup from start_kernel, Then we're actually initalizing some cgroups
-> twice, because a few cgroups register themselves via cgroup_load_subsys in
-> module_init specified routines.  So if you're building netprio_cgroup or
-> net_cls_cgroup as part of the monolithic kernel, you'll get cgroup_create called
-> prior to your module_init() call.  Thats not good.
-
-Well your module_init() wouldn't be called in this case right? I think
-netprio has a bug where we only register a netdevice notifier when
-its built as a module.
-
-same issue with cls_cgroup and register_tcf_proto_ops?
-
->
-> In fact, the cgroup_subsys struct has an early_init flag that cgroup_init
-> appears to use to skip the initialization of subsystems that don't need to be
-> initialized that early in boot (assuming thats the path we're going down to get
-> to this oops).
-
-Do you mean ss->early_init? Not sure that helps us either we get called
-by cgroup_init because we don't have an early_init callback or we get
-called via cgroup_init_early even earlier.
-
->
-> If you can post the call stack, I'd appreciate it, I'd like to dig a bit deeper
-> into this.
-
-Yes I'll do this shortly.
-
-> Neil
->
+> 
+> 
+> 
+> 
