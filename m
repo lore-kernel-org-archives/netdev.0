@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 1/7] sfc: Add explicit RX queue flag to channel
-Date: Wed, 18 Jul 2012 19:19:13 +0100
-Message-ID: <1342635553.2617.53.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 2/7] sfc: Add channel specific receive_skb handler
+ and post_remove callback
+Date: Wed, 18 Jul 2012 19:20:00 +0100
+Message-ID: <1342635600.2617.54.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1342635392.2617.52.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,117 +12,133 @@ Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	Richard Cochran <richardcochran@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:51745 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:51780 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751810Ab2GRSTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 14:19:17 -0400
+	by vger.kernel.org with ESMTP id S1752056Ab2GRSUD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 14:20:03 -0400
 In-Reply-To: <1342635392.2617.52.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PTP channel will have its own RX queue even though it's not
-a regular traffic channel.
+Allows an extra channel to override the standard receive_skb handler
+and also for extra non generic operations to be performed on remove.
 
-Original work by Ben Hutchings <bhutchings@solarflare.com>
+Also set default rx strategy so only skbs can be delivered to the
+PTP receive function.
 
 Signed-off-by: Stuart Hodgson <smhodgson@solarflare.com>
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |    8 +++++++-
- drivers/net/ethernet/sfc/net_driver.h |    5 ++++-
- drivers/net/ethernet/sfc/rx.c         |    7 +++++--
- 3 files changed, 16 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        |    6 ++++++
+ drivers/net/ethernet/sfc/efx.h        |    1 +
+ drivers/net/ethernet/sfc/net_driver.h |    3 +++
+ drivers/net/ethernet/sfc/rx.c         |   15 ++++++++++++---
+ 4 files changed, 22 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 70554a1..3ae6774 100644
+index 3ae6774..1c53d4b 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1422,10 +1422,16 @@ static void efx_set_channels(struct efx_nic *efx)
- 	efx->tx_channel_offset =
- 		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
- 
--	/* We need to adjust the TX queue numbers if we have separate
-+	/* We need to mark which channels really have RX and TX
-+	 * queues, and adjust the TX queue numbers if we have separate
- 	 * RX-only and TX-only channels.
- 	 */
- 	efx_for_each_channel(channel, efx) {
-+		if (channel->channel < efx->n_rx_channels)
-+			channel->rx_queue.core_index = channel->channel;
-+		else
-+			channel->rx_queue.core_index = -1;
-+
- 		efx_for_each_channel_tx_queue(tx_queue, channel)
- 			tx_queue->queue -= (efx->tx_channel_offset *
- 					    EFX_TXQ_TYPES);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 55be2fd..3894593 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -242,6 +242,8 @@ struct efx_rx_page_state {
- /**
-  * struct efx_rx_queue - An Efx RX queue
-  * @efx: The associated Efx NIC
-+ * @core_index:  Index of network core RX queue.  Will be >= 0 iff this
-+ *	is associated with a real RX queue.
-  * @buffer: The software buffer ring
-  * @rxd: The hardware descriptor ring
-  * @ptr_mask: The size of the ring minus 1.
-@@ -263,6 +265,7 @@ struct efx_rx_page_state {
-  */
- struct efx_rx_queue {
- 	struct efx_nic *efx;
-+	int core_index;
- 	struct efx_rx_buffer *buffer;
- 	struct efx_special_buffer rxd;
- 	unsigned int ptr_mask;
-@@ -1044,7 +1047,7 @@ static inline bool efx_tx_queue_used(struct efx_tx_queue *tx_queue)
- 
- static inline bool efx_channel_has_rx_queue(struct efx_channel *channel)
- {
--	return channel->channel < channel->efx->n_rx_channels;
-+	return channel->rx_queue.core_index >= 0;
+@@ -714,6 +714,7 @@ static void efx_remove_channel(struct efx_channel *channel)
+ 	efx_for_each_possible_channel_tx_queue(tx_queue, channel)
+ 		efx_remove_tx_queue(tx_queue);
+ 	efx_remove_eventq(channel);
++	channel->type->post_remove(channel);
  }
  
- static inline struct efx_rx_queue *
+ static void efx_remove_channels(struct efx_nic *efx)
+@@ -828,6 +829,7 @@ void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue)
+ 
+ static const struct efx_channel_type efx_default_channel_type = {
+ 	.pre_probe		= efx_channel_dummy_op_int,
++	.post_remove		= efx_channel_dummy_op_void,
+ 	.get_name		= efx_get_channel_name,
+ 	.copy			= efx_copy_channel,
+ 	.keep_eventq		= false,
+@@ -838,6 +840,10 @@ int efx_channel_dummy_op_int(struct efx_channel *channel)
+ 	return 0;
+ }
+ 
++void efx_channel_dummy_op_void(struct efx_channel *channel)
++{
++}
++
+ /**************************************************************************
+  *
+  * Port handling
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index be8f915..121441f 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -96,6 +96,7 @@ static inline void efx_filter_rfs_expire(struct efx_channel *channel) {}
+ 
+ /* Channels */
+ extern int efx_channel_dummy_op_int(struct efx_channel *channel);
++extern void efx_channel_dummy_op_void(struct efx_channel *channel);
+ extern void efx_process_channel_now(struct efx_channel *channel);
+ extern int
+ efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 3894593..9913e32 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -393,14 +393,17 @@ struct efx_channel {
+  * @get_name: Generate the channel's name (used for its IRQ handler)
+  * @copy: Copy the channel state prior to reallocation.  May be %NULL if
+  *	reallocation is not supported.
++ * @receive_skb: Handle an skb ready to be passed to netif_receive_skb()
+  * @keep_eventq: Flag for whether event queue should be kept initialised
+  *	while the device is stopped
+  */
+ struct efx_channel_type {
+ 	void (*handle_no_channel)(struct efx_nic *);
+ 	int (*pre_probe)(struct efx_channel *);
++	void (*post_remove)(struct efx_channel *);
+ 	void (*get_name)(struct efx_channel *, char *buf, size_t len);
+ 	struct efx_channel *(*copy)(const struct efx_channel *);
++	void (*receive_skb)(struct efx_channel *, struct sk_buff *);
+ 	bool keep_eventq;
+ };
+ 
 diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 6d1c6cf..3f598bf 100644
+index 3f598bf..92699a0 100644
 --- a/drivers/net/ethernet/sfc/rx.c
 +++ b/drivers/net/ethernet/sfc/rx.c
-@@ -478,7 +478,7 @@ static void efx_rx_packet_gro(struct efx_channel *channel,
- 		skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
- 				  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
+@@ -573,8 +573,11 @@ static void efx_rx_deliver(struct efx_channel *channel,
+ 	/* Record the rx_queue */
+ 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
  
--		skb_record_rx_queue(skb, channel->channel);
-+		skb_record_rx_queue(skb, channel->rx_queue.core_index);
+-	/* Pass the packet up */
+-	netif_receive_skb(skb);
++	/* Does the channel want to handle the skb */
++	if (channel->type->receive_skb)
++		channel->type->receive_skb(channel, skb);
++	else
++		netif_receive_skb(skb);
  
- 		gro_result = napi_gro_frags(napi);
- 	} else {
-@@ -570,6 +570,9 @@ static void efx_rx_deliver(struct efx_channel *channel,
- 	/* Set the SKB flags */
- 	skb_checksum_none_assert(skb);
- 
-+	/* Record the rx_queue */
-+	skb_record_rx_queue(skb, channel->rx_queue.core_index);
-+
- 	/* Pass the packet up */
- 	netif_receive_skb(skb);
- 
-@@ -607,7 +610,7 @@ void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
- 		 * at the ethernet header */
- 		skb->protocol = eth_type_trans(skb, efx->net_dev);
- 
--		skb_record_rx_queue(skb, channel->channel);
-+		skb_record_rx_queue(skb, channel->rx_queue.core_index);
- 	}
- 
+ 	/* Update allocation strategy method */
+ 	channel->rx_alloc_level += RX_ALLOC_FACTOR_SKB;
+@@ -616,7 +619,8 @@ void __efx_rx_packet(struct efx_channel *channel, struct efx_rx_buffer *rx_buf)
  	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
+ 		rx_buf->flags &= ~EFX_RX_PKT_CSUMMED;
+ 
+-	if (likely(rx_buf->flags & (EFX_RX_BUF_PAGE | EFX_RX_PKT_CSUMMED)))
++	if (likely(rx_buf->flags & (EFX_RX_BUF_PAGE | EFX_RX_PKT_CSUMMED)) &&
++	    !channel->type->receive_skb)
+ 		efx_rx_packet_gro(channel, rx_buf, eh);
+ 	else
+ 		efx_rx_deliver(channel, rx_buf);
+@@ -626,6 +630,11 @@ void efx_rx_strategy(struct efx_channel *channel)
+ {
+ 	enum efx_rx_alloc_method method = rx_alloc_method;
+ 
++	if (channel->type->receive_skb) {
++		channel->rx_alloc_push_pages = false;
++		return;
++	}
++
+ 	/* Only makes sense to use page based allocation if GRO is enabled */
+ 	if (!(channel->efx->net_dev->features & NETIF_F_GRO)) {
+ 		method = RX_ALLOC_METHOD_SKB;
 -- 
 1.7.7.6
-
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
