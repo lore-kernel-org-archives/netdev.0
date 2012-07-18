@@ -1,294 +1,170 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 1/9] IB/ipoib: Add support for clones / multiple childs on the same partition
-Date: Wed, 18 Jul 2012 13:59:54 +0300
-Message-ID: <1342609202-32427-2-git-send-email-ogerlitz@mellanox.com>
-References: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 0/9] Add Ethernet IPoIB driver
+Date: Wed, 18 Jul 2012 13:59:53 +0300
+Message-ID: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
 	sean.hefty@intel.com, shlomop@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Erez Shitrit <erezsh@mellanox.co.il>
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:58478 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753600Ab2GRLAR (ORCPT
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:35523 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753587Ab2GRLAR (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 07:00:17 -0400
-In-Reply-To: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow creating "clone" child interfaces which further partition an
-IPoIB interface to sub interfaces who either use the same pkey as
-their parent or use the same pkey as already created child interface.
+changes from V0:
+ - applied feedback from Eric/Dave - RX flow uses only the last 20 bytes of skb->cb[]
+ - applied feedback from Ben H. on ethtool changes
+ - fix sparse error on function which should be made static
+ - made the netdev features related code of the driver more elegant/robust
+ - used _bh locking in some paths which used plain rw locking in V0
+ - some code rearrangements in flows that send ARPs
 
-Each child now has a child index, which together with the pkey is
-used as the identifier of the created network device.
 
-All sorts of childs are still created/deleted through sysfs, in a
-similar manner to the way legacy child interfaces are.
+The eIPoIB driver provides a standard Ethernet netdevice over 
+the InfiniBand IPoIB interface.
 
-A major use case for clone childs is for virtualization purposes, where
-a per VM NIC is desired at the hypervisor level, such as the solution
-provided by the newly introduced Ethernet IPoIB driver.
+Some services can run only on top of Ethernet L2 interfaces, and cannot be
+bound to an IPoIB interface. With this new driver, these services can run
+seamlessly.
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- Documentation/infiniband/ipoib.txt         |   23 +++++++++++++
- drivers/infiniband/ulp/ipoib/ipoib.h       |    7 +++-
- drivers/infiniband/ulp/ipoib/ipoib_main.c  |   48 +++++++++++++++++++++-------
+Main use case of the driver is the Ethernet Virtual Switching used in
+virtualized environments, where an eipoib netdevice can be used as a 
+Physical Interface (PIF) in the hypervisor domain, and allow other 
+guests Virtual Interfaces (VIF) connected to the same Virtual Switch 
+to run over the InfiniBand fabric.
+
+This driver supports L2 Switching (Direct Bridging) as well as other L3
+Switching modes (e.g. NAT).
+
+Whenever an IPoIB interface is created, one eIPoIB PIF netdevice 
+will be created. The default naming scheme is as in other Ethernet 
+interfaces: ethX, for example, on a system with two IPoIB interfaces,
+ib0 and ib1, two interfaces will be created ethX and ethX+1 When "X" 
+is the next free Ethernet number in the system.
+
+Using "ethtool -i " over the new interface can tell on which IPoIB
+PIF interface that interface is above.  For example: driver: eth_ipoib:ib0 
+indicates that eth3 is the Ethernet interface over the ib0 IPoIB interface.
+
+The driver can be used as independent interface or to serve in
+virtualization environment as the physical layer for the virtual
+interfaces on the virtual guest.
+
+The driver interface (eipoib interface or which is also referred to as parent) 
+uses slave interfaces, IPoIB clones, which are the VIFs described above.
+
+VIFs interfaces are enslaved/released from the eipoib driver on demand, according 
+to the management interface provided to user space.
+
+The management interface for the driver uses sysfs entries. Via these sysfs 
+entries the driver gets details on new VIF's to manage. The driver can 
+enslave new VIF (IPoIB cloned interface) or detaches from it.
+
+Here are few sysfs commands that are used in order to manage the driver, 
+according to few scenarios:
+
+1. create new clone of IPoIB interface:
+
+	$ echo .Y > /sys/class/net/ibX/create_child
+
+create new clone ibX.Y with the same pkey as ibX, for example:
+
+	$ echo .1 > /sys/class/net/ib0/create_child
+
+will create new interface ib0.1
+
+2. notify parent interface on new VIF to enslave:
+
+	$ echo +ibX.Y > /sys/class/net/ethZ/eth/slaves
+
+where ethZ is the driver interface, for example:
+
+	$ echo +ib0.1 > /sys/class/net/eth4/eth/slaves
+
+will enslave ib0.1 to eth4
+
+3. notify parent interface interface on VIF details (mac and vlan)
+
+	$ echo +ibX.Y <MAC address> > /sys/class/net/ethZ/eth/vifs
+
+for example:
+
+	$ echo +ib0.1 00:02:c9:43:3b:f1 > /sys/class/net/eth4/eth/vifs
+
+4. notify parent to release VIF:
+
+	$ echo -ibX.Y > /sys/class/net/ethZ/eth/slaves
+
+where ethZ is the driver interface, for example:
+
+        $ echo -ib0.1 > /sys/class/net/eth4/eth/slaves
+
+will release ib0.1 from eth4
+
+5. see the list of ipoib interfaces enslaved under eipoib interface,
+
+	$ cat /sys/class/net/ethX/eth/vifs
+
+for example:
+	
+	$ cat /sys/class/net/eth4/eth/vifs
+
+	SLAVE=ib0.1      MAC=9a:c2:1f:d7:3b:63 VLAN=N/A
+	SLAVE=ib0.2      MAC=52:54:00:60:55:88 VLAN=N/A
+	SLAVE=ib0.3      MAC=52:54:00:60:55:89 VLAN=N/A
+
+Note: Each ethX interface has at least one ibX.Y slave to serve the PIF
+itself, in the VIFs list of ethX you'll notice that ibX.1 is always created 
+to serve applications running from the Hypervisor on top of ethX interface directly.
+
+For IB applications that require native IPoIB interfaces (e.g. RDMA-CM), the
+original ipoib interfaces ibX can still be used.  For example, RDMA-CM and
+eth_ipoib drivers can co-exist and make use of IPoIB
+
+The last patch of this series was made such that the series works as is over 
+net-next, in parallel to the submission of this driver, a patch to modify IPoIB 
+such that it doesn't assume dst/neighbour on the skb was posted. 
+
+Or.
+
+
+Erez Shitrit (8):
+  include/linux: Add private flags for IPoIB interfaces
+  IB/ipoib: Add support for acting as VIF
+  net/eipoib: Add private header file
+  net/eipoib: Add ethtool file support
+  net/eipoib: Add sysfs support
+  net/eipoib: Add main driver functionality
+  net/eipoib: Add Makefile, Kconfig and MAINTAINERS entries
+  IB/ipoib: Add support for transmission of skbs w.o dst/neighbour
+
+Or Gerlitz (1):
+  IB/ipoib: Add support for clones / multiple childs on the same partition
+
+ Documentation/infiniband/ipoib.txt         |   23 +
+ MAINTAINERS                                |    6 +
+ drivers/infiniband/ulp/ipoib/ipoib.h       |   12 +-
+ drivers/infiniband/ulp/ipoib/ipoib_cm.c    |    9 +
+ drivers/infiniband/ulp/ipoib/ipoib_ib.c    |    8 +-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c  |   76 +-
  drivers/infiniband/ulp/ipoib/ipoib_verbs.c |    3 +-
- drivers/infiniband/ulp/ipoib/ipoib_vlan.c  |   46 ++++++++++++++++++--------
- 5 files changed, 98 insertions(+), 29 deletions(-)
-
-diff --git a/Documentation/infiniband/ipoib.txt b/Documentation/infiniband/ipoib.txt
-index 64eeb55..601f78f 100644
---- a/Documentation/infiniband/ipoib.txt
-+++ b/Documentation/infiniband/ipoib.txt
-@@ -24,6 +24,29 @@ Partitions and P_Keys
-   The P_Key for any interface is given by the "pkey" file, and the
-   main interface for a subinterface is in "parent."
- 
-+Clones
-+  Its possible to further partition an IPoIB interfaces, and create
-+  "clone" child interfaces which either use the same pkey as their
-+  parent, or as an already created child interface. Each child now has
-+  a child index, which together with the pkey is used as the identifier
-+  of the created network device.
-+
-+ All sorts of childs are still created/deleted through sysfs, in a
-+ similar manner to the way legacy child interfaces are, for example:
-+
-+    echo 0x8001.1 > /sys/class/net/ib0/create_child
-+
-+  will create an interface named ib0.8001.1 with P_Key 0x8001 and index 1
-+
-+    echo .1 > /sys/class/net/ib0/create_child
-+
-+  will create an interface named ib0.1 with same P_Key as ib0 and index 1
-+
-+  remove a subinterface, use the "delete_child" file:
-+
-+    echo 0x8001.1 > /sys/class/net/ib0/create_child
-+    echo .1  > /sys/class/net/ib0/create_child
-+
- Datagram vs Connected modes
- 
-   The IPoIB driver supports two modes of operation: datagram and
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
-index 86df632..a57db27 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib.h
-+++ b/drivers/infiniband/ulp/ipoib/ipoib.h
-@@ -332,6 +332,7 @@ struct ipoib_dev_priv {
- 	struct net_device *parent;
- 	struct list_head child_intfs;
- 	struct list_head list;
-+	int child_index;
- 
- #ifdef CONFIG_INFINIBAND_IPOIB_CM
- 	struct ipoib_cm_dev_priv cm;
-@@ -490,8 +491,10 @@ void ipoib_transport_dev_cleanup(struct net_device *dev);
- void ipoib_event(struct ib_event_handler *handler,
- 		 struct ib_event *record);
- 
--int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey);
--int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey);
-+int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey,
-+						unsigned char clone_index);
-+int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey,
-+						unsigned char clone_index);
- 
- void ipoib_pkey_poll(struct work_struct *work);
- int ipoib_pkey_dev_delay_open(struct net_device *dev);
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index bbee4b2..d0cb5cc 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -1095,17 +1095,44 @@ int ipoib_add_umcast_attr(struct net_device *dev)
- 	return device_create_file(&dev->dev, &dev_attr_umcast);
- }
- 
-+static int parse_child(struct device *dev, const char *buf, int *pkey,
-+		       int *child_index)
-+{
-+	int ret;
-+	struct ipoib_dev_priv *priv = netdev_priv(to_net_dev(dev));
-+
-+	*pkey = *child_index = -1;
-+
-+	/* 'pkey' or 'pkey.child_index' or '.child_index' are allowed */
-+	ret = sscanf(buf, "%i.%i", pkey, child_index);
-+	if (ret == 1)  /* just pkey, implicit child index is 0 */
-+		*child_index = 0;
-+	else  if (ret != 2) { /* pkey same as parent, specified child index */
-+		*pkey = priv->pkey;
-+		ret  = sscanf(buf, ".%i", child_index);
-+		if (ret != 1 || *child_index == 0)
-+			return -EINVAL;
-+	}
-+
-+	if (*child_index < 0 || *child_index > 0xff)
-+		return -EINVAL;
-+
-+	if (*pkey < 0 || *pkey > 0xffff)
-+		return -EINVAL;
-+
-+	ipoib_dbg(priv, "parse_child inp %s out pkey %04x index %d\n",
-+		buf, *pkey, *child_index);
-+	return 0;
-+}
-+
- static ssize_t create_child(struct device *dev,
- 			    struct device_attribute *attr,
- 			    const char *buf, size_t count)
- {
--	int pkey;
-+	int pkey, child_index;
- 	int ret;
- 
--	if (sscanf(buf, "%i", &pkey) != 1)
--		return -EINVAL;
--
--	if (pkey < 0 || pkey > 0xffff)
-+	if (parse_child(dev, buf, &pkey, &child_index))
- 		return -EINVAL;
- 
- 	/*
-@@ -1114,7 +1141,7 @@ static ssize_t create_child(struct device *dev,
- 	 */
- 	pkey |= 0x8000;
- 
--	ret = ipoib_vlan_add(to_net_dev(dev), pkey);
-+	ret = ipoib_vlan_add(to_net_dev(dev), pkey, child_index);
- 
- 	return ret ? ret : count;
- }
-@@ -1124,16 +1151,13 @@ static ssize_t delete_child(struct device *dev,
- 			    struct device_attribute *attr,
- 			    const char *buf, size_t count)
- {
--	int pkey;
-+	int pkey, child_index;
- 	int ret;
- 
--	if (sscanf(buf, "%i", &pkey) != 1)
--		return -EINVAL;
--
--	if (pkey < 0 || pkey > 0xffff)
-+	if (parse_child(dev, buf, &pkey, &child_index))
- 		return -EINVAL;
- 
--	ret = ipoib_vlan_delete(to_net_dev(dev), pkey);
-+	ret = ipoib_vlan_delete(to_net_dev(dev), pkey, child_index);
- 
- 	return ret ? ret : count;
- 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_verbs.c b/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
-index 049a997..2131772 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
-@@ -167,7 +167,8 @@ int ipoib_transport_dev_init(struct net_device *dev, struct ib_device *ca)
- 			size += ipoib_recvq_size * ipoib_max_conn_qp;
- 	}
- 
--	priv->recv_cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, dev, size, 0);
-+	priv->recv_cq = ib_create_cq(priv->ca, ipoib_ib_completion, NULL, dev, size,
-+				     priv->child_index % priv->ca->num_comp_vectors);
- 	if (IS_ERR(priv->recv_cq)) {
- 		printk(KERN_WARNING "%s: failed to create receive CQ\n", ca->name);
- 		goto out_free_mr;
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-index d7e9740..2d35cb4 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-@@ -49,7 +49,8 @@ static ssize_t show_parent(struct device *d, struct device_attribute *attr,
- }
- static DEVICE_ATTR(parent, S_IRUGO, show_parent, NULL);
- 
--int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
-+int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey,
-+		unsigned char child_index)
- {
- 	struct ipoib_dev_priv *ppriv, *priv;
- 	char intf_name[IFNAMSIZ];
-@@ -65,25 +66,40 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
- 	mutex_lock(&ppriv->vlan_mutex);
- 
- 	/*
--	 * First ensure this isn't a duplicate. We check the parent device and
--	 * then all of the child interfaces to make sure the Pkey doesn't match.
-+	 * First ensure this isn't a duplicate. We check all of the child
-+	 * interfaces to make sure the Pkey AND the child index
-+	 * don't match.
- 	 */
--	if (ppriv->pkey == pkey) {
--		result = -ENOTUNIQ;
--		priv = NULL;
--		goto err;
--	}
--
- 	list_for_each_entry(priv, &ppriv->child_intfs, list) {
--		if (priv->pkey == pkey) {
-+		if (priv->pkey == pkey && priv->child_index == child_index) {
- 			result = -ENOTUNIQ;
- 			priv = NULL;
- 			goto err;
- 		}
- 	}
- 
--	snprintf(intf_name, sizeof intf_name, "%s.%04x",
--		 ppriv->dev->name, pkey);
-+	/*
-+	 * for the case of non-legacy and same pkey childs we wanted to use
-+	 * a notation of ibN.pkey:index and ibN:index but this is problematic
-+	 * with tools like ifconfig who treat devices with ":" in their names
-+	 * as aliases which are restriced, e.t w.r.t counters, etc
-+	 */
-+	if (ppriv->pkey != pkey && child_index == 0) /* legacy child */
-+		snprintf(intf_name, sizeof intf_name, "%s.%04x",
-+			 ppriv->dev->name, pkey);
-+	else if (ppriv->pkey != pkey && child_index != 0) /* non-legacy child */
-+		snprintf(intf_name, sizeof intf_name, "%s.%04x.%d",
-+			 ppriv->dev->name, pkey, child_index);
-+	else if (ppriv->pkey == pkey && child_index != 0) /* same pkey child */
-+		snprintf(intf_name, sizeof intf_name, "%s.%d",
-+			 ppriv->dev->name, child_index);
-+	else  {
-+		ipoib_warn(ppriv, "wrong pkey/child_index pairing %04x %d\n",
-+			   pkey, child_index);
-+		result = -EINVAL;
-+		goto err;
-+	}
-+
- 	priv = ipoib_intf_alloc(intf_name);
- 	if (!priv) {
- 		result = -ENOMEM;
-@@ -101,6 +117,7 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
- 		goto err;
- 
- 	priv->pkey = pkey;
-+	priv->child_index = child_index;
- 
- 	memcpy(priv->dev->dev_addr, ppriv->dev->dev_addr, INFINIBAND_ALEN);
- 	priv->dev->broadcast[8] = pkey >> 8;
-@@ -157,7 +174,8 @@ err:
- 	return result;
- }
- 
--int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey)
-+int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey,
-+		unsigned char child_index)
- {
- 	struct ipoib_dev_priv *ppriv, *priv, *tpriv;
- 	struct net_device *dev = NULL;
-@@ -171,7 +189,7 @@ int ipoib_vlan_delete(struct net_device *pdev, unsigned short pkey)
- 		return restart_syscall();
- 	mutex_lock(&ppriv->vlan_mutex);
- 	list_for_each_entry_safe(priv, tpriv, &ppriv->child_intfs, list) {
--		if (priv->pkey == pkey) {
-+		if (priv->pkey == pkey && priv->child_index == child_index) {
- 			unregister_netdevice(priv->dev);
- 			ipoib_dev_cleanup(priv->dev);
- 			list_del(&priv->list);
--- 
-1.7.1
+ drivers/infiniband/ulp/ipoib/ipoib_vlan.c  |   46 +-
+ drivers/net/Kconfig                        |   15 +
+ drivers/net/Makefile                       |    1 +
+ drivers/net/eipoib/Makefile                |    4 +
+ drivers/net/eipoib/eth_ipoib.h             |  227 ++++
+ drivers/net/eipoib/eth_ipoib_ethtool.c     |  126 ++
+ drivers/net/eipoib/eth_ipoib_main.c        | 1915 ++++++++++++++++++++++++++++
+ drivers/net/eipoib/eth_ipoib_sysfs.c       |  640 ++++++++++
+ include/linux/if.h                         |    2 +
+ include/rdma/e_ipoib.h                     |   54 +
+ 17 files changed, 3134 insertions(+), 33 deletions(-)
+ create mode 100644 drivers/net/eipoib/Makefile
+ create mode 100644 drivers/net/eipoib/eth_ipoib.h
+ create mode 100644 drivers/net/eipoib/eth_ipoib_ethtool.c
+ create mode 100644 drivers/net/eipoib/eth_ipoib_main.c
+ create mode 100644 drivers/net/eipoib/eth_ipoib_sysfs.c
+ create mode 100644 include/rdma/e_ipoib.h
