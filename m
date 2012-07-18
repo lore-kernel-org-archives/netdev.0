@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 8/9] net/eipoib: Add Makefile, Kconfig and MAINTAINERS entries
-Date: Wed, 18 Jul 2012 14:00:01 +0300
-Message-ID: <1342609202-32427-9-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 5/9] net/eipoib: Add ethtool file support
+Date: Wed, 18 Jul 2012 13:59:58 +0300
+Message-ID: <1342609202-32427-6-git-send-email-ogerlitz@mellanox.com>
 References: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
 Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
 	sean.hefty@intel.com, shlomop@mellanox.com,
@@ -9,93 +9,157 @@ Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:55289 "HELO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753709Ab2GRLAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 07:00:17 -0400
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:44705 "HELO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753729Ab2GRLAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 07:00:18 -0400
 In-Reply-To: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Erez Shitrit <erezsh@mellanox.co.il>
 
-Add Kconfig entry under drivers/net and MAINTAINERS entry for eIPoIB, also
-add the driver makefile.
+Via ethtool the driver describes its version, ABI version, on what PIF
+interface it runs and various statistics.
 
 Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- MAINTAINERS                 |    6 ++++++
- drivers/net/Kconfig         |   15 +++++++++++++++
- drivers/net/Makefile        |    1 +
- drivers/net/eipoib/Makefile |    4 ++++
- 4 files changed, 26 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/eipoib/Makefile
+ drivers/net/eipoib/eth_ipoib_ethtool.c |  126 ++++++++++++++++++++++++++++++++
+ 1 files changed, 126 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/eipoib/eth_ipoib_ethtool.c
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b4321fb..52f35ba 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2618,6 +2618,12 @@ L:	netdev@vger.kernel.org
- S:	Maintained
- F:	drivers/net/ethernet/ibm/ehea/
- 
-+EIPoIB (Ethernet services over IPoIB) DRIVER
-+M:	Erez Shitrit <erezsh@mellanox.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	drivers/net/eipoib/
-+
- EMBEDDED LINUX
- M:	Paul Gortmaker <paul.gortmaker@windriver.com>
- M:	Matt Mackall <mpm@selenic.com>
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0c2bd80..ba98f61 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -68,6 +68,21 @@ config DUMMY
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called dummy.
- 
-+config E_IPOIB
-+	tristate "Ethernet Services over IPoIB"
-+	depends on INFINIBAND_IPOIB
-+	---help---
-+	  This driver supports Ethernet protocol over InfiniBand IPoIB devices.
-+	  Some services can run only on top of Ethernet L2 interfaces, and
-+	  cannot be bound to an IPoIB interface.
-+	  With this new driver, these services can run seamlessly.
-+
-+	  Main use case of the driver is the Ethernet Virtual Switching used in
-+	  virtualized environments, where an eipoib netdevice can be used as a
-+	  Physical Interface (PIF) in the hypervisor domain, and allow other guests
-+	  Virtual Interfaces (VIF) connected to the same Virtual Switch to run over
-+	  the InfiniBand fabric.
-+
- config EQUALIZER
- 	tristate "EQL (serial line load balancing) support"
- 	---help---
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 3d375ca..2c3409e 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -31,6 +31,7 @@ obj-$(CONFIG_CAIF) += caif/
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_ETRAX_ETHERNET) += cris/
- obj-$(CONFIG_NET_DSA) += dsa/
-+obj-$(CONFIG_E_IPOIB) += eipoib/
- obj-$(CONFIG_ETHERNET) += ethernet/
- obj-$(CONFIG_FDDI) += fddi/
- obj-$(CONFIG_HIPPI) += hippi/
-diff --git a/drivers/net/eipoib/Makefile b/drivers/net/eipoib/Makefile
+diff --git a/drivers/net/eipoib/eth_ipoib_ethtool.c b/drivers/net/eipoib/eth_ipoib_ethtool.c
 new file mode 100644
-index 0000000..b64e96e
+index 0000000..cd6ed91
 --- /dev/null
-+++ b/drivers/net/eipoib/Makefile
-@@ -0,0 +1,4 @@
-+obj-$(CONFIG_E_IPOIB)                         := eth_ipoib.o
-+eth_ipoib-y                                    := eth_ipoib_main.o \
-+                                                  eth_ipoib_sysfs.o \
-+                                                  eth_ipoib_ethtool.o
++++ b/drivers/net/eipoib/eth_ipoib_ethtool.c
+@@ -0,0 +1,126 @@
++/*
++ * Copyright (c) 2012 Mellanox Technologies. All rights reserved
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * openfabric.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "eth_ipoib.h"
++
++static void parent_ethtool_get_drvinfo(struct net_device *parent_dev,
++				       struct ethtool_drvinfo *drvinfo)
++{
++	struct parent *parent = netdev_priv(parent_dev);
++
++	strncpy(drvinfo->driver, DRV_NAME, 32);
++
++	strncpy(drvinfo->version, DRV_VERSION, 32);
++
++	strncpy(drvinfo->bus_info, parent->ipoib_main_interface,
++		ETHTOOL_BUSINFO_LEN);
++
++	/* indicates ABI version */
++	snprintf(drvinfo->fw_version, 32, "%d", EIPOIB_ABI_VER);
++}
++
++static const char parent_strings[][ETH_GSTRING_LEN] = {
++	/* private statistics */
++	"tx_parent_dropped",
++	"tx_vif_miss",
++	"tx_neigh_miss",
++	"tx_vlan",
++	"tx_shared",
++	"tx_proto_errors",
++	"tx_skb_errors",
++	"tx_slave_err",
++
++	"rx_parent_dropped",
++	"rx_vif_miss",
++	"rx_neigh_miss",
++	"rx_vlan",
++	"rx_shared",
++	"rx_proto_errors",
++	"rx_skb_errors",
++	"rx_slave_err",
++#define PORT_STATS_LEN	(8 * 2)
++};
++
++#define PARENT_STATS_LEN (sizeof(parent_strings) / ETH_GSTRING_LEN)
++
++static void parent_get_strings(struct net_device *parent_dev,
++			       uint32_t stringset, uint8_t *data)
++{
++	int index = 0, stats_off = 0, i;
++
++	if (stringset != ETH_SS_STATS)
++		return;
++
++	for (i = 0; i < PORT_STATS_LEN; i++)
++		strcpy(data + (index++) * ETH_GSTRING_LEN,
++		       parent_strings[i + stats_off]);
++	stats_off += PORT_STATS_LEN;
++
++}
++
++static void parent_get_ethtool_stats(struct net_device *parent_dev,
++				     struct ethtool_stats *stats,
++				     uint64_t *data)
++{
++	struct parent *parent = netdev_priv(parent_dev);
++	int index = 0, i;
++
++	read_lock_bh(&parent->lock);
++
++	for (i = 0; i < PORT_STATS_LEN; i++)
++		data[index++] = ((unsigned long *) &parent->port_stats)[i];
++
++	read_unlock_bh(&parent->lock);
++}
++
++static int parent_get_sset_count(struct net_device *parent_dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return PARENT_STATS_LEN;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static const struct ethtool_ops parent_ethtool_ops = {
++	.get_drvinfo		= parent_ethtool_get_drvinfo,
++	.get_strings		= parent_get_strings,
++	.get_ethtool_stats	= parent_get_ethtool_stats,
++	.get_sset_count		= parent_get_sset_count,
++	.get_link		= ethtool_op_get_link,
++};
++
++void parent_set_ethtool_ops(struct net_device *dev)
++{
++	SET_ETHTOOL_OPS(dev, &parent_ethtool_ops);
++}
 -- 
 1.7.1
