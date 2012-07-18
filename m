@@ -1,79 +1,79 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net] ixgbevf: fix VF untagging when 802.1 prio is set
-Date: Tue, 17 Jul 2012 19:31:31 -0700
-Message-ID: <1342578691.2143.27.camel@jtkirshe-mobl>
-References: <1342578236-20036-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] b44: add 64 bit stats
+Date: Wed, 18 Jul 2012 05:18:50 +0200
+Message-ID: <1342581530.2626.1291.camel@edumazet-glaptop>
+References: <1342337165.3265.10640.camel@edumazet-glaptop>
+	 <CABF+-6VZB=V1j2cAzhNkJozvcVs=VrQGYX_71HiZJ+g6od7qyA@mail.gmail.com>
+	 <CABF+-6W0B0wB7hAfSRh83aEb_XPqaJuzA1nKZJygdd9xw-rN1g@mail.gmail.com>
+	 <20120716.230806.242760837075045729.davem@davemloft.net>
+	 <CABF+-6WmaLjgTTX_ot=QCzsM-tYMJhVk5oRYFAVj66cKG-z31A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-cvJENdIxOufZnf7vbXec"
-Cc: Pascal Bouchareine <pascal@gandi.net>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Kevin Groeneveld <kgroeneveld@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38514 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751308Ab2GRCbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jul 2012 22:31:33 -0400
-In-Reply-To: <1342578236-20036-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:53481 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752319Ab2GRDS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 23:18:59 -0400
+Received: by vcbfk26 with SMTP id fk26so789568vcb.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 20:18:57 -0700 (PDT)
+In-Reply-To: <CABF+-6WmaLjgTTX_ot=QCzsM-tYMJhVk5oRYFAVj66cKG-z31A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2012-07-17 at 22:02 -0400, Kevin Groeneveld wrote:
+> On Tue, Jul 17, 2012 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
+> > This patch was corrupted by your email client and is therefore
+> > unusable.
+> 
+> If I resend the patch should I bump the version number in the subject?
+> 
+It doesnt matter in this case, its a formatting issue
 
---=-cvJENdIxOufZnf7vbXec
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Should I include "Acked-by" lines that people have posted?
+> 
 
-On Tue, 2012-07-17 at 19:23 -0700, Jeff Kirsher wrote:
-> From: Pascal Bouchareine <pascal@gandi.net>
->=20
-> We have had an issue when using ixgbe+ixgbevf and 802.1 VLAN tagging.
->=20
-> When attaching a VLAN to a VF, frames with a 802.1q priority appeared
-> untagged on the VF hence not reaching the VLAN, where frames with
-> priority 0 where tagged as expected and seen by the VLAN device.
->=20
-> This seems due to the way ixgbevf is looking up the full tag
-> (prio+cfi+vlan) against the adapter active_vlans, as a condition to
-> mark
-> the skb tagged.
->=20
-> Signed-off-by: Pascal Bouchareine <pascal@gandi.net>
-> Tested-by: Sibai Li <sibai.li@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)=20
+You can if no semantic change is done
 
-Dave-
+> I keep sending myself test messages with the patch but the white space
+> is always mangled.  I am not sure if Thunderbird is mangling it in the
+> sent message or the received message... :(
 
-Disregard, I just read your message about "that's it for net".  I will
-push this into my net-next tree.
+Documentation/email-clients.txt
 
-Cheers,
-Jeff
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Thunderbird (GUI)
 
---=-cvJENdIxOufZnf7vbXec
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Thunderbird is an Outlook clone that likes to mangle text, but there are ways
+to coerce it into behaving.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+- Allows use of an external editor:
+  The easiest thing to do with Thunderbird and patches is to use an
+  "external editor" extension and then just use your favorite $EDITOR
+  for reading/merging patches into the body text.  To do this, download
+  and install the extension, then add a button for it using
+  View->Toolbars->Customize... and finally just click on it when in the
+  Compose dialog.
 
-iQIcBAABCgAGBQJQBiAEAAoJEOVv75VaS+3OHJYP/i79S7irF47sZEHzyy7fcmcl
-k1gP8B1ZsIOQfsN8QV57oKnPCMjiv6tTRunFzDj3Ia75DlA18x9T7reCfyaEyrQj
-f5LbQu2wl7S1Ac5Ol6oEuBsPjSamzD/DbSl9KhKRPaunj5VlgymEt0XfZ9hwvZYp
-MUbw/cWDMQV2EaoDorjZNkXUbqBg/cDvfBee5rTkXigvCD0J471uKJDOYglyxlWd
-HHHjeYR7584kWw75r0xKkMiFBMxPcJexh/4wVWWoaicGikvDKM2VbsFdEVZ4NdtN
-1TSHyoBPfc6hUycO/t26cNnsdkL0IXoMnwQaNTupb692cRUhfifDDnRJolzeIfV5
-m5y9EHIbnUgyTGV2hD18ECMo1FSszzSiw2VUk4BLcGuDfV7xj2QssWbpPEUB7i9O
-d70LgAQuMX9MVG7s81jgU8BIBpjyj4qJsyrlcQZ/Ag8oKcLlOKSpgwPAzzUbt2Dp
-zunF/rdOZBumC9XYR1bh9pv7yM1cSNw001xHDqrue6DKOrJslQoryCa3TysW8WfC
-oFEsXuV+G8cX4lCpwFyK3fN4XwisTrZ4qc1hEZ/PYqqVhw2y8pAk4phd3WmyV3HU
-ti0GRAI6h2sUn8YxnXHIQsbqSK9G6RDOMGlGlvJp82+ZAb8aYZILofNCmJlTx2Sb
-++wwM/jHr0/+NeFGRF4l
-=Xjy1
------END PGP SIGNATURE-----
+To beat some sense out of the internal editor, do this:
 
---=-cvJENdIxOufZnf7vbXec--
+- Edit your Thunderbird config settings so that it won't use format=flowed.
+  Go to "edit->preferences->advanced->config editor" to bring up the
+  thunderbird's registry editor, and set "mailnews.send_plaintext_flowed" to
+  "false".
+
+- Disable HTML Format: Set "mail.identity.id1.compose_html" to "false".
+
+- Enable "preformat" mode: Set "editor.quotesPreformatted" to "true".
+
+- Enable UTF8: Set "prefs.converted-to-utf8" to "true".
+
+- Install the "toggle wordwrap" extension.  Download the file from:
+    https://addons.mozilla.org/thunderbird/addon/2351/
+  Then go to "tools->add ons", select "install" at the bottom of the screen,
+  and browse to where you saved the .xul file.  This adds an "Enable
+  Wordwrap" entry under the Options menu of the message composer.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
