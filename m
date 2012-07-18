@@ -1,44 +1,46 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH net-next] asix: Fix return value in AX88172A driver bind function
-Date: Wed, 18 Jul 2012 12:56:52 +0200
-Message-ID: <1342609012-3075-1-git-send-email-christian.riesch@omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Christian Riesch <christian.riesch@omicron.at>
-To: <netdev@vger.kernel.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 2/9] include/linux: Add private flags for IPoIB interfaces
+Date: Wed, 18 Jul 2012 13:59:55 +0300
+Message-ID: <1342609202-32427-3-git-send-email-ogerlitz@mellanox.com>
+References: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
+Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
+	sean.hefty@intel.com, shlomop@mellanox.com,
+	Erez Shitrit <erezsh@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:48906 "EHLO ns.omicron.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753450Ab2GRK4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 06:56:03 -0400
-Received: from counter.omicron.at ([212.183.10.29])
-	by ns.omicron.at (8.13.1/8.13.1) with ESMTP id q6IAtuGH000480
-	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 12:56:01 +0200
-Received: from mary.at.omicron.at (mary.at.omicron.at [172.22.100.48])
-	by counter.omicron.at (8.14.4/8.14.4) with ESMTP id q6IAtu2R017056
-	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 12:55:56 +0200
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:40597 "HELO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753632Ab2GRLAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 07:00:17 -0400
+In-Reply-To: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return -ENOTSUPP if the initialization fails because the
-device is configured for a mode that is not supported by the driver.
+From: Erez Shitrit <erezsh@mellanox.co.il>
 
-Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+The new 2 bits indicates whenever a device is considered PIF interface,
+which means the "main" interfaces (ib0, ib1 etc), or cloned interfaces
+(ib0.1, ib1.2 etc.) that is now in use by the eIPoIB driver.
+
+Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/usb/ax88172a.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/linux/if.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
-index 534a144..3d0f8fa 100644
---- a/drivers/net/usb/ax88172a.c
-+++ b/drivers/net/usb/ax88172a.c
-@@ -274,6 +274,7 @@ static int ax88172a_bind(struct usbnet *dev, struct usb_interface *intf)
- 		break;
- 	default:
- 		netdev_err(dev->net, "Interface mode not supported by driver\n");
-+		ret = -ENOTSUPP;
- 		goto free;
- 	}
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 1ec407b..f50dbf2 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -84,6 +84,8 @@
+ #define IFF_LIVE_ADDR_CHANGE 0x100000	/* device supports hardware address
+ 					 * change when it's running */
  
++#define IFF_EIPOIB_PIF  0x200000       /* IPoIB PIF intf (ib0, ib1 etc.) */
++#define IFF_EIPOIB_VIF  0x400000       /* IPoIB VIF intf (ib0.x, ib1.x etc.) */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
 -- 
-1.7.0.4
+1.7.1
