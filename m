@@ -1,33 +1,61 @@
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Subject: Re: [PATCH v2] b44: add 64 bit stats
-Date: Tue, 17 Jul 2012 22:02:37 -0400
-Message-ID: <CABF+-6WmaLjgTTX_ot=QCzsM-tYMJhVk5oRYFAVj66cKG-z31A@mail.gmail.com>
-References: <1342337165.3265.10640.camel@edumazet-glaptop>
-	<CABF+-6VZB=V1j2cAzhNkJozvcVs=VrQGYX_71HiZJ+g6od7qyA@mail.gmail.com>
-	<CABF+-6W0B0wB7hAfSRh83aEb_XPqaJuzA1nKZJygdd9xw-rN1g@mail.gmail.com>
-	<20120716.230806.242760837075045729.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/6] ixgbe: Ping the VFs on link status change to trigger link change
+Date: Tue, 17 Jul 2012 19:20:40 -0700
+Message-ID: <1342578045-17778-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1342578045-17778-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:52534 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750830Ab2GRCCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 22:02:39 -0400
-Received: by vbbff1 with SMTP id ff1so745812vbb.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 19:02:38 -0700 (PDT)
-In-Reply-To: <20120716.230806.242760837075045729.davem@davemloft.net>
+Received: from mga14.intel.com ([143.182.124.37]:6702 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752057Ab2GRCUt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jul 2012 22:20:49 -0400
+In-Reply-To: <1342578045-17778-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 17, 2012 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
-> This patch was corrupted by your email client and is therefore
-> unusable.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-If I resend the patch should I bump the version number in the subject?
+When the link status changes on the PF we need to notify the VFs. In order
+to do this we should ping all of the VFs in order to trigger a link status
+change on them as well.
 
-Should I include "Acked-by" lines that people have posted?
+This fixes issues in which the PF would reset, but the VF didn't because the
+NAK flag was not set in the VF mailbox.
 
-I keep sending myself test messages with the patch but the white space
-is always mangled.  I am not sure if Thunderbird is mangling it in the
-sent message or the received message... :(
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ee230f5..17f46f0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5390,6 +5390,9 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
+ 
+ 	netif_carrier_on(netdev);
+ 	ixgbe_check_vf_rate_limit(adapter);
++
++	/* ping all the active vfs to let them know link has changed */
++	ixgbe_ping_all_vfs(adapter);
+ }
+ 
+ /**
+@@ -5419,6 +5422,9 @@ static void ixgbe_watchdog_link_is_down(struct ixgbe_adapter *adapter)
+ 
+ 	e_info(drv, "NIC Link is Down\n");
+ 	netif_carrier_off(netdev);
++
++	/* ping all the active vfs to let them know link has changed */
++	ixgbe_ping_all_vfs(adapter);
+ }
+ 
+ /**
+-- 
+1.7.10.4
