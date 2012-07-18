@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 18 Jul 2012 09:21:27 -0700 (PDT)
-Message-ID: <20120718.092127.1727626673493704330.davem@davemloft.net>
-References: <1342578045-17778-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Wed, 18 Jul 2012 09:23:46 -0700 (PDT)
+Message-ID: <20120718.092346.1263036873056516097.davem@davemloft.net>
+References: <1342564781.2626.1264.camel@edumazet-glaptop>
+	<20120717234037.GA26972@electric-eye.fr.zoreil.com>
+	<AC35CD5731C3479B9BF5E53BF541A81F@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: romieu@fr.zoreil.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35346 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35374 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857Ab2GRQV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:21:28 -0400
-In-Reply-To: <1342578045-17778-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1754401Ab2GRQXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:23:47 -0400
+In-Reply-To: <AC35CD5731C3479B9BF5E53BF541A81F@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 17 Jul 2012 19:20:39 -0700
+From: hayeswang <hayeswang@realtek.com>
+Date: Wed, 18 Jul 2012 14:45:55 +0800
 
-> This series contains updates to ixgbe & ixgbevf.
+> Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> [...]
 > 
-> The following are changes since commit 5abf7f7e0f6bdbfcac737f636497d7016d9507eb:
->   ipv4: fix rcu splat
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+>> Hayes, should we not add into the kernel driver something similar to
+>> the rtl8168_start_xmit::skb_checksum_help stuff in Realtek's 
+>> 8168 driver ?
+>> There seems to be a bug for (skb->len < 60 && RTL_GIGA_MAC_VER_34.
+> 
+> For RTL8168E-VL (RTL_GIGA_MAC_VER_34), the hardware wouldn't send the packet
+> with the length less than 60 bytes. The hardware should pad this kind of packet
+> to 60 bytes, but it wouldn't. Therefore, the software has to pad the packet to
+> 60 bytes. However, the hw checksum would be incorrect for the modified packet,
+> so the software checksum is necessary.
 
-Pulled, thanks Jeff.
+I wonder how the hardware checksum can be incorrectly calculated if the padding
+is done with zeros?
