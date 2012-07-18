@@ -1,74 +1,291 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v2 0/7] TCP Fast Open client
-Date: Wed, 18 Jul 2012 14:01:40 -0700
-Message-ID: <1342645307-17772-1-git-send-email-ycheng@google.com>
+Subject: [PATCH v2 3/7] net-tcp: Fast Open client - sending SYN-data
+Date: Wed, 18 Jul 2012 14:01:43 -0700
+Message-ID: <1342645307-17772-4-git-send-email-ycheng@google.com>
+References: <1342645307-17772-1-git-send-email-ycheng@google.com>
 Cc: sivasankar@cs.ucsd.edu, ycheng@google.com, netdev@vger.kernel.org
 To: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
 	ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f74.google.com ([209.85.213.74]:57063 "EHLO
-	mail-yw0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624Ab2GRVCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:02:33 -0400
-Received: by yhl10 with SMTP id 10so216945yhl.1
+Received: from mail-ey0-f202.google.com ([209.85.215.202]:48368 "EHLO
+	mail-ey0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751909Ab2GRVCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:02:35 -0400
+Received: by eaao13 with SMTP id o13so107538eaa.1
         for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 14:02:33 -0700 (PDT)
+In-Reply-To: <1342645307-17772-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ChangeLog since v1:
-  - Reduce tons of code by storing Fast Open stats in the TCP metrics :)
-  - Clarify the purpose of using an experimental option in patch 1/7
+This patch implements sending SYN-data in tcp_connect(). The data is
+from tcp_sendmsg() with flag MSG_FASTOPEN (implemented in a later patch).
 
-This patch series implement the client functionality of TCP Fast Open.
-TCP Fast Open (TFO) allows data to be carried in the SYN and SYN-ACK
-packets and consumed by the receiving end during the initial connection
-handshake, thus providing a saving of up to one full round trip time (RTT)
-compared to standard TCP requiring a three-way handshake (3WHS) to
-complete before data can be exchanged.
+The length of the cookie in tcp_fastopen_req, init'd to 0, controls the
+type of the SYN. If the cookie is not cached (len==0), the host sends
+data-less SYN with Fast Open cookie request option to solicit a cookie
+from the remote. If cookie is not available (len > 0), the host sends
+a SYN-data with Fast Open cookie option. If cookie length is negative,
+  the SYN will not include any Fast Open option (for fall back operations).
 
-The protocol change is detailed in the IETF internet draft at
-http://www.ietf.org/id/draft-ietf-tcpm-fastopen-00.txt . The research
-paper (http://conferences.sigcomm.org/co-next/2011/papers/1569470463.pdf)
-studied the performance impact of HTTP using Fast Open, based on this
-Linux implementation and the Chrome browser.
+To deal with middleboxes that may drop SYN with data or experimental TCP
+option, the SYN-data is only sent once. SYN retransmits do not include
+data or Fast Open options. The connection will fall back to regular TCP
+handshake.
 
-To use Fast Open, the client application (active SYN sender) must 
-replace connect() socket call with sendmsg() or sendto() with the new
-MSG_FASTOPEN flag. If the server supports Fast Open the data exchange
-starts at TCP handshake. Otherwise the connection will automatically
-fall back to conventional TCP.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ include/linux/snmp.h  |    1 +
+ include/linux/tcp.h   |    6 ++-
+ include/net/tcp.h     |    9 ++++
+ net/ipv4/af_inet.c    |    7 +++
+ net/ipv4/proc.c       |    1 +
+ net/ipv4/tcp_output.c |  115 +++++++++++++++++++++++++++++++++++++++++++++----
+ 6 files changed, 129 insertions(+), 10 deletions(-)
 
-Yuchung Cheng (7):
-  net-tcp: Fast Open base
-  net-tcp: Fast Open client - cookie cache
-  net-tcp: Fast Open client - sending SYN-data
-  net-tcp: Fast Open client - receiving SYN-ACK
-  net-tcp: Fast Open client - sendmsg(MSG_FASTOPEN)
-  net-tcp: Fast Open client - detecting SYN-data drops
-  net-tcp: Fast Open client - cookie-less mode
-
- Documentation/networking/ip-sysctl.txt |   13 +++
- include/linux/snmp.h                   |    1 +
- include/linux/socket.h                 |    1 +
- include/linux/tcp.h                    |   17 ++++-
- include/net/inet_common.h              |    6 +-
- include/net/tcp.h                      |   28 ++++++-
- net/ipv4/Makefile                      |    2 +-
- net/ipv4/af_inet.c                     |   26 +++++-
- net/ipv4/proc.c                        |    1 +
- net/ipv4/syncookies.c                  |    2 +-
- net/ipv4/sysctl_net_ipv4.c             |    7 ++
- net/ipv4/tcp.c                         |   61 ++++++++++++-
- net/ipv4/tcp_fastopen.c                |   11 +++
- net/ipv4/tcp_input.c                   |   76 ++++++++++++++--
- net/ipv4/tcp_ipv4.c                    |    5 +-
- net/ipv4/tcp_metrics.c                 |   51 +++++++++++
- net/ipv4/tcp_minisocks.c               |    4 +-
- net/ipv4/tcp_output.c                  |  153 +++++++++++++++++++++++++++++---
- net/ipv6/syncookies.c                  |    2 +-
- net/ipv6/tcp_ipv6.c                    |    2 +-
- 20 files changed, 427 insertions(+), 42 deletions(-)
- create mode 100644 net/ipv4/tcp_fastopen.c
-
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index e5fcbd0..00bc189 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -238,6 +238,7 @@ enum
+ 	LINUX_MIB_TCPOFOMERGE,			/* TCPOFOMerge */
+ 	LINUX_MIB_TCPCHALLENGEACK,		/* TCPChallengeACK */
+ 	LINUX_MIB_TCPSYNCHALLENGE,		/* TCPSYNChallenge */
++	LINUX_MIB_TCPFASTOPENACTIVE,		/* TCPFastOpenActive */
+ 	__LINUX_MIB_MAX
+ };
+ 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 12948f5..1edf96a 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -386,7 +386,8 @@ struct tcp_sock {
+ 		unused      : 1;
+ 	u8	repair_queue;
+ 	u8	do_early_retrans:1,/* Enable RFC5827 early-retransmit  */
+-		early_retrans_delayed:1; /* Delayed ER timer installed */
++		early_retrans_delayed:1, /* Delayed ER timer installed */
++		syn_fastopen:1;	/* SYN includes Fast Open option */
+ 
+ /* RTT measurement */
+ 	u32	srtt;		/* smoothed round trip time << 3	*/
+@@ -500,6 +501,9 @@ struct tcp_sock {
+ 	struct tcp_md5sig_info	__rcu *md5sig_info;
+ #endif
+ 
++/* TCP fastopen related information */
++	struct tcp_fastopen_request *fastopen_req;
++
+ 	/* When the cookie options are generated and exchanged, then this
+ 	 * object holds a reference to them (cookie_values->kref).  Also
+ 	 * contains related tcp_cookie_transactions fields.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e601da1..867557b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1289,6 +1289,15 @@ extern int tcp_md5_hash_skb_data(struct tcp_md5sig_pool *, const struct sk_buff
+ extern int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
+ 			    const struct tcp_md5sig_key *key);
+ 
++struct tcp_fastopen_request {
++	/* Fast Open cookie. Size 0 means a cookie request */
++	struct tcp_fastopen_cookie	cookie;
++	struct msghdr			*data;  /* data in MSG_FASTOPEN */
++	u16				copied;	/* queued in tcp_connect() */
++};
++
++void tcp_free_fastopen_req(struct tcp_sock *tp);
++
+ /* write queue abstraction */
+ static inline void tcp_write_queue_purge(struct sock *sk)
+ {
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 07a02f6..6ef67b7 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -558,9 +558,14 @@ EXPORT_SYMBOL(inet_dgram_connect);
+ 
+ static long inet_wait_for_connect(struct sock *sk, long timeo)
+ {
++	const bool write = (sk->sk_protocol == IPPROTO_TCP) &&
++			   tcp_sk(sk)->fastopen_req &&
++			   tcp_sk(sk)->fastopen_req->data;
+ 	DEFINE_WAIT(wait);
+ 
+ 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
++	if (write)
++		sk->sk_write_pending++;
+ 
+ 	/* Basic assumption: if someone sets sk->sk_err, he _must_
+ 	 * change state of the socket from TCP_SYN_*.
+@@ -576,6 +581,8 @@ static long inet_wait_for_connect(struct sock *sk, long timeo)
+ 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 	}
+ 	finish_wait(sk_sleep(sk), &wait);
++	if (write)
++		sk->sk_write_pending--;
+ 	return timeo;
+ }
+ 
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 2a5240b..957acd1 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -262,6 +262,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPOFOMerge", LINUX_MIB_TCPOFOMERGE),
+ 	SNMP_MIB_ITEM("TCPChallengeACK", LINUX_MIB_TCPCHALLENGEACK),
+ 	SNMP_MIB_ITEM("TCPSYNChallenge", LINUX_MIB_TCPSYNCHALLENGE),
++	SNMP_MIB_ITEM("TCPFastOpenActive", LINUX_MIB_TCPFASTOPENACTIVE),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 4849be7..8869328 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -596,6 +596,7 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 	u8 cookie_size = (!tp->rx_opt.cookie_out_never && cvp != NULL) ?
+ 			 tcp_cookie_size_check(cvp->cookie_desired) :
+ 			 0;
++	struct tcp_fastopen_request *fastopen = tp->fastopen_req;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	*md5 = tp->af_specific->md5_lookup(sk, sk);
+@@ -636,6 +637,16 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 			remaining -= TCPOLEN_SACKPERM_ALIGNED;
+ 	}
+ 
++	if (fastopen && fastopen->cookie.len >= 0) {
++		u32 need = TCPOLEN_EXP_FASTOPEN_BASE + fastopen->cookie.len;
++		need = (need + 3) & ~3U;  /* Align to 32 bits */
++		if (remaining >= need) {
++			opts->options |= OPTION_FAST_OPEN_COOKIE;
++			opts->fastopen_cookie = &fastopen->cookie;
++			remaining -= need;
++			tp->syn_fastopen = 1;
++		}
++	}
+ 	/* Note that timestamps are required by the specification.
+ 	 *
+ 	 * Odd numbers of bytes are prohibited by the specification, ensuring
+@@ -2824,6 +2835,96 @@ void tcp_connect_init(struct sock *sk)
+ 	tcp_clear_retrans(tp);
+ }
+ 
++static void tcp_connect_queue_skb(struct sock *sk, struct sk_buff *skb)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
++
++	tcb->end_seq += skb->len;
++	skb_header_release(skb);
++	__tcp_add_write_queue_tail(sk, skb);
++	sk->sk_wmem_queued += skb->truesize;
++	sk_mem_charge(sk, skb->truesize);
++	tp->write_seq = tcb->end_seq;
++	tp->packets_out += tcp_skb_pcount(skb);
++}
++
++/* Build and send a SYN with data and (cached) Fast Open cookie. However,
++ * queue a data-only packet after the regular SYN, such that regular SYNs
++ * are retransmitted on timeouts. Also if the remote SYN-ACK acknowledges
++ * only the SYN sequence, the data are retransmitted in the first ACK.
++ * If cookie is not cached or other error occurs, falls back to send a
++ * regular SYN with Fast Open cookie request option.
++ */
++static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_fastopen_request *fo = tp->fastopen_req;
++	int space, i, err = 0, iovlen = fo->data->msg_iovlen;
++	struct sk_buff *syn_data = NULL, *data;
++
++	tcp_fastopen_cache_get(sk, &tp->rx_opt.mss_clamp, &fo->cookie);
++	if (fo->cookie.len <= 0)
++		goto fallback;
++
++	/* MSS for SYN-data is based on cached MSS and bounded by PMTU and
++	 * user-MSS. Reserve maximum option space for middleboxes that add
++	 * private TCP options. The cost is reduced data space in SYN :(
++	 */
++	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < tp->rx_opt.mss_clamp)
++		tp->rx_opt.mss_clamp = tp->rx_opt.user_mss;
++	space = tcp_mtu_to_mss(sk, inet_csk(sk)->icsk_pmtu_cookie) -
++		MAX_TCP_OPTION_SPACE;
++
++	syn_data = skb_copy_expand(syn, skb_headroom(syn), space,
++				   sk->sk_allocation);
++	if (syn_data == NULL)
++		goto fallback;
++
++	for (i = 0; i < iovlen && syn_data->len < space; ++i) {
++		struct iovec *iov = &fo->data->msg_iov[i];
++		unsigned char __user *from = iov->iov_base;
++		int len = iov->iov_len;
++
++		if (syn_data->len + len > space)
++			len = space - syn_data->len;
++		else if (i + 1 == iovlen)
++			/* No more data pending in inet_wait_for_connect() */
++			fo->data = NULL;
++
++		if (skb_add_data(syn_data, from, len))
++			goto fallback;
++	}
++
++	/* Queue a data-only packet after the regular SYN for retransmission */
++	data = pskb_copy(syn_data, sk->sk_allocation);
++	if (data == NULL)
++		goto fallback;
++	TCP_SKB_CB(data)->seq++;
++	TCP_SKB_CB(data)->tcp_flags &= ~TCPHDR_SYN;
++	TCP_SKB_CB(data)->tcp_flags = (TCPHDR_ACK|TCPHDR_PSH);
++	tcp_connect_queue_skb(sk, data);
++	fo->copied = data->len;
++
++	if (tcp_transmit_skb(sk, syn_data, 0, sk->sk_allocation) == 0) {
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENACTIVE);
++		goto done;
++	}
++	syn_data = NULL;
++
++fallback:
++	/* Send a regular SYN with Fast Open cookie request option */
++	if (fo->cookie.len > 0)
++		fo->cookie.len = 0;
++	err = tcp_transmit_skb(sk, syn, 1, sk->sk_allocation);
++	if (err)
++		tp->syn_fastopen = 0;
++	kfree_skb(syn_data);
++done:
++	fo->cookie.len = -1;  /* Exclude Fast Open option for SYN retries */
++	return err;
++}
++
+ /* Build a SYN and send it off. */
+ int tcp_connect(struct sock *sk)
+ {
+@@ -2841,17 +2942,13 @@ int tcp_connect(struct sock *sk)
+ 	skb_reserve(buff, MAX_TCP_HEADER);
+ 
+ 	tcp_init_nondata_skb(buff, tp->write_seq++, TCPHDR_SYN);
++	tp->retrans_stamp = TCP_SKB_CB(buff)->when = tcp_time_stamp;
++	tcp_connect_queue_skb(sk, buff);
+ 	TCP_ECN_send_syn(sk, buff);
+ 
+-	/* Send it off. */
+-	TCP_SKB_CB(buff)->when = tcp_time_stamp;
+-	tp->retrans_stamp = TCP_SKB_CB(buff)->when;
+-	skb_header_release(buff);
+-	__tcp_add_write_queue_tail(sk, buff);
+-	sk->sk_wmem_queued += buff->truesize;
+-	sk_mem_charge(sk, buff->truesize);
+-	tp->packets_out += tcp_skb_pcount(buff);
+-	err = tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
++	/* Send off SYN; include data in Fast Open. */
++	err = tp->fastopen_req ? tcp_send_syn_data(sk, buff) :
++	      tcp_transmit_skb(sk, buff, 1, sk->sk_allocation);
+ 	if (err == -ECONNREFUSED)
+ 		return err;
+ 
 -- 
 1.7.7.3
