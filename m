@@ -1,31 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: That's pretty much it for 3.5.0
-Date: Wed, 18 Jul 2012 11:33:26 -0700 (PDT)
-Message-ID: <20120718.113326.707391526594137288.davem@davemloft.net>
-References: <205259E8-A99F-4573-96C9-7A394235B338@intel.com>
-	<1342634139.2626.3281.camel@edumazet-glaptop>
-	<FEB6B45E-1CCF-4CBC-AEB7-21D2088E175C@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3 v2] net: various tilegx networking fixes
+Date: Wed, 18 Jul 2012 11:36:23 -0700 (PDT)
+Message-ID: <20120718.113623.984635805289135415.davem@davemloft.net>
+References: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, h@hmsreliant.think-freely.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <FEB6B45E-1CCF-4CBC-AEB7-21D2088E175C-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37115 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755445Ab2GRSgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 14:36:23 -0400
+In-Reply-To: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Rustad, Mark D" <mark.d.rustad-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Date: Wed, 18 Jul 2012 18:31:31 +0000
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Sun, 1 Jul 2012 14:43:47 -0400
 
-> If this looks like a good change, I can send the patch. Is there any
-> concern about init_net going from bss to data?
+> The tree is at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/cmetcalf/linux-tile.git net
+> 
+> Chris Metcalf (3):
+>       net: tilegx driver bugfix (be explicit about percpu queue number)
+>       tilegx net driver: handle payload data not in frags
+>       tilegx net: use eth_hw_addr_random(), not random_ether_addr()
 
-There is no such concern, I like your change a lot.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+These changes look fine, but when I pull from your tree I get tons of
+totally unrelated stuff and a merge conflict in this driver.
+
+Can you put together a clean pull against net-next?
+
+Thanks.
