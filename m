@@ -1,54 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
-Date: Wed, 18 Jul 2012 09:07:07 -0700 (PDT)
-Message-ID: <20120718.090707.1241941591837985005.davem@davemloft.net>
-References: <alpine.LFD.2.00.1207181014050.1652@ja.ssi.bg>
-	<1342596648.2626.1831.camel@edumazet-glaptop>
-	<alpine.LFD.2.00.1207181105320.2154@ja.ssi.bg>
+Subject: Re: pull request: sfc-next 2012-07-17
+Date: Wed, 18 Jul 2012 09:10:10 -0700 (PDT)
+Message-ID: <20120718.091010.2180226373071597034.davem@davemloft.net>
+References: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35121 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35173 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157Ab2GRQHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:07:08 -0400
-In-Reply-To: <alpine.LFD.2.00.1207181105320.2154@ja.ssi.bg>
+	with ESMTP id S1751842Ab2GRQKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:10:11 -0400
+In-Reply-To: <1342544740.2698.13.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Wed, 18 Jul 2012 11:36:08 +0300 (EEST)
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 17 Jul 2012 18:05:40 +0100
 
-> 	Is the cost of read_seqbegin a problem? Here is a
-> 2nd version, I still keep this first check for now.
-
-No, the read side of seqlocks are extremely cheap, it's just a plain
-read and compare of a read-mostly integer.
-
-> Subject: [PATCH v2] ipv4: use seqlock for nh_exceptions
+> The following changes since commit 141e369de698f2e17bf716b83fcc647ddcb2220c:
 > 
-> From: Julian Anastasov <ja@ssi.bg>
+>   xfrm: Initialize the struct xfrm_dst behind the dst_enty field (2012-07-14 00:29:12 -0700)
 > 
-> 	Use global seqlock for the nh_exceptions. Call
-> fnhe_oldest with the right hash chain. Correct the diff
-> value for dst_set_expires.
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 > 
-> v2: after suggestions from Eric Dumazet:
-> * get rid of spin lock fnhe_lock, rearrange update_or_create_fnhe
-> * continue daddr search in rt_bind_exception
+> (commit c2dbab39db1c3c2ccbdbb2c6bac6f07cc7a7c1f6)
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
+> 1. Fix potential badness when running a self-test with SR-IOV enabled.
+> 2. Fix calculation of some interface statistics that could run backward.
+> 3. Miscellaneous cleanup.
 
-I think if you get a seqlock mis-compare, you will need to branch back
-to rescan the hash chain from the beginning.
+Looks good, pulled, thanks Ben.
 
-Otherwise I like these changes a lot.
-
-We should perhaps consider doing something similar in the TCP metrics
-code.
-
-Thanks!
+Out of curiosity, why the conversion to the generic DMA interfaces?
+Do you plan on using something uniquely provided by them vs. the PCI
+specific DMA interfaces (ability to specify GFP flags, stuff like
+that) or do you really plan on having non-PCI devices in the future?
