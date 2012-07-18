@@ -1,58 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 08/15] ipv4: Kill routes during PMTU/redirect updates.
-Date: Wed, 18 Jul 2012 12:15:44 -0700
-Message-ID: <1342638944.2013.10.camel@joe2Laptop>
-References: <20120718.112356.1409220904008377845.davem@davemloft.net>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH 0/3 v2] net: various tilegx networking fixes
+Date: Wed, 18 Jul 2012 15:22:12 -0400
+Message-ID: <50070CE4.7040704@tilera.com>
+References: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com> <20120718.113623.984635805289135415.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41951 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753282Ab2GRTPp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 15:15:45 -0400
-In-Reply-To: <20120718.112356.1409220904008377845.davem@davemloft.net>
+Received: from usmamail.tilera.com ([12.216.194.151]:25966 "EHLO
+	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755740Ab2GRTWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 15:22:14 -0400
+In-Reply-To: <20120718.113623.984635805289135415.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 11:23 -0700, David Miller wrote:
-> Mark them obsolete so there will be a re-lookup to fetch the
-> FIB nexthop exception info.
-[]
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-[]
-> @@ -716,8 +717,8 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
->  					fnhe->fnhe_gw = new_gw;
->  				spin_unlock_bh(&fnhe_lock);
->  			}
-> -			rt->rt_gateway = new_gw;
-> -			rt->rt_flags |= RTCF_REDIRECTED;
-> +			if (kill_route)
-> +				rt->dst.obsolete = -2;
+On 7/18/2012 2:36 PM, David Miller wrote:
+> From: Chris Metcalf <cmetcalf@tilera.com>
+> Date: Sun, 1 Jul 2012 14:43:47 -0400
+>
+>> The tree is at:
+>>
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/cmetcalf/linux-tile.git net
+>>
+>> Chris Metcalf (3):
+>>       net: tilegx driver bugfix (be explicit about percpu queue number)
+>>       tilegx net driver: handle payload data not in frags
+>>       tilegx net: use eth_hw_addr_random(), not random_ether_addr()
+> These changes look fine, but when I pull from your tree I get tons of
+> totally unrelated stuff and a merge conflict in this driver.
+>
+> Can you put together a clean pull against net-next?
 
-Perhaps -2 should be a #define?
+The merge conflict was against Joe Perches' bombing of random_ether_addr()
+to eth_random_addr().  I left in my change to convert that again to be
+eth_hw_addr_random(), which naively seems like a better API, and sets
+NET_ADDR_RANDOM, which is presumably a good thing.
 
-Perhaps struct dst_entry.obsolete could be a char instead of
-a short and a pad byte could added for some future use.
+I recreated the tree to be branched off of net-next. ( I had originally
+created it off of Linus's tree, which in retrospect doesn't make much
+sense.)  Please try to pull again - thanks!
 
-Maybe:
-
- include/net/dst.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 5161046..6c40490 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -65,7 +65,8 @@ struct dst_entry {
- 	unsigned short		pending_confirm;
- 
- 	short			error;
--	short			obsolete;
-+	char			obsolete;
-+	char			__pad3;
- 	unsigned short		header_len;	/* more space at head required */
- 	unsigned short		trailer_len;	/* space to reserve at tail */
- #ifdef CONFIG_IP_ROUTE_CLASSID
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
