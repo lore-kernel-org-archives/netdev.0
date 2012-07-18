@@ -1,59 +1,129 @@
-From: Mark Rustad <mark.d.rustad@intel.com>
-Subject: [PATCH] net: Statically initialize init_net.dev_base_head
-Date: Wed, 18 Jul 2012 12:06:07 -0700
-Message-ID: <20120718190607.22923.77935.stgit@host1-mdrustad.localdomain>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] ipx: move peII functions
+Date: Wed, 18 Jul 2012 12:09:48 -0700
+Message-ID: <20120718120948.67611bdd@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	gaofeng@cn.fujitsu.com, nhorman@tuxdriver.com,
-	eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:40161 "EHLO mga09.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:51533 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755649Ab2GRTGx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 15:06:53 -0400
+	id S1755327Ab2GRTJz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 15:09:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change eliminates an initialization-order hazard most
-recently seen when netprio_cgroup is built into the kernel.
+The Ethernet II wrapper is only used by IPX protocol, may have once
+been used by Appletalk but not currently. Therefore it makes sense to 
+move it to the IPX dust bin and drop the exports.
 
-With thanks to Eric Dumazet for catching a bug.
+Build tested only.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
 ---
+ net/ethernet/Makefile |    2 --
+ net/ethernet/pe2.c    |   37 -------------------------------------
+ net/ipx/Makefile      |    2 +-
+ net/ipx/pe2.c         |   35 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 36 insertions(+), 40 deletions(-)
 
- net/core/dev.c           |    3 ++-
- net/core/net_namespace.c |    4 +++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0f28a9e..1cb0d8a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6283,7 +6283,8 @@ static struct hlist_head *netdev_create_hash(void)
- /* Initialize per network namespace state */
- static int __net_init netdev_init(struct net *net)
- {
--	INIT_LIST_HEAD(&net->dev_base_head);
-+	if (net != &init_net)
-+		INIT_LIST_HEAD(&net->dev_base_head);
+--- a/net/ethernet/Makefile	2012-07-16 12:08:12.163683266 -0700
++++ b/net/ethernet/Makefile	2012-07-17 09:25:49.009927882 -0700
+@@ -3,5 +3,3 @@
+ #
  
- 	net->dev_name_head = netdev_create_hash();
- 	if (net->dev_name_head == NULL)
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index dddbacb..42f1e1c 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -27,7 +27,9 @@ static DEFINE_MUTEX(net_mutex);
- LIST_HEAD(net_namespace_list);
- EXPORT_SYMBOL_GPL(net_namespace_list);
+ obj-y					+= eth.o
+-obj-$(subst m,y,$(CONFIG_IPX))		+= pe2.o
+-obj-$(subst m,y,$(CONFIG_ATALK))	+= pe2.o
+--- a/net/ethernet/pe2.c	2012-07-16 12:08:12.163683266 -0700
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,37 +0,0 @@
+-#include <linux/in.h>
+-#include <linux/mm.h>
+-#include <linux/module.h>
+-#include <linux/netdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/slab.h>
+-
+-#include <net/datalink.h>
+-
+-static int pEII_request(struct datalink_proto *dl,
+-			struct sk_buff *skb, unsigned char *dest_node)
+-{
+-	struct net_device *dev = skb->dev;
+-
+-	skb->protocol = htons(ETH_P_IPX);
+-	dev_hard_header(skb, dev, ETH_P_IPX, dest_node, NULL, skb->len);
+-	return dev_queue_xmit(skb);
+-}
+-
+-struct datalink_proto *make_EII_client(void)
+-{
+-	struct datalink_proto *proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
+-
+-	if (proto) {
+-		proto->header_length = 0;
+-		proto->request = pEII_request;
+-	}
+-
+-	return proto;
+-}
+-EXPORT_SYMBOL(make_EII_client);
+-
+-void destroy_EII_client(struct datalink_proto *dl)
+-{
+-	kfree(dl);
+-}
+-EXPORT_SYMBOL(destroy_EII_client);
+--- a/net/ipx/Makefile	2012-07-16 12:08:12.219683209 -0700
++++ b/net/ipx/Makefile	2012-07-17 09:27:36.218231168 -0700
+@@ -4,5 +4,5 @@
  
--struct net init_net;
-+struct net init_net = {
-+	.dev_base_head = LIST_HEAD_INIT(init_net.dev_base_head),
-+};
- EXPORT_SYMBOL(init_net);
+ obj-$(CONFIG_IPX) += ipx.o
  
- #define INITIAL_NET_GEN_PTRS	13 /* +1 for len +2 for rcu_head */
+-ipx-y			:= af_ipx.o ipx_route.o ipx_proc.o
++ipx-y			:= af_ipx.o ipx_route.o ipx_proc.o pe2.o
+ ipx-$(CONFIG_SYSCTL)	+= sysctl_net_ipx.o
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ b/net/ipx/pe2.c	2012-07-17 09:28:21.478359247 -0700
+@@ -0,0 +1,35 @@
++#include <linux/in.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <linux/slab.h>
++
++#include <net/datalink.h>
++
++static int pEII_request(struct datalink_proto *dl,
++			struct sk_buff *skb, unsigned char *dest_node)
++{
++	struct net_device *dev = skb->dev;
++
++	skb->protocol = htons(ETH_P_IPX);
++	dev_hard_header(skb, dev, ETH_P_IPX, dest_node, NULL, skb->len);
++	return dev_queue_xmit(skb);
++}
++
++struct datalink_proto *make_EII_client(void)
++{
++	struct datalink_proto *proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
++
++	if (proto) {
++		proto->header_length = 0;
++		proto->request = pEII_request;
++	}
++
++	return proto;
++}
++
++void destroy_EII_client(struct datalink_proto *dl)
++{
++	kfree(dl);
++}
