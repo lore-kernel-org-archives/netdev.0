@@ -1,49 +1,38 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH] net: cgroup: null ptr dereference in netprio cgroup
- during init
-Date: Tue, 17 Jul 2012 22:50:13 -0700
-Message-ID: <50064E95.7020503@intel.com>
-References: <20120718003316.2979.49278.stgit@jf-dev1-dcblab> <5006188B.7060606@cn.fujitsu.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Wed, 18 Jul 2012 14:45:55 +0800
+Message-ID: <AC35CD5731C3479B9BF5E53BF541A81F@realtek.com.tw>
+References: <1342564781.2626.1264.camel@edumazet-glaptop> <20120717234037.GA26972@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, nhorman@tuxdriver.com,
-	mark.d.rustad@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:45789 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939Ab2GRFuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 01:50:14 -0400
-In-Reply-To: <5006188B.7060606@cn.fujitsu.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:46969 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751080Ab2GRGqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 02:46:06 -0400
+In-Reply-To: <20120717234037.GA26972@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/17/2012 6:59 PM, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B407=E6=9C=8818=E6=97=A5 08:33, John Fastabend =E5=
-=86=99=E9=81=93:
->> When the netprio cgroup is built in the kernel cgroup_init will call
->> cgrp_create which eventually calls update_netdev_tables. This is
->> being called before do_initcalls() so a null ptr dereference occurs
->> on init_net.
->>
-
+Francois Romieu [mailto:romieu@fr.zoreil.com] 
 [...]
 
->
->
-> Thanks John.
-> It's my mistake.
->
-> Can we make sure init_net.count is zero here?
-> I can't find some places to initialize it to zero.
->
+> Hayes, should we not add into the kernel driver something similar to
+> the rtl8168_start_xmit::skb_checksum_help stuff in Realtek's 
+> 8168 driver ?
+> There seems to be a bug for (skb->len < 60 && RTL_GIGA_MAC_VER_34.
 
-Its defined in net_namespace.c so it's zeroed by virtue
-of being global. And initialized in setup_net via
-pure_initcall() always after cgroup_init() if I've done
-my accounting correctly.
-
-=2EJohn
+For RTL8168E-VL (RTL_GIGA_MAC_VER_34), the hardware wouldn't send the packet
+with the length less than 60 bytes. The hardware should pad this kind of packet
+to 60 bytes, but it wouldn't. Therefore, the software has to pad the packet to
+60 bytes. However, the hw checksum would be incorrect for the modified packet,
+so the software checksum is necessary. That is, for the packet less than 60
+bytes, the software has to pad the packet and calculate the checksum, and the hw
+checksum has to be disabled.
+ 
+Best Regards,
+Hayes
