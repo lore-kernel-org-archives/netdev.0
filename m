@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: cgroup: null ptr dereference in netprio
- cgroup during init
-Date: Wed, 18 Jul 2012 08:53:03 -0700 (PDT)
-Message-ID: <20120718.085303.2226773601811613983.davem@davemloft.net>
-References: <20120718124539.GC25563@hmsreliant.think-freely.org>
-	<5006C679.2040605@intel.com>
-	<20120718152520.GG25563@hmsreliant.think-freely.org>
+Subject: Re: [PATCH net-next] ipv6: fix inet6_csk_xmit()
+Date: Wed, 18 Jul 2012 09:00:25 -0700 (PDT)
+Message-ID: <20120718.090025.2178532259429406950.davem@davemloft.net>
+References: <1342595099.2626.1774.camel@edumazet-glaptop>
+	<1342596218.2626.1813.camel@edumazet-glaptop>
+	<1342597084.2626.1851.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, gaofeng@cn.fujitsu.com,
-	mark.d.rustad@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34928 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35052 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752131Ab2GRPxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 11:53:16 -0400
-In-Reply-To: <20120718152520.GG25563@hmsreliant.think-freely.org>
+	with ESMTP id S1753856Ab2GRQA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:00:26 -0400
+In-Reply-To: <1342597084.2626.1851.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 18 Jul 2012 11:25:20 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Jul 2012 09:38:04 +0200
 
-> Yeah, I see what you mean.  Seems like what we need is to either:
-> 1) move cgroup_init to later in the boot process.  If you're not early_init,
-> then I don't see why the subsystem can't wait until later in the boot process
-> (i.e. make cgroup_init a late_initcall or some such).
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> or
+> We should provide to inet6_csk_route_socket a struct flowi6 pointer,
+> so that net6_csk_xmit() works correctly instead of sending garbage.
 > 
-> 2) Allow module based cgroups to flag themselves as needing late init after the
-> rest of the kernel has booted.
+> Also add some consts 
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Yuchung Cheng <ycheng@google.com>
 
-These are way too complicated compared to John's currently proposed
-fix for this recently introduced regression.
+Thanks a lot for fixing this Eric.
 
-I want a one liner which I can prove is going to remove the crash.
-
-All of this talk of rearranging initcall ordering for cgroup stuff
-is too ambitious this late in the -rc.
+Applied.
