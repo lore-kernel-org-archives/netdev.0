@@ -1,38 +1,30 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH 3/3] tilegx net: use eth_hw_addr_random(), not random_ether_addr()
-Date: Wed, 18 Jul 2012 12:23:06 -0400
-Message-ID: <201207181641.q6IGfexY007231@lab-41.internal.tilera.com>
-References: <201207181640.q6IGet7P007227@lab-41.internal.tilera.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ISDN:Add check for return value of pnp_activate_dev()
+Date: Wed, 18 Jul 2012 09:42:30 -0700 (PDT)
+Message-ID: <20120718.094230.1144940254281009359.davem@davemloft.net>
+References: <1342110562-7774-1-git-send-email-kkeil@linux-pingi.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
+	rucsoftsec@gmail.com
+To: kkeil@linux-pingi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([12.216.194.151]:32163 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755137Ab2GRQll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:41:41 -0400
-In-Reply-To: <201207181640.q6IGet7P007227@lab-41.internal.tilera.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35751 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755083Ab2GRQma (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:42:30 -0400
+In-Reply-To: <1342110562-7774-1-git-send-email-kkeil@linux-pingi.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
----
- drivers/net/ethernet/tile/tilegx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+From: Karsten Keil <kkeil@linux-pingi.de>
+Date: Thu, 12 Jul 2012 18:29:22 +0200
 
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index f78effc..4e2a162 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -1851,7 +1851,7 @@ static void tile_net_dev_init(const char *name, const uint8_t *mac)
- 		memcpy(dev->dev_addr, mac, 6);
- 		dev->addr_len = 6;
- 	} else {
--		random_ether_addr(dev->dev_addr);
-+		eth_hw_addr_random(dev);
- 	}
- 
- 	/* Register the network device. */
--- 
-1.7.10.3
+> pnp_activate_dev() return value needs to be checked to make sure that
+> following calls calls to the PNP functions do work correctly.
+> Fix for report #44491 on bugzilla.kernel.org.
+> 
+> Signed-off-by: Karsten Keil <kkeil@linux-pingi.de>
+
+Applied.
