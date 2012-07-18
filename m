@@ -1,51 +1,48 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next and IPv6
-Date: Wed, 18 Jul 2012 09:23:38 +0200
-Message-ID: <1342596218.2626.1813.camel@edumazet-glaptop>
-References: <20120717.061418.1893307699868826531.davem@davemloft.net>
-	 <20120717.110314.1984735460095688066.davem@davemloft.net>
-	 <1342587513.2626.1518.camel@edumazet-glaptop>
-	 <1342595099.2626.1774.camel@edumazet-glaptop>
+Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
+Date: Wed, 18 Jul 2012 09:30:48 +0200
+Message-ID: <1342596648.2626.1831.camel@edumazet-glaptop>
+References: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
+	 <20120717.134651.562831385960975623.davem@davemloft.net>
+	 <alpine.LFD.2.00.1207180052420.2128@ja.ssi.bg>
+	 <20120717.150920.1324071045620152376.davem@davemloft.net>
+	 <alpine.LFD.2.00.1207180358190.2128@ja.ssi.bg>
+	 <1342583166.2626.1367.camel@edumazet-glaptop>
+	 <alpine.LFD.2.00.1207181014050.1652@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:38883 "EHLO
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:44854 "EHLO
 	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948Ab2GRHXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 03:23:45 -0400
-Received: by vcbfk26 with SMTP id fk26so883474vcb.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 00:23:44 -0700 (PDT)
-In-Reply-To: <1342595099.2626.1774.camel@edumazet-glaptop>
+	with ESMTP id S1751244Ab2GRHax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 03:30:53 -0400
+Received: by vcbfk26 with SMTP id fk26so886588vcb.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 00:30:53 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.1207181014050.1652@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 09:05 +0200, Eric Dumazet wrote:
-> On Wed, 2012-07-18 at 06:58 +0200, Eric Dumazet wrote:
-> > IPv6 doesnt work anymore for me, at least TCP doesnt work
-> > 
-> > ssh ::1
-> > 
-> > ping6 is ok
-> > 
-> > tcpdump shows garbled source IP and ip-proto
-> > 
-> > 
-> 
-> Probable bug coming from
-> 
-> commit 35ad9b9cf7d8a2e6259a0d24022e910adb6f3489
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Mon Jul 16 03:44:56 2012 -0700
-> 
->     ipv6: Add helper inet6_csk_update_pmtu().
->     
->     This is the ipv6 version of inet_csk_update_pmtu().
->     
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
+On Wed, 2012-07-18 at 10:28 +0300, Julian Anastasov wrote:
+
+> 	This is going to read all values in the chain
+> before reaching daddr? Or may be FNHE_RECLAIM_DEPTH is
+> small and nobody will increase it. May be I can create
+> some func that searches daddr in chain instead. Do you still
+> prefer to remove the first daddr check or it is only
+> that the code is intended too much?
 > 
 
-OK, I am testing a fix
+I would not bother, since real cost is the initial cache line miss.
+Once you read one field, reading others is really fast.
+
+> > +		if (fnhe_daddr == daddr) {
+> 
+> 	Also, do we need some rcu locking in
+> __ip_rt_update_pmtu or may be ipv4_update_pmtu is
+> called always under rcu lock?
+
+Sorry, I dont understand, we use the full lock
+write_seqlock_bh(&fnhe_seqlock);/write_sequnlock_bh(&fnhe_seqlock);
