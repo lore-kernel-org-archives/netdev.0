@@ -1,182 +1,250 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v4] net: cgroup: fix access the unallocated memory in
- netprio cgroup
-Date: Wed, 18 Jul 2012 10:26:32 -0400
-Message-ID: <20120718142632.GF25563@hmsreliant.think-freely.org>
-References: <1342079415-9631-1-git-send-email-gaofeng@cn.fujitsu.com>
- <5005CF5D.9070905@intel.com>
- <20120718122106.GB25563@hmsreliant.think-freely.org>
- <5006C3CA.3010007@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v3] ipv6: add ipv6_addr_hash() helper
+Date: Wed, 18 Jul 2012 16:27:50 +0200
+Message-ID: <1342621670.2626.2818.camel@edumazet-glaptop>
+References: <1342613334.2626.2504.camel@edumazet-glaptop>
+	 <1342619879.9551.14.camel@joe2Laptop>
+	 <1342620841.2626.2786.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gao feng <gaofeng@cn.fujitsu.com>, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
-	"Rustad, Mark D" <mark.d.rustad@intel.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5006C3CA.3010007@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew McGregor <andrewmcgr@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Tom Herbert <therbert@google.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:51468 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754629Ab2GRO16 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 10:27:58 -0400
+Received: by qcro28 with SMTP id o28so972722qcr.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 07:27:57 -0700 (PDT)
+In-Reply-To: <1342620841.2626.2786.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 18, 2012 at 07:10:18AM -0700, John Fastabend wrote:
-> On 7/18/2012 5:21 AM, Neil Horman wrote:
-> >On Tue, Jul 17, 2012 at 01:47:25PM -0700, John Fastabend wrote:
-> >>On 7/12/2012 12:50 AM, Gao feng wrote:
-> >>>there are some out of bound accesses in netprio cgroup.
-> >>>
-> >>>now before accessing the dev->priomap.priomap array,we only check
-> >>>if the dev->priomap exist.and because we don't want to see
-> >>>additional bound checkings in fast path, so we should make sure
-> >>>that dev->priomap is null or array size of dev->priomap.priomap
-> >>>is equal to max_prioidx + 1;
-> >>>
-> >>>so in write_priomap logic,we should call extend_netdev_table when
-> >>>dev->priomap is null and dev->priomap.priomap_len < max_len.
-> >>>and in cgrp_create->update_netdev_tables logic,we should call
-> >>>extend_netdev_table only when dev->priomap exist and
-> >>>dev->priomap.priomap_len < max_len.
-> >>>
-> >>>and it's not needed to call update_netdev_tables in write_priomap,
-> >>>we can only allocate the net device's priomap which we change through
-> >>>net_prio.ifpriomap.
-> >>>
-> >>>this patch also add a return value for update_netdev_tables &
-> >>>extend_netdev_table, so when new_priomap is allocated failed,
-> >>>write_priomap will stop to access the priomap,and return -ENOMEM
-> >>>back to the userspace to tell the user what happend.
-> >>>
-> >>>Change From v3:
-> >>>1. add rtnl protect when reading max_prioidx in write_priomap.
-> >>>
-> >>>2. only call extend_netdev_table when map->priomap_len < max_len,
-> >>>    this will make sure array size of dev->map->priomap always
-> >>>    bigger than any prioidx.
-> >>>
-> >>>3. add a function write_update_netdev_table to make codes clear.
-> >>>
-> >>>Change From v2:
-> >>>1. protect extend_netdev_table by RTNL.
-> >>>2. when extend_netdev_table failed,call dev_put to reduce device's refcount.
-> >>>
-> >>>Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> >>>Cc: Neil Horman <nhorman@tuxdriver.com>
-> >>>Cc: Eric Dumazet <edumazet@google.com>
-> >>>---
-> >>>  net/core/netprio_cgroup.c |   71 ++++++++++++++++++++++++++++++++++-----------
-> >>>  1 files changed, 54 insertions(+), 17 deletions(-)
-> >>>
-> >>
-> >>[...]
-> >>
-> >>>+
-> >>>+static int update_netdev_tables(void)
-> >>>+{
-> >>>+	int ret = 0;
-> >>>  	struct net_device *dev;
-> >>>-	u32 max_len = atomic_read(&max_prioidx) + 1;
-> >>>+	u32 max_len;
-> >>>  	struct netprio_map *map;
-> >>
-> >>
-> >>need to check if net subsystem is initialized before we try
-> >>to use it here...
-> >>
-> >>	if (some_check)     -> need to lookup what this check is
-> >>		return ret;
-> >>
-> >>>
-> >>>  	rtnl_lock();
-> >>>+	max_len = atomic_read(&max_prioidx) + 1;
-> >>>  	for_each_netdev(&init_net, dev) {
-> >>>  		map = rtnl_dereference(dev->priomap);
-> >>>-		if ((!map) ||
-> >>>-		    (map->priomap_len < max_len))
-> >>>-			extend_netdev_table(dev, max_len);
-> >>>+		/*
-> >>>+		 * don't allocate priomap if we didn't
-> >>>+		 * change net_prio.ifpriomap (map == NULL),
-> >>>+		 * this will speed up skb_update_prio.
-> >>>+		 */
-> >>>+		if (map && map->priomap_len < max_len) {
-> >>>+			ret = extend_netdev_table(dev, max_len);
-> >>>+			if (ret < 0)
-> >>>+				break;
-> >>>+		}
-> >>>  	}
-> >>>  	rtnl_unlock();
-> >>>+	return ret;
-> >>>  }
-> >>>
-> >>>  static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
-> >>>  {
-> >>>  	struct cgroup_netprio_state *cs;
-> >>>-	int ret;
-> >>>+	int ret = -EINVAL;
-> >>>
-> >>>  	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
-> >>>  	if (!cs)
-> >>>  		return ERR_PTR(-ENOMEM);
-> >>>
-> >>>-	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx) {
-> >>>-		kfree(cs);
-> >>>-		return ERR_PTR(-EINVAL);
-> >>>-	}
-> >>>+	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx)
-> >>>+		goto out;
-> >>>
-> >>>  	ret = get_prioidx(&cs->prioidx);
-> >>>-	if (ret != 0) {
-> >>>+	if (ret < 0) {
-> >>>  		pr_warn("No space in priority index array\n");
-> >>>-		kfree(cs);
-> >>>-		return ERR_PTR(ret);
-> >>>+		goto out;
-> >>>+	}
-> >>>+
-> >>>+	ret = update_netdev_tables();
-> >>>+	if (ret < 0) {
-> >>>+		put_prioidx(cs->prioidx);
-> >>>+		goto out;
-> >>>  	}
-> >>
-> >>Gao,
-> >>
-> >>This introduces a null ptr dereference when netprio_cgroup is built
-> >>into the kernel because update_netdev_tables() depends on init_net.
-> >>However cgrp_create is being called by cgroup_init before
-> >>do_initcalls() is called and before net_dev_init().
-> >>
-> >>.John
-> >>
-> >Not sure I follow here John.  Shouldn't init_net be initialized prior to any
-> >network devices getting registered?  In other words, shouldn't for_each_netdev
-> >just result in zero iterations through the loop?
-> >Neil
-> >
-> 
-> init_net _is_ initialized prior to any network devices getting
-> registered but not before cgrp_create called via cgroup_init.
-> 
-> #define for_each_netdev(net, d)         \
->                 list_for_each_entry(d, &(net)->dev_base_head, dev_list)
-> 
-> but dev_base_head is zeroed at this time. In netdev_init we have,
-> 
->         INIT_LIST_HEAD(&net->dev_base_head);
-> 
-> but we haven't got that far yet because cgroup_init is called
-> before do_initcalls().
-> 
-ok, I see that, and it makes sense, but at this point I'm more concerned with
-cgroups getting initalized twice.  The early_init flag is clear in the
-cgroup_subsystem for netprio, so we really shouldn't be getting initalized from
-cgroup_init.  We should be getting initalized from the module_init() call that
-we register
-Neil
+From: Eric Dumazet <edumazet@google.com>
 
-> 
-> 
-> 
-> 
+Introduce ipv6_addr_hash() helper doing a XOR on all bits
+of an IPv6 address, with an optimized x86_64 version.
+
+Use it in flow dissector, as suggested by Andrew McGregor,
+to reduce hash collision probabilities in fq_codel (and other
+users of flow dissector)
+
+Use it in ip6_tunnel.c and use more bit shuffling, as suggested
+by David Laight, as existing hash was ignoring most of them.
+
+Use it in sunrpc and use more bit shuffling, using hash_32().
+
+As a cleanup, use it in net/ipv4/tcp_metrics.c
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrew McGregor <andrewmcgr@gmail.com>
+Cc: Dave Taht <dave.taht@gmail.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: David Laight <David.Laight@ACULAB.COM>
+Cc: Joe Perches <joe@perches.com>
+---
+v3: use the explicit cast inipv6_addr_hash() as suggested by Joe
+
+ include/net/ipv6.h        |   13 +++++++++++++
+ net/core/flow_dissector.c |    5 +++--
+ net/ipv4/tcp_metrics.c    |   15 +++------------
+ net/ipv6/ip6_tunnel.c     |   20 ++++++++++++--------
+ net/sunrpc/svcauth_unix.c |   22 ++++------------------
+ 5 files changed, 35 insertions(+), 40 deletions(-)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index f695f39..01c34b3 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -419,6 +419,19 @@ static inline bool ipv6_addr_any(const struct in6_addr *a)
+ #endif
+ }
+ 
++static inline u32 ipv6_addr_hash(const struct in6_addr *a)
++{
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
++	const unsigned long *ul = (const unsigned long *)a;
++	unsigned long x = ul[0] ^ ul[1];
++
++	return (u32)(x ^ (x >> 32));
++#else
++	return (__force u32)(a->s6_addr32[0] ^ a->s6_addr32[1] ^
++			     a->s6_addr32[2] ^ a->s6_addr32[3]);
++#endif
++}
++
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+ {
+ 	return (a->s6_addr32[0] | a->s6_addr32[1] |
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index a225089..466820b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -4,6 +4,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/if_vlan.h>
+ #include <net/ip.h>
++#include <net/ipv6.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/if_pppox.h>
+ #include <linux/ppp_defs.h>
+@@ -55,8 +56,8 @@ ipv6:
+ 			return false;
+ 
+ 		ip_proto = iph->nexthdr;
+-		flow->src = iph->saddr.s6_addr32[3];
+-		flow->dst = iph->daddr.s6_addr32[3];
++		flow->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
++		flow->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
+ 		nhoff += sizeof(struct ipv6hdr);
+ 		break;
+ 	}
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 5a38a2d..1a115b6 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -211,10 +211,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 		break;
+ 	case AF_INET6:
+ 		*(struct in6_addr *)addr.addr.a6 = inet6_rsk(req)->rmt_addr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&inet6_rsk(req)->rmt_addr);
+ 		break;
+ 	default:
+ 		return NULL;
+@@ -251,10 +248,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ 	case AF_INET6:
+ 		tw6 = inet6_twsk((struct sock *)tw);
+ 		*(struct in6_addr *)addr.addr.a6 = tw6->tw_v6_daddr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&tw6->tw_v6_daddr);
+ 		break;
+ 	default:
+ 		return NULL;
+@@ -291,10 +285,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 		break;
+ 	case AF_INET6:
+ 		*(struct in6_addr *)addr.addr.a6 = inet6_sk(sk)->daddr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&inet6_sk(sk)->daddr);
+ 		break;
+ 	default:
+ 		return NULL;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index db32846..9a1d5fe 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -40,6 +40,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/slab.h>
++#include <linux/hash.h>
+ 
+ #include <asm/uaccess.h>
+ #include <linux/atomic.h>
+@@ -70,11 +71,15 @@ MODULE_ALIAS_NETDEV("ip6tnl0");
+ #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
+ #define IPV6_TCLASS_SHIFT 20
+ 
+-#define HASH_SIZE  32
++#define HASH_SIZE_SHIFT  5
++#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
+ 
+-#define HASH(addr) ((__force u32)((addr)->s6_addr32[0] ^ (addr)->s6_addr32[1] ^ \
+-		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
+-		    (HASH_SIZE - 1))
++static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
++{
++	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
++
++	return hash_32(hash, HASH_SIZE_SHIFT);
++}
+ 
+ static int ip6_tnl_dev_init(struct net_device *dev);
+ static void ip6_tnl_dev_setup(struct net_device *dev);
+@@ -166,12 +171,11 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
+ static struct ip6_tnl *
+ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_addr *local)
+ {
+-	unsigned int h0 = HASH(remote);
+-	unsigned int h1 = HASH(local);
++	unsigned int hash = HASH(remote, local);
+ 	struct ip6_tnl *t;
+ 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
+ 
+-	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[h0 ^ h1]) {
++	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
+ 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
+ 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
+ 		    (t->dev->flags & IFF_UP))
+@@ -205,7 +209,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n, const struct ip6_tnl_parm *p)
+ 
+ 	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
+ 		prio = 1;
+-		h = HASH(remote) ^ HASH(local);
++		h = HASH(remote, local);
+ 	}
+ 	return &ip6n->tnls[prio][h];
+ }
+diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+index 2777fa8..4d01292 100644
+--- a/net/sunrpc/svcauth_unix.c
++++ b/net/sunrpc/svcauth_unix.c
+@@ -104,23 +104,9 @@ static void ip_map_put(struct kref *kref)
+ 	kfree(im);
+ }
+ 
+-#if IP_HASHBITS == 8
+-/* hash_long on a 64 bit machine is currently REALLY BAD for
+- * IP addresses in reverse-endian (i.e. on a little-endian machine).
+- * So use a trivial but reliable hash instead
+- */
+-static inline int hash_ip(__be32 ip)
+-{
+-	int hash = (__force u32)ip ^ ((__force u32)ip>>16);
+-	return (hash ^ (hash>>8)) & 0xff;
+-}
+-#endif
+-static inline int hash_ip6(struct in6_addr ip)
++static inline int hash_ip6(const struct in6_addr *ip)
+ {
+-	return (hash_ip(ip.s6_addr32[0]) ^
+-		hash_ip(ip.s6_addr32[1]) ^
+-		hash_ip(ip.s6_addr32[2]) ^
+-		hash_ip(ip.s6_addr32[3]));
++	return hash_32(ipv6_addr_hash(ip), IP_HASHBITS);
+ }
+ static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
+ {
+@@ -301,7 +287,7 @@ static struct ip_map *__ip_map_lookup(struct cache_detail *cd, char *class,
+ 	ip.m_addr = *addr;
+ 	ch = sunrpc_cache_lookup(cd, &ip.h,
+ 				 hash_str(class, IP_HASHBITS) ^
+-				 hash_ip6(*addr));
++				 hash_ip6(addr));
+ 
+ 	if (ch)
+ 		return container_of(ch, struct ip_map, h);
+@@ -331,7 +317,7 @@ static int __ip_map_update(struct cache_detail *cd, struct ip_map *ipm,
+ 	ip.h.expiry_time = expiry;
+ 	ch = sunrpc_cache_update(cd, &ip.h, &ipm->h,
+ 				 hash_str(ipm->m_class, IP_HASHBITS) ^
+-				 hash_ip6(ipm->m_addr));
++				 hash_ip6(&ipm->m_addr));
+ 	if (!ch)
+ 		return -ENOMEM;
+ 	cache_put(ch, cd);
