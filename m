@@ -1,54 +1,62 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values
- of flush
-Date: Wed, 18 Jul 2012 13:39:13 -0400
-Message-ID: <20120718173913.GA1298@fieldses.org>
-References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond.Myklebust@netapp.com, davem@davemloft.net, davej@redhat.com,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] team: refine IFF_XMIT_DST_RELEASE capability
+Date: Wed, 18 Jul 2012 19:39:38 +0200
+Message-ID: <1342633178-1411-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:59535 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857Ab2GRRjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 13:39:43 -0400
+Received: by wgbdr13 with SMTP id dr13so1597927wgb.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 10:39:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 17, 2012 at 12:01:26AM +0200, Sasha Levin wrote:
-> The buffer size in read_flush() is too small for the longest possible values
-> for it. This can lead to a kernel stack corruption:
+Cloned patch of Eric Dumazet for bonding.
 
-Thanks!
+Some workloads greatly benefit of IFF_XMIT_DST_RELEASE capability
+on output net device, avoiding dirtying dst refcount.
 
-> 
-> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-> index 2afd2a8..f86d95e 100644
-> --- a/net/sunrpc/cache.c
-> +++ b/net/sunrpc/cache.c
-> @@ -1409,11 +1409,11 @@ static ssize_t read_flush(struct file *file, char __user *buf,
->  			  size_t count, loff_t *ppos,
->  			  struct cache_detail *cd)
->  {
-> -	char tbuf[20];
-> +	char tbuf[22];
+team currently disables IFF_XMIT_DST_RELEASE unconditionally.
 
-I wonder how common this sort of calculation is in the kernel?  It might
-provide some peace of mind to be able to write this something like
+If all ports have the IFF_XMIT_DST_RELEASE bit set, then
+team dev can also have it in its priv_flags.
 
-	char tbuf[MAXLEN_BASE10_UL + 2]  /* + 2 for final "\n\0" */
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/team/team.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
---b.
-
->  	unsigned long p = *ppos;
->  	size_t len;
->  
-> -	sprintf(tbuf, "%lu\n", convert_to_wallclock(cd->flush_time));
-> +	snprintf(tbuf, sizeof(tbuf), "%lu\n", convert_to_wallclock(cd->flush_time));
->  	len = strlen(tbuf);
->  	if (p >= len)
->  		return 0;
-> -- 
-> 1.7.8.6
-> 
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 1a13470..813e131 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -733,12 +733,14 @@ static void __team_compute_features(struct team *team)
+ 	struct team_port *port;
+ 	u32 vlan_features = TEAM_VLAN_FEATURES;
+ 	unsigned short max_hard_header_len = ETH_HLEN;
++	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
+ 
+ 	list_for_each_entry(port, &team->port_list, list) {
+ 		vlan_features = netdev_increment_features(vlan_features,
+ 					port->dev->vlan_features,
+ 					TEAM_VLAN_FEATURES);
+ 
++		dst_release_flag &= port->dev->priv_flags;
+ 		if (port->dev->hard_header_len > max_hard_header_len)
+ 			max_hard_header_len = port->dev->hard_header_len;
+ 	}
+@@ -746,6 +748,9 @@ static void __team_compute_features(struct team *team)
+ 	team->dev->vlan_features = vlan_features;
+ 	team->dev->hard_header_len = max_hard_header_len;
+ 
++	flags = team->dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
++	team->dev->priv_flags = flags | dst_release_flag;
++
+ 	netdev_change_features(team->dev);
+ }
+ 
+-- 
+1.7.10.4
