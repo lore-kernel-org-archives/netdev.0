@@ -1,42 +1,59 @@
-From: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values
- of flush
-Date: Wed, 18 Jul 2012 16:33:04 -0400
-Message-ID: <20120718203304.GA18540@redhat.com>
-References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
- <20120718173913.GA1298@fieldses.org>
- <20120718200049.GA17964@umich.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 09/15] ipv4: Cache output routes in fib_info nexthops.
+Date: Wed, 18 Jul 2012 22:34:19 +0200
+Message-ID: <1342643659.2626.3636.camel@edumazet-glaptop>
+References: <20120718.112404.1910372180742347127.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20120718200049.GA17964-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:60801 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932069Ab2GRUeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 16:34:24 -0400
+Received: by yhmm54 with SMTP id m54so2044597yhm.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 13:34:23 -0700 (PDT)
+In-Reply-To: <20120718.112404.1910372180742347127.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 18, 2012 at 04:00:49PM -0400, Jim Rees wrote:
+On Wed, 2012-07-18 at 11:24 -0700, David Miller wrote:
+> If we have an output route that lacks nexthop exceptions, we can cache
+> it in the FIB info nexthop.
+> 
+> Such routes will have DST_HOST cleared because such routes refer to a
+> family of destinations, rather than just one.
 
- > You could use something like:
- > 
- >     char tbuf[sizeof (unsigned long) * 24 / 10 + 1 + 2]; /* + 2 for final "\n\0" */
- > 
- > since there are roughly 10 bits for every 3 decimal digits.
- > 
- > But I'm obviously confused, because I don't understand why tbuf needs to be
- > any more than 10 + 2.
 
-Unsigned long isn't necessarily 32 bits.
-On 64-bit systems %lu can be up to 18446744073709551615
+> -			   const struct fib_result *res,
+> +static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+> +{
+> +	static DEFINE_SPINLOCK(fib_cache_lock);
+> +	struct rtable **p = &nh->nh_rth_output;
+> +
+> +	if (*p)
+> +		return;
+> +
+> +	spin_lock_bh(&fib_cache_lock);
+> +	if (!*p) {
+> +		*p = rt;
+> +		dst_clone(&rt->dst);
+> +	}
+> +	spin_unlock_bh(&fib_cache_lock);
+> +}
+> +
 
-	Dave
+This probably should use cmpxchg()
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+{
+	struct rtable **p = &nh->nh_rth_output;
+
+	if (*p)
+               return;
+
+	if (cmpxchg(p, NULL, rt) == NULL)
+		dst_clone(&rt->dst);
+}
