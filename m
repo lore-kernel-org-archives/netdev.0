@@ -1,547 +1,343 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2] sctp: Implement quick failover draft from tsvwg
-Date: Wed, 18 Jul 2012 14:01:06 -0400
-Message-ID: <1342634466-17930-1-git-send-email-nhorman@tuxdriver.com>
-References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v4] ipv6: add ipv6_addr_hash() helper
+Date: Wed, 18 Jul 2012 20:11:12 +0200
+Message-ID: <1342635072.2626.3322.camel@edumazet-glaptop>
+References: <1342613334.2626.2504.camel@edumazet-glaptop>
+	 <1342619879.9551.14.camel@joe2Laptop>
+	 <1342620841.2626.2786.camel@edumazet-glaptop>
+	 <1342621670.2626.2818.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>,
+	Andrew McGregor <andrewmcgr@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54328 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754156Ab2GRSBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 14:01:24 -0400
-In-Reply-To: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:55043 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753211Ab2GRSLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 14:11:17 -0400
+Received: by gglu4 with SMTP id u4so1877957ggl.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 11:11:17 -0700 (PDT)
+In-Reply-To: <1342621670.2626.2818.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've seen several attempts recently made to do quick failover of sctp transports
-by reducing various retransmit timers and counters.  While its possible to
-implement a faster failover on multihomed sctp associations, its not
-particularly robust, in that it can lead to unneeded retransmits, as well as
-false connection failures due to intermittent latency on a network.
+From: Eric Dumazet <edumazet@google.com>
 
-Instead, lets implement the new ietf quick failover draft found here:
-http://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
+Introduce ipv6_addr_hash() helper doing a XOR on all bits
+of an IPv6 address, with an optimized x86_64 version.
 
-This will let the sctp stack identify transports that have had a small number of
-errors, and avoid using them quickly until their reliability can be
-re-established.  I've tested this out on two virt guests connected via multiple
-isolated virt networks and believe its in compliance with the above draft and
-works well.
+Use it in flow dissector, as suggested by Andrew McGregor,
+to reduce hash collision probabilities in fq_codel (and other
+users of flow dissector)
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: Sridhar Samudrala <sri@us.ibm.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: linux-sctp@vger.kernel.org
+Use it in ip6_tunnel.c and use more bit shuffling, as suggested
+by David Laight, as existing hash was ignoring most of them.
 
+Use it in sunrpc and use more bit shuffling, using hash_32().
+
+Use it in net/ipv6/addrconf.c, using hash_32() as well.
+
+As a cleanup, use it in net/ipv4/tcp_metrics.c
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrew McGregor <andrewmcgr@gmail.com>
+Cc: Dave Taht <dave.taht@gmail.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: David Laight <David.Laight@ACULAB.COM>
+Cc: Joe Perches <joe@perches.com>
 ---
-Change notes:
+v4: net/ipv6/addrconf.c part, sorry again David
 
-V2)
-- Added socket option API from section 6.1 of the specification, as per
-request from Vlad. Adding this socket option allows us to alter both the path
-maximum retransmit value and the path partial failure threshold for each
-transport and the association as a whole.
+ include/net/addrconf.h    |    3 ++-
+ include/net/ipv6.h        |   13 +++++++++++++
+ net/core/flow_dissector.c |    5 +++--
+ net/ipv4/tcp_metrics.c    |   15 +++------------
+ net/ipv6/addrconf.c       |   21 ++++++++-------------
+ net/ipv6/ip6_tunnel.c     |   20 ++++++++++++--------
+ net/sunrpc/svcauth_unix.c |   22 ++++------------------
+ 7 files changed, 45 insertions(+), 54 deletions(-)
 
-- Added a per transport pf_retrans value, and initialized it from the
-association value.  This makes each transport independently configurable as per
-the socket option above, and prevents changes in the sysctl from bleeding into
-an already created association.
----
- Documentation/networking/ip-sysctl.txt |   14 +++++
- include/net/sctp/constants.h           |    1 +
- include/net/sctp/structs.h             |   11 +++-
- include/net/sctp/user.h                |   11 ++++
- net/sctp/associola.c                   |   36 ++++++++++--
- net/sctp/outqueue.c                    |    6 +-
- net/sctp/sm_sideeffect.c               |   33 ++++++++++-
- net/sctp/socket.c                      |   96 ++++++++++++++++++++++++++++++++
- net/sctp/sysctl.c                      |    9 +++
- net/sctp/transport.c                   |    4 +-
- 10 files changed, 206 insertions(+), 15 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 47b6c79..c636f9c 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1408,6 +1408,20 @@ path_max_retrans - INTEGER
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index f2b801c..089a09d 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -46,7 +46,8 @@ struct prefix_info {
+ #include <net/if_inet6.h>
+ #include <net/ipv6.h>
  
- 	Default: 5
+-#define IN6_ADDR_HSIZE		16
++#define IN6_ADDR_HSIZE_SHIFT	4
++#define IN6_ADDR_HSIZE		(1 << IN6_ADDR_HSIZE_SHIFT)
  
-+pf_retrans - INTEGER
-+	The number of retransmissions that will be attempted on a given path
-+	before traffic is redirected to an alternate transport (should one
-+	exist).  Note this is distinct from path_max_retrans, as a path that
-+	passes the pf_retrans threshold can still be used.  Its only
-+	deprioritized when a transmission path is selected by the stack.  This
-+	setting is primarily used to enable fast failover mechanisms without
-+	having to reduce path_max_retrans to a very low value.  See:
-+	http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
-+	for details.  Note also that a value of pf_retrans > path_max_retrans
-+	disables this feature
-+
-+	Default: 0
-+
- rto_initial - INTEGER
- 	The initial round trip timeout value in milliseconds that will be used
- 	in calculating round trip times.  This is the initial time interval
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 942b864..d053d2e 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -334,6 +334,7 @@ typedef enum {
- typedef enum {
- 	SCTP_TRANSPORT_UP,
- 	SCTP_TRANSPORT_DOWN,
-+	SCTP_TRANSPORT_PF,
- } sctp_transport_cmd_t;
- 
- /* These are the address scopes defined mainly for IPv4 addresses
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index e4652fe..f70726c 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -160,6 +160,7 @@ extern struct sctp_globals {
- 	int max_retrans_association;
- 	int max_retrans_path;
- 	int max_retrans_init;
-+	int pf_retrans;
- 
- 	/*
- 	 * Policy for preforming sctp/socket accounting
-@@ -258,6 +259,7 @@ extern struct sctp_globals {
- #define sctp_sndbuf_policy	 	(sctp_globals.sndbuf_policy)
- #define sctp_rcvbuf_policy	 	(sctp_globals.rcvbuf_policy)
- #define sctp_max_retrans_path		(sctp_globals.max_retrans_path)
-+#define sctp_pf_retrans			(sctp_globals.pf_retrans)
- #define sctp_max_retrans_init		(sctp_globals.max_retrans_init)
- #define sctp_sack_timeout		(sctp_globals.sack_timeout)
- #define sctp_hb_interval		(sctp_globals.hb_interval)
-@@ -987,10 +989,15 @@ struct sctp_transport {
- 
- 	/* This is the max_retrans value for the transport and will
- 	 * be initialized from the assocs value.  This can be changed
--	 * using SCTP_SET_PEER_ADDR_PARAMS socket option.
-+	 * using the SCTP_SET_PEER_ADDR_PARAMS socket option.
- 	 */
- 	__u16 pathmaxrxt;
- 
-+	/* This is the partially failed retrans value for the transport
-+	 * and will be initialized from the assocs value.  This can be changed
-+	 * using the SCTP_PEER_ADDR_THLDS socket option
-+	 */
-+	int pf_retrans;
- 	/* PMTU	      : The current known path MTU.  */
- 	__u32 pathmtu;
- 
-@@ -1660,6 +1667,8 @@ struct sctp_association {
- 	 */
- 	int max_retrans;
- 
-+	int pf_retrans;
-+
- 	/* Maximum number of times the endpoint will retransmit INIT  */
- 	__u16 max_init_attempts;
- 
-diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
-index 0842ef0..1b02d7a 100644
---- a/include/net/sctp/user.h
-+++ b/include/net/sctp/user.h
-@@ -93,6 +93,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_GET_ASSOC_NUMBER	28	/* Read only */
- #define SCTP_GET_ASSOC_ID_LIST	29	/* Read only */
- #define SCTP_AUTO_ASCONF       30
-+#define SCTP_PEER_ADDR_THLDS	31
- 
- /* Internal Socket Options. Some of the sctp library functions are
-  * implemented using these socket options.
-@@ -649,6 +650,7 @@ struct sctp_paddrinfo {
-  */
- enum sctp_spinfo_state {
- 	SCTP_INACTIVE,
-+	SCTP_PF,
- 	SCTP_ACTIVE,
- 	SCTP_UNCONFIRMED,
- 	SCTP_UNKNOWN = 0xffff  /* Value used for transport state unknown */
-@@ -741,4 +743,13 @@ typedef struct {
- 	int sd;
- } sctp_peeloff_arg_t;
- 
-+/*
-+ *  Peer Address Thresholds socket option
-+ */
-+struct sctp_paddrthlds {
-+	sctp_assoc_t spt_assoc_id;
-+	struct sockaddr_storage spt_address;
-+	__u16 spt_pathmaxrxt;
-+	__u16 spt_pathpfthld;
-+};
- #endif /* __net_sctp_user_h__ */
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 5bc9ab1..b357195 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -124,6 +124,8 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	 * socket values.
- 	 */
- 	asoc->max_retrans = sp->assocparams.sasoc_asocmaxrxt;
-+	asoc->pf_retrans  = sctp_pf_retrans;
-+
- 	asoc->rto_initial = msecs_to_jiffies(sp->rtoinfo.srto_initial);
- 	asoc->rto_max = msecs_to_jiffies(sp->rtoinfo.srto_max);
- 	asoc->rto_min = msecs_to_jiffies(sp->rtoinfo.srto_min);
-@@ -685,6 +687,9 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
- 	/* Set the path max_retrans.  */
- 	peer->pathmaxrxt = asoc->pathmaxrxt;
- 
-+	/* And the partial failure retrnas threshold */
-+	peer->pf_retrans = asoc->pf_retrans;
-+
- 	/* Initialize the peer's SACK delay timeout based on the
- 	 * association configured value.
- 	 */
-@@ -840,6 +845,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 	struct sctp_ulpevent *event;
- 	struct sockaddr_storage addr;
- 	int spc_state = 0;
-+	bool ulp_notify = true;
- 
- 	/* Record the transition on the transport.  */
- 	switch (command) {
-@@ -853,6 +859,14 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 			spc_state = SCTP_ADDR_CONFIRMED;
- 		else
- 			spc_state = SCTP_ADDR_AVAILABLE;
-+		/* Don't inform ULP about transition from PF to
-+		 * active state and set cwnd to 1, see SCTP
-+		 * Quick failover draft section 5.1, point 5
-+		 */
-+		if (transport->state == SCTP_PF) {
-+			ulp_notify = false;
-+			transport->cwnd = 1;
-+		}
- 		transport->state = SCTP_ACTIVE;
- 		break;
- 
-@@ -871,6 +885,10 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 		spc_state = SCTP_ADDR_UNREACHABLE;
- 		break;
- 
-+	case SCTP_TRANSPORT_PF:
-+		transport->state = SCTP_PF;
-+		ulp_notify = false;
-+		break;
- 	default:
- 		return;
- 	}
-@@ -878,12 +896,15 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 	/* Generate and send a SCTP_PEER_ADDR_CHANGE notification to the
- 	 * user.
- 	 */
--	memset(&addr, 0, sizeof(struct sockaddr_storage));
--	memcpy(&addr, &transport->ipaddr, transport->af_specific->sockaddr_len);
--	event = sctp_ulpevent_make_peer_addr_change(asoc, &addr,
--				0, spc_state, error, GFP_ATOMIC);
--	if (event)
--		sctp_ulpq_tail_event(&asoc->ulpq, event);
-+	if (ulp_notify) {
-+		memset(&addr, 0, sizeof(struct sockaddr_storage));
-+		memcpy(&addr, &transport->ipaddr,
-+		       transport->af_specific->sockaddr_len);
-+		event = sctp_ulpevent_make_peer_addr_change(asoc, &addr,
-+					0, spc_state, error, GFP_ATOMIC);
-+		if (event)
-+			sctp_ulpq_tail_event(&asoc->ulpq, event);
-+	}
- 
- 	/* Select new active and retran paths. */
- 
-@@ -899,7 +920,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 			transports) {
- 
- 		if ((t->state == SCTP_INACTIVE) ||
--		    (t->state == SCTP_UNCONFIRMED))
-+		    (t->state == SCTP_UNCONFIRMED) ||
-+		    (t->state == SCTP_PF))
- 			continue;
- 		if (!first || t->last_time_heard > first->last_time_heard) {
- 			second = first;
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index a0fa19f..e7aa177c 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -792,7 +792,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
- 			if (!new_transport)
- 				new_transport = asoc->peer.active_path;
- 		} else if ((new_transport->state == SCTP_INACTIVE) ||
--			   (new_transport->state == SCTP_UNCONFIRMED)) {
-+			   (new_transport->state == SCTP_UNCONFIRMED) ||
-+			   (new_transport->state == SCTP_PF)) {
- 			/* If the chunk is Heartbeat or Heartbeat Ack,
- 			 * send it to chunk->transport, even if it's
- 			 * inactive.
-@@ -987,7 +988,8 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
- 			new_transport = chunk->transport;
- 			if (!new_transport ||
- 			    ((new_transport->state == SCTP_INACTIVE) ||
--			     (new_transport->state == SCTP_UNCONFIRMED)))
-+			     (new_transport->state == SCTP_UNCONFIRMED) ||
-+			     (new_transport->state == SCTP_PF)))
- 				new_transport = asoc->peer.active_path;
- 			if (new_transport->state == SCTP_UNCONFIRMED)
- 				continue;
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index c96d1a8..285e26a 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -76,6 +76,8 @@ static int sctp_side_effects(sctp_event_t event_type, sctp_subtype_t subtype,
- 			     sctp_cmd_seq_t *commands,
- 			     gfp_t gfp);
- 
-+static void sctp_cmd_hb_timer_update(sctp_cmd_seq_t *cmds,
-+				     struct sctp_transport *t);
- /********************************************************************
-  * Helper functions
-  ********************************************************************/
-@@ -470,7 +472,8 @@ sctp_timer_event_t *sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
-  * notification SHOULD be sent to the upper layer.
-  *
-  */
--static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
-+static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
-+					 struct sctp_association *asoc,
- 					 struct sctp_transport *transport,
- 					 int is_hb)
- {
-@@ -495,6 +498,23 @@ static void sctp_do_8_2_transport_strike(struct sctp_association *asoc,
- 			transport->error_count++;
- 	}
- 
-+	/* If the transport error count is greater than the pf_retrans
-+	 * threshold, and less than pathmaxrtx, then mark this transport
-+	 * as Partially Failed, ee SCTP Quick Failover Draft, secon 5.1,
-+	 * point 1
-+	 */
-+	if ((transport->state != SCTP_PF) &&
-+	   (asoc->pf_retrans < transport->pathmaxrxt) &&
-+	   (transport->error_count > asoc->pf_retrans)) {
-+
-+		sctp_assoc_control_transport(asoc, transport,
-+					     SCTP_TRANSPORT_PF,
-+					     0);
-+
-+		/* Update the hb timer to resend a heartbeat every rto */
-+		sctp_cmd_hb_timer_update(commands, transport);
-+	}
-+
- 	if (transport->state != SCTP_INACTIVE &&
- 	    (transport->error_count > transport->pathmaxrxt)) {
- 		SCTP_DEBUG_PRINTK_IPADDR("transport_strike:association %p",
-@@ -699,6 +719,10 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 					     SCTP_HEARTBEAT_SUCCESS);
- 	}
- 
-+	if (t->state == SCTP_PF)
-+		sctp_assoc_control_transport(asoc, t, SCTP_TRANSPORT_UP,
-+					     SCTP_HEARTBEAT_SUCCESS);
-+
- 	/* The receiver of the HEARTBEAT ACK should also perform an
- 	 * RTT measurement for that destination transport address
- 	 * using the time value carried in the HEARTBEAT ACK chunk.
-@@ -1565,8 +1589,8 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 
- 		case SCTP_CMD_STRIKE:
- 			/* Mark one strike against a transport.  */
--			sctp_do_8_2_transport_strike(asoc, cmd->obj.transport,
--						    0);
-+			sctp_do_8_2_transport_strike(commands, asoc,
-+						    cmd->obj.transport, 0);
- 			break;
- 
- 		case SCTP_CMD_TRANSPORT_IDLE:
-@@ -1576,7 +1600,8 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 
- 		case SCTP_CMD_TRANSPORT_HB_SENT:
- 			t = cmd->obj.transport;
--			sctp_do_8_2_transport_strike(asoc, t, 1);
-+			sctp_do_8_2_transport_strike(commands, asoc,
-+						     t, 1);
- 			t->hb_sent = 1;
- 			break;
- 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index b3b8a8d..dfffece 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3470,6 +3470,52 @@ static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
+ extern int			addrconf_init(void);
+ extern void			addrconf_cleanup(void);
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index f695f39..01c34b3 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -419,6 +419,19 @@ static inline bool ipv6_addr_any(const struct in6_addr *a)
+ #endif
  }
  
- 
-+/*
-+ * SCTP_PEER_ADDR_THLDS
-+ *
-+ * This option allows us to alter the partially failed threshold for one or all
-+ * transports in an association.  See Section 6.1 of:
-+ * http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
-+ */
-+static int sctp_setsockopt_paddr_thresholds(struct sock *sk,
-+					    char __user *optval,
-+					    unsigned int optlen)
++static inline u32 ipv6_addr_hash(const struct in6_addr *a)
 +{
-+	struct sctp_paddrthlds val;
-+	struct sctp_transport *trans;
-+	struct sctp_association *asoc;
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
++	const unsigned long *ul = (const unsigned long *)a;
++	unsigned long x = ul[0] ^ ul[1];
 +
-+	if (optlen < sizeof(struct sctp_paddrthlds))
-+		return -EINVAL;
-+	if (copy_from_user(&val, (struct sctp_paddrthlds __user *)optval,
-+			   optlen))
-+		return -EFAULT;
-+
-+	if (sctp_is_any(sk, (const union sctp_addr *)&val.spt_address)) {
-+		asoc = sctp_id2assoc(sk, val.spt_assoc_id);
-+		if (!asoc)
-+			return -ENOENT;
-+		list_for_each_entry(trans, &asoc->peer.transport_addr_list,
-+				    transports) {
-+			trans->pathmaxrxt = val.spt_pathmaxrxt;
-+			trans->pf_retrans = val.spt_pathpfthld;
-+		}
-+
-+		asoc->pf_retrans = val.spt_pathpfthld;
-+		asoc->pathmaxrxt = val.spt_pathmaxrxt;
-+	} else {
-+		trans = sctp_addr_id2transport(sk, &val.spt_address,
-+					       val.spt_assoc_id);
-+		if (!trans)
-+			return -ENOENT;
-+
-+		trans->pathmaxrxt = val.spt_pathmaxrxt;
-+		trans->pf_retrans = val.spt_pathpfthld;
-+	}
-+
-+	return 0;
++	return (u32)(x ^ (x >> 32));
++#else
++	return (__force u32)(a->s6_addr32[0] ^ a->s6_addr32[1] ^
++			     a->s6_addr32[2] ^ a->s6_addr32[3]);
++#endif
 +}
 +
- /* API 6.2 setsockopt(), getsockopt()
-  *
-  * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3619,6 +3665,9 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_AUTO_ASCONF:
- 		retval = sctp_setsockopt_auto_asconf(sk, optval, optlen);
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+ {
+ 	return (a->s6_addr32[0] | a->s6_addr32[1] |
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index a225089..466820b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -4,6 +4,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/if_vlan.h>
+ #include <net/ip.h>
++#include <net/ipv6.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/if_pppox.h>
+ #include <linux/ppp_defs.h>
+@@ -55,8 +56,8 @@ ipv6:
+ 			return false;
+ 
+ 		ip_proto = iph->nexthdr;
+-		flow->src = iph->saddr.s6_addr32[3];
+-		flow->dst = iph->daddr.s6_addr32[3];
++		flow->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
++		flow->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
+ 		nhoff += sizeof(struct ipv6hdr);
  		break;
-+	case SCTP_PEER_ADDR_THLDS:
-+		retval = sctp_setsockopt_paddr_thresholds(sk, optval, optlen);
-+		break;
+ 	}
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 5a38a2d..1a115b6 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -211,10 +211,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 		break;
+ 	case AF_INET6:
+ 		*(struct in6_addr *)addr.addr.a6 = inet6_rsk(req)->rmt_addr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&inet6_rsk(req)->rmt_addr);
+ 		break;
  	default:
- 		retval = -ENOPROTOOPT;
+ 		return NULL;
+@@ -251,10 +248,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ 	case AF_INET6:
+ 		tw6 = inet6_twsk((struct sock *)tw);
+ 		*(struct in6_addr *)addr.addr.a6 = tw6->tw_v6_daddr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&tw6->tw_v6_daddr);
  		break;
-@@ -5490,6 +5539,50 @@ static int sctp_getsockopt_assoc_ids(struct sock *sk, int len,
- 	return 0;
+ 	default:
+ 		return NULL;
+@@ -291,10 +285,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 		break;
+ 	case AF_INET6:
+ 		*(struct in6_addr *)addr.addr.a6 = inet6_sk(sk)->daddr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&inet6_sk(sk)->daddr);
+ 		break;
+ 	default:
+ 		return NULL;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8f6411c..7918181 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -63,6 +63,7 @@
+ #include <linux/delay.h>
+ #include <linux/notifier.h>
+ #include <linux/string.h>
++#include <linux/hash.h>
+ 
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+@@ -579,15 +580,9 @@ ipv6_link_dev_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
+ 	list_add_tail(&ifp->if_list, p);
  }
  
-+/*
-+ * SCTP_PEER_ADDR_THLDS
-+ *
-+ * This option allows us to fetch the partially failed threshold for one or all
-+ * transports in an association.  See Section 6.1 of:
-+ * http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
-+ */
-+static int sctp_getsockopt_paddr_thresholds(struct sock *sk,
-+					    char __user *optval,
-+					    int optlen)
+-static u32 ipv6_addr_hash(const struct in6_addr *addr)
++static u32 inet6_addr_hash(const struct in6_addr *addr)
+ {
+-	/*
+-	 * We perform the hash function over the last 64 bits of the address
+-	 * This will include the IEEE address token on links that support it.
+-	 */
+-	return jhash_2words((__force u32)addr->s6_addr32[2],
+-			    (__force u32)addr->s6_addr32[3], 0)
+-		& (IN6_ADDR_HSIZE - 1);
++	return hash_32(ipv6_addr_hash(addr), IN6_ADDR_HSIZE_SHIFT);
+ }
+ 
+ /* On success it returns ifp with increased reference count */
+@@ -662,7 +657,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 	in6_ifa_hold(ifa);
+ 
+ 	/* Add to big hash table */
+-	hash = ipv6_addr_hash(addr);
++	hash = inet6_addr_hash(addr);
+ 
+ 	hlist_add_head_rcu(&ifa->addr_lst, &inet6_addr_lst[hash]);
+ 	spin_unlock(&addrconf_hash_lock);
+@@ -1270,7 +1265,7 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct hlist_node *node;
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu(ifp, node, &inet6_addr_lst[hash], addr_lst) {
+@@ -1293,7 +1288,7 @@ EXPORT_SYMBOL(ipv6_chk_addr);
+ static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
+ 			       struct net_device *dev)
+ {
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 	struct inet6_ifaddr *ifp;
+ 	struct hlist_node *node;
+ 
+@@ -1336,7 +1331,7 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
+ 				     struct net_device *dev, int strict)
+ {
+ 	struct inet6_ifaddr *ifp, *result = NULL;
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 	struct hlist_node *node;
+ 
+ 	rcu_read_lock_bh();
+@@ -3223,7 +3218,7 @@ int ipv6_chk_home_addr(struct net *net, const struct in6_addr *addr)
+ 	int ret = 0;
+ 	struct inet6_ifaddr *ifp = NULL;
+ 	struct hlist_node *n;
+-	unsigned int hash = ipv6_addr_hash(addr);
++	unsigned int hash = inet6_addr_hash(addr);
+ 
+ 	rcu_read_lock_bh();
+ 	hlist_for_each_entry_rcu_bh(ifp, n, &inet6_addr_lst[hash], addr_lst) {
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index db32846..9a1d5fe 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -40,6 +40,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/slab.h>
++#include <linux/hash.h>
+ 
+ #include <asm/uaccess.h>
+ #include <linux/atomic.h>
+@@ -70,11 +71,15 @@ MODULE_ALIAS_NETDEV("ip6tnl0");
+ #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
+ #define IPV6_TCLASS_SHIFT 20
+ 
+-#define HASH_SIZE  32
++#define HASH_SIZE_SHIFT  5
++#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
+ 
+-#define HASH(addr) ((__force u32)((addr)->s6_addr32[0] ^ (addr)->s6_addr32[1] ^ \
+-		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
+-		    (HASH_SIZE - 1))
++static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
 +{
-+	struct sctp_paddrthlds val;
-+	struct sctp_transport *trans;
-+	struct sctp_association *asoc;
++	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
 +
-+	if (optlen < sizeof(struct sctp_paddrthlds))
-+		return -EINVAL;
-+	if (copy_from_user(&val, (struct sctp_paddrthlds __user *)optval, optlen))
-+		return -EFAULT;
-+
-+	if (sctp_is_any(sk, (const union sctp_addr *)&val.spt_address)) {
-+			val.spt_assoc_id);
-+		asoc = sctp_id2assoc(sk, val.spt_assoc_id);
-+		if (!asoc)
-+			return -ENOENT;
-+
-+		val.spt_pathpfthld = asoc->pf_retrans;
-+		val.spt_pathmaxrxt = asoc->pathmaxrxt;
-+	} else {
-+		trans = sctp_addr_id2transport(sk, &val.spt_address,
-+					       val.spt_assoc_id);
-+		if (!trans)
-+			return -ENOENT;
-+
-+		val.spt_pathmaxrxt = trans->pathmaxrxt;
-+		val.spt_pathpfthld = trans->pf_retrans;
-+	}
-+
-+	if (copy_to_user(optval, &val, optlen))
-+		return -EFAULT;
-+
-+	return 0;
++	return hash_32(hash, HASH_SIZE_SHIFT);
 +}
-+
- SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
- 				char __user *optval, int __user *optlen)
- {
-@@ -5628,6 +5721,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_AUTO_ASCONF:
- 		retval = sctp_getsockopt_auto_asconf(sk, len, optval, optlen);
- 		break;
-+	case SCTP_PEER_ADDR_THLDS:
-+		retval = sctp_getsockopt_paddr_thresholds(sk, optval, len);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index e5fe639..2b2bfe9 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -141,6 +141,15 @@ static ctl_table sctp_table[] = {
- 		.extra2		= &int_max
- 	},
- 	{
-+		.procname	= "pf_retrans",
-+		.data		= &sctp_pf_retrans,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &int_max
-+	},
-+	{
- 		.procname	= "max_init_retransmits",
- 		.data		= &sctp_max_retrans_init,
- 		.maxlen		= sizeof(int),
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index b026ba0..194d0f3 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -85,6 +85,7 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
  
- 	/* Initialize the default path max_retrans.  */
- 	peer->pathmaxrxt  = sctp_max_retrans_path;
-+	peer->pf_retrans  = sctp_pf_retrans;
- 
- 	INIT_LIST_HEAD(&peer->transmitted);
- 	INIT_LIST_HEAD(&peer->send_ready);
-@@ -585,7 +586,8 @@ unsigned long sctp_transport_timeout(struct sctp_transport *t)
+ static int ip6_tnl_dev_init(struct net_device *dev);
+ static void ip6_tnl_dev_setup(struct net_device *dev);
+@@ -166,12 +171,11 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
+ static struct ip6_tnl *
+ ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_addr *local)
  {
- 	unsigned long timeout;
- 	timeout = t->rto + sctp_jitter(t->rto);
--	if (t->state != SCTP_UNCONFIRMED)
-+	if ((t->state != SCTP_UNCONFIRMED) &&
-+	    (t->state != SCTP_PF))
- 		timeout += t->hbinterval;
- 	timeout += jiffies;
- 	return timeout;
--- 
-1.7.7.6
+-	unsigned int h0 = HASH(remote);
+-	unsigned int h1 = HASH(local);
++	unsigned int hash = HASH(remote, local);
+ 	struct ip6_tnl *t;
+ 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
+ 
+-	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[h0 ^ h1]) {
++	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
+ 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
+ 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
+ 		    (t->dev->flags & IFF_UP))
+@@ -205,7 +209,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n, const struct ip6_tnl_parm *p)
+ 
+ 	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
+ 		prio = 1;
+-		h = HASH(remote) ^ HASH(local);
++		h = HASH(remote, local);
+ 	}
+ 	return &ip6n->tnls[prio][h];
+ }
+diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+index 2777fa8..4d01292 100644
+--- a/net/sunrpc/svcauth_unix.c
++++ b/net/sunrpc/svcauth_unix.c
+@@ -104,23 +104,9 @@ static void ip_map_put(struct kref *kref)
+ 	kfree(im);
+ }
+ 
+-#if IP_HASHBITS == 8
+-/* hash_long on a 64 bit machine is currently REALLY BAD for
+- * IP addresses in reverse-endian (i.e. on a little-endian machine).
+- * So use a trivial but reliable hash instead
+- */
+-static inline int hash_ip(__be32 ip)
+-{
+-	int hash = (__force u32)ip ^ ((__force u32)ip>>16);
+-	return (hash ^ (hash>>8)) & 0xff;
+-}
+-#endif
+-static inline int hash_ip6(struct in6_addr ip)
++static inline int hash_ip6(const struct in6_addr *ip)
+ {
+-	return (hash_ip(ip.s6_addr32[0]) ^
+-		hash_ip(ip.s6_addr32[1]) ^
+-		hash_ip(ip.s6_addr32[2]) ^
+-		hash_ip(ip.s6_addr32[3]));
++	return hash_32(ipv6_addr_hash(ip), IP_HASHBITS);
+ }
+ static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
+ {
+@@ -301,7 +287,7 @@ static struct ip_map *__ip_map_lookup(struct cache_detail *cd, char *class,
+ 	ip.m_addr = *addr;
+ 	ch = sunrpc_cache_lookup(cd, &ip.h,
+ 				 hash_str(class, IP_HASHBITS) ^
+-				 hash_ip6(*addr));
++				 hash_ip6(addr));
+ 
+ 	if (ch)
+ 		return container_of(ch, struct ip_map, h);
+@@ -331,7 +317,7 @@ static int __ip_map_update(struct cache_detail *cd, struct ip_map *ipm,
+ 	ip.h.expiry_time = expiry;
+ 	ch = sunrpc_cache_update(cd, &ip.h, &ipm->h,
+ 				 hash_str(ipm->m_class, IP_HASHBITS) ^
+-				 hash_ip6(ipm->m_addr));
++				 hash_ip6(&ipm->m_addr));
+ 	if (!ch)
+ 		return -ENOMEM;
+ 	cache_put(ch, cd);
