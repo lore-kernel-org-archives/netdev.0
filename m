@@ -1,36 +1,56 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH 0/3] net: various tilegx networking fixes
-Date: Sun, 1 Jul 2012 14:43:47 -0400
-Message-ID: <201207181640.q6IGet7P007227@lab-41.internal.tilera.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] netns: correctly use per-netns ipv4 sysctl_tcp_mem
+Date: Wed, 18 Jul 2012 09:41:37 -0700 (PDT)
+Message-ID: <20120718.094137.2279894799753732191.davem@davemloft.net>
+References: <4FFE99EE.70003@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([12.216.194.151]:32144 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751867Ab2GRQk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:40:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: h.huangqiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4FFE99EE.70003-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This series of fixes corrects a few bugs or style issues observed
-in the tilegx network driver.
+From: Huang Qiang <h.huangqiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Date: Thu, 12 Jul 2012 17:33:34 +0800
 
-David, once any potential issues with these patches are resolved,
-would you prefer to take them from email, pull them from my net tree,
-or have me push them as part of the tile tree?
+> From: Yang Zhenzhang <yangzhenzhang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> 
+> Now, kernel allows each net namespace to independently set up its levels
+> for tcp memory pressure thresholds.
+> 
+> But it seems there is a bug, as using the following steps:
+> 
+> [root@host socket]# lxc-start -n test -f config /bin/bash
+> [root@net-test socket]# ip route add default via 192.168.58.2
+> [root@net-test socket]# echo 0 0 0 > /proc/sys/net/ipv4/tcp_mem
+> [root@net-test socket]# scp root-Q0ErXNX1RuabR28l3DCWlg@public.gmane.org:/home/tcp_mem_test .
+> 
+> and it still can transport the "tcp_mem_test" file which we hope it
+> would not.
+> 
+> It's because inet_init() (net/ipv4/af_inet.c)initialize the tcp_prot.sysctl_mem:
+> tcp_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
+> 
+> So when the protocal is TCP, sk->sk_prot->sysctl_mem(following code)
+> always use the ipv4 sysctl_tcp_mem of init_net namespace rather than
+> it's own net namespace.
+> This patch simply set "prot" equal to net->ipv4.sysctl_tcp_mem when
+> the protocol type is TCP.
+> 
+> Signed-off-by: Yang Zhenzhang <yangzhenzhang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Huang Qiang <h.huangqiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-The tree is at:
+This patch doesn't apply cleanly to net-next, please respin it.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/cmetcalf/linux-tile.git net
-
-Chris Metcalf (3):
-      net: tilegx driver bugfix (be explicit about percpu queue number)
-      tilegx net driver: handle payload data not in frags
-      tilegx net: use eth_hw_addr_random(), not random_ether_addr()
-
- drivers/net/ethernet/tile/tilegx.c |   61 ++++++++++++++++++++----------------
- 1 file changed, 34 insertions(+), 27 deletions(-)
-
-Thanks!
+Thank you.
