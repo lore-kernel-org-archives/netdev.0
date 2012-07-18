@@ -1,170 +1,198 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 0/9] Add Ethernet IPoIB driver
-Date: Wed, 18 Jul 2012 13:59:53 +0300
-Message-ID: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, shlomop@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv6: add ipv6_addr_hash() helper
+Date: Wed, 18 Jul 2012 14:08:54 +0200
+Message-ID: <1342613334.2626.2504.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Andrew McGregor <andrewmcgr@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:35523 "HELO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753587Ab2GRLAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 07:00:17 -0400
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:58977 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753431Ab2GRMI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 08:08:59 -0400
+Received: by vbbff1 with SMTP id ff1so1012010vbb.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 05:08:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-changes from V0:
- - applied feedback from Eric/Dave - RX flow uses only the last 20 bytes of skb->cb[]
- - applied feedback from Ben H. on ethtool changes
- - fix sparse error on function which should be made static
- - made the netdev features related code of the driver more elegant/robust
- - used _bh locking in some paths which used plain rw locking in V0
- - some code rearrangements in flows that send ARPs
+From: Eric Dumazet <edumazet@google.com>
 
+Introduce ipv6_addr_hash() helper doing a XOR on all bits
+of an IPv6 address, with an optimized x86_64 version.
 
-The eIPoIB driver provides a standard Ethernet netdevice over 
-the InfiniBand IPoIB interface.
+Use it in flow dissector, as suggested by Andrew McGregor,
+to reduce hash collision probabilities in fq_codel (and other
+users of flow dissector)
 
-Some services can run only on top of Ethernet L2 interfaces, and cannot be
-bound to an IPoIB interface. With this new driver, these services can run
-seamlessly.
+As cleanups, use it in :
 
-Main use case of the driver is the Ethernet Virtual Switching used in
-virtualized environments, where an eipoib netdevice can be used as a 
-Physical Interface (PIF) in the hypervisor domain, and allow other 
-guests Virtual Interfaces (VIF) connected to the same Virtual Switch 
-to run over the InfiniBand fabric.
+ net/sunrpc/svcauth_unix.c
+ net/ipv6/ip6_tunnel.c
+ net/ipv4/tcp_metrics.c
 
-This driver supports L2 Switching (Direct Bridging) as well as other L3
-Switching modes (e.g. NAT).
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrew McGregor <andrewmcgr@gmail.com>
+Cc: Dave Taht <dave.taht@gmail.com>
+Cc: Tom Herbert <therbert@google.com>
+---
+ include/net/ipv6.h        |   13 +++++++++++++
+ net/core/flow_dissector.c |    5 +++--
+ net/ipv4/tcp_metrics.c    |   15 +++------------
+ net/ipv6/ip6_tunnel.c     |    4 +---
+ net/sunrpc/svcauth_unix.c |   18 ++++++++----------
+ 5 files changed, 28 insertions(+), 27 deletions(-)
 
-Whenever an IPoIB interface is created, one eIPoIB PIF netdevice 
-will be created. The default naming scheme is as in other Ethernet 
-interfaces: ethX, for example, on a system with two IPoIB interfaces,
-ib0 and ib1, two interfaces will be created ethX and ethX+1 When "X" 
-is the next free Ethernet number in the system.
-
-Using "ethtool -i " over the new interface can tell on which IPoIB
-PIF interface that interface is above.  For example: driver: eth_ipoib:ib0 
-indicates that eth3 is the Ethernet interface over the ib0 IPoIB interface.
-
-The driver can be used as independent interface or to serve in
-virtualization environment as the physical layer for the virtual
-interfaces on the virtual guest.
-
-The driver interface (eipoib interface or which is also referred to as parent) 
-uses slave interfaces, IPoIB clones, which are the VIFs described above.
-
-VIFs interfaces are enslaved/released from the eipoib driver on demand, according 
-to the management interface provided to user space.
-
-The management interface for the driver uses sysfs entries. Via these sysfs 
-entries the driver gets details on new VIF's to manage. The driver can 
-enslave new VIF (IPoIB cloned interface) or detaches from it.
-
-Here are few sysfs commands that are used in order to manage the driver, 
-according to few scenarios:
-
-1. create new clone of IPoIB interface:
-
-	$ echo .Y > /sys/class/net/ibX/create_child
-
-create new clone ibX.Y with the same pkey as ibX, for example:
-
-	$ echo .1 > /sys/class/net/ib0/create_child
-
-will create new interface ib0.1
-
-2. notify parent interface on new VIF to enslave:
-
-	$ echo +ibX.Y > /sys/class/net/ethZ/eth/slaves
-
-where ethZ is the driver interface, for example:
-
-	$ echo +ib0.1 > /sys/class/net/eth4/eth/slaves
-
-will enslave ib0.1 to eth4
-
-3. notify parent interface interface on VIF details (mac and vlan)
-
-	$ echo +ibX.Y <MAC address> > /sys/class/net/ethZ/eth/vifs
-
-for example:
-
-	$ echo +ib0.1 00:02:c9:43:3b:f1 > /sys/class/net/eth4/eth/vifs
-
-4. notify parent to release VIF:
-
-	$ echo -ibX.Y > /sys/class/net/ethZ/eth/slaves
-
-where ethZ is the driver interface, for example:
-
-        $ echo -ib0.1 > /sys/class/net/eth4/eth/slaves
-
-will release ib0.1 from eth4
-
-5. see the list of ipoib interfaces enslaved under eipoib interface,
-
-	$ cat /sys/class/net/ethX/eth/vifs
-
-for example:
-	
-	$ cat /sys/class/net/eth4/eth/vifs
-
-	SLAVE=ib0.1      MAC=9a:c2:1f:d7:3b:63 VLAN=N/A
-	SLAVE=ib0.2      MAC=52:54:00:60:55:88 VLAN=N/A
-	SLAVE=ib0.3      MAC=52:54:00:60:55:89 VLAN=N/A
-
-Note: Each ethX interface has at least one ibX.Y slave to serve the PIF
-itself, in the VIFs list of ethX you'll notice that ibX.1 is always created 
-to serve applications running from the Hypervisor on top of ethX interface directly.
-
-For IB applications that require native IPoIB interfaces (e.g. RDMA-CM), the
-original ipoib interfaces ibX can still be used.  For example, RDMA-CM and
-eth_ipoib drivers can co-exist and make use of IPoIB
-
-The last patch of this series was made such that the series works as is over 
-net-next, in parallel to the submission of this driver, a patch to modify IPoIB 
-such that it doesn't assume dst/neighbour on the skb was posted. 
-
-Or.
-
-
-Erez Shitrit (8):
-  include/linux: Add private flags for IPoIB interfaces
-  IB/ipoib: Add support for acting as VIF
-  net/eipoib: Add private header file
-  net/eipoib: Add ethtool file support
-  net/eipoib: Add sysfs support
-  net/eipoib: Add main driver functionality
-  net/eipoib: Add Makefile, Kconfig and MAINTAINERS entries
-  IB/ipoib: Add support for transmission of skbs w.o dst/neighbour
-
-Or Gerlitz (1):
-  IB/ipoib: Add support for clones / multiple childs on the same partition
-
- Documentation/infiniband/ipoib.txt         |   23 +
- MAINTAINERS                                |    6 +
- drivers/infiniband/ulp/ipoib/ipoib.h       |   12 +-
- drivers/infiniband/ulp/ipoib/ipoib_cm.c    |    9 +
- drivers/infiniband/ulp/ipoib/ipoib_ib.c    |    8 +-
- drivers/infiniband/ulp/ipoib/ipoib_main.c  |   76 +-
- drivers/infiniband/ulp/ipoib/ipoib_verbs.c |    3 +-
- drivers/infiniband/ulp/ipoib/ipoib_vlan.c  |   46 +-
- drivers/net/Kconfig                        |   15 +
- drivers/net/Makefile                       |    1 +
- drivers/net/eipoib/Makefile                |    4 +
- drivers/net/eipoib/eth_ipoib.h             |  227 ++++
- drivers/net/eipoib/eth_ipoib_ethtool.c     |  126 ++
- drivers/net/eipoib/eth_ipoib_main.c        | 1915 ++++++++++++++++++++++++++++
- drivers/net/eipoib/eth_ipoib_sysfs.c       |  640 ++++++++++
- include/linux/if.h                         |    2 +
- include/rdma/e_ipoib.h                     |   54 +
- 17 files changed, 3134 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/eipoib/Makefile
- create mode 100644 drivers/net/eipoib/eth_ipoib.h
- create mode 100644 drivers/net/eipoib/eth_ipoib_ethtool.c
- create mode 100644 drivers/net/eipoib/eth_ipoib_main.c
- create mode 100644 drivers/net/eipoib/eth_ipoib_sysfs.c
- create mode 100644 include/rdma/e_ipoib.h
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index f695f39..079cd9c 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -419,6 +419,19 @@ static inline bool ipv6_addr_any(const struct in6_addr *a)
+ #endif
+ }
+ 
++static inline u32 ipv6_addr_hash(const struct in6_addr *a)
++{
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
++	const unsigned long *ul = (const unsigned long *)a;
++	unsigned long x = ul[0] ^ ul[1];
++
++	return x ^ (x >> 32);
++#else
++	return (__force u32)(a->s6_addr32[0] ^ a->s6_addr32[1] ^
++			     a->s6_addr32[2] ^ a->s6_addr32[3]);
++#endif
++}
++
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+ {
+ 	return (a->s6_addr32[0] | a->s6_addr32[1] |
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index a225089..466820b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -4,6 +4,7 @@
+ #include <linux/ipv6.h>
+ #include <linux/if_vlan.h>
+ #include <net/ip.h>
++#include <net/ipv6.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/if_pppox.h>
+ #include <linux/ppp_defs.h>
+@@ -55,8 +56,8 @@ ipv6:
+ 			return false;
+ 
+ 		ip_proto = iph->nexthdr;
+-		flow->src = iph->saddr.s6_addr32[3];
+-		flow->dst = iph->daddr.s6_addr32[3];
++		flow->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
++		flow->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
+ 		nhoff += sizeof(struct ipv6hdr);
+ 		break;
+ 	}
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 5a38a2d..1a115b6 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -211,10 +211,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
+ 		break;
+ 	case AF_INET6:
+ 		*(struct in6_addr *)addr.addr.a6 = inet6_rsk(req)->rmt_addr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&inet6_rsk(req)->rmt_addr);
+ 		break;
+ 	default:
+ 		return NULL;
+@@ -251,10 +248,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
+ 	case AF_INET6:
+ 		tw6 = inet6_twsk((struct sock *)tw);
+ 		*(struct in6_addr *)addr.addr.a6 = tw6->tw_v6_daddr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&tw6->tw_v6_daddr);
+ 		break;
+ 	default:
+ 		return NULL;
+@@ -291,10 +285,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ 		break;
+ 	case AF_INET6:
+ 		*(struct in6_addr *)addr.addr.a6 = inet6_sk(sk)->daddr;
+-		hash = ((__force unsigned int) addr.addr.a6[0] ^
+-			(__force unsigned int) addr.addr.a6[1] ^
+-			(__force unsigned int) addr.addr.a6[2] ^
+-			(__force unsigned int) addr.addr.a6[3]);
++		hash = ipv6_addr_hash(&inet6_sk(sk)->daddr);
+ 		break;
+ 	default:
+ 		return NULL;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index db32846..819b8eb 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -72,9 +72,7 @@ MODULE_ALIAS_NETDEV("ip6tnl0");
+ 
+ #define HASH_SIZE  32
+ 
+-#define HASH(addr) ((__force u32)((addr)->s6_addr32[0] ^ (addr)->s6_addr32[1] ^ \
+-		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
+-		    (HASH_SIZE - 1))
++#define HASH(addr) (ipv6_addr_hash(addr) & (HASH_SIZE - 1))
+ 
+ static int ip6_tnl_dev_init(struct net_device *dev);
+ static void ip6_tnl_dev_setup(struct net_device *dev);
+diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+index 2777fa8..e7e1dfe 100644
+--- a/net/sunrpc/svcauth_unix.c
++++ b/net/sunrpc/svcauth_unix.c
+@@ -109,18 +109,16 @@ static void ip_map_put(struct kref *kref)
+  * IP addresses in reverse-endian (i.e. on a little-endian machine).
+  * So use a trivial but reliable hash instead
+  */
+-static inline int hash_ip(__be32 ip)
++static inline int hash_ip(u32 ip)
+ {
+-	int hash = (__force u32)ip ^ ((__force u32)ip>>16);
+-	return (hash ^ (hash>>8)) & 0xff;
++	ip ^= (ip >> 16);
++	ip ^= (ip >> 8);
++	return ip & 0xff;
+ }
+ #endif
+-static inline int hash_ip6(struct in6_addr ip)
++static inline int hash_ip6(const struct in6_addr *ip)
+ {
+-	return (hash_ip(ip.s6_addr32[0]) ^
+-		hash_ip(ip.s6_addr32[1]) ^
+-		hash_ip(ip.s6_addr32[2]) ^
+-		hash_ip(ip.s6_addr32[3]));
++	return hash_ip(ipv6_addr_hash(ip));
+ }
+ static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
+ {
+@@ -301,7 +299,7 @@ static struct ip_map *__ip_map_lookup(struct cache_detail *cd, char *class,
+ 	ip.m_addr = *addr;
+ 	ch = sunrpc_cache_lookup(cd, &ip.h,
+ 				 hash_str(class, IP_HASHBITS) ^
+-				 hash_ip6(*addr));
++				 hash_ip6(addr));
+ 
+ 	if (ch)
+ 		return container_of(ch, struct ip_map, h);
+@@ -331,7 +329,7 @@ static int __ip_map_update(struct cache_detail *cd, struct ip_map *ipm,
+ 	ip.h.expiry_time = expiry;
+ 	ch = sunrpc_cache_update(cd, &ip.h, &ipm->h,
+ 				 hash_str(ipm->m_class, IP_HASHBITS) ^
+-				 hash_ip6(ipm->m_addr));
++				 hash_ip6(&ipm->m_addr));
+ 	if (!ch)
+ 		return -ENOMEM;
+ 	cache_put(ch, cd);
