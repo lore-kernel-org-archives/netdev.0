@@ -1,48 +1,59 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH 0/3 v2] net: various tilegx networking fixes
-Date: Wed, 18 Jul 2012 15:22:12 -0400
-Message-ID: <50070CE4.7040704@tilera.com>
-References: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com> <20120718.113623.984635805289135415.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 10/15] ipv4: Cache input routes in fib_info nexthops.
+Date: Wed, 18 Jul 2012 12:27:55 -0700
+Message-ID: <1342639675.2013.18.camel@joe2Laptop>
+References: <20120718.112413.1969496621247659288.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([12.216.194.151]:25966 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755740Ab2GRTWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 15:22:14 -0400
-In-Reply-To: <20120718.113623.984635805289135415.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:54852 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752115Ab2GRT14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 15:27:56 -0400
+In-Reply-To: <20120718.112413.1969496621247659288.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/18/2012 2:36 PM, David Miller wrote:
-> From: Chris Metcalf <cmetcalf@tilera.com>
-> Date: Sun, 1 Jul 2012 14:43:47 -0400
->
->> The tree is at:
->>
->>   git://git.kernel.org/pub/scm/linux/kernel/git/cmetcalf/linux-tile.git net
->>
->> Chris Metcalf (3):
->>       net: tilegx driver bugfix (be explicit about percpu queue number)
->>       tilegx net driver: handle payload data not in frags
->>       tilegx net: use eth_hw_addr_random(), not random_ether_addr()
-> These changes look fine, but when I pull from your tree I get tons of
-> totally unrelated stuff and a merge conflict in this driver.
->
-> Can you put together a clean pull against net-next?
+On Wed, 2012-07-18 at 11:24 -0700, David Miller wrote:
+> Caching input routes is slightly simpler than output routes, since we
+> don't need to be concerned with nexthop exceptions.  (locally
+> destined, and routed packets, never trigger PMTU events or redirects
+> that will be processed by us).
+[]
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+[]
+> @@ -1355,11 +1357,11 @@ static int __mkroute_input(struct sk_buff *skb,
+[]
+> +	do_cache = false;
+> +	if (res->fi) {
+> +		if (!(flags & RTCF_DIRECTSRC) && !itag) {
+> +			rth = FIB_RES_NH(*res).nh_rth_input;
+> +			if (rth) {
+> +				dst_use(&rth->dst, jiffies);
+> +				goto out;
+> +			}
+> +			do_cache = true;
+> +		}
+> +	}
+[]
+> @@ -1568,8 +1580,20 @@ brd_input:
+[]
+> +	do_cache = false;
+> +	if (res.fi) {
+> +		if (!(flags & RTCF_DIRECTSRC) && !itag) {
+> +			rth = FIB_RES_NH(res).nh_rth_input;
+> +			if (rth) {
+> +				dst_use(&rth->dst, jiffies);
+> +				goto set_and_out;
+> +			}
+> +			do_cache = true;
+> +		}
+> +	}
 
-The merge conflict was against Joe Perches' bombing of random_ether_addr()
-to eth_random_addr().  I left in my change to convert that again to be
-eth_hw_addr_random(), which naively seems like a better API, and sets
-NET_ADDR_RANDOM, which is presumably a good thing.
+Maybe a helper like:
 
-I recreated the tree to be branched off of net-next. ( I had originally
-created it off of Linus's tree, which in retrospect doesn't make much
-sense.)  Please try to pull again - thanks!
-
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+	if (some_do_cache_name(rth, res, itag, flags, &do_cache))
+		goto foo;
