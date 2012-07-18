@@ -1,79 +1,198 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
 Subject: Re: [PATCH v2] b44: add 64 bit stats
-Date: Wed, 18 Jul 2012 05:18:50 +0200
-Message-ID: <1342581530.2626.1291.camel@edumazet-glaptop>
-References: <1342337165.3265.10640.camel@edumazet-glaptop>
-	 <CABF+-6VZB=V1j2cAzhNkJozvcVs=VrQGYX_71HiZJ+g6od7qyA@mail.gmail.com>
-	 <CABF+-6W0B0wB7hAfSRh83aEb_XPqaJuzA1nKZJygdd9xw-rN1g@mail.gmail.com>
-	 <20120716.230806.242760837075045729.davem@davemloft.net>
-	 <CABF+-6WmaLjgTTX_ot=QCzsM-tYMJhVk5oRYFAVj66cKG-z31A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kevin Groeneveld <kgroeneveld@gmail.com>
+Date: Tue, 17 Jul 2012 23:46:01 -0400
+Message-ID: <1342583161-1184-1-git-send-email-kgroeneveld@gmail.com>
+References: <20120716.230806.242760837075045729.davem@davemloft.net>
+Cc: Kevin Groeneveld <kgroeneveld@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:53481 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752319Ab2GRDS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 23:18:59 -0400
-Received: by vcbfk26 with SMTP id fk26so789568vcb.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 20:18:57 -0700 (PDT)
-In-Reply-To: <CABF+-6WmaLjgTTX_ot=QCzsM-tYMJhVk5oRYFAVj66cKG-z31A@mail.gmail.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:54786 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792Ab2GRDqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 23:46:09 -0400
+Received: by yenl2 with SMTP id l2so1159675yen.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 20:46:09 -0700 (PDT)
+In-Reply-To: <20120716.230806.242760837075045729.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-17 at 22:02 -0400, Kevin Groeneveld wrote:
-> On Tue, Jul 17, 2012 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
-> > This patch was corrupted by your email client and is therefore
-> > unusable.
-> 
-> If I resend the patch should I bump the version number in the subject?
-> 
-It doesnt matter in this case, its a formatting issue
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
 
-> Should I include "Acked-by" lines that people have posted?
-> 
+Add support for 64 bit stats to Broadcom b44 ethernet driver.
 
-You can if no semantic change is done
+Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
+---
+v2: use u64_stats_fetch_begin_bh/u64_stats_fetch_retry_bh instead of
+    u64_stats_fetch_begin/u64_stats_fetch_retry as stats update happens in a
+    timer interrupt
 
-> I keep sending myself test messages with the patch but the white space
-> is always mangled.  I am not sure if Thunderbird is mangling it in the
-> sent message or the received message... :(
+ drivers/net/ethernet/broadcom/b44.c |   96 ++++++++++++++++++++---------------
+ drivers/net/ethernet/broadcom/b44.h |    3 +-
+ 2 files changed, 58 insertions(+), 41 deletions(-)
 
-Documentation/email-clients.txt
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Thunderbird (GUI)
-
-Thunderbird is an Outlook clone that likes to mangle text, but there are ways
-to coerce it into behaving.
-
-- Allows use of an external editor:
-  The easiest thing to do with Thunderbird and patches is to use an
-  "external editor" extension and then just use your favorite $EDITOR
-  for reading/merging patches into the body text.  To do this, download
-  and install the extension, then add a button for it using
-  View->Toolbars->Customize... and finally just click on it when in the
-  Compose dialog.
-
-To beat some sense out of the internal editor, do this:
-
-- Edit your Thunderbird config settings so that it won't use format=flowed.
-  Go to "edit->preferences->advanced->config editor" to bring up the
-  thunderbird's registry editor, and set "mailnews.send_plaintext_flowed" to
-  "false".
-
-- Disable HTML Format: Set "mail.identity.id1.compose_html" to "false".
-
-- Enable "preformat" mode: Set "editor.quotesPreformatted" to "true".
-
-- Enable UTF8: Set "prefs.converted-to-utf8" to "true".
-
-- Install the "toggle wordwrap" extension.  Download the file from:
-    https://addons.mozilla.org/thunderbird/addon/2351/
-  Then go to "tools->add ons", select "install" at the bottom of the screen,
-  and browse to where you saved the .xul file.  This adds an "Enable
-  Wordwrap" entry under the Options menu of the message composer.
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index d09c6b5..9786c0e 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -483,9 +483,11 @@ out:
+ static void b44_stats_update(struct b44 *bp)
+ {
+ 	unsigned long reg;
+-	u32 *val;
++	u64 *val;
+ 
+ 	val = &bp->hw_stats.tx_good_octets;
++	u64_stats_update_begin(&bp->hw_stats.syncp);
++
+ 	for (reg = B44_TX_GOOD_O; reg <= B44_TX_PAUSE; reg += 4UL) {
+ 		*val++ += br32(bp, reg);
+ 	}
+@@ -496,6 +498,8 @@ static void b44_stats_update(struct b44 *bp)
+ 	for (reg = B44_RX_GOOD_O; reg <= B44_RX_NPAUSE; reg += 4UL) {
+ 		*val++ += br32(bp, reg);
+ 	}
++
++	u64_stats_update_end(&bp->hw_stats.syncp);
+ }
+ 
+ static void b44_link_report(struct b44 *bp)
+@@ -1635,44 +1639,49 @@ static int b44_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *b44_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *b44_get_stats64(struct net_device *dev,
++					struct rtnl_link_stats64 *nstat)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	struct net_device_stats *nstat = &dev->stats;
+ 	struct b44_hw_stats *hwstat = &bp->hw_stats;
+-
+-	/* Convert HW stats into netdevice stats. */
+-	nstat->rx_packets = hwstat->rx_pkts;
+-	nstat->tx_packets = hwstat->tx_pkts;
+-	nstat->rx_bytes   = hwstat->rx_octets;
+-	nstat->tx_bytes   = hwstat->tx_octets;
+-	nstat->tx_errors  = (hwstat->tx_jabber_pkts +
+-			     hwstat->tx_oversize_pkts +
+-			     hwstat->tx_underruns +
+-			     hwstat->tx_excessive_cols +
+-			     hwstat->tx_late_cols);
+-	nstat->multicast  = hwstat->tx_multicast_pkts;
+-	nstat->collisions = hwstat->tx_total_cols;
+-
+-	nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
+-				   hwstat->rx_undersize);
+-	nstat->rx_over_errors   = hwstat->rx_missed_pkts;
+-	nstat->rx_frame_errors  = hwstat->rx_align_errs;
+-	nstat->rx_crc_errors    = hwstat->rx_crc_errs;
+-	nstat->rx_errors        = (hwstat->rx_jabber_pkts +
+-				   hwstat->rx_oversize_pkts +
+-				   hwstat->rx_missed_pkts +
+-				   hwstat->rx_crc_align_errs +
+-				   hwstat->rx_undersize +
+-				   hwstat->rx_crc_errs +
+-				   hwstat->rx_align_errs +
+-				   hwstat->rx_symbol_errs);
+-
+-	nstat->tx_aborted_errors = hwstat->tx_underruns;
++	unsigned int start;
++
++	do {
++		start = u64_stats_fetch_begin_bh(&hwstat->syncp);
++
++		/* Convert HW stats into rtnl_link_stats64 stats. */
++		nstat->rx_packets = hwstat->rx_pkts;
++		nstat->tx_packets = hwstat->tx_pkts;
++		nstat->rx_bytes   = hwstat->rx_octets;
++		nstat->tx_bytes   = hwstat->tx_octets;
++		nstat->tx_errors  = (hwstat->tx_jabber_pkts +
++				     hwstat->tx_oversize_pkts +
++				     hwstat->tx_underruns +
++				     hwstat->tx_excessive_cols +
++				     hwstat->tx_late_cols);
++		nstat->multicast  = hwstat->tx_multicast_pkts;
++		nstat->collisions = hwstat->tx_total_cols;
++
++		nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
++					   hwstat->rx_undersize);
++		nstat->rx_over_errors   = hwstat->rx_missed_pkts;
++		nstat->rx_frame_errors  = hwstat->rx_align_errs;
++		nstat->rx_crc_errors    = hwstat->rx_crc_errs;
++		nstat->rx_errors        = (hwstat->rx_jabber_pkts +
++					   hwstat->rx_oversize_pkts +
++					   hwstat->rx_missed_pkts +
++					   hwstat->rx_crc_align_errs +
++					   hwstat->rx_undersize +
++					   hwstat->rx_crc_errs +
++					   hwstat->rx_align_errs +
++					   hwstat->rx_symbol_errs);
++
++		nstat->tx_aborted_errors = hwstat->tx_underruns;
+ #if 0
+-	/* Carrier lost counter seems to be broken for some devices */
+-	nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
++		/* Carrier lost counter seems to be broken for some devices */
++		nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
+ #endif
++	} while (u64_stats_fetch_retry_bh(&hwstat->syncp, start));
+ 
+ 	return nstat;
+ }
+@@ -1993,17 +2002,24 @@ static void b44_get_ethtool_stats(struct net_device *dev,
+ 				  struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	u32 *val = &bp->hw_stats.tx_good_octets;
++	struct b44_hw_stats *hwstat = &bp->hw_stats;
++	u64 *data_src, *data_dst;
++	unsigned int start;
+ 	u32 i;
+ 
+ 	spin_lock_irq(&bp->lock);
+-
+ 	b44_stats_update(bp);
++	spin_unlock_irq(&bp->lock);
+ 
+-	for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
+-		*data++ = *val++;
++	do {
++		data_src = &hwstat->tx_good_octets;
++		data_dst = data;
++		start = u64_stats_fetch_begin_bh(&hwstat->syncp);
+ 
+-	spin_unlock_irq(&bp->lock);
++		for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
++			*data_dst++ = *data_src++;
++
++	} while (u64_stats_fetch_retry_bh(&hwstat->syncp, start));
+ }
+ 
+ static void b44_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+@@ -2113,7 +2129,7 @@ static const struct net_device_ops b44_netdev_ops = {
+ 	.ndo_open		= b44_open,
+ 	.ndo_stop		= b44_close,
+ 	.ndo_start_xmit		= b44_start_xmit,
+-	.ndo_get_stats		= b44_get_stats,
++	.ndo_get_stats64	= b44_get_stats64,
+ 	.ndo_set_rx_mode	= b44_set_rx_mode,
+ 	.ndo_set_mac_address	= b44_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
+index e1905a4..8993d72 100644
+--- a/drivers/net/ethernet/broadcom/b44.h
++++ b/drivers/net/ethernet/broadcom/b44.h
+@@ -338,9 +338,10 @@ struct ring_info {
+  * the layout
+  */
+ struct b44_hw_stats {
+-#define _B44(x)	u32 x;
++#define _B44(x)	u64 x;
+ B44_STAT_REG_DECLARE
+ #undef _B44
++	struct u64_stats_sync	syncp;
+ };
+ 
+ struct ssb_device;
+-- 
+1.7.9.5
