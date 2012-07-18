@@ -1,67 +1,115 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: getsockopt/setsockopt with SO_RCVBUF and SO_SNDBUF "non-standard"
- behaviour
-Date: Wed, 18 Jul 2012 10:32:30 -0700
-Message-ID: <5006F32E.8060405@hp.com>
-References: <50052FFE.2060109@pu-pm.univ-fcomte.fr>  <5006DD6B.3030300@pu-pm.univ-fcomte.fr> <1342627875.2626.3070.camel@edumazet-glaptop>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: That's pretty much it for 3.5.0
+Date: Wed, 18 Jul 2012 17:36:35 +0000
+Message-ID: <205259E8-A99F-4573-96C9-7A394235B338@intel.com>
+References: <5005D008.6060103@intel.com>
+ <20120717.140241.1599386555723262095.davem@davemloft.net>
+ <5005E390.7020706@intel.com>
+ <20120717.151832.1306978935355646723.davem@davemloft.net>
+ <5005F4F9.6010208@intel.com>
+ <20120718130430.GE25563@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eugen Dedu <Eugen.Dedu@pu-pm.univ-fcomte.fr>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Fastabend, John R" <john.r.fastabend@intel.com>,
+	"<h@hmsreliant.think-freely.org>" <h@hmsreliant.think-freely.org>,
+	David Miller <davem@davemloft.net>,
+	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+	"<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+	"<netfilter-devel@vger.kernel.org>" <netfilter-devel@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:29953 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564Ab2GRRcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 13:32:33 -0400
-In-Reply-To: <1342627875.2626.3070.camel@edumazet-glaptop>
+Received: from mga09.intel.com ([134.134.136.24]:62141 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751817Ab2GRRgh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 13:36:37 -0400
+In-Reply-To: <20120718130430.GE25563@hmsreliant.think-freely.org>
+Content-Language: en-US
+Content-ID: <F50CA5A78A1BD946AA5009E2141B20FD@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/18/2012 09:11 AM, Eric Dumazet wrote:
->
-> That the way it's done on linux since day 0
->
-> You can probably find a lot of pages on the web explaining the
-> rationale.
->
-> If your application handles UDP frames, what SO_RCVBUF should count ?
->
-> If its the amount of payload bytes, you could have a pathological
-> situation where an attacker sends 1-byte UDP frames fast enough and
-> could consume a lot of kernel memory.
->
-> Each frame consumes a fair amount of kernel memory (between 512 bytes
-> and 8 Kbytes depending on the driver).
->
-> So linux says : If user expect to receive  XXXX bytes, set a limit of
-> _kernel_ memory used to store these bytes, and use an estimation of 100%
-> of overhead. That is : allow 2*XXXX bytes to be allocated for socket
-> receive buffers.
+On Jul 18, 2012, at 6:04 AM, Neil Horman wrote:
 
-Expanding on/rewording that, in a setsockopt() call SO_RCVBUF specifies 
-the data bytes and gets doubled to become the kernel/overhead byte 
-limit.  Unless the doubling would be greater than net.core.rmem_max, in 
-which case the limit becomes net.core.rmem_max.
+> John, can you post the backtrace you got for this?  I replied to the patch that
+> you posted for this fix.  the cgroup subsystem has an early_init flag thats
+> supposed to prevent the initialization of cgroups that don't need initialization
+> until later (like via module_init() calls).
 
-But on getsockopt() SO_RCVBUF is always the kernel/overhead byte limit.
+Here is the backtrace that I get and below a patch that fixes it:
 
-In one call it is fish.  In the other it is fowl.
+[    0.010958] Initializing cgroup subsys net_prio
+[    0.011040] BUG: unable to handle kernel NULL pointer dereference at 0000000000000828
+[    0.011998] IP: [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
+[    0.011998] PGD 0 
+[    0.011998] Oops: 0000 [#1] SMP 
+[    0.011998] CPU 0 
+[    0.011998] Modules linked in:
+[    0.011998] 
+[    0.011998] Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc7-mdrlinux+ #10 Bochs Bochs
+[    0.011998] RIP: 0010:[<ffffffff814202c8>]  [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
+[    0.011998] RSP: 0000:ffffffff81a01e68  EFLAGS: 00010246
+[    0.011998] RAX: 0000000000000000 RBX: fffffffffffffed0 RCX: 0000000000000000
+[    0.011998] RDX: 0000000000000006 RSI: 2222222222222222 RDI: 2222222222222222
+[    0.011998] RBP: ffffffff81a01e88 R08: 2222222222222222 R09: 2222222222222222
+[    0.011998] R10: 0000000000000000 R11: 0000000000000001 R12: 0000000000000001
+[    0.011998] R13: 0000000000000000 R14: ffff88007ff608c0 R15: 00000000000143d0
+[    0.011998] FS:  0000000000000000(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
+[    0.011998] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[    0.011998] CR2: 0000000000000828 CR3: 0000000001a0b000 CR4: 00000000000006b0
+[    0.011998] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[    0.011998] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[    0.011998] Process swapper/0 (pid: 0, threadinfo ffffffff81a00000, task ffffffff81a13420)
+[    0.011998] Stack:
+[    0.011998]  ffffffff81a88020 0000000000000000 ffff88007d3a38f0 fffffffffffffff4
+[    0.011998]  ffffffff81a01ec8 ffffffff814203cd ffff88007ff608c0 ffffffff817d8e9a
+[    0.011998]  ffffffff81a88cd8 ffffffff81a88020 ffffffff81a88020 ffffffff81b010a0
+[    0.011998] Call Trace:
+[    0.011998]  [<ffffffff814203cd>] cgrp_create+0x8d/0xc0
+[    0.011998]  [<ffffffff81ade14a>] cgroup_init_subsys+0x80/0x126
+[    0.011998]  [<ffffffff81ade380>] cgroup_init+0x36/0x117
+[    0.011998]  [<ffffffff81acab71>] start_kernel+0x32e/0x34f
+[    0.011998]  [<ffffffff81aca6d5>] ? repair_env_string+0x5a/0x5a
+[    0.011998]  [<ffffffff81aca346>] x86_64_start_reservations+0x101/0x105
+[    0.011998]  [<ffffffff81aca120>] ? early_idt_handlers+0x120/0x120
+[    0.011998]  [<ffffffff81aca417>] x86_64_start_kernel+0xcd/0xdc
+[    0.011998] Code: 0f 1f 00 48 8b 83 30 01 00 00 48 8d 98 d0 fe ff ff 48 3d a8 e8 52 82 74 3a e8 25 db c3 ff 85 c0 74 09 80 3d bb 3d 68 00 00 74 40 <48> 8b 83 58 09 00 00 48 85 c0 74 cc 44 3b 60 10 76 c6 44 89 e6 
+[    0.011998] RIP  [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
+[    0.011998]  RSP <ffffffff81a01e68>
+[    0.011998] CR2: 0000000000000828
+[    0.012009] ---[ end trace a7919e7f17c0a725 ]---
+[    0.012601] Kernel panic - not syncing: Attempted to kill the idle task!
 
-Other stacks appear to keep their kernel/overhead limit quiet, keeping 
-SO_RCVBUF an expression of a data limit in both setsockopt() and 
-getsockopt().  With those stacks, there is I suppose the possible source 
-of confusion when/if someone tests the queuing to a socket, sends "high 
-overhead" packets and doesn't get to SO_RCVBUF worth of data though I 
-don't recall encountering that in my "pre-linux" time.
+The following change simply statically initializes init_net.dev_base_head. I copied and pasted it into the email, so this rendering may not work, but I can send it if this approach looks reasonable. I have verified that it resolves the issue above.
 
-The sometimes fish, sometimes fowl version (along with the auto tuning 
-when one doesn't make setsockopt() calls) gave me fits in netperf for 
-years until I finally relented and split the socket buffer size 
-variables into three - what netperf's user requested via the command 
-line, what it was right after the socket was created, and what it was at 
-the end of the data phase of the test.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0f28a9e..db1ba61 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6283,8 +6283,6 @@ static struct hlist_head *netdev_create_hash(void)
+ /* Initialize per network namespace state */
+ static int __net_init netdev_init(struct net *net)
+ {
+-       INIT_LIST_HEAD(&net->dev_base_head);
+-
+        net->dev_name_head = netdev_create_hash();
+        if (net->dev_name_head == NULL)
+                goto err_name;
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index dddbacb..42f1e1c 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -27,7 +27,9 @@ static DEFINE_MUTEX(net_mutex);
+ LIST_HEAD(net_namespace_list);
+ EXPORT_SYMBOL_GPL(net_namespace_list);
+ 
+-struct net init_net;
++struct net init_net = {
++       .dev_base_head = LIST_HEAD_INIT(init_net.dev_base_head),
++};
+ EXPORT_SYMBOL(init_net);
+ 
+ #define INITIAL_NET_GEN_PTRS   13 /* +1 for len +2 for rcu_head */
 
-rick jones
+-- 
+Mark Rustad, LAN Access Division, Intel Corporation
