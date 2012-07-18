@@ -1,51 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
-Date: Wed, 18 Jul 2012 13:28:40 -0700 (PDT)
-Message-ID: <20120718.132840.1571938255177607234.davem@davemloft.net>
-References: <AC35CD5731C3479B9BF5E53BF541A81F@realtek.com.tw>
-	<20120718.092346.1263036873056516097.davem@davemloft.net>
-	<20120718201201.GC14149@electric-eye.fr.zoreil.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] sctp: Implement quick failover draft from tsvwg
+Date: Wed, 18 Jul 2012 13:30:58 -0700
+Message-ID: <1342643458.2013.32.camel@joe2Laptop>
+References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
+	 <1342634466-17930-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37997 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755947Ab2GRU2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 16:28:41 -0400
-In-Reply-To: <20120718201201.GC14149@electric-eye.fr.zoreil.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:54382 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755917Ab2GRUbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 16:31:00 -0400
+In-Reply-To: <1342634466-17930-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 18 Jul 2012 22:12:01 +0200
+On Wed, 2012-07-18 at 14:01 -0400, Neil Horman wrote:
+> I've seen several attempts recently made to do quick failover of sctp transports
+> by reducing various retransmit timers and counters.  While its possible to
+> implement a faster failover on multihomed sctp associations, its not
+> particularly robust, in that it can lead to unneeded retransmits, as well as
+> false connection failures due to intermittent latency on a network.
 
-> David Miller <davem@davemloft.net> :
->> From: hayeswang <hayeswang@realtek.com>
->> > Francois Romieu [mailto:romieu@fr.zoreil.com] 
->> > [...]
->> > 
->> >> Hayes, should we not add into the kernel driver something similar to
->> >> the rtl8168_start_xmit::skb_checksum_help stuff in Realtek's 
->> >> 8168 driver ?
->> >> There seems to be a bug for (skb->len < 60 && RTL_GIGA_MAC_VER_34.
->> > 
->> > For RTL8168E-VL (RTL_GIGA_MAC_VER_34), the hardware wouldn't send the packet
->> > with the length less than 60 bytes. The hardware should pad this kind of packet
->> > to 60 bytes, but it wouldn't. Therefore, the software has to pad the packet to
->> > 60 bytes. However, the hw checksum would be incorrect for the modified packet,
->> > so the software checksum is necessary.
->> 
->> I wonder how the hardware checksum can be incorrectly calculated if the padding
->> is done with zeros?
-> 
-> A part of the apparent problem may stem from the fact that Realtek's 8168
-> driver claims a modified length but it does not really skb_padto... 
-> 
-> Hayes, would the patch below fix the original problem ?
+trivia:
 
-A NETDEV_TX_OK return means we accepted the SKB, it doesn't look like
-that's what you are doing in the skb_padto() failure path.
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+
+> @@ -871,6 +885,10 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+>  		spc_state = SCTP_ADDR_UNREACHABLE;
+>  		break;
+>  
+> +	case SCTP_TRANSPORT_PF:
+> +		transport->state = SCTP_PF;
+> +		ulp_notify = false;
+> +		break;
+
+nicer to add a newline here
+
+>  	default:
+>  		return;
+>  	}
+> @@ -878,12 +896,15 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+[]
+> +	if (ulp_notify) {
+> +		memset(&addr, 0, sizeof(struct sockaddr_storage));
+> +		memcpy(&addr, &transport->ipaddr,
+> +		       transport->af_specific->sockaddr_len);
+
+Perhaps it's better to do the memcpy then the memset of the
+space left instead.
+
+		memcpy(&addr, &transport->ipaddr, transport->af_specific->sockaddr_len);
+		memset((char *)&addr) + transport->af_specific->sockaddr_len, 0,
+		       sizeof(struct sockaddr_storage) - transport->af_specific->sockaddr_len);
+		       
