@@ -1,59 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 10/15] ipv4: Cache input routes in fib_info nexthops.
-Date: Wed, 18 Jul 2012 12:27:55 -0700
-Message-ID: <1342639675.2013.18.camel@joe2Laptop>
-References: <20120718.112413.1969496621247659288.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: brenohl@br.ibm.com
+Subject: [PATCH] cxgb3: Set vlan_feature on net_device
+Date: Wed, 18 Jul 2012 14:29:08 -0500
+Message-ID: <1342639748-16276-1-git-send-email-brenohl@br.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <brenohl@br.ibm.com>
+To: divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:54852 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752115Ab2GRT14 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 15:27:56 -0400
-In-Reply-To: <20120718.112413.1969496621247659288.davem@davemloft.net>
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:32796 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752952Ab2GRT3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 15:29:17 -0400
+Received: from /spool/local
+	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <brenohl@br.ibm.com>;
+	Wed, 18 Jul 2012 16:29:15 -0300
+Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 0A17C352004C
+	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 15:29:11 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay02.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6IJSQrM38993978
+	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 16:28:26 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6IHT1u1029178
+	for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 14:29:01 -0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 11:24 -0700, David Miller wrote:
-> Caching input routes is slightly simpler than output routes, since we
-> don't need to be concerned with nexthop exceptions.  (locally
-> destined, and routed packets, never trigger PMTU events or redirects
-> that will be processed by us).
-[]
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-[]
-> @@ -1355,11 +1357,11 @@ static int __mkroute_input(struct sk_buff *skb,
-[]
-> +	do_cache = false;
-> +	if (res->fi) {
-> +		if (!(flags & RTCF_DIRECTSRC) && !itag) {
-> +			rth = FIB_RES_NH(*res).nh_rth_input;
-> +			if (rth) {
-> +				dst_use(&rth->dst, jiffies);
-> +				goto out;
-> +			}
-> +			do_cache = true;
-> +		}
-> +	}
-[]
-> @@ -1568,8 +1580,20 @@ brd_input:
-[]
-> +	do_cache = false;
-> +	if (res.fi) {
-> +		if (!(flags & RTCF_DIRECTSRC) && !itag) {
-> +			rth = FIB_RES_NH(res).nh_rth_input;
-> +			if (rth) {
-> +				dst_use(&rth->dst, jiffies);
-> +				goto set_and_out;
-> +			}
-> +			do_cache = true;
-> +		}
-> +	}
+cxgb3 interface has a bad performance when VLAN is set. On my current
+setup, a PowerLinux 7R2, I am able to get around 7 Gbps on a TCP_STREAM
+(8 instances, 4k message).
+With this patch, I am able to reach 9.5 Gbps.
 
-Maybe a helper like:
+Signed-off-by: Breno Leitao <brenohl@br.ibm.com>
 
-	if (some_do_cache_name(rth, res, itag, flags, &do_cache))
-		goto foo;
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+index abb6ce7..fcf4b31 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+@@ -3173,6 +3173,9 @@ static void __devinit cxgb3_init_iscsi_mac(struct net_device *dev)
+ 	pi->iscsic.mac_addr[3] |= 0x80;
+ }
+ 
++#define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
++#define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
++			NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
+ static int __devinit init_one(struct pci_dev *pdev,
+ 			      const struct pci_device_id *ent)
+ {
+@@ -3293,6 +3296,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
+ 			NETIF_F_TSO | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX;
+ 		netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_TX;
++		netdev->vlan_features |= netdev->features & VLAN_FEAT;
+ 		if (pci_using_dac)
+ 			netdev->features |= NETIF_F_HIGHDMA;
+ 
+-- 
+1.7.1
