@@ -1,44 +1,119 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/4] net/rps: Protect cpu_rmap.h from double inclusion
-Date: Wed, 18 Jul 2012 17:19:20 +0300
-Message-ID: <1342621162-18498-3-git-send-email-ogerlitz@mellanox.com>
-References: <1342621162-18498-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
-	yevgenyp@mellanox.com, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [RFC PATCH] net: cgroup: null ptr dereference in netprio cgroup
+ during init
+Date: Wed, 18 Jul 2012 07:21:45 -0700
+Message-ID: <5006C679.2040605@intel.com>
+References: <20120718003316.2979.49278.stgit@jf-dev1-dcblab> <20120718124539.GC25563@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, gaofeng@cn.fujitsu.com,
+	mark.d.rustad@intel.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:55488 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753257Ab2GROTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 10:19:34 -0400
-In-Reply-To: <1342621162-18498-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mga03.intel.com ([143.182.124.21]:7009 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754601Ab2GROVs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 10:21:48 -0400
+In-Reply-To: <20120718124539.GC25563@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
+On 7/18/2012 5:45 AM, Neil Horman wrote:
+> On Tue, Jul 17, 2012 at 05:33:16PM -0700, John Fastabend wrote:
+>> When the netprio cgroup is built in the kernel cgroup_init will call
+>> cgrp_create which eventually calls update_netdev_tables. This is
+>> being called before do_initcalls() so a null ptr dereference occurs
+>> on init_net.
+>>
+>> This patch adds a check on init_net.count to verify the structure
+>> has been initialized. The failure was introduced here,
+>>
+>> commit ef209f15980360f6945873df3cd710c5f62f2a3e
+>> Author: Gao feng <gaofeng@cn.fujitsu.com>
+>> Date:   Wed Jul 11 21:50:15 2012 +0000
+>>
+>>      net: cgroup: fix access the unallocated memory in netprio cgroup
+>>
+>> Tested with ping with netprio_cgroup as a module and built in.
+>>
+>> Marked RFC for now I think DaveM might have a reason why this needs
+>> some improvement.
+>>
+>> Reported-by: Mark Rustad <mark.d.rustad@intel.com>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>
+>>   net/core/netprio_cgroup.c |    3 +++
+>>   1 files changed, 3 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+>> index b2e9caa..e9fd7fd 100644
+>> --- a/net/core/netprio_cgroup.c
+>> +++ b/net/core/netprio_cgroup.c
+>> @@ -116,6 +116,9 @@ static int update_netdev_tables(void)
+>>   	u32 max_len;
+>>   	struct netprio_map *map;
+>>
+>> +	if (!atomic_read(&init_net.count))
+>> +		return ret;
+>> +
+>>   	rtnl_lock();
+>>   	max_len = atomic_read(&max_prioidx) + 1;
+>>   	for_each_netdev(&init_net, dev) {
+>>
+>>
+>
+> John, do you have a stack trace of this.  I'm having a hard time seeing how we
+> get into this path prior to the network stack being initalized.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- include/linux/cpu_rmap.h |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Mark had a partial trace
 
-diff --git a/include/linux/cpu_rmap.h b/include/linux/cpu_rmap.h
-index 473771a..ac3bbb5 100644
---- a/include/linux/cpu_rmap.h
-+++ b/include/linux/cpu_rmap.h
-@@ -1,3 +1,6 @@
-+#ifndef __LINUX_CPU_RMAP_H
-+#define __LINUX_CPU_RMAP_H
-+
- /*
-  * cpu_rmap.c: CPU affinity reverse-map support
-  * Copyright 2011 Solarflare Communications Inc.
-@@ -71,3 +74,4 @@ extern void free_irq_cpu_rmap(struct cpu_rmap *rmap);
- extern int irq_cpu_rmap_add(struct cpu_rmap *rmap, int irq);
- 
- #endif
-+#endif /* __LINUX_CPU_RMAP_H */
--- 
-1.7.1
+[    0.003455] Dentry cache hash table entries: 262144 (order: 9, 
+2097152 bytes)
+[    0.005550] Inode-cache hash table entries: 131072 (order: 8, 1048576 
+bytes)
+[    0.007165] Mount-cache hash table entries: 256
+[    0.010289] Initializing cgroup subsys net_cls
+[    0.010947] Initializing cgroup subsys net_prio
+[    0.011039] BUG: unable to handle kernel NULL pointer dereference at 
+0000000000000828
+[    0.011998] IP: [<ffffffff814202c8>] update_netdev_tables+0x68/0xe0
+
+
+>
+> It also brings up another point.  If this is happening, and we're creating the
+> root cgroup from start_kernel, Then we're actually initalizing some cgroups
+> twice, because a few cgroups register themselves via cgroup_load_subsys in
+> module_init specified routines.  So if you're building netprio_cgroup or
+> net_cls_cgroup as part of the monolithic kernel, you'll get cgroup_create called
+> prior to your module_init() call.  Thats not good.
+
+Well your module_init() wouldn't be called in this case right? I think
+netprio has a bug where we only register a netdevice notifier when
+its built as a module.
+
+same issue with cls_cgroup and register_tcf_proto_ops?
+
+>
+> In fact, the cgroup_subsys struct has an early_init flag that cgroup_init
+> appears to use to skip the initialization of subsystems that don't need to be
+> initialized that early in boot (assuming thats the path we're going down to get
+> to this oops).
+
+Do you mean ss->early_init? Not sure that helps us either we get called
+by cgroup_init because we don't have an early_init callback or we get
+called via cgroup_init_early even earlier.
+
+>
+> If you can post the call stack, I'd appreciate it, I'd like to dig a bit deeper
+> into this.
+
+Yes I'll do this shortly.
+
+> Neil
+>
