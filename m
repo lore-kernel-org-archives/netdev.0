@@ -1,44 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cipso: don't follow a NULL pointer when setsockopt()
- is called
-Date: Wed, 18 Jul 2012 09:02:06 -0700 (PDT)
-Message-ID: <20120718.090206.1605115996207288596.davem@davemloft.net>
-References: <20120717210738.22790.23522.stgit@sifl>
+Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
+Date: Wed, 18 Jul 2012 09:07:07 -0700 (PDT)
+Message-ID: <20120718.090707.1241941591837985005.davem@davemloft.net>
+References: <alpine.LFD.2.00.1207181014050.1652@ja.ssi.bg>
+	<1342596648.2626.1831.camel@edumazet-glaptop>
+	<alpine.LFD.2.00.1207181105320.2154@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pmoore@redhat.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35062 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35121 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751253Ab2GRQCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:02:06 -0400
-In-Reply-To: <20120717210738.22790.23522.stgit@sifl>
+	with ESMTP id S1752157Ab2GRQHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:07:08 -0400
+In-Reply-To: <alpine.LFD.2.00.1207181105320.2154@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Tue, 17 Jul 2012 17:07:47 -0400
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 18 Jul 2012 11:36:08 +0300 (EEST)
 
-> As reported by Alan Cox, and verified by Lin Ming, when a user
-> attempts to add a CIPSO option to a socket using the CIPSO_V4_TAG_LOCAL
-> tag the kernel dies a terrible death when it attempts to follow a NULL
-> pointer (the skb argument to cipso_v4_validate() is NULL when called via
-> the setsockopt() syscall).
-> 
-> This patch fixes this by first checking to ensure that the skb is
-> non-NULL before using it to find the incoming network interface.  In
-> the unlikely case where the skb is NULL and the user attempts to add
-> a CIPSO option with the _TAG_LOCAL tag we return an error as this is
-> not something we want to allow.
-> 
-> A simple reproducer, kindly supplied by Lin Ming, although you must
-> have the CIPSO DOI #3 configure on the system first or you will be
-> caught early in cipso_v4_validate():
- ...
-> CC: Lin Ming <mlin@ss.pku.edu.cn>
-> Reported-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
-> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> 	Is the cost of read_seqbegin a problem? Here is a
+> 2nd version, I still keep this first check for now.
 
-Applied and queued up for -stable, thanks Paul.
+No, the read side of seqlocks are extremely cheap, it's just a plain
+read and compare of a read-mostly integer.
+
+> Subject: [PATCH v2] ipv4: use seqlock for nh_exceptions
+> 
+> From: Julian Anastasov <ja@ssi.bg>
+> 
+> 	Use global seqlock for the nh_exceptions. Call
+> fnhe_oldest with the right hash chain. Correct the diff
+> value for dst_set_expires.
+> 
+> v2: after suggestions from Eric Dumazet:
+> * get rid of spin lock fnhe_lock, rearrange update_or_create_fnhe
+> * continue daddr search in rt_bind_exception
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+
+I think if you get a seqlock mis-compare, you will need to branch back
+to rescan the hash chain from the beginning.
+
+Otherwise I like these changes a lot.
+
+We should perhaps consider doing something similar in the TCP metrics
+code.
+
+Thanks!
