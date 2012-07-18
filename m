@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] asix: Fix return value in AX88172A driver
- bind function
-Date: Wed, 18 Jul 2012 09:33:16 -0700 (PDT)
-Message-ID: <20120718.093316.829671412155849909.davem@davemloft.net>
-References: <1342609012-3075-1-git-send-email-christian.riesch@omicron.at>
+Subject: Re: [PATCH] MAINTAINERS: Changes in qlcnic and qlge maintainers
+ list
+Date: Wed, 18 Jul 2012 09:34:09 -0700 (PDT)
+Message-ID: <20120718.093409.2023813647574772996.davem@davemloft.net>
+References: <1342552929-4529-1-git-send-email-anirban.chakraborty@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: christian.riesch@omicron.at
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: anirban.chakraborty@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35535 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35553 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755033Ab2GRQdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:33:16 -0400
-In-Reply-To: <1342609012-3075-1-git-send-email-christian.riesch@omicron.at>
+	with ESMTP id S1754957Ab2GRQeK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:34:10 -0400
+In-Reply-To: <1342552929-4529-1-git-send-email-anirban.chakraborty@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christian Riesch <christian.riesch@omicron.at>
-Date: Wed, 18 Jul 2012 12:56:52 +0200
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Date: Tue, 17 Jul 2012 15:22:09 -0400
 
-> Return -ENOTSUPP if the initialization fails because the
-> device is configured for a mode that is not supported by the driver.
+> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 > 
-> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
+> Please apply.
+> 
+> Thanks.
+> 
+> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
 Applied, thanks.
