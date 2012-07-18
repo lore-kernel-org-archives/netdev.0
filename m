@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/15] ipv4: Cache output routes in fib_info nexthops.
-Date: Wed, 18 Jul 2012 13:49:44 -0700 (PDT)
-Message-ID: <20120718.134944.1556490195867452914.davem@davemloft.net>
-References: <1342643659.2626.3636.camel@edumazet-glaptop>
-	<20120718.133647.1948216070418950586.davem@davemloft.net>
-	<1342644032.2626.3651.camel@edumazet-glaptop>
+From: Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values
+ of flush
+Date: Wed, 18 Jul 2012 16:55:10 -0400
+Message-ID: <20120718205510.GA18374@umich.edu>
+References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
+ <20120718173913.GA1298@fieldses.org>
+ <20120718200049.GA17964@umich.edu>
+ <20120718203304.GA18540@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38211 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753362Ab2GRUtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 16:49:45 -0400
-In-Reply-To: <1342644032.2626.3651.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20120718203304.GA18540-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 18 Jul 2012 22:40:32 +0200
+Dave Jones wrote:
 
-> On Wed, 2012-07-18 at 13:36 -0700, David Miller wrote:
-> 
->> Do you really think it's faster/better in this case?  I did consider
->> it.
-> 
-> No, but code is smaller ;)
+  On Wed, Jul 18, 2012 at 04:00:49PM -0400, Jim Rees wrote:
+  
+   > You could use something like:
+   > 
+   >     char tbuf[sizeof (unsigned long) * 24 / 10 + 1 + 2]; /* + 2 for final "\n\0" */
+   > 
+   > since there are roughly 10 bits for every 3 decimal digits.
+   > 
+   > But I'm obviously confused, because I don't understand why tbuf needs to be
+   > any more than 10 + 2.
+  
+  Unsigned long isn't necessarily 32 bits.
+  On 64-bit systems %lu can be up to 18446744073709551615
 
-Ok, I'm convinced :)
+Thanks.  You caught me thinking "Intel."  How embarrassing.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
