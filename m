@@ -1,250 +1,412 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next v3] ipv6: add ipv6_addr_hash() helper
-Date: Wed, 18 Jul 2012 16:27:50 +0200
-Message-ID: <1342621670.2626.2818.camel@edumazet-glaptop>
-References: <1342613334.2626.2504.camel@edumazet-glaptop>
-	 <1342619879.9551.14.camel@joe2Laptop>
-	 <1342620841.2626.2786.camel@edumazet-glaptop>
+From: "Erdt, Ralph" <ralph.erdt@fkie.fraunhofer.de>
+Subject: AW: RFC: (now non Base64) replace packets already in queue
+Date: Wed, 18 Jul 2012 14:50:21 +0000
+Message-ID: <FB112703C4930F4ABEBB5B763F9649113937CBF2@MAILSERV2A.lorien.fkie.fgan.de>
+References: <FB112703C4930F4ABEBB5B763F96491139378722@MAILSERV2A.lorien.fkie.fgan.de>
+  <4FEC854E.8080603@hp.com>
+  <FB112703C4930F4ABEBB5B763F96491139378E5A@MAILSERV2A.lorien.fkie.fgan.de>
+  <1340960817.15719.6.camel@edumazet-glaptop>
+  <FB112703C4930F4ABEBB5B763F964911393795D6@MAILSERV2A.lorien.fkie.fgan.de>
+  <1341214310.5269.27.camel@edumazet-glaptop>
+  <FB112703C4930F4ABEBB5B763F96491139379643@MAILSERV2A.lorien.fkie.fgan.de>
+  <4FF20557.4090501@gmail.com> <1341266168.22621.466.camel@edumazet-glaptop>
+ <FB112703C4930F4ABEBB5B763F96491139379DC7@MAILSERV2A.lorien.fkie.fgan.de>
+ <FB112703C4930F4ABEBB5B763F96491139379ECF@MAILSERV2A.lorien.fkie.fgan.de>
+ <4FF4A873.1000001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew McGregor <andrewmcgr@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Tom Herbert <therbert@google.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>
+To: =?iso-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:51468 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754629Ab2GRO16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 10:27:58 -0400
-Received: by qcro28 with SMTP id o28so972722qcr.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 07:27:57 -0700 (PDT)
-In-Reply-To: <1342620841.2626.2786.camel@edumazet-glaptop>
+Received: from mailguard.fkie.fraunhofer.de ([128.7.3.5]:33288 "EHLO
+	a.mx.fkie.fraunhofer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628Ab2GROuZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 10:50:25 -0400
+In-Reply-To: <4FF4A873.1000001@gmail.com>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hello.
 
-Introduce ipv6_addr_hash() helper doing a XOR on all bits
-of an IPv6 address, with an optimized x86_64 version.
+I'm sorry for the very late answer. But I had top-priority family issues.
 
-Use it in flow dissector, as suggested by Andrew McGregor,
-to reduce hash collision probabilities in fq_codel (and other
-users of flow dissector)
+> I suggest you try and send a properly formated patch with your code, so
+> that people here can have a look at it and evaluate the interest of
+> integrating it into main line kernel.
 
-Use it in ip6_tunnel.c and use more bit shuffling, as suggested
-by David Laight, as existing hash was ignoring most of them.
+Attached at the button of the eMail.
 
-Use it in sunrpc and use more bit shuffling, using hash_32().
 
-As a cleanup, use it in net/ipv4/tcp_metrics.c
+> That being said, I really think you should try to manage a userspace
+> queue, [..] you can
+> add many nice features into userspace to enhance the speed/quality 
+> [..]
+> And I really see your packet replacement system as one of those nice
+> features and cannot imagine a good reason not to put it in userspace.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrew McGregor <andrewmcgr@gmail.com>
-Cc: Dave Taht <dave.taht@gmail.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: David Laight <David.Laight@ACULAB.COM>
-Cc: Joe Perches <joe@perches.com>
+All this features are done already. E.g. we are using RoHC.
+But we also want to use the TC stuff - its already there - why reprogramming?
+
+Here the patch. But I didn't find which git tree I should use. This patch is against Linux-2.6. I'm sorry. Can you tell me, which tree I've to use?
+-------------
+>From 52f27fa2b0867de821af38c731c2ebc763afb1f1 Mon Sep 17 00:00:00 2001
+From: Ralph Erdt <Ralph.Robert.Erdt@fkie.fraunhofer.de>
+Date: Wed, 18 Jul 2012 16:43:44 +0200
+Subject: [PATCH] RFC: TC qdisc "replace packet in queue"
+
+This adds a new TC qdisc, which replaces packets in the queue. It
+compares every incoming packet with all of the packets in the queue.
+If the incoming and the compared packet meet all these conditions:
+ - UDPv4
+ - not fragmented
+ - TOS like the given value(s)
+ - same TOS
+ - same source IP
+ - same destination IP
+ - same destination port
+the packet in the queue will be replaced with the incoming packet.
+
+The variable "overlimit" is the counter of replaced packets
+
+Background:
+In very low bandwidth networks (<=9.6Kbps, shared, etc.) it's hard
+(rather: impossible) to get all packets sent.
+But some of the packets contain information, which gets obsolete over
+time. E.g. (GPS) positions, which will be sent periodically. If the
+application sends a new packet while an old position packet is still in
+the queue, the old packet is obsolete. This can be dropped. But just
+dropping the old packet and queuing the new packet will result in never
+sending a packet of this type. So this qdisc replace the old packet with
+the new one. The information gets the chance to get sent - with the
+newest available information.
+
+Code-Status:
+RFC for discussing.
+The configuration by "debug-fs" is ... not optimal. But following the
+"litte step" rules this is a first option. A configuration with tc will
+be done later (if this patch got offical).
+
+Signed-off-by: Ralph Erdt <Ralph.Robert.Erdt@fkie.fraunhofer.de>
 ---
-v3: use the explicit cast inipv6_addr_hash() as suggested by Joe
+ net/sched/Kconfig  |   16 +++
+ net/sched/Makefile |    1 +
+ net/sched/sch_pr.c |  264 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 281 insertions(+), 0 deletions(-)
+ create mode 100644 net/sched/sch_pr.c
 
- include/net/ipv6.h        |   13 +++++++++++++
- net/core/flow_dissector.c |    5 +++--
- net/ipv4/tcp_metrics.c    |   15 +++------------
- net/ipv6/ip6_tunnel.c     |   20 ++++++++++++--------
- net/sunrpc/svcauth_unix.c |   22 ++++------------------
- 5 files changed, 35 insertions(+), 40 deletions(-)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index f695f39..01c34b3 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -419,6 +419,19 @@ static inline bool ipv6_addr_any(const struct in6_addr *a)
- #endif
- }
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index e7a8976..e29ad48 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -308,6 +308,22 @@ config NET_SCH_PLUG
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_plug.
  
-+static inline u32 ipv6_addr_hash(const struct in6_addr *a)
-+{
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-+	const unsigned long *ul = (const unsigned long *)a;
-+	unsigned long x = ul[0] ^ ul[1];
++config NET_SCH_PR
++	tristate "Packet Replace"
++	help
++	  Say Y here if you want to use the "Packet Replace"
++	  packet scheduling algorithm.
 +
-+	return (u32)(x ^ (x >> 32));
-+#else
-+	return (__force u32)(a->s6_addr32[0] ^ a->s6_addr32[1] ^
-+			     a->s6_addr32[2] ^ a->s6_addr32[3]);
-+#endif
++	  This qdisc will replace packets in the queue, if this is a packet
++	  from the same UDP stream (IP/Port).
++
++	  See the top of <file:net/sched/sch_pr.c> for more details.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called sch_pr.
++
++	  If unsure, say N.
++
+ comment "Classification"
+ 
+ config NET_CLS
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 5940a19..ef669ff 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -39,6 +39,7 @@ obj-$(CONFIG_NET_SCH_CHOKE)	+= sch_choke.o
+ obj-$(CONFIG_NET_SCH_QFQ)	+= sch_qfq.o
+ obj-$(CONFIG_NET_SCH_CODEL)	+= sch_codel.o
+ obj-$(CONFIG_NET_SCH_FQ_CODEL)	+= sch_fq_codel.o
++obj-$(CONFIG_NET_SCH_PR)	+= sch_pr.o
+ 
+ obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
+ obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
+diff --git a/net/sched/sch_pr.c b/net/sched/sch_pr.c
+new file mode 100644
+index 0000000..5cbf8d8
+--- /dev/null
++++ b/net/sched/sch_pr.c
+@@ -0,0 +1,264 @@
++/*
++ * net/sched/sch_pr.c	"packet replace"
++ *
++ * Copyrigth (c) 2012 Fraunhofer FKIE, all rigths reserved.
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Ralph Erdt (Fraunhofer FKIE),
++ *                                 <ralph.robert.erdt@fkie.fraunhofer.de>
++ */
++
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <net/pkt_sched.h>
++
++#include <linux/ip.h>
++#include <net/ip.h>
++#include <linux/debugfs.h>
++
++/*
++ * replace packet in queue
++ * ==========================
++ * This is a modified fifo queue (fifo by Alexey Kuznetsov).
++ *
++ * This packet compares every incoming packet with all of the packets in the
++ * queue.
++ * If the incoming and the compared packet meet all these conditions:
++ *  - UDPv4
++ *  - not fragmented
++ *  - TOS like the given value(s)
++ *  - same TOS
++ *  - same source IP
++ *  - same destination IP
++ *  - same destination port
++ * the packet in the queue will be replaced with the incoming packet.
++ *
++ * The variable "overlimit" is the counter of replaced packets
++ *
++ * Background:
++ * In very low bandwidth networks (<=9.6Kbps, shared, etc.) it's hard
++ * (rather: impossible) to get all packets sent.
++ * But some of the packets contain information, which gets obsolete over time.
++ * E.g. (GPS) positions, which will be sent periodically. If the application
++ * sends a new packet while an old position packet is still in the queue, the
++ * old packet is obsolete. This can be dropped. But just dropping the old
++ * packet and queuing the new packet will result in never sending a packet
++ * of this type.
++ * So this qdisc replace the old packet with the new one. The information gets
++ * the chance to get sent - with the newest available information.
++ *
++ * DRAWBACKS:
++ * Its not very CPU cycle saving. But on very low bandwith networks the
++ * application have to be careful with sending packets. And with a propper
++ * configuration, this will be OK.
++ */
++
++struct dentry *dgdir, *dgfile;
++
++#define TOSBITMASK 0
++#define TOSCOMPARE 1
++/* tos Flag. 1.: BitMask. 2.: Compare with */
++static u8 tos[] = {0xFF, 0xFF};
++
++bool pr_packet_to_work_with(struct sk_buff *pkt)
++{
++	struct iphdr *hdr;
++
++	if (unlikely(pkt->protocol != htons(ETH_P_IP)))
++		return false;
++
++	/* Only compare UDP - Layer 4 must be there */
++	if (unlikely(pkt->network_header == NULL))
++		return false;
++
++	hdr = ip_hdr(pkt);
++
++	/* Check for UDPv4 */
++	if (unlikely(hdr->protocol != IPPROTO_UDP))
++		return false;
++
++	/* no fragmented packets */
++	if (unlikely(ip_is_fragment(hdr)))
++		return false;
++
++	/* Correct TOS ? */
++	if ((hdr->tos & tos[TOSBITMASK]) != tos[TOSCOMPARE])
++		return false;
++
++	return true;
 +}
 +
- static inline bool ipv6_addr_loopback(const struct in6_addr *a)
- {
- 	return (a->s6_addr32[0] | a->s6_addr32[1] |
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index a225089..466820b 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -4,6 +4,7 @@
- #include <linux/ipv6.h>
- #include <linux/if_vlan.h>
- #include <net/ip.h>
-+#include <net/ipv6.h>
- #include <linux/if_tunnel.h>
- #include <linux/if_pppox.h>
- #include <linux/ppp_defs.h>
-@@ -55,8 +56,8 @@ ipv6:
- 			return false;
- 
- 		ip_proto = iph->nexthdr;
--		flow->src = iph->saddr.s6_addr32[3];
--		flow->dst = iph->daddr.s6_addr32[3];
-+		flow->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
-+		flow->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
- 		nhoff += sizeof(struct ipv6hdr);
- 		break;
- 	}
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 5a38a2d..1a115b6 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -211,10 +211,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 		break;
- 	case AF_INET6:
- 		*(struct in6_addr *)addr.addr.a6 = inet6_rsk(req)->rmt_addr;
--		hash = ((__force unsigned int) addr.addr.a6[0] ^
--			(__force unsigned int) addr.addr.a6[1] ^
--			(__force unsigned int) addr.addr.a6[2] ^
--			(__force unsigned int) addr.addr.a6[3]);
-+		hash = ipv6_addr_hash(&inet6_rsk(req)->rmt_addr);
- 		break;
- 	default:
- 		return NULL;
-@@ -251,10 +248,7 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
- 	case AF_INET6:
- 		tw6 = inet6_twsk((struct sock *)tw);
- 		*(struct in6_addr *)addr.addr.a6 = tw6->tw_v6_daddr;
--		hash = ((__force unsigned int) addr.addr.a6[0] ^
--			(__force unsigned int) addr.addr.a6[1] ^
--			(__force unsigned int) addr.addr.a6[2] ^
--			(__force unsigned int) addr.addr.a6[3]);
-+		hash = ipv6_addr_hash(&tw6->tw_v6_daddr);
- 		break;
- 	default:
- 		return NULL;
-@@ -291,10 +285,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 		break;
- 	case AF_INET6:
- 		*(struct in6_addr *)addr.addr.a6 = inet6_sk(sk)->daddr;
--		hash = ((__force unsigned int) addr.addr.a6[0] ^
--			(__force unsigned int) addr.addr.a6[1] ^
--			(__force unsigned int) addr.addr.a6[2] ^
--			(__force unsigned int) addr.addr.a6[3]);
-+		hash = ipv6_addr_hash(&inet6_sk(sk)->daddr);
- 		break;
- 	default:
- 		return NULL;
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index db32846..9a1d5fe 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -40,6 +40,7 @@
- #include <linux/rtnetlink.h>
- #include <linux/netfilter_ipv6.h>
- #include <linux/slab.h>
-+#include <linux/hash.h>
- 
- #include <asm/uaccess.h>
- #include <linux/atomic.h>
-@@ -70,11 +71,15 @@ MODULE_ALIAS_NETDEV("ip6tnl0");
- #define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
- #define IPV6_TCLASS_SHIFT 20
- 
--#define HASH_SIZE  32
-+#define HASH_SIZE_SHIFT  5
-+#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
- 
--#define HASH(addr) ((__force u32)((addr)->s6_addr32[0] ^ (addr)->s6_addr32[1] ^ \
--		     (addr)->s6_addr32[2] ^ (addr)->s6_addr32[3]) & \
--		    (HASH_SIZE - 1))
-+static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
++bool comp(struct sk_buff *a, struct sk_buff *b)
 +{
-+	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
++	struct iphdr *ah = NULL;
++	struct iphdr *bh = NULL;
++	u32 ipA, ipB;
++	u16 portsA, portsB;
++	int poff;
++	/* The packet has a header
++	 *  - the existence was already checked by "pr_packet_to_work_with" */
++	ah = ip_hdr(a);
++	bh = ip_hdr(b);
 +
-+	return hash_32(hash, HASH_SIZE_SHIFT);
++	/* TOS must be the same */
++	if (ah->tos != bh->tos)
++		return false;
++
++	/* IP and Port must be the same */
++	ipA = (__force u32)ah->daddr;
++	ipB = (__force u32)bh->daddr;
++	if ((ipA != ipB))
++		return false;
++	ipA = (__force u32)ah->saddr;
++	ipB = (__force u32)bh->saddr;
++	if ((ipA != ipB))
++		return false;
++
++	poff = proto_ports_offset(IPPROTO_UDP);
++	if (unlikely(poff < 0))
++		/* This should be impossible.. */
++		return false;
++
++	/* Src Ports are always different - just compare destination ports */
++	portsA = *(u16 *)((void *)ah + bh->ihl * 4 + poff + 2);
++	portsB = *(u16 *)((void *)bh + ah->ihl * 4 + poff + 2);
++	if ((portsA != portsB))
++		return false;
++
++	return true;
 +}
- 
- static int ip6_tnl_dev_init(struct net_device *dev);
- static void ip6_tnl_dev_setup(struct net_device *dev);
-@@ -166,12 +171,11 @@ static inline void ip6_tnl_dst_store(struct ip6_tnl *t, struct dst_entry *dst)
- static struct ip6_tnl *
- ip6_tnl_lookup(struct net *net, const struct in6_addr *remote, const struct in6_addr *local)
- {
--	unsigned int h0 = HASH(remote);
--	unsigned int h1 = HASH(local);
-+	unsigned int hash = HASH(remote, local);
- 	struct ip6_tnl *t;
- 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
- 
--	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[h0 ^ h1]) {
-+	for_each_ip6_tunnel_rcu(ip6n->tnls_r_l[hash]) {
- 		if (ipv6_addr_equal(local, &t->parms.laddr) &&
- 		    ipv6_addr_equal(remote, &t->parms.raddr) &&
- 		    (t->dev->flags & IFF_UP))
-@@ -205,7 +209,7 @@ ip6_tnl_bucket(struct ip6_tnl_net *ip6n, const struct ip6_tnl_parm *p)
- 
- 	if (!ipv6_addr_any(remote) || !ipv6_addr_any(local)) {
- 		prio = 1;
--		h = HASH(remote) ^ HASH(local);
-+		h = HASH(remote, local);
- 	}
- 	return &ip6n->tnls[prio][h];
- }
-diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
-index 2777fa8..4d01292 100644
---- a/net/sunrpc/svcauth_unix.c
-+++ b/net/sunrpc/svcauth_unix.c
-@@ -104,23 +104,9 @@ static void ip_map_put(struct kref *kref)
- 	kfree(im);
- }
- 
--#if IP_HASHBITS == 8
--/* hash_long on a 64 bit machine is currently REALLY BAD for
-- * IP addresses in reverse-endian (i.e. on a little-endian machine).
-- * So use a trivial but reliable hash instead
-- */
--static inline int hash_ip(__be32 ip)
--{
--	int hash = (__force u32)ip ^ ((__force u32)ip>>16);
--	return (hash ^ (hash>>8)) & 0xff;
--}
--#endif
--static inline int hash_ip6(struct in6_addr ip)
-+static inline int hash_ip6(const struct in6_addr *ip)
- {
--	return (hash_ip(ip.s6_addr32[0]) ^
--		hash_ip(ip.s6_addr32[1]) ^
--		hash_ip(ip.s6_addr32[2]) ^
--		hash_ip(ip.s6_addr32[3]));
-+	return hash_32(ipv6_addr_hash(ip), IP_HASHBITS);
- }
- static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
- {
-@@ -301,7 +287,7 @@ static struct ip_map *__ip_map_lookup(struct cache_detail *cd, char *class,
- 	ip.m_addr = *addr;
- 	ch = sunrpc_cache_lookup(cd, &ip.h,
- 				 hash_str(class, IP_HASHBITS) ^
--				 hash_ip6(*addr));
-+				 hash_ip6(addr));
- 
- 	if (ch)
- 		return container_of(ch, struct ip_map, h);
-@@ -331,7 +317,7 @@ static int __ip_map_update(struct cache_detail *cd, struct ip_map *ipm,
- 	ip.h.expiry_time = expiry;
- 	ch = sunrpc_cache_update(cd, &ip.h, &ipm->h,
- 				 hash_str(ipm->m_class, IP_HASHBITS) ^
--				 hash_ip6(ipm->m_addr));
-+				 hash_ip6(&ipm->m_addr));
- 	if (!ch)
- 		return -ENOMEM;
- 	cache_put(ch, cd);
++
++static int pr_enqueue(struct sk_buff *skb, struct Qdisc *sch)
++{
++	struct sk_buff *replace = NULL;
++
++	/* Search, if there is a packet with same IDs */
++	/* Only search, if this packet is worth it */
++	if (pr_packet_to_work_with(skb)) {
++		struct sk_buff *it;
++		skb_queue_walk((&(sch->q)), it) {
++			/* If the other packet is worth it? */
++			if (pr_packet_to_work_with(it)) {
++				if (comp(skb, it)) {
++					replace = it;
++					break;
++				}
++			}
++		}
++	}
++
++	if (replace == NULL) {
++		/* a new kind of packet. Just enqueue */
++		if (likely(skb_queue_len(&sch->q) < sch->limit))
++			return qdisc_enqueue_tail(skb, sch);
++		return qdisc_reshape_fail(skb, sch);
++	} else {
++		/* replace the packet */
++		sch->qstats.overlimits++;
++		/* There is no drop nor replace. So do the replace myself */
++		skb->next = replace->next;
++		skb->prev = replace->prev;
++		if (replace->next != NULL)
++			replace->next->prev = skb;
++		if (replace->prev != NULL)
++			replace->prev->next = skb;
++		kfree_skb(replace);
++		return NET_XMIT_SUCCESS;
++	}
++}
++
++static int pr_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	sch->flags |= TCQ_F_CAN_BYPASS; /* sounds good, but what? */
++	sch->limit = qdisc_dev(sch)->tx_queue_len ? : 1;
++	return 0;
++}
++
++static int pr_dump(struct Qdisc *sch, struct sk_buff *skb)
++{
++	struct tc_fifo_qopt opt = { .limit = sch->limit };
++
++	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	return skb->len;
++
++nla_put_failure:
++	return -1;
++}
++
++struct Qdisc_ops pr_qdisc_ops __read_mostly = {
++	.id		=	"pr",
++	.priv_size	=	0,
++	.enqueue	=	pr_enqueue,
++	.dequeue	=	qdisc_dequeue_head,
++	.peek		=	qdisc_peek_head,
++	.drop		=	qdisc_queue_drop,
++	.init		=	pr_init,
++	.reset		=	qdisc_reset_queue,
++	.change		=	pr_init,
++	.dump		=	pr_dump,
++	.owner		=	THIS_MODULE,
++};
++EXPORT_SYMBOL(pr_qdisc_ops);
++
++/* DebugFS interface as first shot configuration */
++static ssize_t dg_read_file(struct file *file, char __user *userbuf,
++					size_t count, loff_t *ppos)
++{
++	return simple_read_from_buffer(userbuf, count, ppos, tos, 2);
++}
++
++static ssize_t dg_write_file(struct file *file, const char __user *buf,
++					size_t count, loff_t *ppos)
++{
++	u8 tmp[] = {0xFF, 0xFF};
++	int res;
++	if (count != 2)
++		return -EINVAL;
++
++	res = copy_from_user(tmp, buf, count);
++	if (res != 0)
++		return -EINVAL;
++
++	/* Two bytes to copy.. for this a memcpy with errorhandling?!? */
++	tos[0] = tmp[0];
++	tos[1] = tmp[1];
++
++	return count;
++}
++
++static const struct file_operations dgfops = {
++	.read = dg_read_file,
++	.write = dg_write_file,
++};
++
++static int __init pr_module_init(void)
++{
++	bool ret = register_qdisc(&pr_qdisc_ops);
++	if (!ret) {
++		/* open Communication channel */
++		dgdir = debugfs_create_dir("sch_pr", NULL);
++		dgfile = debugfs_create_file("tos", 0644, dgdir, tos, &dgfops);
++	}
++	return ret;
++}
++
++static void __exit pr_module_exit(void)
++{
++	debugfs_remove(dgfile);
++	debugfs_remove(dgdir);
++	unregister_qdisc(&pr_qdisc_ops);
++}
++
++module_init(pr_module_init);
++module_exit(pr_module_exit);
++MODULE_LICENSE("GPL");
+-- 
+1.7.7
