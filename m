@@ -1,40 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 7/7] net-tcp: Fast Open client - cookie-less mode
-Date: Wed, 18 Jul 2012 23:36:42 +0200
-Message-ID: <1342647402.2626.3723.camel@edumazet-glaptop>
-References: <1342645307-17772-1-git-send-email-ycheng@google.com>
-	 <1342645307-17772-8-git-send-email-ycheng@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] net/mlx4_en: Add accelerated RFS support
+Date: Wed, 18 Jul 2012 14:37:26 -0700 (PDT)
+Message-ID: <20120718.143726.559758211714127270.davem@davemloft.net>
+References: <CAJZOPZL8842H9H7404qjugCPpdhijjUhxk0Kn6BfBONCbE-tNA@mail.gmail.com>
+	<20120718.143456.1078493346727092667.davem@davemloft.net>
+	<CAJZOPZJJurMrKuYCZJNUWnSy-ZOXdPfY=t=+87JVcEP2JFxpnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
-	ncardwell@google.com, sivasankar@cs.ucsd.edu,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
+	yevgenyp@mellanox.com, amirv@mellanox.com
+To: or.gerlitz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:41084 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522Ab2GRVgr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:36:47 -0400
-Received: by ghrr11 with SMTP id r11so2119071ghr.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 14:36:47 -0700 (PDT)
-In-Reply-To: <1342645307-17772-8-git-send-email-ycheng@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38767 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752522Ab2GRVh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:37:27 -0400
+In-Reply-To: <CAJZOPZJJurMrKuYCZJNUWnSy-ZOXdPfY=t=+87JVcEP2JFxpnQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 14:01 -0700, Yuchung Cheng wrote:
-> In trusted networks, e.g., intranet, data-center, the client does not
-> need to use Fast Open cookie to mitigate DoS attacks. In cookie-less
-> mode, sendmsg() with MSG_FASTOPEN flag will send SYN-data regardless
-> of cookie availability.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
->  Documentation/networking/ip-sysctl.txt |    2 ++
->  include/linux/tcp.h                    |    1 +
->  include/net/tcp.h                      |    1 +
->  net/ipv4/tcp_input.c                   |    8 ++++++--
->  net/ipv4/tcp_output.c                  |    6 +++++-
->  5 files changed, 15 insertions(+), 3 deletions(-)
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Date: Thu, 19 Jul 2012 00:36:12 +0300
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> On Thu, Jul 19, 2012 at 12:34 AM, David Miller <davem@davemloft.net> wrote:
+> 
+>> That's basically what I said.
+> 
+> sure, will follow. Any further comments that we should fix in this series?
+
+Nope, it otherwise looked good to me.
