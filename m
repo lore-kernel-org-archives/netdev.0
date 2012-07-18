@@ -1,71 +1,38 @@
-From: <dinguyen@altera.com>
-Subject: [PATCHv1] net: stmmac: Add ip version to dts bindings
-Date: Wed, 18 Jul 2012 17:28:26 -0600
-Message-ID: <1342654106-8163-1-git-send-email-dinguyen@altera.com>
+From: Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values
+ of flush
+Date: Wed, 18 Jul 2012 19:04:45 -0400
+Message-ID: <20120718230445.GA6561@umich.edu>
+References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
+ <20120718173913.GA1298@fieldses.org>
+ <20120718200049.GA17964@umich.edu>
+ <20120718210825.GA3145@fieldses.org>
+ <50072BA7.6070205@gmail.com>
+ <50072DEE.2000205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, <peppe.cavallaro@st.com>, <sr@denx.de>,
-	<shiraz.hashim@st.com>, <deepak.sikri@st.com>, <pavel@denx.de>,
-	<arnd@arndb.de>, Dinh Nguyen <dinguyen@altera.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:6002 "EHLO
-	va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751347Ab2GRW3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 18:29:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <50072DEE.2000205-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Dinh Nguyen <dinguyen@altera.com>
+Sasha Levin wrote:
 
-Because there are multiple variants to the stmmac/dwmac driver, the
-dts bindings should be updated to include version of the IP used.
+  > Learning from what happened in this specific case, there are actually 2 issues here:
+  > 
+  >  - Array size was constant and too small, which is solved by the patch above.
+  >  - We were blindly trying to sprintf() into that array, this issue may pop back up if someone decides to change the format string forgetting to modify the array declaration.
+  > 
 
-Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
----
- Documentation/devicetree/bindings/net/stmmac.txt   |    3 ++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    8 ++++++--
- 2 files changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 1f62623..060bbf0 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -1,7 +1,8 @@
- * STMicroelectronics 10/100/1000 Ethernet driver (GMAC)
- 
- Required properties:
--- compatible: Should be "st,spear600-gmac"
-+- compatible: Should be "snps,dwmac-<ip_version>" "snps,dwmac"
-+	For backwards compatibility: "st,spear600-gmac" is also supported.
- - reg: Address and length of the register set for the device
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 680d2b8..87cadcf 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -49,7 +49,9 @@ static int __devinit stmmac_probe_config_dt(struct platform_device *pdev,
- 	 * are provided. All other properties should be added
- 	 * once needed on other platforms.
- 	 */
--	if (of_device_is_compatible(np, "st,spear600-gmac")) {
-+	if (of_device_is_compatible(np, "st,spear600-gmac") ||
-+		of_device_is_compatible(np, "snps,dwmac-3.70a") ||
-+		of_device_is_compatible(np, "snps,dwmac")) {
- 		plat->has_gmac = 1;
- 		plat->pmt = 1;
- 	}
-@@ -250,7 +252,9 @@ static const struct dev_pm_ops stmmac_pltfr_pm_ops;
- #endif /* CONFIG_PM */
- 
- static const struct of_device_id stmmac_dt_ids[] = {
--	{ .compatible = "st,spear600-gmac", },
-+	{ .compatible = "st,spear600-gmac"},
-+	{ .compatible = "snps,dwmac-3.70a"},
-+	{ .compatible = "snps,dwmac"},
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
--- 
-1.7.9.5
+The original patch changed the sprintf to snprintf, and that still seems
+like a good idea.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
