@@ -1,43 +1,29 @@
-From: Joe Perches <joe@perches.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 07/15] ipv4: Adjust semantics of rt->rt_gateway.
-Date: Wed, 18 Jul 2012 11:57:14 -0700
-Message-ID: <1342637834.2013.4.camel@joe2Laptop>
+Date: Wed, 18 Jul 2012 12:00:13 -0700 (PDT)
+Message-ID: <20120718.120013.1267407239598992095.davem@davemloft.net>
 References: <20120718.112346.920698833832945112.davem@davemloft.net>
+	<1342637834.2013.4.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:47646 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755574Ab2GRS5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 14:57:15 -0400
-In-Reply-To: <20120718.112346.920698833832945112.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37342 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755557Ab2GRTAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 15:00:14 -0400
+In-Reply-To: <1342637834.2013.4.camel@joe2Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 11:23 -0700, David Miller wrote:
-> In order to allow prefixed routes, we have to adjust how rt_gateway
-> is set an interpreted.
+From: Joe Perches <joe@perches.com>
+Date: Wed, 18 Jul 2012 11:57:14 -0700
 
-typo an/and and a trivial style note:
+> maybe use the moderately common gcc ?: extension
 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-[]
-> @@ -1079,8 +1079,10 @@ void ip_rt_get_source(u8 *addr, struct sk_buff *skb, struct rtable *rt)
->  		if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res) == 0)
->  			src = FIB_RES_PREFSRC(dev_net(rt->dst.dev), res);
->  		else
-> -			src = inet_select_addr(rt->dst.dev, rt->rt_gateway,
-> -					RT_SCOPE_UNIVERSE);
-> +			src = inet_select_addr(rt->dst.dev, (rt->rt_gateway ?
-> +							     rt->rt_gateway :
-> +							     iph->daddr),
-> +					       RT_SCOPE_UNIVERSE);
+Yes, or even better a helper function.
 
-maybe use the moderately common gcc ?: extension
-
-			src = inet_select_addr(rt->dst.dev,
-					       rt->rt_gateway ?: iph->daddr,
-					       RT_SCOPE_UNIVERSE);
+I'll do something about this before I push it out for real, thanks
+Joe.
