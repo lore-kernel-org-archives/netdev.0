@@ -1,37 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: fix inet6_csk_xmit()
-Date: Wed, 18 Jul 2012 09:00:25 -0700 (PDT)
-Message-ID: <20120718.090025.2178532259429406950.davem@davemloft.net>
-References: <1342595099.2626.1774.camel@edumazet-glaptop>
-	<1342596218.2626.1813.camel@edumazet-glaptop>
-	<1342597084.2626.1851.camel@edumazet-glaptop>
+Subject: Re: [PATCH] cipso: don't follow a NULL pointer when setsockopt()
+ is called
+Date: Wed, 18 Jul 2012 09:02:06 -0700 (PDT)
+Message-ID: <20120718.090206.1605115996207288596.davem@davemloft.net>
+References: <20120717210738.22790.23522.stgit@sifl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: pmoore@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35052 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35062 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753856Ab2GRQA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:00:26 -0400
-In-Reply-To: <1342597084.2626.1851.camel@edumazet-glaptop>
+	with ESMTP id S1751253Ab2GRQCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:02:06 -0400
+In-Reply-To: <20120717210738.22790.23522.stgit@sifl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 18 Jul 2012 09:38:04 +0200
+From: Paul Moore <pmoore@redhat.com>
+Date: Tue, 17 Jul 2012 17:07:47 -0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> As reported by Alan Cox, and verified by Lin Ming, when a user
+> attempts to add a CIPSO option to a socket using the CIPSO_V4_TAG_LOCAL
+> tag the kernel dies a terrible death when it attempts to follow a NULL
+> pointer (the skb argument to cipso_v4_validate() is NULL when called via
+> the setsockopt() syscall).
 > 
-> We should provide to inet6_csk_route_socket a struct flowi6 pointer,
-> so that net6_csk_xmit() works correctly instead of sending garbage.
+> This patch fixes this by first checking to ensure that the skb is
+> non-NULL before using it to find the incoming network interface.  In
+> the unlikely case where the skb is NULL and the user attempts to add
+> a CIPSO option with the _TAG_LOCAL tag we return an error as this is
+> not something we want to allow.
 > 
-> Also add some consts 
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Yuchung Cheng <ycheng@google.com>
+> A simple reproducer, kindly supplied by Lin Ming, although you must
+> have the CIPSO DOI #3 configure on the system first or you will be
+> caught early in cipso_v4_validate():
+ ...
+> CC: Lin Ming <mlin@ss.pku.edu.cn>
+> Reported-by: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-Thanks a lot for fixing this Eric.
-
-Applied.
+Applied and queued up for -stable, thanks Paul.
