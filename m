@@ -1,37 +1,87 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] ipv6: add ipv6_addr_hash() helper
-Date: Wed, 18 Jul 2012 13:28:13 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F93@saturn3.aculab.com>
-References: <1342613334.2626.2504.camel@edumazet-glaptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH] net: cgroup: null ptr dereference in netprio cgroup
+ during init
+Date: Wed, 18 Jul 2012 08:45:39 -0400
+Message-ID: <20120718124539.GC25563@hmsreliant.think-freely.org>
+References: <20120718003316.2979.49278.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev" <netdev@vger.kernel.org>,
-	"Andrew McGregor" <andrewmcgr@gmail.com>,
-	"Dave Taht" <dave.taht@gmail.com>,
-	"Tom Herbert" <therbert@google.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, gaofeng@cn.fujitsu.com,
+	mark.d.rustad@intel.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46657 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752654Ab2GRM26 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 08:28:58 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11713-04 for <netdev@vger.kernel.org>;
- Wed, 18 Jul 2012 13:28:53 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1342613334.2626.2504.camel@edumazet-glaptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50344 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753526Ab2GRMp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 08:45:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20120718003316.2979.49278.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAgI2RlZmluZSBIQVNIX1NJWkUgIDMyDQo+IA0KPiAtI2RlZmluZSBIQVNIKGFkZHIpICgoX19m
-b3JjZSB1MzIpKChhZGRyKS0+czZfYWRkcjMyWzBdIF4gKGFkZHIpLT5zNl9hZGRyMzJbMV0gXiBc
-DQo+IC0JCSAgICAgKGFkZHIpLT5zNl9hZGRyMzJbMl0gXiAoYWRkciktPnM2X2FkZHIzMlszXSkg
-JiBcDQo+IC0JCSAgICAoSEFTSF9TSVpFIC0gMSkpDQo+ICsjZGVmaW5lIEhBU0goYWRkcikgKGlw
-djZfYWRkcl9oYXNoKGFkZHIpICYgKEhBU0hfU0laRSAtIDEpKQ0KDQpUaGF0IGhhc2ggZG9lc24n
-dCBzZWVtIHRvIGluY2x1ZGUgbWFueSB2YXJpYWJsZSBiaXRzIGF0IGFsbCENCkVzcGVjaWFsbHkg
-b24gTEUgc3lzdGVtcyB3aGVyZSBpdCBkb2Vzbid0IGNvbnRhaW4gYW55IG9mDQp0aGUgbG93IGJp
-dHMgb2YgYSBtYWMgYWRkcmVzcyBiYXNlZCBJUHY2IGFkZHJlc3MuDQoNCglEYXZpZA0KDQo=
+On Tue, Jul 17, 2012 at 05:33:16PM -0700, John Fastabend wrote:
+> When the netprio cgroup is built in the kernel cgroup_init will call
+> cgrp_create which eventually calls update_netdev_tables. This is
+> being called before do_initcalls() so a null ptr dereference occurs
+> on init_net.
+> 
+> This patch adds a check on init_net.count to verify the structure
+> has been initialized. The failure was introduced here,
+> 
+> commit ef209f15980360f6945873df3cd710c5f62f2a3e
+> Author: Gao feng <gaofeng@cn.fujitsu.com>
+> Date:   Wed Jul 11 21:50:15 2012 +0000
+> 
+>     net: cgroup: fix access the unallocated memory in netprio cgroup
+> 
+> Tested with ping with netprio_cgroup as a module and built in.
+> 
+> Marked RFC for now I think DaveM might have a reason why this needs
+> some improvement.
+> 
+> Reported-by: Mark Rustad <mark.d.rustad@intel.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+> 
+>  net/core/netprio_cgroup.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index b2e9caa..e9fd7fd 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -116,6 +116,9 @@ static int update_netdev_tables(void)
+>  	u32 max_len;
+>  	struct netprio_map *map;
+>  
+> +	if (!atomic_read(&init_net.count))
+> +		return ret;
+> +
+>  	rtnl_lock();
+>  	max_len = atomic_read(&max_prioidx) + 1;
+>  	for_each_netdev(&init_net, dev) {
+> 
+> 
+
+John, do you have a stack trace of this.  I'm having a hard time seeing how we
+get into this path prior to the network stack being initalized.
+
+It also brings up another point.  If this is happening, and we're creating the
+root cgroup from start_kernel, Then we're actually initalizing some cgroups
+twice, because a few cgroups register themselves via cgroup_load_subsys in
+module_init specified routines.  So if you're building netprio_cgroup or
+net_cls_cgroup as part of the monolithic kernel, you'll get cgroup_create called
+prior to your module_init() call.  Thats not good.
+
+In fact, the cgroup_subsys struct has an early_init flag that cgroup_init
+appears to use to skip the initialization of subsystems that don't need to be
+initialized that early in boot (assuming thats the path we're going down to get
+to this oops).  
+
+If you can post the call stack, I'd appreciate it, I'd like to dig a bit deeper
+into this.
+Neil
