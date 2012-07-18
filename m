@@ -1,41 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 5/7] net-tcp: Fast Open client -
- sendmsg(MSG_FASTOPEN)
-Date: Wed, 18 Jul 2012 23:30:09 +0200
-Message-ID: <1342647009.2626.3713.camel@edumazet-glaptop>
-References: <1342645307-17772-1-git-send-email-ycheng@google.com>
-	 <1342645307-17772-6-git-send-email-ycheng@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] net/mlx4_en: Add accelerated RFS support
+Date: Wed, 18 Jul 2012 14:34:56 -0700 (PDT)
+Message-ID: <20120718.143456.1078493346727092667.davem@davemloft.net>
+References: <1342621162-18498-1-git-send-email-ogerlitz@mellanox.com>
+	<20120718.114158.2161516212050365274.davem@davemloft.net>
+	<CAJZOPZL8842H9H7404qjugCPpdhijjUhxk0Kn6BfBONCbE-tNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
-	ncardwell@google.com, sivasankar@cs.ucsd.edu,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
+	yevgenyp@mellanox.com, amirv@mellanox.com
+To: or.gerlitz@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:63395 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753975Ab2GRVaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:30:22 -0400
-Received: by yenl2 with SMTP id l2so2113402yen.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 14:30:22 -0700 (PDT)
-In-Reply-To: <1342645307-17772-6-git-send-email-ycheng@google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38720 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752547Ab2GRVfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:35:07 -0400
+In-Reply-To: <CAJZOPZL8842H9H7404qjugCPpdhijjUhxk0Kn6BfBONCbE-tNA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 14:01 -0700, Yuchung Cheng wrote:
-> sendmsg() (or sendto()) with MSG_FASTOPEN is a combo of connect(2)
-> and write(2). The application should replace connect() with it to
-> send data in the opening SYN packet.
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Date: Thu, 19 Jul 2012 00:22:42 +0300
+
+> On Wed, Jul 18, 2012 at 9:41 PM, David Miller <davem@davemloft.net> wrote:
 > 
+>> Please use CONFIG_RFS_ACCEL consistently to protect this feature
+>> in your driver sources.
+>>
+>> Using CPU_RMAP in a few places is inconsistent, and not what other
+>> drivers do.
+> 
+> We're indeed using CONFIG_RFS_ACCEL across the place, and only in two
+> places which deal directly with rmap use CPU_RMAP. The latter is
+> selected by RFS_ACCEL, but if you feel this is inconsistent, will
+> change to use only one define.
 
-> index 25d6322..90297db 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -276,6 +276,7 @@ struct ucred {
->  #else
->  #define MSG_CMSG_COMPAT	0		/* We never have 32 bit fixups */
->  #endif
-> +#define MSG_FASTOPEN	0x20000000 /* Send data in TCP SYN */
-
-Could you put MSG_FASTOPEN before MSG_CMSG_CLOEXEC ?
+That's basically what I said.
