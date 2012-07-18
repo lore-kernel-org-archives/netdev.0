@@ -1,70 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net: Statically initialize init_net.dev_base_head
-Date: Wed, 18 Jul 2012 16:11:49 -0400
-Message-ID: <20120718201149.GB22057@hmsreliant.think-freely.org>
-References: <20120718190607.22923.77935.stgit@host1-mdrustad.localdomain>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] cxgb3: Set vlan_feature on net_device
+Date: Wed, 18 Jul 2012 13:12:41 -0700
+Message-ID: <500718B9.8000508@hp.com>
+References: <1342639748-16276-1-git-send-email-brenohl@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	gaofeng@cn.fujitsu.com, eric.dumazet@gmail.com
-To: Mark Rustad <mark.d.rustad@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "divy@chelsio.com" <divy@chelsio.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "brenohl@br.ibm.com" <brenohl@br.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56105 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753015Ab2GRULy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 16:11:54 -0400
-Content-Disposition: inline
-In-Reply-To: <20120718190607.22923.77935.stgit@host1-mdrustad.localdomain>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:27124 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753204Ab2GRUMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 16:12:44 -0400
+In-Reply-To: <1342639748-16276-1-git-send-email-brenohl@br.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 18, 2012 at 12:06:07PM -0700, Mark Rustad wrote:
-> This change eliminates an initialization-order hazard most
-> recently seen when netprio_cgroup is built into the kernel.
-> 
-> With thanks to Eric Dumazet for catching a bug.
-> 
-> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-> ---
-> 
->  net/core/dev.c           |    3 ++-
->  net/core/net_namespace.c |    4 +++-
->  2 files changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 0f28a9e..1cb0d8a 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6283,7 +6283,8 @@ static struct hlist_head *netdev_create_hash(void)
->  /* Initialize per network namespace state */
->  static int __net_init netdev_init(struct net *net)
->  {
-> -	INIT_LIST_HEAD(&net->dev_base_head);
-> +	if (net != &init_net)
-> +		INIT_LIST_HEAD(&net->dev_base_head);
->  
->  	net->dev_name_head = netdev_create_hash();
->  	if (net->dev_name_head == NULL)
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index dddbacb..42f1e1c 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -27,7 +27,9 @@ static DEFINE_MUTEX(net_mutex);
->  LIST_HEAD(net_namespace_list);
->  EXPORT_SYMBOL_GPL(net_namespace_list);
->  
-> -struct net init_net;
-> +struct net init_net = {
-> +	.dev_base_head = LIST_HEAD_INIT(init_net.dev_base_head),
-> +};
->  EXPORT_SYMBOL(init_net);
->  
->  #define INITIAL_NET_GEN_PTRS	13 /* +1 for len +2 for rcu_head */
-> 
-> 
+On 07/18/2012 12:29 PM, brenohl@br.ibm.com wrote:
+> cxgb3 interface has a bad performance when VLAN is set. On my current
+> setup, a PowerLinux 7R2, I am able to get around 7 Gbps on a TCP_STREAM
+> (8 instances, 4k message).
+> With this patch, I am able to reach 9.5 Gbps.
+Getting service demand out of an aggregate netperf test is a chore, but 
+reporting the change in CPU utilization should be pretty 
+straightforward.   Since you ended-up being constrained by link-rate, 
+showing the CPU utilization change (and calculating service demand 
+manually if you feel up to it) may help show the change has an even 
+greater effect then (9.5-7)/7 or 35%.
 
-I think dave was going to take John Fastabends patch from earlier today, but
-this works just as well.  Long term I'm going to look into delaying
-initzlization for cgroups, as it creates a strange initialization state when you
-have a module_init routine registered.
-Neil
+What does the change do for latency and/or maximum,  min-sized packets 
+per second.
+
+rick jones
+there is more to the network than just bits/s :)
+
+>
+> Signed-off-by: Breno Leitao <brenohl@br.ibm.com>
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+> index abb6ce7..fcf4b31 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+> @@ -3173,6 +3173,9 @@ static void __devinit cxgb3_init_iscsi_mac(struct net_device *dev)
+>   	pi->iscsic.mac_addr[3] |= 0x80;
+>   }
+>   
+> +#define TSO_FLAGS (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN)
+> +#define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | TSO_FLAGS | \
+> +			NETIF_F_IPV6_CSUM | NETIF_F_HIGHDMA)
+>   static int __devinit init_one(struct pci_dev *pdev,
+>   			      const struct pci_device_id *ent)
+>   {
+> @@ -3293,6 +3296,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+>   		netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
+>   			NETIF_F_TSO | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX;
+>   		netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_TX;
+> +		netdev->vlan_features |= netdev->features & VLAN_FEAT;
+>   		if (pci_using_dac)
+>   			netdev->features |= NETIF_F_HIGHDMA;
+>   
