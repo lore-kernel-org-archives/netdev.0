@@ -1,291 +1,136 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
-Date: Wed, 18 Jul 2012 11:36:08 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207181105320.2154@ja.ssi.bg>
-References: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>  <20120717.134651.562831385960975623.davem@davemloft.net>  <alpine.LFD.2.00.1207180052420.2128@ja.ssi.bg>  <20120717.150920.1324071045620152376.davem@davemloft.net>  <alpine.LFD.2.00.1207180358190.2128@ja.ssi.bg>
-  <1342583166.2626.1367.camel@edumazet-glaptop>  <alpine.LFD.2.00.1207181014050.1652@ja.ssi.bg> <1342596648.2626.1831.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Wed, 18 Jul 2012 10:55:53 +0200
+Message-ID: <1342601753.2626.2040.camel@edumazet-glaptop>
+References: <1342564781.2626.1264.camel@edumazet-glaptop>
+	 <20120717234037.GA26972@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:55550 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752902Ab2GRI3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 04:29:00 -0400
-In-Reply-To: <1342596648.2626.1831.camel@edumazet-glaptop>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:36976 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850Ab2GRIz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 04:55:59 -0400
+Received: by vcbfk26 with SMTP id fk26so925295vcb.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 01:55:58 -0700 (PDT)
+In-Reply-To: <20120717234037.GA26972@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2012-07-18 at 01:40 +0200, Francois Romieu wrote:
 
-	Hello,
-
-On Wed, 18 Jul 2012, Eric Dumazet wrote:
-
-> On Wed, 2012-07-18 at 10:28 +0300, Julian Anastasov wrote:
+> > (I found that activating them with ethtool automatically enables GSO,
+> >  and performance with GSO is not good)
 > 
-> > 	This is going to read all values in the chain
-> > before reaching daddr? Or may be FNHE_RECLAIM_DEPTH is
-> > small and nobody will increase it. May be I can create
-> > some func that searches daddr in chain instead. Do you still
-> > prefer to remove the first daddr check or it is only
-> > that the code is intended too much?
-> > 
+> It's still an improvement though, isn't it ?
 > 
-> I would not bother, since real cost is the initial cache line miss.
-> Once you read one field, reading others is really fast.
 
-	Is the cost of read_seqbegin a problem? Here is a
-2nd version, I still keep this first check for now.
+On an old AMD machine, I can get line rate with default conf, but using
+nearly all cpu cycles.
 
-> > > +		if (fnhe_daddr == daddr) {
-> > 
-> > 	Also, do we need some rcu locking in
-> > __ip_rt_update_pmtu or may be ipv4_update_pmtu is
-> > called always under rcu lock?
-> 
-> Sorry, I dont understand, we use the full lock
-> write_seqlock_bh(&fnhe_seqlock);/write_sequnlock_bh(&fnhe_seqlock);
-
-	No, it is not related to the fnhe locking, I mean:
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c7a40c3..c911caf 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1686,12 +1686,14 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
- 	if (mtu < ip_rt_min_pmtu)
- 		mtu = ip_rt_min_pmtu;
- 
-+	rcu_read_lock();
- 	if (fib_lookup(dev_net(rt->dst.dev), fl4, &res) == 0) {
- 		struct fib_nh *nh = &FIB_RES_NH(res);
- 
- 		update_or_create_fnhe(nh, fl4->daddr, 0, mtu,
- 				      jiffies + ip_rt_mtu_expires);
- 	}
-+	rcu_read_unlock();
- 	rt->rt_pmtu = mtu;
- 	dst_set_expires(&rt->dst, ip_rt_mtu_expires);
- }
+Following test is only partial, a real one should use forwarding for
+example...
 
 
-	How about the following, is the first daddr check
-still a problem?
+# perf stat netperf -H eric -C -c -t OMNI
+OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to eric () port 0 AF_INET
+tcpi_rto 201000 tcpi_ato 0 tcpi_pmtu 1500 tcpi_rcv_ssthresh 14600
+tcpi_rtt 1000 tcpi_rttvar 750 tcpi_snd_ssthresh 16 tpci_snd_cwnd 62
+tcpi_reordering 3 tcpi_total_retrans 0
+Local       Remote      Local  Elapsed Throughput Throughput  Local  Local  Remote Remote Local   Remote  Service  
+Send Socket Recv Socket Send   Time               Units       CPU    CPU    CPU    CPU    Service Service Demand   
+Size        Size        Size   (sec)                          Util   Util   Util   Util   Demand  Demand  Units    
+Final       Final                                             %      Method %      Method                          
+290160      549032      16384  10.00   915.44     10^6bits/s  44.93  S      3.61   S      8.042   7.755   usec/KB  
 
-Subject: [PATCH v2] ipv4: use seqlock for nh_exceptions
+ Performance counter stats for 'netperf -H eric -C -c -t OMNI':
 
-From: Julian Anastasov <ja@ssi.bg>
+       5206,301186 task-clock                #    0,520 CPUs utilized          
+            16 568 context-switches          #    0,003 M/sec                  
+                 2 CPU-migrations            #    0,000 K/sec                  
+               366 page-faults               #    0,070 K/sec                  
+    12 362 775 266 cycles                    #    2,375 GHz                     [66,99%]
+     2 529 275 760 stalled-cycles-frontend   #   20,46% frontend cycles idle    [67,00%]
+     6 878 915 080 stalled-cycles-backend    #   55,64% backend  cycles idle    [66,24%]
+     5 272 222 150 instructions              #    0,43  insns per cycle        
+                                             #    1,30  stalled cycles per insn [66,85%]
+       819 922 185 branches                  #  157,487 M/sec                   [66,79%]
+        50 135 423 branch-misses             #    6,11% of all branches         [66,15%]
 
-	Use global seqlock for the nh_exceptions. Call
-fnhe_oldest with the right hash chain. Correct the diff
-value for dst_set_expires.
+      10,019141027 seconds time elapsed
 
-v2: after suggestions from Eric Dumazet:
-* get rid of spin lock fnhe_lock, rearrange update_or_create_fnhe
-* continue daddr search in rt_bind_exception
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- include/net/ip_fib.h |    2 +-
- net/ipv4/route.c     |  119 +++++++++++++++++++++++++++++---------------------
- 2 files changed, 70 insertions(+), 51 deletions(-)
+If I switch to SG+TX (GSO is automatically enabled), bandwidth is lower.
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index e9ee1ca..2daf096 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -51,7 +51,7 @@ struct fib_nh_exception {
- 	struct fib_nh_exception __rcu	*fnhe_next;
- 	__be32				fnhe_daddr;
- 	u32				fnhe_pmtu;
--	u32				fnhe_gw;
-+	__be32				fnhe_gw;
- 	unsigned long			fnhe_expires;
- 	unsigned long			fnhe_stamp;
- };
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f67e702..1485db1 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1333,9 +1333,9 @@ static void ip_rt_build_flow_key(struct flowi4 *fl4, const struct sock *sk,
- 		build_sk_flow_key(fl4, sk);
- }
- 
--static DEFINE_SPINLOCK(fnhe_lock);
-+static DEFINE_SEQLOCK(fnhe_seqlock);
- 
--static struct fib_nh_exception *fnhe_oldest(struct fnhe_hash_bucket *hash, __be32 daddr)
-+static struct fib_nh_exception *fnhe_oldest(struct fnhe_hash_bucket *hash)
- {
- 	struct fib_nh_exception *fnhe, *oldest;
- 
-@@ -1358,47 +1358,63 @@ static inline u32 fnhe_hashfun(__be32 daddr)
- 	return hval & (FNHE_HASH_SIZE - 1);
- }
- 
--static struct fib_nh_exception *find_or_create_fnhe(struct fib_nh *nh, __be32 daddr)
-+static void update_or_create_fnhe(struct fib_nh *nh, __be32 daddr, __be32 gw,
-+				  u32 pmtu, unsigned long expires)
- {
--	struct fnhe_hash_bucket *hash = nh->nh_exceptions;
-+	struct fnhe_hash_bucket *hash;
- 	struct fib_nh_exception *fnhe;
- 	int depth;
--	u32 hval;
-+	u32 hval = fnhe_hashfun(daddr);
-+
-+	write_seqlock_bh(&fnhe_seqlock);
- 
-+	hash = nh->nh_exceptions;
- 	if (!hash) {
--		hash = nh->nh_exceptions = kzalloc(FNHE_HASH_SIZE * sizeof(*hash),
--						   GFP_ATOMIC);
-+		hash = kzalloc(FNHE_HASH_SIZE * sizeof(*hash), GFP_ATOMIC);
- 		if (!hash)
--			return NULL;
-+			goto out_unlock;
-+		nh->nh_exceptions = hash;
- 	}
- 
--	hval = fnhe_hashfun(daddr);
- 	hash += hval;
- 
- 	depth = 0;
- 	for (fnhe = rcu_dereference(hash->chain); fnhe;
- 	     fnhe = rcu_dereference(fnhe->fnhe_next)) {
- 		if (fnhe->fnhe_daddr == daddr)
--			goto out;
-+			break;
- 		depth++;
- 	}
- 
--	if (depth > FNHE_RECLAIM_DEPTH) {
--		fnhe = fnhe_oldest(hash + hval, daddr);
--		goto out_daddr;
-+	if (fnhe) {
-+		if (gw)
-+			fnhe->fnhe_gw = gw;
-+		if (pmtu) {
-+			fnhe->fnhe_pmtu = pmtu;
-+			fnhe->fnhe_expires = expires;
-+		}
-+	} else {
-+		if (depth > FNHE_RECLAIM_DEPTH)
-+			fnhe = fnhe_oldest(hash);
-+		else {
-+			fnhe = kzalloc(sizeof(*fnhe), GFP_ATOMIC);
-+			if (!fnhe)
-+				goto out_unlock;
-+
-+			fnhe->fnhe_next = hash->chain;
-+			rcu_assign_pointer(hash->chain, fnhe);
-+		}
-+		fnhe->fnhe_daddr = daddr;
-+		fnhe->fnhe_gw = gw;
-+		fnhe->fnhe_pmtu = pmtu;
-+		fnhe->fnhe_expires = expires;
- 	}
--	fnhe = kzalloc(sizeof(*fnhe), GFP_ATOMIC);
--	if (!fnhe)
--		return NULL;
--
--	fnhe->fnhe_next = hash->chain;
--	rcu_assign_pointer(hash->chain, fnhe);
- 
--out_daddr:
--	fnhe->fnhe_daddr = daddr;
--out:
- 	fnhe->fnhe_stamp = jiffies;
--	return fnhe;
-+
-+out_unlock:
-+	write_sequnlock_bh(&fnhe_seqlock);
-+	return;
- }
- 
- static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flowi4 *fl4)
-@@ -1452,13 +1468,9 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
- 		} else {
- 			if (fib_lookup(net, fl4, &res) == 0) {
- 				struct fib_nh *nh = &FIB_RES_NH(res);
--				struct fib_nh_exception *fnhe;
- 
--				spin_lock_bh(&fnhe_lock);
--				fnhe = find_or_create_fnhe(nh, fl4->daddr);
--				if (fnhe)
--					fnhe->fnhe_gw = new_gw;
--				spin_unlock_bh(&fnhe_lock);
-+				update_or_create_fnhe(nh, fl4->daddr, new_gw,
-+						      0, 0);
- 			}
- 			rt->rt_gateway = new_gw;
- 			rt->rt_flags |= RTCF_REDIRECTED;
-@@ -1663,15 +1675,9 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
- 
- 	if (fib_lookup(dev_net(rt->dst.dev), fl4, &res) == 0) {
- 		struct fib_nh *nh = &FIB_RES_NH(res);
--		struct fib_nh_exception *fnhe;
- 
--		spin_lock_bh(&fnhe_lock);
--		fnhe = find_or_create_fnhe(nh, fl4->daddr);
--		if (fnhe) {
--			fnhe->fnhe_pmtu = mtu;
--			fnhe->fnhe_expires = jiffies + ip_rt_mtu_expires;
--		}
--		spin_unlock_bh(&fnhe_lock);
-+		update_or_create_fnhe(nh, fl4->daddr, 0, mtu,
-+				      jiffies + ip_rt_mtu_expires);
- 	}
- 	rt->rt_pmtu = mtu;
- 	dst_set_expires(&rt->dst, ip_rt_mtu_expires);
-@@ -1904,21 +1910,34 @@ static void rt_bind_exception(struct rtable *rt, struct fib_nh *nh, __be32 daddr
- 
- 	for (fnhe = rcu_dereference(hash[hval].chain); fnhe;
- 	     fnhe = rcu_dereference(fnhe->fnhe_next)) {
--		if (fnhe->fnhe_daddr == daddr) {
--			if (fnhe->fnhe_pmtu) {
--				unsigned long expires = fnhe->fnhe_expires;
--				unsigned long diff = jiffies - expires;
--
--				if (time_before(jiffies, expires)) {
--					rt->rt_pmtu = fnhe->fnhe_pmtu;
--					dst_set_expires(&rt->dst, diff);
--				}
-+		__be32 fnhe_daddr, gw;
-+		u32 pmtu;
-+		unsigned long expires;
-+		unsigned int seq;
-+
-+		if (fnhe->fnhe_daddr != daddr)
-+			continue;
-+		do {
-+			seq = read_seqbegin(&fnhe_seqlock);
-+			fnhe_daddr = fnhe->fnhe_daddr;
-+			gw = fnhe->fnhe_gw;
-+			pmtu = fnhe->fnhe_pmtu;
-+			expires = fnhe->fnhe_expires;
-+		} while (read_seqretry(&fnhe_seqlock, seq));
-+		if (daddr != fnhe_daddr)
-+			continue;
-+		if (pmtu) {
-+			unsigned long diff = expires - jiffies;
-+
-+			if (time_before(jiffies, expires)) {
-+				rt->rt_pmtu = pmtu;
-+				dst_set_expires(&rt->dst, diff);
- 			}
--			if (fnhe->fnhe_gw)
--				rt->rt_gateway = fnhe->fnhe_gw;
--			fnhe->fnhe_stamp = jiffies;
--			break;
- 		}
-+		if (gw)
-+			rt->rt_gateway = gw;
-+		fnhe->fnhe_stamp = jiffies;
-+		break;
- 	}
- }
- 
--- 
-1.7.3.4
+# ethtool -K eth1 tx on sg on
+Actual changes:
+tx-checksumming: on
+	tx-checksum-ipv4: on
+scatter-gather: on
+	tx-scatter-gather: on
+generic-segmentation-offload: on
+
+# perf stat netperf -H eric -C -c -t OMNI
+OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to eric () port 0 AF_INET
+tcpi_rto 201000 tcpi_ato 0 tcpi_pmtu 1500 tcpi_rcv_ssthresh 14600
+tcpi_rtt 1875 tcpi_rttvar 750 tcpi_snd_ssthresh 21 tpci_snd_cwnd 169
+tcpi_reordering 3 tcpi_total_retrans 0
+Local       Remote      Local  Elapsed Throughput Throughput  Local  Local  Remote Remote Local   Remote  Service  
+Send Socket Recv Socket Send   Time               Units       CPU    CPU    CPU    CPU    Service Service Demand   
+Size        Size        Size   (sec)                          Util   Util   Util   Util   Demand  Demand  Units    
+Final       Final                                             %      Method %      Method                          
+790920      704640      16384  10.01   762.29     10^6bits/s  38.00  S      3.38   S      8.167   8.720   usec/KB  
+
+ Performance counter stats for 'netperf -H eric -C -c -t OMNI':
+
+       4526,838736 task-clock                #    0,452 CPUs utilized          
+             2 031 context-switches          #    0,449 K/sec                  
+                 3 CPU-migrations            #    0,001 K/sec                  
+               366 page-faults               #    0,081 K/sec                  
+     4 476 876 825 cycles                    #    0,989 GHz                     [66,41%]
+       899 080 378 stalled-cycles-frontend   #   20,08% frontend cycles idle    [66,56%]
+     2 430 763 937 stalled-cycles-backend    #   54,30% backend  cycles idle    [66,87%]
+     1 685 481 163 instructions              #    0,38  insns per cycle        
+                                             #    1,44  stalled cycles per insn [66,93%]
+       280 404 977 branches                  #   61,943 M/sec                   [66,73%]
+        15 608 497 branch-misses             #    5,57% of all branches         [66,54%]
+
+      10,025486268 seconds time elapsed
+
+Since most frames need between 2 and 3 segments
+(one for the ip/tcp headers, and one or two frags for the payload), this
+might be a MMIO issue, that Alexander tried to solve recently...
+
+If I only switch to SG+TX its ok
+
+# ethtool -K eth1 gso off
+
+# perf stat netperf -H eric -C -c -t OMNI
+OMNI Send TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to eric () port 0 AF_INET
+tcpi_rto 201000 tcpi_ato 0 tcpi_pmtu 1500 tcpi_rcv_ssthresh 14600
+tcpi_rtt 1000 tcpi_rttvar 750 tcpi_snd_ssthresh 18 tpci_snd_cwnd 60
+tcpi_reordering 3 tcpi_total_retrans 0
+Local       Remote      Local  Elapsed Throughput Throughput  Local  Local  Remote Remote Local   Remote  Service  
+Send Socket Recv Socket Send   Time               Units       CPU    CPU    CPU    CPU    Service Service Demand   
+Size        Size        Size   (sec)                          Util   Util   Util   Util   Demand  Demand  Units    
+Final       Final                                             %      Method %      Method                          
+280800      549032      16384  10.00   916.61     10^6bits/s  40.05  S      3.62   S      7.159   7.774   usec/KB  
+
+ Performance counter stats for 'netperf -H eric -C -c -t OMNI':
+
+       4827,259625 task-clock                #    0,482 CPUs utilized          
+            17 988 context-switches          #    0,004 M/sec                  
+                 3 CPU-migrations            #    0,001 K/sec                  
+               366 page-faults               #    0,076 K/sec                  
+    11 448 148 411 cycles                    #    2,372 GHz                     [66,57%]
+     2 278 563 777 stalled-cycles-frontend   #   19,90% frontend cycles idle    [66,38%]
+     6 420 123 655 stalled-cycles-backend    #   56,08% backend  cycles idle    [66,38%]
+     4 471 468 064 instructions              #    0,39  insns per cycle        
+                                             #    1,44  stalled cycles per insn [67,48%]
+       757 302 269 branches                  #  156,880 M/sec                   [67,08%]
+        44 320 435 branch-misses             #    5,85% of all branches         [66,16%]
+
+      10,020331031 seconds time elapsed
