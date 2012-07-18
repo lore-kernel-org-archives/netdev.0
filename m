@@ -1,7 +1,7 @@
 From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: [PATCH 1/3] net: tilegx driver bugfix (be explicit about percpu queue number)
-Date: Wed, 18 Jul 2012 12:52:50 -0400
-Message-ID: <201207181653.q6IGra4J007620@lab-41.internal.tilera.com>
+Subject: [PATCH 2/3] tilegx net driver: handle payload data not in frags
+Date: Wed, 18 Jul 2012 12:52:55 -0400
+Message-ID: <201207181653.q6IGrqjB007621@lab-41.internal.tilera.com>
 References: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,98 +12,128 @@ In-Reply-To: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avoid packets belonging to queue/cpu A trying to transmit on cpu B.
+The original driver implementation assumed that for TSO, all the
+payload data would be in the frags.  This isn't always true; change
+the driver to support payload data at skb->data between
+"skb_transport_offset(skb) + tcp_hdrlen(skb)" and "skb->hdr_len",
+followed by the data in the frags.
 
 Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
 ---
- drivers/net/ethernet/tile/tilegx.c |   23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/tile/tilegx.c |   36 ++++++++++++++++++------------------
+ 1 file changed, 18 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 83b4b38..c7bde28 100644
+index c7bde28..f78effc 100644
 --- a/drivers/net/ethernet/tile/tilegx.c
 +++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -123,6 +123,7 @@ struct tile_net_comps {
- 
- /* The transmit wake timer for a given cpu and echannel. */
- struct tile_net_tx_wake {
-+	int tx_queue_idx;
- 	struct hrtimer timer;
- 	struct net_device *dev;
- };
-@@ -573,12 +574,14 @@ static void add_comp(gxio_mpipe_equeue_t *equeue,
- 	comps->comp_next++;
- }
- 
--static void tile_net_schedule_tx_wake_timer(struct net_device *dev)
-+static void tile_net_schedule_tx_wake_timer(struct net_device *dev,
-+                                            int tx_queue_idx)
+@@ -1333,11 +1333,12 @@ static s64 tile_net_equeue_try_reserve(struct net_device *dev,
+ static int tso_count_edescs(struct sk_buff *skb)
  {
--	struct tile_net_info *info = &__get_cpu_var(per_cpu_info);
-+	struct tile_net_info *info = &per_cpu(per_cpu_info, tx_queue_idx);
+ 	struct skb_shared_info *sh = skb_shinfo(skb);
+-	unsigned int data_len = skb->data_len;
++	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++	unsigned int data_len = skb->data_len + skb->hdr_len - sh_len;
+ 	unsigned int p_len = sh->gso_size;
+ 	long f_id = -1;    /* id of the current fragment */
+-	long f_size = -1;  /* size of the current fragment */
+-	long f_used = -1;  /* bytes used from the current fragment */
++	long f_size = skb->hdr_len;  /* size of the current fragment */
++	long f_used = sh_len;  /* bytes used from the current fragment */
+ 	long n;            /* size of the current piece of payload */
+ 	int num_edescs = 0;
+ 	int segment;
+@@ -1382,13 +1383,14 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 	struct skb_shared_info *sh = skb_shinfo(skb);
+ 	struct iphdr *ih;
+ 	struct tcphdr *th;
+-	unsigned int data_len = skb->data_len;
++	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++	unsigned int data_len = skb->data_len + skb->hdr_len - sh_len;
+ 	unsigned char *data = skb->data;
+-	unsigned int ih_off, th_off, sh_len, p_len;
++	unsigned int ih_off, th_off, p_len;
+ 	unsigned int isum_seed, tsum_seed, id, seq;
+ 	long f_id = -1;    /* id of the current fragment */
+-	long f_size = -1;  /* size of the current fragment */
+-	long f_used = -1;  /* bytes used from the current fragment */
++	long f_size = skb->hdr_len;  /* size of the current fragment */
++	long f_used = sh_len;  /* bytes used from the current fragment */
+ 	long n;            /* size of the current piece of payload */
+ 	int segment;
+ 
+@@ -1397,14 +1399,13 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 	th = tcp_hdr(skb);
+ 	ih_off = skb_network_offset(skb);
+ 	th_off = skb_transport_offset(skb);
+-	sh_len = th_off + tcp_hdrlen(skb);
+ 	p_len = sh->gso_size;
+ 
+ 	/* Set up seed values for IP and TCP csum and initialize id and seq. */
+ 	isum_seed = ((0xFFFF - ih->check) +
+ 		     (0xFFFF - ih->tot_len) +
+ 		     (0xFFFF - ih->id));
+-	tsum_seed = th->check + (0xFFFF ^ htons(skb->len));
++	tsum_seed = th->check + (0xFFFF ^ htons(sh_len + data_len));
+ 	id = ntohs(ih->id);
+ 	seq = ntohl(th->seq);
+ 
+@@ -1476,21 +1477,22 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
+ {
  	struct tile_net_priv *priv = netdev_priv(dev);
-+	struct tile_net_tx_wake *tx_wake = &info->tx_wake[priv->echannel];
+ 	struct skb_shared_info *sh = skb_shinfo(skb);
+-	unsigned int data_len = skb->data_len;
++	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++	unsigned int data_len = skb->data_len + skb->hdr_len - sh_len;
+ 	unsigned int p_len = sh->gso_size;
+ 	gxio_mpipe_edesc_t edesc_head = { { 0 } };
+ 	gxio_mpipe_edesc_t edesc_body = { { 0 } };
+ 	long f_id = -1;    /* id of the current fragment */
+-	long f_size = -1;  /* size of the current fragment */
+-	long f_used = -1;  /* bytes used from the current fragment */
++	long f_size = skb->hdr_len;  /* size of the current fragment */
++	long f_used = sh_len;  /* bytes used from the current fragment */
++	void *f_data = skb->data;
+ 	long n;            /* size of the current piece of payload */
+ 	unsigned long tx_packets = 0, tx_bytes = 0;
+-	unsigned int csum_start, sh_len;
++	unsigned int csum_start;
+ 	int segment;
  
--	hrtimer_start(&info->tx_wake[priv->echannel].timer,
-+	hrtimer_start(&tx_wake->timer,
- 		      ktime_set(0, TX_TIMER_DELAY_USEC * 1000UL),
- 		      HRTIMER_MODE_REL_PINNED);
- }
-@@ -587,7 +590,7 @@ static enum hrtimer_restart tile_net_handle_tx_wake_timer(struct hrtimer *t)
- {
- 	struct tile_net_tx_wake *tx_wake =
- 		container_of(t, struct tile_net_tx_wake, timer);
--	netif_wake_subqueue(tx_wake->dev, smp_processor_id());
-+	netif_wake_subqueue(tx_wake->dev, tx_wake->tx_queue_idx);
- 	return HRTIMER_NORESTART;
- }
+ 	/* Prepare to egress the headers: set up header edesc. */
+ 	csum_start = skb_checksum_start_offset(skb);
+-	sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 	edesc_head.csum = 1;
+ 	edesc_head.csum_start = csum_start;
+ 	edesc_head.csum_dest = csum_start + skb->csum_offset;
+@@ -1502,7 +1504,6 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
  
-@@ -1218,6 +1221,7 @@ static int tile_net_open(struct net_device *dev)
+ 	/* Egress all the edescs. */
+ 	for (segment = 0; segment < sh->gso_segs; segment++) {
+-		void *va;
+ 		unsigned char *buf;
+ 		unsigned int p_used = 0;
  
- 		hrtimer_init(&tx_wake->timer, CLOCK_MONOTONIC,
- 			     HRTIMER_MODE_REL);
-+		tx_wake->tx_queue_idx = cpu;
- 		tx_wake->timer.function = tile_net_handle_tx_wake_timer;
- 		tx_wake->dev = dev;
- 	}
-@@ -1291,6 +1295,7 @@ static inline void *tile_net_frag_buf(skb_frag_t *f)
-  * stop the queue and schedule the tx_wake timer.
-  */
- static s64 tile_net_equeue_try_reserve(struct net_device *dev,
-+				       int tx_queue_idx,
- 				       struct tile_net_comps *comps,
- 				       gxio_mpipe_equeue_t *equeue,
- 				       int num_edescs)
-@@ -1313,8 +1318,8 @@ static s64 tile_net_equeue_try_reserve(struct net_device *dev,
- 	}
+@@ -1521,10 +1522,9 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
+ 				f_id++;
+ 				f_size = sh->frags[f_id].size;
+ 				f_used = 0;
++				f_data = tile_net_frag_buf(&sh->frags[f_id]);
+ 			}
  
- 	/* Still nothing; give up and stop the queue for a short while. */
--	netif_stop_subqueue(dev, smp_processor_id());
--	tile_net_schedule_tx_wake_timer(dev);
-+	netif_stop_subqueue(dev, tx_queue_idx);
-+	tile_net_schedule_tx_wake_timer(dev, tx_queue_idx);
- 	return -1;
- }
+-			va = tile_net_frag_buf(&sh->frags[f_id]) + f_used;
+-
+ 			/* Use bytes from the current fragment. */
+ 			n = p_len - p_used;
+ 			if (n > f_size - f_used)
+@@ -1533,7 +1533,7 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
+ 			p_used += n;
  
-@@ -1580,7 +1585,8 @@ static int tile_net_tx_tso(struct sk_buff *skb, struct net_device *dev)
- 	local_irq_save(irqflags);
- 
- 	/* Try to acquire a completion entry and an egress slot. */
--	slot = tile_net_equeue_try_reserve(dev, comps, equeue, num_edescs);
-+	slot = tile_net_equeue_try_reserve(dev, skb->queue_mapping, comps,
-+					   equeue, num_edescs);
- 	if (slot < 0) {
- 		local_irq_restore(irqflags);
- 		return NETDEV_TX_BUSY;
-@@ -1674,7 +1680,8 @@ static int tile_net_tx(struct sk_buff *skb, struct net_device *dev)
- 	local_irq_save(irqflags);
- 
- 	/* Try to acquire a completion entry and an egress slot. */
--	slot = tile_net_equeue_try_reserve(dev, comps, equeue, num_edescs);
-+	slot = tile_net_equeue_try_reserve(dev, skb->queue_mapping, comps,
-+					   equeue, num_edescs);
- 	if (slot < 0) {
- 		local_irq_restore(irqflags);
- 		return NETDEV_TX_BUSY;
+ 			/* Egress a piece of the payload. */
+-			edesc_body.va = va_to_tile_io_addr(va);
++			edesc_body.va = va_to_tile_io_addr(f_data) + f_used;
+ 			edesc_body.xfer_size = n;
+ 			edesc_body.bound = !(p_used < p_len);
+ 			gxio_mpipe_equeue_put_at(equeue, edesc_body, slot);
 -- 
 1.7.10.3
