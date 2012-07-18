@@ -1,198 +1,150 @@
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Subject: Re: [PATCH v2] b44: add 64 bit stats
-Date: Tue, 17 Jul 2012 23:46:01 -0400
-Message-ID: <1342583161-1184-1-git-send-email-kgroeneveld@gmail.com>
-References: <20120716.230806.242760837075045729.davem@davemloft.net>
-Cc: Kevin Groeneveld <kgroeneveld@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 0/5] Long term PMTU/redirect storage in ipv4.
+Date: Wed, 18 Jul 2012 05:46:06 +0200
+Message-ID: <1342583166.2626.1367.camel@edumazet-glaptop>
+References: <alpine.LFD.2.00.1207172249270.1831@ja.ssi.bg>
+	 <20120717.134651.562831385960975623.davem@davemloft.net>
+	 <alpine.LFD.2.00.1207180052420.2128@ja.ssi.bg>
+	 <20120717.150920.1324071045620152376.davem@davemloft.net>
+	 <alpine.LFD.2.00.1207180358190.2128@ja.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:54786 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751792Ab2GRDqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 23:46:09 -0400
-Received: by yenl2 with SMTP id l2so1159675yen.19
-        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 20:46:09 -0700 (PDT)
-In-Reply-To: <20120716.230806.242760837075045729.davem@davemloft.net>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:56149 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752112Ab2GRDqM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jul 2012 23:46:12 -0400
+Received: by vcbfk26 with SMTP id fk26so800486vcb.19
+        for <netdev@vger.kernel.org>; Tue, 17 Jul 2012 20:46:11 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.1207180358190.2128@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
+On Wed, 2012-07-18 at 04:06 +0300, Julian Anastasov wrote:
 
-Add support for 64 bit stats to Broadcom b44 ethernet driver.
+> 
+> 	I created patch with seqlock usage. This version
+> is with global seqlock because I'm not sure if 2048 locks
+> per NH are good idea. This is only compile tested.
+> After comments may be I have to resubmit in separate message.
+> 
+> 
+> Subject: [PATCH] ipv4: use seqlock for nh_exceptions
+> 
+> From: Julian Anastasov <ja@ssi.bg>
+> 
+> 	Use global seqlock for the nh_exceptions. Call
+> fnhe_oldest with the right hash chain. Correct the diff
+> value for dst_set_expires.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+>  include/net/ip_fib.h |    2 +-
+>  net/ipv4/route.c     |  117 ++++++++++++++++++++++++++++++++------------------
+>  2 files changed, 76 insertions(+), 43 deletions(-)
+> 
 
-Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
----
-v2: use u64_stats_fetch_begin_bh/u64_stats_fetch_retry_bh instead of
-    u64_stats_fetch_begin/u64_stats_fetch_retry as stats update happens in a
-    timer interrupt
+...
 
- drivers/net/ethernet/broadcom/b44.c |   96 ++++++++++++++++++++---------------
- drivers/net/ethernet/broadcom/b44.h |    3 +-
- 2 files changed, 58 insertions(+), 41 deletions(-)
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index f67e702..e037c73 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1334,8 +1334,9 @@ static void ip_rt_build_flow_key(struct flowi4 *fl4, const struct sock *sk,
+>  }
+>  
+>  static DEFINE_SPINLOCK(fnhe_lock);
+> +static DEFINE_SEQLOCK(fnhe_seqlock);
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index d09c6b5..9786c0e 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -483,9 +483,11 @@ out:
- static void b44_stats_update(struct b44 *bp)
- {
- 	unsigned long reg;
--	u32 *val;
-+	u64 *val;
+Hi Julian
+
+I find this patch too complex.
+
+You could only change fnhe_lock to a seqlock
+
+ net/ipv4/route.c |   35 +++++++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index f67e702..a96fc9d 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1333,7 +1333,7 @@ static void ip_rt_build_flow_key(struct flowi4 *fl4, const struct sock *sk,
+ 		build_sk_flow_key(fl4, sk);
+ }
  
- 	val = &bp->hw_stats.tx_good_octets;
-+	u64_stats_update_begin(&bp->hw_stats.syncp);
-+
- 	for (reg = B44_TX_GOOD_O; reg <= B44_TX_PAUSE; reg += 4UL) {
- 		*val++ += br32(bp, reg);
+-static DEFINE_SPINLOCK(fnhe_lock);
++static DEFINE_SEQLOCK(fnhe_seqlock);
+ 
+ static struct fib_nh_exception *fnhe_oldest(struct fnhe_hash_bucket *hash, __be32 daddr)
+ {
+@@ -1454,11 +1454,11 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
+ 				struct fib_nh *nh = &FIB_RES_NH(res);
+ 				struct fib_nh_exception *fnhe;
+ 
+-				spin_lock_bh(&fnhe_lock);
++				write_seqlock_bh(&fnhe_seqlock);
+ 				fnhe = find_or_create_fnhe(nh, fl4->daddr);
+ 				if (fnhe)
+ 					fnhe->fnhe_gw = new_gw;
+-				spin_unlock_bh(&fnhe_lock);
++				write_sequnlock_bh(&fnhe_seqlock);
+ 			}
+ 			rt->rt_gateway = new_gw;
+ 			rt->rt_flags |= RTCF_REDIRECTED;
+@@ -1665,13 +1665,13 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
+ 		struct fib_nh *nh = &FIB_RES_NH(res);
+ 		struct fib_nh_exception *fnhe;
+ 
+-		spin_lock_bh(&fnhe_lock);
++		write_seqlock_bh(&fnhe_seqlock);
+ 		fnhe = find_or_create_fnhe(nh, fl4->daddr);
+ 		if (fnhe) {
+ 			fnhe->fnhe_pmtu = mtu;
+ 			fnhe->fnhe_expires = jiffies + ip_rt_mtu_expires;
+ 		}
+-		spin_unlock_bh(&fnhe_lock);
++		write_sequnlock_bh(&fnhe_seqlock);
  	}
-@@ -496,6 +498,8 @@ static void b44_stats_update(struct b44 *bp)
- 	for (reg = B44_RX_GOOD_O; reg <= B44_RX_NPAUSE; reg += 4UL) {
- 		*val++ += br32(bp, reg);
- 	}
+ 	rt->rt_pmtu = mtu;
+ 	dst_set_expires(&rt->dst, ip_rt_mtu_expires);
+@@ -1904,18 +1904,29 @@ static void rt_bind_exception(struct rtable *rt, struct fib_nh *nh, __be32 daddr
+ 
+ 	for (fnhe = rcu_dereference(hash[hval].chain); fnhe;
+ 	     fnhe = rcu_dereference(fnhe->fnhe_next)) {
+-		if (fnhe->fnhe_daddr == daddr) {
+-			if (fnhe->fnhe_pmtu) {
+-				unsigned long expires = fnhe->fnhe_expires;
+-				unsigned long diff = jiffies - expires;
++		unsigned int seq;
++		__be32 fnhe_daddr, gw;
++		u32 pmtu;
++		unsigned long expires;
 +
-+	u64_stats_update_end(&bp->hw_stats.syncp);
- }
++		do {
++			seq = read_seqbegin(&fnhe_seqlock);
++			fnhe_daddr = fnhe->fnhe_daddr;
++			gw = fnhe->fnhe_gw;
++			pmtu = fnhe->fnhe_pmtu;
++			expires = fnhe->fnhe_expires;
++		} while (read_seqretry(&fnhe_seqlock, seq));
++		if (fnhe_daddr == daddr) {
++			if (pmtu) {
++				unsigned long diff = expires - jiffies;
  
- static void b44_link_report(struct b44 *bp)
-@@ -1635,44 +1639,49 @@ static int b44_close(struct net_device *dev)
- 	return 0;
- }
- 
--static struct net_device_stats *b44_get_stats(struct net_device *dev)
-+static struct rtnl_link_stats64 *b44_get_stats64(struct net_device *dev,
-+					struct rtnl_link_stats64 *nstat)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	struct net_device_stats *nstat = &dev->stats;
- 	struct b44_hw_stats *hwstat = &bp->hw_stats;
--
--	/* Convert HW stats into netdevice stats. */
--	nstat->rx_packets = hwstat->rx_pkts;
--	nstat->tx_packets = hwstat->tx_pkts;
--	nstat->rx_bytes   = hwstat->rx_octets;
--	nstat->tx_bytes   = hwstat->tx_octets;
--	nstat->tx_errors  = (hwstat->tx_jabber_pkts +
--			     hwstat->tx_oversize_pkts +
--			     hwstat->tx_underruns +
--			     hwstat->tx_excessive_cols +
--			     hwstat->tx_late_cols);
--	nstat->multicast  = hwstat->tx_multicast_pkts;
--	nstat->collisions = hwstat->tx_total_cols;
--
--	nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
--				   hwstat->rx_undersize);
--	nstat->rx_over_errors   = hwstat->rx_missed_pkts;
--	nstat->rx_frame_errors  = hwstat->rx_align_errs;
--	nstat->rx_crc_errors    = hwstat->rx_crc_errs;
--	nstat->rx_errors        = (hwstat->rx_jabber_pkts +
--				   hwstat->rx_oversize_pkts +
--				   hwstat->rx_missed_pkts +
--				   hwstat->rx_crc_align_errs +
--				   hwstat->rx_undersize +
--				   hwstat->rx_crc_errs +
--				   hwstat->rx_align_errs +
--				   hwstat->rx_symbol_errs);
--
--	nstat->tx_aborted_errors = hwstat->tx_underruns;
-+	unsigned int start;
-+
-+	do {
-+		start = u64_stats_fetch_begin_bh(&hwstat->syncp);
-+
-+		/* Convert HW stats into rtnl_link_stats64 stats. */
-+		nstat->rx_packets = hwstat->rx_pkts;
-+		nstat->tx_packets = hwstat->tx_pkts;
-+		nstat->rx_bytes   = hwstat->rx_octets;
-+		nstat->tx_bytes   = hwstat->tx_octets;
-+		nstat->tx_errors  = (hwstat->tx_jabber_pkts +
-+				     hwstat->tx_oversize_pkts +
-+				     hwstat->tx_underruns +
-+				     hwstat->tx_excessive_cols +
-+				     hwstat->tx_late_cols);
-+		nstat->multicast  = hwstat->tx_multicast_pkts;
-+		nstat->collisions = hwstat->tx_total_cols;
-+
-+		nstat->rx_length_errors = (hwstat->rx_oversize_pkts +
-+					   hwstat->rx_undersize);
-+		nstat->rx_over_errors   = hwstat->rx_missed_pkts;
-+		nstat->rx_frame_errors  = hwstat->rx_align_errs;
-+		nstat->rx_crc_errors    = hwstat->rx_crc_errs;
-+		nstat->rx_errors        = (hwstat->rx_jabber_pkts +
-+					   hwstat->rx_oversize_pkts +
-+					   hwstat->rx_missed_pkts +
-+					   hwstat->rx_crc_align_errs +
-+					   hwstat->rx_undersize +
-+					   hwstat->rx_crc_errs +
-+					   hwstat->rx_align_errs +
-+					   hwstat->rx_symbol_errs);
-+
-+		nstat->tx_aborted_errors = hwstat->tx_underruns;
- #if 0
--	/* Carrier lost counter seems to be broken for some devices */
--	nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
-+		/* Carrier lost counter seems to be broken for some devices */
-+		nstat->tx_carrier_errors = hwstat->tx_carrier_lost;
- #endif
-+	} while (u64_stats_fetch_retry_bh(&hwstat->syncp, start));
- 
- 	return nstat;
- }
-@@ -1993,17 +2002,24 @@ static void b44_get_ethtool_stats(struct net_device *dev,
- 				  struct ethtool_stats *stats, u64 *data)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	u32 *val = &bp->hw_stats.tx_good_octets;
-+	struct b44_hw_stats *hwstat = &bp->hw_stats;
-+	u64 *data_src, *data_dst;
-+	unsigned int start;
- 	u32 i;
- 
- 	spin_lock_irq(&bp->lock);
--
- 	b44_stats_update(bp);
-+	spin_unlock_irq(&bp->lock);
- 
--	for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
--		*data++ = *val++;
-+	do {
-+		data_src = &hwstat->tx_good_octets;
-+		data_dst = data;
-+		start = u64_stats_fetch_begin_bh(&hwstat->syncp);
- 
--	spin_unlock_irq(&bp->lock);
-+		for (i = 0; i < ARRAY_SIZE(b44_gstrings); i++)
-+			*data_dst++ = *data_src++;
-+
-+	} while (u64_stats_fetch_retry_bh(&hwstat->syncp, start));
- }
- 
- static void b44_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-@@ -2113,7 +2129,7 @@ static const struct net_device_ops b44_netdev_ops = {
- 	.ndo_open		= b44_open,
- 	.ndo_stop		= b44_close,
- 	.ndo_start_xmit		= b44_start_xmit,
--	.ndo_get_stats		= b44_get_stats,
-+	.ndo_get_stats64	= b44_get_stats64,
- 	.ndo_set_rx_mode	= b44_set_rx_mode,
- 	.ndo_set_mac_address	= b44_set_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
-diff --git a/drivers/net/ethernet/broadcom/b44.h b/drivers/net/ethernet/broadcom/b44.h
-index e1905a4..8993d72 100644
---- a/drivers/net/ethernet/broadcom/b44.h
-+++ b/drivers/net/ethernet/broadcom/b44.h
-@@ -338,9 +338,10 @@ struct ring_info {
-  * the layout
-  */
- struct b44_hw_stats {
--#define _B44(x)	u32 x;
-+#define _B44(x)	u64 x;
- B44_STAT_REG_DECLARE
- #undef _B44
-+	struct u64_stats_sync	syncp;
- };
- 
- struct ssb_device;
--- 
-1.7.9.5
+ 				if (time_before(jiffies, expires)) {
+-					rt->rt_pmtu = fnhe->fnhe_pmtu;
++					rt->rt_pmtu = pmtu;
+ 					dst_set_expires(&rt->dst, diff);
+ 				}
+ 			}
+-			if (fnhe->fnhe_gw)
+-				rt->rt_gateway = fnhe->fnhe_gw;
++			if (gw)
++				rt->rt_gateway = gw;
+ 			fnhe->fnhe_stamp = jiffies;
+ 			break;
+ 		}
