@@ -1,44 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] sunrpc: clnt: Add missing braces
-Date: Wed, 18 Jul 2012 11:17:11 -0700
-Message-ID: <1342635431.9551.41.camel@joe2Laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next] team: refine IFF_XMIT_DST_RELEASE capability
+Date: Wed, 18 Jul 2012 20:17:34 +0200
+Message-ID: <1342635454.2626.3337.camel@edumazet-glaptop>
+References: <1342633178-1411-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Chuck Lever <chuck.lever@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:56186 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755353Ab2GRSRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 14:17:39 -0400
+Received: by yhmm54 with SMTP id m54so1879718yhm.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 11:17:38 -0700 (PDT)
+In-Reply-To: <1342633178-1411-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a missing set of braces that commit 4e0038b6b24
-("SUNRPC: Move clnt->cl_server into struct rpc_xprt")
-forgot.
+On Wed, 2012-07-18 at 19:39 +0200, Jiri Pirko wrote:
+> Cloned patch of Eric Dumazet for bonding.
+> 
+> Some workloads greatly benefit of IFF_XMIT_DST_RELEASE capability
+> on output net device, avoiding dirtying dst refcount.
+> 
+> team currently disables IFF_XMIT_DST_RELEASE unconditionally.
+> 
+> If all ports have the IFF_XMIT_DST_RELEASE bit set, then
+> team dev can also have it in its priv_flags.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  drivers/net/team/team.c |    5 +++++
+>  1 file changed, 5 insertions(+)
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/sunrpc/clnt.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index f56f045..aaf70aa 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -1844,12 +1844,13 @@ call_timeout(struct rpc_task *task)
- 		return;
- 	}
- 	if (RPC_IS_SOFT(task)) {
--		if (clnt->cl_chatty)
-+		if (clnt->cl_chatty) {
- 			rcu_read_lock();
- 			printk(KERN_NOTICE "%s: server %s not responding, timed out\n",
- 				clnt->cl_protname,
- 				rcu_dereference(clnt->cl_xprt)->servername);
- 			rcu_read_unlock();
-+		}
- 		if (task->tk_flags & RPC_TASK_TIMEOUT)
- 			rpc_exit(task, -ETIMEDOUT);
- 		else
+Thanks
