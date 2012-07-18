@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] jme: netpoll support
-Date: Wed, 18 Jul 2012 09:45:24 -0700 (PDT)
-Message-ID: <20120718.094524.264223189588300582.davem@davemloft.net>
-References: <18143736.brt1iGhlQ1@al>
+Subject: Re: [PATCH 0/2] runtime PM support for cpsw and davinci mdio
+ drivers
+Date: Wed, 18 Jul 2012 09:45:33 -0700 (PDT)
+Message-ID: <20120718.094533.267183699793421647.davem@davemloft.net>
+References: <1342548590-12502-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cooldavid@cooldavid.org, netdev@vger.kernel.org
-To: lekensteyn@gmail.com
+Cc: netdev@vger.kernel.org
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35837 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35845 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755089Ab2GRQpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:45:24 -0400
-In-Reply-To: <18143736.brt1iGhlQ1@al>
+	with ESMTP id S1755089Ab2GRQpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:45:33 -0400
+In-Reply-To: <1342548590-12502-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lekensteyn <lekensteyn@gmail.com>
-Date: Tue, 17 Jul 2012 18:29:34 +0200
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Tue, 17 Jul 2012 23:39:48 +0530
 
-> From: Peter Wu <lekensteyn@gmail.com>
+> This patch set adds support for runtime PM support for CPSW and Davinci MDIO
+> drivers
 > 
-> This patch adds the netpoll function to support netconsole. Tested and works
-> fine on my "JMC250 PCI Express Gigabit Ethernet Controller" (PCI ID 0250).
-> 
-> Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+> Mugunthan V N (2):
+>   driver: net: ethernet: davinci_mdio: runtime PM support
+>   driver: net: ethernet: cpsw: runtime PM support
 
-Applied to net-next
-
-I really wonder if this driver works on SMP systems at all.
+All applied to net-next, thanks.
