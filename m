@@ -1,92 +1,262 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/9] ixgbe: Update configure virtualization to allow for multiple PF pools
-Date: Wed, 18 Jul 2012 13:31:53 -0700
-Message-ID: <1342643516-2696-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] ixgbevf: Fix multiple issues in ixgbevf_get/set_ringparam
+Date: Wed, 18 Jul 2012 13:31:52 -0700
+Message-ID: <1342643516-2696-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342643516-2696-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:18725 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:5779 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755984Ab2GRUcD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jul 2012 16:32:03 -0400
+	id S1755982Ab2GRUcC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 16:32:02 -0400
 In-Reply-To: <1342643516-2696-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change allows all pools from the default pool forward to be enabled vi
-ixgbe_configure_virtualization.  This is needed as we are planning to use
-queues belonging to adjacent pools for FCoE when SR-IOV and FCoE are both
-enabled.
+In ixgbevf_get_ringparam we could run into a NULL pointer dereference
+if the rings were not allocated when we attempted the call.  To prevent
+that we can just access the tx/rx_ring_count values instead of attempting
+to access the rings to get the count.
 
-In addition this patch contains some minor formatting changes as there were
-a few spots that seemed to be in need of some cleanup.
+This change corrects a memory leak and memory corruption in
+ixgbevf_set_ringparam.
+
+The memory leak was due to us not freeing the resources from the ring
+before overwriting them.  This change corrects the memory leak by making
+certain to call ixgbe_free_tx/rx_resources on the rings prior to freeing
+them.
+
+The memory corruption was because we were replacing the rings but not
+updating the q_vectors.  It addresses the memory corruption by leaving the
+rings in place and instead just copying the contents of the new rings into
+the existing rings.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c |  153 ++++++++++++++------------
+ 1 file changed, 83 insertions(+), 70 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 2b4b791..ea94fa2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3130,28 +3130,28 @@ static void ixgbe_setup_psrtype(struct ixgbe_adapter *adapter)
- static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index 2c3b20ed..8f20704 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -284,13 +284,11 @@ static void ixgbevf_get_ringparam(struct net_device *netdev,
+ 				  struct ethtool_ringparam *ring)
  {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 gcr_ext;
--	u32 vt_reg_bits;
- 	u32 reg_offset, vf_shift;
--	u32 vmdctl;
-+	u32 gcr_ext, vmdctl;
- 	int i;
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+-	struct ixgbevf_ring *tx_ring = adapter->tx_ring;
+-	struct ixgbevf_ring *rx_ring = adapter->rx_ring;
  
- 	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
- 		return;
+ 	ring->rx_max_pending = IXGBEVF_MAX_RXD;
+ 	ring->tx_max_pending = IXGBEVF_MAX_TXD;
+-	ring->rx_pending = rx_ring->count;
+-	ring->tx_pending = tx_ring->count;
++	ring->rx_pending = adapter->rx_ring_count;
++	ring->tx_pending = adapter->tx_ring_count;
+ }
  
- 	vmdctl = IXGBE_READ_REG(hw, IXGBE_VT_CTL);
--	vt_reg_bits = IXGBE_VMD_CTL_VMDQ_EN | IXGBE_VT_CTL_REPLEN;
--	vt_reg_bits |= (adapter->num_vfs << IXGBE_VT_CTL_POOL_SHIFT);
--	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl | vt_reg_bits);
-+	vmdctl |= IXGBE_VMD_CTL_VMDQ_EN;
-+	vmdctl &= ~IXGBE_VT_CTL_POOL_MASK;
-+	vmdctl |= (adapter->num_vfs << IXGBE_VT_CTL_POOL_SHIFT);
-+	vmdctl |= IXGBE_VT_CTL_REPLEN;
-+	IXGBE_WRITE_REG(hw, IXGBE_VT_CTL, vmdctl);
+ static int ixgbevf_set_ringparam(struct net_device *netdev,
+@@ -298,33 +296,28 @@ static int ixgbevf_set_ringparam(struct net_device *netdev,
+ {
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbevf_ring *tx_ring = NULL, *rx_ring = NULL;
+-	int i, err = 0;
+ 	u32 new_rx_count, new_tx_count;
++	int i, err = 0;
  
- 	vf_shift = adapter->num_vfs % 32;
- 	reg_offset = (adapter->num_vfs >= 32) ? 1 : 0;
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
  
- 	/* Enable only the PF's pool for Tx/Rx */
--	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), (1 << vf_shift));
--	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset ^ 1), 0);
--	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), (1 << vf_shift));
--	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset ^ 1), 0);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), (~0) << vf_shift);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset ^ 1), reg_offset - 1);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), (~0) << vf_shift);
-+	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset ^ 1), reg_offset - 1);
- 	IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, IXGBE_PFDTXGSWC_VT_LBEN);
+-	new_rx_count = max(ring->rx_pending, (u32)IXGBEVF_MIN_RXD);
+-	new_rx_count = min(new_rx_count, (u32)IXGBEVF_MAX_RXD);
+-	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
+-
+-	new_tx_count = max(ring->tx_pending, (u32)IXGBEVF_MIN_TXD);
+-	new_tx_count = min(new_tx_count, (u32)IXGBEVF_MAX_TXD);
++	new_tx_count = max_t(u32, ring->tx_pending, IXGBEVF_MIN_TXD);
++	new_tx_count = min_t(u32, new_tx_count, IXGBEVF_MAX_TXD);
+ 	new_tx_count = ALIGN(new_tx_count, IXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
  
- 	/* Map PF MAC address in RAR Entry 0 to first pool following VFs */
-@@ -3168,9 +3168,9 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 
- 	/* enable Tx loopback for VF/PF communication */
- 	IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, IXGBE_PFDTXGSWC_VT_LBEN);
+-	if ((new_tx_count == adapter->tx_ring->count) &&
+-	    (new_rx_count == adapter->rx_ring->count)) {
+-		/* nothing to do */
++	new_rx_count = max_t(u32, ring->rx_pending, IXGBEVF_MIN_RXD);
++	new_rx_count = min_t(u32, new_rx_count, IXGBEVF_MAX_RXD);
++	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
 +
- 	/* Enable MAC Anti-Spoofing */
--	hw->mac.ops.set_mac_anti_spoofing(hw,
--					   (adapter->num_vfs != 0),
-+	hw->mac.ops.set_mac_anti_spoofing(hw, (adapter->num_vfs != 0),
- 					  adapter->num_vfs);
- 	/* For VFs that have spoof checking turned off */
- 	for (i = 0; i < adapter->num_vfs; i++) {
++	/* if nothing to do return success */
++	if ((new_tx_count == adapter->tx_ring_count) &&
++	    (new_rx_count == adapter->rx_ring_count))
+ 		return 0;
+-	}
+ 
+ 	while (test_and_set_bit(__IXGBEVF_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 
+-	/*
+-	 * If the adapter isn't up and running then just set the
+-	 * new parameters and scurry for the exits.
+-	 */
+ 	if (!netif_running(adapter->netdev)) {
+ 		for (i = 0; i < adapter->num_tx_queues; i++)
+ 			adapter->tx_ring[i].count = new_tx_count;
+@@ -335,78 +328,98 @@ static int ixgbevf_set_ringparam(struct net_device *netdev,
+ 		goto clear_reset;
+ 	}
+ 
+-	tx_ring = kcalloc(adapter->num_tx_queues,
+-			  sizeof(struct ixgbevf_ring), GFP_KERNEL);
+-	if (!tx_ring) {
+-		err = -ENOMEM;
+-		goto clear_reset;
+-	}
+-
+-	rx_ring = kcalloc(adapter->num_rx_queues,
+-			  sizeof(struct ixgbevf_ring), GFP_KERNEL);
+-	if (!rx_ring) {
+-		err = -ENOMEM;
+-		goto err_rx_setup;
+-	}
+-
+-	ixgbevf_down(adapter);
++	if (new_tx_count != adapter->tx_ring_count) {
++		tx_ring = vmalloc(adapter->num_tx_queues * sizeof(*tx_ring));
++		if (!tx_ring) {
++			err = -ENOMEM;
++			goto clear_reset;
++		}
+ 
+-	memcpy(tx_ring, adapter->tx_ring,
+-	       adapter->num_tx_queues * sizeof(struct ixgbevf_ring));
+-	for (i = 0; i < adapter->num_tx_queues; i++) {
+-		tx_ring[i].count = new_tx_count;
+-		err = ixgbevf_setup_tx_resources(adapter, &tx_ring[i]);
+-		if (err) {
++		for (i = 0; i < adapter->num_tx_queues; i++) {
++			/* clone ring and setup updated count */
++			tx_ring[i] = adapter->tx_ring[i];
++			tx_ring[i].count = new_tx_count;
++			err = ixgbevf_setup_tx_resources(adapter, &tx_ring[i]);
++			if (!err)
++				continue;
+ 			while (i) {
+ 				i--;
+ 				ixgbevf_free_tx_resources(adapter, &tx_ring[i]);
+ 			}
+-			goto err_tx_ring_setup;
++
++			vfree(tx_ring);
++			tx_ring = NULL;
++
++			goto clear_reset;
+ 		}
+ 	}
+ 
+-	memcpy(rx_ring, adapter->rx_ring,
+-	       adapter->num_rx_queues * sizeof(struct ixgbevf_ring));
+-	for (i = 0; i < adapter->num_rx_queues; i++) {
+-		rx_ring[i].count = new_rx_count;
+-		err = ixgbevf_setup_rx_resources(adapter, &rx_ring[i]);
+-		if (err) {
++	if (new_rx_count != adapter->rx_ring_count) {
++		rx_ring = vmalloc(adapter->num_rx_queues * sizeof(*rx_ring));
++		if (!rx_ring) {
++			err = -ENOMEM;
++			goto clear_reset;
++		}
++
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			/* clone ring and setup updated count */
++			rx_ring[i] = adapter->rx_ring[i];
++			rx_ring[i].count = new_rx_count;
++			err = ixgbevf_setup_rx_resources(adapter, &rx_ring[i]);
++			if (!err)
++				continue;
+ 			while (i) {
+ 				i--;
+ 				ixgbevf_free_rx_resources(adapter, &rx_ring[i]);
+ 			}
+-				goto err_rx_ring_setup;
++
++			vfree(rx_ring);
++			rx_ring = NULL;
++
++			goto clear_reset;
+ 		}
+ 	}
+ 
+-	/*
+-	 * Only switch to new rings if all the prior allocations
+-	 * and ring setups have succeeded.
+-	 */
+-	kfree(adapter->tx_ring);
+-	adapter->tx_ring = tx_ring;
+-	adapter->tx_ring_count = new_tx_count;
+-
+-	kfree(adapter->rx_ring);
+-	adapter->rx_ring = rx_ring;
+-	adapter->rx_ring_count = new_rx_count;
++	/* bring interface down to prepare for update */
++	ixgbevf_down(adapter);
+ 
+-	/* success! */
+-	ixgbevf_up(adapter);
++	/* Tx */
++	if (tx_ring) {
++		for (i = 0; i < adapter->num_tx_queues; i++) {
++			ixgbevf_free_tx_resources(adapter,
++						  &adapter->tx_ring[i]);
++			adapter->tx_ring[i] = tx_ring[i];
++		}
++		adapter->tx_ring_count = new_tx_count;
+ 
+-	goto clear_reset;
++		vfree(tx_ring);
++		tx_ring = NULL;
++	}
+ 
+-err_rx_ring_setup:
+-	for(i = 0; i < adapter->num_tx_queues; i++)
+-		ixgbevf_free_tx_resources(adapter, &tx_ring[i]);
++	/* Rx */
++	if (rx_ring) {
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			ixgbevf_free_rx_resources(adapter,
++						  &adapter->rx_ring[i]);
++			adapter->rx_ring[i] = rx_ring[i];
++		}
++		adapter->rx_ring_count = new_rx_count;
+ 
+-err_tx_ring_setup:
+-	kfree(rx_ring);
++		vfree(rx_ring);
++		rx_ring = NULL;
++	}
+ 
+-err_rx_setup:
+-	kfree(tx_ring);
++	/* restore interface using new values */
++	ixgbevf_up(adapter);
+ 
+ clear_reset:
++	/* free Tx resources if Rx error is encountered */
++	if (tx_ring) {
++		for (i = 0; i < adapter->num_tx_queues; i++)
++			ixgbevf_free_tx_resources(adapter, &tx_ring[i]);
++		vfree(tx_ring);
++	}
++
+ 	clear_bit(__IXGBEVF_RESETTING, &adapter->state);
+ 	return err;
+ }
 -- 
 1.7.10.4
