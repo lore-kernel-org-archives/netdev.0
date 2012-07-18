@@ -1,137 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 2/7] net-tcp: Fast Open client - cookie cache
-Date: Wed, 18 Jul 2012 23:54:29 +0200
-Message-ID: <1342648469.2626.3744.camel@edumazet-glaptop>
-References: <1342645307-17772-1-git-send-email-ycheng@google.com>
-	 <1342645307-17772-3-git-send-email-ycheng@google.com>
-	 <1342646166.2626.3692.camel@edumazet-glaptop>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH] net: Statically initialize init_net.dev_base_head
+Date: Wed, 18 Jul 2012 14:56:11 -0700
+Message-ID: <500730FB.4060204@intel.com>
+References: <20120718.132010.1765790775051953381.davem@davemloft.net> <20120718202159.GA30706@hmsreliant.think-freely.org> <50071D11.7080207@intel.com> <20120718.133243.1384365436939730847.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
-	ncardwell@google.com, sivasankar@cs.ucsd.edu,
-	netdev@vger.kernel.org
-To: Yuchung Cheng <ycheng@google.com>
+Cc: nhorman@tuxdriver.com, mark.d.rustad@intel.com,
+	netdev@vger.kernel.org, gaofeng@cn.fujitsu.com,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:38718 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230Ab2GRVye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:54:34 -0400
-Received: by qcro28 with SMTP id o28so1295002qcr.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 14:54:34 -0700 (PDT)
-In-Reply-To: <1342646166.2626.3692.camel@edumazet-glaptop>
+Received: from mga03.intel.com ([143.182.124.21]:44284 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750899Ab2GRV4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 17:56:12 -0400
+In-Reply-To: <20120718.133243.1384365436939730847.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 23:16 +0200, Eric Dumazet wrote:
+On 7/18/2012 1:32 PM, David Miller wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Wed, 18 Jul 2012 13:31:13 -0700
+>
+>> On 7/18/2012 1:21 PM, Neil Horman wrote:
+>>> On Wed, Jul 18, 2012 at 01:20:10PM -0700, David Miller wrote:
+>>>> From: Neil Horman <nhorman@tuxdriver.com>
+>>>> Date: Wed, 18 Jul 2012 16:11:49 -0400
+>>>>
+>>>>> On Wed, Jul 18, 2012 at 12:06:07PM -0700, Mark Rustad wrote:
+>>>>>> This change eliminates an initialization-order hazard most
+>>>>>> recently seen when netprio_cgroup is built into the kernel.
+>>>>>>
+>>>>>> With thanks to Eric Dumazet for catching a bug.
+>>>>>>
+>>>>>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+>>>>    ...
+>>>>> I think dave was going to take John Fastabends patch from earlier
+>>>>> today, but
+>>>>> this works just as well.  Long term I'm going to look into delaying
+>>>>> initzlization for cgroups, as it creates a strange initialization
+>>>>> state when you
+>>>>> have a module_init routine registered.
+>>>>
+>>>> Neil, any particular preference between John's and Mark's version
+>>>> of the fix?
+>>>>
+>>> I think they're both perfectly good.  If I had to choose I'd say
+>>> Marks, just
+>>> because its done by initializing data, rather than adding more code to
+>>> run every
+>>> time we create a cgroup.
+>>>
+>>> Neil
+>>>
+>>
+>> Fine by me if we take this version instead.
+>
+> I think that's what I'll do, sorry for all the trouble John :)
+>
 
-> Hmm, this rcu_read_lock() in cache_set() gives a false sense of
-> security ;)
-> 
-> I suggest using a seqlock instead ?
-> 
-
-Please find an updated version for your next submission :
-
- include/net/tcp.h      |    4 +++
- net/ipv4/tcp_metrics.c |   51 +++++++++++++++++++++++++++++++++++++++
- 2 files changed, 55 insertions(+)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 5aed371..e601da1 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -405,6 +405,10 @@ extern void tcp_metrics_init(void);
- extern bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst, bool paws_check);
- extern bool tcp_remember_stamp(struct sock *sk);
- extern bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
-+extern void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-+				   struct tcp_fastopen_cookie *cookie);
-+extern void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
-+				   struct tcp_fastopen_cookie *cookie);
- extern void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
- extern void tcp_disable_fack(struct tcp_sock *tp);
- extern void tcp_close(struct sock *sk, long timeout);
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 1a115b6..d02ff37 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -30,6 +30,11 @@ enum tcp_metric_index {
- 	TCP_METRIC_MAX,
- };
- 
-+struct tcp_fastopen_metrics {
-+	u16	mss;
-+	struct	tcp_fastopen_cookie	cookie;
-+};
-+
- struct tcp_metrics_block {
- 	struct tcp_metrics_block __rcu	*tcpm_next;
- 	struct inetpeer_addr		tcpm_addr;
-@@ -38,6 +43,7 @@ struct tcp_metrics_block {
- 	u32				tcpm_ts_stamp;
- 	u32				tcpm_lock;
- 	u32				tcpm_vals[TCP_METRIC_MAX];
-+	struct tcp_fastopen_metrics	tcpm_fastopen;
- };
- 
- static bool tcp_metric_locked(struct tcp_metrics_block *tm,
-@@ -118,6 +124,8 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst)
- 	tm->tcpm_vals[TCP_METRIC_REORDERING] = dst_metric_raw(dst, RTAX_REORDERING);
- 	tm->tcpm_ts = 0;
- 	tm->tcpm_ts_stamp = 0;
-+	tm->tcpm_fastopen.mss = 0;
-+	tm->tcpm_fastopen.cookie.len = 0;
- }
- 
- static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
-@@ -633,6 +641,49 @@ bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw)
- 	return ret;
- }
- 
-+static DEFINE_SEQLOCK(fastopen_seqlock);
-+
-+void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-+			    struct tcp_fastopen_cookie *cookie)
-+{
-+	struct tcp_metrics_block *tm;
-+
-+	rcu_read_lock();
-+	tm = tcp_get_metrics(sk, __sk_dst_get(sk), false);
-+	if (tm) {
-+		struct tcp_fastopen_metrics *tfom = &tm->tcpm_fastopen;
-+		unsigned int seq;
-+
-+		do {
-+			seq = read_seqbegin(&fastopen_seqlock);
-+			if (tfom->mss)
-+				*mss = tfom->mss;
-+			*cookie = tfom->cookie;
-+		} while (read_seqretry(&fastopen_seqlock, seq));
-+	}
-+	rcu_read_unlock();
-+}
-+
-+
-+void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
-+			    struct tcp_fastopen_cookie *cookie)
-+{
-+	struct tcp_metrics_block *tm;
-+
-+	rcu_read_lock();
-+	tm = tcp_get_metrics(sk, __sk_dst_get(sk), true);
-+	if (tm) {
-+		struct tcp_fastopen_metrics *tfom = &tm->tcpm_fastopen;
-+
-+		write_seqlock_bh(&fastopen_seqlock);
-+		tfom->mss = mss;
-+		if (cookie->len > 0)
-+			tfom->cookie = *cookie;
-+		write_sequnlock_bh(&fastopen_seqlock);
-+	}
-+	rcu_read_unlock();
-+}
-+
- static unsigned long tcpmhash_entries;
- static int __init set_tcpmhash_entries(char *str)
- {
+No problem. For what its worth verified this resolved the netprio
+issue on my system as expected.
