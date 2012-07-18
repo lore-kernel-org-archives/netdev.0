@@ -1,39 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net/mlx4_en: Add accelerated RFS support
-Date: Wed, 18 Jul 2012 14:34:56 -0700 (PDT)
-Message-ID: <20120718.143456.1078493346727092667.davem@davemloft.net>
-References: <1342621162-18498-1-git-send-email-ogerlitz@mellanox.com>
-	<20120718.114158.2161516212050365274.davem@davemloft.net>
-	<CAJZOPZL8842H9H7404qjugCPpdhijjUhxk0Kn6BfBONCbE-tNA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 6/7] net-tcp: Fast Open client - detecting SYN-data
+ drops
+Date: Wed, 18 Jul 2012 23:35:47 +0200
+Message-ID: <1342647347.2626.3721.camel@edumazet-glaptop>
+References: <1342645307-17772-1-git-send-email-ycheng@google.com>
+	 <1342645307-17772-7-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
-	yevgenyp@mellanox.com, amirv@mellanox.com
-To: or.gerlitz@gmail.com
+Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com, sivasankar@cs.ucsd.edu,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38720 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547Ab2GRVfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:35:07 -0400
-In-Reply-To: <CAJZOPZL8842H9H7404qjugCPpdhijjUhxk0Kn6BfBONCbE-tNA@mail.gmail.com>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:50752 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389Ab2GRVfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 17:35:53 -0400
+Received: by ghrr11 with SMTP id r11so2118248ghr.19
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 14:35:53 -0700 (PDT)
+In-Reply-To: <1342645307-17772-7-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Thu, 19 Jul 2012 00:22:42 +0300
-
-> On Wed, Jul 18, 2012 at 9:41 PM, David Miller <davem@davemloft.net> wrote:
+On Wed, 2012-07-18 at 14:01 -0700, Yuchung Cheng wrote:
+> On paths with firewalls dropping SYN with data or experimental TCP options,
+> Fast Open connections will have experience SYN timeout and bad performance.
+> The solution is to track such incidents in the cookie cache and disables
+> Fast Open temporarily.
 > 
->> Please use CONFIG_RFS_ACCEL consistently to protect this feature
->> in your driver sources.
->>
->> Using CPU_RMAP in a few places is inconsistent, and not what other
->> drivers do.
+> Since only the original SYN includes data and/or Fast Open option, the
+> SYN-ACK has some tell-tale sign (tcp_rcv_fastopen_synack()) to detect
+> such drops. If a path has recurring Fast Open SYN drops, Fast Open is
+> disabled for 2^(recurring_losses) minutes starting from four minutes up to
+> roughly one and half day. sendmsg with MSG_FASTOPEN flag will succeed but
+> it behaves as connect() then write().
 > 
-> We're indeed using CONFIG_RFS_ACCEL across the place, and only in two
-> places which deal directly with rmap use CPU_RMAP. The latter is
-> selected by RFS_ACCEL, but if you feel this is inconsistent, will
-> change to use only one define.
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+...
 
-That's basically what I said.
+>  void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+> -			    struct tcp_fastopen_cookie *cookie)
+> +			    struct tcp_fastopen_cookie *cookie, bool syn_lost)
+>  {
+>  	struct tcp_metrics_block *tm;
+>  
+> @@ -670,6 +675,11 @@ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+>  		tfom->mss = mss;
+>  		if (cookie->len > 0)
+>  			tfom->cookie = *cookie;
+> +		if (syn_lost) {
+> +			++tfom->syn_loss;
+> +			tfom->last_syn_loss = jiffies;
+> +		} else
+> +			tfom->syn_loss = 0;
+>  	}
+>  	rcu_read_unlock();
+>  }
+
+Proably needs a respin after you use a seqlock, otherwise looks good to
+me.
