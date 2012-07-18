@@ -1,29 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Pull request for 'davem-next.r8169' branch
-Date: Wed, 18 Jul 2012 09:11:31 -0700 (PDT)
-Message-ID: <20120718.091131.2038869936480735347.davem@davemloft.net>
-References: <cover.1342562326.git.romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] ipv6: add ipv6_addr_hash() helper
+Date: Wed, 18 Jul 2012 09:15:59 -0700 (PDT)
+Message-ID: <20120718.091559.174027971595420359.davem@davemloft.net>
+References: <1342613334.2626.2504.camel@edumazet-glaptop>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B6F93@saturn3.aculab.com>
+	<1342620366.2626.2764.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com
-To: romieu@fr.zoreil.com
+Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org,
+	andrewmcgr@gmail.com, dave.taht@gmail.com, therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35185 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35250 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921Ab2GRQLc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:11:32 -0400
-In-Reply-To: <cover.1342562326.git.romieu@fr.zoreil.com>
+	with ESMTP id S1753001Ab2GRQQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 12:16:00 -0400
+In-Reply-To: <1342620366.2626.2764.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 18 Jul 2012 00:09:42 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Jul 2012 16:06:06 +0200
 
-> Please pull from branch 'davem-next.r8169' in repository
+> [PATCH net-next v2] ipv6: add ipv6_addr_hash() helper
 > 
-> git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
+> Introduce ipv6_addr_hash() helper doing a XOR on all bits
+> of an IPv6 address, with an optimized x86_64 version.
 > 
-> to get the changes below.
+> Use it in flow dissector, as suggested by Andrew McGregor,
+> to reduce hash collision probabilities in fq_codel (and other
+> users of flow dissector)
+> 
+> Use it in ip6_tunnel.c and use more bit shuffling, as suggested
+> by David Laight, as existing hash was ignoring most of them.
+> 
+> Use it in sunrpc and use more bit shuffling, using hash_32().
+> 
+> As cleanup, use it in net/ipv4/tcp_metrics.c
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andrew McGregor <andrewmcgr@gmail.com>
 
-Pulled, thanks Francois.
+Looks good, applied.
