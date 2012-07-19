@@ -1,38 +1,53 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH] sfc: initialize dynamic sysfs attributes for lockdep
-Date: Thu, 19 Jul 2012 19:04:45 +0200
-Message-ID: <1342717485-24034-1-git-send-email-mschmidt@redhat.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: tcp: remove per net tcp_sock
+Date: Thu, 19 Jul 2012 19:07:47 +0200
+Message-ID: <1342717667.2626.4494.camel@edumazet-glaptop>
+References: <1342688332.2626.4001.camel@edumazet-glaptop>
+	 <20120719.083544.1223522161508413373.davem@davemloft.net>
+	 <20120719.084503.136853790544876708.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31418 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751313Ab2GSREx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 13:04:53 -0400
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:64368 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718Ab2GSRHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:07:54 -0400
+Received: by vcbfk26 with SMTP id fk26so2179395vcb.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 10:07:53 -0700 (PDT)
+In-Reply-To: <20120719.084503.136853790544876708.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dynamically allocated sysfs attributes must be initialized using
-sysfs_attr_init(), otherwise lockdep complains:
-BUG: key <address> not in .data!
+On Thu, 2012-07-19 at 08:45 -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 19 Jul 2012 08:35:44 -0700 (PDT)
+>=20
+> > Looks great, applied, thanks Eric.
+>=20
+> I take that back, it doesn't build:
+>=20
+> net/ipv4/ip_output.c: In function =E2=80=98ip_send_unicast_reply=E2=80=
+=99:
+> net/ipv4/ip_output.c:1481:1: error: section attribute cannot be speci=
+fied for local variables
+> net/ipv4/ip_output.c:1481:1: error: section attribute cannot be speci=
+fied for local variables
+> net/ipv4/ip_output.c:1481:1: error: declaration of =E2=80=98__pcpu_un=
+ique_unicast_sock=E2=80=99 with no linkage follows extern declaration
+> net/ipv4/ip_output.c:1481:1: note: previous declaration of =E2=80=98_=
+_pcpu_unique_unicast_sock=E2=80=99 was here
+> net/ipv4/ip_output.c:1481:9: error: section attribute cannot be speci=
+fied for local variables
+> net/ipv4/ip_output.c:1481:9: error: weak declaration of =E2=80=98unic=
+ast_sock=E2=80=99 must be public
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/sfc/mcdi_mon.c |    1 +
- 1 file changed, 1 insertion(+)
+Strange, it builds on my machines, and I got nice performance boost.
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
-index fb7f65b..1d552f0 100644
---- a/drivers/net/ethernet/sfc/mcdi_mon.c
-+++ b/drivers/net/ethernet/sfc/mcdi_mon.c
-@@ -222,6 +222,7 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
- 	attr->index = index;
- 	attr->type = type;
- 	attr->limit_value = limit_value;
-+	sysfs_attr_init(&attr->dev_attr.attr);
- 	attr->dev_attr.attr.name = attr->name;
- 	attr->dev_attr.attr.mode = S_IRUGO;
- 	attr->dev_attr.show = reader;
--- 
-1.7.10.4
+Apparently your arch doesnt handle the=20
+
+static DEFINE_PER_CPU(struct inet_sock, unicast_sock)
+
+in the function body ?
