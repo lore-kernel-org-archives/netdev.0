@@ -1,82 +1,55 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next V1 7/9] net/eipoib: Add main driver
- functionality
-Date: Thu, 19 Jul 2012 14:49:49 +0100
-Message-ID: <1342705789.2617.15.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
-	 <1342609202-32427-8-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next V1 2/4] net/rps: Protect cpu_rmap.h from double
+ inclusion
+Date: Thu, 19 Jul 2012 14:53:25 +0100
+Message-ID: <1342706005.2617.16.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342686832-21406-1-git-send-email-ogerlitz@mellanox.com>
+	 <1342686832-21406-3-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>, <roland@kernel.org>,
-	<netdev@vger.kernel.org>, <ali@mellanox.com>,
-	<sean.hefty@intel.com>, <shlomop@mellanox.com>,
-	Erez Shitrit <erezsh@mellanox.co.il>
+	<netdev@vger.kernel.org>, <oren@mellanox.com>,
+	<yevgenyp@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29328 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:29476 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750894Ab2GSNtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 09:49:53 -0400
-In-Reply-To: <1342609202-32427-8-git-send-email-ogerlitz@mellanox.com>
+	by vger.kernel.org with ESMTP id S1750942Ab2GSNx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 09:53:29 -0400
+In-Reply-To: <1342686832-21406-3-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 14:00 +0300, Or Gerlitz wrote:
-[...]
-> +/* ----------------------------- VLAN funcs ---------------------------------- */
-> +static int eth_ipoib_vlan_rx_add_vid(struct net_device *dev,
-> +				     unsigned short vid)
-> +{
-> +	return 0;
-> +}
+On Thu, 2012-07-19 at 11:33 +0300, Or Gerlitz wrote:
+> From: Amir Vadai <amirv@mellanox.com>
+> 
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+>  include/linux/cpu_rmap.h |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/cpu_rmap.h b/include/linux/cpu_rmap.h
+> index 473771a..ac3bbb5 100644
+> --- a/include/linux/cpu_rmap.h
+> +++ b/include/linux/cpu_rmap.h
+> @@ -1,3 +1,6 @@
+> +#ifndef __LINUX_CPU_RMAP_H
+> +#define __LINUX_CPU_RMAP_H
 > +
-> +static int eth_ipoib_vlan_rx_kill_vid(struct net_device *dev,
-> +				      unsigned short vid)
-> +{
-> +	return 0;
-> +}
-[...]
-> +/* -------------------------- Device entry points --------------------------- */
-> +static struct net_device_stats *parent_get_stats(struct net_device *parent_dev)
-> +{
-[...]
-> +static const struct net_device_ops parent_netdev_ops = {
-> +	.ndo_init		= parent_init,
-> +	.ndo_uninit		= parent_uninit,
-> +	.ndo_open		= parent_open,
-> +	.ndo_stop		= parent_close,
-> +	.ndo_start_xmit		= parent_tx,
-> +	.ndo_select_queue	= parent_select_q,
-> +	/* parnt mtu is min(slaves_mtus) */
-> +	.ndo_change_mtu		= NULL,
-> +	.ndo_fix_features	= parent_fix_features,
-> +	/*
-> +	 * initial mac address is randomized, can be changed
-> +	 * thru this func later
-> +	 */
-> +	.ndo_set_mac_address = eth_mac_addr,
-> +	.ndo_get_stats = parent_get_stats,
+>  /*
+>   * cpu_rmap.c: CPU affinity reverse-map support
+>   * Copyright 2011 Solarflare Communications Inc.
+> @@ -71,3 +74,4 @@ extern void free_irq_cpu_rmap(struct cpu_rmap *rmap);
+>  extern int irq_cpu_rmap_add(struct cpu_rmap *rmap, int irq);
+>  
+>  #endif
+> +#endif /* __LINUX_CPU_RMAP_H */
 
-Why not implement ndo_get_stats64?  I don't think there's any good
-reason for a new driver not to.
+Oops :-/
 
-> +	.ndo_vlan_rx_add_vid = eth_ipoib_vlan_rx_add_vid,
-> +	.ndo_vlan_rx_kill_vid = eth_ipoib_vlan_rx_kill_vid,
-
-These shouldn't be needed.
-
-[...]
-> +/* netdev events handlers */
-> +static inline int is_ipoib_pif_intf(struct net_device *dev)
-> +{
-> +	if (ARPHRD_INFINIBAND == dev->type && dev->priv_flags & IFF_EIPOIB_PIF)
-> +			return 1;
-[...]
-
-Wrong indentation.
-
-Ben.
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
