@@ -1,152 +1,99 @@
-From: Andres Salomon <dilinger@queued.net>
-Subject: [PATCH RESEND 9/9] x86: OLPC: move s/r-related EC cmds to EC driver
-Date: Wed, 18 Jul 2012 21:44:31 -0700
-Message-ID: <20120718214431.0e1192d0@dev.queued.net>
-References: <20120718213713.232e4161@dev.queued.net>
+From: Huang Qiang <h.huangqiang@huawei.com>
+Subject: [PATCH net-next] netns: correctly use per-netns ipv4 sysctl_tcp_mem
+Date: Thu, 19 Jul 2012 13:38:15 +0800
+Message-ID: <50079D47.6040001@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Fox <pgf@laptop.org>, Daniel Drake <dsd@laptop.org>,
-	"Richard A. Smith" <richard@laptop.org>,
-	linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, devel@driverdev.osuosl.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Matthew Garrett <mjg@redhat.com>,
-	Anton Vorontsov <cbou@mail.ru>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Chris Ball <cjb@laptop.org>,
-	Jon Nettleton <jon.nettleton@gmail.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <20120718213713.232e4161@dev.queued.net>
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <containers@lists.linux-foundation.org>,
+	<yangzhenzhang@huawei.com>
+To: David Miller <davem@davemloft.net>, <glommer@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:37748 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111Ab2GSFik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 01:38:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Yang Zhenzhang <yangzhenzhang@huawei.com>
 
-The new EC driver calls platform-specific suspend and resume hooks; run
-XO-1-specific EC commands from there, rather than deep in s/r code.  If we
-attempt to run EC commands after the new EC driver has suspended, it is
-refused by the ec->suspended checks.
+Now, kernel allows each net namespace to independently set up its levels
+for tcp memory pressure thresholds.
 
-Signed-off-by: Andres Salomon <dilinger@queued.net>
+But it seems there is a bug, as using the following steps:
+
+[root@host socket]# lxc-start -n test -f config /bin/bash
+[root@net-test socket]# ip route add default via 192.168.58.2
+[root@net-test socket]# echo 0 0 0 > /proc/sys/net/ipv4/tcp_mem
+[root@net-test socket]# scp root@192.168.58.174:/home/tcp_mem_test .
+
+and it still can transport the "tcp_mem_test" file which we hope it
+would not.
+
+It's because inet_init() (net/ipv4/af_inet.c)initialize the tcp_prot.sysctl_mem:
+tcp_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
+
+So when the protocal is TCP, sk->sk_prot->sysctl_mem(following code)
+always use the ipv4 sysctl_tcp_mem of init_net namespace rather than
+it's own net namespace.
+This patch simply set "prot" equal to net->ipv4.sysctl_tcp_mem when
+the protocol type is TCP.
+
+Signed-off-by: Yang Zhenzhang <yangzhenzhang@huawei.com>
+Signed-off-by: Huang Qiang <h.huangqiang@huawei.com>
 ---
- arch/x86/platform/olpc/olpc-xo1-pm.c |   15 ------------
- arch/x86/platform/olpc/olpc.c        |   43 ++++++++++++++++++++++++++++-----
- 2 files changed, 36 insertions(+), 22 deletions(-)
+ include/net/sock.h |   24 ++++++++++++++++--------
+ 1 files changed, 16 insertions(+), 8 deletions(-)
 
-diff --git a/arch/x86/platform/olpc/olpc-xo1-pm.c b/arch/x86/platform/olpc/olpc-xo1-pm.c
-index 8054b64..d75582d 100644
---- a/arch/x86/platform/olpc/olpc-xo1-pm.c
-+++ b/arch/x86/platform/olpc/olpc-xo1-pm.c
-@@ -52,16 +52,11 @@ EXPORT_SYMBOL_GPL(olpc_xo1_pm_wakeup_clear);
- static int xo1_power_state_enter(suspend_state_t pm_state)
- {
- 	unsigned long saved_sci_mask;
--	int r;
- 
- 	/* Only STR is supported */
- 	if (pm_state != PM_SUSPEND_MEM)
- 		return -EINVAL;
- 
--	r = olpc_ec_cmd(EC_SET_SCI_INHIBIT, NULL, 0, NULL, 0);
--	if (r)
--		return r;
--
- 	/*
- 	 * Save SCI mask (this gets lost since PM1_EN is used as a mask for
- 	 * wakeup events, which is not necessarily the same event set)
-@@ -77,16 +72,6 @@ static int xo1_power_state_enter(suspend_state_t pm_state)
- 	/* Restore SCI mask (using dword access to CS5536_PM1_EN) */
- 	outl(saved_sci_mask, acpi_base + CS5536_PM1_STS);
- 
--	/* Tell the EC to stop inhibiting SCIs */
--	olpc_ec_cmd(EC_SET_SCI_INHIBIT_RELEASE, NULL, 0, NULL, 0);
--
--	/*
--	 * Tell the wireless module to restart USB communication.
--	 * Must be done twice.
--	 */
--	olpc_ec_cmd(EC_WAKE_UP_WLAN, NULL, 0, NULL, 0);
--	olpc_ec_cmd(EC_WAKE_UP_WLAN, NULL, 0, NULL, 0);
--
- 	return 0;
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 88de092..61f4363 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -59,6 +59,7 @@
+ #include <linux/static_key.h>
+ #include <linux/aio.h>
+ #include <linux/sched.h>
++#include <linux/in.h>
+
+ #include <linux/filter.h>
+ #include <linux/rculist_nulls.h>
+@@ -1064,14 +1065,6 @@ static inline void sk_enter_memory_pressure(struct sock *sk)
+ 	sk->sk_prot->enter_memory_pressure(sk);
  }
- 
-diff --git a/arch/x86/platform/olpc/olpc.c b/arch/x86/platform/olpc/olpc.c
-index ed41b43..2737608 100644
---- a/arch/x86/platform/olpc/olpc.c
-+++ b/arch/x86/platform/olpc/olpc.c
-@@ -263,11 +263,6 @@ int olpc_ec_sci_query(u16 *sci_value)
- }
- EXPORT_SYMBOL_GPL(olpc_ec_sci_query);
- 
--static int olpc_ec_suspend(struct platform_device *pdev)
+
+-static inline long sk_prot_mem_limits(const struct sock *sk, int index)
 -{
--	return olpc_ec_mask_write(ec_wakeup_mask);
+-	long *prot = sk->sk_prot->sysctl_mem;
+-	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
+-		prot = sk->sk_cgrp->sysctl_mem;
+-	return prot[index];
 -}
 -
- static bool __init check_ofw_architecture(struct device_node *root)
- {
- 	const char *olpc_arch;
-@@ -339,9 +334,40 @@ static int olpc_xo1_ec_probe(struct platform_device *pdev)
- 
- 	return 0;
+ static inline void memcg_memory_allocated_add(struct cg_proto *prot,
+ 					      unsigned long amt,
+ 					      int *parent_status)
+@@ -2155,6 +2148,21 @@ static inline void sk_change_net(struct sock *sk, struct net *net)
+ 	sock_net_set(sk, hold_net(net));
  }
-+static int olpc_xo1_ec_suspend(struct platform_device *pdev)
+
++static inline long sk_prot_mem_limits(const struct sock *sk, int index)
 +{
-+	olpc_ec_mask_write(ec_wakeup_mask);
++	long *prot = sk->sk_prot->sysctl_mem;
 +
-+	/*
-+	 * Squelch SCIs while suspended.  This is a fix for
-+	 * <http://dev.laptop.org/ticket/1835>.
-+	 */
-+	return olpc_ec_cmd(EC_SET_SCI_INHIBIT, NULL, 0, NULL, 0);
++	if (sk->sk_protocol == IPPROTO_TCP) {
++		struct net *net = sock_net(sk);
++		prot = net->ipv4.sysctl_tcp_mem;
++	}
++
++	if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
++		prot = sk->sk_cgrp->sysctl_mem;
++
++	return prot[index];
 +}
 +
-+static int olpc_xo1_ec_resume(struct platform_device *pdev)
-+{
-+	/* Tell the EC to stop inhibiting SCIs */
-+	olpc_ec_cmd(EC_SET_SCI_INHIBIT_RELEASE, NULL, 0, NULL, 0);
-+
-+	/*
-+	 * Tell the wireless module to restart USB communication.
-+	 * Must be done twice.
-+	 */
-+	olpc_ec_cmd(EC_WAKE_UP_WLAN, NULL, 0, NULL, 0);
-+	olpc_ec_cmd(EC_WAKE_UP_WLAN, NULL, 0, NULL, 0);
-+
-+	return 0;
-+}
- 
- static struct olpc_ec_driver ec_xo1_driver = {
--	.suspend = olpc_ec_suspend,
-+	.probe = olpc_xo1_ec_probe,
-+	.suspend = olpc_xo1_ec_suspend,
-+	.resume = olpc_xo1_ec_resume,
-+	.ec_cmd = olpc_xo1_ec_cmd,
-+};
-+
-+static struct olpc_ec_driver ec_xo1_5_driver = {
- 	.probe = olpc_xo1_ec_probe,
- 	.ec_cmd = olpc_xo1_ec_cmd,
- };
-@@ -354,7 +380,10 @@ static int __init olpc_init(void)
- 		return 0;
- 
- 	/* register the XO-1 and 1.5-specific EC handler */
--	olpc_ec_driver_register(&ec_xo1_driver, NULL);
-+	if (olpc_platform_info.boardrev < olpc_board_pre(0xd0))	/* XO-1 */
-+		olpc_ec_driver_register(&ec_xo1_driver, NULL);
-+	else
-+		olpc_ec_driver_register(&ec_xo1_5_driver, NULL);
- 	platform_device_register_simple("olpc-ec", -1, NULL, 0);
- 
- 	/* assume B1 and above models always have a DCON */
+ static inline struct sock *skb_steal_sock(struct sk_buff *skb)
+ {
+ 	if (skb->sk) {
 -- 
-1.7.2.5
+1.7.1
