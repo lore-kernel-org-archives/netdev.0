@@ -1,30 +1,84 @@
-From: BALAKUMARAN KANNAN <balakumarank@tataelxsi.co.in>
-Subject: how routing table maintained
-Date: Thu, 19 Jul 2012 12:41:10 +0000
-Message-ID: <4A71D24947E78D43BC584A7CD4391A41017DD9AB@SIXPRD0410MB359.apcprd04.prod.outlook.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next V1 7/9] net/eipoib: Add main driver
+ functionality
+Date: Thu, 19 Jul 2012 14:49:49 +0100
+Message-ID: <1342705789.2617.15.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
+	 <1342609202-32427-8-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <roland@kernel.org>,
+	<netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, <shlomop@mellanox.com>,
+	Erez Shitrit <erezsh@mellanox.co.il>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:20422
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750894Ab2GSMlj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 08:41:39 -0400
-Received: from mail141-ch1 (localhost [127.0.0.1])	by
- mail141-ch1-R.bigfish.com (Postfix) with ESMTP id B52C840501	for
- <netdev@vger.kernel.org>; Thu, 19 Jul 2012 12:41:38 +0000 (UTC)
-Received: from CH1EHSMHS021.bigfish.com (snatpool1.int.messaging.microsoft.com
- [10.43.68.248])	by mail141-ch1.bigfish.com (Postfix) with ESMTP id 7C185C0043
-	for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 12:41:37 +0000 (UTC)
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:29328 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750894Ab2GSNtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 09:49:53 -0400
+In-Reply-To: <1342609202-32427-8-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I want to know how routing table and routing cache is maintained. I can find some entries in cache even after the route is deleted from the routing table. Is it possible to delete an entry(the particular entry or flush the entire cache) from the cache once it is deleted from the main routing table.
+On Wed, 2012-07-18 at 14:00 +0300, Or Gerlitz wrote:
+[...]
+> +/* ----------------------------- VLAN funcs ---------------------------------- */
+> +static int eth_ipoib_vlan_rx_add_vid(struct net_device *dev,
+> +				     unsigned short vid)
+> +{
+> +	return 0;
+> +}
+> +
+> +static int eth_ipoib_vlan_rx_kill_vid(struct net_device *dev,
+> +				      unsigned short vid)
+> +{
+> +	return 0;
+> +}
+[...]
+> +/* -------------------------- Device entry points --------------------------- */
+> +static struct net_device_stats *parent_get_stats(struct net_device *parent_dev)
+> +{
+[...]
+> +static const struct net_device_ops parent_netdev_ops = {
+> +	.ndo_init		= parent_init,
+> +	.ndo_uninit		= parent_uninit,
+> +	.ndo_open		= parent_open,
+> +	.ndo_stop		= parent_close,
+> +	.ndo_start_xmit		= parent_tx,
+> +	.ndo_select_queue	= parent_select_q,
+> +	/* parnt mtu is min(slaves_mtus) */
+> +	.ndo_change_mtu		= NULL,
+> +	.ndo_fix_features	= parent_fix_features,
+> +	/*
+> +	 * initial mac address is randomized, can be changed
+> +	 * thru this func later
+> +	 */
+> +	.ndo_set_mac_address = eth_mac_addr,
+> +	.ndo_get_stats = parent_get_stats,
 
-Thank you
+Why not implement ndo_get_stats64?  I don't think there's any good
+reason for a new driver not to.
 
---Regards
-K.Balakumaran
+> +	.ndo_vlan_rx_add_vid = eth_ipoib_vlan_rx_add_vid,
+> +	.ndo_vlan_rx_kill_vid = eth_ipoib_vlan_rx_kill_vid,
+
+These shouldn't be needed.
+
+[...]
+> +/* netdev events handlers */
+> +static inline int is_ipoib_pif_intf(struct net_device *dev)
+> +{
+> +	if (ARPHRD_INFINIBAND == dev->type && dev->priv_flags & IFF_EIPOIB_PIF)
+> +			return 1;
+[...]
+
+Wrong indentation.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
