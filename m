@@ -1,38 +1,70 @@
-From: Jim Rees <rees-63aXycvo3TyHXe+LvDLADg@public.gmane.org>
-Subject: Re: [PATCH] SUNRPC: Prevent kernel stack corruption on long values
- of flush
-Date: Wed, 18 Jul 2012 19:04:45 -0400
-Message-ID: <20120718230445.GA6561@umich.edu>
-References: <1342476086-21638-1-git-send-email-levinsasha928@gmail.com>
- <20120718173913.GA1298@fieldses.org>
- <20120718200049.GA17964@umich.edu>
- <20120718210825.GA3145@fieldses.org>
- <50072BA7.6070205@gmail.com>
- <50072DEE.2000205@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH firmware] rtl_nic: update firmware for RTL8168G
+Date: Thu, 19 Jul 2012 01:59:56 +0100
+Message-ID: <1342659596.11373.58.camel@deadeye.wl.decadent.org.uk>
+References: <1341878937.25597.309.camel@deadeye.wl.decadent.org.uk>
+	 <1342008603-1279-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <50072DEE.2000205-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-TU07qcM3HsgQ8Rb64PB0"
+Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44103 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751558Ab2GSBAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jul 2012 21:00:04 -0400
+In-Reply-To: <1342008603-1279-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sasha Levin wrote:
 
-  > Learning from what happened in this specific case, there are actually 2 issues here:
-  > 
-  >  - Array size was constant and too small, which is solved by the patch above.
-  >  - We were blindly trying to sprintf() into that array, this issue may pop back up if someone decides to change the format string forgetting to modify the array declaration.
-  > 
+--=-TU07qcM3HsgQ8Rb64PB0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-The original patch changed the sprintf to snprintf, and that still seems
-like a good idea.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, 2012-07-11 at 20:10 +0800, Hayes Wang wrote:
+> File: rtl_nic/rtl8168g-1.fw
+> Version: 0.0.2
+>=20
+> Change the ocp_base of linux driver to OCP_STD_PHY_BASE after setting
+> firmware. The firmware would modify the ocp_base, and that results the
+> driver uses the wrong ocp_base to access standard phy after setting
+> firmware.
+>=20
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+[...]
+
+Applied, thanks.
+
+Ben.
+
+--=20
+Ben Hutchings
+DNRC Motto:  I can please only one person per day.
+Today is not your day.  Tomorrow isn't looking good either.
+
+--=-TU07qcM3HsgQ8Rb64PB0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUAdcDOe/yOyVhhEJAQoEnA//QcOSqIJfivn8ImOt0qfbSav4PXFvmDBE
+ujQuSZaFwdDQkz56OLyUei56EvS/N4LSNoqEcUKZTGNun7Lgq8mBOZ6TfVu8Wt6P
+Bk8lUSbtEQ/CiAiALFwbzp+KRM/tMRh+VOpVp8t+7umbR3TZ4gn0cpWukRdWv/um
+dTC6k78egzwp4DhSwz+70ZOAMuHvHGZlc1dZMNjzlzYoK8C5y4ym2j6wE1Gwyg6N
+fGCI6P+mLrfuaN1TqIIcnH/QDrUu8nQ0ao/lxe9ZIJrwxE8mUbyBmp6F3n16sJt5
+RydqaY678IJNi+gSHF7AgOf68+yEYS9sK9IpBr69J72Dcg0X4N+Ivf0J2Myn70zA
+Qvtk/jciUXlWONt/8isrI10sgFCV6b2P28owCBmn05vYQfnrubmLB5FO6lDMvuIl
+RgkQsRkUTwHYU6k9EfM8C+TZoUEEzQweArHx0x0e98QIr1FA1JSBVvPuxaT5DD6/
++qrPC9z/GWvoycJlRWOInO6fVSvM5l4DxgE4DXZYLBMjOYOzdu2+l8do4lDhLkbR
+agJjgLmtWDrKmQMfrkV4s842XwCaFDjWzErppfj/JoFmvBG36/MptPC3OUnXM63f
+xeDQh4IfJ10/wvs9XwbWWdSsphBk4EVUhO7vpvyCXyEWQ6jWcG4L2atQv8aduvDU
+MBkRk+IMyaY=
+=JDZl
+-----END PGP SIGNATURE-----
+
+--=-TU07qcM3HsgQ8Rb64PB0--
