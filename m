@@ -1,7 +1,8 @@
 From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH net-next 1/2] asix: Rework reading from EEPROM
-Date: Thu, 19 Jul 2012 12:23:06 +0200
-Message-ID: <1342693387-17945-1-git-send-email-christian.riesch@omicron.at>
+Subject: [PATCH net-next 2/2] asix: Add support for programming the EEPROM
+Date: Thu, 19 Jul 2012 12:23:07 +0200
+Message-ID: <1342693387-17945-2-git-send-email-christian.riesch@omicron.at>
+References: <1342693387-17945-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Allan Chou <allan@asix.com.tw>, Mark Lord <kernel@teksavvy.com>,
@@ -9,88 +10,64 @@ Cc: Allan Chou <allan@asix.com.tw>, Mark Lord <kernel@teksavvy.com>,
 	Christian Riesch <christian.riesch@omicron.at>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:48637 "EHLO ns.omicron.at"
+Received: from ns.omicron.at ([212.183.10.25]:48638 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752386Ab2GSKXp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752594Ab2GSKXp (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 19 Jul 2012 06:23:45 -0400
+In-Reply-To: <1342693387-17945-1-git-send-email-christian.riesch@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code for reading the EEPROM via ethtool in the asix
-driver has a few issues. It cannot handle odd length values
-(accesses must be aligned at 16 bit boundaries) and interprets the
-offset provided by ethtool as 16 bit word offset instead as byte offset.
-
-The new code for asix_get_eeprom() introduced by this patch is
-modeled after the code in
-drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-and provides read access to the entire EEPROM with arbitrary
-offsets and lengths.
+This patch adds the asix_set_eeprom() function to provide support for
+programming the configuration EEPROM via ethtool.
 
 Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
 ---
- drivers/net/usb/asix.h         |    5 ++---
- drivers/net/usb/asix_common.c  |   39 ++++++++++++++++++++++-----------------
- drivers/net/usb/asix_devices.c |    9 ---------
- drivers/net/usb/ax88172a.c     |    3 ---
- 4 files changed, 24 insertions(+), 32 deletions(-)
+ drivers/net/usb/asix.h         |    2 +
+ drivers/net/usb/asix_common.c  |   81 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/usb/asix_devices.c |    3 +
+ drivers/net/usb/ax88172a.c     |    1 +
+ 4 files changed, 87 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
-index 77d9e4c..fbff177 100644
+index fbff177..e889631 100644
 --- a/drivers/net/usb/asix.h
 +++ b/drivers/net/usb/asix.h
-@@ -156,8 +156,7 @@
- #define AX_GPIO_RSE		0x80	/* Reload serial EEPROM */
+@@ -208,6 +208,8 @@ int asix_set_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo);
+ int asix_get_eeprom_len(struct net_device *net);
+ int asix_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
+ 		    u8 *data);
++int asix_set_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
++		    u8 *data);
  
- #define AX_EEPROM_MAGIC		0xdeadbeef
--#define AX88172_EEPROM_LEN	0x40
--#define AX88772_EEPROM_LEN	0xff
-+#define AX_EEPROM_LEN		0x200
+ void asix_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info);
  
- /* This structure cannot exceed sizeof(unsigned long [5]) AKA 20 bytes */
- struct asix_data {
-@@ -165,7 +164,7 @@ struct asix_data {
- 	u8 mac_addr[ETH_ALEN];
- 	u8 phymode;
- 	u8 ledmode;
--	u8 eeprom_len;
-+	u8 res;
- };
- 
- int asix_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
 diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 336f755..0b5b2d3 100644
+index 0b5b2d3..774d9ce 100644
 --- a/drivers/net/usb/asix_common.c
 +++ b/drivers/net/usb/asix_common.c
-@@ -478,46 +478,51 @@ int asix_set_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
- 
- int asix_get_eeprom_len(struct net_device *net)
- {
--	struct usbnet *dev = netdev_priv(net);
--	struct asix_data *data = (struct asix_data *)&dev->data;
--
--	return data->eeprom_len;
-+	return AX_EEPROM_LEN;
+@@ -516,6 +516,87 @@ int asix_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
+ 	return 0;
  }
  
- int asix_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
- 		    u8 *data)
- {
- 	struct usbnet *dev = netdev_priv(net);
--	__le16 *ebuf = (__le16 *)data;
++int asix_set_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
++		    u8 *data)
++{
++	struct usbnet *dev = netdev_priv(net);
 +	u16 *eeprom_buff;
 +	int first_word, last_word;
- 	int i;
- 
--	/* Crude hack to ensure that we don't overwrite memory
--	 * if an odd length is supplied
--	 */
--	if (eeprom->len % 2)
++	int i;
++	int ret;
++
++	netdev_dbg(net, "write EEPROM len %d, offset %d, magic 0x%x\n",
++		   eeprom->len, eeprom->offset, eeprom->magic);
++
 +	if (eeprom->len == 0)
- 		return -EINVAL;
- 
- 	eeprom->magic = AX_EEPROM_MAGIC;
- 
++		return -EINVAL;
++
++	if (eeprom->magic != AX_EEPROM_MAGIC)
++		return -EINVAL;
++
 +	first_word = eeprom->offset >> 1;
 +	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
 +
@@ -99,91 +76,103 @@ index 336f755..0b5b2d3 100644
 +	if (!eeprom_buff)
 +		return -ENOMEM;
 +
- 	/* ax8817x returns 2 bytes from eeprom on read */
--	for (i=0; i < eeprom->len / 2; i++) {
--		if (asix_read_cmd(dev, AX_CMD_READ_EEPROM,
--			eeprom->offset + i, 0, 2, &ebuf[i]) < 0)
--			return -EINVAL;
-+	for (i = first_word; i <= last_word; i++) {
-+		if (asix_read_cmd(dev, AX_CMD_READ_EEPROM, i, 0, 2,
-+				  &(eeprom_buff[i - first_word])) < 0) {
-+			kfree(eeprom_buff);
-+			return -EIO;
++	/* align data to 16 bit boundaries, read the missing data from
++	   the EEPROM */
++	if (eeprom->offset & 1) {
++		ret = asix_read_cmd(dev, AX_CMD_READ_EEPROM, first_word, 0, 2,
++				    &(eeprom_buff[0]));
++		if (ret < 0) {
++			netdev_err(net, "Failed to read EEPROM at offset 0x%02x.\n", first_word);
++			goto free;
 +		}
- 	}
++	}
 +
-+	memcpy(data, (u8 *)eeprom_buff + (eeprom->offset & 1), eeprom->len);
++	if ((eeprom->offset + eeprom->len) & 1) {
++		ret = asix_read_cmd(dev, AX_CMD_READ_EEPROM, last_word, 0, 2,
++				    &(eeprom_buff[last_word - first_word]));
++		if (ret < 0) {
++			netdev_err(net, "Failed to read EEPROM at offset 0x%02x.\n", last_word);
++			goto free;
++		}
++	}
++
++	memcpy((u8 *)eeprom_buff + (eeprom->offset & 1), data, eeprom->len);
++
++	/* write data to EEPROM */
++	ret = asix_write_cmd(dev, AX_CMD_WRITE_ENABLE, 0x0000, 0, 0, NULL);
++	if (ret < 0) {
++		netdev_err(net, "Failed to enable EEPROM write\n");
++		goto free;
++	}
++	msleep(20);
++
++	for (i = first_word; i <= last_word; i++) {
++		netdev_dbg(net, "write to EEPROM at offset 0x%02x, data 0x%04x\n",
++			   i, eeprom_buff[i - first_word]);
++		ret = asix_write_cmd(dev, AX_CMD_WRITE_EEPROM, i,
++				     eeprom_buff[i - first_word], 0, NULL);
++		if (ret < 0) {
++			netdev_err(net, "Failed to write EEPROM at offset 0x%02x.\n",
++				   i);
++			goto free;
++		}
++		msleep(20);
++	}
++
++	ret = asix_write_cmd(dev, AX_CMD_WRITE_DISABLE, 0x0000, 0, 0, NULL);
++	if (ret < 0) {
++		netdev_err(net, "Failed to disable EEPROM write\n");
++		goto free;
++	}
++
++	ret = 0;
++free:
 +	kfree(eeprom_buff);
- 	return 0;
- }
- 
++	return ret;
++}
++
  void asix_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
  {
--	struct usbnet *dev = netdev_priv(net);
--	struct asix_data *data = (struct asix_data *)&dev->data;
--
  	/* Inherit standard device info */
- 	usbnet_get_drvinfo(net, info);
- 	strncpy (info->driver, DRIVER_NAME, sizeof info->driver);
- 	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
--	info->eedump_len = data->eeprom_len;
-+	info->eedump_len = AX_EEPROM_LEN;
- }
- 
- int asix_set_mac_address(struct net_device *net, void *p)
 diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index ed9403b..658c08f 100644
+index 658c08f..4fd48df 100644
 --- a/drivers/net/usb/asix_devices.c
 +++ b/drivers/net/usb/asix_devices.c
-@@ -201,9 +201,6 @@ static int ax88172_bind(struct usbnet *dev, struct usb_interface *intf)
- 	u8 buf[ETH_ALEN];
- 	int i;
- 	unsigned long gpio_bits = dev->driver_info->data;
--	struct asix_data *data = (struct asix_data *)&dev->data;
--
--	data->eeprom_len = AX88172_EEPROM_LEN;
- 
- 	usbnet_get_endpoints(dev,intf);
- 
-@@ -409,12 +406,9 @@ static const struct net_device_ops ax88772_netdev_ops = {
- static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- {
- 	int ret, embd_phy;
--	struct asix_data *data = (struct asix_data *)&dev->data;
- 	u8 buf[ETH_ALEN];
- 	u32 phyid;
- 
--	data->eeprom_len = AX88772_EEPROM_LEN;
--
- 	usbnet_get_endpoints(dev,intf);
- 
- 	/* Get the MAC address */
-@@ -767,9 +761,6 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
- {
- 	int ret;
- 	u8 buf[ETH_ALEN];
--	struct asix_data *data = (struct asix_data *)&dev->data;
--
--	data->eeprom_len = AX88772_EEPROM_LEN;
- 
- 	usbnet_get_endpoints(dev,intf);
- 
+@@ -119,6 +119,7 @@ static const struct ethtool_ops ax88172_ethtool_ops = {
+ 	.set_wol		= asix_set_wol,
+ 	.get_eeprom_len		= asix_get_eeprom_len,
+ 	.get_eeprom		= asix_get_eeprom,
++	.set_eeprom		= asix_set_eeprom,
+ 	.get_settings		= usbnet_get_settings,
+ 	.set_settings		= usbnet_set_settings,
+ 	.nway_reset		= usbnet_nway_reset,
+@@ -258,6 +259,7 @@ static const struct ethtool_ops ax88772_ethtool_ops = {
+ 	.set_wol		= asix_set_wol,
+ 	.get_eeprom_len		= asix_get_eeprom_len,
+ 	.get_eeprom		= asix_get_eeprom,
++	.set_eeprom		= asix_set_eeprom,
+ 	.get_settings		= usbnet_get_settings,
+ 	.set_settings		= usbnet_set_settings,
+ 	.nway_reset		= usbnet_nway_reset,
+@@ -478,6 +480,7 @@ static const struct ethtool_ops ax88178_ethtool_ops = {
+ 	.set_wol		= asix_set_wol,
+ 	.get_eeprom_len		= asix_get_eeprom_len,
+ 	.get_eeprom		= asix_get_eeprom,
++	.set_eeprom		= asix_set_eeprom,
+ 	.get_settings		= usbnet_get_settings,
+ 	.set_settings		= usbnet_set_settings,
+ 	.nway_reset		= usbnet_nway_reset,
 diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
-index 3d0f8fa..97dce0f 100644
+index 97dce0f..c8e0aa8 100644
 --- a/drivers/net/usb/ax88172a.c
 +++ b/drivers/net/usb/ax88172a.c
-@@ -228,12 +228,9 @@ err:
- static int ax88172a_bind(struct usbnet *dev, struct usb_interface *intf)
- {
- 	int ret;
--	struct asix_data *data = (struct asix_data *)&dev->data;
- 	u8 buf[ETH_ALEN];
- 	struct ax88172a_private *priv;
- 
--	data->eeprom_len = AX88772_EEPROM_LEN;
--
- 	usbnet_get_endpoints(dev, intf);
- 
- 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+@@ -194,6 +194,7 @@ static const struct ethtool_ops ax88172a_ethtool_ops = {
+ 	.set_wol		= asix_set_wol,
+ 	.get_eeprom_len		= asix_get_eeprom_len,
+ 	.get_eeprom		= asix_get_eeprom,
++	.set_eeprom		= asix_set_eeprom,
+ 	.get_settings		= ax88172a_get_settings,
+ 	.set_settings		= ax88172a_set_settings,
+ 	.nway_reset		= ax88172a_nway_reset,
 -- 
 1.7.0.4
