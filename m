@@ -1,118 +1,74 @@
-From: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-Subject: Re: [PATCH] Crash in tun
-Date: Thu, 19 Jul 2012 18:13:36 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
-References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz> <1342678175.2626.3849.camel@edumazet-glaptop>
+From: Eugen Dedu <Eugen.Dedu@pu-pm.univ-fcomte.fr>
+Subject: Re: getsockopt/setsockopt with SO_RCVBUF and SO_SNDBUF "non-standard"
+ behaviour
+Date: Thu, 19 Jul 2012 18:14:49 +0200
+Message-ID: <50083279.8030101@pu-pm.univ-fcomte.fr>
+References: <50052FFE.2060109@pu-pm.univ-fcomte.fr>  <5006DD6B.3030300@pu-pm.univ-fcomte.fr> <1342627875.2626.3070.camel@edumazet-glaptop> <5006F32E.8060405@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Maxim Krasnyansky <maxk@qualcomm.com>, vtun@office.satix.net,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from artax.karlin.mff.cuni.cz ([195.113.26.195]:38226 "EHLO
-	artax.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751473Ab2GSQNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:13:37 -0400
-In-Reply-To: <1342678175.2626.3849.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5006F32E.8060405@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 18/07/12 19:32, Rick Jones wrote:
+> On 07/18/2012 09:11 AM, Eric Dumazet wrote:
+>>
+>> That the way it's done on linux since day 0
+>>
+>> You can probably find a lot of pages on the web explaining the
+>> rationale.
+>>
+>> If your application handles UDP frames, what SO_RCVBUF should count ?
+>>
+>> If its the amount of payload bytes, you could have a pathological
+>> situation where an attacker sends 1-byte UDP frames fast enough and
+>> could consume a lot of kernel memory.
+>>
+>> Each frame consumes a fair amount of kernel memory (between 512 bytes
+>> and 8 Kbytes depending on the driver).
+>>
+>> So linux says : If user expect to receive XXXX bytes, set a limit of
+>> _kernel_ memory used to store these bytes, and use an estimation of 100%
+>> of overhead. That is : allow 2*XXXX bytes to be allocated for socket
+>> receive buffers.
+>
+> Expanding on/rewording that, in a setsockopt() call SO_RCVBUF specifies
+> the data bytes and gets doubled to become the kernel/overhead byte
+> limit. Unless the doubling would be greater than net.core.rmem_max, in
+> which case the limit becomes net.core.rmem_max.
+>
+> But on getsockopt() SO_RCVBUF is always the kernel/overhead byte limit.
+>
+> In one call it is fish. In the other it is fowl.
+>
+> Other stacks appear to keep their kernel/overhead limit quiet, keeping
+> SO_RCVBUF an expression of a data limit in both setsockopt() and
+> getsockopt(). With those stacks, there is I suppose the possible source
+> of confusion when/if someone tests the queuing to a socket, sends "high
+> overhead" packets and doesn't get to SO_RCVBUF worth of data though I
+> don't recall encountering that in my "pre-linux" time.
 
+Thank you to both for the answers.  As I understand, it it is impossible 
+(or not practical) to fulfill sometimes user requirements on buff size, 
+since if only 1-byte udp packets arrive and are not consumed by 
+application, the memory needed by linux is say 1000 greater, which of 
+course is not available.  Other OSes have the same problem (see above 
+"doesn't get to SO_RCVBUF worth of data"), except that they return the 
+same value in getsockopt as setsockopt.  However, note that with linux 
+the confusion is still possible, even if it appears more rarely.
 
-On Thu, 19 Jul 2012, Eric Dumazet wrote:
+> The sometimes fish, sometimes fowl version (along with the auto tuning
+> when one doesn't make setsockopt() calls) gave me fits in netperf for
+> years until I finally relented and split the socket buffer size
+> variables into three - what netperf's user requested via the command
+> line, what it was right after the socket was created, and what it was at
+> the end of the data phase of the test.
 
-> Hi Mikulas
-> 
-> A fix for this problem is : http://patchwork.ozlabs.org/patch/170440/
-
-If you call tun_free_netdev beacuse of a jump to an error label 
-err_free_sk, your patch still calls it with NULL file, causing a memory 
-corruption and a possible crash.
-
-Your patch doesn't fix sockets_in_use underflow.
-
-Maybe we can commit this patch --- it introduces a new flag 
-SOCK_EXTERNALLY_ALLOCATED to work around both problems. (it looks quite 
-nicer than my previous patch with file = (void *)1).
-
-Mikulas
-
----
-
-tun: fix a crash bug and a memory leak
-
-This patch fixes a crash
-tun_chr_close -> netdev_run_todo -> tun_free_netdev -> sk_release_kernel ->
-sock_release -> iput(SOCK_INODE(sock))
-introduced by commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
-
-The problem is that this socket is embedded in struct tun_struct, it has
-no inode, iput is called on invalid inode, which modifies invalid memory
-and optionally causes a crash.
-
-sock_release also decrements sockets_in_use, this causes a bug that
-"sockets: used" field in /proc/*/net/sockstat keeps on decreasing when
-creating and closing tun devices.
-
-This patch introduces a flag SOCK_EXTERNALLY_ALLOCATED that instructs
-sock_release to not free the inode and not decrement sockets_in_use,
-fixing both memory corruption and sockets_in_use underflow.
-
-It should be backported to 3.3 an 3.4 stabke.
-
-Signed-off-by: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-Cc: stable@kernel.org
-
----
- drivers/net/tun.c   |    3 +++
- include/linux/net.h |    1 +
- net/socket.c        |    3 +++
- 3 files changed, 7 insertions(+)
-
-Index: linux-3.4.5-fast/drivers/net/tun.c
-===================================================================
---- linux-3.4.5-fast.orig/drivers/net/tun.c	2012-07-19 17:55:16.000000000 +0200
-+++ linux-3.4.5-fast/drivers/net/tun.c	2012-07-19 17:58:30.000000000 +0200
-@@ -358,6 +358,8 @@ static void tun_free_netdev(struct net_d
- {
- 	struct tun_struct *tun = netdev_priv(dev);
- 
-+	BUG_ON(!test_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags));
-+
- 	sk_release_kernel(tun->socket.sk);
- }
- 
-@@ -1115,6 +1117,7 @@ static int tun_set_iff(struct net *net,
- 		tun->flags = flags;
- 		tun->txflt.count = 0;
- 		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
-+		set_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags);
- 
- 		err = -ENOMEM;
- 		sk = sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
-Index: linux-3.4.5-fast/include/linux/net.h
-===================================================================
---- linux-3.4.5-fast.orig/include/linux/net.h	2012-07-19 17:54:31.000000000 +0200
-+++ linux-3.4.5-fast/include/linux/net.h	2012-07-19 17:55:03.000000000 +0200
-@@ -72,6 +72,7 @@ struct net;
- #define SOCK_NOSPACE		2
- #define SOCK_PASSCRED		3
- #define SOCK_PASSSEC		4
-+#define SOCK_EXTERNALLY_ALLOCATED 5
- 
- #ifndef ARCH_HAS_SOCKET_TYPES
- /**
-Index: linux-3.4.5-fast/net/socket.c
-===================================================================
---- linux-3.4.5-fast.orig/net/socket.c	2012-07-19 17:56:55.000000000 +0200
-+++ linux-3.4.5-fast/net/socket.c	2012-07-19 17:57:50.000000000 +0200
-@@ -522,6 +522,9 @@ void sock_release(struct socket *sock)
- 	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
- 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
- 
-+	if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
-+		return;
-+
- 	percpu_sub(sockets_in_use, 1);
- 	if (!sock->file) {
- 		iput(SOCK_INODE(sock));
+-- 
+Eugen
