@@ -1,59 +1,118 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next 9/9] ixgbe: Cleanup holes in flags after removing several
- of them
-Date: Thu, 19 Jul 2012 09:11:27 -0700
-Message-ID: <500831AF.6020402@intel.com>
-References: <1342643516-2696-1-git-send-email-jeffrey.t.kirsher@intel.com> <1342643516-2696-10-git-send-email-jeffrey.t.kirsher@intel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6F98@saturn3.aculab.com>
+From: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Subject: Re: [PATCH] Crash in tun
+Date: Thu, 19 Jul 2012 18:13:36 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
+References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz> <1342678175.2626.3849.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Maxim Krasnyansky <maxk@qualcomm.com>, vtun@office.satix.net,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:40440 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750767Ab2GSQL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 12:11:29 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F98@saturn3.aculab.com>
+Received: from artax.karlin.mff.cuni.cz ([195.113.26.195]:38226 "EHLO
+	artax.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751473Ab2GSQNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:13:37 -0400
+In-Reply-To: <1342678175.2626.3849.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/19/2012 01:33 AM, David Laight wrote:
->> This change is just meant to defragment the flags as there are several
-> hole
->> that have been introduced since several features, or the flags for
-> them,
->> have been removed.
-> Doesn't this sort of change just make it difficult for people who are
-> looking at hexdumps of memory but don't have exactly the right header
-> file to hand?
-These are private flags held inside of the driver and never exposed
-externally to user space.  If we have to go through a hexdump to try and
-figure out the state of the driver I would certainly hope we have the
-header file in hand.  Knowing what bits we use is kind of pointless if
-we don't know where the flags are being stored within the adapter
-structure itself.
 
-> It doesn't really gain anything much either.
-I never did say it gains us much.  It is mostly just housekeeping in
-order to make it clear where the available bits are in the flags fields.
 
-> I can (just) imagine reordering flags so that the commonly
-> tested ones are in the low bits so that they can be tested
-> with small immediate constants - saving an instruction.
-> But that isn't what is being done here.
->
-> 	David
+On Thu, 19 Jul 2012, Eric Dumazet wrote:
 
-On x86 it seems like gcc is converting all of the flag tests to "testb"
-assembly ops and just using an offset within the flags field to access
-bits 8 through 31.  It doesn't seem like there would be much of an
-advantage to reordering the flags unless we need to optimize for the
-cases where we are testing multiple flags.  Even in that case we would
-probably just want to align things so that when we access multiple flags
-they are in the same 8 bit field.
+> Hi Mikulas
+> 
+> A fix for this problem is : http://patchwork.ozlabs.org/patch/170440/
 
-Thanks,
+If you call tun_free_netdev beacuse of a jump to an error label 
+err_free_sk, your patch still calls it with NULL file, causing a memory 
+corruption and a possible crash.
 
-Alex
+Your patch doesn't fix sockets_in_use underflow.
+
+Maybe we can commit this patch --- it introduces a new flag 
+SOCK_EXTERNALLY_ALLOCATED to work around both problems. (it looks quite 
+nicer than my previous patch with file = (void *)1).
+
+Mikulas
+
+---
+
+tun: fix a crash bug and a memory leak
+
+This patch fixes a crash
+tun_chr_close -> netdev_run_todo -> tun_free_netdev -> sk_release_kernel ->
+sock_release -> iput(SOCK_INODE(sock))
+introduced by commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
+
+The problem is that this socket is embedded in struct tun_struct, it has
+no inode, iput is called on invalid inode, which modifies invalid memory
+and optionally causes a crash.
+
+sock_release also decrements sockets_in_use, this causes a bug that
+"sockets: used" field in /proc/*/net/sockstat keeps on decreasing when
+creating and closing tun devices.
+
+This patch introduces a flag SOCK_EXTERNALLY_ALLOCATED that instructs
+sock_release to not free the inode and not decrement sockets_in_use,
+fixing both memory corruption and sockets_in_use underflow.
+
+It should be backported to 3.3 an 3.4 stabke.
+
+Signed-off-by: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Cc: stable@kernel.org
+
+---
+ drivers/net/tun.c   |    3 +++
+ include/linux/net.h |    1 +
+ net/socket.c        |    3 +++
+ 3 files changed, 7 insertions(+)
+
+Index: linux-3.4.5-fast/drivers/net/tun.c
+===================================================================
+--- linux-3.4.5-fast.orig/drivers/net/tun.c	2012-07-19 17:55:16.000000000 +0200
++++ linux-3.4.5-fast/drivers/net/tun.c	2012-07-19 17:58:30.000000000 +0200
+@@ -358,6 +358,8 @@ static void tun_free_netdev(struct net_d
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
+ 
++	BUG_ON(!test_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags));
++
+ 	sk_release_kernel(tun->socket.sk);
+ }
+ 
+@@ -1115,6 +1117,7 @@ static int tun_set_iff(struct net *net,
+ 		tun->flags = flags;
+ 		tun->txflt.count = 0;
+ 		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
++		set_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags);
+ 
+ 		err = -ENOMEM;
+ 		sk = sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
+Index: linux-3.4.5-fast/include/linux/net.h
+===================================================================
+--- linux-3.4.5-fast.orig/include/linux/net.h	2012-07-19 17:54:31.000000000 +0200
++++ linux-3.4.5-fast/include/linux/net.h	2012-07-19 17:55:03.000000000 +0200
+@@ -72,6 +72,7 @@ struct net;
+ #define SOCK_NOSPACE		2
+ #define SOCK_PASSCRED		3
+ #define SOCK_PASSSEC		4
++#define SOCK_EXTERNALLY_ALLOCATED 5
+ 
+ #ifndef ARCH_HAS_SOCKET_TYPES
+ /**
+Index: linux-3.4.5-fast/net/socket.c
+===================================================================
+--- linux-3.4.5-fast.orig/net/socket.c	2012-07-19 17:56:55.000000000 +0200
++++ linux-3.4.5-fast/net/socket.c	2012-07-19 17:57:50.000000000 +0200
+@@ -522,6 +522,9 @@ void sock_release(struct socket *sock)
+ 	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
+ 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
+ 
++	if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
++		return;
++
+ 	percpu_sub(sockets_in_use, 1);
+ 	if (!sock->file) {
+ 		iput(SOCK_INODE(sock));
