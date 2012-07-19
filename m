@@ -1,30 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Fix again the time difference calculation
-Date: Thu, 19 Jul 2012 13:01:30 -0700 (PDT)
-Message-ID: <20120719.130130.1429102248074335993.davem@davemloft.net>
-References: <1342728165-2046-1-git-send-email-ja@ssi.bg>
+Subject: Re: [PATCH 0/3 v2] net: various tilegx networking fixes
+Date: Thu, 19 Jul 2012 13:39:57 -0700 (PDT)
+Message-ID: <20120719.133957.1840226993713773484.davem@davemloft.net>
+References: <201207181650.q6IGodZ7007565@lab-41.internal.tilera.com>
+	<20120718.113623.984635805289135415.davem@davemloft.net>
+	<50070CE4.7040704@tilera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47627 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036Ab2GSUBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 16:01:33 -0400
-In-Reply-To: <1342728165-2046-1-git-send-email-ja@ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50070CE4.7040704@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Thu, 19 Jul 2012 23:02:45 +0300
+From: Chris Metcalf <cmetcalf@tilera.com>
+Date: Wed, 18 Jul 2012 15:22:12 -0400
 
-> 	Fix again the diff value in rt_bind_exception
-> after collision of two latest patches, my original commit
-> actually fixed the same problem.
+> On 7/18/2012 2:36 PM, David Miller wrote:
+>> From: Chris Metcalf <cmetcalf@tilera.com>
+>> Date: Sun, 1 Jul 2012 14:43:47 -0400
+>>
+>>> The tree is at:
+>>>
+>>>   git://git.kernel.org/pub/scm/linux/kernel/git/cmetcalf/linux-tile.git net
+>>>
+>>> Chris Metcalf (3):
+>>>       net: tilegx driver bugfix (be explicit about percpu queue number)
+>>>       tilegx net driver: handle payload data not in frags
+>>>       tilegx net: use eth_hw_addr_random(), not random_ether_addr()
+>> These changes look fine, but when I pull from your tree I get tons of
+>> totally unrelated stuff and a merge conflict in this driver.
+>>
+>> Can you put together a clean pull against net-next?
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> The merge conflict was against Joe Perches' bombing of random_ether_addr()
+> to eth_random_addr().  I left in my change to convert that again to be
+> eth_hw_addr_random(), which naively seems like a better API, and sets
+> NET_ADDR_RANDOM, which is presumably a good thing.
+> 
+> I recreated the tree to be branched off of net-next. ( I had originally
+> created it off of Linus's tree, which in retrospect doesn't make much
+> sense.)  Please try to pull again - thanks!
 
-I noticed this too while respinning the routing cache deletion
-patches, I'll apply this, thanks.
+Pulled, thanks a lot Chris.
