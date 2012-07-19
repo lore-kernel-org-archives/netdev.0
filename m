@@ -1,50 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: initialize dynamic sysfs attributes for lockdep
-Date: Thu, 19 Jul 2012 18:19:05 +0100
-Message-ID: <1342718345.2617.46.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342717485-24034-1-git-send-email-mschmidt@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv4: tcp: remove per net tcp_sock
+Date: Thu, 19 Jul 2012 19:22:10 +0200
+Message-ID: <1342718530.2626.4526.camel@edumazet-glaptop>
+References: <20120719.084503.136853790544876708.davem@davemloft.net>
+	 <1342717667.2626.4494.camel@edumazet-glaptop>
+	 <20120719.101155.1970854797296520147.davem@davemloft.net>
+	 <20120719.101225.2227860476502999476.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: Michal Schmidt <mschmidt@redhat.com>
+Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64413 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751337Ab2GSRTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:19:09 -0400
-In-Reply-To: <1342717485-24034-1-git-send-email-mschmidt@redhat.com>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:62579 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752076Ab2GSRWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:22:16 -0400
+Received: by vcbfk26 with SMTP id fk26so2192989vcb.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 10:22:16 -0700 (PDT)
+In-Reply-To: <20120719.101225.2227860476502999476.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-19 at 19:04 +0200, Michal Schmidt wrote:
-> Dynamically allocated sysfs attributes must be initialized using
-> sysfs_attr_init(), otherwise lockdep complains:
-> BUG: key <address> not in .data!
->
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+On Thu, 2012-07-19 at 10:12 -0700, David Miller wrote:
 
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+> Just give this thing a unique name and define it right before the function.
 
-> ---
->  drivers/net/ethernet/sfc/mcdi_mon.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
-> index fb7f65b..1d552f0 100644
-> --- a/drivers/net/ethernet/sfc/mcdi_mon.c
-> +++ b/drivers/net/ethernet/sfc/mcdi_mon.c
-> @@ -222,6 +222,7 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
->  	attr->index = index;
->  	attr->type = type;
->  	attr->limit_value = limit_value;
-> +	sysfs_attr_init(&attr->dev_attr.attr);
->  	attr->dev_attr.attr.name = attr->name;
->  	attr->dev_attr.attr.mode = S_IRUGO;
->  	attr->dev_attr.show = reader;
+Yep, will do that.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I also will init sk_refcnt to one, just in case a driver wants to get a
+reference on socket (and free it later).
