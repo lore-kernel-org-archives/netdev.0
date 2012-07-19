@@ -1,7 +1,7 @@
 From: Andres Salomon <dilinger@queued.net>
-Subject: [PATCH 7/9] Platform: OLPC: move debugfs support from x86 EC driver
-Date: Wed, 18 Jul 2012 18:31:38 -0700
-Message-ID: <20120718183138.6f7ad1dd@dev.queued.net>
+Subject: [PATCH 5/9] Platform: OLPC: add a suspended flag to the EC driver
+Date: Wed, 18 Jul 2012 18:29:16 -0700
+Message-ID: <20120718182916.59dd3b6a@dev.queued.net>
 References: <20120718182144.2d7b0b50@dev.queued.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,295 +30,126 @@ Errors-To: devel-bounces@linuxdriverproject.org
 Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-There's nothing about the debugfs interface for the EC driver that is
-architecture-specific, so move it into the arch-independent driver.
+A problem we've noticed on XO-1.75 is when we suspend in the middle of
+an EC command.  Don't allow that.
 
-The code is mostly unchanged with the exception of renamed variables, coding
-style changes, and API updates.
+In the process, create a private object for the generic EC driver to use;
+we have a framework for passing around a struct, use that rather than a
+proliferation of global variables.
 
 Signed-off-by: Andres Salomon <dilinger@queued.net>
 ---
- arch/x86/platform/olpc/olpc.c   |   97 --------------------------------
- drivers/platform/olpc/olpc-ec.c |  117 +++++++++++++++++++++++++++++++++++++++
- 2 files changed, 117 insertions(+), 97 deletions(-)
+ drivers/platform/olpc/olpc-ec.c |   46 ++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 45 insertions(+), 1 deletions(-)
 
-diff --git a/arch/x86/platform/olpc/olpc.c b/arch/x86/platform/olpc/olpc.c
-index 4590096..ed41b43 100644
---- a/arch/x86/platform/olpc/olpc.c
-+++ b/arch/x86/platform/olpc/olpc.c
-@@ -19,7 +19,6 @@
- #include <linux/platform_device.h>
- #include <linux/of.h>
- #include <linux/syscore_ops.h>
--#include <linux/debugfs.h>
- #include <linux/mutex.h>
- #include <linux/olpc-ec.h>
- 
-@@ -31,15 +30,6 @@
- struct olpc_platform_t olpc_platform_info;
- EXPORT_SYMBOL_GPL(olpc_platform_info);
- 
--/* debugfs interface to EC commands */
--#define EC_MAX_CMD_ARGS (5 + 1)	/* cmd byte + 5 args */
--#define EC_MAX_CMD_REPLY (8)
--
--static struct dentry *ec_debugfs_dir;
--static DEFINE_MUTEX(ec_debugfs_cmd_lock);
--static unsigned char ec_debugfs_resp[EC_MAX_CMD_REPLY];
--static unsigned int ec_debugfs_resp_bytes;
--
- /* EC event mask to be applied during suspend (defining wakeup sources). */
- static u16 ec_wakeup_mask;
- 
-@@ -273,91 +263,6 @@ int olpc_ec_sci_query(u16 *sci_value)
- }
- EXPORT_SYMBOL_GPL(olpc_ec_sci_query);
- 
--static ssize_t ec_debugfs_cmd_write(struct file *file, const char __user *buf,
--				    size_t size, loff_t *ppos)
--{
--	int i, m;
--	unsigned char ec_cmd[EC_MAX_CMD_ARGS];
--	unsigned int ec_cmd_int[EC_MAX_CMD_ARGS];
--	char cmdbuf[64];
--	int ec_cmd_bytes;
--
--	mutex_lock(&ec_debugfs_cmd_lock);
--
--	size = simple_write_to_buffer(cmdbuf, sizeof(cmdbuf), ppos, buf, size);
--
--	m = sscanf(cmdbuf, "%x:%u %x %x %x %x %x", &ec_cmd_int[0],
--		   &ec_debugfs_resp_bytes,
--		   &ec_cmd_int[1], &ec_cmd_int[2], &ec_cmd_int[3],
--		   &ec_cmd_int[4], &ec_cmd_int[5]);
--	if (m < 2 || ec_debugfs_resp_bytes > EC_MAX_CMD_REPLY) {
--		/* reset to prevent overflow on read */
--		ec_debugfs_resp_bytes = 0;
--
--		printk(KERN_DEBUG "olpc-ec: bad ec cmd:  "
--		       "cmd:response-count [arg1 [arg2 ...]]\n");
--		size = -EINVAL;
--		goto out;
--	}
--
--	/* convert scanf'd ints to char */
--	ec_cmd_bytes = m - 2;
--	for (i = 0; i <= ec_cmd_bytes; i++)
--		ec_cmd[i] = ec_cmd_int[i];
--
--	printk(KERN_DEBUG "olpc-ec: debugfs cmd 0x%02x with %d args "
--	       "%02x %02x %02x %02x %02x, want %d returns\n",
--	       ec_cmd[0], ec_cmd_bytes, ec_cmd[1], ec_cmd[2], ec_cmd[3],
--	       ec_cmd[4], ec_cmd[5], ec_debugfs_resp_bytes);
--
--	olpc_ec_cmd(ec_cmd[0], (ec_cmd_bytes == 0) ? NULL : &ec_cmd[1],
--		    ec_cmd_bytes, ec_debugfs_resp, ec_debugfs_resp_bytes);
--
--	printk(KERN_DEBUG "olpc-ec: response "
--	       "%02x %02x %02x %02x %02x %02x %02x %02x (%d bytes expected)\n",
--	       ec_debugfs_resp[0], ec_debugfs_resp[1], ec_debugfs_resp[2],
--	       ec_debugfs_resp[3], ec_debugfs_resp[4], ec_debugfs_resp[5],
--	       ec_debugfs_resp[6], ec_debugfs_resp[7], ec_debugfs_resp_bytes);
--
--out:
--	mutex_unlock(&ec_debugfs_cmd_lock);
--	return size;
--}
--
--static ssize_t ec_debugfs_cmd_read(struct file *file, char __user *buf,
--				   size_t size, loff_t *ppos)
--{
--	unsigned int i, r;
--	char *rp;
--	char respbuf[64];
--
--	mutex_lock(&ec_debugfs_cmd_lock);
--	rp = respbuf;
--	rp += sprintf(rp, "%02x", ec_debugfs_resp[0]);
--	for (i = 1; i < ec_debugfs_resp_bytes; i++)
--		rp += sprintf(rp, ", %02x", ec_debugfs_resp[i]);
--	mutex_unlock(&ec_debugfs_cmd_lock);
--	rp += sprintf(rp, "\n");
--
--	r = rp - respbuf;
--	return simple_read_from_buffer(buf, size, ppos, respbuf, r);
--}
--
--static const struct file_operations ec_debugfs_genops = {
--	.write	 = ec_debugfs_cmd_write,
--	.read	 = ec_debugfs_cmd_read,
--};
--
--static void setup_debugfs(void)
--{
--	ec_debugfs_dir = debugfs_create_dir("olpc-ec", 0);
--	if (ec_debugfs_dir == ERR_PTR(-ENODEV))
--		return;
--
--	debugfs_create_file("cmd", 0600, ec_debugfs_dir, NULL,
--			    &ec_debugfs_genops);
--}
--
- static int olpc_ec_suspend(struct platform_device *pdev)
- {
- 	return olpc_ec_mask_write(ec_wakeup_mask);
-@@ -470,8 +375,6 @@ static int __init olpc_init(void)
- 			return r;
- 	}
- 
--	setup_debugfs();
--
- 	return 0;
- }
- 
 diff --git a/drivers/platform/olpc/olpc-ec.c b/drivers/platform/olpc/olpc-ec.c
-index a3d32c2..1a15a79 100644
+index d00523c..cfba41f 100644
 --- a/drivers/platform/olpc/olpc-ec.c
 +++ b/drivers/platform/olpc/olpc-ec.c
-@@ -6,6 +6,7 @@
-  * Licensed under the GPL v2 or later.
-  */
- #include <linux/completion.h>
-+#include <linux/debugfs.h>
+@@ -9,6 +9,7 @@
  #include <linux/spinlock.h>
  #include <linux/mutex.h>
  #include <linux/platform_device.h>
-@@ -31,6 +32,8 @@ struct ec_cmd_desc {
- struct olpc_ec_priv {
- 	struct olpc_ec_driver *drv;
++#include <linux/slab.h>
+ #include <linux/workqueue.h>
+ #include <linux/module.h>
+ #include <linux/list.h>
+@@ -27,6 +28,21 @@ struct ec_cmd_desc {
+ 	void *priv;
+ };
  
-+	struct dentry *dbgfs_dir;
++struct olpc_ec_priv {
++	struct olpc_ec_driver *drv;
 +
- 	/*
- 	 * Running an EC command while suspending means we don't always finish
- 	 * the command before the machine suspends.  This means that the EC
-@@ -144,6 +147,114 @@ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
- }
- EXPORT_SYMBOL_GPL(olpc_ec_cmd);
- 
-+#ifdef CONFIG_DEBUG_FS
-+
-+/*
-+ * debugfs support for "generic commands", to allow sending
-+ * arbitrary EC commands from userspace.
-+ */
-+
-+#define EC_MAX_CMD_ARGS (5 + 1)		/* cmd byte + 5 args */
-+#define EC_MAX_CMD_REPLY (8)
-+
-+static DEFINE_MUTEX(ec_dbgfs_lock);
-+static unsigned char ec_dbgfs_resp[EC_MAX_CMD_REPLY];
-+static unsigned int ec_dbgfs_resp_bytes;
-+
-+static ssize_t ec_dbgfs_cmd_write(struct file *file, const char __user *buf,
-+		size_t size, loff_t *ppos)
-+{
-+	int i, m;
-+	unsigned char ec_cmd[EC_MAX_CMD_ARGS];
-+	unsigned int ec_cmd_int[EC_MAX_CMD_ARGS];
-+	char cmdbuf[64];
-+	int ec_cmd_bytes;
-+
-+	mutex_lock(&ec_dbgfs_lock);
-+
-+	size = simple_write_to_buffer(cmdbuf, sizeof(cmdbuf), ppos, buf, size);
-+
-+	m = sscanf(cmdbuf, "%x:%u %x %x %x %x %x", &ec_cmd_int[0],
-+			&ec_dbgfs_resp_bytes, &ec_cmd_int[1], &ec_cmd_int[2],
-+			&ec_cmd_int[3], &ec_cmd_int[4], &ec_cmd_int[5]);
-+	if (m < 2 || ec_dbgfs_resp_bytes > EC_MAX_CMD_REPLY) {
-+		/* reset to prevent overflow on read */
-+		ec_dbgfs_resp_bytes = 0;
-+
-+		pr_debug("olpc-ec: bad ec cmd:  cmd:response-count [arg1 [arg2 ...]]\n");
-+		size = -EINVAL;
-+		goto out;
-+	}
-+
-+	/* convert scanf'd ints to char */
-+	ec_cmd_bytes = m - 2;
-+	for (i = 0; i <= ec_cmd_bytes; i++)
-+		ec_cmd[i] = ec_cmd_int[i];
-+
-+	pr_debug("olpc-ec: debugfs cmd 0x%02x with %d args %02x %02x %02x %02x %02x, want %d returns\n",
-+			ec_cmd[0], ec_cmd_bytes, ec_cmd[1], ec_cmd[2],
-+			ec_cmd[3], ec_cmd[4], ec_cmd[5], ec_dbgfs_resp_bytes);
-+
-+	olpc_ec_cmd(ec_cmd[0], (ec_cmd_bytes == 0) ? NULL : &ec_cmd[1],
-+			ec_cmd_bytes, ec_dbgfs_resp, ec_dbgfs_resp_bytes);
-+
-+	pr_debug("olpc-ec: response %02x %02x %02x %02x %02x %02x %02x %02x (%d bytes expected)\n",
-+			ec_dbgfs_resp[0], ec_dbgfs_resp[1], ec_dbgfs_resp[2],
-+			ec_dbgfs_resp[3], ec_dbgfs_resp[4], ec_dbgfs_resp[5],
-+			ec_dbgfs_resp[6], ec_dbgfs_resp[7],
-+			ec_dbgfs_resp_bytes);
-+
-+out:
-+	mutex_unlock(&ec_dbgfs_lock);
-+	return size;
-+}
-+
-+static ssize_t ec_dbgfs_cmd_read(struct file *file, char __user *buf,
-+		size_t size, loff_t *ppos)
-+{
-+	unsigned int i, r;
-+	char *rp;
-+	char respbuf[64];
-+
-+	mutex_lock(&ec_dbgfs_lock);
-+	rp = respbuf;
-+	rp += sprintf(rp, "%02x", ec_dbgfs_resp[0]);
-+	for (i = 1; i < ec_dbgfs_resp_bytes; i++)
-+		rp += sprintf(rp, ", %02x", ec_dbgfs_resp[i]);
-+	mutex_unlock(&ec_dbgfs_lock);
-+	rp += sprintf(rp, "\n");
-+
-+	r = rp - respbuf;
-+	return simple_read_from_buffer(buf, size, ppos, respbuf, r);
-+}
-+
-+static const struct file_operations ec_dbgfs_ops = {
-+	.write = ec_dbgfs_cmd_write,
-+	.read = ec_dbgfs_cmd_read,
++	/*
++	 * Running an EC command while suspending means we don't always finish
++	 * the command before the machine suspends.  This means that the EC
++	 * is expecting the command protocol to finish, but we after a period
++	 * of time (while the OS is asleep) the EC times out and restarts its
++	 * idle loop.  Meanwhile, the OS wakes up, thinks it's still in the
++	 * middle of the command protocol, starts throwing random things at
++	 * the EC... and everyone's uphappy.
++	 */
++	bool suspended;
 +};
 +
-+static struct dentry *olpc_ec_setup_debugfs(void)
-+{
-+	struct dentry *dbgfs_dir;
+ static void olpc_ec_worker(struct work_struct *w);
+ 
+ static DECLARE_WORK(ec_worker, olpc_ec_worker);
+@@ -34,6 +50,7 @@ static LIST_HEAD(ec_cmd_q);
+ static DEFINE_SPINLOCK(ec_cmd_q_lock);
+ 
+ static struct olpc_ec_driver *ec_driver;
++static struct olpc_ec_priv *ec_priv;
+ static void *ec_cb_arg;
+ static DEFINE_MUTEX(ec_cb_lock);
+ 
+@@ -93,6 +110,7 @@ static void queue_ec_descriptor(struct ec_cmd_desc *desc)
+ 
+ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
+ {
++	struct olpc_ec_priv *ec = ec_priv;
+ 	struct ec_cmd_desc desc;
+ 
+ 	/* XXX: this will be removed in later patches */
+@@ -104,6 +122,13 @@ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
+ 	if (WARN_ON(!ec_driver || !ec_driver->ec_cmd))
+ 		return -ENODEV;
+ 
++	if (!ec)
++		return -ENOMEM;
 +
-+	dbgfs_dir = debugfs_create_dir("olpc-ec", NULL);
-+	if (IS_ERR_OR_NULL(dbgfs_dir))
-+		return NULL;
++	/* Suspending in the middle of a command hoses things really badly */
++	if (WARN_ON(ec->suspended))
++		return -EBUSY;
 +
-+	debugfs_create_file("cmd", 0600, dbgfs_dir, NULL, &ec_dbgfs_ops);
-+
-+	return dbgfs_dir;
-+}
-+
-+#else
-+
-+static struct dentry *olpc_ec_setup_debugfs(void)
-+{
-+	return NULL;
-+}
-+
-+#endif /* CONFIG_DEBUG_FS */
-+
+ 	might_sleep();
+ 
+ 	desc.cmd = cmd;
+@@ -126,11 +151,19 @@ EXPORT_SYMBOL_GPL(olpc_ec_cmd);
+ 
  static int olpc_ec_probe(struct platform_device *pdev)
  {
- 	struct olpc_ec_priv *ec;
-@@ -160,6 +271,12 @@ static int olpc_ec_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, ec);
++	struct olpc_ec_priv *ec;
+ 	int err;
  
+ 	if (!ec_driver)
+ 		return -ENODEV;
+ 
++	ec = kzalloc(sizeof(*ec), GFP_KERNEL);
++	if (!ec)
++		return -ENOMEM;
++	ec->drv = ec_driver;
++	ec_priv = ec;
++	platform_set_drvdata(pdev, ec);
++
  	err = ec_driver->probe ? ec_driver->probe(pdev) : 0;
-+	if (err) {
-+		ec_priv = NULL;
-+		kfree(ec);
-+	} else {
-+		ec->dbgfs_dir = olpc_ec_setup_debugfs();
-+	}
  
  	return err;
+@@ -139,12 +172,23 @@ static int olpc_ec_probe(struct platform_device *pdev)
+ static int olpc_ec_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+-	return ec_driver->suspend ? ec_driver->suspend(pdev) : 0;
++	struct olpc_ec_priv *ec = platform_get_drvdata(pdev);
++	int err = 0;
++
++	if (ec_driver->suspend)
++		err = ec_driver->suspend(pdev);
++	if (!err)
++		ec->suspended = true;
++
++	return err;
  }
+ 
+ static int olpc_ec_resume(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
++	struct olpc_ec_priv *ec = platform_get_drvdata(pdev);
++
++	ec->suspended = false;
+ 	return ec_driver->resume ? ec_driver->resume(pdev) : 0;
+ }
+ 
 -- 
 1.7.2.5
