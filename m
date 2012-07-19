@@ -1,355 +1,175 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v3 1/7] net-tcp: Fast Open base
-Date: Thu, 19 Jul 2012 09:43:05 -0700
-Message-ID: <1342716191-19196-2-git-send-email-ycheng@google.com>
+Subject: [PATCH v3 6/7] net-tcp: Fast Open client - detecting SYN-data drops
+Date: Thu, 19 Jul 2012 09:43:10 -0700
+Message-ID: <1342716191-19196-7-git-send-email-ycheng@google.com>
 References: <1342716191-19196-1-git-send-email-ycheng@google.com>
 Cc: sivasankar@cs.ucsd.edu, netdev@vger.kernel.org,
 	Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
 	ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:42044 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751380Ab2GSQnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:43:33 -0400
-Received: by vcqp1 with SMTP id p1so309088vcq.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 09:43:32 -0700 (PDT)
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:42854 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751715Ab2GSQne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:43:34 -0400
+Received: by qabg24 with SMTP id g24so315903qab.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 09:43:33 -0700 (PDT)
 In-Reply-To: <1342716191-19196-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch impelements the common code for both the client and server.
+On paths with firewalls dropping SYN with data or experimental TCP options,
+Fast Open connections will have experience SYN timeout and bad performance.
+The solution is to track such incidents in the cookie cache and disables
+Fast Open temporarily.
 
-1. TCP Fast Open option processing. Since Fast Open does not have an
-   option number assigned by IANA yet, it shares the experiment option
-   code 254 by implementing draft-ietf-tcpm-experimental-options
-   with a 16 bits magic number 0xF989. This enables global experiments
-   without clashing the scarce(2) experimental options available for TCP.
-
-   When the draft status becomes standard (maybe), the client should
-   switch to the new option number assigned while the server supports
-   both numbers for transistion.
-
-2. The new sysctl tcp_fastopen
-
-3. A place holder init function
+Since only the original SYN includes data and/or Fast Open option, the
+SYN-ACK has some tell-tale sign (tcp_rcv_fastopen_synack()) to detect
+such drops. If a path has recurring Fast Open SYN drops, Fast Open is
+disabled for 2^(recurring_losses) minutes starting from four minutes up to
+roughly one and half day. sendmsg with MSG_FASTOPEN flag will succeed but
+it behaves as connect() then write().
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/tcp.h        |   10 ++++++++++
- include/net/tcp.h          |    9 ++++++++-
- net/ipv4/Makefile          |    2 +-
- net/ipv4/syncookies.c      |    2 +-
- net/ipv4/sysctl_net_ipv4.c |    7 +++++++
- net/ipv4/tcp_fastopen.c    |   11 +++++++++++
- net/ipv4/tcp_input.c       |   26 ++++++++++++++++++++++----
- net/ipv4/tcp_ipv4.c        |    2 +-
- net/ipv4/tcp_minisocks.c   |    4 ++--
- net/ipv4/tcp_output.c      |   25 +++++++++++++++++++++----
- net/ipv6/syncookies.c      |    2 +-
- net/ipv6/tcp_ipv6.c        |    2 +-
- 12 files changed, 86 insertions(+), 16 deletions(-)
- create mode 100644 net/ipv4/tcp_fastopen.c
+ include/net/tcp.h      |    6 ++++--
+ net/ipv4/tcp_input.c   |   10 +++++++++-
+ net/ipv4/tcp_metrics.c |   16 +++++++++++++---
+ net/ipv4/tcp_output.c  |   13 +++++++++++--
+ 4 files changed, 37 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 1888169..12948f5 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -243,6 +243,16 @@ static inline unsigned int tcp_optlen(const struct sk_buff *skb)
- 	return (tcp_hdr(skb)->doff - 5) * 4;
- }
- 
-+/* TCP Fast Open */
-+#define TCP_FASTOPEN_COOKIE_MIN	4	/* Min Fast Open Cookie size in bytes */
-+#define TCP_FASTOPEN_COOKIE_MAX	16	/* Max Fast Open Cookie size in bytes */
-+
-+/* TCP Fast Open Cookie as stored in memory */
-+struct tcp_fastopen_cookie {
-+	s8	len;
-+	u8	val[TCP_FASTOPEN_COOKIE_MAX];
-+};
-+
- /* This defines a selective acknowledgement block. */
- struct tcp_sack_block_wire {
- 	__be32	start_seq;
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 85c5090..5aed371 100644
+index c025810..e07878d 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -170,6 +170,11 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOPT_TIMESTAMP	8	/* Better RTT estimations/PAWS */
- #define TCPOPT_MD5SIG		19	/* MD5 Signature (RFC2385) */
- #define TCPOPT_COOKIE		253	/* Cookie extension (experimental) */
-+#define TCPOPT_EXP		254	/* Experimental */
-+/* Magic number to be after the option value for sharing TCP
-+ * experimental options. See draft-ietf-tcpm-experimental-options-00.txt
-+ */
-+#define TCPOPT_FASTOPEN_MAGIC	0xF989
- 
- /*
-  *     TCP option lengths
-@@ -180,6 +185,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOLEN_SACK_PERM      2
- #define TCPOLEN_TIMESTAMP      10
- #define TCPOLEN_MD5SIG         18
-+#define TCPOLEN_EXP_FASTOPEN_BASE  4
- #define TCPOLEN_COOKIE_BASE    2	/* Cookie-less header extension */
- #define TCPOLEN_COOKIE_PAIR    3	/* Cookie pair header extension */
- #define TCPOLEN_COOKIE_MIN     (TCPOLEN_COOKIE_BASE+TCP_COOKIE_MIN)
-@@ -222,6 +228,7 @@ extern int sysctl_tcp_retries1;
- extern int sysctl_tcp_retries2;
- extern int sysctl_tcp_orphan_retries;
- extern int sysctl_tcp_syncookies;
-+extern int sysctl_tcp_fastopen;
- extern int sysctl_tcp_retrans_collapse;
- extern int sysctl_tcp_stdurg;
- extern int sysctl_tcp_rfc1337;
-@@ -418,7 +425,7 @@ extern int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		       size_t len, int nonblock, int flags, int *addr_len);
- extern void tcp_parse_options(const struct sk_buff *skb,
- 			      struct tcp_options_received *opt_rx, const u8 **hvpp,
--			      int estab);
-+			      int estab, struct tcp_fastopen_cookie *foc);
- extern const u8 *tcp_parse_md5sig_option(const struct tcphdr *th);
- 
- /*
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index a677d80..ae2ccf2 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -7,7 +7,7 @@ obj-y     := route.o inetpeer.o protocol.o \
- 	     ip_output.o ip_sockglue.o inet_hashtables.o \
- 	     inet_timewait_sock.o inet_connection_sock.o \
- 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
--	     tcp_minisocks.o tcp_cong.o tcp_metrics.o \
-+	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
- 	     datagram.o raw.o udp.o udplite.o \
- 	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
- 	     fib_frontend.o fib_semantics.o fib_trie.o \
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index eab2a7f..650e152 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -293,7 +293,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 
- 	/* check for timestamp cookie support */
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
--	tcp_parse_options(skb, &tcp_opt, &hash_location, 0);
-+	tcp_parse_options(skb, &tcp_opt, &hash_location, 0, NULL);
- 
- 	if (!cookie_check_timestamp(&tcp_opt, &ecn_ok))
- 		goto out;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 3f6a1e7..5840c32 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -367,6 +367,13 @@ static struct ctl_table ipv4_table[] = {
- 	},
- #endif
- 	{
-+		.procname	= "tcp_fastopen",
-+		.data		= &sysctl_tcp_fastopen,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{
- 		.procname	= "tcp_tw_recycle",
- 		.data		= &tcp_death_row.sysctl_tw_recycle,
- 		.maxlen		= sizeof(int),
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-new file mode 100644
-index 0000000..a7f729c
---- /dev/null
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -0,0 +1,11 @@
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+
-+int sysctl_tcp_fastopen;
-+
-+static int __init tcp_fastopen_init(void)
-+{
-+	return 0;
-+}
-+
-+late_initcall(tcp_fastopen_init);
+@@ -409,9 +409,11 @@ extern bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
+ extern bool tcp_remember_stamp(struct sock *sk);
+ extern bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
+ extern void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
+-				   struct tcp_fastopen_cookie *cookie);
++				   struct tcp_fastopen_cookie *cookie,
++				   int *syn_loss, unsigned long *last_syn_loss);
+ extern void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+-				   struct tcp_fastopen_cookie *cookie);
++				   struct tcp_fastopen_cookie *cookie,
++				   bool syn_lost);
+ extern void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
+ extern void tcp_disable_fack(struct tcp_sock *tp);
+ extern void tcp_close(struct sock *sk, long timeout);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index fdd49f1..a06bb89 100644
+index 38b6a81..c49a4fc 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -3732,7 +3732,8 @@ old_ack:
-  * the fast version below fails.
-  */
- void tcp_parse_options(const struct sk_buff *skb, struct tcp_options_received *opt_rx,
--		       const u8 **hvpp, int estab)
-+		       const u8 **hvpp, int estab,
-+		       struct tcp_fastopen_cookie *foc)
- {
- 	const unsigned char *ptr;
- 	const struct tcphdr *th = tcp_hdr(skb);
-@@ -3839,8 +3840,25 @@ void tcp_parse_options(const struct sk_buff *skb, struct tcp_options_received *o
- 					break;
- 				}
- 				break;
--			}
+@@ -5652,6 +5652,7 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *data = tcp_write_queue_head(sk);
+ 	u16 mss = tp->rx_opt.mss_clamp;
++	bool syn_drop;
  
-+			case TCPOPT_EXP:
-+				/* Fast Open option shares code 254 using a
-+				 * 16 bits magic number. It's valid only in
-+				 * SYN or SYN-ACK with an even size.
-+				 */
-+				if (opsize < TCPOLEN_EXP_FASTOPEN_BASE ||
-+				    get_unaligned_be16(ptr) != TCPOPT_FASTOPEN_MAGIC ||
-+				    foc == NULL || !th->syn || (opsize & 1))
-+					break;
-+				foc->len = opsize - TCPOLEN_EXP_FASTOPEN_BASE;
-+				if (foc->len >= TCP_FASTOPEN_COOKIE_MIN &&
-+				    foc->len <= TCP_FASTOPEN_COOKIE_MAX)
-+					memcpy(foc->val, ptr + 2, foc->len);
-+				else if (foc->len != 0)
-+					foc->len = -1;
-+				break;
-+
-+			}
- 			ptr += opsize-2;
- 			length -= opsize;
- 		}
-@@ -3882,7 +3900,7 @@ static bool tcp_fast_parse_options(const struct sk_buff *skb,
- 		if (tcp_parse_aligned_timestamp(tp, th))
- 			return true;
+ 	if (mss == tp->rx_opt.user_mss) {
+ 		struct tcp_options_received opt;
+@@ -5664,7 +5665,14 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
+ 		mss = opt.mss_clamp;
  	}
--	tcp_parse_options(skb, &tp->rx_opt, hvpp, 1);
-+	tcp_parse_options(skb, &tp->rx_opt, hvpp, 1, NULL);
- 	return true;
- }
  
-@@ -5637,7 +5655,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 	struct tcp_cookie_values *cvp = tp->cookie_values;
- 	int saved_clamp = tp->rx_opt.mss_clamp;
+-	tcp_fastopen_cache_set(sk, mss, cookie);
++	/* The SYN-ACK neither has cookie nor acknowledges the data. Presumably
++	 * the remote receives only the retransmitted (regular) SYNs: either
++	 * the original SYN-data or the corresponding SYN-ACK is lost.
++	 */
++	syn_drop = (cookie->len <= 0 && data &&
++		    inet_csk(sk)->icsk_retransmits);
++
++	tcp_fastopen_cache_set(sk, mss, cookie, syn_drop);
  
--	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0);
-+	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, NULL);
+ 	if (data) { /* Retransmit unacked data in SYN */
+ 		tcp_retransmit_skb(sk, data);
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index d02ff37..99779ae 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -32,6 +32,8 @@ enum tcp_metric_index {
  
- 	if (th->ack) {
- 		/* rfc793:
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d9caf5c..6b1fe40 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1307,7 +1307,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	tcp_clear_options(&tmp_opt);
- 	tmp_opt.mss_clamp = TCP_MSS_DEFAULT;
- 	tmp_opt.user_mss  = tp->rx_opt.user_mss;
--	tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
-+	tcp_parse_options(skb, &tmp_opt, &hash_location, 0, NULL);
- 
- 	if (tmp_opt.cookie_plus > 0 &&
- 	    tmp_opt.saw_tstamp &&
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index c66f2ed..5912ac3 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -97,7 +97,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 
- 	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
--		tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
-+		tcp_parse_options(skb, &tmp_opt, &hash_location, 0, NULL);
- 
- 		if (tmp_opt.saw_tstamp) {
- 			tmp_opt.ts_recent	= tcptw->tw_ts_recent;
-@@ -534,7 +534,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 
- 	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
--		tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
-+		tcp_parse_options(skb, &tmp_opt, &hash_location, 0, NULL);
- 
- 		if (tmp_opt.saw_tstamp) {
- 			tmp_opt.ts_recent = req->ts_recent;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 15a7c7b..4849be7 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -385,15 +385,17 @@ static inline bool tcp_urg_mode(const struct tcp_sock *tp)
- #define OPTION_MD5		(1 << 2)
- #define OPTION_WSCALE		(1 << 3)
- #define OPTION_COOKIE_EXTENSION	(1 << 4)
-+#define OPTION_FAST_OPEN_COOKIE	(1 << 8)
- 
- struct tcp_out_options {
--	u8 options;		/* bit field of OPTION_* */
-+	u16 options;		/* bit field of OPTION_* */
-+	u16 mss;		/* 0 to disable */
- 	u8 ws;			/* window scale, 0 to disable */
- 	u8 num_sack_blocks;	/* number of SACK blocks to include */
- 	u8 hash_size;		/* bytes in hash_location */
--	u16 mss;		/* 0 to disable */
--	__u32 tsval, tsecr;	/* need to include OPTION_TS */
- 	__u8 *hash_location;	/* temporary pointer, overloaded */
-+	__u32 tsval, tsecr;	/* need to include OPTION_TS */
-+	struct tcp_fastopen_cookie *fastopen_cookie;	/* Fast open cookie */
+ struct tcp_fastopen_metrics {
+ 	u16	mss;
++	u16	syn_loss:10;		/* Recurring Fast Open SYN losses */
++	unsigned long	last_syn_loss;	/* Last Fast Open SYN loss */
+ 	struct	tcp_fastopen_cookie	cookie;
  };
  
- /* The sysctl int routines are generic, so check consistency here.
-@@ -442,7 +444,7 @@ static u8 tcp_cookie_size_check(u8 desired)
- static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
- 			      struct tcp_out_options *opts)
- {
--	u8 options = opts->options;	/* mungable copy */
-+	u16 options = opts->options;	/* mungable copy */
- 
- 	/* Having both authentication and cookies for security is redundant,
- 	 * and there's certainly not enough room.  Instead, the cookie-less
-@@ -564,6 +566,21 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
- 
- 		tp->rx_opt.dsack = 0;
- 	}
-+
-+	if (unlikely(OPTION_FAST_OPEN_COOKIE & options)) {
-+		struct tcp_fastopen_cookie *foc = opts->fastopen_cookie;
-+
-+		*ptr++ = htonl((TCPOPT_EXP << 24) |
-+			       ((TCPOLEN_EXP_FASTOPEN_BASE + foc->len) << 16) |
-+			       TCPOPT_FASTOPEN_MAGIC);
-+
-+		memcpy(ptr, foc->val, foc->len);
-+		if ((foc->len & 3) == 2) {
-+			u8 *align = ((u8 *)ptr) + foc->len;
-+			align[0] = align[1] = TCPOPT_NOP;
-+		}
-+		ptr += (foc->len + 3) >> 2;
-+	}
+@@ -125,6 +127,7 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst)
+ 	tm->tcpm_ts = 0;
+ 	tm->tcpm_ts_stamp = 0;
+ 	tm->tcpm_fastopen.mss = 0;
++	tm->tcpm_fastopen.syn_loss = 0;
+ 	tm->tcpm_fastopen.cookie.len = 0;
  }
  
- /* Compute TCP options for SYN packets. This is not the final
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 7bf3cc4..bb46061 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -177,7 +177,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+@@ -644,7 +647,8 @@ bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw)
+ static DEFINE_SEQLOCK(fastopen_seqlock);
  
- 	/* check for timestamp cookie support */
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
--	tcp_parse_options(skb, &tcp_opt, &hash_location, 0);
-+	tcp_parse_options(skb, &tcp_opt, &hash_location, 0, NULL);
+ void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
+-			    struct tcp_fastopen_cookie *cookie)
++			    struct tcp_fastopen_cookie *cookie,
++			    int *syn_loss, unsigned long *last_syn_loss)
+ {
+ 	struct tcp_metrics_block *tm;
  
- 	if (!cookie_check_timestamp(&tcp_opt, &ecn_ok))
- 		goto out;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index c9dabdd..0302ec3 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1033,7 +1033,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	tcp_clear_options(&tmp_opt);
- 	tmp_opt.mss_clamp = IPV6_MIN_MTU - sizeof(struct tcphdr) - sizeof(struct ipv6hdr);
- 	tmp_opt.user_mss = tp->rx_opt.user_mss;
--	tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
-+	tcp_parse_options(skb, &tmp_opt, &hash_location, 0, NULL);
+@@ -659,14 +663,15 @@ void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
+ 			if (tfom->mss)
+ 				*mss = tfom->mss;
+ 			*cookie = tfom->cookie;
++			*syn_loss = tfom->syn_loss;
++			*last_syn_loss = *syn_loss ? tfom->last_syn_loss : 0;
+ 		} while (read_seqretry(&fastopen_seqlock, seq));
+ 	}
+ 	rcu_read_unlock();
+ }
  
- 	if (tmp_opt.cookie_plus > 0 &&
- 	    tmp_opt.saw_tstamp &&
+-
+ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+-			    struct tcp_fastopen_cookie *cookie)
++			    struct tcp_fastopen_cookie *cookie, bool syn_lost)
+ {
+ 	struct tcp_metrics_block *tm;
+ 
+@@ -679,6 +684,11 @@ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+ 		tfom->mss = mss;
+ 		if (cookie->len > 0)
+ 			tfom->cookie = *cookie;
++		if (syn_lost) {
++			++tfom->syn_loss;
++			tfom->last_syn_loss = jiffies;
++		} else
++			tfom->syn_loss = 0;
+ 		write_sequnlock_bh(&fastopen_seqlock);
+ 	}
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8869328..c5cfd5e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2860,10 +2860,19 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_fastopen_request *fo = tp->fastopen_req;
+-	int space, i, err = 0, iovlen = fo->data->msg_iovlen;
++	int syn_loss = 0, space, i, err = 0, iovlen = fo->data->msg_iovlen;
+ 	struct sk_buff *syn_data = NULL, *data;
++	unsigned long last_syn_loss = 0;
++
++	tcp_fastopen_cache_get(sk, &tp->rx_opt.mss_clamp, &fo->cookie,
++			       &syn_loss, &last_syn_loss);
++	/* Recurring FO SYN losses: revert to regular handshake temporarily */
++	if (syn_loss > 1 &&
++	    time_before(jiffies, last_syn_loss + (60*HZ << syn_loss))) {
++		fo->cookie.len = -1;
++		goto fallback;
++	}
+ 
+-	tcp_fastopen_cache_get(sk, &tp->rx_opt.mss_clamp, &fo->cookie);
+ 	if (fo->cookie.len <= 0)
+ 		goto fallback;
+ 
 -- 
 1.7.7.3
