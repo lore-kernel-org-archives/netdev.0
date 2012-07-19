@@ -1,46 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ipv4: tcp: remove per net tcp_sock
-Date: Thu, 19 Jul 2012 10:51:56 -0700 (PDT)
-Message-ID: <20120719.105156.756282805219314369.davem@davemloft.net>
-References: <1342719243.2626.4571.camel@edumazet-glaptop>
-	<20120719.103618.2037668049773125073.davem@davemloft.net>
-	<1342720197.2626.4624.camel@edumazet-glaptop>
+Subject: Re: [PATCH] mlx4_en: map entire pages to increase throughput
+Date: Thu, 19 Jul 2012 10:53:54 -0700 (PDT)
+Message-ID: <20120719.105354.1512390551884485493.davem@davemloft.net>
+References: <1342458113-10384-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.co.il,
+	ogerlitz@mellanox.com, amirv@mellanox.com,
+	brking@linux.vnet.ibm.com, leitao@linux.vnet.ibm.com,
+	klebers@linux.vnet.ibm.com
+To: cascardo@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46831 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46849 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752406Ab2GSRv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:51:57 -0400
-In-Reply-To: <1342720197.2626.4624.camel@edumazet-glaptop>
+	with ESMTP id S1751185Ab2GSRxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:53:55 -0400
+In-Reply-To: <1342458113-10384-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 19 Jul 2012 19:49:57 +0200
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Mon, 16 Jul 2012 14:01:53 -0300
 
-> On Thu, 2012-07-19 at 10:36 -0700, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Thu, 19 Jul 2012 19:34:03 +0200
->> 
->> > v2 : move unicast_sock out of ip_send_unicast_reply() body
->> >      init sk_refcnt to 1, in case some driver get/put a reference on
->> >      socket.
->> 
->> The compiler seems much happier with this, applied, thanks Eric :-)
+> In its receive path, mlx4_en driver maps each page chunk that it pushes
+> to the hardware and unmaps it when pushing it up the stack. This limits
+> throughput to about 3Gbps on a Power7 8-core machine.
 > 
-> Maybe I should install your compiler ;) What is the version you
-> currently use ?
+> One solution is to map the entire allocated page at once. However, this
+> requires that we keep track of every page fragment we give to a
+> descriptor. We also need to work with the discipline that all fragments will
+> be released (in the sense that it will not be reused by the driver
+> anymore) in the order they are allocated to the driver.
+> 
+> This requires that we don't reuse any fragments, every single one of
+> them must be reallocated. We do that by releasing all the fragments that
+> are processed and only after finished processing the descriptors, we
+> start the refill.
+> 
+> We also must somehow guarantee that we either refill all fragments in a
+> descriptor or none at all, without resorting to giving up a page
+> fragment that we would have already given. Otherwise, we would break the
+> discipline of only releasing the fragments in the order they were
+> allocated.
+> 
+> This has passed page allocation fault injections (restricted to the
+> driver by using required-start and required-end) and device hotplug
+> while 16 TCP streams were able to deliver more than 9Gbps.
+> 
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 
-On x86-64 I use:
-
-[davem@dokdo net-next]$ gcc --version
-gcc (GCC) 4.7.0 20120507 (Red Hat 4.7.0-5)
-Copyright (C) 2012 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-and on sparc64 I use gcc-4.7.1 vanilla.
+I have not seen any reasonable objections to this patch, so I have
+applied it to net-next, thanks!
