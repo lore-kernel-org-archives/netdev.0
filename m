@@ -1,29 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2] ipvs: fixed sparse warning
-Date: Thu, 19 Jul 2012 10:43:42 +0900
-Message-ID: <20120719014341.GI29894@verge.net.au>
-References: <1342602622-2728-1-git-send-email-claudiu.ghioc@gmail.com>
+From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
+Subject: Re: [PATCH] jme: netpoll support
+Date: Thu, 19 Jul 2012 10:00:10 +0800
+Message-ID: <20120719015637.M13815@cooldavid.org>
+References: <18143736.brt1iGhlQ1@al> <20120718.094524.264223189588300582.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg, pablo@netfilter.org,
-	kaber@trash.net, claudiu.ghioc@gmail.com, daniel.baluta@gmail.com
-To: Claudiu Ghioc <claudiughioc@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1342602622-2728-1-git-send-email-claudiu.ghioc@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=utf-8
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, lekensteyn@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cooldavid.org ([114.33.45.68]:58671 "EHLO cooldavid.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752243Ab2GSCKg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jul 2012 22:10:36 -0400
+In-Reply-To: <20120718.094524.264223189588300582.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 18, 2012 at 12:10:22PM +0300, Claudiu Ghioc wrote:
-> Removed the following sparse warnings, wether CONFIG_SYSCTL
-> is defined or not:
-> *       warning: symbol 'ip_vs_control_net_init_sysctl' was not
-> 	declared. Should it be static?
-> *       warning: symbol 'ip_vs_control_net_cleanup_sysctl' was
-> 	not declared. Should it be static?
+On Wed, 18 Jul 2012 09:45:24 -0700 (PDT), David Miller wrote
+> From: Lekensteyn <lekensteyn@gmail.com>
+> Date: Tue, 17 Jul 2012 18:29:34 +0200
 > 
-> Signed-off-by: Claudiu Ghioc <claudiu.ghioc@gmail.com>
+> > From: Peter Wu <lekensteyn@gmail.com>
+> > 
+> > This patch adds the netpoll function to support netconsole. Tested and works
+> > fine on my "JMC250 PCI Express Gigabit Ethernet Controller" (PCI ID 0250).
+> > 
+> > Signed-off-by: Peter Wu <lekensteyn@gmail.com>
+> 
+> Applied to net-next
+> 
+> I really wonder if this driver works on SMP systems at all.
+Hi davem:
 
-Thanks, I have queued this up for 3.6.
+I wrote/tested this driver on SMP system at very beginning.
+In face some of the design was aimed for SMP systems.
+Is there any obvious bug or something I should be aware of?
+
+Guo-Fu Tseng
