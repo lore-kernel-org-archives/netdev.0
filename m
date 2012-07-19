@@ -1,153 +1,108 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH] net,
- cgroup: Fix boot failure due to iteration of uninitialized list
-Date: Thu, 19 Jul 2012 21:57:37 +0530
-Message-ID: <20120719162532.23505.85946.stgit@srivatsabhat.in.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mark.d.rustad@intel.com, john.r.fastabend@intel.com,
-	lizefan@huawei.com
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	gaofeng@cn.fujitsu.com, eric.dumazet@gmail.com,
-	nhorman@tuxdriver.com, davem@davemloft.net
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v3 4/7] net-tcp: Fast Open client - receiving SYN-ACK
+Date: Thu, 19 Jul 2012 09:43:08 -0700
+Message-ID: <1342716191-19196-5-git-send-email-ycheng@google.com>
+References: <1342716191-19196-1-git-send-email-ycheng@google.com>
+Cc: sivasankar@cs.ucsd.edu, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp05.au.ibm.com ([202.81.31.147]:46072 "EHLO
-	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751559Ab2GSQ2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:28:50 -0400
-Received: from /spool/local
-	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
-	Thu, 19 Jul 2012 16:22:35 +1000
+Received: from mail-yx0-f202.google.com ([209.85.213.202]:52897 "EHLO
+	mail-yx0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751217Ab2GSQnd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:43:33 -0400
+Received: by yenl3 with SMTP id l3so308710yen.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 09:43:32 -0700 (PDT)
+In-Reply-To: <1342716191-19196-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit ef209f15 (net: cgroup: fix access the unallocated memory in
-netprio cgroup), boot fails with the following NULL pointer dereference:
+On receiving the SYN-ACK after SYN-data, the client needs to
+a) update the cached MSS and cookie (if included in SYN-ACK)
+b) retransmit the data not yet acknowledged by the SYN-ACK in the final ACK of
+   the handshake.
 
-Initializing cgroup subsys devices
-Initializing cgroup subsys freezer
-Initializing cgroup subsys net_cls
-Initializing cgroup subsys blkio
-Initializing cgroup subsys perf_event
-Initializing cgroup subsys net_prio
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000698
-IP: [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
-PGD 0
-Oops: 0000 [#1] SMP
-CPU 0
-Modules linked in:
-
-Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc7-mandeep #1 IBM IBM System x -[7870C4Q]-/68Y8033
-RIP: 0010:[<ffffffff8145e8d6>]  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
-RSP: 0000:ffffffff81a01ea8  EFLAGS: 00010213
-RAX: 0000000000000000 RBX: ffffffffffffff10 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: 0000000000000246 RDI: ffffffff81aa70a0
-RBP: ffffffff81a01ed8 R08: 0000000000000000 R09: 0000000000000000
-R10: ffff8808ff8641c0 R11: 6e697a696c616974 R12: 0000000000000001
-R13: ffff8808ff8641c0 R14: 0000000000000000 R15: 0000000000093970
-FS:  0000000000000000(0000) GS:ffff8808ffc00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000000000698 CR3: 0000000001a0b000 CR4: 00000000000006b0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper/0 (pid: 0, threadinfo ffffffff81a00000, task ffffffff81a13420)
-Stack:
- ffffffff81a01eb8 ffffffff818060ff ffffffff81d75ec8 ffffffff81aa8960
- ffffffff81aa8960 ffffffff81b4c2c0 ffffffff81a01ef8 ffffffff81b1cb78
- 0000000000000018 0000000000000048 ffffffff81a01f18 ffffffff81b1ce13
-Call Trace:
- [<ffffffff81b1cb78>] cgroup_init_subsys+0x83/0x169
- [<ffffffff81b1ce13>] cgroup_init+0x36/0x119
- [<ffffffff81affef7>] start_kernel+0x3ba/0x3ef
- [<ffffffff81aff95b>] ? kernel_init+0x27b/0x27b
- [<ffffffff81aff356>] x86_64_start_reservations+0x131/0x136
- [<ffffffff81aff45e>] x86_64_start_kernel+0x103/0x112
-Code: 01 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 75 1b eb 73 0f 1f 00 48 8b 83 f0 00 00 00 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 74 5a <48> 8b 83 88 07 00 00 48 85 c0 74 de 44 3b 60 10 76 d8 44 89 e6
-RIP  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
- RSP <ffffffff81a01ea8>
-CR2: 0000000000000698
----[ end trace a7919e7f17c0a725 ]---
-Kernel panic - not syncing: Attempted to kill the idle task!
-
-The code corresponds to:
-
-update_netdev_tables():
-        for_each_netdev(&init_net, dev) {
-                map = rtnl_dereference(dev->priomap);  <---- HERE
-
-
-The list head is initialized in netdev_init(), which is called much
-later than cgrp_create(). So the problem is that we are calling
-update_netdev_tables() way too early (in cgrp_create()), which will
-end up traversing the not-yet-circular linked list. So at some point,
-the dev pointer will become NULL and hence dev->priomap becomes an
-invalid access.
-
-To fix this, just remove the update_netdev_tables() function entirely,
-since it appears that write_update_netdev_table() will handle things
-just fine.
-
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
+ net/ipv4/tcp_input.c |   40 +++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 35 insertions(+), 5 deletions(-)
 
-Requesting a thorough review of this patch, since I am not sure whether
-removing update_netdev_tables() is perfectly OK and whether that is the
-right thing to do.
-
- net/core/netprio_cgroup.c |   32 --------------------------------
- 1 files changed, 0 insertions(+), 32 deletions(-)
-
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index b2e9caa..68fe239 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -109,32 +109,6 @@ static int write_update_netdev_table(struct net_device *dev)
- 	return ret;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a06bb89..38b6a81 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5646,6 +5646,34 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
+ 	}
  }
  
--static int update_netdev_tables(void)
--{
--	int ret = 0;
--	struct net_device *dev;
--	u32 max_len;
--	struct netprio_map *map;
--
--	rtnl_lock();
--	max_len = atomic_read(&max_prioidx) + 1;
--	for_each_netdev(&init_net, dev) {
--		map = rtnl_dereference(dev->priomap);
--		/*
--		 * don't allocate priomap if we didn't
--		 * change net_prio.ifpriomap (map == NULL),
--		 * this will speed up skb_update_prio.
--		 */
--		if (map && map->priomap_len < max_len) {
--			ret = extend_netdev_table(dev, max_len);
--			if (ret < 0)
--				break;
--		}
--	}
--	rtnl_unlock();
--	return ret;
--}
--
- static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
++static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
++				    struct tcp_fastopen_cookie *cookie)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct sk_buff *data = tcp_write_queue_head(sk);
++	u16 mss = tp->rx_opt.mss_clamp;
++
++	if (mss == tp->rx_opt.user_mss) {
++		struct tcp_options_received opt;
++		const u8 *hash_location;
++
++		/* Get original SYNACK MSS value if user MSS sets mss_clamp */
++		tcp_clear_options(&opt);
++		opt.user_mss = opt.mss_clamp = 0;
++		tcp_parse_options(synack, &opt, &hash_location, 0, NULL);
++		mss = opt.mss_clamp;
++	}
++
++	tcp_fastopen_cache_set(sk, mss, cookie);
++
++	if (data) { /* Retransmit unacked data in SYN */
++		tcp_retransmit_skb(sk, data);
++		tcp_rearm_rto(sk);
++		return true;
++	}
++	return false;
++}
++
+ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 					 const struct tcphdr *th, unsigned int len)
  {
- 	struct cgroup_netprio_state *cs;
-@@ -153,12 +127,6 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
- 		goto out;
- 	}
+@@ -5653,9 +5681,10 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_cookie_values *cvp = tp->cookie_values;
++	struct tcp_fastopen_cookie foc = { .len = -1 };
+ 	int saved_clamp = tp->rx_opt.mss_clamp;
  
--	ret = update_netdev_tables();
--	if (ret < 0) {
--		put_prioidx(cs->prioidx);
--		goto out;
--	}
--
- 	return &cs->css;
- out:
- 	kfree(cs);
+-	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, NULL);
++	tcp_parse_options(skb, &tp->rx_opt, &hash_location, 0, &foc);
+ 
+ 	if (th->ack) {
+ 		/* rfc793:
+@@ -5665,11 +5694,9 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 		 *	  If SEG.ACK =< ISS, or SEG.ACK > SND.NXT, send
+ 		 *        a reset (unless the RST bit is set, if so drop
+ 		 *        the segment and return)"
+-		 *
+-		 *  We do not send data with SYN, so that RFC-correct
+-		 *  test reduces to:
+ 		 */
+-		if (TCP_SKB_CB(skb)->ack_seq != tp->snd_nxt)
++		if (!after(TCP_SKB_CB(skb)->ack_seq, tp->snd_una) ||
++		    after(TCP_SKB_CB(skb)->ack_seq, tp->snd_nxt))
+ 			goto reset_and_undo;
+ 
+ 		if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+@@ -5781,6 +5808,9 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 
+ 		tcp_finish_connect(sk, skb);
+ 
++		if (tp->syn_fastopen && tcp_rcv_fastopen_synack(sk, skb, &foc))
++			return -1;
++
+ 		if (sk->sk_write_pending ||
+ 		    icsk->icsk_accept_queue.rskq_defer_accept ||
+ 		    icsk->icsk_ack.pingpong) {
+-- 
+1.7.7.3
