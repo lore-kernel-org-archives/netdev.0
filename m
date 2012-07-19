@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix address selection in fib_compute_spec_dst
-Date: Thu, 19 Jul 2012 08:31:05 -0700 (PDT)
-Message-ID: <20120719.083105.2071478258344388297.davem@davemloft.net>
-References: <1342683303-3557-1-git-send-email-ja@ssi.bg>
+Subject: Re: [PATCH net-next V1 0/4] net/mlx4_en: Add accelerated RFS
+ support
+Date: Thu, 19 Jul 2012 08:34:59 -0700 (PDT)
+Message-ID: <20120719.083459.617485160559083500.davem@davemloft.net>
+References: <1342686832-21406-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
+	yevgenyp@mellanox.com, amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45220 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45282 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031Ab2GSPbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 11:31:06 -0400
-In-Reply-To: <1342683303-3557-1-git-send-email-ja@ssi.bg>
+	with ESMTP id S1750942Ab2GSPfB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 11:35:01 -0400
+In-Reply-To: <1342686832-21406-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Thu, 19 Jul 2012 10:35:03 +0300
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 19 Jul 2012 11:33:48 +0300
 
-> 	ip_options_compile can be called for forwarded packets,
-> make sure the specific-destionation address is a local one as
-> specified in RFC 1812, 4.2.2.2 Addresses in Options
+> This series from Amir Vadai adds support for Accelerated RFS 
+> to the mlx4_en Ethernet driver.
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> The code uses the Accelerated RFS infrastructure and HW flow steering 
+> to keep CPU affinity of rx interrupts and applications per TCP stream.
+> 
+> To do so, we had to add little protection to cpu_rmap.h against double 
+> inclusion. Also, added linking between CPU to IRQ using rmap in the 
+> mlx4_core driver.
+> 
+> changes from V0:
+>  - always use CONFIG_RFS_ACCEL instead of using twice CONFIG_CPU_RMAP directly
 
-Applied.
+Series applied, thanks.
