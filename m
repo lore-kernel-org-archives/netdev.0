@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: tcp: remove per net tcp_sock
-Date: Thu, 19 Jul 2012 10:12:25 -0700 (PDT)
-Message-ID: <20120719.101225.2227860476502999476.davem@davemloft.net>
-References: <20120719.084503.136853790544876708.davem@davemloft.net>
-	<1342717667.2626.4494.camel@edumazet-glaptop>
-	<20120719.101155.1970854797296520147.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] sfc: initialize dynamic sysfs attributes for lockdep
+Date: Thu, 19 Jul 2012 18:19:05 +0100
+Message-ID: <1342718345.2617.46.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342717485-24034-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46478 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752329Ab2GSRM0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:12:26 -0400
-In-Reply-To: <20120719.101155.1970854797296520147.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:64413 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751337Ab2GSRTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:19:09 -0400
+In-Reply-To: <1342717485-24034-1-git-send-email-mschmidt@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxOSBK
-dWwgMjAxMiAxMDoxMTo1NSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJp
-Yy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gRGF0ZTogVGh1LCAxOSBKdWwgMjAxMiAxOTowNzo0NyAr
-MDIwMA0KPiANCj4+IE9uIFRodSwgMjAxMi0wNy0xOSBhdCAwODo0NSAtMDcwMCwgRGF2aWQgTWls
-bGVyIHdyb3RlOg0KPj4+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4N
-Cj4+PiBEYXRlOiBUaHUsIDE5IEp1bCAyMDEyIDA4OjM1OjQ0IC0wNzAwIChQRFQpDQo+Pj4gDQo+
-Pj4gPiBMb29rcyBncmVhdCwgYXBwbGllZCwgdGhhbmtzIEVyaWMuDQo+Pj4gDQo+Pj4gSSB0YWtl
-IHRoYXQgYmFjaywgaXQgZG9lc24ndCBidWlsZDoNCj4+PiANCj4+PiBuZXQvaXB2NC9pcF9vdXRw
-dXQuYzogSW4gZnVuY3Rpb24goWlwX3NlbmRfdW5pY2FzdF9yZXBseaI6DQo+Pj4gbmV0L2lwdjQv
-aXBfb3V0cHV0LmM6MTQ4MToxOiBlcnJvcjogc2VjdGlvbiBhdHRyaWJ1dGUgY2Fubm90IGJlIHNw
-ZWNpZmllZCBmb3IgbG9jYWwgdmFyaWFibGVzDQo+Pj4gbmV0L2lwdjQvaXBfb3V0cHV0LmM6MTQ4
-MToxOiBlcnJvcjogc2VjdGlvbiBhdHRyaWJ1dGUgY2Fubm90IGJlIHNwZWNpZmllZCBmb3IgbG9j
-YWwgdmFyaWFibGVzDQo+Pj4gbmV0L2lwdjQvaXBfb3V0cHV0LmM6MTQ4MToxOiBlcnJvcjogZGVj
-bGFyYXRpb24gb2YgoV9fcGNwdV91bmlxdWVfdW5pY2FzdF9zb2NroiB3aXRoIG5vIGxpbmthZ2Ug
-Zm9sbG93cyBleHRlcm4gZGVjbGFyYXRpb24NCj4+PiBuZXQvaXB2NC9pcF9vdXRwdXQuYzoxNDgx
-OjE6IG5vdGU6IHByZXZpb3VzIGRlY2xhcmF0aW9uIG9mIKFfX3BjcHVfdW5pcXVlX3VuaWNhc3Rf
-c29ja6Igd2FzIGhlcmUNCj4+PiBuZXQvaXB2NC9pcF9vdXRwdXQuYzoxNDgxOjk6IGVycm9yOiBz
-ZWN0aW9uIGF0dHJpYnV0ZSBjYW5ub3QgYmUgc3BlY2lmaWVkIGZvciBsb2NhbCB2YXJpYWJsZXMN
-Cj4+PiBuZXQvaXB2NC9pcF9vdXRwdXQuYzoxNDgxOjk6IGVycm9yOiB3ZWFrIGRlY2xhcmF0aW9u
-IG9mIKF1bmljYXN0X3NvY2uiIG11c3QgYmUgcHVibGljDQo+PiANCj4+IFN0cmFuZ2UsIGl0IGJ1
-aWxkcyBvbiBteSBtYWNoaW5lcywgYW5kIEkgZ290IG5pY2UgcGVyZm9ybWFuY2UgYm9vc3QuDQo+
-PiANCj4+IEFwcGFyZW50bHkgeW91ciBhcmNoIGRvZXNudCBoYW5kbGUgdGhlIA0KPj4gDQo+PiBz
-dGF0aWMgREVGSU5FX1BFUl9DUFUoc3RydWN0IGluZXRfc29jaywgdW5pY2FzdF9zb2NrKQ0KPj4g
-DQo+PiBpbiB0aGUgZnVuY3Rpb24gYm9keSA/DQo+IA0KPiBJdCdzIHg4Ni02NCwgc3RhbmRhcmQg
-RmVkb3JhIDE3IGluc3RhbGwuDQoNCkp1c3QgZ2l2ZSB0aGlzIHRoaW5nIGEgdW5pcXVlIG5hbWUg
-YW5kIGRlZmluZSBpdCByaWdodCBiZWZvcmUgdGhlIGZ1bmN0aW9uLg0K
+On Thu, 2012-07-19 at 19:04 +0200, Michal Schmidt wrote:
+> Dynamically allocated sysfs attributes must be initialized using
+> sysfs_attr_init(), otherwise lockdep complains:
+> BUG: key <address> not in .data!
+>
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+
+> ---
+>  drivers/net/ethernet/sfc/mcdi_mon.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+> index fb7f65b..1d552f0 100644
+> --- a/drivers/net/ethernet/sfc/mcdi_mon.c
+> +++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+> @@ -222,6 +222,7 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
+>  	attr->index = index;
+>  	attr->type = type;
+>  	attr->limit_value = limit_value;
+> +	sysfs_attr_init(&attr->dev_attr.attr);
+>  	attr->dev_attr.attr.name = attr->name;
+>  	attr->dev_attr.attr.mode = S_IRUGO;
+>  	attr->dev_attr.show = reader;
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
