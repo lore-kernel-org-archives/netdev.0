@@ -1,34 +1,54 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCHv1] net: stmmac: Add ip version to dts bindings
-Date: Thu, 19 Jul 2012 09:25:58 +0200
-Message-ID: <201207190925.58789.sr@denx.de>
-References: <1342654106-8163-1-git-send-email-dinguyen@altera.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dinh.linux@gmail.com,
-	peppe.cavallaro@st.com, shiraz.hashim@st.com, deepak.sikri@st.com,
-	pavel@denx.de, arnd@arndb.de
-To: dinguyen@altera.com
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] ipv4: optimize fib_compute_spec_dst call in ip_options_echo
+Date: Thu, 19 Jul 2012 10:34:24 +0300
+Message-ID: <1342683264-3523-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p05-ob.rzone.de ([81.169.146.181]:25539 "EHLO
-	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750730Ab2GSH11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 03:27:27 -0400
-In-Reply-To: <1342654106-8163-1-git-send-email-dinguyen@altera.com>
+Received: from ja.ssi.bg ([178.16.129.10]:47774 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751014Ab2GSH1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2012 03:27:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 19 July 2012 01:28:26 dinguyen@altera.com wrote:
-> From: Dinh Nguyen <dinguyen@altera.com>
-> 
-> Because there are multiple variants to the stmmac/dwmac driver, the
-> dts bindings should be updated to include version of the IP used.
-> 
-> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+	Move fib_compute_spec_dst at the only place where it
+is needed.
 
-Acked-by: Stefan Roese <sr@denx.de>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/ip_options.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-Thanks,
-Stefan
+diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
+index a19d647..1dc01f9 100644
+--- a/net/ipv4/ip_options.c
++++ b/net/ipv4/ip_options.c
+@@ -93,7 +93,6 @@ int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
+ 	unsigned char *sptr, *dptr;
+ 	int soffset, doffset;
+ 	int	optlen;
+-	__be32	daddr;
+ 
+ 	memset(dopt, 0, sizeof(struct ip_options));
+ 
+@@ -105,8 +104,6 @@ int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
+ 	sptr = skb_network_header(skb);
+ 	dptr = dopt->__data;
+ 
+-	daddr = fib_compute_spec_dst(skb);
+-
+ 	if (sopt->rr) {
+ 		optlen  = sptr[sopt->rr+1];
+ 		soffset = sptr[sopt->rr+2];
+@@ -180,6 +177,8 @@ int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
+ 				doffset -= 4;
+ 		}
+ 		if (doffset > 3) {
++			__be32 daddr = fib_compute_spec_dst(skb);
++
+ 			memcpy(&start[doffset-1], &daddr, 4);
+ 			dopt->faddr = faddr;
+ 			dptr[0] = start[0];
+-- 
+1.7.3.4
