@@ -1,8 +1,8 @@
 From: Andres Salomon <dilinger@queued.net>
-Subject: [PATCH RESEND 3/9] Platform: OLPC: allow EC cmd to be overridden,
- and create a workqueue to call it
-Date: Wed, 18 Jul 2012 21:39:23 -0700
-Message-ID: <20120718213923.7e45f037@dev.queued.net>
+Subject: [PATCH RESEND 4/9] Platform: OLPC: turn EC driver into a
+ platform_driver
+Date: Wed, 18 Jul 2012 21:40:09 -0700
+Message-ID: <20120718214009.7af19d69@dev.queued.net>
 References: <20120718213713.232e4161@dev.queued.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -30,168 +30,100 @@ Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This provides a new API allows different OLPC architectures to override the
-EC driver.  x86 and ARM OLPC machines use completely different EC backends.
+The 1.75-based OLPC EC driver already does this; let's do it for all EC
+drivers.  This gives us nice suspend/resume hooks, amongst other things.
 
-The olpc_ec_cmd is synchronous, and waits for the workqueue to send the
-command to the EC.  Multiple callers can run olpc_ec_cmd() at once, and
-they will by serialized and sleep while only one executes on the EC at a time.
-
-We don't provide an unregister function, as that doesn't make sense within
-the context of OLPC machines - there's only ever 1 EC, it's critical to
-functionality, and it certainly not hotpluggable.
+We want to run the EC's suspend hooks later than other drivers (which may
+be setting wakeup masks or be running EC commands).  We also want to run
+the EC's resume hooks earlier than other drivers (which may want to run EC
+commands).
 
 Signed-off-by: Andres Salomon <dilinger@queued.net>
 ---
- drivers/platform/olpc/olpc-ec.c |  112 ++++++++++++++++++++++++++++++++++++++-
- include/linux/olpc-ec.h         |    6 ++
- 2 files changed, 116 insertions(+), 2 deletions(-)
+ drivers/platform/olpc/olpc-ec.c |   48 +++++++++++++++++++++++++++++++++++++++
+ include/linux/olpc-ec.h         |    6 +++++
+ 2 files changed, 54 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/platform/olpc/olpc-ec.c b/drivers/platform/olpc/olpc-ec.c
-index 4202603..44e6a4f 100644
+index 44e6a4f..d00523c 100644
 --- a/drivers/platform/olpc/olpc-ec.c
 +++ b/drivers/platform/olpc/olpc-ec.c
-@@ -5,12 +5,120 @@
-  *
-  * Licensed under the GPL v2 or later.
-  */
-+#include <linux/completion.h>
-+#include <linux/spinlock.h>
-+#include <linux/mutex.h>
-+#include <linux/workqueue.h>
+@@ -8,6 +8,7 @@
+ #include <linux/completion.h>
+ #include <linux/spinlock.h>
+ #include <linux/mutex.h>
++#include <linux/platform_device.h>
+ #include <linux/workqueue.h>
  #include <linux/module.h>
-+#include <linux/list.h>
-+#include <linux/olpc-ec.h>
- #include <asm/olpc.h>
- 
-+struct ec_cmd_desc {
-+	u8 cmd;
-+	u8 *inbuf, *outbuf;
-+	size_t inlen, outlen;
-+
-+	int err;
-+	struct completion finished;
-+	struct list_head node;
-+
-+	void *priv;
-+};
-+
-+static void olpc_ec_worker(struct work_struct *w);
-+
-+static DECLARE_WORK(ec_worker, olpc_ec_worker);
-+static LIST_HEAD(ec_cmd_q);
-+static DEFINE_SPINLOCK(ec_cmd_q_lock);
-+
-+static struct olpc_ec_driver *ec_driver;
-+static void *ec_cb_arg;
-+static DEFINE_MUTEX(ec_cb_lock);
-+
-+void olpc_ec_driver_register(struct olpc_ec_driver *drv, void *arg)
-+{
-+	ec_driver = drv;
-+	ec_cb_arg = arg;
-+}
-+EXPORT_SYMBOL_GPL(olpc_ec_driver_register);
-+
-+static void olpc_ec_worker(struct work_struct *w)
-+{
-+	struct ec_cmd_desc *desc = NULL;
-+	unsigned long flags;
-+
-+	/* Grab the first pending command from the queue */
-+	spin_lock_irqsave(&ec_cmd_q_lock, flags);
-+	if (!list_empty(&ec_cmd_q)) {
-+		desc = list_first_entry(&ec_cmd_q, struct ec_cmd_desc, node);
-+		list_del(&desc->node);
-+	}
-+	spin_unlock_irqrestore(&ec_cmd_q_lock, flags);
-+
-+	/* Do we actually have anything to do? */
-+	if (!desc)
-+		return;
-+
-+	/* Protect the EC hw with a mutex; only run one cmd at a time */
-+	mutex_lock(&ec_cb_lock);
-+	desc->err = ec_driver->ec_cmd(desc->cmd, desc->inbuf, desc->inlen,
-+			desc->outbuf, desc->outlen, ec_cb_arg);
-+	mutex_unlock(&ec_cb_lock);
-+
-+	/* Finished, wake up olpc_ec_cmd() */
-+	complete(&desc->finished);
-+
-+	/* Run the worker thread again in case there are more cmds pending */
-+	schedule_work(&ec_worker);
-+}
-+
-+/*
-+ * Throw a cmd descripter onto the list.  We now have SMP OLPC machines, so
-+ * locking is pretty critical.
-+ */
-+static void queue_ec_descriptor(struct ec_cmd_desc *desc)
-+{
-+	unsigned long flags;
-+
-+	INIT_LIST_HEAD(&desc->node);
-+
-+	spin_lock_irqsave(&ec_cmd_q_lock, flags);
-+	list_add_tail(&desc->node, &ec_cmd_q);
-+	spin_unlock_irqrestore(&ec_cmd_q_lock, flags);
-+
-+	schedule_work(&ec_worker);
-+}
-+
- int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
- {
--	/* Currently a stub; this will be expanded upon later. */
--	return olpc_ec_cmd_x86(cmd, inbuf, inlen, outbuf, outlen);
-+	struct ec_cmd_desc desc;
-+
-+	/* XXX: this will be removed in later patches */
-+	/* Are we using old-style callers? */
-+	if (!ec_driver || !ec_driver->ec_cmd)
-+		return olpc_ec_cmd_x86(cmd, inbuf, inlen, outbuf, outlen);
-+
-+	/* Ensure a driver and ec hook have been registered */
-+	if (WARN_ON(!ec_driver || !ec_driver->ec_cmd))
-+		return -ENODEV;
-+
-+	might_sleep();
-+
-+	desc.cmd = cmd;
-+	desc.inbuf = inbuf;
-+	desc.outbuf = outbuf;
-+	desc.inlen = inlen;
-+	desc.outlen = outlen;
-+	desc.err = 0;
-+	init_completion(&desc.finished);
-+
-+	queue_ec_descriptor(&desc);
-+
-+	/* Timeouts must be handled in the platform-specific EC hook */
-+	wait_for_completion(&desc.finished);
-+
-+	/* The worker thread dequeues the cmd; no need to do anything here */
-+	return desc.err;
+ #include <linux/list.h>
+@@ -122,3 +123,50 @@ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
+ 	return desc.err;
  }
  EXPORT_SYMBOL_GPL(olpc_ec_cmd);
++
++static int olpc_ec_probe(struct platform_device *pdev)
++{
++	int err;
++
++	if (!ec_driver)
++		return -ENODEV;
++
++	err = ec_driver->probe ? ec_driver->probe(pdev) : 0;
++
++	return err;
++}
++
++static int olpc_ec_suspend(struct device *dev)
++{
++	struct platform_device *pdev = to_platform_device(dev);
++	return ec_driver->suspend ? ec_driver->suspend(pdev) : 0;
++}
++
++static int olpc_ec_resume(struct device *dev)
++{
++	struct platform_device *pdev = to_platform_device(dev);
++	return ec_driver->resume ? ec_driver->resume(pdev) : 0;
++}
++
++static const struct dev_pm_ops olpc_ec_pm_ops = {
++	.suspend_late = olpc_ec_suspend,
++	.resume_early = olpc_ec_resume,
++};
++
++static struct platform_driver olpc_ec_plat_driver = {
++	.probe = olpc_ec_probe,
++	.driver = {
++		.name = "olpc-ec",
++		.pm = &olpc_ec_pm_ops,
++	},
++};
++
++static int __init olpc_ec_init_module(void)
++{
++	return platform_driver_register(&olpc_ec_plat_driver);
++}
++
++module_init(olpc_ec_init_module);
++
++MODULE_AUTHOR("Andres Salomon <dilinger@queued.net>");
++MODULE_LICENSE("GPL");
 diff --git a/include/linux/olpc-ec.h b/include/linux/olpc-ec.h
-index 6d4e426..231e96f 100644
+index 231e96f..5bb6e76 100644
 --- a/include/linux/olpc-ec.h
 +++ b/include/linux/olpc-ec.h
-@@ -14,8 +14,14 @@
+@@ -14,7 +14,13 @@
  #define EC_SCI_QUERY			0x84
  #define EC_EXT_SCI_QUERY		0x85
  
-+struct olpc_ec_driver {
-+	int (*ec_cmd)(u8, u8 *, size_t, u8 *, size_t, void *);
-+};
++struct platform_device;
 +
- #ifdef CONFIG_OLPC
- 
-+extern void olpc_ec_driver_register(struct olpc_ec_driver *drv, void *arg);
+ struct olpc_ec_driver {
++	int (*probe)(struct platform_device *);
++	int (*suspend)(struct platform_device *);
++	int (*resume)(struct platform_device *);
 +
- extern int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf,
- 		size_t outlen);
+ 	int (*ec_cmd)(u8, u8 *, size_t, u8 *, size_t, void *);
+ };
  
 -- 
 1.7.2.5
