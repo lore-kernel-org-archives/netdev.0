@@ -1,65 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] jme: netpoll support
-Date: Thu, 19 Jul 2012 05:08:29 +0100
-Message-ID: <1342670909.11373.105.camel@deadeye.wl.decadent.org.uk>
-References: <18143736.brt1iGhlQ1@al>
-	 <20120718.094524.264223189588300582.davem@davemloft.net>
-	 <20120719015637.M13815@cooldavid.org>
-	 <20120718.202431.2078849403941565725.davem@davemloft.net>
+From: Andres Salomon <dilinger@queued.net>
+Subject: [PATCH 0/9] OLPC: create a generic OLPC EC driver
+Date: Wed, 18 Jul 2012 21:21:40 -0700
+Message-ID: <20120718212140.2e538301@dev.queued.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <cooldavid@cooldavid.org>, <lekensteyn@gmail.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64845 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750730Ab2GSEId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 00:08:33 -0400
-In-Reply-To: <20120718.202431.2078849403941565725.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Fox <pgf@laptop.org>, Daniel Drake <dsd@laptop.org>,
+	"Richard A. Smith" <richard@laptop.org>,
+	linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	platform-driver-x86@vger.kernel.org, devel@driverdev.osuosl.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Dan Williams <dcbw@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Matthew Garrett <mjg@redhat.com>,
+	Anton Vorontsov <cbou@mail.ru>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Chris Ball <cjb@laptop.org>,
+	Jon Nettleton <jon.nettleton@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-07-18 at 20:24 -0700, David Miller wrote:
-> From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-> Date: Thu, 19 Jul 2012 10:00:10 +0800
-> 
-> > On Wed, 18 Jul 2012 09:45:24 -0700 (PDT), David Miller wrote
-> >> From: Lekensteyn <lekensteyn@gmail.com>
-> >> Date: Tue, 17 Jul 2012 18:29:34 +0200
-> >> 
-> >> > From: Peter Wu <lekensteyn@gmail.com>
-> >> > 
-> >> > This patch adds the netpoll function to support netconsole. Tested and works
-> >> > fine on my "JMC250 PCI Express Gigabit Ethernet Controller" (PCI ID 0250).
-> >> > 
-> >> > Signed-off-by: Peter Wu <lekensteyn@gmail.com>
-> >> 
-> >> Applied to net-next
-> >> 
-> >> I really wonder if this driver works on SMP systems at all.
-> > Hi davem:
-> > 
-> > I wrote/tested this driver on SMP system at very beginning.
-> > In face some of the design was aimed for SMP systems.
-> > Is there any obvious bug or something I should be aware of?
-> 
-> Well, you do no locking in your IRQ handler.
-> 
-> So how can you be sure in jme_free_irq() during jme_close() that the
-> handler is not running on some cpu somewhere?
-> 
-> That's why drivers like drivers/net/ethernet/broadcom/tg3.c have
-> a function like tg3_irq_quiesce(), to guarentee that no code path
-> is executing in the interrupt handler.
+The OLPC EC (Embedded Controller) code that is currently upstream is
+x86-only, originally written for the XO-1.  Since then, we've had the
+XO-1.5 (also x86), and XO-1.75 (arm-based) enter mass production.  The
+1.75 uses a vastly different EC protocol, and future hardware revisions
+are likely to change it even further.
 
-What on earth are you talking about?  You can never be sure of that with
-shared IRQ handlers; so free_irq() wait if necessary.
+However, the drivers do share quite a bit of code, so it makes sense to
+have a platform-agnostic driver that calls into platform-specific hooks
+for each XO's EC driver.  This is the first stab and creating such a
+beast (with further patches pending).  Aside from the lack of code
+duplication, this is helpful for fixing bugs in one place (for example,
+we fixed an EC suspend/resume bug in 1.75 that I've just seen happen on
+1.5 without these patches.  With these patches, the problem goes away).
 
-Ben.
+These patches are against Linus's current HEAD; let me know if they
+don't apply somewhere, and I'll happily redo them against the -next
+tree.  I'm assuming that these changes (which touch places like x86,
+wireless, and staging) should go through either the x86 tree, or
+through akpm's tree.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Alternatively, if the reviews are positive and I can get SOBs from the
+relevant maintainers, I can set up a platform-olpc tree somewhere and
+request a pull from Linus.
