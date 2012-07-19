@@ -1,100 +1,153 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2] net: e100: ucode is optional in some cases
-Date: Thu, 19 Jul 2012 18:28:40 +0200
-Message-ID: <1342715320-990-1-git-send-email-bjorn@mork.no>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH] net,
+ cgroup: Fix boot failure due to iteration of uninitialized list
+Date: Thu, 19 Jul 2012 21:57:37 +0530
+Message-ID: <20120719162532.23505.85946.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mark.d.rustad@intel.com, john.r.fastabend@intel.com,
+	lizefan@huawei.com
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	gaofeng@cn.fujitsu.com, eric.dumazet@gmail.com,
+	nhorman@tuxdriver.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp05.au.ibm.com ([202.81.31.147]:46072 "EHLO
+	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751559Ab2GSQ2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:28:50 -0400
+Received: from /spool/local
+	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
+	Thu, 19 Jul 2012 16:22:35 +1000
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ICBjb21taXQgOWFjMzJlMWIgZmlybXdhcmU6IGNvbnZlcnQgZTEwMCBkcml2ZXIgdG8gcmVxdWVz
-dF9maXJtd2FyZSgpCgpkaWQgYSBzdHJhaWdodCBjb252ZXJzaW9uIG9mIHRoZSBpbi1kcml2ZXIg
-dWNvZGUgdG8gZXh0ZXJuYWwKZmlsZXMuICBUaGlzIGludHJvZHVjZWQgdGhlIHBvc3NpYmlsaXR5
-IG9mIHRoZSBkcml2ZXIgZmFpbGluZwp0byBlbmFibGUgYW4gaW50ZXJmYWNlIGR1ZSB0byBtaXNz
-aW5nIHVjb2RlLiBUaGVyZSB3YXMgbm8KZXZhbHVhdGlvbiBvZiB0aGUgaW1wb3J0YW5jZSBvZiB0
-aGUgdWNvZGUgYXQgdGhlIHRpbWUuCgpCYXNlZCBvbiBjb21tZW50cyBpbiBlYXJsaWVyIHZlcnNp
-b25zIG9mIHRoaXMgZHJpdmVyLCBhbmQgaW4KdGhlIHNvdXJjZSBjb2RlIGZvciB0aGUgRnJlZUJT
-RCBmeHAgZHJpdmVyLCB3ZSBjYW4gYXNzdW1lIHRoYXQKdGhlIHVjb2RlIGltcGxlbWVudHMgdGhl
-ICJDUFUgQ3ljbGUgU2F2ZXIiIGZlYXR1cmUgb24gc3VwcG9ydGVkCmFkYXB0ZXJzLiAgQWx0aG91
-Z2ggZ2VuZXJhbGx5IHdhbnRlZCwgdGhpcyBpcyBhbiBvcHRpb25hbApmZWF0dXJlLiBUaGUgdWNv
-ZGUgc291cmNlIGlzIG5vdCBhdmFpbGFibGUsIHByZXZlbnRpbmcgaXQgZnJvbQpiZWluZyBpbmNs
-dWRlZCBpbiBmcmVlIGRpc3RyaWJ1dGlvbnMuIFRoaXMgY3JlYXRlcyB1bm5lY2Vzc2FyeQpwcm9i
-bGVtcyBmb3IgdGhlIGVuZCB1c2Vycy4gRG9pbmcgYSBuZXR3b3JrIGluc3RhbGwgYmFzZWQgb24g
-YQpmcmVlIGRpc3RyaWJ1dGlvbiBpbnN0YWxsZXIgcmVxdWlyZXMgdGhlIHVzZXIgdG8gZG93bmxv
-YWQgYW5kCmluc2VydCB0aGUgdWNvZGUgaW50byB0aGUgaW5zdGFsbGVyLgoKTWFraW5nIHRoZSB1
-Y29kZSBvcHRpb25hbCB3aGVuIHBvc3NpYmxlIGltcHJvdmVzIHRoZSB1c2VyCmV4cGVyaWVuY2Ug
-YW5kIGRyaXZlciB1c2FiaWxpdHkuCgpUaGUgdWNvZGUgZm9yIHNvbWUgYWRhcHRlcnMgaW5jbHVk
-ZSBhIGJ1Z2ZpeCwgbWFraW5nIGl0CmVzc2VudGlhbC4gIFdlIGNvbnRpbnVlIHRvIGZhaWwgZm9y
-IHRoZXNlIGFkYXB0ZXJzIHVubGVzcyB0aGUKdWNvZGUgaXMgYXZhaWxhYmxlLgoKU2lnbmVkLW9m
-Zi1ieTogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+Ci0tLQp2MjogcmVtb3ZlZCBVUkxzIGZy
-b20gdGhlIHBhdGNoLCBjb252ZXJ0aW5nIHRoZW0gdG8gZ2VuZXJpYwogICAgZGVzY3JpcHRpb25z
-IG9mIHRoZSBzb3VyY2VzIG9mIGluZm9ybWF0aW9uCgoKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2UxMDAuYyB8ICAgNDAgKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLQog
-MSBmaWxlIGNoYW5nZWQsIDMxIGluc2VydGlvbnMoKyksIDkgZGVsZXRpb25zKC0pCgpkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMC5jIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvZTEwMC5jCmluZGV4IGFkYTcyMGIuLjUzNWY5NGYgMTAwNjQ0Ci0tLSBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9lMTAwLmMKQEAgLTEyNDksMjAgKzEyNDksMzUgQEAgc3RhdGljIGNvbnN0IHN0cnVj
-dCBmaXJtd2FyZSAqZTEwMF9yZXF1ZXN0X2Zpcm13YXJlKHN0cnVjdCBuaWMgKm5pYykKIAljb25z
-dCBzdHJ1Y3QgZmlybXdhcmUgKmZ3ID0gbmljLT5mdzsKIAl1OCB0aW1lciwgYnVuZGxlLCBtaW5f
-c2l6ZTsKIAlpbnQgZXJyID0gMDsKKwlib29sIHJlcXVpcmVkID0gZmFsc2U7CiAKIAkvKiBkbyBu
-b3QgbG9hZCB1LWNvZGUgZm9yIElDSCBkZXZpY2VzICovCiAJaWYgKG5pYy0+ZmxhZ3MgJiBpY2gp
-CiAJCXJldHVybiBOVUxMOwogCi0JLyogU2VhcmNoIGZvciB1Y29kZSBtYXRjaCBhZ2FpbnN0IGgv
-dyByZXZpc2lvbiAqLwotCWlmIChuaWMtPm1hYyA9PSBtYWNfODI1NTlfRDEwMU0pCisJLyogU2Vh
-cmNoIGZvciB1Y29kZSBtYXRjaCBhZ2FpbnN0IGgvdyByZXZpc2lvbgorCSAqCisJICogQmFzZWQg
-b24gY29tbWVudHMgaW4gdGhlIHNvdXJjZSBjb2RlIGZvciB0aGUgRnJlZUJTRCBmeHAKKwkgKiBk
-cml2ZXIsIHRoZSBGSVJNV0FSRV9EMTAyRSB1Y29kZSBpbmNsdWRlcyBib3RoIENQVVNhdmVyIGFu
-ZAorCSAqCisJICogICAgImZpeGVzIGZvciBidWdzIGluIHRoZSBCLXN0ZXAgaGFyZHdhcmUgKHNw
-ZWNpZmljYWxseSwgYnVncworCSAqICAgICB3aXRoIElubGluZSBSZWNlaXZlKS4iCisJICoKKwkg
-KiBTbyB3ZSBtdXN0IGZhaWwgaWYgaXQgY2Fubm90IGJlIGxvYWRlZC4KKwkgKgorCSAqIFRoZSBv
-dGhlciBtaWNyb2NvZGUgZmlsZXMgYXJlIG9ubHkgcmVxdWlyZWQgZm9yIHRoZSBvcHRpb25hbAor
-CSAqIENQVVNhdmVyIGZlYXR1cmUuICBOaWNlIHRvIGhhdmUsIGJ1dCBubyByZWFzb24gdG8gZmFp
-bC4KKwkgKi8KKwlpZiAobmljLT5tYWMgPT0gbWFjXzgyNTU5X0QxMDFNKSB7CiAJCWZ3X25hbWUg
-PSBGSVJNV0FSRV9EMTAxTTsKLQllbHNlIGlmIChuaWMtPm1hYyA9PSBtYWNfODI1NTlfRDEwMVMp
-CisJfSBlbHNlIGlmIChuaWMtPm1hYyA9PSBtYWNfODI1NTlfRDEwMVMpIHsKIAkJZndfbmFtZSA9
-IEZJUk1XQVJFX0QxMDFTOwotCWVsc2UgaWYgKG5pYy0+bWFjID09IG1hY184MjU1MV9GIHx8IG5p
-Yy0+bWFjID09IG1hY184MjU1MV8xMCkKKwl9IGVsc2UgaWYgKG5pYy0+bWFjID09IG1hY184MjU1
-MV9GIHx8IG5pYy0+bWFjID09IG1hY184MjU1MV8xMCkgewogCQlmd19uYW1lID0gRklSTVdBUkVf
-RDEwMkU7Ci0JZWxzZSAvKiBObyB1Y29kZSBvbiBvdGhlciBkZXZpY2VzICovCisJCXJlcXVpcmVk
-ID0gdHJ1ZTsKKwl9IGVsc2UgeyAvKiBObyB1Y29kZSBvbiBvdGhlciBkZXZpY2VzICovCiAJCXJl
-dHVybiBOVUxMOworCX0KIAogCS8qIElmIHRoZSBmaXJtd2FyZSBoYXMgbm90IHByZXZpb3VzbHkg
-YmVlbiBsb2FkZWQsIHJlcXVlc3QgYSBwb2ludGVyCiAJICogdG8gaXQuIElmIGl0IHdhcyBwcmV2
-aW91c2x5IGxvYWRlZCwgd2UgYXJlIHJlaW5pdGlhbGl6aW5nIHRoZQpAQCAtMTI3MywxMCArMTI4
-OCwxNyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IGZpcm13YXJlICplMTAwX3JlcXVlc3RfZmlybXdh
-cmUoc3RydWN0IG5pYyAqbmljKQogCQllcnIgPSByZXF1ZXN0X2Zpcm13YXJlKCZmdywgZndfbmFt
-ZSwgJm5pYy0+cGRldi0+ZGV2KTsKIAogCWlmIChlcnIpIHsKLQkJbmV0aWZfZXJyKG5pYywgcHJv
-YmUsIG5pYy0+bmV0ZGV2LAotCQkJICAiRmFpbGVkIHRvIGxvYWQgZmlybXdhcmUgXCIlc1wiOiAl
-ZFxuIiwKLQkJCSAgZndfbmFtZSwgZXJyKTsKLQkJcmV0dXJuIEVSUl9QVFIoZXJyKTsKKwkJaWYg
-KHJlcXVpcmVkKSB7CisJCQluZXRpZl9lcnIobmljLCBwcm9iZSwgbmljLT5uZXRkZXYsCisJCQkJ
-ICAiRmFpbGVkIHRvIGxvYWQgZmlybXdhcmUgXCIlc1wiOiAlZFxuIiwKKwkJCQkgIGZ3X25hbWUs
-IGVycik7CisJCQlyZXR1cm4gRVJSX1BUUihlcnIpOworCQl9IGVsc2UgeworCQkJbmV0aWZfaW5m
-byhuaWMsIHByb2JlLCBuaWMtPm5ldGRldiwKKwkJCQkgICAiQ1BVU2F2ZXIgZGlzYWJsZWQuIE5l
-ZWRzIFwiJXNcIjogJWRcbiIsCisJCQkJICAgZndfbmFtZSwgZXJyKTsKKwkJCXJldHVybiBOVUxM
-OworCQl9CiAJfQogCiAJLyogRmlybXdhcmUgc2hvdWxkIGJlIHByZWNpc2VseSBVQ09ERV9TSVpF
-ICh3b3JkcykgcGx1cyB0aHJlZSBieXRlcwotLSAKMS43LjEwLjQKCgotLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0KTGl2ZSBTZWN1cml0eSBWaXJ0dWFsIENvbmZlcmVuY2UKRXhjbHVzaXZlIGxpdmUgZXZl
-bnQgd2lsbCBjb3ZlciBhbGwgdGhlIHdheXMgdG9kYXkncyBzZWN1cml0eSBhbmQgCnRocmVhdCBs
-YW5kc2NhcGUgaGFzIGNoYW5nZWQgYW5kIGhvdyBJVCBtYW5hZ2VycyBjYW4gcmVzcG9uZC4gRGlz
-Y3Vzc2lvbnMgCndpbGwgaW5jbHVkZSBlbmRwb2ludCBzZWN1cml0eSwgbW9iaWxlIHNlY3VyaXR5
-IGFuZCB0aGUgbGF0ZXN0IGluIG1hbHdhcmUgCnRocmVhdHMuIGh0dHA6Ly93d3cuYWNjZWxhY29t
-bS5jb20vamF3L3Nmcm5sMDQyNDIwMTIvMTE0LzUwMTIyMjYzLwpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEw
-MDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2Uu
-bmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwm
-IzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVu
-aXR5L3dpcmVkCg==
+After commit ef209f15 (net: cgroup: fix access the unallocated memory in
+netprio cgroup), boot fails with the following NULL pointer dereference:
+
+Initializing cgroup subsys devices
+Initializing cgroup subsys freezer
+Initializing cgroup subsys net_cls
+Initializing cgroup subsys blkio
+Initializing cgroup subsys perf_event
+Initializing cgroup subsys net_prio
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000698
+IP: [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
+PGD 0
+Oops: 0000 [#1] SMP
+CPU 0
+Modules linked in:
+
+Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc7-mandeep #1 IBM IBM System x -[7870C4Q]-/68Y8033
+RIP: 0010:[<ffffffff8145e8d6>]  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
+RSP: 0000:ffffffff81a01ea8  EFLAGS: 00010213
+RAX: 0000000000000000 RBX: ffffffffffffff10 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 0000000000000246 RDI: ffffffff81aa70a0
+RBP: ffffffff81a01ed8 R08: 0000000000000000 R09: 0000000000000000
+R10: ffff8808ff8641c0 R11: 6e697a696c616974 R12: 0000000000000001
+R13: ffff8808ff8641c0 R14: 0000000000000000 R15: 0000000000093970
+FS:  0000000000000000(0000) GS:ffff8808ffc00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000000000698 CR3: 0000000001a0b000 CR4: 00000000000006b0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process swapper/0 (pid: 0, threadinfo ffffffff81a00000, task ffffffff81a13420)
+Stack:
+ ffffffff81a01eb8 ffffffff818060ff ffffffff81d75ec8 ffffffff81aa8960
+ ffffffff81aa8960 ffffffff81b4c2c0 ffffffff81a01ef8 ffffffff81b1cb78
+ 0000000000000018 0000000000000048 ffffffff81a01f18 ffffffff81b1ce13
+Call Trace:
+ [<ffffffff81b1cb78>] cgroup_init_subsys+0x83/0x169
+ [<ffffffff81b1ce13>] cgroup_init+0x36/0x119
+ [<ffffffff81affef7>] start_kernel+0x3ba/0x3ef
+ [<ffffffff81aff95b>] ? kernel_init+0x27b/0x27b
+ [<ffffffff81aff356>] x86_64_start_reservations+0x131/0x136
+ [<ffffffff81aff45e>] x86_64_start_kernel+0x103/0x112
+Code: 01 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 75 1b eb 73 0f 1f 00 48 8b 83 f0 00 00 00 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 74 5a <48> 8b 83 88 07 00 00 48 85 c0 74 de 44 3b 60 10 76 d8 44 89 e6
+RIP  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
+ RSP <ffffffff81a01ea8>
+CR2: 0000000000000698
+---[ end trace a7919e7f17c0a725 ]---
+Kernel panic - not syncing: Attempted to kill the idle task!
+
+The code corresponds to:
+
+update_netdev_tables():
+        for_each_netdev(&init_net, dev) {
+                map = rtnl_dereference(dev->priomap);  <---- HERE
+
+
+The list head is initialized in netdev_init(), which is called much
+later than cgrp_create(). So the problem is that we are calling
+update_netdev_tables() way too early (in cgrp_create()), which will
+end up traversing the not-yet-circular linked list. So at some point,
+the dev pointer will become NULL and hence dev->priomap becomes an
+invalid access.
+
+To fix this, just remove the update_netdev_tables() function entirely,
+since it appears that write_update_netdev_table() will handle things
+just fine.
+
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+Requesting a thorough review of this patch, since I am not sure whether
+removing update_netdev_tables() is perfectly OK and whether that is the
+right thing to do.
+
+ net/core/netprio_cgroup.c |   32 --------------------------------
+ 1 files changed, 0 insertions(+), 32 deletions(-)
+
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index b2e9caa..68fe239 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -109,32 +109,6 @@ static int write_update_netdev_table(struct net_device *dev)
+ 	return ret;
+ }
+ 
+-static int update_netdev_tables(void)
+-{
+-	int ret = 0;
+-	struct net_device *dev;
+-	u32 max_len;
+-	struct netprio_map *map;
+-
+-	rtnl_lock();
+-	max_len = atomic_read(&max_prioidx) + 1;
+-	for_each_netdev(&init_net, dev) {
+-		map = rtnl_dereference(dev->priomap);
+-		/*
+-		 * don't allocate priomap if we didn't
+-		 * change net_prio.ifpriomap (map == NULL),
+-		 * this will speed up skb_update_prio.
+-		 */
+-		if (map && map->priomap_len < max_len) {
+-			ret = extend_netdev_table(dev, max_len);
+-			if (ret < 0)
+-				break;
+-		}
+-	}
+-	rtnl_unlock();
+-	return ret;
+-}
+-
+ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+ {
+ 	struct cgroup_netprio_state *cs;
+@@ -153,12 +127,6 @@ static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+ 		goto out;
+ 	}
+ 
+-	ret = update_netdev_tables();
+-	if (ret < 0) {
+-		put_prioidx(cs->prioidx);
+-		goto out;
+-	}
+-
+ 	return &cs->css;
+ out:
+ 	kfree(cs);
