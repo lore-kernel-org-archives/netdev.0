@@ -1,63 +1,75 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next V1 7/9] net/eipoib: Add main driver
- functionality
-Date: Thu, 19 Jul 2012 17:16:14 +0100
-Message-ID: <1342714574.2617.43.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342609202-32427-1-git-send-email-ogerlitz@mellanox.com>
-	  <1342609202-32427-8-git-send-email-ogerlitz@mellanox.com>
-	 <1342705789.2617.15.camel@bwh-desktop.uk.solarflarecom.com>
-	 <50082BDE.2040005@mellanox.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to neighbouring
+ system
+Date: Thu, 19 Jul 2012 19:20:41 +0300
+Message-ID: <500833D9.8000001@mellanox.com>
+References: <1342703938-29904-1-git-send-email-ogerlitz@mellanox.com> <1342703938-29904-2-git-send-email-ogerlitz@mellanox.com> <alpine.DEB.2.00.1207190938190.28115@router.home> <50082183.5000402@mellanox.com> <alpine.DEB.2.00.1207191023130.29808@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <roland@kernel.org>,
-	<netdev@vger.kernel.org>, <ali@mellanox.com>,
-	<sean.hefty@intel.com>, <shlomop@mellanox.com>,
-	Erez Shitrit <erezsh@mellanox.co.il>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:22404 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750894Ab2GSQQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:16:19 -0400
-In-Reply-To: <50082BDE.2040005@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Shlomo Pongartz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.00.1207191023130.29808-sBS69tsa9Uj/9pzu0YdTqQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-19 at 18:46 +0300, Or Gerlitz wrote:
-> On 7/19/2012 4:49 PM, Ben Hutchings wrote:
-> > On Wed, 2012-07-18 at 14:00 +0300, Or Gerlitz wrote:
-[...]
-> >> +	.ndo_vlan_rx_add_vid = eth_ipoib_vlan_rx_add_vid,
-> >> +	.ndo_vlan_rx_kill_vid = eth_ipoib_vlan_rx_kill_vid,
-> >
-> > These shouldn't be needed.
-> 
-> ok, here's the point, the eIPoIB driver maps Ethernet vlans to 
-> infiniband/IPoIB pkeys
-> (partition keys). The underlying IPoIB devices work with these pkeys
-> in a way which is HW accelerated, and we want the eIPoIB driver to be 
-> considered as one
-> that support HW accelerate vlans. E.g on the TX flow we don't want that 
-> any special SW
-> handling by the 8021q driver will be done on the skb except for setting 
-> the skb->vlan_tci
-> field, and in the RX flow, we set skb->vlan_tci field and don't want 
-> that 8021q to try
-> and extract it from the headers, etc.
-> 
-> For that end, I was under the impression all the three 
-> NETIF_F_HW_VLAN_{TX,RX,FILTER)
-> features need to be advertized. From your comment I understand now that 
-> RX/TX are enough
-> in that respect?
-[...]
+On 7/19/2012 6:24 PM, Christoph Lameter wrote:
+> On Thu, 19 Jul 2012, Shlomo Pongartz wrote:
+>
+>> The garbage collection and stale times follow the default ipv4/6 neigh.default.gc_yyy
+>> sysctl values, for example
+>>
+>> net.ipv4.neigh.default.gc_interval = 30
+>> net.ipv4.neigh.default.gc_stale_time = 60
+>>
+>> If given access to these values from IPoIB, we will be happy
+>> to integrate them into that logic
+>
+> It looks like the values are hardcoded right now.
 
-Yes.
+Two points here,
 
-Ben.
+1s, they are indeed hard-coded since there's no define/enum
+that holds their default values (or maybe we should add one now?), see
+this code snippest from net/ipv4/arp.c
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>         .gc_interval    = 30 * HZ,
+>         .gc_thresh1     = 128,
+>         .gc_thresh2     = 512,
+>         .gc_thresh3     = 1024,
+
+2nd, and even more interesting, the little challenge here is how
+to integrate with the sysctl's that allow for changing these values,
+the mechanism that uses neigh_sysctl_table in net/core/neighbour.c isn't
+exported to the rest of the world. And there's no point to define new
+sysctl entries just for managing the IPoIB neighbours, ideas welcome.
+
+
+>> Please clarify what do you mean by group expiration.
+>
+> If you have neighbor expiration periods of 4 hrs and it is necessary to
+> run the expiration logic then please expire all the neighbor entries due a
+> certain period after that as well to avoid running the expiration again in
+> the next minute or so.
+
+
+This is still a bit unclear here... do you mean to say that at a certain 
+point in time,
+**all** entries need to be deleted irrelevant of their (jiffies) age? why?
+
+> I guess the fuzz factor needs to scale depending on the expiration period.
+>
+>
+
+and this is what happens now, the factor is 0.5, entry would be deleted when
+if  (60m <= unused < 90s) holds
+
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
