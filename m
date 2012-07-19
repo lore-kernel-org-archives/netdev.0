@@ -1,230 +1,159 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 08/16] net: Document dst->obsolete better.
-Date: Thu, 19 Jul 2012 14:35:17 -0700 (PDT)
-Message-ID: <20120719.143517.1962854632305184667.davem@davemloft.net>
+Subject: [PATCH 09/16] ipv4: Kill routes during PMTU/redirect updates.
+Date: Thu, 19 Jul 2012 14:35:26 -0700 (PDT)
+Message-ID: <20120719.143526.163351764035435416.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48280 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48284 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751936Ab2GSVfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 17:35:18 -0400
+	with ESMTP id S1751936Ab2GSVf1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 17:35:27 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id D45E95845A1
-	for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 14:35:19 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 2B3275845A1
+	for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 14:35:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Add a big comment explaining how the field works, and use defines
-instead of magic constants for the values assigned to it.
-
-Suggested by Joe Perches.
+Mark them obsolete so there will be a re-lookup to fetch the
+FIB nexthop exception info.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/dst.h      |   14 +++++++++++++-
- net/core/dst.c         |    4 ++--
- net/decnet/dn_route.c  |    4 ++--
- net/ipv4/route.c       |    5 +++--
- net/ipv6/route.c       |    4 ++--
- net/sctp/transport.c   |    2 +-
- net/xfrm/xfrm_policy.c |   23 ++++++++++++-----------
- 7 files changed, 35 insertions(+), 21 deletions(-)
+ include/net/dst.h |    1 +
+ net/ipv4/route.c  |   41 +++++++++++++++++++++++++++++------------
+ 2 files changed, 30 insertions(+), 12 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 5161046..0df661a 100644
+index 0df661a..baf5978 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -65,7 +65,19 @@ struct dst_entry {
- 	unsigned short		pending_confirm;
- 
- 	short			error;
-+
-+	/* A non-zero value of dst->obsolete forces by-hand validation
-+	 * of the route entry.  Positive values are set by the generic
-+	 * dst layer to indicate that the entry has been forcefully
-+	 * destroyed.
-+	 *
-+	 * Negative values are used by the implementation layer code to
-+	 * force invocation of the dst_ops->check() method.
-+	 */
- 	short			obsolete;
-+#define DST_OBSOLETE_NONE	0
-+#define DST_OBSOLETE_DEAD	2
-+#define DST_OBSOLETE_FORCE_CHK	-1
+@@ -78,6 +78,7 @@ struct dst_entry {
+ #define DST_OBSOLETE_NONE	0
+ #define DST_OBSOLETE_DEAD	2
+ #define DST_OBSOLETE_FORCE_CHK	-1
++#define DST_OBSOLETE_KILL	-2
  	unsigned short		header_len;	/* more space at head required */
  	unsigned short		trailer_len;	/* space to reserve at tail */
  #ifdef CONFIG_IP_ROUTE_CLASSID
-@@ -359,7 +371,7 @@ extern struct dst_entry *dst_destroy(struct dst_entry *dst);
- 
- static inline void dst_free(struct dst_entry *dst)
- {
--	if (dst->obsolete > 1)
-+	if (dst->obsolete > 0)
- 		return;
- 	if (!atomic_read(&dst->__refcnt)) {
- 		dst = dst_destroy(dst);
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 07bacff..069d51d 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -94,7 +94,7 @@ loop:
- 			 * But we do not have state "obsoleted, but
- 			 * referenced by parent", so it is right.
- 			 */
--			if (dst->obsolete > 1)
-+			if (dst->obsolete > 0)
- 				continue;
- 
- 			___dst_free(dst);
-@@ -202,7 +202,7 @@ static void ___dst_free(struct dst_entry *dst)
- 	 */
- 	if (dst->dev == NULL || !(dst->dev->flags&IFF_UP))
- 		dst->input = dst->output = dst_discard;
--	dst->obsolete = 2;
-+	dst->obsolete = DST_OBSOLETE_DEAD;
- }
- 
- void __dst_free(struct dst_entry *dst)
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 47de90d..23cc11d 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1176,7 +1176,7 @@ make_route:
- 	if (dev_out->flags & IFF_LOOPBACK)
- 		flags |= RTCF_LOCAL;
- 
--	rt = dst_alloc(&dn_dst_ops, dev_out, 1, 0, DST_HOST);
-+	rt = dst_alloc(&dn_dst_ops, dev_out, 1, DST_OBSOLETE_NONE, DST_HOST);
- 	if (rt == NULL)
- 		goto e_nobufs;
- 
-@@ -1444,7 +1444,7 @@ static int dn_route_input_slow(struct sk_buff *skb)
- 	}
- 
- make_route:
--	rt = dst_alloc(&dn_dst_ops, out_dev, 0, 0, DST_HOST);
-+	rt = dst_alloc(&dn_dst_ops, out_dev, 0, DST_OBSOLETE_NONE, DST_HOST);
- 	if (rt == NULL)
- 		goto e_nobufs;
- 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4e9e734..23078d6 100644
+index 23078d6..f902d08 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1221,7 +1221,7 @@ static void rt_set_nexthop(struct rtable *rt, const struct flowi4 *fl4,
- static struct rtable *rt_dst_alloc(struct net_device *dev,
- 				   bool nopolicy, bool noxfrm)
+@@ -673,7 +673,8 @@ out_unlock:
+ 	return;
+ }
+ 
+-static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flowi4 *fl4)
++static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flowi4 *fl4,
++			     bool kill_route)
  {
--	return dst_alloc(&ipv4_dst_ops, dev, 1, -1,
-+	return dst_alloc(&ipv4_dst_ops, dev, 1, DST_OBSOLETE_FORCE_CHK,
- 			 DST_HOST | DST_NOCACHE |
- 			 (nopolicy ? DST_NOPOLICY : 0) |
- 			 (noxfrm ? DST_NOXFRM : 0));
-@@ -1969,9 +1969,10 @@ static struct dst_ops ipv4_dst_blackhole_ops = {
+ 	__be32 new_gw = icmp_hdr(skb)->un.gateway;
+ 	__be32 old_gw = ip_hdr(skb)->saddr;
+@@ -728,8 +729,8 @@ static void __ip_do_redirect(struct rtable *rt, struct sk_buff *skb, struct flow
+ 				update_or_create_fnhe(nh, fl4->daddr, new_gw,
+ 						      0, 0);
+ 			}
+-			rt->rt_gateway = new_gw;
+-			rt->rt_flags |= RTCF_REDIRECTED;
++			if (kill_route)
++				rt->dst.obsolete = DST_OBSOLETE_KILL;
+ 			call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, n);
+ 		}
+ 		neigh_release(n);
+@@ -760,7 +761,7 @@ static void ip_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buf
+ 	rt = (struct rtable *) dst;
  
- struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_orig)
+ 	ip_rt_build_flow_key(&fl4, sk, skb);
+-	__ip_do_redirect(rt, skb, &fl4);
++	__ip_do_redirect(rt, skb, &fl4, true);
+ }
+ 
+ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst)
+@@ -919,7 +920,7 @@ out:	kfree_skb(skb);
+ 	return 0;
+ }
+ 
+-static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
++static u32 __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
  {
--	struct rtable *rt = dst_alloc(&ipv4_dst_blackhole_ops, NULL, 1, 0, 0);
- 	struct rtable *ort = (struct rtable *) dst_orig;
-+	struct rtable *rt;
+ 	struct fib_result res;
  
-+	rt = dst_alloc(&ipv4_dst_blackhole_ops, NULL, 1, DST_OBSOLETE_NONE, 0);
- 	if (rt) {
- 		struct dst_entry *new = &rt->dst;
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 84f6564..cf02cb9 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -281,7 +281,7 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
- 					     struct fib6_table *table)
- {
- 	struct rt6_info *rt = dst_alloc(&net->ipv6.ip6_dst_ops, dev,
--					0, 0, flags);
-+					0, DST_OBSOLETE_NONE, flags);
- 
- 	if (rt) {
- 		struct dst_entry *dst = &rt->dst;
-@@ -985,7 +985,7 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
- 	struct rt6_info *rt, *ort = (struct rt6_info *) dst_orig;
- 	struct dst_entry *new = NULL;
- 
--	rt = dst_alloc(&ip6_dst_blackhole_ops, ort->dst.dev, 1, 0, 0);
-+	rt = dst_alloc(&ip6_dst_blackhole_ops, ort->dst.dev, 1, DST_OBSOLETE_NONE, 0);
- 	if (rt) {
- 		new = &rt->dst;
- 
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index a6b7ee9..ec3a12b 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -216,7 +216,7 @@ void sctp_transport_set_owner(struct sctp_transport *transport,
- void sctp_transport_pmtu(struct sctp_transport *transport, struct sock *sk)
- {
- 	/* If we don't have a fresh route, look one up */
--	if (!transport->dst || transport->dst->obsolete > 1) {
-+	if (!transport->dst || transport->dst->obsolete) {
- 		dst_release(transport->dst);
- 		transport->af_specific->get_dst(transport, &transport->saddr,
- 						&transport->fl, sk);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 65bd1ca5..c5a5165 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1350,7 +1350,7 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
- 	default:
- 		BUG();
+@@ -932,8 +933,7 @@ static void __ip_rt_update_pmtu(struct rtable *rt, struct flowi4 *fl4, u32 mtu)
+ 		update_or_create_fnhe(nh, fl4->daddr, 0, mtu,
+ 				      jiffies + ip_rt_mtu_expires);
  	}
--	xdst = dst_alloc(dst_ops, NULL, 0, 0, 0);
-+	xdst = dst_alloc(dst_ops, NULL, 0, DST_OBSOLETE_NONE, 0);
+-	rt->rt_pmtu = mtu;
+-	dst_set_expires(&rt->dst, ip_rt_mtu_expires);
++	return mtu;
+ }
  
- 	if (likely(xdst)) {
- 		struct dst_entry *dst = &xdst->u.dst;
-@@ -1477,7 +1477,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		dst1->xfrm = xfrm[i];
- 		xdst->xfrm_genid = xfrm[i]->genid;
+ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+@@ -943,7 +943,14 @@ static void ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+ 	struct flowi4 fl4;
  
--		dst1->obsolete = -1;
-+		dst1->obsolete = DST_OBSOLETE_FORCE_CHK;
- 		dst1->flags |= DST_HOST;
- 		dst1->lastuse = now;
+ 	ip_rt_build_flow_key(&fl4, sk, skb);
+-	__ip_rt_update_pmtu(rt, &fl4, mtu);
++	mtu = __ip_rt_update_pmtu(rt, &fl4, mtu);
++
++	if (!rt->rt_pmtu) {
++		dst->obsolete = DST_OBSOLETE_KILL;
++	} else {
++		rt->rt_pmtu = mtu;
++		dst_set_expires(&rt->dst, ip_rt_mtu_expires);
++	}
+ }
  
-@@ -2219,12 +2219,13 @@ EXPORT_SYMBOL(__xfrm_route_forward);
- static struct dst_entry *xfrm_dst_check(struct dst_entry *dst, u32 cookie)
+ void ipv4_update_pmtu(struct sk_buff *skb, struct net *net, u32 mtu,
+@@ -989,7 +996,7 @@ void ipv4_redirect(struct sk_buff *skb, struct net *net,
+ 			 RT_TOS(iph->tos), protocol, mark, flow_flags);
+ 	rt = __ip_route_output_key(net, &fl4);
+ 	if (!IS_ERR(rt)) {
+-		__ip_do_redirect(rt, skb, &fl4);
++		__ip_do_redirect(rt, skb, &fl4, false);
+ 		ip_rt_put(rt);
+ 	}
+ }
+@@ -1004,7 +1011,7 @@ void ipv4_sk_redirect(struct sk_buff *skb, struct sock *sk)
+ 	__build_flow_key(&fl4, sk, iph, 0, 0, 0, 0, 0);
+ 	rt = __ip_route_output_key(sock_net(sk), &fl4);
+ 	if (!IS_ERR(rt)) {
+-		__ip_do_redirect(rt, skb, &fl4);
++		__ip_do_redirect(rt, skb, &fl4, false);
+ 		ip_rt_put(rt);
+ 	}
+ }
+@@ -1014,7 +1021,15 @@ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
  {
- 	/* Code (such as __xfrm4_bundle_create()) sets dst->obsolete
--	 * to "-1" to force all XFRM destinations to get validated by
--	 * dst_ops->check on every use.  We do this because when a
--	 * normal route referenced by an XFRM dst is obsoleted we do
--	 * not go looking around for all parent referencing XFRM dsts
--	 * so that we can invalidate them.  It is just too much work.
--	 * Instead we make the checks here on every use.  For example:
-+	 * to DST_OBSOLETE_FORCE_CHK to force all XFRM destinations to
-+	 * get validated by dst_ops->check on every use.  We do this
-+	 * because when a normal route referenced by an XFRM dst is
-+	 * obsoleted we do not go looking around for all parent
-+	 * referencing XFRM dsts so that we can invalidate them.  It
-+	 * is just too much work.  Instead we make the checks here on
-+	 * every use.  For example:
- 	 *
- 	 *	XFRM dst A --> IPv4 dst X
- 	 *
-@@ -2234,9 +2235,9 @@ static struct dst_entry *xfrm_dst_check(struct dst_entry *dst, u32 cookie)
- 	 * stale_bundle() check.
- 	 *
- 	 * When a policy's bundle is pruned, we dst_free() the XFRM
--	 * dst which causes it's ->obsolete field to be set to a
--	 * positive non-zero integer.  If an XFRM dst has been pruned
--	 * like this, we want to force a new route lookup.
-+	 * dst which causes it's ->obsolete field to be set to
-+	 * DST_OBSOLETE_DEAD.  If an XFRM dst has been pruned like
-+	 * this, we want to force a new route lookup.
- 	 */
- 	if (dst->obsolete < 0 && !stale_bundle(dst))
- 		return dst;
+ 	struct rtable *rt = (struct rtable *) dst;
+ 
+-	if (rt_is_expired(rt))
++	/* All IPV4 dsts are created with ->obsolete set to the value
++	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
++	 * into this function always.
++	 *
++	 * When a PMTU/redirect information update invalidates a
++	 * route, this is indicated by setting obsolete to
++	 * DST_OBSOLETE_KILL.
++	 */
++	if (dst->obsolete == DST_OBSOLETE_KILL || rt_is_expired(rt))
+ 		return NULL;
+ 	return dst;
+ }
+@@ -1186,8 +1201,10 @@ restart:
+ 				dst_set_expires(&rt->dst, diff);
+ 			}
+ 		}
+-		if (gw)
++		if (gw) {
++			rt->rt_flags |= RTCF_REDIRECTED;
+ 			rt->rt_gateway = gw;
++		}
+ 		fnhe->fnhe_stamp = jiffies;
+ 		break;
+ 	}
 -- 
 1.7.10.4
