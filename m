@@ -1,7 +1,7 @@
 From: Andres Salomon <dilinger@queued.net>
-Subject: [PATCH 4/9] Platform: OLPC: turn EC driver into a platform_driver
-Date: Wed, 18 Jul 2012 21:28:21 -0700
-Message-ID: <20120718212821.4d942867@dev.queued.net>
+Subject: [PATCH 5/9] Platform: OLPC: add a suspended flag to the EC driver
+Date: Wed, 18 Jul 2012 21:28:24 -0700
+Message-ID: <20120718212824.70ee6466@dev.queued.net>
 References: <20120718182144.2d7b0b50@dev.queued.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -31,100 +31,134 @@ Errors-To: devel-bounces@linuxdriverproject.org
 Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-The 1.75-based OLPC EC driver already does this; let's do it for all EC
-drivers.  This gives us nice suspend/resume hooks, amongst other things.
+A problem we've noticed on XO-1.75 is when we suspend in the middle of
+an EC command.  Don't allow that.
 
-We want to run the EC's suspend hooks later than other drivers (which may
-be setting wakeup masks or be running EC commands).  We also want to run
-the EC's resume hooks earlier than other drivers (which may want to run EC
-commands).
+In the process, create a private object for the generic EC driver to
+use; we have a framework for passing around a struct, use that rather
+than a proliferation of global variables.
 
 Signed-off-by: Andres Salomon <dilinger@queued.net>
 ---
- drivers/platform/olpc/olpc-ec.c |   48 +++++++++++++++++++++++++++++++++++++++
- include/linux/olpc-ec.h         |    6 +++++
- 2 files changed, 54 insertions(+), 0 deletions(-)
+ drivers/platform/olpc/olpc-ec.c |   46
+++++++++++++++++++++++++++++++++++++++- 1 files changed, 45
+insertions(+), 1 deletions(-)
 
-diff --git a/drivers/platform/olpc/olpc-ec.c b/drivers/platform/olpc/olpc-ec.c
-index 44e6a4f..d00523c 100644
+diff --git a/drivers/platform/olpc/olpc-ec.c
+b/drivers/platform/olpc/olpc-ec.c index d00523c..cfba41f 100644
 --- a/drivers/platform/olpc/olpc-ec.c
 +++ b/drivers/platform/olpc/olpc-ec.c
-@@ -8,6 +8,7 @@
- #include <linux/completion.h>
+@@ -9,6 +9,7 @@
  #include <linux/spinlock.h>
  #include <linux/mutex.h>
-+#include <linux/platform_device.h>
+ #include <linux/platform_device.h>
++#include <linux/slab.h>
  #include <linux/workqueue.h>
  #include <linux/module.h>
  #include <linux/list.h>
-@@ -122,3 +123,50 @@ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
- 	return desc.err;
- }
- EXPORT_SYMBOL_GPL(olpc_ec_cmd);
+@@ -27,6 +28,21 @@ struct ec_cmd_desc {
+ 	void *priv;
+ };
+ 
++struct olpc_ec_priv {
++	struct olpc_ec_driver *drv;
 +
-+static int olpc_ec_probe(struct platform_device *pdev)
-+{
-+	int err;
++	/*
++	 * Running an EC command while suspending means we don't
+always finish
++	 * the command before the machine suspends.  This means that
+the EC
++	 * is expecting the command protocol to finish, but we after a
+period
++	 * of time (while the OS is asleep) the EC times out and
+restarts its
++	 * idle loop.  Meanwhile, the OS wakes up, thinks it's still
+in the
++	 * middle of the command protocol, starts throwing random
+things at
++	 * the EC... and everyone's uphappy.
++	 */
++	bool suspended;
++};
 +
-+	if (!ec_driver)
-+		return -ENODEV;
+ static void olpc_ec_worker(struct work_struct *w);
+ 
+ static DECLARE_WORK(ec_worker, olpc_ec_worker);
+@@ -34,6 +50,7 @@ static LIST_HEAD(ec_cmd_q);
+ static DEFINE_SPINLOCK(ec_cmd_q_lock);
+ 
+ static struct olpc_ec_driver *ec_driver;
++static struct olpc_ec_priv *ec_priv;
+ static void *ec_cb_arg;
+ static DEFINE_MUTEX(ec_cb_lock);
+ 
+@@ -93,6 +110,7 @@ static void queue_ec_descriptor(struct ec_cmd_desc
+*desc) 
+ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t
+outlen) {
++	struct olpc_ec_priv *ec = ec_priv;
+ 	struct ec_cmd_desc desc;
+ 
+ 	/* XXX: this will be removed in later patches */
+@@ -104,6 +122,13 @@ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen,
+u8 *outbuf, size_t outlen) if (WARN_ON(!ec_driver
+|| !ec_driver->ec_cmd)) return -ENODEV;
+ 
++	if (!ec)
++		return -ENOMEM;
 +
-+	err = ec_driver->probe ? ec_driver->probe(pdev) : 0;
++	/* Suspending in the middle of a command hoses things really
+badly */
++	if (WARN_ON(ec->suspended))
++		return -EBUSY;
++
+ 	might_sleep();
+ 
+ 	desc.cmd = cmd;
+@@ -126,11 +151,19 @@ EXPORT_SYMBOL_GPL(olpc_ec_cmd);
+ 
+ static int olpc_ec_probe(struct platform_device *pdev)
+ {
++	struct olpc_ec_priv *ec;
+ 	int err;
+ 
+ 	if (!ec_driver)
+ 		return -ENODEV;
+ 
++	ec = kzalloc(sizeof(*ec), GFP_KERNEL);
++	if (!ec)
++		return -ENOMEM;
++	ec->drv = ec_driver;
++	ec_priv = ec;
++	platform_set_drvdata(pdev, ec);
++
+ 	err = ec_driver->probe ? ec_driver->probe(pdev) : 0;
+ 
+ 	return err;
+@@ -139,12 +172,23 @@ static int olpc_ec_probe(struct platform_device
+*pdev) static int olpc_ec_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+-	return ec_driver->suspend ? ec_driver->suspend(pdev) : 0;
++	struct olpc_ec_priv *ec = platform_get_drvdata(pdev);
++	int err = 0;
++
++	if (ec_driver->suspend)
++		err = ec_driver->suspend(pdev);
++	if (!err)
++		ec->suspended = true;
 +
 +	return err;
-+}
-+
-+static int olpc_ec_suspend(struct device *dev)
-+{
-+	struct platform_device *pdev = to_platform_device(dev);
-+	return ec_driver->suspend ? ec_driver->suspend(pdev) : 0;
-+}
-+
-+static int olpc_ec_resume(struct device *dev)
-+{
-+	struct platform_device *pdev = to_platform_device(dev);
-+	return ec_driver->resume ? ec_driver->resume(pdev) : 0;
-+}
-+
-+static const struct dev_pm_ops olpc_ec_pm_ops = {
-+	.suspend_late = olpc_ec_suspend,
-+	.resume_early = olpc_ec_resume,
-+};
-+
-+static struct platform_driver olpc_ec_plat_driver = {
-+	.probe = olpc_ec_probe,
-+	.driver = {
-+		.name = "olpc-ec",
-+		.pm = &olpc_ec_pm_ops,
-+	},
-+};
-+
-+static int __init olpc_ec_init_module(void)
-+{
-+	return platform_driver_register(&olpc_ec_plat_driver);
-+}
-+
-+module_init(olpc_ec_init_module);
-+
-+MODULE_AUTHOR("Andres Salomon <dilinger@queued.net>");
-+MODULE_LICENSE("GPL");
-diff --git a/include/linux/olpc-ec.h b/include/linux/olpc-ec.h
-index 231e96f..5bb6e76 100644
---- a/include/linux/olpc-ec.h
-+++ b/include/linux/olpc-ec.h
-@@ -14,7 +14,13 @@
- #define EC_SCI_QUERY			0x84
- #define EC_EXT_SCI_QUERY		0x85
+ }
  
-+struct platform_device;
+ static int olpc_ec_resume(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
++	struct olpc_ec_priv *ec = platform_get_drvdata(pdev);
 +
- struct olpc_ec_driver {
-+	int (*probe)(struct platform_device *);
-+	int (*suspend)(struct platform_device *);
-+	int (*resume)(struct platform_device *);
-+
- 	int (*ec_cmd)(u8, u8 *, size_t, u8 *, size_t, void *);
- };
++	ec->suspended = false;
+ 	return ec_driver->resume ? ec_driver->resume(pdev) : 0;
+ }
  
 -- 
 1.7.2.5
