@@ -1,113 +1,288 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v4] net: cgroup: fix access the unallocated memory in
- netprio cgroup
-Date: Thu, 19 Jul 2012 06:28:39 -0400
-Message-ID: <20120719102839.GA2070@hmsreliant.think-freely.org>
-References: <1342079415-9631-1-git-send-email-gaofeng@cn.fujitsu.com>
- <5005CF5D.9070905@intel.com>
- <20120718122106.GB25563@hmsreliant.think-freely.org>
- <5006C3CA.3010007@intel.com>
- <20120718142632.GF25563@hmsreliant.think-freely.org>
- <50075C43.7000706@huawei.com>
+From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
+Subject: Re: resurrecting tcphealth
+Date: Thu, 19 Jul 2012 12:37:22 +0200
+Message-ID: <54dd9e46b566d105ae595e2dabb23268.squirrel@webmail.univie.ac.at>
+References: <cc6495b92f1df180c1ad43057ceb0b98.squirrel@webmail.univie.ac.at>
+    <1342445557.2523.8.camel@bwh-desktop.uk.solarflarecom.com>
+    <436a23ea8f8df4e8e3c71c369f1e3649.squirrel@webmail.univie.ac.at>
+    <1648678.899sL4YBmA@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
-	"Rustad, Mark D" <mark.d.rustad@intel.com>
-To: Li Zefan <lizefan@huawei.com>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50075C43.7000706@huawei.com>
+In-Reply-To: <1648678.899sL4YBmA@cpaasch-mac>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 19, 2012 at 09:00:51AM +0800, Li Zefan wrote:
-> >>>>>  static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
-> 
-> >>>>>  {
-> >>>>>  	struct cgroup_netprio_state *cs;
-> >>>>> -	int ret;
-> >>>>> +	int ret = -EINVAL;
-> >>>>>
-> >>>>>  	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
-> >>>>>  	if (!cs)
-> >>>>>  		return ERR_PTR(-ENOMEM);
-> >>>>>
-> >>>>> -	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx) {
-> >>>>> -		kfree(cs);
-> >>>>> -		return ERR_PTR(-EINVAL);
-> >>>>> -	}
-> >>>>> +	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx)
-> >>>>> +		goto out;
-> >>>>>
-> >>>>>  	ret = get_prioidx(&cs->prioidx);
-> >>>>> -	if (ret != 0) {
-> >>>>> +	if (ret < 0) {
-> >>>>>  		pr_warn("No space in priority index array\n");
-> >>>>> -		kfree(cs);
-> >>>>> -		return ERR_PTR(ret);
-> >>>>> +		goto out;
-> >>>>> +	}
-> >>>>> +
-> >>>>> +	ret = update_netdev_tables();
-> >>>>> +	if (ret < 0) {
-> >>>>> +		put_prioidx(cs->prioidx);
-> >>>>> +		goto out;
-> >>>>>  	}
-> >>>>
-> >>>> Gao,
-> >>>>
-> >>>> This introduces a null ptr dereference when netprio_cgroup is built
-> >>>> into the kernel because update_netdev_tables() depends on init_net.
-> >>>> However cgrp_create is being called by cgroup_init before
-> >>>> do_initcalls() is called and before net_dev_init().
-> >>>>
-> >>>> .John
-> >>>>
-> >>> Not sure I follow here John.  Shouldn't init_net be initialized prior to any
-> >>> network devices getting registered?  In other words, shouldn't for_each_netdev
-> >>> just result in zero iterations through the loop?
-> >>> Neil
-> >>>
-> >>
-> >> init_net _is_ initialized prior to any network devices getting
-> >> registered but not before cgrp_create called via cgroup_init.
-> >>
-> >> #define for_each_netdev(net, d)         \
-> >>                 list_for_each_entry(d, &(net)->dev_base_head, dev_list)
-> >>
-> >> but dev_base_head is zeroed at this time. In netdev_init we have,
-> >>
-> >>         INIT_LIST_HEAD(&net->dev_base_head);
-> >>
-> >> but we haven't got that far yet because cgroup_init is called
-> >> before do_initcalls().
-> >>
-> > ok, I see that, and it makes sense, but at this point I'm more concerned with
-> > cgroups getting initalized twice.  The early_init flag is clear in the
-> > cgroup_subsystem for netprio, so we really shouldn't be getting initalized from
-> > cgroup_init. We should be getting initalized from the module_init() call that
-> 
-> > we register
-> 
-> If the early_init flag is set, a cgroup subsys will be initialized from
-> cgroup_early_init(), otherwise cgroup_init().
-> 
-> If netprio is built as a module, the subsys will be initailized from module_init(),
-> otherwise cgroup_init() (in this case cgroup_load_subsys() called in module_init()
-> is a no-op).
-> 
-> So it won't get initialized twice.
-> 
-> 
-Yeah, we already figured that out :).
+On Mo, 16.07.2012, 17:24, Christoph Paasch wrote:
 
-Still its not a sane interface.  If you create a module_init function for a bit
-of code, you expect that function to be called before the rest of your code ever
-gets executed.  The way cgroup_init works, ss->cgroup_create gets called before
-the module_init routine does when the module is built monolithically.  So no, no
-double initalization, but definately some behavior that is going to be prone to
-mistakes.
-Neil
+> You should do jiffies_to_msecs(tp->srtt) >> 3.
+>
+> The RTT is already exposed by tcp_info anyway... (see tcp_get_info() - where
+> you also see the bitshift)
+
+thanks a lot. rtt is output for completion's sake, it helps in diagnosis.
+here my hopefully final version. it comes with tcp_info interface too:
+
+diff -rub A/include/linux/tcp.h B/include/linux/tcp.h
+--- A/include/linux/tcp.h	2012-07-15 00:40:28.000000000 +0200
++++ B/include/linux/tcp.h	2012-07-18 13:03:50.000000000 +0200
+@@ -183,6 +183,12 @@
+ 	__u32	tcpi_rcv_space;
+
+ 	__u32	tcpi_total_retrans;
++
++	/* TCP Health */
++	__u32	tcpi_dup_acks;
++	__u32	tcpi_dup_pkts;
++	__u32	tcpi_acks;
++	__u32	tcpi_pkts;
+ };
+
+ /* for TCP_MD5SIG socket option */
+@@ -492,6 +498,17 @@
+ 	 * contains related tcp_cookie_transactions fields.
+ 	 */
+ 	struct tcp_cookie_values  *cookie_values;
++
++#ifdef CONFIG_TCPHEALTH
++	/*
++	 * TCP health monitoring counters.
++	 */
++	__u32	dup_acks_sent;
++	__u32	dup_pkts_recv;
++	__u32	acks_sent;
++	__u32	pkts_recv;
++	__u32	last_ack_sent;	/* Sequence number of the last ack we sent. */
++#endif
+ };
+
+ static inline struct tcp_sock *tcp_sk(const struct sock *sk)
+diff -rub A/net/ipv4/Kconfig B/net/ipv4/Kconfig
+--- A/net/ipv4/Kconfig	2012-07-15 00:40:28.000000000 +0200
++++ B/net/ipv4/Kconfig	2012-07-16 20:47:54.000000000 +0200
+@@ -619,6 +619,28 @@
+ 	default "reno" if DEFAULT_RENO
+ 	default "cubic"
+
++config TCPHEALTH
++	bool "TCP client-side health-statistics (/proc/net/tcphealth)"
++	default n
++	---help---
++	TCP Health Monitoring (established connections only):
++	 -Duplicate ACKs indicate there could be lost or reordered packets
++	  on the connection.
++	 -Duplicate Packets Received signal a slow and badly inefficient
++	  connection.
++	 -RttEst estimates how long future packets will take on a round trip
++	  over the connection.
++
++	Additionally you get total amount of sent ACKs and received Packets.
++	All these values are displayed seperately for each connection.
++	If you are running a dedicated server you wont need this.
++	Duplicate ACKs refers only to those sent upon receiving a Packet.
++	A server most likely doesn't receive much Packets to count.
++	Hence for a server these statistics wont be meaningful.
++	especially since they are split into individual connections.
++
++	If you plan to investigate why some download is slow, say Y.
++
+ config TCP_MD5SIG
+ 	bool "TCP: MD5 Signature Option support (RFC2385) (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL
+diff -rub A/net/ipv4/tcp.c B/net/ipv4/tcp.c
+--- A/net/ipv4/tcp.c	2012-07-15 00:40:28.000000000 +0200
++++ B/net/ipv4/tcp.c	2012-07-18 13:04:08.000000000 +0200
+@@ -2723,6 +2723,13 @@
+ 	info->tcpi_rcv_space = tp->rcvq_space.space;
+
+ 	info->tcpi_total_retrans = tp->total_retrans;
++
++#ifdef TCPHEALTH
++	tcpi_dup_acks = tp->dup_acks_sent;
++	tcpi_dup_pkts = tp->dup_pkts_recv;
++	tcpi_acks = tp->acks_sent;
++	tcpi_pkts = tp->pkts_recv;
++#endif
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
+
+diff -rub A/net/ipv4/tcp_input.c B/net/ipv4/tcp_input.c
+--- A/net/ipv4/tcp_input.c	2012-07-15 00:40:28.000000000 +0200
++++ B/net/ipv4/tcp_input.c	2012-07-16 20:47:54.000000000 +0200
+@@ -4492,6 +4492,11 @@
+ 		}
+
+ 		if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
++#ifdef CONFIG_TCPHEALTH
++			/* Course-Grained Timeout caused retransmit inefficiency-
++			 * this packet has been received twice. */
++			tp->dup_pkts_recv++;
++#endif
+ 			SOCK_DEBUG(sk, "ofo packet was already received\n");
+ 			__skb_unlink(skb, &tp->out_of_order_queue);
+ 			__kfree_skb(skb);
+@@ -4824,6 +4829,12 @@
+ 		return;
+ 	}
+
++#ifdef CONFIG_TCPHEALTH
++	/* A packet is a "duplicate" if it contains bytes we have already
+received. */
++	if (before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt))
++		tp->dup_pkts_recv++;
++#endif
++
+ 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
+ 		/* A retransmit, 2nd most common case.  Force an immediate ack. */
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
+@@ -5535,6 +5546,12 @@
+
+ 	tp->rx_opt.saw_tstamp = 0;
+
++#ifdef CONFIG_TCPHEALTH
++	/*
++	 *	total per-connection packet arrivals.
++	 */
++	tp->pkts_recv++;
++#endif
+ 	/*	pred_flags is 0xS?10 << 16 + snd_wnd
+ 	 *	if header_prediction is to be made
+ 	 *	'S' will always be tp->tcp_header_len >> 2
+diff -rub A/net/ipv4/tcp_ipv4.c B/net/ipv4/tcp_ipv4.c
+--- A/net/ipv4/tcp_ipv4.c	2012-07-15 00:40:28.000000000 +0200
++++ B/net/ipv4/tcp_ipv4.c	2012-07-18 11:56:32.000000000 +0200
+@@ -2500,6 +2500,68 @@
+ 	return 0;
+ }
+
++#ifdef CONFIG_TCPHEALTH
++/*
++ *	Output /proc/net/tcphealth
++ */
++#define LINESZ 128
++
++int tcp_health_seq_show(struct seq_file *seq, void *v)
++{
++	int len, tab;
++	struct tcp_iter_state *st;
++
++	if (v == SEQ_START_TOKEN) {
++		seq_printf(seq,
++		"id   Local Address        Remote Address       RttEst(ms) AcksSent "
++		"DupAcksSent PktsRecv DupPktsRecv\n");
++		goto out;
++	}
++
++	/* Loop through established TCP connections */
++	st = seq->private;
++
++
++	if (st->state == TCP_SEQ_STATE_ESTABLISHED)
++	{
++		const struct tcp_sock *tp = tcp_sk(v);
++		const struct inet_sock *inet = inet_sk(v);
++
++		seq_printf(seq, "%d: %pI4:%u%n",
++				st->num,
++				&inet->inet_rcv_saddr,
++				ntohs(inet->inet_sport),
++				&tab
++			);
++		len = 3 + 21; /* 3 is minimum length for "%d: " */
++		if (tab < len) seq_printf(seq, "%*s", len - tab, "");
++		else len = tab;
++		seq_printf(seq, " %pI4:%u%n",
++				&inet->inet_daddr,
++				ntohs(inet->inet_dport),
++				&tab
++			);
++		tab += len;
++		len = 5 + 21 + 22; /* is num ever > 999? */
++		if (tab < len)  seq_printf(seq, "%*s", len - tab, "");
++		else len = tab;
++		seq_printf(seq, " %8u %8lu %8lu %8lu %8lu%n",
++				jiffies_to_msecs(tp->srtt)>>3,
++				(unsigned long)tp->acks_sent,
++				(unsigned long)tp->dup_acks_sent,
++				(unsigned long)tp->pkts_recv,
++				(unsigned long)tp->dup_pkts_recv,
++				&tab
++			);
++
++		seq_printf(seq, "%*s\n", LINESZ - 1 - len - tab, "");
++	}
++
++out:
++	return 0;
++}
++#endif /* CONFIG_TCPHEALTH */
++
+ static const struct file_operations tcp_afinfo_seq_fops = {
+ 	.owner   = THIS_MODULE,
+ 	.open    = tcp_seq_open,
+@@ -2508,6 +2570,17 @@
+ 	.release = seq_release_net
+ };
+
++#ifdef CONFIG_TCPHEALTH
++static struct tcp_seq_afinfo tcphealth_seq_afinfo = {
++	.name		= "tcphealth",
++	.family		= AF_INET,
++	.seq_fops	= &tcp_afinfo_seq_fops,
++	.seq_ops	= {
++		.show		= tcp_health_seq_show,
++	},
++};
++#endif
++
+ static struct tcp_seq_afinfo tcp4_seq_afinfo = {
+ 	.name		= "tcp",
+ 	.family		= AF_INET,
+@@ -2519,12 +2592,20 @@
+
+ static int __net_init tcp4_proc_init_net(struct net *net)
+ {
+-	return tcp_proc_register(net, &tcp4_seq_afinfo);
++	int ret = tcp_proc_register(net, &tcp4_seq_afinfo);
++#ifdef CONFIG_TCPHEALTH
++	if(ret == 0)
++		ret = tcp_proc_register(net, &tcphealth_seq_afinfo);
++#endif
++	return ret;
+ }
+
+ static void __net_exit tcp4_proc_exit_net(struct net *net)
+ {
+ 	tcp_proc_unregister(net, &tcp4_seq_afinfo);
++#ifdef CONFIG_TCPHEALTH
++	tcp_proc_unregister(net, &tcphealth_seq_afinfo);
++#endif
+ }
+
+ static struct pernet_operations tcp4_net_ops = {
+diff -rub A/net/ipv4/tcp_output.c B/net/ipv4/tcp_output.c
+--- A/net/ipv4/tcp_output.c	2012-07-15 00:40:28.000000000 +0200
++++ B/net/ipv4/tcp_output.c	2012-07-16 20:47:54.000000000 +0200
+@@ -2772,8 +2772,19 @@
+ 	skb_reserve(buff, MAX_TCP_HEADER);
+ 	tcp_init_nondata_skb(buff, tcp_acceptable_seq(sk), TCPHDR_ACK);
+
++#ifdef CONFIG_TCPHEALTH
++	/* If the rcv_nxt has not advanced since sending our last ACK, this is a
+duplicate. */
++	if (tcp_sk(sk)->rcv_nxt == tcp_sk(sk)->last_ack_sent)
++		tcp_sk(sk)->dup_acks_sent++;
++	/* Record the total number of acks sent on this connection. */
++	tcp_sk(sk)->acks_sent++;
++#endif
++
+ 	/* Send it off, this clears delayed acks for us. */
+ 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
++#ifdef CONFIG_TCPHEALTH
++	tcp_sk(sk)->last_ack_sent = tcp_sk(sk)->rcv_nxt;
++#endif
+ 	tcp_transmit_skb(sk, buff, 0, GFP_ATOMIC);
+ }
