@@ -1,10 +1,7 @@
 From: Andres Salomon <dilinger@queued.net>
-Subject: Re: [PATCH 6/9] x86: OLPC: switch over to using new EC driver on
- x86
-Date: Wed, 18 Jul 2012 21:36:05 -0700
-Message-ID: <20120718213605.1605ba91@dev.queued.net>
-References: <20120718182144.2d7b0b50@dev.queued.net>
-	<20120718212827.2080b28b@dev.queued.net>
+Subject: [PATCH RESEND 0/9] OLPC: create a generic OLPC EC driver
+Date: Wed, 18 Jul 2012 21:37:13 -0700
+Message-ID: <20120718213713.232e4161@dev.queued.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -26,198 +23,29 @@ Cc: Paul Fox <pgf@laptop.org>, Daniel Drake <dsd@laptop.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <20120718212827.2080b28b@dev.queued.net>
 Sender: platform-driver-x86-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Damnit, my mailer mangled the resend.  Okay, 3rd time's a charm..
-(sorry for the noise!)
+The OLPC EC (Embedded Controller) code that is currently upstream is
+x86-only, originally written for the XO-1.  Since then, we've had the
+XO-1.5 (also x86), and XO-1.75 (arm-based) enter mass production.  The
+1.75 uses a vastly different EC protocol, and future hardware revisions
+are likely to change it even further.
 
-On Wed, 18 Jul 2012 21:28:27 -0700
-Andres Salomon <dilinger@queued.net> wrote:
+However, the drivers do share quite a bit of code, so it makes sense to
+have a platform-agnostic driver that calls into platform-specific hooks
+for each XO's EC driver.  This is the first stab and creating such a
+beast (with further patches pending).  Aside from the lack of code
+duplication, this is helpful for fixing bugs in one place (for example,
+we fixed an EC suspend/resume bug in 1.75 that I've just seen happen on
+1.5 without these patches.  With these patches, the problem goes away).
 
-> This uses the new EC driver framework in drivers/platform/olpc.  The
-> XO-1 and XO-1.5-specific code is still in arch/x86, but the generic
-> stuff (including a new workqueue; no more running EC commands with
-> IRQs disabled!) can be shared with other architectures.
-> 
-> Signed-off-by: Andres Salomon <dilinger@queued.net>
-> ---
->  arch/x86/include/asm/olpc.h     |    5 ---
->  arch/x86/platform/olpc/olpc.c   |   53
-> ++++++++++++++++++++-------------------
-> drivers/platform/olpc/olpc-ec.c |    5 --- 3 files changed, 27
-> insertions(+), 36 deletions(-)
-> 
-> diff --git a/arch/x86/include/asm/olpc.h b/arch/x86/include/asm/olpc.h
-> index 5b28f3e..72f9adf6 100644
-> --- a/arch/x86/include/asm/olpc.h
-> +++ b/arch/x86/include/asm/olpc.h
-> @@ -100,11 +100,6 @@ extern void olpc_xo1_pm_wakeup_clear(u16 value);
->  
->  extern int pci_olpc_init(void);
->  
-> -/* EC related functions */
-> -
-> -extern int olpc_ec_cmd_x86(unsigned char cmd, unsigned char *inbuf,
-> -		size_t inlen, unsigned char *outbuf, size_t outlen);
-> -
->  /* SCI source values */
->  
->  #define EC_SCI_SRC_EMPTY	0x00
-> diff --git a/arch/x86/platform/olpc/olpc.c
-> b/arch/x86/platform/olpc/olpc.c index a3fa180..4590096 100644
-> --- a/arch/x86/platform/olpc/olpc.c
-> +++ b/arch/x86/platform/olpc/olpc.c
-> @@ -14,7 +14,6 @@
->  #include <linux/init.h>
->  #include <linux/module.h>
->  #include <linux/delay.h>
-> -#include <linux/spinlock.h>
->  #include <linux/io.h>
->  #include <linux/string.h>
->  #include <linux/platform_device.h>
-> @@ -32,8 +31,6 @@
->  struct olpc_platform_t olpc_platform_info;
->  EXPORT_SYMBOL_GPL(olpc_platform_info);
->  
-> -static DEFINE_SPINLOCK(ec_lock);
-> -
->  /* debugfs interface to EC commands */
->  #define EC_MAX_CMD_ARGS (5 + 1)	/* cmd byte + 5 args */
->  #define EC_MAX_CMD_REPLY (8)
-> @@ -126,16 +123,13 @@ static int __wait_on_obf(unsigned int line,
-> unsigned int port, int desired)
->   * <http://wiki.laptop.org/go/Ec_specification>.  Unfortunately,
-> while
->   * OpenFirmware's source is available, the EC's is not.
->   */
-> -int olpc_ec_cmd_x86(unsigned char cmd, unsigned char *inbuf, size_t
-> inlen,
-> -		unsigned char *outbuf,  size_t outlen)
-> +static int olpc_xo1_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8
-> *outbuf,
-> +		size_t outlen, void *arg)
->  {
-> -	unsigned long flags;
->  	int ret = -EIO;
->  	int i;
->  	int restarts = 0;
->  
-> -	spin_lock_irqsave(&ec_lock, flags);
-> -
->  	/* Clear OBF */
->  	for (i = 0; i < 10 && (obf_status(0x6c) == 1); i++)
->  		inb(0x68);
-> @@ -199,10 +193,8 @@ restart:
->  
->  	ret = 0;
->  err:
-> -	spin_unlock_irqrestore(&ec_lock, flags);
->  	return ret;
->  }
-> -EXPORT_SYMBOL_GPL(olpc_ec_cmd_x86);
->  
->  void olpc_ec_wakeup_set(u16 value)
->  {
-> @@ -366,7 +358,7 @@ static void setup_debugfs(void)
->  			    &ec_debugfs_genops);
->  }
->  
-> -static int olpc_ec_suspend(void)
-> +static int olpc_ec_suspend(struct platform_device *pdev)
->  {
->  	return olpc_ec_mask_write(ec_wakeup_mask);
->  }
-> @@ -425,8 +417,28 @@ static int __init add_xo1_platform_devices(void)
->  	return 0;
->  }
->  
-> -static struct syscore_ops olpc_syscore_ops = {
-> +static int olpc_xo1_ec_probe(struct platform_device *pdev)
-> +{
-> +	/* get the EC revision */
-> +	olpc_ec_cmd(EC_FIRMWARE_REV, NULL, 0,
-> +			(unsigned char *) &olpc_platform_info.ecver,
-> 1); +
-> +	/* EC version 0x5f adds support for wide SCI mask */
-> +	if (olpc_platform_info.ecver >= 0x5f)
-> +		olpc_platform_info.flags |= OLPC_F_EC_WIDE_SCI;
-> +
-> +	pr_info("OLPC board revision %s%X (EC=%x)\n",
-> +			((olpc_platform_info.boardrev & 0xf) < 8) ?
-> "pre" : "",
-> +			olpc_platform_info.boardrev >> 4,
-> +			olpc_platform_info.ecver);
-> +
-> +	return 0;
-> +}
-> +
-> +static struct olpc_ec_driver ec_xo1_driver = {
->  	.suspend = olpc_ec_suspend,
-> +	.probe = olpc_xo1_ec_probe,
-> +	.ec_cmd = olpc_xo1_ec_cmd,
->  };
->  
->  static int __init olpc_init(void)
-> @@ -436,16 +448,14 @@ static int __init olpc_init(void)
->  	if (!olpc_ofw_present() || !platform_detect())
->  		return 0;
->  
-> -	spin_lock_init(&ec_lock);
-> +	/* register the XO-1 and 1.5-specific EC handler */
-> +	olpc_ec_driver_register(&ec_xo1_driver, NULL);
-> +	platform_device_register_simple("olpc-ec", -1, NULL, 0);
->  
->  	/* assume B1 and above models always have a DCON */
->  	if (olpc_board_at_least(olpc_board(0xb1)))
->  		olpc_platform_info.flags |= OLPC_F_DCON;
->  
-> -	/* get the EC revision */
-> -	olpc_ec_cmd(EC_FIRMWARE_REV, NULL, 0,
-> -			(unsigned char *) &olpc_platform_info.ecver,
-> 1); -
->  #ifdef CONFIG_PCI_OLPC
->  	/* If the VSA exists let it emulate PCI, if not emulate in
-> kernel.
->  	 * XO-1 only. */
-> @@ -453,14 +463,6 @@ static int __init olpc_init(void)
->  			!cs5535_has_vsa2())
->  		x86_init.pci.arch_init = pci_olpc_init;
->  #endif
-> -	/* EC version 0x5f adds support for wide SCI mask */
-> -	if (olpc_platform_info.ecver >= 0x5f)
-> -		olpc_platform_info.flags |= OLPC_F_EC_WIDE_SCI;
-> -
-> -	printk(KERN_INFO "OLPC board revision %s%X (EC=%x)\n",
-> -			((olpc_platform_info.boardrev & 0xf) < 8) ?
-> "pre" : "",
-> -			olpc_platform_info.boardrev >> 4,
-> -			olpc_platform_info.ecver);
->  
->  	if (olpc_platform_info.boardrev < olpc_board_pre(0xd0)) { /*
-> XO-1 */ r = add_xo1_platform_devices();
-> @@ -468,7 +470,6 @@ static int __init olpc_init(void)
->  			return r;
->  	}
->  
-> -	register_syscore_ops(&olpc_syscore_ops);
->  	setup_debugfs();
->  
->  	return 0;
-> diff --git a/drivers/platform/olpc/olpc-ec.c
-> b/drivers/platform/olpc/olpc-ec.c index cfba41f..a3d32c2 100644
-> --- a/drivers/platform/olpc/olpc-ec.c
-> +++ b/drivers/platform/olpc/olpc-ec.c
-> @@ -113,11 +113,6 @@ int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen,
-> u8 *outbuf, size_t outlen) struct olpc_ec_priv *ec = ec_priv;
->  	struct ec_cmd_desc desc;
->  
-> -	/* XXX: this will be removed in later patches */
-> -	/* Are we using old-style callers? */
-> -	if (!ec_driver || !ec_driver->ec_cmd)
-> -		return olpc_ec_cmd_x86(cmd, inbuf, inlen, outbuf,
-> outlen); -
->  	/* Ensure a driver and ec hook have been registered */
->  	if (WARN_ON(!ec_driver || !ec_driver->ec_cmd))
->  		return -ENODEV;
+These patches are against Linus's current HEAD; let me know if they
+don't apply somewhere, and I'll happily redo them against the -next
+tree.  I'm assuming that these changes (which touch places like x86,
+wireless, and staging) should go through either the x86 tree, or
+through akpm's tree.
+
+Alternatively, if the reviews are positive and I can get SOBs from the
+relevant maintainers, I can set up a platform-olpc tree somewhere and
+request a pull from Linus.
