@@ -1,178 +1,113 @@
-From: Christian Riesch <christian.riesch@omicron.at>
-Subject: [PATCH net-next 2/2] asix: Add support for programming the EEPROM
-Date: Thu, 19 Jul 2012 12:23:07 +0200
-Message-ID: <1342693387-17945-2-git-send-email-christian.riesch@omicron.at>
-References: <1342693387-17945-1-git-send-email-christian.riesch@omicron.at>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v4] net: cgroup: fix access the unallocated memory in
+ netprio cgroup
+Date: Thu, 19 Jul 2012 06:28:39 -0400
+Message-ID: <20120719102839.GA2070@hmsreliant.think-freely.org>
+References: <1342079415-9631-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <5005CF5D.9070905@intel.com>
+ <20120718122106.GB25563@hmsreliant.think-freely.org>
+ <5006C3CA.3010007@intel.com>
+ <20120718142632.GF25563@hmsreliant.think-freely.org>
+ <50075C43.7000706@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Allan Chou <allan@asix.com.tw>, Mark Lord <kernel@teksavvy.com>,
-	Grant Grundler <grundler@chromium.org>,
-	Christian Riesch <christian.riesch@omicron.at>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:48638 "EHLO ns.omicron.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752594Ab2GSKXp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 06:23:45 -0400
-In-Reply-To: <1342693387-17945-1-git-send-email-christian.riesch@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
+	"Rustad, Mark D" <mark.d.rustad@intel.com>
+To: Li Zefan <lizefan@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <50075C43.7000706@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the asix_set_eeprom() function to provide support for
-programming the configuration EEPROM via ethtool.
+On Thu, Jul 19, 2012 at 09:00:51AM +0800, Li Zefan wrote:
+> >>>>>  static struct cgroup_subsys_state *cgrp_create(struct cgroup *cgrp)
+> 
+> >>>>>  {
+> >>>>>  	struct cgroup_netprio_state *cs;
+> >>>>> -	int ret;
+> >>>>> +	int ret = -EINVAL;
+> >>>>>
+> >>>>>  	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
+> >>>>>  	if (!cs)
+> >>>>>  		return ERR_PTR(-ENOMEM);
+> >>>>>
+> >>>>> -	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx) {
+> >>>>> -		kfree(cs);
+> >>>>> -		return ERR_PTR(-EINVAL);
+> >>>>> -	}
+> >>>>> +	if (cgrp->parent && cgrp_netprio_state(cgrp->parent)->prioidx)
+> >>>>> +		goto out;
+> >>>>>
+> >>>>>  	ret = get_prioidx(&cs->prioidx);
+> >>>>> -	if (ret != 0) {
+> >>>>> +	if (ret < 0) {
+> >>>>>  		pr_warn("No space in priority index array\n");
+> >>>>> -		kfree(cs);
+> >>>>> -		return ERR_PTR(ret);
+> >>>>> +		goto out;
+> >>>>> +	}
+> >>>>> +
+> >>>>> +	ret = update_netdev_tables();
+> >>>>> +	if (ret < 0) {
+> >>>>> +		put_prioidx(cs->prioidx);
+> >>>>> +		goto out;
+> >>>>>  	}
+> >>>>
+> >>>> Gao,
+> >>>>
+> >>>> This introduces a null ptr dereference when netprio_cgroup is built
+> >>>> into the kernel because update_netdev_tables() depends on init_net.
+> >>>> However cgrp_create is being called by cgroup_init before
+> >>>> do_initcalls() is called and before net_dev_init().
+> >>>>
+> >>>> .John
+> >>>>
+> >>> Not sure I follow here John.  Shouldn't init_net be initialized prior to any
+> >>> network devices getting registered?  In other words, shouldn't for_each_netdev
+> >>> just result in zero iterations through the loop?
+> >>> Neil
+> >>>
+> >>
+> >> init_net _is_ initialized prior to any network devices getting
+> >> registered but not before cgrp_create called via cgroup_init.
+> >>
+> >> #define for_each_netdev(net, d)         \
+> >>                 list_for_each_entry(d, &(net)->dev_base_head, dev_list)
+> >>
+> >> but dev_base_head is zeroed at this time. In netdev_init we have,
+> >>
+> >>         INIT_LIST_HEAD(&net->dev_base_head);
+> >>
+> >> but we haven't got that far yet because cgroup_init is called
+> >> before do_initcalls().
+> >>
+> > ok, I see that, and it makes sense, but at this point I'm more concerned with
+> > cgroups getting initalized twice.  The early_init flag is clear in the
+> > cgroup_subsystem for netprio, so we really shouldn't be getting initalized from
+> > cgroup_init. We should be getting initalized from the module_init() call that
+> 
+> > we register
+> 
+> If the early_init flag is set, a cgroup subsys will be initialized from
+> cgroup_early_init(), otherwise cgroup_init().
+> 
+> If netprio is built as a module, the subsys will be initailized from module_init(),
+> otherwise cgroup_init() (in this case cgroup_load_subsys() called in module_init()
+> is a no-op).
+> 
+> So it won't get initialized twice.
+> 
+> 
+Yeah, we already figured that out :).
 
-Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
----
- drivers/net/usb/asix.h         |    2 +
- drivers/net/usb/asix_common.c  |   81 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/usb/asix_devices.c |    3 +
- drivers/net/usb/ax88172a.c     |    1 +
- 4 files changed, 87 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
-index fbff177..e889631 100644
---- a/drivers/net/usb/asix.h
-+++ b/drivers/net/usb/asix.h
-@@ -208,6 +208,8 @@ int asix_set_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo);
- int asix_get_eeprom_len(struct net_device *net);
- int asix_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
- 		    u8 *data);
-+int asix_set_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
-+		    u8 *data);
- 
- void asix_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info);
- 
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 0b5b2d3..774d9ce 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -516,6 +516,87 @@ int asix_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
- 	return 0;
- }
- 
-+int asix_set_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
-+		    u8 *data)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+	u16 *eeprom_buff;
-+	int first_word, last_word;
-+	int i;
-+	int ret;
-+
-+	netdev_dbg(net, "write EEPROM len %d, offset %d, magic 0x%x\n",
-+		   eeprom->len, eeprom->offset, eeprom->magic);
-+
-+	if (eeprom->len == 0)
-+		return -EINVAL;
-+
-+	if (eeprom->magic != AX_EEPROM_MAGIC)
-+		return -EINVAL;
-+
-+	first_word = eeprom->offset >> 1;
-+	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
-+
-+	eeprom_buff = kmalloc(sizeof(u16) * (last_word - first_word + 1),
-+			      GFP_KERNEL);
-+	if (!eeprom_buff)
-+		return -ENOMEM;
-+
-+	/* align data to 16 bit boundaries, read the missing data from
-+	   the EEPROM */
-+	if (eeprom->offset & 1) {
-+		ret = asix_read_cmd(dev, AX_CMD_READ_EEPROM, first_word, 0, 2,
-+				    &(eeprom_buff[0]));
-+		if (ret < 0) {
-+			netdev_err(net, "Failed to read EEPROM at offset 0x%02x.\n", first_word);
-+			goto free;
-+		}
-+	}
-+
-+	if ((eeprom->offset + eeprom->len) & 1) {
-+		ret = asix_read_cmd(dev, AX_CMD_READ_EEPROM, last_word, 0, 2,
-+				    &(eeprom_buff[last_word - first_word]));
-+		if (ret < 0) {
-+			netdev_err(net, "Failed to read EEPROM at offset 0x%02x.\n", last_word);
-+			goto free;
-+		}
-+	}
-+
-+	memcpy((u8 *)eeprom_buff + (eeprom->offset & 1), data, eeprom->len);
-+
-+	/* write data to EEPROM */
-+	ret = asix_write_cmd(dev, AX_CMD_WRITE_ENABLE, 0x0000, 0, 0, NULL);
-+	if (ret < 0) {
-+		netdev_err(net, "Failed to enable EEPROM write\n");
-+		goto free;
-+	}
-+	msleep(20);
-+
-+	for (i = first_word; i <= last_word; i++) {
-+		netdev_dbg(net, "write to EEPROM at offset 0x%02x, data 0x%04x\n",
-+			   i, eeprom_buff[i - first_word]);
-+		ret = asix_write_cmd(dev, AX_CMD_WRITE_EEPROM, i,
-+				     eeprom_buff[i - first_word], 0, NULL);
-+		if (ret < 0) {
-+			netdev_err(net, "Failed to write EEPROM at offset 0x%02x.\n",
-+				   i);
-+			goto free;
-+		}
-+		msleep(20);
-+	}
-+
-+	ret = asix_write_cmd(dev, AX_CMD_WRITE_DISABLE, 0x0000, 0, 0, NULL);
-+	if (ret < 0) {
-+		netdev_err(net, "Failed to disable EEPROM write\n");
-+		goto free;
-+	}
-+
-+	ret = 0;
-+free:
-+	kfree(eeprom_buff);
-+	return ret;
-+}
-+
- void asix_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
- {
- 	/* Inherit standard device info */
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index 658c08f..4fd48df 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -119,6 +119,7 @@ static const struct ethtool_ops ax88172_ethtool_ops = {
- 	.set_wol		= asix_set_wol,
- 	.get_eeprom_len		= asix_get_eeprom_len,
- 	.get_eeprom		= asix_get_eeprom,
-+	.set_eeprom		= asix_set_eeprom,
- 	.get_settings		= usbnet_get_settings,
- 	.set_settings		= usbnet_set_settings,
- 	.nway_reset		= usbnet_nway_reset,
-@@ -258,6 +259,7 @@ static const struct ethtool_ops ax88772_ethtool_ops = {
- 	.set_wol		= asix_set_wol,
- 	.get_eeprom_len		= asix_get_eeprom_len,
- 	.get_eeprom		= asix_get_eeprom,
-+	.set_eeprom		= asix_set_eeprom,
- 	.get_settings		= usbnet_get_settings,
- 	.set_settings		= usbnet_set_settings,
- 	.nway_reset		= usbnet_nway_reset,
-@@ -478,6 +480,7 @@ static const struct ethtool_ops ax88178_ethtool_ops = {
- 	.set_wol		= asix_set_wol,
- 	.get_eeprom_len		= asix_get_eeprom_len,
- 	.get_eeprom		= asix_get_eeprom,
-+	.set_eeprom		= asix_set_eeprom,
- 	.get_settings		= usbnet_get_settings,
- 	.set_settings		= usbnet_set_settings,
- 	.nway_reset		= usbnet_nway_reset,
-diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
-index 97dce0f..c8e0aa8 100644
---- a/drivers/net/usb/ax88172a.c
-+++ b/drivers/net/usb/ax88172a.c
-@@ -194,6 +194,7 @@ static const struct ethtool_ops ax88172a_ethtool_ops = {
- 	.set_wol		= asix_set_wol,
- 	.get_eeprom_len		= asix_get_eeprom_len,
- 	.get_eeprom		= asix_get_eeprom,
-+	.set_eeprom		= asix_set_eeprom,
- 	.get_settings		= ax88172a_get_settings,
- 	.set_settings		= ax88172a_set_settings,
- 	.nway_reset		= ax88172a_nway_reset,
--- 
-1.7.0.4
+Still its not a sane interface.  If you create a module_init function for a bit
+of code, you expect that function to be called before the rest of your code ever
+gets executed.  The way cgroup_init works, ss->cgroup_create gets called before
+the module_init routine does when the module is built monolithically.  So no, no
+double initalization, but definately some behavior that is going to be prone to
+mistakes.
+Neil
