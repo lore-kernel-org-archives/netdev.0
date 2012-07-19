@@ -1,146 +1,189 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: e100: ucode is optional in some cases
-Date: Thu, 19 Jul 2012 11:33:13 +0200
-Message-ID: <1342690393-18459-1-git-send-email-bjorn@mork.no>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: [PATCH net-next 1/2] asix: Rework reading from EEPROM
+Date: Thu, 19 Jul 2012 12:23:06 +0200
+Message-ID: <1342693387-17945-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Allan Chou <allan@asix.com.tw>, Mark Lord <kernel@teksavvy.com>,
+	Grant Grundler <grundler@chromium.org>,
+	Christian Riesch <christian.riesch@omicron.at>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:50722 "EHLO canardo.mork.no"
+Received: from ns.omicron.at ([212.183.10.25]:48637 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753684Ab2GSJdd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 05:33:33 -0400
+	id S1752386Ab2GSKXp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2012 06:23:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  commit 9ac32e1b firmware: convert e100 driver to request_firmware()
+The current code for reading the EEPROM via ethtool in the asix
+driver has a few issues. It cannot handle odd length values
+(accesses must be aligned at 16 bit boundaries) and interprets the
+offset provided by ethtool as 16 bit word offset instead as byte offset.
 
-did a straight conversion of the in-driver ucode to external
-files.  This introduced the possibility of the driver failing
-to enable an interface due to missing ucode. There was no
-evaluation of the importance of the ucode at the time.
+The new code for asix_get_eeprom() introduced by this patch is
+modeled after the code in
+drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+and provides read access to the entire EEPROM with arbitrary
+offsets and lengths.
 
-Based on the information available from
-
- http://downloadmirror.intel.com/5154/eng/e100.htm
- http://www.freebsd.org/cgi/cvsweb.cgi/src/sys/dev/fxp/rcvbundl.h?rev=3D=
-HEAD;content-type=3Dtext%2Fplain
-
-we can assume that the ucode implements the "CPU Cycle Saver"
-feature on the supported adapters.  Although generally wanted,
-this is an optional feature.  The ucode source is not
-available,  preventing it from being included in free
-distributions.  This creates unnecessary problems for the end
-users. Doing a network install based on a free distribution
-installer requires the user to download and insert the ucode
-into the installer.
-
-Making the ucode optional when possible improves the user
-experience and driver usability.
-
-The ucode for some adapters include a bugfix, making it
-essential.  We continue to fail for these adapters unless the
-ucode is available.
-
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
 ---
-This was inspired by a recent bad experience trying to install
-Debian wheezy on an older laptop using a Debian netboot image.=20
-The image does of course not include any of the ucode files
-due to the missing source.  The installer supports inserting
-firmware from a floppy or other medium, but I find that to be
-unnecessary hassle given that the device can work without it.
+ drivers/net/usb/asix.h         |    5 ++---
+ drivers/net/usb/asix_common.c  |   39 ++++++++++++++++++++++-----------------
+ drivers/net/usb/asix_devices.c |    9 ---------
+ drivers/net/usb/ax88172a.c     |    3 ---
+ 4 files changed, 24 insertions(+), 32 deletions(-)
 
-
-
- drivers/net/ethernet/intel/e100.c |   41 +++++++++++++++++++++++++++++=
---------
- 1 file changed, 32 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/i=
-ntel/e100.c
-index ada720b..81670d8 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -1249,20 +1249,36 @@ static const struct firmware *e100_request_firm=
-ware(struct nic *nic)
- 	const struct firmware *fw =3D nic->fw;
- 	u8 timer, bundle, min_size;
- 	int err =3D 0;
-+	bool required =3D false;
-=20
- 	/* do not load u-code for ICH devices */
- 	if (nic->flags & ich)
- 		return NULL;
-=20
--	/* Search for ucode match against h/w revision */
--	if (nic->mac =3D=3D mac_82559_D101M)
-+	/* Search for ucode match against h/w revision
-+	 *
-+	 * The FIRMWARE_D102E ucode includes both CPUSaver and
-+	 *
-+	 *    "fixes for bugs in the B-step hardware (specifically, bugs
-+	 *     with Inline Receive)."
-+	 *
-+	 * according to
-+	 * http://www.freebsd.org/cgi/cvsweb.cgi/src/sys/dev/fxp/rcvbundl.h?r=
-ev=3DHEAD;content-type=3Dtext%2Fplain
-+	 * So we must fail if it cannot be loaded.
-+	 *
-+	 * The other microcode files are only required for the optional
-+	 * CPUSaver feature.  Nice to have, but no reason to fail.
-+	 */
-+	if (nic->mac =3D=3D mac_82559_D101M) {
- 		fw_name =3D FIRMWARE_D101M;
--	else if (nic->mac =3D=3D mac_82559_D101S)
-+	} else if (nic->mac =3D=3D mac_82559_D101S) {
- 		fw_name =3D FIRMWARE_D101S;
--	else if (nic->mac =3D=3D mac_82551_F || nic->mac =3D=3D mac_82551_10)
-+	} else if (nic->mac =3D=3D mac_82551_F || nic->mac =3D=3D mac_82551_1=
-0) {
- 		fw_name =3D FIRMWARE_D102E;
--	else /* No ucode on other devices */
-+		required =3D true;
-+	} else { /* No ucode on other devices */
- 		return NULL;
-+	}
-=20
- 	/* If the firmware has not previously been loaded, request a pointer
- 	 * to it. If it was previously loaded, we are reinitializing the
-@@ -1273,10 +1289,17 @@ static const struct firmware *e100_request_firm=
-ware(struct nic *nic)
- 		err =3D request_firmware(&fw, fw_name, &nic->pdev->dev);
-=20
- 	if (err) {
--		netif_err(nic, probe, nic->netdev,
--			  "Failed to load firmware \"%s\": %d\n",
--			  fw_name, err);
--		return ERR_PTR(err);
-+		if (required) {
-+			netif_err(nic, probe, nic->netdev,
-+				  "Failed to load firmware \"%s\": %d\n",
-+				  fw_name, err);
-+			return ERR_PTR(err);
-+		} else {
-+			netif_info(nic, probe, nic->netdev,
-+				   "CPUSaver disabled. Needs \"%s\": %d\n",
-+				   fw_name, err);
-+			return NULL;
+diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
+index 77d9e4c..fbff177 100644
+--- a/drivers/net/usb/asix.h
++++ b/drivers/net/usb/asix.h
+@@ -156,8 +156,7 @@
+ #define AX_GPIO_RSE		0x80	/* Reload serial EEPROM */
+ 
+ #define AX_EEPROM_MAGIC		0xdeadbeef
+-#define AX88172_EEPROM_LEN	0x40
+-#define AX88772_EEPROM_LEN	0xff
++#define AX_EEPROM_LEN		0x200
+ 
+ /* This structure cannot exceed sizeof(unsigned long [5]) AKA 20 bytes */
+ struct asix_data {
+@@ -165,7 +164,7 @@ struct asix_data {
+ 	u8 mac_addr[ETH_ALEN];
+ 	u8 phymode;
+ 	u8 ledmode;
+-	u8 eeprom_len;
++	u8 res;
+ };
+ 
+ int asix_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
+diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
+index 336f755..0b5b2d3 100644
+--- a/drivers/net/usb/asix_common.c
++++ b/drivers/net/usb/asix_common.c
+@@ -478,46 +478,51 @@ int asix_set_wol(struct net_device *net, struct ethtool_wolinfo *wolinfo)
+ 
+ int asix_get_eeprom_len(struct net_device *net)
+ {
+-	struct usbnet *dev = netdev_priv(net);
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+-
+-	return data->eeprom_len;
++	return AX_EEPROM_LEN;
+ }
+ 
+ int asix_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
+ 		    u8 *data)
+ {
+ 	struct usbnet *dev = netdev_priv(net);
+-	__le16 *ebuf = (__le16 *)data;
++	u16 *eeprom_buff;
++	int first_word, last_word;
+ 	int i;
+ 
+-	/* Crude hack to ensure that we don't overwrite memory
+-	 * if an odd length is supplied
+-	 */
+-	if (eeprom->len % 2)
++	if (eeprom->len == 0)
+ 		return -EINVAL;
+ 
+ 	eeprom->magic = AX_EEPROM_MAGIC;
+ 
++	first_word = eeprom->offset >> 1;
++	last_word = (eeprom->offset + eeprom->len - 1) >> 1;
++
++	eeprom_buff = kmalloc(sizeof(u16) * (last_word - first_word + 1),
++			      GFP_KERNEL);
++	if (!eeprom_buff)
++		return -ENOMEM;
++
+ 	/* ax8817x returns 2 bytes from eeprom on read */
+-	for (i=0; i < eeprom->len / 2; i++) {
+-		if (asix_read_cmd(dev, AX_CMD_READ_EEPROM,
+-			eeprom->offset + i, 0, 2, &ebuf[i]) < 0)
+-			return -EINVAL;
++	for (i = first_word; i <= last_word; i++) {
++		if (asix_read_cmd(dev, AX_CMD_READ_EEPROM, i, 0, 2,
++				  &(eeprom_buff[i - first_word])) < 0) {
++			kfree(eeprom_buff);
++			return -EIO;
 +		}
  	}
-=20
- 	/* Firmware should be precisely UCODE_SIZE (words) plus three bytes
---=20
-1.7.10.4
++
++	memcpy(data, (u8 *)eeprom_buff + (eeprom->offset & 1), eeprom->len);
++	kfree(eeprom_buff);
+ 	return 0;
+ }
+ 
+ void asix_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
+ {
+-	struct usbnet *dev = netdev_priv(net);
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+-
+ 	/* Inherit standard device info */
+ 	usbnet_get_drvinfo(net, info);
+ 	strncpy (info->driver, DRIVER_NAME, sizeof info->driver);
+ 	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+-	info->eedump_len = data->eeprom_len;
++	info->eedump_len = AX_EEPROM_LEN;
+ }
+ 
+ int asix_set_mac_address(struct net_device *net, void *p)
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index ed9403b..658c08f 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -201,9 +201,6 @@ static int ax88172_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	u8 buf[ETH_ALEN];
+ 	int i;
+ 	unsigned long gpio_bits = dev->driver_info->data;
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+-
+-	data->eeprom_len = AX88172_EEPROM_LEN;
+ 
+ 	usbnet_get_endpoints(dev,intf);
+ 
+@@ -409,12 +406,9 @@ static const struct net_device_ops ax88772_netdev_ops = {
+ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int ret, embd_phy;
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+ 	u8 buf[ETH_ALEN];
+ 	u32 phyid;
+ 
+-	data->eeprom_len = AX88772_EEPROM_LEN;
+-
+ 	usbnet_get_endpoints(dev,intf);
+ 
+ 	/* Get the MAC address */
+@@ -767,9 +761,6 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int ret;
+ 	u8 buf[ETH_ALEN];
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+-
+-	data->eeprom_len = AX88772_EEPROM_LEN;
+ 
+ 	usbnet_get_endpoints(dev,intf);
+ 
+diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
+index 3d0f8fa..97dce0f 100644
+--- a/drivers/net/usb/ax88172a.c
++++ b/drivers/net/usb/ax88172a.c
+@@ -228,12 +228,9 @@ err:
+ static int ax88172a_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int ret;
+-	struct asix_data *data = (struct asix_data *)&dev->data;
+ 	u8 buf[ETH_ALEN];
+ 	struct ax88172a_private *priv;
+ 
+-	data->eeprom_len = AX88772_EEPROM_LEN;
+-
+ 	usbnet_get_endpoints(dev, intf);
+ 
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+-- 
+1.7.0.4
