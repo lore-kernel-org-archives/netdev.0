@@ -1,62 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 10/16] ipv4: Cache output routes in fib_info nexthops.
-Date: Fri, 20 Jul 2012 00:09:03 +0200
-Message-ID: <1342735743.2626.5411.camel@edumazet-glaptop>
+Date: Thu, 19 Jul 2012 15:13:12 -0700 (PDT)
+Message-ID: <20120719.151312.1882340232448320251.davem@davemloft.net>
 References: <20120719.143540.747492487297004222.davem@davemloft.net>
+	<1342735743.2626.5411.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:56721 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907Ab2GSWJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 18:09:08 -0400
-Received: by vbbff1 with SMTP id ff1so2400763vbb.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 15:09:07 -0700 (PDT)
-In-Reply-To: <20120719.143540.747492487297004222.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48447 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751971Ab2GSWNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 18:13:13 -0400
+In-Reply-To: <1342735743.2626.5411.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-19 at 14:35 -0700, David Miller wrote:
-> If we have an output route that lacks nexthop exceptions, we can cache
-> it in the FIB info nexthop.
-> 
-> Such routes will have DST_HOST cleared because such routes refer to a
-> family of destinations, rather than just one.
-> 
-> The sequence of the handling of exceptions during route lookup is
-> adjusted to make the logic work properly.
-> 
-> Before we allocate the route, we lookup the exception.
-> 
-> Then we know if we will cache this route or not, and therefore whether
-> DST_HOST should be set on the allocated route.
-> 
-> Then we use DST_HOST to key off whether we should store the resulting
-> route, during rt_set_nexthop(), in the FIB nexthop cache.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 20 Jul 2012 00:09:03 +0200
 
+> If we find orig not null, what can protect another cpu from reading
+> nh->nh_rth_output, then we dst_release(orig), and other cpu  does the
+> dst_use() too late ?
 
-> +static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
-> +{
-> +	struct rtable *orig, *prev, **p = &nh->nh_rth_output;
-> +
-> +	orig = *p;
-> +
-> +	prev = cmpxchg(p, orig, rt);
-> +	if (prev == orig) {
-> +		dst_clone(&rt->dst);
-> +		if (orig)
-> +			dst_release(&orig->dst);
->  	}
->  }
->  
+Indeed, we'd have to defer it somehow.
 
-Hmm...
+Actually, we might be able to fake this by using __dst_free() on it
+or something similar.
 
-If we find orig not null, what can protect another cpu from reading
-nh->nh_rth_output, then we dst_release(orig), and other cpu  does the
-dst_use() too late ?
+But safest would be RCU, whose protection we are still using on the
+read side.
+
+Any better ideas?
