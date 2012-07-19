@@ -1,63 +1,59 @@
-From: Andrew Jackson <ajackson@solarflare.com>
-Subject: Re: [PATCH net-next 4/7] sfc: Add support for IEEE-1588 PTP
-Date: Thu, 19 Jul 2012 17:05:45 +0100
-Message-ID: <50083059.7070700@solarflare.com>
-References: <1342635392.2617.52.camel@bwh-desktop.uk.solarflarecom.com>  <1342635693.2617.56.camel@bwh-desktop.uk.solarflarecom.com>  <20120719142558.GB24484@localhost.localdomain> <1342708653.2617.33.camel@bwh-desktop.uk.solarflarecom.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next 9/9] ixgbe: Cleanup holes in flags after removing several
+ of them
+Date: Thu, 19 Jul 2012 09:11:27 -0700
+Message-ID: <500831AF.6020402@intel.com>
+References: <1342643516-2696-1-git-send-email-jeffrey.t.kirsher@intel.com> <1342643516-2696-10-git-send-email-jeffrey.t.kirsher@intel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6F98@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:22141 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751336Ab2GSQFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 12:05:52 -0400
-In-Reply-To: <1342708653.2617.33.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mga09.intel.com ([134.134.136.24]:40440 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750767Ab2GSQL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2012 12:11:29 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F98@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/07/2012 15:37, Ben Hutchings wrote:
-> On Thu, 2012-07-19 at 16:25 +0200, Richard Cochran wrote:
->> On Wed, Jul 18, 2012 at 07:21:33PM +0100, Ben Hutchings wrote:
+On 07/19/2012 01:33 AM, David Laight wrote:
+>> This change is just meant to defragment the flags as there are several
+> hole
+>> that have been introduced since several features, or the flags for
+> them,
+>> have been removed.
+> Doesn't this sort of change just make it difficult for people who are
+> looking at hexdumps of memory but don't have exactly the right header
+> file to hand?
+These are private flags held inside of the driver and never exposed
+externally to user space.  If we have to go through a hexdump to try and
+figure out the state of the driver I would certainly hope we have the
+header file in hand.  Knowing what bits we use is kind of pointless if
+we don't know where the flags are being stored within the adapter
+structure itself.
 
->>> +/* Process times received from MC.
->>> + *
->>> + * Extract times from returned results, and establish the minimum value
->>> + * seen.  The minimum value represents the "best" possible time and events
->>> + * too much greater than this are rejected - the machine is, perhaps, too
->>> + * busy. A number of readings are taken so that, hopefully, at least one good
->>> + * synchronisation will be seen in the results.
->>> + */
->>
->> This code looks like it is trying to find the offset between two
->> clocks. Is there some reason why you cannot use <linux/timecompare.h>
->> to accomplish this?
->>
->> Also, these comments about "hopefull" synchronization make me
->> nervous. I think it might be easier just to offer RAW timestamps and
->> forget about the SYS timestamps.
->>
->> I am trying to purge the whole SYS thing (only blackfin is left)
->> because there is a much better way to go about this, namely
->> synchronizing the system time to the PHC time via an internal PPS
->> signal.
+> It doesn't really gain anything much either.
+I never did say it gains us much.  It is mostly just housekeeping in
+order to make it clear where the available bits are in the flags fields.
+
+> I can (just) imagine reordering flags so that the commonly
+> tested ones are in the low bits so that they can be tested
+> with small immediate constants - saving an instruction.
+> But that isn't what is being done here.
 >
-> Andrew, would that work for us?
+> 	David
 
-I don't think so for the reason that Stu has pointed out (failed 
-assumption).
+On x86 it seems like gcc is converting all of the flag tests to "testb"
+assembly ops and just using an offset within the flags field to access
+bits 8 through 31.  It doesn't seem like there would be much of an
+advantage to reordering the flags unless we need to optimize for the
+cases where we are testing multiple flags.  Even in that case we would
+probably just want to align things so that when we access multiple flags
+they are in the same 8 bit field.
 
-The NIC's clock isn't directly accessible by the host from the PCIe bus 
-and is "behind" the MC. Even when we process PPS events, we need a 
-reliable way of determining the relationship between the two clocks 
-(system <> NIC). We're trying to get that as accurately as we can but we 
-know that some measurements will be incorrect/out of bounds because of 
-loading on the system.
+Thanks,
 
-In retrospect, I should have phrased the comment in more statistical 
-terms rather than using ambiguous phrases like "hopefully".
-
-	Andrew
+Alex
