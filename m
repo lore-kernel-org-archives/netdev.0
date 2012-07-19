@@ -1,52 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to
- neighbouring system
-Date: Thu, 19 Jul 2012 10:08:50 -0700 (PDT)
-Message-ID: <20120719.100850.1932622478297549573.davem@davemloft.net>
-References: <50082183.5000402@mellanox.com>
-	<alpine.DEB.2.00.1207191023130.29808@router.home>
-	<500833D9.8000001@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv4: tcp: remove per net tcp_sock
+Date: Thu, 19 Jul 2012 10:11:55 -0700 (PDT)
+Message-ID: <20120719.101155.1970854797296520147.davem@davemloft.net>
+References: <20120719.083544.1223522161508413373.davem@davemloft.net>
+	<20120719.084503.136853790544876708.davem@davemloft.net>
+	<1342717667.2626.4494.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <500833D9.8000001-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46470 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149Ab2GSRL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:11:56 -0400
+In-Reply-To: <1342717667.2626.4494.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Date: Thu, 19 Jul 2012 19:20:41 +0300
-
-> On 7/19/2012 6:24 PM, Christoph Lameter wrote:
->> On Thu, 19 Jul 2012, Shlomo Pongartz wrote:
->>
->>> The garbage collection and stale times follow the default ipv4/6
->>> neigh.default.gc_yyy
->>> sysctl values, for example
->>>
->>> net.ipv4.neigh.default.gc_interval = 30
->>> net.ipv4.neigh.default.gc_stale_time = 60
->>>
->>> If given access to these values from IPoIB, we will be happy
->>> to integrate them into that logic
->>
->> It looks like the values are hardcoded right now.
-> 
-> Two points here,
-> 
-> 1s, they are indeed hard-coded since there's no define/enum
-> that holds their default values (or maybe we should add one now?), see
-> this code snippest from net/ipv4/arp.c
-
-These numbers come from the IPV6 Neighbour Discovery RFCs.  IPV4
-replicates the Neighbour Unreachability Detection schemes of IPV6 in
-pretty much it's entirety, and therefore takes on the same timeout et
-al. parameters.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogVGh1LCAx
+OSBKdWwgMjAxMiAxOTowNzo0NyArMDIwMA0KDQo+IE9uIFRodSwgMjAxMi0wNy0xOSBhdCAwODo0
+NSAtMDcwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4gRnJvbTogRGF2aWQgTWlsbGVyIDxkYXZl
+bUBkYXZlbWxvZnQubmV0Pg0KPj4gRGF0ZTogVGh1LCAxOSBKdWwgMjAxMiAwODozNTo0NCAtMDcw
+MCAoUERUKQ0KPj4gDQo+PiA+IExvb2tzIGdyZWF0LCBhcHBsaWVkLCB0aGFua3MgRXJpYy4NCj4+
+IA0KPj4gSSB0YWtlIHRoYXQgYmFjaywgaXQgZG9lc24ndCBidWlsZDoNCj4+IA0KPj4gbmV0L2lw
+djQvaXBfb3V0cHV0LmM6IEluIGZ1bmN0aW9uIKFpcF9zZW5kX3VuaWNhc3RfcmVwbHmiOg0KPj4g
+bmV0L2lwdjQvaXBfb3V0cHV0LmM6MTQ4MToxOiBlcnJvcjogc2VjdGlvbiBhdHRyaWJ1dGUgY2Fu
+bm90IGJlIHNwZWNpZmllZCBmb3IgbG9jYWwgdmFyaWFibGVzDQo+PiBuZXQvaXB2NC9pcF9vdXRw
+dXQuYzoxNDgxOjE6IGVycm9yOiBzZWN0aW9uIGF0dHJpYnV0ZSBjYW5ub3QgYmUgc3BlY2lmaWVk
+IGZvciBsb2NhbCB2YXJpYWJsZXMNCj4+IG5ldC9pcHY0L2lwX291dHB1dC5jOjE0ODE6MTogZXJy
+b3I6IGRlY2xhcmF0aW9uIG9mIKFfX3BjcHVfdW5pcXVlX3VuaWNhc3Rfc29ja6Igd2l0aCBubyBs
+aW5rYWdlIGZvbGxvd3MgZXh0ZXJuIGRlY2xhcmF0aW9uDQo+PiBuZXQvaXB2NC9pcF9vdXRwdXQu
+YzoxNDgxOjE6IG5vdGU6IHByZXZpb3VzIGRlY2xhcmF0aW9uIG9mIKFfX3BjcHVfdW5pcXVlX3Vu
+aWNhc3Rfc29ja6Igd2FzIGhlcmUNCj4+IG5ldC9pcHY0L2lwX291dHB1dC5jOjE0ODE6OTogZXJy
+b3I6IHNlY3Rpb24gYXR0cmlidXRlIGNhbm5vdCBiZSBzcGVjaWZpZWQgZm9yIGxvY2FsIHZhcmlh
+Ymxlcw0KPj4gbmV0L2lwdjQvaXBfb3V0cHV0LmM6MTQ4MTo5OiBlcnJvcjogd2VhayBkZWNsYXJh
+dGlvbiBvZiChdW5pY2FzdF9zb2NroiBtdXN0IGJlIHB1YmxpYw0KPiANCj4gU3RyYW5nZSwgaXQg
+YnVpbGRzIG9uIG15IG1hY2hpbmVzLCBhbmQgSSBnb3QgbmljZSBwZXJmb3JtYW5jZSBib29zdC4N
+Cj4gDQo+IEFwcGFyZW50bHkgeW91ciBhcmNoIGRvZXNudCBoYW5kbGUgdGhlIA0KPiANCj4gc3Rh
+dGljIERFRklORV9QRVJfQ1BVKHN0cnVjdCBpbmV0X3NvY2ssIHVuaWNhc3Rfc29jaykNCj4gDQo+
+IGluIHRoZSBmdW5jdGlvbiBib2R5ID8NCg0KSXQncyB4ODYtNjQsIHN0YW5kYXJkIEZlZG9yYSAx
+NyBpbnN0YWxsLg0K
