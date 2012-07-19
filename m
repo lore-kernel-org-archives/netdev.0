@@ -1,133 +1,410 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Crash in tun
-Date: Thu, 19 Jul 2012 10:44:01 -0700
-Message-ID: <50084761.1030602@qualcomm.com>
-References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz> <1342678175.2626.3849.camel@edumazet-glaptop> <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
+Date: Thu, 19 Jul 2012 10:47:21 -0700 (PDT)
+Message-ID: <20120719.104721.1649022907880598997.davem@davemloft.net>
+References: <1342678175.2626.3849.camel@edumazet-glaptop>
+	<alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
+	<50084761.1030602@qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-To: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Cc: mikulas@artax.karlin.mff.cuni.cz, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: maxk@qualcomm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:2734 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752366Ab2GSRoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:44:07 -0400
-In-Reply-To: <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46719 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752204Ab2GSRrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:47:22 -0400
+In-Reply-To: <50084761.1030602@qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/19/2012 09:13 AM, Mikulas Patocka wrote:
-> 
-> 
-> On Thu, 19 Jul 2012, Eric Dumazet wrote:
-> 
->> Hi Mikulas
->>
->> A fix for this problem is : http://patchwork.ozlabs.org/patch/170440/
-> 
-> If you call tun_free_netdev beacuse of a jump to an error label 
-> err_free_sk, your patch still calls it with NULL file, causing a memory 
-> corruption and a possible crash.
-> 
-> Your patch doesn't fix sockets_in_use underflow.
-> 
-> Maybe we can commit this patch --- it introduces a new flag 
-> SOCK_EXTERNALLY_ALLOCATED to work around both problems. (it looks quite 
-> nicer than my previous patch with file = (void *)1).
+From: Max Krasnyansky <maxk@qualcomm.com>
+Date: Thu, 19 Jul 2012 10:44:01 -0700
 
+> btw I don't remember now who added the socket business to tun_struct and why.
 
-I definitely like this second version better. Less hacky an all.
+Is GIT really so broken on your computer that you can't find the
+answer to this question in like 5 seconds as I just did?
 
-btw I don't remember now who added the socket business to tun_struct and why.
-It seems to be messy in general. Originally version, back when I was still paying attention to it,
-didn't have sockets at all. Only char and net devices. It was much cleaner.
+commit 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu Feb 5 21:25:32 2009 -0800
 
-Max
+    tun: Limit amount of queued packets per device
+    
+    Unlike a normal socket path, the tuntap device send path does
+    not have any accounting.  This means that the user-space sender
+    may be able to pin down arbitrary amounts of kernel memory by
+    continuing to send data to an end-point that is congested.
+    
+    Even when this isn't an issue because of limited queueing at
+    most end points, this can also be a problem because its only
+    response to congestion is packet loss.  That is, when those
+    local queues at the end-point fills up, the tuntap device will
+    start wasting system time because it will continue to send
+    data there which simply gets dropped straight away.
+    
+    Of course one could argue that everybody should do congestion
+    control end-to-end, unfortunately there are people in this world
+    still hooked on UDP, and they don't appear to be going away
+    anywhere fast.  In fact, we've always helped them by performing
+    accounting in our UDP code, the sole purpose of which is to
+    provide congestion feedback other than through packet loss.
+    
+    This patch attempts to apply the same bandaid to the tuntap device.
+    It creates a pseudo-socket object which is used to account our
+    packets just as a normal socket does for UDP.  Of course things
+    are a little complex because we're actually reinjecting traffic
+    back into the stack rather than out of the stack.
+    
+    The stack complexities however should have been resolved by preceding
+    patches.  So this one can simply start using skb_set_owner_w.
+    
+    For now the accounting is essentially disabled by default for
+    backwards compatibility.  In particular, we set the cap to INT_MAX.
+    This is so that existing applications don't get confused by the
+    sudden arrival EAGAIN errors.
+    
+    In future we may wish (or be forced to) do this by default.
+    
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-
-
-
-
-
-> ---
-> 
-> tun: fix a crash bug and a memory leak
-> 
-> This patch fixes a crash
-> tun_chr_close -> netdev_run_todo -> tun_free_netdev -> sk_release_kernel ->
-> sock_release -> iput(SOCK_INODE(sock))
-> introduced by commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
-> 
-> The problem is that this socket is embedded in struct tun_struct, it has
-> no inode, iput is called on invalid inode, which modifies invalid memory
-> and optionally causes a crash.
-> 
-> sock_release also decrements sockets_in_use, this causes a bug that
-> "sockets: used" field in /proc/*/net/sockstat keeps on decreasing when
-> creating and closing tun devices.
-> 
-> This patch introduces a flag SOCK_EXTERNALLY_ALLOCATED that instructs
-> sock_release to not free the inode and not decrement sockets_in_use,
-> fixing both memory corruption and sockets_in_use underflow.
-> 
-> It should be backported to 3.3 an 3.4 stabke.
-> 
-> Signed-off-by: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-> Cc: stable@kernel.org
-> 
-> ---
->  drivers/net/tun.c   |    3 +++
->  include/linux/net.h |    1 +
->  net/socket.c        |    3 +++
->  3 files changed, 7 insertions(+)
-> 
-> Index: linux-3.4.5-fast/drivers/net/tun.c
-> ===================================================================
-> --- linux-3.4.5-fast.orig/drivers/net/tun.c	2012-07-19 17:55:16.000000000 +0200
-> +++ linux-3.4.5-fast/drivers/net/tun.c	2012-07-19 17:58:30.000000000 +0200
-> @@ -358,6 +358,8 @@ static void tun_free_netdev(struct net_d
->  {
->  	struct tun_struct *tun = netdev_priv(dev);
->  
-> +	BUG_ON(!test_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags));
-> +
->  	sk_release_kernel(tun->socket.sk);
->  }
->  
-> @@ -1115,6 +1117,7 @@ static int tun_set_iff(struct net *net,
->  		tun->flags = flags;
->  		tun->txflt.count = 0;
->  		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
-> +		set_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags);
->  
->  		err = -ENOMEM;
->  		sk = sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
-> Index: linux-3.4.5-fast/include/linux/net.h
-> ===================================================================
-> --- linux-3.4.5-fast.orig/include/linux/net.h	2012-07-19 17:54:31.000000000 +0200
-> +++ linux-3.4.5-fast/include/linux/net.h	2012-07-19 17:55:03.000000000 +0200
-> @@ -72,6 +72,7 @@ struct net;
->  #define SOCK_NOSPACE		2
->  #define SOCK_PASSCRED		3
->  #define SOCK_PASSSEC		4
-> +#define SOCK_EXTERNALLY_ALLOCATED 5
->  
->  #ifndef ARCH_HAS_SOCKET_TYPES
->  /**
-> Index: linux-3.4.5-fast/net/socket.c
-> ===================================================================
-> --- linux-3.4.5-fast.orig/net/socket.c	2012-07-19 17:56:55.000000000 +0200
-> +++ linux-3.4.5-fast/net/socket.c	2012-07-19 17:57:50.000000000 +0200
-> @@ -522,6 +522,9 @@ void sock_release(struct socket *sock)
->  	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
->  		printk(KERN_ERR "sock_release: fasync list not empty!\n");
->  
-> +	if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
-> +		return;
-> +
->  	percpu_sub(sockets_in_use, 1);
->  	if (!sock->file) {
->  		iput(SOCK_INODE(sock));
-> 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 15d6763..0476549 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -64,6 +64,7 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/sock.h>
+ 
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -95,6 +96,8 @@ struct tun_file {
+ 	wait_queue_head_t	read_wait;
+ };
+ 
++struct tun_sock;
++
+ struct tun_struct {
+ 	struct tun_file		*tfile;
+ 	unsigned int 		flags;
+@@ -107,12 +110,24 @@ struct tun_struct {
+ 	struct fasync_struct	*fasync;
+ 
+ 	struct tap_filter       txflt;
++	struct sock		*sk;
++	struct socket		socket;
+ 
+ #ifdef TUN_DEBUG
+ 	int debug;
+ #endif
+ };
+ 
++struct tun_sock {
++	struct sock		sk;
++	struct tun_struct	*tun;
++};
++
++static inline struct tun_sock *tun_sk(struct sock *sk)
++{
++	return container_of(sk, struct tun_sock, sk);
++}
++
+ static int tun_attach(struct tun_struct *tun, struct file *file)
+ {
+ 	struct tun_file *tfile = file->private_data;
+@@ -461,7 +476,8 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ {
+ 	struct tun_file *tfile = file->private_data;
+ 	struct tun_struct *tun = __tun_get(tfile);
+-	unsigned int mask = POLLOUT | POLLWRNORM;
++	struct sock *sk = tun->sk;
++	unsigned int mask = 0;
+ 
+ 	if (!tun)
+ 		return POLLERR;
+@@ -473,6 +489,11 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ 	if (!skb_queue_empty(&tun->readq))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
++	if (sock_writeable(sk) ||
++	    (!test_and_set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags) &&
++	     sock_writeable(sk)))
++		mask |= POLLOUT | POLLWRNORM;
++
+ 	if (tun->dev->reg_state != NETREG_REGISTERED)
+ 		mask = POLLERR;
+ 
+@@ -482,66 +503,35 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
+ 
+ /* prepad is the amount to reserve at front.  len is length after that.
+  * linear is a hint as to how much to copy (usually headers). */
+-static struct sk_buff *tun_alloc_skb(size_t prepad, size_t len, size_t linear,
+-				     gfp_t gfp)
++static inline struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
++					    size_t prepad, size_t len,
++					    size_t linear, int noblock)
+ {
++	struct sock *sk = tun->sk;
+ 	struct sk_buff *skb;
+-	unsigned int i;
+-
+-	skb = alloc_skb(prepad + len, gfp|__GFP_NOWARN);
+-	if (skb) {
+-		skb_reserve(skb, prepad);
+-		skb_put(skb, len);
+-		return skb;
+-	}
++	int err;
+ 
+ 	/* Under a page?  Don't bother with paged skb. */
+ 	if (prepad + len < PAGE_SIZE)
+-		return NULL;
++		linear = len;
+ 
+-	/* Start with a normal skb, and add pages. */
+-	skb = alloc_skb(prepad + linear, gfp);
++	skb = sock_alloc_send_pskb(sk, prepad + linear, len - linear, noblock,
++				   &err);
+ 	if (!skb)
+-		return NULL;
++		return ERR_PTR(err);
+ 
+ 	skb_reserve(skb, prepad);
+ 	skb_put(skb, linear);
+-
+-	len -= linear;
+-
+-	for (i = 0; i < MAX_SKB_FRAGS; i++) {
+-		skb_frag_t *f = &skb_shinfo(skb)->frags[i];
+-
+-		f->page = alloc_page(gfp|__GFP_ZERO);
+-		if (!f->page)
+-			break;
+-
+-		f->page_offset = 0;
+-		f->size = PAGE_SIZE;
+-
+-		skb->data_len += PAGE_SIZE;
+-		skb->len += PAGE_SIZE;
+-		skb->truesize += PAGE_SIZE;
+-		skb_shinfo(skb)->nr_frags++;
+-
+-		if (len < PAGE_SIZE) {
+-			len = 0;
+-			break;
+-		}
+-		len -= PAGE_SIZE;
+-	}
+-
+-	/* Too large, or alloc fail? */
+-	if (unlikely(len)) {
+-		kfree_skb(skb);
+-		skb = NULL;
+-	}
++	skb->data_len = len - linear;
++	skb->len += len - linear;
+ 
+ 	return skb;
+ }
+ 
+ /* Get packet from user space buffer */
+-static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv, size_t count)
++static __inline__ ssize_t tun_get_user(struct tun_struct *tun,
++				       struct iovec *iv, size_t count,
++				       int noblock)
+ {
+ 	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
+ 	struct sk_buff *skb;
+@@ -573,9 +563,11 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ 			return -EINVAL;
+ 	}
+ 
+-	if (!(skb = tun_alloc_skb(align, len, gso.hdr_len, GFP_KERNEL))) {
+-		tun->dev->stats.rx_dropped++;
+-		return -ENOMEM;
++	skb = tun_alloc_skb(tun, align, len, gso.hdr_len, noblock);
++	if (IS_ERR(skb)) {
++		if (PTR_ERR(skb) != -EAGAIN)
++			tun->dev->stats.rx_dropped++;
++		return PTR_ERR(skb);
+ 	}
+ 
+ 	if (skb_copy_datagram_from_iovec(skb, 0, iv, len)) {
+@@ -661,7 +653,8 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 			      unsigned long count, loff_t pos)
+ {
+-	struct tun_struct *tun = tun_get(iocb->ki_filp);
++	struct file *file = iocb->ki_filp;
++	struct tun_struct *tun = file->private_data;
+ 	ssize_t result;
+ 
+ 	if (!tun)
+@@ -669,7 +662,8 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
+ 
+-	result = tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
++	result = tun_get_user(tun, (struct iovec *)iv, iov_length(iv, count),
++			      file->f_flags & O_NONBLOCK);
+ 
+ 	tun_put(tun);
+ 	return result;
+@@ -828,11 +822,40 @@ static struct rtnl_link_ops tun_link_ops __read_mostly = {
+ 	.validate	= tun_validate,
+ };
+ 
++static void tun_sock_write_space(struct sock *sk)
++{
++	struct tun_struct *tun;
++
++	if (!sock_writeable(sk))
++		return;
++
++	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
++		wake_up_interruptible_sync(sk->sk_sleep);
++
++	if (!test_and_clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags))
++		return;
++
++	tun = container_of(sk, struct tun_sock, sk)->tun;
++	kill_fasync(&tun->fasync, SIGIO, POLL_OUT);
++}
++
++static void tun_sock_destruct(struct sock *sk)
++{
++	dev_put(container_of(sk, struct tun_sock, sk)->tun->dev);
++}
++
++static struct proto tun_proto = {
++	.name		= "tun",
++	.owner		= THIS_MODULE,
++	.obj_size	= sizeof(struct tun_sock),
++};
+ 
+ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ {
++	struct sock *sk;
+ 	struct tun_struct *tun;
+ 	struct net_device *dev;
++	struct tun_file *tfile = file->private_data;
+ 	int err;
+ 
+ 	dev = __dev_get_by_name(net, ifr->ifr_name);
+@@ -885,14 +908,31 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		tun->flags = flags;
+ 		tun->txflt.count = 0;
+ 
++		err = -ENOMEM;
++		sk = sk_alloc(net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
++		if (!sk)
++			goto err_free_dev;
++
++		/* This ref count is for tun->sk. */
++		dev_hold(dev);
++		sock_init_data(&tun->socket, sk);
++		sk->sk_write_space = tun_sock_write_space;
++		sk->sk_destruct = tun_sock_destruct;
++		sk->sk_sndbuf = INT_MAX;
++		sk->sk_sleep = &tfile->read_wait;
++
++		tun->sk = sk;
++		container_of(sk, struct tun_sock, sk)->tun = tun;
++
+ 		tun_net_init(dev);
+ 
+ 		if (strchr(dev->name, '%')) {
+ 			err = dev_alloc_name(dev, dev->name);
+ 			if (err < 0)
+-				goto err_free_dev;
++				goto err_free_sk;
+ 		}
+ 
++		err = -EINVAL;
+ 		err = register_netdevice(tun->dev);
+ 		if (err < 0)
+ 			goto err_free_dev;
+@@ -928,6 +968,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 	strcpy(ifr->ifr_name, tun->dev->name);
+ 	return 0;
+ 
++ err_free_sk:
++	sock_put(sk);
+  err_free_dev:
+ 	free_netdev(dev);
+  failed:
+@@ -1012,6 +1054,7 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 	struct tun_struct *tun;
+ 	void __user* argp = (void __user*)arg;
+ 	struct ifreq ifr;
++	int sndbuf;
+ 	int ret;
+ 
+ 	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
+@@ -1151,6 +1194,22 @@ static int tun_chr_ioctl(struct inode *inode, struct file *file,
+ 		ret = dev_set_mac_address(tun->dev, &ifr.ifr_hwaddr);
+ 		rtnl_unlock();
+ 		break;
++
++	case TUNGETSNDBUF:
++		sndbuf = tun->sk->sk_sndbuf;
++		if (copy_to_user(argp, &sndbuf, sizeof(sndbuf)))
++			ret = -EFAULT;
++		break;
++
++	case TUNSETSNDBUF:
++		if (copy_from_user(&sndbuf, argp, sizeof(sndbuf))) {
++			ret = -EFAULT;
++			break;
++		}
++
++		tun->sk->sk_sndbuf = sndbuf;
++		break;
++
+ 	default:
+ 		ret = -EINVAL;
+ 		break;
+@@ -1218,8 +1277,10 @@ static int tun_chr_close(struct inode *inode, struct file *file)
+ 		__tun_detach(tun);
+ 
+ 		/* If desireable, unregister the netdevice. */
+-		if (!(tun->flags & TUN_PERSIST))
++		if (!(tun->flags & TUN_PERSIST)) {
++			sock_put(tun->sk);
+ 			unregister_netdevice(tun->dev);
++		}
+ 
+ 		rtnl_unlock();
+ 	}
+diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
+index c8f8d59..c03c10d 100644
+--- a/fs/compat_ioctl.c
++++ b/fs/compat_ioctl.c
+@@ -1988,6 +1988,8 @@ COMPATIBLE_IOCTL(TUNSETGROUP)
+ COMPATIBLE_IOCTL(TUNGETFEATURES)
+ COMPATIBLE_IOCTL(TUNSETOFFLOAD)
+ COMPATIBLE_IOCTL(TUNSETTXFILTER)
++COMPATIBLE_IOCTL(TUNGETSNDBUF)
++COMPATIBLE_IOCTL(TUNSETSNDBUF)
+ /* Big V */
+ COMPATIBLE_IOCTL(VT_SETMODE)
+ COMPATIBLE_IOCTL(VT_GETMODE)
+diff --git a/include/linux/if_tun.h b/include/linux/if_tun.h
+index 8529f57..049d6c9 100644
+--- a/include/linux/if_tun.h
++++ b/include/linux/if_tun.h
+@@ -46,6 +46,8 @@
+ #define TUNSETOFFLOAD  _IOW('T', 208, unsigned int)
+ #define TUNSETTXFILTER _IOW('T', 209, unsigned int)
+ #define TUNGETIFF      _IOR('T', 210, unsigned int)
++#define TUNGETSNDBUF   _IOR('T', 211, int)
++#define TUNSETSNDBUF   _IOW('T', 212, int)
+ 
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
