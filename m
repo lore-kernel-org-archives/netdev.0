@@ -1,36 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/7] TCP Fast Open client
-Date: Thu, 19 Jul 2012 10:56:16 -0700 (PDT)
-Message-ID: <20120719.105616.2007996793203344140.davem@davemloft.net>
-References: <1342716191-19196-1-git-send-email-ycheng@google.com>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH] Crash in tun
+Date: Thu, 19 Jul 2012 10:57:12 -0700
+Message-ID: <50084A78.6060602@qualcomm.com>
+References: <1342678175.2626.3849.camel@edumazet-glaptop> <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz> <50084761.1030602@qualcomm.com> <20120719.104721.1649022907880598997.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com, edumazet@google.com, ncardwell@google.com,
-	sivasankar@cs.ucsd.edu, netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: <mikulas@artax.karlin.mff.cuni.cz>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46865 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143Ab2GSR4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:56:18 -0400
-In-Reply-To: <1342716191-19196-1-git-send-email-ycheng@google.com>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:56294 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845Ab2GSR5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:57:19 -0400
+In-Reply-To: <20120719.104721.1649022907880598997.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Thu, 19 Jul 2012 09:43:04 -0700
-
-> ChangeLog since v2:
->   - Added seqlock to update Fast Open metrics
->   - Move TCP magic code in inet_wait_for_connect() to inet_stream_connect()
->   - Move up MSG_FASTOPEN macro for better header formatting
+On 07/19/2012 10:47 AM, David Miller wrote:
+> From: Max Krasnyansky <maxk@qualcomm.com>
+> Date: Thu, 19 Jul 2012 10:44:01 -0700
 > 
-> ChangeLog since v1:
->   - Reduce tons of code by storing Fast Open stats in the TCP metrics :)
->   - Clarify the purpose of using an experimental option in patch 1/7
+>> btw I don't remember now who added the socket business to tun_struct and why.
+> 
+> Is GIT really so broken on your computer that you can't find the
+> answer to this question in like 5 seconds as I just did?
 
-Ok I've applied this series and am doing build testing, if nothing
-falls out from that I'll push it out to net-next.
+No. I'm just too lazy these days. Too much surfing I guess :).
 
-Thanks a lot for doing this work.
+> commit 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Thu Feb 5 21:25:32 2009 -0800
+> 
+>     tun: Limit amount of queued packets per device
+> <snip>     
+>     This patch attempts to apply the same bandaid to the tuntap device.
+>     It creates a pseudo-socket object which is used to account our
+>     packets just as a normal socket does for UDP.  Of course things
+>     are a little complex because we're actually reinjecting traffic
+>     back into the stack rather than out of the stack.
+
+Thanks for the info. Overall it definitely makes sense. Still feels a bit of an overkill.
+i.e. That we need to allocated a socket just for accounting but I guess all the involved
+skb primitives are heavily based on that. If there are other use cases like this maybe
+it makes sense to factor accounting stuff out of the socket struct?
+
+Max
