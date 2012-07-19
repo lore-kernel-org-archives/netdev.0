@@ -1,49 +1,51 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH] Crash in tun
-Date: Thu, 19 Jul 2012 10:57:12 -0700
-Message-ID: <50084A78.6060602@qualcomm.com>
-References: <1342678175.2626.3849.camel@edumazet-glaptop> <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz> <50084761.1030602@qualcomm.com> <20120719.104721.1649022907880598997.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 3/7] net-tcp: Fast Open client - sending SYN-data
+Date: Thu, 19 Jul 2012 19:57:51 +0200
+Message-ID: <1342720671.2626.4650.camel@edumazet-glaptop>
+References: <1342716191-19196-1-git-send-email-ycheng@google.com>
+	 <1342716191-19196-4-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <mikulas@artax.karlin.mff.cuni.cz>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com, sivasankar@cs.ucsd.edu,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:56294 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752845Ab2GSR5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:57:19 -0400
-In-Reply-To: <20120719.104721.1649022907880598997.davem@davemloft.net>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:52335 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143Ab2GSR56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:57:58 -0400
+Received: by vcbfk26 with SMTP id fk26so2225536vcb.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 10:57:57 -0700 (PDT)
+In-Reply-To: <1342716191-19196-4-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/19/2012 10:47 AM, David Miller wrote:
-> From: Max Krasnyansky <maxk@qualcomm.com>
-> Date: Thu, 19 Jul 2012 10:44:01 -0700
+On Thu, 2012-07-19 at 09:43 -0700, Yuchung Cheng wrote:
+> This patch implements sending SYN-data in tcp_connect(). The data is
+> from tcp_sendmsg() with flag MSG_FASTOPEN (implemented in a later patch).
 > 
->> btw I don't remember now who added the socket business to tun_struct and why.
+> The length of the cookie in tcp_fastopen_req, init'd to 0, controls the
+> type of the SYN. If the cookie is not cached (len==0), the host sends
+> data-less SYN with Fast Open cookie request option to solicit a cookie
+> from the remote. If cookie is not available (len > 0), the host sends
+> a SYN-data with Fast Open cookie option. If cookie length is negative,
+>   the SYN will not include any Fast Open option (for fall back operations).
 > 
-> Is GIT really so broken on your computer that you can't find the
-> answer to this question in like 5 seconds as I just did?
-
-No. I'm just too lazy these days. Too much surfing I guess :).
-
-> commit 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Thu Feb 5 21:25:32 2009 -0800
+> To deal with middleboxes that may drop SYN with data or experimental TCP
+> option, the SYN-data is only sent once. SYN retransmits do not include
+> data or Fast Open options. The connection will fall back to regular TCP
+> handshake.
 > 
->     tun: Limit amount of queued packets per device
-> <snip>     
->     This patch attempts to apply the same bandaid to the tuntap device.
->     It creates a pseudo-socket object which is used to account our
->     packets just as a normal socket does for UDP.  Of course things
->     are a little complex because we're actually reinjecting traffic
->     back into the stack rather than out of the stack.
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> ---
+>  include/linux/snmp.h  |    1 +
+>  include/linux/tcp.h   |    6 ++-
+>  include/net/tcp.h     |    9 ++++
+>  net/ipv4/af_inet.c    |   10 +++-
+>  net/ipv4/proc.c       |    1 +
+>  net/ipv4/tcp_output.c |  115 +++++++++++++++++++++++++++++++++++++++++++++----
+>  6 files changed, 130 insertions(+), 12 deletions(-)
 
-Thanks for the info. Overall it definitely makes sense. Still feels a bit of an overkill.
-i.e. That we need to allocated a socket just for accounting but I guess all the involved
-skb primitives are heavily based on that. If there are other use cases like this maybe
-it makes sense to factor accounting stuff out of the socket struct?
-
-Max
+Eric Dumazet <edumazet@google.com>
