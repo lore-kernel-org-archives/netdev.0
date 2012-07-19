@@ -1,25 +1,38 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [PATCH net-next] asix: AX88172A driver depends on phylib
-Date: Fri, 20 Jul 2012 01:01:26 +0800
-Message-ID: <20120719170126.GA19361@localhost>
-References: <1342699339-13871-1-git-send-email-christian.riesch@omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Christian Riesch <christian.riesch@omicron.at>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH] sfc: initialize dynamic sysfs attributes for lockdep
+Date: Thu, 19 Jul 2012 19:04:45 +0200
+Message-ID: <1342717485-24034-1-git-send-email-mschmidt@redhat.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39999 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:31418 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751189Ab2GSRBu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 13:01:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1342699339-13871-1-git-send-email-christian.riesch@omicron.at>
+	id S1751313Ab2GSREx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2012 13:04:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 19, 2012 at 02:02:19PM +0200, Christian Riesch wrote:
-> Since commit 16626b0cc3d5afe250850f96759b241f8a403b52 the asix
-> driver depends on the phylib. Select phylib when the asix driver is
-> selected.
+Dynamically allocated sysfs attributes must be initialized using
+sysfs_attr_init(), otherwise lockdep complains:
+BUG: key <address> not in .data!
 
-Tested-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/sfc/mcdi_mon.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+index fb7f65b..1d552f0 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mon.c
++++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+@@ -222,6 +222,7 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
+ 	attr->index = index;
+ 	attr->type = type;
+ 	attr->limit_value = limit_value;
++	sysfs_attr_init(&attr->dev_attr.attr);
+ 	attr->dev_attr.attr.name = attr->name;
+ 	attr->dev_attr.attr.mode = S_IRUGO;
+ 	attr->dev_attr.show = reader;
+-- 
+1.7.10.4
