@@ -1,38 +1,76 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 0/4] net/mlx4_en: Add accelerated RFS
- support
-Date: Thu, 19 Jul 2012 08:34:59 -0700 (PDT)
-Message-ID: <20120719.083459.617485160559083500.davem@davemloft.net>
-References: <1342686832-21406-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next] ipv4: tcp: remove per net tcp_sock
+Date: Thu, 19 Jul 2012 08:35:44 -0700 (PDT)
+Message-ID: <20120719.083544.1223522161508413373.davem@davemloft.net>
+References: <1342688332.2626.4001.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
-	yevgenyp@mellanox.com, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45282 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45302 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942Ab2GSPfB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 11:35:01 -0400
-In-Reply-To: <1342686832-21406-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1750942Ab2GSPfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 11:35:45 -0400
+In-Reply-To: <1342688332.2626.4001.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 19 Jul 2012 11:33:48 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 19 Jul 2012 10:58:52 +0200
 
-> This series from Amir Vadai adds support for Accelerated RFS 
-> to the mlx4_en Ethernet driver.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The code uses the Accelerated RFS infrastructure and HW flow steering 
-> to keep CPU affinity of rx interrupts and applications per TCP stream.
+> tcp_v4_send_reset() and tcp_v4_send_ack() use a single socket
+> per network namespace.
 > 
-> To do so, we had to add little protection to cpu_rmap.h against double 
-> inclusion. Also, added linking between CPU to IRQ using rmap in the 
-> mlx4_core driver.
+> This leads to bad behavior on multiqueue NICS, because many cpus
+> contend for the socket lock and once socket lock is acquired, extra
+> false sharing on various socket fields slow down the operations.
 > 
-> changes from V0:
->  - always use CONFIG_RFS_ACCEL instead of using twice CONFIG_CPU_RMAP directly
+> To better resist to attacks, we use a percpu socket. Each cpu can
+> run without contention, using appropriate memory (local node)
+> 
+> Additional features :
+> 
+> 1) We also mirror the queue_mapping of the incoming skb, so that
+> answers use the same queue if possible.
+> 
+> 2) Setting SOCK_USE_WRITE_QUEUE socket flag speedup sock_wfree()
+> 
+> 3) We now limit the number of in-flight RST/ACK [1] packets
+> per cpu, instead of per namespace, and we honor the sysctl_wmem_default
+> limit dynamically. (Prior to this patch, sysctl_wmem_default value was
+> copied at boot time, so any further change would not affect tcp_sock
+> limit)
+> 
+> 
+> [1] These packets are only generated when no socket was matched for
+> the incoming packet.
+> 
+> Reported-by: Bill Sommerfeld <wsommerfeld@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks.
+Looks great, applied, thanks Eric.
+
+> @@ -2624,13 +2624,11 @@ EXPORT_SYMBOL(tcp_prot);
+>  
+>  static int __net_init tcp_sk_init(struct net *net)
+>  {
+> -	return inet_ctl_sock_create(&net->ipv4.tcp_sock,
+> -				    PF_INET, SOCK_RAW, IPPROTO_TCP, net);
+> +	return 0;
+>  }
+>  
+>  static void __net_exit tcp_sk_exit(struct net *net)
+>  {
+> -	inet_ctl_sock_destroy(net->ipv4.tcp_sock);
+>  }
+>  
+>  static void __net_exit tcp_sk_exit_batch(struct list_head *net_exit_list)
+
+If these no longer really do anything, just send me a patch to kill
+them off entirely.
+
+Thanks again.
