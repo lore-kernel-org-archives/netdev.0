@@ -1,160 +1,282 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Crash in tun
-Date: Thu, 19 Jul 2012 08:09:35 +0200
-Message-ID: <1342678175.2626.3849.camel@edumazet-glaptop>
-References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues
+ (VMDQ)
+Date: Thu, 19 Jul 2012 08:42:58 +0200
+Message-ID: <20120719064258.GA1665@minipsycho.orion>
+References: <20120718220544.22619.97136.stgit@i40e.jf1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Maxim Krasnyansky <maxk@qualcomm.com>, vtun@office.satix.net,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: or.gerlitz@gmail.com, davem@davemloft.net, roland@kernel.org,
+	netdev@vger.kernel.org, ali@mellanox.com, sean.hefty@intel.com,
+	shlomop@mellanox.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:50993 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab2GSGJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 02:09:43 -0400
-Received: by qadb17 with SMTP id b17so3473547qad.19
-        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 23:09:42 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:38912 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717Ab2GSGnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 02:43:03 -0400
+Received: by wgbdr13 with SMTP id dr13so2080149wgb.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jul 2012 23:43:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120718220544.22619.97136.stgit@i40e.jf1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-19 at 03:12 +0200, Mikulas Patocka wrote:
-> Hi
+Thu, Jul 19, 2012 at 12:05:44AM CEST, john.r.fastabend@intel.com wrote:
+>This adds support to allow virtual net devices to be created. These
+>devices can be managed independtly of the physical function but
+>use the same physical link.
+>
+>This is analagous to an offloaded macvlan device. The primary
+>advantage to VMDQ net devices over virtual functions is they can
+>be added and removed dynamically as needed.
+>
+>Sending this for Or Gerlitz to take a peak at and see if this
+>could be used for his ipoib bits. Its not pretty as is and
+>likely needs some work its just an idea at this point use at
+>your own risk I believe it compiles.
+>---
+>
+> drivers/net/Kconfig       |    7 ++
+> drivers/net/Makefile      |    1 
+> drivers/net/vmdq.c        |  130 +++++++++++++++++++++++++++++++++++++++++++++
+> include/linux/netdevice.h |    6 ++
+> include/net/rtnetlink.h   |    2 +
+> net/core/rtnetlink.c      |   10 +++
+> 6 files changed, 155 insertions(+), 1 deletions(-)
+> create mode 100644 drivers/net/vmdq.c
+>
+>diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>index 0c2bd80..f28d951 100644
+>--- a/drivers/net/Kconfig
+>+++ b/drivers/net/Kconfig
+>@@ -337,6 +337,13 @@ config VMXNET3
+> 	  To compile this driver as a module, choose M here: the
+> 	  module will be called vmxnet3.
 > 
-> I want to report a crash when using the tun driver. The crash can be 
-> reproduced by starting and stopping miredo in the loop:
+>+config VMDQ 
+>+	tristate "Support Embedded bridge devices and child devices"
+>+	help
+>+	  This supports chipsets with embedded switching components and
+>+	  allows us to create more net_devices that are logically slaves
+>+	  of a master net device.
+>+
+> source "drivers/net/hyperv/Kconfig"
 > 
-> while ! dmesg | grep -q BUG; do
-> 	/etc/init.d/miredo start;/etc/init.d/miredo stop
-> done
+> endif # NETDEVICES
+>diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+>index 3d375ca..1eb5605 100644
+>--- a/drivers/net/Makefile
+>+++ b/drivers/net/Makefile
+>@@ -21,6 +21,7 @@ obj-$(CONFIG_NET_TEAM) += team/
+> obj-$(CONFIG_TUN) += tun.o
+> obj-$(CONFIG_VETH) += veth.o
+> obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+>+obj-$(CONFIG_VMDQ) += vmdq.o
 > 
-> The crash happens in iput_final because inode->i_sb->s_op is NULL.
-> 
-> The crash happens in 3.4, 3.4.5, 3.5-rc7. The crash does not happen in 
-> 3.3. When I attempted to bisect, unrelated changes in completely different 
-> driver regarding memory allocation triggered the crash --- so it is 
-> likely buggy even in 3.3 and before, it just didn't show up.
-> 
-> 
-> What is obviously wrong:
-> in the tun driver "struct socket" is embedded in "struct tun_struct".
-> 
-> The backtrace goes through:
-> netdev_run_todo -> tun_free_netdev -> sk_release_kernel -> sock_release.
-> 
-> sock_release calls iput(SOCK_INODE(sock)). SOCK_INODE assumes that struct 
-> socket is embedded in "struct socket_alloc" (which is not true, it is 
-> embedded in "struct tun_struct"), gets a pointer to non-existing inode --- 
-> and there goes the crash.
-> 
-> 
-> The crash can be fixed by writing any non-NULL value to tun->socket.file 
-> to prevent sock_release from calling iput(SOCK_INODE(sock)). Or maybe you 
-> come up with a better fix.
-> 
-> 
-> Note another bug - when you are repeatedly starting and stopping miredo, 
-> even if it doesn't crash, the value "sockets: used" in 
-> /proc/*/net/sockstat keeps on decreasing. That's because sock_release 
-> decrements sockets_in_use, but there was no sock_alloc to increment it.
-> 
-> 
-> Mikulas
-> 
-> ---
-> 
-> Signed-off-by: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-> 
-> ---
->  drivers/net/tun.c |    2 ++
->  net/socket.c      |    4 +++-
->  2 files changed, 5 insertions(+), 1 deletion(-)
-> 
-> Index: linux-3.4.5-fast/drivers/net/tun.c
-> ===================================================================
-> --- linux-3.4.5-fast.orig/drivers/net/tun.c	2012-07-19 02:42:56.000000000 +0200
-> +++ linux-3.4.5-fast/drivers/net/tun.c	2012-07-19 02:50:13.000000000 +0200
-> @@ -358,6 +358,8 @@ static void tun_free_netdev(struct net_d
->  {
->  	struct tun_struct *tun = netdev_priv(dev);
->  
-> +	/* Prevent the code in sock_release from calling iput. */
-> +	tun->socket.file = (void *)1;
->  	sk_release_kernel(tun->socket.sk);
->  }
->  
-> Index: linux-3.4.5-fast/net/socket.c
-> ===================================================================
-> --- linux-3.4.5-fast.orig/net/socket.c	2012-07-19 03:00:30.000000000 +0200
-> +++ linux-3.4.5-fast/net/socket.c	2012-07-19 03:05:36.000000000 +0200
-> @@ -522,7 +522,9 @@ void sock_release(struct socket *sock)
->  	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
->  		printk(KERN_ERR "sock_release: fasync list not empty!\n");
->  
-> -	percpu_sub(sockets_in_use, 1);
-> +	/* a hack - sockets_in_use should not be decremented when tun calls this */
-> +	if (sock->file != (void *)1)
-> +		percpu_sub(sockets_in_use, 1);
->  	if (!sock->file) {
->  		iput(SOCK_INODE(sock));
->  		return;
->  
-> --- 
-> 
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
-> IP: [<ffffffff81113246>] iput+0x76/0x230
-> PGD 43e5e9067 PUD 4468d5067 PMD 0
-> Oops: 0000 [#1] PREEMPT SMP
-> CPU 1
-> Modules linked in: ip6table_filter ip6_tables iptable_filter ip_tables 
-> ebtable_nat ebtables x_tables kvm_amd kvm tun cpufreq_userspace 
-> cpufreq_stats cpufreq_powersave cpufreq_ondemand cpufreq_conservative ipv6 
-> fuse raid0 md_mod lm85 hwmon_vid snd_usb_audio snd_pcm_oss snd_mixer_oss 
-> snd_pcm snd_timer snd_page_alloc snd_hwdep snd_usbmidi_lib snd_rawmidi snd 
-> soundcore ide_cd_mod cdrom ohci_hcd sata_svw libata serverworks ide_core 
-> powernow_k8 ehci_hcd usbcore tg3 usb_common floppy freq_table e100 skge 
-> mii i2c_piix4 libphy mperf k10temp rtc_cmos processor button hwmon 
-> microcode unix
-> 
-> Pid: 10826, comm: miredo Not tainted 3.4.5 #85 empty empty/S3992-E
-> RIP: 0010:[<ffffffff81113246>]  [<ffffffff81113246>] iput+0x76/0x230
-> RSP: 0018:ffff88043dc73e48  EFLAGS: 00010246
-> RAX: 0000000000000001 RBX: ffff88023eba3f20 RCX: ffff880447d80000
-> RDX: 0000000000000001 RSI: ffff88023eba3f98 RDI: ffff88023eba3f98
-> RBP: ffff88023eba3f98 R08: ffffffff814804d8 R09: 0000000000000000
-> R10: 0000000000000096 R11: dead000000100100 R12: ffff88023eba3f48
-> R13: 0000000000000000 R14: ffff88043dc73e88 R15: 00000000ffffad3a
-> FS:  00007fe71bbb9700(0000) GS:ffff880247c80000(0000) 
-> knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 0000000000000020 CR3: 000000043dcf0000 CR4: 00000000000007f0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process miredo (pid: 10826, threadinfo ffff88043dc72000, task 
-> ffff88043dc1b8d0) Stack:
->  ffff88043dc73e88 ffff88023efef000 ffff88023eba3800 ffff88023eba3c00
->  ffff88024749ecc0 ffffffff81281d93 ffff88023e8fa500 ffffffff81295438
->  ffff88043dc73e88 ffff88043dc73e88 ffff88023eba38f8 ffff88023e8fa500
-> Call Trace:
->  [<ffffffff81281d93>] ? sk_release_kernel+0x23/0x40
->  [<ffffffff81295438>] ? netdev_run_todo+0x1a8/0x260
->  [<ffffffffa02522a3>] ? tun_chr_close+0x93/0xb0 [tun]
->  [<ffffffff810fc3ed>] ? fput+0xdd/0x260
->  [<ffffffff810f8aff>] ? filp_close+0x5f/0x90
->  [<ffffffff810f8bc7>] ? sys_close+0x97/0x100
->  [<ffffffff81311f22>] ? system_call_fastpath+0x16/0x1b
-> Code: 6c 24 10 4c 8b 64 24 18 4c 8b 6c 24 20 48 83 c4 28 c3 0f 1f 00 f6 83 
-> 90 00 00 00 08 4c 8b 63 28 4d 8b 6c 24 30 0f 85 7d 01 00 00 <49> 8b 45 20 
-> 48 85 c0 0f 84 9d 00 00 00 48 89 df ff d0 85 c0 0f
-> RIP  [<ffffffff81113246>] iput+0x76/0x230
->  RSP <ffff88043dc73e48>
-> CR2: 0000000000000020
-> ---[ end trace 6bd5160ffd3ba7a2 ]---
-> note: miredo[10826] exited with preempt_count 1
+> #
+> # Networking Drivers
+>diff --git a/drivers/net/vmdq.c b/drivers/net/vmdq.c
+>new file mode 100644
+>index 0000000..9acc429
+>--- /dev/null
+>+++ b/drivers/net/vmdq.c
+>@@ -0,0 +1,130 @@
+>+/*******************************************************************************
+>+
+>+  vmdq - Support virtual machine device queues (VMDQ)
+>+  Copyright(c) 2012 Intel Corporation.
+>+
+>+  This program is free software; you can redistribute it and/or modify it
+>+  under the terms and conditions of the GNU General Public License,
+>+  version 2, as published by the Free Software Foundation.
+>+
+>+  This program is distributed in the hope it will be useful, but WITHOUT
+>+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+>+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+>+  more details.
+>+
+>+  You should have received a copy of the GNU General Public License along with
+>+  this program; if not, write to the Free Software Foundation, Inc.,
+>+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+>+
+>+  The full GNU General Public License is included in this distribution in
+>+  the file called "COPYING".
+>+
+>+  Contact Information:
+>+  John Fastabend <john.r.fastabend@intel.com>
+>+
+>+*******************************************************************************/
+>+
+>+#include <linux/module.h>
+>+#include <net/rtnetlink.h>
+>+#include <linux/etherdevice.h>
+>+
+>+static int vmdq_newlink(struct net *src_net, struct net_device *dev,
+>+		       struct nlattr *tb[], struct nlattr *data[])
+>+{
+>+	struct net_device *lowerdev;
+>+	int err = -EOPNOTSUPP;
+>+
+>+	if (!tb[IFLA_LINK])
+>+		return -EINVAL;
+>+
+>+	lowerdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
+>+	if (!lowerdev)
+>+		return -ENODEV;
+>+
+>+	if (!tb[IFLA_MTU])
+>+		dev->mtu = lowerdev->mtu;
+>+	else if (dev->mtu > lowerdev->mtu)
+>+		return -EINVAL;
+>+
+>+	if (lowerdev->netdev_ops->ndo_add_vmdq)
+>+		err = lowerdev->netdev_ops->ndo_add_vmdq(lowerdev, dev);
+>+
+>+	if (err < 0)
+>+		return err;
+>+
+>+	err = register_netdevice(dev);
+>+	if (err < 0)
+>+		lowerdev->netdev_ops->ndo_del_vmdq(lowerdev, dev);
+>+	else
+>+		netif_stacked_transfer_operstate(lowerdev, dev);
+>+
+>+	return err;
+>+}
+>+
+>+void vmdq_dellink(struct net_device *dev, struct list_head *head)
+>+{
+>+	struct net_device *lowerdev = __dev_get_by_index(dev_net(dev), dev->iflink);
+>+
+>+	if (lowerdev && lowerdev->netdev_ops->ndo_del_vmdq)
+>+		lowerdev->netdev_ops->ndo_del_vmdq(lowerdev, dev);		
+>+}
+>+
+>+static void vmdq_setup(struct net_device *dev)
+>+{
+>+	ether_setup(dev);
+>+}
+>+
+>+size_t vmdq_getpriv_size(struct net *src_net, struct nlattr *tb[])
+>+{
+>+	struct net_device *lowerdev;
+>+
+>+	if (!tb[IFLA_LINK])
+>+		return -EINVAL;
+>+
+>+	lowerdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
+>+	if (!lowerdev)
+>+		return -ENODEV;
+>+
+>+	return sizeof(netdev_priv(lowerdev));
+>+}
 
-
-Hi Mikulas
-
-A fix for this problem is : http://patchwork.ozlabs.org/patch/170440/
+Why exactly do you need to have the priv of same size as lowerdev? I do
+not see you use that anywhere...
+	
+>+
+>+int vmdq_get_tx_queues(struct net *net, struct nlattr *tb[])
+>+{
+>+	struct net_device *lowerdev;
+>+
+>+	if (!tb[IFLA_LINK])
+>+		return -EINVAL;
+>+
+>+	lowerdev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
+>+	if (!lowerdev)
+>+		return -ENODEV;
+>+
+>+	return lowerdev->num_tx_queues;
+>+}
+>+
+>+static struct rtnl_link_ops vmdq_link_ops __read_mostly = {
+>+	.kind		= "vmdq",
+>+	.setup		= vmdq_setup,
+>+	.newlink	= vmdq_newlink,
+>+	.dellink	= vmdq_dellink,
+>+	.get_priv_size	= vmdq_getpriv_size,
+>+	.get_tx_queues	= vmdq_get_tx_queues,
+>+};
+>+
+>+static int __init vmdq_init_module(void)
+>+{
+>+	return rtnl_link_register(&vmdq_link_ops);
+>+}
+>+
+>+static void __exit vmdq_cleanup_module(void)
+>+{
+>+	rtnl_link_unregister(&vmdq_link_ops);
+>+}
+>+
+>+module_init(vmdq_init_module);
+>+module_exit(vmdq_cleanup_module);
+>+
+>+MODULE_LICENSE("GPL");
+>+MODULE_AUTHOR("John Fastabend <john.r.fastabend@intel.com>");
+>+MODULE_DESCRIPTION("Driver for embedded switch chipsets");
+>+MODULE_ALIAS_RTNL_LINK("vmdq");
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index ab0251d..d879c4d 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -972,6 +972,12 @@ struct net_device_ops {
+> 						   struct nlattr *port[]);
+> 	int			(*ndo_get_vf_port)(struct net_device *dev,
+> 						   int vf, struct sk_buff *skb);
+>+
+>+	int			(*ndo_add_vmdq)(struct net_device *lowerdev,
+>+						struct net_device *dev);
+>+	int			(*ndo_del_vmdq)(struct net_device *lowerdev,
+>+						struct net_device *dev);
+>+
+> 	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc);
+> #if IS_ENABLED(CONFIG_FCOE)
+> 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+>diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+>index bbcfd09..e9f903c 100644
+>--- a/include/net/rtnetlink.h
+>+++ b/include/net/rtnetlink.h
+>@@ -79,6 +79,8 @@ struct rtnl_link_ops {
+> 					       const struct net_device *dev);
+> 	int			(*get_tx_queues)(struct net *net,
+> 						 struct nlattr *tb[]);
+>+	size_t			(*get_priv_size)(struct net *net,
+>+						 struct nlattr *tb[]);
+> };
+> 
+> extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
+>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>index 2b325c3..2e33b9a 100644
+>--- a/net/core/rtnetlink.c
+>+++ b/net/core/rtnetlink.c
+>@@ -1627,6 +1627,7 @@ struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
+> 	int err;
+> 	struct net_device *dev;
+> 	unsigned int num_queues = 1;
+>+	size_t priv_size = ops->priv_size;
+> 
+> 	if (ops->get_tx_queues) {
+> 		err = ops->get_tx_queues(src_net, tb);
+>@@ -1635,8 +1636,15 @@ struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
+> 		num_queues = err;
+> 	}
+> 
+>+	if (ops->get_priv_size) {
+>+		err = ops->get_priv_size(src_net, tb);
+>+		if (err < 0)
+>+			goto err;
+>+		priv_size = err;
+>+	}
+>+
+> 	err = -ENOMEM;
+>-	dev = alloc_netdev_mq(ops->priv_size, ifname, ops->setup, num_queues);
+>+	dev = alloc_netdev_mq(priv_size, ifname, ops->setup, num_queues);
+> 	if (!dev)
+> 		goto err;
+> 
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
