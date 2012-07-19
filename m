@@ -1,29 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Fix warnings in dst_ops.h
-Date: Thu, 19 Jul 2012 10:43:22 -0700 (PDT)
-Message-ID: <20120719.104322.441167767135286212.davem@davemloft.net>
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH] Crash in tun
+Date: Thu, 19 Jul 2012 10:44:01 -0700
+Message-ID: <50084761.1030602@qualcomm.com>
+References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz> <1342678175.2626.3849.camel@edumazet-glaptop> <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46687 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752204Ab2GSRnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:43:23 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 36241584497
-	for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 10:43:25 -0700 (PDT)
+Received: from wolverine01.qualcomm.com ([199.106.114.254]:2734 "EHLO
+	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752366Ab2GSRoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:44:07 -0400
+In-Reply-To: <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQppbmNsdWRlL25ldC9kc3Rfb3BzLmg6Mjg6MjA6IHdhcm5pbmc6IKFzdHJ1Y3Qgc29ja6IgZGVj
-bGFyZWQgaW5zaWRlIHBhcmFtZXRlciBsaXN0DQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1p
-bGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KIGluY2x1ZGUvbmV0L2RzdF9vcHMuaCB8
-ICAgIDEgKw0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQ0KDQpkaWZmIC0tZ2l0IGEv
-aW5jbHVkZS9uZXQvZHN0X29wcy5oIGIvaW5jbHVkZS9uZXQvZHN0X29wcy5oDQppbmRleCBkMDc5
-ZmM2Li4yZjI2ZGZiIDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9uZXQvZHN0X29wcy5oDQorKysgYi9p
-bmNsdWRlL25ldC9kc3Rfb3BzLmgNCkBAIC04LDYgKzgsNyBAQCBzdHJ1Y3QgZHN0X2VudHJ5Ow0K
-IHN0cnVjdCBrbWVtX2NhY2hlcDsNCiBzdHJ1Y3QgbmV0X2RldmljZTsNCiBzdHJ1Y3Qgc2tfYnVm
-ZjsNCitzdHJ1Y3Qgc29jazsNCiANCiBzdHJ1Y3QgZHN0X29wcyB7DQogCXVuc2lnbmVkIHNob3J0
-CQlmYW1pbHk7DQotLSANCjEuNy4xMC40DQoNCg==
+On 07/19/2012 09:13 AM, Mikulas Patocka wrote:
+> 
+> 
+> On Thu, 19 Jul 2012, Eric Dumazet wrote:
+> 
+>> Hi Mikulas
+>>
+>> A fix for this problem is : http://patchwork.ozlabs.org/patch/170440/
+> 
+> If you call tun_free_netdev beacuse of a jump to an error label 
+> err_free_sk, your patch still calls it with NULL file, causing a memory 
+> corruption and a possible crash.
+> 
+> Your patch doesn't fix sockets_in_use underflow.
+> 
+> Maybe we can commit this patch --- it introduces a new flag 
+> SOCK_EXTERNALLY_ALLOCATED to work around both problems. (it looks quite 
+> nicer than my previous patch with file = (void *)1).
+
+
+I definitely like this second version better. Less hacky an all.
+
+btw I don't remember now who added the socket business to tun_struct and why.
+It seems to be messy in general. Originally version, back when I was still paying attention to it,
+didn't have sockets at all. Only char and net devices. It was much cleaner.
+
+Max
+
+
+
+
+
+
+> ---
+> 
+> tun: fix a crash bug and a memory leak
+> 
+> This patch fixes a crash
+> tun_chr_close -> netdev_run_todo -> tun_free_netdev -> sk_release_kernel ->
+> sock_release -> iput(SOCK_INODE(sock))
+> introduced by commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
+> 
+> The problem is that this socket is embedded in struct tun_struct, it has
+> no inode, iput is called on invalid inode, which modifies invalid memory
+> and optionally causes a crash.
+> 
+> sock_release also decrements sockets_in_use, this causes a bug that
+> "sockets: used" field in /proc/*/net/sockstat keeps on decreasing when
+> creating and closing tun devices.
+> 
+> This patch introduces a flag SOCK_EXTERNALLY_ALLOCATED that instructs
+> sock_release to not free the inode and not decrement sockets_in_use,
+> fixing both memory corruption and sockets_in_use underflow.
+> 
+> It should be backported to 3.3 an 3.4 stabke.
+> 
+> Signed-off-by: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+> Cc: stable@kernel.org
+> 
+> ---
+>  drivers/net/tun.c   |    3 +++
+>  include/linux/net.h |    1 +
+>  net/socket.c        |    3 +++
+>  3 files changed, 7 insertions(+)
+> 
+> Index: linux-3.4.5-fast/drivers/net/tun.c
+> ===================================================================
+> --- linux-3.4.5-fast.orig/drivers/net/tun.c	2012-07-19 17:55:16.000000000 +0200
+> +++ linux-3.4.5-fast/drivers/net/tun.c	2012-07-19 17:58:30.000000000 +0200
+> @@ -358,6 +358,8 @@ static void tun_free_netdev(struct net_d
+>  {
+>  	struct tun_struct *tun = netdev_priv(dev);
+>  
+> +	BUG_ON(!test_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags));
+> +
+>  	sk_release_kernel(tun->socket.sk);
+>  }
+>  
+> @@ -1115,6 +1117,7 @@ static int tun_set_iff(struct net *net,
+>  		tun->flags = flags;
+>  		tun->txflt.count = 0;
+>  		tun->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+> +		set_bit(SOCK_EXTERNALLY_ALLOCATED, &tun->socket.flags);
+>  
+>  		err = -ENOMEM;
+>  		sk = sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL, &tun_proto);
+> Index: linux-3.4.5-fast/include/linux/net.h
+> ===================================================================
+> --- linux-3.4.5-fast.orig/include/linux/net.h	2012-07-19 17:54:31.000000000 +0200
+> +++ linux-3.4.5-fast/include/linux/net.h	2012-07-19 17:55:03.000000000 +0200
+> @@ -72,6 +72,7 @@ struct net;
+>  #define SOCK_NOSPACE		2
+>  #define SOCK_PASSCRED		3
+>  #define SOCK_PASSSEC		4
+> +#define SOCK_EXTERNALLY_ALLOCATED 5
+>  
+>  #ifndef ARCH_HAS_SOCKET_TYPES
+>  /**
+> Index: linux-3.4.5-fast/net/socket.c
+> ===================================================================
+> --- linux-3.4.5-fast.orig/net/socket.c	2012-07-19 17:56:55.000000000 +0200
+> +++ linux-3.4.5-fast/net/socket.c	2012-07-19 17:57:50.000000000 +0200
+> @@ -522,6 +522,9 @@ void sock_release(struct socket *sock)
+>  	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
+>  		printk(KERN_ERR "sock_release: fasync list not empty!\n");
+>  
+> +	if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
+> +		return;
+> +
+>  	percpu_sub(sockets_in_use, 1);
+>  	if (!sock->file) {
+>  		iput(SOCK_INODE(sock));
+> 
