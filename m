@@ -1,8 +1,8 @@
 From: Andres Salomon <dilinger@queued.net>
-Subject: [PATCH RESEND 1/9] Platform: OLPC: add a stub to drivers/platform/
- for the OLPC EC driver
-Date: Wed, 18 Jul 2012 21:38:08 -0700
-Message-ID: <20120718213808.0166a775@dev.queued.net>
+Subject: [PATCH RESEND 2/9] drivers: OLPC: update various drivers to include
+ olpc-ec.h
+Date: Wed, 18 Jul 2012 21:38:46 -0700
+Message-ID: <20120718213846.2d8d274f@dev.queued.net>
 References: <20120718213713.232e4161@dev.queued.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -33,146 +33,131 @@ Sender: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
 
-The OLPC EC driver has outgrown arch/x86/platform/.  It's time to both
-share common code amongst different architectures, as well as move it out
-of arch/x86/.  The XO-1.75 is ARM-based, and the EC driver shares a lot of
-code with the x86 code.
+Switch over to using olpc-ec.h in multiple steps, so as not to break builds.
+This covers every driver that calls olpc_ec_cmd().
 
 Signed-off-by: Andres Salomon <dilinger@queued.net>
 ---
- arch/x86/include/asm/olpc.h     |   19 +++----------------
- arch/x86/platform/olpc/olpc.c   |    4 ++--
- drivers/platform/Makefile       |    1 +
- drivers/platform/olpc/olpc-ec.c |   16 ++++++++++++++++
- include/linux/olpc-ec.h         |   29 +++++++++++++++++++++++++++++
- 5 files changed, 51 insertions(+), 18 deletions(-)
- create mode 100644 drivers/platform/olpc/olpc-ec.c
- create mode 100644 include/linux/olpc-ec.h
+ arch/x86/include/asm/olpc.h            |    1 -
+ arch/x86/platform/olpc/olpc-xo1-pm.c   |    1 +
+ arch/x86/platform/olpc/olpc-xo1-sci.c  |    1 +
+ arch/x86/platform/olpc/olpc-xo15-sci.c |    1 +
+ arch/x86/platform/olpc/olpc.c          |    1 +
+ drivers/net/wireless/libertas/if_usb.c |    1 +
+ drivers/platform/x86/xo1-rfkill.c      |    3 +--
+ drivers/power/olpc_battery.c           |    1 +
+ drivers/staging/olpc_dcon/olpc_dcon.c  |    1 +
+ 9 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/arch/x86/include/asm/olpc.h b/arch/x86/include/asm/olpc.h
-index 87bdbca..513e999 100644
+index 513e999..5b28f3e 100644
 --- a/arch/x86/include/asm/olpc.h
 +++ b/arch/x86/include/asm/olpc.h
-@@ -4,6 +4,7 @@
+@@ -4,7 +4,6 @@
  #define _ASM_X86_OLPC_H
  
  #include <asm/geode.h>
-+#include <linux/olpc-ec.h>
+-#include <linux/olpc-ec.h>
  
  struct olpc_platform_t {
  	int flags;
-@@ -102,22 +103,8 @@ extern int pci_olpc_init(void);
+diff --git a/arch/x86/platform/olpc/olpc-xo1-pm.c b/arch/x86/platform/olpc/olpc-xo1-pm.c
+index 0ce8616c..8054b64 100644
+--- a/arch/x86/platform/olpc/olpc-xo1-pm.c
++++ b/arch/x86/platform/olpc/olpc-xo1-pm.c
+@@ -18,6 +18,7 @@
+ #include <linux/pm.h>
+ #include <linux/mfd/core.h>
+ #include <linux/suspend.h>
++#include <linux/olpc-ec.h>
  
- /* EC related functions */
+ #include <asm/io.h>
+ #include <asm/olpc.h>
+diff --git a/arch/x86/platform/olpc/olpc-xo1-sci.c b/arch/x86/platform/olpc/olpc-xo1-sci.c
+index 04b8c73..63d4aa4 100644
+--- a/arch/x86/platform/olpc/olpc-xo1-sci.c
++++ b/arch/x86/platform/olpc/olpc-xo1-sci.c
+@@ -23,6 +23,7 @@
+ #include <linux/power_supply.h>
+ #include <linux/suspend.h>
+ #include <linux/workqueue.h>
++#include <linux/olpc-ec.h>
  
--extern int olpc_ec_cmd(unsigned char cmd, unsigned char *inbuf, size_t inlen,
--		unsigned char *outbuf, size_t outlen);
--
--/* EC commands */
--
--#define EC_FIRMWARE_REV			0x08
--#define EC_WRITE_SCI_MASK		0x1b
--#define EC_WAKE_UP_WLAN			0x24
--#define EC_WLAN_LEAVE_RESET		0x25
--#define EC_READ_EB_MODE			0x2a
--#define EC_SET_SCI_INHIBIT		0x32
--#define EC_SET_SCI_INHIBIT_RELEASE	0x34
--#define EC_WLAN_ENTER_RESET		0x35
--#define EC_WRITE_EXT_SCI_MASK		0x38
--#define EC_SCI_QUERY			0x84
--#define EC_EXT_SCI_QUERY		0x85
-+extern int olpc_ec_cmd_x86(unsigned char cmd, unsigned char *inbuf,
-+		size_t inlen, unsigned char *outbuf, size_t outlen);
+ #include <asm/io.h>
+ #include <asm/msr.h>
+diff --git a/arch/x86/platform/olpc/olpc-xo15-sci.c b/arch/x86/platform/olpc/olpc-xo15-sci.c
+index 23e5b9d..9899fef 100644
+--- a/arch/x86/platform/olpc/olpc-xo15-sci.c
++++ b/arch/x86/platform/olpc/olpc-xo15-sci.c
+@@ -13,6 +13,7 @@
+ #include <linux/slab.h>
+ #include <linux/workqueue.h>
+ #include <linux/power_supply.h>
++#include <linux/olpc-ec.h>
  
- /* SCI source values */
- 
+ #include <acpi/acpi_bus.h>
+ #include <acpi/acpi_drivers.h>
 diff --git a/arch/x86/platform/olpc/olpc.c b/arch/x86/platform/olpc/olpc.c
-index a4bee53..796e199 100644
+index 796e199..a3fa180 100644
 --- a/arch/x86/platform/olpc/olpc.c
 +++ b/arch/x86/platform/olpc/olpc.c
-@@ -125,7 +125,7 @@ static int __wait_on_obf(unsigned int line, unsigned int port, int desired)
-  * <http://wiki.laptop.org/go/Ec_specification>.  Unfortunately, while
-  * OpenFirmware's source is available, the EC's is not.
-  */
--int olpc_ec_cmd(unsigned char cmd, unsigned char *inbuf, size_t inlen,
-+int olpc_ec_cmd_x86(unsigned char cmd, unsigned char *inbuf, size_t inlen,
- 		unsigned char *outbuf,  size_t outlen)
- {
- 	unsigned long flags;
-@@ -201,7 +201,7 @@ err:
- 	spin_unlock_irqrestore(&ec_lock, flags);
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(olpc_ec_cmd);
-+EXPORT_SYMBOL_GPL(olpc_ec_cmd_x86);
+@@ -22,6 +22,7 @@
+ #include <linux/syscore_ops.h>
+ #include <linux/debugfs.h>
+ #include <linux/mutex.h>
++#include <linux/olpc-ec.h>
  
- void olpc_ec_wakeup_set(u16 value)
- {
-diff --git a/drivers/platform/Makefile b/drivers/platform/Makefile
-index 782953a..b17c16c 100644
---- a/drivers/platform/Makefile
-+++ b/drivers/platform/Makefile
-@@ -3,3 +3,4 @@
- #
+ #include <asm/geode.h>
+ #include <asm/setup.h>
+diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
+index cd3b0d4..a9828b1 100644
+--- a/drivers/net/wireless/libertas/if_usb.c
++++ b/drivers/net/wireless/libertas/if_usb.c
+@@ -10,6 +10,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/slab.h>
+ #include <linux/usb.h>
++#include <linux/olpc-ec.h>
  
- obj-$(CONFIG_X86)		+= x86/
-+obj-$(CONFIG_OLPC)		+= olpc/
-diff --git a/drivers/platform/olpc/olpc-ec.c b/drivers/platform/olpc/olpc-ec.c
-new file mode 100644
-index 0000000..4202603
---- /dev/null
-+++ b/drivers/platform/olpc/olpc-ec.c
-@@ -0,0 +1,16 @@
-+/*
-+ * Generic driver for the OLPC Embedded Controller.
-+ *
-+ * Copyright (C) 2011-2012 One Laptop per Child Foundation.
-+ *
-+ * Licensed under the GPL v2 or later.
-+ */
-+#include <linux/module.h>
-+#include <asm/olpc.h>
-+
-+int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf, size_t outlen)
-+{
-+	/* Currently a stub; this will be expanded upon later. */
-+	return olpc_ec_cmd_x86(cmd, inbuf, inlen, outbuf, outlen);
-+}
-+EXPORT_SYMBOL_GPL(olpc_ec_cmd);
-diff --git a/include/linux/olpc-ec.h b/include/linux/olpc-ec.h
-new file mode 100644
-index 0000000..6d4e426
---- /dev/null
-+++ b/include/linux/olpc-ec.h
-@@ -0,0 +1,29 @@
-+#ifndef _LINUX_OLPC_EC_H
-+#define _LINUX_OLPC_EC_H
-+
-+/* XO-1 EC commands */
-+#define EC_FIRMWARE_REV			0x08
-+#define EC_WRITE_SCI_MASK		0x1b
-+#define EC_WAKE_UP_WLAN			0x24
-+#define EC_WLAN_LEAVE_RESET		0x25
-+#define EC_READ_EB_MODE			0x2a
-+#define EC_SET_SCI_INHIBIT		0x32
-+#define EC_SET_SCI_INHIBIT_RELEASE	0x34
-+#define EC_WLAN_ENTER_RESET		0x35
-+#define EC_WRITE_EXT_SCI_MASK		0x38
-+#define EC_SCI_QUERY			0x84
-+#define EC_EXT_SCI_QUERY		0x85
-+
-+#ifdef CONFIG_OLPC
-+
-+extern int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf,
-+		size_t outlen);
-+
-+#else
-+
-+static inline int olpc_ec_cmd(u8 cmd, u8 *inbuf, size_t inlen, u8 *outbuf,
-+		size_t outlen) { return -ENODEV; }
-+
-+#endif /* CONFIG_OLPC */
-+
-+#endif /* _LINUX_OLPC_EC_H */
+ #ifdef CONFIG_OLPC
+ #include <asm/olpc.h>
+diff --git a/drivers/platform/x86/xo1-rfkill.c b/drivers/platform/x86/xo1-rfkill.c
+index b57ad86..1da13ed 100644
+--- a/drivers/platform/x86/xo1-rfkill.c
++++ b/drivers/platform/x86/xo1-rfkill.c
+@@ -12,8 +12,7 @@
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/rfkill.h>
+-
+-#include <asm/olpc.h>
++#include <linux/olpc-ec.h>
+ 
+ static bool card_blocked;
+ 
+diff --git a/drivers/power/olpc_battery.c b/drivers/power/olpc_battery.c
+index 7385092..eaf917d 100644
+--- a/drivers/power/olpc_battery.c
++++ b/drivers/power/olpc_battery.c
+@@ -17,6 +17,7 @@
+ #include <linux/power_supply.h>
+ #include <linux/jiffies.h>
+ #include <linux/sched.h>
++#include <linux/olpc-ec.h>
+ #include <asm/olpc.h>
+ 
+ 
+diff --git a/drivers/staging/olpc_dcon/olpc_dcon.c b/drivers/staging/olpc_dcon/olpc_dcon.c
+index 992275c..2c4bd74 100644
+--- a/drivers/staging/olpc_dcon/olpc_dcon.c
++++ b/drivers/staging/olpc_dcon/olpc_dcon.c
+@@ -27,6 +27,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/ctype.h>
+ #include <linux/reboot.h>
++#include <linux/olpc-ec.h>
+ #include <asm/tsc.h>
+ #include <asm/olpc.h>
+ 
 -- 
 1.7.2.5
