@@ -1,56 +1,44 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 0/4] net/mlx4_en: Add accelerated RFS support
-Date: Thu, 19 Jul 2012 11:33:48 +0300
-Message-ID: <1342686832-21406-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, oren@mellanox.com,
-	yevgenyp@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: davem@davemloft.net
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 9/9] ixgbe: Cleanup holes in flags after removing several of them
+Date: Thu, 19 Jul 2012 09:33:19 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6F98@saturn3.aculab.com>
+References: <1342643516-2696-1-git-send-email-jeffrey.t.kirsher@intel.com> <1342643516-2696-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Alexander Duyck" <alexander.h.duyck@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:50388 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753338Ab2GSIeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 04:34:09 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:45411 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752471Ab2GSIoz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 04:44:55 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 22773-10 for <netdev@vger.kernel.org>;
+ Thu, 19 Jul 2012 09:44:51 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1342643516-2696-10-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, 
+> This change is just meant to defragment the flags as there are several
+hole
+> that have been introduced since several features, or the flags for
+them,
+> have been removed.
 
-This series from Amir Vadai adds support for Accelerated RFS 
-to the mlx4_en Ethernet driver.
+Doesn't this sort of change just make it difficult for people who are
+looking at hexdumps of memory but don't have exactly the right header
+file to hand?
 
-The code uses the Accelerated RFS infrastructure and HW flow steering 
-to keep CPU affinity of rx interrupts and applications per TCP stream.
+It doesn't really gain anything much either.
 
-To do so, we had to add little protection to cpu_rmap.h against double 
-inclusion. Also, added linking between CPU to IRQ using rmap in the 
-mlx4_core driver.
+I can (just) imagine reordering flags so that the commonly
+tested ones are in the low bits so that they can be tested
+with small immediate constants - saving an instruction.
+But that isn't what is being done here.
 
-changes from V0:
- - always use CONFIG_RFS_ACCEL instead of using twice CONFIG_CPU_RMAP directly
-
-Or.
-
-
-Amir Vadai (4):
-  net/mlx4: Move MAC_MASK to a common place
-  net/rps: Protect cpu_rmap.h from double inclusion
-  {NET,IB}/mlx4: Add rmap support to mlx4_assign_eq
-  net/mlx4_en: Add accelerated RFS support
-
- drivers/infiniband/hw/mlx4/main.c                  |    3 +-
- drivers/net/ethernet/mellanox/mlx4/en_cq.c         |    9 +-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |    6 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  316 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    3 +
- drivers/net/ethernet/mellanox/mlx4/eq.c            |   12 +-
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |    1 -
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |   16 +
- drivers/net/ethernet/mellanox/mlx4/port.c          |    1 -
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    3 +-
- include/linux/cpu_rmap.h                           |    4 +
- include/linux/mlx4/device.h                        |    4 +-
- include/linux/mlx4/driver.h                        |    2 +
- 13 files changed, 369 insertions(+), 11 deletions(-)
-
-CC: Amir Vadai <amirv@mellanox.com>
+	David
