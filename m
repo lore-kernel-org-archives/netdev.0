@@ -1,32 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv4: tcp: remove per net tcp_sock
-Date: Thu, 19 Jul 2012 19:22:10 +0200
-Message-ID: <1342718530.2626.4526.camel@edumazet-glaptop>
-References: <20120719.084503.136853790544876708.davem@davemloft.net>
-	 <1342717667.2626.4494.camel@edumazet-glaptop>
-	 <20120719.101155.1970854797296520147.davem@davemloft.net>
-	 <20120719.101225.2227860476502999476.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] ipv4: use seqlock for nh_exceptions
+Date: Thu, 19 Jul 2012 10:30:32 -0700 (PDT)
+Message-ID: <20120719.103032.2091570066288728329.davem@davemloft.net>
+References: <1342642535-2545-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, wsommerfeld@google.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:62579 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752076Ab2GSRWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:22:16 -0400
-Received: by vcbfk26 with SMTP id fk26so2192989vcb.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 10:22:16 -0700 (PDT)
-In-Reply-To: <20120719.101225.2227860476502999476.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46600 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111Ab2GSRad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 13:30:33 -0400
+In-Reply-To: <1342642535-2545-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-19 at 10:12 -0700, David Miller wrote:
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 18 Jul 2012 23:15:35 +0300
 
-> Just give this thing a unique name and define it right before the function.
+> 	Use global seqlock for the nh_exceptions. Call
+> fnhe_oldest with the right hash chain. Correct the diff
+> value for dst_set_expires.
+> 
+> v2: after suggestions from Eric Dumazet:
+> * get rid of spin lock fnhe_lock, rearrange update_or_create_fnhe
+> * continue daddr search in rt_bind_exception
+> 
+> v3:
+> * remove the daddr check before seqlock in rt_bind_exception
+> * restart lookup in rt_bind_exception on detected seqlock change,
+> as suggested by David Miller
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Yep, will do that.
-
-I also will init sk_refcnt to one, just in case a driver wants to get a
-reference on socket (and free it later).
+Applied, thanks a lot Julian.
