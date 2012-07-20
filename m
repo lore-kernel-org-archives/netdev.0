@@ -1,87 +1,133 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/6] e1000e: implement 82577/579 MDI setting support
-Date: Fri, 20 Jul 2012 14:43:47 -0700
-Message-ID: <1342820631-19738-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/6] e1000e: implement MDI/MDI-X control
+Date: Fri, 20 Jul 2012 14:43:50 -0700
+Message-ID: <1342820631-19738-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce W Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	bruce.w.allan@intel.com, n.poppelier@xs4all.nl, bastien@durel.org,
+	jsveiga@it.eng.br, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41709 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:3794 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751771Ab2GTVny (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 17:43:54 -0400
+	id S1752336Ab2GTVn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2012 17:43:56 -0400
 In-Reply-To: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce W Allan <bruce.w.allan@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-in order for e1000e to support MDI setting support via
-ethtool this code is needed to allow setting the MDI state
-via software.
+Some users report issues with link failing when connected to certain
+switches.  This gives the user the ability to control the MDI state
+from the driver, allowing users to work around some improperly
+behaving switches.
 
-This is in regards to the related ethtool patch and
-fixes bugzilla.kernel.org bug 11998
+Current get_settings behavior slightly changes in that now when link
+is down get_settings will return the MDI state of the last link
+because get_settings needs to succeed to allow the set to work even
+when link is down.
 
-Signed-off-by: Bruce W Allan <bruce.w.allan@intel.com>
+Forcing in this driver is for now only allowed when auto-neg is
+enabled.
+
+This is in regards to the related ethtool app patch and
+bugzilla.kernel.org bug 11998
+
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: bruce.w.allan@intel.com
+CC: n.poppelier@xs4all.nl
+CC: bastien@durel.org
+CC: jsveiga@it.eng.br
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/phy.c |   31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ethtool.c |   39 ++++++++++++++++++++++++---
+ 1 file changed, 35 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index b860d4f..fc62a3f 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -84,8 +84,9 @@ static const u16 e1000_igp_2_cable_length_table[] = {
- #define I82577_PHY_STATUS2_SPEED_1000MBPS 0x0200
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index 105d554..9b1e082 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -192,8 +192,7 @@ static int e1000_get_settings(struct net_device *netdev,
+ 			 hw->mac.autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
  
- /* I82577 PHY Control 2 */
--#define I82577_PHY_CTRL2_AUTO_MDIX        0x0400
--#define I82577_PHY_CTRL2_FORCE_MDI_MDIX   0x0200
-+#define I82577_PHY_CTRL2_MANUAL_MDIX      0x0200
-+#define I82577_PHY_CTRL2_AUTO_MDI_MDIX    0x0400
-+#define I82577_PHY_CTRL2_MDIX_CFG_MASK    0x0600
- 
- /* I82577 PHY Diagnostics Status */
- #define I82577_DSTATUS_CABLE_LENGTH       0x03FC
-@@ -702,6 +703,32 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
-+	/* Set MDI/MDIX mode */
-+	ret_val = e1e_rphy(hw, I82577_PHY_CTRL_2, &phy_data);
-+	if (ret_val)
-+		return ret_val;
-+	phy_data &= ~I82577_PHY_CTRL2_MDIX_CFG_MASK;
-+	/*
-+	 * Options:
-+	 *   0 - Auto (default)
-+	 *   1 - MDI mode
-+	 *   2 - MDI-X mode
-+	 */
-+	switch (hw->phy.mdix) {
-+	case 1:
-+		break;
-+	case 2:
-+		phy_data |= I82577_PHY_CTRL2_MANUAL_MDIX;
-+		break;
-+	case 0:
-+	default:
-+		phy_data |= I82577_PHY_CTRL2_AUTO_MDI_MDIX;
-+		break;
-+	}
-+	ret_val = e1e_wphy(hw, I82577_PHY_CTRL_2, phy_data);
-+	if (ret_val)
-+		return ret_val;
+ 	/* MDI-X => 2; MDI =>1; Invalid =>0 */
+-	if ((hw->phy.media_type == e1000_media_type_copper) &&
+-	    netif_carrier_ok(netdev))
++	if (hw->phy.media_type == e1000_media_type_copper)
+ 		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X :
+ 		                                      ETH_TP_MDI;
+ 	else
+@@ -241,6 +240,10 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
+ 	default:
+ 		goto err_inval;
+ 	}
 +
- 	return e1000_set_master_slave_mode(hw);
- }
++	/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
++	adapter->hw.phy.mdix = AUTO_ALL_MODES;
++
+ 	return 0;
  
+ err_inval:
+@@ -264,6 +267,22 @@ static int e1000_set_settings(struct net_device *netdev,
+ 		return -EINVAL;
+ 	}
+ 
++	/*
++	 * MDI setting is only allowed when autoneg enabled because
++	 * some hardware doesn't allow MDI setting when speed or
++	 * duplex is forced.
++	 */
++	if (ecmd->eth_tp_mdix_ctrl) {
++		if (hw->phy.media_type != e1000_media_type_copper)
++			return -EOPNOTSUPP;
++
++		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
++		    (ecmd->autoneg != AUTONEG_ENABLE)) {
++			e_err("forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
++			return -EINVAL;
++		}
++	}
++
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
+ 		usleep_range(1000, 2000);
+ 
+@@ -282,20 +301,32 @@ static int e1000_set_settings(struct net_device *netdev,
+ 			hw->fc.requested_mode = e1000_fc_default;
+ 	} else {
+ 		u32 speed = ethtool_cmd_speed(ecmd);
++		/* calling this overrides forced MDI setting */
+ 		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
+ 			clear_bit(__E1000_RESETTING, &adapter->state);
+ 			return -EINVAL;
+ 		}
+ 	}
+ 
++	/* MDI-X => 2; MDI => 1; Auto => 3 */
++	if (ecmd->eth_tp_mdix_ctrl) {
++		/*
++		 * fix up the value for auto (3 => 0) as zero is mapped
++		 * internally to auto
++		 */
++		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
++			hw->phy.mdix = AUTO_ALL_MODES;
++		else
++			hw->phy.mdix = ecmd->eth_tp_mdix_ctrl;
++	}
++
+ 	/* reset the link */
+ 
+ 	if (netif_running(adapter->netdev)) {
+ 		e1000e_down(adapter);
+ 		e1000e_up(adapter);
+-	} else {
++	} else
+ 		e1000e_reset(adapter);
+-	}
+ 
+ 	clear_bit(__E1000_RESETTING, &adapter->state);
+ 	return 0;
 -- 
 1.7.10.4
