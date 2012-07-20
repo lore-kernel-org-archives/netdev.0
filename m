@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv3 3/6] skbuff: export skb_copy_ubufs
-Date: Fri, 20 Jul 2012 22:23:20 +0300
-Message-ID: <e5cb1f232243cfbfde50c09089f7cf959db72c64.1342812067.git.mst@redhat.com>
+Subject: [PATCHv3 5/6] net: orphan frags on receive
+Date: Fri, 20 Jul 2012 22:23:17 +0300
+Message-ID: <05e85615ac224ff6d47414c7f512b9c6b991fabc.1342812067.git.mst@redhat.com>
 References: <cover.1342812067.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -15,25 +15,41 @@ In-Reply-To: <cover.1342812067.git.mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Export skb_copy_ubufs so that modules can orphan frags.
+zero copy packets are normally sent to the outside
+network, but bridging, tun etc might loop them
+back to host networking stack. If this happens
+destructors will never be called, so orphan
+the frags immediately on receive.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/core/skbuff.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/dev.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 438bbc5..368f65c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -784,7 +784,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 	skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
- 	return 0;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d70e4a3..cca02ae 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1632,6 +1632,8 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 			      struct packet_type *pt_prev,
+ 			      struct net_device *orig_dev)
+ {
++	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++		return -ENOMEM;
+ 	atomic_inc(&skb->users);
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
  }
--
-+EXPORT_SYMBOL_GPL(skb_copy_ubufs);
+@@ -3262,7 +3264,10 @@ ncls:
+ 	}
  
- /**
-  *	skb_clone	-	duplicate an sk_buff
+ 	if (pt_prev) {
+-		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
++			ret = -ENOMEM;
++		else
++			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ 	} else {
+ 		atomic_long_inc(&skb->dev->rx_dropped);
+ 		kfree_skb(skb);
 -- 
 MST
