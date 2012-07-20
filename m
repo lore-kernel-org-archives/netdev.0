@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 5/7] openvswitch: Check currect return
-	value from skb_gso_segment()
-Date: Fri, 20 Jul 2012 15:26:48 -0700
-Message-ID: <1342823210-3308-6-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 6/7] openvswitch: Check gso_type for
+	correct sk_buff in queue_gso_packets().
+Date: Fri, 20 Jul 2012 15:26:49 -0700
+Message-ID: <1342823210-3308-7-git-send-email-jesse@nicira.com>
 References: <1342823210-3308-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,30 +22,45 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Fix return check typo.
+At the point where it was used, skb_shinfo(skb)->gso_type referred to a
+post-GSO sk_buff.  Thus, it would always be 0.  We want to know the pre-GSO
+gso_type, so we need to obtain it before segmenting.
 
-Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Before this change, the kernel would pass inconsistent data to userspace:
+packets for UDP fragments with nonzero offset would be passed along with
+flow keys that indicate a zero offset (that is, the flow key for "later"
+fragments claimed to be "first" fragments).  This inconsistency tended
+to confuse Open vSwitch userspace, causing it to log messages about
+"failed to flow_del" the flows with "later" fragments.
+
+Signed-off-by: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/datapath.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index b512cb8..670e630 100644
+index 670e630..29dbfcb 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -269,8 +269,8 @@ static int queue_gso_packets(int dp_ifindex, struct sk_buff *skb,
- 	int err;
+@@ -263,6 +263,7 @@ err:
+ static int queue_gso_packets(int dp_ifindex, struct sk_buff *skb,
+ 			     const struct dp_upcall_info *upcall_info)
+ {
++	unsigned short gso_type = skb_shinfo(skb)->gso_type;
+ 	struct dp_upcall_info later_info;
+ 	struct sw_flow_key later_key;
+ 	struct sk_buff *segs, *nskb;
+@@ -279,7 +280,7 @@ static int queue_gso_packets(int dp_ifindex, struct sk_buff *skb,
+ 		if (err)
+ 			break;
  
- 	segs = skb_gso_segment(skb, NETIF_F_SG | NETIF_F_HW_CSUM);
--	if (IS_ERR(skb))
--		return PTR_ERR(skb);
-+	if (IS_ERR(segs))
-+		return PTR_ERR(segs);
- 
- 	/* Queue all of the segments. */
- 	skb = segs;
+-		if (skb == segs && skb_shinfo(skb)->gso_type & SKB_GSO_UDP) {
++		if (skb == segs && gso_type & SKB_GSO_UDP) {
+ 			/* The initial flow key extracted by ovs_flow_extract()
+ 			 * in this case is for a first fragment, so we need to
+ 			 * properly mark later fragments.
 -- 
 1.7.9.5
