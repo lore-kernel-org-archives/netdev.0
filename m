@@ -1,87 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues
- (VMDQ)
-Date: Fri, 20 Jul 2012 19:09:36 +0100
-Message-ID: <1342807776.2678.40.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120718220544.22619.97136.stgit@i40e.jf1>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 5/6] bond_sysfs: use ream_num_tx_queues rather
+ than params.tx_queue
+Date: Fri, 20 Jul 2012 20:09:36 +0200
+Message-ID: <20120720180936.GB1560@minipsycho.orion>
+References: <1342787331-1866-1-git-send-email-jiri@resnulli.us>
+ <1342787331-1866-6-git-send-email-jiri@resnulli.us>
+ <1342796580.2678.10.camel@bwh-desktop.uk.solarflarecom.com>
+ <20120720.110453.200101053484551575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <or.gerlitz@gmail.com>, <davem@davemloft.net>, <roland@kernel.org>,
-	<netdev@vger.kernel.org>, <ali@mellanox.com>,
-	<sean.hefty@intel.com>, <shlomop@mellanox.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	edumazet@google.com, shemminger@vyatta.com, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55390 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752731Ab2GTSJk (ORCPT
+Received: from mail-we0-f174.google.com ([74.125.82.174]:62134 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752599Ab2GTSJk (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:09:40 -0400
-In-Reply-To: <20120718220544.22619.97136.stgit@i40e.jf1>
+Received: by weyx8 with SMTP id x8so2813228wey.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 11:09:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120720.110453.200101053484551575.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 18:05 -0400, John Fastabend wrote:
-> This adds support to allow virtual net devices to be created. These
-> devices can be managed independtly of the physical function but
-> use the same physical link.
-> 
-> This is analagous to an offloaded macvlan device. The primary
-> advantage to VMDQ net devices over virtual functions is they can
-> be added and removed dynamically as needed.
+Fri, Jul 20, 2012 at 08:04:53PM CEST, davem@davemloft.net wrote:
+>From: Ben Hutchings <bhutchings@solarflare.com>
+>Date: Fri, 20 Jul 2012 16:03:00 +0100
+>
+>> Typo in the subject line. :-)
 
-Is VMDQ intended to become a generic name?
+Doh!
 
-> Sending this for Or Gerlitz to take a peak at and see if this
-> could be used for his ipoib bits. Its not pretty as is and
-> likely needs some work its just an idea at this point use at
-> your own risk I believe it compiles.
-[...]
-> +static int vmdq_newlink(struct net *src_net, struct net_device *dev,
-> +		       struct nlattr *tb[], struct nlattr *data[])
-> +{
-> +	struct net_device *lowerdev;
-> +	int err = -EOPNOTSUPP;
-> +
-> +	if (!tb[IFLA_LINK])
-> +		return -EINVAL;
-> +
-> +	lowerdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
-> +	if (!lowerdev)
-> +		return -ENODEV;
-> +
-> +	if (!tb[IFLA_MTU])
-> +		dev->mtu = lowerdev->mtu;
-> +	else if (dev->mtu > lowerdev->mtu)
-> +		return -EINVAL;
-> +
-> +	if (lowerdev->netdev_ops->ndo_add_vmdq)
-> +		err = lowerdev->netdev_ops->ndo_add_vmdq(lowerdev, dev);
+>
+>I'll fix this up when I apply it :-)
 
-Why isn't the device allocation left to the lower device driver?  It
-seems like this would simplify things quite a bit.
-
-[...]
-> +int vmdq_get_tx_queues(struct net *net, struct nlattr *tb[])
-> +{
-> +       struct net_device *lowerdev;
-> +
-> +       if (!tb[IFLA_LINK])
-> +               return -EINVAL;
-> +
-> +       lowerdev = __dev_get_by_index(net, nla_get_u32(tb[IFLA_LINK]));
-> +       if (!lowerdev)
-> +               return -ENODEV;
-> +
-> +       return lowerdev->num_tx_queues;
-> +}
-[...]
-
-Why should this match the lower device?  Is the assumption that it will
-share the lower device's TX queues and only have its own RX queue(s)?
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks Dave :) I will use clipboard next time...
