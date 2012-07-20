@@ -1,42 +1,29 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: New commands to configure IOV features
-Date: Fri, 20 Jul 2012 13:29:10 -0600
-Message-ID: <5009B186.6000806@genband.com>
-References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>		<5005D45D.1040302@genband.com>	 <20120717.141153.46613285253481776.davem@davemloft.net>	 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com> <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] sctp: Implement quick failover draft from tsvwg
+Date: Fri, 20 Jul 2012 12:31:09 -0700 (PDT)
+Message-ID: <20120720.123109.718847527715087868.davem@davemloft.net>
+References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
+	<1342810319-27457-1-git-send-email-nhorman@tuxdriver.com>
+	<20120720161001.1cc1bb10@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Don Dutile <ddutile@redhat.com>,
-	David Miller <davem@davemloft.net>, yuvalmin@broadcom.com,
-	gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, vyasevich@gmail.com,
+	sri@us.ibm.com, linux-sctp@vger.kernel.org, joe@perches.com
+To: fbl@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085Ab2GTTbS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 15:31:18 -0400
+In-Reply-To: <20120720161001.1cc1bb10@obelix.rh>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2012 11:42 AM, Ben Hutchings wrote:
->
-> The ethtool API is typically used for net device operations that can be
-> largely devolved to individual drivers, and which the network stack can
-> mostly ignore (though offload features are an historical exception to
-> this).  It started with Ethernet link settings, but many operations are
-> applicable (and implemented by) other types of network device.
 
-That (potentially) accounts for all network devices, but it leaves all 
-the other devices that could export virtual functions.
+Please DO NOT quote an entire large patch just to add your
+signoff.  It's a waste of bandwith, and folks like me have
+to scroll down the entire thing to see if you actually
+have real patch feedback or not.
 
-Why should I need to use a different API to enable virtual functions on 
-my network device and my storage controller?  (And why should "ethtool" 
-or "ip" care that it's a virtual function?)
-
-What Don and I are suggesting is that the concept of virtual functions 
-is a PCI thing, so it should be dealt with at the PCI layer.  Regardless 
-of the type of device the export of virtual functions is conceptually 
-the same thing, so it should use the same API.
-
-Once the device exists, then domain-specific APIs would be used to 
-configure it the same way that they would configure a physical device.
-
-Chris
+Just quote the commit message or similar.
