@@ -1,80 +1,125 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/6] ethtool.h: MDI setting support
-Date: Fri, 20 Jul 2012 14:43:46 -0700
-Message-ID: <1342820631-19738-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/6] e1000: configure and read MDI settings
+Date: Fri, 20 Jul 2012 14:43:49 -0700
+Message-ID: <1342820631-19738-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Ben Hutchings <bhutchings@solarflare.com>,
+	Tushar Dave <tushar.n.dave@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41709 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:3794 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751520Ab2GTVny (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 17:43:54 -0400
+	id S1752016Ab2GTVn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2012 17:43:56 -0400
 In-Reply-To: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This change modifies the core ethtool struct to allow a driver to
-support setting of MDI/MDI-X state for twisted pair wiring.  This
-change uses a previously reserved u8 and should not change any
-binary compatibility of ethtool.
+This is the implementation in e1000 to allow ethtool to force
+MDI state, allowing users to work around some improperly
+behaving switches.
 
-Also as per Ben Hutchings' suggestion, the capabilities are
-stored in a separate byte so the driver can report if it supports
-changing settings.
+Current get_settings behavior slightly changes in that now when link is down
+get_settings will return the MDI state of the last link because get_settings
+needs to succeed to allow the set to work even when link is down.
 
-see thread: http://kerneltrap.org/mailarchive/linux-netdev/2010/11/17/6289820/thread
+Forcing in this driver is for now only allowed when auto-neg is enabled.
 
-see ethtool patches titled:
-ethtool: allow setting MDI-X state
+To use must have the matching version of ethtool app that supports
+this functionality.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
+CC: Tushar Dave <tushar.n.dave@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/ethtool.h |   17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c |   34 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000/e1000_main.c    |    4 +++
+ 2 files changed, 38 insertions(+)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 21eff41..fcb4f8e 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -45,8 +45,10 @@ struct ethtool_cmd {
- 				 * bits) in Mbps. Please use
- 				 * ethtool_cmd_speed()/_set() to
- 				 * access it */
--	__u8	eth_tp_mdix;
--	__u8	reserved2;
-+	__u8	eth_tp_mdix;	/* twisted pair MDI-X status */
-+	__u8    eth_tp_mdix_ctrl; /* twisted pair MDI-X control, when set,
-+				   * link should be renegotiated if necessary
-+				   */
- 	__u32	lp_advertising;	/* Features the link partner advertises */
- 	__u32	reserved[2];
- };
-@@ -1229,10 +1231,13 @@ struct ethtool_ops {
- #define AUTONEG_DISABLE		0x00
- #define AUTONEG_ENABLE		0x01
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index 3103f0b..1d96bda 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -174,6 +174,15 @@ static int e1000_get_settings(struct net_device *netdev,
  
--/* Mode MDI or MDI-X */
--#define ETH_TP_MDI_INVALID	0x00
--#define ETH_TP_MDI		0x01
--#define ETH_TP_MDI_X		0x02
-+/* MDI or MDI-X status/control - if MDI/MDI_X/AUTO is set then
-+ * the driver is required to renegotiate link
-+ */
-+#define ETH_TP_MDI_INVALID	0x00 /* status: unknown; control: unsupported */
-+#define ETH_TP_MDI		0x01 /* status: MDI;     control: force MDI */
-+#define ETH_TP_MDI_X		0x02 /* status: MDI-X;   control: force MDI-X */
-+#define ETH_TP_MDI_AUTO		0x03 /*                  control: auto-select */
+ 	ecmd->autoneg = ((hw->media_type == e1000_media_type_fiber) ||
+ 			 hw->autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++
++	/* MDI-X => 1; MDI => 0 */
++	if (hw->media_type == e1000_media_type_copper)
++		ecmd->eth_tp_mdix = (!!adapter->phy_info.mdix_mode ?
++							ETH_TP_MDI_X :
++							ETH_TP_MDI);
++	else
++		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++
+ 	return 0;
+ }
  
- /* Wake-On-Lan options. */
- #define WAKE_PHY		(1 << 0)
+@@ -183,6 +192,22 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
++	/*
++	 * MDI setting is only allowed when autoneg enabled because
++	 * some hardware doesn't allow MDI setting when speed or
++	 * duplex is forced.
++	 */
++	if (ecmd->eth_tp_mdix_ctrl) {
++		if (hw->media_type != e1000_media_type_copper)
++			return -EOPNOTSUPP;
++
++		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
++		    (ecmd->autoneg != AUTONEG_ENABLE)) {
++			e_err(drv, "forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
++			return -EINVAL;
++		}
++	}
++
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+ 		msleep(1);
+ 
+@@ -199,12 +224,21 @@ static int e1000_set_settings(struct net_device *netdev,
+ 		ecmd->advertising = hw->autoneg_advertised;
+ 	} else {
+ 		u32 speed = ethtool_cmd_speed(ecmd);
++		/* calling this overrides forced MDI setting */
+ 		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
+ 			clear_bit(__E1000_RESETTING, &adapter->flags);
+ 			return -EINVAL;
+ 		}
+ 	}
+ 
++	/* MDI-X => 2; MDI => 1; Auto => 3 */
++	if (ecmd->eth_tp_mdix_ctrl) {
++		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
++			hw->mdix = AUTO_ALL_MODES;
++		else
++			hw->mdix = ecmd->eth_tp_mdix_ctrl;
++	}
++
+ 	/* reset the link */
+ 
+ 	if (netif_running(adapter->netdev)) {
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 3bfbb8d..0ae2fcf 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -4939,6 +4939,10 @@ int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
+ 	default:
+ 		goto err_inval;
+ 	}
++
++	/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
++	hw->mdix = AUTO_ALL_MODES;
++
+ 	return 0;
+ 
+ err_inval:
 -- 
 1.7.10.4
