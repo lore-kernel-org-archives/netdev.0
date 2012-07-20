@@ -1,50 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: improve latencies of timer triggered
- events
-Date: Fri, 20 Jul 2012 11:01:28 -0700 (PDT)
-Message-ID: <20120720.110128.205223157733612873.davem@davemloft.net>
-References: <1342799150.2626.7574.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues
+ (VMDQ)
+Date: Fri, 20 Jul 2012 19:01:20 +0100
+Message-ID: <1342807280.2678.33.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120718220544.22619.97136.stgit@i40e.jf1>
+	 <20120719064258.GA1665@minipsycho.orion> <500987B7.2030705@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, ycheng@google.com,
-	ncardwell@google.com, nanditad@google.com, johnwheffner@gmail.com,
-	hkchu@google.com
-To: eric.dumazet@gmail.com
+Cc: Jiri Pirko <jiri@resnulli.us>, <or.gerlitz@gmail.com>,
+	<davem@davemloft.net>, <roland@kernel.org>,
+	<netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, <shlomop@mellanox.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54237 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752677Ab2GTSB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:01:28 -0400
-In-Reply-To: <1342799150.2626.7574.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:55186 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751874Ab2GTSBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:01:25 -0400
+In-Reply-To: <500987B7.2030705@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 20 Jul 2012 17:45:50 +0200
+On Fri, 2012-07-20 at 09:30 -0700, John Fastabend wrote:
+> On 7/18/2012 11:42 PM, Jiri Pirko wrote:
+> > Thu, Jul 19, 2012 at 12:05:44AM CEST, john.r.fastabend@intel.com wrote:
+> >> This adds support to allow virtual net devices to be created. These
+> >> devices can be managed independtly of the physical function but
+> >> use the same physical link.
+> 
+> [...]
+> 
+> >> +
+> >> +size_t vmdq_getpriv_size(struct net *src_net, struct nlattr *tb[])
+> >> +{
+> >> +	struct net_device *lowerdev;
+> >> +
+> >> +	if (!tb[IFLA_LINK])
+> >> +		return -EINVAL;
+> >> +
+> >> +	lowerdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
+> >> +	if (!lowerdev)
+> >> +		return -ENODEV;
+> >> +
+> >> +	return sizeof(netdev_priv(lowerdev));
+> >> +}
+> >
+> > Why exactly do you need to have the priv of same size as lowerdev? I do
+> > not see you use that anywhere...
+> >
+> 
+> When we add a child device the hardware/sw may have some private data
+> it needs to manage this device.
+> 
+> I made an assumption here that the priv space for child devices is the
+> same as the lowerdev but this might be a bad assumption.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Modern TCP stack highly depends on tcp_write_timer() having a small
-> latency, but current implementation doesn't exactly meet the
-> expectations.
-> 
-> When a timer fires but finds the socket is owned by the user, it rearms
-> itself for an additional delay hoping next run will be more
-> successful.
-> 
-> tcp_write_timer() for example uses a 50ms delay for next try, and it
-> defeats many attempts to get predictable TCP behavior in term of
-> latencies.
-> 
-> Use the recently introduced tcp_release_cb(), so that the user owning
-> the socket will call various handlers right before socket release.
-> 
-> This will permit us to post a followup patch to address the
-> tcp_tso_should_defer() syndrome (some deferred packets have to wait
-> RTO timer to be transmitted, while cwnd should allow us to send them
-> sooner)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+The code assumes that it is the size of a single pointer...
 
-I like this a lot, applied, thanks Eric.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
