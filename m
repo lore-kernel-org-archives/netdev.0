@@ -1,78 +1,42 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [patch iproute2] iplink: add support for num[tr]xqueues
-Date: Fri, 20 Jul 2012 08:52:18 -0700
-Message-ID: <lh9v01i5y1bg7t9j24kof0f8.1342799538355@email.android.com>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: New commands to configure IOV features
+Date: Fri, 20 Jul 2012 11:56:45 -0400
+Message-ID: <50097FBD.9080202@redhat.com>
+References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>	<5005D45D.1040302@genband.com> <20120717.141153.46613285253481776.davem@davemloft.net> <500978C7.5050004@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	edumazet@google.com, shemminger@vyatta.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53148 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751829Ab2GTPwS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 11:52:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, yuvalmin@broadcom.com,
+	bhutchings@solarflare.com, gregory.v.rose@intel.com,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <500978C7.5050004@genband.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SSBsaWtlIHRoZSBvcHRpb24sIGJ1dCAgbnVtdHhxdWV1ZSBpcyB0b28gdmVyYm9zZSBmb3IgdGhl
-IHN5bnRheCBtb2RlbApvZiBpcHJvdXRlLiBXaHkgbm90IHVzZSB0eHEgYW5kIHJ4cT8KClNlbnQg
-ZnJvbSBteSBBU1VTIFBhZAoKSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4gd3JvdGU6Cgo+
-U2lnbmVkLW9mZi1ieTogSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4KPi0tLQo+IGluY2x1
-ZGUvbGludXgvaWZfbGluay5oIHwgICAgMiArKwo+IGlwL2lwbGluay5jICAgICAgICAgICAgIHwg
-ICAyMCArKysrKysrKysrKysrKysrKysrKwo+IG1hbi9tYW44L2lwLWxpbmsuOC5pbiAgIHwgICAx
-MyArKysrKysrKysrKysrCj4gMyBmaWxlcyBjaGFuZ2VkLCAzNSBpbnNlcnRpb25zKCspCj4KPmRp
-ZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCBiL2luY2x1ZGUvbGludXgvaWZfbGlu
-ay5oCj5pbmRleCAwMGU1ODY4Li40NmYwM2RiIDEwMDY0NAo+LS0tIGEvaW5jbHVkZS9saW51eC9p
-Zl9saW5rLmgKPisrKyBiL2luY2x1ZGUvbGludXgvaWZfbGluay5oCj5AQCAtMTQwLDYgKzE0MCw4
-IEBAIGVudW0gewo+IAlJRkxBX0VYVF9NQVNLLAkJLyogRXh0ZW5kZWQgaW5mbyBtYXNrLCBWRnMs
-IGV0YyAqLwo+IAlJRkxBX1BST01JU0NVSVRZLAkvKiBQcm9taXNjdWl0eSBjb3VudDogPiAwIG1l
-YW5zIGFjdHMgUFJPTUlTQyAqLwo+ICNkZWZpbmUgSUZMQV9QUk9NSVNDVUlUWSBJRkxBX1BST01J
-U0NVSVRZCj4rCUlGTEFfTlVNX1RYX1FVRVVFUywKPisJSUZMQV9OVU1fUlhfUVVFVUVTLAo+IAlf
-X0lGTEFfTUFYCj4gfTsKPiAKPmRpZmYgLS1naXQgYS9pcC9pcGxpbmsuYyBiL2lwL2lwbGluay5j
-Cj5pbmRleCA2NzkwOTFlLi4wYmFhMTI4IDEwMDY0NAo+LS0tIGEvaXAvaXBsaW5rLmMKPisrKyBi
-L2lwL2lwbGluay5jCj5AQCAtNDgsNiArNDgsOCBAQCB2b2lkIGlwbGlua191c2FnZSh2b2lkKQo+
-IAkJZnByaW50ZihzdGRlcnIsICIgICAgICAgICAgICAgICAgICAgWyBhZGRyZXNzIExMQUREUiBd
-XG4iKTsKPiAJCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAgICAgICAgICAgIFsgYnJvYWRjYXN0
-IExMQUREUiBdXG4iKTsKPiAJCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAgICAgICAgICAgIFsg
-bXR1IE1UVSBdXG4iKTsKPisJCWZwcmludGYoc3RkZXJyLCAiICAgICAgICAgICAgICAgICAgIFsg
-bnVtdHhxdWV1ZXMgUVVFVUVfQ09VTlQgXVxuIik7Cj4rCQlmcHJpbnRmKHN0ZGVyciwgIiAgICAg
-ICAgICAgICAgICAgICBbIG51bXJ4cXVldWVzIFFVRVVFX0NPVU5UIF1cbiIpOwo+IAkJZnByaW50
-ZihzdGRlcnIsICIgICAgICAgICAgICAgICAgICAgdHlwZSBUWVBFIFsgQVJHUyBdXG4iKTsKPiAJ
-CWZwcmludGYoc3RkZXJyLCAiICAgICAgIGlwIGxpbmsgZGVsZXRlIERFViB0eXBlIFRZUEUgWyBB
-UkdTIF1cbiIpOwo+IAkJZnByaW50ZihzdGRlcnIsICJcbiIpOwo+QEAgLTI3OSw2ICsyODEsOCBA
-QCBpbnQgaXBsaW5rX3BhcnNlKGludCBhcmdjLCBjaGFyICoqYXJndiwgc3RydWN0IGlwbGlua19y
-ZXEgKnJlcSwKPiAJaW50IG10dSA9IC0xOwo+IAlpbnQgbmV0bnMgPSAtMTsKPiAJaW50IHZmID0g
-LTE7Cj4rCWludCBudW10eHF1ZXVlcyA9IC0xOwo+KwlpbnQgbnVtcnhxdWV1ZXMgPSAtMTsKPiAK
-PiAJKmdyb3VwID0gLTE7Cj4gCXJldCA9IGFyZ2M7Cj5AQCAtNDQ1LDYgKzQ0OSwyMiBAQCBpbnQg
-aXBsaW5rX3BhcnNlKGludCBhcmdjLCBjaGFyICoqYXJndiwgc3RydWN0IGlwbGlua19yZXEgKnJl
-cSwKPiAJCQkJaW52YXJnKCJJbnZhbGlkIG9wZXJzdGF0ZVxuIiwgKmFyZ3YpOwo+IAo+IAkJCWFk
-ZGF0dHI4KCZyZXEtPm4sIHNpemVvZigqcmVxKSwgSUZMQV9PUEVSU1RBVEUsIHN0YXRlKTsKPisJ
-CX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAibnVtdHhxdWV1ZXMiKSA9PSAwKSB7Cj4rCQkJTkVY
-VF9BUkcoKTsKPisJCQlpZiAobnVtdHhxdWV1ZXMgIT0gLTEpCj4rCQkJCWR1cGFyZygibnVtdHhx
-dWV1ZXMiLCAqYXJndik7Cj4rCQkJaWYgKGdldF9pbnRlZ2VyKCZudW10eHF1ZXVlcywgKmFyZ3Ys
-IDApKQo+KwkJCQlpbnZhcmcoIkludmFsaWQgXCJudW10eHF1ZXVlc1wiIHZhbHVlXG4iLCAqYXJn
-dik7Cj4rCQkJYWRkYXR0cl9sKCZyZXEtPm4sIHNpemVvZigqcmVxKSwgSUZMQV9OVU1fVFhfUVVF
-VUVTLAo+KwkJCQkgICZudW10eHF1ZXVlcywgNCk7Cj4rCQl9IGVsc2UgaWYgKHN0cmNtcCgqYXJn
-diwgIm51bXJ4cXVldWVzIikgPT0gMCkgewo+KwkJCU5FWFRfQVJHKCk7Cj4rCQkJaWYgKG51bXJ4
-cXVldWVzICE9IC0xKQo+KwkJCQlkdXBhcmcoIm51bXJ4cXVldWVzIiwgKmFyZ3YpOwo+KwkJCWlm
-IChnZXRfaW50ZWdlcigmbnVtcnhxdWV1ZXMsICphcmd2LCAwKSkKPisJCQkJaW52YXJnKCJJbnZh
-bGlkIFwibnVtcnhxdWV1ZXNcIiB2YWx1ZVxuIiwgKmFyZ3YpOwo+KwkJCWFkZGF0dHJfbCgmcmVx
-LT5uLCBzaXplb2YoKnJlcSksIElGTEFfTlVNX1JYX1FVRVVFUywKPisJCQkJICAmbnVtcnhxdWV1
-ZXMsIDQpOwo+IAkJfSBlbHNlIHsKPiAJCQlpZiAoc3RyY21wKCphcmd2LCAiZGV2IikgPT0gMCkg
-ewo+IAkJCQlORVhUX0FSRygpOwo+ZGlmZiAtLWdpdCBhL21hbi9tYW44L2lwLWxpbmsuOC5pbiBi
-L21hbi9tYW44L2lwLWxpbmsuOC5pbgo+aW5kZXggOTM4NmNjNi4uOGEyNGU1MSAxMDA2NDQKPi0t
-LSBhL21hbi9tYW44L2lwLWxpbmsuOC5pbgo+KysrIGIvbWFuL21hbjgvaXAtbGluay44LmluCj5A
-QCAtNDAsNiArNDAsMTEgQEAgaXAtbGluayBcLSBuZXR3b3JrIGRldmljZSBjb25maWd1cmF0aW9u
-Cj4gLlJCICJbICIgbXR1Cj4gLklSIE1UVSAiIF0iCj4gLmJyCj4rLlJCICJbICIgbnVtdHhxdWV1
-ZXMKPisuSVIgUVVFVUVfQ09VTlQgIiBdIgo+Ky5SQiAiWyAiIG51bXJ4cXVldWVzCj4rLklSIFFV
-RVVFX0NPVU5UICIgXSIKPisuYnIKPiAuQlIgdHlwZSAiIFRZUEUiCj4gLlJJICJbICIgQVJHUyAi
-IF0iCj4gCj5AQCAtMTU2LDYgKzE2MSwxNCBAQCBMaW5rIHR5cGVzOgo+IC0gRXRoZXJuZXQgQnJp
-ZGdlIGRldmljZQo+IC5pbiAtOAo+IAo+Ky5UUAo+Ky5CSSBudW10eHF1ZXVlcyAiIFFVRVVFX0NP
-VU5UICIKPitzcGVjaWZpZXMgdGhlIG51bWJlciBvZiB0cmFuc21pdCBxdWV1ZXMgZm9yIG5ldyBk
-ZXZpY2UuCj4rCj4rLlRQCj4rLkJJIG51bXJ4cXVldWVzICIgUVVFVUVfQ09VTlQgIgo+K3NwZWNp
-ZmllcyB0aGUgbnVtYmVyIG9mIHJlY2VpdmUgcXVldWVzIGZvciBuZXcgZGV2aWNlLgo+Kwo+IC5T
-UyBpcCBsaW5rIGRlbGV0ZSAtIGRlbGV0ZSB2aXJ0dWFsIGxpbmsKPiAuSSBERVZJQ0UKPiBzcGVj
-aWZpZXMgdGhlIHZpcnR1YWwgIGRldmljZSB0byBhY3Qgb3BlcmF0ZSBvbi4KPi0tIAo+MS43LjEw
-LjQKPgo=
+On 07/20/2012 11:27 AM, Chris Friesen wrote:
+> On 07/17/2012 03:11 PM, David Miller wrote:
+>> From: Chris Friesen<chris.friesen@genband.com>
+>> Date: Tue, 17 Jul 2012 15:08:45 -0600
+>>
+>>> From that perspective a sysfs-based interface is ideal since it is
+>>> directly scriptable.
+>>
+>> As is anything ethtool or netlink based, since we have 'ethtool'
+>> and 'ip' for scripting.
+>
+> I'm not picky...whatever works.
+>
+> To me the act of creating virtual functions seems generic enough (I'm aware of SR-IOV capable storage controllers, I'm sure there is other hardware as well) that ethtool/ip don't really seem like the most appropriate tools for the job.
+>
+Yes, and then there are 'other network' controllers too ... IB  which I don't know if it adheres to ethtool, since it's not an Ethernet device ... isn't that why they call it Infiniband ... ;-) )
+In the telecom space, they use NTBs and PCI as a 'network' ... I know, not common in Linux space, and VFs in that space aren't being discussed (that I've ever heard), but another example where 'network' != Ethernet, so ethtool doesn't solve PCI-level configuration/use.
+
+So, VFs are a PCI defined entity, so their enable/disablement should be handled by PCI.
+
+Conversely, when dealing with networking attributes of a PCI-VF ethernet-nic, networking tools should be used, not PCI tools.
+
+> I would have thought it would make more sense as a generic PCI functionality, in which case I'm not aware of an existing binary tool that would be a logical choice to extend.
+>
+> Chris
