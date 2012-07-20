@@ -1,71 +1,60 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Fri, 20 Jul 2012 12:01:18 +1000
-Message-ID: <20120720120118.465056f267ab5c3ac5ea45c4@canb.auug.org.au>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Fri, 20 Jul 2012 10:11:17 +0800
+Message-ID: <3D5EE67D3FC948CAB5D11ABBBFD60A6F@realtek.com.tw>
+References: <1342564781.2626.1264.camel@edumazet-glaptop> <20120717234037.GA26972@electric-eye.fr.zoreil.com> <AC35CD5731C3479B9BF5E53BF541A81F@realtek.com.tw> <20120718.092346.1263036873056516097.davem@davemloft.net> <20120718201201.GC14149@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Michael Neuling <mikey@neuling.org>,
-	Christian Riesch <christian.riesch@omicron.at>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	'David Miller' <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:34384 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752614Ab2GTCLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 22:11:35 -0400
+In-Reply-To: <20120718201201.GC14149@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ Francois Romieu [mailto:romieu@fr.zoreil.com] 
+[...]
+> A part of the apparent problem may stem from the fact that 
+> Realtek's 8168
+> driver claims a modified length but it does not really skb_padto... 
+> 
+> Hayes, would the patch below fix the original problem ?
 
-Hi all,
+According to the response from our hw engineer, it still has the problem even
+though you pad the packet to 60 bytes with zeroes. I would still test this patch
+to verify it.
 
-After merging the net-next tree, today's linux-next build (powerpc
-pmac32_defconfig) failed like this:
+>  static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+> @@ -5797,7 +5804,8 @@ static netdev_tx_t 
+> rtl8169_start_xmit(struct sk_buff *skb,
+>  	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
+>  	opts[0] = DescOwn;
+>  
+> -	rtl8169_tso_csum(tp, skb, opts);
+> +	if (!rtl8169_tso_csum(tp, skb, opts))
+> +		goto err_update_stats;
+>  
 
-ERROR: "phy_disconnect" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_stop" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_ethtool_gset" [drivers/net/usb/asix.ko] undefined!
-ERROR: "mdiobus_unregister" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_start_aneg" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_print_status" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_start" [drivers/net/usb/asix.ko] undefined!
-ERROR: "mdiobus_free" [drivers/net/usb/asix.ko] undefined!
-ERROR: "mdiobus_register" [drivers/net/usb/asix.ko] undefined!
-ERROR: "genphy_resume" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_connect" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_mii_ioctl" [drivers/net/usb/asix.ko] undefined!
-ERROR: "phy_ethtool_sset" [drivers/net/usb/asix.ko] undefined!
-ERROR: "mdiobus_alloc_size" [drivers/net/usb/asix.ko] undefined!
+I think you should check the length of opts1 of the descriptor, too. Besides,
+how about the length of dma_map_xxx? Should it use the original length or the
+modified length?
 
-Caused by commit 16626b0cc3d5 ("asix: Add a new driver for the AX88172A")
-and reverting that commit fixes the build.
-
-Thanks to Mikey for reporting this porblem.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJQCLvuAAoJEECxmPOUX5FEOH8P/180Jlo7BIX5dyA9xyM/smgT
-b2TcowgexOejmuA3mTHaSdvDrMNESuS3EhQPeYREA8jKbp90kpfizjybiKc968vy
-WiCh2cYO9jAphC7lihB/IC1Q2ffRg844+c4nJLFd8P6DT+LWMnzjpPfXekhaJNnJ
-hmQvp3OrzPSF/2T/Uy4IW9Q04n7uoW+ttmQ7d+YT+JRfTQi9xhOrKU05UwEh/4Nq
-KCUGzUO549u85JcHqFyGLhcLZC9ekHiVLmSYOoUH6+Y20m7ofcMg9Sczi8pTZelq
-Hvm9maPATtLw+mRxjF6Z+NhGznoRooaorHdD/a3CrMtJ5oeZ76miSuE5euSUrjTr
-m+Dwg8Fa1Jv8FgSBg4EsVYCONuHdwK8LcNosu30PJGB49B1Y8sdLa/LrmUSd3tWC
-KOdg/L1BIeLmar5f93qnvHpN9frNcstNfaMHawBAWuhuItHr3GNOY1RFDIUdcXey
-iSDM8kVep23wicqZXapyGSAgMw+H0Vqv/KooyYpWVYfKTxaYzWi+Dev7tcdKu5Zb
-UftnTlEX+93tAhHR110fKtVzuqxfYPEyaMh52lwzMZGAfXcEyIVqxpzWQ8Em6Oxs
-LU4dL4DU0H0ZHXHZBg9Jrl5FtEK/UnOiKnnY6HvlRD4lLnXyCQ5TzW67ACcGT8+Q
-wYd3gz3PT2p9lBAKXBh0
-=yz+h
------END PGP SIGNATURE-----
-
---Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt--
+>  	frags = rtl8169_xmit_frags(tp, skb, opts);
+>  	if (frags < 0)
+> @@ -5853,6 +5861,7 @@ err_dma_1:
+>  	rtl8169_unmap_tx_skb(d, tp->tx_skb + entry, txd);
+>  err_dma_0:
+>  	dev_kfree_skb(skb);
+> +err_update_stats:
+>  	dev->stats.tx_dropped++;
+>  	return NETDEV_TX_OK;
+>  
+ 
+Best Regards,
+Hayes
