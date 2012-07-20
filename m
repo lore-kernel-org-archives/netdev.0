@@ -1,47 +1,95 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 7/7] openvswitch: Fix typo in
-	documentation.
-Date: Fri, 20 Jul 2012 15:26:50 -0700
-Message-ID: <1342823210-3308-8-git-send-email-jesse@nicira.com>
-References: <1342823210-3308-1-git-send-email-jesse@nicira.com>
+From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+Subject: Re: ibmveth bug?
+Date: Fri, 20 Jul 2012 15:41:12 -0700
+Message-ID: <20120720224112.GD19288@linux.vnet.ibm.com>
+References: <20120515170141.GA14272@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1342823210-3308-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: anton@samba.org, benh@kernel.crashing.org, paulus@samba.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: santil@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120515170141.GA14272@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Leo Alterman <lalterman-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Ping on this ... we've tripped the same issue on a different system, it
+would appear. Would appreciate if anyone can provide answers to the
+questions below.
 
-Signed-off-by: Leo Alterman <lalterman-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
----
- Documentation/networking/openvswitch.txt |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks,
+Nish
 
-diff --git a/Documentation/networking/openvswitch.txt b/Documentation/networking/openvswitch.txt
-index b8a048b..8fa2dd1 100644
---- a/Documentation/networking/openvswitch.txt
-+++ b/Documentation/networking/openvswitch.txt
-@@ -118,7 +118,7 @@ essentially like this, ignoring metadata:
- Naively, to add VLAN support, it makes sense to add a new "vlan" flow
- key attribute to contain the VLAN tag, then continue to decode the
- encapsulated headers beyond the VLAN tag using the existing field
--definitions.  With this change, an TCP packet in VLAN 10 would have a
-+definitions.  With this change, a TCP packet in VLAN 10 would have a
- flow key much like this:
- 
-     eth(...), vlan(vid=10, pcp=0), eth_type(0x0800), ip(proto=6, ...), tcp(...)
+On 15.05.2012 [10:01:41 -0700], Nishanth Aravamudan wrote:
+> Hi Santiago,
+> 
+> Are you still working on ibmveth?
+> 
+> I've found a very sporadic bug with ibmveth in some testing. PAPR
+> requires that:
+> 
+> "Validate the Buffer Descriptor of the receive queue buffer (I/O
+> addresses for entire buffer length starting at the spec- ified I/O
+> address are translated by the RTCE table, length is a multiple of 16
+> bytes, and alignment is on a 16 byte boundary) else H_Parameter."
+> 
+> but from what I can tell ibmveth.c is not enforcing this last condition:
+> 
+> 	adapter->rx_queue.queue_addr =
+> 		kmalloc(adapter->rx_queue.queue_len, GFP_KERNEL);
+> 
+> 	...
+> 
+> 	adapter->rx_queue.queue_dma = dma_map_single(dev,
+> 		adapter->rx_queue.queue_addr, adapter->rx_queue.queue_len,
+> 		DMA_BIDIRECTIONAL);
+> 
+> 	...
+> 
+> 	rxq_desc.fields.address = adapter->rx_queue.queue_dma;
+> 
+> 	...
+> 	
+> 
+> 	lpar_rc = ibmveth_register_logical_lan(adapter, rxq_desc,
+> 		mac_address);
+> 	netdev_err(netdev, "buffer TCE:0x%llx filter TCE:0x%llx rxq "
+> 	 	"desc:0x%llx MAC:0x%llx\n", adapter->buffer_list_dma,
+> 	 	adapter->filter_list_dma, rxq_desc.desc, mac_address);
+> 
+> And I got on one install attempt:
+> 
+> [ 39.978430] ibmveth 30000004: eth0: h_register_logical_lan failed with -4
+> [ 39.978449] ibmveth 30000004: eth0: buffer TCE:0x1000 filter TCE:0x10000 rxq desc:0x80006010000200a8 MAC:0x56754de8e904
+> 
+> rxq desc, as you can see is not 16byte aligned. kmalloc() only
+> guarantees 8-byte alignment (as does gcc, I think). Initially, I thought
+> we could just overallocate the queue_addr and ALIGN() down, but then we
+> would need to save the original kmalloc pointer in a new struct member
+> per rx_queue.
+> 
+> So a couple of questions:
+> 
+> 1) Is my analysis accurate? :)
+> 
+> 2) How gross would it be to save an extra pointer for every rx_queue?
+> 
+> 3) Based upon 2), is it better to just go ahead and create our own
+> kmem_cache (which gets an alignment specified)?
+> 
+> For 3), I started coding this, but couldn't find a clean place to
+> allocate the kmem_cache itself, as the size of each object depends on
+> the run-time characteristics (afaict), but needs to be specified at
+> cache creation time. Any insight you could provide would be great!
+> 
+> Thanks,
+> Nish
+>  
+> -- 
+> Nishanth Aravamudan <nacc@us.ibm.com>
+> IBM Linux Technology Center
+
 -- 
-1.7.9.5
+Nishanth Aravamudan <nacc@us.ibm.com>
+IBM Linux Technology Center
