@@ -1,25 +1,25 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [GIT] net has been merged into net-next
-Date: Thu, 19 Jul 2012 16:54:31 -0700
-Message-ID: <1342742071.2616.13.camel@jtkirshe-mobl>
+Date: Thu, 19 Jul 2012 17:36:38 -0700
+Message-ID: <1342744598.2616.15.camel@jtkirshe-mobl>
 References: <20120719.113140.2043522088096284293.davem@davemloft.net>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ZHM1+N07KbwqzvzlBqM0"
+	protocol="application/pgp-signature"; boundary="=-HH9qdc0uX67zkca/HL5o"
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:33402 "EHLO mga03.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:19256 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751596Ab2GSXyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 19:54:33 -0400
+	id S1751856Ab2GTAgj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2012 20:36:39 -0400
 In-Reply-To: <20120719.113140.2043522088096284293.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-ZHM1+N07KbwqzvzlBqM0
+--=-HH9qdc0uX67zkca/HL5o
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -29,9 +29,10 @@ On Thu, 2012-07-19 at 11:31 -0700, David Miller wrote:
 >=20
 > Thanks!
 
-Ok
+Your conflict resolution was correct, so no fix-ups needed.  Thanks
+Dave.
 
---=-ZHM1+N07KbwqzvzlBqM0
+--=-HH9qdc0uX67zkca/HL5o
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -39,19 +40,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJQCJ43AAoJEOVv75VaS+3OdUUP/ixsTXLBCytBG62IKFB+qtA3
-akmMSN4SSjYt++C1F/01x3/TwVuysBWTe93TbV75EJO428hsQaBeBx6erbaA3/A2
-UfbcyHvgIEscsA5sp9IL+zxKh0enMY3L6WEOJPqNyXckc74uSuVTjUF1HStIh/Tt
-dS3CO+3wj/akzlYrUz6XM6d4xDmf3XBkAPatUoXbJKMv3B5vnicYvGYMt62TwH64
-kO3/LrjbWsTk/28v9CblrdDLSi24obBoHelHe4y37uMjRjxEyp2F6GhQUIrNACDn
-cPQMLv9jfcASYx04EdD+/kdl+0AAMU8EuqjX5+cuiEq81jxrv0BqDK8eJDVv/prV
-3EHSpw+ySF/Fskpq5pLQvN7rCRf5LmOQL3EF3qHqnuDu1hpMxdtn35hyawkXgRo7
-hacVTLgdz/pjxLzxDdtL/UG+sSmA55+DN5ujt+KlRUiCxfoT4znVtz5eR1xnFsoQ
-tsXQlc6JNWaMDPnhVF1JJK0XsboqN8PkUsedz98paZ3j+xvayyqrmDHP6XAPbYP+
-klFad6opzVXBYz9AL7r1LJ3PfsDzOSWgMGjF/gnvPpWTjkc3rb1R/qSSmuMaYz8u
-v+q6WnxO3TpvplohIxXbBoVIMmjeU2wJ9D+uy4Jy2n/RPvJMKITXlJBr1xYbAykv
-6kAGBHpWJa8JUkI7FGC6
-=u5wI
+iQIcBAABCgAGBQJQCKgWAAoJEOVv75VaS+3OxqUP+gOeUUa/DH4tmv4/WRKL1W0Q
+AXEM6WiVXL0YD4WeGUYhfbylmUzpTwgbc6S2iTHsoeQEklj3SVJujZ8hSOadUAXc
+CvnhMHexrkLrOmT+JmISH4oj8Fmu5QA7i5H8UxPZFphdi1oNFIb9BKzWglCg37/Y
++WR6WmRf3S6oZ4bhr9YnPIuqR1mKWmYlFewMSugJls4W2U1WxED0H++A453wqp68
+bIlAkJ8+O3K3s9Xzg+x3Ktxd/K9nxfvPG8tSL9sgo3maW0zZyHDU/vu/qeC6zu2D
+jwRM9qhN5Z19Bp9u6QV5XQ2xy+mQnKF70GFnRrprfujV7lG1ewf6ZSe+x6MlAHua
+NgUdCkgip8SxeBY+pMbvhqR4lGHH4bWwoGB38a60iIlh6/Q/PUe1jzNYmkTTcc00
++8RIQ+Q3Wyo7p+TAfV7egnYj160Dj+We77HSxucRqn6HDDpwKwCdzzEw/XGsNhNj
+PtcO2GBVscp49MyzcKFAwPOn1SD22G+q6lWk6eGP5/ADdh6NdjBAwWGLH+IIVGqA
+2tbjilz0gzNU2IwqUuzVXc6I4VZ+b24LMMg2Gf+OR2vwNqZ2e1HJldHCwnnzM3y2
+R41cEDf2mp0T4rj/wmL0al/lzxtv0NzYW7GQc0aZL7HwpVbEL888ZfdIdyT2hg5t
+cjIoDTs8MiiPs1qYYlpD
+=6h7r
 -----END PGP SIGNATURE-----
 
---=-ZHM1+N07KbwqzvzlBqM0--
+--=-HH9qdc0uX67zkca/HL5o--
