@@ -1,47 +1,71 @@
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Subject: Re: [PATCH] b44: add 64 bit stats
-Date: Thu, 19 Jul 2012 21:56:30 -0400
-Message-ID: <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>
-References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
-	<1342337165.3265.10640.camel@edumazet-glaptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Fri, 20 Jul 2012 12:01:18 +1000
+Message-ID: <20120720120118.465056f267ab5c3ac5ea45c4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:41239 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752614Ab2GTB4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 21:56:31 -0400
-Received: by vbbff1 with SMTP id ff1so2519810vbb.19
-        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 18:56:30 -0700 (PDT)
-In-Reply-To: <1342337165.3265.10640.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Neuling <mikey@neuling.org>,
+	Christian Riesch <christian.riesch@omicron.at>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+--Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Sun, Jul 15, 2012 at 3:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> So you must use u64_stats_fetch_begin_bh()
->
-> Because on 32bit, uniprocessor, u64_stats_fetch_begin() only disables
-> preemption. (there is no seqlock in syncp)
->
-> So softirq are allowed to interrupt you and corrupt your stats while you
-> read them, and you dont notice you have to retry.
+Hi all,
 
-I am still trying to make sure I understand this fully.  I want to
-update some other drivers with 64 bit stats as well.  What you said
-seems to make sense, but...
+After merging the net-next tree, today's linux-next build (powerpc
+pmac32_defconfig) failed like this:
 
-I was looking at the virtio_net.c driver.  One spot in this driver
-which updates the stats is the receive_buf function.  recive_buf is
-called from virtnet_poll which is registered as a napi poll function.
-According to Documentation/networking/netdevices.txt the poll function
-is called in a softirq context.  However, the function which reads the
-stats uses u64_stats_fetch_begin/u64_stats_fetch_retry.  Shouldn't
-this be u64_stats_fetch_begin_bh/u64_stats_fetch_retry_bh for the
-exact reasons you described for my b44 patch?
+ERROR: "phy_disconnect" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_stop" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_ethtool_gset" [drivers/net/usb/asix.ko] undefined!
+ERROR: "mdiobus_unregister" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_start_aneg" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_print_status" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_start" [drivers/net/usb/asix.ko] undefined!
+ERROR: "mdiobus_free" [drivers/net/usb/asix.ko] undefined!
+ERROR: "mdiobus_register" [drivers/net/usb/asix.ko] undefined!
+ERROR: "genphy_resume" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_connect" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_mii_ioctl" [drivers/net/usb/asix.ko] undefined!
+ERROR: "phy_ethtool_sset" [drivers/net/usb/asix.ko] undefined!
+ERROR: "mdiobus_alloc_size" [drivers/net/usb/asix.ko] undefined!
 
+Caused by commit 16626b0cc3d5 ("asix: Add a new driver for the AX88172A")
+and reverting that commit fixes the build.
 
-Kevin
+Thanks to Mikey for reporting this porblem.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQCLvuAAoJEECxmPOUX5FEOH8P/180Jlo7BIX5dyA9xyM/smgT
+b2TcowgexOejmuA3mTHaSdvDrMNESuS3EhQPeYREA8jKbp90kpfizjybiKc968vy
+WiCh2cYO9jAphC7lihB/IC1Q2ffRg844+c4nJLFd8P6DT+LWMnzjpPfXekhaJNnJ
+hmQvp3OrzPSF/2T/Uy4IW9Q04n7uoW+ttmQ7d+YT+JRfTQi9xhOrKU05UwEh/4Nq
+KCUGzUO549u85JcHqFyGLhcLZC9ekHiVLmSYOoUH6+Y20m7ofcMg9Sczi8pTZelq
+Hvm9maPATtLw+mRxjF6Z+NhGznoRooaorHdD/a3CrMtJ5oeZ76miSuE5euSUrjTr
+m+Dwg8Fa1Jv8FgSBg4EsVYCONuHdwK8LcNosu30PJGB49B1Y8sdLa/LrmUSd3tWC
+KOdg/L1BIeLmar5f93qnvHpN9frNcstNfaMHawBAWuhuItHr3GNOY1RFDIUdcXey
+iSDM8kVep23wicqZXapyGSAgMw+H0Vqv/KooyYpWVYfKTxaYzWi+Dev7tcdKu5Zb
+UftnTlEX+93tAhHR110fKtVzuqxfYPEyaMh52lwzMZGAfXcEyIVqxpzWQ8Em6Oxs
+LU4dL4DU0H0ZHXHZBg9Jrl5FtEK/UnOiKnnY6HvlRD4lLnXyCQ5TzW67ACcGT8+Q
+wYd3gz3PT2p9lBAKXBh0
+=yz+h
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__20_Jul_2012_12_01_18_+1000_yc_XPQQFW=ZoDQyt--
