@@ -1,59 +1,274 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: New commands to configure IOV features
-Date: Fri, 20 Jul 2012 18:42:26 +0100
-Message-ID: <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
-References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>
-		<5005D45D.1040302@genband.com>
-	 <20120717.141153.46613285253481776.davem@davemloft.net>
-	 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v4] sctp: Implement quick failover draft from tsvwg
+Date: Fri, 20 Jul 2012 13:55:35 -0400
+Message-ID: <50099B97.9070701@gmail.com>
+References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com> <1342804752-17044-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chris Friesen <chris.friesen@genband.com>,
-	David Miller <davem@davemloft.net>, <yuvalmin@broadcom.com>,
-	<gregory.v.rose@intel.com>, <netdev@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>
-To: Don Dutile <ddutile@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <50097FBD.9080202@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, joe@perches.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:49948 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751805Ab2GTRzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 13:55:39 -0400
+In-Reply-To: <1342804752-17044-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-20 at 11:56 -0400, Don Dutile wrote:
-> On 07/20/2012 11:27 AM, Chris Friesen wrote:
-> > On 07/17/2012 03:11 PM, David Miller wrote:
-> >> From: Chris Friesen<chris.friesen@genband.com>
-> >> Date: Tue, 17 Jul 2012 15:08:45 -0600
-> >>
-> >>> From that perspective a sysfs-based interface is ideal since it is
-> >>> directly scriptable.
-> >>
-> >> As is anything ethtool or netlink based, since we have 'ethtool'
-> >> and 'ip' for scripting.
-> >
-> > I'm not picky...whatever works.
-> >
-> > To me the act of creating virtual functions seems generic enough (I'm aware of SR-IOV capable storage controllers, I'm sure there is other hardware as well) that ethtool/ip don't really seem like the most appropriate tools for the job.
-> >
-> Yes, and then there are 'other network' controllers too ... IB  which
-> I don't know if it adheres to ethtool, since it's not an Ethernet
-> device ... isn't that why they call it Infiniband ... ;-) )
-> In the telecom space, they use NTBs and PCI as a 'network' ... I know,
-> not common in Linux space, and VFs in that space aren't being
-> discussed (that I've ever heard), but another example where
-> 'network' != Ethernet, so ethtool doesn't solve PCI-level
-> configuration/use.
-[...]
+On 07/20/2012 01:19 PM, Neil Horman wrote:
+> I've seen several attempts recently made to do quick failover of sctp transports
+> by reducing various retransmit timers and counters.  While its possible to
+> implement a faster failover on multihomed sctp associations, its not
+> particularly robust, in that it can lead to unneeded retransmits, as well as
+> false connection failures due to intermittent latency on a network.
+>
+> Instead, lets implement the new ietf quick failover draft found here:
+> http://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
+>
+> This will let the sctp stack identify transports that have had a small number of
+> errors, and avoid using them quickly until their reliability can be
+> re-established.  I've tested this out on two virt guests connected via multiple
+> isolated virt networks and believe its in compliance with the above draft and
+> works well.
+>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: Sridhar Samudrala <sri@us.ibm.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: linux-sctp@vger.kernel.org
+> CC: joe@perches.com
+>
+> ---
+> Change notes:
+>
+> V2)
+> - Added socket option API from section 6.1 of the specification, as per
+> request from Vlad. Adding this socket option allows us to alter both the path
+> maximum retransmit value and the path partial failure threshold for each
+> transport and the association as a whole.
+>
+> - Added a per transport pf_retrans value, and initialized it from the
+> association value.  This makes each transport independently configurable as per
+> the socket option above, and prevents changes in the sysctl from bleeding into
+> an already created association.
+>
+> V3)
+> - Cleaned up some line spacing (Joe Perches)
+> - Fixed some socket option user data sanitization (Vlad Yasevich)
+>
+> V4)
+> - Added additional documentation (Flavio Leitner)
+> ---
+>   Documentation/networking/ip-sysctl.txt |   14 +++++
+>   include/net/sctp/constants.h           |    1 +
+>   include/net/sctp/structs.h             |   20 ++++++-
+>   include/net/sctp/user.h                |   11 ++++
+>   net/sctp/associola.c                   |   37 ++++++++++--
+>   net/sctp/outqueue.c                    |    6 +-
+>   net/sctp/sm_sideeffect.c               |   33 +++++++++-
+>   net/sctp/socket.c                      |  100 ++++++++++++++++++++++++++++++++
+>   net/sctp/sysctl.c                      |    9 +++
+>   net/sctp/transport.c                   |    4 +-
+>   10 files changed, 220 insertions(+), 15 deletions(-)
+>
 
-The ethtool API is typically used for net device operations that can be
-largely devolved to individual drivers, and which the network stack can
-mostly ignore (though offload features are an historical exception to
-this).  It started with Ethernet link settings, but many operations are
-applicable (and implemented by) other types of network device.
+[ snip ]
 
-Ben.
+>
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index b3b8a8d..fef9bfa 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -3470,6 +3470,56 @@ static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
+>   }
+>
+>
+> +/*
+> + * SCTP_PEER_ADDR_THLDS
+> + *
+> + * This option allows us to alter the partially failed threshold for one or all
+> + * transports in an association.  See Section 6.1 of:
+> + * http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
+> + */
+> +static int sctp_setsockopt_paddr_thresholds(struct sock *sk,
+> +					    char __user *optval,
+> +					    unsigned int optlen)
+> +{
+> +	struct sctp_paddrthlds val;
+> +	struct sctp_transport *trans;
+> +	struct sctp_association *asoc;
+> +
+> +	if (optlen < sizeof(struct sctp_paddrthlds))
+> +		return -EINVAL;
+> +	if (copy_from_user(&val, (struct sctp_paddrthlds __user *)optval,
+> +			   sizeof(struct sctp_paddrthlds)))
+> +		return -EFAULT;
+> +
+> +	/* path_max_retrans shouldn't ever be zero */
+> +	if (!val.spt_pathmaxrxt)
+> +		return -EINVAL;
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I am not sure I like this solution.  This means that the application 
+must fetch the pathmaxrx and then write the same value back here.
+Why not simply ignore the patthmaxrxt if it's 0?  That way someone can 
+just tweak the pf value without changing the pathmaxrxt.
+
+
+
+> +
+> +	if (sctp_is_any(sk, (const union sctp_addr *)&val.spt_address)) {
+> +		asoc = sctp_id2assoc(sk, val.spt_assoc_id);
+> +		if (!asoc)
+> +			return -ENOENT;
+> +		list_for_each_entry(trans, &asoc->peer.transport_addr_list,
+> +				    transports) {
+> +			trans->pathmaxrxt = val.spt_pathmaxrxt;
+> +			trans->pf_retrans = val.spt_pathpfthld;
+> +		}
+> +
+> +		asoc->pf_retrans = val.spt_pathpfthld;
+> +		asoc->pathmaxrxt = val.spt_pathmaxrxt;
+> +	} else {
+> +		trans = sctp_addr_id2transport(sk, &val.spt_address,
+> +					       val.spt_assoc_id);
+> +		if (!trans)
+> +			return -ENOENT;
+> +
+> +		trans->pathmaxrxt = val.spt_pathmaxrxt;
+> +		trans->pf_retrans = val.spt_pathpfthld;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>   /* API 6.2 setsockopt(), getsockopt()
+>    *
+>    * Applications use setsockopt() and getsockopt() to set or retrieve
+> @@ -3619,6 +3669,9 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk, int level, int optname,
+>   	case SCTP_AUTO_ASCONF:
+>   		retval = sctp_setsockopt_auto_asconf(sk, optval, optlen);
+>   		break;
+> +	case SCTP_PEER_ADDR_THLDS:
+> +		retval = sctp_setsockopt_paddr_thresholds(sk, optval, optlen);
+> +		break;
+>   	default:
+>   		retval = -ENOPROTOOPT;
+>   		break;
+> @@ -5490,6 +5543,50 @@ static int sctp_getsockopt_assoc_ids(struct sock *sk, int len,
+>   	return 0;
+>   }
+>
+> +/*
+> + * SCTP_PEER_ADDR_THLDS
+> + *
+> + * This option allows us to fetch the partially failed threshold for one or all
+> + * transports in an association.  See Section 6.1 of:
+> + * http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
+> + */
+> +static int sctp_getsockopt_paddr_thresholds(struct sock *sk,
+> +					    char __user *optval,
+> +					    int optlen)
+> +{
+> +	struct sctp_paddrthlds val;
+> +	struct sctp_transport *trans;
+> +	struct sctp_association *asoc;
+> +
+> +	if (optlen < sizeof(struct sctp_paddrthlds))
+> +		return -EINVAL;
+> +	optlen = sizeof(struct sctp_paddrthlds);
+> +	if (copy_from_user(&val, (struct sctp_paddrthlds __user *)optval, optlen))
+> +		return -EFAULT;
+> +
+> +	if (sctp_is_any(sk, (const union sctp_addr *)&val.spt_address)) {
+> +		asoc = sctp_id2assoc(sk, val.spt_assoc_id);
+> +		if (!asoc)
+> +			return -ENOENT;
+> +
+> +		val.spt_pathpfthld = asoc->pf_retrans;
+> +		val.spt_pathmaxrxt = asoc->pathmaxrxt;
+> +	} else {
+> +		trans = sctp_addr_id2transport(sk, &val.spt_address,
+> +					       val.spt_assoc_id);
+> +		if (!trans)
+> +			return -ENOENT;
+> +
+> +		val.spt_pathmaxrxt = trans->pathmaxrxt;
+> +		val.spt_pathpfthld = trans->pf_retrans;
+> +	}
+> +
+> +	if (copy_to_user(optval, &val, optlen))
+> +		return -EFAULT;
+> +
+
+getsockopt typically returns the length of the option data that was 
+written to the user.
+
+> +	return 0;
+> +}
+> +
+>   SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+>   				char __user *optval, int __user *optlen)
+>   {
+> @@ -5628,6 +5725,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+>   	case SCTP_AUTO_ASCONF:
+>   		retval = sctp_getsockopt_auto_asconf(sk, len, optval, optlen);
+>   		break;
+> +	case SCTP_PEER_ADDR_THLDS:
+> +		retval = sctp_getsockopt_paddr_thresholds(sk, optval, len);
+> +		break;
+
+You are passing the len.  The user may have passed in a bigger buffer 
+and is expecting back the length of the option.
+
+-vlad
+
+>   	default:
+>   		retval = -ENOPROTOOPT;
+>   		break;
+> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+> index e5fe639..2b2bfe9 100644
+> --- a/net/sctp/sysctl.c
+> +++ b/net/sctp/sysctl.c
+> @@ -141,6 +141,15 @@ static ctl_table sctp_table[] = {
+>   		.extra2		= &int_max
+>   	},
+>   	{
+> +		.procname	= "pf_retrans",
+> +		.data		= &sctp_pf_retrans,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_minmax,
+> +		.extra1		= &zero,
+> +		.extra2		= &int_max
+> +	},
+> +	{
+>   		.procname	= "max_init_retransmits",
+>   		.data		= &sctp_max_retrans_init,
+>   		.maxlen		= sizeof(int),
+> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+> index b026ba0..194d0f3 100644
+> --- a/net/sctp/transport.c
+> +++ b/net/sctp/transport.c
+> @@ -85,6 +85,7 @@ static struct sctp_transport *sctp_transport_init(struct sctp_transport *peer,
+>
+>   	/* Initialize the default path max_retrans.  */
+>   	peer->pathmaxrxt  = sctp_max_retrans_path;
+> +	peer->pf_retrans  = sctp_pf_retrans;
+>
+>   	INIT_LIST_HEAD(&peer->transmitted);
+>   	INIT_LIST_HEAD(&peer->send_ready);
+> @@ -585,7 +586,8 @@ unsigned long sctp_transport_timeout(struct sctp_transport *t)
+>   {
+>   	unsigned long timeout;
+>   	timeout = t->rto + sctp_jitter(t->rto);
+> -	if (t->state != SCTP_UNCONFIRMED)
+> +	if ((t->state != SCTP_UNCONFIRMED) &&
+> +	    (t->state != SCTP_PF))
+>   		timeout += t->hbinterval;
+>   	timeout += jiffies;
+>   	return timeout;
+>
