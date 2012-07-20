@@ -1,33 +1,33 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 00/16]: Kill the ipv4 routing cache.
-Date: Fri, 20 Jul 2012 16:09:29 +0100
-Message-ID: <1342796969.2678.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120719.143403.1702333347618917729.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] b44: add 64 bit stats
+Date: Fri, 20 Jul 2012 17:12:07 +0200
+Message-ID: <1342797127.2626.7427.camel@edumazet-glaptop>
+References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
+	 <1342337165.3265.10640.camel@edumazet-glaptop>
+	 <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>
+	 <1342759989.2626.5472.camel@edumazet-glaptop>
+	 <1342761865.2626.5572.camel@edumazet-glaptop>
+	 <1342794821.2678.8.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Kevin Groeneveld <kgroeneveld@gmail.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:47398 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751144Ab2GTPJc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 11:09:32 -0400
-In-Reply-To: <20120719.143403.1702333347618917729.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46737 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751874Ab2GTPMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 11:12:13 -0400
+Received: by bkwj10 with SMTP id j10so3482418bkw.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 08:12:11 -0700 (PDT)
+In-Reply-To: <1342794821.2678.8.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-19 at 14:34 -0700, David Miller wrote:
-> The ipv4 routing cache is non-deterministic, performance wise, and is
-> subject to reasonably easy to launch denial of service attacks.
-[...]
+On Fri, 2012-07-20 at 15:33 +0100, Ben Hutchings wrote:
 
-This is a great explanation, but it still doesn't appear to be going
-into the commit log...
+> Don't we need an _irq variant for drivers that support netpoll?
+> 
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+netpoll is such a hack I would not bother having a 0.000001 % chance to
+get a "about to be wrapped 64bit counter" on a 32bit cpu.
