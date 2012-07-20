@@ -1,107 +1,114 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net, cgroup: Fix boot failure due to iteration of uninitialized
- list
-Date: Fri, 20 Jul 2012 15:34:47 +0530
-Message-ID: <50092D3F.5020108@linux.vnet.ibm.com>
-References: <20120719162532.23505.85946.stgit@srivatsabhat.in.ibm.com> <20120719164407.GA2963@neilslaptop.think-freely.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Fri, 20 Jul 2012 12:08:46 +0200
+Message-ID: <20120720100846.GA17398@electric-eye.fr.zoreil.com>
+References: <20120718.132840.1571938255177607234.davem@davemloft.net> <20120718214422.GA18207@electric-eye.fr.zoreil.com> <1342649136.2626.3757.camel@edumazet-glaptop> <20120718.152405.1083396282134539674.davem@davemloft.net> <EF06A7B3C1E6432BB660CDEF8E1D2A1B@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: gaofeng@cn.fujitsu.com, eric.dumazet@gmail.com,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, mark.d.rustad@intel.com,
-	john.r.fastabend@intel.com, lizefan@huawei.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120719164407.GA2963@neilslaptop.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'David Miller'" <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:56616 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490Ab2GTKVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 06:21:44 -0400
+Content-Disposition: inline
+In-Reply-To: <EF06A7B3C1E6432BB660CDEF8E1D2A1B@realtek.com.tw>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/19/2012 10:14 PM, Neil Horman wrote:
-> On Thu, Jul 19, 2012 at 09:57:37PM +0530, Srivatsa S. Bhat wrote:
->> After commit ef209f15 (net: cgroup: fix access the unallocated memory in
->> netprio cgroup), boot fails with the following NULL pointer dereference:
->>
->> Initializing cgroup subsys devices
->> Initializing cgroup subsys freezer
->> Initializing cgroup subsys net_cls
->> Initializing cgroup subsys blkio
->> Initializing cgroup subsys perf_event
->> Initializing cgroup subsys net_prio
->> BUG: unable to handle kernel NULL pointer dereference at 0000000000000698
->> IP: [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
->> PGD 0
->> Oops: 0000 [#1] SMP
->> CPU 0
->> Modules linked in:
->>
->> Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc7-mandeep #1 IBM IBM System x -[7870C4Q]-/68Y8033
->> RIP: 0010:[<ffffffff8145e8d6>]  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
->> RSP: 0000:ffffffff81a01ea8  EFLAGS: 00010213
->> RAX: 0000000000000000 RBX: ffffffffffffff10 RCX: 0000000000000000
->> RDX: 0000000000000000 RSI: 0000000000000246 RDI: ffffffff81aa70a0
->> RBP: ffffffff81a01ed8 R08: 0000000000000000 R09: 0000000000000000
->> R10: ffff8808ff8641c0 R11: 6e697a696c616974 R12: 0000000000000001
->> R13: ffff8808ff8641c0 R14: 0000000000000000 R15: 0000000000093970
->> FS:  0000000000000000(0000) GS:ffff8808ffc00000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->> CR2: 0000000000000698 CR3: 0000000001a0b000 CR4: 00000000000006b0
->> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->> Process swapper/0 (pid: 0, threadinfo ffffffff81a00000, task ffffffff81a13420)
->> Stack:
->>  ffffffff81a01eb8 ffffffff818060ff ffffffff81d75ec8 ffffffff81aa8960
->>  ffffffff81aa8960 ffffffff81b4c2c0 ffffffff81a01ef8 ffffffff81b1cb78
->>  0000000000000018 0000000000000048 ffffffff81a01f18 ffffffff81b1ce13
->> Call Trace:
->>  [<ffffffff81b1cb78>] cgroup_init_subsys+0x83/0x169
->>  [<ffffffff81b1ce13>] cgroup_init+0x36/0x119
->>  [<ffffffff81affef7>] start_kernel+0x3ba/0x3ef
->>  [<ffffffff81aff95b>] ? kernel_init+0x27b/0x27b
->>  [<ffffffff81aff356>] x86_64_start_reservations+0x131/0x136
->>  [<ffffffff81aff45e>] x86_64_start_kernel+0x103/0x112
->> Code: 01 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 75 1b eb 73 0f 1f 00 48 8b 83 f0 00 00 00 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 74 5a <48> 8b 83 88 07 00 00 48 85 c0 74 de 44 3b 60 10 76 d8 44 89 e6
->> RIP  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
->>  RSP <ffffffff81a01ea8>
->> CR2: 0000000000000698
->> ---[ end trace a7919e7f17c0a725 ]---
->> Kernel panic - not syncing: Attempted to kill the idle task!
->>
->> The code corresponds to:
->>
->> update_netdev_tables():
->>         for_each_netdev(&init_net, dev) {
->>                 map = rtnl_dereference(dev->priomap);  <---- HERE
->>
->>
->> The list head is initialized in netdev_init(), which is called much
->> later than cgrp_create(). So the problem is that we are calling
->> update_netdev_tables() way too early (in cgrp_create()), which will
->> end up traversing the not-yet-circular linked list. So at some point,
->> the dev pointer will become NULL and hence dev->priomap becomes an
->> invalid access.
->>
->> To fix this, just remove the update_netdev_tables() function entirely,
->> since it appears that write_update_netdev_table() will handle things
->> just fine.
->>
->> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
->> ---
->>
->> Requesting a thorough review of this patch, since I am not sure whether
->> removing update_netdev_tables() is perfectly OK and whether that is the
->> right thing to do.
->>
-> We could do this I suppose, but this has already been fixed by
-> 734b65417b24d6eea3e3d7457e1f11493890ee1d
+hayeswang <hayeswang@realtek.com> :
+[...]
+> I find that the total length field of IP header would be modified if the hw
+> checksum is enabled. Therefore, skb_padto + hw checksum wouldn't work.
 
-Oh good! But don't you think that my patch looks cleaner than that fix?
-(Of course, provided that my patch is correct!)
+Ok, my patch completely ignored the fact that skb_padto does not change the
+length.
 
-Anyway, I'm happy to see that the boot failure is fixed. But if anyone feels
-that the approach of removing the update_netdev_tables() function is correct
-and better, I'll be happy to provide a patch on top of the boot-fix that
-went upstream.
+However skb_padto + length adjustement + hw checksum should work (at least in
+theory if not in the patch below) ?
 
-Regards,
-Srivatsa S. Bhat
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index be4e00f..8d0cc09 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5740,7 +5740,7 @@ err_out:
+ 	return -EIO;
+ }
+ 
+-static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
++static inline bool rtl8169_tso_csum(struct rtl8169_private *tp,
+ 				    struct sk_buff *skb, u32 *opts)
+ {
+ 	const struct rtl_tx_desc_info *info = tx_desc_info + tp->txd_version;
+@@ -5753,6 +5753,13 @@ static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		const struct iphdr *ip = ip_hdr(skb);
+ 
++		if (unlikely(skb->len < ETH_ZLEN &&
++		    (tp->mac_version == RTL_GIGA_MAC_VER_34))) {
++			if (skb_padto(skb, ETH_ZLEN))
++				return false;
++			skb_put(skb, ETH_ZLEN - skb->len);
++		}
++
+ 		if (ip->protocol == IPPROTO_TCP)
+ 			opts[offset] |= info->checksum.tcp;
+ 		else if (ip->protocol == IPPROTO_UDP)
+@@ -5760,6 +5767,7 @@ static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
+ 		else
+ 			WARN_ON_ONCE(1);
+ 	}
++	return true;
+ }
+ 
+ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+@@ -5783,25 +5791,26 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	if (unlikely(le32_to_cpu(txd->opts1) & DescOwn))
+ 		goto err_stop_0;
+ 
++	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
++	opts[0] = DescOwn;
++
++	if (!rtl8169_tso_csum(tp, skb, opts))
++		goto err_update_stats_0;
++
+ 	len = skb_headlen(skb);
+ 	mapping = dma_map_single(d, skb->data, len, DMA_TO_DEVICE);
+ 	if (unlikely(dma_mapping_error(d, mapping))) {
+ 		if (net_ratelimit())
+ 			netif_err(tp, drv, dev, "Failed to map TX DMA!\n");
+-		goto err_dma_0;
++		goto err_free_skb_1;
+ 	}
+ 
+ 	tp->tx_skb[entry].len = len;
+ 	txd->addr = cpu_to_le64(mapping);
+ 
+-	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
+-	opts[0] = DescOwn;
+-
+-	rtl8169_tso_csum(tp, skb, opts);
+-
+ 	frags = rtl8169_xmit_frags(tp, skb, opts);
+ 	if (frags < 0)
+-		goto err_dma_1;
++		goto err_unmap_2;
+ 	else if (frags)
+ 		opts[0] |= FirstFrag;
+ 	else {
+@@ -5849,10 +5858,11 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	return NETDEV_TX_OK;
+ 
+-err_dma_1:
++err_unmap_2:
+ 	rtl8169_unmap_tx_skb(d, tp->tx_skb + entry, txd);
+-err_dma_0:
++err_free_skb_1:
+ 	dev_kfree_skb(skb);
++err_update_stats_0:
+ 	dev->stats.tx_dropped++;
+ 	return NETDEV_TX_OK;
+ 
