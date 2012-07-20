@@ -1,58 +1,91 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Fri, 20 Jul 2012 12:48:38 +1000
-Message-ID: <20120720124838.2bd0f1e5087c4f08c5a65eed@canb.auug.org.au>
-References: <20120720120118.465056f267ab5c3ac5ea45c4@canb.auug.org.au>
+From: <cjren@qca.qualcomm.com>
+Subject: [PATCH] atl1c: fix issue of io access mode for AR8152 v2.1
+Date: Fri, 20 Jul 2012 11:01:58 +0800
+Message-ID: <1342753318-4507-1-git-send-email-cjren@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__20_Jul_2012_12_48_38_+1000_dVB_01ZF0Rp+ajtn"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Michael Neuling <mikey@neuling.org>,
-	Christian Riesch <christian.riesch@omicron.at>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <qca-linux-team@qualcomm.com>, <nic-devel@qualcomm.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120720120118.465056f267ab5c3ac5ea45c4@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__20_Jul_2012_12_48_38_+1000_dVB_01ZF0Rp+ajtn
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+When io access mode is enabled by BOOTROM or BIOS for AR8152 v2.1,
+the register can't be read/write by memory access mode.
+Clearing Bit 8  of Register 0x21c could fixed the issue.
 
-On Fri, 20 Jul 2012 12:01:18 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->
-> After merging the net-next tree, today's linux-next build (powerpc
-> pmac32_defconfig) failed like this:
+Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
+Cc: stable <stable@vger.kernel.org>
+Signed-off-by: xiong <xiong@qca.qualcomm.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c_hw.h   |    5 +++++
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c |   16 +++++++++++++++-
+ 2 files changed, 20 insertions(+), 1 deletions(-)
 
-This was actually yesterday's linux-next - I guess it is fixed by commit
-215029375c83 ("asix: AX88172A driver depends on phylib") in today's tree.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Fri__20_Jul_2012_12_48_38_+1000_dVB_01ZF0Rp+ajtn
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJQCMcGAAoJEECxmPOUX5FEMGoP/R9TyRWtqUh+reWTp1A+Fjt9
-6PTqHFo75znSWn7XWCMHrFaU0Iub6rsrwO0MZk4SniDHHk4VFJWpt4tGhYweLpEG
-QEK1DUqJ0AVE29iADxSdFxmxCjX8vnX6Lbm2H8bAnjS20RXLwjDNuzvjvC7MfwGt
-Z+Fb0eeZYXSzxwuxQeV9kZAyuuEultCgMmOV3t1LesD5kQP2nuWYWPokA/oIhTCF
-se98Tw9iNRy9kGLlZzKVA0wtj6pZ/iWYqtlrfsoCk1HHA4sbbn1PChtgTZ8GcT68
-Em1ye807wq7uG8y3Z86dcJEQxlL72yJoyc9i/pGDfWTAwwQOpmnZE9bF5egF1xOV
-bvKHQfFIfMhtFnwiPR9SJqwJHB1T6dj/rRA3xSkn9aVlxOixOOWQfbXwYfyKvosF
-yJKFf5khOPeEOF9ZpemwKRCdR3ahF2Mlnekrh/+b3UTEEygOu10KoLOGKmnamNJi
-XtIbCKZ0OJMiZodSblO7blER7yB6uIt695H/a0IGbeJpHKoDrolShOE6bl8XesHa
-ZfaArDGdmzQCmnQtJyUVz4gSCG1cRqPSbySX0c/hljzg1YpLEwvmB0dO0JnljdSr
-C2chWZimyAKyG3E9Jiv5u1jMiqO437sVTfP5uLV1e6XOhRs2RT8bHFIKtsiSXq1F
-ksl6z8VkLXl5DWC1Mx3n
-=xacN
------END PGP SIGNATURE-----
-
---Signature=_Fri__20_Jul_2012_12_48_38_+1000_dVB_01ZF0Rp+ajtn--
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+index 17d935b..21d8c4d 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_hw.h
+@@ -74,6 +74,8 @@ void atl1c_post_phy_linkchg(struct atl1c_hw *hw, u16 link_speed);
+ #define PCI_DEVICE_ID_ATHEROS_L1D_2_0	0x1083 /* AR8151 v2.0 Gigabit 1000 */
+ #define L2CB_V10			0xc0
+ #define L2CB_V11			0xc1
++#define L2CB_V20			0xc0
++#define L2CB_V21			0xc1
+ 
+ /* register definition */
+ #define REG_DEVICE_CAP              	0x5C
+@@ -87,6 +89,9 @@ void atl1c_post_phy_linkchg(struct atl1c_hw *hw, u16 link_speed);
+ #define LINK_CTRL_L1_EN			0x02
+ #define LINK_CTRL_EXT_SYNC		0x80
+ 
++#define REG_PCIE_IND_ACC_ADDR		0x80
++#define REG_PCIE_IND_ACC_DATA		0x84
++
+ #define REG_DEV_SERIALNUM_CTRL		0x200
+ #define REG_DEV_MAC_SEL_MASK		0x0 /* 0:EUI; 1:MAC */
+ #define REG_DEV_MAC_SEL_SHIFT		0
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 36d3783..1bf5bbf 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -727,6 +727,8 @@ static const struct atl1c_platform_patch plats[] __devinitdata = {
+ 
+ static void __devinit atl1c_patch_assign(struct atl1c_hw *hw)
+ {
++	struct pci_dev	*pdev = hw->adapter->pdev;
++	u32 misc_ctrl;
+ 	int i = 0;
+ 
+ 	hw->msi_lnkpatch = false;
+@@ -741,6 +743,18 @@ static void __devinit atl1c_patch_assign(struct atl1c_hw *hw)
+ 		}
+ 		i++;
+ 	}
++
++	if (hw->device_id == PCI_DEVICE_ID_ATHEROS_L2C_B2 &&
++	    hw->revision_id == L2CB_V21) {
++		/* config acess mode */
++		pci_write_config_dword(pdev, REG_PCIE_IND_ACC_ADDR,
++				       REG_PCIE_DEV_MISC_CTRL);
++		pci_read_config_dword(pdev, REG_PCIE_IND_ACC_DATA, &misc_ctrl);
++		misc_ctrl &= ~0x100;
++		pci_write_config_dword(pdev, REG_PCIE_IND_ACC_ADDR,
++				       REG_PCIE_DEV_MISC_CTRL);
++		pci_write_config_dword(pdev, REG_PCIE_IND_ACC_DATA, misc_ctrl);
++	}
+ }
+ /**
+  * atl1c_sw_init - Initialize general software structures (struct atl1c_adapter)
+@@ -768,7 +782,7 @@ static int __devinit atl1c_sw_init(struct atl1c_adapter *adapter)
+ 	hw->device_id = pdev->device;
+ 	hw->subsystem_vendor_id = pdev->subsystem_vendor;
+ 	hw->subsystem_id = pdev->subsystem_device;
+-	AT_READ_REG(hw, PCI_CLASS_REVISION, &revision);
++	pci_read_config_dword(pdev, PCI_CLASS_REVISION, &revision);
+ 	hw->revision_id = revision & 0xFF;
+ 	/* before link up, we assume hibernate is true */
+ 	hw->hibernate = true;
+-- 
+1.5.4.5
