@@ -1,79 +1,100 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [trivial PATCH resend 2/2] ixgbe: use PCI_VENDOR_ID_INTEL
-Date: Fri, 20 Jul 2012 00:17:09 -0700
-Message-ID: <1342768629.2616.27.camel@jtkirshe-mobl>
-References: <1342767729-17788-1-git-send-email-jdmason@kudzu.us>
-	 <1342767729-17788-3-git-send-email-jdmason@kudzu.us>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ZckCw4wa40WjLMLN+Jbo"
-Cc: trivial@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: Jon Mason <jdmason@kudzu.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342767729-17788-3-git-send-email-jdmason@kudzu.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] tcp: Return bool instead of int where appropriate
+Date: Fri, 20 Jul 2012 00:32:18 -0700
+Message-ID: <1342769538-4039-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:41990 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751912Ab2GTHZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 03:25:10 -0400
+Received: by ghrr11 with SMTP id r11so3689255ghr.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 00:25:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Applied to a set of static inline functions in tcp_input.c
 
---=-ZckCw4wa40WjLMLN+Jbo
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ net/ipv4/tcp_input.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-On Fri, 2012-07-20 at 00:02 -0700, Jon Mason wrote:
-> Use PCI_VENDOR_ID_INTEL from pci_ids.h instead of creating its own
-> vendor ID #define.
->=20
-> Signed-off-by: Jon Mason <jdmason@kudzu.us>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Cc: Don Skidmore <donald.c.skidmore@intel.com>
-> Cc: Greg Rose <gregory.v.rose@intel.com>
-> Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Cc: Alex Duyck <alexander.h.duyck@intel.com>
-> Cc: John Ronciak <john.ronciak@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    4 ++--
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    8 ++++----
->  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    3 ---
->  3 files changed, 6 insertions(+), 9 deletions(-)=20
-
-This applies cleanly against my current net-next tree and looks fine.
-
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
---=-ZckCw4wa40WjLMLN+Jbo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQCQX1AAoJEOVv75VaS+3O0gwP/2xO+VT6fZUmeTNMCsm2KE0I
-XfjnBF/D6tbgaaAFjcBbSAzvh+XZxw4uTYtPAqXE4ugZpTC3+/HXoCRTs9L40fyZ
-sbo3sQibzUwa3FFKrDEQWFLAKGOOQo1wELEK5aTlYHn4mcjhLEX+HsKApgu+q2Vl
-RUDBQQ8rUIqKHrG+ZOhojDM9Vw6pTG9VlfTXnkDbDr87q6ku1g5QgagLO8qaiO0t
-t/k8zQKlYRetusXTNrwpYTVCVEahfG7hJuMmsaWCCogLT4qbvGZ1Aiw/ygZM9/l6
-Dff+ysvFxeRol6PS4AHh2cuQ5tavKG0BfFgvTr4oN1OCKS/PTXD6jj5brMCN8Lvt
-XP0EgxeaUPYYdrS+qXgUtAw/hWlGRAMp5rJmVu55Dpn2K3EHdWrWCKg5l94egi2u
-Bl9nFoeXjgPbkSMhrJ1zcO+X+5H/zNnmxtAgKkIEB72AM1LJijllKT8QIdXMBqMe
-H6vjTKBEJAWcWEoGyoicyqdF7YLSgX4NiELSUPbGUkNDgauE/WWqHkjBmj0tsl8g
-Vin2D3+ghpHObm3MP6M0P7QlCl5HxElcvYhnNxKBec2OV+UvrQLovCykxYqp3tXl
-w+4xQG4BLxfj0bLBcGsY1On1M8IgG7KngcVuFJYnbp9cNj+lwdk0UvkoWKTHTOWf
-OkXOQ7dK5gE+5/K0lN/E
-=qbc7
------END PGP SIGNATURE-----
-
---=-ZckCw4wa40WjLMLN+Jbo--
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e67d685..21d7f8f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2521,7 +2521,7 @@ static void tcp_cwnd_down(struct sock *sk, int flag)
+ /* Nothing was retransmitted or returned timestamp is less
+  * than timestamp of the first retransmission.
+  */
+-static inline int tcp_packet_delayed(const struct tcp_sock *tp)
++static inline bool tcp_packet_delayed(const struct tcp_sock *tp)
+ {
+ 	return !tp->retrans_stamp ||
+ 		(tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+@@ -2582,7 +2582,7 @@ static void tcp_undo_cwr(struct sock *sk, const bool undo_ssthresh)
+ 	tp->snd_cwnd_stamp = tcp_time_stamp;
+ }
+ 
+-static inline int tcp_may_undo(const struct tcp_sock *tp)
++static inline bool tcp_may_undo(const struct tcp_sock *tp)
+ {
+ 	return tp->undo_marker && (!tp->undo_retrans || tcp_packet_delayed(tp));
+ }
+@@ -3371,13 +3371,13 @@ static void tcp_ack_probe(struct sock *sk)
+ 	}
+ }
+ 
+-static inline int tcp_ack_is_dubious(const struct sock *sk, const int flag)
++static inline bool tcp_ack_is_dubious(const struct sock *sk, const int flag)
+ {
+ 	return !(flag & FLAG_NOT_DUP) || (flag & FLAG_CA_ALERT) ||
+ 		inet_csk(sk)->icsk_ca_state != TCP_CA_Open;
+ }
+ 
+-static inline int tcp_may_raise_cwnd(const struct sock *sk, const int flag)
++static inline bool tcp_may_raise_cwnd(const struct sock *sk, const int flag)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	return (!(flag & FLAG_ECE) || tp->snd_cwnd < tp->snd_ssthresh) &&
+@@ -3387,7 +3387,7 @@ static inline int tcp_may_raise_cwnd(const struct sock *sk, const int flag)
+ /* Check that window update is acceptable.
+  * The function assumes that snd_una<=ack<=snd_next.
+  */
+-static inline int tcp_may_update_window(const struct tcp_sock *tp,
++static inline bool tcp_may_update_window(const struct tcp_sock *tp,
+ 					const u32 ack, const u32 ack_seq,
+ 					const u32 nwin)
+ {
+@@ -4006,7 +4006,7 @@ static int tcp_disordered_ack(const struct sock *sk, const struct sk_buff *skb)
+ 		(s32)(tp->rx_opt.ts_recent - tp->rx_opt.rcv_tsval) <= (inet_csk(sk)->icsk_rto * 1024) / HZ);
+ }
+ 
+-static inline int tcp_paws_discard(const struct sock *sk,
++static inline bool tcp_paws_discard(const struct sock *sk,
+ 				   const struct sk_buff *skb)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+@@ -4028,7 +4028,7 @@ static inline int tcp_paws_discard(const struct sock *sk,
+  * (borrowed from freebsd)
+  */
+ 
+-static inline int tcp_sequence(const struct tcp_sock *tp, u32 seq, u32 end_seq)
++static inline bool tcp_sequence(const struct tcp_sock *tp, u32 seq, u32 end_seq)
+ {
+ 	return	!before(end_seq, tp->rcv_wup) &&
+ 		!after(seq, tp->rcv_nxt + tcp_receive_window(tp));
+@@ -5214,7 +5214,7 @@ static __sum16 __tcp_checksum_complete_user(struct sock *sk,
+ 	return result;
+ }
+ 
+-static inline int tcp_checksum_complete_user(struct sock *sk,
++static inline bool tcp_checksum_complete_user(struct sock *sk,
+ 					     struct sk_buff *skb)
+ {
+ 	return !skb_csum_unnecessary(skb) &&
+-- 
+1.7.0.4
