@@ -1,206 +1,130 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 11/16] ipv4: Cache input routes in fib_info nexthops.
-Date: Fri, 20 Jul 2012 14:26:22 -0700 (PDT)
-Message-ID: <20120720.142622.1447419081262029885.davem@davemloft.net>
+Subject: [PATCH 12/16] ipv4: Kill FLOWI_FLAG_RT_NOCACHE and associated code.
+Date: Fri, 20 Jul 2012 14:26:35 -0700 (PDT)
+Message-ID: <20120720.142635.731654195826502877.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55700 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55706 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752498Ab2GTV0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:26:22 -0400
+	with ESMTP id S1752498Ab2GTV0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:26:36 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 89FB4583616
-	for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 14:26:24 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 19C64583615
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 14:26:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Caching input routes is slightly simpler than output routes, since we
-don't need to be concerned with nexthop exceptions.  (locally
-destined, and routed packets, never trigger PMTU events or redirects
-that will be processed by us).
-
-However, we have to elide caching for the DIRECTSRC and non-zero itag
-cases.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/ip_fib.h     |    1 +
- net/ipv4/fib_semantics.c |    2 ++
- net/ipv4/route.c         |   55 ++++++++++++++++++++++++++++++++++++----------
- 3 files changed, 46 insertions(+), 12 deletions(-)
+ include/net/flow.h                 |    1 -
+ include/net/inet_connection_sock.h |    3 +--
+ net/dccp/ipv4.c                    |    2 +-
+ net/ipv4/inet_connection_sock.c    |    5 +----
+ net/ipv4/route.c                   |    3 ---
+ net/ipv4/tcp_ipv4.c                |    4 ++--
+ 6 files changed, 5 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index fb62c59..e69c3a4 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -82,6 +82,7 @@ struct fib_nh {
- 	__be32			nh_saddr;
- 	int			nh_saddr_genid;
- 	struct rtable		*nh_rth_output;
-+	struct rtable		*nh_rth_input;
- 	struct fnhe_hash_bucket	*nh_exceptions;
+diff --git a/include/net/flow.h b/include/net/flow.h
+index ce9cb76..e1dd508 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -21,7 +21,6 @@ struct flowi_common {
+ 	__u8	flowic_flags;
+ #define FLOWI_FLAG_ANYSRC		0x01
+ #define FLOWI_FLAG_CAN_SLEEP		0x02
+-#define FLOWI_FLAG_RT_NOCACHE		0x04
+ 	__u32	flowic_secid;
  };
  
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 83d0f42..e55171f 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -173,6 +173,8 @@ static void free_fib_info_rcu(struct rcu_head *head)
- 			free_nh_exceptions(nexthop_nh);
- 		if (nexthop_nh->nh_rth_output)
- 			dst_release(&nexthop_nh->nh_rth_output->dst);
-+		if (nexthop_nh->nh_rth_input)
-+			dst_release(&nexthop_nh->nh_rth_input->dst);
- 	} endfor_nexthops(fi);
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index 2cf44b4..5ee66f5 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -250,8 +250,7 @@ extern int inet_csk_get_port(struct sock *sk, unsigned short snum);
  
- 	release_net(fi->fib_net);
+ extern struct dst_entry* inet_csk_route_req(struct sock *sk,
+ 					    struct flowi4 *fl4,
+-					    const struct request_sock *req,
+-					    bool nocache);
++					    const struct request_sock *req);
+ extern struct dst_entry* inet_csk_route_child_sock(struct sock *sk,
+ 						   struct sock *newsk,
+ 						   const struct request_sock *req);
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index ab4f44c..25428d0 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -508,7 +508,7 @@ static int dccp_v4_send_response(struct sock *sk, struct request_sock *req,
+ 	struct dst_entry *dst;
+ 	struct flowi4 fl4;
+ 
+-	dst = inet_csk_route_req(sk, &fl4, req, false);
++	dst = inet_csk_route_req(sk, &fl4, req);
+ 	if (dst == NULL)
+ 		goto out;
+ 
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 0a290d7..db0cf17 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -368,8 +368,7 @@ EXPORT_SYMBOL(inet_csk_reset_keepalive_timer);
+ 
+ struct dst_entry *inet_csk_route_req(struct sock *sk,
+ 				     struct flowi4 *fl4,
+-				     const struct request_sock *req,
+-				     bool nocache)
++				     const struct request_sock *req)
+ {
+ 	struct rtable *rt;
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+@@ -377,8 +376,6 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
+ 	struct net *net = sock_net(sk);
+ 	int flags = inet_sk_flowi_flags(sk);
+ 
+-	if (nocache)
+-		flags |= FLOWI_FLAG_RT_NOCACHE;
+ 	flowi4_init_output(fl4, sk->sk_bound_dev_if, sk->sk_mark,
+ 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+ 			   sk->sk_protocol,
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 8a02600..97cca8a 100644
+index 97cca8a..7e1c0ed 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1231,6 +1231,9 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- {
- 	struct rtable *orig, *prev, **p = &nh->nh_rth_output;
+@@ -1836,9 +1836,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
  
-+	if (rt_is_input_route(rt))
-+		p = &nh->nh_rth_input;
-+
- 	orig = *p;
+ 	rt_set_nexthop(rth, fl4->daddr, res, fnhe, fi, type, 0);
  
- 	prev = cmpxchg(p, orig, rt);
-@@ -1241,6 +1244,11 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- 	}
+-	if (fl4->flowi4_flags & FLOWI_FLAG_RT_NOCACHE)
+-		rth->dst.flags |= DST_NOCACHE;
+-
+ 	return rth;
  }
  
-+static bool rt_cache_valid(struct rtable *rt)
-+{
-+	return (rt && rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK);
-+}
-+
- static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- 			   const struct fib_result *res,
- 			   struct fib_nh_exception *fnhe,
-@@ -1257,8 +1265,7 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 		rt->dst.tclassid = nh->nh_tclassid;
- #endif
--		if (!(rt->dst.flags & DST_HOST) &&
--		    rt_is_output_route(rt))
-+		if (!(rt->dst.flags & DST_HOST))
- 			rt_cache_route(nh, rt);
- 	}
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 1d8b75a..59110ca 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -824,7 +824,7 @@ static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
+ 	struct sk_buff * skb;
  
-@@ -1384,11 +1391,11 @@ static int __mkroute_input(struct sk_buff *skb,
- 			   __be32 daddr, __be32 saddr, u32 tos,
- 			   struct rtable **result)
- {
--	struct fib_nh_exception *fnhe;
- 	struct rtable *rth;
- 	int err;
- 	struct in_device *out_dev;
- 	unsigned int flags = 0;
-+	bool do_cache;
- 	u32 itag;
+ 	/* First, grab a route. */
+-	if (!dst && (dst = inet_csk_route_req(sk, &fl4, req, nocache)) == NULL)
++	if (!dst && (dst = inet_csk_route_req(sk, &fl4, req)) == NULL)
+ 		return -1;
  
- 	/* get a working reference to the output device */
-@@ -1431,13 +1438,21 @@ static int __mkroute_input(struct sk_buff *skb,
- 		}
- 	}
- 
--	fnhe = NULL;
--	if (res->fi)
--		fnhe = find_exception(&FIB_RES_NH(*res), daddr);
-+	do_cache = false;
-+	if (res->fi) {
-+		if (!(flags & RTCF_DIRECTSRC) && !itag) {
-+			rth = FIB_RES_NH(*res).nh_rth_input;
-+			if (rt_cache_valid(rth)) {
-+				dst_use(&rth->dst, jiffies);
-+				goto out;
-+			}
-+			do_cache = true;
-+		}
-+	}
- 
- 	rth = rt_dst_alloc(out_dev->dev,
- 			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
--			   IN_DEV_CONF_GET(out_dev, NOXFRM), false);
-+			   IN_DEV_CONF_GET(out_dev, NOXFRM), do_cache);
- 	if (!rth) {
- 		err = -ENOBUFS;
- 		goto cleanup;
-@@ -1456,8 +1471,8 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->dst.input = ip_forward;
- 	rth->dst.output = ip_output;
- 
--	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
--
-+	rt_set_nexthop(rth, daddr, res, NULL, res->fi, res->type, itag);
-+out:
- 	*result = rth;
- 	err = 0;
-  cleanup:
-@@ -1509,6 +1524,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	struct rtable	*rth;
- 	int		err = -EINVAL;
- 	struct net    *net = dev_net(dev);
-+	bool do_cache;
- 
- 	/* IP on this device is disabled. */
- 
-@@ -1522,6 +1538,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
- 		goto martian_source;
- 
-+	res.fi = NULL;
- 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
- 		goto brd_input;
- 
-@@ -1597,8 +1614,20 @@ brd_input:
- 	RT_CACHE_STAT_INC(in_brd);
- 
- local_input:
-+	do_cache = false;
-+	if (res.fi) {
-+		if (!(flags & RTCF_DIRECTSRC) && !itag) {
-+			rth = FIB_RES_NH(res).nh_rth_input;
-+			if (rt_cache_valid(rth)) {
-+				dst_use(&rth->dst, jiffies);
-+				goto set_and_out;
-+			}
-+			do_cache = true;
-+		}
-+	}
-+
- 	rth = rt_dst_alloc(net->loopback_dev,
--			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, false);
-+			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, do_cache);
- 	if (!rth)
- 		goto e_nobufs;
- 
-@@ -1622,6 +1651,9 @@ local_input:
- 		rth->dst.error= -err;
- 		rth->rt_flags 	&= ~RTCF_LOCAL;
- 	}
-+	if (do_cache)
-+		rt_cache_route(&FIB_RES_NH(res), rth);
-+set_and_out:
- 	skb_dst_set(skb, &rth->dst);
- 	err = 0;
- 	goto out;
-@@ -1756,8 +1788,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
- 		if (!fnhe) {
- 			rth = FIB_RES_NH(*res).nh_rth_output;
--			if (rth &&
--			    rth->dst.obsolete == DST_OBSOLETE_FORCE_CHK) {
-+			if (rt_cache_valid(rth)) {
- 				dst_use(&rth->dst, jiffies);
- 				return rth;
- 			}
+ 	skb = tcp_make_synack(sk, dst, req, rvp);
+@@ -1378,7 +1378,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		 */
+ 		if (tmp_opt.saw_tstamp &&
+ 		    tcp_death_row.sysctl_tw_recycle &&
+-		    (dst = inet_csk_route_req(sk, &fl4, req, want_cookie)) != NULL &&
++		    (dst = inet_csk_route_req(sk, &fl4, req)) != NULL &&
+ 		    fl4.daddr == saddr) {
+ 			if (!tcp_peer_is_proven(req, dst, true)) {
+ 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
 -- 
 1.7.10.4
