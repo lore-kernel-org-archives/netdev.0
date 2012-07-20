@@ -1,79 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [ethtool 1/2] ethtool.h: implement new MDI-X set defines
-Date: Fri, 20 Jul 2012 13:50:06 -0700
-Message-ID: <1342817406.2045.22.camel@jtkirshe-mobl>
-References: <1342765524-29711-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1342797849.2678.19.camel@bwh-desktop.uk.solarflarecom.com>
-Reply-To: jeffrey.t.kirsher@intel.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-qbdNtL07S/7EAX3qlk48"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: raj@tardy.cup.hp.com (Rick Jones)
+Subject: [PATCH] net-next: minor cleanups for bonding documentation
+Date: Fri, 20 Jul 2012 13:51:37 -0700 (PDT)
+Message-ID: <20120720205137.84E3D290043B@tardy>
+Cc: "Jay Vosburgh" <fubar@us.ibm.com>,
+	"Andy Gospodarek" <andy@greyhouse.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:27115 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711Ab2GTUuH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 16:50:07 -0400
-In-Reply-To: <1342797849.2678.19.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:18575 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab2GTUvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 16:51:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Rick Jones <rick.jones2@hp.com>
 
---=-qbdNtL07S/7EAX3qlk48
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The section titled "Configuring Bonding for Maximum Throughput" is
+actually section twelve not thirteen, and there are a couple of words
+spelled incorrectly.
 
-On Fri, 2012-07-20 at 16:24 +0100, Ben Hutchings wrote:
-> On Thu, 2012-07-19 at 23:25 -0700, Jeff Kirsher wrote:
-> > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >=20
-> > These changes implement the kernel side of the interface
-> > for allowing drivers to set MDI-X state on twisted pair.
-> >=20
-> > Changes implemented as suggested by Ben Hutchings, thanks Ben!
-> >=20
-> > see ethtool patches titled:
-> > ethtool: allow setting MDI-X state
-> [...]
->=20
-> I don't see the corresponding kernel changes, but I'll hold onto these
-> for a while in the hope that they show up.
->=20
-> Ben.
->=20
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-I wanted to wait for Dave to pull the patches currently sitting in my
-net-next tree before pushing out the corresponding kernel patches.
+---
 
-I will be sending them out here shortly now that Dave has pulled from
-me.
-
-Cheers,
-Jeff
-
---=-qbdNtL07S/7EAX3qlk48
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQCcR+AAoJEOVv75VaS+3OtsQQAJzS3xWEpAGO6/WdPVF684H5
-a+dV+DNR91iuQQUSYcKX0nDwmluYlrN3vSpGOmeKxINT2zQ2yxajPN8pIgCYNsQK
-iEnBAFDqyuGm0RL6Cq9A9fN6OcB3B27PJQuVYYkPGjS851aOgtKKCfA9ckfRcr1C
-UfxMeoakKT4CDSeIdttFWKbdWvII4pqTksWLcawJN9laxjHklJdKfkm5fVJ7cAQ6
-xqeICLKey7h5uhts8jNrbqJPWsFqoOcFvl87Zvw1n+s90l6ZuNQFyMnTsFO9+Izt
-mnoNt3kyytLNDanAkF95X1cm7RtDFlaIVXb4a+zgpWj8B14R0FW0i0R7+UzV+F8d
-LqmH8OZzzJj2E0tPwpfB2Uw9DJ2dGLkR4aFGRQYz3MgoVkuRUPQM3OYK+iOsZheG
-iTcIXPaHW4XnywyTQNMxd0p50BeOy2mS2TfBzxJlD4Zifhdx4SLsQfa8wcFB7K3r
-P0SpSVphNg5lCZYc/n0boAYa2ogPlw4EqS0wJes9HNBSj9Or9fkP5WwJCfNsuUAj
-WDPNgVTxC6tDOnuTxQXS6qWjwIib+TV+Y003yktWBJEH5HezbwCLfn3aeSsmf+Jd
-bKYuzZnDPQqE3hmgG9bKGiOFGd/y1i0/qysRBf5sYJqmUTwxl9I/Ur7j0xpj2s3Y
-Ctfj8AHhf3FOvy2SeDwM
-=WsOo
------END PGP SIGNATURE-----
-
---=-qbdNtL07S/7EAX3qlk48--
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index bfea8a3..6b1c711 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -1210,7 +1210,7 @@ options, you may wish to use the "max_bonds" module parameter,
+ documented above.
+ 
+ 	To create multiple bonding devices with differing options, it is
+-preferrable to use bonding parameters exported by sysfs, documented in the
++preferable to use bonding parameters exported by sysfs, documented in the
+ section below.
+ 
+ 	For versions of bonding without sysfs support, the only means to
+@@ -1950,7 +1950,7 @@ access to fail over to.  Additionally, the bonding load balance modes
+ support link monitoring of their members, so if individual links fail,
+ the load will be rebalanced across the remaining devices.
+ 
+-	See Section 13, "Configuring Bonding for Maximum Throughput"
++	See Section 12, "Configuring Bonding for Maximum Throughput"
+ for information on configuring bonding with one peer device.
+ 
+ 11.2 High Availability in a Multiple Switch Topology
+@@ -2620,7 +2620,7 @@ be found at:
+ 
+ https://lists.sourceforge.net/lists/listinfo/bonding-devel
+ 
+-	Discussions regarding the developpement of the bonding driver take place
++	Discussions regarding the development of the bonding driver take place
+ on the main Linux network mailing list, hosted at vger.kernel.org. The list
+ address is:
+ 
