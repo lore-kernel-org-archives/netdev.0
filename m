@@ -1,13 +1,13 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [trivial PATCH resend 1/2] ixgb: use PCI_VENDOR_ID_INTEL
-Date: Fri, 20 Jul 2012 00:11:17 -0700
-Message-ID: <1342768277.2616.22.camel@jtkirshe-mobl>
+Subject: Re: [trivial PATCH resend 2/2] ixgbe: use PCI_VENDOR_ID_INTEL
+Date: Fri, 20 Jul 2012 00:14:04 -0700
+Message-ID: <1342768444.2616.25.camel@jtkirshe-mobl>
 References: <1342767729-17788-1-git-send-email-jdmason@kudzu.us>
-	 <1342767729-17788-2-git-send-email-jdmason@kudzu.us>
+	 <1342767729-17788-3-git-send-email-jdmason@kudzu.us>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-JRF3GNWKTgG/tfwV2Qpe"
+	protocol="application/pgp-signature"; boundary="=-9u46Gw8iKLhPDsJuy8zl"
 Cc: trivial@kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
@@ -19,17 +19,13 @@ Cc: trivial@kernel.org, netdev@vger.kernel.org,
 	Alex Duyck <alexander.h.duyck@intel.com>,
 	John Ronciak <john.ronciak@intel.com>
 To: Jon Mason <jdmason@kudzu.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:41816 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751106Ab2GTHLS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 03:11:18 -0400
-In-Reply-To: <1342767729-17788-2-git-send-email-jdmason@kudzu.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342767729-17788-3-git-send-email-jdmason@kudzu.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---=-JRF3GNWKTgG/tfwV2Qpe
+--=-9u46Gw8iKLhPDsJuy8zl
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
@@ -48,18 +44,20 @@ On Fri, 2012-07-20 at 00:02 -0700, Jon Mason wrote:
 > Cc: Alex Duyck <alexander.h.duyck@intel.com>
 > Cc: John Ronciak <john.ronciak@intel.com>
 > ---
->  drivers/net/ethernet/intel/ixgb/ixgb_hw.c   |    5 +++--
->  drivers/net/ethernet/intel/ixgb/ixgb_ids.h  |    5 -----
->  drivers/net/ethernet/intel/ixgb/ixgb_main.c |   10 +++++-----
->  3 files changed, 8 insertions(+), 12 deletions(-)=20
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    4 ++--
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    8 ++++----
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    3 ---
+>  3 files changed, 6 insertions(+), 9 deletions(-)=20
 
-Like I said before, I do not consider this patch "trivial" so it is
-interesting that you submitted again as a trivial patch.  At least you
-CC'd netdev like I asked.
+Same goes for this patch as well (not being trivial).
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+I already have several patches submitted for Dave against ixgbe
+currently and I am not sure if there would be any issues with this patch
+applying on top of the currently submitted patches.  I will verify this
+applies cleanly with no issue to my current net-next tree before I send
+my ACK.
 
---=-JRF3GNWKTgG/tfwV2Qpe
+--=-9u46Gw8iKLhPDsJuy8zl
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -67,19 +65,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJQCQSVAAoJEOVv75VaS+3OulQP/jtHWbY4eqYpvFHutpiO87he
-d4lsTrCFQHNA4YQvO5JMISxrwAZZJ9EhZBxQhkIJqVVcWerYmuKW3cYhmeLmc1pu
-aou+A1/togbpad1EgKL/Ph17dKVlcLGVT5ZPe03jtjCxYfiYmKNkBebubP1vK7v9
-8O45WwkDHbBeVNvdpYTFgnek5qSlt2xc5Qbk5mspj1H6wmU42b4+clDmGrSoqw2A
-AHGoNmpPs76FxL/InfXtjqasP36jkJmxErr3myK9xv3RHR79WB45bHOuDsRHANwn
-m0fuYybaXTmv/CdVHRrUHgocr3LrGxB0lRbIhzsSp/xxvcnMoxOeotMT9gdcIJQB
-FduBENqQIiC9CRpbHo2AgGxXOSyBbc9oNY2IGbNP03cLTNWzewLbfQUR6scW4xkK
-frPscMabZYkp6ftI+rL5cPpcCnKdcaIr+RlJU1OutALkw1NPRDg8IXlcHII9HE/h
-tLUndoA5ZzCXoG4kiW08CP3Q5On0KhfqvFZ7J8JF8u6rc8Kz+TAwtiIqJ0NG2g6y
-Y6H68fCcjSh7K05WMwdPdHrbbF/k/8UN+qEoVfQAQR1wYWbh9yJO47XL98e/DZ2y
-LH4dJVX23uMeVXKAZSLodqE8GnCs+88NutdjhYKJAdS+qs4CCGwd2xV+QTe7unDI
-Cijb3p2Pr4LCxoqkxdvo
-=G4ST
+iQIcBAABCgAGBQJQCQU8AAoJEOVv75VaS+3OYXAP/Asm544fY0W1VrVAjixS0Efn
+RgUNq7y5v+ytiTwT2Wy6OMpdpLU/kgwXx/2F9cjPZhRhmcAN+0UTEtAg7EsqHE2d
+BxnG+gg0Qx6mkxr+L9385caY6TrXj5a0T9Ch4QhlaTSCP7CF8pxhxXQ5ZS1PoXvb
+KLuKezeLF3OrvR1109Uu6jiAD8hxzEOPgYU6XUDLbXKHXIrCHT7Ck/G/FKfi2fbI
+AnP8TapgjYhpGx2+dwcT/g45nWTeKg9qnnQqZrQmp7L9SkwIdPo4FL3RYvPny5XX
+5Fwk1OH2OOxpmbszF25/Vf3y6KFH/fsMvBlrLfPNDy0Th4KvGemH1n0WvdxPMRxT
+BW6OAGtownoXhpgKN6bTZOVzNUdjvGRnv5Z7MhyMGimRvmTC+v+V6GlHKnk6uoZG
+f6PwXs65jfWbNXxa5OFS1BN4pd/DR5vQVPG6g87OrkCR5P8eq7p2LvqfVtDpoyfO
+7E+fvlFPdIeGfD/shQTNAFIEh+nuU91GKrfsg4/3ZBPXBYtgcyR93CvxhAksXZIt
+rzKi4J8aZSJMm1dVGk7FyaEuFjcTmsDFZ7rSEq1fmggs4RJYptUAhS1j9dTHUgGp
+toZQRfdmZJaiWdqRWLcI7oi9jhcQmQOm2SYq1/qEN22QapKRD263+jglt/aNyrvB
+ObiSy8Q1X7b/JI2NLtQQ
+=AZPZ
 -----END PGP SIGNATURE-----
 
---=-JRF3GNWKTgG/tfwV2Qpe--
+--=-9u46Gw8iKLhPDsJuy8zl--
