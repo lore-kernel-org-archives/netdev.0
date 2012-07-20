@@ -1,125 +1,60 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v4] sctp: Implement quick failover draft from tsvwg
-Date: Fri, 20 Jul 2012 14:36:29 -0400
-Message-ID: <20120720183629.GE22367@hmsreliant.think-freely.org>
-References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
- <1342804752-17044-1-git-send-email-nhorman@tuxdriver.com>
- <50099B97.9070701@gmail.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: netfilter,rcu: hang in nf_conntrack_net_exit
+Date: Fri, 20 Jul 2012 20:43:33 +0200
+Message-ID: <5009A6D5.1030907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, joe@perches.com
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53915 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751439Ab2GTSgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:36:41 -0400
-Content-Disposition: inline
-In-Reply-To: <50099B97.9070701@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	coreteam@netfilter.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: pablo@netfilter.org, kaber@trash.net, davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 20, 2012 at 01:55:35PM -0400, Vlad Yasevich wrote:
-> On 07/20/2012 01:19 PM, Neil Horman wrote:
-> >I've seen several attempts recently made to do quick failover of sctp transports
-> >by reducing various retransmit timers and counters.  While its possible to
-> >implement a faster failover on multihomed sctp associations, its not
-> >particularly robust, in that it can lead to unneeded retransmits, as well as
-> >false connection failures due to intermittent latency on a network.
-> >
-> >Instead, lets implement the new ietf quick failover draft found here:
-> >http://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
-> >
-> >This will let the sctp stack identify transports that have had a small number of
-> >errors, and avoid using them quickly until their reliability can be
-> >re-established.  I've tested this out on two virt guests connected via multiple
-> >isolated virt networks and believe its in compliance with the above draft and
-> >works well.
-> >
-> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >CC: Vlad Yasevich <vyasevich@gmail.com>
-> >CC: Sridhar Samudrala <sri@us.ibm.com>
-> >CC: "David S. Miller" <davem@davemloft.net>
-> >CC: linux-sctp@vger.kernel.org
-> >CC: joe@perches.com
-> >
-> >---
-> >Change notes:
-> >
-> >V2)
-> >- Added socket option API from section 6.1 of the specification, as per
-> >request from Vlad. Adding this socket option allows us to alter both the path
-> >maximum retransmit value and the path partial failure threshold for each
-> >transport and the association as a whole.
-> >
-> >- Added a per transport pf_retrans value, and initialized it from the
-> >association value.  This makes each transport independently configurable as per
-> >the socket option above, and prevents changes in the sysctl from bleeding into
-> >an already created association.
-> >
-> >V3)
-> >- Cleaned up some line spacing (Joe Perches)
-> >- Fixed some socket option user data sanitization (Vlad Yasevich)
-> >
-> >V4)
-> >- Added additional documentation (Flavio Leitner)
-> >---
-> >  Documentation/networking/ip-sysctl.txt |   14 +++++
-> >  include/net/sctp/constants.h           |    1 +
-> >  include/net/sctp/structs.h             |   20 ++++++-
-> >  include/net/sctp/user.h                |   11 ++++
-> >  net/sctp/associola.c                   |   37 ++++++++++--
-> >  net/sctp/outqueue.c                    |    6 +-
-> >  net/sctp/sm_sideeffect.c               |   33 +++++++++-
-> >  net/sctp/socket.c                      |  100 ++++++++++++++++++++++++++++++++
-> >  net/sctp/sysctl.c                      |    9 +++
-> >  net/sctp/transport.c                   |    4 +-
-> >  10 files changed, 220 insertions(+), 15 deletions(-)
-> >
-> 
-> [ snip ]
-> 
-> >
-> >diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> >index b3b8a8d..fef9bfa 100644
-> >--- a/net/sctp/socket.c
-> >+++ b/net/sctp/socket.c
-> >@@ -3470,6 +3470,56 @@ static int sctp_setsockopt_auto_asconf(struct sock *sk, char __user *optval,
-> >  }
-> >
-> >
-> >+/*
-> >+ * SCTP_PEER_ADDR_THLDS
-> >+ *
-> >+ * This option allows us to alter the partially failed threshold for one or all
-> >+ * transports in an association.  See Section 6.1 of:
-> >+ * http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
-> >+ */
-> >+static int sctp_setsockopt_paddr_thresholds(struct sock *sk,
-> >+					    char __user *optval,
-> >+					    unsigned int optlen)
-> >+{
-> >+	struct sctp_paddrthlds val;
-> >+	struct sctp_transport *trans;
-> >+	struct sctp_association *asoc;
-> >+
-> >+	if (optlen < sizeof(struct sctp_paddrthlds))
-> >+		return -EINVAL;
-> >+	if (copy_from_user(&val, (struct sctp_paddrthlds __user *)optval,
-> >+			   sizeof(struct sctp_paddrthlds)))
-> >+		return -EFAULT;
-> >+
-> >+	/* path_max_retrans shouldn't ever be zero */
-> >+	if (!val.spt_pathmaxrxt)
-> >+		return -EINVAL;
-> 
-> I am not sure I like this solution.  This means that the application
-> must fetch the pathmaxrx and then write the same value back here.
-> Why not simply ignore the patthmaxrxt if it's 0?  That way someone
-> can just tweak the pf value without changing the pathmaxrxt.
-> 
-> 
-Yeah, I can make that change.
-Neil
+Hi all,
+
+I've stumbled on the following while fuzzing with trinity inside a KVM tools guest, using the latest -next kernel.
+
+[  483.990135] INFO: task kworker/u:0:6 blocked for more than 120 seconds.
+[  483.991328] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  483.992500] kworker/u:0     D ffff88000adfa4c8  3160     6      2 0x00000000
+[  483.993527]  ffff88000d655a60 0000000000000086 ffff880035bd7640 00000000001d7640
+[  483.994667]  ffff88000d655fd8 ffff88000d655fd8 ffff88000d655fd8 ffff88000d655fd8
+[  483.995945]  ffff880008448000 ffff88000d65b000 ffff88000d655a50 ffff88000d655c18
+[  483.997202] Call Trace:
+[  483.997653]  [<ffffffff83788d25>] schedule+0x55/0x60
+[  483.998449]  [<ffffffff83786d7a>] schedule_timeout+0x3a/0x370
+[  483.999461]  [<ffffffff8115d4a9>] ? mark_held_locks+0xf9/0x130
+[  484.000016]  [<ffffffff83789443>] ? wait_for_common+0xf3/0x170
+[  484.000016]  [<ffffffff8378a44b>] ? _raw_spin_unlock_irq+0x2b/0x80
+[  484.000016]  [<ffffffff8115d758>] ? trace_hardirqs_on_caller+0x118/0x140
+[  484.000016]  [<ffffffff8378944b>] wait_for_common+0xfb/0x170
+[  484.000016]  [<ffffffff8112fd90>] ? try_to_wake_up+0x290/0x290
+[  484.000016]  [<ffffffff811a7960>] ? __call_rcu+0x390/0x390
+[  484.000016]  [<ffffffff83789568>] wait_for_completion+0x18/0x20
+[  484.000016]  [<ffffffff8111548f>] wait_rcu_gp+0x6f/0xa0
+[  484.000016]  [<ffffffff811130f0>] ? perf_trace_rcu_utilization+0xd0/0xd0
+[  484.000016]  [<ffffffff83789394>] ? wait_for_common+0x44/0x170
+[  484.000016]  [<ffffffff811aa126>] synchronize_rcu+0x86/0x90
+[  484.000016]  [<ffffffff83131455>] synchronize_net+0x35/0x40
+[  484.000016]  [<ffffffff83194125>] nf_conntrack_cleanup+0x55/0x70
+[  484.000016]  [<ffffffff831948a2>] nf_conntrack_net_exit+0x72/0x80
+[  484.000016]  [<ffffffff83125285>] ops_exit_list.isra.0+0x35/0x70
+[  484.000016]  [<ffffffff83125c70>] cleanup_net+0x100/0x1a0
+[  484.000016]  [<ffffffff8110c926>] process_one_work+0x3e6/0x790
+[  484.000016]  [<ffffffff8110c7e0>] ? process_one_work+0x2a0/0x790
+[  484.000016]  [<ffffffff83125b70>] ? net_drop_ns+0x40/0x40
+[  484.000016]  [<ffffffff8110d568>] ? worker_thread+0x48/0x380
+[  484.000016]  [<ffffffff8110d719>] worker_thread+0x1f9/0x380
+[  484.000016]  [<ffffffff8110d520>] ? manage_workers.isra.8+0x110/0x110
+[  484.000016]  [<ffffffff8111823d>] kthread+0xad/0xc0
+[  484.000016]  [<ffffffff8378d134>] kernel_thread_helper+0x4/0x10
+[  484.000016]  [<ffffffff8378b234>] ? retint_restore_args+0x13/0x13
+[  484.000016]  [<ffffffff81118190>] ? insert_kthread_work+0x40/0x40
+[  484.000016]  [<ffffffff8378d130>] ? gs_change+0x13/0x13
+[  484.000016] 3 locks held by kworker/u:0/6:
+[  484.000016]  #0:  (netns){.+.+.+}, at: [<ffffffff8110c7e0>] process_one_work+0x2a0/0x790
+[  484.000016]  #1:  (net_cleanup_work){+.+.+.}, at: [<ffffffff8110c7e0>] process_one_work+0x2a0/0x790
+[  484.000016]  #2:  (net_mutex){+.+.+.}, at: [<ffffffff83125bf0>] cleanup_net+0x80/0x1a0
