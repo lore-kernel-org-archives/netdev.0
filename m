@@ -1,99 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/6] igb: implement 580 MDI setting support
-Date: Fri, 20 Jul 2012 14:43:48 -0700
-Message-ID: <1342820631-19738-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 20 Jul 2012 14:43:45 -0700
+Message-ID: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:41709 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711Ab2GTVnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 17:43:55 -0400
-In-Reply-To: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750711Ab2GTVny (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2012 17:43:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This series contains updates to ethtool, e1000, e1000e and igb with
+regards to the new MDI ethtool support patches submitted earlier.
 
-In order for igb to support MDI setting support via
-ethtool this code is needed to allow setting the MDI state
-via software.
+The following are changes since commit fa0afcd10951afad2022dda09777d2bf70cdab3d:
+  atl1c: fix issue of io access mode for AR8152 v2.1
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-This is in regards to the related ethtool patch
+Bruce W Allan (1):
+  e1000e: implement 82577/579 MDI setting support
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_phy.c |   29 ++++++++++++++++++++++++++--
- drivers/net/ethernet/intel/igb/e1000_phy.h |    5 +++--
- 2 files changed, 30 insertions(+), 4 deletions(-)
+Jesse Brandeburg (5):
+  ethtool.h: MDI setting support
+  igb: implement 580 MDI setting support
+  e1000: configure and read MDI settings
+  e1000e: implement MDI/MDI-X control
+  igb: update to allow reading/setting MDI state
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 7be98b6..3404bc7 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -464,6 +464,32 @@ s32 igb_copper_link_setup_82580(struct e1000_hw *hw)
- 	phy_data |= I82580_CFG_ENABLE_DOWNSHIFT;
- 
- 	ret_val = phy->ops.write_reg(hw, I82580_CFG_REG, phy_data);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Set MDI/MDIX mode */
-+	ret_val = phy->ops.read_reg(hw, I82580_PHY_CTRL_2, &phy_data);
-+	if (ret_val)
-+		goto out;
-+	phy_data &= ~I82580_PHY_CTRL2_MDIX_CFG_MASK;
-+	/*
-+	 * Options:
-+	 *   0 - Auto (default)
-+	 *   1 - MDI mode
-+	 *   2 - MDI-X mode
-+	 */
-+	switch (hw->phy.mdix) {
-+	case 1:
-+		break;
-+	case 2:
-+		phy_data |= I82580_PHY_CTRL2_MANUAL_MDIX;
-+		break;
-+	case 0:
-+	default:
-+		phy_data |= I82580_PHY_CTRL2_AUTO_MDI_MDIX;
-+		break;
-+	}
-+	ret_val = hw->phy.ops.write_reg(hw, I82580_PHY_CTRL_2, phy_data);
- 
- out:
- 	return ret_val;
-@@ -2246,8 +2272,7 @@ s32 igb_phy_force_speed_duplex_82580(struct e1000_hw *hw)
- 	if (ret_val)
- 		goto out;
- 
--	phy_data &= ~I82580_PHY_CTRL2_AUTO_MDIX;
--	phy_data &= ~I82580_PHY_CTRL2_FORCE_MDI_MDIX;
-+	phy_data &= ~I82580_PHY_CTRL2_MDIX_CFG_MASK;
- 
- 	ret_val = phy->ops.write_reg(hw, I82580_PHY_CTRL_2, phy_data);
- 	if (ret_val)
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index 34e4061..6ac3299 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -111,8 +111,9 @@ s32  igb_check_polarity_m88(struct e1000_hw *hw);
- #define I82580_PHY_STATUS2_SPEED_100MBPS  0x0100
- 
- /* I82580 PHY Control 2 */
--#define I82580_PHY_CTRL2_AUTO_MDIX        0x0400
--#define I82580_PHY_CTRL2_FORCE_MDI_MDIX   0x0200
-+#define I82580_PHY_CTRL2_MANUAL_MDIX      0x0200
-+#define I82580_PHY_CTRL2_AUTO_MDI_MDIX    0x0400
-+#define I82580_PHY_CTRL2_MDIX_CFG_MASK    0x0600
- 
- /* I82580 PHY Diagnostics Status */
- #define I82580_DSTATUS_CABLE_LENGTH       0x03FC
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c |   34 +++++++++++++++++++
+ drivers/net/ethernet/intel/e1000/e1000_main.c    |    4 +++
+ drivers/net/ethernet/intel/e1000e/ethtool.c      |   39 +++++++++++++++++++---
+ drivers/net/ethernet/intel/e1000e/phy.c          |   31 +++++++++++++++--
+ drivers/net/ethernet/intel/igb/e1000_phy.c       |   29 ++++++++++++++--
+ drivers/net/ethernet/intel/igb/e1000_phy.h       |    5 +--
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |   37 ++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_main.c        |    4 +++
+ include/linux/ethtool.h                          |   17 ++++++----
+ 9 files changed, 184 insertions(+), 16 deletions(-)
+
 -- 
 1.7.10.4
