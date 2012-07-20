@@ -1,63 +1,69 @@
-From: Nathan Zimmer <nzimmer@sgi.com>
-Subject: [RFC] net: further seperate dst_entry.__refcnt from cache contention
-Date: Fri, 20 Jul 2012 14:46:27 -0500
-Message-ID: <1342813587-31601-1-git-send-email-nzimmer@sgi.com>
-Cc: Robin.Holt@sgi.com, Nathan Zimmer <nzimmer@sgi.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: New commands to configure IOV features
+Date: Fri, 20 Jul 2012 21:01:13 +0100
+Message-ID: <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>
+			<5005D45D.1040302@genband.com>
+		 <20120717.141153.46613285253481776.davem@davemloft.net>
+		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
+	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+	 <5009B186.6000806@genband.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Don Dutile <ddutile@redhat.com>,
+	David Miller <davem@davemloft.net>, <yuvalmin@broadcom.com>,
+	<gregory.v.rose@intel.com>, <netdev@vger.kernel.org>,
+	<linux-pci@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <5009B186.6000806@genband.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After some investigation on large machines I found that
-dst_entry.__refcnt particpates in false cache sharing issues that show
-when scaling past 12 threads who communicate via tcp with loopback addresses.
-I adjusted refcnt to be on its own cache line and that helped quite a bit.
-But perhaps a bit of a waste of space?  Is there some better way?
+On Fri, 2012-07-20 at 13:29 -0600, Chris Friesen wrote:
+> On 07/20/2012 11:42 AM, Ben Hutchings wrote:
+> >
+> > The ethtool API is typically used for net device operations that can be
+> > largely devolved to individual drivers, and which the network stack can
+> > mostly ignore (though offload features are an historical exception to
+> > this).  It started with Ethernet link settings, but many operations are
+> > applicable (and implemented by) other types of network device.
+> 
+> That (potentially) accounts for all network devices, but it leaves all 
+> the other devices that could export virtual functions.
+> 
+> Why should I need to use a different API to enable virtual functions on 
+> my network device and my storage controller?
 
-Here is some preliminary data I had gathered.  It shows nicely improved scaling.
+Indeed; I was merely making the point that it would be quite valid to
+use that means for setting VF network parameters for any network device
+that supports IOV.
 
-Threads baseline   afterchange
-2       1328.03    1340.67
-4       2430.31    2282.09
-6       3087.65    3258.12
-8       3560.34    4165.88
-10      3900.34    4962.28
-12      3933.38    5613.76
-14      3876.98    6113.85
-16      3706.01    6338.00
-18      3742.48    6634.77
-20      3670.15    6641.25
-22      3660.98    6799.55
-24      3503.13    6613.45
-26      3525.73    6702.67
-28      3440.16    6801.27
-30      3497.59    6911.52
-32      3498.25    6540.06
+> (And why should "ethtool" or "ip" care that it's a virtual function?)
 
-I should say something about this test.  It is a dead simple test in which a
-pair of threads simply pass data to each other.  They were placed in the same
-socket to avoid cross node overhead.
+VFs may be assigned to a guest which is not fully trusted by the
+hypervisor or privileged domain.  (This can sometimes be true for PFs
+too, depending on the capabilities of the hypervisor and guest OS.)
+Some configuration may therefore need to be done via a trusted PF.
 
-CC: "David S. Miller" <davem@davemloft.net> 
-Signed-off-by: Nathan Zimmer <nzimmer@sgi.com>
+> What Don and I are suggesting is that the concept of virtual functions 
+> is a PCI thing, so it should be dealt with at the PCI layer.  Regardless 
+> of the type of device the export of virtual functions is conceptually 
+> the same thing, so it should use the same API.
+> 
+> Once the device exists, then domain-specific APIs would be used to 
+> configure it the same way that they would configure a physical device.
 
----
- include/net/dst.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+To an extent, but not entirely.
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 8197ead..3898643 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -84,7 +84,7 @@ struct dst_entry {
- 	 * input/output/ops or performance tanks badly
- 	 */
- 	atomic_t		__refcnt;	/* client references	*/
--	int			__use;
-+	int			__use	____cacheline_aligned;
- 	unsigned long		lastuse;
- 	union {
- 		struct dst_entry	*next;
+Currently, the assigned MAC address and (optional) VLAN tag for each
+networking VF are configured via the PF net device (though this is done
+though the rtnetlink API rather than ethtool).
+
+Ben.
+
 -- 
-1.6.0.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
