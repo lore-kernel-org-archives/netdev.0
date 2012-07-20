@@ -1,79 +1,47 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH V2 resend] ipv6: fix incorrect route 'expires' value passed
- to userspace
-Date: Fri, 20 Jul 2012 09:42:44 +0800
-Message-ID: <5008B794.7010904@cn.fujitsu.com>
-References: <5003CC41.9080204@cn.fujitsu.com> <20120716.025649.1070277404591664104.davem@davemloft.net> <50076AD3.1060604@cn.fujitsu.com> <20120719.104906.38765587582698093.davem@davemloft.net>
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
+Subject: Re: [PATCH] b44: add 64 bit stats
+Date: Thu, 19 Jul 2012 21:56:30 -0400
+Message-ID: <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>
+References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
+	<1342337165.3265.10640.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:27185 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752087Ab2GTBna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 21:43:30 -0400
-In-Reply-To: <20120719.104906.38765587582698093.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:41239 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752614Ab2GTB4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jul 2012 21:56:31 -0400
+Received: by vbbff1 with SMTP id ff1so2519810vbb.19
+        for <netdev@vger.kernel.org>; Thu, 19 Jul 2012 18:56:30 -0700 (PDT)
+In-Reply-To: <1342337165.3265.10640.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Eric,
 
-When userspace use RTM_GETROUTE to dump route table, with an already
-expired route entry, we always got an 'expires' value(2147157)
-calculated base on INT_MAX.
+On Sun, Jul 15, 2012 at 3:26 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> So you must use u64_stats_fetch_begin_bh()
+>
+> Because on 32bit, uniprocessor, u64_stats_fetch_begin() only disables
+> preemption. (there is no seqlock in syncp)
+>
+> So softirq are allowed to interrupt you and corrupt your stats while you
+> read them, and you dont notice you have to retry.
 
-The reason of this problem is in the following satement:
-	rt->dst.expires - jiffies < INT_MAX
-gcc promoted the type of both sides of '<' to unsigned long, thus
-a small negative value would be considered greater than INT_MAX.
+I am still trying to make sure I understand this fully.  I want to
+update some other drivers with 64 bit stats as well.  What you said
+seems to make sense, but...
 
-This patch fix this by use the same trick as time_after macro to
-avoid the 'unsigned long' type promotion and deal with jiffies
-wrapping.
+I was looking at the virtio_net.c driver.  One spot in this driver
+which updates the stats is the receive_buf function.  recive_buf is
+called from virtnet_poll which is registered as a napi poll function.
+According to Documentation/networking/netdevices.txt the poll function
+is called in a softirq context.  However, the function which reads the
+stats uses u64_stats_fetch_begin/u64_stats_fetch_retry.  Shouldn't
+this be u64_stats_fetch_begin_bh/u64_stats_fetch_retry_bh for the
+exact reasons you described for my b44 patch?
 
-Also we should do some fix in rtnl_put_cacheinfo() which use
-jiffies_to_clock_t(which take an unsigned long as parameter) to
-convert jiffies to clock_t to handle the negative expires.
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- net/core/rtnetlink.c |    3 ++-
- net/ipv6/route.c     |    7 ++++---
- 2 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 21318d1..f92f3d8 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -641,7 +641,8 @@ int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst, u32 id,
- 	};
- 
- 	if (expires)
--		ci.rta_expires = jiffies_to_clock_t(expires);
-+		ci.rta_expires = expires > 0 ? jiffies_to_clock_t(expires)
-+			: -jiffies_to_clock_t(-expires);
- 
- 	return nla_put(skb, RTA_CACHEINFO, sizeof(ci), &ci);
- }
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index becb048..7875255 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2516,10 +2516,11 @@ static int rt6_fill_node(struct net *net,
- 		goto nla_put_failure;
- 	if (!(rt->rt6i_flags & RTF_EXPIRES))
- 		expires = 0;
--	else if (rt->dst.expires - jiffies < INT_MAX)
--		expires = rt->dst.expires - jiffies;
-+	else if ((long)rt->dst.expires - (long)jiffies > INT_MIN
-+			&& (long)rt->dst.expires - (long)jiffies < INT_MAX)
-+		expires = (long)rt->dst.expires - (long)jiffies;
- 	else
--		expires = INT_MAX;
-+		expires = time_is_after_jiffies(rt->dst.expires) ? INT_MAX : INT_MIN;
- 
- 	peer = rt->rt6i_peer;
- 	ts = tsage = 0;
--- 
-1.7.1
+Kevin
