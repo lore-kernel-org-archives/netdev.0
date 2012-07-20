@@ -1,28 +1,35 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2] iplink: add support for num[tr]xqueues
-Date: Fri, 20 Jul 2012 14:29:12 +0200
-Message-ID: <1342787352-1921-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com, shemminger@vyatta.com
+Subject: [patch net-next 3/6] rtnl: allow to specify number of rx and tx queues on device creation
+Date: Fri, 20 Jul 2012 14:28:48 +0200
+Message-ID: <1342787331-1866-4-git-send-email-jiri@resnulli.us>
+References: <1342787331-1866-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, shemminger@vyatta.com,
+	fubar@us.ibm.com, andy@greyhouse.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:38477 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752783Ab2GTM3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 08:29:17 -0400
-Received: by wibhm11 with SMTP id hm11so512230wib.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 05:29:16 -0700 (PDT)
+Received: from mail-we0-f174.google.com ([74.125.82.174]:34608 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753202Ab2GTM3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 08:29:06 -0400
+Received: by weyx8 with SMTP id x8so2559855wey.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 05:29:04 -0700 (PDT)
+In-Reply-To: <1342787331-1866-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+This patch introduces IFLA_NUM_TX_QUEUES and IFLA_NUM_RX_QUEUES by
+which userspace can set number of rx and/or tx queues to be allocated
+for newly created netdevice.
+This overrides ops->get_num_[tr]x_queues()
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
  include/linux/if_link.h |    2 ++
- ip/iplink.c             |   20 ++++++++++++++++++++
- man/man8/ip-link.8.in   |   13 +++++++++++++
- 3 files changed, 35 insertions(+)
+ net/core/rtnetlink.c    |   15 +++++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 00e5868..46f03db 100644
+index f715750..ac173bd 100644
 --- a/include/linux/if_link.h
 +++ b/include/linux/if_link.h
 @@ -140,6 +140,8 @@ enum {
@@ -34,81 +41,53 @@ index 00e5868..46f03db 100644
  	__IFLA_MAX
  };
  
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 679091e..0baa128 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -48,6 +48,8 @@ void iplink_usage(void)
- 		fprintf(stderr, "                   [ address LLADDR ]\n");
- 		fprintf(stderr, "                   [ broadcast LLADDR ]\n");
- 		fprintf(stderr, "                   [ mtu MTU ]\n");
-+		fprintf(stderr, "                   [ numtxqueues QUEUE_COUNT ]\n");
-+		fprintf(stderr, "                   [ numrxqueues QUEUE_COUNT ]\n");
- 		fprintf(stderr, "                   type TYPE [ ARGS ]\n");
- 		fprintf(stderr, "       ip link delete DEV type TYPE [ ARGS ]\n");
- 		fprintf(stderr, "\n");
-@@ -279,6 +281,8 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 	int mtu = -1;
- 	int netns = -1;
- 	int vf = -1;
-+	int numtxqueues = -1;
-+	int numrxqueues = -1;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index db5a8ad..5bb1ebc 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -771,6 +771,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
+ 	       + nla_total_size(4) /* IFLA_PROMISCUITY */
++	       + nla_total_size(4) /* IFLA_NUM_TX_QUEUES */
++	       + nla_total_size(4) /* IFLA_NUM_RX_QUEUES */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + nla_total_size(ext_filter_mask
+@@ -889,6 +891,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	    nla_put_u32(skb, IFLA_MTU, dev->mtu) ||
+ 	    nla_put_u32(skb, IFLA_GROUP, dev->group) ||
+ 	    nla_put_u32(skb, IFLA_PROMISCUITY, dev->promiscuity) ||
++	    nla_put_u32(skb, IFLA_NUM_TX_QUEUES, dev->num_tx_queues) ||
++	    nla_put_u32(skb, IFLA_NUM_RX_QUEUES, dev->num_rx_queues) ||
+ 	    (dev->ifindex != dev->iflink &&
+ 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+ 	    (dev->master &&
+@@ -1106,6 +1110,8 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
+ 	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
+ 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
++	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
++	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+ };
+ EXPORT_SYMBOL(ifla_policy);
  
- 	*group = -1;
- 	ret = argc;
-@@ -445,6 +449,22 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				invarg("Invalid operstate\n", *argv);
+@@ -1627,9 +1633,14 @@ struct net_device *rtnl_create_link(struct net *src_net, struct net *net,
+ 	unsigned int num_tx_queues = 1;
+ 	unsigned int num_rx_queues = 1;
  
- 			addattr8(&req->n, sizeof(*req), IFLA_OPERSTATE, state);
-+		} else if (strcmp(*argv, "numtxqueues") == 0) {
-+			NEXT_ARG();
-+			if (numtxqueues != -1)
-+				duparg("numtxqueues", *argv);
-+			if (get_integer(&numtxqueues, *argv, 0))
-+				invarg("Invalid \"numtxqueues\" value\n", *argv);
-+			addattr_l(&req->n, sizeof(*req), IFLA_NUM_TX_QUEUES,
-+				  &numtxqueues, 4);
-+		} else if (strcmp(*argv, "numrxqueues") == 0) {
-+			NEXT_ARG();
-+			if (numrxqueues != -1)
-+				duparg("numrxqueues", *argv);
-+			if (get_integer(&numrxqueues, *argv, 0))
-+				invarg("Invalid \"numrxqueues\" value\n", *argv);
-+			addattr_l(&req->n, sizeof(*req), IFLA_NUM_RX_QUEUES,
-+				  &numrxqueues, 4);
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 9386cc6..8a24e51 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -40,6 +40,11 @@ ip-link \- network device configuration
- .RB "[ " mtu
- .IR MTU " ]"
- .br
-+.RB "[ " numtxqueues
-+.IR QUEUE_COUNT " ]"
-+.RB "[ " numrxqueues
-+.IR QUEUE_COUNT " ]"
-+.br
- .BR type " TYPE"
- .RI "[ " ARGS " ]"
- 
-@@ -156,6 +161,14 @@ Link types:
- - Ethernet Bridge device
- .in -8
- 
-+.TP
-+.BI numtxqueues " QUEUE_COUNT "
-+specifies the number of transmit queues for new device.
+-	if (ops->get_num_tx_queues)
++	if (tb[IFLA_NUM_TX_QUEUES])
++		num_tx_queues = nla_get_u32(tb[IFLA_NUM_TX_QUEUES]);
++	else if (ops->get_num_tx_queues)
+ 		num_tx_queues = ops->get_num_tx_queues();
+-	if (ops->get_num_rx_queues)
 +
-+.TP
-+.BI numrxqueues " QUEUE_COUNT "
-+specifies the number of receive queues for new device.
-+
- .SS ip link delete - delete virtual link
- .I DEVICE
- specifies the virtual  device to act operate on.
++	if (tb[IFLA_NUM_RX_QUEUES])
++		num_rx_queues = nla_get_u32(tb[IFLA_NUM_RX_QUEUES]);
++	else if (ops->get_num_rx_queues)
+ 		num_rx_queues = ops->get_num_rx_queues();
+ 
+ 	err = -ENOMEM;
 -- 
 1.7.10.4
