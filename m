@@ -1,28 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1c: fix issue of io access mode for AR8152 v2.1
-Date: Fri, 20 Jul 2012 11:23:13 -0700 (PDT)
-Message-ID: <20120720.112313.1153363658413977902.davem@davemloft.net>
-References: <1342753318-4507-1-git-send-email-cjren@qca.qualcomm.com>
+Subject: Re: [PATCH] Crash in tun
+Date: Fri, 20 Jul 2012 11:23:37 -0700 (PDT)
+Message-ID: <20120720.112337.474955511809249636.davem@davemloft.net>
+References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz>
+	<1342678175.2626.3849.camel@edumazet-glaptop>
+	<alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qca-linux-team@qualcomm.com, nic-devel@qualcomm.com
-To: cjren@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342753318-4507-1-git-send-email-cjren@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, maxk@qualcomm.com, vtun@office.satix.net,
+	netdev@vger.kernel.org
+To: mikulas@artax.karlin.mff.cuni.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751Ab2GTSXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:23:38 -0400
+In-Reply-To: <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <cjren@qca.qualcomm.com>
-Date: Fri, 20 Jul 2012 11:01:58 +0800
+From: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Date: Thu, 19 Jul 2012 18:13:36 +0200 (CEST)
 
-> When io access mode is enabled by BOOTROM or BIOS for AR8152 v2.1,
-> the register can't be read/write by memory access mode.
-> Clearing Bit 8  of Register 0x21c could fixed the issue.
+> tun: fix a crash bug and a memory leak
 > 
-> Signed-off-by: Cloud Ren <cjren@qca.qualcomm.com>
-> Cc: stable <stable@vger.kernel.org>
-> Signed-off-by: xiong <xiong@qca.qualcomm.com>
+> This patch fixes a crash
+> tun_chr_close -> netdev_run_todo -> tun_free_netdev -> sk_release_kernel ->
+> sock_release -> iput(SOCK_INODE(sock))
+> introduced by commit 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d
+> 
+> The problem is that this socket is embedded in struct tun_struct, it has
+> no inode, iput is called on invalid inode, which modifies invalid memory
+> and optionally causes a crash.
+> 
+> sock_release also decrements sockets_in_use, this causes a bug that
+> "sockets: used" field in /proc/*/net/sockstat keeps on decreasing when
+> creating and closing tun devices.
+> 
+> This patch introduces a flag SOCK_EXTERNALLY_ALLOCATED that instructs
+> sock_release to not free the inode and not decrement sockets_in_use,
+> fixing both memory corruption and sockets_in_use underflow.
+> 
+> It should be backported to 3.3 an 3.4 stabke.
+> 
+> Signed-off-by: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+> Cc: stable@kernel.org
 
 Applied.
