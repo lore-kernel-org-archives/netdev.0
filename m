@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/9] ixgbe: Correctly set SAN MAC RAR pool to default pool of PF
-Date: Thu, 19 Jul 2012 18:24:04 -0700
-Message-ID: <1342747446-16132-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/9] ixgbe: Make FCoE allocation and configuration closer to how rings work
+Date: Thu, 19 Jul 2012 18:24:03 -0700
+Message-ID: <1342747446-16132-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342747446-16132-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9033 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:45537 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752732Ab2GTBYP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752695Ab2GTBYP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 19 Jul 2012 21:24:15 -0400
 In-Reply-To: <1342747446-16132-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,170 +18,521 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change corrects an issue in which an FCoE enabled adapter was always
-setting the FCoE SAN MAC MPSAR register to 0x1.  This results in the first
-VF being assigned the SAN MAC address in the case of SR-IOV and as such is
-incorrect.  To resolve this I am adding a new function that will update the
-SAN MAC pool address after reset.
+This patch changes the behavior of the FCoE configuration so that it is
+much closer to how the main body of the ixgbe driver works for ring
+allocation.
+
+The first piece is the ixgbe_fcoe_ddp_enable/disable calls.  These allocate
+the percpu values and if successful set the fcoe_ddp_xid value indicating
+that we can support DDP.
+
+The next piece is the ixgbe_setup/free_ddp_resources calls.  These are
+called on open/close and will allocate and free the DMA pools.
+
+Finally ixgbe_configure_fcoe is now just register configuration.  It can go
+through and enable the registers for the FCoE redirection offload, and FIP
+configuration without any interference from the DDP pool allocation.
+
+The net result of all this is two fold.  First it adds a certain amount of
+exception handling.  So for example if ixgbe_setup_fcoe_resources fails we
+will actually generate an error in open and refuse to bring up the
+interface.
+
+Secondly it provides a much more graceful failure case than the previous
+model which would skip setting up the registers for FCoE on failure to
+allocate DDP resources leaving no Rx functionality enabled instead of just
+disabling DDP.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |    4 ++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |   25 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |   13 +++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |    2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |    4 ++++
- 6 files changed, 46 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |  228 ++++++++++++++-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   43 +++--
+ 4 files changed, 154 insertions(+), 122 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index e7dddfd..50fc137 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1025,6 +1025,9 @@ mac_reset_top:
- 		hw->mac.ops.set_rar(hw, hw->mac.num_rar_entries - 1,
- 		                    hw->mac.san_addr, 0, IXGBE_RAH_AV);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index c236500..5a286ad 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -691,7 +691,6 @@ extern void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fso(struct ixgbe_ring *tx_ring,
+ 		     struct ixgbe_tx_buffer *first,
+ 		     u8 *hdr_len);
+-extern void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 			  union ixgbe_adv_rx_desc *rx_desc,
+ 			  struct sk_buff *skb);
+@@ -700,6 +699,8 @@ extern int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
+ extern int ixgbe_fcoe_ddp_target(struct net_device *netdev, u16 xid,
+ 				 struct scatterlist *sgl, unsigned int sgc);
+ extern int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid);
++extern int ixgbe_setup_fcoe_ddp_resources(struct ixgbe_adapter *adapter);
++extern void ixgbe_free_fcoe_ddp_resources(struct ixgbe_adapter *adapter);
+ extern int ixgbe_fcoe_enable(struct net_device *netdev);
+ extern int ixgbe_fcoe_disable(struct net_device *netdev);
+ #ifdef CONFIG_IXGBE_DCB
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index e7c463c..e79ba39 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -578,17 +578,6 @@ static void ixgbe_fcoe_dma_pool_free(struct ixgbe_fcoe *fcoe, unsigned int cpu)
+ 	ddp_pool->pool = NULL;
+ }
  
-+		/* Save the SAN MAC RAR index */
-+		hw->mac.san_mac_rar_index = hw->mac.num_rar_entries - 1;
-+
- 		/* Reserve the last RAR for the SAN MAC address */
- 		hw->mac.num_rar_entries--;
- 	}
-@@ -2106,6 +2109,7 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.set_rar                = &ixgbe_set_rar_generic,
- 	.clear_rar              = &ixgbe_clear_rar_generic,
- 	.set_vmdq               = &ixgbe_set_vmdq_generic,
-+	.set_vmdq_san_mac	= &ixgbe_set_vmdq_san_mac_generic,
- 	.clear_vmdq             = &ixgbe_clear_vmdq_generic,
- 	.init_rx_addrs          = &ixgbe_init_rx_addrs_generic,
- 	.update_mc_addr_list    = &ixgbe_update_mc_addr_list_generic,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index bb7fde4..bbe9d45 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -2848,6 +2848,31 @@ s32 ixgbe_set_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq)
+-static void ixgbe_fcoe_ddp_pools_free(struct ixgbe_fcoe *fcoe)
+-{
+-	unsigned int cpu;
+-
+-	for_each_possible_cpu(cpu)
+-		ixgbe_fcoe_dma_pool_free(fcoe, cpu);
+-
+-	free_percpu(fcoe->ddp_pool);
+-	fcoe->ddp_pool = NULL;
+-}
+-
+ static int ixgbe_fcoe_dma_pool_alloc(struct ixgbe_fcoe *fcoe,
+ 				     struct device *dev,
+ 				     unsigned int cpu)
+@@ -612,21 +601,6 @@ static int ixgbe_fcoe_dma_pool_alloc(struct ixgbe_fcoe *fcoe,
+ 	return 0;
+ }
+ 
+-static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
+-{
+-	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+-	struct device *dev = &adapter->pdev->dev;
+-	unsigned int cpu;
+-
+-	fcoe->ddp_pool = alloc_percpu(struct ixgbe_fcoe_ddp_pool);
+-	if (!fcoe->ddp_pool)
+-		return;
+-
+-	/* allocate pci pool for each cpu */
+-	for_each_possible_cpu(cpu)
+-		ixgbe_fcoe_dma_pool_alloc(fcoe, dev, cpu);
+-}
+-
+ /**
+  * ixgbe_configure_fcoe - configures registers for fcoe at start
+  * @adapter: ptr to ixgbe adapter
+@@ -637,39 +611,14 @@ static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
+  */
+ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ {
+-	int i, fcoe_q, fcoe_i;
++	struct ixgbe_ring_feature *fcoe = &adapter->ring_feature[RING_F_FCOE];
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+-	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_FCOE];
++	int i, fcoe_q, fcoe_i;
+ 	u32 etqf;
+ 
+-	if (!fcoe->ddp_pool) {
+-		spin_lock_init(&fcoe->lock);
+-
+-		ixgbe_fcoe_ddp_pools_alloc(adapter);
+-		if (!fcoe->ddp_pool) {
+-			e_err(drv, "failed to alloc percpu fcoe DDP pools\n");
+-			return;
+-		}
+-
+-		/* Extra buffer to be shared by all DDPs for HW work around */
+-		fcoe->extra_ddp_buffer = kmalloc(IXGBE_FCBUFF_MIN, GFP_ATOMIC);
+-		if (fcoe->extra_ddp_buffer == NULL) {
+-			e_err(drv, "failed to allocated extra DDP buffer\n");
+-			goto out_ddp_pools;
+-		}
+-
+-		fcoe->extra_ddp_buffer_dma =
+-			dma_map_single(&adapter->pdev->dev,
+-				       fcoe->extra_ddp_buffer,
+-				       IXGBE_FCBUFF_MIN,
+-				       DMA_FROM_DEVICE);
+-		if (dma_mapping_error(&adapter->pdev->dev,
+-				      fcoe->extra_ddp_buffer_dma)) {
+-			e_err(drv, "failed to map extra DDP buffer\n");
+-			goto out_extra_ddp_buffer;
+-		}
+-	}
++	/* leave registers unconfigued if FCoE is disabled */
++	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
++		return;
+ 
+ 	/* Enable L2 EtherType filter for FCoE, necessary for FCoE Rx CRC */
+ 	etqf = ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN;
+@@ -682,7 +631,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 
+ 	/* Use one or more Rx queues for FCoE by redirection table */
+ 	for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
+-		fcoe_i = f->offset + (i % f->indices);
++		fcoe_i = fcoe->offset + (i % fcoe->indices);
+ 		fcoe_i &= IXGBE_FCRETA_ENTRY_MASK;
+ 		fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
+ 		IXGBE_WRITE_REG(hw, IXGBE_FCRETA(i), fcoe_q);
+@@ -698,7 +647,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FIP), etqf);
+ 
+ 	/* Send FIP frames to the first FCoE queue */
+-	fcoe_q = adapter->rx_ring[f->offset]->reg_idx;
++	fcoe_q = adapter->rx_ring[fcoe->offset]->reg_idx;
+ 	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FIP),
+ 			IXGBE_ETQS_QUEUE_EN |
+ 			(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
+@@ -707,40 +656,122 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL,
+ 			IXGBE_FCRXCTRL_FCCRCBO |
+ 			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
+-
+-	return;
+-out_extra_ddp_buffer:
+-	kfree(fcoe->extra_ddp_buffer);
+-out_ddp_pools:
+-	ixgbe_fcoe_ddp_pools_free(fcoe);
  }
  
  /**
-+ *  This function should only be involved in the IOV mode.
-+ *  In IOV mode, Default pool is next pool after the number of
-+ *  VFs advertized and not 0.
-+ *  MPSAR table needs to be updated for SAN_MAC RAR [hw->mac.san_mac_rar_index]
-+ *
-+ *  ixgbe_set_vmdq_san_mac - Associate default VMDq pool index with a rx address
-+ *  @hw: pointer to hardware struct
-+ *  @vmdq: VMDq pool index
-+ **/
-+s32 ixgbe_set_vmdq_san_mac_generic(struct ixgbe_hw *hw, u32 vmdq)
-+{
-+	u32 rar = hw->mac.san_mac_rar_index;
+- * ixgbe_cleanup_fcoe - release all fcoe ddp context resources
++ * ixgbe_free_fcoe_ddp_resources - release all fcoe ddp context resources
+  * @adapter : ixgbe adapter
+  *
+  * Cleans up outstanding ddp context resources
+  *
+  * Returns : none
+  */
+-void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter)
++void ixgbe_free_fcoe_ddp_resources(struct ixgbe_adapter *adapter)
+ {
+-	int i;
+ 	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
++	int cpu, i;
+ 
++	/* do nothing if no DDP pools were allocated */
+ 	if (!fcoe->ddp_pool)
+ 		return;
+ 
+ 	for (i = 0; i < IXGBE_FCOE_DDP_MAX; i++)
+ 		ixgbe_fcoe_ddp_put(adapter->netdev, i);
+ 
++	for_each_possible_cpu(cpu)
++		ixgbe_fcoe_dma_pool_free(fcoe, cpu);
 +
-+	if (vmdq < 32) {
-+		IXGBE_WRITE_REG(hw, IXGBE_MPSAR_LO(rar), 1 << vmdq);
-+		IXGBE_WRITE_REG(hw, IXGBE_MPSAR_HI(rar), 0);
-+	} else {
-+		IXGBE_WRITE_REG(hw, IXGBE_MPSAR_LO(rar), 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_MPSAR_HI(rar), 1 << (vmdq - 32));
+ 	dma_unmap_single(&adapter->pdev->dev,
+ 			 fcoe->extra_ddp_buffer_dma,
+ 			 IXGBE_FCBUFF_MIN,
+ 			 DMA_FROM_DEVICE);
+ 	kfree(fcoe->extra_ddp_buffer);
+ 
+-	ixgbe_fcoe_ddp_pools_free(fcoe);
++	fcoe->extra_ddp_buffer = NULL;
++	fcoe->extra_ddp_buffer_dma = 0;
++}
++
++/**
++ * ixgbe_setup_fcoe_ddp_resources - setup all fcoe ddp context resources
++ * @adapter: ixgbe adapter
++ *
++ * Sets up ddp context resouces
++ *
++ * Returns : 0 indicates success or -EINVAL on failure
++ */
++int ixgbe_setup_fcoe_ddp_resources(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
++	struct device *dev = &adapter->pdev->dev;
++	void *buffer;
++	dma_addr_t dma;
++	unsigned int cpu;
++
++	/* do nothing if no DDP pools were allocated */
++	if (!fcoe->ddp_pool)
++		return 0;
++
++	/* Extra buffer to be shared by all DDPs for HW work around */
++	buffer = kmalloc(IXGBE_FCBUFF_MIN, GFP_ATOMIC);
++	if (!buffer) {
++		e_err(drv, "failed to allocate extra DDP buffer\n");
++		return -ENOMEM;
++	}
++
++	dma = dma_map_single(dev, buffer, IXGBE_FCBUFF_MIN, DMA_FROM_DEVICE);
++	if (dma_mapping_error(dev, dma)) {
++		e_err(drv, "failed to map extra DDP buffer\n");
++		kfree(buffer);
++		return -ENOMEM;
++	}
++
++	fcoe->extra_ddp_buffer = buffer;
++	fcoe->extra_ddp_buffer_dma = dma;
++
++	/* allocate pci pool for each cpu */
++	for_each_possible_cpu(cpu) {
++		int err = ixgbe_fcoe_dma_pool_alloc(fcoe, dev, cpu);
++		if (!err)
++			continue;
++
++		e_err(drv, "failed to alloc DDP pool on cpu:%d\n", cpu);
++		ixgbe_free_fcoe_ddp_resources(adapter);
++		return -ENOMEM;
 +	}
 +
 +	return 0;
 +}
 +
-+/**
-  *  ixgbe_init_uta_tables_generic - Initialize the Unicast Table Array
-  *  @hw: pointer to hardware structure
-  **/
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 6222fdb..d813d11 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -85,6 +85,7 @@ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask);
- void ixgbe_release_swfw_sync(struct ixgbe_hw *hw, u16 mask);
- s32 ixgbe_get_san_mac_addr_generic(struct ixgbe_hw *hw, u8 *san_mac_addr);
- s32 ixgbe_set_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
-+s32 ixgbe_set_vmdq_san_mac_generic(struct ixgbe_hw *hw, u32 vmdq);
- s32 ixgbe_clear_vmdq_generic(struct ixgbe_hw *hw, u32 rar, u32 vmdq);
- s32 ixgbe_init_uta_tables_generic(struct ixgbe_hw *hw);
- s32 ixgbe_set_vfta_generic(struct ixgbe_hw *hw, u32 vlan,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e006c05..aa01558 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4119,6 +4119,10 @@ void ixgbe_reset(struct ixgbe_adapter *adapter)
- 
- 	/* reprogram the RAR[0] in case user changed it. */
- 	hw->mac.ops.set_rar(hw, 0, hw->mac.addr, VMDQ_P(0), IXGBE_RAH_AV);
++static int ixgbe_fcoe_ddp_enable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
 +
-+	/* update SAN MAC vmdq pool selection */
-+	if (hw->mac.san_mac_rar_index)
-+		hw->mac.ops.set_vmdq_san_mac(hw, VMDQ_P(0));
++	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
++		return -EINVAL;
++
++	fcoe->ddp_pool = alloc_percpu(struct ixgbe_fcoe_ddp_pool);
++
++	if (!fcoe->ddp_pool) {
++		e_err(drv, "failed to allocate percpu DDP resources\n");
++		return -ENOMEM;
++	}
++
++	adapter->netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
++
++	return 0;
++}
++
++static void ixgbe_fcoe_ddp_disable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
++
++	adapter->netdev->fcoe_ddp_xid = 0;
++
++	if (!fcoe->ddp_pool)
++		return;
++
++	free_percpu(fcoe->ddp_pool);
++	fcoe->ddp_pool = NULL;
  }
  
  /**
-@@ -6509,12 +6513,15 @@ static int ixgbe_add_sanmac_netdev(struct net_device *dev)
+@@ -753,40 +784,37 @@ void ixgbe_cleanup_fcoe(struct ixgbe_adapter *adapter)
+  */
+ int ixgbe_fcoe_enable(struct net_device *netdev)
  {
- 	int err = 0;
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	struct ixgbe_mac_info *mac = &adapter->hw.mac;
-+	struct ixgbe_hw *hw = &adapter->hw;
+-	int rc = -EINVAL;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
  
--	if (is_valid_ether_addr(mac->san_addr)) {
-+	if (is_valid_ether_addr(hw->mac.san_addr)) {
- 		rtnl_lock();
--		err = dev_addr_add(dev, mac->san_addr, NETDEV_HW_ADDR_T_SAN);
-+		err = dev_addr_add(dev, hw->mac.san_addr, NETDEV_HW_ADDR_T_SAN);
- 		rtnl_unlock();
-+
-+		/* update SAN MAC vmdq pool selection */
-+		hw->mac.ops.set_vmdq_san_mac(hw, VMDQ_P(0));
- 	}
- 	return err;
++	atomic_inc(&fcoe->refcnt);
+ 
+ 	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
+-		goto out_enable;
++		return -EINVAL;
+ 
+-	atomic_inc(&fcoe->refcnt);
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+-		goto out_enable;
++		return -EINVAL;
+ 
+ 	e_info(drv, "Enabling FCoE offload features.\n");
+ 	if (netif_running(netdev))
+ 		netdev->netdev_ops->ndo_stop(netdev);
+ 
+-	ixgbe_clear_interrupt_scheme(adapter);
++	/* Allocate per CPU memory to track DDP pools */
++	ixgbe_fcoe_ddp_enable(adapter);
+ 
++	/* enable FCoE and notify stack */
+ 	adapter->flags |= IXGBE_FLAG_FCOE_ENABLED;
+-	adapter->ring_feature[RING_F_FCOE].limit = IXGBE_FCRETA_SIZE;
+-	netdev->features |= NETIF_F_FCOE_CRC;
+-	netdev->features |= NETIF_F_FSO;
+-	netdev->features |= NETIF_F_FCOE_MTU;
+-	netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
++	netdev->features |= NETIF_F_FSO | NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU;
++	netdev_features_change(netdev);
+ 
++	/* release existing queues and reallocate them */
++	ixgbe_clear_interrupt_scheme(adapter);
+ 	ixgbe_init_interrupt_scheme(adapter);
+-	netdev_features_change(netdev);
+ 
+ 	if (netif_running(netdev))
+ 		netdev->netdev_ops->ndo_open(netdev);
+-	rc = 0;
+ 
+-out_enable:
+-	return rc;
++	return 0;
  }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 482a33b..d26e07a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2847,6 +2847,7 @@ struct ixgbe_mac_operations {
- 	s32 (*set_rar)(struct ixgbe_hw *, u32, u8 *, u32, u32);
- 	s32 (*clear_rar)(struct ixgbe_hw *, u32);
- 	s32 (*set_vmdq)(struct ixgbe_hw *, u32, u32);
-+	s32 (*set_vmdq_san_mac)(struct ixgbe_hw *, u32);
- 	s32 (*clear_vmdq)(struct ixgbe_hw *, u32, u32);
- 	s32 (*init_rx_addrs)(struct ixgbe_hw *);
- 	s32 (*update_mc_addr_list)(struct ixgbe_hw *, struct net_device *);
-@@ -2922,6 +2923,7 @@ struct ixgbe_mac_info {
- 	bool                            orig_link_settings_stored;
- 	bool                            autotry_restart;
- 	u8                              flags;
-+	u8				san_mac_rar_index;
- 	struct ixgbe_thermal_sensor_data  thermal_sensor_data;
- };
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index f90ec07..de4da52 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -156,6 +156,9 @@ mac_reset_top:
- 		hw->mac.ops.set_rar(hw, hw->mac.num_rar_entries - 1,
- 		                    hw->mac.san_addr, 0, IXGBE_RAH_AV);
+ /**
+@@ -799,41 +827,37 @@ out_enable:
+  */
+ int ixgbe_fcoe_disable(struct net_device *netdev)
+ {
+-	int rc = -EINVAL;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
  
-+		/* Save the SAN MAC RAR index */
-+		hw->mac.san_mac_rar_index = hw->mac.num_rar_entries - 1;
+-	if (!(adapter->flags & IXGBE_FLAG_FCOE_CAPABLE))
+-		goto out_disable;
++	if (!atomic_dec_and_test(&adapter->fcoe.refcnt))
++		return -EINVAL;
+ 
+ 	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
+-		goto out_disable;
+-
+-	if (!atomic_dec_and_test(&fcoe->refcnt))
+-		goto out_disable;
++		return -EINVAL;
+ 
+ 	e_info(drv, "Disabling FCoE offload features.\n");
+-	netdev->features &= ~NETIF_F_FCOE_CRC;
+-	netdev->features &= ~NETIF_F_FSO;
+-	netdev->features &= ~NETIF_F_FCOE_MTU;
+-	netdev->fcoe_ddp_xid = 0;
+-	netdev_features_change(netdev);
+-
+ 	if (netif_running(netdev))
+ 		netdev->netdev_ops->ndo_stop(netdev);
+ 
+-	ixgbe_clear_interrupt_scheme(adapter);
++	/* Free per CPU memory to track DDP pools */
++	ixgbe_fcoe_ddp_disable(adapter);
 +
- 		/* Reserve the last RAR for the SAN MAC address */
- 		hw->mac.num_rar_entries--;
++	/* disable FCoE and notify stack */
+ 	adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
+-	adapter->ring_feature[RING_F_FCOE].indices = 0;
+-	ixgbe_cleanup_fcoe(adapter);
++	netdev->features &= ~(NETIF_F_FCOE_CRC |
++			      NETIF_F_FSO |
++			      NETIF_F_FCOE_MTU);
++
++	netdev_features_change(netdev);
++
++	/* release existing queues and reallocate them */
++	ixgbe_clear_interrupt_scheme(adapter);
+ 	ixgbe_init_interrupt_scheme(adapter);
+ 
+ 	if (netif_running(netdev))
+ 		netdev->netdev_ops->ndo_open(netdev);
+-	rc = 0;
+ 
+-out_disable:
+-	return rc;
++	return 0;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+index 5d02873..bf724da 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+@@ -77,7 +77,7 @@ struct ixgbe_fcoe {
+ 	atomic_t refcnt;
+ 	spinlock_t lock;
+ 	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
+-	unsigned char *extra_ddp_buffer;
++	void *extra_ddp_buffer;
+ 	dma_addr_t extra_ddp_buffer_dma;
+ 	unsigned long mode;
+ #ifdef CONFIG_IXGBE_DCB
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c666259..e006c05 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3807,12 +3807,6 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 	ixgbe_set_rx_mode(adapter->netdev);
+ 	ixgbe_restore_vlan(adapter);
+ 
+-#ifdef IXGBE_FCOE
+-	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+-		ixgbe_configure_fcoe(adapter);
+-
+-#endif /* IXGBE_FCOE */
+-
+ 	switch (hw->mac.type) {
+ 	case ixgbe_mac_82599EB:
+ 	case ixgbe_mac_X540:
+@@ -3842,6 +3836,11 @@ static void ixgbe_configure(struct ixgbe_adapter *adapter)
+ 
+ 	ixgbe_configure_virtualization(adapter);
+ 
++#ifdef IXGBE_FCOE
++	/* configure FCoE L2 filters, redirection table, and Rx control */
++	ixgbe_configure_fcoe(adapter);
++
++#endif /* IXGBE_FCOE */
+ 	ixgbe_configure_tx(adapter);
+ 	ixgbe_configure_rx(adapter);
+ }
+@@ -4434,6 +4433,11 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		break;
  	}
-@@ -832,6 +835,7 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.set_rar                = &ixgbe_set_rar_generic,
- 	.clear_rar              = &ixgbe_clear_rar_generic,
- 	.set_vmdq               = &ixgbe_set_vmdq_generic,
-+	.set_vmdq_san_mac	= &ixgbe_set_vmdq_san_mac_generic,
- 	.clear_vmdq             = &ixgbe_clear_vmdq_generic,
- 	.init_rx_addrs          = &ixgbe_init_rx_addrs_generic,
- 	.update_mc_addr_list    = &ixgbe_update_mc_addr_list_generic,
+ 
++#ifdef IXGBE_FCOE
++	/* FCoE support exists, always init the FCoE lock */
++	spin_lock_init(&adapter->fcoe.lock);
++
++#endif
+ 	/* n-tuple support exists, always init our spinlock */
+ 	spin_lock_init(&adapter->fdir_perfect_lock);
+ 
+@@ -4662,7 +4666,11 @@ static int ixgbe_setup_all_rx_resources(struct ixgbe_adapter *adapter)
+ 		goto err_setup_rx;
+ 	}
+ 
+-	return 0;
++#ifdef IXGBE_FCOE
++	err = ixgbe_setup_fcoe_ddp_resources(adapter);
++	if (!err)
++#endif
++		return 0;
+ err_setup_rx:
+ 	/* rewind the index freeing the rings as we go */
+ 	while (i--)
+@@ -4741,6 +4749,10 @@ static void ixgbe_free_all_rx_resources(struct ixgbe_adapter *adapter)
+ {
+ 	int i;
+ 
++#ifdef IXGBE_FCOE
++	ixgbe_free_fcoe_ddp_resources(adapter);
++
++#endif
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+ 		if (adapter->rx_ring[i]->desc)
+ 			ixgbe_free_rx_resources(adapter->rx_ring[i]);
+@@ -7235,11 +7247,12 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 			if (device_caps & IXGBE_DEVICE_CAPS_FCOE_OFFLOADS)
+ 				adapter->flags &= ~IXGBE_FLAG_FCOE_CAPABLE;
+ 		}
+-	}
+-	if (adapter->flags & IXGBE_FLAG_FCOE_CAPABLE) {
+-		netdev->vlan_features |= NETIF_F_FCOE_CRC;
+-		netdev->vlan_features |= NETIF_F_FSO;
+-		netdev->vlan_features |= NETIF_F_FCOE_MTU;
++
++		adapter->ring_feature[RING_F_FCOE].limit = IXGBE_FCRETA_SIZE;
++
++		netdev->vlan_features |= NETIF_F_FSO |
++					 NETIF_F_FCOE_CRC |
++					 NETIF_F_FCOE_MTU;
+ 	}
+ #endif /* IXGBE_FCOE */
+ 	if (pci_using_dac) {
+@@ -7436,12 +7449,6 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
+ 	ixgbe_sysfs_exit(adapter);
+ #endif /* CONFIG_IXGBE_HWMON */
+ 
+-#ifdef IXGBE_FCOE
+-	if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
+-		ixgbe_cleanup_fcoe(adapter);
+-
+-#endif /* IXGBE_FCOE */
+-
+ 	/* remove the added san mac */
+ 	ixgbe_del_sanmac_netdev(netdev);
+ 
 -- 
 1.7.10.4
