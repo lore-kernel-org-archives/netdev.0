@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/9] ixgbe: Drop references to deprecated pci_ DMA api and instead use dma_ API
-Date: Thu, 19 Jul 2012 18:24:00 -0700
-Message-ID: <1342747446-16132-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/9] ixgbe: Cleanup configuration of FCoE registers
+Date: Thu, 19 Jul 2012 18:24:01 -0700
+Message-ID: <1342747446-16132-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342747446-16132-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:9033 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:55809 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752589Ab2GTBYO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752581Ab2GTBYO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 19 Jul 2012 21:24:14 -0400
 In-Reply-To: <1342747446-16132-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,144 +18,113 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The networking side of the code had already been updated to use dma_ calls
-instead of the old pci_ calls. However it looks like the FCoE code was
-never updated.  This change goes through and moves everything from the pci
-APIs to the dma APIs.
+This change makes it so we always use the FCoE redirection table.  We just
+set all 8 entries to the same value in the case of only having one queue
+for FCoE.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |   30 ++++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h |    4 ++--
- 2 files changed, 17 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |   58 +++++++++++++------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |    1 +
+ 2 files changed, 32 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index cc28c44..9b0909f 100644
+index 9b0909f..a994570 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -104,10 +104,10 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
- 			udelay(100);
- 	}
- 	if (ddp->sgl)
--		pci_unmap_sg(adapter->pdev, ddp->sgl, ddp->sgc,
-+		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl, ddp->sgc,
- 			     DMA_FROM_DEVICE);
- 	if (ddp->pool) {
--		pci_pool_free(ddp->pool, ddp->udl, ddp->udp);
-+		dma_pool_free(ddp->pool, ddp->udl, ddp->udp);
- 		ddp->pool = NULL;
- 	}
- 
-@@ -144,7 +144,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 	unsigned int thislen = 0;
- 	u32 fcbuff, fcdmarw, fcfltrw, fcrxctl;
- 	dma_addr_t addr = 0;
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- 	unsigned int cpu;
- 
- 	if (!netdev || !sgl)
-@@ -176,7 +176,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 	ixgbe_fcoe_clear_ddp(ddp);
- 
- 	/* setup dma from scsi command sgl */
--	dmacount = pci_map_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
-+	dmacount = dma_map_sg(&adapter->pdev->dev, sgl, sgc, DMA_FROM_DEVICE);
- 	if (dmacount == 0) {
- 		e_err(drv, "xid 0x%x DMA map error\n", xid);
- 		return 0;
-@@ -185,7 +185,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 	/* alloc the udl from per cpu ddp pool */
- 	cpu = get_cpu();
- 	pool = *per_cpu_ptr(fcoe->pool, cpu);
--	ddp->udl = pci_pool_alloc(pool, GFP_ATOMIC, &ddp->udp);
-+	ddp->udl = dma_pool_alloc(pool, GFP_ATOMIC, &ddp->udp);
- 	if (!ddp->udl) {
- 		e_err(drv, "failed allocated ddp context\n");
- 		goto out_noddp_unmap;
-@@ -293,11 +293,11 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 	return 1;
- 
- out_noddp_free:
--	pci_pool_free(pool, ddp->udl, ddp->udp);
-+	dma_pool_free(pool, ddp->udl, ddp->udp);
- 	ixgbe_fcoe_clear_ddp(ddp);
- 
- out_noddp_unmap:
--	pci_unmap_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
-+	dma_unmap_sg(&adapter->pdev->dev, sgl, sgc, DMA_FROM_DEVICE);
- 	put_cpu();
- 	return 0;
- }
-@@ -409,7 +409,7 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
- 		break;
- 	/* unmap the sg list when FCPRSP is received */
- 	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
--		pci_unmap_sg(adapter->pdev, ddp->sgl,
-+		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl,
- 			     ddp->sgc, DMA_FROM_DEVICE);
- 		ddp->err = ddp_err;
- 		ddp->sgl = NULL;
-@@ -566,12 +566,12 @@ int ixgbe_fso(struct ixgbe_ring *tx_ring,
- static void ixgbe_fcoe_ddp_pools_free(struct ixgbe_fcoe *fcoe)
- {
- 	unsigned int cpu;
--	struct pci_pool **pool;
-+	struct dma_pool **pool;
- 
- 	for_each_possible_cpu(cpu) {
- 		pool = per_cpu_ptr(fcoe->pool, cpu);
- 		if (*pool)
--			pci_pool_destroy(*pool);
-+			dma_pool_destroy(*pool);
- 	}
- 	free_percpu(fcoe->pool);
- 	fcoe->pool = NULL;
-@@ -581,10 +581,10 @@ static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
- {
+@@ -618,6 +618,7 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
  	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+ 	struct ixgbe_ring_feature *f = &adapter->ring_feature[RING_F_FCOE];
  	unsigned int cpu;
--	struct pci_pool **pool;
-+	struct dma_pool **pool;
- 	char pool_name[32];
++	u32 etqf;
  
--	fcoe->pool = alloc_percpu(struct pci_pool *);
-+	fcoe->pool = alloc_percpu(struct dma_pool *);
- 	if (!fcoe->pool)
- 		return;
+ 	if (!fcoe->pool) {
+ 		spin_lock_init(&fcoe->lock);
+@@ -665,40 +666,43 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
+ 		}
+ 	}
  
-@@ -592,9 +592,9 @@ static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
- 	for_each_possible_cpu(cpu) {
- 		snprintf(pool_name, 32, "ixgbe_fcoe_ddp_%d", cpu);
- 		pool = per_cpu_ptr(fcoe->pool, cpu);
--		*pool = pci_pool_create(pool_name,
--					adapter->pdev, IXGBE_FCPTR_MAX,
--					IXGBE_FCPTR_ALIGN, PAGE_SIZE);
-+		*pool = dma_pool_create(pool_name, &adapter->pdev->dev,
-+					IXGBE_FCPTR_MAX, IXGBE_FCPTR_ALIGN,
-+					PAGE_SIZE);
- 		if (!*pool) {
- 			e_err(drv, "failed to alloc DDP pool on cpu:%d\n", cpu);
- 			ixgbe_fcoe_ddp_pools_free(fcoe);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-index 1dbed17..0ef231a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-@@ -62,11 +62,11 @@ struct ixgbe_fcoe_ddp {
- 	struct scatterlist *sgl;
- 	dma_addr_t udp;
- 	u64 *udl;
--	struct pci_pool *pool;
-+	struct dma_pool *pool;
- };
+-	/* Enable L2 eth type filter for FCoE */
+-	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FCOE),
+-			(ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN));
+-	/* Enable L2 eth type filter for FIP */
+-	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FIP),
+-			(ETH_P_FIP | IXGBE_ETQF_FILTER_EN));
+-	if (adapter->ring_feature[RING_F_FCOE].indices) {
+-		/* Use multiple rx queues for FCoE by redirection table */
+-		for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
+-			fcoe_i = f->offset + i % f->indices;
+-			fcoe_i &= IXGBE_FCRETA_ENTRY_MASK;
+-			fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
+-			IXGBE_WRITE_REG(hw, IXGBE_FCRETA(i), fcoe_q);
+-		}
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, IXGBE_FCRECTL_ENA);
+-		IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE), 0);
+-	} else  {
+-		/* Use single rx queue for FCoE */
+-		fcoe_i = f->offset;
++	/* Enable L2 EtherType filter for FCoE, necessary for FCoE Rx CRC */
++	etqf = ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN;
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
++		etqf |= IXGBE_ETQF_POOL_ENABLE;
++		etqf |= VMDQ_P(0) << IXGBE_ETQF_POOL_SHIFT;
++	}
++	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FCOE), etqf);
++	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE), 0);
++
++	/* Use one or more Rx queues for FCoE by redirection table */
++	for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
++		fcoe_i = f->offset + (i % f->indices);
++		fcoe_i &= IXGBE_FCRETA_ENTRY_MASK;
+ 		fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
+-		IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, 0);
+-		IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE),
+-				IXGBE_ETQS_QUEUE_EN |
+-				(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
++		IXGBE_WRITE_REG(hw, IXGBE_FCRETA(i), fcoe_q);
+ 	}
+-	/* send FIP frames to the first FCoE queue */
+-	fcoe_i = f->offset;
+-	fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
++	IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, IXGBE_FCRECTL_ENA);
++
++	/* Enable L2 EtherType filter for FIP */
++	etqf = ETH_P_FIP | IXGBE_ETQF_FILTER_EN;
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
++		etqf |= IXGBE_ETQF_POOL_ENABLE;
++		etqf |= VMDQ_P(0) << IXGBE_ETQF_POOL_SHIFT;
++	}
++	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FIP), etqf);
++
++	/* Send FIP frames to the first FCoE queue */
++	fcoe_q = adapter->rx_ring[f->offset]->reg_idx;
+ 	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FIP),
+ 			IXGBE_ETQS_QUEUE_EN |
+ 			(fcoe_q << IXGBE_ETQS_RX_QUEUE_SHIFT));
  
- struct ixgbe_fcoe {
--	struct pci_pool **pool;
-+	struct dma_pool **pool;
- 	atomic_t refcnt;
- 	spinlock_t lock;
- 	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
+-	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL, IXGBE_FCRXCTRL_FCCRCBO |
++	/* Configure FCoE Rx control */
++	IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL,
++			IXGBE_FCRXCTRL_FCCRCBO |
+ 			(FC_FCOE_VER << IXGBE_FCRXCTRL_FCOEVER_SHIFT));
++
+ 	return;
+ out_pcpu_noddp_extra_buff_alloc_fail:
+ 	free_percpu(fcoe->pcpu_noddp);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 7416d22..482a33b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1452,6 +1452,7 @@ enum {
+ #define IXGBE_ETQF_1588         0x40000000 /* bit 30 */
+ #define IXGBE_ETQF_FILTER_EN    0x80000000 /* bit 31 */
+ #define IXGBE_ETQF_POOL_ENABLE   (1 << 26) /* bit 26 */
++#define IXGBE_ETQF_POOL_SHIFT		20
+ 
+ #define IXGBE_ETQS_RX_QUEUE     0x007F0000 /* bits 22:16 */
+ #define IXGBE_ETQS_RX_QUEUE_SHIFT       16
 -- 
 1.7.10.4
