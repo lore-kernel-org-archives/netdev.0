@@ -1,38 +1,64 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH v2 net-next] tcp: fix ABC in tcp_slow_start()
-Date: Fri, 20 Jul 2012 09:50:36 -0700
-Message-ID: <CADVnQymKnrN5Z=Pmzj3LvABS9A6SbqdWUKvjAtc5p833DO7PDQ@mail.gmail.com>
-References: <1342796553.2626.7389.camel@edumazet-glaptop>
-	<CAK6E8=dkwruGMtW2uQ--xZ_so9aZQt-KcmHsy2yE5GApKphrJQ@mail.gmail.com>
-	<CADVnQy=nJz33pzd+o1WoCOR6Mk2pbB2x+bujqbfLUi8-+J=hGA@mail.gmail.com>
-	<1342800536.2626.7670.camel@edumazet-glaptop>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: clnt: Add missing braces
+Date: Fri, 20 Jul 2012 09:50:59 -0700
+Message-ID: <1342803059.21447.45.camel@joe2Laptop>
+References: <1342635431.9551.41.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	John Heffner <johnwheffner@gmail.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:49975 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752498Ab2GTQuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 12:50:37 -0400
-Received: by yhmm54 with SMTP id m54so4178617yhm.19
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 09:50:37 -0700 (PDT)
-In-Reply-To: <1342800536.2626.7670.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1342635431.9551.41.camel@joe2Laptop>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 20, 2012 at 9:08 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> So to address your point, maybe we should clear  snd_cwnd_cnt
-> when leaving slow start for congestion avoidance phase ?
+On Wed, 2012-07-18 at 11:17 -0700, Joe Perches wrote:
+> Add a missing set of braces that commit 4e0038b6b24
+> ("SUNRPC: Move clnt->cl_server into struct rpc_xprt")
+> forgot.
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  net/sunrpc/clnt.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+> index f56f045..aaf70aa 100644
+> --- a/net/sunrpc/clnt.c
+> +++ b/net/sunrpc/clnt.c
+> @@ -1844,12 +1844,13 @@ call_timeout(struct rpc_task *task)
+>  		return;
+>  	}
+>  	if (RPC_IS_SOFT(task)) {
+> -		if (clnt->cl_chatty)
+> +		if (clnt->cl_chatty) {
+>  			rcu_read_lock();
+>  			printk(KERN_NOTICE "%s: server %s not responding, timed out\n",
+>  				clnt->cl_protname,
+>  				rcu_dereference(clnt->cl_xprt)->servername);
+>  			rcu_read_unlock();
+> +		}
+>  		if (task->tk_flags & RPC_TASK_TIMEOUT)
+>  			rpc_exit(task, -ETIMEDOUT);
+>  		else
 
-Sounds good. That can be a separate commit to add the new logic to the
-end of tcp_slow_start() to check to see if we've bumped into ssthresh
-and reset snd_cwnd_cnt.
+Hi David.
 
-neal
+I think it'd be good to get this into 3.6 as a bug fix.
+
+This is marked in netdev patchwork as "not applicable".
+
+Do you need the sunrpc maintainers to apply or ack it
+and then push it to you?
+
+Trond?  Bruce?
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
