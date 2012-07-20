@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2012-07-20
-Date: Fri, 20 Jul 2012 11:02:09 -0700 (PDT)
-Message-ID: <20120720.110209.689779595180800453.davem@davemloft.net>
-References: <50098706.2080509@pengutronix.de>
+Subject: Re: [PATCH v2 net-next] tcp: fix ABC in tcp_slow_start()
+Date: Fri, 20 Jul 2012 11:02:34 -0700 (PDT)
+Message-ID: <20120720.110234.810125972347182800.davem@davemloft.net>
+References: <wwxik81fhb83pkj3alus6j68.1342807303829@email.android.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <50098706.2080509@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ncardwell@google.com, ycheng@google.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, therbert@google.com, shemminger@vyatta.com,
+	johnwheffner@gmail.com, nanditad@google.com
+To: stephen.hemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54284 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752795Ab2GTSCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:02:35 -0400
+In-Reply-To: <wwxik81fhb83pkj3alus6j68.1342807303829@email.android.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 20 Jul 2012 18:27:50 +0200
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Fri, 20 Jul 2012 11:01:43 -0700
 
-> Hello David,
+> TCP ABC was an experiment that failed. It solves a problem that does
+> not exist on Linux. I did the implementation mostly to prove that.
 > 
-> the fifth pull request for upcoming v3.6 net-next cleans up and
-> improves the janz-ican3 driver (6 patches by Ira W. Snyder, one by me).
-> A patch by Steffen Trumtrar adds imx53 support to the flexcan driver.
-> And another patch by me, which marks the bit timing constant in the CAN
-> drivers as "const".
+> Perhaps it abc should just be removed?
 
-Pulled, thanks Marc.
+This is my impression as well.
