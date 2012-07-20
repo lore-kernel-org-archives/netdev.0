@@ -1,125 +1,133 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 14/16] ipv4: Kill rt->rt_oif
-Date: Fri, 20 Jul 2012 14:26:50 -0700 (PDT)
-Message-ID: <20120720.142650.2010698674700133686.davem@davemloft.net>
+Subject: [PATCH 15/16] ipv4: Turn rt->rt_route_iif into rt->rt_is_input.
+Date: Fri, 20 Jul 2012 14:26:54 -0700 (PDT)
+Message-ID: <20120720.142654.968750286623305835.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55713 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55719 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753486Ab2GTV0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:26:50 -0400
+	with ESMTP id S1753575Ab2GTV0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:26:55 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 6A0D958361A
-	for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 14:26:52 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 336A5583615
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 14:26:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Never actually used.
+That is this value's only use, as a boolean to indicate whether
+a route is an input route or not.
 
-It was being set on output routes to the original OIF specified in the
-flow key used for the lookup.
-
-Adjust the only user, ipmr_rt_fib_lookup(), for greater correctness of
-the flowi4_oif and flowi4_iif values, thanks to feedback from Julian
-Anastasov.
+So implement it that way, using a u16 gap present in the struct
+already.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/route.h     |    1 -
- net/ipv4/ipmr.c         |    7 +++++--
- net/ipv4/route.c        |    5 -----
- net/ipv4/xfrm4_policy.c |    1 -
- 4 files changed, 5 insertions(+), 9 deletions(-)
+ include/net/route.h     |    6 +++---
+ net/ipv4/route.c        |   10 +++++-----
+ net/ipv4/xfrm4_policy.c |    2 +-
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/include/net/route.h b/include/net/route.h
-index 3c1eeab..e789a92 100644
+index e789a92..4bafe0b 100644
 --- a/include/net/route.h
 +++ b/include/net/route.h
-@@ -50,7 +50,6 @@ struct rtable {
+@@ -47,8 +47,8 @@ struct rtable {
+ 	int			rt_genid;
+ 	unsigned int		rt_flags;
+ 	__u16			rt_type;
++	__u16			rt_is_input;
  
- 	int			rt_route_iif;
+-	int			rt_route_iif;
  	int			rt_iif;
--	int			rt_oif;
  
  	/* Info on neighbour */
- 	__be32			rt_gateway;
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index eee3bf6..8eec8f4 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1795,8 +1795,11 @@ static struct mr_table *ipmr_rt_fib_lookup(struct net *net, struct sk_buff *skb)
- 		.daddr = iph->daddr,
- 		.saddr = iph->saddr,
- 		.flowi4_tos = RT_TOS(iph->tos),
--		.flowi4_oif = rt->rt_oif,
--		.flowi4_iif = rt->rt_iif,
-+		.flowi4_oif = (rt_is_output_route(rt) ?
-+			       skb->dev->ifindex : 0),
-+		.flowi4_iif = (rt_is_output_route(rt) ?
-+			       net->loopback_dev->ifindex :
-+			       skb->dev->ifindex),
- 		.flowi4_mark = skb->mark,
- 	};
- 	struct mr_table *mrt;
+@@ -61,12 +61,12 @@ struct rtable {
+ 
+ static inline bool rt_is_input_route(const struct rtable *rt)
+ {
+-	return rt->rt_route_iif != 0;
++	return rt->rt_is_input != 0;
+ }
+ 
+ static inline bool rt_is_output_route(const struct rtable *rt)
+ {
+-	return rt->rt_route_iif == 0;
++	return rt->rt_is_input == 0;
+ }
+ 
+ static inline __be32 rt_nexthop(const struct rtable *rt, __be32 daddr)
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index b870777..a280b6a 100644
+index a280b6a..fac4c4a 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1332,7 +1332,6 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+@@ -1330,7 +1330,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	rth->rt_genid	= rt_genid(dev_net(dev));
+ 	rth->rt_flags	= RTCF_MULTICAST;
  	rth->rt_type	= RTN_MULTICAST;
- 	rth->rt_route_iif = dev->ifindex;
+-	rth->rt_route_iif = dev->ifindex;
++	rth->rt_is_input= 1;
  	rth->rt_iif	= dev->ifindex;
--	rth->rt_oif	= 0;
  	rth->rt_pmtu	= 0;
  	rth->rt_gateway	= 0;
- 	rth->fi = NULL;
-@@ -1463,7 +1462,6 @@ static int __mkroute_input(struct sk_buff *skb,
+@@ -1460,7 +1460,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
+ 	rth->rt_flags = flags;
  	rth->rt_type = res->type;
- 	rth->rt_route_iif = in_dev->dev->ifindex;
+-	rth->rt_route_iif = in_dev->dev->ifindex;
++	rth->rt_is_input = 1;
  	rth->rt_iif 	= in_dev->dev->ifindex;
--	rth->rt_oif 	= 0;
  	rth->rt_pmtu	= 0;
  	rth->rt_gateway	= 0;
- 	rth->fi = NULL;
-@@ -1642,7 +1640,6 @@ local_input:
+@@ -1638,7 +1638,7 @@ local_input:
+ 	rth->rt_genid = rt_genid(net);
+ 	rth->rt_flags 	= flags|RTCF_LOCAL;
  	rth->rt_type	= res.type;
- 	rth->rt_route_iif = dev->ifindex;
+-	rth->rt_route_iif = dev->ifindex;
++	rth->rt_is_input = 1;
  	rth->rt_iif	= dev->ifindex;
--	rth->rt_oif	= 0;
  	rth->rt_pmtu	= 0;
  	rth->rt_gateway	= 0;
- 	rth->fi = NULL;
-@@ -1808,7 +1805,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+@@ -1803,7 +1803,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	rth->rt_genid = rt_genid(dev_net(dev_out));
+ 	rth->rt_flags	= flags;
  	rth->rt_type	= type;
- 	rth->rt_route_iif = 0;
+-	rth->rt_route_iif = 0;
++	rth->rt_is_input = 0;
  	rth->rt_iif	= orig_oif ? : dev_out->ifindex;
--	rth->rt_oif	= orig_oif;
  	rth->rt_pmtu	= 0;
  	rth->rt_gateway = 0;
- 	rth->fi = NULL;
-@@ -2085,7 +2081,6 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+@@ -2079,7 +2079,7 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+ 		if (new->dev)
+ 			dev_hold(new->dev);
  
- 		rt->rt_route_iif = ort->rt_route_iif;
+-		rt->rt_route_iif = ort->rt_route_iif;
++		rt->rt_is_input = ort->rt_is_input;
  		rt->rt_iif = ort->rt_iif;
--		rt->rt_oif = ort->rt_oif;
  		rt->rt_pmtu = ort->rt_pmtu;
  
- 		rt->rt_genid = rt_genid(net);
 diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 6074b69..3c99b4c 100644
+index 3c99b4c..c628184 100644
 --- a/net/ipv4/xfrm4_policy.c
 +++ b/net/ipv4/xfrm4_policy.c
-@@ -81,7 +81,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+@@ -79,7 +79,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 	struct rtable *rt = (struct rtable *)xdst->route;
+ 	const struct flowi4 *fl4 = &fl->u.ip4;
  
- 	xdst->u.rt.rt_route_iif = fl4->flowi4_iif;
+-	xdst->u.rt.rt_route_iif = fl4->flowi4_iif;
  	xdst->u.rt.rt_iif = fl4->flowi4_iif;
--	xdst->u.rt.rt_oif = fl4->flowi4_oif;
  
  	xdst->u.dst.dev = dev;
- 	dev_hold(dev);
+@@ -87,6 +86,7 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 
+ 	/* Sheit... I remember I did this right. Apparently,
+ 	 * it was magically lost, so this code needs audit */
++	xdst->u.rt.rt_is_input = rt->rt_is_input;
+ 	xdst->u.rt.rt_flags = rt->rt_flags & (RTCF_BROADCAST | RTCF_MULTICAST |
+ 					      RTCF_LOCAL);
+ 	xdst->u.rt.rt_type = rt->rt_type;
 -- 
 1.7.10.4
