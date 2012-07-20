@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 9/9] ixgbe: Enable FCoE FSO and CRC offloads based on CAPABLE instead of ENABLED flag
-Date: Thu, 19 Jul 2012 18:24:06 -0700
-Message-ID: <1342747446-16132-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/9] ixgbe: Drop references to deprecated pci_ DMA api and instead use dma_ API
+Date: Thu, 19 Jul 2012 18:24:00 -0700
+Message-ID: <1342747446-16132-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342747446-16132-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,105 +10,152 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:9033 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752793Ab2GTBYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 19 Jul 2012 21:24:16 -0400
+	id S1752589Ab2GTBYO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 19 Jul 2012 21:24:14 -0400
 In-Reply-To: <1342747446-16132-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Instead of only setting the FCOE segmentation offload and CRC offload flags
-if we enable FCoE, we could just set them always since there are no
-modifications needed to the hardware or adapter FCoE structure in order to
-use these features.
-
-The advantage to this is that if FCoE enablement fails, for example because
-SR-IOV was enabled on 82599, we will still have use of the FCoE
-segmentation offload and Tx/Rx CRC offloads which should still help to
-improve the FCoE performance.
+The networking side of the code had already been updated to use dma_ calls
+instead of the old pci_ calls. However it looks like the FCoE code was
+never updated.  This change goes through and moves everything from the pci
+APIs to the dma APIs.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |   16 +++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 ++++-
- 2 files changed, 13 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c |   30 ++++++++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h |    4 ++--
+ 2 files changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index e79ba39..ae73ef1 100644
+index cc28c44..9b0909f 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -616,11 +616,11 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 	int i, fcoe_q, fcoe_i;
- 	u32 etqf;
+@@ -104,10 +104,10 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
+ 			udelay(100);
+ 	}
+ 	if (ddp->sgl)
+-		pci_unmap_sg(adapter->pdev, ddp->sgl, ddp->sgc,
++		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl, ddp->sgc,
+ 			     DMA_FROM_DEVICE);
+ 	if (ddp->pool) {
+-		pci_pool_free(ddp->pool, ddp->udl, ddp->udp);
++		dma_pool_free(ddp->pool, ddp->udl, ddp->udp);
+ 		ddp->pool = NULL;
+ 	}
  
--	/* leave registers unconfigued if FCoE is disabled */
--	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
-+	/* Minimal functionality for FCoE requires at least CRC offloads */
-+	if (!(adapter->netdev->features & NETIF_F_FCOE_CRC))
+@@ -144,7 +144,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	unsigned int thislen = 0;
+ 	u32 fcbuff, fcdmarw, fcfltrw, fcrxctl;
+ 	dma_addr_t addr = 0;
+-	struct pci_pool *pool;
++	struct dma_pool *pool;
+ 	unsigned int cpu;
+ 
+ 	if (!netdev || !sgl)
+@@ -176,7 +176,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	ixgbe_fcoe_clear_ddp(ddp);
+ 
+ 	/* setup dma from scsi command sgl */
+-	dmacount = pci_map_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
++	dmacount = dma_map_sg(&adapter->pdev->dev, sgl, sgc, DMA_FROM_DEVICE);
+ 	if (dmacount == 0) {
+ 		e_err(drv, "xid 0x%x DMA map error\n", xid);
+ 		return 0;
+@@ -185,7 +185,7 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	/* alloc the udl from per cpu ddp pool */
+ 	cpu = get_cpu();
+ 	pool = *per_cpu_ptr(fcoe->pool, cpu);
+-	ddp->udl = pci_pool_alloc(pool, GFP_ATOMIC, &ddp->udp);
++	ddp->udl = dma_pool_alloc(pool, GFP_ATOMIC, &ddp->udp);
+ 	if (!ddp->udl) {
+ 		e_err(drv, "failed allocated ddp context\n");
+ 		goto out_noddp_unmap;
+@@ -293,11 +293,11 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
+ 	return 1;
+ 
+ out_noddp_free:
+-	pci_pool_free(pool, ddp->udl, ddp->udp);
++	dma_pool_free(pool, ddp->udl, ddp->udp);
+ 	ixgbe_fcoe_clear_ddp(ddp);
+ 
+ out_noddp_unmap:
+-	pci_unmap_sg(adapter->pdev, sgl, sgc, DMA_FROM_DEVICE);
++	dma_unmap_sg(&adapter->pdev->dev, sgl, sgc, DMA_FROM_DEVICE);
+ 	put_cpu();
+ 	return 0;
+ }
+@@ -409,7 +409,7 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
+ 		break;
+ 	/* unmap the sg list when FCPRSP is received */
+ 	case __constant_cpu_to_le32(IXGBE_RXDADV_STAT_FCSTAT_FCPRSP):
+-		pci_unmap_sg(adapter->pdev, ddp->sgl,
++		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl,
+ 			     ddp->sgc, DMA_FROM_DEVICE);
+ 		ddp->err = ddp_err;
+ 		ddp->sgl = NULL;
+@@ -566,12 +566,12 @@ int ixgbe_fso(struct ixgbe_ring *tx_ring,
+ static void ixgbe_fcoe_ddp_pools_free(struct ixgbe_fcoe *fcoe)
+ {
+ 	unsigned int cpu;
+-	struct pci_pool **pool;
++	struct dma_pool **pool;
+ 
+ 	for_each_possible_cpu(cpu) {
+ 		pool = per_cpu_ptr(fcoe->pool, cpu);
+ 		if (*pool)
+-			pci_pool_destroy(*pool);
++			dma_pool_destroy(*pool);
+ 	}
+ 	free_percpu(fcoe->pool);
+ 	fcoe->pool = NULL;
+@@ -581,10 +581,10 @@ static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
+ 	unsigned int cpu;
+-	struct pci_pool **pool;
++	struct dma_pool **pool;
+ 	char pool_name[32];
+ 
+-	fcoe->pool = alloc_percpu(struct pci_pool *);
++	fcoe->pool = alloc_percpu(struct dma_pool *);
+ 	if (!fcoe->pool)
  		return;
  
--	/* Enable L2 EtherType filter for FCoE, necessary for FCoE Rx CRC */
-+	/* Enable L2 EtherType filter for FCoE, needed for FCoE CRC and DDP */
- 	etqf = ETH_P_FCOE | IXGBE_ETQF_FCOE | IXGBE_ETQF_FILTER_EN;
- 	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
- 		etqf |= IXGBE_ETQF_POOL_ENABLE;
-@@ -629,6 +629,10 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 	IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_FCOE), etqf);
- 	IXGBE_WRITE_REG(hw, IXGBE_ETQS(IXGBE_ETQF_FILTER_FCOE), 0);
+@@ -592,9 +592,9 @@ static void ixgbe_fcoe_ddp_pools_alloc(struct ixgbe_adapter *adapter)
+ 	for_each_possible_cpu(cpu) {
+ 		snprintf(pool_name, 32, "ixgbe_fcoe_ddp_%d", cpu);
+ 		pool = per_cpu_ptr(fcoe->pool, cpu);
+-		*pool = pci_pool_create(pool_name,
+-					adapter->pdev, IXGBE_FCPTR_MAX,
+-					IXGBE_FCPTR_ALIGN, PAGE_SIZE);
++		*pool = dma_pool_create(pool_name, &adapter->pdev->dev,
++					IXGBE_FCPTR_MAX, IXGBE_FCPTR_ALIGN,
++					PAGE_SIZE);
+ 		if (!*pool) {
+ 			e_err(drv, "failed to alloc DDP pool on cpu:%d\n", cpu);
+ 			ixgbe_fcoe_ddp_pools_free(fcoe);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+index 1dbed17..0ef231a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
+@@ -62,11 +62,11 @@ struct ixgbe_fcoe_ddp {
+ 	struct scatterlist *sgl;
+ 	dma_addr_t udp;
+ 	u64 *udl;
+-	struct pci_pool *pool;
++	struct dma_pool *pool;
+ };
  
-+	/* leave registers un-configured if FCoE is disabled */
-+	if (!(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
-+		return;
-+
- 	/* Use one or more Rx queues for FCoE by redirection table */
- 	for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
- 		fcoe_i = fcoe->offset + (i % fcoe->indices);
-@@ -804,7 +808,7 @@ int ixgbe_fcoe_enable(struct net_device *netdev)
- 
- 	/* enable FCoE and notify stack */
- 	adapter->flags |= IXGBE_FLAG_FCOE_ENABLED;
--	netdev->features |= NETIF_F_FSO | NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU;
-+	netdev->features |= NETIF_F_FCOE_MTU;
- 	netdev_features_change(netdev);
- 
- 	/* release existing queues and reallocate them */
-@@ -844,9 +848,7 @@ int ixgbe_fcoe_disable(struct net_device *netdev)
- 
- 	/* disable FCoE and notify stack */
- 	adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
--	netdev->features &= ~(NETIF_F_FCOE_CRC |
--			      NETIF_F_FSO |
--			      NETIF_F_FCOE_MTU);
-+	netdev->features &= ~NETIF_F_FCOE_MTU;
- 
- 	netdev_features_change(netdev);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index aa01558..c521007 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6382,7 +6382,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- #ifdef IXGBE_FCOE
- 	/* setup tx offload for FCoE */
- 	if ((protocol == __constant_htons(ETH_P_FCOE)) &&
--	    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
-+	    (tx_ring->netdev->features & (NETIF_F_FSO | NETIF_F_FCOE_CRC))) {
- 		tso = ixgbe_fso(tx_ring, first, &hdr_len);
- 		if (tso < 0)
- 			goto out_drop;
-@@ -7257,6 +7257,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 
- 		adapter->ring_feature[RING_F_FCOE].limit = IXGBE_FCRETA_SIZE;
- 
-+		netdev->features |= NETIF_F_FSO |
-+				    NETIF_F_FCOE_CRC;
-+
- 		netdev->vlan_features |= NETIF_F_FSO |
- 					 NETIF_F_FCOE_CRC |
- 					 NETIF_F_FCOE_MTU;
+ struct ixgbe_fcoe {
+-	struct pci_pool **pool;
++	struct dma_pool **pool;
+ 	atomic_t refcnt;
+ 	spinlock_t lock;
+ 	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
 -- 
 1.7.10.4
