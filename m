@@ -1,65 +1,116 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH] net: Add support for virtual machine device queues
- (VMDQ)
-Date: Fri, 20 Jul 2012 13:58:20 -0700
-Message-ID: <5009C66C.80701@intel.com>
-References: <20120718220544.22619.97136.stgit@i40e.jf1>  <20120719064258.GA1665@minipsycho.orion> <500987B7.2030705@intel.com> <1342807280.2678.33.camel@bwh-desktop.uk.solarflarecom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Fri, 20 Jul 2012 23:01:07 +0200
+Message-ID: <20120720210107.GA28118@electric-eye.fr.zoreil.com>
+References: <20120718.132840.1571938255177607234.davem@davemloft.net> <20120718214422.GA18207@electric-eye.fr.zoreil.com> <1342649136.2626.3757.camel@edumazet-glaptop> <20120718.152405.1083396282134539674.davem@davemloft.net> <EF06A7B3C1E6432BB660CDEF8E1D2A1B@realtek.com.tw> <20120720100846.GA17398@electric-eye.fr.zoreil.com> <A4FD513AF09D40849B8A75C371F1D431@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, or.gerlitz@gmail.com,
-	davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
-	ali@mellanox.com, sean.hefty@intel.com, shlomop@mellanox.com,
-	"Ronciak, John" <john.ronciak@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'David Miller'" <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:50548 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753161Ab2GTU6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 16:58:20 -0400
-In-Reply-To: <1342807280.2678.33.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57924 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752268Ab2GTVOH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:14:07 -0400
+Content-Disposition: inline
+In-Reply-To: <A4FD513AF09D40849B8A75C371F1D431@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/20/2012 11:01 AM, Ben Hutchings wrote:
-> On Fri, 2012-07-20 at 09:30 -0700, John Fastabend wrote:
->> On 7/18/2012 11:42 PM, Jiri Pirko wrote:
->>> Thu, Jul 19, 2012 at 12:05:44AM CEST, john.r.fastabend@intel.com wrote:
->>>> This adds support to allow virtual net devices to be created. These
->>>> devices can be managed independtly of the physical function but
->>>> use the same physical link.
->>
->> [...]
->>
->>>> +
->>>> +size_t vmdq_getpriv_size(struct net *src_net, struct nlattr *tb[])
->>>> +{
->>>> +	struct net_device *lowerdev;
->>>> +
->>>> +	if (!tb[IFLA_LINK])
->>>> +		return -EINVAL;
->>>> +
->>>> +	lowerdev = __dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
->>>> +	if (!lowerdev)
->>>> +		return -ENODEV;
->>>> +
->>>> +	return sizeof(netdev_priv(lowerdev));
->>>> +}
->>>
->>> Why exactly do you need to have the priv of same size as lowerdev? I do
->>> not see you use that anywhere...
->>>
->>
->> When we add a child device the hardware/sw may have some private data
->> it needs to manage this device.
->>
->> I made an assumption here that the priv space for child devices is the
->> same as the lowerdev but this might be a bad assumption.
->
-> The code assumes that it is the size of a single pointer...
->
-> Ben.
->
+hayeswang <hayeswang@realtek.com> :
+[...]
+> If the hw only fills in the checksum fields of IP header, UDP header, and TCP
+> header, the patch would work. However, the hw would also fill in the total
+> length field of IP header, so it causes problems.
 
-Right I'll fix it. Worked for me because my local unfinished
-driver implementation only stored a single pointer. Thanks Ben.
+Thanks, I missed this part. The patch below should be getting better now.
+
+Btw, would there be any point in setting the TcpHeaderOffset field for
+the post-8168c chipsets ?
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index be4e00f..2420af6 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5740,7 +5740,7 @@ err_out:
+ 	return -EIO;
+ }
+ 
+-static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
++static inline bool rtl8169_tso_csum(struct rtl8169_private *tp,
+ 				    struct sk_buff *skb, u32 *opts)
+ {
+ 	const struct rtl_tx_desc_info *info = tx_desc_info + tp->txd_version;
+@@ -5753,6 +5753,15 @@ static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		const struct iphdr *ip = ip_hdr(skb);
+ 
++		if (unlikely(skb->len < ETH_ZLEN &&
++		    (tp->mac_version == RTL_GIGA_MAC_VER_34))) {
++			if (skb_padto(skb, ETH_ZLEN))
++				return false;
++			skb_checksum_help(skb);
++			skb_put(skb, ETH_ZLEN - skb->len);
++			return true;
++		}
++
+ 		if (ip->protocol == IPPROTO_TCP)
+ 			opts[offset] |= info->checksum.tcp;
+ 		else if (ip->protocol == IPPROTO_UDP)
+@@ -5760,6 +5769,7 @@ static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
+ 		else
+ 			WARN_ON_ONCE(1);
+ 	}
++	return true;
+ }
+ 
+ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+@@ -5783,25 +5793,26 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	if (unlikely(le32_to_cpu(txd->opts1) & DescOwn))
+ 		goto err_stop_0;
+ 
++	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
++	opts[0] = DescOwn;
++
++	if (!rtl8169_tso_csum(tp, skb, opts))
++		goto err_update_stats_0;
++
+ 	len = skb_headlen(skb);
+ 	mapping = dma_map_single(d, skb->data, len, DMA_TO_DEVICE);
+ 	if (unlikely(dma_mapping_error(d, mapping))) {
+ 		if (net_ratelimit())
+ 			netif_err(tp, drv, dev, "Failed to map TX DMA!\n");
+-		goto err_dma_0;
++		goto err_free_skb_1;
+ 	}
+ 
+ 	tp->tx_skb[entry].len = len;
+ 	txd->addr = cpu_to_le64(mapping);
+ 
+-	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
+-	opts[0] = DescOwn;
+-
+-	rtl8169_tso_csum(tp, skb, opts);
+-
+ 	frags = rtl8169_xmit_frags(tp, skb, opts);
+ 	if (frags < 0)
+-		goto err_dma_1;
++		goto err_unmap_2;
+ 	else if (frags)
+ 		opts[0] |= FirstFrag;
+ 	else {
+@@ -5849,10 +5860,11 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	return NETDEV_TX_OK;
+ 
+-err_dma_1:
++err_unmap_2:
+ 	rtl8169_unmap_tx_skb(d, tp->tx_skb + entry, txd);
+-err_dma_0:
++err_free_skb_1:
+ 	dev_kfree_skb(skb);
++err_update_stats_0:
+ 	dev->stats.tx_dropped++;
+ 	return NETDEV_TX_OK;
+ 
