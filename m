@@ -1,140 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: use hash_32() in tcp_metrics
-Date: Fri, 20 Jul 2012 11:02:34 +0200
-Message-ID: <1342774954.2626.6290.camel@edumazet-glaptop>
+From: Stuart Hodgson <smhodgson@solarflare.com>
+Subject: Re: [PATCH net-next 4/7] sfc: Add support for IEEE-1588 PTP
+Date: Fri, 20 Jul 2012 10:15:46 +0100
+Message-ID: <500921C2.1080001@solarflare.com>
+References: <1342635392.2617.52.camel@bwh-desktop.uk.solarflarecom.com> <1342635693.2617.56.camel@bwh-desktop.uk.solarflarecom.com> <20120719142558.GB24484@localhost.localdomain> <500827EF.208@solarflare.com> <20120720063102.GB2330@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>,
+	Andrew Jackson <ajackson@solarflare.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:57446 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752939Ab2GTJCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 05:02:40 -0400
-Received: by bkwj10 with SMTP id j10so3148543bkw.19
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 02:02:38 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:39000 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752939Ab2GTJPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 05:15:50 -0400
+In-Reply-To: <20120720063102.GB2330@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+>>> This code looks like it is trying to find the offset between two
+>>> clocks. Is there some reason why you cannot use <linux/timecompare.h>
+>>> to accomplish this?
+>>
+>> This is what the code is doing. <linux/timecompare.h> states
+>>
+>> "the assumption is that reading the source
+>> time is slow and involves equal time for sending the request and
+>> receiving the reply"
+>>
+>> While in our case event though it is slow we cannot guarantee the second
+>> assumption. The code above takes into account some of the particulars of the sfc
+>> hardware and gives us good results. 
+> 
+> Fair enough, but then maybe a comment mentioning how timecompare is
+> unsuitable would be nice to have.
+> 
 
-Fix a missing roundup_pow_of_two(), since tcpmhash_entries is not
-guaranteed to be a power of two.
+This can be added
 
-Uses hash_32() instead of custom hash.
+>>> I am trying to purge the whole SYS thing (only blackfin is left)
+>>> because there is a much better way to go about this, namely
+>>> synchronizing the system time to the PHC time via an internal PPS
+>>> signal.
+>>
 
-tcpmhash_entries should be an unsigned int.
+Do you mean using the PPS kernel consumer to govern the system time?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/netns/ipv4.h |    2 +-
- net/ipv4/tcp_metrics.c   |   25 ++++++++++---------------
- 2 files changed, 11 insertions(+), 16 deletions(-)
+> I don't understand what the issue is here. Can't you just call
+> ptp_clock_event, like you already have...
+> 
+>>>> +static void efx_ptp_pps_worker(struct work_struct *work)
+>>>> +{
+>>>> +	struct efx_ptp_data *ptp =
+>>>> +		container_of(work, struct efx_ptp_data, pps_work);
+>>>> +	struct efx_nic *efx = ptp->channel->efx;
+>>>> +	struct timespec event_gen_time;
+>>>> +	struct ptp_clock_event ptp_pps_evt;
+>>>> +	ktime_t gen_time_host;
+>>>> +
+>>>> +	if (efx_ptp_synchronize(efx, PTP_SYNC_ATTEMPTS))
+>>>> +		return;
+>>>> +
+>>>> +	gen_time_host = ktime_sub(ptp->mc_base_time,
+>>>> +				  ptp->host_base_time);
+>>>> +	event_gen_time = ktime_to_timespec(gen_time_host);
+>>>> +
+>>>> +	ptp_pps_evt.type = PTP_CLOCK_EXTTS;
+>>>> +	ptp_pps_evt.timestamp = ktime_to_ns(gen_time_host);
+>>>> +	ptp_clock_event(ptp->phc_clock, &ptp_pps_evt);
+>>>> +}
+> 
+> ... here?
+> 
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index d909c7f..0ffb8e3 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -40,7 +40,7 @@ struct netns_ipv4 {
- 	struct sock		**icmp_sk;
- 	struct inet_peer_base	*peers;
- 	struct tcpm_hash_bucket	*tcp_metrics_hash;
--	unsigned int		tcp_metrics_hash_mask;
-+	unsigned int		tcp_metrics_hash_log;
- 	struct netns_frags	frags;
- #ifdef CONFIG_NETFILTER
- 	struct xt_table		*iptable_filter;
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 99779ae..992f1bf 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -7,6 +7,7 @@
- #include <linux/slab.h>
- #include <linux/init.h>
- #include <linux/tcp.h>
-+#include <linux/hash.h>
- 
- #include <net/inet_connection_sock.h>
- #include <net/net_namespace.h>
-@@ -228,10 +229,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_req(struct request_sock *req,
- 		return NULL;
- 	}
- 
--	hash ^= (hash >> 24) ^ (hash >> 16) ^ (hash >> 8);
--
- 	net = dev_net(dst->dev);
--	hash &= net->ipv4.tcp_metrics_hash_mask;
-+	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
-@@ -265,10 +264,8 @@ static struct tcp_metrics_block *__tcp_get_metrics_tw(struct inet_timewait_sock
- 		return NULL;
- 	}
- 
--	hash ^= (hash >> 24) ^ (hash >> 16) ^ (hash >> 8);
--
- 	net = twsk_net(tw);
--	hash &= net->ipv4.tcp_metrics_hash_mask;
-+	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
- 
- 	for (tm = rcu_dereference(net->ipv4.tcp_metrics_hash[hash].chain); tm;
- 	     tm = rcu_dereference(tm->tcpm_next)) {
-@@ -302,10 +299,8 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
- 		return NULL;
- 	}
- 
--	hash ^= (hash >> 24) ^ (hash >> 16) ^ (hash >> 8);
--
- 	net = dev_net(dst->dev);
--	hash &= net->ipv4.tcp_metrics_hash_mask;
-+	hash = hash_32(hash, net->ipv4.tcp_metrics_hash_log);
- 
- 	tm = __tcp_get_metrics(&addr, net, hash);
- 	reclaim = false;
-@@ -694,7 +689,7 @@ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
- 	rcu_read_unlock();
- }
- 
--static unsigned long tcpmhash_entries;
-+static unsigned int tcpmhash_entries;
- static int __init set_tcpmhash_entries(char *str)
- {
- 	ssize_t ret;
-@@ -702,7 +697,7 @@ static int __init set_tcpmhash_entries(char *str)
- 	if (!str)
- 		return 0;
- 
--	ret = kstrtoul(str, 0, &tcpmhash_entries);
-+	ret = kstrtouint(str, 0, &tcpmhash_entries);
- 	if (ret)
- 		return 0;
- 
-@@ -712,7 +707,8 @@ __setup("tcpmhash_entries=", set_tcpmhash_entries);
- 
- static int __net_init tcp_net_metrics_init(struct net *net)
- {
--	int slots, size;
-+	size_t size;
-+	unsigned int slots;
- 
- 	slots = tcpmhash_entries;
- 	if (!slots) {
-@@ -722,14 +718,13 @@ static int __net_init tcp_net_metrics_init(struct net *net)
- 			slots = 8 * 1024;
- 	}
- 
--	size = slots * sizeof(struct tcpm_hash_bucket);
-+	net->ipv4.tcp_metrics_hash_log = order_base_2(slots);
-+	size = sizeof(struct tcpm_hash_bucket) << net->ipv4.tcp_metrics_hash_log;
- 
- 	net->ipv4.tcp_metrics_hash = kzalloc(size, GFP_KERNEL);
- 	if (!net->ipv4.tcp_metrics_hash)
- 		return -ENOMEM;
- 
--	net->ipv4.tcp_metrics_hash_mask = (slots - 1);
--
- 	return 0;
- }
- 
+In order for a PPS to arrive at the kernel consumer ptp_clock_event
+needs to be called with PTP_CLOCK_PPS. This then calls pps_get_ts
+and stamps the event with the current system time, not the time
+that was put into the event.
+
+Using PTP_CLOCK_EXTTS the PPS is visible to userspace via a read
+on the phc device and can then be used in our modified ptpd2.
+
+>>>> +static int efx_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
+>>>> +{
+> 
+> You can set the time here somehow by doing, T' = T + offset, and so...
+> 
+>>>> +}
+> 
+>>>> +static int efx_phc_settime(struct ptp_clock_info *ptp,
+>>>> +			   const struct timespec *e_ts)
+>>>> +{
+>>>> +	/* We must provide this function, but we cannot actually set the time */
+>>>
+>>> Huh? You can adjtime, so must be able to settime, too, right?
+>>>
+>>> If you have enough range in the RAW timestamp in the MC firmware (like
+>>> 64 bits of nanoseconds), and you allow settime, then you can spare the
+>>> system time synchronization code altogether.
+>>>
+>>
+>> You will have to elaborate further on this point.
+> 
+> ... why can't you also just set the time?
+
+Our hardware can only have an offset applied to the clock. In order to set time
+we need to know the time now, then work out and offset to get to the target time.
+At the point that we apply this offset the clock will have moved on and not be
+set to the target time. We can apply some measured average times to the offset
+to get closer but with this hardware settime will not leave the NIC clock at the
+desired time. 
+
+> 
+> Thanks,
+> Richard
