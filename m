@@ -1,69 +1,240 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: New commands to configure IOV features
-Date: Fri, 20 Jul 2012 21:01:13 +0100
-Message-ID: <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
-References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>
-			<5005D45D.1040302@genband.com>
-		 <20120717.141153.46613285253481776.davem@davemloft.net>
-		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
-	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
-	 <5009B186.6000806@genband.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Don Dutile <ddutile@redhat.com>,
-	David Miller <davem@davemloft.net>, <yuvalmin@broadcom.com>,
-	<gregory.v.rose@intel.com>, <netdev@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>
-To: Chris Friesen <chris.friesen@genband.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <5009B186.6000806@genband.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Subject: [PATCH] mlx4: Add support for EEH error recovery
+Date: Fri, 20 Jul 2012 16:55:43 -0300
+Message-ID: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+	Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bb02cd90.virtua.com.br ([187.2.205.144]:1275 "EHLO
+	oc3035817862.ibm.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751567Ab2GTUGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 16:06:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-20 at 13:29 -0600, Chris Friesen wrote:
-> On 07/20/2012 11:42 AM, Ben Hutchings wrote:
-> >
-> > The ethtool API is typically used for net device operations that can be
-> > largely devolved to individual drivers, and which the network stack can
-> > mostly ignore (though offload features are an historical exception to
-> > this).  It started with Ethernet link settings, but many operations are
-> > applicable (and implemented by) other types of network device.
-> 
-> That (potentially) accounts for all network devices, but it leaves all 
-> the other devices that could export virtual functions.
-> 
-> Why should I need to use a different API to enable virtual functions on 
-> my network device and my storage controller?
+Currently the mlx4 drivers don't have the necessary callbacks to
+implement EEH errors detection and recovery, so the PCI layer uses the
+probe and remove callbacks to try to recover the device after an error on
+the bus. However, these callbacks have race conditions with the internal
+catastrophic error recovery functions, which will also detect the error
+and this can cause the system to crash if both EEH and catas functions
+try to reset the device.
 
-Indeed; I was merely making the point that it would be quite valid to
-use that means for setting VF network parameters for any network device
-that supports IOV.
+This patch adds the necessary error recovery callbacks and makes sure
+that the internal catastrophic error functions will not try to reset the
+device in such scenarios. It also adds some calls to
+pci_channel_offline() to suppress reads/writes on the bus when the slot
+cannot accept I/O operations so we prevent unnecessary accesses to the
+bus and speed up the device removal.
 
-> (And why should "ethtool" or "ip" care that it's a virtual function?)
+Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/catas.c |   25 ++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/cmd.c   |   49 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/main.c  |   30 ++++++++++++++++-
+ 3 files changed, 93 insertions(+), 11 deletions(-)
 
-VFs may be assigned to a guest which is not fully trusted by the
-hypervisor or privileged domain.  (This can sometimes be true for PFs
-too, depending on the capabilities of the hypervisor and guest OS.)
-Some configuration may therefore need to be done via a trusted PF.
-
-> What Don and I are suggesting is that the concept of virtual functions 
-> is a PCI thing, so it should be dealt with at the PCI layer.  Regardless 
-> of the type of device the export of virtual functions is conceptually 
-> the same thing, so it should use the same API.
-> 
-> Once the device exists, then domain-specific APIs would be used to 
-> configure it the same way that they would configure a physical device.
-
-To an extent, but not entirely.
-
-Currently, the assigned MAC address and (optional) VLAN tag for each
-networking VF are configured via the PF net device (though this is done
-though the rtnetlink API rather than ethtool).
-
-Ben.
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 915e947..9c656fe 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -69,16 +69,21 @@ static void poll_catas(unsigned long dev_ptr)
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 
+ 	if (readl(priv->catas_err.map)) {
+-		dump_err_buf(dev);
+-
+-		mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
++		/* If the device is off-line, we cannot try to recover it */
++		if (pci_channel_offline(dev->pdev))
++			mod_timer(&priv->catas_err.timer,
++				  round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL));
++		else {
++			dump_err_buf(dev);
++			mlx4_dispatch_event(dev, MLX4_DEV_EVENT_CATASTROPHIC_ERROR, 0);
+ 
+-		if (internal_err_reset) {
+-			spin_lock(&catas_lock);
+-			list_add(&priv->catas_err.list, &catas_list);
+-			spin_unlock(&catas_lock);
++			if (internal_err_reset) {
++				spin_lock(&catas_lock);
++				list_add(&priv->catas_err.list, &catas_list);
++				spin_unlock(&catas_lock);
+ 
+-			queue_work(mlx4_wq, &catas_work);
++				queue_work(mlx4_wq, &catas_work);
++			}
+ 		}
+ 	} else
+ 		mod_timer(&priv->catas_err.timer,
+@@ -100,6 +105,10 @@ static void catas_reset(struct work_struct *work)
+ 	list_for_each_entry_safe(priv, tmppriv, &tlist, catas_err.list) {
+ 		struct pci_dev *pdev = priv->dev.pdev;
+ 
++		/* If the device is off-line, we cannot reset it */
++		if (pci_channel_offline(pdev))
++			continue;
++
+ 		ret = mlx4_restart_one(priv->dev.pdev);
+ 		/* 'priv' now is not valid */
+ 		if (ret)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 7e94987..c8fef43 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -296,7 +296,12 @@ int mlx4_comm_cmd(struct mlx4_dev *dev, u8 cmd, u16 param,
+ 
+ static int cmd_pending(struct mlx4_dev *dev)
+ {
+-	u32 status = readl(mlx4_priv(dev)->cmd.hcr + HCR_STATUS_OFFSET);
++	u32 status;
++
++	if (pci_channel_offline(dev->pdev))
++		return -EIO;
++
++	status = readl(mlx4_priv(dev)->cmd.hcr + HCR_STATUS_OFFSET);
+ 
+ 	return (status & swab32(1 << HCR_GO_BIT)) ||
+ 		(mlx4_priv(dev)->cmd.toggle ==
+@@ -314,11 +319,29 @@ static int mlx4_cmd_post(struct mlx4_dev *dev, u64 in_param, u64 out_param,
+ 
+ 	mutex_lock(&cmd->hcr_mutex);
+ 
++	if (pci_channel_offline(dev->pdev)) {
++		/*
++		 * Device is going through error recovery
++		 * and cannot accept commands.
++		 */
++		ret = -EIO;
++		goto out;
++	}
++
+ 	end = jiffies;
+ 	if (event)
+ 		end += msecs_to_jiffies(GO_BIT_TIMEOUT_MSECS);
+ 
+ 	while (cmd_pending(dev)) {
++		if (pci_channel_offline(dev->pdev)) {
++			/*
++			 * Device is going through error recovery
++			 * and cannot accept commands.
++			 */
++			ret = -EIO;
++			goto out;
++		}
++
+ 		if (time_after_eq(jiffies, end)) {
+ 			mlx4_err(dev, "%s:cmd_pending failed\n", __func__);
+ 			goto out;
+@@ -431,14 +454,33 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 
+ 	down(&priv->cmd.poll_sem);
+ 
++	if (pci_channel_offline(dev->pdev)) {
++		/*
++		 * Device is going through error recovery
++		 * and cannot accept commands.
++		 */
++		err = -EIO;
++		goto out;
++	}
++
+ 	err = mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
+ 			    in_modifier, op_modifier, op, CMD_POLL_TOKEN, 0);
+ 	if (err)
+ 		goto out;
+ 
+ 	end = msecs_to_jiffies(timeout) + jiffies;
+-	while (cmd_pending(dev) && time_before(jiffies, end))
++	while (cmd_pending(dev) && time_before(jiffies, end)) {
++		if (pci_channel_offline(dev->pdev)) {
++			/*
++			 * Device is going through error recovery
++			 * and cannot accept commands.
++			 */
++			err = -EIO;
++			goto out;
++		}
++
+ 		cond_resched();
++	}
+ 
+ 	if (cmd_pending(dev)) {
+ 		err = -ETIMEDOUT;
+@@ -532,6 +574,9 @@ int __mlx4_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	       int out_is_imm, u32 in_modifier, u8 op_modifier,
+ 	       u16 op, unsigned long timeout, int native)
+ {
++	if (pci_channel_offline(dev->pdev))
++		return -EIO;
++
+ 	if (!mlx4_is_mfunc(dev) || (native && mlx4_is_master(dev))) {
+ 		if (mlx4_priv(dev)->cmd.use_events)
+ 			return mlx4_cmd_wait(dev, in_param, out_param,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 4264516..e717091 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -1775,6 +1775,9 @@ static int mlx4_get_ownership(struct mlx4_dev *dev)
+ 	void __iomem *owner;
+ 	u32 ret;
+ 
++	if (pci_channel_offline(dev->pdev))
++		return -EIO;
++
+ 	owner = ioremap(pci_resource_start(dev->pdev, 0) + MLX4_OWNER_BASE,
+ 			MLX4_OWNER_SIZE);
+ 	if (!owner) {
+@@ -1791,6 +1794,9 @@ static void mlx4_free_ownership(struct mlx4_dev *dev)
+ {
+ 	void __iomem *owner;
+ 
++	if (pci_channel_offline(dev->pdev))
++		return;
++
+ 	owner = ioremap(pci_resource_start(dev->pdev, 0) + MLX4_OWNER_BASE,
+ 			MLX4_OWNER_SIZE);
+ 	if (!owner) {
+@@ -2237,11 +2243,33 @@ static DEFINE_PCI_DEVICE_TABLE(mlx4_pci_table) = {
+ 
+ MODULE_DEVICE_TABLE(pci, mlx4_pci_table);
+ 
++static pci_ers_result_t mlx4_pci_err_detected(struct pci_dev *pdev,
++					      pci_channel_state_t state)
++{
++	mlx4_remove_one(pdev);
++
++	return state == pci_channel_io_perm_failure ?
++		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
++}
++
++static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
++{
++	int ret = __mlx4_init_one(pdev, NULL);
++
++	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
++}
++
++static struct pci_error_handlers mlx4_err_handler = {
++	.error_detected = mlx4_pci_err_detected,
++	.slot_reset     = mlx4_pci_slot_reset,
++};
++
+ static struct pci_driver mlx4_driver = {
+ 	.name		= DRV_NAME,
+ 	.id_table	= mlx4_pci_table,
+ 	.probe		= mlx4_init_one,
+-	.remove		= __devexit_p(mlx4_remove_one)
++	.remove		= __devexit_p(mlx4_remove_one),
++	.err_handler    = &mlx4_err_handler,
+ };
+ 
+ static int __init mlx4_verify_params(void)
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
