@@ -1,13 +1,13 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 2/7] openvswitch: Do not send
-	notification if ovs_vport_set_options() failed
-Date: Fri, 20 Jul 2012 15:26:45 -0700
-Message-ID: <1342823210-3308-3-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 1/7] openvswitch: Enable retrieval of TCP
+	flags from IPv6 traffic.
+Date: Fri, 20 Jul 2012 15:26:44 -0700
+Message-ID: <1342823210-3308-2-git-send-email-jesse@nicira.com>
 References: <1342823210-3308-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michael Mao <mmao-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1342823210-3308-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -22,31 +22,28 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ansis Atteka <aatteka-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+We currently check that a packet is IPv4 and TCP before fetching the
+TCP flags.  This enables fetching from IPv6 packets as well.
 
-There is no need to send a notification if ovs_vport_set_options() failed
-and ovs_vport_cmd_set() did not change anything.
-
-Signed-off-by: Ansis Atteka <aatteka-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Reported-by: Michael Mao <mmao-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/openvswitch/flow.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index e44e631..4813d95 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1635,7 +1635,9 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 2a11ec2..c6e1dae 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -182,7 +182,8 @@ void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
+ {
+ 	u8 tcp_flags = 0;
  
- 	if (!err && a[OVS_VPORT_ATTR_OPTIONS])
- 		err = ovs_vport_set_options(vport, a[OVS_VPORT_ATTR_OPTIONS]);
--	if (!err && a[OVS_VPORT_ATTR_UPCALL_PID])
-+	if (err)
-+		goto exit_unlock;
-+	if (a[OVS_VPORT_ATTR_UPCALL_PID])
- 		vport->upcall_pid = nla_get_u32(a[OVS_VPORT_ATTR_UPCALL_PID]);
- 
- 	reply = ovs_vport_cmd_build_info(vport, info->snd_pid, info->snd_seq,
+-	if (flow->key.eth.type == htons(ETH_P_IP) &&
++	if ((flow->key.eth.type == htons(ETH_P_IP) ||
++	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
+ 	    flow->key.ip.proto == IPPROTO_TCP &&
+ 	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
+ 		u8 *tcp = (u8 *)tcp_hdr(skb);
 -- 
 1.7.9.5
