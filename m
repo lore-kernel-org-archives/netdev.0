@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] myri10ge: update MAINTAINERS
-Date: Fri, 20 Jul 2012 10:59:55 -0700 (PDT)
-Message-ID: <20120720.105955.2274175253759322161.davem@davemloft.net>
-References: <1342764673-16671-1-git-send-email-jdmason@kudzu.us>
+Subject: Re: [trivial PATCH resend 1/2] ixgb: use PCI_VENDOR_ID_INTEL
+Date: Fri, 20 Jul 2012 11:00:08 -0700 (PDT)
+Message-ID: <20120720.110008.475112724617192181.davem@davemloft.net>
+References: <1342767729-17788-1-git-send-email-jdmason@kudzu.us>
+	<1342767729-17788-2-git-send-email-jdmason@kudzu.us>
+	<1342768277.2616.22.camel@jtkirshe-mobl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jdmason@kudzu.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54208 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752465Ab2GTR74 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 13:59:56 -0400
-In-Reply-To: <1342764673-16671-1-git-send-email-jdmason@kudzu.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jdmason@kudzu.us, trivial@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342768277.2616.22.camel@jtkirshe-mobl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Mason <jdmason@kudzu.us>
-Date: Thu, 19 Jul 2012 23:11:13 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 20 Jul 2012 00:11:17 -0700
 
-> Remove myself from myri10ge MAINTAINERS list
-> 
-> Signed-off-by: Jon Mason <jdmason@kudzu.us>
+> On Fri, 2012-07-20 at 00:02 -0700, Jon Mason wrote:
+>> Use PCI_VENDOR_ID_INTEL from pci_ids.h instead of creating its own
+>> vendor ID #define.
+>> 
+>> Signed-off-by: Jon Mason <jdmason@kudzu.us>
+ ...
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied to net-next
+Applied.
