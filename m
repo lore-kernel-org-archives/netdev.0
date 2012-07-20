@@ -1,31 +1,21 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: Return bool instead of int where
- appropriate
-Date: Fri, 20 Jul 2012 10:02:57 +0200
-Message-ID: <1342771377.2626.6102.camel@edumazet-glaptop>
-References: <1342769538-4039-1-git-send-email-subramanian.vijay@gmail.com>
+From: Standard Credit International Finance
+	<thomasdavidmarkloanfirm@gmail.com>
+Subject: (unknown)
+Date: Fri, 20 Jul 2012 01:12:53 -0700 (PDT)
+Message-ID: <1342771973.44506.YahooMailClassic@web5708.biz.mail.ne1.yahoo.com>
+Reply-To: funding_standardcreditfinance@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58932 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750909Ab2GTIDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 04:03:03 -0400
-Received: by bkwj10 with SMTP id j10so3111727bkw.19
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 01:03:01 -0700 (PDT)
-In-Reply-To: <1342769538-4039-1-git-send-email-subramanian.vijay@gmail.com>
+Received: from nm5.access.bullet.mail.sp2.yahoo.com ([98.139.44.132]:36013
+	"HELO nm5.access.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751106Ab2GTIMy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2012 04:12:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-20 at 00:32 -0700, Vijay Subramanian wrote:
-> Applied to a set of static inline functions in tcp_input.c
-> 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-> ---
->  net/ipv4/tcp_input.c |   16 ++++++++--------
->  1 files changed, 8 insertions(+), 8 deletions(-)
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Do you need business loan or personal loan if yes contact us today?
