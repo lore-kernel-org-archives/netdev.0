@@ -1,52 +1,39 @@
-From: Shuah Khan <shuah.khan@hp.com>
-Subject: [PATCH RFT] net: Fix Neptune ethernet driver to check dma mapping
- error
-Date: Fri, 20 Jul 2012 15:27:59 -0600
-Message-ID: <1342819679.5434.50.camel@lorien2>
-Reply-To: shuah.khan@hp.com
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Subject: Re: [PATCH] net: ethernet: davinci_emac: add pm_runtime support
+Date: Fri, 20 Jul 2012 14:30:05 -0700
+Message-ID: <20120720213005.GA22263@animalcreek.com>
+References: <1342736577-30477-1-git-send-email-mgreer@animalcreek.com>
+ <20120720.112301.1733694549621760738.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	shuahkhan@gmail.com, stable@vger.kernel.org
-To: davem@davemloft.net, mcarlson@broadcom.com,
-	bhutchings@solarflare.com, eric.dumazet@gmail.com,
-	mchan@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, nsekhar@ti.com,
+	khilman@ti.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:11761 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111Ab2GTV2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:28:05 -0400
+Received: from mail20.dotsterhost.com ([66.11.232.73]:35627 "EHLO
+	mail20.dotsterhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752810Ab2GTVaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 17:30:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20120720.112301.1733694549621760738.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Request for testing, since I don't have the hardware to test.
+On Fri, Jul 20, 2012 at 11:23:01AM -0700, David Miller wrote:
+> From: "Mark A. Greer" <mgreer@animalcreek.com>
+> Date: Thu, 19 Jul 2012 15:22:57 -0700
+> 
+> > From: "Mark A. Greer" <mgreer@animalcreek.com>
+> > 
+> > Add pm_runtime support to the TI Davinci EMAC driver.
+> > 
+> > CC: Sekhar Nori <nsekhar@ti.com>
+> > CC: Kevin Hilman <khilman@ti.com>
+> > Signed-off-by: Mark A. Greer <mgreer@animalcreek.com>
+> 
+> This patch doesn't apply at all to net-next
 
---------------------------------------------------------------------
+My apologies.  I'll fix & resubmit in a bit.
 
-Fix Neptune ethernet driver to check dma mapping error after map_page()
-interface returns.
-
-Signed-off-by: Shuah Khan <shuah.khan@hp.com>
-Cc: <stable@vger.kernel.org>
----
- drivers/net/ethernet/sun/niu.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 8c726b7..60d5c03 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -3335,6 +3335,10 @@ static int niu_rbr_add_page(struct niu *np, struct rx_ring_info *rp,
- 
- 	addr = np->ops->map_page(np->device, page, 0,
- 				 PAGE_SIZE, DMA_FROM_DEVICE);
-+	if (!addr) {
-+		__free_page(page);
-+		return -ENOMEM;
-+	}
- 
- 	niu_hash_page(rp, page, addr);
- 	if (rp->rbr_blocks_per_page > 1)
--- 
-1.7.9.5
+Mark
