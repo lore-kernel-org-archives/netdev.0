@@ -1,47 +1,41 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipv4: show pmtu in route list
-Date: Sat, 21 Jul 2012 02:46:09 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207210235440.2714@ja.ssi.bg>
-References: <1342774928-29301-1-git-send-email-ja@ssi.bg> <20120720.111620.1609537308761180.davem@davemloft.net> <alpine.LFD.2.00.1207210219470.1893@ja.ssi.bg> <20120720.162215.2278959554536542562.davem@davemloft.net>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: New commands to configure IOV features
+Date: Fri, 20 Jul 2012 17:42:23 -0600
+Message-ID: <5009ECDF.4090305@genband.com>
+References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>			<5005D45D.1040302@genband.com>		 <20120717.141153.46613285253481776.davem@davemloft.net>		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>	 <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:44647 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751901Ab2GTXir (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 19:38:47 -0400
-In-Reply-To: <20120720.162215.2278959554536542562.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Don Dutile <ddutile@redhat.com>,
+	David Miller <davem@davemloft.net>, yuvalmin@broadcom.com,
+	gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 07/20/2012 02:01 PM, Ben Hutchings wrote:
+> On Fri, 2012-07-20 at 13:29 -0600, Chris Friesen wrote:
 
-	Hello,
+>> Once the device exists, then domain-specific APIs would be used to
+>> configure it the same way that they would configure a physical device.
+>
+> To an extent, but not entirely.
+>
+> Currently, the assigned MAC address and (optional) VLAN tag for each
+> networking VF are configured via the PF net device (though this is done
+> though the rtnetlink API rather than ethtool).
 
-On Fri, 20 Jul 2012, David Miller wrote:
+I actually have a use-case where the guest needs to be able to modify 
+the MAC addresses of network devices that are actually VFs.
 
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Sat, 21 Jul 2012 02:26:28 +0300 (EEST)
-> 
-> > 	I'll try this weekend to reorganize the seqlock
-> > usage in tcp_metrics.c and to provide method to feed
-> > rt_fill_info with values from this cache.
-> 
-> Wouldn't it be better to just export the TCP metrics via it's own
-> file or netlink facility?
-> 
-> They keying of the TCP metrics is completely different from how routes
-> are key'd.  So I see little value in creating the illusion that these
-> two things live in the same keying domain.
-> 
-> The routing cache will be completely gone and /proc/net/rt_cache will
-> be an empty file.
+The guest is bonding the network devices together, so the bonding driver 
+in the guest expects to be able to set all the slaves to the same MAC 
+address.
 
-	OK, then I'll try it in this way. When I have some
-plan I'll be back for comments before implementing it.
+As I read the ixgbe driver, this should be possible as long as the host 
+hasn't explicitly set the MAC address of the VF.  Is that correct?
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Chris
