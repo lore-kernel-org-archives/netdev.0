@@ -1,46 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 20 Jul 2012 14:43:45 -0700
-Message-ID: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 2/6] e1000e: implement 82577/579 MDI setting support
+Date: Fri, 20 Jul 2012 14:43:47 -0700
+Message-ID: <1342820631-19738-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce W Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:41709 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711Ab2GTVny (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751771Ab2GTVny (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Jul 2012 17:43:54 -0400
+In-Reply-To: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ethtool, e1000, e1000e and igb with
-regards to the new MDI ethtool support patches submitted earlier.
+From: Bruce W Allan <bruce.w.allan@intel.com>
 
-The following are changes since commit fa0afcd10951afad2022dda09777d2bf70cdab3d:
-  atl1c: fix issue of io access mode for AR8152 v2.1
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+in order for e1000e to support MDI setting support via
+ethtool this code is needed to allow setting the MDI state
+via software.
 
-Bruce W Allan (1):
-  e1000e: implement 82577/579 MDI setting support
+This is in regards to the related ethtool patch and
+fixes bugzilla.kernel.org bug 11998
 
-Jesse Brandeburg (5):
-  ethtool.h: MDI setting support
-  igb: implement 580 MDI setting support
-  e1000: configure and read MDI settings
-  e1000e: implement MDI/MDI-X control
-  igb: update to allow reading/setting MDI state
+Signed-off-by: Bruce W Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/phy.c |   31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c |   34 +++++++++++++++++++
- drivers/net/ethernet/intel/e1000/e1000_main.c    |    4 +++
- drivers/net/ethernet/intel/e1000e/ethtool.c      |   39 +++++++++++++++++++---
- drivers/net/ethernet/intel/e1000e/phy.c          |   31 +++++++++++++++--
- drivers/net/ethernet/intel/igb/e1000_phy.c       |   29 ++++++++++++++--
- drivers/net/ethernet/intel/igb/e1000_phy.h       |    5 +--
- drivers/net/ethernet/intel/igb/igb_ethtool.c     |   37 ++++++++++++++++++++
- drivers/net/ethernet/intel/igb/igb_main.c        |    4 +++
- include/linux/ethtool.h                          |   17 ++++++----
- 9 files changed, 184 insertions(+), 16 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index b860d4f..fc62a3f 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -84,8 +84,9 @@ static const u16 e1000_igp_2_cable_length_table[] = {
+ #define I82577_PHY_STATUS2_SPEED_1000MBPS 0x0200
+ 
+ /* I82577 PHY Control 2 */
+-#define I82577_PHY_CTRL2_AUTO_MDIX        0x0400
+-#define I82577_PHY_CTRL2_FORCE_MDI_MDIX   0x0200
++#define I82577_PHY_CTRL2_MANUAL_MDIX      0x0200
++#define I82577_PHY_CTRL2_AUTO_MDI_MDIX    0x0400
++#define I82577_PHY_CTRL2_MDIX_CFG_MASK    0x0600
+ 
+ /* I82577 PHY Diagnostics Status */
+ #define I82577_DSTATUS_CABLE_LENGTH       0x03FC
+@@ -702,6 +703,32 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		return ret_val;
+ 
++	/* Set MDI/MDIX mode */
++	ret_val = e1e_rphy(hw, I82577_PHY_CTRL_2, &phy_data);
++	if (ret_val)
++		return ret_val;
++	phy_data &= ~I82577_PHY_CTRL2_MDIX_CFG_MASK;
++	/*
++	 * Options:
++	 *   0 - Auto (default)
++	 *   1 - MDI mode
++	 *   2 - MDI-X mode
++	 */
++	switch (hw->phy.mdix) {
++	case 1:
++		break;
++	case 2:
++		phy_data |= I82577_PHY_CTRL2_MANUAL_MDIX;
++		break;
++	case 0:
++	default:
++		phy_data |= I82577_PHY_CTRL2_AUTO_MDI_MDIX;
++		break;
++	}
++	ret_val = e1e_wphy(hw, I82577_PHY_CTRL_2, phy_data);
++	if (ret_val)
++		return ret_val;
++
+ 	return e1000_set_master_slave_mode(hw);
+ }
+ 
 -- 
 1.7.10.4
