@@ -1,28 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: spin_unlock_irq in interrupt handler fix
-Date: Fri, 20 Jul 2012 16:18:57 -0700 (PDT)
-Message-ID: <20120720.161857.613443903782303240.davem@davemloft.net>
-References: <1342821274-20623-1-git-send-email-yefremov.denis@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: show pmtu in route list
+Date: Sat, 21 Jul 2012 02:26:28 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207210219470.1893@ja.ssi.bg>
+References: <1342774928-29301-1-git-send-email-ja@ssi.bg> <20120720.111620.1609537308761180.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: david.decotigny@google.com, edumazet@google.com, jpirko@redhat.com,
-	ian.campbell@citrix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: yefremov.denis@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342821274-20623-1-git-send-email-yefremov.denis@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:44633 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752178Ab2GTXTK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2012 19:19:10 -0400
+In-Reply-To: <20120720.111620.1609537308761180.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Denis Efremov <yefremov.denis@gmail.com>
-Date: Sat, 21 Jul 2012 01:54:34 +0400
 
-> The replacement of spin_lock_irq/spin_unlock_irq pair in interrupt
-> handler by spin_lock_irqsave/spin_lock_irqrestore pair.
+	Hello,
+
+On Fri, 20 Jul 2012, David Miller wrote:
+
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Fri, 20 Jul 2012 12:02:08 +0300
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
+> > Is this patch still useful if routing cache is removed?
 > 
-> Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
+> It is, since this function still gets used for rtnetlink route
+> queries.  So I'll apply this, thanks Julian!
+> 
+> Which reminds me that we don't have way to inspect the new TCP metrics
+> cache.  Would someone like to work on that?
 
-Applied, thanks.
+	I'll try this weekend to reorganize the seqlock
+usage in tcp_metrics.c and to provide method to feed
+rt_fill_info with values from this cache.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
