@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 resend] ipv6: fix incorrect route 'expires' value
- passed to userspace
-Date: Fri, 20 Jul 2012 11:22:41 -0700 (PDT)
-Message-ID: <20120720.112241.2111041227435292899.davem@davemloft.net>
-References: <20120719.104906.38765587582698093.davem@davemloft.net>
-	<5008B794.7010904@cn.fujitsu.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B6F9C@saturn3.aculab.com>
+Subject: Re: [PATCH] net: ethernet: davinci_emac: add pm_runtime support
+Date: Fri, 20 Jul 2012 11:23:01 -0700 (PDT)
+Message-ID: <20120720.112301.1733694549621760738.davem@davemloft.net>
+References: <1342736577-30477-1-git-send-email-mgreer@animalcreek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lw@cn.fujitsu.com, netdev@vger.kernel.org, shemminger@vyatta.com
-To: David.Laight@ACULAB.COM
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, nsekhar@ti.com,
+	khilman@ti.com
+To: mgreer@animalcreek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54534 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54541 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751255Ab2GTSWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:22:42 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6F9C@saturn3.aculab.com>
+	with ESMTP id S1751573Ab2GTSXC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 14:23:02 -0400
+In-Reply-To: <1342736577-30477-1-git-send-email-mgreer@animalcreek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Fri, 20 Jul 2012 11:32:05 +0100
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Date: Thu, 19 Jul 2012 15:22:57 -0700
 
->> -	else if (rt->dst.expires - jiffies < INT_MAX)
->> -		expires = rt->dst.expires - jiffies;
->> +	else if ((long)rt->dst.expires - (long)jiffies > INT_MIN
->> +			&& (long)rt->dst.expires - (long)jiffies <
-> INT_MAX)
->> +		expires = (long)rt->dst.expires - (long)jiffies;
->>  	else
->> -		expires = INT_MAX;
->> +		expires = time_is_after_jiffies(rt->dst.expires) ?
-> INT_MAX : INT_MIN;
+> From: "Mark A. Greer" <mgreer@animalcreek.com>
 > 
-> I can't help feeling there is a better way to do this.
-> Maybe:
-> 	long expires = rt->dst.expires - jiffies;
-> 	if (expires != (int)expires)
-> 		expires = expires > 0 ? INT_MAX : INT_MIN;
-> Although maybe -INT_MAX instead of INT_MIN.
+> Add pm_runtime support to the TI Davinci EMAC driver.
+> 
+> CC: Sekhar Nori <nsekhar@ti.com>
+> CC: Kevin Hilman <khilman@ti.com>
+> Signed-off-by: Mark A. Greer <mgreer@animalcreek.com>
 
-This patch also does not apply at all to net-next, so needs to be
-redone regardless.
+This patch doesn't apply at all to net-next
