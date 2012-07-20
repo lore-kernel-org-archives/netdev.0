@@ -1,64 +1,78 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] sunrpc: clnt: Add missing braces
-Date: Fri, 20 Jul 2012 09:50:59 -0700
-Message-ID: <1342803059.21447.45.camel@joe2Laptop>
-References: <1342635431.9551.41.camel@joe2Laptop>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH v3] sctp: Implement quick failover draft from tsvwg
+Date: Fri, 20 Jul 2012 13:51:39 -0300
+Message-ID: <20120720135139.34f2c8c9@obelix.rh>
+References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
+	<1342716704-6532-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1342635431.9551.41.camel@joe2Laptop>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, joe@perches.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47486 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752539Ab2GTQwG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jul 2012 12:52:06 -0400
+In-Reply-To: <1342716704-6532-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-18 at 11:17 -0700, Joe Perches wrote:
-> Add a missing set of braces that commit 4e0038b6b24
-> ("SUNRPC: Move clnt->cl_server into struct rpc_xprt")
-> forgot.
-> 
-> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> ---
->  net/sunrpc/clnt.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-> index f56f045..aaf70aa 100644
-> --- a/net/sunrpc/clnt.c
-> +++ b/net/sunrpc/clnt.c
-> @@ -1844,12 +1844,13 @@ call_timeout(struct rpc_task *task)
->  		return;
->  	}
->  	if (RPC_IS_SOFT(task)) {
-> -		if (clnt->cl_chatty)
-> +		if (clnt->cl_chatty) {
->  			rcu_read_lock();
->  			printk(KERN_NOTICE "%s: server %s not responding, timed out\n",
->  				clnt->cl_protname,
->  				rcu_dereference(clnt->cl_xprt)->servername);
->  			rcu_read_unlock();
-> +		}
->  		if (task->tk_flags & RPC_TASK_TIMEOUT)
->  			rpc_exit(task, -ETIMEDOUT);
->  		else
+On Thu, 19 Jul 2012 12:51:44 -0400
+Neil Horman <nhorman@tuxdriver.com> wrote:
+[...]
+>  
+> +pf_retrans - INTEGER
+> +	The number of retransmissions that will be attempted on a given path
+> +	before traffic is redirected to an alternate transport (should one
+> +	exist).  Note this is distinct from path_max_retrans, as a path that
+> +	passes the pf_retrans threshold can still be used.  Its only
+> +	deprioritized when a transmission path is selected by the stack.  This
+> +	setting is primarily used to enable fast failover mechanisms without
+> +	having to reduce path_max_retrans to a very low value.  See:
+> +	http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
+> +	for details.  Note also that a value of pf_retrans > path_max_retrans
+> +	disables this feature
+> +
+> +	Default: 0
+> +
+>  rto_initial - INTEGER
+[...]
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index e4652fe..f70726c 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -160,6 +160,7 @@ extern struct sctp_globals {
+>  	int max_retrans_association;
+>  	int max_retrans_path;
+>  	int max_retrans_init;
+> +	int pf_retrans;
 
-Hi David.
+[...]
+>  
+> +	/* This is the partially failed retrans value for the transport
+> +	 * and will be initialized from the assocs value.  This can be changed
+> +	 * using the SCTP_PEER_ADDR_THLDS socket option
+> +	 */
+> +	int pf_retrans;
+>  	/* PMTU	      : The current known path MTU.  */
+>  	__u32 pathmtu;
+>  
+> @@ -1660,6 +1667,8 @@ struct sctp_association {
+>  	 */
+>  	int max_retrans;
+>  
+> +	int pf_retrans;
+> +
 
-I think it'd be good to get this into 3.6 as a bug fix.
 
-This is marked in netdev patchwork as "not applicable".
+You've documented in one place, but not in the others.  I suggest to include
+references like this
+       /* See the description in struct sctp_transport */
+at the two missing places.
 
-Do you need the sunrpc maintainers to apply or ack it
-and then push it to you?
-
-Trond?  Bruce?
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nice feature,
+fbl
