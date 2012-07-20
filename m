@@ -1,50 +1,85 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 00/16]: Kill the ipv4 routing cache.
-Date: Fri, 20 Jul 2012 18:22:28 +0100
-Message-ID: <1342804948.2678.20.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120719.143403.1702333347618917729.davem@davemloft.net>
-	 <1342796969.2678.12.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20120720.092614.1285553995467252576.davem@davemloft.net>
+From: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: clnt: Add missing braces
+Date: Fri, 20 Jul 2012 17:25:27 +0000
+Message-ID: <B303B8C0-4BB4-4900-84F4-457E9CF291D7@netapp.com>
+References: <1342635431.9551.41.camel@joe2Laptop>
+ <1342803059.21447.45.camel@joe2Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:51493 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752498Ab2GTRWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 13:22:31 -0400
-In-Reply-To: <20120720.092614.1285553995467252576.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"Chuck Lever" <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1342803059.21447.45.camel@joe2Laptop>
+Content-Language: en-US
+Content-ID: <7EE93B58910E5246999176117BEB63F0-oP88Kt8RkgzdA/Lu/QRl1Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-07-20 at 09:26 -0700, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Fri, 20 Jul 2012 16:09:29 +0100
-> 
-> > On Thu, 2012-07-19 at 14:34 -0700, David Miller wrote:
-> >> The ipv4 routing cache is non-deterministic, performance wise, and is
-> >> subject to reasonably easy to launch denial of service attacks.
-> > [...]
-> > 
-> > This is a great explanation, but it still doesn't appear to be going
-> > into the commit log...
-> 
-> What in the world do you mean?
-> 
-> When I actually commit this stuff, I'll have it all in a branch and
-> merge it into net-next's master using "git merge --no-ff" and then use
-> the merge commit to add this commit message test.
-> 
-> Every damn set of changes I've commited over the past few weeks have
-> used this technique, are you simply not paying attention?
+No. It should go through the NFS client tree.
 
-Sorry, I get it now.
+I can queue it up.
 
-Ben.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+Trond Myklebust
+Linux NFS client maintainer
+
+NetApp
+Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+www.netapp.com
+
+On Jul 20, 2012, at 6:50 PM, Joe Perches wrote:
+
+> On Wed, 2012-07-18 at 11:17 -0700, Joe Perches wrote:
+>> Add a missing set of braces that commit 4e0038b6b24
+>> ("SUNRPC: Move clnt->cl_server into struct rpc_xprt")
+>> forgot.
+>> 
+>> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+>> ---
+>> net/sunrpc/clnt.c |    3 ++-
+>> 1 files changed, 2 insertions(+), 1 deletions(-)
+>> 
+>> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+>> index f56f045..aaf70aa 100644
+>> --- a/net/sunrpc/clnt.c
+>> +++ b/net/sunrpc/clnt.c
+>> @@ -1844,12 +1844,13 @@ call_timeout(struct rpc_task *task)
+>> 		return;
+>> 	}
+>> 	if (RPC_IS_SOFT(task)) {
+>> -		if (clnt->cl_chatty)
+>> +		if (clnt->cl_chatty) {
+>> 			rcu_read_lock();
+>> 			printk(KERN_NOTICE "%s: server %s not responding, timed out\n",
+>> 				clnt->cl_protname,
+>> 				rcu_dereference(clnt->cl_xprt)->servername);
+>> 			rcu_read_unlock();
+>> +		}
+>> 		if (task->tk_flags & RPC_TASK_TIMEOUT)
+>> 			rpc_exit(task, -ETIMEDOUT);
+>> 		else
+> 
+> Hi David.
+> 
+> I think it'd be good to get this into 3.6 as a bug fix.
+> 
+> This is marked in netdev patchwork as "not applicable".
+> 
+> Do you need the sunrpc maintainers to apply or ack it
+> and then push it to you?
+> 
+> Trond?  Bruce?
+> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
