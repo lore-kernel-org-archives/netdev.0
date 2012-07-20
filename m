@@ -1,83 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [trivial PATCH resend 2/2] ixgbe: use PCI_VENDOR_ID_INTEL
-Date: Fri, 20 Jul 2012 00:14:04 -0700
-Message-ID: <1342768444.2616.25.camel@jtkirshe-mobl>
-References: <1342767729-17788-1-git-send-email-jdmason@kudzu.us>
-	 <1342767729-17788-3-git-send-email-jdmason@kudzu.us>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Fri, 20 Jul 2012 15:14:26 +0800
+Message-ID: <EF06A7B3C1E6432BB660CDEF8E1D2A1B@realtek.com.tw>
+References: <20120718.132840.1571938255177607234.davem@davemloft.net><20120718214422.GA18207@electric-eye.fr.zoreil.com><1342649136.2626.3757.camel@edumazet-glaptop> <20120718.152405.1083396282134539674.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-9u46Gw8iKLhPDsJuy8zl"
-Cc: trivial@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>
-To: Jon Mason <jdmason@kudzu.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342767729-17788-3-git-send-email-jdmason@kudzu.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-9u46Gw8iKLhPDsJuy8zl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2012-07-20 at 00:02 -0700, Jon Mason wrote:
-> Use PCI_VENDOR_ID_INTEL from pci_ids.h instead of creating its own
-> vendor ID #define.
->=20
-> Signed-off-by: Jon Mason <jdmason@kudzu.us>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Cc: Don Skidmore <donald.c.skidmore@intel.com>
-> Cc: Greg Rose <gregory.v.rose@intel.com>
-> Cc: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Cc: Alex Duyck <alexander.h.duyck@intel.com>
-> Cc: John Ronciak <john.ronciak@intel.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    4 ++--
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    8 ++++----
->  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |    3 ---
->  3 files changed, 6 insertions(+), 9 deletions(-)=20
-
-Same goes for this patch as well (not being trivial).
-
-I already have several patches submitted for Dave against ixgbe
-currently and I am not sure if there would be any issues with this patch
-applying on top of the currently submitted patches.  I will verify this
-applies cleanly with no issue to my current net-next tree before I send
-my ACK.
-
---=-9u46Gw8iKLhPDsJuy8zl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>, <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:45065 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752707Ab2GTHOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 03:14:38 -0400
+In-Reply-To: <20120718.152405.1083396282134539674.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+ Francois Romieu <romieu@fr.zoreil.com>
 
-iQIcBAABCgAGBQJQCQU8AAoJEOVv75VaS+3OYXAP/Asm544fY0W1VrVAjixS0Efn
-RgUNq7y5v+ytiTwT2Wy6OMpdpLU/kgwXx/2F9cjPZhRhmcAN+0UTEtAg7EsqHE2d
-BxnG+gg0Qx6mkxr+L9385caY6TrXj5a0T9Ch4QhlaTSCP7CF8pxhxXQ5ZS1PoXvb
-KLuKezeLF3OrvR1109Uu6jiAD8hxzEOPgYU6XUDLbXKHXIrCHT7Ck/G/FKfi2fbI
-AnP8TapgjYhpGx2+dwcT/g45nWTeKg9qnnQqZrQmp7L9SkwIdPo4FL3RYvPny5XX
-5Fwk1OH2OOxpmbszF25/Vf3y6KFH/fsMvBlrLfPNDy0Th4KvGemH1n0WvdxPMRxT
-BW6OAGtownoXhpgKN6bTZOVzNUdjvGRnv5Z7MhyMGimRvmTC+v+V6GlHKnk6uoZG
-f6PwXs65jfWbNXxa5OFS1BN4pd/DR5vQVPG6g87OrkCR5P8eq7p2LvqfVtDpoyfO
-7E+fvlFPdIeGfD/shQTNAFIEh+nuU91GKrfsg4/3ZBPXBYtgcyR93CvxhAksXZIt
-rzKi4J8aZSJMm1dVGk7FyaEuFjcTmsDFZ7rSEq1fmggs4RJYptUAhS1j9dTHUgGp
-toZQRfdmZJaiWdqRWLcI7oi9jhcQmQOm2SYq1/qEN22QapKRD263+jglt/aNyrvB
-ObiSy8Q1X7b/JI2NLtQQ
-=AZPZ
------END PGP SIGNATURE-----
+> >> > A NETDEV_TX_OK return means we accepted the SKB, it 
+> doesn't look like
+> >> > that's what you are doing in the skb_padto() failure path.
+> >> 
+> >> ?
+> >> 
+> >> - skb_padto fails
+> >>   (original skb is implicitely freed)
+> >> - skb_padto returns error status (!= 0)
+> >> - rtl8169_tso_csum returns false
+> >> - start_xmit returns NETDEV_TX_OK. 
+> >> 
+> >> I'll search the missing "!" after some sleep if that's 
+> what you are talking
+> >> about. Otherwise than that, I don't get it.
+> >> 
+> > 
+> > 
+> > Yes, I believe your patch is fine.
+> > 
+> > In fact many drivers dont account the error in their stats.
+> 
+> My bad, I forgot that skb_padto() frees the SKB on failure.
+> 
 
---=-9u46Gw8iKLhPDsJuy8zl--
+I find that the total length field of IP header would be modified if the hw
+checksum is enabled. Therefore, skb_padto + hw checksum wouldn't work. The
+software checksum is necessary.
+ 
+Best Regards,
+Hayes
