@@ -1,49 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Sat, 21 Jul 2012 00:05:59 +0200
-Message-ID: <1342821959.2626.8052.camel@edumazet-glaptop>
-References: <20120720.142502.1144557295933737451.davem@davemloft.net>
+From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH] netns: correctly use per-netns ipv4 sysctl_tcp_mem
+Date: Fri, 20 Jul 2012 19:22:02 -0300
+Message-ID: <5009DA0A.4010401@parallels.com>
+References: <4FFA7495.5070702@huawei.com>
+	<20120709.152100.571089964662155300.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:43905 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751618Ab2GTWGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 18:06:05 -0400
-Received: by wibhm11 with SMTP id hm11so1001547wib.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 15:06:03 -0700 (PDT)
-In-Reply-To: <20120720.142502.1144557295933737451.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20120709.152100.571089964662155300.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-07-20 at 14:25 -0700, David Miller wrote:
-> [ Ok I'm going to be a little bit cranky, and I think I deserve it.
+On 07/09/2012 07:21 PM, David Miller wrote:
+> From: Huang Qiang <h.huangqiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Date: Mon, 9 Jul 2012 14:05:09 +0800
 > 
->   I'm basically not going to go through the multi-hour rebase and
->   retest process again, as it's hit the point of diminishing returns
->   as NOBODY is giving me test results but I can guarentee that
->   EVERYONE will bitch and complain when I push this into net-next and
->   it breaks their favorite feature.  If you can't be bothered to test
->   these changes, I'm honestly going to tell people to take a hike and
->   fix it themselves.  I simply don't care if you don't care enough to
->   test changes of this magnitude to make sure your favorite setup
->   still works.
+>> From: Yang Zhenzhang <yangzhenzhang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>
+>> Now, kernel allows each net namespace to independently set up its levels
+>> for tcp memory pressure thresholds.
+>>
+>> But it seems there is a bug, as using the following steps:
+>>
+>> [root@host socket]# lxc-start -n test -f config /bin/bash
+>> [root@net-test socket]# ip route add default via 192.168.58.2
+>> [root@net-test socket]# echo 0 0 0 > /proc/sys/net/ipv4/tcp_mem
+>> [root@net-test socket]# scp root-Q0ErXNX1RuabR28l3DCWlg@public.gmane.org:/home/tcp_mem_test .
+>>
+>> and it still can transport the "tcp_mem_test" file which we hope it
+>> would not.
+>>
+>> It's because inet_init() (net/ipv4/af_inet.c)initialize the
+>> tcp_prot.sysctl_mem:
+>> tcp_prot.sysctl_mem = init_net.ipv4.sysctl_tcp_mem;
+>>
+>> So when the protocal is TCP, sk->sk_prot->sysctl_mem(following code)
+>> always use the ipv4 sysctl_tcp_mem of init_net namespace rather than
+>> it's own net namespace.
+>> This patch simply set "prot" equal to net->ipv4.sysctl_tcp_mem when
+>> the protocol type is TCP.
+>>
+>> Signed-off-by: Yang Zhenzhang <yangzhenzhang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 > 
->   To say that I'm disappointed with the amount of testing feedback
->   after posting more than a dozen iterations of this delicate patch
->   set would be an understatement.  I can think of only one person who
->   actually tested one iteration of these patches and gave feedback.
+> Another regression added by the socket memory cgroup code, BIG
+> SURPRISE.
 > 
->   And meanwhile I've personally reviewed, tested, and signed off on
->   everyone else's work WITHOUT DELAY during this entire process.
-> 
->   I've pulled 25 hour long hacking shifts to make that a reality, so
->   that my routing cache removal work absolutely would not impact or
->   delay the patch submissions of any other networking developer.  And
->   I can't even get a handful of testers with some feedback?  You
->   really have to be kidding me.. ]
 
-Hmm, ok, please give me few hours to make some tests ;)
+Back from vacations: If I understand the submission correctly, this is
+not a regression, since it seems to be only happening when those values
+are set inside the network namespace - which was not possible before.
+
+In any case, I believe from what I can see that the fix is already in
+the way (haven't seen the whole backlog yet)
