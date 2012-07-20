@@ -1,41 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool 1/2] ethtool.h: implement new MDI-X set defines
-Date: Fri, 20 Jul 2012 16:24:09 +0100
-Message-ID: <1342797849.2678.19.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1342765524-29711-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: New commands to configure IOV features
+Date: Fri, 20 Jul 2012 09:27:03 -0600
+Message-ID: <500978C7.5050004@genband.com>
+References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>	<5005D45D.1040302@genband.com> <20120717.141153.46613285253481776.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56669 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753115Ab2GTPYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 11:24:13 -0400
-In-Reply-To: <1342765524-29711-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ddutile@redhat.com, yuvalmin@broadcom.com,
+	bhutchings@solarflare.com, gregory.v.rose@intel.com,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20120717.141153.46613285253481776.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-19 at 23:25 -0700, Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> These changes implement the kernel side of the interface
-> for allowing drivers to set MDI-X state on twisted pair.
-> 
-> Changes implemented as suggested by Ben Hutchings, thanks Ben!
-> 
-> see ethtool patches titled:
-> ethtool: allow setting MDI-X state
-[...]
+On 07/17/2012 03:11 PM, David Miller wrote:
+> From: Chris Friesen<chris.friesen@genband.com>
+> Date: Tue, 17 Jul 2012 15:08:45 -0600
+>
+>>  From that perspective a sysfs-based interface is ideal since it is
+>> directly scriptable.
+>
+> As is anything ethtool or netlink based, since we have 'ethtool'
+> and 'ip' for scripting.
 
-I don't see the corresponding kernel changes, but I'll hold onto these
-for a while in the hope that they show up.
+I'm not picky...whatever works.
 
-Ben.
+To me the act of creating virtual functions seems generic enough (I'm 
+aware of SR-IOV capable storage controllers, I'm sure there is other 
+hardware as well) that ethtool/ip don't really seem like the most 
+appropriate tools for the job.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I would have thought it would make more sense as a generic PCI 
+functionality, in which case I'm not aware of an existing binary tool 
+that would be a logical choice to extend.
+
+Chris
