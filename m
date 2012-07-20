@@ -1,66 +1,43 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/6] net: rename bond_queue_mapping to slave_dev_queue_mapping
-Date: Fri, 20 Jul 2012 14:28:49 +0200
-Message-ID: <1342787331-1866-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 5/6] bond_sysfs: use ream_num_tx_queues rather than params.tx_queue
+Date: Fri, 20 Jul 2012 14:28:50 +0200
+Message-ID: <1342787331-1866-6-git-send-email-jiri@resnulli.us>
 References: <1342787331-1866-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, shemminger@vyatta.com,
 	fubar@us.ibm.com, andy@greyhouse.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:39376 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753211Ab2GTM3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 08:29:07 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so3588259wgb.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 05:29:07 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:44789 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751936Ab2GTM3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 08:29:11 -0400
+Received: by wibhr14 with SMTP id hr14so513665wib.1
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 05:29:10 -0700 (PDT)
 In-Reply-To: <1342787331-1866-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As this is going to be used not only by bonding.
+Since now number of tx queues can be specified during bond instance
+creation and therefore it may differ from params.tx_queues, use rather
+real_num_tx_queues for boundary check.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/bonding/bond_main.c |    6 +++---
- include/net/sch_generic.h       |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/bonding/bond_sysfs.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f41ddc2..6fae5f3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -395,8 +395,8 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- 	skb->dev = slave_dev;
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 485bedb..dc15d24 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1495,7 +1495,7 @@ static ssize_t bonding_store_queue_id(struct device *d,
+ 	/* Check buffer length, valid ifname and queue id */
+ 	if (strlen(buffer) > IFNAMSIZ ||
+ 	    !dev_valid_name(buffer) ||
+-	    qid > bond->params.tx_queues)
++	    qid > bond->dev->real_num_tx_queues)
+ 		goto err_no_cmd;
  
- 	BUILD_BUG_ON(sizeof(skb->queue_mapping) !=
--		     sizeof(qdisc_skb_cb(skb)->bond_queue_mapping));
--	skb->queue_mapping = qdisc_skb_cb(skb)->bond_queue_mapping;
-+		     sizeof(qdisc_skb_cb(skb)->slave_dev_queue_mapping));
-+	skb->queue_mapping = qdisc_skb_cb(skb)->slave_dev_queue_mapping;
- 
- 	if (unlikely(netpoll_tx_running(slave_dev)))
- 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
-@@ -4184,7 +4184,7 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	/*
- 	 * Save the original txq to restore before passing to the driver
- 	 */
--	qdisc_skb_cb(skb)->bond_queue_mapping = skb->queue_mapping;
-+	qdisc_skb_cb(skb)->slave_dev_queue_mapping = skb->queue_mapping;
- 
- 	if (unlikely(txq >= dev->real_num_tx_queues)) {
- 		do {
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 9d7d54a..d9611e0 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -220,7 +220,7 @@ struct tcf_proto {
- 
- struct qdisc_skb_cb {
- 	unsigned int		pkt_len;
--	u16			bond_queue_mapping;
-+	u16			slave_dev_queue_mapping;
- 	u16			_pad;
- 	unsigned char		data[20];
- };
+ 	/* Get the pointer to that interface if it exists */
 -- 
 1.7.10.4
