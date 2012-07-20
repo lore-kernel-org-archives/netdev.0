@@ -1,33 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] b44: add 64 bit stats
-Date: Fri, 20 Jul 2012 17:12:07 +0200
-Message-ID: <1342797127.2626.7427.camel@edumazet-glaptop>
-References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
-	 <1342337165.3265.10640.camel@edumazet-glaptop>
-	 <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>
-	 <1342759989.2626.5472.camel@edumazet-glaptop>
-	 <1342761865.2626.5572.camel@edumazet-glaptop>
-	 <1342794821.2678.8.camel@bwh-desktop.uk.solarflarecom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool 1/2] ethtool.h: implement new MDI-X set defines
+Date: Fri, 20 Jul 2012 16:24:09 +0100
+Message-ID: <1342797849.2678.19.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1342765524-29711-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kevin Groeneveld <kgroeneveld@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:46737 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874Ab2GTPMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 11:12:13 -0400
-Received: by bkwj10 with SMTP id j10so3482418bkw.19
-        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 08:12:11 -0700 (PDT)
-In-Reply-To: <1342794821.2678.8.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:56669 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753115Ab2GTPYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 11:24:13 -0400
+In-Reply-To: <1342765524-29711-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-20 at 15:33 +0100, Ben Hutchings wrote:
-
-> Don't we need an _irq variant for drivers that support netpoll?
+On Thu, 2012-07-19 at 23:25 -0700, Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
+> These changes implement the kernel side of the interface
+> for allowing drivers to set MDI-X state on twisted pair.
+> 
+> Changes implemented as suggested by Ben Hutchings, thanks Ben!
+> 
+> see ethtool patches titled:
+> ethtool: allow setting MDI-X state
+[...]
 
-netpoll is such a hack I would not bother having a 0.000001 % chance to
-get a "about to be wrapped 64bit counter" on a 32bit cpu.
+I don't see the corresponding kernel changes, but I'll hold onto these
+for a while in the hope that they show up.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
