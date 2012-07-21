@@ -1,41 +1,45 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: New commands to configure IOV features
-Date: Fri, 20 Jul 2012 17:42:23 -0600
-Message-ID: <5009ECDF.4090305@genband.com>
-References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>			<5005D45D.1040302@genband.com>		 <20120717.141153.46613285253481776.davem@davemloft.net>		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>	 <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Don Dutile <ddutile@redhat.com>,
-	David Miller <davem@davemloft.net>, yuvalmin@broadcom.com,
-	gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] net-next: minor cleanups for bonding documentation
+Date: Fri, 20 Jul 2012 17:08:28 -0700
+Message-ID: <6272.1342829308@death.nxdomain>
+References: <20120720205137.84E3D290043B@tardy>
+Cc: netdev@vger.kernel.org, "Andy Gospodarek" <andy@greyhouse.net>
+To: raj@tardy.cup.hp.com (Rick Jones)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:48594 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752161Ab2GUAIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 20:08:35 -0400
+Received: from /spool/local
+	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Fri, 20 Jul 2012 18:08:34 -0600
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 81FB719D803C
+	for <netdev@vger.kernel.org>; Sat, 21 Jul 2012 00:08:29 +0000 (WET)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6L08VrK268984
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 18:08:31 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6L08UPT007150
+	for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 18:08:31 -0600
+In-reply-to: <20120720205137.84E3D290043B@tardy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2012 02:01 PM, Ben Hutchings wrote:
-> On Fri, 2012-07-20 at 13:29 -0600, Chris Friesen wrote:
+Rick Jones <raj@tardy.cup.hp.com> wrote:
 
->> Once the device exists, then domain-specific APIs would be used to
->> configure it the same way that they would configure a physical device.
+>From: Rick Jones <rick.jones2@hp.com>
 >
-> To an extent, but not entirely.
+>The section titled "Configuring Bonding for Maximum Throughput" is
+>actually section twelve not thirteen, and there are a couple of words
+>spelled incorrectly.
 >
-> Currently, the assigned MAC address and (optional) VLAN tag for each
-> networking VF are configured via the PF net device (though this is done
-> though the rtnetlink API rather than ethtool).
+>Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-I actually have a use-case where the guest needs to be able to modify 
-the MAC addresses of network devices that are actually VFs.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-The guest is bonding the network devices together, so the bonding driver 
-in the guest expects to be able to set all the slaves to the same MAC 
-address.
+	-J
 
-As I read the ixgbe driver, this should be possible as long as the host 
-hasn't explicitly set the MAC address of the VF.  Is that correct?
-
-Chris
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
