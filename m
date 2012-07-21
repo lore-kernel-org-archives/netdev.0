@@ -1,252 +1,59 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PATCH] Crash in tun
-Date: Sat, 21 Jul 2012 02:53:55 -0700
-Message-ID: <1342864435.25472.79.camel@haakon2.linux-iscsi.org>
-References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz>
-	 <1342678175.2626.3849.camel@edumazet-glaptop>
-	 <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
-	 <20120720.112337.474955511809249636.davem@davemloft.net>
-	 <20120721075518.GY31729@ZenIV.linux.org.uk>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] b44: add 64 bit stats
+Date: Sat, 21 Jul 2012 13:12:04 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207211300460.1849@ja.ssi.bg>
+References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>  <1342337165.3265.10640.camel@edumazet-glaptop>  <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>  <1342759989.2626.5472.camel@edumazet-glaptop>
+ <1342761865.2626.5572.camel@edumazet-glaptop>  <CABF+-6Ubh6rSYV=L8-QV466XNo5OqCxA+4DRqXGdELhnSPkPZQ@mail.gmail.com>  <CABF+-6XGO0Qvqd1O-aY28kG1jV=L6eRcupnZpaimTunddPwL2A@mail.gmail.com> <1342847376.2626.8162.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	mikulas@artax.karlin.mff.cuni.cz, eric.dumazet@gmail.com,
-	maxk@qualcomm.com, vtun@office.satix.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Andy Grover <agrover@redhat.com>,
-	Hannes Reinecke <mail@hannes-reinecke.de>,
-	Christoph Hellwig <hch@lst.de>,
-	Mike Christie <mchristi@redhat.com>,
-	target-devel <target-devel@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linux-iscsi.org ([67.23.28.174]:51487 "EHLO
-	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467Ab2GUJx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2012 05:53:59 -0400
-In-Reply-To: <20120721075518.GY31729@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Kevin Groeneveld <kgroeneveld@gmail.com>, netdev@vger.kernel.org,
+	Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>, lvs-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1342847376.2626.8162.camel@edumazet-glaptop>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-07-21 at 08:55 +0100, Al Viro wrote:
-> 	BTW, speaking of struct file treatment related to sockets -
-> there's this piece of code in iscsi:
->         /*
->          * The SCTP stack needs struct socket->file.
->          */
->         if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
->             (np->np_network_transport == ISCSI_SCTP_UDP)) {
->                 if (!new_sock->file) {
->                         new_sock->file = kzalloc(
->                                         sizeof(struct file), GFP_KERNEL);
+
+	Hello,
+
+On Sat, 21 Jul 2012, Eric Dumazet wrote:
+
+> The writer sides might be run concurrently by several cpus, so
+> u64_stats_update_begin(&sstats->syncp); are racy : a reader can
+> be trapped forever.
 > 
-> For one thing, as far as I can see it'not true - sctp does *not* depend on
-> socket->file being non-NULL; it does, in one place, check socket->file->f_flags
-> for O_NONBLOCK, but there it treats NULL socket->file as "flag not set".
-> Which is the case here anyway - the fake struct file created in
-> __iscsi_target_login_thread() (and in iscsi_target_setup_login_socket(), with
-> the same excuse) do *not* get that flag set.
+> > net/netfilter/ipvs/ip_vs_est.c
+> > 
 > 
-> Moreover, it's a bloody serious violation of a bunch of asserts in VFS;
-> all struct file instances should come from filp_cachep, via get_empty_filp()
-> (or alloc_file(), which is a wrapper for it).  FWIW, I'm very tempted to
-> do this and be done with the entire mess:
+> Same problem for this one, I think.
 > 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-> ---
+> I CCed ipvs maintainers so that they can take a look.
 
-<nod>  Merged into target-pending.git/for-next.
+	IPVS moved to percpu counters, i.e. even on 32-bit SMP
+we do not use locks to protect the seqcounter:
 
-For the record, this logic was originally required in order to get non
-multi-homed SCTP endpoints with iscsi_target_mod to connect using
-Core-iSCSI/SCTP initiators to Linux/SCTP, but it's obviously incorrect
-for modern code.
+commit b17fc9963f837ef1acfe36e193108fb16ed58647
+Author: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Date:   Mon Jan 3 14:44:56 2011 +0100
 
-Since we don't have iscsi_sctp for Open/iSCSI code implemented just yet
-(mnc CC'ed), adding CC' to drop this incorrect code for stable.
+    IPVS: netns, ip_vs_stats and its procfs
 
-Thank you,
+> > Do these need to be updated as well?  Looking at these files quickly
+> > and with my limited knowledge of the kernel I am not sure if they
+> > update the stats in a BH context or not.
 
---nab
+	We have 2 kinds of readers:
 
-> diff --git a/drivers/target/iscsi/iscsi_target.c b/drivers/target/iscsi/iscsi_target.c
-> index d57d10c..d7dcd67 100644
-> --- a/drivers/target/iscsi/iscsi_target.c
-> +++ b/drivers/target/iscsi/iscsi_target.c
-> @@ -429,19 +429,8 @@ int iscsit_reset_np_thread(
->  
->  int iscsit_del_np_comm(struct iscsi_np *np)
->  {
-> -	if (!np->np_socket)
-> -		return 0;
-> -
-> -	/*
-> -	 * Some network transports allocate their own struct sock->file,
-> -	 * see  if we need to free any additional allocated resources.
-> -	 */
-> -	if (np->np_flags & NPF_SCTP_STRUCT_FILE) {
-> -		kfree(np->np_socket->file);
-> -		np->np_socket->file = NULL;
-> -	}
-> -
-> -	sock_release(np->np_socket);
-> +	if (np->np_socket)
-> +		sock_release(np->np_socket);
->  	return 0;
->  }
->  
-> @@ -4077,13 +4066,8 @@ int iscsit_close_connection(
->  	kfree(conn->conn_ops);
->  	conn->conn_ops = NULL;
->  
-> -	if (conn->sock) {
-> -		if (conn->conn_flags & CONNFLAG_SCTP_STRUCT_FILE) {
-> -			kfree(conn->sock->file);
-> -			conn->sock->file = NULL;
-> -		}
-> +	if (conn->sock)
->  		sock_release(conn->sock);
-> -	}
->  	conn->thread_set = NULL;
->  
->  	pr_debug("Moving to TARG_CONN_STATE_FREE.\n");
-> diff --git a/drivers/target/iscsi/iscsi_target_core.h b/drivers/target/iscsi/iscsi_target_core.h
-> index 1c70144..1dd5716 100644
-> --- a/drivers/target/iscsi/iscsi_target_core.h
-> +++ b/drivers/target/iscsi/iscsi_target_core.h
-> @@ -224,7 +224,6 @@ enum iscsi_timer_flags_table {
->  /* Used for struct iscsi_np->np_flags */
->  enum np_flags_table {
->  	NPF_IP_NETWORK		= 0x00,
-> -	NPF_SCTP_STRUCT_FILE	= 0x01 /* Bugfix */
->  };
->  
->  /* Used for struct iscsi_np->np_thread_state */
-> @@ -503,7 +502,6 @@ struct iscsi_conn {
->  	u16			local_port;
->  	int			net_size;
->  	u32			auth_id;
-> -#define CONNFLAG_SCTP_STRUCT_FILE			0x01
->  	u32			conn_flags;
->  	/* Used for iscsi_tx_login_rsp() */
->  	u32			login_itt;
-> diff --git a/drivers/target/iscsi/iscsi_target_login.c b/drivers/target/iscsi/iscsi_target_login.c
-> index a3656c9..ae30424 100644
-> --- a/drivers/target/iscsi/iscsi_target_login.c
-> +++ b/drivers/target/iscsi/iscsi_target_login.c
-> @@ -795,22 +795,6 @@ int iscsi_target_setup_login_socket(
->  	}
->  	np->np_socket = sock;
->  	/*
-> -	 * The SCTP stack needs struct socket->file.
-> -	 */
-> -	if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
-> -	    (np->np_network_transport == ISCSI_SCTP_UDP)) {
-> -		if (!sock->file) {
-> -			sock->file = kzalloc(sizeof(struct file), GFP_KERNEL);
-> -			if (!sock->file) {
-> -				pr_err("Unable to allocate struct"
-> -						" file for SCTP\n");
-> -				ret = -ENOMEM;
-> -				goto fail;
-> -			}
-> -			np->np_flags |= NPF_SCTP_STRUCT_FILE;
-> -		}
-> -	}
-> -	/*
->  	 * Setup the np->np_sockaddr from the passed sockaddr setup
->  	 * in iscsi_target_configfs.c code..
->  	 */
-> @@ -869,21 +853,15 @@ int iscsi_target_setup_login_socket(
->  
->  fail:
->  	np->np_socket = NULL;
-> -	if (sock) {
-> -		if (np->np_flags & NPF_SCTP_STRUCT_FILE) {
-> -			kfree(sock->file);
-> -			sock->file = NULL;
-> -		}
-> -
-> +	if (sock)
->  		sock_release(sock);
-> -	}
->  	return ret;
->  }
->  
->  static int __iscsi_target_login_thread(struct iscsi_np *np)
->  {
->  	u8 buffer[ISCSI_HDR_LEN], iscsi_opcode, zero_tsih = 0;
-> -	int err, ret = 0, set_sctp_conn_flag, stop;
-> +	int err, ret = 0, stop;
->  	struct iscsi_conn *conn = NULL;
->  	struct iscsi_login *login;
->  	struct iscsi_portal_group *tpg = NULL;
-> @@ -894,7 +872,6 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
->  	struct sockaddr_in6 sock_in6;
->  
->  	flush_signals(current);
-> -	set_sctp_conn_flag = 0;
->  	sock = np->np_socket;
->  
->  	spin_lock_bh(&np->np_thread_lock);
-> @@ -917,35 +894,12 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
->  		spin_unlock_bh(&np->np_thread_lock);
->  		goto out;
->  	}
-> -	/*
-> -	 * The SCTP stack needs struct socket->file.
-> -	 */
-> -	if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
-> -	    (np->np_network_transport == ISCSI_SCTP_UDP)) {
-> -		if (!new_sock->file) {
-> -			new_sock->file = kzalloc(
-> -					sizeof(struct file), GFP_KERNEL);
-> -			if (!new_sock->file) {
-> -				pr_err("Unable to allocate struct"
-> -						" file for SCTP\n");
-> -				sock_release(new_sock);
-> -				/* Get another socket */
-> -				return 1;
-> -			}
-> -			set_sctp_conn_flag = 1;
-> -		}
-> -	}
-> -
->  	iscsi_start_login_thread_timer(np);
->  
->  	conn = kzalloc(sizeof(struct iscsi_conn), GFP_KERNEL);
->  	if (!conn) {
->  		pr_err("Could not allocate memory for"
->  			" new connection\n");
-> -		if (set_sctp_conn_flag) {
-> -			kfree(new_sock->file);
-> -			new_sock->file = NULL;
-> -		}
->  		sock_release(new_sock);
->  		/* Get another socket */
->  		return 1;
-> @@ -955,9 +909,6 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
->  	conn->conn_state = TARG_CONN_STATE_FREE;
->  	conn->sock = new_sock;
->  
-> -	if (set_sctp_conn_flag)
-> -		conn->conn_flags |= CONNFLAG_SCTP_STRUCT_FILE;
-> -
->  	pr_debug("Moving to TARG_CONN_STATE_XPT_UP.\n");
->  	conn->conn_state = TARG_CONN_STATE_XPT_UP;
->  
-> @@ -1205,13 +1156,8 @@ old_sess_out:
->  		iscsi_release_param_list(conn->param_list);
->  		conn->param_list = NULL;
->  	}
-> -	if (conn->sock) {
-> -		if (conn->conn_flags & CONNFLAG_SCTP_STRUCT_FILE) {
-> -			kfree(conn->sock->file);
-> -			conn->sock->file = NULL;
-> -		}
-> +	if (conn->sock)
->  		sock_release(conn->sock);
-> -	}
->  	kfree(conn);
->  
->  	if (tpg) {
+- timer context (ip_vs_est.c): no _bh is used for fetch
+- user context (ip_vs_ctl.c): _bh is used for fetch
+
+> > Kevin
+> 
+> Thanks !
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
