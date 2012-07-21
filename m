@@ -1,75 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 4/6] e1000: configure and read MDI settings
-Date: Sat, 21 Jul 2012 10:37:04 -0700
-Message-ID: <1342892224.2135.2.camel@jtkirshe-mobl>
+Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 21 Jul 2012 10:37:48 -0700
+Message-ID: <1342892268.2135.3.camel@jtkirshe-mobl>
 References: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1342820631-19738-5-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1342826859.11373.123.camel@deadeye.wl.decadent.org.uk>
-	 <alpine.WNT.2.00.1207201807470.14524@jbrandeb-mobl2.amr.corp.intel.com>
-	 <1342885066.11373.126.camel@deadeye.wl.decadent.org.uk>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-qwHkmYxiZeLBlU+sMqlw"
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, Tushar Dave <tushar.n.dave@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+	protocol="application/pgp-signature"; boundary="=-i2CLFrMMhph6gHa/63mf"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:7487 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:16395 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751185Ab2GURhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jul 2012 13:37:16 -0400
-In-Reply-To: <1342885066.11373.126.camel@deadeye.wl.decadent.org.uk>
+	id S1751918Ab2GURhu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jul 2012 13:37:50 -0400
+In-Reply-To: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-qwHkmYxiZeLBlU+sMqlw
+--=-i2CLFrMMhph6gHa/63mf
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2012-07-21 at 16:37 +0100, Ben Hutchings wrote:
+On Fri, 2012-07-20 at 14:43 -0700, Kirsher, Jeffrey T wrote:
+> This series contains updates to ethtool, e1000, e1000e and igb with
+> regards to the new MDI ethtool support patches submitted earlier.
 >=20
-> On Fri, 2012-07-20 at 18:17 -0700, Brandeburg, Jesse wrote:
-> >=20
-> > On Fri, 20 Jul 2012, Ben Hutchings wrote:
-> > > Why don't you set ecmd->eth_tp_mdix_ctrl here?
-> > >=20
-> > > If you also leave it as 0, it's impossible for userland to tell
-> whether
-> > > the current mode was forced or automatically selected.
-> >=20
-> > Thanks for the review, right now the get interface (and ethtool
-> display)=20
-> > doesn't support any way to report if the setting was forced or not.
-> I=20
-> > didn't think about changing the get because I didn't want to modify
-> the=20
-> > userland reporting (I also figured it was a simple interface right
-> now,=20
-> > and didn't need changing, and was focused on the _set_ which is the
-> part=20
-> > fixing the users' reported bugs.)
+> The following are changes since commit fa0afcd10951afad2022dda09777d2bf70=
+cdab3d:
+>   atl1c: fix issue of io access mode for AR8152 v2.1
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 >=20
-> Everything else you can change with ETHTOOL_SSET is also reported by
-> ETHTOOL_GSET; why would this be any different?
+> Bruce W Allan (1):
+>   e1000e: implement 82577/579 MDI setting support
 >=20
-> > I think the patches as they currently stand are okay, do you agree?
-> I=20
-> > would be glad to submit a followon to implement the new "get"
-> interface if=20
-> > we can hash out the interface changes, but I see no reason to gate
-> these=20
-> > patches.
+> Jesse Brandeburg (5):
+>   ethtool.h: MDI setting support
+>   igb: implement 580 MDI setting support
+>   e1000: configure and read MDI settings
+>   e1000e: implement MDI/MDI-X control
+>   igb: update to allow reading/setting MDI state
 >=20
-> You left this for 20 months, what's the hurry now?=20
+>  drivers/net/ethernet/intel/e1000/e1000_ethtool.c |   34 ++++++++++++++++=
++++
+>  drivers/net/ethernet/intel/e1000/e1000_main.c    |    4 +++
+>  drivers/net/ethernet/intel/e1000e/ethtool.c      |   39 ++++++++++++++++=
++++---
+>  drivers/net/ethernet/intel/e1000e/phy.c          |   31 +++++++++++++++-=
+-
+>  drivers/net/ethernet/intel/igb/e1000_phy.c       |   29 ++++++++++++++--
+>  drivers/net/ethernet/intel/igb/e1000_phy.h       |    5 +--
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c     |   37 ++++++++++++++++=
+++++
+>  drivers/net/ethernet/intel/igb/igb_main.c        |    4 +++
+>  include/linux/ethtool.h                          |   17 ++++++----
+>  9 files changed, 184 insertions(+), 16 deletions(-)
+>=20
+> --
+> 1.7.10.4
+>=20
 
 Since there some changes that are needed in this patch set, I will drop
 this series from my tree so that I can continue pushing additional
 ixgbe/ixgbevf patches.
 
---=-qwHkmYxiZeLBlU+sMqlw
+--=-i2CLFrMMhph6gHa/63mf
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -77,19 +76,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAABCgAGBQJQCujAAAoJEOVv75VaS+3OYGcP/1H62uikk5gNDoO0Un32mGeh
-5CjF7407JzXO8cI3mIhKycx2yWyhm2cDCzy2UENIUrqIhrbJnqZQh4i+LMVEOqgP
-FLb1X2Bhwu4HTsfm2DW7W6FfuPw1T/CploWl/4BPVOt8WVV0qWjLki8n3J6WNa9B
-ChdrRoGa9yZ9R4T1Cqi1HZYmCfjgOVwG5iLamr3JwJekpe/c4gnxFGAqTKOqg5Rt
-Qy6+dxs8WiwhoDtxyCzxKnhh6XCrq+i2D01BdAlDTR9W4fWIxv0ERE12rq6zMGYv
-mkYBXJlN372hpSySD8G06S/ci923fwjU/OTL27EuZ8Jq6tJFLByKGDQ3rxIwSotc
-+KKfMmr6D7Bc4QUFktxUv1HkX0opXTIEGz0MwN3cANiUB1RT4fJKPq0jUrUKbNcq
-VjCuayS2JEMyDffI+JJLieuvG+FdI+AgZ+yNRsK+xUgSNA+rLJvmkoMSM3c9HBfg
-uRcj+7qjzAD/DuFUXs2eQAMJSV6Jsac0ZOD3YhC1BUYq3rEyWRCjyF40VC8ek1dK
-sR/Unn0h2tlPcQQmHe7+BydERs7d+HCpCET3sWB7n5g0blXuCzESoHE9ejOCrHAm
-dC6dtPS+8PB3Zl4OajGL20dxcQR3/1PmMl0jXTk6p1SMMIFRVZ6c80LiB5Ry5Cof
-2R3Hl3u82oeh171GpyVC
-=dh6Z
+iQIcBAABCgAGBQJQCujsAAoJEOVv75VaS+3O20QP/ibTmgI3EVXFXxJtctWL5mbK
+VdR6TVfUZalkt8WXm27i+yTsaNmPKRxUhdNM/Lcg3HZteYbPWkEFic8yJb16FjiM
+i221rAdCVNQDxb5WyfKqelWjcj0uc8F8u2tXyNKUmwCiwFeWTzhQb5Ti+P5ruoYa
+gybiFbiTI0nVQqB7d/f3BqyxRLVlwdX4LnSkdc1SgTRmiBRg42fOB8/TlftI6IxA
+0nxaIA7KeWSyfvvIpJcUzGZGeobzAJkG8zFDH7urXtvXhlFpoOlx1UaXZUA7+X1g
+D4ODtbd0IRJDevKi1De/PcrX2qTkQVhCu+1+I4OL06Bw73vnxHGXWry5IgtW6w+B
+A/ZuFep111XjQIhUCrSBVbYHtZ3T8b0Sq2S28/EhhoW0zD372gi0SlDOKOy+ezWl
+EHIvncpzDaGL/6SkhBM7U644cHKEZ47hFWIOLIEsvdAiNoGcih1Z9QOR/YQeHTvX
+j39Unpzd5cUeaQm5+smHD0OVFq5U4xY0pPBkXXl9X7b1FSCn69CIhgQwSSL7P/k6
+kLF6pfUJPE9Y8Y+45tut0+cS/dXQnmuDdOWvjRCfK1GHGg0a8NmU6D25R3dArSEc
+mychtl2LYQVQN4bq7OAR1+BbstTZJfajXZ6nOI+ZMZRLHSA4d+MBjPkcgAALMbZE
+jtlLNLeY8f1hapCyU6iX
+=UXTM
 -----END PGP SIGNATURE-----
 
---=-qwHkmYxiZeLBlU+sMqlw--
+--=-i2CLFrMMhph6gHa/63mf--
