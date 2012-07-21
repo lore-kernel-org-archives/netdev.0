@@ -1,229 +1,231 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v5] sctp: Implement quick failover draft from tsvwg
-Date: Sat, 21 Jul 2012 02:45:03 -0400
-Message-ID: <ab3918ef-84db-413c-93d7-c3b9afe8fa87@email.android.com>
-References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com> <1342810319-27457-1-git-send-email-nhorman@tuxdriver.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH] Crash in tun
+Date: Sat, 21 Jul 2012 08:55:18 +0100
+Message-ID: <20120721075518.GY31729@ZenIV.linux.org.uk>
+References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz>
+ <1342678175.2626.3849.camel@edumazet-glaptop>
+ <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz>
+ <20120720.112337.474955511809249636.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, joe@perches.com
-To: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mikulas@artax.karlin.mff.cuni.cz, eric.dumazet@gmail.com,
+	maxk@qualcomm.com, vtun@office.satix.net, netdev@vger.kernel.org,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:33543 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767Ab2GUGpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2012 02:45:09 -0400
-In-Reply-To: <1342810319-27457-1-git-send-email-nhorman@tuxdriver.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:36266 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750939Ab2GUHza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2012 03:55:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20120720.112337.474955511809249636.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman <nhorman@tuxdriver.com> wrote:
+	BTW, speaking of struct file treatment related to sockets -
+there's this piece of code in iscsi:
+        /*
+         * The SCTP stack needs struct socket->file.
+         */
+        if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
+            (np->np_network_transport == ISCSI_SCTP_UDP)) {
+                if (!new_sock->file) {
+                        new_sock->file = kzalloc(
+                                        sizeof(struct file), GFP_KERNEL);
 
->I've seen several attempts recently made to do quick failover of sctp
->transports
->by reducing various retransmit timers and counters.  While its possible
->to
->implement a faster failover on multihomed sctp associations, its not
->particularly robust, in that it can lead to unneeded retransmits, as
->well as
->false connection failures due to intermittent latency on a network.
->
->Instead, lets implement the new ietf quick failover draft found here:
->http://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
->
->This will let the sctp stack identify transports that have had a small
->number of
->errors, and avoid using them quickly until their reliability can be
->re-established.  I've tested this out on two virt guests connected via
->multiple
->isolated virt networks and believe its in compliance with the above
->draft and
->works well.
->
->Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->CC: Vlad Yasevich <vyasevich@gmail.com>
->CC: Sridhar Samudrala <sri@us.ibm.com>
->CC: "David S. Miller" <davem@davemloft.net>
->CC: linux-sctp@vger.kernel.org
->CC: joe@perches.com
->
->---
->Change notes:
->
->V2)
->- Added socket option API from section 6.1 of the specification, as per
->request from Vlad. Adding this socket option allows us to alter both
->the path
->maximum retransmit value and the path partial failure threshold for
->each
->transport and the association as a whole.
->
->- Added a per transport pf_retrans value, and initialized it from the
->association value.  This makes each transport independently
->configurable as per
->the socket option above, and prevents changes in the sysctl from
->bleeding into
->an already created association.
->
->V3)
->- Cleaned up some line spacing (Joe Perches)
->- Fixed some socket option user data sanitization (Vlad Yasevich)
->
->V4)
->- Added additional documentation (Flavio Leitner)
->
->V5)
->- Modified setsockopt option to ignore 0 pathmaxrxt rather than return
->  error (Vlad Yasevich)
->- Modified getsocopt to return option length written (Vlad Y.)
->---
-> Documentation/networking/ip-sysctl.txt |   14 +++++
-> include/net/sctp/constants.h           |    1 +
-> include/net/sctp/structs.h             |   20 ++++++-
-> include/net/sctp/user.h                |   11 ++++
-> net/sctp/associola.c                   |   37 ++++++++++--
-> net/sctp/outqueue.c                    |    6 +-
-> net/sctp/sm_sideeffect.c               |   33 +++++++++-
->net/sctp/socket.c                      |  100
->++++++++++++++++++++++++++++++++
-> net/sctp/sysctl.c                      |    9 +++
-> net/sctp/transport.c                   |    4 +-
-> 10 files changed, 220 insertions(+), 15 deletions(-)
->
->> /* API 6.2 setsockopt(), getsockopt()
->  *
->  * Applications use setsockopt() and getsockopt() to set or retrieve
->@@ -3619,6 +3669,9 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk,
->int level, int optname,
-> 	case SCTP_AUTO_ASCONF:
-> 		retval = sctp_setsockopt_auto_asconf(sk, optval, optlen);
-> 		break;
->+	case SCTP_PEER_ADDR_THLDS:
->+		retval = sctp_setsockopt_paddr_thresholds(sk, optval, optlen);
->+		break;
-> 	default:
-> 		retval = -ENOPROTOOPT;
-> 		break;
->@@ -5490,6 +5543,50 @@ static int sctp_getsockopt_assoc_ids(struct sock
->*sk, int len,
-> 	return 0;
-> }
-> 
->+/*
->+ * SCTP_PEER_ADDR_THLDS
->+ *
->+ * This option allows us to fetch the partially failed threshold for
->one or all
->+ * transports in an association.  See Section 6.1 of:
->+ * http://www.ietf.org/id/draft-nishida-tsvwg-sctp-failover-05.txt
->+ */
->+static int sctp_getsockopt_paddr_thresholds(struct sock *sk,
->+					    char __user *optval,
->+					    int optlen)
->+{
->+	struct sctp_paddrthlds val;
->+	struct sctp_transport *trans;
->+	struct sctp_association *asoc;
->+
->+	if (optlen < sizeof(struct sctp_paddrthlds))
->+		return -EINVAL;
->+	optlen = sizeof(struct sctp_paddrthlds);
->+	if (copy_from_user(&val, (struct sctp_paddrthlds __user *)optval,
->optlen))
->+		return -EFAULT;
->+
->+	if (sctp_is_any(sk, (const union sctp_addr *)&val.spt_address)) {
->+		asoc = sctp_id2assoc(sk, val.spt_assoc_id);
->+		if (!asoc)
->+			return -ENOENT;
->+
->+		val.spt_pathpfthld = asoc->pf_retrans;
->+		val.spt_pathmaxrxt = asoc->pathmaxrxt;
->+	} else {
->+		trans = sctp_addr_id2transport(sk, &val.spt_address,
->+					       val.spt_assoc_id);
->+		if (!trans)
->+			return -ENOENT;
->+
->+		val.spt_pathmaxrxt = trans->pathmaxrxt;
->+		val.spt_pathpfthld = trans->pf_retrans;
->+	}
->+
->+	if (copy_to_user(optval, &val, optlen))
->+		return -EFAULT;
->+
->+	return optlen;
+For one thing, as far as I can see it'not true - sctp does *not* depend on
+socket->file being non-NULL; it does, in one place, check socket->file->f_flags
+for O_NONBLOCK, but there it treats NULL socket->file as "flag not set".
+Which is the case here anyway - the fake struct file created in
+__iscsi_target_login_thread() (and in iscsi_target_setup_login_socket(), with
+the same excuse) do *not* get that flag set.
 
-I don't think you can simply return this.  You have to call put_user() with the value to write it back to the User.  See how other get calls are done.
+Moreover, it's a bloody serious violation of a bunch of asserts in VFS;
+all struct file instances should come from filp_cachep, via get_empty_filp()
+(or alloc_file(), which is a wrapper for it).  FWIW, I'm very tempted to
+do this and be done with the entire mess:
 
--Vlad
->+}
->+
->SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int
->optname,
-> 				char __user *optval, int __user *optlen)
-> {
->@@ -5628,6 +5725,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk,
->int level, int optname,
-> 	case SCTP_AUTO_ASCONF:
-> 		retval = sctp_getsockopt_auto_asconf(sk, len, optval, optlen);
-> 		break;
->+	case SCTP_PEER_ADDR_THLDS:
->+		retval = sctp_getsockopt_paddr_thresholds(sk, optval, len);
->+		break;
-> 	default:
-> 		retval = -ENOPROTOOPT;
-> 		break;
->diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
->index e5fe639..2b2bfe9 100644
->--- a/net/sctp/sysctl.c
->+++ b/net/sctp/sysctl.c
->@@ -141,6 +141,15 @@ static ctl_table sctp_table[] = {
-> 		.extra2		= &int_max
-> 	},
-> 	{
->+		.procname	= "pf_retrans",
->+		.data		= &sctp_pf_retrans,
->+		.maxlen		= sizeof(int),
->+		.mode		= 0644,
->+		.proc_handler	= proc_dointvec_minmax,
->+		.extra1		= &zero,
->+		.extra2		= &int_max
->+	},
->+	{
-> 		.procname	= "max_init_retransmits",
-> 		.data		= &sctp_max_retrans_init,
-> 		.maxlen		= sizeof(int),
->diff --git a/net/sctp/transport.c b/net/sctp/transport.c
->index b026ba0..194d0f3 100644
->--- a/net/sctp/transport.c
->+++ b/net/sctp/transport.c
->@@ -85,6 +85,7 @@ static struct sctp_transport
->*sctp_transport_init(struct sctp_transport *peer,
-> 
-> 	/* Initialize the default path max_retrans.  */
-> 	peer->pathmaxrxt  = sctp_max_retrans_path;
->+	peer->pf_retrans  = sctp_pf_retrans;
-> 
-> 	INIT_LIST_HEAD(&peer->transmitted);
-> 	INIT_LIST_HEAD(&peer->send_ready);
->@@ -585,7 +586,8 @@ unsigned long sctp_transport_timeout(struct
->sctp_transport *t)
-> {
-> 	unsigned long timeout;
-> 	timeout = t->rto + sctp_jitter(t->rto);
->-	if (t->state != SCTP_UNCONFIRMED)
->+	if ((t->state != SCTP_UNCONFIRMED) &&
->+	    (t->state != SCTP_PF))
-> 		timeout += t->hbinterval;
-> 	timeout += jiffies;
-> 	return timeout;
->-- 
->1.7.7.6
-
-
--- 
-Sent from my Android phone with SkitMail. Please excuse my brevity.
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+diff --git a/drivers/target/iscsi/iscsi_target.c b/drivers/target/iscsi/iscsi_target.c
+index d57d10c..d7dcd67 100644
+--- a/drivers/target/iscsi/iscsi_target.c
++++ b/drivers/target/iscsi/iscsi_target.c
+@@ -429,19 +429,8 @@ int iscsit_reset_np_thread(
+ 
+ int iscsit_del_np_comm(struct iscsi_np *np)
+ {
+-	if (!np->np_socket)
+-		return 0;
+-
+-	/*
+-	 * Some network transports allocate their own struct sock->file,
+-	 * see  if we need to free any additional allocated resources.
+-	 */
+-	if (np->np_flags & NPF_SCTP_STRUCT_FILE) {
+-		kfree(np->np_socket->file);
+-		np->np_socket->file = NULL;
+-	}
+-
+-	sock_release(np->np_socket);
++	if (np->np_socket)
++		sock_release(np->np_socket);
+ 	return 0;
+ }
+ 
+@@ -4077,13 +4066,8 @@ int iscsit_close_connection(
+ 	kfree(conn->conn_ops);
+ 	conn->conn_ops = NULL;
+ 
+-	if (conn->sock) {
+-		if (conn->conn_flags & CONNFLAG_SCTP_STRUCT_FILE) {
+-			kfree(conn->sock->file);
+-			conn->sock->file = NULL;
+-		}
++	if (conn->sock)
+ 		sock_release(conn->sock);
+-	}
+ 	conn->thread_set = NULL;
+ 
+ 	pr_debug("Moving to TARG_CONN_STATE_FREE.\n");
+diff --git a/drivers/target/iscsi/iscsi_target_core.h b/drivers/target/iscsi/iscsi_target_core.h
+index 1c70144..1dd5716 100644
+--- a/drivers/target/iscsi/iscsi_target_core.h
++++ b/drivers/target/iscsi/iscsi_target_core.h
+@@ -224,7 +224,6 @@ enum iscsi_timer_flags_table {
+ /* Used for struct iscsi_np->np_flags */
+ enum np_flags_table {
+ 	NPF_IP_NETWORK		= 0x00,
+-	NPF_SCTP_STRUCT_FILE	= 0x01 /* Bugfix */
+ };
+ 
+ /* Used for struct iscsi_np->np_thread_state */
+@@ -503,7 +502,6 @@ struct iscsi_conn {
+ 	u16			local_port;
+ 	int			net_size;
+ 	u32			auth_id;
+-#define CONNFLAG_SCTP_STRUCT_FILE			0x01
+ 	u32			conn_flags;
+ 	/* Used for iscsi_tx_login_rsp() */
+ 	u32			login_itt;
+diff --git a/drivers/target/iscsi/iscsi_target_login.c b/drivers/target/iscsi/iscsi_target_login.c
+index a3656c9..ae30424 100644
+--- a/drivers/target/iscsi/iscsi_target_login.c
++++ b/drivers/target/iscsi/iscsi_target_login.c
+@@ -795,22 +795,6 @@ int iscsi_target_setup_login_socket(
+ 	}
+ 	np->np_socket = sock;
+ 	/*
+-	 * The SCTP stack needs struct socket->file.
+-	 */
+-	if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
+-	    (np->np_network_transport == ISCSI_SCTP_UDP)) {
+-		if (!sock->file) {
+-			sock->file = kzalloc(sizeof(struct file), GFP_KERNEL);
+-			if (!sock->file) {
+-				pr_err("Unable to allocate struct"
+-						" file for SCTP\n");
+-				ret = -ENOMEM;
+-				goto fail;
+-			}
+-			np->np_flags |= NPF_SCTP_STRUCT_FILE;
+-		}
+-	}
+-	/*
+ 	 * Setup the np->np_sockaddr from the passed sockaddr setup
+ 	 * in iscsi_target_configfs.c code..
+ 	 */
+@@ -869,21 +853,15 @@ int iscsi_target_setup_login_socket(
+ 
+ fail:
+ 	np->np_socket = NULL;
+-	if (sock) {
+-		if (np->np_flags & NPF_SCTP_STRUCT_FILE) {
+-			kfree(sock->file);
+-			sock->file = NULL;
+-		}
+-
++	if (sock)
+ 		sock_release(sock);
+-	}
+ 	return ret;
+ }
+ 
+ static int __iscsi_target_login_thread(struct iscsi_np *np)
+ {
+ 	u8 buffer[ISCSI_HDR_LEN], iscsi_opcode, zero_tsih = 0;
+-	int err, ret = 0, set_sctp_conn_flag, stop;
++	int err, ret = 0, stop;
+ 	struct iscsi_conn *conn = NULL;
+ 	struct iscsi_login *login;
+ 	struct iscsi_portal_group *tpg = NULL;
+@@ -894,7 +872,6 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
+ 	struct sockaddr_in6 sock_in6;
+ 
+ 	flush_signals(current);
+-	set_sctp_conn_flag = 0;
+ 	sock = np->np_socket;
+ 
+ 	spin_lock_bh(&np->np_thread_lock);
+@@ -917,35 +894,12 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
+ 		spin_unlock_bh(&np->np_thread_lock);
+ 		goto out;
+ 	}
+-	/*
+-	 * The SCTP stack needs struct socket->file.
+-	 */
+-	if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
+-	    (np->np_network_transport == ISCSI_SCTP_UDP)) {
+-		if (!new_sock->file) {
+-			new_sock->file = kzalloc(
+-					sizeof(struct file), GFP_KERNEL);
+-			if (!new_sock->file) {
+-				pr_err("Unable to allocate struct"
+-						" file for SCTP\n");
+-				sock_release(new_sock);
+-				/* Get another socket */
+-				return 1;
+-			}
+-			set_sctp_conn_flag = 1;
+-		}
+-	}
+-
+ 	iscsi_start_login_thread_timer(np);
+ 
+ 	conn = kzalloc(sizeof(struct iscsi_conn), GFP_KERNEL);
+ 	if (!conn) {
+ 		pr_err("Could not allocate memory for"
+ 			" new connection\n");
+-		if (set_sctp_conn_flag) {
+-			kfree(new_sock->file);
+-			new_sock->file = NULL;
+-		}
+ 		sock_release(new_sock);
+ 		/* Get another socket */
+ 		return 1;
+@@ -955,9 +909,6 @@ static int __iscsi_target_login_thread(struct iscsi_np *np)
+ 	conn->conn_state = TARG_CONN_STATE_FREE;
+ 	conn->sock = new_sock;
+ 
+-	if (set_sctp_conn_flag)
+-		conn->conn_flags |= CONNFLAG_SCTP_STRUCT_FILE;
+-
+ 	pr_debug("Moving to TARG_CONN_STATE_XPT_UP.\n");
+ 	conn->conn_state = TARG_CONN_STATE_XPT_UP;
+ 
+@@ -1205,13 +1156,8 @@ old_sess_out:
+ 		iscsi_release_param_list(conn->param_list);
+ 		conn->param_list = NULL;
+ 	}
+-	if (conn->sock) {
+-		if (conn->conn_flags & CONNFLAG_SCTP_STRUCT_FILE) {
+-			kfree(conn->sock->file);
+-			conn->sock->file = NULL;
+-		}
++	if (conn->sock)
+ 		sock_release(conn->sock);
+-	}
+ 	kfree(conn);
+ 
+ 	if (tpg) {
