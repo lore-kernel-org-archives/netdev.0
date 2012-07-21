@@ -1,59 +1,162 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] b44: add 64 bit stats
-Date: Sat, 21 Jul 2012 13:12:04 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207211300460.1849@ja.ssi.bg>
-References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>  <1342337165.3265.10640.camel@edumazet-glaptop>  <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>  <1342759989.2626.5472.camel@edumazet-glaptop>
- <1342761865.2626.5572.camel@edumazet-glaptop>  <CABF+-6Ubh6rSYV=L8-QV466XNo5OqCxA+4DRqXGdELhnSPkPZQ@mail.gmail.com>  <CABF+-6XGO0Qvqd1O-aY28kG1jV=L6eRcupnZpaimTunddPwL2A@mail.gmail.com> <1342847376.2626.8162.camel@edumazet-glaptop>
+From: "Piotr Sawuk" <a9702387@unet.univie.ac.at>
+Subject: Re: resurrecting tcphealth
+Date: Sat, 21 Jul 2012 12:34:34 +0200
+Message-ID: <284fca6c9490200d9c48bba46fb3f7e6.squirrel@webmail.univie.ac.at>
+References: <e9caf38359467bfa8a1e2ac86f6ef2cc.squirrel@webmail.univie.ac.at>
+    <20120713165544.6767ea8f@nehalam.linuxnetplumber.net>
+    <87741204cd72d363d54dadf9a94bb6fe.squirrel@webmail.univie.ac.at>
+    <1342439185.23494.19.camel@edumazet-glaptop>
+    <cc2022d86834a8798518f9cccc605d45.squirrel@webmail.univie.ac.at>
+    <CAK6E8=dKZUJ3evPDGc3gP0a5bsBbYnL0NGhPZenB=T_t+5Kx5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Kevin Groeneveld <kgroeneveld@gmail.com>, netdev@vger.kernel.org,
-	Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>, lvs-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1342847376.2626.8162.camel@edumazet-glaptop>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK6E8=dKZUJ3evPDGc3gP0a5bsBbYnL0NGhPZenB=T_t+5Kx5w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fr, 20.07.2012, 16:06, Yuchung Cheng wrote:
+> On Mon, Jul 16, 2012 at 6:03 AM, Piotr Sawuk <a9702387@unet.univie.ac.at>
+> wrote:
+>> On Mo, 16.07.2012, 13:46, Eric Dumazet wrote:
+>>> On Mon, 2012-07-16 at 13:33 +0200, Piotr Sawuk wrote:
+>>>> On Sa, 14.07.2012, 01:55, Stephen Hemminger wrote:
+>>>> > I am not sure if the is really necessary since the most
+>>>> > of the stats are available elsewhere.
+>>>>
+>>>> if by "most" you mean address and port then you're right.
+>>>> but even the rtt reported by "ss -i" seems to differ from tcphealth.
+>>>
+>>> Thats because tcphealth is wrong, it assumes HZ=1000 ?
+>>>
+>>> tp->srtt unit is jiffies, not ms.
+>>
+>> thanks. any conversion-functions in the kernel for that?
+>>>
+>>> tcphealth is a gross hack.
+>>
+>> what would you do if you tried making it less gross?
+>>
+>> I've not found any similar functionality, in the kernel.
+>> I want to know an estimate for the percentage of data lost in tcp.
+>> and I want to know that without actually sending much packets.
+>> afterall I'm on the receiving end most of the time.
+>> percentage of duplicate packets received is nice too.
+>> you have any suggestions?
+>
+> counting dupack may not be as reliable as you'd like.
+> say the remote sends you 100 packets and only the first one is lost,
+> you'll see 99 dupacks. Morover any small degree reordering (<3)
+> will generate substantial dupacks but the network is perfectly fine
 
-	Hello,
+I understand that.
+but you must consider the difference between network-health and tcp-health.
+network-health on my end I can see by looking at wlan-signal strength.
+slow downloads can have many causes, some loose cable is only one possibility.
 
-On Sat, 21 Jul 2012, Eric Dumazet wrote:
+for example I once played a lan-game, 2 computers connected directly.
+however, one computer was 10 times slower than the other.
+so when the slow computer would act as server, the game would never start.
+the reason wasn't bad connection, it was packet-loss caused by slowness.
+and it had to do with the protocol being used (i.e. not tcp).
 
-> The writer sides might be run concurrently by several cpus, so
-> u64_stats_update_begin(&sstats->syncp); are racy : a reader can
-> be trapped forever.
-> 
-> > net/netfilter/ipvs/ip_vs_est.c
-> > 
-> 
-> Same problem for this one, I think.
-> 
-> I CCed ipvs maintainers so that they can take a look.
+so when in tcp I get high percentage of dupack I see something's wrong.
+not necessarily with the physical connection, but with protocol-handling.
+the paper showed dupacks indicate spikes in network-usage.
+and as we all know the bottleneck isn't the cable, it's data-processing.
+when there is a spike, lots of users connecting, network itself is ok.
+however, reordering and lost packets indicate something's up with the server.
+and that's actually the info I'm after.
 
-	IPVS moved to percpu counters, i.e. even on 32-bit SMP
-we do not use locks to protect the seqcounter:
+if I were the net-admin I would be interested in network-health too.
+bad connection indicated by packet-loss itself means I've got to check cables.
+but a user might have much wider area of interest.
+the user can't do anything about the cables, but yet is interested in them.
+i.e. useless info for the net-admin could be interesting for the user.
+that's why I do not recommend tcphealth for servers, useless overhead.
 
-commit b17fc9963f837ef1acfe36e193108fb16ed58647
-Author: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Date:   Mon Jan 3 14:44:56 2011 +0100
+so, if you want to judge usefulness of this patch, consider the situation:
+you are powerless but interested in responsiveness of thousands of servers.
+you want to learn how those servers behave at different times of a day.
+isn't dupacks and dup-packets the best info on that you can possibly get?
 
-    IPVS: netns, ip_vs_stats and its procfs
+> (see Craig Patridge's "reordering is not pathological" paper).
 
-> > Do these need to be updated as well?  Looking at these files quickly
-> > and with my limited knowledge of the kernel I am not sure if they
-> > update the stats in a BH context or not.
+thanks, will look into that.
 
-	We have 2 kinds of readers:
+> unfortunately receiver can't and does not have to distinguish loss
 
-- timer context (ip_vs_est.c): no _bh is used for fetch
-- user context (ip_vs_ctl.c): _bh is used for fetch
+true, not needed for the protocol.
+on a higher level it sill can be interesting though.
+most of the work for preventing packetloss must be done by the sender.
+but as I said before, the receiver can do something too: avoid traffic-jams!
+in a network many things are predictable, can be reprogrammed.
+this way a network could become more efficient as a whole.
+that's what spikes my interest in tcphealth, thinking more globally.
 
-> > Kevin
-> 
-> Thanks !
+>  or reordering. you can infer that but it should not be kernel's job.
 
-Regards
+that's why I made it an option as opposed to what the original author did.
+theoretically it should be possible to get the same functionality without it.
+just read the raw network-data and emulate the work of tcp and tcphealth.
+but that definitely would add a big overhead as tcp-handling is duplicated.
 
---
-Julian Anastasov <ja@ssi.bg>
+> there are public tools that inspect tcpdump traces to do that
+
+good example. so to figure out dupacks you filter out the acks.
+and you must somehow compare them, or you parse them the way the kernel does.
+in the latter case you'll have to recreate the kernel's internal data.
+definitely faster, but could result in duplicate code, that requires space.
+
+also you should consider that not all users have privilegues for tcpdump.
+and if they had, it would add another security-risk to their computer.
+and you'd have to consider multiple users on one computer, using that service.
+I can imagine a daemon in the background doing what tcphealth does.
+that's the alternative, allows for more fine-grained security.
+it could disallow spying on what connections other users have.
+(of course then you'd need to remove /proc/net/tcp output too.)
+but imagine the nightmare of keeping that daemon secure.
+afterall it must be privilegued to read all network data.
+
+if the kernel would provide what I'm looking for, this daemon could still run.
+but then it wouldn't need that risky privilegues, could focus on other stuff.
+the task of preventing users from seeing eachothers connections is enough...
+>
+> exposing duplicate packets received can be done via getsockopt(TCP_INFO)
+> although I don't know what that gives you. the remote can be too
+> aggressive in retransmission (not just because of a bad RTO) or
+> the network RTT fluctuates.
+
+TCP_INFO contains only duplicate packets *sent* (retransmits), not received!
+am I missing something? can you give a code-example that can obtain such info?
+if running that code in userspace results in same values as tcphealth...
+well, actually dupacks is more interesting than dup-packets.
+afterall in usual usage the latter will always be zero.
+>
+> I don't what if tracking last_ack_sent (the latest RCV.NXT) without
+> knowing the ISN is useful.
+
+so you suggest I should store and compare ISN too, for accuracy?
+you think the gain in accuracy justifies the added overhead?
+>
+> btw the term project paper cited concludes SACK is not useful is simply
+> wrong. This makes me suspicious about how rigorous and thoughtful of
+> its design.
+
+isn't my paper.
+but I'd guess the usefulness of SACK is only doubted from pov of users.
+remember, users connect to many servers.
+if a server behaves badly, choose another one.
+servers do not have such a choice, for them SACK naturally is important.
+
+a server would just need to look at TCP_INFO to see how useful SACK is.
+so I would conclude the author was quite thoughtful about users' pov.
+(and quite ignorant about the servers.)
+
+no matter how little knowledge the authors have, tcphealth is interesting.
+maybe it was a random discovery by sheer luck.
+the correlation between the data it provides and reality is compelling.
+if we'd judge inventions by the stupidity of their inventors...
