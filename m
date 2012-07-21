@@ -1,16 +1,18 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: [PATCH] wimax: fix printk format warnings
-Date: Sat, 21 Jul 2012 13:54:35 -0700
-Message-ID: <500B170B.4000000@xenotime.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] wimax: fix printk format warnings
+Date: Sat, 21 Jul 2012 23:02:14 +0200
+Message-ID: <CAMuHMdU4ob-+w31QyTyfa29U68_S71piZ9csgzXArQG45WqGrw@mail.gmail.com>
+References: <500B170B.4000000@xenotime.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>, wimax@linuxwimax.org,
+Cc: wimax@linuxwimax.org, netdev@vger.kernel.org,
 	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+	linux-wimax@intel.com, Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <500B170B.4000000@xenotime.net>
 List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
 	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
@@ -22,55 +24,29 @@ Sender: wimax-bounces@linuxwimax.org
 Errors-To: wimax-bounces@linuxwimax.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+On Sat, Jul 21, 2012 at 10:54 PM, Randy Dunlap <rdunlap@xenotime.net> wrote:
+> Fix printk format warnings in drivers/net/wimax/i2400m:
+>
+> drivers/net/wimax/i2400m/control.c: warning: format '%zu' expects argument of type 'size_t', but argument 4 has type 'ssize_t' [-Wformat]
+> drivers/net/wimax/i2400m/control.c: warning: format '%zu' expects argument of type 'size_t', but argument 5 has type 'ssize_t' [-Wformat]
+> drivers/net/wimax/i2400m/usb-fw.c: warning: format '%zu' expects argument of type 'size_t', but argument 4 has type 'ssize_t' [-Wformat]
+>
+> I don't see these warnings on x86.  The warnings that are quoted above
+> are from Geert's kernel build reports.
 
-Fix printk format warnings in drivers/net/wimax/i2400m:
+Yeah, while technically they are correct (size_t and ssize_t differ in
+signedness),
+they only happen for cris, which has different base types for (s)size_t
+(size_t = unsigned int, ssize_t = long), which is actually incorrect. Still
+on my list of things to fix...
 
-drivers/net/wimax/i2400m/control.c: warning: format '%zu' expects argument of type 'size_t', but argument 4 has type 'ssize_t' [-Wformat]
-drivers/net/wimax/i2400m/control.c: warning: format '%zu' expects argument of type 'size_t', but argument 5 has type 'ssize_t' [-Wformat]
-drivers/net/wimax/i2400m/usb-fw.c: warning: format '%zu' expects argument of type 'size_t', but argument 4 has type 'ssize_t' [-Wformat]
+Gr{oetje,eeting}s,
 
-I don't see these warnings on x86.  The warnings that are quoted above
-are from Geert's kernel build reports.
+                        Geert
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
-Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc:	Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Cc:	linux-wimax@intel.com
-Cc:	wimax@linuxwimax.org
----
- drivers/net/wimax/i2400m/control.c |    4 ++--
- drivers/net/wimax/i2400m/usb-fw.c  |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
---- lnx-35-rc7.orig/drivers/net/wimax/i2400m/control.c
-+++ lnx-35-rc7/drivers/net/wimax/i2400m/control.c
-@@ -130,7 +130,7 @@ ssize_t i2400m_tlv_match(const struct i2
- 	    && le16_to_cpu(tlv->length) + sizeof(*tlv) != tlv_size) {
- 		size_t size = le16_to_cpu(tlv->length) + sizeof(*tlv);
- 		printk(KERN_WARNING "W: tlv type 0x%x mismatched because of "
--		       "size (got %zu vs %zu expected)\n",
-+		       "size (got %zu vs %zd expected)\n",
- 		       tlv_type, size, tlv_size);
- 		return size;
- 	}
-@@ -235,7 +235,7 @@ const struct i2400m_tlv_hdr *i2400m_tlv_
- 			break;
- 		if (match > 0)
- 			dev_warn(dev, "TLV type 0x%04x found with size "
--				 "mismatch (%zu vs %zu needed)\n",
-+				 "mismatch (%zu vs %zd needed)\n",
- 				 tlv_type, match, tlv_size);
- 	}
- 	return tlv;
---- lnx-35-rc7.orig/drivers/net/wimax/i2400m/usb-fw.c
-+++ lnx-35-rc7/drivers/net/wimax/i2400m/usb-fw.c
-@@ -212,7 +212,7 @@ ssize_t i2400mu_bus_bm_cmd_send(struct i
- 	}
- 	if (result != cmd_size) {		/* all was transferred? */
- 		dev_err(dev, "boot-mode cmd %d: incomplete transfer "
--			"(%zu vs %zu submitted)\n",  opcode, result, cmd_size);
-+			"(%zd vs %zu submitted)\n",  opcode, result, cmd_size);
- 		result = -EIO;
- 		goto error_cmd_size;
- 	}
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
