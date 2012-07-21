@@ -1,44 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v5] sctp: Implement quick failover draft from tsvwg
-Date: Sat, 21 Jul 2012 07:03:43 -0400
-Message-ID: <20120721110343.GA5128@neilslaptop.think-freely.org>
-References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
- <1342810319-27457-1-git-send-email-nhorman@tuxdriver.com>
- <ab3918ef-84db-413c-93d7-c3b9afe8fa87@email.android.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: Re: [net-next RFC V5 4/5] virtio_net: multiqueue support
+Date: Sat, 21 Jul 2012 14:02:58 +0200
+Message-ID: <500A9A72.20507@gmail.com>
+References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+	<1341484194-8108-5-git-send-email-jasowang@redhat.com>
+	<20120720134014.GD16550@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, joe@perches.com
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59590 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750724Ab2GULDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2012 07:03:55 -0400
-Content-Disposition: inline
-In-Reply-To: <ab3918ef-84db-413c-93d7-c3b9afe8fa87@email.android.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, mashirle@us.ibm.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, sri@us.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120720134014.GD16550@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 21, 2012 at 02:45:03AM -0400, Vlad Yasevich wrote:
-> Neil Horman <nhorman@tuxdriver.com> wrote:
-><snip>
-> >+
-> >+		val.spt_pathmaxrxt = trans->pathmaxrxt;
-> >+		val.spt_pathpfthld = trans->pf_retrans;
-> >+	}
-> >+
-> >+	if (copy_to_user(optval, &val, optlen))
-> >+		return -EFAULT;
-> >+
-> >+	return optlen;
-> 
-> I don't think you can simply return this.  You have to call put_user() with the value to write it back to the User.  See how other get calls are done.
-> 
-> -Vlad
-> 
-Yeah, sorry, I had assumed that the put_user for the return code was part of the
-common sctp_getsockopt path and didn't go check.  Thanks, I'll respin this later
-tonight.
-Neil
+On 07/20/2012 03:40 PM, Michael S. Tsirkin wrote:
+>> -	err = init_vqs(vi);
+>> > +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>> > +		vi->has_cvq = true;
+>> > +
+> How about we disable multiqueue if there's no cvq?
+> Will make logic a bit simpler, won't it?
+
+multiqueues don't really depend on cvq. Does this added complexity really justifies adding an artificial limit?
