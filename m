@@ -1,88 +1,176 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/13] ixgbe: Reduce Rx header size to what is actually used
-Date: Sat, 21 Jul 2012 16:08:56 -0700
-Message-ID: <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/13] ixgbe: Drop probe_vf and merge functionality into ixgbe_enable_sriov
+Date: Sat, 21 Jul 2012 16:08:50 -0700
+Message-ID: <1342912142-11130-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Eric Dumazet <edumazet@google.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:22894 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:11129 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751975Ab2GUXJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jul 2012 19:09:10 -0400
+	id S1751396Ab2GUXJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jul 2012 19:09:07 -0400
 In-Reply-To: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The recent changes to netdev_alloc_skb actually make it so that the size of
-the buffer now actually has a more direct input on the truesize.  So in
-order to make best use of the piece of a page we are allocated I am
-reducing the IXGBE_RX_HDR_SIZE to 256 so that our truesize will be reduced
-by 256 bytes as well.
+This is meant to fix a bug in which we were not checking for pre-existing
+VFs if we were not setting the max_vfs value at driver load.  What happens
+now is that we always call ixgbe_enable_sriov and this checks for
+pre-existing VFs ore requested VFs prior to deciding on no SR-IOV.
 
-This should result in performance improvements since the number of uses per
-page should increase from 4 to 6 in the case of a 4K page.  In addition we
-should see socket performance improvements due to the truesize dropping
-to less than 1K for buffers less than 256 bytes.
-
-Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   15 ++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
- 2 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |    3 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |   33 +++++++-----------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   24 ++++++++++++-----
+ 3 files changed, 28 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index eb59282..b9623e9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -77,17 +77,18 @@
- #define IXGBE_MAX_FCPAUSE		 0xFFFF
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 38d1b65..3ff5aa8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -1061,8 +1061,7 @@ static void ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 	}
+ 	adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 	adapter->atr_sample_rate = 0;
+-	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
+-		ixgbe_disable_sriov(adapter);
++	ixgbe_disable_sriov(adapter);
  
- /* Supported Rx Buffer Sizes */
--#define IXGBE_RXBUFFER_512   512    /* Used for packet split */
-+#define IXGBE_RXBUFFER_256    256  /* Used for skb receive header */
- #define IXGBE_MAX_RXBUFFER  16384  /* largest size for a single descriptor */
- 
- /*
-- * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN mans we
-- * reserve 2 more, and skb_shared_info adds an additional 384 bytes more,
-- * this adds up to 512 bytes of extra data meaning the smallest allocation
-- * we could have is 1K.
-- * i.e. RXBUFFER_512 --> size-1024 slab
-+ * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
-+ * reserve 64 more, and skb_shared_info adds an additional 320 bytes more,
-+ * this adds up to 448 bytes of extra data.
-+ *
-+ * Since netdev_alloc_skb now allocates a page fragment we can use a value
-+ * of 256 and the resultant skb will have a truesize of 960 or less.
-  */
--#define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_512
-+#define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_256
- 
- #define MAXIMUM_ETHERNET_VLAN_SIZE (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
- 
+ 	adapter->ring_feature[RING_F_RSS].limit = 1;
+ 	ixgbe_set_num_queues(adapter);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7be3504..b376926 100644
+index f4e53c1..24f2b45 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1517,8 +1517,8 @@ static bool ixgbe_cleanup_headers(struct ixgbe_ring *rx_ring,
- 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
- 	 */
- 	pull_len = skb_frag_size(frag);
--	if (pull_len > 256)
--		pull_len = ixgbe_get_headlen(va, pull_len);
-+	if (pull_len > IXGBE_RX_HDR_SIZE)
-+		pull_len = ixgbe_get_headlen(va, IXGBE_RX_HDR_SIZE);
+@@ -4490,6 +4490,12 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	hw->fc.send_xon = true;
+ 	hw->fc.disable_fc_autoneg = false;
  
- 	/* align pull length to size of long to optimize memcpy performance */
- 	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
++#ifdef CONFIG_PCI_IOV
++	/* assign number of SR-IOV VFs */
++	if (hw->mac.type != ixgbe_mac_82598EB)
++		adapter->num_vfs = (max_vfs > 63) ? 0 : max_vfs;
++
++#endif
+ 	/* enable itr by default in dynamic mode */
+ 	adapter->rx_itr_setting = 1;
+ 	adapter->tx_itr_setting = 1;
+@@ -6942,26 +6948,6 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
+ };
+ 
+-static void __devinit ixgbe_probe_vf(struct ixgbe_adapter *adapter,
+-				     const struct ixgbe_info *ii)
+-{
+-#ifdef CONFIG_PCI_IOV
+-	struct ixgbe_hw *hw = &adapter->hw;
+-
+-	if (hw->mac.type == ixgbe_mac_82598EB)
+-		return;
+-
+-	/* The 82599 supports up to 64 VFs per physical function
+-	 * but this implementation limits allocation to 63 so that
+-	 * basic networking resources are still available to the
+-	 * physical function.  If the user requests greater thn
+-	 * 63 VFs then it is an error - reset to default of zero.
+-	 */
+-	adapter->num_vfs = (max_vfs > 63) ? 0 : max_vfs;
+-	ixgbe_enable_sriov(adapter, ii);
+-#endif /* CONFIG_PCI_IOV */
+-}
+-
+ /**
+  * ixgbe_wol_supported - Check whether device supports WoL
+  * @hw: hw specific details
+@@ -7206,8 +7192,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 		goto err_sw_init;
+ 	}
+ 
+-	ixgbe_probe_vf(adapter, ii);
++#ifdef CONFIG_PCI_IOV
++	ixgbe_enable_sriov(adapter, ii);
+ 
++#endif
+ 	netdev->features = NETIF_F_SG |
+ 			   NETIF_F_IP_CSUM |
+ 			   NETIF_F_IPV6_CSUM |
+@@ -7411,8 +7399,7 @@ err_register:
+ 	ixgbe_release_hw_control(adapter);
+ 	ixgbe_clear_interrupt_scheme(adapter);
+ err_sw_init:
+-	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
+-		ixgbe_disable_sriov(adapter);
++	ixgbe_disable_sriov(adapter);
+ 	adapter->flags2 &= ~IXGBE_FLAG2_SEARCH_FOR_SFP;
+ 	iounmap(hw->hw_addr);
+ err_ioremap:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index a825d48..593fdd5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -82,7 +82,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
+ 			 const struct ixgbe_info *ii)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	int err = 0;
+ 	int num_vf_macvlans, i;
+ 	struct vf_macvlans *mv_list;
+ 	int pre_existing_vfs = 0;
+@@ -106,10 +105,21 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
+ 			 "enabled for this device - Please reload all "
+ 			 "VF drivers to avoid spoofed packet errors\n");
+ 	} else {
++		int err;
++		/*
++		 * The 82599 supports up to 64 VFs per physical function
++		 * but this implementation limits allocation to 63 so that
++		 * basic networking resources are still available to the
++		 * physical function.  If the user requests greater thn
++		 * 63 VFs then it is an error - reset to default of zero.
++		 */
++		adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, 63);
++
+ 		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
+ 		if (err) {
+ 			e_err(probe, "Failed to enable PCI sriov: %d\n", err);
+-			goto err_novfs;
++			adapter->num_vfs = 0;
++			return;
+ 		}
+ 	}
+ 
+@@ -193,11 +203,7 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
+ 	/* Oh oh */
+ 	e_err(probe, "Unable to allocate memory for VF Data Storage - "
+ 	      "SRIOV disabled\n");
+-	pci_disable_sriov(adapter->pdev);
+-
+-err_novfs:
+-	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
+-	adapter->num_vfs = 0;
++	ixgbe_disable_sriov(adapter);
+ }
+ #endif /* #ifdef CONFIG_PCI_IOV */
+ 
+@@ -219,6 +225,10 @@ void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
+ 	kfree(adapter->mv_list);
+ 	adapter->mv_list = NULL;
+ 
++	/* if SR-IOV is already disabled then there is nothing to do */
++	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
++		return;
++
+ #ifdef CONFIG_PCI_IOV
+ 	/* disable iov and allow time for transactions to clear */
+ 	pci_disable_sriov(adapter->pdev);
 -- 
 1.7.10.4
