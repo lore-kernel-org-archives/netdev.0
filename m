@@ -1,39 +1,47 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [net-next 4/6] e1000: configure and read MDI settings
-Date: Fri, 20 Jul 2012 18:17:21 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.1207201807470.14524@jbrandeb-mobl2.amr.corp.intel.com>
-References: <1342820631-19738-1-git-send-email-jeffrey.t.kirsher@intel.com>  <1342820631-19738-5-git-send-email-jeffrey.t.kirsher@intel.com> <1342826859.11373.123.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Tushar Dave <tushar.n.dave@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Subject: [PATCH v3 1/2] net: ethernet: davinci_emac: Remove unnecessary #include
+Date: Fri, 20 Jul 2012 18:19:21 -0700
+Message-ID: <1342833562-3435-2-git-send-email-mgreer@animalcreek.com>
+References: <1342833562-3435-1-git-send-email-mgreer@animalcreek.com>
+Cc: linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	"Mark A. Greer" <mgreer@animalcreek.com>,
+	Sekhar Nori <nsekhar@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:13163 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752522Ab2GUBRY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jul 2012 21:17:24 -0400
-In-Reply-To: <1342826859.11373.123.camel@deadeye.wl.decadent.org.uk>
+Received: from mail20.dotsterhost.com ([66.11.232.73]:33406 "EHLO
+	mail20.dotsterhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753083Ab2GUBT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jul 2012 21:19:28 -0400
+In-Reply-To: <1342833562-3435-1-git-send-email-mgreer@animalcreek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: "Mark A. Greer" <mgreer@animalcreek.com>
 
+The '#include <mach/mux.h>' line in davinci_emac.c
+causes a compile error because that header file
+isn't found.  It turns out that the #include isn't
+needed because the driver isn't (and shoudn't be)
+touching the mux anyway, so remove it.
 
-On Fri, 20 Jul 2012, Ben Hutchings wrote:
-> Why don't you set ecmd->eth_tp_mdix_ctrl here?
-> 
-> If you also leave it as 0, it's impossible for userland to tell whether
-> the current mode was forced or automatically selected.
+CC: Sekhar Nori <nsekhar@ti.com>
+Signed-off-by: Mark A. Greer <mgreer@animalcreek.com>
+---
+ drivers/net/ethernet/ti/davinci_emac.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Thanks for the review, right now the get interface (and ethtool display) 
-doesn't support any way to report if the setting was forced or not.  I 
-didn't think about changing the get because I didn't want to modify the 
-userland reporting (I also figured it was a simple interface right now, 
-and didn't need changing, and was focused on the _set_ which is the part 
-fixing the users' reported bugs.)
-
-I think the patches as they currently stand are okay, do you agree? I 
-would be glad to submit a followon to implement the new "get" interface if 
-we can hash out the interface changes, but I see no reason to gate these 
-patches.
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index b298ab0..1a9c43f 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -63,8 +63,6 @@
+ #include <linux/of_irq.h>
+ #include <linux/of_net.h>
+ 
+-#include <mach/mux.h>
+-
+ #include <asm/irq.h>
+ #include <asm/page.h>
+ 
+-- 
+1.7.11.2
