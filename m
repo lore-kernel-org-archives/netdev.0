@@ -1,79 +1,82 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] b44: add 64 bit stats
-Date: Sat, 21 Jul 2012 07:09:36 +0200
-Message-ID: <1342847376.2626.8162.camel@edumazet-glaptop>
-References: <CABF+-6XaYk8qXnFNXF_+rQ144jyDFgFqDVKsuZv+S_0VZxBAvw@mail.gmail.com>
-	 <1342337165.3265.10640.camel@edumazet-glaptop>
-	 <CABF+-6XVCTDZedzcp-gWACYpG9NLmZUdwW2zsXC8WNKWk3dE5w@mail.gmail.com>
-	 <1342759989.2626.5472.camel@edumazet-glaptop>
-	 <1342761865.2626.5572.camel@edumazet-glaptop>
-	 <CABF+-6Ubh6rSYV=L8-QV466XNo5OqCxA+4DRqXGdELhnSPkPZQ@mail.gmail.com>
-	 <CABF+-6XGO0Qvqd1O-aY28kG1jV=L6eRcupnZpaimTunddPwL2A@mail.gmail.com>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Sat, 21 Jul 2012 07:40:07 +0200
+Message-ID: <1342849207.2626.8196.camel@edumazet-glaptop>
+References: <1342824166.2626.8112.camel@edumazet-glaptop>
+	 <20120720.155021.1919200619716435427.davem@davemloft.net>
+	 <20120720.155412.1512575922394612084.davem@davemloft.net>
+	 <20120720.161331.2251326254024647237.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Wensong Zhang <wensong@linux-vs.org>, lvs-devel@vger.kernel.org
-To: Kevin Groeneveld <kgroeneveld@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:54029 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750731Ab2GUFJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2012 01:09:42 -0400
-In-Reply-To: <CABF+-6XGO0Qvqd1O-aY28kG1jV=L6eRcupnZpaimTunddPwL2A@mail.gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:54804 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875Ab2GUFkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jul 2012 01:40:13 -0400
+Received: by weyx8 with SMTP id x8so3070459wey.19
+        for <netdev@vger.kernel.org>; Fri, 20 Jul 2012 22:40:12 -0700 (PDT)
+In-Reply-To: <20120720.161331.2251326254024647237.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-20 at 22:22 -0400, Kevin Groeneveld wrote:
-> On Fri, Jul 20, 2012 at 2:56 PM, Kevin Groeneveld <kgroeneveld@gmail.com> wrote:
-> >> In fact all network drivers should use the _bh version.
-> >> Could you send a patch for all of them, based on net-next tree ?
-> >
-> > Sure, I can work on that.  It should be a relatively easy thing to
-> > update.  I can probably send a patch within the next couple days.
+On Fri, 2012-07-20 at 16:13 -0700, David Miller wrote:
+
 > 
-> As I have been working on the patch I have been trying convince myself
-> that each case I change actually needs the _bh version of the
-> functions instead of blindly changing them.  So far I have found the
-> following where the change seems to make sense:
+> ====================
+> [PATCH] ipv4: Fix neigh lookup keying over loopback/point-to-point devices.
 > 
-> drivers/net/dummy.c
-> drivers/net/ethernet/neterion/vxge/vxge-main.c
-> drivers/net/loopback.c
-> drivers/net/virtio_net.c
-> net/bridge/br_device.c
+> We were using a special key "0" for all loopback and point-to-point
+> device neigh lookups under ipv4, but we wouldn't use that special
+> key for the neigh creation.
 > 
-
-Thats right.
-
-> The only two other places in the networking code that use
-> u64_stats_fetch_begin/u64_stats_fetch_retry are:
+> So basically we'd make a new neigh at each and every lookup :-)
 > 
-> net/l2tp/l2tp_netlink.c
-
-This one is completely buggy, dont waste your time on it.
-
-My plan for this one : dont try to have 64bit stats on 32bit arches, and
-use plain "unsigned long" counters (if they are percpu), or
-atomic_long_t (if they are shared by all cpus)
-
-The writer sides might be run concurrently by several cpus, so
-u64_stats_update_begin(&sstats->syncp); are racy : a reader can
-be trapped forever.
-
-> net/netfilter/ipvs/ip_vs_est.c
+> This special case to use only one neigh for these device types
+> is of dubious value, so just remove it entirely.
 > 
-
-Same problem for this one, I think.
-
-I CCed ipvs maintainers so that they can take a look.
-
-> Do these need to be updated as well?  Looking at these files quickly
-> and with my limited knowledge of the kernel I am not sure if they
-> update the stats in a BH context or not.
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/net/arp.h |    3 ---
+>  1 file changed, 3 deletions(-)
 > 
-> 
-> Kevin
+> diff --git a/include/net/arp.h b/include/net/arp.h
+> index 4617d98..7f7df93 100644
+> --- a/include/net/arp.h
+> +++ b/include/net/arp.h
+> @@ -21,9 +21,6 @@ static inline struct neighbour *__ipv4_neigh_lookup_noref(struct net_device *dev
+>  	struct neighbour *n;
+>  	u32 hash_val;
+>  
+> -	if (dev->flags & (IFF_LOOPBACK | IFF_POINTOPOINT))
+> -		key = 0;
+> -
+>  	hash_val = arp_hashfn(key, dev, nht->hash_rnd[0]) >> (32 - nht->hash_shift);
+>  	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
+>  	     n != NULL;
 
-Thanks !
+Excellent
+
+ Operation      Count    AvgLat    MaxLat
+ ----------------------------------------
+ NTCreateX    8024082     0.024     2.443
+ Close        5894419     0.025     1.426
+ Rename        339732     0.024     0.097
+ Unlink       1620260     0.024     1.438
+ Deltree          228     0.000     0.001
+ Mkdir            114     0.025     0.032
+ Qpathinfo    7272340     0.024     1.436
+ Qfileinfo    1275230     0.024     1.412
+ Qfsinfo      1333479     0.025     0.887
+ Sfileinfo     653595     0.025     0.160
+ Find         2811797     0.024     1.380
+ WriteX       4005005     0.045     2.272
+ ReadX        12576354     0.031     6.542
+ LockX          26120     0.026     0.059
+ UnlockX        26120     0.025     0.052
+ Flush         562378     0.025     1.372
+
+Throughput 4202.27 MB/sec  24 clients  24 procs  max_latency=2.343 ms
