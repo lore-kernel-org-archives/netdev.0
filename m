@@ -1,109 +1,42 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: ibmveth bug?
-Date: Sat, 21 Jul 2012 10:52:46 +1000
-Message-ID: <1342831966.29855.6.camel@pasglop>
-References: <20120515170141.GA14272@linux.vnet.ibm.com>
-	 <20120720224112.GD19288@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: santil@linux.vnet.ibm.com, anton@samba.org, paulus@samba.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Anton Blanchard <anton@au1.ibm.com>
-To: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120720224112.GD19288@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Mark A. Greer" <mgreer@animalcreek.com>
+Subject: [PATCH 1/2] net: ethernet: davinci_emac: Remove unnecessary #include
+Date: Fri, 20 Jul 2012 18:12:40 -0700
+Message-ID: <1342833161-3314-1-git-send-email-mgreer@animalcreek.com>
+Cc: linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	"Mark A. Greer" <mgreer@animalcreek.com>,
+	Sekhar Nori <nsekhar@ti.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-07-20 at 15:41 -0700, Nishanth Aravamudan wrote:
-> Ping on this ... we've tripped the same issue on a different system, it
-> would appear. Would appreciate if anyone can provide answers to the
-> questions below.
+From: "Mark A. Greer" <mgreer@animalcreek.com>
 
-Well, I haven't hit it but your description makes sense. Why not use
-dma_alloc_coherent though ? Rather than kmalloc followed by map ?
+The '#include <mach/mux.h>' line in davinci_emac.c
+causes a compile error because that header file
+isn't found.  It turns out that the #include isn't
+needed because the driver isn't (and shoudn't be)
+touching the mux anyway, so remove it.
 
-At least on power we give you page alignment for these, so the problem
-is solved magically :-) Another option is GFP + dma_map_page which is
-roughly equivalent.
+CC: Sekhar Nori <nsekhar@ti.com>
+Signed-off-by: Mark A. Greer <mgreer@animalcreek.com>
+---
+ drivers/net/ethernet/ti/davinci_emac.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-If you think it's a waste of space based on the queue size, then just
-add an extra pointer, I wouldn't bother with a cache for something only
-allocated when the driver initializes.
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index b298ab0..1a9c43f 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -63,8 +63,6 @@
+ #include <linux/of_irq.h>
+ #include <linux/of_net.h>
+ 
+-#include <mach/mux.h>
+-
+ #include <asm/irq.h>
+ #include <asm/page.h>
+ 
+-- 
+1.7.11.2
 
-Cheers,
-Ben.
-
-> Thanks,
-> Nish
-> 
-> On 15.05.2012 [10:01:41 -0700], Nishanth Aravamudan wrote:
-> > Hi Santiago,
-> > 
-> > Are you still working on ibmveth?
-> > 
-> > I've found a very sporadic bug with ibmveth in some testing. PAPR
-> > requires that:
-> > 
-> > "Validate the Buffer Descriptor of the receive queue buffer (I/O
-> > addresses for entire buffer length starting at the spec- ified I/O
-> > address are translated by the RTCE table, length is a multiple of 16
-> > bytes, and alignment is on a 16 byte boundary) else H_Parameter."
-> > 
-> > but from what I can tell ibmveth.c is not enforcing this last condition:
-> > 
-> > 	adapter->rx_queue.queue_addr =
-> > 		kmalloc(adapter->rx_queue.queue_len, GFP_KERNEL);
-> > 
-> > 	...
-> > 
-> > 	adapter->rx_queue.queue_dma = dma_map_single(dev,
-> > 		adapter->rx_queue.queue_addr, adapter->rx_queue.queue_len,
-> > 		DMA_BIDIRECTIONAL);
-> > 
-> > 	...
-> > 
-> > 	rxq_desc.fields.address = adapter->rx_queue.queue_dma;
-> > 
-> > 	...
-> > 	
-> > 
-> > 	lpar_rc = ibmveth_register_logical_lan(adapter, rxq_desc,
-> > 		mac_address);
-> > 	netdev_err(netdev, "buffer TCE:0x%llx filter TCE:0x%llx rxq "
-> > 	 	"desc:0x%llx MAC:0x%llx\n", adapter->buffer_list_dma,
-> > 	 	adapter->filter_list_dma, rxq_desc.desc, mac_address);
-> > 
-> > And I got on one install attempt:
-> > 
-> > [ 39.978430] ibmveth 30000004: eth0: h_register_logical_lan failed with -4
-> > [ 39.978449] ibmveth 30000004: eth0: buffer TCE:0x1000 filter TCE:0x10000 rxq desc:0x80006010000200a8 MAC:0x56754de8e904
-> > 
-> > rxq desc, as you can see is not 16byte aligned. kmalloc() only
-> > guarantees 8-byte alignment (as does gcc, I think). Initially, I thought
-> > we could just overallocate the queue_addr and ALIGN() down, but then we
-> > would need to save the original kmalloc pointer in a new struct member
-> > per rx_queue.
-> > 
-> > So a couple of questions:
-> > 
-> > 1) Is my analysis accurate? :)
-> > 
-> > 2) How gross would it be to save an extra pointer for every rx_queue?
-> > 
-> > 3) Based upon 2), is it better to just go ahead and create our own
-> > kmem_cache (which gets an alignment specified)?
-> > 
-> > For 3), I started coding this, but couldn't find a clean place to
-> > allocate the kmem_cache itself, as the size of each object depends on
-> > the run-time characteristics (afaict), but needs to be specified at
-> > cache creation time. Any insight you could provide would be great!
-> > 
-> > Thanks,
-> > Nish
-> >  
-> > -- 
-> > Nishanth Aravamudan <nacc@us.ibm.com>
-> > IBM Linux Technology Center
-> 
