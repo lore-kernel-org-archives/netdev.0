@@ -1,280 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] ixgbe: Change how we check for pre-existing and assigned VFs
-Date: Sat, 21 Jul 2012 16:08:51 -0700
-Message-ID: <1342912142-11130-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 21 Jul 2012 16:08:49 -0700
+Message-ID: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:11129 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751255Ab2GUXJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jul 2012 19:09:08 -0400
-In-Reply-To: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751255Ab2GUXJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jul 2012 19:09:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+This series contains updates to ixgbe and ixgbevf.
 
-This patch does two things.  First it drops the unnecessary work of
-searching for enabled VFs when we first bring up the adapter and instead
-just uses pci_num_vf to determine how many VFs are enabled on the adapter.
+The following are changes since commit 186e868786f97c8026f0a81400b451ace306b3a4:
+  forcedeth: spin_unlock_irq in interrupt handler fix
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-The second thing it does is drop the use of vfdev from the vf_data_storage
-structure.  Instead we just search the entire system for a VF that has us
-as it's PF, and then if that VF is assigned we indicate that the VFs are
-assigned.  This allows us to still check for assigned VFs even if the
-vfinfo allocation has failed, or vfinfo has been freed.
+Akeem G. Abodunrin (1):
+  igb: reset PHY in the link_up process to recover PHY setting after
+    power down.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |    8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  129 ++++++++----------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |    1 -
- 4 files changed, 45 insertions(+), 94 deletions(-)
+Alexander Duyck (8):
+  ixgbe: Drop probe_vf and merge functionality into ixgbe_enable_sriov
+  ixgbe: Change how we check for pre-existing and assigned VFs
+  ixgbevf: Add lock around mailbox ops to prevent simultaneous access
+  ixgbevf: Add support for PCI error handling
+  ixgbe: Fix handling of FDIR_HASH flag
+  ixgbe: Reduce Rx header size to what is actually used
+  ixgbe: Use num_tcs.pg_tcs as upper limit for TC when checking based
+    on UP
+  ixgbe: Use 1TC DCB instead of disabling DCB for MSI and legacy
+    interrupts
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 5a286ad..eb59282 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -130,7 +130,6 @@ struct vf_data_storage {
- 	u16 tx_rate;
- 	u16 vlan_count;
- 	u8 spoofchk_enabled;
--	struct pci_dev *vfdev;
- };
- 
- struct vf_macvlans {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 24f2b45..9c42679 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7452,13 +7452,7 @@ static void __devexit ixgbe_remove(struct pci_dev *pdev)
- 	if (netdev->reg_state == NETREG_REGISTERED)
- 		unregister_netdev(netdev);
- 
--	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
--		if (!(ixgbe_check_vf_assignment(adapter)))
--			ixgbe_disable_sriov(adapter);
--		else
--			e_dev_warn("Unloading driver while VFs are assigned "
--				   "- VFs will not be deallocated\n");
--	}
-+	ixgbe_disable_sriov(adapter);
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 593fdd5..47b2ce7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -44,40 +44,6 @@
- #include "ixgbe_sriov.h"
- 
- #ifdef CONFIG_PCI_IOV
--static int ixgbe_find_enabled_vfs(struct ixgbe_adapter *adapter)
--{
--	struct pci_dev *pdev = adapter->pdev;
--	struct pci_dev *pvfdev;
--	u16 vf_devfn = 0;
--	int device_id;
--	int vfs_found = 0;
--
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_82599EB:
--		device_id = IXGBE_DEV_ID_82599_VF;
--		break;
--	case ixgbe_mac_X540:
--		device_id = IXGBE_DEV_ID_X540_VF;
--		break;
--	default:
--		device_id = 0;
--		break;
--	}
--
--	vf_devfn = pdev->devfn + 0x80;
--	pvfdev = pci_get_device(PCI_VENDOR_ID_INTEL, device_id, NULL);
--	while (pvfdev) {
--		if (pvfdev->devfn == vf_devfn &&
--		    (pvfdev->bus->number >= pdev->bus->number))
--			vfs_found++;
--		vf_devfn += 2;
--		pvfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
--					device_id, pvfdev);
--	}
--
--	return vfs_found;
--}
--
- void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
- 			 const struct ixgbe_info *ii)
- {
-@@ -86,7 +52,7 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
- 	struct vf_macvlans *mv_list;
- 	int pre_existing_vfs = 0;
- 
--	pre_existing_vfs = ixgbe_find_enabled_vfs(adapter);
-+	pre_existing_vfs = pci_num_vf(adapter->pdev);
- 	if (!pre_existing_vfs && !adapter->num_vfs)
- 		return;
- 
-@@ -205,14 +171,46 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
- 	      "SRIOV disabled\n");
- 	ixgbe_disable_sriov(adapter);
- }
--#endif /* #ifdef CONFIG_PCI_IOV */
- 
-+static bool ixgbe_vfs_are_assigned(struct ixgbe_adapter *adapter)
-+{
-+	struct pci_dev *pdev = adapter->pdev;
-+	struct pci_dev *vfdev;
-+	int dev_id;
-+
-+	switch (adapter->hw.mac.type) {
-+	case ixgbe_mac_82599EB:
-+		dev_id = IXGBE_DEV_ID_82599_VF;
-+		break;
-+	case ixgbe_mac_X540:
-+		dev_id = IXGBE_DEV_ID_X540_VF;
-+		break;
-+	default:
-+		return false;
-+	}
-+
-+	/* loop through all the VFs to see if we own any that are assigned */
-+	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, NULL);
-+	while (vfdev) {
-+		/* if we don't own it we don't care */
-+		if (vfdev->is_virtfn && vfdev->physfn == pdev) {
-+			/* if it is assigned we cannot release it */
-+			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
-+				return true;
-+		}
-+
-+		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, dev_id, vfdev);
-+	}
-+
-+	return false;
-+}
-+
-+#endif /* #ifdef CONFIG_PCI_IOV */
- void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 gpie;
- 	u32 vmdctl;
--	int i;
- 
- 	/* set num VFs to 0 to prevent access to vfinfo */
- 	adapter->num_vfs = 0;
-@@ -230,6 +228,15 @@ void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- 		return;
- 
- #ifdef CONFIG_PCI_IOV
-+	/*
-+	 * If our VFs are assigned we cannot shut down SR-IOV
-+	 * without causing issues, so just leave the hardware
-+	 * available but disabled
-+	 */
-+	if (ixgbe_vfs_are_assigned(adapter)) {
-+		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
-+		return;
-+
- 	/* disable iov and allow time for transactions to clear */
- 	pci_disable_sriov(adapter->pdev);
- #endif
-@@ -254,12 +261,6 @@ void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- 	/* take a breather then clean up driver data */
- 	msleep(100);
- 
--	/* Release reference to VF devices */
--	for (i = 0; i < adapter->num_vfs; i++) {
--		if (adapter->vfinfo[i].vfdev)
--			pci_dev_put(adapter->vfinfo[i].vfdev);
--	}
--
- 	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
- }
- 
-@@ -493,28 +494,11 @@ static int ixgbe_set_vf_macvlan(struct ixgbe_adapter *adapter,
- 	return 0;
- }
- 
--int ixgbe_check_vf_assignment(struct ixgbe_adapter *adapter)
--{
--#ifdef CONFIG_PCI_IOV
--	int i;
--	for (i = 0; i < adapter->num_vfs; i++) {
--		if (adapter->vfinfo[i].vfdev->dev_flags &
--				PCI_DEV_FLAGS_ASSIGNED)
--			return true;
--	}
--#endif
--	return false;
--}
--
- int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- {
- 	unsigned char vf_mac_addr[6];
- 	struct ixgbe_adapter *adapter = pci_get_drvdata(pdev);
- 	unsigned int vfn = (event_mask & 0x3f);
--	struct pci_dev *pvfdev;
--	unsigned int device_id;
--	u16 thisvf_devfn = (pdev->devfn + 0x80 + (vfn << 1)) |
--				(pdev->devfn & 1);
- 
- 	bool enable = ((event_mask & 0x10000000U) != 0);
- 
-@@ -527,31 +511,6 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask)
- 		 * for it later.
- 		 */
- 		memcpy(adapter->vfinfo[vfn].vf_mac_addresses, vf_mac_addr, 6);
--
--		switch (adapter->hw.mac.type) {
--		case ixgbe_mac_82599EB:
--			device_id = IXGBE_DEV_ID_82599_VF;
--			break;
--		case ixgbe_mac_X540:
--			device_id = IXGBE_DEV_ID_X540_VF;
--			break;
--		default:
--			device_id = 0;
--			break;
--		}
--
--		pvfdev = pci_get_device(PCI_VENDOR_ID_INTEL, device_id, NULL);
--		while (pvfdev) {
--			if (pvfdev->devfn == thisvf_devfn)
--				break;
--			pvfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
--						device_id, pvfdev);
--		}
--		if (pvfdev)
--			adapter->vfinfo[vfn].vfdev = pvfdev;
--		else
--			e_err(drv, "Couldn't find pci dev ptr for VF %4.4x\n",
--			      thisvf_devfn);
- 	}
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-index 2ab38d5..1be1d30 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
-@@ -42,7 +42,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
- 			    int vf, struct ifla_vf_info *ivi);
- void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
- void ixgbe_disable_sriov(struct ixgbe_adapter *adapter);
--int ixgbe_check_vf_assignment(struct ixgbe_adapter *adapter);
- #ifdef CONFIG_PCI_IOV
- void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
- 			const struct ixgbe_info *ii);
+Don Skidmore (1):
+  ixgbe: add support for new 82599 device
+
+Greg Rose (1):
+  ixgbevf: Fix namespace issue with ixgbe_write_eitr
+
+John Fastabend (2):
+  ixgbe: fix RAR entry counting for generic and fdb_add()
+  ixgbe: remove extra unused queues in DCB + FCoE case
+
+ drivers/net/ethernet/intel/igb/igb_main.c         |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   16 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c      |   12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c      |   41 ++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  140 +++++++++---------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  151 ++++++++-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |    1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |    1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    3 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  164 +++++++++++++++++----
+ 10 files changed, 323 insertions(+), 209 deletions(-)
+
 -- 
 1.7.10.4
