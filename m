@@ -1,73 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v1] net: netprio_cgroup: rework update socket
- logic
-Date: Sun, 22 Jul 2012 12:44:30 -0700 (PDT)
-Message-ID: <20120722.124430.1434387298248918593.davem@davemloft.net>
-References: <20120721020015.GA3827@neilslaptop.think-freely.org>
-	<500AE08B.5040602@intel.com>
-	<20120721171854.GA6099@neilslaptop.think-freely.org>
+Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
+ SACK when bundling
+Date: Sun, 22 Jul 2012 12:45:14 -0700 (PDT)
+Message-ID: <20120722.124514.239340989320198501.davem@davemloft.net>
+References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, gaofeng@cn.fujitsu.com, lizefan@huawei.com
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38208 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430Ab2GVTob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:44:31 -0400
-In-Reply-To: <20120721171854.GA6099@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vyasevich@gmail.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xufengzhang.main@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Sat, 21 Jul 2012 13:18:55 -0400
+From: <xufengzhang.main@gmail.com>
+Date: Thu, 19 Jul 2012 13:57:30 +0800
 
-> On Sat, Jul 21, 2012 at 10:02:03AM -0700, John Fastabend wrote:
->> On 7/20/2012 7:00 PM, Neil Horman wrote:
->> >On Fri, Jul 20, 2012 at 01:39:25PM -0700, John Fastabend wrote:
->> >>Instead of updating the sk_cgrp_prioidx struct field on every send
->> >>this only updates the field when a task is moved via cgroup
->> >>infrastructure.
->> >>
->> >>This allows sockets that may be used by a kernel worker thread
->> >>to be managed. For example in the iscsi case today a user can
->> >>put iscsid in a netprio cgroup and control traffic will be sent
->> >>with the correct sk_cgrp_prioidx value set but as soon as data
->> >>is sent the kernel worker thread isssues a send and sk_cgrp_prioidx
->> >>is updated with the kernel worker threads value which is the
->> >>default case.
->> >>
->> >>It seems more correct to only update the field when the user
->> >>explicitly sets it via control group infrastructure. This allows
->> >>the users to manage sockets that may be used with other threads.
->> >>
->> >>Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> >I like the idea, but IIRC last time we tried this I think it caused problems
->> >with processes that shared sockets.  That is to say, if you have a parent and
->> >child process that dup an socket descriptior, and put them in separate cgroups,
->> >you get unpredictable results, as the socket gets assigned a priority based on
->> >the last processed that moved cgroups.
->> >
->> >Neil
->> >
->> 
->> Shared sockets creates strange behavior as it exists today. If a dup
->> of the socket fd is created the private data is still shared right. So
->> in this case the sk_cgrp_prioidx value is going to get updated by both
->> threads and then it is a race to see what it happens to be set to in
->> the xmit path.
->> 
->> With this patch at least the behavior is deterministic. Without it
->> I can create the above scenario but have no way to determine what the
->> skb priority will actually be set to.
->> 
->> .John
->> 
-> Ok, I can buy that.  Lets give this a try:
+> When "Invalid Stream Identifier" ERROR happens after process the
+> received DATA chunks, this ERROR chunk is enqueued into outqueue
+> before SACK chunk, so when bundling ERROR chunk with SACK chunk,
+> the ERROR chunk is always placed first in the packet because of
+> the chunk's position in the outqueue.
+> This violates sctp specification:
+>     RFC 4960 6.5. Stream Identifier and Stream Sequence Number
+>     ...The endpoint may bundle the ERROR chunk in the same
+>     packet as the SACK as long as the ERROR follows the SACK.
+> So we must place SACK first when bundling "Invalid Stream Identifier"
+> ERROR and SACK in one packet.
+> Although we can do that by enqueue SACK chunk into outqueue before
+> ERROR chunk, it will violate the side-effect interpreter processing.
+> It's easy to do this job when dequeue chunks from the outqueue,
+> by this way, we introduce a flag 'has_isi_err' which indicate
+> whether or not the "Invalid Stream Identifier" ERROR happens.
 > 
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> 
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 
-Applied.
+Can some SCTP experts please review this?
