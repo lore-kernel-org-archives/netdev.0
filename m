@@ -1,60 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
-Date: Sun, 22 Jul 2012 12:37:33 -0700 (PDT)
-Message-ID: <20120722.123733.1898891964192153293.davem@davemloft.net>
-References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20120722.122405.1220712908232591030.davem@davemloft.net>
+Subject: Re: [PATCHv3 0/6] tun zerocopy support
+Date: Sun, 22 Jul 2012 12:40:20 -0700 (PDT)
+Message-ID: <20120722.124020.1299343386554149788.davem@davemloft.net>
+References: <cover.1342812067.git.mst@redhat.com>
+	<20120720.174902.2055189237500355771.davem@davemloft.net>
+	<20120721220534.GA22912@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38143 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430Ab2GVThe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:37:34 -0400
-In-Reply-To: <20120722.122405.1220712908232591030.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jasowang@redhat.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, Ian.Campbell@citrix.com
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120721220534.GA22912@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 22 Jul 2012 12:24:05 -0700 (PDT)
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 22 Jul 2012 01:05:34 +0300
 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sat, 21 Jul 2012 16:08:49 -0700
+> I agree a small win in CPU use is nothing to write home about,
+> I don't yet understand why the win is so small - macvtap has zero copy
+> supported for a while and it has exactly same issues.
+> I hope adding tun zerocopy support upstream will help us
+> make progress faster and find the bottleneck, so far not many people use
+> macvtap so zero copy mode there didn't make progress.
 > 
->> This series contains updates to ixgbe and ixgbevf.
->> 
->> The following are changes since commit 186e868786f97c8026f0a81400b451ace306b3a4:
->>   forcedeth: spin_unlock_irq in interrupt handler fix
->> and are available in the git repository at:
->>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> I do know why local performance regresses with zero copy enabled:
+> instead of plain copy to user we got get user pages and then memcpy.
+> We'll need some logic here to detect this and turn off zero copy.
 > 
-> Pulled, thanks Jeff.
+> The core patches will also be helpful for Ian's more ambitious work.
+> 
+> Overall I think it's a step in the right direction and it's easier to
+> work if core parts are upstream, but if you think we need to wait
+> until the gains are more significant, I understand that too.
 
-Can you guys actually build test this stuff?
-
-====================
-[PATCH] ixgbe: Fix build with PCI_IOV enabled.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 47b2ce7..4fea871 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -236,7 +236,7 @@ void ixgbe_disable_sriov(struct ixgbe_adapter *adapter)
- 	if (ixgbe_vfs_are_assigned(adapter)) {
- 		e_dev_warn("Unloading driver while VFs are assigned - VFs will not be deallocated\n");
- 		return;
--
-+	}
- 	/* disable iov and allow time for transactions to clear */
- 	pci_disable_sriov(adapter->pdev);
- #endif
--- 
-1.7.10.4
+Ok, I've applied this series, let's see what happens.
