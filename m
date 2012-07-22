@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ipv4: tcp: remove per net tcp_sock
-Date: Sun, 22 Jul 2012 12:08:41 -0700 (PDT)
-Message-ID: <20120722.120841.1622431474480383380.davem@davemloft.net>
-References: <1342719243.2626.4571.camel@edumazet-glaptop>
-	<20120721170035.be1bb3aff663ecf9e81028e2@gmail.com>
-	<1342859331.2626.8385.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: fix race condition in several drivers when
+ reading stats
+Date: Sun, 22 Jul 2012 12:12:52 -0700 (PDT)
+Message-ID: <20120722.121252.1434955686463276273.davem@davemloft.net>
+References: <1342888250-28352-1-git-send-email-kgroeneveld@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shimoda.hiroaki@gmail.com, netdev@vger.kernel.org,
-	therbert@google.com, wsommerfeld@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: kgroeneveld@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37915 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37942 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362Ab2GVTIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:08:44 -0400
-In-Reply-To: <1342859331.2626.8385.camel@edumazet-glaptop>
+	with ESMTP id S1752455Ab2GVTMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:12:52 -0400
+In-Reply-To: <1342888250-28352-1-git-send-email-kgroeneveld@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 21 Jul 2012 10:28:51 +0200
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
+Date: Sat, 21 Jul 2012 12:30:50 -0400
 
-> [PATCH net-next] ipv4: tcp: set unicast_sock uc_ttl to -1
+> Fix race condition in several network drivers when reading stats on 32bit
+> UP architectures.  These drivers update their stats in a BH context and
+> therefore should use u64_stats_fetch_begin_bh/u64_stats_fetch_retry_bh
+> instead of u64_stats_fetch_begin/u64_stats_fetch_retry when reading the
+> stats.
 > 
-> Set unicast_sock uc_ttl to -1 so that we select the right ttl,
-> instead of sending packets with a 0 ttl.
-> 
-> Bug added in commit be9f4a44e7d4 (ipv4: tcp: remove per net tcp_sock)
-> 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
 
-APplied, thanks everyone.
+Applied, thanks.
