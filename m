@@ -1,47 +1,59 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PULL] vhost-net changes for net/3.6
-Date: Sun, 22 Jul 2012 13:34:44 -0700
-Message-ID: <1342989284.25472.227.camel@haakon2.linux-iscsi.org>
-References: <20120721225436.GA23519@redhat.com>
-	 <20120722.121942.2002727319293471163.davem@davemloft.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] net: Fix references to out-of-scope variables in
+ put_cmsg_compat()
+Date: Sun, 22 Jul 2012 23:37:20 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1207222335200.31033@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, asias@redhat.com,
-	pbonzini@redhat.com, stefanha@gmail.com,
-	stefanha@linux.vnet.ibm.com, wuzhy@cn.ibm.com,
-	Greg KH <gregkh@linuxfoundation.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120722.121942.2002727319293471163.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi DaveM,
+In net/compat.c::put_cmsg_compat() we may assign 'data' the address of
+either the 'ctv' or 'cts' local variables inside the 'if
+(!COMPAT_USE_64BIT_TIME)' branch.
 
-On Sun, 2012-07-22 at 12:19 -0700, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Sun, 22 Jul 2012 01:54:36 +0300
-> 
-> > The following changes since commit 186e868786f97c8026f0a81400b451ace306b3a4:
-> > 
-> >   forcedeth: spin_unlock_irq in interrupt handler fix (2012-07-20 16:18:36 -0700)
-> > 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-> > 
-> > for you to fetch changes up to 163049aefdc04323a2d17ec9f2862027b43b0502:
-> > 
-> >   vhost: make vhost work queue visible (2012-07-22 01:22:23 +0300)
-> 
-> Pulled, thanks.
+Those variables go out of scope at the end of the 'if' statement, so
+when we use 'data' further down in 'copy_to_user(CMSG_COMPAT_DATA(cm),
+data, cmlen - sizeof(struct compat_cmsghdr))' there's no telling what
+it may be refering to - not good.
 
-So target-pending/for-next-merge will need to be rebased once these bits
-hit mainline for the tcm_vhost initial merge commit..
+Fix the problem by simply giving 'ctv' and 'cts' function scope.
 
-Just curious when your planning on sending out a -rc1 PULL request for
-net-next..?
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ net/compat.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
---nab
+diff --git a/net/compat.c b/net/compat.c
+index 1b96281..74ed1d7 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -221,6 +221,8 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ {
+ 	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
+ 	struct compat_cmsghdr cmhdr;
++	struct compat_timeval ctv;
++	struct compat_timespec cts[3];
+ 	int cmlen;
+ 
+ 	if (cm == NULL || kmsg->msg_controllen < sizeof(*cm)) {
+@@ -229,8 +231,6 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ 	}
+ 
+ 	if (!COMPAT_USE_64BIT_TIME) {
+-		struct compat_timeval ctv;
+-		struct compat_timespec cts[3];
+ 		if (level == SOL_SOCKET && type == SCM_TIMESTAMP) {
+ 			struct timeval *tv = (struct timeval *)data;
+ 			ctv.tv_sec = tv->tv_sec;
+-- 
+1.7.11.2
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
