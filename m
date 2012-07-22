@@ -1,33 +1,37 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to neighbouring
- system
-Date: Sun, 22 Jul 2012 08:29:34 +0300
-Message-ID: <500B8FBE.4030600@mellanox.com>
-References: <50082183.5000402@mellanox.com> <alpine.DEB.2.00.1207191023130.29808@router.home> <500833D9.8000001@mellanox.com> <20120719.100850.1932622478297549573.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120719.100850.1932622478297549573.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] rtnl: do not include num_rx_queues into msg when CONFIG_RPS is not set
+Date: Sun, 22 Jul 2012 09:26:42 +0200
+Message-ID: <1342942002-26731-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfr@canb.auug.org.au
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:54629 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750791Ab2GVH0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 03:26:55 -0400
+Received: by wgbdr13 with SMTP id dr13so4862480wgb.1
+        for <netdev@vger.kernel.org>; Sun, 22 Jul 2012 00:26:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/19/2012 8:08 PM, David Miller wrote:
-> These numbers come from the IPV6 Neighbour Discovery RFCs.  IPV4 replicates the Neighbour Unreachability Detection schemes of IPV6 in pretty much it's entirety, and therefore takes on the same timeout et al. parameters.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/rtnetlink.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-OK, got it. At this point, I guess we should enhance the patch to use 
-the values plugged into the IPv4 arp table at the time IPoIB is loaded, 
-with arp_tbl being exported its easy to achieve. This would allow users 
-to use non-default values by the ipoib neigh handling logic. In a later 
-step, we need to see if/how to allow ipoib to use the already existing 
-sysctl entries, makes sense?
-
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 5bb1ebc..334b930 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -892,7 +892,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	    nla_put_u32(skb, IFLA_GROUP, dev->group) ||
+ 	    nla_put_u32(skb, IFLA_PROMISCUITY, dev->promiscuity) ||
+ 	    nla_put_u32(skb, IFLA_NUM_TX_QUEUES, dev->num_tx_queues) ||
++#ifdef CONFIG_RPS
+ 	    nla_put_u32(skb, IFLA_NUM_RX_QUEUES, dev->num_rx_queues) ||
++#endif
+ 	    (dev->ifindex != dev->iflink &&
+ 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+ 	    (dev->master &&
+-- 
+1.7.10.4
