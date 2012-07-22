@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnl: Add #ifdef CONFIG_RPS around num_rx_queues
- reference
-Date: Sun, 22 Jul 2012 12:28:25 -0700 (PDT)
-Message-ID: <20120722.122825.10630724642009598.davem@davemloft.net>
-References: <1342827313-2827-1-git-send-email-mgreer@animalcreek.com>
+Subject: Re: [PATCH RFC] tcp: use seqlock for all cached tcp_metrics
+Date: Sun, 22 Jul 2012 12:32:46 -0700 (PDT)
+Message-ID: <20120722.123246.864281319907290494.davem@davemloft.net>
+References: <1342950268-2380-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us
-To: mgreer@animalcreek.com
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38075 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38094 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752416Ab2GVT20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:28:26 -0400
-In-Reply-To: <1342827313-2827-1-git-send-email-mgreer@animalcreek.com>
+	with ESMTP id S1752416Ab2GVTcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:32:47 -0400
+In-Reply-To: <1342950268-2380-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Mark A. Greer" <mgreer@animalcreek.com>
-Date: Fri, 20 Jul 2012 16:35:13 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 22 Jul 2012 12:44:28 +0300
 
-> From: "Mark A. Greer" <mgreer@animalcreek.com>
-> 
-> Commit 76ff5cc91935c51fcf1a6a99ffa28b97a6e7a884
-> (rtnl: allow to specify number of rx and tx queues
-> on device creation) added a reference to the net_device
-> structure's 'num_rx_queues' member in
-> 
-> 	net/core/rtnetlink.c:rtnl_fill_ifinfo()
-> 
-> However, the definition for 'num_rx_queues' is surrounded
-> by an '#ifdef CONFIG_RPS' while the new reference to it is
-> not.  This causes a compile error when CONFIG_RPS is not
-> defined.
-> 
-> Fix the compile error by surrounding the new reference to
-> 'num_rx_queues' by an '#ifdef CONFIG_RPS'.
-> 
-> CC: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Mark A. Greer <mgreer@animalcreek.com>
+> 	The ability to reclaim existing cache entries
+> requires metrics to be accessed with additional seqlock.
+> fastopen_cache tried to provide such locking for its values
+> but there is always the risk to access reclaimed entry.
 
-Applied, thanks Mark.
+I basically claim that accidental use of reclaimed entries
+is completely harmless for everything other than fastopen.
+
+Therefore I do not advocate adding the new overhead and complexity for
+the non-fastopen cases.  It should be a completely free, lockless, and
+synchornization free cache.  If we read crap metrics, so be it, maybe
+the network dynamics changed to the same amount, and we would never
+know the different.  Therefore, it doesn't really matter if we read
+crap values for these measurements.
+
+Thanks.
