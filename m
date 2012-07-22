@@ -1,37 +1,36 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net-next 1/4] bnx2x: advertise transmit time
- stamping
-Date: Sun, 22 Jul 2012 21:29:24 +0300
-Message-ID: <1342981764.27035.16.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <cover.1342976654.git.richardcochran@gmail.com>
- <379f084af5dcbcccda309ecb0d0032196fb496f3.1342976654.git.richardcochran@gmail.com>
-Reply-To: eilong@broadcom.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] ipv4: tcp: remove per net tcp_sock
+Date: Sun, 22 Jul 2012 12:08:41 -0700 (PDT)
+Message-ID: <20120722.120841.1622431474480383380.davem@davemloft.net>
+References: <1342719243.2626.4571.camel@edumazet-glaptop>
+	<20120721170035.be1bb3aff663ecf9e81028e2@gmail.com>
+	<1342859331.2626.8385.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David Miller" <davem@davemloft.net>,
-	"Willem de Bruijn" <willemb@google.com>,
-	"Merav Sircon" <meravs@broadcom.com>
-To: "Richard Cochran" <richardcochran@gmail.com>
+Cc: shimoda.hiroaki@gmail.com, netdev@vger.kernel.org,
+	therbert@google.com, wsommerfeld@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2048 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752299Ab2GVS3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jul 2012 14:29:41 -0400
-In-Reply-To: <379f084af5dcbcccda309ecb0d0032196fb496f3.1342976654.git.richardcochran@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752362Ab2GVTIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:08:44 -0400
+In-Reply-To: <1342859331.2626.8385.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-07-22 at 19:15 +0200, Richard Cochran wrote:
-> This driver now offers software transmit time stamping, so it should
-> advertise that fact via ethtool. Compile tested only.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 21 Jul 2012 10:28:51 +0200
+
+> [PATCH net-next] ipv4: tcp: set unicast_sock uc_ttl to -1
 > 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> Cc: Eilon Greenstein <eilong@broadcom.com>
-> Cc: Willem de Bruijn <willemb@google.com>
+> Set unicast_sock uc_ttl to -1 so that we select the right ttl,
+> instead of sending packets with a 0 ttl.
+> 
+> Bug added in commit be9f4a44e7d4 (ipv4: tcp: remove per net tcp_sock)
+> 
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Thanks Richard. I was sure it was sent upstream weeks ago, but I see it
-is somehow still pending to be sent. Thanks for catching it.
-
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+APplied, thanks everyone.
