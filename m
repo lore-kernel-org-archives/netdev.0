@@ -1,46 +1,63 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 1/4] bnx2x: advertise transmit time stamping
-Date: Sun, 22 Jul 2012 19:15:39 +0200
-Message-ID: <379f084af5dcbcccda309ecb0d0032196fb496f3.1342976654.git.richardcochran__32412.289948161$1342977413$gmane$org@gmail.com>
-References: <cover.1342976654.git.richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Willem de Bruijn <willemb@google.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49372 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109Ab2GVRP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 13:15:56 -0400
-Received: by mail-we0-f174.google.com with SMTP id x8so3753300wey.19
-        for <netdev@vger.kernel.org>; Sun, 22 Jul 2012 10:15:55 -0700 (PDT)
-In-Reply-To: <cover.1342976654.git.richardcochran@gmail.com>
-In-Reply-To: <cover.1342976654.git.richardcochran@gmail.com>
-References: <cover.1342976654.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kyak <bas@bmail.ru>
+Subject: [PATCH] USB: plusb: Add support for PL-2501
+Date: Sun, 22 Jul 2012 21:42:50 +0400 (MSK)
+Message-ID: <alpine.LNX.2.02.1207222138410.1183@bas>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Greg Kroah-Hartman <greg@kroah.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This driver now offers software transmit time stamping, so it should
-advertise that fact via ethtool. Compile tested only.
+From: Mikhail Peselnik <peselnik@gmail.com>
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-Cc: Eilon Greenstein <eilong@broadcom.com>
-Cc: Willem de Bruijn <willemb@google.com>
+This patch adds support for PL-2501 by adding the appropriate USB
+ID's. This chip is used in several USB 'Easy Trasfer' Cables.
+
+Signed-off-by: Mikhail Peselnik <peselnik@gmail.com>
+Tested-by: Mikhail Peselnik <peselnik@gmail.com>
 ---
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Now with proper sign-offs and right people in cc.
+plusb driver (drivers/net/usb/plusb.c) doesn't recognize PL2501 chip.
+Since PL2501 uses the same code as PL2301/PL2302 (PL2501 works in
+compatibility mode with PL2301/PL2302), the fix is trivial and
+attached as a patch.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index bff3129..fc4e0e3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -2978,6 +2978,7 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
- 	.get_module_eeprom	= bnx2x_get_module_eeprom,
- 	.get_eee		= bnx2x_get_eee,
- 	.set_eee		= bnx2x_set_eee,
-+	.get_ts_info		= ethtool_op_get_ts_info,
- };
- 
- void bnx2x_set_ethtool_ops(struct net_device *netdev)
--- 
-1.7.2.5
+Just to note: the patch is not mine, it can be found here and there on
+Internet.
+I've tested the patch and it works great.
+
+Thank you.
+
+--- linux-3.5/drivers/net/usb/plusb.c.orig      2012-07-22
+21:06:41.905802795 +0400
++++ linux-3.5/drivers/net/usb/plusb.c   2012-07-22 21:07:00.345552404 +0400
+@@ -107,7 +107,7 @@ static int pl_reset(struct usbnet *dev)
+  }
+
+  static const struct driver_info        prolific_info = {
+-       .description =  "Prolific PL-2301/PL-2302/PL-25A1",
++       .description =  "Prolific PL-2301/PL-2302/PL-25A1/PL-2501",
+         .flags =        FLAG_POINTTOPOINT | FLAG_NO_SETINT,
+                 /* some PL-2302 versions seem to fail usb_set_interface() */
+         .reset =        pl_reset,
+@@ -139,6 +139,9 @@ static const struct usb_device_id   produc
+  }, {
+         USB_DEVICE(0x050d, 0x258a),     /* Belkin F5U258/F5U279 (PL-25A1) */
+         .driver_info =  (unsigned long) &prolific_info,
++}, {
++       USB_DEVICE(0x067b, 0x2501),     /* PL-2501 */
++       .driver_info =  (unsigned long) &prolific_info,
+  },
+
+         { },            // END
+@@ -158,5 +161,5 @@ static struct usb_driver plusb_driver =
+  module_usb_driver(plusb_driver);
+
+  MODULE_AUTHOR("David Brownell");
+-MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1 USB Host to Host Link Driver");
++MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1/2501 USB Host to Host
+Link Driver");
+  MODULE_LICENSE("GPL");
