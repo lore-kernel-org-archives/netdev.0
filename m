@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL] vhost-net changes for net/3.6
-Date: Sun, 22 Jul 2012 12:19:42 -0700 (PDT)
-Message-ID: <20120722.121942.2002727319293471163.davem@davemloft.net>
-References: <20120721225436.GA23519@redhat.com>
+Subject: Re: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Sun, 22 Jul 2012 12:24:05 -0700 (PDT)
+Message-ID: <20120722.122405.1220712908232591030.davem@davemloft.net>
+References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	asias@redhat.com, nab@linux-iscsi.org, nab@risingtidesystems.com,
-	pbonzini@redhat.com, stefanha@gmail.com,
-	stefanha@linux.vnet.ibm.com, wuzhy@cn.ibm.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120721225436.GA23519@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38036 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416Ab2GVTYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:24:07 -0400
+In-Reply-To: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 22 Jul 2012 01:54:36 +0300
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 21 Jul 2012 16:08:49 -0700
 
-> The following changes since commit 186e868786f97c8026f0a81400b451ace306b3a4:
+> This series contains updates to ixgbe and ixgbevf.
 > 
->   forcedeth: spin_unlock_irq in interrupt handler fix (2012-07-20 16:18:36 -0700)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-> 
-> for you to fetch changes up to 163049aefdc04323a2d17ec9f2862027b43b0502:
-> 
->   vhost: make vhost work queue visible (2012-07-22 01:22:23 +0300)
+> The following are changes since commit 186e868786f97c8026f0a81400b451ace306b3a4:
+>   forcedeth: spin_unlock_irq in interrupt handler fix
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Pulled, thanks.
+Pulled, thanks Jeff.
