@@ -1,39 +1,35 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Sun, 22 Jul 2012 13:29:43 +0300
-Message-ID: <500BD617.20800@mellanox.com>
-References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com>
+From: Nokia Promotion <info@nokia.org>
+Subject: Claim requirements
+Date: Sun, 22 Jul 2012 15:03:08 +0300
+Message-ID: <20120722150308.0bq4vdajsoso0gs8@webmail.welho.com>
+Reply-To: nokiadp76@yahoo.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	<cascardo@linux.vnet.ibm.com>, <brking@linux.vnet.ibm.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu2sys200bog102.obsmtp.com ([207.126.150.230]:55664 "HELO
-	eu2sys200bog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750986Ab2GVK3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 06:29:52 -0400
-In-Reply-To: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com>
+Received: from filtteri1.pp.htv.fi ([213.243.153.184]:43527 "EHLO
+	filtteri1.pp.htv.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426Ab2GVMKm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 08:10:42 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/20/2012 10:55 PM, Kleber Sacilotto de Souza wrote:
-> Currently the mlx4 drivers don't have the necessary callbacks to
-> implement EEH errors detection and recovery [...]
+You are receiving this message because you are a Winner of 300,000 Poun=
+ds from
+Nokia Online Lottery game 2012.
 
-Hi,
+Claim requirements are as follows:
+(1) Your full names
+(2) Contact Address
+(3) Age
+(4) Occupation
+(5) Telephone
+(6) Sex
+(7) Nationality
 
-Shlomo Pongratz  from Mellanox took a look on the patch, and we'd like 
-to clarify with you something - OTOH you mention EEH (Extended Error 
-Handling) error recovery which is a PPC related term mentioned in 
-Documentation/powerpc/eeh-pci-error-recovery.txt, but OTHO you've 
-implemented callbacks mentioned in the AER (Advanced Error Reporting) 
-doc of Documentation/PCI/pcieaer-howto.txt, is there anything in the 
-code you added which maybe implicitly assumes PPC arch?
+Contact Mr. Thomas Hillary on (nokiadp76@yahoo.cn)
 
-
-Or.
+Copyright =A92012 Nokia. All rights reserved.
