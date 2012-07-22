@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Sun, 22 Jul 2012 12:42:48 -0700 (PDT)
-Message-ID: <20120722.124248.1156716792541498634.davem@davemloft.net>
-References: <20120720.142502.1144557295933737451.davem@davemloft.net>
-	<CAGK4HS_ZqH+std9Edbia7i1tdpLxpdsMD83fcTQPnNZbnX4zPA@mail.gmail.com>
+Subject: Re: [PATCH] net-next: minor cleanups for bonding documentation
+Date: Sun, 22 Jul 2012 12:44:19 -0700 (PDT)
+Message-ID: <20120722.124419.284639637456046811.davem@davemloft.net>
+References: <20120720205137.84E3D290043B@tardy>
+	<6272.1342829308@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subramanian.vijay@gmail.com
+Cc: raj@tardy.cup.hp.com, netdev@vger.kernel.org, andy@greyhouse.net
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38173 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38201 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430Ab2GVTmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:42:49 -0400
-In-Reply-To: <CAGK4HS_ZqH+std9Edbia7i1tdpLxpdsMD83fcTQPnNZbnX4zPA@mail.gmail.com>
+	with ESMTP id S1752430Ab2GVToU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:44:20 -0400
+In-Reply-To: <6272.1342829308@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Sun, 22 Jul 2012 00:47:27 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Fri, 20 Jul 2012 17:08:28 -0700
 
-> I have been running your routing removal patches for the past 3 days
-> (upgraded yesterday to latest set including the 17th patch you sent in
-> response to Eric's comment) and have not seen any issues (crashes
-> etc).
+> Rick Jones <raj@tardy.cup.hp.com> wrote:
+> 
+>>From: Rick Jones <rick.jones2@hp.com>
+>>
+>>The section titled "Configuring Bonding for Maximum Throughput" is
+>>actually section twelve not thirteen, and there are a couple of words
+>>spelled incorrectly.
+>>
+>>Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Thanks for testing.
-
-> Apart from time spent in fib_table_lookup(), it seems time is also
-> spent in check_leaf(). I assume this is expected behavior.
-> Here are 2 sample perf outputs (I have appended the kbench outputs to
-> each file)
-
-Yes, the two biggest hogs will be fib_table_lookup() and check_leaf().
-
-check_leaf() is expensive largely because that's where we write the
-fib_result block, which is a structure on the fib_lookup() caller's
-stack.
-
-Your perf traces roughly approximate mine.
-
-Thanks.
+Applied, thanks everyone.
