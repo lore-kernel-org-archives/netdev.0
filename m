@@ -1,110 +1,39 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 00/13] drivers: hv: kvp
-Date: Sun, 22 Jul 2012 15:08:52 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF923548B42@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <20120621224737.GA5933@kroah.com>
-	 <426367E2313C2449837CD2DE46E7EAF9155EC47A@SN2PRD0310MB382.namprd03.prod.outlook.com>
-	 <20120622132547.GA2639@kroah.com>
-	 <426367E2313C2449837CD2DE46E7EAF9155ED14D@SN2PRD0310MB382.namprd03.prod.outlook.com>
-	 <20120626213954.GA4840@kroah.com>
-	 <426367E2313C2449837CD2DE46E7EAF9155ED64A@SN2PRD0310MB382.namprd03.prod.outlook.com>
-	 <20120626222205.GA5948@kroah.com>
-	 <426367E2313C2449837CD2DE46E7EAF9155ED68D@SN2PRD0310MB382.namprd03.prod.outlook.com>
-	 <20120628142340.GA21537@aepfle.de>
-	 <426367E2313C2449837CD2DE46E7EAF9155EF399@SN2PRD0310MB382.namprd03.prod.outlook.com>
-	 <20120702195721.GE1894@decadent.org.uk>
-	 <426367E2313C2449837CD2DE46E7EAF9155EF7C6@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <1342925458.11373.210.camel@deadeye.wl.decadent.org.uk>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: net-next compilation failure since 76ff5cc9
+Date: Sun, 22 Jul 2012 18:21:07 +0200
+Message-ID: <20120722162107.GA23219@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Olaf Hering <olaf@aepfle.de>, Greg KH <gregkh@linuxfoundation.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342925458.11373.210.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:53400 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752017Ab2GVQVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 12:21:17 -0400
+Received: by weyx8 with SMTP id x8so3735755wey.19
+        for <netdev@vger.kernel.org>; Sun, 22 Jul 2012 09:21:15 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFNhdHVyZGF5LCBKdWx5IDIxLCAy
-MDEyIDEwOjUxIFBNDQo+IFRvOiBLWSBTcmluaXZhc2FuDQo+IENjOiBPbGFmIEhlcmluZzsgR3Jl
-ZyBLSDsgYXB3QGNhbm9uaWNhbC5jb207IGRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5vcmc7DQo+
-IHZpcnR1YWxpemF0aW9uQGxpc3RzLm9zZGwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwu
-b3JnOw0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMDAv
-MTNdIGRyaXZlcnM6IGh2OiBrdnANCj4gDQo+IE9uIFR1ZSwgMjAxMi0wNy0wMyBhdCAxNToyNCAr
-MDAwMCwgS1kgU3Jpbml2YXNhbiB3cm90ZToNCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNz
-YWdlLS0tLS0NCj4gPiA+IEZyb206IEJlbiBIdXRjaGluZ3MgW21haWx0bzpiZW5AZGVjYWRlbnQu
-b3JnLnVrXQ0KPiA+ID4gU2VudDogTW9uZGF5LCBKdWx5IDAyLCAyMDEyIDM6NTcgUE0NCj4gPiA+
-IFRvOiBLWSBTcmluaXZhc2FuDQo+ID4gPiBDYzogT2xhZiBIZXJpbmc7IEdyZWcgS0g7IGFwd0Bj
-YW5vbmljYWwuY29tOyBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnOw0KPiA+ID4gdmlydHVh
-bGl6YXRpb25AbGlzdHMub3NkbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+
-ID4gPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIIDAw
-LzEzXSBkcml2ZXJzOiBodjoga3ZwDQo+ID4gPg0KPiA+ID4gT24gTW9uLCBKdWwgMDIsIDIwMTIg
-YXQgMDM6MjI6MjVQTSArMDAwMCwgS1kgU3Jpbml2YXNhbiB3cm90ZToNCj4gPiA+ID4NCj4gPiA+
-ID4NCj4gPiA+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gPiA+IEZyb206
-IE9sYWYgSGVyaW5nIFttYWlsdG86b2xhZkBhZXBmbGUuZGVdDQo+ID4gPiA+ID4gU2VudDogVGh1
-cnNkYXksIEp1bmUgMjgsIDIwMTIgMTA6MjQgQU0NCj4gPiA+ID4gPiBUbzogS1kgU3Jpbml2YXNh
-bg0KPiA+ID4gPiA+IENjOiBHcmVnIEtIOyBhcHdAY2Fub25pY2FsLmNvbTsgZGV2ZWxAbGludXhk
-cml2ZXJwcm9qZWN0Lm9yZzsNCj4gPiA+ID4gPiB2aXJ0dWFsaXphdGlvbkBsaXN0cy5vc2RsLm9y
-ZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiA+ID4gPiA+IFN1YmplY3Q6IFJlOiBb
-UEFUQ0ggMDAvMTNdIGRyaXZlcnM6IGh2OiBrdnANCj4gPiA+ID4gPg0KPiA+ID4gPiA+IE9uIFR1
-ZSwgSnVuIDI2LCBLWSBTcmluaXZhc2FuIHdyb3RlOg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiA+
-IEZyb206IEdyZWcgS0ggW21haWx0bzpncmVna2hAbGludXhmb3VuZGF0aW9uLm9yZ10NCj4gPiA+
-ID4gPiA+ID4gVGhlIGZhY3QgdGhhdCBpdCB3YXMgUmVkIEhhdCBzcGVjaWZpYyB3YXMgdGhlIG1h
-aW4gcGFydCwgdGhpcyBzaG91bGQgYmUNCj4gPiA+ID4gPiA+ID4gZG9uZSBpbiBhIHN0YW5kYXJk
-IHdheSwgd2l0aCBzdGFuZGFyZCB0b29scywgcmlnaHQ/DQo+ID4gPiA+ID4gPg0KPiA+ID4gPiA+
-ID4gVGhlIHJlYXNvbiBJIGFza2VkIHRoaXMgcXVlc3Rpb24gd2FzIHRvIG1ha2Ugc3VyZSBJIGFk
-ZHJlc3MgdGhlc2UNCj4gPiA+ID4gPiA+IGlzc3VlcyBpbiBhZGRpdGlvbiB0byB3aGF0ZXZlciBJ
-IGFtIGRlYnVnZ2luZyBub3cuIEkgdXNlIHRoZSBzdGFuZGFyZA0KPiA+ID4gPiA+ID4gdG9vbHMg
-YW5kIGNhbGxzIHRvIHJldHJpZXZlIGFsbCB0aGUgSVAgY29uZmlndXJhdGlvbi4gQXMgSSBsb29r
-IGF0DQo+ID4gPiA+ID4gPiBlYWNoIGRpc3RyaWJ1dGlvbiB0aGUgZmlsZXMgdGhleSBrZWVwIHBl
-cnNpc3RlbnQgSVAgY29uZmlndXJhdGlvbg0KPiA+ID4gPiA+ID4gSW5mb3JtYXRpb24gaXMgZGlm
-ZmVyZW50IGFuZCB0aGF0IGlzIHRoZSByZWFzb24gSSBjaG9zZSB0byBzdGFydCB3aXRoDQo+ID4g
-PiA+ID4gPiBSZWRIYXQuIElmIHRoZXJlIGlzIGEgc3RhbmRhcmQgd2F5IHRvIHN0b3JlIHRoZSBj
-b25maWd1cmF0aW9uLCBJIHdpbGwNCj4gPiA+ID4gPiA+IGRvIHRoYXQuDQo+ID4gPiA+ID4NCj4g
-PiA+ID4gPg0KPiA+ID4gPiA+IEtZLA0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gaW5zdGVhZCBvZiB1
-c2luZyBzeXN0ZW0oKSBpbiBrdnBfZ2V0X2lwY29uZmlnX2luZm8gYW5kIGt2cF9zZXRfaXBfaW5m
-bywNCj4gPiA+ID4gPiB3b3VsZG50IGl0IGJlIGVhc2llciB0byBjYWxsIGFuIGV4dGVybmFsIGhl
-bHBlciBzY3JpcHQgd2hpY2ggZG9lcyBhbGwNCj4gPiA+ID4gPiB0aGUgZGlzdHJpYnV0aW9uIHNw
-ZWNpZmljIHdvcms/IEp1c3QgZGVmaW5lIHNvbWUgQVBJIHRvIHBhc3MgdmFsdWVzIHRvDQo+ID4g
-PiA+ID4gdGhlIHNjcmlwdCwgYW5kIHNvbWV0aGluZyB0byByZWFkIHZhbHVlcyBjb2xsZWN0ZWQg
-YnkgdGhlIHNjcmlwdCBiYWNrDQo+ID4gPiA+ID4gaW50byB0aGUgZGFlbW9uLg0KPiA+ID4gPg0K
-PiA+ID4gPiBPbiB0aGUgIkdldCIgc2lkZSBJIG1vc3RseSB1c2Ugc3RhbmRhcmQgY29tbWFuZHMv
-QVBJcyB0byBnZXQgYWxsIHRoZQ0KPiA+ID4gaW5mb3JtYXRpb246DQo+ID4gPiA+DQo+ID4gPiA+
-IDEpIElQIGFkZHJlc3MgaW5mb3JtYXRpb24gYW5kIHN1Ym5ldCBtYXNrOiBnZXRpZmFkZHJzKCkN
-Cj4gPiA+ID4gMikgRE5TIGluZm9ybWF0aW9uOiAgUGFyc2luZyAvZXRjL3Jlc29sdi5jb25mDQo+
-ID4gPiA+IDMpIC9zYmluL2lwIGNvbW1hbmQgZm9yIGFsbCB0aGUgcm91dGluZyBpbmZvcm1hdGlv
-bg0KPiA+ID4NCj4gPiA+IElmIHlvdSdyZSBpbnRlcmVzdGVkIGluIHRoZSAqY3VycmVudCogY29u
-ZmlndXJhdGlvbiB0aGVuICgxKSBhbmQgKDMpDQo+ID4gPiBhcmUgT0sgYnV0IHlvdSBzaG91bGQg
-cmVhbGx5IHVzZSB0aGUgcnRuZXRsaW5rIEFQSS4NCj4gPiA+DQo+ID4gPiBIb3dldmVyLCBJIHN1
-c3BlY3QgdGhhdCBIeXBlci1WIGFzc3VtZXMgdGhhdCBjdXJyZW50IGFuZCBwZXJzaXN0ZW50DQo+
-ID4gPiBjb25maWd1cmF0aW9uIGFyZSB0aGUgc2FtZSB0aGluZywgd2hpY2ggaXMgb2J2aW91c2x5
-IG5vdCB0cnVlIGluDQo+ID4gPiBnZW5lcmFsIG9uIExpbnV4LiAgQnV0IGlmIE5ldHdvcmtNYW5h
-Z2VyIGlzIHJ1bm5pbmcgdGhlbiB5b3UgY2FuDQo+ID4gPiBhc3N1bWUgdGhleSBhcmUuDQo+ID4N
-Cj4gPiBJIGFtIG9ubHkgaW50ZXJlc3RlZCBpbiB0aGUgY3VycmVudGx5IGFjdGl2ZSBpbmZvcm1h
-dGlvbi4gV2h5IGRvIHlvdQ0KPiA+IHJlY29tbWVuZCB0aGUgdXNlIG9mIHJ0bmV0bGluayBBUEkg
-b3ZlciB0aGUgImlwIiBjb21tYW5kLiBJZiBJIGFtIG5vdA0KPiA+IG1pc3Rha2VuLCB0aGUgaXAg
-Y29tbWFuZCB1c2VzIG5ldGxpbmsgdG8gZ2V0IHRoZSBpbmZvcm1hdGlvbi4NCj4gWy4uLl0NCj4g
-DQo+ICdTY3JlZW4tc2NyYXBpbmcnIHRoZSBvdXRwdXQgb2YgYWRtaW5pc3RyYXRpdmUgdG9vbHMg
-aXMgbm90IGdvb2QNCj4gcHJhY3RpY2UuICBJdCBtYXkgYmUgdGhlIGJlc3QgeW91IGNhbiBkbyB3
-aGVuIHdyaXRpbmcgYSBzaGVsbCBzY3JpcHQsDQo+IGJ1dCBmb3IgYSBDIHByb2dyYW0gaXQncyBn
-ZW5lcmFseSBsZXNzIHJlbGlhYmxlIGFuZCBvZnRlbiBtb3JlIGRpZmZpY3VsdA0KPiB0aGFuIHVz
-aW5nIHRoZSB1bmRlcmx5aW5nIEMgQVBJLg0KDQpCZW4sDQpCYXNlZCBvbiB0aGUgaW5wdXQgSSBo
-YXZlIGdvdHRlbiwgdGhlIGNvbnNlbnN1cyBhcHBlYXJzIHRvIGJlIHRvIGhhdmUgZXh0ZXJuYWwN
-CnNjcmlwdHMgdG8gYm90aCBHRVQgYW5kIFNFVCBJUCByZWxhdGVkIGNvbmZpZ3VyYXRpb24gaW5m
-b3JtYXRpb24uIFNvLCB0aGUgS1ZQDQpkYWVtb24gd2lsbCBuZWVkIHRvIHBhcnNlIGluZm9ybWF0
-aW9uIHJldHVybmVkIGZyb20gdGhlc2UgZXh0ZXJuYWwgZGlzdHJvIHNwZWNpZmljDQpzY3JpcHRz
-IChvbiB0aGUgR0VUIHNpZGUpLiAgV2hpbGUgSSBhZ3JlZSB3aXRoIHlvdSB0aGF0IGl0IGlzIGdv
-b2QgdG8gdXNlIEMgQVBJcywgSSBjdXJyZW50bHkNCmhhdmUgdGhlIGltcGxlbWVudGF0aW9uIHVz
-aW5nIHRoZSAiaXAiIGNvbW1hbmQgYW5kIGl0IGFwcGVhcnMgdG8gYmUgcXVpdGUgc2ltcGxlLg0K
-RnVydGhlcm1vcmUsIGdpdmVuIHRoYXQgdGhlIGluZm9ybWF0aW9uIEkgbmVlZCB0byBwYXNzIGJh
-Y2sgdG8gdGhlIGhvc3QgbmVlZHMgdG8gYmUNCmFwcHJvcHJpYXRlbHkgZm9ybWF0dGVkIChiYXNl
-ZCBvbiBob3N0IHNwZWNpZmllZCBmb3JtYXQpLCBJIHN1c3BlY3QgdXNpbmcgdGhlICJpcCIgY29t
-bWFuZA0KbWF5IGFjdHVhbGx5IHNpbXBsaWZ5IHRoZSBjb2RlLg0KDQpSZWdhcmRzLA0KDQpLLiBZ
-DQo=
+Without CONFIG_RPS, net-next fails to compile with
+
+  CC      net/core/rtnetlink.o
+/linux/net/core/rtnetlink.c: In function =E2=80=98rtnl_fill_ifinfo=E2=80=
+=99:
+/linux/net/core/rtnetlink.c:895: error: =E2=80=98struct net_device=E2=80=
+=99 has no member named =E2=80=98num_rx_queues=E2=80=99
+make[3]: *** [net/core/rtnetlink.o] Error 1
+
+Looks like this was caused by
+
+76ff5cc9  rtnl: allow to specify number of rx and tx queues on device c=
+reation
+
+Not sure how to fix.
+
+Thanks,
+Richard
