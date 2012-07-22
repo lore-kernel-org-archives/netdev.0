@@ -1,32 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix race condition in several drivers when
- reading stats
-Date: Sun, 22 Jul 2012 12:12:52 -0700 (PDT)
-Message-ID: <20120722.121252.1434955686463276273.davem@davemloft.net>
-References: <1342888250-28352-1-git-send-email-kgroeneveld@gmail.com>
+Subject: Re: [PATCH v6] sctp: Implement quick failover draft from tsvwg
+Date: Sun, 22 Jul 2012 12:14:09 -0700 (PDT)
+Message-ID: <20120722.121409.377271257112948379.davem@davemloft.net>
+References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
+	<1342893367-981-1-git-send-email-nhorman@tuxdriver.com>
+	<2e6ee3f1-ea4f-4c13-b27b-1f2291fdb0c0@email.android.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kgroeneveld@gmail.com
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, sri@us.ibm.com,
+	linux-sctp@vger.kernel.org, joe@perches.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37942 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37948 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455Ab2GVTMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:12:52 -0400
-In-Reply-To: <1342888250-28352-1-git-send-email-kgroeneveld@gmail.com>
+	with ESMTP id S1752404Ab2GVTOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:14:10 -0400
+In-Reply-To: <2e6ee3f1-ea4f-4c13-b27b-1f2291fdb0c0@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Date: Sat, 21 Jul 2012 12:30:50 -0400
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Sun, 22 Jul 2012 14:18:12 -0400
 
-> Fix race condition in several network drivers when reading stats on 32bit
-> UP architectures.  These drivers update their stats in a BH context and
-> therefore should use u64_stats_fetch_begin_bh/u64_stats_fetch_retry_bh
-> instead of u64_stats_fetch_begin/u64_stats_fetch_retry when reading the
-> stats.
+> Neil Horman <nhorman@tuxdriver.com> wrote:
 > 
-> Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
+>>I've seen several attempts recently made to do quick failover of sctp
+>>transports
+>>by reducing various retransmit timers and counters.  While its possible
+>>to
+>>implement a faster failover on multihomed sctp associations, its not
+>>particularly robust, in that it can lead to unneeded retransmits, as
+>>well as
+>>false connection failures due to intermittent latency on a network.
+>>
+>>Instead, lets implement the new ietf quick failover draft found here:
+>>http://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
+>>
+>>This will let the sctp stack identify transports that have had a small
+>>number of
+>>errors, and avoid using them quickly until their reliability can be
+>>re-established.  I've tested this out on two virt guests connected via
+>>multiple
+>>isolated virt networks and believe its in compliance with the above
+>>draft and
+>>works well.
+>>
+>>Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+ ...
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Applied, thanks.
+Applied, thanks everyone.
