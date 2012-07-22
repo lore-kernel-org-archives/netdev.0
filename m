@@ -1,59 +1,74 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] net: Fix references to out-of-scope variables in
- put_cmsg_compat()
-Date: Sun, 22 Jul 2012 23:37:20 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1207222335200.31033@swampdragon.chaosbits.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Sun, 22 Jul 2012 14:39:53 -0700
+Message-ID: <1342993193.23226.0.camel@jtkirshe-mobl>
+References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20120722.122405.1220712908232591030.davem@davemloft.net>
+	 <20120722.123733.1898891964192153293.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-In net/compat.c::put_cmsg_compat() we may assign 'data' the address of
-either the 'ctv' or 'cts' local variables inside the 'if
-(!COMPAT_USE_64BIT_TIME)' branch.
-
-Those variables go out of scope at the end of the 'if' statement, so
-when we use 'data' further down in 'copy_to_user(CMSG_COMPAT_DATA(cm),
-data, cmlen - sizeof(struct compat_cmsghdr))' there's no telling what
-it may be refering to - not good.
-
-Fix the problem by simply giving 'ctv' and 'cts' function scope.
-
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- net/compat.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/compat.c b/net/compat.c
-index 1b96281..74ed1d7 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -221,6 +221,8 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
- {
- 	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
- 	struct compat_cmsghdr cmhdr;
-+	struct compat_timeval ctv;
-+	struct compat_timespec cts[3];
- 	int cmlen;
- 
- 	if (cm == NULL || kmsg->msg_controllen < sizeof(*cm)) {
-@@ -229,8 +231,6 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
- 	}
- 
- 	if (!COMPAT_USE_64BIT_TIME) {
--		struct compat_timeval ctv;
--		struct compat_timespec cts[3];
- 		if (level == SOL_SOCKET && type == SCM_TIMESTAMP) {
- 			struct timeval *tv = (struct timeval *)data;
- 			ctv.tv_sec = tv->tv_sec;
--- 
-1.7.11.2
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-BMRYORnD4bKPtjJ5tTCd"
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:20296 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752626Ab2GVVkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Jul 2012 17:40:05 -0400
+In-Reply-To: <20120722.123733.1898891964192153293.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+--=-BMRYORnD4bKPtjJ5tTCd
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2012-07-22 at 12:37 -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Sun, 22 Jul 2012 12:24:05 -0700 (PDT)
+>=20
+> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > Date: Sat, 21 Jul 2012 16:08:49 -0700
+> >=20
+> >> This series contains updates to ixgbe and ixgbevf.
+> >>=20
+> >> The following are changes since commit
+> 186e868786f97c8026f0a81400b451ace306b3a4:
+> >>   forcedeth: spin_unlock_irq in interrupt handler fix
+> >> and are available in the git repository at:
+> >>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
+> master
+> >=20
+> > Pulled, thanks Jeff.
+>=20
+> Can you guys actually build test this stuff?=20
+
+I did, but it appears I did not have PCI_IOV enabled.  That was my bad,
+sorry.
+
+--=-BMRYORnD4bKPtjJ5tTCd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJQDHMpAAoJEOVv75VaS+3OyEsP/3eEqkhaP8DJ/FhSPKv4rEQv
+YFa3WwEiXndA3KCTNDyd+dGquF0XWo1G3epAI4/UdDiKPuLzsIS7mTLpbJhNRvwT
+NhwefsfsJQG+Eh9xvS3N8bpB/nvSIWBbx0bswF3u1NxzZonf7q7EKxn4XsfHUari
+6v71aNIsc4wHQ7+vKqO6mqFhGe4IA6MF315BDYFstfDofI4KBvSFrUrECMOdRP8h
+7QDqgAEEMzLfJ+R/17M3Iw0MhIkSGrDML/woe8i/er+s4XqkDJD/K+n0QRWHMKWp
+ooz5fG9vdvDDfksngNSeCbqszWDNEJEQ6qwn1jB3Abrig21fQIMFeVMtjDw+REle
+rRo/vqeHX9St9s70WMq1mffxNecnuU6qNBPkiKVrEU3lK6dess5BenBQya6ifHgk
+0tDsCP2hI/GXse2RODZkaIA19hV8RQy8frXEfcbJMlLQvPaIqJc/KyqPWBY0ah68
+uufjWEepVuxiQ4BcJoigF0DPwu6u6Y5w82I1vUDoz37x8s6ZrErrKEC9ZXpz5emF
+WliO1UWcWMrn+SE8wKP9Wl57DsHHU7TV5oy74c+jtjnKA7RPdw3vk+fuFmXK7VVr
+XklkfOksLandKu5su1YeBdVEPWyMcZxFF8L2AwVoQOlVwEBCbMpoBW8nw4ZsNiT4
+GBkguq86Ynpi6bQUqrRX
+=zMv/
+-----END PGP SIGNATURE-----
+
+--=-BMRYORnD4bKPtjJ5tTCd--
