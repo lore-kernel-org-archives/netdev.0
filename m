@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 0/6] tun zerocopy support
-Date: Sun, 22 Jul 2012 12:40:20 -0700 (PDT)
-Message-ID: <20120722.124020.1299343386554149788.davem@davemloft.net>
-References: <cover.1342812067.git.mst@redhat.com>
-	<20120720.174902.2055189237500355771.davem@davemloft.net>
-	<20120721220534.GA22912@redhat.com>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Sun, 22 Jul 2012 12:42:48 -0700 (PDT)
+Message-ID: <20120722.124248.1156716792541498634.davem@davemloft.net>
+References: <20120720.142502.1144557295933737451.davem@davemloft.net>
+	<CAGK4HS_ZqH+std9Edbia7i1tdpLxpdsMD83fcTQPnNZbnX4zPA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, Ian.Campbell@citrix.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120721220534.GA22912@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: subramanian.vijay@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38173 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752430Ab2GVTmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 15:42:49 -0400
+In-Reply-To: <CAGK4HS_ZqH+std9Edbia7i1tdpLxpdsMD83fcTQPnNZbnX4zPA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 22 Jul 2012 01:05:34 +0300
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Date: Sun, 22 Jul 2012 00:47:27 -0700
 
-> I agree a small win in CPU use is nothing to write home about,
-> I don't yet understand why the win is so small - macvtap has zero copy
-> supported for a while and it has exactly same issues.
-> I hope adding tun zerocopy support upstream will help us
-> make progress faster and find the bottleneck, so far not many people use
-> macvtap so zero copy mode there didn't make progress.
-> 
-> I do know why local performance regresses with zero copy enabled:
-> instead of plain copy to user we got get user pages and then memcpy.
-> We'll need some logic here to detect this and turn off zero copy.
-> 
-> The core patches will also be helpful for Ian's more ambitious work.
-> 
-> Overall I think it's a step in the right direction and it's easier to
-> work if core parts are upstream, but if you think we need to wait
-> until the gains are more significant, I understand that too.
+> I have been running your routing removal patches for the past 3 days
+> (upgraded yesterday to latest set including the 17th patch you sent in
+> response to Eric's comment) and have not seen any issues (crashes
+> etc).
 
-Ok, I've applied this series, let's see what happens.
+Thanks for testing.
+
+> Apart from time spent in fib_table_lookup(), it seems time is also
+> spent in check_leaf(). I assume this is expected behavior.
+> Here are 2 sample perf outputs (I have appended the kbench outputs to
+> each file)
+
+Yes, the two biggest hogs will be fib_table_lookup() and check_leaf().
+
+check_leaf() is expensive largely because that's where we write the
+fib_result block, which is a structure on the fib_lookup() caller's
+stack.
+
+Your perf traces roughly approximate mine.
+
+Thanks.
