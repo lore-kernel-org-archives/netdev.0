@@ -1,51 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ipv4: Change rt->rt_iif encoding.
-Date: Mon, 23 Jul 2012 16:14:46 -0700 (PDT)
-Message-ID: <20120723.161446.36265037346365173.davem@davemloft.net>
-References: <20120723.152220.822947775372843073.davem@davemloft.net>
-	<alpine.LFD.2.00.1207240157120.2404@ja.ssi.bg>
-	<20120723.160541.184307938805782289.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50514 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752749Ab2GWXOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 19:14:47 -0400
-In-Reply-To: <20120723.160541.184307938805782289.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next] IPVS
+Date: Tue, 24 Jul 2012 08:28:55 +0900
+Message-ID: <1343086141-9086-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 23 Jul 2012 16:05:41 -0700 (PDT)
+Hi Pablo,
 
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Tue, 24 Jul 2012 02:11:38 +0300 (EEST)
-> 
->> skb_iif: ifindex of device we arrived on
->> 
->> 	If it has hidden semantic may be we can make this
->> comment more specific, does it survive some loops?
-> 
-> Strangely I hadn't noticed this, and after the email I just sent
-> out I was going to look into adding such a value :-)
-> 
-> Great!
-> 
-> I'll respin my patches to use that thing, thanks Julian.
+please consider the following enhancements to IPVS for inclusion in 3.6.
 
-Hmmm, the problem is that when we decapsulate VLAN devices, we're left
-with the parent device's index in skb->skb_iif.
+----------------------------------------------------------------
+The following changes since commit 9b70749e64132e17ab02239b82fcb4a2c55554d1:
 
-That's what all of that "orig_dev" logic in __netif_receive_skb() is
-all about.  The skb->dev is rewritten by vlan_do_receive() for that
-case.
+  niu: Change niu_rbr_fill() to use unlikely() to check niu_rbr_add_page() return value (2012-07-22 23:31:07 -0700)
 
-I wonder if we should just get rid of all of that orig_dev logic and
-simply update skb->skb_iif every time we hit the code starting at
-label "another_round"
+are available in the git repository at:
 
-I'll keep looking into this.
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
+
+for you to fetch changes up to a805cfbcaaf819ab71a052d8a9d5d4c88cf2aba0:
+
+  ipvs: add pmtu_disc option to disable IP DF for TUN packets (2012-07-24 08:23:06 +0900)
+
+----------------------------------------------------------------
+Claudiu Ghioc (1):
+      ipvs: fixed sparse warning
+
+Julian Anastasov (4):
+      ipvs: ip_vs_ftp depends on nf_conntrack_ftp helper
+      ipvs: generalize app registration in netns
+      ipvs: implement passive PMTUD for IPIP packets
+      ipvs: add pmtu_disc option to disable IP DF for TUN packets
+
+ include/net/ip_vs.h             | 16 ++++++--
+ net/netfilter/ipvs/Kconfig      |  3 +-
+ net/netfilter/ipvs/ip_vs_app.c  | 58 ++++++++++++++++++++--------
+ net/netfilter/ipvs/ip_vs_core.c | 76 +++++++++++++++++++++++++++++++++++--
+ net/netfilter/ipvs/ip_vs_ctl.c  | 16 ++++++--
+ net/netfilter/ipvs/ip_vs_ftp.c  | 21 +++--------
+ net/netfilter/ipvs/ip_vs_xmit.c | 83 ++++++++++++++++++++++++++++-------------
+ 7 files changed, 204 insertions(+), 69 deletions(-)
