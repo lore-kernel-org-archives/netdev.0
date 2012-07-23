@@ -1,29 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Mon, 23 Jul 2012 09:15:52 +0200
-Message-ID: <1343027752.2626.10175.camel@edumazet-glaptop>
-References: <20120720.142502.1144557295933737451.davem@davemloft.net>
-	 <20120722.173951.1794347789063177131.davem@davemloft.net>
+From: Michael Leun <lkml20120218@newton.leun.net>
+Subject: [3.5 regression / bridge] constantly toggeling between disabled and
+ forwarding
+Date: Mon, 23 Jul 2012 09:15:04 +0200
+Message-ID: <20120723091504.2d035d28@xenia.leun.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58474 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558Ab2GWHP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 03:15:58 -0400
-Received: by bkwj10 with SMTP id j10so4848997bkw.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 00:15:57 -0700 (PDT)
-In-Reply-To: <20120722.173951.1794347789063177131.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com
+To: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2012-07-22 at 17:39 -0700, David Miller wrote:
-> Just FYI, I'm pushing this work out to net-next now.
-> --
+Hi,
 
-Excellent !
+when I use my usb ethernet adapter
 
-Thanks a lot David
+# > lsusb
+[...]
+Bus 002 Device 009: ID 9710:7830 MosChip Semiconductor MCS7830 10/100 Mbps Ethernet adapter
+[...]
+
+as port of an bridge
+
+> # brctl addbr br0
+> # brctl addif br0 eth0
+> # brctl addif br0 ue5
+> # ifconfig ue5 up
+> # ifconfig br0 up
+
+(Also does happen when eth0 is not part of the bridge, but the logs I
+had available were from that situation...)
+
+I constantly get messages showing the interface toggeling between
+disabled and forwarding state:
+
+Jul 23 07:40:50 elektra kernel: [ 1539.497337] br0: port 2(ue5) entered disabled state
+Jul 23 07:40:50 elektra kernel: [ 1539.554992] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:50 elektra kernel: [ 1539.555005] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:51 elektra kernel: [ 1540.496242] br0: port 2(ue5) entered disabled state
+Jul 23 07:40:51 elektra kernel: [ 1540.552534] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:51 elektra kernel: [ 1540.552548] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:52 elektra kernel: [ 1541.550413] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:53 elektra kernel: [ 1542.529672] br0: port 2(ue5) entered disabled state
+Jul 23 07:40:53 elektra kernel: [ 1542.587162] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:53 elektra kernel: [ 1542.587175] br0: port 2(ue5) entered forwarding state
+Jul 23 07:40:54 elektra kernel: [ 1543.585309] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:00 elektra kernel: [ 1549.360600] br0: port 2(ue5) entered disabled state
+Jul 23 07:41:00 elektra kernel: [ 1549.442998] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:00 elektra kernel: [ 1549.443011] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:01 elektra kernel: [ 1550.357686] br0: port 2(ue5) entered disabled state
+Jul 23 07:41:01 elektra kernel: [ 1550.408208] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:01 elektra kernel: [ 1550.408222] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:02 elektra kernel: [ 1551.407656] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:03 elektra kernel: [ 1552.401578] br0: port 2(ue5) entered disabled state
+Jul 23 07:41:03 elektra kernel: [ 1552.474773] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:03 elektra kernel: [ 1552.474786] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:04 elektra kernel: [ 1553.472487] br0: port 2(ue5) entered forwarding state
+Jul 23 07:41:05 elektra kernel: [ 1554.356138] br0: port 2(ue5) entered disabled state
+[...]
+
+This does (in the same situation, nothing else than the kernel changed)
+not happen with 3.4.5.
+
+Does anybody have an idea what the issue might be or do I need to bisect?
+
+-- 
+MfG,
+
+Michael Leun
