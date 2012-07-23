@@ -1,110 +1,76 @@
-From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Mon, 23 Jul 2012 15:12:05 -0300
-Message-ID: <500D93F5.4090305@linux.vnet.ibm.com>
-References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <500BD558.2060803@mellanox.com> <20120722.171553.2139258607165498367.davem@davemloft.net> <500D4F31.9020408@linux.vnet.ibm.com> <500D556F.4000409@mellanox.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: New commands to configure IOV features
+Date: Mon, 23 Jul 2012 11:36:07 -0700
+Message-ID: <20120723113607.56ce7aaf@nehalam.linuxnetplumber.net>
+References: <5003DC9B.8000706@broadcom.com>
+	<5005BD00.4090106@redhat.com>
+	<5005D45D.1040302@genband.com>
+	<20120717.141153.46613285253481776.davem@davemloft.net>
+	<500978C7.5050004@genband.com>
+	<50097FBD.9080202@redhat.com>
+	<1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+	<5009B186.6000806@genband.com>
+	<1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+	<5009ECDF.4090305@genband.com>
+	<500D59BF.9040006@redhat.com>
+	<500D6932.8090306@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jackm@dev.mellanox.co.il, yevgenyp@mellanox.co.il,
-	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
-	shlomop@mellanox.com
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp03.br.ibm.com ([32.104.18.24]:53476 "EHLO
-	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754085Ab2GWSMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 14:12:18 -0400
-Received: from /spool/local
-	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <klebers@linux.vnet.ibm.com>;
-	Mon, 23 Jul 2012 15:12:15 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp02.br.ibm.com (Postfix) with ESMTP id A6CF71DC004E
-	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 14:12:11 -0400 (EDT)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6NI8fJL3207362
-	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 15:08:42 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6NGBxJ8012124
-	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 13:12:00 -0300
-In-Reply-To: <500D556F.4000409@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Don Dutile <ddutile@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, yuvalmin@broadcom.com,
+	gregory.v.rose@intel.com, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <500D6932.8090306@genband.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/23/2012 10:45 AM, Or Gerlitz wrote:
+On Mon, 23 Jul 2012 09:09:38 -0600
+Chris Friesen <chris.friesen@genband.com> wrote:
 
-> On 7/23/2012 4:18 PM, Kleber Sacilotto de Souza wrote:
->> Exactly. The callbacks implemented are from standard PCI error recovery
->> (Documentation/PCI/pci-error-recovery.txt) and the changes doesn't
->> assume any platform in specific. The code was tested only on powerpc
->> systems [...]
+> On 07/23/2012 08:03 AM, Don Dutile wrote:
+> > On 07/20/2012 07:42 PM, Chris Friesen wrote:
+> >>
+> >> I actually have a use-case where the guest needs to be able to modify 
+> >> the MAC addresses of network devices that are actually VFs.
+> >>
+> >> The guest is bonding the network devices together, so the bonding 
+> >> driver in the guest expects to be able to set all the slaves to the 
+> >> same MAC address.
+> >>
+> >> As I read the ixgbe driver, this should be possible as long as the 
+> >> host hasn't explicitly set the MAC address of the VF. Is that correct?
+> >>
+> >> Chris
+> >
+> > Interesting tug of war: hypervisors will want to set the macaddrs for 
+> > security reasons,
+> >                         some guests may want to set macaddr for 
+> > (valid?) config reasons.
+> >
 > 
-> So how did you test that? using the kernel provided error injection
-> support and user space tool (which?) or in another way? we've trying
-> quickly here to inject errors using /sbin/ear-inject from
-> ras-utils-6.1-1.el6.x86_64 on a kernel built with
+> In our case we have control over both guest an host anyways, so it's 
+> less of a security issue.  In the general case though I could see it 
+> being an interesting problem.
 > 
-> CONFIG_PCIEAER=y
-> CONFIG_PCIEAER_INJECT=m
-
-
-For powerpc we have an IBM internal user space tool that injects the
-error on the bus with the aid of the system firmware. The kernel used
-was built with the option:
-
-CONFIG_EEH=y
-
-and without the AER options. I will run some more tests with the AER
-options activated.
-
+> Back to the original discussion though--has anyone got any ideas about 
+> the best way to trigger runtime creation of VFs?  I don't know what the 
+> binary APIs looks like, but via sysfs I could see something like
 > 
-> and it failed to inject errors, SB details.
+> echo number_of_new_vfs_to_create >  
+> /sys/bus/pci/devices/<address>/create_vfs
 > 
-> Or.
->> since I don't have any mlx4 card on other platforms, however,
->> these changes shouldn't make the error recover any worse than the
->> current state.
-> 
->> # lspci | grep 08.00.1
->> 08:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit Network
->> Connection (rev 02)
-> 
->> # cat /tmp/intel.aer
->> AER
->> BUS 8 DEV 0 FN 1
->> COR_STATUS BAD_TLP
->> HEADER_LOG 0 1 2 3
-> 
->> # /sbin/aer-inject < /tmp/intel.aer
->> Error: Failed to write, Invalid argument
-> 
-> 
-> 
->> # strace -F -f /sbin/aer-inject < /tmp/intel.aer
->> [...]
-> 
->> open("/dev/aer_inject", O_WRONLY)       = 3
->> write(3, "\10\0\1\0\0\0\0\0@\0\0\0\0\0\0\0\1\0\0\0\2\0\0\0\3\0\0\0",
->> 28) = -1 EINVAL (Invalid argument)
->> write(2, "Error: ", 7Error: )                  = 7
->> write(2, "Failed to write", 15Failed to write)         = 15
->> write(2, ", Invalid argument\n", 19, Invalid argument
->> )    = 19
->> exit_group(-1)                          = ?
-> 
-> 
-> 
-> 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Something else that occurred to me--is there buy-in from driver 
+> maintainers?  I know the Intel ethernet drivers (what I'm most familiar 
+> with) would need to be substantially modified to support on-the-fly 
+> addition of new vfs.  Currently they assume that the number of vfs is 
+> known at module init time.
 > 
 
-
-
--- 
-Kleber Sacilotto de Souza
-IBM Linux Technology Center
+Why couldn't rtnl_link_ops be used for this. It is already the preferred
+interface to create vlan's, bond devices, and other virtual devices?
+The one issue is that do the created VF's exist in kernel as devices
+or only visible to guest?
