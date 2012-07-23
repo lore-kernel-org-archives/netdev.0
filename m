@@ -1,80 +1,222 @@
-From: xufeng zhang <xufeng.zhang@windriver.com>
-Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
- SACK when bundling
-Date: Mon, 23 Jul 2012 10:30:34 +0800
-Message-ID: <500CB74A.4040300@windriver.com>
-References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com> <20120723004932.GB8040@neilslaptop.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <xufengzhang.main@gmail.com>, <vyasevich@gmail.com>,
-	<sri@us.ibm.com>, <davem@davemloft.net>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Weiping Pan <wpan@redhat.com>
+Subject: [PATCH net] rds: set correct msg_namelen
+Date: Mon, 23 Jul 2012 10:37:48 +0800
+Message-ID: <5181687def9991f9878460d932bd31c64f9ad0cb.1343010976.git.wpan@redhat.com>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120723004932.GB8040@neilslaptop.think-freely.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/23/2012 08:49 AM, Neil Horman wrote:
->
-> Not sure I understand how you came into this error.  If we get an invalid
-> stream, we issue an SCTP_REPORT_TSN side effect, followed by an SCTP_CMD_REPLY
-> which sends the error chunk.  The reply goes through
-> sctp_outq_tail->sctp_outq_chunk->sctp_outq_transmit_chunk->sctp_outq_append_chunk.
-> That last function checks to see if a sack is already part of the packet, and if
-> there isn't one, appends one, using the updated tsn map.
-Yes, you are right, but consider the invalid stream identifier's DATA 
-chunk is the first
-DATA chunk in the association which will need SACK immediately.
-Here is what I thought of the scenario:
-     sctp_sf_eat_data_6_2()
-         -->sctp_eat_data()
-             -->sctp_make_op_error()
-             -->sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(err))
-             -->sctp_outq_tail()          /* First enqueue ERROR chunk */
-         -->sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, SCTP_FORCE())
-             -->sctp_gen_sack()
-                 -->sctp_make_sack()
-                 -->sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, 
-SCTP_CHUNK(sack))
-                 -->sctp_outq_tail()          /* Then enqueue SACK chunk */
+Jay Fenlason (fenlason@redhat.com) found a bug,
+that recvfrom() on an RDS socket can return the contents of random kernel
+memory to userspace if it was called with a address length larger than
+sizeof(struct sockaddr_in).
+rds_recvmsg() also fails to set the addr_len paramater properly before
+returning, but that's just a bug.
+There are also a number of cases wher recvfrom() can return an entirely bogus
+address. Anything in rds_recvmsg() that returns a non-negative value but does
+not go through the "sin = (struct sockaddr_in *)msg->msg_name;" code path
+at the end of the while(1) loop will return up to 128 bytes of kernel memory
+to userspace.
 
-So SACK chunk is enqueued after ERROR chunk.
-> So Can you explain in
-> some more detail how you're getting into this situation?
->    
-Actually it's triggered by a customer's test case, but we can also 
-reproduce this problem
-easily by explicitly contaminating the sctp stack:
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -701,7 +701,7 @@ struct sctp_chunk *sctp_make_datafrag_empty(struct 
-sctp_association *asoc,
-          * creating the chunk.
-          */
-         dp.tsn = 0;
--       dp.stream = htons(sinfo->sinfo_stream);
-+       dp.stream = htons(sinfo->sinfo_stream) + 10;
-         dp.ppid   = sinfo->sinfo_ppid;
+And I write two test programs to reproduce this bug, you will see that in
+rds_server, fromAddr will be overwritten and the following sock_fd will be
+destroyed.
+Yes, it is the programmer's fault to set msg_namelen incorrectly, but it is
+better to make the kernel copy the real length of address to user space in
+such case.
 
-         /* Set the flags for an unordered send.  */
+How to run the test programs ?
+I test them on 32bit x86 system, 3.5.0-rc7.
 
+1 compile
+gcc -o rds_client rds_client.c
+gcc -o rds_server rds_server.c
 
-Then run sctp_darn application and capture the sctp packet at the same time.
+2 run ./rds_server on one console
 
+3 run ./rds_client on another console
 
+4 you will see something like:
+server is waiting to receive data...
+old socket fd=3
+server received data from client:data from client
+msg.msg_namelen=32
+new socket fd=-1067277685
+sendmsg()
+: Bad file descriptor
 
-Thanks,
-Xufeng Zhang
-> Thanks!
-> Neil
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
->    
+/***************** rds_client.c ********************/
+
+int main(void)
+{
+	int sock_fd;
+	struct sockaddr_in serverAddr;
+	struct sockaddr_in toAddr;
+	char recvBuffer[128] = "data from client";
+	struct msghdr msg;
+	struct iovec iov;
+
+	sock_fd = socket(AF_RDS, SOCK_SEQPACKET, 0);
+	if (sock_fd < 0) {
+		perror("create socket error\n");
+		exit(1);
+	}
+
+	memset(&serverAddr, 0, sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serverAddr.sin_port = htons(4001);
+
+	if (bind(sock_fd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+		perror("bind() error\n");
+		close(sock_fd);
+		exit(1);
+	}
+
+	memset(&toAddr, 0, sizeof(toAddr));
+	toAddr.sin_family = AF_INET;
+	toAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	toAddr.sin_port = htons(4000);
+	msg.msg_name = &toAddr;
+	msg.msg_namelen = sizeof(toAddr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_iov->iov_base = recvBuffer;
+	msg.msg_iov->iov_len = strlen(recvBuffer) + 1;
+	msg.msg_control = 0;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	if (sendmsg(sock_fd, &msg, 0) == -1) {
+		perror("sendto() error\n");
+		close(sock_fd);
+		exit(1);
+	}
+
+	printf("client send data:%s\n", recvBuffer);
+
+	memset(recvBuffer, '\0', 128);
+
+	msg.msg_name = &toAddr;
+	msg.msg_namelen = sizeof(toAddr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_iov->iov_base = recvBuffer;
+	msg.msg_iov->iov_len = 128;
+	msg.msg_control = 0;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+	if (recvmsg(sock_fd, &msg, 0) == -1) {
+		perror("recvmsg() error\n");
+		close(sock_fd);
+		exit(1);
+	}
+
+	printf("receive data from server:%s\n", recvBuffer);
+
+	close(sock_fd);
+
+	return 0;
+}
+
+/***************** rds_server.c ********************/
+
+int main(void)
+{
+	struct sockaddr_in fromAddr;
+	int sock_fd;
+	struct sockaddr_in serverAddr;
+	unsigned int addrLen;
+	char recvBuffer[128];
+	struct msghdr msg;
+	struct iovec iov;
+
+	sock_fd = socket(AF_RDS, SOCK_SEQPACKET, 0);
+	if(sock_fd < 0) {
+		perror("create socket error\n");
+		exit(0);
+	}
+
+	memset(&serverAddr, 0, sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serverAddr.sin_port = htons(4000);
+	if (bind(sock_fd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+		perror("bind error\n");
+		close(sock_fd);
+		exit(1);
+	}
+
+	printf("server is waiting to receive data...\n");
+	msg.msg_name = &fromAddr;
+
+	/*
+	 * I add 16 to sizeof(fromAddr), ie 32,
+	 * and pay attention to the definition of fromAddr,
+	 * recvmsg() will overwrite sock_fd,
+	 * since kernel will copy 32 bytes to userspace.
+	 *
+	 * If you just use sizeof(fromAddr), it works fine.
+	 * */
+	msg.msg_namelen = sizeof(fromAddr) + 16;
+	/* msg.msg_namelen = sizeof(fromAddr); */
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_iov->iov_base = recvBuffer;
+	msg.msg_iov->iov_len = 128;
+	msg.msg_control = 0;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	while (1) {
+		printf("old socket fd=%d\n", sock_fd);
+		if (recvmsg(sock_fd, &msg, 0) == -1) {
+			perror("recvmsg() error\n");
+			close(sock_fd);
+			exit(1);
+		}
+		printf("server received data from client:%s\n", recvBuffer);
+		printf("msg.msg_namelen=%d\n", msg.msg_namelen);
+		printf("new socket fd=%d\n", sock_fd);
+		strcat(recvBuffer, "--data from server");
+		if (sendmsg(sock_fd, &msg, 0) == -1) {
+			perror("sendmsg()\n");
+			close(sock_fd);
+			exit(1);
+		}
+	}
+
+	close(sock_fd);
+	return 0;
+}
+
+Signed-off-by: Weiping Pan <wpan@redhat.com>
+---
+ net/rds/recv.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index 5c6e9f1..9f0f17c 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -410,6 +410,8 @@ int rds_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+ 
+ 	rdsdebug("size %zu flags 0x%x timeo %ld\n", size, msg_flags, timeo);
+ 
++	msg->msg_namelen = 0;
++
+ 	if (msg_flags & MSG_OOB)
+ 		goto out;
+ 
+@@ -485,6 +487,7 @@ int rds_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+ 			sin->sin_port = inc->i_hdr.h_sport;
+ 			sin->sin_addr.s_addr = inc->i_saddr;
+ 			memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
++			msg->msg_namelen = sizeof(*sin);
+ 		}
+ 		break;
+ 	}
+-- 
+1.7.4
