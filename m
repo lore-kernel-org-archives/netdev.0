@@ -1,56 +1,28 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC V5 4/5] virtio_net: multiqueue support
-Date: Mon, 23 Jul 2012 13:54:51 +0800
-Message-ID: <500CE72B.2040101@redhat.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-5-git-send-email-jasowang@redhat.com>
-	<20120720134014.GD16550@redhat.com> <500A9A72.20507@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFT RESEND] net: Fix Neptune ethernet driver to check
+ dma mapping error
+Date: Sun, 22 Jul 2012 23:34:57 -0700 (PDT)
+Message-ID: <20120722.233457.2263398598927809265.davem@davemloft.net>
+References: <1342821035.5434.60.camel@lorien2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <500A9A72.20507@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: mcarlson@broadcom.com, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, shuahkhan@gmail.com,
+	stable@vger.kernel.org
+To: shuah.khan@hp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1342821035.5434.60.camel@lorien2>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/21/2012 08:02 PM, Sasha Levin wrote:
-> On 07/20/2012 03:40 PM, Michael S. Tsirkin wrote:
->>> -	err = init_vqs(vi);
->>>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->>>> +		vi->has_cvq = true;
->>>> +
->> How about we disable multiqueue if there's no cvq?
->> Will make logic a bit simpler, won't it?
-> multiqueues don't really depend on cvq. Does this added complexity really justifies adding an artificial limit?
->
+From: Shuah Khan <shuah.khan@hp.com>
+Date: Fri, 20 Jul 2012 15:50:35 -0600
 
-Yes, it does not depends on cvq. Cvq were just used to negotiate the 
-number of queues a guest wishes to use which is really useful (at least 
-for now). Since multiqueue can not out-perform for single queue in every 
-kinds of workloads or benchmark, so we want to let guest driver use 
-single queue by default even when multiqueue were enabled by management 
-software and let use to enalbe it through ethtool. So user could not 
-feel regression when it switch to use a multiqueue capable driver and 
-backend.
+> Fix Neptune ethernet driver to check dma mapping error after map_page()
+> interface returns.
+> 
+> Signed-off-by: Shuah Khan <shuah.khan@hp.com>
 
-So the only difference is the user experiences.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Applied.
