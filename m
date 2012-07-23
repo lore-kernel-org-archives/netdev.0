@@ -1,53 +1,40 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] Crash in tun
-Date: Mon, 23 Jul 2012 10:43:18 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FA1@saturn3.aculab.com>
-References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz> <1342678175.2626.3849.camel@edumazet-glaptop> <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz> <20120720.112337.474955511809249636.davem@davemloft.net> <20120721075518.GY31729@ZenIV.linux.org.uk>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: flush cache according to 'preferred life time'
+Date: Mon, 23 Jul 2012 17:44:39 +0800
+Message-ID: <500D1D07.3090103@cn.fujitsu.com>
+References: <4A71D24947E78D43BC584A7CD4391A41017DE48F@SIXPRD0410MB359.apcprd04.prod.outlook.com>,<500D05D6.7090108@cn.fujitsu.com> <4A71D24947E78D43BC584A7CD4391A41017DE4C1@SIXPRD0410MB359.apcprd04.prod.outlook.com>,<500D0A24.6060200@cn.fujitsu.com> <4A71D24947E78D43BC584A7CD4391A41017DE4FB@SIXPRD0410MB359.apcprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <mikulas@artax.karlin.mff.cuni.cz>, <eric.dumazet@gmail.com>,
-	<maxk@qualcomm.com>, <vtun@office.satix.net>,
-	<netdev@vger.kernel.org>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	<linux-sctp@vger.kernel.org>
-To: "Al Viro" <viro@ZenIV.linux.org.uk>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: BALAKUMARAN KANNAN <balakumarank@tataelxsi.co.in>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45623 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750969Ab2GWJoK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 05:44:10 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 01941-04 for <netdev@vger.kernel.org>;
- Mon, 23 Jul 2012 10:44:03 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20120721075518.GY31729@ZenIV.linux.org.uk>
+Received: from cn.fujitsu.com ([222.73.24.84]:46033 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750969Ab2GWJoZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 05:44:25 -0400
+In-Reply-To: <4A71D24947E78D43BC584A7CD4391A41017DE4FB@SIXPRD0410MB359.apcprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 	BTW, speaking of struct file treatment related to sockets -
-> there's this piece of code in iscsi:
->         /*
->          * The SCTP stack needs struct socket->file.
->          */
->         if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
->             (np->np_network_transport == ISCSI_SCTP_UDP)) {
->                 if (!new_sock->file) {
->                         new_sock->file = kzalloc(
->                                         sizeof(struct file),
-> GFP_KERNEL);
-> 
-> For one thing, as far as I can see it'not true - sctp does *not*
-> depend on socket->file being non-NULL; it does, in one place,
-> check socket->file->f_flags for O_NONBLOCK, but there it treats
-> NULL socket->file as "flag no set".
+=E4=BA=8E 2012=E5=B9=B407=E6=9C=8823=E6=97=A5 16:36, BALAKUMARAN KANNAN=
+ =E5=86=99=E9=81=93:
+> Than you Gao-san. Your patch is helpful. I will try that. Also I am f=
+acing another problem. Tahi test case section nd test case 145 is faili=
+ng if gc_interval is 30. The test case is as follows
+>  * The tester node (tn) sends RA with curhoplimit 64
+>  * tn sends a ICMP_REQUEST and checks the ICMP_REPLY from nut is havi=
+ng hoplimit 64. (it is fine in my case)
+>  * Then the tn sends a RA with curhoplimit 0. (It should be ignored)
+>  * Then again tn sends ICMP_REQUEST and checks the ICMP_REPLY from nu=
+t whether the hoplimit remains 64 (but it changes to 255 if cache is pr=
+esent. But once I changed the gc_interval to 1, this testcase passes)
+> Can you please explain what is the reason.=20
+>=20
 
-The SCTP code certainly has unconditionally looked at file->f_flags,
-we had to allocate a 'struct file' for our in-kernel socket code.
-We set sock->file = NULL before the sock_release() call so
-hopefully don't suffer the 'side effects'.
+Hi
 
-	David
+Can you test with the last kernel?
+Maybe this bug has been fixed too.
+
+Thanks
