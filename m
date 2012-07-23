@@ -1,28 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFT] net: Change niu_rbr_fill() to use unlikely() to
- check niu_rbr_add_page() return value
-Date: Sun, 22 Jul 2012 23:35:06 -0700 (PDT)
-Message-ID: <20120722.233506.850170096735613796.davem@davemloft.net>
-References: <1342827272.5434.71.camel@lorien2>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/2] ipvs: ip_vs_ftp depends on nf_conntrack_ftp helper
+Date: Mon, 23 Jul 2012 15:48:18 +0900
+Message-ID: <20120723064818.GK6603@verge.net.au>
+References: <1341966327-16606-1-git-send-email-horms@verge.net.au>
+ <1341966327-16606-2-git-send-email-horms@verge.net.au>
+ <20120712153937.GB18793@1984>
+ <alpine.LFD.2.00.1207122238220.1831@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shuahkhan@gmail.com
-To: shuah.khan@hp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1342827272.5434.71.camel@lorien2>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1207122238220.1831@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shuah Khan <shuah.khan@hp.com>
-Date: Fri, 20 Jul 2012 17:34:32 -0600
-
-> Change niu_rbr_fill() to use unlikely() to check niu_rbr_add_page() return
-> value to be consistent with the rest of the checks after niu_rbr_add_page()
-> calls in this file.
+On Thu, Jul 12, 2012 at 10:43:22PM +0300, Julian Anastasov wrote:
 > 
-> Signed-off-by: Shuah Khan <shuah.khan@hp.com>
+> 	Hello,
+> 
+> On Thu, 12 Jul 2012, Pablo Neira Ayuso wrote:
+> 
+> > On Wed, Jul 11, 2012 at 09:25:26AM +0900, Simon Horman wrote:
+> > > From: Julian Anastasov <ja@ssi.bg>
+> > > 
+> > > 	The FTP application indirectly depends on the
+> > > nf_conntrack_ftp helper for proper NAT support. If the
+> > > module is not loaded, IPVS can resize the packets for the
+> > > command connection, eg. PASV response but the SEQ adjustment
+> > > logic in ipv4_confirm is not called without helper.
+> > > 
+> > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> > > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > > ---
+> > >  net/netfilter/ipvs/Kconfig | 3 ++-
+> > >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > > 
+> > > diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+> > > index f987138..8b2cffd 100644
+> > > --- a/net/netfilter/ipvs/Kconfig
+> > > +++ b/net/netfilter/ipvs/Kconfig
+> > > @@ -250,7 +250,8 @@ comment 'IPVS application helper'
+> > >  
+> > >  config	IP_VS_FTP
+> > >    	tristate "FTP protocol helper"
+> > > -        depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT
+> > > +	depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT && \
+> > > +		NF_CONNTRACK_FTP
+> > 
+> > If you require FTP NAT support, then this depends on NF_NAT_FTP
+> > instead of NF_CONNTRACK_FTP.
+> 
+> 	No, I just checked again, it works without nf_nat_ftp,
+> only nf_nat, nf_conntrack_ftp and iptable_nat are needed.
+> We use packet mangling part from nf_nat (nf_nat_mangle_tcp_packet).
 
-Applied.
+Is there a consensus on this?
