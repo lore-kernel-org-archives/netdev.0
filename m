@@ -1,102 +1,134 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 3/4] e1000e: advertise transmit
-	time stamping
-Date: Mon, 23 Jul 2012 01:19:21 -0700
-Message-ID: <1343031561.23226.30.camel@jtkirshe-mobl>
-References: <cover.1342976654.git.richardcochran@gmail.com>
-	<e0e31f0229b5bfda1684122498b4d6fb3195cf26.1342976654.git.richardcochran@gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: flush cache according to 'preferred life time'
+Date: Mon, 23 Jul 2012 16:24:04 +0800
+Message-ID: <500D0A24.6060200@cn.fujitsu.com>
+References: <4A71D24947E78D43BC584A7CD4391A41017DE48F@SIXPRD0410MB359.apcprd04.prod.outlook.com>,<500D05D6.7090108@cn.fujitsu.com> <4A71D24947E78D43BC584A7CD4391A41017DE4C1@SIXPRD0410MB359.apcprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3693861156196386268=="
-Cc: Willem, netdev@vger.kernel.org, Bruijn <willemb@google.com>,
-	David Miller <davem@davemloft.net>, e1000-devel@lists.sourceforge.net
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <e0e31f0229b5bfda1684122498b4d6fb3195cf26.1342976654.git.richardcochran@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: BALAKUMARAN KANNAN <balakumarank@tataelxsi.co.in>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:14160 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754008Ab2GWIXn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 04:23:43 -0400
+In-Reply-To: <4A71D24947E78D43BC584A7CD4391A41017DE4C1@SIXPRD0410MB359.apcprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---===============3693861156196386268==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-oV6rJuCOtA6p5AMPrx85"
-
-
---=-oV6rJuCOtA6p5AMPrx85
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2012-07-22 at 19:15 +0200, Richard Cochran wrote:
-> This driver now offers software transmit time stamping, so it should
-> advertise that fact via ethtool. Compile tested only.
+=E4=BA=8E 2012=E5=B9=B407=E6=9C=8823=E6=97=A5 16:12, BALAKUMARAN KANNAN=
+ =E5=86=99=E9=81=93:
 >=20
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ________________________________________
+> From: netdev-owner@vger.kernel.org [netdev-owner@vger.kernel.org] on =
+behalf of Gao feng [gaofeng@cn.fujitsu.com]
+> Sent: Monday, July 23, 2012 1:35 PM
+> To: BALAKUMARAN KANNAN
+> Cc: netdev@vger.kernel.org
+> Subject: Re: flush cache according to 'preferred life time'
 >=20
-> Cc: Willem de Bruijn <willemb@google.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: e1000-devel@lists.sourceforge.net
-> ---
->  drivers/net/ethernet/intel/e1000e/ethtool.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)=20
+> =E4=BA=8E 2012=E5=B9=B407=E6=9C=8823=E6=97=A5 15:36, BALAKUMARAN KANN=
+AN =E5=86=99=E9=81=93:
+>> Hello all,
+>>     I am running test casees for IPv6 conformation on linux-3.0.26 k=
+ernel. Here I am facing a problem in routing advertisement. Once test c=
+ase sets the 'preferred life time' to 20 seconds for a particular desti=
+nation. And continuously sending ICMP REQUEST. It is expected that the =
+ICMP_REPLY should stop in 20 seconds. But as because the default gc_int=
+erval is 30seconds, even after the timer expiry of the route, it is sta=
+ying in the router cache. So even after 20 seconds, the nut(node under =
+test) sends ICMP_REPLY. So if I changes gc_interval to 1, the test is g=
+etting passed.
+>>
+>>     But if I changes gc_interval to 1 seconds another test case in p=
+mtu section fails. It expects that the nut should hold pmtu(path mtu) i=
+nformation for different value. So if I flushes the cache, the pmtu val=
+ue is turning back to default.
+>>
+>>     So I made the kernel to alter its gc_interval value according to=
+ the 'preferred life time' of the path. Here is my path. Kindly tell me=
+ whether my idea is correct. Am I missing something?
+>>
+>=20
+> Is this commit 1716a96101c49186bb0b8491922fd3e69030235f what you need=
+?
+>=20
+>> --------------------------------------------------------------------=
+------------------
+>> --- ../linux-3.0.y-BRANCH_SS-RT.git.fresh/net/ipv6/ndisc.c.bak  2012=
+-07-23 12:50:46.000000000 +0530
+>> +++ ../linux-3.0.y-BRANCH_SS-RT.git.fresh/net/ipv6/ndisc.c      2012=
+-07-23 12:54:17.000000000 +0530
+>> @@ -1160,6 +1160,9 @@
+>>
+>>         __u8 * opt =3D (__u8 *)(ra_msg + 1);
+>>
+>> +        struct net *net =3D dev_net(skb->dev);
+>> +        fib6_run_gc(1, net);
+>> +
+>>         optlen =3D (skb->tail - skb->transport_header) - sizeof(stru=
+ct ra_msg);
+>>
+>>         if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINK=
+LOCAL)) {
+>> @@ -1200,6 +1203,22 @@
+>>                 return;
+>>         }
+>>
+>> +        if (*opt =3D=3D 3) {
+>> +                printk("<8> IN OPT 3\n");
+>> +                struct net *net =3D dev_net(skb->dev);
+>> +                fib6_run_gc(1, net);
+>> +                int pref_life_time =3D  ntohl(*((int *) (((char *) =
+(opt)) + 8)));
+>> +                if ((pref_life_time !=3D 0) && (pref_life_time < 50=
+)) {
+>> +                        printk("<8> gc_interval CHANGED\n");
+>> +                        //init_net.ipv6.sysctl.flush_delay =3D 1;
+>> +                        init_net.ipv6.sysctl.ip6_rt_gc_interval =3D=
+ 1 * HZ;
+>> +                }
+>> +                else {
+>> +                        init_net.ipv6.sysctl.ip6_rt_gc_interval =3D=
+ 30 * HZ;
+>> +                }
+>> +
+>> +        }
+>> +
+>>         if (!accept_ra(in6_dev))
+>>                 goto skip_linkparms;
+>> --------------------------------------------------------------------=
+------------------
+>>
+>> Note: This is not well structured. I just created it for temparory s=
+olution. Just clarify me whether this idea is right.
+>>
+>> And Please let me know why pmtu value is not stored in routing table=
+ but only in cache.
+>=20
+> I think the pmtu should be belong to destination.the different destin=
+ations may have
+> different pmtu,even they use same route entry.
+>=20
+> So what you are comming to say, there will not be any entry in routin=
+g table for each destination but only in routing cache. So the pmtu val=
+ue is updated in the cache not in the routing table. thank you. Also I =
+have one more doubt. Is there a way to delete an entry (particular entr=
+y) from cache once the corresponding entry in the routing table is expi=
+red. As in my case, the routing table entry is expired in 20 seconds. b=
+ut the cache entry is available till next cache flush. But I want to de=
+lete the entry from cache once the entry in routing table is expired. I=
+ believe you understand.
+>=20
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Yes,I think so too.
 
---=-oV6rJuCOtA6p5AMPrx85
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+> Thank you Geo feng-san for Interest.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+I don't know if this commit is what you are finding.
+1716a96101c49186bb0b8491922fd3e69030235f
 
-iQIcBAABCgAGBQJQDQkJAAoJEOVv75VaS+3O25AP/A4VGgWGXzOG2fiwncIL+nNk
-WOSZhQxCMsYYnEo7bb0xsfqxxgybByCXfuWnWFRsU69JQQDUaq1r9nz80n2tM+Fi
-cPkesmtw3Kwa8tKzrURziTVwvWawNmVX2tdWohyKzUQ/DzAXosSLWeGMy09TasXh
-6ktAzcNANZyR1yflQIZi4p2nCiQS1dPG0stZo7y6Vt7ayjp5ugZdqFTxw0QQQHBk
-4ZrIcxEKzPvhXlMa1XUveRT+8thtAAV2F3d7KHHzcDSKlzAC6sDTzO36l42Vnjz+
-JWo4d4FS6wuU5kd4ujVANv2G+JUVCA8Gm5c618O2rlwcoEk+fDiVqNJjVuyqpqk1
-DfyX2WgN+/gmRZdhnkhLaNsTlTUdiJ0cVq8SpDlC9bb5u77phLFGGzVB1k0qjJ8R
-hjIzAac+L+4twEvMt5rfOavzI+Mtd9fTmOQVnEdfz/kn5EaD6XZtpfzwa1oZXVOQ
-0mHeEEds23XiwjkLusBWUcgfot6i2wqhTuHMmybrzm9CpjDz2qWcVmD2tE3GneWn
-jC5GK7LTpV12uX2pFgN3GoR3/2h6uOgfGZWbJEUMAkKUm4D37i9mK6ly71Uocqg/
-U+CWoeXfDw1QSB39SCmDAbfn49mKKogpO+nT/VLXUNpe/TH2DXINGUnVl3usKEGN
-j4dxAtk7mFxKZHIgL1Zg
-=4GU5
------END PGP SIGNATURE-----
+You can test again with this commit.
 
---=-oV6rJuCOtA6p5AMPrx85--
-
-
-
---===============3693861156196386268==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
---===============3693861156196386268==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============3693861156196386268==--
+Thanks
