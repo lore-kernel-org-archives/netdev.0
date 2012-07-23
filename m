@@ -1,42 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 11/16] ipv4: Cache input routes in fib_info nexthops.
-Date: Mon, 23 Jul 2012 12:58:37 -0700 (PDT)
-Message-ID: <20120723.125837.2165279339112720363.davem@davemloft.net>
-References: <20120720.142622.1447419081262029885.davem@davemloft.net>
-	<alpine.LFD.2.00.1207231157590.1626@ja.ssi.bg>
-	<alpine.LFD.2.00.1207232245230.1619@ja.ssi.bg>
+Subject: Re: [PATCH] USB: plusb: Add support for PL-2501
+Date: Mon, 23 Jul 2012 13:08:35 -0700 (PDT)
+Message-ID: <20120723.130835.1217772163295796220.davem@davemloft.net>
+References: <alpine.LNX.2.02.1207231540580.1183@bas>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48839 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754160Ab2GWT6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 15:58:40 -0400
-In-Reply-To: <alpine.LFD.2.00.1207232245230.1619@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, sshtylyov@mvista.com,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org, greg@kroah.com
+To: bas@bmail.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.02.1207231540580.1183@bas>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Mon, 23 Jul 2012 23:00:57 +0300 (EEST)
+From: kyak <bas@bmail.ru>
+Date: Mon, 23 Jul 2012 15:44:11 +0400 (MSK)
 
-> 	May be we can replace rt_iif with skb->dev->ifindex ?
-> If we have dst, there must be skb->dev ? Only for
-> output routes we should check places that rely on
-> inet_iif().
+> From: Mikhail Peselnik <peselnik@gmail.com>
+> 
+> This patch adds support for PL-2501 by adding the appropriate USB
+> ID's. This chip is used in several USB 'Easy Trasfer' Cables.
+> 
+> Signed-off-by: Mikhail Peselnik <peselnik@gmail.com>
+> Tested-by: Mikhail Peselnik <peselnik@gmail.com>
 
-Right, just as I was drinking my first coffee after reading
-your previous email I was thinking about this.
-
-The only time skb->dev->ifindex can change from rt->rt_iif is when we
-demux a tunnel, but at that point we would first reinject and do
-another route lookup, at which point rt->rt_iif would match again.
-
-And this is the intended semantic of this field anyways.
-
-I'll look into what we can do here, and I'll also try to come up
-with some ideas wrt. the DIRECTSRC issue as well.
-
-Thanks Julian.
+This does not apply cleanly to my net-next tree at all.
