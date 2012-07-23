@@ -1,57 +1,50 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: New commands to configure IOV features
-Date: Mon, 23 Jul 2012 09:09:38 -0600
-Message-ID: <500D6932.8090306@genband.com>
-References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>			<5005D45D.1040302@genband.com>		 <20120717.141153.46613285253481776.davem@davemloft.net>		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>	 <5009B186.6000806@genband.com> <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com> <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
+Subject: Re: [PATCH] ppp: add 64 bit stats
+Date: Mon, 23 Jul 2012 11:25:53 -0400
+Message-ID: <CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
+References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
+	<1343020585.2626.10054.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, yuvalmin@broadcom.com,
-	gregory.v.rose@intel.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: Don Dutile <ddutile@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <500D59BF.9040006@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:58554 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389Ab2GWPZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 11:25:54 -0400
+Received: by vbbff1 with SMTP id ff1so4773984vbb.19
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 08:25:53 -0700 (PDT)
+In-Reply-To: <1343020585.2626.10054.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/23/2012 08:03 AM, Don Dutile wrote:
-> On 07/20/2012 07:42 PM, Chris Friesen wrote:
->>
->> I actually have a use-case where the guest needs to be able to modify 
->> the MAC addresses of network devices that are actually VFs.
->>
->> The guest is bonding the network devices together, so the bonding 
->> driver in the guest expects to be able to set all the slaves to the 
->> same MAC address.
->>
->> As I read the ixgbe driver, this should be possible as long as the 
->> host hasn't explicitly set the MAC address of the VF. Is that correct?
->>
->> Chris
+Hi Eric,
+
+On Mon, Jul 23, 2012 at 1:16 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Hmm. This patches adds races, but also adds a good amount of memory on
+> these servers with thousand of ppp devices, and 64 cpus.
+
+I am curious if you can elaborate on what is racy about the patch, I
+am still trying to learn.  I assumed (possibly incorrectly) that
+because I was using percpu variables that the stats updates didn't
+need any extra synchronization as any concurrent updates would be on
+different cpus.
+
+> I really doubt ppp is performance sensitive, it so doesnt need percpu
+> counter.
 >
-> Interesting tug of war: hypervisors will want to set the macaddrs for 
-> security reasons,
->                         some guests may want to set macaddr for 
-> (valid?) config reasons.
->
+> If you really want 64bits stats on ppp, use proper synchronization
+> around u64 counters (but shared ones)
 
-In our case we have control over both guest an host anyways, so it's 
-less of a security issue.  In the general case though I could see it 
-being an interesting problem.
+I will work on an updated patch without the percpu variables.  I
+didn't really think about servers with many cpus and many ppp sessions
+when I created the patch, I was mainly thinking about my Linksys
+router and other simple clients.  Many of the other network drivers
+use percpu variables for their stats so I just followed along.
 
-Back to the original discussion though--has anyone got any ideas about 
-the best way to trigger runtime creation of VFs?  I don't know what the 
-binary APIs looks like, but via sysfs I could see something like
+Would proper synchronization in this case just be wrapping the updates
+in a spin_lock/spin_unlock?
 
-echo number_of_new_vfs_to_create >  
-/sys/bus/pci/devices/<address>/create_vfs
 
-Something else that occurred to me--is there buy-in from driver 
-maintainers?  I know the Intel ethernet drivers (what I'm most familiar 
-with) would need to be substantially modified to support on-the-fly 
-addition of new vfs.  Currently they assume that the number of vfs is 
-known at module init time.
-
-Chris
+Kevin
