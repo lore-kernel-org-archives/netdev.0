@@ -1,68 +1,71 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/2] ipvs: ip_vs_ftp depends on nf_conntrack_ftp helper
-Date: Mon, 23 Jul 2012 19:39:06 +0200
-Message-ID: <20120723173906.GA1430@1984>
-References: <1341966327-16606-1-git-send-email-horms@verge.net.au>
- <1341966327-16606-2-git-send-email-horms@verge.net.au>
- <20120712153937.GB18793@1984>
- <alpine.LFD.2.00.1207122238220.1831@ja.ssi.bg>
- <20120723064818.GK6603@verge.net.au>
+From: Saurabh <saurabh.mohan@vyatta.com>
+Subject: [net-next] net/ipv4/ip_vti.c: Fix __rcu warnings detected by
+ sparse.
+Date: Mon, 23 Jul 2012 10:52:04 -0700
+Message-ID: <20120723175204.GA2762@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:57104 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754473Ab2GWRxC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2012 13:53:02 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 1F16514101E0
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 10:53:00 -0700 (PDT)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 1McTfZV7IC3d for <netdev@vger.kernel.org>;
+	Mon, 23 Jul 2012 10:52:55 -0700 (PDT)
+Received: from localhost (eng-dhcp-126.vyatta.com [10.3.0.126])
+	by mail.vyatta.com (Postfix) with ESMTP id C379914101DE
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 10:52:55 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20120723064818.GK6603@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 23, 2012 at 03:48:18PM +0900, Simon Horman wrote:
-> On Thu, Jul 12, 2012 at 10:43:22PM +0300, Julian Anastasov wrote:
-> > 
-> > 	Hello,
-> > 
-> > On Thu, 12 Jul 2012, Pablo Neira Ayuso wrote:
-> > 
-> > > On Wed, Jul 11, 2012 at 09:25:26AM +0900, Simon Horman wrote:
-> > > > From: Julian Anastasov <ja@ssi.bg>
-> > > > 
-> > > > 	The FTP application indirectly depends on the
-> > > > nf_conntrack_ftp helper for proper NAT support. If the
-> > > > module is not loaded, IPVS can resize the packets for the
-> > > > command connection, eg. PASV response but the SEQ adjustment
-> > > > logic in ipv4_confirm is not called without helper.
-> > > > 
-> > > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > > > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > > > ---
-> > > >  net/netfilter/ipvs/Kconfig | 3 ++-
-> > > >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > > > 
-> > > > diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-> > > > index f987138..8b2cffd 100644
-> > > > --- a/net/netfilter/ipvs/Kconfig
-> > > > +++ b/net/netfilter/ipvs/Kconfig
-> > > > @@ -250,7 +250,8 @@ comment 'IPVS application helper'
-> > > >  
-> > > >  config	IP_VS_FTP
-> > > >    	tristate "FTP protocol helper"
-> > > > -        depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT
-> > > > +	depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT && \
-> > > > +		NF_CONNTRACK_FTP
-> > > 
-> > > If you require FTP NAT support, then this depends on NF_NAT_FTP
-> > > instead of NF_CONNTRACK_FTP.
-> > 
-> > 	No, I just checked again, it works without nf_nat_ftp,
-> > only nf_nat, nf_conntrack_ftp and iptable_nat are needed.
-> > We use packet mangling part from nf_nat (nf_nat_mangle_tcp_packet).
-> 
-> Is there a consensus on this?
 
-Fine with me, just wanted to make sure this what you wanted. Thanks
-Simon.
+
+With CONFIG_SPARSE_RCU_POINTER=y sparse identified references which did not
+specificy __rcu in ip_vti.c
+
+Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+
+---
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index c41b5c3..3511ffb 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -55,7 +55,7 @@ struct vti_net {
+ 	struct ip_tunnel __rcu *tunnels_r[HASH_SIZE];
+ 	struct ip_tunnel __rcu *tunnels_l[HASH_SIZE];
+ 	struct ip_tunnel __rcu *tunnels_wc[1];
+-	struct ip_tunnel **tunnels[4];
++	struct ip_tunnel __rcu **tunnels[4];
+ 
+ 	struct net_device *fb_tunnel_dev;
+ };
+@@ -160,8 +160,8 @@ static struct ip_tunnel *vti_tunnel_lookup(struct net *net,
+ 	return NULL;
+ }
+ 
+-static struct ip_tunnel **__vti_bucket(struct vti_net *ipn,
+-				       struct ip_tunnel_parm *parms)
++static struct ip_tunnel __rcu **__vti_bucket(struct vti_net *ipn,
++					     struct ip_tunnel_parm *parms)
+ {
+ 	__be32 remote = parms->iph.daddr;
+ 	__be32 local = parms->iph.saddr;
+@@ -179,8 +179,8 @@ static struct ip_tunnel **__vti_bucket(struct vti_net *ipn,
+ 	return &ipn->tunnels[prio][h];
+ }
+ 
+-static inline struct ip_tunnel **vti_bucket(struct vti_net *ipn,
+-					    struct ip_tunnel *t)
++static inline struct ip_tunnel __rcu **vti_bucket(struct vti_net *ipn,
++						  struct ip_tunnel *t)
+ {
+ 	return __vti_bucket(ipn, &t->parms);
+ }
