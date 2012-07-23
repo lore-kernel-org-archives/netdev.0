@@ -1,60 +1,40 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] USB: plusb: Add support for PL-2501
-Date: Mon, 23 Jul 2012 14:25:37 +0400
-Message-ID: <500D26A1.50500@mvista.com>
-References: <alpine.LNX.2.02.1207222138410.1183@bas>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] rtnl: do not include num_rx_queues into msg
+ when CONFIG_RPS is not set
+Date: Mon, 23 Jul 2012 13:03:49 +0200
+Message-ID: <20120723110349.GA1669@minipsycho.orion>
+References: <1342942002-26731-1-git-send-email-jiri@resnulli.us>
+ <20120722.122746.1524911782331447848.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Kroah-Hartman <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kyak <bas-v2SRCKu5KfM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.02.1207222138410.1183@bas>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45726 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752131Ab2GWLDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 07:03:54 -0400
+Received: by bkwj10 with SMTP id j10so5081099bkw.19
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 04:03:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120722.122746.1524911782331447848.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 22-07-2012 21:42, kyak wrote:
-
-> From: Mikhail Peselnik <peselnik-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-> This patch adds support for PL-2501 by adding the appropriate USB
-> ID's. This chip is used in several USB 'Easy Trasfer' Cables.
-
-> Signed-off-by: Mikhail Peselnik <peselnik-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Tested-by: Mikhail Peselnik <peselnik-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> Now with proper sign-offs and right people in cc.
-> plusb driver (drivers/net/usb/plusb.c) doesn't recognize PL2501 chip.
-> Since PL2501 uses the same code as PL2301/PL2302 (PL2501 works in
-> compatibility mode with PL2301/PL2302), the fix is trivial and
-> attached as a patch.
-
-> Just to note: the patch is not mine, it can be found here and there on
-> Internet.
-> I've tested the patch and it works great.
-
-> Thank you.
-
-> --- linux-3.5/drivers/net/usb/plusb.c.orig      2012-07-22
-> 21:06:41.905802795 +0400
-> +++ linux-3.5/drivers/net/usb/plusb.c   2012-07-22 21:07:00.345552404 +0400
-[...]
-> @@ -158,5 +161,5 @@ static struct usb_driver plusb_driver =
->   module_usb_driver(plusb_driver);
+Sun, Jul 22, 2012 at 09:27:46PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Sun, 22 Jul 2012 09:26:42 +0200
 >
->   MODULE_AUTHOR("David Brownell");
-> -MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1 USB Host to Host Link Driver");
-> +MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1/2501 USB Host to Host
-> Link Driver");
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>Jiri, I've been patiently waiting for you to ACK Mark A. Greear's
+>patch fixing this bug, did you not see it at all?
 
-    Your patch is line wrapped. Seeems easy to fix though...
+Oh I missed that. That email somehow skipped my inbox and went only to
+ml folder...
 
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>http://patchwork.ozlabs.org/patch/172393/
+>
+>I'm just going to apply it since you're not watching for fixes
+>for code you've changed.
