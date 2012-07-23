@@ -1,49 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: dont drop MTU reduction indications
-Date: Mon, 23 Jul 2012 00:59:03 -0700 (PDT)
-Message-ID: <20120723.005903.2179205107462793469.davem@davemloft.net>
-References: <1343029732.2626.10234.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch] openvswitch: potential NULL deref in sample()
+Date: Mon, 23 Jul 2012 01:00:09 -0700 (PDT)
+Message-ID: <20120723.010009.1045686375865776921.davem@davemloft.net>
+References: <20120723074628.GA30892@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nanditad@google.com, ncardwell@google.com,
-	maze@google.com, tore@fud.no, therbert@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42875 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389Ab2GWH7E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 03:59:04 -0400
-In-Reply-To: <1343029732.2626.10234.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120723074628.GA30892-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Jul 2012 09:48:52 +0200
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Mon, 23 Jul 2012 10:46:28 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> ICMP messages generated in output path if frame length is bigger than
-> mtu are actually lost because socket is owned by user (doing the xmit=
-)
->=20
-> One example is the ipgre_tunnel_xmit() calling=20
-> icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
->=20
-> We had a similar case fixed in commit a34a101e1e6 (ipv6: disable GSO =
-on
-> sockets hitting dst_allfrag).
->=20
-> Problem of such fix is that it relied on retransmit timers, so short =
-tcp
-> sessions paid a too big latency increase price.
->=20
-> This patch uses the tcp_release_cb() infrastructure so that MTU
-> reduction messages (ICMP messages) are not lost, and no extra delay
-> is added in TCP transmits.
->=20
-> Reported-by: Maciej =AFenczykowski <maze@google.com>
-> Diagnosed-by: Neal Cardwell <ncardwell@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> If there is no OVS_SAMPLE_ATTR_ACTIONS set then "acts_list" is NULL and
+> it leads to a NULL dereference when we call nla_len(acts_list).  This
+> is a static checker fix, not something I have seen in testing.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Applied, thanks Eric.
+Applied, thanks Dan.
