@@ -1,37 +1,32 @@
-From: Lin Ming <mlin@ss.pku.edu.cn>
-Subject: [PATCH] ipv4: Remove redundant assignment
-Date: Mon, 23 Jul 2012 22:11:21 +0800
-Message-ID: <1343052681.4600.5.camel@monkey32>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH v5] sctp: Implement quick failover draft from tsvwg
+Date: Mon, 23 Jul 2012 11:28:17 -0300
+Message-ID: <20120723112817.687dde24@obelix.rh>
+References: <1342203998-24037-1-git-send-email-nhorman@tuxdriver.com>
+	<1342810319-27457-1-git-send-email-nhorman@tuxdriver.com>
+	<20120720161001.1cc1bb10@obelix.rh>
+	<20120720.123109.718847527715087868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, vyasevich@gmail.com,
+	sri@us.ibm.com, linux-sctp@vger.kernel.org, joe@perches.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [124.207.24.138] ([124.207.24.138]:46087 "EHLO
-	mail.ss.pku.edu.cn" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750969Ab2GWOMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 10:12:03 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:3877 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752292Ab2GWO3B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2012 10:29:01 -0400
+In-Reply-To: <20120720.123109.718847527715087868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is redundant to set no_addr and accept_local to 0 and then set them
-with other values just after that.
+On Fri, 20 Jul 2012 12:31:09 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+[...]
+> Just quote the commit message or similar.
 
-Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
----
- net/ipv4/fib_frontend.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index f277cf0..8732cc7 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -258,7 +258,6 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	fl4.flowi4_tos = tos;
- 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
- 
--	no_addr = accept_local = 0;
- 	no_addr = idev->ifa_list == NULL;
- 
- 	accept_local = IN_DEV_ACCEPT_LOCAL(idev);
+Sure thing. I was going to clean up when I accidentally sent that email.
+The previous ones were fine though :)
+Sorry about that.
+fbl
