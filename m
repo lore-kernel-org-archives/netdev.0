@@ -1,49 +1,69 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next 4/4] forcedeth: advertise transmit time stamping
-Date: Mon, 23 Jul 2012 09:27:18 -0400
-Message-ID: <CA+FuTSd5xuzhUA+vr+xrfVd7Y3AzxZurqAXy5bUfZdFKTbAYow@mail.gmail.com>
-References: <cover.1342976654.git.richardcochran@gmail.com> <d95c3b5bf30e3a7d056ad7f9fb774bbf572dc217.1342976654.git.richardcochran@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Date: Mon, 23 Jul 2012 16:45:19 +0300
+Message-ID: <500D556F.4000409@mellanox.com>
+References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <500BD558.2060803@mellanox.com> <20120722.171553.2139258607165498367.davem@davemloft.net> <500D4F31.9020408@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<jackm@dev.mellanox.co.il>, <yevgenyp@mellanox.co.il>,
+	<cascardo@linux.vnet.ibm.com>, <brking@linux.vnet.ibm.com>,
+	<shlomop@mellanox.com>
+To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:59582 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325Ab2GWN1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 09:27:50 -0400
-Received: by lbbgm6 with SMTP id gm6so8026097lbb.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 06:27:49 -0700 (PDT)
-In-Reply-To: <d95c3b5bf30e3a7d056ad7f9fb774bbf572dc217.1342976654.git.richardcochran@gmail.com>
+Received: from eu2sys200bog102.obsmtp.com ([207.126.150.230]:49393 "HELO
+	eu2sys200bog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752046Ab2GWOBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 10:01:49 -0400
+In-Reply-To: <500D4F31.9020408@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 22, 2012 at 1:15 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This driver now offers software transmit time stamping, so it should
-> advertise that fact via ethtool. Compile tested only.
->
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+On 7/23/2012 4:18 PM, Kleber Sacilotto de Souza wrote:
+> Exactly. The callbacks implemented are from standard PCI error recovery
+> (Documentation/PCI/pci-error-recovery.txt) and the changes doesn't
+> assume any platform in specific. The code was tested only on powerpc
+> systems [...]
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+So how did you test that? using the kernel provided error injection 
+support and user space tool (which?) or in another way? we've trying 
+quickly here to inject errors using /sbin/ear-inject from 
+ras-utils-6.1-1.el6.x86_64 on a kernel built with
 
-> Cc: Willem de Bruijn <willemb@google.com>
-> ---
->  drivers/net/ethernet/nvidia/forcedeth.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-> index 67edc2e..f45def0 100644
-> --- a/drivers/net/ethernet/nvidia/forcedeth.c
-> +++ b/drivers/net/ethernet/nvidia/forcedeth.c
-> @@ -5182,6 +5182,7 @@ static const struct ethtool_ops ops = {
->         .get_ethtool_stats = nv_get_ethtool_stats,
->         .get_sset_count = nv_get_sset_count,
->         .self_test = nv_self_test,
-> +       .get_ts_info = ethtool_op_get_ts_info,
->  };
->
->  /* The mgmt unit and driver use a semaphore to access the phy during init */
-> --
-> 1.7.2.5
->
+CONFIG_PCIEAER=y
+CONFIG_PCIEAER_INJECT=m
+
+and it failed to inject errors, SB details.
+
+Or.
+> since I don't have any mlx4 card on other platforms, however,
+> these changes shouldn't make the error recover any worse than the
+> current state.
+
+> # lspci | grep 08.00.1
+> 08:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit Network 
+> Connection (rev 02)
+
+> # cat /tmp/intel.aer
+> AER
+> BUS 8 DEV 0 FN 1
+> COR_STATUS BAD_TLP
+> HEADER_LOG 0 1 2 3
+
+> # /sbin/aer-inject < /tmp/intel.aer
+> Error: Failed to write, Invalid argument
+
+
+
+> # strace -F -f /sbin/aer-inject < /tmp/intel.aer
+> [...]
+
+> open("/dev/aer_inject", O_WRONLY)       = 3
+> write(3, "\10\0\1\0\0\0\0\0@\0\0\0\0\0\0\0\1\0\0\0\2\0\0\0\3\0\0\0", 
+> 28) = -1 EINVAL (Invalid argument)
+> write(2, "Error: ", 7Error: )                  = 7
+> write(2, "Failed to write", 15Failed to write)         = 15
+> write(2, ", Invalid argument\n", 19, Invalid argument
+> )    = 19
+> exit_group(-1)                          = ?
