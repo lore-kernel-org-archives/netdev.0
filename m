@@ -1,67 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ppp: add 64 bit stats
-Date: Mon, 23 Jul 2012 17:59:44 +0200
-Message-ID: <1343059184.2626.11027.camel@edumazet-glaptop>
-References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
-	 <1343020585.2626.10054.camel@edumazet-glaptop>
-	 <CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [E1000-devel] [PATCH net-next 3/4] e1000e: advertise transmit
+ time	stamping
+Date: Mon, 23 Jul 2012 16:07:31 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1842EAA9176@ORSMSX102.amr.corp.intel.com>
+References: <cover.1342976654.git.richardcochran@gmail.com>
+ <e0e31f0229b5bfda1684122498b4d6fb3195cf26.1342976654.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kevin Groeneveld <kgroeneveld@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Willem de Bruijn <willemb@google.com>,
+	David Miller <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:42341 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754304Ab2GWP7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 11:59:49 -0400
-Received: by bkwj10 with SMTP id j10so5450953bkw.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 08:59:48 -0700 (PDT)
-In-Reply-To: <CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:41930 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752855Ab2GWQHt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 12:07:49 -0400
+In-Reply-To: <e0e31f0229b5bfda1684122498b4d6fb3195cf26.1342976654.git.richardcochran@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-23 at 11:25 -0400, Kevin Groeneveld wrote:
-
-> I am curious if you can elaborate on what is racy about the patch, I
-> am still trying to learn.  I assumed (possibly incorrectly) that
-> because I was using percpu variables that the stats updates didn't
-> need any extra synchronization as any concurrent updates would be on
-> different cpus.
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Sunday, July 22, 2012 10:16 AM
+> To: netdev@vger.kernel.org
+> Cc: e1000-devel@lists.sourceforge.net; Willem de Bruijn; David Miller
+> Subject: [E1000-devel] [PATCH net-next 3/4] e1000e: advertise transmit
+> time stamping
 > 
-
-ppp paths (xmit versus receive) are reentrant.
-
-Therefore several cpus might do the
-u64_stats_update_begin(&stats->syncp) at the same moment : one increment
-could be lost forever, making all readers looping forever in
-u64_stats_fetch_begin_bh()
-
-include/linux/u64_stats_sync.h
-
-* 3) Write side must ensure mutual exclusion or one seqcount update could
- *    be lost, thus blocking readers forever.
- *    If this synchronization point is not a mutex, but a spinlock or
- *    spinlock_bh() or disable_bh() :
-
-
-> > I really doubt ppp is performance sensitive, it so doesnt need percpu
-> > counter.
-> >
-> > If you really want 64bits stats on ppp, use proper synchronization
-> > around u64 counters (but shared ones)
+> This driver now offers software transmit time stamping, so it should
+> advertise that fact via ethtool. Compile tested only.
 > 
-> I will work on an updated patch without the percpu variables.  I
-> didn't really think about servers with many cpus and many ppp sessions
-> when I created the patch, I was mainly thinking about my Linksys
-> router and other simple clients.  Many of the other network drivers
-> use percpu variables for their stats so I just followed along.
-
-Because there is one loopback device only, not thousands ;)
-
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 > 
-> Would proper synchronization in this case just be wrapping the updates
-> in a spin_lock/spin_unlock?
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> ---
+>  drivers/net/ethernet/intel/e1000e/ethtool.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c
+> b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> index 105d554..0349e24 100644
+> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
+> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> @@ -2061,6 +2061,7 @@ static const struct ethtool_ops e1000_ethtool_ops
+> = {
+>  	.get_coalesce		= e1000_get_coalesce,
+>  	.set_coalesce		= e1000_set_coalesce,
+>  	.get_rxnfc		= e1000_get_rxnfc,
+> +	.get_ts_info		= ethtool_op_get_ts_info,
+>  };
+> 
+>  void e1000e_set_ethtool_ops(struct net_device *netdev)
 
-Would be fine (if the proper BH safe variant is used), or you could also
-use atomic64_t.
+Thanks Richard.  I have a similar patch amongst the PTP 1588 work I'm currently doing
+for e1000e, but this one is good for now.
+
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
