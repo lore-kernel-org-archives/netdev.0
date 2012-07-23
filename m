@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Mon, 23 Jul 2012 15:21:24 -0700 (PDT)
-Message-ID: <20120723.152124.230505286188140452.davem@davemloft.net>
-References: <CAJZOPZKp4su8sOV1Cpm5CG2DYY2xVKUjrSFge5qcYn2pnkC-YA@mail.gmail.com>
-	<20120723.144421.1741050474189216927.davem@davemloft.net>
-	<CAJZOPZL=Dw4GK0fV+_cC-TTRoYxkEhe9KBg-6G9LE=xrK3b7jQ@mail.gmail.com>
+Subject: Re: [PATCH 2/2] ipv4: Change rt->rt_iif encoding.
+Date: Mon, 23 Jul 2012 15:22:20 -0700 (PDT)
+Message-ID: <20120723.152220.822947775372843073.davem@davemloft.net>
+References: <20120723.140737.822125500680433996.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: klebers@linux.vnet.ibm.com, ogerlitz@mellanox.com,
-	netdev@vger.kernel.org, jackm@dev.mellanox.co.il,
-	yevgenyp@mellanox.co.il, cascardo@linux.vnet.ibm.com,
-	brking@linux.vnet.ibm.com, shlomop@mellanox.com
-To: or.gerlitz@gmail.com
+Cc: ja@ssi.bg
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50234 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50244 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754452Ab2GWWV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 18:21:28 -0400
-In-Reply-To: <CAJZOPZL=Dw4GK0fV+_cC-TTRoYxkEhe9KBg-6G9LE=xrK3b7jQ@mail.gmail.com>
+	with ESMTP id S1754717Ab2GWWWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 18:22:21 -0400
+In-Reply-To: <20120723.140737.822125500680433996.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Tue, 24 Jul 2012 01:02:10 +0300
+From: David Miller <davem@davemloft.net>
+Date: Mon, 23 Jul 2012 14:07:37 -0700 (PDT)
 
-> As its a bit off working hours here now, lets see what tomorrow
-> yield testing wise - but by tomorrow we either ACK or provide reason
-> to reject/change it.
+> On input packet processing, rt->rt_iif will be zero if we should
+> use skb->dev->ifindex.
+> 
+> Since we access rt->rt_iif consistently via inet_iif(), that is
+> the only spot whose interpretation have to adjust.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Thank you.
+Julian, as you seem to have feared, this turns out to not work.
+
+We zap the skb->dev apparently, so I'll need to come up with
+a different scheme to handle this.
