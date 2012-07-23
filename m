@@ -1,46 +1,53 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [net-next RFC V5 4/5] virtio_net: multiqueue support
-Date: Mon, 23 Jul 2012 11:28:06 +0200
-Message-ID: <500D1926.5020407@gmail.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-5-git-send-email-jasowang@redhat.com>
-	<20120720134014.GD16550@redhat.com> <500A9A72.20507@gmail.com>
-	<500CE72B.2040101@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] Crash in tun
+Date: Mon, 23 Jul 2012 10:43:18 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FA1@saturn3.aculab.com>
+References: <alpine.DEB.2.00.1207190213001.16299@artax.karlin.mff.cuni.cz> <1342678175.2626.3849.camel@edumazet-glaptop> <alpine.DEB.2.00.1207191746170.7550@artax.karlin.mff.cuni.cz> <20120720.112337.474955511809249636.davem@davemloft.net> <20120721075518.GY31729@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <500CE72B.2040101@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <mikulas@artax.karlin.mff.cuni.cz>, <eric.dumazet@gmail.com>,
+	<maxk@qualcomm.com>, <vtun@office.satix.net>,
+	<netdev@vger.kernel.org>,
+	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	<linux-sctp@vger.kernel.org>
+To: "Al Viro" <viro@ZenIV.linux.org.uk>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:45623 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750969Ab2GWJoK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 05:44:10 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01941-04 for <netdev@vger.kernel.org>;
+ Mon, 23 Jul 2012 10:44:03 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20120721075518.GY31729@ZenIV.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/23/2012 07:54 AM, Jason Wang wrote:
-> On 07/21/2012 08:02 PM, Sasha Levin wrote:
->> On 07/20/2012 03:40 PM, Michael S. Tsirkin wrote:
->>>> -    err = init_vqs(vi);
->>>>> +    if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->>>>> +        vi->has_cvq = true;
->>>>> +
->>> How about we disable multiqueue if there's no cvq?
->>> Will make logic a bit simpler, won't it?
->> multiqueues don't really depend on cvq. Does this added complexity really justifies adding an artificial limit?
->>
+> 	BTW, speaking of struct file treatment related to sockets -
+> there's this piece of code in iscsi:
+>         /*
+>          * The SCTP stack needs struct socket->file.
+>          */
+>         if ((np->np_network_transport == ISCSI_SCTP_TCP) ||
+>             (np->np_network_transport == ISCSI_SCTP_UDP)) {
+>                 if (!new_sock->file) {
+>                         new_sock->file = kzalloc(
+>                                         sizeof(struct file),
+> GFP_KERNEL);
 > 
-> Yes, it does not depends on cvq. Cvq were just used to negotiate the number of queues a guest wishes to use which is really useful (at least for now). Since multiqueue can not out-perform for single queue in every kinds of workloads or benchmark, so we want to let guest driver use single queue by default even when multiqueue were enabled by management software and let use to enalbe it through ethtool. So user could not feel regression when it switch to use a multiqueue capable driver and backend.
+> For one thing, as far as I can see it'not true - sctp does *not*
+> depend on socket->file being non-NULL; it does, in one place,
+> check socket->file->f_flags for O_NONBLOCK, but there it treats
+> NULL socket->file as "flag no set".
 
-Why would you limit it to a single vq if the user has specified a different number of vqs (>1) in the virtio-net device config?
+The SCTP code certainly has unconditionally looked at file->f_flags,
+we had to allocate a 'struct file' for our in-kernel socket code.
+We set sock->file = NULL before the sock_release() call so
+hopefully don't suffer the 'side effects'.
+
+	David
