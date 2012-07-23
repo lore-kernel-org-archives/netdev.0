@@ -1,74 +1,51 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/2] ipvs: ip_vs_ftp depends on nf_conntrack_ftp helper
-Date: Tue, 24 Jul 2012 08:11:26 +0900
-Message-ID: <20120723231124.GL2966@verge.net.au>
-References: <1341966327-16606-1-git-send-email-horms@verge.net.au>
- <1341966327-16606-2-git-send-email-horms@verge.net.au>
- <20120712153937.GB18793@1984>
- <alpine.LFD.2.00.1207122238220.1831@ja.ssi.bg>
- <20120723064818.GK6603@verge.net.au>
- <20120723173906.GA1430@1984>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ipv4: Change rt->rt_iif encoding.
+Date: Mon, 23 Jul 2012 16:14:46 -0700 (PDT)
+Message-ID: <20120723.161446.36265037346365173.davem@davemloft.net>
+References: <20120723.152220.822947775372843073.davem@davemloft.net>
+	<alpine.LFD.2.00.1207240157120.2404@ja.ssi.bg>
+	<20120723.160541.184307938805782289.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120723173906.GA1430@1984>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50514 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752749Ab2GWXOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 19:14:47 -0400
+In-Reply-To: <20120723.160541.184307938805782289.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 23, 2012 at 07:39:06PM +0200, Pablo Neira Ayuso wrote:
-> On Mon, Jul 23, 2012 at 03:48:18PM +0900, Simon Horman wrote:
-> > On Thu, Jul 12, 2012 at 10:43:22PM +0300, Julian Anastasov wrote:
-> > > 
-> > > 	Hello,
-> > > 
-> > > On Thu, 12 Jul 2012, Pablo Neira Ayuso wrote:
-> > > 
-> > > > On Wed, Jul 11, 2012 at 09:25:26AM +0900, Simon Horman wrote:
-> > > > > From: Julian Anastasov <ja@ssi.bg>
-> > > > > 
-> > > > > 	The FTP application indirectly depends on the
-> > > > > nf_conntrack_ftp helper for proper NAT support. If the
-> > > > > module is not loaded, IPVS can resize the packets for the
-> > > > > command connection, eg. PASV response but the SEQ adjustment
-> > > > > logic in ipv4_confirm is not called without helper.
-> > > > > 
-> > > > > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > > > > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > > > > ---
-> > > > >  net/netfilter/ipvs/Kconfig | 3 ++-
-> > > > >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > > > > 
-> > > > > diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
-> > > > > index f987138..8b2cffd 100644
-> > > > > --- a/net/netfilter/ipvs/Kconfig
-> > > > > +++ b/net/netfilter/ipvs/Kconfig
-> > > > > @@ -250,7 +250,8 @@ comment 'IPVS application helper'
-> > > > >  
-> > > > >  config	IP_VS_FTP
-> > > > >    	tristate "FTP protocol helper"
-> > > > > -        depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT
-> > > > > +	depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT && \
-> > > > > +		NF_CONNTRACK_FTP
-> > > > 
-> > > > If you require FTP NAT support, then this depends on NF_NAT_FTP
-> > > > instead of NF_CONNTRACK_FTP.
-> > > 
-> > > 	No, I just checked again, it works without nf_nat_ftp,
-> > > only nf_nat, nf_conntrack_ftp and iptable_nat are needed.
-> > > We use packet mangling part from nf_nat (nf_nat_mangle_tcp_packet).
-> > 
-> > Is there a consensus on this?
+From: David Miller <davem@davemloft.net>
+Date: Mon, 23 Jul 2012 16:05:41 -0700 (PDT)
+
+> From: Julian Anastasov <ja@ssi.bg>
+> Date: Tue, 24 Jul 2012 02:11:38 +0300 (EEST)
 > 
-> Fine with me, just wanted to make sure this what you wanted. Thanks
-> Simon.
+>> skb_iif: ifindex of device we arrived on
+>> 
+>> 	If it has hidden semantic may be we can make this
+>> comment more specific, does it survive some loops?
+> 
+> Strangely I hadn't noticed this, and after the email I just sent
+> out I was going to look into adding such a value :-)
+> 
+> Great!
+> 
+> I'll respin my patches to use that thing, thanks Julian.
 
-Thanks. I'll include this in a pull request after rebasing ipvs-next.
-I plan to do that today.
+Hmmm, the problem is that when we decapsulate VLAN devices, we're left
+with the parent device's index in skb->skb_iif.
 
+That's what all of that "orig_dev" logic in __netif_receive_skb() is
+all about.  The skb->dev is rewritten by vlan_do_receive() for that
+case.
+
+I wonder if we should just get rid of all of that orig_dev logic and
+simply update skb->skb_iif every time we hit the code starting at
+label "another_round"
+
+I'll keep looking into this.
