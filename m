@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: avoid oops in tcp_metrics and reset tcpm_stamp
-Date: Mon, 23 Jul 2012 00:58:09 -0700 (PDT)
-Message-ID: <20120723.005809.730802545667962757.davem@davemloft.net>
-References: <1343029598-4975-1-git-send-email-ja@ssi.bg>
+Subject: Re: [net-next PATCH 1/1] bnx2x: Add new 57840 device IDs
+Date: Mon, 23 Jul 2012 00:58:28 -0700 (PDT)
+Message-ID: <20120723.005828.149474925381777748.davem@davemloft.net>
+References: <1343028343-15351-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ja@ssi.bg
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42863 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42868 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389Ab2GWH6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 03:58:12 -0400
-In-Reply-To: <1343029598-4975-1-git-send-email-ja@ssi.bg>
+	with ESMTP id S1752389Ab2GWH62 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 03:58:28 -0400
+In-Reply-To: <1343028343-15351-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Mon, 23 Jul 2012 10:46:38 +0300
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Mon, 23 Jul 2012 10:25:43 +0300
 
-> 	In tcp_tw_remember_stamp we incorrectly checked tw
-> instead of tm, it can lead to oops if the cached entry is
-> not found.
+> The 57840 boards come in two flavours: 2 x 20G and 4 x 10G.
+> To better differentiate between the two flavours, a separate device ID
+> was assigned to each.
+> The silicon default value is still the currently supported 57840 device ID
+> (0x168d), and since a user can damage the nvram (e.g., 'ethtool -E')
+> the driver will still support this device ID to allow the user to amend the
+> nvram back into a supported configuration.
 > 
-> 	tcpm_stamp was not updated in tcpm_check_stamp when
-> tcpm_suck_dst was called, move the update into tcpm_suck_dst,
-> so that we do not call it infinitely on every next cache hit
-> after TCP_METRICS_TIMEOUT.
+> Notice this patch contains lines longer than 80 characters (strings).
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Applied, thanks Julian.
+Applied.
