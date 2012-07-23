@@ -1,61 +1,110 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Mon, 23 Jul 2012 19:54:54 +0200
-Message-ID: <500D8FEE.7050802@itcare.pl>
-References: <20120720.142502.1144557295933737451.davem@davemloft.net>  <20120722.173951.1794347789063177131.davem@davemloft.net> <1343027752.2626.10175.camel@edumazet-glaptop>
+From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Date: Mon, 23 Jul 2012 15:12:05 -0300
+Message-ID: <500D93F5.4090305@linux.vnet.ibm.com>
+References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <500BD558.2060803@mellanox.com> <20120722.171553.2139258607165498367.davem@davemloft.net> <500D4F31.9020408@linux.vnet.ibm.com> <500D556F.4000409@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jackm@dev.mellanox.co.il, yevgenyp@mellanox.co.il,
+	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+	shlomop@mellanox.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp8.iq.pl ([86.111.242.217]:54375 "EHLO smtp8.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754533Ab2GWSC7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2012 14:02:59 -0400
-In-Reply-To: <1343027752.2626.10175.camel@edumazet-glaptop>
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:53476 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754085Ab2GWSMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 14:12:18 -0400
+Received: from /spool/local
+	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <klebers@linux.vnet.ibm.com>;
+	Mon, 23 Jul 2012 15:12:15 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id A6CF71DC004E
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 14:12:11 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6NI8fJL3207362
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 15:08:42 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6NGBxJ8012124
+	for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 13:12:00 -0300
+In-Reply-To: <500D556F.4000409@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2012-07-23 09:15, Eric Dumazet pisze:
-> On Sun, 2012-07-22 at 17:39 -0700, David Miller wrote:
->> Just FYI, I'm pushing this work out to net-next now.
->> --
-> Excellent !
->
-> Thanks a lot David
->
->
-> --
+On 07/23/2012 10:45 AM, Or Gerlitz wrote:
+
+> On 7/23/2012 4:18 PM, Kleber Sacilotto de Souza wrote:
+>> Exactly. The callbacks implemented are from standard PCI error recovery
+>> (Documentation/PCI/pci-error-recovery.txt) and the changes doesn't
+>> assume any platform in specific. The code was tested only on powerpc
+>> systems [...]
+> 
+> So how did you test that? using the kernel provided error injection
+> support and user space tool (which?) or in another way? we've trying
+> quickly here to inject errors using /sbin/ear-inject from
+> ras-utils-6.1-1.el6.x86_64 on a kernel built with
+> 
+> CONFIG_PCIEAER=y
+> CONFIG_PCIEAER_INJECT=m
+
+
+For powerpc we have an IBM internal user space tool that injects the
+error on the bus with the aid of the system firmware. The kernel used
+was built with the option:
+
+CONFIG_EEH=y
+
+and without the AER options. I will run some more tests with the AER
+options activated.
+
+> 
+> and it failed to inject errors, SB details.
+> 
+> Or.
+>> since I don't have any mlx4 card on other platforms, however,
+>> these changes shouldn't make the error recover any worse than the
+>> current state.
+> 
+>> # lspci | grep 08.00.1
+>> 08:00.1 Ethernet controller: Intel Corporation 82575EB Gigabit Network
+>> Connection (rev 02)
+> 
+>> # cat /tmp/intel.aer
+>> AER
+>> BUS 8 DEV 0 FN 1
+>> COR_STATUS BAD_TLP
+>> HEADER_LOG 0 1 2 3
+> 
+>> # /sbin/aer-inject < /tmp/intel.aer
+>> Error: Failed to write, Invalid argument
+> 
+> 
+> 
+>> # strace -F -f /sbin/aer-inject < /tmp/intel.aer
+>> [...]
+> 
+>> open("/dev/aer_inject", O_WRONLY)       = 3
+>> write(3, "\10\0\1\0\0\0\0\0@\0\0\0\0\0\0\0\1\0\0\0\2\0\0\0\3\0\0\0",
+>> 28) = -1 EINVAL (Invalid argument)
+>> write(2, "Error: ", 7Error: )                  = 7
+>> write(2, "Failed to write", 15Failed to write)         = 15
+>> write(2, ", Invalid argument\n", 19, Invalid argument
+>> )    = 19
+>> exit_group(-1)                          = ?
+> 
+> 
+> 
+> 
+> -- 
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-Yes
-Excellent work.
-
-I make some real life tests with 10Gbit traffic and make some rdos.
-With kernel 3.4.5 when I reach 6M routing cache entries - traffic is no=
-t=20
-forwarded - on my hardware with 64G RAM
-
-With kernel - 3.5.0-rc7-next-20120720 + David M. patches - route cache=20
-removal + fix
-Traffic is forwarder all the time at speed 8.2Mpps RX from traffic=20
-generator and 8.2Mpps TX to the sink
-
-Also I see performance improvement.
-
-With kernel 3.4.5 I can reach maximum od 7.5Mpps with my hardware
-And with kernel 3.5.0-rc7-next-20120720 i can reach 8.2Mpps - forwardin=
-g=20
-UDP performance - can be more - but my TX pktgen that use 6 cores can't=
-=20
-do more.
-
-Really thanks for this :)
+> 
 
 
-BR
-Pawe=C5=82 Staszewski
+
+-- 
+Kleber Sacilotto de Souza
+IBM Linux Technology Center
