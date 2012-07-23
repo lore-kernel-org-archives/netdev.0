@@ -1,122 +1,61 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net, cgroup: Fix boot failure due to iteration of
- uninitialized list
-Date: Mon, 23 Jul 2012 07:40:57 -0400
-Message-ID: <20120723114057.GA16518@hmsreliant.think-freely.org>
-References: <20120719162532.23505.85946.stgit@srivatsabhat.in.ibm.com>
- <500CA599.6030907@cn.fujitsu.com>
+From: kyak <bas@bmail.ru>
+Subject: [PATCH] USB: plusb: Add support for PL-2501
+Date: Mon, 23 Jul 2012 15:44:11 +0400 (MSK)
+Message-ID: <alpine.LNX.2.02.1207231540580.1183@bas>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	eric.dumazet@gmail.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mark.d.rustad@intel.com, john.r.fastabend@intel.com,
-	lizefan@huawei.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Sergei Shtylyov <sshtylyov@mvista.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, Greg Kroah-Hartman <greg@kroah.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <500CA599.6030907@cn.fujitsu.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 23, 2012 at 09:15:05AM +0800, Gao feng wrote:
-> =E4=BA=8E 2012=E5=B9=B407=E6=9C=8820=E6=97=A5 00:27, Srivatsa S. Bhat=
- =E5=86=99=E9=81=93:
-> > After commit ef209f15 (net: cgroup: fix access the unallocated memo=
-ry in
-> > netprio cgroup), boot fails with the following NULL pointer derefer=
-ence:
-> >=20
-> > Initializing cgroup subsys devices
-> > Initializing cgroup subsys freezer
-> > Initializing cgroup subsys net_cls
-> > Initializing cgroup subsys blkio
-> > Initializing cgroup subsys perf_event
-> > Initializing cgroup subsys net_prio
-> > BUG: unable to handle kernel NULL pointer dereference at 0000000000=
-000698
-> > IP: [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
-> > PGD 0
-> > Oops: 0000 [#1] SMP
-> > CPU 0
-> > Modules linked in:
-> >=20
-> > Pid: 0, comm: swapper/0 Not tainted 3.5.0-rc7-mandeep #1 IBM IBM Sy=
-stem x -[7870C4Q]-/68Y8033
-> > RIP: 0010:[<ffffffff8145e8d6>]  [<ffffffff8145e8d6>] cgrp_create+0x=
-f6/0x190
-> > RSP: 0000:ffffffff81a01ea8  EFLAGS: 00010213
-> > RAX: 0000000000000000 RBX: ffffffffffffff10 RCX: 0000000000000000
-> > RDX: 0000000000000000 RSI: 0000000000000246 RDI: ffffffff81aa70a0
-> > RBP: ffffffff81a01ed8 R08: 0000000000000000 R09: 0000000000000000
-> > R10: ffff8808ff8641c0 R11: 6e697a696c616974 R12: 0000000000000001
-> > R13: ffff8808ff8641c0 R14: 0000000000000000 R15: 0000000000093970
-> > FS:  0000000000000000(0000) GS:ffff8808ffc00000(0000) knlGS:0000000=
-000000000
-> > CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> > CR2: 0000000000000698 CR3: 0000000001a0b000 CR4: 00000000000006b0
-> > DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> > DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> > Process swapper/0 (pid: 0, threadinfo ffffffff81a00000, task ffffff=
-ff81a13420)
-> > Stack:
-> >  ffffffff81a01eb8 ffffffff818060ff ffffffff81d75ec8 ffffffff81aa896=
-0
-> >  ffffffff81aa8960 ffffffff81b4c2c0 ffffffff81a01ef8 ffffffff81b1cb7=
-8
-> >  0000000000000018 0000000000000048 ffffffff81a01f18 ffffffff81b1ce1=
-3
-> > Call Trace:
-> >  [<ffffffff81b1cb78>] cgroup_init_subsys+0x83/0x169
-> >  [<ffffffff81b1ce13>] cgroup_init+0x36/0x119
-> >  [<ffffffff81affef7>] start_kernel+0x3ba/0x3ef
-> >  [<ffffffff81aff95b>] ? kernel_init+0x27b/0x27b
-> >  [<ffffffff81aff356>] x86_64_start_reservations+0x131/0x136
-> >  [<ffffffff81aff45e>] x86_64_start_kernel+0x103/0x112
-> > Code: 01 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 75 1b eb 73 0f 1f 0=
-0 48 8b 83 f0 00 00 00 48 3d f8 e1 ec 81 48 8d 98 10 ff ff ff 74 5a <48=
-> 8b 83 88 07 00 00 48 85 c0 74 de 44 3b 60 10 76 d8 44 89 e6
-> > RIP  [<ffffffff8145e8d6>] cgrp_create+0xf6/0x190
-> >  RSP <ffffffff81a01ea8>
-> > CR2: 0000000000000698
-> > ---[ end trace a7919e7f17c0a725 ]---
-> > Kernel panic - not syncing: Attempted to kill the idle task!
-> >=20
-> > The code corresponds to:
-> >=20
-> > update_netdev_tables():
-> >         for_each_netdev(&init_net, dev) {
-> >                 map =3D rtnl_dereference(dev->priomap);  <---- HERE
-> >=20
-> >=20
-> > The list head is initialized in netdev_init(), which is called much
-> > later than cgrp_create(). So the problem is that we are calling
-> > update_netdev_tables() way too early (in cgrp_create()), which will
-> > end up traversing the not-yet-circular linked list. So at some poin=
-t,
-> > the dev pointer will become NULL and hence dev->priomap becomes an
-> > invalid access.
-> >=20
-> > To fix this, just remove the update_netdev_tables() function entire=
-ly,
-> > since it appears that write_update_netdev_table() will handle thing=
-s
-> > just fine.
->=20
-> The reason I add update_netdev_tables in cgrp_create is to avoid addi=
-tional
-> bound checkings when we accessing the dev->priomap.priomap.
->=20
-> Eric,can we revert this commit 91c68ce2b26319248a32d7baa1226f819d2837=
-58 now?
-> I think it's safe enough to access priomap without bound check.
->=20
-> Thanks
->=20
+From: Mikhail Peselnik <peselnik@gmail.com>
 
-I think its probably safe, yes, but lets leave it there for just a bit.=
-  Its not
-hurting anything, and I'd like to look into getting Srivatsa' patch in =
-first.
-Neil
+This patch adds support for PL-2501 by adding the appropriate USB
+ID's. This chip is used in several USB 'Easy Trasfer' Cables.
+
+Signed-off-by: Mikhail Peselnik <peselnik@gmail.com>
+Tested-by: Mikhail Peselnik <peselnik@gmail.com>
+---
+Now with proper sign-offs and right people in cc and unwrapped lines.
+plusb driver (drivers/net/usb/plusb.c) doesn't recognize PL2501 chip.
+Since PL2501 uses the same code as PL2301/PL2302 (PL2501 works in
+compatibility mode with PL2301/PL2302), the fix is trivial and
+attached as a patch.
+
+Just to note: the patch is not mine, it can be found here and there on
+Internet.
+I've tested the patch and it works great.
+
+Thank you.
+
+--- linux-3.5/drivers/net/usb/plusb.c.orig	2012-07-22 21:06:41.905802795 +0400
++++ linux-3.5/drivers/net/usb/plusb.c	2012-07-22 21:07:00.345552404 +0400
+@@ -107,7 +107,7 @@ static int pl_reset(struct usbnet *dev)
+  }
+
+  static const struct driver_info	prolific_info = {
+-	.description =	"Prolific PL-2301/PL-2302/PL-25A1",
++	.description =	"Prolific PL-2301/PL-2302/PL-25A1/PL-2501",
+  	.flags =	FLAG_POINTTOPOINT | FLAG_NO_SETINT,
+  		/* some PL-2302 versions seem to fail usb_set_interface() */
+  	.reset =	pl_reset,
+@@ -139,6 +139,9 @@ static const struct usb_device_id	produc
+  }, {
+  	USB_DEVICE(0x050d, 0x258a),     /* Belkin F5U258/F5U279 (PL-25A1) */
+  	.driver_info =  (unsigned long) &prolific_info,
++}, {
++	USB_DEVICE(0x067b, 0x2501),     /* PL-2501 */
++	.driver_info =  (unsigned long) &prolific_info,
+  },
+
+  	{ },		// END
+@@ -158,5 +161,5 @@ static struct usb_driver plusb_driver =
+  module_usb_driver(plusb_driver);
+
+  MODULE_AUTHOR("David Brownell");
+-MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1 USB Host to Host Link Driver");
++MODULE_DESCRIPTION("Prolific PL-2301/2302/25A1/2501 USB Host to Host Link Driver");
+  MODULE_LICENSE("GPL");
