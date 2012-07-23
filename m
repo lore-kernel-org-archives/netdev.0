@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: add 64 bit stats
-Date: Sun, 22 Jul 2012 14:54:54 -0700 (PDT)
-Message-ID: <20120722.145454.943592825984584407.davem@davemloft.net>
-References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
+Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Date: Sun, 22 Jul 2012 17:15:53 -0700 (PDT)
+Message-ID: <20120722.171553.2139258607165498367.davem@davemloft.net>
+References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com>
+	<500BD558.2060803@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kgroeneveld@gmail.com
+Cc: klebers@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	jackm@dev.mellanox.co.il, yevgenyp@mellanox.co.il,
+	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+	shlomop@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38953 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39431 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752657Ab2GVVyz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 17:54:55 -0400
-In-Reply-To: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
+	with ESMTP id S1752677Ab2GWAP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 20:15:56 -0400
+In-Reply-To: <500BD558.2060803@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Date: Sun, 22 Jul 2012 16:19:56 -0400
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun, 22 Jul 2012 13:26:32 +0300
 
-> Add 64 bit stats to ppp driver.  The 64 bit stats include tx_bytes,
-> rx_bytes, tx_packets and rx_packets.  Other stats are still 32 bit.
-> The 64 bit stats can be retrieved via the ndo_get_stats operation.  The
-> SIOCGPPPSTATS ioctl is still 32 bit stats only.
-> 
-> Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
+> is there anything in the code you added which maybe implicitly
+> assumes PPC arch?
 
-I don't see this as being very practical nor justified.
+He implemented support for a standard PCI API in the kernel, he
+happened to test it on a particular platform, and I think that's
+the long and short of it.
