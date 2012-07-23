@@ -1,39 +1,37 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 11/16] ipv4: Cache input routes in fib_info nexthops.
-Date: Mon, 23 Jul 2012 23:00:57 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1207232245230.1619@ja.ssi.bg>
-References: <20120720.142622.1447419081262029885.davem@davemloft.net> <alpine.LFD.2.00.1207231157590.1626@ja.ssi.bg>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch] openvswitch: potential NULL deref in sample()
+Date: Mon, 23 Jul 2012 12:54:00 -0700
+Message-ID: <CAEP_g=8bjVxkymRZmOZraqY5mrkfG-juAu1zXnTdP=UC8cdoqQ@mail.gmail.com>
+References: <20120723074628.GA30892@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43176 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754160Ab2GWTxY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2012 15:53:24 -0400
-In-Reply-To: <alpine.LFD.2.00.1207231157590.1626@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20120723074628.GA30892-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Jul 23, 2012 at 12:46 AM, Dan Carpenter
+<dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
+> If there is no OVS_SAMPLE_ATTR_ACTIONS set then "acts_list" is NULL and
+> it leads to a NULL dereference when we call nla_len(acts_list).  This
+> is a static checker fix, not something I have seen in testing.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-	Hello,
-
-On Mon, 23 Jul 2012, Julian Anastasov wrote:
-
-> 	The problem with rt_iif is worse. May be we
-> can cache only the first iif, other packets will see
-> different iif in nh_rth_input and will get non-cached
-> result. For boxes with 2 or more interfaces only one
-> can use the cache. One setup can have large traffic
-> from LAN, other can be server for remote clients.
-
-	May be we can replace rt_iif with skb->dev->ifindex ?
-If we have dst, there must be skb->dev ? Only for
-output routes we should check places that rely on
-inet_iif().
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+This can never happen in practice because the action list is validated
+at the time that userspace installs the flow.  There are plenty of
+things in this category that would appear to be unsafe because we'd
+much rather do sanity checking on a per-flow basis rather than
+per-packet.
