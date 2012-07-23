@@ -1,66 +1,96 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to neighbouring
- system
-Date: Mon, 23 Jul 2012 19:58:21 +0300
-Message-ID: <500D82AD.2040508@mellanox.com>
-References: <1342703938-29904-1-git-send-email-ogerlitz@mellanox.com> <1342703938-29904-2-git-send-email-ogerlitz@mellanox.com> <CAJZOPZ+kRcBjJgB_HaMqeuB5E-SLSqskgoaLZ_hvVx4KffHgpA@mail.gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: New commands to configure IOV features
+Date: Mon, 23 Jul 2012 17:06:17 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A070C7D88D0@ORSMSX106.amr.corp.intel.com>
+References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>
+			<5005D45D.1040302@genband.com>
+		 <20120717.141153.46613285253481776.davem@davemloft.net>
+		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
+	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
+	 <5009B186.6000806@genband.com>
+ <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
+ <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
+ <500D6932.8090306@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJZOPZ+kRcBjJgB_HaMqeuB5E-SLSqskgoaLZ_hvVx4KffHgpA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	"yuvalmin@broadcom.com" <yuvalmin@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>,
+	Don Dutile <ddutile@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:30372 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753142Ab2GWRGX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 13:06:23 -0400
+In-Reply-To: <500D6932.8090306@genband.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/07/2012 18:49, Or Gerlitz wrote:
-> On Thu, Jul 19, 2012 at 4:18 PM, Or Gerlitz<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>  wrote:
->> From: Shlomo Pongratz<shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>
->> Dave Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>  provided a detailed description of why the
->> way IPoIB is using neighbours for its own ipoib_neigh struct is buggy:
-> [...]
->
->> This patch aims to solve the race conditions found in the IPoIB driver.
->>
->> The patch breaks the connection between the core networking neighbour structure
->> and the ipoib_neigh structure. Except for avoiding the race, it allows to in
->> under a setup where SKBs carrying IP packets that don't have any associated
->> neighbour are transmitted through IPoIB.
->>
->> We add an ipoib_neigh hash table with 1024 buckets. The hash table key is the destin
->> hardware address. Thus the ipoib_neigh is fetched from the hash table and not
->> dereferenced from the stashed location at the neighbour structure. The hash table uses
->> both RCU and reference count mechanisms to guarantee that no ipoib_neigh instance is
->> ever deleted while in use.
->>
->> Fetching the ipoib_neigh structure instance from the hash also makes the special
->> code in ipoib_start_xmit that handles remote and local bonding failover redundant.
->>
->> Aged ipoib_neigh instances are deleted by a garbage collection task that runs every
->> 30 seconds and deletes every ipoib_neigh instance that was idle for at least 60
->> seconds. The deletion is safe since the ipoib_neigh instances are protected
->> using RCU and reference count mechanisms.
->
-> Hi Dave, Roland, Eric
->
-> So how does this look? in the right direction? anything that need to be fixed?
+> -----Original Message-----
+> From: Chris Friesen [mailto:chris.friesen@genband.com]
+> Sent: Monday, July 23, 2012 8:10 AM
+> To: Don Dutile
+> Cc: Ben Hutchings; David Miller; yuvalmin@broadcom.com; Rose, Gregory V;
+> netdev@vger.kernel.org; linux-pci@vger.kernel.org
+> Subject: Re: New commands to configure IOV features
+> 
+> On 07/23/2012 08:03 AM, Don Dutile wrote:
+> > On 07/20/2012 07:42 PM, Chris Friesen wrote:
+> >>
+> >> I actually have a use-case where the guest needs to be able to modify
+> >> the MAC addresses of network devices that are actually VFs.
+> >>
+> >> The guest is bonding the network devices together, so the bonding
+> >> driver in the guest expects to be able to set all the slaves to the
+> >> same MAC address.
+> >>
+> >> As I read the ixgbe driver, this should be possible as long as the
+> >> host hasn't explicitly set the MAC address of the VF. Is that correct?
+> >>
+> >> Chris
+> >
+> > Interesting tug of war: hypervisors will want to set the macaddrs for
+> > security reasons,
+> >                         some guests may want to set macaddr for
+> > (valid?) config reasons.
+> >
+> 
+> In our case we have control over both guest an host anyways, so it's
+> less of a security issue.  In the general case though I could see it
+> being an interesting problem.
+> 
+> Back to the original discussion though--has anyone got any ideas about
+> the best way to trigger runtime creation of VFs?  I don't know what the
+> binary APIs looks like, but via sysfs I could see something like
+> 
+> echo number_of_new_vfs_to_create >
+> /sys/bus/pci/devices/<address>/create_vfs
 
-Sorry for the possible spam, but resending (last time forgot to put Eric 
-on the "to" list so he might missed it, also added Christoph) - this is 
-a fix for very long time bug in IPoIB and we do want it to be reviewed 
-&& and hopefully accepted, or if needed get feedback and fix/change.
+The original proposals for creation and management of virtual functions were very much along these lines.  However, at the time most of the distributions that used virtualization were based upon the 2.6.18 kernel.  Red Hat Enterprise Linux 5.x and Citrix Xen Server were both using kernels derived from the 2.6.18 kernel.  In order to implement a sysfs based management approach we would have had to break the 2.6.18 kernel ABI, which is of course a non-starter.  We were able to implement an SR-IOV solution without breaking the ABI but it required use of a module parameter to inform the PF driver of how many VFs it should create.
 
-So, any further feedback? there was one feedback on V0, not to use read 
-lock for RCU protected
-hash table lookup, and it was addressed in V1.
+This was fine during the first couple of years in which not many folks were using SR-IOV outside of a lab and the number of platforms that supported SR-IOV was very limited.  As an experimental solution it has worked pretty well.
 
-Or.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The last year and a half or so we have seen SR-IOV go from an experimental technology to one that is becoming increasingly deployed in real world applications and now the limitations of that original approach are more apparent.  
+
+> 
+> Something else that occurred to me--is there buy-in from driver
+> maintainers?
+
+That's a good question.  I've seen a lot of resistance to using sysfs based interfaces in drivers but usually that is when a driver wants to implement a private interface that other drivers wouldn't want or be able to use.  I'm less sure about a sysfs solution that could be deployed by all SR-IOV capable devices of any type, be they Ethernet controllers, SCSI controllers, etc.  I'm not sure what the objection would be in case of a general purpose solution, however I've been told that in general sysfs based solutions are often frowned upon by kernel maintainers.  Perhaps that is because many of them are not generic solutions to a well defined problem.
+
+  I know the Intel ethernet drivers (what I'm most familiar
+> with) would need to be substantially modified to support on-the-fly
+> addition of new vfs.
+
+Actually, it wouldn't be that bad.  But yes, there'd have to be some way for a driver to register a callback routine with the PCI interface so that it could be notified when changes have been made to the SR-IOV configuration of the device.  This would require a new API, and some driver changes.  In the case of the Intel drivers it wouldn't be too intrusive and it would definitely help us to meet some customer requirements.  The current model using a module parameter forces all ports controlled by a PF driver to use the same number of VFs per function.  This is clunky and there are a lot of users that would like the ability to assign differing numbers of VFs to respective physical functions.
+
+I should also note that we need to be careful about what we mean by the phrase "support on-the-fly addition of new vfs".
+
+You cannot just add VFs without first tearing down the VFs that are currently allocated.  This is a limitation of the PCIE SR-IOV spec IIRC, and in any case it is true with Intel SR-IOV capable devices.  The numVFs parameter in the SR-IOV capability structure is not writeable while the VF enable bit is set.  To change that value you must first clear the VF enable bit and when you do that all your current VFs cease to exist.  You can then write a different number of VFs and re-enable them but during a short interval the VFs that were already there are destroyed and completely reset when they come back on-line.
+
+- Greg
