@@ -1,75 +1,66 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: New commands to configure IOV features
-Date: Mon, 23 Jul 2012 16:37:21 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A070C7D873D@ORSMSX106.amr.corp.intel.com>
-References: <5003DC9B.8000706@broadcom.com>	<5005BD00.4090106@redhat.com>
-			<5005D45D.1040302@genband.com>
-		 <20120717.141153.46613285253481776.davem@davemloft.net>
-		 <500978C7.5050004@genband.com> <50097FBD.9080202@redhat.com>
-	 <1342806146.2678.31.camel@bwh-desktop.uk.solarflarecom.com>
-	 <5009B186.6000806@genband.com>
- <1342814473.2678.65.camel@bwh-desktop.uk.solarflarecom.com>
- <5009ECDF.4090305@genband.com> <500D59BF.9040006@redhat.com>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to neighbouring
+ system
+Date: Mon, 23 Jul 2012 19:58:21 +0300
+Message-ID: <500D82AD.2040508@mellanox.com>
+References: <1342703938-29904-1-git-send-email-ogerlitz@mellanox.com> <1342703938-29904-2-git-send-email-ogerlitz@mellanox.com> <CAJZOPZ+kRcBjJgB_HaMqeuB5E-SLSqskgoaLZ_hvVx4KffHgpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	"yuvalmin@broadcom.com" <yuvalmin@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Don Dutile <ddutile@redhat.com>,
-	Chris Friesen <chris.friesen@genband.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <500D59BF.9040006@redhat.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shlomo Pongratz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJZOPZ+kRcBjJgB_HaMqeuB5E-SLSqskgoaLZ_hvVx4KffHgpA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Don Dutile [mailto:ddutile@redhat.com]
-> Sent: Monday, July 23, 2012 7:04 AM
-> To: Chris Friesen
-> Cc: Ben Hutchings; David Miller; yuvalmin@broadcom.com; Rose, Gregory V;
-> netdev@vger.kernel.org; linux-pci@vger.kernel.org
-> Subject: Re: New commands to configure IOV features
-> 
-> On 07/20/2012 07:42 PM, Chris Friesen wrote:
-> > On 07/20/2012 02:01 PM, Ben Hutchings wrote:
-> >> On Fri, 2012-07-20 at 13:29 -0600, Chris Friesen wrote:
-> >
-> >>> Once the device exists, then domain-specific APIs would be used to
-> >>> configure it the same way that they would configure a physical device.
-> >>
-> >> To an extent, but not entirely.
-> >>
-> >> Currently, the assigned MAC address and (optional) VLAN tag for each
-> >> networking VF are configured via the PF net device (though this is
-> >> done though the rtnetlink API rather than ethtool).
-> >
-> > I actually have a use-case where the guest needs to be able to modify
-> the MAC addresses of network devices that are actually VFs.
-> >
-> > The guest is bonding the network devices together, so the bonding driver
-> in the guest expects to be able to set all the slaves to the same MAC
-> address.
-> >
-> > As I read the ixgbe driver, this should be possible as long as the host
-> hasn't explicitly set the MAC address of the VF. Is that correct?
-> >
-> > Chris
-> 
-> Interesting tug of war: hypervisors will want to set the macaddrs for
-> security reasons,
->                          some guests may want to set macaddr for (valid?)
-> config reasons.
+On 20/07/2012 18:49, Or Gerlitz wrote:
+> On Thu, Jul 19, 2012 at 4:18 PM, Or Gerlitz<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>  wrote:
+>> From: Shlomo Pongratz<shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>>
+>> Dave Miller<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>  provided a detailed description of why the
+>> way IPoIB is using neighbours for its own ipoib_neigh struct is buggy:
+> [...]
+>
+>> This patch aims to solve the race conditions found in the IPoIB driver.
+>>
+>> The patch breaks the connection between the core networking neighbour structure
+>> and the ipoib_neigh structure. Except for avoiding the race, it allows to in
+>> under a setup where SKBs carrying IP packets that don't have any associated
+>> neighbour are transmitted through IPoIB.
+>>
+>> We add an ipoib_neigh hash table with 1024 buckets. The hash table key is the destin
+>> hardware address. Thus the ipoib_neigh is fetched from the hash table and not
+>> dereferenced from the stashed location at the neighbour structure. The hash table uses
+>> both RCU and reference count mechanisms to guarantee that no ipoib_neigh instance is
+>> ever deleted while in use.
+>>
+>> Fetching the ipoib_neigh structure instance from the hash also makes the special
+>> code in ipoib_start_xmit that handles remote and local bonding failover redundant.
+>>
+>> Aged ipoib_neigh instances are deleted by a garbage collection task that runs every
+>> 30 seconds and deletes every ipoib_neigh instance that was idle for at least 60
+>> seconds. The deletion is safe since the ipoib_neigh instances are protected
+>> using RCU and reference count mechanisms.
+>
+> Hi Dave, Roland, Eric
+>
+> So how does this look? in the right direction? anything that need to be fixed?
 
-It is a matter of trust.  The ability to set your own MAC address filters is a potential security issue, so host administrators have the ability to determine whether they trust the VF (and implicitly, the domain in which the VF resides).  There is also a sort of half-way solution.  By turning off anti-spoofing you can allow the VF to use source MAC addresses that are not actually assigned in HW filters.  This was done to support some bonding scenarios where the VF will need to transmit with a different source address.
+Sorry for the possible spam, but resending (last time forgot to put Eric 
+on the "to" list so he might missed it, also added Christoph) - this is 
+a fix for very long time bug in IPoIB and we do want it to be reviewed 
+&& and hopefully accepted, or if needed get feedback and fix/change.
 
-Many applications using SR-IOV are embedded devices such as switches, edge relay devices, IP forwarding/filtering appliances, routers, etc.  More often than not the host administrator can trust domains that the VFs are assigned to because those domains are completely under the control of the local host.  In those cases the VFs are trusted and can be allowed to set their own MAC filters and use any source MAC address they please.
+So, any further feedback? there was one feedback on V0, not to use read 
+lock for RCU protected
+hash table lookup, and it was addressed in V1.
 
-Other applications might need to assign VF devices to non-trusted domains.  Perhaps a service provider has leased a virtual machine domain to a subscriber who has purchased QoS levels that can only be met with the performance levels available with SR-IOV VF devices.  Other scenarios exist.  In these cases it is worthwhile to be able to restrict the VF's ability to set MAC filters and use source MAD addresses not assigned to it.
-
-Rather than a tug of war I just view it as balancing security concerns with levels of additional capability and functionality.  That goes on all the time.
-
-- Greg
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
