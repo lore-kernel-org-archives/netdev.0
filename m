@@ -1,71 +1,160 @@
-From: Michael Leun <lkml20120218@newton.leun.net>
-Subject: [3.5 regression / bridge] constantly toggeling between disabled and
- forwarding
-Date: Mon, 23 Jul 2012 09:15:04 +0200
-Message-ID: <20120723091504.2d035d28@xenia.leun.net>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [net-next PATCH 1/1] bnx2x: Add new 57840 device IDs
+Date: Mon, 23 Jul 2012 10:25:43 +0300
+Message-ID: <1343028343-15351-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com
-To: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1929 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753892Ab2GWH0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2012 03:26:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The 57840 boards come in two flavours: 2 x 20G and 4 x 10G.
+To better differentiate between the two flavours, a separate device ID
+was assigned to each.
+The silicon default value is still the currently supported 57840 device ID
+(0x168d), and since a user can damage the nvram (e.g., 'ethtool -E')
+the driver will still support this device ID to allow the user to amend the
+nvram back into a supported configuration.
 
-when I use my usb ethernet adapter
+Notice this patch contains lines longer than 80 characters (strings).
 
-# > lsusb
-[...]
-Bus 002 Device 009: ID 9710:7830 MosChip Semiconductor MCS7830 10/100 Mbps Ethernet adapter
-[...]
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+Hi Dave,
 
-as port of an bridge
+Please consider applying this patch to 'net-next'.
 
-> # brctl addbr br0
-> # brctl addif br0 eth0
-> # brctl addif br0 ue5
-> # ifconfig ue5 up
-> # ifconfig br0 up
+Thanks,
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |   15 ++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   31 ++++++++++++++++++---
+ 3 files changed, 38 insertions(+), 10 deletions(-)
 
-(Also does happen when eth0 is not part of the bridge, but the logs I
-had available were from that situation...)
-
-I constantly get messages showing the interface toggeling between
-disabled and forwarding state:
-
-Jul 23 07:40:50 elektra kernel: [ 1539.497337] br0: port 2(ue5) entered disabled state
-Jul 23 07:40:50 elektra kernel: [ 1539.554992] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:50 elektra kernel: [ 1539.555005] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:51 elektra kernel: [ 1540.496242] br0: port 2(ue5) entered disabled state
-Jul 23 07:40:51 elektra kernel: [ 1540.552534] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:51 elektra kernel: [ 1540.552548] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:52 elektra kernel: [ 1541.550413] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:53 elektra kernel: [ 1542.529672] br0: port 2(ue5) entered disabled state
-Jul 23 07:40:53 elektra kernel: [ 1542.587162] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:53 elektra kernel: [ 1542.587175] br0: port 2(ue5) entered forwarding state
-Jul 23 07:40:54 elektra kernel: [ 1543.585309] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:00 elektra kernel: [ 1549.360600] br0: port 2(ue5) entered disabled state
-Jul 23 07:41:00 elektra kernel: [ 1549.442998] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:00 elektra kernel: [ 1549.443011] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:01 elektra kernel: [ 1550.357686] br0: port 2(ue5) entered disabled state
-Jul 23 07:41:01 elektra kernel: [ 1550.408208] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:01 elektra kernel: [ 1550.408222] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:02 elektra kernel: [ 1551.407656] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:03 elektra kernel: [ 1552.401578] br0: port 2(ue5) entered disabled state
-Jul 23 07:41:03 elektra kernel: [ 1552.474773] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:03 elektra kernel: [ 1552.474786] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:04 elektra kernel: [ 1553.472487] br0: port 2(ue5) entered forwarding state
-Jul 23 07:41:05 elektra kernel: [ 1554.356138] br0: port 2(ue5) entered disabled state
-[...]
-
-This does (in the same situation, nothing else than the kernel changed)
-not happen with 3.4.5.
-
-Does anybody have an idea what the issue might be or do I need to bisect?
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index dbe9791..77bcd4c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -819,8 +819,11 @@ struct bnx2x_common {
+ #define CHIP_NUM_57810_MF		0x16ae
+ #define CHIP_NUM_57811			0x163d
+ #define CHIP_NUM_57811_MF		0x163e
+-#define CHIP_NUM_57840			0x168d
+-#define CHIP_NUM_57840_MF		0x16ab
++#define CHIP_NUM_57840_OBSOLETE	0x168d
++#define CHIP_NUM_57840_MF_OBSOLETE	0x16ab
++#define CHIP_NUM_57840_4_10		0x16a1
++#define CHIP_NUM_57840_2_20		0x16a2
++#define CHIP_NUM_57840_MF		0x16a4
+ #define CHIP_IS_E1(bp)			(CHIP_NUM(bp) == CHIP_NUM_57710)
+ #define CHIP_IS_57711(bp)		(CHIP_NUM(bp) == CHIP_NUM_57711)
+ #define CHIP_IS_57711E(bp)		(CHIP_NUM(bp) == CHIP_NUM_57711E)
+@@ -832,8 +835,12 @@ struct bnx2x_common {
+ #define CHIP_IS_57810_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810_MF)
+ #define CHIP_IS_57811(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811)
+ #define CHIP_IS_57811_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811_MF)
+-#define CHIP_IS_57840(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840)
+-#define CHIP_IS_57840_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840_MF)
++#define CHIP_IS_57840(bp)		\
++		((CHIP_NUM(bp) == CHIP_NUM_57840_4_10) || \
++		 (CHIP_NUM(bp) == CHIP_NUM_57840_2_20) || \
++		 (CHIP_NUM(bp) == CHIP_NUM_57840_OBSOLETE))
++#define CHIP_IS_57840_MF(bp)	((CHIP_NUM(bp) == CHIP_NUM_57840_MF) || \
++				 (CHIP_NUM(bp) == CHIP_NUM_57840_MF_OBSOLETE))
+ #define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
+ 					 CHIP_IS_57711E(bp))
+ #define CHIP_IS_E2(bp)			(CHIP_IS_57712(bp) || \
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index e04b282..f4beb46 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -1718,7 +1718,7 @@ static void bnx2x_xmac_init(struct link_params *params, u32 max_speed)
+ 	 * ports of the path
+ 	 */
+ 
+-	if ((CHIP_NUM(bp) == CHIP_NUM_57840) &&
++	if ((CHIP_NUM(bp) == CHIP_NUM_57840_4_10) &&
+ 	    (REG_RD(bp, MISC_REG_RESET_REG_2) &
+ 	     MISC_REGISTERS_RESET_REG_2_XMAC)) {
+ 		DP(NETIF_MSG_LINK,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 08eca3f..9aaf863 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -137,7 +137,10 @@ enum bnx2x_board_type {
+ 	BCM57800_MF,
+ 	BCM57810,
+ 	BCM57810_MF,
+-	BCM57840,
++	BCM57840_O,
++	BCM57840_4_10,
++	BCM57840_2_20,
++	BCM57840_MFO,
+ 	BCM57840_MF,
+ 	BCM57811,
+ 	BCM57811_MF
+@@ -157,6 +160,9 @@ static struct {
+ 	{ "Broadcom NetXtreme II BCM57810 10 Gigabit Ethernet" },
+ 	{ "Broadcom NetXtreme II BCM57810 10 Gigabit Ethernet Multi Function" },
+ 	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet" },
++	{ "Broadcom NetXtreme II BCM57840 10 Gigabit Ethernet" },
++	{ "Broadcom NetXtreme II BCM57840 20 Gigabit Ethernet" },
++	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet Multi Function"},
+ 	{ "Broadcom NetXtreme II BCM57840 10/20 Gigabit Ethernet Multi Function"},
+ 	{ "Broadcom NetXtreme II BCM57811 10 Gigabit Ethernet"},
+ 	{ "Broadcom NetXtreme II BCM57811 10 Gigabit Ethernet Multi Function"},
+@@ -189,8 +195,17 @@ static struct {
+ #ifndef PCI_DEVICE_ID_NX2_57810_MF
+ #define PCI_DEVICE_ID_NX2_57810_MF	CHIP_NUM_57810_MF
+ #endif
+-#ifndef PCI_DEVICE_ID_NX2_57840
+-#define PCI_DEVICE_ID_NX2_57840		CHIP_NUM_57840
++#ifndef PCI_DEVICE_ID_NX2_57840_O
++#define PCI_DEVICE_ID_NX2_57840_O	CHIP_NUM_57840_OBSOLETE
++#endif
++#ifndef PCI_DEVICE_ID_NX2_57840_4_10
++#define PCI_DEVICE_ID_NX2_57840_4_10	CHIP_NUM_57840_4_10
++#endif
++#ifndef PCI_DEVICE_ID_NX2_57840_2_20
++#define PCI_DEVICE_ID_NX2_57840_2_20	CHIP_NUM_57840_2_20
++#endif
++#ifndef PCI_DEVICE_ID_NX2_57840_MFO
++#define PCI_DEVICE_ID_NX2_57840_MFO	CHIP_NUM_57840_MF_OBSOLETE
+ #endif
+ #ifndef PCI_DEVICE_ID_NX2_57840_MF
+ #define PCI_DEVICE_ID_NX2_57840_MF	CHIP_NUM_57840_MF
+@@ -211,7 +226,10 @@ static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57800_MF), BCM57800_MF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810), BCM57810 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810_MF), BCM57810_MF },
+-	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840), BCM57840 },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_O), BCM57840_O },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_4_10), BCM57840_4_10 },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_2_20), BCM57840_2_20 },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_MFO), BCM57840_MFO },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_MF), BCM57840_MF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811), BCM57811 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811_MF), BCM57811_MF },
+@@ -11801,7 +11819,10 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 	case BCM57800_MF:
+ 	case BCM57810:
+ 	case BCM57810_MF:
+-	case BCM57840:
++	case BCM57840_O:
++	case BCM57840_4_10:
++	case BCM57840_2_20:
++	case BCM57840_MFO:
+ 	case BCM57840_MF:
+ 	case BCM57811:
+ 	case BCM57811_MF:
 -- 
-MfG,
-
-Michael Leun
+1.7.9.rc2
