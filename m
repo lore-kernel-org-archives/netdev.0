@@ -1,36 +1,49 @@
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Subject: Re: [PATCH] ppp: add 64 bit stats
-Date: Sun, 22 Jul 2012 20:32:26 -0400
-Message-ID: <CABF+-6XVWpaw6zQe2XNaz4y3oj-KdDm63vbut5jAxs3RWRC6LQ@mail.gmail.com>
-References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
-	<20120722.145454.943592825984584407.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: net-next compilation failure since 76ff5cc9
+Date: Sun, 22 Jul 2012 20:37:30 -0400
+Message-ID: <20120723003730.GA8040@neilslaptop.think-freely.org>
+References: <20120722162107.GA23219@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:33921 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752731Ab2GWAc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 20:32:27 -0400
-Received: by vbbff1 with SMTP id ff1so4220502vbb.19
-        for <netdev@vger.kernel.org>; Sun, 22 Jul 2012 17:32:26 -0700 (PDT)
-In-Reply-To: <20120722.145454.943592825984584407.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42290 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752759Ab2GWAhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jul 2012 20:37:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20120722162107.GA23219@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 22, 2012 at 5:54 PM, David Miller <davem@davemloft.net> wrote:
-> From: Kevin Groeneveld <kgroeneveld@gmail.com>
-> Date: Sun, 22 Jul 2012 16:19:56 -0400
->
->> Add 64 bit stats to ppp driver.  The 64 bit stats include tx_bytes,
->
-> I don't see this as being very practical nor justified.
-
-It is obviously not up to me to decide what is practical or justified
-in this case.  I am just always annoyed when I log into my Linksys
-router and check the network stats for my PPP interface and have no
-idea how many times the transfer stats have rolled over at 4GB.
-
-
-Kevin
+On Sun, Jul 22, 2012 at 06:21:07PM +0200, Richard Cochran wrote:
+> Without CONFIG_RPS, net-next fails to compile with
+>=20
+>   CC      net/core/rtnetlink.o
+> /linux/net/core/rtnetlink.c: In function =E2=80=98rtnl_fill_ifinfo=E2=
+=80=99:
+> /linux/net/core/rtnetlink.c:895: error: =E2=80=98struct net_device=E2=
+=80=99 has no member named =E2=80=98num_rx_queues=E2=80=99
+> make[3]: *** [net/core/rtnetlink.o] Error 1
+>=20
+> Looks like this was caused by
+>=20
+> 76ff5cc9  rtnl: allow to specify number of rx and tx queues on device=
+ creation
+>=20
+> Not sure how to fix.
+>=20
+> Thanks,
+> Richard
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+Its fixed already by 1d69c2b3.  Just pull and you should be good to go.
+Neil
