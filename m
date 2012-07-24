@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/1] bnx2x: Correct EEE statistics gathering
-Date: Tue, 24 Jul 2012 13:56:38 -0700 (PDT)
-Message-ID: <20120724.135638.1700317796410097539.davem@davemloft.net>
-References: <1343114166-30834-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [patch net-next] team: init error value to 0 in
+ team_netpoll_setup()
+Date: Tue, 24 Jul 2012 13:56:52 -0700 (PDT)
+Message-ID: <20120724.135652.824912506261373394.davem@davemloft.net>
+References: <1343128848-1284-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33658 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33670 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755800Ab2GXU4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 16:56:41 -0400
-In-Reply-To: <1343114166-30834-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1755800Ab2GXU4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 16:56:53 -0400
+In-Reply-To: <1343128848-1284-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Tue, 24 Jul 2012 10:16:06 +0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 24 Jul 2012 13:20:48 +0200
 
-> In boards with 4-ports, Tx LPI statistics were gathered incorrectly.
-> This patch guarantees that each pmf will only query its own port for
-> these statistics.
+> This will ensure correct value is returned in case the port list is empty.
 > 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
 Applied.
