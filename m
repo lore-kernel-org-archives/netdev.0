@@ -1,62 +1,175 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 00/17] drivers: hv: kvp
-Date: Tue, 24 Jul 2012 09:01:12 -0700
-Message-ID: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+Subject: [PATCH 02/17] Drivers: hv: Add KVP definitions for IP address injection
+Date: Tue, 24 Jul 2012 09:01:26 -0700
+Message-ID: <1343145701-3691-2-git-send-email-kys@microsoft.com>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-1-git-send-email-kys@microsoft.com>
 Cc: "K. Y. Srinivasan" <kys@microsoft.com>
 To: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
 	devel@linuxdriverproject.org, virtualization@lists.osdl.org,
 	olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
 	ben@decadent.org.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1343145701-3691-1-git-send-email-kys@microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset expands the KVP (Key Value Pair) functionality to
-implement the mechanism to GET/SET IP addresses in the guest. This
-functionality is used in Windows Server 2012 to implement VM
-replication functionality. The way IP configuration information
-is managed is distro specific. Based on the feedback I have gotten
-from Olaf, Greg, Steve, Ben and Mairus, I have chosen to seperate
-distro specific code from this patch-set. Most of the GET operation
-can be implemented in a way that is completely distro independent and
-I have implemented that as such and is included in this patch-set.
-Some of the attributes that can only be fetched in a distro
-dependent way as well the mechanism for configuring an interface
-(the SET operation) that is clearly distro specific is to be
-implemented via external scripts that will be invoked via the KVP
-code. We define here the interface to these scripts.
+Add the necessary definitions for supporting the IP injection functionality.
 
-Adding support for IP injection resulted in some changes to the
-protocol between the user level daemon and the kernel driver.
-These changes have been implemented in way that would retain
-compatibility with older daemons. I would like to thank Olaf and
-Greg for pointing out the compatibility issue.
-
-K. Y. Srinivasan (17):
-  Drivers: hv: vmbus: Use the standard format string to format GUIDs
-  Drivers: hv: Add KVP definitions for IP address injection
-  Drivers: hv: kvp: Cleanup error handling in KVP
-  Drivers: hv: kvp: Support the new IP injection messages
-  Tools: hv: Prepare to expand  kvp_get_ip_address() functionality
-  Tools: hv: Further refactor kvp_get_ip_address()
-  Tools: hv: Gather address family information
-  Tools: hv: Gather subnet information
-  Tools: hv: Represent the ipv6 mask using CIDR notation
-  Tools: hv: Gather ipv[4,6] gateway information
-  Tools: hv: Gather DNS information
-  Tools: hv: Gather DHCP information
-  Tools: hv: Implement the KVP verb - KVP_OP_SET_IP_INFO
-  Tools: hv: Rename the function kvp_get_ip_address()
-  Tools: hv: Implement the KVP verb - KVP_OP_GET_IP_INFO
-  Tools: hv: Get rid of some unused variables
-  Tools: hv: Correctly type string variables
-
- drivers/hv/hv_kvp.c      |  251 +++++++++++--
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
  drivers/hv/hv_util.c     |    4 +-
- drivers/hv/vmbus_drv.c   |   38 +--
- include/linux/hyperv.h   |   88 ++++-
- tools/hv/hv_kvp_daemon.c |  943 +++++++++++++++++++++++++++++++++++++++++-----
- 5 files changed, 1160 insertions(+), 164 deletions(-)
+ include/linux/hyperv.h   |   71 +++++++++++++++++++++++++++++++++++++++++++++-
+ tools/hv/hv_kvp_daemon.c |    2 +-
+ 3 files changed, 73 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/hv/hv_util.c b/drivers/hv/hv_util.c
+index d3ac6a4..a0667de 100644
+--- a/drivers/hv/hv_util.c
++++ b/drivers/hv/hv_util.c
+@@ -263,7 +263,7 @@ static int util_probe(struct hv_device *dev,
+ 		(struct hv_util_service *)dev_id->driver_data;
+ 	int ret;
+ 
+-	srv->recv_buffer = kmalloc(PAGE_SIZE, GFP_KERNEL);
++	srv->recv_buffer = kmalloc(PAGE_SIZE * 2, GFP_KERNEL);
+ 	if (!srv->recv_buffer)
+ 		return -ENOMEM;
+ 	if (srv->util_init) {
+@@ -274,7 +274,7 @@ static int util_probe(struct hv_device *dev,
+ 		}
+ 	}
+ 
+-	ret = vmbus_open(dev->channel, 2 * PAGE_SIZE, 2 * PAGE_SIZE, NULL, 0,
++	ret = vmbus_open(dev->channel, 4 * PAGE_SIZE, 4 * PAGE_SIZE, NULL, 0,
+ 			srv->util_cb, dev->channel);
+ 	if (ret)
+ 		goto error;
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index 68ed7f7..3c56ca7 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -122,12 +122,53 @@
+ #define REG_U32 4
+ #define REG_U64 8
+ 
++/*
++ * As we look at expanding the KVP functionality to include
++ * IP injection functionality, we need to maintain binary
++ * compatibility with older daemons.
++ *
++ * The KVP opcodes are defined by the host and it was unfortunate
++ * that I chose to treat the registration operation as part of the
++ * KVP operations defined by the host.
++ * Here is the level of compatibility
++ * (between the user level daemon and the kernel KVP driver) that we
++ * will implement:
++ *
++ * An older daemon will always be supported on a newer driver.
++ * A given user level daemon will require a minimal version of the
++ * kernel driver.
++ * If we cannot handle the version differences, we will fail gracefully
++ * (this can happen when we have a user level daemon that is more
++ * advanced than the KVP driver.
++ *
++ * We will use values used in this handshake for determining if we have
++ * workable user level daemon and the kernel driver. We begin by taking the
++ * registration opcode out of the KVP opcode namespace. We will however,
++ * maintain compatibility with the existing user-level daemon code.
++ */
++
++/*
++ * Daemon code not supporting IP injection (legacy daemon).
++ */
++
++#define KVP_OP_REGISTER	4
++
++/*
++ * Daemon code supporting IP injection.
++ * The KVP opcode field is used to communicate the
++ * registration information; so define a namespace that
++ * will be distinct from the host defined KVP opcode.
++ */
++
++#define KVP_OP_REGISTER1 100
++
+ enum hv_kvp_exchg_op {
+ 	KVP_OP_GET = 0,
+ 	KVP_OP_SET,
+ 	KVP_OP_DELETE,
+ 	KVP_OP_ENUMERATE,
+-	KVP_OP_REGISTER,
++	KVP_OP_GET_IP_INFO,
++	KVP_OP_SET_IP_INFO,
+ 	KVP_OP_COUNT /* Number of operations, must be last. */
+ };
+ 
+@@ -140,6 +181,26 @@ enum hv_kvp_exchg_pool {
+ 	KVP_POOL_COUNT /* Number of pools, must be last. */
+ };
+ 
++#define ADDR_FAMILY_NONE	0x00
++#define ADDR_FAMILY_IPV4	0x01
++#define ADDR_FAMILY_IPV6	0x02
++
++#define MAX_ADAPTER_ID_SIZE	128
++#define MAX_IP_ADDR_SIZE	1024
++#define MAX_GATEWAY_SIZE	512
++
++
++struct hv_kvp_ipaddr_value {
++	__u16	adapter_id[MAX_ADAPTER_ID_SIZE];
++	__u8	addr_family;
++	__u8	dhcp_enabled;
++	__u16	ip_addr[MAX_IP_ADDR_SIZE];
++	__u16	sub_net[MAX_IP_ADDR_SIZE];
++	__u16	gate_way[MAX_GATEWAY_SIZE];
++	__u16	dns_addr[MAX_IP_ADDR_SIZE];
++} __attribute__((packed));
++
++
+ struct hv_kvp_hdr {
+ 	__u8 operation;
+ 	__u8 pool;
+@@ -187,10 +248,17 @@ struct hv_kvp_msg {
+ 		struct hv_kvp_msg_set		kvp_set;
+ 		struct hv_kvp_msg_delete	kvp_delete;
+ 		struct hv_kvp_msg_enumerate	kvp_enum_data;
++		struct hv_kvp_ipaddr_value      kvp_ip_val;
+ 		struct hv_kvp_register		kvp_register;
+ 	} body;
+ } __attribute__((packed));
+ 
++struct hv_kvp_ip_msg {
++	__u8 operation;
++	__u8 pool;
++	struct hv_kvp_ipaddr_value      kvp_ip_val;
++} __attribute__((packed));
++
+ #ifdef __KERNEL__
+ #include <linux/scatterlist.h>
+ #include <linux/list.h>
+@@ -982,6 +1050,7 @@ void vmbus_driver_unregister(struct hv_driver *hv_driver);
+ #define HV_S_CONT			0x80070103
+ #define HV_ERROR_NOT_SUPPORTED		0x80070032
+ #define HV_ERROR_MACHINE_LOCKED		0x800704F7
++#define HV_ERROR_DEVICE_NOT_CONNECTED	0x8007048F
+ 
+ /*
+  * While we want to handle util services as regular devices,
+diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
+index d9834b3..8fbcf7b 100644
+--- a/tools/hv/hv_kvp_daemon.c
++++ b/tools/hv/hv_kvp_daemon.c
+@@ -69,7 +69,7 @@ enum key_index {
+ };
+ 
+ static char kvp_send_buffer[4096];
+-static char kvp_recv_buffer[4096];
++static char kvp_recv_buffer[4096 * 2];
+ static struct sockaddr_nl addr;
+ 
+ static char *os_name = "";
 -- 
 1.7.4.1
