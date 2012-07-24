@@ -1,154 +1,30 @@
-From: xufeng zhang <xufeng.zhang@windriver.com>
-Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
- SACK when bundling
-Date: Tue, 24 Jul 2012 11:02:47 +0800
-Message-ID: <500E1057.3020509@windriver.com>
-References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com> <500CDE35.6000009@windriver.com> <42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com>
+From: Revista Acta Biologica Colombiana <racbiocol_fcbog@unal.edu.co>
+Subject: Money transfer Alert
+Date: Mon, 23 Jul 2012 21:00:07 -0700
+Message-ID: <fc4495991b34.500dbb57@unal.edu.co>
+Reply-To: office.westernunion55@ymail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <sri@us.ibm.com>, <davem@davemloft.net>,
-	<xufengzhang.main@gmail.com>, <linux-sctp@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43393 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753146Ab2GXCza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 22:55:30 -0400
-In-Reply-To: <42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com>
+Received: from filtromx6.unal.edu.co ([168.176.5.175]:56952 "EHLO
+	filtromx7.unal.edu.co" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750946Ab2GXEPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 00:15:14 -0400
+Received: from unal.edu.co ([127.0.0.1])
+ by undom3.unal.edu.co (Sun Java System Messaging Server 6.2-8.04 (built Feb 28
+ 2007)) with ESMTP id <0M7N00GP4CG7GZ30@undom3.unal.edu.co> for
+ netdev@vger.kernel.org; Mon, 23 Jul 2012 23:00:09 -0500 (GMT)
+Content-language: en
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/24/2012 10:27 AM, Vlad Yasevich wrote:
-> xufeng zhang<xufeng.zhang@windriver.com>  wrote:
->
->    
->> On 07/19/2012 01:57 PM, xufengzhang.main@gmail.com wrote:
->>      
->>> When "Invalid Stream Identifier" ERROR happens after process the
->>> received DATA chunks, this ERROR chunk is enqueued into outqueue
->>> before SACK chunk, so when bundling ERROR chunk with SACK chunk,
->>> the ERROR chunk is always placed first in the packet because of
->>> the chunk's position in the outqueue.
->>> This violates sctp specification:
->>>       RFC 4960 6.5. Stream Identifier and Stream Sequence Number
->>>       ...The endpoint may bundle the ERROR chunk in the same
->>>       packet as the SACK as long as the ERROR follows the SACK.
->>> So we must place SACK first when bundling "Invalid Stream Identifier"
->>> ERROR and SACK in one packet.
->>> Although we can do that by enqueue SACK chunk into outqueue before
->>> ERROR chunk, it will violate the side-effect interpreter processing.
->>> It's easy to do this job when dequeue chunks from the outqueue,
->>> by this way, we introduce a flag 'has_isi_err' which indicate
->>> whether or not the "Invalid Stream Identifier" ERROR happens.
->>>
->>> Signed-off-by: Xufeng Zhang<xufeng.zhang@windriver.com>
->>> ---
->>>    include/net/sctp/structs.h |    2 ++
->>>    net/sctp/output.c          |   26 ++++++++++++++++++++++++++
->>>    2 files changed, 28 insertions(+), 0 deletions(-)
->>>
->>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
->>> index 88949a9..5adf4de 100644
->>> --- a/include/net/sctp/structs.h
->>> +++ b/include/net/sctp/structs.h
->>> @@ -842,6 +842,8 @@ struct sctp_packet {
->>>    	    has_sack:1,		/* This packet contains a SACK chunk. */
->>>    	    has_auth:1,		/* This packet contains an AUTH chunk */
->>>    	    has_data:1,		/* This packet contains at least 1 DATA chunk */
->>> +	    has_isi_err:1,	/* This packet contains a "Invalid Stream
->>> +				 * Identifier" ERROR chunk */
->>>    	    ipfragok:1,		/* So let ip fragment this packet */
->>>    	    malloced:1;		/* Is it malloced? */
->>>    };
->>> diff --git a/net/sctp/output.c b/net/sctp/output.c
->>> index 817174e..77fb1ae 100644
->>> --- a/net/sctp/output.c
->>> +++ b/net/sctp/output.c
->>> @@ -79,6 +79,7 @@ static void sctp_packet_reset(struct sctp_packet
->>>        
->> *packet)
->>      
->>>    	packet->has_sack = 0;
->>>    	packet->has_data = 0;
->>>    	packet->has_auth = 0;
->>> +	packet->has_isi_err = 0;
->>>    	packet->ipfragok = 0;
->>>    	packet->auth = NULL;
->>>    }
->>> @@ -267,6 +268,7 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct
->>>        
->> sctp_packet *pkt,
->>      
->>>    sctp_xmit_t sctp_packet_append_chunk(struct sctp_packet *packet,
->>>    				     struct sctp_chunk *chunk)
->>>    {
->>> +	struct sctp_chunk *lchunk;
->>>    	sctp_xmit_t retval = SCTP_XMIT_OK;
->>>    	__u16 chunk_len = WORD_ROUND(ntohs(chunk->chunk_hdr->length));
->>>
->>> @@ -316,7 +318,31 @@ sctp_xmit_t sctp_packet_append_chunk(struct
->>>        
->> sctp_packet *packet,
->>      
->>>    		packet->has_cookie_echo = 1;
->>>    		break;
->>>
->>> +	    case SCTP_CID_ERROR:
->>> +		if (chunk->subh.err_hdr->cause&   SCTP_ERROR_INV_STRM)
->>> +			packet->has_isi_err = 1;
->>> +		break;
->>> +
->>>    	    case SCTP_CID_SACK:
->>> +		/* RFC 4960
->>> +		 * 6.5 Stream Identifier and Stream Sequence Number
->>> +		 * The endpoint may bundle the ERROR chunk in the same
->>> +		 * packet as the SACK as long as the ERROR follows the SACK.
->>> +		 */
->>> +		if (packet->has_isi_err) {
->>> +			if (list_is_singular(&packet->chunk_list))
->>> +				list_add(&chunk->list,&packet->chunk_list);
->>> +			else {
->>> +				lchunk = list_first_entry(&packet->chunk_list,
->>> +						struct sctp_chunk, list);
->>> +				list_add(&chunk->list,&lchunk->list);
->>> +			}
->>>
->>>        
->> And I should clarify the above judgment code.
->> AFAIK, there should be two cases for the bundling when invalid stream
->> identifier error happens:
->> 1). COOKIE_ACK ERROR SACK
->> 2). ERROR SACK
->> So I need to deal with the two cases differently.
->>
->>      
-> Sorry but I just don't buy that the above are the only 2 cases.  What if there are addip chunks as well?  What if there are some other extensions also.  This code has to be generic enough to handle any condition.
->    
-Aha, you are right, this may happens.
-So I think the general solution is to fix this problem in the enqueue side.
-What do you think? any better suggestion!
 
 
-Thanks,
-Xufeng Zhang
-> - vlad
->
->    
->> Thanks,
->> Xufeng Zhang
->>      
->>> +			packet->size += chunk_len;
->>> +			chunk->transport = packet->transport;
->>> +			packet->has_sack = 1;
->>> +			goto finish;
->>> +		}
->>> +
->>>    		packet->has_sack = 1;
->>>    		break;
->>>
->>>
->>>        
->
->    
+The first $5,000.00 was sent today. My working partner has helped me to send the first $5,000.00 to you through western union. So contact our Western Union claims Agent to pick up this $5,000 now: Contact person: Mr. Don Smith, TEL: +2348166861991. E-mail: (office.westernunion55@ymail.com) Ask him to give you the MTCN, Sender Name to pick the $5,000.00. I told him to keep sending you $5,000.00 daily until the payment of $1.500,000.00 is completed.
+Again forward him your Full Name, Telephone number and address so that he will be sure.
+Thanks.
+
+NOTE: YOU MIGHT RECIEVE THIS NOTIFICATION IN YOUR SPAM FOLDER DUE TO POOR NETWORK, PLEASE BEAR WITH US AND REPLY
