@@ -1,438 +1,248 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 03/17] Drivers: hv: kvp: Cleanup error handling in KVP
-Date: Tue, 24 Jul 2012 09:01:27 -0700
-Message-ID: <1343145701-3691-3-git-send-email-kys@microsoft.com>
+Subject: [PATCH 04/17] Drivers: hv: kvp: Support the new IP injection messages
+Date: Tue, 24 Jul 2012 09:01:28 -0700
+Message-ID: <1343145701-3691-4-git-send-email-kys@microsoft.com>
 References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
  <1343145701-3691-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
 To: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, virtualization@lists.osdl.org,
- olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
- ben@decadent.org.uk
-Return-path: <devel-bounces@linuxdriverproject.org>
+	devel@linuxdriverproject.org, virtualization@lists.osdl.org,
+	olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
+	ben@decadent.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1343145701-3691-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation to implementing IP injection, cleanup the way we propagate
-and handle errors both in the driver as well as in the user level daemon.
+Implement support for the new IP injection messages in the driver code.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/hv/hv_kvp.c      |  112 +++++++++++++++++++++++++++++++++++++---------
- include/linux/hyperv.h   |   17 +++++---
- tools/hv/hv_kvp_daemon.c |   70 +++++++++++++++-------------
- 3 files changed, 138 insertions(+), 61 deletions(-)
+ drivers/hv/hv_kvp.c |  143 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 137 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/hv/hv_kvp.c b/drivers/hv/hv_kvp.c
-index 0012eed..9b7fc4a 100644
+index 9b7fc4a..83e16ea 100644
 --- a/drivers/hv/hv_kvp.c
 +++ b/drivers/hv/hv_kvp.c
-@@ -48,13 +48,24 @@ static struct {
- 	void *kvp_context; /* for the channel callback */
- } kvp_transaction;
- 
-+/*
-+ * Before we can accept KVP messages from the host, we need
-+ * to handshake with the user level daemon. This state tarcks
-+ * if we are in the handshake phase.
-+ */
-+static bool in_hand_shake = true;
-+
-+/*
-+ * This state maintains the version number registered by the daemon.
-+ */
-+static int dm_reg_value;
-+
+@@ -63,7 +63,7 @@ static int dm_reg_value;
  static void kvp_send_key(struct work_struct *dummy);
  
--#define TIMEOUT_FIRED 1
  
- static void kvp_respond_to_host(char *key, char *value, int error);
+-static void kvp_respond_to_host(char *key, char *value, int error);
++static void kvp_respond_to_host(struct hv_kvp_msg *msg, int error);
  static void kvp_work_func(struct work_struct *dummy);
--static void kvp_register(void);
-+static void kvp_register(int);
+ static void kvp_register(int);
  
- static DECLARE_DELAYED_WORK(kvp_work, kvp_work_func);
- static DECLARE_WORK(kvp_sendkey_work, kvp_send_key);
-@@ -68,7 +79,7 @@ static u8 *recv_buffer;
-  */
- 
- static void
--kvp_register(void)
-+kvp_register(int reg_value)
- {
- 
- 	struct cn_msg *msg;
-@@ -83,7 +94,7 @@ kvp_register(void)
- 		msg->id.idx =  CN_KVP_IDX;
- 		msg->id.val = CN_KVP_VAL;
- 
--		kvp_msg->kvp_hdr.operation = KVP_OP_REGISTER;
-+		kvp_msg->kvp_hdr.operation = reg_value;
- 		strcpy(version, HV_DRV_VERSION);
- 		msg->len = sizeof(struct hv_kvp_msg);
- 		cn_netlink_send(msg, 0, GFP_ATOMIC);
-@@ -97,9 +108,43 @@ kvp_work_func(struct work_struct *dummy)
+@@ -108,7 +108,7 @@ kvp_work_func(struct work_struct *dummy)
  	 * If the timer fires, the user-mode component has not responded;
  	 * process the pending transaction.
  	 */
--	kvp_respond_to_host("Unknown key", "Guest timed out", TIMEOUT_FIRED);
-+	kvp_respond_to_host("Unknown key", "Guest timed out", HV_E_FAIL);
+-	kvp_respond_to_host("Unknown key", "Guest timed out", HV_E_FAIL);
++	kvp_respond_to_host(NULL, HV_E_FAIL);
+ }
+ 
+ static int kvp_handle_handshake(struct hv_kvp_msg *msg)
+@@ -199,9 +199,120 @@ kvp_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
+ 	 * to the host. But first, cancel the timeout.
+ 	 */
+ 	if (cancel_delayed_work_sync(&kvp_work))
+-		kvp_respond_to_host(data->data.key, data->data.value, error);
++		kvp_respond_to_host(message, error);
+ }
+ 
++
++static int process_ob_ipinfo(void *in_msg, void *out_msg, int op)
++{
++	struct hv_kvp_msg *in = in_msg;
++	struct hv_kvp_ip_msg *out = out_msg;
++	int len;
++
++	switch (op) {
++	case KVP_OP_GET_IP_INFO:
++		/*
++		 * Transform all parameters into utf16 encoding.
++		 */
++		len = utf8s_to_utf16s((char *)in->body.kvp_ip_val.ip_addr,
++				strlen((char *)in->body.kvp_ip_val.ip_addr),
++				UTF16_HOST_ENDIAN,
++				(wchar_t *)out->kvp_ip_val.ip_addr,
++				MAX_IP_ADDR_SIZE);
++		if (len < 0)
++			return len;
++
++		len = utf8s_to_utf16s((char *)in->body.kvp_ip_val.sub_net,
++				strlen((char *)in->body.kvp_ip_val.sub_net),
++				UTF16_HOST_ENDIAN,
++				(wchar_t *)out->kvp_ip_val.sub_net,
++				MAX_IP_ADDR_SIZE);
++		if (len < 0)
++			return len;
++
++		len = utf8s_to_utf16s((char *)in->body.kvp_ip_val.gate_way,
++				strlen((char *)in->body.kvp_ip_val.gate_way),
++				UTF16_HOST_ENDIAN,
++				(wchar_t *)out->kvp_ip_val.gate_way,
++				MAX_GATEWAY_SIZE);
++		if (len < 0)
++			return len;
++
++		len = utf8s_to_utf16s((char *)in->body.kvp_ip_val.dns_addr,
++				strlen((char *)in->body.kvp_ip_val.dns_addr),
++				UTF16_HOST_ENDIAN,
++				(wchar_t *)out->kvp_ip_val.dns_addr,
++				MAX_IP_ADDR_SIZE);
++		if (len < 0)
++			return len;
++
++		len = utf8s_to_utf16s((char *)in->body.kvp_ip_val.adapter_id,
++				strlen((char *)in->body.kvp_ip_val.adapter_id),
++				UTF16_HOST_ENDIAN,
++				(wchar_t *)out->kvp_ip_val.adapter_id,
++				MAX_IP_ADDR_SIZE);
++		if (len < 0)
++			return len;
++
++		out->kvp_ip_val.dhcp_enabled =
++			in->body.kvp_ip_val.dhcp_enabled;
++	}
++
++	return 0;
 +}
 +
-+static int kvp_handle_handshake(struct hv_kvp_msg *msg)
++static void process_ib_ipinfo(void *in_msg, void *out_msg, int op)
 +{
-+	int ret = 1;
++	struct hv_kvp_ip_msg *in = in_msg;
++	struct hv_kvp_msg *out = out_msg;
 +
-+	switch (msg->kvp_hdr.operation) {
-+	case KVP_OP_REGISTER:
-+		dm_reg_value = KVP_OP_REGISTER;
-+		pr_info("KVP: IP injection functionality not available\n");
-+		pr_info("KVP: Upgrade the KVP daemon\n");
-+		break;
-+	case KVP_OP_REGISTER1:
-+		dm_reg_value = KVP_OP_REGISTER1;
-+		break;
++	switch (op) {
++	case KVP_OP_SET_IP_INFO:
++		/*
++		 * Transform all parameters into utf8 encoding.
++		 */
++		utf16s_to_utf8s((wchar_t *)in->kvp_ip_val.ip_addr,
++				MAX_IP_ADDR_SIZE,
++				UTF16_LITTLE_ENDIAN,
++				(__u8 *)out->body.kvp_ip_val.ip_addr,
++				MAX_IP_ADDR_SIZE);
++
++		utf16s_to_utf8s((wchar_t *)in->kvp_ip_val.sub_net,
++				MAX_IP_ADDR_SIZE,
++				UTF16_LITTLE_ENDIAN,
++				(__u8 *)out->body.kvp_ip_val.sub_net,
++				MAX_IP_ADDR_SIZE);
++
++		utf16s_to_utf8s((wchar_t *)in->kvp_ip_val.gate_way,
++				MAX_GATEWAY_SIZE,
++				UTF16_LITTLE_ENDIAN,
++				(__u8 *)out->body.kvp_ip_val.gate_way,
++				MAX_GATEWAY_SIZE);
++
++		utf16s_to_utf8s((wchar_t *)in->kvp_ip_val.dns_addr,
++				MAX_IP_ADDR_SIZE,
++				UTF16_LITTLE_ENDIAN,
++				(__u8 *)out->body.kvp_ip_val.dns_addr,
++				MAX_IP_ADDR_SIZE);
++
++		out->body.kvp_ip_val.dhcp_enabled =
++			in->kvp_ip_val.dhcp_enabled;
++
 +	default:
-+		pr_info("KVP: incompatible daemon\n");
-+		pr_info("KVP: KVP version: %d, Daemon version: %d\n",
-+			KVP_OP_REGISTER1, msg->kvp_hdr.operation);
-+		ret = 0;
-+	}
++		utf16s_to_utf8s((wchar_t *)in->kvp_ip_val.adapter_id,
++				MAX_ADAPTER_ID_SIZE,
++				UTF16_LITTLE_ENDIAN,
++				(__u8 *)out->body.kvp_ip_val.adapter_id,
++				MAX_ADAPTER_ID_SIZE);
 +
-+	if (ret) {
-+		/*
-+		 * We have a compatible daemon; complete the handshake.
-+		 */
-+		pr_info("KVP: user-mode registering done.\n");
-+		kvp_register(dm_reg_value);
-+		kvp_transaction.active = false;
-+		if (kvp_transaction.kvp_context)
-+			hv_kvp_onchannelcallback(kvp_transaction.kvp_context);
++		out->body.kvp_ip_val.addr_family =
++		in->kvp_ip_val.addr_family;
 +	}
-+	return ret;
- }
- 
++}
 +
- /*
-  * Callback when data is received from user mode.
-  */
-@@ -109,27 +154,52 @@ kvp_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
++
++
++
+ static void
+ kvp_send_key(struct work_struct *dummy)
  {
- 	struct hv_kvp_msg *message;
- 	struct hv_kvp_msg_enumerate *data;
-+	int	error = 0;
+@@ -237,6 +348,12 @@ kvp_send_key(struct work_struct *dummy)
+ 	 */
  
- 	message = (struct hv_kvp_msg *)msg->data;
--	switch (message->kvp_hdr.operation) {
-+
-+	/*
-+	 * If we are negotiating the version information
-+	 * with the daemon; handle that first.
-+	 */
-+
-+	if (in_hand_shake) {
-+		if (kvp_handle_handshake(message))
-+			in_hand_shake = false;
-+		return;
-+	}
-+
-+	/*
-+	 * Based on the version of the daemon, we propagate errors from the
-+	 * daemon differently.
-+	 */
-+
-+	data = &message->body.kvp_enum_data;
-+
-+	switch (dm_reg_value) {
- 	case KVP_OP_REGISTER:
--		pr_info("KVP: user-mode registering done.\n");
--		kvp_register();
--		kvp_transaction.active = false;
--		hv_kvp_onchannelcallback(kvp_transaction.kvp_context);
-+		/*
-+		 * Null string is used to pass back error condition.
-+		 */
-+		if (!strlen(data->data.key))
-+			error = HV_S_CONT;
- 		break;
- 
--	default:
--		data = &message->body.kvp_enum_data;
-+	case KVP_OP_REGISTER1:
- 		/*
--		 * Complete the transaction by forwarding the key value
--		 * to the host. But first, cancel the timeout.
-+		 * We use the message header information from
-+		 * the user level daemon to transmit errors.
- 		 */
--		if (cancel_delayed_work_sync(&kvp_work))
--			kvp_respond_to_host(data->data.key,
--					 data->data.value,
--					!strlen(data->data.key));
-+		error = *((int *)(&message->kvp_hdr.operation));
+ 	switch (message->kvp_hdr.operation) {
++	case KVP_OP_SET_IP_INFO:
++		process_ib_ipinfo(in_msg, message, KVP_OP_SET_IP_INFO);
 +		break;
- 	}
-+
-+	/*
-+	 * Complete the transaction by forwarding the key value
-+	 * to the host. But first, cancel the timeout.
-+	 */
-+	if (cancel_delayed_work_sync(&kvp_work))
-+		kvp_respond_to_host(data->data.key, data->data.value, error);
- }
++	case KVP_OP_GET_IP_INFO:
++		process_ib_ipinfo(in_msg, message, KVP_OP_GET_IP_INFO);
++		break;
+ 	case KVP_OP_SET:
+ 		switch (in_msg->body.kvp_set.data.value_type) {
+ 		case REG_SZ:
+@@ -313,17 +430,19 @@ kvp_send_key(struct work_struct *dummy)
+  */
  
  static void
-@@ -287,6 +357,7 @@ kvp_respond_to_host(char *key, char *value, int error)
- 		 */
- 		return;
- 
-+	icmsghdrp->status = error;
+-kvp_respond_to_host(char *key, char *value, int error)
++kvp_respond_to_host(struct hv_kvp_msg *msg_to_host, int error)
+ {
+ 	struct hv_kvp_msg  *kvp_msg;
+ 	struct hv_kvp_exchg_msg_value  *kvp_data;
+ 	char	*key_name;
++	char	*value;
+ 	struct icmsg_hdr *icmsghdrp;
+ 	int	keylen = 0;
+ 	int	valuelen = 0;
+ 	u32	buf_len;
+ 	struct vmbus_channel *channel;
+ 	u64	req_id;
++	int ret;
  
  	/*
- 	 * If the error parameter is set, terminate the host's enumeration
-@@ -294,15 +365,12 @@ kvp_respond_to_host(char *key, char *value, int error)
- 	 */
- 	if (error) {
- 		/*
--		 * Something failed or the we have timedout;
-+		 * Something failed or  we have timedout;
- 		 * terminate the current  host-side iteration.
- 		 */
--		icmsghdrp->status = HV_S_CONT;
- 		goto response_done;
- 	}
- 
--	icmsghdrp->status = HV_S_OK;
--
- 	kvp_msg = (struct hv_kvp_msg *)
- 			&recv_buffer[sizeof(struct vmbuspipe_hdr) +
+ 	 * If a transaction is not active; log and return.
+@@ -376,6 +495,16 @@ kvp_respond_to_host(char *key, char *value, int error)
  			sizeof(struct icmsg_hdr)];
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 3c56ca7..5552443 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -181,6 +181,17 @@ enum hv_kvp_exchg_pool {
- 	KVP_POOL_COUNT /* Number of pools, must be last. */
- };
  
-+/*
-+ * Some Hyper-V status codes.
-+ */
+ 	switch (kvp_transaction.kvp_msg->kvp_hdr.operation) {
++	case KVP_OP_GET_IP_INFO:
++		ret = process_ob_ipinfo(msg_to_host,
++				 (struct hv_kvp_ip_msg *)kvp_msg,
++				 KVP_OP_GET_IP_INFO);
++		if (ret < 0)
++			icmsghdrp->status = HV_E_FAIL;
 +
-+#define HV_S_OK				0x00000000
-+#define HV_E_FAIL			0x80004005
-+#define HV_S_CONT			0x80070103
-+#define HV_ERROR_NOT_SUPPORTED		0x80070032
-+#define HV_ERROR_MACHINE_LOCKED		0x800704F7
-+#define HV_ERROR_DEVICE_NOT_CONNECTED	0x8007048F
-+
- #define ADDR_FAMILY_NONE	0x00
- #define ADDR_FAMILY_IPV4	0x01
- #define ADDR_FAMILY_IPV6	0x02
-@@ -1045,12 +1056,6 @@ void vmbus_driver_unregister(struct hv_driver *hv_driver);
- #define ICMSGHDRFLAG_REQUEST		2
- #define ICMSGHDRFLAG_RESPONSE		4
- 
--#define HV_S_OK				0x00000000
--#define HV_E_FAIL			0x80004005
--#define HV_S_CONT			0x80070103
--#define HV_ERROR_NOT_SUPPORTED		0x80070032
--#define HV_ERROR_MACHINE_LOCKED		0x800704F7
--#define HV_ERROR_DEVICE_NOT_CONNECTED	0x8007048F
- 
- /*
-  * While we want to handle util services as regular devices,
-diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
-index 8fbcf7b..72f5fd3 100644
---- a/tools/hv/hv_kvp_daemon.c
-+++ b/tools/hv/hv_kvp_daemon.c
-@@ -71,13 +71,14 @@ enum key_index {
- static char kvp_send_buffer[4096];
- static char kvp_recv_buffer[4096 * 2];
- static struct sockaddr_nl addr;
-+static int in_hand_shake = 1;
- 
- static char *os_name = "";
- static char *os_major = "";
- static char *os_minor = "";
- static char *processor_arch;
- static char *os_build;
--static char *lic_version;
-+static char *lic_version = "Unknown version";
- static struct utsname uts_buf;
- 
- 
-@@ -394,7 +395,7 @@ static int kvp_get_value(int pool, __u8 *key, int key_size, __u8 *value,
- 	return 1;
- }
- 
--static void kvp_pool_enumerate(int pool, int index, __u8 *key, int key_size,
-+static int kvp_pool_enumerate(int pool, int index, __u8 *key, int key_size,
- 				__u8 *value, int value_size)
- {
- 	struct kvp_record *record;
-@@ -406,16 +407,12 @@ static void kvp_pool_enumerate(int pool, int index, __u8 *key, int key_size,
- 	record = kvp_file_info[pool].records;
- 
- 	if (index >= kvp_file_info[pool].num_records) {
--		/*
--		 * This is an invalid index; terminate enumeration;
--		 * - a NULL value will do the trick.
--		 */
--		strcpy(value, "");
--		return;
-+		return 1;
++		goto response_done;
++	case KVP_OP_SET_IP_INFO:
++		goto response_done;
+ 	case KVP_OP_GET:
+ 		kvp_data = &kvp_msg->body.kvp_get.data;
+ 		goto copy_value;
+@@ -389,7 +518,7 @@ kvp_respond_to_host(char *key, char *value, int error)
  	}
  
- 	memcpy(key, record[index].key, key_size);
- 	memcpy(value, record[index].value, value_size);
-+	return 0;
- }
+ 	kvp_data = &kvp_msg->body.kvp_enum_data.data;
+-	key_name = key;
++	key_name = msg_to_host->body.kvp_enum_data.data.key;
  
+ 	/*
+ 	 * The windows host expects the key/value pair to be encoded
+@@ -403,6 +532,7 @@ kvp_respond_to_host(char *key, char *value, int error)
+ 	kvp_data->key_size = 2*(keylen + 1); /* utf16 encoding */
  
-@@ -646,6 +643,8 @@ int main(void)
- 	char	*p;
- 	char	*key_value;
- 	char	*key_name;
-+	int	op;
-+	int	pool;
+ copy_value:
++	value = msg_to_host->body.kvp_enum_data.data.value;
+ 	valuelen = utf8s_to_utf16s(value, strlen(value), UTF16_HOST_ENDIAN,
+ 				(wchar_t *) kvp_data->value,
+ 				(HV_KVP_EXCHANGE_MAX_VALUE_SIZE / 2) - 2);
+@@ -455,7 +585,8 @@ void hv_kvp_onchannelcallback(void *context)
+ 		return;
+ 	}
  
- 	daemon(1, 0);
- 	openlog("KVP", 0, LOG_USER);
-@@ -687,7 +686,7 @@ int main(void)
- 	message->id.val = CN_KVP_VAL;
+-	vmbus_recvpacket(channel, recv_buffer, PAGE_SIZE, &recvlen, &requestid);
++	vmbus_recvpacket(channel, recv_buffer, PAGE_SIZE * 2, &recvlen,
++			 &requestid);
  
- 	hv_msg = (struct hv_kvp_msg *)message->data;
--	hv_msg->kvp_hdr.operation = KVP_OP_REGISTER;
-+	hv_msg->kvp_hdr.operation = KVP_OP_REGISTER1;
- 	message->ack = 0;
- 	message->len = sizeof(struct hv_kvp_msg);
- 
-@@ -721,12 +720,21 @@ int main(void)
- 		incoming_cn_msg = (struct cn_msg *)NLMSG_DATA(incoming_msg);
- 		hv_msg = (struct hv_kvp_msg *)incoming_cn_msg->data;
- 
--		switch (hv_msg->kvp_hdr.operation) {
--		case KVP_OP_REGISTER:
-+		/*
-+		 * We will use the KVP header information to pass back
-+		 * the error from this daemon. So, first copy the state
-+		 * and set the error code to success.
-+		 */
-+		op = hv_msg->kvp_hdr.operation;
-+		pool = hv_msg->kvp_hdr.pool;
-+		*((int *)(&hv_msg->kvp_hdr.operation)) = HV_S_OK;
-+
-+		if ((in_hand_shake) && (op == KVP_OP_REGISTER1)) {
- 			/*
- 			 * Driver is registering with us; stash away the version
- 			 * information.
- 			 */
-+			in_hand_shake = 0;
- 			p = (char *)hv_msg->body.kvp_register.version;
- 			lic_version = malloc(strlen(p) + 1);
- 			if (lic_version) {
-@@ -737,44 +745,42 @@ int main(void)
- 				syslog(LOG_ERR, "malloc failed");
- 			}
- 			continue;
-+		}
- 
--		/*
--		 * The current protocol with the kernel component uses a
--		 * NULL key name to pass an error condition.
--		 * For the SET, GET and DELETE operations,
--		 * use the existing protocol to pass back error.
--		 */
--
-+		switch (op) {
- 		case KVP_OP_SET:
--			if (kvp_key_add_or_modify(hv_msg->kvp_hdr.pool,
-+			if (kvp_key_add_or_modify(pool,
- 					hv_msg->body.kvp_set.data.key,
- 					hv_msg->body.kvp_set.data.key_size,
- 					hv_msg->body.kvp_set.data.value,
- 					hv_msg->body.kvp_set.data.value_size))
--				strcpy(hv_msg->body.kvp_set.data.key, "");
-+				*((int *)(&hv_msg->kvp_hdr.operation)) =
-+								HV_S_CONT;
- 			break;
- 
- 		case KVP_OP_GET:
--			if (kvp_get_value(hv_msg->kvp_hdr.pool,
-+			if (kvp_get_value(pool,
- 					hv_msg->body.kvp_set.data.key,
- 					hv_msg->body.kvp_set.data.key_size,
- 					hv_msg->body.kvp_set.data.value,
- 					hv_msg->body.kvp_set.data.value_size))
--				strcpy(hv_msg->body.kvp_set.data.key, "");
-+				*((int *)(&hv_msg->kvp_hdr.operation)) =
-+								HV_S_CONT;
- 			break;
- 
- 		case KVP_OP_DELETE:
--			if (kvp_key_delete(hv_msg->kvp_hdr.pool,
-+			if (kvp_key_delete(pool,
- 					hv_msg->body.kvp_delete.key,
- 					hv_msg->body.kvp_delete.key_size))
--				strcpy(hv_msg->body.kvp_delete.key, "");
-+				*((int *)(&hv_msg->kvp_hdr.operation)) =
-+								HV_S_CONT;
- 			break;
- 
- 		default:
- 			break;
- 		}
- 
--		if (hv_msg->kvp_hdr.operation != KVP_OP_ENUMERATE)
-+		if (op != KVP_OP_ENUMERATE)
- 			goto kvp_done;
- 
- 		/*
-@@ -782,13 +788,15 @@ int main(void)
- 		 * both the key and the value; if not read from the
- 		 * appropriate pool.
- 		 */
--		if (hv_msg->kvp_hdr.pool != KVP_POOL_AUTO) {
--			kvp_pool_enumerate(hv_msg->kvp_hdr.pool,
-+		if (pool != KVP_POOL_AUTO) {
-+			if (kvp_pool_enumerate(pool,
- 					hv_msg->body.kvp_enum_data.index,
- 					hv_msg->body.kvp_enum_data.data.key,
- 					HV_KVP_EXCHANGE_MAX_KEY_SIZE,
- 					hv_msg->body.kvp_enum_data.data.value,
--					HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
-+					HV_KVP_EXCHANGE_MAX_VALUE_SIZE))
-+				*((int *)(&hv_msg->kvp_hdr.operation)) =
-+								HV_S_CONT;
- 			goto kvp_done;
- 		}
- 
-@@ -841,11 +849,7 @@ int main(void)
- 			strcpy(key_name, "ProcessorArchitecture");
- 			break;
- 		default:
--			strcpy(key_value, "Unknown Key");
--			/*
--			 * We use a null key name to terminate enumeration.
--			 */
--			strcpy(key_name, "");
-+			*((int *)(&hv_msg->kvp_hdr.operation)) = HV_S_CONT;
- 			break;
- 		}
- 		/*
+ 	if (recvlen > 0) {
+ 		icmsghdrp = (struct icmsg_hdr *)&recv_buffer[
 -- 
 1.7.4.1
