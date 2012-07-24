@@ -1,7 +1,7 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 13/17] Tools: hv: Implement the KVP verb - KVP_OP_SET_IP_INFO
-Date: Tue, 24 Jul 2012 09:01:37 -0700
-Message-ID: <1343145701-3691-13-git-send-email-kys@microsoft.com>
+Subject: [PATCH 12/17] Tools: hv: Gather DHCP information
+Date: Tue, 24 Jul 2012 09:01:36 -0700
+Message-ID: <1343145701-3691-12-git-send-email-kys@microsoft.com>
 References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
  <1343145701-3691-1-git-send-email-kys@microsoft.com>
 Cc: "K. Y. Srinivasan" <kys@microsoft.com>
@@ -14,523 +14,65 @@ In-Reply-To: <1343145701-3691-1-git-send-email-kys@microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement the KVP verb - KVP_OP_SET_IP_INFO. This operation configures the
-specified interface based on the given configuration. Since configuring
-an interface is very distro specific, we invoke an external script to
-configure the interface.
+Collect information on dhcp setting for the specified interface.
+We invoke an exyernal script to get this information.
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- include/linux/hyperv.h   |    2 +
- tools/hv/hv_kvp_daemon.c |  440 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 442 insertions(+), 0 deletions(-)
+ tools/hv/hv_kvp_daemon.c |   33 +++++++++++++++++++++++++++++++++
+ 1 files changed, 33 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index 5552443..ac6d553 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -191,6 +191,8 @@ enum hv_kvp_exchg_pool {
- #define HV_ERROR_NOT_SUPPORTED		0x80070032
- #define HV_ERROR_MACHINE_LOCKED		0x800704F7
- #define HV_ERROR_DEVICE_NOT_CONNECTED	0x8007048F
-+#define HV_INVALIDARG			0x80070057
-+#define HV_GUID_NOTFOUND		0x80041002
- 
- #define ADDR_FAMILY_NONE	0x00
- #define ADDR_FAMILY_IPV4	0x01
 diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
-index 2d01ccd..090d6a2 100644
+index 9500cff..2d01ccd 100644
 --- a/tools/hv/hv_kvp_daemon.c
 +++ b/tools/hv/hv_kvp_daemon.c
-@@ -31,6 +31,7 @@
- #include <stdlib.h>
- #include <unistd.h>
- #include <string.h>
-+#include <ctype.h>
- #include <errno.h>
- #include <arpa/inet.h>
- #include <linux/connector.h>
-@@ -41,6 +42,7 @@
- #include <syslog.h>
- #include <sys/stat.h>
- #include <fcntl.h>
-+#include <dirent.h>
- 
- /*
-  * KVP protocol: The user mode component first registers with the
-@@ -68,6 +70,14 @@ enum key_index {
- 	ProcessorArchitecture
- };
- 
-+
-+enum {
-+	IPADDR = 0,
-+	NETMASK,
-+	GATEWAY,
-+	DNS
-+};
-+
- static char kvp_send_buffer[4096];
- static char kvp_recv_buffer[4096 * 2];
- static struct sockaddr_nl addr;
-@@ -491,6 +501,106 @@ done:
- 	return;
- }
- 
-+
-+
-+/*
-+ * Retrieve an interface name corresponding to the specified guid.
-+ * If there is a match, the function returns a pointer
-+ * to the interface name and if not, a NULL is returned.
-+ * If a match is found, the caller is responsible for
-+ * freeing the memory.
-+ */
-+
-+static char *kvp_get_if_name(char *guid)
-+{
-+	DIR *dir;
-+	struct dirent *entry;
-+	FILE    *file;
-+	char    *p, *q, *x;
-+	char    *if_name = NULL;
-+	char    buf[256];
-+	char *kvp_net_dir = "/sys/class/net/";
-+	char dev_id[100];
-+
-+	dir = opendir(kvp_net_dir);
-+	if (dir == NULL)
-+		return NULL;
-+
-+	memset(dev_id, 0, sizeof(dev_id));
-+	strcat(dev_id, kvp_net_dir);
-+	q = dev_id + strlen(kvp_net_dir);
-+
-+	while ((entry = readdir(dir)) != NULL) {
-+		/*
-+		 * Set the state for the next pass.
-+		 */
-+		*q = '\0';
-+		strcat(dev_id, entry->d_name);
-+		strcat(dev_id, "/device/device_id");
-+
-+		file = fopen(dev_id, "r");
-+		if (file == NULL)
-+			continue;
-+
-+		p = fgets(buf, sizeof(buf), file);
-+		if (p) {
-+			x = strchr(p, '\n');
-+			if (x)
-+				*x = '\0';
-+
-+			if (!strcmp(p, guid)) {
-+				/*
-+				 * Found the guid match; return the interface
-+				 * name. The caller will free the memory.
-+				 */
-+				if_name = strdup(entry->d_name);
-+				break;
-+			}
-+		}
-+		fclose(file);
-+	}
-+
-+	closedir(dir);
-+	return if_name;
-+}
-+
-+/*
-+ * Retrieve the MAC address given the interface name.
-+ */
-+
-+static char *kvp_if_name_to_mac(char *if_name)
-+{
-+	FILE    *file;
-+	char    *p, *x;
-+	char    buf[256];
-+	char addr_file[100];
-+	int i;
-+	char *mac_addr = NULL;
-+
-+	memset(addr_file, 0, sizeof(addr_file));
-+	strcat(addr_file, "/sys/class/net/");
-+	strcat(addr_file, if_name);
-+	strcat(addr_file, "/address");
-+
-+	file = fopen(addr_file, "r");
-+	if (file == NULL)
-+		return NULL;
-+
-+	p = fgets(buf, sizeof(buf), file);
-+	if (p) {
-+		x = strchr(p, '\n');
-+		if (x)
-+			*x = '\0';
-+		for (i = 0; i < strlen(p); i++)
-+			p[i] = toupper(p[i]);
-+		mac_addr = strdup(p);
-+	}
-+
-+	fclose(file);
-+	return mac_addr;
-+}
-+
-+
- static void kvp_process_ipconfig_file(char *cmd,
- 					char *config_buf, int len,
- 					int element_size, int offset)
-@@ -800,6 +910,314 @@ getaddr_done:
- }
- 
- 
-+static int expand_ipv6(char *addr, int type)
-+{
-+	int ret;
-+	struct in6_addr v6_addr;
-+
-+	ret = inet_pton(AF_INET6, addr, &v6_addr);
-+
-+	if (ret != 1) {
-+		if (type == NETMASK)
-+			return 1;
-+		return 0;
-+	}
-+
-+	sprintf(addr, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:"
-+		"%02x%02x:%02x%02x:%02x%02x",
-+		(int)v6_addr.s6_addr[0], (int)v6_addr.s6_addr[1],
-+		(int)v6_addr.s6_addr[2], (int)v6_addr.s6_addr[3],
-+		(int)v6_addr.s6_addr[4], (int)v6_addr.s6_addr[5],
-+		(int)v6_addr.s6_addr[6], (int)v6_addr.s6_addr[7],
-+		(int)v6_addr.s6_addr[8], (int)v6_addr.s6_addr[9],
-+		(int)v6_addr.s6_addr[10], (int)v6_addr.s6_addr[11],
-+		(int)v6_addr.s6_addr[12], (int)v6_addr.s6_addr[13],
-+		(int)v6_addr.s6_addr[14], (int)v6_addr.s6_addr[15]);
-+
-+	return 1;
-+
-+}
-+
-+static int is_ipv4(char *addr)
-+{
-+	int ret;
-+	struct in_addr ipv4_addr;
-+
-+	ret = inet_pton(AF_INET, addr, &ipv4_addr);
-+
-+	if (ret == 1)
-+		return 1;
-+	return 0;
-+}
-+
-+static int parse_ip_val_buffer(char *in_buf, int *offset,
-+				char *out_buf, int out_len)
-+{
-+	char *x;
-+	char *start;
-+
-+	/*
-+	 * in_buf has sequence of characters that are seperated by
-+	 * the character ';'. The last sequence does not have the
-+	 * terminating ";" character.
-+	 */
-+	start = in_buf + *offset;
-+
-+	x = strchr(start, ';');
-+	if (x)
-+		*x = 0;
-+	else
-+		x = start + strlen(start);
-+
-+	if (strlen(start) != 0) {
-+		int i = 0;
-+		/*
-+		 * Get rid of leading spaces.
-+		 */
-+		while (start[i] == ' ')
-+			i++;
-+
-+		if ((x - start) <= out_len) {
-+			strcpy(out_buf, (start + i));
-+			*offset += (x - start) + 1;
-+			return 1;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int kvp_write_file(FILE *f, char *s1, char *s2, char *s3)
-+{
-+	char str[256];
-+	int error;
-+
-+	memset(str, 0, sizeof(str));
-+	strcat(str, s1);
-+	if (s2 != NULL)
-+		strcat(str, s2);
-+	strcat(str, "=");
-+	strcat(str, s3);
-+	strcat(str, "\n");
-+
-+	error = fputs(str, f);
-+	if (error == EOF)
-+		return HV_E_FAIL;
-+
-+	return 0;
-+}
-+
-+
-+static int process_ip_string(FILE *f, char *ip_string, int type)
-+{
-+	int error = 0;
-+	char addr[INET6_ADDRSTRLEN];
-+	int i = 0;
-+	int j = 0;
-+	char str[256];
-+	char sub_str[10];
-+	int offset = 0;
-+
-+	memset(addr, 0, sizeof(addr));
-+
-+	while (parse_ip_val_buffer(ip_string, &offset, addr,
-+					(MAX_IP_ADDR_SIZE * 2))) {
-+		memset(sub_str, 0, sizeof(sub_str));
-+		memset(str, 0, sizeof(str));
-+
-+		if (is_ipv4(addr)) {
-+			switch (type) {
-+			case IPADDR:
-+				strcat(str, "IPADDR");
-+				break;
-+			case NETMASK:
-+				strcat(str, "NETMASK");
-+				break;
-+			case GATEWAY:
-+				strcat(str, "GATEWAY");
-+				break;
-+			case DNS:
-+				strcat(str, "DNS");
-+				break;
-+			}
-+			if (i != 0) {
-+				if (type != DNS)
-+					sprintf(sub_str, "_%d", i++);
-+				else
-+					sprintf(sub_str, "%d", ++i);
-+			} else if (type == DNS) {
-+				sprintf(sub_str, "%d", ++i);
-+			}
-+
-+
-+		} else if (expand_ipv6(addr, type)) {
-+			switch (type) {
-+			case IPADDR:
-+				strcat(str, "IPV6ADDR");
-+				break;
-+			case NETMASK:
-+				strcat(str, "IPV6NETMASK");
-+				break;
-+			case GATEWAY:
-+				strcat(str, "IPV6_DEFAULTGW");
-+				break;
-+			case DNS:
-+				strcat(str, "DNS");
-+				break;
-+			}
-+			if ((j != 0) || (type == DNS)) {
-+				if (type != DNS)
-+					sprintf(sub_str, "_%d", j++);
-+				else
-+					sprintf(sub_str, "%d", ++i);
-+			} else if (type == DNS) {
-+				sprintf(sub_str, "%d", ++i);
-+			}
-+		} else {
-+			return  HV_INVALIDARG;
-+		}
-+
-+		error = kvp_write_file(f, str, sub_str, addr);
-+		if (error)
-+			return error;
-+		memset(addr, 0, sizeof(addr));
-+	}
-+
-+	return 0;
-+}
-+
-+static int kvp_set_ip_info(char *if_name, struct hv_kvp_ipaddr_value *new_val)
-+{
-+	int error = 0;
-+	char if_file[50];
+@@ -525,6 +525,9 @@ static void kvp_get_ipconfig_info(char *if_name,
+ 				 struct hv_kvp_ipaddr_value *buffer)
+ {
+ 	char cmd[512];
++	char dhcp_info[128];
++	char *p;
 +	FILE *file;
-+	char cmd[512];
-+	char *mac_addr;
+ 
+ 	/*
+ 	 * Get the address of default gateway (ipv4).
+@@ -581,6 +584,36 @@ static void kvp_get_ipconfig_info(char *if_name,
+ 	 */
+ 	kvp_process_ipconfig_file(cmd, (char *)buffer->dns_addr,
+ 				(MAX_IP_ADDR_SIZE * 2), INET_ADDRSTRLEN, 0);
 +
 +	/*
-+	 * Set the configuration for the specified interface with
-+	 * the information provided. Since there is no standard
-+	 * way to configure an interface, we will have an external
-+	 * script that does the job of configuring the interface and
-+	 * flushing the configuration.
++	 * Gather the DHCP state.
++	 * We will gather this state by invoking an external script.
++	 * The parameter to the script is the interface name.
++	 * Here is the expected output:
 +	 *
-+	 * The parameters passed to this external script are:
-+	 * 1. A configuration file that has the specified configuration.
-+	 *
-+	 * We will embed the name of the interface in the configuration
-+	 * file: ifcfg-ethx (where ethx is the interface name).
-+	 *
-+	 * Here is the format of the ip configuration file:
-+	 *
-+	 * HWADDR=macaddr
-+	 * BOOTPROTO=dhcp (dhcp enabled for the interface)
-+	 * NM_CONTROLLED=no (this interface will not be controlled by NM)
-+	 * PEERDNS=yes
-+	 * IPADDR_x=ipaddr
-+	 * NETMASK_x=netmask
-+	 * GATEWAY_x=gateway
-+	 * DNSx=dns
-+	 *
-+	 * IPV6 addresses will be tagged as IPV6ADDR, IPV6 gateway will be
-+	 * tagged as IPV6_DEFAULTGW and IPV6 NETMASK will be tagged as
-+	 * IPV6NETMASK.
-+	 */
-+
-+	memset(if_file, 0, sizeof(if_file));
-+	strcat(if_file, "/var/opt/hyperv/ifcfg-");
-+	strcat(if_file, if_name);
-+
-+	file = fopen(if_file, "w");
-+
-+	if (file == NULL) {
-+		syslog(LOG_ERR, "Failed to open config file");
-+		return HV_E_FAIL;
-+	}
-+
-+	/*
-+	 * First write out the MAC address.
-+	 */
-+
-+	mac_addr = kvp_if_name_to_mac(if_name);
-+	if (mac_addr == NULL) {
-+		error = HV_E_FAIL;
-+		goto setval_error;
-+	}
-+
-+	error = kvp_write_file(file, "HWADDR", NULL, mac_addr);
-+	if (error)
-+		goto setval_error;
-+
-+	error = kvp_write_file(file, "ONBOOT", NULL, "yes");
-+	if (error)
-+		goto setval_error;
-+
-+	error = kvp_write_file(file, "IPV6INIT", NULL, "yes");
-+	if (error)
-+		goto setval_error;
-+
-+	error = kvp_write_file(file, "NM_CONTROLLED", NULL, "no");
-+	if (error)
-+		goto setval_error;
-+
-+	error = kvp_write_file(file, "PEERDNS", NULL, "yes");
-+	if (error)
-+		goto setval_error;
-+
-+	if (new_val->dhcp_enabled) {
-+		error = kvp_write_file(file, "BOOTPROTO", NULL, "dhcp");
-+		if (error)
-+			goto setval_error;
-+
-+		/*
-+		 * We are done!.
-+		 */
-+		goto setval_done;
-+	}
-+
-+	/*
-+	 * Write the configuration for ipaddress, netmask, gateway and
-+	 * name servers.
-+	 */
-+
-+	error = process_ip_string(file, (char *)new_val->ip_addr, IPADDR);
-+	if (error)
-+		goto setval_error;
-+
-+	error = process_ip_string(file, (char *)new_val->sub_net, NETMASK);
-+	if (error)
-+		goto setval_error;
-+
-+	error = process_ip_string(file, (char *)new_val->gate_way, GATEWAY);
-+	if (error)
-+		goto setval_error;
-+
-+	error = process_ip_string(file, (char *)new_val->dns_addr, DNS);
-+	if (error)
-+		goto setval_error;
-+
-+setval_done:
-+	free(mac_addr);
-+	fclose(file);
-+
-+	/*
-+	 * Now that we have populated the configuration file,
-+	 * invoke the external script to do its magic.
++	 * Enabled: DHCP enabled.
 +	 */
 +
 +	memset(cmd, 0, sizeof(cmd));
-+	strcat(cmd, "/sbin/hv_set_ifconfig ");
-+	strcat(cmd, if_file);
-+	system(cmd);
-+	return 0;
++	strcat(cmd, "/sbin/hv_get_dhcp_info ");
++	strcat(cmd, if_name);
 +
-+setval_error:
-+	syslog(LOG_ERR, "Failed to write config file");
-+	free(mac_addr);
-+	fclose(file);
-+	return error;
-+}
++	file = popen(cmd, "r");
++	if (file == NULL)
++		return;
 +
++	p = fgets(dhcp_info, sizeof(dhcp_info), file);
++	if (p == NULL) {
++		pclose(file);
++		return;
++	}
 +
- static int
- kvp_get_domain_name(char *buffer, int length)
- {
-@@ -869,6 +1287,8 @@ int main(void)
- 	char	*key_name;
- 	int	op;
- 	int	pool;
-+	char	*if_name;
-+	struct hv_kvp_ipaddr_value *kvp_ip_val;
++	if (!strncmp(p, "Enabled", 7))
++		buffer->dhcp_enabled = 1;
++	else
++		buffer->dhcp_enabled = 0;
++
++	pclose(file);
+ }
  
- 	daemon(1, 0);
- 	openlog("KVP", 0, LOG_USER);
-@@ -972,6 +1392,26 @@ int main(void)
- 		}
  
- 		switch (op) {
-+		case KVP_OP_SET_IP_INFO:
-+			kvp_ip_val = &hv_msg->body.kvp_ip_val;
-+			if_name = kvp_get_if_name(
-+					(char *)kvp_ip_val->adapter_id);
-+			if (if_name == NULL) {
-+				/*
-+				 * We could not map the guid to an
-+				 * interface name; return error.
-+				 */
-+				*((int *)(&hv_msg->kvp_hdr.operation)) =
-+					HV_GUID_NOTFOUND;
-+				break;
-+			}
-+			error = kvp_set_ip_info(if_name, kvp_ip_val);
-+			if (error)
-+				*((int *)(&hv_msg->kvp_hdr.operation)) = error;
-+
-+			free(if_name);
-+			break;
-+
- 		case KVP_OP_SET:
- 			if (kvp_key_add_or_modify(pool,
- 					hv_msg->body.kvp_set.data.key,
 -- 
 1.7.4.1
