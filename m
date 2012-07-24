@@ -1,41 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ppp: add 64 bit stats
-Date: Tue, 24 Jul 2012 08:22:34 +0200
-Message-ID: <1343110954.2626.11040.camel@edumazet-glaptop>
-References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
-	 <1343020585.2626.10054.camel@edumazet-glaptop>
-	 <CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
-	 <1343059184.2626.11027.camel@edumazet-glaptop>
-	 <CABF+-6Vko_T2RCsk1KVouB8a+8Ms_aLEoA-Xet1nxB8bnZAxMA@mail.gmail.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Tue, 24 Jul 2012 14:34:04 +0800
+Message-ID: <CEE7FFC13FF3495C9771B87B8F199BA7@realtek.com.tw>
+References: <20120718.132840.1571938255177607234.davem@davemloft.net> <20120718214422.GA18207@electric-eye.fr.zoreil.com> <1342649136.2626.3757.camel@edumazet-glaptop> <20120718.152405.1083396282134539674.davem@davemloft.net> <EF06A7B3C1E6432BB660CDEF8E1D2A1B@realtek.com.tw> <20120720100846.GA17398@electric-eye.fr.zoreil.com> <A4FD513AF09D40849B8A75C371F1D431@realtek.com.tw> <20120720210107.GA28118@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kevin Groeneveld <kgroeneveld@gmail.com>
+Cc: 'David Miller' <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:53168 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755363Ab2GXGWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 02:22:39 -0400
-Received: by bkwj10 with SMTP id j10so5952590bkw.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 23:22:38 -0700 (PDT)
-In-Reply-To: <CABF+-6Vko_T2RCsk1KVouB8a+8Ms_aLEoA-Xet1nxB8bnZAxMA@mail.gmail.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:41282 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752846Ab2GXGeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 02:34:18 -0400
+In-Reply-To: <20120720210107.GA28118@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-23 at 21:53 -0400, Kevin Groeneveld wrote:
-> On Mon, Jul 23, 2012 at 11:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> Would proper synchronization in this case just be wrapping the updates
-> >> in a spin_lock/spin_unlock?
-> >
-> > Would be fine (if the proper BH safe variant is used), or you could also
-> > use atomic64_t.
+  Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Saturday, July 21, 2012 5:01 AM
+> To: Hayeswang
+> Cc: 'David Miller'; eric.dumazet@gmail.com; netdev@vger.kernel.org
+> Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
 > 
-> Which would you recommend, spin locks or atomic64_t?
+[...]
 > 
-> atomic64_t seems like it would be simpler.
+> Btw, would there be any point in setting the TcpHeaderOffset field for
+> the post-8168c chipsets ?
 
-Simpler but a bit more expensive when two counters are changed at the
-same time.
-
-(two atomic ops instead of a single one for the spinlock)
+It is used to tell the haredware where the TCP header starts from. I think it is
+reserved for ipv6.
+ 
+Best Regards,
+Hayes
