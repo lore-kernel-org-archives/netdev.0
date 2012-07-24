@@ -1,63 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: bonding and SR-IOV -- do we need arp_validation for
- loadbalancing too?
-Date: Tue, 24 Jul 2012 18:42:20 +0200
-Message-ID: <20120724164220.GA1721@minipsycho.orion>
-References: <500EC5CF.3080400@genband.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH 10/17] Tools: hv: Gather ipv[4,6] gateway information
+Date: Tue, 24 Jul 2012 18:53:59 +0200
+Message-ID: <20120724165359.GA8409@aepfle.de>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-10-git-send-email-kys@microsoft.com>
+ <20120724092914.60f3d90a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
-	andy@greyhouse.net
-To: Chris Friesen <chris.friesen@genband.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:46313 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753640Ab2GXQmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 12:42:25 -0400
-Received: by weyx8 with SMTP id x8so5231976wey.19
-        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 09:42:24 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	virtualization@lists.osdl.org, apw@canonical.com,
+	netdev@vger.kernel.org, ben@decadent.org.uk
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <500EC5CF.3080400@genband.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20120724092914.60f3d90a@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Jul 24, 2012 at 05:57:03PM CEST, chris.friesen@genband.com wrote:
->Hi all,
->
->We've been starting to look at bonding VFs from separate physical
->devices in a guest, but we've run into a problem.
->
->The host is bonding the corresponding PFs, and it uses arp
->monitoring.  What we have found is that any broadcast traffic from
->the guest (if they enable arp monitoring, for example) will be seen
->by the internal L2 switch of the NIC and sent up into the host, where
->the bonding driver will count it as incoming packets and use it to
->mark the link as good.
->
->The only solutions I've been able to come up with are:
->1) add arp validation for load balancing modes as well as active-backup.
+On Tue, Jul 24, Stephen Hemminger wrote:
 
-This is my favourite.... No reason to not to turn arp validation on.
-TEAM device (teamd arpping linkwatch) does arp or NSNA validation
-always.
+> On Tue, 24 Jul 2012 09:01:34 -0700
+> "K. Y. Srinivasan" <kys@microsoft.com> wrote:
+> 
+> > +	memset(cmd, 0, sizeof(cmd));
+> > +	strcat(cmd, "/sbin/ip -f inet  route | grep -w ");
+> > +	strcat(cmd, if_name);
+> > +	strcat(cmd, " | awk '/default/ {print $3 }'");
+> 
+> 
+> Much simpler method:
+> 
+> ip route show match 0/0
 
->2) put all the VMs in VLANs
->
->Anyone have any better ideas?
->
->Chris
->
->
->-- 
->
->Chris Friesen
->Software Designer
->
->3500 Carling Avenue
->Ottawa, Ontario K2H 8E9
->www.genband.com
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This also has the benefit that ip is not called with absolute path, now
+that distros move binaries around.
+
+Olaf
