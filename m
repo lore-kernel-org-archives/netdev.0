@@ -1,37 +1,41 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to neighbouring
- system
-Date: Tue, 24 Jul 2012 09:24:25 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1207240924020.29808@router.home>
-References: <50082183.5000402@mellanox.com> <alpine.DEB.2.00.1207191023130.29808@router.home> <500833D9.8000001@mellanox.com> <20120719.100850.1932622478297549573.davem@davemloft.net> <500B8FBE.4030600@mellanox.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: calling request_firmware() from module init will not work with
+ recent/future udev versions
+Date: Tue, 24 Jul 2012 16:32:31 +0200
+Message-ID: <CAG-2HqV4w5eRdh7SzdiXe+LUWpD=jHH1C7sk4G-LiTwdLJbgwg@mail.gmail.com>
+References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
+ <1326621743.3448.1.camel@jlt3.sipsolutions.net> <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
+ <1326704259.3510.3.camel@jlt3.sipsolutions.net> <CAPXgP12gM3_OVuxQAkRRarH_TpjVpbh5NpcTPWL0nEi4eoX+kw@mail.gmail.com>
+ <1326716209.3510.7.camel@jlt3.sipsolutions.net> <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com>
+ <1343139390.4415.31.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <500B8FBE.4030600-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Kay Sievers <kay@vrfy.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, Andy Whitcroft <apw@canonical.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:38489 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754910Ab2GXOcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 10:32:53 -0400
+Received: by weyx8 with SMTP id x8so5117936wey.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 07:32:51 -0700 (PDT)
+In-Reply-To: <1343139390.4415.31.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 22 Jul 2012, Or Gerlitz wrote:
-
-> On 7/19/2012 8:08 PM, David Miller wrote:
-> > These numbers come from the IPV6 Neighbour Discovery RFCs.  IPV4 replicates
-> > the Neighbour Unreachability Detection schemes of IPV6 in pretty much it's
-> > entirety, and therefore takes on the same timeout et al. parameters.
+On Tue, Jul 24, 2012 at 4:16 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+>> The logic to tell udev that it runs in the initramfs could easily be
+>> implemented by other initramfs tools than dracut, but they usually do
+>> not really follow what we do here, so this might for now only work on
+>> recent systems using dracut.
 >
-> OK, got it. At this point, I guess we should enhance the patch to use the
-> values plugged into the IPv4 arp table at the time IPoIB is loaded, with
-> arp_tbl being exported its easy to achieve. This would allow users to use
-> non-default values by the ipoib neigh handling logic. In a later step, we need
-> to see if/how to allow ipoib to use the already existing sysctl entries, makes
-> sense?
+> Ok, too bad there wasn't a generic way, but at least there's a way
+> now :-)
 
-Sounds about right.
+If I understand the code correctly, it should be enough to put a file
+/etc/initrd-release in the initramfs for udev to do the right thing.
+But please correct me if I'm wrong Kay.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-t
