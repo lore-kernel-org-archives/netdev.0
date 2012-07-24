@@ -1,61 +1,47 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net/for-next V2 0/1] change IPoIB neighbour handling
-Date: Tue, 24 Jul 2012 20:05:21 +0300
-Message-ID: <1343149522-7661-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	eric.dumazet@gmail.com, cl@linux.com,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: davem@davemloft.net, roland@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:49036 "HELO
-	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754683Ab2GXRFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 13:05:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: [PATCH 09/17] Tools: hv: Represent the ipv6 mask using CIDR
+ notation
+Date: Tue, 24 Jul 2012 19:08:32 +0200
+Message-ID: <20120724170832.GB13749@x1.osrc.amd.com>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-9-git-send-email-kys@microsoft.com>
+ <20120724160108.GA13749@x1.osrc.amd.com>
+ <426367E2313C2449837CD2DE46E7EAF9236A7733@SN2PRD0310MB382.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: KY Srinivasan <kys@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <426367E2313C2449837CD2DE46E7EAF9236A7733@SN2PRD0310MB382.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-changes from V1:
-  
-- applied feeback from Dave on hash usage and identation
+On Tue, Jul 24, 2012 at 04:53:50PM +0000, KY Srinivasan wrote:
+> This code is a user-level daemon that will be compiled outside of the
+> kernel. I did not want to include Kernel header files for this one
+> function and deal with all the dependencies that will have to be dealt
+> with.
 
-- applied feedback from Christoph, use values fom the exported arp_tbl
-  for the hash table size and the frequency of garbage collection
+Ah, I missed the tools/ prefix in the patch, sorry.
 
-changes from V0:
+Well, FWIW, we have hweight32 in <tools/perf/util/hweight.c> too and
+there was a patchset preparing a generic kernel tools library where
+tools can share functions but the author doesn't have time to dust the
+patches off and get it upstream... :-).
 
-- following feedback from Mike and Dave, changed the ipoib_neigh hash table 
-  to allow for lock-free read side, the model follows the RCU based implementation 
-  in net/core/neighbour.c
+I guess having a local function is the easiest for now.
 
-- since RCU hash table uses unidirectional collision list, now ipoib_neigh_free 
-  needs to do a linked search in order to find the deleted neighbour predecessor 
-  in order to link it to the neighbour successor.
+Thanks.
 
-- different implementation of hash lookup in ipoib_neigh_get (read-side) 
-  vs ipoib_neigh_alloc and ipoib_neigh_free (write-side)
-
-- path_free and ipoib_mcast_free now make use of the ipoib_del_neighs_by_gid helper 
-  function in order to delete neighbours related to that path or mcast. This new helper 
-  scans the hash table and deletes neighbours with the given GID. It had to be done 
-  this way of as  of the unidrectional nature of the linking which by itself 
-  arises from the lock free requirement made here...
-
-- a completion mechanism was added to prevent freeing the IPoIB netdevice priv 
-  data structure before the RCU based code freed all the neighbours.
-
-Again, the patch was made over net-next as of few IPoIB changes that 
-took place there and the parallel submission of the eIPoIB driver. 
-
-Or.
-
-Cc: Shlomo Pongratz <shlomop@mellanox.com>
-
-Shlomo Pongratz (1):
-  IB/ipoib: break linkage to neighbouring system
-
- drivers/infiniband/ulp/ipoib/ipoib.h           |   54 ++-
- drivers/infiniband/ulp/ipoib/ipoib_cm.c        |   16 +-
- drivers/infiniband/ulp/ipoib/ipoib_main.c      |  641 +++++++++++++++++------
- drivers/infiniband/ulp/ipoib/ipoib_multicast.c |   57 +--
- 4 files changed, 533 insertions(+), 235 deletions(-)
+-- 
+Regards/Gruss,
+Boris.
