@@ -1,55 +1,32 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 14/17] Tools: hv: Rename the function kvp_get_ip_address()
-Date: Tue, 24 Jul 2012 09:01:38 -0700
-Message-ID: <1343145701-3691-14-git-send-email-kys@microsoft.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 10/17] Tools: hv: Gather ipv[4,6] gateway information
+Date: Tue, 24 Jul 2012 09:29:14 -0700
+Message-ID: <20120724092914.60f3d90a@nehalam.linuxnetplumber.net>
 References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	<1343145701-3691-1-git-send-email-kys@microsoft.com>
+	<1343145701-3691-10-git-send-email-kys@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
 	devel@linuxdriverproject.org, virtualization@lists.osdl.org,
 	olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
 	ben@decadent.org.uk
+To: "K. Y. Srinivasan" <kys@microsoft.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1343145701-3691-1-git-send-email-kys@microsoft.com>
+In-Reply-To: <1343145701-3691-10-git-send-email-kys@microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rename the function kvp_get_ip_address() to better reflect the functionality
-being implemented.
+On Tue, 24 Jul 2012 09:01:34 -0700
+"K. Y. Srinivasan" <kys@microsoft.com> wrote:
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- tools/hv/hv_kvp_daemon.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+> +	memset(cmd, 0, sizeof(cmd));
+> +	strcat(cmd, "/sbin/ip -f inet  route | grep -w ");
+> +	strcat(cmd, if_name);
+> +	strcat(cmd, " | awk '/default/ {print $3 }'");
 
-diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
-index 090d6a2..87cfc64 100644
---- a/tools/hv/hv_kvp_daemon.c
-+++ b/tools/hv/hv_kvp_daemon.c
-@@ -773,7 +773,7 @@ static int kvp_process_ip_address(void *addrp,
- }
- 
- static int
--kvp_get_ip_address(int family, char *if_name, int op,
-+kvp_get_ip_info(int family, char *if_name, int op,
- 		 void  *out_buffer, int length)
- {
- 	struct ifaddrs *ifap;
-@@ -1479,12 +1479,12 @@ int main(void)
- 			strcpy(key_value, lic_version);
- 			break;
- 		case NetworkAddressIPv4:
--			kvp_get_ip_address(AF_INET, NULL, KVP_OP_ENUMERATE,
-+			kvp_get_ip_info(AF_INET, NULL, KVP_OP_ENUMERATE,
- 				key_value, HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
- 			strcpy(key_name, "NetworkAddressIPv4");
- 			break;
- 		case NetworkAddressIPv6:
--			kvp_get_ip_address(AF_INET6, NULL, KVP_OP_ENUMERATE,
-+			kvp_get_ip_info(AF_INET6, NULL, KVP_OP_ENUMERATE,
- 				key_value, HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
- 			strcpy(key_name, "NetworkAddressIPv6");
- 			break;
--- 
-1.7.4.1
+
+Much simpler method:
+
+ip route show match 0/0
