@@ -1,62 +1,46 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Tue, 24 Jul 2012 16:16:30 +0200
-Message-ID: <1343139390.4415.31.camel@jlt3.sipsolutions.net>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
-	 <1326621743.3448.1.camel@jlt3.sipsolutions.net>
-	 <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
-	 <1326704259.3510.3.camel@jlt3.sipsolutions.net>
-	 <CAPXgP12gM3_OVuxQAkRRarH_TpjVpbh5NpcTPWL0nEi4eoX+kw@mail.gmail.com>
-	 <1326716209.3510.7.camel@jlt3.sipsolutions.net>
-	 <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com>
-	 (sfid-20120719_124643_767103_5E67814F)
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net/for-next V1 1/1] IB/ipoib: break linkage to neighbouring
+ system
+Date: Tue, 24 Jul 2012 09:23:25 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1207240922460.29808@router.home>
+References: <1342703938-29904-1-git-send-email-ogerlitz@mellanox.com> <1342703938-29904-2-git-send-email-ogerlitz@mellanox.com> <alpine.DEB.2.00.1207190938190.28115@router.home> <50082183.5000402@mellanox.com> <alpine.DEB.2.00.1207191023130.29808@router.home>
+ <500833D9.8000001@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
-To: Kay Sievers <kay@vrfy.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:39362 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754490Ab2GXOQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 10:16:32 -0400
-In-Reply-To: <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com> (sfid-20120719_124643_767103_5E67814F)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Shlomo Pongartz <shlomop-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <500833D9.8000001-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-07-19 at 12:46 +0200, Kay Sievers wrote:
+On Thu, 19 Jul 2012, Or Gerlitz wrote:
 
-> >> > What I'm was asking then is this: Can udev know that it is running from
-> >> > initramfs (presumably that can't be too hard) and simply not reply to
-> >> > async requests it doesn't have firmware for? Then once the real root is
-> >> > mounted it could satisfy (or not) firmware requests from the real root.
-> >>
-> >> We can surely change it to not cancel the firmware request.
-> >>
-> >> Either by making it aware that we run from initramfs, or by never
-> >> cancelling any firmware request and just leave it hanging around for
-> >> forever?
-> 
-> Never say 6 months is a long time to reply. :)
+> > If you have neighbor expiration periods of 4 hrs and it is necessary to
+> > run the expiration logic then please expire all the neighbor entries due a
+> > certain period after that as well to avoid running the expiration again in
+> > the next minute or so.
+>
+>
+> This is still a bit unclear here... do you mean to say that at a certain point
+> in time,
+> **all** entries need to be deleted irrelevant of their (jiffies) age? why?
 
-Hehe :-)
+No. Just the ones in a certain time frame.
+>
+> > I guess the fuzz factor needs to scale depending on the expiration period.
+> >
+> >
+>
+> and this is what happens now, the factor is 0.5, entry would be deleted when
+> if  (60m <= unused < 90s) holds
 
-> Fedora uses systemd in the initramfs now, which made it trivial to
-> implement this, and to leave the firmware requests hanging around
-> until we reach in the real rootfs and know if the firmware file is
-> available:
->   http://cgit.freedesktop.org/systemd/systemd/commit/?id=39177382a4f92a834b568d6ae5d750eb2a5a86f9
-> 
-> The logic to tell udev that it runs in the initramfs could easily be
-> implemented by other initramfs tools than dracut, but they usually do
-> not really follow what we do here, so this might for now only work on
-> recent systems using dracut.
+Ok that sounds good and that is what I meant.
 
-Ok, too bad there wasn't a generic way, but at least there's a way
-now :-)
-
-Anyway, I think this is a good thing.
-
-johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
