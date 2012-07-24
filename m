@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
-Date: Mon, 23 Jul 2012 23:59:31 -0700 (PDT)
-Message-ID: <20120723.235931.725099984853258732.davem@davemloft.net>
-References: <A4FD513AF09D40849B8A75C371F1D431@realtek.com.tw>
-	<20120720210107.GA28118@electric-eye.fr.zoreil.com>
-	<CEE7FFC13FF3495C9771B87B8F199BA7@realtek.com.tw>
+Subject: Re: [Patch] genetlink: define lockdep_genl_is_held() when
+ CONFIG_LOCKDEP
+Date: Tue, 24 Jul 2012 00:01:45 -0700 (PDT)
+Message-ID: <20120724.000145.228972610625389483.davem@davemloft.net>
+References: <1343108641-8439-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jesse@nicira.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53282 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53332 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185Ab2GXG7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 02:59:32 -0400
-In-Reply-To: <CEE7FFC13FF3495C9771B87B8F199BA7@realtek.com.tw>
+	with ESMTP id S1753185Ab2GXHBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 03:01:46 -0400
+In-Reply-To: <1343108641-8439-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: hayeswang <hayeswang@realtek.com>
-Date: Tue, 24 Jul 2012 14:34:04 +0800
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 24 Jul 2012 13:44:01 +0800
 
->   Francois Romieu [mailto:romieu@fr.zoreil.com] 
->> Sent: Saturday, July 21, 2012 5:01 AM
->> To: Hayeswang
->> Cc: 'David Miller'; eric.dumazet@gmail.com; netdev@vger.kernel.org
->> Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
->> 
-> [...]
->> 
->> Btw, would there be any point in setting the TcpHeaderOffset field for
->> the post-8168c chipsets ?
+> From: WANG Cong <xiyou.wangcong@gmail.com>
 > 
-> It is used to tell the haredware where the TCP header starts from. I think it is
-> reserved for ipv6.
+> lockdep_is_held() is defined when CONFIG_LOCKDEP, not CONFIG_PROVE_LOCKING.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: WANG Cong <xiyou.wangcong@gmail.com>
 
-I still have not seen a good explanation why the chip modifies fields
-in the packet, such as the length, when we ask it only to compute the
-checksum?
+Applied, thanks.
