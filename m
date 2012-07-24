@@ -1,103 +1,123 @@
-From: Shlomo Pongratz <shlomop@mellanox.com>
-Subject: RE: [PATCH] mlx4: Add support for EEH error recovery
-Date: Tue, 24 Jul 2012 18:39:54 +0000
-Message-ID: <36F7E4A28C18BE4DB7C86058E7B607241DC258B5@MTRDAG01.mtl.com>
-References: <500BD558.2060803@mellanox.com>
- <20120722.171553.2139258607165498367.davem@davemloft.net>
- <500D4F31.9020408@linux.vnet.ibm.com> <500D556F.4000409@mellanox.com>
- <500D93F5.4090305@linux.vnet.ibm.com> <500DB9CE.5080100@linux.vnet.ibm.com>
- <CAJZOPZJP9OaZVB03kKGtWvrUUb8B--wUNX9z3MG_MNmKr8U3kQ@mail.gmail.com>
- <500E9F2E.4010209@linux.vnet.ibm.com> <500ED6E4.60909@mellanox.com>
- <500EDCF7.3010500@linux.vnet.ibm.com>,<20120724180834.GB18401@oc1711230544.ibm.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] cdc-ncm: tag Ericsson WWAN devices (eg F5521gw) with
+ FLAG_WWAN
+Date: Tue, 24 Jul 2012 13:43:22 -0500
+Message-ID: <1343155402.29196.7.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jackm@dev.mellanox.co.il" <jackm@dev.mellanox.co.il>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	"Kleber Sacilotto de Souza" <klebers@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:56754 "HELO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755889Ab2GXSkE convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jul 2012 14:40:04 -0400
-In-Reply-To: <20120724180834.GB18401@oc1711230544.ibm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Tag Ericsson NCM devices as WWAN modems, since they almost certainly all
+are.  This way userspace clients know that the device requires further
+setup on the AT-capable serial ports before connectivity is available.
 
-________________________________________
-From: Thadeu Lima de Souza Cascardo [cascardo@linux.vnet.ibm.com]
-Sent: Tuesday, July 24, 2012 9:08 PM
-To: Kleber Sacilotto de Souza
-Cc: Shlomo Pongratz; Or Gerlitz; Or Gerlitz; David Miller; netdev@vger.kernel.org; jackm@dev.mellanox.co.il; Yevgeny Petrilin; brking@linux.vnet.ibm.com
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
 
-On Tue, Jul 24, 2012 at 02:35:51PM -0300, Kleber Sacilotto de Souza wrote:
-> On 07/24/2012 02:09 PM, Shlomo Pongartz wrote:
->
-> > On 7/24/2012 4:12 PM, Kleber Sacilotto de Souza wrote:
-> >> On 07/23/2012 06:26 PM, Or Gerlitz wrote:
-> >>
-> >>> Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com> wrote:
-> >>>>> For powerpc we have an IBM internal user space tool that injects the
-> >>>>> error on the bus with the aid of the system firmware. The kernel used
-> >>>>> was built with the option:
-> >>>>> CONFIG_EEH=y
-> >>>>> and without the AER options. I will run some more tests with the AER
-> >>>>> options activated.
-> >>>> I tested the powerpc error injection with
-> >>>>
-> >>>> CONFIG_EEH=y
-> >>>> CONFIG_PCIEAER=y
-> >>>> CONFIG_PCIEAER_INJECT=m
-> >>>>
-> >>>> and with the aer_inject module loaded and it didn't affect the EEH
-> >>>> recovery, the adapter recovered as expected.
-> >>> I wasn't sure to follow what did you mean by "it didn't affect the EEH
-> >>> recovery", how did you use the aer_inject module, is that through
-> >>> user-space tool which is available for us?
-> >>
-> >> I wanted to say that I was testing before only with the EEH option
-> >> activated, then I activated the AER options on my powerpc system just to
-> >> make sure these options when activate wouldn't affect the EEH recovery.
-> >> I haven't injected and AER error since I don't have a system with
-> >> hardware support for it.
-> >>
-> >>
-> >> Thanks,
-> >
-> > Hi
-> >
-> > Using a special extender card I've powered down the card.
-> > None of the callbacks were called (I added printks to be sure).
-> > Shouldn't one on the callbacks be called?
-> >
-> > Shlomo Pongratz.
-> >
->
->
-> What does this extender card do exactly? If it does hot plugging, it
-> will call the remove and probe callbacks.
->
->
-> --
-> Kleber Sacilotto de Souza
-> IBM Linux Technology Center
+NOTE: it seems unlikely that all NCM devices are WWAN modems, but it
+also seems unlikely that Ericsson will produce a plain USB Ethernet
+adapter using CDC-NCM.
 
-I assume it just powers down the card, ie, it will not respond anymore
-to any bus messages, which may cause an error report.
-
-Shlomo, is it the system you are using AER-capable? From what I see from
-code and documentation, you must have root ports which support AER. Is
-that the case?
-
-Regards.
-Cascardo.
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 4b9513f..1931587 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -138,20 +138,7 @@ struct cdc_ncm_ctx {
+ static void cdc_ncm_txpath_bh(unsigned long param);
+ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
+ static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
+-static const struct driver_info cdc_ncm_info;
+ static struct usb_driver cdc_ncm_driver;
+-static const struct ethtool_ops cdc_ncm_ethtool_ops;
+-
+-static const struct usb_device_id cdc_devs[] = {
+-	{ USB_INTERFACE_INFO(USB_CLASS_COMM,
+-		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+-		.driver_info = (unsigned long)&cdc_ncm_info,
+-	},
+-	{
+-	},
+-};
+-
+-MODULE_DEVICE_TABLE(usb, cdc_devs);
+ 
+ static void
+ cdc_ncm_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
+@@ -454,6 +441,16 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
+ 	kfree(ctx);
+ }
+ 
++static const struct ethtool_ops cdc_ncm_ethtool_ops = {
++	.get_drvinfo = cdc_ncm_get_drvinfo,
++	.get_link = usbnet_get_link,
++	.get_msglevel = usbnet_get_msglevel,
++	.set_msglevel = usbnet_set_msglevel,
++	.get_settings = usbnet_get_settings,
++	.set_settings = usbnet_set_settings,
++	.nway_reset = usbnet_nway_reset,
++};
++
+ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	struct cdc_ncm_ctx *ctx;
+@@ -1203,6 +1200,41 @@ static const struct driver_info cdc_ncm_info = {
+ 	.tx_fixup = cdc_ncm_tx_fixup,
+ };
+ 
++/* Same as cdc_ncm_info, but with FLAG_WWAN */
++static const struct driver_info wwan_info = {
++	.description = "Mobile Broadband Network Device",
++	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
++			| FLAG_WWAN,
++	.bind = cdc_ncm_bind,
++	.unbind = cdc_ncm_unbind,
++	.check_connect = cdc_ncm_check_connect,
++	.manage_power = cdc_ncm_manage_power,
++	.status = cdc_ncm_status,
++	.rx_fixup = cdc_ncm_rx_fixup,
++	.tx_fixup = cdc_ncm_tx_fixup,
++};
++
++static const struct usb_device_id cdc_devs[] = {
++	/* Ericsson MBM devices like F5521gw */
++	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
++		| USB_DEVICE_ID_MATCH_VENDOR,
++	  .idVendor = 0x0bdb,
++	  .bInterfaceClass = USB_CLASS_COMM,
++	  .bInterfaceSubClass = USB_CDC_SUBCLASS_NCM,
++	  .bInterfaceProtocol = USB_CDC_PROTO_NONE,
++	  .driver_info = (unsigned long) &wwan_info,
++	},
++
++	/* Generic CDC-NCM devices */
++	{ USB_INTERFACE_INFO(USB_CLASS_COMM,
++		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
++		.driver_info = (unsigned long)&cdc_ncm_info,
++	},
++	{
++	},
++};
++MODULE_DEVICE_TABLE(usb, cdc_devs);
++
+ static struct usb_driver cdc_ncm_driver = {
+ 	.name = "cdc_ncm",
+ 	.id_table = cdc_devs,
+@@ -1215,16 +1247,6 @@ static struct usb_driver cdc_ncm_driver = {
+ 	.disable_hub_initiated_lpm = 1,
+ };
+ 
+-static const struct ethtool_ops cdc_ncm_ethtool_ops = {
+-	.get_drvinfo = cdc_ncm_get_drvinfo,
+-	.get_link = usbnet_get_link,
+-	.get_msglevel = usbnet_get_msglevel,
+-	.set_msglevel = usbnet_set_msglevel,
+-	.get_settings = usbnet_get_settings,
+-	.set_settings = usbnet_set_settings,
+-	.nway_reset = usbnet_nway_reset,
+-};
