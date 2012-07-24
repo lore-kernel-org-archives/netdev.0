@@ -1,31 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] cdc-ncm: tag Ericsson WWAN devices (eg F5521gw) with
- FLAG_WWAN
-Date: Tue, 24 Jul 2012 13:57:50 -0700 (PDT)
-Message-ID: <20120724.135750.887233508592333912.davem@davemloft.net>
-References: <1343155402.29196.7.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND net-next V2] IB/ipoib: break linkage to
+ neighbouring system
+Date: Tue, 24 Jul 2012 14:00:15 -0700 (PDT)
+Message-ID: <20120724.140015.1545062339709165330.davem@davemloft.net>
+References: <1343150651-12568-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org
-To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1343155402.29196.7.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: roland@kernel.org, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	cl@linux.com, shlomop@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33741 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755900Ab2GXVAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 17:00:16 -0400
+In-Reply-To: <1343150651-12568-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 24 Jul 2012 13:43:22 -0500
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Tue, 24 Jul 2012 20:24:11 +0300
 
-> Tag Ericsson NCM devices as WWAN modems, since they almost certainly all
-> are.  This way userspace clients know that the device requires further
-> setup on the AT-capable serial ports before connectivity is available.
-> 
-> Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Dave Miller <davem@davemloft.net> provided a detailed description of why the
+> way IPoIB is using neighbours for its own ipoib_neigh struct is buggy:
+ ...
+> Signed-off-by: Shlomo Pongratz <shlomop@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: David S. Miller <davem@davemloft.net>
+
+Looks good, Roland you got this?
