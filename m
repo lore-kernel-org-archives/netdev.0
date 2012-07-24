@@ -1,29 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB: plusb: Add support for PL-2501
-Date: Mon, 23 Jul 2012 23:57:47 -0700 (PDT)
-Message-ID: <20120723.235747.618940855187036141.davem@davemloft.net>
-References: <alpine.LNX.2.02.1207231540580.1183@bas>
-	<20120723.130835.1217772163295796220.davem@davemloft.net>
-	<alpine.LNX.2.02.1207240930140.1183@bas>
+Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+Date: Mon, 23 Jul 2012 23:59:31 -0700 (PDT)
+Message-ID: <20120723.235931.725099984853258732.davem@davemloft.net>
+References: <A4FD513AF09D40849B8A75C371F1D431@realtek.com.tw>
+	<20120720210107.GA28118@electric-eye.fr.zoreil.com>
+	<CEE7FFC13FF3495C9771B87B8F199BA7@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, sshtylyov@mvista.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org, greg@kroah.com
-To: bas@bmail.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.02.1207240930140.1183@bas>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: romieu@fr.zoreil.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53282 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753185Ab2GXG7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 02:59:32 -0400
+In-Reply-To: <CEE7FFC13FF3495C9771B87B8F199BA7@realtek.com.tw>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: kyak <bas@bmail.ru>
-Date: Tue, 24 Jul 2012 09:39:40 +0400 (MSK)
+From: hayeswang <hayeswang@realtek.com>
+Date: Tue, 24 Jul 2012 14:34:04 +0800
 
-> This patch was created against linux-3.5, but it applies perfectly
-> against net-next tree, i just checked..
+>   Francois Romieu [mailto:romieu@fr.zoreil.com] 
+>> Sent: Saturday, July 21, 2012 5:01 AM
+>> To: Hayeswang
+>> Cc: 'David Miller'; eric.dumazet@gmail.com; netdev@vger.kernel.org
+>> Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
+>> 
+> [...]
+>> 
+>> Btw, would there be any point in setting the TcpHeaderOffset field for
+>> the post-8168c chipsets ?
 > 
-> I'm sorry for not being able to submit the correct patch from the
-> first attempt (and not even from the third attempt). Could you be more
-> specific about "doesn't apply cleanly at all"?
+> It is used to tell the haredware where the TCP header starts from. I think it is
+> reserved for ipv6.
 
-"git am your_patch" fails.
+I still have not seen a good explanation why the chip modifies fields
+in the packet, such as the length, when we ask it only to compute the
+checksum?
