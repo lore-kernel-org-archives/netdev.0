@@ -1,68 +1,41 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: revert "add byte queue limit support".
-Date: Tue, 24 Jul 2012 07:38:11 +0200
-Message-ID: <20120724053811.GA12053@electric-eye.fr.zoreil.com>
-References: <20120723205555.GA4392@electric-eye.fr.zoreil.com> <1343106407.2626.11038.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ppp: add 64 bit stats
+Date: Tue, 24 Jul 2012 08:22:34 +0200
+Message-ID: <1343110954.2626.11040.camel@edumazet-glaptop>
+References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
+	 <1343020585.2626.10054.camel@edumazet-glaptop>
+	 <CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
+	 <1343059184.2626.11027.camel@edumazet-glaptop>
+	 <CABF+-6Vko_T2RCsk1KVouB8a+8Ms_aLEoA-Xet1nxB8bnZAxMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, hayeswang@realtek.com,
-	netdev@vger.kernel.org,
-	Alex =?utf-8?B?VmlsbGFjw61z?= Lasso <a_villacis@palosanto.com>,
-	Josh Boyer <jwboyer@redhat.com>,
-	Tom Herbert <therbert@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Kevin Groeneveld <kgroeneveld@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:35139 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753653Ab2GXFvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 01:51:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1343106407.2626.11038.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:53168 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755363Ab2GXGWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 02:22:39 -0400
+Received: by bkwj10 with SMTP id j10so5952590bkw.19
+        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 23:22:38 -0700 (PDT)
+In-Reply-To: <CABF+-6Vko_T2RCsk1KVouB8a+8Ms_aLEoA-Xet1nxB8bnZAxMA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> :
-> On Mon, 2012-07-23 at 22:55 +0200, Francois Romieu wrote:
-> > This reverts commit 036dafa28da1e2565a8529de2ae663c37b7a0060.
-[...]
-> bisection is not always the right way to qualify a problem.
+On Mon, 2012-07-23 at 21:53 -0400, Kevin Groeneveld wrote:
+> On Mon, Jul 23, 2012 at 11:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> Would proper synchronization in this case just be wrapping the updates
+> >> in a spin_lock/spin_unlock?
+> >
+> > Would be fine (if the proper BH safe variant is used), or you could also
+> > use atomic64_t.
+> 
+> Which would you recommend, spin locks or atomic64_t?
+> 
+> atomic64_t seems like it would be simpler.
 
-I know. At some point I switch from "I could search more" to "users situation
-will improve in a definite timeframe".
+Simpler but a bit more expensive when two counters are changed at the
+same time.
 
-> BQL in itself had some fixes coming _after_ commit 036dafa28da1e2565
-
-Thanks.
-
-They are in stable as of 3.4.5:
-
-commit 4f4bdaeb40df95499c1ee7ea3fbca9d76174a59e
-Author:     Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-AuthorDate: Wed May 30 12:25:37 2012 +0000
-Commit:     Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-CommitDate: Mon Jul 16 09:03:43 2012 -0700
-
-    bql: Avoid possible inconsistent calculation.
-    
-    [ Upstream commit 914bec1011a25f65cdc94988a6f974bfb9a3c10d ]
-[...]
-commit 1414a53d956340ca8b1b27e05ab94ba63e82ed97
-Author:     Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-AuthorDate: Wed May 30 12:25:19 2012 +0000
-Commit:     Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-CommitDate: Mon Jul 16 09:03:43 2012 -0700
-
-    bql: Avoid unneeded limit decrement.
-
-I have obviously not directed users at them and I do not see any
-of the victims using a non -stable / -vendor or recent enough
-kernel to test this patch since the issue has been reported.
-
-They are both worth testing.
-
-> Is there an easy way to reproduce the problem ?
-
-None here :o(
-
--- 
-Ueimor
+(two atomic ops instead of a single one for the spinlock)
