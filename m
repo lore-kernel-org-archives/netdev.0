@@ -1,61 +1,73 @@
-From: Shlomo Pongartz <shlomop@mellanox.com>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Tue, 24 Jul 2012 20:09:56 +0300
-Message-ID: <500ED6E4.60909@mellanox.com>
-References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <500BD558.2060803@mellanox.com> <20120722.171553.2139258607165498367.davem@davemloft.net> <500D4F31.9020408@linux.vnet.ibm.com>	<500D556F.4000409@mellanox.com> <500D93F5.4090305@linux.vnet.ibm.com>	<500DB9CE.5080100@linux.vnet.ibm.com> <CAJZOPZJP9OaZVB03kKGtWvrUUb8B--wUNX9z3MG_MNmKr8U3kQ@mail.gmail.com> <500E9F2E.4010209@linux.vnet.ibm.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 10/17] Tools: hv: Gather ipv[4,6] gateway information
+Date: Tue, 24 Jul 2012 17:17:23 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9236A776D@SN2PRD0310MB382.namprd03.prod.outlook.com>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-10-git-send-email-kys@microsoft.com>
+ <20120724092914.60f3d90a@nehalam.linuxnetplumber.net>
+ <20120724165359.GA8409@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<jackm@dev.mellanox.co.il>, <yevgenyp@mellanox.co.il>,
-	<cascardo@linux.vnet.ibm.com>, <brking@linux.vnet.ibm.com>
-To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:56468 "HELO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755758Ab2GXRLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 13:11:17 -0400
-In-Reply-To: <500E9F2E.4010209@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Olaf Hering <olaf@aepfle.de>, Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20120724165359.GA8409@aepfle.de>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 7/24/2012 4:12 PM, Kleber Sacilotto de Souza wrote:
-> On 07/23/2012 06:26 PM, Or Gerlitz wrote:
->
->> Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com> wrote:
->>>> For powerpc we have an IBM internal user space tool that injects the
->>>> error on the bus with the aid of the system firmware. The kernel used
->>>> was built with the option:
->>>> CONFIG_EEH=y
->>>> and without the AER options. I will run some more tests with the AER
->>>> options activated.
->>> I tested the powerpc error injection with
->>>
->>> CONFIG_EEH=y
->>> CONFIG_PCIEAER=y
->>> CONFIG_PCIEAER_INJECT=m
->>>
->>> and with the aer_inject module loaded and it didn't affect the EEH
->>> recovery, the adapter recovered as expected.
->> I wasn't sure to follow what did you mean by "it didn't affect the EEH
->> recovery", how did you use the aer_inject module, is that through
->> user-space tool which is available for us?
->
-> I wanted to say that I was testing before only with the EEH option
-> activated, then I activated the AER options on my powerpc system just to
-> make sure these options when activate wouldn't affect the EEH recovery.
-> I haven't injected and AER error since I don't have a system with
-> hardware support for it.
->
->
-> Thanks,
 
-Hi
 
-Using a special extender card I've powered down the card.
-None of the callbacks were called (I added printks to be sure).
-Shouldn't one on the callbacks be called?
+> -----Original Message-----
+> From: Olaf Hering [mailto:olaf@aepfle.de]
+> Sent: Tuesday, July 24, 2012 12:54 PM
+> To: Stephen Hemminger
+> Cc: KY Srinivasan; gregkh@linuxfoundation.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; virtualization@lists.osdl.org; apw@canonical.com;
+> netdev@vger.kernel.org; ben@decadent.org.uk
+> Subject: Re: [PATCH 10/17] Tools: hv: Gather ipv[4,6] gateway information
+> 
+> On Tue, Jul 24, Stephen Hemminger wrote:
+> 
+> > On Tue, 24 Jul 2012 09:01:34 -0700
+> > "K. Y. Srinivasan" <kys@microsoft.com> wrote:
+> >
+> > > +	memset(cmd, 0, sizeof(cmd));
+> > > +	strcat(cmd, "/sbin/ip -f inet  route | grep -w ");
+> > > +	strcat(cmd, if_name);
+> > > +	strcat(cmd, " | awk '/default/ {print $3 }'");
+> >
+> >
+> > Much simpler method:
+> >
+> > ip route show match 0/0
+> 
+> This also has the benefit that ip is not called with absolute path, now
+> that distros move binaries around.
 
-Shlomo Pongratz.
+I could have chosen to not specify the full path for the ip command and for that
+matter all the external scripts I invoke from the KVP daemon. Do you mind if I 
+submitted a patch to get rid of the absolute paths in this code.
+
+Stephen's suggestion is clearly simpler (I don't need to invoke awk to filter what 
+we want). Steve, I could make this change as well as an additional patch.
+
+Regards,
+
+K. Y 
