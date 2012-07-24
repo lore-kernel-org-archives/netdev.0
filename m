@@ -1,95 +1,62 @@
-From: "Anita George" <teagle37@aol.com>
-Subject: Greetings,
-Date: Tue, 24 Jul 2012 15:14:56 +0530
-Message-ID: <201207241511.q6OFBT1p011560@ims-m11.mx.aol.com>
-Reply-To: anitageorge1921@yahoo.co.jp
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0550338750=="
-To: Recipients <teagle37@aol.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ims-m11.mx.aol.com ([64.12.207.144]:42504 "EHLO
-	ims-m11.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753Ab2GXPLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 11:11:36 -0400
-Received: from oms-mb03.r1000.mx.aol.com (oms-mb03.r1000.mx.aol.com [64.12.102.139])
-	by ims-m11.mx.aol.com (8.14.1/8.14.1) with ESMTP id q6OFBT1p011560
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 11:11:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH 00/17] drivers: hv: kvp
+Date: Tue, 24 Jul 2012 09:01:12 -0700
+Message-ID: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org, virtualization@lists.osdl.org,
+	olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
+	ben@decadent.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-You will not see this in a MIME-aware mail reader.
---===============0550338750==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Description: Mail message body
+This patchset expands the KVP (Key Value Pair) functionality to
+implement the mechanism to GET/SET IP addresses in the guest. This
+functionality is used in Windows Server 2012 to implement VM
+replication functionality. The way IP configuration information
+is managed is distro specific. Based on the feedback I have gotten
+from Olaf, Greg, Steve, Ben and Mairus, I have chosen to seperate
+distro specific code from this patch-set. Most of the GET operation
+can be implemented in a way that is completely distro independent and
+I have implemented that as such and is included in this patch-set.
+Some of the attributes that can only be fetched in a distro
+dependent way as well the mechanism for configuring an interface
+(the SET operation) that is clearly distro specific is to be
+implemented via external scripts that will be invoked via the KVP
+code. We define here the interface to these scripts.
 
-OPEN AND READ THE ATTACHMENT  FILE..
---===============0550338750==
-Content-Type: application/octet-stream
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="George.rtf"
+Adding support for IP injection resulted in some changes to the
+protocol between the user level daemon and the kernel driver.
+These changes have been implemented in way that would retain
+compatibility with older daemons. I would like to thank Olaf and
+Greg for pointing out the compatibility issue.
 
-e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZvbnR0Ymx7XGYwXGZz
-d2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4xNS4x
-NTE1O31cdmlld2tpbmQ0XHVjMVxwYXJkXGYwXGZzMjAgR3JlZXRpbmdzLFxwYXINClxwYXINCkkg
-a25vdyB5b3Ugd2lsbCBiZSBzdXJwcmlzZWQgdG8gcmVhZCBteSBlbWFpbC4gSSBnb3QgeW91ciBj
-b250YWN0IGZyb20geW91ciBFbWFpbCBkb21haW4sIGFwYXJ0IGZyb20gYmVpbmcgc3VycHJpc2Ug
-eW91IG1heSBiZSBza2VwdGljYWwgdG8gcmVwbHkgbWUgYmVjYXVzZSBiYXNlZCBvbiB3aGF0IGlz
-IGhhcHBlbmluZyBvbiB0aGUgaW50ZXJuZXQgd29ybGQsIG9uZSBoYXMgdG8gYmUgdmVyeSBjYXJl
-ZnVsIGJlY2F1c2UgYSBsb3Qgb2Ygc2NhbW1lcnMgYXJlIG91dCB0aGVyZSB0byBzY2FtIGlubm9j
-ZW50IGNpdGl6ZW5zIGFuZCB0aGlzIGhhcyBtYWRlIGl0IHZlcnkgZGlmZmljdWx0IGZvciBwZW9w
-bGUgdG8gYmVsaWV2ZSBhbnl0aGluZyB0aGF0IGNvbWVzIHRocm91Z2ggdGhlIGludGVybmV0IGJ1
-dCB0aGlzIGlzIGEgZGlmZmVyZW50IGNhc2UuXHBhcg0KXHBhcg0KbGYgeW91IGFyZSB3aWxsaW5n
-IHRvIHNob3cgbWUgeW91ciBob25lc3R5IGFuZCB0cnVzdCwgSSB0aGluayBJIHdpbGwgYmUgYWJs
-ZSB0byB0cnVzdCBhbmQgd29yayB3aXRoIHlvdS4gSSBhbSBhbiBBbWVyaWNhbiBhbmQgeW91IHNo
-b3VsZCBiZSByZXN0IGFzc3VyZWQgdGhhdCBJIGNhbm5vdCBiZSBpbnZvbHZlZCBpbiBzY2FtXHBh
-cg0KXHBhcg0KXHBhcg0KXHBhcg0KTXkgbmFtZSBpcyBDYXB0LiBBbml0YSBHZW9yZ2UgLCBhIG1l
-bWJlciBvZiB0aGUgVS5TLiBBUk1ZIFVTQVJQQUMgbWVkaWNhbCB0ZWFtLCB3aGljaCB3YXMgZGVw
-bG95ZWQgdG8gSXJhcSBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSB3YXIgaW4gSXJhcS4gQWx0aG91
-Z2ggdGhlIHdhciBoYXMgZW5kZWQsIGZvciBtZSB0byBwcm92ZWQgdGhpcyB0byB5b3UsIHNlZSB0
-aGUgc2l0ZSBiZWxvdyBmb3IgbW9yZSBpbmZvcm1hdGlvbixccGFyDQpccGFyDQpodHRwOi8vd3d3
-Lmh1ZmZpbmd0b25wb3N0LmNvbS8yMDExLzEyLzMwL2lyYXEtdXMtdHJvb3Atd2l0aGRyYXdhbC1j
-ZWxlYnJhdGlvbnNfbl8xMTc2MzMwLmh0bWxccGFyDQpodHRwOi8vZGFpbHljYWxsZXIuY29tLzIw
-MTEvMTIvMjcvYXMtaXJhcS13YXItZW5kcy1uby1wYXJhZGUtZm9yLXRyb29wcy1pcy1pbW1pbmVu
-dC9ccGFyDQpccGFyDQpCdXQgSSByZWZ1c2VkIHRvIGNvbWUgYWxvbmcgd2l0aCB0aGVtIGluIHJl
-c3BlY3RpdmUgb2YgdGhlIGZhY3QgdGhhdCB0aGUgd2FyIGhhcyBlbmRlZC4gVGhlIHJlYXNvbiBm
-b3IgdGhpcyBpcyB0aGF0IEkgZGVwb3NpdGVkIHR3byBjb25zaWdubWVudCBib3hlcyB3aXRoIGEg
-c2VjdXJpdHkgY29tcGFueSBpbiBJcmFxLiBBcyBhIHJlc3VsdCBvZiB0aGlzLCBJIGhhdmUgdG8g
-ZXNjYXBlIGFuZCBzdGF5ZWQgYmVoaW5kIHRvIG1ha2Ugc3VyZSB0aGF0IEkgYW0gYWJsZSB0byBn
-ZXQgdGhlc2UgYm94ZXMgb3V0IGJlZm9yZSBjb21pbmcgdG8gQW1lcmljYSwga25vd2luZ2x5LCB0
-aGF0IGlmIEkgYW0gYWJsZSB0byBnZXQgdGhpcyBkb25lIEkgd2lsbCBsaXZlIGEgYmV0dGVyIGxp
-ZmUuIFBsZWFzZSwgSSB3YW50IHRoaXMgdG8gYmUgYmV0d2VlbiBtZSBhbmQgeW91IFNpbmNlIEkg
-YW0gYXQgbGFyZ2UuXHBhcg0KVG8gUHJvdmUgbXkgc2luY2VyaXR5LCB5b3UgYXJlIG5vdCBzZW5k
-aW5nIG1lIGFueSBtb25leS4gQmVjYXVzZSBtb3N0IG9mIHRoaXMgc2NhbSBpcyBhYm91dCBzZW5k
-aW5nIG1vbmV5LlxwYXINClxwYXINClRob3VnaCwgSSB3b3VsZCBsaWtlIHRvIGhvbGQgYmFjayBz
-b21lIGluZm9ybWF0aW9ucyBmb3Igc2VjdXJpdHkgcmVhc29ucyBmb3Igbm93IHVudGlsIHlvdSBo
-YXZlIGZvdW5kIHRpbWUgdG8gdmlzaXQgdGhlIEJCQyB3ZWJzaXRlIHN0YXRlZCBiZWxvdyB0byBl
-bmFibGUgeW91IGhhdmUgYW4gaW5zaWdodCBpbnRvIHdoYXQgSSBpbnRlbmQgc2hhcmluZyB3aXRo
-IHlvdSwgYmVsaWV2aW5nIHRoYXQgaXQgd291bGQgYmUgb2YgeW91ciBkZXNpcmVkIGludGVyZXN0
-IG9uZS13YXkgb3IgdGhlIG90aGVyLlxwYXINClxwYXINCmh0dHA6Ly9uZXdzLmJiYy5jby51ay8y
-L2hpL21pZGRsZV9lYXN0LzI5ODg0NTUuc3RtXHBhcg0KaHR0cDovL25ld3MuYmJjLmNvLnVrLzIv
-aGkvbWlkZGxlX2Vhc3QvMjk4ODQ1NS5zdG1ccGFyDQpodHRwOi8vd3d3LmpvbmF0aGFuZm9yZW1h
-bi5jb20vbWlsaXRhcnkvbnlwX2lyYXEvMDQxOTIwMDNfY2hlc3QuaHRtbFxwYXINCmh0dHA6Ly93
-d3cudm9hbmV3cy5jb20vYnVybWVzZS9hcmNoaXZlLzIwMDMtMDQvYS0yMDAzLTA0LTIwLTEtMS5j
-Zm0gKFZPQSBORVdTKVxwYXINClxwYXINCkFsc28sIGNvdWxkIHlvdSBnZXQgYmFjayB0byBtZSBo
-YXZpbmcgdmlzaXRlZCB0aGUgYWJvdmUgd2Vic2l0ZSB0byBlbmFibGUgdXMgZGlzY3VzcyBpbiBh
-IG1vcmUgY2xhcmlmeWluZyBtYW5uZXIgdG8gdGhlIGJlc3Qgb2YgeW91ciB1bmRlcnN0YW5kaW5n
-LiBJIG11c3Qgc2F5IHRoYXQgSSdtIHZlcnkgdW5jb21mb3J0YWJsZSBzZW5kaW5nIHRoaXMgbWVz
-c2FnZSB0byB5b3Ugd2l0aG91dCBrbm93aW5nIHRydWx5IGlmIHlvdSB3b3VsZCBtaXNjb25zdHJ1
-ZSB0aGUgaW1wb3J0YW5jZSBhbmQgZGVjaWRlcyB0byBnbyBwdWJsaWMuIEluIHRoaXMgcmVnYXJk
-cywgSSB3aWxsIG5vdCBob2xkIGJhY2sgdG8gc2F5IHRoYXQgdGhlIGVzc2VuY2Ugb2YgdGhpcyBt
-ZXNzYWdlIGlzIHN0cmljdGx5IGZvciBtdXR1YWwgYmVuZWZpdCBiZXR3ZWVuIHlvdSBhbmQgSSBh
-bmQgbm90aGluZyBtb3JlLlxwYXINCkkgd2lsbCBiZSB2aXZpZCBhbmQgY29oZXJlbnQgaW4gbXkg
-bmV4dCBtZXNzYWdlIGluIHRoaXMgcmVnYXJkcywgbWVhbndoaWxlLCBjb3VsZCB5b3Ugc2VuZCBt
-ZSBhbiBlbWFpbCBjb25maXJtaW5nIHRoYXQgeW91IGhhdmUgdmlzaXRlZCB0aGUgc2l0ZSBhbmQg
-dGhhdCB5b3UgaGF2ZSB1bmRlcnN0b29kIG15IGludGVudGlvbnM/IEkgd291bGQgbGlrZSB5b3Ug
-dG8gZ2V0IGJhY2sgdG8gbWUgd2l0aCB3aXRoIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb25zO1xw
-YXINClxwYXINCjEuIEZ1bGwgTmFtZVxwYXINCjIuIEFkZHJlc3NccGFyDQozLk9jY3VwYXRpb25c
-cGFyDQo0LkFnZVxwYXINClxwYXINCkkgZG8gbm90IG5lZWQgeW91ciB0ZWxlcGhvbmUgbnVtYmVy
-IGJlY2F1c2UgSSBjYW5ub3QgY2FsbCB5b3UsIHdlIGNhbiBvbmx5IGNvbW11bmljYXRlIHRocm91
-Z2ggZW1haWwuXHBhcg0KXHBhcg0KSSB3aWxsIGF3YWl0IHlvdXIgcmVwbHkgdmlhIG15IGVtYWls
-LlxwYXINClxwYXINClRoYW5rcyxccGFyDQpccGFyDQpCZXN0IFJlZ2FyZHNccGFyDQpccGFyDQpD
-YXB0LiBBbml0YSBHZW9yZ2VccGFyDQp9DQoA
---===============0550338750==--
+K. Y. Srinivasan (17):
+  Drivers: hv: vmbus: Use the standard format string to format GUIDs
+  Drivers: hv: Add KVP definitions for IP address injection
+  Drivers: hv: kvp: Cleanup error handling in KVP
+  Drivers: hv: kvp: Support the new IP injection messages
+  Tools: hv: Prepare to expand  kvp_get_ip_address() functionality
+  Tools: hv: Further refactor kvp_get_ip_address()
+  Tools: hv: Gather address family information
+  Tools: hv: Gather subnet information
+  Tools: hv: Represent the ipv6 mask using CIDR notation
+  Tools: hv: Gather ipv[4,6] gateway information
+  Tools: hv: Gather DNS information
+  Tools: hv: Gather DHCP information
+  Tools: hv: Implement the KVP verb - KVP_OP_SET_IP_INFO
+  Tools: hv: Rename the function kvp_get_ip_address()
+  Tools: hv: Implement the KVP verb - KVP_OP_GET_IP_INFO
+  Tools: hv: Get rid of some unused variables
+  Tools: hv: Correctly type string variables
+
+ drivers/hv/hv_kvp.c      |  251 +++++++++++--
+ drivers/hv/hv_util.c     |    4 +-
+ drivers/hv/vmbus_drv.c   |   38 +--
+ include/linux/hyperv.h   |   88 ++++-
+ tools/hv/hv_kvp_daemon.c |  943 +++++++++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 1160 insertions(+), 164 deletions(-)
+
+-- 
+1.7.4.1
