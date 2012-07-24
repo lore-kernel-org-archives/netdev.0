@@ -1,46 +1,71 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [BUG] tg3: frequent freezes
-Date: Mon, 23 Jul 2012 17:13:52 -0700
-Message-ID: <1343088832.5240.11.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1342503329.2626.30.camel@edumazet-glaptop>
- <1342508189.2168.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2/2] ipv4: Change rt->rt_iif encoding.
+Date: Tue, 24 Jul 2012 03:24:38 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1207240226340.2633@ja.ssi.bg>
+References: <20120723.152220.822947775372843073.davem@davemloft.net> <alpine.LFD.2.00.1207240157120.2404@ja.ssi.bg> <20120723.160541.184307938805782289.davem@davemloft.net> <20120723.161446.36265037346365173.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1841 "EHLO mms2.broadcom.com"
+Received: from ja.ssi.bg ([178.16.129.10]:44017 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752824Ab2GXAP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jul 2012 20:15:26 -0400
-In-Reply-To: <1342508189.2168.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	id S1754843Ab2GXAYn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2012 20:24:43 -0400
+In-Reply-To: <20120723.161446.36265037346365173.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-16 at 23:56 -0700, Michael Chan wrote: 
-> On Tue, 2012-07-17 at 07:35 +0200, Eric Dumazet wrote:
-> > [  266.248330] tg3 0000:09:00.0: eth0: 0x00004800: 0x080303fe,
-> > 0x00000010, 0x00000000, 0x00000020
-> 
-> RDMAC_STATUS (0x4804) is showing 0x10 which is parity error.
-> 
-> >[  266.247878] tg3 0000:09:00.0: eth0: 0x00000000: 0x167314e4,
-> >0x40100506, 0x02000002, 0x00000010
-> 
-> PCI Status (0x06) is also showing SERR (0x4000)
-> 
-> Assuming your chip is not a bad chip, I'll have to look around for a
-> 5755M and see if I can duplicate the problem.
 
-Hi Eric, I found the same 5755m NIC as yours but I couldn't duplicate
-any problems.  I ran netperf in a loop and it was running fine.
+	Hello,
 
-Here's my device and it should be identical to yours:
+On Mon, 23 Jul 2012, David Miller wrote:
 
-tg3.c:v3.123 (March 21, 2012)
-tg3 0000:20:00.0: eth0: Tigon3 [partno(BCM95755m) rev a002] (PCI Express) MAC address 00:10:18:00:00:00
-tg3 0000:20:00.0: eth0: attached PHY is 5755 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
-tg3 0000:20:00.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-tg3 0000:20:00.0: eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> Hmmm, the problem is that when we decapsulate VLAN devices, we're left
+> with the parent device's index in skb->skb_iif.
+
+	Not sure if it is a problem with VLANs, can be also
+with some virtual devices but may be they use dev_forward_skb()
+where skb_iif is zeroed.
+
+> That's what all of that "orig_dev" logic in __netif_receive_skb() is
+> all about.  The skb->dev is rewritten by vlan_do_receive() for that
+> case.
+
+	This is the part that I didn't know for skb_iif. I was
+also worrying about ip_mc_output looping packets with skb_iif
+because skb_clone copies the field but may be such loops
+happen only for locally originated traffic where skb_iif starts
+with 0.
+
+	Still, the comment in ipmr_queue_xmit() and the
+IPSKB_FORWARDED bit puzzles me:
+
+         * RFC1584 teaches, that DVMRP/PIM router must deliver packets locally
+         * not only before forwarding, but after forwarding on all output
+         * interfaces. It is clear, if mrouter runs a multicasting
+
+	ip_mr_forward preserves one copy to local app,
+calls ipmr_queue_xmit() where packet can be looped?
+
+	ip_mr_input():
+
+        /* Packet is looped back after forward, it should not be
+         * forwarded second time, but still can be delivered locally.
+         */
+
+	I really hope the case is for locally originated
+multicast, not for packets received from network.
+
+> I wonder if we should just get rid of all of that orig_dev logic and
+> simply update skb->skb_iif every time we hit the code starting at
+> label "another_round"
+
+	I don't have opinion about this problem. I see your
+new change for __netif_receive_skb, the skb_iif places are
+something that I have to check for me...
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
