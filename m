@@ -1,89 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/3] ipv4: Change rt->rt_iif encoding.
-Date: Mon, 23 Jul 2012 16:45:51 -0700 (PDT)
-Message-ID: <20120723.164551.594831620653528705.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [BUG] tg3: frequent freezes
+Date: Mon, 23 Jul 2012 17:13:52 -0700
+Message-ID: <1343088832.5240.11.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1342503329.2626.30.camel@edumazet-glaptop>
+ <1342508189.2168.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50785 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755085Ab2GWXpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 19:45:52 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:1841 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752824Ab2GXAP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jul 2012 20:15:26 -0400
+In-Reply-To: <1342508189.2168.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2012-07-16 at 23:56 -0700, Michael Chan wrote: 
+> On Tue, 2012-07-17 at 07:35 +0200, Eric Dumazet wrote:
+> > [  266.248330] tg3 0000:09:00.0: eth0: 0x00004800: 0x080303fe,
+> > 0x00000010, 0x00000000, 0x00000020
+> 
+> RDMAC_STATUS (0x4804) is showing 0x10 which is parity error.
+> 
+> >[  266.247878] tg3 0000:09:00.0: eth0: 0x00000000: 0x167314e4,
+> >0x40100506, 0x02000002, 0x00000010
+> 
+> PCI Status (0x06) is also showing SERR (0x4000)
+> 
+> Assuming your chip is not a bad chip, I'll have to look around for a
+> 5755M and see if I can duplicate the problem.
 
-On input packet processing, rt->rt_iif will be zero if we should
-use skb->dev->ifindex.
+Hi Eric, I found the same 5755m NIC as yours but I couldn't duplicate
+any problems.  I ran netperf in a loop and it was running fine.
 
-Since we access rt->rt_iif consistently via inet_iif(), that is
-the only spot whose interpretation have to adjust.
+Here's my device and it should be identical to yours:
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/route.h |    6 +++++-
- net/ipv4/route.c    |    8 ++++----
- 2 files changed, 9 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/route.h b/include/net/route.h
-index 60d611d..c29ef27 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -277,7 +277,11 @@ static inline struct rtable *ip_route_newports(struct flowi4 *fl4, struct rtable
- 
- static inline int inet_iif(const struct sk_buff *skb)
- {
--	return skb_rtable(skb)->rt_iif;
-+	int iif = skb_rtable(skb)->rt_iif;
-+
-+	if (iif)
-+		return iif;
-+	return skb->skb_iif;
- }
- 
- extern int sysctl_ip_default_ttl;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index f6be781..6bcb8fc 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1309,7 +1309,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rth->rt_flags	= RTCF_MULTICAST;
- 	rth->rt_type	= RTN_MULTICAST;
- 	rth->rt_is_input= 1;
--	rth->rt_iif	= dev->ifindex;
-+	rth->rt_iif	= 0;
- 	rth->rt_pmtu	= 0;
- 	rth->rt_gateway	= 0;
- 	if (our) {
-@@ -1435,7 +1435,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->rt_flags = flags;
- 	rth->rt_type = res->type;
- 	rth->rt_is_input = 1;
--	rth->rt_iif 	= in_dev->dev->ifindex;
-+	rth->rt_iif 	= 0;
- 	rth->rt_pmtu	= 0;
- 	rth->rt_gateway	= 0;
- 
-@@ -1608,7 +1608,7 @@ local_input:
- 	rth->rt_flags 	= flags|RTCF_LOCAL;
- 	rth->rt_type	= res.type;
- 	rth->rt_is_input = 1;
--	rth->rt_iif	= dev->ifindex;
-+	rth->rt_iif	= 0;
- 	rth->rt_pmtu	= 0;
- 	rth->rt_gateway	= 0;
- 	if (res.type == RTN_UNREACHABLE) {
-@@ -1772,7 +1772,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	rth->rt_flags	= flags;
- 	rth->rt_type	= type;
- 	rth->rt_is_input = 0;
--	rth->rt_iif	= orig_oif ? : dev_out->ifindex;
-+	rth->rt_iif	= orig_oif ? : 0;
- 	rth->rt_pmtu	= 0;
- 	rth->rt_gateway = 0;
- 
--- 
-1.7.10.4
+tg3.c:v3.123 (March 21, 2012)
+tg3 0000:20:00.0: eth0: Tigon3 [partno(BCM95755m) rev a002] (PCI Express) MAC address 00:10:18:00:00:00
+tg3 0000:20:00.0: eth0: attached PHY is 5755 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+tg3 0000:20:00.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+tg3 0000:20:00.0: eth0: dma_rwctrl[76180000] dma_mask[64-bit]
