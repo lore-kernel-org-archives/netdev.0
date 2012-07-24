@@ -1,52 +1,40 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Tue, 24 Jul 2012 15:08:34 -0300
-Message-ID: <20120724180834.GB18401@oc1711230544.ibm.com>
+From: Shlomo Pongratz <shlomop@mellanox.com>
+Subject: RE: [PATCH] mlx4: Add support for EEH error recovery
+Date: Tue, 24 Jul 2012 18:35:14 +0000
+Message-ID: <36F7E4A28C18BE4DB7C86058E7B607241DC258BB@MTRDAG01.mtl.com>
 References: <500BD558.2060803@mellanox.com>
  <20120722.171553.2139258607165498367.davem@davemloft.net>
- <500D4F31.9020408@linux.vnet.ibm.com>
- <500D556F.4000409@mellanox.com>
- <500D93F5.4090305@linux.vnet.ibm.com>
- <500DB9CE.5080100@linux.vnet.ibm.com>
+ <500D4F31.9020408@linux.vnet.ibm.com> <500D556F.4000409@mellanox.com>
+ <500D93F5.4090305@linux.vnet.ibm.com> <500DB9CE.5080100@linux.vnet.ibm.com>
  <CAJZOPZJP9OaZVB03kKGtWvrUUb8B--wUNX9z3MG_MNmKr8U3kQ@mail.gmail.com>
- <500E9F2E.4010209@linux.vnet.ibm.com>
- <500ED6E4.60909@mellanox.com>
- <500EDCF7.3010500@linux.vnet.ibm.com>
+ <500E9F2E.4010209@linux.vnet.ibm.com> <500ED6E4.60909@mellanox.com>
+ <500EDCF7.3010500@linux.vnet.ibm.com>,<20120724180834.GB18401@oc1711230544.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shlomo Pongartz <shlomop@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jackm@dev.mellanox.co.il, yevgenyp@mellanox.co.il,
-	brking@linux.vnet.ibm.com
-To: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jackm@dev.mellanox.co.il" <jackm@dev.mellanox.co.il>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	"Kleber Sacilotto de Souza" <klebers@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:36814 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933396Ab2GXSIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 14:08:43 -0400
-Received: from /spool/local
-	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Tue, 24 Jul 2012 15:08:41 -0300
-Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 40D6D352004E
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 14:08:36 -0400 (EDT)
-Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
-	by d24relay03.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6OI7ppu17891414
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 15:07:52 -0300
-Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
-	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6OG8Qhl004442
-	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 13:08:27 -0300
-Content-Disposition: inline
-In-Reply-To: <500EDCF7.3010500@linux.vnet.ibm.com>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:50363 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755844Ab2GXSfm convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jul 2012 14:35:42 -0400
+In-Reply-To: <20120724180834.GB18401@oc1711230544.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Tue, Jul 24, 2012 at 02:35:51PM -0300, Kleber Sacilotto de Souza wrote:
 > On 07/24/2012 02:09 PM, Shlomo Pongartz wrote:
-> 
+>
 > > On 7/24/2012 4:12 PM, Kleber Sacilotto de Souza wrote:
 > >> On 07/23/2012 06:26 PM, Or Gerlitz wrote:
 > >>
@@ -77,22 +65,22 @@ On Tue, Jul 24, 2012 at 02:35:51PM -0300, Kleber Sacilotto de Souza wrote:
 > >>
 > >>
 > >> Thanks,
-> > 
+> >
 > > Hi
-> > 
+> >
 > > Using a special extender card I've powered down the card.
 > > None of the callbacks were called (I added printks to be sure).
 > > Shouldn't one on the callbacks be called?
-> > 
+> >
 > > Shlomo Pongratz.
-> > 
-> 
-> 
+> >
+>
+>
 > What does this extender card do exactly? If it does hot plugging, it
 > will call the remove and probe callbacks.
-> 
-> 
-> -- 
+>
+>
+> --
 > Kleber Sacilotto de Souza
 > IBM Linux Technology Center
 
@@ -105,3 +93,10 @@ that the case?
 
 Regards.
 Cascardo.
+
+
+The extender card is a passive card that only enables me to power on/off the PCI card stacked on it.
+I'll check the mother board and BIOS ASAP.
+
+Regards,
+Shlomo
