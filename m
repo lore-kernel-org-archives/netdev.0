@@ -1,41 +1,95 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Tue, 24 Jul 2012 16:32:31 +0200
-Message-ID: <CAG-2HqV4w5eRdh7SzdiXe+LUWpD=jHH1C7sk4G-LiTwdLJbgwg@mail.gmail.com>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
- <1326621743.3448.1.camel@jlt3.sipsolutions.net> <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
- <1326704259.3510.3.camel@jlt3.sipsolutions.net> <CAPXgP12gM3_OVuxQAkRRarH_TpjVpbh5NpcTPWL0nEi4eoX+kw@mail.gmail.com>
- <1326716209.3510.7.camel@jlt3.sipsolutions.net> <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com>
- <1343139390.4415.31.camel@jlt3.sipsolutions.net>
+From: "Anita George" <teagle37@aol.com>
+Subject: Greetings,
+Date: Tue, 24 Jul 2012 15:14:56 +0530
+Message-ID: <201207241511.q6OFBT1p011560@ims-m11.mx.aol.com>
+Reply-To: anitageorge1921@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Kay Sievers <kay@vrfy.org>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, Andy Whitcroft <apw@canonical.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: multipart/mixed; boundary="===============0550338750=="
+To: Recipients <teagle37@aol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:38489 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754910Ab2GXOcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 10:32:53 -0400
-Received: by weyx8 with SMTP id x8so5117936wey.19
-        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 07:32:51 -0700 (PDT)
-In-Reply-To: <1343139390.4415.31.camel@jlt3.sipsolutions.net>
+Received: from ims-m11.mx.aol.com ([64.12.207.144]:42504 "EHLO
+	ims-m11.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753Ab2GXPLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 11:11:36 -0400
+Received: from oms-mb03.r1000.mx.aol.com (oms-mb03.r1000.mx.aol.com [64.12.102.139])
+	by ims-m11.mx.aol.com (8.14.1/8.14.1) with ESMTP id q6OFBT1p011560
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 11:11:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 24, 2012 at 4:16 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
->> The logic to tell udev that it runs in the initramfs could easily be
->> implemented by other initramfs tools than dracut, but they usually do
->> not really follow what we do here, so this might for now only work on
->> recent systems using dracut.
->
-> Ok, too bad there wasn't a generic way, but at least there's a way
-> now :-)
+You will not see this in a MIME-aware mail reader.
+--===============0550338750==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Description: Mail message body
 
-If I understand the code correctly, it should be enough to put a file
-/etc/initrd-release in the initramfs for udev to do the right thing.
-But please correct me if I'm wrong Kay.
+OPEN AND READ THE ATTACHMENT  FILE..
+--===============0550338750==
+Content-Type: application/octet-stream
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="George.rtf"
 
--t
+e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZvbnR0Ymx7XGYwXGZz
+d2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5lcmF0b3IgTXNmdGVkaXQgNS40MS4xNS4x
+NTE1O31cdmlld2tpbmQ0XHVjMVxwYXJkXGYwXGZzMjAgR3JlZXRpbmdzLFxwYXINClxwYXINCkkg
+a25vdyB5b3Ugd2lsbCBiZSBzdXJwcmlzZWQgdG8gcmVhZCBteSBlbWFpbC4gSSBnb3QgeW91ciBj
+b250YWN0IGZyb20geW91ciBFbWFpbCBkb21haW4sIGFwYXJ0IGZyb20gYmVpbmcgc3VycHJpc2Ug
+eW91IG1heSBiZSBza2VwdGljYWwgdG8gcmVwbHkgbWUgYmVjYXVzZSBiYXNlZCBvbiB3aGF0IGlz
+IGhhcHBlbmluZyBvbiB0aGUgaW50ZXJuZXQgd29ybGQsIG9uZSBoYXMgdG8gYmUgdmVyeSBjYXJl
+ZnVsIGJlY2F1c2UgYSBsb3Qgb2Ygc2NhbW1lcnMgYXJlIG91dCB0aGVyZSB0byBzY2FtIGlubm9j
+ZW50IGNpdGl6ZW5zIGFuZCB0aGlzIGhhcyBtYWRlIGl0IHZlcnkgZGlmZmljdWx0IGZvciBwZW9w
+bGUgdG8gYmVsaWV2ZSBhbnl0aGluZyB0aGF0IGNvbWVzIHRocm91Z2ggdGhlIGludGVybmV0IGJ1
+dCB0aGlzIGlzIGEgZGlmZmVyZW50IGNhc2UuXHBhcg0KXHBhcg0KbGYgeW91IGFyZSB3aWxsaW5n
+IHRvIHNob3cgbWUgeW91ciBob25lc3R5IGFuZCB0cnVzdCwgSSB0aGluayBJIHdpbGwgYmUgYWJs
+ZSB0byB0cnVzdCBhbmQgd29yayB3aXRoIHlvdS4gSSBhbSBhbiBBbWVyaWNhbiBhbmQgeW91IHNo
+b3VsZCBiZSByZXN0IGFzc3VyZWQgdGhhdCBJIGNhbm5vdCBiZSBpbnZvbHZlZCBpbiBzY2FtXHBh
+cg0KXHBhcg0KXHBhcg0KXHBhcg0KTXkgbmFtZSBpcyBDYXB0LiBBbml0YSBHZW9yZ2UgLCBhIG1l
+bWJlciBvZiB0aGUgVS5TLiBBUk1ZIFVTQVJQQUMgbWVkaWNhbCB0ZWFtLCB3aGljaCB3YXMgZGVw
+bG95ZWQgdG8gSXJhcSBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSB3YXIgaW4gSXJhcS4gQWx0aG91
+Z2ggdGhlIHdhciBoYXMgZW5kZWQsIGZvciBtZSB0byBwcm92ZWQgdGhpcyB0byB5b3UsIHNlZSB0
+aGUgc2l0ZSBiZWxvdyBmb3IgbW9yZSBpbmZvcm1hdGlvbixccGFyDQpccGFyDQpodHRwOi8vd3d3
+Lmh1ZmZpbmd0b25wb3N0LmNvbS8yMDExLzEyLzMwL2lyYXEtdXMtdHJvb3Atd2l0aGRyYXdhbC1j
+ZWxlYnJhdGlvbnNfbl8xMTc2MzMwLmh0bWxccGFyDQpodHRwOi8vZGFpbHljYWxsZXIuY29tLzIw
+MTEvMTIvMjcvYXMtaXJhcS13YXItZW5kcy1uby1wYXJhZGUtZm9yLXRyb29wcy1pcy1pbW1pbmVu
+dC9ccGFyDQpccGFyDQpCdXQgSSByZWZ1c2VkIHRvIGNvbWUgYWxvbmcgd2l0aCB0aGVtIGluIHJl
+c3BlY3RpdmUgb2YgdGhlIGZhY3QgdGhhdCB0aGUgd2FyIGhhcyBlbmRlZC4gVGhlIHJlYXNvbiBm
+b3IgdGhpcyBpcyB0aGF0IEkgZGVwb3NpdGVkIHR3byBjb25zaWdubWVudCBib3hlcyB3aXRoIGEg
+c2VjdXJpdHkgY29tcGFueSBpbiBJcmFxLiBBcyBhIHJlc3VsdCBvZiB0aGlzLCBJIGhhdmUgdG8g
+ZXNjYXBlIGFuZCBzdGF5ZWQgYmVoaW5kIHRvIG1ha2Ugc3VyZSB0aGF0IEkgYW0gYWJsZSB0byBn
+ZXQgdGhlc2UgYm94ZXMgb3V0IGJlZm9yZSBjb21pbmcgdG8gQW1lcmljYSwga25vd2luZ2x5LCB0
+aGF0IGlmIEkgYW0gYWJsZSB0byBnZXQgdGhpcyBkb25lIEkgd2lsbCBsaXZlIGEgYmV0dGVyIGxp
+ZmUuIFBsZWFzZSwgSSB3YW50IHRoaXMgdG8gYmUgYmV0d2VlbiBtZSBhbmQgeW91IFNpbmNlIEkg
+YW0gYXQgbGFyZ2UuXHBhcg0KVG8gUHJvdmUgbXkgc2luY2VyaXR5LCB5b3UgYXJlIG5vdCBzZW5k
+aW5nIG1lIGFueSBtb25leS4gQmVjYXVzZSBtb3N0IG9mIHRoaXMgc2NhbSBpcyBhYm91dCBzZW5k
+aW5nIG1vbmV5LlxwYXINClxwYXINClRob3VnaCwgSSB3b3VsZCBsaWtlIHRvIGhvbGQgYmFjayBz
+b21lIGluZm9ybWF0aW9ucyBmb3Igc2VjdXJpdHkgcmVhc29ucyBmb3Igbm93IHVudGlsIHlvdSBo
+YXZlIGZvdW5kIHRpbWUgdG8gdmlzaXQgdGhlIEJCQyB3ZWJzaXRlIHN0YXRlZCBiZWxvdyB0byBl
+bmFibGUgeW91IGhhdmUgYW4gaW5zaWdodCBpbnRvIHdoYXQgSSBpbnRlbmQgc2hhcmluZyB3aXRo
+IHlvdSwgYmVsaWV2aW5nIHRoYXQgaXQgd291bGQgYmUgb2YgeW91ciBkZXNpcmVkIGludGVyZXN0
+IG9uZS13YXkgb3IgdGhlIG90aGVyLlxwYXINClxwYXINCmh0dHA6Ly9uZXdzLmJiYy5jby51ay8y
+L2hpL21pZGRsZV9lYXN0LzI5ODg0NTUuc3RtXHBhcg0KaHR0cDovL25ld3MuYmJjLmNvLnVrLzIv
+aGkvbWlkZGxlX2Vhc3QvMjk4ODQ1NS5zdG1ccGFyDQpodHRwOi8vd3d3LmpvbmF0aGFuZm9yZW1h
+bi5jb20vbWlsaXRhcnkvbnlwX2lyYXEvMDQxOTIwMDNfY2hlc3QuaHRtbFxwYXINCmh0dHA6Ly93
+d3cudm9hbmV3cy5jb20vYnVybWVzZS9hcmNoaXZlLzIwMDMtMDQvYS0yMDAzLTA0LTIwLTEtMS5j
+Zm0gKFZPQSBORVdTKVxwYXINClxwYXINCkFsc28sIGNvdWxkIHlvdSBnZXQgYmFjayB0byBtZSBo
+YXZpbmcgdmlzaXRlZCB0aGUgYWJvdmUgd2Vic2l0ZSB0byBlbmFibGUgdXMgZGlzY3VzcyBpbiBh
+IG1vcmUgY2xhcmlmeWluZyBtYW5uZXIgdG8gdGhlIGJlc3Qgb2YgeW91ciB1bmRlcnN0YW5kaW5n
+LiBJIG11c3Qgc2F5IHRoYXQgSSdtIHZlcnkgdW5jb21mb3J0YWJsZSBzZW5kaW5nIHRoaXMgbWVz
+c2FnZSB0byB5b3Ugd2l0aG91dCBrbm93aW5nIHRydWx5IGlmIHlvdSB3b3VsZCBtaXNjb25zdHJ1
+ZSB0aGUgaW1wb3J0YW5jZSBhbmQgZGVjaWRlcyB0byBnbyBwdWJsaWMuIEluIHRoaXMgcmVnYXJk
+cywgSSB3aWxsIG5vdCBob2xkIGJhY2sgdG8gc2F5IHRoYXQgdGhlIGVzc2VuY2Ugb2YgdGhpcyBt
+ZXNzYWdlIGlzIHN0cmljdGx5IGZvciBtdXR1YWwgYmVuZWZpdCBiZXR3ZWVuIHlvdSBhbmQgSSBh
+bmQgbm90aGluZyBtb3JlLlxwYXINCkkgd2lsbCBiZSB2aXZpZCBhbmQgY29oZXJlbnQgaW4gbXkg
+bmV4dCBtZXNzYWdlIGluIHRoaXMgcmVnYXJkcywgbWVhbndoaWxlLCBjb3VsZCB5b3Ugc2VuZCBt
+ZSBhbiBlbWFpbCBjb25maXJtaW5nIHRoYXQgeW91IGhhdmUgdmlzaXRlZCB0aGUgc2l0ZSBhbmQg
+dGhhdCB5b3UgaGF2ZSB1bmRlcnN0b29kIG15IGludGVudGlvbnM/IEkgd291bGQgbGlrZSB5b3Ug
+dG8gZ2V0IGJhY2sgdG8gbWUgd2l0aCB3aXRoIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb25zO1xw
+YXINClxwYXINCjEuIEZ1bGwgTmFtZVxwYXINCjIuIEFkZHJlc3NccGFyDQozLk9jY3VwYXRpb25c
+cGFyDQo0LkFnZVxwYXINClxwYXINCkkgZG8gbm90IG5lZWQgeW91ciB0ZWxlcGhvbmUgbnVtYmVy
+IGJlY2F1c2UgSSBjYW5ub3QgY2FsbCB5b3UsIHdlIGNhbiBvbmx5IGNvbW11bmljYXRlIHRocm91
+Z2ggZW1haWwuXHBhcg0KXHBhcg0KSSB3aWxsIGF3YWl0IHlvdXIgcmVwbHkgdmlhIG15IGVtYWls
+LlxwYXINClxwYXINClRoYW5rcyxccGFyDQpccGFyDQpCZXN0IFJlZ2FyZHNccGFyDQpccGFyDQpD
+YXB0LiBBbml0YSBHZW9yZ2VccGFyDQp9DQoA
+--===============0550338750==--
