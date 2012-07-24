@@ -1,50 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Tue, 24 Jul 2012 14:03:53 -0700 (PDT)
-Message-ID: <20120724.140353.1432900101600410863.davem@davemloft.net>
-References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: bonding and SR-IOV -- do we need arp_validation for loadbalancing
+ too?
+Date: Tue, 24 Jul 2012 23:15:59 +0200
+Message-ID: <500F108F.6020706@gmail.com>
+References: <500EC5CF.3080400@genband.com> <20120724164220.GA1721@minipsycho.orion> <21683.1343153629@death.nxdomain> <500F032D.3070104@genband.com> <24104.1343162975@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jackm@dev.mellanox.co.il,
-	yevgenyp@mellanox.co.il, ogerlitz@mellanox.com,
-	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com
-To: klebers@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Chris Friesen <chris.friesen@genband.com>,
+	netdev <netdev@vger.kernel.org>, andy@greyhouse.net
+To: Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33779 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756263Ab2GXVD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 17:03:56 -0400
-In-Reply-To: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:47465 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755598Ab2GXVOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 17:14:52 -0400
+Received: by weyx8 with SMTP id x8so16746wey.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 14:14:51 -0700 (PDT)
+In-Reply-To: <24104.1343162975@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-Date: Fri, 20 Jul 2012 16:55:43 -0300
+Le 24/07/2012 22:49, Jay Vosburgh a =C3=A9crit :
+[...]
+>> In loadbalance mode wouldn't it just work similar to active-backup? =
+ If
+>> it's a reply then verify that it came from the arp target, if it's a
+>> request then check to see if it came from one of the other slaves.
+>
+> 	The problem isn't verifying the requests or replies, it's that
+> the ARP packets are not distributed across all slaves (because the
+> switch ports are in a channel group / aggregator), so some slaves do =
+not
+> receive any ARPs.
+>
+> 	The bond sends the ARP request as a broadcast.  For
+> active-backup, this ends up at the inactive slaves because the switch
+> sends the broadcast to all ports.  For a loadbalance mode, the switch
+> won't send the broadcast ARP to the other slaves, because all the sla=
+ves
+> are in a channel group or lacp aggregator, which is treated by the
+> switch as effectively a single switch port for this case.
+>
+> 	Similarly, the ARP replies are unicast, and the switch will send
+> those unicast replies to only one member of the channel group or
+> aggregator.  The choice there is usually a hash of some kind, so
+> generally only one slave will receive the replies.
 
-> Currently the mlx4 drivers don't have the necessary callbacks to
-> implement EEH errors detection and recovery, so the PCI layer uses the
-> probe and remove callbacks to try to recover the device after an error on
-> the bus. However, these callbacks have race conditions with the internal
-> catastrophic error recovery functions, which will also detect the error
-> and this can cause the system to crash if both EEH and catas functions
-> try to reset the device.
-> 
-> This patch adds the necessary error recovery callbacks and makes sure
-> that the internal catastrophic error functions will not try to reset the
-> device in such scenarios. It also adds some calls to
-> pci_channel_offline() to suppress reads/writes on the bus when the slot
-> cannot accept I/O operations so we prevent unnecessary accesses to the
-> bus and speed up the device removal.
-> 
-> Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+I assume team should suffer the exact same problem, because most of thi=
+s is on the switch side and=20
+out of the control of the host. Jiri, can you confirm?
 
-Or, you promised an ACK today, I still haven't seen it.
+[...]
 
-There is no reason Kleber should be penalized and have his work
-miss the merge window just because you guys can't be bothered
-to approve this patch in a reasonable amount of time.
+> 	I believe bonding is the main user of last_rx (a search shows a
+> couple of drivers using it internally).  For bonding use, in current
+> mainline last_rx is set by bonding itself, not in the network device
+> driver.
 
-Therefore I'm just going to apply it later today, and don't do this
-with someone's submission ever again, it impedes progress and
-frustrates contributors.
+If last_rx is set and used internally by bonding and mostly unused else=
+where, can't we remove it=20
+from net_device and move it into private data for the slaves in bonding=
+?
+
+A comment in netdevice.h even recommends not to set it into drivers:
+
+         unsigned long           last_rx;        /* Time of last Rx
+                                                  * This should not be =
+set in
+                                                  * drivers, unless rea=
+lly needed,
+                                                  * because network sta=
+ck (bonding)
+                                                  * use it if/when nece=
+ssary, to
+                                                  * avoid dirtying this=
+ cache line.
+                                                  */
+
+	Nicolas.
