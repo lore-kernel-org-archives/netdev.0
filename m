@@ -1,124 +1,31 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
- SACK when bundling
-Date: Tue, 24 Jul 2012 07:38:02 -0400
-Message-ID: <20120724113802.GA30142@hmsreliant.think-freely.org>
-References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>
- <20120723004932.GB8040@neilslaptop.think-freely.org>
- <500CB74A.4040300@windriver.com>
- <20120723121411.GC16518@hmsreliant.think-freely.org>
- <500DFF5A.20203@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next] team: init error value to 0 in
+ team_netpoll_setup()
+Date: Tue, 24 Jul 2012 13:39:33 +0200
+Message-ID: <1343129973.2626.11061.camel@edumazet-glaptop>
+References: <1343128848-1284-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xufengzhang.main@gmail.com, vyasevich@gmail.com, sri@us.ibm.com,
-	davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xufeng zhang <xufeng.zhang@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <500DFF5A.20203@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:33727 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753305Ab2GXLjk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 07:39:40 -0400
+Received: by bkwj10 with SMTP id j10so6208065bkw.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 04:39:37 -0700 (PDT)
+In-Reply-To: <1343128848-1284-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 24, 2012 at 09:50:18AM +0800, xufeng zhang wrote:
-> On 07/23/2012 08:14 PM, Neil Horman wrote:
-> >On Mon, Jul 23, 2012 at 10:30:34AM +0800, xufeng zhang wrote:
-> >>On 07/23/2012 08:49 AM, Neil Horman wrote:
-> >>>Not sure I understand how you came into this error.  If we get an invalid
-> >>>stream, we issue an SCTP_REPORT_TSN side effect, followed by an SCTP_CMD_REPLY
-> >>>which sends the error chunk.  The reply goes through
-> >>>sctp_outq_tail->sctp_outq_chunk->sctp_outq_transmit_chunk->sctp_outq_append_chunk.
-> >>>That last function checks to see if a sack is already part of the packet, and if
-> >>>there isn't one, appends one, using the updated tsn map.
-> >>Yes, you are right, but consider the invalid stream identifier's
-> >>DATA chunk is the first
-> >>DATA chunk in the association which will need SACK immediately.
-> >>Here is what I thought of the scenario:
-> >>     sctp_sf_eat_data_6_2()
-> >>         -->sctp_eat_data()
-> >>             -->sctp_make_op_error()
-> >>             -->sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(err))
-> >>             -->sctp_outq_tail()          /* First enqueue ERROR chunk */
-> >>         -->sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, SCTP_FORCE())
-> >>             -->sctp_gen_sack()
-> >>                 -->sctp_make_sack()
-> >>                 -->sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-> >>SCTP_CHUNK(sack))
-> >>                 -->sctp_outq_tail()          /* Then enqueue SACK chunk */
-> >>
-> >>So SACK chunk is enqueued after ERROR chunk.
-> >Ah, I see.  Since the ERROR and SACK chunks are both control chunks, and since
-> >we explicitly add the SACK to the control queue instead of going through the
-> >bundle path in sctp_packet_append_chunk the ordering gets wrong.
-> >
-> >Ok, so the problem makes sense.  I think the soultion could be alot easier
-> >though.  IIRC SACK chunks always live at the head of a packet, so why not just
-> >special case it in sctp_outq_tail?  I.e. instead of doing a list_add_tail, in
-> >the else clause of sctp_outq_tail check the chunk_hdr->type to see if its
-> >SCTP_CID_SACK.  If it is, use list_add_head rather than list_add_tail.  I think
-> >that will fix up both the COOKIE_ECHO and ESTABLISHED cases, won't it?  And then
-> >you won't have keep track of extra state in the packet configuration.
-> Yes, it's a good idea, but I think the premise is not correct:
-> RFC 4960 page 57:
-> "D) Upon reception of the COOKIE ECHO chunk, endpoint "Z" will reply
->    with a COOKIE ACK chunk after building a TCB and moving to the
->    ESTABLISHED state. A COOKIE ACK chunk may be bundled with any
->    pending DATA chunks (and/or SACK chunks), *but the COOKIE ACK chunk
->    MUST be the first chunk in the packet*."
+On Tue, 2012-07-24 at 13:20 +0200, Jiri Pirko wrote:
+> This will ensure correct value is returned in case the port list is empty.
 > 
-> So we can't put SACK chunk always at the head of the packet.
-> 
-Ok, Fair point, but that just changes the ordering a bit to:
-COOKIE_ACK
-SACK
-OTHER CONTROL CHUNKS
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  drivers/net/team/team.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-What about something like this?  Its completely untested, and I'm sure it can be
-cleaned up a bunch, but this keeps us from having to add additional state to the
-packet structure.
-
-
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index e7aa177c..eeac32f 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -300,7 +300,7 @@ void sctp_outq_free(struct sctp_outq *q)
- int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk)
- {
- 	int error = 0;
--
-+	struct sctp_chunk *cptr;
- 	SCTP_DEBUG_PRINTK("sctp_outq_tail(%p, %p[%s])\n",
- 			  q, chunk, chunk && chunk->chunk_hdr ?
- 			  sctp_cname(SCTP_ST_CHUNK(chunk->chunk_hdr->type))
-@@ -344,7 +344,21 @@ int sctp_outq_tail(struct sctp_outq *q, struct sctp_chunk *chunk)
- 			break;
- 		}
- 	} else {
--		list_add_tail(&chunk->list, &q->control_chunk_list);
-+		list_del_init(&chunk->list);
-+		if (chunk->chunk_hdr->type == SCTP_CID_COOKIE_ACK)
-+			list_add_head(&chunk->list, &q->control_chunk_list);
-+		else if (!list_empty(&q->control_chunk_list) &&
-+		    chunk->chunk_hdr->type == SCTP_CID_SACK) {
-+			list_for_each_entry(cptr, &q->control_chunk_list, list) {
-+				if (cptr->chunk_hdr->type == SCTP_CID_COOKIE_ACK)
-+					continue;
-+				list_add(&chunk->list, &cptr->list);
-+				break;
-+			}
-+		} 
-+
-+		if (list_empty(&chunk->list))
-+			list_add_tail(&chunk->list, &q->control_chunk_list);
- 		SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
- 	}
- 
-> 
-> Thanks,
-> Xufeng Zhang
-> >Regards
-> >Neil
-> >
-> >
-> 
+Reported-by: Eric Dumazet <edumazet@google.com>
