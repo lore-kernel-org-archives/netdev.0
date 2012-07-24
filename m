@@ -1,47 +1,93 @@
-From: Kay Sievers <kay@vrfy.org>
-Subject: Re: calling request_firmware() from module init will not work with
- recent/future udev versions
-Date: Tue, 24 Jul 2012 19:50:59 +0200
-Message-ID: <CAPXgP10idwzJgtFW3v=wMnrqfy8+rte3xotkRqRHjssdTT1zyw@mail.gmail.com>
-References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
- <1326621743.3448.1.camel@jlt3.sipsolutions.net> <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
- <1326704259.3510.3.camel@jlt3.sipsolutions.net> <CAPXgP12gM3_OVuxQAkRRarH_TpjVpbh5NpcTPWL0nEi4eoX+kw@mail.gmail.com>
- <1326716209.3510.7.camel@jlt3.sipsolutions.net> <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com>
- <1343139390.4415.31.camel@jlt3.sipsolutions.net> <CAG-2HqV4w5eRdh7SzdiXe+LUWpD=jHH1C7sk4G-LiTwdLJbgwg@mail.gmail.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] wanmain: comparing array with NULL
+Date: Tue, 24 Jul 2012 19:16:25 +0100
+Message-ID: <20120724181622.27921.80598.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, Andy Whitcroft <apw@canonical.com>
-To: Tom Gundersen <teg@jklm.no>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:48796 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755803Ab2GXRvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 13:51:20 -0400
-Received: by gglu4 with SMTP id u4so6954274ggl.19
-        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 10:51:20 -0700 (PDT)
-In-Reply-To: <CAG-2HqV4w5eRdh7SzdiXe+LUWpD=jHH1C7sk4G-LiTwdLJbgwg@mail.gmail.com>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:46329 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756239Ab2GXR7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 13:59:23 -0400
+Received: from localhost.localdomain (earthlight.etchedpixels.co.uk [81.2.110.250])
+	by lxorguk.ukuu.org.uk (8.14.5/8.14.1) with ESMTP id q6OIWdbh006963
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 19:32:45 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 24, 2012 at 4:32 PM, Tom Gundersen <teg@jklm.no> wrote:
-> On Tue, Jul 24, 2012 at 4:16 PM, Johannes Berg
-> <johannes@sipsolutions.net> wrote:
->>> The logic to tell udev that it runs in the initramfs could easily be
->>> implemented by other initramfs tools than dracut, but they usually do
->>> not really follow what we do here, so this might for now only work on
->>> recent systems using dracut.
->>
->> Ok, too bad there wasn't a generic way, but at least there's a way
->> now :-)
->
-> If I understand the code correctly, it should be enough to put a file
-> /etc/initrd-release in the initramfs for udev to do the right thing.
-> But please correct me if I'm wrong Kay.
+From: Alan Cox <alan@linux.intel.com>
 
-The current check in udev/systemd is the existence of:
-  /etc/initrd-release
-and the / filesystem must be tmpfs/ramfs to get the environment
-recognized as 'initrd'.
+gcc really should warn about these !
 
-Kay
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
+
+ net/wanrouter/wanmain.c |   51 +++++++++++++++++++++--------------------------
+ 1 file changed, 23 insertions(+), 28 deletions(-)
+
+diff --git a/net/wanrouter/wanmain.c b/net/wanrouter/wanmain.c
+index 788a12c..23d6569 100644
+--- a/net/wanrouter/wanmain.c
++++ b/net/wanrouter/wanmain.c
+@@ -602,36 +602,31 @@ static int wanrouter_device_new_if(struct wan_device *wandev,
+ 		 * successfully, add it to the interface list.
+ 		 */
+ 
+-		if (dev->name == NULL) {
+-			err = -EINVAL;
+-		} else {
+-
+-			#ifdef WANDEBUG
+-			printk(KERN_INFO "%s: registering interface %s...\n",
++#ifdef WANDEBUG
++		printk(KERN_INFO "%s: registering interface %s...\n",
+ 				wanrouter_modname, dev->name);
+-			#endif
+-
+-			err = register_netdev(dev);
+-			if (!err) {
+-				struct net_device *slave = NULL;
+-				unsigned long smp_flags=0;
+-
+-				lock_adapter_irq(&wandev->lock, &smp_flags);
+-
+-				if (wandev->dev == NULL) {
+-					wandev->dev = dev;
+-				} else {
+-					for (slave=wandev->dev;
+-					     DEV_TO_SLAVE(slave);
+-					     slave = DEV_TO_SLAVE(slave))
+-						DEV_TO_SLAVE(slave) = dev;
+-				}
+-				++wandev->ndev;
+-
+-				unlock_adapter_irq(&wandev->lock, &smp_flags);
+-				err = 0;	/* done !!! */
+-				goto out;
++#endif
++
++		err = register_netdev(dev);
++		if (!err) {
++			struct net_device *slave = NULL;
++			unsigned long smp_flags=0;
++
++			lock_adapter_irq(&wandev->lock, &smp_flags);
++
++			if (wandev->dev == NULL) {
++				wandev->dev = dev;
++			} else {
++				for (slave=wandev->dev;
++				     DEV_TO_SLAVE(slave);
++				     slave = DEV_TO_SLAVE(slave))
++					DEV_TO_SLAVE(slave) = dev;
+ 			}
++			++wandev->ndev;
++
++			unlock_adapter_irq(&wandev->lock, &smp_flags);
++			err = 0;	/* done !!! */
++			goto out;
+ 		}
+ 		if (wandev->del_if)
+ 			wandev->del_if(wandev, dev);
