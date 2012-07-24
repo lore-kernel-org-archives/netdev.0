@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL nf-next] IPVS
-Date: Mon, 23 Jul 2012 18:11:33 -0700 (PDT)
-Message-ID: <20120723.181133.1368147989656525639.davem@davemloft.net>
-References: <1343086141-9086-1-git-send-email-horms@verge.net.au>
-	<20120723.163508.1145167951335987230.davem@davemloft.net>
-	<20120724010105.GH22631@verge.net.au>
+Subject: Re: [PATCH] r8169: revert "add byte queue limit support".
+Date: Mon, 23 Jul 2012 18:27:16 -0700 (PDT)
+Message-ID: <20120723.182716.197605063109505523.davem@davemloft.net>
+References: <20120723205555.GA4392@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg
-To: horms@verge.net.au
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20120724010105.GH22631@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	a_villacis@palosanto.com, jwboyer@redhat.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51364 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755168Ab2GXB1R convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 21:27:17 -0400
+In-Reply-To: <20120723205555.GA4392@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 24 Jul 2012 10:01:05 +0900
+=46rom: Francois Romieu <romieu@fr.zoreil.com>
+Date: Mon, 23 Jul 2012 22:55:55 +0200
 
-> On Mon, Jul 23, 2012 at 04:35:08PM -0700, David Miller wrote:
->> From: Simon Horman <horms@verge.net.au>
->> Date: Tue, 24 Jul 2012 08:28:55 +0900
->> 
->> > please consider the following enhancements to IPVS for inclusion in 3.6.
->> 
->> The merge window has just openned, therefore any new work should have
->> been submitted and queued up already.
-> 
-> Sorry for my lateness. I can hold these changes for 3.7 if that is the
-> best option at this point.
+> This reverts commit 036dafa28da1e2565a8529de2ae663c37b7a0060.
+>=20
+> First it appears in bisection, then reverting it solves the usual
+> netdev watchdog problem for different people. I don't have a proper
+> fix yet so get rid of it.
+>=20
+> Bisected-and-reported-by: Alex Villac=EDs Lasso <a_villacis@palosanto=
+=2Ecom>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Josh Boyer <jwboyer@redhat.com>
+> Cc: Hayes Wang <hayeswang@realtek.com>
+> ---
+>=20
+>  The original 036da... commit has been modified due to the newly intr=
+oduced
+>  skb_tx_timestamp in rtl8169_start_xmit. The herein included patch qu=
+alifies
+>  for 3.4-stable as well.
 
-No worries, there is always the next merge window :-)
+Applied to net-next and queued up for -stable, thanks.
