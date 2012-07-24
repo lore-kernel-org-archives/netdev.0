@@ -1,31 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next] team: init error value to 0 in
- team_netpoll_setup()
-Date: Tue, 24 Jul 2012 13:39:33 +0200
-Message-ID: <1343129973.2626.11061.camel@edumazet-glaptop>
-References: <1343128848-1284-1-git-send-email-jiri@resnulli.us>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] caif: fix NULL pointer check
+Date: Tue, 24 Jul 2012 13:42:14 +0100
+Message-ID: <20120724124207.4444.49789.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
-To: Jiri Pirko <jiri@resnulli.us>
+To: sjur.brandeland@stericsson.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33727 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753305Ab2GXLjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 07:39:40 -0400
-Received: by bkwj10 with SMTP id j10so6208065bkw.19
-        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 04:39:37 -0700 (PDT)
-In-Reply-To: <1343128848-1284-1-git-send-email-jiri@resnulli.us>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:45846 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753801Ab2GXMZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 08:25:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-07-24 at 13:20 +0200, Jiri Pirko wrote:
-> This will ensure correct value is returned in case the port list is empty.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  drivers/net/team/team.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+From: Alan Cox <alan@linux.intel.com>
 
-Reported-by: Eric Dumazet <edumazet@google.com>
+Reported-by: <rucsoftsec@gmail.com>
+Resolves-bug: http://bugzilla.kernel.org/show_bug?44441
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
+
+ drivers/net/caif/caif_serial.c |    3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
+index 8a3054b..7e84175 100644
+--- a/drivers/net/caif/caif_serial.c
++++ b/drivers/net/caif/caif_serial.c
+@@ -325,6 +325,9 @@ static int ldisc_open(struct tty_struct *tty)
+ 
+ 	sprintf(name, "cf%s", tty->name);
+ 	dev = alloc_netdev(sizeof(*ser), name, caifdev_setup);
++	if (dev == NULL)
++		return -ENOMEM;
++
+ 	ser = netdev_priv(dev);
+ 	ser->tty = tty_kref_get(tty);
+ 	ser->dev = dev;
