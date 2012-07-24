@@ -1,61 +1,41 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 10/17] Tools: hv: Gather ipv[4,6] gateway information
-Date: Tue, 24 Jul 2012 22:13:00 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF9236A78D1@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
-	 <1343145701-3691-1-git-send-email-kys@microsoft.com>
-	 <1343145701-3691-10-git-send-email-kys@microsoft.com>
-	 <20120724092914.60f3d90a@nehalam.linuxnetplumber.net>
-	 <20120724165359.GA8409@aepfle.de>
-	 <20120724095659.5c869511@nehalam.linuxnetplumber.net>
- <1343155010.29196.1.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ipv4: Change rt->rt_iif encoding.
+Date: Tue, 24 Jul 2012 15:18:01 -0700 (PDT)
+Message-ID: <20120724.151801.1576915988616906722.davem@davemloft.net>
+References: <20120723.160541.184307938805782289.davem@davemloft.net>
+	<20120723.161446.36265037346365173.davem@davemloft.net>
+	<500F1E23.7090803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Olaf Hering <olaf@aepfle.de>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>
-To: Dan Williams <dcbw@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1343155010.29196.1.camel@dcbw.foobar.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ja@ssi.bg, netdev@vger.kernel.org
+To: nicolas.2p.debian@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34449 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754554Ab2GXWSE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 18:18:04 -0400
+In-Reply-To: <500F1E23.7090803@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRGFuIFdpbGxpYW1zIFtt
-YWlsdG86ZGNid0ByZWRoYXQuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBKdWx5IDI0LCAyMDEyIDI6
-MzcgUE0NCj4gVG86IFN0ZXBoZW4gSGVtbWluZ2VyDQo+IENjOiBPbGFmIEhlcmluZzsgS1kgU3Jp
-bml2YXNhbjsgZ3JlZ2toQGxpbnV4Zm91bmRhdGlvbi5vcmc7IGxpbnV4LQ0KPiBrZXJuZWxAdmdl
-ci5rZXJuZWwub3JnOyBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnOw0KPiB2aXJ0dWFsaXph
-dGlvbkBsaXN0cy5vc2RsLm9yZzsgYXB3QGNhbm9uaWNhbC5jb207IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7DQo+IGJlbkBkZWNhZGVudC5vcmcudWsNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAxMC8x
-N10gVG9vbHM6IGh2OiBHYXRoZXIgaXB2WzQsNl0gZ2F0ZXdheSBpbmZvcm1hdGlvbg0KPiANCj4g
-T24gVHVlLCAyMDEyLTA3LTI0IGF0IDA5OjU2IC0wNzAwLCBTdGVwaGVuIEhlbW1pbmdlciB3cm90
-ZToNCj4gPiBPbiBUdWUsIDI0IEp1bCAyMDEyIDE4OjUzOjU5ICswMjAwDQo+ID4gT2xhZiBIZXJp
-bmcgPG9sYWZAYWVwZmxlLmRlPiB3cm90ZToNCj4gPg0KPiA+ID4gT24gVHVlLCBKdWwgMjQsIFN0
-ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOg0KPiA+ID4NCj4gPiA+ID4gT24gVHVlLCAyNCBKdWwgMjAx
-MiAwOTowMTozNCAtMDcwMA0KPiA+ID4gPiAiSy4gWS4gU3Jpbml2YXNhbiIgPGt5c0BtaWNyb3Nv
-ZnQuY29tPiB3cm90ZToNCj4gPiA+ID4NCj4gPiA+ID4gPiArCW1lbXNldChjbWQsIDAsIHNpemVv
-ZihjbWQpKTsNCj4gPiA+ID4gPiArCXN0cmNhdChjbWQsICIvc2Jpbi9pcCAtZiBpbmV0ICByb3V0
-ZSB8IGdyZXAgLXcgIik7DQo+ID4gPiA+ID4gKwlzdHJjYXQoY21kLCBpZl9uYW1lKTsNCj4gPiA+
-ID4gPiArCXN0cmNhdChjbWQsICIgfCBhd2sgJy9kZWZhdWx0LyB7cHJpbnQgJDMgfSciKTsNCj4g
-PiA+ID4NCj4gPiA+ID4NCj4gPiA+ID4gTXVjaCBzaW1wbGVyIG1ldGhvZDoNCj4gPiA+ID4NCj4g
-PiA+ID4gaXAgcm91dGUgc2hvdyBtYXRjaCAwLzANCj4gPiA+DQo+ID4gPiBUaGlzIGFsc28gaGFz
-IHRoZSBiZW5lZml0IHRoYXQgaXAgaXMgbm90IGNhbGxlZCB3aXRoIGFic29sdXRlIHBhdGgsIG5v
-dw0KPiA+ID4gdGhhdCBkaXN0cm9zIG1vdmUgYmluYXJpZXMgYXJvdW5kLg0KPiA+ID4NCj4gPiA+
-IE9sYWYNCj4gPg0KPiA+IEl0IGlzIGFsc28gbm90IGhhcmQgdG8gZG8gdGhlIHNhbWUgdGhpbmcg
-d2l0aCBhIGxpdHRsZSBmdW5jdGlvbg0KPiA+IHVzaW5nIGxpYm1ubA0KPiANCj4gWWVhaCBzZXJp
-b3VzbHksIG5ldGxpbmsgYW55b25lPyAgWW91J2xsIGV2ZW4gZ2V0IG5pY2VyIGVycm9yIHJlcG9y
-dGluZw0KPiB0aGF0IHdheS4NCg0KV2hpbGUgSSB3aWxsIGJlIHRoZSBmaXJzdCBhZG1pdCB0aGF0
-IHVzaW5nIEMgQVBJIGlzIGFsd2F5cyBiZXR0ZXIgKGluIEMgY29kZSksDQppbiB0aGlzIHBhcnRp
-Y3VsYXIgaW5zdGFuY2UgSSBhbSBub3Qgc28gc3VyZS4gQWxsIEkgYW0gZG9pbmcgaXMgcmV0cmll
-dmluZyBpbmZvcm1hdGlvbg0Kb24gZGVmYXVsdCBnYXRld2F5cy4gSWYgdGhlcmUgaXMgYW4gZXJy
-b3IsIHRoYXQgaXMgb2sgYW5kIHRoaXMgd29uJ3QgYmUgcmVwb3J0ZWQNCmJhY2sgdG8gdGhlIGhv
-c3QuIFVzaW5nIHRoZSBpcCBjb21tYW5kIHNpZ25pZmljYW50bHkgc2ltcGxpZmllcyB0aGUgY29k
-ZSBoZXJlLg0KDQpSZWdhcmRzLA0KDQpLLiBZICANCg0K
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
+Date: Wed, 25 Jul 2012 00:13:55 +0200
+
+> - From the af_packet point of view, is was "the real original device
+> - that received the packet".
+>=20
+> As bonding don't use orig_dev anymore, the remaining meaning should
+> logically be "the real original device that received the packet". But
+> as __netif_receive_skb() is recursively called in many cases, setting
+> orig_dev to something new every time, this meaning is probably mostly
+> inconsistent. As such, it sounds appropriate to remove orig_dev and
+> use skb_iif instead.
+
+I don't think we can, otherwise people who set po->origdev will no
+longer get what they expect.
+
+=46or the simpler cases of bonding and VLANs, it does currently behaved
+as expected.
+
+That's why I left it alone.
