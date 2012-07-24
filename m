@@ -1,219 +1,60 @@
 From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 05/17] Tools: hv: Prepare to expand kvp_get_ip_address()
- functionality
-Date: Tue, 24 Jul 2012 09:01:29 -0700
-Message-ID: <1343145701-3691-5-git-send-email-kys@microsoft.com>
+Subject: [PATCH 17/17] Tools: hv: Correctly type string variables
+Date: Tue, 24 Jul 2012 09:01:41 -0700
+Message-ID: <1343145701-3691-17-git-send-email-kys@microsoft.com>
 References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
  <1343145701-3691-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
 To: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, virtualization@lists.osdl.org,
- olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
- ben@decadent.org.uk
-Return-path: <devel-bounces@linuxdriverproject.org>
+	devel@linuxdriverproject.org, virtualization@lists.osdl.org,
+	olaf@aepfle.de, apw@canonical.com, netdev@vger.kernel.org,
+	ben@decadent.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1343145701-3691-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: devel-bounces@linuxdriverproject.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-kvp_get_ip_address() implemented the functionality to retrieve IP address info.
-Make this function more generic so that we could retrieve additional
-per-interface information.
+Correctly type character strings. I would like to thank Ben Hutchings
+for pointing out the issue (ben@decadent.org.uk).
 
 Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- tools/hv/hv_kvp_daemon.c |  129 ++++++++++++++++++++++++++++++----------------
- 1 files changed, 84 insertions(+), 45 deletions(-)
+ tools/hv/hv_kvp_daemon.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/tools/hv/hv_kvp_daemon.c b/tools/hv/hv_kvp_daemon.c
-index 72f5fd3..2169f2f 100644
+index e72d6db..3746033 100644
 --- a/tools/hv/hv_kvp_daemon.c
 +++ b/tools/hv/hv_kvp_daemon.c
-@@ -492,7 +492,8 @@ done:
- }
+@@ -96,8 +96,8 @@ static struct utsname uts_buf;
+ #define ENTRIES_PER_BLOCK 50
  
- static int
--kvp_get_ip_address(int family, char *buffer, int length)
-+kvp_get_ip_address(int family, char *if_name, int op,
-+		 void  *out_buffer, int length)
- {
- 	struct ifaddrs *ifap;
- 	struct ifaddrs *curp;
-@@ -502,10 +503,19 @@ kvp_get_ip_address(int family, char *buffer, int length)
- 	const char *str;
- 	char tmp[50];
- 	int error = 0;
--
-+	char *buffer;
-+	struct hv_kvp_ipaddr_value *ip_buffer;
-+
-+	if (op == KVP_OP_ENUMERATE) {
-+		buffer = out_buffer;
-+	} else {
-+		ip_buffer = out_buffer;
-+		buffer = (char *)ip_buffer->ip_addr;
-+		ip_buffer->addr_family = 0;
-+	}
- 	/*
- 	 * On entry into this function, the buffer is capable of holding the
--	 * maximum key value (2048 bytes).
-+	 * maximum key value.
- 	 */
+ struct kvp_record {
+-	__u8 key[HV_KVP_EXCHANGE_MAX_KEY_SIZE];
+-	__u8 value[HV_KVP_EXCHANGE_MAX_VALUE_SIZE];
++	char key[HV_KVP_EXCHANGE_MAX_KEY_SIZE];
++	char value[HV_KVP_EXCHANGE_MAX_VALUE_SIZE];
+ };
  
- 	if (getifaddrs(&ifap)) {
-@@ -515,58 +525,87 @@ kvp_get_ip_address(int family, char *buffer, int length)
+ struct kvp_file_state {
+@@ -105,7 +105,7 @@ struct kvp_file_state {
+ 	int num_blocks;
+ 	struct kvp_record *records;
+ 	int num_records;
+-	__u8 fname[MAX_FILE_NAME];
++	char fname[MAX_FILE_NAME];
+ };
  
- 	curp = ifap;
- 	while (curp != NULL) {
--		if ((curp->ifa_addr != NULL) &&
--		   (curp->ifa_addr->sa_family == family)) {
--			if (family == AF_INET) {
--				struct sockaddr_in *addr =
--				(struct sockaddr_in *) curp->ifa_addr;
--
--				str = inet_ntop(family, &addr->sin_addr,
--						tmp, 50);
--				if (str == NULL) {
--					strcpy(buffer, "inet_ntop failed\n");
--					error = 1;
--					goto getaddr_done;
--				}
--				if (offset == 0)
--					strcpy(buffer, tmp);
--				else
--					strcat(buffer, tmp);
--				strcat(buffer, ";");
-+		if (curp->ifa_addr == NULL) {
-+			curp = curp->ifa_next;
-+			continue;
-+		}
- 
--				offset += strlen(str) + 1;
--				if ((length - offset) < (ipv4_len + 1))
--					goto getaddr_done;
-+		if ((if_name != NULL) &&
-+			(strncmp(curp->ifa_name, if_name, strlen(if_name)))) {
-+			/*
-+			 * We want info about a specific interface;
-+			 * just continue.
-+			 */
-+			curp = curp->ifa_next;
-+			continue;
-+		}
- 
--			} else {
-+		/*
-+		 * We only support two address families: AF_INET and AF_INET6.
-+		 * If a family value of 0 is specified, we collect both
-+		 * supported address families; if not we gather info on
-+		 * the specified address family.
-+		 */
-+		if ((family != 0) && (curp->ifa_addr->sa_family != family)) {
-+			curp = curp->ifa_next;
-+			continue;
-+		}
-+		if ((curp->ifa_addr->sa_family != AF_INET) &&
-+			(curp->ifa_addr->sa_family != AF_INET6)) {
-+			curp = curp->ifa_next;
-+			continue;
-+		}
-+
-+		if ((curp->ifa_addr->sa_family == AF_INET) &&
-+			((family == AF_INET) || (family == 0))) {
-+			struct sockaddr_in *addr =
-+			(struct sockaddr_in *) curp->ifa_addr;
-+
-+			str = inet_ntop(AF_INET, &addr->sin_addr, tmp, 50);
-+			if (str == NULL) {
-+				strcpy(buffer, "inet_ntop failed\n");
-+				error = 1;
-+				goto getaddr_done;
-+			}
-+			if (offset == 0)
-+				strcpy(buffer, tmp);
-+			else
-+				strcat(buffer, tmp);
-+			strcat(buffer, ";");
-+
-+			offset += strlen(str) + 1;
-+			if ((length - offset) < (ipv4_len + 1))
-+				goto getaddr_done;
-+
-+		} else if ((family == AF_INET6) || (family == 0)) {
- 
- 			/*
- 			 * We only support AF_INET and AF_INET6
- 			 * and the list of addresses is separated by a ";".
- 			 */
--				struct sockaddr_in6 *addr =
-+			struct sockaddr_in6 *addr =
- 				(struct sockaddr_in6 *) curp->ifa_addr;
- 
--				str = inet_ntop(family,
-+			str = inet_ntop(AF_INET6,
- 					&addr->sin6_addr.s6_addr,
- 					tmp, 50);
--				if (str == NULL) {
--					strcpy(buffer, "inet_ntop failed\n");
--					error = 1;
--					goto getaddr_done;
--				}
--				if (offset == 0)
--					strcpy(buffer, tmp);
--				else
--					strcat(buffer, tmp);
--				strcat(buffer, ";");
--				offset += strlen(str) + 1;
--				if ((length - offset) < (ipv6_len + 1))
--					goto getaddr_done;
--
-+			if (str == NULL) {
-+				strcpy(buffer, "inet_ntop failed\n");
-+				error = 1;
-+				goto getaddr_done;
- 			}
-+			if (offset == 0)
-+				strcpy(buffer, tmp);
-+			else
-+				strcat(buffer, tmp);
-+			strcat(buffer, ";");
-+			offset += strlen(str) + 1;
-+			if ((length - offset) < (ipv6_len + 1))
-+				goto getaddr_done;
- 
- 		}
-+
-+
- 		curp = curp->ifa_next;
- 	}
- 
-@@ -815,13 +854,13 @@ int main(void)
- 			strcpy(key_value, lic_version);
- 			break;
- 		case NetworkAddressIPv4:
--			kvp_get_ip_address(AF_INET, key_value,
--					HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
-+			kvp_get_ip_address(AF_INET, NULL, KVP_OP_ENUMERATE,
-+				key_value, HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
- 			strcpy(key_name, "NetworkAddressIPv4");
- 			break;
- 		case NetworkAddressIPv6:
--			kvp_get_ip_address(AF_INET6, key_value,
--					HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
-+			kvp_get_ip_address(AF_INET6, NULL, KVP_OP_ENUMERATE,
-+				key_value, HV_KVP_EXCHANGE_MAX_VALUE_SIZE);
- 			strcpy(key_name, "NetworkAddressIPv6");
- 			break;
- 		case OSBuildNumber:
+ static struct kvp_file_state kvp_file_info[KVP_POOL_COUNT];
+@@ -209,7 +209,7 @@ static int kvp_file_init(void)
+ 	int  fd;
+ 	FILE *filep;
+ 	size_t records_read;
+-	__u8 *fname;
++	char *fname;
+ 	struct kvp_record *record;
+ 	struct kvp_record *readp;
+ 	int num_blocks;
 -- 
 1.7.4.1
