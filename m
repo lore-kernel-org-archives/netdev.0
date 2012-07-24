@@ -1,171 +1,62 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows SACK when bundling
-Date: Tue, 24 Jul 2012 10:05:36 -0400
-Message-ID: <75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>
-References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com> <500CDE35.6000009@windriver.com> <42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com> <500E1057.3020509@windriver.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: calling request_firmware() from module init will not work with
+ recent/future udev versions
+Date: Tue, 24 Jul 2012 16:16:30 +0200
+Message-ID: <1343139390.4415.31.camel@jlt3.sipsolutions.net>
+References: <CAPXgP11iT9K2KcDCJvw_druf5qdNjs0jLfrbpS7CcYh5vXrz_w@mail.gmail.com>
+	 <1326621743.3448.1.camel@jlt3.sipsolutions.net>
+	 <CAPXgP13b0uu3DgOGRL-_WKx-aSQN-f0xL6OmjNPBGf9fg0satA@mail.gmail.com>
+	 <1326704259.3510.3.camel@jlt3.sipsolutions.net>
+	 <CAPXgP12gM3_OVuxQAkRRarH_TpjVpbh5NpcTPWL0nEi4eoX+kw@mail.gmail.com>
+	 <1326716209.3510.7.camel@jlt3.sipsolutions.net>
+	 <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com>
+	 (sfid-20120719_124643_767103_5E67814F)
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: sri@us.ibm.com, davem@davemloft.net, xufengzhang.main@gmail.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: xufeng zhang <xufeng.zhang@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <500E1057.3020509@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Tom Gundersen <teg@jklm.no>, Andy Whitcroft <apw@canonical.com>
+To: Kay Sievers <kay@vrfy.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:39362 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754490Ab2GXOQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 10:16:32 -0400
+In-Reply-To: <CAPXgP13xJNx0v9waZx6m47Ye7q71GGz3A3DoQzb=qszHnOkArw@mail.gmail.com> (sfid-20120719_124643_767103_5E67814F)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-xufeng zhang <xufeng.zhang@windriver.com> wrote:
+On Thu, 2012-07-19 at 12:46 +0200, Kay Sievers wrote:
 
->On 07/24/2012 10:27 AM, Vlad Yasevich wrote:
->> xufeng zhang<xufeng.zhang@windriver.com>  wrote:
->>
->>    
->>> On 07/19/2012 01:57 PM, xufengzhang.main@gmail.com wrote:
->>>      
->>>> When "Invalid Stream Identifier" ERROR happens after process the
->>>> received DATA chunks, this ERROR chunk is enqueued into outqueue
->>>> before SACK chunk, so when bundling ERROR chunk with SACK chunk,
->>>> the ERROR chunk is always placed first in the packet because of
->>>> the chunk's position in the outqueue.
->>>> This violates sctp specification:
->>>>       RFC 4960 6.5. Stream Identifier and Stream Sequence Number
->>>>       ...The endpoint may bundle the ERROR chunk in the same
->>>>       packet as the SACK as long as the ERROR follows the SACK.
->>>> So we must place SACK first when bundling "Invalid Stream
->Identifier"
->>>> ERROR and SACK in one packet.
->>>> Although we can do that by enqueue SACK chunk into outqueue before
->>>> ERROR chunk, it will violate the side-effect interpreter
->processing.
->>>> It's easy to do this job when dequeue chunks from the outqueue,
->>>> by this way, we introduce a flag 'has_isi_err' which indicate
->>>> whether or not the "Invalid Stream Identifier" ERROR happens.
->>>>
->>>> Signed-off-by: Xufeng Zhang<xufeng.zhang@windriver.com>
->>>> ---
->>>>    include/net/sctp/structs.h |    2 ++
->>>>    net/sctp/output.c          |   26 ++++++++++++++++++++++++++
->>>>    2 files changed, 28 insertions(+), 0 deletions(-)
->>>>
->>>> diff --git a/include/net/sctp/structs.h
->b/include/net/sctp/structs.h
->>>> index 88949a9..5adf4de 100644
->>>> --- a/include/net/sctp/structs.h
->>>> +++ b/include/net/sctp/structs.h
->>>> @@ -842,6 +842,8 @@ struct sctp_packet {
->>>>    	    has_sack:1,		/* This packet contains a SACK chunk. */
->>>>    	    has_auth:1,		/* This packet contains an AUTH chunk */
->>>>    	    has_data:1,		/* This packet contains at least 1 DATA chunk
->*/
->>>> +	    has_isi_err:1,	/* This packet contains a "Invalid Stream
->>>> +				 * Identifier" ERROR chunk */
->>>>    	    ipfragok:1,		/* So let ip fragment this packet */
->>>>    	    malloced:1;		/* Is it malloced? */
->>>>    };
->>>> diff --git a/net/sctp/output.c b/net/sctp/output.c
->>>> index 817174e..77fb1ae 100644
->>>> --- a/net/sctp/output.c
->>>> +++ b/net/sctp/output.c
->>>> @@ -79,6 +79,7 @@ static void sctp_packet_reset(struct sctp_packet
->>>>        
->>> *packet)
->>>      
->>>>    	packet->has_sack = 0;
->>>>    	packet->has_data = 0;
->>>>    	packet->has_auth = 0;
->>>> +	packet->has_isi_err = 0;
->>>>    	packet->ipfragok = 0;
->>>>    	packet->auth = NULL;
->>>>    }
->>>> @@ -267,6 +268,7 @@ static sctp_xmit_t
->sctp_packet_bundle_sack(struct
->>>>        
->>> sctp_packet *pkt,
->>>      
->>>>    sctp_xmit_t sctp_packet_append_chunk(struct sctp_packet *packet,
->>>>    				     struct sctp_chunk *chunk)
->>>>    {
->>>> +	struct sctp_chunk *lchunk;
->>>>    	sctp_xmit_t retval = SCTP_XMIT_OK;
->>>>    	__u16 chunk_len = WORD_ROUND(ntohs(chunk->chunk_hdr->length));
->>>>
->>>> @@ -316,7 +318,31 @@ sctp_xmit_t sctp_packet_append_chunk(struct
->>>>        
->>> sctp_packet *packet,
->>>      
->>>>    		packet->has_cookie_echo = 1;
->>>>    		break;
->>>>
->>>> +	    case SCTP_CID_ERROR:
->>>> +		if (chunk->subh.err_hdr->cause&   SCTP_ERROR_INV_STRM)
->>>> +			packet->has_isi_err = 1;
->>>> +		break;
->>>> +
->>>>    	    case SCTP_CID_SACK:
->>>> +		/* RFC 4960
->>>> +		 * 6.5 Stream Identifier and Stream Sequence Number
->>>> +		 * The endpoint may bundle the ERROR chunk in the same
->>>> +		 * packet as the SACK as long as the ERROR follows the SACK.
->>>> +		 */
->>>> +		if (packet->has_isi_err) {
->>>> +			if (list_is_singular(&packet->chunk_list))
->>>> +				list_add(&chunk->list,&packet->chunk_list);
->>>> +			else {
->>>> +				lchunk = list_first_entry(&packet->chunk_list,
->>>> +						struct sctp_chunk, list);
->>>> +				list_add(&chunk->list,&lchunk->list);
->>>> +			}
->>>>
->>>>        
->>> And I should clarify the above judgment code.
->>> AFAIK, there should be two cases for the bundling when invalid
->stream
->>> identifier error happens:
->>> 1). COOKIE_ACK ERROR SACK
->>> 2). ERROR SACK
->>> So I need to deal with the two cases differently.
->>>
->>>      
->> Sorry but I just don't buy that the above are the only 2 cases.  What
->if there are addip chunks as well?  What if there are some other
->extensions also.  This code has to be generic enough to handle any
->condition.
->>    
->Aha, you are right, this may happens.
->So I think the general solution is to fix this problem in the enqueue
->side.
->What do you think? any better suggestion!
->
+> >> > What I'm was asking then is this: Can udev know that it is running from
+> >> > initramfs (presumably that can't be too hard) and simply not reply to
+> >> > async requests it doesn't have firmware for? Then once the real root is
+> >> > mounted it could satisfy (or not) firmware requests from the real root.
+> >>
+> >> We can surely change it to not cancel the firmware request.
+> >>
+> >> Either by making it aware that we run from initramfs, or by never
+> >> cancelling any firmware request and just leave it hanging around for
+> >> forever?
+> 
+> Never say 6 months is a long time to reply. :)
 
-Don't have code in front of me but what if we carry the error condition to where we queue the Sack and add the error side effect then?
+Hehe :-)
 
--vlad
+> Fedora uses systemd in the initramfs now, which made it trivial to
+> implement this, and to leave the firmware requests hanging around
+> until we reach in the real rootfs and know if the firmware file is
+> available:
+>   http://cgit.freedesktop.org/systemd/systemd/commit/?id=39177382a4f92a834b568d6ae5d750eb2a5a86f9
+> 
+> The logic to tell udev that it runs in the initramfs could easily be
+> implemented by other initramfs tools than dracut, but they usually do
+> not really follow what we do here, so this might for now only work on
+> recent systems using dracut.
 
->
->Thanks,
->Xufeng Zhang
->> - vlad
->>
->>    
->>> Thanks,
->>> Xufeng Zhang
->>>      
->>>> +			packet->size += chunk_len;
->>>> +			chunk->transport = packet->transport;
->>>> +			packet->has_sack = 1;
->>>> +			goto finish;
->>>> +		}
->>>> +
->>>>    		packet->has_sack = 1;
->>>>    		break;
->>>>
->>>>
->>>>        
->>
->>    
+Ok, too bad there wasn't a generic way, but at least there's a way
+now :-)
 
+Anyway, I think this is a good thing.
 
--- 
-Sent from my Android phone with SkitMail. Please excuse my brevity.
+johannes
