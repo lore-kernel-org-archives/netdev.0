@@ -1,40 +1,71 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] caif: fix NULL pointer check
-Date: Tue, 24 Jul 2012 13:42:14 +0100
-Message-ID: <20120724124207.4444.49789.stgit@localhost.localdomain>
+From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Date: Tue, 24 Jul 2012 10:12:14 -0300
+Message-ID: <500E9F2E.4010209@linux.vnet.ibm.com>
+References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <500BD558.2060803@mellanox.com> <20120722.171553.2139258607165498367.davem@davemloft.net> <500D4F31.9020408@linux.vnet.ibm.com>	<500D556F.4000409@mellanox.com> <500D93F5.4090305@linux.vnet.ibm.com>	<500DB9CE.5080100@linux.vnet.ibm.com> <CAJZOPZJP9OaZVB03kKGtWvrUUb8B--wUNX9z3MG_MNmKr8U3kQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: sjur.brandeland@stericsson.com, netdev@vger.kernel.org
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jackm@dev.mellanox.co.il, yevgenyp@mellanox.co.il,
+	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com,
+	shlomop@mellanox.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:45846 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753801Ab2GXMZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 08:25:17 -0400
+Received: from e24smtp01.br.ibm.com ([32.104.18.85]:41589 "EHLO
+	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754001Ab2GXNMY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 09:12:24 -0400
+Received: from /spool/local
+	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <klebers@linux.vnet.ibm.com>;
+	Tue, 24 Jul 2012 10:12:19 -0300
+Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id 04E961DC004D
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 09:12:16 -0400 (EDT)
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
+	by d24relay03.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6ODBTWC23199946
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 10:11:29 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6OBC9lE032361
+	for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 08:12:10 -0300
+In-Reply-To: <CAJZOPZJP9OaZVB03kKGtWvrUUb8B--wUNX9z3MG_MNmKr8U3kQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@linux.intel.com>
+On 07/23/2012 06:26 PM, Or Gerlitz wrote:
 
-Reported-by: <rucsoftsec@gmail.com>
-Resolves-bug: http://bugzilla.kernel.org/show_bug?44441
-Signed-off-by: Alan Cox <alan@linux.intel.com>
----
+> Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com> wrote:
+>>> For powerpc we have an IBM internal user space tool that injects the
+>>> error on the bus with the aid of the system firmware. The kernel used
+>>> was built with the option:
+>>> CONFIG_EEH=y
+>>> and without the AER options. I will run some more tests with the AER
+>>> options activated.
+> 
+>> I tested the powerpc error injection with
+>>
+>> CONFIG_EEH=y
+>> CONFIG_PCIEAER=y
+>> CONFIG_PCIEAER_INJECT=m
+>>
+>> and with the aer_inject module loaded and it didn't affect the EEH
+>> recovery, the adapter recovered as expected.
+> 
+> I wasn't sure to follow what did you mean by "it didn't affect the EEH
+> recovery", how did you use the aer_inject module, is that through
+> user-space tool which is available for us?
 
- drivers/net/caif/caif_serial.c |    3 +++
- 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-index 8a3054b..7e84175 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -325,6 +325,9 @@ static int ldisc_open(struct tty_struct *tty)
- 
- 	sprintf(name, "cf%s", tty->name);
- 	dev = alloc_netdev(sizeof(*ser), name, caifdev_setup);
-+	if (dev == NULL)
-+		return -ENOMEM;
-+
- 	ser = netdev_priv(dev);
- 	ser->tty = tty_kref_get(tty);
- 	ser->dev = dev;
+I wanted to say that I was testing before only with the EEH option
+activated, then I activated the AER options on my powerpc system just to
+make sure these options when activate wouldn't affect the EEH recovery.
+I haven't injected and AER error since I don't have a system with
+hardware support for it.
+
+
+Thanks,
+-- 
+Kleber Sacilotto de Souza
+IBM Linux Technology Center
