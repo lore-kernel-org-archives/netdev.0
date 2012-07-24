@@ -1,275 +1,137 @@
-From: Jason Lin <kernel.jason@gmail.com>
-Subject: Re: [RFC] net:phy:phylib: phy shares the same interrupt with mac
-Date: Tue, 24 Jul 2012 09:58:53 +0800
-Message-ID: <CAGCDX1nLbVKRYp-LQXv0DiYng2P1C8i_xBY+kdAemoKhyWe7Fw@mail.gmail.com>
-References: <CAGCDX1nndpdGHZzhh_Y+2OMLZvvUmAqkAsmgHu9hdUXTJFE--Q@mail.gmail.com>
-	<4F7AB9AC.8000708@openwrt.org>
-	<CAGCDX1=EHJY1C=-w_YazeC9ByP=4T+hj8bjvZ=cizziSfa1J3g@mail.gmail.com>
-	<CAGCDX1kZo5f8_BpMgq75o0EoTRh9X=VbH2-rXDBYoKdCosO+VQ@mail.gmail.com>
-	<CAGCDX1mVk-4JpjDhWxJdsssmXCM+NM8sPOPyjKBZwbqMj-UTvA@mail.gmail.com>
-	<CAGCDX1nqBEWbAMNPeUZyf3KdtmhjnVKesV6TXZ-QDtb83R7LBw@mail.gmail.com>
-	<CAKWjMd7dXeZ8jj-LXkaNWr62fEc1+D1jZkmW0fKsYcOGoxnCaA@mail.gmail.com>
-	<CAGCDX1=-5i8uX1zXCHzofuqFJLbj+zBrNWDgMEpx8o8+rENmYQ@mail.gmail.com>
-	<CAGCDX1=Y_UWpmo0RiexYh-MJ8v6wwXZ=14h+NS5cmi5Nboytow@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows SACK when bundling
+Date: Mon, 23 Jul 2012 22:27:47 -0400
+Message-ID: <42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com>
+References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com> <500CDE35.6000009@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
-To: Andy Fleming <afleming@gmail.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: xufengzhang.main@gmail.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xufeng zhang <xufeng.zhang@windriver.com>, sri@us.ibm.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:39542 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755189Ab2GXB6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 21:58:54 -0400
-Received: by yenl2 with SMTP id l2so6176151yen.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jul 2012 18:58:53 -0700 (PDT)
-In-Reply-To: <CAGCDX1=Y_UWpmo0RiexYh-MJ8v6wwXZ=14h+NS5cmi5Nboytow@mail.gmail.com>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:44270 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755012Ab2GXC1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jul 2012 22:27:51 -0400
+In-Reply-To: <500CDE35.6000009@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any comments will be appreciated.
-Thanks.
+xufeng zhang <xufeng.zhang@windriver.com> wrote:
 
-2012/7/13 Jason Lin <kernel.jason@gmail.com>:
-> Dear:
-> But I think there have some performance issues.
-> Because the phy should execute its own ISR only when the interrupt is
-> issued by phy.
-> This will cause some unnecessary MDIO access.
->
-> By the way, PHY_DUMMY_IRQ is defined in the platform definition file.
-> One should get PHY_DUMMY_IRQ by platform_get_irq function.
-> So the driver will look like this:
->
-> /*** platform related file ***************/
-> static struct resource mac_0_resources[] = {
->     {
->         .start  = MAC_PA_BASE,
->         .end    = MAC_PA_BASE + SZ_4K - 1,
->         .flags  = IORESOURCE_MEM,
->     }, {
->         .start  = IRQ_MAC,
->         .flags  = IORESOURCE_IRQ,
->     }, {
->         .start  = IRQ_PHY,
->         .flags  = IORESOURCE_IRQ,
->     },
-> };
->
->
-> /*** driver file ***************/
-> mydriver_probe(struct platform_device *pdev)
-> {
->     int mac_irq, phy_irq, i;
->
->     mac_irq = platform_get_irq(pdev, 0);
->     if (mac_irq < 0)
->         return mac_irq;
->
->     phy_irq = platform_get_irq(pdev, 1);
->     if (phy_irq < 0)
->         phy_irq = PHY_POLL;
->
->     for (i = 0; i < PHY_MAX_ADDR; i++)
->         priv->mii_bus->irq[i] = phy_irq;
-> }
->
-> mydriver_napi_poll(struct napi_struct *napi, int budget)
-> {
->     struct mydriver_priv *priv = = container_of(napi, struct
-> mydriver_priv, napi);
->     struct phy_device *phydev = priv->phydev;
->     unsigned int status = get_int_status();
->
-> #ifdef CONFIG_MAC_CONTROL_PHY_INT
->     if (status & PHY_INT) {
->         tasklet_schedule(&phydev->phy_task);
->     }
-> #endif
->
-> }
->
-> /**** phy lib modification ***************/
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 3cbda08..482f7e5 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -416,7 +416,7 @@ out_unlock:
->  }
->  EXPORT_SYMBOL(phy_start_aneg);
->
-> -
-> +static void phy_tasklet(unsigned long data);
->  static void phy_change(struct work_struct *work);
->
->  /**
-> @@ -523,10 +523,12 @@ static irqreturn_t phy_interrupt(int irq, void *phy_dat)
->      * context, so we need to disable the irq here.  A work
->      * queue will write the PHY to disable and clear the
->      * interrupt, and then reenable the irq line. */
-> -   disable_irq_nosync(irq);
-> +/* disable_irq_nosync(irq);
->     atomic_inc(&phydev->irq_disable);
->
-> -   schedule_work(&phydev->phy_queue);
-> +   schedule_work(&phydev->phy_queue);*/
-> +
-> +   tasklet_schedule(&phydev->phy_task);
->
->     return IRQ_HANDLED;
->  }
-> @@ -591,6 +593,7 @@ int phy_start_interrupts(struct phy_device *phydev)
->  {
->     int err = 0;
->
-> +   tasklet_init(&phydev->phy_task, phy_tasklet, (unsigned long)phydev);
->     INIT_WORK(&phydev->phy_queue, phy_change);
->
->     atomic_set(&phydev->irq_disable, 0);
-> @@ -633,6 +636,7 @@ int phy_stop_interrupts(struct phy_device *phydev)
->      * possibly pending and take care of the matter below.
->      */
->     cancel_work_sync(&phydev->phy_queue);
-> +   tasklet_kill(&phydev->phy_task);
->     /*
->      * If work indeed has been cancelled, disable_irq() will have
->      * been left unbalanced from phy_interrupt() and enable_irq()
-> @@ -645,7 +649,13 @@ int phy_stop_interrupts(struct phy_device *phydev)
->  }
->  EXPORT_SYMBOL(phy_stop_interrupts);
->
->
-> -
-> +static void phy_tasklet(unsigned long data)
-> +{
-> +   struct phy_device *phydev = (struct phy_device *)data;
-> +   disable_irq_nosync(phydev->irq);
-> +   atomic_inc(&phydev->irq_disable);
-> +   schedule_work(&phydev->phy_queue);
-> +}
->  /**
->   * phy_change - Scheduled by the phy_interrupt/timer to handle PHY changes
->   * @work: work_struct that describes the work to be done
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index c599f7e..04203a7 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -330,6 +330,7 @@ struct phy_device {
->     /* Interrupt and Polling infrastructure */
->     struct work_struct phy_queue;
->     struct delayed_work state_queue;
-> +   struct tasklet_struct phy_task;
->     atomic_t irq_disable;
->
->     struct mutex lock;
->
-> /*** end modification **********************************/
->
-> how about this modification?
-> F.Y.I.
-> Thanks.
->
-> 2012/7/13 Jason Lin <kernel.jason@gmail.com>:
->> Thank for your reply.
->> My case is the second one.
->> change request_irq with IRQF_SHARED, and assign the same MAC irq number to phy
->> (mii_bus->irq[i] = mac_irq)
->> This way can fix my issue.
+>On 07/19/2012 01:57 PM, xufengzhang.main@gmail.com wrote:
+>> When "Invalid Stream Identifier" ERROR happens after process the
+>> received DATA chunks, this ERROR chunk is enqueued into outqueue
+>> before SACK chunk, so when bundling ERROR chunk with SACK chunk,
+>> the ERROR chunk is always placed first in the packet because of
+>> the chunk's position in the outqueue.
+>> This violates sctp specification:
+>>      RFC 4960 6.5. Stream Identifier and Stream Sequence Number
+>>      ...The endpoint may bundle the ERROR chunk in the same
+>>      packet as the SACK as long as the ERROR follows the SACK.
+>> So we must place SACK first when bundling "Invalid Stream Identifier"
+>> ERROR and SACK in one packet.
+>> Although we can do that by enqueue SACK chunk into outqueue before
+>> ERROR chunk, it will violate the side-effect interpreter processing.
+>> It's easy to do this job when dequeue chunks from the outqueue,
+>> by this way, we introduce a flag 'has_isi_err' which indicate
+>> whether or not the "Invalid Stream Identifier" ERROR happens.
 >>
->> Thanks again.
+>> Signed-off-by: Xufeng Zhang<xufeng.zhang@windriver.com>
+>> ---
+>>   include/net/sctp/structs.h |    2 ++
+>>   net/sctp/output.c          |   26 ++++++++++++++++++++++++++
+>>   2 files changed, 28 insertions(+), 0 deletions(-)
 >>
->> 2012/7/13 Andy Fleming <afleming@gmail.com>:
->>> On Tue, Jul 10, 2012 at 8:32 PM, Jason Lin <kernel.jason@gmail.com> wrote:
->>>> Dear :
->>>> I describe my situation again.
->>>> In my hardware design, the interrupt (INT) pin of phy is connected to
->>>> the INT input pin of MAC.
->>>> In other words, one of triggering interrupt condition of MAC is
->>>> related to phy's interrupt.
->>>> So the phy will share the same "IRQ pin" with MAC.
->>>> As described above, the best solution is the INT pin of phy is
->>>> connected to architecture independently.
->>>> But, the hardware architecture cannot modify easily.
->>>> So I think
->>>> 1. We can assign dummy IRQ number (which is a empty IRQ number but
->>>> large than zero) to phy.
->>>> phydev->irq = PHY_DUMMY_IRQ (this value is depend on architecture)
->>>> 2. Change to do the soft IRQ in phy's ISR.
->>>>     To schedule workqueue in this soft IRQ.
->>>> In this way, the MAC can schedule phy's soft IRQ to do phy's work
->>>> queue (to do ack phy's interrupt ... etc).
->>>>
->>>> Dose it make sense?
->>>>
->>>
->>> If PHY_IGNORE_INTERRUPT doesn't currently work to allow a MAC's driver
->>> to manage PHY interrupts, then we need to fix PHY Lib to support this
->>> correctly. PHY_IGNORE_INTERRUPT was meant for this purpose. We don't
->>> want to start defining interrupt numbers which may conflict with real
->>> numbers, and have to be constantly re-defined by various systems to
->>> avoid that.
->>>
->>> Your notion of making the phy_enable_interrupts() and
->>> phy_disable_interrupts() code available to the MAC drivers sounds like
->>> the right approach to me. But you might want to implement your own
->>> version. The biggest problem with PHY interrupts is that masking them
->>> requires an MDIO transaction, which is *slow*. If you can mask the
->>> interrupt by writing a bit in a memory-mapped register, it's far
->>> better to do it that way, at interrupt time, and *then* schedule the
->>> PHY code to be run from a work queue. However, your driver probably
->>> already *does* have a workqueue of some sort. If so, what you should
->>> probably do is implement a new version of phy_change(), that doesn't
->>> have to deal with the weird PHY interrupt masking issues. Something
->>> like this:
->>>
->>> mydriver_phy_change(struct mydriver_priv *priv)
->>> {
->>>         int err;
->>>         struct phy_device *phydev = priv->phydev;
->>>
->>>         if (phydev->drv->did_interrupt &&
->>>             !phydev->drv->did_interrupt(phydev))
->>>                 goto ignore;
->>>
->>>         err = phy_disable_interrupts(phydev);
->>>
->>>         if (err)
->>>                 goto phy_err;
->>>
->>>         mutex_lock(&phydev->lock);
->>>         if ((PHY_RUNNING == phydev->state) || (PHY_NOLINK == phydev->state))
->>>                 phydev->state = PHY_CHANGELINK;
->>>         mutex_unlock(&phydev->lock);
->>>
->>>         /* Reenable interrupts */
->>>         if (PHY_HALTED != phydev->state)
->>>                 err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
->>>
->>>         if (err)
->>>                 goto irq_enable_err;
->>>
->>>         /* reschedule state queue work to run as soon as possible */
->>>         cancel_delayed_work_sync(&phydev->state_queue);
->>>         schedule_delayed_work(&phydev->state_queue, 0);
->>>
->>>         return;
->>>
->>> ignore:
->>>         return;
->>>
->>> irq_enable_err:
->>> phy_err:
->>>         phy_error(phydev);
->>> }
->>>
->>>
->>> Of course, now I re-read your question, and I'm not sure I've
->>> interpreted it correctly. Are you saying your MAC has control of the
->>> PHY interrupt (ie - the interrupt sets a bit in some event register in
->>> your MAC, and you can MASK/ACK it from your driver), or that the PHY
->>> shares the same interrupt pin?
->>>
->>> If it's the second one, you don't need to do anything, but allow your
->>> MAC driver to register its interrupt as a shared interrupt, and allow
->>> the PHY to manage its own interrupts, as usual.
->>>
->>> Andy
+>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+>> index 88949a9..5adf4de 100644
+>> --- a/include/net/sctp/structs.h
+>> +++ b/include/net/sctp/structs.h
+>> @@ -842,6 +842,8 @@ struct sctp_packet {
+>>   	    has_sack:1,		/* This packet contains a SACK chunk. */
+>>   	    has_auth:1,		/* This packet contains an AUTH chunk */
+>>   	    has_data:1,		/* This packet contains at least 1 DATA chunk */
+>> +	    has_isi_err:1,	/* This packet contains a "Invalid Stream
+>> +				 * Identifier" ERROR chunk */
+>>   	    ipfragok:1,		/* So let ip fragment this packet */
+>>   	    malloced:1;		/* Is it malloced? */
+>>   };
+>> diff --git a/net/sctp/output.c b/net/sctp/output.c
+>> index 817174e..77fb1ae 100644
+>> --- a/net/sctp/output.c
+>> +++ b/net/sctp/output.c
+>> @@ -79,6 +79,7 @@ static void sctp_packet_reset(struct sctp_packet
+>*packet)
+>>   	packet->has_sack = 0;
+>>   	packet->has_data = 0;
+>>   	packet->has_auth = 0;
+>> +	packet->has_isi_err = 0;
+>>   	packet->ipfragok = 0;
+>>   	packet->auth = NULL;
+>>   }
+>> @@ -267,6 +268,7 @@ static sctp_xmit_t sctp_packet_bundle_sack(struct
+>sctp_packet *pkt,
+>>   sctp_xmit_t sctp_packet_append_chunk(struct sctp_packet *packet,
+>>   				     struct sctp_chunk *chunk)
+>>   {
+>> +	struct sctp_chunk *lchunk;
+>>   	sctp_xmit_t retval = SCTP_XMIT_OK;
+>>   	__u16 chunk_len = WORD_ROUND(ntohs(chunk->chunk_hdr->length));
+>>
+>> @@ -316,7 +318,31 @@ sctp_xmit_t sctp_packet_append_chunk(struct
+>sctp_packet *packet,
+>>   		packet->has_cookie_echo = 1;
+>>   		break;
+>>
+>> +	    case SCTP_CID_ERROR:
+>> +		if (chunk->subh.err_hdr->cause&  SCTP_ERROR_INV_STRM)
+>> +			packet->has_isi_err = 1;
+>> +		break;
+>> +
+>>   	    case SCTP_CID_SACK:
+>> +		/* RFC 4960
+>> +		 * 6.5 Stream Identifier and Stream Sequence Number
+>> +		 * The endpoint may bundle the ERROR chunk in the same
+>> +		 * packet as the SACK as long as the ERROR follows the SACK.
+>> +		 */
+>> +		if (packet->has_isi_err) {
+>> +			if (list_is_singular(&packet->chunk_list))
+>> +				list_add(&chunk->list,&packet->chunk_list);
+>> +			else {
+>> +				lchunk = list_first_entry(&packet->chunk_list,
+>> +						struct sctp_chunk, list);
+>> +				list_add(&chunk->list,&lchunk->list);
+>> +			}
+>>    
+>And I should clarify the above judgment code.
+>AFAIK, there should be two cases for the bundling when invalid stream 
+>identifier error happens:
+>1). COOKIE_ACK ERROR SACK
+>2). ERROR SACK
+>So I need to deal with the two cases differently.
+>
+
+Sorry but I just don't buy that the above are the only 2 cases.  What if there are addip chunks as well?  What if there are some other extensions also.  This code has to be generic enough to handle any condition.
+
+- vlad
+
+>
+>Thanks,
+>Xufeng Zhang
+>> +			packet->size += chunk_len;
+>> +			chunk->transport = packet->transport;
+>> +			packet->has_sack = 1;
+>> +			goto finish;
+>> +		}
+>> +
+>>   		packet->has_sack = 1;
+>>   		break;
+>>
+>>    
+
+
+-- 
+Sent from my Android phone with SkitMail. Please excuse my brevity.
