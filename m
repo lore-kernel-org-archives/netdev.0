@@ -1,48 +1,47 @@
-From: Dave Jones <davej@redhat.com>
-Subject: broken nat on linus' latest tree.
-Date: Wed, 25 Jul 2012 13:44:33 -0400
-Message-ID: <20120725174433.GA4462@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52228 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751219Ab2GYRoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jul 2012 13:44:37 -0400
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id q6PHiavf004534
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 13:44:37 -0400
-Received: from gelk.kernelslacker.org (ovpn-112-42.phx2.redhat.com [10.3.112.42])
-	by int-mx10.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id q6PHiYUK026363
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 13:44:36 -0400
-Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.5/8.14.5) with ESMTP id q6PHiXKG005670
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 13:44:33 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id q6PHiXfB005668
-	for netdev@vger.kernel.org; Wed, 25 Jul 2012 13:44:33 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,1/2] hyperv: Add a check for ring_size value
+Date: Wed, 25 Jul 2012 11:08:41 -0700
+Message-ID: <1343239722-21328-1-git-send-email-haiyangz@microsoft.com>
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I put Linus' latest tree on my firewall, and found that none 
-of the machines in my house can talk to the net any more.
+It prevents ring_size being set to a too small value.
 
-The setup is pretty basic.  eth0 talks to the cable modem,
-eth1 talks to lan. ip masq between them.
+Reported-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-Running tcpdump, when I run a ping from another machine to the internet,
-I see icmp requests arriving on eth1.
-I see those requests and their replies going in/out of eth0, but I don't
-see the replies being forwarded back to eth1.
-
-(It happens with all traffic, not just icmp).
-
-3.5 works, this is a post-merge regression.
-
-Any ideas ?
-
-	Dave
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 8e23c08..8c5a1c4 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -47,7 +47,7 @@ struct net_device_context {
+ 	struct work_struct work;
+ };
+ 
+-
++#define RING_SIZE_MIN 64
+ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+@@ -518,6 +518,11 @@ static void __exit netvsc_drv_exit(void)
+ 
+ static int __init netvsc_drv_init(void)
+ {
++	if (ring_size < RING_SIZE_MIN) {
++		ring_size = RING_SIZE_MIN;
++		pr_info("Increased ring_size to %d (min allowed)\n",
++			ring_size);
++	}
+ 	return vmbus_driver_register(&netvsc_drv);
+ }
+ 
+-- 
+1.7.4.1
