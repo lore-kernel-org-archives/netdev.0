@@ -1,71 +1,52 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH RESEND net] net/mlx4_en: Limit the RFS filter IDs to be < RPS_NO_FILTER
-Date: Wed, 25 Jul 2012 17:36:19 +0300
-Message-ID: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, oren@mellanox.com,
-	Amir Vadai <amirv@mellanox.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Shlomo Pongartz <shlomop@mellanox.com>
+Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Date: Wed, 25 Jul 2012 17:38:22 +0300
+Message-ID: <501004DE.6050300@mellanox.com>
+References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <20120724.140353.1432900101600410863.davem@davemloft.net> <CAJZOPZKUw7DQQH5mFq4XK5GOZ_Wj6JmjFYi6no7aL_UrpO10vw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <klebers@linux.vnet.ibm.com>,
+	<netdev@vger.kernel.org>, <jackm@dev.mellanox.co.il>,
+	<yevgenyp@mellanox.co.il>, <ogerlitz@mellanox.com>,
+	<cascardo@linux.vnet.ibm.com>, <brking@linux.vnet.ibm.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:39879 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933176Ab2GYOg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:36:26 -0400
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:48353 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933148Ab2GYOip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:38:45 -0400
+In-Reply-To: <CAJZOPZKUw7DQQH5mFq4XK5GOZ_Wj6JmjFYi6no7aL_UrpO10vw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-
-RFS filter id can't have the special value RPS_NO_FILTER, 
-need to skip it when allocating id's.
-
-Also, changed an ifdef into a more elegant IS_DEFINED.
-
-CC: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
-
-Addressing feedback from Ben Hutchings
-
-resending as of typo in my signature... sorry
-
- drivers/net/ethernet/mellanox/mlx4/en_cq.c     |    8 ++------
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
- 2 files changed, 3 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index aa9c2f6..866829b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -77,12 +77,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	int err = 0;
- 	char name[25];
--	struct cpu_rmap *rmap =
--#ifdef CONFIG_RFS_ACCEL
--		priv->dev->rx_cpu_rmap;
--#else
--		NULL;
--#endif
-+	struct cpu_rmap *rmap = IS_ENABLED(CONFIG_RFS_ACCEL) ?
-+		priv->dev->rx_cpu_rmap : NULL;
- 
- 	cq->dev = mdev->pndev[priv->port];
- 	cq->mcq.set_ci_db  = cq->wqres.db.db;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 8864d8b..edd9cb8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -201,7 +201,7 @@ mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
- 
- 	filter->flow_id = flow_id;
- 
--	filter->id = priv->last_filter_id++;
-+	filter->id = priv->last_filter_id++ % RPS_NO_FILTER;
- 
- 	list_add_tail(&filter->next, &priv->filters);
- 	hlist_add_head(&filter->filter_chain,
--- 
-1.7.8.2
+On 7/25/2012 1:30 AM, Or Gerlitz wrote:
+> On Wed, Jul 25, 2012 at 12:03 AM, David Miller <davem@davemloft.net> wrote:
+>
+>> Or, you promised an ACK today, I still haven't seen it.
+> It turned out that reacted we did, but not the ACK way.
+>
+> Again, code review wise, we intended to ack it, but Shlomo has set
+> testing environment, under which he had some issues with the patch, as
+> such he preferred not to ACK it but rather bring up the issues on the
+> list and sort them out 1st. I thought it would be wrong to over-rule
+> this preference of him, and this way is fair-enough with the author
+> and your guide-lines, maybe I had to be more aggressive with ACKing
+> this, as of the merge window closing coming. So tomorrow.
+>
+> Or.
+>
+>> There is no reason Kleber should be penalized and have his work
+>> miss the merge window just because you guys can't be bothered
+>> to approve this patch in a reasonable amount of time.
+>>
+>> Therefore I'm just going to apply it later today, and don't do this
+>> with someone's submission ever again, it impedes progress and
+>> frustrates contributors.
+> .
+>
+The code looks fine and can be merged.
+We will continue to test it under various conditions.
+Sorry for the delay.
+Thank you.
+Shlomo Pongratz.
