@@ -1,17 +1,17 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Limit the RFS filter IDs to be < RPS_NO_FILTER
-Date: Wed, 25 Jul 2012 17:35:07 +0300
-Message-ID: <1343226907-31645-1-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH RESEND net] net/mlx4_en: Limit the RFS filter IDs to be < RPS_NO_FILTER
+Date: Wed, 25 Jul 2012 17:36:19 +0300
+Message-ID: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, oren@mellanox.com,
 	Amir Vadai <amirv@mellanox.com>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	Or Gerliz <ogerlitz@mellanox.com>
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:56567 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933148Ab2GYOfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:35:23 -0400
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:39879 "HELO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933176Ab2GYOg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:36:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,10 +24,12 @@ Also, changed an ifdef into a more elegant IS_DEFINED.
 
 CC: Ben Hutchings <bhutchings@solarflare.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
-Signed-off-by: Or Gerliz <ogerlitz@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
 
 Addressing feedback from Ben Hutchings
+
+resending as of typo in my signature... sorry
 
  drivers/net/ethernet/mellanox/mlx4/en_cq.c     |    8 ++------
  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
