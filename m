@@ -1,119 +1,130 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC ETHTOOL PATCH 2/2] ethtool: allow setting MDI-X state
-Date: Wed, 25 Jul 2012 23:59:02 +0100
-Message-ID: <1343257142.5132.160.camel@deadeye.wl.decadent.org.uk>
-References: <20120725174351.9839.132.stgit@jbrandeb-snb.jf.intel.com>
-	 <20120725175308.9839.50343.stgit@jbrandeb-snb.jf.intel.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Wed, 25 Jul 2012 16:02:45 -0700
+Message-ID: <CAKgT0UdcqE52WFCT-t2om0SN3Yq5GqiwN+JbwCcnBv4LDOB6BQ@mail.gmail.com>
+References: <20120720.142502.1144557295933737451.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:19485 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750975Ab2GYW7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:59:06 -0400
-In-Reply-To: <20120725175308.9839.50343.stgit@jbrandeb-snb.jf.intel.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:35811 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750975Ab2GYXCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 19:02:46 -0400
+Received: by vbbff1 with SMTP id ff1so1102907vbb.19
+        for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 16:02:45 -0700 (PDT)
+In-Reply-To: <20120720.142502.1144557295933737451.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-25 at 10:53 -0700, Jesse Brandeburg wrote:
-> A bit ago ethtool added support for reading MDI-X state, this
-> patch finishes the implementation, adding the complementary write
-> command.
-> 
-> Add support to ethtool for controlling the MDI-X (crossover)
-> state of a network port.  Most adapters correctly negotiate
-> MDI-X, but some ill-behaved switches have trouble and end up
-> picking the wrong MDI setting, which results in complete loss of
-> link.  Usually this error condition can be observed when multiple
-> ethtool -r ethX are required before link is achieved.
-> 
-> This patch allows the user to override the normal "auto" setting
-> and force the crossover state to on or off.
-> 
-> The set will fail if the driver doesn't support the get, as
-> suggested by Ben Hutchings.
-> 
-> # ./ethtool -s p1p1 mdix off
-> setting MDI not supported
-> 
-> In addition the do_gset output was changed slightly to report the
-> value set by the user (when the driver supports the set)
-> 
-> old:
-> MDI-X: on
-> 
-> new:
-> MDI-X: on (auto)
-> or
-> MDI-X: on (forced)
-> 
-> usage is ethtool -s eth0 mdix [auto|on|off]
-[...]
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -18,6 +18,8 @@
->   * Rx Network Flow Control configuration support <santwona.behera@sun.com>
->   * Various features by Ben Hutchings <bhutchings@solarflare.com>;
->   *	Copyright 2009, 2010 Solarflare Communications
-> + * MDI-X set support by Jesse Brandeburg <jesse.brandeburg@intel.com>
-> + * 	Copyright 2012 Intel Corporation
->   *
->   * TODO:
->   *   * show settings for all devices
-> @@ -559,13 +561,29 @@ static int dump_ecmd(struct ethtool_cmd *ep)
->  		fprintf(stdout, "	MDI-X: ");
->  		switch (ep->eth_tp_mdix) {
->  		case ETH_TP_MDI:
-> -			fprintf(stdout, "off\n");
-> +			fprintf(stdout, "off");
->  			break;
->  		case ETH_TP_MDI_X:
-> -			fprintf(stdout, "on\n");
-> +			fprintf(stdout, "on");
->  			break;
->  		default:
-> -			fprintf(stdout, "Unknown\n");
-> +			fprintf(stdout, "Unknown");
-> +			break;
-> +		}
-> +		switch (ep->eth_tp_mdix_ctrl) {
-> +		case ETH_TP_MDI:
-> +		case ETH_TP_MDI_X:
-> +			/* forced via sset */
-> +			fprintf(stdout, " (forced)\n");
-[...]
+On Fri, Jul 20, 2012 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
+>
+> [ Ok I'm going to be a little bit cranky, and I think I deserve it.
+>
+>   I'm basically not going to go through the multi-hour rebase and
+>   retest process again, as it's hit the point of diminishing returns
+>   as NOBODY is giving me test results but I can guarentee that
+>   EVERYONE will bitch and complain when I push this into net-next and
+>   it breaks their favorite feature.  If you can't be bothered to test
+>   these changes, I'm honestly going to tell people to take a hike and
+>   fix it themselves.  I simply don't care if you don't care enough to
+>   test changes of this magnitude to make sure your favorite setup
+>   still works.
+>
+>   To say that I'm disappointed with the amount of testing feedback
+>   after posting more than a dozen iterations of this delicate patch
+>   set would be an understatement.  I can think of only one person who
+>   actually tested one iteration of these patches and gave feedback.
+>
+>   And meanwhile I've personally reviewed, tested, and signed off on
+>   everyone else's work WITHOUT DELAY during this entire process.
+>
+>   I've pulled 25 hour long hacking shifts to make that a reality, so
+>   that my routing cache removal work absolutely would not impact or
+>   delay the patch submissions of any other networking developer.  And
+>   I can't even get a handful of testers with some feedback?  You
+>   really have to be kidding me.. ]
 
-How about when you have a forced mode but the driver reports eth_tp_mdix
-= ETH_TP_MDI_INVALID because the link is down?  This is going to result
-in:
+Sorry for not responding sooner but I have been on vacation for the
+last few days.
 
-        MDI-X: Unknown (forced)
+I had been testing the patches over the last couple of weeks but I
+didn't really feel like I could provide any input of value since I
+don't have a strong understanding of the routing stack internals, and
+because my test case tends to focus on small packet routing with a
+very artificial work flow.  I saw an overall drop in performance.  I
+had attributed to the fact that with so few flows I was exploiting the
+routing cache to it's maximum potential, and had not explored it much
+further.
 
-which makes no sense at all.  So I think that we have to do something
-like:
+My test consists of a SmartBits w/ a 10Gb/s port connected back to
+back with one port on an 82599 adapter.  I have the SmartBits
+generating up to 16 64byte packet flows, each flow is filtered through
+an ntuple filter to a specific queue, and each queue is pinned to a
+specific CPU.  The flows all have a unique source address but the same
+destination address.  The port doing the routing has two subnets.  We
+receive packets on the first subnet and then transmit them back out on
+the second.  I have set-up a static ARP entry for the destination
+address in order to avoid the need for ARP address translation since
+we are sending such a heavy packet load.  My kernel config is stripped
+down and does not include netfilter support.
 
-	if (ep->eth_tp_mdix_ctrl == ETH_TP_MDI) {
-		fprintf(stdout, "off (forced)\n");
-	} else if (ep->eth_tp_mdix_ctrl == ETH_TP_MDI_X) {
-		fprintf(stdout, "on (forced)\n");
-	} else {
-		switch (ep->eth_tp_mdix) {
-			...
-		}
-		if (ep->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
-			fprintf(stdout, " (auto)");
-		fprintf(stdout, "\n");
-	}
+Since your patches are in I have started to re-run my tests. I am
+seeing a significant drop in throughput with 8 flows which I expected,
+however it looks like one of the biggest issues I am seeing is that
+the dst_hold and dst_release calls seem to be causing some serious
+cache thrash.  I was at 12.5Mpps w/ 8 flows before the patches, after
+your patches it drops to 8.3Mpps.  If I increase the number of queues
+I am using to 16 the throughput drops off to something like 3.3Mpps.
+Prior to your patches being applied the top 3 CPU consumers were
+ixgbe_poll at around 10%, ixgbe_xmit_frame_ring at around 5%, and
+__netif_receive_skb at around 5%.  Below is the latest perf results
+for 8 flows/queues after your patches:
+    14.52%  [k] __write_lock_failed
+    10.68%  [k] ip_route_input (75% of hits on dst_hold call)
+    10.18%  [k] fib_table_lookup
+     6.04%  [k] ixgbe_poll
+     5.80%  [k] dst_release
+     4.14%  [k] __netif_receive_skb
+     3.55%  [k] _raw_spin_lock
+     2.84%  [k] ip_forward
+     2.58%  [k] ixgbe_xmit_frame_ring
 
-Or else we require that when the mode is forced then drivers report that
-as the current status even if the link is down.
+I am also seeing routing fail periodically.  I will be moving at rates
+listed above and suddenly drop to single digits packets per second.
+When this occurs the trace completely changes and __write_lock_failed
+jumps to over 90% of the CPU cycles.  It seems to occur more often if
+I increase the number of CPUs in use while routing.  Below is the call
+graph I recorded for the function from perf to show the function calls
+that are leading to the issue:
+    14.52%  [k] __write_lock_failed
+            |
+            |--99.92%-- _raw_write_lock_bh
+            |          __neigh_event_send
+            |          neigh_resolve_output
+            |          ip_finish_output
+            |          ip_output
+            |          ip_forward
+            |          ip_rcv
+            |          __netif_receive_skb
+            |          netif_receive_skb
+            |          napi_skb_finish
+            |          napi_gro_receive
+            |          ixgbe_poll
+            |          net_rx_action
+            |          __do_softirq
+            |          run_ksoftirqd
+            |          kthread
+            |          kernel_thread_helper
+             --0.08%-- [...]
 
-Ben.
+I am trying to figure out what can be done, but as I said I am not
+that familiar with the internals of the IP routing stack itself.  If
+you need more data let me know and I can see about performing whatever
+test, or altering my configuration as needed.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+
+Alex
