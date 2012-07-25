@@ -1,103 +1,98 @@
 From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
  SACK when bundling
-Date: Wed, 25 Jul 2012 07:15:37 -0400
-Message-ID: <20120725111537.GA4366@hmsreliant.think-freely.org>
+Date: Wed, 25 Jul 2012 07:27:01 -0400
+Message-ID: <20120725112701.GB4366@hmsreliant.think-freely.org>
 References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>
- <20120723004932.GB8040@neilslaptop.think-freely.org>
- <500CB74A.4040300@windriver.com>
- <20120723121411.GC16518@hmsreliant.think-freely.org>
- <500DFF5A.20203@windriver.com>
- <20120724113802.GA30142@hmsreliant.think-freely.org>
- <CA+=dFzjW_=T6DwtRrSCxjzE9HKKvpQ=LUmGpAggJEujZT+VX+g@mail.gmail.com>
+ <500CDE35.6000009@windriver.com>
+ <42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com>
+ <500E1057.3020509@windriver.com>
+ <75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>
+ <CA+=dFzg=Bpsv5bMzECoAXYVcbD95eYy6xDAzL6fwiHrunfq-tg@mail.gmail.com>
+ <e7f8a685-9635-4aa9-bd67-1044e0720b29@email.android.com>
+ <CA+=dFzifKwbiXmw=pu0+rWmz72+4jsbv6bXOBHyL0LmxaL9byg@mail.gmail.com>
+ <CA+=dFzgXq3Sx-Ny+6oDZ3BEdsMQCgswNEVPVnhmhedHFvazzWw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xufeng zhang <xufeng.zhang@windriver.com>, vyasevich@gmail.com,
-	sri@us.ibm.com, davem@davemloft.net, linux-sctp@vger.kernel.org,
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	xufeng zhang <xufeng.zhang@windriver.com>, sri@us.ibm.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Xufeng Zhang <xufengzhang.main@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CA+=dFzjW_=T6DwtRrSCxjzE9HKKvpQ=LUmGpAggJEujZT+VX+g@mail.gmail.com>
+In-Reply-To: <CA+=dFzgXq3Sx-Ny+6oDZ3BEdsMQCgswNEVPVnhmhedHFvazzWw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 25, 2012 at 10:34:32AM +0800, Xufeng Zhang wrote:
-> On 7/24/12, Neil Horman <nhorman@tuxdriver.com> wrote:
-> > On Tue, Jul 24, 2012 at 09:50:18AM +0800, xufeng zhang wrote:
-> >> On 07/23/2012 08:14 PM, Neil Horman wrote:
-> >> >On Mon, Jul 23, 2012 at 10:30:34AM +0800, xufeng zhang wrote:
-> >> >>On 07/23/2012 08:49 AM, Neil Horman wrote:
-> >> >>>Not sure I understand how you came into this error.  If we get an
-> >> >>> invalid
-> >> >>>stream, we issue an SCTP_REPORT_TSN side effect, followed by an
-> >> >>> SCTP_CMD_REPLY
-> >> >>>which sends the error chunk.  The reply goes through
-> >> >>>sctp_outq_tail->sctp_outq_chunk->sctp_outq_transmit_chunk->sctp_outq_append_chunk.
-> >> >>>That last function checks to see if a sack is already part of the
-> >> >>> packet, and if
-> >> >>>there isn't one, appends one, using the updated tsn map.
-> >> >>Yes, you are right, but consider the invalid stream identifier's
-> >> >>DATA chunk is the first
-> >> >>DATA chunk in the association which will need SACK immediately.
-> >> >>Here is what I thought of the scenario:
-> >> >>     sctp_sf_eat_data_6_2()
-> >> >>         -->sctp_eat_data()
-> >> >>             -->sctp_make_op_error()
-> >> >>             -->sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-> >> >> SCTP_CHUNK(err))
-> >> >>             -->sctp_outq_tail()          /* First enqueue ERROR chunk
-> >> >> */
-> >> >>         -->sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, SCTP_FORCE())
-> >> >>             -->sctp_gen_sack()
-> >> >>                 -->sctp_make_sack()
-> >> >>                 -->sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-> >> >>SCTP_CHUNK(sack))
-> >> >>                 -->sctp_outq_tail()          /* Then enqueue SACK chunk
-> >> >> */
-> >> >>
-> >> >>So SACK chunk is enqueued after ERROR chunk.
-> >> >Ah, I see.  Since the ERROR and SACK chunks are both control chunks, and
-> >> > since
-> >> >we explicitly add the SACK to the control queue instead of going through
-> >> > the
-> >> >bundle path in sctp_packet_append_chunk the ordering gets wrong.
-> >> >
-> >> >Ok, so the problem makes sense.  I think the soultion could be alot
-> >> > easier
-> >> >though.  IIRC SACK chunks always live at the head of a packet, so why not
-> >> > just
-> >> >special case it in sctp_outq_tail?  I.e. instead of doing a
-> >> > list_add_tail, in
-> >> >the else clause of sctp_outq_tail check the chunk_hdr->type to see if
-> >> > its
-> >> >SCTP_CID_SACK.  If it is, use list_add_head rather than list_add_tail.  I
-> >> > think
-> >> >that will fix up both the COOKIE_ECHO and ESTABLISHED cases, won't it?
-> >> > And then
-> >> >you won't have keep track of extra state in the packet configuration.
-> >> Yes, it's a good idea, but I think the premise is not correct:
-> >> RFC 4960 page 57:
-> >> "D) Upon reception of the COOKIE ECHO chunk, endpoint "Z" will reply
-> >>    with a COOKIE ACK chunk after building a TCB and moving to the
-> >>    ESTABLISHED state. A COOKIE ACK chunk may be bundled with any
-> >>    pending DATA chunks (and/or SACK chunks), *but the COOKIE ACK chunk
-> >>    MUST be the first chunk in the packet*."
+On Wed, Jul 25, 2012 at 05:22:19PM +0800, Xufeng Zhang wrote:
+> On 7/25/12, Xufeng Zhang <xufengzhang.main@gmail.com> wrote:
+> > On 7/25/12, Vlad Yasevich <vyasevich@gmail.com> wrote:
 > >>
-> >> So we can't put SACK chunk always at the head of the packet.
+> >> Actually not true.  AUTH can be before SACK.  So can any addip chunks
+> >> that
+> >> aid in locating an association.
 > >>
-> > Ok, Fair point, but that just changes the ordering a bit to:
-> > COOKIE_ACK
-> > SACK
-> > OTHER CONTROL CHUNKS
-> >
-> > What about something like this?  Its completely untested, and I'm sure it
-> > can be
-> > cleaned up a bunch, but this keeps us from having to add additional state to
-> > the
-> > packet structure.
-> Yeah! I like this modification, thank you very much for your work!
-> I'll try to send a V2 patch based on your changes and run some tests.
+> >> Now AUTH isn't a big issue since its autogenerated to the packet but
+> >> ADDIP
+> >> is since it could be queued up for retransmission.
+> >>
+> >> There could be other extensions as well.  It really needs to be done
+> >> either
+> >> through side effects or making error chunks go at the end of other
+> >> control
+> >> chunks.  Need to audit the spec to see if that's ok.
+> > You are right, I just found SHUTDOWN chunks are also before SACK based on
+> > your commit "[SCTP]: Fix SACK sequence during shutdown".
+> > Maybe the only solution is to do some work on side effects just as you
+> > said.
+> > Thanks for your explanation!
 > 
-Awesome, thank you!
+> And after take a moment to look into the relative codes, I think we
+> can implement it
+> by below way:
+> 1). Add a flag(isi_err_needed) in the embedded struct peer of struct
+> struct sctp_association
+> just like sack_needed flag.
+> 2). When "invalid stream identifier" ERROR happens in sctp_eat_data()
+> function, we just
+> set isi_err_needed flag and don't create ERROR chunk and also don't
+> insert SCTP_CMD_REPLY command.
+> 3). In sctp_gen_sack() function, we create ERROR chunk and also insert
+> SCTP_CMD_REPLY command if isi_err_needed flag is set.
+> 
+> Is this way proper?
+> 
+That would probably work yes.  Another way might just be to do some re-ordering
+in sctp_outq_flush.  Before processing the control chunk list, scan it, and:
+1) move all error chunks to the head of the list
+2) move all sack chunks to the head of the list
+3) move all shutdown chunks to the head of the list
+
+You can do that in a single iteration of the list if you use a few on-stack
+lists and list_splice
+
 Neil
+
+> 
+> Thanks,
+> Xufeng Zhang
+> >
+> >
+> >
+> > Thanks,
+> > Xufeng Zhang
+> >>
+> >> -vlad
+> >>>
+> >>>Thanks,
+> >>>Xufeng Zhang
+> >>>>
+> >>>> -vlad
+> >>
+> >>
+> >> --
+> >> Sent from my Android phone with SkitMail. Please excuse my brevity.
+> >>
+> >
+> 
