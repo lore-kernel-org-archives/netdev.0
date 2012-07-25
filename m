@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: Re: [PATCH RESEND net] net/mlx4_en: Limit the RFS filter IDs to be
  < RPS_NO_FILTER
-Date: Wed, 25 Jul 2012 15:57:10 +0100
-Message-ID: <1343228230.2694.12.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Wed, 25 Jul 2012 15:57:26 +0100
+Message-ID: <1343228246.2694.13.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,10 +11,10 @@ Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<oren@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:65349 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:65356 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S964774Ab2GYO5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:57:15 -0400
+	by vger.kernel.org with ESMTP id S1030205Ab2GYO5a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:57:30 -0400
 In-Reply-To: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -59,7 +59,7 @@ On Wed, 2012-07-25 at 17:36 +0300, Or Gerlitz wrote:
 > +	struct cpu_rmap *rmap = IS_ENABLED(CONFIG_RFS_ACCEL) ?
 > +		priv->dev->rx_cpu_rmap : NULL;
 
-This is a separate change.
+This ought to be a separate change really.
  
 >  	cq->dev = mdev->pndev[priv->port];
 >  	cq->mcq.set_ci_db  = cq->wqres.db.db;
