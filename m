@@ -1,95 +1,71 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [RFC NET-NEXT PATCH 3/6] igb: implement 580 MDI setting support
-Date: Wed, 25 Jul 2012 11:00:15 -0700
-Message-ID: <20120725180015.9995.45906.stgit@jbrandeb-snb.jf.intel.com>
-References: <20120725175430.9995.11370.stgit@jbrandeb-snb.jf.intel.com>
+From: Sri Ram Vemulpali <sri.ram.gmu06@gmail.com>
+Subject: orphan process is causing deadlock in __kernel_vsyscall ()
+Date: Wed, 25 Jul 2012 17:14:28 -0400
+Message-ID: <CALyraeOQZ+FPTqaOk6XjHsZwwCfNuo2XLo6bhw44maSEkDf7tA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, jesse.brandeburg@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45999 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751853Ab2GYUwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jul 2012 16:52:03 -0400
-In-Reply-To: <20120725175430.9995.11370.stgit@jbrandeb-snb.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: linux-kernel-mail <linux-kernel@vger.kernel.org>,
+	linux-newbie@vger.kernel.org, linux-netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-in order for igb to support MDI setting support via
-ethtool this code is needed to allow setting the MDI state
-via software.
+Hello All,
 
-This is in regards to the related ethtool patch
+I am debugging a problem which I do not know how to solve. I know what
+is happening, but cannot find solution to it. If anyone has any
+suggestions or solution that would be really grateful and I appreciate
+it.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
+Here is the description.
 
- drivers/net/ethernet/intel/igb/e1000_phy.c |   29 ++++++++++++++++++++++++++--
- drivers/net/ethernet/intel/igb/e1000_phy.h |    5 +++--
- 2 files changed, 30 insertions(+), 4 deletions(-)
+I have a thread which spawns a child process using fork() and in child
+context it execv to shell and parent thread waits on waitpid(). This
+child process is nothing but a shell /bin/sh, so that from program I
+can create shell and run some commands.
+In this shell instance, I run tshark for capturing network traffic. I
+have really high traffic going, so system is really busy. All is good
+so far, but when I send SIGKILL to child process (shell) from another
+thread from same application,
+child process (shell) gets terminated and tshark is assigned to
+init(1) process as orphan. The parent thread which spawned the child
+process unblocks from waitpid() after cleaning child instance and
+continues it execution.
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 7be98b6..3404bc7 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -464,6 +464,32 @@ s32 igb_copper_link_setup_82580(struct e1000_hw *hw)
- 	phy_data |= I82580_CFG_ENABLE_DOWNSHIFT;
- 
- 	ret_val = phy->ops.write_reg(hw, I82580_CFG_REG, phy_data);
-+	if (ret_val)
-+		goto out;
-+
-+	/* Set MDI/MDIX mode */
-+	ret_val = phy->ops.read_reg(hw, I82580_PHY_CTRL_2, &phy_data);
-+	if (ret_val)
-+		goto out;
-+	phy_data &= ~I82580_PHY_CTRL2_MDIX_CFG_MASK;
-+	/*
-+	 * Options:
-+	 *   0 - Auto (default)
-+	 *   1 - MDI mode
-+	 *   2 - MDI-X mode
-+	 */
-+	switch (hw->phy.mdix) {
-+	case 1:
-+		break;
-+	case 2:
-+		phy_data |= I82580_PHY_CTRL2_MANUAL_MDIX;
-+		break;
-+	case 0:
-+	default:
-+		phy_data |= I82580_PHY_CTRL2_AUTO_MDI_MDIX;
-+		break;
-+	}
-+	ret_val = hw->phy.ops.write_reg(hw, I82580_PHY_CTRL_2, phy_data);
- 
- out:
- 	return ret_val;
-@@ -2246,8 +2272,7 @@ s32 igb_phy_force_speed_duplex_82580(struct e1000_hw *hw)
- 	if (ret_val)
- 		goto out;
- 
--	phy_data &= ~I82580_PHY_CTRL2_AUTO_MDIX;
--	phy_data &= ~I82580_PHY_CTRL2_FORCE_MDI_MDIX;
-+	phy_data &= ~I82580_PHY_CTRL2_MDIX_CFG_MASK;
- 
- 	ret_val = phy->ops.write_reg(hw, I82580_PHY_CTRL_2, phy_data);
- 	if (ret_val)
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index 34e4061..6ac3299 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -111,8 +111,9 @@ s32  igb_check_polarity_m88(struct e1000_hw *hw);
- #define I82580_PHY_STATUS2_SPEED_100MBPS  0x0100
- 
- /* I82580 PHY Control 2 */
--#define I82580_PHY_CTRL2_AUTO_MDIX        0x0400
--#define I82580_PHY_CTRL2_FORCE_MDI_MDIX   0x0200
-+#define I82580_PHY_CTRL2_MANUAL_MDIX      0x0200
-+#define I82580_PHY_CTRL2_AUTO_MDI_MDIX    0x0400
-+#define I82580_PHY_CTRL2_MDIX_CFG_MASK    0x0600
- 
- /* I82580 PHY Diagnostics Status */
- #define I82580_DSTATUS_CABLE_LENGTH       0x03FC
+Here is the problem:
+Once the parent thread resumes from waitpid(), it hits fprintf to
+print message "exiting from shell" to console. In here the main thread
+gets blocked in __kernel_vsyscall () entered from fprintf. Following
+is my stack trace from gdb.
+But after some more debugging and found that, if I kill from another
+shell "tshark" process which is assigned to init(1) as child, the
+parent thread unblocks from __kernel_vsyscall ().
+
+Can anyone tell what is going on, is this related to futex spinning
+problem where lock is been held by tshark. How would I approach this
+problem?
+Or is there a way to kill all child process of a process without
+making them orphan. Because when a child process is running at the
+time parent is exiting, that child process is assigned to init(1) as
+orphan process.
+Can this behavior be modified. Please let me know any suggestions and
+thoughts. Thanks in advance.
+
+-- 
+Regards,
+Sri.
+
+(gdb) backtrace
+#0  0xffffe424 in __kernel_vsyscall ()
+#1  0xb7e6396b in write () from /lib/libc.so.6
+#2  0xb7e0c2ef in _IO_new_file_write () from /lib/libc.so.6
+#3  0xb7e0bf93 in new_do_write () from /lib/libc.so.6
+#4  0xb7e0c296 in _IO_new_do_write () from /lib/libc.so.6
+#5  0xb7e0ce20 in _IO_new_file_overflow () from /lib/libc.so.6
+#6  0xb7e0c0cd in _IO_new_file_xsputn () from /lib/libc.so.6
+#7  0xb7de3634 in vfprintf () from /lib/libc.so.6
+#8  0x09ad62a2 in acme_fprintf (stream=0xb7ee2560,
+    format=0x9f17694 "shell exited. returning to acli\n")
+    at /home/svemulpali/cc/svemulpali_SCOTTY_main/linux/private/common/src/coutOverride.cpp:42
+#9  0x094a9345 in vxShellCmdStartWait (syscmd=0x0)
+    at /home/svemulpali/cc/svemulpali_SCOTTY_main/linux/private/lib/stub/vxShellLib.cpp:210
