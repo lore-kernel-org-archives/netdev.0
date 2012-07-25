@@ -1,126 +1,151 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] igb: don't break user visible strings over
- multiple lines in igb_ethtool.c
-Date: Wed, 25 Jul 2012 21:19:58 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1207252115321.11754@swampdragon.chaosbits.net>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: RE: [PATCH 1/4] pch_gbe: Fix the checksum fill to the error location
+Date: Wed, 25 Jul 2012 13:10:51 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D011BBE1D@ka-exchange-1.kontronamerica.local>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local> <1342508968.2626.148.camel@edumazet-glaptop> <1342510387.2626.174.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>,
+	"Zhong Hongbo" <hongbo.zhong@windriver.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.kontron.com ([209.118.138.70]:46100 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778Ab2GYUKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 16:10:54 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1342510387.2626.174.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Even when they go beyond 80 characters, user visible strings should be
-on one line to make them easy to grep for.
-
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
-
- This patch was generated on top of another patch I submitted a few minutes ago:
-  Subject: [PATCH] igb: correct hardware type (i210/i211) check in igb_loopback_test()
-  Message-ID: <alpine.LNX.2.00.1207252059320.11754@swampdragon.chaosbits.net>
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index ad489b7..90550f5 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -209,8 +209,8 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	/* When SoL/IDER sessions are active, autoneg/speed/duplex
- 	 * cannot be changed */
- 	if (igb_check_reset_block(hw)) {
--		dev_err(&adapter->pdev->dev, "Cannot change link "
--			"characteristics when SoL/IDER is active.\n");
-+		dev_err(&adapter->pdev->dev,
-+			"Cannot change link characteristics when SoL/IDER is active.\n");
- 		return -EINVAL;
- 	}
- 
-@@ -1089,8 +1089,8 @@ static bool reg_pattern_test(struct igb_adapter *adapter, u64 *data,
- 		wr32(reg, (_test[pat] & write));
- 		val = rd32(reg) & mask;
- 		if (val != (_test[pat] & write & mask)) {
--			dev_err(&adapter->pdev->dev, "pattern test reg %04X "
--				"failed: got 0x%08X expected 0x%08X\n",
-+			dev_err(&adapter->pdev->dev,
-+				"pattern test reg %04X failed: got 0x%08X expected 0x%08X\n",
- 				reg, val, (_test[pat] & write & mask));
- 			*data = reg;
- 			return 1;
-@@ -1108,8 +1108,8 @@ static bool reg_set_and_check(struct igb_adapter *adapter, u64 *data,
- 	wr32(reg, write & mask);
- 	val = rd32(reg);
- 	if ((write & mask) != (val & mask)) {
--		dev_err(&adapter->pdev->dev, "set/check reg %04X test failed:"
--			" got 0x%08X expected 0x%08X\n", reg,
-+		dev_err(&adapter->pdev->dev,
-+			"set/check reg %04X test failed: got 0x%08X expected 0x%08X\n", reg,
- 			(val & mask), (write & mask));
- 		*data = reg;
- 		return 1;
-@@ -1171,8 +1171,9 @@ static int igb_reg_test(struct igb_adapter *adapter, u64 *data)
- 	wr32(E1000_STATUS, toggle);
- 	after = rd32(E1000_STATUS) & toggle;
- 	if (value != after) {
--		dev_err(&adapter->pdev->dev, "failed STATUS register test "
--			"got: 0x%08X expected: 0x%08X\n", after, value);
-+		dev_err(&adapter->pdev->dev,
-+			"failed STATUS register test got: 0x%08X expected: 0x%08X\n",
-+			after, value);
- 		*data = 1;
- 		return 1;
- 	}
-@@ -1777,16 +1778,14 @@ static int igb_loopback_test(struct igb_adapter *adapter, u64 *data)
- 	 * sessions are active */
- 	if (igb_check_reset_block(&adapter->hw)) {
- 		dev_err(&adapter->pdev->dev,
--			"Cannot do PHY loopback test "
--			"when SoL/IDER is active.\n");
-+			"Cannot do PHY loopback test when SoL/IDER is active.\n");
- 		*data = 0;
- 		goto out;
- 	}
- 	if ((adapter->hw.mac.type == e1000_i210)
- 		|| (adapter->hw.mac.type == e1000_i211)) {
- 		dev_err(&adapter->pdev->dev,
--			"Loopback test not supported "
--			"on this part at this time.\n");
-+			"Loopback test not supported on this part at this time.\n");
- 		*data = 0;
- 		goto out;
- 	}
--- 
-1.7.11.3
-
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
-
-
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+RXJpYywNCg0KRm9yIHRoZSBjaGVja3N1bSBwYXRjaCwgdGhhdCBuZWVkcyB0
+byBiZSB0YWJsZWQgdW50aWwgSG9uZ2JvIGhhcyBhIGNoYW5jZSB0byBldmFs
+dWF0ZS9yZXZpc2UgaXQsIGJ1dCB0aGF0IGlzbid0IHZpdGFsIHRvIHRoZSBn
+b2FsIG9mIGF2b2lkaW5nIHRyYW5zbWl0IHRpbWVvdXRzLCBzbyB0aGUgb3Ro
+ZXIgMyBwYXRjaGVzIHNob3VsZCBzdGlsbCBnbyBmb3J3YXJkLiAgSSdsbCBz
+dWJtaXQgYSByZXZpc2VkIHBhdGNoIHNldCB3aXRoIGp1c3QgdGhvc2UgMy4g
+IA0KDQpJIHRyaWVkIGFwcGx5aW5nIHRoZSBkb250LWNvcHktcGF5bG9hZCBw
+YXRjaCB5b3Ugb3V0bGluZWQgYmVsb3csIGFuZCBmb3Igc29tZSByZWFzb24g
+aXQgd29uJ3Qgc2VuZCBzdWNjZXNzZnVsbHkgd2l0aCB0aGF0IGNoYW5nZS4g
+ICBJJ20gbm90IHN1cmUgd2h5IHRob3VnaC4gIFRoaXMgYXBwcm9hY2ggc2Vl
+bXMgc291bmQsIGFuZCBzaG91bGQgZ3JlYXRseSBoZWxwIHRyYW5zbWl0IHBl
+cmZvcm1hbmNlLCBpZiBJIGNvdWxkIGZpZ3VyZSBvdXQgd2hhdCBlbHNlIGl0
+IG5lZWRzLiAgDQoNCkFuZHkNCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0NCkZyb206IEVyaWMgRHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBn
+bWFpbC5jb21dIA0KU2VudDogVHVlc2RheSwgSnVseSAxNywgMjAxMiAzOjMz
+IEFNDQpUbzogQW5keSBDcmVzcw0KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IFpob25nIEhvbmdibw0KU3ViamVjdDogUmU6IFtQQVRDSCAxLzRdIHBj
+aF9nYmU6IEZpeCB0aGUgY2hlY2tzdW0gZmlsbCB0byB0aGUgZXJyb3IgbG9j
+YXRpb24NCg0KT24gVHVlLCAyMDEyLTA3LTE3IGF0IDA5OjA5ICswMjAwLCBF
+cmljIER1bWF6ZXQgd3JvdGU6DQoNCj4gSG1tLi4uIEkgZmFpbCB0byB1bmRl
+cnN0YW5kIHdoeSB5b3UgY2FyZSBhYm91dCBOSUMgZG9pbmcgY2hlY2tzdW1z
+LA0KPiB3aGlsZSBwY2hfZ2JlX3R4X3F1ZXVlKCkgbWFrZSBhIF9jb3B5XyBv
+ZiBlYWNoIG91dGdvaW5nDQo+IHBhY2tldHMuDQo+IA0KPiBUaGVyZSBfbXVz
+dF8gYmUgYSB3YXkgdG8gYXZvaWQgbW9zdCBvZiB0aGVzZSBjb3BpZXMgKGll
+IG5vdCB0b3VjaGluZw0KPiBwYXlsb2FkKSwgb25seSBtZXNzIHdpdGggdGhl
+IGhlYWRlciB0byBpbnNlcnQgdGhlc2UgMiBudWwgYnl0ZXMgPw0KPiANCj4g
+LyogW0hlYWRlcjoxNF1bcGF5bG9hZF0gLS0tPiBbSGVhZGVyOjE0XVtwYWRk
+b25nOjJdW3BheWxvYWRdICAgICovDQo+IA0KPiBTbyBhdCBkZXZpY2Ugc2V0
+dXAgOiBkZXYtPm5lZWRlZF9oZWFkcm9vbSA9IDI7DQo+IA0KPiBhbmQgaW4g
+eG1pdCwNCj4gDQo+IAlpZiAoc2tiX2hlYWRyb29tKHNrYikgPCAyKSB7DQo+
+IAkJc3RydWN0IHNrX2J1ZmYgKnNrYl9uZXc7DQo+IA0KPiAJCXNrYl9uZXcg
+PSBza2JfcmVhbGxvY19oZWFkcm9vbShza2IsIDIpOw0KPiAJCWlmICghc2ti
+X25ldykgeyBoYW5kbGUgZXJyb3IgfQ0KPiAJCWNvbnN1bWVfc2tiKHNrYik7
+DQo+IAkJc2tiID0gc2tiX25ldzsNCj4gCX0NCj4gCXB0ciA9IHNrYl9wdXNo
+KHNrYiwgMik7DQo+IAltZW1tb3ZlKHB0ciwgcHRyICsgMiwgRVRIX0hMRU4p
+Ow0KPiAJcHRyW0VUSF9ITEVOXSA9IDA7DQo+IAlwdHJbRVRIX0hMRU4gKyAx
+XSA9IDA7DQo+IA0KPiANCg0KU29tZXRoaW5nIGxpa2UgdGhlIGZvbGxvd2lu
+ZyAodW50ZXN0ZWQpIHBhdGNoDQoNCg0KIGRyaXZlcnMvbmV0L2V0aGVybmV0
+L29raS1zZW1pL3BjaF9nYmUvcGNoX2diZV9tYWluLmMgfCAgIDU1ICsrKysr
+LS0tLS0NCiAxIGZpbGUgY2hhbmdlZCwgMjkgaW5zZXJ0aW9ucygrKSwgMjYg
+ZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFpbi5jIGIvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4u
+Yw0KaW5kZXggYjEwMDY1Ni4uMmQzZDk4MiAxMDA2NDQNCi0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9nYmUvcGNoX2diZV9tYWlu
+LmMNCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9n
+YmUvcGNoX2diZV9tYWluLmMNCkBAIC0xMTYzLDcgKzExNjMsNyBAQCBzdGF0
+aWMgdm9pZCBwY2hfZ2JlX3R4X3F1ZXVlKHN0cnVjdCBwY2hfZ2JlX2FkYXB0
+ZXIgKmFkYXB0ZXIsDQogCXN0cnVjdCBwY2hfZ2JlX2h3ICpodyA9ICZhZGFw
+dGVyLT5odzsNCiAJc3RydWN0IHBjaF9nYmVfdHhfZGVzYyAqdHhfZGVzYzsN
+CiAJc3RydWN0IHBjaF9nYmVfYnVmZmVyICpidWZmZXJfaW5mbzsNCi0Jc3Ry
+dWN0IHNrX2J1ZmYgKnRtcF9za2I7DQorCWNoYXIgKnB0cjsNCiAJdW5zaWdu
+ZWQgaW50IGZyYW1lX2N0cmw7DQogCXVuc2lnbmVkIGludCByaW5nX251bTsN
+CiANCkBAIC0xMjIxLDE4ICsxMjIxLDI3IEBAIHN0YXRpYyB2b2lkIHBjaF9n
+YmVfdHhfcXVldWUoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwN
+CiANCiANCiAJYnVmZmVyX2luZm8gPSAmdHhfcmluZy0+YnVmZmVyX2luZm9b
+cmluZ19udW1dOw0KLQl0bXBfc2tiID0gYnVmZmVyX2luZm8tPnNrYjsNCisJ
+aWYgKHNrYl9oZWFkcm9vbShza2IpIDwgMikgew0KKwkJc3RydWN0IHNrX2J1
+ZmYgKnNrYl9uZXc7DQorDQorCQlza2JfbmV3ID0gc2tiX3JlYWxsb2NfaGVh
+ZHJvb20oc2tiLCAyKTsNCisJCWlmICghc2tiX25ldykgew0KKwkJCXR4X3Jp
+bmctPm5leHRfdG9fdXNlID0gcmluZ19udW07DQorCQkJZGV2X2tmcmVlX3Nr
+Yl9hbnkoc2tiKTsNCisJCQlyZXR1cm47DQorCQl9DQorCQljb25zdW1lX3Nr
+Yihza2IpOw0KKwkJc2tiID0gc2tiX25ldzsNCisJfQ0KIA0KIAkvKiBbSGVh
+ZGVyOjE0XVtwYXlsb2FkXSAtLS0+IFtIZWFkZXI6MTRdW3BhZGRvbmc6Ml1b
+cGF5bG9hZF0gICAgKi8NCi0JbWVtY3B5KHRtcF9za2ItPmRhdGEsIHNrYi0+
+ZGF0YSwgRVRIX0hMRU4pOw0KLQl0bXBfc2tiLT5kYXRhW0VUSF9ITEVOXSA9
+IDB4MDA7DQotCXRtcF9za2ItPmRhdGFbRVRIX0hMRU4gKyAxXSA9IDB4MDA7
+DQotCXRtcF9za2ItPmxlbiA9IHNrYi0+bGVuOw0KLQltZW1jcHkoJnRtcF9z
+a2ItPmRhdGFbRVRIX0hMRU4gKyAyXSwgJnNrYi0+ZGF0YVtFVEhfSExFTl0s
+DQotCSAgICAgICAoc2tiLT5sZW4gLSBFVEhfSExFTikpOw0KKwlwdHIgPSBz
+a2JfcHVzaChza2IsIDIpOw0KKwltZW1tb3ZlKHB0ciwgcHRyICsgMiwgRVRI
+X0hMRU4pOw0KKwlwdHJbRVRIX0hMRU5dID0gMHgwMDsNCisJcHRyW0VUSF9I
+TEVOICsgMV0gPSAweDAwOw0KIAkvKi0tIFNldCBCdWZmZXIgaW5mb3JtYXRp
+b24gLS0qLw0KLQlidWZmZXJfaW5mby0+bGVuZ3RoID0gdG1wX3NrYi0+bGVu
+Ow0KLQlidWZmZXJfaW5mby0+ZG1hID0gZG1hX21hcF9zaW5nbGUoJmFkYXB0
+ZXItPnBkZXYtPmRldiwgdG1wX3NrYi0+ZGF0YSwNCisJYnVmZmVyX2luZm8t
+Pmxlbmd0aCA9IHNrYi0+bGVuOw0KKwlidWZmZXJfaW5mby0+ZG1hID0gZG1h
+X21hcF9zaW5nbGUoJmFkYXB0ZXItPnBkZXYtPmRldiwgc2tiLT5kYXRhLA0K
+IAkJCQkJICBidWZmZXJfaW5mby0+bGVuZ3RoLA0KIAkJCQkJICBETUFfVE9f
+REVWSUNFKTsNCiAJaWYgKGRtYV9tYXBwaW5nX2Vycm9yKCZhZGFwdGVyLT5w
+ZGV2LT5kZXYsIGJ1ZmZlcl9pbmZvLT5kbWEpKSB7DQpAQCAtMTI0MCwxOCAr
+MTI0OSwyMCBAQCBzdGF0aWMgdm9pZCBwY2hfZ2JlX3R4X3F1ZXVlKHN0cnVj
+dCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogCQlidWZmZXJfaW5mby0+
+ZG1hID0gMDsNCiAJCWJ1ZmZlcl9pbmZvLT50aW1lX3N0YW1wID0gMDsNCiAJ
+CXR4X3JpbmctPm5leHRfdG9fdXNlID0gcmluZ19udW07DQorCQlkZXZfa2Zy
+ZWVfc2tiX2FueShza2IpOw0KIAkJcmV0dXJuOw0KIAl9DQogCWJ1ZmZlcl9p
+bmZvLT5tYXBwZWQgPSB0cnVlOw0KIAlidWZmZXJfaW5mby0+dGltZV9zdGFt
+cCA9IGppZmZpZXM7DQorCWJ1ZmZlcl9pbmZvLT5za2IgPSBza2I7DQogDQog
+CS8qLS0gU2V0IFR4IGRlc2NyaXB0b3IgLS0qLw0KIAl0eF9kZXNjID0gUENI
+X0dCRV9UWF9ERVNDKCp0eF9yaW5nLCByaW5nX251bSk7DQotCXR4X2Rlc2Mt
+PmJ1ZmZlcl9hZGRyID0gKGJ1ZmZlcl9pbmZvLT5kbWEpOw0KLQl0eF9kZXNj
+LT5sZW5ndGggPSAodG1wX3NrYi0+bGVuKTsNCi0JdHhfZGVzYy0+dHhfd29y
+ZHNfZW9iID0gKCh0bXBfc2tiLT5sZW4gKyAzKSk7DQorCXR4X2Rlc2MtPmJ1
+ZmZlcl9hZGRyID0gYnVmZmVyX2luZm8tPmRtYTsNCisJdHhfZGVzYy0+bGVu
+Z3RoID0gc2tiLT5sZW47DQorCXR4X2Rlc2MtPnR4X3dvcmRzX2VvYiA9IHNr
+Yi0+bGVuICsgMzsNCiAJdHhfZGVzYy0+dHhfZnJhbWVfY3RybCA9IChmcmFt
+ZV9jdHJsKTsNCi0JdHhfZGVzYy0+Z2JlY19zdGF0dXMgPSAoRFNDX0lOSVQx
+Nik7DQorCXR4X2Rlc2MtPmdiZWNfc3RhdHVzID0gRFNDX0lOSVQxNjsNCiAN
+CiAJaWYgKHVubGlrZWx5KCsrcmluZ19udW0gPT0gdHhfcmluZy0+Y291bnQp
+KQ0KIAkJcmluZ19udW0gPSAwOw0KQEAgLTEyNjUsNyArMTI3Niw2IEBAIHN0
+YXRpYyB2b2lkIHBjaF9nYmVfdHhfcXVldWUoc3RydWN0IHBjaF9nYmVfYWRh
+cHRlciAqYWRhcHRlciwNCiAJcGNoX3R4X3RpbWVzdGFtcChhZGFwdGVyLCBz
+a2IpOw0KICNlbmRpZg0KIA0KLQlkZXZfa2ZyZWVfc2tiX2FueShza2IpOw0K
+IH0NCiANCiAvKioNCkBAIC0xNTQzLDE5ICsxNTUzLDEyIEBAIHN0YXRpYyB2
+b2lkIHBjaF9nYmVfYWxsb2NfdHhfYnVmZmVycyhzdHJ1Y3QgcGNoX2diZV9h
+ZGFwdGVyICphZGFwdGVyLA0KIAkJCQkJc3RydWN0IHBjaF9nYmVfdHhfcmlu
+ZyAqdHhfcmluZykNCiB7DQogCXN0cnVjdCBwY2hfZ2JlX2J1ZmZlciAqYnVm
+ZmVyX2luZm87DQotCXN0cnVjdCBza19idWZmICpza2I7DQogCXVuc2lnbmVk
+IGludCBpOw0KLQl1bnNpZ25lZCBpbnQgYnVmc3o7DQogCXN0cnVjdCBwY2hf
+Z2JlX3R4X2Rlc2MgKnR4X2Rlc2M7DQogDQotCWJ1ZnN6ID0NCi0JICAgIGFk
+YXB0ZXItPmh3Lm1hYy5tYXhfZnJhbWVfc2l6ZSArIFBDSF9HQkVfRE1BX0FM
+SUdOICsgTkVUX0lQX0FMSUdOOw0KLQ0KIAlmb3IgKGkgPSAwOyBpIDwgdHhf
+cmluZy0+Y291bnQ7IGkrKykgew0KIAkJYnVmZmVyX2luZm8gPSAmdHhfcmlu
+Zy0+YnVmZmVyX2luZm9baV07DQotCQlza2IgPSBuZXRkZXZfYWxsb2Nfc2ti
+KGFkYXB0ZXItPm5ldGRldiwgYnVmc3opOw0KLQkJc2tiX3Jlc2VydmUoc2ti
+LCBQQ0hfR0JFX0RNQV9BTElHTik7DQotCQlidWZmZXJfaW5mby0+c2tiID0g
+c2tiOw0KKwkJYnVmZmVyX2luZm8tPnNrYiA9IE5VTEw7DQogCQl0eF9kZXNj
+ID0gUENIX0dCRV9UWF9ERVNDKCp0eF9yaW5nLCBpKTsNCiAJCXR4X2Rlc2Mt
+PmdiZWNfc3RhdHVzID0gKERTQ19JTklUMTYpOw0KIAl9DQpAQCAtMTYyMiw5
+ICsxNjI1LDkgQEAgcGNoX2diZV9jbGVhbl90eChzdHJ1Y3QgcGNoX2diZV9h
+ZGFwdGVyICphZGFwdGVyLA0KIAkJCQkJIGJ1ZmZlcl9pbmZvLT5sZW5ndGgs
+IERNQV9UT19ERVZJQ0UpOw0KIAkJCWJ1ZmZlcl9pbmZvLT5tYXBwZWQgPSBm
+YWxzZTsNCiAJCX0NCi0JCWlmIChidWZmZXJfaW5mby0+c2tiKSB7DQotCQkJ
+cHJfZGVidWcoInRyaW0gYnVmZmVyX2luZm8tPnNrYiA6ICVkXG4iLCBpKTsN
+Ci0JCQlza2JfdHJpbShidWZmZXJfaW5mby0+c2tiLCAwKTsNCisJCWlmIChz
+a2IpIHsNCisJCQlkZXZfa2ZyZWVfc2tiX2FueShza2IpOw0KKwkJCWJ1ZmZl
+cl9pbmZvLT5za2IgPSBOVUxMOw0KIAkJfQ0KIAkJdHhfZGVzYy0+Z2JlY19z
+dGF0dXMgPSBEU0NfSU5JVDE2Ow0KIAkJaWYgKHVubGlrZWx5KCsraSA9PSB0
+eF9yaW5nLT5jb3VudCkpDQoNCg0K
