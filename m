@@ -1,191 +1,123 @@
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [RFC ETHTOOL PATCH 2/2] ethtool: allow setting MDI-X state
-Date: Wed, 25 Jul 2012 10:53:08 -0700
-Message-ID: <20120725175308.9839.50343.stgit@jbrandeb-snb.jf.intel.com>
-References: <20120725174351.9839.132.stgit@jbrandeb-snb.jf.intel.com>
+Subject: [RFC NET-NEXT PATCH 6/6] igb: update to allow reading/setting MDI
+ state
+Date: Wed, 25 Jul 2012 11:00:31 -0700
+Message-ID: <20120725180031.9995.85766.stgit@jbrandeb-snb.jf.intel.com>
+References: <20120725175430.9995.11370.stgit@jbrandeb-snb.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com
-To: netdev@vger.kernel.org, bhutchings@solarflare.com
+Cc: bhutchings@solarflare.com, jesse.brandeburg@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:45999 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751428Ab2GYUwE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751974Ab2GYUwE (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 25 Jul 2012 16:52:04 -0400
-In-Reply-To: <20120725174351.9839.132.stgit@jbrandeb-snb.jf.intel.com>
+In-Reply-To: <20120725175430.9995.11370.stgit@jbrandeb-snb.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A bit ago ethtool added support for reading MDI-X state, this
-patch finishes the implementation, adding the complementary write
-command.
+This is the implementation for igb to allow forcing MDI state
+via ethtool, allowing users to work around some improperly
+behaving switches.
 
-Add support to ethtool for controlling the MDI-X (crossover)
-state of a network port.  Most adapters correctly negotiate
-MDI-X, but some ill-behaved switches have trouble and end up
-picking the wrong MDI setting, which results in complete loss of
-link.  Usually this error condition can be observed when multiple
-ethtool -r ethX are required before link is achieved.
-
-This patch allows the user to override the normal "auto" setting
-and force the crossover state to on or off.
-
-The set will fail if the driver doesn't support the get, as
-suggested by Ben Hutchings.
-
-# ./ethtool -s p1p1 mdix off
-setting MDI not supported
-
-In addition the do_gset output was changed slightly to report the
-value set by the user (when the driver supports the set)
-
-old:
-MDI-X: on
-
-new:
-MDI-X: on (auto)
-or
-MDI-X: on (forced)
-
-usage is ethtool -s eth0 mdix [auto|on|off]
+forcing in this driver is for now only allowed when auto-neg is
+enabled.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
+CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
 ---
 
- ethtool.8.in |    8 ++++++++
- ethtool.c    |   48 +++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 53 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |   42 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_main.c    |    4 ++
+ 2 files changed, 46 insertions(+), 0 deletions(-)
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 523b737..fbfb252 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -239,6 +239,7 @@ ethtool \- query or control network driver and hardware settings
- .BI speed \ N
- .B2 duplex half full
- .B4 port tp aui bnc mii fibre
-+.B3 mdix auto on off
- .B2 autoneg on off
- .BN advertise
- .BN phyad
-@@ -518,6 +519,13 @@ Sets full or half duplex mode.
- .A4 port tp aui bnc mii fibre
- Selects device port.
- .TP
-+.A3 mdix auto on off
-+Selects MDI-X mode for port. May be used to override the automatic detection
-+feature of most adapters.  Auto means automatic detection of MDI status, on
-+forces MDI-X (crossover) mode, while off means MDI (straight through) mode.
-+The driver should guarantee that this command takes effect immediately, and
-+if necessary may reset the link to cause the change to take effect.
-+.TP
- .A2 autoneg on off
- Specifies whether autonegotiation should be enabled. Autonegotiation 
- is enabled by default, but in some network devices may have trouble
-diff --git a/ethtool.c b/ethtool.c
-index f18f611..7b60895 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -18,6 +18,8 @@
-  * Rx Network Flow Control configuration support <santwona.behera@sun.com>
-  * Various features by Ben Hutchings <bhutchings@solarflare.com>;
-  *	Copyright 2009, 2010 Solarflare Communications
-+ * MDI-X set support by Jesse Brandeburg <jesse.brandeburg@intel.com>
-+ * 	Copyright 2012 Intel Corporation
-  *
-  * TODO:
-  *   * show settings for all devices
-@@ -559,13 +561,29 @@ static int dump_ecmd(struct ethtool_cmd *ep)
- 		fprintf(stdout, "	MDI-X: ");
- 		switch (ep->eth_tp_mdix) {
- 		case ETH_TP_MDI:
--			fprintf(stdout, "off\n");
-+			fprintf(stdout, "off");
- 			break;
- 		case ETH_TP_MDI_X:
--			fprintf(stdout, "on\n");
-+			fprintf(stdout, "on");
- 			break;
- 		default:
--			fprintf(stdout, "Unknown\n");
-+			fprintf(stdout, "Unknown");
-+			break;
-+		}
-+		switch (ep->eth_tp_mdix_ctrl) {
-+		case ETH_TP_MDI:
-+		case ETH_TP_MDI_X:
-+			/* forced via sset */
-+			fprintf(stdout, " (forced)\n");
-+			break;
-+		case ETH_TP_MDI_AUTO:
-+			/* not forced */
-+			fprintf(stdout, " (auto)\n");
-+			break;
-+		case ETH_TP_MDI_INVALID:
-+		default:
-+			/* this interface doesn't support gset MDI-X */
-+			fprintf(stdout, "\n");
- 			break;
- 		}
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index a19c84c..cf0e9fb 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -198,6 +198,19 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
  	}
-@@ -1939,6 +1957,7 @@ static int do_sset(struct cmd_context *ctx)
- 	int speed_wanted = -1;
- 	int duplex_wanted = -1;
- 	int port_wanted = -1;
-+	int mdix_wanted = -1;
- 	int autoneg_wanted = -1;
- 	int phyad_wanted = -1;
- 	int xcvr_wanted = -1;
-@@ -1999,6 +2018,19 @@ static int do_sset(struct cmd_context *ctx)
- 				port_wanted = PORT_FIBRE;
- 			else
- 				exit_bad_args();
-+		} else if (!strcmp(argp[i], "mdix")) {
-+			gset_changed = 1;
-+			i += 1;
-+			if (i >= argc)
-+				exit_bad_args();
-+			if (!strcmp(argp[i], "auto"))
-+				mdix_wanted = ETH_TP_MDI_AUTO;
-+			else if (!strcmp(argp[i], "on"))
-+				mdix_wanted = ETH_TP_MDI_X;
-+			else if (!strcmp(argp[i], "off"))
-+				mdix_wanted = ETH_TP_MDI;
-+			else
-+				exit_bad_args();
- 		} else if (!strcmp(argp[i], "autoneg")) {
- 			i += 1;
- 			if (i >= argc)
-@@ -2120,6 +2152,13 @@ static int do_sset(struct cmd_context *ctx)
- 				ecmd.duplex = duplex_wanted;
- 			if (port_wanted != -1)
- 				ecmd.port = port_wanted;
-+			if (mdix_wanted != -1) {
-+				/* check driver supports MDI-X */
-+				if (ecmd.eth_tp_mdix_ctrl != ETH_TP_MDI_INVALID)
-+					ecmd.eth_tp_mdix_ctrl = mdix_wanted;
-+				else
-+					fprintf(stderr, "setting MDI not supported\n");
-+			}
- 			if (autoneg_wanted != -1)
- 				ecmd.autoneg = autoneg_wanted;
- 			if (phyad_wanted != -1)
-@@ -2179,6 +2218,8 @@ static int do_sset(struct cmd_context *ctx)
- 				fprintf(stderr, "  not setting phy_address\n");
- 			if (xcvr_wanted != -1)
- 				fprintf(stderr, "  not setting transceiver\n");
-+			if (mdix_wanted != -1)
-+				fprintf(stderr, "  not setting mdix\n");
+ 
+ 	ecmd->autoneg = hw->mac.autoneg ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++
++	/* MDI-X => 2; MDI =>1; Invalid =>0 */
++	if (hw->phy.media_type == e1000_media_type_copper)
++		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X :
++						      ETH_TP_MDI;
++	else
++		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
++
++	if (hw->phy.mdix == AUTO_ALL_MODES)
++		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
++	else
++		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
++
+ 	return 0;
+ }
+ 
+@@ -214,6 +227,22 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		return -EINVAL;
+ 	}
+ 
++	/*
++	 * MDI setting is only allowed when autoneg enabled because
++	 * some hardware doesn't allow MDI setting when speed or
++	 * duplex is forced.
++	 */
++	if (ecmd->eth_tp_mdix_ctrl) {
++		if (hw->phy.media_type != e1000_media_type_copper)
++			return -EOPNOTSUPP;
++
++		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
++		    (ecmd->autoneg != AUTONEG_ENABLE)) {
++			dev_err(&adapter->pdev->dev, "forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
++			return -EINVAL;
++		}
++	}
++
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+ 		msleep(1);
+ 
+@@ -227,12 +256,25 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 			hw->fc.requested_mode = e1000_fc_default;
+ 	} else {
+ 		u32 speed = ethtool_cmd_speed(ecmd);
++		/* calling this overrides forced MDI setting */
+ 		if (igb_set_spd_dplx(adapter, speed, ecmd->duplex)) {
+ 			clear_bit(__IGB_RESETTING, &adapter->state);
+ 			return -EINVAL;
  		}
  	}
  
-@@ -3285,6 +3326,7 @@ static const struct option {
- 	  "		[ speed %d ]\n"
- 	  "		[ duplex half|full ]\n"
- 	  "		[ port tp|aui|bnc|mii|fibre ]\n"
-+	  "		[ mdix auto|on|off ]\n"
- 	  "		[ autoneg on|off ]\n"
- 	  "		[ advertise %x ]\n"
- 	  "		[ phyad %d ]\n"
++	/* MDI-X => 2; MDI => 1; Auto => 3 */
++	if (ecmd->eth_tp_mdix_ctrl) {
++		/*
++		 * fix up the value for auto (3 => 0) as zero is mapped
++		 * internally to auto
++		 */
++		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
++			hw->phy.mdix = AUTO_ALL_MODES;
++		else
++			hw->phy.mdix = ecmd->eth_tp_mdix_ctrl;
++	}
++
+ 	/* reset the link */
+ 	if (netif_running(adapter->netdev)) {
+ 		igb_down(adapter);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 1050411..447e131 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -6676,6 +6676,10 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
+ 	default:
+ 		goto err_inval;
+ 	}
++
++	/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
++	adapter->hw.phy.mdix = AUTO_ALL_MODES;
++
+ 	return 0;
+ 
+ err_inval:
