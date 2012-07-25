@@ -1,36 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Wed, 25 Jul 2012 22:32:38 -0700 (PDT)
-Message-ID: <20120725.223238.1463310997417791791.davem@davemloft.net>
-References: <20120725.163939.581743307449189972.davem@davemloft.net>
-	<20120725.175406.1331203183232530233.davem@davemloft.net>
-	<CAKgT0UeNunHysvJvXcPN38B=mAD5FbSiKigsuS7AYC5TEH6BQg@mail.gmail.com>
+From: John <john@boldstatementmarketing.net>
+Subject: Silly dog video brings in over 30K
+Date: Wed, 25 Jul 2012 14:21:43 -0400
+Message-ID: <SXLK3g9x9GapwvLLO2CITKcldPpVN5B5PAk8YrTY1lSR@boldstatementmarketing.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48755 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238Ab2GZFcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 01:32:46 -0400
-In-Reply-To: <CAKgT0UeNunHysvJvXcPN38B=mAD5FbSiKigsuS7AYC5TEH6BQg@mail.gmail.com>
+Received: from [108.167.186.132] ([108.167.186.132]:45916 "EHLO
+	bol.boldstatementmarketing.net" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751469Ab2GZGOS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jul 2012 02:14:18 -0400
+Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:39574 helo=[10.0.1.9])
+	by bol.boldstatementmarketing.net with esmtpa (Exim 4.77)
+	(envelope-from <john@boldstatementmarketing.net>)
+	id 1Su6DP-0003AY-NR
+	for netdev@vger.kernel.org; Wed, 25 Jul 2012 13:21:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Wed, 25 Jul 2012 19:30:13 -0700
+Hey,
 
-> I downloaded your patch, applied it, rebuilt the kernel, and then
-> rebooted.  However after the reboot I am unable to access the system
-> remotely.  It looks like I will have to wait until I get into the
-> office tomorrow to figure out what happened to the system.
-> 
-> I will get you an update on if it helped or not once I figure out what
-> happened in the morning.
+You have to see it to believe it.
 
-Ok, I may have flubbed the patch, I'll let you know if I find any bugs
-in it.
+What you'll see in this video just brought in
+$30K...
 
-Thanks.
+http://www.dog-gone-truth.com/lavenia/DGT.aspx
+
+All my best,
+John
