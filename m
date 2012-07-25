@@ -1,48 +1,62 @@
-From: Kevin Groeneveld <kgroeneveld@gmail.com>
-Subject: Re: [PATCH] ppp: add 64 bit stats
-Date: Tue, 24 Jul 2012 22:27:03 -0400
-Message-ID: <CABF+-6Wpn8yEvru1FDsaFbXYZ7tyeQqqbEU2VY8hLKvmXXFBXA@mail.gmail.com>
-References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
-	<1343020585.2626.10054.camel@edumazet-glaptop>
-	<CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
-	<1343059184.2626.11027.camel@edumazet-glaptop>
-	<CABF+-6Vko_T2RCsk1KVouB8a+8Ms_aLEoA-Xet1nxB8bnZAxMA@mail.gmail.com>
-	<1343110954.2626.11040.camel@edumazet-glaptop>
+From: Xufeng Zhang <xufengzhang.main@gmail.com>
+Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows SACK
+ when bundling
+Date: Wed, 25 Jul 2012 10:28:19 +0800
+Message-ID: <CA+=dFzg=Bpsv5bMzECoAXYVcbD95eYy6xDAzL6fwiHrunfq-tg@mail.gmail.com>
+References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>
+	<500CDE35.6000009@windriver.com>
+	<42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com>
+	<500E1057.3020509@windriver.com>
+	<75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Cc: xufeng zhang <xufeng.zhang@windriver.com>, sri@us.ibm.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:60192 "EHLO
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:59055 "EHLO
 	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753823Ab2GYC1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 22:27:04 -0400
-Received: by vbbff1 with SMTP id ff1so189571vbb.19
-        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 19:27:03 -0700 (PDT)
-In-Reply-To: <1343110954.2626.11040.camel@edumazet-glaptop>
+	with ESMTP id S1753823Ab2GYC2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 22:28:20 -0400
+In-Reply-To: <75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 24, 2012 at 2:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2012-07-23 at 21:53 -0400, Kevin Groeneveld wrote:
->> On Mon, Jul 23, 2012 at 11:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> >> Would proper synchronization in this case just be wrapping the updates
->> >> in a spin_lock/spin_unlock?
->> >
->> > Would be fine (if the proper BH safe variant is used), or you could also
->> > use atomic64_t.
+On 7/24/12, Vlad Yasevich <vyasevich@gmail.com> wrote:
+>>>> And I should clarify the above judgment code.
+>>>> AFAIK, there should be two cases for the bundling when invalid
+>>stream
+>>>> identifier error happens:
+>>>> 1). COOKIE_ACK ERROR SACK
+>>>> 2). ERROR SACK
+>>>> So I need to deal with the two cases differently.
+>>>>
+>>>>
+>>> Sorry but I just don't buy that the above are the only 2 cases.  What
+>>if there are addip chunks as well?  What if there are some other
+>>extensions also.  This code has to be generic enough to handle any
+>>condition.
+>>>
+>>Aha, you are right, this may happens.
+>>So I think the general solution is to fix this problem in the enqueue
+>>side.
+>>What do you think? any better suggestion!
 >>
->> Which would you recommend, spin locks or atomic64_t?
->>
->> atomic64_t seems like it would be simpler.
 >
-> Simpler but a bit more expensive when two counters are changed at the
-> same time.
->
-> (two atomic ops instead of a single one for the spinlock)
+> Don't have code in front of me but what if we carry the error condition to
+> where we queue the Sack and add the error side effect then?
+Yes, this is the most direct way to fix this problem.
+But I don't think it's the best way since we will take care of a lot
+of things and
+it also involves in lots of changes to side effect processing.
+I prefer to Neil Horman's way for the solution since only COOKIE_ACK chunk is
+allowed to place ahead of SACK chunk when bundling into one packet.
+What do you think?
 
-After looking at the existing ppp code more I wonder if I would even
-need to add my own spinlocks.  It seems the only spots I am updating
-the 64 bit stats are already protected by either ppp->wlock or
-ppp->rlock spinlocks.  If I used two separate u64_stats_sync
-structures, one for tx stats and one for rx stats, wouldn't the
-existing spinlocks be enough?
+
+
+Thanks,
+Xufeng Zhang
+>
+> -vlad
