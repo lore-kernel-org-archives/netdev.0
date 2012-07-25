@@ -1,14 +1,15 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 03/17] Drivers: hv: kvp: Cleanup error handling in KVP
-Date: Wed, 25 Jul 2012 15:47:25 +0100
-Message-ID: <20120725144724.GD1894@decadent.org.uk>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 13/17] Tools: hv: Implement the KVP verb -
+ KVP_OP_SET_IP_INFO
+Date: Wed, 25 Jul 2012 14:48:14 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9236A8BD0@SN2PRD0310MB382.namprd03.prod.outlook.com>
 References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-3-git-send-email-kys@microsoft.com>
- <1343178644.5132.103.camel@deadeye.wl.decadent.org.uk>
- <426367E2313C2449837CD2DE46E7EAF9236A8B61@SN2PRD0310MB382.namprd03.prod.outlook.com>
+	 <1343145701-3691-1-git-send-email-kys@microsoft.com>
+	 <1343145701-3691-13-git-send-email-kys@microsoft.com>
+ <1343179491.5132.112.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
@@ -16,93 +17,104 @@ Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
 	"olaf@aepfle.de" <olaf@aepfle.de>,
 	"apw@canonical.com" <apw@canonical.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: KY Srinivasan <kys@microsoft.com>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <426367E2313C2449837CD2DE46E7EAF9236A8B61@SN2PRD0310MB382.namprd03.prod.outlook.com>
+In-Reply-To: <1343179491.5132.112.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 25, 2012 at 02:10:05PM +0000, KY Srinivasan wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> > Sent: Tuesday, July 24, 2012 9:11 PM
-> > To: KY Srinivasan
-> > Cc: gregkh@linuxfoundation.org; linux-kernel@vger.kernel.org;
-> > devel@linuxdriverproject.org; virtualization@lists.osdl.org; olaf@aepfle.de;
-> > apw@canonical.com; netdev@vger.kernel.org
-> > Subject: Re: [PATCH 03/17] Drivers: hv: kvp: Cleanup error handling in KVP
-> > 
-> > On Tue, 2012-07-24 at 09:01 -0700, K. Y. Srinivasan wrote:
-> > > In preparation to implementing IP injection, cleanup the way we propagate
-> > > and handle errors both in the driver as well as in the user level daemon.
-> > >
-> > > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > > Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > > ---
-> > >  drivers/hv/hv_kvp.c      |  112 +++++++++++++++++++++++++++++++++++++-
-> > --------
-> > >  include/linux/hyperv.h   |   17 +++++---
-> > >  tools/hv/hv_kvp_daemon.c |   70 +++++++++++++++-------------
-> > >  3 files changed, 138 insertions(+), 61 deletions(-)
-> > >
-> > > diff --git a/drivers/hv/hv_kvp.c b/drivers/hv/hv_kvp.c
-> > > index 0012eed..9b7fc4a 100644
-> > > --- a/drivers/hv/hv_kvp.c
-> > > +++ b/drivers/hv/hv_kvp.c
-> > [...]
-> > > @@ -109,27 +154,52 @@ kvp_cn_callback(struct cn_msg *msg, struct
-> > netlink_skb_parms *nsp)
-> > >  {
-> > >  	struct hv_kvp_msg *message;
-> > >  	struct hv_kvp_msg_enumerate *data;
-> > > +	int	error = 0;
-> > >
-> > >  	message = (struct hv_kvp_msg *)msg->data;
-> > > -	switch (message->kvp_hdr.operation) {
-> > > +
-> > > +	/*
-> > > +	 * If we are negotiating the version information
-> > > +	 * with the daemon; handle that first.
-> > > +	 */
-> > > +
-> > > +	if (in_hand_shake) {
-> > > +		if (kvp_handle_handshake(message))
-> > > +			in_hand_shake = false;
-> > > +		return;
-> > > +	}
-> > > +
-> > > +	/*
-> > > +	 * Based on the version of the daemon, we propagate errors from the
-> > > +	 * daemon differently.
-> > > +	 */
-> > > +
-> > > +	data = &message->body.kvp_enum_data;
-> > > +
-> > > +	switch (dm_reg_value) {
-> > >  	case KVP_OP_REGISTER:
-> > > -		pr_info("KVP: user-mode registering done.\n");
-> > > -		kvp_register();
-> > > -		kvp_transaction.active = false;
-> > > -		hv_kvp_onchannelcallback(kvp_transaction.kvp_context);
-> > > +		/*
-> > > +		 * Null string is used to pass back error condition.
-> > > +		 */
-> > > +		if (!strlen(data->data.key))
-> > 
-> > Do we know that the key is null-terminated here?  Shouldn't we just
-> > check whether data->data.key[0] == 0?
-> 
-> Yes, currently we do return null string to indicate error.
-[...]
-
-So the kernel should assume userland input is always valid?
-
-Ben.
-
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+QmVuLA0KDQpBdCB0aGUgb3V0c2V0IEkgd2FudCB0byB0aGFuayB5b3UgZm9yIHRha2luZyB0aGUg
+dGltZSB0byByZXZpZXcgdGhpcyBjb2RlLiBHaXZlbiB0aGF0IEdyZWcNCmhhcyBpbmRpY2F0ZWQg
+dGhhdCBoZSB3aWxsIG5vdCBiZSBhYmxlIHRvIGxvb2sgYXQgdGhpcyBwYXRjaCBzZXQgdGlsbCAz
+LjYgYW5kIHRoZSBuYXR1cmUgb2YgcmV2aWV3DQpjb21tZW50cyBJIGhhdmUgZ290dGVuIGZyb20g
+eW91IGFuZCBvdGhlcnMsIEkgd2lsbCByZS1zcGluIHRoaXMgcGF0Y2ggc2V0IHRvIGFkZHJlc3Mg
+YWxsIHRoZQ0KY29tbWVudHMgSSBoYXZlIGdvdHRlbiB0byBkYXRlLiBTcGVjaWZpYyByZXNwb25z
+ZXMgdG8geW91ciBjb21tZW50cyBhcmUgaW4tbGluZS4NCg0KUmVnYXJkcywNCg0KSy4gWSANCg0K
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogVHVlc2RheSwgSnVseSAyNCwgMjAxMiA5
+OjI1IFBNDQo+IFRvOiBLWSBTcmluaXZhc2FuDQo+IENjOiBncmVna2hAbGludXhmb3VuZGF0aW9u
+Lm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2ZWxAbGludXhkcml2ZXJw
+cm9qZWN0Lm9yZzsgdmlydHVhbGl6YXRpb25AbGlzdHMub3NkbC5vcmc7IG9sYWZAYWVwZmxlLmRl
+Ow0KPiBhcHdAY2Fub25pY2FsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0
+OiBSZTogW1BBVENIIDEzLzE3XSBUb29sczogaHY6IEltcGxlbWVudCB0aGUgS1ZQIHZlcmIgLQ0K
+PiBLVlBfT1BfU0VUX0lQX0lORk8NCj4gDQo+IE9uIFR1ZSwgMjAxMi0wNy0yNCBhdCAwOTowMSAt
+MDcwMCwgSy4gWS4gU3Jpbml2YXNhbiB3cm90ZToNCj4gPiBJbXBsZW1lbnQgdGhlIEtWUCB2ZXJi
+IC0gS1ZQX09QX1NFVF9JUF9JTkZPLiBUaGlzIG9wZXJhdGlvbiBjb25maWd1cmVzDQo+IHRoZQ0K
+PiA+IHNwZWNpZmllZCBpbnRlcmZhY2UgYmFzZWQgb24gdGhlIGdpdmVuIGNvbmZpZ3VyYXRpb24u
+IFNpbmNlIGNvbmZpZ3VyaW5nDQo+ID4gYW4gaW50ZXJmYWNlIGlzIHZlcnkgZGlzdHJvIHNwZWNp
+ZmljLCB3ZSBpbnZva2UgYW4gZXh0ZXJuYWwgc2NyaXB0IHRvDQo+ID4gY29uZmlndXJlIHRoZSBp
+bnRlcmZhY2UuDQo+IFsuLi5dDQo+ID4gK3N0YXRpYyBpbnQga3ZwX3dyaXRlX2ZpbGUoRklMRSAq
+ZiwgY2hhciAqczEsIGNoYXIgKnMyLCBjaGFyICpzMykNCj4gPiArew0KPiA+ICsJY2hhciBzdHJb
+MjU2XTsNCj4gPiArCWludCBlcnJvcjsNCj4gPiArDQo+ID4gKwltZW1zZXQoc3RyLCAwLCBzaXpl
+b2Yoc3RyKSk7DQo+ID4gKwlzdHJjYXQoc3RyLCBzMSk7DQo+ID4gKwlpZiAoczIgIT0gTlVMTCkN
+Cj4gPiArCQlzdHJjYXQoc3RyLCBzMik7DQo+ID4gKwlzdHJjYXQoc3RyLCAiPSIpOw0KPiA+ICsJ
+c3RyY2F0KHN0ciwgczMpOw0KPiA+ICsJc3RyY2F0KHN0ciwgIlxuIik7DQo+ID4gKw0KPiA+ICsJ
+ZXJyb3IgPSBmcHV0cyhzdHIsIGYpOw0KPiANCj4gVGhpcyBzdHlsZSBvZiBzdHJpbmcgcGFzdGlu
+ZyBpcyBjcmF6eTsgaGF2ZSB5b3UgbmV2ZXIgaGVhcmQgb2YNCj4gZnByaW50ZigpPw0KPiANCj4g
+Wy4uLl0NCj4gPiArCS8qDQo+ID4gKwkgKiBTZXQgdGhlIGNvbmZpZ3VyYXRpb24gZm9yIHRoZSBz
+cGVjaWZpZWQgaW50ZXJmYWNlIHdpdGgNCj4gPiArCSAqIHRoZSBpbmZvcm1hdGlvbiBwcm92aWRl
+ZC4gU2luY2UgdGhlcmUgaXMgbm8gc3RhbmRhcmQNCj4gPiArCSAqIHdheSB0byBjb25maWd1cmUg
+YW4gaW50ZXJmYWNlLCB3ZSB3aWxsIGhhdmUgYW4gZXh0ZXJuYWwNCj4gPiArCSAqIHNjcmlwdCB0
+aGF0IGRvZXMgdGhlIGpvYiBvZiBjb25maWd1cmluZyB0aGUgaW50ZXJmYWNlIGFuZA0KPiA+ICsJ
+ICogZmx1c2hpbmcgdGhlIGNvbmZpZ3VyYXRpb24uDQo+ID4gKwkgKg0KPiA+ICsJICogVGhlIHBh
+cmFtZXRlcnMgcGFzc2VkIHRvIHRoaXMgZXh0ZXJuYWwgc2NyaXB0IGFyZToNCj4gPiArCSAqIDEu
+IEEgY29uZmlndXJhdGlvbiBmaWxlIHRoYXQgaGFzIHRoZSBzcGVjaWZpZWQgY29uZmlndXJhdGlv
+bi4NCj4gPiArCSAqDQo+ID4gKwkgKiBXZSB3aWxsIGVtYmVkIHRoZSBuYW1lIG9mIHRoZSBpbnRl
+cmZhY2UgaW4gdGhlIGNvbmZpZ3VyYXRpb24NCj4gPiArCSAqIGZpbGU6IGlmY2ZnLWV0aHggKHdo
+ZXJlIGV0aHggaXMgdGhlIGludGVyZmFjZSBuYW1lKS4NCj4gPiArCSAqDQo+ID4gKwkgKiBIZXJl
+IGlzIHRoZSBmb3JtYXQgb2YgdGhlIGlwIGNvbmZpZ3VyYXRpb24gZmlsZToNCj4gPiArCSAqDQo+
+ID4gKwkgKiBIV0FERFI9bWFjYWRkcg0KPiANCj4gSXMgdGhlIGludGVyZmFjZSBzdXBwb3NlZCB0
+byBiZSBtYXRjaGVkIGJ5IG5hbWUgb3IgYnkgTUFDIGFkZHJlc3M/DQoNCkkgZG8gbm90IGRpY3Rh
+dGUgdGhhdC4gTXkgcGxhbiB3YXMgdG8gcGFja2FnZSBhbGwgdGhlIGluZm9ybWF0aW9uIEkgaGF2
+ZSBhYm91dA0KdGhlIGludGVyZmFjZSBhbmQgdGhlIGRlc2lyZWQgY29uZmlndXJhdGlvbiBpbiBh
+IGZpbGUgYW5kIGludm9rZSB0aGUgZXh0ZXJuYWwNCmRpc3RybyBzcGVjaWZpYyBzY3JpcHQgdG8g
+ZG8gaXRzIG1hZ2ljLiBUaGlzIGV4dGVybmFsICBzY3JpcHQgaXMgZnJlZSB0byBpZ25vcmUgDQp3
+aGF0IGl0IGRvZXMgbm90IG5lZWQuDQoNCj4gDQo+ID4gKwkgKiBCT09UUFJPVE89ZGhjcCAoZGhj
+cCBlbmFibGVkIGZvciB0aGUgaW50ZXJmYWNlKQ0KPiANCj4gVGhlIEJPT1RQUk9UTyBsaW5lIG1h
+eSBvciBtYXkgbm90IGFwcGVhci4NCj4gDQo+ID4gKwkgKiBOTV9DT05UUk9MTEVEPW5vICh0aGlz
+IGludGVyZmFjZSB3aWxsIG5vdCBiZSBjb250cm9sbGVkIGJ5IE5NKQ0KPiA+ICsJICogUEVFUkRO
+Uz15ZXMNCj4gDQo+IEkgd29uZGVyIHdoYXQgdGhlIHBvaW50IGlzIG9mIGluY2x1ZGluZyBjb25z
+dGFudCBsaW5lcyBpbiB0aGUgZmlsZS4NCj4gV2hhdCBpcyB0aGUgZXh0ZXJuYWwgc2NyaXB0IHN1
+cHBvc2VkIHRvIGRvIGlmIGl0IHRoZXNlIGFwcGFyZW50DQo+IGNvbnN0YW50cyBjaGFuZ2UgaW4g
+ZnV0dXJlPw0KDQpBcyB5b3UgY2FuIHNlZSwgSSBkaWQgbXkgdGVzdGluZyBvbiBhIFJIRUwgc3lz
+dGVtIGFuZCBJIHdhcyB0b28gbGF6eSB0byBjcmVhdGUNCmEgUkhFTCBzcGVjaWZpYyBjb25maWcg
+ZmlsZSBpbiB0aGUgZXh0ZXJuYWwgc2NyaXB0IGFuZCBzbyBJIGVuZGVkIHVwIGNyZWF0aW5nIHBy
+ZXR0eSBtdWNoDQp0aGUgY29uZmlnIGZpbGUgbmVlZGVkIGJ5IFJIRUwgaW4gdGhpcyBkYWVtb24u
+IEFsbCB0aGUgZXh0ZXJuYWwgc2NyaXB0IGhhZCB0byBkbyB3YXMgdG8NCnNpbXBseSBjb3B5IHRo
+aXMgZmlsZSBpbnRvIHRoZSByaWdodCBsb2NhdGlvbiBhbmQgYnJpbmcgdXAgdGhlIGludGVyZmFj
+ZS4gU28sIGlmIHlvdSBwcmVmZXINCnRoYXQgd2Ugbm90IHBvcHVsYXRlIHRoZSBjb25maWcgZmls
+ZSB3aXRoIHRoZXNlIGNvbnN0YW50IGxpbmVzLCBJIGNhbiBnZXQgcmlkIG9mIHRoZW0uDQpBcyBJ
+IG5vdGVkIGVhcmxpZXIgZXh0ZXJuYWwgc2NyaXB0cyBtYXkgbm90IGNob29zZSB0byB1c2UgYWxs
+IHRoZSBpbmZvcm1hdGlvbiBpbiB0aGUgZmlsZQ0KdGhhdCB0aGlzIGRhZW1vbiBnZW5lcmF0ZXMu
+IFdoYXQgSSBoYXZlIGRvbmUgaGVyZSwgc2ltcGxpZmllcyB0aGUgZXh0ZXJuYWwgc2NyaXB0DQph
+dCBsZWFzdCBmb3Igb25lIGRpc3Ryby4NCg0KPiANCj4gPiArCSAqIElQQUREUl94PWlwYWRkcg0K
+PiA+ICsJICogTkVUTUFTS194PW5ldG1hc2sNCj4gPiArCSAqIEdBVEVXQVlfeD1nYXRld2F5DQo+
+ID4gKwkgKiBETlN4PWRucw0KPiANCj4gQSBzdHJhbmdlbHkgZmFtaWxpYXIgZm9ybWF0Li4uDQo+
+IA0KPiA+ICsJICogSVBWNiBhZGRyZXNzZXMgd2lsbCBiZSB0YWdnZWQgYXMgSVBWNkFERFIsIElQ
+VjYgZ2F0ZXdheSB3aWxsIGJlDQo+ID4gKwkgKiB0YWdnZWQgYXMgSVBWNl9ERUZBVUxUR1cgYW5k
+IElQVjYgTkVUTUFTSyB3aWxsIGJlIHRhZ2dlZCBhcw0KPiA+ICsJICogSVBWNk5FVE1BU0suDQo+
+ID4gKwkgKi8NCj4gPiArDQo+ID4gKwltZW1zZXQoaWZfZmlsZSwgMCwgc2l6ZW9mKGlmX2ZpbGUp
+KTsNCj4gPiArCXN0cmNhdChpZl9maWxlLCAiL3Zhci9vcHQvaHlwZXJ2L2lmY2ZnLSIpOw0KPiAN
+Cj4gTGlrZSBJIHNhaWQgYmVmb3JlIGFib3V0IHRoZSBrZXktdmFsdWUgZmlsZXMsIHRoaXMgc2hv
+dWxkIGJlIHVuZGVyDQo+IC92YXIvbGliIGlmIHRoZSBkYWVtb24gaXMgaW5jbHVkZWQgaW4gYSBk
+aXN0cmlidXRpb24uICBZb3Ugc2hvdWxkDQo+IHBlcmhhcHMgdXNlIGEgbWFjcm8gZm9yIHRoZSAi
+L3Zhci9vcHQiIHBhcnQgc28gaXQgY2FuIGJlIG92ZXJyaWRkZW4NCj4gZGVwZW5kaW5nIG9uIHdo
+ZXRoZXIgaXQncyBidWlsdCBhcyBhIGRpc3RyaWJ1dGlvbiBvciBhZGQtb24gcGFja2FnZS4NCg0K
+SSB3aWxsIG1ha2UgdGhpcyBhIG1hY3JvLg0KDQo+IA0KPiA+ICsJc3RyY2F0KGlmX2ZpbGUsIGlm
+X25hbWUpOw0KPiA+ICsNCj4gPiArCWZpbGUgPSBmb3BlbihpZl9maWxlLCAidyIpOw0KPiA+ICsN
+Cj4gPiArCWlmIChmaWxlID09IE5VTEwpIHsNCj4gPiArCQlzeXNsb2coTE9HX0VSUiwgIkZhaWxl
+ZCB0byBvcGVuIGNvbmZpZyBmaWxlIik7DQo+ID4gKwkJcmV0dXJuIEhWX0VfRkFJTDsNCj4gPiAr
+CX0NCj4gPiArDQo+ID4gKwkvKg0KPiA+ICsJICogRmlyc3Qgd3JpdGUgb3V0IHRoZSBNQUMgYWRk
+cmVzcy4NCj4gPiArCSAqLw0KPiA+ICsNCj4gPiArCW1hY19hZGRyID0ga3ZwX2lmX25hbWVfdG9f
+bWFjKGlmX25hbWUpOw0KPiA+ICsJaWYgKG1hY19hZGRyID09IE5VTEwpIHsNCj4gPiArCQllcnJv
+ciA9IEhWX0VfRkFJTDsNCj4gPiArCQlnb3RvIHNldHZhbF9lcnJvcjsNCj4gPiArCX0NCj4gPiAr
+DQo+ID4gKwllcnJvciA9IGt2cF93cml0ZV9maWxlKGZpbGUsICJIV0FERFIiLCBOVUxMLCBtYWNf
+YWRkcik7DQo+ID4gKwlpZiAoZXJyb3IpDQo+ID4gKwkJZ290byBzZXR2YWxfZXJyb3I7DQo+ID4g
+Kw0KPiA+ICsJZXJyb3IgPSBrdnBfd3JpdGVfZmlsZShmaWxlLCAiT05CT09UIiwgTlVMTCwgInll
+cyIpOw0KPiA+ICsJaWYgKGVycm9yKQ0KPiA+ICsJCWdvdG8gc2V0dmFsX2Vycm9yOw0KPiA+ICsN
+Cj4gPiArCWVycm9yID0ga3ZwX3dyaXRlX2ZpbGUoZmlsZSwgIklQVjZJTklUIiwgTlVMTCwgInll
+cyIpOw0KPiA+ICsJaWYgKGVycm9yKQ0KPiA+ICsJCWdvdG8gc2V0dmFsX2Vycm9yOw0KPiBbLi4u
+XQ0KPiANCj4gVGhpcyBsaW5lIGlzbid0IG1lbnRpb25lZCBpbiB0aGUgYWJvdmUgY29tbWVudC4N
+Cj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gSWYgbW9yZSB0aGFuIG9u
+ZSBwZXJzb24gaXMgcmVzcG9uc2libGUgZm9yIGEgYnVnLCBubyBvbmUgaXMgYXQgZmF1bHQuDQo=
