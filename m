@@ -1,87 +1,59 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: open sockets preventing unregister_netdevice from completing in linux-next (next-20120724)
-Date: Wed, 25 Jul 2012 15:45:35 +0200
-Message-ID: <87boj4hs3k.fsf@nemi.mork.no>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: bonding: sync netpoll code with bridge
+Date: Wed, 25 Jul 2012 16:47:10 +0300
+Message-ID: <20120725134710.GA25625@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52039 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933018Ab2GYNpn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 09:45:43 -0400
-Received: from nemi.mork.no (ti0026a340-0677.bb.online.no [85.166.77.167])
-	(authenticated bits=0)
-	by canardo.mork.no (8.14.3/8.14.3) with ESMTP id q6PDjeu0015530
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 15:45:41 +0200
-Received: from bjorn by nemi.mork.no with local (Exim 4.80)
-	(envelope-from <bjorn@mork.no>)
-	id 1Su1uB-0005uc-Km
-	for netdev@vger.kernel.org; Wed, 25 Jul 2012 15:45:35 +0200
+Received: from acsinet15.oracle.com ([141.146.126.227]:20681 "EHLO
+	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933007Ab2GYNrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 09:47:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am currently researching several power management regressions in
-linux-next as of next-20120724, spread over the PCI, USB and net
-subsystems. This one I believe belongs to the net subsystem, although I
-definitely may be wrong, mixing these together.
+Hello Amerigo Wang,
 
-My test case is:
+The patch 8a8efa22f51b: "bonding: sync netpoll code with bridge" from 
+Feb 17, 2011, leads to the following warning:
+drivers/net/bonding/bond_main.c:1849 bond_enslave()
+	 error: scheduling with locks held: 'read_lock:&bond->lock'
 
-- open a ssh connection over a USB network device (qmi_wwan - which is =
-why
-  I am looking at this, but I really don't think it's the driver this t=
-ime)
-- suspend laptop with netdev and ssh connection up
-- attempt to resume
+drivers/net/bonding/bond_main.c
+  1301          read_lock(&bond->lock);
+  1302          bond_for_each_slave(bond, slave, i) {
+  1303                  err = slave_enable_netpoll(slave);
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This can lead to a scheduling while atomic bug because it does a
+GFP_KERNEL allocation and calls __netpoll_setup() which sleeps.
 
-The USB device will be gone on resume because it is power cycled, so th=
-e
-drivers need to clean up, to let the device be rediscovered and bound
-again.  But this does not happen anymore in linux-next as long as some
-socket is open.  Instead we have these messages:
+  1304                  if (err) {
+  1305                          __bond_netpoll_cleanup(bond);
+  1306                          break;
+  1307                  }
+  1308          }
+  1309          read_unlock(&bond->lock);
 
- Jul 25 15:13:11 nemi kernel: [ 7704.560306] unregister_netdevice: wait=
-ing for wwan0 to become free. Usage count =3D 1
- Jul 25 15:13:21 nemi kernel: [ 7714.800308] unregister_netdevice: wait=
-ing for wwan0 to become free. Usage count =3D 1
- Jul 25 15:13:31 nemi kernel: [ 7725.040316] unregister_netdevice: wait=
-ing for wwan0 to become free. Usage count =3D 1
+Also later in the file:
 
+  1848          if (slave_dev->npinfo) {
+  1849                  if (slave_enable_netpoll(new_slave)) {
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+We are holding read_lock(&bond->lock);
 
-There are quite a few problems with the system in this state.  Any writ=
-e
-to the power/control associated with that USB device will hang,
-presumably because the USB device does not exist anymore.  This will
-also make new attempts to suspend fail.  And the USB device is of cours=
-e
-not functional.  The driver has not yet had a chance to clean up any of
-the other devices associated with the dead USB device (wwan1,
-/dev/cdc-wdm0 and /dev/cdc-wdm1), so these ghost devices will appear as
-non- functional.  And new devices cannot be registered until the
-previous USB device is deleted and a new one created.
+  1850                          read_unlock(&bond->lock);
+  1851                          pr_info("Error, %s: master_dev is using netpoll, "
+  1852                                   "but new slave device does not support netpoll.\n",
+  1853                                   bond_dev->name);
+  1854                          res = -EBUSY;
+  1855                          goto err_detach;
+  1856                  }
 
-Killing the ssh session let the unregister_netdevice continue and
-everything will be cleaned up and go back to normal.
+The easy way to trigger this warning is to test with
+CONFIG_DEBUG_ATOMIC_SLEEP=y.
 
-This is a regression compared to 3.5, where unregister_netdevice would
-succeed regardless of any open sockets. Or maybe the sockets were
-auto-reaped?  I don't know the inner details - just observing the
-results.
-
-The test case above is quite normal operational mode for me.  I often
-leave open sessions while suspending (because I intend to continue usin=
-g
-them after resuming).  And I always forget that this won't work for the
-USB modem case.  I don't really care either.  I expect the netdev to be
-removed, routes deleted and any sockets referencing either should just
-die or live on as zombies or whatever.  The important part is that they
-should not prevent deletion of a netdev when e.g. the physical device i=
-s
-gone. That's the way things used to work.
-
-
-
-Bj=C3=B8rn
+regards,
+dan carpenter
