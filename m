@@ -1,64 +1,70 @@
-From: w90p710@gmail.com
-Subject: [PATCH v0 net-next 1/1] net/pch_gpe: Cannot disable ethernet autonegation
-Date: Wed, 25 Jul 2012 20:13:59 +0800
-Message-ID: <1343218439-5403-1-git-send-email-w90p710@gmail.com>
-Cc: netdev@vger.kernel.org, Wei Yang <w90p710@gmail.com>
-To: davem@davemloft.net
+From: <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] be2net: Missing byteswap in be_get_fw_log_level causes
+ oops on PowerPC
+Date: Wed, 25 Jul 2012 12:18:42 +0000
+Message-ID: <eab1d334-de01-483d-8615-07ee1ce7139a@CMEXHTCAS2.ad.emulex.com>
+References: <20120725110525.0468f754@kryten>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <anton@samba.org>, <subbu.seetharaman@emulex.com>,
+	<Ajit.Khaparde@Emulex.Com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:43216 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756529Ab2GYMPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 08:15:24 -0400
-Received: by yenl2 with SMTP id l2so593643yen.19
-        for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 05:15:23 -0700 (PDT)
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:10849 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756604Ab2GYMZe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 08:25:34 -0400
+In-Reply-To: <20120725110525.0468f754@kryten>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <w90p710@gmail.com>
+>-----Original Message-----
+>From: Anton Blanchard [mailto:anton@samba.org]
+>
+>We are seeing an oops in be_get_fw_log_level on ppc64 where we walk
+>off the end of memory.
+>
+>commit 941a77d582c8 (be2net: Fix to allow get/set of debug levels in
+>the firmware.) requires byteswapping of num_modes and num_modules.
+>
+>Cc: stable@vger.kernel.org # 3.5+
+>Signed-off-by: Anton Blanchard <anton@samba.org>
+Acked-by: Sathya Perla <sperla@emulex.com>
 
-When attempting to disable ethernet autonegation via ethtool,
-the pch_gpe driver will set software reset bit of PHY chip, But 
-control register of PHY chip of FRI2 will reenable ethernet autonegation.
-
-Signed-off-by: Wei Yang <w90p710@gmail.com>
----
- .../ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c    |    1 -
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    4 +++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-index ac4e72d..e2be4a7 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-@@ -129,7 +129,6 @@ static int pch_gbe_set_settings(struct net_device *netdev,
- 	hw->mac.link_duplex = ecmd->duplex;
- 	hw->phy.autoneg_advertised = ecmd->advertising;
- 	hw->mac.autoneg = ecmd->autoneg;
--	pch_gbe_hal_phy_sw_reset(hw);
- 
- 	/* reset the link */
- 	if (netif_running(adapter->netdev)) {
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 3787c64..8e6d2aa 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -1988,6 +1988,7 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
- void pch_gbe_down(struct pch_gbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-+	struct pci_dev *pdev = adapter->pdev;
- 	struct pch_gbe_rx_ring *rx_ring = adapter->rx_ring;
- 
- 	/* signal that we're down so the interrupt handler does not
-@@ -2004,7 +2005,8 @@ void pch_gbe_down(struct pch_gbe_adapter *adapter)
- 	netif_carrier_off(netdev);
- 	netif_stop_queue(netdev);
- 
--	pch_gbe_reset(adapter);
-+	if ((pdev->error_state) && (pdev->error_state != pci_channel_io_normal))
-+		pch_gbe_reset(adapter);
- 	pch_gbe_clean_tx_ring(adapter, adapter->tx_ring);
- 	pch_gbe_clean_rx_ring(adapter, adapter->rx_ring);
- 
--- 
-1.7.9.5
+Thanks for the fix!
+>---
+>
+>diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c
+>b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+>index 63e51d4..59ee51a 100644
+>--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
+>+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+>@@ -910,8 +910,9 @@ static void be_set_fw_log_level(struct be_adapter *adapter,
+>u32 level)
+> 	if (!status) {
+> 		cfgs = (struct be_fat_conf_params *)(extfat_cmd.va +
+> 					sizeof(struct be_cmd_resp_hdr));
+>-		for (i = 0; i < cfgs->num_modules; i++) {
+>-			for (j = 0; j < cfgs->module[i].num_modes; j++) {
+>+		for (i = 0; i < le32_to_cpu(cfgs->num_modules); i++) {
+>+			u32 num_modes = le32_to_cpu(cfgs-
+>>module[i].num_modes);
+>+			for (j = 0; j < num_modes; j++) {
+> 				if (cfgs->module[i].trace_lvl[j].mode ==
+> 								MODE_UART)
+> 					cfgs->module[i].trace_lvl[j].dbg_lvl =
+>diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
+>b/drivers/net/ethernet/emulex/benet/be_main.c
+>index 501dfa9..bd5cf7e 100644
+>--- a/drivers/net/ethernet/emulex/benet/be_main.c
+>+++ b/drivers/net/ethernet/emulex/benet/be_main.c
+>@@ -3479,7 +3479,7 @@ u32 be_get_fw_log_level(struct be_adapter *adapter)
+> 	if (!status) {
+> 		cfgs = (struct be_fat_conf_params *)(extfat_cmd.va +
+> 						sizeof(struct be_cmd_resp_hdr));
+>-		for (j = 0; j < cfgs->module[0].num_modes; j++) {
+>+		for (j = 0; j < le32_to_cpu(cfgs->module[0].num_modes); j++) {
+> 			if (cfgs->module[0].trace_lvl[j].mode == MODE_UART)
+> 				level = cfgs->module[0].trace_lvl[j].dbg_lvl;
+> 		}
