@@ -1,38 +1,48 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [RFC] r8169 : why SG / TX checksum are default disabled
-Date: Wed, 25 Jul 2012 10:10:08 +0800
-Message-ID: <208C5E31B39C438F831D9578F88CAD71@realtek.com.tw>
-References: <A4FD513AF09D40849B8A75C371F1D431@realtek.com.tw><20120720210107.GA28118@electric-eye.fr.zoreil.com><CEE7FFC13FF3495C9771B87B8F199BA7@realtek.com.tw> <20120723.235931.725099984853258732.davem@davemloft.net>
+From: Kevin Groeneveld <kgroeneveld@gmail.com>
+Subject: Re: [PATCH] ppp: add 64 bit stats
+Date: Tue, 24 Jul 2012 22:27:03 -0400
+Message-ID: <CABF+-6Wpn8yEvru1FDsaFbXYZ7tyeQqqbEU2VY8hLKvmXXFBXA@mail.gmail.com>
+References: <1342988397-3077-1-git-send-email-kgroeneveld@gmail.com>
+	<1343020585.2626.10054.camel@edumazet-glaptop>
+	<CABF+-6WHqzXhvv9etdAqsamZirbWxWJEsnU-CQ1H8tvynCTOZA@mail.gmail.com>
+	<1343059184.2626.11027.camel@edumazet-glaptop>
+	<CABF+-6Vko_T2RCsk1KVouB8a+8Ms_aLEoA-Xet1nxB8bnZAxMA@mail.gmail.com>
+	<1343110954.2626.11040.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <romieu@fr.zoreil.com>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>
-To: 'David Miller' <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:60001 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754409Ab2GYCKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 22:10:23 -0400
-In-Reply-To: <20120723.235931.725099984853258732.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:60192 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753823Ab2GYC1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jul 2012 22:27:04 -0400
+Received: by vbbff1 with SMTP id ff1so189571vbb.19
+        for <netdev@vger.kernel.org>; Tue, 24 Jul 2012 19:27:03 -0700 (PDT)
+In-Reply-To: <1343110954.2626.11040.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- David Miller [mailto:davem@davemloft.net] 
-> Sent: Tuesday, July 24, 2012 3:00 PM
-> To: Hayeswang
-> Cc: romieu@fr.zoreil.com; eric.dumazet@gmail.com; 
-> netdev@vger.kernel.org
-> Subject: Re: [RFC] r8169 : why SG / TX checksum are default disabled
-> 
-[...]
-> 
-> I still have not seen a good explanation why the chip modifies fields
-> in the packet, such as the length, when we ask it only to compute the
-> checksum?
+On Tue, Jul 24, 2012 at 2:22 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2012-07-23 at 21:53 -0400, Kevin Groeneveld wrote:
+>> On Mon, Jul 23, 2012 at 11:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> >> Would proper synchronization in this case just be wrapping the updates
+>> >> in a spin_lock/spin_unlock?
+>> >
+>> > Would be fine (if the proper BH safe variant is used), or you could also
+>> > use atomic64_t.
+>>
+>> Which would you recommend, spin locks or atomic64_t?
+>>
+>> atomic64_t seems like it would be simpler.
+>
+> Simpler but a bit more expensive when two counters are changed at the
+> same time.
+>
+> (two atomic ops instead of a single one for the spinlock)
 
-I don't know the history and the detail about the bug. I think only our designer
-could answer your question. I guess it is a careless mistake.
- 
-Best Regards,
-Hayes
+After looking at the existing ppp code more I wonder if I would even
+need to add my own spinlocks.  It seems the only spots I am updating
+the 64 bit stats are already protected by either ppp->wlock or
+ppp->rlock spinlocks.  If I used two separate u64_stats_sync
+structures, one for tx stats and one for rx stats, wouldn't the
+existing spinlocks be enough?
