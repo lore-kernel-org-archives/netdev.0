@@ -1,85 +1,93 @@
-From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
-Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
-Date: Wed, 25 Jul 2012 12:02:08 -0300
-Message-ID: <50100A70.7010605@linux.vnet.ibm.com>
-References: <1342814143-5744-1-git-send-email-klebers@linux.vnet.ibm.com> <20120724.140353.1432900101600410863.davem@davemloft.net> <CAJZOPZKUw7DQQH5mFq4XK5GOZ_Wj6JmjFYi6no7aL_UrpO10vw@mail.gmail.com> <5010070B.5040405@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH RESEND net] net/mlx4_en: Limit the RFS filter IDs to be
+ < RPS_NO_FILTER
+Date: Wed, 25 Jul 2012 18:04:35 +0300
+Message-ID: <50100B03.2020205@mellanox.com>
+References: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com> <1343228230.2694.12.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jackm@dev.mellanox.co.il, yevgenyp@mellanox.co.il,
-	ogerlitz@mellanox.com, cascardo@linux.vnet.ibm.com,
-	brking@linux.vnet.ibm.com
-To: Shlomo Pongartz <shlomop@mellanox.com>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<oren@mellanox.com>, "Amir Vadai" <amirv@mellanox.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp05.br.ibm.com ([32.104.18.26]:37396 "EHLO
-	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030192Ab2GYPCb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 11:02:31 -0400
-Received: from /spool/local
-	by e24smtp05.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <klebers@linux.vnet.ibm.com>;
-	Wed, 25 Jul 2012 12:02:29 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id E12C9352004F
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 11:02:07 -0400 (EDT)
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by d24relay02.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q6PF1LvE45809908
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 12:01:21 -0300
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q6PD23gK005925
-	for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 10:02:04 -0300
-In-Reply-To: <5010070B.5040405@mellanox.com>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:41306 "HELO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933160Ab2GYPII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 11:08:08 -0400
+In-Reply-To: <1343228230.2694.12.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/25/2012 11:47 AM, Shlomo Pongartz wrote:
+On 25/07/2012 17:57, Ben Hutchings wrote:
+>
+> resending as of typo in my signature... sorry
+>
+> --signoff is so much easier than typing it every time :-)
 
-> On 7/25/2012 1:30 AM, Or Gerlitz wrote:
->> On Wed, Jul 25, 2012 at 12:03 AM, David Miller <davem@davemloft.net> wrote:
->>
->>> Or, you promised an ACK today, I still haven't seen it.
->> It turned out that reacted we did, but not the ACK way.
->>
->> Again, code review wise, we intended to ack it, but Shlomo has set
->> testing environment, under which he had some issues with the patch, as
->> such he preferred not to ACK it but rather bring up the issues on the
->> list and sort them out 1st. I thought it would be wrong to over-rule
->> this preference of him, and this way is fair-enough with the author
->> and your guide-lines, maybe I had to be more aggressive with ACKing
->> this, as of the merge window closing coming. So tomorrow.
->>
->> Or.
->>
->>> There is no reason Kleber should be penalized and have his work
->>> miss the merge window just because you guys can't be bothered
->>> to approve this patch in a reasonable amount of time.
->>>
->>> Therefore I'm just going to apply it later today, and don't do this
->>> with someone's submission ever again, it impedes progress and
->>> frustrates contributors.
->> .
->>
-> 
-> Hi Kleber,
-> 
->  
-> 
-> I reviewed the patch and it seems fine, here's my ACK
-> 
->  
-> 
-> Acked-by: Shlomo Pongratz <shlomop@mellanox.com
-> <mailto:shlomop@mellanox.com>>
-> 
-> 
+I know and I do that on the regular basis, today did that differently 
+and here's the result...
 
+Or.
 
-Hi Shlomo,
+>
+>
+>>   drivers/net/ethernet/mellanox/mlx4/en_cq.c     |    8 ++------
+>>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+>>   2 files changed, 3 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+>> index aa9c2f6..866829b 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+>> @@ -77,12 +77,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+>>   	struct mlx4_en_dev *mdev = priv->mdev;
+>>   	int err = 0;
+>>   	char name[25];
+>> -	struct cpu_rmap *rmap =
+>> -#ifdef CONFIG_RFS_ACCEL
+>> -		priv->dev->rx_cpu_rmap;
+>> -#else
+>> -		NULL;
+>> -#endif
+>> +	struct cpu_rmap *rmap = IS_ENABLED(CONFIG_RFS_ACCEL) ?
+>> +		priv->dev->rx_cpu_rmap : NULL;
+>
+> This is a separate change.
 
-Thank you for reviewing my patch.
+OK, will send two patches
 
--- 
-Kleber Sacilotto de Souza
-IBM Linux Technology Center
+>
+>
+>>   	cq->dev = mdev->pndev[priv->port];
+>>   	cq->mcq.set_ci_db  = cq->wqres.db.db;
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> index 8864d8b..edd9cb8 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> @@ -201,7 +201,7 @@ mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
+>>
+>>   	filter->flow_id = flow_id;
+>>
+>> -	filter->id = priv->last_filter_id++;
+>> +	filter->id = priv->last_filter_id++ % RPS_NO_FILTER;
+>
+> This should do for now.
+
+thanks
+
+Or.
+
+>
+>
+> Ideally the filter ID would be based on the index used in hardware.  We
+> would need to change the API to allow for devices where this cannot be
+> determined synchronously, as in this driver.  (And the filter ID might
+> also need to be wider.)
+>
+> Ben.
+>
+>>
+>>   	list_add_tail(&filter->next,&priv->filters);
+>>   	hlist_add_head(&filter->filter_chain,
+>
