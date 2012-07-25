@@ -1,25 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/3] s390: bug fixes for net
-Date: Wed, 25 Jul 2012 15:24:59 -0700 (PDT)
-Message-ID: <20120725.152459.1680596757869648368.davem@davemloft.net>
-References: <20120725083426.704834478@de.ibm.com>
+Subject: Re: [PATCH v0 net-next 1/1] net/pch_gpe: Cannot disable ethernet
+ autonegation
+Date: Wed, 25 Jul 2012 15:25:06 -0700 (PDT)
+Message-ID: <20120725.152506.2022148269560577883.davem@davemloft.net>
+References: <1343218439-5403-1-git-send-email-w90p710@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Cc: netdev@vger.kernel.org
+To: w90p710@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46596 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46600 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894Ab2GYWZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:25:00 -0400
-In-Reply-To: <20120725083426.704834478@de.ibm.com>
+	with ESMTP id S1752404Ab2GYWZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:25:07 -0400
+In-Reply-To: <1343218439-5403-1-git-send-email-w90p710@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: frank.blaschka@de.ibm.com
-Date: Wed, 25 Jul 2012 10:34:26 +0200
+From: w90p710@gmail.com
+Date: Wed, 25 Jul 2012 20:13:59 +0800
 
-> here are some bug fixes for net.
+> From: Wei Yang <w90p710@gmail.com>
+> 
+> When attempting to disable ethernet autonegation via ethtool,
+> the pch_gpe driver will set software reset bit of PHY chip, But 
+> control register of PHY chip of FRI2 will reenable ethernet autonegation.
+> 
+> Signed-off-by: Wei Yang <w90p710@gmail.com>
 
-All applied, thanks.
+Applied.
