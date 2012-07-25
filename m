@@ -1,60 +1,69 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 08/17] Tools: hv: Gather subnet information
-Date: Wed, 25 Jul 2012 14:10:51 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF9236A8B6D@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
-	 <1343145701-3691-1-git-send-email-kys@microsoft.com>
-	 <1343145701-3691-8-git-send-email-kys@microsoft.com>
- <1343178850.5132.104.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1343178850.5132.104.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Limit the RFS filter IDs to be < RPS_NO_FILTER
+Date: Wed, 25 Jul 2012 17:35:07 +0300
+Message-ID: <1343226907-31645-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, oren@mellanox.com,
+	Amir Vadai <amirv@mellanox.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Or Gerliz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:56567 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933148Ab2GYOfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:35:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFR1ZXNkYXksIEp1bHkgMjQsIDIw
-MTIgOToxNCBQTQ0KPiBUbzogS1kgU3Jpbml2YXNhbg0KPiBDYzogZ3JlZ2toQGxpbnV4Zm91bmRh
-dGlvbi5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+IGRldmVsQGxpbnV4ZHJp
-dmVycHJvamVjdC5vcmc7IHZpcnR1YWxpemF0aW9uQGxpc3RzLm9zZGwub3JnOyBvbGFmQGFlcGZs
-ZS5kZTsNCj4gYXB3QGNhbm9uaWNhbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3Vi
-amVjdDogUmU6IFtQQVRDSCAwOC8xN10gVG9vbHM6IGh2OiBHYXRoZXIgc3VibmV0IGluZm9ybWF0
-aW9uDQo+IA0KPiBPbiBUdWUsIDIwMTItMDctMjQgYXQgMDk6MDEgLTA3MDAsIEsuIFkuIFNyaW5p
-dmFzYW4gd3JvdGU6DQo+ID4gTm93IGdhdGhlciBzdWItbmV0IGluZm9ybWF0aW9uIGZvciB0aGUg
-c3BlY2lmaWVkIGludGVyZmFjZS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEsuIFkuIFNyaW5p
-dmFzYW4gPGt5c0BtaWNyb3NvZnQuY29tPg0KPiA+IFJldmlld2VkLWJ5OiBIYWl5YW5nIFpoYW5n
-IDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPg0KPiA+IC0tLQ0KPiA+ICB0b29scy9odi9odl9rdnBf
-ZGFlbW9uLmMgfCAgIDMxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0NCj4gPiAgMSBm
-aWxlcyBjaGFuZ2VkLCAyOSBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4g
-ZGlmZiAtLWdpdCBhL3Rvb2xzL2h2L2h2X2t2cF9kYWVtb24uYyBiL3Rvb2xzL2h2L2h2X2t2cF9k
-YWVtb24uYw0KPiA+IGluZGV4IDc5ZWIxMzAuLjJjMjRlYmYgMTAwNjQ0DQo+ID4gLS0tIGEvdG9v
-bHMvaHYvaHZfa3ZwX2RhZW1vbi5jDQo+ID4gKysrIGIvdG9vbHMvaHYvaHZfa3ZwX2RhZW1vbi5j
-DQo+ID4gQEAgLTUzNCw2ICs1MzQsNyBAQCBrdnBfZ2V0X2lwX2FkZHJlc3MoaW50IGZhbWlseSwg
-Y2hhciAqaWZfbmFtZSwgaW50IG9wLA0KPiA+ICAJc3RydWN0IGlmYWRkcnMgKmlmYXA7DQo+ID4g
-IAlzdHJ1Y3QgaWZhZGRycyAqY3VycDsNCj4gPiAgCWludCBvZmZzZXQgPSAwOw0KPiA+ICsJaW50
-IHNuX29mZnNldCA9IDA7DQo+ID4gIAljb25zdCBjaGFyICpzdHI7DQo+ID4gIAlpbnQgZXJyb3Ig
-PSAwOw0KPiA+ICAJY2hhciAqYnVmZmVyOw0KPiA+IEBAIC01OTQsMTIgKzU5NSwzOCBAQCBrdnBf
-Z2V0X2lwX2FkZHJlc3MoaW50IGZhbWlseSwgY2hhciAqaWZfbmFtZSwgaW50IG9wLA0KPiA+ICAJ
-CQkgKiBHYXRoZXIgaW5mbyBvdGhlciB0aGFuIHRoZSBJUCBhZGRyZXNzLg0KPiA+ICAJCQkgKiBJ
-UCBhZGRyZXNzIGluZm8gd2lsbCBiZSBnYXRoZXJlZCBsYXRlci4NCj4gPiAgCQkJICovDQo+ID4g
-LQkJCWlmIChjdXJwLT5pZmFfYWRkci0+c2FfZmFtaWx5ID09IEFGX0lORVQpDQo+ID4gKwkJCWlm
-IChjdXJwLT5pZmFfYWRkci0+c2FfZmFtaWx5ID09IEFGX0lORVQpIHsNCj4gPiAgCQkJCWlwX2J1
-ZmZlci0+YWRkcl9mYW1pbHkgfD0gQUREUl9GQU1JTFlfSVBWNDsNCj4gPiAtCQkJZWxzZQ0KPiA+
-ICsJCQkJLyoNCj4gPiArCQkJCSAqIEdldCBzdWJuZXQgaW5mby4NCj4gPiArCQkJCSAqLw0KPiA+
-ICsJCQkJZXJyb3IgPSBrdnBfcHJvY2Vzc19pcF9hZGRyZXNzKA0KPiA+ICsJCQkJCQkJY3VycC0+
-aWZhX25ldG1hc2ssDQo+ID4gKwkJCQkJCQlBRl9JTkVULA0KPiA+ICsJCQkJCQkJKGNoYXIgKikN
-Cj4gPiArCQkJCQkJCWlwX2J1ZmZlci0+c3ViX25ldCwNCj4gPiArCQkJCQkJCWxlbmd0aCwNCj4g
-PiArCQkJCQkJCSZzbl9vZmZzZXQpOw0KPiBbLi4uXQ0KPiANCj4gVGhpcyBpcyBiYXJlbHkgcmVh
-ZGFibGU7IHdoeSBkb24ndCB5b3UgaW5kZW50IHRoZSBhcmd1bWVudHMgYnkganVzdCBvbmUNCj4g
-ZXh0cmEgdGFiPw0KDQpXaWxsIGRvLg0KDQpSZWdhcmRzLA0KDQpLLiBZDQo=
+From: Amir Vadai <amirv@mellanox.com>
+
+RFS filter id can't have the special value RPS_NO_FILTER, 
+need to skip it when allocating id's.
+
+Also, changed an ifdef into a more elegant IS_DEFINED.
+
+CC: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Or Gerliz <ogerlitz@mellanox.com>
+---
+
+Addressing feedback from Ben Hutchings
+
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c     |    8 ++------
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+ 2 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index aa9c2f6..866829b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -77,12 +77,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int err = 0;
+ 	char name[25];
+-	struct cpu_rmap *rmap =
+-#ifdef CONFIG_RFS_ACCEL
+-		priv->dev->rx_cpu_rmap;
+-#else
+-		NULL;
+-#endif
++	struct cpu_rmap *rmap = IS_ENABLED(CONFIG_RFS_ACCEL) ?
++		priv->dev->rx_cpu_rmap : NULL;
+ 
+ 	cq->dev = mdev->pndev[priv->port];
+ 	cq->mcq.set_ci_db  = cq->wqres.db.db;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 8864d8b..edd9cb8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -201,7 +201,7 @@ mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
+ 
+ 	filter->flow_id = flow_id;
+ 
+-	filter->id = priv->last_filter_id++;
++	filter->id = priv->last_filter_id++ % RPS_NO_FILTER;
+ 
+ 	list_add_tail(&filter->next, &priv->filters);
+ 	hlist_add_head(&filter->filter_chain,
+-- 
+1.7.8.2
