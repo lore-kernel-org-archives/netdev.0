@@ -1,93 +1,62 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH RESEND net] net/mlx4_en: Limit the RFS filter IDs to be
- < RPS_NO_FILTER
-Date: Wed, 25 Jul 2012 18:04:35 +0300
-Message-ID: <50100B03.2020205@mellanox.com>
-References: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com> <1343228230.2694.12.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: rt_cache_valid must check expired routes
+Date: Wed, 25 Jul 2012 17:11:23 +0200
+Message-ID: <1343229083.2626.11177.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<oren@mellanox.com>, "Amir Vadai" <amirv@mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:41306 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933160Ab2GYPII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 11:08:08 -0400
-In-Reply-To: <1343228230.2694.12.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57437 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030247Ab2GYPL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 11:11:29 -0400
+Received: by bkwj10 with SMTP id j10so606483bkw.19
+        for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 08:11:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25/07/2012 17:57, Ben Hutchings wrote:
->
-> resending as of typo in my signature... sorry
->
-> --signoff is so much easier than typing it every time :-)
+From: Eric Dumazet <edumazet@google.com>
 
-I know and I do that on the regular basis, today did that differently 
-and here's the result...
+commit d2d68ba9fe8 (ipv4: Cache input routes in fib_info nexthops.)
+introduced rt_cache_valid() helper. It unfortunately doesn't check if
+route is expired before caching it.
 
-Or.
+I noticed sk_setup_caps() was constantly called on a tcp workload.
 
->
->
->>   drivers/net/ethernet/mellanox/mlx4/en_cq.c     |    8 ++------
->>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
->>   2 files changed, 3 insertions(+), 7 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
->> index aa9c2f6..866829b 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
->> @@ -77,12 +77,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
->>   	struct mlx4_en_dev *mdev = priv->mdev;
->>   	int err = 0;
->>   	char name[25];
->> -	struct cpu_rmap *rmap =
->> -#ifdef CONFIG_RFS_ACCEL
->> -		priv->dev->rx_cpu_rmap;
->> -#else
->> -		NULL;
->> -#endif
->> +	struct cpu_rmap *rmap = IS_ENABLED(CONFIG_RFS_ACCEL) ?
->> +		priv->dev->rx_cpu_rmap : NULL;
->
-> This is a separate change.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+This patch is bringed by an European guy, but its still July after
+all ;)
 
-OK, will send two patches
+ net/ipv4/route.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
->
->
->>   	cq->dev = mdev->pndev[priv->port];
->>   	cq->mcq.set_ci_db  = cq->wqres.db.db;
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> index 8864d8b..edd9cb8 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> @@ -201,7 +201,7 @@ mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
->>
->>   	filter->flow_id = flow_id;
->>
->> -	filter->id = priv->last_filter_id++;
->> +	filter->id = priv->last_filter_id++ % RPS_NO_FILTER;
->
-> This should do for now.
-
-thanks
-
-Or.
-
->
->
-> Ideally the filter ID would be based on the index used in hardware.  We
-> would need to change the API to allow for devices where this cannot be
-> determined synchronously, as in this driver.  (And the filter ID might
-> also need to be wider.)
->
-> Ben.
->
->>
->>   	list_add_tail(&filter->next,&priv->filters);
->>   	hlist_add_head(&filter->filter_chain,
->
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 6bcb8fc..30e7021 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -444,7 +444,7 @@ static inline int ip_rt_proc_init(void)
+ }
+ #endif /* CONFIG_PROC_FS */
+ 
+-static inline int rt_is_expired(struct rtable *rth)
++static inline bool rt_is_expired(const struct rtable *rth)
+ {
+ 	return rth->rt_genid != rt_genid(dev_net(rth->dst.dev));
+ }
+@@ -1222,9 +1222,11 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ 	}
+ }
+ 
+-static bool rt_cache_valid(struct rtable *rt)
++static bool rt_cache_valid(const struct rtable *rt)
+ {
+-	return (rt && rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK);
++	return	rt &&
++		rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK &&
++		!rt_is_expired(rt);
+ }
+ 
+ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
