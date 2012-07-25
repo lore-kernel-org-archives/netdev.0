@@ -1,120 +1,93 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 03/17] Drivers: hv: kvp: Cleanup error handling in KVP
-Date: Wed, 25 Jul 2012 14:51:43 +0000
-Message-ID: <426367E2313C2449837CD2DE46E7EAF9236A8BEA@SN2PRD0310MB382.namprd03.prod.outlook.com>
-References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-3-git-send-email-kys@microsoft.com>
- <1343178644.5132.103.camel@deadeye.wl.decadent.org.uk>
- <426367E2313C2449837CD2DE46E7EAF9236A8B61@SN2PRD0310MB382.namprd03.prod.outlook.com>
- <20120725144724.GD1894@decadent.org.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RESEND net] net/mlx4_en: Limit the RFS filter IDs to be
+ < RPS_NO_FILTER
+Date: Wed, 25 Jul 2012 15:57:10 +0100
+Message-ID: <1343228230.2694.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120725144724.GD1894@decadent.org.uk>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<oren@mellanox.com>, Amir Vadai <amirv@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:65349 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S964774Ab2GYO5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 10:57:15 -0400
+In-Reply-To: <1343226979-32004-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> Sent: Wednesday, July 25, 2012 10:47 AM
-> To: KY Srinivasan
-> Cc: gregkh@linuxfoundation.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; virtualization@lists.osdl.org; olaf@aepfle.de;
-> apw@canonical.com; netdev@vger.kernel.org
-> Subject: Re: [PATCH 03/17] Drivers: hv: kvp: Cleanup error handling in KVP
+On Wed, 2012-07-25 at 17:36 +0300, Or Gerlitz wrote:
+> From: Amir Vadai <amirv@mellanox.com>
 > 
-> On Wed, Jul 25, 2012 at 02:10:05PM +0000, KY Srinivasan wrote:
-> >
-> >
-> > > -----Original Message-----
-> > > From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> > > Sent: Tuesday, July 24, 2012 9:11 PM
-> > > To: KY Srinivasan
-> > > Cc: gregkh@linuxfoundation.org; linux-kernel@vger.kernel.org;
-> > > devel@linuxdriverproject.org; virtualization@lists.osdl.org; olaf@aepfle.de;
-> > > apw@canonical.com; netdev@vger.kernel.org
-> > > Subject: Re: [PATCH 03/17] Drivers: hv: kvp: Cleanup error handling in KVP
-> > >
-> > > On Tue, 2012-07-24 at 09:01 -0700, K. Y. Srinivasan wrote:
-> > > > In preparation to implementing IP injection, cleanup the way we propagate
-> > > > and handle errors both in the driver as well as in the user level daemon.
-> > > >
-> > > > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > > > Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > > > ---
-> > > >  drivers/hv/hv_kvp.c      |  112
-> +++++++++++++++++++++++++++++++++++++-
-> > > --------
-> > > >  include/linux/hyperv.h   |   17 +++++---
-> > > >  tools/hv/hv_kvp_daemon.c |   70 +++++++++++++++-------------
-> > > >  3 files changed, 138 insertions(+), 61 deletions(-)
-> > > >
-> > > > diff --git a/drivers/hv/hv_kvp.c b/drivers/hv/hv_kvp.c
-> > > > index 0012eed..9b7fc4a 100644
-> > > > --- a/drivers/hv/hv_kvp.c
-> > > > +++ b/drivers/hv/hv_kvp.c
-> > > [...]
-> > > > @@ -109,27 +154,52 @@ kvp_cn_callback(struct cn_msg *msg, struct
-> > > netlink_skb_parms *nsp)
-> > > >  {
-> > > >  	struct hv_kvp_msg *message;
-> > > >  	struct hv_kvp_msg_enumerate *data;
-> > > > +	int	error = 0;
-> > > >
-> > > >  	message = (struct hv_kvp_msg *)msg->data;
-> > > > -	switch (message->kvp_hdr.operation) {
-> > > > +
-> > > > +	/*
-> > > > +	 * If we are negotiating the version information
-> > > > +	 * with the daemon; handle that first.
-> > > > +	 */
-> > > > +
-> > > > +	if (in_hand_shake) {
-> > > > +		if (kvp_handle_handshake(message))
-> > > > +			in_hand_shake = false;
-> > > > +		return;
-> > > > +	}
-> > > > +
-> > > > +	/*
-> > > > +	 * Based on the version of the daemon, we propagate errors from the
-> > > > +	 * daemon differently.
-> > > > +	 */
-> > > > +
-> > > > +	data = &message->body.kvp_enum_data;
-> > > > +
-> > > > +	switch (dm_reg_value) {
-> > > >  	case KVP_OP_REGISTER:
-> > > > -		pr_info("KVP: user-mode registering done.\n");
-> > > > -		kvp_register();
-> > > > -		kvp_transaction.active = false;
-> > > > -		hv_kvp_onchannelcallback(kvp_transaction.kvp_context);
-> > > > +		/*
-> > > > +		 * Null string is used to pass back error condition.
-> > > > +		 */
-> > > > +		if (!strlen(data->data.key))
-> > >
-> > > Do we know that the key is null-terminated here?  Shouldn't we just
-> > > check whether data->data.key[0] == 0?
-> >
-> > Yes, currently we do return null string to indicate error.
-> [...]
+> RFS filter id can't have the special value RPS_NO_FILTER, 
+> need to skip it when allocating id's.
 > 
-> So the kernel should assume userland input is always valid?
+> Also, changed an ifdef into a more elegant IS_DEFINED.
+> 
+> CC: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+> 
+> Addressing feedback from Ben Hutchings
+> 
+> resending as of typo in my signature... sorry
 
-Good point! This is the existing code and this patch-set cleans up all
-the error handling and would not have this problem.
+--signoff is so much easier than typing it every time :-)
 
-K. Y
+>  drivers/net/ethernet/mellanox/mlx4/en_cq.c     |    8 ++------
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+>  2 files changed, 3 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+> index aa9c2f6..866829b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+> @@ -77,12 +77,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+>  	struct mlx4_en_dev *mdev = priv->mdev;
+>  	int err = 0;
+>  	char name[25];
+> -	struct cpu_rmap *rmap =
+> -#ifdef CONFIG_RFS_ACCEL
+> -		priv->dev->rx_cpu_rmap;
+> -#else
+> -		NULL;
+> -#endif
+> +	struct cpu_rmap *rmap = IS_ENABLED(CONFIG_RFS_ACCEL) ?
+> +		priv->dev->rx_cpu_rmap : NULL;
+
+This is a separate change.
+ 
+>  	cq->dev = mdev->pndev[priv->port];
+>  	cq->mcq.set_ci_db  = cq->wqres.db.db;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 8864d8b..edd9cb8 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -201,7 +201,7 @@ mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
+>  
+>  	filter->flow_id = flow_id;
+>  
+> -	filter->id = priv->last_filter_id++;
+> +	filter->id = priv->last_filter_id++ % RPS_NO_FILTER;
+
+This should do for now.
+
+Ideally the filter ID would be based on the index used in hardware.  We
+would need to change the API to allow for devices where this cannot be
+determined synchronously, as in this driver.  (And the filter ID might
+also need to be wider.)
+
+Ben.
+
+>  
+>  	list_add_tail(&filter->next, &priv->filters);
+>  	hlist_add_head(&filter->filter_chain,
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
