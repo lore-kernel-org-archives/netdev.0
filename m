@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: open sockets preventing unregister_netdevice from completing
- in linux-next (next-20120724)
-Date: Wed, 25 Jul 2012 15:17:37 -0700 (PDT)
-Message-ID: <20120725.151737.1807149851147342859.davem@davemloft.net>
-References: <87boj4hs3k.fsf@nemi.mork.no>
-	<1343227128.2626.11157.camel@edumazet-glaptop>
+Subject: Re: [PATCH] mlx4: Add support for EEH error recovery
+Date: Wed, 25 Jul 2012 15:19:21 -0700 (PDT)
+Message-ID: <20120725.151921.2077200077562389843.davem@davemloft.net>
+References: <20120724.140353.1432900101600410863.davem@davemloft.net>
+	<CAJZOPZKUw7DQQH5mFq4XK5GOZ_Wj6JmjFYi6no7aL_UrpO10vw@mail.gmail.com>
+	<5010070B.5040405@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bjorn@mork.no, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: or.gerlitz@gmail.com, klebers@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, jackm@dev.mellanox.co.il,
+	yevgenyp@mellanox.co.il, ogerlitz@mellanox.com,
+	cascardo@linux.vnet.ibm.com, brking@linux.vnet.ibm.com
+To: shlomop@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46522 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46538 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066Ab2GYWRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:17:38 -0400
-In-Reply-To: <1343227128.2626.11157.camel@edumazet-glaptop>
+	with ESMTP id S1751066Ab2GYWTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:19:22 -0400
+In-Reply-To: <5010070B.5040405@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 25 Jul 2012 16:38:48 +0200
+From: Shlomo Pongartz <shlomop@mellanox.com>
+Date: Wed, 25 Jul 2012 17:47:39 +0300
 
-> Yes, we miss what was done with rt_cache_flush() : find all cached
-> routes and release all dev references...
+> Acked-by: Shlomo Pongratz <shlomop@mellanox.com
+> <mailto:shlomop@mellanox.com>>
 
-We can fix this with a two-pronged approach:
+This really isn't how an Acked-by: tag should look, there should
+simply be a closing ">" at the end of the first line, but it's somehow
+been replaced with a newline and that "<mailto:shlomop@mellanox.com>"
+URL instead.
 
-1) Walk the FIB info nexthops and invalidate.
-
-2) Entries not cached in the FIB info nexthops go into a
-   per-netns list which is scanned as well.
-
-I'll try to work on this if nobody beats me to it.
+I'll fix it up this time, but in the future I will not and your
+ACK will simply get lost.
