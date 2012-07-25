@@ -1,46 +1,40 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC NET-NEXT PATCH 5/6] e1000e: implement MDI/MDI-X control
-Date: Wed, 25 Jul 2012 23:43:59 +0100
-Message-ID: <1343256239.5132.150.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [RFC NET-NEXT PATCH 0/6] implement MDI-X set support in Intel
+ drivers
+Date: Wed, 25 Jul 2012 23:48:05 +0100
+Message-ID: <1343256485.5132.152.camel@deadeye.wl.decadent.org.uk>
 References: <20120725175430.9995.11370.stgit@jbrandeb-snb.jf.intel.com>
-	 <20120725180025.9995.5613.stgit@jbrandeb-snb.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56070 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56150 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751206Ab2GYWoC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:44:02 -0400
-In-Reply-To: <20120725180025.9995.5613.stgit@jbrandeb-snb.jf.intel.com>
+	by vger.kernel.org with ESMTP id S1751548Ab2GYWsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 18:48:09 -0400
+In-Reply-To: <20120725175430.9995.11370.stgit@jbrandeb-snb.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-25 at 11:00 -0700, Jesse Brandeburg wrote:
-> some users report issues with link failing when connected to certain
-> switches.  This gives the user the ability to control the MDI state
-> from the driver, allowing users to work around some improperly
-> behaving switches.
+On Wed, 2012-07-25 at 10:59 -0700, Jesse Brandeburg wrote:
+> This is an update (v2) to the patches sent previously.
 > 
-> forcing in this driver is for now only allowed when auto-neg is
-> enabled.
-[...]
-> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-[...] 
-> @@ -241,6 +246,10 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
->  	default:
->  		goto err_inval;
->  	}
-> +
-> +	/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
-> +	adapter->hw.phy.mdix = AUTO_ALL_MODES;
-> +
+> This series implements MDI-X set support in the Intel gigabit ethernet
+> drivers.  It specifically allows a user to control the MDI state,
+> in order for them to work around issues with broken switches.
+> 
+> The only change to this series is updated descriptions and an
+> addition of reporting the current mdix_ctrl value in the
+> "get_settings" functions, which allows the new extended reporting
+> in the ethtool app's MDI-X: line
+> 
+> sent as RFC for now to get feedback while internal testing
+> completes. (and net-next is closed)
 [...]
 
-I have the same question about this assignment as in e1000.
+This all looks sane.
 
 Ben.
 
