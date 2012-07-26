@@ -1,63 +1,102 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Wed, 25 Jul 2012 19:30:13 -0700
-Message-ID: <CAKgT0UeNunHysvJvXcPN38B=mAD5FbSiKigsuS7AYC5TEH6BQg@mail.gmail.com>
-References: <CAKgT0UdcqE52WFCT-t2om0SN3Yq5GqiwN+JbwCcnBv4LDOB6BQ@mail.gmail.com>
-	<20120725.161732.91008692477078715.davem@davemloft.net>
-	<20120725.163939.581743307449189972.davem@davemloft.net>
-	<20120725.175406.1331203183232530233.davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows SACK when bundling
+Date: Wed, 25 Jul 2012 22:45:00 -0400
+Message-ID: <8bd120c3-4272-41cd-a035-8fd764f9aa0a@email.android.com>
+References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com> <500CDE35.6000009@windriver.com> <42fcd21f-68bd-4dc7-8460-0cb968eb512e@email.android.com> <500E1057.3020509@windriver.com> <75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com> <CA+=dFzg=Bpsv5bMzECoAXYVcbD95eYy6xDAzL6fwiHrunfq-tg@mail.gmail.com> <e7f8a685-9635-4aa9-bd67-1044e0720b29@email.android.com> <CA+=dFzifKwbiXmw=pu0+rWmz72+4jsbv6bXOBHyL0LmxaL9byg@mail.gmail.com> <CA+=dFzgXq3Sx-Ny+6oDZ3BEdsMQCgswNEVPVnhmhedHFvazzWw@mail.gmail.com> <50100A29.8010705@gmail.com> <CA+=dFzj11c9K0TS0T7D1aBVz+ppdFK91ZzBbevLV23FrWJNzmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	xufeng zhang <xufeng.zhang@windriver.com>, sri@us.ibm.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufengzhang.main@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:33759 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752622Ab2GZCaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 22:30:14 -0400
-Received: by vcbfk26 with SMTP id fk26so1237141vcb.19
-        for <netdev@vger.kernel.org>; Wed, 25 Jul 2012 19:30:13 -0700 (PDT)
-In-Reply-To: <20120725.175406.1331203183232530233.davem@davemloft.net>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:54477 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752403Ab2GZCpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jul 2012 22:45:05 -0400
+In-Reply-To: <CA+=dFzj11c9K0TS0T7D1aBVz+ppdFK91ZzBbevLV23FrWJNzmw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 25, 2012 at 5:54 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 25 Jul 2012 16:39:39 -0700 (PDT)
->
->> From: David Miller <davem@davemloft.net>
->> Date: Wed, 25 Jul 2012 16:17:32 -0700 (PDT)
+Xufeng Zhang <xufengzhang.main@gmail.com> wrote:
+
+>On 7/25/12, Vlad Yasevich <vyasevich@gmail.com> wrote:
+>>> And after take a moment to look into the relative codes, I think we
+>>> can implement it
+>>> by below way:
+>>> 1). Add a flag(isi_err_needed) in the embedded struct peer of struct
+>>> struct sctp_association
+>>> just like sack_needed flag.
+>>> 2). When "invalid stream identifier" ERROR happens in
+>sctp_eat_data()
+>>> function, we just
+>>> set isi_err_needed flag and don't create ERROR chunk and also don't
+>>> insert SCTP_CMD_REPLY command.
+>>> 3). In sctp_gen_sack() function, we create ERROR chunk and also
+>insert
+>>> SCTP_CMD_REPLY command if isi_err_needed flag is set.
+>>>
+>>> Is this way proper?
+>>>
 >>
->>> From: Alexander Duyck <alexander.duyck@gmail.com>
->>> Date: Wed, 25 Jul 2012 16:02:45 -0700
->>>
->>>> Since your patches are in I have started to re-run my tests. I am
->>>> seeing a significant drop in throughput with 8 flows which I expected,
->>>> however it looks like one of the biggest issues I am seeing is that
->>>> the dst_hold and dst_release calls seem to be causing some serious
->>>> cache thrash.  I was at 12.5Mpps w/ 8 flows before the patches, after
->>>> your patches it drops to 8.3Mpps.
->>>
->>> Yes, this is something we knew would start happening.
->>>
->>> One idea is to make cached dsts be per-cpu in the nexthops.
+>> So, I looked at the code, and it looks very simple to do.  We already
+>> return a specific status from sctp_eat_data() when the error was
+>> generated.  All you have to do is take the code that generates the
+>error
+>> and adds it to the command list and give it its own small function
+>that
+>> you can then call if SCTP_IERROR_BAD_STREAM error was returned.
+>
+>No, it will still has the same problem by just doing this.
+>SCTP_CMD_GEN_SACK command actually don't enqueue SACK to outqueue,
+>sctp_gen_sack() do this things when processing SCTP_CMD_GEN_SACK
+>command
+>in sctp_cmd_interpreter().
+>So it's not enough if we just insert SCTP_ERROR_INV_STRM command after
+>sctp_eat_data() return SCTP_IERROR_BAD_STREAM in
+>sctp_sf_eat_data_6_2().
+>
+>
+
+All you have to do is change the order of side effect commands and the above is a guide.  Ill prototype it tomorrow when I have time.
+
+-vlad
+>
+>Thanks,
+>Xufeng Zhang
+>
 >>
->> Actually I think what really kills your case is the removal of the
->> noref path for route lookups.  I'll work on a patch to restore that
->> in the case where we use cached routes from the FIB nexthops.
->
-> Alex, here is something I tossed together, does it help with the
-> dst_hold()/dst_release() overhead at all?
->
+>> -vlad
+>>
+>>>
+>>> Thanks,
+>>> Xufeng Zhang
+>>>>
+>>>>
+>>>>
+>>>> Thanks,
+>>>> Xufeng Zhang
+>>>>>
+>>>>> -vlad
+>>>>>>
+>>>>>> Thanks,
+>>>>>> Xufeng Zhang
+>>>>>>>
+>>>>>>> -vlad
+>>>>>
+>>>>>
+>>>>> --
+>>>>> Sent from my Android phone with SkitMail. Please excuse my
+>brevity.
+>>>>>
+>>>>
+>>
+>>
+>>
 
-I downloaded your patch, applied it, rebuilt the kernel, and then
-rebooted.  However after the reboot I am unable to access the system
-remotely.  It looks like I will have to wait until I get into the
-office tomorrow to figure out what happened to the system.
 
-I will get you an update on if it helped or not once I figure out what
-happened in the morning.
-
-Thanks,
-
-Alex
+-- 
+Sent from my Android phone with SkitMail. Please excuse my brevity.
