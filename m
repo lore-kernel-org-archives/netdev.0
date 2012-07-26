@@ -1,37 +1,55 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: bonding: sync netpoll code with bridge
-Date: Thu, 26 Jul 2012 11:17:01 +0300
-Message-ID: <20120726081700.GN4403@mwanda>
-References: <20120725134710.GA25625@elgon.mountain>
- <1343286905.12207.7.camel@cr0>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Thu, 26 Jul 2012 01:18:53 -0700 (PDT)
+Message-ID: <20120726.011853.973075299731735416.davem@davemloft.net>
+References: <20120725.163939.581743307449189972.davem@davemloft.net>
+	<20120725.175406.1331203183232530233.davem@davemloft.net>
+	<1343290414.2626.11181.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:24466 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834Ab2GZIRG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 04:17:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1343286905.12207.7.camel@cr0>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49700 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766Ab2GZISy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 04:18:54 -0400
+In-Reply-To: <1343290414.2626.11181.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 26, 2012 at 03:15:05PM +0800, Cong Wang wrote:
-> On Wed, 2012-07-25 at 16:47 +0300, Dan Carpenter wrote:
-> > Hello Amerigo Wang,
-> > 
-> > The patch 8a8efa22f51b: "bonding: sync netpoll code with bridge" from 
-> > Feb 17, 2011, leads to the following warning:
-> > drivers/net/bonding/bond_main.c:1849 bond_enslave()
-> > 	 error: scheduling with locks held: 'read_lock:&bond->lock'
-> 
-> Yeah, makes sense. Just wondering why I didn't catch it when I tested
-> that patch. Anyway, could you try the following patch?
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Jul 2012 10:13:34 +0200
 
-The warnings were static checker warnings, not something I tested.
+> On Wed, 2012-07-25 at 17:54 -0700, David Miller wrote:
+>> @@ -1216,9 +1215,15 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+>>  
+>>  	prev = cmpxchg(p, orig, rt);
+>>  	if (prev == orig) {
+>> -		dst_clone(&rt->dst);
+>>  		if (orig)
+>> -			call_rcu_bh(&orig->dst.rcu_head, rt_release_rcu);
+>> +			rt_free(orig);
+>> +	} else {
+>> +		/* Routes we intend to cache in the FIB nexthop have
+>> +		 * the DST_NOCACHE bit set.  However, if we are
+>> +		 * unsuccessful at storing this route into the cache
+>> +		 * we really need to clear that bit.
+>> +		 */
+>> +		rt->dst.flags &= ~DST_NOCACHE;
+>>  	}
+>>  }
+>>  
+> 
+> Not sure why you removed the dst_clone(&rt->dst) ?
 
-regards,
-dan carpenter
+Because "cached" dst objects have no reference count.  When such a
+cached dst is "released", it is dst_free()'d instead of
+dst_release()'d.
+
+> If it is not needed, we might need to release a reference in the else {}
+> clause, no ?
+
+Nope.  'rt' has a reference count of one, which is for the caller, not
+for this cached location.
