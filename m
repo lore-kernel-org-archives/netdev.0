@@ -1,70 +1,36 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH] iproute: Add route showdump command
-Date: Thu, 26 Jul 2012 12:53:39 +0400
-Message-ID: <50110593.1070502@parallels.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Thu, 26 Jul 2012 11:12:32 +0200
+Message-ID: <1343293952.2626.11244.camel@edumazet-glaptop>
+References: <1343290414.2626.11181.camel@edumazet-glaptop>
+	 <20120726.011853.973075299731735416.davem@davemloft.net>
+	 <1343291278.2626.11188.camel@edumazet-glaptop>
+	 <20120726.014736.1066206957795563053.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Smith <danms@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:46959 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750741Ab2GZIxs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jul 2012 04:53:48 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:44327 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751693Ab2GZJMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 05:12:37 -0400
+Received: by bkwj10 with SMTP id j10so1122583bkw.19
+        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 02:12:36 -0700 (PDT)
+In-Reply-To: <20120726.014736.1066206957795563053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some time ago the save+restore commands were added to ip route (git
-id f4ff11e3, Add ip route save/restore). These two save the raw rtnl
-stream into a file and restore one (reading it from stdin).
+On Thu, 2012-07-26 at 01:47 -0700, David Miller wrote:
 
-The problem is that there's no way to get the contents of the dump
-file in a human readable form. How about adding a command that reads
-the rtnl stream from stdin and prints the data in a way the usual
-"ip route list" does?
+> Indeed, thanks for catching this bug.
+> 
+> Here's a new version of the patch, as I found another error.  In
+> fib_semantics.c, we have to change dst_release() to dst_free() for the
+> liberation the nexthop cached routes.
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Excellent, I did tests here and this seems ok to me
 
----
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 5cd313e..585a7d8 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -60,6 +60,7 @@ static void usage(void)
- 	fprintf(stderr, "Usage: ip route { list | flush } SELECTOR\n");
- 	fprintf(stderr, "       ip route save SELECTOR\n");
- 	fprintf(stderr, "       ip route restore\n");
-+	fprintf(stderr, "       ip route showdump\n");
- 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
- 	fprintf(stderr, "                            [ oif STRING ]  [ tos TOS ]\n");
- 	fprintf(stderr, "                            [ mark NUMBER ]\n");
-@@ -1526,6 +1527,17 @@ int iproute_restore(void)
- 	exit(rtnl_from_file(stdin, &restore_handler, NULL));
- }
- 
-+static int show_handler(const struct sockaddr_nl *nl, struct nlmsghdr *n, void *arg)
-+{
-+	print_route(nl, n, stdout);
-+	return 0;
-+}
-+
-+static int iproute_showdump(void)
-+{
-+	exit(rtnl_from_file(stdin, &show_handler, NULL));
-+}
-+
- void iproute_reset_filter()
- {
- 	memset(&filter, 0, sizeof(filter));
-@@ -1570,6 +1582,8 @@ int do_iproute(int argc, char **argv)
- 		return iproute_list_flush_or_save(argc-1, argv+1, IPROUTE_SAVE);
- 	if (matches(*argv, "restore") == 0)
- 		return iproute_restore();
-+	if (matches(*argv, "showdump") == 0)
-+		return iproute_showdump();
- 	if (matches(*argv, "help") == 0)
- 		usage();
- 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip route help\".\n", *argv);
+Tested-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
