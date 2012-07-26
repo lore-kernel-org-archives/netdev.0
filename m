@@ -1,51 +1,130 @@
-From: Dragos Ilie <dragos.ilie@gmail.com>
-Subject: Computations in tc_red.c
-Date: Fri, 27 Jul 2012 01:38:20 +0200
-Message-ID: <5011D4EC.1090801@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Thu, 26 Jul 2012 16:58:03 -0700 (PDT)
+Message-ID: <20120726.165803.612314640731436574.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:58306 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753226Ab2GZXiZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 19:38:25 -0400
-Received: by eeil10 with SMTP id l10so509927eei.19
-        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 16:38:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hello,
-
-I have a couple of questions about the function tc_red_eval_idle_damping() in iproute2/tc/tc_red.c. Originally, I sent the questions to Alexey Kuznetsov (for several months ago) since he is listed as the author, but did not receive a reply from him. Hence, I am directing my questions to the netdev mailing list.
-
-My understanding is that the tc_red_eval_idle_damping() function pre-computes a set of values in the range 0-31. These values are later used by the kernel function red_calc_qavg_from_idle_time() in include/net/red.h to calculate the average queue size during idle time. The values represent the number of shifts applied to the current average queue size, which is a scaling factor of the form 2^(-n).
-
-In tc_red_eval_idle_damping() the lW constant is defined as
-
-double lW = -log(1.0 - 1.0/(1<<Wlog))/xmit_time
-
-This is equivalent to -log(1.0 - W)/xmit_time, where W is scaled by a
-negative power of two (Wlog is computed in tc_red_eval_ ewma()). The
-constant is used to choose a time scaling factor called clog. The
-condition used in choosing clog is
-
-maxtime/1<<clog < 512
-
-where maxtime = 31/lW. What is the reason for choosing 512 as upper bound?
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-My second question is about the average queue length computed in kernel function red_calc_qavg_from_idle_time() in include/net/red.h. According to the comment in that
-function, the average queue length v->qavg should be adjusted as
+1) Reinstate the no-ref optimization for input route lookups in ipv4
+   to fix some routing cache removal perf regressions.
 
-v->qavg *= (1-W)^m
+2) Make TCP socket pre-demux work on ipv6 side too, from Eric Dumazet.
 
-The code approximates this function by scaling v->qavg with 2^(-n),
-where n was precomputed in c_red_eval_idle_damping(). I have trouble
-seeing the connection between the log() function used to compute the
-constant lW and the approximation used. I am hoping you can shed some
-light on it.
+3) Get RX hash value from correct place in be2net driver, from
+   Sarveshwar Bandi.
 
-Best regards,
-Dragos Ilie
+4) Validation of FIB cached routes missing critical check, from Eric
+   Dumazet.
+
+5) EEH support in mlx4 driver, from Kleber Sacilotto de Souza.
+
+Please pull, thanks a lot!
+
+The following changes since commit 3c4cfadef6a1665d9cd02a543782d03d3e6740c6:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2012-07-24 10:01:50 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to c7109986db3c945f50ceed884a30e0fd8af3b89b:
+
+  ipv6: Early TCP socket demux (2012-07-26 15:50:39 -0700)
+
+----------------------------------------------------------------
+Alan Cox (2):
+      caif: fix NULL pointer check
+      wanmain: comparing array with NULL
+
+Amir Vadai (1):
+      net/mlx4_en: Limit the RFS filter IDs to be < RPS_NO_FILTER
+
+Andy Cress (3):
+      pch_gbe: fix transmit watchdog timeout
+      pch_gbe: add extra clean tx
+      pch_gbe: vlan skb len fix
+
+Anton Blanchard (1):
+      be2net: Missing byteswap in be_get_fw_log_level causes oops on PowerPC
+
+Dan Williams (1):
+      cdc-ncm: tag Ericsson WWAN devices (eg F5521gw) with FLAG_WWAN
+
+David S. Miller (1):
+      ipv4: Fix input route performance regression.
+
+Emil Tantilov (1):
+      ixgbe: fix panic while dumping packets on Tx hang with IOMMU
+
+Eric Dumazet (3):
+      tcp: early_demux fixes
+      ipv4: rt_cache_valid must check expired routes
+      ipv6: Early TCP socket demux
+
+Haiyang Zhang (2):
+      hyperv: Add a check for ring_size value
+      hyperv: Add error handling to rndis_filter_device_add()
+
+Jiri Pirko (1):
+      team: init error value to 0 in team_netpoll_setup()
+
+Kleber Sacilotto de Souza (1):
+      mlx4: Add support for EEH error recovery
+
+Sarveshwar Bandi (1):
+      be2net: Fix to parse RSS hash from Receive completions correctly.
+
+Wei Yang (1):
+      net/pch_gpe: Cannot disable ethernet autonegation
+
+Yuval Mintz (1):
+      bnx2x: Correct EEE statistics gathering
+
+frank.blaschka@de.ibm.com (3):
+      net: wiznet add missing HAS_IOMEM dependency
+      netiucv: cleanup attribute usage
+      qeth: repair crash in qeth_l3_vlan_rx_kill_vid()
+
+ drivers/net/caif/caif_serial.c                          |  3 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h         |  4 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c       |  8 +++--
+ drivers/net/ethernet/emulex/benet/be_ethtool.c          |  5 ++--
+ drivers/net/ethernet/emulex/benet/be_main.c             |  6 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c           | 11 +++----
+ drivers/net/ethernet/mellanox/mlx4/catas.c              | 25 +++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/cmd.c                | 49 +++++++++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c          |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c               | 30 ++++++++++++++++++-
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c |  1 -
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c    | 70 ++++++++++++++++++++++++++++++--------------
+ drivers/net/ethernet/wiznet/Kconfig                     |  1 +
+ drivers/net/hyperv/netvsc_drv.c                         |  7 ++++-
+ drivers/net/hyperv/rndis_filter.c                       | 11 +++----
+ drivers/net/team/team.c                                 |  2 +-
+ drivers/net/usb/cdc_ncm.c                               | 68 +++++++++++++++++++++++++++---------------
+ drivers/s390/net/netiucv.c                              | 34 ++++-----------------
+ drivers/s390/net/qeth_l3_main.c                         |  4 +++
+ include/net/inet6_hashtables.h                          | 13 ++++----
+ include/net/protocol.h                                  |  2 ++
+ include/net/route.h                                     | 19 ++++++++++--
+ net/ipv4/arp.c                                          |  2 +-
+ net/ipv4/fib_semantics.c                                |  4 +--
+ net/ipv4/ip_fragment.c                                  |  4 +--
+ net/ipv4/ip_input.c                                     | 10 +++++--
+ net/ipv4/route.c                                        | 56 +++++++++++++++++------------------
+ net/ipv4/tcp_ipv4.c                                     |  9 ++----
+ net/ipv4/xfrm4_input.c                                  |  4 +--
+ net/ipv6/ip6_input.c                                    | 13 ++++++--
+ net/ipv6/tcp_ipv6.c                                     | 38 ++++++++++++++++++++++++
+ net/wanrouter/wanmain.c                                 | 51 +++++++++++++++-----------------
+ 32 files changed, 374 insertions(+), 192 deletions(-)
