@@ -1,41 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute: Add route showdump command
-Date: Thu, 26 Jul 2012 09:03:15 -0700
-Message-ID: <20120726090315.4a566a46@nehalam.linuxnetplumber.net>
-References: <50110593.1070502@parallels.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC ETHTOOL PATCH 2/2] ethtool: allow setting MDI-X state
+Date: Thu, 26 Jul 2012 17:35:22 +0100
+Message-ID: <1343320522.2770.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20120725174351.9839.132.stgit@jbrandeb-snb.jf.intel.com>
+	 <20120725175308.9839.50343.stgit@jbrandeb-snb.jf.intel.com>
+	 <1343257142.5132.160.camel@deadeye.wl.decadent.org.uk>
+	 <20120726163033.GA20122@jbrandeb-snb.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Smith <danms@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
+Cc: <netdev@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37002 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752212Ab2GZQDk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jul 2012 12:03:40 -0400
-In-Reply-To: <50110593.1070502@parallels.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:24608 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752144Ab2GZQf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 12:35:26 -0400
+In-Reply-To: <20120726163033.GA20122@jbrandeb-snb.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Jul 2012 12:53:39 +0400
-Pavel Emelyanov <xemul@parallels.com> wrote:
-
-> Some time ago the save+restore commands were added to ip route (git
-> id f4ff11e3, Add ip route save/restore). These two save the raw rtnl
-> stream into a file and restore one (reading it from stdin).
+On Thu, 2012-07-26 at 09:30 -0700, Jesse Brandeburg wrote:
+> On Wed, Jul 25, 2012 at 11:59:02PM +0100, Ben Hutchings wrote:
+> > On Wed, 2012-07-25 at 10:53 -0700, Jesse Brandeburg wrote:
+> > How about when you have a forced mode but the driver reports eth_tp_mdix
+> > = ETH_TP_MDI_INVALID because the link is down?  This is going to result
+> > in:
+> > 
+> >         MDI-X: Unknown (forced)
+> > 
+> > which makes no sense at all.  So I think that we have to do something
+> > like:
+> > 
+> > 	if (ep->eth_tp_mdix_ctrl == ETH_TP_MDI) {
+> > 		fprintf(stdout, "off (forced)\n");
+> > 	} else if (ep->eth_tp_mdix_ctrl == ETH_TP_MDI_X) {
+> > 		fprintf(stdout, "on (forced)\n");
+> > 	} else {
+> > 		switch (ep->eth_tp_mdix) {
+> > 			...
+> > 		}
+> > 		if (ep->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
+> > 			fprintf(stdout, " (auto)");
+> > 		fprintf(stdout, "\n");
+> > 	}
+> > 
+> > Or else we require that when the mode is forced then drivers report that
+> > as the current status even if the link is down.
 > 
-> The problem is that there's no way to get the contents of the dump
-> file in a human readable form. How about adding a command that reads
-> the rtnl stream from stdin and prints the data in a way the usual
-> "ip route list" does?
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> I tried that and it works swimmingly.  How does this look?
+[...]
 
-Being able to decode a dump is great idea.
-Are the user's smart enough not to try it out at the command prompt
-and get totally lost? Maybe another isatty() check is needed.
+That looks good, thanks.
 
-Another solution would be to put a small header on the save file with
-a magic number that could be checked. This would mean changing save/restore/showdump
-and ideally updating the magic file in distributions.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
