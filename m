@@ -1,33 +1,62 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] bcma: fix regression in pmu workaround reg masks
-Date: Thu, 26 Jul 2012 14:07:14 -0700
-Message-ID: <CA+55aFySBN=ajj=XKRzehw-_aVOOgLfoq9g5T9Wxht8nrQBSZA@mail.gmail.com>
-References: <1343294151-5691-1-git-send-email-hauke@hauke-m.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: open sockets preventing unregister_netdevice from completing
+ in linux-next (next-20120724)
+Date: Thu, 26 Jul 2012 14:10:47 -0700 (PDT)
+Message-ID: <20120726.141047.1871303031596778701.davem@davemloft.net>
+References: <1343227128.2626.11157.camel@edumazet-glaptop>
+	<20120725.151737.1807149851147342859.davem@davemloft.net>
+	<1343322928.2626.11764.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linville@tuxdriver.com, davem@davemloft.net,
-	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	seth.forshee@canonical.com, pieterpg@broadcom.com,
-	brudley@broadcom.com, Arend van Spriel <arend@broadcom.com>,
-	=?ISO-8859-2?Q?Rafa=B3_Mi=B3ecki?= <zajec5@gmail.com>
-To: Hauke Mehrtens <hauke@hauke-m.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1343294151-5691-1-git-send-email-hauke@hauke-m.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bjorn@mork.no, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55913 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752412Ab2GZVKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 17:10:53 -0400
+In-Reply-To: <1343322928.2626.11764.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oops. For some reason I didn't see this email this morning, and grew
-impatient and committed the patch without the sign-off and with a
-different changelog.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Jul 2012 19:15:28 +0200
 
-My bad. Too much email.
+> On Wed, 2012-07-25 at 15:17 -0700, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 25 Jul 2012 16:38:48 +0200
+>> 
+>> > Yes, we miss what was done with rt_cache_flush() : find all cached
+>> > routes and release all dev references...
+>> 
+>> We can fix this with a two-pronged approach:
+>> 
+>> 1) Walk the FIB info nexthops and invalidate.
+>> 
+>> 2) Entries not cached in the FIB info nexthops go into a
+>>    per-netns list which is scanned as well.
+>> 
+>> I'll try to work on this if nobody beats me to it.
+> 
+> With your latest patch, I can "rmmod tg3" while sockets are active.
+> 
+> Not sure we need all this now ?
+> 
+> (the trick is probably in fib_semantics.c, when you changed
+> dst_release() to dst_free())
 
-Anyway, this is commit 1f03bf06e4e3 in my tree.
+That's not the problem.  Not all routes are cached in the FIB nexthop.
 
-              Linus
+Any route that doesn't resolve to a FIB info (255.255.255.255, etc.)
+or uses special features (tclassid, etc.) doesn't get cached.
 
-On Thu, Jul 26, 2012 at 2:15 AM, Hauke Mehrtens <hauke@hauke-m.de> wrote:
-> This fixes a regression introduced in:
-> commit b9562545ef0b13c0440ccd8d6dd4111fb77cb17a
-...
+Therefore if a socket gets that kind of route, and then becomes
+inactive, we can hold onto the device references forever.  The entity
+with the route has to call dst_ops->check() to see that the route has
+become invalid, but if the application is inactive, that will never
+happen.
+
+We have to put such non-cached routes into a special list or table of
+some kind, so that we can zap a netdevice if it wants to go down or
+unload before the final dst_release() happens.
