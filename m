@@ -1,39 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH]net:appletalk:ddp:fixed coding style issue in
- net/appletalk/ddp.c
-Date: Thu, 26 Jul 2012 07:11:23 -0700
-Message-ID: <1343311883.11398.21.camel@joe2Laptop>
-References: <1343311142-4539-1-git-send-email-ahiliation@yahoo.co.in>
+From: Dragos Ilie <dragos.ilie@gmail.com>
+Subject: Premature timeout for MLDv1 Host compatibility mode?
+Date: Thu, 26 Jul 2012 16:57:43 +0200
+Message-ID: <CAOLNa-dCpLG4XCarzbSb=ptu-KGVX_Fghv4Z_CDQ8HBF_n-rGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeffrin Jose <ahiliation@yahoo.co.in>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1343311142-4539-1-git-send-email-ahiliation@yahoo.co.in>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:42983 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab2GZO5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 10:57:44 -0400
+Received: by obbuo13 with SMTP id uo13so2782188obb.19
+        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 07:57:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-07-26 at 19:29 +0530, Jeffrin Jose wrote:
-> Fixed coding style issue relating to switch  and case
-> statement in file net/appletalk/ddp.c
+Hi!
 
-Don't just move the case labels, move the code blocks
-including comments.
+I suspect that the MLDv1 Host compatibility mode is ended prematurely.
+In net/ipv6/mcast.c the "Older Version Querier Present" timeout is
+computed as
 
-> diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-[]
-> @@ -1798,7 +1798,7 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
->  
->  	switch (cmd) {
->  		/* Protocol layer */
-> -		case TIOCOUTQ: {
-> +	case TIOCOUTQ: {
->  			long amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+max_delay = (ntohs(mld->mld_maxdelay)*HZ)/1000;
+switchback = (idev->mc_qrv + 1) * max_delay;
+idev->mc_v1_seen = jiffies + switchback;
 
-		long amount = etc...
 
-Post the patch with a commit message that says that
-that a git diff -w is empty and the compiled objects
-are the same too.
+RFC 3810 says that the timeout should be computed as
+Robustness_Variable * Query_Interval + Query_Response_Interval. This
+suggests that the line where switchback is computed should be changed
+to something like
+
+switchback = (idev->mc_qrv * 125 * HZ)  + max_delay;
+
+where 125 is the default Query_Interval in seconds
+
+I would appreciate it if somebody can confirm if my suspicion is correct.
+
+Regards,
+Dragos
