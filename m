@@ -1,58 +1,82 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH RESEND 0/9] OLPC: create a generic OLPC EC driver
-Date: Thu, 26 Jul 2012 15:51:14 +0200 (CEST)
-Message-ID: <alpine.LFD.2.02.1207261547450.32033@ionos>
-References: <20120718213713.232e4161@dev.queued.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Paul Fox <pgf@laptop.org>, Daniel Drake <dsd@laptop.org>,
-	"Richard A. Smith" <richard@laptop.org>,
-	linux-kernel@vger.kernel.org, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	platform-driver-x86@vger.kernel.org, devel@driverdev.osuosl.org,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	Dan Williams <dcbw@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Matthew Garrett <mjg@redhat.com>,
-	Anton Vorontsov <cbou@mail.ru>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Chris Ball <cjb@laptop.org>,
-	Jon Nettleton <jon.nettleton@gmail.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Andres Salomon <dilinger@queued.net>
+From: Jeffrin Jose <ahiliation@yahoo.co.in>
+Subject: [PATCH]net:appletalk:ddp:fixed coding style issue in net/appletalk/ddp.c
+Date: Thu, 26 Jul 2012 19:29:02 +0530
+Message-ID: <1343311142-4539-1-git-send-email-ahiliation@yahoo.co.in>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ahiliation@yahoo.co.in
+To: acme@ghostprotocols.net, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120718213713.232e4161@dev.queued.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jul 2012, Andres Salomon wrote:
-> The OLPC EC (Embedded Controller) code that is currently upstream is
-> x86-only, originally written for the XO-1.  Since then, we've had the
-> XO-1.5 (also x86), and XO-1.75 (arm-based) enter mass production.  The
-> 1.75 uses a vastly different EC protocol, and future hardware revisions
-> are likely to change it even further.
-> 
-> However, the drivers do share quite a bit of code, so it makes sense to
-> have a platform-agnostic driver that calls into platform-specific hooks
-> for each XO's EC driver.  This is the first stab and creating such a
-> beast (with further patches pending).  Aside from the lack of code
-> duplication, this is helpful for fixing bugs in one place (for example,
-> we fixed an EC suspend/resume bug in 1.75 that I've just seen happen on
-> 1.5 without these patches.  With these patches, the problem goes away).
-> 
-> These patches are against Linus's current HEAD; let me know if they
-> don't apply somewhere, and I'll happily redo them against the -next
-> tree.  I'm assuming that these changes (which touch places like x86,
-> wireless, and staging) should go through either the x86 tree, or
-> through akpm's tree.
-> 
-> Alternatively, if the reviews are positive and I can get SOBs from the
-> relevant maintainers, I can set up a platform-olpc tree somewhere and
-> request a pull from Linus.
+Fixed coding style issue relating to switch  and case
+statement in file net/appletalk/ddp.c
 
-Either via akpm or a separate tree are fine with me.
+Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
+---
+ net/appletalk/ddp.c |   26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
 
-Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 0301b32..c8bbcd2 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1798,7 +1798,7 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
  
+ 	switch (cmd) {
+ 		/* Protocol layer */
+-		case TIOCOUTQ: {
++	case TIOCOUTQ: {
+ 			long amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+ 
+ 			if (amount < 0)
+@@ -1806,7 +1806,7 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 			rc = put_user(amount, (int __user *)argp);
+ 			break;
+ 		}
+-		case TIOCINQ: {
++	case TIOCINQ: {
+ 			/*
+ 			 * These two are safe on a single CPU system as only
+ 			 * user tasks fiddle here
+@@ -1819,27 +1819,27 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 			rc = put_user(amount, (int __user *)argp);
+ 			break;
+ 		}
+-		case SIOCGSTAMP:
++	case SIOCGSTAMP:
+ 			rc = sock_get_timestamp(sk, argp);
+ 			break;
+-		case SIOCGSTAMPNS:
++	case SIOCGSTAMPNS:
+ 			rc = sock_get_timestampns(sk, argp);
+ 			break;
+ 		/* Routing */
+-		case SIOCADDRT:
+-		case SIOCDELRT:
++	case SIOCADDRT:
++	case SIOCDELRT:
+ 			rc = -EPERM;
+ 			if (capable(CAP_NET_ADMIN))
+ 				rc = atrtr_ioctl(cmd, argp);
+ 			break;
+ 		/* Interface */
+-		case SIOCGIFADDR:
+-		case SIOCSIFADDR:
+-		case SIOCGIFBRDADDR:
+-		case SIOCATALKDIFADDR:
+-		case SIOCDIFADDR:
+-		case SIOCSARP:		/* proxy AARP */
+-		case SIOCDARP:		/* proxy AARP */
++	case SIOCGIFADDR:
++	case SIOCSIFADDR:
++	case SIOCGIFBRDADDR:
++	case SIOCATALKDIFADDR:
++	case SIOCDIFADDR:
++	case SIOCSARP:		/* proxy AARP */
++	case SIOCDARP:		/* proxy AARP */
+ 			rtnl_lock();
+ 			rc = atif_ioctl(cmd, argp);
+ 			rtnl_unlock();
+-- 
+1.7.10
