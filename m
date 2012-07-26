@@ -1,46 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: open sockets preventing unregister_netdevice from completing
- in linux-next (next-20120724)
-Date: Thu, 26 Jul 2012 19:15:28 +0200
-Message-ID: <1343322928.2626.11764.camel@edumazet-glaptop>
-References: <87boj4hs3k.fsf@nemi.mork.no>
-	 <1343227128.2626.11157.camel@edumazet-glaptop>
-	 <20120725.151737.1807149851147342859.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Thu, 26 Jul 2012 10:18:03 -0700
+Message-ID: <CAKgT0UfYEBYQOAoZ77rtwctbwau=2kx4rYdTyeaPaipeMUP9aw@mail.gmail.com>
+References: <1343290414.2626.11181.camel@edumazet-glaptop>
+	<20120726.011853.973075299731735416.davem@davemloft.net>
+	<1343291278.2626.11188.camel@edumazet-glaptop>
+	<20120726.014736.1066206957795563053.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: bjorn@mork.no, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47820 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752060Ab2GZRPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 13:15:33 -0400
-Received: by bkwj10 with SMTP id j10so1416287bkw.19
-        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 10:15:32 -0700 (PDT)
-In-Reply-To: <20120725.151737.1807149851147342859.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:54295 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060Ab2GZRSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 13:18:05 -0400
+Received: by vbbff1 with SMTP id ff1so1878780vbb.19
+        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 10:18:03 -0700 (PDT)
+In-Reply-To: <20120726.014736.1066206957795563053.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-07-25 at 15:17 -0700, David Miller wrote:
+On Thu, Jul 26, 2012 at 1:47 AM, David Miller <davem@davemloft.net> wrote:
 > From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 25 Jul 2012 16:38:48 +0200
-> 
-> > Yes, we miss what was done with rt_cache_flush() : find all cached
-> > routes and release all dev references...
-> 
-> We can fix this with a two-pronged approach:
-> 
-> 1) Walk the FIB info nexthops and invalidate.
-> 
-> 2) Entries not cached in the FIB info nexthops go into a
->    per-netns list which is scanned as well.
-> 
-> I'll try to work on this if nobody beats me to it.
+> Date: Thu, 26 Jul 2012 10:27:58 +0200
+>
+>> But isnt DST_NOCACHE intent reverted then ?
+>>
+>> like you meant :
+>>
+>> +       } else {
+>> +               /* Routes we intend to cache in the FIB nexthop have
+>> +                * the DST_NOCACHE bit unset.  However, if we are
+>> +                * unsuccessful at storing this route into the cache
+>> +                * we really need to set that bit.
+>> +                */
+>> +               rt->dst.flags |= DST_NOCACHE;
+>>         }
+>
+> Indeed, thanks for catching this bug.
+>
+> Here's a new version of the patch, as I found another error.  In
+> fib_semantics.c, we have to change dst_release() to dst_free() for the
+> liberation the nexthop cached routes.
 
-With your latest patch, I can "rmmod tg3" while sockets are active.
+I tested this patch and it looks like it runs, but still has the same
+performance issue.  I did some digging into the annotation for
+ip_route_intput_noref and it seems like the issue is that I am hitting
+the dst_hold call in  __mkroute_input.
 
-Not sure we need all this now ?
+You were correct about the ARP entry.  It looks like I had messed up
+my test script and it wasn't putting the static ARP entry back in.
+I'm amazed it was even working since my SmartBits system doesn't
+normally even reply to ARPs.
 
-(the trick is probably in fib_semantics.c, when you changed
-dst_release() to dst_free())
+Thanks,
+
+Alex
