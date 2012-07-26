@@ -1,49 +1,51 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: anyone know of a bug which causes dev->qdisc to be noop_qdisc for
- a working interface?
-Date: Thu, 26 Jul 2012 17:30:39 -0600
-Message-ID: <5011D31F.4060001@genband.com>
+From: Dragos Ilie <dragos.ilie@gmail.com>
+Subject: Computations in tc_red.c
+Date: Fri, 27 Jul 2012 01:38:20 +0200
+Message-ID: <5011D4EC.1090801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og113.obsmtp.com ([64.18.2.179]:59106 "EHLO
-	exprod7og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753109Ab2GZXaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 19:30:52 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:58306 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753226Ab2GZXiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 19:38:25 -0400
+Received: by eeil10 with SMTP id l10so509927eei.19
+        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 16:38:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-Hi all,
+I have a couple of questions about the function tc_red_eval_idle_damping() in iproute2/tc/tc_red.c. Originally, I sent the questions to Alexey Kuznetsov (for several months ago) since he is listed as the author, but did not receive a reply from him. Hence, I am directing my questions to the netdev mailing list.
 
-I've been asked to help debug an issue we've had in the field where 
-after a month or so of uptime for a server the router it was connected 
-to was rebooted and one of the eth links stopped transmitting packets. 
-Downing and upping the link doesn't fix it.  An ethtool offline selftest 
-doesn't fix it.  Only known fix is a reboot of the server.
+My understanding is that the tc_red_eval_idle_damping() function pre-computes a set of values in the range 0-31. These values are later used by the kernel function red_calc_qavg_from_idle_time() in include/net/red.h to calculate the average queue size during idle time. The values represent the number of shifts applied to the current average queue size, which is a scaling factor of the form 2^(-n).
 
-The server is running 2.6.14, which makes things interesting.
+In tc_red_eval_idle_damping() the lW constant is defined as
 
-Luckily we had kprobes enabled and I tracked down the source code, and 
-I've been able to isolate the source of the problem.  It seems that for 
-the problematic eth device (which is up and is receiving packets) 
-dev->qdisc is set to noop_qdisc, which ends up silently dropping all 
-outgoing packets on the floor.  dev->qdisc_sleeping is pfifo_fast as 
-expected.
+double lW = -log(1.0 - 1.0/(1<<Wlog))/xmit_time
 
-Does anyone have any ideas how this might have happened?  Does anyone 
-remember a bug in this area from that long ago?
+This is equivalent to -log(1.0 - W)/xmit_time, where W is scaled by a
+negative power of two (Wlog is computed in tc_red_eval_ ewma()). The
+constant is used to choose a time scaling factor called clog. The
+condition used in choosing clog is
 
-Thanks,
-Chris
+maxtime/1<<clog < 512
 
--- 
+where maxtime = 31/lW. What is the reason for choosing 512 as upper bound?
 
-Chris Friesen
-Software Designer
 
-3500 Carling Avenue
-Ottawa, Ontario K2H 8E9
-www.genband.com
+My second question is about the average queue length computed in kernel function red_calc_qavg_from_idle_time() in include/net/red.h. According to the comment in that
+function, the average queue length v->qavg should be adjusted as
+
+v->qavg *= (1-W)^m
+
+The code approximates this function by scaling v->qavg with 2^(-n),
+where n was precomputed in c_red_eval_idle_damping(). I have trouble
+seeing the connection between the log() function used to compute the
+constant lW and the approximation used. I am hoping you can shed some
+light on it.
+
+Best regards,
+Dragos Ilie
