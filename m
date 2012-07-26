@@ -1,33 +1,47 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Thu, 26 Jul 2012 13:59:11 -0700 (PDT)
-Message-ID: <20120726.135911.1092802163856239928.davem@davemloft.net>
-References: <1343291278.2626.11188.camel@edumazet-glaptop>
-	<20120726.014736.1066206957795563053.davem@davemloft.net>
-	<CAKgT0UfYEBYQOAoZ77rtwctbwau=2kx4rYdTyeaPaipeMUP9aw@mail.gmail.com>
+Date: Thu, 26 Jul 2012 14:00:13 -0700 (PDT)
+Message-ID: <20120726.140013.203868407338083397.davem@davemloft.net>
+References: <1343323858.2626.11783.camel@edumazet-glaptop>
+	<1343324175.2626.11790.camel@edumazet-glaptop>
+	<1343324633.2626.11801.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
+Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55656 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55672 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752269Ab2GZU7O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 16:59:14 -0400
-In-Reply-To: <CAKgT0UfYEBYQOAoZ77rtwctbwau=2kx4rYdTyeaPaipeMUP9aw@mail.gmail.com>
+	with ESMTP id S1753161Ab2GZVAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 17:00:14 -0400
+In-Reply-To: <1343324633.2626.11801.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Thu, 26 Jul 2012 10:18:03 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 26 Jul 2012 19:43:53 +0200
 
-> I did some digging into the annotation for ip_route_intput_noref and
-> it seems like the issue is that I am hitting the dst_hold call in
-> __mkroute_input.
+> On Thu, 2012-07-26 at 19:36 +0200, Eric Dumazet wrote:
+>> On Thu, 2012-07-26 at 19:31 +0200, Eric Dumazet wrote:
+>> > On Thu, 2012-07-26 at 10:18 -0700, Alexander Duyck wrote:
+>> > 
+>> > > I tested this patch and it looks like it runs, but still has the same
+>> > > performance issue.  I did some digging into the annotation for
+>> > > ip_route_intput_noref and it seems like the issue is that I am hitting
+>> > > the dst_hold call in  __mkroute_input.
+>> > 
+>> > David suggested a percpu cache.
+>> > 
+>> > nh_rth_input would be allocated by alloc_percpu(struct dst *)
+>> > 
+>> > I can work on this.
+>> 
+>> Wait a minute, on input we should use the noref trick too.
+>> 
+> 
+> Something like : (on top of latest David patch)
 
-We shouldn't be building any routes in __mkroute_input except for the
-very first packet, we should be instead using the cached route in the
-FIB info nexthop.
+Grrr, I only got the local routes didn't I? :-)
 
-Something's not right.
+That would explain everything.
