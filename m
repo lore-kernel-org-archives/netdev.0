@@ -1,77 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: report SK_MEMINFO_BACKLOG
-Date: Thu, 26 Jul 2012 11:20:20 +0200
-Message-ID: <1343294420.2626.11264.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bcma: fix regression in pmu workaround reg masks
+Date: Thu, 26 Jul 2012 03:06:59 -0700 (PDT)
+Message-ID: <20120726.030659.2063192496743861099.davem@davemloft.net>
+References: <1343294151-5691-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47702 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751131Ab2GZJUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 05:20:25 -0400
-Received: by bkwj10 with SMTP id j10so1127173bkw.19
-        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 02:20:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, linville@tuxdriver.com,
+	brcm80211-dev-list@broadcom.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	seth.forshee@canonical.com, pieterpg@broadcom.com,
+	brudley@broadcom.com, arend@broadcom.com, zajec5@gmail.com
+To: hauke@hauke-m.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1343294151-5691-1-git-send-email-hauke@hauke-m.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Thu, 26 Jul 2012 11:15:51 +0200
 
-linux-3.6-rc1 supports SK_MEMINFO_BACKLOG with commit d594e987c6f54
-(sock_diag: add SK_MEMINFO_BACKLOG)
+> This fixes a regression introduced in:
+> commit b9562545ef0b13c0440ccd8d6dd4111fb77cb17a
+> Author: Hauke Mehrtens <hauke@hauke-m.de>
+> Date:   Sat Jun 30 01:44:41 2012 +0200
+> 
+>     bcma: complete workaround for BCMA43224 and BCM4313
+> 
+> The regression broke reading of the sprom from the chip and seamed to
+> cause a change of the pci id on a BCMA43224 device so that it is
+> rejected by brcmsmac. If this problem occurred, after applying this
+> patch, a cold boot is needed to make the device work again.
+> 
+> In the original patch the workaround set the intended bits in the chip
+> common core chip control registers, but the patch also unset all the
+> other bits in that register, because of a wrong mask. The original
+> patch was based on code from brcmsmac and there was an additional
+> inversing of the mask in the code setting these regs which was missing
+> here. Now the regs are set like brcmsmac did it before.
+> 
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Tested-by: Seth Forshee <seth.forshee@canonical.com>
 
-ss command can display it if provided by the kernel.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- include/linux/sock_diag.h |    1 +
- misc/ss.c                 |   13 ++++++++++---
- 2 files changed, 11 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index 39e4b1c..ac9db19 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -18,6 +18,7 @@ enum {
- 	SK_MEMINFO_FWD_ALLOC,
- 	SK_MEMINFO_WMEM_QUEUED,
- 	SK_MEMINFO_OPTMEM,
-+	SK_MEMINFO_BACKLOG,
- 
- 	SK_MEMINFO_VARS,
- };
-diff --git a/misc/ss.c b/misc/ss.c
-index cf529ef..d8429cc 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1337,8 +1337,9 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
- 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
- 
- 	if (tb[INET_DIAG_SKMEMINFO]) {
--		const __u32 *skmeminfo =  RTA_DATA(tb[INET_DIAG_SKMEMINFO]);
--		printf(" skmem:(r%u,rb%u,t%u,tb%u,f%u,w%u,o%u)",
-+		const __u32 *skmeminfo = RTA_DATA(tb[INET_DIAG_SKMEMINFO]);
-+
-+		printf(" skmem:(r%u,rb%u,t%u,tb%u,f%u,w%u,o%u",
- 			skmeminfo[SK_MEMINFO_RMEM_ALLOC],
- 			skmeminfo[SK_MEMINFO_RCVBUF],
- 			skmeminfo[SK_MEMINFO_WMEM_ALLOC],
-@@ -1346,7 +1347,13 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
- 			skmeminfo[SK_MEMINFO_FWD_ALLOC],
- 			skmeminfo[SK_MEMINFO_WMEM_QUEUED],
- 			skmeminfo[SK_MEMINFO_OPTMEM]);
--	}else if (tb[INET_DIAG_MEMINFO]) {
-+
-+		if (RTA_PAYLOAD(tb[INET_DIAG_SKMEMINFO]) >=
-+			(SK_MEMINFO_BACKLOG + 1) * sizeof(__u32))
-+			printf(",bl%u", skmeminfo[SK_MEMINFO_BACKLOG]);
-+
-+		printf(")");
-+	} else if (tb[INET_DIAG_MEMINFO]) {
- 		const struct inet_diag_meminfo *minfo
- 			= RTA_DATA(tb[INET_DIAG_MEMINFO]);
- 		printf(" mem:(r%u,w%u,f%u,t%u)",
+Acked-by: David S. Miller <davem@davemloft.net>
