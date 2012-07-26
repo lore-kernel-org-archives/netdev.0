@@ -1,38 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Fix input route performance regression.
-Date: Thu, 26 Jul 2012 15:53:35 -0700 (PDT)
-Message-ID: <20120726.155335.1853505326933171952.davem@davemloft.net>
-References: <20120726.141438.1996323620706359167.davem@davemloft.net>
-	<1343340989.2626.12087.camel@edumazet-glaptop>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: anyone know of a bug which causes dev->qdisc to be noop_qdisc for
+ a working interface?
+Date: Thu, 26 Jul 2012 17:30:39 -0600
+Message-ID: <5011D31F.4060001@genband.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57000 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753057Ab2GZWxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 18:53:35 -0400
-In-Reply-To: <1343340989.2626.12087.camel@edumazet-glaptop>
+Received: from exprod7og113.obsmtp.com ([64.18.2.179]:59106 "EHLO
+	exprod7og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109Ab2GZXaw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 19:30:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 27 Jul 2012 00:16:29 +0200
 
-> On Thu, 2012-07-26 at 14:14 -0700, David Miller wrote:
->> With the routing cache removal we lost the "noref" code paths on
->> input, and this can kill some routing workloads.
->> 
->> Reinstate the noref path when we hit a cached route in the FIB
->> nexthops.
->> 
->> With help from Eric Dumazet.
->> 
->> Reported-by: Alexander Duyck <alexander.duyck@gmail.com>
->> Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Hi all,
 
-Thanks for reviewing.
+I've been asked to help debug an issue we've had in the field where 
+after a month or so of uptime for a server the router it was connected 
+to was rebooted and one of the eth links stopped transmitting packets. 
+Downing and upping the link doesn't fix it.  An ethtool offline selftest 
+doesn't fix it.  Only known fix is a reboot of the server.
+
+The server is running 2.6.14, which makes things interesting.
+
+Luckily we had kprobes enabled and I tracked down the source code, and 
+I've been able to isolate the source of the problem.  It seems that for 
+the problematic eth device (which is up and is receiving packets) 
+dev->qdisc is set to noop_qdisc, which ends up silently dropping all 
+outgoing packets on the floor.  dev->qdisc_sleeping is pfifo_fast as 
+expected.
+
+Does anyone have any ideas how this might have happened?  Does anyone 
+remember a bug in this area from that long ago?
+
+Thanks,
+Chris
+
+-- 
+
+Chris Friesen
+Software Designer
+
+3500 Carling Avenue
+Ottawa, Ontario K2H 8E9
+www.genband.com
