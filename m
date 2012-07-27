@@ -1,38 +1,36 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH 1/2] iproute: Add magic cookie to route dump file
-Date: Fri, 27 Jul 2012 17:35:27 +0400
-Message-ID: <5012991F.9030806@parallels.com>
-References: <50121F4D.8090606@parallels.com> <AE90C24D6B3A694183C094C60CF0A2F6026B6FB1@saturn3.aculab.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH iproute2 v2 0/3] CAN Filter/Classifier
+Date: Fri, 27 Jul 2012 15:56:39 +0200
+Message-ID: <50129E17.7030602@hartkopp.net>
+References: <1343383363-6174-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:14189 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751053Ab2G0Nfi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jul 2012 09:35:38 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB1@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz,
+	lisovy@gmail.com
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1343383363-6174-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/27/2012 02:46 PM, David Laight wrote:
->> In order to somehow verify that a blob contains route dump a
->> 4-bytes magic is put at the head of the data and is checked
->> on restore.
-> 
-> Wouldn't a hash/checksum be useful as well?
+On 27.07.2012 12:02, Marc Kleine-Budde wrote:
 
-I doubt it. This magic is not for data integrity check, but is
-rather for identification of it. Is someone really needs a cheksum
-of a dump, it can be added after file generation (and by the
-preferred tool, not limited with the iproute implementation).
+> I'm reposting Rostislav's iproute2 patches, as Stephen requested,
+> during the v3.6 merge window with the corresponding kernel patches
+> already applied.
 
-> Especially if it uneditable data.
-> 
-> 	David
-> 
-> 
-> 
+
+Hallo Marc,
+
+thanks for tracking these iproute2 patches.
+
+Btw. i think these patches address the original implementation from Rostislav
+using the CAN classifier. The review lead to a completely new implementation
+using ematch. Therefore this patch series is outdated AFAICS.
+
+@Rostislav: Am i correct here?
+
+Regards,
+Oliver
