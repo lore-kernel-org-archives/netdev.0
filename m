@@ -1,172 +1,83 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/4] netlink: add signed types
-Date: Fri, 27 Jul 2012 18:28:52 +0200
-Message-ID: <1343406535-22388-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/4] team: add signed 32-bit team option type
+Date: Fri, 27 Jul 2012 18:28:53 +0200
+Message-ID: <1343406535-22388-3-git-send-email-jiri@resnulli.us>
 References: <1343406535-22388-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:52938 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752333Ab2G0Q3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 12:29:03 -0400
-Received: by weyx8 with SMTP id x8so2210290wey.19
-        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 09:29:01 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:45277 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752333Ab2G0Q3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 12:29:05 -0400
+Received: by wgbdr13 with SMTP id dr13so2963822wgb.1
+        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 09:29:03 -0700 (PDT)
 In-Reply-To: <1343406535-22388-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed types might be needed in NL communication from time to time
-(I need s32 in team driver), so add them.
-
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/netlink.h |   98 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 98 insertions(+)
+ drivers/net/team/team.c |   12 ++++++++++++
+ include/linux/if_team.h |    2 ++
+ 2 files changed, 14 insertions(+)
 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index 785f37a..09175d5 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -98,6 +98,10 @@
-  *   nla_put_u16(skb, type, value)	add u16 attribute to skb
-  *   nla_put_u32(skb, type, value)	add u32 attribute to skb
-  *   nla_put_u64(skb, type, value)	add u64 attribute to skb
-+ *   nla_put_s8(skb, type, value)	add s8 attribute to skb
-+ *   nla_put_s16(skb, type, value)	add s16 attribute to skb
-+ *   nla_put_s32(skb, type, value)	add s32 attribute to skb
-+ *   nla_put_s64(skb, type, value)	add s64 attribute to skb
-  *   nla_put_string(skb, type, str)	add string attribute to skb
-  *   nla_put_flag(skb, type)		add flag attribute to skb
-  *   nla_put_msecs(skb, type, jiffies)	add msecs attribute to skb
-@@ -121,6 +125,10 @@
-  *   nla_get_u16(nla)			get payload for a u16 attribute
-  *   nla_get_u32(nla)			get payload for a u32 attribute
-  *   nla_get_u64(nla)			get payload for a u64 attribute
-+ *   nla_get_s8(nla)			get payload for a s8 attribute
-+ *   nla_get_s16(nla)			get payload for a s16 attribute
-+ *   nla_get_s32(nla)			get payload for a s32 attribute
-+ *   nla_get_s64(nla)			get payload for a s64 attribute
-  *   nla_get_flag(nla)			return 1 if flag is true
-  *   nla_get_msecs(nla)			get payload for a msecs attribute
-  *
-@@ -160,6 +168,10 @@ enum {
- 	NLA_NESTED_COMPAT,
- 	NLA_NUL_STRING,
- 	NLA_BINARY,
-+	NLA_S8,
-+	NLA_S16,
-+	NLA_S32,
-+	NLA_S64,
- 	__NLA_TYPE_MAX,
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 87707ab..70752e6 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1787,6 +1787,12 @@ static int team_nl_fill_one_option_get(struct sk_buff *skb, struct team *team,
+ 		    nla_put_flag(skb, TEAM_ATTR_OPTION_DATA))
+ 			goto nest_cancel;
+ 		break;
++	case TEAM_OPTION_TYPE_S32:
++		if (nla_put_u8(skb, TEAM_ATTR_OPTION_TYPE, NLA_S32))
++			goto nest_cancel;
++		if (nla_put_s32(skb, TEAM_ATTR_OPTION_DATA, ctx.data.s32_val))
++			goto nest_cancel;
++		break;
+ 	default:
+ 		BUG();
+ 	}
+@@ -1975,6 +1981,9 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+ 		case NLA_FLAG:
+ 			opt_type = TEAM_OPTION_TYPE_BOOL;
+ 			break;
++		case NLA_S32:
++			opt_type = TEAM_OPTION_TYPE_S32;
++			break;
+ 		default:
+ 			goto team_put;
+ 		}
+@@ -2031,6 +2040,9 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+ 			case TEAM_OPTION_TYPE_BOOL:
+ 				ctx.data.bool_val = attr_data ? true : false;
+ 				break;
++			case TEAM_OPTION_TYPE_S32:
++				ctx.data.s32_val = nla_get_s32(attr_data);
++				break;
+ 			default:
+ 				BUG();
+ 			}
+diff --git a/include/linux/if_team.h b/include/linux/if_team.h
+index 6960fc1..e5571c4 100644
+--- a/include/linux/if_team.h
++++ b/include/linux/if_team.h
+@@ -130,6 +130,7 @@ enum team_option_type {
+ 	TEAM_OPTION_TYPE_STRING,
+ 	TEAM_OPTION_TYPE_BINARY,
+ 	TEAM_OPTION_TYPE_BOOL,
++	TEAM_OPTION_TYPE_S32,
  };
  
-@@ -183,6 +195,8 @@ enum {
-  *    NLA_NESTED_COMPAT    Minimum length of structure payload
-  *    NLA_U8, NLA_U16,
-  *    NLA_U32, NLA_U64,
-+ *    NLA_S8, NLA_S16,
-+ *    NLA_S32, NLA_S64,
-  *    NLA_MSECS            Leaving the length field zero will verify the
-  *                         given type fits, using it verifies minimum length
-  *                         just like "All other"
-@@ -879,6 +893,50 @@ static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value)
- }
- 
- /**
-+ * nla_put_s8 - Add a s8 netlink attribute to a socket buffer
-+ * @skb: socket buffer to add attribute to
-+ * @attrtype: attribute type
-+ * @value: numeric value
-+ */
-+static inline int nla_put_s8(struct sk_buff *skb, int attrtype, s8 value)
-+{
-+	return nla_put(skb, attrtype, sizeof(s8), &value);
-+}
-+
-+/**
-+ * nla_put_s16 - Add a s16 netlink attribute to a socket buffer
-+ * @skb: socket buffer to add attribute to
-+ * @attrtype: attribute type
-+ * @value: numeric value
-+ */
-+static inline int nla_put_s16(struct sk_buff *skb, int attrtype, s16 value)
-+{
-+	return nla_put(skb, attrtype, sizeof(s16), &value);
-+}
-+
-+/**
-+ * nla_put_s32 - Add a s32 netlink attribute to a socket buffer
-+ * @skb: socket buffer to add attribute to
-+ * @attrtype: attribute type
-+ * @value: numeric value
-+ */
-+static inline int nla_put_s32(struct sk_buff *skb, int attrtype, s32 value)
-+{
-+	return nla_put(skb, attrtype, sizeof(s32), &value);
-+}
-+
-+/**
-+ * nla_put_s64 - Add a s64 netlink attribute to a socket buffer
-+ * @skb: socket buffer to add attribute to
-+ * @attrtype: attribute type
-+ * @value: numeric value
-+ */
-+static inline int nla_put_s64(struct sk_buff *skb, int attrtype, s64 value)
-+{
-+	return nla_put(skb, attrtype, sizeof(s64), &value);
-+}
-+
-+/**
-  * nla_put_string - Add a string netlink attribute to a socket buffer
-  * @skb: socket buffer to add attribute to
-  * @attrtype: attribute type
-@@ -994,6 +1052,46 @@ static inline __be64 nla_get_be64(const struct nlattr *nla)
- }
- 
- /**
-+ * nla_get_s32 - return payload of s32 attribute
-+ * @nla: s32 netlink attribute
-+ */
-+static inline s32 nla_get_s32(const struct nlattr *nla)
-+{
-+	return *(s32 *) nla_data(nla);
-+}
-+
-+/**
-+ * nla_get_s16 - return payload of s16 attribute
-+ * @nla: s16 netlink attribute
-+ */
-+static inline s16 nla_get_s16(const struct nlattr *nla)
-+{
-+	return *(s16 *) nla_data(nla);
-+}
-+
-+/**
-+ * nla_get_s8 - return payload of s8 attribute
-+ * @nla: s8 netlink attribute
-+ */
-+static inline s8 nla_get_s8(const struct nlattr *nla)
-+{
-+	return *(s8 *) nla_data(nla);
-+}
-+
-+/**
-+ * nla_get_s64 - return payload of s64 attribute
-+ * @nla: s64 netlink attribute
-+ */
-+static inline s64 nla_get_s64(const struct nlattr *nla)
-+{
-+	s64 tmp;
-+
-+	nla_memcpy(&tmp, nla, sizeof(tmp));
-+
-+	return tmp;
-+}
-+
-+/**
-  * nla_get_flag - return payload of flag attribute
-  * @nla: flag netlink attribute
-  */
+ struct team_option_inst_info {
+@@ -146,6 +147,7 @@ struct team_gsetter_ctx {
+ 			u32 len;
+ 		} bin_val;
+ 		bool bool_val;
++		s32 s32_val;
+ 	} data;
+ 	struct team_option_inst_info *info;
+ };
 -- 
 1.7.10.4
