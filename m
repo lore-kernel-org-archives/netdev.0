@@ -1,83 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] r8169: revert "add byte queue limit support".
-Date: Fri, 27 Jul 2012 07:27:48 +0200
-Message-ID: <1343366868.2626.12188.camel@edumazet-glaptop>
-References: <20120723205555.GA4392@electric-eye.fr.zoreil.com>
-	 <1343106407.2626.11038.camel@edumazet-glaptop>
-	 <20120724053811.GA12053@electric-eye.fr.zoreil.com>
-	 <201207270536.50292.s.L-H@gmx.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Thu, 26 Jul 2012 23:02:46 -0700 (PDT)
+Message-ID: <20120726.230246.219188476590178857.davem@davemloft.net>
+References: <20120726.155327.947597248143903676.davem@davemloft.net>
+	<CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
+	<20120726.200846.66786272076299783.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, hayeswang@realtek.com,
-	netdev@vger.kernel.org,
-	Alex =?ISO-8859-1?Q?Villac=EDs?= Lasso
-	<a_villacis@palosanto.com>, Josh Boyer <jwboyer@redhat.com>,
-	Tom Herbert <therbert@google.com>
-To: Stefan Lippers-Hollmann <s.L-H@gmx.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:62629 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930Ab2G0F1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 01:27:54 -0400
-Received: by wgbdr13 with SMTP id dr13so2454717wgb.1
-        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 22:27:53 -0700 (PDT)
-In-Reply-To: <201207270536.50292.s.L-H@gmx.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59092 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751941Ab2G0GCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 02:02:50 -0400
+In-Reply-To: <20120726.200846.66786272076299783.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-27 at 05:36 +0200, Stefan Lippers-Hollmann wrote:
-> Hi
->=20
-> On Tuesday 24 July 2012, Francois Romieu wrote:
-> > Eric Dumazet <eric.dumazet@gmail.com> :
-> > > On Mon, 2012-07-23 at 22:55 +0200, Francois Romieu wrote:
-> > > > This reverts commit 036dafa28da1e2565a8529de2ae663c37b7a0060.
-> > [...]
-> > > bisection is not always the right way to qualify a problem.
-> >=20
-> > I know. At some point I switch from "I could search more" to "users=
- situation
-> > will improve in a definite timeframe".
-> >=20
-> > > BQL in itself had some fixes coming _after_ commit 036dafa28da1e2=
-565
-> >=20
-> > Thanks.
-> >=20
-> > They are in stable as of 3.4.5:
-> [=E2=80=A6]
-> > I have obviously not directed users at them and I do not see any
-> > of the victims using a non -stable / -vendor or recent enough
-> > kernel to test this patch since the issue has been reported.
-> >=20
-> > They are both worth testing.
-> [=E2=80=A6]
->=20
-> 3.4.x up to and including 3.4.4 exposed the problem on these cards[1]=
-:
->=20
-> r8169 0000:04:00.0: eth0: RTL8168d/8111d at 0xffffc90000c72000, 00:24=
-:1d:72:7c:75, XID 081000c0 IRQ 44
-> r8169 0000:05:00.0: eth1: RTL8168d/8111d at 0xffffc90000c70000, 00:24=
-:1d:72:7c:77, XID 081000c0 IRQ 45
->=20
-> while it is stable with "add byte queue limit support" reverted; 3.4.=
-5+
-> was only tested with 036dafa28da1e2565a8529de2ae663c37b7a0060 reverte=
-d.
->=20
-> Now testing plain 3.5.0, which still includes it, has been reliable f=
-or
-> almost 3 days - while the issue usually triggered within one hour (3=20
-> hours at most) in 3.4.[0-4]. It might be a little too early to give a
-> definitive answer, but so far r8169/ 3.5.0 looks positive.
->=20
-> Regards
-> 	Stefan Lippers-Hollmann
->=20
-> [1]	Message-Id: <201206290131.49150.s.L-H@gmx.de>
-> 	http://lkml.kernel.org/r/<201206290131.49150.s.L-H@gmx.de>
+From: David Miller <davem@davemloft.net>
+Date: Thu, 26 Jul 2012 20:08:46 -0700 (PDT)
 
-Thats real good news, thanks !
+> A lot of the overhead comes from write traffic that results from
+> filling in the "fib_result" structure onto the callers stack.
+
+Here's the longer analysis of how things are now.
+
+There are several components to a route lookup result, and struct
+fib_result tries to encapsulate all of this.
+
+Another aspect is that our route tables are broken up into different
+datas tructures which reference each other, in order to save space.
+
+So the actual objects in the FIB trie are fib_alias structures, and
+those point to fib_info.  There is a many to one relationship between
+FIB trie nodes and fib_info objects.
+
+The idea is that many routes have the same set of nexthops, metrics,
+preferred source address, etc.
+
+So one thing we return in the fib_result is a pointer to the fib_info
+and an index into the nexthop array (nh_sel).  That's why we have all
+of these funny accessor's FIB_RES_X(res) which essentially provide
+res.fi->fib_nh[res.nh_sel].X
+
+Therefore one area of simplification would be to just return a pointer
+to the FIB nexthop, rather than the fib_info pointer and the nexthop
+index.  We can get to the fib_info, if we need to, via the nh_parent
+pointer of the nexthop.
+
+It seems also that the res->scope value can be cribbed from the
+fib_info as well.
+
+res->type is embedded in the fib_alias we select hanging off of the
+FIB trie node.  And the res->prefixlen is taken from the FIB trie
+node.
+
+res->tclassid is problematic, because it comes from the FIB rules
+tables rather than the FIB trie.  We used to store a full FIB rules
+pointer in the fib_result, but I reduced it down to just the u32
+tclassid.
+
+This whole area, as well as the FIB trie lookup itself, is an area
+ripe for a large number of small micro-optimizations that in the end
+make it's overhead much more reasonable.
+
+Another thing I haven't mentioned is that another part of FIB trie's
+overhead is that it does backtracking.  The shorter prefixes sit at
+the top of the trie, so when it traverses down it does so until it
+can't get a match, then it walks back up to the root until it does
+have a match.
