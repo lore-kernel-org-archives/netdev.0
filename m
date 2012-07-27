@@ -1,46 +1,44 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH] iproute: Add route showdump command
-Date: Fri, 27 Jul 2012 08:14:42 +0400
-Message-ID: <501215B2.9010802@parallels.com>
-References: <50110593.1070502@parallels.com> <20120726090315.4a566a46@nehalam.linuxnetplumber.net>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH RESEND net-next V2] IB/ipoib: break linkage to
+ neighbouring system
+Date: Fri, 27 Jul 2012 07:42:01 +0300
+Message-ID: <CAJZOPZJZYN5YfVBRrC0Z3kvDfWcU=S7vCi4UWmzre2+PxUyM=g@mail.gmail.com>
+References: <1343150651-12568-1-git-send-email-ogerlitz@mellanox.com>
+	<20120724.140015.1545062339709165330.davem@davemloft.net>
+	<CAG4TOxNrywFPj_91RzkPikPoWP4hwe+2oninuF7zkrBFo6Q3Kg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Dan Smith <danms@us.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, ogerlitz@mellanox.com,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com, cl@linux.com,
+	shlomop@mellanox.com
+To: Roland Dreier <roland@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:25785 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751030Ab2G0EOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jul 2012 00:14:50 -0400
-In-Reply-To: <20120726090315.4a566a46@nehalam.linuxnetplumber.net>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:34851 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753345Ab2G0EmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 00:42:02 -0400
+Received: by gglu4 with SMTP id u4so2771409ggl.19
+        for <netdev@vger.kernel.org>; Thu, 26 Jul 2012 21:42:01 -0700 (PDT)
+In-Reply-To: <CAG4TOxNrywFPj_91RzkPikPoWP4hwe+2oninuF7zkrBFo6Q3Kg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2012 08:03 PM, Stephen Hemminger wrote:
-> On Thu, 26 Jul 2012 12:53:39 +0400
-> Pavel Emelyanov <xemul@parallels.com> wrote:
-> 
->> Some time ago the save+restore commands were added to ip route (git
->> id f4ff11e3, Add ip route save/restore). These two save the raw rtnl
->> stream into a file and restore one (reading it from stdin).
->>
->> The problem is that there's no way to get the contents of the dump
->> file in a human readable form. How about adding a command that reads
->> the rtnl stream from stdin and prints the data in a way the usual
->> "ip route list" does?
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-> 
-> Being able to decode a dump is great idea.
-> Are the user's smart enough not to try it out at the command prompt
-> and get totally lost? Maybe another isatty() check is needed.
-> 
-> Another solution would be to put a small header on the save file with
-> a magic number that could be checked. This would mean changing save/restore/showdump
-> and ideally updating the magic file in distributions.
-> .
+On Wed, Jul 25, 2012 at 10:52 AM, Roland Dreier <roland@kernel.org> wrote:
+> On Tue, Jul 24, 2012 at 2:00 PM, David Miller <davem@davemloft.net> wrote:
 
-Hm... The idea with magic looks reasonable.
-I will look at what can be done here, thanks!
+>> Looks good, Roland you got this?
+
+> Yes, I'll read it over and pick it up, thanks.
+
+Hi Roland,
+
+Just to make sure, you are picking this for 3.6, correct?
+
+I'd like to make sure that the merge of this patch through the
+infiniband tree will not introduce dependancy with the review/merge of
+the Ethernet IPoIB driver that runs through netdev. If this patch
+lands in 3.6-rcX, Dave will eventually pick it into net-next and we're
+ok, if not, things get complicated without any real reason, makes
+sense?
+
+Or.
