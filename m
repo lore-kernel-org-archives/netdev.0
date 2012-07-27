@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] USB: kaweth.c: use GFP_ATOMIC under spin_lock
-Date: Fri, 27 Jul 2012 13:46:32 -0700 (PDT)
-Message-ID: <20120727.134632.76746326614521026.davem@davemloft.net>
-References: <20120727114651.GA15492@elgon.mountain>
+Subject: Re: [PATCH] net: fix rtnetlink IFF_PROMISC and IFF_ALLMULTI
+ handling
+Date: Fri, 27 Jul 2012 13:46:50 -0700 (PDT)
+Message-ID: <20120727.134650.366843201370833087.davem@davemloft.net>
+References: <20120727145822.7efd10d4@griffin>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, makc@redhat.com
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36704 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36709 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329Ab2G0Uqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 16:46:33 -0400
-In-Reply-To: <20120727114651.GA15492@elgon.mountain>
+	with ESMTP id S1752534Ab2G0Uqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 16:46:51 -0400
+In-Reply-To: <20120727145822.7efd10d4@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 27 Jul 2012 14:46:51 +0300
+From: Jiri Benc <jbenc@redhat.com>
+Date: Fri, 27 Jul 2012 14:58:22 +0200
 
-> The problem is that we call this with a spin lock held.  The call tree
-> is:
-> 	kaweth_start_xmit() holds kaweth->device_lock.
-> 	-> kaweth_async_set_rx_mode()
-> 	   -> kaweth_control()
-> 	      -> kaweth_internal_control_msg()
+> When device flags are set using rtnetlink, IFF_PROMISC and IFF_ALLMULTI
+> flags are handled specially. Function dev_change_flags sets IFF_PROMISC and
+> IFF_ALLMULTI bits in dev->gflags according to the passed value but
+> do_setlink passes a result of rtnl_dev_combine_flags which takes those bits
+> from dev->flags.
 > 
-> The kaweth_internal_control_msg() function is only called from
-> kaweth_control() which used GFP_ATOMIC for its allocations.
+> This can be easily trigerred by doing:
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> tcpdump -i eth0 &
+> ip l s up eth0
+> 
+> ip sets IFF_UP flag in ifi_flags and ifi_change, which is combined with
+> IFF_PROMISC by rtnl_dev_combine_flags, causing __dev_change_flags to set
+> IFF_PROMISC in gflags.
+> 
+> Reported-by: Max Matveev <makc@redhat.com>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
 Applied.
