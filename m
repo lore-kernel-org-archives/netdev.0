@@ -1,73 +1,81 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Fri, 27 Jul 2012 12:06:47 -0700
-Message-ID: <CAKgT0UdydVv7yy-2AQ93aAKkNngC5dWwOnBS4GoDv6T84p4K4Q@mail.gmail.com>
-References: <20120726.155327.947597248143903676.davem@davemloft.net>
-	<CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
-	<20120726.200846.66786272076299783.davem@davemloft.net>
-	<20120726.230246.219188476590178857.davem@davemloft.net>
-	<1343383283.2626.12691.camel@edumazet-glaptop>
-	<87boj15k8c.fsf@xmission.com>
-	<1343401949.2626.13011.camel@edumazet-glaptop>
-	<87mx2l41hl.fsf@xmission.com>
-	<1343406533.2626.13104.camel@edumazet-glaptop>
+From: Michael Kerrisk <mtk.manpages@gmail.com>
+Subject: Re: [PATCH v2 0/7] TCP Fast Open client
+Date: Fri, 27 Jul 2012 21:06:53 +0200
+Message-ID: <CAHO5Pa3eLRrjGx52o26sN9OS7PMbKu3e3=Zz72E7Z6i5XwDnvw@mail.gmail.com>
+References: <1342645307-17772-1-git-send-email-ycheng@google.com>
+ <CAHO5Pa0D-hS=zdEEyUWMN6bmpKvQgiy25nTu1=BUYVxec+zpsQ@mail.gmail.com> <CAPshTCjxUQ=juO3POX1oSaLTO_g3EmxjQNkSxLjEZGyxDBkMJQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Yuchung Cheng <ycheng@google.com>, davem@davemloft.net,
+	edumazet@google.com, ncardwell@google.com, sivasankar@cs.ucsd.edu,
+	netdev@vger.kernel.org, rick jones <perfgeek@mac.com>,
+	Terry Lam <vtlam@cs.ucsd.edu>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Jerry Chu <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:50742 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404Ab2G0TGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 15:06:47 -0400
-Received: by vbbff1 with SMTP id ff1so3026028vbb.19
-        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 12:06:47 -0700 (PDT)
-In-Reply-To: <1343406533.2626.13104.camel@edumazet-glaptop>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:62596 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404Ab2G0THO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 15:07:14 -0400
+Received: by gglu4 with SMTP id u4so3545669ggl.19
+        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 12:07:13 -0700 (PDT)
+In-Reply-To: <CAPshTCjxUQ=juO3POX1oSaLTO_g3EmxjQNkSxLjEZGyxDBkMJQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 27, 2012 at 9:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2012-07-27 at 09:23 -0700, Eric W. Biederman wrote:
+On Fri, Jul 27, 2012 at 7:28 PM, Jerry Chu <hkchu@google.com> wrote:
+> +rick, terry
 >
->> I am familiar.  But does hardware prefetching make a difference
->> if your object is less than 64 bytes?
+> Hi Michael,
+>
+> Thanks for your interest!
+>
+> On Fri, Jul 27, 2012 at 4:42 AM, Michael Kerrisk <mtk.manpages@gmail.com> wrote:
+>> Yuchung,
 >>
->
-> Apparently yes, if the prefetch touches a dirtied neighbour cache line.
->
->> I don't believe only allocating 64 bytes will be a problem,
->> as no one else well be dirtying your cache line.
+>> On Wed, Jul 18, 2012 at 11:01 PM, Yuchung Cheng <ycheng@google.com> wrote:
+>>> ChangeLog since v1:
+>>>   - Reduce tons of code by storing Fast Open stats in the TCP metrics :)
+>>>   - Clarify the purpose of using an experimental option in patch 1/7
+>>>
+>>> This patch series implement the client functionality of TCP Fast Open.
+>>> TCP Fast Open (TFO) allows data to be carried in the SYN and SYN-ACK
+>>> packets and consumed by the receiving end during the initial connection
+>>> handshake, thus providing a saving of up to one full round trip time (RTT)
+>>> compared to standard TCP requiring a three-way handshake (3WHS) to
+>>> complete before data can be exchanged.
+>>>
+>>> The protocol change is detailed in the IETF internet draft at
+>>> http://www.ietf.org/id/draft-ietf-tcpm-fastopen-00.txt . The research
 >>
->> I suppose you could run into pathologies where your object
->> is 3*64 bytes in size, but your expression doesn't handle
->> that case either.
+>> This URL appears to be invalid. I assume the following is the correct
+>> current version:
+>> http://tools.ietf.org/html/draft-ietf-tcpm-fastopen-01
+>> ?
+>
+> Correct.
+>
 >>
+>> Is there some sample client and server userspace test code available?
 >
-> Sure, but in most cases fib objects are under 128 bytes.
->
->
->> The other alternative to guarantee very good cache behavior is
->> to ensure you are allocating a power of two size up to some limit,
->> perhaps page size.
->>
->
-> Good idea.
->
->> My point is the magic 128 likely requires an explicatory comment and I
->> think the net result is you have encoded something fragile that is good
->> for testing but that will in the fullness of time do strange things that
->> will be easy to overlook.
->
-> Sure, I'll send a v2, thanks.
->
->
+> There are some sample code in a SIGCOMM paper (
+> http://conferences.sigcomm.org/co-next/2011/papers/1569470463.pdf). It's
+> real simple but we haven't published the server side code yet. (It's been
+> ready but I need to rebase it to the latest net-next.)
 
-I tested out v1 of your patch and didn't seem much of a change in my
-test environment.  I figure I will spend most of today going through
-the code trying to figure out what is causing the issues I am seeing
-and why your changes had no effect on my setup.
+The examples in that paper seem to be outdated. At the very least,
+names of constants for socket options etc have changed.
+
+I've been trying to test this feature from userspace, but am not
+getting quite the results I expect. It sounds like you are saying that
+not all the kernel pieces are there yet to support TFO in userspace.
+Is that correct?
 
 Thanks,
 
-Alex
+Michael
+
+-- 
+Michael Kerrisk Linux man-pages maintainer;
+http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface", http://blog.man7.org/
