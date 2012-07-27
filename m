@@ -1,34 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "openvswitch: potential NULL deref in sample()"
-Date: Fri, 27 Jul 2012 13:47:56 -0700 (PDT)
-Message-ID: <20120727.134756.54447493810134077.davem@davemloft.net>
-References: <1343420380-23119-1-git-send-email-jesse@nicira.com>
+Subject: Re: [PATCH v2] tcp: perform DMA to userspace only if there is a
+ task waiting for it
+Date: Fri, 27 Jul 2012 13:48:04 -0700 (PDT)
+Message-ID: <20120727.134804.412337393847863208.davem@davemloft.net>
+References: <alpine.LNX.2.00.1207271556320.11375@pobox.suse.cz>
+	<20120727.133135.2017747630291360657.davem@davemloft.net>
+	<alpine.LNX.2.00.1207272237470.30412@pobox.suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	dan.carpenter@oracle.com
-To: jesse@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36730 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751547Ab2G0Ur5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 16:47:57 -0400
-In-Reply-To: <1343420380-23119-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: christopher.leech@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jbohac@suse.cz
+To: jkosina@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1207272237470.30412@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Fri, 27 Jul 2012 13:19:40 -0700
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Fri, 27 Jul 2012 22:38:50 +0200 (CEST)
 
-> This reverts commit 5b3e7e6cb5771bedda51cdb6f715d1da8cd9e644.
+> Back in 2006, commit 1a2449a87b ("[I/OAT]: TCP recv offload to I/OAT")
+> added support for receive offloading to IOAT dma engine if available.
 > 
-> The problem that the original commit was attempting to fix can
-> never happen in practice because validation is done one a per-flow
-> basis rather than a per-packet basis.  Adding additional checks at
-> runtime is unnecessary and inconsistent with the rest of the code.
+> The code in tcp_rcv_established() tries to perform early DMA copy if
+> applicable. It however does so without checking whether the userspace
+> task is actually expecting the data in the buffer.
 > 
-> CC: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> This is not a problem under normal circumstances, but there is a corner
+> case where this doesn't work -- and that's when MSG_TRUNC flag to
+> recvmsg() is used.
+> 
+> If the IOAT dma engine is not used, the code properly checks whether
+> there is a valid ucopy.task and the socket is owned by userspace, but
+> misses the check in the dmaengine case.
+> 
+> This problem can be observed in real trivially -- for example 'tbench' is a
+> good reproducer, as it makes a heavy use of MSG_TRUNC. On systems utilizing
+> IOAT, you will soon find tbench waiting indefinitely in sk_wait_data(), as they
+> have been already early-copied in tcp_rcv_established() using dma engine.
+> 
+> This patch introduces the same check we are performing in the simple
+> iovec copy case to the IOAT case as well. It fixes the indefinite
+> recvmsg(MSG_TRUNC) hangs.
+> 
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 
 Applied.
