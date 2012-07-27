@@ -1,34 +1,54 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/2] iproute: Add magic cookie to route dump file
-Date: Fri, 27 Jul 2012 11:46:29 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B6FB1@saturn3.aculab.com>
-References: <50121F4D.8090606@parallels.com>
+From: Michael Kerrisk <mtk.manpages@gmail.com>
+Subject: Re: [PATCH v2 0/7] TCP Fast Open client
+Date: Fri, 27 Jul 2012 13:42:52 +0200
+Message-ID: <CAHO5Pa0D-hS=zdEEyUWMN6bmpKvQgiy25nTu1=BUYVxec+zpsQ@mail.gmail.com>
+References: <1342645307-17772-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Pavel Emelyanov" <xemul@parallels.com>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>,
-	"Linux Netdev List" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, hkchu@google.com, edumazet@google.com,
+	ncardwell@google.com, sivasankar@cs.ucsd.edu,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34709 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750736Ab2G0KrW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 06:47:22 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06293-07 for <netdev@vger.kernel.org>;
- Fri, 27 Jul 2012 11:47:19 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <50121F4D.8090606@parallels.com>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:39551 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866Ab2G0LnN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 07:43:13 -0400
+Received: by gglu4 with SMTP id u4so3033929ggl.19
+        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 04:43:12 -0700 (PDT)
+In-Reply-To: <1342645307-17772-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> In order to somehow verify that a blob contains route dump a
-> 4-bytes magic is put at the head of the data and is checked
-> on restore.
+Yuchung,
 
-Wouldn't a hash/checksum be useful as well?
-Especially if it uneditable data.
+On Wed, Jul 18, 2012 at 11:01 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> ChangeLog since v1:
+>   - Reduce tons of code by storing Fast Open stats in the TCP metrics :)
+>   - Clarify the purpose of using an experimental option in patch 1/7
+>
+> This patch series implement the client functionality of TCP Fast Open.
+> TCP Fast Open (TFO) allows data to be carried in the SYN and SYN-ACK
+> packets and consumed by the receiving end during the initial connection
+> handshake, thus providing a saving of up to one full round trip time (RTT)
+> compared to standard TCP requiring a three-way handshake (3WHS) to
+> complete before data can be exchanged.
+>
+> The protocol change is detailed in the IETF internet draft at
+> http://www.ietf.org/id/draft-ietf-tcpm-fastopen-00.txt . The research
 
-	David
+This URL appears to be invalid. I assume the following is the correct
+current version:
+http://tools.ietf.org/html/draft-ietf-tcpm-fastopen-01
+?
+
+Is there some sample client and server userspace test code available?
+
+Thanks,
+
+Michael
+
+-- 
+Michael Kerrisk Linux man-pages maintainer;
+http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface", http://blog.man7.org/
