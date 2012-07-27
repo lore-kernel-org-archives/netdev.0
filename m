@@ -1,54 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Fri, 27 Jul 2012 17:12:29 +0200
-Message-ID: <1343401949.2626.13011.camel@edumazet-glaptop>
-References: <20120726.155327.947597248143903676.davem@davemloft.net>
-	 <CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
-	 <20120726.200846.66786272076299783.davem@davemloft.net>
-	 <20120726.230246.219188476590178857.davem@davemloft.net>
-	 <1343383283.2626.12691.camel@edumazet-glaptop>
-	 <87boj15k8c.fsf@xmission.com>
+From: Andy Gospodarek <gospo@redhat.com>
+Subject: Re: bonding and SR-IOV -- do we need arp_validation for
+ loadbalancing too?
+Date: Fri, 27 Jul 2012 10:55:14 -0400
+Message-ID: <20120727145514.GB7323@quad.redhat.com>
+References: <500EC5CF.3080400@genband.com>
+ <20120724164220.GA1721@minipsycho.orion>
+ <21683.1343153629@death.nxdomain>
+ <500F032D.3070104@genband.com>
+ <24104.1343162975@death.nxdomain>
+ <500F15C3.4090906@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jiri@resnulli.us>,
+	netdev <netdev@vger.kernel.org>, andy@greyhouse.net
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:53708 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004Ab2G0PMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 11:12:35 -0400
-Received: by bkwj10 with SMTP id j10so1969228bkw.19
-        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 08:12:33 -0700 (PDT)
-In-Reply-To: <87boj15k8c.fsf@xmission.com>
+Received: from mx1.redhat.com ([209.132.183.28]:18702 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751004Ab2G0PV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jul 2012 11:21:28 -0400
+Content-Disposition: inline
+In-Reply-To: <500F15C3.4090906@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-27 at 07:53 -0700, Eric W. Biederman wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> 
-> > Now IP route cache is removed, we should make sure fib structures
-> > cant share cache lines with possibly often dirtied objects.
+On Tue, Jul 24, 2012 at 03:38:11PM -0600, Chris Friesen wrote:
+> On 07/24/2012 02:49 PM, Jay Vosburgh wrote:
+> >Chris Friesen<chris.friesen@genband.com>  wrote:
 > >
-> > On x86, kmalloc-96 cache can be source of such problems.
+> >>In loadbalance mode wouldn't it just work similar to active-backup?  If
+> >>it's a reply then verify that it came from the arp target, if it's a
+> >>request then check to see if it came from one of the other slaves.
 > >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> >	The problem isn't verifying the requests or replies, it's that
+> >the ARP packets are not distributed across all slaves (because the
+> >switch ports are in a channel group / aggregator), so some slaves do not
+> >receive any ARPs.
 > 
-> 
-> > +static inline void *fib_zalloc(size_t size)
-> > +{
-> > +	/* We want to avoid possible false sharing */
-> > +	return kzalloc(max_t(size_t, 128, size), GFP_KERNEL);
-> 
-> Why the hard coded 128 here?
-> 
-> It seems more portable and obvious to do 
-> 	return kzalloc(round_up(size, L1_CACHE_BYTES), GFP_KERNEL);
-> 
+> Yeah, okay.  And if we turn on arp validation then we ignore all the
+> other packets and so they looks dead.  Got it.
+If you wanted to make this work, I think it could pretty easily be done
+if it isn't working right now.  Did you try arp_validate=all in your
+setup?
 
-Its not that obvious, because some machines have an apparent
-L1_CACHE_BYTES of 64, but hardware prefetching to 128 bytes
+> In our environment (ATCA shelf) the switches have been customized to
+> handle some of this stuff so arpmon does work reliably with xor.
+Good.
 
-But using 2*L1_CACHE_BYTES as minimum allocation size might be overkill
-on some arches with 256 bytes cache lines.
+> In the general case it sounds like the "PF bonding ignores packets
+> from VFs" is a better bet then.
+It really might be.  There are some registers in the 82599 datasheets
+that are not used by the ixgbe driver, but might help you in this area.
+
+If you take a look at PFVML2FLT and PFUTA and their current status on
+your system you might be able to put something together that gives you
+what you want.
+
+It would likely mean you have to run a custom ixgbe-driver, but that
+doesn't sound like much of an issue.
+
+> 
+> 
+> >>On 07/24/2012 02:18 PM, Chris Friesen wrote:
+> >>>A more general solution might be to have the device driver also track
+> >>>the time of the last incoming packet that came from the external network
+> >>>(rather than a VF) and having the bond driver ignore those packets for
+> >>>the purpose of link health.  Doing this efficiently would likely require
+> >>>some kind of hardware support though--as an example the 82599 seems to
+> >>>support this with the "LB" bit in the rx descriptor.
+> >>
+> >>That should of course be reversed.  We want the bond driver to only use
+> >>the packets from the external network for the purpose of link health.
+> >>
+> >>Does anyone other than bonding actually care about dev->last_rx?  If not
+> >>then we could just change the drivers to only set it for external packets.
+> >That should of course be reversed.  We want the bond driver to only use
+> >>the packets from the external network for the purpose of link health.
+> >>
+> >	I believe bonding is the main user of last_rx (a search shows a
+> >couple of drivers using it internally).  For bonding use, in current
+> >mainline last_rx is set by bonding itself, not in the network device
+> >driver.
+> 
+> Right, I was looking at older code.  In that case presumably the
+> driver could set an skb flag (external vs VF loopback) that the
+> bonding code could check?
+> 
+> Chris
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
