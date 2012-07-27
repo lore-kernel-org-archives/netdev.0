@@ -1,61 +1,172 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
-Date: Fri, 27 Jul 2012 18:28:53 +0200
-Message-ID: <1343406533.2626.13104.camel@edumazet-glaptop>
-References: <20120726.155327.947597248143903676.davem@davemloft.net>
-	 <CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
-	 <20120726.200846.66786272076299783.davem@davemloft.net>
-	 <20120726.230246.219188476590178857.davem@davemloft.net>
-	 <1343383283.2626.12691.camel@edumazet-glaptop>
-	 <87boj15k8c.fsf@xmission.com>
-	 <1343401949.2626.13011.camel@edumazet-glaptop>
-	 <87mx2l41hl.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/4] netlink: add signed types
+Date: Fri, 27 Jul 2012 18:28:52 +0200
+Message-ID: <1343406535-22388-2-git-send-email-jiri@resnulli.us>
+References: <1343406535-22388-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34167 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab2G0Q26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 12:28:58 -0400
-Received: by bkwj10 with SMTP id j10so2009308bkw.19
-        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 09:28:57 -0700 (PDT)
-In-Reply-To: <87mx2l41hl.fsf@xmission.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:52938 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752333Ab2G0Q3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 12:29:03 -0400
+Received: by weyx8 with SMTP id x8so2210290wey.19
+        for <netdev@vger.kernel.org>; Fri, 27 Jul 2012 09:29:01 -0700 (PDT)
+In-Reply-To: <1343406535-22388-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-27 at 09:23 -0700, Eric W. Biederman wrote:
+Signed types might be needed in NL communication from time to time
+(I need s32 in team driver), so add them.
 
-> I am familiar.  But does hardware prefetching make a difference
-> if your object is less than 64 bytes?
-> 
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/net/netlink.h |   98 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 98 insertions(+)
 
-Apparently yes, if the prefetch touches a dirtied neighbour cache line.
-
-> I don't believe only allocating 64 bytes will be a problem,
-> as no one else well be dirtying your cache line.
-> 
-> I suppose you could run into pathologies where your object
-> is 3*64 bytes in size, but your expression doesn't handle
-> that case either.
-> 
-
-Sure, but in most cases fib objects are under 128 bytes.
-
-
-> The other alternative to guarantee very good cache behavior is
-> to ensure you are allocating a power of two size up to some limit,
-> perhaps page size.
-> 
-
-Good idea.
-
-> My point is the magic 128 likely requires an explicatory comment and I
-> think the net result is you have encoded something fragile that is good
-> for testing but that will in the fullness of time do strange things that
-> will be easy to overlook.
-
-Sure, I'll send a v2, thanks.
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 785f37a..09175d5 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -98,6 +98,10 @@
+  *   nla_put_u16(skb, type, value)	add u16 attribute to skb
+  *   nla_put_u32(skb, type, value)	add u32 attribute to skb
+  *   nla_put_u64(skb, type, value)	add u64 attribute to skb
++ *   nla_put_s8(skb, type, value)	add s8 attribute to skb
++ *   nla_put_s16(skb, type, value)	add s16 attribute to skb
++ *   nla_put_s32(skb, type, value)	add s32 attribute to skb
++ *   nla_put_s64(skb, type, value)	add s64 attribute to skb
+  *   nla_put_string(skb, type, str)	add string attribute to skb
+  *   nla_put_flag(skb, type)		add flag attribute to skb
+  *   nla_put_msecs(skb, type, jiffies)	add msecs attribute to skb
+@@ -121,6 +125,10 @@
+  *   nla_get_u16(nla)			get payload for a u16 attribute
+  *   nla_get_u32(nla)			get payload for a u32 attribute
+  *   nla_get_u64(nla)			get payload for a u64 attribute
++ *   nla_get_s8(nla)			get payload for a s8 attribute
++ *   nla_get_s16(nla)			get payload for a s16 attribute
++ *   nla_get_s32(nla)			get payload for a s32 attribute
++ *   nla_get_s64(nla)			get payload for a s64 attribute
+  *   nla_get_flag(nla)			return 1 if flag is true
+  *   nla_get_msecs(nla)			get payload for a msecs attribute
+  *
+@@ -160,6 +168,10 @@ enum {
+ 	NLA_NESTED_COMPAT,
+ 	NLA_NUL_STRING,
+ 	NLA_BINARY,
++	NLA_S8,
++	NLA_S16,
++	NLA_S32,
++	NLA_S64,
+ 	__NLA_TYPE_MAX,
+ };
+ 
+@@ -183,6 +195,8 @@ enum {
+  *    NLA_NESTED_COMPAT    Minimum length of structure payload
+  *    NLA_U8, NLA_U16,
+  *    NLA_U32, NLA_U64,
++ *    NLA_S8, NLA_S16,
++ *    NLA_S32, NLA_S64,
+  *    NLA_MSECS            Leaving the length field zero will verify the
+  *                         given type fits, using it verifies minimum length
+  *                         just like "All other"
+@@ -879,6 +893,50 @@ static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value)
+ }
+ 
+ /**
++ * nla_put_s8 - Add a s8 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_s8(struct sk_buff *skb, int attrtype, s8 value)
++{
++	return nla_put(skb, attrtype, sizeof(s8), &value);
++}
++
++/**
++ * nla_put_s16 - Add a s16 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_s16(struct sk_buff *skb, int attrtype, s16 value)
++{
++	return nla_put(skb, attrtype, sizeof(s16), &value);
++}
++
++/**
++ * nla_put_s32 - Add a s32 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_s32(struct sk_buff *skb, int attrtype, s32 value)
++{
++	return nla_put(skb, attrtype, sizeof(s32), &value);
++}
++
++/**
++ * nla_put_s64 - Add a s64 netlink attribute to a socket buffer
++ * @skb: socket buffer to add attribute to
++ * @attrtype: attribute type
++ * @value: numeric value
++ */
++static inline int nla_put_s64(struct sk_buff *skb, int attrtype, s64 value)
++{
++	return nla_put(skb, attrtype, sizeof(s64), &value);
++}
++
++/**
+  * nla_put_string - Add a string netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+@@ -994,6 +1052,46 @@ static inline __be64 nla_get_be64(const struct nlattr *nla)
+ }
+ 
+ /**
++ * nla_get_s32 - return payload of s32 attribute
++ * @nla: s32 netlink attribute
++ */
++static inline s32 nla_get_s32(const struct nlattr *nla)
++{
++	return *(s32 *) nla_data(nla);
++}
++
++/**
++ * nla_get_s16 - return payload of s16 attribute
++ * @nla: s16 netlink attribute
++ */
++static inline s16 nla_get_s16(const struct nlattr *nla)
++{
++	return *(s16 *) nla_data(nla);
++}
++
++/**
++ * nla_get_s8 - return payload of s8 attribute
++ * @nla: s8 netlink attribute
++ */
++static inline s8 nla_get_s8(const struct nlattr *nla)
++{
++	return *(s8 *) nla_data(nla);
++}
++
++/**
++ * nla_get_s64 - return payload of s64 attribute
++ * @nla: s64 netlink attribute
++ */
++static inline s64 nla_get_s64(const struct nlattr *nla)
++{
++	s64 tmp;
++
++	nla_memcpy(&tmp, nla, sizeof(tmp));
++
++	return tmp;
++}
++
++/**
+  * nla_get_flag - return payload of flag attribute
+  * @nla: flag netlink attribute
+  */
+-- 
+1.7.10.4
