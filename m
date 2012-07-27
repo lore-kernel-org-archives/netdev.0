@@ -1,53 +1,76 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: bonding and SR-IOV -- do we need arp_validation for loadbalancing
- too?
-Date: Fri, 27 Jul 2012 10:15:45 -0600
-Message-ID: <5012BEB1.9030306@genband.com>
-References: <500EC5CF.3080400@genband.com> <20120724164220.GA1721@minipsycho.orion> <21683.1343153629@death.nxdomain> <500F032D.3070104@genband.com> <24104.1343162975@death.nxdomain> <500F15C3.4090906@genband.com> <20120727145514.GB7323@quad.redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Fri, 27 Jul 2012 09:23:18 -0700
+Message-ID: <87mx2l41hl.fsf@xmission.com>
+References: <20120726.155327.947597248143903676.davem@davemloft.net>
+	<CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
+	<20120726.200846.66786272076299783.davem@davemloft.net>
+	<20120726.230246.219188476590178857.davem@davemloft.net>
+	<1343383283.2626.12691.camel@edumazet-glaptop>
+	<87boj15k8c.fsf@xmission.com>
+	<1343401949.2626.13011.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>, andy@greyhouse.net
-To: Andy Gospodarek <gospo@redhat.com>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og107.obsmtp.com ([64.18.2.167]:59433 "EHLO
-	exprod7og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929Ab2G0QQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 12:16:01 -0400
-In-Reply-To: <20120727145514.GB7323@quad.redhat.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:60157 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751966Ab2G0QX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 12:23:26 -0400
+In-Reply-To: <1343401949.2626.13011.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Fri, 27 Jul 2012 17:12:29 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2012 08:55 AM, Andy Gospodarek wrote:
-> On Tue, Jul 24, 2012 at 03:38:11PM -0600, Chris Friesen wrote:
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
->> In our environment (ATCA shelf) the switches have been customized to
->> handle some of this stuff so arpmon does work reliably with xor.
-> Good.
+> On Fri, 2012-07-27 at 07:53 -0700, Eric W. Biederman wrote:
+>> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>> 
+>> > Now IP route cache is removed, we should make sure fib structures
+>> > cant share cache lines with possibly often dirtied objects.
+>> >
+>> > On x86, kmalloc-96 cache can be source of such problems.
+>> >
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> 
+>> 
+>> > +static inline void *fib_zalloc(size_t size)
+>> > +{
+>> > +	/* We want to avoid possible false sharing */
+>> > +	return kzalloc(max_t(size_t, 128, size), GFP_KERNEL);
+>> 
+>> Why the hard coded 128 here?
+>> 
+>> It seems more portable and obvious to do 
+>> 	return kzalloc(round_up(size, L1_CACHE_BYTES), GFP_KERNEL);
+>> 
 >
->> In the general case it sounds like the "PF bonding ignores packets
->> from VFs" is a better bet then.
-> It really might be.  There are some registers in the 82599 datasheets
-> that are not used by the ixgbe driver, but might help you in this area.
->
-> If you take a look at PFVML2FLT and PFUTA and their current status on
-> your system you might be able to put something together that gives you
-> what you want.
+> Its not that obvious, because some machines have an apparent
+> L1_CACHE_BYTES of 64, but hardware prefetching to 128 bytes
 
-I think it's simpler than that.  By my reading of the 82599 datasheet, 
-the LB bit in the status field of the rx descriptor will indicate if the 
-packet came from a VM.
+I am familiar.  But does hardware prefetching make a difference
+if your object is less than 64 bytes?
 
-> It would likely mean you have to run a custom ixgbe-driver, but that
-> doesn't sound like much of an issue.
+I don't believe only allocating 64 bytes will be a problem,
+as no one else well be dirtying your cache line.
 
+I suppose you could run into pathologies where your object
+is 3*64 bytes in size, but your expression doesn't handle
+that case either.
 
-While I'd like to avoid it if possible, we've already had to tweak the 
-driver for other things.
+> But using 2*L1_CACHE_BYTES as minimum allocation size might be overkill
+> on some arches with 256 bytes cache lines.
 
-The complication is that we've got a few different types of hardware and 
-they're not all running 82599.  I'm trying to figure out if the other 
-hardware can do something similar.
+The other alternative to guarantee very good cache behavior is
+to ensure you are allocating a power of two size up to some limit,
+perhaps page size.
 
-Chris
+My point is the magic 128 likely requires an explicatory comment and I
+think the net result is you have encoded something fragile that is good
+for testing but that will in the fullness of time do strange things that
+will be easy to overlook.
+
+Eric
