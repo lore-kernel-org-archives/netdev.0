@@ -1,17 +1,17 @@
 From: webmaster <Zdenek.Halata@lf1.cuni.cz>
 Subject: Your  webmail quota has exceeded
-Date: Thu, 26 Jul 2012 20:26:21 -0400
-Message-ID: <0f83f1d9e05edfb56795a21c19f89a9c__44516.0844283693$1343349199$gmane$org@dec52.lf1.cuni.cz>
+Date: Thu, 26 Jul 2012 20:27:15 -0400
+Message-ID: <fef3f455de1bef58af95e00166c652ac__15499.3437733085$1343349258$gmane$org@dec52.lf1.cuni.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
  format=flowed
 Content-Transfer-Encoding: 7bit
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dec52.lf1.cuni.cz ([195.113.48.2]:49591 "HELO dec52.lf1.cuni.cz"
+Received: from dec52.lf1.cuni.cz ([195.113.48.2]:49786 "HELO dec52.lf1.cuni.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752720Ab2G0AdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jul 2012 20:33:04 -0400
+	id S1752900Ab2G0Ad5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jul 2012 20:33:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
