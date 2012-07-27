@@ -1,68 +1,53 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: [PATCH] tcp: perform DMA to userspace only if there is a task waiting
- for it
-Date: Fri, 27 Jul 2012 16:05:06 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1207271556320.11375@pobox.suse.cz>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH iproute2 v2 0/3] CAN Filter/Classifier
+Date: Fri, 27 Jul 2012 16:06:50 +0200
+Message-ID: <5012A07A.6030302@hartkopp.net>
+References: <1343383363-6174-1-git-send-email-mkl@pengutronix.de> <50129E17.7030602@hartkopp.net> <50129E9E.8010806@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jiri Bohac <jbohac@suse.cz>
-To: Chris Leech <christopher.leech@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	lartc@vger.kernel.org, pisa@cmp.felk.cvut.cz, sojkam1@fel.cvut.cz,
+	lisovy@gmail.com
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42136 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751303Ab2G0OFO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jul 2012 10:05:14 -0400
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:10921 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752390Ab2G0OGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jul 2012 10:06:53 -0400
+In-Reply-To: <50129E9E.8010806@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Back in 2006, commit 1a2449a87b ("[I/OAT]: TCP recv offload to I/OAT") 
-added support for receive offloading to IOAT dma engine if available.
+On 27.07.2012 15:58, Marc Kleine-Budde wrote:
 
-The code in tcp_rcv_established() tries to perform early DMA copy if 
-applicable. It however does so without checking whether the userspace task 
-is actually expecting the data in the buffer.
+> On 07/27/2012 03:56 PM, Oliver Hartkopp wrote:
+>> On 27.07.2012 12:02, Marc Kleine-Budde wrote:
+>>
+>>> I'm reposting Rostislav's iproute2 patches, as Stephen requested,
+>>> during the v3.6 merge window with the corresponding kernel patches
+>>> already applied.
+>>
+>>
+>> Hallo Marc,
+>>
+>> thanks for tracking these iproute2 patches.
+>>
+>> Btw. i think these patches address the original implementation from Rostislav
+>> using the CAN classifier. The review lead to a completely new implementation
+>> using ematch. Therefore this patch series is outdated AFAICS.
+>>
+>> @Rostislav: Am i correct here?
+> 
+> Has someone started working on this, or already new patches?
+> 
 
-This is not a problem under normal circumstances, but there is a corner 
-case where this doesn't work -- and that's when MSG_TRUNC flag to 
-recvmsg() is used.
 
-If the IOAT dma engine is not used, the code properly checks whether there 
-is a valid ucopy.task and the socket is owned by userspace, but misses the 
-check in the dmaengine case.
+Yes. Rostislav worked on this iproute2 extension for his own tests:
 
-This problem can be observed in real trivially -- for example 'tbench' is 
-a good reproducer, as it makes a heavy use of MSG_TRUNC. On systems 
-utilizing IOAT, you will soon find tbench waiting indefinitely in 
-sk_wait_data(), as the data have already been early-copied in 
-tcp_rcv_established() using dma engine.
+https://rtime.felk.cvut.cz/gitweb/lisovros/iproute2_canprio.git/shortlog/refs/heads/em_can
 
-This patch introduces the same check we are performing in the simple iovec 
-copy case to the IOAT case as well. It fixes the indefinite 
-recvmsg(MSG_TRUNC) hangs.
+I assume there will be some patches posted in the next time.
 
-Signed-off-by: Jiri Kosina <jkosina@suse.cz>
----
- net/ipv4/tcp_input.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 3e07a64..f8059f9 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5475,7 +5475,10 @@ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
- 			if (tp->copied_seq == tp->rcv_nxt &&
- 			    len - tcp_header_len <= tp->ucopy.len) {
- #ifdef CONFIG_NET_DMA
--				if (tcp_dma_try_early_copy(sk, skb, tcp_header_len)) {
-+				if (tp->ucopy.task == current &&
-+						sock_owned_by_user(sk) &&
-+						tcp_dma_try_early_copy(sk,
-+							skb, tcp_header_len)) {
- 					copied_early = 1;
- 					eaten = 1;
- 				}
--- 
-Jiri Kosina
-SUSE Labs
+Regards,
+Oliver
