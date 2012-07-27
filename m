@@ -1,96 +1,35 @@
-From: Fan Du <fdu@windriver.com>
-Subject: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing date
-Date: Fri, 27 Jul 2012 10:39:19 +0800
-Message-ID: <1343356759-24767-2-git-send-email-fdu@windriver.com>
-References: <1343356759-24767-1-git-send-email-fdu@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/16] Remove the ipv4 routing cache
+Date: Thu, 26 Jul 2012 20:08:46 -0700 (PDT)
+Message-ID: <20120726.200846.66786272076299783.davem@davemloft.net>
+References: <CAKgT0Ue4mRUpEmKA7SNpTv8D7BKcxYQ65PGoOUkxB27sLuT1Rw@mail.gmail.com>
+	<20120726.155327.947597248143903676.davem@davemloft.net>
+	<CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:45392 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753007Ab2G0Cje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 22:39:34 -0400
-In-Reply-To: <1343356759-24767-1-git-send-email-fdu@windriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58434 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752410Ab2G0DIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jul 2012 23:08:49 -0400
+In-Reply-To: <CAKgT0UdhqDQSFZkWw9w8L2qsCS+MM_DLQE+Vq0mKcYZmxhs=8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After SA is setup, one timer is armed to detect soft/hard expiration,
-however the timer handler uses xtime to do the math. This makes hard
-expiration occurs first before soft expiration after setting new date
-with big interval. As a result new child SA is deleted before rekeying
-the new one.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Thu, 26 Jul 2012 19:14:55 -0700
 
-Signed-off-by: Fan Du <fdu@windriver.com>
----
- include/net/xfrm.h    |    4 ++++
- net/xfrm/xfrm_state.c |   22 ++++++++++++++++++----
- 2 files changed, 22 insertions(+), 4 deletions(-)
+> Any idea why these look-ups are so expensive in the first place?  When
+> I dump fib_trie it doesn't look like I have much there.  I would have
+> thought the table would be pretty static with just 8 flows all going
+> to the same destination address, but it seems like I was getting hit
+> with cache misses for some reason.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index d9509eb..62b619e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -213,6 +213,9 @@ struct xfrm_state {
- 	struct xfrm_lifetime_cur curlft;
- 	struct tasklet_hrtimer	mtimer;
- 
-+	/* used to fix curlft->add_time when changing date */
-+	long		saved_tmo;
-+
- 	/* Last used time */
- 	unsigned long		lastused;
- 
-@@ -238,6 +241,7 @@ static inline struct net *xs_net(struct xfrm_state *x)
- 
- /* xflags - make enum if more show up */
- #define XFRM_TIME_DEFER	1
-+#define XFRM_SOFT_EXPIRE 2
- 
- enum {
- 	XFRM_STATE_VOID,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 5b228f9..fb64dc6 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -415,8 +415,18 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
- 	if (x->lft.hard_add_expires_seconds) {
- 		long tmo = x->lft.hard_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
--			goto expired;
-+		if (tmo <= 0) {
-+			if (x->xflags & XFRM_SOFT_EXPIRE) {
-+				/* enter hard expire without soft expire first?!
-+				 * setting a new date could trigger this.
-+				 * workarbound: fix x->curflt.add_time by below:
-+				 */
-+				x->curlft.add_time = now - x->saved_tmo - 1;
-+				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
-+			
-+			} else
-+				goto expired;
-+		}
- 		if (tmo < next)
- 			next = tmo;
- 	}
-@@ -433,10 +443,14 @@ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer * me)
- 	if (x->lft.soft_add_expires_seconds) {
- 		long tmo = x->lft.soft_add_expires_seconds +
- 			x->curlft.add_time - now;
--		if (tmo <= 0)
-+		if (tmo <= 0) {
- 			warn = 1;
--		else if (tmo < next)
-+			x->xflags &= ~XFRM_SOFT_EXPIRE;
-+		} else if (tmo < next) {
- 			next = tmo;
-+			x->xflags |= XFRM_SOFT_EXPIRE;
-+			x->saved_tmo = tmo;
-+		}
- 	}
- 	if (x->lft.soft_use_expires_seconds) {
- 		long tmo = x->lft.soft_use_expires_seconds +
--- 
-1.7.1
+A lot of the overhead comes from write traffic that results from
+filling in the "fib_result" structure onto the callers stack.
+
+The return value from a fib_lookup() has far too many components.  But
+simplifying things is not easy.
