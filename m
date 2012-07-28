@@ -1,115 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 7/7] ipv4: Perform multihop and default route resolution in
- check_leaf().
-Date: Fri, 27 Jul 2012 21:18:42 -0700 (PDT)
-Message-ID: <20120727.211842.1107309185639769464.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: more interrupts (lower performance) in bare-metal compared
+ with running VM
+Date: Sat, 28 Jul 2012 06:32:45 +0200
+Message-ID: <1343449965.2626.13121.camel@edumazet-glaptop>
+References: <CAB7xdi=DrE356=U1Jr1Z=ROo2X3XNM5uKcgiZJTKY+EdsTu7gw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39005 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751819Ab2G1ESo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 00:18:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm <kvm@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: sheng qiu <herbert1984106@gmail.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <CAB7xdi=DrE356=U1Jr1Z=ROo2X3XNM5uKcgiZJTKY+EdsTu7gw@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Fri, 2012-07-27 at 22:09 -0500, sheng qiu wrote:
+> Hi all,
+> 
+> i am comparing network throughput performance under bare-metal case
+> with that running VM with assigned-device (assigned NIC). i have two
+> physical machines (each has a 10Gbit NIC), one is used as remote
+> server (run netserver) and the other is used as the target tested one
+> (run netperf with different send message size, TCP_STREAM test). the
+> remote NIC is connected directly with the tested NIC, both are 10Gbit.
+> fore bare-metal case, i enable 1 cpu core, for VM i also configure 1
+> vcpu (the memory is sufficient for both bare-metal and VM case).  i
+> run netperf for 120 seconds and got the following results:
+> 
+>                        send message    interrupts   throughput (mbit/s)
+> bare-metal             256               10696290            1114.84
+>                             512               10106786            1391.92
+>                             1024              10071032           1508.09
+>                             2048              4560857             3434.65
+>                             4096              3292200             4762.26
+>                             8192              3169801             4733.89
+>                             16384            2780529              4892.6
+> 
+
+Are these interrupt counts taken on the receiver ?
+
+> VM(assigned NIC)   256               3817904              2249.35
+>                              512               3599007              4342.81
+>                             1024              3005601              4134.69
+>                              2048             2952122              4484
+>                              4096             2682874              4566.34
+>                              8192             2786719              4734.39
+>                              16384           2603835              4540.47
+> 
+> as shown, the interrupts for bare-metal case is much more than the VM
+> case for some message size. we also see the throughput for those
+> situations is lower than VM case. it's strange that the bare-metal has
+> lower performance than the VM case. Does anyone have comments on this?
+> i am very confused.
+
+Well, I think you answered to your question. High interrupt rates
+are not good for throughput. They might be good for latencies.
+
+Using a VM adds delays and several frames might be delivered per
+interrupt.
+
+Using bare metal is faster and only one frame is delivered by NIC per
+interrupt.
+
+Try TCP_RR instead of TCP_STREAM for example.
+
+What NIC is it exactly ? It seems it has no coalescing or LRO strategy.
+
+ethtool -k eth0
+ethtool -c eth0
+
+What kernel version as used, because 4892 Mbits is not line rate.
 
 
-And thus eliminate two more members of fib_result.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/ip_fib.h |    2 --
- net/ipv4/fib_trie.c  |   11 +++++++++--
- net/ipv4/route.c     |   17 -----------------
- 3 files changed, 9 insertions(+), 21 deletions(-)
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 66f5365..400c1a7 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -128,8 +128,6 @@ struct fib_table;
- struct fib_result {
- 	u32			tclassid;
- 	struct fib_nh		*nh;
--	struct fib_table	*table;
--	struct list_head	*fa_head;
- };
- 
- struct fib_result_nl {
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 3d1d450..afd5048 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1391,9 +1391,16 @@ static int check_leaf(struct fib_table *tb, struct trie *t, struct leaf *l,
- #ifdef CONFIG_IP_FIB_TRIE_STATS
- 				t->stats.semantic_match_passed++;
- #endif
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+				if (fi->fib_nhs > 1 && !flp->flowi4_oif)
-+					nh = fib_select_multipath(nh);
-+				else
-+#endif
-+				if (!li->plen && tb->tb_num_default > 1 &&
-+				    fi->fib_type == RTN_UNICAST &&
-+				    !flp->flowi4_oif)
-+					nh = fib_select_default(nh, &li->falh, tb);
- 				res->nh = nh;
--				res->table = tb;
--				res->fa_head = &li->falh;
- 				if (!(fib_flags & FIB_LOOKUP_NOREF))
- 					atomic_inc(&fi->fib_clntref);
- 				return 0;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 6b54323..2d1ede9 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1459,11 +1459,6 @@ static int ip_mkroute_input(struct sk_buff *skb,
- 			    struct in_device *in_dev,
- 			    __be32 daddr, __be32 saddr, u32 tos)
- {
--#ifdef CONFIG_IP_ROUTE_MULTIPATH
--	if (res->nh->nh_parent->fib_nhs > 1)
--		res->nh = fib_select_multipath(res->nh);
--#endif
--
- 	/* create a routing cache entry */
- 	return __mkroute_input(skb, res, in_dev, daddr, saddr, tos);
- }
-@@ -1814,7 +1809,6 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 
- 	res.tclassid	= 0;
- 	res.nh		= NULL;
--	res.table	= NULL;
- 
- 	orig_oif = fl4->flowi4_oif;
- 
-@@ -1916,7 +1910,6 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 
- 	if (fib_lookup(net, fl4, &res)) {
- 		res.nh = NULL;
--		res.table = NULL;
- 		if (fl4->flowi4_oif) {
- 			/* Apparently, routing tables are wrong. Assume,
- 			   that the destination is on link.
-@@ -1962,16 +1955,6 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 		goto make_route;
- 	}
- 
--#ifdef CONFIG_IP_ROUTE_MULTIPATH
--	if (res.nh->nh_parent->fib_nhs > 1 && fl4->flowi4_oif == 0)
--		res.nh = fib_select_multipath(res.nh);
--	else
--#endif
--	if (!res.nh->nh_parent->fib_prefixlen &&
--	    res.table->tb_num_default > 1 &&
--	    type == RTN_UNICAST && !fl4->flowi4_oif)
--		res.nh = fib_select_default(res.nh, res.fa_head, res.table);
--
- 	if (!fl4->saddr)
- 		fl4->saddr = fib_res_prefsrc(net, &res);
- 
--- 
-1.7.10.4
