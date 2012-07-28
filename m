@@ -1,173 +1,324 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [GIT] Networking
-Date: Sat, 28 Jul 2012 10:41:10 +0200
-Message-ID: <1343464870.2626.13156.camel@edumazet-glaptop>
-References: <20120728.005241.2226926028836664098.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Jeffrin Jose <ahiliation@yahoo.co.in>
+Subject: [PATCH] net:appletalk:ddp:fixed some codystyle issues in
+Date: Sat, 28 Jul 2012 16:15:07 +0530
+Message-ID: <1343472307-4697-1-git-send-email-ahiliation@yahoo.co.in>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ahiliation@yahoo.co.in
+To: joe@perches.com, acme@ghostprotocols.net, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:51052 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625Ab2G1IlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 04:41:14 -0400
-Received: by wgbdr13 with SMTP id dr13so3419964wgb.1
-        for <netdev@vger.kernel.org>; Sat, 28 Jul 2012 01:41:13 -0700 (PDT)
-In-Reply-To: <20120728.005241.2226926028836664098.davem@davemloft.net>
+Received: from nm34-vm5.bullet.mail.sg3.yahoo.com ([106.10.151.244]:39490 "HELO
+	nm34-vm5.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751830Ab2G1Kpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 06:45:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-07-28 at 00:52 -0700, David Miller wrote:
-> Several bug fixes, some to new features appearing in this merge window,
-> some that have been around for a while.
-> 
-> I have a short list of known problems that need to be sorted out, but
-> all of them can be solved easily during the run up to 3.6-final.
-> 
-> I'll be offline until Sunday afternoon, but nothing need hold up
-> 3.6-rc1 and the close of the merge window, networking wise, at this
-> point.
-> 
-> 1) Fix interface check in ipv4 TCP early demux, from Eric Dumazet.
+Fixed coding style issues relating to indentation found in
+net/appletalkddp.c."git diff -w" is empty and the compiled objects
+are the same too.
 
-trimming CC
+Signed-off-by: Jeffrin Jose <ahiliation@yahoo.co.in>
+---
+ net/appletalk/ddp.c |  212 +++++++++++++++++++++++++--------------------------
+ 1 file changed, 106 insertions(+), 106 deletions(-)
 
-I have some other TCP early demux issues, about RCU correctness
-
-As we skb_dst_set_noref(skb, dst); in tcp_v{4|6}_early_demux,
-we need to make sure we dont dst_release(sk->sk_rx_dst) if some in
-flight skbs are still around.
-
-So we probably need to respect an RCU grace period in dst_release()
-before destroy.
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index c8bbcd2..19b7058 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -337,7 +337,7 @@ static int atif_proxy_probe_device(struct atalk_iface *atif,
  
-Or we should set sk_rx_dst = dst only if dst hasnt DST_NOCACHE set ?
-
-Also we need to remove rcu_read_lock() around ->early_demux() calls, 
-since we MUST already be in an rcu_read_lock() section.
-
-RFC only patch, before running out for the week end ;)
-
- include/net/inet_sock.h  |   11 +++++++++++
- net/ipv4/ip_input.c      |    2 --
- net/ipv4/tcp_input.c     |    3 +--
- net/ipv4/tcp_ipv4.c      |   12 ++++++------
- net/ipv4/tcp_minisocks.c |    3 +--
- net/ipv6/ip6_input.c     |    2 --
- 6 files changed, 19 insertions(+), 14 deletions(-)
-
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 613cfa4..47b24d7 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -249,4 +249,15 @@ static inline __u8 inet_sk_flowi_flags(const struct sock *sk)
- 	return flags;
+ 	return -EADDRINUSE;	/* Network is full... */
+ }
+-
++   
+ 
+ struct atalk_addr *atalk_find_dev_addr(struct net_device *dev)
+ {
+@@ -685,26 +685,26 @@ static int atif_ioctl(int cmd, void __user *arg)
+ 
+ 	switch (cmd) {
+ 	case SIOCSIFADDR:
+-		if (!capable(CAP_NET_ADMIN))
++			if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+-		if (sa->sat_family != AF_APPLETALK)
++			if (sa->sat_family != AF_APPLETALK)
+ 			return -EINVAL;
+-		if (dev->type != ARPHRD_ETHER &&
+-		    dev->type != ARPHRD_LOOPBACK &&
+-		    dev->type != ARPHRD_LOCALTLK &&
+-		    dev->type != ARPHRD_PPP)
++			if (dev->type != ARPHRD_ETHER &&
++		    	dev->type != ARPHRD_LOOPBACK &&
++		    	dev->type != ARPHRD_LOCALTLK &&
++		    	dev->type != ARPHRD_PPP)
+ 			return -EPROTONOSUPPORT;
+ 
+-		nr = (struct atalk_netrange *)&sa->sat_zero[0];
+-		add_route = 1;
++			nr = (struct atalk_netrange *)&sa->sat_zero[0];
++			add_route = 1;
+ 
+-		/*
+-		 * if this is a point-to-point iface, and we already
+-		 * have an iface for this AppleTalk address, then we
+-		 * should not add a route
+-		 */
+-		if ((dev->flags & IFF_POINTOPOINT) &&
+-		    atalk_find_interface(sa->sat_addr.s_net,
++			/*
++			 * if this is a point-to-point iface, and we already
++			 * have an iface for this AppleTalk address, then we
++			 * should not add a route
++			 */
++			if ((dev->flags & IFF_POINTOPOINT) &&
++			    atalk_find_interface(sa->sat_addr.s_net,
+ 					 sa->sat_addr.s_node)) {
+ 			printk(KERN_DEBUG "AppleTalk: point-to-point "
+ 			       "interface added with "
+@@ -712,16 +712,16 @@ static int atif_ioctl(int cmd, void __user *arg)
+ 			add_route = 0;
+ 		}
+ 
+-		/*
+-		 * Phase 1 is fine on LocalTalk but we don't do
+-		 * EtherTalk phase 1. Anyone wanting to add it go ahead.
+-		 */
+-		if (dev->type == ARPHRD_ETHER && nr->nr_phase != 2)
++			/*
++			 * Phase 1 is fine on LocalTalk but we don't do
++			 * EtherTalk phase 1. Anyone wanting to add it go ahead.
++			 */
++			if (dev->type == ARPHRD_ETHER && nr->nr_phase != 2)
+ 			return -EPROTONOSUPPORT;
+-		if (sa->sat_addr.s_node == ATADDR_BCAST ||
+-		    sa->sat_addr.s_node == 254)
++			if (sa->sat_addr.s_node == ATADDR_BCAST ||
++		   	 sa->sat_addr.s_node == 254)
+ 			return -EINVAL;
+-		if (atif) {
++			if (atif) {
+ 			/* Already setting address */
+ 			if (atif->status & ATIF_PROBE)
+ 				return -EBUSY;
+@@ -734,36 +734,36 @@ static int atif_ioctl(int cmd, void __user *arg)
+ 			if (!atif)
+ 				return -ENOMEM;
+ 		}
+-		atif->nets = *nr;
++			atif->nets = *nr;
+ 
+-		/*
+-		 * Check if the chosen address is used. If so we
+-		 * error and atalkd will try another.
+-		 */
++			/*
++			 * Check if the chosen address is used. If so we
++			 * error and atalkd will try another.
++			 */
+ 
+-		if (!(dev->flags & IFF_LOOPBACK) &&
+-		    !(dev->flags & IFF_POINTOPOINT) &&
+-		    atif_probe_device(atif) < 0) {
+-			atif_drop_device(dev);
++			if (!(dev->flags & IFF_LOOPBACK) &&
++			    !(dev->flags & IFF_POINTOPOINT) &&
++		   	 atif_probe_device(atif) < 0) {
++				atif_drop_device(dev);
+ 			return -EADDRINUSE;
+ 		}
+ 
+-		/* Hey it worked - add the direct routes */
+-		sa = (struct sockaddr_at *)&rtdef.rt_gateway;
+-		sa->sat_family = AF_APPLETALK;
+-		sa->sat_addr.s_net  = atif->address.s_net;
+-		sa->sat_addr.s_node = atif->address.s_node;
+-		sa = (struct sockaddr_at *)&rtdef.rt_dst;
+-		rtdef.rt_flags = RTF_UP;
+-		sa->sat_family = AF_APPLETALK;
+-		sa->sat_addr.s_node = ATADDR_ANYNODE;
+-		if (dev->flags & IFF_LOOPBACK ||
+-		    dev->flags & IFF_POINTOPOINT)
++			/* Hey it worked - add the direct routes */
++			sa = (struct sockaddr_at *)&rtdef.rt_gateway;
++			sa->sat_family = AF_APPLETALK;
++			sa->sat_addr.s_net  = atif->address.s_net;
++			sa->sat_addr.s_node = atif->address.s_node;
++			sa = (struct sockaddr_at *)&rtdef.rt_dst;
++			rtdef.rt_flags = RTF_UP;
++			sa->sat_family = AF_APPLETALK;
++			sa->sat_addr.s_node = ATADDR_ANYNODE;
++			if (dev->flags & IFF_LOOPBACK ||
++			    dev->flags & IFF_POINTOPOINT)
+ 			rtdef.rt_flags |= RTF_HOST;
+ 
+-		/* Routerless initial state */
+-		if (nr->nr_firstnet == htons(0) &&
+-		    nr->nr_lastnet == htons(0xFFFE)) {
++			/* Routerless initial state */
++			if (nr->nr_firstnet == htons(0) &&
++			    nr->nr_lastnet == htons(0xFFFE)) {
+ 			sa->sat_addr.s_net = atif->address.s_net;
+ 			atrtr_create(&rtdef, dev);
+ 			atrtr_set_default(dev);
+@@ -781,98 +781,98 @@ static int atif_ioctl(int cmd, void __user *arg)
+ 					atrtr_create(&rtdef, dev);
+ 				}
+ 		}
+-		dev_mc_add_global(dev, aarp_mcast);
+-		return 0;
++			dev_mc_add_global(dev, aarp_mcast);
++			return 0;
+ 
+ 	case SIOCGIFADDR:
+-		if (!atif)
+-			return -EADDRNOTAVAIL;
++			if (!atif)
++				return -EADDRNOTAVAIL;
+ 
+-		sa->sat_family = AF_APPLETALK;
+-		sa->sat_addr = atif->address;
+-		break;
++			sa->sat_family = AF_APPLETALK;
++			sa->sat_addr = atif->address;
++			break;
+ 
+ 	case SIOCGIFBRDADDR:
+-		if (!atif)
++			if (!atif)
+ 			return -EADDRNOTAVAIL;
+ 
+-		sa->sat_family = AF_APPLETALK;
+-		sa->sat_addr.s_net = atif->address.s_net;
+-		sa->sat_addr.s_node = ATADDR_BCAST;
+-		break;
++			sa->sat_family = AF_APPLETALK;
++			sa->sat_addr.s_net = atif->address.s_net;
++			sa->sat_addr.s_node = ATADDR_BCAST;
++			break;
+ 
+ 	case SIOCATALKDIFADDR:
+ 	case SIOCDIFADDR:
+-		if (!capable(CAP_NET_ADMIN))
++			if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+-		if (sa->sat_family != AF_APPLETALK)
++			if (sa->sat_family != AF_APPLETALK)
+ 			return -EINVAL;
+-		atalk_dev_down(dev);
+-		break;
++			atalk_dev_down(dev);
++			break;
+ 
+ 	case SIOCSARP:
+-		if (!capable(CAP_NET_ADMIN))
++			if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+-		if (sa->sat_family != AF_APPLETALK)
++			if (sa->sat_family != AF_APPLETALK)
+ 			return -EINVAL;
+-		/*
+-		 * for now, we only support proxy AARP on ELAP;
+-		 * we should be able to do it for LocalTalk, too.
+-		 */
+-		if (dev->type != ARPHRD_ETHER)
++			/*
++			 * for now, we only support proxy AARP on ELAP;
++			 * we should be able to do it for LocalTalk, too.
++			 */
++			if (dev->type != ARPHRD_ETHER)
+ 			return -EPROTONOSUPPORT;
+ 
+-		/*
+-		 * atif points to the current interface on this network;
+-		 * we aren't concerned about its current status (at
+-		 * least for now), but it has all the settings about
+-		 * the network we're going to probe. Consequently, it
+-		 * must exist.
+-		 */
+-		if (!atif)
++			/*
++			 * atif points to the current interface on this network;
++			 * we aren't concerned about its current status (at
++			 * least for now), but it has all the settings about
++			 * the network we're going to probe. Consequently, it
++			 * must exist.
++			 */
++			if (!atif)
+ 			return -EADDRNOTAVAIL;
+ 
+-		nr = (struct atalk_netrange *)&(atif->nets);
+-		/*
+-		 * Phase 1 is fine on Localtalk but we don't do
+-		 * Ethertalk phase 1. Anyone wanting to add it go ahead.
+-		 */
+-		if (dev->type == ARPHRD_ETHER && nr->nr_phase != 2)
++			nr = (struct atalk_netrange *)&(atif->nets);
++			/*
++			 * Phase 1 is fine on Localtalk but we don't do
++			 * Ethertalk phase 1. Anyone wanting to add it go ahead.
++			 */
++			if (dev->type == ARPHRD_ETHER && nr->nr_phase != 2)
+ 			return -EPROTONOSUPPORT;
+ 
+-		if (sa->sat_addr.s_node == ATADDR_BCAST ||
+-		    sa->sat_addr.s_node == 254)
++			if (sa->sat_addr.s_node == ATADDR_BCAST ||
++			    sa->sat_addr.s_node == 254)
+ 			return -EINVAL;
+ 
+-		/*
+-		 * Check if the chosen address is used. If so we
+-		 * error and ATCP will try another.
+-		 */
+-		if (atif_proxy_probe_device(atif, &(sa->sat_addr)) < 0)
++			/*
++			 * Check if the chosen address is used. If so we
++			 * error and ATCP will try another.
++			 */
++			if (atif_proxy_probe_device(atif, &(sa->sat_addr)) < 0)
+ 			return -EADDRINUSE;
+ 
+-		/*
+-		 * We now have an address on the local network, and
+-		 * the AARP code will defend it for us until we take it
+-		 * down. We don't set up any routes right now, because
+-		 * ATCP will install them manually via SIOCADDRT.
+-		 */
+-		break;
++			/*
++			 * We now have an address on the local network, and
++			 * the AARP code will defend it for us until we take it
++			 * down. We don't set up any routes right now, because
++			 * ATCP will install them manually via SIOCADDRT.
++			 */
++			break;
+ 
+ 	case SIOCDARP:
+-		if (!capable(CAP_NET_ADMIN))
++			if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
+-		if (sa->sat_family != AF_APPLETALK)
+-			return -EINVAL;
+-		if (!atif)
++			if (sa->sat_family != AF_APPLETALK)
++				return -EINVAL;
++			if (!atif)
+ 			return -EADDRNOTAVAIL;
+ 
+-		/* give to aarp module to remove proxy entry */
+-		aarp_proxy_remove(atif->dev, &(sa->sat_addr));
+-		return 0;
++			/* give to aarp module to remove proxy entry */
++			aarp_proxy_remove(atif->dev, &(sa->sat_addr));
++			return 0;
+ 	}
+ 
+-	return copy_to_user(arg, &atreq, sizeof(atreq)) ? -EFAULT : 0;
++			return copy_to_user(arg, &atreq, sizeof(atreq)) ? -EFAULT : 0;
  }
  
-+static inline void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+
-+	/* Can cache dst if rcu grace period is respected at dst destroy time */
-+	if (!(dst->flags & DST_NOCACHE)) {
-+		sk->sk_rx_dst = dst_clone(dst);
-+		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
-+	}
-+}
-+
- #endif	/* _INET_SOCK_H */
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 981ff1e..f1395a6 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -325,14 +325,12 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 		const struct net_protocol *ipprot;
- 		int protocol = iph->protocol;
- 
--		rcu_read_lock();
- 		ipprot = rcu_dereference(inet_protos[protocol]);
- 		if (ipprot && ipprot->early_demux) {
- 			ipprot->early_demux(skb);
- 			/* must reload iph, skb->head might have changed */
- 			iph = ip_hdr(skb);
- 		}
--		rcu_read_unlock();
- 	}
- 
- 	/*
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index a356e1f..9be30b0 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5604,8 +5604,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	tcp_set_state(sk, TCP_ESTABLISHED);
- 
- 	if (skb != NULL) {
--		sk->sk_rx_dst = dst_clone(skb_dst(skb));
--		inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
-+		inet_sk_rx_dst_set(sk, skb);
- 		security_inet_conn_established(sk, skb);
- 	}
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 2fbd992..7f91e5a 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1617,19 +1617,19 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- #endif
- 
- 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
-+		struct dst_entry *dst = sk->sk_rx_dst;
-+
- 		sock_rps_save_rxhash(sk, skb);
--		if (sk->sk_rx_dst) {
--			struct dst_entry *dst = sk->sk_rx_dst;
-+		if (dst) {
- 			if (inet_sk(sk)->rx_dst_ifindex != skb->skb_iif ||
- 			    dst->ops->check(dst, 0) == NULL) {
- 				dst_release(dst);
- 				sk->sk_rx_dst = NULL;
- 			}
- 		}
--		if (unlikely(sk->sk_rx_dst == NULL)) {
--			sk->sk_rx_dst = dst_clone(skb_dst(skb));
--			inet_sk(sk)->rx_dst_ifindex = skb->skb_iif;
--		}
-+		if (unlikely(!sk->sk_rx_dst))
-+			inet_sk_rx_dst_set(sk, skb);
-+
- 		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len)) {
- 			rsk = sk;
- 			goto reset;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 3f1cc20..232a90c 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -387,8 +387,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		struct tcp_sock *oldtp = tcp_sk(sk);
- 		struct tcp_cookie_values *oldcvp = oldtp->cookie_values;
- 
--		newsk->sk_rx_dst = dst_clone(skb_dst(skb));
--		inet_sk(newsk)->rx_dst_ifindex = skb->skb_iif;
-+		inet_sk_rx_dst_set(newsk, skb);
- 
- 		/* TCP Cookie Transactions require space for the cookie pair,
- 		 * as it differs for each connection.  There is no need to
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 47975e3..a52d864 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -52,11 +52,9 @@ int ip6_rcv_finish(struct sk_buff *skb)
- 	if (sysctl_ip_early_demux && !skb_dst(skb)) {
- 		const struct inet6_protocol *ipprot;
- 
--		rcu_read_lock();
- 		ipprot = rcu_dereference(inet6_protos[ipv6_hdr(skb)->nexthdr]);
- 		if (ipprot && ipprot->early_demux)
- 			ipprot->early_demux(skb);
--		rcu_read_unlock();
- 	}
- 	if (!skb_dst(skb))
- 		ip6_route_input(skb);
+ /* Routing ioctl() calls */
+-- 
+1.7.10
