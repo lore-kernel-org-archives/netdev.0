@@ -1,22 +1,54 @@
-From: "Ryan Jones" <ryanjones@ihimemzibm.biz.tc>
-Subject: Obtain an accredited degree in just 10 days. BA/BSc /MA/MSc/MBA/PhD. No classes or tests required. 100% legal method.
-Date: Sat, 28 Jul 2012 07:35:26 -0400
-Message-ID: <20120728073526.502@web002.nyc1.bluetie.com>
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-To: ryanjones@ihimemzibm.biz.tc
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound001.nyc1.bluetie.com ([206.65.164.140]:44766 "EHLO
-	outbound001.nyc1.bluetie.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752441Ab2G1LoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 07:44:17 -0400
-Received: from web002.nyc1.bluetie.com (localhost.localdomain [127.0.0.1])
-	by web002.nyc1.bluetie.com (Postfix) with ESMTP id 4FD3BAB017F
-	for <netdev@vger.kernel.org>; Sat, 28 Jul 2012 07:36:09 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net:appletalk:ddp:fixed some codystyle issues in
+Date: Sat, 28 Jul 2012 07:26:33 -0700
+Message-ID: <1343485593.2009.8.camel@joe2Laptop>
+References: <1343472307-4697-1-git-send-email-ahiliation@yahoo.co.in>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeffrin Jose <ahiliation@yahoo.co.in>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1343472307-4697-1-git-send-email-ahiliation@yahoo.co.in>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Obtain an accredited degree in just 10 days. BA/BSc /MA/MSc/MBA/PhD. No clas=
-ses or tests required. 100% legal method.
+On Sat, 2012-07-28 at 16:15 +0530, Jeffrin Jose wrote:
+> Fixed coding style issues relating to indentation found in
+> net/appletalkddp.c."git diff -w" is empty and the compiled objects
+> are the same too.
 
-briefurl.net/71
+Hello Jeffrin.
+
+Your commit message is OK but your patch not.
+
+The switch/case that could use modification is at
+line 1790, not at line 685.
+
+> diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+[]
+> @@ -337,7 +337,7 @@ static int atif_proxy_probe_device(struct atalk_iface *atif,
+>  
+>  	return -EADDRINUSE;	/* Network is full... */
+>  }
+> -
+> +   
+
+Adding whitespace
+ 
+>  struct atalk_addr *atalk_find_dev_addr(struct net_device *dev)
+>  {
+> @@ -685,26 +685,26 @@ static int atif_ioctl(int cmd, void __user *arg)
+>  
+>  	switch (cmd) {
+>  	case SIOCSIFADDR:
+> -		if (!capable(CAP_NET_ADMIN))
+> +			if (!capable(CAP_NET_ADMIN))
+
+There's nothing wrong here to fix and you are
+adding incorrect indentation.
+
+Please try again and make sure you verify your
+proposed patches by using scripts/checkpatch.pl
+before submitting them.
