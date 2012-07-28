@@ -1,30 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Deconstruct struct fib_result
-Date: Fri, 27 Jul 2012 23:55:49 -0700 (PDT)
-Message-ID: <20120727.235549.2244701016209116514.davem@davemloft.net>
-References: <20120727.211814.1628871775065221675.davem@davemloft.net>
-	<CAKgT0UcuvFGJTCxMwVa+rEnQHaNg0V6EH4XpO29fXuFADSBpAQ@mail.gmail.com>
+From: Dmitry Kozlov <xeb@mail.ru>
+Subject: Re: [PATCH net-next] GRE over IPv6
+Date: Sat, 28 Jul 2012 11:17:46 +0400
+Message-ID: <20120728111746.7475fa93@comp1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39640 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab2G1Gzw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 02:55:52 -0400
-In-Reply-To: <CAKgT0UcuvFGJTCxMwVa+rEnQHaNg0V6EH4XpO29fXuFADSBpAQ@mail.gmail.com>
+Received: from smtp25.mail.ru ([94.100.176.178]:46628 "EHLO smtp25.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751208Ab2G1HRw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 28 Jul 2012 03:17:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Fri, 27 Jul 2012 23:41:50 -0700
-
-> I was wondering why you couldn't wrap the tclassid value in result
-> with an #ifdef CONFIG_IP_ROUTE_CLASSID so that it is stripped if you
-> don't have that defined?
-
-I am so over these feature ifdefs in the routing code, because
-realistically everyone turns all the crap on.  Therefore we have to be
-optimal when it's all on.
+>Why have you submitted these patches two times?
+Sorry, that was a mistake...
