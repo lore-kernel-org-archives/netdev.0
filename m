@@ -1,18 +1,18 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/7] ipv4: Make fib_select_default() not depend upon
+Subject: [PATCH 6/7] ipv4: Make fib_select_multipath() not depend upon
  fib_result.
-Date: Fri, 27 Jul 2012 21:18:34 -0700 (PDT)
-Message-ID: <20120727.211834.1950289656482825157.davem@davemloft.net>
+Date: Fri, 27 Jul 2012 21:18:38 -0700 (PDT)
+Message-ID: <20120727.211838.1469293796857461119.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38993 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38998 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172Ab2G1ESf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 00:18:35 -0400
+	with ESMTP id S1751172Ab2G1ESi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 00:18:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,104 +21,91 @@ Pass the arguments and return the result explicitly.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/ip_fib.h     |    3 ++-
- net/ipv4/fib_semantics.c |   19 +++++++++----------
- net/ipv4/route.c         |    2 +-
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ include/net/ip_fib.h     |    2 +-
+ net/ipv4/fib_semantics.c |   15 +++++++--------
+ net/ipv4/route.c         |    4 ++--
+ 3 files changed, 10 insertions(+), 11 deletions(-)
 
 diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 43be7230..8a57513 100644
+index 8a57513..66f5365 100644
 --- a/include/net/ip_fib.h
 +++ b/include/net/ip_fib.h
-@@ -267,7 +267,8 @@ extern __be32 fib_compute_spec_dst(struct sk_buff *skb);
- extern int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 			       u8 tos, int oif, struct net_device *dev,
- 			       struct in_device *idev, u32 *itag);
--extern void fib_select_default(struct fib_result *res);
-+extern struct fib_nh *fib_select_default(struct fib_nh *nh, struct list_head *fa_head,
-+					 struct fib_table *tb);
- #ifdef CONFIG_IP_ROUTE_CLASSID
- static inline int fib_num_tclassid_users(struct net *net)
- {
+@@ -287,7 +287,7 @@ extern int fib_sync_down_dev(struct net_device *dev, int force);
+ extern int fib_sync_down_addr(struct net *net, __be32 local);
+ extern void fib_update_nh_saddrs(struct net_device *dev);
+ extern int fib_sync_up(struct net_device *dev);
+-extern void fib_select_multipath(struct fib_result *res);
++extern struct fib_nh *fib_select_multipath(struct fib_nh *res_nh);
+ 
+ /* Exported by fib_trie.c */
+ extern void fib_trie_init(void);
 diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index bf4c809..4c7b55c 100644
+index 4c7b55c..f83bef3 100644
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
-@@ -1134,11 +1134,10 @@ int fib_sync_down_dev(struct net_device *dev, int force)
- }
- 
- /* Must be invoked inside of an RCU protected region.  */
--void fib_select_default(struct fib_result *res)
-+struct fib_nh *fib_select_default(struct fib_nh *res_nh, struct list_head *fa_head,
-+				  struct fib_table *tb)
+@@ -1254,9 +1254,9 @@ int fib_sync_up(struct net_device *dev)
+  * The algorithm is suboptimal, but it provides really
+  * fair weighted route distribution.
+  */
+-void fib_select_multipath(struct fib_result *res)
++struct fib_nh *fib_select_multipath(struct fib_nh *res_nh)
  {
- 	struct fib_nh *nh = NULL, *last_resort = NULL;
--	struct list_head *fa_head = res->fa_head;
--	struct fib_table *tb = res->table;
- 	int order = -1, last_idx = -1;
- 	struct fib_alias *fa;
+-	struct fib_info *fi = res->nh->nh_parent;
++	struct fib_info *fi = res_nh->nh_parent;
+ 	int w;
  
-@@ -1146,12 +1145,12 @@ void fib_select_default(struct fib_result *res)
- 		struct fib_nh *next_nh = &fa->fa_info->fib_nh[0];
- 
- 		if ((next_nh->nh_parent->fib_scope !=
--		     res->nh->nh_parent->fib_scope) ||
-+		     res_nh->nh_parent->fib_scope) ||
- 		    next_nh->nh_parent->fib_type != RTN_UNICAST)
- 			continue;
- 
- 		if (next_nh->nh_parent->fib_priority >
--		    res->nh->nh_parent->fib_priority)
-+		    res_nh->nh_parent->fib_priority)
- 			break;
- 
- 		if (!next_nh->nh_gw || next_nh->nh_scope != RT_SCOPE_LINK)
-@@ -1160,11 +1159,11 @@ void fib_select_default(struct fib_result *res)
- 		fib_alias_accessed(fa);
- 
- 		if (nh == NULL) {
--			if (next_nh != res->nh)
-+			if (next_nh != res_nh)
- 				break;
- 		} else if (!fib_detect_death(nh, order, &last_resort,
- 					     &last_idx, tb->tb_default)) {
--			res->nh = nh;
-+			res_nh = nh;
- 			tb->tb_default = order;
- 			goto out;
+ 	spin_lock_bh(&fib_multipath_lock);
+@@ -1272,8 +1272,7 @@ void fib_select_multipath(struct fib_result *res)
+ 		if (power <= 0) {
+ 			spin_unlock_bh(&fib_multipath_lock);
+ 			/* Race condition: route has just become dead. */
+-			res->nh = &fi->fib_nh[0];
+-			return;
++			return &fi->fib_nh[0];
  		}
-@@ -1179,16 +1178,16 @@ void fib_select_default(struct fib_result *res)
- 
- 	if (!fib_detect_death(nh, order, &last_resort, &last_idx,
- 			      tb->tb_default)) {
--		res->nh = nh;
-+		res_nh = nh;
- 		tb->tb_default = order;
- 		goto out;
  	}
  
- 	if (last_idx >= 0)
--		res->nh = last_resort;
-+		res_nh = last_resort;
- 	tb->tb_default = last_idx;
- out:
--	return;
-+	return res_nh;
- }
+@@ -1291,15 +1290,15 @@ void fib_select_multipath(struct fib_result *res)
+ 			if (w <= 0) {
+ 				nexthop_nh->nh_power--;
+ 				fi->fib_power--;
+-				res->nh = &fi->fib_nh[nhsel];
+ 				spin_unlock_bh(&fib_multipath_lock);
+-				return;
++				return &fi->fib_nh[nhsel];
+ 			}
+ 		}
+ 	} endfor_nexthops(fi);
  
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-	/* Race condition: route has just become dead. */
+-	res->nh = &fi->fib_nh[0];
+ 	spin_unlock_bh(&fib_multipath_lock);
++
++	/* Race condition: route has just become dead. */
++	return &fi->fib_nh[0];
+ }
+ #endif
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 597fbc0..9a247ff 100644
+index 9a247ff..6b54323 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1970,7 +1970,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 	if (!res.nh->nh_parent->fib_prefixlen &&
- 	    res.table->tb_num_default > 1 &&
- 	    type == RTN_UNICAST && !fl4->flowi4_oif)
--		fib_select_default(&res);
-+		res.nh = fib_select_default(res.nh, res.fa_head, res.table);
+@@ -1461,7 +1461,7 @@ static int ip_mkroute_input(struct sk_buff *skb,
+ {
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	if (res->nh->nh_parent->fib_nhs > 1)
+-		fib_select_multipath(res);
++		res->nh = fib_select_multipath(res->nh);
+ #endif
  
- 	if (!fl4->saddr)
- 		fl4->saddr = fib_res_prefsrc(net, &res);
+ 	/* create a routing cache entry */
+@@ -1964,7 +1964,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
+ 
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	if (res.nh->nh_parent->fib_nhs > 1 && fl4->flowi4_oif == 0)
+-		fib_select_multipath(&res);
++		res.nh = fib_select_multipath(res.nh);
+ 	else
+ #endif
+ 	if (!res.nh->nh_parent->fib_prefixlen &&
 -- 
 1.7.10.4
