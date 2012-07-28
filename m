@@ -1,863 +1,98 @@
-From: Dmitry Kozlov <xeb@mail.ru>
-Subject: [PATCH iproute2 v2] GRE over IPv6 tunnel support
-Date: Sat, 28 Jul 2012 11:52:26 +0400
-Message-ID: <20120728115226.66da9d77@comp1>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Sat, 28 Jul 2012 00:52:41 -0700 (PDT)
+Message-ID: <20120728.005241.2226926028836664098.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.mail.ru ([94.100.176.129]:44375 "EHLO smtp1.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751536Ab2G1Hwa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Jul 2012 03:52:30 -0400
-Received: from [128.71.109.89] (port=54974 helo=comp1)
-	by smtp1.mail.ru with esmtpa (envelope-from <xeb@mail.ru>)
-	id 1Sv1p5-0003GM-IU
-	for netdev@vger.kernel.org; Sat, 28 Jul 2012 11:52:27 +0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:39915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751917Ab2G1Hwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jul 2012 03:52:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRE over IPv6 tunnel support.
 
-Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
----
-Changes:
-Implemented 'ip link' family of commands to manage
-ip6gre/ip6gretap tunnels.
+Several bug fixes, some to new features appearing in this merge window,
+some that have been around for a while.
 
- include/linux/if_arp.h     |   15 ++
- include/linux/if_tunnel.h  |   21 +++
- include/linux/ip6_tunnel.h |   18 ++
- ip/Makefile                |    2 +-
- ip/ip6tunnel.c             |  133 +++++++++++++--
- ip/link_gre6.c             |  397
- ++++++++++++++++++++++++++++++++++++++++++++ 6 files changed, 567
- insertions(+), 19 deletions(-) 
-diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
-index d2de0f9..9adcc29 100644
---- a/include/linux/if_arp.h
-+++ b/include/linux/if_arp.h
-@@ -92,6 +92,7 @@
- #define ARPHRD_PHONET	820		/* PhoNet media
- type		*/ #define ARPHRD_PHONET_PIPE
- 821		/* PhoNet pipe header		*/ #define
- ARPHRD_CAIF	822		/* CAIF media
- type		*/ +#define ARPHRD_IP6GRE
- 823		/* GRE over IPv6		*/ #define
- ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
- #define ARPHRD_NONE	  0xFFFE	/* zero header length */ @@
- -154,5 +155,19 @@ struct arphdr { 
- };
- 
-+#ifdef __KERNEL__
-+#include <linux/skbuff.h>
-+
-+static inline struct arphdr *arp_hdr(const struct sk_buff *skb)
-+{
-+	return (struct arphdr *)skb_network_header(skb);
-+}
-+
-+static inline int arp_hdr_len(struct net_device *dev)
-+{
-+	/* ARP header, plus 2 device addresses, plus 2 IP addresses. */
-+	return sizeof(struct arphdr) + (dev->addr_len + sizeof(u32)) *
- 2; +}
-+#endif
- 
- #endif	/* _LINUX_IF_ARP_H */
-diff --git a/include/linux/if_tunnel.h b/include/linux/if_tunnel.h
-index 8c819b8..8c5035a 100644
---- a/include/linux/if_tunnel.h
-+++ b/include/linux/if_tunnel.h
-@@ -4,6 +4,10 @@
- #include <linux/types.h>
- #include <asm/byteorder.h>
- 
-+#ifdef __KERNEL__
-+#include <linux/ip.h>
-+#include <linux/in6.h>
-+#endif
- 
- #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
- #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
-@@ -71,9 +75,26 @@ enum {
- 	IFLA_GRE_TTL,
- 	IFLA_GRE_TOS,
- 	IFLA_GRE_PMTUDISC,
-+	IFLA_GRE_ENCAP_LIMIT,
-+	IFLA_GRE_FLOWINFO,
-+	IFLA_GRE_FLAGS,
- 	__IFLA_GRE_MAX,
- };
- 
- #define IFLA_GRE_MAX	(__IFLA_GRE_MAX - 1)
- 
-+/* VTI-mode i_flags */
-+#define VTI_ISVTI 0x0001
-+
-+enum {
-+	IFLA_VTI_UNSPEC,
-+	IFLA_VTI_LINK,
-+	IFLA_VTI_IKEY,
-+	IFLA_VTI_OKEY,
-+	IFLA_VTI_LOCAL,
-+	IFLA_VTI_REMOTE,
-+	__IFLA_VTI_MAX,
-+};
-+
-+#define IFLA_VTI_MAX	(__IFLA_VTI_MAX - 1)
- #endif /* _IF_TUNNEL_H_ */
-diff --git a/include/linux/ip6_tunnel.h b/include/linux/ip6_tunnel.h
-index bf22b03..1efe2e0 100644
---- a/include/linux/ip6_tunnel.h
-+++ b/include/linux/ip6_tunnel.h
-@@ -31,4 +31,22 @@ struct ip6_tnl_parm {
- 	struct in6_addr raddr;	/* remote tunnel end-point
- address */ };
- 
-+struct ip6_tnl_parm2 {
-+	char name[IFNAMSIZ];	/* name of tunnel device */
-+	int link;		/* ifindex of underlying L2 interface
- */
-+	__u8 proto;		/* tunnel protocol */
-+	__u8 encap_limit;	/* encapsulation limit for tunnel */
-+	__u8 hop_limit;		/* hop limit for tunnel */
-+	__be32 flowinfo;	/* traffic class and flowlabel for
- tunnel */
-+	__u32 flags;		/* tunnel flags */
-+	struct in6_addr laddr;	/* local tunnel end-point
- address */
-+	struct in6_addr raddr;	/* remote tunnel end-point
- address */ +
-+	__be16			i_flags;
-+	__be16			o_flags;
-+	__be32			i_key;
-+	__be32			o_key;
-+};
-+
-+
- #endif
-diff --git a/ip/Makefile b/ip/Makefile
-index e029ea1..9c54a0b 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -3,7 +3,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o
- ipnetns.o \ ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o iptuntap.o \
-     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
-     iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
--    iplink_macvlan.o iplink_macvtap.o ipl2tp.o
-+    iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_gre6.o
- 
- RTMONOBJ=rtmon.o
- 
-diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
-index c9720eb..399a579 100644
---- a/ip/ip6tunnel.c
-+++ b/ip/ip6tunnel.c
-@@ -48,11 +48,12 @@ static void usage(void) __attribute__((noreturn));
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip -f inet6 tunnel { add | change |
- del | show } [ NAME ]\n");
--	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | any }
- ]\n");
-+	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | ip6gre |
- any } ]\n"); fprintf(stderr, "          [ remote ADDR local ADDR ]
- [ dev PHYS_DEV ]\n"); fprintf(stderr, "          [ encaplimit ELIM
- ]\n"); fprintf(stderr ,"          [ hoplimit TTL ] [ tclass TCLASS ]
- [ flowlabel FLOWLABEL ]\n"); fprintf(stderr, "          [ dscp inherit
- ]\n");
-+	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ]
- [ [i|o]csum ]\n"); fprintf(stderr, "\n");
- 	fprintf(stderr, "Where: NAME      := STRING\n");
- 	fprintf(stderr, "       ADDR      := IPV6_ADDRESS\n");
-@@ -60,12 +61,13 @@ static void usage(void)
- 		IPV6_DEFAULT_TNL_ENCAP_LIMIT);
- 	fprintf(stderr, "       TTL       := 0..255 (default=%d)\n",
- 		DEFAULT_TNL_HOP_LIMIT);
--	fprintf(stderr, "       TOS       := { 0x0..0xff |
- inherit }\n");
-+	fprintf(stderr, "       TCLASS    := { 0x0..0xff |
- inherit }\n"); fprintf(stderr, "       FLOWLABEL := { 0x0..0xfffff |
- inherit }\n");
-+	fprintf(stderr, "       KEY       := { DOTTED_QUAD |
- NUMBER }\n"); exit(-1);
- }
- 
--static void print_tunnel(struct ip6_tnl_parm *p)
-+static void print_tunnel(struct ip6_tnl_parm2 *p)
- {
- 	char remote[64];
- 	char local[64];
-@@ -104,9 +106,29 @@ static void print_tunnel(struct ip6_tnl_parm *p)
- 
- 	if (p->flags & IP6_TNL_F_RCV_DSCP_COPY)
- 		printf(" dscp inherit");
-+	
-+	if (p->proto == IPPROTO_GRE) {
-+		if ((p->i_flags&GRE_KEY) && (p->o_flags&GRE_KEY) &&
- p->o_key == p->i_key)
-+			printf(" key %u", ntohl(p->i_key));
-+		else if ((p->i_flags|p->o_flags)&GRE_KEY) {
-+			if (p->i_flags&GRE_KEY)
-+				printf(" ikey %u ", ntohl(p->i_key));
-+			if (p->o_flags&GRE_KEY)
-+				printf(" okey %u ", ntohl(p->o_key));
-+		}
-+
-+		if (p->i_flags&GRE_SEQ)
-+			printf("%s  Drop packets out of sequence.\n",
- _SL_);
-+		if (p->i_flags&GRE_CSUM)
-+			printf("%s  Checksum in received packet is
- required.", _SL_);
-+		if (p->o_flags&GRE_SEQ)
-+			printf("%s  Sequence packets on output.",
- _SL_);
-+		if (p->o_flags&GRE_CSUM)
-+			printf("%s  Checksum output packets.", _SL_);
-+	}
- }
- 
--static int parse_args(int argc, char **argv, int cmd, struct
- ip6_tnl_parm *p) +static int parse_args(int argc, char **argv, int
- cmd, struct ip6_tnl_parm2 *p) {
- 	int count = 0;
- 	char medium[IFNAMSIZ];
-@@ -124,6 +146,9 @@ static int parse_args(int argc, char **argv, int
- cmd, struct ip6_tnl_parm *p) strcmp(*argv, "ipip6") == 0 ||
- 				 strcmp(*argv, "ip4ip6") == 0)
- 				p->proto = IPPROTO_IPIP;
-+			else if (strcmp(*argv, "ip6gre") == 0 ||
-+				 strcmp(*argv, "gre/ipv6") == 0)
-+				p->proto = IPPROTO_GRE;
- 			else if (strcmp(*argv, "any/ipv6") == 0 ||
- 				 strcmp(*argv, "any") == 0)
- 				p->proto = 0;
-@@ -199,6 +224,60 @@ static int parse_args(int argc, char **argv, int
- cmd, struct ip6_tnl_parm *p) if (strcmp(*argv, "inherit") != 0)
- 				invarg("not inherit", *argv);
- 			p->flags |= IP6_TNL_F_RCV_DSCP_COPY;
-+		} else if (strcmp(*argv, "key") == 0) {
-+			unsigned uval;
-+			NEXT_ARG();
-+			p->i_flags |= GRE_KEY;
-+			p->o_flags |= GRE_KEY;
-+			if (strchr(*argv, '.'))
-+				p->i_key = p->o_key =
- get_addr32(*argv);
-+			else {
-+				if (get_unsigned(&uval, *argv, 0)<0) {
-+					fprintf(stderr, "invalid value
- of \"key\"\n");
-+					exit(-1);
-+				}
-+				p->i_key = p->o_key = htonl(uval);
-+			}
-+		} else if (strcmp(*argv, "ikey") == 0) {
-+			unsigned uval;
-+			NEXT_ARG();
-+			p->i_flags |= GRE_KEY;
-+			if (strchr(*argv, '.'))
-+				p->i_key = get_addr32(*argv);
-+			else {
-+				if (get_unsigned(&uval, *argv, 0)<0) {
-+					fprintf(stderr, "invalid value
- of \"ikey\"\n");
-+					exit(-1);
-+				}
-+				p->i_key = htonl(uval);
-+			}
-+		} else if (strcmp(*argv, "okey") == 0) {
-+			unsigned uval;
-+			NEXT_ARG();
-+			p->o_flags |= GRE_KEY;
-+			if (strchr(*argv, '.'))
-+				p->o_key = get_addr32(*argv);
-+			else {
-+				if (get_unsigned(&uval, *argv, 0)<0) {
-+					fprintf(stderr, "invalid value
- of \"okey\"\n");
-+					exit(-1);
-+				}
-+				p->o_key = htonl(uval);
-+			}
-+		} else if (strcmp(*argv, "seq") == 0) {
-+			p->i_flags |= GRE_SEQ;
-+			p->o_flags |= GRE_SEQ;
-+		} else if (strcmp(*argv, "iseq") == 0) {
-+			p->i_flags |= GRE_SEQ;
-+		} else if (strcmp(*argv, "oseq") == 0) {
-+			p->o_flags |= GRE_SEQ;
-+		} else if (strcmp(*argv, "csum") == 0) {
-+			p->i_flags |= GRE_CSUM;
-+			p->o_flags |= GRE_CSUM;
-+		} else if (strcmp(*argv, "icsum") == 0) {
-+			p->i_flags |= GRE_CSUM;
-+		} else if (strcmp(*argv, "ocsum") == 0) {
-+			p->o_flags |= GRE_CSUM;
- 		} else {
- 			if (strcmp(*argv, "name") == 0) {
- 				NEXT_ARG();
-@@ -209,7 +288,7 @@ static int parse_args(int argc, char **argv, int
- cmd, struct ip6_tnl_parm *p) duparg2("name", *argv);
- 			strncpy(p->name, *argv, IFNAMSIZ - 1);
- 			if (cmd == SIOCCHGTUNNEL && count == 0) {
--				struct ip6_tnl_parm old_p;
-+				struct ip6_tnl_parm2 old_p;
- 				memset(&old_p, 0, sizeof(old_p));
- 				if (tnl_get_ioctl(*argv, &old_p))
- 					return -1;
-@@ -227,7 +306,7 @@ static int parse_args(int argc, char **argv, int
- cmd, struct ip6_tnl_parm *p) return 0;
- }
- 
--static void ip6_tnl_parm_init(struct ip6_tnl_parm *p, int
- apply_default) +static void ip6_tnl_parm_init(struct ip6_tnl_parm2 *p,
- int apply_default) {
- 	memset(p, 0, sizeof(*p));
- 	p->proto = IPPROTO_IPV6;
-@@ -241,8 +320,8 @@ static void ip6_tnl_parm_init(struct ip6_tnl_parm
- *p, int apply_default)
-  * @p1: user specified parameter
-  * @p2: database entry
-  */
--static int ip6_tnl_parm_match(const struct ip6_tnl_parm *p1,
--			      const struct ip6_tnl_parm *p2)
-+static int ip6_tnl_parm_match(const struct ip6_tnl_parm2 *p1,
-+			      const struct ip6_tnl_parm2 *p2)
- {
- 	return ((!p1->link || p1->link == p2->link) &&
- 		(!p1->name[0] || strcmp(p1->name, p2->name) == 0) &&
-@@ -260,7 +339,7 @@ static int ip6_tnl_parm_match(const struct
- ip6_tnl_parm *p1, (!p1->flags || (p1->flags & p2->flags)));
- }
- 
--static int do_tunnels_list(struct ip6_tnl_parm *p)
-+static int do_tunnels_list(struct ip6_tnl_parm2 *p)
- {
- 	char buf[512];
- 	int err = -1;
-@@ -284,7 +363,7 @@ static int do_tunnels_list(struct ip6_tnl_parm *p)
- 			rx_fifo, rx_frame,
- 			tx_bytes, tx_packets, tx_errs, tx_drops,
- 			tx_fifo, tx_colls, tx_carrier, rx_multi;
--		struct ip6_tnl_parm p1;
-+		struct ip6_tnl_parm2 p1;
- 		char *ptr;
- 
- 		buf[sizeof(buf) - 1] = '\0';
-@@ -309,10 +388,12 @@ static int do_tunnels_list(struct ip6_tnl_parm *p)
- 			fprintf(stderr, "Failed to get type of
- [%s]\n", name); continue;
- 		}
--		if (type != ARPHRD_TUNNEL6)
-+		if (type != ARPHRD_TUNNEL6 && type != ARPHRD_IP6GRE)
- 			continue;
- 		memset(&p1, 0, sizeof(p1));
- 		ip6_tnl_parm_init(&p1, 0);
-+		if (type == ARPHRD_IP6GRE)
-+			p1.proto = IPPROTO_GRE;
- 		strcpy(p1.name, name);
- 		p1.link = ll_name_to_index(p1.name);
- 		if (p1.link == 0)
-@@ -343,7 +424,7 @@ static int do_tunnels_list(struct ip6_tnl_parm *p)
- 
- static int do_show(int argc, char **argv)
- {
--        struct ip6_tnl_parm p;
-+        struct ip6_tnl_parm2 p;
- 
- 	ll_init_map(&rth);
- 	ip6_tnl_parm_init(&p, 0);
-@@ -366,28 +447,44 @@ static int do_show(int argc, char **argv)
- 
- static int do_add(int cmd, int argc, char **argv)
- {
--	struct ip6_tnl_parm p;
-+	struct ip6_tnl_parm2 p;
- 
- 	ip6_tnl_parm_init(&p, 1);
- 
- 	if (parse_args(argc, argv, cmd, &p) < 0)
- 		return -1;
- 
--	return tnl_add_ioctl(cmd,
--			     cmd == SIOCCHGTUNNEL && p.name[0] ?
--			     p.name : "ip6tnl0", p.name, &p);
-+	switch (p.proto) {
-+	case IPPROTO_IPIP:
-+	case IPPROTO_IPV6:
-+		return tnl_add_ioctl(cmd, "ip6tnl0", p.name, &p);
-+	case IPPROTO_GRE:
-+		return tnl_add_ioctl(cmd, "ip6gre0", p.name, &p);
-+	default:
-+		fprintf(stderr, "cannot determine tunnel mode (ip6ip6,
- ipip6 or gre)\n");
-+	}
-+	return -1;
- }
- 
- static int do_del(int argc, char **argv)
- {
--	struct ip6_tnl_parm p;
-+	struct ip6_tnl_parm2 p;
- 
- 	ip6_tnl_parm_init(&p, 1);
- 
- 	if (parse_args(argc, argv, SIOCDELTUNNEL, &p) < 0)
- 		return -1;
- 
--	return tnl_del_ioctl(p.name[0] ? p.name : "ip6tnl0", p.name,
- &p);
-+	switch (p.proto) {
-+	case IPPROTO_IPIP:
-+	case IPPROTO_IPV6:
-+		return tnl_del_ioctl("ip6tnl0", p.name, &p);
-+	case IPPROTO_GRE:
-+		return tnl_del_ioctl("ip6gre0", p.name, &p);
-+	default:
-+		return tnl_del_ioctl(p.name, p.name, &p);
-+	}
-+	return -1;
- }
- 
- int do_ip6tunnel(int argc, char **argv)
-diff --git a/ip/link_gre6.c b/ip/link_gre6.c
-new file mode 100644
-index 0000000..3ffd3ce
---- /dev/null
-+++ b/ip/link_gre6.c
-@@ -0,0 +1,397 @@
-+/*
-+ * link_gre.c	gre driver module
-+ *
-+ *		This program is free software; you can redistribute
- it and/or
-+ *		modify it under the terms of the GNU General Public
- License
-+ *		as published by the Free Software Foundation; either
- version
-+ *		2 of the License, or (at your option) any later
- version.
-+ *
-+ * Authors:	Herbert Xu <herbert@gondor.apana.org.au>
-+ *
-+ */
-+
-+#include <string.h>
-+#include <net/if.h>
-+#include <sys/types.h>
-+#include <sys/socket.h>
-+#include <arpa/inet.h>
-+
-+#include <linux/ip.h>
-+#include <linux/if_tunnel.h>
-+#include <linux/ip6_tunnel.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+#include "tunnel.h"
-+
-+#define IP6_FLOWINFO_TCLASS	htonl(0x0FF00000)
-+#define IP6_FLOWINFO_FLOWLABEL	htonl(0x000FFFFF)
-+
-+#define DEFAULT_TNL_HOP_LIMIT	(64)
-+
-+static void usage(void) __attribute__((noreturn));
-+static void usage(void)
-+{
-+	fprintf(stderr, "Usage: ip link { add | set | change | replace
- | del } NAME\n");
-+	fprintf(stderr, "          type { ip6gre | ip6gretap }
- [ remote ADDR ] [ local ADDR ]\n");
-+	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ]
- [ [i|o]csum ]\n");
-+	fprintf(stderr, "          [ hoplimit TTL ] [ encaplimit ELIM
- ]\n");
-+	fprintf(stderr, "          [ tclass TCLASS ] [ flowlabel
- FLOWLABEL ]\n");
-+	fprintf(stderr, "          [ dscp inherit ] [ dev PHYS_DEV
- ]\n");
-+	fprintf(stderr, "\n");
-+	fprintf(stderr, "Where: NAME      := STRING\n");
-+	fprintf(stderr, "       ADDR      := IPV6_ADDRESS\n");
-+	fprintf(stderr, "       TTL       := { 0..255 }
- (default=%d)\n",
-+		DEFAULT_TNL_HOP_LIMIT);
-+	fprintf(stderr, "       KEY       := { DOTTED_QUAD |
- NUMBER }\n");
-+	fprintf(stderr, "       ELIM      := { none |
- 0..255 }(default=%d)\n",
-+		IPV6_DEFAULT_TNL_ENCAP_LIMIT);
-+	fprintf(stderr, "       FLOWLABEL := { 0x0..0xfffff |
- inherit }\n");
-+	exit(-1);
-+}
-+
-+static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
-+			 struct nlmsghdr *n)
-+{
-+	struct {
-+		struct nlmsghdr n;
-+		struct ifinfomsg i;
-+		char buf[1024];
-+	} req;
-+	struct ifinfomsg *ifi = (struct ifinfomsg *)(n + 1);
-+	struct rtattr *tb[IFLA_MAX + 1];
-+	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
-+	struct rtattr *greinfo[IFLA_GRE_MAX + 1];
-+	__u16 iflags = 0;
-+	__u16 oflags = 0;
-+	unsigned ikey = 0;
-+	unsigned okey = 0;
-+	struct in6_addr raddr = IN6ADDR_ANY_INIT;
-+	struct in6_addr laddr = IN6ADDR_ANY_INIT;
-+	unsigned link = 0;
-+	unsigned flowinfo = 0;
-+	unsigned flags = 0;
-+	__u8 hop_limit = DEFAULT_TNL_HOP_LIMIT;
-+	__u8 encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
-+	int len;
-+
-+	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
-+		memset(&req, 0, sizeof(req));
-+
-+		req.n.nlmsg_len = NLMSG_LENGTH(sizeof(*ifi));
-+		req.n.nlmsg_flags = NLM_F_REQUEST;
-+		req.n.nlmsg_type = RTM_GETLINK;
-+		req.i.ifi_family = preferred_family;
-+		req.i.ifi_index = ifi->ifi_index;
-+
-+		if (rtnl_talk(&rth, &req.n, 0, 0, &req.n) < 0) {
-+get_failed:
-+			fprintf(stderr,
-+				"Failed to get existing tunnel
- info.\n");
-+			return -1;
-+		}
-+
-+		len = req.n.nlmsg_len;
-+		len -= NLMSG_LENGTH(sizeof(*ifi));
-+		if (len < 0)
-+			goto get_failed;
-+
-+		parse_rtattr(tb, IFLA_MAX, IFLA_RTA(&req.i), len);
-+
-+		if (!tb[IFLA_LINKINFO])
-+			goto get_failed;
-+
-+		parse_rtattr_nested(linkinfo, IFLA_INFO_MAX,
- tb[IFLA_LINKINFO]); +
-+		if (!linkinfo[IFLA_INFO_DATA])
-+			goto get_failed;
-+
-+		parse_rtattr_nested(greinfo, IFLA_GRE_MAX,
-+				    linkinfo[IFLA_INFO_DATA]);
-+
-+		if (greinfo[IFLA_GRE_IKEY])
-+			ikey = rta_getattr_u32(greinfo[IFLA_GRE_IKEY]);
-+
-+		if (greinfo[IFLA_GRE_OKEY])
-+			okey = rta_getattr_u32(greinfo[IFLA_GRE_OKEY]);
-+
-+		if (greinfo[IFLA_GRE_IFLAGS])
-+			iflags =
- rta_getattr_u16(greinfo[IFLA_GRE_IFLAGS]); +
-+		if (greinfo[IFLA_GRE_OFLAGS])
-+			oflags =
- rta_getattr_u16(greinfo[IFLA_GRE_OFLAGS]); +
-+		if (greinfo[IFLA_GRE_LOCAL])
-+			memcpy(&laddr,
- RTA_DATA(greinfo[IFLA_GRE_LOCAL]), sizeof(laddr)); +
-+		if (greinfo[IFLA_GRE_REMOTE])
-+			memcpy(&raddr,
- RTA_DATA(greinfo[IFLA_GRE_REMOTE]), sizeof(raddr)); +
-+		if (greinfo[IFLA_GRE_TTL])
-+			hop_limit =
- rta_getattr_u8(greinfo[IFLA_GRE_TTL]); +
-+		if (greinfo[IFLA_GRE_LINK])
-+			link = rta_getattr_u32(greinfo[IFLA_GRE_LINK]);
-+		
-+		if (greinfo[IFLA_GRE_ENCAP_LIMIT])
-+			encap_limit =
- rta_getattr_u8(greinfo[IFLA_GRE_ENCAP_LIMIT]);
-+		
-+		if (greinfo[IFLA_GRE_FLOWINFO])
-+			flowinfo =
- rta_getattr_u32(greinfo[IFLA_GRE_FLOWINFO]);
-+		
-+		if (greinfo[IFLA_GRE_FLAGS])
-+			flags =
- rta_getattr_u32(greinfo[IFLA_GRE_FLAGS]);
-+	}
-+
-+	while (argc > 0) {
-+		if (!matches(*argv, "key")) {
-+			unsigned uval;
-+
-+			NEXT_ARG();
-+			iflags |= GRE_KEY;
-+			oflags |= GRE_KEY;
-+			if (strchr(*argv, '.'))
-+				uval = get_addr32(*argv);
-+			else {
-+				if (get_unsigned(&uval, *argv, 0) < 0)
- {
-+					fprintf(stderr,
-+						"Invalid value for
- \"key\"\n");
-+					exit(-1);
-+				}
-+				uval = htonl(uval);
-+			}
-+
-+			ikey = okey = uval;
-+		} else if (!matches(*argv, "ikey")) {
-+			unsigned uval;
-+
-+			NEXT_ARG();
-+			iflags |= GRE_KEY;
-+			if (strchr(*argv, '.'))
-+				uval = get_addr32(*argv);
-+			else {
-+				if (get_unsigned(&uval, *argv, 0)<0) {
-+					fprintf(stderr, "invalid value
- of \"ikey\"\n");
-+					exit(-1);
-+				}
-+				uval = htonl(uval);
-+			}
-+			ikey = uval;
-+		} else if (!matches(*argv, "okey")) {
-+			unsigned uval;
-+
-+			NEXT_ARG();
-+			oflags |= GRE_KEY;
-+			if (strchr(*argv, '.'))
-+				uval = get_addr32(*argv);
-+			else {
-+				if (get_unsigned(&uval, *argv, 0)<0) {
-+					fprintf(stderr, "invalid value
- of \"okey\"\n");
-+					exit(-1);
-+				}
-+				uval = htonl(uval);
-+			}
-+			okey = uval;
-+		} else if (!matches(*argv, "seq")) {
-+			iflags |= GRE_SEQ;
-+			oflags |= GRE_SEQ;
-+		} else if (!matches(*argv, "iseq")) {
-+			iflags |= GRE_SEQ;
-+		} else if (!matches(*argv, "oseq")) {
-+			oflags |= GRE_SEQ;
-+		} else if (!matches(*argv, "csum")) {
-+			iflags |= GRE_CSUM;
-+			oflags |= GRE_CSUM;
-+		} else if (!matches(*argv, "icsum")) {
-+			iflags |= GRE_CSUM;
-+		} else if (!matches(*argv, "ocsum")) {
-+			oflags |= GRE_CSUM;
-+		} else if (!matches(*argv, "remote")) {
-+			inet_prefix addr;
-+			NEXT_ARG();
-+			get_prefix(&addr, *argv, preferred_family);
-+			if (addr.family == AF_UNSPEC)
-+				invarg("\"remote\" address family is
- AF_UNSPEC", *argv);
-+			memcpy(&raddr, &addr.data, sizeof(raddr));
-+		} else if (!matches(*argv, "local")) {
-+			inet_prefix addr;
-+			NEXT_ARG();
-+			get_prefix(&addr, *argv, preferred_family);
-+			if (addr.family == AF_UNSPEC)
-+				invarg("\"local\" address family is
- AF_UNSPEC", *argv);
-+			memcpy(&laddr, &addr.data, sizeof(laddr));
-+		} else if (!matches(*argv, "dev")) {
-+			NEXT_ARG();
-+			link = if_nametoindex(*argv);
-+			if (link == 0)
-+				exit(-1);
-+		} else if (!matches(*argv, "ttl") ||
-+			   !matches(*argv, "hoplimit")) {
-+			__u8 uval;
-+			NEXT_ARG();
-+			if (get_u8(&uval, *argv, 0))
-+				invarg("invalid TTL", *argv);
-+			hop_limit = uval;
-+		} else if (!matches(*argv, "tos") ||
-+			   !matches(*argv, "tclass") ||
-+			   !matches(*argv, "dsfield")) {
-+			__u8 uval;
-+			NEXT_ARG();
-+			if (strcmp(*argv, "inherit") == 0)
-+				flags |= IP6_TNL_F_USE_ORIG_TCLASS;
-+			else {
-+				if (get_u8(&uval, *argv, 16))
-+					invarg("invalid TClass",
- *argv);
-+				flowinfo |= htonl((__u32)uval << 20) &
- IP6_FLOWINFO_TCLASS;
-+				flags &= ~IP6_TNL_F_USE_ORIG_TCLASS;
-+			}
-+		} else if (strcmp(*argv, "flowlabel") == 0 ||
-+			   strcmp(*argv, "fl") == 0) {
-+			__u32 uval;
-+			NEXT_ARG();
-+			if (strcmp(*argv, "inherit") == 0)
-+				flags |= IP6_TNL_F_USE_ORIG_FLOWLABEL;
-+			else {
-+				if (get_u32(&uval, *argv, 16))
-+					invarg("invalid Flowlabel",
- *argv);
-+				if (uval > 0xFFFFF)
-+					invarg("invalid Flowlabel",
- *argv);
-+				flowinfo |= htonl(uval) &
- IP6_FLOWINFO_FLOWLABEL;
-+				flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
-+			}
-+		} else if (strcmp(*argv, "dscp") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "inherit") != 0)
-+				invarg("not inherit", *argv);
-+			flags |= IP6_TNL_F_RCV_DSCP_COPY;
-+		} else 
-+			usage();
-+		argc--; argv++;
-+	}
-+
-+	addattr32(n, 1024, IFLA_GRE_IKEY, ikey);
-+	addattr32(n, 1024, IFLA_GRE_OKEY, okey);
-+	addattr_l(n, 1024, IFLA_GRE_IFLAGS, &iflags, 2);
-+	addattr_l(n, 1024, IFLA_GRE_OFLAGS, &oflags, 2);
-+	addattr_l(n, 1024, IFLA_GRE_LOCAL, &laddr, sizeof(laddr));
-+	addattr_l(n, 1024, IFLA_GRE_REMOTE, &raddr, sizeof(raddr));
-+	if (link)
-+		addattr32(n, 1024, IFLA_GRE_LINK, link);
-+	addattr_l(n, 1024, IFLA_GRE_TTL, &hop_limit, 1);
-+	addattr_l(n, 1024, IFLA_GRE_ENCAP_LIMIT, &encap_limit, 1);
-+	addattr_l(n, 1024, IFLA_GRE_FLOWINFO, &flowinfo, 4);
-+	addattr_l(n, 1024, IFLA_GRE_FLAGS, &flowinfo, 4);
-+
-+	return 0;
-+}
-+
-+static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr
- *tb[]) +{
-+	char s1[1024];
-+	char s2[64];
-+	const char *local = "any";
-+	const char *remote = "any";
-+	unsigned iflags = 0;
-+	unsigned oflags = 0;
-+	unsigned flags = 0;
-+	unsigned flowinfo = 0;
-+	struct in6_addr in6_addr_any = IN6ADDR_ANY_INIT;
-+
-+	if (!tb)
-+		return;
-+
-+	if (tb[IFLA_GRE_FLAGS])
-+		flags = rta_getattr_u32(tb[IFLA_GRE_FLAGS]);
-+	
-+	if (tb[IFLA_GRE_FLOWINFO])
-+		flags = rta_getattr_u32(tb[IFLA_GRE_FLOWINFO]);
-+
-+	if (tb[IFLA_GRE_REMOTE]) {
-+		struct in6_addr addr;
-+		memcpy(&addr, RTA_DATA(tb[IFLA_GRE_REMOTE]),
- sizeof(addr)); +
-+		if (memcmp(&addr, &in6_addr_any, sizeof(addr)))
-+			remote = format_host(AF_INET6, sizeof(addr),
- &addr, s1, sizeof(s1));
-+	}
-+
-+	fprintf(f, "remote %s ", remote);
-+
-+	if (tb[IFLA_GRE_LOCAL]) {
-+		struct in6_addr addr;
-+		memcpy(&addr, RTA_DATA(tb[IFLA_GRE_LOCAL]),
- sizeof(addr)); +
-+		if (memcmp(&addr, &in6_addr_any, sizeof(addr)))
-+			local = format_host(AF_INET6, sizeof(addr),
- &addr, s1, sizeof(s1));
-+	}
-+
-+	fprintf(f, "local %s ", local);
-+
-+	if (tb[IFLA_GRE_LINK] && rta_getattr_u32(tb[IFLA_GRE_LINK])) {
-+		unsigned link = rta_getattr_u32(tb[IFLA_GRE_LINK]);
-+		const char *n = if_indextoname(link, s2);
-+
-+		if (n)
-+			fprintf(f, "dev %s ", n);
-+		else
-+			fprintf(f, "dev %u ", link);
-+	}
-+
-+	if (tb[IFLA_GRE_TTL] && rta_getattr_u8(tb[IFLA_GRE_TTL]))
-+		fprintf(f, "hoplimit %d ",
- rta_getattr_u8(tb[IFLA_GRE_TTL])); +
-+	if (flags & IP6_TNL_F_IGN_ENCAP_LIMIT)
-+		fprintf(f, "encaplimit none ");
-+	else if (tb[IFLA_GRE_ENCAP_LIMIT]) {
-+		int encap_limit =
- rta_getattr_u8(tb[IFLA_GRE_ENCAP_LIMIT]); +
-+		fprintf(f, "encaplimit %d ", encap_limit);
-+	}
-+	
-+	if (flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
-+		fprintf(f, "flowlabel inherit ");
-+	else
-+		fprintf(f, "flowlabel 0x%05x ", ntohl(flowinfo &
- IP6_FLOWINFO_FLOWLABEL));
-+	
-+	if (flags & IP6_TNL_F_RCV_DSCP_COPY)
-+		fprintf(f, "dscp inherit ");
-+
-+	if (tb[IFLA_GRE_IFLAGS])
-+		iflags = rta_getattr_u16(tb[IFLA_GRE_IFLAGS]);
-+
-+	if (tb[IFLA_GRE_OFLAGS])
-+		oflags = rta_getattr_u16(tb[IFLA_GRE_OFLAGS]);
-+
-+	if ((iflags & GRE_KEY) && tb[IFLA_GRE_IKEY]) {
-+		inet_ntop(AF_INET, RTA_DATA(tb[IFLA_GRE_IKEY]), s2,
- sizeof(s2));
-+		fprintf(f, "ikey %s ", s2);
-+	}
-+
-+	if ((oflags & GRE_KEY) && tb[IFLA_GRE_OKEY]) {
-+		inet_ntop(AF_INET, RTA_DATA(tb[IFLA_GRE_OKEY]), s2,
- sizeof(s2));
-+		fprintf(f, "okey %s ", s2);
-+	}
-+
-+	if (iflags & GRE_SEQ)
-+		fputs("iseq ", f);
-+	if (oflags & GRE_SEQ)
-+		fputs("oseq ", f);
-+	if (iflags & GRE_CSUM)
-+		fputs("icsum ", f);
-+	if (oflags & GRE_CSUM)
-+		fputs("ocsum ", f);
-+}
-+
-+struct link_util ip6gre_link_util = {
-+	.id = "ip6gre",
-+	.maxattr = IFLA_GRE_MAX,
-+	.parse_opt = gre_parse_opt,
-+	.print_opt = gre_print_opt,
-+};
-+
-+struct link_util ip6gretap_link_util = {
-+	.id = "ip6gretap",
-+	.maxattr = IFLA_GRE_MAX,
-+	.parse_opt = gre_parse_opt,
-+	.print_opt = gre_print_opt,
-+};
+I have a short list of known problems that need to be sorted out, but
+all of them can be solved easily during the run up to 3.6-final.
+
+I'll be offline until Sunday afternoon, but nothing need hold up
+3.6-rc1 and the close of the merge window, networking wise, at this
+point.
+
+1) Fix interface check in ipv4 TCP early demux, from Eric Dumazet.
+
+2) Fix a long standing bug in TCP DMA to userspace offload that can
+   hang applications using MSG_TRUNC, from Jiri Kosina.
+
+3) Don't allow TCP_USER_TIMEOUT to be negative, from Hangbin Liu.
+
+4) Don't use GFP_KERNEL under spinlock in kaweth driver, from Dan
+   Carpenter
+
+Please pull, thanks a lot.
+
+The following changes since commit b387e41e523c1aa347cff055455d0dd129357df4:
+
+  Merge branch 'merge' of git://git.kernel.org/pub/scm/linux/kernel/git/benh/powerpc (2012-07-27 08:35:26 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to 7b9b04fb728ec0b94464ed902f3395aa592c5bcf:
+
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless (2012-07-27 14:25:40 -0700)
+
+----------------------------------------------------------------
+
+Dan Carpenter (1):
+      USB: kaweth.c: use GFP_ATOMIC under spin_lock
+
+David S. Miller (1):
+      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wireless
+
+Eric Dumazet (1):
+      ipv4: fix TCP early demux
+
+Hangbin Liu (1):
+      tcp: Add TCP_USER_TIMEOUT negative value check
+
+Hauke Mehrtens (2):
+      bcma: fix regression in interrupt assignment on mips
+      bcma: add missing iounmap on error path
+
+Jesse Gross (1):
+      Revert "openvswitch: potential NULL deref in sample()"
+
+Jiri Benc (1):
+      net: fix rtnetlink IFF_PROMISC and IFF_ALLMULTI handling
+
+Jiri Kosina (1):
+      tcp: perform DMA to userspace only if there is a task waiting for it
+
+John W. Linville (1):
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
+
+Thomas Huehn (1):
+      mac80211_hwsim: fix possible race condition in usage of info->control.sta & control.vif
+
+ drivers/bcma/driver_mips.c            |  6 +++---
+ drivers/bcma/scan.c                   | 15 ++++++++++-----
+ drivers/net/usb/kaweth.c              |  2 +-
+ drivers/net/wireless/mac80211_hwsim.c |  5 -----
+ net/core/rtnetlink.c                  |  8 +++++++-
+ net/ipv4/tcp.c                        |  5 ++++-
+ net/ipv4/tcp_input.c                  |  5 ++++-
+ net/ipv4/tcp_ipv4.c                   | 14 ++++++--------
+ net/ipv4/tcp_minisocks.c              |  1 +
+ net/openvswitch/actions.c             |  3 ---
+ 10 files changed, 36 insertions(+), 28 deletions(-)
