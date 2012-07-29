@@ -1,29 +1,32 @@
-From: Karsten Keil <keil@b1-systems.de>
-Subject: [PATCH 0/1] mISDN: Fix regression with AVM Fritz!PCI cards
-Date: Sun, 29 Jul 2012 19:15:12 +0200
-Message-ID: <1343582113-14752-1-git-send-email-keil@b1-systems.de>
-Cc: netdev@vger.kernel.org, tobias.powalowski@googlemail.com
-To: davem@davemloft.net
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH] seeq: use PTR_RET at init_module of driver
+Date: Sun, 29 Jul 2012 18:41:50 +0100
+Message-ID: <12831.1343583710@warthog.procyon.org.uk>
+References: <1343568527-12729-1-git-send-email-develkernel412222@gmail.com>
+Cc: dhowells@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Pradeep A Dalvi <netdev@pradeepdalvi.com>,
+	netdev@vger.kernel.org
+To: Devendra Naga <develkernel412222@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.b1-systems.de ([217.11.58.35]:47396 "EHLO mx1.b1-systems.de"
+Received: from mx1.redhat.com ([209.132.183.28]:42019 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753318Ab2G2RVq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jul 2012 13:21:46 -0400
+	id S1751657Ab2G2RmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2012 13:42:00 -0400
+In-Reply-To: <1343568527-12729-1-git-send-email-develkernel412222@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch does fix https://bugzilla.kernel.org/show_bug.cgi?id=45271. The bug was introduced
-in 3.5. and so the fix should go into 3.5 stable series and into 3.6.
+Devendra Naga <develkernel412222@gmail.com> wrote:
 
-Best Regards
-Karsten
+> the driver sees wether the dev_seeq pointer is having a error that can be
+> read by using the PTR_ERR, and returns it at error case, other wise 0 at
+> success case.
+> 
+> the PTR_RET does the same thing, and use PTR_RET instead of redoing the
+> code of PTR_RET
+> 
+> Signed-off-by: Devendra Naga <develkernel412222@gmail.com>
 
-Karsten Keil (1):
-
-  mISDN: Bugfix only few bytes are transfered on a connection
-
- drivers/isdn/hardware/mISDN/avmfritz.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
--- 
-1.7.7
+Acked-by: David Howells <dhowells@redhat.com>
