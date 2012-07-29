@@ -1,41 +1,58 @@
-From: Administrador de Sistemas <hural@harran.edu.tr>
-Subject: =?utf-8?Q?ATEN=C3=87=C3=83O;?=
-Date: Sun, 29 Jul 2012 17:05:17 +0300 (EEST)
-Message-ID: <100140702.2713.1343570717711.JavaMail.root__30295.0108227835$1343573719$gmane$org@mail.harran.edu.tr>
-Reply-To: "up.gradeunit@yahoo.com.cn" <up.gradeunit@yahoo.com.cn>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+From: Karsten Keil <keil@b1-systems.de>
+Subject: [PATCH 1/1] mISDN: Bugfix only few bytes are transfered on a connection
+Date: Sun, 29 Jul 2012 19:15:13 +0200
+Message-ID: <1343582113-14752-2-git-send-email-keil@b1-systems.de>
+References: <1343582113-14752-1-git-send-email-keil@b1-systems.de>
+Cc: netdev@vger.kernel.org, tobias.powalowski@googlemail.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.harran.edu.tr ([193.140.254.2]:15264 "EHLO
-	mail.harran.edu.tr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753160Ab2G2Oyy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2012 10:54:54 -0400
+Received: from mx1.b1-systems.de ([217.11.58.35]:47397 "EHLO mx1.b1-systems.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753322Ab2G2RVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2012 13:21:46 -0400
+In-Reply-To: <1343582113-14752-1-git-send-email-keil@b1-systems.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The test for the fillempty condition was wrong in one place.
+Changed the variable to the right boolean type.
 
+Signed-off-by: Karsten Keil <keil@b1-systems.de>
+---
+ drivers/isdn/hardware/mISDN/avmfritz.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-
-ATEN=C3=87=C3=83O;
-
-Sua caixa de correio excedeu o limite de armazenamento que =C3=A9 de 10=
-GB, conforme definido pelo seu
-administrador, que est=C3=A1 atualmente em execu=C3=A7=C3=A3o no 10.9GB=
-, voc=C3=AA pode n=C3=A3o ser capaz
-para enviar ou receber novas mensagens at=C3=A9 que voc=C3=AA re-valida=
-r a sua caixa de correio.
-Para revalidar sua caixa postal, envie os seguintes dados abaixo:
-
-nome:
-Nome de usu=C3=A1rio:
-senha:
-Confirme a Senha:
-E-mail:
-
-Se voc=C3=AA n=C3=A3o conseguir revalidar sua caixa de correio, o corre=
-io ser=C3=A1 desactivado!
-
-obrigado
-Administrador de Sistemas
+diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
+index c08fc60..fa6ca47 100644
+--- a/drivers/isdn/hardware/mISDN/avmfritz.c
++++ b/drivers/isdn/hardware/mISDN/avmfritz.c
+@@ -449,7 +449,8 @@ hdlc_fill_fifo(struct bchannel *bch)
+ {
+ 	struct fritzcard *fc = bch->hw;
+ 	struct hdlc_hw *hdlc;
+-	int count, fs, cnt = 0, idx, fillempty = 0;
++	int count, fs, cnt = 0, idx;
++	bool fillempty = false;
+ 	u8 *p;
+ 	u32 *ptr, val, addr;
+ 
+@@ -462,7 +463,7 @@ hdlc_fill_fifo(struct bchannel *bch)
+ 			return;
+ 		count = fs;
+ 		p = bch->fill;
+-		fillempty = 1;
++		fillempty = true;
+ 	} else {
+ 		count = bch->tx_skb->len - bch->tx_idx;
+ 		if (count <= 0)
+@@ -477,7 +478,7 @@ hdlc_fill_fifo(struct bchannel *bch)
+ 			hdlc->ctrl.sr.cmd |= HDLC_CMD_XME;
+ 	}
+ 	ptr = (u32 *)p;
+-	if (fillempty) {
++	if (!fillempty) {
+ 		pr_debug("%s.B%d: %d/%d/%d", fc->name, bch->nr, count,
+ 			 bch->tx_idx, bch->tx_skb->len);
+ 		bch->tx_idx += count;
+-- 
+1.7.7
