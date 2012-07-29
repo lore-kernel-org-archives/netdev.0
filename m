@@ -1,78 +1,75 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] seeq: use PTR_RET at init_module of driver
-Date: Sun, 29 Jul 2012 23:34:10 +0200
-Message-ID: <20120729213410.GA9416@minipsycho.orion>
-References: <1343568527-12729-1-git-send-email-develkernel412222@gmail.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 00/17] drivers: hv: kvp
+Date: Sun, 29 Jul 2012 22:50:56 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9236AA5A6@SN2PRD0310MB382.namprd03.prod.outlook.com>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <20120724155412.GA23918@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Howells <dhowells@redhat.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Pradeep A Dalvi <netdev@pradeepdalvi.com>,
-	netdev@vger.kernel.org
-To: Devendra Naga <develkernel412222@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49175 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753099Ab2G2VeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2012 17:34:15 -0400
-Received: by weyx8 with SMTP id x8so3218036wey.19
-        for <netdev@vger.kernel.org>; Sun, 29 Jul 2012 14:34:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1343568527-12729-1-git-send-email-develkernel412222@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "virtualization@lists.osdl.org" <virtualization@lists.osdl.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20120724155412.GA23918@kroah.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Jul 29, 2012 at 03:28:47PM CEST, develkernel412222@gmail.com wrote:
->the driver sees wether the dev_seeq pointer is having a error that can be
->read by using the PTR_ERR, and returns it at error case, other wise 0 at
->success case.
->
->the PTR_RET does the same thing, and use PTR_RET instead of redoing the
->code of PTR_RET
->
->Signed-off-by: Devendra Naga <develkernel412222@gmail.com>
->---
->This patch is actually made by using coccinelle, and also by looking
->at the PTR_RET function.
->
->as its implementation is
->static int PTR_RET(void *ptr)
->{
->	if (IS_ERR(ptr)
->		return PTR_ERR(ptr);
->	return 0;
->}
->
->by using this i removed the following code and replaced with PTR_RET....
->
->
-> drivers/net/ethernet/seeq/seeq8005.c |    4 +---
-> 1 file changed, 1 insertion(+), 3 deletions(-)
->
->diff --git a/drivers/net/ethernet/seeq/seeq8005.c b/drivers/net/ethernet/seeq/seeq8005.c
->index 698edbb..d6e50de 100644
->--- a/drivers/net/ethernet/seeq/seeq8005.c
->+++ b/drivers/net/ethernet/seeq/seeq8005.c
->@@ -736,9 +736,7 @@ MODULE_PARM_DESC(irq, "SEEQ 8005 IRQ number");
-> int __init init_module(void)
-> {
-> 	dev_seeq = seeq8005_probe(-1);
->-	if (IS_ERR(dev_seeq))
->-		return PTR_ERR(dev_seeq);
->-	return 0;
->+	return PTR_RET(dev_seeq);
-> }
+
+
+> -----Original Message-----
+> From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> Sent: Tuesday, July 24, 2012 11:54 AM
+> To: KY Srinivasan
+> Cc: linux-kernel@vger.kernel.org; devel@linuxdriverproject.org;
+> virtualization@lists.osdl.org; olaf@aepfle.de; apw@canonical.com;
+> netdev@vger.kernel.org; ben@decadent.org.uk
+> Subject: Re: [PATCH 00/17] drivers: hv: kvp
 > 
-> void __exit cleanup_module(void)
->-- 
->1.7.9.5
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On Tue, Jul 24, 2012 at 09:01:12AM -0700, K. Y. Srinivasan wrote:
+> > This patchset expands the KVP (Key Value Pair) functionality to
+> > implement the mechanism to GET/SET IP addresses in the guest. This
+> > functionality is used in Windows Server 2012 to implement VM
+> > replication functionality. The way IP configuration information
+> > is managed is distro specific. Based on the feedback I have gotten
+> > from Olaf, Greg, Steve, Ben and Mairus, I have chosen to seperate
+> > distro specific code from this patch-set. Most of the GET operation
+> > can be implemented in a way that is completely distro independent and
+> > I have implemented that as such and is included in this patch-set.
+> > Some of the attributes that can only be fetched in a distro
+> > dependent way as well the mechanism for configuring an interface
+> > (the SET operation) that is clearly distro specific is to be
+> > implemented via external scripts that will be invoked via the KVP
+> > code. We define here the interface to these scripts.
+> >
+> > Adding support for IP injection resulted in some changes to the
+> > protocol between the user level daemon and the kernel driver.
+> > These changes have been implemented in way that would retain
+> > compatibility with older daemons. I would like to thank Olaf and
+> > Greg for pointing out the compatibility issue.
+> 
+> Due to this being the middle of the merge window, I will not be able to
+> look at this until after 3.6-rc1 is out.
 
+Thanks Greg. In the meantime, I have addressed all the comments that both Olaf
+and Ben have posted on this patch-set. Since addressing these comments changed
+some data structures, I think it will be best if you dropped this patch-set. I will post the 
+updated patch-set shortly.
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+Regards,
+
+K. Y
