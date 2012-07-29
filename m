@@ -1,36 +1,39 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: appletalk/cops_probe BUG: soft lockup - CPU#1 stuck for 23s!
-Date: Sun, 29 Jul 2012 21:01:42 +0800
-Message-ID: <20120729130142.GA17155@localhost>
-References: <20120729124022.GA16748@localhost>
- <20120729140003.6fa483d2@ultron>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Joe Perches <joe@perches.com>,
-	"kernel-janitors@vger.kernel..." <kernel-janitors@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120729140003.6fa483d2@ultron>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Devendra Naga <develkernel412222@gmail.com>
+Subject: [PATCH] bnx2x: remove cast around the kmalloc in bnx2x_prev_mark_path
+Date: Sun, 29 Jul 2012 19:04:23 +0545
+Message-ID: <1343567963-12389-1-git-send-email-develkernel412222@gmail.com>
+Cc: Devendra Naga <develkernel412222@gmail.com>
+To: Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:56979 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757Ab2G2NTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jul 2012 09:19:32 -0400
+Received: by pbbrp8 with SMTP id rp8so8154407pbb.19
+        for <netdev@vger.kernel.org>; Sun, 29 Jul 2012 06:19:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 29, 2012 at 02:00:03PM +0100, Alan Cox wrote:
-> On Sun, 29 Jul 2012 20:40:22 +0800
-> Fengguang Wu <fengguang.wu@intel.com> wrote:
-> 
-> > Hi,
-> > 
-> > This is probably a rather old bug, triggered while doing randconfig
-> > boot tests in kvm:
-> 
-> I'm not sure testing old devices with no safe probe method is useful in
-> this context ?
+casting the void pointer is redundant (Documentation/CodingStyle)
 
-Yeah. I'll just blacklist this driver in my builds.
+Signed-off-by: Devendra Naga <develkernel412222@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Thanks,
-Fengguang
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 9aaf863..dd451c3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -9360,8 +9360,7 @@ static int __devinit bnx2x_prev_mark_path(struct bnx2x *bp)
+ 	struct bnx2x_prev_path_list *tmp_list;
+ 	int rc;
+ 
+-	tmp_list = (struct bnx2x_prev_path_list *)
+-		    kmalloc(sizeof(struct bnx2x_prev_path_list), GFP_KERNEL);
++	tmp_list = kmalloc(sizeof(struct bnx2x_prev_path_list), GFP_KERNEL);
+ 	if (!tmp_list) {
+ 		BNX2X_ERR("Failed to allocate 'bnx2x_prev_path_list'\n");
+ 		return -ENOMEM;
+-- 
+1.7.9.5
