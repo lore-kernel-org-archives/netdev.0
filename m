@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after
- changing date
-Date: Sun, 29 Jul 2012 23:15:07 -0700 (PDT)
-Message-ID: <20120729.231507.1019848555665499226.davem@davemloft.net>
-References: <1343356759-24767-1-git-send-email-fdu@windriver.com>
-	<1343356759-24767-2-git-send-email-fdu@windriver.com>
+Subject: Re: [PATCH] qlge: Add offload features to vlan interfaces
+Date: Sun, 29 Jul 2012 23:18:48 -0700 (PDT)
+Message-ID: <20120729.231848.1749249366881037474.davem@davemloft.net>
+References: <1343415292-49323-1-git-send-email-brenohl@br.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: fdu@windriver.com
+Cc: jitendra.kalsaria@qlogic.com, ron.mercer@qlogic.com,
+	netdev@vger.kernel.org
+To: brenohl@br.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50723 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50740 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751166Ab2G3GPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 02:15:11 -0400
-In-Reply-To: <1343356759-24767-2-git-send-email-fdu@windriver.com>
+	with ESMTP id S1751385Ab2G3GSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 02:18:49 -0400
+In-Reply-To: <1343415292-49323-1-git-send-email-brenohl@br.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fdu@windriver.com>
-Date: Fri, 27 Jul 2012 10:39:19 +0800
+From: brenohl@br.ibm.com
+Date: Fri, 27 Jul 2012 13:54:52 -0500
 
-> +				x->curlft.add_time = now - x->saved_tmo - 1;
-> +				tmo = x->lft.hard_add_expires_seconds - x->saved_tmo;
-> +			
-   ^^^^^^^^^^^^^^^^
-> +			} else
+> This patch fills the net_device vlan_features with the proper hardware features,
+> thus, improving the vlan interface performance.
+> 
+> With the patch applied, I can see around 148% improvement on a TCP_STREAM test,
+> from 3.5 Gb/s to 8.7 Gb/s. On TCP_RR, I see a 11% improvement, from 18k
+> to 20. The CPU utilization is almost the same on both cases, from the comparison
+> above.
+> 
+> Signed-off-by: Breno Leitao <brenohl@br.ibm.com>
 
-Unnecessary empty line, please remove it.
+Applied.
