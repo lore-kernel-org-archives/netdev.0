@@ -1,50 +1,363 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/2] drivers: net: ethernet: cpsw: Add SOC dependency support for cpsw dependent modules
-Date: Tue, 31 Jul 2012 01:47:13 +0530
-Message-ID: <1343679434-2369-2-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH 2/2] drivers: net: ethernet: cpsw: Add device tree support to CPSW
+Date: Tue, 31 Jul 2012 01:47:14 +0530
+Message-ID: <1343679434-2369-3-git-send-email-mugunthanvnm@ti.com>
 References: <1343679434-2369-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:58458 "EHLO comal.ext.ti.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:58457 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754516Ab2G3UR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754659Ab2G3UR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 30 Jul 2012 16:17:27 -0400
 In-Reply-To: <1343679434-2369-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-cpsw is dependent on davinci_cpdma and davinci_mdio, so adding SOC support for
-dependent modules
+This patch adds device tree support for cpsw driver
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ Documentation/devicetree/bindings/net/cpsw.txt |  104 ++++++++++++++
+ drivers/net/ethernet/ti/cpsw.c                 |  174 +++++++++++++++++++++++-
+ 2 files changed, 272 insertions(+), 6 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/cpsw.txt
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index 1b173a6..b26cbda 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -32,7 +32,7 @@ config TI_DAVINCI_EMAC
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+new file mode 100644
+index 0000000..acca48c
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -0,0 +1,104 @@
++TI SoC Ethernet Switch Controller Device Tree Bindings
++------------------------------------------------------
++
++Required properties:
++- compatible		: Should be "ti,cpsw"
++- reg			: physical base address and size of the cpsw
++			  registers map
++- interrupts		: property with a value describing the interrupt
++			  number
++- interrupt-parent	: The parent interrupt controller
++- cpdma_channels 	: Specifies number of channels in CPDMA
++- host_port_no		: Specifies host port shift
++- cpdma_reg_ofs		: Specifies CPDMA submodule register offset
++- ale_reg_ofs		: Specifies ALE submodule register offset
++- ale_entries		: Specifies No of entries ALE can hold
++- host_port_reg_ofs	: Specifies host port register offset
++- hw_stats_reg_ofs	: Specifies hardware statistics register offset
++- bd_ram_ofs		: Specifies internal desciptor RAM offset
++- bd_ram_size		: Specifies internal descriptor RAM size
++- rx_descs		: Specifies number of Rx descriptors
++- mac_control		: Specifies Default MAC control register content
++			  for the specific platform
++- slaves		: Specifies number for slaves
++- slave_reg_ofs		: Specifies slave register offset
++- sliver_reg_ofs	: Specifies slave sliver register offset
++- phy_id		: Specifies slave phy id
++- mac-address		: Specifies slave MAC address
++
++Optional properties:
++- ti,hwmods		: Must be "cpgmac0"
++- no_bd_ram		: Must be 0 or 1
++
++Note: "ti,hwmods" field is used to fetch the base address and irq
++resources from TI, omap hwmod data base during device registration.
++Future plan is to migrate hwmod data base contents into device tree
++blob so that, all the required data will be used from device tree dts
++file.
++
++Examples:
++
++	mac: ethernet@4A100000 {
++		compatible = "ti,cpsw";
++		reg = <0x4A100000 0x1000>;
++		interrupts = <55 0x4>;
++		interrupt-parent = <&intc>;
++		cpdma_channels = 8;
++		host_port_no = 0;
++		cpdma_reg_ofs = 0x800;
++		ale_reg_ofs = 0xd00;
++		ale_entries = 1024;
++		host_port_reg_ofs = 0x108;
++		hw_stats_reg_ofs = 0x900;
++		bd_ram_ofs = 0x2000;
++		bd_ram_size = 0x2000;
++		no_bd_ram = 0;
++		rx_descs = 64;
++		mac_control = 0x20;
++		slaves = 2;
++		slave@0 {
++			slave_reg_ofs = 0x208;
++			sliver_reg_ofs = 0xd80;
++			phy_id = "davinci_mdio-0:00"
++			mac-address = [00 04 9F 01 1B B8];
++		};
++		slave@1 {
++			slave_reg_ofs = 0x208;
++			sliver_reg_ofs = 0xd80;
++			phy_id = "davinci_mdio-0:01"
++			mac-address = [00 04 9F 01 1B B9];
++		};
++	};
++
++(or)
++
++	mac: ethernet@4A100000 {
++		compatible = "ti,cpsw";
++		ti,hwmods = "cpgmac0";
++		cpdma_channels = 8;
++		host_port_no = 0;
++		cpdma_reg_ofs = 0x800;
++		ale_reg_ofs = 0xd00;
++		ale_entries = 1024;
++		host_port_reg_ofs = 0x108;
++		hw_stats_reg_ofs = 0x900;
++		bd_ram_ofs = 0x2000;
++		bd_ram_size = 0x2000;
++		no_bd_ram = 0;
++		rx_descs = 64;
++		mac_control = 0x20;
++		slaves = 2;
++		slave@0 {
++			slave_reg_ofs = 0x208;
++			sliver_reg_ofs = 0xd80;
++			phy_id = "davinci_mdio-0:00"
++			mac-address = [00 04 9F 01 1B B8];
++		};
++		slave@1 {
++			slave_reg_ofs = 0x208;
++			sliver_reg_ofs = 0xd80;
++			phy_id = "davinci_mdio-0:01"
++			mac-address = [00 04 9F 01 1B B9];
++		};
++
++	};
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 1e5d85b..0cbc0e5 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -28,6 +28,9 @@
+ #include <linux/workqueue.h>
+ #include <linux/delay.h>
+ #include <linux/pm_runtime.h>
++#include <linux/of.h>
++#include <linux/of_net.h>
++#include <linux/of_device.h>
  
- config TI_DAVINCI_MDIO
- 	tristate "TI DaVinci MDIO Support"
--	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
- 	select PHYLIB
- 	---help---
- 	  This driver supports TI's DaVinci MDIO module.
-@@ -42,7 +42,7 @@ config TI_DAVINCI_MDIO
+ #include <linux/platform_data/cpsw.h>
  
- config TI_DAVINCI_CPDMA
- 	tristate "TI DaVinci CPDMA Support"
--	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
-+	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
- 	---help---
- 	  This driver supports TI's DaVinci CPDMA dma engine.
+@@ -709,6 +712,158 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 	slave->sliver	= regs + data->sliver_reg_ofs;
+ }
  
++static int cpsw_probe_dt(struct cpsw_platform_data *data,
++			 struct platform_device *pdev)
++{
++	struct device_node *node = pdev->dev.of_node;
++	struct device_node *slave_node;
++	int i = 0, ret;
++	u32 prop;
++
++	if (!node)
++		return -EINVAL;
++
++	if (of_property_read_u32(node, "slaves", &prop)) {
++		pr_err("Missing slaves property in the DT.\n");
++		return -EINVAL;
++	}
++	data->slaves = prop;
++
++	data->slave_data = kzalloc(sizeof(struct cpsw_slave_data) *
++				   data->slaves, GFP_KERNEL);
++	if (!data->slave_data) {
++		pr_err("Could not allocate slave memory.\n");
++		return -EINVAL;
++	}
++
++	data->no_bd_ram = of_property_read_bool(node, "no_bd_ram");
++
++	if (of_property_read_u32(node, "cpdma_channels", &prop)) {
++		pr_err("Missing cpdma_channels property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->channels = prop;
++
++	if (of_property_read_u32(node, "host_port_no", &prop)) {
++		pr_err("Missing host_port_no property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->host_port_num = prop;
++
++	if (of_property_read_u32(node, "cpdma_reg_ofs", &prop)) {
++		pr_err("Missing cpdma_reg_ofs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->cpdma_reg_ofs = prop;
++
++	if (of_property_read_u32(node, "cpdma_sram_ofs", &prop)) {
++		pr_err("Missing cpdma_sram_ofs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->cpdma_sram_ofs = prop;
++
++	if (of_property_read_u32(node, "ale_reg_ofs", &prop)) {
++		pr_err("Missing ale_reg_ofs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->ale_reg_ofs = prop;
++
++	if (of_property_read_u32(node, "ale_entries", &prop)) {
++		pr_err("Missing ale_entries property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->ale_entries = prop;
++
++	if (of_property_read_u32(node, "host_port_reg_ofs", &prop)) {
++		pr_err("Missing host_port_reg_ofs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->host_port_reg_ofs = prop;
++
++	if (of_property_read_u32(node, "hw_stats_reg_ofs", &prop)) {
++		pr_err("Missing hw_stats_reg_ofs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->hw_stats_reg_ofs = prop;
++
++	if (of_property_read_u32(node, "bd_ram_ofs", &prop)) {
++		pr_err("Missing bd_ram_ofs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->bd_ram_ofs = prop;
++
++	if (of_property_read_u32(node, "bd_ram_size", &prop)) {
++		pr_err("Missing bd_ram_size property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->bd_ram_size = prop;
++
++	if (of_property_read_u32(node, "rx_descs", &prop)) {
++		pr_err("Missing rx_descs property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->rx_descs = prop;
++
++	if (of_property_read_u32(node, "mac_control", &prop)) {
++		pr_err("Missing mac_control property in the DT.\n");
++		ret = -EINVAL;
++		goto error_ret;
++	}
++	data->mac_control = prop;
++
++	for_each_child_of_node(node, slave_node) {
++		struct cpsw_slave_data *slave_data = data->slave_data + i;
++		const char *phy_id = NULL;
++		const void *mac_addr = NULL;
++
++		if (of_property_read_string(slave_node, "phy_id", &phy_id)) {
++			pr_err("Missing slave[%d] phy_id property\n", i);
++			ret = -EINVAL;
++			goto error_ret;
++		}
++		slave_data->phy_id = phy_id;
++
++		if (of_property_read_u32(slave_node, "slave_reg_ofs", &prop)) {
++			pr_err("Missing slave[%d] slave_reg_ofs property\n", i);
++			ret = -EINVAL;
++			goto error_ret;
++		}
++		slave_data->slave_reg_ofs = prop;
++
++		if (of_property_read_u32(slave_node, "sliver_reg_ofs",
++					 &prop)) {
++			pr_err("Missing slave[%d] sliver_reg_ofs property\n",
++				i);
++			ret = -EINVAL;
++			goto error_ret;
++		}
++		slave_data->sliver_reg_ofs = prop;
++
++		mac_addr = of_get_mac_address(slave_node);
++		if (mac_addr)
++			memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
++
++		i++;
++	}
++
++	return 0;
++
++error_ret:
++	kfree(data->slave_data);
++	return ret;
++}
++
+ static int __devinit cpsw_probe(struct platform_device *pdev)
+ {
+ 	struct cpsw_platform_data	*data = pdev->dev.platform_data;
+@@ -720,11 +875,6 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 	struct resource			*res;
+ 	int ret = 0, i, k = 0;
+ 
+-	if (!data) {
+-		pr_err("platform data missing\n");
+-		return -ENODEV;
+-	}
+-
+ 	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
+ 	if (!ndev) {
+ 		pr_err("error allocating net_device\n");
+@@ -734,13 +884,19 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 	platform_set_drvdata(pdev, ndev);
+ 	priv = netdev_priv(ndev);
+ 	spin_lock_init(&priv->lock);
+-	priv->data = *data;
+ 	priv->pdev = pdev;
+ 	priv->ndev = ndev;
+ 	priv->dev  = &ndev->dev;
+ 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
+ 	priv->rx_packet_max = max(rx_packet_max, 128);
+ 
++	if (cpsw_probe_dt(&priv->data, pdev)) {
++		pr_err("cpsw: platform data missing\n");
++		ret = -ENODEV;
++		goto clean_ndev_ret;
++	}
++	data = &priv->data;
++
+ 	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
+ 		memcpy(priv->mac_addr, data->slave_data[0].mac_addr, ETH_ALEN);
+ 		pr_info("Detected MACID = %pM", priv->mac_addr);
+@@ -996,11 +1152,17 @@ static const struct dev_pm_ops cpsw_pm_ops = {
+ 	.resume		= cpsw_resume,
+ };
+ 
++static const struct of_device_id cpsw_of_mtable[] = {
++	{ .compatible = "ti,cpsw", },
++	{ /* sentinel */ },
++};
++
+ static struct platform_driver cpsw_driver = {
+ 	.driver = {
+ 		.name	 = "cpsw",
+ 		.owner	 = THIS_MODULE,
+ 		.pm	 = &cpsw_pm_ops,
++		.of_match_table = of_match_ptr(cpsw_of_mtable),
+ 	},
+ 	.probe = cpsw_probe,
+ 	.remove = __devexit_p(cpsw_remove),
 -- 
 1.7.0.4
