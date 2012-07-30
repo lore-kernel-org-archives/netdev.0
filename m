@@ -1,70 +1,100 @@
-From: Stuart Hodgson <smhodgson@solarflare.com>
-Subject: Re: [PATCH net-next 4/7] sfc: Add support for IEEE-1588 PTP
-Date: Mon, 30 Jul 2012 11:03:02 +0100
-Message-ID: <50165BD6.2030205@solarflare.com>
-References: <1342635392.2617.52.camel@bwh-desktop.uk.solarflarecom.com> <1342635693.2617.56.camel@bwh-desktop.uk.solarflarecom.com> <20120719142558.GB24484@localhost.localdomain> <500827EF.208@solarflare.com> <20120720063102.GB2330@netboy.at.omicron.at> <500921C2.1080001@solarflare.com> <20120720153016.GB2771@netboy.at.omicron.at>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
+Date: Mon, 30 Jul 2012 03:49:53 -0700
+Message-ID: <87pq7dh6b2.fsf@xmission.com>
+References: <50160EEF.6050406@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>,
-	Andrew Jackson <ajackson@solarflare.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:11053 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753030Ab2G3KDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 06:03:06 -0400
-In-Reply-To: <20120720153016.GB2771@netboy.at.omicron.at>
+Received: from out02.mta.xmission.com ([166.70.13.232]:57007 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752077Ab2G3KuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 06:50:07 -0400
+In-Reply-To: <50160EEF.6050406@parallels.com> (Pavel Emelyanov's message of
+	"Mon, 30 Jul 2012 08:34:55 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/07/12 16:30, Richard Cochran wrote:
-> On Fri, Jul 20, 2012 at 10:15:46AM +0100, Stuart Hodgson wrote:
->>
->> Do you mean using the PPS kernel consumer to govern the system time?
-> 
-> Well, I meant just using the PPS subsystem, which does not necessarily
-> mean that the kernel consumer has to be used. In my experience, it is
-> better to handle the servo in user space, but in any case, the user
-> has the choice of what to do.
-> 
->>>>>> +	ptp_pps_evt.type = PTP_CLOCK_EXTTS;
->>>>>> +	ptp_pps_evt.timestamp = ktime_to_ns(gen_time_host);
->>>>>> +	ptp_clock_event(ptp->phc_clock, &ptp_pps_evt);
-> 
->> In order for a PPS to arrive at the kernel consumer ptp_clock_event
->> needs to be called with PTP_CLOCK_PPS. This then calls pps_get_ts
->> and stamps the event with the current system time, not the time
->> that was put into the event.
-> 
-> Oops, I meant PTP_CLOCK_PPS. I overlooked that your code is making an
-> external timestamp event, but the basic idea is similar.
-> 
->> Using PTP_CLOCK_EXTTS the PPS is visible to userspace via a read
->> on the phc device and can then be used in our modified ptpd2.
-> 
-> How does your program use this information?
-> 
+Pavel Emelyanov <xemul@parallels.com> writes:
 
-We have a second servo that governs the system time. 
+> Currently the RTM_NEWLINK results in -EOPNOTSUPP if the ifinfomsg->ifi_index
+> is not zero. I propose to allow requesting ifindices on link creation. This
+> is required by the checkpoint-restore to correctly restore a net namespace
+> (i.e. -- a container). The question what to do with pre-created devices such
+> as lo or sit fbdev is open, but for manually created devices this can be 
+> solved by this patch.
 
->>> ... why can't you also just set the time?
->>
->> Our hardware can only have an offset applied to the clock. In order to set time
->> we need to know the time now, then work out and offset to get to the target time.
->> At the point that we apply this offset the clock will have moved on and not be
->> set to the target time. We can apply some measured average times to the offset
->> to get closer but with this hardware settime will not leave the NIC clock at the
->> desired time.
-> 
-> It does not matter if setting the time introduces a small error. That
-> usually happens, but it is no big deal, since the servo in the PTP
-> stack will correct the error.
-> 
+Have you walked through and found the locations where we still rely on
+ifindex being globally unique?
 
-I will add the ability to set the time to the patch.
+Last time I was working in this area there were serveral places where
+things were indexed by just the interface index.
 
-> Thanks,
-> Richard
+I susepct it might be easier to generate hotplug events at restart time
+saying someone removed and added an identical set of network devices.
+Certainly for physical hardware that needs to happen, because things
+like mac addresses will change.
+
+Eric
+
+
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+>
+> ---
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 0ebaea1..5966e2f 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5533,7 +5533,12 @@ int register_netdevice(struct net_device *dev)
+>  		}
+>  	}
+>  
+> -	dev->ifindex = dev_new_index(net);
+> +	ret = -EBUSY;
+> +	if (!dev->ifindex)
+> +		dev->ifindex = dev_new_index(net);
+> +	else if (__dev_get_by_index(net, dev->ifindex))
+> +		goto err_uninit;
+> +
+>  	if (dev->iflink == -1)
+>  		dev->iflink = dev->ifindex;
+>  
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 334b930..76e19aa 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1801,8 +1801,6 @@ replay:
+>  			return -ENODEV;
+>  		}
+>  
+> -		if (ifm->ifi_index)
+> -			return -EOPNOTSUPP;
+>  		if (tb[IFLA_MAP] || tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
+>  			return -EOPNOTSUPP;
+>  
+> @@ -1828,10 +1826,14 @@ replay:
+>  			return PTR_ERR(dest_net);
+>  
+>  		dev = rtnl_create_link(net, dest_net, ifname, ops, tb);
+> -
+> -		if (IS_ERR(dev))
+> +		if (IS_ERR(dev)) {
+>  			err = PTR_ERR(dev);
+> -		else if (ops->newlink)
+> +			goto out;
+> +		}
+> +
+> +		dev->ifindex = ifm->ifi_index;
+> +
+> +		if (ops->newlink)
+>  			err = ops->newlink(net, dev, tb, data);
+>  		else
+>  			err = register_netdevice(dev);
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
