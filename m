@@ -1,43 +1,83 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC v2 2/2] net: Add support for NTB virtual ethernet device
-Date: Mon, 30 Jul 2012 11:19:11 -0700
-Message-ID: <20120730181910.GB987@jonmason-lab>
-References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
- <1343607994-32415-3-git-send-email-jon.mason@intel.com>
- <20120730140216.GA1550@minipsycho.orion>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 13/17] Tools: hv: Implement the KVP verb -
+ KVP_OP_SET_IP_INFO
+Date: Mon, 30 Jul 2012 18:32:15 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9236AA7DB@SN2PRD0310MB382.namprd03.prod.outlook.com>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-13-git-send-email-kys@microsoft.com>
+ <20120730180326.GB533@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Olaf Hering <olaf@aepfle.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120730140216.GA1550@minipsycho.orion>
+In-Reply-To: <20120730180326.GB533@aepfle.de>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 30, 2012 at 04:02:16PM +0200, Jiri Pirko wrote:
-> Mon, Jul 30, 2012 at 02:26:34AM CEST, jon.mason@intel.com wrote:
-> >+static int __devinit ntb_netdev_probe(struct pci_dev *pdev)
-> >+{
-> >+	struct net_device *ndev;
-> >+	struct ntb_netdev *dev;
-> >+	int rc;
-> >+
-> >+	ndev = alloc_etherdev(sizeof(struct ntb_netdev));
-> >+	if (!ndev)
-> >+		return -ENOMEM;
-> >+
-> >+	dev = netdev_priv(ndev);
-> >+	dev->ndev = ndev;
-> >+	dev->pdev = pdev;
-> >+	BUG_ON(!dev->pdev);
-> >+	ndev->features = NETIF_F_HIGHDMA;
-> >+
-> >+	//ndev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
-> 	^^ I guess you forgot to un-comment this.
-
-Oops.  An easy fix.  Anything else?
-
-Thanks,
-Jon
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
+aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogTW9uZGF5LCBKdWx5IDMwLCAyMDEyIDI6MDMg
+UE0NCj4gVG86IEtZIFNyaW5pdmFzYW4NCj4gQ2M6IGdyZWdraEBsaW51eGZvdW5kYXRpb24ub3Jn
+OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2pl
+Y3Qub3JnOyBhcHdAY2Fub25pY2FsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gYmVu
+QGRlY2FkZW50Lm9yZy51aw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDEzLzE3XSBUb29sczogaHY6
+IEltcGxlbWVudCB0aGUgS1ZQIHZlcmIgLQ0KPiBLVlBfT1BfU0VUX0lQX0lORk8NCj4gDQo+IE9u
+IFR1ZSwgSnVsIDI0LCBLLiBZLiBTcmluaXZhc2FuIHdyb3RlOg0KPiANCj4gPiArCS8qDQo+ID4g
+KwkgKiBTZXQgdGhlIGNvbmZpZ3VyYXRpb24gZm9yIHRoZSBzcGVjaWZpZWQgaW50ZXJmYWNlIHdp
+dGgNCj4gPiArCSAqIHRoZSBpbmZvcm1hdGlvbiBwcm92aWRlZC4gU2luY2UgdGhlcmUgaXMgbm8g
+c3RhbmRhcmQNCj4gPiArCSAqIHdheSB0byBjb25maWd1cmUgYW4gaW50ZXJmYWNlLCB3ZSB3aWxs
+IGhhdmUgYW4gZXh0ZXJuYWwNCj4gPiArCSAqIHNjcmlwdCB0aGF0IGRvZXMgdGhlIGpvYiBvZiBj
+b25maWd1cmluZyB0aGUgaW50ZXJmYWNlIGFuZA0KPiA+ICsJICogZmx1c2hpbmcgdGhlIGNvbmZp
+Z3VyYXRpb24uDQo+ID4gKwkgKg0KPiA+ICsJICogVGhlIHBhcmFtZXRlcnMgcGFzc2VkIHRvIHRo
+aXMgZXh0ZXJuYWwgc2NyaXB0IGFyZToNCj4gPiArCSAqIDEuIEEgY29uZmlndXJhdGlvbiBmaWxl
+IHRoYXQgaGFzIHRoZSBzcGVjaWZpZWQgY29uZmlndXJhdGlvbi4NCj4gDQo+IE1heWJlIHRoaXMg
+c2hvdWxkIGJlIHdyaXR0ZW4gYXMgJ0EgaW5mbyBmaWxlIHRoYXQgaGFzIHRoZSByZXF1ZXN0ZWQN
+Cj4gbmV0d29yayBjb25maWd1cmF0aW9uJyBvciBzb21ldGhpbmcgbGlrZSB0aGF0Lg0KDQpUaGF0
+IGlzIHRoZSBpZGVhLiBUaGlzIGNvbmZpZ3VyYXRpb24gZmlsZSBzaW1wbHkgcmVmbGVjdHMgYWxs
+IHRoZSBpbmZvcm1hdGlvbiB3ZSBoYXZlDQpwZXJoYXBzIHdpdGggc29tZSBhZGRpdGlvbmFsIGNv
+bnN0YW50IGluZm9ybWF0aW9uLiBUaGUgc2NyaXB0IGlzIGZyZWUgdG8gaWdub3JlIHdoYXQNCml0
+IGRvZXMgbm90IG5lZWQuIA0KDQo+IA0KPiA+ICsJICoNCj4gPiArCSAqIFdlIHdpbGwgZW1iZWQg
+dGhlIG5hbWUgb2YgdGhlIGludGVyZmFjZSBpbiB0aGUgY29uZmlndXJhdGlvbg0KPiA+ICsJICog
+ZmlsZTogaWZjZmctZXRoeCAod2hlcmUgZXRoeCBpcyB0aGUgaW50ZXJmYWNlIG5hbWUpLg0KPiAN
+Cj4gSSB0aGluayB0aGUgaW50ZW50aW9uIGhlcmUgaXMgdG8gdXNlIHRoZSBnZW5lcmF0ZWQgZmls
+ZSBhcyBpcy4gRGVwZW5kaW5nDQo+IG9uIHRoZSBkaXN0cm8gaW4gdGhlIGd1ZXN0IHRoZSBmaWxl
+IG1heSBuZWVkIHNvbWUgcHJvY2Vzc2luZy4gU28gSSB0aGluaw0KPiB0aGUgYWN0dWFsIGludGVy
+ZmFjZSBuYW1lIHNob3VsZCBhbHNvIGJlIHBhcnQgb2YgdGhlIGZpbGUuDQoNClRoYXQgaXMgbm90
+IHRoZSBpbnRlbnRpb24gYWx0aG91Z2ggb24gc29tZSBkaXN0cm9zLCB0aGUgZm9ybWF0IG9mIHRo
+aXMgZmlsZQ0KbWF5IGJlIGNsb3NlciB0byB0aGUgZGlzdHJvIHNwZWNpZmljIGNvbmZpZ3VyYXRp
+b24gZmlsZSB0aGFuIG90aGVycy4gSSB3aWxsIA0KaG93ZXZlciBpbmNsdWRlIHRoZSBuYW1lIG9m
+IHRoZSBpbnRlcmZhY2UgaW4gdGhlIGZpbGUgYXMgd2VsbC4NCiANCg0KPiANCj4gPiArCSAqDQo+
+ID4gKwkgKiBIZXJlIGlzIHRoZSBmb3JtYXQgb2YgdGhlIGlwIGNvbmZpZ3VyYXRpb24gZmlsZToN
+Cj4gPiArCSAqDQo+ID4gKwkgKiBIV0FERFI9bWFjYWRkcg0KPiA+ICsJICogQk9PVFBST1RPPWRo
+Y3AgKGRoY3AgZW5hYmxlZCBmb3IgdGhlIGludGVyZmFjZSkNCj4gDQo+IFdoaWxlIEJPT1RQUk9U
+Tz0gaXMgdXNlZCBpbiBjdXJyZW50IG5ldHdvcmsgY29uZmlnIGZpbGVzLCBpdHMgbWVhbmluZw0K
+PiB0aGVyZSBpcyB1bnJlbGF0ZWQgdG8gd2hhdCBpdHMgbWVhbnQgaGVyZS4gSGVyZSBpdCBtZWFu
+cyBESENQPXllcy9ubywgc28NCj4gSSB0aGluayB0aGUgZmlsZSBzaG91bGQgY29udGFpbiBqdXN0
+IHRoYXQuIEFuZCBhcyB0aGUgY29kZSBpcyB3cml0dGVuDQo+IG5vdyBCT09UUFJPVE89IGlzIG9w
+dGlvbmFsLCB3aGljaCBpcyBub3QgbWVudGlvbmVkIGluIHRoZSBjb21tZW50Lg0KDQpJIHdpbGwg
+Zml4IHRoaXMuDQoNCj4gDQo+ID4gKwkgKiBOTV9DT05UUk9MTEVEPW5vICh0aGlzIGludGVyZmFj
+ZSB3aWxsIG5vdCBiZSBjb250cm9sbGVkIGJ5IE5NKQ0KPiANCj4gSSB0aGluayB0aGlzIGlzIG5v
+dCB1cCB0byBrdnBfZGVhbW9uIHRvIGRlY2lkZSB3aGF0IGNvbnRyb2xzIHRoZQ0KPiBpbnRlcmZh
+Y2UuIE1heWJlIG9uZSBkYXkgTk0gaXMgc3VmZmljaWVudGx5IGFkdmFuY2VkIHRlY2hub2xvZ3kg
+dGhhdCBpdA0KPiBjYW4gY29wZSB3aXRoIHN1Y2ggcmVxdWVzdHM/DQo+IFRoZSBoZWxwZXIgc2Ny
+aXB0IHNob3VsZCBkZWNpZGUgaWYgdGhlIE5NIGZsYWcgc2hvdWxkIGJlIHdyaXR0ZW4gdG8gdGhl
+DQo+IGZpbmFsIGNvbmZpZyBmaWxlLg0KDQpBcyBJIG5vdGVkIGVhcmxpZXIsIHRoZSBleHRlcm5h
+bCBzY3JpcHQgY2FuIGNob29zZSB0byBpbnRlcnByZXQgdGhlIGNvbnRlbnRzIG9mIHRoaXMNCmZp
+bGUgaW4gYSB3YXkgdGhhdCBpdCBtYWtlcyBzZW5zZSBmb3IgdGhlIGRpc3RyaWJ1dGlvbi4gTWF5
+YmUsIEkgd2lsbCBnZXQgcmlkIG9mIGFsbCB0aGUgDQpjb25zdGFudCBpbmZvcm1hdGlvbi4NCg0K
+PiANCj4gPiArCSAqIFBFRVJETlM9eWVzDQo+ID4gKwkgKiBJUEFERFJfeD1pcGFkZHINCj4gPiAr
+CSAqIE5FVE1BU0tfeD1uZXRtYXNrDQo+ID4gKwkgKiBHQVRFV0FZX3g9Z2F0ZXdheQ0KPiANCj4g
+VGhpcyBzaG91bGQgbWVudGlvbiB0aGF0IGl0cyBlaXRoZXIgSVBBRERSPWlwYWRkcjEgb3IgJ0lQ
+QUREUj1pcGFkZHIxOw0KPiBJUEFERFJfMT1pcGFkZHIyJw0KPiANCj4gPiArCSAqIEROU3g9ZG5z
+DQo+IA0KPiBUaGlzIHNob3VsZCBtZW50aW9uIHRoYXQgaXRzIGVpdGhlciBETlM9aXBhZGRyMSBv
+ciAnRE5TPWlwYWRkcjE7DQo+IEROUzE9aXBhZGRyMicNCg0KSSB0YWtlIGl0IHRoYXQgeW91IHdh
+bnQgdGhlIGNvbW1lbnRzIHRvIGJlIG1vcmUgZXhwbGljaXQgb24gdGhlIGZvcm1hdC4NCg0KPiAN
+Cj4gT2xhZg0KPiANCj4gDQoNClRoYW5rIHlvdSBPbGFmLA0KDQpLLiBZDQoNCg==
