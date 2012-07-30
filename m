@@ -1,48 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC v2 2/2] net: Add support for NTB virtual ethernet device
-Date: Mon, 30 Jul 2012 22:09:05 +0200
-Message-ID: <20120730200905.GA1673@minipsycho.orion>
-References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
- <1343607994-32415-3-git-send-email-jon.mason@intel.com>
- <20120730140216.GA1550@minipsycho.orion>
- <20120730181910.GB987@jonmason-lab>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 1/2] drivers: net: ethernet: cpsw: Add SOC dependency support for cpsw dependent modules
+Date: Tue, 31 Jul 2012 01:47:13 +0530
+Message-ID: <1343679434-2369-2-git-send-email-mugunthanvnm@ti.com>
+References: <1343679434-2369-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Jon Mason <jon.mason@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120730181910.GB987@jonmason-lab>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:58458 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754516Ab2G3UR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2012 16:17:27 -0400
+In-Reply-To: <1343679434-2369-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Jul 30, 2012 at 08:19:11PM CEST, jon.mason@intel.com wrote:
->On Mon, Jul 30, 2012 at 04:02:16PM +0200, Jiri Pirko wrote:
->> Mon, Jul 30, 2012 at 02:26:34AM CEST, jon.mason@intel.com wrote:
->> >+static int __devinit ntb_netdev_probe(struct pci_dev *pdev)
->> >+{
->> >+	struct net_device *ndev;
->> >+	struct ntb_netdev *dev;
->> >+	int rc;
->> >+
->> >+	ndev = alloc_etherdev(sizeof(struct ntb_netdev));
->> >+	if (!ndev)
->> >+		return -ENOMEM;
->> >+
->> >+	dev = netdev_priv(ndev);
->> >+	dev->ndev = ndev;
->> >+	dev->pdev = pdev;
->> >+	BUG_ON(!dev->pdev);
->> >+	ndev->features = NETIF_F_HIGHDMA;
->> >+
->> >+	//ndev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
->> 	^^ I guess you forgot to un-comment this.
->
->Oops.  An easy fix.  Anything else?
+cpsw is dependent on davinci_cpdma and davinci_mdio, so adding SOC support for
+dependent modules
 
-The rest looks good to me.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/Kconfig |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
->
->Thanks,
->Jon
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+index 1b173a6..b26cbda 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -32,7 +32,7 @@ config TI_DAVINCI_EMAC
+ 
+ config TI_DAVINCI_MDIO
+ 	tristate "TI DaVinci MDIO Support"
+-	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
+ 	select PHYLIB
+ 	---help---
+ 	  This driver supports TI's DaVinci MDIO module.
+@@ -42,7 +42,7 @@ config TI_DAVINCI_MDIO
+ 
+ config TI_DAVINCI_CPDMA
+ 	tristate "TI DaVinci CPDMA Support"
+-	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 )
++	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
+ 	---help---
+ 	  This driver supports TI's DaVinci CPDMA dma engine.
+ 
+-- 
+1.7.0.4
