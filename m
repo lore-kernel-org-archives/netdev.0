@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlge: Add offload features to vlan interfaces
-Date: Sun, 29 Jul 2012 23:18:48 -0700 (PDT)
-Message-ID: <20120729.231848.1749249366881037474.davem@davemloft.net>
-References: <1343415292-49323-1-git-send-email-brenohl@br.ibm.com>
+Subject: Re: [PATCH] ipv4: fix debug info in tnode_new
+Date: Sun, 29 Jul 2012 23:19:12 -0700 (PDT)
+Message-ID: <20120729.231912.2256527642514992781.davem@davemloft.net>
+References: <1343560795.5975.1.camel@monkey32>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jitendra.kalsaria@qlogic.com, ron.mercer@qlogic.com,
-	netdev@vger.kernel.org
-To: brenohl@br.ibm.com
+Cc: netdev@vger.kernel.org
+To: mlin@ss.pku.edu.cn
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50740 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50746 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385Ab2G3GSt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 02:18:49 -0400
-In-Reply-To: <1343415292-49323-1-git-send-email-brenohl@br.ibm.com>
+	with ESMTP id S1751166Ab2G3GTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 02:19:13 -0400
+In-Reply-To: <1343560795.5975.1.camel@monkey32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: brenohl@br.ibm.com
-Date: Fri, 27 Jul 2012 13:54:52 -0500
+From: Lin Ming <mlin@ss.pku.edu.cn>
+Date: Sun, 29 Jul 2012 19:19:55 +0800
 
-> This patch fills the net_device vlan_features with the proper hardware features,
-> thus, improving the vlan interface performance.
+> It should print size of struct rt_trie_node * allocated instead of size
+> of struct rt_trie_node.
 > 
-> With the patch applied, I can see around 148% improvement on a TCP_STREAM test,
-> from 3.5 Gb/s to 8.7 Gb/s. On TCP_RR, I see a 11% improvement, from 18k
-> to 20. The CPU utilization is almost the same on both cases, from the comparison
-> above.
-> 
-> Signed-off-by: Breno Leitao <brenohl@br.ibm.com>
+> Signed-off-by: Lin Ming <mlin@ss.pku.edu.cn>
 
 Applied.
