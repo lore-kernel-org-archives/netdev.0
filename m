@@ -1,68 +1,79 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 4/7] bridge: call NETDEV_RELEASE notifier in
-	br_del_if()
-Date: Mon, 30 Jul 2012 09:59:38 +0800
-Message-ID: <1343613578.1642.6.camel@cr0>
-References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
-	<1343403484-29347-5-git-send-email-amwang@redhat.com>
-	<20120727085021.1d4ef810@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120727085021.1d4ef810@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH v4] ipv6: fix incorrect route 'expires' value passed to userspace
+Date: Mon, 30 Jul 2012 10:01:30 +0800
+Message-ID: <1343613690-3236-1-git-send-email-lw@cn.fujitsu.com>
+References: <1343199114.2626.11088.camel@edumazet-glaptop>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Li Wei <lw@cn.fujitsu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:20161 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753886Ab2G3CDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jul 2012 22:03:10 -0400
+In-Reply-To: <1343199114.2626.11088.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-07-27 at 08:50 -0700, Stephen Hemminger wrote:
-> On Fri, 27 Jul 2012 23:38:01 +0800
-> Cong Wang <amwang@redhat.com> wrote:
-> 
-> > When a bridge interface deletes its underlying ports, it should
-> > notify netconsole too, like what bonding interface does.
-> > 
-> > Cc: "David S. Miller" <davem@davemloft.net>
-> > Signed-off-by: Cong Wang <amwang@redhat.com>
-> > ---
-> >  net/bridge/br_if.c |    1 +
-> >  1 files changed, 1 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> > index e1144e1..d243914 100644
-> > --- a/net/bridge/br_if.c
-> > +++ b/net/bridge/br_if.c
-> > @@ -427,6 +427,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
-> >  	if (!p || p->br != br)
-> >  		return -EINVAL;
-> >  
-> > +	call_netdevice_notifiers(NETDEV_RELEASE, br->dev);
-> >  	del_nbp(p);
-> >  
-> >  	spin_lock_bh(&br->lock);
-> 
-> Since you can have multiple ports attached to the bridge, this
-> doesn't seem correct. Don't you want the netconsole to keep going
-> on the other ports of the bridge?
-> 
-> What exactly is the problem with having netconsole persist?
+When userspace use RTM_GETROUTE to dump route table, with an already
+expired route entry, we always got an 'expires' value(2147157)
+calculated base on INT_MAX.
 
-Hmm, I saw an incorrect log message when deleting the last port from the
-bridge when netconsole is setup on it. After rethinking it today, you
-are right we should not simply disable netconsole when one port is
-detached, as we have no way to know if that port is used to reach the
-netconsole server.
+The reason of this problem is in the following satement:
+	rt->dst.expires - jiffies < INT_MAX
+gcc promoted the type of both sides of '<' to unsigned long, thus
+a small negative value would be considered greater than INT_MAX.
 
-So, please ignore this patch.
+With the help of Eric Dumazet, do the out of bound checks in
+rtnl_put_cacheinfo(), _after_ conversion to clock_t.
 
-Thanks.
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+---
+In fact, all the code was reconstructed by Eric, I just put the
+commit log and resent it to the maillist, thanks Eric!
+
+ net/core/rtnetlink.c |    8 ++++++--
+ net/ipv6/route.c     |    8 ++------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index bc9e380..5ff949d 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -625,9 +625,13 @@ int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst, u32 id,
+ 		.rta_id =  id,
+ 	};
+ 
+-	if (expires)
+-		ci.rta_expires = jiffies_to_clock_t(expires);
++	if (expires) {
++		unsigned long clock;
+ 
++		clock = jiffies_to_clock_t(abs(expires));
++		clock = min_t(unsigned long, clock, INT_MAX);
++		ci.rta_expires = (expires > 0) ? clock : -clock;
++	}
+ 	return nla_put(skb, RTA_CACHEINFO, sizeof(ci), &ci);
+ }
+ EXPORT_SYMBOL_GPL(rtnl_put_cacheinfo);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index cf02cb9..8e80fd2 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2480,12 +2480,8 @@ static int rt6_fill_node(struct net *net,
+ 		goto nla_put_failure;
+ 	if (nla_put_u32(skb, RTA_PRIORITY, rt->rt6i_metric))
+ 		goto nla_put_failure;
+-	if (!(rt->rt6i_flags & RTF_EXPIRES))
+-		expires = 0;
+-	else if (rt->dst.expires - jiffies < INT_MAX)
+-		expires = rt->dst.expires - jiffies;
+-	else
+-		expires = INT_MAX;
++
++	expires = (rt->rt6i_flags & RTF_EXPIRES) ? rt->dst.expires - jiffies : 0;
+ 
+ 	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, rt->dst.error) < 0)
+ 		goto nla_put_failure;
+-- 
+1.7.10.1
