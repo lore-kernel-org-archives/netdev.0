@@ -1,81 +1,45 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH 13/17] Tools: hv: Implement the KVP verb -
- KVP_OP_SET_IP_INFO
-Date: Mon, 30 Jul 2012 20:19:13 +0100
-Message-ID: <20120730191912.GH1894@decadent.org.uk>
-References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-1-git-send-email-kys@microsoft.com>
- <1343145701-3691-13-git-send-email-kys@microsoft.com>
- <20120730180326.GB533@aepfle.de>
- <426367E2313C2449837CD2DE46E7EAF9236AA7DB@SN2PRD0310MB382.namprd03.prod.outlook.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: imx6q: poor FEC Gigabit implementation
+Date: Mon, 30 Jul 2012 21:24:07 +0200
+Message-ID: <5016DF57.2060207@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olaf Hering <olaf@aepfle.de>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: KY Srinivasan <kys@microsoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:44728 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753487Ab2G3TTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 15:19:23 -0400
-Content-Disposition: inline
-In-Reply-To: <426367E2313C2449837CD2DE46E7EAF9236AA7DB@SN2PRD0310MB382.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-arm-kernel@lists.infradead.org,
+ Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 30, 2012 at 06:32:15PM +0000, KY Srinivasan wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Olaf Hering [mailto:olaf@aepfle.de]
-> > Sent: Monday, July 30, 2012 2:03 PM
-> > To: KY Srinivasan
-> > Cc: gregkh@linuxfoundation.org; linux-kernel@vger.kernel.org;
-> > devel@linuxdriverproject.org; apw@canonical.com; netdev@vger.kernel.org;
-> > ben@decadent.org.uk
-> > Subject: Re: [PATCH 13/17] Tools: hv: Implement the KVP verb -
-> > KVP_OP_SET_IP_INFO
-> > 
-> > On Tue, Jul 24, K. Y. Srinivasan wrote:
-> > 
-> > > +	/*
-> > > +	 * Set the configuration for the specified interface with
-> > > +	 * the information provided. Since there is no standard
-> > > +	 * way to configure an interface, we will have an external
-> > > +	 * script that does the job of configuring the interface and
-> > > +	 * flushing the configuration.
-> > > +	 *
-> > > +	 * The parameters passed to this external script are:
-> > > +	 * 1. A configuration file that has the specified configuration.
-> > 
-> > Maybe this should be written as 'A info file that has the requested
-> > network configuration' or something like that.
-> 
-> That is the idea. This configuration file simply reflects all the
-> information we have perhaps with some additional constant
-> information. The script is free to ignore what it does not need. 
-[...]
+Hello,
 
-This does not strike me as a sensible interface.  If scripts are
-'free to ignore' information then the KVP interface becomes unreliable
-as a means for managing networking on Linux guests.  I would suggest
-that at the least the script should be able to report that it did not
-recognise some parts of the configuration.  This would be logged
-and/or reported back to the hypervisor.
+I did some Gigabit performance measurements with the i.MX6Q Sabrelite
+board. I measure an UDP throughput of 470 Mb/s to an external host,
+which is already very close to the theoretical limit listed in the Chip
+Errata ERR004512 for the i.MX 6Dual/6Quad, Rev. C, 2/2012.
 
-(This is separate from the issue of constant configuration lines;
-for some distributions the script might recognise but ignore them
-because they have no use on that distribution.  I don't see the
-point in constant lines, but they don't seem to result in any
-unreliability.)
+At a closer look to the driver I realized that there is no support for
 
-Ben.
+  - NAPI
+  - IP checksum offloading
+  - Jumbo frames
 
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+According to the manual, these features are support by the ENET via
+enhanced buffer descriptors. Even if they will not increase the
+performance due to the mentioned system limitation, they should reduce
+the interrupt and CPU load significantly. I did some quick tests with IP
+checksum offloading and Jumbo frames but without success. Are there any
+known issues? Is anybody already working on an enhanced FEC Gigabit
+ethernet driver?
+
+TIA.
+
+Wolfgang.
