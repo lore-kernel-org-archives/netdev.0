@@ -1,46 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
-Date: Mon, 30 Jul 2012 13:51:02 +0200
-Message-ID: <1343649062.21269.23.camel@edumazet-glaptop>
-References: <50160EEF.6050406@parallels.com>  <87pq7dh6b2.fsf@xmission.com>
+From: Kozlov Dmitry <xeb@mail.ru>
+Subject: Re: [net-next,v3] GRE over IPv6
+Date: Mon, 30 Jul 2012 15:52:46 +0400
+Message-ID: <4682082.2P7rpuTCdd@dima>
+References: <1368610.TAsHNfv2Eb@comp1> <20120730143806.41f759fd@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:60246 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752456Ab2G3LvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 07:51:07 -0400
-Received: by eaak13 with SMTP id k13so1085388eaa.19
-        for <netdev@vger.kernel.org>; Mon, 30 Jul 2012 04:51:06 -0700 (PDT)
-In-Reply-To: <87pq7dh6b2.fsf@xmission.com>
+Received: from smtp2.mail.ru ([94.100.176.130]:55488 "EHLO smtp2.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752456Ab2G3Lwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jul 2012 07:52:54 -0400
+In-Reply-To: <20120730143806.41f759fd@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-07-30 at 03:49 -0700, Eric W. Biederman wrote:
-> Pavel Emelyanov <xemul@parallels.com> writes:
+On Monday 30 July 2012 14:38:06 Timo Teras wrote:
+> On Sat, 28 Jul 2012 22:12:42 -0000 xeb@mail.ru wrote:
+> > GRE over IPv6 implementation.
+> > 
+> > Signed-off-by: Dmitry Kozlov <xeb@mail.ru>
+> > 
+> > ---
+> > Changes:
+> > Initialize nt->dev before calling ip6gre_tnl_link_config in
+> > ip6gre_newlink.
+> > Add missing ip6gre.c
+> > 
+> >  include/linux/if_arp.h     |    1 +
+> >  include/linux/if_tunnel.h  |    3 +
+> >  include/linux/ip6_tunnel.h |   18 +
+> >  include/net/ip6_tunnel.h   |   40 +-
+> >  include/net/ipv6.h         |    1 +
+> >  net/ipv6/Kconfig           |   16 +
+> >  net/ipv6/Makefile          |    1 +
+> >  net/ipv6/ip6_gre.c         | 1817
+> > 
+> > ++++++++++++++++++++++++++++++++++++++++++++
+> > net/ipv6/ip6_tunnel.c      |   86 ++- 9 files changed, 1958
+> > insertions(+), 25 deletions(-)
 > 
-> > Currently the RTM_NEWLINK results in -EOPNOTSUPP if the ifinfomsg->ifi_index
-> > is not zero. I propose to allow requesting ifindices on link creation. This
-> > is required by the checkpoint-restore to correctly restore a net namespace
-> > (i.e. -- a container). The question what to do with pre-created devices such
-> > as lo or sit fbdev is open, but for manually created devices this can be 
-> > solved by this patch.
+> Would it be possible and/or feasible to instead modify ip_gre to support
+> also ipv6 as outer protocol?
 > 
-> Have you walked through and found the locations where we still rely on
-> ifindex being globally unique?
+> It already has ipv6 stuff in it for the inner protocol support. And it
+> would avoid duplicating most of the code.
 > 
-> Last time I was working in this area there were serveral places where
-> things were indexed by just the interface index.
+> And I would especially love that approach, since I could then on
+> per-target basis say if it should be contacted with IPv4 or IPv6. As in:
+> 
+>   ip addr add 10.0.0.1/24 dev gre1
+>   ip neigh add 10.0.0.2 lladdr 192.168.x.x dev gre1 nud permanent
+>   ip neigh add 10.0.0.3 lladdr fe80::xxxx:xxxx:xxxx:xxxx/64 dev gre1 nud
+> permanent
 
-Really ? This would be very strange.
-
-AFAIK dev_new_index() is always called, even in the
-dev_change_net_namespace() case if there is a conflict.
-
-And dev_new_index() could use a pernet net->ifindex instead of a
-shared/static one.
+Sounds good, but it involves too many if/else because there are much ipv4 and ipv6 specifics and code will be unreadable.
+I see only shared part is tunnel initialization and managing code.
+Tunnel lookup, receive and transmit parts are mostly different.
