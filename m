@@ -1,22 +1,19 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 2/7] netpoll: make __netpoll_cleanup non-block
-Date: Mon, 30 Jul 2012 09:42:01 +0800
-Message-ID: <1343612521.1642.2.camel@cr0>
+Subject: Re: [PATCH 4/7] bridge: call NETDEV_RELEASE notifier in
+	br_del_if()
+Date: Mon, 30 Jul 2012 09:59:38 +0800
+Message-ID: <1343613578.1642.6.camel@cr0>
 References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
-	<1343403484-29347-3-git-send-email-amwang@redhat.com>
-	<20120727184031.GB20938@hmsreliant.think-freely.org>
+	<1343403484-29347-5-git-send-email-amwang@redhat.com>
+	<20120727085021.1d4ef810@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, Jiri Pirko <jiri@resnulli.us>,
-	netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	linux-kernel@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Joe Perches <joe@perches.com>, Cong Wang <xiyou.wangcong@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120727184031.GB20938@hmsreliant.think-freely.org>
+In-Reply-To: <20120727085021.1d4ef810@nehalam.linuxnetplumber.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -28,35 +25,44 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-07-27 at 14:40 -0400, Neil Horman wrote:
-> Here, and above I see you using an rcu_head to defer cleanup, until after all
-> pointer uses are dropped, but I don't see any modification of code points that
-> dereference any struct netpoll pointers to include
-> rcu_read_lock()/rcu_read_unlock().  Without those using rcu to defer cleanup is
-> pointless, as the rcu code won't know when its safe to run.  You're no better
-> off that you would be just calling __netpoll_cleanup directly.
+On Fri, 2012-07-27 at 08:50 -0700, Stephen Hemminger wrote:
+> On Fri, 27 Jul 2012 23:38:01 +0800
+> Cong Wang <amwang@redhat.com> wrote:
+> 
+> > When a bridge interface deletes its underlying ports, it should
+> > notify netconsole too, like what bonding interface does.
+> > 
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > ---
+> >  net/bridge/br_if.c |    1 +
+> >  1 files changed, 1 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> > index e1144e1..d243914 100644
+> > --- a/net/bridge/br_if.c
+> > +++ b/net/bridge/br_if.c
+> > @@ -427,6 +427,7 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+> >  	if (!p || p->br != br)
+> >  		return -EINVAL;
+> >  
+> > +	call_netdevice_notifiers(NETDEV_RELEASE, br->dev);
+> >  	del_nbp(p);
+> >  
+> >  	spin_lock_bh(&br->lock);
+> 
+> Since you can have multiple ports attached to the bridge, this
+> doesn't seem correct. Don't you want the netconsole to keep going
+> on the other ports of the bridge?
+> 
+> What exactly is the problem with having netconsole persist?
 
-Hi, Neil,
+Hmm, I saw an incorrect log message when deleting the last port from the
+bridge when netconsole is setup on it. After rethinking it today, you
+are right we should not simply disable netconsole when one port is
+detached, as we have no way to know if that port is used to reach the
+netconsole server.
 
-Actually they are protected by rcu_read_lock_bh() which is implied by
-local_irq_disable(), see:
-
-commit f0f9deae9e7c421fa0c1c627beb8e174325e1ba7
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Fri Sep 17 16:55:03 2010 -0700
-
-    netpoll: Disable IRQ around RCU dereference in netpoll_rx
-    
-    We cannot use rcu_dereference_bh safely in netpoll_rx as we may
-    be called with IRQs disabled.  We could however simply disable
-    IRQs as that too causes BH to be disabled and is safe in either
-    case.
-    
-    Thanks to John Linville for discovering this bug and providing
-    a patch.
-    
-    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
+So, please ignore this patch.
 
 Thanks.
