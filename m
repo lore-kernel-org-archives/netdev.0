@@ -1,45 +1,43 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net,1/1] hyperv: Add support for setting MAC from within
- guests
-Date: Mon, 30 Jul 2012 19:48:06 +0000
-Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DDF7B24@TK5EX14MBXC223.redmond.corp.microsoft.com>
-References: <1341940762-18307-1-git-send-email-haiyangz@microsoft.com>
- <20120730123927.GA29459@aepfle.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH iproute2] ss: Report MSS from internal TCP information
+Date: Mon, 30 Jul 2012 20:51:07 +0100
+Message-ID: <1343677867.2667.33.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120730123927.GA29459@aepfle.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:46836 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754257Ab2G3TvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 15:51:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
-aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogTW9uZGF5LCBKdWx5IDMwLCAyMDEyIDg6Mzkg
-QU0NCj4gVG86IEhhaXlhbmcgWmhhbmcNCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmc7IEtZIFNyaW5pdmFzYW47IGxpbnV4LQ0KPiBrZXJuZWxAdmdlci5r
-ZXJuZWwub3JnOyBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnDQo+IFN1YmplY3Q6IFJlOiBb
-UEFUQ0ggbmV0LDEvMV0gaHlwZXJ2OiBBZGQgc3VwcG9ydCBmb3Igc2V0dGluZyBNQUMgZnJvbQ0K
-PiB3aXRoaW4gZ3Vlc3RzDQo+IA0KPiBPbiBUdWUsIEp1bCAxMCwgSGFpeWFuZyBaaGFuZyB3cm90
-ZToNCj4gDQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9ybmRpc19maWx0ZXIu
-Yw0KPiA+IGIvZHJpdmVycy9uZXQvaHlwZXJ2L3JuZGlzX2ZpbHRlci5jDQo+ID4gaW5kZXggOTgx
-ZWJiMS4uZmJmNTM5NCAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9oeXBlcnYvcm5kaXNf
-ZmlsdGVyLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9oeXBlcnYvcm5kaXNfZmlsdGVyLmMNCj4g
-PiBAQCAtNDcsNiArNDgsNyBAQCBzdHJ1Y3Qgcm5kaXNfcmVxdWVzdCB7DQo+ID4gIAlzdHJ1Y3Qg
-aHZfcGFnZV9idWZmZXIgYnVmOw0KPiA+ICAJLyogRklYTUU6IFdlIGFzc3VtZWQgYSBmaXhlZCBz
-aXplIHJlcXVlc3QgaGVyZS4gKi8NCj4gPiAgCXN0cnVjdCBybmRpc19tZXNzYWdlIHJlcXVlc3Rf
-bXNnOw0KPiA+ICsJdTggZXh0WzEwMF07DQo+IA0KPiBUaGlzIGFycmF5IGlzIG5vdCByZWZlcmVu
-Y2VkIGluIHRoZSBwYXRjaC4NCj4gUGxlYXNlIGFkZCBhIGNvbW1lbnQgdG8gdGhlIGNvZGUgd2hh
-dCB0aGUgcHVycG9zZSBvZiB0aGlzIGFycmF5IGlzLCBhbmQgd2h5DQo+IGl0cyBzaXplIGlzIDEw
-MCBieXRlcy4NCg0KSXQncyBhIGJ1ZmZlciBmb3IgdGhlIGV4dGVuZGVkIGluZm8gYWZ0ZXIgdGhl
-IFJORElTIG1lc3NhZ2UuIEl0J3MgcmVmZXJlbmNlZCBiYXNlZA0Kb24gdGhlIGRhdGEgb2Zmc2V0
-IGluIHRoZSBSTkRJUyBtZXNzYWdlLiAxMDAgYnl0ZSBzaXplIGlzIGVub3VnaCBmb3IgY3VycmVu
-dCBuZWVkcywgDQphbmQgc2hvdWxkIGJlIHN1ZmZpY2llbnQgZm9yIHRoZSBuZWFyIGZ1dHVyZS4N
-Cg0KSSB3aWxsIGFkZCBhIGNvbW1lbnQgdG8gdGhlIGNvZGUuDQoNClRoYW5rcywNCi0gSGFpeWFu
-Zw0KDQo=
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ misc/ss.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index cf529ef..8ad830b 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1392,6 +1392,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
+ 			       (double)info->tcpi_rttvar/1000);
+ 		if (info->tcpi_ato)
+ 			printf(" ato:%g", (double)info->tcpi_ato/1000);
++		if (info->tcpi_snd_mss)
++			printf(" mss:%d", info->tcpi_snd_mss);
+ 		if (info->tcpi_snd_cwnd != 2)
+ 			printf(" cwnd:%d", info->tcpi_snd_cwnd);
+ 		if (info->tcpi_snd_ssthresh < 0xFFFF)
+-- 
+1.7.7.6
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
