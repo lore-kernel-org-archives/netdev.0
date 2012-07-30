@@ -1,69 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
-Date: Mon, 30 Jul 2012 05:33:05 -0700
-Message-ID: <87k3xlfmym.fsf@xmission.com>
-References: <50160EEF.6050406@parallels.com> <87pq7dh6b2.fsf@xmission.com>
-	<1343649062.21269.23.camel@edumazet-glaptop>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH net,1/1] hyperv: Add support for setting MAC from within
+ guests
+Date: Mon, 30 Jul 2012 14:39:27 +0200
+Message-ID: <20120730123927.GA29459@aepfle.de>
+References: <1341940762-18307-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:45261 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628Ab2G3MdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 08:33:14 -0400
-In-Reply-To: <1343649062.21269.23.camel@edumazet-glaptop> (Eric Dumazet's
-	message of "Mon, 30 Jul 2012 13:51:02 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kys@microsoft.com,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1341940762-18307-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On Tue, Jul 10, Haiyang Zhang wrote:
 
-> On Mon, 2012-07-30 at 03:49 -0700, Eric W. Biederman wrote:
->> Pavel Emelyanov <xemul@parallels.com> writes:
->> 
->> > Currently the RTM_NEWLINK results in -EOPNOTSUPP if the ifinfomsg->ifi_index
->> > is not zero. I propose to allow requesting ifindices on link creation. This
->> > is required by the checkpoint-restore to correctly restore a net namespace
->> > (i.e. -- a container). The question what to do with pre-created devices such
->> > as lo or sit fbdev is open, but for manually created devices this can be 
->> > solved by this patch.
->> 
->> Have you walked through and found the locations where we still rely on
->> ifindex being globally unique?
->> 
->> Last time I was working in this area there were serveral places where
->> things were indexed by just the interface index.
->
-> Really ? This would be very strange.
+> diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+> index 981ebb1..fbf5394 100644
+> --- a/drivers/net/hyperv/rndis_filter.c
+> +++ b/drivers/net/hyperv/rndis_filter.c
+> @@ -47,6 +48,7 @@ struct rndis_request {
+>  	struct hv_page_buffer buf;
+>  	/* FIXME: We assumed a fixed size request here. */
+>  	struct rndis_message request_msg;
+> +	u8 ext[100];
 
-There at least were places that used oif or iff without being pernet
-last time I was working on this.
+This array is not referenced in the patch.
+Please add a comment to the code what the purpose of this array is, and
+why its size is 100 bytes.
 
-It was never code that I understood particularly well so my memory of
-what that code is, is unfortunately fuzzy.
+Thanks.
 
-> AFAIK dev_new_index() is always called, even in the
-> dev_change_net_namespace() case if there is a conflict.
-
-Except we never have a conflict because it takes an absurd number of
-network devices to cause a 32bit counter to wrap.
-
-> And dev_new_index() could use a pernet net->ifindex instead of a
-> shared/static one.
-
-Yes.  I made all of the core changes, and held back on making
-dev_new_index() use a pernet net->ifindex because of a couple of problem
-cases.
-
-It has been a long time and those cases might have been fixed.
-
-I'm not seeing anything obvious in the network stack with a quick skim,
-but before we start relying on the property that interface indicies are
-not globally unique I expect an good hard look at the networking stack
-to see if any of those cases where there were problems still exist.
-
-Eric
+Olaf
