@@ -1,74 +1,43 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Mon, 30 Jul 2012 11:15:42 -0700
-Message-ID: <20120730181542.GA987@jonmason-lab>
+Subject: Re: [RFC v2 2/2] net: Add support for NTB virtual ethernet device
+Date: Mon, 30 Jul 2012 11:19:11 -0700
+Message-ID: <20120730181910.GB987@jonmason-lab>
 References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
- <1343607994-32415-2-git-send-email-jon.mason@intel.com>
- <CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
+ <1343607994-32415-3-git-send-email-jon.mason@intel.com>
+ <20120730140216.GA1550@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <20120730140216.GA1550@minipsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 30, 2012 at 10:50:13AM -0600, Bjorn Helgaas wrote:
-> On Sun, Jul 29, 2012 at 6:26 PM, Jon Mason <jon.mason@intel.com> wrote:
-> > A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
-> > connecting 2 systems, providing electrical isolation between the two subsystems.
-> > A non-transparent bridge is functionally similar to a transparent bridge except
-> > that both sides of the bridge have their own independent address domains.  The
-> > host on one side of the bridge will not have the visibility of the complete
-> > memory or I/O space on the other side of the bridge.  To communicate across the
-> > non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
-> > the local system.  Writes to these apertures are mirrored to memory on the
-> > remote system.  Communications can also occur through the use of doorbell
-> > registers that initiate interrupts to the alternate domain, and scratch-pad
-> > registers accessible from both sides.
-> >
-> > The NTB device driver is needed to configure these memory windows, doorbell, and
-> > scratch-pad registers as well as use them in such a way as they can be turned
-> > into a viable communication channel to the remote system.  ntb_hw.[ch]
-> > determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
-> > the underlying hardware to provide access and a common interface to the doorbell
-> > registers, scratch pads, and memory windows.  These hardware interfaces are
-> > exported so that other, non-mainlined kernel drivers can access these.
-> > ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
-> > communication channel(s) and provide a reliable way of transferring data from
-> > one side to the other, which it then exports so that "client" drivers can access
-> > them.  These client drivers are used to provide a standard kernel interface
-> > (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
-> > system to the other in a standard way.
-> >
-> > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > ---
-> >  MAINTAINERS                 |    6 +
-> >  drivers/Kconfig             |    2 +
-> >  drivers/Makefile            |    1 +
-> >  drivers/ntb/Kconfig         |   13 +
-> >  drivers/ntb/Makefile        |    3 +
-> >  drivers/ntb/ntb_hw.c        | 1178 ++++++++++++++++++++++++++++++++++++
-> >  drivers/ntb/ntb_hw.h        |  206 +++++++
-> >  drivers/ntb/ntb_regs.h      |  150 +++++
-> >  drivers/ntb/ntb_transport.c | 1387 +++++++++++++++++++++++++++++++++++++++++++
-> >  include/linux/ntb.h         |   92 +++
-> 
-> Where will drivers for non-Intel NTBs fit in this hierarchy?  It seems
-> a bit presumptuous to claim the generic "ntb" names just for Intel
-> devices.
+On Mon, Jul 30, 2012 at 04:02:16PM +0200, Jiri Pirko wrote:
+> Mon, Jul 30, 2012 at 02:26:34AM CEST, jon.mason@intel.com wrote:
+> >+static int __devinit ntb_netdev_probe(struct pci_dev *pdev)
+> >+{
+> >+	struct net_device *ndev;
+> >+	struct ntb_netdev *dev;
+> >+	int rc;
+> >+
+> >+	ndev = alloc_etherdev(sizeof(struct ntb_netdev));
+> >+	if (!ndev)
+> >+		return -ENOMEM;
+> >+
+> >+	dev = netdev_priv(ndev);
+> >+	dev->ndev = ndev;
+> >+	dev->pdev = pdev;
+> >+	BUG_ON(!dev->pdev);
+> >+	ndev->features = NETIF_F_HIGHDMA;
+> >+
+> >+	//ndev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+> 	^^ I guess you forgot to un-comment this.
 
-I've tried to make it all generic enough that non-Intel NTBs should plug in with
-minimal changes to ntb_hw.c.  If their design is too divergent, then a slight
-redesign of ntb_hw.c might be necessary.  But from what I've seen of other
-designs on the internet, they appear to be extremely similar.  The transport and
-client drivers were written with the hardware abstracted away as much as
-possible to prevent the need to modify it for different hardware.  If there is
-anything which is Intel hardware specific, I'd be happy to change it to make it
-more generic.
+Oops.  An easy fix.  Anything else?
 
 Thanks,
 Jon
