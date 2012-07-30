@@ -1,23 +1,23 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC V5 4/5] virtio_net: multiqueue support
-Date: Mon, 30 Jul 2012 11:29:43 +0800
-Message-ID: <5015FFA7.5090509@redhat.com>
+Subject: Re: [net-next RFC V5 2/5] virtio_ring: move queue_index to
+	vring_virtqueue
+Date: Mon, 30 Jul 2012 11:30:38 +0800
+Message-ID: <5015FFDE.5030007@redhat.com>
 References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-5-git-send-email-jasowang@redhat.com>
-	<20120720134014.GD16550@redhat.com> <500A9A72.20507@gmail.com>
-	<500CE72B.2040101@redhat.com> <500D1926.5020407@gmail.com>
+	<1341484194-8108-3-git-send-email-jasowang@redhat.com>
+	<1341488454.18786.15.camel@lappy> <5010FDB2.5040505@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org, mashirle@us.ibm.com,
+	linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: Sasha Levin <levinsasha928@gmail.com>
+	Sasha Levin <levinsasha928@gmail.com>, jwhan@filewood.snu.ac.kr,
+	sri@us.ibm.com, davem@davemloft.net, tahm@linux.vnet.ibm.com
+To: Paolo Bonzini <pbonzini@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <500D1926.5020407@gmail.com>
+In-Reply-To: <5010FDB2.5040505@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -29,27 +29,25 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 07/23/2012 05:28 PM, Sasha Levin wrote:
-> On 07/23/2012 07:54 AM, Jason Wang wrote:
->> On 07/21/2012 08:02 PM, Sasha Levin wrote:
->>> On 07/20/2012 03:40 PM, Michael S. Tsirkin wrote:
->>>>> -    err = init_vqs(vi);
->>>>>> +    if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->>>>>> +        vi->has_cvq = true;
->>>>>> +
->>>> How about we disable multiqueue if there's no cvq?
->>>> Will make logic a bit simpler, won't it?
->>> multiqueues don't really depend on cvq. Does this added complexity really justifies adding an artificial limit?
->>>
->> Yes, it does not depends on cvq. Cvq were just used to negotiate the number of queues a guest wishes to use which is really useful (at least for now). Since multiqueue can not out-perform for single queue in every kinds of workloads or benchmark, so we want to let guest driver use single queue by default even when multiqueue were enabled by management software and let use to enalbe it through ethtool. So user could not feel regression when it switch to use a multiqueue capable driver and backend.
-> Why would you limit it to a single vq if the user has specified a different number of vqs (>1) in the virtio-net device config?
+On 07/26/2012 04:20 PM, Paolo Bonzini wrote:
+> Il 05/07/2012 13:40, Sasha Levin ha scritto:
+>> @@ -275,7 +274,7 @@ static void vm_del_vq(struct virtqueue *vq)
+>>          vring_del_virtqueue(vq);
+>>
+>>          /* Select and deactivate the queue */
+>> -       writel(info->queue_index, vm_dev->base + VIRTIO_MMIO_QUEUE_SEL);
+>> +       writel(virtqueue_get_queue_index(vq), vm_dev->base + VIRTIO_MMIO_QUEUE_SEL);
+>>          writel(0, vm_dev->base + VIRTIO_MMIO_QUEUE_PFN);
+>>
+> This accesses vq after vring_del_virtqueue has freed it.
+>
+> Paolo
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
 
-The only reason is to prevent the user from seeing the regression. The 
-performance of small packet sending is wrose than single queue, it tends 
-to send more but small packets when multiqueue is enabled. If we make 
-multiqueue bahave as good as single queue, we can remove this limit.
+Yes, so need a temporary variable before vring_del_virtqueue().
+
+Thanks.
