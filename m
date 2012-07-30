@@ -1,62 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next RFC V5 4/5] virtio_net: multiqueue support
-Date: Mon, 30 Jul 2012 13:15:00 +0800
-Message-ID: <50161854.6050705@redhat.com>
-References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
-	<1341484194-8108-5-git-send-email-jasowang@redhat.com>
-	<20120720134014.GD16550@redhat.com> <500CE5B3.3040404@redhat.com>
-	<20120729095021.GC8977@redhat.com>
+From: Mathias Krause <minipli@googlemail.com>
+Subject: Re: [PATCH] net/tun: fix ioctl() based info leaks
+Date: Mon, 30 Jul 2012 07:38:37 +0200
+Message-ID: <CA+rthh9WDNAvDQz-3nzCWhRX97j7B79i61eax0GSNPV4nkUZSQ@mail.gmail.com>
+References: <1343595494-10414-1-git-send-email-minipli@googlemail.com>
+	<CAFLxGvwUNxOn3vRLdJeS6hVZ_Oko0_QPZfLWAe+ztCHGdqBFOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, mashirle@us.ibm.com,
-	kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, sri@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20120729095021.GC8977@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: richard -rw- weinberger <richard.weinberger@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:59845 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751166Ab2G3Fii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 01:38:38 -0400
+Received: by pbbrp8 with SMTP id rp8so9245054pbb.19
+        for <netdev@vger.kernel.org>; Sun, 29 Jul 2012 22:38:37 -0700 (PDT)
+In-Reply-To: <CAFLxGvwUNxOn3vRLdJeS6hVZ_Oko0_QPZfLWAe+ztCHGdqBFOw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/29/2012 05:50 PM, Michael S. Tsirkin wrote:
-> On Mon, Jul 23, 2012 at 01:48:35PM +0800, Jason Wang wrote:
->>>> +	}
->>>>
->>>> -	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
->>>> +	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
->>>> +					 (const char **)names);
->>>> +	if (ret)
->>>> +		goto err;
->>>> +
->>>> +	if (vi->has_cvq)
->>>>   		vi->cvq = vqs[2];
->>>>
->>>> -		if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VLAN))
->>>> -			vi->dev->features |= NETIF_F_HW_VLAN_FILTER;
->>>> +	for (i = 0; i<   vi->num_queue_pairs * 2; i += 2) {
->>>> +		int j = i == 0 ? i : i + vi->has_cvq;
->>>> +		vi->rq[i / 2]->vq = vqs[j];
->>>> +		vi->sq[i / 2]->vq = vqs[j + 1];
->>> Same here.
->> Consider the code is really simple, seem no need to use helpers.
-> Well it was not simple to at least one reader :)
-> The problem is not this logic is complex,
-> it is that it is spread all over the code.
+On Mon, Jul 30, 2012 at 1:11 AM, richard -rw- weinberger
+<richard.weinberger@gmail.com> wrote:
+> On Sun, Jul 29, 2012 at 10:58 PM, Mathias Krause <minipli@googlemail.com> wrote:
+>> -       if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
+>> +       if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89) {
+>>                 if (copy_from_user(&ifr, argp, ifreq_len))
+>>                         return -EFAULT;
+>> +       } else {
+>> +               memset(&ifr, 0, sizeof(ifr));
+>> +       }
+>>
+>>         if (cmd == TUNGETFEATURES) {
+>>                 /* Currently this just means: "what IFF flags are valid?".
 >
-> If we had e.g. vnet_tx_vqn_to_queuenum vnet_tx_queuenum_to_vqn
-> and same for rx, then the logic would all be
-> in one place, and have a tidy comment on top explaining
-> the VQ numbering scheme.
+> The fix makes sense to me.
 >
+> Beside of the fix, why are you adding braces to if and else?
 
-Looks reasonable, thanks.
+The pair of braces around the "if" is needed to attach the "else"
+branch to the right "if". The braces around the "else" are just for
+consistency.
+
+> We don't use braces on single statements.
+
+Even tun.c isn't consistently following this rule but I'll send a new
+patch without the "else" braces.
+
+
+Thanks,
+Mathias
