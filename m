@@ -1,71 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net/tun: fix ioctl() based info leaks
-Date: Mon, 30 Jul 2012 08:22:20 +0200
-Message-ID: <1343629340.2626.13268.camel@edumazet-glaptop>
-References: <CAFLxGvwUNxOn3vRLdJeS6hVZ_Oko0_QPZfLWAe+ztCHGdqBFOw@mail.gmail.com>
-	 <1343627114-17899-1-git-send-email-minipli@googlemail.com>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: Re: [net-next RFC V5 3/5] virtio: intorduce an API to set affinity
+	for a virtqueue
+Date: Mon, 30 Jul 2012 08:27:54 +0200
+Message-ID: <5016296A.5070809@redhat.com>
+References: <1341484194-8108-1-git-send-email-jasowang@redhat.com>
+	<1341484194-8108-4-git-send-email-jasowang@redhat.com>
+	<5012A7D3.4040800@redhat.com> <20120729204030.GB13802@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	richard -rw- weinberger <richard.weinberger@gmail.com>,
-	netdev@vger.kernel.org
-To: Mathias Krause <minipli@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:65099 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529Ab2G3GW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 02:22:26 -0400
-Received: by weyx8 with SMTP id x8so3375530wey.19
-        for <netdev@vger.kernel.org>; Sun, 29 Jul 2012 23:22:24 -0700 (PDT)
-In-Reply-To: <1343627114-17899-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: krkumar2@in.ibm.com, habanero@linux.vnet.ibm.com, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, mashirle@us.ibm.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	tahm@linux.vnet.ibm.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, sri@us.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120729204030.GB13802@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-07-30 at 07:45 +0200, Mathias Krause wrote:
-> The tun module leaks up to 36 bytes of memory by not fully initializing
-> a structure located on the stack that gets copied to user memory by the
-> TUNGETIFF and SIOCGIFHWADDR ioctl()s.
+Il 29/07/2012 22:40, Michael S. Tsirkin ha scritto:
+>> > Did you set the affinity manually in your experiments, or perhaps there
+>> > is a difference between scsi and networking... (interrupt mitigation?)
 > 
-> Signed-off-by: Mathias Krause <minipli@googlemail.com>
-> ---
-> v2:
-> - removed braces around else branch
-> - minor adjustment of the commit message
-> 
->  drivers/net/tun.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 987aeef..01255ff 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1252,9 +1252,11 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
->  	int vnet_hdr_sz;
->  	int ret;
->  
-> -	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
-> +	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89) {
->  		if (copy_from_user(&ifr, argp, ifreq_len))
->  			return -EFAULT;
-> +	} else
-> +		memset(&ifr, 0, sizeof(ifr));
->  
->  	if (cmd == TUNGETFEATURES) {
->  		/* Currently this just means: "what IFF flags are valid?".
+> You need to run irqbalancer in guest to make it actually work. Do you?
 
+Yes, of course, now on to debugging that one.  I just wanted to ask
+before the weekend if I was missing something as obvious as that.
 
-Actually braces were better
-
-vi +169 Documentation/CodingStyle
-
-This does not apply if only one branch of a conditional statement is a
-single
-statement; in the latter case use braces in both branches:
-
-if (condition) {
-        do_this();
-        do_that();
-} else {
-        otherwise();
-}
+Paolo
