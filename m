@@ -1,227 +1,223 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: v3.5: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Date: 30 Jul 2012 15:02:36 -0400
-Message-ID: <20120730190236.30339.qmail@science.horizon.com>
-Cc: linux@horizon.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([71.41.210.146]:13559 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753938Ab2G3TJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 15:09:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 13/17] Tools: hv: Implement the KVP verb -
+ KVP_OP_SET_IP_INFO
+Date: Mon, 30 Jul 2012 19:12:22 +0000
+Message-ID: <426367E2313C2449837CD2DE46E7EAF9236AA80F@SN2PRD0310MB382.namprd03.prod.outlook.com>
+References: <1343145672-3641-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-1-git-send-email-kys@microsoft.com>
+ <1343145701-3691-13-git-send-email-kys@microsoft.com>
+ <20120730173323.GA533@aepfle.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120730173323.GA533@aepfle.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This actually isn't new to 3.5, but I figured I'd mention it again
-anyway.  The machine serves firewalll duty.  A quad-tulip fast ethernet
-card serves the external interfaces and DMZ, while an on-board Realtek
-gigabit interface serves the main LAN.  The latter is hitting a transmit
-queue timeout.
-
-02:00.0 Ethernet controller [0200]: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller [10ec:8168] (rev 01)
-
-Soon after startup, the following WARN_ONCE triggers:
-
-r8169 0000:02:00.0: inside: link down
-r8169 0000:02:00.0: inside: link down
-IPv6: ADDRCONF(NETDEV_UP): inside: link is not ready
-r8169 0000:02:00.0: inside: link up
-IPv6: ADDRCONF(NETDEV_CHANGE): inside: link becomes ready
-net dmz: Setting full-duplex based on MII#1 link partner capability of 45e1
-net cable: Setting full-duplex based on MII#1 link partner capability of 41e1
-postgres (5652): /proc/5652/oom_adj is deprecated, please use /proc/5652/oom_score_adj instead.
-pps pps0: new PPS source serial3 at ID 0
-pps pps0: source "/dev/ttyS3" added
-pps pps1: new PPS source serial4 at ID 1
-pps pps1: source "/dev/ttyS4" added
-device cable entered promiscuous mode
-device dmz entered promiscuous mode
-nf_conntrack: automatic helper assignment is deprecated and it will be removed soon. Use the iptables CT target to attach helpers instead.
-ntop[6305]: segfault at 0 ip 00000000f750644b sp 00000000f01fbd50 error 4 in libntop-4.99.3.so[f74bf000+7e000]
-device cable left promiscuous mode
-device dmz left promiscuous mode
-------------[ cut here ]------------
-WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0xe9/0x15c()
-Hardware name: MS-7376
-NETDEV WATCHDOG: inside (r8169): transmit queue 0 timed out
-Pid: 0, comm: swapper/3 Not tainted 3.5.0-00020-g7bd6501 #160
-Call Trace:
- <IRQ>  [<ffffffff8131d16e>] ? dev_watchdog+0xe9/0x15c
- [<ffffffff810254bd>] ? warn_slowpath_common+0x71/0x85
- [<ffffffff8131d085>] ? netif_tx_lock+0x7a/0x7a
- [<ffffffff81025535>] ? warn_slowpath_fmt+0x45/0x4a
- [<ffffffff8103ce9c>] ? hrtimer_interrupt+0x100/0x1a4
- [<ffffffff8131d072>] ? netif_tx_lock+0x67/0x7a
- [<ffffffff8131d16e>] ? dev_watchdog+0xe9/0x15c
- [<ffffffff8104e764>] ? clockevents_program_event+0x9a/0xb6
- [<ffffffff8102e9bc>] ? run_timer_softirq+0x17e/0x20b
- [<ffffffff8102a945>] ? __do_softirq+0x80/0x102
- [<ffffffff81411d4c>] ? call_softirq+0x1c/0x30
- [<ffffffff810032f4>] ? do_softirq+0x2c/0x60
- [<ffffffff8102ab78>] ? irq_exit+0x3a/0x91
- [<ffffffff81003141>] ? do_IRQ+0x81/0x97
- [<ffffffff81410367>] ? common_interrupt+0x67/0x67
- <EOI>  [<ffffffff81007d63>] ? default_idle+0x1e/0x32
- [<ffffffff81007e87>] ? amd_e400_idle+0xb7/0xd4
- [<ffffffff81008501>] ? cpu_idle+0x58/0x98
----[ end trace 9ca7e03889ac2abb ]---
-r8169 0000:02:00.0: inside: link up
-udevd[30490]: starting version 175
-UDP: short packet: From 151.60.217.248:59748 27692/73 to 71.41.210.146:43935
-r8169 0000:02:00.0: inside: link up
-
-There are a few local patches, but only two are anywhere close to the
-network interface, and they are test patches designed to fix this.
-Should I get rid of them?
-
-It's a production system, so I don't like to bounce it too often, but I can
-test after hours.
-
-One local patch I've thought about writing is something to count
-how often this happens (probably in sysfs).
-
-commit 526ef2edd6ffb8f529256a033ca3a266530739d3
-Author: Francois Romieu <romieu@fr.zoreil.com>
-Date:   Wed May 23 22:18:35 2012 +0200
-
-    r8169: avoid clearing the end of Tx descriptor ring marker bit.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index d7a04e0..9c35130 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5346,7 +5346,7 @@ static void rtl8169_unmap_tx_skb(struct device *d, struct ring_info *tx_skb,
- 
- 	dma_unmap_single(d, le64_to_cpu(desc->addr), len, DMA_TO_DEVICE);
- 
--	desc->opts1 = 0x00;
-+	desc->opts1 &= cpu_to_le32(RingEnd);
- 	desc->opts2 = 0x00;
- 	desc->addr = 0x00;
- 	tx_skb->len = 0;
-
-
-commit 7bd6501f52c2c0382b41fe77b9bd003ff768a44c
-Author: Francois Romieu <romieu@fr.zoreil.com>
-Date:   Wed May 23 23:21:13 2012 +0200
-
-    r8169: TxPoll hack rework.
-    
-    I don't want to try and convince myself that it is completely safe to
-    issue a TxPoll request from the NAPI handler right in the middle of
-    a start_xmit, whence the tx_lock.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 9c35130..be5cd33 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5545,19 +5545,20 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 	status = opts[0] | len | (RingEnd * !((entry + 1) % NUM_TX_DESC));
- 	txd->opts1 = cpu_to_le32(status);
- 
-+	smp_wmb();
-+
- 	tp->cur_tx += frags + 1;
- 
--	wmb();
-+	smp_wmb();
- 
- 	RTL_W8(TxPoll, NPQ);
- 
- 	mmiowb();
- 
- 	if (!TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
--		/* Avoid wrongly optimistic queue wake-up: rtl_tx thread must
--		 * not miss a ring update when it notices a stopped queue.
--		 */
--		smp_wmb();
-+		/* rtl_tx thread must not miss a ring update when it notices
-+		 * a stopped queue. The TxPoll hack requires the smp_wmb
-+		 * above so we can go ahead. */
- 		netif_stop_queue(dev);
- 		/* Sync with rtl_tx:
- 		 * - publish queue status and cur_tx ring index (write barrier)
-@@ -5641,22 +5642,36 @@ struct rtl_txc {
- static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- {
- 	struct rtl8169_stats *tx_stats = &tp->tx_stats;
--	unsigned int dirty_tx, tx_left;
-+	unsigned int dirty_tx, cur_tx;
- 	struct rtl_txc txc = { 0, 0 };
- 
- 	dirty_tx = tp->dirty_tx;
--	smp_rmb();
--	tx_left = tp->cur_tx - dirty_tx;
--
--	while (tx_left > 0) {
-+xmit_race:
-+	for (cur_tx = tp->cur_tx; dirty_tx != cur_tx; dirty_tx++) {
- 		unsigned int entry = dirty_tx % NUM_TX_DESC;
- 		struct ring_info *tx_skb = tp->tx_skb + entry;
- 		u32 status;
- 
--		rmb();
- 		status = le32_to_cpu(tp->TxDescArray[entry].opts1);
--		if (status & DescOwn)
-+
-+		/* 8168 (only ?) hack: TxPoll requests are lost when the Tx
-+		 * packets are too close. Let's kick an extra TxPoll request
-+		 * when a burst of start_xmit activity is detected (if it is
-+		 * not detected, it is slow enough).
-+		 * The NPQ bit is cleared automatically by the chipset.
-+		 * The code assumes that the chipset is sane enough to clear
-+		 * it at a sensible time.*/
-+		if (unlikely(status & DescOwn)) {
-+			void __iomem *ioaddr = tp->mmio_addr;
-+
-+			if (!(RTL_R8(TxPoll) & NPQ)) {
-+				netif_tx_lock(dev);
-+				RTL_W8(TxPoll, NPQ);
-+				netif_tx_unlock(dev);
-+				goto done;
-+			}
- 			break;
-+		}
- 
- 		rtl8169_unmap_tx_skb(&tp->pci_dev->dev, tx_skb,
- 				     tp->TxDescArray + entry);
-@@ -5668,10 +5683,15 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 			dev_kfree_skb(skb);
- 			tx_skb->skb = NULL;
- 		}
--		dirty_tx++;
--		tx_left--;
- 	}
- 
-+	/* Rationale: if chipset stopped DMAing, enforce TxPoll write either
-+	 * here or in start_xmit. If chipset is still DMAing, this code
-+	 * will be run later anyway. */
-+	smp_mb();
-+	if (cur_tx != tp->cur_tx)
-+		goto xmit_race;
-+done:
- 	u64_stats_update_begin(&tx_stats->syncp);
- 	tx_stats->packets += txc.packets;
- 	tx_stats->bytes += txc.bytes;
-@@ -5693,17 +5713,6 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
- 			netif_wake_queue(dev);
- 		}
--		/*
--		 * 8168 hack: TxPoll requests are lost when the Tx packets are
--		 * too close. Let's kick an extra TxPoll request when a burst
--		 * of start_xmit activity is detected (if it is not detected,
--		 * it is slow enough). -- FR
--		 */
--		if (tp->cur_tx != dirty_tx) {
--			void __iomem *ioaddr = tp->mmio_addr;
--
--			RTL_W8(TxPoll, NPQ);
--		}
- 	}
- }
- 
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
+aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogTW9uZGF5LCBKdWx5IDMwLCAyMDEyIDE6MzMg
+UE0NCj4gVG86IEtZIFNyaW5pdmFzYW4NCj4gQ2M6IGdyZWdraEBsaW51eGZvdW5kYXRpb24ub3Jn
+OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2pl
+Y3Qub3JnOyBhcHdAY2Fub25pY2FsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gYmVu
+QGRlY2FkZW50Lm9yZy51aw0KPiBTdWJqZWN0OiBSZTogW1BBVENIIDEzLzE3XSBUb29sczogaHY6
+IEltcGxlbWVudCB0aGUgS1ZQIHZlcmIgLQ0KPiBLVlBfT1BfU0VUX0lQX0lORk8NCj4gDQo+IE9u
+IFR1ZSwgSnVsIDI0LCBLLiBZLiBTcmluaXZhc2FuIHdyb3RlOg0KPiANCj4gPiArc3RhdGljIGNo
+YXIgKmt2cF9nZXRfaWZfbmFtZShjaGFyICpndWlkKQ0KPiA+ICt7DQo+ID4gKwlESVIgKmRpcjsN
+Cj4gPiArCXN0cnVjdCBkaXJlbnQgKmVudHJ5Ow0KPiA+ICsJRklMRSAgICAqZmlsZTsNCj4gPiAr
+CWNoYXIgICAgKnAsICpxLCAqeDsNCj4gPiArCWNoYXIgICAgKmlmX25hbWUgPSBOVUxMOw0KPiA+
+ICsJY2hhciAgICBidWZbMjU2XTsNCj4gPiArCWNoYXIgKmt2cF9uZXRfZGlyID0gIi9zeXMvY2xh
+c3MvbmV0LyI7DQo+ID4gKwljaGFyIGRldl9pZFsxMDBdOw0KPiANCj4gUGVyaGFwcyB0aGlzIGNh
+biBiZSB3cml0dGVuIGFzIGNoYXIgZGV2X2lkWzEwMF0gPSAic2hvcnQgc3RyaW5nIjs/DQoNCldo
+eT8NCg0KPiANCj4gPiArDQo+ID4gKwlkaXIgPSBvcGVuZGlyKGt2cF9uZXRfZGlyKTsNCj4gPiAr
+CWlmIChkaXIgPT0gTlVMTCkNCj4gPiArCQlyZXR1cm4gTlVMTDsNCj4gPiArDQo+ID4gKwltZW1z
+ZXQoZGV2X2lkLCAwLCBzaXplb2YoZGV2X2lkKSk7DQo+ID4gKwlzdHJjYXQoZGV2X2lkLCBrdnBf
+bmV0X2Rpcik7DQo+ID4gKwlxID0gZGV2X2lkICsgc3RybGVuKGt2cF9uZXRfZGlyKTsNCj4gPiAr
+DQo+ID4gKwl3aGlsZSAoKGVudHJ5ID0gcmVhZGRpcihkaXIpKSAhPSBOVUxMKSB7DQo+ID4gKwkJ
+LyoNCj4gPiArCQkgKiBTZXQgdGhlIHN0YXRlIGZvciB0aGUgbmV4dCBwYXNzLg0KPiA+ICsJCSAq
+Lw0KPiA+ICsJCSpxID0gJ1wwJzsNCj4gPiArCQlzdHJjYXQoZGV2X2lkLCBlbnRyeS0+ZF9uYW1l
+KTsNCj4gPiArCQlzdHJjYXQoZGV2X2lkLCAiL2RldmljZS9kZXZpY2VfaWQiKTsNCj4gDQo+IE1h
+eWJlIHRoaXMgKGFuZCBvdGhlcikgc3RyY2F0IHNob3VsZCBiZSBjaGFuZ2VkIHRvIHNucHJpbnRm
+Pw0KDQpBbHJlYWR5IGRvbmUuDQoNCj4gDQoNCg0KPiA+ICsNCj4gPiArCQlmaWxlID0gZm9wZW4o
+ZGV2X2lkLCAiciIpOw0KPiA+ICsJCWlmIChmaWxlID09IE5VTEwpDQo+ID4gKwkJCWNvbnRpbnVl
+Ow0KPiA+ICsNCj4gPiArCQlwID0gZmdldHMoYnVmLCBzaXplb2YoYnVmKSwgZmlsZSk7DQo+ID4g
+KwkJaWYgKHApIHsNCj4gPiArCQkJeCA9IHN0cmNocihwLCAnXG4nKTsNCj4gPiArCQkJaWYgKHgp
+DQo+ID4gKwkJCQkqeCA9ICdcMCc7DQo+ID4gKw0KPiA+ICsJCQlpZiAoIXN0cmNtcChwLCBndWlk
+KSkgew0KPiA+ICsJCQkJLyoNCj4gPiArCQkJCSAqIEZvdW5kIHRoZSBndWlkIG1hdGNoOyByZXR1
+cm4gdGhlIGludGVyZmFjZQ0KPiA+ICsJCQkJICogbmFtZS4gVGhlIGNhbGxlciB3aWxsIGZyZWUg
+dGhlIG1lbW9yeS4NCj4gPiArCQkJCSAqLw0KPiA+ICsJCQkJaWZfbmFtZSA9IHN0cmR1cChlbnRy
+eS0+ZF9uYW1lKTsNCj4gPiArCQkJCWJyZWFrOw0KPiANCj4gVGhpcyB3aWxsIGxlYXZlICdmaWxl
+JyBvcGVuLg0KPiBJIGhhdmUgc2VlbiBpdCBpbiBzb21lIG90aGVyIHBsYWNlIGFzIHdlbGwuDQoN
+Ckkgd2lsbCBhdWRpdCBhbGwgaW5zdGFuY2VzIGFuZCBmaXggaXQuDQoNCj4gDQo+ID4gKwkJCX0N
+Cj4gPiArCQl9DQo+ID4gKwkJZmNsb3NlKGZpbGUpOw0KPiA+ICsJfQ0KPiA+ICsNCj4gPiArCWNs
+b3NlZGlyKGRpcik7DQo+ID4gKwlyZXR1cm4gaWZfbmFtZTsNCj4gPiArfQ0KPiA+ICsNCj4gPiAr
+LyoNCj4gPiArICogUmV0cmlldmUgdGhlIE1BQyBhZGRyZXNzIGdpdmVuIHRoZSBpbnRlcmZhY2Ug
+bmFtZS4NCj4gPiArICovDQo+ID4gKw0KPiA+ICtzdGF0aWMgY2hhciAqa3ZwX2lmX25hbWVfdG9f
+bWFjKGNoYXIgKmlmX25hbWUpDQo+ID4gK3sNCj4gPiArCUZJTEUgICAgKmZpbGU7DQo+ID4gKwlj
+aGFyICAgICpwLCAqeDsNCj4gPiArCWNoYXIgICAgYnVmWzI1Nl07DQo+ID4gKwljaGFyIGFkZHJf
+ZmlsZVsxMDBdOw0KPiA+ICsJaW50IGk7DQo+ID4gKwljaGFyICptYWNfYWRkciA9IE5VTEw7DQo+
+ID4gKw0KPiA+ICsJbWVtc2V0KGFkZHJfZmlsZSwgMCwgc2l6ZW9mKGFkZHJfZmlsZSkpOw0KPiA+
+ICsJc3RyY2F0KGFkZHJfZmlsZSwgIi9zeXMvY2xhc3MvbmV0LyIpOw0KPiA+ICsJc3RyY2F0KGFk
+ZHJfZmlsZSwgaWZfbmFtZSk7DQo+ID4gKwlzdHJjYXQoYWRkcl9maWxlLCAiL2FkZHJlc3MiKTsN
+Cj4gDQo+IHNucHJpbnRmPw0KDQpBbHJlYWR5IGZpeGVkLg0KDQo+IA0KPiA+ICsNCj4gPiArCWZp
+bGUgPSBmb3BlbihhZGRyX2ZpbGUsICJyIik7DQo+ID4gKwlpZiAoZmlsZSA9PSBOVUxMKQ0KPiA+
+ICsJCXJldHVybiBOVUxMOw0KPiA+ICsNCj4gPiArCXAgPSBmZ2V0cyhidWYsIHNpemVvZihidWYp
+LCBmaWxlKTsNCj4gPiArCWlmIChwKSB7DQo+ID4gKwkJeCA9IHN0cmNocihwLCAnXG4nKTsNCj4g
+PiArCQlpZiAoeCkNCj4gPiArCQkJKnggPSAnXDAnOw0KPiA+ICsJCWZvciAoaSA9IDA7IGkgPCBz
+dHJsZW4ocCk7IGkrKykNCj4gPiArCQkJcFtpXSA9IHRvdXBwZXIocFtpXSk7DQo+ID4gKwkJbWFj
+X2FkZHIgPSBzdHJkdXAocCk7DQo+ID4gKwl9DQo+ID4gKw0KPiA+ICsJZmNsb3NlKGZpbGUpOw0K
+PiA+ICsJcmV0dXJuIG1hY19hZGRyOw0KPiA+ICt9DQo+ID4gKw0KPiA+ICsNCj4gPiAgc3RhdGlj
+IHZvaWQga3ZwX3Byb2Nlc3NfaXBjb25maWdfZmlsZShjaGFyICpjbWQsDQo+ID4gIAkJCQkJY2hh
+ciAqY29uZmlnX2J1ZiwgaW50IGxlbiwNCj4gPiAgCQkJCQlpbnQgZWxlbWVudF9zaXplLCBpbnQg
+b2Zmc2V0KQ0KPiA+IEBAIC04MDAsNiArOTEwLDMxNCBAQCBnZXRhZGRyX2RvbmU6DQo+ID4gIH0N
+Cj4gPg0KPiA+DQo+ID4gK3N0YXRpYyBpbnQgZXhwYW5kX2lwdjYoY2hhciAqYWRkciwgaW50IHR5
+cGUpDQo+ID4gK3sNCj4gPiArCWludCByZXQ7DQo+ID4gKwlzdHJ1Y3QgaW42X2FkZHIgdjZfYWRk
+cjsNCj4gPiArDQo+ID4gKwlyZXQgPSBpbmV0X3B0b24oQUZfSU5FVDYsIGFkZHIsICZ2Nl9hZGRy
+KTsNCj4gPiArDQo+ID4gKwlpZiAocmV0ICE9IDEpIHsNCj4gPiArCQlpZiAodHlwZSA9PSBORVRN
+QVNLKQ0KPiA+ICsJCQlyZXR1cm4gMTsNCj4gPiArCQlyZXR1cm4gMDsNCj4gPiArCX0NCj4gPiAr
+DQo+ID4gKwlzcHJpbnRmKGFkZHIsICIlMDJ4JTAyeDolMDJ4JTAyeDolMDJ4JTAyeDolMDJ4JTAy
+eDolMDJ4JTAyeDoiDQo+ID4gKwkJIiUwMnglMDJ4OiUwMnglMDJ4OiUwMnglMDJ4IiwNCj4gPiAr
+CQkoaW50KXY2X2FkZHIuczZfYWRkclswXSwgKGludCl2Nl9hZGRyLnM2X2FkZHJbMV0sDQo+ID4g
+KwkJKGludCl2Nl9hZGRyLnM2X2FkZHJbMl0sIChpbnQpdjZfYWRkci5zNl9hZGRyWzNdLA0KPiA+
+ICsJCShpbnQpdjZfYWRkci5zNl9hZGRyWzRdLCAoaW50KXY2X2FkZHIuczZfYWRkcls1XSwNCj4g
+PiArCQkoaW50KXY2X2FkZHIuczZfYWRkcls2XSwgKGludCl2Nl9hZGRyLnM2X2FkZHJbN10sDQo+
+ID4gKwkJKGludCl2Nl9hZGRyLnM2X2FkZHJbOF0sIChpbnQpdjZfYWRkci5zNl9hZGRyWzldLA0K
+PiA+ICsJCShpbnQpdjZfYWRkci5zNl9hZGRyWzEwXSwgKGludCl2Nl9hZGRyLnM2X2FkZHJbMTFd
+LA0KPiA+ICsJCShpbnQpdjZfYWRkci5zNl9hZGRyWzEyXSwgKGludCl2Nl9hZGRyLnM2X2FkZHJb
+MTNdLA0KPiA+ICsJCShpbnQpdjZfYWRkci5zNl9hZGRyWzE0XSwgKGludCl2Nl9hZGRyLnM2X2Fk
+ZHJbMTVdKTsNCj4gPiArDQo+ID4gKwlyZXR1cm4gMTsNCj4gPiArDQo+ID4gK30NCj4gPiArDQo+
+ID4gK3N0YXRpYyBpbnQgaXNfaXB2NChjaGFyICphZGRyKQ0KPiA+ICt7DQo+ID4gKwlpbnQgcmV0
+Ow0KPiA+ICsJc3RydWN0IGluX2FkZHIgaXB2NF9hZGRyOw0KPiA+ICsNCj4gPiArCXJldCA9IGlu
+ZXRfcHRvbihBRl9JTkVULCBhZGRyLCAmaXB2NF9hZGRyKTsNCj4gPiArDQo+ID4gKwlpZiAocmV0
+ID09IDEpDQo+ID4gKwkJcmV0dXJuIDE7DQo+ID4gKwlyZXR1cm4gMDsNCj4gPiArfQ0KPiA+ICsN
+Cj4gPiArc3RhdGljIGludCBwYXJzZV9pcF92YWxfYnVmZmVyKGNoYXIgKmluX2J1ZiwgaW50ICpv
+ZmZzZXQsDQo+ID4gKwkJCQljaGFyICpvdXRfYnVmLCBpbnQgb3V0X2xlbikNCj4gPiArew0KPiA+
+ICsJY2hhciAqeDsNCj4gPiArCWNoYXIgKnN0YXJ0Ow0KPiA+ICsNCj4gPiArCS8qDQo+ID4gKwkg
+KiBpbl9idWYgaGFzIHNlcXVlbmNlIG9mIGNoYXJhY3RlcnMgdGhhdCBhcmUgc2VwZXJhdGVkIGJ5
+DQo+ID4gKwkgKiB0aGUgY2hhcmFjdGVyICc7Jy4gVGhlIGxhc3Qgc2VxdWVuY2UgZG9lcyBub3Qg
+aGF2ZSB0aGUNCj4gPiArCSAqIHRlcm1pbmF0aW5nICI7IiBjaGFyYWN0ZXIuDQo+ID4gKwkgKi8N
+Cj4gPiArCXN0YXJ0ID0gaW5fYnVmICsgKm9mZnNldDsNCj4gPiArDQo+ID4gKwl4ID0gc3RyY2hy
+KHN0YXJ0LCAnOycpOw0KPiA+ICsJaWYgKHgpDQo+ID4gKwkJKnggPSAwOw0KPiA+ICsJZWxzZQ0K
+PiA+ICsJCXggPSBzdGFydCArIHN0cmxlbihzdGFydCk7DQo+ID4gKw0KPiA+ICsJaWYgKHN0cmxl
+bihzdGFydCkgIT0gMCkgew0KPiA+ICsJCWludCBpID0gMDsNCj4gPiArCQkvKg0KPiA+ICsJCSAq
+IEdldCByaWQgb2YgbGVhZGluZyBzcGFjZXMuDQo+ID4gKwkJICovDQo+ID4gKwkJd2hpbGUgKHN0
+YXJ0W2ldID09ICcgJykNCj4gPiArCQkJaSsrOw0KPiA+ICsNCj4gPiArCQlpZiAoKHggLSBzdGFy
+dCkgPD0gb3V0X2xlbikgew0KPiA+ICsJCQlzdHJjcHkob3V0X2J1ZiwgKHN0YXJ0ICsgaSkpOw0K
+PiA+ICsJCQkqb2Zmc2V0ICs9ICh4IC0gc3RhcnQpICsgMTsNCj4gPiArCQkJcmV0dXJuIDE7DQo+
+ID4gKwkJfQ0KPiA+ICsJfQ0KPiA+ICsJcmV0dXJuIDA7DQo+ID4gK30NCj4gPiArDQo+ID4gK3N0
+YXRpYyBpbnQga3ZwX3dyaXRlX2ZpbGUoRklMRSAqZiwgY2hhciAqczEsIGNoYXIgKnMyLCBjaGFy
+ICpzMykNCj4gPiArew0KPiA+ICsJY2hhciBzdHJbMjU2XTsNCj4gPiArCWludCBlcnJvcjsNCj4g
+PiArDQo+ID4gKwltZW1zZXQoc3RyLCAwLCBzaXplb2Yoc3RyKSk7DQo+ID4gKwlzdHJjYXQoc3Ry
+LCBzMSk7DQo+ID4gKwlpZiAoczIgIT0gTlVMTCkNCj4gPiArCQlzdHJjYXQoc3RyLCBzMik7DQo+
+ID4gKwlzdHJjYXQoc3RyLCAiPSIpOw0KPiA+ICsJc3RyY2F0KHN0ciwgczMpOw0KPiA+ICsJc3Ry
+Y2F0KHN0ciwgIlxuIik7DQo+ID4gKw0KPiA+ICsJZXJyb3IgPSBmcHV0cyhzdHIsIGYpOw0KPiA+
+ICsJaWYgKGVycm9yID09IEVPRikNCj4gPiArCQlyZXR1cm4gSFZfRV9GQUlMOw0KPiA+ICsNCj4g
+PiArCXJldHVybiAwOw0KPiA+ICt9DQo+ID4gKw0KPiA+ICsNCj4gPiArc3RhdGljIGludCBwcm9j
+ZXNzX2lwX3N0cmluZyhGSUxFICpmLCBjaGFyICppcF9zdHJpbmcsIGludCB0eXBlKQ0KPiA+ICt7
+DQo+ID4gKwlpbnQgZXJyb3IgPSAwOw0KPiA+ICsJY2hhciBhZGRyW0lORVQ2X0FERFJTVFJMRU5d
+Ow0KPiA+ICsJaW50IGkgPSAwOw0KPiA+ICsJaW50IGogPSAwOw0KPiA+ICsJY2hhciBzdHJbMjU2
+XTsNCj4gPiArCWNoYXIgc3ViX3N0clsxMF07DQo+ID4gKwlpbnQgb2Zmc2V0ID0gMDsNCj4gPiAr
+DQo+ID4gKwltZW1zZXQoYWRkciwgMCwgc2l6ZW9mKGFkZHIpKTsNCj4gPiArDQo+ID4gKwl3aGls
+ZSAocGFyc2VfaXBfdmFsX2J1ZmZlcihpcF9zdHJpbmcsICZvZmZzZXQsIGFkZHIsDQo+ID4gKwkJ
+CQkJKE1BWF9JUF9BRERSX1NJWkUgKiAyKSkpIHsNCj4gPiArCQltZW1zZXQoc3ViX3N0ciwgMCwg
+c2l6ZW9mKHN1Yl9zdHIpKTsNCj4gPiArCQltZW1zZXQoc3RyLCAwLCBzaXplb2Yoc3RyKSk7DQo+
+ID4gKw0KPiA+ICsJCWlmIChpc19pcHY0KGFkZHIpKSB7DQo+ID4gKwkJCXN3aXRjaCAodHlwZSkg
+ew0KPiA+ICsJCQljYXNlIElQQUREUjoNCj4gPiArCQkJCXN0cmNhdChzdHIsICJJUEFERFIiKTsN
+Cj4gPiArCQkJCWJyZWFrOw0KPiA+ICsJCQljYXNlIE5FVE1BU0s6DQo+ID4gKwkJCQlzdHJjYXQo
+c3RyLCAiTkVUTUFTSyIpOw0KPiA+ICsJCQkJYnJlYWs7DQo+ID4gKwkJCWNhc2UgR0FURVdBWToN
+Cj4gPiArCQkJCXN0cmNhdChzdHIsICJHQVRFV0FZIik7DQo+ID4gKwkJCQlicmVhazsNCj4gPiAr
+CQkJY2FzZSBETlM6DQo+ID4gKwkJCQlzdHJjYXQoc3RyLCAiRE5TIik7DQo+ID4gKwkJCQlicmVh
+azsNCj4gPiArCQkJfQ0KPiA+ICsJCQlpZiAoaSAhPSAwKSB7DQo+ID4gKwkJCQlpZiAodHlwZSAh
+PSBETlMpDQo+ID4gKwkJCQkJc3ByaW50ZihzdWJfc3RyLCAiXyVkIiwgaSsrKTsNCj4gPiArCQkJ
+CWVsc2UNCj4gPiArCQkJCQlzcHJpbnRmKHN1Yl9zdHIsICIlZCIsICsraSk7DQo+ID4gKwkJCX0g
+ZWxzZSBpZiAodHlwZSA9PSBETlMpIHsNCj4gPiArCQkJCXNwcmludGYoc3ViX3N0ciwgIiVkIiwg
+KytpKTsNCj4gPiArCQkJfQ0KPiA+ICsNCj4gPiArDQo+ID4gKwkJfSBlbHNlIGlmIChleHBhbmRf
+aXB2NihhZGRyLCB0eXBlKSkgew0KPiA+ICsJCQlzd2l0Y2ggKHR5cGUpIHsNCj4gPiArCQkJY2Fz
+ZSBJUEFERFI6DQo+ID4gKwkJCQlzdHJjYXQoc3RyLCAiSVBWNkFERFIiKTsNCj4gPiArCQkJCWJy
+ZWFrOw0KPiA+ICsJCQljYXNlIE5FVE1BU0s6DQo+ID4gKwkJCQlzdHJjYXQoc3RyLCAiSVBWNk5F
+VE1BU0siKTsNCj4gPiArCQkJCWJyZWFrOw0KPiA+ICsJCQljYXNlIEdBVEVXQVk6DQo+ID4gKwkJ
+CQlzdHJjYXQoc3RyLCAiSVBWNl9ERUZBVUxUR1ciKTsNCj4gPiArCQkJCWJyZWFrOw0KPiA+ICsJ
+CQljYXNlIEROUzoNCj4gPiArCQkJCXN0cmNhdChzdHIsICJETlMiKTsNCj4gPiArCQkJCWJyZWFr
+Ow0KPiA+ICsJCQl9DQo+ID4gKwkJCWlmICgoaiAhPSAwKSB8fCAodHlwZSA9PSBETlMpKSB7DQo+
+ID4gKwkJCQlpZiAodHlwZSAhPSBETlMpDQo+ID4gKwkJCQkJc3ByaW50ZihzdWJfc3RyLCAiXyVk
+IiwgaisrKTsNCj4gPiArCQkJCWVsc2UNCj4gPiArCQkJCQlzcHJpbnRmKHN1Yl9zdHIsICIlZCIs
+ICsraSk7DQo+ID4gKwkJCX0gZWxzZSBpZiAodHlwZSA9PSBETlMpIHsNCj4gPiArCQkJCXNwcmlu
+dGYoc3ViX3N0ciwgIiVkIiwgKytpKTsNCj4gPiArCQkJfQ0KPiA+ICsJCX0gZWxzZSB7DQo+ID4g
+KwkJCXJldHVybiAgSFZfSU5WQUxJREFSRzsNCj4gPiArCQl9DQo+ID4gKw0KPiA+ICsJCWVycm9y
+ID0ga3ZwX3dyaXRlX2ZpbGUoZiwgc3RyLCBzdWJfc3RyLCBhZGRyKTsNCj4gPiArCQlpZiAoZXJy
+b3IpDQo+ID4gKwkJCXJldHVybiBlcnJvcjsNCj4gPiArCQltZW1zZXQoYWRkciwgMCwgc2l6ZW9m
+KGFkZHIpKTsNCj4gPiArCX0NCj4gPiArDQo+ID4gKwlyZXR1cm4gMDsNCj4gPiArfQ0KPiA+ICsN
+Cj4gPiArc3RhdGljIGludCBrdnBfc2V0X2lwX2luZm8oY2hhciAqaWZfbmFtZSwgc3RydWN0IGh2
+X2t2cF9pcGFkZHJfdmFsdWUNCj4gKm5ld192YWwpDQo+ID4gK3sNCj4gPiArCWludCBlcnJvciA9
+IDA7DQo+ID4gKwljaGFyIGlmX2ZpbGVbNTBdOw0KPiA+ICsJRklMRSAqZmlsZTsNCj4gPiArCWNo
+YXIgY21kWzUxMl07DQo+ID4gKwljaGFyICptYWNfYWRkcjsNCj4gPiArDQo+ID4gKwkvKg0KPiA+
+ICsJICogU2V0IHRoZSBjb25maWd1cmF0aW9uIGZvciB0aGUgc3BlY2lmaWVkIGludGVyZmFjZSB3
+aXRoDQo+ID4gKwkgKiB0aGUgaW5mb3JtYXRpb24gcHJvdmlkZWQuIFNpbmNlIHRoZXJlIGlzIG5v
+IHN0YW5kYXJkDQo+ID4gKwkgKiB3YXkgdG8gY29uZmlndXJlIGFuIGludGVyZmFjZSwgd2Ugd2ls
+bCBoYXZlIGFuIGV4dGVybmFsDQo+ID4gKwkgKiBzY3JpcHQgdGhhdCBkb2VzIHRoZSBqb2Igb2Yg
+Y29uZmlndXJpbmcgdGhlIGludGVyZmFjZSBhbmQNCj4gPiArCSAqIGZsdXNoaW5nIHRoZSBjb25m
+aWd1cmF0aW9uLg0KPiA+ICsJICoNCj4gPiArCSAqIFRoZSBwYXJhbWV0ZXJzIHBhc3NlZCB0byB0
+aGlzIGV4dGVybmFsIHNjcmlwdCBhcmU6DQo+ID4gKwkgKiAxLiBBIGNvbmZpZ3VyYXRpb24gZmls
+ZSB0aGF0IGhhcyB0aGUgc3BlY2lmaWVkIGNvbmZpZ3VyYXRpb24uDQo+ID4gKwkgKg0KPiA+ICsJ
+ICogV2Ugd2lsbCBlbWJlZCB0aGUgbmFtZSBvZiB0aGUgaW50ZXJmYWNlIGluIHRoZSBjb25maWd1
+cmF0aW9uDQo+ID4gKwkgKiBmaWxlOiBpZmNmZy1ldGh4ICh3aGVyZSBldGh4IGlzIHRoZSBpbnRl
+cmZhY2UgbmFtZSkuDQo+ID4gKwkgKg0KPiA+ICsJICogSGVyZSBpcyB0aGUgZm9ybWF0IG9mIHRo
+ZSBpcCBjb25maWd1cmF0aW9uIGZpbGU6DQo+ID4gKwkgKg0KPiA+ICsJICogSFdBRERSPW1hY2Fk
+ZHINCj4gPiArCSAqIEJPT1RQUk9UTz1kaGNwIChkaGNwIGVuYWJsZWQgZm9yIHRoZSBpbnRlcmZh
+Y2UpDQo+ID4gKwkgKiBOTV9DT05UUk9MTEVEPW5vICh0aGlzIGludGVyZmFjZSB3aWxsIG5vdCBi
+ZSBjb250cm9sbGVkIGJ5IE5NKQ0KPiA+ICsJICogUEVFUkROUz15ZXMNCj4gPiArCSAqIElQQURE
+Ul94PWlwYWRkcg0KPiA+ICsJICogTkVUTUFTS194PW5ldG1hc2sNCj4gPiArCSAqIEdBVEVXQVlf
+eD1nYXRld2F5DQo+ID4gKwkgKiBETlN4PWRucw0KPiA+ICsJICoNCj4gPiArCSAqIElQVjYgYWRk
+cmVzc2VzIHdpbGwgYmUgdGFnZ2VkIGFzIElQVjZBRERSLCBJUFY2IGdhdGV3YXkgd2lsbCBiZQ0K
+PiA+ICsJICogdGFnZ2VkIGFzIElQVjZfREVGQVVMVEdXIGFuZCBJUFY2IE5FVE1BU0sgd2lsbCBi
+ZSB0YWdnZWQgYXMNCj4gPiArCSAqIElQVjZORVRNQVNLLg0KPiA+ICsJICovDQo+ID4gKw0KPiA+
+ICsJbWVtc2V0KGlmX2ZpbGUsIDAsIHNpemVvZihpZl9maWxlKSk7DQo+ID4gKwlzdHJjYXQoaWZf
+ZmlsZSwgIi92YXIvb3B0L2h5cGVydi9pZmNmZy0iKTsNCj4gPiArCXN0cmNhdChpZl9maWxlLCBp
+Zl9uYW1lKTsNCj4gPiArDQo+ID4gKwlmaWxlID0gZm9wZW4oaWZfZmlsZSwgInciKTsNCj4gPiAr
+DQo+ID4gKwlpZiAoZmlsZSA9PSBOVUxMKSB7DQo+ID4gKwkJc3lzbG9nKExPR19FUlIsICJGYWls
+ZWQgdG8gb3BlbiBjb25maWcgZmlsZSIpOw0KPiA+ICsJCXJldHVybiBIVl9FX0ZBSUw7DQo+ID4g
+Kwl9DQo+ID4gKw0KPiA+ICsJLyoNCj4gPiArCSAqIEZpcnN0IHdyaXRlIG91dCB0aGUgTUFDIGFk
+ZHJlc3MuDQo+ID4gKwkgKi8NCj4gPiArDQo+ID4gKwltYWNfYWRkciA9IGt2cF9pZl9uYW1lX3Rv
+X21hYyhpZl9uYW1lKTsNCj4gPiArCWlmIChtYWNfYWRkciA9PSBOVUxMKSB7DQo+ID4gKwkJZXJy
+b3IgPSBIVl9FX0ZBSUw7DQo+ID4gKwkJZ290byBzZXR2YWxfZXJyb3I7DQo+ID4gKwl9DQo+ID4g
+Kw0KPiA+ICsJZXJyb3IgPSBrdnBfd3JpdGVfZmlsZShmaWxlLCAiSFdBRERSIiwgTlVMTCwgbWFj
+X2FkZHIpOw0KPiA+ICsJaWYgKGVycm9yKQ0KPiA+ICsJCWdvdG8gc2V0dmFsX2Vycm9yOw0KPiA+
+ICsNCj4gPiArCWVycm9yID0ga3ZwX3dyaXRlX2ZpbGUoZmlsZSwgIk9OQk9PVCIsIE5VTEwsICJ5
+ZXMiKTsNCj4gPiArCWlmIChlcnJvcikNCj4gPiArCQlnb3RvIHNldHZhbF9lcnJvcjsNCj4gPiAr
+DQo+ID4gKwllcnJvciA9IGt2cF93cml0ZV9maWxlKGZpbGUsICJJUFY2SU5JVCIsIE5VTEwsICJ5
+ZXMiKTsNCj4gPiArCWlmIChlcnJvcikNCj4gPiArCQlnb3RvIHNldHZhbF9lcnJvcjsNCj4gPiAr
+DQo+ID4gKwllcnJvciA9IGt2cF93cml0ZV9maWxlKGZpbGUsICJOTV9DT05UUk9MTEVEIiwgTlVM
+TCwgIm5vIik7DQo+ID4gKwlpZiAoZXJyb3IpDQo+ID4gKwkJZ290byBzZXR2YWxfZXJyb3I7DQo+
+ID4gKw0KPiA+ICsJZXJyb3IgPSBrdnBfd3JpdGVfZmlsZShmaWxlLCAiUEVFUkROUyIsIE5VTEws
+ICJ5ZXMiKTsNCj4gPiArCWlmIChlcnJvcikNCj4gPiArCQlnb3RvIHNldHZhbF9lcnJvcjsNCj4g
+PiArDQo+ID4gKwlpZiAobmV3X3ZhbC0+ZGhjcF9lbmFibGVkKSB7DQo+ID4gKwkJZXJyb3IgPSBr
+dnBfd3JpdGVfZmlsZShmaWxlLCAiQk9PVFBST1RPIiwgTlVMTCwgImRoY3AiKTsNCj4gPiArCQlp
+ZiAoZXJyb3IpDQo+ID4gKwkJCWdvdG8gc2V0dmFsX2Vycm9yOw0KPiA+ICsNCj4gPiArCQkvKg0K
+PiA+ICsJCSAqIFdlIGFyZSBkb25lIS4NCj4gPiArCQkgKi8NCj4gPiArCQlnb3RvIHNldHZhbF9k
+b25lOw0KPiA+ICsJfQ0KPiA+ICsNCj4gPiArCS8qDQo+ID4gKwkgKiBXcml0ZSB0aGUgY29uZmln
+dXJhdGlvbiBmb3IgaXBhZGRyZXNzLCBuZXRtYXNrLCBnYXRld2F5IGFuZA0KPiA+ICsJICogbmFt
+ZSBzZXJ2ZXJzLg0KPiA+ICsJICovDQo+ID4gKw0KPiA+ICsJZXJyb3IgPSBwcm9jZXNzX2lwX3N0
+cmluZyhmaWxlLCAoY2hhciAqKW5ld192YWwtPmlwX2FkZHIsIElQQUREUik7DQo+ID4gKwlpZiAo
+ZXJyb3IpDQo+ID4gKwkJZ290byBzZXR2YWxfZXJyb3I7DQo+ID4gKw0KPiA+ICsJZXJyb3IgPSBw
+cm9jZXNzX2lwX3N0cmluZyhmaWxlLCAoY2hhciAqKW5ld192YWwtPnN1Yl9uZXQsIE5FVE1BU0sp
+Ow0KPiA+ICsJaWYgKGVycm9yKQ0KPiA+ICsJCWdvdG8gc2V0dmFsX2Vycm9yOw0KPiA+ICsNCj4g
+PiArCWVycm9yID0gcHJvY2Vzc19pcF9zdHJpbmcoZmlsZSwgKGNoYXIgKiluZXdfdmFsLT5nYXRl
+X3dheSwgR0FURVdBWSk7DQo+ID4gKwlpZiAoZXJyb3IpDQo+ID4gKwkJZ290byBzZXR2YWxfZXJy
+b3I7DQo+ID4gKw0KPiA+ICsJZXJyb3IgPSBwcm9jZXNzX2lwX3N0cmluZyhmaWxlLCAoY2hhciAq
+KW5ld192YWwtPmRuc19hZGRyLCBETlMpOw0KPiA+ICsJaWYgKGVycm9yKQ0KPiA+ICsJCWdvdG8g
+c2V0dmFsX2Vycm9yOw0KPiA+ICsNCj4gPiArc2V0dmFsX2RvbmU6DQo+ID4gKwlmcmVlKG1hY19h
+ZGRyKTsNCj4gPiArCWZjbG9zZShmaWxlKTsNCj4gPiArDQo+ID4gKwkvKg0KPiA+ICsJICogTm93
+IHRoYXQgd2UgaGF2ZSBwb3B1bGF0ZWQgdGhlIGNvbmZpZ3VyYXRpb24gZmlsZSwNCj4gPiArCSAq
+IGludm9rZSB0aGUgZXh0ZXJuYWwgc2NyaXB0IHRvIGRvIGl0cyBtYWdpYy4NCj4gPiArCSAqLw0K
+PiA+ICsNCj4gPiArCW1lbXNldChjbWQsIDAsIHNpemVvZihjbWQpKTsNCj4gPiArCXN0cmNhdChj
+bWQsICIvc2Jpbi9odl9zZXRfaWZjb25maWcgIik7DQo+ID4gKwlzdHJjYXQoY21kLCBpZl9maWxl
+KTsNCj4gDQo+IFRoZSBuZXcgcGF0Y2ggc2hvdWxkIHVzZSAiJXMgJXMiLCBub3QgIiVzJXMiIGFz
+IGZvcm1hdCBzdHJpbmcuDQo+IA0KPiANCj4gDQoNClRoYW5rcyBPbGFmLA0KDQpLLiBZDQo=
