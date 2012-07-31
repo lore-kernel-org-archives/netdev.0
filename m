@@ -1,67 +1,84 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
-Date: Tue, 31 Jul 2012 17:30:17 +0400
-Message-ID: <5017DDE9.4020008@parallels.com>
-References: <50160EEF.6050406@parallels.com> <87pq7dh6b2.fsf@xmission.com> <87fw89h5zk.fsf@xmission.com> <50179F66.1000604@parallels.com> <878ve0dtw3.fsf@xmission.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: kvaser_usb: Add support for Kvaser CAN/USB devices
+Date: Tue, 31 Jul 2012 15:43:05 +0200
+Message-ID: <5017E0E9.7090202@grandegger.com>
+References: <1343626352-24760-1-git-send-email-olivier@sobrie.be> <50166BF2.9000700@pengutronix.de> <20120730133323.GA13941@hposo> <5017ABC6.7030307@pengutronix.de> <20120731130650.GA23541@hposo>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:23240 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752101Ab2GaNa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2012 09:30:26 -0400
-In-Reply-To: <878ve0dtw3.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120731130650.GA23541@hposo>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> First, let's imagine that on host A the loopback device got registered as
->> first device, but on host B for some reason some other device got registered
->> first. In that case after migration from A to B the lo on B will have index
->> equals 2. And there's no any strict requirement that lo's per net operations
->> are registered first. Please, correct me if I'm wrong.
+On 07/31/2012 03:06 PM, Olivier Sobrie wrote:
+> On Tue, Jul 31, 2012 at 11:56:22AM +0200, Marc Kleine-Budde wrote:
+...
+>> Please test Bus-Off behaviour:
+>> - setup working CAN network
+>> - short circuit CAN-H and CAN-L wires
+>> - start "candump any,0:0,#FFFFFFFF" on one shell
+>> - send one can frame on the other
+>>
+>> then
+>>
+>> - remove the short circuit
+>> - see if the can frame is transmitted to the other side
+>> - it should show up as an echo'ed CAN frame on the sender side
+>>
+>> Repeat the same test with disconnecting CAN-H and CAN-L from the other
+>> CAN station instead of short circuit.
+>>
+>> Please send the output from candump.
 > 
-> Actually there is a hard requirement that the loopback device be the
-> last device in a network namespace to be unregistered.  We meet that
-> requirement by registering the loopback device first
-> "net/core/dev.c:net_dev_init()".
-
-Hm... Indeed, and this is good news!
-
->> Next. In fact, lo is not the only problem. Look at the e.g. sit versus ipgre
->> fallback devices. Both gets created on netns creation and obtain whatever
->> ifindices are generated for them. Even if we make ifidex per netns chances
->> that sit gets registered _strictly_ before ipgre equal zero, since they are
->> both modules.
+> 1) With the short circuit:
 > 
-> True.  However those fallback devices should no longer be needed,
-> and even if they are I think you can delete and recreate them.
+> I perform the test you described. It showed that the Kvaser passes from
+> ERROR-WARNING to ERROR-PASSIVE and then BUS-OFF. But after going to the
+> state BUS-OFF it comes back to ERROR-WARNING.
 
-Good idea! I will look at that direction.
+You can use the option "-e" to get a human readable output.
 
-> Making lo the particularly interesting case.
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
 
-Yup, provided we can manually recreate those auto-created devices this solves
-the issue.
+A state change (0x10 here) should only be reported once.
 
->> Just an idea -- is it worth moving the possibility to have ifindidces intersect
->> under CONFIG_<SOMETHING> (EXPERT/CHECKPOINT_RESTORE) to let wider audience check
->> the code in real-life?
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   ...
+>   can1  200000C8  [8] 00 00 90 00 00 00 00 00   ERRORFRAME  <-- bus off
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   ...
+>   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+>   can1  123  [2] 11 22	          <-- short circuit removed
 > 
-> I think the best testing we are going to get diversity wise is to create
-> a per netns counter into dev_new_index when net-next opens up.
+> I see the echo and on the other end I see the frame coming in.
+> By the way I see that the txerr and rxerr fields of the structure
+> kvaser_msg_error_event stay at 0.
+
+If possible, they should be set for any CAN error message.
+
 > 
-> Having an ifindex that we can only set at netdevice creation time seems
-> reasonable.  
-
-OK, thank you, Eric.
-
-> Eric
-> .
+> 2) With CAN-H and CAN-L disconnected:
 > 
+> I never see the bus going in OFF state. It stays in PASSIVE mode.
 
-Thanks,
-Pavel
+That is the correct behavior. You should get ACK slot (and not ACK
+delimiter), IIRC.
+
+I'm offline for the rest of the week. I will have a closer look next
+week (to your next version(s)).
+
+Wolfgang.
+
