@@ -1,36 +1,31 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 0/7] Deconstruct struct fib_result
-Date: Tue, 31 Jul 2012 10:27:40 -0700
-Message-ID: <CAKgT0UcOn48gVsC37hiNCXCP=FwqKjZnjkLviCOW8TVWGkGGVA@mail.gmail.com>
-References: <20120727.211814.1628871775065221675.davem@davemloft.net>
+From: "roboth roli company" <info@roli.com>
+Subject: inquiry
+Date: Tue, 31 Jul 2012 16:31:55 +0700 (ICT)
+Message-ID: <49547.209.188.18.159.1343727115.squirrel@123.30.138.40>
+Reply-To: robothrollilimited@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:55249 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752353Ab2GaR1k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 13:27:40 -0400
-Received: by vcbfk26 with SMTP id fk26so6075960vcb.19
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2012 10:27:40 -0700 (PDT)
-In-Reply-To: <20120727.211814.1628871775065221675.davem@davemloft.net>
+Received: from static.vdc.vn ([123.30.138.40]:46211 "EHLO nguyenkimonline.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752414Ab2GaRz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2012 13:55:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 27, 2012 at 9:18 PM, David Miller <davem@davemloft.net> wrote:
->
-> This patch set tries to move towards reducing struct fib_result down
-> to it's absolute minimum.
->
-> The eventual idea is to make it so that fib_lookup() simply
-> returns a "struct fib_nh *" and pointer encoded errnos, instead
-> of writing into a complicated structure as the return value on
-> the stack as is done now.
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-I tested these patches most of yesterday and I haven't seen any
-issues.  Then again I haven't seen much of an improvement either.
 
-Tested-by: Alexander Duyck <alexander.h.duyck@intel.com>
+
+i am robothroli, Purchase manager from roli Merchant Ltd. We are
+Import/export Company based in taiwan. We are interested in purchasing
+your product and I would like to make an inquiry. Please inform me on:
+
+Sample availability and price
+Minimum order quantity
+FOB Prices
+
+Sincerely
+Purchase Manager
+robothroli
