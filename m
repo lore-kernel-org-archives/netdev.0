@@ -1,43 +1,46 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] bnx2x: fix mem leak when command is unknown
-Date: Tue, 31 Jul 2012 23:39:37 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1207312337590.7100@swampdragon.chaosbits.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] ipv4: Restore old dst_free() behavior.
+Date: Tue, 31 Jul 2012 14:42:17 -0700 (PDT)
+Message-ID: <20120731.144217.708886493005872001.davem@davemloft.net>
+References: <20120730.223827.74792864437911339.davem@davemloft.net>
+	<1343732903.21269.190.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40795 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752145Ab2GaVmU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 17:42:20 -0400
+In-Reply-To: <1343732903.21269.190.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In bnx2x_mcast_enqueue_cmd() we'll leak the memory allocated to
-'new_cmd' if we hit the deafault case of the 'switch (cmd)'.
-Add a 'kfree(new_cmd)' to that case to avoid the leak.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 31 Jul 2012 13:08:23 +0200
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c | 1 +
- 1 file changed, 1 insertion(+)
+> [PATCH v2] ipv4: Restore old dst_free() behavior
+> 
+> commit 404e0a8b6a55 (net: ipv4: fix RCU races on dst refcounts) tried
+> to solve a race but added a problem at device/fib dismantle time :
+> 
+> We really want to call dst_free() as soon as possible, even if sockets
+> still have dst in their cache.
+> dst_release() calls in free_fib_info_rcu() are not welcomed.
+> 
+> Root of the problem was that now we also cache output routes (in
+> nh_rth_output), we must use call_rcu() instead of call_rcu_bh() in
+> rt_free(), because output route lookups are done in process context.
+> 
+> Based on feedback and initial patch from David Miller (adding another
+> call_rcu_bh() call in fib, but it appears it was not the right fix)
+> 
+> I left the inet_sk_rx_dst_set() helper and added __rcu attributes
+> to nh_rth_output and nh_rth_input to better document what is going on in
+> this code.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-  note: due to lack of hardware this patch is compile tested only.
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 734fd87..62f754b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -2485,6 +2485,7 @@ static int bnx2x_mcast_enqueue_cmd(struct bnx2x *bp,
- 		break;
- 
- 	default:
-+		kfree(new_cmd);
- 		BNX2X_ERR("Unknown command: %d\n", cmd);
- 		return -EINVAL;
- 	}
--- 
-1.7.11.3
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Applied, thanks Eric.
