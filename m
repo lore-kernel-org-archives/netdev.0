@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 net 1/3] net: Allow driver to limit number of GSO segments
- per skb
-Date: Tue, 31 Jul 2012 02:57:00 +0100
-Message-ID: <1343699820.2667.71.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCHv2 net 2/3] sfc: Fix maximum number of TSO segments and
+ minimum TX queue size
+Date: Tue, 31 Jul 2012 02:57:44 +0100
+Message-ID: <1343699864.2667.72.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1343699476.2667.69.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,78 +10,163 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	Ben Greear <greearb@candelatech.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
+	"Stephen Hemminger" <shemminger@vyatta.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:46136 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:46148 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753765Ab2GaB5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 21:57:04 -0400
+	by vger.kernel.org with ESMTP id S1753765Ab2GaB5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jul 2012 21:57:48 -0400
 In-Reply-To: <1343699476.2667.69.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A peer (or local user) may cause TCP to use a nominal MSS of as little
-as 88 (actual MSS of 76 with timestamps).  Given that we have a
-sufficiently prodigious local sender and the peer ACKs quickly enough,
-it is nevertheless possible to grow the window for such a connection
-to the point that we will try to send just under 64K at once.  This
-results in a single skb that expands to 861 segments.
+Currently an skb requiring TSO may not fit within a minimum-size TX
+queue.  The TX queue selected for the skb may stall and trigger the TX
+watchdog repeatedly (since the problem skb will be retried after the
+TX reset).  This issue is designated as CVE-2012-3412.
 
-In some drivers with TSO support, such an skb will require hundreds of
-DMA descriptors; a substantial fraction of a TX ring or even more than
-a full ring.  The TX queue selected for the skb may stall and trigger
-the TX watchdog repeatedly (since the problem skb will be retried
-after the TX reset).  This particularly affects sfc, for which the
-issue is designated as CVE-2012-3412.
+Set the maximum number of TSO segments for our devices to 100.  This
+should make no difference to behaviour unless the actual MSS is less
+than about 700.  Increase the minimum TX queue size accordingly to
+allow for 2 worst-case skbs, so that there will definitely be space
+to add an skb after we wake a queue.
 
-Therefore:
-1. Add the field net_device::gso_max_segs holding the device-specific
-   limit.
-2. In netif_skb_features(), if the number of segments is too high then
-   mask out GSO features to force fall back to software GSO.
+To avoid invalidating existing configurations, change
+efx_ethtool_set_ringparam() to fix up values that are too small rather
+than returning -EINVAL.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/netdevice.h |    2 ++
- net/core/dev.c            |    4 ++++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/sfc/efx.c     |    6 ++++++
+ drivers/net/ethernet/sfc/efx.h     |   14 ++++++++++----
+ drivers/net/ethernet/sfc/ethtool.c |   16 +++++++++++-----
+ drivers/net/ethernet/sfc/tx.c      |   19 +++++++++++++++++++
+ 4 files changed, 46 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index eb06e58..a9db4f3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1300,6 +1300,8 @@ struct net_device {
- 	/* for setting kernel sock attribute on TCP connection setup */
- #define GSO_MAX_SIZE		65536
- 	unsigned int		gso_max_size;
-+#define GSO_MAX_SEGS		65535
-+	u16			gso_max_segs;
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 70554a1..65a8d49 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1503,6 +1503,11 @@ static int efx_probe_all(struct efx_nic *efx)
+ 		goto fail2;
+ 	}
  
- #ifdef CONFIG_DCB
- 	/* Data Center Bridging netlink ops */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0ebaea1..4020646 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2133,6 +2133,9 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- 	__be16 protocol = skb->protocol;
- 	netdev_features_t features = skb->dev->features;
++	BUILD_BUG_ON(EFX_DEFAULT_DMAQ_SIZE < EFX_RXQ_MIN_ENT);
++	if (WARN_ON(EFX_DEFAULT_DMAQ_SIZE < EFX_TXQ_MIN_ENT(efx))) {
++		rc = -EINVAL;
++		goto fail3;
++	}
+ 	efx->rxq_entries = efx->txq_entries = EFX_DEFAULT_DMAQ_SIZE;
  
-+	if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
-+		features &= ~NETIF_F_GSO_MASK;
+ 	rc = efx_probe_filters(efx);
+@@ -2070,6 +2075,7 @@ static int efx_register_netdev(struct efx_nic *efx)
+ 	net_dev->irq = efx->pci_dev->irq;
+ 	net_dev->netdev_ops = &efx_netdev_ops;
+ 	SET_ETHTOOL_OPS(net_dev, &efx_ethtool_ops);
++	net_dev->gso_max_segs = EFX_TSO_MAX_SEGS;
+ 
+ 	rtnl_lock();
+ 
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index be8f915..70755c9 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -30,6 +30,7 @@ extern netdev_tx_t
+ efx_enqueue_skb(struct efx_tx_queue *tx_queue, struct sk_buff *skb);
+ extern void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index);
+ extern int efx_setup_tc(struct net_device *net_dev, u8 num_tc);
++extern unsigned int efx_tx_max_skb_descs(struct efx_nic *efx);
+ 
+ /* RX */
+ extern int efx_probe_rx_queue(struct efx_rx_queue *rx_queue);
+@@ -52,10 +53,15 @@ extern void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ #define EFX_MAX_EVQ_SIZE 16384UL
+ #define EFX_MIN_EVQ_SIZE 512UL
+ 
+-/* The smallest [rt]xq_entries that the driver supports. Callers of
+- * efx_wake_queue() assume that they can subsequently send at least one
+- * skb. Falcon/A1 may require up to three descriptors per skb_frag. */
+-#define EFX_MIN_RING_SIZE (roundup_pow_of_two(2 * 3 * MAX_SKB_FRAGS))
++/* Maximum number of TCP segments we support for soft-TSO */
++#define EFX_TSO_MAX_SEGS	100
 +
- 	if (protocol == htons(ETH_P_8021Q)) {
- 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
- 		protocol = veh->h_vlan_encapsulated_proto;
-@@ -5942,6 +5945,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 	dev_net_set(dev, &init_net);
++/* The smallest [rt]xq_entries that the driver supports.  RX minimum
++ * is a bit arbitrary.  For TX, we must have space for at least 2
++ * TSO skbs.
++ */
++#define EFX_RXQ_MIN_ENT		128U
++#define EFX_TXQ_MIN_ENT(efx)	(2 * efx_tx_max_skb_descs(efx))
  
- 	dev->gso_max_size = GSO_MAX_SIZE;
-+	dev->gso_max_segs = GSO_MAX_SEGS;
+ /* Filters */
+ extern int efx_probe_filters(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 10536f9..8cba2df 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -680,21 +680,27 @@ static int efx_ethtool_set_ringparam(struct net_device *net_dev,
+ 				     struct ethtool_ringparam *ring)
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
++	u32 txq_entries;
  
- 	INIT_LIST_HEAD(&dev->napi_list);
- 	INIT_LIST_HEAD(&dev->unreg_list);
+ 	if (ring->rx_mini_pending || ring->rx_jumbo_pending ||
+ 	    ring->rx_pending > EFX_MAX_DMAQ_SIZE ||
+ 	    ring->tx_pending > EFX_MAX_DMAQ_SIZE)
+ 		return -EINVAL;
+ 
+-	if (ring->rx_pending < EFX_MIN_RING_SIZE ||
+-	    ring->tx_pending < EFX_MIN_RING_SIZE) {
++	if (ring->rx_pending < EFX_RXQ_MIN_ENT) {
+ 		netif_err(efx, drv, efx->net_dev,
+-			  "TX and RX queues cannot be smaller than %ld\n",
+-			  EFX_MIN_RING_SIZE);
++			  "RX queues cannot be smaller than %u\n",
++			  EFX_RXQ_MIN_ENT);
+ 		return -EINVAL;
+ 	}
+ 
+-	return efx_realloc_channels(efx, ring->rx_pending, ring->tx_pending);
++	txq_entries = max(ring->tx_pending, EFX_TXQ_MIN_ENT(efx));
++	if (txq_entries != ring->tx_pending)
++		netif_warn(efx, drv, efx->net_dev,
++			   "increasing TX queue size to minimum of %u\n",
++			   txq_entries);
++
++	return efx_realloc_channels(efx, ring->rx_pending, txq_entries);
+ }
+ 
+ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index 9b225a7..1871343 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -119,6 +119,25 @@ efx_max_tx_len(struct efx_nic *efx, dma_addr_t dma_addr)
+ 	return len;
+ }
+ 
++unsigned int efx_tx_max_skb_descs(struct efx_nic *efx)
++{
++	/* Header and payload descriptor for each output segment, plus
++	 * one for every input fragment boundary within a segment
++	 */
++	unsigned int max_descs = EFX_TSO_MAX_SEGS * 2 + MAX_SKB_FRAGS;
++
++	/* Possibly one more per segment for the alignment workaround */
++	if (EFX_WORKAROUND_5391(efx))
++		max_descs += EFX_TSO_MAX_SEGS;
++
++	/* Possibly more for PCIe page boundaries within input fragments */
++	if (PAGE_SIZE > EFX_PAGE_SIZE)
++		max_descs += max_t(unsigned int, MAX_SKB_FRAGS,
++				   DIV_ROUND_UP(GSO_MAX_SIZE, EFX_PAGE_SIZE));
++
++	return max_descs;
++}
++
+ /*
+  * Add a socket buffer to a TX queue
+  *
 -- 
 1.7.7.6
 
