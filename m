@@ -1,55 +1,42 @@
-From: Denis Yefremov <yefremov.denis-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: wlcore: might_sleep operation in interrupt handler
-Date: Wed, 1 Aug 2012 00:48:17 +0400
-Message-ID: <CADKZ3FLs444RfLx=RyBPKs+Lza_mZHhT=zHauMt3BUnqAUtY0w@mail.gmail.com>
-References: <CADKZ3FKDw78ac9JPXJuw0s7Mqg1RrVfonbjXZ6zHmtwF2i5HoQ@mail.gmail.com>
-	<1343765698.4474.10.camel@jlt3.sipsolutions.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] ss: Report MSS from internal TCP information
+Date: Tue, 31 Jul 2012 14:07:15 -0700
+Message-ID: <20120731140715.1dc3cd1b@nehalam.linuxnetplumber.net>
+References: <1343677867.2667.33.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Eliad Peller <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	Arik Nemtsov <arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>, Eyal Shapira <eyal-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-ufN2psIa012HXe+LvDLADg@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1343765698.4474.10.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:59756 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751139Ab2GaVHk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2012 17:07:40 -0400
+In-Reply-To: <1343677867.2667.33.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-More precise (IRQF_ONESHOT flag may be used):
+On Mon, 30 Jul 2012 20:51:07 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
-{
-...
-        if (wl->platform_quirks & WL12XX_PLATFORM_QUIRK_EDGE_IRQ)
-                irqflags = IRQF_TRIGGER_RISING;
-        else
-                irqflags = IRQF_TRIGGER_HIGH | IRQF_ONESHOT;
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>  misc/ss.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/misc/ss.c b/misc/ss.c
+> index cf529ef..8ad830b 100644
+> --- a/misc/ss.c
+> +++ b/misc/ss.c
+> @@ -1392,6 +1392,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
+>  			       (double)info->tcpi_rttvar/1000);
+>  		if (info->tcpi_ato)
+>  			printf(" ato:%g", (double)info->tcpi_ato/1000);
+> +		if (info->tcpi_snd_mss)
+> +			printf(" mss:%d", info->tcpi_snd_mss);
+>  		if (info->tcpi_snd_cwnd != 2)
+>  			printf(" cwnd:%d", info->tcpi_snd_cwnd);
+>  		if (info->tcpi_snd_ssthresh < 0xFFFF)
 
-        ret = request_threaded_irq(wl->irq, wl12xx_hardirq, wlcore_irq,
-                                   irqflags,
-                                   pdev->name, wl);
-
-
-2012/8/1 Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>:
-> On Tue, 2012-07-31 at 22:28 +0400, Denis Yefremov wrote:
->> Interrupt handler wlcore_irq in wlcore/main.c file
->> invokes mutex_lock that is might sleep operation.
->
->> int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
->> {
->> ...
->>         ret = request_threaded_irq(wl->irq, wl12xx_hardirq, wlcore_irq,
->>                                    irqflags,
->>                                    pdev->name, wl);
->
-> Yes, umm, why do you think they're using a *threaded* IRQ? :-)
->
-> johannes
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied
