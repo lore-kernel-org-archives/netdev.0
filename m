@@ -1,51 +1,46 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Tue, 31 Jul 2012 15:51:05 -0700
-Message-ID: <20120731225105.GD14080@jonmason-lab>
-References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
- <1343607994-32415-2-git-send-email-jon.mason@intel.com>
- <20120731222338.GA19134@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ipv4: Properly purge netdev references on uncached
+ routes.
+Date: Tue, 31 Jul 2012 16:04:08 -0700 (PDT)
+Message-ID: <20120731.160408.994710172149748635.davem@davemloft.net>
+References: <20120731.152033.1148018322961121079.davem@davemloft.net>
+	<20120731154455.2acf97a8@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120731222338.GA19134@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753509Ab2GaXEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 19:04:11 -0400
+In-Reply-To: <20120731154455.2acf97a8@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 31, 2012 at 03:23:38PM -0700, Greg KH wrote:
-> On Sun, Jul 29, 2012 at 05:26:33PM -0700, Jon Mason wrote:
-> > + *   You should have received a copy of the GNU General Public License
-> > + *   along with this program; if not, write to the Free Software
-> > + *   Foundation, Inc., 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-> 
-> You really are going to track the FSF's office movements for the next
-> 40+ years?
-> 
-> > + *   The full GNU General Public License is included in this distribution
-> > + *   in the file called LICENSE.GPL.
-> 
-> No it isn't, this sentance is totally wrong for any in-kernel code,
-> please remove it.
-> 
-> Also do the same for all the other files you added please.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 31 Jul 2012 15:44:55 -0700
 
-I echo'ed your original comments on this to Intel Legal and am waiting
-on a response.  I 100% agree, but I need their signoff first.
-
-It is worth noting that this version of the license is already in the
-kernel in numerous other drivers:
-drivers/sfi/*
-drivers/scsi/isci/*
-drivers/dma/ioat/dma_v3.c
-drivers/net/wireless/iwlwifi/*
-drivers/net/wireless/iwlegacy/*
-
-Thanks,
-Jon
-
+> On Tue, 31 Jul 2012 15:20:33 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> greg k-h
+>> 
+>> When a device is unregistered, we have to purge all of the
+>> references to it that may exist in the entire system.
+>> 
+>> If a route is uncached, we currently have no way of accomplishing
+>> this.
+>> 
+>> So create a global list that is scanned when a network device goes
+>> down.  This mirrors the logic in net/core/dst.c's dst_ifdown().
+>> 
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> What about systems will full 1M route table?
+> I wonder if doing rbtree here would make the search faster?
+
+It only happens for routes like 255.255.255.255 and for those who
+use tclassid on input.
+
+Everything else is cached in the existing FIB trie entries.
