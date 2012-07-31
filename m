@@ -1,102 +1,71 @@
 From: Jon Mason <jon.mason@intel.com>
 Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Tue, 31 Jul 2012 10:10:23 -0700
-Message-ID: <20120731171023.GA14080@jonmason-lab>
+Date: Tue, 31 Jul 2012 10:27:09 -0700
+Message-ID: <20120731172709.GB14080@jonmason-lab>
 References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
  <1343607994-32415-2-git-send-email-jon.mason@intel.com>
  <CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
  <20120730181542.GA987@jonmason-lab>
  <CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
+ <CAAsGZS5kOyQ5FQ7Jg3HxOmmPNYS+F6XcB-_3tm=rcgDV7wAvRQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CAAsGZS5kOyQ5FQ7Jg3HxOmmPNYS+F6XcB-_3tm=rcgDV7wAvRQ@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 31, 2012 at 07:45:29AM -0600, Bjorn Helgaas wrote:
-> On Mon, Jul 30, 2012 at 12:15 PM, Jon Mason <jon.mason@intel.com> wrote:
-> > On Mon, Jul 30, 2012 at 10:50:13AM -0600, Bjorn Helgaas wrote:
-> >> On Sun, Jul 29, 2012 at 6:26 PM, Jon Mason <jon.mason@intel.com> wrote:
-> >> > A PCI-Express non-transparent bridge (NTB) is a point-to-point PCIe bus
-> >> > connecting 2 systems, providing electrical isolation between the two subsystems.
-> >> > A non-transparent bridge is functionally similar to a transparent bridge except
-> >> > that both sides of the bridge have their own independent address domains.  The
-> >> > host on one side of the bridge will not have the visibility of the complete
-> >> > memory or I/O space on the other side of the bridge.  To communicate across the
-> >> > non-transparent bridge, each NTB endpoint has one (or more) apertures exposed to
-> >> > the local system.  Writes to these apertures are mirrored to memory on the
-> >> > remote system.  Communications can also occur through the use of doorbell
-> >> > registers that initiate interrupts to the alternate domain, and scratch-pad
-> >> > registers accessible from both sides.
-> >> >
-> >> > The NTB device driver is needed to configure these memory windows, doorbell, and
-> >> > scratch-pad registers as well as use them in such a way as they can be turned
-> >> > into a viable communication channel to the remote system.  ntb_hw.[ch]
-> >> > determines the usage model (NTB to NTB or NTB to Root Port) and abstracts away
-> >> > the underlying hardware to provide access and a common interface to the doorbell
-> >> > registers, scratch pads, and memory windows.  These hardware interfaces are
-> >> > exported so that other, non-mainlined kernel drivers can access these.
-> >> > ntb_transport.[ch] also uses the exported interfaces in ntb_hw.[ch] to setup a
-> >> > communication channel(s) and provide a reliable way of transferring data from
-> >> > one side to the other, which it then exports so that "client" drivers can access
-> >> > them.  These client drivers are used to provide a standard kernel interface
-> >> > (i.e., Ethernet device) to NTB, such that Linux can transfer data from one
-> >> > system to the other in a standard way.
-> >> >
-> >> > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> >> > ---
-> >> >  MAINTAINERS                 |    6 +
-> >> >  drivers/Kconfig             |    2 +
-> >> >  drivers/Makefile            |    1 +
-> >> >  drivers/ntb/Kconfig         |   13 +
-> >> >  drivers/ntb/Makefile        |    3 +
-> >> >  drivers/ntb/ntb_hw.c        | 1178 ++++++++++++++++++++++++++++++++++++
-> >> >  drivers/ntb/ntb_hw.h        |  206 +++++++
-> >> >  drivers/ntb/ntb_regs.h      |  150 +++++
-> >> >  drivers/ntb/ntb_transport.c | 1387 +++++++++++++++++++++++++++++++++++++++++++
-> >> >  include/linux/ntb.h         |   92 +++
+On Tue, Jul 31, 2012 at 12:02:20PM -0400, chetan loke wrote:
+> On Tue, Jul 31, 2012 at 9:45 AM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+> > On Mon, Jul 30, 2012 at 12:15 PM, Jon Mason <jon.mason@intel.com> wrote:
 > >>
-> >> Where will drivers for non-Intel NTBs fit in this hierarchy?  It seems
-> >> a bit presumptuous to claim the generic "ntb" names just for Intel
-> >> devices.
+> >> I've tried to make it all generic enough that non-Intel NTBs should plug in with
+> >> minimal changes to ntb_hw.c.  If their design is too divergent, then a slight
+> >> redesign of ntb_hw.c might be necessary.  But from what I've seen of other
+> >> designs on the internet, they appear to be extremely similar.  The transport and
+> >> client drivers were written with the hardware abstracted away as much as
+> >> possible to prevent the need to modify it for different hardware.  If there is
+> >> anything which is Intel hardware specific, I'd be happy to change it to make it
+> >> more generic.
 > >
-> > I've tried to make it all generic enough that non-Intel NTBs should plug in with
-> > minimal changes to ntb_hw.c.  If their design is too divergent, then a slight
-> > redesign of ntb_hw.c might be necessary.  But from what I've seen of other
-> > designs on the internet, they appear to be extremely similar.  The transport and
-> > client drivers were written with the hardware abstracted away as much as
-> > possible to prevent the need to modify it for different hardware.  If there is
-> > anything which is Intel hardware specific, I'd be happy to change it to make it
-> > more generic.
+> > That makes sense from a technical point of view, but I think it's
+> > going to cause maintenance issues.  For example, assume PLX NTB
+> > support is added.  Will PLX be happy about having to convince you to
+> > accept changes?  Will Intel be happy about having to release a new
 > 
-> That makes sense from a technical point of view, but I think it's
-> going to cause maintenance issues.  For example, assume PLX NTB
-> support is added.  Will PLX be happy about having to convince you to
-> accept changes?  Will Intel be happy about having to release a new
-> driver for their hardware just to incorporate a PLX bug fix?  Will
-> users of PLX hardware accept a new driver release that only benefits
-> Intel users?
+> Do you mean convince Intel? Well, if we think of ntb as the class
+> driver then the onus is on the community to vet the changes and NOT
+> intel.
+> And since this is the first NTB part for which the support is
+> introduced the class driver design could be a moving target. As
+> someone else mentioned, the async/sync tx-dma is another hook that
+> could change the class driver's design.
+> 
+> 
+> > driver for their hardware just to incorporate a PLX bug fix?  Will
+> > users of PLX hardware accept a new driver release that only benefits
+> > Intel users?
+> 
+> May be till the class driver is stable, the client(intel/PLX) drivers
+> might have to be modified.  This is a cue for other vendors to
+> chime-in and review this design?
+> Just thinking if this could sit in staging for some time(so that
+> others get a chance to review/suggest changes as well) and then get
+> promoted out of staging.
 
-Firstly, I don't believe this is an issue.  The amount of hardware
-specific code is small (<150 loc), and the design of the PLX hardware
-appears to be the same as Intel (from what I've read on the internet).
-
-Assuming Intel is me, I am always happy to do whatever I can to help
-PLX or any other NTB vendor.  I am willing to make internal releases
-(which I am assuming is the issue you are referring to) for any change
-to the driver.
-
-If necessary, refactoring the driver shouldn't be a significant issue.
-However, I would prefer to do it if/when another NTB driver wants to
-be added.  PLX (and those who are using their NTB hardware) hasn't
-pushed an NTB driver yet, and may never (as their design docs on the
-web are from '05).  Why complicate the driver for them if they never
-come?
+I don't see the benefit of having the driver in staging.  Any vendors
+who would notice the ntb driver in staging would be sitting on these
+mailing lists and hopefully have planety of comments on the design.
+Stashing the driver in staging while waiting for these comments (which
+may never come) doesn't seem the best course of action.
 
 Thanks,
 Jon
+
+> 
+> Chetan Loke
