@@ -1,46 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv4: Restore old dst_free() behavior.
-Date: Tue, 31 Jul 2012 14:42:17 -0700 (PDT)
-Message-ID: <20120731.144217.708886493005872001.davem@davemloft.net>
-References: <20120730.223827.74792864437911339.davem@davemloft.net>
-	<1343732903.21269.190.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2] ipv4: percpu nh_rth_output cache
+Date: Tue, 31 Jul 2012 14:43:11 -0700 (PDT)
+Message-ID: <20120731.144311.1857420608722189065.davem@davemloft.net>
+References: <1343749530.21269.336.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40795 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40807 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145Ab2GaVmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 17:42:20 -0400
-In-Reply-To: <1343732903.21269.190.camel@edumazet-glaptop>
+	with ESMTP id S1753509Ab2GaVnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 17:43:12 -0400
+In-Reply-To: <1343749530.21269.336.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 31 Jul 2012 13:08:23 +0200
+Date: Tue, 31 Jul 2012 17:45:30 +0200
 
-> [PATCH v2] ipv4: Restore old dst_free() behavior
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> commit 404e0a8b6a55 (net: ipv4: fix RCU races on dst refcounts) tried
-> to solve a race but added a problem at device/fib dismantle time :
+> Input path is mostly run under RCU and doesnt touch dst refcnt
 > 
-> We really want to call dst_free() as soon as possible, even if sockets
-> still have dst in their cache.
-> dst_release() calls in free_fib_info_rcu() are not welcomed.
+> But output path on forwarding or UDP workloads hits
+> badly dst refcount, and we have lot of false sharing, for example
+> in ipv4_mtu() when reading rt->rt_pmtu
 > 
-> Root of the problem was that now we also cache output routes (in
-> nh_rth_output), we must use call_rcu() instead of call_rcu_bh() in
-> rt_free(), because output route lookups are done in process context.
+> Using a percpu cache for nh_rth_output gives a nice performance
+> increase at a small cost.
 > 
-> Based on feedback and initial patch from David Miller (adding another
-> call_rcu_bh() call in fib, but it appears it was not the right fix)
+> 24 udpflood test on my 24 cpu machine (dummy0 output device)
+> (each process sends 1.000.000 udp frames, 24 processes are started)
 > 
-> I left the inet_sk_rx_dst_set() helper and added __rcu attributes
-> to nh_rth_output and nh_rth_input to better document what is going on in
-> this code.
+> before : 5.24 s
+> after : 2.06 s
+> For reference, time on linux-3.5 : 6.60 s
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Eric.
+Applied.
+
+However I think fib_create_info() should fail if it cannot alloc_percpu()
+successfully, instead of having funny logic in rt_cache_route().
