@@ -1,169 +1,58 @@
-From: Ian Molton <ian.molton@codethink.co.uk>
-Subject: [PATCH v2 5/6] csb1724: Enable device tree based mv643xx ethernet support.
-Date: Tue, 31 Jul 2012 16:45:28 +0100
-Message-ID: <1343749529-17571-6-git-send-email-ian.molton@codethink.co.uk>
-References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
-Cc: andrew@lunn.ch, thomas.petazzoni@free-electrons.com,
-	ben.dooks@codethink.co.uk, arnd@arndb.de, netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:59910 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754492Ab2GaPzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 11:55:12 -0400
-In-Reply-To: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Tue, 31 Jul 2012 12:02:20 -0400
+Message-ID: <CAAsGZS5kOyQ5FQ7Jg3HxOmmPNYS+F6XcB-_3tm=rcgDV7wAvRQ@mail.gmail.com>
+References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
+	<1343607994-32415-2-git-send-email-jon.mason@intel.com>
+	<CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
+	<20120730181542.GA987@jonmason-lab>
+	<CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jon Mason <jon.mason@intel.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-    This patch enables mv643xx based ethernet built into the SoM on the
-    csb1724, via flattened device tree.
+On Tue, Jul 31, 2012 at 9:45 AM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+> On Mon, Jul 30, 2012 at 12:15 PM, Jon Mason <jon.mason@intel.com> wrote:
+>>
+>> I've tried to make it all generic enough that non-Intel NTBs should plug in with
+>> minimal changes to ntb_hw.c.  If their design is too divergent, then a slight
+>> redesign of ntb_hw.c might be necessary.  But from what I've seen of other
+>> designs on the internet, they appear to be extremely similar.  The transport and
+>> client drivers were written with the hardware abstracted away as much as
+>> possible to prevent the need to modify it for different hardware.  If there is
+>> anything which is Intel hardware specific, I'd be happy to change it to make it
+>> more generic.
+>
+> That makes sense from a technical point of view, but I think it's
+> going to cause maintenance issues.  For example, assume PLX NTB
+> support is added.  Will PLX be happy about having to convince you to
+> accept changes?  Will Intel be happy about having to release a new
 
-    Signed-off-by: Ian Molton <ian.molton@codethink.co.uk>
----
- arch/arm/boot/dts/kirkwood-csb1724.dts |   19 ++++++++++++++
- arch/arm/boot/dts/kirkwood.dtsi        |   33 +++++++++++++++++++++++
- arch/arm/configs/csb1724_defconfig     |   45 ++++++++++++++++++++++++++++++++
- arch/arm/mach-kirkwood/board-csb1724.c |    1 +
- 4 files changed, 98 insertions(+)
+Do you mean convince Intel? Well, if we think of ntb as the class
+driver then the onus is on the community to vet the changes and NOT
+intel.
+And since this is the first NTB part for which the support is
+introduced the class driver design could be a moving target. As
+someone else mentioned, the async/sync tx-dma is another hook that
+could change the class driver's design.
 
-diff --git a/arch/arm/boot/dts/kirkwood-csb1724.dts b/arch/arm/boot/dts/kirkwood-csb1724.dts
-index 44dfe9a..f43f8dd 100644
---- a/arch/arm/boot/dts/kirkwood-csb1724.dts
-+++ b/arch/arm/boot/dts/kirkwood-csb1724.dts
-@@ -25,6 +25,25 @@
- 			nr-ports = <2>;
- 			status = "ok";
- 		};
-+
-+		smi0: mdio@72000 {
-+			status = "ok";
-+		};
-+
-+		smi1: mdio@76000 {
-+			status = "ok";
-+		};
-+
-+		egiga0 {
-+			phy_addr = <0>;
-+			status = "ok";
-+		};
-+
-+		egiga1 {
-+			phy_addr = <1>;
-+			status = "ok";
-+		};
-+
- 	};
- 
- };
-diff --git a/arch/arm/boot/dts/kirkwood.dtsi b/arch/arm/boot/dts/kirkwood.dtsi
-index cef9616..f5f1f92 100644
---- a/arch/arm/boot/dts/kirkwood.dtsi
-+++ b/arch/arm/boot/dts/kirkwood.dtsi
-@@ -76,6 +76,39 @@
- 			status = "okay";
- 		};
- 
-+		smi0: mdio@72000 {
-+			compatible = "marvell,mdio-mv643xx";
-+			reg = <0x72000 0x4000>;
-+			interrupts = <46>;
-+			tx_csum_limit = <1600>;
-+			status = "disabled";
-+		};
-+
-+		egiga0 {
-+			compatible = "marvell,mv643xx-eth";
-+			reg = <0x72000 0x4000>;
-+			mdio = <&smi0>;
-+			interrupts = <11>;
-+			status = "disabled";
-+		};
-+
-+		smi1: mdio@76000 {
-+			compatible = "marvell,mdio-mv643xx";
-+			reg = <0x76000 0x4000>;
-+			interrupts = <47>;
-+			shared_smi = <&smi0>;
-+			tx_csum_limit = <1600>;
-+			status = "disabled";
-+		};
-+
-+		egiga1 {
-+			compatible = "marvell,mv643xx-eth";
-+			reg = <0x76000 0x4000>;
-+			mdio = <&smi1>;
-+			interrupts = <15>;
-+			status = "disabled";
-+		};
-+
- 		sata@80000 {
- 			compatible = "marvell,orion-sata";
- 			reg = <0x80000 0x5000>;
-diff --git a/arch/arm/configs/csb1724_defconfig b/arch/arm/configs/csb1724_defconfig
-index 927b269..fbea657 100644
---- a/arch/arm/configs/csb1724_defconfig
-+++ b/arch/arm/configs/csb1724_defconfig
-@@ -45,3 +45,48 @@ CONFIG_PROC_DEVICETREE=y
- CONFIG_BLK_DEV_LOOP=y
- CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
- CONFIG_DYNAMIC_DEBUG=y
-+CONFIG_NET=y
-+CONFIG_INET=y
-+CONFIG_NETDEVICES=y
-+CONFIG_MV643XX_ETH=y
-+CONFIG_PACKET=y
-+CONFIG_UNIX=y
-+CONFIG_IPV6=n
-+CONFIG_NET_VENDOR_3COM=n
-+CONFIG_NET_VENDOR_ADAPTEC=n
-+CONFIG_NET_VENDOR_ALTEON=n
-+CONFIG_NET_VENDOR_AMD=n
-+CONFIG_NET_VENDOR_ATHEROS=n
-+CONFIG_NET_VENDOR_BROADCOM=n
-+CONFIG_NET_VENDOR_BROCADE=n
-+CONFIG_NET_VENDOR_CHELSIO=n
-+CONFIG_NET_VENDOR_CIRRUS=n
-+CONFIG_NET_VENDOR_CISCO=n
-+CONFIG_NET_VENDOR_DEC=n
-+CONFIG_NET_VENDOR_HP=n
-+CONFIG_NET_VENDOR_DLINK=n
-+CONFIG_NET_VENDOR_EMULEX=n
-+CONFIG_NET_VENDOR_EXAR=n
-+CONFIG_NET_VENDOR_FARADAY=n
-+CONFIG_NET_VENDOR_INTEL=n
-+CONFIG_NET_VENDOR_MELLANOX=n
-+CONFIG_NET_VENDOR_MICREL=n
-+CONFIG_NET_VENDOR_MYRI=n
-+CONFIG_NET_VENDOR_NATSEMI=n
-+CONFIG_NET_VENDOR_NVIDIA=n
-+CONFIG_NET_VENDOR_OKI=n
-+CONFIG_NET_PACKET_ENGINE=n
-+CONFIG_NET_VENDOR_QLOGIC=n
-+CONFIG_NET_VENDOR_REALTEK=n
-+CONFIG_NET_VENDOR_RDC=n
-+CONFIG_NET_VENDOR_SEEQ=n
-+CONFIG_NET_VENDOR_SILAN=n
-+CONFIG_NET_VENDOR_SIS=n
-+CONFIG_NET_VENDOR_SMSC=n
-+CONFIG_NET_VENDOR_STMICRO=n
-+CONFIG_NET_VENDOR_SUN=n
-+CONFIG_NET_VENDOR_TEHUTI=n
-+CONFIG_NET_VENDOR_TI=n
-+CONFIG_NET_VENDOR_VIA=n
-+CONFIG_NET_VENDOR_WIZNET=n
-+
-diff --git a/arch/arm/mach-kirkwood/board-csb1724.c b/arch/arm/mach-kirkwood/board-csb1724.c
-index 979112d..9c58b92 100644
---- a/arch/arm/mach-kirkwood/board-csb1724.c
-+++ b/arch/arm/mach-kirkwood/board-csb1724.c
-@@ -13,6 +13,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/init.h>
-+#include "common.h"
- #include "mpp.h"
- 
- static unsigned int csb1724_mpp_config[] __initdata = {
--- 
-1.7.9.5
+
+> driver for their hardware just to incorporate a PLX bug fix?  Will
+> users of PLX hardware accept a new driver release that only benefits
+> Intel users?
+
+May be till the class driver is stable, the client(intel/PLX) drivers
+might have to be modified.  This is a cue for other vendors to
+chime-in and review this design?
+Just thinking if this could sit in staging for some time(so that
+others get a chance to review/suggest changes as well) and then get
+promoted out of staging.
+
+Chetan Loke
