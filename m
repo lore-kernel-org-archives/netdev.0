@@ -1,48 +1,55 @@
-From: Robert Engels <rengels@optionscity.com>
-Subject: cpu usage on blocking network call
-Date: Tue, 31 Jul 2012 14:14:01 -0500
-Message-ID: <CA+q+rD2O8dkBhgxCsHVsq=j7zi56nb9D59gYHHA=uOKbnZZdSQ@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 3/6] mv643xx.c: Add basic device tree support.
+Date: Tue, 31 Jul 2012 21:24:58 +0200
+Message-ID: <20120731192458.GE28852@lunn.ch>
+References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
+ <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
+ <201207311823.54857.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ian Molton <ian.molton@codethink.co.uk>,
+	linux-arm-kernel@lists.infradead.org, andrew@lunn.ch,
+	thomas.petazzoni@free-electrons.com, ben.dooks@codethink.co.uk,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:61151 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508Ab2GaTOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 15:14:02 -0400
-Received: by vbbff1 with SMTP id ff1so6136315vbb.19
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2012 12:14:02 -0700 (PDT)
+Received: from londo.lunn.ch ([80.238.139.98]:43083 "EHLO londo.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751661Ab2GaTZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2012 15:25:08 -0400
+Content-Disposition: inline
+In-Reply-To: <201207311823.54857.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a strange problem, and was hoping the developers could provide
-some insight.
+On Tue, Jul 31, 2012 at 06:23:54PM +0000, Arnd Bergmann wrote:
+> On Tuesday 31 July 2012, Ian Molton wrote:
+> > @@ -33,6 +34,10 @@ struct of_dev_auxdata kirkwood_auxdata_lookup[] __initdata = {
+> >  	OF_DEV_AUXDATA("marvell,orion-wdt", 0xf1020300, "orion_wdt", NULL),
+> >  	OF_DEV_AUXDATA("marvell,orion-sata", 0xf1080000, "sata_mv.0", NULL),
+> >  	OF_DEV_AUXDATA("marvell,orion-nand", 0xf4000000, "orion_nand", NULL),
+> > +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1072000, MV643XX_ETH_NAME ".0",
+> > +			NULL),
+> > +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1076000, MV643XX_ETH_NAME ".1",
+> > +			NULL),
+> >  	{},
+> >  };
+> 
+> Please don't do string concatenation like this, it just makes it harder to grep for the
+> strings.
 
-I have tested with ubuntu 12.04, with the 3.2.0-23 lowlatency kernel.
-I also tested with a 3.0.31 vanilla realtime kernel on a different
-machine.
+Hi Arnd
 
-I open a blocking socket (and connect to a remote client), and start
-two threads, a reader and a writer.
+This pattern is used in other places, e.g. when creating the
+clocks. The macro MV643XX_ETH_NAME is also used when creating the
+platform data, and in the driver itself. 
 
-I pump LOTS of data down the writer, but do not receive any data on
-the reader (by design).
+Are you suggested we replace this with "mv643xx_eth.0"? Or is adding
+the macro
 
-The reader thread is reporting some CPU usage (not a lot, about 10% of
-the writer cpu). I determine this using "top", and other profiling
-tools.
+#define MV643XX_ETH_NAME0 "mv643xx_eth.0" 
 
-I also run strace on the thread, and it shows that it is blocked in
-read() call, and that is doesn't return.
+in include/linux/mv643xx_eth.h O.K, since grep will find it, and
+induce the grep'er to perform a second grep on the macro?
 
-Why/How is the reader thread consuming CPU? Poorly written driver?
-Kernel bug? Or is this expected behavior or the kernel?
-
-I am more than willing to spend more time tracking it down in the
-kernel, but I'd like some direction.
-
---
-
-Robert Engels
-OptionsCity Software Inc.
-Chicago, IL
+     Andrew
