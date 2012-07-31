@@ -1,270 +1,368 @@
 From: Ian Molton <ian.molton@codethink.co.uk>
-Subject: [PATCH v2 1/6] Initial csb1724 board support (FDT)
-Date: Tue, 31 Jul 2012 16:45:24 +0100
-Message-ID: <1343749529-17571-2-git-send-email-ian.molton@codethink.co.uk>
+Subject: [PATCH v2 3/6] mv643xx.c: Add basic device tree support.
+Date: Tue, 31 Jul 2012 16:45:26 +0100
+Message-ID: <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
 References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
 Cc: andrew@lunn.ch, thomas.petazzoni@free-electrons.com,
 	ben.dooks@codethink.co.uk, arnd@arndb.de, netdev@vger.kernel.org
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:59912 "EHLO
+Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:59914 "EHLO
 	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753339Ab2GaPzM (ORCPT
+	with ESMTP id S1754175Ab2GaPzM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 11:55:12 -0400
 In-Reply-To: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the csb1724 SoM.
+This patch adds basic device tree support to the mv643xx ethernet driver.
 
-It includes serial and SATA support.
+It should be enough for most current users of the device, and should allow
+a fairly painless migration once proper support for clk devices is available
+to those platforms.
 
 Signed-off-by: Ian Molton <ian.molton@codethink.co.uk>
 ---
- arch/arm/boot/dts/kirkwood-csb1724.dts |   30 ++++++++++++++++
- arch/arm/configs/csb1724_defconfig     |   47 +++++++++++++++++++++++++
- arch/arm/mach-kirkwood/Kconfig         |    7 ++++
- arch/arm/mach-kirkwood/Makefile        |    1 +
- arch/arm/mach-kirkwood/Makefile.boot   |    1 +
- arch/arm/mach-kirkwood/board-csb1724.c |   59 ++++++++++++++++++++++++++++++++
- arch/arm/mach-kirkwood/board-dt.c      |    4 +++
- arch/arm/mach-kirkwood/common.h        |    6 ++++
- 8 files changed, 155 insertions(+)
- create mode 100644 arch/arm/boot/dts/kirkwood-csb1724.dts
- create mode 100644 arch/arm/configs/csb1724_defconfig
- create mode 100644 arch/arm/mach-kirkwood/board-csb1724.c
+ Documentation/devicetree/bindings/net/mv643xx.txt |   75 +++++++++++++
+ arch/arm/mach-kirkwood/board-dt.c                 |    5 +
+ drivers/net/ethernet/marvell/mv643xx_eth.c        |  119 ++++++++++++++++++---
+ 3 files changed, 185 insertions(+), 14 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/mv643xx.txt
 
-diff --git a/arch/arm/boot/dts/kirkwood-csb1724.dts b/arch/arm/boot/dts/kirkwood-csb1724.dts
+diff --git a/Documentation/devicetree/bindings/net/mv643xx.txt b/Documentation/devicetree/bindings/net/mv643xx.txt
 new file mode 100644
-index 0000000..44dfe9a
+index 0000000..2727f79
 --- /dev/null
-+++ b/arch/arm/boot/dts/kirkwood-csb1724.dts
-@@ -0,0 +1,30 @@
-+/dts-v1/;
++++ b/Documentation/devicetree/bindings/net/mv643xx.txt
+@@ -0,0 +1,75 @@
++mv643xx related nodes.
 +
-+/include/ "kirkwood.dtsi"
++marvell,mdio-mv643xx:
 +
-+/ {
-+	model = "Cogent CSB1724-88F-628X SoM";
-+	compatible = "cogent,csb1724", "marvell,kirkwood-88f6281", "marvell,kirkwood";
++Required properties:
 +
-+	memory {
-+		device_type = "memory";
-+		reg = <0x00000000 0x20000000>;
-+	};
++ - interrupts : <a> where a is the SMI interrupt number.
++ - reg : the base address and size of the controllers register space.
 +
-+	chosen {
-+		bootargs = "console=ttyS0,115200n8 earlyprintk";
-+	};
++Optional properties:
++ - shared_smi : on some chips, the second PHY is "shared", meaning it is
++	really accessed via the first SMI controller. It is passed in this
++	way due to the present structure of the driver, which requires the
++	base address for the MAC to be passed in via the SMI controllers
++	platform data.
++ - tx_csum_limit : on some devices, this option is required for proper
++	operation wrt. jumbo frames.
 +
-+	ocp@f1000000 {
-+		serial@12000 {
-+			clock-frequency = <200000000>;
-+			status = "ok";
-+		};
 +
-+		sata@80000 {
-+			nr-ports = <2>;
-+			status = "ok";
-+		};
-+	};
++Example:
 +
-+};
-diff --git a/arch/arm/configs/csb1724_defconfig b/arch/arm/configs/csb1724_defconfig
-new file mode 100644
-index 0000000..927b269
---- /dev/null
-+++ b/arch/arm/configs/csb1724_defconfig
-@@ -0,0 +1,47 @@
-+CONFIG_ARCH_KIRKWOOD=y
-+CONFIG_ARCH_KIRKWOOD_DT=y
-+CONFIG_MACH_CSB1724_DT=y
-+CONFIG_EMBEDDED=y
-+CONFIG_EXPERT=y
-+CONFIG_EXPERIMENTAL=y
-+CONFIG_ARM_APPENDED_DTB=y
-+CONFIG_VFP=y
-+CONFIG_AEABI=y
-+CONFIG_OABI_COMPAT=y
-+CONFIG_SERIAL_8250=y
-+CONFIG_SERIAL_8250_CONSOLE=y
-+CONFIG_SERIAL_OF_PLATFORM=y
-+CONFIG_ATA=y
-+CONFIG_ATA_SFF=y
-+CONFIG_ATA_BMDMA=y
-+CONFIG_SATA_MV=y
-+CONFIG_MSDOS_FS=y
-+CONFIG_VFAT_FS=y
-+CONFIG_TMPFS=y
-+CONFIG_NLS_CODEPAGE_437=y
-+CONFIG_NLS_CODEPAGE_850=y
-+CONFIG_NLS_ISO8859_1=y
-+CONFIG_NLS_ISO8859_2=y
-+CONFIG_NLS_UTF8=y
-+CONFIG_MAGIC_SYSRQ=y
-+CONFIG_DEBUG_FS=y
-+CONFIG_TIMER_STATS=y
-+CONFIG_DEBUG_INFO=y
-+CONFIG_DEBUG_USER=y
-+CONFIG_DEBUG_LL=y
-+CONFIG_EARLY_PRINTK=y
-+CONFIG_DTC=y
-+CONFIG_SCSI=y
-+CONFIG_BLK_DEV_SD=y
-+CONFIG_EXT4_FS=y
-+CONFIG_SYSVIPC=y
-+CONFIG_SYSVIPC_SYSCTL=y
-+CONFIG_TICK_ONESHOT=y
-+CONFIG_NO_HZ=y
-+CONFIG_HIGH_RES_TIMERS=y
-+CONFIG_MODULES=y
-+CONFIG_MODULE_UNLOAD=y
-+CONFIG_PROC_DEVICETREE=y
-+CONFIG_BLK_DEV_LOOP=y
-+CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
-+CONFIG_DYNAMIC_DEBUG=y
-diff --git a/arch/arm/mach-kirkwood/Kconfig b/arch/arm/mach-kirkwood/Kconfig
-index ca5c15a..6d51c50 100644
---- a/arch/arm/mach-kirkwood/Kconfig
-+++ b/arch/arm/mach-kirkwood/Kconfig
-@@ -109,6 +109,13 @@ config MACH_LSXL_DT
- 	  Buffalo Linkstation LS-XHL & LS-CHLv2 devices, using
- 	  Flattened Device Tree.
- 
-+config MACH_CSB1724_DT
-+	bool "Cogent CSB1724 SoM (Flattened Device Tree)"
-+	select ARCH_KIRKWOOD_DT
-+	help
-+	  Say 'Y' here if you want your kernel to support the
-+	  Cogent CSB1724 SoM, using Flattened Device Tree.
-+
- config MACH_TS219
- 	bool "QNAP TS-110, TS-119, TS-119P+, TS-210, TS-219, TS-219P and TS-219P+ Turbo NAS"
- 	help
-diff --git a/arch/arm/mach-kirkwood/Makefile b/arch/arm/mach-kirkwood/Makefile
-index 055c85a..665ed63 100644
---- a/arch/arm/mach-kirkwood/Makefile
-+++ b/arch/arm/mach-kirkwood/Makefile
-@@ -28,3 +28,4 @@ obj-$(CONFIG_MACH_IB62X0_DT)		+= board-ib62x0.o
- obj-$(CONFIG_MACH_TS219_DT)		+= board-ts219.o tsx1x-common.o
- obj-$(CONFIG_MACH_GOFLEXNET_DT)		+= board-goflexnet.o
- obj-$(CONFIG_MACH_LSXL_DT)		+= board-lsxl.o
-+obj-$(CONFIG_MACH_CSB1724_DT)		+= board-csb1724.o
-diff --git a/arch/arm/mach-kirkwood/Makefile.boot b/arch/arm/mach-kirkwood/Makefile.boot
-index 2a576ab..899bc80 100644
---- a/arch/arm/mach-kirkwood/Makefile.boot
-+++ b/arch/arm/mach-kirkwood/Makefile.boot
-@@ -2,6 +2,7 @@
- params_phys-y	:= 0x00000100
- initrd_phys-y	:= 0x00800000
- 
-+dtb-$(CONFIG_MACH_CSB1724_DT) += kirkwood-csb1724.dtb
- dtb-$(CONFIG_MACH_DREAMPLUG_DT) += kirkwood-dreamplug.dtb
- dtb-$(CONFIG_MACH_DLINK_KIRKWOOD_DT) += kirkwood-dns320.dtb
- dtb-$(CONFIG_MACH_DLINK_KIRKWOOD_DT) += kirkwood-dns325.dtb
-diff --git a/arch/arm/mach-kirkwood/board-csb1724.c b/arch/arm/mach-kirkwood/board-csb1724.c
-new file mode 100644
-index 0000000..979112d
---- /dev/null
-+++ b/arch/arm/mach-kirkwood/board-csb1724.c
-@@ -0,0 +1,59 @@
-+/*
-+ * Copyright 2012 (C), Ian Molton <ian.molton@codethink.co.uk>
-+ *
-+ * arch/arm/mach-kirkwood/board-csb1724.c
-+ *
-+ * Cogent csb1724 Board Init for drivers not converted to
-+ * flattened device tree yet.
-+ *
-+ * This file is licensed under the terms of the GNU General Public
-+ * License version 2.  This program is licensed "as is" without any
-+ * warranty of any kind, whether express or implied.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include "mpp.h"
-+
-+static unsigned int csb1724_mpp_config[] __initdata = {
-+	MPP0_NF_IO2,
-+	MPP1_NF_IO3,
-+	MPP2_NF_IO4,
-+	MPP3_NF_IO5,
-+	MPP4_NF_IO6,
-+	MPP5_NF_IO7,
-+	MPP8_TW0_SDA,
-+	MPP9_TW0_SCK,
-+	MPP12_SD_CLK,
-+	MPP13_SD_CMD,
-+	MPP14_SD_D0,
-+	MPP15_SD_D1,
-+	MPP16_SD_D2,
-+	MPP17_SD_D3,
-+	MPP18_NF_IO0,
-+	MPP19_NF_IO1,
-+	MPP20_GE1_TXD0,
-+	MPP21_GE1_TXD1,
-+	MPP22_GE1_TXD2,
-+	MPP23_GE1_TXD3,
-+	MPP24_GE1_RXD0,
-+	MPP25_GE1_RXD1,
-+	MPP26_GE1_RXD2,
-+	MPP27_GE1_RXD3,
-+	MPP30_GE1_RXCTL,
-+	MPP31_GE1_RXCLK,
-+	MPP32_GE1_TCLKOUT,
-+	MPP33_GE1_TXCTL,
-+	MPP34_SATA1_ACTn,
-+	MPP35_SATA0_ACTn,
-+	MPP36_TW1_SDA,
-+	MPP37_TW1_SCK,
++smi0: mdio@72000 {
++	compatible = "marvell,mdio-mv643xx";
++	reg = <0x72000 0x4000>;
++	interrupts = <46>;
++	tx_csum_limit = <1600>;
++	status = "disabled";
 +};
 +
-+void __init csb1724_init(void)
-+{
-+	/*
-+	 * Basic setup. Needs to be called early.
-+	 */
-+	kirkwood_mpp_conf(csb1724_mpp_config);
-+}
++smi1: mdio@76000 {
++	compatible = "marvell,mdio-mv643xx";
++	reg = <0x76000 0x4000>;
++	interrupts = <47>;
++	shared_smi = <&smi0>;
++	tx_csum_limit = <1600>;
++	status = "disabled";
++};
++
++
++
++marvell,mv643xx-eth:
++
++Required properties:
++ - interrupts : the port interrupt number.
++ - mdio : phandle of the smi device as drescribed above
++
++Optional properties:
++ - port_number : the port number on this bus.
++ - phy_addr : the PHY address.
++ - reg : should match the mdio reg this device is attached to.
++	this is a required hack for now due to the way the
++	driver is constructed. This allows the device clock to be
++	kept running so that the MAC is not lost after boot.
++
++
++Example:
++
++egiga0 {
++	compatible = "marvell,mv643xx-eth";
++	reg = <0x72000 0x4000>;
++	mdio = <&smi0>;
++	port_number = <0>;
++	phy_addr = <0x80>;
++	interrupts = <11>;
++};
++
++egiga1 {
++	compatible = "marvell,mv643xx-eth";
++	reg = <0x76000 0x4000>;
++	mdio = <&smi1>;
++	port_number = <0>;
++	phy_addr = <0x81>;
++	interrupts = <15>;
++};
++
 diff --git a/arch/arm/mach-kirkwood/board-dt.c b/arch/arm/mach-kirkwood/board-dt.c
-index e4eb450..7679f7f 100644
+index 7679f7f..9816b85 100644
 --- a/arch/arm/mach-kirkwood/board-dt.c
 +++ b/arch/arm/mach-kirkwood/board-dt.c
-@@ -87,6 +87,9 @@ static void __init kirkwood_dt_init(void)
- 	if (of_machine_is_compatible("buffalo,lsxl"))
- 		lsxl_init();
- 
-+	if (of_machine_is_compatible("cogent,csb1724"))
-+		csb1724_init();
-+
- 	of_platform_populate(NULL, kirkwood_dt_match_table,
- 			     kirkwood_auxdata_lookup, NULL);
- }
-@@ -100,6 +103,7 @@ static const char *kirkwood_dt_board_compat[] = {
- 	"qnap,ts219",
- 	"seagate,goflexnet",
- 	"buffalo,lsxl",
-+	"cogent,csb1724",
- 	NULL
+@@ -14,6 +14,7 @@
+ #include <linux/init.h>
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
++#include <linux/mv643xx_eth.h>
+ #include <linux/kexec.h>
+ #include <asm/mach/arch.h>
+ #include <asm/mach/map.h>
+@@ -33,6 +34,10 @@ struct of_dev_auxdata kirkwood_auxdata_lookup[] __initdata = {
+ 	OF_DEV_AUXDATA("marvell,orion-wdt", 0xf1020300, "orion_wdt", NULL),
+ 	OF_DEV_AUXDATA("marvell,orion-sata", 0xf1080000, "sata_mv.0", NULL),
+ 	OF_DEV_AUXDATA("marvell,orion-nand", 0xf4000000, "orion_nand", NULL),
++	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1072000, MV643XX_ETH_NAME ".0",
++			NULL),
++	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1076000, MV643XX_ETH_NAME ".1",
++			NULL),
+ 	{},
  };
  
-diff --git a/arch/arm/mach-kirkwood/common.h b/arch/arm/mach-kirkwood/common.h
-index 304dd1a..8aab1ae 100644
---- a/arch/arm/mach-kirkwood/common.h
-+++ b/arch/arm/mach-kirkwood/common.h
-@@ -94,6 +94,12 @@ void lsxl_init(void);
- static inline void lsxl_init(void) {};
- #endif
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 92497eb..733c69f 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -48,6 +48,9 @@
+ #include <linux/ethtool.h>
+ #include <linux/platform_device.h>
+ #include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/of_irq.h>
+ #include <linux/kernel.h>
+ #include <linux/spinlock.h>
+ #include <linux/workqueue.h>
+@@ -2601,11 +2604,11 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
+ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ {
+ 	static int mv643xx_eth_version_printed;
+-	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
++	struct mv643xx_eth_shared_platform_data *pd;
+ 	struct mv643xx_eth_shared_private *msp;
+ 	const struct mbus_dram_target_info *dram;
+ 	struct resource *res;
+-	int ret;
++	int ret, irq = -1;
  
-+#ifdef CONFIG_MACH_CSB1724_DT
-+void csb1724_init(void);
-+#else
-+static inline void csb1724_init(void) {};
+ 	if (!mv643xx_eth_version_printed++)
+ 		pr_notice("MV-643xx 10/100/1000 ethernet driver version %s\n",
+@@ -2625,6 +2628,26 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ 	if (msp->base == NULL)
+ 		goto out_free;
+ 
++	if (pdev->dev.of_node) {
++		struct device_node *np = NULL;
++
++		/* when all users of this driver use FDT, we can remove this */
++		pd = kzalloc(sizeof(*pd), GFP_KERNEL);
++		if (!pd) {
++			dev_dbg(&pdev->dev, "Could not allocate platform data\n");
++			goto out_free;
++		}
++
++		of_property_read_u32(pdev->dev.of_node,
++			"tx_csum_limit", &pd->tx_csum_limit);
++
++		np = of_parse_phandle(pdev->dev.of_node, "shared_smi", 0);
++		if (np)
++			pd->shared_smi = of_find_device_by_node(np);
++
++	} else {
++		pd = pdev->dev.platform_data;
++	}
+ 	/*
+ 	 * Set up and register SMI bus.
+ 	 */
+@@ -2654,15 +2677,22 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ 	/*
+ 	 * Check whether the error interrupt is hooked up.
+ 	 */
+-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+-	if (res != NULL) {
++	if (pdev->dev.of_node) {
++		irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
++	} else {
++		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++		if (res)
++			irq = res->start;
++	}
++
++	if (irq != -1) {
+ 		int err;
+ 
+-		err = request_irq(res->start, mv643xx_eth_err_irq,
++		err = request_irq(irq, mv643xx_eth_err_irq,
+ 				  IRQF_SHARED, "mv643xx_eth", msp);
+ 		if (!err) {
+ 			writel(ERR_INT_SMI_DONE, msp->base + ERR_INT_MASK);
+-			msp->err_interrupt = res->start;
++			msp->err_interrupt = irq;
+ 		}
+ 	}
+ 
+@@ -2675,6 +2705,10 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+ 
+ 	msp->tx_csum_limit = (pd != NULL && pd->tx_csum_limit) ?
+ 					pd->tx_csum_limit : 9 * 1024;
++
++	if (pdev->dev.of_node)
++		kfree(pd);  /* If we created a fake pd, free it now */
++
+ 	infer_hw_params(msp);
+ 
+ 	platform_set_drvdata(pdev, msp);
+@@ -2708,12 +2742,21 @@ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
++static struct of_device_id mv_mdio_dt_ids[] __devinitdata = {
++	{ .compatible = "marvell,mdio-mv643xx", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, mv_mdio_dt_ids);
 +#endif
 +
- /* early init functions not converted to fdt yet */
- char *kirkwood_id(void);
- void kirkwood_l2_init(void);
+ static struct platform_driver mv643xx_eth_shared_driver = {
+ 	.probe		= mv643xx_eth_shared_probe,
+ 	.remove		= mv643xx_eth_shared_remove,
+ 	.driver = {
+ 		.name	= MV643XX_ETH_SHARED_NAME,
+ 		.owner	= THIS_MODULE,
++		.of_match_table = of_match_ptr(mv_mdio_dt_ids),
+ 	},
+ };
+ 
+@@ -2873,7 +2916,36 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	int err;
+ 
+-	pd = pdev->dev.platform_data;
++	if (pdev->dev.of_node) {
++		struct device_node *np = NULL;
++
++		/* when all users of this driver use FDT, we can remove this */
++		pd = kzalloc(sizeof(*pd), GFP_KERNEL);
++		if (!pd) {
++			dev_dbg(&pdev->dev, "Could not allocate platform data\n");
++			return -ENOMEM;
++		}
++
++		of_property_read_u32(pdev->dev.of_node,
++			"port_number", &pd->port_number);
++
++		if(!of_property_read_u32(pdev->dev.of_node,
++				"phy_addr", &pd->phy_addr))
++			pd->phy_addr = MV643XX_ETH_PHY_ADDR(pd->phy_addr);
++		else
++			pd->phy_addr = MV643XX_ETH_PHY_ADDR_DEFAULT;
++
++		np = of_parse_phandle(pdev->dev.of_node, "mdio", 0);
++		if (np) {
++			pd->shared = of_find_device_by_node(np);
++		} else {
++			kfree(pd);
++			return -ENODEV;
++		}
++	} else {
++		pd = pdev->dev.platform_data;
++	}
++
+ 	if (pd == NULL) {
+ 		dev_err(&pdev->dev, "no mv643xx_eth_platform_data\n");
+ 		return -ENODEV;
+@@ -2881,12 +2953,15 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 
+ 	if (pd->shared == NULL) {
+ 		dev_err(&pdev->dev, "no mv643xx_eth_platform_data->shared\n");
+-		return -ENODEV;
++		err = -ENODEV;
++		goto out_free_pd;
+ 	}
+ 
+ 	dev = alloc_etherdev_mq(sizeof(struct mv643xx_eth_private), 8);
+-	if (!dev)
+-		return -ENOMEM;
++	if (!dev) {
++		err = -ENOMEM;
++		goto out_free_pd;
++	}
+ 
+ 	mp = netdev_priv(dev);
+ 	platform_set_drvdata(pdev, mp);
+@@ -2923,6 +2998,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 
+ 	init_pscr(mp, pd->speed, pd->duplex);
+ 
++	if (pdev->dev.of_node)
++		kfree(pd); /* If we created a fake pd, free it now */
+ 
+ 	mib_counters_clear(mp);
+ 
+@@ -2942,10 +3019,13 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	mp->rx_oom.data = (unsigned long)mp;
+ 	mp->rx_oom.function = oom_timer_wrapper;
+ 
+-
+-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+-	BUG_ON(!res);
+-	dev->irq = res->start;
++	if (pdev->dev.of_node) {
++		dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
++	} else {
++		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++		BUG_ON(!res);
++		dev->irq = res->start;
++	}
+ 
+ 	dev->netdev_ops = &mv643xx_eth_netdev_ops;
+ 
+@@ -2991,6 +3071,8 @@ out:
+ 	}
+ #endif
+ 	free_netdev(dev);
++out_free_pd:
++	kfree(pd);
+ 
+ 	return err;
+ }
+@@ -3030,6 +3112,14 @@ static void mv643xx_eth_shutdown(struct platform_device *pdev)
+ 		port_reset(mp);
+ }
+ 
++#ifdef CONFIG_OF
++static struct of_device_id mv_eth_dt_ids[] __devinitdata = {
++	{ .compatible = "marvell,mv643xx-eth", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, mv_eth_dt_ids);
++#endif
++
+ static struct platform_driver mv643xx_eth_driver = {
+ 	.probe		= mv643xx_eth_probe,
+ 	.remove		= mv643xx_eth_remove,
+@@ -3037,6 +3127,7 @@ static struct platform_driver mv643xx_eth_driver = {
+ 	.driver = {
+ 		.name	= MV643XX_ETH_NAME,
+ 		.owner	= THIS_MODULE,
++		.of_match_table = of_match_ptr(mv_eth_dt_ids),
+ 	},
+ };
+ 
 -- 
 1.7.9.5
