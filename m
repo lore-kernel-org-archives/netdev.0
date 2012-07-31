@@ -1,45 +1,56 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Tue, 31 Jul 2012 14:02:25 -0400
-Message-ID: <CAAsGZS4nhv+s7NVwaaGjQ9fJoHQoaXnUoYw=xTPC-sfen+tj8A@mail.gmail.com>
-References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
-	<1343607994-32415-2-git-send-email-jon.mason@intel.com>
-	<CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
-	<20120730181542.GA987@jonmason-lab>
-	<CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
-	<CAAsGZS5kOyQ5FQ7Jg3HxOmmPNYS+F6XcB-_3tm=rcgDV7wAvRQ@mail.gmail.com>
-	<20120731172709.GB14080@jonmason-lab>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 3/6] mv643xx.c: Add basic device tree support.
+Date: Tue, 31 Jul 2012 18:23:54 +0000
+Message-ID: <201207311823.54857.arnd@arndb.de>
+References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk> <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-	Dave Jiang <dave.jiang@intel.com>
-To: Jon Mason <jon.mason@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120731172709.GB14080@jonmason-lab>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, andrew@lunn.ch,
+	thomas.petazzoni@free-electrons.com, ben.dooks@codethink.co.uk,
+	netdev@vger.kernel.org
+To: Ian Molton <ian.molton@codethink.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:57438 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754321Ab2GaSYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 14:24:32 -0400
+In-Reply-To: <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 31, 2012 at 1:27 PM, Jon Mason <jon.mason@intel.com> wrote:
->
-> I don't see the benefit of having the driver in staging.  Any vendors
-> who would notice the ntb driver in staging would be sitting on these
-> mailing lists and hopefully have planety of comments on the design.
-> Stashing the driver in staging while waiting for these comments (which
-> may never come) doesn't seem the best course of action.
->
+On Tuesday 31 July 2012, Ian Molton wrote:
+> @@ -33,6 +34,10 @@ struct of_dev_auxdata kirkwood_auxdata_lookup[] __initdata = {
+>  	OF_DEV_AUXDATA("marvell,orion-wdt", 0xf1020300, "orion_wdt", NULL),
+>  	OF_DEV_AUXDATA("marvell,orion-sata", 0xf1080000, "sata_mv.0", NULL),
+>  	OF_DEV_AUXDATA("marvell,orion-nand", 0xf4000000, "orion_nand", NULL),
+> +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1072000, MV643XX_ETH_NAME ".0",
+> +			NULL),
+> +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1076000, MV643XX_ETH_NAME ".1",
+> +			NULL),
+>  	{},
+>  };
 
-I thought that since others are talking about it then may be there is
-some WIP code for foo-NTB. Seems like that's not the case. So no need
-to stage.
+Please don't do string concatenation like this, it just makes it harder to grep for the
+strings.
 
-Correct me if I'm wrong but wouldn't apps just open a socket and route
-data via ntb_vir_eth_dev? So I don't see an ABI breakage issue and
-hence nothing would prevent us from changing the kernel parts(for
-accommodating some foo-NTB part) in future.
+> @@ -2654,15 +2677,22 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
+>  	/*
+>  	 * Check whether the error interrupt is hooked up.
+>  	 */
+> -	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+> -	if (res != NULL) {
+> +	if (pdev->dev.of_node) {
+> +		irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
+> +	} else {
+> +		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+> +		if (res)
+> +			irq = res->start;
+> +	}
+> +
 
-It may not be a bad idea to prefix intel-specific(if any)
-ntb_structs/variables/logic with the 'intc'(Intel ticker or pick your
-string) keyword.
+Why is this necessary? In theory, the old code should be the same as the new one,
+unless something goes wrong in the domain registration.
 
-Chetan Loke
+	Arnd
