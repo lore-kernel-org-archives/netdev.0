@@ -1,129 +1,46 @@
-From: Michael Leun <lkml20120218@newton.leun.net>
-Subject: Re: [3.5 regression / mcs7830 / bisected] bridge constantly
- toggeling between disabled and forwarding
-Date: Tue, 31 Jul 2012 07:52:27 +0200
-Message-ID: <20120731075227.1064ced9@xenia.leun.net>
-References: <20120723091504.2d035d28@xenia.leun.net>
-	<20120724013634.11bf1360@xenia.leun.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: Restore old dst_free() behavior.
+Date: Tue, 31 Jul 2012 07:54:57 +0200
+Message-ID: <1343714097.21269.38.camel@edumazet-glaptop>
+References: <20120730.223827.74792864437911339.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org
-To: linux@rainbow-software.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120724013634.11bf1360@xenia.leun.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:41270 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752014Ab2GaFzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 01:55:02 -0400
+Received: by wibhr14 with SMTP id hr14so2504554wib.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jul 2012 22:55:01 -0700 (PDT)
+In-Reply-To: <20120730.223827.74792864437911339.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Jul 2012 01:36:34 +0200
-Michael Leun <lkml20120218@newton.leun.net> wrote:
+On Mon, 2012-07-30 at 22:38 -0700, David Miller wrote:
+> Eric, this is what I'd like to propose.
+> 
+> It seems the problem you were likely running into was simply
+> the fact that we were not inserting an RCU grace period for
+> the dst_free() that we do when purging a FIB nexthop.
+> 
+> So this reverts your change, and instead adds the necessary
+> call_rcu_bh() wrapper around the dst_free() done in fib_semantics.c
+> 
+> That makes it so that we don't need all of that inc_not_zero stuff for
+> sockets, and the special dst flag.  If we set the pointer to NULL,
+> then do the dst_free() via RCU, we can test that refcount safely in
+> dst_free() since it can only decrease at that point.
+> 
+> What do you think?  Does it pass your tests?
+> 
+> Thanks.
 
-My report might sound like I'm complaining that link state detection
-works because link state detection was implemented - sorry, but thats
-not true.
+I'll test that ASAP, I was trying to understand why Linus tree gave me a
+non workable machine ( a panic in igb driver ... NULL RIP) .
 
-I do NOT see this link state changes if there is no traffic on the
-interface, but I start seeing them once I start pinging. I think this
-is not the idea of link state detection?
+I dont understand how I did not have this bug with net tree.
 
-I would very much appreciate if you could have a look into that,
-because it is rather annoying.
-
-> On Mon, 23 Jul 2012 09:15:04 +0200
-> Michael Leun <lkml20120218@newton.leun.net> wrote:
-> 
-> [see issue description below]
-> 
-> Bisecting yielded
-> 
-> b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113 is the first bad commit
-> commit b1ff4f96fd1c63890d78d8939c6e0f2b44ce3113
-> Author: Ondrej Zary <linux@rainbow-software.org>
-> Date:   Fri Jun 1 10:29:08 2012 +0000
-> 
->     mcs7830: Implement link state detection
-> 
->     Add .status callback that detects link state changes.
->     Tested with MCS7832CV-AA chip (9710:7830, identified as rev.C by the driver).
->     Fixes https://bugzilla.kernel.org/show_bug.cgi?id=28532
-> 
->     Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> :040000 040000 5480780cb5e75c57122a621fc3bab0108c16be27 d97efd9cc0a465dff76bcd3a3c547f718f2a5345 M    drivers
-> 
-> 
-> Reverting that from 3.5 makes the issue go away.
-> 
-> > Hi,
-> > 
-> > when I use my usb ethernet adapter
-> > 
-> > # > lsusb
-> > [...]
-> > Bus 002 Device 009: ID 9710:7830 MosChip Semiconductor MCS7830 10/100 Mbps Ethernet adapter
-> > [...]
-> > 
-> > as port of an bridge
-> > 
-> > > # brctl addbr br0
-> > > # brctl addif br0 eth0
-> > > # brctl addif br0 ue5
-> > > # ifconfig ue5 up
-> > > # ifconfig br0 up
-> > 
-> > (Also does happen when eth0 is not part of the bridge, but the logs I
-> > had available were from that situation...)
-> > 
-> > I constantly get messages showing the interface toggeling between
-> > disabled and forwarding state:
-> > 
-> > Jul 23 07:40:50 elektra kernel: [ 1539.497337] br0: port 2(ue5) entered disabled state
-> > Jul 23 07:40:50 elektra kernel: [ 1539.554992] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:50 elektra kernel: [ 1539.555005] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:51 elektra kernel: [ 1540.496242] br0: port 2(ue5) entered disabled state
-> > Jul 23 07:40:51 elektra kernel: [ 1540.552534] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:51 elektra kernel: [ 1540.552548] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:52 elektra kernel: [ 1541.550413] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:53 elektra kernel: [ 1542.529672] br0: port 2(ue5) entered disabled state
-> > Jul 23 07:40:53 elektra kernel: [ 1542.587162] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:53 elektra kernel: [ 1542.587175] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:40:54 elektra kernel: [ 1543.585309] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:00 elektra kernel: [ 1549.360600] br0: port 2(ue5) entered disabled state
-> > Jul 23 07:41:00 elektra kernel: [ 1549.442998] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:00 elektra kernel: [ 1549.443011] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:01 elektra kernel: [ 1550.357686] br0: port 2(ue5) entered disabled state
-> > Jul 23 07:41:01 elektra kernel: [ 1550.408208] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:01 elektra kernel: [ 1550.408222] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:02 elektra kernel: [ 1551.407656] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:03 elektra kernel: [ 1552.401578] br0: port 2(ue5) entered disabled state
-> > Jul 23 07:41:03 elektra kernel: [ 1552.474773] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:03 elektra kernel: [ 1552.474786] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:04 elektra kernel: [ 1553.472487] br0: port 2(ue5) entered forwarding state
-> > Jul 23 07:41:05 elektra kernel: [ 1554.356138] br0: port 2(ue5) entered disabled state
-> > [...]
-> > 
-> > This does (in the same situation, nothing else than the kernel changed)
-> > not happen with 3.4.5.
-> > 
-> > Does anybody have an idea what the issue might be or do I need to bisect?
-> 
-> 
-> -- 
-> MfG,
-> 
-> Michael Leun
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
-
-
--- 
-MfG,
-
-Michael Leun
+Please give me a couple of hours, I need to break my fast ;)
