@@ -1,287 +1,193 @@
 From: Rostislav Lisovy <lisovy@gmail.com>
-Subject: =?UTF-8?q?=5BPATCH=20iproute2=202/2=5D=20em=5Fcanid=3A=20Ematch=20used=20to=20classify=20CAN=20frames=20according=20to=20their=20identifiers?=
-Date: Tue, 31 Jul 2012 16:46:21 +0200
-Message-ID: <1343745981-14248-2-git-send-email-lisovy@gmail.com>
-References: <1343745981-14248-1-git-send-email-lisovy@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH iproute2 1/2] Add missing can.h
+Date: Tue, 31 Jul 2012 16:46:20 +0200
+Message-ID: <1343745981-14248-1-git-send-email-lisovy@gmail.com>
 Cc: linux-can@vger.kernel.org, pisa@cmp.felk.cvut.cz,
 	sojkam1@fel.cvut.cz, Rostislav Lisovy <lisovy@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:40938 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754533Ab2GaOqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 10:46:24 -0400
-In-Reply-To: <1343745981-14248-1-git-send-email-lisovy@gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:34763 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754533Ab2GaOqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 10:46:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This ematch enables effective filtering of CAN frames (AF_CAN) based
-on CAN identifiers with masking of compared bits. Implementation
-utilizes bitmap based classification for standard frame format (SFF)
-which is optimized for minimal overhead.
+Header file used when working with AF_CAN frames -- generated from
+linux kernel 3.5+
 
 Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
 ---
- etc/iproute2/ematch_map |    1 +
- include/linux/pkt_cls.h |    6 +-
- tc/Makefile             |    1 +
- tc/em_canid.c           |  191 +++++++++++++++++++++++++++++++++++++++=
-++++++++
- 4 files changed, 197 insertions(+), 2 deletions(-)
- create mode 100644 tc/em_canid.c
+ include/linux/can.h |  161 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 161 insertions(+)
+ create mode 100644 include/linux/can.h
 
-diff --git a/etc/iproute2/ematch_map b/etc/iproute2/ematch_map
-index 7c6a281..8d08613 100644
---- a/etc/iproute2/ematch_map
-+++ b/etc/iproute2/ematch_map
-@@ -3,3 +3,4 @@
- 2	nbyte
- 3	u32
- 4	meta
-+7	canid
-diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
-index defbde2..082eafa 100644
---- a/include/linux/pkt_cls.h
-+++ b/include/linux/pkt_cls.h
-@@ -451,8 +451,10 @@ enum {
- #define	TCF_EM_U32		3
- #define	TCF_EM_META		4
- #define	TCF_EM_TEXT		5
--#define        TCF_EM_VLAN		6
--#define	TCF_EM_MAX		6
-+#define	TCF_EM_VLAN		6
-+#define	TCF_EM_CANID		7
-+#define	TCF_EM_IPSET		8
-+#define	TCF_EM_MAX		8
-=20
- enum {
- 	TCF_EM_PROG_TC
-diff --git a/tc/Makefile b/tc/Makefile
-index 64d93ad..bfdcf9f 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -45,6 +45,7 @@ TCMODULES +=3D p_udp.o
- TCMODULES +=3D em_nbyte.o
- TCMODULES +=3D em_cmp.o
- TCMODULES +=3D em_u32.o
-+TCMODULES +=3D em_canid.o
- TCMODULES +=3D em_meta.o
- TCMODULES +=3D q_mqprio.o
- TCMODULES +=3D q_codel.o
-diff --git a/tc/em_canid.c b/tc/em_canid.c
+diff --git a/include/linux/can.h b/include/linux/can.h
 new file mode 100644
-index 0000000..16f6ed5
+index 0000000..018055e
 --- /dev/null
-+++ b/tc/em_canid.c
-@@ -0,0 +1,191 @@
++++ b/include/linux/can.h
+@@ -0,0 +1,161 @@
 +/*
-+ * em_canid.c  Ematch rule to match CAN frames according to their CAN =
-identifiers
++ * linux/can.h
 + *
-+ *             This program is free software; you can distribute it an=
-d/or
-+ *             modify it under the terms of the GNU General Public Lic=
-ense
-+ *             as published by the Free Software Foundation; either ve=
-rsion
-+ *             2 of the License, or (at your option) any later version=
-=2E
++ * Definitions for CAN network layer (socket addr / CAN frame / CAN filter)
 + *
-+ * Idea:       Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-+ * Copyright:  (c) 2011 Czech Technical University in Prague
-+ *             (c) 2011 Volkswagen Group Research
-+ * Authors:    Michal Sojka <sojkam1@fel.cvut.cz>
-+ *             Pavel Pisa <pisa@cmp.felk.cvut.cz>
-+ *             Rostislav Lisovy <lisovy@gmail.cz>
-+ * Funded by:  Volkswagen Group Research
++ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
++ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
 + *
-+ * Documentation: http://rtime.felk.cvut.cz/can/socketcan-qdisc-final.=
-pdf
 + */
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+#include <errno.h>
-+#include <linux/can.h>
-+#include <inttypes.h>
-+#include "m_ematch.h"
++#ifndef CAN_H
++#define CAN_H
 +
-+#define EM_CANID_RULES_MAX 400 /* Main reason for this number is Nelin=
-k
-+	message size limit equal to Single memory page size. When dump()
-+	is invoked, there are even some ematch related headers sent from
-+	kernel to userspace together with em_canid configuration --
-+	400*sizeof(struct can_filter) should fit without any problems */
++#include <linux/types.h>
++#include <linux/socket.h>
 +
-+extern struct ematch_util canid_ematch_util;
-+struct rules {
-+	struct can_filter *rules_raw;
-+	int rules_capacity;	/* Size of array allocated for rules_raw */
-+	int rules_cnt;		/* Actual number of rules stored in rules_raw */
++/* controller area network (CAN) kernel definitions */
++
++/* special address description flags for the CAN_ID */
++#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
++#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
++#define CAN_ERR_FLAG 0x20000000U /* error message frame */
++
++/* valid bits in CAN ID for frame formats */
++#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
++#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
++#define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
++
++/*
++ * Controller Area Network Identifier structure
++ *
++ * bit 0-28	: CAN identifier (11/29 bit)
++ * bit 29	: error message frame flag (0 = data frame, 1 = error message)
++ * bit 30	: remote transmission request flag (1 = rtr frame)
++ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
++ */
++typedef __u32 canid_t;
++
++#define CAN_SFF_ID_BITS		11
++#define CAN_EFF_ID_BITS		29
++
++/*
++ * Controller Area Network Error Message Frame Mask structure
++ *
++ * bit 0-28	: error class mask (see include/linux/can/error.h)
++ * bit 29-31	: set to zero
++ */
++typedef __u32 can_err_mask_t;
++
++/* CAN payload length and DLC definitions according to ISO 11898-1 */
++#define CAN_MAX_DLC 8
++#define CAN_MAX_DLEN 8
++
++/* CAN FD payload length and DLC definitions according to ISO 11898-7 */
++#define CANFD_MAX_DLC 15
++#define CANFD_MAX_DLEN 64
++
++/**
++ * struct can_frame - basic CAN frame structure
++ * @can_id:  CAN ID of the frame and CAN_*_FLAG flags, see canid_t definition
++ * @can_dlc: frame payload length in byte (0 .. 8) aka data length code
++ *           N.B. the DLC field from ISO 11898-1 Chapter 8.4.2.3 has a 1:1
++ *           mapping of the 'data length code' to the real payload length
++ * @data:    CAN frame payload (up to 8 byte)
++ */
++struct can_frame {
++	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
++	__u8    can_dlc; /* frame payload length in byte (0 .. CAN_MAX_DLEN) */
++	__u8    data[CAN_MAX_DLEN] __attribute__((aligned(8)));
 +};
 +
-+static void canid_print_usage(FILE *fd)
-+{
-+	fprintf(fd,
-+		"Usage: canid(IDLIST)\n" \
-+		"where: IDLIST :=3D IDSPEC [ IDLIST ]\n" \
-+		"       IDSPEC :=3D { =E2=80=99sff=E2=80=99 CANID | =E2=80=99eff=E2=80=
-=99 CANID }\n" \
-+		"       CANID :=3D ID[:MASK]\n" \
-+		"       ID, MASK :=3D hexadecimal number (i.e. 0x123)\n" \
-+		"Example: canid(sff 0x123 sff 0x124 sff 0x125:0xf)\n");
-+}
++/*
++ * defined bits for canfd_frame.flags
++ *
++ * As the default for CAN FD should be to support the high data rate in the
++ * payload section of the frame (HDR) and to support up to 64 byte in the
++ * data section (EDL) the bits are only set in the non-default case.
++ * Btw. as long as there's no real implementation for CAN FD network driver
++ * these bits are only preliminary.
++ *
++ * RX: NOHDR/NOEDL - info about received CAN FD frame
++ *     ESI         - bit from originating CAN controller
++ * TX: NOHDR/NOEDL - control per-frame settings if supported by CAN controller
++ *     ESI         - bit is set by local CAN controller
++ */
++#define CANFD_NOHDR 0x01 /* frame without high data rate */
++#define CANFD_NOEDL 0x02 /* frame without extended data length */
++#define CANFD_ESI   0x04 /* error state indicator */
 +
-+static int canid_parse_rule(struct rules *rules, struct bstr *a, int i=
-seff)
-+{
-+	unsigned int can_id =3D 0;
-+	unsigned int can_mask =3D 0;
-+
-+	if (sscanf(a->data, "%"SCNx32 ":" "%"SCNx32, &can_id, &can_mask) !=3D=
- 2) {
-+		if (sscanf(a->data, "%"SCNx32, &can_id) !=3D 1) {
-+			return -1;
-+		} else {
-+			can_mask =3D (iseff) ? CAN_EFF_MASK : CAN_SFF_MASK;
-+		}
-+	}
-+
-+	/* Stretch rules array up to EM_CANID_RULES_MAX if necessary */
-+	if (rules->rules_cnt =3D=3D rules->rules_capacity) {
-+		if (rules->rules_capacity <=3D EM_CANID_RULES_MAX/2) {
-+			rules->rules_capacity *=3D 2;
-+			rules->rules_raw =3D realloc(rules->rules_raw,
-+				sizeof(struct can_filter) * rules->rules_capacity);
-+		} else {
-+			return -2;
-+		}
-+	}
-+
-+	rules->rules_raw[rules->rules_cnt].can_id =3D
-+		can_id | ((iseff) ? CAN_EFF_FLAG : 0);
-+	rules->rules_raw[rules->rules_cnt].can_mask =3D
-+		can_mask | CAN_EFF_FLAG;
-+
-+	rules->rules_cnt++;
-+
-+	return 0;
-+}
-+
-+static int canid_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr =
-*hdr,
-+			  struct bstr *args)
-+{
-+	int iseff =3D 0;
-+	int ret =3D 0;
-+	struct rules rules =3D {
-+		.rules_capacity =3D 25, /* Denominator of EM_CANID_RULES_MAX
-+			Will be multiplied by 2 to calculate the size for realloc() */
-+		.rules_cnt =3D 0
-+	};
-+
-+#define PARSE_ERR(CARG, FMT, ARGS...) \
-+	em_parse_error(EINVAL, args, CARG, &canid_ematch_util, FMT, ##ARGS)
-+
-+	if (args =3D=3D NULL)
-+		return PARSE_ERR(args, "canid: missing arguments");
-+
-+	rules.rules_raw =3D malloc(sizeof(struct can_filter) * rules.rules_ca=
-pacity);
-+	memset(rules.rules_raw, 0, sizeof(struct can_filter) * rules.rules_ca=
-pacity);
-+
-+	do {
-+		if (!bstrcmp(args, "sff")) {
-+			iseff =3D 0;
-+		} else if (!bstrcmp(args, "eff")) {
-+			iseff =3D 1;
-+		} else {
-+			ret =3D PARSE_ERR(args, "canid: invalid key");
-+			goto exit;
-+		}
-+
-+		args =3D bstr_next(args);
-+		if (args =3D=3D NULL) {
-+			ret =3D PARSE_ERR(args, "canid: missing argument");
-+			goto exit;
-+		}
-+
-+		ret =3D canid_parse_rule(&rules, args, iseff);
-+		if (ret =3D=3D -1) {
-+			ret =3D PARSE_ERR(args, "canid: Improperly formed CAN ID & mask\n")=
-;
-+			goto exit;
-+		} else if (ret =3D=3D -2) {
-+			ret =3D PARSE_ERR(args, "canid: Too many arguments on input\n");
-+			goto exit;
-+		}
-+	} while ((args =3D bstr_next(args)) !=3D NULL);
-+
-+	addraw_l(n, MAX_MSG, hdr, sizeof(*hdr));
-+	addraw_l(n, MAX_MSG, rules.rules_raw,
-+		sizeof(struct can_filter) * rules.rules_cnt);
-+
-+#undef PARSE_ERR
-+exit:
-+	free(rules.rules_raw);
-+	return ret;
-+}
-+
-+static int canid_print_eopt(FILE *fd, struct tcf_ematch_hdr *hdr, void=
- *data,
-+			  int data_len)
-+{
-+	struct can_filter *conf =3D data; /* Array with rules */
-+	int rules_count;
-+	int i;
-+
-+	rules_count =3D data_len / sizeof(struct can_filter);
-+
-+	for (i =3D 0; i < rules_count; i++) {
-+		struct can_filter *pcfltr =3D &conf[i];
-+
-+		if (pcfltr->can_id & CAN_EFF_FLAG) {
-+			if (pcfltr->can_mask =3D=3D (CAN_EFF_FLAG | CAN_EFF_MASK))
-+				fprintf(fd, "eff 0x%"PRIX32,
-+						pcfltr->can_id & CAN_EFF_MASK);
-+			else
-+				fprintf(fd, "eff 0x%"PRIX32":0x%"PRIX32,
-+						pcfltr->can_id & CAN_EFF_MASK,
-+						pcfltr->can_mask & CAN_EFF_MASK);
-+		} else {
-+			if (pcfltr->can_mask =3D=3D (CAN_EFF_FLAG | CAN_SFF_MASK))
-+				fprintf(fd, "sff 0x%"PRIX32,
-+						pcfltr->can_id & CAN_SFF_MASK);
-+			else
-+				fprintf(fd, "sff 0x%"PRIX32":0x%"PRIX32,
-+						pcfltr->can_id & CAN_SFF_MASK,
-+						pcfltr->can_mask & CAN_SFF_MASK);
-+		}
-+
-+		if ((i + 1) < rules_count)
-+			fprintf(fd, " ");
-+	}
-+
-+	return 0;
-+}
-+
-+struct ematch_util canid_ematch_util =3D {
-+	.kind =3D "canid",
-+	.kind_num =3D TCF_EM_CANID,
-+	.parse_eopt =3D canid_parse_eopt,
-+	.print_eopt =3D canid_print_eopt,
-+	.print_usage =3D canid_print_usage
++/**
++ * struct canfd_frame - CAN flexible data rate frame structure
++ * @can_id: CAN ID of the frame and CAN_*_FLAG flags, see canid_t definition
++ * @len:    frame payload length in byte (0 .. CANFD_MAX_DLEN)
++ * @flags:  additional flags for CAN FD
++ * @__res0: reserved / padding
++ * @__res1: reserved / padding
++ * @data:   CAN FD frame payload (up to CANFD_MAX_DLEN byte)
++ */
++struct canfd_frame {
++	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
++	__u8    len;     /* frame payload length in byte */
++	__u8    flags;   /* additional flags for CAN FD */
++	__u8    __res0;  /* reserved / padding */
++	__u8    __res1;  /* reserved / padding */
++	__u8    data[CANFD_MAX_DLEN] __attribute__((aligned(8)));
 +};
---=20
++
++#define CAN_MTU		(sizeof(struct can_frame))
++#define CANFD_MTU	(sizeof(struct canfd_frame))
++
++/* particular protocols of the protocol family PF_CAN */
++#define CAN_RAW		1 /* RAW sockets */
++#define CAN_BCM		2 /* Broadcast Manager */
++#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
++#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
++#define CAN_MCNET	5 /* Bosch MCNet */
++#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
++#define CAN_NPROTO	7
++
++#define SOL_CAN_BASE 100
++
++/**
++ * struct sockaddr_can - the sockaddr structure for CAN sockets
++ * @can_family:  address family number AF_CAN.
++ * @can_ifindex: CAN network interface index.
++ * @can_addr:    protocol specific address information
++ */
++struct sockaddr_can {
++	__kernel_sa_family_t can_family;
++	int         can_ifindex;
++	union {
++		/* transport protocol class address information (e.g. ISOTP) */
++		struct { canid_t rx_id, tx_id; } tp;
++
++		/* reserved for future CAN protocols address information */
++	} can_addr;
++};
++
++/**
++ * struct can_filter - CAN ID based filter in can_register().
++ * @can_id:   relevant bits of CAN ID which are not masked out.
++ * @can_mask: CAN mask (see description)
++ *
++ * Description:
++ * A filter matches, when
++ *
++ *          <received_can_id> & mask == can_id & mask
++ *
++ * The filter can be inverted (CAN_INV_FILTER bit set in can_id) or it can
++ * filter for error message frames (CAN_ERR_FLAG bit set in mask).
++ */
++struct can_filter {
++	canid_t can_id;
++	canid_t can_mask;
++};
++
++#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
++
++#endif /* CAN_H */
+-- 
 1.7.10.4
