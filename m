@@ -1,55 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 3/6] mv643xx.c: Add basic device tree support.
-Date: Tue, 31 Jul 2012 21:24:58 +0200
-Message-ID: <20120731192458.GE28852@lunn.ch>
-References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
- <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
- <201207311823.54857.arnd@arndb.de>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH v2] ipv4: percpu nh_rth_output cache
+Date: Tue, 31 Jul 2012 13:10:41 -0700
+Message-ID: <50183BC1.8090205@intel.com>
+References: <1343749530.21269.336.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ian Molton <ian.molton@codethink.co.uk>,
-	linux-arm-kernel@lists.infradead.org, andrew@lunn.ch,
-	thomas.petazzoni@free-electrons.com, ben.dooks@codethink.co.uk,
-	netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from londo.lunn.ch ([80.238.139.98]:43083 "EHLO londo.lunn.ch"
+Received: from mga03.intel.com ([143.182.124.21]:43152 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751661Ab2GaTZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2012 15:25:08 -0400
-Content-Disposition: inline
-In-Reply-To: <201207311823.54857.arnd@arndb.de>
+	id S1756370Ab2GaUKm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2012 16:10:42 -0400
+In-Reply-To: <1343749530.21269.336.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 31, 2012 at 06:23:54PM +0000, Arnd Bergmann wrote:
-> On Tuesday 31 July 2012, Ian Molton wrote:
-> > @@ -33,6 +34,10 @@ struct of_dev_auxdata kirkwood_auxdata_lookup[] __initdata = {
-> >  	OF_DEV_AUXDATA("marvell,orion-wdt", 0xf1020300, "orion_wdt", NULL),
-> >  	OF_DEV_AUXDATA("marvell,orion-sata", 0xf1080000, "sata_mv.0", NULL),
-> >  	OF_DEV_AUXDATA("marvell,orion-nand", 0xf4000000, "orion_nand", NULL),
-> > +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1072000, MV643XX_ETH_NAME ".0",
-> > +			NULL),
-> > +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1076000, MV643XX_ETH_NAME ".1",
-> > +			NULL),
-> >  	{},
-> >  };
-> 
-> Please don't do string concatenation like this, it just makes it harder to grep for the
-> strings.
+On 07/31/2012 08:45 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Input path is mostly run under RCU and doesnt touch dst refcnt
+>
+> But output path on forwarding or UDP workloads hits
+> badly dst refcount, and we have lot of false sharing, for example
+> in ipv4_mtu() when reading rt->rt_pmtu
+>
+> Using a percpu cache for nh_rth_output gives a nice performance
+> increase at a small cost.
+>
+> 24 udpflood test on my 24 cpu machine (dummy0 output device)
+> (each process sends 1.000.000 udp frames, 24 processes are started)
+>
+> before : 5.24 s
+> after : 2.06 s
+> For reference, time on linux-3.5 : 6.60 s
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> v2: use __this_cpu_ptr() and slighly better annotations to avoid
+> ugly casts
+>
+> On top on previous "ipv4: Restore old dst_free() behavior" patch
+>
+> We probably can remove all paddings in struct dst_entry
+>
+I've done some quick testing and it looks like it has little to no
+effect on routing performance in my system, but for UDP workloads it is
+making a huge difference.  I just ran a simple test with 16 sessions of
+netperf all sending UDP small packets.  Without your patch it runs at
+just over 2.7Mpps, with your patch it is runs at over 10.5Mpps.
 
-Hi Arnd
-
-This pattern is used in other places, e.g. when creating the
-clocks. The macro MV643XX_ETH_NAME is also used when creating the
-platform data, and in the driver itself. 
-
-Are you suggested we replace this with "mv643xx_eth.0"? Or is adding
-the macro
-
-#define MV643XX_ETH_NAME0 "mv643xx_eth.0" 
-
-in include/linux/mv643xx_eth.h O.K, since grep will find it, and
-induce the grep'er to perform a second grep on the macro?
-
-     Andrew
+Tested-by: Alexander Duyck <alexander.h.duyck@intel.com>
