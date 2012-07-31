@@ -1,31 +1,30 @@
-From: "roboth roli company" <info@roli.com>
-Subject: inquiry
-Date: Tue, 31 Jul 2012 16:31:55 +0700 (ICT)
-Message-ID: <49547.209.188.18.159.1343727115.squirrel@123.30.138.40>
-Reply-To: robothrollilimited@yahoo.com
+From: folkert <folkert@vanheusden.com>
+Subject: Re: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
+Date: Tue, 31 Jul 2012 19:56:42 +0200
+Message-ID: <20120731175641.GE7638@belle.intranet.vanheusden.com>
+References: <5017E786.5000102@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vdc.vn ([123.30.138.40]:46211 "EHLO nguyenkimonline.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752414Ab2GaRz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2012 13:55:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-hams <linux-hams@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bernard Pidoux <bernard.pidoux@free.fr>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5017E786.5000102@free.fr>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+> I observe systematically a kernel panic when I try to shutdown rose0
+> device using ifconfig rose0 down
+
+That's funny: I always get a kernel panic(!) when doing an ifconfig
+rose0 up!
 
 
+Folkert van Heusden
 
-
-i am robothroli, Purchase manager from roli Merchant Ltd. We are
-Import/export Company based in taiwan. We are interested in purchasing
-your product and I would like to make an inquiry. Please inform me on:
-
-Sample availability and price
-Minimum order quantity
-FOB Prices
-
-Sincerely
-Purchase Manager
-robothroli
+-- 
+Nagios user? Check out CoffeeSaint - the versatile Nagios status
+viewer! http://www.vanheusden.com/java/CoffeeSaint/
+----------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
