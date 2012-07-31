@@ -1,66 +1,96 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] iptables 1.4.15 release
-Date: Tue, 31 Jul 2012 13:25:31 +0200
-Message-ID: <20120731112531.GA3493@1984>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
+Date: Tue, 31 Jul 2012 04:58:36 -0700
+Message-ID: <878ve0dtw3.fsf@xmission.com>
+References: <50160EEF.6050406@parallels.com> <87pq7dh6b2.fsf@xmission.com>
+	<87fw89h5zk.fsf@xmission.com> <50179F66.1000604@parallels.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="dDRMvlgZJXvWKvBx"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:60647 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756031Ab2GaL6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 07:58:48 -0400
+In-Reply-To: <50179F66.1000604@parallels.com> (Pavel Emelyanov's message of
+	"Tue, 31 Jul 2012 13:03:34 +0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Pavel Emelyanov <xemul@parallels.com> writes:
 
---dDRMvlgZJXvWKvBx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> On 07/30/2012 02:56 PM, Eric W. Biederman wrote:
+>> ebiederm@xmission.com (Eric W. Biederman) writes:
+>> 
+>>> Pavel Emelyanov <xemul@parallels.com> writes:
+>>>
+>>>> Currently the RTM_NEWLINK results in -EOPNOTSUPP if the ifinfomsg->ifi_index
+>>>> is not zero. I propose to allow requesting ifindices on link creation. This
+>>>> is required by the checkpoint-restore to correctly restore a net namespace
+>>>> (i.e. -- a container). The question what to do with pre-created devices such
+>>>> as lo or sit fbdev is open, but for manually created devices this can be 
+>>>> solved by this patch.
+>>>
+>>> Have you walked through and found the locations where we still rely on
+>>> ifindex being globally unique?
+>>>
+>>> Last time I was working in this area there were serveral places where
+>>> things were indexed by just the interface index.
+>> 
+>> If it is really safe to make ifindex per network namespace at this
+>> point you can make dev_new_ifindex have a per network namespace base
+>> counter, and that will fix your problems with the loopback device.
+>
+> Not it's not so unfortunately :(
+>
+> First, let's imagine that on host A the loopback device got registered as
+> first device, but on host B for some reason some other device got registered
+> first. In that case after migration from A to B the lo on B will have index
+> equals 2. And there's no any strict requirement that lo's per net operations
+> are registered first. Please, correct me if I'm wrong.
 
-Hi!
+Actually there is a hard requirement that the loopback device be the
+last device in a network namespace to be unregistered.  We meet that
+requirement by registering the loopback device first
+"net/core/dev.c:net_dev_init()".
 
-The Netfilter project proudly presents:
+> Next. In fact, lo is not the only problem. Look at the e.g. sit versus ipgre
+> fallback devices. Both gets created on netns creation and obtain whatever
+> ifindices are generated for them. Even if we make ifidex per netns chances
+> that sit gets registered _strictly_ before ipgre equal zero, since they are
+> both modules.
 
-        iptables 1.4.15
+True.  However those fallback devices should no longer be needed,
+and even if they are I think you can delete and recreate them.
 
-This release includes support for new features now present in the
-Linux kernel 3.5 and one major bugfix (that shows up with gcc-4.7).
+Making lo the particularly interesting case.
 
-See ChangeLog that comes attached to this email for more details.
+>> Unless you have done the work to root out the last of dependencies on
+>> ifindex being globally unique I think you will run into some operational
+>> problems.
+>
+> I totally agree with that. Before doing this patch I revisited the ancient
+> attempt to make ifindices per netns and checked the issues Dave and you
+> discussed then -- I have looked through how the ifindices are used in the
+> networking code and found no places where the system-wide uniqueness is still
+> required. That's why I proposed this patch for inclusion. If you know the 
+> places I've missed, please let me know, I will work on it.
 
-You can download it from:
+I took a quick look and I did not see anything.  I saw places under
+net/sched/ that looked a bit suspicious, and of course there are places
+where we use oif and iff in some of the routing code that make we wonder
+a bit.  But if you have looked and if I have looked I think we are ok.
 
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
+> Just an idea -- is it worth moving the possibility to have ifindidces intersect
+> under CONFIG_<SOMETHING> (EXPERT/CHECKPOINT_RESTORE) to let wider audience check
+> the code in real-life?
 
-Have fun!
+I think the best testing we are going to get diversity wise is to create
+a per netns counter into dev_new_index when net-next opens up.
 
---dDRMvlgZJXvWKvBx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-iptables-1.4.15.txt"
+Having an ifindex that we can only set at netdevice creation time seems
+reasonable.  
 
-Denys Fedoryshchenko (1):
-      libxt_recent: add --mask netmask
-
-Eldad Zack (1):
-      libxt_recent: remove unused variable
-
-Florian Westphal (2):
-      libxt_devgroup: add man page snippet
-      libxt_hashlimit: add support for byte-based operation
-
-Hans Schillstrom (3):
-      extensions: add HMARK target
-      libxt_HMARK: fix output of iptables -L
-      libxt_HMARK: correct a number of errors introduced by Pablo's rework
-
-Pablo Neira Ayuso (6):
-      libxtables: add xtables_ip[6]mask_to_cidr
-      libxt_HMARK: fix ct case example
-      iptables-restore: move code to add_param_to_argv, cleanup (fix gcc-4.7)
-      Revert "iptables-restore: move code to add_param_to_argv, cleanup (fix gcc-4.7)"
-      iptables-restore: fix parameter parsing (shows up with gcc-4.7)
-      bump version to 1.4.15
-
-
---dDRMvlgZJXvWKvBx--
+Eric
