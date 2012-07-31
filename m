@@ -1,96 +1,270 @@
 From: Ian Molton <ian.molton@codethink.co.uk>
-Subject: [PATCH v2 4/6] kirkwood: Add a clock setup helper for mv643xx ethernet.
-Date: Tue, 31 Jul 2012 16:45:27 +0100
-Message-ID: <1343749529-17571-5-git-send-email-ian.molton@codethink.co.uk>
+Subject: [PATCH v2 1/6] Initial csb1724 board support (FDT)
+Date: Tue, 31 Jul 2012 16:45:24 +0100
+Message-ID: <1343749529-17571-2-git-send-email-ian.molton@codethink.co.uk>
 References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
 Cc: andrew@lunn.ch, thomas.petazzoni@free-electrons.com,
 	ben.dooks@codethink.co.uk, arnd@arndb.de, netdev@vger.kernel.org
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:59911 "EHLO
+Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:59912 "EHLO
 	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754230Ab2GaPzM (ORCPT
+	with ESMTP id S1753339Ab2GaPzM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 11:55:12 -0400
 In-Reply-To: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds an ethernet setup helper function allowing the mv643xx
-clock to be kept enabled so that the MAC address(es) are not lost.
+This patch adds support for the csb1724 SoM.
+
+It includes serial and SATA support.
 
 Signed-off-by: Ian Molton <ian.molton@codethink.co.uk>
 ---
- arch/arm/mach-kirkwood/board-dt.c |    2 ++
- arch/arm/mach-kirkwood/common.c   |   22 ++++++++++++++++++++++
- arch/arm/mach-kirkwood/common.h   |    3 +++
- 3 files changed, 27 insertions(+)
+ arch/arm/boot/dts/kirkwood-csb1724.dts |   30 ++++++++++++++++
+ arch/arm/configs/csb1724_defconfig     |   47 +++++++++++++++++++++++++
+ arch/arm/mach-kirkwood/Kconfig         |    7 ++++
+ arch/arm/mach-kirkwood/Makefile        |    1 +
+ arch/arm/mach-kirkwood/Makefile.boot   |    1 +
+ arch/arm/mach-kirkwood/board-csb1724.c |   59 ++++++++++++++++++++++++++++++++
+ arch/arm/mach-kirkwood/board-dt.c      |    4 +++
+ arch/arm/mach-kirkwood/common.h        |    6 ++++
+ 8 files changed, 155 insertions(+)
+ create mode 100644 arch/arm/boot/dts/kirkwood-csb1724.dts
+ create mode 100644 arch/arm/configs/csb1724_defconfig
+ create mode 100644 arch/arm/mach-kirkwood/board-csb1724.c
 
+diff --git a/arch/arm/boot/dts/kirkwood-csb1724.dts b/arch/arm/boot/dts/kirkwood-csb1724.dts
+new file mode 100644
+index 0000000..44dfe9a
+--- /dev/null
++++ b/arch/arm/boot/dts/kirkwood-csb1724.dts
+@@ -0,0 +1,30 @@
++/dts-v1/;
++
++/include/ "kirkwood.dtsi"
++
++/ {
++	model = "Cogent CSB1724-88F-628X SoM";
++	compatible = "cogent,csb1724", "marvell,kirkwood-88f6281", "marvell,kirkwood";
++
++	memory {
++		device_type = "memory";
++		reg = <0x00000000 0x20000000>;
++	};
++
++	chosen {
++		bootargs = "console=ttyS0,115200n8 earlyprintk";
++	};
++
++	ocp@f1000000 {
++		serial@12000 {
++			clock-frequency = <200000000>;
++			status = "ok";
++		};
++
++		sata@80000 {
++			nr-ports = <2>;
++			status = "ok";
++		};
++	};
++
++};
+diff --git a/arch/arm/configs/csb1724_defconfig b/arch/arm/configs/csb1724_defconfig
+new file mode 100644
+index 0000000..927b269
+--- /dev/null
++++ b/arch/arm/configs/csb1724_defconfig
+@@ -0,0 +1,47 @@
++CONFIG_ARCH_KIRKWOOD=y
++CONFIG_ARCH_KIRKWOOD_DT=y
++CONFIG_MACH_CSB1724_DT=y
++CONFIG_EMBEDDED=y
++CONFIG_EXPERT=y
++CONFIG_EXPERIMENTAL=y
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_VFP=y
++CONFIG_AEABI=y
++CONFIG_OABI_COMPAT=y
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_ATA=y
++CONFIG_ATA_SFF=y
++CONFIG_ATA_BMDMA=y
++CONFIG_SATA_MV=y
++CONFIG_MSDOS_FS=y
++CONFIG_VFAT_FS=y
++CONFIG_TMPFS=y
++CONFIG_NLS_CODEPAGE_437=y
++CONFIG_NLS_CODEPAGE_850=y
++CONFIG_NLS_ISO8859_1=y
++CONFIG_NLS_ISO8859_2=y
++CONFIG_NLS_UTF8=y
++CONFIG_MAGIC_SYSRQ=y
++CONFIG_DEBUG_FS=y
++CONFIG_TIMER_STATS=y
++CONFIG_DEBUG_INFO=y
++CONFIG_DEBUG_USER=y
++CONFIG_DEBUG_LL=y
++CONFIG_EARLY_PRINTK=y
++CONFIG_DTC=y
++CONFIG_SCSI=y
++CONFIG_BLK_DEV_SD=y
++CONFIG_EXT4_FS=y
++CONFIG_SYSVIPC=y
++CONFIG_SYSVIPC_SYSCTL=y
++CONFIG_TICK_ONESHOT=y
++CONFIG_NO_HZ=y
++CONFIG_HIGH_RES_TIMERS=y
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++CONFIG_PROC_DEVICETREE=y
++CONFIG_BLK_DEV_LOOP=y
++CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
++CONFIG_DYNAMIC_DEBUG=y
+diff --git a/arch/arm/mach-kirkwood/Kconfig b/arch/arm/mach-kirkwood/Kconfig
+index ca5c15a..6d51c50 100644
+--- a/arch/arm/mach-kirkwood/Kconfig
++++ b/arch/arm/mach-kirkwood/Kconfig
+@@ -109,6 +109,13 @@ config MACH_LSXL_DT
+ 	  Buffalo Linkstation LS-XHL & LS-CHLv2 devices, using
+ 	  Flattened Device Tree.
+ 
++config MACH_CSB1724_DT
++	bool "Cogent CSB1724 SoM (Flattened Device Tree)"
++	select ARCH_KIRKWOOD_DT
++	help
++	  Say 'Y' here if you want your kernel to support the
++	  Cogent CSB1724 SoM, using Flattened Device Tree.
++
+ config MACH_TS219
+ 	bool "QNAP TS-110, TS-119, TS-119P+, TS-210, TS-219, TS-219P and TS-219P+ Turbo NAS"
+ 	help
+diff --git a/arch/arm/mach-kirkwood/Makefile b/arch/arm/mach-kirkwood/Makefile
+index 055c85a..665ed63 100644
+--- a/arch/arm/mach-kirkwood/Makefile
++++ b/arch/arm/mach-kirkwood/Makefile
+@@ -28,3 +28,4 @@ obj-$(CONFIG_MACH_IB62X0_DT)		+= board-ib62x0.o
+ obj-$(CONFIG_MACH_TS219_DT)		+= board-ts219.o tsx1x-common.o
+ obj-$(CONFIG_MACH_GOFLEXNET_DT)		+= board-goflexnet.o
+ obj-$(CONFIG_MACH_LSXL_DT)		+= board-lsxl.o
++obj-$(CONFIG_MACH_CSB1724_DT)		+= board-csb1724.o
+diff --git a/arch/arm/mach-kirkwood/Makefile.boot b/arch/arm/mach-kirkwood/Makefile.boot
+index 2a576ab..899bc80 100644
+--- a/arch/arm/mach-kirkwood/Makefile.boot
++++ b/arch/arm/mach-kirkwood/Makefile.boot
+@@ -2,6 +2,7 @@
+ params_phys-y	:= 0x00000100
+ initrd_phys-y	:= 0x00800000
+ 
++dtb-$(CONFIG_MACH_CSB1724_DT) += kirkwood-csb1724.dtb
+ dtb-$(CONFIG_MACH_DREAMPLUG_DT) += kirkwood-dreamplug.dtb
+ dtb-$(CONFIG_MACH_DLINK_KIRKWOOD_DT) += kirkwood-dns320.dtb
+ dtb-$(CONFIG_MACH_DLINK_KIRKWOOD_DT) += kirkwood-dns325.dtb
+diff --git a/arch/arm/mach-kirkwood/board-csb1724.c b/arch/arm/mach-kirkwood/board-csb1724.c
+new file mode 100644
+index 0000000..979112d
+--- /dev/null
++++ b/arch/arm/mach-kirkwood/board-csb1724.c
+@@ -0,0 +1,59 @@
++/*
++ * Copyright 2012 (C), Ian Molton <ian.molton@codethink.co.uk>
++ *
++ * arch/arm/mach-kirkwood/board-csb1724.c
++ *
++ * Cogent csb1724 Board Init for drivers not converted to
++ * flattened device tree yet.
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include "mpp.h"
++
++static unsigned int csb1724_mpp_config[] __initdata = {
++	MPP0_NF_IO2,
++	MPP1_NF_IO3,
++	MPP2_NF_IO4,
++	MPP3_NF_IO5,
++	MPP4_NF_IO6,
++	MPP5_NF_IO7,
++	MPP8_TW0_SDA,
++	MPP9_TW0_SCK,
++	MPP12_SD_CLK,
++	MPP13_SD_CMD,
++	MPP14_SD_D0,
++	MPP15_SD_D1,
++	MPP16_SD_D2,
++	MPP17_SD_D3,
++	MPP18_NF_IO0,
++	MPP19_NF_IO1,
++	MPP20_GE1_TXD0,
++	MPP21_GE1_TXD1,
++	MPP22_GE1_TXD2,
++	MPP23_GE1_TXD3,
++	MPP24_GE1_RXD0,
++	MPP25_GE1_RXD1,
++	MPP26_GE1_RXD2,
++	MPP27_GE1_RXD3,
++	MPP30_GE1_RXCTL,
++	MPP31_GE1_RXCLK,
++	MPP32_GE1_TCLKOUT,
++	MPP33_GE1_TXCTL,
++	MPP34_SATA1_ACTn,
++	MPP35_SATA0_ACTn,
++	MPP36_TW1_SDA,
++	MPP37_TW1_SCK,
++};
++
++void __init csb1724_init(void)
++{
++	/*
++	 * Basic setup. Needs to be called early.
++	 */
++	kirkwood_mpp_conf(csb1724_mpp_config);
++}
 diff --git a/arch/arm/mach-kirkwood/board-dt.c b/arch/arm/mach-kirkwood/board-dt.c
-index 9816b85..1bcae22 100644
+index e4eb450..7679f7f 100644
 --- a/arch/arm/mach-kirkwood/board-dt.c
 +++ b/arch/arm/mach-kirkwood/board-dt.c
-@@ -97,6 +97,8 @@ static void __init kirkwood_dt_init(void)
+@@ -87,6 +87,9 @@ static void __init kirkwood_dt_init(void)
+ 	if (of_machine_is_compatible("buffalo,lsxl"))
+ 		lsxl_init();
  
++	if (of_machine_is_compatible("cogent,csb1724"))
++		csb1724_init();
++
  	of_platform_populate(NULL, kirkwood_dt_match_table,
  			     kirkwood_auxdata_lookup, NULL);
-+
-+	kirkwood_eth_clock_fixup();
  }
+@@ -100,6 +103,7 @@ static const char *kirkwood_dt_board_compat[] = {
+ 	"qnap,ts219",
+ 	"seagate,goflexnet",
+ 	"buffalo,lsxl",
++	"cogent,csb1724",
+ 	NULL
+ };
  
- static const char *kirkwood_dt_board_compat[] = {
-diff --git a/arch/arm/mach-kirkwood/common.c b/arch/arm/mach-kirkwood/common.c
-index c4b64ad..57b91cf 100644
---- a/arch/arm/mach-kirkwood/common.c
-+++ b/arch/arm/mach-kirkwood/common.c
-@@ -18,6 +18,7 @@
- #include <linux/clk-provider.h>
- #include <linux/spinlock.h>
- #include <linux/mv643xx_i2c.h>
-+#include <linux/of.h>
- #include <net/dsa.h>
- #include <asm/page.h>
- #include <asm/timex.h>
-@@ -293,6 +294,27 @@ void __init kirkwood_ehci_init(void)
- 	orion_ehci_init(USB_PHYS_BASE, IRQ_KIRKWOOD_USB, EHCI_PHY_NA);
- }
- 
-+/* Fixup ethernet clocks for DT based kirkwood platforms.
-+ * This is required because if the clock is not kept running, the
-+ * Interface will forget its MAC address.
-+ */
-+#ifdef CONFIG_OF
-+void __init kirkwood_eth_clock_fixup(void)
-+{
-+	struct device_node *np;
-+
-+	np = of_find_node_by_name(NULL, "egiga0");
-+	if (np && of_device_is_available(np))
-+		clk_prepare_enable(ge0);
-+	of_node_put(np);
-+
-+	np = of_find_node_by_name(NULL, "egiga1");
-+	if (np && of_device_is_available(np))
-+		clk_prepare_enable(ge1);
-+	of_node_put(np);
-+
-+}
-+#endif
- 
- /*****************************************************************************
-  * GE00
 diff --git a/arch/arm/mach-kirkwood/common.h b/arch/arm/mach-kirkwood/common.h
-index 8aab1ae..7183718 100644
+index 304dd1a..8aab1ae 100644
 --- a/arch/arm/mach-kirkwood/common.h
 +++ b/arch/arm/mach-kirkwood/common.h
-@@ -36,6 +36,9 @@ void kirkwood_enable_pcie(void);
- void kirkwood_pcie_id(u32 *dev, u32 *rev);
+@@ -94,6 +94,12 @@ void lsxl_init(void);
+ static inline void lsxl_init(void) {};
+ #endif
  
- void kirkwood_ehci_init(void);
-+#ifdef CONFIG_OF
-+void kirkwood_eth_clock_fixup(void);
++#ifdef CONFIG_MACH_CSB1724_DT
++void csb1724_init(void);
++#else
++static inline void csb1724_init(void) {};
 +#endif
- void kirkwood_ge00_init(struct mv643xx_eth_platform_data *eth_data);
- void kirkwood_ge01_init(struct mv643xx_eth_platform_data *eth_data);
- void kirkwood_ge00_switch_init(struct dsa_platform_data *d, int irq);
++
+ /* early init functions not converted to fdt yet */
+ char *kirkwood_id(void);
+ void kirkwood_l2_init(void);
 -- 
 1.7.9.5
