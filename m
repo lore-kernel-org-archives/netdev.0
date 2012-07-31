@@ -1,183 +1,86 @@
-From: xufeng zhang <xufeng.zhang@windriver.com>
-Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
- SACK when bundling
-Date: Tue, 31 Jul 2012 14:51:13 +0800
-Message-ID: <50178061.4010709@windriver.com>
-References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>	<500E1057.3020509@windriver.com>	<75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>	<CA+=dFzg=Bpsv5bMzECoAXYVcbD95eYy6xDAzL6fwiHrunfq-tg@mail.gmail.com>	<e7f8a685-9635-4aa9-bd67-1044e0720b29@email.android.com>	<CA+=dFzifKwbiXmw=pu0+rWmz72+4jsbv6bXOBHyL0LmxaL9byg@mail.gmail.com>	<CA+=dFzgXq3Sx-Ny+6oDZ3BEdsMQCgswNEVPVnhmhedHFvazzWw@mail.gmail.com>	<50100A29.8010705@gmail.com>	<CA+=dFzj11c9K0TS0T7D1aBVz+ppdFK91ZzBbevLV23FrWJNzmw@mail.gmail.com>	<CA+=dFziK09TVcK29x1SLg+JanOj6o__bJKf8yohw6dTYCUCF5A@mail.gmail.com>	<8ea83e51-81d1-407a-be06-98d2c99c876d@email.android.com>	<CA+=dFzguqjjnnqHO53Mx859VB6NU=4MaPWAUzGQB2qtZGfdAUg@mail.gmail.com>	<5013069F.3080306@gmail.com>	<CA+=dFzh4dFatOy42FydbVvoXB8=5CvLu5AwPvUA16h+kymq
- 0Lw@mail.gmail.com>	<CA+=dFzh1wQx2rBs_2RAwrXsz79WS3njnO8=2ntQZUbB5So69gg@mail.gmail.com> <CA+=dFzhXY9aJ6_Yu-4a3g+6RyN5_mxXY=U3HnzKdi8TH-rqWcA@mail.gmail.com>
+From: Fan Du <fdu@windriver.com>
+Subject: [XFRM][PATCH v5] Fix unexpected SA hard expiration after setting new date
+Date: Tue, 31 Jul 2012 15:43:53 +0800
+Message-ID: <1343720634-1176-1-git-send-email-fdu@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Xufeng Zhang <xufengzhang.main@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, <sri@us.ibm.com>,
-	<davem@davemloft.net>, <linux-sctp@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+=dFzhXY9aJ6_Yu-4a3g+6RyN5_mxXY=U3HnzKdi8TH-rqWcA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:40801 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755781Ab2GaHoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 03:44:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sorry, please ignore the above patch, there was an paste error.
-Please check the following patch.
-============================================
-I'm wondering if the below solution is fine to you which is based on
-your changes.
-BTW, I have verified this patch and it works ok for all the situation,
-but only one problem persists:
-there is a potential that commands will exceeds SCTP_MAX_NUM_COMMANDS
-which happens during sending lots of small error DATA chunks.
 
-Thanks,
-Xufeng Zhang
+Hi, Dave
 
----
-  include/net/sctp/command.h |    1 +
-  include/net/sctp/structs.h |    3 +++
-  net/sctp/outqueue.c        |    7 +++++++
-  net/sctp/sm_sideeffect.c   |   16 ++++++++++++++++
-  net/sctp/sm_statefuns.c    |   17 ++++++++++++++---
-  5 files changed, 41 insertions(+), 3 deletions(-)
+Hope v5 is better than previous ones :)
+Any comments are really welcome!
 
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index 712b3be..62c34f5 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -110,6 +110,7 @@ typedef enum {
-         SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
-         SCTP_CMD_PURGE_ASCONF_QUEUE, /* Purge all asconf queues.*/
-         SCTP_CMD_SET_ASOC,       /* Restore association context */
-+       SCTP_CMD_GEN_BAD_STREAM, /* Invalid Stream errors happened command */
-         SCTP_CMD_LAST
-  } sctp_verb_t;
+Thanks
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index fc5e600..3d218e0 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1183,6 +1183,9 @@ struct sctp_outq {
-          */
-         struct list_head abandoned;
 
-+       /* Put Invalid Stream error chunks on this list */
-+       struct list_head bad_stream_err;
-+
-         /* How many unackd bytes do we have in-flight?  */
-         __u32 outstanding_bytes;
+Changelog:
+v1->v2
+1) use xflags instead of creating new flags(suggested by Steffen Klassert)
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index e7aa177..1e87b0b 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -211,6 +211,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
-         INIT_LIST_HEAD(&q->retransmit);
-         INIT_LIST_HEAD(&q->sacked);
-         INIT_LIST_HEAD(&q->abandoned);
-+       INIT_LIST_HEAD(&q->bad_stream_err);
+v2->v3
+1) fix email problem, and remove cc to myself(requested by David Miller)
 
-         q->fast_rtx = 0;
-         q->outstanding_bytes = 0;
-@@ -283,6 +284,12 @@ void sctp_outq_teardown(struct sctp_outq *q)
-                 list_del_init(&chunk->list);
-                 sctp_chunk_free(chunk);
-         }
-+
-+       /* Throw away any pending Invalid Stream error chunks */
-+       list_for_each_entry_safe(chunk, tmp,&q->bad_stream_err, list) {
-+               list_del_init(&chunk->list);
-+               sctp_chunk_free(chunk);
-+       }
-  }
+v3->v4
+1) fix typo when clearing XFRM_SOFT_EXPIRE(thanks for David Miller)
+2) fix email problem, and remove cc to myself AGAIN!!!
 
-  /* Free the outqueue structure and any related pending chunks.  */
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index fe99628..4698593 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -1060,6 +1060,18 @@ static void sctp_cmd_send_asconf(struct sctp_association *asoc)
-         }
-  }
+v4->v5
+1) remove unnecessary empty line (David Miller)
 
-+static void sctp_cmd_make_inv_stream_err(sctp_cmd_seq_t *commands,
-+               struct sctp_association *asoc)
-+{
-+       struct sctp_chunk *err, *tmp;
-+       struct sctp_outq *q =&asoc->outqueue;
-+
-+       list_for_each_entry_safe(err, tmp,&q->bad_stream_err, list) {
-+               list_del_init(&err->list);
-+               sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-+                               SCTP_CHUNK(err));
-+       }
-+}
 
-  /* These three macros allow us to pull the debugging code out of the
-   * main flow of sctp_do_sm() to keep attention focused on the real
-@@ -1724,6 +1736,10 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
-                         asoc = cmd->obj.asoc;
-                         break;
+*Background*:
+Once IPsec SAs are created between two peers, kernel setup a timer to monitor
+two events: soft/hard expiration. However the timer handler use xtime to
+caculate whether it's soft or hard expiration event.
 
-+               case SCTP_CMD_GEN_BAD_STREAM:
-+                       sctp_cmd_make_inv_stream_err(commands, asoc);
-+                       break;
-+
-                 default:
-                         pr_warn("Impossible command: %u, %p\n",
-                                 cmd->verb, cmd->obj.ptr);
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 9fca103..1c1bcd9 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -2967,8 +2967,14 @@ discard_force:
-         return SCTP_DISPOSITION_DISCARD;
+normal code flow(hard expire time:100s, soft expire time:82s)
 
-  discard_noforce:
--       if (chunk->end_of_packet)
-+       if (chunk->end_of_packet) {
-+               struct sctp_outq *q =&asoc->outqueue;
-                 sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, force);
-+               /* Queue the INVALID STREAM error after the SACK if one is needed. */
-+               if (!list_empty(&q->bad_stream_err))
-+                       sctp_add_cmd_sf(commands, SCTP_CMD_GEN_BAD_STREAM,
-+                                       SCTP_NULL());
-+       }
+a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;
 
-         return SCTP_DISPOSITION_DISCARD;
-  consume:
-@@ -3037,11 +3043,16 @@ sctp_disposition_t sctp_sf_eat_data_fast_4_4(const struct sctp_endpoint *ep,
-          * with a SACK, a SHUTDOWN chunk, and restart the T2-shutdown timer
-          */
-         if (chunk->end_of_packet) {
-+               struct sctp_outq *q =&asoc->outqueue;
-                 /* We must delay the chunk creation since the cumulative
-                  * TSN has not been updated yet.
-                  */
-                 sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SHUTDOWN, SCTP_NULL());
-                 sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, SCTP_FORCE());
-+               /* Queue the INVALID STREAM error after the SACK if one is needed. */
-+               if (!list_empty(&q->bad_stream_err))
-+                       sctp_add_cmd_sf(commands, SCTP_CMD_GEN_BAD_STREAM,
-+                                       SCTP_NULL());
-                 sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
-                                 SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
-         }
-@@ -6136,6 +6147,7 @@ static int sctp_eat_data(const struct sctp_association *asoc,
-          */
-         sid = ntohs(data_hdr->stream);
-         if (sid>= asoc->c.sinit_max_instreams) {
-+               struct sctp_outq *q =&asoc->outqueue;
-                 /* Mark tsn as received even though we drop it */
-                 sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_TSN, SCTP_U32(tsn));
+b) soft expire occur, rearm the timer with hard expire interval(18s)
+then notify racoon2 about soft expire event. racoon2 will create
+new SAs.
 
-@@ -6144,8 +6156,7 @@ static int sctp_eat_data(const struct sctp_association *asoc,
-                                          sizeof(data_hdr->stream),
-                                          sizeof(u16));
-                 if (err)
--                       sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
--                                       SCTP_CHUNK(err));
-+                       list_add_tail(&err->list,&q->bad_stream_err);
-                 return SCTP_IERROR_BAD_STREAM;
-         }
+c) hard expire happen, notify racoon2 about it. racoon2 will delete
+the old SAs.
 
--- 
-1.7.0.2
+*Scenario*:
+Setting a new date before b),and after a) could result c) happens first,
+As a result, old SAs is deleted before new ones are created. Normally
+new SAs will be created by the next time networking traffic, but there
+is a small time being when networking connection is down, this could
+result in upper layer connections failed in tel comm area, thus it's
+better to keep it strict in sequence.
+
+*Workaround*:
+set new time could happen:
+1) before a), then SAs is updated with new time.
+2) before b),and after a)
+2a) When new SAs created, xfrm_timer_handler is called one second
+after its creation. At this point, calculate soft expire
+interval(81s), setup the timer;(set flag to mark next time should
+be soft time expire)
+
+<<---- new date comes
+
+2b) soft expire occur, the calculation results in a hard time expire
+event, but flag is set, so catch ya. Sync the addtime, and rearm
+the timer with hard expire interval(18s), then notify racoon2
+about soft expire event;
+
+2c) hard expire happen, notify racoon2 about it;
+so everything is in order.
+
+3) after b), hard expire always happened anyway.
