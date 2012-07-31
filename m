@@ -1,45 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Deconstruct struct fib_result
-Date: Tue, 31 Jul 2012 14:43:46 -0700 (PDT)
-Message-ID: <20120731.144346.118118110436079421.davem@davemloft.net>
-References: <20120727.211814.1628871775065221675.davem@davemloft.net>
-	<CAKgT0UcOn48gVsC37hiNCXCP=FwqKjZnjkLviCOW8TVWGkGGVA@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2] dynamic_debug: Restore dev_dbg functionality,
+ optimize stack
+Date: Tue, 31 Jul 2012 14:55:34 -0700
+Message-ID: <20120731145534.5606e840.akpm@linux-foundation.org>
+References: <1343334310.17538.32.camel@joe2Laptop>
+	<333324dcdfdc891ba214d2de8f9a3d056dd7aea9.1343461712.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@redhat.com>,
+	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40817 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754370Ab2GaVnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 17:43:47 -0400
-In-Reply-To: <CAKgT0UcOn48gVsC37hiNCXCP=FwqKjZnjkLviCOW8TVWGkGGVA@mail.gmail.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:40807 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755521Ab2GaVzg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 17:55:36 -0400
+In-Reply-To: <333324dcdfdc891ba214d2de8f9a3d056dd7aea9.1343461712.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Tue, 31 Jul 2012 10:27:40 -0700
+On Sat, 28 Jul 2012 00:55:07 -0700
+Joe Perches <joe@perches.com> wrote:
 
-> On Fri, Jul 27, 2012 at 9:18 PM, David Miller <davem@davemloft.net> wrote:
->>
->> This patch set tries to move towards reducing struct fib_result down
->> to it's absolute minimum.
->>
->> The eventual idea is to make it so that fib_lookup() simply
->> returns a "struct fib_nh *" and pointer encoded errnos, instead
->> of writing into a complicated structure as the return value on
->> the stack as is done now.
->>
->> Signed-off-by: David S. Miller <davem@davemloft.net>
+> commit c4e00daaa9 ("driver-core: extend dev_printk() to pass structured data")
+> changed __dev_printk and broke dynamic-debug's ability to control the
+> dynamic prefix of dev_dbg(dev,..).
 > 
-> I tested these patches most of yesterday and I haven't seen any
-> issues.  Then again I haven't seen much of an improvement either.
+> dynamic_emit_prefix() adds "[tid] module:func:line:" to the output and
+> those additions got lost.
 > 
-> Tested-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> In addition, the current dynamic debug code uses up to 3 recursion
+> levels via %pV.  This can consume quite a bit of stack.  Directly
+> call printk_emit to reduce the recursion depth.
+> 
+> These changes include:
+> 
+> o Remove KERN_DEBUG from dynamic_emit_prefix
+> o Create and use function create_syslog_header to format the syslog
+>   header for printk_emit uses.
+> o Call create_syslog_header and neaten __dev_printk
+> o Call create_syslog_header and printk_emit from dynamic_dev_dbg
+> o Call create_syslog_header and printk_emit from dynamic_netdev_dbg
+> o Make __dev_printk and __netdev_printk static not global
+> o Remove include header declarations of __dev_printk and __netdev_printk
+> o Remove now unused EXPORT_SYMBOL()s of __dev_printk and __netdev_printk
+> o Whitespace neatening
+> 
+> Changes in v2:
+> 
+> o Fix dynamic_emit_prefix to always initialize output
+> o Call create_syslog_header and emit_printk from__netdev_printk and
+>   eliminate call to dev_printk to remove another recursion via %pV
 
-Thanks for testing.
+This one causes an oops-on-boot
+(http://ozlabs.org/~akpm/stuff/IMG_20120731_144047.jpg).  v1 didn't do
+that.
 
-I'm putting this patch set to the side until I can find a way
-to get past the tclassid barrier and also make it show some
-difference performance wise.
+config: http://ozlabs.org/~akpm/stuff/config-akpm2
