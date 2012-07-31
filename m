@@ -1,63 +1,42 @@
-From: Peter Samuelson <psamuelson@efolder.net>
-Subject: Re: TCP stalls with 802.3ad + bridge + kvm guest
-Date: Tue, 31 Jul 2012 09:07:23 -0500
-Message-ID: <20120731140723.GK17572@p12n.org>
-References: <20120727183840.GE17572@p12n.org>
- <26496.1343419205@death.nxdomain>
+From: Bernard Pidoux <bernard.pidoux@free.fr>
+Subject: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
+Date: Tue, 31 Jul 2012 16:11:18 +0200
+Message-ID: <5017E786.5000102@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgoerzen@efolder.net
-To: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx11.dcmx.net ([207.210.100.175]:36931 "EHLO mx11.dcmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752135Ab2GaOHl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2012 10:07:41 -0400
-Content-Disposition: inline
-In-Reply-To: <26496.1343419205@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: linux-hams <linux-hams@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi,
 
-> >    ixgbe [10 Gbit port] -- bonding [802.3ad] -- bridge -- KVM guest
-> >
-> >(There's also a VLAN layer, but I can reproduce this problem without
-> >it.)  It all works, except that with some flows in the KVM guest - I
-> >can reproduce using smbclient - transfers keep stalling, such that I'm
-> >averaging well under 1 MB/s.  Should be more like 100 MB/s.
-> >
-> >Oddly, this only occurs when both the 802.3ad and KVM are used:
-> >
-> >    Server        Agg        Client         TCP stalls
-> >    --------------------------------------------------
-> >    external      none       KVM guest      no
-> >    external      802.3ad    KVM host       no
-> >    KVM host      802.3ad    KVM guest      no
-> >    external      802.3ad    KVM guest      yes
+I observe systematically a kernel panic when I try to shutdown rose0 
+device using ifconfig rose0 down
 
-[Jay Vosburgh]
-> 	Does the "none" for Agg (the first line) mean no bonding at all?
+This is happening on two very different ROSE implementation, one is on a 
+machine with x86-64 kernel 4.6.3 on an Intel core 2 duo CPU
+the other is on a RaspBerry Pi with Raspbian and 3.1.9+ wheezy kernel
+recompiled with AX.25 modules (ax25, rose, netrom, 6pack, kiss) enabled.
 
-Correct.  'None' is without the bonding driver, putting the eth
-interface directly on the bridge.  (With or without a VLAN layer.)
+Here is an image of the screen dump :
 
-> 	Does the problem happen if the bond is a different mode
-> (balance-xor, for example)?
+http://f6bvp.org/photos/rose_device_event.JPG
 
-This is taking me longer to test, as I have to also update the switch
-port config, which required coordination with coworkers.  I'll get that
-info as soon as I can.
+It can be noticed that PC is at rose_device_event and
+LR is at sock_def_wakeup
 
-> 	Do the various stats on the host and guest show any drops?
-> E.g., from "netstat -i" and "tc -s qdisc"
+One thing to be noticed is that when I close before all ROSE and AX.25 
+applications, there are still a few populated sockets, probably for one 
+of the program did not close the sockets properly.
 
-Yes, 'netstat -i' on the KVM host shows a few dropped RX packets on
-bond0 - looks like it increments by 2 each time I do a test download of
-my 20MB file.  'tc -s qdisc' on the KVM host shows nothing, and I see
-no drops on the KVM guest side.
+I that case, does rose module should accept to shutdown rose0 device ?
+However, I guess that it should not create a kernel panic due to a 
+kernel NULL pointer.
 
-I'll get the switch reconfigured not to do LACP so I can test other
-bonding modes, as you suggest.  Thanks for the quick response!  Sorry
-my own followup was delayed....
+I don't know what to do in order to debug that issue.
 
-Peter
+Bernard
+
