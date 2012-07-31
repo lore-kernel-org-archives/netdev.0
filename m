@@ -1,22 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/2] ipv4: Cache routes in nexthop exception entries.
-Date: Tue, 31 Jul 2012 15:20:09 -0700 (PDT)
-Message-ID: <20120731.152009.1922072870797066400.davem@davemloft.net>
+Subject: [PATCH 2/2] ipv4: Properly purge netdev references on uncached
+ routes.
+Date: Tue, 31 Jul 2012 15:20:33 -0700 (PDT)
+Message-ID: <20120731.152033.1148018322961121079.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41066 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41073 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754473Ab2GaWUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 18:20:11 -0400
+	with ESMTP id S1753436Ab2GaWUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 18:20:34 -0400
 Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 6B059582E8E
-	for <netdev@vger.kernel.org>; Tue, 31 Jul 2012 15:20:13 -0700 (PDT)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 2B878582E8E
+	for <netdev@vger.kernel.org>; Tue, 31 Jul 2012 15:20:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+
+When a device is unregistered, we have to purge all of the
+references to it that may exist in the entire system.
+
+If a route is uncached, we currently have no way of accomplishing
+this.
+
+So create a global list that is scanned when a network device goes
+down.  This mirrors the logic in net/core/dst.c's dst_ifdown().
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
@@ -24,268 +34,221 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 This is just a respin of what I posted the other day, against Eric's
 fixes of today.  Pushed to 'net'.
 
- include/net/ip_fib.h     |    1 +
- net/ipv4/fib_semantics.c |   39 ++++++++++--------
- net/ipv4/route.c         |  103 +++++++++++++++++++++++++---------------------
- 3 files changed, 79 insertions(+), 64 deletions(-)
-
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index e331746..926142e 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -55,6 +55,7 @@ struct fib_nh_exception {
- 	u32				fnhe_pmtu;
- 	__be32				fnhe_gw;
- 	unsigned long			fnhe_expires;
-+	struct rtable __rcu		*fnhe_rth;
- 	unsigned long			fnhe_stamp;
+diff --git a/include/net/route.h b/include/net/route.h
+index 8c52bc6..776a27f 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -57,6 +57,8 @@ struct rtable {
+ 
+ 	/* Miscellaneous cached information */
+ 	u32			rt_pmtu;
++
++	struct list_head	rt_uncached;
  };
  
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index fe2ca02..da80dc1 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -140,6 +140,21 @@ const struct fib_prop fib_props[RTN_MAX + 1] = {
- 	},
- };
+ static inline bool rt_is_input_route(const struct rtable *rt)
+@@ -107,6 +109,7 @@ extern struct ip_rt_acct __percpu *ip_rt_acct;
+ struct in_device;
+ extern int		ip_rt_init(void);
+ extern void		rt_cache_flush(struct net *net, int how);
++extern void		rt_flush_dev(struct net_device *dev);
+ extern struct rtable *__ip_route_output_key(struct net *, struct flowi4 *flp);
+ extern struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
+ 					   struct sock *sk);
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 8732cc7..c43ae3f 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -1046,6 +1046,7 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
  
-+static void rt_fibinfo_free(struct rtable __rcu **rtp)
-+{
-+	struct rtable *rt = rcu_dereference_protected(*rtp, 1);
-+
-+	if (!rt)
-+		return;
-+
-+	/* Not even needed : RCU_INIT_POINTER(*rtp, NULL);
-+	 * because we waited an RCU grace period before calling
-+	 * free_fib_info_rcu()
-+	 */
-+
-+	dst_free(&rt->dst);
-+}
-+
- static void free_nh_exceptions(struct fib_nh *nh)
- {
- 	struct fnhe_hash_bucket *hash = nh->nh_exceptions;
-@@ -153,6 +168,9 @@ static void free_nh_exceptions(struct fib_nh *nh)
- 			struct fib_nh_exception *next;
- 			
- 			next = rcu_dereference_protected(fnhe->fnhe_next, 1);
-+
-+			rt_fibinfo_free(&fnhe->fnhe_rth);
-+
- 			kfree(fnhe);
+ 	if (event == NETDEV_UNREGISTER) {
+ 		fib_disable_ip(dev, 2, -1);
++		rt_flush_dev(dev);
+ 		return NOTIFY_DONE;
+ 	}
  
- 			fnhe = next;
-@@ -161,22 +179,7 @@ static void free_nh_exceptions(struct fib_nh *nh)
- 	kfree(hash);
- }
- 
--static void rt_nexthop_free(struct rtable __rcu **rtp)
--{
--	struct rtable *rt = rcu_dereference_protected(*rtp, 1);
--
--	if (!rt)
--		return;
--
--	/* Not even needed : RCU_INIT_POINTER(*rtp, NULL);
--	 * because we waited an RCU grace period before calling
--	 * free_fib_info_rcu()
--	 */
--
--	dst_free(&rt->dst);
--}
--
--static void rt_nexthop_free_cpus(struct rtable __rcu * __percpu *rtp)
-+static void rt_fibinfo_free_cpus(struct rtable __rcu * __percpu *rtp)
- {
- 	int cpu;
- 
-@@ -203,8 +206,8 @@ static void free_fib_info_rcu(struct rcu_head *head)
- 			dev_put(nexthop_nh->nh_dev);
- 		if (nexthop_nh->nh_exceptions)
- 			free_nh_exceptions(nexthop_nh);
--		rt_nexthop_free_cpus(nexthop_nh->nh_pcpu_rth_output);
--		rt_nexthop_free(&nexthop_nh->nh_rth_input);
-+		rt_fibinfo_free_cpus(nexthop_nh->nh_pcpu_rth_output);
-+		rt_fibinfo_free(&nexthop_nh->nh_rth_input);
- 	} endfor_nexthops(fi);
- 
- 	release_net(fi->fib_net);
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4f6276c..b102eeb 100644
+index b102eeb..c035251 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -587,11 +587,17 @@ static void ip_rt_build_flow_key(struct flowi4 *fl4, const struct sock *sk,
- 		build_sk_flow_key(fl4, sk);
+@@ -147,6 +147,7 @@ static void		 ip_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+ 					   struct sk_buff *skb, u32 mtu);
+ static void		 ip_do_redirect(struct dst_entry *dst, struct sock *sk,
+ 					struct sk_buff *skb);
++static void		ipv4_dst_destroy(struct dst_entry *dst);
+ 
+ static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 			    int how)
+@@ -170,6 +171,7 @@ static struct dst_ops ipv4_dst_ops = {
+ 	.default_advmss =	ipv4_default_advmss,
+ 	.mtu =			ipv4_mtu,
+ 	.cow_metrics =		ipv4_cow_metrics,
++	.destroy =		ipv4_dst_destroy,
+ 	.ifdown =		ipv4_dst_ifdown,
+ 	.negative_advice =	ipv4_negative_advice,
+ 	.link_failure =		ipv4_link_failure,
+@@ -1175,9 +1177,11 @@ static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
+ 	return NULL;
  }
  
--static DEFINE_SEQLOCK(fnhe_seqlock);
-+static inline void rt_free(struct rtable *rt)
-+{
-+	call_rcu(&rt->dst.rcu_head, dst_rcu_free);
-+}
-+
-+static DEFINE_SPINLOCK(fnhe_lock);
- 
- static struct fib_nh_exception *fnhe_oldest(struct fnhe_hash_bucket *hash)
- {
- 	struct fib_nh_exception *fnhe, *oldest;
-+	struct rtable *orig;
- 
- 	oldest = rcu_dereference(hash->chain);
- 	for (fnhe = rcu_dereference(oldest->fnhe_next); fnhe;
-@@ -599,6 +605,11 @@ static struct fib_nh_exception *fnhe_oldest(struct fnhe_hash_bucket *hash)
- 		if (time_before(fnhe->fnhe_stamp, oldest->fnhe_stamp))
- 			oldest = fnhe;
- 	}
-+	orig = rcu_dereference(oldest->fnhe_rth);
-+	if (orig) {
-+		RCU_INIT_POINTER(oldest->fnhe_rth, NULL);
-+		rt_free(orig);
-+	}
- 	return oldest;
- }
- 
-@@ -620,7 +631,7 @@ static void update_or_create_fnhe(struct fib_nh *nh, __be32 daddr, __be32 gw,
- 	int depth;
- 	u32 hval = fnhe_hashfun(daddr);
- 
--	write_seqlock_bh(&fnhe_seqlock);
-+	spin_lock_bh(&fnhe_lock);
- 
- 	hash = nh->nh_exceptions;
- 	if (!hash) {
-@@ -667,7 +678,7 @@ static void update_or_create_fnhe(struct fib_nh *nh, __be32 daddr, __be32 gw,
- 	fnhe->fnhe_stamp = jiffies;
- 
- out_unlock:
--	write_sequnlock_bh(&fnhe_seqlock);
-+	spin_unlock_bh(&fnhe_lock);
- 	return;
- }
- 
-@@ -1167,41 +1178,40 @@ static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
- static void rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+-static void rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
++static bool rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
  			      __be32 daddr)
  {
--	__be32 fnhe_daddr, gw;
--	unsigned long expires;
--	unsigned int seq;
--	u32 pmtu;
--
--restart:
--	seq = read_seqbegin(&fnhe_seqlock);
--	fnhe_daddr = fnhe->fnhe_daddr;
--	gw = fnhe->fnhe_gw;
--	pmtu = fnhe->fnhe_pmtu;
--	expires = fnhe->fnhe_expires;
--	if (read_seqretry(&fnhe_seqlock, seq))
--		goto restart;
--
--	if (daddr != fnhe_daddr)
--		return;
-+	spin_lock_bh(&fnhe_lock);
- 
--	if (pmtu) {
--		unsigned long diff = expires - jiffies;
-+	if (daddr == fnhe->fnhe_daddr) {
-+		struct rtable *orig;
- 
--		if (time_before(jiffies, expires)) {
--			rt->rt_pmtu = pmtu;
--			dst_set_expires(&rt->dst, diff);
-+		if (fnhe->fnhe_pmtu) {
-+			unsigned long expires = fnhe->fnhe_expires;
-+			unsigned long diff = expires - jiffies;
++	bool ret = false;
 +
-+			if (time_before(jiffies, expires)) {
-+				rt->rt_pmtu = fnhe->fnhe_pmtu;
-+				dst_set_expires(&rt->dst, diff);
-+			}
-+		}
-+		if (fnhe->fnhe_gw) {
-+			rt->rt_flags |= RTCF_REDIRECTED;
-+			rt->rt_gateway = fnhe->fnhe_gw;
- 		}
--	}
--	if (gw) {
--		rt->rt_flags |= RTCF_REDIRECTED;
--		rt->rt_gateway = gw;
--	}
--	fnhe->fnhe_stamp = jiffies;
--}
+ 	spin_lock_bh(&fnhe_lock);
  
--static inline void rt_free(struct rtable *rt)
--{
--	call_rcu(&rt->dst.rcu_head, dst_rcu_free);
-+		orig = rcu_dereference(fnhe->fnhe_rth);
-+		rcu_assign_pointer(fnhe->fnhe_rth, rt);
-+		if (orig)
-+			rt_free(orig);
+ 	if (daddr == fnhe->fnhe_daddr) {
+@@ -1203,6 +1207,7 @@ static void rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+ 			rt_free(orig);
+ 
+ 		fnhe->fnhe_stamp = jiffies;
++		ret = true;
+ 	} else {
+ 		/* Routes we intend to cache in nexthop exception have
+ 		 * the DST_NOCACHE bit clear.  However, if we are
+@@ -1212,11 +1217,14 @@ static void rt_bind_exception(struct rtable *rt, struct fib_nh_exception *fnhe,
+ 		rt->dst.flags |= DST_NOCACHE;
+ 	}
+ 	spin_unlock_bh(&fnhe_lock);
 +
-+		fnhe->fnhe_stamp = jiffies;
-+	} else {
-+		/* Routes we intend to cache in nexthop exception have
-+		 * the DST_NOCACHE bit clear.  However, if we are
-+		 * unsuccessful at storing this route into the cache
-+		 * we really need to set it.
-+		 */
-+		rt->dst.flags |= DST_NOCACHE;
-+	}
-+	spin_unlock_bh(&fnhe_lock);
++	return ret;
  }
  
- static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
-@@ -1249,13 +1259,13 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+-static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
++static bool rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ {
+ 	struct rtable *orig, *prev, **p;
++	bool ret = true;
  
- 		if (nh->nh_gw && nh->nh_scope == RT_SCOPE_LINK)
- 			rt->rt_gateway = nh->nh_gw;
--		if (unlikely(fnhe))
--			rt_bind_exception(rt, fnhe, daddr);
- 		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
- #ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (rt_is_input_route(rt)) {
+ 		p = (struct rtable **)&nh->nh_rth_input;
+@@ -1239,6 +1247,48 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ 		 */
+ nocache:
+ 		rt->dst.flags |= DST_NOCACHE;
++		ret = false;
++	}
++
++	return ret;
++}
++
++static DEFINE_SPINLOCK(rt_uncached_lock);
++static LIST_HEAD(rt_uncached_list);
++
++static void rt_add_uncached_list(struct rtable *rt)
++{
++	spin_lock_bh(&rt_uncached_lock);
++	list_add_tail(&rt->rt_uncached, &rt_uncached_list);
++	spin_unlock_bh(&rt_uncached_lock);
++}
++
++static void ipv4_dst_destroy(struct dst_entry *dst)
++{
++	struct rtable *rt = (struct rtable *) dst;
++
++	if (dst->flags & DST_NOCACHE) {
++		spin_lock_bh(&rt_uncached_lock);
++		list_del(&rt->rt_uncached);
++		spin_unlock_bh(&rt_uncached_lock);
++	}
++}
++
++void rt_flush_dev(struct net_device *dev)
++{
++	if (!list_empty(&rt_uncached_list)) {
++		struct net *net = dev_net(dev);
++		struct rtable *rt;
++
++		spin_lock_bh(&rt_uncached_lock);
++		list_for_each_entry(rt, &rt_uncached_list, rt_uncached) {
++			if (rt->dst.dev != dev)
++				continue;
++			rt->dst.dev = net->loopback_dev;
++			dev_hold(rt->dst.dev);
++			dev_put(dev);
++		}
++		spin_unlock_bh(&rt_uncached_lock);
+ 	}
+ }
+ 
+@@ -1254,6 +1304,8 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
+ 			   struct fib_nh_exception *fnhe,
+ 			   struct fib_info *fi, u16 type, u32 itag)
+ {
++	bool cached = false;
++
+ 	if (fi) {
+ 		struct fib_nh *nh = &FIB_RES_NH(*res);
+ 
+@@ -1264,10 +1316,12 @@ static void rt_set_nexthop(struct rtable *rt, __be32 daddr,
  		rt->dst.tclassid = nh->nh_tclassid;
  #endif
--		if (!(rt->dst.flags & DST_NOCACHE))
-+		if (unlikely(fnhe))
-+			rt_bind_exception(rt, fnhe, daddr);
-+		else if (!(rt->dst.flags & DST_NOCACHE))
- 			rt_cache_route(nh, rt);
+ 		if (unlikely(fnhe))
+-			rt_bind_exception(rt, fnhe, daddr);
++			cached = rt_bind_exception(rt, fnhe, daddr);
+ 		else if (!(rt->dst.flags & DST_NOCACHE))
+-			rt_cache_route(nh, rt);
++			cached = rt_cache_route(nh, rt);
+ 	}
++	if (unlikely(!cached))
++		rt_add_uncached_list(rt);
+ 
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+@@ -1334,6 +1388,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	rth->rt_iif	= 0;
+ 	rth->rt_pmtu	= 0;
+ 	rth->rt_gateway	= 0;
++	INIT_LIST_HEAD(&rth->rt_uncached);
+ 	if (our) {
+ 		rth->dst.input= ip_local_deliver;
+ 		rth->rt_flags |= RTCF_LOCAL;
+@@ -1459,6 +1514,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->rt_iif 	= 0;
+ 	rth->rt_pmtu	= 0;
+ 	rth->rt_gateway	= 0;
++	INIT_LIST_HEAD(&rth->rt_uncached);
+ 
+ 	rth->dst.input = ip_forward;
+ 	rth->dst.output = ip_output;
+@@ -1625,6 +1681,7 @@ local_input:
+ 	rth->rt_iif	= 0;
+ 	rth->rt_pmtu	= 0;
+ 	rth->rt_gateway	= 0;
++	INIT_LIST_HEAD(&rth->rt_uncached);
+ 	if (res.type == RTN_UNREACHABLE) {
+ 		rth->dst.input= ip_error;
+ 		rth->dst.error= -err;
+@@ -1792,6 +1849,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	rth->rt_iif	= orig_oif ? : 0;
+ 	rth->rt_pmtu	= 0;
+ 	rth->rt_gateway = 0;
++	INIT_LIST_HEAD(&rth->rt_uncached);
+ 
+ 	RT_CACHE_STAT_INC(out_slow_tot);
+ 
+@@ -2071,6 +2129,8 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+ 		rt->rt_type = ort->rt_type;
+ 		rt->rt_gateway = ort->rt_gateway;
+ 
++		INIT_LIST_HEAD(&rt->rt_uncached);
++
+ 		dst_free(new);
  	}
  
-@@ -1753,22 +1763,23 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index c628184..681ea2f 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -92,6 +92,7 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 	xdst->u.rt.rt_type = rt->rt_type;
+ 	xdst->u.rt.rt_gateway = rt->rt_gateway;
+ 	xdst->u.rt.rt_pmtu = rt->rt_pmtu;
++	INIT_LIST_HEAD(&xdst->u.rt.rt_uncached);
  
- 	fnhe = NULL;
- 	if (fi) {
--		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
--		if (!fnhe && FIB_RES_NH(*res).nh_pcpu_rth_output) {
--			struct rtable __rcu **prth;
-+		struct rtable __rcu **prth;
- 
-+		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
-+		if (fnhe)
-+			prth = &fnhe->fnhe_rth;
-+		else
- 			prth = __this_cpu_ptr(FIB_RES_NH(*res).nh_pcpu_rth_output);
--			rth = rcu_dereference(*prth);
--			if (rt_cache_valid(rth)) {
--				dst_hold(&rth->dst);
--				return rth;
--			}
-+		rth = rcu_dereference(*prth);
-+		if (rt_cache_valid(rth)) {
-+			dst_hold(&rth->dst);
-+			return rth;
- 		}
- 	}
- 	rth = rt_dst_alloc(dev_out,
- 			   IN_DEV_CONF_GET(in_dev, NOPOLICY),
- 			   IN_DEV_CONF_GET(in_dev, NOXFRM),
--			   fi && !fnhe);
-+			   fi);
- 	if (!rth)
- 		return ERR_PTR(-ENOBUFS);
- 
+ 	return 0;
+ }
 -- 
 1.7.10.4
