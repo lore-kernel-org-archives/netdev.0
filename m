@@ -1,61 +1,47 @@
-From: chetan loke <loke.chetan@gmail.com>
+From: Jon Mason <jon.mason@intel.com>
 Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Tue, 31 Jul 2012 12:14:36 -0400
-Message-ID: <CAAsGZS4NBM0_o1-RHEZGbYDmJkwTx_RrkYFm7a7-AZRpx0dYAQ@mail.gmail.com>
+Date: Tue, 31 Jul 2012 09:33:08 -0700
+Message-ID: <20120731163308.GA13610@jonmason-lab>
 References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
-	<1343607994-32415-2-git-send-email-jon.mason@intel.com>
+ <1343607994-32415-2-git-send-email-jon.mason@intel.com>
+ <CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
+ <20120730181542.GA987@jonmason-lab>
+ <CAF8raN6M0_TWyCCzjyXZcFYP=vgFaqQg4hNmNpBxSM+D0C_Bpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
-To: Jon Mason <jon.mason@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>
+To: Jianbin Kang <kjbmail@gmail.com>
 Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1343607994-32415-2-git-send-email-jon.mason@intel.com>
+Content-Disposition: inline
+In-Reply-To: <CAF8raN6M0_TWyCCzjyXZcFYP=vgFaqQg4hNmNpBxSM+D0C_Bpg@mail.gmail.com>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 29, 2012 at 8:26 PM, Jon Mason <jon.mason@intel.com> wrote:
+On Tue, Jul 31, 2012 at 11:35:33AM +0800, Jianbin Kang wrote:
+> > I've tried to make it all generic enough that non-Intel NTBs should plug in with
+> > minimal changes to ntb_hw.c.  If their design is too divergent, then a slight
+> > redesign of ntb_hw.c might be necessary.  But from what I've seen of other
+> > designs on the internet, they appear to be extremely similar.  The transport and
+> > client drivers were written with the hardware abstracted away as much as
+> > possible to prevent the need to modify it for different hardware.  If there is
+> > anything which is Intel hardware specific, I'd be happy to change it to make it
+> > more generic.
+>   In ntb_process_tx(), ntb uses hard-coding 'memcpy_toio' to copy data
+> to remote.
+>   Is it better to provide a function pointer like 'tx()' and call qp->tx().
+>   memcpy_toio is a slow operation. Some hardware can setup a dma
+> transfer and wait.
+> 
+>   IMHO, the best way is to handle tx in async mode. But it requires
+> lots of modification.
 
-<snip>
+Actually this is what I'm working on now, using async_tx to replace the
+memcpy.  I believe the changes shouldn't be that significant.
 
-> +static void ntb_tx_copy_task(struct ntb_transport_qp *qp,
-> +                            struct ntb_queue_entry *entry,
-> +                            void *offset)
-> +{
-> +       struct ntb_payload_header *hdr = offset;
-> +
-> +       offset += sizeof(struct ntb_payload_header);
-> +       memcpy_toio(offset, entry->buf, entry->len);
-> +
-> +       hdr->len = entry->len;
-> +       hdr->ver = qp->tx_pkts;
-> +
-> +       /* Ensure that the data is fully copied out before setting the flag */
-> +       wmb();
-> +       hdr->flags = entry->flags | DESC_DONE_FLAG;
-> +
-> +       ntb_ring_sdb(qp->ndev, qp->qp_num);
-> +
-> +       /* The entry length can only be zero if the packet is intended to be a
-> +        * "link down" or similar.  Since no payload is being sent in these
-> +        * cases, there is nothing to add to the completion queue.
-> +        */
-> +       if (entry->len > 0) {
-> +               qp->tx_bytes += entry->len;
-> +
-> +               /* Add fully transmitted data to completion queue */
-> +               ntb_list_add_tail(&qp->ntb_tx_comp_q_lock, &entry->entry,
-> +                                 &qp->tx_comp_q);
-> +
-> +               if (qp->tx_handler)
-> +                       qp->tx_handler(qp->cb_data, qp);
-> +       } else
-> +               ntb_list_add_tail(&qp->ntb_tx_free_q_lock, &entry->entry,
-> +                                 &qp->tx_free_q);
-> +}
+Is the "hardware that can setup dma" you refer to something that does
+not use this interface?
 
-I know you talked about a fixed array. But it's not here yet. So at
-all the call-sites, for [r/t]x_free_q , add the 'entry' to the head -
-change to ntb_list_add_head here and else where.
-
-Chetan Loke
+Thanks,
+Jon
