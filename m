@@ -1,161 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: percpu nh_rth_output cache
-Date: Tue, 31 Jul 2012 17:22:46 +0200
-Message-ID: <1343748166.21269.304.camel@edumazet-glaptop>
+From: Bernard Pidoux <bernard.pidoux@free.fr>
+Subject: Re: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
+Date: Tue, 31 Jul 2012 17:27:39 +0200
+Message-ID: <5017F96B.1060701@free.fr>
+References: <5017E786.5000102@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:54000 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755052Ab2GaPWu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 11:22:50 -0400
-Received: by bkwj10 with SMTP id j10so3346371bkw.19
-        for <netdev@vger.kernel.org>; Tue, 31 Jul 2012 08:22:48 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-hams <linux-hams@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <5017E786.5000102@free.fr>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Here is a complementary observation.
+Trying to remove rose module with rmmod rose did not create any kernel 
+panic.
+However, there is an endless message from the kernel saying :
 
-Input path is mostly run under RCU and doesnt touch dst refcnt
+Message from syslogd@raspberrypi at Jul 31 17:22:40 ...
+  kernel:[  831.579007] unregister_netdevice: waiting for rose0 to 
+become free. Usage count = 23
 
-But output path on forwarding or UDP workloads hits
-badly dst refcount, and we have lot of false sharing, for example
-in ipv4_mtu() when reading rt->rt_pmtu
+Message from syslogd@raspberrypi at Jul 31 17:22:50 ...
+  kernel:[  841.739390] unregister_netdevice: waiting for rose0 to 
+become free. Usage count = 23
 
-Using a percpu cache for nh_rth_output gives a nice performance
-increase at a small cost.
+Message from syslogd@raspberrypi at Jul 31 17:23:00 ...
+  kernel:[  851.899758] unregister_netdevice: waiting for rose0 to 
+become free. Usage count = 23
+.....
 
-24 udpflood test on my 24 cpu machine (dummy0 output device)
-(each process sends 1.000.000 udp frames, 24 processes are started)
+As observed at many occasions, count number seems to be random ! and
+the same message keeps going without any change of count number.
+At the same time, there is no possibility to recover the command line on 
+any console.
+However I could loggin via ssh and I noticed that rose0 device is 
+actually no more in the ifconfig list.
 
-before : 5.24 s
-after : 2.06 s
-For reference, time on linux-3.5 : 6.60 s
+If I try to remove rose with rmmod rose I get :
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-On top on previous "ipv4: Restore old dst_free() behavior" patch
+root@raspberrypi:/home/pi# rmmod rose
+libkmod: ERROR ../libkmod/libkmod-module.c:753 
+kmod_module_remove_module: could not remove 'rose': Device or resource busy
+Error: could not remove module rose: Device or resource busy
 
-We probably can remove all paddings in struct dst_entry
 
- include/net/ip_fib.h     |    3 ++-
- net/ipv4/fib_semantics.c |   19 ++++++++++++++++++-
- net/ipv4/route.c         |   20 +++++++++++++++-----
- 3 files changed, 35 insertions(+), 7 deletions(-)
+Does this help ?
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index e521a03..a0f003d 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -21,6 +21,7 @@
- #include <linux/rcupdate.h>
- #include <net/fib_rules.h>
- #include <net/inetpeer.h>
-+#include <linux/percpu.h>
- 
- struct fib_config {
- 	u8			fc_dst_len;
-@@ -81,7 +82,7 @@ struct fib_nh {
- 	__be32			nh_gw;
- 	__be32			nh_saddr;
- 	int			nh_saddr_genid;
--	struct rtable __rcu	*nh_rth_output;
-+	struct rtable * __percpu *nh_pcpu_rth_output;
- 	struct rtable __rcu	*nh_rth_input;
- 	struct fnhe_hash_bucket	*nh_exceptions;
- };
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 625cf18..c8bf86e 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -176,6 +176,22 @@ static void rt_nexthop_free(struct rtable __rcu **rtp)
- 	dst_free(&rt->dst);
- }
- 
-+static void rt_nexthop_free_cpus(struct rtable * __percpu *rtp)
-+{
-+	int cpu;
-+
-+	if (!rtp)
-+		return;
-+
-+	for_each_possible_cpu(cpu) {
-+		struct rtable *rt = *per_cpu_ptr(rtp, cpu);
-+
-+		if (rt)
-+			dst_free(&rt->dst);
-+	}
-+	free_percpu(rtp);
-+}
-+
- /* Release a nexthop info record */
- static void free_fib_info_rcu(struct rcu_head *head)
- {
-@@ -186,7 +202,7 @@ static void free_fib_info_rcu(struct rcu_head *head)
- 			dev_put(nexthop_nh->nh_dev);
- 		if (nexthop_nh->nh_exceptions)
- 			free_nh_exceptions(nexthop_nh);
--		rt_nexthop_free(&nexthop_nh->nh_rth_output);
-+		rt_nexthop_free_cpus(nexthop_nh->nh_pcpu_rth_output);
- 		rt_nexthop_free(&nexthop_nh->nh_rth_input);
- 	} endfor_nexthops(fi);
- 
-@@ -817,6 +833,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 	fi->fib_nhs = nhs;
- 	change_nexthops(fi) {
- 		nexthop_nh->nh_parent = fi;
-+		nexthop_nh->nh_pcpu_rth_output = alloc_percpu(struct rtable *);
- 	} endfor_nexthops(fi)
- 
- 	if (cfg->fc_mx) {
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 2bd1074..d5efcfe 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1206,11 +1206,16 @@ static inline void rt_free(struct rtable *rt)
- 
- static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- {
--	struct rtable *orig, *prev, **p = (struct rtable **)&nh->nh_rth_output;
-+	struct rtable *orig, *prev, **p;
- 
--	if (rt_is_input_route(rt))
-+	if (rt_is_input_route(rt)) {
- 		p = (struct rtable **)&nh->nh_rth_input;
--
-+	} else {
-+		if (!nh->nh_pcpu_rth_output)
-+			goto nocache;
-+		p = per_cpu_ptr(nh->nh_pcpu_rth_output,
-+				raw_smp_processor_id());
-+	}
- 	orig = *p;
- 
- 	prev = cmpxchg(p, orig, rt);
-@@ -1223,6 +1228,7 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
- 		 * unsuccessful at storing this route into the cache
- 		 * we really need to set it.
- 		 */
-+nocache:
- 		rt->dst.flags |= DST_NOCACHE;
- 	}
- }
-@@ -1749,8 +1755,12 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	fnhe = NULL;
- 	if (fi) {
- 		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
--		if (!fnhe) {
--			rth = rcu_dereference(FIB_RES_NH(*res).nh_rth_output);
-+		if (!fnhe && FIB_RES_NH(*res).nh_pcpu_rth_output) {
-+			struct rtable **prth;
-+
-+			prth = per_cpu_ptr(FIB_RES_NH(*res).nh_pcpu_rth_output,
-+					   raw_smp_processor_id()); 
-+			rth = rcu_dereference(*(__force __rcu struct rtable **)prth);
- 			if (rt_cache_valid(rth)) {
- 				dst_hold(&rth->dst);
- 				return rth;
+
+On 31/07/2012 16:11, Bernard Pidoux wrote:
+> Hi,
+>
+> I observe systematically a kernel panic when I try to shutdown rose0
+> device using ifconfig rose0 down
+>
+> This is happening on two very different ROSE implementation, one is on a
+> machine with x86-64 kernel 4.6.3 on an Intel core 2 duo CPU
+> the other is on a RaspBerry Pi with Raspbian and 3.1.9+ wheezy kernel
+> recompiled with AX.25 modules (ax25, rose, netrom, 6pack, kiss) enabled.
+>
+> Here is an image of the screen dump :
+>
+> http://f6bvp.org/photos/rose_device_event.JPG
+>
+> It can be noticed that PC is at rose_device_event and
+> LR is at sock_def_wakeup
+>
+> One thing to be noticed is that when I close before all ROSE and AX.25
+> applications, there are still a few populated sockets, probably for one
+> of the program did not close the sockets properly.
+>
+> I that case, does rose module should accept to shutdown rose0 device ?
+> However, I guess that it should not create a kernel panic due to a
+> kernel NULL pointer.
+>
+> I don't know what to do in order to debug that issue.
+>
+> Bernard
+>
+
