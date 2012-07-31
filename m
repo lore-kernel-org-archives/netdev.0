@@ -1,193 +1,161 @@
-From: Rostislav Lisovy <lisovy@gmail.com>
-Subject: [PATCH iproute2 1/2] Add missing can.h
-Date: Tue, 31 Jul 2012 16:46:20 +0200
-Message-ID: <1343745981-14248-1-git-send-email-lisovy@gmail.com>
-Cc: linux-can@vger.kernel.org, pisa@cmp.felk.cvut.cz,
-	sojkam1@fel.cvut.cz, Rostislav Lisovy <lisovy@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: percpu nh_rth_output cache
+Date: Tue, 31 Jul 2012 17:22:46 +0200
+Message-ID: <1343748166.21269.304.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:34763 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754533Ab2GaOqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 10:46:20 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:54000 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755052Ab2GaPWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 11:22:50 -0400
+Received: by bkwj10 with SMTP id j10so3346371bkw.19
+        for <netdev@vger.kernel.org>; Tue, 31 Jul 2012 08:22:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Header file used when working with AF_CAN frames -- generated from
-linux kernel 3.5+
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
+Input path is mostly run under RCU and doesnt touch dst refcnt
+
+But output path on forwarding or UDP workloads hits
+badly dst refcount, and we have lot of false sharing, for example
+in ipv4_mtu() when reading rt->rt_pmtu
+
+Using a percpu cache for nh_rth_output gives a nice performance
+increase at a small cost.
+
+24 udpflood test on my 24 cpu machine (dummy0 output device)
+(each process sends 1.000.000 udp frames, 24 processes are started)
+
+before : 5.24 s
+after : 2.06 s
+For reference, time on linux-3.5 : 6.60 s
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/can.h |  161 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 161 insertions(+)
- create mode 100644 include/linux/can.h
+On top on previous "ipv4: Restore old dst_free() behavior" patch
 
-diff --git a/include/linux/can.h b/include/linux/can.h
-new file mode 100644
-index 0000000..018055e
---- /dev/null
-+++ b/include/linux/can.h
-@@ -0,0 +1,161 @@
-+/*
-+ * linux/can.h
-+ *
-+ * Definitions for CAN network layer (socket addr / CAN frame / CAN filter)
-+ *
-+ * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-+ *          Urs Thuermann   <urs.thuermann@volkswagen.de>
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
-+ *
-+ */
+We probably can remove all paddings in struct dst_entry
+
+ include/net/ip_fib.h     |    3 ++-
+ net/ipv4/fib_semantics.c |   19 ++++++++++++++++++-
+ net/ipv4/route.c         |   20 +++++++++++++++-----
+ 3 files changed, 35 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index e521a03..a0f003d 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -21,6 +21,7 @@
+ #include <linux/rcupdate.h>
+ #include <net/fib_rules.h>
+ #include <net/inetpeer.h>
++#include <linux/percpu.h>
+ 
+ struct fib_config {
+ 	u8			fc_dst_len;
+@@ -81,7 +82,7 @@ struct fib_nh {
+ 	__be32			nh_gw;
+ 	__be32			nh_saddr;
+ 	int			nh_saddr_genid;
+-	struct rtable __rcu	*nh_rth_output;
++	struct rtable * __percpu *nh_pcpu_rth_output;
+ 	struct rtable __rcu	*nh_rth_input;
+ 	struct fnhe_hash_bucket	*nh_exceptions;
+ };
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 625cf18..c8bf86e 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -176,6 +176,22 @@ static void rt_nexthop_free(struct rtable __rcu **rtp)
+ 	dst_free(&rt->dst);
+ }
+ 
++static void rt_nexthop_free_cpus(struct rtable * __percpu *rtp)
++{
++	int cpu;
 +
-+#ifndef CAN_H
-+#define CAN_H
++	if (!rtp)
++		return;
 +
-+#include <linux/types.h>
-+#include <linux/socket.h>
++	for_each_possible_cpu(cpu) {
++		struct rtable *rt = *per_cpu_ptr(rtp, cpu);
 +
-+/* controller area network (CAN) kernel definitions */
++		if (rt)
++			dst_free(&rt->dst);
++	}
++	free_percpu(rtp);
++}
 +
-+/* special address description flags for the CAN_ID */
-+#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
-+#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
-+#define CAN_ERR_FLAG 0x20000000U /* error message frame */
+ /* Release a nexthop info record */
+ static void free_fib_info_rcu(struct rcu_head *head)
+ {
+@@ -186,7 +202,7 @@ static void free_fib_info_rcu(struct rcu_head *head)
+ 			dev_put(nexthop_nh->nh_dev);
+ 		if (nexthop_nh->nh_exceptions)
+ 			free_nh_exceptions(nexthop_nh);
+-		rt_nexthop_free(&nexthop_nh->nh_rth_output);
++		rt_nexthop_free_cpus(nexthop_nh->nh_pcpu_rth_output);
+ 		rt_nexthop_free(&nexthop_nh->nh_rth_input);
+ 	} endfor_nexthops(fi);
+ 
+@@ -817,6 +833,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 	fi->fib_nhs = nhs;
+ 	change_nexthops(fi) {
+ 		nexthop_nh->nh_parent = fi;
++		nexthop_nh->nh_pcpu_rth_output = alloc_percpu(struct rtable *);
+ 	} endfor_nexthops(fi)
+ 
+ 	if (cfg->fc_mx) {
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 2bd1074..d5efcfe 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1206,11 +1206,16 @@ static inline void rt_free(struct rtable *rt)
+ 
+ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ {
+-	struct rtable *orig, *prev, **p = (struct rtable **)&nh->nh_rth_output;
++	struct rtable *orig, *prev, **p;
+ 
+-	if (rt_is_input_route(rt))
++	if (rt_is_input_route(rt)) {
+ 		p = (struct rtable **)&nh->nh_rth_input;
+-
++	} else {
++		if (!nh->nh_pcpu_rth_output)
++			goto nocache;
++		p = per_cpu_ptr(nh->nh_pcpu_rth_output,
++				raw_smp_processor_id());
++	}
+ 	orig = *p;
+ 
+ 	prev = cmpxchg(p, orig, rt);
+@@ -1223,6 +1228,7 @@ static void rt_cache_route(struct fib_nh *nh, struct rtable *rt)
+ 		 * unsuccessful at storing this route into the cache
+ 		 * we really need to set it.
+ 		 */
++nocache:
+ 		rt->dst.flags |= DST_NOCACHE;
+ 	}
+ }
+@@ -1749,8 +1755,12 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 	fnhe = NULL;
+ 	if (fi) {
+ 		fnhe = find_exception(&FIB_RES_NH(*res), fl4->daddr);
+-		if (!fnhe) {
+-			rth = rcu_dereference(FIB_RES_NH(*res).nh_rth_output);
++		if (!fnhe && FIB_RES_NH(*res).nh_pcpu_rth_output) {
++			struct rtable **prth;
 +
-+/* valid bits in CAN ID for frame formats */
-+#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
-+#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
-+#define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
-+
-+/*
-+ * Controller Area Network Identifier structure
-+ *
-+ * bit 0-28	: CAN identifier (11/29 bit)
-+ * bit 29	: error message frame flag (0 = data frame, 1 = error message)
-+ * bit 30	: remote transmission request flag (1 = rtr frame)
-+ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
-+ */
-+typedef __u32 canid_t;
-+
-+#define CAN_SFF_ID_BITS		11
-+#define CAN_EFF_ID_BITS		29
-+
-+/*
-+ * Controller Area Network Error Message Frame Mask structure
-+ *
-+ * bit 0-28	: error class mask (see include/linux/can/error.h)
-+ * bit 29-31	: set to zero
-+ */
-+typedef __u32 can_err_mask_t;
-+
-+/* CAN payload length and DLC definitions according to ISO 11898-1 */
-+#define CAN_MAX_DLC 8
-+#define CAN_MAX_DLEN 8
-+
-+/* CAN FD payload length and DLC definitions according to ISO 11898-7 */
-+#define CANFD_MAX_DLC 15
-+#define CANFD_MAX_DLEN 64
-+
-+/**
-+ * struct can_frame - basic CAN frame structure
-+ * @can_id:  CAN ID of the frame and CAN_*_FLAG flags, see canid_t definition
-+ * @can_dlc: frame payload length in byte (0 .. 8) aka data length code
-+ *           N.B. the DLC field from ISO 11898-1 Chapter 8.4.2.3 has a 1:1
-+ *           mapping of the 'data length code' to the real payload length
-+ * @data:    CAN frame payload (up to 8 byte)
-+ */
-+struct can_frame {
-+	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
-+	__u8    can_dlc; /* frame payload length in byte (0 .. CAN_MAX_DLEN) */
-+	__u8    data[CAN_MAX_DLEN] __attribute__((aligned(8)));
-+};
-+
-+/*
-+ * defined bits for canfd_frame.flags
-+ *
-+ * As the default for CAN FD should be to support the high data rate in the
-+ * payload section of the frame (HDR) and to support up to 64 byte in the
-+ * data section (EDL) the bits are only set in the non-default case.
-+ * Btw. as long as there's no real implementation for CAN FD network driver
-+ * these bits are only preliminary.
-+ *
-+ * RX: NOHDR/NOEDL - info about received CAN FD frame
-+ *     ESI         - bit from originating CAN controller
-+ * TX: NOHDR/NOEDL - control per-frame settings if supported by CAN controller
-+ *     ESI         - bit is set by local CAN controller
-+ */
-+#define CANFD_NOHDR 0x01 /* frame without high data rate */
-+#define CANFD_NOEDL 0x02 /* frame without extended data length */
-+#define CANFD_ESI   0x04 /* error state indicator */
-+
-+/**
-+ * struct canfd_frame - CAN flexible data rate frame structure
-+ * @can_id: CAN ID of the frame and CAN_*_FLAG flags, see canid_t definition
-+ * @len:    frame payload length in byte (0 .. CANFD_MAX_DLEN)
-+ * @flags:  additional flags for CAN FD
-+ * @__res0: reserved / padding
-+ * @__res1: reserved / padding
-+ * @data:   CAN FD frame payload (up to CANFD_MAX_DLEN byte)
-+ */
-+struct canfd_frame {
-+	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
-+	__u8    len;     /* frame payload length in byte */
-+	__u8    flags;   /* additional flags for CAN FD */
-+	__u8    __res0;  /* reserved / padding */
-+	__u8    __res1;  /* reserved / padding */
-+	__u8    data[CANFD_MAX_DLEN] __attribute__((aligned(8)));
-+};
-+
-+#define CAN_MTU		(sizeof(struct can_frame))
-+#define CANFD_MTU	(sizeof(struct canfd_frame))
-+
-+/* particular protocols of the protocol family PF_CAN */
-+#define CAN_RAW		1 /* RAW sockets */
-+#define CAN_BCM		2 /* Broadcast Manager */
-+#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
-+#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
-+#define CAN_MCNET	5 /* Bosch MCNet */
-+#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
-+#define CAN_NPROTO	7
-+
-+#define SOL_CAN_BASE 100
-+
-+/**
-+ * struct sockaddr_can - the sockaddr structure for CAN sockets
-+ * @can_family:  address family number AF_CAN.
-+ * @can_ifindex: CAN network interface index.
-+ * @can_addr:    protocol specific address information
-+ */
-+struct sockaddr_can {
-+	__kernel_sa_family_t can_family;
-+	int         can_ifindex;
-+	union {
-+		/* transport protocol class address information (e.g. ISOTP) */
-+		struct { canid_t rx_id, tx_id; } tp;
-+
-+		/* reserved for future CAN protocols address information */
-+	} can_addr;
-+};
-+
-+/**
-+ * struct can_filter - CAN ID based filter in can_register().
-+ * @can_id:   relevant bits of CAN ID which are not masked out.
-+ * @can_mask: CAN mask (see description)
-+ *
-+ * Description:
-+ * A filter matches, when
-+ *
-+ *          <received_can_id> & mask == can_id & mask
-+ *
-+ * The filter can be inverted (CAN_INV_FILTER bit set in can_id) or it can
-+ * filter for error message frames (CAN_ERR_FLAG bit set in mask).
-+ */
-+struct can_filter {
-+	canid_t can_id;
-+	canid_t can_mask;
-+};
-+
-+#define CAN_INV_FILTER 0x20000000U /* to be set in can_filter.can_id */
-+
-+#endif /* CAN_H */
--- 
-1.7.10.4
++			prth = per_cpu_ptr(FIB_RES_NH(*res).nh_pcpu_rth_output,
++					   raw_smp_processor_id()); 
++			rth = rcu_dereference(*(__force __rcu struct rtable **)prth);
+ 			if (rt_cache_valid(rth)) {
+ 				dst_hold(&rth->dst);
+ 				return rth;
