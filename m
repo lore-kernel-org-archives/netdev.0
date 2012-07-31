@@ -1,56 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 3/6] mv643xx.c: Add basic device tree support.
-Date: Tue, 31 Jul 2012 18:23:54 +0000
-Message-ID: <201207311823.54857.arnd@arndb.de>
-References: <1343749529-17571-1-git-send-email-ian.molton@codethink.co.uk> <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
+From: Denis Yefremov <yefremov.denis@gmail.com>
+Subject: wlcore: might_sleep operation in interrupt handler
+Date: Tue, 31 Jul 2012 22:28:14 +0400
+Message-ID: <CADKZ3FKDw78ac9JPXJuw0s7Mqg1RrVfonbjXZ6zHmtwF2i5HoQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, andrew@lunn.ch,
-	thomas.petazzoni@free-electrons.com, ben.dooks@codethink.co.uk,
-	netdev@vger.kernel.org
-To: Ian Molton <ian.molton@codethink.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:57438 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754321Ab2GaSYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2012 14:24:32 -0400
-In-Reply-To: <1343749529-17571-4-git-send-email-ian.molton@codethink.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Eliad Peller <eliad@wizery.com>,
+	Arik Nemtsov <arik@wizery.com>, Eyal Shapira <eyal@wizery.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
+To: Luciano Coelho <coelho@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 31 July 2012, Ian Molton wrote:
-> @@ -33,6 +34,10 @@ struct of_dev_auxdata kirkwood_auxdata_lookup[] __initdata = {
->  	OF_DEV_AUXDATA("marvell,orion-wdt", 0xf1020300, "orion_wdt", NULL),
->  	OF_DEV_AUXDATA("marvell,orion-sata", 0xf1080000, "sata_mv.0", NULL),
->  	OF_DEV_AUXDATA("marvell,orion-nand", 0xf4000000, "orion_nand", NULL),
-> +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1072000, MV643XX_ETH_NAME ".0",
-> +			NULL),
-> +	OF_DEV_AUXDATA("marvell,mv643xx", 0xf1076000, MV643XX_ETH_NAME ".1",
-> +			NULL),
->  	{},
->  };
+Interrupt handler wlcore_irq in wlcore/main.c file
+invokes mutex_lock that is might sleep operation.
 
-Please don't do string concatenation like this, it just makes it harder to grep for the
-strings.
+Found by Linux Driver Verification project (linuxtesting.org)
+within my participation in the GSoC 2012 program.
 
-> @@ -2654,15 +2677,22 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
->  	/*
->  	 * Check whether the error interrupt is hooked up.
->  	 */
-> -	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> -	if (res != NULL) {
-> +	if (pdev->dev.of_node) {
-> +		irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
-> +	} else {
-> +		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> +		if (res)
-> +			irq = res->start;
-> +	}
-> +
+drivers/net/wireless/ti/wlcore/main.c
 
-Why is this necessary? In theory, the old code should be the same as the new one,
-unless something goes wrong in the domain registration.
+static irqreturn_t wlcore_irq(int irq, void *cookie)
+{
+        int ret;
+        unsigned long flags;
+        struct wl1271 *wl = cookie;
 
-	Arnd
+        /* TX might be handled here, avoid redundant work */
+        set_bit(WL1271_FLAG_TX_PENDING, &wl->flags);
+        cancel_work_sync(&wl->tx_work);
+
+        mutex_lock(&wl->mutex);
+...
+}
+
+int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
+{
+...
+        ret = request_threaded_irq(wl->irq, wl12xx_hardirq, wlcore_irq,
+                                   irqflags,
+                                   pdev->name, wl);
+...
+}
