@@ -1,48 +1,61 @@
-From: "Jiang, Dave" <dave.jiang@intel.com>
-Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Wed, 1 Aug 2012 02:18:45 +0000
-Message-ID: <98D21DD6-3BDE-402D-8DC1-0AAD79502B8F@intel.com>
-References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
-	<1343607994-32415-2-git-send-email-jon.mason@intel.com>
-	<CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
-	<20120730181542.GA987@jonmason-lab>
-	<CAF8raN6M0_TWyCCzjyXZcFYP=vgFaqQg4hNmNpBxSM+D0C_Bpg@mail.gmail.com>
-	<20120731163308.GA13610@jonmason-lab>,<CAF8raN4QFnQ+9k_OGEkYexnK=knQESRSbOgsErNiA8z9MXzZ3A@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 0/7] netpoll and netconsole fixes for 3.6
+Date: Wed, 01 Aug 2012 10:22:41 +0800
+Message-ID: <1343787761.8713.1.camel@cr0>
+References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Mason, Jon" <jon.mason@intel.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: Jianbin Kang <kjbmail@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAF8raN4QFnQ+9k_OGEkYexnK=knQESRSbOgsErNiA8z9MXzZ3A@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46892 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753677Ab2HACXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 31 Jul 2012 22:23:09 -0400
+In-Reply-To: <1343403484-29347-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Ping... Any more reviews?
 
-On Jul 31, 2012, at 7:10 PM, "Jianbin Kang" <kjbmail@gmail.com> wrote:
-
->> Actually this is what I'm working on now, using async_tx to replace the
->> memcpy.  I believe the changes shouldn't be that significant.
->> 
->> Is the "hardware that can setup dma" you refer to something that does
->> not use this interface?
->> 
+On Fri, 2012-07-27 at 23:37 +0800, Cong Wang wrote:
+> This patch fixes serval problems in netconsole and netpoll.
 > 
-> Yes, they use this interface, but split 'memcpy_toio' to two operation:
->     1. setup dma
->     2. wait/poll for the dma to finish.
-> So maybe it need to provide a generic function 'tx' for different hardwares.
+> I ran this patch in my KVM guest with some netpoll test cases,
+> even covered with some corner cases, everything worked as expected.
 > 
-It's not worth it to do sync DMA. The performance is terrible. 
-
-> If async_tx is available, it's much better than this 'sync dma/memcpy'.
-> One problem with async_tx is, it can't detect memcpy error.
-> If the remote ntb goes down when async_memcpy is in operation, async_tx
-> will trigger an oops.
-
-Yes that is something that needs to be addressed when we get async DMA support working. 
+> BTW, my kernel config enables the following validatation options:
+> 
+> CONFIG_DEBUG_ATOMIC_SLEEP=y
+> CONFIG_PROVE_LOCKING=y
+> CONFIG_PROVE_RCU=y
+> CONFIG_LOCKDEP=y
+> CONFIG_RCU_CPU_STALL_TIMEOUT=60
+> CONFIG_LOCKUP_DETECTOR=y
+> CONFIG_HARDLOCKUP_DETECTOR=y
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> ---
+> 
+> Cong Wang (7):
+>   netpoll: use GFP_ATOMIC in slave_enable_netpoll() and __netpoll_setup()
+>   netpoll: make __netpoll_cleanup non-block
+>   netconsole: do not release spin_lock when calling __netpoll_cleanup
+>   bridge: call NETDEV_RELEASE notifier in br_del_if()
+>   netpoll: take rcu_read_lock_bh() in netpoll_rx()
+>   netpoll: use netpoll_rx_on() in netpoll_rx()
+>   netpoll: take rcu_read_lock_bh() in netpoll_send_skb_on_dev()
+> 
+>  drivers/net/bonding/bond_main.c |    6 +--
+>  drivers/net/netconsole.c        |    5 --
+>  include/linux/netpoll.h         |   25 +++++++-----
+>  net/8021q/vlan_dev.c            |    6 +--
+>  net/bridge/br_device.c          |    6 +--
+>  net/bridge/br_if.c              |    1 +
+>  net/core/netpoll.c              |   78 +++++++++++++++++++++++++-------------
+>  7 files changed, 70 insertions(+), 57 deletions(-)
+> 
