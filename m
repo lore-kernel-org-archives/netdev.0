@@ -1,35 +1,63 @@
-From: "Tobias S. Josefowitz" <t.josefowitz@gmail.com>
-Subject: binding UDP port 0 with SO_REUSEADDR
-Date: Wed, 1 Aug 2012 13:36:49 +0200
-Message-ID: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: Build failure when installing atm ambassador firmware
+Date: Wed, 1 Aug 2012 07:22:47 -0400
+Message-ID: <20120801072247.589c7162@thirdoffive.cmf.nrl.navy.mil>
+References: <50188D89.3040404@shealevy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:64775 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502Ab2HALgu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 07:36:50 -0400
-Received: by yhmm54 with SMTP id m54so7158811yhm.19
-        for <netdev@vger.kernel.org>; Wed, 01 Aug 2012 04:36:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Shea Levy <shea@shealevy.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50188D89.3040404@shealevy.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hey all,
+On Tue, 31 Jul 2012 21:59:37 -0400
+Shea Levy <shea@shealevy.com> wrote:
 
-I recently noticed that binding UDP port 0 with SO_REUSEADDR yields
-unexpected results for me - the kernel occasionally gives out UDP
-ports used by other processes, if they were bound with SO_REUSEADDR,
-too.
+> Hello,
+> 
+> When building with 
+> MODLIB=/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/modules/3.5.0 
+> and 
+> ="/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware", 
+> building Linux 3.5 with CONFIG_ATM_AMBASSADOR=m fails with:
+> 
+> "make[2]: *** No rule to make target 
+> `"/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware"/./', 
+> needed by 
+> `"/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware"/atmsar11.fw'.  
+> Stop."
 
-I did some digging, it seems that
-f24d43c07e208372aa3d3bff419afbf43ba87698 introduced this behaviour.
-I'm not at all sure if this could/should be called a bug, but I need
-to say, it was severly unexpected at my side, and that probably goes
-for others, too.
+i think it might be trying to tell you that the target directory
+$INSTALL_FW_PATH doesn't exist and is a prerequisite to actually
+perform the action.
 
-Just bringing this to your attention, I have no suggestions on it whatsoever.
+it complains about atmsar11.fw first because it just happens to be the
+first firmware that needs to be installed.
 
-Best,
+/scratch/chas/net-next relax.53% ls -ld /tmp/funk
+ls: cannot access /tmp/funk: No such file or directory
+/scratch/chas/net-next relax.54% make INSTALL_FW_PATH="/tmp/funk" firmware_install
+make[1]: *** No rule to make target `/tmp/funk/./', needed by `/tmp/funk/atmsar11.fw'.  Stop.
+make: *** [firmware_install] Error 2
+/scratch/chas/net-next relax.55% mkdir /tmp/funk
+/scratch/chas/net-next relax.56% make INSTALL_FW_PATH="/tmp/funk" firmware_install
+  INSTALL /tmp/funk/atmsar11.fw
+  MKDIR   /tmp/funk/e100/
+  INSTALL /tmp/funk/e100/d101m_ucode.bin
+  INSTALL /tmp/funk/e100/d101s_ucode.bin
+  INSTALL /tmp/funk/e100/d102e_ucode.bin
+...
 
-Tobi
+i am somewhat concerned that it appears to have an extra set of "'s in
+the path as well.  how are you passing in INSTALL_FW_PATH?  i can get
+the same result with:
+
+/scratch/chas/net-next relax.57% make 'INSTALL_FW_PATH="/tmp/funk"' firmware_install
+make[1]: *** No rule to make target `"/tmp/funk"/./', needed by `"/tmp/funk"/atmsar11.fw'.  Stop.
+make: *** [firmware_install] Error 2
+
+but it would be wrong to do it this way.
