@@ -1,66 +1,41 @@
-From: Seth Forshee <seth.forshee@canonical.com>
-Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
-Date: Wed, 1 Aug 2012 12:56:28 -0500
-Message-ID: <20120801175628.GD22963@thinkpad-t410>
-References: <20120801131232.GA1785@zod.bos.redhat.com>
- <20120801141810.GB27433@tuxdriver.com>
- <50194D7A.6060400@broadcom.com>
- <5019506C.6020707@broadcom.com>
- <1343836438.4638.5.camel@jlt3.sipsolutions.net>
- <20120801161959.GC22963@thinkpad-t410>
- <1343841285.4638.10.camel@jlt3.sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: binding UDP port 0 with SO_REUSEADDR
+Date: Wed, 01 Aug 2012 21:02:56 +0200
+Message-ID: <1343847776.21269.797.camel@edumazet-glaptop>
+References: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arend van Spriel <arend@broadcom.com>,
-	Josh Boyer <jwboyer@redhat.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Roland Vossen <rvossen@broadcom.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Tobias S. Josefowitz" <t.josefowitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:34201 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663Ab2HAR4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 13:56:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1343841285.4638.10.camel@jlt3.sipsolutions.net>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:65327 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754421Ab2HATDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 15:03:00 -0400
+Received: by weyx8 with SMTP id x8so5319566wey.19
+        for <netdev@vger.kernel.org>; Wed, 01 Aug 2012 12:02:59 -0700 (PDT)
+In-Reply-To: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 01, 2012 at 07:14:45PM +0200, Johannes Berg wrote:
-> On Wed, 2012-08-01 at 11:19 -0500, Seth Forshee wrote:
-> > On Wed, Aug 01, 2012 at 05:53:58PM +0200, Johannes Berg wrote:
-> > > On Wed, 2012-08-01 at 17:51 +0200, Arend van Spriel wrote:
-> > > > On 08/01/2012 05:38 PM, Arend van Spriel wrote:
-> > > > >> brcmsmac needs to hold cfg80211_mutex before calling freq_reg_info...
-> > > > >> > 
-> > > > >> > It looks like those calls were added in mid-June.
-> > > > >> > 
-> > > > > I think mid-june sounds about right. We never observed the warning when
-> > > > > changes to use regulatory infrastructure were tested/reviewed. Should
-> > > > > this precondition be mentioned in cfg80211.h?
-> > > > > 
-> > > > > Gr. AvS
-> > > > 
-> > > > Diving in further it seems brcmsmac can not grab the cfg80211_mutex. So
-> > > > another solution is needed.
-> > > 
-> > > Yeah I was going to say -- how can it possibly access that? It seems
-> > > that in some patch the API got broken, it should be taking the lock or
-> > > whatever ... I'll leave it to Luis to sort out though :-P
-> > 
-> > In other drivers freq_reg_info only seems to get used by the regulatory
-> > notifiers, which get called with the lock held. brcmsmac is wanting to
-> > know whether or not OFDM is allowed when setting the channel though, and
-> > I didn't find that information anywhere outside the regulatory
-> > information. If there's another way then calling freq_reg_info() could
-> > be avoided. Or maybe we could add an OFDM flag to the channel
-> > information?
+On Wed, 2012-08-01 at 13:36 +0200, Tobias S. Josefowitz wrote:
+> Hey all,
 > 
-> Seems reasonable to add the flags (or some of them) to the channel
-> flags, yeah.
+> I recently noticed that binding UDP port 0 with SO_REUSEADDR yields
+> unexpected results for me - the kernel occasionally gives out UDP
+> ports used by other processes, if they were bound with SO_REUSEADDR,
+> too.
+> 
+> I did some digging, it seems that
+> f24d43c07e208372aa3d3bff419afbf43ba87698 introduced this behaviour.
+> I'm not at all sure if this could/should be called a bug, but I need
+> to say, it was severly unexpected at my side, and that probably goes
+> for others, too.
+> 
+> Just bringing this to your attention, I have no suggestions on it whatsoever.
 
-Great, I'll work something up.
+And why are you using SO_REUSEADDR on UDP unicast sockets ?
 
-Seth
+I mean, this is exactly saying " By using this REUSEADDR, I am allowing
+this port being used by another process, even from another user"
