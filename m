@@ -1,63 +1,70 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: Build failure when installing atm ambassador firmware
-Date: Wed, 1 Aug 2012 07:22:47 -0400
-Message-ID: <20120801072247.589c7162@thirdoffive.cmf.nrl.navy.mil>
-References: <50188D89.3040404@shealevy.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Shea Levy <shea@shealevy.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50188D89.3040404@shealevy.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: [PATCH net-next] igb: add delay to allow igb loopback test to succeed on 8086:10c9
+Date: Wed,  1 Aug 2012 13:44:23 +0200
+Message-ID: <1343821463-18052-1-git-send-email-sassmann@kpanic.de>
+Cc: e1000-devel@lists.sourceforge.net, carolyn.wyborny@intel.com,
+	sassmann@kpanic.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:22231 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753796Ab2HALqY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2012 07:46:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Jul 2012 21:59:37 -0400
-Shea Levy <shea@shealevy.com> wrote:
+Some 8086:10c9 NICs have a problem completing the ethtool loopback test.
+The result looks like this:
 
-> Hello,
-> 
-> When building with 
-> MODLIB=/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/modules/3.5.0 
-> and 
-> ="/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware", 
-> building Linux 3.5 with CONFIG_ATM_AMBASSADOR=m fails with:
-> 
-> "make[2]: *** No rule to make target 
-> `"/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware"/./', 
-> needed by 
-> `"/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware"/atmsar11.fw'.  
-> Stop."
+ethtool -t eth1
+The test result is FAIL
+The test extra info:
+Register test  (offline)         0
+Eeprom test    (offline)         0
+Interrupt test (offline)         0
+Loopback test  (offline)         13
+Link test   (on/offline)         0
 
-i think it might be trying to tell you that the target directory
-$INSTALL_FW_PATH doesn't exist and is a prerequisite to actually
-perform the action.
+A bisect clearly points to commit a95a07445ee97a2fef65befafbadcc30ca1bd145.
+However that seems to only trigger the bug. While adding some printk the
+problem disappeared, so this might be a timing issue. After some trial and
+error I discovered that adding a small delay just before igb_write_phy_reg()
+in igb_integrated_phy_loopback() allows the loopback test to succeed.
+I was unable to figure out the root cause so far but I expect it to be
+somewhere in the following executing path
+igb_integrated_phy_loopback
+->igb_write_phy_reg_igp
+  ->igb_write_phy_reg_mdic
+    ->igb_acquire_phy_82575
+      ->igb_acquire_swfw_sync_82575
 
-it complains about atmsar11.fw first because it just happens to be the
-first firmware that needs to be installed.
+As this workaround only introduces a minor delay, which is not in the hot
+path I hope this is acceptable. The problem could only be oberved on
+8086:10c9 NICs so far and not all of them show the behaviour. I did not
+restrict the workaround to this type of NIC as it should do no harm to
+other igb NICs.
 
-/scratch/chas/net-next relax.53% ls -ld /tmp/funk
-ls: cannot access /tmp/funk: No such file or directory
-/scratch/chas/net-next relax.54% make INSTALL_FW_PATH="/tmp/funk" firmware_install
-make[1]: *** No rule to make target `/tmp/funk/./', needed by `/tmp/funk/atmsar11.fw'.  Stop.
-make: *** [firmware_install] Error 2
-/scratch/chas/net-next relax.55% mkdir /tmp/funk
-/scratch/chas/net-next relax.56% make INSTALL_FW_PATH="/tmp/funk" firmware_install
-  INSTALL /tmp/funk/atmsar11.fw
-  MKDIR   /tmp/funk/e100/
-  INSTALL /tmp/funk/e100/d101m_ucode.bin
-  INSTALL /tmp/funk/e100/d101s_ucode.bin
-  INSTALL /tmp/funk/e100/d102e_ucode.bin
-...
+With the patch below the loopback test succeeded 500 times in a row
+using a NIC that would otherwise fail.
 
-i am somewhat concerned that it appears to have an extra set of "'s in
-the path as well.  how are you passing in INSTALL_FW_PATH?  i can get
-the same result with:
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+---
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-/scratch/chas/net-next relax.57% make 'INSTALL_FW_PATH="/tmp/funk"' firmware_install
-make[1]: *** No rule to make target `"/tmp/funk"/./', needed by `"/tmp/funk"/atmsar11.fw'.  Stop.
-make: *** [firmware_install] Error 2
-
-but it would be wrong to do it this way.
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index a19c84c..f62fa25 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -1497,6 +1497,9 @@ static int igb_integrated_phy_loopback(struct igb_adapter *adapter)
+ 		break;
+ 	}
+ 
++	/* add small delay to avoid loopback test failure */
++	msleep(50);
++
+ 	/* force 1000, set loopback */
+ 	igb_write_phy_reg(hw, PHY_CONTROL, 0x4140);
+ 
+-- 
+1.7.4.4
