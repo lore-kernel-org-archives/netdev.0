@@ -1,61 +1,62 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 0/7] netpoll and netconsole fixes for 3.6
-Date: Wed, 01 Aug 2012 10:22:41 +0800
-Message-ID: <1343787761.8713.1.camel@cr0>
-References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: Re: 802.15.4 Issues
+Date: Tue, 31 Jul 2012 22:40:52 -0400
+Message-ID: <50189734.7060406@signal11.us>
+References: <50180217.8040706@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46892 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753677Ab2HACXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2012 22:23:09 -0400
-In-Reply-To: <1343403484-29347-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <50180217.8040706-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ping... Any more reviews?
+On 07/31/2012 12:04 PM, Alan Ott wrote:
+> I'm trying to follow the directions at linux-wsn[1] and am not having
+> much luck. Since I don't have the at91sam9g20ek board, I'm trying this
+> on my desktop PC with an Econotag[2] (using the serial.c driver I pulled
+> from [3]) and on a BeagleBone with an MRF24J40 (using a driver I made [4]).
 
-On Fri, 2012-07-27 at 23:37 +0800, Cong Wang wrote:
-> This patch fixes serval problems in netconsole and netpoll.
-> 
-> I ran this patch in my KVM guest with some netpoll test cases,
-> even covered with some corner cases, everything worked as expected.
-> 
-> BTW, my kernel config enables the following validatation options:
-> 
-> CONFIG_DEBUG_ATOMIC_SLEEP=y
-> CONFIG_PROVE_LOCKING=y
-> CONFIG_PROVE_RCU=y
-> CONFIG_LOCKDEP=y
-> CONFIG_RCU_CPU_STALL_TIMEOUT=60
-> CONFIG_LOCKUP_DETECTOR=y
-> CONFIG_HARDLOCKUP_DETECTOR=y
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> ---
-> 
-> Cong Wang (7):
->   netpoll: use GFP_ATOMIC in slave_enable_netpoll() and __netpoll_setup()
->   netpoll: make __netpoll_cleanup non-block
->   netconsole: do not release spin_lock when calling __netpoll_cleanup
->   bridge: call NETDEV_RELEASE notifier in br_del_if()
->   netpoll: take rcu_read_lock_bh() in netpoll_rx()
->   netpoll: use netpoll_rx_on() in netpoll_rx()
->   netpoll: take rcu_read_lock_bh() in netpoll_send_skb_on_dev()
-> 
->  drivers/net/bonding/bond_main.c |    6 +--
->  drivers/net/netconsole.c        |    5 --
->  include/linux/netpoll.h         |   25 +++++++-----
->  net/8021q/vlan_dev.c            |    6 +--
->  net/bridge/br_device.c          |    6 +--
->  net/bridge/br_if.c              |    1 +
->  net/core/netpoll.c              |   78 +++++++++++++++++++++++++-------------
->  7 files changed, 70 insertions(+), 57 deletions(-)
-> 
+> Like I said, I feel like there's something fundamental I'm doing wrong.
+
+There was....
+If you don't run izcoordinator with -d, it won't set the PAN and/or
+short address.
+
+    izcoordinator -i wpan0 -d 1 -s 2 -p 777 -c 11 -l lease
+
+This should go in the instructions at [1]. Alexander, if you give me
+permissions I'll fix it.
+
+While we're on instructions... :
+    "insmod iz listphy" (remove insmod)
+
+
+Now to figure out why my ping doesn't work....
+
+Alan.
+
+> [1] http://code.google.com/p/linux-wsn/wiki/Mainline
+> [2] http://www.redwirellc.com/store/node/1
+> [3]
+> http://linux-zigbee.git.sourceforge.net/git/gitweb.cgi?p=linux-zigbee/kernel;a=summary
+> [4] http://permalink.gmane.org/gmane.linux.network.zigbee.devel/1135
+> [5] http://sourceforge.net/apps/trac/linux-zigbee/wiki/GettingStarted-0.2
+
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
