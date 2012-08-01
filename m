@@ -1,68 +1,51 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: iputils git tree
-Date: Wed, 1 Aug 2012 11:21:54 -0400
-Message-ID: <201208011121.55876.vapier@gentoo.org>
-References: <201203182107.43855.vapier@gentoo.org> <201208010016.22035.vapier@gentoo.org> <5018B587.4030705@linux-ipv6.org>
+From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
+Date: Wed, 1 Aug 2012 17:38:34 +0200
+Message-ID: <50194D7A.6060400@broadcom.com>
+References: <20120801131232.GA1785@zod.bos.redhat.com>
+ <20120801141810.GB27433@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart7212304.hhXV5VbcVJ";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Noah Meyerhans <frodo@morgul.net>, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:48551 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755501Ab2HAPV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2012 11:21:56 -0400
-In-Reply-To: <5018B587.4030705@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Josh Boyer" <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Roland Vossen" <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Seth Forshee" <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120801141810.GB27433-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---nextPart7212304.hhXV5VbcVJ
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On 08/01/2012 04:18 PM, John W. Linville wrote:
+> On Wed, Aug 01, 2012 at 09:12:33AM -0400, Josh Boyer wrote:
+> 
+>> > [   26.573028] ------------[ cut here ]------------
+>> > [   26.573042] WARNING: at net/wireless/core.h:125 assert_cfg80211_lock.part.8+0x15/0x17 [cfg80211]()
+>> > [   26.573045] Hardware name: XPS 8300  
+>> > [   26.573046] Modules linked in: xt_CHECKSUM iptable_mangle bridge stp llc ip6t_REJECT nf_conntrack_ipv4 nf_conntrack_ipv6 nf_defrag_ipv6 nf_defrag_ipv4 xt_state nf_conntrack ib_iser rdma_cm ib_addr ip6table_filter tpm_bios ip6_tables iw_cm ib_cm ib_sa ib_mad ib_core iscsi_tcp snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_intel arc4 brcmsmac snd_hda_codec cordic brcmutil snd_hwdep mac80211 snd_pcm snd_page_alloc snd_timer cfg80211 snd coretemp rfkill serio_raw i2c_i801 soundcore lpc_ich bcma dcdbas microcode mfd_core mei vhost_net tun macvtap macvlan kvm_intel nfsd kvm auth_rpcgss nfs_acl lockd uinput crc32c_intel ghash_clmulni_intel broadcom tg3 usb_storage uas radeon i2c_algo_bit drm_kms_helper ttm drm i2c_core sunrpc be2iscsi bnx2i cnic uio cxgb4i cxgb4 cxgb3i cxgb3 mdio libcxg
+ bi libiscsi_tcp qla4xxx iscsi_boot_sysfs libiscsi scsi_transport_iscsi
+>> > [   26.573143] Pid: 757, comm: NetworkManager Not tainted 3.6.0-0.rc0.git8.1.fc18.x86_64 #1
+>> > [   26.573145] Call Trace:
+>> > [   26.573153]  [<ffffffff8106782f>] warn_slowpath_common+0x7f/0xc0
+>> > [   26.573159]  [<ffffffff8106788a>] warn_slowpath_null+0x1a/0x20
+>> > [   26.573170]  [<ffffffffa04c730d>] assert_cfg80211_lock.part.8+0x15/0x17 [cfg80211]
+>> > [   26.573181]  [<ffffffffa04a8dcb>] freq_reg_info+0x6b/0x80 [cfg80211]
+> brcmsmac needs to hold cfg80211_mutex before calling freq_reg_info...
+> 
+> It looks like those calls were added in mid-June.
+> 
 
-On Wednesday 01 August 2012 00:50:15 YOSHIFUJI Hideaki wrote:
-> (2012=E5=B9=B408=E6=9C=8801=E6=97=A5 13:16), Mike Frysinger wrote:ll
-> > i can clone git://git.linux-ipv6.org/gitroot/iputils.git now, but it
-> > seems to be pointing at a different clone than is viewable from gitweb.=
-=20
-> > it's stuck at:
-> >=20
-> > commit 2384927c0ac1bb3ad21966350644d08faadb7a76
-> > Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> > Date:   Wed Oct 6 20:59:20 2010 +0900
-> >=20
-> >      iputils-s20101006
->=20
-> Sorry, files were out of sync.  Updated.
+I think mid-june sounds about right. We never observed the warning when
+changes to use regulatory infrastructure were tested/reviewed. Should
+this precondition be mentioned in cfg80211.h?
 
-thanks, it works now
-=2Dmike
+Gr. AvS
 
---nextPart7212304.hhXV5VbcVJ
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQGUmTAAoJEEFjO5/oN/WBWssP/RO0rM1unN7s4uW/rxK0frAG
-oFanmhd9hKzi3M2KpLfLSsK8ZH+W/C0r3ZG7KCWDZo+nByOP5tTDT4oFZkmKBPZe
-17ey3F1izHaNuurTs+QW+avvO4LOldEn/ScINh3xUoH5y2boo+cLZyIAhmWUVYJt
-xzJgLJ23MLV7EKeRO+6T/rssQ9t30eQt9S1aiD7yOga6RtQKyNRnH1pnrLKc3vPT
-n+nRzVrL0Zi9NyA7hnC94YzrLAQXoVvoTz0PUX0AfZMrD9FYpJqbPA1adEY7W20H
-OJbm/J405TvtFlg7xNES5SqfiRzpQRV9q+LE+q+ZKBn953CVsPPgt4+yKTQChgsb
-1Iul3MLjLRA0JZS2Bgsj2mAOf6jNyN4sMXo/LPT+JIJy2tINUAkQan8Q5Z05txpb
-q8JXxZPBDao63VGdoUJEhNlfZwig0VRYapETS9wIr9LA/g7ukvZryCeRW8BMWFEQ
-28eyhqXBRG7Jz3Vqut57NMvjQZlhUgKqOxjdIQOWHPc3RnZbcniC4bIlFdlDS/A0
-QTpPx8039z4xbdOu7nbOJOkL6LFYWF8viDnc8zMTTQU9z+6mKGlbUzLx+PUodCWz
-y4eigl1EWAziSlIKJeRIvz8ottMegKEqs2OjWPZg5V2qugh0imFbZ0MTRBhUzaAC
-Me8jW3c0IfIE2anGoTOe
-=uF+U
------END PGP SIGNATURE-----
-
---nextPart7212304.hhXV5VbcVJ--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
