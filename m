@@ -1,203 +1,75 @@
-From: Bradley Chapman <kakadu08@comcast.net>
-Subject: Unable to get link beat with Niagara 2264 (Intel 82571EB) and e1000e
- driver on 3.4.4 (long)
-Date: Wed, 01 Aug 2012 18:20:19 -0400
-Message-ID: <5019ABA3.4080506@comcast.net>
-Reply-To: kakadu08@comcast.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 3.5.0
+Date: Wed, 1 Aug 2012 16:05:50 -0700
+Message-ID: <20120801160550.344a66b1@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta12.emeryville.ca.mail.comcast.net ([76.96.27.227]:34439
-	"EHLO qmta12.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753172Ab2HAWZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 18:25:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-All,
+Following the trend of releasing before going on vacation, here is the
+iproute2 release to go with last weeks 3.5.0 kernel release. The changes
+were mainly adding support for the new queuing disciplines (codel etc)
+and cleaning up the manual pages.
 
-(please CC me as I am not subscribed to netdev)
 
-I recently acquired an Interface Masters Niagara 2264 quad-port GigE 
-network card, based on the Intel 82571EB network controller (see 
-http://www.interfacemasters.com/products/2264.html for details). Prior 
-to using it in a new system I'm planning to build I decided to try it 
-out on my desktop system, which uses as Asus M4A89TD/PRO USB3 
-motherboard with the AMD 890FX chipset and a BIOS dated 03/08/2011, 
-running Debian 6.0.2.1.
+Source:
+  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-3.5.0.tar.gz
 
-I added the e1000e driver to my Linux 3.4.4 kernel config as a loadable 
-module and inserted it, and got the following:
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 
-e1000e: Intel(R) PRO/1000 Network Driver - 1.9.5-k
-e1000e: Copyright(c) 1999 - 2012 Intel Corporation.
-e1000e 0000:06:00.0: Disabling ASPM  L1
-e1000e 0000:06:00.0: (unregistered net_device): Interrupt Throttling 
-Rate (ints/sec) set to dynamic conservative mode
-e1000e 0000:06:00.0: irq 91 for MSI/MSI-X
-e1000e 0000:06:00.0: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8c
-e1000e 0000:06:00.0: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:06:00.0: eth1: MAC: 0, PHY: 4, PBA No: C98149-002
-e1000e 0000:06:00.1: Disabling ASPM  L1
-e1000e 0000:06:00.1: (unregistered net_device): Interrupt Throttling 
-Rate (ints/sec) set to dynamic conservative mode
-e1000e 0000:06:00.1: irq 92 for MSI/MSI-X
-udev[1123]: renamed network interface eth1 to eth2
-e1000e 0000:06:00.1: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8d
-e1000e 0000:06:00.1: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:06:00.1: eth1: MAC: 0, PHY: 4, PBA No: C98149-002
-e1000e 0000:05:00.0: Disabling ASPM  L1
-e1000e 0000:05:00.0: (unregistered net_device): Interrupt Throttling 
-Rate (ints/sec) set to dynamic conservative mode
-e1000e 0000:05:00.0: irq 93 for MSI/MSI-X
-udev[8376]: renamed network interface eth1 to eth3
-e1000e 0000:05:00.0: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8a
-e1000e 0000:05:00.0: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:05:00.0: eth1: MAC: 0, PHY: 4, PBA No: C98149-002
-e1000e 0000:05:00.1: Disabling ASPM  L1
-e1000e 0000:05:00.1: (unregistered net_device): Interrupt Throttling 
-Rate (ints/sec) set to dynamic conservative mode
-e1000e 0000:05:00.1: irq 94 for MSI/MSI-X
-udev[8400]: renamed network interface eth1 to eth4
-e1000e 0000:05:00.1: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8b
-e1000e 0000:05:00.1: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:05:00.1: eth1: MAC: 0, PHY: 4, PBA No: C98149-002
-udev[8429]: renamed network interface eth1 to eth5
+Andreas Henriksson (1):
+      iproute2: man page and /bin/ip disagree on del vs delete
 
-After doing so, though, I was unable to get a link beat on any of the 
-four RJ45 ports. I tried the Intel-supplied e1000e driver on the same 
-kernel and got the following:
+Ben Hutchings (1):
+      ss: Report MSS from internal TCP information
 
-e1000e: Intel(R) PRO/1000 Network Driver - 2.0.0.1-NAPI
-e1000e: Copyright(c) 1999 - 2012 Intel Corporation.
-e1000e 0000:06:00.0: Disabling ASPM  L1
-e1000e 0000:06:00.0: irq 91 for MSI/MSI-X
-e1000e 0000:06:00.0: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8c
-e1000e 0000:06:00.0: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:06:00.0: eth1: MAC: 1, PHY: 4, PBA No: C98149-002
-e1000e 0000:06:00.1: Disabling ASPM  L1
-e1000e 0000:06:00.1: irq 92 for MSI/MSI-X
-udev[8455]: renamed network interface eth1 to eth2
-e1000e 0000:06:00.1: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8d
-e1000e 0000:06:00.1: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:06:00.1: eth1: MAC: 1, PHY: 4, PBA No: C98149-002
-e1000e 0000:05:00.0: Disabling ASPM  L1
-e1000e 0000:05:00.0: irq 93 for MSI/MSI-X
-udev[8455]: renamed network interface eth1 to eth3
-e1000e 0000:05:00.0: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8a
-e1000e 0000:05:00.0: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:05:00.0: eth1: MAC: 1, PHY: 4, PBA No: C98149-002
-e1000e 0000:05:00.1: Disabling ASPM  L1
-e1000e 0000:05:00.1: irq 94 for MSI/MSI-X
-udev[8455]: renamed network interface eth1 to eth4
-e1000e 0000:05:00.1: eth1: (PCI Express:2.5GT/s:Width x4) 00:0c:bd:01:cd:8b
-e1000e 0000:05:00.1: eth1: Intel(R) PRO/1000 Network Connection
-e1000e 0000:05:00.1: eth1: MAC: 1, PHY: 4, PBA No: C98149-002
-udev[8455]: renamed network interface eth1 to eth5
+Bjarni Ingi Gislason (2):
+      tc(8): Negative indent and missing "-" after an escape
+      tc-drr(8): tab unquoted in a argument to a macro
 
-ethtool -i and ethtool -d report the following for the Intel-supplied 
-driver for one of the four interfaces exported to userspace:
+Chris Elston (1):
+      iproute2: allow IPv6 addresses for l2tp local and remote parameters
 
-ethtool -i
-----------
-driver: e1000e
-version: 2.0.0.1-NAPI
-firmware-version: 5.0-2
-bus-info: 0000:06:00.0
+Eric Dumazet (3):
+      tc_codel: Controlled Delay AQM
+      fq_codel: Fair Queue Codel AQM
+      ip: speedup ip link
 
-ethtool -d
-----------
-MAC Registers
--------------
-0x00000: CTRL (Device control register)  0x40480241
-       Endian mode (buffers):             little
-       Link reset:                        normal
-       Set link up:                       1
-       Invert Loss-Of-Signal:             no
-       Receive flow control:              disabled
-       Transmit flow control:             disabled
-       VLAN mode:                         enabled
-       Auto speed detect:                 disabled
-       Speed select:                      1000Mb/s
-       Force speed:                       no
-       Force duplex:                      no
-0x00008: STATUS (Device status register) 0x00080380
-       Duplex:                            half
-       Link up:                           no link config
-       TBI mode:                          disabled
-       Link speed:                        1000Mb/s
-       Bus type:                          PCI Express
-       Port number:                       0
-0x00100: RCTL (Receive control register) 0x0400801A
-       Receiver:                          enabled
-       Store bad packets:                 disabled
-       Unicast promiscuous:               enabled
-       Multicast promiscuous:             enabled
-       Long packet:                       disabled
-       Descriptor minimum threshold size: 1/2
-       Broadcast accept mode:             accept
-       VLAN filter:                       disabled
-       Canonical form indicator:          disabled
-       Discard pause frames:              filtered
-       Pass MAC control frames:           don't pass
-       Receive buffer size:               2048
-0x02808: RDLEN (Receive desc length)     0x00001000
-0x02810: RDH   (Receive desc head)       0x00000000
-0x02818: RDT   (Receive desc tail)       0x000000F0
-0x02820: RDTR  (Receive delay timer)     0x00000020
-0x00400: TCTL (Transmit ctrl register)   0x3003F008
-       Transmitter:                       disabled
-       Pad short packets:                 enabled
-       Software XOFF Transmission:        disabled
-       Re-transmit on late collision:     disabled
-0x03808: TDLEN (Transmit desc length)    0x00001000
-0x03810: TDH   (Transmit desc head)      0x00000000
-0x03818: TDT   (Transmit desc tail)      0x00000000
-0x03820: TIDV  (Transmit delay timer)    0x00000008
-PHY type:                                unknown
+Hiroaki SHIMODA (2):
+      tc: u32: Fix icmp_code off.
+      tc: u32: Fix firstfrag filter.
 
-mii-diag -a reports the following:
+Jan Ceuleers (2):
+      tc-codel: Fix typos in manpage
+      Add reference to tc-codel(8) to the SEE ALSO section
 
-SIOCGMIIREG on eth2 failed: Input/output error
-Basic registers of MII PHY #1:  1140 7909 02a8 0380 0de1 0000 0004 ffff.
-  Basic mode control register 0x1140: Auto-negotiation enabled.
-  Basic mode status register 0x7909 ... 7909.
-    Link status: not established.
-    End of basic transceiver information.
+Li Wei (6):
+      tc: man: Fix incorrect parameter format in prio.
+      tc: prio: Perform more strict check on priomap.
+      tc: filter: validate filter priority in userspace.
+      tc: man: add 'delete' command.
+      tc: man: change man page and comment to confirm to code's behavior.
+      tc-bfifo: man: Add parameter value range.
 
-lspci reports the following:
+Stephen Hemminger (7):
+      Update headers to 3.5 merge window
+      Remove derived man pages
+      Refactor ipaddr_list_or_flush
+      Remove reference to multipath algorithms in usage
+      man8: build cleanup
+      Add bridge command
+      v3.5.0
 
-02:00.0 PCI bridge: PLX Technology, Inc. PEX 8517 16-lane, 5-port PCI 
-Express Switch (rev ac)
-03:00.0 PCI bridge: PLX Technology, Inc. PEX 8517 16-lane, 5-port PCI 
-Express Switch (rev ac)
-03:01.0 PCI bridge: PLX Technology, Inc. PEX 8517 16-lane, 5-port PCI 
-Express Switch (rev ac)
-03:02.0 PCI bridge: PLX Technology, Inc. PEX 8517 16-lane, 5-port PCI 
-Express Switch (rev ac)
-05:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-05:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-06:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-06:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet 
-Controller (rev 06)
-
-I tried rebooting since switching to the new driver and it hasn't made a 
-difference. I did a bunch of digging in Google and couldn't find 
-anything that conclusively suggested a problem - I found lots of stuff 
-about BIOS bugs when dealing with ASPM, old regressions fixed in 
-previous kernels, and so on, but nothing that specifically identified my 
-problem.
-
-Does anyone have any suggestions? I can try Linux 3.5 very easily and if 
-necessary I can also learn how to fetch a git tree and bisect it. I also 
-sent an e-mail to the manufacturer asking for assistance with this 
-device but I haven't received a response yet.
-
-Thanks,
-
-Brad
+Vijay Subramanian (6):
+      Update tc-netem manpage to add ecn capability
+      tc-netem: Add support for ECN packet marking
+      tc-codel: Add manpage
+      tc-codel: Update usage text
+      tc-fq_codel: Add manpage
+      tc: Update manpage
