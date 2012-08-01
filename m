@@ -1,46 +1,41 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 4/6] ping: fix building on older systems
-Date: Wed,  1 Aug 2012 11:45:26 -0400
-Message-ID: <1343835928-21541-4-git-send-email-vapier@gentoo.org>
-References: <1343835928-21541-1-git-send-email-vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
+Date: Wed, 1 Aug 2012 17:51:08 +0200
+Message-ID: <5019506C.6020707@broadcom.com>
+References: <20120801131232.GA1785@zod.bos.redhat.com>
+ <20120801141810.GB27433@tuxdriver.com> <50194D7A.6060400@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Josh Boyer" <jwboyer@redhat.com>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"Brett Rudley" <brudley@broadcom.com>,
+	"Roland Vossen" <rvossen@broadcom.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	"Seth Forshee" <seth.forshee@canonical.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:51067 "EHLO smtp.gentoo.org"
+Received: from mms1.broadcom.com ([216.31.210.17]:2032 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755472Ab2HAPpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2012 11:45:31 -0400
-In-Reply-To: <1343835928-21541-1-git-send-email-vapier@gentoo.org>
+	id S1755610Ab2HAPvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2012 11:51:20 -0400
+In-Reply-To: <50194D7A.6060400@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SO_MARK define is somewhat recent (linux-2.6.25), so check for its
-existence before we try to use it.
+On 08/01/2012 05:38 PM, Arend van Spriel wrote:
+>> brcmsmac needs to hold cfg80211_mutex before calling freq_reg_info...
+>> > 
+>> > It looks like those calls were added in mid-June.
+>> > 
+> I think mid-june sounds about right. We never observed the warning when
+> changes to use regulatory infrastructure were tested/reviewed. Should
+> this precondition be mentioned in cfg80211.h?
+> 
+> Gr. AvS
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- ping_common.c |    2 ++
- 1 file changed, 2 insertions(+)
+Diving in further it seems brcmsmac can not grab the cfg80211_mutex. So
+another solution is needed.
 
-diff --git a/ping_common.c b/ping_common.c
-index 287d0e6..6fd252d 100644
---- a/ping_common.c
-+++ b/ping_common.c
-@@ -486,6 +486,7 @@ void setup(int icmp_sock)
- 			fprintf(stderr, "Warning: no SO_TIMESTAMP support, falling back to SIOCGSTAMP\n");
- 	}
- #endif
-+#ifdef SO_MARK
- 	if (options & F_MARK) {
- 		if (setsockopt(icmp_sock, SOL_SOCKET, SO_MARK,
- 				&mark, sizeof(mark)) == -1) {
-@@ -499,6 +500,7 @@ void setup(int icmp_sock)
- #endif
- 		}
- 	}
-+#endif
- 
- 	/* Set some SNDTIMEO to prevent blocking forever
- 	 * on sends, when device is too slow or stalls. Just put limit
--- 
-1.7.9.7
+Gr. AvS
