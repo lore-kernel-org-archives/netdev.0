@@ -1,91 +1,61 @@
-From: Mike Frysinger <vapier@gentoo.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Subject: Re: iputils git tree
-Date: Wed, 1 Aug 2012 00:16:20 -0400
-Message-ID: <201208010016.22035.vapier@gentoo.org>
-References: <201203182107.43855.vapier@gentoo.org> <5018A0A8.4000107@linux-ipv6.org> <5018AC1E.2010704@linux-ipv6.org>
+Date: Wed, 01 Aug 2012 13:18:33 +0900
+Message-ID: <5018AE19.7050002@linux-ipv6.org>
+References: <201203182107.43855.vapier@gentoo.org> <20120801024656.GK11095@morgul.net> <20120731.202918.621064199466580610.davem@davemloft.net> <20120801040957.GL11095@morgul.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1658824.rbhOx0vd9y";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Noah Meyerhans <frodo@morgul.net>, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vapier@gentoo.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Noah Meyerhans <frodo@morgul.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:55443 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751335Ab2HAEQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2012 00:16:22 -0400
-In-Reply-To: <5018AC1E.2010704@linux-ipv6.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:47311 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750888Ab2HAESh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 00:18:37 -0400
+In-Reply-To: <20120801040957.GL11095@morgul.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart1658824.rbhOx0vd9y
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Hello.
 
-On Wednesday 01 August 2012 00:10:06 YOSHIFUJI Hideaki wrote:
-> Hello.
->=20
-> (2012/08/01 12:21), YOSHIFUJI Hideaki wrote:
-> > (2012/08/01 11:46), Noah Meyerhans wrote:
-> >> On Sun, Mar 18, 2012 at 09:07:42PM -0400, Mike Frysinger wrote:
-> >>> the iputils homepage says to use:
-> >>>     git://git.linux-ipv6.org/gitroot/iputils.git
-> >>>=20
-> >>> but attempting to clone from that gets me connection refused.  the
-> >>> gitweb is
-> >>>=20
-> >>> still alive though and shows recent commits:
-> >>>     http://www.linux-ipv6.org/gitweb/gitweb.cgi?p=3Dgitroot/iputils.g=
-it;a
-> >>>     =3Dsummary
-> >>>=20
-> >>> so where can i clone this tree ?
-> >>=20
-> >> Hi all. The iputils git repo still seems unavailable for cloning. Is
-> >> there any possibility we could get this fixed? I was able to clone from
-> >> git://git.linux-ipv6.org/gitroot/iputils.git
-> >> at some point in the past, but it was more than a year ago.
-> >=20
-> > Sorry, I'll fix.
->=20
-> DNS entry has been updated and you can reach it after a while.
-> I am sorry for any inconvenience.
+(2012=E5=B9=B408=E6=9C=8801=E6=97=A5 13:09), Noah Meyerhans wrote:
+> On Tue, Jul 31, 2012 at 08:29:18PM -0700, David Miller wrote:
+>> iputils has been unmaintained for at least 2 years.
+>>
+>> Someone needs to step up and take over maintainence of it.
+>>
+>> Otherwise, expect the current situation to continue.
+>
+> I was under the impresion that iputils had been handed over from Alex=
+ey
+> to Hideaki YOSHIFUJI.  The fork at linux-ipv6.org certainly doesn't
+> appear dead.  I count 12 commits this year to the repository visible =
+at
+> http://www.linux-ipv6.org/gitweb/gitweb.cgi?p=3Dgitroot/iputils.git;a=
+=3Dsummary
+> It's not exactly a screaming fast pace, but it's something.
+>
+> There are several (mostly relatively minor) bugs that have been fixed=
+ in
+> the Debian packages (of which I'm the maintainer). There's another
+> assortment of patches in the Debian bug tracker that haven't yet been
+> merged in.  I imagine Fedora and RHEL have a collection of similar
+> modifications. So I suspect that iputils really isn't dead, but it's
+> just that nobody's bothering to push changes back upstream. I'm more
+> than happy to start doing so.
+>
+> noah
+>
 
-i can clone git://git.linux-ipv6.org/gitroot/iputils.git now, but it seems =
-to=20
-be pointing at a different clone than is viewable from gitweb.  it's stuck =
-at:
+In fact my first motivation was to integrate Debian, Fedora and
+other distro updates in to single source.  I sometimes look
+into their sources and integrate some of their changes.
 
-commit 2384927c0ac1bb3ad21966350644d08faadb7a76
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Wed Oct 6 20:59:20 2010 +0900
+Anyway, I am happy if distro changes are posted and discussed.
 
-    iputils-s20101006
-=2Dmike
+Regards,
 
---nextPart1658824.rbhOx0vd9y
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQGK2VAAoJEEFjO5/oN/WB0FUQAKSsO7rXjIPAYglWuDKnhZKb
-zebK7tMvKa2Pq9TAg5Gvgmt1Jty3kJQwRbpRuMODThdHmy0nKYltOMvpfd+SYkE4
-/qDMLcMfz7X08xcTJd82xCXeFrIeD7VyQRlnR8FT2LySFvgVS2FWsKUcS+rpEyif
-L0lrvaCHe8Y1DosQZLr4hiCE/wzP51+fyA4sYvHqXMop3lSJfjHlUsqD/4K3mH/Z
-BSfbE9OeLVQ3/53Hs84NbiIhQ9XMDnBO/bLgppxuXumw+X9Vdp4S12XstxSBecOa
-w9okNducfjNoE4dHiWrVVoW/cMsbrG0tRlRdxwcamt5sc/bsrf7QGuuOpHSr6VSy
-2yizM6K9q0lf8wfAjVf8xmrHV98DxVncrNkEb5s5Y4LdGK6AiXvaU+Uq5jPw+l/X
-0MnPbc42NvSmvpLRUUNDIaMSl6bDyJ113LIwX2RQtwOmf3GsOv/or3RUEEBTsiKV
-ia6/09U4Uoe7U5ivNa9GjtAGnoMoswmp9OJqbHx/wfcxgAM2T1S2f+3ZwU4X7Vqd
-7Rlsv97lDY2GO2opbdeIeyQg2ltM6fglpGsiqKxmlNjv7GQljK5ZiFC8qek9jjY5
-ZyTxFE7+amgfp5cQQHzO9BJkrBpJj/V5TFdelJSjQsck7BWoxQljT0LqrC19zGOp
-ZTf8pHo0knmMQvlk/5LZ
-=kWz9
------END PGP SIGNATURE-----
-
---nextPart1658824.rbhOx0vd9y--
+--yoshfuji
