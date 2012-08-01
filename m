@@ -1,43 +1,34 @@
-From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
-Date: Wed, 1 Aug 2012 21:28:48 +0200
-Message-ID: <50198370.20304@broadcom.com>
-References: <20120801131232.GA1785@zod.bos.redhat.com>
- <20120801141810.GB27433@tuxdriver.com> <50194D7A.6060400@broadcom.com>
- <5019506C.6020707@broadcom.com>
- <1343836438.4638.5.camel@jlt3.sipsolutions.net>
- <50196660.8090001@broadcom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: v3.5: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Wed, 1 Aug 2012 21:24:55 +0200
+Message-ID: <20120801192455.GA29755@electric-eye.fr.zoreil.com>
+References: <20120730190236.30339.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"Josh Boyer" <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Roland Vossen" <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Seth Forshee" <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"Luis R. Rodriguez" <rodrigue-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50196660.8090001-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: George Spelvin <linux@horizon.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:55626 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752452Ab2HATiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 15:38:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20120730190236.30339.qmail@science.horizon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2012 07:24 PM, Arend van Spriel wrote:
-> It seems the API was as it currently is when adding regulatory framework
-> changes in brcmsmac so we should have seen this assert flying by. The
-> problem is that freq_reg_info() is exposed in cfg80211.h, but as it is
-> now it can only be used under the cfg80211_mutex lock, ie. in regulatory
-> notify callback (as Seth indicated).
-> 
-> Gr. AvS
+George Spelvin <linux@horizon.com> :
+[...]
+> There are a few local patches, but only two are anywhere close to the
+> network interface, and they are test patches designed to fix this.
+> Should I get rid of them?
 
-Ah, I see you need to run a LOCKDEP-enabled kernel to get this warning.
+It's up to you but I suggest that you keep them until there is something
+better.
 
-Gr. AvS
+As long as the device recovers, you may try and lower the watchdog timeout
+as well as increase the Tx ring size a bit (x2 or x4) to minimize the
+annoyances.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ueimor
