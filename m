@@ -1,41 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: binding UDP port 0 with SO_REUSEADDR
-Date: Wed, 01 Aug 2012 21:02:56 +0200
-Message-ID: <1343847776.21269.797.camel@edumazet-glaptop>
-References: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH] firmware: Remove obsolete Chelsio cxgb3 firmware
+Date: Wed,  1 Aug 2012 13:17:50 -0600
+Message-ID: <1343848670-31504-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	James Bottomley <JBottomley@Parallels.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+The current firmware version used by the device driver
+is 7.12.0
+
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+Cc: James Bottomley <JBottomley@Parallels.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Divy Le Ray <divy@chelsio.com>
 Cc: netdev@vger.kernel.org
-To: "Tobias S. Josefowitz" <t.josefowitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:65327 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754421Ab2HATDA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 15:03:00 -0400
-Received: by weyx8 with SMTP id x8so5319566wey.19
-        for <netdev@vger.kernel.org>; Wed, 01 Aug 2012 12:02:59 -0700 (PDT)
-In-Reply-To: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
+ firmware/Makefile                   |    1 -
+ firmware/cxgb3/t3fw-7.10.0.bin.ihex | 1935 -----------------------------------
+ 2 files changed, 1936 deletions(-)
+ delete mode 100644 firmware/cxgb3/t3fw-7.10.0.bin.ihex
 
-On Wed, 2012-08-01 at 13:36 +0200, Tobias S. Josefowitz wrote:
-> Hey all,
-> 
-> I recently noticed that binding UDP port 0 with SO_REUSEADDR yields
-> unexpected results for me - the kernel occasionally gives out UDP
-> ports used by other processes, if they were bound with SO_REUSEADDR,
-> too.
-> 
-> I did some digging, it seems that
-> f24d43c07e208372aa3d3bff419afbf43ba87698 introduced this behaviour.
-> I'm not at all sure if this could/should be called a bug, but I need
-> to say, it was severly unexpected at my side, and that probably goes
-> for others, too.
-> 
-> Just bringing this to your attention, I have no suggestions on it whatsoever.
-
-And why are you using SO_REUSEADDR on UDP unicast sockets ?
-
-I mean, this is exactly saying " By using this REUSEADDR, I am allowing
-this port being used by another process, even from another user"
+diff --git a/firmware/Makefile b/firmware/Makefile
+index 344713b..76628e3 100644
+--- a/firmware/Makefile
++++ b/firmware/Makefile
+@@ -43,7 +43,6 @@ fw-shipped-$(CONFIG_CASSINI) += sun/cassini.bin
+ fw-shipped-$(CONFIG_COMPUTONE) += intelliport2.bin
+ fw-shipped-$(CONFIG_CHELSIO_T3) += cxgb3/t3b_psram-1.1.0.bin \
+ 				   cxgb3/t3c_psram-1.1.0.bin \
+-				   cxgb3/t3fw-7.10.0.bin \
+ 				   cxgb3/ael2005_opt_edc.bin \
+ 				   cxgb3/ael2005_twx_edc.bin \
+ 				   cxgb3/ael2020_twx_edc.bin
+diff --git a/firmware/cxgb3/t3fw-7.10.0.bin.ihex b/firmware/cxgb3/t3fw-7.10.0.bin.ihex
+deleted file mode 100644
+index 96399d8..0000000
+-- 
+1.7.9.5
