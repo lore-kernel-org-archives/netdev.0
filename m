@@ -1,100 +1,61 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V2 11/12] net/eipoib: Add Makefile, Kconfig and MAINTAINERS entries
-Date: Wed,  1 Aug 2012 20:09:34 +0300
-Message-ID: <1343840975-3252-12-git-send-email-ogerlitz@mellanox.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
-Cc: roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
+Date: Wed, 01 Aug 2012 19:14:45 +0200
+Message-ID: <1343841285.4638.10.camel@jlt3.sipsolutions.net>
+References: <20120801131232.GA1785@zod.bos.redhat.com>
+	 <20120801141810.GB27433@tuxdriver.com> <50194D7A.6060400@broadcom.com>
+	 <5019506C.6020707@broadcom.com>
+	 <1343836438.4638.5.camel@jlt3.sipsolutions.net>
+	 <20120801161959.GC22963@thinkpad-t410>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arend van Spriel <arend@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Josh Boyer <jwboyer@redhat.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Seth Forshee <seth.forshee@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:40108 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753530Ab2HARJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 13:09:59 -0400
-In-Reply-To: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:44218 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753255Ab2HAROz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 13:14:55 -0400
+In-Reply-To: <20120801161959.GC22963@thinkpad-t410>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erez Shitrit <erezsh@mellanox.co.il>
+On Wed, 2012-08-01 at 11:19 -0500, Seth Forshee wrote:
+> On Wed, Aug 01, 2012 at 05:53:58PM +0200, Johannes Berg wrote:
+> > On Wed, 2012-08-01 at 17:51 +0200, Arend van Spriel wrote:
+> > > On 08/01/2012 05:38 PM, Arend van Spriel wrote:
+> > > >> brcmsmac needs to hold cfg80211_mutex before calling freq_reg_info...
+> > > >> > 
+> > > >> > It looks like those calls were added in mid-June.
+> > > >> > 
+> > > > I think mid-june sounds about right. We never observed the warning when
+> > > > changes to use regulatory infrastructure were tested/reviewed. Should
+> > > > this precondition be mentioned in cfg80211.h?
+> > > > 
+> > > > Gr. AvS
+> > > 
+> > > Diving in further it seems brcmsmac can not grab the cfg80211_mutex. So
+> > > another solution is needed.
+> > 
+> > Yeah I was going to say -- how can it possibly access that? It seems
+> > that in some patch the API got broken, it should be taking the lock or
+> > whatever ... I'll leave it to Luis to sort out though :-P
+> 
+> In other drivers freq_reg_info only seems to get used by the regulatory
+> notifiers, which get called with the lock held. brcmsmac is wanting to
+> know whether or not OFDM is allowed when setting the channel though, and
+> I didn't find that information anywhere outside the regulatory
+> information. If there's another way then calling freq_reg_info() could
+> be avoided. Or maybe we could add an OFDM flag to the channel
+> information?
 
-Add Kconfig entry under drivers/net and MAINTAINERS entry for eIPoIB, also
-add the driver makefile.
+Seems reasonable to add the flags (or some of them) to the channel
+flags, yeah.
 
-Signed-off-by: Erez Shitrit <erezsh@mellanox.co.il>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- MAINTAINERS                 |    6 ++++++
- drivers/net/Kconfig         |   15 +++++++++++++++
- drivers/net/Makefile        |    1 +
- drivers/net/eipoib/Makefile |    4 ++++
- 4 files changed, 26 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/eipoib/Makefile
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index bd45164..09cc33a 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2645,6 +2645,12 @@ L:	netdev@vger.kernel.org
- S:	Maintained
- F:	drivers/net/ethernet/ibm/ehea/
- 
-+EIPoIB (Ethernet services over IPoIB) DRIVER
-+M:	Erez Shitrit <erezsh@mellanox.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	drivers/net/eipoib/
-+
- EMBEDDED LINUX
- M:	Paul Gortmaker <paul.gortmaker@windriver.com>
- M:	Matt Mackall <mpm@selenic.com>
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0c2bd80..ba98f61 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -68,6 +68,21 @@ config DUMMY
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called dummy.
- 
-+config E_IPOIB
-+	tristate "Ethernet Services over IPoIB"
-+	depends on INFINIBAND_IPOIB
-+	---help---
-+	  This driver supports Ethernet protocol over InfiniBand IPoIB devices.
-+	  Some services can run only on top of Ethernet L2 interfaces, and
-+	  cannot be bound to an IPoIB interface.
-+	  With this new driver, these services can run seamlessly.
-+
-+	  Main use case of the driver is the Ethernet Virtual Switching used in
-+	  virtualized environments, where an eipoib netdevice can be used as a
-+	  Physical Interface (PIF) in the hypervisor domain, and allow other guests
-+	  Virtual Interfaces (VIF) connected to the same Virtual Switch to run over
-+	  the InfiniBand fabric.
-+
- config EQUALIZER
- 	tristate "EQL (serial line load balancing) support"
- 	---help---
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 3d375ca..2c3409e 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -31,6 +31,7 @@ obj-$(CONFIG_CAIF) += caif/
- obj-$(CONFIG_CAN) += can/
- obj-$(CONFIG_ETRAX_ETHERNET) += cris/
- obj-$(CONFIG_NET_DSA) += dsa/
-+obj-$(CONFIG_E_IPOIB) += eipoib/
- obj-$(CONFIG_ETHERNET) += ethernet/
- obj-$(CONFIG_FDDI) += fddi/
- obj-$(CONFIG_HIPPI) += hippi/
-diff --git a/drivers/net/eipoib/Makefile b/drivers/net/eipoib/Makefile
-new file mode 100644
-index 0000000..b64e96e
---- /dev/null
-+++ b/drivers/net/eipoib/Makefile
-@@ -0,0 +1,4 @@
-+obj-$(CONFIG_E_IPOIB)                         := eth_ipoib.o
-+eth_ipoib-y                                    := eth_ipoib_main.o \
-+                                                  eth_ipoib_sysfs.o \
-+                                                  eth_ipoib_ethtool.o
--- 
-1.7.1
+johannes
