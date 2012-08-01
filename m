@@ -1,26 +1,31 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+From: "John W. Linville" <linville@tuxdriver.com>
 Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
-Date: Wed, 01 Aug 2012 17:53:58 +0200
-Message-ID: <1343836438.4638.5.camel@jlt3.sipsolutions.net>
+Date: Wed, 1 Aug 2012 11:52:53 -0400
+Message-ID: <20120801155252.GE27433@tuxdriver.com>
 References: <20120801131232.GA1785@zod.bos.redhat.com>
-	 <20120801141810.GB27433@tuxdriver.com> <50194D7A.6060400@broadcom.com>
-	 <5019506C.6020707@broadcom.com>
+ <20120801141810.GB27433@tuxdriver.com>
+ <50194D7A.6060400@broadcom.com>
+ <5019506C.6020707@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Josh Boyer <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Roland Vossen <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5019506C.6020707-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Josh Boyer <jwboyer@redhat.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Brett Rudley <brudley@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Seth Forshee <seth.forshee@canonical.com>
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42916 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756099Ab2HAQAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 12:00:20 -0400
+Content-Disposition: inline
+In-Reply-To: <5019506C.6020707@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-08-01 at 17:51 +0200, Arend van Spriel wrote:
+On Wed, Aug 01, 2012 at 05:51:08PM +0200, Arend van Spriel wrote:
 > On 08/01/2012 05:38 PM, Arend van Spriel wrote:
 > >> brcmsmac needs to hold cfg80211_mutex before calling freq_reg_info...
 > >> > 
@@ -35,13 +40,8 @@ On Wed, 2012-08-01 at 17:51 +0200, Arend van Spriel wrote:
 > Diving in further it seems brcmsmac can not grab the cfg80211_mutex. So
 > another solution is needed.
 
-Yeah I was going to say -- how can it possibly access that? It seems
-that in some patch the API got broken, it should be taking the lock or
-whatever ... I'll leave it to Luis to sort out though :-P
+Do we need to revert those patches?
 
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
