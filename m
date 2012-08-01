@@ -1,48 +1,43 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: [PATCH] firmware: Remove obsolete Chelsio cxgb3 firmware
-Date: Wed,  1 Aug 2012 13:17:50 -0600
-Message-ID: <1343848670-31504-1-git-send-email-tim.gardner@canonical.com>
-Cc: Tim Gardner <tim.gardner@canonical.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	James Bottomley <JBottomley@Parallels.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: assert_cfg80211_lock warning with Linux v3.5-8833-g2d53492
+Date: Wed, 1 Aug 2012 21:28:48 +0200
+Message-ID: <50198370.20304@broadcom.com>
+References: <20120801131232.GA1785@zod.bos.redhat.com>
+ <20120801141810.GB27433@tuxdriver.com> <50194D7A.6060400@broadcom.com>
+ <5019506C.6020707@broadcom.com>
+ <1343836438.4638.5.camel@jlt3.sipsolutions.net>
+ <50196660.8090001@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"Josh Boyer" <jwboyer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"Brett Rudley" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Roland Vossen" <rvossen-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Seth Forshee" <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"Luis R. Rodriguez" <rodrigue-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50196660.8090001-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The current firmware version used by the device driver
-is 7.12.0
+On 08/01/2012 07:24 PM, Arend van Spriel wrote:
+> It seems the API was as it currently is when adding regulatory framework
+> changes in brcmsmac so we should have seen this assert flying by. The
+> problem is that freq_reg_info() is exposed in cfg80211.h, but as it is
+> now it can only be used under the cfg80211_mutex lock, ie. in regulatory
+> notify callback (as Seth indicated).
+> 
+> Gr. AvS
 
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: Ben Hutchings <ben@decadent.org.uk>
-Cc: James Bottomley <JBottomley@Parallels.com>
-Cc: Dan Williams <dan.j.williams@intel.com>
-Cc: Divy Le Ray <divy@chelsio.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
----
- firmware/Makefile                   |    1 -
- firmware/cxgb3/t3fw-7.10.0.bin.ihex | 1935 -----------------------------------
- 2 files changed, 1936 deletions(-)
- delete mode 100644 firmware/cxgb3/t3fw-7.10.0.bin.ihex
+Ah, I see you need to run a LOCKDEP-enabled kernel to get this warning.
 
-diff --git a/firmware/Makefile b/firmware/Makefile
-index 344713b..76628e3 100644
---- a/firmware/Makefile
-+++ b/firmware/Makefile
-@@ -43,7 +43,6 @@ fw-shipped-$(CONFIG_CASSINI) += sun/cassini.bin
- fw-shipped-$(CONFIG_COMPUTONE) += intelliport2.bin
- fw-shipped-$(CONFIG_CHELSIO_T3) += cxgb3/t3b_psram-1.1.0.bin \
- 				   cxgb3/t3c_psram-1.1.0.bin \
--				   cxgb3/t3fw-7.10.0.bin \
- 				   cxgb3/ael2005_opt_edc.bin \
- 				   cxgb3/ael2005_twx_edc.bin \
- 				   cxgb3/ael2020_twx_edc.bin
-diff --git a/firmware/cxgb3/t3fw-7.10.0.bin.ihex b/firmware/cxgb3/t3fw-7.10.0.bin.ihex
-deleted file mode 100644
-index 96399d8..0000000
--- 
-1.7.9.5
+Gr. AvS
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
