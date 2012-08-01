@@ -1,76 +1,69 @@
-From: Shea Levy <shea@shealevy.com>
-Subject: Re: Build failure when installing atm ambassador firmware
-Date: Wed, 01 Aug 2012 11:40:01 -0400
-Message-ID: <50194DD1.9030806@shealevy.com>
-References: <50188D89.3040404@shealevy.com> <20120801072247.589c7162@thirdoffive.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120801072247.589c7162@thirdoffive.cmf.nrl.navy.mil>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 1/6] tracepath: re-use printf return in print_host
+Date: Wed,  1 Aug 2012 11:45:23 -0400
+Message-ID: <1343835928-21541-1-git-send-email-vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:51057 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751084Ab2HAPp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2012 11:45:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Chas,
+Since the printf funcs already return the length of chars displayed,
+use that value instead of re-calculating the length with strlen.
 
-On 08/01/2012 07:22 AM, chas williams - CONTRACTOR wrote:
-> On Tue, 31 Jul 2012 21:59:37 -0400
-> Shea Levy<shea@shealevy.com>  wrote:
->
->> Hello,
->>
->> When building with
->> MODLIB=/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/modules/3.5.0
->> and
->> ="/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware",
->> building Linux 3.5 with CONFIG_ATM_AMBASSADOR=m fails with:
->>
->> "make[2]: *** No rule to make target
->> `"/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware"/./',
->> needed by
->> `"/nix/store/ghx6s9hnk9irim7c7f63zrxqiv6xjh3w-linux-3.5/lib/firmware"/atmsar11.fw'.
->> Stop."
->
-> i think it might be trying to tell you that the target directory
-> $INSTALL_FW_PATH doesn't exist and is a prerequisite to actually
-> perform the action.
->
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ tracepath.c  |   11 ++++-------
+ tracepath6.c |   11 ++++-------
+ 2 files changed, 8 insertions(+), 14 deletions(-)
 
-Indeed, creating the directory first fixes the issue. Is this expected 
-behaviour, or a bug in the build system?
-
- >
-> it complains about atmsar11.fw first because it just happens to be the
-> first firmware that needs to be installed.
->
-> /scratch/chas/net-next relax.53% ls -ld /tmp/funk
-> ls: cannot access /tmp/funk: No such file or directory
-> /scratch/chas/net-next relax.54% make INSTALL_FW_PATH="/tmp/funk" firmware_install
-> make[1]: *** No rule to make target `/tmp/funk/./', needed by `/tmp/funk/atmsar11.fw'.  Stop.
-> make: *** [firmware_install] Error 2
-> /scratch/chas/net-next relax.55% mkdir /tmp/funk
-> /scratch/chas/net-next relax.56% make INSTALL_FW_PATH="/tmp/funk" firmware_install
->    INSTALL /tmp/funk/atmsar11.fw
->    MKDIR   /tmp/funk/e100/
->    INSTALL /tmp/funk/e100/d101m_ucode.bin
->    INSTALL /tmp/funk/e100/d101s_ucode.bin
->    INSTALL /tmp/funk/e100/d102e_ucode.bin
-> ...
->
-> i am somewhat concerned that it appears to have an extra set of "'s in
-> the path as well.  how are you passing in INSTALL_FW_PATH?  i can get
-> the same result with:
->
-> /scratch/chas/net-next relax.57% make 'INSTALL_FW_PATH="/tmp/funk"' firmware_install
-> make[1]: *** No rule to make target `"/tmp/funk"/./', needed by `"/tmp/funk"/atmsar11.fw'.  Stop.
-> make: *** [firmware_install] Error 2
->
-> but it would be wrong to do it this way.
-
-Yeah, I had an extra bit of quotation that I've now removed. Thanks!
-
-Cheers,
-Shea Levy
+diff --git a/tracepath.c b/tracepath.c
+index bcec20d..ca84a69 100644
+--- a/tracepath.c
++++ b/tracepath.c
+@@ -68,13 +68,10 @@ void data_wait(int fd)
+ 
+ void print_host(const char *a, const char *b, int both)
+ {
+-	int plen = 0;
+-	printf("%s", a);
+-	plen = strlen(a);
+-	if (both) {
+-		printf(" (%s)", b);
+-		plen += strlen(b) + 3;
+-	}
++	int plen;
++	plen = printf("%s", a);
++	if (both)
++		plen += printf(" (%s)", b);
+ 	if (plen >= HOST_COLUMN_SIZE)
+ 		plen = HOST_COLUMN_SIZE - 1;
+ 	printf("%*s", HOST_COLUMN_SIZE - plen, "");
+diff --git a/tracepath6.c b/tracepath6.c
+index 0cbe3a1..5c2db8f 100644
+--- a/tracepath6.c
++++ b/tracepath6.c
+@@ -80,13 +80,10 @@ void data_wait(int fd)
+ 
+ void print_host(const char *a, const char *b, int both)
+ {
+-	int plen = 0;
+-	printf("%s", a);
+-	plen = strlen(a);
+-	if (both) {
+-		printf(" (%s)", b);
+-		plen += strlen(b) + 3;
+-	}
++	int plen;
++	plen = printf("%s", a);
++	if (both)
++		plen += printf(" (%s)", b);
+ 	if (plen >= HOST_COLUMN_SIZE)
+ 		plen = HOST_COLUMN_SIZE - 1;
+ 	printf("%*s", HOST_COLUMN_SIZE - plen, "");
+-- 
+1.7.9.7
