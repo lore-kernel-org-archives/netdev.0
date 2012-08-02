@@ -1,86 +1,40 @@
 From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 3/4] net/mlx4_en: Fixing TX queue stop/wake flow
-Date: Thu,  2 Aug 2012 18:30:55 +0300
-Message-ID: <1343921456-19180-4-git-send-email-yevgenyp@mellanox.co.il>
+Subject: [PATCH 1/4] net/mlx4_en: Setting the NETIF_F_GRO flag back to dev->hw_features
+Date: Thu,  2 Aug 2012 18:30:53 +0300
+Message-ID: <1343921456-19180-2-git-send-email-yevgenyp@mellanox.co.il>
 References: <1343921456-19180-1-git-send-email-yevgenyp@mellanox.co.il>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:58911 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752533Ab2HBPbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:31:07 -0400
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:45539 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752436Ab2HBPbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:31:08 -0400
 In-Reply-To: <1343921456-19180-1-git-send-email-yevgenyp@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removing the ring->blocked flag, it is redundant and leads to a race:
-
-We close the TX queue and then set the "blocked" flag.
-Between those 2 operations the completion function can check the "blocked"
-flag, sees that it is 0, and wouldn't open the TX queue.
-
-Using netif_tx_queue_stopped to check the state of the queue to avoid this race.
+The bug which removed it was introduced in commit c8c64cff
+which added the hw_features.
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c   |   17 +++++++----------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    1 -
- 2 files changed, 7 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 019d856..10bba09 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -164,7 +164,6 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 	ring->cons = 0xffffffff;
- 	ring->last_nr_txbb = 1;
- 	ring->poll_cnt = 0;
--	ring->blocked = 0;
- 	memset(ring->tx_info, 0, ring->size * sizeof(struct mlx4_en_tx_info));
- 	memset(ring->buf, 0, ring->buf_size);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index edd9cb8..c031e12 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1658,7 +1658,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	/*
+ 	 * Set driver features
+ 	 */
+-	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
++	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++			   NETIF_F_GRO;
+ 	if (mdev->LSO_support)
+ 		dev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
  
-@@ -365,14 +364,13 @@ static void mlx4_en_process_tx_cq(struct net_device *dev, struct mlx4_en_cq *cq)
- 	ring->cons += txbbs_skipped;
- 	netdev_tx_completed_queue(ring->tx_queue, packets, bytes);
- 
--	/* Wakeup Tx queue if this ring stopped it */
--	if (unlikely(ring->blocked)) {
--		if ((u32) (ring->prod - ring->cons) <=
--		     ring->size - HEADROOM - MAX_DESC_TXBBS) {
--			ring->blocked = 0;
--			netif_tx_wake_queue(ring->tx_queue);
--			priv->port_stats.wake_queue++;
--		}
-+	/*
-+	 * Wakeup Tx queue if this stopped, and at least 1 packet
-+	 * was completed
-+	 */
-+	if (netif_tx_queue_stopped(ring->tx_queue) && txbbs_skipped > 0) {
-+		netif_tx_wake_queue(ring->tx_queue);
-+		priv->port_stats.wake_queue++;
- 	}
- }
- 
-@@ -592,7 +590,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		     ring->size - HEADROOM - MAX_DESC_TXBBS)) {
- 		/* every full Tx ring stops queue */
- 		netif_tx_stop_queue(ring->tx_queue);
--		ring->blocked = 1;
- 		priv->port_stats.queue_stopped++;
- 
- 		return NETDEV_TX_BUSY;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 5f1ab10..9d27e42 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -248,7 +248,6 @@ struct mlx4_en_tx_ring {
- 	u32 doorbell_qpn;
- 	void *buf;
- 	u16 poll_cnt;
--	int blocked;
- 	struct mlx4_en_tx_info *tx_info;
- 	u8 *bounce_buf;
- 	u32 last_nr_txbb;
 -- 
 1.7.7
