@@ -1,56 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
-Date: Thu, 02 Aug 2012 12:28:30 +0200
-Message-ID: <1343903310.9299.184.camel@edumazet-glaptop>
-References: <50160EEF.6050406@parallels.com> <87pq7dh6b2.fsf@xmission.com>
-	 <87fw89h5zk.fsf@xmission.com> <50179F66.1000604@parallels.com>
-	 <878ve0dtw3.fsf@xmission.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [PATCH] isdnloop: fix and simplify isdnloop_init()
+Date: Thu, 2 Aug 2012 18:44:56 +0800
+Message-ID: <20120802104456.GA21537@localhost>
+References: <20120802040158.GA11860@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:42256 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754086Ab2HBK2f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 06:28:35 -0400
-Received: by bkwj10 with SMTP id j10so4172860bkw.19
-        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 03:28:34 -0700 (PDT)
-In-Reply-To: <878ve0dtw3.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Joe Perches <joe@perches.com>,
+	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20120802040158.GA11860@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-07-31 at 04:58 -0700, Eric W. Biederman wrote:
+[Add more CC]
 
-> Making lo the particularly interesting case.
-
-
-BTW, I noticed in my benchmarks, that once I remove the contention on
-dst refcnt (using a percpu cache of dsts), I have a strange performance
-cost accessing net->loopback_dev->ifindex in ip_route_output_key.
-
-Strange because I see no false sharing on this ifindex location for
-loopback device.
-
-So we probably can save some cycles adding a net->loopback_ifindex
-to remove one dereference.
-
-If ifindex are per network space, I guess we'll need to change
-arp_hashfn() or else we'll use some slots more than others.
-
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 7f7df93..37aac58 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -10,7 +10,7 @@ extern struct neigh_table arp_tbl;
- 
- static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd)
- {
--	u32 val = key ^ dev->ifindex;
-+	u32 val = key ^ (u32)(unsigned long)dev;
- 
- 	return val * hash_rnd;
- }
+On Thu, Aug 02, 2012 at 12:01:58PM +0800, Fengguang Wu wrote:
+> Remove the non-sense isdnloop revision transform code, so as to fix:
+> 
+> [   22.016214] isdnloop-ISDN-driver Rev 1.11.6.7 
+> [   22.097508] isdnloop: (loop0) virtual card added
+> [   22.174400] Kernel panic - not syncing: stack-protector: Kernel stack is corrupted in: ffffffff83244972
+> [   22.174400] 
+> [   22.436157] Pid: 1, comm: swapper Not tainted 3.5.0-bisect-00018-gfa8bbb1-dirty #129
+> [   22.624071] Call Trace:
+> [   22.720558]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
+> [   22.815248]  [<ffffffff8222b623>] panic+0x110/0x329
+> [   22.914330]  [<ffffffff83244972>] ? isdnloop_init+0xaf/0xb1
+> [   23.014800]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
+> [   23.090763]  [<ffffffff8108e24b>] __stack_chk_fail+0x2b/0x30
+> [   23.185748]  [<ffffffff83244972>] isdnloop_init+0xaf/0xb1
+> 
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> ---
+>  drivers/isdn/isdnloop/isdnloop.c |   13 ++-----------
+>  1 file changed, 2 insertions(+), 11 deletions(-)
+> 
+> --- linux.orig/drivers/isdn/isdnloop/isdnloop.c	2012-05-24 19:03:06.748430938 +0800
+> +++ linux/drivers/isdn/isdnloop/isdnloop.c	2012-08-02 11:57:16.806437909 +0800
+> @@ -16,7 +16,7 @@
+>  #include <linux/sched.h>
+>  #include "isdnloop.h"
+>  
+> -static char *revision = "$Revision: 1.11.6.7 $";
+> +static char *revision = "1.11.6.7";
+>  static char *isdnloop_id = "loop0";
+>  
+>  MODULE_DESCRIPTION("ISDN4Linux: Pseudo Driver that simulates an ISDN card");
+> @@ -1494,16 +1494,7 @@ isdnloop_addcard(char *id1)
+>  static int __init
+>  isdnloop_init(void)
+>  {
+> -	char *p;
+> -	char rev[10];
+> -
+> -	if ((p = strchr(revision, ':'))) {
+> -		strcpy(rev, p + 1);
+> -		p = strchr(rev, '$');
+> -		*p = 0;
+> -	} else
+> -		strcpy(rev, " ??? ");
+> -	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev%s\n", rev);
+> +	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev %s\n", revision);
+>  
+>  	if (isdnloop_id)
+>  		return (isdnloop_addcard(isdnloop_id));
