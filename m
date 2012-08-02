@@ -1,43 +1,38 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] ss: report SK_MEMINFO_BACKLOG
-Date: Wed, 1 Aug 2012 17:06:43 -0700
-Message-ID: <20120801170643.6b288283@nehalam.linuxnetplumber.net>
-References: <1343294420.2626.11264.camel@edumazet-glaptop>
-	<CAGK4HS-fUp2ZiW9F_ZogOXQo5_2ptcBHT9Y2j25ZaoXrYKnbAQ@mail.gmail.com>
+Subject: Re: Bridge extensions to iproute2
+Date: Wed, 1 Aug 2012 17:07:13 -0700
+Message-ID: <20120801170713.289e078e@nehalam.linuxnetplumber.net>
+References: <CAHo-Ooyk_=UYsEtz-y6hupCtMOgKz2DF+j1BOnSsmAfm-5Bkqg@mail.gmail.com>
+	<20120710145821.748c00be@nehalam.linuxnetplumber.net>
+	<CAHo-OozFCrcx4FpsuNzEV4Cp_4hbVw896utpstYL2qcD1EwCyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux NetDev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60204 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:51844 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751818Ab2HBAGr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2012 20:06:47 -0400
-In-Reply-To: <CAGK4HS-fUp2ZiW9F_ZogOXQo5_2ptcBHT9Y2j25ZaoXrYKnbAQ@mail.gmail.com>
+	id S1751818Ab2HBAHQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2012 20:07:16 -0400
+In-Reply-To: <CAHo-OozFCrcx4FpsuNzEV4Cp_4hbVw896utpstYL2qcD1EwCyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 26 Jul 2012 17:29:26 -0700
-Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
+On Tue, 10 Jul 2012 15:01:26 -0700
+Maciej =C5=BBenczykowski <zenczykowski@gmail.com> wrote:
 
-> On 26 July 2012 02:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > linux-3.6-rc1 supports SK_MEMINFO_BACKLOG with commit d594e987c6f54
-> > (sock_diag: add SK_MEMINFO_BACKLOG)
-> >
-> > ss command can display it if provided by the kernel.
-> >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Cc: Vijay Subramanian <subramanian.vijay@gmail.com>
-> 
-> 
-> Thanks Eric. I see now how you fixed this.
-> 
-> Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-> 
-> Vijay
+> > I will get back to these. There wasn't a motivation to go fast beca=
+use
+> > there wasn't a user of these. Now with fdb offload support they are=
+ needed.
+>=20
+> Do you have some semi-ready patches that could be used for test purpo=
+ses?
+>=20
+> While it looks like the forwarding database capability is there in th=
+e kernel,
+> I can't currently find an interface to turn learning off.
 
-Applied (after 3.5.0 release).
+I cleaned it up an put in 3.5.0 just released version.
