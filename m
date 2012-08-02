@@ -1,58 +1,86 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing
- date
-Date: Thu, 2 Aug 2012 16:58:24 +0800
-Message-ID: <501A4130.9000004@windriver.com>
-References: <1343720634-1176-1-git-send-email-fdu@windriver.com>	<1343720634-1176-2-git-send-email-fdu@windriver.com>	<20120802.002100.1997441066753440100.davem@davemloft.net> <20120802.002308.367808111426941908.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: route.c cleanup
+Date: Thu, 02 Aug 2012 11:23:40 +0200
+Message-ID: <1343899420.9299.118.camel@edumazet-glaptop>
+References: <1343893753.9299.13.camel@edumazet-glaptop>
+	 <20120802.014534.1221330015548828529.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <herbert@gondor.hengli.com.au>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53145 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752850Ab2HBIzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 04:55:14 -0400
-In-Reply-To: <20120802.002308.367808111426941908.davem@davemloft.net>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45821 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753831Ab2HBJXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 05:23:45 -0400
+Received: by bkwj10 with SMTP id j10so4145520bkw.19
+        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 02:23:44 -0700 (PDT)
+In-Reply-To: <20120802.014534.1221330015548828529.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, all
+On Thu, 2012-08-02 at 01:45 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 02 Aug 2012 09:49:13 +0200
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Remove some unused includes and sysctls after route cache removal.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> I'm largely against removing the (now pointless) sysctls.
+> 
+> If the settings do nothing, so be it.
+> 
+> But it shouldn't generate warnings and errors during bootup,
+> which is what removing them is going to do.
 
-*Apologize* for all the trouble I brought to everyone, who gave me
-advices/suggestions using fdu@windriver.com.
-I'm truly sorry that all the inconvenience caused by my mistake.
+Are you referring to a stale key in your /etc/sysctl.conf ?
 
-fdu@windriver.com is obsolete!!!
-I will use fan.du@windriver.com from now on.
-
-Thanks
+I see no distro setting any of the route knob in their sysctl.conf file.
 
 
-On 2012=E5=B9=B408=E6=9C=8802=E6=97=A5 15:23, David Miller wrote:
->
-> You know what Fan Du, I'm extremely irritated about your email
-> situation.
->
-> Every time you post a patch, I reply, and I get this crap:
->
-> Diagnostic-Code: smtp; 5.1.0 - Unknown address error 550-'5.2.1<fdu@w=
-indriver.com>... Mailbox disabled for this recipient' (delivery attempt=
-s: 0)
->
-> I've seen this at least 7 times, and this absolutely has to stop.
->
-> Otherwise I'm ignoring every patch you submit, it's as simple as
-> that.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
 
---=20
+[PATCH v2] ipv4: route.c cleanup
 
-Love each day!
---fan
+Remove unused includes after IP cache removal
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/route.c |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index c035251..67790ba 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -70,7 +70,6 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+-#include <linux/bootmem.h>
+ #include <linux/string.h>
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+@@ -80,7 +79,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/proc_fs.h>
+ #include <linux/init.h>
+-#include <linux/workqueue.h>
+ #include <linux/skbuff.h>
+ #include <linux/inetdevice.h>
+ #include <linux/igmp.h>
+@@ -88,11 +86,9 @@
+ #include <linux/mroute.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/random.h>
+-#include <linux/jhash.h>
+ #include <linux/rcupdate.h>
+ #include <linux/times.h>
+ #include <linux/slab.h>
+-#include <linux/prefetch.h>
+ #include <net/dst.h>
+ #include <net/net_namespace.h>
+ #include <net/protocol.h>
