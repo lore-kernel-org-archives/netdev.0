@@ -1,99 +1,59 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH net-next] igb: add delay to allow igb
- loopback test to succeed on 8086:10c9
-Date: Wed, 01 Aug 2012 18:06:49 -0700
-Message-ID: <1343869609.2132.2.camel@jtkirshe-mobl>
-References: <1343821463-18052-1-git-send-email-sassmann@kpanic.de>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
+Date: Wed, 1 Aug 2012 18:43:24 -0700
+Message-ID: <20120802014324.GB17548@jonmason-lab>
+References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
+ <1343607994-32415-2-git-send-email-jon.mason@intel.com>
+ <CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
+ <20120730181542.GA987@jonmason-lab>
+ <CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
+ <CAAsGZS5kOyQ5FQ7Jg3HxOmmPNYS+F6XcB-_3tm=rcgDV7wAvRQ@mail.gmail.com>
+ <20120731172709.GB14080@jonmason-lab>
+ <CAAsGZS4nhv+s7NVwaaGjQ9fJoHQoaXnUoYw=xTPC-sfen+tj8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-PHMFn7byRSejreI8pDGr"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-To: Stefan Assmann <sassmann@kpanic.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:34183 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751455Ab2HBBGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2012 21:06:52 -0400
-In-Reply-To: <1343821463-18052-1-git-send-email-sassmann@kpanic.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>
+To: chetan loke <loke.chetan@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAAsGZS4nhv+s7NVwaaGjQ9fJoHQoaXnUoYw=xTPC-sfen+tj8A@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Tue, Jul 31, 2012 at 02:02:25PM -0400, chetan loke wrote:
+> On Tue, Jul 31, 2012 at 1:27 PM, Jon Mason <jon.mason@intel.com> wrote:
+> >
+> > I don't see the benefit of having the driver in staging.  Any vendors
+> > who would notice the ntb driver in staging would be sitting on these
+> > mailing lists and hopefully have planety of comments on the design.
+> > Stashing the driver in staging while waiting for these comments (which
+> > may never come) doesn't seem the best course of action.
+> >
+> 
+> I thought that since others are talking about it then may be there is
+> some WIP code for foo-NTB. Seems like that's not the case. So no need
+> to stage.
+> 
+> Correct me if I'm wrong but wouldn't apps just open a socket and route
+> data via ntb_vir_eth_dev? So I don't see an ABI breakage issue and
+> hence nothing would prevent us from changing the kernel parts(for
+> accommodating some foo-NTB part) in future.
+
+The virtual ethernet device (patch #2) would allow for a generic way
+of passing data to the remote side.  The only issue would be changing
+how it is encoded in the shared buffer.
+
+> It may not be a bad idea to prefix intel-specific(if any)
+> ntb_structs/variables/logic with the 'intc'(Intel ticker or pick your
+> string) keyword.
+
+The Intel specific things are current pre-pended with "xeon" or "bwd".
+
+Thanks,
+Jon
 
 
---=-PHMFn7byRSejreI8pDGr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2012-08-01 at 13:44 +0200, Stefan Assmann wrote:
-> Some 8086:10c9 NICs have a problem completing the ethtool loopback
-> test.
-> The result looks like this:
->=20
-> ethtool -t eth1
-> The test result is FAIL
-> The test extra info:
-> Register test  (offline)         0
-> Eeprom test    (offline)         0
-> Interrupt test (offline)         0
-> Loopback test  (offline)         13
-> Link test   (on/offline)         0
->=20
-> A bisect clearly points to commit
-> a95a07445ee97a2fef65befafbadcc30ca1bd145.
-> However that seems to only trigger the bug. While adding some printk
-> the
-> problem disappeared, so this might be a timing issue. After some trial
-> and
-> error I discovered that adding a small delay just before
-> igb_write_phy_reg()
-> in igb_integrated_phy_loopback() allows the loopback test to succeed.
-> I was unable to figure out the root cause so far but I expect it to be
-> somewhere in the following executing path
-> igb_integrated_phy_loopback
-> ->igb_write_phy_reg_igp
->   ->igb_write_phy_reg_mdic
->     ->igb_acquire_phy_82575
->       ->igb_acquire_swfw_sync_82575
->=20
-> As this workaround only introduces a minor delay, which is not in the
-> hot
-> path I hope this is acceptable. The problem could only be oberved on
-> 8086:10c9 NICs so far and not all of them show the behaviour. I did
-> not
-> restrict the workaround to this type of NIC as it should do no harm to
-> other igb NICs.
->=20
-> With the patch below the loopback test succeeded 500 times in a row
-> using a NIC that would otherwise fail.
->=20
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/igb/igb_ethtool.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)=20
-
-Thanks Stefan, I have added the patch to my queue.
-
---=-PHMFn7byRSejreI8pDGr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQGdKpAAoJEOVv75VaS+3OoNgP/R5WZgKxShxDIz5U57bO60Kr
-MIad6+JgVfiCnduoC/0lcdPco76mVmdYdXN8vJl6pwxbgrxqDp31ASdYH/cFpDh/
-bntzebYMNmWgt0n0pqvzeH4PappWqBBFt31va7L16dCMsIVdH68wXOSP3waxZ2BV
-OtdYkQ3kDkH90Y2Ykloer/Fhb2pIoSAE9s9NMAf6FVZkXzPzauk3mWy6i4q20iHN
-5cyc/6dwU9YvznVl3aTznWPqJSHIsnpugKpiDl4skJbqQ4PK60L0GduKyVVLjvMT
-43LquWy9S5KOdKTj+zOq2BOHyzdNQsQaW+JME2ryMZB2+fwcHi2FvyQI9jtXiPKm
-k/OSCnXTvOqUCeKwyke9vJLFmU9RxeZ7Sb5D1nLYHH/VSrWC50jXzkdtSvDU+E0+
-aJIhK07DpGKAlnwvKogBNAPhMcAjpJV+8hgZTQmbgvRDBnkzijmd0u5ysQuHpXdV
-LBY2wMKDkUguqmGAWWoUO6LRtUtRlspJpB2RwaCwh5iczpyRGUxYMtk8cebiE0ay
-cz1hQev9GNL2iahiuVkhU9mH3NaRMwdldVTrVcMhTJqxk0Wu79bPOZ1rCLJVjluP
-yZ6Eq0KtJG5ymH7H0CwhksNvwV9Wl4MVCc7fPLlz+Xc1sWKq7EU//X4RLvasAeoH
-s7yV1gtNlESIXPq+snG9
-=PooR
------END PGP SIGNATURE-----
-
---=-PHMFn7byRSejreI8pDGr--
+> 
+> Chetan Loke
