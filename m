@@ -1,212 +1,166 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
- SACK when bundling
-Date: Thu, 02 Aug 2012 17:17:18 -0400
-Message-ID: <501AEE5E.8090303@gmail.com>
-References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>	<500E1057.3020509@windriver.com>	<75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>	<CA+=dFzg=Bpsv5bMzECoAXYVcbD95eYy6xDAzL6fwiHrunfq-tg@mail.gmail.com>	<e7f8a685-9635-4aa9-bd67-1044e0720b29@email.android.com>	<CA+=dFzifKwbiXmw=pu0+rWmz72+4jsbv6bXOBHyL0LmxaL9byg@mail.gmail.com>	<CA+=dFzgXq3Sx-Ny+6oDZ3BEdsMQCgswNEVPVnhmhedHFvazzWw@mail.gmail.com>	<50100A29.8010705@gmail.com>	<CA+=dFzj11c9K0TS0T7D1aBVz+ppdFK91ZzBbevLV23FrWJNzmw@mail.gmail.com>	<CA+=dFziK09TVcK29x1SLg+JanOj6o__bJKf8yohw6dTYCUCF5A@mail.gmail.com>	<8ea83e51-81d1-407a-be06-98d2c99c876d@email.android.com>	<CA+=dFzguqjjnnqHO53Mx859VB6NU=4MaPWAUzGQB2qtZGfdAUg@mail.gmail.com>	<5013069F.3080306@gmail.com>	<CA+=dFzh4dFatOy42FydbVvoXB8=5CvLu5AwPvUA16h+kymq
- 0Lw@mail.gmail.com>	<CA+=dFzh1wQx2rBs_2RAwrXsz79WS3njnO8=2ntQZUbB5So69gg@mail.gmail.com> <CA+=dFzhXY9aJ6_Yu-4a3g+6RyN5_mxXY=U3HnzKdi8TH-rqWcA@mail.gmail.com> <50178061.4010709@windriver.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: discussion questions: SR-IOV, virtualization,
+ and bonding
+Date: Thu, 02 Aug 2012 16:26:53 -0600
+Message-ID: <501AFEAD.10001@genband.com>
+References: <501AD33E.5090308@genband.com> <17679.1343939453@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Xufeng Zhang <xufengzhang.main@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, sri@us.ibm.com,
-	davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xufeng zhang <xufeng.zhang@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:41938 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286Ab2HBVRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 17:17:22 -0400
-In-Reply-To: <50178061.4010709@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <17679.1343939453@death.nxdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 07/31/2012 02:51 AM, xufeng zhang wrote:
-> Sorry, please ignore the above patch, there was an paste error.
-> Please check the following patch.
-> ============================================
-> I'm wondering if the below solution is fine to you which is based on
-> your changes.
-> BTW, I have verified this patch and it works ok for all the situation,
-> but only one problem persists:
-> there is a potential that commands will exceeds SCTP_MAX_NUM_COMMANDS
-> which happens during sending lots of small error DATA chunks.
+On 08/02/2012 02:30 PM, Jay Vosburgh wrote:
 >
+> Chris Friesen<chris.friesen@genband.com>  wrote:
 
-I started thinking along the same vein, but was thinking that maybe it 
-makes sense to make error list more generic. I need to check the spec on 
-the ordering of ERROR chunks.  If they are always after other control 
-chunks, then maybe make an error list and queue all errors there.  Then 
-when sending control chunks, drain the control queue first, then the 
-error queue, and finally the data queue.
+>> 2) If both the host and guest use active/backup but pick different
+>> devices as the active, there is no traffic between host/guest over the
+>> bond link.  Packets are sent out the active and looped back internally
+>> to arrive on the inactive, then skb_bond_should_drop() suppresses them.
+>
+> 	Just to be sure that I'm following this correctly, you're
+> setting up active-backup bonds on the guest and the host.  The guest
+> sets its active slave to be a VF from "SR-IOV Device A," but the host
+> sets its active slave to a PF from "SR-IOV Device B."  Traffic from the
+> guest to the host then arrives at the host's inactive slave (it's PF for
+> "SR-IOV Device A") and is then dropped.
+>
+> 	Correct?
 
-BTW, the patch below doesn't include the code to queue the error chunk 
-onto the new error queue.
 
--vlad
+Yes, that's correct.  The issue is that the internal switch on device A 
+knows nothing about device B.  Ideally what should happen is that the 
+internal switch routes the packets out onto the wire so that they come 
+back in on device B and get routed up to the host.  However, at least 
+with the Intel devices the internal switch has no learning capabilities.
 
-> Thanks,
-> Xufeng Zhang
+The alternative is to have the external switch(es) configured to do the 
+loopback, but that puts some extra requirements on the selection of the 
+external switch.
+
+
+>> So far the solutions to 1 seem to be either using arp validation (which
+>> currently doesn't exist for loadbalancing modes) or else have the
+>> underlying ethernet driver distinguish between packets coming from the
+>> wire vs being looped back internally and have the bonding driver only
+>> set last_rx for external packets.
 >
-> ---
->   include/net/sctp/command.h |    1 +
->   include/net/sctp/structs.h |    3 +++
->   net/sctp/outqueue.c        |    7 +++++++
->   net/sctp/sm_sideeffect.c   |   16 ++++++++++++++++
->   net/sctp/sm_statefuns.c    |   17 ++++++++++++++---
->   5 files changed, 41 insertions(+), 3 deletions(-)
+> 	As discussed previously, e.g.,:
 >
-> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-> index 712b3be..62c34f5 100644
-> --- a/include/net/sctp/command.h
-> +++ b/include/net/sctp/command.h
-> @@ -110,6 +110,7 @@ typedef enum {
->          SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
->          SCTP_CMD_PURGE_ASCONF_QUEUE, /* Purge all asconf queues.*/
->          SCTP_CMD_SET_ASOC,       /* Restore association context */
-> +       SCTP_CMD_GEN_BAD_STREAM, /* Invalid Stream errors happened
-> command */
->          SCTP_CMD_LAST
->   } sctp_verb_t;
+> http://marc.info/?l=linux-netdev&m=134316327912154&w=2
 >
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index fc5e600..3d218e0 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1183,6 +1183,9 @@ struct sctp_outq {
->           */
->          struct list_head abandoned;
+> 	implementing arp_validate for load balance modes is tricky at
+> best, regardless of SR-IOV issues.
+
+Yes, I should have referenced that discussion.  I thought I'd include it 
+here with the other issues to group everything together.
+
+> 	This is really a variation on the situation that led to the
+> arp_validate functionality in the first place (that multiple instances
+> of ARP monitor on a subnet can fool one another), except that the switch
+> here is within the SR-IOV device and the various hosts are guests.
 >
-> +       /* Put Invalid Stream error chunks on this list */
-> +       struct list_head bad_stream_err;
-> +
->          /* How many unackd bytes do we have in-flight?  */
->          __u32 outstanding_bytes;
+> 	The best long term solution is to have a user space API that
+> provides link state input to bonding on a per-slave basis, and then some
+> user space entity can perform whatever link monitoring method is
+> appropriate (e.g., LLDP) and pass the results to bonding.
+
+I think this has potential.  This requires a virtual communication 
+channel between guest/host if we want the host to be able to influence 
+the guest's choice of active link, but I think that's not unreasonable.
+
+Actually, couldn't we do this now?  Turn off miimon and arpmon, then 
+just have the userspace thing write to 
+/sys/class/net/bondX/bonding/active_slave
+
+>> For issue 2, it would seem beneficial for the host to be able to ensure
+>> that the guest uses the same link as the active.  I don't see a tidy
+>> solution here.  One somewhat messy possibility here is to have bonding
+>> send a message to the standby PF which then tells all its VFs to fake
+>> loss of carrier.
 >
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index e7aa177..1e87b0b 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -211,6 +211,7 @@ void sctp_outq_init(struct sctp_association *asoc,
-> struct sctp_outq *q)
->          INIT_LIST_HEAD(&q->retransmit);
->          INIT_LIST_HEAD(&q->sacked);
->          INIT_LIST_HEAD(&q->abandoned);
-> +       INIT_LIST_HEAD(&q->bad_stream_err);
+> 	There is no tidy solution here that I'm aware of; this has been
+> a long standing concern in bladecenter type of network environments,
+> wherein all blade "eth0" interfaces connect to one chassis switch, and
+> all blade "eth1" interfaces connect to a different chassis switch.  If
+> those switches are not connected, then there may not be a path from
+> blade A:eth0 to blade B:eth1.  There is no simple mechanism to force a
+> gang failover across multiple hosts.
+
+In our blade server environment those two switches are indeed 
+cross-connected, so we haven't had to do gang-failover.
+
+
+> 	Note that the ehea can propagate link failure of its external
+> port (the one that connects to a "real" switch) to its internal ports
+> (what the lpars see), so that bonding can detect the link failure.  This
+> is an option to ehea; by default, all internal ports are always carrier
+> up so that they can communicate with one another regardless of the
+> external port link state.  To my knowledge, this is used with miimon,
+> not the arp monitor.
 >
->          q->fast_rtx = 0;
->          q->outstanding_bytes = 0;
-> @@ -283,6 +284,12 @@ void sctp_outq_teardown(struct sctp_outq *q)
->                  list_del_init(&chunk->list);
->                  sctp_chunk_free(chunk);
->          }
-> +
-> +       /* Throw away any pending Invalid Stream error chunks */
-> +       list_for_each_entry_safe(chunk, tmp,&q->bad_stream_err, list) {
-> +               list_del_init(&chunk->list);
-> +               sctp_chunk_free(chunk);
-> +       }
->   }
+> 	I don't know how SR-IOV operates in this regard (e.g., can VFs
+> fail independently from the PF?).  It is somewhat different from your
+> case in that there is no equivalent to the PF in the ehea case.  If the
+> PFs participate in the primary setting it will likely permit initial
+> connectivity, but I'm not sure if a PF plus all its VFs fail as a unit
+> (from bonding's point of view).
+
+With current Intel drivers at least, if the PF detects link failure it 
+fires a message to the VFs and they detect link failure within a short 
+time (milliseconds).
+
+We can recommend the use of the "primary" option, but we don't always 
+have total control over what the guest does, and for some reason some of 
+them don't want to use "primary".  I'm not sure why.
+
+
+>> For issue 3, the logical solution would seem to be some way of assigning
+>> a list of "valid" mac addresses to a given VF--like maybe all MAC
+>> addresses assigned to a VM or something.  Anyone have any bright ideas?
 >
->   /* Free the outqueue structure and any related pending chunks.  */
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index fe99628..4698593 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -1060,6 +1060,18 @@ static void sctp_cmd_send_asconf(struct
-> sctp_association *asoc)
->          }
->   }
+> 	There's an option to bonding, fail_over_mac, that modifies
+> bonding's handling of the slaves' MAC address(es).  One setting,
+> "active" instructs bonding to make its MAC be whatever the currently
+> active slave's MAC is, never changing any of the slave's MAC addresses.
+
+Yes, I'm aware of that option.  It does have drawbacks though, as 
+described in the bonding.txt docs.
+
+
+>> I'm sure we're not the only ones running into this, so what are others
+>> doing?  Is the only current option to use active/active with miimon?
 >
-> +static void sctp_cmd_make_inv_stream_err(sctp_cmd_seq_t *commands,
-> +               struct sctp_association *asoc)
-> +{
-> +       struct sctp_chunk *err, *tmp;
-> +       struct sctp_outq *q =&asoc->outqueue;
-> +
-> +       list_for_each_entry_safe(err, tmp,&q->bad_stream_err, list) {
-> +               list_del_init(&err->list);
-> +               sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-> +                               SCTP_CHUNK(err));
-> +       }
-> +}
->
->   /* These three macros allow us to pull the debugging code out of the
->    * main flow of sctp_do_sm() to keep attention focused on the real
-> @@ -1724,6 +1736,10 @@ static int sctp_cmd_interpreter(sctp_event_t
-> event_type,
->                          asoc = cmd->obj.asoc;
->                          break;
->
-> +               case SCTP_CMD_GEN_BAD_STREAM:
-> +                       sctp_cmd_make_inv_stream_err(commands, asoc);
-> +                       break;
-> +
->                  default:
->                          pr_warn("Impossible command: %u, %p\n",
->                                  cmd->verb, cmd->obj.ptr);
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index 9fca103..1c1bcd9 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -2967,8 +2967,14 @@ discard_force:
->          return SCTP_DISPOSITION_DISCARD;
->
->   discard_noforce:
-> -       if (chunk->end_of_packet)
-> +       if (chunk->end_of_packet) {
-> +               struct sctp_outq *q =&asoc->outqueue;
->                  sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, force);
-> +               /* Queue the INVALID STREAM error after the SACK if one
-> is needed. */
-> +               if (!list_empty(&q->bad_stream_err))
-> +                       sctp_add_cmd_sf(commands, SCTP_CMD_GEN_BAD_STREAM,
-> +                                       SCTP_NULL());
-> +       }
->
->          return SCTP_DISPOSITION_DISCARD;
->   consume:
-> @@ -3037,11 +3043,16 @@ sctp_disposition_t
-> sctp_sf_eat_data_fast_4_4(const struct sctp_endpoint *ep,
->           * with a SACK, a SHUTDOWN chunk, and restart the T2-shutdown
-> timer
->           */
->          if (chunk->end_of_packet) {
-> +               struct sctp_outq *q =&asoc->outqueue;
->                  /* We must delay the chunk creation since the cumulative
->                   * TSN has not been updated yet.
->                   */
->                  sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SHUTDOWN,
-> SCTP_NULL());
->                  sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK,
-> SCTP_FORCE());
-> +               /* Queue the INVALID STREAM error after the SACK if one
-> is needed. */
-> +               if (!list_empty(&q->bad_stream_err))
-> +                       sctp_add_cmd_sf(commands, SCTP_CMD_GEN_BAD_STREAM,
-> +                                       SCTP_NULL());
->                  sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
->                                  SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
->          }
-> @@ -6136,6 +6147,7 @@ static int sctp_eat_data(const struct
-> sctp_association *asoc,
->           */
->          sid = ntohs(data_hdr->stream);
->          if (sid>= asoc->c.sinit_max_instreams) {
-> +               struct sctp_outq *q =&asoc->outqueue;
->                  /* Mark tsn as received even though we drop it */
->                  sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_TSN,
-> SCTP_U32(tsn));
->
-> @@ -6144,8 +6156,7 @@ static int sctp_eat_data(const struct
-> sctp_association *asoc,
->                                           sizeof(data_hdr->stream),
->                                           sizeof(u16));
->                  if (err)
-> -                       sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-> -                                       SCTP_CHUNK(err));
-> +                       list_add_tail(&err->list,&q->bad_stream_err);
->                  return SCTP_IERROR_BAD_STREAM;
->          }
->
+> 	I think you're at least close to the edge here; I've only done
+> some basic testing of bonding with SR-IOV, although I'm planning to do
+> some more early next week (and what you've found has been good input for
+> me, so thanks for that, at least).
+
+Glad we could help.  :)
+
+Chris
+
+------------------------------------------------------------------------------
+Live Security Virtual Conference
+Exclusive live event will cover all the ways today's security and 
+threat landscape has changed and how IT managers can respond. Discussions 
+will include endpoint security, mobile security and the latest in malware 
+threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
