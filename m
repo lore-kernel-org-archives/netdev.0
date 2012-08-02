@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: route.c cleanup
-Date: Thu, 02 Aug 2012 01:45:34 -0700 (PDT)
-Message-ID: <20120802.014534.1221330015548828529.davem@davemloft.net>
-References: <1343893753.9299.13.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH] Makefile: add missing blankspace
+Date: Thu, 2 Aug 2012 16:45:09 +0800
+Message-ID: <1343897109-22855-1-git-send-email-lw@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, Li Wei <lw@cn.fujitsu.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53729 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751472Ab2HBIpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 04:45:35 -0400
-In-Reply-To: <1343893753.9299.13.camel@edumazet-glaptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:12335 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751735Ab2HBIp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2012 04:45:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 02 Aug 2012 09:49:13 +0200
+The missing blankspace caused us can't get tc.8 and tc-codel.8
+installed.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Remove some unused includes and sysctls after route cache removal.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+---
+ man/man8/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I'm largely against removing the (now pointless) sysctls.
-
-If the settings do nothing, so be it.
-
-But it shouldn't generate warnings and errors during bootup,
-which is what removing them is going to do.
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index 1b671a4..c344094 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -3,7 +3,7 @@ TARGETS = ip-address.8 ip-link.8 ip-route.8
+ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+ 	tc-bfifo.8 tc-cbq-details.8 tc-cbq.8 tc-drr.8 tc-htb.8 \
+ 	tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 tc-sfq.8 \
+-	tc-tbf.8 tc.8tc-codel.8 tc-fq_codel.8 tc-sfb.8 tc-netem.8 tc-choke.8 \
++	tc-tbf.8 tc.8 tc-codel.8 tc-fq_codel.8 tc-sfb.8 tc-netem.8 tc-choke.8 \
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+ 	ip-tunnel.8 ip-rule.8 ip-ntable.8 \
+ 	ip-monitor.8 tc-stab.8 tc-hfsc.8 ip-xfrm.8 ip-netns.8 \
+-- 
+1.7.10.1
