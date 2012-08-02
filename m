@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: fix mem leak when command is unknown
-Date: Thu, 02 Aug 2012 00:21:07 -0700 (PDT)
-Message-ID: <20120802.002107.240245942153879823.davem@davemloft.net>
-References: <alpine.LNX.2.00.1207312337590.7100@swampdragon.chaosbits.net>
+Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after
+ changing date
+Date: Thu, 02 Aug 2012 00:23:08 -0700 (PDT)
+Message-ID: <20120802.002308.367808111426941908.davem@davemloft.net>
+References: <1343720634-1176-1-git-send-email-fdu@windriver.com>
+	<1343720634-1176-2-git-send-email-fdu@windriver.com>
+	<20120802.002100.1997441066753440100.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jj@chaosbits.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1207312337590.7100@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: fdu@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53167 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265Ab2HBHXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 03:23:09 -0400
+In-Reply-To: <20120802.002100.1997441066753440100.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Tue, 31 Jul 2012 23:39:37 +0200 (CEST)
 
-> In bnx2x_mcast_enqueue_cmd() we'll leak the memory allocated to
-> 'new_cmd' if we hit the deafault case of the 'switch (cmd)'.
-> Add a 'kfree(new_cmd)' to that case to avoid the leak.
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+You know what Fan Du, I'm extremely irritated about your email
+situation.
 
-Applied.
+Every time you post a patch, I reply, and I get this crap:
+
+Diagnostic-Code: smtp; 5.1.0 - Unknown address error 550-'5.2.1 <fdu@windriver.com>... Mailbox disabled for this recipient' (delivery attempts: 0)
+
+I've seen this at least 7 times, and this absolutely has to stop.
+
+Otherwise I'm ignoring every patch you submit, it's as simple as
+that.
