@@ -1,51 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] igb: reduce Rx header size
-Date: Thu, 02 Aug 2012 17:15:38 +0200
-Message-ID: <1343920538.9299.200.camel@edumazet-glaptop>
-References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Erez Shitrit <erezsh@mellanox.com>
+Subject: Re: [PATCH V2 06/12] net/core: Add rtnetlink support to vif parameters
+Date: Thu, 2 Aug 2012 18:29:15 +0300
+Message-ID: <501A9CCB.7020704@mellanox.com>
+References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>  <1343840975-3252-7-git-send-email-ogerlitz@mellanox.com> <1343866837.2602.64.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, <davem@davemloft.net>,
+	<roland@kernel.org>, <netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, Erez Shitrit <erezsh@mellanox.co.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34350 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760Ab2HBPPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:15:43 -0400
-Received: by bkwj10 with SMTP id j10so4305409bkw.19
-        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 08:15:42 -0700 (PDT)
-In-Reply-To: <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:36878 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750924Ab2HBPaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:30:03 -0400
+In-Reply-To: <1343866837.2602.64.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 8/2/2012 3:20 AM, Ben Hutchings wrote:
+> On Wed, 2012-08-01 at 20:09 +0300, Or Gerlitz wrote:
+>> From: Erez Shitrit <erezsh@mellanox.co.il>
+>>
+>> Add IFLA_VIF_INFO which allows user space to configure mac/vlan for a VIF
+> [...]
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -780,7 +780,8 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+>>   	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+>>   	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+>>   	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+>> -	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
+>> +	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+>> +	       + nla_total_size(sizeof(struct ifla_vif_param)); /* IFLA_VIF_INFO */
+>>   }
+> [...]
+>
+> if_nlmsg_size() returns the size of a message describing the interface.
+> But IFLA_VIF_INFO is write-only (why?) and therefore shouldn't be
+> included.
+>
+> Ben.
 
-Reduce skb truesize by 256 bytes.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
----
-Tested on my machine without any problem
-
- drivers/net/ethernet/intel/igb/igb.h |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 9e572dd..0c9f62c 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -131,9 +131,9 @@ struct vf_data_storage {
- #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
- 
- /* Supported Rx Buffer Sizes */
--#define IGB_RXBUFFER_512   512
-+#define IGB_RXBUFFER_256   256
- #define IGB_RXBUFFER_16384 16384
--#define IGB_RX_HDR_LEN     IGB_RXBUFFER_512
-+#define IGB_RX_HDR_LEN     IGB_RXBUFFER_256
- 
- /* How many Tx Descriptors do we need to call netif_wake_queue ? */
- #define IGB_TX_QUEUE_WAKE	16
+thanks, we missed that.
+currently, we don't expose the vifs on its parent interface, we need to 
+think if we want to expose it, if yes we will add "get" option, 
+otherwise we will take it from if_nlmsg_size() function.
