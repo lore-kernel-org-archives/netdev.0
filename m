@@ -1,47 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: binding UDP port 0 with SO_REUSEADDR
-Date: Thu, 02 Aug 2012 18:57:25 +0200
-Message-ID: <1343926645.9299.303.camel@edumazet-glaptop>
-References: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
-	 <1343847776.21269.797.camel@edumazet-glaptop>
-	 <CAEZM=bPqOgRUvUKfdYkrVXoWin+SMft0GK67hqsGhBD6nocryA@mail.gmail.com>
-	 <CAEZM=bM=AGp=FOxLiDiBFgVJWGmNdPpG_FV3Ne2i5jeALiB4YA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] dynamic_debug: Restore dev_dbg functionality,
+ optimize stack
+Date: Thu, 02 Aug 2012 10:02:20 -0700
+Message-ID: <1343926940.2011.18.camel@joe2Laptop>
+References: <1343334310.17538.32.camel@joe2Laptop>
+	 <333324dcdfdc891ba214d2de8f9a3d056dd7aea9.1343461712.git.joe@perches.com>
+	 <20120731145534.5606e840.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Tobias S. Josefowitz" <t.josefowitz@gmail.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@redhat.com>,
+	Jim Cromie <jim.cromie@gmail.com>, Kay Sievers <kay@vrfy.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:56958 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753449Ab2HBQ53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 12:57:29 -0400
-Received: by eaac11 with SMTP id c11so971070eaa.19
-        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 09:57:28 -0700 (PDT)
-In-Reply-To: <CAEZM=bM=AGp=FOxLiDiBFgVJWGmNdPpG_FV3Ne2i5jeALiB4YA@mail.gmail.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:44857 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754430Ab2HBRCV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2012 13:02:21 -0400
+In-Reply-To: <20120731145534.5606e840.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-02 at 18:33 +0200, Tobias S. Josefowitz wrote:
-> Hi again,
+On Tue, 2012-07-31 at 14:55 -0700, Andrew Morton wrote:
+> On Sat, 28 Jul 2012 00:55:07 -0700
+> Joe Perches <joe@perches.com> wrote:
 > 
-> I need to say, after looking at "my" socket(7),
+> > commit c4e00daaa9 ("driver-core: extend dev_printk() to pass structured data")
+> > changed __dev_printk and broke dynamic-debug's ability to control the
+> > dynamic prefix of dev_dbg(dev,..).
+> > 
+> > dynamic_emit_prefix() adds "[tid] module:func:line:" to the output and
+> > those additions got lost.
+> > 
+> > In addition, the current dynamic debug code uses up to 3 recursion
+> > levels via %pV.  This can consume quite a bit of stack.  Directly
+> > call printk_emit to reduce the recursion depth.
+[]
+> > Changes in v2:
+> > 
+> > o Fix dynamic_emit_prefix to always initialize output
+> > o Call create_syslog_header and emit_printk from__netdev_printk and
+> >   eliminate call to dev_printk to remove another recursion via %pV
 > 
->        SO_REUSEADDR
->               Indicates  that  the rules used in validating addresses supplied
->               in a bind(2) call should allow reuse of  local  addresses.   For
->               AF_INET  sockets  this means that a socket may bind, except when
->               there is an active listening socket bound to the address.   When
->               the listening socket is bound to INADDR_ANY with a specific port
->               then it is not possible to bind  to  this  port  for  any  local
->               address.  Argument is an integer boolean flag.
+> This one causes an oops-on-boot
+> (http://ozlabs.org/~akpm/stuff/IMG_20120731_144047.jpg).  v1 didn't do
+> that.
 > 
-> I think the surprise-factor of the bind-0-behaviour even increased for
-> me. Is there a specific reason for handing out used ports when binding
-> port 0 with REUSEADDR?
+> config: http://ozlabs.org/~akpm/stuff/config-akpm2
+> 
 
-There is no concept of listening sockets for UDP.
+Thanks.  I'll fix it when I can.
+Expect a week or so delay though.
 
-This documentation applies for TCP, and makes no sense for UDP.
+I'm a bit busy on other projects and this one seems to
+require additional testing.
 
-There is no value using 'port 0' and REUSEADDR on UDP, really.
+cheers, Joe
