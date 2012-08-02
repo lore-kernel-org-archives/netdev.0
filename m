@@ -1,47 +1,42 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [PATCH net-next] igb: use build_skb()
-Date: Thu, 2 Aug 2012 16:10:12 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B62630D8B289@ORSMSX102.amr.corp.intel.com>
-References: <1343922692.9299.231.camel@edumazet-glaptop>
+From: "Tobias S. Josefowitz" <t.josefowitz@gmail.com>
+Subject: Re: binding UDP port 0 with SO_REUSEADDR
+Date: Thu, 2 Aug 2012 18:33:43 +0200
+Message-ID: <CAEZM=bM=AGp=FOxLiDiBFgVJWGmNdPpG_FV3Ne2i5jeALiB4YA@mail.gmail.com>
+References: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
+	<1343847776.21269.797.camel@edumazet-glaptop>
+	<CAEZM=bPqOgRUvUKfdYkrVXoWin+SMft0GK67hqsGhBD6nocryA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31989 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753644Ab2HBQKS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2012 12:10:18 -0400
-In-Reply-To: <1343922692.9299.231.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:63409 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753337Ab2HBQdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 12:33:44 -0400
+Received: by qadb17 with SMTP id b17so3516339qad.19
+        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 09:33:43 -0700 (PDT)
+In-Reply-To: <CAEZM=bPqOgRUvUKfdYkrVXoWin+SMft0GK67hqsGhBD6nocryA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5l
-bC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2Yg
-RXJpYyBEdW1hemV0DQpTZW50OiBUaHVyc2RheSwgQXVndXN0IDAyLCAyMDEyIDg6NTIgQU0NClRv
-OiBLaXJzaGVyLCBKZWZmcmV5IFQNCkNjOiBEdXljaywgQWxleGFuZGVyIEg7IG5ldGRldg0KU3Vi
-amVjdDogW1BBVENIIG5ldC1uZXh0XSBpZ2I6IHVzZSBidWlsZF9za2IoKQ0KDQpGcm9tOiBFcmlj
-IER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQoNCkJ5IHVzaW5nIG5ldGRldl9hbGxvY19m
-cmFnKCkgJiBidWlsZF9za2IoKSBpbnN0ZWFkIG9mIGxlZ2FjeQ0KbmV0ZGV2X2FsbG9jX3NrYl9p
-cF9hbGlnbigpIGNhbGxzLCB3ZSByZWR1Y2UgbnVtYmVyIG9mIGNhY2hlIG1pc3NlcyBpbiBSWCBw
-YXRoIGFuZCBzaXplIG9mIHdvcmtpbmcgc2V0Lg0KDQpGb3IgYSBnaXZlbiByeCB3b3JrbG9hZCwg
-bnVtYmVyIG9mICdpbnVzZScgc2tfYnVmZiBjYW4gYmUgcmVkdWNlZCB0byBhIHZlcnkgbWluaW11
-bSwgZXNwZWNpYWxseSB3aGVuIHBhY2tldHMgYXJlIGRyb3BwZWQgYnkgb3VyIHN0YWNrLg0KDQoo
-QmVmb3JlIHRoaXMgcGF0Y2gsIGRlZmF1bHQgc2tfYnVmZiBhbGxvY2F0aW9uIHdhcyAyMDQ4IHNr
-X2J1ZmZzIGluIHJ4IHJpbmcgYnVmZmVyKQ0KDQpUaGV5IGFyZSBpbml0aWFsaXplZCByaWdodCBi
-ZWZvcmUgYmVpbmcgZGVsaXZlcmVkIHRvIHN0YWNrLCBzbyBjYW4gc3RheSBob3QgaW4gY3B1IGNh
-Y2hlcy4NCg0KRXRoZXJuZXQgaGVhZGVyIHByZWZldGNoaW5nIGlzIG1vcmUgZWZmZWN0aXZlIChv
-bGQgcHJlZmV0Y2ggb2Ygc2tiLT5kYXRhIHBhaWQgYSBzdGFsbCB0byBhY2Nlc3Mgc2tiLT5kYXRh
-IHBvaW50ZXIpDQoNCkkgaGF2ZSAxNSUgcGVyZm9ybWFuY2UgaW5jcmVhc2UgaW4gYSBSWCBzdHJl
-c3MgdGVzdCwgcmVtb3ZpbmcgU0xVQiBzbG93IHBhdGggaW4gdGhlIHByb2ZpbGVzLg0KDQpTaWdu
-ZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQpDYzogQWxleGFu
-ZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+DQotLS0NCg0KVGhhbmtzIEVy
-aWMsIA0KDQpXZSd2ZSBiZWVuIHdvcmtpbmcgb24gc29tZSBtb3JlIGV4dGVuc2l2ZSBwZXJmb3Jt
-YW5jZSByZWZhY3RvcmluZyB0aGF0IHdpbGwgYmUgY29taW5nIGluIGFkZGl0aW9uIHRvIHRoaXMu
-DQoNCkplZmYgd2lsbCBwdWxsIHRoZXNlIHBhdGNoZXMgaW50byBoaXMgdHJlZSBmb3IgdGVzdGlu
-Zy4NCg0KQ2Fyb2x5bg0KDQpDYXJvbHluIFd5Ym9ybnkNCkxpbnV4IERldmVsb3BtZW50DQpMQU4g
-QWNjZXNzIERpdmlzaW9uDQpJbnRlbCBDb3Jwb3JhdGlvbg0KDQoNCg0K
+Hi again,
+
+I need to say, after looking at "my" socket(7),
+
+       SO_REUSEADDR
+              Indicates  that  the rules used in validating addresses supplied
+              in a bind(2) call should allow reuse of  local  addresses.   For
+              AF_INET  sockets  this means that a socket may bind, except when
+              there is an active listening socket bound to the address.   When
+              the listening socket is bound to INADDR_ANY with a specific port
+              then it is not possible to bind  to  this  port  for  any  local
+              address.  Argument is an integer boolean flag.
+
+I think the surprise-factor of the bind-0-behaviour even increased for
+me. Is there a specific reason for handing out used ports when binding
+port 0 with REUSEADDR?
+
+Best,
+
+Tobi
