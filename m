@@ -1,37 +1,76 @@
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Subject: [PATCH 0/4] net/mlx4: Fixes to mlx4 driver
-Date: Thu,  2 Aug 2012 18:30:52 +0300
-Message-ID: <1343921456-19180-1-git-send-email-yevgenyp@mellanox.co.il>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: davem@davemloft.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH V2 08/12] net/eipoib: Add ethtool file support
+Date: Thu, 2 Aug 2012 16:42:40 +0100
+Message-ID: <1343922160.2639.4.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
+	  <1343840975-3252-9-git-send-email-ogerlitz@mellanox.com>
+	 <1343866955.2602.66.camel@bwh-desktop.uk.solarflarecom.com>
+	 <501A3BDE.1070509@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, <davem@davemloft.net>,
+	<roland@kernel.org>, <netdev@vger.kernel.org>, <ali@mellanox.com>,
+	<sean.hefty@intel.com>, Erez Shitrit <erezsh@mellanox.co.il>
+To: Erez Shitrit <erezsh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:60828 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752435Ab2HBPbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:31:14 -0400
+Received: from webmail.solarflare.com ([12.187.104.25]:23340 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752281Ab2HBPmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:42:45 -0400
+In-Reply-To: <501A3BDE.1070509@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dave,
+On Thu, 2012-08-02 at 11:35 +0300, Erez Shitrit wrote:
+> On 8/2/2012 3:22 AM, Ben Hutchings wrote:
+> > On Wed, 2012-08-01 at 20:09 +0300, Or Gerlitz wrote:
+> >> From: Erez Shitrit <erezsh@mellanox.co.il>
+> >>
+> >> Via ethtool the driver describes its version, ABI version, on what PIF
+> >> interface it runs and various statistics.
+> > [...]
+> >> --- /dev/null
+> >> +++ b/drivers/net/eipoib/eth_ipoib_ethtool.c
+> > [...]
+> >> +static void parent_ethtool_get_drvinfo(struct net_device *parent_dev,
+> >> +				       struct ethtool_drvinfo *drvinfo)
+> >> +{
+> >> +	struct parent *parent = netdev_priv(parent_dev);
+> >> +
+> >> +	strncpy(drvinfo->driver, DRV_NAME, 32);
+> >> +
+> >> +	strncpy(drvinfo->version, DRV_VERSION, 32);
+> >> +
+> >> +	strncpy(drvinfo->bus_info, parent->ipoib_main_interface,
+> >> +		ETHTOOL_BUSINFO_LEN);
+> > These must be null-terminated; therefore use strlcpy().
+> 
+> ok, will fix.
+> 
+> >> +	/* indicates ABI version */
+> >> +	snprintf(drvinfo->fw_version, 32, "%d", EIPOIB_ABI_VER);
+> > [...]
+> >
+> > This is an abuse of fw_version.
+> >
+> > Ben.
+> we took the idea from the bonding driver,
+> (snprintf(drvinfo->fw_version, 32, "%d", BOND_ABI_VERSION);)
 
-This is a patchset of 3 fixes and additional change that removes
-a port Link layer type restriction that is no longer relevant.
+The bonding driver has lots of warts.
 
-Thanks,
-Yevgeny
----
-Yevgeny Petrilin (3):
-  net/mlx4_en: Setting the NETIF_F_GRO flag back to dev->hw_features
-  net/mlx4_en: Fixing TX queue stop/wake flow
-  net/mlx4_core: Remove port type restrictions
+> Do you have any idea where can we keep the abi version?
 
-Amir Vadai (1):
-  net/mlx4_en: loopbacked packets are dropped when SMAC=DMAC
+You don't need to, because David will insist that you will only change
+the ABI in a backward-compatible way. :-)
 
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     |    4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |   17 +++++++----------
- drivers/net/ethernet/mellanox/mlx4/main.c      |    3 ---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    1 -
- drivers/net/ethernet/mellanox/mlx4/sense.c     |   14 --------------
- 6 files changed, 11 insertions(+), 31 deletions(-)
+(The bonding ABI version hasn't changed since Linux 2.6.3, and even then
+it provided backward compatibility.)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
