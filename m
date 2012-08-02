@@ -1,86 +1,212 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH] mlx4_en: add UFO support
-Date: Thu,  2 Aug 2012 17:53:44 -0300
-Message-ID: <1343940824-4720-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: Make "Invalid Stream Identifier" ERROR follows
+ SACK when bundling
+Date: Thu, 02 Aug 2012 17:17:18 -0400
+Message-ID: <501AEE5E.8090303@gmail.com>
+References: <1342677450-21810-1-git-send-email-xufengzhang.main@gmail.com>	<500E1057.3020509@windriver.com>	<75bdd73e-1c47-4fd6-bc29-5b86ee6da69a@email.android.com>	<CA+=dFzg=Bpsv5bMzECoAXYVcbD95eYy6xDAzL6fwiHrunfq-tg@mail.gmail.com>	<e7f8a685-9635-4aa9-bd67-1044e0720b29@email.android.com>	<CA+=dFzifKwbiXmw=pu0+rWmz72+4jsbv6bXOBHyL0LmxaL9byg@mail.gmail.com>	<CA+=dFzgXq3Sx-Ny+6oDZ3BEdsMQCgswNEVPVnhmhedHFvazzWw@mail.gmail.com>	<50100A29.8010705@gmail.com>	<CA+=dFzj11c9K0TS0T7D1aBVz+ppdFK91ZzBbevLV23FrWJNzmw@mail.gmail.com>	<CA+=dFziK09TVcK29x1SLg+JanOj6o__bJKf8yohw6dTYCUCF5A@mail.gmail.com>	<8ea83e51-81d1-407a-be06-98d2c99c876d@email.android.com>	<CA+=dFzguqjjnnqHO53Mx859VB6NU=4MaPWAUzGQB2qtZGfdAUg@mail.gmail.com>	<5013069F.3080306@gmail.com>	<CA+=dFzh4dFatOy42FydbVvoXB8=5CvLu5AwPvUA16h+kymq
+ 0Lw@mail.gmail.com>	<CA+=dFzh1wQx2rBs_2RAwrXsz79WS3njnO8=2ntQZUbB5So69gg@mail.gmail.com> <CA+=dFzhXY9aJ6_Yu-4a3g+6RyN5_mxXY=U3HnzKdi8TH-rqWcA@mail.gmail.com> <50178061.4010709@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Xufeng Zhang <xufengzhang.main@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>, sri@us.ibm.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xufeng zhang <xufeng.zhang@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp03.br.ibm.com ([32.104.18.24]:42014 "EHLO
-	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404Ab2HBUyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 16:54:21 -0400
-Received: from /spool/local
-	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Thu, 2 Aug 2012 17:54:02 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp02.br.ibm.com (Postfix) with ESMTP id D1D661DC0050
-	for <netdev@vger.kernel.org>; Thu,  2 Aug 2012 16:53:47 -0400 (EDT)
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q72Ko3FS2621652
-	for <netdev@vger.kernel.org>; Thu, 2 Aug 2012 17:50:04 -0300
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q72Krkub014872
-	for <netdev@vger.kernel.org>; Thu, 2 Aug 2012 17:53:46 -0300
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:41938 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752286Ab2HBVRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 17:17:22 -0400
+In-Reply-To: <50178061.4010709@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mellanox Ethernet adapters support Large Segmentation Offload for UDP
-packets. The only change needed is using the proper header size when the
-packet is UDP instead of TCP.
+On 07/31/2012 02:51 AM, xufeng zhang wrote:
+> Sorry, please ignore the above patch, there was an paste error.
+> Please check the following patch.
+> ============================================
+> I'm wondering if the below solution is fine to you which is based on
+> your changes.
+> BTW, I have verified this patch and it works ok for all the situation,
+> but only one problem persists:
+> there is a potential that commands will exceeds SCTP_MAX_NUM_COMMANDS
+> which happens during sending lots of small error DATA chunks.
+>
 
-This significantly increases performance for large UDP packets on
-platforms which have an expensive dma_map call, like pseries.
+I started thinking along the same vein, but was thinking that maybe it 
+makes sense to make error list more generic. I need to check the spec on 
+the ordering of ERROR chunks.  If they are always after other control 
+chunks, then maybe make an error list and queue all errors there.  Then 
+when sending control chunks, drain the control queue first, then the 
+error queue, and finally the data queue.
 
-On a simple test with 64000 payload size, throughput has increased from
-about 6Gbps to 9.5Gbps, while CPU use dropped from about 600% to about
-80% or less, on a 8-core Power7 machine.
+BTW, the patch below doesn't include the code to queue the error chunk 
+onto the new error queue.
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |    7 ++++++-
- 2 files changed, 7 insertions(+), 2 deletions(-)
+-vlad
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index edd9cb8..59e808a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1660,7 +1660,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	 */
- 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
- 	if (mdev->LSO_support)
--		dev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
-+		dev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO;
- 
- 	dev->vlan_features = dev->hw_features;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 019d856..2aad5a4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -39,6 +39,7 @@
- #include <linux/if_vlan.h>
- #include <linux/vmalloc.h>
- #include <linux/tcp.h>
-+#include <linux/udp.h>
- #include <linux/moduleparam.h>
- 
- #include "mlx4_en.h"
-@@ -455,7 +456,11 @@ static int get_real_size(struct sk_buff *skb, struct net_device *dev,
- 	int real_size;
- 
- 	if (skb_is_gso(skb)) {
--		*lso_header_size = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+		*lso_header_size = skb_transport_offset(skb);
-+		if (skb_shinfo(skb)->gso_type == SKB_GSO_UDP)
-+			*lso_header_size += sizeof(struct udphdr);
-+		else
-+			*lso_header_size += tcp_hdrlen(skb);
- 		real_size = CTRL_SIZE + skb_shinfo(skb)->nr_frags * DS_SIZE +
- 			ALIGN(*lso_header_size + 4, DS_SIZE);
- 		if (unlikely(*lso_header_size != skb_headlen(skb))) {
--- 
-1.7.4.4
+> Thanks,
+> Xufeng Zhang
+>
+> ---
+>   include/net/sctp/command.h |    1 +
+>   include/net/sctp/structs.h |    3 +++
+>   net/sctp/outqueue.c        |    7 +++++++
+>   net/sctp/sm_sideeffect.c   |   16 ++++++++++++++++
+>   net/sctp/sm_statefuns.c    |   17 ++++++++++++++---
+>   5 files changed, 41 insertions(+), 3 deletions(-)
+>
+> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+> index 712b3be..62c34f5 100644
+> --- a/include/net/sctp/command.h
+> +++ b/include/net/sctp/command.h
+> @@ -110,6 +110,7 @@ typedef enum {
+>          SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
+>          SCTP_CMD_PURGE_ASCONF_QUEUE, /* Purge all asconf queues.*/
+>          SCTP_CMD_SET_ASOC,       /* Restore association context */
+> +       SCTP_CMD_GEN_BAD_STREAM, /* Invalid Stream errors happened
+> command */
+>          SCTP_CMD_LAST
+>   } sctp_verb_t;
+>
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index fc5e600..3d218e0 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1183,6 +1183,9 @@ struct sctp_outq {
+>           */
+>          struct list_head abandoned;
+>
+> +       /* Put Invalid Stream error chunks on this list */
+> +       struct list_head bad_stream_err;
+> +
+>          /* How many unackd bytes do we have in-flight?  */
+>          __u32 outstanding_bytes;
+>
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index e7aa177..1e87b0b 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -211,6 +211,7 @@ void sctp_outq_init(struct sctp_association *asoc,
+> struct sctp_outq *q)
+>          INIT_LIST_HEAD(&q->retransmit);
+>          INIT_LIST_HEAD(&q->sacked);
+>          INIT_LIST_HEAD(&q->abandoned);
+> +       INIT_LIST_HEAD(&q->bad_stream_err);
+>
+>          q->fast_rtx = 0;
+>          q->outstanding_bytes = 0;
+> @@ -283,6 +284,12 @@ void sctp_outq_teardown(struct sctp_outq *q)
+>                  list_del_init(&chunk->list);
+>                  sctp_chunk_free(chunk);
+>          }
+> +
+> +       /* Throw away any pending Invalid Stream error chunks */
+> +       list_for_each_entry_safe(chunk, tmp,&q->bad_stream_err, list) {
+> +               list_del_init(&chunk->list);
+> +               sctp_chunk_free(chunk);
+> +       }
+>   }
+>
+>   /* Free the outqueue structure and any related pending chunks.  */
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index fe99628..4698593 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -1060,6 +1060,18 @@ static void sctp_cmd_send_asconf(struct
+> sctp_association *asoc)
+>          }
+>   }
+>
+> +static void sctp_cmd_make_inv_stream_err(sctp_cmd_seq_t *commands,
+> +               struct sctp_association *asoc)
+> +{
+> +       struct sctp_chunk *err, *tmp;
+> +       struct sctp_outq *q =&asoc->outqueue;
+> +
+> +       list_for_each_entry_safe(err, tmp,&q->bad_stream_err, list) {
+> +               list_del_init(&err->list);
+> +               sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+> +                               SCTP_CHUNK(err));
+> +       }
+> +}
+>
+>   /* These three macros allow us to pull the debugging code out of the
+>    * main flow of sctp_do_sm() to keep attention focused on the real
+> @@ -1724,6 +1736,10 @@ static int sctp_cmd_interpreter(sctp_event_t
+> event_type,
+>                          asoc = cmd->obj.asoc;
+>                          break;
+>
+> +               case SCTP_CMD_GEN_BAD_STREAM:
+> +                       sctp_cmd_make_inv_stream_err(commands, asoc);
+> +                       break;
+> +
+>                  default:
+>                          pr_warn("Impossible command: %u, %p\n",
+>                                  cmd->verb, cmd->obj.ptr);
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index 9fca103..1c1bcd9 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -2967,8 +2967,14 @@ discard_force:
+>          return SCTP_DISPOSITION_DISCARD;
+>
+>   discard_noforce:
+> -       if (chunk->end_of_packet)
+> +       if (chunk->end_of_packet) {
+> +               struct sctp_outq *q =&asoc->outqueue;
+>                  sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, force);
+> +               /* Queue the INVALID STREAM error after the SACK if one
+> is needed. */
+> +               if (!list_empty(&q->bad_stream_err))
+> +                       sctp_add_cmd_sf(commands, SCTP_CMD_GEN_BAD_STREAM,
+> +                                       SCTP_NULL());
+> +       }
+>
+>          return SCTP_DISPOSITION_DISCARD;
+>   consume:
+> @@ -3037,11 +3043,16 @@ sctp_disposition_t
+> sctp_sf_eat_data_fast_4_4(const struct sctp_endpoint *ep,
+>           * with a SACK, a SHUTDOWN chunk, and restart the T2-shutdown
+> timer
+>           */
+>          if (chunk->end_of_packet) {
+> +               struct sctp_outq *q =&asoc->outqueue;
+>                  /* We must delay the chunk creation since the cumulative
+>                   * TSN has not been updated yet.
+>                   */
+>                  sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SHUTDOWN,
+> SCTP_NULL());
+>                  sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK,
+> SCTP_FORCE());
+> +               /* Queue the INVALID STREAM error after the SACK if one
+> is needed. */
+> +               if (!list_empty(&q->bad_stream_err))
+> +                       sctp_add_cmd_sf(commands, SCTP_CMD_GEN_BAD_STREAM,
+> +                                       SCTP_NULL());
+>                  sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
+>                                  SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
+>          }
+> @@ -6136,6 +6147,7 @@ static int sctp_eat_data(const struct
+> sctp_association *asoc,
+>           */
+>          sid = ntohs(data_hdr->stream);
+>          if (sid>= asoc->c.sinit_max_instreams) {
+> +               struct sctp_outq *q =&asoc->outqueue;
+>                  /* Mark tsn as received even though we drop it */
+>                  sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_TSN,
+> SCTP_U32(tsn));
+>
+> @@ -6144,8 +6156,7 @@ static int sctp_eat_data(const struct
+> sctp_association *asoc,
+>                                           sizeof(data_hdr->stream),
+>                                           sizeof(u16));
+>                  if (err)
+> -                       sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+> -                                       SCTP_CHUNK(err));
+> +                       list_add_tail(&err->list,&q->bad_stream_err);
+>                  return SCTP_IERROR_BAD_STREAM;
+>          }
+>
