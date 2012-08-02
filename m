@@ -1,59 +1,46 @@
 From: Jon Mason <jon.mason@intel.com>
 Subject: Re: [RFC v2 1/2] PCI-Express Non-Transparent Bridge Support
-Date: Wed, 1 Aug 2012 18:43:24 -0700
-Message-ID: <20120802014324.GB17548@jonmason-lab>
+Date: Wed, 1 Aug 2012 18:49:11 -0700
+Message-ID: <20120802014911.GC17548@jonmason-lab>
 References: <1343607994-32415-1-git-send-email-jon.mason@intel.com>
  <1343607994-32415-2-git-send-email-jon.mason@intel.com>
- <CAErSpo4p_hxvCeVGqiTXVq3itXepheQZerpqRHwLvG6A7R2Lcg@mail.gmail.com>
- <20120730181542.GA987@jonmason-lab>
- <CAErSpo6gjMf4C3RMn5YLNg5JtJ8CjHvTw1iqsKPa6YuRqPe90g@mail.gmail.com>
- <CAAsGZS5kOyQ5FQ7Jg3HxOmmPNYS+F6XcB-_3tm=rcgDV7wAvRQ@mail.gmail.com>
- <20120731172709.GB14080@jonmason-lab>
- <CAAsGZS4nhv+s7NVwaaGjQ9fJoHQoaXnUoYw=xTPC-sfen+tj8A@mail.gmail.com>
+ <20120731222555.GB19134@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org,
-	Dave Jiang <dave.jiang@intel.com>
-To: chetan loke <loke.chetan@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:6153 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752655Ab2HBBtM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 Aug 2012 21:49:12 -0400
 Content-Disposition: inline
-In-Reply-To: <CAAsGZS4nhv+s7NVwaaGjQ9fJoHQoaXnUoYw=xTPC-sfen+tj8A@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20120731222555.GB19134@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 31, 2012 at 02:02:25PM -0400, chetan loke wrote:
-> On Tue, Jul 31, 2012 at 1:27 PM, Jon Mason <jon.mason@intel.com> wrote:
-> >
-> > I don't see the benefit of having the driver in staging.  Any vendors
-> > who would notice the ntb driver in staging would be sitting on these
-> > mailing lists and hopefully have planety of comments on the design.
-> > Stashing the driver in staging while waiting for these comments (which
-> > may never come) doesn't seem the best course of action.
-> >
+On Tue, Jul 31, 2012 at 03:25:55PM -0700, Greg KH wrote:
+> On Sun, Jul 29, 2012 at 05:26:33PM -0700, Jon Mason wrote:
+> > +struct ntb_transport_qp;
+> > +
+> > +struct ntb_client {
+> > +	char *name;
+> > +	int (*probe) (struct pci_dev *pdev);
+> > +	void (*remove) (struct pci_dev *pdev);
+> > +};
 > 
-> I thought that since others are talking about it then may be there is
-> some WIP code for foo-NTB. Seems like that's not the case. So no need
-> to stage.
+> Why isn't this tied into the driver model?  That looks like you really
+> want to use a 'struct device' here, right?
 > 
-> Correct me if I'm wrong but wouldn't apps just open a socket and route
-> data via ntb_vir_eth_dev? So I don't see an ABI breakage issue and
-> hence nothing would prevent us from changing the kernel parts(for
-> accommodating some foo-NTB part) in future.
+> Then you have drivers that bind to them, and your devices show up in
+> sysfs, which is probably a requirement you have, right?
 
-The virtual ethernet device (patch #2) would allow for a generic way
-of passing data to the remote side.  The only issue would be changing
-how it is encoded in the shared buffer.
-
-> It may not be a bad idea to prefix intel-specific(if any)
-> ntb_structs/variables/logic with the 'intc'(Intel ticker or pick your
-> string) keyword.
-
-The Intel specific things are current pre-pended with "xeon" or "bwd".
+I was trying to do something more light-weight than that and avoid the
+complexity, but this is probably the direction it needs to go.
 
 Thanks,
 Jon
 
-
 > 
-> Chetan Loke
+> greg k-h
