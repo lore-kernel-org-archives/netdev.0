@@ -1,37 +1,58 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] Makefile: add missing blankspace
-Date: Thu, 2 Aug 2012 16:45:09 +0800
-Message-ID: <1343897109-22855-1-git-send-email-lw@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, Li Wei <lw@cn.fujitsu.com>
-To: shemminger@vyatta.com
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH] [XFRM] Fix unexpected SA hard expiration after changing
+ date
+Date: Thu, 2 Aug 2012 16:58:24 +0800
+Message-ID: <501A4130.9000004@windriver.com>
+References: <1343720634-1176-1-git-send-email-fdu@windriver.com>	<1343720634-1176-2-git-send-email-fdu@windriver.com>	<20120802.002100.1997441066753440100.davem@davemloft.net> <20120802.002308.367808111426941908.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <herbert@gondor.hengli.com.au>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:12335 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751735Ab2HBIp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2012 04:45:59 -0400
+Received: from mail.windriver.com ([147.11.1.11]:53145 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752850Ab2HBIzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 04:55:14 -0400
+In-Reply-To: <20120802.002308.367808111426941908.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The missing blankspace caused us can't get tc.8 and tc-codel.8
-installed.
+Hi, all
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- man/man8/Makefile |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+*Apologize* for all the trouble I brought to everyone, who gave me
+advices/suggestions using fdu@windriver.com.
+I'm truly sorry that all the inconvenience caused by my mistake.
 
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index 1b671a4..c344094 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -3,7 +3,7 @@ TARGETS = ip-address.8 ip-link.8 ip-route.8
- MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
- 	tc-bfifo.8 tc-cbq-details.8 tc-cbq.8 tc-drr.8 tc-htb.8 \
- 	tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 tc-sfq.8 \
--	tc-tbf.8 tc.8tc-codel.8 tc-fq_codel.8 tc-sfb.8 tc-netem.8 tc-choke.8 \
-+	tc-tbf.8 tc.8 tc-codel.8 tc-fq_codel.8 tc-sfb.8 tc-netem.8 tc-choke.8 \
- 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
- 	ip-tunnel.8 ip-rule.8 ip-ntable.8 \
- 	ip-monitor.8 tc-stab.8 tc-hfsc.8 ip-xfrm.8 ip-netns.8 \
--- 
-1.7.10.1
+fdu@windriver.com is obsolete!!!
+I will use fan.du@windriver.com from now on.
+
+Thanks
+
+
+On 2012=E5=B9=B408=E6=9C=8802=E6=97=A5 15:23, David Miller wrote:
+>
+> You know what Fan Du, I'm extremely irritated about your email
+> situation.
+>
+> Every time you post a patch, I reply, and I get this crap:
+>
+> Diagnostic-Code: smtp; 5.1.0 - Unknown address error 550-'5.2.1<fdu@w=
+indriver.com>... Mailbox disabled for this recipient' (delivery attempt=
+s: 0)
+>
+> I've seen this at least 7 times, and this absolutely has to stop.
+>
+> Otherwise I'm ignoring every patch you submit, it's as simple as
+> that.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+--=20
+
+Love each day!
+--fan
