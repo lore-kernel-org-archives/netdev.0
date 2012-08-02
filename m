@@ -1,54 +1,38 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Thu, 02 Aug 2012 10:15:23 -0700
-Message-ID: <87boitz044.fsf@xmission.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
-	<1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
+From: "Tobias S. Josefowitz" <t.josefowitz@gmail.com>
+Subject: Re: binding UDP port 0 with SO_REUSEADDR
+Date: Thu, 2 Aug 2012 21:05:15 +0200
+Message-ID: <CAEZM=bOpJZO6w7-+0HOpbpJXmmhibw91NquBzXKf6TAnxKuXDA@mail.gmail.com>
+References: <CAEZM=bNdyZoTiGYwNM_3v+ro7dEn0q9aTo4040tBDqDSH3HOXg@mail.gmail.com>
+	<1343847776.21269.797.camel@edumazet-glaptop>
+	<CAEZM=bPqOgRUvUKfdYkrVXoWin+SMft0GK67hqsGhBD6nocryA@mail.gmail.com>
+	<CAEZM=bM=AGp=FOxLiDiBFgVJWGmNdPpG_FV3Ne2i5jeALiB4YA@mail.gmail.com>
+	<1343926645.9299.303.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, roland@kernel.org, netdev@vger.kernel.org,
-	ali@mellanox.com, sean.hefty@intel.com,
-	Erez Shitrit <erezsh@mellanox.co.il>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:58165 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754495Ab2HBRPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 13:15:34 -0400
-In-Reply-To: <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> (Or
-	Gerlitz's message of "Wed, 1 Aug 2012 20:09:32 +0300")
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:53079 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753242Ab2HBTFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 15:05:20 -0400
+Received: by obbuo13 with SMTP id uo13so14230277obb.19
+        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 12:05:19 -0700 (PDT)
+In-Reply-To: <1343926645.9299.303.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <ogerlitz@mellanox.com> writes:
+On Thu, Aug 2, 2012 at 6:57 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> From: Erez Shitrit <erezsh@mellanox.co.il>
->
-> The eipoib driver provides a standard Ethernet netdevice over
-> the InfiniBand IPoIB interface .
->
-> Some services can run only on top of Ethernet L2 interfaces, and cannot be
-> bound to an IPoIB interface. With this new driver, these services can run
-> seamlessly.
+> There is no value using 'port 0' and REUSEADDR on UDP, really.
 
-Do I read this code correctly that what you are doing is not tunneling
-ethernet over IB but instead you are removing an ethernet header and
-replacing it with an IB header?
+And nobody ever makes mistakes, so why not surprise them for even more
+than they are in for.
 
-Do I also read this code correctly if you can't find your destination
-mac address in your ""neighbor table"" you do a normal IPoIB arp
-for the infiniband GUID?
+"Looking into src/pkg/net/sock.go (func socket) I see that SO_REUSEADDR
+is set unconditionally to all types of sockets." --
+http://code.google.com/p/go/issues/detail?id=1692
 
-Do I read this right that if presented with a non-IPv4 or ARP packet
-this code will do something undefined and unpredictable?
+Anyway, I'm out of this now.
 
-Maybe this makes some sense but just skimming it looks like you
-are trying to force a square peg into a round hole resulting in
-some weird code and some very weird maintainability issues.
-
-I am honestly surprised at this approach.  I would think it would be
-faster and simpler to run an IB queue pair directly to the hypervisor or
-possibly even the guest operating system bypassing the kernel and doing
-all of this translation in userspace.
-
-Eric
+Tobi
