@@ -1,68 +1,57 @@
-From: Peter Meiser <meiser@gmx-topmail.de>
-Subject: Re: [PATCH] cdc-ncm: tag Ericsson WWAN devices (eg F5521gw) with
- FLAG_WWAN
-Date: Thu, 02 Aug 2012 14:30:20 +0200
-Message-ID: <501A72DC.7070306@gmx-topmail.de>
-References: <1343155402.29196.7.camel@dcbw.foobar.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: kvaser_usb: Add support for Kvaser CAN/USB devices
+Date: Thu, 02 Aug 2012 14:33:56 +0200
+Message-ID: <501A73B4.6030203@pengutronix.de>
+References: <1343626352-24760-1-git-send-email-olivier@sobrie.be> <50166BF2.9000700@pengutronix.de> <20120730133323.GA13941@hposo> <5017ABC6.7030307@pengutronix.de> <20120731130650.GA23541@hposo> <5017DD5B.2030701@pengutronix.de> <20120802105358.GA23787@hposo> <501A6AE7.9060508@pengutronix.de> <20120802121643.GA12913@hposo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: public-netdev-u79uwXL29TY76Z2rM5mHXA@plane.gmane.org,
-	public-linux-usb-u79uwXL29TY76Z2rM5mHXA@plane.gmane.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:58900 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753534Ab2HBMbz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2012 08:31:55 -0400
-Received: from public by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <public@plane.gmane.org>)
-	id 1SwuZH-0000F6-BW
-	for netdev@vger.kernel.org; Thu, 02 Aug 2012 14:31:55 +0200
-In-Reply-To: <1343155402.29196.7.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig896DDF599E4A94B813E8C16F"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20120802121643.GA12913@hposo>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig896DDF599E4A94B813E8C16F
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 08/02/2012 02:16 PM, Olivier Sobrie wrote:
+> On Thu, Aug 02, 2012 at 01:56:23PM +0200, Marc Kleine-Budde wrote:
+>> BTW: is it possible to update the firmware on these devices?
+>=20
+> Yes it possible. But I don't know how to do it... I never did it.
+> I saw on their website that they propose a zipfile with new firmwares.
+> Inside the zipfile there is a tool 'Update.exe' which, I suppose, does
+> the upgrade.
+
+=2E..on windows only :). If they would be cool, they support dfu.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
+--------------enig896DDF599E4A94B813E8C16F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-Hello,
+iEYEARECAAYFAlAac7cACgkQjTAFq1RaXHOq+QCeOLTmMbfsjdRkfSmw+tsHRYSc
+r6EAoIbSp2p3VOYPuSZJC5gzFhpxojS+
+=CC8I
+-----END PGP SIGNATURE-----
 
-looking at http://sourceforge.net/apps/mediawiki/mbm/index.php?title=Main_Page#Supported_devices, there are branded Ericsson devices from Dell and Toshiba.
-
-The to-be-added vendor IDs are 0x413c for Dell and 0x0930 for Toshiba.
-
-Please find attached a patch to add these vendor IDs.
-
-Signed-off-by: Peter Meiser <meiser@gmx-topmail.de>
----
-
-diff -Naur a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1233,6 +1233,26 @@
- 	  .driver_info = (unsigned long) &wwan_info,
- 	},
- 
-+	/* Dell branded MBM devices like DW5550 */
-+	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
-+		| USB_DEVICE_ID_MATCH_VENDOR,
-+	  .idVendor = 0x413c,
-+	  .bInterfaceClass = USB_CLASS_COMM,
-+	  .bInterfaceSubClass = USB_CDC_SUBCLASS_NCM,
-+	  .bInterfaceProtocol = USB_CDC_PROTO_NONE,
-+	  .driver_info = (unsigned long) &wwan_info,
-+	},
-+
-+	/* Toshiba branded MBM devices */
-+	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
-+		| USB_DEVICE_ID_MATCH_VENDOR,
-+	  .idVendor = 0x0930,
-+	  .bInterfaceClass = USB_CLASS_COMM,
-+	  .bInterfaceSubClass = USB_CDC_SUBCLASS_NCM,
-+	  .bInterfaceProtocol = USB_CDC_PROTO_NONE,
-+	  .driver_info = (unsigned long) &wwan_info,
-+	},
-+
- 	/* Generic CDC-NCM devices */
- 	{ USB_INTERFACE_INFO(USB_CLASS_COMM,
- 		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+--------------enig896DDF599E4A94B813E8C16F--
