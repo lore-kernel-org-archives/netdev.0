@@ -1,71 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
-Date: Thu, 02 Aug 2012 16:03:30 -0700
-Message-ID: <87vch0x5fh.fsf@xmission.com>
-References: <5017E786.5000102@free.fr> <5017F96B.1060701@free.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] net/mlx4: Fixes to mlx4 driver
+Date: Thu, 02 Aug 2012 16:12:51 -0700 (PDT)
+Message-ID: <20120802.161251.331601378090436432.davem@davemloft.net>
+References: <1343921456-19180-1-git-send-email-yevgenyp@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-hams <linux-hams@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Bernard Pidoux <bernard.pidoux@free.fr>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <5017F96B.1060701@free.fr> (Bernard Pidoux's message of "Tue, 31
-	Jul 2012 17:27:39 +0200")
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yevgenyp@mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59603 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753613Ab2HBXMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 19:12:55 -0400
+In-Reply-To: <1343921456-19180-1-git-send-email-yevgenyp@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bernard Pidoux <bernard.pidoux@free.fr> writes:
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Date: Thu,  2 Aug 2012 18:30:52 +0300
 
-> Here is a complementary observation.
-> Trying to remove rose module with rmmod rose did not create any kernel panic.
-> However, there is an endless message from the kernel saying :
->
-> Message from syslogd@raspberrypi at Jul 31 17:22:40 ...
->  kernel:[  831.579007] unregister_netdevice: waiting for rose0 to become
-> free. Usage count = 23
->
-> Message from syslogd@raspberrypi at Jul 31 17:22:50 ...
->  kernel:[  841.739390] unregister_netdevice: waiting for rose0 to become
-> free. Usage count = 23
->
-> Message from syslogd@raspberrypi at Jul 31 17:23:00 ...
->  kernel:[  851.899758] unregister_netdevice: waiting for rose0 to become
-> free. Usage count = 23
-> .....
->
-> As observed at many occasions, count number seems to be random ! and
-> the same message keeps going without any change of count number.
-> At the same time, there is no possibility to recover the command line on any
-> console.
-> However I could loggin via ssh and I noticed that rose0 device is actually no
-> more in the ifconfig list.
->
-> If I try to remove rose with rmmod rose I get :
->
-> root@raspberrypi:/home/pi# rmmod rose
-> libkmod: ERROR ../libkmod/libkmod-module.c:753 kmod_module_remove_module: could
-> not remove 'rose': Device or resource busy
-> Error: could not remove module rose: Device or resource busy
->
->
-> Does this help ?
+> Yevgeny Petrilin (3):
+>   net/mlx4_en: Setting the NETIF_F_GRO flag back to dev->hw_features
 
-Something presumably in the rose code is leaking a reference to the rose
-device.  That is probably a separate bug than your other one, but it may
-be related.  These are some of my least favorite bugs to track down.
+As pointed out, this isn't a bug.
 
-That said in rose there is only one call to dev_hold and only one call
-to dev_put.
-
-Hmm.  Looking at it dev_hold happens in rose_dev_get, and of which there
-are several callers and only one of those callers calls dev_put.  So
-it should just be a matter of adding some more dev_put calls in the
-appropriate places.
-
-The usage in rose_loopback_timer looks easy to fix, the usage in
-rose_bind seems more of a challenge.
-
-Are you enough of a developer to take that observation and look at
-the code and fix it?
-
-Eric
+You just made this change purely via code inspection, and that's very
+disappointing because this would have been so simple to validate.
