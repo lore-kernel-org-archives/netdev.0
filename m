@@ -1,57 +1,44 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: kvaser_usb: Add support for Kvaser CAN/USB devices
-Date: Thu, 02 Aug 2012 14:33:56 +0200
-Message-ID: <501A73B4.6030203@pengutronix.de>
-References: <1343626352-24760-1-git-send-email-olivier@sobrie.be> <50166BF2.9000700@pengutronix.de> <20120730133323.GA13941@hposo> <5017ABC6.7030307@pengutronix.de> <20120731130650.GA23541@hposo> <5017DD5B.2030701@pengutronix.de> <20120802105358.GA23787@hposo> <501A6AE7.9060508@pengutronix.de> <20120802121643.GA12913@hposo>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Premature timeout for MLDv1 Host compatibility mode?
+Date: Thu, 2 Aug 2012 08:58:54 -0400
+Message-ID: <OFB6FB6105.8DE1252A-ON85257A4E.004637D4-85257A4E.00474EEF@us.ibm.com>
+References: <CAOLNa-dCpLG4XCarzbSb=ptu-KGVX_Fghv4Z_CDQ8HBF_n-rGQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig896DDF599E4A94B813E8C16F"
-Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Olivier Sobrie <olivier@sobrie.be>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20120802121643.GA12913@hposo>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Dragos Ilie <dragos.ilie@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:34532 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750807Ab2HBM7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2012 08:59:05 -0400
+Received: from /spool/local
+	by e8.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Thu, 2 Aug 2012 08:59:04 -0400
+In-Reply-To: <CAOLNa-dCpLG4XCarzbSb=ptu-KGVX_Fghv4Z_CDQ8HBF_n-rGQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig896DDF599E4A94B813E8C16F
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+netdev-owner@vger.kernel.org wrote on 07/26/2012 10:57:43 AM:
 
-On 08/02/2012 02:16 PM, Olivier Sobrie wrote:
-> On Thu, Aug 02, 2012 at 01:56:23PM +0200, Marc Kleine-Budde wrote:
->> BTW: is it possible to update the firmware on these devices?
->=20
-> Yes it possible. But I don't know how to do it... I never did it.
-> I saw on their website that they propose a zipfile with new firmwares.
-> Inside the zipfile there is a tool 'Update.exe' which, I suppose, does
-> the upgrade.
+> RFC 3810 says that the timeout should be computed as
+> Robustness_Variable * Query_Interval + Query_Response_Interval. This
+> suggests that the line where switchback is computed should be changed
+> to something like
+> 
+> switchback = (idev->mc_qrv * 125 * HZ)  + max_delay;
+> 
+> where 125 is the default Query_Interval in seconds
 
-=2E..on windows only :). If they would be cool, they support dfu.
+Dragos,
+        I agree that it's too short, but this shouldn't be using the
+default value, but rather the actual value of the querier, if one is 
+present,
+as calculated from a QQIC in a query. I suggest saving the QQI,
+decoded, in a new "idev->mc_qqi" which should be initialized to 125
+but updated by received queries and then using:
 
-Marc
+switchback = idev->mc_qrv * idev->mc_qqi * HZ + max_delay;
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig896DDF599E4A94B813E8C16F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAlAac7cACgkQjTAFq1RaXHOq+QCeOLTmMbfsjdRkfSmw+tsHRYSc
-r6EAoIbSp2p3VOYPuSZJC5gzFhpxojS+
-=CC8I
------END PGP SIGNATURE-----
-
---------------enig896DDF599E4A94B813E8C16F--
+                                                +-DLS
