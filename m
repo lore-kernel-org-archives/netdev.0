@@ -1,51 +1,51 @@
-From: leroy christophe <christophe.leroy@c-s.fr>
-Subject: Huge performance degradation for UDP between kernel 2.4.17 and 2.6.x
-Date: Thu, 02 Aug 2012 16:02:28 +0200
-Message-ID: <501A8874.9090600@c-s.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] igb: reduce Rx header size
+Date: Thu, 02 Aug 2012 17:15:38 +0200
+Message-ID: <1343920538.9299.200.camel@edumazet-glaptop>
+References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pegase1.c-s.fr ([93.17.236.30]:40980 "EHLO mailhub1.si.c-s.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752755Ab2HBOaf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2012 10:30:35 -0400
-Received: from localhost (mailhub1-int [192.168.12.234])
-	by localhost (Postfix) with ESMTP id ACB6E1C835C
-	for <netdev@vger.kernel.org>; Thu,  2 Aug 2012 15:02:26 +0200 (CEST)
-Received: from mailhub1.si.c-s.fr ([192.168.12.234])
-	by localhost (mailhub1.c-s.fr [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id amP7HV-Td4FD for <netdev@vger.kernel.org>;
-	Thu,  2 Aug 2012 15:02:26 +0200 (CEST)
-Received: from messagerie.si.c-s.fr (messagerie [192.168.25.192])
-	by pegase1.c-s.fr (Postfix) with ESMTP id 9392F1C8354
-	for <netdev@vger.kernel.org>; Thu,  2 Aug 2012 15:02:26 +0200 (CEST)
-Received: from localhost (localhost [127.0.0.1])
-	by messagerie.si.c-s.fr (Postfix) with ESMTP id 8A29223DC6
-	for <netdev@vger.kernel.org>; Thu,  2 Aug 2012 16:02:28 +0200 (CEST)
-Received: from messagerie.si.c-s.fr ([127.0.0.1])
-	by localhost (messagerie.si.c-s.fr [127.0.0.1]) (amavisd-new, port 10023)
-	with ESMTP id XSXLk3GYiYnM for <netdev@vger.kernel.org>;
-	Thu,  2 Aug 2012 16:02:28 +0200 (CEST)
-Received: from [127.0.0.1] (unknown [172.25.231.59])
-	by messagerie.si.c-s.fr (Postfix) with ESMTP id 5E59B23DC3
-	for <netdev@vger.kernel.org>; Thu,  2 Aug 2012 16:02:28 +0200 (CEST)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34350 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760Ab2HBPPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:15:43 -0400
+Received: by bkwj10 with SMTP id j10so4305409bkw.19
+        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 08:15:42 -0700 (PDT)
+In-Reply-To: <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Eric Dumazet <edumazet@google.com>
 
-I'm having a big issue with UDP. Using a powerpc board (MPC860).
+Reduce skb truesize by 256 bytes.
 
-With our board running kernel 2.4.17, I'm able to send 160000 voice 
-packets (UDP, 96 bytes per packet) in 11 seconds.
-With the same board running either Kernel 2.6.35.14 or Kernel 3.4.7, I 
-need 55 seconds to send the same amount of packets.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+Tested on my machine without any problem
 
+ drivers/net/ethernet/intel/igb/igb.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Is there anything to tune in order to get same output rate as with 
-Kernel 2.4 ?
-
-Regards
-Christophe
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 9e572dd..0c9f62c 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -131,9 +131,9 @@ struct vf_data_storage {
+ #define MAXIMUM_ETHERNET_VLAN_SIZE 1522
+ 
+ /* Supported Rx Buffer Sizes */
+-#define IGB_RXBUFFER_512   512
++#define IGB_RXBUFFER_256   256
+ #define IGB_RXBUFFER_16384 16384
+-#define IGB_RX_HDR_LEN     IGB_RXBUFFER_512
++#define IGB_RX_HDR_LEN     IGB_RXBUFFER_256
+ 
+ /* How many Tx Descriptors do we need to call netif_wake_queue ? */
+ #define IGB_TX_QUEUE_WAKE	16
