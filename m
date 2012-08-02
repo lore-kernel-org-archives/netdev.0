@@ -1,71 +1,88 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH 1/2] net: davinci_mdio: enable and disable clock
-Date: Thu, 02 Aug 2012 22:28:48 +0200
-Message-ID: <501AE300.2090707@gmail.com>
-References: <1343936616-29318-1-git-send-email-zonque@gmail.com> <alpine.DEB.2.00.1208021416550.18867@utopia.booyaka.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] igb: use build_skb()
+Date: Thu, 02 Aug 2012 13:29:48 -0700
+Message-ID: <1343939388.2132.44.camel@jtkirshe-mobl>
+References: <1343922692.9299.231.camel@edumazet-glaptop>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	koen@dominion.thruhere.net, mugunthanvnm@ti.com,
-	linux-arm-kernel@lists.infradead.org
-To: Paul Walmsley <paul@pwsan.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-RYOJRXLseuYKF3KdhEtg"
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38996 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067Ab2HBU2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 16:28:53 -0400
-Received: by bkwj10 with SMTP id j10so4426737bkw.19
-        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 13:28:51 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1208021416550.18867@utopia.booyaka.com>
+Received: from mga01.intel.com ([192.55.52.88]:16398 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753078Ab2HBU3t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2012 16:29:49 -0400
+In-Reply-To: <1343922692.9299.231.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02.08.2012 22:20, Paul Walmsley wrote:
-> Hi
-> 
-> On Thu, 2 Aug 2012, Daniel Mack wrote:
-> 
->> Make the driver control the device clocks. Appearantly, the Davinci
->> platform probes this driver with the clock all powered up, but on OMAP,
->> this isn't the case.
->>
->> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> 
->> ---
->>  drivers/net/ethernet/ti/davinci_mdio.c | 16 ++++++++++++++--
->>  1 file changed, 14 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
->> index cd7ee20..b4b6015 100644
->> --- a/drivers/net/ethernet/ti/davinci_mdio.c
->> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
->> @@ -332,6 +332,8 @@ static int __devinit davinci_mdio_probe(struct platform_device *pdev)
->>  		goto bail_out;
->>  	}
->>  
->> +	clk_enable(data->clk);
->> +
-> 
-> This doesn't look right.  This clock should be enabled by the
-> pm_runtime_get_sync() call just above this.  It shouldn't be necessary
-> to enable it again unless something isn't right with the integration
-> data. Likewise the pm_runtime_put_sync() calls should be superfluous.
 
-Aah, thanks for the heads-up. To explain, I first worked with a dirty
-hack to alias the clock, and I definitely needed these extra calls then.
+--=-RYOJRXLseuYKF3KdhEtg
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> What hwmod data/device tree file are you using with this?
+On Thu, 2012-08-02 at 17:51 +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> By using netdev_alloc_frag() & build_skb() instead of legacy
+> netdev_alloc_skb_ip_align() calls, we reduce number of cache misses in
+> RX path and size of working set.
+>=20
+> For a given rx workload, number of 'inuse' sk_buff can be reduced to a
+> very minimum, especially when packets are dropped by our stack.
+>=20
+> (Before this patch, default sk_buff allocation was 2048 sk_buffs in rx
+> ring buffer)
+>=20
+> They are initialized right before being delivered to stack, so can
+> stay
+> hot in cpu caches.
+>=20
+> Ethernet header prefetching is more effective (old prefetch of
+> skb->data
+> paid a stall to access skb->data pointer)
+>=20
+> I have 15% performance increase in a RX stress test, removing SLUB
+> slow
+> path in the profiles.
+>=20
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h         |    8 ++
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c |   14 ++--
+>  drivers/net/ethernet/intel/igb/igb_main.c    |   56 ++++++++++-------
+>  3 files changed, 49 insertions(+), 29 deletions(-)=20
 
-Later, I added the hwmod to move away from these hacks, and indeed, that
-lets the pm runtime code handle the clock enabling. With that in place,
-the patch we're talking about here is in fact unnecessary.
+Thanks Eric, I have added this as well to my queue.
 
-The second one though (the one that adds DT bindings) should go in.
+NOTE- you had some trailing whitespace errors in igb.h which I cleaned
+up before adding to my queue.
 
-I will send a separate one later that fixes the IS_ERR(data->clk) error
-that Russell spotted. But that's now unrelated.
+--=-RYOJRXLseuYKF3KdhEtg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Thanks for the review,
-Daniel
+iQIcBAABCgAGBQJQGuM8AAoJEOVv75VaS+3OEskQAJ+xT1rKuwSXs+rupca2vaK+
+grtBZZcizsiwIQrtv7kMPhx7Wu4tJjwWGVX7NPCq3hn9Z0qt+jWxtP443yFJZDBx
+WTddmQcr4uwWjiemcNWeNCZMmYVMpeGdYA56T7QXrzejAf+nHEpbv9Vb7jctpCKt
+uNQdFYv43MwrQH8Rn49o4brY1CK3+lr8a+3mHckAuyzm3/OeVr+UbavQSwB2RwUX
+EroCrLR6qGzjl1nYYZNh7Mf0h7PLCPCL1iM+YGBTo/WSkBeDACPLwe4RJdLRT1bD
+tyc8ocWyMYcaMveuWdyZihaiaM5MzC665xSLy5Sbcn4hVAnp43YXuUjII7lZWbyE
+CjMBN1hxiQv5UmV7rQFL7ynyf+RMJCmQkPuuOD554y73FTJ5SP4SYfwA4KBQ2p8q
+fzHSpERrofuVEzQd+8eS6iCEcQ09xjOtKyhLjnIRNr41yEjL/14/4gG4lOG+3WhI
+tReEaLHWRMmybjIBP0WimmvAbvLioHhpWyMGI6ab34PAmUfiVW5FjTJVFsKI1coR
+Qh2PYtacWai6F5imVoeJf3cPJR5PeSPrqkq7uyscIiGqcJo/QP+AR1AtrI3e4SjV
+ojslsgX/wP10GlV3wMh/g5Mgh42AgF+v3ij9cSQV0bdASAJhAW1SpVBxym0xZsGW
+vRzrKbvup6TZJWRow4Uy
+=XfR3
+-----END PGP SIGNATURE-----
+
+--=-RYOJRXLseuYKF3KdhEtg--
