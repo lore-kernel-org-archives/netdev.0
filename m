@@ -1,71 +1,135 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [PATCH] isdnloop: fix and simplify isdnloop_init()
-Date: Thu, 2 Aug 2012 18:44:56 +0800
-Message-ID: <20120802104456.GA21537@localhost>
-References: <20120802040158.GA11860@localhost>
+From: Olivier Sobrie <olivier@sobrie.be>
+Subject: Re: [PATCH] can: kvaser_usb: Add support for Kvaser CAN/USB devices
+Date: Thu, 2 Aug 2012 12:53:58 +0200
+Message-ID: <20120802105358.GA23787@hposo>
+References: <1343626352-24760-1-git-send-email-olivier@sobrie.be>
+ <50166BF2.9000700@pengutronix.de>
+ <20120730133323.GA13941@hposo>
+ <5017ABC6.7030307@pengutronix.de>
+ <20120731130650.GA23541@hposo>
+ <5017DD5B.2030701@pengutronix.de>
+Reply-To: Olivier Sobrie <olivier@sobrie.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Joe Perches <joe@perches.com>,
-	"open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:45058 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753237Ab2HBKyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 06:54:07 -0400
 Content-Disposition: inline
-In-Reply-To: <20120802040158.GA11860@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5017DD5B.2030701@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Add more CC]
+Hello,
 
-On Thu, Aug 02, 2012 at 12:01:58PM +0800, Fengguang Wu wrote:
-> Remove the non-sense isdnloop revision transform code, so as to fix:
+On Tue, Jul 31, 2012 at 03:27:55PM +0200, Marc Kleine-Budde wrote:
+> We can continue the review process, this problem has to be sorted out
+> before I can apply this patch to linux-can-next tree.
+
+Ok.
+
+> > 1) With the short circuit:
+> > 
+> > I perform the test you described. It showed that the Kvaser passes from
+> > ERROR-WARNING to ERROR-PASSIVE and then BUS-OFF. But after going to the
+> > state BUS-OFF it comes back to ERROR-WARNING.
+> > 
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+> >   can1  20000088  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
 > 
-> [   22.016214] isdnloop-ISDN-driver Rev 1.11.6.7 
-> [   22.097508] isdnloop: (loop0) virtual card added
-> [   22.174400] Kernel panic - not syncing: stack-protector: Kernel stack is corrupted in: ffffffff83244972
-> [   22.174400] 
-> [   22.436157] Pid: 1, comm: swapper Not tainted 3.5.0-bisect-00018-gfa8bbb1-dirty #129
-> [   22.624071] Call Trace:
-> [   22.720558]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
-> [   22.815248]  [<ffffffff8222b623>] panic+0x110/0x329
-> [   22.914330]  [<ffffffff83244972>] ? isdnloop_init+0xaf/0xb1
-> [   23.014800]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
-> [   23.090763]  [<ffffffff8108e24b>] __stack_chk_fail+0x2b/0x30
-> [   23.185748]  [<ffffffff83244972>] isdnloop_init+0xaf/0xb1
+> Why don't we have any rx/tx numbers in the error frame?
+
+Because the hardware seems to not update the tx/rx_errors_count
+fields :-(
+
+> From the hardware point of view the short circuit and open end tests
+> look good. Please adjust the driver to turn off the CAN interface in
+> case of a bus off if restart_ms is 0.
+
+And in the case where restart_ms is not 0? Don't I've to put it off so
+and drop the frame?
+I actually implemeted it as you said and here is what I observed in
+candump output with restart_ms set to 100 ms:
+
+t0: Short circuit between CAN-H and CAN-L + cansend can1 123#1122
+  can1  2000008C  [8] 00 04 90 00 00 00 00 00   ERRORFRAME
+	controller-problem{rx-error-warning}
+	protocol-violation{{tx-recessive-bit-error,error-on-tx}{}}
+	bus-error
+  can1  2000008C  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+	controller-problem{rx-error-passive}
+	protocol-violation{{tx-recessive-bit-error,error-on-tx}{}}
+	bus-error
+  can1  200000C8  [8] 00 00 90 00 00 00 00 00   ERRORFRAME
+	protocol-violation{{tx-recessive-bit-error,error-on-tx}{}}
+	bus-off
+	bus-error
+...
+  can1  2000008C  [8] 00 04 90 00 00 00 00 00   ERRORFRAME
+	controller-problem{rx-error-warning}
+	protocol-violation{{tx-recessive-bit-error,error-on-tx}{}}
+	bus-error
+  can1  2000008C  [8] 00 10 90 00 00 00 00 00   ERRORFRAME
+	controller-problem{rx-error-passive}
+	protocol-violation{{tx-recessive-bit-error,error-on-tx}{}}
+	bus-error
+  can1  200000C8  [8] 00 00 90 00 00 00 00 00   ERRORFRAME
+	protocol-violation{{tx-recessive-bit-error,error-on-tx}{}}
+	bus-off
+	bus-error
+
+t1: short circuit removed
+  can1  123  [2] 11 22
+  can1  20000100  [8] 00 00 00 00 00 00 00 00   ERRORFRAME
+	restarted-after-bus-of
+
+The echo coming before the restart looks weird? No?
+Shouldn't we drop the frame once BUF-OFF is reached?
+
+> >>>>> +		if ((priv->can.state == CAN_STATE_ERROR_WARNING) ||
+> >>>>> +		    (priv->can.state == CAN_STATE_ERROR_PASSIVE)) {
+> >>>>> +			cf->data[1] = (txerr > rxerr) ?
+> >>>>> +				CAN_ERR_CRTL_TX_PASSIVE
+> >>>>> +				: CAN_ERR_CRTL_RX_PASSIVE;
 > 
-> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
-> ---
->  drivers/isdn/isdnloop/isdnloop.c |   13 ++-----------
->  1 file changed, 2 insertions(+), 11 deletions(-)
+> Please use CAN_ERR_CRTL_RX_WARNING, CAN_ERR_CRTL_TX_WARNING where
+> appropriate.
+
+Ok. As the hardware doesn't report good values for txerr and rxerr, I'll
+also remove the tests on txerr and rxerr.
+I observed the same behavior with the original driver.
+I asked Kvaser for this problem. I've to wait before their developer is
+back (same for the GPL issue).
+
+> >>>>> +static int kvaser_usb_get_berr_counter(const struct net_device *netdev,
+> >>>>> +				       struct can_berr_counter *bec)
+> >>>>> +{
+> >>>>> +	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
+> >>>>> +
+> >>>>> +	bec->txerr = priv->bec.txerr;
+> >>>>> +	bec->rxerr = priv->bec.rxerr;
 > 
-> --- linux.orig/drivers/isdn/isdnloop/isdnloop.c	2012-05-24 19:03:06.748430938 +0800
-> +++ linux/drivers/isdn/isdnloop/isdnloop.c	2012-08-02 11:57:16.806437909 +0800
-> @@ -16,7 +16,7 @@
->  #include <linux/sched.h>
->  #include "isdnloop.h"
->  
-> -static char *revision = "$Revision: 1.11.6.7 $";
-> +static char *revision = "1.11.6.7";
->  static char *isdnloop_id = "loop0";
->  
->  MODULE_DESCRIPTION("ISDN4Linux: Pseudo Driver that simulates an ISDN card");
-> @@ -1494,16 +1494,7 @@ isdnloop_addcard(char *id1)
->  static int __init
->  isdnloop_init(void)
->  {
-> -	char *p;
-> -	char rev[10];
-> -
-> -	if ((p = strchr(revision, ':'))) {
-> -		strcpy(rev, p + 1);
-> -		p = strchr(rev, '$');
-> -		*p = 0;
-> -	} else
-> -		strcpy(rev, " ??? ");
-> -	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev%s\n", rev);
-> +	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev %s\n", revision);
->  
->  	if (isdnloop_id)
->  		return (isdnloop_addcard(isdnloop_id));
+> I think you can copy the struct like this:
+> 
+> 	*bec = priv->bec;
+
+Thanks. I'll remove the function kvaser_usb_get_berr_counter as the
+hardware seems to never report txerr and rxerr.
+
+I'll look deeper at this driver during the week-end if possible...
+
+Thanks a lot for your help,
+
+-- 
+Olivier
