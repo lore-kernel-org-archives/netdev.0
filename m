@@ -1,57 +1,70 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: discussion questions: SR-IOV, virtualization,
- and bonding
-Date: Thu, 02 Aug 2012 16:33:27 -0600
-Message-ID: <501B0037.1010804@genband.com>
-References: <501AD33E.5090308@genband.com> <17679.1343939453@death.nxdomain>
-	<501AFEAD.10001@genband.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
+Date: Thu, 02 Aug 2012 15:55:23 -0700
+Message-ID: <87ipd0ykdg.fsf@xmission.com>
+References: <5017E786.5000102@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <501AFEAD.10001@genband.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain
+Cc: linux-hams <linux-hams@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bernard Pidoux <bernard.pidoux@free.fr>
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <5017E786.5000102@free.fr> (Bernard Pidoux's message of "Tue, 31
+	Jul 2012 16:11:18 +0200")
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/02/2012 04:26 PM, Chris Friesen wrote:
-> On 08/02/2012 02:30 PM, Jay Vosburgh wrote:
+Bernard Pidoux <bernard.pidoux@free.fr> writes:
 
->> The best long term solution is to have a user space API that
->> provides link state input to bonding on a per-slave basis, and then some
->> user space entity can perform whatever link monitoring method is
->> appropriate (e.g., LLDP) and pass the results to bonding.
+> Hi,
 >
-> I think this has potential. This requires a virtual communication
-> channel between guest/host if we want the host to be able to influence
-> the guest's choice of active link, but I think that's not unreasonable.
+> I observe systematically a kernel panic when I try to shutdown rose0 device
+> using ifconfig rose0 down
 >
-> Actually, couldn't we do this now? Turn off miimon and arpmon, then just
-> have the userspace thing write to /sys/class/net/bondX/bonding/active_slave
+> This is happening on two very different ROSE implementation, one is on a machine
+> with x86-64 kernel 4.6.3 on an Intel core 2 duo CPU
+> the other is on a RaspBerry Pi with Raspbian and 3.1.9+ wheezy kernel
+> recompiled with AX.25 modules (ax25, rose, netrom, 6pack, kiss) enabled.
+>
+> Here is an image of the screen dump :
+>
+> http://f6bvp.org/photos/rose_device_event.JPG
 
-Hmm...looks like the bonding code requires either miimon or arpmon.  I 
-wonder if setting miimon to INT_MAX might work, at least for some 
-bonding modes.
+For some reason I can not connect f6bvp.org.
 
-Chris
+> It can be noticed that PC is at rose_device_event and
+> LR is at sock_def_wakeup
+>
+> One thing to be noticed is that when I close before all ROSE and AX.25
+> applications, there are still a few populated sockets, probably for one of the
+> program did not close the sockets properly.
+>
+> I that case, does rose module should accept to shutdown rose0 device ?
+> However, I guess that it should not create a kernel panic due to a kernel NULL
+> pointer.
 
-------------------------------------------------------------------------------
-Live Security Virtual Conference
-Exclusive live event will cover all the ways today's security and 
-threat landscape has changed and how IT managers can respond. Discussions 
-will include endpoint security, mobile security and the latest in malware 
-threats. http://www.accelacomm.com/jaw/sfrnl04242012/114/50122263/
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+No.  The kernel should not panic.
+
+> I don't know what to do in order to debug that issue.
+
+I assume that rose is interesting to you and you would like for it to
+work better?
+
+In general you can read the code and figure out what it is doing ref
+counting wise.  It doesn't look like anyone has done much with the rose
+code for years except very basic maintenance across the kernel.  It
+scares me to know that I was the last one to touch the rose code.
+
+Part of what is happening at the time of the panic is
+unregister_netdevice_notifier now generates synthetic removal for all of
+the network devices in the system to remove the need for a special path
+to handle network device removal in modules.
+
+Unfortunately it looks like one of those modules is a problem.
+
+You might want to simply try moving unregister_netdevice_notifier a bit
+earlier in rose_exit and see if that helps.  Otherwise I would recommend
+instrumenting the code up with some printk so you can understand what
+part of unregistration is failing.
+
+Eric
