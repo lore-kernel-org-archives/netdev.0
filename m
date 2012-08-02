@@ -1,36 +1,58 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH] can: kvaser_usb: Add support for Kvaser CAN/USB devices
-Date: Thu, 2 Aug 2012 14:16:43 +0200
-Message-ID: <20120802121643.GA12913@hposo>
-References: <1343626352-24760-1-git-send-email-olivier@sobrie.be>
- <50166BF2.9000700@pengutronix.de>
- <20120730133323.GA13941@hposo>
- <5017ABC6.7030307@pengutronix.de>
- <20120731130650.GA23541@hposo>
- <5017DD5B.2030701@pengutronix.de>
- <20120802105358.GA23787@hposo>
- <501A6AE7.9060508@pengutronix.de>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: Re: [PATCH] firmware: Remove obsolete Chelsio cxgb3 firmware
+Date: Thu, 02 Aug 2012 06:28:58 -0600
+Message-ID: <501A728A.2070905@canonical.com>
+References: <1343848670-31504-1-git-send-email-tim.gardner@canonical.com> <20120802.002000.2023014747210925552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <501A6AE7.9060508@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+	ben@decadent.org.uk, JBottomley@Parallels.com,
+	dan.j.williams@intel.com, divy@chelsio.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120802.002000.2023014747210925552.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 02, 2012 at 01:56:23PM +0200, Marc Kleine-Budde wrote:
-> BTW: is it possible to update the firmware on these devices?
+On 08/02/2012 01:20 AM, David Miller wrote:
+> 
+> "git am" refuses to apply this to current 'net':
+> 
+> Applying: firmware: Remove obsolete Chelsio cxgb3 firmware
+> error: removal patch leaves file contents
+> error: firmware/cxgb3/t3fw-7.10.0.bin.ihex: patch does not apply
+> 
 
-Yes it possible. But I don't know how to do it... I never did it.
-I saw on their website that they propose a zipfile with new firmwares.
-Inside the zipfile there is a tool 'Update.exe' which, I suppose, does
-the upgrade.
+Paul Gortmaker suggested I use 'git format-patch --irreversible-delete'
+to produce shorter patches, but then even I can't reapply it.
 
-Kr,
+How about a pull request against net-next instead ?
 
+The following changes since commit 1a9b4993b70fb1884716902774dc9025b457760d:
+
+  Merge branch 'upstream' of
+git://git.linux-mips.org/pub/scm/ralf/upstream-linus (2012-08-01
+16:47:15 -0700)
+
+are available in the git repository at:
+
+
+  git://kernel.ubuntu.com/rtg/net-next.git master
+
+for you to fetch changes up to 044b722f36a17bc5f7f472cc3246cb15a430bb0e:
+
+  firmware: Remove obsolete Chelsio cxgb3 firmware (2012-08-02 06:23:25
+-0600)
+
+----------------------------------------------------------------
+Tim Gardner (1):
+      firmware: Remove obsolete Chelsio cxgb3 firmware
+
+ firmware/Makefile                   |    1 -
+ firmware/cxgb3/t3fw-7.10.0.bin.ihex | 1935
+-----------------------------------
+ 2 files changed, 1936 deletions(-)
+ delete mode 100644 firmware/cxgb3/t3fw-7.10.0.bin.ihex
 -- 
-Olivier
+Tim Gardner tim.gardner@canonical.com
