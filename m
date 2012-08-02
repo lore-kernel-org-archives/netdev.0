@@ -1,67 +1,74 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [PATCH] isdnloop: fix and simplify isdnloop_init()
-Date: Thu, 2 Aug 2012 19:05:43 +0800
-Message-ID: <20120802110543.GA21745@localhost>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
+Date: Thu, 02 Aug 2012 04:09:39 -0700
+Message-ID: <87wr1h35zg.fsf@xmission.com>
+References: <50160EEF.6050406@parallels.com> <87pq7dh6b2.fsf@xmission.com>
+	<87fw89h5zk.fsf@xmission.com> <50179F66.1000604@parallels.com>
+	<878ve0dtw3.fsf@xmission.com>
+	<1343903310.9299.184.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-	Joe Perches <joe@perches.com>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "open list:ISDN SUBSYSTEM" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:34743 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799Ab2HBLKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 07:10:08 -0400
+In-Reply-To: <1343903310.9299.184.camel@edumazet-glaptop> (Eric Dumazet's
+	message of "Thu, 02 Aug 2012 12:28:30 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix a buffer overflow bug by removing the revision transform code.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-[   22.016214] isdnloop-ISDN-driver Rev 1.11.6.7 
-[   22.097508] isdnloop: (loop0) virtual card added
-[   22.174400] Kernel panic - not syncing: stack-protector: Kernel stack is corrupted in: ffffffff83244972
-[   22.174400] 
-[   22.436157] Pid: 1, comm: swapper Not tainted 3.5.0-bisect-00018-gfa8bbb1-dirty #129
-[   22.624071] Call Trace:
-[   22.720558]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
-[   22.815248]  [<ffffffff8222b623>] panic+0x110/0x329
-[   22.914330]  [<ffffffff83244972>] ? isdnloop_init+0xaf/0xb1
-[   23.014800]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
-[   23.090763]  [<ffffffff8108e24b>] __stack_chk_fail+0x2b/0x30
-[   23.185748]  [<ffffffff83244972>] isdnloop_init+0xaf/0xb1
+> On Tue, 2012-07-31 at 04:58 -0700, Eric W. Biederman wrote:
+>
+>> Making lo the particularly interesting case.
+>
+>
+> BTW, I noticed in my benchmarks, that once I remove the contention on
+> dst refcnt (using a percpu cache of dsts), I have a strange performance
+> cost accessing net->loopback_dev->ifindex in ip_route_output_key.
+>
+> Strange because I see no false sharing on this ifindex location for
+> loopback device.
+>
+> So we probably can save some cycles adding a net->loopback_ifindex
+> to remove one dereference.
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
----
- drivers/isdn/isdnloop/isdnloop.c |   13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+I am going to let Pavel tackle the actual work because only migration
+really cares and he is working on migration right now.
 
---- linux.orig/drivers/isdn/isdnloop/isdnloop.c	2012-05-24 19:03:06.748430938 +0800
-+++ linux/drivers/isdn/isdnloop/isdnloop.c	2012-08-02 11:57:16.806437909 +0800
-@@ -16,7 +16,7 @@
- #include <linux/sched.h>
- #include "isdnloop.h"
- 
--static char *revision = "$Revision: 1.11.6.7 $";
-+static char *revision = "1.11.6.7";
- static char *isdnloop_id = "loop0";
- 
- MODULE_DESCRIPTION("ISDN4Linux: Pseudo Driver that simulates an ISDN card");
-@@ -1494,16 +1494,7 @@ isdnloop_addcard(char *id1)
- static int __init
- isdnloop_init(void)
- {
--	char *p;
--	char rev[10];
--
--	if ((p = strchr(revision, ':'))) {
--		strcpy(rev, p + 1);
--		p = strchr(rev, '$');
--		*p = 0;
--	} else
--		strcpy(rev, " ??? ");
--	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev%s\n", rev);
-+	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev %s\n", revision);
- 
- 	if (isdnloop_id)
- 		return (isdnloop_addcard(isdnloop_id));
+But assuming we merge the per network namespace ifindex counter we
+can change net->loopback_dev->ifindex to LOOPBACK_IFINDEX and
+define "#define LOOPBACK_IFINDEX 1"
+
+Certainly that works in the initial network namespace today and might be
+worth testing.
+
+> If ifindex are per network space, I guess we'll need to change
+> arp_hashfn() or else we'll use some slots more than others.
+
+Darn.  I hate being right about there being a few places to fix
+up.
+
+ndisc_hashfn also has the same limitation.
+
+Eric
+
+> diff --git a/include/net/arp.h b/include/net/arp.h
+> index 7f7df93..37aac58 100644
+> --- a/include/net/arp.h
+> +++ b/include/net/arp.h
+> @@ -10,7 +10,7 @@ extern struct neigh_table arp_tbl;
+>  
+>  static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd)
+>  {
+> -	u32 val = key ^ dev->ifindex;
+> +	u32 val = key ^ (u32)(unsigned long)dev;
+>  
+>  	return val * hash_rnd;
+>  }
