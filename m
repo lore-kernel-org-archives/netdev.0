@@ -1,42 +1,59 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH] can: kvaser_usb: Add support for Kvaser CAN/USB devices
-Date: Thu, 2 Aug 2012 15:20:06 +0200
-Message-ID: <20120802132006.GA19362@hposo>
-References: <1343626352-24760-1-git-send-email-olivier@sobrie.be>
- <50166BF2.9000700@pengutronix.de>
- <20120730133323.GA13941@hposo>
- <5017ABC6.7030307@pengutronix.de>
- <20120731130650.GA23541@hposo>
- <5017DD5B.2030701@pengutronix.de>
- <20120802105358.GA23787@hposo>
- <501A6AE7.9060508@pengutronix.de>
- <20120802121643.GA12913@hposo>
- <501A73B4.6030203@pengutronix.de>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: Dragos Ilie <dragos.ilie@gmail.com>
+Subject: Re: Premature timeout for MLDv1 Host compatibility mode?
+Date: Thu, 2 Aug 2012 15:28:49 +0200
+Message-ID: <CAOLNa-dj1N-3Lo6Bu8X4H51gxBs4B2V0qWSDFQ-2qQzjEApJfw@mail.gmail.com>
+References: <CAOLNa-dCpLG4XCarzbSb=ptu-KGVX_Fghv4Z_CDQ8HBF_n-rGQ@mail.gmail.com>
+	<OFB6FB6105.8DE1252A-ON85257A4E.004637D4-85257A4E.00474EEF@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <501A73B4.6030203@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:59715 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753984Ab2HBN2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 09:28:50 -0400
+In-Reply-To: <OFB6FB6105.8DE1252A-ON85257A4E.004637D4-85257A4E.00474EEF@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 02, 2012 at 02:33:56PM +0200, Marc Kleine-Budde wrote:
-> On 08/02/2012 02:16 PM, Olivier Sobrie wrote:
-> > On Thu, Aug 02, 2012 at 01:56:23PM +0200, Marc Kleine-Budde wrote:
-> >> BTW: is it possible to update the firmware on these devices?
-> > 
-> > Yes it possible. But I don't know how to do it... I never did it.
-> > I saw on their website that they propose a zipfile with new firmwares.
-> > Inside the zipfile there is a tool 'Update.exe' which, I suppose, does
-> > the upgrade.
-> 
-> ...on windows only :). If they would be cool, they support dfu.
+On Thu, Aug 2, 2012 at 2:58 PM, David Stevens <dlstevens@us.ibm.com> wrote:
+> netdev-owner@vger.kernel.org wrote on 07/26/2012 10:57:43 AM:
+>
+>> RFC 3810 says that the timeout should be computed as
+>> Robustness_Variable * Query_Interval + Query_Response_Interval. This
+>> suggests that the line where switchback is computed should be changed
+>> to something like
+>>
+>> switchback = (idev->mc_qrv * 125 * HZ)  + max_delay;
+>>
+>> where 125 is the default Query_Interval in seconds
+>
+> Dragos,
+>         I agree that it's too short, but this shouldn't be using the
+> default value, but rather the actual value of the querier, if one is
+> present,
+> as calculated from a QQIC in a query. I suggest saving the QQI,
+> decoded, in a new "idev->mc_qqi" which should be initialized to 125
+> but updated by received queries and then using:
+>
+> switchback = idev->mc_qrv * idev->mc_qqi * HZ + max_delay;
+>
+>                                                 +-DLS
+>
 
-Indeed. I'll check if they are cool ;-)
+David,
 
--- 
-Olivier
+MLDv1 packets do not have a QQIC field in the Query header. That is a
+available for MLDv2 only. Consequently, MLDv1 queriers should fallback
+ on the Query Interval variable, which has a  default value of 125
+seconds. Since the Query Interval value is not user-configurable, I
+assume that using the default value is a reasonable choice.
+
+RFC 3810(MLDv2)  does mention that the Older Version Querier Present
+Timeout must be calculated using the Query Interval from the last
+received Query. I think the RFC is wrong on that point because I don't
+see how a MLDv1 querier can convey its Query Interval to a listener.
+
+Regards,
+Dragos
