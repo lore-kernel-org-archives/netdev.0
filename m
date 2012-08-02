@@ -1,36 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] igb: reduce Rx header size
-Date: Thu, 02 Aug 2012 17:52:47 +0200
-Message-ID: <1343922767.9299.234.camel@edumazet-glaptop>
-References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1343920538.9299.200.camel@edumazet-glaptop>  <501AA00E.3010400@intel.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [PATCH net-next] igb: use build_skb()
+Date: Thu, 2 Aug 2012 16:10:12 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B62630D8B289@ORSMSX102.amr.corp.intel.com>
+References: <1343922692.9299.231.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:36151 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055Ab2HBPwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 11:52:51 -0400
-Received: by eeil10 with SMTP id l10so2440834eei.19
-        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 08:52:50 -0700 (PDT)
-In-Reply-To: <501AA00E.3010400@intel.com>
+Received: from mga02.intel.com ([134.134.136.20]:31989 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753644Ab2HBQKS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2012 12:10:18 -0400
+In-Reply-To: <1343922692.9299.231.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-02 at 08:43 -0700, Alexander Duyck wrote:
-
-> Would there be any problems with us running this through Jeff's tree for
-> testing prior to applying this?  I'm just wanting to do some testing
-> internally for any performance regressions due to this change.
-
-Sure, I was expecting this exactly, sorry if it was not clear.
-
-( by the way, I am more interested on the second patch I just sent )
-
-Thanks !
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5l
+bC5vcmcgW21haWx0bzpuZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2Yg
+RXJpYyBEdW1hemV0DQpTZW50OiBUaHVyc2RheSwgQXVndXN0IDAyLCAyMDEyIDg6NTIgQU0NClRv
+OiBLaXJzaGVyLCBKZWZmcmV5IFQNCkNjOiBEdXljaywgQWxleGFuZGVyIEg7IG5ldGRldg0KU3Vi
+amVjdDogW1BBVENIIG5ldC1uZXh0XSBpZ2I6IHVzZSBidWlsZF9za2IoKQ0KDQpGcm9tOiBFcmlj
+IER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQoNCkJ5IHVzaW5nIG5ldGRldl9hbGxvY19m
+cmFnKCkgJiBidWlsZF9za2IoKSBpbnN0ZWFkIG9mIGxlZ2FjeQ0KbmV0ZGV2X2FsbG9jX3NrYl9p
+cF9hbGlnbigpIGNhbGxzLCB3ZSByZWR1Y2UgbnVtYmVyIG9mIGNhY2hlIG1pc3NlcyBpbiBSWCBw
+YXRoIGFuZCBzaXplIG9mIHdvcmtpbmcgc2V0Lg0KDQpGb3IgYSBnaXZlbiByeCB3b3JrbG9hZCwg
+bnVtYmVyIG9mICdpbnVzZScgc2tfYnVmZiBjYW4gYmUgcmVkdWNlZCB0byBhIHZlcnkgbWluaW11
+bSwgZXNwZWNpYWxseSB3aGVuIHBhY2tldHMgYXJlIGRyb3BwZWQgYnkgb3VyIHN0YWNrLg0KDQoo
+QmVmb3JlIHRoaXMgcGF0Y2gsIGRlZmF1bHQgc2tfYnVmZiBhbGxvY2F0aW9uIHdhcyAyMDQ4IHNr
+X2J1ZmZzIGluIHJ4IHJpbmcgYnVmZmVyKQ0KDQpUaGV5IGFyZSBpbml0aWFsaXplZCByaWdodCBi
+ZWZvcmUgYmVpbmcgZGVsaXZlcmVkIHRvIHN0YWNrLCBzbyBjYW4gc3RheSBob3QgaW4gY3B1IGNh
+Y2hlcy4NCg0KRXRoZXJuZXQgaGVhZGVyIHByZWZldGNoaW5nIGlzIG1vcmUgZWZmZWN0aXZlIChv
+bGQgcHJlZmV0Y2ggb2Ygc2tiLT5kYXRhIHBhaWQgYSBzdGFsbCB0byBhY2Nlc3Mgc2tiLT5kYXRh
+IHBvaW50ZXIpDQoNCkkgaGF2ZSAxNSUgcGVyZm9ybWFuY2UgaW5jcmVhc2UgaW4gYSBSWCBzdHJl
+c3MgdGVzdCwgcmVtb3ZpbmcgU0xVQiBzbG93IHBhdGggaW4gdGhlIHByb2ZpbGVzLg0KDQpTaWdu
+ZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQpDYzogQWxleGFu
+ZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+DQotLS0NCg0KVGhhbmtzIEVy
+aWMsIA0KDQpXZSd2ZSBiZWVuIHdvcmtpbmcgb24gc29tZSBtb3JlIGV4dGVuc2l2ZSBwZXJmb3Jt
+YW5jZSByZWZhY3RvcmluZyB0aGF0IHdpbGwgYmUgY29taW5nIGluIGFkZGl0aW9uIHRvIHRoaXMu
+DQoNCkplZmYgd2lsbCBwdWxsIHRoZXNlIHBhdGNoZXMgaW50byBoaXMgdHJlZSBmb3IgdGVzdGlu
+Zy4NCg0KQ2Fyb2x5bg0KDQpDYXJvbHluIFd5Ym9ybnkNCkxpbnV4IERldmVsb3BtZW50DQpMQU4g
+QWNjZXNzIERpdmlzaW9uDQpJbnRlbCBDb3Jwb3JhdGlvbg0KDQoNCg0K
