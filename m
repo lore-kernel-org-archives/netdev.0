@@ -1,67 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] igb: reduce Rx header size
-Date: Thu, 02 Aug 2012 13:28:18 -0700
-Message-ID: <1343939298.2132.42.camel@jtkirshe-mobl>
-References: <1342912142-11130-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1342912142-11130-8-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1343920538.9299.200.camel@edumazet-glaptop>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH 1/2] net: davinci_mdio: enable and disable clock
+Date: Thu, 02 Aug 2012 22:28:48 +0200
+Message-ID: <501AE300.2090707@gmail.com>
+References: <1343936616-29318-1-git-send-email-zonque@gmail.com> <alpine.DEB.2.00.1208021416550.18867@utopia.booyaka.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ndG3r3MJK3aUTprXz6Jz"
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	koen@dominion.thruhere.net, mugunthanvnm@ti.com,
+	linux-arm-kernel@lists.infradead.org
+To: Paul Walmsley <paul@pwsan.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:2858 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751547Ab2HBU2T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2012 16:28:19 -0400
-In-Reply-To: <1343920538.9299.200.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:38996 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753067Ab2HBU2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 16:28:53 -0400
+Received: by bkwj10 with SMTP id j10so4426737bkw.19
+        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 13:28:51 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1208021416550.18867@utopia.booyaka.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02.08.2012 22:20, Paul Walmsley wrote:
+> Hi
+> 
+> On Thu, 2 Aug 2012, Daniel Mack wrote:
+> 
+>> Make the driver control the device clocks. Appearantly, the Davinci
+>> platform probes this driver with the clock all powered up, but on OMAP,
+>> this isn't the case.
+>>
+>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> 
+>> ---
+>>  drivers/net/ethernet/ti/davinci_mdio.c | 16 ++++++++++++++--
+>>  1 file changed, 14 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+>> index cd7ee20..b4b6015 100644
+>> --- a/drivers/net/ethernet/ti/davinci_mdio.c
+>> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
+>> @@ -332,6 +332,8 @@ static int __devinit davinci_mdio_probe(struct platform_device *pdev)
+>>  		goto bail_out;
+>>  	}
+>>  
+>> +	clk_enable(data->clk);
+>> +
+> 
+> This doesn't look right.  This clock should be enabled by the
+> pm_runtime_get_sync() call just above this.  It shouldn't be necessary
+> to enable it again unless something isn't right with the integration
+> data. Likewise the pm_runtime_put_sync() calls should be superfluous.
 
---=-ndG3r3MJK3aUTprXz6Jz
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Aah, thanks for the heads-up. To explain, I first worked with a dirty
+hack to alias the clock, and I definitely needed these extra calls then.
 
-On Thu, 2012-08-02 at 17:15 +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> Reduce skb truesize by 256 bytes.
->=20
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> Tested on my machine without any problem
->=20
->  drivers/net/ethernet/intel/igb/igb.h |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)=20
+> What hwmod data/device tree file are you using with this?
 
-Thanks Eric, I have added it to my queue.
+Later, I added the hwmod to move away from these hacks, and indeed, that
+lets the pm runtime code handle the clock enabling. With that in place,
+the patch we're talking about here is in fact unnecessary.
 
---=-ndG3r3MJK3aUTprXz6Jz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+The second one though (the one that adds DT bindings) should go in.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+I will send a separate one later that fixes the IS_ERR(data->clk) error
+that Russell spotted. But that's now unrelated.
 
-iQIcBAABCgAGBQJQGuLiAAoJEOVv75VaS+3OSg4QAKfG5fmhcb0D4HRU/C02HgtJ
-1vPfku36bBhnRjWtJcYwovXqscP6mtfWPFhE3ba26wL6AHVplGFAsaPR9zECD88f
-Hw86EEpxPTRLxY6fGFXWP+dkDCaCr44hdd4KKo7JivXyaqly6TrnwsADLj1fmq5K
-7slqyWbVJSPgNYFk3i6FYZm2BKWACucFCtjDbUVYB3pauwUL+r0/whZiH1IIyTwP
-/puTDlz6/elLxY2uZiUE+F31R9gTL9nA8PcNoxt0hLKdrOfcQw4xYyL7sysSLgWL
-mZS2Lhw3wNTe8lfKofNv1B0aoIlDOMyH66fcbeazoy4Fx/bThiBf9iOdyZmXKSAK
-eRMYcgjPFI9Rzfzy5ZwUYxidAJgdi8+nfynYVLRu96z+omHXC3munjsnNJaPh4Ov
-UNNQW0O/D6dRLJYTJcaXpwxyuTNWyhMitR0thXfanMEQnfSrY7WmHXPlzLxRP6IN
-nlQVa1s+kNe8FDu3vQ4a73XxgYICgVr4m/tENFzWDKsDFAvVHlVenkuzenHDvTYB
-6qFelGn9QW9o1IBHjXQDFRh3bQAM3fuzOYWEmONPpvPq98noM1v0fr5wXlw9f+te
-bSGDYX51GgsZEL/enARKQ/mO8d7tWMgziq7wUq2Y2vKo/q9setmMVi9o8T5J3jMJ
-YSTtq+ZvOCLdJ3I/7/iB
-=6Rex
------END PGP SIGNATURE-----
 
---=-ndG3r3MJK3aUTprXz6Jz--
+Thanks for the review,
+Daniel
