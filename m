@@ -1,59 +1,34 @@
-From: Erez Shitrit <erezsh@mellanox.com>
-Subject: Re: [PATCH V2 08/12] net/eipoib: Add ethtool file support
-Date: Thu, 2 Aug 2012 11:35:42 +0300
-Message-ID: <501A3BDE.1070509@mellanox.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>  <1343840975-3252-9-git-send-email-ogerlitz@mellanox.com> <1343866955.2602.66.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: route.c cleanup
+Date: Thu, 02 Aug 2012 01:45:34 -0700 (PDT)
+Message-ID: <20120802.014534.1221330015548828529.davem@davemloft.net>
+References: <1343893753.9299.13.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, <davem@davemloft.net>,
-	<roland@kernel.org>, <netdev@vger.kernel.org>, <ali@mellanox.com>,
-	<sean.hefty@intel.com>, Erez Shitrit <erezsh@mellanox.co.il>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:39122 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750772Ab2HBIfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 04:35:51 -0400
-In-Reply-To: <1343866955.2602.66.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53729 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472Ab2HBIpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 04:45:35 -0400
+In-Reply-To: <1343893753.9299.13.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/2/2012 3:22 AM, Ben Hutchings wrote:
-> On Wed, 2012-08-01 at 20:09 +0300, Or Gerlitz wrote:
->> From: Erez Shitrit <erezsh@mellanox.co.il>
->>
->> Via ethtool the driver describes its version, ABI version, on what PIF
->> interface it runs and various statistics.
-> [...]
->> --- /dev/null
->> +++ b/drivers/net/eipoib/eth_ipoib_ethtool.c
-> [...]
->> +static void parent_ethtool_get_drvinfo(struct net_device *parent_dev,
->> +				       struct ethtool_drvinfo *drvinfo)
->> +{
->> +	struct parent *parent = netdev_priv(parent_dev);
->> +
->> +	strncpy(drvinfo->driver, DRV_NAME, 32);
->> +
->> +	strncpy(drvinfo->version, DRV_VERSION, 32);
->> +
->> +	strncpy(drvinfo->bus_info, parent->ipoib_main_interface,
->> +		ETHTOOL_BUSINFO_LEN);
-> These must be null-terminated; therefore use strlcpy().
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 02 Aug 2012 09:49:13 +0200
 
-ok, will fix.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Remove some unused includes and sysctls after route cache removal.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
->> +	/* indicates ABI version */
->> +	snprintf(drvinfo->fw_version, 32, "%d", EIPOIB_ABI_VER);
-> [...]
->
-> This is an abuse of fw_version.
->
-> Ben.
-we took the idea from the bonding driver,
-(snprintf(drvinfo->fw_version, 32, "%d", BOND_ABI_VERSION);)
+I'm largely against removing the (now pointless) sysctls.
 
-Do you have any idea where can we keep the abi version?
+If the settings do nothing, so be it.
 
-Thanks, Erez
+But it shouldn't generate warnings and errors during bootup,
+which is what removing them is going to do.
