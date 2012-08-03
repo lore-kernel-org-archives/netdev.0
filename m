@@ -1,73 +1,62 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,1/1] hyperv: Move wait completion msg code into rndis_filter_halt_device()
-Date: Fri,  3 Aug 2012 12:32:18 -0700
-Message-ID: <1344022338-3010-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: ethtool 3.5 released
+Date: Fri, 3 Aug 2012 20:48:37 +0100
+Message-ID: <1344023317.2610.13.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="=-BrKF9FIvPFofbBnIjo8c"
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:43275 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752328Ab2HCTsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 15:48:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We need to wait for send_completion msg before put_rndis_request() at
-the end of rndis_filter_halt_device(). Otherwise, netvsc_send_completion()
-may reference freed memory which is overwritten, and cause panic.
+--=-BrKF9FIvPFofbBnIjo8c
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Long Li <longli@microsoft.com>
-Reported-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/netvsc.c       |    7 -------
- drivers/net/hyperv/rndis_filter.c |   11 +++++++++++
- 2 files changed, 11 insertions(+), 7 deletions(-)
+ethtool version 3.5 has been released.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 6cee291..4a1a5f5 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -383,13 +383,6 @@ int netvsc_device_remove(struct hv_device *device)
- 	unsigned long flags;
- 
- 	net_device = hv_get_drvdata(device);
--	spin_lock_irqsave(&device->channel->inbound_lock, flags);
--	net_device->destroy = true;
--	spin_unlock_irqrestore(&device->channel->inbound_lock, flags);
--
--	/* Wait for all send completions */
--	wait_event(net_device->wait_drain,
--		   atomic_read(&net_device->num_outstanding_sends) == 0);
- 
- 	netvsc_disconnect_vsp(net_device);
- 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index e5d6146..1e88a10 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -718,6 +718,9 @@ static void rndis_filter_halt_device(struct rndis_device *dev)
- {
- 	struct rndis_request *request;
- 	struct rndis_halt_request *halt;
-+	struct netvsc_device *nvdev = dev->net_dev;
-+	struct hv_device *hdev = nvdev->dev;
-+	ulong flags;
- 
- 	/* Attempt to do a rndis device halt */
- 	request = get_rndis_request(dev, RNDIS_MSG_HALT,
-@@ -735,6 +738,14 @@ static void rndis_filter_halt_device(struct rndis_device *dev)
- 	dev->state = RNDIS_DEV_UNINITIALIZED;
- 
- cleanup:
-+	spin_lock_irqsave(&hdev->channel->inbound_lock, flags);
-+	nvdev->destroy = true;
-+	spin_unlock_irqrestore(&hdev->channel->inbound_lock, flags);
-+
-+	/* Wait for all send completions */
-+	wait_event(nvdev->wait_drain,
-+		atomic_read(&nvdev->num_outstanding_sends) == 0);
-+
- 	if (request)
- 		put_rndis_request(dev, request);
- 	return;
--- 
-1.7.4.1
+Home page: https://ftp.kernel.org/pub/software/network/ethtool/
+Download link:
+https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.1.tar.gz
+
+Release notes:
+
+	* Feature: Display support for 1000BASE-KX and 10GBASE-KX4 link modes
+	* Feature: Energy-Efficient Ethernet (EEE) configuration
+	  (--show-eee and --set-eee options)
+	* Fix: Don't trust drivers to null-terminate strings
+	* Feature: Display support for 40G link modes
+	* Package: Update RPM summary, description and URL
+	* Package: Exclude redundant documentation from RPM
+
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
+--=-BrKF9FIvPFofbBnIjo8c
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQEcBAABCAAGBQJQHCsVAAoJEGkILBsOca600F4H/iJIcE8tKkL1iwN313G2c/ty
+1rA7uHkjg2MTzxGe+r9OQmeOcaVHUDqnFoczuMIle/L9LyOYXfNlaj+wlvoWwO6F
+Lm7dswXki7/74AgYhP9FFvDHZL7P9XC591/RKWQgUo0NsPPYD8H7WoCPRVjmKCVs
+O6/npfdyTWDexn3zDTwr1wP1FvTbD89E3s4vQbUujqI1K32aACHWa837gCsXP0UV
+LnK8weSlq8cjkuxa/sqCfZ7nl4XDAsh4EriPEuTnuJ0mrRjguH/2HLYArvZbD0Pv
+vF1jo5df/admRAs2ubviEIlMs+QITpXsShlh2pkOyTXKrlZbYwLdMh8SOdjuUbs=
+=4PKS
+-----END PGP SIGNATURE-----
+
+--=-BrKF9FIvPFofbBnIjo8c--
