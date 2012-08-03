@@ -1,62 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ethtool 3.5 released
-Date: Fri, 3 Aug 2012 20:48:37 +0100
-Message-ID: <1344023317.2610.13.camel@bwh-desktop.uk.solarflarecom.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH] ipv4: remove parentheses in return statement
+Date: Fri, 3 Aug 2012 14:23:50 -0600
+Message-ID: <20120803202350.GA7520@mail.gmail.com>
+References: <1343979790-17408-1-git-send-email-sakiwit@gmail.com>
+ <20120803.015243.1041602621154758483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-BrKF9FIvPFofbBnIjo8c"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43275 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752328Ab2HCTsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 15:48:46 -0400
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:39789 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753604Ab2HCU0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 16:26:46 -0400
+Received: by pbbrp8 with SMTP id rp8so1875284pbb.19
+        for <netdev@vger.kernel.org>; Fri, 03 Aug 2012 13:26:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120803.015243.1041602621154758483.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-BrKF9FIvPFofbBnIjo8c
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+From: David Miller <davem@davemloft.net>
+Date: Fri, 03 Aug 2012 01:52:43 -0700
+>
+> From: Jean Sacren <sakiwit@gmail.com>
+> Date: Fri,  3 Aug 2012 01:43:10 -0600
+> 
+> > Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> 
+> > -	return ((val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
+> > -		(IN4_ADDR_HSIZE - 1));
+> > +	return (val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
+> > +	       (IN4_ADDR_HSIZE - 1);
+> 
+> Those parenthesis are there to make the evaluation order and
+> grouping explicit.
+> 
+> The other ones you changed are wrong for similar reasons.
 
-ethtool version 3.5 has been released.
+Barring the speed issue raised by Eric Dumazet, this patch is correct.
 
-Home page: https://ftp.kernel.org/pub/software/network/ethtool/
-Download link:
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.1.tar.gz
+To illustrate, the patch merely changes
 
-Release notes:
+	return (A);
 
-	* Feature: Display support for 1000BASE-KX and 10GBASE-KX4 link modes
-	* Feature: Energy-Efficient Ethernet (EEE) configuration
-	  (--show-eee and --set-eee options)
-	* Fix: Don't trust drivers to null-terminate strings
-	* Feature: Display support for 40G link modes
-	* Package: Update RPM summary, description and URL
-	* Package: Exclude redundant documentation from RPM
+to
 
-Ben.
+	return A;
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+where A is nothing but an expression, regardless if it is a simple one
+or a compound one.
 
+Whatever A is, it evaluates to a value. The parentheses do _not_
+contribute to the evaluation. They do not alter precedence. They do not
+make the evaluation order explicit. They are there to serve no purpose,
+yet they do make return statement look like a function call.
 
---=-BrKF9FIvPFofbBnIjo8c
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Moreover, A is one single entity. It does not group with anything else.
+I really don't see the significance of making A a group by itself.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Thank you for reviewing the patch. With all due respect, your assessment
+is hard to agree with this moment.
 
-iQEcBAABCAAGBQJQHCsVAAoJEGkILBsOca600F4H/iJIcE8tKkL1iwN313G2c/ty
-1rA7uHkjg2MTzxGe+r9OQmeOcaVHUDqnFoczuMIle/L9LyOYXfNlaj+wlvoWwO6F
-Lm7dswXki7/74AgYhP9FFvDHZL7P9XC591/RKWQgUo0NsPPYD8H7WoCPRVjmKCVs
-O6/npfdyTWDexn3zDTwr1wP1FvTbD89E3s4vQbUujqI1K32aACHWa837gCsXP0UV
-LnK8weSlq8cjkuxa/sqCfZ7nl4XDAsh4EriPEuTnuJ0mrRjguH/2HLYArvZbD0Pv
-vF1jo5df/admRAs2ubviEIlMs+QITpXsShlh2pkOyTXKrlZbYwLdMh8SOdjuUbs=
-=4PKS
------END PGP SIGNATURE-----
-
---=-BrKF9FIvPFofbBnIjo8c--
+-- 
+Jean Sacren
