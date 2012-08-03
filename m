@@ -1,47 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: remove parentheses in return statement
-Date: Fri, 03 Aug 2012 02:22:40 -0700 (PDT)
-Message-ID: <20120803.022240.1997423719431165575.davem@davemloft.net>
-References: <1343979790-17408-1-git-send-email-sakiwit@gmail.com>
-	<1343985584.9299.873.camel@edumazet-glaptop>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: [PATCH v2] ipv4/ipv6: multicast api unappropriate errno fix.
+Date: Fri, 03 Aug 2012 17:29:05 +0800
+Message-ID: <501B99E1.9090803@cn.fujitsu.com>
+References: <1343977605-14446-1-git-send-email-lw@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: sakiwit@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Li Wei <lw@cn.fujitsu.com>, netdev@vger.kernel.org,
+	dlstevens@us.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35092 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752788Ab2HCJWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 05:22:41 -0400
-In-Reply-To: <1343985584.9299.873.camel@edumazet-glaptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:8442 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751513Ab2HCJaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2012 05:30:00 -0400
+In-Reply-To: <1343977605-14446-1-git-send-email-lw@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 03 Aug 2012 11:19:44 +0200
 
-> On Fri, 2012-08-03 at 01:43 -0600, Jean Sacren wrote:
-> 
->> @@ -106,8 +106,8 @@ static inline unsigned int inet_addr_hash(struct net *net, __be32 addr)
->>  {
->>  	u32 val = (__force u32) addr ^ hash_ptr(net, 8);
->>  
->> -	return ((val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
->> -		(IN4_ADDR_HSIZE - 1));
->> +	return (val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
->> +	       (IN4_ADDR_HSIZE - 1);
->>  }
-> 
-> BTW This should use a faster implementation, I'll send a patch when
-> net-next is opened.
+commit 917f2f105([IPV4]: multicast API "join" issues) corrected
+some errno values but also caused unappropriate errno returned.
 
-There seems to be a few spots where we want the pointer "as a 32-bit
-integer" for hashing.  We were discussing arp_hashfn() and ndisc_hashfn()
-the other day.
+With an unjoined group address, return -EADDRNOTAVAIL would be
+much better than -EINVAL.
 
-It should basically do something like:
+Also correct the errno when to join an source group which we have
+already joined to -EADDRINUSE.
 
-	(u32) ((u64)ptr >> 32 | ((u32) ptr))
+Signed-off-by: Li Wei <lw@cn.fujitsu.com>
 
-on 64-bit and simply (u32)(ptr) on 32-bit.
+--
+V2: return -EADDRINUSE when join an already joined source group.
+---
+ net/ipv4/igmp.c  |    8 +++-----
+ net/ipv6/mcast.c |   12 ++++++------
+ 2 files changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 6699f23..c45c092 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1933,10 +1933,8 @@ int ip_mc_source(int add, int omode, struct sock *sk, struct
+ 		    (pmc->multi.imr_ifindex == imr.imr_ifindex))
+ 			break;
+ 	}
+-	if (!pmc) {		/* must have a prior join */
+-		err = -EINVAL;
+-		goto done;
+-	}
++	if (!pmc)		/* must have a prior join */
++		goto done;	/* err = -EADDRNOTAVAIL */
+ 	/* if a source filter was set, must be the same mode as before */
+ 	if (pmc->sflist) {
+ 		if (pmc->sfmode != omode) {
+@@ -2076,7 +2074,7 @@ int ip_mc_msfilter(struct sock *sk, struct ip_msfilter *msf, int ifindex)
+ 			break;
+ 	}
+ 	if (!pmc) {		/* must have a prior join */
+-		err = -EINVAL;
++		err = -EADDRNOTAVAIL;
+ 		goto done;
+ 	}
+ 	if (msf->imsf_numsrc) {
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 92f8e48..dcd12c0 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -347,10 +347,8 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
+ 		if (ipv6_addr_equal(&pmc->addr, group))
+ 			break;
+ 	}
+-	if (!pmc) {		/* must have a prior join */
+-		err = -EINVAL;
+-		goto done;
+-	}
++	if (!pmc)		/* must have a prior join */
++		goto done;	/* err = -EADDRNOTAVAIL */
+ 	/* if a source filter was set, must be the same mode as before */
+ 	if (pmc->sflist) {
+ 		if (pmc->sfmode != omode) {
+@@ -428,8 +426,10 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
+ 		if (rv == 0)
+ 			break;
+ 	}
+-	if (rv == 0)		/* address already there is an error */
++	if (rv == 0) {		/* address already there is an error */
++		err = -EADDRINUSE;
+ 		goto done;
++	}
+ 	for (j=psl->sl_count-1; j>=i; j--)
+ 		psl->sl_addr[j+1] = psl->sl_addr[j];
+ 	psl->sl_addr[i] = *source;
+@@ -488,7 +488,7 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
+ 			break;
+ 	}
+ 	if (!pmc) {		/* must have a prior join */
+-		err = -EINVAL;
++		err = -EADDRNOTAVAIL;
+ 		goto done;
+ 	}
+ 	if (gsf->gf_numsrc) {
+-- 
+1.7.10.1
