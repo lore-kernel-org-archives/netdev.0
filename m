@@ -1,124 +1,353 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: remove parentheses in return statement
-Date: Fri, 03 Aug 2012 11:53:58 +0200
-Message-ID: <1343987638.9299.912.camel@edumazet-glaptop>
-References: <1343979790-17408-1-git-send-email-sakiwit@gmail.com>
-	 <1343985584.9299.873.camel@edumazet-glaptop>
-	 <20120803.022240.1997423719431165575.davem@davemloft.net>
+Subject: Re: [PATCH 1/7] netpoll: use GFP_ATOMIC in slave_enable_netpoll()
+ and __netpoll_setup()
+Date: Fri, 03 Aug 2012 12:10:23 +0200
+Message-ID: <1343988623.9299.932.camel@edumazet-glaptop>
+References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
+	 <1343403484-29347-2-git-send-email-amwang@redhat.com>
+	 <1343985428.9299.868.camel@edumazet-glaptop> <1343986487.20871.2.camel@cr0>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sakiwit@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:37593 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303Ab2HCJyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 05:54:03 -0400
-Received: by bkwj10 with SMTP id j10so171223bkw.19
-        for <netdev@vger.kernel.org>; Fri, 03 Aug 2012 02:54:01 -0700 (PDT)
-In-Reply-To: <20120803.022240.1997423719431165575.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1343986487.20871.2.camel@cr0>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-03 at 02:22 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 03 Aug 2012 11:19:44 +0200
-> 
-> > On Fri, 2012-08-03 at 01:43 -0600, Jean Sacren wrote:
+On Fri, 2012-08-03 at 17:34 +0800, Cong Wang wrote:
+> On Fri, 2012-08-03 at 11:17 +0200, Eric Dumazet wrote:
+> > On Fri, 2012-07-27 at 23:37 +0800, Cong Wang wrote:
+> > > slave_enable_netpoll() and __netpoll_setup() may be called
+> > > with read_lock() held, so should use GFP_ATOMIC to allocate
+> > > memory.
+> > > 
+> > > Cc: "David S. Miller" <davem@davemloft.net>
+> > > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > > ---
+> > >  drivers/net/bonding/bond_main.c |    2 +-
+> > >  net/core/netpoll.c              |    2 +-
+> > >  2 files changed, 2 insertions(+), 2 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> > > index 6fae5f3..ab773d4 100644
+> > > --- a/drivers/net/bonding/bond_main.c
+> > > +++ b/drivers/net/bonding/bond_main.c
+> > > @@ -1235,7 +1235,7 @@ static inline int slave_enable_netpoll(struct slave *slave)
+> > >  	struct netpoll *np;
+> > >  	int err = 0;
+> > >  
+> > > -	np = kzalloc(sizeof(*np), GFP_KERNEL);
+> > > +	np = kzalloc(sizeof(*np), GFP_ATOMIC);
+> > >  	err = -ENOMEM;
+> > >  	if (!np)
+> > >  		goto out;
+> > > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> > > index b4c90e4..c78a966 100644
+> > > --- a/net/core/netpoll.c
+> > > +++ b/net/core/netpoll.c
+> > > @@ -734,7 +734,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+> > >  	}
+> > >  
+> > >  	if (!ndev->npinfo) {
+> > > -		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
+> > > +		npinfo = kmalloc(sizeof(*npinfo), GFP_ATOMIC);
+> > >  		if (!npinfo) {
+> > >  			err = -ENOMEM;
+> > >  			goto out;
 > > 
-> >> @@ -106,8 +106,8 @@ static inline unsigned int inet_addr_hash(struct net *net, __be32 addr)
-> >>  {
-> >>  	u32 val = (__force u32) addr ^ hash_ptr(net, 8);
-> >>  
-> >> -	return ((val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
-> >> -		(IN4_ADDR_HSIZE - 1));
-> >> +	return (val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
-> >> +	       (IN4_ADDR_HSIZE - 1);
-> >>  }
+> > Yes this works, but maybe you instead could pass/add a gfp_t flags
+> > argument to __netpoll_setup() ?
 > > 
-> > BTW This should use a faster implementation, I'll send a patch when
-> > net-next is opened.
+> > Management tasks should allow GFP_KERNEL allocations to have less
+> > failure risks.
+> > 
+> > Its sad bonding uses the rwlock here instead of a mutex
+> > 
 > 
-> There seems to be a few spots where we want the pointer "as a 32-bit
-> integer" for hashing.  We were discussing arp_hashfn() and ndisc_hashfn()
-> the other day.
+> Yup, that is a good idea. I will update this patch.
 > 
-> It should basically do something like:
+> Thanks!
 > 
-> 	(u32) ((u64)ptr >> 32 | ((u32) ptr))
-> 
-> on 64-bit and simply (u32)(ptr) on 32-bit.
 
-We already have such thing in fact : net_hash_mix() which returns 0 if
-NS are not configured.
+I did this , just take it ;)
 
-(hash_ptr(net,8) is really overkill on 64bit arches)
+ drivers/net/bonding/bond_main.c |    6 +++---
+ drivers/net/team/team.c         |   14 +++++++-------
+ include/linux/netdevice.h       |    2 +-
+ include/linux/netpoll.h         |    2 +-
+ net/8021q/vlan_dev.c            |    6 +++---
+ net/bridge/br_device.c          |   10 +++++-----
+ net/bridge/br_if.c              |    2 +-
+ net/bridge/br_private.h         |    4 ++--
+ net/core/netpoll.c              |    8 ++++----
+ 9 files changed, 27 insertions(+), 27 deletions(-)
 
-High order bits on "struct net *" have absolutely no entropy, unless you
-have a monster machine (more than 256 GB of ram)
-
-This is the patch I prepared :
-
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 44bf82e..b9753ab 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -94,25 +94,22 @@ static const struct nla_policy ifa_ipv4_policy[IFA_MAX+1] = {
- 	[IFA_LABEL]     	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 },
- };
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6fae5f3..ccff590 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1235,12 +1235,12 @@ static inline int slave_enable_netpoll(struct slave *slave)
+ 	struct netpoll *np;
+ 	int err = 0;
  
--/* inet_addr_hash's shifting is dependent upon this IN4_ADDR_HSIZE
-- * value.  So if you change this define, make appropriate changes to
-- * inet_addr_hash as well.
-- */
--#define IN4_ADDR_HSIZE	256
-+#define IN4_ADDR_HSIZE_SHIFT	8
-+#define IN4_ADDR_HSIZE		(1U << IN4_ADDR_HSIZE_SHIFT)
-+
- static struct hlist_head inet_addr_lst[IN4_ADDR_HSIZE];
- static DEFINE_SPINLOCK(inet_addr_hash_lock);
+-	np = kzalloc(sizeof(*np), GFP_KERNEL);
++	np = kzalloc(sizeof(*np), GFP_ATOMIC);
+ 	err = -ENOMEM;
+ 	if (!np)
+ 		goto out;
  
--static inline unsigned int inet_addr_hash(struct net *net, __be32 addr)
-+static u32 inet_addr_hash(struct net *net, __be32 addr)
- {
--	u32 val = (__force u32) addr ^ hash_ptr(net, 8);
-+	u32 val = (__force u32) addr ^ net_hash_mix(net);
- 
--	return ((val ^ (val >> 8) ^ (val >> 16) ^ (val >> 24)) &
--		(IN4_ADDR_HSIZE - 1));
-+	return hash_32(val, IN4_ADDR_HSIZE_SHIFT);
+-	err = __netpoll_setup(np, slave->dev);
++	err = __netpoll_setup(np, slave->dev, GFP_ATOMIC);
+ 	if (err) {
+ 		kfree(np);
+ 		goto out;
+@@ -1292,7 +1292,7 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+ 	read_unlock(&bond->lock);
  }
  
- static void inet_hash_insert(struct net *net, struct in_ifaddr *ifa)
+-static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
++static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, gfp_t flags)
  {
--	unsigned int hash = inet_addr_hash(net, ifa->ifa_local);
-+	u32 hash = inet_addr_hash(net, ifa->ifa_local);
+ 	struct bonding *bond = netdev_priv(dev);
+ 	struct slave *slave;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 87707ab..3177d6b 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -795,16 +795,16 @@ static void team_port_leave(struct team *team, struct team_port *port)
+ }
  
- 	spin_lock(&inet_addr_hash_lock);
- 	hlist_add_head_rcu(&ifa->hash, &inet_addr_lst[hash]);
-@@ -136,18 +133,18 @@ static void inet_hash_remove(struct in_ifaddr *ifa)
-  */
- struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-static int team_port_enable_netpoll(struct team *team, struct team_port *port)
++static int team_port_enable_netpoll(struct team *team, struct team_port *port, gfp_t flags)
  {
--	unsigned int hash = inet_addr_hash(net, addr);
-+	u32 hash = inet_addr_hash(net, addr);
- 	struct net_device *result = NULL;
- 	struct in_ifaddr *ifa;
- 	struct hlist_node *node;
+ 	struct netpoll *np;
+ 	int err;
  
- 	rcu_read_lock();
- 	hlist_for_each_entry_rcu(ifa, node, &inet_addr_lst[hash], hash) {
--		struct net_device *dev = ifa->ifa_dev->dev;
--
--		if (!net_eq(dev_net(dev), net))
--			continue;
- 		if (ifa->ifa_local == addr) {
-+			struct net_device *dev = ifa->ifa_dev->dev;
-+
-+			if (!net_eq(dev_net(dev), net)
-+				continue;
- 			result = dev;
+-	np = kzalloc(sizeof(*np), GFP_KERNEL);
++	np = kzalloc(sizeof(*np), flags);
+ 	if (!np)
+ 		return -ENOMEM;
+ 
+-	err = __netpoll_setup(np, port->dev);
++	err = __netpoll_setup(np, port->dev, flags);
+ 	if (err) {
+ 		kfree(np);
+ 		return err;
+@@ -833,7 +833,7 @@ static struct netpoll_info *team_netpoll_info(struct team *team)
+ }
+ 
+ #else
+-static int team_port_enable_netpoll(struct team *team, struct team_port *port)
++static int team_port_enable_netpoll(struct team *team, struct team_port *port, gfp_t flags)
+ {
+ 	return 0;
+ }
+@@ -913,7 +913,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 	}
+ 
+ 	if (team_netpoll_info(team)) {
+-		err = team_port_enable_netpoll(team, port);
++		err = team_port_enable_netpoll(team, port, GFP_KERNEL);
+ 		if (err) {
+ 			netdev_err(dev, "Failed to enable netpoll on device %s\n",
+ 				   portname);
+@@ -1443,7 +1443,7 @@ static void team_netpoll_cleanup(struct net_device *dev)
+ }
+ 
+ static int team_netpoll_setup(struct net_device *dev,
+-			      struct netpoll_info *npifo)
++			      struct netpoll_info *npifo, gfp_t flags)
+ {
+ 	struct team *team = netdev_priv(dev);
+ 	struct team_port *port;
+@@ -1451,7 +1451,7 @@ static int team_netpoll_setup(struct net_device *dev,
+ 
+ 	mutex_lock(&team->lock);
+ 	list_for_each_entry(port, &team->port_list, list) {
+-		err = team_port_enable_netpoll(team, port);
++		err = team_port_enable_netpoll(team, port, flags);
+ 		if (err) {
+ 			__team_netpoll_cleanup(team);
  			break;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a9db4f3..2ad76e3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -953,7 +953,7 @@ struct net_device_ops {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	void                    (*ndo_poll_controller)(struct net_device *dev);
+ 	int			(*ndo_netpoll_setup)(struct net_device *dev,
+-						     struct netpoll_info *info);
++						     struct netpoll_info *info, gfp_t flags);
+ 	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
+ #endif
+ 	int			(*ndo_set_vf_mac)(struct net_device *dev,
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 28f5389..d67d4be3 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -43,7 +43,7 @@ struct netpoll_info {
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+ void netpoll_print_options(struct netpoll *np);
+ int netpoll_parse_options(struct netpoll *np, char *opt);
+-int __netpoll_setup(struct netpoll *np, struct net_device *ndev);
++int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t flags);
+ int netpoll_setup(struct netpoll *np);
+ int netpoll_trap(void);
+ void netpoll_set_trap(int trap);
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 73a2a83..4ca0b39 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -669,19 +669,19 @@ static void vlan_dev_poll_controller(struct net_device *dev)
+ 	return;
+ }
+ 
+-static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo)
++static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo, gfp_t flags)
+ {
+ 	struct vlan_dev_priv *info = vlan_dev_priv(dev);
+ 	struct net_device *real_dev = info->real_dev;
+ 	struct netpoll *netpoll;
+ 	int err = 0;
+ 
+-	netpoll = kzalloc(sizeof(*netpoll), GFP_KERNEL);
++	netpoll = kzalloc(sizeof(*netpoll), flags);
+ 	err = -ENOMEM;
+ 	if (!netpoll)
+ 		goto out;
+ 
+-	err = __netpoll_setup(netpoll, real_dev);
++	err = __netpoll_setup(netpoll, real_dev, flags);
+ 	if (err) {
+ 		kfree(netpoll);
+ 		goto out;
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 3334845..efcd36c 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -213,7 +213,7 @@ static void br_netpoll_cleanup(struct net_device *dev)
+ 	}
+ }
+ 
+-static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
++static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, gfp_t flags)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	struct net_bridge_port *p, *n;
+@@ -223,7 +223,7 @@ static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
+ 		if (!p->dev)
+ 			continue;
+ 
+-		err = br_netpoll_enable(p);
++		err = br_netpoll_enable(p, flags);
+ 		if (err)
+ 			goto fail;
+ 	}
+@@ -236,17 +236,17 @@ fail:
+ 	goto out;
+ }
+ 
+-int br_netpoll_enable(struct net_bridge_port *p)
++int br_netpoll_enable(struct net_bridge_port *p, gfp_t flags)
+ {
+ 	struct netpoll *np;
+ 	int err = 0;
+ 
+-	np = kzalloc(sizeof(*p->np), GFP_KERNEL);
++	np = kzalloc(sizeof(*p->np), flags);
+ 	err = -ENOMEM;
+ 	if (!np)
+ 		goto out;
+ 
+-	err = __netpoll_setup(np, p->dev);
++	err = __netpoll_setup(np, p->dev, flags);
+ 	if (err) {
+ 		kfree(np);
+ 		goto out;
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index e1144e1..171fd6b 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -361,7 +361,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (err)
+ 		goto err2;
+ 
+-	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p))))
++	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p, GFP_KERNEL))))
+ 		goto err3;
+ 
+ 	err = netdev_set_master(dev, br->dev);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index a768b24..bfdb5ab 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -316,7 +316,7 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ 		netpoll_send_skb(np, skb);
+ }
+ 
+-extern int br_netpoll_enable(struct net_bridge_port *p);
++extern int br_netpoll_enable(struct net_bridge_port *p, gfp_t flags);
+ extern void br_netpoll_disable(struct net_bridge_port *p);
+ #else
+ static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
+@@ -329,7 +329,7 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ {
+ }
+ 
+-static inline int br_netpoll_enable(struct net_bridge_port *p)
++static inline int br_netpoll_enable(struct net_bridge_port *p, gfp_t flags)
+ {
+ 	return 0;
+ }
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index b4c90e4..37cc854 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -715,7 +715,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ }
+ EXPORT_SYMBOL(netpoll_parse_options);
+ 
+-int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
++int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
+ {
+ 	struct netpoll_info *npinfo;
+ 	const struct net_device_ops *ops;
+@@ -734,7 +734,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 	}
+ 
+ 	if (!ndev->npinfo) {
+-		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
++		npinfo = kmalloc(sizeof(*npinfo), gfp);
+ 		if (!npinfo) {
+ 			err = -ENOMEM;
+ 			goto out;
+@@ -752,7 +752,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 
+ 		ops = np->dev->netdev_ops;
+ 		if (ops->ndo_netpoll_setup) {
+-			err = ops->ndo_netpoll_setup(ndev, npinfo);
++			err = ops->ndo_netpoll_setup(ndev, npinfo, gfp);
+ 			if (err)
+ 				goto free_npinfo;
  		}
+@@ -857,7 +857,7 @@ int netpoll_setup(struct netpoll *np)
+ 	refill_skbs();
+ 
+ 	rtnl_lock();
+-	err = __netpoll_setup(np, ndev);
++	err = __netpoll_setup(np, ndev, GFP_KERNEL);
+ 	rtnl_unlock();
+ 
+ 	if (err)
