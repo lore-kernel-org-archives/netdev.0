@@ -1,92 +1,95 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Premature timeout for MLDv1 Host compatibility mode?
-Date: Fri, 3 Aug 2012 09:00:26 -0400
-Message-ID: <OF8A71F97C.A020B6E9-ON85257A4F.00434903-85257A4F.004772D6@us.ibm.com>
-References: <CAOLNa-dCpLG4XCarzbSb=ptu-KGVX_Fghv4Z_CDQ8HBF_n-rGQ@mail.gmail.com>	<OFB6FB6105.8DE1252A-ON85257A4E.004637D4-85257A4E.00474EEF@us.ibm.com>
-	<CAOLNa-dj1N-3Lo6Bu8X4H51gxBs4B2V0qWSDFQ-2qQzjEApJfw@mail.gmail.com>	<OF675087EF.EDC93ADE-ON85257A4E.004B2D96-85257A4E.004CB6BE@us.ibm.com>
-	<CAOLNa-cMkHaFxoWym-oVT6i7ZZ25tZPxaAEcwUuT1TB4kPGfag@mail.gmail.com>	<OFA8EDA0BC.A9D42E39-ON85257A4E.004ECE32-85257A4E.004F3FC7@us.ibm.com> <CAOLNa-e0DB7Vhvv8tcSdW_JSWavpmyNt0vFYHLymh_zDaqUiMw@mail.gmail.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] mlx4_en: add UFO support
+Date: Fri, 3 Aug 2012 10:34:07 -0300
+Message-ID: <20120803133407.GA5736@oc1711230544.ibm.com>
+References: <1343940824-4720-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <953B660C027164448AE903364AC447D2871F0CCC@MTLDAG01.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Dragos Ilie <dragos.ilie@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Yevgeny Petrilin <yevgenyp@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:34204 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752868Ab2HCNA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2012 09:00:56 -0400
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:53209 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751303Ab2HCNeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 09:34:14 -0400
 Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Fri, 3 Aug 2012 09:00:54 -0400
-In-Reply-To: <CAOLNa-e0DB7Vhvv8tcSdW_JSWavpmyNt0vFYHLymh_zDaqUiMw@mail.gmail.com>
+	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Fri, 3 Aug 2012 10:34:12 -0300
+Received: from d24relay03.br.ibm.com (d24relay03.br.ibm.com [9.13.184.25])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id B34531DC0050
+	for <netdev@vger.kernel.org>; Fri,  3 Aug 2012 09:34:09 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay03.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q73DXJQC27918574
+	for <netdev@vger.kernel.org>; Fri, 3 Aug 2012 10:33:19 -0300
+Received: from d24av04.br.ibm.com (loopback [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q73BXvGj002086
+	for <netdev@vger.kernel.org>; Fri, 3 Aug 2012 08:33:58 -0300
+Content-Disposition: inline
+In-Reply-To: <953B660C027164448AE903364AC447D2871F0CCC@MTLDAG01.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dragos Ilie <dragos.ilie@gmail.com> wrote on 08/03/2012 04:54:09 AM:
- 
-> a) Section 5.1.9 states that the QQIC field is meant for other
-> multicast routers that are not the current querier. I "grep-ed" after
-> mld2q_qqic in the entire kernel source tree and it is not being used
-> at all. I take this as a sign that the field is not to be interpreted
-> by listeners. Of course, that does not mean we cannot use it, but see
-> b) below
+On Fri, Aug 03, 2012 at 08:29:26AM +0000, Yevgeny Petrilin wrote:
+> > 
+> > Mellanox Ethernet adapters support Large Segmentation Offload for UDP
+> > packets. The only change needed is using the proper header size when the
+> > packet is UDP instead of TCP.
+> > 
+> > This significantly increases performance for large UDP packets on platforms
+> > which have an expensive dma_map call, like pseries.
+> > 
+> > On a simple test with 64000 payload size, throughput has increased from
+> > about 6Gbps to 9.5Gbps, while CPU use dropped from about 600% to about
+> > 80% or less, on a 8-core Power7 machine.
+> > 
+> Hi Thadeu,
+> Can you please send the info regarding the adapter you are testing with? What test are you running?
+> I just tried this patch with netperf on my x86_64, and it doesn't work. Packets are not fragmented properly (fragment offsets are not calculated).
+> It is true that the TX side doesn't work as hard (OS doesn't need to do the fragmentation), but traffic is not sent properly on the wire.
+> 
+> I'll do further investigation and get back with more details.
+> 
+> Yevgeny
+> 
 
-        The kernel doesn't use it because it doesn't use the QI in the
-timer to switch back to MLDv2 -- the problem you're trying to address.
-If you think that's a bug (and I agree it is), the QQIC is how we
-determine the QI. Missing functionality isn't evidence we shouldn't
-use the QQIC. :-)
- 
-> b) Section 8.3.1 says that "if an MLDv1 router is present on the link,
-> the Querier MUST use the lowest  version of MLD present on the
-> network". Also, "if an MLDv1 router is present on the link, the system
-> administrator must explicitly configure all MLDv2 routers to act in
-> MLDv1 mode". It seems to me that these statements together preclude a
-> scenario with MLDv1 and MLDv2 routers mixed together on the same link,
-> unless all routers speak MLDv1.
- 
-        MLDv2 requires MLDv1 compatibility mode so there's no such thing
-as an MLDv2 implementation that doesn't support MLDv1. The mechanism
-for falling back to MLDv1 is required for exactly the case when there
-is a mix of versions on the link; if that could never happen, none
-of this code would be necessary or required by RFC.
+Hi, Yevgeny.
 
-> The current implementation for MLDv1 compatibility mode works very
-> badly. The listeners fail most of the time to join the groups on the
-> MLDv1 server.
+At first, I only added the UFO feature. When testing that, I got lots of
+errors on the receiving end, like:
 
-I'm not sure what you mean here. Certainly you can, as suggested
-above, force all hosts on the subnet to use MLDv1 using the
-"force_mld_version" sysctl and an MLDv1 querier will also do that.
-They'll switch back to MLDv2 too soon, if the v1 queries happen
-infrequently which you can trivially work around by querying more
-often.
+UDP: short packet: From 10.0.0.2:0 0/1480 to 10.0.0.3:0
 
->I suggest  that my patch sent earlier this week is
-> pushed upstream, unless there are concerns that it will make things
-> worse than they are today. This will improve the behavior of MLDv2
-> listeners with MLDv1 routers and keep us compliant with the RFC. What
-> do you think?
+After finding out what the driver was writing to the LSO descriptor, it
+was obvious why this happened. The driver was using as the header size
+the TCP header size, which would use a value from the UDP packet
+payload.
 
-I think it should be correct, and a fixed QI isn't. If we're going to
-do a hack, I think a v2-based QI is better than a fixed value.
-However, I was thinking we could directly
-measure the v1 QI based on received v1 queries. The main problem with
-that is you don't know if you lost one or not, but we could work
-around that by using the min of a saved QI and the measured interval
-since the last query from the same source. The measured QI with losses
-is always a multiple of the actual QI.
+After the other change, however, everything should work fine. I ran a
+uperf test with 64000-sized payload packets and everything seemed to
+work fine.
 
-So, when we get a v1 query, save a timestamp of it and use the timestamp,
-if set, to compute the interval since the last query. If the interval
-is less than our current QI, it's the new QI. For the switchback time,
-we use QI if set and 125 if not, where not being set would indicate
-we haven't gotten more than 2 v1 queries.
-        Finally, periodically (e.g., based on query counts, or multiple
-larger QIs) reset in case an admin has increased the QI without a
-reboot.
-        The QI value only matters if it's the same querier, so also
-with the timestamp save the source querier IP address and reset
-if you get a general query from a different querier.
+The card I have in here is:
 
-                                                        +-DLS
+0001:01:00.0 Ethernet controller: Mellanox Technologies MT26448 [ConnectX EN 10GigE, PCIe 2.0 5GT/s] (rev b0)
+        Subsystem: Mellanox Technologies Device 0016
+        Flags: bus master, fast devsel, latency 0, IRQ 17
+        Memory at 3da0fbe00000 (64-bit, non-prefetchable) [size=1M]
+        Memory at 3da0fc000000 (64-bit, prefetchable) [size=32M]
+        Expansion ROM at 3da0fbf00000 [disabled] [size=1M]
+        Capabilities: [40] Power Management version 3
+        Capabilities: [48] Vital Product Data
+        Capabilities: [9c] MSI-X: Enable+ Count=128 Masked-
+        Capabilities: [60] Express Endpoint, MSI 00
+        Capabilities: [100] Alternative Routing-ID Interpretation (ARI)
+        Capabilities: [148] Device Serial Number 00-02-c9-03-00-4b-97-c4
+        Kernel driver in use: mlx4_core
+        Kernel modules: mlx4_core
+
+I will try some other tests in here and report my results.
+
+Regards.
+Cascardo.
