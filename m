@@ -1,32 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net_sched: gact: Fix potential panic in tcf_gact().
-Date: Fri, 03 Aug 2012 16:47:56 -0700 (PDT)
-Message-ID: <20120803.164756.840076104361757312.davem@davemloft.net>
-References: <20120803195752.32410768d3d806cd241ac7a4@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC v2 1/7] hashtable: introduce a small and naive hashtable
+Date: Fri, 3 Aug 2012 16:47:47 -0700
+Message-ID: <CA+55aFwTa_kYgmFwoWa6hwAAM6=2xTgQQf-vEx_gCzpEMnxodQ@mail.gmail.com>
+References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com>
+ <1344003788-1417-2-git-send-email-levinsasha928@gmail.com>
+ <20120803171515.GH15477@google.com> <501C407D.9080900@gmail.com>
+ <20120803213017.GK15477@google.com> <501C458E.7050000@gmail.com>
+ <20120803214806.GM15477@google.com> <501C4E92.1070801@gmail.com>
+ <20120803222339.GN15477@google.com> <CA+55aFyOst4c3WHbPVbYkSBdBmLJUui5OvoVOh5AuPMnigwnEA@mail.gmail.com>
+ <20120803223634.GO15477@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shimoda.hiroaki@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41657 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753992Ab2HCXr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 19:47:57 -0400
-In-Reply-To: <20120803195752.32410768d3d806cd241ac7a4@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Sasha Levin <levinsasha928@gmail.com>, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
+	mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
+	netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120803223634.GO15477@google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Date: Fri, 3 Aug 2012 19:57:52 +0900
+On Fri, Aug 3, 2012 at 3:36 PM, Tejun Heo <tj@kernel.org> wrote:
+>
+> I suppose you mean unsized.  I remember this working.  Maybe I'm
+> confusing it with zero-sized array.  Hmm... gcc doesn't complain about
+> the following.  --std=c99 seems happy too.
 
-> gact_rand array is accessed by gact->tcfg_ptype whose value
-> is assumed to less than MAX_RAND, but any range checks are
-> not performed.
-> 
-> So add a check in tcf_gact_init(). And in tcf_gact(), we can
-> reduce a branch.
-> 
-> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Ok, I'm surprised, but maybe it's supposed to work if you do it inside
+another struct like that, exactly so that you can preallocate things..
 
-Applied and queued up for -stable, thanks.
+Or maybe it's just a gcc bug. I do think this all is way hackier than
+Sasha's original simple code that didn't need these kinds of games,
+and didn't need a size member at all.
+
+I really think all the extra complexity and overhead is just *bad*.
+The first simple version was much nicer and likely generated better
+code too.
+
+               Linus
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
