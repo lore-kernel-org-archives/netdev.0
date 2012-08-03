@@ -1,108 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC v2 7/7] net,9p: use new hashtable implementation
-Date: Fri, 03 Aug 2012 20:00:51 +0200
-Message-ID: <1344016851.9299.1415.camel@edumazet-glaptop>
-References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com>
-	 <1344003788-1417-8-git-send-email-levinsasha928@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,  linux-kernel@vger.kernel.org, linux-mm@kvack.org, paul.gortmaker@windriver.com,  davem@davemloft.net, rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,  aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1344003788-1417-8-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,1/1] hyperv: Move wait completion msg code into rndis_filter_halt_device()
+Date: Fri,  3 Aug 2012 12:32:18 -0700
+Message-ID: <1344022338-3010-1-git-send-email-haiyangz@microsoft.com>
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-03 at 16:23 +0200, Sasha Levin wrote:
-> Switch 9p error table to use the new hashtable implementation. This reduces the amount of
-> generic unrelated code in 9p.
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> ---
->  net/9p/error.c |   17 ++++++++---------
->  1 files changed, 8 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/9p/error.c b/net/9p/error.c
-> index 2ab2de7..f1037db 100644
-> --- a/net/9p/error.c
-> +++ b/net/9p/error.c
-> @@ -34,7 +34,7 @@
->  #include <linux/jhash.h>
->  #include <linux/errno.h>
->  #include <net/9p/9p.h>
-> -
-> +#include <linux/hashtable.h>
->  /**
->   * struct errormap - map string errors from Plan 9 to Linux numeric ids
->   * @name: string sent over 9P
-> @@ -50,8 +50,8 @@ struct errormap {
->  	struct hlist_node list;
->  };
->  
-> -#define ERRHASHSZ		32
-> -static struct hlist_head hash_errmap[ERRHASHSZ];
+We need to wait for send_completion msg before put_rndis_request() at
+the end of rndis_filter_halt_device(). Otherwise, netvsc_send_completion()
+may reference freed memory which is overwritten, and cause panic.
 
+Reported-by: Long Li <longli@microsoft.com>
+Reported-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c       |    7 -------
+ drivers/net/hyperv/rndis_filter.c |   11 +++++++++++
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
-> +#define ERRHASHSZ 5
-
-This name is confusing, it should mention SHIFT or BITS maybe...
-
-
-> +DEFINE_STATIC_HASHTABLE(hash_errmap, ERRHASHSZ);
->  
->  /* FixMe - reduce to a reasonable size */
->  static struct errormap errmap[] = {
-> @@ -196,15 +196,14 @@ int p9_error_init(void)
->  	int bucket;
-
-remove "int bucket" and use :
-
-	u32 hash;
-
->  
->  	/* initialize hash table */
-> -	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
-> -		INIT_HLIST_HEAD(&hash_errmap[bucket]);
-> +	hash_init(&hash_errmap, ERRHASHSZ);
-
-Why is hash_init() even needed ?
-
-If hash is "DEFINE_STATIC_HASHTABLE(...)", its already ready for use !
-
->  
->  	/* load initial error map into hash table */
->  	for (c = errmap; c->name != NULL; c++) {
->  		c->namelen = strlen(c->name);
-> -		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
-> +		bucket = jhash(c->name, c->namelen, 0);
-
-bucket is a wrong name here, its more like "key" or "hash"
-
->  		INIT_HLIST_NODE(&c->list);
-> -		hlist_add_head(&c->list, &hash_errmap[bucket]);
-> +		hash_add(&hash_errmap, &c->list, bucket);
->  	}
->  
->  	return 1;
-> @@ -228,8 +227,8 @@ int p9_errstr2errno(char *errstr, int len)
->  	errno = 0;
->  	p = NULL;
->  	c = NULL;
-> -	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
-> -	hlist_for_each_entry(c, p, &hash_errmap[bucket], list) {
-> +	bucket = jhash(errstr, len, 0);
-
-	hash = jhash(errstr, len, 0);
-
-> +	hash_for_each_possible(&hash_errmap, p, c, list, bucket) {
->  		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
->  			errno = c->val;
->  			break;
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 6cee291..4a1a5f5 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -383,13 +383,6 @@ int netvsc_device_remove(struct hv_device *device)
+ 	unsigned long flags;
+ 
+ 	net_device = hv_get_drvdata(device);
+-	spin_lock_irqsave(&device->channel->inbound_lock, flags);
+-	net_device->destroy = true;
+-	spin_unlock_irqrestore(&device->channel->inbound_lock, flags);
+-
+-	/* Wait for all send completions */
+-	wait_event(net_device->wait_drain,
+-		   atomic_read(&net_device->num_outstanding_sends) == 0);
+ 
+ 	netvsc_disconnect_vsp(net_device);
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index e5d6146..1e88a10 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -718,6 +718,9 @@ static void rndis_filter_halt_device(struct rndis_device *dev)
+ {
+ 	struct rndis_request *request;
+ 	struct rndis_halt_request *halt;
++	struct netvsc_device *nvdev = dev->net_dev;
++	struct hv_device *hdev = nvdev->dev;
++	ulong flags;
+ 
+ 	/* Attempt to do a rndis device halt */
+ 	request = get_rndis_request(dev, RNDIS_MSG_HALT,
+@@ -735,6 +738,14 @@ static void rndis_filter_halt_device(struct rndis_device *dev)
+ 	dev->state = RNDIS_DEV_UNINITIALIZED;
+ 
+ cleanup:
++	spin_lock_irqsave(&hdev->channel->inbound_lock, flags);
++	nvdev->destroy = true;
++	spin_unlock_irqrestore(&hdev->channel->inbound_lock, flags);
++
++	/* Wait for all send completions */
++	wait_event(nvdev->wait_drain,
++		atomic_read(&nvdev->num_outstanding_sends) == 0);
++
+ 	if (request)
+ 		put_rndis_request(dev, request);
+ 	return;
+-- 
+1.7.4.1
