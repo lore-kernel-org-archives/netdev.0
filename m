@@ -1,72 +1,48 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC v2 1/7] hashtable: introduce a small and naive hashtable
-Date: Fri, 3 Aug 2012 15:36:34 -0700
-Message-ID: <20120803223634.GO15477@google.com>
-References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com>
- <1344003788-1417-2-git-send-email-levinsasha928@gmail.com>
- <20120803171515.GH15477@google.com>
- <501C407D.9080900@gmail.com>
- <20120803213017.GK15477@google.com>
- <501C458E.7050000@gmail.com>
- <20120803214806.GM15477@google.com>
- <501C4E92.1070801@gmail.com>
- <20120803222339.GN15477@google.com>
- <CA+55aFyOst4c3WHbPVbYkSBdBmLJUui5OvoVOh5AuPMnigwnEA@mail.gmail.com>
+From: Ali Ayoub <ali@mellanox.com>
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Fri, 03 Aug 2012 15:39:36 -0700
+Message-ID: <501C5328.4060301@mellanox.com>
+References: <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <501C3527.6060809@mellanox.com> <20120803.143315.151094375569109262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <levinsasha928@gmail.com>, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFyOst4c3WHbPVbYkSBdBmLJUui5OvoVOh5AuPMnigwnEA@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, ogerlitz@mellanox.com, roland@kernel.org,
+	netdev@vger.kernel.org, sean.hefty@intel.com, erezsh@mellanox.co.il
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mellanox.cgrafx.com ([67.192.191.215]:52293 "EHLO
+	mellanox.cgrafx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753376Ab2HCWji (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 18:39:38 -0400
+In-Reply-To: <20120803.143315.151094375569109262.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 03, 2012 at 03:29:10PM -0700, Linus Torvalds wrote:
-> On Fri, Aug 3, 2012 at 3:23 PM, Tejun Heo <tj@kernel.org> wrote:
-> >
-> > I actually meant an enclosing struct.  When you're defining a struct
-> > member, simply putting the storage after a struct with var array
-> > should be good enough.  If that doesn't work, quite a few things in
-> > the kernel will break.
+On 8/3/2012 2:33 PM, David Miller wrote:
+> From: Ali Ayoub <ali@mellanox.com>
+> Date: Fri, 03 Aug 2012 13:31:35 -0700
 > 
-> The unsigned member of a struct has to be the last one, so your struct
-> won't work.
+>> With eIPoIB architecture, the VM sees standard Ethernet emulator,
+>> allowing the administrator to enslave eIPoIB PIF to the vSwitch/vBridge
+>> as if it was standard Ethernet. Other approaches that exposes IB QP to
+>> the VM (with w/o bypassing the kernel) won't be possible with the
+>> current emulators and management tools.
+> 
+> So then fix the emulators and management tools to handle IB instead
+> of adding this bogus new protocol?
+> 
+> This new protocol seems to exist only because you don't want to have
+> to enhance the emulators and tools, and I'm sorry that isn't a valid
+> reason to do something like this.
 
-I suppose you mean unsized.  I remember this working.  Maybe I'm
-confusing it with zero-sized array.  Hmm... gcc doesn't complain about
-the following.  --std=c99 seems happy too.
+This driver exists to allow the user to have an Ethernet interface on
+top of a high-speed InfiniBand (IB) interconnect.
+Users would like to use sockets API from the VM without re-writing their
+applications on top of IB verbs, this driver meant to allow such a user
+to do so.
 
-  #include <stdio.h>
+Exposing IB emulators and having IB support in the management tools for
+the VM/Hypervisor won't address the usecases that this driver meant for.
 
-  struct A {
-	  int i;
-	  long ar[];
-  };
-
-  struct B {
-	  struct A a;
-	  long ar_storage[32];
-  };
-
-  int main(void)
-  {
-	  printf("sizeof(A)=%zd sizeof(B)=%zd\n", sizeof(struct A), sizeof(struct B));
-	  return 0;
-  }
-
-$ ./a.out
-sizeof(A)=8 sizeof(B)=264
-
--- 
-tejun
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+With this driver, existing VMs, and their existing IP applications, can
+run as-is on InfiniBand network.
