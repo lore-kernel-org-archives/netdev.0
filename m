@@ -1,53 +1,108 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [E1000-devel] discussion questions: SR-IOV, virtualization, and
- bonding
-Date: Fri, 3 Aug 2012 18:49:23 +0100
-Message-ID: <1344016163.2610.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <501AD33E.5090308@genband.com> <17679.1343939453@death.nxdomain>
-	 <501AFEAD.10001@genband.com> <501B0037.1010804@genband.com>
-	 <20421.1343948491@death.nxdomain> <501B587E.6040703@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v2 7/7] net,9p: use new hashtable implementation
+Date: Fri, 03 Aug 2012 20:00:51 +0200
+Message-ID: <1344016851.9299.1415.camel@edumazet-glaptop>
+References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com>
+	 <1344003788-1417-8-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Chris Friesen <chris.friesen@genband.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:24767 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751716Ab2HCRta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 13:49:30 -0400
-In-Reply-To: <501B587E.6040703@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,  linux-kernel@vger.kernel.org, linux-mm@kvack.org, paul.gortmaker@windriver.com,  davem@davemloft.net, rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,  aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1344003788-1417-8-git-send-email-levinsasha928@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-08-02 at 21:50 -0700, John Fastabend wrote:
-> On 8/2/2012 4:01 PM, Jay Vosburgh wrote:
-[...]
-> > 	Still, though, isn't "influence the guest's choice" pretty much
-> > satisified by having the VF interface go carrier down in the guest when
-> > the host wants it to?  Or are you thinking about more fine grained than
-> > that?
-> >
+On Fri, 2012-08-03 at 16:23 +0200, Sasha Levin wrote:
+> Switch 9p error table to use the new hashtable implementation. This reduces the amount of
+> generic unrelated code in 9p.
 > 
-> Perhaps one argument against this is if the hardware supports loopback
-> modes or the edge relay in the hardware is acting like a VEB it may
-> still be possible to support VF to VF traffic even if the external link
-> is down. Not sure how useful this is though or if any existing hardware
-> even supports it.
-[...]
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
+>  net/9p/error.c |   17 ++++++++---------
+>  1 files changed, 8 insertions(+), 9 deletions(-)
+> 
+> diff --git a/net/9p/error.c b/net/9p/error.c
+> index 2ab2de7..f1037db 100644
+> --- a/net/9p/error.c
+> +++ b/net/9p/error.c
+> @@ -34,7 +34,7 @@
+>  #include <linux/jhash.h>
+>  #include <linux/errno.h>
+>  #include <net/9p/9p.h>
+> -
+> +#include <linux/hashtable.h>
+>  /**
+>   * struct errormap - map string errors from Plan 9 to Linux numeric ids
+>   * @name: string sent over 9P
+> @@ -50,8 +50,8 @@ struct errormap {
+>  	struct hlist_node list;
+>  };
+>  
+> -#define ERRHASHSZ		32
+> -static struct hlist_head hash_errmap[ERRHASHSZ];
 
-It seems to me that VF to VF traffic ought to still work.  If it doesn't
-then that's an unfortunate regression when moving from software bridging
-and virtio to hardware-supported network virtualisation.  (But hybrid
-network virtualisation may help to solve that.)
 
-Ben.
+> +#define ERRHASHSZ 5
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+This name is confusing, it should mention SHIFT or BITS maybe...
+
+
+> +DEFINE_STATIC_HASHTABLE(hash_errmap, ERRHASHSZ);
+>  
+>  /* FixMe - reduce to a reasonable size */
+>  static struct errormap errmap[] = {
+> @@ -196,15 +196,14 @@ int p9_error_init(void)
+>  	int bucket;
+
+remove "int bucket" and use :
+
+	u32 hash;
+
+>  
+>  	/* initialize hash table */
+> -	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
+> -		INIT_HLIST_HEAD(&hash_errmap[bucket]);
+> +	hash_init(&hash_errmap, ERRHASHSZ);
+
+Why is hash_init() even needed ?
+
+If hash is "DEFINE_STATIC_HASHTABLE(...)", its already ready for use !
+
+>  
+>  	/* load initial error map into hash table */
+>  	for (c = errmap; c->name != NULL; c++) {
+>  		c->namelen = strlen(c->name);
+> -		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
+> +		bucket = jhash(c->name, c->namelen, 0);
+
+bucket is a wrong name here, its more like "key" or "hash"
+
+>  		INIT_HLIST_NODE(&c->list);
+> -		hlist_add_head(&c->list, &hash_errmap[bucket]);
+> +		hash_add(&hash_errmap, &c->list, bucket);
+>  	}
+>  
+>  	return 1;
+> @@ -228,8 +227,8 @@ int p9_errstr2errno(char *errstr, int len)
+>  	errno = 0;
+>  	p = NULL;
+>  	c = NULL;
+> -	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
+> -	hlist_for_each_entry(c, p, &hash_errmap[bucket], list) {
+> +	bucket = jhash(errstr, len, 0);
+
+	hash = jhash(errstr, len, 0);
+
+> +	hash_for_each_possible(&hash_errmap, p, c, list, bucket) {
+>  		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
+>  			errno = c->val;
+>  			break;
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
