@@ -1,353 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/7] netpoll: use GFP_ATOMIC in slave_enable_netpoll()
- and __netpoll_setup()
-Date: Fri, 03 Aug 2012 12:10:23 +0200
-Message-ID: <1343988623.9299.932.camel@edumazet-glaptop>
-References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
-	 <1343403484-29347-2-git-send-email-amwang@redhat.com>
-	 <1343985428.9299.868.camel@edumazet-glaptop> <1343986487.20871.2.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1343986487.20871.2.camel@cr0>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+Subject: [PATCH V1 3/3] net/mlx4_core: Remove port type restrictions
+Date: Fri,  3 Aug 2012 13:38:38 +0300
+Message-ID: <1343990318-10744-4-git-send-email-yevgenyp@mellanox.co.il>
+References: <1343990318-10744-1-git-send-email-yevgenyp@mellanox.co.il>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:60391 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753187Ab2HCKis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 06:38:48 -0400
+In-Reply-To: <1343990318-10744-1-git-send-email-yevgenyp@mellanox.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-03 at 17:34 +0800, Cong Wang wrote:
-> On Fri, 2012-08-03 at 11:17 +0200, Eric Dumazet wrote:
-> > On Fri, 2012-07-27 at 23:37 +0800, Cong Wang wrote:
-> > > slave_enable_netpoll() and __netpoll_setup() may be called
-> > > with read_lock() held, so should use GFP_ATOMIC to allocate
-> > > memory.
-> > > 
-> > > Cc: "David S. Miller" <davem@davemloft.net>
-> > > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > > Signed-off-by: Cong Wang <amwang@redhat.com>
-> > > ---
-> > >  drivers/net/bonding/bond_main.c |    2 +-
-> > >  net/core/netpoll.c              |    2 +-
-> > >  2 files changed, 2 insertions(+), 2 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> > > index 6fae5f3..ab773d4 100644
-> > > --- a/drivers/net/bonding/bond_main.c
-> > > +++ b/drivers/net/bonding/bond_main.c
-> > > @@ -1235,7 +1235,7 @@ static inline int slave_enable_netpoll(struct slave *slave)
-> > >  	struct netpoll *np;
-> > >  	int err = 0;
-> > >  
-> > > -	np = kzalloc(sizeof(*np), GFP_KERNEL);
-> > > +	np = kzalloc(sizeof(*np), GFP_ATOMIC);
-> > >  	err = -ENOMEM;
-> > >  	if (!np)
-> > >  		goto out;
-> > > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> > > index b4c90e4..c78a966 100644
-> > > --- a/net/core/netpoll.c
-> > > +++ b/net/core/netpoll.c
-> > > @@ -734,7 +734,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
-> > >  	}
-> > >  
-> > >  	if (!ndev->npinfo) {
-> > > -		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
-> > > +		npinfo = kmalloc(sizeof(*npinfo), GFP_ATOMIC);
-> > >  		if (!npinfo) {
-> > >  			err = -ENOMEM;
-> > >  			goto out;
-> > 
-> > Yes this works, but maybe you instead could pass/add a gfp_t flags
-> > argument to __netpoll_setup() ?
-> > 
-> > Management tasks should allow GFP_KERNEL allocations to have less
-> > failure risks.
-> > 
-> > Its sad bonding uses the rwlock here instead of a mutex
-> > 
-> 
-> Yup, that is a good idea. I will update this patch.
-> 
-> Thanks!
-> 
+Port1=Eth, Port2=IB restriction is no longer required.
+Having RoCE, there will always rdma port initialized over ConnectX
+physical port, no matter whether the link layer is IB or Ethernet.
+So we always have dual port IB device.
 
-I did this , just take it ;)
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c  |    3 ---
+ drivers/net/ethernet/mellanox/mlx4/sense.c |   14 --------------
+ 2 files changed, 0 insertions(+), 17 deletions(-)
 
- drivers/net/bonding/bond_main.c |    6 +++---
- drivers/net/team/team.c         |   14 +++++++-------
- include/linux/netdevice.h       |    2 +-
- include/linux/netpoll.h         |    2 +-
- net/8021q/vlan_dev.c            |    6 +++---
- net/bridge/br_device.c          |   10 +++++-----
- net/bridge/br_if.c              |    2 +-
- net/bridge/br_private.h         |    4 ++--
- net/core/netpoll.c              |    8 ++++----
- 9 files changed, 27 insertions(+), 27 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 6fae5f3..ccff590 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1235,12 +1235,12 @@ static inline int slave_enable_netpoll(struct slave *slave)
- 	struct netpoll *np;
- 	int err = 0;
- 
--	np = kzalloc(sizeof(*np), GFP_KERNEL);
-+	np = kzalloc(sizeof(*np), GFP_ATOMIC);
- 	err = -ENOMEM;
- 	if (!np)
- 		goto out;
- 
--	err = __netpoll_setup(np, slave->dev);
-+	err = __netpoll_setup(np, slave->dev, GFP_ATOMIC);
- 	if (err) {
- 		kfree(np);
- 		goto out;
-@@ -1292,7 +1292,7 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
- 	read_unlock(&bond->lock);
- }
- 
--static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
-+static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, gfp_t flags)
- {
- 	struct bonding *bond = netdev_priv(dev);
- 	struct slave *slave;
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 87707ab..3177d6b 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -795,16 +795,16 @@ static void team_port_leave(struct team *team, struct team_port *port)
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--static int team_port_enable_netpoll(struct team *team, struct team_port *port)
-+static int team_port_enable_netpoll(struct team *team, struct team_port *port, gfp_t flags)
- {
- 	struct netpoll *np;
- 	int err;
- 
--	np = kzalloc(sizeof(*np), GFP_KERNEL);
-+	np = kzalloc(sizeof(*np), flags);
- 	if (!np)
- 		return -ENOMEM;
- 
--	err = __netpoll_setup(np, port->dev);
-+	err = __netpoll_setup(np, port->dev, flags);
- 	if (err) {
- 		kfree(np);
- 		return err;
-@@ -833,7 +833,7 @@ static struct netpoll_info *team_netpoll_info(struct team *team)
- }
- 
- #else
--static int team_port_enable_netpoll(struct team *team, struct team_port *port)
-+static int team_port_enable_netpoll(struct team *team, struct team_port *port, gfp_t flags)
- {
- 	return 0;
- }
-@@ -913,7 +913,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 	}
- 
- 	if (team_netpoll_info(team)) {
--		err = team_port_enable_netpoll(team, port);
-+		err = team_port_enable_netpoll(team, port, GFP_KERNEL);
- 		if (err) {
- 			netdev_err(dev, "Failed to enable netpoll on device %s\n",
- 				   portname);
-@@ -1443,7 +1443,7 @@ static void team_netpoll_cleanup(struct net_device *dev)
- }
- 
- static int team_netpoll_setup(struct net_device *dev,
--			      struct netpoll_info *npifo)
-+			      struct netpoll_info *npifo, gfp_t flags)
- {
- 	struct team *team = netdev_priv(dev);
- 	struct team_port *port;
-@@ -1451,7 +1451,7 @@ static int team_netpoll_setup(struct net_device *dev,
- 
- 	mutex_lock(&team->lock);
- 	list_for_each_entry(port, &team->port_list, list) {
--		err = team_port_enable_netpoll(team, port);
-+		err = team_port_enable_netpoll(team, port, flags);
- 		if (err) {
- 			__team_netpoll_cleanup(team);
- 			break;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a9db4f3..2ad76e3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -953,7 +953,7 @@ struct net_device_ops {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	void                    (*ndo_poll_controller)(struct net_device *dev);
- 	int			(*ndo_netpoll_setup)(struct net_device *dev,
--						     struct netpoll_info *info);
-+						     struct netpoll_info *info, gfp_t flags);
- 	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
- #endif
- 	int			(*ndo_set_vf_mac)(struct net_device *dev,
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 28f5389..d67d4be3 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -43,7 +43,7 @@ struct netpoll_info {
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
- void netpoll_print_options(struct netpoll *np);
- int netpoll_parse_options(struct netpoll *np, char *opt);
--int __netpoll_setup(struct netpoll *np, struct net_device *ndev);
-+int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t flags);
- int netpoll_setup(struct netpoll *np);
- int netpoll_trap(void);
- void netpoll_set_trap(int trap);
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 73a2a83..4ca0b39 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -669,19 +669,19 @@ static void vlan_dev_poll_controller(struct net_device *dev)
- 	return;
- }
- 
--static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo)
-+static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo, gfp_t flags)
- {
- 	struct vlan_dev_priv *info = vlan_dev_priv(dev);
- 	struct net_device *real_dev = info->real_dev;
- 	struct netpoll *netpoll;
- 	int err = 0;
- 
--	netpoll = kzalloc(sizeof(*netpoll), GFP_KERNEL);
-+	netpoll = kzalloc(sizeof(*netpoll), flags);
- 	err = -ENOMEM;
- 	if (!netpoll)
- 		goto out;
- 
--	err = __netpoll_setup(netpoll, real_dev);
-+	err = __netpoll_setup(netpoll, real_dev, flags);
- 	if (err) {
- 		kfree(netpoll);
- 		goto out;
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 3334845..efcd36c 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -213,7 +213,7 @@ static void br_netpoll_cleanup(struct net_device *dev)
- 	}
- }
- 
--static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
-+static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, gfp_t flags)
- {
- 	struct net_bridge *br = netdev_priv(dev);
- 	struct net_bridge_port *p, *n;
-@@ -223,7 +223,7 @@ static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
- 		if (!p->dev)
- 			continue;
- 
--		err = br_netpoll_enable(p);
-+		err = br_netpoll_enable(p, flags);
- 		if (err)
- 			goto fail;
- 	}
-@@ -236,17 +236,17 @@ fail:
- 	goto out;
- }
- 
--int br_netpoll_enable(struct net_bridge_port *p)
-+int br_netpoll_enable(struct net_bridge_port *p, gfp_t flags)
- {
- 	struct netpoll *np;
- 	int err = 0;
- 
--	np = kzalloc(sizeof(*p->np), GFP_KERNEL);
-+	np = kzalloc(sizeof(*p->np), flags);
- 	err = -ENOMEM;
- 	if (!np)
- 		goto out;
- 
--	err = __netpoll_setup(np, p->dev);
-+	err = __netpoll_setup(np, p->dev, flags);
- 	if (err) {
- 		kfree(np);
- 		goto out;
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index e1144e1..171fd6b 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -361,7 +361,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (err)
- 		goto err2;
- 
--	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p))))
-+	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p, GFP_KERNEL))))
- 		goto err3;
- 
- 	err = netdev_set_master(dev, br->dev);
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index a768b24..bfdb5ab 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -316,7 +316,7 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- 		netpoll_send_skb(np, skb);
- }
- 
--extern int br_netpoll_enable(struct net_bridge_port *p);
-+extern int br_netpoll_enable(struct net_bridge_port *p, gfp_t flags);
- extern void br_netpoll_disable(struct net_bridge_port *p);
- #else
- static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
-@@ -329,7 +329,7 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- {
- }
- 
--static inline int br_netpoll_enable(struct net_bridge_port *p)
-+static inline int br_netpoll_enable(struct net_bridge_port *p, gfp_t flags)
- {
- 	return 0;
- }
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index b4c90e4..37cc854 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -715,7 +715,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- }
- EXPORT_SYMBOL(netpoll_parse_options);
- 
--int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
-+int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
- {
- 	struct netpoll_info *npinfo;
- 	const struct net_device_ops *ops;
-@@ -734,7 +734,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 	}
- 
- 	if (!ndev->npinfo) {
--		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
-+		npinfo = kmalloc(sizeof(*npinfo), gfp);
- 		if (!npinfo) {
- 			err = -ENOMEM;
- 			goto out;
-@@ -752,7 +752,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 
- 		ops = np->dev->netdev_ops;
- 		if (ops->ndo_netpoll_setup) {
--			err = ops->ndo_netpoll_setup(ndev, npinfo);
-+			err = ops->ndo_netpoll_setup(ndev, npinfo, gfp);
- 			if (err)
- 				goto free_npinfo;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 48d0e90..827b72d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -157,9 +157,6 @@ int mlx4_check_port_params(struct mlx4_dev *dev,
+ 					 "on this HCA, aborting.\n");
+ 				return -EINVAL;
+ 			}
+-			if (port_type[i] == MLX4_PORT_TYPE_ETH &&
+-			    port_type[i + 1] == MLX4_PORT_TYPE_IB)
+-				return -EINVAL;
  		}
-@@ -857,7 +857,7 @@ int netpoll_setup(struct netpoll *np)
- 	refill_skbs();
+ 	}
  
- 	rtnl_lock();
--	err = __netpoll_setup(np, ndev);
-+	err = __netpoll_setup(np, ndev, GFP_KERNEL);
- 	rtnl_unlock();
+diff --git a/drivers/net/ethernet/mellanox/mlx4/sense.c b/drivers/net/ethernet/mellanox/mlx4/sense.c
+index 8024982..34ee09b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/sense.c
++++ b/drivers/net/ethernet/mellanox/mlx4/sense.c
+@@ -81,20 +81,6 @@ void mlx4_do_sense_ports(struct mlx4_dev *dev,
+ 	}
  
- 	if (err)
+ 	/*
+-	 * Adjust port configuration:
+-	 * If port 1 sensed nothing and port 2 is IB, set both as IB
+-	 * If port 2 sensed nothing and port 1 is Eth, set both as Eth
+-	 */
+-	if (stype[0] == MLX4_PORT_TYPE_ETH) {
+-		for (i = 1; i < dev->caps.num_ports; i++)
+-			stype[i] = stype[i] ? stype[i] : MLX4_PORT_TYPE_ETH;
+-	}
+-	if (stype[dev->caps.num_ports - 1] == MLX4_PORT_TYPE_IB) {
+-		for (i = 0; i < dev->caps.num_ports - 1; i++)
+-			stype[i] = stype[i] ? stype[i] : MLX4_PORT_TYPE_IB;
+-	}
+-
+-	/*
+ 	 * If sensed nothing, remain in current configuration.
+ 	 */
+ 	for (i = 0; i < dev->caps.num_ports; i++)
+-- 
+1.7.7
