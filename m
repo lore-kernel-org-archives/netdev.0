@@ -1,28 +1,41 @@
-From: Tejun Heo <tj@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC v2 1/7] hashtable: introduce a small and naive hashtable
-Date: Fri, 3 Aug 2012 10:16:35 -0700
-Message-ID: <20120803171635.GI15477@google.com>
+Date: Fri, 03 Aug 2012 19:39:10 +0200
+Message-ID: <1344015550.9299.1387.camel@edumazet-glaptop>
 References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com>
- <1344003788-1417-2-git-send-email-levinsasha928@gmail.com>
- <20120803171515.GH15477@google.com>
+	 <1344003788-1417-2-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,  linux-kernel@vger.kernel.org, linux-mm@kvack.org, paul.gortmaker@windriver.com,  davem@davemloft.net, rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,  aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org
 To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120803171515.GH15477@google.com>
+In-Reply-To: <1344003788-1417-2-git-send-email-levinsasha928@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Ooh, one more thing.  Comments please.
+On Fri, 2012-08-03 at 16:23 +0200, Sasha Levin wrote:
+> This hashtable implementation is using hlist buckets to provide a simple
+> hashtable to prevent it from getting reimplemented all over the kernel.
+> 
 
--- 
-tejun
+> +static void hash_add(struct hash_table *ht, struct hlist_node *node, long key)
+> +{
+> +	hlist_add_head(node,
+> +		&ht->buckets[hash_long((unsigned long)key, HASH_BITS(ht))]);
+> +}
+> +
+
+Why key is a long, casted later to "unsigned long" ?
+
+hash_long() is expensive on 64bit arches, and not really needed
+if key is an u32 from the beginning ( I am referring to your patches 6 &
+7 using jhash()  )
+
+Maybe you could use a macro, so that we can automatically select
+hash_32() if key is an u32, and hash_long() for other types.
+
+
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
