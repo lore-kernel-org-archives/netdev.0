@@ -1,68 +1,75 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [PATCH v3] isdnloop: fix and simplify isdnloop_init()
-Date: Fri, 3 Aug 2012 17:10:01 +0800
-Message-ID: <20120803091001.GA15772@localhost>
-References: <20120802110543.GA21745@localhost>
- <20120802.162156.1853851468137303302.davem@davemloft.net>
- <20120803073240.GA12723@localhost>
- <20120803.015126.198679260163049459.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/7] netpoll: use GFP_ATOMIC in slave_enable_netpoll()
+ and __netpoll_setup()
+Date: Fri, 03 Aug 2012 11:17:08 +0200
+Message-ID: <1343985428.9299.868.camel@edumazet-glaptop>
+References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
+	 <1343403484-29347-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
-	gregkh@linuxfoundation.org, devel@driverdev.osuosl.org,
-	joe@perches.com, isdn@linux-pingi.de, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20120803.015126.198679260163049459.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:53034 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752675Ab2HCJRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 05:17:15 -0400
+In-Reply-To: <1343403484-29347-2-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix a buffer overflow bug by removing the revision and printk.
+On Fri, 2012-07-27 at 23:37 +0800, Cong Wang wrote:
+> slave_enable_netpoll() and __netpoll_setup() may be called
+> with read_lock() held, so should use GFP_ATOMIC to allocate
+> memory.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  net/core/netpoll.c              |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 6fae5f3..ab773d4 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1235,7 +1235,7 @@ static inline int slave_enable_netpoll(struct slave *slave)
+>  	struct netpoll *np;
+>  	int err = 0;
+>  
+> -	np = kzalloc(sizeof(*np), GFP_KERNEL);
+> +	np = kzalloc(sizeof(*np), GFP_ATOMIC);
+>  	err = -ENOMEM;
+>  	if (!np)
+>  		goto out;
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index b4c90e4..c78a966 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -734,7 +734,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+>  	}
+>  
+>  	if (!ndev->npinfo) {
+> -		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
+> +		npinfo = kmalloc(sizeof(*npinfo), GFP_ATOMIC);
+>  		if (!npinfo) {
+>  			err = -ENOMEM;
+>  			goto out;
 
-[   22.016214] isdnloop-ISDN-driver Rev 1.11.6.7 
-[   22.097508] isdnloop: (loop0) virtual card added
-[   22.174400] Kernel panic - not syncing: stack-protector: Kernel stack is corrupted in: ffffffff83244972
-[   22.174400] 
-[   22.436157] Pid: 1, comm: swapper Not tainted 3.5.0-bisect-00018-gfa8bbb1-dirty #129
-[   22.624071] Call Trace:
-[   22.720558]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
-[   22.815248]  [<ffffffff8222b623>] panic+0x110/0x329
-[   22.914330]  [<ffffffff83244972>] ? isdnloop_init+0xaf/0xb1
-[   23.014800]  [<ffffffff832448c3>] ? CallcNew+0x56/0x56
-[   23.090763]  [<ffffffff8108e24b>] __stack_chk_fail+0x2b/0x30
-[   23.185748]  [<ffffffff83244972>] isdnloop_init+0xaf/0xb1
+Yes this works, but maybe you instead could pass/add a gfp_t flags
+argument to __netpoll_setup() ?
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
----
- drivers/isdn/isdnloop/isdnloop.c |   12 ------------
- 1 file changed, 12 deletions(-)
+Management tasks should allow GFP_KERNEL allocations to have less
+failure risks.
 
---- linux.orig/drivers/isdn/isdnloop/isdnloop.c	2012-08-03 16:39:08.543650310 +0800
-+++ linux/drivers/isdn/isdnloop/isdnloop.c	2012-08-03 17:08:07.515691639 +0800
-@@ -16,7 +16,6 @@
- #include <linux/sched.h>
- #include "isdnloop.h"
- 
--static char *revision = "$Revision: 1.11.6.7 $";
- static char *isdnloop_id = "loop0";
- 
- MODULE_DESCRIPTION("ISDN4Linux: Pseudo Driver that simulates an ISDN card");
-@@ -1494,17 +1493,6 @@ isdnloop_addcard(char *id1)
- static int __init
- isdnloop_init(void)
- {
--	char *p;
--	char rev[10];
--
--	if ((p = strchr(revision, ':'))) {
--		strcpy(rev, p + 1);
--		p = strchr(rev, '$');
--		*p = 0;
--	} else
--		strcpy(rev, " ??? ");
--	printk(KERN_NOTICE "isdnloop-ISDN-driver Rev%s\n", rev);
--
- 	if (isdnloop_id)
- 		return (isdnloop_addcard(isdnloop_id));
- 
+Its sad bonding uses the rwlock here instead of a mutex
