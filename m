@@ -1,81 +1,52 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] ipv4/ipv6: multicast api unappropriate errno fix.
-Date: Fri, 3 Aug 2012 15:06:45 +0800
-Message-ID: <1343977605-14446-1-git-send-email-lw@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com,
-	Li Wei <lw@cn.fujitsu.com>
-To: davem@davemloft.net
+From: Jun Zhao <mypopydev@gmail.com>
+Subject: Re: [PATCH v2 1/1] ipv6 : ip6mr.c : Fix can't match the IPv6
+ multicast packets with input net device in netfilter FORWARD chain.
+Date: Fri, 03 Aug 2012 15:10:58 +0800
+Message-ID: <1343977858.4579.11.camel@barry.localdomain>
+References: <1343975271-4263-1-git-send-email-mypopydev@gmail.com>
+	 <20120802.234311.2108069975669469931.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:34844 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752929Ab2HCHHn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2012 03:07:43 -0400
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:62423 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407Ab2HCHLD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 03:11:03 -0400
+Received: by obbuo13 with SMTP id uo13so678577obb.19
+        for <netdev@vger.kernel.org>; Fri, 03 Aug 2012 00:11:03 -0700 (PDT)
+In-Reply-To: <20120802.234311.2108069975669469931.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 917f2f105([IPV4]: multicast API "join" issues) corrected
-some errno values but also caused unappropriate errno returned.
+On Thu, 2012-08-02 at 23:43 -0700, David Miller wrote:
+> From: Jun Zhao <mypopydev@gmail.com>
+> Date: Fri,  3 Aug 2012 14:27:51 +0800
+> 
+> > @@ -1960,7 +1962,7 @@ static int ip6mr_forward2(struct net *net, struct mr6_table *mrt,
+> >  
+> >  	IP6CB(skb)->flags |= IP6SKB_FORWARDED;
+> >  
+> > -	return NF_HOOK(NFPROTO_IPV6, NF_INET_FORWARD, skb, skb->dev, dev,
+> > +	return NF_HOOK(NFPROTO_IPV6, NF_INET_FORWARD, skb, indev, dev,
+> >  		       ip6mr_forward2_finish);
+> >  
+> 
+> This patch has the same problem I mentioned, it means someone who is
+> now matching on the VIF device will now fail to do son.
+> 
+> You have to understand that you simply cannot change the behavior
+> here without breaking something for someone.
 
-With an unjoined group address, return -EADDRNOTAVAIL would be
-much better than -EINVAL.
+Hi, David:
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- net/ipv4/igmp.c  |    8 +++-----
- net/ipv6/mcast.c |    8 +++-----
- 2 files changed, 6 insertions(+), 10 deletions(-)
+Can you give me some more details what I break in this fix?
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 6699f23..c45c092 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1933,10 +1933,8 @@ int ip_mc_source(int add, int omode, struct sock *sk, struct
- 		    (pmc->multi.imr_ifindex == imr.imr_ifindex))
- 			break;
- 	}
--	if (!pmc) {		/* must have a prior join */
--		err = -EINVAL;
--		goto done;
--	}
-+	if (!pmc)		/* must have a prior join */
-+		goto done;	/* err = -EADDRNOTAVAIL */
- 	/* if a source filter was set, must be the same mode as before */
- 	if (pmc->sflist) {
- 		if (pmc->sfmode != omode) {
-@@ -2076,7 +2074,7 @@ int ip_mc_msfilter(struct sock *sk, struct ip_msfilter *msf, int ifindex)
- 			break;
- 	}
- 	if (!pmc) {		/* must have a prior join */
--		err = -EINVAL;
-+		err = -EADDRNOTAVAIL;
- 		goto done;
- 	}
- 	if (msf->imsf_numsrc) {
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 92f8e48..89dcefd 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -347,10 +347,8 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
- 		if (ipv6_addr_equal(&pmc->addr, group))
- 			break;
- 	}
--	if (!pmc) {		/* must have a prior join */
--		err = -EINVAL;
--		goto done;
--	}
-+	if (!pmc)		/* must have a prior join */
-+		goto done;	/* err = -EADDRNOTAVAIL */
- 	/* if a source filter was set, must be the same mode as before */
- 	if (pmc->sflist) {
- 		if (pmc->sfmode != omode) {
-@@ -488,7 +486,7 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
- 			break;
- 	}
- 	if (!pmc) {		/* must have a prior join */
--		err = -EINVAL;
-+		err = -EADDRNOTAVAIL;
- 		goto done;
- 	}
- 	if (gsf->gf_numsrc) {
--- 
-1.7.10.1
+As my understanding, in the ip6mr_forward2(), vifi is the VIF index for
+output, we can get the output device used vif->dev and record input
+device before change skb->dev; then used FORWARD chain match the rules. 
+
+Tks.
