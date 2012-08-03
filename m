@@ -1,114 +1,106 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH 1/2] net: davinci_mdio: enable and disable clock
-Date: Fri, 03 Aug 2012 07:22:40 +0200
-Message-ID: <501B6020.7090502@gmail.com>
-References: <1343936616-29318-1-git-send-email-zonque@gmail.com> <501B5EC1.7010304@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
+Date: Fri, 03 Aug 2012 07:45:29 +0200
+Message-ID: <1343972729.9299.596.camel@edumazet-glaptop>
+References: <50179F66.1000604@parallels.com> <878ve0dtw3.fsf@xmission.com>
+	 <1343903310.9299.184.camel@edumazet-glaptop>
+	 <20120802.162601.2080519313891137444.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
-	devicetree-discuss@lists.ozlabs.org, koen@dominion.thruhere.net,
-	linux-arm-kernel@lists.infradead.org
-To: Vaibhav Hiremath <hvaibhav@ti.com>
+Cc: ebiederm@xmission.com, xemul@parallels.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:44065 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454Ab2HCFWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 01:22:45 -0400
-Received: by bkwj10 with SMTP id j10so88008bkw.19
-        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 22:22:44 -0700 (PDT)
-In-Reply-To: <501B5EC1.7010304@ti.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:51420 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794Ab2HCFpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 01:45:33 -0400
+Received: by weyx8 with SMTP id x8so177840wey.19
+        for <netdev@vger.kernel.org>; Thu, 02 Aug 2012 22:45:32 -0700 (PDT)
+In-Reply-To: <20120802.162601.2080519313891137444.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03.08.2012 07:16, Vaibhav Hiremath wrote:
+On Thu, 2012-08-02 at 16:26 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 02 Aug 2012 12:28:30 +0200
 > 
+> > Strange because I see no false sharing on this ifindex location for
+> > loopback device.
 > 
-> On 8/3/2012 1:13 AM, Daniel Mack wrote:
->> Make the driver control the device clocks. Appearantly, the Davinci
->> platform probes this driver with the clock all powered up, but on OMAP,
->> this isn't the case.
->>
->> Signed-off-by: Daniel Mack <zonque@gmail.com>
->> ---
->>  drivers/net/ethernet/ti/davinci_mdio.c | 16 ++++++++++++++--
->>  1 file changed, 14 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
->> index cd7ee20..b4b6015 100644
->> --- a/drivers/net/ethernet/ti/davinci_mdio.c
->> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
->> @@ -332,6 +332,8 @@ static int __devinit davinci_mdio_probe(struct platform_device *pdev)
->>  		goto bail_out;
->>  	}
->>  
->> +	clk_enable(data->clk);
->> +
->>  	dev_set_drvdata(dev, data);
->>  	data->dev = dev;
->>  	spin_lock_init(&data->lock);
->> @@ -379,8 +381,11 @@ bail_out:
->>  	if (data->bus)
->>  		mdiobus_free(data->bus);
->>  
->> -	if (data->clk)
->> +	if (data->clk) {
->> +		clk_disable(data->clk);
->>  		clk_put(data->clk);
->> +	}
->> +
->>  	pm_runtime_put_sync(&pdev->dev);
->>  	pm_runtime_disable(&pdev->dev);
->>  
->> @@ -397,8 +402,11 @@ static int __devexit davinci_mdio_remove(struct platform_device *pdev)
->>  	if (data->bus)
->>  		mdiobus_free(data->bus);
->>  
->> -	if (data->clk)
->> +	if (data->clk) {
->> +		clk_disable(data->clk);
->>  		clk_put(data->clk);
->> +	}
->> +
->>  	pm_runtime_put_sync(&pdev->dev);
->>  	pm_runtime_disable(&pdev->dev);
->>  
->> @@ -427,6 +435,8 @@ static int davinci_mdio_suspend(struct device *dev)
->>  	data->suspended = true;
->>  	spin_unlock(&data->lock);
->>  
->> +	clk_disable(data->clk);
->> +
->>  	return 0;
->>  }
->>  
->> @@ -435,6 +445,8 @@ static int davinci_mdio_resume(struct device *dev)
->>  	struct davinci_mdio_data *data = dev_get_drvdata(dev);
->>  	u32 ctrl;
->>  
->> +	clk_enable(data->clk);
->> +
+> Are you sure netdev->rx_dropped isn't being incremented?  That appears
+> as if it would land on the same cache line as netdev->ifindex.
 > 
-> Danial,
-> 
-> I would request you to wait for this, its not that simple and straight.
-> And once you migrate to runtime PM you don't need clk_enable/disable,
-> this should get handled under runtime PM api's.
 
-As I said, it can be dropped.
+Yes I am sure (by the way my output device was dummy0, not lo, but its
+the same for the case here)
 
-> Also have you read my another email post -
-> 
-> http://comments.gmane.org/gmane.linux.ports.arm.omap/80796
-> 
-> Certainly, with respect to CPSW & MDIO, this patch is not enough and
-> requires further investigation. I have started looking at this and
-> hopefully will have some solution soon...
+offsetof(struct net_device, features)=0x80
+... (all features are mostly read only)
+offsetof(struct net_device, ifindex)=0xa0
 
-Ok, no problem. We certainly need the DT bindings for davinci_mdio. With
-that applied, and the hwmod added (in the patch I posted yesterday), I
-can at least mount the rootfs via NFS, which is all I currently need.
+struct net_device_stats stats; is untouched on dummy device
 
+offsetof(struct net_device, rx_dropped)=0x160
 
-Best regards,
-Daniel
+So thats only the dereference done million times per second that show in
+the profiles, even if cache lines are clean and in cpu cache.
+
+I see that even more clear in the IN_DEV_ROUTE_LOCALNET(in_dev) macro in
+ip_route_input_slow(), doing so many derefs :
+
+Its actually faster to avoid it, if we already have the net pointer in
+hand : IN_DEV_NET_ROUTE_LOCALNET(in_dev, net) 
+
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 67f9dda..d032780 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -104,9 +104,14 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ #define IN_DEV_ANDCONF(in_dev, attr) \
+ 	(IPV4_DEVCONF_ALL(dev_net(in_dev->dev), attr) && \
+ 	 IN_DEV_CONF_GET((in_dev), attr))
+-#define IN_DEV_ORCONF(in_dev, attr) \
+-	(IPV4_DEVCONF_ALL(dev_net(in_dev->dev), attr) || \
++
++#define IN_DEV_NET_ORCONF(in_dev, net, attr) \
++	(IPV4_DEVCONF_ALL(net, attr) || \
+ 	 IN_DEV_CONF_GET((in_dev), attr))
++
++#define IN_DEV_ORCONF(in_dev, attr) \
++	IN_DEV_NET_ORCONF(in_dev, dev_net(in_dev->dev), attr)
++
+ #define IN_DEV_MAXCONF(in_dev, attr) \
+ 	(max(IPV4_DEVCONF_ALL(dev_net(in_dev->dev), attr), \
+ 	     IN_DEV_CONF_GET((in_dev), attr)))
+@@ -133,6 +138,8 @@ static inline void ipv4_devconf_setall(struct in_device *in_dev)
+ 					IN_DEV_ORCONF((in_dev), \
+ 						      PROMOTE_SECONDARIES)
+ #define IN_DEV_ROUTE_LOCALNET(in_dev)	IN_DEV_ORCONF(in_dev, ROUTE_LOCALNET)
++#define IN_DEV_NET_ROUTE_LOCALNET(in_dev, net)	\
++	IN_DEV_NET_ORCONF(in_dev, net, ROUTE_LOCALNET)
+ 
+ #define IN_DEV_RX_REDIRECTS(in_dev) \
+ 	((IN_DEV_FORWARD(in_dev) && \
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e4ba974..5e88e3b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1587,13 +1587,11 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	if (ipv4_is_zeronet(daddr))
+ 		goto martian_destination;
+ 
+-	if (likely(!IN_DEV_ROUTE_LOCALNET(in_dev))) {
+-		if (ipv4_is_loopback(daddr))
+-			goto martian_destination;
++	if (ipv4_is_loopback(daddr) && !IN_DEV_NET_ROUTE_LOCALNET(in_dev, net))
++		goto martian_destination;
+ 
+-		if (ipv4_is_loopback(saddr))
+-			goto martian_source;
+-	}
++	if (ipv4_is_loopback(saddr) && !IN_DEV_NET_ROUTE_LOCALNET(in_dev, net))
++		goto martian_source;
+ 
+ 	/*
+ 	 *	Now we are ready to route packet.
