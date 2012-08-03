@@ -1,48 +1,21 @@
-From: Ali Ayoub <ali@mellanox.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Fri, 03 Aug 2012 15:39:36 -0700
-Message-ID: <501C5328.4060301@mellanox.com>
-References: <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <501C3527.6060809@mellanox.com> <20120803.143315.151094375569109262.davem@davemloft.net>
+From: RINKU PATEL <09bph070@nirmauni.ac.in>
+Subject: LONDON OLYMPIC NOTIFICATION
+Date: Fri, 3 Aug 2012 16:04:59 -0700
+Message-ID: <CAKD5m=y6OHxkPc_iYBNyV6a6=YMiAo+LRsycSsu-TfjGq_Oyhg@mail.gmail.com>
+Reply-To: larrywilliamslawchamber@yahoo.com.hk
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, ogerlitz@mellanox.com, roland@kernel.org,
-	netdev@vger.kernel.org, sean.hefty@intel.com, erezsh@mellanox.co.il
-To: David Miller <davem@davemloft.net>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mellanox.cgrafx.com ([67.192.191.215]:52293 "EHLO
-	mellanox.cgrafx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753376Ab2HCWji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 18:39:38 -0400
-In-Reply-To: <20120803.143315.151094375569109262.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:46396 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753481Ab2HCXFC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 19:05:02 -0400
+Received: by vbbff1 with SMTP id ff1so1177277vbb.19
+        for <netdev@vger.kernel.org>; Fri, 03 Aug 2012 16:05:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/3/2012 2:33 PM, David Miller wrote:
-> From: Ali Ayoub <ali@mellanox.com>
-> Date: Fri, 03 Aug 2012 13:31:35 -0700
-> 
->> With eIPoIB architecture, the VM sees standard Ethernet emulator,
->> allowing the administrator to enslave eIPoIB PIF to the vSwitch/vBridge
->> as if it was standard Ethernet. Other approaches that exposes IB QP to
->> the VM (with w/o bypassing the kernel) won't be possible with the
->> current emulators and management tools.
-> 
-> So then fix the emulators and management tools to handle IB instead
-> of adding this bogus new protocol?
-> 
-> This new protocol seems to exist only because you don't want to have
-> to enhance the emulators and tools, and I'm sorry that isn't a valid
-> reason to do something like this.
-
-This driver exists to allow the user to have an Ethernet interface on
-top of a high-speed InfiniBand (IB) interconnect.
-Users would like to use sockets API from the VM without re-writing their
-applications on top of IB verbs, this driver meant to allow such a user
-to do so.
-
-Exposing IB emulators and having IB support in the management tools for
-the VM/Hypervisor won't address the usecases that this driver meant for.
-
-With this driver, existing VMs, and their existing IP applications, can
-run as-is on InfiniBand network.
+Congratulations!!! For more informations communicate to the below contact;
+CONTACT PERSON Larry Williams Contact Number:+447035972724
+E-mail Adress: larrywilliamslawchamber@yahoo.com.hk
