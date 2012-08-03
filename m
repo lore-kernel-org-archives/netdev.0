@@ -1,39 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: Allow to create links with given ifindex
-Date: Thu, 02 Aug 2012 16:37:36 -0700 (PDT)
-Message-ID: <20120802.163736.2195802807682348146.davem@davemloft.net>
-References: <878ve0dtw3.fsf@xmission.com>
-	<1343903310.9299.184.camel@edumazet-glaptop>
-	<87wr1h35zg.fsf@xmission.com>
+From: "sodduuve" <denisegravesovvvd@yahoo.cn>
+Subject: ..656...565..265...356..
+Date: Fri, 3 Aug 2012 08:14:47 +0800
+Message-ID: <96ED26B2083E828477C50977F7894D6E@alyuf>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, xemul@parallels.com, netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <yuexianana@sina.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59784 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746Ab2HBXhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 19:37:37 -0400
-In-Reply-To: <87wr1h35zg.fsf@xmission.com>
+Received: from nm20-vm4.bullet.mail.sg3.yahoo.com ([106.10.149.131]:33960 "HELO
+	nm20-vm4.bullet.mail.sg3.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752286Ab2HCAO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2012 20:14:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 02 Aug 2012 04:09:39 -0700
-
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> 
->> If ifindex are per network space, I guess we'll need to change
->> arp_hashfn() or else we'll use some slots more than others.
-> 
-> Darn.  I hate being right about there being a few places to fix
-> up.
-> 
-> ndisc_hashfn also has the same limitation.
-
-And netlabel's inteface hashing as well.
-
-LLC works with ifindex hashing and is not namespace aware.  It's
-should therefore limited to &init_net and therefore OK.  Likewise
-for the CAN code.
+6LSf6LSj5Lq65oKo5aW977yaDQoNCiAgIOaIkeWFrOWPuOacie+8iOWbveKAlOWcsO+8ieeoji/n
+pajmja7ku6PlvIDvvIzlpoLmnInov5nmlrnpnaLnmoTpnIANCg0K6KaB6K+36IGU57O744CC6Iul
+5pyJ5omT5omw77yM6K+35aSa5YyF5ra177yJ6LCi6LCi44CCDQoNCg0KICAgICAgICAgICAg6IGU
+57O75Lq677ya546L57uP55CGDQoNCiAgICAgICAgICAgICDmiYsg5py677yaMTM1MzgyOTI1ODUN
+Cg0KICAgICAgICAgICAgICBRICBROjEwNjAwNDY3ODUNCg==
