@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ppp: add 64 bit stats
-Date: Fri, 03 Aug 2012 20:41:41 -0700 (PDT)
-Message-ID: <20120803.204141.445487530122768077.davem@davemloft.net>
-References: <1343446733-4791-1-git-send-email-kgroeneveld@gmail.com>
-	<1343461141.2626.13122.camel@edumazet-glaptop>
+Subject: Re: [PATCH] firmware: Remove obsolete Chelsio cxgb3 firmware
+Date: Fri, 03 Aug 2012 20:41:08 -0700 (PDT)
+Message-ID: <20120803.204108.1154138970238795947.davem@davemloft.net>
+References: <1343848670-31504-1-git-send-email-tim.gardner@canonical.com>
+	<20120802.002000.2023014747210925552.davem@davemloft.net>
+	<501A728A.2070905@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kgroeneveld@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
+	ben@decadent.org.uk, JBottomley@Parallels.com,
+	dan.j.williams@intel.com, divy@chelsio.com, netdev@vger.kernel.org
+To: tim.gardner@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42941 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42926 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754043Ab2HDDlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 23:41:42 -0400
-In-Reply-To: <1343461141.2626.13122.camel@edumazet-glaptop>
+	with ESMTP id S1753724Ab2HDDlK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 23:41:10 -0400
+In-Reply-To: <501A728A.2070905@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 28 Jul 2012 09:39:01 +0200
+From: Tim Gardner <tim.gardner@canonical.com>
+Date: Thu, 02 Aug 2012 06:28:58 -0600
 
-> On Fri, 2012-07-27 at 23:38 -0400, Kevin Groeneveld wrote:
->> Add 64 bit stats to ppp driver.  The 64 bit stats include tx_bytes,
->> rx_bytes, tx_packets and rx_packets.  Other stats are still 32 bit.
->> The 64 bit stats can be retrieved via the ndo_get_stats operation.  The
->> SIOCGPPPSTATS ioctl is still 32 bit stats only.
->> 
->> Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
->> ---
->> v2: - do not use percpu variables for stats
->>     - use ppp_recv_lock/ppp_xmit_lock when reading 64 bit stats
->> 
+>   git://kernel.ubuntu.com/rtg/net-next.git master
 > 
-> Seems fine to me this time ;)
+> for you to fetch changes up to 044b722f36a17bc5f7f472cc3246cb15a430bb0e:
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+>   firmware: Remove obsolete Chelsio cxgb3 firmware (2012-08-02 06:23:25
+> -0600)
 
-Applied.
+Pulled, thanks.
