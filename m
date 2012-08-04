@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] firmware: Remove obsolete Chelsio cxgb3 firmware
-Date: Fri, 03 Aug 2012 20:41:08 -0700 (PDT)
-Message-ID: <20120803.204108.1154138970238795947.davem@davemloft.net>
-References: <1343848670-31504-1-git-send-email-tim.gardner@canonical.com>
-	<20120802.002000.2023014747210925552.davem@davemloft.net>
-	<501A728A.2070905@canonical.com>
+Subject: Re: [patch net-next 0/4] add support for queue override by setting
+ queue_id for port
+Date: Fri, 03 Aug 2012 20:41:28 -0700 (PDT)
+Message-ID: <20120803.204128.879479288104188554.davem@davemloft.net>
+References: <1343406535-22388-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, paul.gortmaker@windriver.com,
-	ben@decadent.org.uk, JBottomley@Parallels.com,
-	dan.j.williams@intel.com, divy@chelsio.com, netdev@vger.kernel.org
-To: tim.gardner@canonical.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42926 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42936 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724Ab2HDDlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 23:41:10 -0400
-In-Reply-To: <501A728A.2070905@canonical.com>
+	with ESMTP id S1754031Ab2HDDl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 23:41:29 -0400
+In-Reply-To: <1343406535-22388-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tim Gardner <tim.gardner@canonical.com>
-Date: Thu, 02 Aug 2012 06:28:58 -0600
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 27 Jul 2012 18:28:51 +0200
 
->   git://kernel.ubuntu.com/rtg/net-next.git master
-> 
-> for you to fetch changes up to 044b722f36a17bc5f7f472cc3246cb15a430bb0e:
-> 
->   firmware: Remove obsolete Chelsio cxgb3 firmware (2012-08-02 06:23:25
-> -0600)
+> Jiri Pirko (4):
+>   netlink: add signed types
+>   team: add signed 32-bit team option type
+>   team: add per port priority option
+>   team: add support for queue override by setting queue_id for port
 
-Pulled, thanks.
+All applied, thanks.
