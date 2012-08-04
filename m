@@ -1,190 +1,69 @@
-From: Jan Ariyasu <jan.ariyasu@gmail.com>
-Subject: [PATCH 12/13] SCTP: Enable chunk-auth verification (RFC4895).
-Date: Sat,  4 Aug 2012 15:34:32 -0600
-Message-ID: <1344116072-6563-1-git-send-email-jan.ariyasu@hp.com>
-Cc: Jan Ariyasu <jan.ariyasu@hp.com>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Sun, 5 Aug 2012 00:33:08 +0300
+Message-ID: <CAJZOPZJRGMNGHP6XZx-4t998bHs+uD28Yxhjoy5VMUTFmkHZGQ@mail.gmail.com>
+References: <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
+	<87boitz044.fsf@xmission.com>
+	<501C3527.6060809@mellanox.com>
+	<20120803.143315.151094375569109262.davem@davemloft.net>
+	<501C5328.4060301@mellanox.com>
+	<501C669B.2030303@mellanox.com>
+	<1d3bddff-4b3a-4ed1-b8f9-21bd531ba20b@email.android.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ali Ayoub <ali@mellanox.com>, David Miller <davem@davemloft.net>,
+	ogerlitz@mellanox.com, roland@kernel.org, netdev@vger.kernel.org,
+	sean.hefty@intel.com, erezsh@mellanox.co.il
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:65522 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753930Ab2HDVdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 17:33:09 -0400
+Received: by yenl2 with SMTP id l2so1750632yen.19
+        for <netdev@vger.kernel.org>; Sat, 04 Aug 2012 14:33:09 -0700 (PDT)
+In-Reply-To: <1d3bddff-4b3a-4ed1-b8f9-21bd531ba20b@email.android.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch replaces the global parameter sctp_auth_enable with
-the per-namespace parameter stored in struct net.
+On Sat, Aug 4, 2012 at 4:34 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Ali Ayoub <ali@mellanox.com> wrote:
 
-Signed-off-by: Jan Ariyasu <jan.ariyasu@hp.com>
----
- net/sctp/endpointola.c   |    4 +++-
- net/sctp/sm_statetable.c |   11 +++++++----
- net/sctp/socket.c        |   32 ++++++++++++++++++++++++--------
- 3 files changed, 34 insertions(+), 13 deletions(-)
+>>With this driver, existing VMs, and their existing IP applications, can
+>>run as-is on InfiniBand network.
 
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index 750df47..5fa20a1 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -70,12 +70,14 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
- 	struct sctp_shared_key *null_key;
- 	int err;
- 	struct net *net = sock_net(sk);
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(net);
- 
- 	ep->digest = kzalloc(SCTP_SIGNATURE_SIZE, gfp);
- 	if (!ep->digest)
- 		return NULL;
- 
--	if (sctp_auth_enable) {
-+	if (net_params->auth_enable) {
- 		/* Allocate space for HMACS and CHUNKS authentication
- 		 * variables.  There are arrays that we encode directly
- 		 * into parameters to make the rest of the operations easier.
-diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
-index c249e59..5177130 100644
---- a/net/sctp/sm_statetable.c
-+++ b/net/sctp/sm_statetable.c
-@@ -59,7 +59,8 @@ other_event_table[SCTP_NUM_OTHER_TYPES][SCTP_STATE_NUM_STATES];
- static const sctp_sm_table_entry_t
- timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][SCTP_STATE_NUM_STATES];
- 
--static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(sctp_cid_t cid,
-+static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(struct net *net,
-+							    sctp_cid_t cid,
- 							    sctp_state_t state);
- 
- 
-@@ -89,7 +90,7 @@ const sctp_sm_table_entry_t *sctp_sm_lookup_event(struct net *net,
- {
- 	switch (event_type) {
- 	case SCTP_EVENT_T_CHUNK:
--		return sctp_chunk_event_lookup(event_subtype.chunk, state);
-+		return sctp_chunk_event_lookup(net, event_subtype.chunk, state);
- 	case SCTP_EVENT_T_TIMEOUT:
- 		return DO_LOOKUP(SCTP_EVENT_TIMEOUT_MAX, timeout,
- 				 timeout_event_table);
-@@ -907,9 +908,11 @@ static const sctp_sm_table_entry_t timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][S
- 	TYPE_SCTP_EVENT_TIMEOUT_AUTOCLOSE,
- };
- 
--static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(sctp_cid_t cid,
-+static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(struct net *net,
-+							    sctp_cid_t cid,
- 							    sctp_state_t state)
- {
-+	struct sctp_net_params *net_params = sctp_get_params(net);
- 	if (state > SCTP_STATE_MAX)
- 		return &bug;
- 
-@@ -929,7 +932,7 @@ static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(sctp_cid_t cid,
- 			return &addip_chunk_event_table[1][state];
- 	}
- 
--	if (sctp_auth_enable) {
-+	if (net_params->auth_enable) {
- 		if (cid == SCTP_CID_AUTH)
- 			return &auth_chunk_event_table[0][state];
- 	}
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9712ea5..e8148a0 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3300,8 +3300,10 @@ static int sctp_setsockopt_auth_chunk(struct sock *sk,
- 				      unsigned int optlen)
- {
- 	struct sctp_authchunk val;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (optlen != sizeof(struct sctp_authchunk))
-@@ -3334,8 +3336,10 @@ static int sctp_setsockopt_hmac_ident(struct sock *sk,
- 	struct sctp_hmacalgo *hmacs;
- 	u32 idents;
- 	int err;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (optlen < sizeof(struct sctp_hmacalgo))
-@@ -3371,8 +3375,10 @@ static int sctp_setsockopt_auth_key(struct sock *sk,
- 	struct sctp_authkey *authkey;
- 	struct sctp_association *asoc;
- 	int ret;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (optlen <= sizeof(struct sctp_authkey))
-@@ -3442,8 +3448,10 @@ static int sctp_setsockopt_del_key(struct sock *sk,
- {
- 	struct sctp_authkeyid val;
- 	struct sctp_association *asoc;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (optlen != sizeof(struct sctp_authkeyid))
-@@ -5326,8 +5334,10 @@ static int sctp_getsockopt_hmac_ident(struct sock *sk, int len,
- 	struct sctp_hmac_algo_param *hmacs;
- 	__u16 data_len = 0;
- 	u32 num_idents;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	hmacs = sctp_sk(sk)->ep->auth_hmacs_list;
-@@ -5353,8 +5363,10 @@ static int sctp_getsockopt_active_key(struct sock *sk, int len,
- {
- 	struct sctp_authkeyid val;
- 	struct sctp_association *asoc;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (len < sizeof(struct sctp_authkeyid))
-@@ -5389,8 +5401,10 @@ static int sctp_getsockopt_peer_auth_chunks(struct sock *sk, int len,
- 	struct sctp_chunks_param *ch;
- 	u32    num_chunks = 0;
- 	char __user *to;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (len < sizeof(struct sctp_authchunks))
-@@ -5432,8 +5446,10 @@ static int sctp_getsockopt_local_auth_chunks(struct sock *sk, int len,
- 	struct sctp_chunks_param *ch;
- 	u32    num_chunks = 0;
- 	char __user *to;
-+	struct sctp_net_params *net_params =
-+		sctp_get_params(sock_net(sk));
- 
--	if (!sctp_auth_enable)
-+	if (!net_params->auth_enable)
- 		return -EACCES;
- 
- 	if (len < sizeof(struct sctp_authchunks))
--- 
-1.7.9.5
+> Actually it doesn't work like that.
+> If my application really needs ethernet it will not work with your driver.
+
+Eric,
+
+Starting to address your email
+
+If your application really needs Ethernet, it will not work with
+IPoIB, since the latter only supports IP apps. So this isn't the
+problem we're trying to solve here, but rather allow IP app running in
+PV mode to use IPoIB.
+
+> I can not run decnet or appletalk or ATAoE or PPPoE or LACP
+
+[...]
+
+> or use VLANs
+
+YES you can, vlan devices can be set over eipoib devices, and the
+eipoib driver maps the vlan ID to IB Partition using a mapping defined
+by the admin.
+
+> or any of a thousand other things that require real live ethernet to function.
+[...]
+> Similarly eIPoIB does not make sense from a performance standpoint because
+> the best performance requires the applications and hypervisors are infiniband
+> and teaching the apps to cope.
+
+agree 100% re the "best performance" part of this sentence, if your
+app looks for best perf, yes you can use IB in either native or SRIOV
+mode, as I mentioned in my response to Dave.
+
+Or.
+
+Or.
