@@ -1,33 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] cdc-ncm: tag Ericsson WWAN devices (eg F5521gw) with
- FLAG_WWAN
-Date: Fri, 03 Aug 2012 20:32:44 -0700 (PDT)
-Message-ID: <20120803.203244.1322035887331119868.davem@davemloft.net>
-References: <1343155402.29196.7.camel@dcbw.foobar.com>
-	<501A72DC.7070306@gmx-topmail.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cris: fix eth_v10.c build error
+Date: Fri, 03 Aug 2012 20:33:41 -0700 (PDT)
+Message-ID: <20120803.203341.1528759021241176441.davem@davemloft.net>
+References: <1344002771-21072-1-git-send-email-geert@linux-m68k.org>
+	<501C6EEF.3030100@xenotime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: meiser-rJBqYz9TEJZKTQ5g00o1eQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <501A72DC.7070306-rJBqYz9TEJZKTQ5g00o1eQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: geert@linux-m68k.org, linux-kernel@vger.kernel.org,
+	starvik@axis.com, jesper.nilsson@axis.com,
+	linux-cris-kernel@axis.com, netdev@vger.kernel.org
+To: rdunlap@xenotime.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <501C6EEF.3030100@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Peter Meiser <meiser-rJBqYz9TEJZKTQ5g00o1eQ@public.gmane.org>
-Date: Thu, 02 Aug 2012 14:30:20 +0200
+From: Randy Dunlap <rdunlap@xenotime.net>
+Date: Fri, 03 Aug 2012 17:38:07 -0700
 
-> looking at http://sourceforge.net/apps/mediawiki/mbm/index.php?title=Main_Page#Supported_devices, there are branded Ericsson devices from Dell and Toshiba.
+> From: Randy Dunlap <rdunlap@xenotime.net>
 > 
-> The to-be-added vendor IDs are 0x413c for Dell and 0x0930 for Toshiba.
+> Fix build error on cris (not tested, no toolchain here):
 > 
-> Please find attached a patch to add these vendor IDs.
+> drivers/net/cris/eth_v10.c: error: too many arguments to function 'e100rxtx_interrupt'
 > 
-> Signed-off-by: Peter Meiser <meiser-rJBqYz9TEJZKTQ5g00o1eQ@public.gmane.org>
+> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Randy.
