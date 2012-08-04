@@ -1,40 +1,53 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: TCP stalls with 802.3ad + bridge + kvm guest
-Date: Fri, 3 Aug 2012 22:04:02 -0700
-Message-ID: <CAEuXFExg2X9r0zE8wUs9Npd7jPUN2WHbyJcnH6eT_23f2DoPjw@mail.gmail.com>
-References: <20120727183840.GE17572@p12n.org>
-	<26496.1343419205@death.nxdomain>
-	<20120801144104.GN17572@p12n.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: skb_share_check() should use consume_skb()
+Date: Sat, 04 Aug 2012 08:54:15 +0200
+Message-ID: <1344063255.9299.1457.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	jgoerzen@efolder.net
-To: Peter Samuelson <psamuelson@efolder.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:37291 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788Ab2HDFEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 01:04:04 -0400
-Received: by yenl2 with SMTP id l2so1524627yen.19
-        for <netdev@vger.kernel.org>; Fri, 03 Aug 2012 22:04:02 -0700 (PDT)
-In-Reply-To: <20120801144104.GN17572@p12n.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:35448 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752090Ab2HDGyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 02:54:19 -0400
+Received: by wgbfm10 with SMTP id fm10so173332wgb.1
+        for <netdev@vger.kernel.org>; Fri, 03 Aug 2012 23:54:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 1, 2012 at 7:41 AM, Peter Samuelson <psamuelson@efolder.net> wrote:
->
->   [Peter Samuelson]
->> >    ixgbe [10 Gbit port] -- bonding [802.3ad] -- bridge -- KVM guest
->> >
->> >It all works, except that with some flows in the KVM guest - I
->> >can reproduce using smbclient - transfers keep stalling, such that I'm
->> >averaging well under 1 MB/s.  Should be more like 100 MB/s.
->> >
->> >Oddly, this only occurs when both the 802.3ad and KVM are used:
+From: Eric Dumazet <edumazet@google.com>
 
-is it because offloads are enabled?  I had to disable several of them
-to get my virtual machines to work on both igb and ixgbe interfaces, I
-haven't gone any further to isolate why.
+In order to avoid false drop_monitor indications, we should
+call consume_skb() if skb_clone() was successful.
 
-try
-# ethtool -K ethx tso off gso off lro off
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/skbuff.h |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7632c87..b33a3a1 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -846,13 +846,16 @@ static inline int skb_shared(const struct sk_buff *skb)
+  *
+  *	NULL is returned on a memory allocation failure.
+  */
+-static inline struct sk_buff *skb_share_check(struct sk_buff *skb,
+-					      gfp_t pri)
++static inline struct sk_buff *skb_share_check(struct sk_buff *skb, gfp_t pri)
+ {
+ 	might_sleep_if(pri & __GFP_WAIT);
+ 	if (skb_shared(skb)) {
+ 		struct sk_buff *nskb = skb_clone(skb, pri);
+-		kfree_skb(skb);
++
++		if (likely(nskb))
++			consume_skb(skb);
++		else
++			kfree_skb(skb);
+ 		skb = nskb;
+ 	}
+ 	return skb;
