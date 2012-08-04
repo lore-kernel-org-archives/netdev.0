@@ -1,36 +1,44 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [RFC v2 1/7] hashtable: introduce a small and naive hashtable
-Date: Sat, 04 Aug 2012 02:33:07 +0200
-Message-ID: <501C6DC3.90904@gmail.com>
-References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com> <1344003788-1417-2-git-send-email-levinsasha928@gmail.com> <20120803171515.GH15477@google.com> <501C407D.9080900@gmail.com> <20120803213017.GK15477@google.com> <501C458E.7050000@gmail.com> <20120803214806.GM15477@google.com> <501C4E92.1070801@gmail.com> <20120803222339.GN15477@google.com> <CA+55aFyOst4c3WHbPVbYkSBdBmLJUui5OvoVOh5AuPMnigwnEA@mail.gmail.com> <20120803223634.GO15477@google.com> <CA+55aFwTa_kYgmFwoWa6hwAAM6=2xTgQQf-vEx_gCzpEMnxodQ@mail.gmail.com> <501C66C2.2020706@gmail.com> <CA+55aFziVRRBoTnm2zASGR39W1AB+0=4Sa7qO8e6_hN06ZY8wg@mail.gmail.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: [PATCH] cris: fix eth_v10.c build error
+Date: Fri, 03 Aug 2012 17:38:07 -0700
+Message-ID: <501C6EEF.3030100@xenotime.net>
+References: <1344002771-21072-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, akpm@linux-foundation.org,
- linux-kernel@vger.kernel.org, linux-mm@kvack.org,
- paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
- mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com,
- ericvh@gmail.com, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CA+55aFziVRRBoTnm2zASGR39W1AB+0=4Sa7qO8e6_hN06ZY8wg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org, Mikael Starvik <starvik@axis.com>,
+	Jesper Nilsson <jesper.nilsson@axis.com>,
+	linux-cris-kernel@axis.com, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344002771-21072-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/04/2012 02:05 AM, Linus Torvalds wrote:
-> On Fri, Aug 3, 2012 at 5:03 PM, Sasha Levin <levinsasha928@gmail.com> wrote:
->>
->> The problem with that code was that it doesn't work with dynamically allocated hashtables, or hashtables that grow/shrink.
-> 
-> Sure. But once you have that kind of complexity, why would you care
-> about the trivial cases?
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-Because there are far more trivial cases than complex ones - I've counted 50+ of these "trivial" cases.
+Fix build error on cris (not tested, no toolchain here):
 
-None of them need the complexity we're trying to deal with at the moment.
+drivers/net/cris/eth_v10.c: error: too many arguments to function 'e100rxtx_interrupt'
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+Cc:	Mikael Starvik <starvik@axis.com>
+Cc:	Jesper Nilsson <jesper.nilsson@axis.com>
+Cc:	linux-cris-kernel@axis.com
+---
+ drivers/net/cris/eth_v10.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- lnx-36-rc1.orig/drivers/net/cris/eth_v10.c
++++ lnx-36-rc1/drivers/net/cris/eth_v10.c
+@@ -1712,7 +1712,7 @@ e100_set_network_leds(int active)
+ static void
+ e100_netpoll(struct net_device* netdev)
+ {
+-	e100rxtx_interrupt(NETWORK_DMA_TX_IRQ_NBR, netdev, NULL);
++	e100rxtx_interrupt(NETWORK_DMA_TX_IRQ_NBR, netdev);
+ }
+ #endif
+ 
