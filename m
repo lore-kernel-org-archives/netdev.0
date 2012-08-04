@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cris: fix eth_v10.c build error
-Date: Fri, 03 Aug 2012 20:33:41 -0700 (PDT)
-Message-ID: <20120803.203341.1528759021241176441.davem@davemloft.net>
-References: <1344002771-21072-1-git-send-email-geert@linux-m68k.org>
-	<501C6EEF.3030100@xenotime.net>
+Subject: Re: [PATCH v2] ppp: add 64 bit stats
+Date: Fri, 03 Aug 2012 20:41:41 -0700 (PDT)
+Message-ID: <20120803.204141.445487530122768077.davem@davemloft.net>
+References: <1343446733-4791-1-git-send-email-kgroeneveld@gmail.com>
+	<1343461141.2626.13122.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, linux-kernel@vger.kernel.org,
-	starvik@axis.com, jesper.nilsson@axis.com,
-	linux-cris-kernel@axis.com, netdev@vger.kernel.org
-To: rdunlap@xenotime.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <501C6EEF.3030100@xenotime.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kgroeneveld@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42941 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754043Ab2HDDlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 23:41:42 -0400
+In-Reply-To: <1343461141.2626.13122.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Fri, 03 Aug 2012 17:38:07 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 28 Jul 2012 09:39:01 +0200
 
-> From: Randy Dunlap <rdunlap@xenotime.net>
+> On Fri, 2012-07-27 at 23:38 -0400, Kevin Groeneveld wrote:
+>> Add 64 bit stats to ppp driver.  The 64 bit stats include tx_bytes,
+>> rx_bytes, tx_packets and rx_packets.  Other stats are still 32 bit.
+>> The 64 bit stats can be retrieved via the ndo_get_stats operation.  The
+>> SIOCGPPPSTATS ioctl is still 32 bit stats only.
+>> 
+>> Signed-off-by: Kevin Groeneveld <kgroeneveld@gmail.com>
+>> ---
+>> v2: - do not use percpu variables for stats
+>>     - use ppp_recv_lock/ppp_xmit_lock when reading 64 bit stats
+>> 
 > 
-> Fix build error on cris (not tested, no toolchain here):
+> Seems fine to me this time ;)
 > 
-> drivers/net/cris/eth_v10.c: error: too many arguments to function 'e100rxtx_interrupt'
-> 
-> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Randy.
+Applied.
