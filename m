@@ -1,68 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Fri, 03 Aug 2012 17:05:58 -0700 (PDT)
-Message-ID: <20120803.170558.521297686027330433.davem@davemloft.net>
-References: <20120803.143315.151094375569109262.davem@davemloft.net>
-	<501C5328.4060301@mellanox.com>
-	<501C669B.2030303@mellanox.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [RFC v2 1/7] hashtable: introduce a small and naive hashtable
+Date: Fri, 3 Aug 2012 17:05:48 -0700
+Message-ID: <CA+55aFziVRRBoTnm2zASGR39W1AB+0=4Sa7qO8e6_hN06ZY8wg@mail.gmail.com>
+References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com>
+ <1344003788-1417-2-git-send-email-levinsasha928@gmail.com>
+ <20120803171515.GH15477@google.com> <501C407D.9080900@gmail.com>
+ <20120803213017.GK15477@google.com> <501C458E.7050000@gmail.com>
+ <20120803214806.GM15477@google.com> <501C4E92.1070801@gmail.com>
+ <20120803222339.GN15477@google.com> <CA+55aFyOst4c3WHbPVbYkSBdBmLJUui5OvoVOh5AuPMnigwnEA@mail.gmail.com>
+ <20120803223634.GO15477@google.com> <CA+55aFwTa_kYgmFwoWa6hwAAM6=2xTgQQf-vEx_gCzpEMnxodQ@mail.gmail.com>
+ <501C66C2.2020706@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, ogerlitz@mellanox.com, roland@kernel.org,
-	netdev@vger.kernel.org, sean.hefty@intel.com, erezsh@mellanox.co.il
-To: ali@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41779 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018Ab2HDAF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 20:05:59 -0400
-In-Reply-To: <501C669B.2030303@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tejun Heo <tj@kernel.org>, akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org, paul.gortmaker@windriver.com, davem@davemloft.net,
+	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <501C66C2.2020706@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Ali Ayoub <ali@mellanox.com>
-Date: Fri, 03 Aug 2012 17:02:35 -0700
+On Fri, Aug 3, 2012 at 5:03 PM, Sasha Levin <levinsasha928@gmail.com> wrote:
+>
+> The problem with that code was that it doesn't work with dynamically allocated hashtables, or hashtables that grow/shrink.
 
-> On 8/3/2012 3:39 PM, Ali Ayoub wrote:
->> On 8/3/2012 2:33 PM, David Miller wrote:
->>> From: Ali Ayoub <ali@mellanox.com>
->>> Date: Fri, 03 Aug 2012 13:31:35 -0700
->>>
->>>> With eIPoIB architecture, the VM sees standard Ethernet emulator,
->>>> allowing the administrator to enslave eIPoIB PIF to the vSwitch/vBridge
->>>> as if it was standard Ethernet. Other approaches that exposes IB QP to
->>>> the VM (with w/o bypassing the kernel) won't be possible with the
->>>> current emulators and management tools.
->>>
->>> So then fix the emulators and management tools to handle IB instead
->>> of adding this bogus new protocol?
->>>
->>> This new protocol seems to exist only because you don't want to have
->>> to enhance the emulators and tools, and I'm sorry that isn't a valid
->>> reason to do something like this.
->> 
->> This driver exists to allow the user to have an Ethernet interface on
->> top of a high-speed InfiniBand (IB) interconnect.
->> Users would like to use sockets API from the VM without re-writing their
->> applications on top of IB verbs, this driver meant to allow such a user
->> to do so.
->> 
->> Exposing IB emulators and having IB support in the management tools for
->> the VM/Hypervisor won't address the usecases that this driver meant for.
->> 
->> With this driver, existing VMs, and their existing IP applications, can
->> run as-is on InfiniBand network.
-> 
-> This driver exists to allow the user to have an Ethernet interface on
-> top of a high-speed InfiniBand (IB) interconnect.
-> Users would like to use sockets API from the VM without re-writing their
-> applications on top of IB verbs, this driver meant to allow such a user
-> to do so.
-> 
-> Exposing IB emulators and having IB support in the management tools for
-> the VM/Hypervisor won't address the usecases that this driver meant for.
-> 
-> With this driver, existing VMs, and their existing IP applications, can
-> run as-is on InfiniBand network.
+Sure. But once you have that kind of complexity, why would you care
+about the trivial cases?
 
-Just saying the same thing twice doesn't make your argument stronger.
+             Linus
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
