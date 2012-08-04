@@ -1,49 +1,58 @@
-From: Nick Alcock <nick.alcock@oracle.com>
-Subject: [PATCH iproute2] Install the bridge command under the same name we build it.
-Date: Sat, 04 Aug 2012 15:36:05 +0100
-Message-ID: <87ehnmiv1m.fsf@spindle.srvr.nix>
+From: richard -rw- weinberger <richard.weinberger@gmail.com>
+Subject: Re: TCP Delayed ACK in FIN/ACK
+Date: Sat, 4 Aug 2012 16:51:24 +0200
+Message-ID: <CAFLxGvxqj+-rf5twsMPk-pRQqzqsK8-MSsKaez9cwarPmyEqzw@mail.gmail.com>
+References: <CACS4u_zUF9T0rSsndhyVzgaauOBFJ4LTUeb432B1zg_oLHvTsg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: =?ISO-8859-2?Q?S=B3awek_Janecki?= <janecki@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from acsinet15.oracle.com ([141.146.126.227]:32124 "EHLO
-	acsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752757Ab2HDOgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 10:36:10 -0400
-Received: from acsinet21.oracle.com (acsinet21.oracle.com [141.146.126.237])
-	by acsinet15.oracle.com (Sentrion-MTA-4.2.2/Sentrion-MTA-4.2.2) with ESMTP id q74Ea8YG005211
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Sat, 4 Aug 2012 14:36:09 GMT
-Received: from acsmt356.oracle.com (acsmt356.oracle.com [141.146.40.156])
-	by acsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id q74Ea7Pm017187
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 4 Aug 2012 14:36:08 GMT
-Received: from abhmt109.oracle.com (abhmt109.oracle.com [141.146.116.61])
-	by acsmt356.oracle.com (8.12.11.20060308/8.12.11) with ESMTP id q74Ea7xg011572
-	for <netdev@vger.kernel.org>; Sat, 4 Aug 2012 09:36:07 -0500
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:53506 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752643Ab2HDOvZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 10:51:25 -0400
+In-Reply-To: <CACS4u_zUF9T0rSsndhyVzgaauOBFJ4LTUeb432B1zg_oLHvTsg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Aug 4, 2012 at 4:45 PM, S=C5=82awek Janecki <janecki@gmail.com>=
+ wrote:
+> I have a node.js client (10.177.62.7) requesting some data from http
+> rest service from server (10.177.0.1).
+> Client is simply using nodejs http.request() method (agent=3Dfalse).
+> Client is on Ubuntu 11.10 box.
+> Why client sends FIN ACK after 475ms? Why so slow? He should send FIN
+> ACK immediately.
+> I have many situations like this. About 1% of whole traffic is reques=
+t
+> with delayed FIN ACK.
+> Cpu idle on the client is about 99%, so nothing is draining CPU.
+> How to debug this? What could it be? Is there any sysctl option I nee=
+d to tune?
+> I think this behaviour is the Delayed ACK feature of RFC1122 TCP stac=
+k.
+>
+> Link to tcpdump picture (done on a client machine) :
+> http://i48.tinypic.com/35cpogx.png
+>
+> Can you tell why kernel delayed that FIN/ACK.
+> In tcpflow data there is exacly one ACK per packet comming from serve=
+r.
+> Why kernel delayed client FIN/ACK.
+> It could avoid sending ACK every 'data' packet.
+> But it choose to delay FIN/ACK?
+> Is this possible? Is this a bug?
+>
+> I've also posted question on stackexchange:
+> http://stackoverflow.com/questions/11711218/client-sends-delayed-fin-=
+ack-500ms-to-server
+>
+> Please help.
 
-Signed-off-by: Nick Alcock <nick.alcock@oracle.com>
----
- bridge/Makefile | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+CC'ing netdev.
 
-diff --git a/bridge/Makefile b/bridge/Makefile
-index 0c333bf..9a6743e 100644
---- a/bridge/Makefile
-+++ b/bridge/Makefile
-@@ -7,8 +7,8 @@ all: bridge
- bridge: $(BROBJ) $(LIBNETLINK) 
- 
- install: all
--	install -m 0755 br $(DESTDIR)$(SBINDIR)
-+	install -m 0755 bridge $(DESTDIR)$(SBINDIR)
- 
- clean:
--	rm -f $(BROBJ) br
-+	rm -f $(BROBJ) bridge
- 
--- 
-1.7.11.2.155.g5ceeb62
+--=20
+Thanks,
+//richard
