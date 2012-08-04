@@ -1,88 +1,66 @@
 From: =?UTF-8?Q?S=C5=82awek_Janecki?= <janecki@gmail.com>
-Subject: Re: TCP Delayed ACK in FIN/ACK
-Date: Sat, 4 Aug 2012 21:20:45 +0200
-Message-ID: <CACS4u_xFsLzCM6NVDY6abG9XRsxgtdyOndEChuSK8-g5XzU-aw@mail.gmail.com>
-References: <CACS4u_zUF9T0rSsndhyVzgaauOBFJ4LTUeb432B1zg_oLHvTsg@mail.gmail.com>
- <CAFLxGvxqj+-rf5twsMPk-pRQqzqsK8-MSsKaez9cwarPmyEqzw@mail.gmail.com> <1344098083.9299.1503.camel@edumazet-glaptop>
+Subject: Re: TCP stalls with 802.3ad + bridge + kvm guest
+Date: Sat, 4 Aug 2012 21:21:30 +0200
+Message-ID: <CACS4u_xhcLCUT6EFmhazePamwHDYipgMSPdJxVOG4U9frLfikQ@mail.gmail.com>
+References: <20120727183840.GE17572@p12n.org> <26496.1343419205@death.nxdomain>
+ <20120801144104.GN17572@p12n.org> <CAEuXFExg2X9r0zE8wUs9Npd7jPUN2WHbyJcnH6eT_23f2DoPjw@mail.gmail.com>
+ <20120804162219.GT17572@p12n.org> <CACS4u_y23MvgnK-sbcNv7pxgaDYJLvzXZa68QKE__NckwM_XSQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richard -rw- weinberger <richard.weinberger@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344098083.9299.1503.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	jgoerzen@efolder.net
+To: Peter Samuelson <psamuelson@efolder.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:64352 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754050Ab2HDTVw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 15:21:52 -0400
+Received: by vbbff1 with SMTP id ff1so1621942vbb.19
+        for <netdev@vger.kernel.org>; Sat, 04 Aug 2012 12:21:51 -0700 (PDT)
+In-Reply-To: <CACS4u_y23MvgnK-sbcNv7pxgaDYJLvzXZa68QKE__NckwM_XSQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I have no such info in dmsg.
-I think I will file a issue to Node.js Dev Team.
-Thanks for reply.
+wrong mail sorry
 
-On Sat, Aug 4, 2012 at 6:34 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> On Sat, 2012-08-04 at 16:51 +0200, richard -rw- weinberger wrote:
->> On Sat, Aug 4, 2012 at 4:45 PM, S=C5=82awek Janecki <janecki@gmail.c=
-om> wrote:
->> > I have a node.js client (10.177.62.7) requesting some data from ht=
-tp
->> > rest service from server (10.177.0.1).
->> > Client is simply using nodejs http.request() method (agent=3Dfalse=
-).
->> > Client is on Ubuntu 11.10 box.
->> > Why client sends FIN ACK after 475ms? Why so slow? He should send =
-=46IN
->> > ACK immediately.
->> > I have many situations like this. About 1% of whole traffic is req=
-uest
->> > with delayed FIN ACK.
->> > Cpu idle on the client is about 99%, so nothing is draining CPU.
->> > How to debug this? What could it be? Is there any sysctl option I =
-need to tune?
->> > I think this behaviour is the Delayed ACK feature of RFC1122 TCP s=
-tack.
->> >
->> > Link to tcpdump picture (done on a client machine) :
->> > http://i48.tinypic.com/35cpogx.png
->> >
->> > Can you tell why kernel delayed that FIN/ACK.
->> > In tcpflow data there is exacly one ACK per packet comming from se=
-rver.
->> > Why kernel delayed client FIN/ACK.
->> > It could avoid sending ACK every 'data' packet.
->> > But it choose to delay FIN/ACK?
->> > Is this possible? Is this a bug?
->> >
->> > I've also posted question on stackexchange:
->> > http://stackoverflow.com/questions/11711218/client-sends-delayed-f=
-in-ack-500ms-to-server
->> >
->> > Please help.
+On Sat, Aug 4, 2012 at 8:07 PM, S=C5=82awek Janecki <janecki@gmail.com>=
+ wrote:
+> I have no such info in dmsg.
+> I think I will file a issue to Node.js Dev Team.
+> Thanks for reply.
+>
+> On Sat, Aug 4, 2012 at 6:22 PM, Peter Samuelson <psamuelson@efolder.n=
+et> wrote:
 >>
->> CC'ing netdev.
+>> [Jesse Brandeburg]
+>>> try
+>>> # ethtool -K ethx tso off gso off lro off
 >>
->
-> I see nothing wrong in this tcpdump. You should strace the applicatio=
-n
-> instead.
->
-> FIN/ACK is sent when client closes its socket (or calls shutdown()), =
-and
-> not in reply of FIN sent by the server.
->
-> Kernel has no additional delay. I suspect your client is slow process=
-ing
-> the server answer, then close() its socket _after_ data processing.
->
-> Its possible tcp_send_fin() has to loop while allocating one skb unde=
-r
-> very high memory pressure, and it seems we have no counters for this
-> case. But if it _was_ ever happening, you would have lot of messages =
-in
-> kernel log (dmesg) about alloc_skb_clone() failures.
+>> Wow - that worked!  Thanks so much!  Now I'll see if I can narrow it
+>> down a bit from there.
+>>
+>> Then it's on to the mystery of why I have to explicitly set eth2+eth=
+3
+>> 'promisc' - the bond0 device is supposed to propagate that setting b=
+ut
+>> apparently it doesn't.  (Lower priority, though, since there's an ea=
+sy
+>> workaround.)
+>>
+>> Peter
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
 >
 >
+> --
+>
+> pozdrawiam
+> S=C5=82awomir Janecki
 
 
 
