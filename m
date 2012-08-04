@@ -1,80 +1,673 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Sun, 5 Aug 2012 00:23:20 +0300
-Message-ID: <CAJZOPZJ=WPXcEysh-2p+pmY7RJME24zySWHGzGYbOq9LKidvBA@mail.gmail.com>
-References: <501C3527.6060809@mellanox.com>
-	<20120803.143315.151094375569109262.davem@davemloft.net>
-	<501C5328.4060301@mellanox.com>
-	<20120803.163627.1867181085116225405.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: ali@mellanox.com, ebiederm@xmission.com, ogerlitz@mellanox.com,
-	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
-	erezsh@mellanox.co.il
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f174.google.com ([209.85.160.174]:35790 "EHLO
-	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753453Ab2HDVXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 17:23:21 -0400
-Received: by ghrr11 with SMTP id r11so1748380ghr.19
-        for <netdev@vger.kernel.org>; Sat, 04 Aug 2012 14:23:21 -0700 (PDT)
-In-Reply-To: <20120803.163627.1867181085116225405.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Ariyasu <jan.ariyasu@gmail.com>
+Subject: [PATCH 01/13] SCTP: Preparation for namespace enablement
+Date: Sat,  4 Aug 2012 15:31:06 -0600
+Message-ID: <1344115866-6183-1-git-send-email-jan.ariyasu@hp.com>
+Cc: Jan Ariyasu <jan.ariyasu@hp.com>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 4, 2012 at 2:36 AM, David Miller <davem@davemloft.net> wrote:
-> From: Ali Ayoub <ali@mellanox.com>
-> Date: Fri, 03 Aug 2012 15:39:36 -0700
+Introduce data structures and break up module initialization and
+exit into subroutines with common functionality for namespace
+registration.
 
->> Users would like to use sockets API from the VM without re-writing their
->> applications on top of IB verbs, this driver meant to allow such a user
->> to do so.
+Signed-off-by: Jan Ariyasu <jan.ariyasu@hp.com>
+---
+ include/net/sctp/structs.h |  150 ++++++++++++++++++++
+ net/sctp/protocol.c        |  332 +++++++++++++++++++++++++++-----------------
+ 2 files changed, 353 insertions(+), 129 deletions(-)
 
-> That's what IPoIB was for, the application writers who don't want to have
-> to be knowledgable about IB verbs.
->
-> You're messing with the link layer here, and that's what is upsetting me.
->
-> It's a complete cop-out to changing the VM tools and emulators properly to
-> handle a new link layer.
->
-> The applications writers already have a way to use IB whilst using
-> something familiar, like IPv4, via IPoIB.  You're doing something
-> completely different here, and it stinks.
-
-
-Dave,
-
-Just quick recap of things to make sure we're in sync on the facts
-here and (me) trying to better follow your arguments:
-
-Bringing IB to app usage is done through the IB verbs / RDMA CM, which
-is supported
-for quite a long while for native mode and BTW as for SRIOV, there's a
-now running patch set @ linux-rdma submitted to Roland
-http://marc.info/?l=linux-rdma&m=134398354428293&w=2
-
-IPoIB is meant to allow IP apps to use IB, defined by IETF spec (RFC 4391/4392)
-
-The idea in eIPoIB was to allow IP apps running on VMs under a
-Para-Virtual set of mind, e.g when the Linux PV networking stack comes
-into play, to use that stack w.o modifying it.
-
-When looking on that, we thought so far so good, and went in the way
-posted here. If reusing your last sentence... this driver provides a
-way for apps to use the PV stack AND IB whilst using something
-familiar, like IPv4.
-
-
-I'd like to better understand your "messing with the link layer here,
-and that's what is upsetting" claim --- since the service here is IP,
-and this service has well defined mechanisms, eIPoIB is basically a
-shim layer that allows to provide this service for VMs that interacts
-with the emulators, drivers and tools used in Linux and the related
-guest OS PV drivers (virtio and friends). For example, that messing
-mostly goes down to translating ARP requests/replies from being
-carried in Ethernet frame to be carried in IPoIB packet, is that
-really too hacky? why and what?
-
-Or.
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index fc5e600..bc65718 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -77,6 +77,8 @@ union sctp_addr {
+ 
+ /* Forward declarations for data structures. */
+ struct sctp_globals;
++struct sctp_ns_globals;
++struct sctp_net_params;
+ struct sctp_endpoint;
+ struct sctp_association;
+ struct sctp_transport;
+@@ -293,6 +295,135 @@ extern struct sctp_globals {
+ #define sctp_rwnd_upd_shift		(sctp_globals.rwnd_update_shift)
+ #define sctp_max_autoclose		(sctp_globals.max_autoclose)
+ 
++struct sctp_net_params {
++	/* RFC2960 Section 14. Suggested SCTP Protocol Parameter Values
++	 *
++	 * The following protocol parameters are RECOMMENDED:
++	 *
++	 * RTO.Initial		    - 3	 seconds
++	 * RTO.Min		    - 1	 second
++	 * RTO.Max		   -  60 seconds
++	 * RTO.Alpha		    - 1/8  (3 when converted to right shifts.)
++	 * RTO.Beta		    - 1/4  (2 when converted to right shifts.)
++	 */
++	unsigned int rto_initial;
++	unsigned int rto_min;
++	unsigned int rto_max;
++
++	/* Note: rto_alpha and rto_beta are really defined as inverse
++	 * powers of two to facilitate integer operations.
++	 */
++	int rto_alpha;
++	int rto_beta;
++
++	/* Max.Burst		    - 4 */
++	int max_burst;
++
++	/* Whether Cookie Preservative is enabled(1) or not(0) */
++	int cookie_preserve_enable;
++
++	/* Valid.Cookie.Life	    - 60  seconds  */
++	unsigned int valid_cookie_life;
++
++	/* Delayed SACK timeout  200ms default*/
++	unsigned int sack_timeout;
++
++	/* HB.interval		    - 30 seconds  */
++	unsigned int hb_interval;
++
++	/* Association.Max.Retrans  - 10 attempts
++	 * Path.Max.Retrans	    - 5	 attempts (per destination address)
++	 * Max.Init.Retransmits	    - 8	 attempts
++	 */
++	int max_retrans_association;
++	int max_retrans_path;
++	int max_retrans_init;
++
++	/* Potentially-Failed.Max.Retrans sysctl value
++	 * taken from:
++	 * http://tools.ietf.org/html/draft-nishida-tsvwg-sctp-failover-05
++	 */
++	int pf_retrans;
++
++	/*
++	 * Policy for preforming sctp/socket accounting
++	 * 0   - do socket level accounting, all assocs share sk_sndbuf
++	 * 1   - do sctp accounting, each asoc may use sk_sndbuf bytes
++	 */
++	int sndbuf_policy;
++
++	/*
++	 * Policy for preforming sctp/socket accounting
++	 * 0   - do socket level accounting, all assocs share sk_rcvbuf
++	 * 1   - do sctp accounting, each asoc may use sk_rcvbuf bytes
++	 */
++	int rcvbuf_policy;
++
++	/* The following variables are implementation specific.	 */
++
++	/* Default initialization values to be applied to new associations. */
++	__u16 max_instreams;
++	__u16 max_outstreams;
++
++
++	/* This is the hash of all endpoints. */
++	int ep_hashsize;
++	struct sctp_hashbucket *ep_hashtable;
++
++	/* This is the hash of all associations. */
++	int assoc_hashsize;
++	struct sctp_hashbucket *assoc_hashtable;
++
++	/* This is the sctp port control hash.	*/
++	int port_hashsize;
++	struct sctp_bind_hashbucket *port_hashtable;
++
++	/* This is the global local address list.
++	 * We actively maintain this complete list of addresses on
++	 * the system by catching address add/delete events.
++	 *
++	 * It is a list of sctp_sockaddr_entry.
++	 */
++	struct list_head local_addr_list;
++
++	/* Lock that protects the local_addr_list writers */
++	spinlock_t addr_list_lock;
++
++	/* Address Event Parameters */
++	int default_auto_asconf;
++	struct list_head addr_waitq;
++	struct timer_list addr_wq_timer;
++	struct list_head auto_asconf_splist;
++	spinlock_t addr_wq_lock;
++
++	/* Flag to indicate if addip is enabled. */
++	int addip_enable;
++	int addip_noauth_enable;
++
++	/* Flag to indicate if PR-SCTP is enabled. */
++	int prsctp_enable;
++
++	/* Flag to idicate if SCTP-AUTH is enabled */
++	int auth_enable;
++
++	/*
++	 * Policy to control SCTP IPv4 address scoping
++	 * 0   - Disable IPv4 address scoping
++	 * 1   - Enable IPv4 address scoping
++	 * 2   - Selectively allow only IPv4 private addresses
++	 * 3   - Selectively allow only IPv4 link local address
++	 */
++	int ipv4_scope_policy;
++
++	/* Threshold for rwnd update SACKS.  Receive buffer shifted this many
++	 * bits is an indicator of when to send and window update SACK.
++	 */
++	int rwnd_update_shift;
++
++	/* Threshold for autoclose timeout, in seconds. */
++	unsigned long max_autoclose;
++};
++
+ /* SCTP Socket type: UDP or TCP style. */
+ typedef enum {
+ 	SCTP_SOCKET_UDP = 0,
+@@ -2056,4 +2187,23 @@ typedef struct {
+ 	atomic_t *counter;
+ } sctp_dbg_objcnt_entry_t;
+ 
++
++/* Structure for keeping track of namespace globals */
++struct sctp_ns_globals {
++	struct sock *sctp_ctl_sock;
++	struct sctp_net_params protocol_params;
++	struct idr assocs_id;
++	spinlock_t assocs_id_lock;
++#ifdef CONFIG_SYSCTL
++	struct ctl_table_header *sctp_sysctl_tbl;
++#endif
++#ifdef CONFIG_PROC_FS
++	struct proc_dir_entry *sctp_proc_dir;
++	struct proc_dir_entry *sctp_proc_snmp;
++	struct proc_dir_entry *sctp_proc_assocs;
++	struct proc_dir_entry *sctp_proc_eps;
++	struct proc_dir_entry *sctp_proc_remaddr;
++#endif
++};
++
+ #endif /* __sctp_structs_h__ */
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 1f89c4e..cafdaac 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -105,13 +105,11 @@ struct sock *sctp_get_ctl_sock(void)
+ /* Set up the proc fs entry for the SCTP protocol. */
+ static __init int sctp_proc_init(void)
+ {
+-	if (percpu_counter_init(&sctp_sockets_allocated, 0))
+-		goto out_nomem;
+ #ifdef CONFIG_PROC_FS
+ 	if (!proc_net_sctp) {
+ 		proc_net_sctp = proc_mkdir("sctp", init_net.proc_net);
+ 		if (!proc_net_sctp)
+-			goto out_free_percpu;
++			goto out_nomem;
+ 	}
+ 
+ 	if (sctp_snmp_proc_init())
+@@ -136,14 +134,12 @@ out_snmp_proc_init:
+ 		proc_net_sctp = NULL;
+ 		remove_proc_entry("sctp", init_net.proc_net);
+ 	}
+-out_free_percpu:
+-	percpu_counter_destroy(&sctp_sockets_allocated);
+-#else
+-	return 0;
+-#endif /* CONFIG_PROC_FS */
+ 
+ out_nomem:
+ 	return -ENOMEM;
++#else
++	return 0;
++#endif /* CONFIG_PROC_FS */
+ }
+ 
+ /* Clean up the proc fs entry for the SCTP protocol.
+@@ -163,7 +159,6 @@ static void sctp_proc_exit(void)
+ 		remove_proc_entry("sctp", init_net.proc_net);
+ 	}
+ #endif
+-	percpu_counter_destroy(&sctp_sockets_allocated);
+ }
+ 
+ /* Private helper to extract ipv4 address and stash them in
+@@ -1194,105 +1189,91 @@ static void sctp_v4_del_protocol(void)
+ 	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+ }
+ 
+-/* Initialize the universe into something sensible.  */
+-SCTP_STATIC __init int sctp_init(void)
++static void sctp_global_param_init(void)
+ {
+-	int i;
+-	int status = -EINVAL;
+-	unsigned long goal;
+-	unsigned long limit;
+-	int max_share;
+-	int order;
+-
+-	/* SCTP_DEBUG sanity check. */
+-	if (!sctp_sanity_check())
+-		goto out;
+-
+-	/* Allocate bind_bucket and chunk caches. */
+-	status = -ENOBUFS;
+-	sctp_bucket_cachep = kmem_cache_create("sctp_bind_bucket",
+-					       sizeof(struct sctp_bind_bucket),
+-					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL);
+-	if (!sctp_bucket_cachep)
+-		goto out;
+-
+-	sctp_chunk_cachep = kmem_cache_create("sctp_chunk",
+-					       sizeof(struct sctp_chunk),
+-					       0, SLAB_HWCACHE_ALIGN,
+-					       NULL);
+-	if (!sctp_chunk_cachep)
+-		goto err_chunk_cachep;
+-
+-	/* Allocate and initialise sctp mibs.  */
+-	status = init_sctp_mibs();
+-	if (status)
+-		goto err_init_mibs;
+-
+-	/* Initialize proc fs directory.  */
+-	status = sctp_proc_init();
+-	if (status)
+-		goto err_init_proc;
+-
+-	/* Initialize object count debugging.  */
+-	sctp_dbg_objcnt_init();
+-
+ 	/*
+ 	 * 14. Suggested SCTP Protocol Parameter Values
+ 	 */
+ 	/* The following protocol parameters are RECOMMENDED:  */
+-	/* RTO.Initial              - 3  seconds */
+-	sctp_rto_initial		= SCTP_RTO_INITIAL;
+-	/* RTO.Min                  - 1  second */
+-	sctp_rto_min	 		= SCTP_RTO_MIN;
+-	/* RTO.Max                 -  60 seconds */
+-	sctp_rto_max 			= SCTP_RTO_MAX;
+-	/* RTO.Alpha                - 1/8 */
+-	sctp_rto_alpha	        	= SCTP_RTO_ALPHA;
+-	/* RTO.Beta                 - 1/4 */
+-	sctp_rto_beta			= SCTP_RTO_BETA;
+-
+-	/* Valid.Cookie.Life        - 60  seconds */
+-	sctp_valid_cookie_life		= SCTP_DEFAULT_COOKIE_LIFE;
++	/* RTO.Initial			- 3  seconds */
++	sctp_rto_initial			= SCTP_RTO_INITIAL;
++	/* RTO.Min			- 1  second */
++	sctp_rto_min				= SCTP_RTO_MIN;
++	/* RTO.Max			- 60 seconds */
++	sctp_rto_max				= SCTP_RTO_MAX;
++	/* RTO.Alpha			- 1/8 */
++	sctp_rto_alpha				= SCTP_RTO_ALPHA;
++	/* RTO.Beta			- 1/4 */
++	sctp_rto_beta				= SCTP_RTO_BETA;
++
++	/* Valid.Cookie.Life		- 60  seconds */
++	sctp_valid_cookie_life			= SCTP_DEFAULT_COOKIE_LIFE;
+ 
+ 	/* Whether Cookie Preservative is enabled(1) or not(0) */
+-	sctp_cookie_preserve_enable 	= 1;
++	sctp_cookie_preserve_enable		= 1;
+ 
+-	/* Max.Burst		    - 4 */
+-	sctp_max_burst 			= SCTP_DEFAULT_MAX_BURST;
++	/* Max.Burst			- 4 */
++	sctp_max_burst				= SCTP_DEFAULT_MAX_BURST;
+ 
+-	/* Association.Max.Retrans  - 10 attempts
+-	 * Path.Max.Retrans         - 5  attempts (per destination address)
+-	 * Max.Init.Retransmits     - 8  attempts
++	/* Association.Max.Retrans	- 10 attempts
++	 * Path.Max.Retrans		- 5  attempts (per destination address)
++	 * Max.Init.Retransmits		- 8  attempts
+ 	 */
+-	sctp_max_retrans_association 	= 10;
+-	sctp_max_retrans_path		= 5;
+-	sctp_max_retrans_init		= 8;
++	sctp_max_retrans_association			= 10;
++	sctp_max_retrans_path				= 5;
++	sctp_max_retrans_init			= 8;
+ 
+-	/* Sendbuffer growth	    - do per-socket accounting */
+-	sctp_sndbuf_policy		= 0;
++	/* Sendbuffer growth	- do per-socket accounting */
++	sctp_sndbuf_policy			= 0;
+ 
+-	/* Rcvbuffer growth	    - do per-socket accounting */
+-	sctp_rcvbuf_policy		= 0;
++	/* Rcvbuffer growth	 - do per-socket accounting */
++	sctp_rcvbuf_policy			= 0;
+ 
+-	/* HB.interval              - 30 seconds */
++	/* HB.interval		- 30 seconds */
+ 	sctp_hb_interval		= SCTP_DEFAULT_TIMEOUT_HEARTBEAT;
+ 
+ 	/* delayed SACK timeout */
+-	sctp_sack_timeout		= SCTP_DEFAULT_TIMEOUT_SACK;
++	sctp_sack_timeout			= SCTP_DEFAULT_TIMEOUT_SACK;
+ 
+ 	/* Implementation specific variables. */
+ 
+ 	/* Initialize default stream count setup information. */
+-	sctp_max_instreams    		= SCTP_DEFAULT_INSTREAMS;
+-	sctp_max_outstreams   		= SCTP_DEFAULT_OUTSTREAMS;
++	sctp_max_instreams			= SCTP_DEFAULT_INSTREAMS;
++	sctp_max_outstreams			= SCTP_DEFAULT_OUTSTREAMS;
+ 
+ 	/* Initialize maximum autoclose timeout. */
+-	sctp_max_autoclose		= INT_MAX / HZ;
++	sctp_max_autoclose			= INT_MAX / HZ;
++
++	/* Disable ADDIP by default. */
++	sctp_addip_enable			= 0;
++	sctp_addip_noauth			= 0;
++	sctp_default_auto_asconf		= 0;
+ 
+-	/* Initialize handle used for association ids. */
+-	idr_init(&sctp_assocs_id);
++	/* Enable PR-SCTP by default. */
++	sctp_prsctp_enable			= 1;
++
++	/* Disable AUTH by default. */
++	sctp_auth_enable			= 0;
+ 
++	/* Set SCOPE policy to enabled */
++	sctp_scope_policy			= SCTP_SCOPE_POLICY_ENABLE;
++
++	/* Set the default rwnd update threshold */
++	sctp_rwnd_upd_shift			= SCTP_DEFAULT_RWND_SHIFT;
++	return;
++}
++
++static void sctp_memory_globals_init(void)
++{
++	unsigned long limit;
++	int max_share;
++
++	/* Set the pressure threshold to be a fraction of global memory that
++	 * is up to 1/2 at 256 MB, decreasing toward zero with the amount of
++	 * memory, with a floor of 128 pages.
++	 * Note this initializes the data in sctpv6_prot too
++	 * Unabashedly stolen from tcp_init
++	 */
+ 	limit = nr_free_buffer_pages() / 8;
+ 	limit = max(limit, 128UL);
+ 	sysctl_sctp_mem[0] = limit / 4 * 3;
+@@ -1310,6 +1291,14 @@ SCTP_STATIC __init int sctp_init(void)
+ 	sysctl_sctp_wmem[0] = SK_MEM_QUANTUM;
+ 	sysctl_sctp_wmem[1] = 16*1024;
+ 	sysctl_sctp_wmem[2] = max(64*1024, max_share);
++}
++
++static int sctp_hashtable_globals_init(void)
++{
++	unsigned long goal;
++	int status = -ENOMEM;
++	int order;
++	int i;
+ 
+ 	/* Size and allocate the association hash table.
+ 	 * The methodology is similar to that of the tcp hash tables.
+@@ -1325,11 +1314,13 @@ SCTP_STATIC __init int sctp_init(void)
+ 	do {
+ 		sctp_assoc_hashsize = (1UL << order) * PAGE_SIZE /
+ 					sizeof(struct sctp_hashbucket);
+-		if ((sctp_assoc_hashsize > (64 * 1024)) && order > 0)
+-			continue;
++		if ((sctp_assoc_hashsize > (64 * 1024)) && (order > 0))
++				continue;
+ 		sctp_assoc_hashtable = (struct sctp_hashbucket *)
+-			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+-	} while (!sctp_assoc_hashtable && --order > 0);
++			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN|__GFP_ZERO,
++				order);
++	} while (!sctp_assoc_hashtable && (--order > 0));
++
+ 	if (!sctp_assoc_hashtable) {
+ 		pr_err("Failed association hash alloc\n");
+ 		status = -ENOMEM;
+@@ -1358,11 +1349,12 @@ SCTP_STATIC __init int sctp_init(void)
+ 	do {
+ 		sctp_port_hashsize = (1UL << order) * PAGE_SIZE /
+ 					sizeof(struct sctp_bind_hashbucket);
+-		if ((sctp_port_hashsize > (64 * 1024)) && order > 0)
++		if ((sctp_port_hashsize > (64 * 1024)) && (order > 0))
+ 			continue;
+ 		sctp_port_hashtable = (struct sctp_bind_hashbucket *)
+ 			__get_free_pages(GFP_ATOMIC|__GFP_NOWARN, order);
+-	} while (!sctp_port_hashtable && --order > 0);
++	} while (!sctp_port_hashtable && (--order > 0));
++
+ 	if (!sctp_port_hashtable) {
+ 		pr_err("Failed bind hash alloc\n");
+ 		status = -ENOMEM;
+@@ -1376,25 +1368,111 @@ SCTP_STATIC __init int sctp_init(void)
+ 	pr_info("Hash tables configured (established %d bind %d)\n",
+ 		sctp_assoc_hashsize, sctp_port_hashsize);
+ 
+-	/* Disable ADDIP by default. */
+-	sctp_addip_enable = 0;
+-	sctp_addip_noauth = 0;
+-	sctp_default_auto_asconf = 0;
++	goto out;
+ 
+-	/* Enable PR-SCTP by default. */
+-	sctp_prsctp_enable = 1;
+ 
+-	/* Disable AUTH by default. */
+-	sctp_auth_enable = 0;
++err_bhash_alloc:
++	kfree(sctp_ep_hashtable);
++err_ehash_alloc:
++	free_pages((unsigned long)sctp_assoc_hashtable,
++		   get_order(sctp_assoc_hashsize *
++			     sizeof(struct sctp_hashbucket)));
++err_ahash_alloc:
++	sctp_proc_exit();
++out:
++	return status;
++}
+ 
+-	/* Set SCOPE policy to enabled */
+-	sctp_scope_policy = SCTP_SCOPE_POLICY_ENABLE;
++static void sctp_hashtable_globals_free(void)
++{
++	free_pages((unsigned long)sctp_assoc_hashtable,
++		   get_order(sctp_assoc_hashsize *
++			     sizeof(struct sctp_hashbucket)));
+ 
+-	/* Set the default rwnd update threshold */
+-	sctp_rwnd_upd_shift		= SCTP_DEFAULT_RWND_SHIFT;
++	kfree(sctp_ep_hashtable);
++
++	free_pages((unsigned long)sctp_port_hashtable,
++		   get_order(sctp_port_hashsize *
++			     sizeof(struct sctp_bind_hashbucket)));
++}
++
++static int sctp_kmem_cache_create(void)
++{
++	/* Allocate bind_bucket and chunk caches. */
++	sctp_bucket_cachep = kmem_cache_create("sctp_bind_bucket",
++					       sizeof(struct sctp_bind_bucket),
++					       0, SLAB_HWCACHE_ALIGN,
++					       NULL);
++
++	if (!sctp_bucket_cachep) {
++		pr_err("failed to allocate bucket cache\n");
++		goto err_bucket_cachep;
++	}
++	sctp_chunk_cachep = kmem_cache_create("sctp_chunk",
++					       sizeof(struct sctp_chunk),
++					       0, SLAB_HWCACHE_ALIGN,
++					       NULL);
++	if (!sctp_chunk_cachep) {
++		pr_err("failed to allocate chunk cache\n");
++		goto err_chunk_cachep;
++	}
++
++	return 0;
++
++err_chunk_cachep:
++	kmem_cache_destroy(sctp_bucket_cachep);
++err_bucket_cachep:
++	return -ENOBUFS;
++}
++
++static void sctp_kmem_cache_destroy(void)
++{
++	/* deallocate bind_bucket and chunk caches. */
++	kmem_cache_destroy(sctp_chunk_cachep);
++	kmem_cache_destroy(sctp_bucket_cachep);
++}
++
++/* Initialize the universe into something sensible.  */
++SCTP_STATIC __init int sctp_init(void)
++{
++	int status = -EINVAL;
++
++	/* SCTP_DEBUG sanity check. */
++	if (!sctp_sanity_check())
++		goto out;
++
++	/* Allocate bind_bucket and chunk caches. */
++	status = sctp_kmem_cache_create();
++	if (status)
++		return status;
++
++	/* Initialize sockets counter */
++	if (percpu_counter_init(&sctp_sockets_allocated, 0)) {
++		status = -ENOMEM;
++		goto err_percpu_counter_init;
++	}
++
++	/* Allocate and initialise sctp mibs.  */
++	status = init_sctp_mibs();
++	if (status)
++		goto err_init_mibs;
++
++	/* Initialize proc fs directory.  */
++	status = sctp_proc_init();
++	if (status)
++		goto err_init_proc;
++
++	/* Initialize object count debugging.  */
++	sctp_dbg_objcnt_init();
++
++	/* Initialize global parameters */
++	sctp_global_param_init();
++	sctp_memory_globals_init();
++	sctp_hashtable_globals_init();
+ 
+ 	sctp_sysctl_register();
+ 
++	/* Register the routines for different a-f handling */
+ 	INIT_LIST_HEAD(&sctp_address_families);
+ 	sctp_v4_pf_init();
+ 	sctp_v6_pf_init();
+@@ -1411,8 +1489,8 @@ SCTP_STATIC __init int sctp_init(void)
+ 	sctp_addr_wq_timer.expires = 0;
+ 	setup_timer(&sctp_addr_wq_timer, sctp_addr_wq_timeout_handler, 0);
+ 
++	/* Register SCTP protocol */
+ 	status = sctp_v4_protosw_init();
+-
+ 	if (status)
+ 		goto err_protosw_init;
+ 
+@@ -1435,9 +1513,20 @@ SCTP_STATIC __init int sctp_init(void)
+ 	if (status)
+ 		goto err_v6_add_protocol;
+ 
++	/* Set up sysctl parameters. */
++	sctp_sysctl_register();
++
++	/* Allocate and initialise sctp mibs.  */
++	status = init_sctp_mibs();
++	if (status)
++		goto err_mib_init;
++
+ 	status = 0;
+-out:
+-	return status;
++	goto out;
++
++err_mib_init:
++	sctp_sysctl_unregister();
++	sctp_v6_del_protocol();
+ err_v6_add_protocol:
+ 	sctp_v4_del_protocol();
+ err_add_protocol:
+@@ -1451,25 +1540,17 @@ err_protosw_init:
+ 	sctp_v4_pf_exit();
+ 	sctp_v6_pf_exit();
+ 	sctp_sysctl_unregister();
+-	free_pages((unsigned long)sctp_port_hashtable,
+-		   get_order(sctp_port_hashsize *
+-			     sizeof(struct sctp_bind_hashbucket)));
+-err_bhash_alloc:
+-	kfree(sctp_ep_hashtable);
+-err_ehash_alloc:
+-	free_pages((unsigned long)sctp_assoc_hashtable,
+-		   get_order(sctp_assoc_hashsize *
+-			     sizeof(struct sctp_hashbucket)));
+-err_ahash_alloc:
++	sctp_hashtable_globals_free();
+ 	sctp_dbg_objcnt_exit();
+ 	sctp_proc_exit();
+ err_init_proc:
+ 	cleanup_sctp_mibs();
+ err_init_mibs:
+-	kmem_cache_destroy(sctp_chunk_cachep);
+-err_chunk_cachep:
+-	kmem_cache_destroy(sctp_bucket_cachep);
+-	goto out;
++	percpu_counter_destroy(&sctp_sockets_allocated);
++err_percpu_counter_init:
++	sctp_kmem_cache_destroy();
++out:
++	return status;
+ }
+ 
+ /* Exit handler for the SCTP protocol.  */
+@@ -1500,22 +1581,15 @@ SCTP_STATIC __exit void sctp_exit(void)
+ 
+ 	sctp_sysctl_unregister();
+ 
+-	free_pages((unsigned long)sctp_assoc_hashtable,
+-		   get_order(sctp_assoc_hashsize *
+-			     sizeof(struct sctp_hashbucket)));
+-	kfree(sctp_ep_hashtable);
+-	free_pages((unsigned long)sctp_port_hashtable,
+-		   get_order(sctp_port_hashsize *
+-			     sizeof(struct sctp_bind_hashbucket)));
++	sctp_hashtable_globals_free();
+ 
+ 	sctp_dbg_objcnt_exit();
+ 	sctp_proc_exit();
++	percpu_counter_destroy(&sctp_sockets_allocated);
+ 	cleanup_sctp_mibs();
+ 
+ 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+-
+-	kmem_cache_destroy(sctp_chunk_cachep);
+-	kmem_cache_destroy(sctp_bucket_cachep);
++	sctp_kmem_cache_destroy();
+ }
+ 
+ module_init(sctp_init);
+-- 
+1.7.9.5
