@@ -1,44 +1,45 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: [PATCH] cris: fix eth_v10.c build error
-Date: Fri, 03 Aug 2012 17:38:07 -0700
-Message-ID: <501C6EEF.3030100@xenotime.net>
-References: <1344002771-21072-1-git-send-email-geert@linux-m68k.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Fri, 03 Aug 2012 18:34:48 -0700
+Message-ID: <1d3bddff-4b3a-4ed1-b8f9-21bd531ba20b@email.android.com>
+References: <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <501C3527.6060809@mellanox.com> <20120803.143315.151094375569109262.davem@davemloft.net> <501C5328.4060301@mellanox.com> <501C669B.2030303@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Mikael Starvik <starvik@axis.com>,
-	Jesper Nilsson <jesper.nilsson@axis.com>,
-	linux-cris-kernel@axis.com, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344002771-21072-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: ogerlitz@mellanox.com, roland@kernel.org, netdev@vger.kernel.org,
+	sean.hefty@intel.com, erezsh@mellanox.co.il
+To: Ali Ayoub <ali@mellanox.com>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:58162 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753166Ab2HDBfC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 21:35:02 -0400
+In-Reply-To: <501C669B.2030303@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+Ali Ayoub <ali@mellanox.com> wrote:
 
-Fix build error on cris (not tested, no toolchain here):
+>
+>With this driver, existing VMs, and their existing IP applications, can
+>run as-is on InfiniBand network.
 
-drivers/net/cris/eth_v10.c: error: too many arguments to function 'e100rxtx_interrupt'
+Actually it doesn't work like that.
 
-Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
-Cc:	Mikael Starvik <starvik@axis.com>
-Cc:	Jesper Nilsson <jesper.nilsson@axis.com>
-Cc:	linux-cris-kernel@axis.com
----
- drivers/net/cris/eth_v10.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If my application really needs ethernet it will not work with your driver.  I can not run decnet or appletalk or ATAoE or PPPoE or LACP or use VLANs or any of a thousand other things that require real live ethernet to function.
 
---- lnx-36-rc1.orig/drivers/net/cris/eth_v10.c
-+++ lnx-36-rc1/drivers/net/cris/eth_v10.c
-@@ -1712,7 +1712,7 @@ e100_set_network_leds(int active)
- static void
- e100_netpoll(struct net_device* netdev)
- {
--	e100rxtx_interrupt(NETWORK_DMA_TX_IRQ_NBR, netdev, NULL);
-+	e100rxtx_interrupt(NETWORK_DMA_TX_IRQ_NBR, netdev);
- }
- #endif
- 
+Most VMs will talk to linux with a tap interface, and the output of a tap interface can be routed just fine, and that works with existing tools, and existing already deployed  kernels.
+
+Alternatively if you are silly you can implement a tap interface on top of IPoIB and have the same interface you do now, and it works with existing already deployed kernels.
+
+So eIPoIB does not make sense from a time to market perspective.
+
+Similarly eIPoIB does not make sense from a performance standpoint because the best performance requires the applications and hypervisors are infiniband and teaching the apps to cope.
+
+eIPoIB also has considerable maintenance overhead as it is complex code doing some crazy things.
+
+Now personally NAPT44 just about made the internet unusable for peer to peer appications.  NAT66 aka network prefix translation introduces much less breakage but it still requires someone to run STUN on IPv6 to keep applications working, ick.  NATEIB aka eIPoIB just looks complex and already breaks most of ethernet and history says that kind of breakage actually matters a lot.   I think everyone who suggests any kind of NAT is a good idea should have to implement RFC 5245 Interacive Connectivity Establishment.  It takes 2 100+ page rfcs to come up with a way that  allows applications to with the address munging over the open internet.   That way takes 3000+ lines of code in each application.   That is the kind of complexity you are asking people up stream of you to deal with your NATTing o
+ f ethernet to infiniband.  So I totally think eIPoIB stinks, and that it does not at all let existing applications work without modification.
+
+Eric
