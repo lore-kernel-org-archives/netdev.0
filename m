@@ -1,32 +1,18 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Add device tree support and resolving SOC
- dependency to cpsw driver
-Date: Fri, 03 Aug 2012 20:42:30 -0700 (PDT)
-Message-ID: <20120803.204230.1474357778720957424.davem@davemloft.net>
-References: <1343679434-2369-1-git-send-email-mugunthanvnm@ti.com>
+From: Yeung Lap Ming <sportsfan88@centurylink.net>
+Subject: (unknown)
+Date: Fri, 3 Aug 2012 23:41:47 -0400 (EDT)
+Message-ID: <139308499.364006.1344051707695.JavaMail.root@md38.embarq.synacor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42953 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805Ab2HDDmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2012 23:42:31 -0400
-In-Reply-To: <1343679434-2369-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mailrelay.embarq.synacor.com ([208.47.184.3]:38414 "EHLO
+	mailrelay.embarq.synacor.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751000Ab2HDEBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2012 00:01:49 -0400
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Tue, 31 Jul 2012 01:47:12 +0530
-
-> This patch set adds SOC dependency for CPSW dependent modules and adds support
-> for device tree for CPSW driver
-> 
-> Mugunthan V N (2):
->   drivers: net: ethernet: cpsw: Add SOC dependency support for cpsw
->     dependent modules
->   drivers: net: ethernet: cpsw: Add device tree support to CPSW
-
-Both applied to net-next, thanks.
+I have a deal. Reply for details.
