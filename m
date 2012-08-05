@@ -1,110 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Sun, 5 Aug 2012 21:50:31 +0300
-Message-ID: <20120805185031.GA18640@redhat.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
- <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
- <87boitz044.fsf@xmission.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next,1/1] hyperv: Move wait completion msg code into
+ rndis_filter_halt_device()
+Date: Sun, 5 Aug 2012 19:16:32 +0000
+Message-ID: <A1F3067C9B68744AA19F6802BAB8FFDC0DDFAEF4@TK5EX14MBXC223.redmond.corp.microsoft.com>
+References: <1344022338-3010-1-git-send-email-haiyangz@microsoft.com>
+ <20120803.165212.106382119661240198.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65367 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754796Ab2HESuA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Aug 2012 14:50:00 -0400
-Content-Disposition: inline
-In-Reply-To: <87boitz044.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20120803.165212.106382119661240198.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 02, 2012 at 10:15:23AM -0700, Eric W. Biederman wrote:
-> Or Gerlitz <ogerlitz@mellanox.com> writes:
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, August 03, 2012 7:52 PM
+> To: Haiyang Zhang
+> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
+> jasowang@redhat.com; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next,1/1] hyperv: Move wait completion msg code
+> into rndis_filter_halt_device()
 > 
-> > From: Erez Shitrit <erezsh@mellanox.co.il>
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Fri,  3 Aug 2012 12:32:18 -0700
+> 
+> > We need to wait for send_completion msg before put_rndis_request() at
+> > the end of rndis_filter_halt_device(). Otherwise,
+> > netvsc_send_completion() may reference freed memory which is
+> overwritten, and cause panic.
 > >
-> > The eipoib driver provides a standard Ethernet netdevice over
-> > the InfiniBand IPoIB interface .
-> >
-> > Some services can run only on top of Ethernet L2 interfaces, and cannot be
-> > bound to an IPoIB interface. With this new driver, these services can run
-> > seamlessly.
+> > Reported-by: Long Li <longli@microsoft.com>
+> > Reported-by: Jason Wang <jasowang@redhat.com>
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 > 
-> Do I read this code correctly that what you are doing is not tunneling
-> ethernet over IB but instead you are removing an ethernet header and
-> replacing it with an IB header?
+> This is a bug fix, so applied to 'net'.  Please target your patches properly.
 > 
-> Do I also read this code correctly if you can't find your destination
-> mac address in your ""neighbor table"" you do a normal IPoIB arp
-> for the infiniband GUID?
-> 
-> Do I read this right that if presented with a non-IPv4 or ARP packet
-> this code will do something undefined and unpredictable?
-> 
-> Maybe this makes some sense but just skimming it looks like you
-> are trying to force a square peg into a round hole resulting in
-> some weird code and some very weird maintainability issues.
-> 
-> I am honestly surprised at this approach.  I would think it would be
-> faster and simpler to run an IB queue pair directly to the hypervisor or
-> possibly even the guest operating system bypassing the kernel and doing
-> all of this translation in userspace.
-> 
-> Eric
+> Don't just be afraid that I'll reject the patch if you target it at 'net', and
+> therefore just target everything at 'net-next'.  That is certainly worse.
 
-I'm on vacation and I have not looked at the patches, at Erez' request,
-just reacting to the presentation and the discussion.
+I see. 
 
-Bypassing the kernel has its own set of issues, not the
-least of which is the need to lock all of guest memory which breaks
-overcommit. Running an IB queue pair directly to the hypervisor
-will also break live migration.
-
-Another problem with exposing IB to guests has to do with the fact that
-IB addresses such as combinations of LIDs, GIDs and QPNs to best of my
-knowledge do not support soft hardware address setting, which interferes
-with live migration.
-
-So it seems that a sane solution would involve an extra level of
-indirection, with guest addresses being translated to host IB addresses.
-
-As long as you do this, maybe using an ethernet frame format makes
-sense.
-
-So far the things that make sense. Here are some that don't, to me:
-
-- Is a pdf presentation all you have in terms of documentation?
-  We are talking communication protocols here - I would expect a
-  proper spec, and some effort to standardize, otherwise where's the
-  guarantee it won't change in an incompatible way?
-  Other things that I would expect to be addressed in such a spec is
-  interaction with other IPoIB features, such as connected
-  mode, checksum offloading etc, and IB features such as multipath etc.
-
-- The way you encode LID/QPN in the MAC seems questionable. IIRC there's
-  more to IB addressing than just the LID.  Since everyone on the subnet
-  need access to this translation, I think it makes sense to store it in
-  the SM. I think this would also obviate some IPv4 specific hacks
-  in kernel.
-
-- IGMP/MAC snooping in a driver is just too hairy.
-  As you point out, bridge currently needs the uplink in promisc mode.
-  I don't think a driver should work around that limitation.
-  For some setups, it might be interesting to remove the
-  promisc mode requirement, failing that,
-  I think you could use macvtap passthrough.
-
-- Currently migration works without host kernel help, would be
-  preferable to keep it that way.
-
-
-Hope this helps,
-MST
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+- Haiyang
