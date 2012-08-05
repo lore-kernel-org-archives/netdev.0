@@ -1,110 +1,116 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [RFC v2 6/7] tracepoint: use new hashtable implementation
-Date: Sun, 05 Aug 2012 19:03:05 +0200
-Message-ID: <501EA749.9060400@gmail.com>
-References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com> <1344003788-1417-7-git-send-email-levinsasha928@gmail.com> <1344126994.27983.116.camel@gandalf.stny.rr.com> <20120805163114.GA21768@Krystal>
+From: Folkert van Heusden <folkert.van.heusden@gmail.com>
+Subject: Re: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
+Date: Sun, 05 Aug 2012 19:08:34 +0200
+Message-ID: <kg2my0wkfkapuq8el3jxpb8a.1344186435987@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>, torvalds@linux-foundation.org,
- tj@kernel.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
- linux-mm@kvack.org, paul.gortmaker@windriver.com, davem@davemloft.net,
- mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com,
- ericvh@gmail.com, netdev@vger.kernel.org
-To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120805163114.GA21768@Krystal>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-hams <linux-hams@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Bernard Pidoux <bernard.pidoux@free.fr>,
+	folkert <folkert@vanheusden.com>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/05/2012 06:31 PM, Mathieu Desnoyers wrote:
-> * Steven Rostedt (rostedt@goodmis.org) wrote:
->> FYI, Mathieu is the author of this file.
->>
->> -- Steve
->>
->>
->> On Fri, 2012-08-03 at 16:23 +0200, Sasha Levin wrote:
->>> Switch tracepoints to use the new hashtable implementation. This reduces the amount of
->>> generic unrelated code in the tracepoints.
->>>
->>> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
->>> ---
->>>  kernel/tracepoint.c |   26 +++++++++-----------------
->>>  1 files changed, 9 insertions(+), 17 deletions(-)
->>>
->>> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
->>> index d96ba22..b5a2650 100644
->>> --- a/kernel/tracepoint.c
->>> +++ b/kernel/tracepoint.c
->>> @@ -26,6 +26,7 @@
->>>  #include <linux/slab.h>
->>>  #include <linux/sched.h>
->>>  #include <linux/static_key.h>
->>> +#include <linux/hashtable.h>
->>>  
->>>  extern struct tracepoint * const __start___tracepoints_ptrs[];
->>>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
->>> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
->>>   * Protected by tracepoints_mutex.
->>>   */
->>>  #define TRACEPOINT_HASH_BITS 6
->>> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
->>> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
->>> +DEFINE_STATIC_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
-> 
-> I wonder why the "static" has been embedded within
-> "DEFINE_STATIC_HASHTABLE" ? I'm used to see something similar to:
-> 
-> static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
-> 
-> elsewhere in the kernel (e.g. static DEFINE_PER_CPU(), static
-> DEFINE_MUTEX(), etc).
+R29vZCBsdWNrIQpJJ20gdG8gYnVzeSBteXNlbGYgd2l0aCBkZWJ1Z2dpbmcgdGhlIGJheWNvbSBk
+cml2ZXIuCkNhbiBkbyBhdCBtb3N0IDIgc3RlcHMgYSBkYXkgYW5kIGl0IGFyZSAxNSBzdGVwcy4u
+LiAoNTRrIGNoYW5nZXNldHMpCgpCZXJuYXJkIFBpZG91eCA8YmVybmFyZC5waWRvdXhAZnJlZS5m
+cj4gd3JvdGU6Cgo+VGhhbmtzIGZvciBzdWdnZXN0aW5nIGEgYmlzc2VjdC4gSG93ZXZlciBJIGd1
+ZXNzIHRoYXQgdGhpcyBidWcgaGFzIAo+YWx3YXlzIGJlZW4gdGhlcmUgIQo+Cj5JIGFtIG5vdCBw
+cm9mZXNzaW9uYWx5IGludm9sdmVkIGluIHByb2dyYW1taW5nLCBob3dldmVyIEkgY29tbWl0dGVk
+IGEgCj5mZXcgcGF0Y2hlcyBmb3IgUk9TRSwgQVguMjUgYW5kIE5ldFJvbSBtb2R1bGVzIHNpbmNl
+IGEgZmV3IHllYXJzLgo+Cj5JIHJlYWN0aXZhdGVkIG5ldGNvbmZpZyBhbmQgaGVyZSBpcyB0aGUg
+cmVwb3J0IHNob3dpbmcgdGhhdCBrZXJuZWwgcGFuaWMgCj5vY2N1cnMgd2hlbiByb3NlX2Rldmlj
+ZV9ldmVudCBpcyB0cmlnZ2VyZWQgd2hlbiBpc3N1aW5nIGNvbW1hbmQKPmlmY29uZmlnIHJvc2Uw
+IGRvd24KPgo+WyAxMjE1LjE1MzMwMl0gcm9zZV9raWxsX2J5X2RldmljZSgpIHJvc2UtPm5laWdo
+Ym91ci0+dXNlIDAKPlsgMTIxNS4xNTMzMTZdIEJVRzogdW5hYmxlIHRvIGhhbmRsZSBrZXJuZWwg
+TlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGF0IAo+MDAwMDAwMDAwMDAwMDAyYQo+WyAxMjE1LjE1
+MzMyMV0gSVA6IFs8ZmZmZmZmZmZhMDY1ZTM3ZD5dIHJvc2VfZGV2aWNlX2V2ZW50KzB4MTFkLzB4
+MTYwIFtyb3NlXQo+WyAxMjE1LjE1MzMzM10gUEdEIDM2MzQwMDY3IFBVRCAzNTlmYTA2NyBQTUQg
+MAo+WyAxMjE1LjE1MzMzOF0gT29wczogMDAwMiBbIzFdIFNNUAo+WyAxMjE1LjE1MzM0M10gQ1BV
+IDEKPlsgMTIxNS4xNTMzNDRdIE1vZHVsZXMgbGlua2VkIGluOiBhZl9wYWNrZXQgcm9zZSBta2lz
+cyBheDI1IG5mc2QgCj5leHBvcnRmcyBuZnMgbmZzX2FjbCBhdXRoX3JwY2dzcyBmc2NhY2hlIGxv
+Y2tkIHN1bnJwYyBuZXRjb25zb2xlIAo+Y29uZmlnZnMgYm5lcCBibHVldG9vdGggcmZraWxsIHNu
+ZF9oZGFfY29kZWNfaWR0IHNuZF9oZGFfaW50ZWwgCj5zbmRfaGRhX2NvZGVjIHNuZF9od2RlcCBz
+bmRfcGNtIHNuZF9wYWdlX2FsbG9jIHNuZF90aW1lciBzbmQgCj5pODI5NzV4X2VkYWMgc291bmRj
+b3JlIGUxMDAwZSBwcGRldiBwYXJwb3J0X3BjIHBhcnBvcnQgZWRhY19jb3JlIAo+aVRDT193ZHQg
+aVRDT192ZW5kb3Jfc3VwcG9ydCBzZXJpb19yYXcgaTJjX2k4MDEgcHJvY2Vzc29yIGNvcmV0ZW1w
+IGV2ZGV2IAo+aXB2NiBhdXRvZnM0IHVzYmhpZCBoaWQgZXh0NCBjcmMxNiBqYmQyIHNkX21vZCBj
+cmNfdDEwZGlmIGZpcmV3aXJlX29oY2kgCj5maXJld2lyZV9jb3JlIGVoY2lfaGNkIGNyY19pdHVf
+dCB1aGNpX2hjZCB1c2Jjb3JlIHVzYl9jb21tb24gbm91dmVhdSAKPmJ1dHRvbiB2aWRlbyBteG1f
+d21pIHdtaSBpMmNfYWxnb19iaXQgZHJtX2ttc19oZWxwZXIgdHRtIGRybSBpMmNfY29yZSAKPmFo
+Y2kgbGliYWhjaSBhdGFfcGlpeCBwYXRhX21hcnZlbGwgbGliYXRhIHNjc2lfbW9kIFtsYXN0IHVu
+bG9hZGVkOiAKPm1pY3JvY29kZV0KPlsgMTIxNS4xNTMzOTVdCj5bIDEyMTUuMTUzMzk4XSBQaWQ6
+IDE4NjM3LCBjb21tOiBpZmNvbmZpZyBOb3QgdGFpbnRlZCAzLjQuNyAjOCAKPi9EOTc1WEJYMgo+
+WyAxMjE1LjE1MzQwNF0gUklQOiAwMDEwOls8ZmZmZmZmZmZhMDY1ZTM3ZD5dICBbPGZmZmZmZmZm
+YTA2NWUzN2Q+XSAKPnJvc2VfZGV2aWNlX2V2ZW50KzB4MTFkLzB4MTYwIFtyb3NlXQo+WyAxMjE1
+LjE1MzQxMV0gUlNQOiAwMDAwOmZmZmY4ODAwMzUyNzFjYTggIEVGTEFHUzogMDAwMTAyOTYKPlsg
+MTIxNS4xNTM0MTRdIFJBWDogMDAwMDAwMDAwMDAwMDAwMCBSQlg6IGZmZmY4ODAwM2QwYzI4Mzgg
+UkNYOiAKPjAwMDAwMDAyMzA5MjQwMDAKPlsgMTIxNS4xNTM0MTddIFJEWDogMDAwMDAwMDAwMDAw
+MDAwMiBSU0k6IDAwMDAwMDAwMDAwMDAwMDEgUkRJOiAKPmZmZmZmZmZmYTA2NjVmMjgKPlsgMTIx
+NS4xNTM0MjBdIFJCUDogZmZmZjg4MDAzNTI3MWNiOCBSMDg6IDAwMDAwMDAwMDAwMDAwMDIgUjA5
+OiAKPjAwMDAwMDAwMDAwMDAwMDAKPlsgMTIxNS4xNTM0MjJdIFIxMDogMDAwMDAwMDAwMDAwMDAw
+MyBSMTE6IDAwMDAwMDAwMDAwMDAwMDAgUjEyOiAKPmZmZmY4ODAwM2E5ZTEwMDAKPlsgMTIxNS4x
+NTM0MjVdIFIxMzogMDAwMDAwMDBmZmZmZmZmMSBSMTQ6IGZmZmZmZmZmYTA1YjAwMDAgUjE1OiAK
+PjAwMDAwMDAwMDAwMDAwMDAKPlsgMTIxNS4xNTM0MjldIEZTOiAgMDAwMDdmYjdhMzE4ZjcwMCgw
+MDAwKSBHUzpmZmZmODgwMDNmYTgwMDAwKDAwMDApIAo+a25sR1M6MDAwMDAwMDAwMDAwMDAwMAo+
+WyAxMjE1LjE1MzQzM10gQ1M6ICAwMDEwIERTOiAwMDAwIEVTOiAwMDAwIENSMDogMDAwMDAwMDA4
+MDA1MDAzYgo+WyAxMjE1LjE1MzQzNV0gQ1IyOiAwMDAwMDAwMDAwMDAwMDJhIENSMzogMDAwMDAw
+MDAzOTNmZDAwMCBDUjQ6IAo+MDAwMDAwMDAwMDAwMDdlMAo+WyAxMjE1LjE1MzQzOF0gRFIwOiAw
+MDAwMDAwMDAwMDAwMDAwIERSMTogMDAwMDAwMDAwMDAwMDAwMCBEUjI6IAo+MDAwMDAwMDAwMDAw
+MDAwMAo+WyAxMjE1LjE1MzQ0MV0gRFIzOiAwMDAwMDAwMDAwMDAwMDAwIERSNjogMDAwMDAwMDBm
+ZmZmMGZmMCBEUjc6IAo+MDAwMDAwMDAwMDAwMDQwMAo+WyAxMjE1LjE1MzQ0NV0gUHJvY2VzcyBp
+ZmNvbmZpZyAocGlkOiAxODYzNywgdGhyZWFkaW5mbyAKPmZmZmY4ODAwMzUyNzAwMDAsIHRhc2sg
+ZmZmZjg4MDAzZjVmNWQ5MCkKPlsgMTIxNS4xNTM0NDhdIFN0YWNrOgo+WyAxMjE1LjE1MzQ1MF0g
+IDAwMDAwMDAwMDAwMDAwMDIgZmZmZjg4MDAzYTllMTAwMCBmZmZmODgwMDM1MjcxY2Y4IAo+ZmZm
+ZmZmZmY4MTQ2ZDg2ZAo+WyAxMjE1LjE1MzQ1NV0gIGZmZmY4ODAwMzYwNDBkMDAgMDAwMDAwMDAw
+MDAwMDAwMiBmZmZmODgwMDNhOWUxMDAwIAo+MDAwMDAwMDAwMDAwMDAwMAo+WyAxMjE1LjE1MzQ1
+OV0gIDAwMDAwMDAwZmZmZmZmOWQgMDAwMDAwMDAwMDAwMDAwMCBmZmZmODgwMDM1MjcxZDA4IAo+
+ZmZmZmZmZmY4MTA3YTJiNgo+WyAxMjE1LjE1MzQ2NF0gQ2FsbCBUcmFjZToKPlsgMTIxNS4xNTM0
+NzBdICBbPGZmZmZmZmZmODE0NmQ4NmQ+XSBub3RpZmllcl9jYWxsX2NoYWluKzB4NGQvMHg3MAo+
+WyAxMjE1LjE1MzQ3Nl0gIFs8ZmZmZmZmZmY4MTA3YTJiNj5dIHJhd19ub3RpZmllcl9jYWxsX2No
+YWluKzB4MTYvMHgyMAo+WyAxMjE1LjE1MzQ4M10gIFs8ZmZmZmZmZmY4MTM5NTEzNj5dIGNhbGxf
+bmV0ZGV2aWNlX25vdGlmaWVycysweDM2LzB4NjAKPlsgMTIxNS4xNTM0ODddICBbPGZmZmZmZmZm
+ODEzOWI5ZWE+XSBfX2Rldl9ub3RpZnlfZmxhZ3MrMHg2YS8weDkwCj5bIDEyMTUuMTUzNDkxXSAg
+WzxmZmZmZmZmZjgxMzliYTU1Pl0gZGV2X2NoYW5nZV9mbGFncysweDQ1LzB4NzAKPlsgMTIxNS4x
+NTM0OTZdICBbPGZmZmZmZmZmODE0MDNhZWQ+XSBkZXZpbmV0X2lvY3RsKzB4NjFkLzB4N2IwCj5b
+IDEyMTUuMTUzNTAwXSAgWzxmZmZmZmZmZjgxNDAzZjA1Pl0gaW5ldF9pb2N0bCsweDc1LzB4OTAK
+PlsgMTIxNS4xNTM1MDVdICBbPGZmZmZmZmZmODEzN2ZiZDA+XSBzb2NrX2RvX2lvY3RsKzB4MzAv
+MHg3MAo+WyAxMjE1LjE1MzUwOV0gIFs8ZmZmZmZmZmY4MTM3ZmM4OT5dIHNvY2tfaW9jdGwrMHg3
+OS8weDJmMAo+WyAxMjE1LjE1MzUxNF0gIFs8ZmZmZmZmZmY4MTE4MjlkOD5dIGRvX3Zmc19pb2N0
+bCsweDk4LzB4NTYwCj5bIDEyMTUuMTUzNTE3XSAgWzxmZmZmZmZmZjgxMTgyZjMxPl0gc3lzX2lv
+Y3RsKzB4OTEvMHhhMAo+WyAxMjE1LjE1MzUyMl0gIFs8ZmZmZmZmZmY4MTQ3MWIzOT5dIHN5c3Rl
+bV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYgo+WyAxMjE1LjE1MzUyNV0gQ29kZTogZTAgNWIgNDEg
+NWMgMzEgYzAgNWQgYzMgNDggOGQgN2IgYzggMzEgYzkgYmEgMDkgMDAgCj4wMCAwMCBiZSA2NSAw
+MCAwMCAwMCBlOCBhMSA1YyAwMCAwMCA0OCA4YiA4MyBiOCAwNCAwMCAwMCA0OCBjNyBjNyAyOCA1
+ZiAKPjY2IGEwIDw2Nj4gODMgNjggMmEgMDEgNDggOGIgODMgYjggMDQgMDAgMDAgMGYgYjcgNzAg
+MmEgMzEgYzAgZTggZDQgMTAKPlsgMTIxNS4xNTM1NjFdIFJJUCAgWzxmZmZmZmZmZmEwNjVlMzdk
+Pl0gcm9zZV9kZXZpY2VfZXZlbnQrMHgxMWQvMHgxNjAgCj5bcm9zZV0KPlsgMTIxNS4xNTM1Njdd
+ICBSU1AgPGZmZmY4ODAwMzUyNzFjYTg+Cj5bIDEyMTUuMTUzNTY5XSBDUjI6IDAwMDAwMDAwMDAw
+MDAwMmEKPlsgMTIxNS4xNzc1NzddIC0tLVsgZW5kIHRyYWNlIGQyM2E3ZGRmZjIyODg3NmMgXS0t
+LQo+WyAxMjE1LjE3NzU4OV0gS2VybmVsIHBhbmljIC0gbm90IHN5bmNpbmc6IEZhdGFsIGV4Y2Vw
+dGlvbiBpbiBpbnRlcnJ1cHQKPlsgMTIxNS4xNzc2NjJdIHBhbmljIG9jY3VycmVkLCBzd2l0Y2hp
+bmcgYmFjayB0byB0ZXh0IGNvbnNvbGUKPlsgMTIxNS4xNzc3MTddIFJlYm9vdGluZyBpbiA2MCBz
+ZWNvbmRzLi4KPgo+SSBpbnNlcnRlZCBzb21lIHByaW50ayBpbnRvIHJvc2VfZGV2aWNlX2V2ZW50
+KCkgYW5kIGNvbW1lbnRlZCBjYWxscyB0byAKPnN1YnJvdXRpbmVzLgo+V2l0aG91dCBjYWxsaW5n
+IHN1YnJvdXRpbmVzLCB0aGVyZSBpcyBubyBtb3JlIGtlcm5lbCBwYW5pYy4KPlNhbWUgcmVzdWx0
+cyB3aGVuIHJlcGxhY2luZyByb3NlX2tpbGxfYnlfZGV2aWNlKCkgaW4gbmV0L3Jvc2UvYWZfcm9z
+ZS5jLCAKPnJvc2VfbGlua19kZXZpY2VfZG93bigpIGFuZCByb3NlX3J0X2RldmljZSgpIGluCj5u
+ZXQvcm9zZV9yb3V0ZS5jIGJ5IGEgZHVtbXkgZnVuY3Rpb25zIHdpdGgganVzdCBhIHByaW50ayBp
+bnNpZGUuCj4KPkkgYW0gZ2xhZCB0aGF0IEkgZm91bmQgbWFrZSBwYXJhbWV0ZXJzIHRoYXQgc2hv
+cnRlbiB0aGUgZGVidWdnaW5nCj5jeWNsZSA6Cj4KPm1ha2UgbW9kdWxlcyBTVUJESVJTPW5ldC9y
+b3NlCj5tYWtlIG1vZHVsZXNfaW5zdGFsbCBTVUJESVJTPW5ldC9yb3NlCj4KPk5vdyBJIGhhdmUg
+dG8gZ28gZnVydGhlciBpbnRvIGVhY2ggc3Vicm91dGluZXMgc3RlcCBieSBzdGVwIGluIG9yZGVy
+IHRvIAo+ZmluZCBvdXQgdGhlIGZhbHR5IGNvZGUgIQo+Cj4KPkJlcm5hcmQKPgo+Cj5PbiAwMy8w
+OC8yMDEyIDE2OjMyLCBmb2xrZXJ0IHdyb3RlOgo+Pj4gWW91IG1pZ2h0IHdhbnQgdG8gc2ltcGx5
+IHRyeSBtb3ZpbmcgdW5yZWdpc3Rlcl9uZXRkZXZpY2Vfbm90aWZpZXIgYSBiaXQKPj4+IGVhcmxp
+ZXIgaW4gcm9zZV9leGl0IGFuZCBzZWUgaWYgdGhhdCBoZWxwcy4gIE90aGVyd2lzZSBJIHdvdWxk
+IHJlY29tbWVuZAo+Pj4gaW5zdHJ1bWVudGluZyB0aGUgY29kZSB1cCB3aXRoIHNvbWUgcHJpbnRr
+IHNvIHlvdSBjYW4gdW5kZXJzdGFuZCB3aGF0Cj4+PiBwYXJ0IG9mIHVucmVnaXN0cmF0aW9uIGlz
+IGZhaWxpbmcuCj4+Cj4+IE9yIGJpc2VjdCEgR2l2ZSBlLmcuIHRoZSBvbGRlc3QgMi42IGtlcm5l
+bCBhIHRyeSB0byBmaW5kIGEgbGFzdCBrbm93bgo+PiBnb29kIGFuZCB0aGVuIGRvIGEgYmlzZWN0
+IHVwdG8gYSBrbm93biBiYWQga2VybmVsLgo+Pgo+Pgo+PiBGb2xrZXJ0IHZhbiBIZXVzZGVuCj4+
+Cj4K
 
-We had to create two different definitions of hashtable, one to be used as static and one to be used in structs. I chose the uglier way of doing it, and Tejun already pointed it out :)
-
-It will be much nicer in the future.
-
->>>  
->>>  /*
->>>   * Note about RCU :
->>> @@ -191,16 +191,14 @@ tracepoint_entry_remove_probe(struct tracepoint_entry *entry,
->>>   */
->>>  static struct tracepoint_entry *get_tracepoint(const char *name)
->>>  {
->>> -	struct hlist_head *head;
->>>  	struct hlist_node *node;
->>>  	struct tracepoint_entry *e;
->>>  	u32 hash = jhash(name, strlen(name), 0);
->>>  
->>> -	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
->>> -	hlist_for_each_entry(e, node, head, hlist) {
->>> +	hash_for_each_possible(&tracepoint_table, node, e, hlist, hash)
->>>  		if (!strcmp(name, e->name))
->>>  			return e;
->>> -	}
->>> +
-> 
-> Typically, where there are 2 or more nesting levels, I try to keep the
-> outer brackets, even if the 1st level only contain a single statement
-> (this is what I did across tracepoint.c). This is especially useful when
-> nesting multiple if levels, and ensures the "else" clause match the
-> right if. We might want to keep it that way within the file, to ensure
-> style consistency.
-
-Roger that, will fix.
-
-> Other than that, it looks good!
-> 
-> Thanks!
-> 
-> Mathieu
-> 
-
-Thanks for the review Mathieu!
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
