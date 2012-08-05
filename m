@@ -1,137 +1,154 @@
-From: Bernard Pidoux <bernard.pidoux@free.fr>
-Subject: Re: CPU: 0 Not tainted  (3.1.9+ #1) when ifconfig rose0 down
-Date: Sun, 05 Aug 2012 18:23:25 +0200
-Message-ID: <501E9DFD.4040301@free.fr>
-References: <5017E786.5000102@free.fr> <87ipd0ykdg.fsf@xmission.com> <20120803143200.GE10211@belle.intranet.vanheusden.com>
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Subject: Re: [RFC v2 6/7] tracepoint: use new hashtable implementation
+Date: Sun, 5 Aug 2012 12:31:14 -0400
+Message-ID: <20120805163114.GA21768@Krystal>
+References: <1344003788-1417-1-git-send-email-levinsasha928@gmail.com> <1344003788-1417-7-git-send-email-levinsasha928@gmail.com> <1344126994.27983.116.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-hams <linux-hams@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: folkert <folkert@vanheusden.com>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20120803143200.GE10211@belle.intranet.vanheusden.com>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sasha Levin <levinsasha928@gmail.com>, torvalds@linux-foundation.org,
+	tj@kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net, mingo@elte.hu,
+	ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
+	netdev@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1344126994.27983.116.camel@gandalf.stny.rr.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for suggesting a bissect. However I guess that this bug has 
-always been there !
+* Steven Rostedt (rostedt@goodmis.org) wrote:
+> FYI, Mathieu is the author of this file.
+> 
+> -- Steve
+> 
+> 
+> On Fri, 2012-08-03 at 16:23 +0200, Sasha Levin wrote:
+> > Switch tracepoints to use the new hashtable implementation. This reduces the amount of
+> > generic unrelated code in the tracepoints.
+> > 
+> > Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> > ---
+> >  kernel/tracepoint.c |   26 +++++++++-----------------
+> >  1 files changed, 9 insertions(+), 17 deletions(-)
+> > 
+> > diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
+> > index d96ba22..b5a2650 100644
+> > --- a/kernel/tracepoint.c
+> > +++ b/kernel/tracepoint.c
+> > @@ -26,6 +26,7 @@
+> >  #include <linux/slab.h>
+> >  #include <linux/sched.h>
+> >  #include <linux/static_key.h>
+> > +#include <linux/hashtable.h>
+> >  
+> >  extern struct tracepoint * const __start___tracepoints_ptrs[];
+> >  extern struct tracepoint * const __stop___tracepoints_ptrs[];
+> > @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
+> >   * Protected by tracepoints_mutex.
+> >   */
+> >  #define TRACEPOINT_HASH_BITS 6
+> > -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
+> > -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
+> > +DEFINE_STATIC_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
 
-I am not professionaly involved in programming, however I committed a 
-few patches for ROSE, AX.25 and NetRom modules since a few years.
+I wonder why the "static" has been embedded within
+"DEFINE_STATIC_HASHTABLE" ? I'm used to see something similar to:
 
-I reactivated netconfig and here is the report showing that kernel panic 
-occurs when rose_device_event is triggered when issuing command
-ifconfig rose0 down
+static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
 
-[ 1215.153302] rose_kill_by_device() rose->neighbour->use 0
-[ 1215.153316] BUG: unable to handle kernel NULL pointer dereference at 
-000000000000002a
-[ 1215.153321] IP: [<ffffffffa065e37d>] rose_device_event+0x11d/0x160 [rose]
-[ 1215.153333] PGD 36340067 PUD 359fa067 PMD 0
-[ 1215.153338] Oops: 0002 [#1] SMP
-[ 1215.153343] CPU 1
-[ 1215.153344] Modules linked in: af_packet rose mkiss ax25 nfsd 
-exportfs nfs nfs_acl auth_rpcgss fscache lockd sunrpc netconsole 
-configfs bnep bluetooth rfkill snd_hda_codec_idt snd_hda_intel 
-snd_hda_codec snd_hwdep snd_pcm snd_page_alloc snd_timer snd 
-i82975x_edac soundcore e1000e ppdev parport_pc parport edac_core 
-iTCO_wdt iTCO_vendor_support serio_raw i2c_i801 processor coretemp evdev 
-ipv6 autofs4 usbhid hid ext4 crc16 jbd2 sd_mod crc_t10dif firewire_ohci 
-firewire_core ehci_hcd crc_itu_t uhci_hcd usbcore usb_common nouveau 
-button video mxm_wmi wmi i2c_algo_bit drm_kms_helper ttm drm i2c_core 
-ahci libahci ata_piix pata_marvell libata scsi_mod [last unloaded: 
-microcode]
-[ 1215.153395]
-[ 1215.153398] Pid: 18637, comm: ifconfig Not tainted 3.4.7 #8 
-/D975XBX2
-[ 1215.153404] RIP: 0010:[<ffffffffa065e37d>]  [<ffffffffa065e37d>] 
-rose_device_event+0x11d/0x160 [rose]
-[ 1215.153411] RSP: 0000:ffff880035271ca8  EFLAGS: 00010296
-[ 1215.153414] RAX: 0000000000000000 RBX: ffff88003d0c2838 RCX: 
-0000000230924000
-[ 1215.153417] RDX: 0000000000000002 RSI: 0000000000000001 RDI: 
-ffffffffa0665f28
-[ 1215.153420] RBP: ffff880035271cb8 R08: 0000000000000002 R09: 
-0000000000000000
-[ 1215.153422] R10: 0000000000000003 R11: 0000000000000000 R12: 
-ffff88003a9e1000
-[ 1215.153425] R13: 00000000fffffff1 R14: ffffffffa05b0000 R15: 
-0000000000000000
-[ 1215.153429] FS:  00007fb7a318f700(0000) GS:ffff88003fa80000(0000) 
-knlGS:0000000000000000
-[ 1215.153433] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[ 1215.153435] CR2: 000000000000002a CR3: 00000000393fd000 CR4: 
-00000000000007e0
-[ 1215.153438] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 
-0000000000000000
-[ 1215.153441] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 
-0000000000000400
-[ 1215.153445] Process ifconfig (pid: 18637, threadinfo 
-ffff880035270000, task ffff88003f5f5d90)
-[ 1215.153448] Stack:
-[ 1215.153450]  0000000000000002 ffff88003a9e1000 ffff880035271cf8 
-ffffffff8146d86d
-[ 1215.153455]  ffff880036040d00 0000000000000002 ffff88003a9e1000 
-0000000000000000
-[ 1215.153459]  00000000ffffff9d 0000000000000000 ffff880035271d08 
-ffffffff8107a2b6
-[ 1215.153464] Call Trace:
-[ 1215.153470]  [<ffffffff8146d86d>] notifier_call_chain+0x4d/0x70
-[ 1215.153476]  [<ffffffff8107a2b6>] raw_notifier_call_chain+0x16/0x20
-[ 1215.153483]  [<ffffffff81395136>] call_netdevice_notifiers+0x36/0x60
-[ 1215.153487]  [<ffffffff8139b9ea>] __dev_notify_flags+0x6a/0x90
-[ 1215.153491]  [<ffffffff8139ba55>] dev_change_flags+0x45/0x70
-[ 1215.153496]  [<ffffffff81403aed>] devinet_ioctl+0x61d/0x7b0
-[ 1215.153500]  [<ffffffff81403f05>] inet_ioctl+0x75/0x90
-[ 1215.153505]  [<ffffffff8137fbd0>] sock_do_ioctl+0x30/0x70
-[ 1215.153509]  [<ffffffff8137fc89>] sock_ioctl+0x79/0x2f0
-[ 1215.153514]  [<ffffffff811829d8>] do_vfs_ioctl+0x98/0x560
-[ 1215.153517]  [<ffffffff81182f31>] sys_ioctl+0x91/0xa0
-[ 1215.153522]  [<ffffffff81471b39>] system_call_fastpath+0x16/0x1b
-[ 1215.153525] Code: e0 5b 41 5c 31 c0 5d c3 48 8d 7b c8 31 c9 ba 09 00 
-00 00 be 65 00 00 00 e8 a1 5c 00 00 48 8b 83 b8 04 00 00 48 c7 c7 28 5f 
-66 a0 <66> 83 68 2a 01 48 8b 83 b8 04 00 00 0f b7 70 2a 31 c0 e8 d4 10
-[ 1215.153561] RIP  [<ffffffffa065e37d>] rose_device_event+0x11d/0x160 
-[rose]
-[ 1215.153567]  RSP <ffff880035271ca8>
-[ 1215.153569] CR2: 000000000000002a
-[ 1215.177577] ---[ end trace d23a7ddff228876c ]---
-[ 1215.177589] Kernel panic - not syncing: Fatal exception in interrupt
-[ 1215.177662] panic occurred, switching back to text console
-[ 1215.177717] Rebooting in 60 seconds..
+elsewhere in the kernel (e.g. static DEFINE_PER_CPU(), static
+DEFINE_MUTEX(), etc).
 
-I inserted some printk into rose_device_event() and commented calls to 
-subroutines.
-Without calling subroutines, there is no more kernel panic.
-Same results when replacing rose_kill_by_device() in net/rose/af_rose.c, 
-rose_link_device_down() and rose_rt_device() in
-net/rose_route.c by a dummy functions with just a printk inside.
+> >  
+> >  /*
+> >   * Note about RCU :
+> > @@ -191,16 +191,14 @@ tracepoint_entry_remove_probe(struct tracepoint_entry *entry,
+> >   */
+> >  static struct tracepoint_entry *get_tracepoint(const char *name)
+> >  {
+> > -	struct hlist_head *head;
+> >  	struct hlist_node *node;
+> >  	struct tracepoint_entry *e;
+> >  	u32 hash = jhash(name, strlen(name), 0);
+> >  
+> > -	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
+> > -	hlist_for_each_entry(e, node, head, hlist) {
+> > +	hash_for_each_possible(&tracepoint_table, node, e, hlist, hash)
+> >  		if (!strcmp(name, e->name))
+> >  			return e;
+> > -	}
+> > +
 
-I am glad that I found make parameters that shorten the debugging
-cycle :
+Typically, where there are 2 or more nesting levels, I try to keep the
+outer brackets, even if the 1st level only contain a single statement
+(this is what I did across tracepoint.c). This is especially useful when
+nesting multiple if levels, and ensures the "else" clause match the
+right if. We might want to keep it that way within the file, to ensure
+style consistency.
 
-make modules SUBDIRS=net/rose
-make modules_install SUBDIRS=net/rose
+Other than that, it looks good!
 
-Now I have to go further into each subroutines step by step in order to 
-find out the falty code !
+Thanks!
 
+Mathieu
 
-Bernard
+> >  	return NULL;
+> >  }
+> >  
+> > @@ -210,19 +208,13 @@ static struct tracepoint_entry *get_tracepoint(const char *name)
+> >   */
+> >  static struct tracepoint_entry *add_tracepoint(const char *name)
+> >  {
+> > -	struct hlist_head *head;
+> > -	struct hlist_node *node;
+> >  	struct tracepoint_entry *e;
+> >  	size_t name_len = strlen(name) + 1;
+> >  	u32 hash = jhash(name, name_len-1, 0);
+> >  
+> > -	head = &tracepoint_table[hash & (TRACEPOINT_TABLE_SIZE - 1)];
+> > -	hlist_for_each_entry(e, node, head, hlist) {
+> > -		if (!strcmp(name, e->name)) {
+> > -			printk(KERN_NOTICE
+> > -				"tracepoint %s busy\n", name);
+> > -			return ERR_PTR(-EEXIST);	/* Already there */
+> > -		}
+> > +	if (get_tracepoint(name)) {
+> > +		printk(KERN_NOTICE "tracepoint %s busy\n", name);
+> > +		return ERR_PTR(-EEXIST);	/* Already there */
+> >  	}
+> >  	/*
+> >  	 * Using kmalloc here to allocate a variable length element. Could
+> > @@ -234,7 +226,7 @@ static struct tracepoint_entry *add_tracepoint(const char *name)
+> >  	memcpy(&e->name[0], name, name_len);
+> >  	e->funcs = NULL;
+> >  	e->refcount = 0;
+> > -	hlist_add_head(&e->hlist, head);
+> > +	hash_add(&tracepoint_table, &e->hlist, hash);
+> >  	return e;
+> >  }
+> >  
+> > @@ -244,7 +236,7 @@ static struct tracepoint_entry *add_tracepoint(const char *name)
+> >   */
+> >  static inline void remove_tracepoint(struct tracepoint_entry *e)
+> >  {
+> > -	hlist_del(&e->hlist);
+> > +	hash_del(&e->hlist);
+> >  	kfree(e);
+> >  }
+> >  
+> 
+> 
 
+-- 
+Mathieu Desnoyers
+Operating System Efficiency R&D Consultant
+EfficiOS Inc.
+http://www.efficios.com
 
-On 03/08/2012 16:32, folkert wrote:
->> You might want to simply try moving unregister_netdevice_notifier a bit
->> earlier in rose_exit and see if that helps.  Otherwise I would recommend
->> instrumenting the code up with some printk so you can understand what
->> part of unregistration is failing.
->
-> Or bisect! Give e.g. the oldest 2.6 kernel a try to find a last known
-> good and then do a bisect upto a known bad kernel.
->
->
-> Folkert van Heusden
->
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
