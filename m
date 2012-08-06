@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 1/9] sctp: Make the port hash table use struct net in it's key.
-Date: Mon, 06 Aug 2012 11:39:38 -0700
-Message-ID: <87txwfq2z9.fsf_-_@xmission.com>
+Subject: [PATCH net-next 2/9] sctp: Make the endpoint hashtable handle multiple network namespaces
+Date: Mon, 06 Aug 2012 11:40:21 -0700
+Message-ID: <87obmnq2y2.fsf_-_@xmission.com>
 References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
 	<87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com>
 Mime-Version: 1.0
@@ -20,141 +20,151 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-- Add struct net into the port hash table hash calculation
-- Add struct net inot the struct sctp_bind_bucket so there
-  is a memory of which network namespace a port is allocated in.
-  No need for a ref count because sctp_bind_bucket only exists
-  when there are sockets in the hash table and sockets can not
-  change their network namspace, and sockets already ref count
-  their network namespace.
-- Add struct net into the key comparison when we are testing
-  to see if we have found the port hash table entry we are
-  looking for.
-
-With these changes lookups in the port hash table becomes
-safe to use in multiple network namespaces.
+- Use struct net in the hash calculation
+- Use sock_net(endpoint.base.sk) in the endpoint lookups.
+- On receive calculate the network namespace from skb->dev.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
  include/net/sctp/sctp.h    |    4 ++--
- include/net/sctp/structs.h |    1 +
- net/sctp/socket.c          |   22 +++++++++++++---------
- 3 files changed, 16 insertions(+), 11 deletions(-)
+ include/net/sctp/structs.h |    2 +-
+ net/sctp/endpointola.c     |    4 +++-
+ net/sctp/input.c           |   19 ++++++++++++-------
+ 4 files changed, 18 insertions(+), 11 deletions(-)
 
 diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index ff49964..7c05040 100644
+index 7c05040..87b119f 100644
 --- a/include/net/sctp/sctp.h
 +++ b/include/net/sctp/sctp.h
-@@ -632,9 +632,9 @@ static inline int sctp_sanity_check(void)
- 
- /* Warning: The following hash functions assume a power of two 'size'. */
- /* This is the hash function for the SCTP port hash table. */
--static inline int sctp_phashfn(__u16 lport)
-+static inline int sctp_phashfn(struct net *net, __u16 lport)
- {
--	return lport & (sctp_port_hashsize - 1);
-+	return (net_hash_mix(net) + lport) & (sctp_port_hashsize - 1);
+@@ -638,9 +638,9 @@ static inline int sctp_phashfn(struct net *net, __u16 lport)
  }
  
  /* This is the hash function for the endpoint hash table. */
+-static inline int sctp_ep_hashfn(__u16 lport)
++static inline int sctp_ep_hashfn(struct net *net, __u16 lport)
+ {
+-	return lport & (sctp_ep_hashsize - 1);
++	return (net_hash_mix(net) + lport) & (sctp_ep_hashsize - 1);
+ }
+ 
+ /* This is the hash function for the association hash table. */
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index fc5e600..c089bb1 100644
+index c089bb1..9f9de55 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -102,6 +102,7 @@ struct sctp_bind_bucket {
- 	unsigned short	fastreuse;
- 	struct hlist_node	node;
- 	struct hlist_head	owner;
-+	struct net	*net;
- };
+@@ -1426,7 +1426,7 @@ struct sctp_association *sctp_endpoint_lookup_assoc(
+ int sctp_endpoint_is_peeled_off(struct sctp_endpoint *,
+ 				const union sctp_addr *);
+ struct sctp_endpoint *sctp_endpoint_is_match(struct sctp_endpoint *,
+-					const union sctp_addr *);
++					struct net *, const union sctp_addr *);
+ int sctp_has_association(const union sctp_addr *laddr,
+ 			 const union sctp_addr *paddr);
  
- struct sctp_bind_hashbucket {
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 5e25981..4316b0f 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5769,7 +5769,7 @@ static void sctp_unhash(struct sock *sk)
-  * a fastreuse flag (FIXME: NPI ipg).
-  */
- static struct sctp_bind_bucket *sctp_bucket_create(
--	struct sctp_bind_hashbucket *head, unsigned short snum);
-+	struct sctp_bind_hashbucket *head, struct net *, unsigned short snum);
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 68a385d..50c87b4 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -302,11 +302,13 @@ void sctp_endpoint_put(struct sctp_endpoint *ep)
  
- static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ /* Is this the endpoint we are looking for?  */
+ struct sctp_endpoint *sctp_endpoint_is_match(struct sctp_endpoint *ep,
++					       struct net *net,
+ 					       const union sctp_addr *laddr)
  {
-@@ -5799,11 +5799,12 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
- 				rover = low;
- 			if (inet_is_reserved_local_port(rover))
- 				continue;
--			index = sctp_phashfn(rover);
-+			index = sctp_phashfn(sock_net(sk), rover);
- 			head = &sctp_port_hashtable[index];
- 			sctp_spin_lock(&head->lock);
- 			sctp_for_each_hentry(pp, node, &head->chain)
--				if (pp->port == rover)
-+				if ((pp->port == rover) &&
-+				    net_eq(sock_net(sk), pp->net))
- 					goto next;
- 			break;
- 		next:
-@@ -5827,10 +5828,10 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
- 		 * to the port number (snum) - we detect that with the
- 		 * port iterator, pp being NULL.
- 		 */
--		head = &sctp_port_hashtable[sctp_phashfn(snum)];
-+		head = &sctp_port_hashtable[sctp_phashfn(sock_net(sk), snum)];
- 		sctp_spin_lock(&head->lock);
- 		sctp_for_each_hentry(pp, node, &head->chain) {
--			if (pp->port == snum)
-+			if ((pp->port == snum) && net_eq(pp->net, sock_net(sk)))
- 				goto pp_found;
- 		}
+ 	struct sctp_endpoint *retval = NULL;
+ 
+-	if (htons(ep->base.bind_addr.port) == laddr->v4.sin_port) {
++	if ((htons(ep->base.bind_addr.port) == laddr->v4.sin_port) &&
++	    net_eq(sock_net(ep->base.sk), net)) {
+ 		if (sctp_bind_addr_match(&ep->base.bind_addr, laddr,
+ 					 sctp_sk(ep->base.sk)))
+ 			retval = ep;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index e64d521..c0ca893 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -70,7 +70,8 @@ static struct sctp_association *__sctp_rcv_lookup(struct sk_buff *skb,
+ 				      const union sctp_addr *laddr,
+ 				      const union sctp_addr *paddr,
+ 				      struct sctp_transport **transportp);
+-static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(const union sctp_addr *laddr);
++static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(struct net *net,
++						const union sctp_addr *laddr);
+ static struct sctp_association *__sctp_lookup_association(
+ 					const union sctp_addr *local,
+ 					const union sctp_addr *peer,
+@@ -129,6 +130,7 @@ int sctp_rcv(struct sk_buff *skb)
+ 	union sctp_addr dest;
+ 	int family;
+ 	struct sctp_af *af;
++	struct net *net = dev_net(skb->dev);
+ 
+ 	if (skb->pkt_type!=PACKET_HOST)
+ 		goto discard_it;
+@@ -181,7 +183,7 @@ int sctp_rcv(struct sk_buff *skb)
+ 	asoc = __sctp_rcv_lookup(skb, &src, &dest, &transport);
+ 
+ 	if (!asoc)
+-		ep = __sctp_rcv_lookup_endpoint(&dest);
++		ep = __sctp_rcv_lookup_endpoint(net, &dest);
+ 
+ 	/* Retrieve the common input handling substructure. */
+ 	rcvr = asoc ? &asoc->base : &ep->base;
+@@ -723,12 +725,13 @@ discard:
+ /* Insert endpoint into the hash table.  */
+ static void __sctp_hash_endpoint(struct sctp_endpoint *ep)
+ {
++	struct net *net = sock_net(ep->base.sk);
+ 	struct sctp_ep_common *epb;
+ 	struct sctp_hashbucket *head;
+ 
+ 	epb = &ep->base;
+ 
+-	epb->hashent = sctp_ep_hashfn(epb->bind_addr.port);
++	epb->hashent = sctp_ep_hashfn(net, epb->bind_addr.port);
+ 	head = &sctp_ep_hashtable[epb->hashent];
+ 
+ 	sctp_write_lock(&head->lock);
+@@ -747,12 +750,13 @@ void sctp_hash_endpoint(struct sctp_endpoint *ep)
+ /* Remove endpoint from the hash table.  */
+ static void __sctp_unhash_endpoint(struct sctp_endpoint *ep)
+ {
++	struct net *net = sock_net(ep->base.sk);
+ 	struct sctp_hashbucket *head;
+ 	struct sctp_ep_common *epb;
+ 
+ 	epb = &ep->base;
+ 
+-	epb->hashent = sctp_ep_hashfn(epb->bind_addr.port);
++	epb->hashent = sctp_ep_hashfn(net, epb->bind_addr.port);
+ 
+ 	head = &sctp_ep_hashtable[epb->hashent];
+ 
+@@ -770,7 +774,8 @@ void sctp_unhash_endpoint(struct sctp_endpoint *ep)
+ }
+ 
+ /* Look up an endpoint. */
+-static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(const union sctp_addr *laddr)
++static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(struct net *net,
++						const union sctp_addr *laddr)
+ {
+ 	struct sctp_hashbucket *head;
+ 	struct sctp_ep_common *epb;
+@@ -778,12 +783,12 @@ static struct sctp_endpoint *__sctp_rcv_lookup_endpoint(const union sctp_addr *l
+ 	struct hlist_node *node;
+ 	int hash;
+ 
+-	hash = sctp_ep_hashfn(ntohs(laddr->v4.sin_port));
++	hash = sctp_ep_hashfn(net, ntohs(laddr->v4.sin_port));
+ 	head = &sctp_ep_hashtable[hash];
+ 	read_lock(&head->lock);
+ 	sctp_for_each_hentry(epb, node, &head->chain) {
+ 		ep = sctp_ep(epb);
+-		if (sctp_endpoint_is_match(ep, laddr))
++		if (sctp_endpoint_is_match(ep, net, laddr))
+ 			goto hit;
  	}
-@@ -5881,7 +5882,7 @@ pp_found:
- pp_not_found:
- 	/* If there was a hash table miss, create a new port.  */
- 	ret = 1;
--	if (!pp && !(pp = sctp_bucket_create(head, snum)))
-+	if (!pp && !(pp = sctp_bucket_create(head, sock_net(sk), snum)))
- 		goto fail_unlock;
  
- 	/* In either case (hit or miss), make sure fastreuse is 1 only
-@@ -6113,7 +6114,7 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
-  ********************************************************************/
- 
- static struct sctp_bind_bucket *sctp_bucket_create(
--	struct sctp_bind_hashbucket *head, unsigned short snum)
-+	struct sctp_bind_hashbucket *head, struct net *net, unsigned short snum)
- {
- 	struct sctp_bind_bucket *pp;
- 
-@@ -6123,6 +6124,7 @@ static struct sctp_bind_bucket *sctp_bucket_create(
- 		pp->port = snum;
- 		pp->fastreuse = 0;
- 		INIT_HLIST_HEAD(&pp->owner);
-+		pp->net = net;
- 		hlist_add_head(&pp->node, &head->chain);
- 	}
- 	return pp;
-@@ -6142,7 +6144,8 @@ static void sctp_bucket_destroy(struct sctp_bind_bucket *pp)
- static inline void __sctp_put_port(struct sock *sk)
- {
- 	struct sctp_bind_hashbucket *head =
--		&sctp_port_hashtable[sctp_phashfn(inet_sk(sk)->inet_num)];
-+		&sctp_port_hashtable[sctp_phashfn(sock_net(sk),
-+						  inet_sk(sk)->inet_num)];
- 	struct sctp_bind_bucket *pp;
- 
- 	sctp_spin_lock(&head->lock);
-@@ -6809,7 +6812,8 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
- 	newsp->hmac = NULL;
- 
- 	/* Hook this new socket in to the bind_hash list. */
--	head = &sctp_port_hashtable[sctp_phashfn(inet_sk(oldsk)->inet_num)];
-+	head = &sctp_port_hashtable[sctp_phashfn(sock_net(oldsk),
-+						 inet_sk(oldsk)->inet_num)];
- 	sctp_local_bh_disable();
- 	sctp_spin_lock(&head->lock);
- 	pp = sctp_sk(oldsk)->bind_hash;
 -- 
 1.7.5.4
