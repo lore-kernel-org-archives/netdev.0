@@ -1,244 +1,95 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH v2] can: kvaser_usb: Add support for Kvaser CAN/USB devices
-Date: Mon, 06 Aug 2012 10:10:43 +0200
-Message-ID: <1377311.1NXjxk1Tbx@linux-lqwf.site>
-References: <1343626352-24760-1-git-send-email-olivier@sobrie.be> <1344230489-16595-1-git-send-email-olivier@sobrie.be>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH RFC] net: tcp: GRO should be ECN friendly
+Date: Mon, 06 Aug 2012 10:34:50 +0200
+Message-ID: <1344242090.9299.1656.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Olivier Sobrie <olivier@sobrie.be>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1344230489-16595-1-git-send-email-olivier@sobrie.be>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57576 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753804Ab2HFIe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 04:34:56 -0400
+Received: by bkwj10 with SMTP id j10so917681bkw.19
+        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 01:34:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 06 August 2012 07:21:29 Olivier Sobrie wrote:
-> This driver provides support for several Kvaser CAN/USB devices.
-> Such kind of devices supports up to three can network interfaces.
-> 
-> It has been tested with a Kvaser USB Leaf Light (one network interface)
-> connected to a pch_can interface.
-> The firmware version of the Kvaser device was 2.5.205.
+From: Eric Dumazet <edumazet@google.com>
 
-> +static netdev_tx_t kvaser_usb_start_xmit(struct sk_buff *skb,
-> +					 struct net_device *netdev)
-> +{
-> +	struct kvaser_usb_net_priv *priv = netdev_priv(netdev);
-> +	struct kvaser_usb *dev = priv->dev;
-> +	struct net_device_stats *stats = &netdev->stats;
-> +	struct can_frame *cf = (struct can_frame *)skb->data;
-> +	struct kvaser_usb_tx_urb_context *context = NULL;
-> +	struct urb *urb;
-> +	void *buf;
-> +	struct kvaser_msg *msg;
-> +	int i, err;
-> +	int ret = NETDEV_TX_OK;
-> +
-> +	if (can_dropped_invalid_skb(netdev, skb))
-> +		return NETDEV_TX_OK;
-> +
-> +	urb = usb_alloc_urb(0, GFP_ATOMIC);
-> +	if (!urb) {
-> +		netdev_err(netdev, "No memory left for URBs\n");
-> +		stats->tx_dropped++;
-> +		dev_kfree_skb(skb);
-> +		return NETDEV_TX_OK;
-> +	}
-> +
-> +	buf = usb_alloc_coherent(dev->udev, sizeof(struct kvaser_msg),
-> +				 GFP_ATOMIC, &urb->transfer_dma);
+While doing TCP ECN tests, I discovered GRO was reordering packets if it
+receives one packet with CE set, while previous packets in same NAPI run
+have ECT(0) for the same flow :
 
-usb_alloc_coherent() as a rule only makes sense if you reuse the buffer
-and in some cases not even then. Please use a simple kmalloc()
+09:25:25.857620 IP (tos 0x2,ECT(0), ttl 64, id 27893, offset 0, flags
+[DF], proto TCP (6), length 4396)
+    172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
+233801:238145, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
+1990627], length 4344
 
-> +	if (!buf) {
-> +		netdev_err(netdev, "No memory left for USB buffer\n");
-> +		stats->tx_dropped++;
-> +		dev_kfree_skb(skb);
-> +		goto nobufmem;
-> +	}
-> +
-> +	msg = (struct kvaser_msg *)buf;
-> +	msg->len = MSG_HEADER_LEN + sizeof(struct kvaser_msg_tx_can);
-> +	msg->u.tx_can.flags = 0;
-> +	msg->u.tx_can.channel = priv->channel;
-> +
-> +	if (cf->can_id & CAN_EFF_FLAG) {
-> +		msg->id = CMD_TX_EXT_MESSAGE;
-> +		msg->u.tx_can.msg[0] = (cf->can_id >> 24) & 0x1f;
-> +		msg->u.tx_can.msg[1] = (cf->can_id >> 18) & 0x3f;
-> +		msg->u.tx_can.msg[2] = (cf->can_id >> 14) & 0x0f;
-> +		msg->u.tx_can.msg[3] = (cf->can_id >> 6) & 0xff;
-> +		msg->u.tx_can.msg[4] = cf->can_id & 0x3f;
-> +	} else {
-> +		msg->id = CMD_TX_STD_MESSAGE;
-> +		msg->u.tx_can.msg[0] = (cf->can_id >> 6) & 0x1f;
-> +		msg->u.tx_can.msg[1] = cf->can_id & 0x3f;
-> +	}
-> +
-> +	msg->u.tx_can.msg[5] = cf->can_dlc;
-> +	memcpy(&msg->u.tx_can.msg[6], cf->data, cf->can_dlc);
-> +
-> +	if (cf->can_id & CAN_RTR_FLAG)
-> +		msg->u.tx_can.flags |= MSG_FLAG_REMOTE_FRAME;
-> +
-> +	for (i = 0; i < ARRAY_SIZE(priv->tx_contexts); i++) {
-> +		if (priv->tx_contexts[i].echo_index == MAX_TX_URBS) {
-> +			context = &priv->tx_contexts[i];
-> +			break;
-> +		}
-> +	}
-> +
-> +	if (!context) {
-> +		netdev_warn(netdev, "cannot find free context\n");
-> +		ret =  NETDEV_TX_BUSY;
-> +		goto releasebuf;
-> +	}
-> +
-> +	context->priv = priv;
-> +	context->echo_index = i;
-> +	context->dlc = cf->can_dlc;
-> +
-> +	msg->u.tx_can.tid = context->echo_index;
-> +
-> +	usb_fill_bulk_urb(urb, dev->udev,
-> +			  usb_sndbulkpipe(dev->udev,
-> +					  dev->bulk_out->bEndpointAddress),
-> +			  buf, msg->len,
-> +			  kvaser_usb_write_bulk_callback, context);
-> +	urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-> +	usb_anchor_urb(urb, &priv->tx_submitted);
-> +
-> +	can_put_echo_skb(skb, netdev, context->echo_index);
-> +
-> +	atomic_inc(&priv->active_tx_urbs);
-> +
-> +	if (atomic_read(&priv->active_tx_urbs) >= MAX_TX_URBS)
-> +		netif_stop_queue(netdev);
-> +
-> +	err = usb_submit_urb(urb, GFP_ATOMIC);
-> +	if (unlikely(err)) {
-> +		can_free_echo_skb(netdev, context->echo_index);
-> +
-> +		atomic_dec(&priv->active_tx_urbs);
-> +		usb_unanchor_urb(urb);
-> +
-> +		stats->tx_dropped++;
-> +
-> +		if (err == -ENODEV)
-> +			netif_device_detach(netdev);
-> +		else
-> +			netdev_warn(netdev, "Failed tx_urb %d\n", err);
-> +
-> +		goto releasebuf;
-> +	}
-> +
-> +	netdev->trans_start = jiffies;
-> +
-> +	usb_free_urb(urb);
-> +
-> +	return NETDEV_TX_OK;
-> +
-> +releasebuf:
-> +	usb_free_coherent(dev->udev, sizeof(struct kvaser_msg),
-> +			  buf, urb->transfer_dma);
-> +nobufmem:
-> +	usb_free_urb(urb);
-> +	return ret;
-> +}
+09:25:25.857626 IP (tos 0x3,CE, ttl 64, id 27892, offset 0, flags [DF],
+proto TCP (6), length 1500)
+    172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
+232353:233801, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
+1990627], length 1448
 
-> +static int kvaser_usb_init_one(struct usb_interface *intf,
-> +			       const struct usb_device_id *id, int channel)
-> +{
-> +	struct kvaser_usb *dev = usb_get_intfdata(intf);
-> +	struct net_device *netdev;
-> +	struct kvaser_usb_net_priv *priv;
-> +	int i, err;
-> +
-> +	netdev = alloc_candev(sizeof(*priv), MAX_TX_URBS);
-> +	if (!netdev) {
-> +		dev_err(&intf->dev, "Cannot alloc candev\n");
-> +		return -ENOMEM;
-> +	}
-> +
-> +	priv = netdev_priv(netdev);
-> +
-> +	init_completion(&priv->start_comp);
-> +	init_completion(&priv->stop_comp);
-> +
-> +	init_usb_anchor(&priv->tx_submitted);
-> +	atomic_set(&priv->active_tx_urbs, 0);
-> +
-> +	for (i = 0; i < ARRAY_SIZE(priv->tx_contexts); i++)
-> +		priv->tx_contexts[i].echo_index = MAX_TX_URBS;
-> +
-> +	priv->dev = dev;
-> +	priv->netdev = netdev;
-> +	priv->channel = channel;
-> +
-> +	priv->can.state = CAN_STATE_STOPPED;
-> +	priv->can.clock.freq = CAN_USB_CLOCK;
-> +	priv->can.bittiming_const = &kvaser_usb_bittiming_const;
-> +	priv->can.do_set_bittiming = kvaser_usb_set_bittiming;
-> +	priv->can.do_set_mode = kvaser_usb_set_mode;
-> +	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES;
-> +	if (id->driver_info & KVASER_HAS_SILENT_MODE)
-> +		priv->can.ctrlmode_supported |= CAN_CTRLMODE_LISTENONLY;
-> +
-> +	netdev->flags |= IFF_ECHO;
-> +
-> +	netdev->netdev_ops = &kvaser_usb_netdev_ops;
-> +
-> +	SET_NETDEV_DEV(netdev, &intf->dev);
-> +
-> +	err = register_candev(netdev);
-> +	if (err) {
-> +		dev_err(&intf->dev, "Failed to register can device\n");
-> +		free_candev(netdev);
-> +		return err;
-> +	}
-> +
+09:25:25.857638 IP (tos 0x0, ttl 64, id 34581, offset 0, flags [DF],
+proto TCP (6), length 64)
+    172.30.42.13.44139 > 172.30.42.19.54550: Flags [.], cksum 0xac8f
+(incorrect -> 0xca69), ack 232353, win 1271, options [nop,nop,TS val
+1990627 ecr 3397779,nop,nop,sack 1 {233801:238145}], length 0
 
-Here the device is usable.
+We have two problems here :
 
-> +	dev->nets[channel] = priv;
+1) GRO reorders packets
 
-And only know you init this field. Looks like a race condition.
+  If NIC gave packet1, then packet2, which happen to be from "different
+flows"  GRO feeds stack with packet2, then packet1. I have yet to
+understand how to solve this problem.
 
-> +	netdev_dbg(netdev, "device registered\n");
-> +
-> +	return 0;
-> +}
-> +
+2) GRO is not ECN friendly
 
-> +static void kvaser_usb_disconnect(struct usb_interface *intf)
-> +{
-> +	struct kvaser_usb *dev = usb_get_intfdata(intf);
-> +	int i;
-> +
-> +	usb_set_intfdata(intf, NULL);
-> +
-> +	if (!dev)
-> +		return;
-> +
-> +	for (i = 0; i < dev->nchannels; i++) {
-> +		if (!dev->nets[i])
-> +			continue;
-> +
-> +		unregister_netdev(dev->nets[i]->netdev);
-> +		free_candev(dev->nets[i]->netdev);
-> +	}
-> +
-> +	kvaser_usb_unlink_all_urbs(dev);
+Delivering packets out of order makes TCP stack not as fast as it could
+be.
 
-So what happens if an URB completes between freeing the candev
-and unlinking and proceeds to push data to upper layers?
+In this patch I suggest we make the tos test not part of the 'same_flow'
+determination, but part of the 'should flush' logic
 
-	Regards
-		Oliver
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/ipv4/af_inet.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index fe4582c..6681ccf 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1364,7 +1364,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	if (*(u8 *)iph != 0x45)
+ 		goto out_unlock;
+ 
+-	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
++	if (unlikely(ip_fast_csum((u8 *)iph, 5)))
+ 		goto out_unlock;
+ 
+ 	id = ntohl(*(__be32 *)&iph->id);
+@@ -1380,7 +1380,6 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 		iph2 = ip_hdr(p);
+ 
+ 		if ((iph->protocol ^ iph2->protocol) |
+-		    (iph->tos ^ iph2->tos) |
+ 		    ((__force u32)iph->saddr ^ (__force u32)iph2->saddr) |
+ 		    ((__force u32)iph->daddr ^ (__force u32)iph2->daddr)) {
+ 			NAPI_GRO_CB(p)->same_flow = 0;
+@@ -1390,6 +1389,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 		/* All fields must match except length and checksum. */
+ 		NAPI_GRO_CB(p)->flush |=
+ 			(iph->ttl ^ iph2->ttl) |
++			(iph->tos ^ iph2->tos) |
+ 			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
+ 
+ 		NAPI_GRO_CB(p)->flush |= flush;
