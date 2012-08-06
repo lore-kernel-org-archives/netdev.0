@@ -1,71 +1,42 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 4/8] netpoll: take rcu_read_lock_bh() in netpoll_rx()
-Date: Mon,  6 Aug 2012 22:23:28 +0800
-Message-ID: <1344263012-4031-5-git-send-email-amwang@redhat.com>
+Subject: [PATCH 7/8] bridge: add some comments for NETDEV_RELEASE
+Date: Mon,  6 Aug 2012 22:23:31 +0800
+Message-ID: <1344263012-4031-8-git-send-email-amwang@redhat.com>
 References: <1344263012-4031-1-git-send-email-amwang@redhat.com>
 Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Stephen Hemminger <shemminger@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45910 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:20414 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756571Ab2HFOXz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2012 10:23:55 -0400
+	id S1756571Ab2HFOYC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2012 10:24:02 -0400
 In-Reply-To: <1344263012-4031-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In __netpoll_rx(), it dereferences ->npinfo without rcu_dereference_bh(),
-this patch fixes it by using the 'npinfo' passed from netpoll_rx()
-where it is already dereferenced with rcu_dereference_bh().
+Add comments on why we don't notify NETDEV_RELEASE.
 
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- include/linux/netpoll.h |    4 ++--
- net/core/netpoll.c      |    3 +--
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ net/bridge/br_if.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 907812e..5d881c3 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -52,7 +52,7 @@ void netpoll_set_trap(int trap);
- void __netpoll_cleanup(struct netpoll *np);
- void __netpoll_free_rcu(struct netpoll *np);
- void netpoll_cleanup(struct netpoll *np);
--int __netpoll_rx(struct sk_buff *skb);
-+int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo);
- void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 			     struct net_device *dev);
- static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
-@@ -77,7 +77,7 @@ static inline bool netpoll_rx(struct sk_buff *skb)
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 171fd6b..910f4aa 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -427,6 +427,10 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ 	if (!p || p->br != br)
+ 		return -EINVAL;
  
- 	spin_lock(&npinfo->rx_lock);
- 	/* check rx_flags again with the lock held */
--	if (npinfo->rx_flags && __netpoll_rx(skb))
-+	if (npinfo->rx_flags && __netpoll_rx(skb, npinfo))
- 		ret = true;
- 	spin_unlock(&npinfo->rx_lock);
++	/*
++	 * We don't notify NETDEV_RELEASE event, as this will
++	 * stop netconsole on the bridge.
++	 */
+ 	del_nbp(p);
  
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index dc17f1d..d055bb0 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -543,13 +543,12 @@ static void arp_reply(struct sk_buff *skb)
- 	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
- }
- 
--int __netpoll_rx(struct sk_buff *skb)
-+int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- {
- 	int proto, len, ulen;
- 	int hits = 0;
- 	const struct iphdr *iph;
- 	struct udphdr *uh;
--	struct netpoll_info *npinfo = skb->dev->npinfo;
- 	struct netpoll *np, *tmp;
- 
- 	if (list_empty(&npinfo->rx_np))
+ 	spin_lock_bh(&br->lock);
 -- 
 1.7.7.6
