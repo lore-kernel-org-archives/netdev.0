@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: fix TCP early demux
-Date: Mon, 06 Aug 2012 13:33:44 -0700 (PDT)
-Message-ID: <20120806.133344.682194503358687538.davem@davemloft.net>
-References: <1344265773.26674.27.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: avoid reloads in SNMP_UPD_PO_STATS
+Date: Mon, 06 Aug 2012 13:40:57 -0700 (PDT)
+Message-ID: <20120806.134057.2007385552025196958.davem@davemloft.net>
+References: <1344147973.9299.1563.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39058 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39127 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756343Ab2HFUdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:33:44 -0400
-In-Reply-To: <1344265773.26674.27.camel@edumazet-glaptop>
+	with ESMTP id S1755991Ab2HFUk6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:40:58 -0400
+In-Reply-To: <1344147973.9299.1563.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 06 Aug 2012 17:09:33 +0200
+Date: Sun, 05 Aug 2012 08:26:13 +0200
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> IPv6 needs a cookie in dst_check() call.
-> 
-> We need to add rx_dst_cookie and provide a family independent
-> sk_rx_dst_set(sk, skb) method to properly support IPv6 TCP early demux.
+> Avoid two instructions to reload dev->nd_net->mib.ip_statistics pointer,
+> unsing a temp variable, in ip_rcv(), ip_output() paths for example.
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
-
-> ---
-> Note: we could group sk_rx_dst/rx_dst_ifindex/rx_dst_cookie
-> in same cache line (in sk)
-
-I don't think this is necessary, for now.
+Applied to net-next
