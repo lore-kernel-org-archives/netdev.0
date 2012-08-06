@@ -1,254 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Mon, 06 Aug 2012 14:23:34 -0700 (PDT)
-Message-ID: <20120806.142334.1553901172590891407.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next] igb: use build_skb()
+Date: Mon, 06 Aug 2012 14:28:50 -0700
+Message-ID: <50203712.1040404@intel.com>
+References: <1343922692.9299.231.camel@edumazet-glaptop>  <50200066.6060905@intel.com> <1344277315.26674.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:25883 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753658Ab2HFV2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2012 17:28:49 -0400
+In-Reply-To: <1344277315.26674.54.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 08/06/2012 11:21 AM, Eric Dumazet wrote:
+> On Mon, 2012-08-06 at 10:35 -0700, Alexander Duyck wrote:
+>
+>> I was planning to move igb over to an ixgbe style receive path at some
+>> point anyway.  Since it seems like this is now a higher priority I
+>> figured I would try to get the patches for it implemented in the next
+>> week or so.  Would there be any issue with us rejecting this patch and
+>> instead switching igb over to the ixgbe style path?
+> It seems I missed this part.
+>
+> I use igb on my dev machine, not on prod machines, so if you are moving
+> igb to ixgbe, I can certainly can maintain my patch in my tree, while
+> you make your changes.
+>
+I'll try to get the coding for this finished up this week and I can
+probably send you a copy of the patches as an RFC.  We will do testing
+and hopefully we can have the patches pushed to net-next for 3.7.
 
-1) Missed rcu_assign_pointer() in mac80211 scanning, from Johannes Berg=
-=2E
+Thanks,
 
-2) Allow devices to limit the number of segments that an individual
-   TCP TSO packet can use at a time, to deal with device and/or driver
-   specific limitations.  From Ben Hutchings.
-
-3) Fix unexpected hard IPSEC expiration after setting the date.  From
-   Fan Du.
-
-4) Memory leak fix in bxn2x driver, from Jesper Juhl.
-
-5) Fix two memory leaks in libertas driver, from Daniel Drake.
-
-6) Fix deref of out-of-range array index in packet scheduler generic
-   actions layer.  From Hiroaki SHIMODA.
-
-7) Fix TX flow control errors in mlx4 driver, from Yevgeny Petrilin.
-
-8) Fix CRIS eth_v10.c driver build, from Randy Dunlap.
-
-9) Fix wrong SKB freeing in LLC protocol layer, from Sorin Dumitru.
-
-10) The IP output path checks neigh lookup errors incorrectly, it
-    needs to use IS_ERR().  From Vasiliy Kulikov.
-
-11) An estimator leak leads to deref of freed memory in timer handler,
-    fix from Hiroaki SHIMODA.
-
-12) TCP early demux in ipv6 needs to use DST cookies in order to
-    validate the RX route properly.  Fix from Eric Dumazet.
-
-Please pull, thanks a lot!
-
-The following changes since commit 1a9b4993b70fb1884716902774dc9025b457=
-760d:
-
-  Merge branch 'upstream' of git://git.linux-mips.org/pub/scm/ralf/upst=
-ream-linus (2012-08-01 16:47:15 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to 5d299f3d3c8a2fbc732b1bf03af36333ccec3130=
-:
-
-  net: ipv6: fix TCP early demux (2012-08-06 13:33:21 -0700)
-
-----------------------------------------------------------------
-Amir Vadai (1):
-      net/mlx4_en: loopbacked packets are dropped when SMAC=3DDMAC
-
-Arnaud Patard (1):
-      ixp4xx_eth: fix ptp_ixp46x build failure
-
-Ben Hutchings (3):
-      net: Allow driver to limit number of GSO segments per skb
-      sfc: Fix maximum number of TSO segments and minimum TX queue size
-      tcp: Apply device TSO segment limit earlier
-
-Carolyn Wyborny (1):
-      igb: Fix for failure to init on some 82576 devices.
-
-Daniel Drake (2):
-      libertas: don't reset card on error when it is being removed
-      libertas: fix two memory leaks
-
-Eliad Peller (1):
-      mac80211: don't clear sched_scan_sdata on sched scan stop request
-
-Eric Dumazet (2):
-      ipv4: route.c cleanup
-      net: ipv6: fix TCP early demux
-
-=46an Du (1):
-      Fix unexpected SA hard expiration after changing date
-
-Haiyang Zhang (1):
-      hyperv: Move wait completion msg code into rndis_filter_halt_devi=
-ce()
-
-Hiroaki SHIMODA (2):
-      net_sched: gact: Fix potential panic in tcf_gact().
-      net_sched: act: Delete estimator in error path.
-
-Jesper Juhl (3):
-      bnx2x: fix mem leak when command is unknown
-      igb: correct hardware type (i210/i211) check in igb_loopback_test=
-()
-      igb: don't break user visible strings over multiple lines in igb_=
-ethtool.c
-
-Johannes Berg (4):
-      mac80211: fix scan_sdata assignment
-      Merge remote-tracking branch 'wireless/master' into mac80211
-      mac80211: clear timer bits when disconnecting
-      mac80211: cancel mesh path timer
-
-John W. Linville (1):
-      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac8021=
-1
-
-Julia Lawall (2):
-      drivers/net/phy/mdio-mux-gpio.c: drop devm_kfree of devm_kzalloc'=
-d data
-      drivers/atm/iphase.c: fix error return code
-
-Karsten Keil (1):
-      mISDN: Bugfix for layer2 fixed TEI mode
-
-Marek Lindner (1):
-      batman-adv: select an internet gateway if none was chosen
-
-Masanari Iida (1):
-      emulex: benet: Add a missing CR in the end of message
-
-Mohammed Shafi Shajakhan (1):
-      ath9k: Add PID/VID support for AR1111
-
-Paul Stewart (1):
-      cfg80211: Clear "beacon_found" on regulatory restore
-
-Peter Meiser (1):
-      cdc-ncm: tag Ericsson WWAN devices (eg F5521gw) with FLAG_WWAN
-
-Rafa=A9=A9 Mi=A9=A9ecki (2):
-      bcma: BCM43228 support
-      b43: fix logic in GPIO init
-
-Randy Dunlap (1):
-      cris: fix eth_v10.c build error
-
-Seth Forshee (2):
-      cfg80211: add channel flag to prohibit OFDM operation
-      brcmsmac: use channel flags to restrict OFDM
-
-Silviu-Mihai Popescu (1):
-      tcp_output: fix sparse warning for tcp_wfree
-
-Sorin Dumitru (1):
-      llc: free the right skb
-
-Stanislaw Gruszka (1):
-      wireless: reg: restore previous behaviour of chan->max_power calc=
-ulations
-
-Thomas Meyer (1):
-      net: Use PTR_RET rather than if(IS_ERR(.. [1]
-
-Vasiliy Kulikov (1):
-      ip: fix error handling in ip_finish_output2()
-
-Woody Hung (1):
-      rt2x00 : fix rt3290 resuming failed.
-
-Wu Fengguang (1):
-      isdnloop: fix and simplify isdnloop_init()
-
-Yevgeny Petrilin (2):
-      net/mlx4_en: Fixing TX queue stop/wake flow
-      net/mlx4_core: Remove port type restrictions
-
- drivers/atm/iphase.c                                  |  2 +-
- drivers/bcma/host_pci.c                               |  1 +
- drivers/bcma/sprom.c                                  |  4 ++-
- drivers/isdn/isdnloop/isdnloop.c                      | 12 -------
- drivers/isdn/mISDN/layer2.c                           |  2 +-
- drivers/net/appletalk/cops.c                          |  4 +--
- drivers/net/appletalk/ltpc.c                          |  4 +--
- drivers/net/cris/eth_v10.c                            |  2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c        |  1 +
- drivers/net/ethernet/emulex/benet/be_main.c           |  2 +-
- drivers/net/ethernet/intel/igb/e1000_82575.c          | 16 ++++-----
- drivers/net/ethernet/intel/igb/igb_ethtool.c          | 25 +++++++----=
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c            |  4 +--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c            | 17 ++++------
- drivers/net/ethernet/mellanox/mlx4/main.c             |  3 --
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h          |  1 -
- drivers/net/ethernet/mellanox/mlx4/sense.c            | 14 --------
- drivers/net/ethernet/sfc/efx.c                        |  6 ++++
- drivers/net/ethernet/sfc/efx.h                        | 14 +++++---
- drivers/net/ethernet/sfc/ethtool.c                    | 16 ++++++---
- drivers/net/ethernet/sfc/tx.c                         | 19 +++++++++++
- drivers/net/ethernet/xscale/ixp4xx_eth.c              |  1 +
- drivers/net/hyperv/netvsc.c                           |  7 ----
- drivers/net/hyperv/rndis_filter.c                     | 11 ++++++
- drivers/net/phy/mdio-mux-gpio.c                       |  1 -
- drivers/net/usb/cdc_ncm.c                             | 20 +++++++++++
- drivers/net/wireless/ath/ath9k/hw.c                   |  1 +
- drivers/net/wireless/ath/ath9k/hw.h                   |  1 +
- drivers/net/wireless/ath/ath9k/pci.c                  |  1 +
- drivers/net/wireless/b43/main.c                       | 21 +++++++----=
--
- drivers/net/wireless/brcm80211/brcmsmac/channel.c     |  5 +--
- drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c |  3 +-
- drivers/net/wireless/libertas/cfg.c                   |  1 +
- drivers/net/wireless/libertas/if_sdio.c               |  1 +
- drivers/net/wireless/libertas/main.c                  |  5 ++-
- drivers/net/wireless/rt2x00/rt2800lib.c               | 68 +++++++++++=
-++++++++++++++++++++++++++
- drivers/net/wireless/rt2x00/rt2800pci.c               | 71 -----------=
-----------------------------
- include/linux/bcma/bcma_driver_chipcommon.h           |  6 ++++
- include/linux/ipv6.h                                  |  1 +
- include/linux/netdevice.h                             |  2 ++
- include/net/cfg80211.h                                |  2 ++
- include/net/inet_connection_sock.h                    |  1 +
- include/net/inet_sock.h                               |  9 -----
- include/net/sock.h                                    |  2 ++
- include/net/xfrm.h                                    |  4 +++
- net/batman-adv/gateway_client.c                       |  6 ++--
- net/core/dev.c                                        |  4 +++
- net/core/sock.c                                       |  1 +
- net/ipv4/ip_output.c                                  |  2 +-
- net/ipv4/route.c                                      |  4 ---
- net/ipv4/tcp.c                                        |  4 ++-
- net/ipv4/tcp_cong.c                                   |  3 +-
- net/ipv4/tcp_input.c                                  |  4 ++-
- net/ipv4/tcp_ipv4.c                                   | 13 +++++--
- net/ipv4/tcp_minisocks.c                              |  2 +-
- net/ipv4/tcp_output.c                                 | 23 +++++++----=
---
- net/ipv6/tcp_ipv6.c                                   | 27 +++++++++++=
-++--
- net/llc/llc_station.c                                 |  6 ++--
- net/mac80211/mesh.c                                   |  3 ++
- net/mac80211/mlme.c                                   |  2 ++
- net/mac80211/scan.c                                   |  3 +-
- net/sched/act_gact.c                                  | 14 ++++++--
- net/sched/act_ipt.c                                   |  7 +++-
- net/sched/act_pedit.c                                 |  5 ++-
- net/sched/act_simple.c                                |  5 ++-
- net/wireless/reg.c                                    | 19 ++++++++++-
- net/xfrm/xfrm_state.c                                 | 21 +++++++++--=
--
- 67 files changed, 364 insertions(+), 228 deletions(-)
+Alex
