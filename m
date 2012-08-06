@@ -1,59 +1,65 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: [BUG] af_packet: tpacket_destruct_skb throws BUG under high tx load
-Date: Mon, 6 Aug 2012 13:21:01 +0200
-Message-ID: <CAD6jFUSvcfGjARfF_ysbCF1CXUL1Xzo2sU2aHuVnwd9+tBL_0g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/5] net: Don't use ifindices in hash fns
+Date: Mon, 06 Aug 2012 13:51:57 +0200
+Message-ID: <1344253917.26674.13.camel@edumazet-glaptop>
+References: <501F9CAF.3030605@parallels.com>
+	 <501F9CDA.6040403@parallels.com>
+	 <1344249789.26674.8.camel@edumazet-glaptop>
+	 <501FA3FA.9010107@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Johann Baudy <johann.baudy@gnu-log.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51256 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755998Ab2HFLtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 07:49:40 -0400
-Received: from [78.46.5.204] (helo=sslproxy02.your-server.de)
-	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.74)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1SyLMy-00051Z-UH
-	for netdev@vger.kernel.org; Mon, 06 Aug 2012 13:21:08 +0200
-Received: from [209.85.214.174] (helo=mail-ob0-f174.google.com)
-	by sslproxy02.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
-	(Exim 4.72)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1SyLLf-00021C-90
-	for netdev@vger.kernel.org; Mon, 06 Aug 2012 13:19:47 +0200
-Received: by obbuo13 with SMTP id uo13so5743704obb.19
-        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 04:21:01 -0700 (PDT)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:57603 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755998Ab2HFLwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 07:52:02 -0400
+Received: by bkwj10 with SMTP id j10so989343bkw.19
+        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 04:52:00 -0700 (PDT)
+In-Reply-To: <501FA3FA.9010107@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under high tx load from mmap()ed PF_PACKET sockets the statement in
-tpacket_destruct_skb():
+On Mon, 2012-08-06 at 15:01 +0400, Pavel Emelyanov wrote:
 
-  BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
+> Damn :( You're right.
+> 
+> > This returns 0 as is
+> 
+> Well, on 64-bit no, but what it does is also not what it was supposed to.
+> 
 
-is being thrown, where __packet_get_status(po, ph) has the value
-TP_STATUS_SEND_REQUEST instead of TP_STATUS_SENDING.
+Here, my L1_CACHE_BYTES is 64, but whatever
 
-The send(2) system call was invoked with the flag MSG_DONTWAIT. The
-BUG occurred even with having dev_queue_xmit() returned successfully
-in tpacket_snd().
+> > I would define a generic pointer hash mix instead of a 'net_device
+> > thing'
+> > 
+> > static inline u32 ptr_hash_mix(void *ptr)
+> > {
+> > #if BITS_PER_LONG==32
+> > 	return (u32)(unsigned long)ptr;
+> > #else
+> > 	return (u32)((unsigned long)ptr >> L1_CACHE_SHIFT);
+> > #endif
+> > }
+> 
+> OK. It will also obsolete the net_hash_mix then. Any suggestions where to put
+> the new one?
 
-By simply removing this BUG statement, the system seemed stable, but
-this might not be the proper solution. It's reproducible and I tested
-it on a multi-core system  under the latest net/net-next kernel on x86
-and x86_64.
+Not obsolete net_hash_mix(), since this one can return 0 if
+CONFIG_NET_NS is not set.
 
-On my system, this BUG was triggered in the following cases:
+static inline unsigned int net_hash_mix(struct net *net)
+{
+#ifdef CONFIG_NET_NS
+	return ptr_hash_mix(net);
+#else
+	return 0;
+#endif
+}
 
-* Multiple processes allocate and use a TX_RING on one device
-
-* A single process allocates a TX_RING on one device and
-/proc/sys/net/core/wmem_default, /proc/sys/net/core/wmem_max were
-increased
-
-Cheers,
-
-Daniel
+I dont know, you could add this to include/linux/hash.h
