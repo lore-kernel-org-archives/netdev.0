@@ -1,35 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: skb_warn_bad_offload with kernel 3.5 (maybe gso/bridge related
- ?)
-Date: Mon, 06 Aug 2012 15:54:17 +0200
-Message-ID: <1344261258.26674.16.camel@edumazet-glaptop>
-References: <501B8792.6040605@univ-nantes.fr>
-	 <1343983887.9299.817.camel@edumazet-glaptop>
-	 <1344008408.4642.160.camel@deadeye.wl.decadent.org.uk>
-	 <20120806091846.GA18581@gondor.apana.org.au>
-	 <1344250640.26674.9.camel@edumazet-glaptop>
-	 <20120806134232.GA19849@gondor.apana.org.au>
+From: Vasily Kulikov <segoon@openwall.com>
+Subject: [PATCH] ip: fix error handling in ip_finish_output2()
+Date: Mon, 6 Aug 2012 17:55:29 +0400
+Message-ID: <20120806135529.GA30699@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Yann Dupont <Yann.Dupont@univ-nantes.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:36712 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754867Ab2HFNyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 09:54:23 -0400
-Received: by bkwj10 with SMTP id j10so1038653bkw.19
-        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 06:54:22 -0700 (PDT)
-In-Reply-To: <20120806134232.GA19849@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-06 at 21:42 +0800, Herbert Xu wrote:
+__neigh_create() returns either a pointer to struct neighbour or PTR_ERR().
+But the caller expects it to return either a pointer or NULL.  Replace
+the NULL check with IS_ERR() check.
 
-> tcp_gro_complete
-> 
+The bug was introduced in a263b3093641fb1ec377582c90986a7fd0625184.
 
-Oops thats right, thanks ;)
+Signed-off-by: Vasily Kulikov <segoon@openwall.com>
+---
+ Compile tested only.
+
+ net/ipv4/ip_output.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index ba39a52..76dde25 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -197,7 +197,7 @@ static inline int ip_finish_output2(struct sk_buff *skb)
+ 	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+-	if (neigh) {
++	if (!IS_ERR(neigh)) {
+ 		int res = dst_neigh_output(dst, neigh, skb);
+ 
+ 		rcu_read_unlock_bh();
+-- 
+1.7.0.4
