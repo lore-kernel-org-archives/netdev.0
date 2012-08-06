@@ -1,7 +1,7 @@
 From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 1/5] net: Don't use ifindices in hash fns
-Date: Mon, 06 Aug 2012 14:30:50 +0400
-Message-ID: <501F9CDA.6040403@parallels.com>
+Subject: [PATCH 2/5] net: Allow to create links with given ifindex
+Date: Mon, 06 Aug 2012 14:31:18 +0400
+Message-ID: <501F9CF6.4020409@parallels.com>
 References: <501F9CAF.3030605@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -11,76 +11,74 @@ To: David Miller <davem@davemloft.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:29137 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:26391 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751316Ab2HFKa4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2012 06:30:56 -0400
+	id S1752983Ab2HFKbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2012 06:31:23 -0400
 In-Reply-To: <501F9CAF.3030605@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric noticed, that when there will be devices with equal indices, some
-hash functions that use them will become less effective as they could.
-
-Fix this in advance by taking the net_device address into calculations
-instead of the device index. Since the net_device is always aligned in
-memory, shift the pointer to eliminate always zero bits (like we do it
-in net_hash_mix).
-
-This is true for arp and ndisc hash fns. The netlabel, can and llc ones
-are also ifindex-based, but that three are init_net-only, thus will not
-be affected.
+Currently the RTM_NEWLINK results in -EOPNOTSUPP if the ifinfomsg->ifi_index
+is not zero. I propose to allow requesting ifindices on link creation. This
+is required by the checkpoint-restore to correctly restore a net namespace
+(i.e. -- a container).
 
 Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
 ---
- include/linux/netdevice.h |    6 ++++++
- include/net/arp.h         |    2 +-
- include/net/ndisc.h       |    2 +-
- 3 files changed, 8 insertions(+), 2 deletions(-)
+ net/core/dev.c       |    7 ++++++-
+ net/core/rtnetlink.c |   12 +++++++-----
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a9db4f3..6010b37 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1330,6 +1330,12 @@ struct net_device {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f91abf8..3ca300d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5579,7 +5579,12 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
  
- #define	NETDEV_ALIGN		32
- 
-+static inline unsigned int netdev_hash_mix(const struct net_device *dev)
-+{
-+	return (unsigned int)(((unsigned long)dev) >>
-+			max(L1_CACHE_BYTES, NETDEV_ALIGN));
-+}
+-	dev->ifindex = dev_new_index(net);
++	ret = -EBUSY;
++	if (!dev->ifindex)
++		dev->ifindex = dev_new_index(net);
++	else if (__dev_get_by_index(net, dev->ifindex))
++		goto err_uninit;
 +
- static inline
- int netdev_get_prio_tc_map(const struct net_device *dev, u32 prio)
- {
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 7f7df93..0305a38 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -10,7 +10,7 @@ extern struct neigh_table arp_tbl;
+ 	if (dev->iflink == -1)
+ 		dev->iflink = dev->ifindex;
  
- static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd)
- {
--	u32 val = key ^ dev->ifindex;
-+	u32 val = key ^ netdev_hash_mix(dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2c5a0a0..1aa1456 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1812,8 +1812,6 @@ replay:
+ 			return -ENODEV;
+ 		}
  
- 	return val * hash_rnd;
- }
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index 96a3b5c..ae7c1fd 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -134,7 +134,7 @@ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, _
- {
- 	const u32 *p32 = pkey;
+-		if (ifm->ifi_index)
+-			return -EOPNOTSUPP;
+ 		if (tb[IFLA_MAP] || tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
+ 			return -EOPNOTSUPP;
  
--	return (((p32[0] ^ dev->ifindex) * hash_rnd[0]) +
-+	return (((p32[0] ^ netdev_hash_mix(dev)) * hash_rnd[0]) +
- 		(p32[1] * hash_rnd[1]) +
- 		(p32[2] * hash_rnd[2]) +
- 		(p32[3] * hash_rnd[3]));
+@@ -1839,10 +1837,14 @@ replay:
+ 			return PTR_ERR(dest_net);
+ 
+ 		dev = rtnl_create_link(net, dest_net, ifname, ops, tb);
+-
+-		if (IS_ERR(dev))
++		if (IS_ERR(dev)) {
+ 			err = PTR_ERR(dev);
+-		else if (ops->newlink)
++			goto out;
++		}
++
++		dev->ifindex = ifm->ifi_index;
++
++		if (ops->newlink)
+ 			err = ops->newlink(net, dev, tb, data);
+ 		else
+ 			err = register_netdevice(dev);
 -- 
 1.7.6.5
