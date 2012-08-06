@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip: fix error handling in ip_finish_output2()
-Date: Mon, 06 Aug 2012 13:32:18 -0700 (PDT)
-Message-ID: <20120806.133218.784665611397147880.davem@davemloft.net>
-References: <20120806135529.GA30699@albatros>
+Subject: Re: [PATCH net] net_sched: act: Delete estimator in error path.
+Date: Mon, 06 Aug 2012 13:32:36 -0700 (PDT)
+Message-ID: <20120806.133236.1056798225083211523.davem@davemloft.net>
+References: <20120807004548.6f9e7b6d1e566d7eead73497@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: segoon@openwall.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120806135529.GA30699@albatros>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shimoda.hiroaki@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39038 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932110Ab2HFUch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:32:37 -0400
+In-Reply-To: <20120807004548.6f9e7b6d1e566d7eead73497@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasily Kulikov <segoon@openwall.com>
-Date: Mon, 6 Aug 2012 17:55:29 +0400
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Date: Tue, 7 Aug 2012 00:45:48 +0900
 
-> __neigh_create() returns either a pointer to struct neighbour or PTR_ERR().
-> But the caller expects it to return either a pointer or NULL.  Replace
-> the NULL check with IS_ERR() check.
+> Some action modules free struct tcf_common in their error path
+> while estimator is still active. This results in est_timer()
+> dereference freed memory.
+> Add gen_kill_estimator() in ipt, pedit and simple action.
 > 
-> The bug was introduced in a263b3093641fb1ec377582c90986a7fd0625184.
-> 
-> Signed-off-by: Vasily Kulikov <segoon@openwall.com>
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
 Applied.
-
-Please provide the proper commit log header line text when referencing
-another commit, otherwise in trees where the SHA1 IDs are different,
-nobody will be able to figure out what you are trying to refer to.
-
-Thanks.
