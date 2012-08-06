@@ -1,69 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH RFC] net: tcp: GRO should be ECN friendly
-Date: Mon, 6 Aug 2012 17:01:50 +0800
-Message-ID: <20120806090150.GB18425@gondor.apana.org.au>
-References: <1344242090.9299.1656.camel@edumazet-glaptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 1/7] netpoll: use GFP_ATOMIC in slave_enable_netpoll()
+ and __netpoll_setup()
+Date: Mon, 06 Aug 2012 17:08:38 +0800
+Message-ID: <1344244118.14728.28.camel@cr0>
+References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
+	 <1343403484-29347-2-git-send-email-amwang@redhat.com>
+	 <1343985428.9299.868.camel@edumazet-glaptop> <1343986487.20871.2.camel@cr0>
+	 <1343988623.9299.932.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:43707 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752931Ab2HFJB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 05:01:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1344242090.9299.1656.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1343988623.9299.932.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 06, 2012 at 10:34:50AM +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Fri, 2012-08-03 at 12:10 +0200, Eric Dumazet wrote: 
 > 
-> While doing TCP ECN tests, I discovered GRO was reordering packets if it
-> receives one packet with CE set, while previous packets in same NAPI run
-> have ECT(0) for the same flow :
-> 
-> 09:25:25.857620 IP (tos 0x2,ECT(0), ttl 64, id 27893, offset 0, flags
-> [DF], proto TCP (6), length 4396)
->     172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
-> 233801:238145, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
-> 1990627], length 4344
-> 
-> 09:25:25.857626 IP (tos 0x3,CE, ttl 64, id 27892, offset 0, flags [DF],
-> proto TCP (6), length 1500)
->     172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
-> 232353:233801, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
-> 1990627], length 1448
-> 
-> 09:25:25.857638 IP (tos 0x0, ttl 64, id 34581, offset 0, flags [DF],
-> proto TCP (6), length 64)
->     172.30.42.13.44139 > 172.30.42.19.54550: Flags [.], cksum 0xac8f
-> (incorrect -> 0xca69), ack 232353, win 1271, options [nop,nop,TS val
-> 1990627 ecr 3397779,nop,nop,sack 1 {233801:238145}], length 0
-> 
-> We have two problems here :
-> 
-> 1) GRO reorders packets
-> 
->   If NIC gave packet1, then packet2, which happen to be from "different
-> flows"  GRO feeds stack with packet2, then packet1. I have yet to
-> understand how to solve this problem.
-> 
-> 2) GRO is not ECN friendly
-> 
-> Delivering packets out of order makes TCP stack not as fast as it could
-> be.
-> 
-> In this patch I suggest we make the tos test not part of the 'same_flow'
-> determination, but part of the 'should flush' logic
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> I did this , just take it ;)
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Do we have to pass gfp to ->ndo_netpoll_setup() too? It seems no, so far
+I don't think we have to do that.
 
-Good catch, thanks Eric!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.
