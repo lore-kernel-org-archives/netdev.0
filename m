@@ -1,184 +1,146 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 6/6] net: Loopback ifindex is constant now
-Date: Mon, 06 Aug 2012 18:15:12 +0400
-Message-ID: <501FD170.90207@parallels.com>
-References: <501FD0F2.4040609@parallels.com>
+From: "Andy Cress" <andy.cress@us.kontron.com>
+Subject: RE: pch_gbe: dont-copy-payload (was [PATCH 1/4] ...)
+Date: Mon, 6 Aug 2012 07:19:22 -0700
+Message-ID: <40680C535D6FE6498883F1640FACD44D0122CF12@ka-exchange-1.kontronamerica.local>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local> <1342508968.2626.148.camel@edumazet-glaptop> <1342510387.2626.174.camel@edumazet-glaptop> <40680C535D6FE6498883F1640FACD44D011BBE1D@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:11761 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756378Ab2HFOPS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2012 10:15:18 -0400
-In-Reply-To: <501FD0F2.4040609@parallels.com>
+Received: from mail.us.kontron.com ([209.118.138.70]:59986 "EHLO
+	mail.us.kontron.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756336Ab2HFOTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 10:19:24 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <40680C535D6FE6498883F1640FACD44D011BBE1D@ka-exchange-1.kontronamerica.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As pointed out, there are places, that access net->loopback_dev->ifindex
-and after ifindex generation is made per-net this value becomes constant
-equals 1. So go ahead and introduce the LOOPBACK_IFINDEX constant and use
-it where appropriate.
-
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
----
- drivers/net/loopback.c            |    1 +
- include/net/net_namespace.h       |    7 +++++++
- net/decnet/dn_route.c             |    6 +++---
- net/ipv4/fib_frontend.c           |    2 +-
- net/ipv4/ipmr.c                   |    2 +-
- net/ipv4/netfilter/ipt_rpfilter.c |    2 +-
- net/ipv4/route.c                  |    6 +++---
- net/ipv6/route.c                  |    2 +-
- 8 files changed, 18 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index e2a06fd..4a075ba 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -197,6 +197,7 @@ static __net_init int loopback_net_init(struct net *net)
- 	if (err)
- 		goto out_free_netdev;
- 
-+	BUG_ON(dev->ifindex != LOOPBACK_IFINDEX);
- 	net->loopback_dev = dev;
- 	return 0;
- 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index c5fbebf..29a2370 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -105,6 +105,13 @@ struct net {
- 	struct sock		*diag_nlsk;
- };
- 
-+/*
-+ * ifindex generation is per-net namespace, and loopback is
-+ * always the 1st device in ns (see net_dev_init), thus any
-+ * loopback device should get ifindex 1
-+ */
-+
-+#define LOOPBACK_IFINDEX	1
- 
- #include <linux/seq_file_net.h>
- 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 85a3604..c855e8d 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -961,7 +961,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
- 		.saddr = oldflp->saddr,
- 		.flowidn_scope = RT_SCOPE_UNIVERSE,
- 		.flowidn_mark = oldflp->flowidn_mark,
--		.flowidn_iif = init_net.loopback_dev->ifindex,
-+		.flowidn_iif = LOOPBACK_IFINDEX,
- 		.flowidn_oif = oldflp->flowidn_oif,
- 	};
- 	struct dn_route *rt = NULL;
-@@ -979,7 +979,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
- 		       "dn_route_output_slow: dst=%04x src=%04x mark=%d"
- 		       " iif=%d oif=%d\n", le16_to_cpu(oldflp->daddr),
- 		       le16_to_cpu(oldflp->saddr),
--		       oldflp->flowidn_mark, init_net.loopback_dev->ifindex,
-+		       oldflp->flowidn_mark, LOOPBACK_IFINDEX,
- 		       oldflp->flowidn_oif);
- 
- 	/* If we have an output interface, verify its a DECnet device */
-@@ -1042,7 +1042,7 @@ source_ok:
- 			if (!fld.daddr)
- 				goto out;
- 		}
--		fld.flowidn_oif = init_net.loopback_dev->ifindex;
-+		fld.flowidn_oif = LOOPBACK_IFINDEX;
- 		res.type = RTN_LOCAL;
- 		goto make_route;
- 	}
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index c43ae3f..7f073a3 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -218,7 +218,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
- 	scope = RT_SCOPE_UNIVERSE;
- 	if (!ipv4_is_zeronet(ip_hdr(skb)->saddr)) {
- 		fl4.flowi4_oif = 0;
--		fl4.flowi4_iif = net->loopback_dev->ifindex;
-+		fl4.flowi4_iif = LOOPBACK_IFINDEX;
- 		fl4.daddr = ip_hdr(skb)->saddr;
- 		fl4.saddr = 0;
- 		fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 8eec8f4..3a57570 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1798,7 +1798,7 @@ static struct mr_table *ipmr_rt_fib_lookup(struct net *net, struct sk_buff *skb)
- 		.flowi4_oif = (rt_is_output_route(rt) ?
- 			       skb->dev->ifindex : 0),
- 		.flowi4_iif = (rt_is_output_route(rt) ?
--			       net->loopback_dev->ifindex :
-+			       LOOPBACK_IFINDEX :
- 			       skb->dev->ifindex),
- 		.flowi4_mark = skb->mark,
- 	};
-diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt_rpfilter.c
-index 31371be..c301300 100644
---- a/net/ipv4/netfilter/ipt_rpfilter.c
-+++ b/net/ipv4/netfilter/ipt_rpfilter.c
-@@ -85,7 +85,7 @@ static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			return ipv4_is_local_multicast(iph->daddr) ^ invert;
- 		flow.flowi4_iif = 0;
- 	} else {
--		flow.flowi4_iif = dev_net(par->in)->loopback_dev->ifindex;
-+		flow.flowi4_iif = LOOPBACK_IFINDEX;
- 	}
- 
- 	flow.daddr = iph->saddr;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 21ad369..c581373 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1619,7 +1619,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 
- 	if (res.type == RTN_LOCAL) {
- 		err = fib_validate_source(skb, saddr, daddr, tos,
--					  net->loopback_dev->ifindex,
-+					  LOOPBACK_IFINDEX,
- 					  dev, in_dev, &itag);
- 		if (err < 0)
- 			goto martian_source_keep_err;
-@@ -1895,7 +1895,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 
- 	orig_oif = fl4->flowi4_oif;
- 
--	fl4->flowi4_iif = net->loopback_dev->ifindex;
-+	fl4->flowi4_iif = LOOPBACK_IFINDEX;
- 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
- 			 RT_SCOPE_LINK : RT_SCOPE_UNIVERSE);
-@@ -1984,7 +1984,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 		if (!fl4->daddr)
- 			fl4->daddr = fl4->saddr = htonl(INADDR_LOOPBACK);
- 		dev_out = net->loopback_dev;
--		fl4->flowi4_oif = net->loopback_dev->ifindex;
-+		fl4->flowi4_oif = LOOPBACK_IFINDEX;
- 		res.type = RTN_LOCAL;
- 		flags |= RTCF_LOCAL;
- 		goto make_route;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 8e80fd2..0ddf2d1 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -965,7 +965,7 @@ struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
- {
- 	int flags = 0;
- 
--	fl6->flowi6_iif = net->loopback_dev->ifindex;
-+	fl6->flowi6_iif = LOOPBACK_IFINDEX;
- 
- 	if ((sk && sk->sk_bound_dev_if) || rt6_need_strict(&fl6->daddr))
- 		flags |= RT6_LOOKUP_F_IFACE;
--- 
-1.7.6.5
+SSBmb3VuZCBvdXQgd2h5IHRoZSBwcm9wb3NlZCBkb250LWNvcHktcGF5bG9h
+ZCBwYXRjaCBkaWRuJ3Qgd29yayB3aXRoIHRoaXMgcGNoX2diZSBOSUMuDQpU
+aGlzIE5JQyBQSFkgcmVxdWlyZXMgNjQtYnl0ZS1hbGlnbmVkIERNQSwgYW5k
+IHRoZSB0cmFuc21pdCBidWZmZXJzIHdvbid0IGJlIHRyYW5zZmVycmVkIGlm
+IHNrYi0+ZGF0YSBpcyBub3QgNjQtYnl0ZS1hbGlnbmVkLiAgQXBwYXJlbnRs
+eSB0aGUgZGF0YSBjb3B5IGhhcyBhIGJ5LXByb2R1Y3Qgb2YgYWxpZ25pbmcg
+dGhlIGJ1ZmZlcnMuICANCg0KSSB0cmllZCB1c2luZyBza2JfcmVzZXJ2ZShz
+a2IsNjQpIGluIHBjaF9nYmVfYWxsb2NfdHhfYnVmZmVycyBhbmQgcGNoLWdi
+ZV9hbGxvY19yeF9idWZmZXJzLCBidXQgdGhhdCBkaWRuJ3Qgc2VlbSB0byBy
+ZXNvbHZlIGl0Lg0KDQpIb3cgY2FuIEkgbWFrZSBzdXJlIHRoYXQgdGhlIHRy
+YW5zbWl0IGRhdGEgYnVmZmVycyBhcmUgNjQtYnl0ZS1hbGlnbmVkPw0KDQpB
+bmR5DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBBbmR5
+IENyZXNzDQpTZW50OiBXZWRuZXNkYXksIEp1bHkgMjUsIDIwMTIgNDoxMSBQ
+TQ0KU3ViamVjdDogUkU6IFtQQVRDSCAxLzRdIHBjaF9nYmU6IEZpeCB0aGUg
+Y2hlY2tzdW0gZmlsbCB0byB0aGUgZXJyb3IgbG9jYXRpb24NCg0KWy4uLl0N
+CkkgdHJpZWQgYXBwbHlpbmcgdGhlIGRvbnQtY29weS1wYXlsb2FkIHBhdGNo
+IHlvdSBvdXRsaW5lZCBiZWxvdywgYW5kIGZvciBzb21lIHJlYXNvbiBpdCB3
+b24ndCBzZW5kIHN1Y2Nlc3NmdWxseSB3aXRoIHRoYXQgY2hhbmdlLiAgIEkn
+bSBub3Qgc3VyZSB3aHkgdGhvdWdoLiAgVGhpcyBhcHByb2FjaCBzZWVtcyBz
+b3VuZCwgYW5kIHNob3VsZCBncmVhdGx5IGhlbHAgdHJhbnNtaXQgcGVyZm9y
+bWFuY2UsIGlmIEkgY291bGQgZmlndXJlIG91dCB3aGF0IGVsc2UgaXQgbmVl
+ZHMuICANCg0KQW5keQ0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0K
+RnJvbTogRXJpYyBEdW1hemV0IA0KU2VudDogVHVlc2RheSwgSnVseSAxNywg
+MjAxMiAzOjMzIEFNDQpUbzogQW5keSBDcmVzcw0KQ2M6IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc7IFpob25nIEhvbmdibw0KU3ViamVjdDogUmU6IFtQQVRD
+SCAxLzRdIHBjaF9nYmU6IEZpeCB0aGUgY2hlY2tzdW0gZmlsbCB0byB0aGUg
+ZXJyb3IgbG9jYXRpb24NCg0KT24gVHVlLCAyMDEyLTA3LTE3IGF0IDA5OjA5
+ICswMjAwLCBFcmljIER1bWF6ZXQgd3JvdGU6DQpbLi4uXQ0KPiBUaGVyZSBf
+bXVzdF8gYmUgYSB3YXkgdG8gYXZvaWQgbW9zdCBvZiB0aGVzZSBjb3BpZXMg
+KGllIG5vdCB0b3VjaGluZw0KPiBwYXlsb2FkKSwgb25seSBtZXNzIHdpdGgg
+dGhlIGhlYWRlciB0byBpbnNlcnQgdGhlc2UgMiBudWwgYnl0ZXMgPw0KPiAN
+Cj4gLyogW0hlYWRlcjoxNF1bcGF5bG9hZF0gLS0tPiBbSGVhZGVyOjE0XVtw
+YWRkb25nOjJdW3BheWxvYWRdICAgICovDQpbLi4uXQ0KDQpTb21ldGhpbmcg
+bGlrZSB0aGUgZm9sbG93aW5nICh1bnRlc3RlZCkgcGF0Y2gNCg0KDQogZHJp
+dmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21h
+aW4uYyB8ICAgNTUgKysrKystLS0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCAyOSBp
+bnNlcnRpb25zKCspLCAyNiBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9nYmUvcGNoX2di
+ZV9tYWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9va2ktc2VtaS9wY2hf
+Z2JlL3BjaF9nYmVfbWFpbi5jDQppbmRleCBiMTAwNjU2Li4yZDNkOTgyIDEw
+MDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNo
+X2diZS9wY2hfZ2JlX21haW4uYw0KKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYw0KQEAgLTExNjMs
+NyArMTE2Myw3IEBAIHN0YXRpYyB2b2lkIHBjaF9nYmVfdHhfcXVldWUoc3Ry
+dWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwNCiAJc3RydWN0IHBjaF9n
+YmVfaHcgKmh3ID0gJmFkYXB0ZXItPmh3Ow0KIAlzdHJ1Y3QgcGNoX2diZV90
+eF9kZXNjICp0eF9kZXNjOw0KIAlzdHJ1Y3QgcGNoX2diZV9idWZmZXIgKmJ1
+ZmZlcl9pbmZvOw0KLQlzdHJ1Y3Qgc2tfYnVmZiAqdG1wX3NrYjsNCisJY2hh
+ciAqcHRyOw0KIAl1bnNpZ25lZCBpbnQgZnJhbWVfY3RybDsNCiAJdW5zaWdu
+ZWQgaW50IHJpbmdfbnVtOw0KIA0KQEAgLTEyMjEsMTggKzEyMjEsMjcgQEAg
+c3RhdGljIHZvaWQgcGNoX2diZV90eF9xdWV1ZShzdHJ1Y3QgcGNoX2diZV9h
+ZGFwdGVyICphZGFwdGVyLA0KIA0KIA0KIAlidWZmZXJfaW5mbyA9ICZ0eF9y
+aW5nLT5idWZmZXJfaW5mb1tyaW5nX251bV07DQotCXRtcF9za2IgPSBidWZm
+ZXJfaW5mby0+c2tiOw0KKwlpZiAoc2tiX2hlYWRyb29tKHNrYikgPCAyKSB7
+DQorCQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiX25ldzsNCisNCisJCXNrYl9uZXcg
+PSBza2JfcmVhbGxvY19oZWFkcm9vbShza2IsIDIpOw0KKwkJaWYgKCFza2Jf
+bmV3KSB7DQorCQkJdHhfcmluZy0+bmV4dF90b191c2UgPSByaW5nX251bTsN
+CisJCQlkZXZfa2ZyZWVfc2tiX2FueShza2IpOw0KKwkJCXJldHVybjsNCisJ
+CX0NCisJCWNvbnN1bWVfc2tiKHNrYik7DQorCQlza2IgPSBza2JfbmV3Ow0K
+Kwl9DQogDQogCS8qIFtIZWFkZXI6MTRdW3BheWxvYWRdIC0tLT4gW0hlYWRl
+cjoxNF1bcGFkZG9uZzoyXVtwYXlsb2FkXSAgICAqLw0KLQltZW1jcHkodG1w
+X3NrYi0+ZGF0YSwgc2tiLT5kYXRhLCBFVEhfSExFTik7DQotCXRtcF9za2It
+PmRhdGFbRVRIX0hMRU5dID0gMHgwMDsNCi0JdG1wX3NrYi0+ZGF0YVtFVEhf
+SExFTiArIDFdID0gMHgwMDsNCi0JdG1wX3NrYi0+bGVuID0gc2tiLT5sZW47
+DQotCW1lbWNweSgmdG1wX3NrYi0+ZGF0YVtFVEhfSExFTiArIDJdLCAmc2ti
+LT5kYXRhW0VUSF9ITEVOXSwNCi0JICAgICAgIChza2ItPmxlbiAtIEVUSF9I
+TEVOKSk7DQorCXB0ciA9IHNrYl9wdXNoKHNrYiwgMik7DQorCW1lbW1vdmUo
+cHRyLCBwdHIgKyAyLCBFVEhfSExFTik7DQorCXB0cltFVEhfSExFTl0gPSAw
+eDAwOw0KKwlwdHJbRVRIX0hMRU4gKyAxXSA9IDB4MDA7DQogCS8qLS0gU2V0
+IEJ1ZmZlciBpbmZvcm1hdGlvbiAtLSovDQotCWJ1ZmZlcl9pbmZvLT5sZW5n
+dGggPSB0bXBfc2tiLT5sZW47DQotCWJ1ZmZlcl9pbmZvLT5kbWEgPSBkbWFf
+bWFwX3NpbmdsZSgmYWRhcHRlci0+cGRldi0+ZGV2LCB0bXBfc2tiLT5kYXRh
+LA0KKwlidWZmZXJfaW5mby0+bGVuZ3RoID0gc2tiLT5sZW47DQorCWJ1ZmZl
+cl9pbmZvLT5kbWEgPSBkbWFfbWFwX3NpbmdsZSgmYWRhcHRlci0+cGRldi0+
+ZGV2LCBza2ItPmRhdGEsDQogCQkJCQkgIGJ1ZmZlcl9pbmZvLT5sZW5ndGgs
+DQogCQkJCQkgIERNQV9UT19ERVZJQ0UpOw0KIAlpZiAoZG1hX21hcHBpbmdf
+ZXJyb3IoJmFkYXB0ZXItPnBkZXYtPmRldiwgYnVmZmVyX2luZm8tPmRtYSkp
+IHsNCkBAIC0xMjQwLDE4ICsxMjQ5LDIwIEBAIHN0YXRpYyB2b2lkIHBjaF9n
+YmVfdHhfcXVldWUoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwN
+CiAJCWJ1ZmZlcl9pbmZvLT5kbWEgPSAwOw0KIAkJYnVmZmVyX2luZm8tPnRp
+bWVfc3RhbXAgPSAwOw0KIAkJdHhfcmluZy0+bmV4dF90b191c2UgPSByaW5n
+X251bTsNCisJCWRldl9rZnJlZV9za2JfYW55KHNrYik7DQogCQlyZXR1cm47
+DQogCX0NCiAJYnVmZmVyX2luZm8tPm1hcHBlZCA9IHRydWU7DQogCWJ1ZmZl
+cl9pbmZvLT50aW1lX3N0YW1wID0gamlmZmllczsNCisJYnVmZmVyX2luZm8t
+PnNrYiA9IHNrYjsNCiANCiAJLyotLSBTZXQgVHggZGVzY3JpcHRvciAtLSov
+DQogCXR4X2Rlc2MgPSBQQ0hfR0JFX1RYX0RFU0MoKnR4X3JpbmcsIHJpbmdf
+bnVtKTsNCi0JdHhfZGVzYy0+YnVmZmVyX2FkZHIgPSAoYnVmZmVyX2luZm8t
+PmRtYSk7DQotCXR4X2Rlc2MtPmxlbmd0aCA9ICh0bXBfc2tiLT5sZW4pOw0K
+LQl0eF9kZXNjLT50eF93b3Jkc19lb2IgPSAoKHRtcF9za2ItPmxlbiArIDMp
+KTsNCisJdHhfZGVzYy0+YnVmZmVyX2FkZHIgPSBidWZmZXJfaW5mby0+ZG1h
+Ow0KKwl0eF9kZXNjLT5sZW5ndGggPSBza2ItPmxlbjsNCisJdHhfZGVzYy0+
+dHhfd29yZHNfZW9iID0gc2tiLT5sZW4gKyAzOw0KIAl0eF9kZXNjLT50eF9m
+cmFtZV9jdHJsID0gKGZyYW1lX2N0cmwpOw0KLQl0eF9kZXNjLT5nYmVjX3N0
+YXR1cyA9IChEU0NfSU5JVDE2KTsNCisJdHhfZGVzYy0+Z2JlY19zdGF0dXMg
+PSBEU0NfSU5JVDE2Ow0KIA0KIAlpZiAodW5saWtlbHkoKytyaW5nX251bSA9
+PSB0eF9yaW5nLT5jb3VudCkpDQogCQlyaW5nX251bSA9IDA7DQpAQCAtMTI2
+NSw3ICsxMjc2LDYgQEAgc3RhdGljIHZvaWQgcGNoX2diZV90eF9xdWV1ZShz
+dHJ1Y3QgcGNoX2diZV9hZGFwdGVyICphZGFwdGVyLA0KIAlwY2hfdHhfdGlt
+ZXN0YW1wKGFkYXB0ZXIsIHNrYik7DQogI2VuZGlmDQogDQotCWRldl9rZnJl
+ZV9za2JfYW55KHNrYik7DQogfQ0KIA0KIC8qKg0KQEAgLTE1NDMsMTkgKzE1
+NTMsMTIgQEAgc3RhdGljIHZvaWQgcGNoX2diZV9hbGxvY190eF9idWZmZXJz
+KHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogCQkJCQlzdHJ1
+Y3QgcGNoX2diZV90eF9yaW5nICp0eF9yaW5nKQ0KIHsNCiAJc3RydWN0IHBj
+aF9nYmVfYnVmZmVyICpidWZmZXJfaW5mbzsNCi0Jc3RydWN0IHNrX2J1ZmYg
+KnNrYjsNCiAJdW5zaWduZWQgaW50IGk7DQotCXVuc2lnbmVkIGludCBidWZz
+ejsNCiAJc3RydWN0IHBjaF9nYmVfdHhfZGVzYyAqdHhfZGVzYzsNCiANCi0J
+YnVmc3ogPQ0KLQkgICAgYWRhcHRlci0+aHcubWFjLm1heF9mcmFtZV9zaXpl
+ICsgUENIX0dCRV9ETUFfQUxJR04gKyBORVRfSVBfQUxJR047DQotDQogCWZv
+ciAoaSA9IDA7IGkgPCB0eF9yaW5nLT5jb3VudDsgaSsrKSB7DQogCQlidWZm
+ZXJfaW5mbyA9ICZ0eF9yaW5nLT5idWZmZXJfaW5mb1tpXTsNCi0JCXNrYiA9
+IG5ldGRldl9hbGxvY19za2IoYWRhcHRlci0+bmV0ZGV2LCBidWZzeik7DQot
+CQlza2JfcmVzZXJ2ZShza2IsIFBDSF9HQkVfRE1BX0FMSUdOKTsNCi0JCWJ1
+ZmZlcl9pbmZvLT5za2IgPSBza2I7DQorCQlidWZmZXJfaW5mby0+c2tiID0g
+TlVMTDsNCiAJCXR4X2Rlc2MgPSBQQ0hfR0JFX1RYX0RFU0MoKnR4X3Jpbmcs
+IGkpOw0KIAkJdHhfZGVzYy0+Z2JlY19zdGF0dXMgPSAoRFNDX0lOSVQxNik7
+DQogCX0NCkBAIC0xNjIyLDkgKzE2MjUsOSBAQCBwY2hfZ2JlX2NsZWFuX3R4
+KHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0ZXIsDQogCQkJCQkgYnVm
+ZmVyX2luZm8tPmxlbmd0aCwgRE1BX1RPX0RFVklDRSk7DQogCQkJYnVmZmVy
+X2luZm8tPm1hcHBlZCA9IGZhbHNlOw0KIAkJfQ0KLQkJaWYgKGJ1ZmZlcl9p
+bmZvLT5za2IpIHsNCi0JCQlwcl9kZWJ1ZygidHJpbSBidWZmZXJfaW5mby0+
+c2tiIDogJWRcbiIsIGkpOw0KLQkJCXNrYl90cmltKGJ1ZmZlcl9pbmZvLT5z
+a2IsIDApOw0KKwkJaWYgKHNrYikgew0KKwkJCWRldl9rZnJlZV9za2JfYW55
+KHNrYik7DQorCQkJYnVmZmVyX2luZm8tPnNrYiA9IE5VTEw7DQogCQl9DQog
+CQl0eF9kZXNjLT5nYmVjX3N0YXR1cyA9IERTQ19JTklUMTY7DQogCQlpZiAo
+dW5saWtlbHkoKytpID09IHR4X3JpbmctPmNvdW50KSkNCg0KDQo=
