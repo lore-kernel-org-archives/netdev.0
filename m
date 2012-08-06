@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mISDN: Bugfix for layer2 fixed TEI mode
-Date: Mon, 06 Aug 2012 13:27:30 -0700 (PDT)
-Message-ID: <20120806.132730.1234170287546038559.davem@davemloft.net>
-References: <1344075265-18999-1-git-send-email-keil@b1-systems.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net] batman-adv: select an internet
+ gateway if none was chosen
+Date: Mon, 06 Aug 2012 13:28:28 -0700 (PDT)
+Message-ID: <20120806.132828.2156362429420693678.davem@davemloft.net>
+References: <1344089606-9573-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de
-To: keil@b1-systems.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38842 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755937Ab2HFU1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:27:38 -0400
-In-Reply-To: <1344075265-18999-1-git-send-email-keil@b1-systems.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1344089606-9573-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <keil@b1-systems.de>
-Date: Sat,  4 Aug 2012 12:14:25 +0200
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Sat,  4 Aug 2012 16:13:26 +0200
 
-> If a fixed TEI is used, the initial state of the layer 2 statmachine need to be
-> 4 (TEI assigned). This was true only for Point to Point connections, but not
-> for the other fixed TEIs. It was not found before, because usually only the
-> TEI 0 is used as fixed TEI for PtP mode, but if you try X31 packet mode
-> connections with SAPI 16, TEI 1, it did fail.
-> 
-> Signed-off-by: Karsten Keil <keil@b1-systems.de>
-> Cc: <stable@vger.kernel.org> # 3.5.x
+> From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+> =
+
+> This is a regression introduced by: 2265c141086474bbae55a5bb3afa1ebb7=
+8ccaa7c
+> =
+
+> Reported-by: Nicol=E1s Ech=E1niz <nicoechaniz-A9NS9UNFlhlrovVCs/uTlw@public.gmane.org>
+> Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+> Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
 Applied.
+
+Please, when referencing commits in a log message, provide the commit
+header text ("LIKE THIS").  Otherwise in trees where the SHA1 IDs are
+different, it will ambiguous what commit you are referencing.
