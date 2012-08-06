@@ -1,75 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/5] net: Don't use ifindices in hash fns
-Date: Mon, 06 Aug 2012 12:43:09 +0200
-Message-ID: <1344249789.26674.8.camel@edumazet-glaptop>
-References: <501F9CAF.3030605@parallels.com>
-	 <501F9CDA.6040403@parallels.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: skb_warn_bad_offload with kernel 3.5 (maybe gso/bridge
+ related ?)
+Date: Mon, 6 Aug 2012 13:50:09 +0300
+Message-ID: <1344250209.24187.1.camel@lb-tlvb-dmitry>
+References: <501B8792.6040605@univ-nantes.fr>
+ <1343983887.9299.817.camel@edumazet-glaptop>
+ <1344008408.4642.160.camel@deadeye.wl.decadent.org.uk>
+ <20120806091846.GA18581@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Yann Dupont" <Yann.Dupont@univ-nantes.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63048 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752539Ab2HFKnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 06:43:14 -0400
-Received: by bkwj10 with SMTP id j10so965471bkw.19
-        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 03:43:13 -0700 (PDT)
-In-Reply-To: <501F9CDA.6040403@parallels.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3515 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755801Ab2HFKuO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2012 06:50:14 -0400
+In-Reply-To: <20120806091846.GA18581@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-08-06 at 14:30 +0400, Pavel Emelyanov wrote:
-> Eric noticed, that when there will be devices with equal indices, some
-> hash functions that use them will become less effective as they could.
+On Mon, 2012-08-06 at 17:18 +0800, Herbert Xu wrote:
+> On Fri, Aug 03, 2012 at 04:40:08PM +0100, Ben Hutchings wrote:
+> >
+> > I think GRO is doing the right thing, and I can't think why we should
+> > see ip_summed = CHECKSUM_PARTIAL if the skb is forwarded by a bridge.  I
 > 
-> Fix this in advance by taking the net_device address into calculations
-> instead of the device index. Since the net_device is always aligned in
-> memory, shift the pointer to eliminate always zero bits (like we do it
-> in net_hash_mix).
+> If it is was created by GRO then it should always be CHECKSUM_PARTIAL,
+> even if it came through a bridge.
 > 
-> This is true for arp and ndisc hash fns. The netlabel, can and llc ones
-> are also ifindex-based, but that three are init_net-only, thus will not
-> be affected.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-> 
-> ---
->  include/linux/netdevice.h |    6 ++++++
->  include/net/arp.h         |    2 +-
->  include/net/ndisc.h       |    2 +-
->  3 files changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index a9db4f3..6010b37 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1330,6 +1330,12 @@ struct net_device {
->  
->  #define	NETDEV_ALIGN		32
->  
-> +static inline unsigned int netdev_hash_mix(const struct net_device *dev)
-> +{
-> +	return (unsigned int)(((unsigned long)dev) >>
-> +			max(L1_CACHE_BYTES, NETDEV_ALIGN));
-> +}
-> +
+> Cheers,
 
-I guess you didnt test this patch very well ...
-
-This returns 0 as is
-
-I would define a generic pointer hash mix instead of a 'net_device
-thing'
-
-static inline u32 ptr_hash_mix(void *ptr)
-{
-#if BITS_PER_LONG==32
-	return (u32)(unsigned long)ptr;
-#else
-	return (u32)((unsigned long)ptr >> L1_CACHE_SHIFT);
-#endif
-}
+Is LRO on for bnx2x device? It should be off when forwarding is enabled.
