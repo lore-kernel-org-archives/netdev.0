@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/2] drivers: net: ethernet: davince_mdio: device tree implementation
-Date: Mon, 6 Aug 2012 20:35:57 +0530
-Message-ID: <1344265558-5724-2-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH 2/2] documentation: dt: bindings: cpsw: fixing the examples for directly using it in dts file
+Date: Mon, 6 Aug 2012 20:35:58 +0530
+Message-ID: <1344265558-5724-3-git-send-email-mugunthanvnm@ti.com>
 References: <1344265558-5724-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,145 +14,141 @@ In-Reply-To: <1344265558-5724-1-git-send-email-mugunthanvnm@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-device tree implementation for davinci mdio driver
+Fixing the cpsw device tree example to make it simpler to copy pastable to dts
+file and use it directly.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- .../devicetree/bindings/net/davinci-mdio.txt       |   33 ++++++++++++++++
- drivers/net/ethernet/ti/davinci_mdio.c             |   41 ++++++++++++++++++--
- 2 files changed, 70 insertions(+), 4 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/davinci-mdio.txt
+ Documentation/devicetree/bindings/net/cpsw.txt |  101 ++++++++++++-----------
+ 1 files changed, 53 insertions(+), 48 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-new file mode 100644
-index 0000000..72efaaf
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-@@ -0,0 +1,33 @@
-+TI SoC Davinci MDIO Controller Device Tree Bindings
-+---------------------------------------------------
-+
-+Required properties:
-+- compatible		: Should be "ti,davinci_mdio"
-+- reg			: physical base address and size of the davinci mdio
-+			  registers map
-+- bus_freq		: Mdio Bus frequency
-+
-+Optional properties:
-+- ti,hwmods		: Must be "davinci_mdio"
-+
-+Note: "ti,hwmods" field is used to fetch the base address and irq
-+resources from TI, omap hwmod data base during device registration.
-+Future plan is to migrate hwmod data base contents into device tree
-+blob so that, all the required data will be used from device tree dts
-+file.
-+
-+Examples:
-+
-+	mdio: davinci_mdio@4A101000 {
-+		compatible = "ti,cpsw";
-+		reg = <0x4A101000 0x1000>;
-+		bus_freq = <1000000>;
-+	};
-+
-+(or)
-+
-+	mdio: davinci_mdio@4A101000 {
-+		compatible = "ti,cpsw";
-+		ti,hwmods = "davinci_mdio";
-+		bus_freq = <1000000>;
-+	};
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index cd7ee20..573f3be 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -36,6 +36,8 @@
- #include <linux/io.h>
- #include <linux/pm_runtime.h>
- #include <linux/davinci_emac.h>
-+#include <linux/of.h>
-+#include <linux/of_device.h>
+diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+index acca48c..dcaabe9 100644
+--- a/Documentation/devicetree/bindings/net/cpsw.txt
++++ b/Documentation/devicetree/bindings/net/cpsw.txt
+@@ -11,6 +11,7 @@ Required properties:
+ - cpdma_channels 	: Specifies number of channels in CPDMA
+ - host_port_no		: Specifies host port shift
+ - cpdma_reg_ofs		: Specifies CPDMA submodule register offset
++- cpdma_sram_ofs	: Specifies CPDMA SRAM offset
+ - ale_reg_ofs		: Specifies ALE submodule register offset
+ - ale_entries		: Specifies No of entries ALE can hold
+ - host_port_reg_ofs	: Specifies host port register offset
+@@ -43,62 +44,66 @@ Examples:
+ 		reg = <0x4A100000 0x1000>;
+ 		interrupts = <55 0x4>;
+ 		interrupt-parent = <&intc>;
+-		cpdma_channels = 8;
+-		host_port_no = 0;
+-		cpdma_reg_ofs = 0x800;
+-		ale_reg_ofs = 0xd00;
+-		ale_entries = 1024;
+-		host_port_reg_ofs = 0x108;
+-		hw_stats_reg_ofs = 0x900;
+-		bd_ram_ofs = 0x2000;
+-		bd_ram_size = 0x2000;
+-		no_bd_ram = 0;
+-		rx_descs = 64;
+-		mac_control = 0x20;
+-		slaves = 2;
+-		slave@0 {
+-			slave_reg_ofs = 0x208;
+-			sliver_reg_ofs = 0xd80;
+-			phy_id = "davinci_mdio-0:00"
+-			mac-address = [00 04 9F 01 1B B8];
++		cpdma_channels = <8>;
++		host_port_no = <0>;
++		cpdma_reg_ofs = <0x800>;
++		cpdma_sram_ofs = <0xa00>;
++		ale_reg_ofs = <0xd00>;
++		ale_entries = <1024>;
++		host_port_reg_ofs = <0x108>;
++		hw_stats_reg_ofs = <0x900>;
++		bd_ram_ofs = <0x2000>;
++		bd_ram_size = <0x2000>;
++		no_bd_ram = <0>;
++		rx_descs = <64>;
++		mac_control = <0x20>;
++		slaves = <2>;
++		cpsw_emac0: slave@0 {
++			slave_reg_ofs = <0x208>;
++			sliver_reg_ofs = <0xd80>;
++			phy_id = "davinci_mdio.16:00";
++			/* Filled in by U-Boot */
++			mac-address = [ 00 00 00 00 00 00 ];
+ 		};
+-		slave@1 {
+-			slave_reg_ofs = 0x208;
+-			sliver_reg_ofs = 0xd80;
+-			phy_id = "davinci_mdio-0:01"
+-			mac-address = [00 04 9F 01 1B B9];
++		cpsw_emac1: slave@1 {
++			slave_reg_ofs = <0x308>;
++			sliver_reg_ofs = <0xdc0>;
++			phy_id = "davinci_mdio.16:01";
++			/* Filled in by U-Boot */
++			mac-address = [ 00 00 00 00 00 00 ];
+ 		};
+ 	};
  
- /*
-  * This timeout definition is a worst-case ultra defensive measure against
-@@ -289,6 +291,25 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
- 	return 0;
- }
- 
-+static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
-+			 struct platform_device *pdev)
-+{
-+	struct device_node *node = pdev->dev.of_node;
-+	u32 prop;
-+
-+	if (!node)
-+		return -EINVAL;
-+
-+	if (of_property_read_u32(node, "bus_freq", &prop)) {
-+		pr_err("Missing bus_freq property in the DT.\n");
-+		return -EINVAL;
-+	}
-+	data->bus_freq = prop;
-+
-+	return 0;
-+}
-+
-+
- static int __devinit davinci_mdio_probe(struct platform_device *pdev)
- {
- 	struct mdio_platform_data *pdata = pdev->dev.platform_data;
-@@ -304,8 +325,6 @@ static int __devinit davinci_mdio_probe(struct platform_device *pdev)
- 		return -ENOMEM;
- 	}
- 
--	data->pdata = pdata ? (*pdata) : default_pdata;
+ (or)
 -
- 	data->bus = mdiobus_alloc();
- 	if (!data->bus) {
- 		dev_err(dev, "failed to alloc mii bus\n");
-@@ -313,14 +332,22 @@ static int __devinit davinci_mdio_probe(struct platform_device *pdev)
- 		goto bail_out;
- 	}
- 
-+	if (dev->of_node) {
-+		if (davinci_mdio_probe_dt(&data->pdata, pdev))
-+			data->pdata = default_pdata;
-+		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s", pdev->name);
-+	} else {
-+		data->pdata = pdata ? (*pdata) : default_pdata;
-+		snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s-%x",
-+			 pdev->name, pdev->id);
-+	}
-+
- 	data->bus->name		= dev_name(dev);
- 	data->bus->read		= davinci_mdio_read,
- 	data->bus->write	= davinci_mdio_write,
- 	data->bus->reset	= davinci_mdio_reset,
- 	data->bus->parent	= dev;
- 	data->bus->priv		= data;
--	snprintf(data->bus->id, MII_BUS_ID_SIZE, "%s-%x",
--		pdev->name, pdev->id);
- 
- 	pm_runtime_enable(&pdev->dev);
- 	pm_runtime_get_sync(&pdev->dev);
-@@ -454,11 +481,17 @@ static const struct dev_pm_ops davinci_mdio_pm_ops = {
- 	.resume		= davinci_mdio_resume,
- };
- 
-+static const struct of_device_id davinci_mdio_of_mtable[] = {
-+	{ .compatible = "ti,davinci_mdio", },
-+	{ /* sentinel */ },
-+};
-+
- static struct platform_driver davinci_mdio_driver = {
- 	.driver = {
- 		.name	 = "davinci_mdio",
- 		.owner	 = THIS_MODULE,
- 		.pm	 = &davinci_mdio_pm_ops,
-+		.of_match_table = of_match_ptr(davinci_mdio_of_mtable),
- 	},
- 	.probe = davinci_mdio_probe,
- 	.remove = __devexit_p(davinci_mdio_remove),
+ 	mac: ethernet@4A100000 {
+ 		compatible = "ti,cpsw";
+ 		ti,hwmods = "cpgmac0";
+-		cpdma_channels = 8;
+-		host_port_no = 0;
+-		cpdma_reg_ofs = 0x800;
+-		ale_reg_ofs = 0xd00;
+-		ale_entries = 1024;
+-		host_port_reg_ofs = 0x108;
+-		hw_stats_reg_ofs = 0x900;
+-		bd_ram_ofs = 0x2000;
+-		bd_ram_size = 0x2000;
+-		no_bd_ram = 0;
+-		rx_descs = 64;
+-		mac_control = 0x20;
+-		slaves = 2;
+-		slave@0 {
+-			slave_reg_ofs = 0x208;
+-			sliver_reg_ofs = 0xd80;
+-			phy_id = "davinci_mdio-0:00"
+-			mac-address = [00 04 9F 01 1B B8];
++		cpdma_channels = <8>;
++		host_port_no = <0>;
++		cpdma_reg_ofs = <0x800>;
++		cpdma_sram_ofs = <0xa00>;
++		ale_reg_ofs = <0xd00>;
++		ale_entries = <1024>;
++		host_port_reg_ofs = <0x108>;
++		hw_stats_reg_ofs = <0x900>;
++		bd_ram_ofs = <0x2000>;
++		bd_ram_size = <0x2000>;
++		no_bd_ram = <0>;
++		rx_descs = <64>;
++		mac_control = <0x20>;
++		slaves = <2>;
++		cpsw_emac0: slave@0 {
++			slave_reg_ofs = <0x208>;
++			sliver_reg_ofs = <0xd80>;
++			phy_id = "davinci_mdio.16:00";
++			/* Filled in by U-Boot */
++			mac-address = [ 00 00 00 00 00 00 ];
+ 		};
+-		slave@1 {
+-			slave_reg_ofs = 0x208;
+-			sliver_reg_ofs = 0xd80;
+-			phy_id = "davinci_mdio-0:01"
+-			mac-address = [00 04 9F 01 1B B9];
++		cpsw_emac1: slave@1 {
++			slave_reg_ofs = <0x308>;
++			sliver_reg_ofs = <0xdc0>;
++			phy_id = "davinci_mdio.16:01";
++			/* Filled in by U-Boot */
++			mac-address = [ 00 00 00 00 00 00 ];
+ 		};
+-
+ 	};
 -- 
 1.7.0.4
 
