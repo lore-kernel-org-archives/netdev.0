@@ -1,77 +1,43 @@
-From: Eric Leblond <eric@regit.org>
-Subject: [BUG] af_packet: loop at reception when using fanout
-Date: Mon, 06 Aug 2012 16:21:58 +0200
-Message-ID: <1344262918.8024.41.camel@tiger.regit.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: pch_gbe: dont-copy-payload (was [PATCH 1/4] ...)
+Date: Mon, 06 Aug 2012 16:52:36 +0200
+Message-ID: <1344264756.26674.19.camel@edumazet-glaptop>
+References: <40680C535D6FE6498883F1640FACD44D011432D4@ka-exchange-1.kontronamerica.local>
+	 <1342508968.2626.148.camel@edumazet-glaptop>
+	 <1342510387.2626.174.camel@edumazet-glaptop>
+	 <40680C535D6FE6498883F1640FACD44D011BBE1D@ka-exchange-1.kontronamerica.local>
+	 <40680C535D6FE6498883F1640FACD44D0122CF12@ka-exchange-1.kontronamerica.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-TNXQumEs0ximWQSXY5EA"
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andy Cress <andy.cress@us.kontron.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ks28632.kimsufi.com ([91.121.96.152]:53602 "EHLO
-	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932074Ab2HFOpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 10:45:02 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:35217 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754558Ab2HFOwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 10:52:46 -0400
+Received: by bkwj10 with SMTP id j10so1064467bkw.19
+        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 07:52:45 -0700 (PDT)
+In-Reply-To: <40680C535D6FE6498883F1640FACD44D0122CF12@ka-exchange-1.kontronamerica.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2012-08-06 at 07:19 -0700, Andy Cress wrote:
+> I found out why the proposed dont-copy-payload patch didn't work with
+> this pch_gbe NIC.
+> This NIC PHY requires 64-byte-aligned DMA, and the transmit buffers
+> won't be transferred if skb->data is not 64-byte-aligned.  Apparently
+> the data copy has a by-product of aligning the buffers.  
+> 
+> I tried using skb_reserve(skb,64) in pch_gbe_alloc_tx_buffers and
+> pch-gbe_alloc_rx_buffers, but that didn't seem to resolve it.
+> 
+> How can I make sure that the transmit data buffers are
+> 64-byte-aligned?
+> 
 
---=-TNXQumEs0ximWQSXY5EA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+There is no support for such requirement in linux stacks.
 
-Hello,
-
-When using fanout mode on a AF_PACKET socket, the packet sent via one of
-the fanout socket are sent back to one of the socket in the fanout set.
-I've read the code and the error seems to be in dev.c.
-The code check if skb->sk is not equal to ptype->af_packet_priv but in
-the fanout case, we should check that skb->sk is not in the sockets of
-the fanout set.
-
-Here's how could look a possible implementation of the fix:
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 1cb0d8a..63d144f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1654,7 +1654,12 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, =
-struct net_device *dev)
-                 */
-                if ((ptype->dev =3D=3D dev || !ptype->dev) &&
-                    (ptype->af_packet_priv =3D=3D NULL ||
--                    (struct sock *)ptype->af_packet_priv !=3D skb->sk)) {
-+                       (((struct sock *)ptype->af_packet_priv !=3D skb->sk=
-)
-+                       &&
-+                        /* MISSING CHECK: af_packet_priv  skb->sk one of t=
-he socket in fanout id of skb */
-+                       ! packet_sk_in_fanout(ptype, skb->sk)
-+                        )
-+                       ) {
-                        if (pt_prev) {
-                                deliver_skb(skb2, pt_prev, skb->dev);
-                                pt_prev =3D ptype;
-
-If this is done, we will have to export one function from the af_packet
-module and I don't like the idea. If it is correct way to do it I can
-implement this and propose a patch.
-
-BR,
---=20
-Eric Leblond=20
-Blog: http://home.regit.org/ - Portfolio: http://regit.500px.com/
-
---=-TNXQumEs0ximWQSXY5EA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iEYEABECAAYFAlAf0wcACgkQnxA7CdMWjzLoeACeJsyNNg/oM68u4Y/YWQM5h/Kz
-MX0Ani8r5MfevVPBJZOMVD59Xgirmf2L
-=YLvU
------END PGP SIGNATURE-----
-
---=-TNXQumEs0ximWQSXY5EA--
+Only solution for the driver is to copy all frames to 64-byte-aligned
+bounce buffers.
