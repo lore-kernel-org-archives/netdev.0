@@ -1,29 +1,71 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: reorganize IP MIB values
-Date: Mon, 06 Aug 2012 13:41:03 -0700 (PDT)
-Message-ID: <20120806.134103.492418140254658832.davem@davemloft.net>
-References: <1344148439.9299.1570.camel@edumazet-glaptop>
+Subject: Re: [PATCH RFC] net: tcp: GRO should be ECN friendly
+Date: Mon, 06 Aug 2012 13:41:18 -0700 (PDT)
+Message-ID: <20120806.134118.2197594378586931190.davem@davemloft.net>
+References: <1344242090.9299.1656.camel@edumazet-glaptop>
+	<20120806090150.GB18425@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39131 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39143 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755974Ab2HFUlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:41:04 -0400
-In-Reply-To: <1344148439.9299.1570.camel@edumazet-glaptop>
+	with ESMTP id S1755974Ab2HFUlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:41:19 -0400
+In-Reply-To: <20120806090150.GB18425@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 05 Aug 2012 08:33:59 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 6 Aug 2012 17:01:50 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> On Mon, Aug 06, 2012 at 10:34:50AM +0200, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> While doing TCP ECN tests, I discovered GRO was reordering packets if it
+>> receives one packet with CE set, while previous packets in same NAPI run
+>> have ECT(0) for the same flow :
+>> 
+>> 09:25:25.857620 IP (tos 0x2,ECT(0), ttl 64, id 27893, offset 0, flags
+>> [DF], proto TCP (6), length 4396)
+>>     172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
+>> 233801:238145, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
+>> 1990627], length 4344
+>> 
+>> 09:25:25.857626 IP (tos 0x3,CE, ttl 64, id 27892, offset 0, flags [DF],
+>> proto TCP (6), length 1500)
+>>     172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
+>> 232353:233801, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
+>> 1990627], length 1448
+>> 
+>> 09:25:25.857638 IP (tos 0x0, ttl 64, id 34581, offset 0, flags [DF],
+>> proto TCP (6), length 64)
+>>     172.30.42.13.44139 > 172.30.42.19.54550: Flags [.], cksum 0xac8f
+>> (incorrect -> 0xca69), ack 232353, win 1271, options [nop,nop,TS val
+>> 1990627 ecr 3397779,nop,nop,sack 1 {233801:238145}], length 0
+>> 
+>> We have two problems here :
+>> 
+>> 1) GRO reorders packets
+>> 
+>>   If NIC gave packet1, then packet2, which happen to be from "different
+>> flows"  GRO feeds stack with packet2, then packet1. I have yet to
+>> understand how to solve this problem.
+>> 
+>> 2) GRO is not ECN friendly
+>> 
+>> Delivering packets out of order makes TCP stack not as fast as it could
+>> be.
+>> 
+>> In this patch I suggest we make the tos test not part of the 'same_flow'
+>> determination, but part of the 'should flush' logic
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > 
-> Reduce IP latencies by placing hot MIB IP fields in a single cache line.
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Good catch, thanks Eric!
 
-Applied.
+Applied to net-next, thanks Eric.
