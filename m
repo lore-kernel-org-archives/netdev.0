@@ -1,83 +1,44 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: [PATCH net] net_sched: act: Delete estimator in error path.
-Date: Tue, 7 Aug 2012 00:45:48 +0900
-Message-ID: <20120807004548.6f9e7b6d1e566d7eead73497@gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: WARNING: at net/ipv4/tcp.c:1598 tcp_recvmsg+0x641/0xd30()
+Date: Mon, 6 Aug 2012 11:46:16 -0400
+Message-ID: <20120806154616.GB2187@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:64576 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756276Ab2HFPpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 11:45:53 -0400
-Received: by ggnl2 with SMTP id l2so2613961ggn.19
-        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 08:45:53 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:30415 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756442Ab2HFPqU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2012 11:46:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some action modules free struct tcf_common in their error path
-while estimator is still active. This results in est_timer()
-dereference freed memory.
-Add gen_kill_estimator() in ipt, pedit and simple action.
+We just got an automated report of this WARN being hit in 3.5
 
-Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
----
- net/sched/act_ipt.c    |    7 ++++++-
- net/sched/act_pedit.c  |    5 ++++-
- net/sched/act_simple.c |    5 ++++-
- 3 files changed, 14 insertions(+), 3 deletions(-)
+ > backtrace:
+ > :WARNING: at net/ipv4/tcp.c:1598 tcp_recvmsg+0x641/0xd30()
+ > :Hardware name: P5Q DELUXE
+ > :recvmsg bug: copied 99F66400 seq 99F6A4A8 rcvnxt 99F6CDAD fl 0
+ > : [<ffffffff811848e6>] do_sync_read+0xe6/0x120
+ > : [<ffffffff81275eea>] ? inode_has_perm.isra.31.constprop.61+0x2a/0x30
+ > : [<ffffffff81272f32>] ? security_file_permission+0x92/0xb0
+ > : [<ffffffff81184d81>] ? rw_verify_area+0x61/0xf0
+ > : [<ffffffff811852cd>] vfs_read+0x15d/0x180
+ > : [<ffffffff8118533a>] sys_read+0x4a/0x90
+ > : [<ffffffff8160fc29>] system_call_fastpath+0x16/0x1b
 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 60e281a..58fb3c7 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -185,7 +185,12 @@ err3:
- err2:
- 	kfree(tname);
- err1:
--	kfree(pc);
-+	if (ret == ACT_P_CREATED) {
-+		if (est)
-+			gen_kill_estimator(&pc->tcfc_bstats,
-+					   &pc->tcfc_rate_est);
-+		kfree_rcu(pc, tcfc_rcu);
-+	}
- 	return err;
- }
- 
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 26aa2f6..45c53ab 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -74,7 +74,10 @@ static int tcf_pedit_init(struct nlattr *nla, struct nlattr *est,
- 		p = to_pedit(pc);
- 		keys = kmalloc(ksize, GFP_KERNEL);
- 		if (keys == NULL) {
--			kfree(pc);
-+			if (est)
-+				gen_kill_estimator(&pc->tcfc_bstats,
-+						   &pc->tcfc_rate_est);
-+			kfree_rcu(pc, tcfc_rcu);
- 			return -ENOMEM;
- 		}
- 		ret = ACT_P_CREATED;
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 3922f2a..3714f60 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -131,7 +131,10 @@ static int tcf_simp_init(struct nlattr *nla, struct nlattr *est,
- 		d = to_defact(pc);
- 		ret = alloc_defdata(d, defdata);
- 		if (ret < 0) {
--			kfree(pc);
-+			if (est)
-+				gen_kill_estimator(&pc->tcfc_bstats,
-+						   &pc->tcfc_rate_est);
-+			kfree_rcu(pc, tcfc_rcu);
- 			return ret;
- 		}
- 		d->tcf_action = parm->action;
--- 
-1.7.8.6
+1594                         /* Now that we have two receive queues this
+1595                          * shouldn't happen.
+1596                          */
+1597                         if (WARN(before(*seq, TCP_SKB_CB(skb)->seq),
+1598                                  "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
+1599                                  *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
+1600                                  flags))
+1601                                 break;
+
+
+Hopefully this means more to you guys than it does to me.
+
+	Dave
