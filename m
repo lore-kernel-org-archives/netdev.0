@@ -1,91 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] igb: use build_skb()
-Date: Mon, 06 Aug 2012 20:08:49 +0200
-Message-ID: <1344276529.26674.51.camel@edumazet-glaptop>
-References: <1343922692.9299.231.camel@edumazet-glaptop>
-	 <50200066.6060905@intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 00/13] SCTP: Enable netns
+Date: Mon, 06 Aug 2012 11:20:08 -0700
+Message-ID: <87mx27rig7.fsf@xmission.com>
+References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58021 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753685Ab2HFSIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 14:08:54 -0400
-Received: by bkwj10 with SMTP id j10so1142803bkw.19
-        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 11:08:53 -0700 (PDT)
-In-Reply-To: <50200066.6060905@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jan Ariyasu <jan.ariyasu@hp.com>
+To: Jan Ariyasu <jan.ariyasu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com> (Jan
+	Ariyasu's message of "Sat, 4 Aug 2012 15:30:37 -0600")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-08-06 at 10:35 -0700, Alexander Duyck wrote:
-> On 08/02/2012 08:51 AM, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > By using netdev_alloc_frag() & build_skb() instead of legacy
-> > netdev_alloc_skb_ip_align() calls, we reduce number of cache misses in
-> > RX path and size of working set.
-> >
-> > For a given rx workload, number of 'inuse' sk_buff can be reduced to a
-> > very minimum, especially when packets are dropped by our stack.
-> >
-> > (Before this patch, default sk_buff allocation was 2048 sk_buffs in rx
-> > ring buffer)
-> >
-> > They are initialized right before being delivered to stack, so can stay
-> > hot in cpu caches.
-> >
-> > Ethernet header prefetching is more effective (old prefetch of skb->data
-> > paid a stall to access skb->data pointer)
-> >
-> > I have 15% performance increase in a RX stress test, removing SLUB slow
-> > path in the profiles.
-> >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/igb/igb.h         |    8 ++
-> >  drivers/net/ethernet/intel/igb/igb_ethtool.c |   14 ++--
-> >  drivers/net/ethernet/intel/igb/igb_main.c    |   56 ++++++++++-------
-> >  3 files changed, 49 insertions(+), 29 deletions(-)
-> >
-> [...]
-> > diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-> > index b7c2d50..8b732c9 100644
-> > --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> > +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> [...]
-> > @@ -6091,6 +6095,15 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, int budget)
-> >  		next_rxd = IGB_RX_DESC(rx_ring, i);
-> >  		prefetch(next_rxd);
-> >  
-> > +		if (!skb) {
-> > +			skb = build_skb(data, IGB_FRAGSZ);
-> > +			if (unlikely(!skb)) {
-> > +				rx_ring->rx_stats.alloc_failed++;
-> > +				buffer_info->data = data;
-> > +				goto next_desc;
-> > +			}
-> > +			skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
-> > +		}
-> >  		/*
-> >  		 * This memory barrier is needed to keep us from reading
-> >  		 * any other fields out of the rx_desc until we know the
-> This logic is broken.  If an allocation failure occurs it would leave
-> the data in the ring and could possibly give you a corrupted packet.
-> 
-> I was planning to move igb over to an ixgbe style receive path at some
-> point anyway.  Since it seems like this is now a higher priority I
-> figured I would try to get the patches for it implemented in the next
-> week or so.  Would there be any issue with us rejecting this patch and
-> instead switching igb over to the ixgbe style path?
+Jan Ariyasu <jan.ariyasu@gmail.com> writes:
 
-I checked again and I believe logic is fine, exactly like driver before
-this patch.
+> The following set of patches enable network-namespaces for the SCTP protocol.
+>
+> The multitude of global parameters are stored in a net_generic
+> structure, and the bulk of the patches enable the protocol to access
+> the parameters on a per-namespace basis.  The first five patches
+> enable netns handling of the protocol, procfs and sysfs.
 
-If skb cannot be allocated, the data part is reused for next frame.
+I am going to do something to muddy the waters here, that I had hoped to
+avoid when I saw your patchset.
 
-( buffer_info->data = data; goto next_desc; )
+A few weeks ago I wanted to play with sctp and also made a network
+namespace enabled version.  I am not deeply attached to my changes,
+however when comparing the differences I realized that your code fails
+to make the lookup of associations per network namespace.
+
+Given that we only have source and destination port to lookup
+assoications by this almost guarantees one network namespace can
+accidentially use the association of another network namespace meerly
+by reusing the same ports.
+
+The downside with my version is that it does not make all of the sctp
+tunables per network namespace the way yours does, but making all of
+the tunables per network namespace should be straight forward from
+my base.
+
+My patchset also misses some nice to haves like making the association
+id allocation per network namespace.  It is not important for
+correctness of the code but it might allow an information leak between
+namespaces.
+
+So Jan I am going to send my patchset and hopefully you can rebase your
+changes to make all of the tunables per network namespace on top of
+mine.
+
+Since my patchset is half the size of your I think that is the most
+reasonable way to go.
+
+Eric
