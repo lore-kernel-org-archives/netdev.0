@@ -1,51 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Subject: [PATCH] sched: add missing group change to
- qfq_change_class
-Date: Mon, 06 Aug 2012 13:31:03 -0700 (PDT)
-Message-ID: <20120806.133103.173950447984896787.davem@davemloft.net>
-References: <501ECD61.5090209@unimore.it>
+Subject: Re: [patch 1/1] ixp4xx_eth: fix ptp_ixp46x build failure
+Date: Mon, 06 Aug 2012 13:31:13 -0700 (PDT)
+Message-ID: <20120806.133113.996150251709070253.davem@davemloft.net>
+References: <20120805203042.509148064@rtp-net.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, jhs@mojatatu.com, fchecconi@gmail.com,
-	rizzo@iet.unipi.it, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: paolo.valente@unimore.it
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <501ECD61.5090209@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, khc@pm.waw.pl
+To: arnaud.patard@rtp-net.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38958 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756141Ab2HFUbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:31:14 -0400
+In-Reply-To: <20120805203042.509148064@rtp-net.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Valente <paolo.valente@unimore.it>
-Date: Sun, 05 Aug 2012 21:45:37 +0200
+From: Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
+Date: Sun, 05 Aug 2012 22:30:11 +0200
 
-> To speed up operations, QFQ internally divides classes into
-> groups. Which group a class belongs to depends on the ratio between
-> the maximum packet length and the weight of the class. Unfortunately
-> the function qfq_change_class lacks the steps for changing the group
-> of a class when the ratio max_pkt_len/weight of the class changes.
+> When building with ixp4xx_eth and ptp_ixp46x as module, one is getting the
+> following error:
 > 
-> For example, when the last of the following three commands is
-> executed, the group of class 1:1 is not correctly changed:
+> ERROR: "ixp46x_phc_index" [drivers/ptp/ptp_ixp46x.ko] undefined!
 > 
-> tc disc add dev XXX root handle 1: qfq
-> tc class add dev XXX parent 1: qfq classid 1:1 weight 1
-> tc class change dev XXX parent 1: classid 1:1 qfq weight 4
+> This has been introduced by commit 509a7c25729feab353502e1b544c614772a1d49a.
 > 
-> Not changing the group of a class does not affect the long-term
-> bandwidth guaranteed to the class, as the latter is independent of the
-> maximum packet length, and correctly changes (only) if the weight of
-> the class changes. In contrast, if the group of the class is not
-> updated, the class is still guaranteed the short-term bandwidth and
-> packet delay related to its old group, and not the guarantees that it
-> should receive according to its new weight and/or maximum packet
-> length. This may also break service guarantees for other classes.
-> This patch adds the missing operations.
-> 
-> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+> Signed-off-by: Arnaud Patard <arnaud.patard@rtp-net.org>
 
-Please provide clean Subject lines with patch submissions.
-
-Also, this patch doesn't apply cleanly at all.  Email the patch
-to yourself, and verify that you can in fact apply it to the
-current networking GIT tree just as I will have to.
+Applied.
