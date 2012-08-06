@@ -1,44 +1,83 @@
-From: Dave Jones <davej@redhat.com>
-Subject: WARNING: at net/ipv4/tcp.c:1598 tcp_recvmsg+0x641/0xd30()
-Date: Mon, 6 Aug 2012 11:46:16 -0400
-Message-ID: <20120806154616.GB2187@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: ethtool 3.5 released
+Date: Mon, 6 Aug 2012 17:41:23 +0100
+Message-ID: <1344271283.2632.6.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1344023317.2610.13.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120806102723.D637.C42C3789@sakura.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30415 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756442Ab2HFPqU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2012 11:46:20 -0400
-Content-Disposition: inline
+Received: from webmail.solarflare.com ([12.187.104.25]:25905 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756684Ab2HFQl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 12:41:27 -0400
+In-Reply-To: <20120806102723.D637.C42C3789@sakura.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We just got an automated report of this WARN being hit in 3.5
+On Mon, 2012-08-06 at 10:27 +0900, Naoto MATSUMOTO wrote:
+> Dear Ben.
+> 
+> FYI(For Your Information)
+> This is Naoto MATSUMOTO, Senior Researcher, SAKURA Internet.
+> 
+> We tried ethtool 3.5 on 40GbE NIC(Mellanox), it's result here.
+> -----------------------------------------------------------------------
+> # ./ethtool --version
+> ethtool version 3.5
+> 
+> # ./ethtool eth1
+> Settings for eth1:
+>         Supported ports: [ TP ]
+>         Supported link modes:   10000baseT/Full
+>         Supported pause frame use: No
+>         Supports auto-negotiation: No
+>         Advertised link modes:  10000baseT/Full
+>         Advertised pause frame use: No
+>         Advertised auto-negotiation: No
+>         Speed: 40000Mb/s
+>         Duplex: Full
+>         Port: Twisted Pair
 
- > backtrace:
- > :WARNING: at net/ipv4/tcp.c:1598 tcp_recvmsg+0x641/0xd30()
- > :Hardware name: P5Q DELUXE
- > :recvmsg bug: copied 99F66400 seq 99F6A4A8 rcvnxt 99F6CDAD fl 0
- > : [<ffffffff811848e6>] do_sync_read+0xe6/0x120
- > : [<ffffffff81275eea>] ? inode_has_perm.isra.31.constprop.61+0x2a/0x30
- > : [<ffffffff81272f32>] ? security_file_permission+0x92/0xb0
- > : [<ffffffff81184d81>] ? rw_verify_area+0x61/0xf0
- > : [<ffffffff811852cd>] vfs_read+0x15d/0x180
- > : [<ffffffff8118533a>] sys_read+0x4a/0x90
- > : [<ffffffff8160fc29>] system_call_fastpath+0x16/0x1b
+40G twisted-pair, eh?
 
-1594                         /* Now that we have two receive queues this
-1595                          * shouldn't happen.
-1596                          */
-1597                         if (WARN(before(*seq, TCP_SKB_CB(skb)->seq),
-1598                                  "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
-1599                                  *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
-1600                                  flags))
-1601                                 break;
+>         PHYAD: 0
+>         Transceiver: internal
+>         Auto-negotiation: off
+>         MDI-X: Unknown
+>         Supports Wake-on: d
+>         Wake-on: d
+>         Current message level: 0x00000014 (20)
+>                                link ifdown
+>         Link detected: yes
+> 
+> 
+> Our 40GbE NIC Firmware/Dirver status are here.
+> -----------------------------------------------------------------------
+> Mellanox ConnectX HCA Ethernet driver v1.5.8.3 (June 2012)
+> Ethernet controller: Mellanox Technologies MT27500 Family [ConnectX-3]
+> Firmware Version: 2.10.800
+> -----------------------------------------------------------------------
+> 
+> 
+> And We were testing 10GbE(Intel) NIC and your 40GbE NIC in our lab
+> using ethtool with added some debug code.
 
+I work for Solarflare, not Mellanox... and the patch adding 40G link
+modes came from Parav Pandit at Emulex.
 
-Hopefully this means more to you guys than it does to me.
+[...]
+> It's firmware problem I thinks. But Just Information for you ;-)
 
-	Dave
+Also, the 40G link mode flags were only just defined, so the driver
+probably has yet to be updated.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
