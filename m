@@ -1,58 +1,36 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 00/13] SCTP: Enable netns
-Date: Mon, 06 Aug 2012 11:20:08 -0700
-Message-ID: <87mx27rig7.fsf@xmission.com>
-References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] igb: use build_skb()
+Date: Mon, 06 Aug 2012 20:21:55 +0200
+Message-ID: <1344277315.26674.54.camel@edumazet-glaptop>
+References: <1343922692.9299.231.camel@edumazet-glaptop>
+	 <50200066.6060905@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jan Ariyasu <jan.ariyasu@hp.com>
-To: Jan Ariyasu <jan.ariyasu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com> (Jan
-	Ariyasu's message of "Sat, 4 Aug 2012 15:30:37 -0600")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:56794 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932347Ab2HFSWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 14:22:00 -0400
+Received: by mail-bk0-f46.google.com with SMTP id j10so1147352bkw.19
+        for <netdev@vger.kernel.org>; Mon, 06 Aug 2012 11:21:59 -0700 (PDT)
+In-Reply-To: <50200066.6060905@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Ariyasu <jan.ariyasu@gmail.com> writes:
+On Mon, 2012-08-06 at 10:35 -0700, Alexander Duyck wrote:
 
-> The following set of patches enable network-namespaces for the SCTP protocol.
->
-> The multitude of global parameters are stored in a net_generic
-> structure, and the bulk of the patches enable the protocol to access
-> the parameters on a per-namespace basis.  The first five patches
-> enable netns handling of the protocol, procfs and sysfs.
+> I was planning to move igb over to an ixgbe style receive path at some
+> point anyway.  Since it seems like this is now a higher priority I
+> figured I would try to get the patches for it implemented in the next
+> week or so.  Would there be any issue with us rejecting this patch and
+> instead switching igb over to the ixgbe style path?
 
-I am going to do something to muddy the waters here, that I had hoped to
-avoid when I saw your patchset.
+It seems I missed this part.
 
-A few weeks ago I wanted to play with sctp and also made a network
-namespace enabled version.  I am not deeply attached to my changes,
-however when comparing the differences I realized that your code fails
-to make the lookup of associations per network namespace.
-
-Given that we only have source and destination port to lookup
-assoications by this almost guarantees one network namespace can
-accidentially use the association of another network namespace meerly
-by reusing the same ports.
-
-The downside with my version is that it does not make all of the sctp
-tunables per network namespace the way yours does, but making all of
-the tunables per network namespace should be straight forward from
-my base.
-
-My patchset also misses some nice to haves like making the association
-id allocation per network namespace.  It is not important for
-correctness of the code but it might allow an information leak between
-namespaces.
-
-So Jan I am going to send my patchset and hopefully you can rebase your
-changes to make all of the tunables per network namespace on top of
-mine.
-
-Since my patchset is half the size of your I think that is the most
-reasonable way to go.
-
-Eric
+I use igb on my dev machine, not on prod machines, so if you are moving
+igb to ixgbe, I can certainly can maintain my patch in my tree, while
+you make your changes.
