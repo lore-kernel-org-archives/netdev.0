@@ -1,71 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] net: tcp: GRO should be ECN friendly
-Date: Mon, 06 Aug 2012 13:41:18 -0700 (PDT)
-Message-ID: <20120806.134118.2197594378586931190.davem@davemloft.net>
-References: <1344242090.9299.1656.camel@edumazet-glaptop>
-	<20120806090150.GB18425@gondor.apana.org.au>
+Subject: Re: [PATCH 1/6] hash: Introduce ptr_hash_mix routine
+Date: Mon, 06 Aug 2012 13:44:59 -0700 (PDT)
+Message-ID: <20120806.134459.954167716448843820.davem@davemloft.net>
+References: <501FD0F2.4040609@parallels.com>
+	<501FD11B.6000006@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: eric.dumazet@gmail.com, ebiederm@xmission.com,
+	netdev@vger.kernel.org
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39143 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39170 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755974Ab2HFUlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:41:19 -0400
-In-Reply-To: <20120806090150.GB18425@gondor.apana.org.au>
+	with ESMTP id S1755974Ab2HFUpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 16:45:00 -0400
+In-Reply-To: <501FD11B.6000006@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 6 Aug 2012 17:01:50 +0800
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Mon, 06 Aug 2012 18:13:47 +0400
 
-> On Mon, Aug 06, 2012 at 10:34:50AM +0200, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> While doing TCP ECN tests, I discovered GRO was reordering packets if it
->> receives one packet with CE set, while previous packets in same NAPI run
->> have ECT(0) for the same flow :
->> 
->> 09:25:25.857620 IP (tos 0x2,ECT(0), ttl 64, id 27893, offset 0, flags
->> [DF], proto TCP (6), length 4396)
->>     172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
->> 233801:238145, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
->> 1990627], length 4344
->> 
->> 09:25:25.857626 IP (tos 0x3,CE, ttl 64, id 27892, offset 0, flags [DF],
->> proto TCP (6), length 1500)
->>     172.30.42.19.54550 > 172.30.42.13.44139: Flags [.], seq
->> 232353:233801, ack 1, win 115, options [nop,nop,TS val 3397779 ecr
->> 1990627], length 1448
->> 
->> 09:25:25.857638 IP (tos 0x0, ttl 64, id 34581, offset 0, flags [DF],
->> proto TCP (6), length 64)
->>     172.30.42.13.44139 > 172.30.42.19.54550: Flags [.], cksum 0xac8f
->> (incorrect -> 0xca69), ack 232353, win 1271, options [nop,nop,TS val
->> 1990627 ecr 3397779,nop,nop,sack 1 {233801:238145}], length 0
->> 
->> We have two problems here :
->> 
->> 1) GRO reorders packets
->> 
->>   If NIC gave packet1, then packet2, which happen to be from "different
->> flows"  GRO feeds stack with packet2, then packet1. I have yet to
->> understand how to solve this problem.
->> 
->> 2) GRO is not ECN friendly
->> 
->> Delivering packets out of order makes TCP stack not as fast as it could
->> be.
->> 
->> In this patch I suggest we make the tos test not part of the 'same_flow'
->> determination, but part of the 'should flush' logic
->> 
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Good catch, thanks Eric!
+> @@ -67,4 +68,13 @@ static inline unsigned long hash_ptr(const void *ptr, unsigned int bits)
+>  {
+>  	return hash_long((unsigned long)ptr, bits);
+>  }
+> +
+> +static inline u32 ptr_hash_mix(const void *ptr)
+> +{
+> +#if BITS_PER_LONG == 32
+> +	return (u32)(unsigned long)ptr;
+> +#else
+> +	return (u32)((unsigned long)ptr >> L1_CACHE_SHIFT);
+> +#endif
+> +}
+>  #endif /* _LINUX_HASH_H */
 
-Applied to net-next, thanks Eric.
+This doesn't make much sense to me.
+
+If the whole 32-bits of the pointer is useful for entropy on 32-bit
+why isn't the whole 64-bits useful on 64-bit?
+
+I would, instead, expect something like:
+
+	ptr ^ (ptr >> 32)
+
+for the 64-bit case.
+
+Also, that L1_CACHE_SHIFT is something callers can decide to do.
+
+Only they know the size of their structure, the alignment used to
+allocate such objects, and thus what bits are "less relevant" and
+therefore profitable to elide from the bottom of the value.
