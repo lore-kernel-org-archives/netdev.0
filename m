@@ -1,53 +1,69 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Subject: [PATCH] net: Use PTR_RET rather than if(IS_ERR(.. [1]
-Date: Mon, 06 Aug 2012 19:51:16 +0200
-Message-ID: <1344275476.14513.104.camel@localhost.localdomain>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH net-next 0/9] sctp: Basic support for network namespaces
+Date: Mon, 06 Aug 2012 11:38:09 -0700
+Message-ID: <87zk67q31q.fsf_-_@xmission.com>
+References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
+	<87mx27rig7.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: "[acme@ghostprotocols.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org]"@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www17.your-server.de ([213.133.104.17]:47781 "EHLO
-	www17.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932294Ab2HFScH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 14:32:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Ariyasu <jan.ariyasu@hp.com>,
+	Jan Ariyasu <jan.ariyasu@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@infradead.org>, Xi Wang <xi.wang@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87mx27rig7.fsf@xmission.com> (Eric W. Biederman's message of
+	"Mon, 06 Aug 2012 11:20:08 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The semantic patch that makes this change is available
-in scripts/coccinelle/api/ptr_ret.cocci.
 
-More information about semantic patching is available at
-http://coccinelle.lip6.fr/
+The other day I wanted to play around with sctp and did a basic pass to
+make sctp per network namespace, so that I could play more conviniently.
+Apparently this is an idea who's time has come because Jan Ariyasu also
+made a similar set of changes.
 
-Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
----
+I have played around some with these changes and have confirmed that
+sctp_test from lksctp-tools works without problems.
 
-diff -u -p a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
---- a/drivers/net/appletalk/cops.c
-+++ b/drivers/net/appletalk/cops.c
-@@ -996,9 +996,7 @@ static int __init cops_module_init(void)
- 		printk(KERN_WARNING "%s: You shouldn't autoprobe with insmod\n",
- 			cardname);
- 	cops_dev = cops_probe(-1);
--	if (IS_ERR(cops_dev))
--		return PTR_ERR(cops_dev);
--        return 0;
-+	return PTR_RET(cops_dev);
- }
- 
- static void __exit cops_module_exit(void)
-diff -u -p a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
---- a/drivers/net/appletalk/ltpc.c
-+++ b/drivers/net/appletalk/ltpc.c
-@@ -1243,9 +1243,7 @@ static int __init ltpc_module_init(void)
- 		       "ltpc: Autoprobing is not recommended for modules\n");
- 
- 	dev_ltpc = ltpc_probe();
--	if (IS_ERR(dev_ltpc))
--		return PTR_ERR(dev_ltpc);
--	return 0;
-+	return PTR_RET(dev_ltpc);
- }
- module_init(ltpc_module_init);
- #endif
+Compared to Jan's changes I have per network namespace association and
+endpoint hash table lookups, my patch has per network namespace mib
+statistics, my changes don't contiain per network namespace tunables
+and my patchset only touches about half as many lines as Jan's change.
+
+So for both correctness and simplicity reasons it looks like the
+practical way to handle this is to merge my changes and get Jan rebase
+his tunable changes on top.
+
+ include/net/net_namespace.h |    4 +
+ include/net/netns/sctp.h    |   37 +++++
+ include/net/sctp/sctp.h     |   44 +++----
+ include/net/sctp/structs.h  |   28 +----
+ net/sctp/associola.c        |    9 +-
+ net/sctp/bind_addr.c        |   14 +-
+ net/sctp/chunk.c            |    2 +-
+ net/sctp/endpointola.c      |   12 +-
+ net/sctp/input.c            |  109 +++++++++------
+ net/sctp/ipv6.c             |   36 +++---
+ net/sctp/output.c           |    2 +-
+ net/sctp/outqueue.c         |   18 ++-
+ net/sctp/proc.c             |   58 +++++---
+ net/sctp/protocol.c         |  305 ++++++++++++++++++++++---------------------
+ net/sctp/sm_statefuns.c     |  208 ++++++++++++++++++-----------
+ net/sctp/socket.c           |   29 +++--
+ net/sctp/ulpqueue.c         |   18 ++-
+ 17 files changed, 533 insertions(+), 400 deletions(-)
+
+
+Eric W. Biederman (9):
+      sctp: Make the port hash table use struct net in it's key.
+      sctp: Make the endpoint hashtable handle multiple network namespaces
+      sctp: Make the association hashtable handle multiple network namespaces
+      sctp: Make the address lists per network namespace
+      sctp: Make the ctl_sock per network namespace
+      sctp: Move the percpu sockets counter out of sctp_proc_init
+      sctp: Make the proc files per network namespace.
+      sctp: Enable sctp in all network namespaces
+      sctp: Make the mib per network namespace
