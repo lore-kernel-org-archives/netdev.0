@@ -1,53 +1,49 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH 5/5] net: Loopback ifindex is constant now
-Date: Mon, 06 Aug 2012 16:13:35 +0400
-Message-ID: <501FB4EF.6060403@parallels.com>
-References: <501F9CAF.3030605@parallels.com>  <501F9D2B.8000504@parallels.com> <1344254071.26674.15.camel@edumazet-glaptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 1/7] netpoll: use GFP_ATOMIC in slave_enable_netpoll()
+ and __netpoll_setup()
+Date: Mon, 06 Aug 2012 20:31:46 +0800
+Message-ID: <1344256306.14728.29.camel@cr0>
+References: <1343403484-29347-1-git-send-email-amwang@redhat.com>
+	 <1343403484-29347-2-git-send-email-amwang@redhat.com>
+	 <1343985428.9299.868.camel@edumazet-glaptop> <1343986487.20871.2.camel@cr0>
+	 <1343988623.9299.932.camel@edumazet-glaptop>
+	 <1344244118.14728.28.camel@cr0> <1344246244.26674.0.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:17325 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756055Ab2HFMNn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2012 08:13:43 -0400
-In-Reply-To: <1344254071.26674.15.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344246244.26674.0.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/06/2012 03:54 PM, Eric Dumazet wrote:
-> On Mon, 2012-08-06 at 14:32 +0400, Pavel Emelyanov wrote:
->> As pointed out, there are places, that access net->loopback_dev->ifindex
->> and after ifindex generation is made per-net this value becomes constant
->> equals 1. So go ahead and introduce the LOOPBACK_IFINDEX constant and use
->> it where appropriate.
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+On Mon, 2012-08-06 at 11:44 +0200, Eric Dumazet wrote:
+> On Mon, 2012-08-06 at 17:08 +0800, Cong Wang wrote:
+> > On Fri, 2012-08-03 at 12:10 +0200, Eric Dumazet wrote: 
+> > > 
+> > > I did this , just take it ;)
+> > 
+> > Do we have to pass gfp to ->ndo_netpoll_setup() too? It seems no, so far
+> > I don't think we have to do that.
+> > 
+> > Thanks.
+> > 
 > 
-> What guarantee do we have that loopback is the first device per net ?
+> It is needed.
+> 
+> ->ndo_netpoll_setup() is called from __netpoll_setup()
+> 
+> So it would make no sense to allow GFP_KERNEL allocations in
+> ndo_netpoll_setup() hgandlers if we called __netpoll_setup() with
+> GFP_ATOMIC gfp
+> 
 
-In net_dev_init():
-
-        /* The loopback device is special if any other network devices
-         * is present in a network namespace the loopback device must
-         * be present. Since we now dynamically allocate and free the
-         * loopback device ensure this invariant is maintained by
-         * keeping the loopback device as the first device on the
-         * list of network devices.  Ensuring the loopback devices
-         * is the first device that appears and the last network device
-         * that disappears.
-         */
-        if (register_pernet_device(&loopback_net_ops))
-                goto out;
-
-
-> You should add this to the changelog because its not that obvious.
-
-OK.
-
-Thanks,
-Pavel
+I see your point. Thanks!
