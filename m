@@ -1,9 +1,9 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 0/9] sctp: Basic support for network namespaces
-Date: Mon, 06 Aug 2012 11:38:09 -0700
-Message-ID: <87zk67q31q.fsf_-_@xmission.com>
+Subject: [PATCH net-next 1/9] sctp: Make the port hash table use struct net in it's key.
+Date: Mon, 06 Aug 2012 11:39:38 -0700
+Message-ID: <87txwfq2z9.fsf_-_@xmission.com>
 References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
-	<87mx27rig7.fsf@xmission.com>
+	<87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
@@ -14,56 +14,147 @@ Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
 	Thomas Graf <tgraf@infradead.org>, Xi Wang <xi.wang@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mx27rig7.fsf@xmission.com> (Eric W. Biederman's message of
-	"Mon, 06 Aug 2012 11:20:08 -0700")
+In-Reply-To: <87zk67q31q.fsf_-_@xmission.com> (Eric W. Biederman's message of
+	"Mon, 06 Aug 2012 11:38:09 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-The other day I wanted to play around with sctp and did a basic pass to
-make sctp per network namespace, so that I could play more conviniently.
-Apparently this is an idea who's time has come because Jan Ariyasu also
-made a similar set of changes.
+- Add struct net into the port hash table hash calculation
+- Add struct net inot the struct sctp_bind_bucket so there
+  is a memory of which network namespace a port is allocated in.
+  No need for a ref count because sctp_bind_bucket only exists
+  when there are sockets in the hash table and sockets can not
+  change their network namspace, and sockets already ref count
+  their network namespace.
+- Add struct net into the key comparison when we are testing
+  to see if we have found the port hash table entry we are
+  looking for.
 
-I have played around some with these changes and have confirmed that
-sctp_test from lksctp-tools works without problems.
+With these changes lookups in the port hash table becomes
+safe to use in multiple network namespaces.
 
-Compared to Jan's changes I have per network namespace association and
-endpoint hash table lookups, my patch has per network namespace mib
-statistics, my changes don't contiain per network namespace tunables
-and my patchset only touches about half as many lines as Jan's change.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ include/net/sctp/sctp.h    |    4 ++--
+ include/net/sctp/structs.h |    1 +
+ net/sctp/socket.c          |   22 +++++++++++++---------
+ 3 files changed, 16 insertions(+), 11 deletions(-)
 
-So for both correctness and simplicity reasons it looks like the
-practical way to handle this is to merge my changes and get Jan rebase
-his tunable changes on top.
-
- include/net/net_namespace.h |    4 +
- include/net/netns/sctp.h    |   37 +++++
- include/net/sctp/sctp.h     |   44 +++----
- include/net/sctp/structs.h  |   28 +----
- net/sctp/associola.c        |    9 +-
- net/sctp/bind_addr.c        |   14 +-
- net/sctp/chunk.c            |    2 +-
- net/sctp/endpointola.c      |   12 +-
- net/sctp/input.c            |  109 +++++++++------
- net/sctp/ipv6.c             |   36 +++---
- net/sctp/output.c           |    2 +-
- net/sctp/outqueue.c         |   18 ++-
- net/sctp/proc.c             |   58 +++++---
- net/sctp/protocol.c         |  305 ++++++++++++++++++++++---------------------
- net/sctp/sm_statefuns.c     |  208 ++++++++++++++++++-----------
- net/sctp/socket.c           |   29 +++--
- net/sctp/ulpqueue.c         |   18 ++-
- 17 files changed, 533 insertions(+), 400 deletions(-)
-
-
-Eric W. Biederman (9):
-      sctp: Make the port hash table use struct net in it's key.
-      sctp: Make the endpoint hashtable handle multiple network namespaces
-      sctp: Make the association hashtable handle multiple network namespaces
-      sctp: Make the address lists per network namespace
-      sctp: Make the ctl_sock per network namespace
-      sctp: Move the percpu sockets counter out of sctp_proc_init
-      sctp: Make the proc files per network namespace.
-      sctp: Enable sctp in all network namespaces
-      sctp: Make the mib per network namespace
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index ff49964..7c05040 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -632,9 +632,9 @@ static inline int sctp_sanity_check(void)
+ 
+ /* Warning: The following hash functions assume a power of two 'size'. */
+ /* This is the hash function for the SCTP port hash table. */
+-static inline int sctp_phashfn(__u16 lport)
++static inline int sctp_phashfn(struct net *net, __u16 lport)
+ {
+-	return lport & (sctp_port_hashsize - 1);
++	return (net_hash_mix(net) + lport) & (sctp_port_hashsize - 1);
+ }
+ 
+ /* This is the hash function for the endpoint hash table. */
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index fc5e600..c089bb1 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -102,6 +102,7 @@ struct sctp_bind_bucket {
+ 	unsigned short	fastreuse;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owner;
++	struct net	*net;
+ };
+ 
+ struct sctp_bind_hashbucket {
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 5e25981..4316b0f 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5769,7 +5769,7 @@ static void sctp_unhash(struct sock *sk)
+  * a fastreuse flag (FIXME: NPI ipg).
+  */
+ static struct sctp_bind_bucket *sctp_bucket_create(
+-	struct sctp_bind_hashbucket *head, unsigned short snum);
++	struct sctp_bind_hashbucket *head, struct net *, unsigned short snum);
+ 
+ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ {
+@@ -5799,11 +5799,12 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ 				rover = low;
+ 			if (inet_is_reserved_local_port(rover))
+ 				continue;
+-			index = sctp_phashfn(rover);
++			index = sctp_phashfn(sock_net(sk), rover);
+ 			head = &sctp_port_hashtable[index];
+ 			sctp_spin_lock(&head->lock);
+ 			sctp_for_each_hentry(pp, node, &head->chain)
+-				if (pp->port == rover)
++				if ((pp->port == rover) &&
++				    net_eq(sock_net(sk), pp->net))
+ 					goto next;
+ 			break;
+ 		next:
+@@ -5827,10 +5828,10 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
+ 		 * to the port number (snum) - we detect that with the
+ 		 * port iterator, pp being NULL.
+ 		 */
+-		head = &sctp_port_hashtable[sctp_phashfn(snum)];
++		head = &sctp_port_hashtable[sctp_phashfn(sock_net(sk), snum)];
+ 		sctp_spin_lock(&head->lock);
+ 		sctp_for_each_hentry(pp, node, &head->chain) {
+-			if (pp->port == snum)
++			if ((pp->port == snum) && net_eq(pp->net, sock_net(sk)))
+ 				goto pp_found;
+ 		}
+ 	}
+@@ -5881,7 +5882,7 @@ pp_found:
+ pp_not_found:
+ 	/* If there was a hash table miss, create a new port.  */
+ 	ret = 1;
+-	if (!pp && !(pp = sctp_bucket_create(head, snum)))
++	if (!pp && !(pp = sctp_bucket_create(head, sock_net(sk), snum)))
+ 		goto fail_unlock;
+ 
+ 	/* In either case (hit or miss), make sure fastreuse is 1 only
+@@ -6113,7 +6114,7 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
+  ********************************************************************/
+ 
+ static struct sctp_bind_bucket *sctp_bucket_create(
+-	struct sctp_bind_hashbucket *head, unsigned short snum)
++	struct sctp_bind_hashbucket *head, struct net *net, unsigned short snum)
+ {
+ 	struct sctp_bind_bucket *pp;
+ 
+@@ -6123,6 +6124,7 @@ static struct sctp_bind_bucket *sctp_bucket_create(
+ 		pp->port = snum;
+ 		pp->fastreuse = 0;
+ 		INIT_HLIST_HEAD(&pp->owner);
++		pp->net = net;
+ 		hlist_add_head(&pp->node, &head->chain);
+ 	}
+ 	return pp;
+@@ -6142,7 +6144,8 @@ static void sctp_bucket_destroy(struct sctp_bind_bucket *pp)
+ static inline void __sctp_put_port(struct sock *sk)
+ {
+ 	struct sctp_bind_hashbucket *head =
+-		&sctp_port_hashtable[sctp_phashfn(inet_sk(sk)->inet_num)];
++		&sctp_port_hashtable[sctp_phashfn(sock_net(sk),
++						  inet_sk(sk)->inet_num)];
+ 	struct sctp_bind_bucket *pp;
+ 
+ 	sctp_spin_lock(&head->lock);
+@@ -6809,7 +6812,8 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	newsp->hmac = NULL;
+ 
+ 	/* Hook this new socket in to the bind_hash list. */
+-	head = &sctp_port_hashtable[sctp_phashfn(inet_sk(oldsk)->inet_num)];
++	head = &sctp_port_hashtable[sctp_phashfn(sock_net(oldsk),
++						 inet_sk(oldsk)->inet_num)];
+ 	sctp_local_bh_disable();
+ 	sctp_spin_lock(&head->lock);
+ 	pp = sctp_sk(oldsk)->bind_hash;
+-- 
+1.7.5.4
