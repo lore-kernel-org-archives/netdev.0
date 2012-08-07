@@ -1,129 +1,553 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH 1/6] hash: Introduce ptr_hash_mix routine
-Date: Tue, 07 Aug 2012 13:55:28 +0400
-Message-ID: <5020E610.1040808@parallels.com>
-References: <501FD0F2.4040609@parallels.com>  <501FD11B.6000006@parallels.com>  <20120806.134459.954167716448843820.davem@davemloft.net>  <5020DBCD.7040806@parallels.com> <1344331716.26674.89.camel@edumazet-glaptop>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCHv2 3/4] modem_shm: u8500-shm: U8500 Shared Memory Driver
+Date: Tue, 7 Aug 2012 11:01:56 +0100
+Message-ID: <20120807110156.4d0c2571@pyramind.ukuu.org.uk>
+References: <1344322471-3640-1-git-send-email-arun.murthy@stericsson.com>
+	<1344322471-3640-4-git-send-email-arun.murthy@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "ebiederm@xmission.com" <ebiederm@xmission.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:26162 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753492Ab2HGJzf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2012 05:55:35 -0400
-In-Reply-To: <1344331716.26674.89.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-doc@vger.kernel.org>, <gregkh@linuxfoundation.org>,
+	<sjur.brandeland@stericsson.com>
+To: Arun Murthy <arun.murthy@stericsson.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1344322471-3640-4-git-send-email-arun.murthy@stericsson.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I think we should avoid hash_ptr() because its quite expensive
-> 
-> David suggested to not use the L1_CACHE_SHIFT and instead do a plain :
-> 
-> static inline u32 ptr_hash_mix(const void *ptr)
-> {
-> 	unsigned long val = (unsigned long)ptr;
-> 
-> #if BITS_PER_LONG == 64
-> 	val ^= (val >> 32);
-> #endif
-> 	return (u32)val;
-> }
-> 
-> By the way we could name this hash32_ptr() instead of ptr_hash_mix()
+> +#define SIZE_OF_FIFO (512*1024)
+> +
+> +static u8 message_fifo[ISA_DEVICES][SIZE_OF_FIFO];
 
-OK. I was under impression, that hash_ptr was balanced from the fast/effective
-perspective, but I can't argue with you in that area :) So, please, consider
-the below patch instead of #1 and #2 (the rest ones remain unchanged).
+Thats a huge amount of static memory that gets allocated regardless of
+whether the device is open or being used ?
 
-Thanks,
-Pavel
+> +static int major;
+> +module_param(major, int, 0);
+> +MODULE_PARM_DESC(major, "Major device number");
+
+Is this really needed still - it looks like an escaped debugging aid
+
+> +/* global fops mutex */
+> +static DEFINE_MUTEX(isa_lock);
+> +
+> +/**
+> + * shrm_get_cdev_index() - return the index mapped to l2 header
+> + * @l2_header:	L2 header
+> + *
+> + * struct map_device maps the index(count) with the device L2 header.
+> + * This function returns the index for the provided L2 header in case
+> + * of success else -ve value.
+> + */
+> +int shrm_get_cdev_index(u8 l2_header)
+> +{
+> +	u8 cnt;
+> +	for (cnt = 0; cnt < ISA_DEVICES; cnt++) {
+> +		if (map_dev[cnt].l2_header == l2_header)
+> +			return map_dev[cnt].idx;
+> +	}
+> +	return -EINVAL;
+> +}
+
+Would be good to document the locking assumptions on this lot
+
+> +		/* reset the msg queue pointers */
+> +		q->size = SIZE_OF_FIFO;
+> +		q->readptr = 0;
+> +		q->writeptr = 0;
+
+Is there a reason for not using the existing kfifo layer for this work or
+does it need to handle other things kfifo cannot.
+
+> +static u32 isa_select(struct file *filp,
+> +				struct poll_table_struct *wait)
+> +{
+> +	struct isadev_context *isadev = filp->private_data;
+> +	struct shrm_dev *shrm = isadev->dl_queue.shrm;
+> +	struct message_queue *q;
+> +	u32 mask = 0;
+> +	u32 m = iminor(filp->f_path.dentry->d_inode);
+> +	u8 idx = shrm_get_cdev_index(m);
+> +
+> +	dev_dbg(shrm->dev, "%s IN\n", __func__);
+> +
+> +	if (shrm->msr_flag)
+> +		return -ENODEV;
+
+This test has no associated locking. Please explain what stop sit
+becoming true during the rest of this function ?
+
+> +/**
+> + * isa_read() - Read from device
+> + * @filp:	file descriptor
+> + * @buf:	user buffer pointer
+> + * @len:	size of requested data transfer
+> + * @ppos:	not used
+> + *
+> + * It reads a oldest message from queue and copies it into user buffer and
+> + * returns its size.
+> + * If there is no message present in queue, then it blocks until new data is
+> + * available.
+> + */
+> +ssize_t isa_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
+> +{
+> +	u32 size = 0;
+> +	int ret;
+> +	char *psrc;
+> +	struct isadev_context *isadev = (struct isadev_context *)
+> +							filp->private_data;
+
+Coding style - don't need the casts for void *
+
+> +	struct shrm_dev *shrm = isadev->dl_queue.shrm;
+> +	struct message_queue *q;
+> +	u32 msgsize;
+> +
+> +	dev_dbg(shrm->dev, "%s IN\n", __func__);
+> +
+> +	if (len <= 0)
+> +		return -EFAULT;
+
+How can this occur ?
+> +
+> +	q = &isadev->dl_queue;
+> +
+> +	if (shrm->msr_flag) {
+> +		atomic_set(&q->q_rp, 0);
+> +		return -ENODEV;
+> +	}
+
+Again - tests without locking
+> +
+> +	spin_lock_bh(&q->update_lock);
+> +	if (list_empty(&q->msg_list)) {
+> +		spin_unlock_bh(&q->update_lock);
+> +		dev_dbg(shrm->dev, "Waiting for Data\n");
+> +		if (wait_event_interruptible(q->wq_readable,
+> +				atomic_read(&q->q_rp) == 1))
+> +			return -ERESTARTSYS;
+> +	} else
+> +		spin_unlock_bh(&q->update_lock);
+> +
+> +	if (shrm->msr_flag) {
+> +		atomic_set(&q->q_rp, 0);
+> +		return -ENODEV;
+> +	}
+> +
+> +	msgsize = get_size_of_new_msg(q);
+> +
+> +	if (len < msgsize)
+> +		return -EINVAL;
+
+What happens with two parallel reads - I don't see what prevents
+corruption if that occurs or one racing read freeing the message before
+another has finished processing it.
+
+> +
+> +	if ((q->readptr+msgsize) >= q->size) {
+
+Minor style comment - you seen to randomly switch between a+b and a + b
+styles 8)
+
+> +		dev_dbg(shrm->dev, "Inside Loop Back\n");
+> +		psrc = (char *)buf;
+
+Probably best to use u8 * here, your buffer contents are not signed I
+assume ?
+
+> +		size = (q->size-q->readptr);
+> +		/* Copy First Part of msg */
+> +		if (copy_to_user(psrc,
+> +				(u8 *)(q->fifo_base+q->readptr),
+> +				size)) {
+> +			dev_err(shrm->dev, "copy_to_user failed\n");
+> +			return -EFAULT;
+> +		}
+> +		psrc += size;
+> +		/* Copy Second Part of msg at the top of fifo */
+> +		if (copy_to_user(psrc,
+> +				(u8 *)(q->fifo_base),
+> +				(msgsize-size))) {
+> +			dev_err(shrm->dev, "copy_to_user failed\n");
+> +			return -EFAULT;
+> +		}
+> +	} else {
+> +		if (copy_to_user(buf,
+> +				(u8 *)(q->fifo_base + q->readptr),
+> +				msgsize)) {
+> +			dev_err(shrm->dev, "copy_to_user failed\n");
+> +			return -EFAULT;
+> +		}
+
+Pedantically you should return the number of bytes successfully copied if
+you consume data. As this code stands it's not a big deal as far as I can
+see since you don't remove the message in this situation. I suspect that
+may need to change ?
 
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 1/5] net: Dont use ifindices in hash fns
+> +/**
+> + * isa_write() - Write to shrm char device
+> + * @filp:	file descriptor
+> + * @buf:	user buffer pointer
+> + * @len:	size of requested data transfer
+> + * @ppos:	not used
+> + *
+> + * It checks if there is space available in queue, and copies the message
+> + * inside queue. If there is no space, it blocks until space becomes available.
+> + * It also schedules transfer thread to transmit the newly added message.
+> + */
+> +ssize_t isa_write(struct file *filp, const char __user *buf,
+> +				 size_t len, loff_t *ppos)
+> +{
+> +	struct isadev_context *isadev = filp->private_data;
+> +	struct shrm_dev *shrm = isadev->dl_queue.shrm;
+> +	struct message_queue *q;
+> +	void *addr = 0;
+> +	int err, l2_header;
+> +	int ret = 0;
+> +
+> +	dev_dbg(shrm->dev, "%s IN\n", __func__);
+> +
+> +	if (len <= 0 || buf == NULL)
+> +		return -EFAULT;
 
-Eric noticed, that when there will be devices with equal indices, some
-hash functions that use them will become less effective as they could.
-Fix this in advance by mixing the net_device address into the hash value
-instead of the device index.
+len < 0 cannot occur, buf == NULL is not an error
 
-This is true for arp and ndisc hash fns. The netlabel, can and llc ones
-are also ifindex-based, but that three are init_net-only, thus will not
-be affected.
+> +	q = &isadev->dl_queue;
+> +	l2_header = shrm_get_cdev_l2header(isadev->device_id);
+> +	if (l2_header < 0) {
+> +		dev_err(shrm->dev, "failed to get L2 header\n");
+> +		return l2_header;
+> +	}
+> +
+> +	switch (l2_header) {
 
-Many thanks to David and Eric for the hash32_ptr implementation!
+Why keep going through switches and lookup tables - can't you cache this
+in the isadev or in some file private data ?
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
----
- include/linux/hash.h |   10 ++++++++++
- include/net/arp.h    |    3 ++-
- include/net/ndisc.h  |    3 ++-
- 3 files changed, 14 insertions(+), 2 deletions(-)
+> +	if (copy_from_user(addr, buf, len)) {
+> +		dev_err(shrm->dev, "copy_from_user failed\n");
 
-diff --git a/include/linux/hash.h b/include/linux/hash.h
-index b80506b..24df9e7 100644
---- a/include/linux/hash.h
-+++ b/include/linux/hash.h
-@@ -67,4 +67,14 @@ static inline unsigned long hash_ptr(const void *ptr, unsigned int bits)
- {
- 	return hash_long((unsigned long)ptr, bits);
- }
-+
-+static inline u32 hash32_ptr(const void *ptr)
-+{
-+	unsigned long val = (unsigned long)ptr;
-+
-+#if BITS_PER_LONG == 64
-+	val ^= (val >> 32);
-+#endif
-+	return (u32)val;
-+}
- #endif /* _LINUX_HASH_H */
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 7f7df93..b630dae 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -3,6 +3,7 @@
- #define _ARP_H
- 
- #include <linux/if_arp.h>
-+#include <linux/hash.h>
- #include <net/neighbour.h>
- 
- 
-@@ -10,7 +11,7 @@ extern struct neigh_table arp_tbl;
- 
- static inline u32 arp_hashfn(u32 key, const struct net_device *dev, u32 hash_rnd)
- {
--	u32 val = key ^ dev->ifindex;
-+	u32 val = key ^ hash32_ptr(dev);
- 
- 	return val * hash_rnd;
- }
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index 96a3b5c..980d263 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -49,6 +49,7 @@ enum {
- #include <linux/types.h>
- #include <linux/if_arp.h>
- #include <linux/netdevice.h>
-+#include <linux/hash.h>
- 
- #include <net/neighbour.h>
- 
-@@ -134,7 +135,7 @@ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, _
- {
- 	const u32 *p32 = pkey;
- 
--	return (((p32[0] ^ dev->ifindex) * hash_rnd[0]) +
-+	return (((p32[0] ^ hash32_ptr(dev)) * hash_rnd[0]) +
- 		(p32[1] * hash_rnd[1]) +
- 		(p32[2] * hash_rnd[2]) +
- 		(p32[3] * hash_rnd[3]));
--- 
-1.7.6.5
+This allows an user to fill the logs with crap - should be dev_dbg
+
+Also what happens on two parallel writers ?
+
+
+> +/**
+> + * isa_ioctl() - To handle different ioctl commands supported by driver.
+> + * @inode:	structure is used by the kernel internally to represent files
+> + * @filp:	file descriptor pointer
+> + * @cmd:	ioctl command
+> + * @arg:	input param
+
+This appears incomplete - it's just debug statements
+
+
+> +}
+> +/**
+> + * isa_mmap() - Maps kernel queue memory to user space.
+> + * @filp:	file descriptor pointer
+> + * @vma:	virtual area memory structure.
+> + *
+> + * This function maps kernel FIFO into user space. This function
+> + * shall be called twice to map both uplink and downlink buffers.
+
+Again this appears incomplete
+
+> +	if (atomic_dec_and_test(&isa_context->is_open[idx])) {
+> +		atomic_inc(&isa_context->is_open[idx]);
+
+This isn't safe I'd point out.. although it seems to jut be a "can't
+happen" recovery
+
+> +		dev_err(shrm->dev, "Device not opened yet\n");
+> +		mutex_unlock(&isa_lock);
+> +		return -ENODEV;
+> +	}
+> +	atomic_set(&isa_context->is_open[idx], 1);
+
+How do you know it will always be one. Also given it's within the mutex
+in all uses I can see why is it an atomic ?
+
+> +
+> +	switch (m) {
+> +	case RPC_MESSAGING:
+> +		dev_info(shrm->dev, "Close RPC_MESSAGING Device\n");
+> +		break;
+> +	case AUDIO_MESSAGING:
+> +		dev_info(shrm->dev, "Close AUDIO_MESSAGING Device\n");
+> +		break;
+> +	case SECURITY_MESSAGING:
+> +		dev_info(shrm->dev, "CLose SECURITY_MESSAGING Device\n");
+> +		break;
+> +	case COMMON_LOOPBACK_MESSAGING:
+> +		kfree(isadev->addr);
+> +		dev_info(shrm->dev, "Close COMMON_LOOPBACK_MESSAGING Device\n");
+> +		break;
+> +	case AUDIO_LOOPBACK_MESSAGING:
+> +		kfree(isadev->addr);
+> +		dev_info(shrm->dev, "Close AUDIO_LOOPBACK_MESSAGING Device\n");
+> +		break;
+> +	case CIQ_MESSAGING:
+> +		kfree(isadev->addr);
+> +		dev_info(shrm->dev, "Close CIQ_MESSAGING Device\n");
+> +		break;
+> +	case RTC_CAL_MESSAGING:
+> +		dev_info(shrm->dev, "Close RTC_CAL_MESSAGING Device\n");
+> +		break;
+
+kfree(NULL) is a no-op and guaranteed so, providing you see isadev->addr
+= NULL properly in the open path you can delete all of this code and just
+do
+kfree(isadev->addr);
+mutex_unlock(...)
+return 0;
+
+> +	if (get_boot_state() != BOOT_DONE) {
+> +		dev_err(shrm->dev, "Boot is not done\n");
+> +		return -EBUSY;
+> +	}
+
+Is it guaranteed that this is a one way path - ie a device never goes
+back into BOOT state ?
+
+> +	if (!atomic_dec_and_test(&isa_context->is_open[idx])) {
+> +		atomic_inc(&isa_context->is_open[idx]);
+> +		dev_err(shrm->dev, "Device already opened\n");
+> +		mutex_unlock(&isa_lock);
+> +		return -EBUSY;
+
+See comments earlier about the atomics
+
+> +	}
+> +	isadev = &isa_context->isadev[idx];
+> +	if (filp != NULL)
+> +		filp->private_data = isadev;
+
+How can filp be NULL ?
+
+> +
+> +	switch (m) {
+> +	case RPC_MESSAGING:
+> +		dev_info(shrm->dev, "Open RPC_MESSAGING Device\n");
+> +		break;
+> +	case AUDIO_MESSAGING:
+> +		dev_info(shrm->dev, "Open AUDIO_MESSAGING Device\n");
+> +		break;
+> +	case SECURITY_MESSAGING:
+> +		dev_info(shrm->dev, "Open SECURITY_MESSAGING Device\n");
+> +		break;
+> +	case COMMON_LOOPBACK_MESSAGING:
+> +		isadev->addr = kzalloc(10 * 1024, GFP_KERNEL);
+> +		if (!isadev->addr) {
+> +			mutex_unlock(&isa_lock);
+> +			return -ENOMEM;
+> +		}
+> +		dev_info(shrm->dev, "Open COMMON_LOOPBACK_MESSAGING Device\n");
+> +		break;
+> +	case AUDIO_LOOPBACK_MESSAGING:
+> +		isadev->addr = kzalloc(10 * 1024, GFP_KERNEL);
+> +		if (!isadev->addr) {
+> +			mutex_unlock(&isa_lock);
+> +			return -ENOMEM;
+> +		}
+> +		dev_info(shrm->dev, "Open AUDIO_LOOPBACK_MESSAGING Device\n");
+> +		break;
+> +	case CIQ_MESSAGING:
+> +		isadev->addr = kzalloc(10 * 1024, GFP_KERNEL);
+> +		if (!isadev->addr) {
+> +			mutex_unlock(&isa_lock);
+> +			return -ENOMEM;
+> +		}
+> +		dev_info(shrm->dev, "Open CIQ_MESSAGING Device\n");
+> +		break;
+> +	case RTC_CAL_MESSAGING:
+> +		dev_info(shrm->dev, "Open RTC_CAL_MESSAGING Device\n");
+> +		break;
+> +	};
+
+So all of this could just be
+
+	dev_dbg("Open device %d\n", m);
+	switch (m) {
+	case a
+	case b
+	case c
+		isadev->addr = ....
+		break;
+	case e
+	case f
+		isadev->addr = NULL;
+		break;
+	default:
+		error path
+
+also in your error case right now if you run out of memory you don't fix
+up the open counters.
+
+> +const struct file_operations isa_fops = {
+
+static
+
+
+> +	for (no_dev = 0; no_dev < ISA_DEVICES; no_dev++) {
+> +		atomic_set(&isa_context->is_open[no_dev], 1);
+> +		device_create(isa_context->shm_class, NULL,
+> +				MKDEV(MAJOR(dev_id),
+> +				map_dev[no_dev].l2_header), NULL,
+> +				map_dev[no_dev].name);
+> +	}
+
+What happens if I open the device right here... ?
+
+> +
+> +	isa_context->isadev = kzalloc(sizeof
+> +				(struct isadev_context)*ISA_DEVICES,
+> +				GFP_KERNEL);
+> +	if (isa_context->isadev == NULL) {
+> +		dev_err(shrm->dev, "Failed to alloc memory\n");
+> +		return -ENOMEM;
+
+You just leaked all the other stuff you created, left device pointers to
+invalid memory registered.
+
+There is a reason kernel drivers use the goto type error handling - it
+avoids missing these things.
+
+
+> diff --git a/drivers/modem_shm/u8500_shm/shrm_fifo.c b/drivers/modem_shm/u8500_shm/shrm_fifo.c
+> new file mode 100644
+> index 0000000..ad63cc4
+> --- /dev/null
+> +++ b/drivers/modem_shm/u8500_shm/shrm_fifo.c
+> @@ -0,0 +1,837 @@
+> +/*
+> + * Copyright (C) ST-Ericsson SA 2010
+> + *
+> + * Author: Arun Murthy <arun.murthy@stericsson.com>
+> + *	Kumar Sanghvi for ST-Ericsson
+> + *
+> + * License terms: GNU General Public License (GPL) version 2
+> + */
+> +
+> +#include <linux/modem_shm/u8500_shm/shrm.h>
+> +#include <linux/modem_shm/u8500_shm/shrm_driver.h>
+> +#include <linux/modem_shm/u8500_shm/shrm_private.h>
+> +#include <linux/modem_shm/u8500_shm/shrm_net.h>
+> +#include <linux/mfd/dbx500-prcmu.h>
+> +
+> +#define L1_BOOT_INFO_REQ	1
+> +#define L1_BOOT_INFO_RESP	2
+> +#define L1_NORMAL_MSG		3
+> +#define L1_HEADER_MASK		28
+> +#define L1_MAPID_MASK		0xF0000000
+> +#define CONFIG_OFFSET		8
+> +#define COUNTER_OFFSET		20
+> +#define L2_HEADER_SIZE		4
+> +#define L2_HEADER_OFFSET	24
+> +#define MASK_0_15_BIT		0xFF
+> +#define MASK_16_31_BIT		0xFF00
+> +#define MASK_16_27_BIT		0xFFF0000
+> +#define MASK_0_39_BIT		0xFFFFF
+> +#define MASK_40_55_BIT		0xFF00000
+> +#define MASK_8_16_BIT           0x0000FF00
+> +#define MSG_LEN_OFFSET          16
+> +#define SHRM_VER                2
+> +#define ca_ist_inactivity_timer 25 /*25ms */
+> +#define ca_csc_inactivity_timer 25 /*25ms */
+> +
+> +static u8 msg_audio_counter;
+> +static u8 msg_common_counter;
+> +
+> +struct fifo_write_params ape_shm_fifo_0;
+> +struct fifo_write_params ape_shm_fifo_1;
+> +struct fifo_read_params cmt_shm_fifo_0;
+> +struct fifo_read_params cmt_shm_fifo_1;
+
+static or fix the naming
+> +
+> +
+> +static u8 cmt_read_notif_0_send;
+> +static u8 cmt_read_notif_1_send;
+> +
+> +void shm_fifo_init(struct shrm_dev *shrm)
+
+Fix the naming shm_ is the kernel shared memory layer, and we don't want
+clashes. You seem to use shrm_ elsewhere
+
+ +u8 read_boot_info_req(struct shrm_dev *shrm,
+
+Static or naming
+
+> +void write_boot_info_resp(struct shrm_dev *shrm, u32 config,
+> +							u32 version)
+> +{
+
+Ditto
+
+> +		skb_copy_to_linear_data(skb,
+> +				(u8 *)(q->fifo_base + q->readptr), size);
+> +		skb_put(skb, size);
+
+Is this coming from host or ioremap memory ?
+
+> +	skb->dev = dev;/*kmalloc(sizeof(struct net_device), GFP_ATOMIC);*/
+
+Wants cleaning up
+
+> +	struct shrm_net_iface_priv *net_iface_priv =
+> +			(struct shrm_net_iface_priv *)netdev_priv(dev);
+
+[style: unneeded casts - lot of thise in this file]
+
+
+
+> +struct sock *shrm_nl_sk;
+
+Better to make globals visible than bury them in a mass of statics
+
+(actually all of this raises a big question - what happens if you ever
+need to have two modems - you are basically hardcoding one per system.
+That's fine if you are *very* sure it will remain true)
+
+> +/* Spin lock and tasklet declaration */
+> +DECLARE_TASKLET(shm_ca_0_tasklet, shm_ca_msgpending_0_tasklet, 0);
+> +DECLARE_TASKLET(shm_ca_1_tasklet, shm_ca_msgpending_1_tasklet, 0);
+> +DECLARE_TASKLET(shm_ac_read_0_tasklet, shm_ac_read_notif_0_tasklet, 0);
+> +DECLARE_TASKLET(shm_ac_read_1_tasklet, shm_ac_read_notif_1_tasklet, 0);
+
+static
+
+
+> +#ifdef CONFIG_U8500_SHRM_MODEM_SILENT_RESET
+> +static int shrm_modem_reset_sequence(void)
+
+> +	/* reset the boot state */
+> +	spin_lock_irqsave(&boot_lock, flags);
+> +	boot_state = BOOT_INIT;
+
+Your open method locking earlier assumes this cannot go backwards...
+
+
+> +		dev_info(shm_dev->dev, "Initiating Modem silent reset\n");
+
+Seems an odd use of dev_info.. if its a bug workaround then perhaps
+dev_warn, and if its not important dev_dbg ?
+
+> +DECLARE_TASKLET(shrm_sw_reset_callback, shrm_modem_reset_callback,
+> +		IRQ_PRCMU_MODEM_SW_RESET_REQ);
+> +
+
+static 
+
+Lots of other stuff here that should be shrm_ or static...
+
+There also seems to be places where you copy or touch the fifo memory
+which was ioremapped but don't use readb/writeb/memcpy_toio etc, or
+handle endianness. While endianness might be the kind of thing you can be
+sure of in some embedded platforms not using readb and the like means the
+compiler can do interesting optimisations you won't want and is something
+that will break on some architectures and potentially on others in future.
+
+Alan
