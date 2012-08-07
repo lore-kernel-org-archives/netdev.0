@@ -1,9 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC v3 4/7] workqueue: use new hashtable implementation
-Date: Mon, 06 Aug 2012 18:19:11 -0700
-Message-ID: <1344302351.2026.24.camel@joe2Laptop>
+Subject: Re: [RFC v3 1/7] hashtable: introduce a small and naive hashtable
+Date: Mon, 06 Aug 2012 18:19:06 -0700
+Message-ID: <1344302346.2026.23.camel@joe2Laptop>
 References: <1344300317-23189-1-git-send-email-levinsasha928@gmail.com>
-	 <1344300317-23189-6-git-send-email-levinsasha928@gmail.com>
+	 <1344300317-23189-2-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,60 +12,67 @@ Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
  paul.gortmaker@windriver.com,  davem@davemloft.net, rostedt@goodmis.org,
  mingo@elte.hu, ebiederm@xmission.com,  aarcange@redhat.com,
  ericvh@gmail.com, netdev@vger.kernel.org,  josh@joshtriplett.org,
- eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com,  Sasha Levin
- <sasha.levin@oracle.com>
+ eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com
 To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1344300317-23189-6-git-send-email-levinsasha928@gmail.com>
+In-Reply-To: <1344300317-23189-2-git-send-email-levinsasha928@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2012-08-07 at 02:45 +0200, Sasha Levin wrote:
-> From: Sasha Levin <sasha.levin@oracle.com>
-> 
-> Switch workqueues to use the new hashtable implementation. This reduces the amount of
-> generic unrelated code in the workqueues.
+> This hashtable implementation is using hlist buckets to provide a simple
+> hashtable to prevent it from getting reimplemented all over the kernel.
 
-Just style trivia:
+> diff --git a/include/linux/hashtable.h b/include/linux/hashtable.h
 
-> diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-[]
-> @@ -897,8 +839,15 @@ static struct worker *__find_worker_executing_work(struct global_cwq *gcwq,
->  static struct worker *find_worker_executing_work(struct global_cwq *gcwq,
->  						 struct work_struct *work)
->  {
-> -	return __find_worker_executing_work(gcwq, busy_worker_head(gcwq, work),
-> -					    work);
-> +	struct worker *worker;
-> +	struct hlist_node *tmp;
+Just trivial style notes and a typo
+
+> +/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
+> +#define hash_min(val, bits) ((sizeof(val)==4)?hash_32((val), (bits)):hash_long((val), (bits)))
+
+This is a pretty long line.  It doesn't use normal kernel spacing
+style and it has unnecessary parentheses.
+
+Maybe:
+
+#define hash_min(val, bits)						\
+	(sizeof(val) == 4 ? hash_32(val, bits) : hash_long(val, bits))
+
 > +
-> +	hash_for_each_possible(gcwq->busy_hash, worker, BUSY_WORKER_HASH_ORDER,
-> +								tmp, hentry, work)
-> +		if (worker->current_work == work)
-> +			return worker;
+> +/**
+> + * hash_init - initialize a hash table
+> + * @hashtable: hashtable to be initialized
+> + * @bits: bit count of hashing function
+> + *
+> + * Initializes a hash table with 2**bits buckets.
+> + */
+> +static inline void hash_init(struct hlist_head *hashtable, int bits)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < HASH_SIZE(bits); i++)
+> +		INIT_HLIST_HEAD(hashtable + i);
+> +}
 
-braces please:
+Maybe use a struct hlist_head *last_hash_entry as a loop variable
 
-	hash_for_each_possible(gcwq->busy_hash, worker, BUSY_WORKER_HASH_ORDER,
-			       tmp, hentry, work) {
-		if (worker->current_work == work)
-			return worker;
-	}
+{
+	struct hlist_head *eo_hash = hashtable + HASH_SIZE(bits);
+
+	while (hashtable < eo_hash)
+		INIT_HLIST_HEAD(hashtable++);
+}
+
+The compiler might generate the same code anyway...
 
 []
 
-@@ -1916,7 +1865,7 @@ static void cwq_dec_nr_in_flight(struct cpu_workqueue_struct *cwq, int color,
->   * @worker: self
->   * @work: work to process
->   *
-> - * Process @work.  This function contains all the logics necessary to
-> + * Process @work.  This? function contains all the logics necessary to
+> +/**
+> + * hash_for_each_possible - iterate over all possible objects for a giver key
+> + * @name: hashtable to iterate
+> + * @obj: the type * to use as a loop cursor for each bucke
 
-Odd ? and the grammar also seems odd.
-
->   * process a single work including synchronization against and
->   * interaction with other workers on the same cpu, queueing and
->   * flushing.  As long as context requirement is met, any worker can
+bucket
 
 
 --
