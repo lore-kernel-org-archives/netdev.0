@@ -1,105 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH net-next 4/7] sctp: Push struct net down into sctp_in_scope
-Date: Tue, 07 Aug 2012 10:27:02 -0700
-Message-ID: <87sjbybok9.fsf_-_@xmission.com>
-References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
-	<87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com>
-	<87ipcud3ld.fsf_-_@xmission.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: fib: fix incorrect call_rcu_bh()
+Date: Tue, 7 Aug 2012 10:07:02 -0700
+Message-ID: <20120807170702.GH2378@linux.vnet.ibm.com>
+References: <1344336431.28967.14.camel@edumazet-glaptop>
+ <20120807163454.GF2378@linux.vnet.ibm.com>
+ <1344358094.28967.116.camel@edumazet-glaptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan Ariyasu <jan.ariyasu@hp.com>,
-	Jan Ariyasu <jan.ariyasu@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@infradead.org>, Xi Wang <xi.wang@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ipcud3ld.fsf_-_@xmission.com> (Eric W. Biederman's message of
-	"Tue, 07 Aug 2012 10:17:02 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:40894 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752081Ab2HGR2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2012 13:28:34 -0400
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Tue, 7 Aug 2012 13:28:33 -0400
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 942B23C60A41
+	for <netdev@vger.kernel.org>; Tue,  7 Aug 2012 13:07:14 -0400 (EDT)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q77H77HN9044030
+	for <netdev@vger.kernel.org>; Tue, 7 Aug 2012 13:07:07 -0400
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q77H72ZY005231
+	for <netdev@vger.kernel.org>; Tue, 7 Aug 2012 11:07:03 -0600
+Content-Disposition: inline
+In-Reply-To: <1344358094.28967.116.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Aug 07, 2012 at 06:48:14PM +0200, Eric Dumazet wrote:
+> On Tue, 2012-08-07 at 09:34 -0700, Paul E. McKenney wrote:
+> > On Tue, Aug 07, 2012 at 12:47:11PM +0200, Eric Dumazet wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > After IP route cache removal, I believe rcu_bh() has very little use and
+> > > we should remove this RCU variant, since it adds some cycles in fast
+> > > path.
+> > 
+> > Do you mean remove all uses of RCU-bh globally and also removing the
+> > implementation itself?  That would actually be a good thing, from my
+> > perspective.
+> > 
+> 
+> Yes I meant that there are now too few rcu_bh users, and that they
+> probably could switch to regular rcu.
+> 
+> We could then remove the implementation.
+> 
+> rcu_bh was needed because we could sit forever in softirq mode in one
+> cpu, and we needed to allocate/free dsts with RCU protection.
 
-struct net will be needed shortly when the tunables are made per network
-namespace.
+Very cool!!!  Anything I can do to help, aside of course from the final
+removal of RCU-bh support?
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- include/net/sctp/structs.h |    2 +-
- net/sctp/bind_addr.c       |    4 ++--
- net/sctp/protocol.c        |    2 +-
- net/sctp/sm_make_chunk.c   |    3 ++-
- 4 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 88d2179..b0882f3 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1248,7 +1248,7 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw, int len,
- 			   __u16 port, gfp_t gfp);
- 
- sctp_scope_t sctp_scope(const union sctp_addr *);
--int sctp_in_scope(const union sctp_addr *addr, const sctp_scope_t scope);
-+int sctp_in_scope(struct net *net, const union sctp_addr *addr, const sctp_scope_t scope);
- int sctp_is_any(struct sock *sk, const union sctp_addr *addr);
- int sctp_addr_is_valid(const union sctp_addr *addr);
- int sctp_is_ep_boundall(struct sock *sk);
-diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
-index a85ce4b..23389ba 100644
---- a/net/sctp/bind_addr.c
-+++ b/net/sctp/bind_addr.c
-@@ -457,7 +457,7 @@ static int sctp_copy_one_addr(struct net *net, struct sctp_bind_addr *dest,
- 
- 	if (sctp_is_any(NULL, addr)) {
- 		error = sctp_copy_local_addr_list(net, dest, scope, gfp, flags);
--	} else if (sctp_in_scope(addr, scope)) {
-+	} else if (sctp_in_scope(net, addr, scope)) {
- 		/* Now that the address is in scope, check to see if
- 		 * the address type is supported by local sock as
- 		 * well as the remote peer.
-@@ -494,7 +494,7 @@ int sctp_is_any(struct sock *sk, const union sctp_addr *addr)
- }
- 
- /* Is 'addr' valid for 'scope'?  */
--int sctp_in_scope(const union sctp_addr *addr, sctp_scope_t scope)
-+int sctp_in_scope(struct net *net, const union sctp_addr *addr, sctp_scope_t scope)
- {
- 	sctp_scope_t addr_scope = sctp_scope(addr);
- 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index de25d9c..85f87c3 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -210,7 +210,7 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
- 	list_for_each_entry_rcu(addr, &net->sctp.local_addr_list, list) {
- 		if (!addr->valid)
- 			continue;
--		if (sctp_in_scope(&addr->a, scope)) {
-+		if (sctp_in_scope(net, &addr->a, scope)) {
- 			/* Now that the address is in scope, check to see if
- 			 * the address type is really supported by the local
- 			 * sock as well as the remote peer.
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 479a70e..fb12835 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -2466,6 +2466,7 @@ static int sctp_process_param(struct sctp_association *asoc,
- 			      const union sctp_addr *peer_addr,
- 			      gfp_t gfp)
- {
-+	struct net *net = sock_net(asoc->base.sk);
- 	union sctp_addr addr;
- 	int i;
- 	__u16 sat;
-@@ -2494,7 +2495,7 @@ do_addr_param:
- 		af = sctp_get_af_specific(param_type2af(param.p->type));
- 		af->from_addr_param(&addr, param.addr, htons(asoc->peer.port), 0);
- 		scope = sctp_scope(peer_addr);
--		if (sctp_in_scope(&addr, scope))
-+		if (sctp_in_scope(net, &addr, scope))
- 			if (!sctp_assoc_add_peer(asoc, &addr, gfp, SCTP_UNCONFIRMED))
- 				return 0;
- 		break;
--- 
-1.7.5.4
+							Thanx, Paul
