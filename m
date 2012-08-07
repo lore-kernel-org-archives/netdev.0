@@ -1,105 +1,127 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: First pass at MSG_FASTOPEN support in top-of-trunk netperf
-Date: Mon, 06 Aug 2012 18:47:06 -0700
-Message-ID: <5020739A.3060809@hp.com>
+From: Li Wei <lw@cn.fujitsu.com>
+Subject: Re: [RFC v3 1/7] hashtable: introduce a small and naive hashtable
+Date: Tue, 07 Aug 2012 09:48:25 +0800
+Message-ID: <502073E9.8050205@cn.fujitsu.com>
+References: <1344300317-23189-1-git-send-email-levinsasha928@gmail.com> <1344300317-23189-2-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:36663 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932091Ab2HGBrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 21:47:09 -0400
-Received: from g5t0012.atlanta.hp.com (unknown [15.192.0.16])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g5t0006.atlanta.hp.com (Postfix) with ESMTPS id 7C53CC280
-	for <netdev@vger.kernel.org>; Tue,  7 Aug 2012 01:47:08 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g5t0012.atlanta.hp.com (Postfix) with ESMTPSA id 4B0F510003
-	for <netdev@vger.kernel.org>; Tue,  7 Aug 2012 01:47:08 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
+        mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com,
+        ericvh@gmail.com, netdev@vger.kernel.org, josh@joshtriplett.org,
+        eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1344300317-23189-2-git-send-email-levinsasha928@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Folks -
+On 08/07/2012 08:45 AM, Sasha Levin wrote:
+> This hashtable implementation is using hlist buckets to provide a simple
+> hashtable to prevent it from getting reimplemented all over the kernel.
+> 
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
+>  include/linux/hashtable.h |   82 +++++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 82 insertions(+), 0 deletions(-)
+>  create mode 100644 include/linux/hashtable.h
+> 
+> diff --git a/include/linux/hashtable.h b/include/linux/hashtable.h
+> new file mode 100644
+> index 0000000..394652b
+> --- /dev/null
+> +++ b/include/linux/hashtable.h
+> @@ -0,0 +1,82 @@
+> +/*
+> + * Hash table implementation
+> + * (C) 2012  Sasha Levin <levinsasha928@gmail.com>
+> + */
+> +
+> +#ifndef _LINUX_HASHTABLE_H
+> +#define _LINUX_HASHTABLE_H
+> +
+> +#include <linux/list.h>
+> +#include <linux/types.h>
+> +#include <linux/kernel.h>
+> +#include <linux/hash.h>
+> +
+> +#define DEFINE_HASHTABLE(name, bits)					\
+> +	struct hlist_head name[HASH_SIZE(bits)];
+> +
+> +#define HASH_SIZE(bits) (1 << (bits))
+> +
+> +/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
+> +#define hash_min(val, bits) ((sizeof(val)==4)?hash_32((val), (bits)):hash_long((val), (bits)))
+> +
+> +/**
+> + * hash_init - initialize a hash table
+> + * @hashtable: hashtable to be initialized
+> + * @bits: bit count of hashing function
+> + *
+> + * Initializes a hash table with 2**bits buckets.
+> + */
+> +static inline void hash_init(struct hlist_head *hashtable, int bits)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < HASH_SIZE(bits); i++)
+> +		INIT_HLIST_HEAD(hashtable + i);
+> +}
+> +
+> +/**
+> + * hash_add - add an object to a hashtable
+> + * @hashtable: hashtable to add to
+> + * @bits: bit count used for hashing
+> + * @node: the &struct hlist_node of the object to be added
+> + * @key: the key of the object to be added
+> + */
+> +#define hash_add(hashtable, bits, node, key)				\
+> +	hlist_add_head(node, &hashtable[hash_min(key, bits)]);
+> +
+> +/**
+> + * hash_del - remove an object from a hashtable
+> + * @node: &struct hlist_node of the object to remove
+> + */
+> +static inline void hash_del(struct hlist_node *node)
+> +{
+> +	hlist_del_init(node);
+> +}
+> +
+> +/**
+> + * hash_for_each - iterate over a hashtable
+> + * @name: hashtable to iterate
+> + * @bits: bit count of hashing function of the hashtable
+> + * @bkt: integer to use as bucket loop cursor
+> + * @node: the &struct list_head to use as a loop cursor for each bucket
+> + * @obj: the type * to use as a loop cursor for each bucket
+> + * @member: the name of the hlist_node within the struct
+> + */
+> +#define hash_for_each(name, bits, bkt, node, obj, member)		\
+> +	for (bkt = 0; bkt < HASH_SIZE(bits); bkt++)			\
+> +		hlist_for_each_entry(obj, node, &name[i], member)
 
-I have just checked-in to the top-of-trunk netperf 
-(http://www.netperf.org/svn/netperf2/trunk) some changes which enable 
-use of sendto(MSG_FASTOPEN) in a TCP_CRR test.  While I was checking the 
-system calls I noticed that netperf was calling enable_enobufs() for 
-every migrated test, not just a UDP_STREAM test (the one where it is 
-needed), so I fixed that at the same time.  Baseline is taken with the 
-fix in place.
+Where is the 'i' coming from? maybe &name[bkt]?
 
-MSG_FASTOPEN is used when one adds a test-specific -F option to the 
-netperf command line:
+> +
+> +/**
+> + * hash_for_each_possible - iterate over all possible objects for a giver key
+> + * @name: hashtable to iterate
+> + * @obj: the type * to use as a loop cursor for each bucke
+> + * @bits: bit count of hashing function of the hashtable
+> + * @node: the &struct list_head to use as a loop cursor for each bucket
+> + * @member: the name of the hlist_node within the struct
+> + * @key: the key of the objects to iterate over
+> + */
+> +#define hash_for_each_possible(name, obj, bits, node, member, key)	\
+> +	hlist_for_each_entry(obj, node,					\
+> +		&name[hash_min(key, bits)], member)
+> +
+> +#endif
 
-netperf -t TCP_CRR -H <destination> -- -F
-
-Just testing the client side from a VM on my workstation (running a 
-net-next pulled just before 16:30 Pacific time) to my workstation itself 
-I notice the following:
-
-Without MSG_FASTOPEN:
-raj@tardy-ubuntu-1204:~/netperf2_trunk$ src/netperf -H tardy.usa.hp.com 
--t TCP_CRR -i 3,30
-MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 
-AF_INET to tardy.usa.hp.com () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
-demo
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-
-16384  87380  1        1       10.00    2092.33
-16384  87380
-
-With MSG_FASTOPEN
-raj@tardy-ubuntu-1204:~/netperf2_trunk$ src/netperf -H tardy.usa.hp.com 
--t TCP_CRR -i 3,30 -- -F
-MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 
-AF_INET to tardy.usa.hp.com () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
-demo
-!!! WARNING
-!!! Desired confidence was not achieved within the specified iterations.
-!!! This implies that there was variability in the test environment that
-!!! must be investigated before going further.
-!!! Confidence intervals: Throughput      : 6.565%
-!!!                       Local CPU util  : 0.000%
-!!!                       Remote CPU util : 0.000%
-
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-
-16384  87380  1        1       10.00    2590.18
-16384  87380
-
-There was a ~25% increase in TCP_CRR performance, even without the 
-server actually accepting the magic TCP option.  Is that actually 
-expected?  Admittedly, it eliminates a connect() call, but the sequence 
-before was:
-
-socket()
-getsockopt(SO_SNDBUF)
-getsockopt(SO_RCVBUF)
-setsockopt(SO_REUSEADDR)
-bind()
-connect()
-sendto(4, "n", 1, 0, NULL, 0)           = 1
-recvfrom(4, "n", 1, 0, NULL, NULL)      = 1
-recvfrom(4, "", 1, 0, NULL, NULL)       = 0
-close(4)
-
-and with MSG_FASTOPEN only the connect() goes away.  Unless connect() is 
-really heavy compared to what sendto(MSG_FASTOPEN) does or something 
-else has changed wrt behaviour.
-
-Anyway, feel free to kick the tires on the netperf changes and let me 
-know of any problems you encounter.
-
-happy benchmarking,
-
-rick jones
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
