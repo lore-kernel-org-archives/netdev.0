@@ -1,49 +1,58 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] batman-adv: Fix mem leak in the batadv_tt_local_event()
- function
-Date: Tue, 7 Aug 2012 20:32:34 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1208072030500.3227@swampdragon.chaosbits.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/5 (resend)] veth: Allow to create peer link with given
+ ifindex
+Date: Tue, 7 Aug 2012 19:36:13 +0100
+Message-ID: <1344364573.2688.13.camel@bwh-desktop.uk.solarflarecom.com>
+References: <501FD0F2.4040609@parallels.com>
+	 <501FD14F.2040209@parallels.com> <5020F5AB.3090101@parallels.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Antonio Quartulli <ordex@autistici.org>,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:12218 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751225Ab2HGSgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 14:36:17 -0400
+In-Reply-To: <5020F5AB.3090101@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Memory is allocated for 'tt_change_node' with kmalloc().
-'tt_change_node' may go out of scope really being used for anything
-(except have a few members initialized) if we hit the 'del:' label.
-This patch makes sure we free the memory in that case.
+On Tue, 2012-08-07 at 15:02 +0400, Pavel Emelyanov wrote:
+> The ifinfomsg is in there (thanks kaber@ for foreseeing this long time ago),
+> so take the given ifidex and register netdev with it.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> ---
+>  drivers/net/veth.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> index 5852361..496c026 100644
+> --- a/drivers/net/veth.c
+> +++ b/drivers/net/veth.c
+> @@ -348,6 +348,9 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+>  	if (tbp[IFLA_ADDRESS] == NULL)
+>  		eth_hw_addr_random(peer);
+>  
+> +	if (ifmp)
+> +		peer->ifindex = ifmp->ifi_index;
+> +
+>  	err = register_netdevice(peer);
+>  	put_net(net);
+>  	net = NULL;
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- net/batman-adv/translation-table.c | 1 +
- 1 file changed, 1 insertion(+)
+Is this safe, given that this code path previously ignored
+ifmp->ifi_index?  Userland could be passing in garbage and may now fail
+occasionally because the value clashes with an existing interface.
 
- Compile tested only.
+Ben.
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index a438f4b..99dd8f7 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -197,6 +197,7 @@ static void batadv_tt_local_event(struct batadv_priv *bat_priv,
- del:
- 		list_del(&entry->list);
- 		kfree(entry);
-+		kfree(tt_change_node);
- 		event_removed = true;
- 		goto unlock;
- 	}
 -- 
-1.7.11.4
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
-Don't top-post http://www.catb.org/jargon/html/T/top-post.html
-Plain text mails only, please.
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
