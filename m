@@ -1,71 +1,105 @@
-From: Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
-Subject: Re[2]: ethtool 3.5 released
-Date: Tue, 07 Aug 2012 10:36:20 +0900
-Message-ID: <20120807103619.5C99.C42C3789@sakura.ad.jp>
-References: <20120806102723.D637.C42C3789@sakura.ad.jp> <1344271283.2632.6.camel@bwh-desktop.uk.solarflarecom.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: First pass at MSG_FASTOPEN support in top-of-trunk netperf
+Date: Mon, 06 Aug 2012 18:47:06 -0700
+Message-ID: <5020739A.3060809@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sakura.ad.jp ([210.224.172.11]:21120 "EHLO
-	mail.sakura.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756926Ab2HGBgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 21:36:23 -0400
-In-Reply-To: <1344271283.2632.6.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:36663 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932091Ab2HGBrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 21:47:09 -0400
+Received: from g5t0012.atlanta.hp.com (unknown [15.192.0.16])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g5t0006.atlanta.hp.com (Postfix) with ESMTPS id 7C53CC280
+	for <netdev@vger.kernel.org>; Tue,  7 Aug 2012 01:47:08 +0000 (UTC)
+Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
+	by g5t0012.atlanta.hp.com (Postfix) with ESMTPSA id 4B0F510003
+	for <netdev@vger.kernel.org>; Tue,  7 Aug 2012 01:47:08 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Folks -
 
-Hi, Ben. Thanks your reply for me.
+I have just checked-in to the top-of-trunk netperf 
+(http://www.netperf.org/svn/netperf2/trunk) some changes which enable 
+use of sendto(MSG_FASTOPEN) in a TCP_CRR test.  While I was checking the 
+system calls I noticed that netperf was calling enable_enobufs() for 
+every migrated test, not just a UDP_STREAM test (the one where it is 
+needed), so I fixed that at the same time.  Baseline is taken with the 
+fix in place.
 
-On Mon, 6 Aug 2012 17:41:23 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+MSG_FASTOPEN is used when one adds a test-specific -F option to the 
+netperf command line:
 
-> >         Port: Twisted Pair
-> 
-> 40G twisted-pair, eh?
+netperf -t TCP_CRR -H <destination> -- -F
 
-We are using this one(cable). 
-http://www.mellanox.com/content/pages.php?pg=cables
+Just testing the client side from a VM on my workstation (running a 
+net-next pulled just before 16:30 Pacific time) to my workstation itself 
+I notice the following:
 
-> >         PHYAD: 0
-> >         Transceiver: internal
-> >         Auto-negotiation: off
-> >         MDI-X: Unknown
-> >         Supports Wake-on: d
-> >         Wake-on: d
-> >         Current message level: 0x00000014 (20)
-> >                                link ifdown
-> >         Link detected: yes
-> > 
-> > 
-> > Our 40GbE NIC Firmware/Dirver status are here.
-> > -----------------------------------------------------------------------
-> > Mellanox ConnectX HCA Ethernet driver v1.5.8.3 (June 2012)
-> > Ethernet controller: Mellanox Technologies MT27500 Family [ConnectX-3]
-> > Firmware Version: 2.10.800
-> > -----------------------------------------------------------------------
-> > 
-> > 
-> > And We were testing 10GbE(Intel) NIC and your 40GbE NIC in our lab
-> > using ethtool with added some debug code.
-> 
-> I work for Solarflare, not Mellanox... and the patch adding 40G link
-> modes came from Parav Pandit at Emulex.
-> 
-> [...]
-> > It's firmware problem I thinks. But Just Information for you ;-)
-> 
-> Also, the 40G link mode flags were only just defined, so the driver
-> probably has yet to be updated.
-> 
-> Ben.
+Without MSG_FASTOPEN:
+raj@tardy-ubuntu-1204:~/netperf2_trunk$ src/netperf -H tardy.usa.hp.com 
+-t TCP_CRR -i 3,30
+MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 
+AF_INET to tardy.usa.hp.com () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
+demo
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
 
-I agree with you. and we'll wait for the MLX_GUY works ;-)
+16384  87380  1        1       10.00    2092.33
+16384  87380
 
--- 
-SAKURA Internet Inc. / Senior Researcher
-Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
-SAKURA Research Center <http://research.sakura.ad.jp/>
+With MSG_FASTOPEN
+raj@tardy-ubuntu-1204:~/netperf2_trunk$ src/netperf -H tardy.usa.hp.com 
+-t TCP_CRR -i 3,30 -- -F
+MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 
+AF_INET to tardy.usa.hp.com () port 0 AF_INET : +/-2.500% @ 99% conf.  : 
+demo
+!!! WARNING
+!!! Desired confidence was not achieved within the specified iterations.
+!!! This implies that there was variability in the test environment that
+!!! must be investigated before going further.
+!!! Confidence intervals: Throughput      : 6.565%
+!!!                       Local CPU util  : 0.000%
+!!!                       Remote CPU util : 0.000%
+
+Local /Remote
+Socket Size   Request  Resp.   Elapsed  Trans.
+Send   Recv   Size     Size    Time     Rate
+bytes  Bytes  bytes    bytes   secs.    per sec
+
+16384  87380  1        1       10.00    2590.18
+16384  87380
+
+There was a ~25% increase in TCP_CRR performance, even without the 
+server actually accepting the magic TCP option.  Is that actually 
+expected?  Admittedly, it eliminates a connect() call, but the sequence 
+before was:
+
+socket()
+getsockopt(SO_SNDBUF)
+getsockopt(SO_RCVBUF)
+setsockopt(SO_REUSEADDR)
+bind()
+connect()
+sendto(4, "n", 1, 0, NULL, 0)           = 1
+recvfrom(4, "n", 1, 0, NULL, NULL)      = 1
+recvfrom(4, "", 1, 0, NULL, NULL)       = 0
+close(4)
+
+and with MSG_FASTOPEN only the connect() goes away.  Unless connect() is 
+really heavy compared to what sendto(MSG_FASTOPEN) does or something 
+else has changed wrt behaviour.
+
+Anyway, feel free to kick the tires on the netperf changes and let me 
+know of any problems you encounter.
+
+happy benchmarking,
+
+rick jones
