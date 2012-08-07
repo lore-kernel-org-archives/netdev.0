@@ -1,67 +1,86 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Mon, 06 Aug 2012 17:44:06 -0700
-Message-ID: <87obmnfs4p.fsf@xmission.com>
-References: <501C3527.6060809@mellanox.com>
-	<20120803.143315.151094375569109262.davem@davemloft.net>
-	<501C5328.4060301@mellanox.com>
-	<20120803.163627.1867181085116225405.davem@davemloft.net>
-	<50205DE0.7080706@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, ogerlitz@mellanox.com,
-	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
-	erezsh@mellanox.co.il, dledford@redhat.com
-To: Ali Ayoub <ali@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:57655 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755879Ab2HGAoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 20:44:18 -0400
-In-Reply-To: <50205DE0.7080706@mellanox.com> (Ali Ayoub's message of "Mon, 06
-	Aug 2012 17:14:24 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [RFC v3 0/7] generic hashtable implementation
+Date: Tue,  7 Aug 2012 02:45:09 +0200
+Message-ID: <1344300317-23189-1-git-send-email-levinsasha928@gmail.com>
+Cc: tj@kernel.org,
+	akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org,
+	paul.gortmaker@windriver.com,
+	davem@davemloft.net,
+	rostedt@goodmis.org,
+	mingo@elte.hu,
+	ebiederm@xmission.com,
+	aarcange@redhat.com,
+	ericvh@gmail.com,
+	netdev@vger.kernel.org,
+	josh@joshtriplett.org,
+	eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com,
+	Sasha Levin <levinsasha928@gmail.com>
+To: torvalds@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Ali Ayoub <ali@mellanox.com> writes:
+There are quite a few places in the kernel which implement a hashtable
+in a very similar way. Instead of having implementations of a hashtable
+all over the kernel, we can re-use the code.
 
-> Among other things, the main benefit we're targeting is to allow IPoE
-> traffic within the VM to go through the (Ethernet) vBridge down to the
-> eIPoIB PIF, and eventually to IPoIB and to the IB network.
+This patch series introduces a very simple hashtable implementation, and
+modifies three (random) modules to use it. I've limited it to 3 only
+so that it would be easy to review and modify, and to show that even
+at this number we already eliminate a big amount of duplicated code.
 
-That works today without code changes.  It is called routing.
+If this basic hashtable looks ok, future code will include:
 
-> In Para virtualized environment, the VM emulator sends/receives packets
-> with Ethernet header, and the vBridge also performs L2 switching based
-> on the Ethernet header, in addition to other tools that expect an
-> Ethernet link layer. We'd like to support them on top of IPoIB.
+ - RCU support
+ - Self locking (list_bl?)
+ - Converting more code to use the hashtable
 
-See routing.  The code is already done.
 
-> I don't see in other alternatives a solution for the problem we're
-> trying to solve. If there are changes/suggestions to improve eIPoIB
-> netdev driver to avoid "messing with the link layer" and make it
-> acceptable, we can discuss and apply them.
+Changes in V3:
 
-Nothing needs to be applied the code is done.  Routing from
-IPoE to IPoIB works.
+ - Address review comments by Tejun Heo, Josh Triplett, Eric Beiderman,
+   Mathieu Desnoyers, Eric Dumazet and Linus Torvalds.
+ - Removed hash_get due to being too Gandalf.
+ - Rewrote the user namespaces hash implementation.
+ - Hashtable went back to being a simple array of buckets, but without any
+   of the macro tricks to get the size automatically.
+ - Optimize hasing if key is 32 bits long.
 
-There is nothing in what anyone has posted as requirements that needs
-work to implement.
+Changes in V2:
 
-I totally fail to see how getting packets of of the VM as ethernet
-frames, and then  IP layer routing those packets over IP is not an
-option.  What requirement am I missing.
+ - Address review comments by Tejun Heo, Josh Triplett and Eric Beiderman (Thanks all!).
+ - Rebase on top of latest master.
+ - Convert more places to use the hashtable. Hopefully it will trigger more reviews by
+ touching more subsystems.
 
-All VMs should suport that mode of operation, and certainly the kernel
-does.
 
-Implementations involving bridges like macvlan and macvtap are
-performance optimizations, and the optimizations don't even apply in
-areas like 802.11, where only one mac address is supported per adapter.
+Sasha Levin (7):
+  hashtable: introduce a small and naive hashtable
+  user_ns: use new hashtable implementation
+  mm,ksm: use new hashtable implementation
+  workqueue: use new hashtable implementation
+  mm/huge_memory: use new hashtable implementation
+  tracepoint: use new hashtable implementation
+  net,9p: use new hashtable implementation
 
-Bridging can ocassionally also be an administrative simplification as
-well, but you should be able to achieve the a similar simplification
-with a dhcprelay and proxy arp.
+ include/linux/hashtable.h |   82 +++++++++++++++++++++++++++++++++++++++++
+ kernel/tracepoint.c       |   26 +++++--------
+ kernel/user.c             |   35 ++++++++----------
+ kernel/workqueue.c        |   89 +++++++++------------------------------------
+ mm/huge_memory.c          |   56 +++++++---------------------
+ mm/ksm.c                  |   31 +++++++---------
+ net/9p/error.c            |   21 +++++------
+ 7 files changed, 162 insertions(+), 178 deletions(-)
+ create mode 100644 include/linux/hashtable.h
 
-Eric
+-- 
+1.7.8.6
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
