@@ -1,45 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v3 3/7] mv643xx.c: Add basic device tree support.
-Date: Tue, 7 Aug 2012 14:56:41 +0000
-Message-ID: <201208071456.41412.arnd@arndb.de>
-References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk> <1344350092-24050-4-git-send-email-ian.molton@codethink.co.uk>
+From: Ignacy =?iso-8859-2?Q?Gaw=EAdzki?= <i@lri.fr>
+Subject: Adding routes to another table: no such process
+Date: Tue, 7 Aug 2012 16:13:06 +0200
+Message-ID: <20120807141306.GB32655@zenon.in.qult.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, andrew@lunn.ch,
-	thomas.petazzoni@free-electrons.com, ben.dooks@codethink.co.uk,
-	netdev@vger.kernel.org
-To: Ian Molton <ian.molton@codethink.co.uk>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:60588 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750698Ab2HGO4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 10:56:46 -0400
-In-Reply-To: <1344350092-24050-4-git-send-email-ian.molton@codethink.co.uk>
+Received: from qult.net ([82.238.217.46]:53077 "EHLO qult.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751077Ab2HGPAq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2012 11:00:46 -0400
+Received: from zenon.in.qult.net ([192.168.128.3])
+	by qult.net with esmtpsa (TLS1.0:RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.76)
+	(envelope-from <i@lri.fr>)
+	id 1SykWx-0001sG-Qd
+	for netdev@vger.kernel.org; Tue, 07 Aug 2012 16:13:07 +0200
+Received: from ig by zenon.in.qult.net with local (Exim 4.76)
+	(envelope-from <i@lri.fr>)
+	id 1SykWw-0000I2-Kh
+	for netdev@vger.kernel.org; Tue, 07 Aug 2012 16:13:06 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 07 August 2012, Ian Molton wrote:
->     This patch adds basic device tree support to the mv643xx ethernet driver.
-> 
->     It should be enough for most current users of the device, and should allow
->     a painless migration.
-> 
->     Signed-off-by: Ian Molton <ian.molton@codethink.co.uk>
-> ---
->  Documentation/devicetree/bindings/net/mv643xx.txt |   75 +++++++++++++++++
->  drivers/net/ethernet/marvell/mv643xx_eth.c        |   93 +++++++++++++++++++--
->  2 files changed, 161 insertions(+), 7 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/mv643xx.txt
+Hi,
 
-Hi Ian,
+I'm having a hard time setting some routes on a router and can't find any
+relevant information anywhere, so I resort to asking on this list.
 
-Have you had a look at Documentation/devicetree/bindings/marvell.txt ?
+The router has one interface, say eth0, with configured address 10.0.0.1/32.
 
-I think it documents some of the same thing, so it would be good
-to keep all of that in one place. We might also want to move
-some of the code from arch/powerpc/sysdev/mv64x60_dev.c
-to live in the same place as the device driver.
+Now I would like to do:
 
-	Arnd
+  ip rule add from 10.0.0.1 table 100
+  ip route add 10.0.0.2/32 dev eth0 table 100
+  ip route add 10.0.0.3/32 via 10.0.0.2 table 100
+
+but I get
+
+  RTNETLINK answers: No such process
+
+on the third command.  It's just as though the kernel refused to use a
+gateway for which there's no route in the main table.  Is this an actual
+requirement for gateways?  I could find some examples around the web setting
+routes with gateways in other tables than main, but they obviously don't work,
+yielding the same error message.
+
+Thanks for your help.
+
+Ignacy
+
+-- 
+The groove will take you through times without money
+much better than money will take you through times without groove.
