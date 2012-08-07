@@ -1,32 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Add device tree support for davinci_mdio driver
- and fix cpsw DT binding documentation
-Date: Tue, 07 Aug 2012 16:25:20 -0700 (PDT)
-Message-ID: <20120807.162520.1932972414873138617.davem@davemloft.net>
-References: <1344265558-5724-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next] net: output path optimizations
+Date: Tue, 07 Aug 2012 16:26:30 -0700 (PDT)
+Message-ID: <20120807.162630.311474956563871276.davem@davemloft.net>
+References: <1344341996.28967.87.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1344265558-5724-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34274 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932838Ab2HGX0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 19:26:30 -0400
+In-Reply-To: <1344341996.28967.87.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Mon, 6 Aug 2012 20:35:56 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 07 Aug 2012 14:19:56 +0200
 
-> This patch set adds support for device tree for Davinci MDIO driver and fixes
-> CPSW DT binding documentation to make it copy pastable to dts file.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This patch set is tested with the following git tree on AM335X Beagle Bone
-> https://github.com/hvaibhav/am335x-linux/tree/am335x-upstream-staging-cpsw
+> 1) Avoid dirtying neighbour's confirmed field.
 > 
-> Mugunthan V N (2):
->   drivers: net: ethernet: davince_mdio: device tree implementation
->   documentation: dt: bindings: cpsw: fixing the examples for directly
->     using it in dts file
+>   TCP workloads hits this cache line for each incoming ACK.
+>   Lets write n->confirmed only if there is a jiffie change.
+> 
+> 2) Optimize neigh_hh_output() for the common Ethernet case, were
+>    hh_len is less than 16 bytes. Replace the memcpy() call
+>    by two inlined 64bit load/stores on x86_64.
+> 
+> Bench results using udpflood test, with -C option (MSG_CONFIRM flag
+> added to sendto(), to reproduce the n->confirmed dirtying on UDP)
+> 
+> 24 threads doing 1.000.000 UDP sendto() on dummy device, 4 runs.
+> 
+> before : 2.247s, 2.235s, 2.247s, 2.318s
+> after  : 1.884s, 1.905s, 1.891s, 1.895s
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net-next, thanks.
+Applied, I'd like to significantly redo how the neigh confirmation
+stuff works.
+
+I'm not at all surprised it shows up on TCP workloads.
