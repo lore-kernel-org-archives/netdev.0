@@ -1,54 +1,83 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [net 1/3] e1000e: NIC goes up and immediately goes down
-Date: Tue,  7 Aug 2012 01:04:15 -0700
-Message-ID: <1344326657-9376-2-git-send-email-peter.p.waskiewicz.jr@intel.com>
-References: <1344326657-9376-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
-Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, ffutigam@redhat.com,
-	mleitner@redhat.com, stable@vger.kernel.org,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:49719 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751826Ab2HGIFo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2012 04:05:44 -0400
-In-Reply-To: <1344326657-9376-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: [PATCH] netvm: check for page == NULL when propogating the
+ skb->pfmemalloc flag
+Date: Tue, 7 Aug 2012 09:55:55 +0100
+Message-ID: <20120807085554.GF29814@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Linux-MM <linux-mm@kvack.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	Xen-devel <xen-devel@lists.xensource.com>,
+	Konrad Rzeszutek Wilk <konrad@darnok.org>,
+	Ian Campbell <Ian.Campbell@eu.citrix.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Tushar Dave <tushar.n.dave@intel.com>
+Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
+for the following bug triggered by a xen network driver
 
-Found that commit d478eb44 was a bad commit.
-If the link partner is transmitting codeword (even if NULL codeword),
-then the RXCW.C bit will be set so check for RXCW.CW is unnecessary.
-Ref: RH BZ 840642
+[    1.908592] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
+[    1.908643] IP: [<ffffffffa0037750>] xennet_poll+0x980/0xec0 [xen_netfront]
+[    1.908703] PGD ea1df067 PUD e8ada067 PMD 0
+[    1.908774] Oops: 0000 [#1] SMP
+[    1.908797] Modules linked in: fbcon tileblit font radeon bitblit softcursor ttm drm_kms_helper crc32c_intel xen_blkfront xen_netfront xen_fbfront fb_sys_fops sysimgblt sysfillrect syscopyarea +xen_kbdfront xenfs xen_privcmd
+[    1.908938] CPU 0
+[    1.908950] Pid: 2165, comm: ip Not tainted 3.5.0upstream-08854-g444fa66 #1
+[    1.908983] RIP: e030:[<ffffffffa0037750>]  [<ffffffffa0037750>] xennet_poll+0x980/0xec0 [xen_netfront]
+[    1.909029] RSP: e02b:ffff8800ffc03db8  EFLAGS: 00010282
+[    1.909055] RAX: ffff8800ea010140 RBX: ffff8800f00e86c0 RCX: 000000000000009a
+[    1.909055] RDX: 0000000000000040 RSI: 000000000000005a RDI: ffff8800fa7dee80
+[    1.909055] RBP: ffff8800ffc03ee8 R08: ffff8800f00e86d8 R09: ffff8800ea010000
+[    1.909055] R10: dead000000200200 R11: dead000000100100 R12: ffff8800fa7dee80
+[    1.909055] R13: 000000000000005a R14: ffff8800fa7dee80 R15: 0000000000000200
+[    1.909055] FS:  00007fbafc188700(0000) GS:ffff8800ffc00000(0000) knlGS:0000000000000000
+[    1.909055] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
+[    1.909055] CR2: 0000000000000010 CR3: 00000000ea108000 CR4: 0000000000002660
+[    1.909055] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[    1.909055] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[    1.909055] Process ip (pid: 2165, threadinfo ffff8800ea0f2000, task ffff8800fa783040)
+[    1.909055] Stack:
+[    1.909055]  ffff8800e27e5040 ffff8800ffc03e88 ffff8800ffc03e68 ffff8800ffc03e48
+[    1.909055]  7fffffffffffffff ffff8800ffc03e00 ffff8800e27e5040 ffff8800f00e86d8
+[    1.909055]  ffff8800ffc03eb0 00000040ffffffff ffff8800f00e8000 00000000ffc03e30
+[    1.909055] Call Trace:
+[    1.909055]  <IRQ>
+[    1.909055]  [<ffffffff81066028>] ?  pvclock_clocksource_read+0x58/0xd0
+[    1.909055]  [<ffffffff81486352>] net_rx_action+0x112/0x240
+[    1.909055]  [<ffffffff8107f319>] __do_softirq+0xb9/0x190
+[    1.909055]  [<ffffffff815d8d7c>] call_softirq+0x1c/0x30
 
-Reported-by: Fabio Futigami <ffutigam@redhat.com>
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
-CC: Marcelo Ricardo Leitner <mleitner@redhat.com>
-CC: stable <stable@vger.kernel.org> [2.6.38+]
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+The problem is that the xenfront driver is passing a NULL page to
+__skb_fill_page_desc() which was unexpected. This patch checks that
+there is a page before dereferencing.
+
+Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Signed-off-by: Mel Gorman <mgorman@suse.de>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ include/linux/skbuff.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 0b3bade..2a4ded2 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1601,10 +1601,8 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			 * auto-negotiation in the TXCW register and disable
- 			 * forced link in the Device Control register in an
- 			 * attempt to auto-negotiate with our link partner.
--			 * If the partner code word is null, stop forcing
--			 * and restart auto negotiation.
- 			 */
--			if ((rxcw & E1000_RXCW_C) || !(rxcw & E1000_RXCW_CW))  {
-+			if (rxcw & E1000_RXCW_C) {
- 				/* Enable autoneg, and unforce link up */
- 				ew32(TXCW, mac->txcw);
- 				ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
--- 
-1.7.11.2
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7632c87..8857669 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1256,7 +1256,7 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
+ 	 * do not lose pfmemalloc information as the pages would not be
+ 	 * allocated using __GFP_MEMALLOC.
+ 	 */
+-	if (page->pfmemalloc && !page->mapping)
++	if (page && page->pfmemalloc && !page->mapping)
+ 		skb->pfmemalloc	= true;
+ 	frag->page.p		  = page;
+ 	frag->page_offset	  = off;
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
