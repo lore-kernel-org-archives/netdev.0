@@ -1,99 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: output path optimizations
-Date: Tue, 07 Aug 2012 14:19:56 +0200
-Message-ID: <1344341996.28967.87.camel@edumazet-glaptop>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 4/5 (resend)] net: Make ifindex generation per-net namespace
+ (v2)
+Date: Tue, 07 Aug 2012 16:37:55 +0400
+Message-ID: <50210C23.2070203@parallels.com>
+References: <501FD0F2.4040609@parallels.com> <501FD15F.70604@parallels.com>  <5020F5C3.8010107@parallels.com> <1344341466.28967.78.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:40574 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752548Ab2HGMUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 08:20:02 -0400
-Received: by bkwj10 with SMTP id j10so1419029bkw.19
-        for <netdev@vger.kernel.org>; Tue, 07 Aug 2012 05:20:01 -0700 (PDT)
+Received: from mailhub.sw.ru ([195.214.232.25]:18984 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752630Ab2HGMiH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2012 08:38:07 -0400
+In-Reply-To: <1344341466.28967.78.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+>> @@ -62,6 +62,7 @@ struct net {
+>>  	struct sock 		*rtnl;			/* rtnetlink socket */
+>>  	struct sock		*genl_sock;
+>>  
+>> +	int			ifindex;
+> 
+> could you place ifindex right after dev_base_seq : avoid two holes
+> and use the same cache line, dirtied in
+> list_netdevice()/unlist_netdevice()
 
-1) Avoid dirtying neighbour's confirmed field.
+Sure! Here it is:
 
-  TCP workloads hits this cache line for each incoming ACK.
-  Lets write n->confirmed only if there is a jiffie change.
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 4/5] net: Make ifindex generation per-net namespace
 
-2) Optimize neigh_hh_output() for the common Ethernet case, were
-   hh_len is less than 16 bytes. Replace the memcpy() call
-   by two inlined 64bit load/stores on x86_64.
+Strictly speaking this is only _really_ required for checkpoint-restore to
+make loopback device always have the same index.
 
-Bench results using udpflood test, with -C option (MSG_CONFIRM flag
-added to sendto(), to reproduce the n->confirmed dirtying on UDP)
+This change appears to be safe wrt "ifindex should be unique per-system"
+concept, as all the ifindex usage is either already made per net namespace
+of is explicitly limited with init_net only.
 
-24 threads doing 1.000.000 UDP sendto() on dummy device, 4 runs.
+There are two cool side effects of this. The first one -- ifindices of
+devices in container are always small, regardless of how many containers
+we've started (and re-started) so far. The second one is -- we can speed
+up the loopback ifidex access as shown in the next patch.
 
-before : 2.247s, 2.235s, 2.247s, 2.318s
-after  : 1.884s, 1.905s, 1.891s, 1.895s
+v2: Place ifindex right after dev_base_seq : avoid two holes and use the
+    same cache line, dirtied in list_netdevice()/unlist_netdevice()
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 ---
- include/net/dst.h       |   10 +++++++---
- include/net/neighbour.h |   14 +++++++++-----
- 2 files changed, 16 insertions(+), 8 deletions(-)
+ include/net/net_namespace.h |    1 +
+ net/core/dev.c              |    4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index baf5978..77f52f7 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -396,11 +396,15 @@ static inline void dst_confirm(struct dst_entry *dst)
- static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
- 				   struct sk_buff *skb)
- {
--	struct hh_cache *hh;
-+	const struct hh_cache *hh;
-+
-+	if (dst->pending_confirm) {
-+		unsigned long now = jiffies;
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index ae1cd6c..6dc3db3 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -66,6 +66,7 @@ struct net {
+ 	struct hlist_head 	*dev_name_head;
+ 	struct hlist_head	*dev_index_head;
+ 	unsigned int		dev_base_seq;	/* protected by rtnl_mutex */
++	int			ifindex;
  
--	if (unlikely(dst->pending_confirm)) {
--		n->confirmed = jiffies;
- 		dst->pending_confirm = 0;
-+		/* avoid dirtying neighbour */
-+		if (n->confirmed != now)
-+			n->confirmed = now;
+ 	/* core fib_rules */
+ 	struct list_head	rules_ops;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3ca300d..1f06df8 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5221,12 +5221,12 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+  */
+ static int dev_new_index(struct net *net)
+ {
+-	static int ifindex;
++	int ifindex = net->ifindex;
+ 	for (;;) {
+ 		if (++ifindex <= 0)
+ 			ifindex = 1;
+ 		if (!__dev_get_by_index(net, ifindex))
+-			return ifindex;
++			return net->ifindex = ifindex;
  	}
- 
- 	hh = &n->hh;
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 344d898..0dab173 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -334,18 +334,22 @@ static inline int neigh_hh_bridge(struct hh_cache *hh, struct sk_buff *skb)
  }
- #endif
  
--static inline int neigh_hh_output(struct hh_cache *hh, struct sk_buff *skb)
-+static inline int neigh_hh_output(const struct hh_cache *hh, struct sk_buff *skb)
- {
- 	unsigned int seq;
- 	int hh_len;
- 
- 	do {
--		int hh_alen;
--
- 		seq = read_seqbegin(&hh->hh_lock);
- 		hh_len = hh->hh_len;
--		hh_alen = HH_DATA_ALIGN(hh_len);
--		memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
-+		if (likely(hh_len <= HH_DATA_MOD)) {
-+			/* this is inlined by gcc */
-+			memcpy(skb->data - HH_DATA_MOD, hh->hh_data, HH_DATA_MOD);
-+		} else {
-+			int hh_alen = HH_DATA_ALIGN(hh_len);
-+
-+			memcpy(skb->data - hh_alen, hh->hh_data, hh_alen);
-+		}
- 	} while (read_seqretry(&hh->hh_lock, seq));
- 
- 	skb_push(skb, hh_len);
+-- 
+1.7.6.5
