@@ -1,184 +1,80 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 5/5 (resend)] net: Loopback ifindex is constant now
-Date: Tue, 07 Aug 2012 15:02:59 +0400
-Message-ID: <5020F5E3.5050900@parallels.com>
-References: <501FD0F2.4040609@parallels.com> <501FD170.90207@parallels.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/5 (resend)] net: Make ifindex generation per-net
+ namespace
+Date: Tue, 07 Aug 2012 14:11:06 +0200
+Message-ID: <1344341466.28967.78.camel@edumazet-glaptop>
+References: <501FD0F2.4040609@parallels.com> <501FD15F.70604@parallels.com>
+	 <5020F5C3.8010107@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: David Miller <davem@davemloft.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:13642 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753649Ab2HGLDe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2012 07:03:34 -0400
-In-Reply-To: <501FD170.90207@parallels.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45488 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753384Ab2HGMLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 08:11:11 -0400
+Received: by bkwj10 with SMTP id j10so1415777bkw.19
+        for <netdev@vger.kernel.org>; Tue, 07 Aug 2012 05:11:10 -0700 (PDT)
+In-Reply-To: <5020F5C3.8010107@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As pointed out, there are places, that access net->loopback_dev->ifindex
-and after ifindex generation is made per-net this value becomes constant
-equals 1. So go ahead and introduce the LOOPBACK_IFINDEX constant and use
-it where appropriate.
+On Tue, 2012-08-07 at 15:02 +0400, Pavel Emelyanov wrote:
+> Strictly speaking this is only _really_ required for checkpoint-restore to
+> make loopback device always have the same index.
+> 
+> This change appears to be safe wrt "ifindex should be unique per-system"
+> concept, as all the ifindex usage is either already made per net namespace
+> of is explicitly limited with init_net only.
+> 
+> There are two cool side effects of this. The first one -- ifindices of
+> devices in container are always small, regardless of how many containers
+> we've started (and re-started) so far. The second one is -- we can speed
+> up the loopback ifidex access as shown in the next patch.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> ---
+>  include/net/net_namespace.h |    1 +
+>  net/core/dev.c              |    4 ++--
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+> index ae1cd6c..c5fbebf 100644
+> --- a/include/net/net_namespace.h
+> +++ b/include/net/net_namespace.h
+> @@ -62,6 +62,7 @@ struct net {
+>  	struct sock 		*rtnl;			/* rtnetlink socket */
+>  	struct sock		*genl_sock;
+>  
+> +	int			ifindex;
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
----
- drivers/net/loopback.c            |    1 +
- include/net/net_namespace.h       |    7 +++++++
- net/decnet/dn_route.c             |    6 +++---
- net/ipv4/fib_frontend.c           |    2 +-
- net/ipv4/ipmr.c                   |    2 +-
- net/ipv4/netfilter/ipt_rpfilter.c |    2 +-
- net/ipv4/route.c                  |    6 +++---
- net/ipv6/route.c                  |    2 +-
- 8 files changed, 18 insertions(+), 10 deletions(-)
+could you place ifindex right after dev_base_seq : avoid two holes
+and use the same cache line, dirtied in
+list_netdevice()/unlist_netdevice()
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index e2a06fd..4a075ba 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -197,6 +197,7 @@ static __net_init int loopback_net_init(struct net *net)
- 	if (err)
- 		goto out_free_netdev;
- 
-+	BUG_ON(dev->ifindex != LOOPBACK_IFINDEX);
- 	net->loopback_dev = dev;
- 	return 0;
- 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index c5fbebf..29a2370 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -105,6 +105,13 @@ struct net {
- 	struct sock		*diag_nlsk;
- };
- 
-+/*
-+ * ifindex generation is per-net namespace, and loopback is
-+ * always the 1st device in ns (see net_dev_init), thus any
-+ * loopback device should get ifindex 1
-+ */
-+
-+#define LOOPBACK_IFINDEX	1
- 
- #include <linux/seq_file_net.h>
- 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 85a3604..c855e8d 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -961,7 +961,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
- 		.saddr = oldflp->saddr,
- 		.flowidn_scope = RT_SCOPE_UNIVERSE,
- 		.flowidn_mark = oldflp->flowidn_mark,
--		.flowidn_iif = init_net.loopback_dev->ifindex,
-+		.flowidn_iif = LOOPBACK_IFINDEX,
- 		.flowidn_oif = oldflp->flowidn_oif,
- 	};
- 	struct dn_route *rt = NULL;
-@@ -979,7 +979,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
- 		       "dn_route_output_slow: dst=%04x src=%04x mark=%d"
- 		       " iif=%d oif=%d\n", le16_to_cpu(oldflp->daddr),
- 		       le16_to_cpu(oldflp->saddr),
--		       oldflp->flowidn_mark, init_net.loopback_dev->ifindex,
-+		       oldflp->flowidn_mark, LOOPBACK_IFINDEX,
- 		       oldflp->flowidn_oif);
- 
- 	/* If we have an output interface, verify its a DECnet device */
-@@ -1042,7 +1042,7 @@ source_ok:
- 			if (!fld.daddr)
- 				goto out;
- 		}
--		fld.flowidn_oif = init_net.loopback_dev->ifindex;
-+		fld.flowidn_oif = LOOPBACK_IFINDEX;
- 		res.type = RTN_LOCAL;
- 		goto make_route;
- 	}
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index c43ae3f..7f073a3 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -218,7 +218,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
- 	scope = RT_SCOPE_UNIVERSE;
- 	if (!ipv4_is_zeronet(ip_hdr(skb)->saddr)) {
- 		fl4.flowi4_oif = 0;
--		fl4.flowi4_iif = net->loopback_dev->ifindex;
-+		fl4.flowi4_iif = LOOPBACK_IFINDEX;
- 		fl4.daddr = ip_hdr(skb)->saddr;
- 		fl4.saddr = 0;
- 		fl4.flowi4_tos = RT_TOS(ip_hdr(skb)->tos);
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 8eec8f4..3a57570 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1798,7 +1798,7 @@ static struct mr_table *ipmr_rt_fib_lookup(struct net *net, struct sk_buff *skb)
- 		.flowi4_oif = (rt_is_output_route(rt) ?
- 			       skb->dev->ifindex : 0),
- 		.flowi4_iif = (rt_is_output_route(rt) ?
--			       net->loopback_dev->ifindex :
-+			       LOOPBACK_IFINDEX :
- 			       skb->dev->ifindex),
- 		.flowi4_mark = skb->mark,
- 	};
-diff --git a/net/ipv4/netfilter/ipt_rpfilter.c b/net/ipv4/netfilter/ipt_rpfilter.c
-index 31371be..c301300 100644
---- a/net/ipv4/netfilter/ipt_rpfilter.c
-+++ b/net/ipv4/netfilter/ipt_rpfilter.c
-@@ -85,7 +85,7 @@ static bool rpfilter_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			return ipv4_is_local_multicast(iph->daddr) ^ invert;
- 		flow.flowi4_iif = 0;
- 	} else {
--		flow.flowi4_iif = dev_net(par->in)->loopback_dev->ifindex;
-+		flow.flowi4_iif = LOOPBACK_IFINDEX;
- 	}
- 
- 	flow.daddr = iph->saddr;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 21ad369..c581373 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1619,7 +1619,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 
- 	if (res.type == RTN_LOCAL) {
- 		err = fib_validate_source(skb, saddr, daddr, tos,
--					  net->loopback_dev->ifindex,
-+					  LOOPBACK_IFINDEX,
- 					  dev, in_dev, &itag);
- 		if (err < 0)
- 			goto martian_source_keep_err;
-@@ -1895,7 +1895,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 
- 	orig_oif = fl4->flowi4_oif;
- 
--	fl4->flowi4_iif = net->loopback_dev->ifindex;
-+	fl4->flowi4_iif = LOOPBACK_IFINDEX;
- 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
- 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
- 			 RT_SCOPE_LINK : RT_SCOPE_UNIVERSE);
-@@ -1984,7 +1984,7 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 		if (!fl4->daddr)
- 			fl4->daddr = fl4->saddr = htonl(INADDR_LOOPBACK);
- 		dev_out = net->loopback_dev;
--		fl4->flowi4_oif = net->loopback_dev->ifindex;
-+		fl4->flowi4_oif = LOOPBACK_IFINDEX;
- 		res.type = RTN_LOCAL;
- 		flags |= RTCF_LOCAL;
- 		goto make_route;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 8e80fd2..0ddf2d1 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -965,7 +965,7 @@ struct dst_entry * ip6_route_output(struct net *net, const struct sock *sk,
- {
- 	int flags = 0;
- 
--	fl6->flowi6_iif = net->loopback_dev->ifindex;
-+	fl6->flowi6_iif = LOOPBACK_IFINDEX;
- 
- 	if ((sk && sk->sk_bound_dev_if) || rt6_need_strict(&fl6->daddr))
- 		flags |= RT6_LOOKUP_F_IFACE;
--- 
-1.7.6.5
+>  	struct list_head 	dev_base_head;
+>  	struct hlist_head 	*dev_name_head;
+>  	struct hlist_head	*dev_index_head;
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 3ca300d..1f06df8 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5221,12 +5221,12 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+>   */
+>  static int dev_new_index(struct net *net)
+>  {
+> -	static int ifindex;
+> +	int ifindex = net->ifindex;
+>  	for (;;) {
+>  		if (++ifindex <= 0)
+>  			ifindex = 1;
+>  		if (!__dev_get_by_index(net, ifindex))
+> -			return ifindex;
+> +			return net->ifindex = ifindex;
+>  	}
+>  }
+>  
