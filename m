@@ -1,74 +1,60 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v3 3/7] mv643xx.c: Add basic device tree support.
-Date: Tue, 7 Aug 2012 20:25:22 +0000
-Message-ID: <201208072025.22871.arnd@arndb.de>
-References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk>
- <201208071456.41412.arnd@arndb.de> <50213ACB.6040301@codethink.co.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fib: use __fls() on non null argument
+Date: Tue, 07 Aug 2012 22:45:47 +0200
+Message-ID: <1344372347.28967.154.camel@edumazet-glaptop>
+References: <1344346253.28967.93.camel@edumazet-glaptop>
+	 <1344369904.2688.53.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
- ben.dooks-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ian Molton <ian.molton-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
- "linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Dale Farnsworth <dale-1viX+2+OPRFcxvNqPlePQg@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <50213ACB.6040301-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:34634 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753667Ab2HGUpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 16:45:52 -0400
+Received: by bkwj10 with SMTP id j10so14706bkw.19
+        for <netdev@vger.kernel.org>; Tue, 07 Aug 2012 13:45:51 -0700 (PDT)
+In-Reply-To: <1344369904.2688.53.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 07 August 2012, Ian Molton wrote:
-> > I think it documents some of the same thing,
+From: Eric Dumazet <edumazet@google.com>
+
+On Tue, 2012-08-07 at 21:05 +0100, Ben Hutchings wrote:
+> On Tue, 2012-08-07 at 15:30 +0200, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > __fls(x) is a bit faster than fls(x), granted we know x is non null.
 > 
-> Not really. It documents some godawful hack that recycled the platform
-> device -based driver and provided a DT binding for it, just for PPC.
-> 
-> I cant even find anything that implements code for whatever
-> "marvell,mv64360-mdio" might be. I'm sure it might exist somewhere.
+> And it doesn't have the +1 bias, so this change is not correct.
 
-The code dates back to when we had separate buses for platform devices
-and of devices, and then it was decided not to add support for both
-bus types to each of the marvell drivers. In hindsight it would have
-been better to do that, but that was impossible to tell back then.
+Good catch, I wonder why my routing was still working...
 
-> > We might also want to move some of the
-> > code from arch/powerpc/sysdev/mv64x60_dev.c to live in the same place
-> > as the device driver.
-> 
-> I hope not. I don't really want to touch that stuff at all. If it works
-> the way it
-> is, then it can stay that way. If the PPC folk want to send patches to
-> add the
-> properties they use to the driver, then they can do. I'll send an email
-> their
-> way and see if they want to join in.
-> 
-> From my perspective, the next thing that needs to happen to the driver is
-> for it to be broken up into ethernet and mdio drivers, so that we can
-> get rid
-> of all this shared_smi craziness... But that's for another patch series.
+[PATCH v2 net-next] fib: use __fls() on non null argument
 
-Adding devicetree-discuss and linuxppc-dev, as well as Dale Farnsworth,
-who initially added the bindings for mv643xx.
+__fls(x) is a bit faster than fls(x), granted we know x is non null.
 
-I would hope that at least some of the properties that are used on
-powerpc can be reused in the same way for other architectures.
-The method to find the phy address on powerpc does indeed make
-more sense than the "port_number" property you suggested, and the
-phandle for the phy node is usually called "phy" not "mdio".
+As Ben Hutchings pointed out, fls(x) = __fls(x) + 1
 
-I'm not sure if the ethernet-group is required on ARM as well, but
-it does sound a lot like what you actually want instead of the
-shared_smi property.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/ipv4/fib_trie.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-	Arnd
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index f0cdb30..f84a0e9 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1550,7 +1550,8 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
+ 		 * state.directly.
+ 		 */
+ 		if (pref_mismatch) {
+-			int mp = KEYLENGTH - fls(pref_mismatch);
++			/* fls(x) = __fls(x) + 1 */
++			int mp = KEYLENGTH - __fls(pref_mismatch) - 1;
+ 
+ 			if (tkey_extract_bits(cn->key, mp, cn->pos - mp) != 0)
+ 				goto backtrace;
