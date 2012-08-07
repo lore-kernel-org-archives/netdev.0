@@ -1,50 +1,48 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] pptp: lookup route with the proper net namespace
-Date: Tue, 7 Aug 2012 18:23:11 +0800
-Message-ID: <1344334991-3441-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
-To: xeb@mail.ru
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fib: fix incorrect call_rcu_bh()
+Date: Tue, 07 Aug 2012 12:47:11 +0200
+Message-ID: <1344336431.28967.14.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:20427 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751170Ab2HGKmc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2012 06:42:32 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:65252 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152Ab2HGKrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 06:47:16 -0400
+Received: by bkwj10 with SMTP id j10so1385989bkw.19
+        for <netdev@vger.kernel.org>; Tue, 07 Aug 2012 03:47:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pptp always use init_net as the net namespace to lookup
-route, this will cause route lookup failed in container.
+From: Eric Dumazet <edumazet@google.com>
 
-because we already set the correct net namespace to struct
-sock in pptp_create,so fix this by using sock_net(sk) to
-replace &init_net.
+After IP route cache removal, I believe rcu_bh() has very little use and
+we should remove this RCU variant, since it adds some cycles in fast
+path.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
+some users only assert rcu_read_lock().
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 ---
- drivers/net/ppp/pptp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/fib_trie.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index 1c98321..162464f 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -189,7 +189,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 	if (sk_pppox(po)->sk_state & PPPOX_DEAD)
- 		goto tx_error;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index f0cdb30..57bd978 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -367,7 +367,7 @@ static void __leaf_free_rcu(struct rcu_head *head)
  
--	rt = ip_route_output_ports(&init_net, &fl4, NULL,
-+	rt = ip_route_output_ports(sock_net(sk), &fl4, NULL,
- 				   opt->dst_addr.sin_addr.s_addr,
- 				   opt->src_addr.sin_addr.s_addr,
- 				   0, 0, IPPROTO_GRE,
-@@ -468,7 +468,7 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
- 	po->chan.private = sk;
- 	po->chan.ops = &pptp_chan_ops;
+ static inline void free_leaf(struct leaf *l)
+ {
+-	call_rcu_bh(&l->rcu, __leaf_free_rcu);
++	call_rcu(&l->rcu, __leaf_free_rcu);
+ }
  
--	rt = ip_route_output_ports(&init_net, &fl4, sk,
-+	rt = ip_route_output_ports(sock_net(sk), &fl4, sk,
- 				   opt->dst_addr.sin_addr.s_addr,
- 				   opt->src_addr.sin_addr.s_addr,
- 				   0, 0,
--- 
-1.7.7.6
+ static inline void free_leaf_info(struct leaf_info *leaf)
