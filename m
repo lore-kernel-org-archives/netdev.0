@@ -1,53 +1,45 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Subject: Re: [RFC v3 1/7] hashtable: introduce a small and naive hashtable
-Date: Mon, 6 Aug 2012 19:55:20 -0700
-Message-ID: <20120807025520.GA3823@leaf>
-References: <1344300317-23189-1-git-send-email-levinsasha928@gmail.com>
- <1344300317-23189-2-git-send-email-levinsasha928@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Mon, 06 Aug 2012 20:33:06 -0700
+Message-ID: <871ujjfkb1.fsf@xmission.com>
+References: <501C3527.6060809@mellanox.com>
+	<20120803.143315.151094375569109262.davem@davemloft.net>
+	<501C5328.4060301@mellanox.com>
+	<20120803.163627.1867181085116225405.davem@davemloft.net>
+	<50205DE0.7080706@mellanox.com> <87obmnfs4p.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1344300317-23189-2-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, ogerlitz@mellanox.com,
+	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
+	erezsh@mellanox.co.il, dledford@redhat.com
+To: Ali Ayoub <ali@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:41590 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757182Ab2HGDdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 23:33:19 -0400
+In-Reply-To: <87obmnfs4p.fsf@xmission.com> (Eric W. Biederman's message of
+	"Mon, 06 Aug 2012 17:44:06 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 07, 2012 at 02:45:10AM +0200, Sasha Levin wrote:
-> +/**
-> + * hash_add - add an object to a hashtable
-> + * @hashtable: hashtable to add to
-> + * @bits: bit count used for hashing
-> + * @node: the &struct hlist_node of the object to be added
-> + * @key: the key of the object to be added
-> + */
-> +#define hash_add(hashtable, bits, node, key)				\
-> +	hlist_add_head(node, &hashtable[hash_min(key, bits)]);
+ebiederm@xmission.com (Eric W. Biederman) writes:
 
-Any particular reason to make this a macro rather than a static inline?
+> Ali Ayoub <ali@mellanox.com> writes:
+>
+>> Among other things, the main benefit we're targeting is to allow IPoE
+>> traffic within the VM to go through the (Ethernet) vBridge down to the
+>> eIPoIB PIF, and eventually to IPoIB and to the IB network.
 
-Also, even if you do make it a macro, don't include the semicolon.
+Oh yes.  It just occurred to me there is huge problem with eIPoIB as
+currently presented in these patches.  It breaks DHCPv4 the same way
+it breaks ARP, but DHCPv4 is not fixed up.
 
-> +/**
-> + * hash_for_each_possible - iterate over all possible objects for a giver key
+I am stunned to to realize there has been so much push for a solution
+that doesn't even support dhcp.
 
-s/giver/given/
+How can anyone possibly argue that eIPoIB works or is useful?  I just
+can't imagine.
 
-> + * @name: hashtable to iterate
-> + * @obj: the type * to use as a loop cursor for each bucke
-
-s/bucke/bucket/
-
-- Josh Triplett
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Totally stunned,
+Eric
