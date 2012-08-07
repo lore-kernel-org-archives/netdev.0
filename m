@@ -1,182 +1,75 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
- Fast Ethernet (rev b0) 1.0.0.7 md5 corrupted using NFS
-Date: Tue, 7 Aug 2012 00:05:09 +0000
-Message-ID: <157393863283F442885425D2C454285623E19289@NASANEXD02A.na.qualcomm.com>
-References: <201208061302.32582.marco.castiglione@yahoo.ca>
+From: Ali Ayoub <ali@mellanox.com>
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Mon, 06 Aug 2012 17:14:24 -0700
+Message-ID: <50205DE0.7080706@mellanox.com>
+References: <501C3527.6060809@mellanox.com> <20120803.143315.151094375569109262.davem@davemloft.net> <501C5328.4060301@mellanox.com> <20120803.163627.1867181085116225405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Marco Castiglione <rebelyouth.hacklab@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, ogerlitz@mellanox.com, roland@kernel.org,
+	netdev@vger.kernel.org, sean.hefty@intel.com,
+	erezsh@mellanox.co.il, dledford@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:7074 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756486Ab2HGAFK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 20:05:10 -0400
-In-Reply-To: <201208061302.32582.marco.castiglione@yahoo.ca>
-Content-Language: en-US
+Received: from mellanox.cgrafx.com ([67.192.191.215]:58231 "EHLO
+	mellanox.cgrafx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757009Ab2HGAO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2012 20:14:27 -0400
+In-Reply-To: <20120803.163627.1867181085116225405.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marco
-    Could you run lspci, and list the kernel oops ?
-    we could duplicate it using the same NIC. 
+On 8/3/2012 4:36 PM, David Miller wrote:
+> From: Ali Ayoub <ali@mellanox.com>
+> Date: Fri, 03 Aug 2012 15:39:36 -0700
+> 
+>> Users would like to use sockets API from the VM without re-writing their
+>> applications on top of IB verbs, this driver meant to allow such a user
+>> to do so.
+> 
+> That's what IPoIB was for, the application writers who don't want to have
+> to be knowledgable about IB verbs.
+> 
+> You're messing with the link layer here, and that's what is upsetting me.
+> 
+> It's a complete cop-out to changing the VM tools and emulators properly to
+> handle a new link layer.
+> 
+> The applications writers already have a way to use IB whilst using
+> something familiar, like IPv4, via IPoIB.  You're doing something
+> completely different here, and it stinks.
 
+Indeed, IPoIB driver meant to allow IP applications to run over
+InfiniBand, but IPoIB cannot serve IPoE traffic.
 
-PS.     The driver of 1.0.1.14 is not for your NIC.
+The goal of eIPoIB driver to show to the user an Ethernet L2 netdev; by
+translating IPoE packets to IPoIB. It keeps the same IPoIB wire
+protocol, and exposes to the host an ethX interface, all IPoIB packets
+are then translated to IPoIB.
 
-Thanks
-Xiong
+Among other things, the main benefit we're targeting is to allow IPoE
+traffic within the VM to go through the (Ethernet) vBridge down to the
+eIPoIB PIF, and eventually to IPoIB and to the IB network.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Marco Castiglione
-> Sent: Tuesday, August 07, 2012 1:03
-> To: netdev@vger.kernel.org
-> Subject: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or
-> Fast Ethernet (rev b0) 1.0.0.7 md5 corrupted using NFS
-> 
-> Hi,
-> 
-> I have a problem with :
-> 
-> Ethernet controller: Atheros Communications Inc. AR8121/AR8113/AR8114
-> Gigabit or Fast Ethernet (rev b0)
->         Subsystem: ASUSTeK Computer Inc. Device 831c
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
-> ParErr-
-> Stepping- SERR+ FastB2B- DisINTx+
->         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR- INTx-
->         Latency: 0, Cache Line Size: 64 bytes
->         Interrupt: pin A routed to IRQ 46
->         Region 0: Memory at fbec0000 (64-bit, non-prefetchable) [size=256K]
->         Region 2: I/O ports at dc00 [size=128]
->         Capabilities: <access denied>
->         Kernel driver in use: ATL1E
-> 
-> The driver working fine except for nfs3 and nfs4
-> 
-> If I try to copy a file bigger of 400 mb the file get corrupted, If I try with
-> multiple files I have a kernel oops
-> 
-> I tried different system and service (Ftp,samba) and they working fine.
-> 
-> I also tried to set nfs to use udp, it kinda fix the problem but only in part (I get
-> 1 on 3 big file with md5 mismatch).
-> 
-> I notice in almost every kernel from 2.6 to now 3.2.15 the driver is the same
-> version
-> 
-> Filename:       /lib/modules/3.2.0-2-amd64/
-> kernel/drivers/net/ethernet/atheros/atl1e/atl1e.ko
-> version:        1.0.0.7-NAPI
-> license:        GPL
-> description:    Atheros 1000M Ethernet Network Driver
-> author:         Atheros Corporation, <xiong.huang@atheros.com>, Jie Yang <
-> jie.yang@atheros.com>
-> srcversion:     6E5949327D7FDF32D5F4A5B
-> alias:          pci:v00001969d00001066sv*sd*bc*sc*i*
-> alias:          pci:v00001969d00001026sv*sd*bc*sc*i*
-> depends:
-> intree:         Y
-> vermagic:       3.2.0-2-amd64 SMP mod_unload modversions
-> parm:           tx_desc_cnt:Transmit description count (array of int)
-> parm:           rx_mem_size:memory size of rx buffer(KB) (array of int)
-> parm:           media_type:MediaType Select (array of int)
-> parm:           int_mod_timer:Interrupt Moderator Timer (array of int)
-> 
-> I found on ubuntu website the last version of the driver is 1.0.1.14 with this
-> change log :
-> 
-> 1.0.1.14
->     1. don't define napi_struct in kcompat.h when GRO isn't supported.
-> 
-> 1.0.1.13
->     1. fix AR8151-A hang when plug in LAN cable by cleaning bit1 of
-> REG(0x1114).
-> 
-> 1.0.1.12
->     1. fix tpd, rfd, rrs, configure error for powerpc
-> 
-> 1.0.1.11
->     1. only save power when WOL enable.
-> 
-> 1.0.1.10
->     1. add l1d 2.0 support.
->     2. fix atl1c_phy_power_saving bug.
-> 
-> 1.0.1.9
->     1. fix AR8131 reset error TX pending.
->     2. add AR8152 description.
-> 
-> 1.0.1.8
->     1. add L2CB V2.0 support.
-> 
-> 1.0.1.7
->     1. fix L0s/L1 bug.
->     2. update suspend procedure.
-> 
-> 1.0.1.6
->     1. fix valn error.
->     2. use common task instead of reset task and link change task.
->     3. reset phy when link down.
-> 
-> 1.0.1.5
->     1. change rx mod.
-> 
-> 1.0.1.4
->     1. add l1d support.
-> 
-> 1.0.1.3
->     1. fix TSO error.
-> 
-> 1.0.1.2
->     1. fix compile error for kernel >= 2.6.30.
-> 
-> 1.0.1.1
->     1. add L2cB support.
-> 
-> 1.0.0.10
->     1. fix memory leak when power suspend.
-> 
-> 1.0.0.9
->     1. do power saving when bootup with link lost.
->     2. remove ATL1C_INTR_CLEAR_ON_READ for power saving
-> 
-> 1.0.0.8
->     1. remove dump_stack(), which was used for debugging.
-> 
-> 
-> So I found out the TSO is corrupt in the current version  and that explain with
-> the udp setting do the trick.
-> 
-> Now I tried to compile the new version from AR81Family-linux-
-> v1.0.1.14.tar.gz but was made for the 2.6 so I can't
-> compile.( <http://goog_56610235>
-> http://media.cdn.ubuntu-de.org/forum/attachments/2666793/AR81Family-
-> linux-
-> v1.0.1.14_10.10.tar.gz
-> )
-> 
-> The Atheros support and web page is gone after Qualcomm acquisition and
-> the patch I found on Ubuntu forum don't work either (
-> http://ubuntuforums.org/attachment.php?attachmentid=182141&d=1296221
-> 015)
-> 
-> I found out lots of people have the same issue and they using samba at the
-> moment.
-> 
-> My temp solution is use a usb/eth adapter with ax8112 chipset but it run at
-> 100mbps.
-> 
-> SO my request is this : Is possible for somebody of the kernel team look the
-> code inside AR81Family-linux-v1.0.1.14.tar.gz  and update the one in the
-> kernel 3.x?
-> 
-> Thank you for you time and consideration
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+In Para virtualized environment, the VM emulator sends/receives packets
+with Ethernet header, and the vBridge also performs L2 switching based
+on the Ethernet header, in addition to other tools that expect an
+Ethernet link layer. We'd like to support them on top of IPoIB.
+
+I see your point to change the the tools and VM emulations to handle
+IPoIB link layer, but this involves not only changing many
+components/layers such netfront/vbridge/vconfig/etc.. but also -unlike
+Ethernet- having IPoIB-aware network device emulation in the VM domain
+requires giving access from the VM to the IB Hardware, and this
+association will break upon VM migration, as Tsirkin indicated in the
+other Email.
+
+Another issue with IPoIB-aware emulator, is that the IPoIB frame doesn't
+include the destination link layer per data packet (RFC 4391), therefor
+the neighbor address needs to be passed from the VM domain down to the
+ipoib-aware vBridge.
+
+I don't see in other alternatives a solution for the problem we're
+trying to solve. If there are changes/suggestions to improve eIPoIB
+netdev driver to avoid "messing with the link layer" and make it
+acceptable, we can discuss and apply them.
