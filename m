@@ -1,87 +1,76 @@
 From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 34/41] TTY: i4l, add tty install
-Date: Tue,  7 Aug 2012 21:47:59 +0200
-Message-ID: <1344368886-24033-35-git-send-email-jslaby@suse.cz>
+Subject: [PATCH 23/41] TTY: automatically create nodes for some drivers
+Date: Tue,  7 Aug 2012 21:47:48 +0200
+Message-ID: <1344368886-24033-24-git-send-email-jslaby@suse.cz>
 References: <1344368886-24033-1-git-send-email-jslaby@suse.cz>
 Cc: alan@linux.intel.com, linux-kernel@vger.kernel.org,
-	jirislaby@gmail.com, Karsten Keil <isdn@linux-pingi.de>,
-	netdev@vger.kernel.org
+	jirislaby@gmail.com, netdev@vger.kernel.org, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, linux-cris-kernel@axis.com
 To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.pripojeni.net ([178.22.112.14]:36557 "EHLO
+	smtp.pripojeni.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756533Ab2HGT7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 15:59:50 -0400
 In-Reply-To: <1344368886-24033-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This has two outcomes:
-* we give the TTY layer a tty_port
-* we do not find the info structure every time open is called on that
-  tty
+This looks like it was a mistake not to create device nodes for these
+drivers. Let us create them from now on.
 
-The "tty->port = port" assignment is not needed anymore since it
-happens in tty_port_install implicitly.
+It will be necessary to call tty_register_device some way, either by
+tty_register_driver implicitly or to call tty_register_device proper.
 
 Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Karsten Keil <isdn@linux-pingi.de>
 Cc: netdev@vger.kernel.org
+Cc: linux390@de.ibm.com
+Cc: linux-s390@vger.kernel.org
+Cc: linux-cris-kernel@axis.com
 ---
- drivers/isdn/i4l/isdn_tty.c |   23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+ drivers/isdn/i4l/isdn_tty.c  |    2 +-
+ drivers/s390/char/tty3270.c  |    2 +-
+ drivers/tty/serial/crisv10.c |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
-index 576ce4b..b817809 100644
+index 7a61ef6..576ce4b 100644
 --- a/drivers/isdn/i4l/isdn_tty.c
 +++ b/drivers/isdn/i4l/isdn_tty.c
-@@ -1486,6 +1486,18 @@ isdn_tty_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
-  * ------------------------------------------------------------
-  */
+@@ -1782,7 +1782,7 @@ isdn_tty_modem_init(void)
+ 	m->tty_modem->subtype = SERIAL_TYPE_NORMAL;
+ 	m->tty_modem->init_termios = tty_std_termios;
+ 	m->tty_modem->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
+-	m->tty_modem->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
++	m->tty_modem->flags = TTY_DRIVER_REAL_RAW;
+ 	m->tty_modem->driver_name = "isdn_tty";
+ 	tty_set_operations(m->tty_modem, &modem_ops);
+ 	retval = tty_register_driver(m->tty_modem);
+diff --git a/drivers/s390/char/tty3270.c b/drivers/s390/char/tty3270.c
+index 215037c..f2b8c6c 100644
+--- a/drivers/s390/char/tty3270.c
++++ b/drivers/s390/char/tty3270.c
+@@ -1781,7 +1781,7 @@ static int __init tty3270_init(void)
+ 	driver->type = TTY_DRIVER_TYPE_SYSTEM;
+ 	driver->subtype = SYSTEM_TYPE_TTY;
+ 	driver->init_termios = tty_std_termios;
+-	driver->flags = TTY_DRIVER_RESET_TERMIOS | TTY_DRIVER_DYNAMIC_DEV;
++	driver->flags = TTY_DRIVER_RESET_TERMIOS;
+ 	tty_set_operations(driver, &tty3270_ops);
+ 	ret = tty_register_driver(driver);
+ 	if (ret) {
+diff --git a/drivers/tty/serial/crisv10.c b/drivers/tty/serial/crisv10.c
+index 6b705b2..708c3bf 100644
+--- a/drivers/tty/serial/crisv10.c
++++ b/drivers/tty/serial/crisv10.c
+@@ -4443,7 +4443,7 @@ static int __init rs_init(void)
+ 		B115200 | CS8 | CREAD | HUPCL | CLOCAL; /* is normally B9600 default... */
+ 	driver->init_termios.c_ispeed = 115200;
+ 	driver->init_termios.c_ospeed = 115200;
+-	driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
++	driver->flags = TTY_DRIVER_REAL_RAW;
  
-+static int isdn_tty_install(struct tty_driver *driver, struct tty_struct *tty)
-+{
-+	modem_info *info = &dev->mdm.info[tty->index];
-+
-+	if (isdn_tty_paranoia_check(info, tty->name, __func__))
-+		return -ENODEV;
-+
-+	tty->driver_data = info;
-+
-+	return tty_port_install(&info->port, driver, tty);
-+}
-+
- /*
-  * This routine is called whenever a serial port is opened.  It
-  * enables interrupts for a serial port, linking in its async structure into
-@@ -1495,22 +1507,16 @@ isdn_tty_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
- static int
- isdn_tty_open(struct tty_struct *tty, struct file *filp)
- {
--	struct tty_port *port;
--	modem_info *info;
-+	modem_info *info = tty->driver_data;
-+	struct tty_port *port = &info->port;
- 	int retval;
- 
--	info = &dev->mdm.info[tty->index];
--	if (isdn_tty_paranoia_check(info, tty->name, "isdn_tty_open"))
--		return -ENODEV;
--	port = &info->port;
- #ifdef ISDN_DEBUG_MODEM_OPEN
- 	printk(KERN_DEBUG "isdn_tty_open %s, count = %d\n", tty->name,
- 	       port->count);
- #endif
- 	port->count++;
--	tty->driver_data = info;
- 	port->tty = tty;
--	tty->port = port;
- 	/*
- 	 * Start up serial port
- 	 */
-@@ -1738,6 +1744,7 @@ modem_write_profile(atemu *m)
- }
- 
- static const struct tty_operations modem_ops = {
-+	.install = isdn_tty_install,
- 	.open = isdn_tty_open,
- 	.close = isdn_tty_close,
- 	.write = isdn_tty_write,
+ 	tty_set_operations(driver, &rs_ops);
+         serial_driver = driver;
 -- 
 1.7.10.4
