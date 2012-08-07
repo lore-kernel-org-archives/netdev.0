@@ -1,104 +1,72 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [RFC v3 7/7] net,9p: use new hashtable implementation
-Date: Tue,  7 Aug 2012 02:45:17 +0200
-Message-ID: <1344300317-23189-9-git-send-email-levinsasha928@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC v3 4/7] workqueue: use new hashtable implementation
+Date: Mon, 06 Aug 2012 18:19:11 -0700
+Message-ID: <1344302351.2026.24.camel@joe2Laptop>
 References: <1344300317-23189-1-git-send-email-levinsasha928@gmail.com>
-Cc: tj@kernel.org,
-	akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org,
-	paul.gortmaker@windriver.com,
-	davem@davemloft.net,
-	rostedt@goodmis.org,
-	mingo@elte.hu,
-	ebiederm@xmission.com,
-	aarcange@redhat.com,
-	ericvh@gmail.com,
-	netdev@vger.kernel.org,
-	josh@joshtriplett.org,
-	eric.dumazet@gmail.com,
-	mathieu.desnoyers@efficios.com,
-	Sasha Levin <levinsasha928@gmail.com>
-To: torvalds@linux-foundation.org
+	 <1344300317-23189-6-git-send-email-levinsasha928@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
+  linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ paul.gortmaker@windriver.com,  davem@davemloft.net, rostedt@goodmis.org,
+ mingo@elte.hu, ebiederm@xmission.com,  aarcange@redhat.com,
+ ericvh@gmail.com, netdev@vger.kernel.org,  josh@joshtriplett.org,
+ eric.dumazet@gmail.com, mathieu.desnoyers@efficios.com,  Sasha Levin
+ <sasha.levin@oracle.com>
+To: Sasha Levin <levinsasha928@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1344300317-23189-1-git-send-email-levinsasha928@gmail.com>
+In-Reply-To: <1344300317-23189-6-git-send-email-levinsasha928@gmail.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Switch 9p error table to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in 9p.
+On Tue, 2012-08-07 at 02:45 +0200, Sasha Levin wrote:
+> From: Sasha Levin <sasha.levin@oracle.com>
+> 
+> Switch workqueues to use the new hashtable implementation. This reduces the amount of
+> generic unrelated code in the workqueues.
 
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
----
- net/9p/error.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
+Just style trivia:
 
-diff --git a/net/9p/error.c b/net/9p/error.c
-index 2ab2de7..f712344d 100644
---- a/net/9p/error.c
-+++ b/net/9p/error.c
-@@ -34,7 +34,7 @@
- #include <linux/jhash.h>
- #include <linux/errno.h>
- #include <net/9p/9p.h>
--
-+#include <linux/hashtable.h>
- /**
-  * struct errormap - map string errors from Plan 9 to Linux numeric ids
-  * @name: string sent over 9P
-@@ -50,8 +50,8 @@ struct errormap {
- 	struct hlist_node list;
- };
- 
--#define ERRHASHSZ		32
--static struct hlist_head hash_errmap[ERRHASHSZ];
-+#define ERR_HASH_BITS 5
-+static DEFINE_HASHTABLE(hash_errmap, ERR_HASH_BITS);
- 
- /* FixMe - reduce to a reasonable size */
- static struct errormap errmap[] = {
-@@ -193,18 +193,17 @@ static struct errormap errmap[] = {
- int p9_error_init(void)
- {
- 	struct errormap *c;
--	int bucket;
-+	u32 hash;
- 
- 	/* initialize hash table */
--	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
--		INIT_HLIST_HEAD(&hash_errmap[bucket]);
-+	hash_init(hash_errmap, ERR_HASH_BITS);
- 
- 	/* load initial error map into hash table */
- 	for (c = errmap; c->name != NULL; c++) {
- 		c->namelen = strlen(c->name);
--		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
-+		hash = jhash(c->name, c->namelen, 0);
- 		INIT_HLIST_NODE(&c->list);
--		hlist_add_head(&c->list, &hash_errmap[bucket]);
-+		hash_add(hash_errmap, ERR_HASH_BITS, &c->list, hash);
- 	}
- 
- 	return 1;
-@@ -223,13 +222,13 @@ int p9_errstr2errno(char *errstr, int len)
- 	int errno;
- 	struct hlist_node *p;
- 	struct errormap *c;
--	int bucket;
-+	u32 hash;
- 
- 	errno = 0;
- 	p = NULL;
- 	c = NULL;
--	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
--	hlist_for_each_entry(c, p, &hash_errmap[bucket], list) {
-+	hash = jhash(errstr, len, 0);
-+	hash_for_each_possible(hash_errmap, c, ERR_HASH_BITS, p, list, hash) {
- 		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
- 			errno = c->val;
- 			break;
--- 
-1.7.8.6
+> diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+[]
+> @@ -897,8 +839,15 @@ static struct worker *__find_worker_executing_work(struct global_cwq *gcwq,
+>  static struct worker *find_worker_executing_work(struct global_cwq *gcwq,
+>  						 struct work_struct *work)
+>  {
+> -	return __find_worker_executing_work(gcwq, busy_worker_head(gcwq, work),
+> -					    work);
+> +	struct worker *worker;
+> +	struct hlist_node *tmp;
+> +
+> +	hash_for_each_possible(gcwq->busy_hash, worker, BUSY_WORKER_HASH_ORDER,
+> +								tmp, hentry, work)
+> +		if (worker->current_work == work)
+> +			return worker;
+
+braces please:
+
+	hash_for_each_possible(gcwq->busy_hash, worker, BUSY_WORKER_HASH_ORDER,
+			       tmp, hentry, work) {
+		if (worker->current_work == work)
+			return worker;
+	}
+
+[]
+
+@@ -1916,7 +1865,7 @@ static void cwq_dec_nr_in_flight(struct cpu_workqueue_struct *cwq, int color,
+>   * @worker: self
+>   * @work: work to process
+>   *
+> - * Process @work.  This function contains all the logics necessary to
+> + * Process @work.  This? function contains all the logics necessary to
+
+Odd ? and the grammar also seems odd.
+
+>   * process a single work including synchronization against and
+>   * interaction with other workers on the same cpu, queueing and
+>   * flushing.  As long as context requirement is met, any worker can
+
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
