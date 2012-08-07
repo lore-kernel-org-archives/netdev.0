@@ -1,83 +1,97 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: [PATCH] netvm: check for page == NULL when propogating the
- skb->pfmemalloc flag
-Date: Tue, 7 Aug 2012 09:55:55 +0100
-Message-ID: <20120807085554.GF29814@suse.de>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 1/6] hash: Introduce ptr_hash_mix routine
+Date: Tue, 07 Aug 2012 13:11:41 +0400
+Message-ID: <5020DBCD.7040806@parallels.com>
+References: <501FD0F2.4040609@parallels.com>	<501FD11B.6000006@parallels.com> <20120806.134459.954167716448843820.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Linux-MM <linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	Xen-devel <xen-devel@lists.xensource.com>,
-	Konrad Rzeszutek Wilk <konrad@darnok.org>,
-	Ian Campbell <Ian.Campbell@eu.citrix.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "ebiederm@xmission.com" <ebiederm@xmission.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:42789 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750945Ab2HGJLu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2012 05:11:50 -0400
+In-Reply-To: <20120806.134459.954167716448843820.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
-for the following bug triggered by a xen network driver
+On 08/07/2012 12:44 AM, David Miller wrote:
+> From: Pavel Emelyanov <xemul@parallels.com>
+> Date: Mon, 06 Aug 2012 18:13:47 +0400
+> 
+>> @@ -67,4 +68,13 @@ static inline unsigned long hash_ptr(const void *ptr, unsigned int bits)
+>>  {
+>>  	return hash_long((unsigned long)ptr, bits);
+>>  }
+>> +
+>> +static inline u32 ptr_hash_mix(const void *ptr)
+>> +{
+>> +#if BITS_PER_LONG == 32
+>> +	return (u32)(unsigned long)ptr;
+>> +#else
+>> +	return (u32)((unsigned long)ptr >> L1_CACHE_SHIFT);
+>> +#endif
+>> +}
+>>  #endif /* _LINUX_HASH_H */
+> 
+> This doesn't make much sense to me.
+> 
+> If the whole 32-bits of the pointer is useful for entropy on 32-bit
+> why isn't the whole 64-bits useful on 64-bit?
+> 
+> I would, instead, expect something like:
+> 
+> 	ptr ^ (ptr >> 32)
+> 
+> for the 64-bit case.
+> 
+> Also, that L1_CACHE_SHIFT is something callers can decide to do.
+> 
+> Only they know the size of their structure, the alignment used to
+> allocate such objects, and thus what bits are "less relevant" and
+> therefore profitable to elide from the bottom of the value.
+> .
 
-[    1.908592] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
-[    1.908643] IP: [<ffffffffa0037750>] xennet_poll+0x980/0xec0 [xen_netfront]
-[    1.908703] PGD ea1df067 PUD e8ada067 PMD 0
-[    1.908774] Oops: 0000 [#1] SMP
-[    1.908797] Modules linked in: fbcon tileblit font radeon bitblit softcursor ttm drm_kms_helper crc32c_intel xen_blkfront xen_netfront xen_fbfront fb_sys_fops sysimgblt sysfillrect syscopyarea +xen_kbdfront xenfs xen_privcmd
-[    1.908938] CPU 0
-[    1.908950] Pid: 2165, comm: ip Not tainted 3.5.0upstream-08854-g444fa66 #1
-[    1.908983] RIP: e030:[<ffffffffa0037750>]  [<ffffffffa0037750>] xennet_poll+0x980/0xec0 [xen_netfront]
-[    1.909029] RSP: e02b:ffff8800ffc03db8  EFLAGS: 00010282
-[    1.909055] RAX: ffff8800ea010140 RBX: ffff8800f00e86c0 RCX: 000000000000009a
-[    1.909055] RDX: 0000000000000040 RSI: 000000000000005a RDI: ffff8800fa7dee80
-[    1.909055] RBP: ffff8800ffc03ee8 R08: ffff8800f00e86d8 R09: ffff8800ea010000
-[    1.909055] R10: dead000000200200 R11: dead000000100100 R12: ffff8800fa7dee80
-[    1.909055] R13: 000000000000005a R14: ffff8800fa7dee80 R15: 0000000000000200
-[    1.909055] FS:  00007fbafc188700(0000) GS:ffff8800ffc00000(0000) knlGS:0000000000000000
-[    1.909055] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
-[    1.909055] CR2: 0000000000000010 CR3: 00000000ea108000 CR4: 0000000000002660
-[    1.909055] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[    1.909055] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[    1.909055] Process ip (pid: 2165, threadinfo ffff8800ea0f2000, task ffff8800fa783040)
-[    1.909055] Stack:
-[    1.909055]  ffff8800e27e5040 ffff8800ffc03e88 ffff8800ffc03e68 ffff8800ffc03e48
-[    1.909055]  7fffffffffffffff ffff8800ffc03e00 ffff8800e27e5040 ffff8800f00e86d8
-[    1.909055]  ffff8800ffc03eb0 00000040ffffffff ffff8800f00e8000 00000000ffc03e30
-[    1.909055] Call Trace:
-[    1.909055]  <IRQ>
-[    1.909055]  [<ffffffff81066028>] ?  pvclock_clocksource_read+0x58/0xd0
-[    1.909055]  [<ffffffff81486352>] net_rx_action+0x112/0x240
-[    1.909055]  [<ffffffff8107f319>] __do_softirq+0xb9/0x190
-[    1.909055]  [<ffffffff815d8d7c>] call_softirq+0x1c/0x30
+Maybe it would be better to change the way neigh_table->hash work more
+significantly then? Currently it is used like
 
-The problem is that the xenfront driver is passing a NULL page to
-__skb_fill_page_desc() which was unexpected. This patch checks that
-there is a page before dereferencing.
+	hash = tbl->hash(key, dev, tbl->rnd);
+	hash >>= (32 - tbl->hash_shift);
 
-Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Signed-off-by: Mel Gorman <mgorman@suse.de>
----
- include/linux/skbuff.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+i.e. the caller asks for u32 hash value and then trims some lower bits.
+It can be changed like
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7632c87..8857669 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1256,7 +1256,7 @@ static inline void __skb_fill_page_desc(struct sk_buff *skb, int i,
- 	 * do not lose pfmemalloc information as the pages would not be
- 	 * allocated using __GFP_MEMALLOC.
- 	 */
--	if (page->pfmemalloc && !page->mapping)
-+	if (page && page->pfmemalloc && !page->mapping)
- 		skb->pfmemalloc	= true;
- 	frag->page.p		  = page;
- 	frag->page_offset	  = off;
+	hash = tbl->hash(key, dev, tbl->rnd, tbl->hash_shift);
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+making the hash fn trim the bits itself. This will allow us to use the
+existing (declared to be proven to be effective) hash_ptr() routine for
+the net_device pointer hashing (it requires the number of bits to use).
+
+E.g. the arp hash might look like
+
+static u32 arp_hashfn(u32 key, struct net_device *dev, u32 hash_rnd,
+		unsigned int bits)
+{
+	return hash_ptr(dev, bits) ^ hash_32(key * hash_rnd, bits);
+}
+
+and the ndisc one like
+
+static u32 ndisc_hashfn(u32 *pkey, struct net_device *dev, u32 *hash_rnd,
+		unsigned int bits)
+{
+	return hash_ptr(dev, bits) ^
+		hash_32(key[0] * hash_rnd[0], bits) ^
+		hash_32(key[1] * hash_rnd[1], bits) ^
+		hash_32(key[2] * hash_rnd[2], bits) ^
+		hash_32(key[3] * hash_rnd[3], bits);
+}
+
+What do you think?
+
+Thanks,
+Pavel
