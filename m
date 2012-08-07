@@ -1,47 +1,64 @@
-From: Timur Tabi <timur-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH] netdev/phy: skip disabled mdio-mux nodes
-Date: Tue, 7 Aug 2012 12:04:00 -0500
-Message-ID: <50214A80.4020305@freescale.com>
-References: <1344358266-5450-1-git-send-email-timur@freescale.com>
- <5021496D.8070200@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2: per net tunables
+Date: Tue, 07 Aug 2012 10:17:02 -0700
+Message-ID: <87ipcud3ld.fsf_-_@xmission.com>
+References: <1344115837-6150-1-git-send-email-jan.ariyasu@hp.com>
+	<87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
- <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <5021496D.8070200-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Type: text/plain
+Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Ariyasu <jan.ariyasu@hp.com>,
+	Jan Ariyasu <jan.ariyasu@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@infradead.org>, Xi Wang <xi.wang@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87zk67q31q.fsf_-_@xmission.com> (Eric W. Biederman's message of
+	"Mon, 06 Aug 2012 11:38:09 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Daney wrote:
-> Although this will get the job done, I don't think it is the cleanest 
-> approach.
-> 
-> Would it be better to create a new iterator 
-> (for_each_available_child_of_node perhaps) that skips the unavailable 
-> nodes?  This seems like a general problem that is not restricted to mdio 
-> multiplexers.
 
-You're probably right, but this is how it's normally done.  If you're
-going to scan child nodes manually, you have to skip disabled nodes.
+Since I am motivated to get things done, and since there has been much
+grumbling about my patches not implementing tunables, I have added
+tunable support on top of my last patchset.
 
-If someone else wants to implement for_each_available_child_of_node(), I'm
-all for it, but such a patch would not be merged until 3.7.  I was hoping
-to have my patch applied to 3.6, since it fixes a real bug.
+I have performed basic testing on the these patches and nothing
+appears amis.
 
--- 
-Timur Tabi
-Linux kernel developer at Freescale
+The sm statemachine is a major tease as it has all of these association
+and endpoint pointers in the common set of function parameters that turn
+out to be NULL at the most inconvinient times.  So I added to the common
+parameter list a struct net pointer, that is never NULL. 
+
+ include/net/netns/sctp.h   |   96 +++++++-
+ include/net/sctp/sctp.h    |   16 +-
+ include/net/sctp/sm.h      |    8 +-
+ include/net/sctp/structs.h |  126 +---------
+ net/sctp/associola.c       |   18 +-
+ net/sctp/auth.c            |   20 ++-
+ net/sctp/bind_addr.c       |    6 +-
+ net/sctp/endpointola.c     |   13 +-
+ net/sctp/input.c           |    6 +-
+ net/sctp/primitive.c       |    4 +-
+ net/sctp/protocol.c        |  137 +++++-----
+ net/sctp/sm_make_chunk.c   |   61 +++--
+ net/sctp/sm_sideeffect.c   |   26 ++-
+ net/sctp/sm_statefuns.c    |  631 ++++++++++++++++++++++++--------------------
+ net/sctp/sm_statetable.c   |   17 +-
+ net/sctp/socket.c          |   92 ++++---
+ net/sctp/sysctl.c          |  200 ++++++++------
+ net/sctp/transport.c       |   23 +-
+ 18 files changed, 817 insertions(+), 683 deletions(-)
+
+Eric W. Biederman (7):
+      sctp: Add infrastructure for per net sysctls
+      sctp: Push struct net down to sctp_chunk_event_lookup
+      sctp: Push struct net down into sctp_transport_init
+      sctp: Push struct net down into sctp_in_scope
+      sctp: Push struct net down into all of the state machine functions
+      sctp: Push struct net down into sctp_verify_ext_param
+      sctp: Making sysctl tunables per net
+
+Eric
