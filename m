@@ -1,68 +1,97 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: Re: [PATCH] batman-adv: Fix mem leak in the
- batadv_tt_local_event() function
-Date: Tue, 7 Aug 2012 20:50:36 +0200
-Message-ID: <20120807185036.GG3891@ritirata.org>
-References: <alpine.LNX.2.00.1208072030500.3227@swampdragon.chaosbits.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: iproute2-3.5.0: `ip a s` no longer shows addresses
+Date: Tue, 7 Aug 2012 15:03:00 -0400
+Message-ID: <201208071503.01261.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature"; boundary="bFsKbPszpzYNtEU6"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
- Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.00.1208072030500.3227-h2p7t3/P30RzeRGmFJ5qR7ZzlVVXadcDXqFh9Ls21Oc@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart4413651.qhzU6lK147";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:49598 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754641Ab2HGTDB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2012 15:03:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---bFsKbPszpzYNtEU6
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+--nextPart4413651.qhzU6lK147
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Aug 07, 2012 at 08:32:34PM +0200, Jesper Juhl wrote:
-> Memory is allocated for 'tt_change_node' with kmalloc().
-> 'tt_change_node' may go out of scope really being used for anything
-> (except have a few members initialized) if we hit the 'del:' label.
-> This patch makes sure we free the memory in that case.
->=20
-> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+since 3.4.0 works, but 3.5.0, a quick bisect shows the bad commit:
+http://git.kernel.org/?p=3Dlinux/kernel/git/shemminger/iproute2.git;a=3Dcom=
+mit;h=3D8d07e5f7d995171ee8834eae268e300560de5d4f
 
-Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+the simple test case:
+make clean && make -j -s && ./ip/ip a s lo
 
+before that change, i would get:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN=20
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+    inet6 ::1/128 scope host=20
+       valid_lft forever preferred_lft forever
 
-Thank you very much Jepser!
+but after, i now get:
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN=20
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
 
+seems like the bug was introduced in the middle of that patch:
+=20
+=2D	if (filter.family !=3D AF_PACKET) {
++	if (filter.family && filter.family !=3D AF_PACKET) {
++		if (filter.oneline)
++			no_link =3D 1;
++
+ 		if (rtnl_wilddump_request(&rth, filter.family, RTM_GETADDR) < 0) {
+ 			perror("Cannot send dump request");
+ 			exit(1);
 
---=20
-Antonio Quartulli
+if i revert the change to the if statement there, `ip a s` works for me aga=
+in.
+(see below)
+=2Dmike
 
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 37deda5..69a63b3 100644
+=2D-- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1018,7 +1018,7 @@ static int ipaddr_list_or_flush(int argc, char **argv=
+, int flush)
+ 		exit(1);
+ 	}
+=20
+=2D	if (filter.family && filter.family !=3D AF_PACKET) {
++	if (filter.family !=3D AF_PACKET) {
+ 		if (filter.oneline)
+ 			no_link =3D 1;
+=20
 
---bFsKbPszpzYNtEU6
-Content-Type: application/pgp-signature
+--nextPart4413651.qhzU6lK147
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
+Version: GnuPG v2.0.17 (GNU/Linux)
 
-iEYEARECAAYFAlAhY3wACgkQpGgxIkP9cwdFfwCeLDF4mxfR3nqQFSugsswE1ABb
-pfoAn1pozRGK5vdweqEYCEq63VXelh37
-=QOsH
+iQIcBAABAgAGBQJQIWZlAAoJEEFjO5/oN/WBl+QQANDd+NfizX3Q/HwGQD4QDP8J
+jmT76Ne0vJL5noASsmQkuQI3/kqHA1Ig6Q4yyjEe4/LHaQhKk/J2m+ZCqe1DUOl5
+PeB9TsqlSDsZVup5xRNs1fVyXJ8zOJDHU98V7dWWGKeXURzo1MnqB30v6DUiMjs9
+2G/gtbPsqCr/ZHCX0GqAcgg+Ma2k9Py5JmEuwaOBXaVs2ULiLp6TYBQ3NCIxN0Oy
+U8wUCOBbx8SkBOJ0qgP+JfInM0QIJ6FZ5nAEn92pHXRxX8pDmdjdcB3U/XJWGwD6
+F8BXaTr8N4P36zIHm+1+KAQyTxMgp8AxQRoXlRr3NTJXOOcoM6RfhYbcJm668zcS
+nH1DnIVsiMd1QvdmoIkNedHw33C29KZ8KVvLkikdU9CBnwdsfvyy4mxmN+zLKr0l
+akl4VVzaa9Ob3qEFJ7JF+cJqyEenvp5VZt9nEwGvGL3iFOLOItEuvhjBqQmHATOy
+OLyP600ZDzuMDYvMAXf4vgC6WvuE48CSZzOeK4db1Kaxvp0wLgaxyWvwlhs6jZeP
+ZapgssYypWxvygVBcDeBNU3tHH2RAqKm9rgKlQSq6T9R7SrN37u+WaN2p0KhJOpV
+8ClIzzN/2tm6hbZcRklyONRs9h976H4hUT5ersMLK7ecapbrnHgfh2bCEzqNUo33
+73SMqE0npMOaggj3DXLK
+=a4EB
 -----END PGP SIGNATURE-----
 
---bFsKbPszpzYNtEU6--
+--nextPart4413651.qhzU6lK147--
