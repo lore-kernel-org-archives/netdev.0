@@ -1,48 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fib: fix incorrect call_rcu_bh()
-Date: Tue, 07 Aug 2012 12:47:11 +0200
-Message-ID: <1344336431.28967.14.camel@edumazet-glaptop>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH 2/5 (resend)] net: Allow to create links with given ifindex
+Date: Tue, 07 Aug 2012 15:01:32 +0400
+Message-ID: <5020F58C.8070605@parallels.com>
+References: <501FD0F2.4040609@parallels.com> <501FD13E.1030404@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:65252 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152Ab2HGKrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 06:47:16 -0400
-Received: by bkwj10 with SMTP id j10so1385989bkw.19
-        for <netdev@vger.kernel.org>; Tue, 07 Aug 2012 03:47:15 -0700 (PDT)
+Received: from mailhub.sw.ru ([195.214.232.25]:3062 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753805Ab2HGLBn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2012 07:01:43 -0400
+In-Reply-To: <501FD13E.1030404@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Currently the RTM_NEWLINK results in -EOPNOTSUPP if the ifinfomsg->ifi_index
+is not zero. I propose to allow requesting ifindices on link creation. This
+is required by the checkpoint-restore to correctly restore a net namespace
+(i.e. -- a container).
 
-After IP route cache removal, I believe rcu_bh() has very little use and
-we should remove this RCU variant, since it adds some cycles in fast
-path.
-
-Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
-some users only assert rcu_read_lock().
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 ---
- net/ipv4/fib_trie.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/core/dev.c       |    7 ++++++-
+ net/core/rtnetlink.c |   12 +++++++-----
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index f0cdb30..57bd978 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -367,7 +367,7 @@ static void __leaf_free_rcu(struct rcu_head *head)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f91abf8..3ca300d 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5579,7 +5579,12 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
  
- static inline void free_leaf(struct leaf *l)
- {
--	call_rcu_bh(&l->rcu, __leaf_free_rcu);
-+	call_rcu(&l->rcu, __leaf_free_rcu);
- }
+-	dev->ifindex = dev_new_index(net);
++	ret = -EBUSY;
++	if (!dev->ifindex)
++		dev->ifindex = dev_new_index(net);
++	else if (__dev_get_by_index(net, dev->ifindex))
++		goto err_uninit;
++
+ 	if (dev->iflink == -1)
+ 		dev->iflink = dev->ifindex;
  
- static inline void free_leaf_info(struct leaf_info *leaf)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2c5a0a0..1aa1456 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1812,8 +1812,6 @@ replay:
+ 			return -ENODEV;
+ 		}
+ 
+-		if (ifm->ifi_index)
+-			return -EOPNOTSUPP;
+ 		if (tb[IFLA_MAP] || tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
+ 			return -EOPNOTSUPP;
+ 
+@@ -1839,10 +1837,14 @@ replay:
+ 			return PTR_ERR(dest_net);
+ 
+ 		dev = rtnl_create_link(net, dest_net, ifname, ops, tb);
+-
+-		if (IS_ERR(dev))
++		if (IS_ERR(dev)) {
+ 			err = PTR_ERR(dev);
+-		else if (ops->newlink)
++			goto out;
++		}
++
++		dev->ifindex = ifm->ifi_index;
++
++		if (ops->newlink)
+ 			err = ops->newlink(net, dev, tb, data);
+ 		else
+ 			err = register_netdevice(dev);
+-- 
+1.7.6.5
