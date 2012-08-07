@@ -1,76 +1,110 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 23/41] TTY: automatically create nodes for some drivers
-Date: Tue,  7 Aug 2012 21:47:48 +0200
-Message-ID: <1344368886-24033-24-git-send-email-jslaby@suse.cz>
-References: <1344368886-24033-1-git-send-email-jslaby@suse.cz>
-Cc: alan@linux.intel.com, linux-kernel@vger.kernel.org,
-	jirislaby@gmail.com, netdev@vger.kernel.org, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, linux-cris-kernel@axis.com
-To: gregkh@linuxfoundation.org
+From: Luciano Ruete <luciano.ruete@gmail.com>
+Subject: [Announce] SequreISP an ISP's management software as GPL
+Date: Tue, 07 Aug 2012 17:01:53 -0300
+Message-ID: <50217431.2030501@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: lartc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pripojeni.net ([178.22.112.14]:36557 "EHLO
-	smtp.pripojeni.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756533Ab2HGT7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 15:59:50 -0400
-In-Reply-To: <1344368886-24033-1-git-send-email-jslaby@suse.cz>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:53401 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756444Ab2HGUDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2012 16:03:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This looks like it was a mistake not to create device nodes for these
-drivers. Let us create them from now on.
+Hi all,
 
-It will be necessary to call tty_register_device some way, either by
-tty_register_driver implicitly or to call tty_register_device proper.
+This is a one time announce.
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: netdev@vger.kernel.org
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
-Cc: linux-cris-kernel@axis.com
----
- drivers/isdn/i4l/isdn_tty.c  |    2 +-
- drivers/s390/char/tty3270.c  |    2 +-
- drivers/tty/serial/crisv10.c |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ From about 12 years from now I (and my company) have worked with=20
+small/medium ISPs or WISPs, always using Linux as the core router for=20
+bandwidth management, QoS and load balancing.
 
-diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
-index 7a61ef6..576ce4b 100644
---- a/drivers/isdn/i4l/isdn_tty.c
-+++ b/drivers/isdn/i4l/isdn_tty.c
-@@ -1782,7 +1782,7 @@ isdn_tty_modem_init(void)
- 	m->tty_modem->subtype = SERIAL_TYPE_NORMAL;
- 	m->tty_modem->init_termios = tty_std_termios;
- 	m->tty_modem->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
--	m->tty_modem->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
-+	m->tty_modem->flags = TTY_DRIVER_REAL_RAW;
- 	m->tty_modem->driver_name = "isdn_tty";
- 	tty_set_operations(m->tty_modem, &modem_ops);
- 	retval = tty_register_driver(m->tty_modem);
-diff --git a/drivers/s390/char/tty3270.c b/drivers/s390/char/tty3270.c
-index 215037c..f2b8c6c 100644
---- a/drivers/s390/char/tty3270.c
-+++ b/drivers/s390/char/tty3270.c
-@@ -1781,7 +1781,7 @@ static int __init tty3270_init(void)
- 	driver->type = TTY_DRIVER_TYPE_SYSTEM;
- 	driver->subtype = SYSTEM_TYPE_TTY;
- 	driver->init_termios = tty_std_termios;
--	driver->flags = TTY_DRIVER_RESET_TERMIOS | TTY_DRIVER_DYNAMIC_DEV;
-+	driver->flags = TTY_DRIVER_RESET_TERMIOS;
- 	tty_set_operations(driver, &tty3270_ops);
- 	ret = tty_register_driver(driver);
- 	if (ret) {
-diff --git a/drivers/tty/serial/crisv10.c b/drivers/tty/serial/crisv10.c
-index 6b705b2..708c3bf 100644
---- a/drivers/tty/serial/crisv10.c
-+++ b/drivers/tty/serial/crisv10.c
-@@ -4443,7 +4443,7 @@ static int __init rs_init(void)
- 		B115200 | CS8 | CREAD | HUPCL | CLOCAL; /* is normally B9600 default... */
- 	driver->init_termios.c_ispeed = 115200;
- 	driver->init_termios.c_ospeed = 115200;
--	driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
-+	driver->flags = TTY_DRIVER_REAL_RAW;
- 
- 	tty_set_operations(driver, &rs_ops);
-         serial_driver = driver;
--- 
-1.7.10.4
+As for 3 years from now we have started to work in a product now called=
+=20
+SequreISP[0], which is a final solution for small/medium ISPs, that now=
+=20
+is at a very stable state, and the proof is it's been used for more tha=
+n=20
+200 ISPs in more than 10 different countries worldwide[1].
+With a range of clients up to 5000 per ISP, that is currently our mayor=
+=20
+success case (in a single server), but we think this can grow up to=20
+10000 or 15000 as well.
+
+SequreISP allows to do bandwidth management, QoS, load balancing=20
+(current record is 40 ADSL lines in single server) and a lot more all=20
+from a comfortable web interface (like a router) which is written in=20
+Ruby on Rails. At a low level it generates tc(htb,sfq) queues and ip=20
+ro/iptables commands.
+
+SequreISP comes with a core which has all the technicals features, whic=
+h=20
+has been open sourced about more than a year ago with a AGPLv3 License.=
+=20
+You can check the project page at github[2]. As you can quickly verify,=
+=20
+the public repo has been keep up to date, with commits almost every day=
+,=20
+and that's because it is our main repo as well.
+
+All user interface is fully available in English, Spanish and=20
+Portuguese, as well as the in-line documentation.
+
+There is also a commercial version of SequreISP, that comes with severa=
+l=20
+modules adding extra(administrative) functionalities like a invoicing=20
+tools, notifications(via captive portal), videocahe, help desk, among=20
+others.
+
+We have a growing community of commercial SequreISP users, but=20
+unfortunately there is no growing community from open source users and=20
+developers as well. So this email is an open invitation for this to cha=
+nge.
+
+As a sysadmin and developer i can assure you that SequreISP solves a lo=
+t=20
+of complex problems with a neat and effective approach.
+
+So if you are an ISP sysadmin or owner I really suggest you to give it =
+a=20
+try.
+
+If you are also a developer you can contribute with the project and the=
+=20
+community, and you can even make money from this, ie. writing your own=20
+plug-in and selling it to our existing client database (like in an app=20
+store).
+
+There is a lot of engineering and effort behind SequreISP and it is a=20
+shame and a waste that a lot of people are not using it simply because=20
+they don't know that it exists.
+
+We are going to be also giving some SequreISP free conferences in=20
+August, in Buenos Aires[3], S=E3o Paulo[4] and Budapest[5] (following=20
+Ubiquiti World Conference scheduling, in order to ease access), so if=20
+you're going to this Ubiquiti events, or simply like to know us,=20
+consider yourself invited.
+
+Thank you all for your time.
+
+
+[0] http://sequreisp.com/?locale=3Den
+[1] You can check our customers map at http://sequreisp.com/Map?locale=3D=
+en
+[2] https://github.com/sequre/sequreisp
+[3] http://sequreisp.com/blog/posts/17?locale=3Des
+[4] http://sequreisp.com/blog/posts/18?locale=3Dpt
+[5] http://sequreisp.com/blog/posts/19?locale=3Den
+
+--=20
+Luciano Ruete
+CTO - Sequre/SequreISP
+Mitre 617 Piso 7 Ala Oeste
+Mendoza - Argentina
+http://www.sequreisp.com/
+http://www.sequre.com.ar/
