@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND][PATCH] drivers: net: irda: bfin_sir: fix compile error
-Date: Wed, 08 Aug 2012 15:40:43 -0700 (PDT)
-Message-ID: <20120808.154043.2209307222855369747.davem@davemloft.net>
-References: <1344305316-23916-1-git-send-email-lliubbo@gmail.com>
+Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 08 Aug 2012 15:42:38 -0700 (PDT)
+Message-ID: <20120808.154238.554070934649158940.davem@davemloft.net>
+References: <1344326657-9376-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, rmk+kernel@arm.linux.org.uk,
-	gregkh@linuxfoundation.org, kuninori.morimoto.gx@renesas.com,
-	linux-kernel@vger.kernel.org,
-	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
-	sonic.zhang@analog.com
-To: lliubbo@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344305316-23916-1-git-send-email-lliubbo@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: peter.p.waskiewicz.jr@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47157 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756875Ab2HHWmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 18:42:39 -0400
+In-Reply-To: <1344326657-9376-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bob Liu <lliubbo@gmail.com>
-Date: Tue, 7 Aug 2012 10:08:36 +0800
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Date: Tue,  7 Aug 2012 01:04:14 -0700
 
-> From: Sonic Zhang <sonic.zhang@analog.com>
+> This series contains fixes to the e1000e and igb drivers.
 > 
-> Bit IREN is replaced by UMOD_IRDA and UMOD_MASK since blackfin 60x added, but
-> this driver didn't update which will cause bfin_sir build error:
+> The following are changes since commit 5d299f3d3c8a2fbc732b1bf03af36333ccec3130:
+>   
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/ppwaskie/net master
 > 
-> drivers/net/irda/bfin_sir.c:161:9: error: 'IREN' undeclared (first use in this
-> function)
-> drivers/net/irda/bfin_sir.c:435:18: error: 'IREN' undeclared (first use in
-> this function)
-> drivers/net/irda/bfin_sir.c:521:11: error: 'IREN' undeclared (first use in
-> this function)
+> Stefan Assmann (1):
+>   igb: add delay to allow igb loopback test to succeed on 8086:10c9
 > 
-> This patch fix it.
-> 
-> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-> Signed-off-by: Bob Liu <lliubbo@gmail.com>
-> Acked-by: Samuel Ortiz <samuel@sortiz.org>
+> Tushar Dave (2):
+>   e1000e: NIC goes up and immediately goes down
+>   e1000e: 82571 Tx Data Corruption during Tx hang recovery
 
-Applied, thanks.
+Pulled, thanks a lot.
