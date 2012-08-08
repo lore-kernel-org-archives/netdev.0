@@ -1,46 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netvm: check for page == NULL when propogating the
- skb->pfmemalloc flag
-Date: Wed, 08 Aug 2012 15:50:46 -0700 (PDT)
-Message-ID: <20120808.155046.820543563969484712.davem@davemloft.net>
-References: <20120807085554.GF29814@suse.de>
+Subject: Re: pull-request: can 2012-08-07
+Date: Wed, 08 Aug 2012 15:55:48 -0700 (PDT)
+Message-ID: <20120808.155548.18796336473979906.davem@davemloft.net>
+References: <1344333858-11944-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, xen-devel@lists.xensource.com, konrad@darnok.org,
- Ian.Campbell@eu.citrix.com, akpm@linux-foundation.org
-To: mgorman@suse.de
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20120807085554.GF29814@suse.de>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1344333858-11944-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mel Gorman <mgorman@suse.de>
-Date: Tue, 7 Aug 2012 09:55:55 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Tue,  7 Aug 2012 12:04:17 +0200
 
-> Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
-> for the following bug triggered by a xen network driver
+> here's a fix intended for the v3.6 release cycle. Oliver noticed and
+> fixed that the flags definition for the new canfd_frame contains
+> redundant and confusing information.
  ...
-> The problem is that the xenfront driver is passing a NULL page to
-> __skb_fill_page_desc() which was unexpected. This patch checks that
-> there is a page before dereferencing.
-> 
-> Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
+>   git://gitorious.org/linux-can/linux-can.git fixes-for-3.6
 
-That call to __skb_fill_page_desc() in xen-netfront.c looks completely bogus.
-It's the only driver passing NULL here.
-
-That whole song and dance figuring out what to do with the head
-fragment page, depending upon whether the length is greater than the
-RX_COPY_THRESHOLD, is completely unnecessary.
-
-Just use something like a call to __pskb_pull_tail(skb, len) and all
-that other crap around that area can simply be deleted.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Pulled, thanks.
