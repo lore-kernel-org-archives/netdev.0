@@ -1,43 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] batman-adv: Fix mem leak in the
- batadv_tt_local_event() function
-Date: Wed, 08 Aug 2012 16:04:28 -0700 (PDT)
-Message-ID: <20120808.160428.2244694881256062176.davem@davemloft.net>
-References: <alpine.LNX.2.00.1208072030500.3227@swampdragon.chaosbits.net>
- <20120807185036.GG3891@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cdc-phonet: Don't leak in usbpn_open
+Date: Wed, 08 Aug 2012 16:05:04 -0700 (PDT)
+Message-ID: <20120808.160504.2177426106219233783.davem@davemloft.net>
+References: <alpine.LNX.2.00.1208072354030.3227@swampdragon.chaosbits.net>
+	<201208081012.07772.remi@remlab.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org, jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org,
- lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20120807185036.GG3891-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jj@chaosbits.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: remi@remlab.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201208081012.07772.remi@remlab.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Tue, 7 Aug 2012 20:50:36 +0200
+=46rom: "R=E9mi Denis-Courmont" <remi@remlab.net>
+Date: Wed, 8 Aug 2012 10:12:06 +0300
 
-> On Tue, Aug 07, 2012 at 08:32:34PM +0200, Jesper Juhl wrote:
->> Memory is allocated for 'tt_change_node' with kmalloc().
->> 'tt_change_node' may go out of scope really being used for anything
->> (except have a few members initialized) if we hit the 'del:' label.
->> This patch makes sure we free the memory in that case.
->> 
->> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-> 
-> Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Le mercredi 8 ao=FBt 2012 00:56:26 Jesper Juhl, vous avez =E9crit :
+>> We allocate memory for 'req' with usb_alloc_urb() and then test
+>> 'if (!req || rx_submit(pnd, req, GFP_KERNEL | __GFP_COLD))'.
+>> If we enter that branch due to '!req' then there is no problem. But =
+if
+>> we enter the branch due to 'req' being !=3D 0 and the 'rx_submit()' =
+call
+>> being false, then we'll leak the memory we allocated.
+>> Deal with the leak by always calling 'usb_free_urb(req)' when enteri=
+ng
+>> the branch. If 'req' happens to be 0 then the call is harmless, if i=
+t
+>> is not 0 then we free the memory we allocated but don't need.
+>>
+>> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+>=20
+> Acked-by: R=E9mi Denis-Courmont <remi@remlab.net>
 
-Applied, thanks.
+Applied.
