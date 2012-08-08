@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pptp: lookup route with the proper net namespace
-Date: Wed, 08 Aug 2012 15:57:20 -0700 (PDT)
-Message-ID: <20120808.155720.117832615962583285.davem@davemloft.net>
-References: <1344334991-3441-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] net: fib: fix incorrect call_rcu_bh()
+Date: Wed, 08 Aug 2012 15:57:58 -0700 (PDT)
+Message-ID: <20120808.155758.194423138369923978.davem@davemloft.net>
+References: <1344336431.28967.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xeb@mail.ru, netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47382 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47391 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757683Ab2HHW5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 18:57:21 -0400
-In-Reply-To: <1344334991-3441-1-git-send-email-gaofeng@cn.fujitsu.com>
+	with ESMTP id S1757683Ab2HHW56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 18:57:58 -0400
+In-Reply-To: <1344336431.28967.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Tue, 7 Aug 2012 18:23:11 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 07 Aug 2012 12:47:11 +0200
 
-> pptp always use init_net as the net namespace to lookup
-> route, this will cause route lookup failed in container.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> because we already set the correct net namespace to struct
-> sock in pptp_create,so fix this by using sock_net(sk) to
-> replace &init_net.
+> After IP route cache removal, I believe rcu_bh() has very little use and
+> we should remove this RCU variant, since it adds some cycles in fast
+> path.
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
+> some users only assert rcu_read_lock().
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
 Applied, thanks.
