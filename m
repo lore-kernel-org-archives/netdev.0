@@ -1,57 +1,99 @@
-From: Jain Priyanka-B32167 <B32167@freescale.com>
-Subject: RE: [PATCH][XFRM] Replace rwlock on xfrm_policy_afinfo with rcu
-Date: Wed, 8 Aug 2012 04:53:42 +0000
-Message-ID: <AC83832D6324604BB08FAE5A33553F1907A96EA6@039-SN2MPN1-012.039d.mgd.msft.net>
-References: <1344316904-2544-1-git-send-email-Priyanka.Jain@freescale.com>
- <20120807.162138.5000306557864030.davem@davemloft.net>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Wed, 8 Aug 2012 08:23:15 +0300
+Message-ID: <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
+References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
+	<1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
+	<87boitz044.fsf@xmission.com>
+	<20120805185031.GA18640@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
+	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
+	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
+	Doug Ledford <dledford@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe002.messaging.microsoft.com ([213.199.154.205]:10017
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750712Ab2HHEyM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2012 00:54:12 -0400
-In-Reply-To: <20120807.162138.5000306557864030.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:60729 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751733Ab2HHFXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 01:23:16 -0400
+Received: by yhmm54 with SMTP id m54so383969yhm.19
+        for <netdev@vger.kernel.org>; Tue, 07 Aug 2012 22:23:15 -0700 (PDT)
+In-Reply-To: <20120805185031.GA18640@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Aug 5, 2012 at 9:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+
+[...]
+> So it seems that a sane solution would involve an extra level of
+> indirection, with guest addresses being translated to host IB addresses.
+> As long as you do this, maybe using an ethernet frame format makes sense.
+[...]
+
+Yep, that's among the points we're trying to make, the way you've put
+it makes it clearer.
+
+> So far the things that make sense. Here are some that don't, to me:
+
+> - Is a pdf presentation all you have in terms of documentation?
+>   We are talking communication protocols here - I would expect a
+>   proper spec, and some effort to standardize, otherwise where's the
+>   guarantee it won't change in an incompatible way?
+
+To be precise, the solution uses 100% IPoIB wire-protocol, so we don't
+see a need
+for any spec change / standardization effort. This might go to the 1st
+point you've
+brought... improve the documentation, will do that. The pdf you looked
+at was presented
+in a conference.
+
+>   Other things that I would expect to be addressed in such a spec is
+>   interaction with other IPoIB features, such as connected
+>   mode, checksum offloading etc, and IB features such as multipath etc.
+
+For the eipoib interface, it doesn't really matters if the underlyind
+ipoib clones used by it (we call them VIFs) use connected or datagram
+mode, what does matter is the MTU and offload features supported by
+these VIFs, for which the eipoib interface will have the min among all
+these VIFs. Since for a given eipoib nic, all its VIFs must originated
+from the same IPoIB PIF (e.g ib0) its easy admin job to make sure they
+all have the same mtu / features which are needed for that eipoib nic,
+e.g by using the same mode (connected/datagram for all of them), hope
+this is clear.
 
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Wednesday, August 08, 2012 4:52 AM
-To: Jain Priyanka-B32167
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH][XFRM] Replace rwlock on xfrm_policy_afinfo with rcu
+> - The way you encode LID/QPN in the MAC seems questionable. IIRC there's
+>   more to IB addressing than just the LID.  Since everyone on the subnet
+>   need access to this translation, I think it makes sense to store it in
+>   the SM. I think this would also obviate some IPv4 specific hacks in kernel.
 
-From: Priyanka Jain <Priyanka.Jain@freescale.com>
-Date: Tue, 7 Aug 2012 10:51:44 +0530
+The idead beyond the encoding was uniqueness, LID/QPN is unique per IB
+HCA end-node. I wasn't sure to understand the comment re the IPv4 hacks.
 
-> xfrm_policy_afinfo is read mosly data structure.
-> Write on xfrm_policy_afinfo is done only at the time of configuration.
-> So rwlocks can be safely replaced with RCU.
-> 
-> RCUs usage optimizes the performance.
-> 
-> Signed-off-by: Priyanka Jain <Priyanka.Jain@freescale.com>
+> - IGMP/MAC snooping in a driver is just too hairy.
 
-This patch doesn't apply to the net-next tree, please respin.
-[Priyanka]: I will send v2 after re-spinning against git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git.
+mmm, any rough idea/direction how to do that otherwise?
 
-Also:
+>   As you point out, bridge currently needs the uplink in promisc mode.
+>   I don't think a driver should work around that limitation.
+>   For some setups, it might be interesting to remove the
+>   promisc mode requirement, failing that,
+>   I think you could use macvtap passthrough.
 
-> -			xfrm_policy_afinfo[afinfo->family] = NULL;
-> +			rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family],
-> +				NULL);
+That's in the plans, the current code doesn't assume that the eipoib
+has bridge on top, for VM networking it works with bridge + tap,
+bridge + macvtap, but it would easily work with passthrough when we
+allow to create multiple eipoib interfaces on the same ipoib PIF (e.g
+today for the ib0 PIF we create eipoib eth0, and then two VIFs ib0.1
+and ib0.2 that are enslaved by eth0, but next we will create eth1 and
+eth2 which will use ib0.1 and ib0.2
+respectively.
 
-Indent that NULL argument properly, it must line up with the first column after the openning '(' on the previous line.
-[Priyanka]: NULL has been pushed to next line to confirm to 80 characters per line rule. If I indent NULL to previous line, it will break 80 characters per line rule.
-Please let me know your final say on this. I will make changes accordingly if required.
+> - Currently migration works without host kernel help, would be
+>   preferable to keep it that way.
 
-Thanks
-Priyanka
+OK
