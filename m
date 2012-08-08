@@ -1,78 +1,46 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH][XFRM] Replace rwlock on xfrm_policy_afinfo with rcu
-Date: Wed, 8 Aug 2012 14:44:02 +0800
-Message-ID: <50220AB2.5030504@windriver.com>
-References: <1344316904-2544-1-git-send-email-Priyanka.Jain@freescale.com> <1344407147.28967.212.camel@edumazet-glaptop>
+From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont" <remi@remlab.net>
+Subject: Re: [PATCH] cdc-phonet: Don't leak in usbpn_open
+Date: Wed, 8 Aug 2012 10:12:06 +0300
+Message-ID: <201208081012.07772.remi@remlab.net>
+References: <alpine.LNX.2.00.1208072354030.3227@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Priyanka Jain <Priyanka.Jain@freescale.com>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:45274 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753741Ab2HHGjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 02:39:41 -0400
-In-Reply-To: <1344407147.28967.212.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>
+To: Jesper Juhl <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1208072354030.3227@swampdragon.chaosbits.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46irst, sorry to jump in.
+Le mercredi 8 ao=FBt 2012 00:56:26 Jesper Juhl, vous avez =E9crit :
+> We allocate memory for 'req' with usb_alloc_urb() and then test
+> 'if (!req || rx_submit(pnd, req, GFP_KERNEL | __GFP_COLD))'.
+> If we enter that branch due to '!req' then there is no problem. But i=
+f
+> we enter the branch due to 'req' being !=3D 0 and the 'rx_submit()' c=
+all
+> being false, then we'll leak the memory we allocated.
+> Deal with the leak by always calling 'usb_free_urb(req)' when enterin=
+g
+> the branch. If 'req' happens to be 0 then the call is harmless, if it
+> is not 0 then we free the memory we allocated but don't need.
+>
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 
-On 2012=E5=B9=B408=E6=9C=8808=E6=97=A5 14:25, Eric Dumazet wrote:
-> On Tue, 2012-08-07 at 10:51 +0530, Priyanka Jain wrote:
->> xfrm_policy_afinfo is read mosly data structure.
->> Write on xfrm_policy_afinfo is done only at the
->> time of configuration.
->> So rwlocks can be safely replaced with RCU.
->>
->> RCUs usage optimizes the performance.
->
->
->>   static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned =
-short family)
->> @@ -2530,16 +2535,16 @@ static struct xfrm_policy_afinfo *xfrm_polic=
-y_get_afinfo(unsigned short family)
->>   	struct xfrm_policy_afinfo *afinfo;
->>   	if (unlikely(family>=3D NPROTO))
->>   		return NULL;
->> -	read_lock(&xfrm_policy_afinfo_lock);
->> -	afinfo =3D xfrm_policy_afinfo[family];
->> +	rcu_read_lock();
->> +	afinfo =3D rcu_dereference(xfrm_policy_afinfo[family]);
->>   	if (unlikely(!afinfo))
->> -		read_unlock(&xfrm_policy_afinfo_lock);
->> +		rcu_read_unlock();
->
-> This makes no sense to me : We cant safely return afinfo here.
->
-> Note the current code is buggy as well, this is worrying.
->
-> As soon as we exit from xfrm_policy_get_afinfo(), pointer might be
-> invalid.
->
-Yes, it might be invalid, but all the callers have checked the return
-value, thus use it in a sane way.
-So I don't follow "Note the current code is buggy as well".
+Acked-by: R=E9mi Denis-Courmont <remi@remlab.net>
 
-Am I missing something here?
+> ---
+>  drivers/net/usb/cdc-phonet.c | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+>   Only compile tested due to lack of hardware.
 
-
-> Really, RCU conversion should be the right moment to spot those bugs =
-and
-> first fix them (for stable trees)
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Hardware won't help you much with testing the error case anyway.
 
 --=20
-
-Love each day!
---fan
+R=E9mi Denis-Courmont, looking for a job
+http://www.remlab.net/
+http://fi.linkedin.com/in/remidenis
