@@ -1,155 +1,166 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCHv2 3/4] modem_shm: u8500-shm: U8500 Shared Memory Driver
-Date: Wed, 8 Aug 2012 11:46:06 +0100
-Message-ID: <20120808114606.2a1a3bd3@pyramind.ukuu.org.uk>
-References: <1344322471-3640-1-git-send-email-arun.murthy@stericsson.com>
-	<1344322471-3640-4-git-send-email-arun.murthy@stericsson.com>
-	<20120807110156.4d0c2571@pyramind.ukuu.org.uk>
-	<F45880696056844FA6A73F415B568C695B0E7969E3@EXDCVYMBSTM006.EQ1STM.local>
+From: Ian Molton <ian.molton@codethink.co.uk>
+Subject: Re: [PATCH v3 0/7] mv643xx.c: Add basic device tree support.
+Date: Wed, 08 Aug 2012 12:51:02 +0100
+Message-ID: <502252A6.4090409@codethink.co.uk>
+References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk> <20120807.162923.34400427265666163.davem@davemloft.net> <201208080816.29218.arnd@arndb.de> <50223428.6030506@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-To: Arun MURTHY <arun.murthy@stericsson.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <F45880696056844FA6A73F415B568C695B0E7969E3@EXDCVYMBSTM006.EQ1STM.local>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, andrew@lunn.ch,
+	thomas.petazzoni@free-electrons.com, ben.dooks@codethink.co.uk,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:37911 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757326Ab2HHLvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 07:51:13 -0400
+In-Reply-To: <50223428.6030506@codethink.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Basically it doesn't suit our protocol of having base addr, read/write
-> pointer, locking etc as the same set of structures and protocol will be
-> used on the modem side implementation.
+On 08/08/12 10:40, Ian Molton wrote:
+> On 08/08/12 09:16, Arnd Bergmann wrote:
+>
+>> I'd prefer to take the entire series through the arm-soc tree from
+>> the kirkwood maintainers. We first have to work out the bindings
+>> though, since the current patch introduces a new one that is
+>> incompatible with the one we were using on powerpc with open
+>> firmware before.
 
-Ok. What happens about endianness or is the modem always the same
-endianness as the host ?
-
-
-> > > +   if (len <= 0)
-> > > +           return -EFAULT;
-> >
-> > How can this occur ?
-> 
-> Check for error condition
-
-So how can it occur ? The kernel char layer will never pass a negative
-length to a driver ?
-
-> > What happens with two parallel reads - I don't see what prevents
-> > corruption if that occurs or one racing read freeing the message before
-> > another has finished processing it.
-> 
-> Two parallel reads for different L2 headers can happen, but within the
-> same L2 header is out of the scope. Since the client using this in
-> user space will not know about the message. i.e which msg is for which
-> client. Hence so that scenario is not considered.
-
-What stops a hostile application (or programmer error) from doing so
-deliberately ?
-
-> > > +   if (len <= 0 || buf == NULL)
-> > > +           return -EFAULT;
-> >
-> > len < 0 cannot occur, buf == NULL is not an error
-> 
-> Error handling is for what which is not expected.
-
-Well buf = NULL is not an error (its weird but its not an error)
-
-Also length < 0 is never passed from the char layer to a driver.
-
-> > > +           dev_err(shrm->dev, "Device not opened yet\n");
-> > > +           mutex_unlock(&isa_lock);
-> > > +           return -ENODEV;
-> > > +   }
-> > > +   atomic_set(&isa_context->is_open[idx], 1);
-> >
-> > How do you know it will always be one. Also given it's within the mutex
-> > in all uses I can see why is it an atomic ?
-> >
-> 
-> As per our assumptions/protocol only one client per L2 header.
-
-So why use atomic. Also you can't make that assumption. If you need your
-device to have one user per channel and one write call at a time you must
-enforce it. There is nothing wrong with enforcing it but it needs to be
-done.
-
-That means your open path probably wants to do something (locked) like
-
-	if (foo->users)
-		return -EBUSY;
-
-you still then need to use a mutex or similar in read and write because a
-single open can pass to multiple processes (or multiple writes/reads
-occur at once in a multi-threaded app).
-
-User/Kernel is the security boundary so the kernel code must be robust
-against a hostile user rather than assuming a correctly functioning
-library.
-
-I suspect you simply need to wrap the read/write logic (except for a wait
-for new message) with a mutex and all will be well
-
-> > > +   if (get_boot_state() != BOOT_DONE) {
-> > > +           dev_err(shrm->dev, "Boot is not done\n");
-> > > +           return -EBUSY;
-> > > +   }
-> >
-> > Is it guaranteed that this is a one way path - ie a device never goes
-> > back into BOOT state ?
-> 
-> No, on modem reset, everything happens from first.
-
-So what occurs if this modem reset happens between that test and the next
-line. You have no locking on it so you've got no guarantee that it won't
-reset during the test. So it covers the initial set up case but not a
-reset.
-
-It may not matter providing a reset wakes up things and it is handled
-later. It just looks suspicious.
-
-> > > +   isadev = &isa_context->isadev[idx];
-> > > +   if (filp != NULL)
-> > > +           filp->private_data = isadev;
-> >
-> > How can filp be NULL ?
-> 
-> :-) just a error condition check
-
-These tests are not useful, if anything they hide bugs. If you have a
-real reason to check (eg its a complicated internal path) then use
-
-	WARN_ON(condition)
-
-or
-
-	BUG_ON(condition)
-
-so it gets noticed. For core kernel things however there is no point
-checking. If the kernel ever passes you null as a file pointer the game
-is already over.
-
-> > > +   for (no_dev = 0; no_dev < ISA_DEVICES; no_dev++) {
-> > > +           atomic_set(&isa_context->is_open[no_dev], 1);
-> > > +           device_create(isa_context->shm_class, NULL,
-> > > +                           MKDEV(MAJOR(dev_id),
-> > > +                           map_dev[no_dev].l2_header), NULL,
-> > > +                           map_dev[no_dev].name);
-> > > +   }
-> >
-> > What happens if I open the device right here... ?
-> 
-> It can be opened, but nothing thereafter, since modem is not booted.
-
-You've not yet set up the isa_context but yes.. looks like it is covered
-by the boot check.
-
-(A good rule of thumb is btw to initialise everything, then register
-stuff)
+Looking at the ethernet-group stuff, specifically from
+arch/powerpc/boot/dts/prpmc2800.dts, which I've taken as a base for
+the below:
 
 
-Alan
+The SMI / PHY stuff should look very similar, so I'm happy with something
+like:
+
+mdio@2000 {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                device_type = "mdio";
+                compatible = "marvell,mv643xx-mdio";
+                phy0: ethernet-phy@0 {
+                        device_type = "ethernet-phy";
+                        compatible = "marvell,whatever";
+                        interrupts = <76>;
+                        interrupt-parent = <&mpic>;
+                        reg = <0 32>;          // Auto probed phy addr
+                };
+
+                phy1: ethernet-phy@3 {
+                        device_type = "ethernet-phy";
+                        compatible = "marvell,whatever";
+                        interrupts = <77>;
+                        interrupt-parent = <&mpic>;
+                        reg = <3 1>;            // specified phy addr
+                };
+
+                ... and so on.
+}
+
+Where we can use the reg parameter to allow auto-probing, by
+specifying a size of 32 (32 phy addrs max).
+
+
+The ethernet driver itself is more complicated:
+
+We have the following considerations:
+
+* we have one MDIO bus, typically, shared between all the MACs / PHYs.
+* each ethernet device can multiple ports (up to three), each with its
+  own MAC/PHY.
+* MAC <-> PHY mapping can be specified, probed (ugh!) or a (gah!)
+  mix of the two.
+* existing D-T users, albeit not well documented / code complete.
+* some port address ranges overlap (MIB counters, MCAST / UNICAST
+  tables, etc.
+
+The existing ethernet-group idea only works because the current
+platform-device based driver doesnt really do proper resource
+management, and thus the MAC registers are actually mapped by
+the MDIO driver.
+
+I don't think that preserving this bad behaviour is a good idea, which
+leaves us with two choices:
+
+1) My preferred solution - allow each device to specify up to three
+interrupts, MACs, and PHYs. This is clean in that it doesnt require
+multiply instantiating a driver three times over the same address
+space.
+
+ethernet@2400 {
+                compatible = "marvell,mv643xx-eth";
+                reg = <0x2400 0x1c00>
+                interrupt_parent = <&mpic>;
+                ports = <3>;
+                interrupts = <4>, <5>, <6>;
+                phys = <&phy0>, <&phy1>, <&phy2>;
+};
+
+ethernet@6400 {
+                compatible = "marvell,mv643xx-eth";
+                reg = <0x6400 0x1c00>
+                interrupt_parent = <&mpic>;
+                ports = <1>;
+                interrupts = <4>;
+                phys = <&phy3>;
+};
+
+Note that the address is 2400, not 2000 - since this driver no longer
+would share its address range with the MDIO driver.
+
+This method would require a small amount of rework in the driver to
+set up <n> ports, rather than just one.
+
+2) Create some kind of pseudo-ethernet group device that manages
+all the work for some sort of lightweight ethernet device, one per
+port. This can never be done cleanly since the port address ranges
+overlap:
+
+pseudo_eth@2400 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        compatible = "marvell,mv643xx-shared-eth"
+        reg = <0x2400 0x1c00>;
+
+        ethernet@0 {
+                compatible = "marvell,mv643xx-port";
+                interrupts = <4>;
+                interrupt_parent = <&mpic>;
+                phy = <&phy0>;
+        };
+
+        ethernet@1 {
+                compatible = "marvell,mv643xx-port";
+                interrupts = <5>;
+                interrupt_parent = <&mpic>;
+                phy = <&phy1>;
+        };
+
+        ethernet@2 {
+                compatible = "marvell,mv643xx-port";
+                interrupts = <6>;
+                interrupt_parent = <&mpic>;
+                phy = <&phy2>;
+        };
+}
+pseudo_eth@6400 {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        compatible = "marvell,mv643xx-shared-eth"
+        reg = <0x6400 0x1c00>;
+
+        ethernet@0 {
+                compatible = "marvell,mv643xx-port";
+                interrupts = <4>;
+                interrupt_parent = <&mpic>;
+                phy = <&phy3>;
+        };
+};
+
+Thoughts?
+
+-Ian
