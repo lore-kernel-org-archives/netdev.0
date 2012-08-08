@@ -1,43 +1,53 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCH 07/11] net/stmmac: mark probe function as __devinit
-Date: Wed, 08 Aug 2012 17:07:21 +0200
-Message-ID: <502280A9.5070009@denx.de>
-References: <1344437248-20560-1-git-send-email-arnd@arndb.de> <1344437248-20560-8-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, arm@kernel.org,
-	linux-kernel@vger.kernel.org,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] can/softing: Fix potential memory leak in softing_load_fw()
+Date: Wed,  8 Aug 2012 19:15:01 +0400
+Message-ID: <1344438901-25005-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344437248-20560-8-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/08/2012 04:47 PM, Arnd Bergmann wrote:
-> Driver probe functions are generally __devinit so they will be
-> discarded after initialization for non-hotplug kernels.
-> This was found by a new warning after patch 6a228452d "stmmac: Add
-> device-tree support" adds a new __devinit function that is called
-> from stmmac_pltfr_probe.
-> 
-> Without this patch, building socfpga_defconfig results in:
-> 
-> WARNING: drivers/net/ethernet/stmicro/stmmac/stmmac.o(.text+0x5d4c): Section mismatch in reference from the function stmmac_pltfr_probe() to the function .devinit.text:stmmac_probe_config_dt()
-> The function stmmac_pltfr_probe() references
-> the function __devinit stmmac_probe_config_dt().
-> This is often because stmmac_pltfr_probe lacks a __devinit
-> annotation or the annotation of stmmac_probe_config_dt is wrong.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Stefan Roese <sr@denx.de>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
+Do not leak memory by updating pointer with potentially NULL realloc return value.
 
-Acked-by: Stefan Roese <sr@denx.de>
+Found by Linux Driver Verification project (linuxtesting.org).
 
-Thanks,
-Stefan
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/can/softing/softing_fw.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/can/softing/softing_fw.c b/drivers/net/can/softing/softing_fw.c
+index 3105961..b595d34 100644
+--- a/drivers/net/can/softing/softing_fw.c
++++ b/drivers/net/can/softing/softing_fw.c
+@@ -150,7 +150,7 @@ int softing_load_fw(const char *file, struct softing *card,
+ 	const uint8_t *mem, *end, *dat;
+ 	uint16_t type, len;
+ 	uint32_t addr;
+-	uint8_t *buf = NULL;
++	uint8_t *buf = NULL, *new_buf;
+ 	int buflen = 0;
+ 	int8_t type_end = 0;
+ 
+@@ -199,11 +199,12 @@ int softing_load_fw(const char *file, struct softing *card,
+ 		if (len > buflen) {
+ 			/* align buflen */
+ 			buflen = (len + (1024-1)) & ~(1024-1);
+-			buf = krealloc(buf, buflen, GFP_KERNEL);
+-			if (!buf) {
++			new_buf = krealloc(buf, buflen, GFP_KERNEL);
++			if (!new_buf) {
+ 				ret = -ENOMEM;
+ 				goto failed;
+ 			}
++			buf = new_buf;
+ 		}
+ 		/* verify record data */
+ 		memcpy_fromio(buf, &dpram[addr + offset], len);
+-- 
+1.7.9.5
