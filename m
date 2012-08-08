@@ -1,47 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: force dst_default_metrics to const section
-Date: Wed, 08 Aug 2012 16:00:51 -0700 (PDT)
-Message-ID: <20120808.160051.2296746021327619852.davem@davemloft.net>
-References: <1344355878.28967.113.camel@edumazet-glaptop>
-	<1344370527.2688.61.camel@bwh-desktop.uk.solarflarecom.com>
-	<1344372945.28967.165.camel@edumazet-glaptop>
+Subject: Re: [PATCH RESEND] sched: add missing group change to
+ qfq_change_class
+Date: Wed, 08 Aug 2012 16:03:41 -0700 (PDT)
+Message-ID: <20120808.160341.846489589039687208.davem@davemloft.net>
+References: <20120807172724.GA13729@paolo-ThinkPad-W520>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47420 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757918Ab2HHXAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 19:00:52 -0400
-In-Reply-To: <1344372945.28967.165.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shemminger@vyatta.com, jhs@mojatatu.com, fchecconi@gmail.com,
+	rizzo@iet.unipi.it, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: paolo.valente@unimore.it
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120807172724.GA13729@paolo-ThinkPad-W520>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 07 Aug 2012 22:55:45 +0200
+From: Paolo Valente <paolo.valente@unimore.it>
+Date: Tue, 7 Aug 2012 19:27:25 +0200
 
-> [PATCH v2] net: force dst_default_metrics to const section
+> [Resending again, as the text was corrupted by the email client]
 > 
-> While investigating on network performance problems, I found this little
-> gem :
+> To speed up operations, QFQ internally divides classes into
+> groups. Which group a class belongs to depends on the ratio between
+> the maximum packet length and the weight of the class. Unfortunately
+> the function qfq_change_class lacks the steps for changing the group
+> of a class when the ratio max_pkt_len/weight of the class changes.
 > 
-> $ nm -v vmlinux | grep -1 dst_default_metrics
-> ffffffff82736540 b busy.46605 
-> ffffffff82736560 B dst_default_metrics
-> ffffffff82736598 b dst_busy_list
+> For example, when the last of the following three commands is
+> executed, the group of class 1:1 is not correctly changed:
 > 
-> Apparently, declaring a const array without initializer put it in
-> (writeable) bss section, in middle of possibly often dirtied cache
-> lines.
+> tc disc add dev XXX root handle 1: qfq
+> tc class add dev XXX parent 1: qfq classid 1:1 weight 1
+> tc class change dev XXX parent 1: classid 1:1 qfq weight 4
 > 
-> Since we really want dst_default_metrics be const to avoid any possible
-> false sharing and catch any buggy writes, I force a null initializer.
+> Not changing the group of a class does not affect the long-term
+> bandwidth guaranteed to the class, as the latter is independent of the
+> maximum packet length, and correctly changes (only) if the weight of
+> the class changes. In contrast, if the group of the class is not
+> updated, the class is still guaranteed the short-term bandwidth and
+> packet delay related to its old group, instead of the guarantees that
+> it should receive according to its new weight and/or maximum packet
+> length. This may also break service guarantees for other classes.
+> This patch adds the missing operations.
 > 
-> ffffffff818a4c20 R dst_default_metrics
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
 
 Applied, thanks.
