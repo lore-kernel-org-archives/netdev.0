@@ -1,35 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fib: fix incorrect call_rcu_bh()
-Date: Wed, 08 Aug 2012 15:57:58 -0700 (PDT)
-Message-ID: <20120808.155758.194423138369923978.davem@davemloft.net>
-References: <1344336431.28967.14.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: force dst_default_metrics to const section
+Date: Wed, 08 Aug 2012 16:00:51 -0700 (PDT)
+Message-ID: <20120808.160051.2296746021327619852.davem@davemloft.net>
+References: <1344355878.28967.113.camel@edumazet-glaptop>
+	<1344370527.2688.61.camel@bwh-desktop.uk.solarflarecom.com>
+	<1344372945.28967.165.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47391 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47420 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757683Ab2HHW56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 18:57:58 -0400
-In-Reply-To: <1344336431.28967.14.camel@edumazet-glaptop>
+	with ESMTP id S1757918Ab2HHXAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 19:00:52 -0400
+In-Reply-To: <1344372945.28967.165.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 07 Aug 2012 12:47:11 +0200
+Date: Tue, 07 Aug 2012 22:55:45 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> [PATCH v2] net: force dst_default_metrics to const section
 > 
-> After IP route cache removal, I believe rcu_bh() has very little use and
-> we should remove this RCU variant, since it adds some cycles in fast
-> path.
+> While investigating on network performance problems, I found this little
+> gem :
 > 
-> Anyway, the call_rcu_bh() use in fib_true is obviously wrong, since
-> some users only assert rcu_read_lock().
+> $ nm -v vmlinux | grep -1 dst_default_metrics
+> ffffffff82736540 b busy.46605 
+> ffffffff82736560 B dst_default_metrics
+> ffffffff82736598 b dst_busy_list
+> 
+> Apparently, declaring a const array without initializer put it in
+> (writeable) bss section, in middle of possibly often dirtied cache
+> lines.
+> 
+> Since we really want dst_default_metrics be const to avoid any possible
+> false sharing and catch any buggy writes, I force a null initializer.
+> 
+> ffffffff818a4c20 R dst_default_metrics
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
 
 Applied, thanks.
