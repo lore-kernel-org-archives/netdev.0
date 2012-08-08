@@ -1,581 +1,311 @@
 From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv2 3/4] modem_shm: u8500-shm: U8500 Shared Memory Driver
-Date: Wed, 8 Aug 2012 05:03:57 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B0E7969E3@EXDCVYMBSTM006.EQ1STM.local>
+Subject: RE: [PATCHv2 1/4] modem_shm: Add Modem Access Framework
+Date: Wed, 8 Aug 2012 05:36:05 +0200
+Message-ID: <F45880696056844FA6A73F415B568C695B0E796A03@EXDCVYMBSTM006.EQ1STM.local>
 References: <1344322471-3640-1-git-send-email-arun.murthy@stericsson.com>
-	<1344322471-3640-4-git-send-email-arun.murthy@stericsson.com>
- <20120807110156.4d0c2571@pyramind.ukuu.org.uk>
+ <1344322471-3640-2-git-send-email-arun.murthy@stericsson.com>
+ <20120807183809.GC26990@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
 	Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20120807110156.4d0c2571@pyramind.ukuu.org.uk>
+In-Reply-To: <20120807183809.GC26990@kroah.com>
 Content-Language: en-US
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > +#define SIZE_OF_FIFO (512*1024)
-> > +
-> > +static u8 message_fifo[ISA_DEVICES][SIZE_OF_FIFO];
->
-> Thats a huge amount of static memory that gets allocated regardless of
-> whether the device is open or being used ?
+> On Tue, Aug 07, 2012 at 12:24:28PM +0530, Arun Murthy wrote:
+> > Adds Modem Access Framework, which allows for registering platform
+> specific
+> > modem access mechanisms. The framework also exposes APIs for client
+> drivers
+> > for getting and releasing access to modem, regardless of the
+> underlying
+> > platform specific access mechanism.
+> 
+> The term "modems" here has a lot of legacy connotations.  First of
+> which
+> is, userspace handles this today as tty devices, why aren't you doing
+> the same here?  Why does this have to be something "special"?
+> 
 
-Yes, but all of these will be used, in any system which includes APE-Modem
-communication.
+The main focus over there the modem IPC. In doing so, there are some
+functionality like waking the modem, or releasing the modem etc. These
+will be used by the modem IPC drivers and also few others like sim driver
+and security drivers.
+Since this is a shared call and hence has to be synchronized. Hence so a
+small framework like is being done to monitor the modem access related only
+operations.
 
->
-> > +static int major;
-> > +module_param(major, int, 0);
-> > +MODULE_PARM_DESC(major, "Major device number");
->
-> Is this really needed still - it looks like an escaped debugging aid
+> >
+> > Signed-off-by: Arun Murthy <arun.murthy@stericsson.com>
+> > Acked-by: Linus Walleij <linus.walleij@stericsson.com>
+> > ---
+> >  drivers/Kconfig                        |    2 +
+> >  drivers/Makefile                       |    1 +
+> >  drivers/modem_shm/Kconfig              |    9 +
+> >  drivers/modem_shm/Makefile             |    1 +
+> >  drivers/modem_shm/modem_access.c       |  419
+> ++++++++++++++++++++++++++++++++
+> 
+> Any reason why this can't be under drivers/tty/ ?
 
-Yup, will remove this:-)
+No specific reason, other than to have a separate place for the modem
+access related drivers. Many of the platforms have these functionality
+and hence all of them can reside over here using a common framework(MAF)
 
->
-> > +/* global fops mutex */
-> > +static DEFINE_MUTEX(isa_lock);
-> > +
+> 
+> >  include/linux/modem_shm/modem.h        |   64 +++++
+> >  include/linux/modem_shm/modem_client.h |   55 +++++
+> 
+> Why are both of these "public" like this?  Why not just make one file?
+> Would someone ever only need to include one of these?
+
+modem.h is a header file used by the MAF, but modem_client.h includes
+a structure that will be used by all clients registering to this MAF.
+Hence the clients can only include only this header.
+
+> 
+> > +config MODEM_SHM
+> > +        bool "Modem Access Framework"
+> > +        default y
+> 
+> Unless it is needed to boot your machine, NEVER make the default y.
+
+Oops,.. will change this.
+
+> 
+> > +struct modem {
+> > +	struct device *dev;
+> > +	struct list_head list;
+> > +	char *modem_name;
+> 
+> You already have a name in the struct device, why do you need another
+> one?
+> 
+> > +	struct device_attribute dev_attr;
+> 
+> Why is this in the structure?
+> 
+> > +	struct modem_dev *mdev;
+> > +	atomic_t use;
+> 
+> What is this variable for?
+
+This is used to monitor the number of requests received. Just to
+balance the enable/disable process. Something like the regulator
+framework.
+
+> 
+> Why isn't this a 'struct device' itself?
+> 
 > > +/**
-> > + * shrm_get_cdev_index() - return the index mapped to l2 header
-> > + * @l2_header:     L2 header
+> > + * modem_is_requested - check if modem access is requested
+> > + * @modem: modem device
 > > + *
-> > + * struct map_device maps the index(count) with the device L2
-> header.
-> > + * This function returns the index for the provided L2 header in
-> case
-> > + * of success else -ve value.
+> > + * Checks whether modem is accessed or not by querying
+> > + * the underlying platform specific modem access
+> > + * implementation.
 > > + */
-> > +int shrm_get_cdev_index(u8 l2_header)
+> > +int modem_is_requested(struct modem *modem)
 > > +{
-> > +   u8 cnt;
-> > +   for (cnt = 0; cnt < ISA_DEVICES; cnt++) {
-> > +           if (map_dev[cnt].l2_header == l2_header)
-> > +                   return map_dev[cnt].idx;
-> > +   }
-> > +   return -EINVAL;
+> > +	int ret;
+> > +
+> > +	mutex_lock(&modem->mdev->mutex);
+> > +	ret = _modem_is_requested(modem->mdev);
+> > +	mutex_unlock(&modem->mdev->mutex);
+> > +
+> > +	return ret;
 > > +}
->
-> Would be good to document the locking assumptions on this lot
+> > +EXPORT_SYMBOL(modem_is_requested);
+> 
+> EXPORT_SYMBOL_GPL() for this, and the other apis perhaps?
 
-Sure will add a note on this locking mechanism.
+OK.
 
->
-> > +           /* reset the msg queue pointers */
-> > +           q->size = SIZE_OF_FIFO;
-> > +           q->readptr = 0;
-> > +           q->writeptr = 0;
->
-> Is there a reason for not using the existing kfifo layer for this work
-> or
-> does it need to handle other things kfifo cannot.
-
-Basically it doesn't suit our protocol of having base addr, read/write
-pointer, locking etc as the same set of structures and protocol will be
-used on the modem side implementation.
-
->
-> > +static u32 isa_select(struct file *filp,
-> > +                           struct poll_table_struct *wait)
+> 
+> > +static struct modem *_modem_get(struct device *dev, const char *id,
+> > +		int exclusive)
 > > +{
-> > +   struct isadev_context *isadev = filp->private_data;
-> > +   struct shrm_dev *shrm = isadev->dl_queue.shrm;
-> > +   struct message_queue *q;
-> > +   u32 mask = 0;
-> > +   u32 m = iminor(filp->f_path.dentry->d_inode);
-> > +   u8 idx = shrm_get_cdev_index(m);
+> > +	struct modem_dev *mdev_ptr;
+> > +	struct modem *modem = ERR_PTR(-ENODEV);
+> > +	int ret;
 > > +
-> > +   dev_dbg(shrm->dev, "%s IN\n", __func__);
+> > +	if (id == NULL) {
+> > +		pr_err("modem_get with no identifier\n");
+> > +		return modem;
+> > +	}
 > > +
-> > +   if (shrm->msr_flag)
-> > +           return -ENODEV;
->
-> This test has no associated locking. Please explain what stop sit
-> becoming true during the rest of this function ?
-
-Locking in this file has been used only for protecting the handling
-of queues.
-When modem is reset, due to some crash or some unknown event, in
-that case, this flag will be set and we are not suppose to communicate
-any further as modem is in reset state.
-
->
-> +     struct shrm_dev *shrm = isadev->dl_queue.shrm;
-> > +   struct message_queue *q;
-> > +   u32 msgsize;
+> > +	mutex_lock(&modem_list_mutex);
+> > +	list_for_each_entry(mdev_ptr, &modem_list, modem_list) {
+> > +		if (strcmp(mdev_get_name(mdev_ptr), id) == 0)
+> > +			goto found;
+> > +	}
 > > +
-> > +   dev_dbg(shrm->dev, "%s IN\n", __func__);
+> > +	goto out;
 > > +
-> > +   if (len <= 0)
-> > +           return -EFAULT;
->
-> How can this occur ?
-
-Check for error condition
-
-> > +   spin_lock_bh(&q->update_lock);
-> > +   if (list_empty(&q->msg_list)) {
-> > +           spin_unlock_bh(&q->update_lock);
-> > +           dev_dbg(shrm->dev, "Waiting for Data\n");
-> > +           if (wait_event_interruptible(q->wq_readable,
-> > +                           atomic_read(&q->q_rp) == 1))
-> > +                   return -ERESTARTSYS;
-> > +   } else
-> > +           spin_unlock_bh(&q->update_lock);
+> > +found:
+> > +	if (!try_module_get(mdev_ptr->owner))
+> > +		goto out;
 > > +
-> > +   if (shrm->msr_flag) {
-> > +           atomic_set(&q->q_rp, 0);
-> > +           return -ENODEV;
-> > +   }
+> > +	modem = create_modem(mdev_ptr, dev, id);
+> > +	if (modem == NULL) {
+> > +		modem = ERR_PTR(-ENOMEM);
+> > +		module_put(mdev_ptr->owner);
+> > +	}
 > > +
-> > +   msgsize = get_size_of_new_msg(q);
+> > +	mdev_ptr->open_count++;
+> > +	ret = _modem_is_requested(mdev_ptr);
+> > +	if (ret)
+> > +		mdev_ptr->use_count = 1;
+> > +	else
+> > +		mdev_ptr->use_count = 0;
 > > +
-> > +   if (len < msgsize)
-> > +           return -EINVAL;
->
-> What happens with two parallel reads - I don't see what prevents
-> corruption if that occurs or one racing read freeing the message before
-> another has finished processing it.
-
-Two parallel reads for different L2 headers can happen, but within the
-same L2 header is out of the scope. Since the client using this in
-user space will not know about the message. i.e which msg is for which
-client. Hence so that scenario is not considered.
-
->
+> > +out:
+> > +	mutex_unlock(&modem_list_mutex);
+> > +	return modem;
 > > +
-> > +   if ((q->readptr+msgsize) >= q->size) {
->
-> Minor style comment - you seen to randomly switch between a+b and a + b
-> styles 8)
-
-Will correct it.
-
-> > +           size = (q->size-q->readptr);
-> > +           /* Copy First Part of msg */
-> > +           if (copy_to_user(psrc,
-> > +                           (u8 *)(q->fifo_base+q->readptr),
-> > +                           size)) {
-> > +                   dev_err(shrm->dev, "copy_to_user failed\n");
-> > +                   return -EFAULT;
-> > +           }
-> > +           psrc += size;
-> > +           /* Copy Second Part of msg at the top of fifo */
-> > +           if (copy_to_user(psrc,
-> > +                           (u8 *)(q->fifo_base),
-> > +                           (msgsize-size))) {
-> > +                   dev_err(shrm->dev, "copy_to_user failed\n");
-> > +                   return -EFAULT;
-> > +           }
-> > +   } else {
-> > +           if (copy_to_user(buf,
-> > +                           (u8 *)(q->fifo_base + q->readptr),
-> > +                           msgsize)) {
-> > +                   dev_err(shrm->dev, "copy_to_user failed\n");
-> > +                   return -EFAULT;
-> > +           }
->
-> Pedantically you should return the number of bytes successfully copied
-> if
-> you consume data. As this code stands it's not a big deal as far as I
-> can
-> see since you don't remove the message in this situation. I suspect
-> that
-> may need to change ?
-
-In error case, if the number of messages copied are returned, there is
-no way to communicate the error and hence only that partial message
-will be considered and on decoding that message, will be a flaw.
-
-> > +/**
-> > + * isa_write() - Write to shrm char device
-> > + * @filp:  file descriptor
-> > + * @buf:   user buffer pointer
-> > + * @len:   size of requested data transfer
-> > + * @ppos:  not used
-> > + *
-> > + * It checks if there is space available in queue, and copies the
-> message
-> > + * inside queue. If there is no space, it blocks until space becomes
-> available.
-> > + * It also schedules transfer thread to transmit the newly added
-> message.
-> > + */
-> > +ssize_t isa_write(struct file *filp, const char __user *buf,
-> > +                            size_t len, loff_t *ppos)
-> > +{
-> > +   struct isadev_context *isadev = filp->private_data;
-> > +   struct shrm_dev *shrm = isadev->dl_queue.shrm;
-> > +   struct message_queue *q;
-> > +   void *addr = 0;
-> > +   int err, l2_header;
-> > +   int ret = 0;
-> > +
-> > +   dev_dbg(shrm->dev, "%s IN\n", __func__);
-> > +
-> > +   if (len <= 0 || buf == NULL)
-> > +           return -EFAULT;
->
-> len < 0 cannot occur, buf == NULL is not an error
-
-Error handling is for what which is not expected.
-
->
-> > +   q = &isadev->dl_queue;
-> > +   l2_header = shrm_get_cdev_l2header(isadev->device_id);
-> > +   if (l2_header < 0) {
-> > +           dev_err(shrm->dev, "failed to get L2 header\n");
-> > +           return l2_header;
-> > +   }
-> > +
-> > +   switch (l2_header) {
->
-> Why keep going through switches and lookup tables - can't you cache
-> this
-> in the isadev or in some file private data ?
-
-This is a write request coming from user space, hence the identification
-has to be done based on the write request.
-
->
-> > +   if (copy_from_user(addr, buf, len)) {
-> > +           dev_err(shrm->dev, "copy_from_user failed\n");
->
-> This allows an user to fill the logs with crap - should be dev_dbg
->
-> Also what happens on two parallel writers ?
-
-Explained above.
-
->
->
-> > +/**
-> > + * isa_ioctl() - To handle different ioctl commands supported by
-> driver.
-> > + * @inode: structure is used by the kernel internally to
-> represent files
-> > + * @filp:  file descriptor pointer
-> > + * @cmd:   ioctl command
-> > + * @arg:   input param
->
-> This appears incomplete - it's just debug statements
-
-Yes, will remove this.
-
->
->
 > > +}
+> 
+> Calling this function does a lot more than just incrementing the
+> reference count of an object.  It sets it up, and creates things.  That
+> should be way more documented than this one line says:
+
+Sure will elaborate the documentation.
+
+> 
 > > +/**
-> > + * isa_mmap() - Maps kernel queue memory to user space.
-> > + * @filp:  file descriptor pointer
-> > + * @vma:   virtual area memory structure.
+> > + * modem_get - Get reference to a particular platform specific modem
+> > + * @dev: device
+> > + * @id: modem device name
 > > + *
-> > + * This function maps kernel FIFO into user space. This function
-> > + * shall be called twice to map both uplink and downlink buffers.
->
-> Again this appears incomplete
-
-Will work on this.
-
-> > +           dev_err(shrm->dev, "Device not opened yet\n");
-> > +           mutex_unlock(&isa_lock);
-> > +           return -ENODEV;
-> > +   }
-> > +   atomic_set(&isa_context->is_open[idx], 1);
->
-> How do you know it will always be one. Also given it's within the mutex
-> in all uses I can see why is it an atomic ?
->
-
-As per our assumptions/protocol only one client per L2 header.
-
-> > +
-> > +   switch (m) {
-> > +   case RPC_MESSAGING:
-> > +           dev_info(shrm->dev, "Close RPC_MESSAGING Device\n");
-> > +           break;
-> > +   case AUDIO_MESSAGING:
-> > +           dev_info(shrm->dev, "Close AUDIO_MESSAGING Device\n");
-> > +           break;
-> > +   case SECURITY_MESSAGING:
-> > +           dev_info(shrm->dev, "CLose SECURITY_MESSAGING Device\n");
-> > +           break;
-> > +   case COMMON_LOOPBACK_MESSAGING:
-> > +           kfree(isadev->addr);
-> > +           dev_info(shrm->dev, "Close COMMON_LOOPBACK_MESSAGING
-> Device\n");
-> > +           break;
-> > +   case AUDIO_LOOPBACK_MESSAGING:
-> > +           kfree(isadev->addr);
-> > +           dev_info(shrm->dev, "Close AUDIO_LOOPBACK_MESSAGING
-> Device\n");
-> > +           break;
-> > +   case CIQ_MESSAGING:
-> > +           kfree(isadev->addr);
-> > +           dev_info(shrm->dev, "Close CIQ_MESSAGING Device\n");
-> > +           break;
-> > +   case RTC_CAL_MESSAGING:
-> > +           dev_info(shrm->dev, "Close RTC_CAL_MESSAGING Device\n");
-> > +           break;
->
-> kfree(NULL) is a no-op and guaranteed so, providing you see isadev-
-> >addr
-> = NULL properly in the open path you can delete all of this code and
-> just
-> do
-> kfree(isadev->addr);
-> mutex_unlock(...)
-> return 0;
-
-Ok, sounds good!
-
->
-> > +   if (get_boot_state() != BOOT_DONE) {
-> > +           dev_err(shrm->dev, "Boot is not done\n");
-> > +           return -EBUSY;
-> > +   }
->
-> Is it guaranteed that this is a one way path - ie a device never goes
-> back into BOOT state ?
-
-No, on modem reset, everything happens from first.
-
->
-> > +   if (!atomic_dec_and_test(&isa_context->is_open[idx])) {
-> > +           atomic_inc(&isa_context->is_open[idx]);
-> > +           dev_err(shrm->dev, "Device already opened\n");
-> > +           mutex_unlock(&isa_lock);
-> > +           return -EBUSY;
->
-> See comments earlier about the atomics
-
-Replied above
-
->
-> > +   }
-> > +   isadev = &isa_context->isadev[idx];
-> > +   if (filp != NULL)
-> > +           filp->private_data = isadev;
->
-> How can filp be NULL ?
-
-:-) just a error condition check
-
->
-> > +
-> > +   switch (m) {
-> > +   case RPC_MESSAGING:
-> > +           dev_info(shrm->dev, "Open RPC_MESSAGING Device\n");
-> > +           break;
-> > +   case AUDIO_MESSAGING:
-> > +           dev_info(shrm->dev, "Open AUDIO_MESSAGING Device\n");
-> > +           break;
-> > +   case SECURITY_MESSAGING:
-> > +           dev_info(shrm->dev, "Open SECURITY_MESSAGING Device\n");
-> > +           break;
-> > +   case COMMON_LOOPBACK_MESSAGING:
-> > +           isadev->addr = kzalloc(10 * 1024, GFP_KERNEL);
-> > +           if (!isadev->addr) {
-> > +                   mutex_unlock(&isa_lock);
-> > +                   return -ENOMEM;
-> > +           }
-> > +           dev_info(shrm->dev, "Open COMMON_LOOPBACK_MESSAGING
-> Device\n");
-> > +           break;
-> > +   case AUDIO_LOOPBACK_MESSAGING:
-> > +           isadev->addr = kzalloc(10 * 1024, GFP_KERNEL);
-> > +           if (!isadev->addr) {
-> > +                   mutex_unlock(&isa_lock);
-> > +                   return -ENOMEM;
-> > +           }
-> > +           dev_info(shrm->dev, "Open AUDIO_LOOPBACK_MESSAGING
-> Device\n");
-> > +           break;
-> > +   case CIQ_MESSAGING:
-> > +           isadev->addr = kzalloc(10 * 1024, GFP_KERNEL);
-> > +           if (!isadev->addr) {
-> > +                   mutex_unlock(&isa_lock);
-> > +                   return -ENOMEM;
-> > +           }
-> > +           dev_info(shrm->dev, "Open CIQ_MESSAGING Device\n");
-> > +           break;
-> > +   case RTC_CAL_MESSAGING:
-> > +           dev_info(shrm->dev, "Open RTC_CAL_MESSAGING Device\n");
-> > +           break;
-> > +   };
->
-> So all of this could just be
->
->       dev_dbg("Open device %d\n", m);
->       switch (m) {
->       case a
->       case b
->       case c
->               isadev->addr = ....
->               break;
->       case e
->       case f
->               isadev->addr = NULL;
->               break;
->       default:
->               error path
->
-> also in your error case right now if you run out of memory you don't
-> fix
-> up the open counters.
-
-Ok sounds good!
-
->
-> > +const struct file_operations isa_fops = {
->
-> static
->
->
-> > +   for (no_dev = 0; no_dev < ISA_DEVICES; no_dev++) {
-> > +           atomic_set(&isa_context->is_open[no_dev], 1);
-> > +           device_create(isa_context->shm_class, NULL,
-> > +                           MKDEV(MAJOR(dev_id),
-> > +                           map_dev[no_dev].l2_header), NULL,
-> > +                           map_dev[no_dev].name);
-> > +   }
->
-> What happens if I open the device right here... ?
-
-It can be opened, but nothing thereafter, since modem is not booted.
-
->
-> > +
-> > +   isa_context->isadev = kzalloc(sizeof
-> > +                           (struct isadev_context)*ISA_DEVICES,
-> > +                           GFP_KERNEL);
-> > +   if (isa_context->isadev == NULL) {
-> > +           dev_err(shrm->dev, "Failed to alloc memory\n");
-> > +           return -ENOMEM;
->
-> You just leaked all the other stuff you created, left device pointers
-> to
-> invalid memory registered.
->
-> There is a reason kernel drivers use the goto type error handling - it
-> avoids missing these things.
-
-Oops missed it will correct.
-
->
->
-> > diff --git a/drivers/modem_shm/u8500_shm/shrm_fifo.c
-> b/drivers/modem_shm/u8500_shm/shrm_fifo.c
-> > new file mode 100644
-> > index 0000000..ad63cc4
-> > --- /dev/null
-> > +++ b/drivers/modem_shm/u8500_shm/shrm_fifo.c
-> > @@ -0,0 +1,837 @@
-> > +/*
-> > + * Copyright (C) ST-Ericsson SA 2010
-> > + *
-> > + * Author: Arun Murthy <arun.murthy@stericsson.com>
-> > + * Kumar Sanghvi for ST-Ericsson
-> > + *
-> > + * License terms: GNU General Public License (GPL) version 2
+> > + * Get reference to a particular modem device.
 > > + */
+> 
+> See, that's really not true.
+> 
+> > +static ssize_t modem_print_state(char *buf, int state)
+> > +{
+> > +	if (state > 0)
+> > +		return sprintf(buf, "accessed\n");
+> > +	else if (state == 0)
+> > +		return sprintf(buf, "released\n");
+> > +	else
+> > +		return sprintf(buf, "unknown\n");
+> > +}
+> 
+> Why not use an enumerated type for your state, to make it easier to
+> understand than 0, -, and +?
+
+Done
+
+> 
+> > +static ssize_t modem_state_show(struct device *dev,
+> > +		struct device_attribute *attr, char *buf)
+> > +{
+> > +	struct modem_dev *mdev = dev_get_drvdata(dev);
+> > +	ssize_t ret;
 > > +
-> > +#include <linux/modem_shm/u8500_shm/shrm.h>
-> > +#include <linux/modem_shm/u8500_shm/shrm_driver.h>
-> > +#include <linux/modem_shm/u8500_shm/shrm_private.h>
-> > +#include <linux/modem_shm/u8500_shm/shrm_net.h>
-> > +#include <linux/mfd/dbx500-prcmu.h>
+> > +	mutex_lock(&mdev->mutex);
+> > +	ret = modem_print_state(buf, _modem_is_requested(mdev));
+> 
+> Why not just embed the function here?  It's only ever called once.
+
+This function will be called by the modem IPC drivers also.
+
+> 
+> > +	mutex_unlock(&mdev->mutex);
 > > +
-> > +#define L1_BOOT_INFO_REQ   1
-> > +#define L1_BOOT_INFO_RESP  2
-> > +#define L1_NORMAL_MSG              3
-> > +#define L1_HEADER_MASK             28
-> > +#define L1_MAPID_MASK              0xF0000000
-> > +#define CONFIG_OFFSET              8
-> > +#define COUNTER_OFFSET             20
-> > +#define L2_HEADER_SIZE             4
-> > +#define L2_HEADER_OFFSET   24
-> > +#define MASK_0_15_BIT              0xFF
-> > +#define MASK_16_31_BIT             0xFF00
-> > +#define MASK_16_27_BIT             0xFFF0000
-> > +#define MASK_0_39_BIT              0xFFFFF
-> > +#define MASK_40_55_BIT             0xFF00000
-> > +#define MASK_8_16_BIT           0x0000FF00
-> > +#define MSG_LEN_OFFSET          16
-> > +#define SHRM_VER                2
-> > +#define ca_ist_inactivity_timer 25 /*25ms */
-> > +#define ca_csc_inactivity_timer 25 /*25ms */
+> > +	return ret;
+> > +}
+> > +static DEVICE_ATTR(state, 0444, modem_state_show, NULL);
 > > +
-> > +static u8 msg_audio_counter;
-> > +static u8 msg_common_counter;
+> > +static ssize_t modem_use_show(struct device *dev,
+> > +		struct device_attribute *attr, char *buf)
+> > +{
+> > +	struct modem_dev *mdev = dev_get_drvdata(dev);
+> > +	struct modem *mod;
+> > +	size_t size = 0;
 > > +
-> > +struct fifo_write_params ape_shm_fifo_0;
-> > +struct fifo_write_params ape_shm_fifo_1;
-> > +struct fifo_read_params cmt_shm_fifo_0;
-> > +struct fifo_read_params cmt_shm_fifo_1;
->
-> static or fix the naming
-
-Done!
-
-> > +struct sock *shrm_nl_sk;
->
-> Better to make globals visible than bury them in a mass of statics
->
-> (actually all of this raises a big question - what happens if you ever
-> need to have two modems - you are basically hardcoding one per system.
-> That's fine if you are *very* sure it will remain true)
-
-Atleast as per the present protocol, two modem is not supported, and if
-so in future, then the protocol will have to be affected. The interrupts
-part is the major part.
-
-
-> > +   spin_lock_irqsave(&boot_lock, flags);
-> > +   boot_state = BOOT_INIT;
->
-> Your open method locking earlier assumes this cannot go backwards...
-
-This can go backward, locking is done only while modifying this flag.
-
->
->
-> > +           dev_info(shm_dev->dev, "Initiating Modem silent reset\n");
->
-> Seems an odd use of dev_info.. if its a bug workaround then perhaps
-> dev_warn, and if its not important dev_dbg ?
-
-Would prefer dev_dbg
-
->
-> > +DECLARE_TASKLET(shrm_sw_reset_callback, shrm_modem_reset_callback,
-> > +           IRQ_PRCMU_MODEM_SW_RESET_REQ);
+> > +	list_for_each_entry(mod, &mdev->client_list, list) {
+> > +		if (mod->dev != NULL)
+> > +			size += sprintf((buf + size), "%s (%d)\n",
+> > +				dev_name(mod->dev), atomic_read(&mod->use));
+> > +		else
+> > +			size += sprintf((buf + size), "unknown (%d)\n",
+> > +				atomic_read(&mod->use));
+> > +	}
+> > +	size += sprintf((buf + size), "\n");
 > > +
->
-> static
->
-> Lots of other stuff here that should be shrm_ or static...
->
-> There also seems to be places where you copy or touch the fifo memory
-> which was ioremapped but don't use readb/writeb/memcpy_toio etc, or
-> handle endianness. While endianness might be the kind of thing you can
-> be
-> sure of in some embedded platforms not using readb and the like means
-> the
-> compiler can do interesting optimisations you won't want and is
-> something
-> that will break on some architectures and potentially on others in
-> future.
+> > +	return size;
+> > +}
+> > +static DEVICE_ATTR(use, 0444, modem_use_show, NULL);
+> 
+> You have sysfs files with no matching Documentation/ABI entries showing
+> how they are to be used, and what they contain, in this patch.  Please
+> fix this.
+> 
+> And why are you reporting an atomic value, that's 2 values per sysfs
+> file, not acceptable.
+> 
 
-Sure will look into that again and implement this in the next version
-of the patch.
+Will change it accordingly.
+
+> > +static ssize_t modem_name_show(struct device *dev,
+> > +		struct device_attribute *attr, char *buf)
+> > +{
+> > +	struct modem_dev *mdev = dev_get_drvdata(dev);
+> > +
+> > +	return sprintf(buf, "%s\n", mdev_get_name(mdev));
+> > +}
+> > +static DEVICE_ATTR(name, 0444, modem_name_show, NULL);
+> 
+> The name is in the struct device, which is the directory in sysfs,
+> don't
+> include it again in a sysfs file, that's redundant.
+
+Ok.
+
+> 
+> > +static int add_modem_attributes(struct modem_dev *mdev)
+> > +{
+> > +	struct device      *dev = &mdev->dev;
+> > +	struct modem_ops   *ops = mdev->desc->ops;
+> > +	int                status = 0;
+> > +
+> > +	status = device_create_file(dev, &dev_attr_use);
+> > +	if (status < 0)
+> > +		return status;
+> > +
+> > +	status = device_create_file(dev, &dev_attr_name);
+> > +	if (status < 0)
+> > +		return status;
+> > +
+> > +	status = device_create_file(dev, &dev_attr_num_active_users);
+> > +	if (status < 0)
+> > +		return status;
+> > +
+> > +	if (ops->is_requested) {
+> > +		status = device_create_file(dev, &dev_attr_state);
+> > +		if (status < 0)
+> > +			return status;
+> > +	}
+> > +
+> > +	return 0;
+> > +}
+> 
+> Please use a default attribute group, as you just raced with userspace,
+> and now userspace tried to look for these files when the device was
+> created, yet they were not present yet, causing all sorts of problems
+> with your tools.  This must be fixed.
+> 
+
+Done. Will implement this in the next version of the patch.
 
 Thanks and Regards,
 Arun R Murthy
