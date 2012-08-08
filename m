@@ -1,70 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Wed, 08 Aug 2012 01:36:16 -0700
-Message-ID: <87hasd7pbz.fsf@xmission.com>
-References: <501C3527.6060809@mellanox.com>
-	<20120803.143315.151094375569109262.davem@davemloft.net>
-	<501C5328.4060301@mellanox.com>
-	<20120803.163627.1867181085116225405.davem@davemloft.net>
-	<50205DE0.7080706@mellanox.com> <87obmnfs4p.fsf@xmission.com>
-	<871ujjfkb1.fsf@xmission.com>
-	<CAJZOPZ+W0wfa38LejXt0gvBNa8Q6pWVZOs7xctHGRQXHAeMYPQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/7] mv643xx.c: Add basic device tree support.
+Date: Wed, 08 Aug 2012 01:59:51 -0700 (PDT)
+Message-ID: <20120808.015951.1224491744100458448.davem@davemloft.net>
+References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk>
+	<20120807.162923.34400427265666163.davem@davemloft.net>
+	<201208080816.29218.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ali Ayoub <ali@mellanox.com>, David Miller <davem@davemloft.net>,
-	ogerlitz@mellanox.com, roland@kernel.org, netdev@vger.kernel.org,
-	sean.hefty@intel.com, erezsh@mellanox.co.il, dledford@redhat.com
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ian.molton@codethink.co.uk, linux-arm-kernel@lists.infradead.org,
+	andrew@lunn.ch, thomas.petazzoni@free-electrons.com,
+	ben.dooks@codethink.co.uk, netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:46767 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752470Ab2HHIpd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 04:45:33 -0400
-In-Reply-To: <CAJZOPZ+W0wfa38LejXt0gvBNa8Q6pWVZOs7xctHGRQXHAeMYPQ@mail.gmail.com>
-	(Or Gerlitz's message of "Wed, 8 Aug 2012 09:04:55 +0300")
+Received: from shards.monkeyblade.net ([149.20.54.216]:38965 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752470Ab2HHI7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 04:59:54 -0400
+In-Reply-To: <201208080816.29218.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <or.gerlitz@gmail.com> writes:
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 8 Aug 2012 08:16:28 +0000
 
-> Eric W. Biederman <ebiederm@xmission.com> wrote:
->>> Ali Ayoub <ali@mellanox.com> writes:
->
->>> Among other things, the main benefit we're targeting is to allow IPoE
->>> traffic within the VM to go through the (Ethernet) vBridge down to the
->>> eIPoIB PIF, and eventually to IPoIB and to the IB network.
->
->> Oh yes.  It just occurred to me there is huge problem with eIPoIB as
->> currently presented in these patches.  It breaks DHCPv4 the same way
->> it breaks ARP, but DHCPv4 is not fixed up.
->
-> To put things in place, DHCPv4 is supported with eIPoIB, the DHCP
-> UDP/IP payload  isn't touched, only need to set the BOOTP broadcast
-> flag in the dhcp server config file.
+> On Tuesday 07 August 2012, David Miller wrote:
+>> From: Ian Molton <ian.molton@codethink.co.uk>
+>> Date: Tue,  7 Aug 2012 15:34:45 +0100
+>> 
+>> > Fixed all comments.
+>> > 
+>> > * Dropped csb1724 defconfig.
+>> > * Added patch to remove MV643XX_ETH_SHARED_NAME and MV643XX_ETH_NAME
+>> > * Dropped un-necessary D-T irq fixup code
+>> 
+>> Who is going to take this series?
+> 
+> I'd prefer to take the entire series through the arm-soc tree from
+> the kirkwood maintainers. We first have to work out the bindings
+> though, since the current patch introduces a new one that is
+> incompatible with the one we were using on powerpc with
+> open firmware before.
 
-Wrong.  DHCPv4 is broken over eIPoIB. 
-
-Coming from ethernet
-htype == 1 not 32 as required by RFC4390
-hlen == 6 not 0 as required by RFC4390
-The chaddr field is has 6 bytes of the ethernet mac address not the
-required 16 bytes of 0.
-
-The client-identifier field is optional over ethernet.
-
-An ethernet DHCPv4 client simply does not generate a dhcp packet that
-conforms to RFC4390.
-
-Therefore DHCPv4 over eIPoIB is broken, and a dhcp server or relay
-may reasonably look at the DHCP packet and drop it because it is
-garbage.
-
-You might find a forgiving dhcp server that doesn't drop insane packets
-on the floor and tries to make things work.
-
-I am sorry.  eIPoIB is broken as designed.  eIPoIB most assuredly is not
-compatible with ethernet.  eIPoIB most definitely does not work even for
-the general case of transporing IP traffic.  Claiming that eIPoIB is any
-else is a lie.
-
-Eric
+Ok.
