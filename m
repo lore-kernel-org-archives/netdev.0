@@ -1,74 +1,72 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [RFC PATCH] tun: don't zeroize sock->file on detach
-Date: Wed, 8 Aug 2012 10:48:32 -0700
-Message-ID: <CAK6E8=cpODYa1xURk7BZBnWwx5q3OD8-xkCau7GNPn+1BS0oQQ@mail.gmail.com>
-References: <20120711114753.24395.53193.stgit@localhost6.localdomain6> <50226147.3010309@parallels.com>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [PATCH] netvm: check for page == NULL when propogating the skb->pfmemalloc
+ flag
+Date: Wed, 08 Aug 2012 15:14:49 -0400
+Message-ID: <5022BAA9.7090604@redhat.com>
+References: <20120807085554.GF29814@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ruanzhijie@hotmail.com" <ruanzhijie@hotmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:47428 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759077Ab2HHRsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 13:48:53 -0400
-Received: by obbuo13 with SMTP id uo13so1426069obb.19
-        for <netdev@vger.kernel.org>; Wed, 08 Aug 2012 10:48:52 -0700 (PDT)
-In-Reply-To: <50226147.3010309@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Linux-MM <linux-mm@kvack.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux-Netdev <netdev@vger.kernel.org>,
+        Xen-devel <xen-devel@lists.xensource.com>,
+        Konrad Rzeszutek Wilk <konrad@darnok.org>,
+        Ian Campbell <Ian.Campbell@eu.citrix.com>,
+        Andrew Morton <akpm@linux-foundation.org>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120807085554.GF29814@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 8, 2012 at 5:53 AM, Stanislav Kinsbursky
-<skinsbursky@parallels.com> wrote:
-> Hi, Dave.
-> What about this patch?
+On 08/07/2012 04:55 AM, Mel Gorman wrote:
+> Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
+> for the following bug triggered by a xen network driver
 >
+> [    1.908592] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
+> [    1.908643] IP: [<ffffffffa0037750>] xennet_poll+0x980/0xec0 [xen_netfront]
+> [    1.908703] PGD ea1df067 PUD e8ada067 PMD 0
+> [    1.908774] Oops: 0000 [#1] SMP
+> [    1.908797] Modules linked in: fbcon tileblit font radeon bitblit softcursor ttm drm_kms_helper crc32c_intel xen_blkfront xen_netfront xen_fbfront fb_sys_fops sysimgblt sysfillrect syscopyarea +xen_kbdfront xenfs xen_privcmd
+> [    1.908938] CPU 0
+> [    1.908950] Pid: 2165, comm: ip Not tainted 3.5.0upstream-08854-g444fa66 #1
+> [    1.908983] RIP: e030:[<ffffffffa0037750>]  [<ffffffffa0037750>] xennet_poll+0x980/0xec0 [xen_netfront]
+> [    1.909029] RSP: e02b:ffff8800ffc03db8  EFLAGS: 00010282
+> [    1.909055] RAX: ffff8800ea010140 RBX: ffff8800f00e86c0 RCX: 000000000000009a
+> [    1.909055] RDX: 0000000000000040 RSI: 000000000000005a RDI: ffff8800fa7dee80
+> [    1.909055] RBP: ffff8800ffc03ee8 R08: ffff8800f00e86d8 R09: ffff8800ea010000
+> [    1.909055] R10: dead000000200200 R11: dead000000100100 R12: ffff8800fa7dee80
+> [    1.909055] R13: 000000000000005a R14: ffff8800fa7dee80 R15: 0000000000000200
+> [    1.909055] FS:  00007fbafc188700(0000) GS:ffff8800ffc00000(0000) knlGS:0000000000000000
+> [    1.909055] CS:  e033 DS: 0000 ES: 0000 CR0: 000000008005003b
+> [    1.909055] CR2: 0000000000000010 CR3: 00000000ea108000 CR4: 0000000000002660
+> [    1.909055] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [    1.909055] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> [    1.909055] Process ip (pid: 2165, threadinfo ffff8800ea0f2000, task ffff8800fa783040)
+> [    1.909055] Stack:
+> [    1.909055]  ffff8800e27e5040 ffff8800ffc03e88 ffff8800ffc03e68 ffff8800ffc03e48
+> [    1.909055]  7fffffffffffffff ffff8800ffc03e00 ffff8800e27e5040 ffff8800f00e86d8
+> [    1.909055]  ffff8800ffc03eb0 00000040ffffffff ffff8800f00e8000 00000000ffc03e30
+> [    1.909055] Call Trace:
+> [    1.909055]  <IRQ>
+> [    1.909055]  [<ffffffff81066028>] ?  pvclock_clocksource_read+0x58/0xd0
+> [    1.909055]  [<ffffffff81486352>] net_rx_action+0x112/0x240
+> [    1.909055]  [<ffffffff8107f319>] __do_softirq+0xb9/0x190
+> [    1.909055]  [<ffffffff815d8d7c>] call_softirq+0x1c/0x30
 >
-> On Wed, Jul 11, 2012 at 03:48:20PM +0400, Stanislav Kinsbursky wrote:
->>
->> This is a fix for bug, introduced in 3.4 kernel by commit
->> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things,
->> replaced
->> simple sock_put() by sk_release_kernel(). Below is sequence, which leads
->> to
->> oops for non-persistent devices:
->>
->> tun_chr_close()
->> tun_detach()                            <== tun->socket.file = NULL
->> tun_free_netdev()
->> sk_release_sock()
->> sock_release(sock->file == NULL)
->> iput(SOCK_INODE(sock))                  <== dereference on NULL pointer
->>
->> This patch just removes zeroing of socket's file from __tun_detach().
->> sock_release() will do this.
->>
->> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
+> The problem is that the xenfront driver is passing a NULL page to
+> __skb_fill_page_desc() which was unexpected. This patch checks that
+> there is a page before dereferencing.
+>
+> Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: Mel Gorman <mgorman@suse.de>
 
-I has tested this patch and it works (so my kernel stops crashing
-using tun devices).
+Acked-by: Rik van Riel <riel@redhat.com>
 
->> ---
->>  drivers/net/tun.c |    1 -
->>  1 files changed, 0 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 987aeef..c1639f3 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -185,7 +185,6 @@ static void __tun_detach(struct tun_struct *tun)
->>         netif_tx_lock_bh(tun->dev);
->>         netif_carrier_off(tun->dev);
->>         tun->tfile = NULL;
->> -       tun->socket.file = NULL;
->>         netif_tx_unlock_bh(tun->dev);
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
