@@ -1,52 +1,53 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: Re: [RFC PATCH] tun: don't zeroize sock->file on detach
-Date: Wed, 8 Aug 2012 16:53:27 +0400
-Message-ID: <50226147.3010309@parallels.com>
-References: <20120711114753.24395.53193.stgit@localhost6.localdomain6>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ruanzhijie@hotmail.com" <ruanzhijie@hotmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>
-To: "davem@davemloft.net" <davem@davemloft.net>
+From: Roland Stigge <stigge@antcom.de>
+Subject: [PATCH] lpc_eth: remove obsolete ifdefs
+Date: Wed,  8 Aug 2012 15:18:54 +0200
+Message-ID: <1344431934-16748-1-git-send-email-stigge@antcom.de>
+Cc: Roland Stigge <stigge@antcom.de>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com, aletes.xgr@gmail.com,
+	kevin.wells@nxp.com, srinivas.bakki@nxp.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120711114753.24395.53193.stgit@localhost6.localdomain6>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Dave.
-What about this patch?
+The #ifdefs regarding CONFIG_ARCH_LPC32XX_MII_SUPPORT and
+CONFIG_ARCH_LPC32XX_IRAM_FOR_NET are obsolete since the symbols have been
+removed from Kconfig and replaced by devicetree based configuration.
 
-On Wed, Jul 11, 2012 at 03:48:20PM +0400, Stanislav Kinsbursky wrote:
-> This is a fix for bug, introduced in 3.4 kernel by commit
-> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things, replaced
-> simple sock_put() by sk_release_kernel(). Below is sequence, which leads to
-> oops for non-persistent devices:
->
-> tun_chr_close()
-> tun_detach()				<== tun->socket.file = NULL
-> tun_free_netdev()
-> sk_release_sock()
-> sock_release(sock->file == NULL)
-> iput(SOCK_INODE(sock))			<== dereference on NULL pointer
->
-> This patch just removes zeroing of socket's file from __tun_detach().
-> sock_release() will do this.
->
-> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> ---
->  drivers/net/tun.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 987aeef..c1639f3 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -185,7 +185,6 @@ static void __tun_detach(struct tun_struct *tun)
->  	netif_tx_lock_bh(tun->dev);
->  	netif_carrier_off(tun->dev);
->  	tun->tfile = NULL;
-> -	tun->socket.file = NULL;
->  	netif_tx_unlock_bh(tun->dev);
+Signed-off-by: Roland Stigge <stigge@antcom.de>
+
+---
+ drivers/net/ethernet/nxp/lpc_eth.c |   13 -------------
+ 1 file changed, 13 deletions(-)
+
+--- linux-2.6.orig/drivers/net/ethernet/nxp/lpc_eth.c
++++ linux-2.6/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -346,28 +346,15 @@ static phy_interface_t lpc_phy_interface
+ 						   "phy-mode", NULL);
+ 		if (mode && !strcmp(mode, "mii"))
+ 			return PHY_INTERFACE_MODE_MII;
+-		return PHY_INTERFACE_MODE_RMII;
+ 	}
+-
+-	/* non-DT */
+-#ifdef CONFIG_ARCH_LPC32XX_MII_SUPPORT
+-	return PHY_INTERFACE_MODE_MII;
+-#else
+ 	return PHY_INTERFACE_MODE_RMII;
+-#endif
+ }
+ 
+ static bool use_iram_for_net(struct device *dev)
+ {
+ 	if (dev && dev->of_node)
+ 		return of_property_read_bool(dev->of_node, "use-iram");
+-
+-	/* non-DT */
+-#ifdef CONFIG_ARCH_LPC32XX_IRAM_FOR_NET
+-	return true;
+-#else
+ 	return false;
+-#endif
+ }
+ 
+ /* Receive Status information word */
