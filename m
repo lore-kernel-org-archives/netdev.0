@@ -1,49 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] sched: add missing group change to
- qfq_change_class
-Date: Wed, 08 Aug 2012 16:03:41 -0700 (PDT)
-Message-ID: <20120808.160341.846489589039687208.davem@davemloft.net>
-References: <20120807172724.GA13729@paolo-ThinkPad-W520>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] batman-adv: Fix mem leak in the
+ batadv_tt_local_event() function
+Date: Wed, 08 Aug 2012 16:04:28 -0700 (PDT)
+Message-ID: <20120808.160428.2244694881256062176.davem@davemloft.net>
+References: <alpine.LNX.2.00.1208072030500.3227@swampdragon.chaosbits.net>
+ <20120807185036.GG3891@ritirata.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, jhs@mojatatu.com, fchecconi@gmail.com,
-	rizzo@iet.unipi.it, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: paolo.valente@unimore.it
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120807172724.GA13729@paolo-ThinkPad-W520>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org, jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org,
+ lindner_marek-LWAfsSFWpa4@public.gmane.org
+To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20120807185036.GG3891-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Paolo Valente <paolo.valente@unimore.it>
-Date: Tue, 7 Aug 2012 19:27:25 +0200
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Date: Tue, 7 Aug 2012 20:50:36 +0200
 
-> [Resending again, as the text was corrupted by the email client]
+> On Tue, Aug 07, 2012 at 08:32:34PM +0200, Jesper Juhl wrote:
+>> Memory is allocated for 'tt_change_node' with kmalloc().
+>> 'tt_change_node' may go out of scope really being used for anything
+>> (except have a few members initialized) if we hit the 'del:' label.
+>> This patch makes sure we free the memory in that case.
+>> 
+>> Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
 > 
-> To speed up operations, QFQ internally divides classes into
-> groups. Which group a class belongs to depends on the ratio between
-> the maximum packet length and the weight of the class. Unfortunately
-> the function qfq_change_class lacks the steps for changing the group
-> of a class when the ratio max_pkt_len/weight of the class changes.
-> 
-> For example, when the last of the following three commands is
-> executed, the group of class 1:1 is not correctly changed:
-> 
-> tc disc add dev XXX root handle 1: qfq
-> tc class add dev XXX parent 1: qfq classid 1:1 weight 1
-> tc class change dev XXX parent 1: classid 1:1 qfq weight 4
-> 
-> Not changing the group of a class does not affect the long-term
-> bandwidth guaranteed to the class, as the latter is independent of the
-> maximum packet length, and correctly changes (only) if the weight of
-> the class changes. In contrast, if the group of the class is not
-> updated, the class is still guaranteed the short-term bandwidth and
-> packet delay related to its old group, instead of the guarantees that
-> it should receive according to its new weight and/or maximum packet
-> length. This may also break service guarantees for other classes.
-> This patch adds the missing operations.
-> 
-> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+> Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 
 Applied, thanks.
