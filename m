@@ -1,155 +1,74 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v6 7/7] ARM: davinci: add support for the am1808 based
- enbw_cmc board
-Date: Wed, 8 Aug 2012 23:05:35 +0530
-Message-ID: <5022A367.1070903@ti.com>
-References: <1341492608-20597-1-git-send-email-hs@denx.de>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [RFC PATCH] tun: don't zeroize sock->file on detach
+Date: Wed, 8 Aug 2012 10:48:32 -0700
+Message-ID: <CAK6E8=cpODYa1xURk7BZBnWwx5q3OD8-xkCau7GNPn+1BS0oQQ@mail.gmail.com>
+References: <20120711114753.24395.53193.stgit@localhost6.localdomain6> <50226147.3010309@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>,
- davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
- Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
- Sylwester Nawrocki <s.nawrocki-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
- David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1341492608-20597-1-git-send-email-hs-ynQEQJNshbs@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ruanzhijie@hotmail.com" <ruanzhijie@hotmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:47428 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759077Ab2HHRsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2012 13:48:53 -0400
+Received: by obbuo13 with SMTP id uo13so1426069obb.19
+        for <netdev@vger.kernel.org>; Wed, 08 Aug 2012 10:48:52 -0700 (PDT)
+In-Reply-To: <50226147.3010309@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Heiko,
+On Wed, Aug 8, 2012 at 5:53 AM, Stanislav Kinsbursky
+<skinsbursky@parallels.com> wrote:
+> Hi, Dave.
+> What about this patch?
+>
+>
+> On Wed, Jul 11, 2012 at 03:48:20PM +0400, Stanislav Kinsbursky wrote:
+>>
+>> This is a fix for bug, introduced in 3.4 kernel by commit
+>> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things,
+>> replaced
+>> simple sock_put() by sk_release_kernel(). Below is sequence, which leads
+>> to
+>> oops for non-persistent devices:
+>>
+>> tun_chr_close()
+>> tun_detach()                            <== tun->socket.file = NULL
+>> tun_free_netdev()
+>> sk_release_sock()
+>> sock_release(sock->file == NULL)
+>> iput(SOCK_INODE(sock))                  <== dereference on NULL pointer
+>>
+>> This patch just removes zeroing of socket's file from __tun_detach().
+>> sock_release() will do this.
+>>
+>> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-On 7/5/2012 6:20 PM, Heiko Schocher wrote:
-> - AM1808 based board
-> - 64 MiB DDR ram
-> - 2 MiB Nor flash
-> - 128 MiB NAND flash
-> - use internal RTC
-> - I2C support
-> - hwmon lm75 support
-> - UBI/UBIFS support
-> - MMC support
-> - USB OTG support
-> 
-> Signed-off-by: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-> Cc: linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Cc: linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-> Cc: Ben Dooks <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>
-> Cc: Wolfram Sang <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-> Cc: Kevin Hilman <khilman-l0cyMroinI0@public.gmane.org>
-> Cc: Wolfgang Denk <wd-ynQEQJNshbs@public.gmane.org>
-> Cc: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-> Cc: Sylwester Nawrocki <s.nawrocki-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-> 
-> ---
-> - post this board support with USB support, even though
->   USB is only working with the 10 ms "workaround", posted here:
->   http://comments.gmane.org/gmane.linux.usb.general/54505
->   I see this issue also on the AM1808 TMDXEXP1808L evalboard.
-> - MMC and USB are not using OF support yet, ideas how to port
->   this are welcome. I need for USB and MMC boards board
->   specific callbacks, how to solve this with OF support?
-> 
-> - changes for v2:
->   - changes in the nand node due to comments from Scott Wood:
->     - add "ti,davinci-" prefix
->     - Dashes are preferred to underscores
->     - rename "nandflash" to "nand"
->     - introduce new "ti,davinci" specific properties for setting
->       up ecc_mode, ecc_bits, options and bbt options, instead
->       using linux defines
->   - changes for i2c due to comments from Sylwester Nawrocki:
->     - use "cell-index" instead "id"
->     - OF_DEV_AUXDATA in the machine code, instead pre-define
->       platform device name
->   - add comment from Grant Likely for i2c:
->     - removed "id" resp. "cell-index" completely
->     - fixed documentation
->     - use of_match_ptr()
->     - use devm_kzalloc() for allocating plattform data mem
->     - fixed a whitespace issue
->   - add net comments from Grant Likely:
->     - add prefix "ti,davinci-" to davinci specific property names
->     - remove version property
->     - use compatible name "ti,davinci-dm6460-emac"
->   - add comment from Grant Likely:
->     - rename compatible node
->     - do not use cell-index
->     - CONFIG_OF required for this board
->     TODO:
->     - create a generic board support file, as I got no
->       answer to my ping to grant, maybe this could be done
->       in a second step?
-> - changes for v3:
->   - add comments from Sergei Shtylyov:
->     - rename compatible" prop to "ti,cp_intc"
->     - cp_intc_init now used for Interrupt controller init
-> - changes for v4:
->   add comment from Nori Sekhar:
->   - rename davinci emac compatible property to "ti,davinci-dm6467-emac"
->   - remove "pinmux-handle" property as discussed here:
->     http://www.spinics.net/lists/arm-kernel/msg175701.html
->     with Nori Sekhar
-> 
-> - changes for v5:
->   add comments from Grant Likely:
->   - rename compatible" prop to "ti,cp-intc"
-> 
-> - changes for v6:
->   rework this patch, as patch
->   ARM: davinci: cp_intc: Add OF support for TI interrupt controller
->   was changed from Nori Sekhar on Jul 03, 2012; 9:16pm
->   Changes therefore in this patch:
-> 
->   Call of_irq_init() in the generic DT board file and not in the
->   interrupt controller code. See arch/arm/mach-at91/board-dt.c or
->   arch/arm/mach-omap2/board-generic.c for examples.
-> 
->   At this point the question raises, if we should rename this
->   board port from arch/arm/mach-davinci/enbw_cmc.c to
->   arch/arm/mach-davinci/board-dt.c ? Also the defconfig to
->   davinci_of_defconfig ... ? The USB and MMC callbacks are
->   currently board specific, but if other boards come in,
->   that could be easily adapted for their needs ...
-> 
->  arch/arm/boot/dts/enbw_cmc.dts                  |  183 +++++++++++
->  arch/arm/configs/enbw_cmc_defconfig             |  126 ++++++++
->  arch/arm/mach-davinci/Kconfig                   |    9 +
->  arch/arm/mach-davinci/Makefile                  |    1 +
->  arch/arm/mach-davinci/board-enbw-cmc.c          |  385 +++++++++++++++++++++++
->  arch/arm/mach-davinci/include/mach/uncompress.h |    1 +
->  6 files changed, 705 insertions(+), 0 deletions(-)
->  create mode 100644 arch/arm/boot/dts/enbw_cmc.dts
->  create mode 100644 arch/arm/configs/enbw_cmc_defconfig
->  create mode 100644 arch/arm/mach-davinci/board-enbw-cmc.c
+I has tested this patch and it works (so my kernel stops crashing
+using tun devices).
 
-With the move to DT, we are not going to add more board specific files
-and defconfigs. I am working on adding a generic dt board file for DA850
-(similar to what has been done for imx). That file is not going to do
-any platform device registrations. If you are OK with it, I will add the
-dts file for enbw_cmc board in the patch series I am planning to post.
-
-Things like USB and MMC/SD will need to be converted to DT before they
-can be supported on new boards.
-
-Thanks,
-Sekhar
+>> ---
+>>  drivers/net/tun.c |    1 -
+>>  1 files changed, 0 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 987aeef..c1639f3 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -185,7 +185,6 @@ static void __tun_detach(struct tun_struct *tun)
+>>         netif_tx_lock_bh(tun->dev);
+>>         netif_carrier_off(tun->dev);
+>>         tun->tfile = NULL;
+>> -       tun->socket.file = NULL;
+>>         netif_tx_unlock_bh(tun->dev);
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
