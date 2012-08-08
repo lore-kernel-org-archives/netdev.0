@@ -1,54 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] tun: don't zeroize sock->file on detach
-Date: Wed, 08 Aug 2012 14:34:10 -0700 (PDT)
-Message-ID: <20120808.143410.991859746378752444.davem@davemloft.net>
-References: <20120711114753.24395.53193.stgit@localhost6.localdomain6>
-	<50226147.3010309@parallels.com>
-	<CAK6E8=cpODYa1xURk7BZBnWwx5q3OD8-xkCau7GNPn+1BS0oQQ@mail.gmail.com>
+Subject: Re: [RESEND][PATCH] drivers: net: irda: bfin_sir: fix compile error
+Date: Wed, 08 Aug 2012 15:40:43 -0700 (PDT)
+Message-ID: <20120808.154043.2209307222855369747.davem@davemloft.net>
+References: <1344305316-23916-1-git-send-email-lliubbo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: skinsbursky@parallels.com, netdev@vger.kernel.org,
-	ruanzhijie@hotmail.com, linux-kernel@vger.kernel.org,
-	viro@zeniv.linux.org.uk
-To: ycheng@google.com
+Cc: samuel@sortiz.org, rmk+kernel@arm.linux.org.uk,
+	gregkh@linuxfoundation.org, kuninori.morimoto.gx@renesas.com,
+	linux-kernel@vger.kernel.org,
+	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org,
+	sonic.zhang@analog.com
+To: lliubbo@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK6E8=cpODYa1xURk7BZBnWwx5q3OD8-xkCau7GNPn+1BS0oQQ@mail.gmail.com>
+In-Reply-To: <1344305316-23916-1-git-send-email-lliubbo@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 8 Aug 2012 10:48:32 -0700
+From: Bob Liu <lliubbo@gmail.com>
+Date: Tue, 7 Aug 2012 10:08:36 +0800
 
-> On Wed, Aug 8, 2012 at 5:53 AM, Stanislav Kinsbursky
-> <skinsbursky@parallels.com> wrote:
->> Hi, Dave.
->> What about this patch?
->>
->>
->> On Wed, Jul 11, 2012 at 03:48:20PM +0400, Stanislav Kinsbursky wrote:
->>>
->>> This is a fix for bug, introduced in 3.4 kernel by commit
->>> 1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things,
->>> replaced
->>> simple sock_put() by sk_release_kernel(). Below is sequence, which leads
->>> to
->>> oops for non-persistent devices:
->>>
->>> tun_chr_close()
->>> tun_detach()                            <== tun->socket.file = NULL
->>> tun_free_netdev()
->>> sk_release_sock()
->>> sock_release(sock->file == NULL)
->>> iput(SOCK_INODE(sock))                  <== dereference on NULL pointer
->>>
->>> This patch just removes zeroing of socket's file from __tun_detach().
->>> sock_release() will do this.
->>>
->>> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
+> From: Sonic Zhang <sonic.zhang@analog.com>
 > 
-> I has tested this patch and it works (so my kernel stops crashing
-> using tun devices).
+> Bit IREN is replaced by UMOD_IRDA and UMOD_MASK since blackfin 60x added, but
+> this driver didn't update which will cause bfin_sir build error:
+> 
+> drivers/net/irda/bfin_sir.c:161:9: error: 'IREN' undeclared (first use in this
+> function)
+> drivers/net/irda/bfin_sir.c:435:18: error: 'IREN' undeclared (first use in
+> this function)
+> drivers/net/irda/bfin_sir.c:521:11: error: 'IREN' undeclared (first use in
+> this function)
+> 
+> This patch fix it.
+> 
+> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+> Signed-off-by: Bob Liu <lliubbo@gmail.com>
+> Acked-by: Samuel Ortiz <samuel@sortiz.org>
 
-This patch needs to be formally resubmitted to netdev.
+Applied, thanks.
