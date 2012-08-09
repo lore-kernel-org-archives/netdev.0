@@ -1,26 +1,50 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH] SubmittingPatches: clarify SOB tag usage when evolving submissions
-Date: Thu, 9 Aug 2012 14:48:17 -0700
-Message-ID: <CAB=NE6WJ79U6OzmSDncXoxONd948_zKvCAc9LCo-dG3f+vQCgw@mail.gmail.com>
-References: <1344545493-6820-1-git-send-email-mcgrof@do-not-panic.com> <CAMuHMdUd5x04KyyKa84J3PDB2xPj70xZLezwMJn1J=jwmzcnnA@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/19] netfilter: IPv6 NAT
+Date: Thu, 9 Aug 2012 23:52:14 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208092347080.26308@stinky-local.trash.net>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+ <87a9y3n5rz.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: torvalds@linux-foundation.org, rdunlap@xenotime.net, tytso@mit.edu,
-	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUd5x04KyyKa84J3PDB2xPj70xZLezwMJn1J=jwmzcnnA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:33187 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759760Ab2HIVwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 17:52:16 -0400
+In-Reply-To: <87a9y3n5rz.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 9, 2012 at 1:58 PM, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> On Thu, Aug 9, 2012 at 10:51 PM, Luis R. Rodriguez
-> <mcgrof@do-not-panic.com> wrote:
->> of a second patch submission must supply their own Siged-off-by
+On Thu, 9 Aug 2012, Eric W. Biederman wrote:
+
+> kaber@trash.net writes:
 >
-> Signed-off-by
+>> The following patches contain an updated version of IPv6 NAT against
+>> Linus' current tree.
+>>
+>> The series is organized as follows:
+>>
+>> - Patches 01-03 contain bugfixes for SIP helper bugs/regressions
+>>   present in the current kernel
+>
+> Why not just delete this code?  The current best practices are to
+> disable ALGs for SIP.  To the point in some circles people recommend
+> running SIP over TLS to avoid over helpful NAT ALGs.
 
-will send a v2.
+And where can I read up on these best practices and how well they work?
 
-  Luis
+In any case, these patches are all for the connection tracking helper,
+which is needed unless you want to open up your firewall for every 
+possible RTP source, in which case you can simply disable it. Some people 
+are also using it to proritize RTP streams without any filtering.
+
+Also, even if the NAT helper would not mangle packets, it is still needed 
+to adjust expectations. so incoming connections can go to the correct
+destination. That is, direct RTP connections between two endpoints
+that didn't have any direct signalling communication before
+
+You can of course also proxy everything through your SIP provider 
+(including internal calls) and/or use STUN (which is unreliable under
+Linux). I prefer not to.
