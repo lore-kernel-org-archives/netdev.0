@@ -1,86 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: tcp: security_sk_alloc() needed for unicast_sock
-Date: Thu, 09 Aug 2012 23:29:03 +0200
-Message-ID: <1344547743.31104.582.camel@edumazet-glaptop>
-References: <50215A7E.8000701@linaro.org>
-	 <1344462889.28967.328.camel@edumazet-glaptop>
-	 <5022FD9A.4020603@schaufler-ca.com> <1695034.0lrQgQPOMT@sifl>
-	 <1344523833.28967.996.camel@edumazet-glaptop>
-	 <CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul@paul-moore.com>,
-	David Miller <davem@davemloft.net>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	John Stultz <johnstul@us.ibm.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	James Morris <james.l.morris@oracle.com>,
-	selinux@tycho.nsa.gov, john.johansen@canonical.com,
-	LSM <linux-security-module@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Paris <eparis@parisplace.org>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: [PATCH v2] SubmittingPatches: clarify SOB tag usage when evolving submissions
+Date: Thu,  9 Aug 2012 14:48:23 -0700
+Message-ID: <1344548903-23117-1-git-send-email-mcgrof@do-not-panic.com>
+Cc: rdunlap@xenotime.net, tytso@mit.edu, alan@lxorguk.ukuu.org.uk,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-08-09 at 16:06 -0400, Eric Paris wrote:
-> NAK.
-> 
-> I personally think commit be9f4a44e7d41cee should be reverted until it
-> is fixed.  Let me explain what all I believe it broke and how.
-> 
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 
-Suggesting to revert this commit while we have known working fixes is a
-bit of strange reaction.
+Initial large code submissions typically are not accepted
+on their first patch submission. The developers are
+typically given feedback and at times some developers may
+even submit changes to the original authors for integration
+into their second submission attempt.
 
-I understand you are upset, but I believe we tried to fix it.
+Developers wishing to contribute changes to the evolution
+of a second patch submission must supply their own Siged-off-by
+tag to the original authors and must submit their changes
+on a public mailing list or ensure that these submission
+are recorded somewhere publicly.
 
-> Old callchain of the creation of the 'equivalent' socket previous to
-> the patch in question just for reference:
-> 
->     inet_ctl_sock_create
->       sock_create_kern
->         __sock_create
->           pf->create (inet_create)
->             sk_alloc
->               sk_prot_alloc
->                 security_sk_alloc()
-> 
-> 
-> This WAS working properly.  All of it. 
+To date a few of these type of contributors have expressed
+different preferences for whether or not their own SOB tag
+should be used for a second code submission. Lets keep things
+simple and only require the contributor's SOB tag if so desired
+explicitly. It is not technically required if there already
+is a public record of their contribution somewhere.
 
-Nobody denies it. But acknowledge my patch uncovered a fundamental
-issue.
+Document this on Documentation/SubmittingPatches
 
-What kind of 'security module' can decide to let RST packets being sent
-or not, on a global scale ? (one socket for the whole machine)
+Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
+---
 
-smack_sk_alloc_security() uses smk_of_current() : What can be the
-meaning of smk_of_current() in the context of 'kernel' sockets...
+This v2 has Singed/Signed typo fixes.
 
-Your patch tries to maintain this status quo.
+ Documentation/SubmittingPatches |   15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-In fact I suggest the following one liner patch, unless you can really
-demonstrate what can be the meaning of providing a fake socket for these
-packets.
-
-This mess only happened because ip_append_data()/ip_push_pending_frames()
-are so complex and use an underlying socket.
-
-But this socket should not be ever used outside of its scope.
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 76dde25..ec410e0 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1536,6 +1536,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
- 			  arg->csumoffset) = csum_fold(csum_add(nskb->csum,
- 								arg->csum));
- 		nskb->ip_summed = CHECKSUM_NONE;
-+		skb_orphan(nskb);
- 		skb_set_queue_mapping(nskb, skb_get_queue_mapping(skb));
- 		ip_push_pending_frames(sk, &fl4);
- 	}
+diff --git a/Documentation/SubmittingPatches b/Documentation/SubmittingPatches
+index c379a2a..3154565 100644
+--- a/Documentation/SubmittingPatches
++++ b/Documentation/SubmittingPatches
+@@ -366,6 +366,21 @@ and protect the submitter from complaints. Note that under no circumstances
+ can you change the author's identity (the From header), as it is the one
+ which appears in the changelog.
+ 
++If you are submitting a large change (for example a new driver) at times
++you may be asked to make quite a lot of modifications prior to getting
++your change accepted. At times you may even receive patches from developers
++who not only wish to tell you what you should change to get your changes
++upstream but actually send you patches. If those patches were made publicly
++and they do contain a Signed-off-by tag you are not expected to provide
++their own Signed-off-by tag on the second iteration of the patch so long
++as there is a public record somewhere that can be used to show the
++contributor had sent their changes with their own Signed-off-by tag.
++
++If you receive patches privately during development you may want to
++ask for these patches to be re-posted publicly or you can also decide
++to merge the patches as part of a separate historical git tree that
++will remain online for historical archiving.
++
+ Special note to back-porters: It seems to be a common and useful practise
+ to insert an indication of the origin of a patch at the top of the commit
+ message (just after the subject line) to facilitate tracking. For instance,
+-- 
+1.7.10.4
