@@ -1,57 +1,37 @@
-From: Arun MURTHY <arun.murthy@stericsson.com>
-Subject: RE: [PATCHv2 1/4] modem_shm: Add Modem Access Framework
-Date: Thu, 9 Aug 2012 12:14:03 +0200
-Message-ID: <F45880696056844FA6A73F415B568C695B0E797057@EXDCVYMBSTM006.EQ1STM.local>
-References: <1344322471-3640-1-git-send-email-arun.murthy@stericsson.com>
- <1344322471-3640-2-git-send-email-arun.murthy@stericsson.com>
- <20120807183809.GC26990@kroah.com>
- <F45880696056844FA6A73F415B568C695B0E796A03@EXDCVYMBSTM006.EQ1STM.local>
- <20120808133748.GA14459@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 09 Aug 2012 03:42:42 -0700 (PDT)
+Message-ID: <20120809.034242.1518689666898097694.davem@davemloft.net>
+References: <1344505152-28167-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: peter.p.waskiewicz.jr@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755837Ab2HIKmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 06:42:43 -0400
+In-Reply-To: <1344505152-28167-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > On Wed, Aug 08, 2012 at 05:36:05AM +0200, Arun MURTHY wrote:
-> > > > On Tue, Aug 07, 2012 at 12:24:28PM +0530, Arun Murthy wrote:
-> > > > > Adds Modem Access Framework, which allows for registering
-> > > > > platform
-> > > > specific
-> > > > > modem access mechanisms. The framework also exposes APIs for
-> > > > > client
-> > > > drivers
-> > > > > for getting and releasing access to modem, regardless of the
-> > > > underlying
-> > > > > platform specific access mechanism.
-> > > >
-> > > > The term "modems" here has a lot of legacy connotations.  First of
-> > > > which is, userspace handles this today as tty devices, why aren't
-> > > > you doing the same here?  Why does this have to be something
-> > > > "special"?
-> > > >
-> > >
-> > > The main focus over there the modem IPC.
-> >
-> > Over where?
-> >
-> > What "modem IPC"?
-> >
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Date: Thu,  9 Aug 2012 02:39:09 -0700
+
+> This series contains bugfixes to the igb and e1000e drivers.
 > 
-> I mean the dir which is added in this patch, "modem_shm" is added to have a
-> separate list of such modem access drivers.
+> The following are changes since commit 36471012e2ae28ca3178f84d4687a2d88a36593e:
+>   
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/ppwaskie/net master
+> 
+> Alexander Duyck (1):
+>   igb: Fix register defines for all non-82575 hardware
+> 
+> Emil Tantilov (2):
+>   igb: fix panic while dumping packets on Tx hang with IOMMU
+>   e1000e: fix panic while dumping packets on Tx hang with IOMMU
 
-The modem that I am referring to is an on chip modem in embedded platforms.
-Applications of these being mobile, tablets etc.
-So the APE and modem resides on a single chip.
-
-Thanks and Regards,
-Arun R Murthy
-------------------
+Pulled, thanks PJ.
