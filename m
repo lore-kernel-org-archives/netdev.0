@@ -1,58 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add new QCA alx ethernet driver
-Date: Wed, 08 Aug 2012 23:18:04 -0700 (PDT)
-Message-ID: <20120808.231804.12694947300243733.davem@davemloft.net>
-References: <6349D7A510622448B1BA0967850A8438013692CA@NASANEXD02D.na.qualcomm.com>
-	<1344485382.2024.9.camel@joe2Laptop>
-	<6349D7A510622448B1BA0967850A843801369364@NASANEXD02D.na.qualcomm.com>
+Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
+ per net tunables
+Date: Wed, 08 Aug 2012 23:20:58 -0700 (PDT)
+Message-ID: <20120808.232058.1128673474849407813.davem@davemloft.net>
+References: <87mx27rig7.fsf@xmission.com>
+	<87zk67q31q.fsf_-_@xmission.com>
+	<87ipcud3ld.fsf_-_@xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, qca-linux-team@qualcomm.com,
-	nic-devel@qualcomm.com, xiong@qca.qualcomm.com,
-	hao-ran.liu@canonical.com, rodrigue@qca.qualcomm.com
-To: cjren@qca.qualcomm.com
+Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
+	tgraf@infradead.org, xi.wang@gmail.com
+To: ebiederm@xmission.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6349D7A510622448B1BA0967850A843801369364@NASANEXD02D.na.qualcomm.com>
+In-Reply-To: <87ipcud3ld.fsf_-_@xmission.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Date: Thu, 9 Aug 2012 04:44:08 +0000
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 07 Aug 2012 10:17:02 -0700
 
-> I only want to do some additional explanations to david. It makes nothing with original patch.
+> Since I am motivated to get things done, and since there has been much
+> grumbling about my patches not implementing tunables, I have added
+> tunable support on top of my last patchset.
+> 
+> I have performed basic testing on the these patches and nothing
+> appears amis.
+> 
+> The sm statemachine is a major tease as it has all of these association
+> and endpoint pointers in the common set of function parameters that turn
+> out to be NULL at the most inconvinient times.  So I added to the common
+> parameter list a struct net pointer, that is never NULL. 
 
-Stop this TOP POSTING, it's bad etiquette on a technical mailing list.
+I like Eric's patch set and I'd like to apply it to net-next.
 
-Look at how other people write their email responses on this mailing
-list.  They first provide a quoted portion of what they are replying
-to:
-
-> Quoted
-> something like this.
-
-And then they provide their response UNDERNEATH.
-
-When you provide your response at the top of the email, it is unexpected,
-and makes more work for people reading what you write.
-
-You guys are doing everything possibly wrong.
-
-You have unnecessarily quoted a HUGE patch just to provide some ancillary
-in formation.
-
-You are TOP POSTING.
-
-You added a signoff of someone who did not give you explicit permission
-to do so.
-
-And you seem to not comprehend nor care about the implications or effects
-of your actions that are hurting other people and creating a huge brudon.
-
-I very much intend to simply ignore your work completely until you can
-get your act in gear, write proper emails, and submit patches
-properly.
-
-It is the only deterrant I have for your incredibly rude and
-inconsiderate behavior.
+Vlad?
