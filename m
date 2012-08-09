@@ -1,69 +1,92 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH] SubmittingPatches: clarify SOB tag usage when evolving submissions
-Date: Thu,  9 Aug 2012 13:51:33 -0700
-Message-ID: <1344545493-6820-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: rdunlap@xenotime.net, tytso@mit.edu, alan@lxorguk.ukuu.org.uk,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [net-next] bonding: don't allow the master to become its slave
+Date: Thu, 9 Aug 2012 17:52:57 -0300
+Message-ID: <20120809175257.30983523@obelix.rh>
+References: <1344537049-11473-1-git-send-email-fbl@redhat.com>
+	<1344539003.2593.7.camel@bwh-desktop.uk.solarflarecom.com>
+	<20120809163906.6dc0b6d4@obelix.rh>
+	<20120809195539.GB1783@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Leonardo Chiquitto <lchiquitto@suse.com>
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14902 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751573Ab2HIUxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 16:53:13 -0400
+In-Reply-To: <20120809195539.GB1783@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+On Thu, 9 Aug 2012 21:55:39 +0200
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-Initial large code submissions typically are not accepted
-on their first patch submission. The developers are
-typically given feedback and at times some developers may
-even submit changes to the original authors for integration
-into their second submission attempt.
+> Thu, Aug 09, 2012 at 09:39:06PM CEST, fbl@redhat.com wrote:
+> >On Thu, 9 Aug 2012 20:03:23 +0100
+> >Ben Hutchings <bhutchings@solarflare.com> wrote:
+> >
+> >> On Thu, 2012-08-09 at 15:30 -0300, Flavio Leitner wrote:
+> >> > It doesn't make any sense to allow the master to become
+> >> > its slave. That creates a loop of events causing a crash.
+> >> 
+> >> What if there are other intermediate devices, e.g. the slave is a VLAN
+> >> sub-device of the bond?  And doesn't team also have this problem?
+> >> 
+> >> I think a more general check for such loops might be required.
+> >
+> >Maybe patching netdev_set_master() to fail in the loop case is
+> >the way to go.  That would work for bonding, team and bridge.
+> >
+> >What you think?
+> 
+> How about other devices who do not use "->master" like vlan, macvlan?
 
-Developers wishing to contribute changes to the evolution
-of a second patch submission must supply their own Siged-off-by
-tag to the original authors and must submit their changes
-on a public mailing list or ensure that these submission
-are recorded somewhere publicly.
+Didn't get you. This is what I had in mind, just to show the idea.
 
-To date a few of these type of contributors have expressed
-different preferences for whether or not their own SOB tag
-should be used for a second code submission. Lets keep things
-simple and only require the contributor's SOB tag if so desired
-explicitly. It is not technically required if there already
-is a public record of their contribution somewhere.
-
-Document this on Documentation/SubmittingPatches
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
----
- Documentation/SubmittingPatches |   15 +++++++++++++++
- 1 file changed, 15 insertions(+)
-
-diff --git a/Documentation/SubmittingPatches b/Documentation/SubmittingPatches
-index c379a2a..e018043 100644
---- a/Documentation/SubmittingPatches
-+++ b/Documentation/SubmittingPatches
-@@ -366,6 +366,21 @@ and protect the submitter from complaints. Note that under no circumstances
- can you change the author's identity (the From header), as it is the one
- which appears in the changelog.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f91abf8..a404afb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4424,6 +4424,24 @@ static int __init dev_proc_init(void)
+ #define dev_proc_init() 0
+ #endif	/* CONFIG_PROC_FS */
  
-+If you are submitting a large change (for example a new driver) at times
-+you may be asked to make quite a lot of modifications prior to getting
-+your change accepted. At times you may even receive patches from developers
-+who not only wish to tell you what you should change to get your changes
-+upstream but actually send you patches. If those patches were made publicly
-+and they do contain a Singed-off-by tag you are not expected to provide
-+their own Singed-off-by tag on the second iteration of the patch so long
-+as there is a public record somewhere that can be used to show the
-+contributor had sent their changes with their own Singed-off-by tag.
++bool netdev_check_loop(struct net_device *master, struct net_device *dev)
++{
++	if (master == dev)
++		return true;
 +
-+If you receive patches privately during development you may want to
-+ask for these patches to be re-posted publicly or you can also decide
-+to merge the patches as part of a separate historical git tree that
-+will remain online for historical archiving.
++	if (is_vlan_dev(dev))
++		return nedev_check_loop(vlan_dev_real_dev(dev));
 +
- Special note to back-porters: It seems to be a common and useful practise
- to insert an indication of the origin of a patch at the top of the commit
- message (just after the subject line) to facilitate tracking. For instance,
--- 
-1.7.10.4
++	/* is a bridge ?*/
++	if (dev->priv_flags & IFF_EBRIDGE) {
++		list_for_each_entry(p, &br->port_list, list) {
++			if (nedev_check_loop(p->dev))
++				return true;
++		}
++	}
++
++	return false;
++}
+ 
+ /**
+  *	netdev_set_master	-	set up master pointer
+@@ -4447,6 +4465,9 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ 		dev_hold(master);
+ 	}
+ 
++	if (netdev_check_loop(master, slave))
++		return -EINVAL;
++
+ 	slave->master = master;
+ 
+ 	if (old)
+
+
+fbl
