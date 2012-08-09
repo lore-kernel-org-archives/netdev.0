@@ -1,55 +1,43 @@
-From: kaber@trash.net
-Subject: [PATCH 01/19] netfilter: nf_ct_sip: fix helper name
-Date: Thu,  9 Aug 2012 22:08:45 +0200
-Message-ID: <1344542943-11588-2-git-send-email-kaber@trash.net>
-References: <1344542943-11588-1-git-send-email-kaber@trash.net>
-Cc: netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65316 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754723Ab2HIUSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 16:18:37 -0400
-In-Reply-To: <1344542943-11588-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH] ipv4: tcp: security_sk_alloc() needed for unicast_sock
+Date: Thu, 9 Aug 2012 16:19:03 -0400
+Message-ID: <CAHC9VhQo8bh45qcMDo3cC=a0RA50zwBMftbZ3KGdLEXUapuvtw@mail.gmail.com>
+References: <50215A7E.8000701@linaro.org>
+	<1344462889.28967.328.camel@edumazet-glaptop>
+	<5022FD9A.4020603@schaufler-ca.com>
+	<1695034.0lrQgQPOMT@sifl>
+	<1344523833.28967.996.camel@edumazet-glaptop>
+	<CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org,
+        john.johansen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
+        LSM <linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>
+Return-path: <owner-selinux-MESi4pFTnrejpDF0oNHs+n7yKkN/O5/Z@public.gmane.org>
+In-Reply-To: <CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: owner-selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+On Thu, Aug 9, 2012 at 4:06 PM, Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org> wrote:
+> I'm going to work right now on exposing the equivalent struct sock LSM
+> interface so we can call that as well.  But it's going to take me a
+> bit.
 
-Commit 3a8fc53a (netfilter: nf_ct_helper: allocate 16 bytes for the helper
-and policy names) introduced a bug in the SIP helper, the helper name is
-sprinted to the sip_names array instead of instead of into the helper
-structure. This breaks the helper match and the /proc/net/nf_conntrack_expect
-output.
+Before you go too far down this path, can you elaborate on what
+exactly you mean by the above?
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/nf_conntrack_sip.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+I'm asking because I'm not convinced the labeling, either the old way
+or the new way, was 100% correct and I think we're going to need to
+change things regardless.  I'm just not sure what the right solution
+is just yet.
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 758a1ba..2fb6669 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1515,7 +1515,6 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
- }
- 
- static struct nf_conntrack_helper sip[MAX_PORTS][4] __read_mostly;
--static char sip_names[MAX_PORTS][4][sizeof("sip-65535")] __read_mostly;
- 
- static const struct nf_conntrack_expect_policy sip_exp_policy[SIP_EXPECT_MAX + 1] = {
- 	[SIP_EXPECT_SIGNALLING] = {
-@@ -1585,9 +1584,9 @@ static int __init nf_conntrack_sip_init(void)
- 			sip[i][j].me = THIS_MODULE;
- 
- 			if (ports[i] == SIP_PORT)
--				sprintf(sip_names[i][j], "sip");
-+				sprintf(sip[i][j].name, "sip");
- 			else
--				sprintf(sip_names[i][j], "sip-%u", i);
-+				sprintf(sip[i][j].name, "sip-%u", i);
- 
- 			pr_debug("port #%u: %u\n", i, ports[i]);
- 
 -- 
-1.7.1
+paul moore
+www.paul-moore.com
