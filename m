@@ -1,74 +1,193 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 2/2] bnx2x: Fix recovery flow cleanup during probe
-Date: Thu, 9 Aug 2012 17:37:26 +0300
-Message-ID: <1344523046-31577-3-git-send-email-yuvalmin@broadcom.com>
-References: <1344523046-31577-1-git-send-email-yuvalmin@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: tcp: security_sk_alloc() needed for unicast_sock
+Date: Thu, 09 Aug 2012 16:50:33 +0200
+Message-ID: <1344523833.28967.996.camel@edumazet-glaptop>
+References: <50215A7E.8000701@linaro.org>
+	 <1344462889.28967.328.camel@edumazet-glaptop>
+	 <5022FD9A.4020603@schaufler-ca.com>  <1695034.0lrQgQPOMT@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Casey Schaufler <casey@schaufler-ca.com>,
+	Eric Paris <eparis@parisplace.org>,
+	John Stultz <johnstul@us.ibm.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	James Morris <james.l.morris@oracle.com>,
+	selinux@tycho.nsa.gov, john.johansen@canonical.com,
+	LSM <linux-security-module@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Paul Moore <paul@paul-moore.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4273 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030521Ab2HIOgp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 10:36:45 -0400
-In-Reply-To: <1344523046-31577-1-git-send-email-yuvalmin@broadcom.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46082 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030749Ab2HIOuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 10:50:39 -0400
+In-Reply-To: <1695034.0lrQgQPOMT@sifl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During probe, every function probed clears the recovery registers from
-all functions on its path - thus signaling that given a future recovery
-event, there will be no need to wait for those functions.
+From: Eric Dumazet <edumazet@google.com>
 
-This is a flawed behaviour - each function should only be responsible
-for its own bit.
+commit be9f4a44e7d41cee (ipv4: tcp: remove per net tcp_sock) added a
+selinux regression, reported and bisected by John Stultz
 
-Since this registers are handled during the load/unload routines,
-this cleanup is removed altogether.
+selinux_ip_postroute_compat() expect to find a valid sk->sk_security
+pointer, but this field is NULL for unicast_sock
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Fix this by adding a new 'kernel' parameter to security_sk_alloc(),
+set to true if socket might already have a valid sk->sk_security
+pointer. ip_send_unicast_reply() uses a percpu fake socket, so the first
+call to security_sk_alloc() will populate sk->sk_security pointer,
+subsequent ones will reuse existing context.
+
+Reported-by: John Stultz <johnstul@us.ibm.com>
+Bisected-by: John Stultz <johnstul@us.ibm.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Paul Moore <paul@paul-moore.com>
+Cc: Eric Paris <eparis@parisplace.org>
+Cc: "Serge E. Hallyn" <serge@hallyn.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   17 -----------------
- 1 files changed, 0 insertions(+), 17 deletions(-)
+ include/linux/security.h   |    6 +++---
+ net/core/sock.c            |    2 +-
+ net/ipv4/ip_output.c       |    4 +++-
+ security/security.c        |    4 ++--
+ security/selinux/hooks.c   |    5 ++++-
+ security/smack/smack_lsm.c |   10 ++++++++--
+ 6 files changed, 21 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 5384a6d..02b5a34 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -4041,20 +4041,6 @@ static bool bnx2x_get_load_status(struct bnx2x *bp, int engine)
- 	return val != 0;
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 4e5a73c..4d8e454 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -1601,7 +1601,7 @@ struct security_operations {
+ 	int (*socket_sock_rcv_skb) (struct sock *sk, struct sk_buff *skb);
+ 	int (*socket_getpeersec_stream) (struct socket *sock, char __user *optval, int __user *optlen, unsigned len);
+ 	int (*socket_getpeersec_dgram) (struct socket *sock, struct sk_buff *skb, u32 *secid);
+-	int (*sk_alloc_security) (struct sock *sk, int family, gfp_t priority);
++	int (*sk_alloc_security) (struct sock *sk, int family, gfp_t priority, bool kernel);
+ 	void (*sk_free_security) (struct sock *sk);
+ 	void (*sk_clone_security) (const struct sock *sk, struct sock *newsk);
+ 	void (*sk_getsecid) (struct sock *sk, u32 *secid);
+@@ -2539,7 +2539,7 @@ int security_sock_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ int security_socket_getpeersec_stream(struct socket *sock, char __user *optval,
+ 				      int __user *optlen, unsigned len);
+ int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid);
+-int security_sk_alloc(struct sock *sk, int family, gfp_t priority);
++int security_sk_alloc(struct sock *sk, int family, gfp_t priority, bool kernel);
+ void security_sk_free(struct sock *sk);
+ void security_sk_clone(const struct sock *sk, struct sock *newsk);
+ void security_sk_classify_flow(struct sock *sk, struct flowi *fl);
+@@ -2667,7 +2667,7 @@ static inline int security_socket_getpeersec_dgram(struct socket *sock, struct s
+ 	return -ENOPROTOOPT;
  }
  
--/*
-- * Reset the load status for the current engine.
-- */
--static void bnx2x_clear_load_status(struct bnx2x *bp)
--{
--	u32 val;
--	u32 mask = (BP_PATH(bp) ? BNX2X_PATH1_LOAD_CNT_MASK :
--		    BNX2X_PATH0_LOAD_CNT_MASK);
--	bnx2x_acquire_hw_lock(bp, HW_LOCK_RESOURCE_RECOVERY_REG);
--	val = REG_RD(bp, BNX2X_RECOVERY_GLOB_REG);
--	REG_WR(bp, BNX2X_RECOVERY_GLOB_REG, val & (~mask));
--	bnx2x_release_hw_lock(bp, HW_LOCK_RESOURCE_RECOVERY_REG);
--}
--
- static void _print_next_block(int idx, const char *blk)
+-static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
++static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority, bool kernel)
  {
- 	pr_cont("%s%s", idx ? ", " : "", blk);
-@@ -11428,9 +11414,6 @@ static int __devinit bnx2x_init_dev(struct pci_dev *pdev,
- 	if (!chip_is_e1x)
- 		REG_WR(bp, PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ, 1);
+ 	return 0;
+ }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8f67ced..e00cadf 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1186,7 +1186,7 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
+ 	if (sk != NULL) {
+ 		kmemcheck_annotate_bitfield(sk, flags);
  
--	/* Reset the load counter */
--	bnx2x_clear_load_status(bp);
+-		if (security_sk_alloc(sk, family, priority))
++		if (security_sk_alloc(sk, family, priority, false))
+ 			goto out_free;
+ 
+ 		if (!try_module_get(prot->owner))
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 76dde25..b233d6e 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1524,6 +1524,8 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+ 	sk->sk_priority = skb->priority;
+ 	sk->sk_protocol = ip_hdr(skb)->protocol;
+ 	sk->sk_bound_dev_if = arg->bound_dev_if;
++	if (security_sk_alloc(sk, PF_INET, GFP_ATOMIC, true))
++		goto out;
+ 	sock_net_set(sk, net);
+ 	__skb_queue_head_init(&sk->sk_write_queue);
+ 	sk->sk_sndbuf = sysctl_wmem_default;
+@@ -1539,7 +1541,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+ 		skb_set_queue_mapping(nskb, skb_get_queue_mapping(skb));
+ 		ip_push_pending_frames(sk, &fl4);
+ 	}
 -
- 	dev->watchdog_timeo = TX_TIMEOUT;
++out:
+ 	put_cpu_var(unicast_sock);
  
- 	dev->netdev_ops = &bnx2x_netdev_ops;
--- 
-1.7.9.rc2
+ 	ip_rt_put(rt);
+diff --git a/security/security.c b/security/security.c
+index 860aeb3..23cf297 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -1146,9 +1146,9 @@ int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u
+ }
+ EXPORT_SYMBOL(security_socket_getpeersec_dgram);
+ 
+-int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
++int security_sk_alloc(struct sock *sk, int family, gfp_t priority, bool kernel)
+ {
+-	return security_ops->sk_alloc_security(sk, family, priority);
++	return security_ops->sk_alloc_security(sk, family, priority, kernel);
+ }
+ 
+ void security_sk_free(struct sock *sk)
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 6c77f63..ccd4374 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -4289,10 +4289,13 @@ out:
+ 	return 0;
+ }
+ 
+-static int selinux_sk_alloc_security(struct sock *sk, int family, gfp_t priority)
++static int selinux_sk_alloc_security(struct sock *sk, int family, gfp_t priority, bool kernel)
+ {
+ 	struct sk_security_struct *sksec;
+ 
++	if (kernel && sk->sk_security)
++		return 0;
++
+ 	sksec = kzalloc(sizeof(*sksec), priority);
+ 	if (!sksec)
+ 		return -ENOMEM;
+diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+index 8221514..0b066d0 100644
+--- a/security/smack/smack_lsm.c
++++ b/security/smack/smack_lsm.c
+@@ -1749,20 +1749,26 @@ static void smack_task_to_inode(struct task_struct *p, struct inode *inode)
+  * @sk: the socket
+  * @family: unused
+  * @gfp_flags: memory allocation flags
++ * @kernel: true if we should check sk_security being already set
+  *
+  * Assign Smack pointers to current
+  *
+  * Returns 0 on success, -ENOMEM is there's no memory
+  */
+-static int smack_sk_alloc_security(struct sock *sk, int family, gfp_t gfp_flags)
++static int smack_sk_alloc_security(struct sock *sk, int family, gfp_t gfp_flags, bool kernel)
+ {
+-	char *csp = smk_of_current();
++	char *csp;
+ 	struct socket_smack *ssp;
+ 
++	if (kernel && sk->sk_security)
++		return 0;
++
+ 	ssp = kzalloc(sizeof(struct socket_smack), gfp_flags);
+ 	if (ssp == NULL)
+ 		return -ENOMEM;
+ 
++	csp = kernel ? smack_net_ambient : smk_of_current();
++
+ 	ssp->smk_in = csp;
+ 	ssp->smk_out = csp;
+ 	ssp->smk_packet = NULL;
