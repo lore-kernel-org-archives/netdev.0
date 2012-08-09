@@ -1,37 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug with IPv6-UDP address binding
-Date: Thu, 09 Aug 2012 13:48:46 +0200
-Message-ID: <1344512926.28967.743.camel@edumazet-glaptop>
-References: <1344458238.3069.13.camel@localhost>
-	 <1344459591.28967.271.camel@edumazet-glaptop>
-	 <1344505205.3069.55.camel@localhost>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: [PATCH] tun: don't zeroize sock->file on detach
+Date: Thu, 09 Aug 2012 16:50:40 +0400
+Message-ID: <20120809124436.5156.26944.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63504 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757551Ab2HILsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 07:48:51 -0400
-Received: by bkwj10 with SMTP id j10so133477bkw.19
-        for <netdev@vger.kernel.org>; Thu, 09 Aug 2012 04:48:50 -0700 (PDT)
-In-Reply-To: <1344505205.3069.55.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, netdev@vger.kernel.org, rick.jones2@hp.com,
+	ycheng@google.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-08-09 at 11:40 +0200, Jesper Dangaard Brouer wrote:
+This is a fix for bug, introduced in 3.4 kernel by commit
+1ab5ecb90cb6a3df1476e052f76a6e8f6511cb3d, which, among other things, replaced
+simple sock_put() by sk_release_kernel(). Below is sequence, which leads to
+oops for non-persistent devices:
 
-> Guess I should have read Stephens[1] first, as this problem with
-> multihomed hosts is described  (on page 219).  He also states, that this
-> is a problem/feature related to Berkely-derived implementations.  E.g.
-> Solaris handle this, the way I expected. That is, the source IP address
-> for the server's reply is the dest IP of the client's request.
+tun_chr_close()
+tun_detach()				<== tun->socket.file = NULL
+tun_free_netdev()
+sk_release_sock()
+sock_release(sock->file == NULL)
+iput(SOCK_INODE(sock))			<== dereference on NULL pointer
 
-Are you sure ?
+This patch just removes zeroing of socket's file from __tun_detach().
+sock_release() will do this.
 
-So Solaris remembers in socket structure the destination IP address of
-last UDP message delivered to userland ?
+Cc: stable@vger.kernel.org
+Reported-by: Ruan Zhijie <ruanzhijie@hotmail.com>
+Tested-by: Ruan Zhijie <ruanzhijie@hotmail.com>
+Acked-by: Al Viro <viro@ZenIV.linux.org.uk>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+---
+ drivers/net/tun.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-This is not multi thread safe, so it would be a very bad idea.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 987aeef..c1639f3 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -185,7 +185,6 @@ static void __tun_detach(struct tun_struct *tun)
+ 	netif_tx_lock_bh(tun->dev);
+ 	netif_carrier_off(tun->dev);
+ 	tun->tfile = NULL;
+-	tun->socket.file = NULL;
+ 	netif_tx_unlock_bh(tun->dev);
+ 
+ 	/* Drop read queue */
