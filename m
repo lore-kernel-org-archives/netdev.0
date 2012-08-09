@@ -1,259 +1,250 @@
 From: kaber@trash.net
-Subject: [PATCH 05/19] netfilter: nf_conntrack_ipv6: improve fragmentation handling
-Date: Thu,  9 Aug 2012 22:08:49 +0200
-Message-ID: <1344542943-11588-6-git-send-email-kaber@trash.net>
+Subject: [PATCH 02/19] netfilter: nf_ct_sip: fix IPv6 address parsing
+Date: Thu,  9 Aug 2012 22:08:46 +0200
+Message-ID: <1344542943-11588-3-git-send-email-kaber@trash.net>
 References: <1344542943-11588-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65319 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:65320 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754794Ab2HIUSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 16:18:38 -0400
+	with ESMTP id S1754833Ab2HIUSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 16:18:39 -0400
 In-Reply-To: <1344542943-11588-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-The IPv6 conntrack fragmentation currently has a couple of shortcomings.
-Fragmentes are collected in PREROUTING/OUTPUT, are defragmented, the
-defragmented packet is then passed to conntrack, the resulting conntrack
-information is attached to each original fragment and the fragments then
-continue their way through the stack.
+Within SIP messages IPv6 addresses are enclosed in square brackets in most
+cases, with the exception of the "received=" header parameter. Currently
+the helper fails to parse enclosed addresses.
 
-Helper invocation occurs in the POSTROUTING hook, at which point only
-the original fragments are available. The result of this is that
-fragmented packets are never passed to helpers.
+This patch:
 
-This patch improves the situation in the following way:
+- changes the SIP address parsing function to enforce square brackets
+  when required, and accept them when not required but present, as
+  recommended by RFC 5118.
 
-- If a reassembled packet belongs to a connection that has a helper
-  assigned, the reassembled packet is passed through the stack instead
-  of the original fragments.
+- adds a new SDP address parsing function that never accepts square
+  brackets since SDP doesn't use them.
 
-- During defragmentation, the largest received fragment size is stored.
-  On output, the packet is refragmented if required. If the largest
-  received fragment size exceeds the outgoing MTU, a "packet too big"
-  message is generated, thus behaving as if the original fragments
-  were passed through the stack from an outside point of view.
-
-- The ipv6_helper() hook function can't receive fragments anymore for
-  connections using a helper, so it is switched to use ipv6_skip_exthdr()
-  instead of the netfilter specific nf_ct_ipv6_skip_exthdr() and the
-  reassembled packets are passed to connection tracking helpers.
-
-The result of this is that we can properly track fragmented packets, but
-still generate ICMPv6 Packet too big messages if we would have before.
-
-This patch is also required as a precondition for IPv6 NAT, where NAT
-helpers might enlarge packets up to a point that they require
-fragmentation. In that case we can't generate Packet too big messages
-since the proper MTU can't be calculated in all cases (f.i. when
-changing textual representation of a variable amount of addresses),
-so the packet is transparently fragmented iff the original packet or
-fragments would have fit the outgoing MTU.
+With these changes, the SIP helper correctly parses all test messages
+from RFC 5118 (Session Initiation Protocol (SIP) Torture Test Messages
+for Internet Protocol Version 6 (IPv6)).
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/ipv6.h                           |    1 +
- net/ipv6/ip6_output.c                          |    7 +++-
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   37 ++++++++++++++++++------
- net/ipv6/netfilter/nf_conntrack_reasm.c        |   19 ++++++++++--
- 4 files changed, 50 insertions(+), 14 deletions(-)
+ include/linux/netfilter/nf_conntrack_sip.h |    2 +-
+ net/ipv4/netfilter/nf_nat_sip.c            |    4 +-
+ net/netfilter/nf_conntrack_sip.c           |   87 ++++++++++++++++++++++------
+ 3 files changed, 73 insertions(+), 20 deletions(-)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 879db26..0b94e91 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -256,6 +256,7 @@ struct inet6_skb_parm {
- #if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
- 	__u16			dsthao;
- #endif
-+	__u16			frag_max_size;
- 
- #define IP6SKB_XFRM_TRANSFORMED	1
- #define IP6SKB_FORWARDED	2
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 5b2d63e..a4f6263 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -493,7 +493,8 @@ int ip6_forward(struct sk_buff *skb)
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
--	if (skb->len > mtu && !skb_is_gso(skb)) {
-+	if ((!skb->local_df && skb->len > mtu && !skb_is_gso(skb)) ||
-+	    (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)) {
- 		/* Again, force OUTPUT device used as source address */
- 		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-@@ -636,7 +637,9 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	/* We must not fragment if the socket is set to force MTU discovery
- 	 * or if the skb it not generated by a local socket.
- 	 */
--	if (unlikely(!skb->local_df && skb->len > mtu)) {
-+	if (unlikely(!skb->local_df && skb->len > mtu) ||
-+		     (IP6CB(skb)->frag_max_size &&
-+		      IP6CB(skb)->frag_max_size > mtu)) {
- 		if (skb->sk && dst_allfrag(skb_dst(skb)))
- 			sk_nocaps_add(skb->sk, NETIF_F_GSO_MASK);
- 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 4794f96..560d823 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -153,10 +153,10 @@ static unsigned int ipv6_helper(unsigned int hooknum,
- 	const struct nf_conn_help *help;
- 	const struct nf_conntrack_helper *helper;
- 	enum ip_conntrack_info ctinfo;
--	unsigned int ret, protoff;
--	unsigned int extoff = (u8 *)(ipv6_hdr(skb) + 1) - skb->data;
--	unsigned char pnum = ipv6_hdr(skb)->nexthdr;
--
-+	unsigned int ret;
-+	__be16 frag_off;
-+	int protoff;
-+	u8 nexthdr;
- 
- 	/* This is where we call the helper: as the packet goes out. */
- 	ct = nf_ct_get(skb, &ctinfo);
-@@ -171,9 +171,10 @@ static unsigned int ipv6_helper(unsigned int hooknum,
- 	if (!helper)
- 		return NF_ACCEPT;
- 
--	protoff = nf_ct_ipv6_skip_exthdr(skb, extoff, &pnum,
--					 skb->len - extoff);
--	if (protoff > skb->len || pnum == NEXTHDR_FRAGMENT) {
-+	nexthdr = ipv6_hdr(skb)->nexthdr;
-+	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
-+				   &frag_off);
-+	if (protoff < 0 || (frag_off & ntohs(~0x7)) != 0) {
- 		pr_debug("proto header not found\n");
- 		return NF_ACCEPT;
- 	}
-@@ -199,9 +200,13 @@ static unsigned int ipv6_confirm(unsigned int hooknum,
- static unsigned int __ipv6_conntrack_in(struct net *net,
- 					unsigned int hooknum,
- 					struct sk_buff *skb,
-+					const struct net_device *in,
-+					const struct net_device *out,
- 					int (*okfn)(struct sk_buff *))
- {
- 	struct sk_buff *reasm = skb->nfct_reasm;
-+	struct nf_conn *ct;
-+	enum ip_conntrack_info ctinfo;
- 
- 	/* This packet is fragmented and has reassembled packet. */
- 	if (reasm) {
-@@ -213,6 +218,20 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
- 			if (ret != NF_ACCEPT)
- 				return ret;
- 		}
-+
-+		/* Conntrack helpers need the entire reassembled packet in the
-+		 * POST_ROUTING hook.
-+		 */
-+		ct = nf_ct_get(reasm, &ctinfo);
-+		if (ct != NULL && test_bit(IPS_HELPER_BIT, &ct->status)) {
-+			nf_conntrack_get_reasm(skb);
-+			NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
-+				       (struct net_device *)in,
-+				       (struct net_device *)out,
-+				       okfn, NF_IP6_PRI_CONNTRACK + 1);
-+			return NF_DROP_ERR(-ECANCELED);
-+		}
-+
- 		nf_conntrack_get(reasm->nfct);
- 		skb->nfct = reasm->nfct;
- 		skb->nfctinfo = reasm->nfctinfo;
-@@ -228,7 +247,7 @@ static unsigned int ipv6_conntrack_in(unsigned int hooknum,
- 				      const struct net_device *out,
- 				      int (*okfn)(struct sk_buff *))
- {
--	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, okfn);
-+	return __ipv6_conntrack_in(dev_net(in), hooknum, skb, in, out, okfn);
+diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
+index 0dfc8b7..89f2a62 100644
+--- a/include/linux/netfilter/nf_conntrack_sip.h
++++ b/include/linux/netfilter/nf_conntrack_sip.h
+@@ -164,7 +164,7 @@ extern int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr
+ 				      unsigned int dataoff, unsigned int datalen,
+ 				      const char *name,
+ 				      unsigned int *matchoff, unsigned int *matchlen,
+-				      union nf_inet_addr *addr);
++				      union nf_inet_addr *addr, bool delim);
+ extern int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
+ 					unsigned int off, unsigned int datalen,
+ 					const char *name,
+diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
+index ea4a238..eef8f29 100644
+--- a/net/ipv4/netfilter/nf_nat_sip.c
++++ b/net/ipv4/netfilter/nf_nat_sip.c
+@@ -173,7 +173,7 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
+ 		 * the reply. */
+ 		if (ct_sip_parse_address_param(ct, *dptr, matchend, *datalen,
+ 					       "maddr=", &poff, &plen,
+-					       &addr) > 0 &&
++					       &addr, true) > 0 &&
+ 		    addr.ip == ct->tuplehash[dir].tuple.src.u3.ip &&
+ 		    addr.ip != ct->tuplehash[!dir].tuple.dst.u3.ip) {
+ 			buflen = sprintf(buffer, "%pI4",
+@@ -187,7 +187,7 @@ static unsigned int ip_nat_sip(struct sk_buff *skb, unsigned int dataoff,
+ 		 * from which the server received the request. */
+ 		if (ct_sip_parse_address_param(ct, *dptr, matchend, *datalen,
+ 					       "received=", &poff, &plen,
+-					       &addr) > 0 &&
++					       &addr, false) > 0 &&
+ 		    addr.ip == ct->tuplehash[dir].tuple.dst.u3.ip &&
+ 		    addr.ip != ct->tuplehash[!dir].tuple.src.u3.ip) {
+ 			buflen = sprintf(buffer, "%pI4",
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 2fb6669..5c0a112 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -183,12 +183,12 @@ static int media_len(const struct nf_conn *ct, const char *dptr,
+ 	return len + digits_len(ct, dptr, limit, shift);
  }
  
- static unsigned int ipv6_conntrack_local(unsigned int hooknum,
-@@ -242,7 +261,7 @@ static unsigned int ipv6_conntrack_local(unsigned int hooknum,
- 		net_notice_ratelimited("ipv6_conntrack_local: packet too short\n");
- 		return NF_ACCEPT;
+-static int parse_addr(const struct nf_conn *ct, const char *cp,
+-                      const char **endp, union nf_inet_addr *addr,
+-                      const char *limit)
++static int sip_parse_addr(const struct nf_conn *ct, const char *cp,
++			  const char **endp, union nf_inet_addr *addr,
++			  const char *limit, bool delim)
+ {
+ 	const char *end;
+-	int ret = 0;
++	int ret;
+ 
+ 	if (!ct)
+ 		return 0;
+@@ -197,16 +197,28 @@ static int parse_addr(const struct nf_conn *ct, const char *cp,
+ 	switch (nf_ct_l3num(ct)) {
+ 	case AF_INET:
+ 		ret = in4_pton(cp, limit - cp, (u8 *)&addr->ip, -1, &end);
++		if (ret == 0)
++			return 0;
+ 		break;
+ 	case AF_INET6:
++		if (cp < limit && *cp == '[')
++			cp++;
++		else if (delim)
++			return 0;
++
+ 		ret = in6_pton(cp, limit - cp, (u8 *)&addr->ip6, -1, &end);
++		if (ret == 0)
++			return 0;
++
++		if (end < limit && *end == ']')
++			end++;
++		else if (delim)
++			return 0;
+ 		break;
+ 	default:
+ 		BUG();
  	}
--	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, okfn);
-+	return __ipv6_conntrack_in(dev_net(out), hooknum, skb, in, out, okfn);
+ 
+-	if (ret == 0 || end == cp)
+-		return 0;
+ 	if (endp)
+ 		*endp = end;
+ 	return 1;
+@@ -219,7 +231,7 @@ static int epaddr_len(const struct nf_conn *ct, const char *dptr,
+ 	union nf_inet_addr addr;
+ 	const char *aux = dptr;
+ 
+-	if (!parse_addr(ct, dptr, &dptr, &addr, limit)) {
++	if (!sip_parse_addr(ct, dptr, &dptr, &addr, limit, true)) {
+ 		pr_debug("ip: %s parse failed.!\n", dptr);
+ 		return 0;
+ 	}
+@@ -296,7 +308,7 @@ int ct_sip_parse_request(const struct nf_conn *ct,
+ 		return 0;
+ 	dptr += shift;
+ 
+-	if (!parse_addr(ct, dptr, &end, addr, limit))
++	if (!sip_parse_addr(ct, dptr, &end, addr, limit, true))
+ 		return -1;
+ 	if (end < limit && *end == ':') {
+ 		end++;
+@@ -550,7 +562,7 @@ int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
+ 	if (ret == 0)
+ 		return ret;
+ 
+-	if (!parse_addr(ct, dptr + *matchoff, &c, addr, limit))
++	if (!sip_parse_addr(ct, dptr + *matchoff, &c, addr, limit, true))
+ 		return -1;
+ 	if (*c == ':') {
+ 		c++;
+@@ -599,7 +611,7 @@ int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
+ 			       unsigned int dataoff, unsigned int datalen,
+ 			       const char *name,
+ 			       unsigned int *matchoff, unsigned int *matchlen,
+-			       union nf_inet_addr *addr)
++			       union nf_inet_addr *addr, bool delim)
+ {
+ 	const char *limit = dptr + datalen;
+ 	const char *start, *end;
+@@ -613,7 +625,7 @@ int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
+ 		return 0;
+ 
+ 	start += strlen(name);
+-	if (!parse_addr(ct, start, &end, addr, limit))
++	if (!sip_parse_addr(ct, start, &end, addr, limit, delim))
+ 		return 0;
+ 	*matchoff = start - dptr;
+ 	*matchlen = end - start;
+@@ -675,6 +687,47 @@ static int ct_sip_parse_transport(struct nf_conn *ct, const char *dptr,
+ 	return 1;
  }
  
- static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index c9c78c2..f94fb3a 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -190,6 +190,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 			     const struct frag_hdr *fhdr, int nhoff)
- {
- 	struct sk_buff *prev, *next;
-+	unsigned int payload_len;
- 	int offset, end;
- 
- 	if (fq->q.last_in & INET_FRAG_COMPLETE) {
-@@ -197,8 +198,10 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 		goto err;
- 	}
- 
-+	payload_len = ntohs(ipv6_hdr(skb)->payload_len);
++static int sdp_parse_addr(const struct nf_conn *ct, const char *cp,
++			  const char **endp, union nf_inet_addr *addr,
++			  const char *limit)
++{
++	const char *end;
++	int ret;
 +
- 	offset = ntohs(fhdr->frag_off) & ~0x7;
--	end = offset + (ntohs(ipv6_hdr(skb)->payload_len) -
-+	end = offset + (payload_len -
- 			((u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1)));
- 
- 	if ((unsigned int)end > IPV6_MAXPLEN) {
-@@ -307,6 +310,8 @@ found:
- 	skb->dev = NULL;
- 	fq->q.stamp = skb->tstamp;
- 	fq->q.meat += skb->len;
-+	if (payload_len > fq->q.max_size)
-+		fq->q.max_size = payload_len;
- 	atomic_add(skb->truesize, &nf_init_frags.mem);
- 
- 	/* The first fragment.
-@@ -412,10 +417,12 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
- 	}
- 	atomic_sub(head->truesize, &nf_init_frags.mem);
- 
-+	head->local_df = 1;
- 	head->next = NULL;
- 	head->dev = dev;
- 	head->tstamp = fq->q.stamp;
- 	ipv6_hdr(head)->payload_len = htons(payload_len);
-+	IP6CB(head)->frag_max_size = sizeof(struct ipv6hdr) + fq->q.max_size;
- 
- 	/* Yes, and fold redundant checksum back. 8) */
- 	if (head->ip_summed == CHECKSUM_COMPLETE)
-@@ -592,6 +599,7 @@ void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
- 			int (*okfn)(struct sk_buff *))
- {
- 	struct sk_buff *s, *s2;
-+	unsigned int ret = 0;
- 
- 	for (s = NFCT_FRAG6_CB(skb)->orig; s;) {
- 		nf_conntrack_put_reasm(s->nfct_reasm);
-@@ -601,8 +609,13 @@ void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
- 		s2 = s->next;
- 		s->next = NULL;
- 
--		NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s, in, out, okfn,
--			       NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
-+		if (ret != -ECANCELED)
-+			ret = NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, s,
-+					     in, out, okfn,
-+					     NF_IP6_PRI_CONNTRACK_DEFRAG + 1);
-+		else
-+			kfree_skb(s);
++	memset(addr, 0, sizeof(*addr));
++	switch (nf_ct_l3num(ct)) {
++	case AF_INET:
++		ret = in4_pton(cp, limit - cp, (u8 *)&addr->ip, -1, &end);
++		break;
++	case AF_INET6:
++		ret = in6_pton(cp, limit - cp, (u8 *)&addr->ip6, -1, &end);
++		break;
++	default:
++		BUG();
++	}
 +
- 		s = s2;
- 	}
- 	nf_conntrack_put_reasm(skb);
++	if (ret == 0)
++		return 0;
++	if (endp)
++		*endp = end;
++	return 1;
++}
++
++/* skip ip address. returns its length. */
++static int sdp_addr_len(const struct nf_conn *ct, const char *dptr,
++			const char *limit, int *shift)
++{
++	union nf_inet_addr addr;
++	const char *aux = dptr;
++
++	if (!sdp_parse_addr(ct, dptr, &dptr, &addr, limit)) {
++		pr_debug("ip: %s parse failed.!\n", dptr);
++		return 0;
++	}
++
++	return dptr - aux;
++}
++
+ /* SDP header parsing: a SDP session description contains an ordered set of
+  * headers, starting with a section containing general session parameters,
+  * optionally followed by multiple media descriptions.
+@@ -686,10 +739,10 @@ static int ct_sip_parse_transport(struct nf_conn *ct, const char *dptr,
+  */
+ static const struct sip_header ct_sdp_hdrs[] = {
+ 	[SDP_HDR_VERSION]		= SDP_HDR("v=", NULL, digits_len),
+-	[SDP_HDR_OWNER_IP4]		= SDP_HDR("o=", "IN IP4 ", epaddr_len),
+-	[SDP_HDR_CONNECTION_IP4]	= SDP_HDR("c=", "IN IP4 ", epaddr_len),
+-	[SDP_HDR_OWNER_IP6]		= SDP_HDR("o=", "IN IP6 ", epaddr_len),
+-	[SDP_HDR_CONNECTION_IP6]	= SDP_HDR("c=", "IN IP6 ", epaddr_len),
++	[SDP_HDR_OWNER_IP4]		= SDP_HDR("o=", "IN IP4 ", sdp_addr_len),
++	[SDP_HDR_CONNECTION_IP4]	= SDP_HDR("c=", "IN IP4 ", sdp_addr_len),
++	[SDP_HDR_OWNER_IP6]		= SDP_HDR("o=", "IN IP6 ", sdp_addr_len),
++	[SDP_HDR_CONNECTION_IP6]	= SDP_HDR("c=", "IN IP6 ", sdp_addr_len),
+ 	[SDP_HDR_MEDIA]			= SDP_HDR("m=", NULL, media_len),
+ };
+ 
+@@ -775,8 +828,8 @@ static int ct_sip_parse_sdp_addr(const struct nf_conn *ct, const char *dptr,
+ 	if (ret <= 0)
+ 		return ret;
+ 
+-	if (!parse_addr(ct, dptr + *matchoff, NULL, addr,
+-			dptr + *matchoff + *matchlen))
++	if (!sdp_parse_addr(ct, dptr + *matchoff, NULL, addr,
++			    dptr + *matchoff + *matchlen))
+ 		return -1;
+ 	return 1;
+ }
 -- 
 1.7.1
