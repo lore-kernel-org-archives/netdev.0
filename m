@@ -1,51 +1,26 @@
-From: "Luis R. Rodriguez" <rodrigue@qca.qualcomm.com>
-Subject: Re: [PATCH] net: add new QCA alx ethernet driver
-Date: Thu, 9 Aug 2012 12:31:01 -0700
-Message-ID: <CAB=NE6V5trmCP+PL3wmOsaVmN1whoiCa=K9EWY7z57mYMKrp2A@mail.gmail.com>
-References: <6349D7A510622448B1BA0967850A8438013692CA@NASANEXD02D.na.qualcomm.com>
- <1344485382.2024.9.camel@joe2Laptop> <6349D7A510622448B1BA0967850A843801369364@NASANEXD02D.na.qualcomm.com>
- <20120808.231804.12694947300243733.davem@davemloft.net> <6349D7A510622448B1BA0967850A8438013693DD@NASANEXD02D.na.qualcomm.com>
- <20120809145454.GA21195@home.goodmis.org> <1344525758.3165.8.camel@joe2Laptop>
- <1344526098.6935.44.camel@gandalf.stny.rr.com> <CAB=NE6X4JQmQgtgcy9is0hn0nNypTKJN-d2RHFR7vvg=vO_eHQ@mail.gmail.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH 07/14] bridge: add some comments for NETDEV_RELEASE
+Date: Thu, 09 Aug 2012 09:44:26 -1000
+Message-ID: <uiuqn4l019wk5s0l9cq2w0cy.1344541199595@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joe Perches <joe@perches.com>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"hao-ran.liu@canonical.com" <hao-ran.liu@canonical.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6X4JQmQgtgcy9is0hn0nNypTKJN-d2RHFR7vvg=vO_eHQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36483 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759376Ab2HITok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 15:44:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 9, 2012 at 12:13 PM, Luis R. Rodriguez
-<rodrigue@qca.qualcomm.com> wrote:
-> So -- are we OK to *not* include SOBs of evolutions sent to developers
-> of joojoo-1 when company x submits joojoo-2 so long as those patches
-> were sent publicly or a record is kept somewhere ?
-
-And lets be fair, some folks *may* want their SOB passed along to the
-second joojoo-2, its hard to please everyone but so long as we can
-decide on a method -- then great, we don't have to come back to this
-again and then we can add this as documentation. I'm inclined to
-prefer to not have the small patch submitters SOB tag if their patch
-to joojoo-1 was public and in it they did have a SOB tag, given that
-in practice *a few* secondary patch submitters tend to get surprised
-when their SOB is added to a secondary patch submission if they only
-contributed a few lines. To be clear the SOB does not have anything to
-do with how many lines you contributed, its meaning is here:
-
-http://gerrit.googlecode.com/svn-history/r1526/documentation/2.1.2/user-signedoffby.html
-
-So even if those secondary patch submitters *think* it has to do with
-volume of code, perhaps its best in practice to not include them so
-long as we have a record of the original small patch submission
-publicly and with a SOB tag.
-
-  Luis
+SWYgeW91IGFyZSBnb2luZyB0byBhZGQgYW4gZXhwbGFuYXRpb24sIHRoZW4gSSB3b3VsZCBwcmVm
+ZXIgYSBtb3JlIGNvbXBsZXRlIG9uZS4gU29tZXRoaW5nIGxpa2U6CiJTaW5jZSBtb3JlIHRoYW4g
+b25lIGludGVyZmFjZSBjYW4gYmUgYXR0YWNoZWQgdG8gYSBicmlkZ2UsIHRoZXJlIHN0aWxsIG1h
+eWJlIGFuIGFsdGVybmF0ZSBwYXRoIGZvciBuZXRjb25zb2xlIHRvIHVzZTsgdGhlcmVmb3JlIHRo
+ZXJlIGlzIG5vIHJlYXNvbiBmb3IgYSBORVRERVZfUkVMRUFTRSBldmVudC4iCgpCdXQgbXkgb3Bp
+bmlvbiBpdCByZWFsbHkgaXNuJ3QgbmVjZXNzYXJ5IHRvIGRvY3VtZW50IHdoYXQgaXNuJ3QgZG9u
+ZSBpbiB0aGUgY29kZSwgb25seSB3aGF0IGlzIGRvbmUuIFRoZSBwdXJwb3NlIG9mIGNvbW1lbnRz
+IGlzIHRvIGV4cGxhaW4gdGhlIHdpZGVyIGltcGFjdHMgb2YgdGhlIGNvZGUu
