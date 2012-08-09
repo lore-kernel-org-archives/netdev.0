@@ -1,45 +1,26 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
- per net tunables
-Date: Thu, 09 Aug 2012 10:07:12 -0400
-Message-ID: <5023C410.9030708@gmail.com>
-References: <87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com> <87ipcud3ld.fsf_-_@xmission.com> <20120808.232058.1128673474849407813.davem@davemloft.net>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net 0/2] bnx2x: bug fixes patch series
+Date: Thu, 9 Aug 2012 17:37:24 +0300
+Message-ID: <1344523046-31577-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
-	tgraf@infradead.org, xi.wang@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120808.232058.1128673474849407813.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2419 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758299Ab2HIOgk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 10:36:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2012 02:20 AM, David Miller wrote:
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Tue, 07 Aug 2012 10:17:02 -0700
->
->> Since I am motivated to get things done, and since there has been much
->> grumbling about my patches not implementing tunables, I have added
->> tunable support on top of my last patchset.
->>
->> I have performed basic testing on the these patches and nothing
->> appears amis.
->>
->> The sm statemachine is a major tease as it has all of these association
->> and endpoint pointers in the common set of function parameters that turn
->> out to be NULL at the most inconvinient times.  So I added to the common
->> parameter list a struct net pointer, that is never NULL.
->
-> I like Eric's patch set and I'd like to apply it to net-next.
->
-> Vlad?
->
+Hi Dave,
 
+This series contains fixes for bnx2x's 'unload previous driver' flow
+and its recovery flow.
 
-I like these patches much more as well, but not done reviewing yet. 
-I'll try to finish the review tonight
+Please consider applying these patches to 'net'.
 
--vlad
+Thanks,
+Yuval Mintz
