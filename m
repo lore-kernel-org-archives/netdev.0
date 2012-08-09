@@ -1,74 +1,45 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH v3 0/14] some netpoll and netconsole fixes
-Date: Thu,  9 Aug 2012 23:00:12 +0800
-Message-ID: <1344524426-11588-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
+Subject: [PATCH 03/14] netconsole: do not release spin_lock when calling __netpoll_cleanup
+Date: Thu,  9 Aug 2012 23:00:15 +0800
+Message-ID: <1344524426-11588-4-git-send-email-amwang@redhat.com>
+References: <1344524426-11588-1-git-send-email-amwang@redhat.com>
+Cc: Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33636 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:64145 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030517Ab2HIPAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 11:00:45 -0400
+	id S1030517Ab2HIPAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 11:00:47 -0400
+In-Reply-To: <1344524426-11588-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V3:
-* add more patches
-* update patch 7 as David suggested
-
-V2:
-* update patch 1/8 as Eric suggested
-* drop the bridge patch, add comments instead
-* add patch 8/8
-
-This patchset fixes serval problems in netconsole and netpoll.
-
-I ran this patch in my KVM guest with some netpoll test cases,
-even covered with some corner cases, everything worked as expected.
-
-BTW, my kernel config enables the following validatation options:
-
-CONFIG_DEBUG_ATOMIC_SLEEP=y
-CONFIG_PROVE_LOCKING=y
-CONFIG_PROVE_RCU=y
-CONFIG_LOCKDEP=y
-CONFIG_RCU_CPU_STALL_TIMEOUT=60
-CONFIG_LOCKUP_DETECTOR=y
-CONFIG_HARDLOCKUP_DETECTOR=y
+With the previous patch applied, __netpoll_cleanup() is non-block now,
+so we don't need to release the spin_lock before calling it.
 
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ drivers/net/netconsole.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
---------
-
- netpoll: use GFP_ATOMIC in slave_enable_netpoll() and
- netpoll: make __netpoll_cleanup non-block
- netconsole: do not release spin_lock when calling
- netpoll: take rcu_read_lock_bh() in netpoll_rx()
- netpoll: use netpoll_rx_on() in netpoll_rx()
- netpoll: take rcu_read_lock_bh() in
- bridge: add some comments for NETDEV_RELEASE
- bridge: use list_for_each_entry() in netpoll functions
- netpoll: check netpoll tx status on the right device
- netpoll: convert several functions to bool
- vlan: clean up vlan_dev_hard_start_xmit()
- netpoll: handle vlan tags in netpoll tx and rx path
- netpoll: re-enable irq in poll_napi()
- netconsole.txt: revision of examples for the receiver
-
-
- Documentation/networking/netconsole.txt |   19 +++++-
- drivers/net/bonding/bond_main.c         |   12 ++--
- drivers/net/netconsole.c                |    5 --
- drivers/net/team/team.c                 |   16 +++--
- include/linux/if_team.h                 |    2 +-
- include/linux/netdevice.h               |    3 +-
- include/linux/netpoll.h                 |   42 +++++++-----
- net/8021q/vlan_dev.c                    |   40 +++++++----
- net/bridge/br_device.c                  |   27 +++-----
- net/bridge/br_forward.c                 |    2 +-
- net/bridge/br_if.c                      |    5 +-
- net/bridge/br_private.h                 |    4 +-
- net/core/netpoll.c                      |  109 ++++++++++++++++++++++---------
- 13 files changed, 179 insertions(+), 107 deletions(-)
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index f9347ea..f0ad56c 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -640,12 +640,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
+ 				 * rtnl_lock already held
+ 				 */
+ 				if (nt->np.dev) {
+-					spin_unlock_irqrestore(
+-							      &target_list_lock,
+-							      flags);
+ 					__netpoll_cleanup(&nt->np);
+-					spin_lock_irqsave(&target_list_lock,
+-							  flags);
+ 					dev_put(nt->np.dev);
+ 					nt->np.dev = NULL;
+ 					netconsole_target_put(nt);
+-- 
+1.7.7.6
