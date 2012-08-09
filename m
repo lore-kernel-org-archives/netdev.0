@@ -1,57 +1,63 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 13/14] netpoll: re-enable irq in poll_napi()
-Date: Thu,  9 Aug 2012 23:00:25 +0800
-Message-ID: <1344524426-11588-14-git-send-email-amwang@redhat.com>
+Subject: [PATCH 14/14] netconsole.txt: revision of examples for the receiver of kernel messages
+Date: Thu,  9 Aug 2012 23:00:26 +0800
+Message-ID: <1344524426-11588-15-git-send-email-amwang@redhat.com>
 References: <1344524426-11588-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>
+Cc: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29246 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57577 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030889Ab2HIPBK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 11:01:10 -0400
+	id S1030919Ab2HIPBX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 11:01:23 -0400
 In-Reply-To: <1344524426-11588-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-napi->poll() needs IRQ enabled, so we have to re-enable IRQ before
-calling it.
+From: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>
 
-Cc: David Miller <davem@davemloft.net>
+There are at least 4 implementations of netcat with the BSD-based
+being the only one that has to be used without the -p switch to
+specify the listening port.
+
+Jan Engelhardt suggested to add an example for socat(1).
+
+Signed-off-by: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/core/netpoll.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
+ Documentation/networking/netconsole.txt |   19 +++++++++++++++++--
+ 1 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index e4ba3e7..346b1eb 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -168,16 +168,24 @@ static void poll_napi(struct net_device *dev)
- 	struct napi_struct *napi;
- 	int budget = 16;
+diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+index 8d02207..2e9e0ae2 100644
+--- a/Documentation/networking/netconsole.txt
++++ b/Documentation/networking/netconsole.txt
+@@ -51,8 +51,23 @@ Built-in netconsole starts immediately after the TCP stack is
+ initialized and attempts to bring up the supplied dev at the supplied
+ address.
  
-+	WARN_ON_ONCE(!irqs_disabled());
+-The remote host can run either 'netcat -u -l -p <port>',
+-'nc -l -u <port>' or syslogd.
++The remote host has several options to receive the kernel messages,
++for example:
 +
- 	list_for_each_entry(napi, &dev->napi_list, dev_list) {
-+		local_irq_enable();
- 		if (napi->poll_owner != smp_processor_id() &&
- 		    spin_trylock(&napi->poll_lock)) {
-+			rcu_read_lock_bh();
- 			budget = poll_one_napi(rcu_dereference_bh(dev->npinfo),
- 					       napi, budget);
-+			rcu_read_unlock_bh();
- 			spin_unlock(&napi->poll_lock);
++1) syslogd
++
++2) netcat
++
++   On distributions using a BSD-based netcat version (e.g. Fedora,
++   openSUSE and Ubuntu) the listening port must be specified without
++   the -p switch:
++
++   'nc -u -l -p <port>' / 'nc -u -l <port>' or
++   'netcat -u -l -p <port>' / 'netcat -u -l <port>'
++
++3) socat
++
++   'socat udp-recv:<port> -'
  
--			if (!budget)
-+			if (!budget) {
-+				local_irq_disable();
- 				break;
-+			}
- 		}
-+		local_irq_disable();
- 	}
- }
- 
+ Dynamic reconfiguration:
+ ========================
 -- 
 1.7.7.6
