@@ -1,79 +1,51 @@
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [net 1/3] igb: fix panic while dumping packets on Tx hang with IOMMU
-Date: Thu,  9 Aug 2012 02:39:10 -0700
-Message-ID: <1344505152-28167-2-git-send-email-peter.p.waskiewicz.jr@intel.com>
+Subject: [net 3/3] igb: Fix register defines for all non-82575 hardware
+Date: Thu,  9 Aug 2012 02:39:12 -0700
+Message-ID: <1344505152-28167-4-git-send-email-peter.p.waskiewicz.jr@intel.com>
 References: <1344505152-28167-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6239 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:38931 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753133Ab2HIJjW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756137Ab2HIJjW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 9 Aug 2012 05:39:22 -0400
 In-Reply-To: <1344505152-28167-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch resolves a "BUG: unable to handle kernel paging request at ..."
-oops while dumping packet data. The issue occurs with IOMMU enabled due to
-the address provided by phys_to_virt().
+It looks like the register defines for DCA were never updated after going from
+82575 to 82576.  This change addresses that by updating the defines.
 
-This patch avoids phys_to_virt() by making using skb->data and the address
-of the pages allocated for Rx.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_regs.h | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index b7c2d50..48cc4fb 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -462,10 +462,10 @@ static void igb_dump(struct igb_adapter *adapter)
- 				(u64)buffer_info->time_stamp,
- 				buffer_info->skb, next_desc);
- 
--			if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
-+			if (netif_msg_pktdata(adapter) && buffer_info->skb)
- 				print_hex_dump(KERN_INFO, "",
- 					DUMP_PREFIX_ADDRESS,
--					16, 1, phys_to_virt(buffer_info->dma),
-+					16, 1, buffer_info->skb->data,
- 					buffer_info->length, true);
- 		}
- 	}
-@@ -547,18 +547,17 @@ rx_ring_summary:
- 					(u64)buffer_info->dma,
- 					buffer_info->skb, next_desc);
- 
--				if (netif_msg_pktdata(adapter)) {
-+				if (netif_msg_pktdata(adapter) &&
-+				    buffer_info->dma && buffer_info->skb) {
- 					print_hex_dump(KERN_INFO, "",
--						DUMP_PREFIX_ADDRESS,
--						16, 1,
--						phys_to_virt(buffer_info->dma),
--						IGB_RX_HDR_LEN, true);
-+						  DUMP_PREFIX_ADDRESS,
-+						  16, 1, buffer_info->skb->data,
-+						  IGB_RX_HDR_LEN, true);
- 					print_hex_dump(KERN_INFO, "",
- 					  DUMP_PREFIX_ADDRESS,
- 					  16, 1,
--					  phys_to_virt(
--					    buffer_info->page_dma +
--					    buffer_info->page_offset),
-+					  page_address(buffer_info->page) +
-+						      buffer_info->page_offset,
- 					  PAGE_SIZE/2, true);
- 				}
- 			}
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 10efcd8..28394be 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -156,8 +156,12 @@
+ 				    : (0x0E018 + ((_n) * 0x40)))
+ #define E1000_TXDCTL(_n)  ((_n) < 4 ? (0x03828 + ((_n) * 0x100)) \
+ 				    : (0x0E028 + ((_n) * 0x40)))
+-#define E1000_DCA_TXCTRL(_n) (0x03814 + (_n << 8))
+-#define E1000_DCA_RXCTRL(_n) (0x02814 + (_n << 8))
++#define E1000_RXCTL(_n)	  ((_n) < 4 ? (0x02814 + ((_n) * 0x100)) : \
++				      (0x0C014 + ((_n) * 0x40)))
++#define E1000_DCA_RXCTRL(_n)	E1000_RXCTL(_n)
++#define E1000_TXCTL(_n)   ((_n) < 4 ? (0x03814 + ((_n) * 0x100)) : \
++				      (0x0E014 + ((_n) * 0x40)))
++#define E1000_DCA_TXCTRL(_n) E1000_TXCTL(_n)
+ #define E1000_TDWBAL(_n)  ((_n) < 4 ? (0x03838 + ((_n) * 0x100)) \
+ 				    : (0x0E038 + ((_n) * 0x40)))
+ #define E1000_TDWBAH(_n)  ((_n) < 4 ? (0x0383C + ((_n) * 0x100)) \
 -- 
 1.7.11.2
