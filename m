@@ -1,39 +1,44 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,1/1] hyperv: Add comments for the extended buffer after RNDIS message
-Date: Thu,  9 Aug 2012 11:04:18 -0700
-Message-ID: <1344535458-3613-1-git-send-email-haiyangz@microsoft.com>
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [net-next] bonding: don't allow the master to become its slave
+Date: Thu,  9 Aug 2012 15:30:49 -0300
+Message-ID: <1344537049-11473-1-git-send-email-fbl@redhat.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Leonardo Chiquitto <lchiquitto@suse.com>,
+	Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29961 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753981Ab2HISbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 14:31:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reported-by: Olaf Hering <olaf@aepfle.de>
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+It doesn't make any sense to allow the master to become
+its slave. That creates a loop of events causing a crash.
+
+Reported-by: Leonardo Chiquitto <lchiquitto@suse.com>
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
 ---
- drivers/net/hyperv/rndis_filter.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ drivers/net/bonding/bond_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 1e88a10..06f8601 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -46,8 +46,14 @@ struct rndis_request {
- 	/* Simplify allocation by having a netvsc packet inline */
- 	struct hv_netvsc_packet	pkt;
- 	struct hv_page_buffer buf;
--	/* FIXME: We assumed a fixed size request here. */
-+
- 	struct rndis_message request_msg;
-+	/*
-+	 * The buffer for the extended info after the RNDIS message. It's
-+	 * referenced based on the data offset in the RNDIS message. Its size
-+	 * is enough for current needs, and should be sufficient for the near
-+	 * future.
-+	 */
- 	u8 ext[100];
- };
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6fae5f3..5407b44 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1505,6 +1505,11 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	int link_reporting;
+ 	int res = 0;
  
++	if (bond_dev == slave_dev) {
++		pr_err("%s: Error: cannot enslave itself.\n", bond_dev->name);
++		return -EINVAL;
++	}
++
+ 	if (!bond->params.use_carrier && slave_dev->ethtool_ops == NULL &&
+ 		slave_ops->ndo_do_ioctl == NULL) {
+ 		pr_warning("%s: Warning: no link monitoring support for %s\n",
 -- 
-1.7.4.1
+1.7.11.2
