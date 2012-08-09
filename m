@@ -1,51 +1,45 @@
-From: YANG Zhe <yangzhe1990@gmail.com>
-Subject: sched: scatter-gathering and generic-receiving-offloading features in
- network driver break the rate limiting/shaping.
-Date: Thu, 9 Aug 2012 21:56:05 +0800
-Message-ID: <CANvbpLSdECzm+C1fZ4UBmQQvG+ocncqaTAWasKhruKvttBZEfw@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 0/7] sctp: network namespace support Part 2:
+ per net tunables
+Date: Thu, 09 Aug 2012 10:07:12 -0400
+Message-ID: <5023C410.9030708@gmail.com>
+References: <87mx27rig7.fsf@xmission.com> <87zk67q31q.fsf_-_@xmission.com> <87ipcud3ld.fsf_-_@xmission.com> <20120808.232058.1128673474849407813.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:56744 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932262Ab2HIN4F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 09:56:05 -0400
-Received: by pbbrr13 with SMTP id rr13so949532pbb.19
-        for <netdev@vger.kernel.org>; Thu, 09 Aug 2012 06:56:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jan.ariyasu@hp.com, jan.ariyasu@gmail.com, nhorman@tuxdriver.com,
+	tgraf@infradead.org, xi.wang@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120808.232058.1128673474849407813.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi there,
+On 08/09/2012 02:20 AM, David Miller wrote:
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 07 Aug 2012 10:17:02 -0700
+>
+>> Since I am motivated to get things done, and since there has been much
+>> grumbling about my patches not implementing tunables, I have added
+>> tunable support on top of my last patchset.
+>>
+>> I have performed basic testing on the these patches and nothing
+>> appears amis.
+>>
+>> The sm statemachine is a major tease as it has all of these association
+>> and endpoint pointers in the common set of function parameters that turn
+>> out to be NULL at the most inconvinient times.  So I added to the common
+>> parameter list a struct net pointer, that is never NULL.
+>
+> I like Eric's patch set and I'd like to apply it to net-next.
+>
+> Vlad?
+>
 
-When these options is on, kernel sends/receives skb with length
-greater than normal (1500 + link-layer overhead). It's because several
-consecutive TCP segments is merged into a single large skb, and the
-network card is responsible for splitting/merging it. For example:
-http://i.imgur.com/wnv98.png , http://i.imgur.com/WPwjE.png .
 
-Some scheduler my drop the packet because its qdisc_skb_len() is large
-than its max_size(buffer/tokens), which implies that the scheduler
-can't send this packet at once, so that it must be dropped on
-enqueue()ing. The qdisc_rate_table used in calculation of consumed
-time also fails because of its small size (u32[256]). Since the only
-limit of the skb is the 64k limitation on ip_totlen, if we keep using
-the u32[256] table, the cell_log would be quite large hence the time
-calculation would be quite inaccurate.
+I like these patches much more as well, but not done reviewing yet. 
+I'll try to finish the review tonight
 
-Also, when calculating the time to send the merged skb, it's better to
-calculate how many packets it will break into, however it may not be
-accurate because of different MSS in different stream. Some weird
-packet which should be fragmented on the IP layer may also have larger
-size than normal and it's total size after breaking down is also
-different.
-
-I would recommend that token based scheduler should allow deficit, and
-redesign the rate table, maybe leave some information in the skb to
-indicate whether it is a gathered packet.
-
-Thanks!
-
--- 
-Sincerely,
-    Yang Zhe
+-vlad
