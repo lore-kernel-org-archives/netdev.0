@@ -1,44 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/14] some netpoll and netconsole fixes
-Date: Thu, 09 Aug 2012 16:36:16 -0700 (PDT)
-Message-ID: <20120809.163616.132379032405824162.davem@davemloft.net>
-References: <1344524426-11588-1-git-send-email-amwang@redhat.com>
-	<20120809.163046.584126910434037730.davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: tcp: security_sk_alloc() needed for unicast_sock
+Date: Thu, 09 Aug 2012 16:38:51 -0700 (PDT)
+Message-ID: <20120809.163851.1182547052663187702.davem@davemloft.net>
+References: <1344523833.28967.996.camel@edumazet-glaptop>
+	<CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw@mail.gmail.com>
+	<1344547743.31104.582.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33667 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759874Ab2HIXgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 19:36:16 -0400
-In-Reply-To: <20120809.163046.584126910434037730.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eparis@parisplace.org, paul@paul-moore.com, casey@schaufler-ca.com,
+	johnstul@us.ibm.com, serge@hallyn.com,
+	linux-kernel@vger.kernel.org, james.l.morris@oracle.com,
+	selinux@tycho.nsa.gov, john.johansen@canonical.com,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344547743.31104.582.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAwOSBB
-dWcgMjAxMiAxNjozMDo0NiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IENvbmcgV2FuZyA8YW13YW5n
-QHJlZGhhdC5jb20+DQo+IERhdGU6IFRodSwgIDkgQXVnIDIwMTIgMjM6MDA6MTIgKzA4MDANCj4g
-DQo+PiBWMzoNCj4+ICogYWRkIG1vcmUgcGF0Y2hlcw0KPj4gKiB1cGRhdGUgcGF0Y2ggNyBhcyBE
-YXZpZCBzdWdnZXN0ZWQNCj4+IA0KPj4gVjI6DQo+PiAqIHVwZGF0ZSBwYXRjaCAxLzggYXMgRXJp
-YyBzdWdnZXN0ZWQNCj4+ICogZHJvcCB0aGUgYnJpZGdlIHBhdGNoLCBhZGQgY29tbWVudHMgaW5z
-dGVhZA0KPj4gKiBhZGQgcGF0Y2ggOC84DQo+PiANCj4+IFRoaXMgcGF0Y2hzZXQgZml4ZXMgc2Vy
-dmFsIHByb2JsZW1zIGluIG5ldGNvbnNvbGUgYW5kIG5ldHBvbGwuDQo+PiANCj4+IEkgcmFuIHRo
-aXMgcGF0Y2ggaW4gbXkgS1ZNIGd1ZXN0IHdpdGggc29tZSBuZXRwb2xsIHRlc3QgY2FzZXMsDQo+
-PiBldmVuIGNvdmVyZWQgd2l0aCBzb21lIGNvcm5lciBjYXNlcywgZXZlcnl0aGluZyB3b3JrZWQg
-YXMgZXhwZWN0ZWQuDQo+IA0KPiBBbGwgYXBwbGllZCB0byAnbmV0JywgdGhhbmtzIGZvciBmaXhp
-bmcgYWxsIG9mIHRoaXMgc3R1ZmYuDQoNCkFjdHVhbGx5LCB5b3UgZGlkbid0IHRlc3QgdGhlIGJ1
-aWxkIHZlcnkgd2VsbCwgSSdtIHJldmVydGluZzoNCg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRy
-aXZlcnMvbmV0L3RlYW0vdGVhbV9tb2RlX2Jyb2FkY2FzdC5jOjE3OjA6DQppbmNsdWRlL2xpbnV4
-L2lmX3RlYW0uaDogSW4gZnVuY3Rpb24goXRlYW1fZGV2X3F1ZXVlX3htaXSiOg0KaW5jbHVkZS9s
-aW51eC9pZl90ZWFtLmg6MTA3OjY6IGVycm9yOiBkZXJlZmVyZW5jaW5nIHBvaW50ZXIgdG8gaW5j
-b21wbGV0ZSB0eXBlDQptYWtlWzNdOiAqKiogW2RyaXZlcnMvbmV0L3RlYW0vdGVhbV9tb2RlX2Jy
-b2FkY2FzdC5vXSBFcnJvciAxDQptYWtlWzNdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBq
-b2JzLi4uLg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvbmV0L3RlYW0vdGVhbS5jOjMx
-OjA6DQppbmNsdWRlL2xpbnV4L2lmX3RlYW0uaDogSW4gZnVuY3Rpb24goXRlYW1fZGV2X3F1ZXVl
-X3htaXSiOg0KaW5jbHVkZS9saW51eC9pZl90ZWFtLmg6MTA3OjY6IGVycm9yOiBkZXJlZmVyZW5j
-aW5nIHBvaW50ZXIgdG8gaW5jb21wbGV0ZSB0eXBlDQptYWtlWzNdOiAqKiogW2RyaXZlcnMvbmV0
-L3RlYW0vdGVhbS5vXSBFcnJvciAxDQptYWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L3RlYW1dIEVy
-cm9yIDINCm1ha2VbMl06ICoqKiBXYWl0aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQo=
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Aug 2012 23:29:03 +0200
+
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 76dde25..ec410e0 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -1536,6 +1536,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
+>  			  arg->csumoffset) = csum_fold(csum_add(nskb->csum,
+>  								arg->csum));
+>  		nskb->ip_summed = CHECKSUM_NONE;
+> +		skb_orphan(nskb);
+>  		skb_set_queue_mapping(nskb, skb_get_queue_mapping(skb));
+>  		ip_push_pending_frames(sk, &fl4);
+>  	}
+> 
+
+This is definitely the best fix, please submit this formally.
