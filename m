@@ -1,51 +1,48 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH] ipv4: tcp: security_sk_alloc() needed for unicast_sock
-Date: Thu, 9 Aug 2012 11:59:09 -0400
-Message-ID: <CAHC9VhRpYdN3tFhik-9v7BQvr+wer2ocZuXGi0x0-pV+fA-mDw@mail.gmail.com>
-References: <50215A7E.8000701@linaro.org>
-	<1695034.0lrQgQPOMT@sifl>
-	<1344523833.28967.996.camel@edumazet-glaptop>
-	<5799181.tjlnF0gIh2@sifl>
-	<1344526608.28967.1092.camel@edumazet-glaptop>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [RFC net-next 2/4] gianfar: Clear ievent from interrupt handler
+ for [RT]x int
+Date: Thu, 9 Aug 2012 19:04:32 +0300
+Message-ID: <5023DF90.20906@freescale.com>
+References: <1344428810-29923-1-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-2-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-3-git-send-email-claudiu.manoil@freescale.com> <20120808161156.GB11043@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Eric Paris <eparis@parisplace.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	James Morris <james.l.morris@oracle.com>,
-	selinux@tycho.nsa.gov, john.johansen@canonical.com,
-	LSM <linux-security-module@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:39307 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758379Ab2HIP7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 11:59:10 -0400
-Received: by qadb17 with SMTP id b17so345691qad.19
-        for <netdev@vger.kernel.org>; Thu, 09 Aug 2012 08:59:10 -0700 (PDT)
-In-Reply-To: <1344526608.28967.1092.camel@edumazet-glaptop>
+Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:19413
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758589Ab2HIQEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 12:04:45 -0400
+In-Reply-To: <20120808161156.GB11043@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 9, 2012 at 11:36 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2012-08-09 at 11:07 -0400, Paul Moore wrote:
+On 8/8/2012 7:11 PM, Paul Gortmaker wrote:
+> [[RFC net-next 2/4] gianfar: Clear ievent from interrupt handler for [RT]x int] On 08/08/2012 (Wed 15:26) Claudiu Manoil wrote:
 >
->> Is is possible to do the call to security_sk_alloc() in the ip_init() function
->> or does the per-cpu nature of the socket make this a pain?
->>
+>> It's the interrupt handler's job to clear ievent for the Tx/Rx paths, as soon
+>> as the corresponding interrupt sources have been masked.
 >
-> Its a pain, if we want NUMA affinity.
->
-> Here, each cpu should get memory from its closest node.
+> What wasn't clear to me was whether we'd ever have an instance of
+> gfar_poll run without RTX_MASK being cleared (in less normal conditions,
+> like netconsole, KGDBoE etc), since the gfar_schedule_cleanup is only
+> called from rx/tx IRQ threads, and neither of those are used by
+> gfar_poll, it seems.
 
-Okay, makes sense.
+Hi Paul,
 
-Acked-by: Paul Moore <paul@paul-moore.com>
+As I see it, netconsole has the ndo_poll_controller hook, which points
+to gfar_netpoll() -> gfar_interrupt() -> gfar_receive|transmit() ->
+gfar_schedule_cleanup(), so it passes through schedule_cleanup.
 
--- 
-paul moore
-www.paul-moore.com
+My understanding is that gfar_poll() is scheduled for execution
+only by "__napi_schedule(&gfargrp->napi);" from the Rx/Tx interrupt
+handler (gfar_receive/transmit()->gfar_schedule_cleanup()), and that
+it will be executed sometimes after the interrupt handler returns,
+which means RTX_MASK has been cleared (and the interrupt sources are
+already masked).
+
+I think that we might have an issue if we don't clear IEVENT right away
+in the interrupt handler, as this register might cause additional hw
+interrupts to the PIC upon returning from the interrupt handler.
