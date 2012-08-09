@@ -1,73 +1,174 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 05/14] netpoll: use netpoll_rx_on() in netpoll_rx()
-Date: Thu,  9 Aug 2012 23:00:17 +0800
-Message-ID: <1344524426-11588-6-git-send-email-amwang@redhat.com>
+Subject: [PATCH 02/14] netpoll: make __netpoll_cleanup non-block
+Date: Thu,  9 Aug 2012 23:00:14 +0800
+Message-ID: <1344524426-11588-3-git-send-email-amwang@redhat.com>
 References: <1344524426-11588-1-git-send-email-amwang@redhat.com>
 Cc: Cong Wang <amwang@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14097 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34834 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030517Ab2HIPAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 11:00:50 -0400
+	id S1030517Ab2HIPA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 11:00:56 -0400
 In-Reply-To: <1344524426-11588-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The logic of the code is same, just call netpoll_rx_on().
+Like the previous patch, slave_disable_netpoll() and __netpoll_cleanup()
+may be called with read_lock() held too, so we should make them
+non-block, by moving the cleanup and kfree() to call_rcu_bh() callbacks.
 
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- include/linux/netpoll.h |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/bonding/bond_main.c |    4 +--
+ include/linux/netpoll.h         |    3 ++
+ net/8021q/vlan_dev.c            |    6 +----
+ net/bridge/br_device.c          |    6 +----
+ net/core/netpoll.c              |   42 +++++++++++++++++++++++++++++---------
+ 5 files changed, 38 insertions(+), 23 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8697136..e428916 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1257,9 +1257,7 @@ static inline void slave_disable_netpoll(struct slave *slave)
+ 		return;
+ 
+ 	slave->np = NULL;
+-	synchronize_rcu_bh();
+-	__netpoll_cleanup(np);
+-	kfree(np);
++	__netpoll_free_rcu(np);
+ }
+ static inline bool slave_dev_support_netpoll(struct net_device *slave_dev)
+ {
 diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 5d881c3..2d178ba 100644
+index bf2d51e..907812e 100644
 --- a/include/linux/netpoll.h
 +++ b/include/linux/netpoll.h
-@@ -63,6 +63,13 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+@@ -23,6 +23,7 @@ struct netpoll {
+ 	u8 remote_mac[ETH_ALEN];
  
+ 	struct list_head rx; /* rx_np list element */
++	struct rcu_head rcu;
+ };
  
- #ifdef CONFIG_NETPOLL
-+static inline int netpoll_rx_on(struct sk_buff *skb)
-+{
-+	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
-+
-+	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
-+}
-+
- static inline bool netpoll_rx(struct sk_buff *skb)
- {
- 	struct netpoll_info *npinfo;
-@@ -70,11 +77,11 @@ static inline bool netpoll_rx(struct sk_buff *skb)
- 	bool ret = false;
+ struct netpoll_info {
+@@ -38,6 +39,7 @@ struct netpoll_info {
+ 	struct delayed_work tx_work;
  
- 	local_irq_save(flags);
--	npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 	struct netpoll *netpoll;
++	struct rcu_head rcu;
+ };
  
--	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
-+	if (!netpoll_rx_on(skb))
- 		goto out;
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+@@ -48,6 +50,7 @@ int netpoll_setup(struct netpoll *np);
+ int netpoll_trap(void);
+ void netpoll_set_trap(int trap);
+ void __netpoll_cleanup(struct netpoll *np);
++void __netpoll_free_rcu(struct netpoll *np);
+ void netpoll_cleanup(struct netpoll *np);
+ int __netpoll_rx(struct sk_buff *skb);
+ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index ee4ae09..b65623f 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -704,11 +704,7 @@ static void vlan_dev_netpoll_cleanup(struct net_device *dev)
  
-+	npinfo = rcu_dereference_bh(skb->dev->npinfo);
- 	spin_lock(&npinfo->rx_lock);
- 	/* check rx_flags again with the lock held */
- 	if (npinfo->rx_flags && __netpoll_rx(skb, npinfo))
-@@ -86,13 +93,6 @@ out:
- 	return ret;
+ 	info->netpoll = NULL;
+ 
+-        /* Wait for transmitting packets to finish before freeing. */
+-        synchronize_rcu_bh();
+-
+-        __netpoll_cleanup(netpoll);
+-        kfree(netpoll);
++	__netpoll_free_rcu(netpoll);
+ }
+ #endif /* CONFIG_NET_POLL_CONTROLLER */
+ 
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index ed0e0f9..f41ba40 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -267,11 +267,7 @@ void br_netpoll_disable(struct net_bridge_port *p)
+ 
+ 	p->np = NULL;
+ 
+-	/* Wait for transmitting packets to finish before freeing. */
+-	synchronize_rcu_bh();
+-
+-	__netpoll_cleanup(np);
+-	kfree(np);
++	__netpoll_free_rcu(np);
  }
  
--static inline int netpoll_rx_on(struct sk_buff *skb)
--{
--	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
--
--	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
--}
--
- static inline int netpoll_receive_skb(struct sk_buff *skb)
+ #endif
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 37cc854..dc17f1d 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -878,6 +878,24 @@ static int __init netpoll_init(void)
+ }
+ core_initcall(netpoll_init);
+ 
++static void rcu_cleanup_netpoll_info(struct rcu_head *rcu_head)
++{
++	struct netpoll_info *npinfo =
++			container_of(rcu_head, struct netpoll_info, rcu);
++
++	skb_queue_purge(&npinfo->arp_tx);
++	skb_queue_purge(&npinfo->txq);
++
++	/* we can't call cancel_delayed_work_sync here, as we are in softirq */
++	cancel_delayed_work(&npinfo->tx_work);
++
++	/* clean after last, unfinished work */
++	__skb_queue_purge(&npinfo->txq);
++	/* now cancel it again */
++	cancel_delayed_work(&npinfo->tx_work);
++	kfree(npinfo);
++}
++
+ void __netpoll_cleanup(struct netpoll *np)
  {
- 	if (!list_empty(&skb->dev->napi_list))
+ 	struct netpoll_info *npinfo;
+@@ -903,20 +921,24 @@ void __netpoll_cleanup(struct netpoll *np)
+ 			ops->ndo_netpoll_cleanup(np->dev);
+ 
+ 		RCU_INIT_POINTER(np->dev->npinfo, NULL);
++		call_rcu_bh(&npinfo->rcu, rcu_cleanup_netpoll_info);
++	}
++}
++EXPORT_SYMBOL_GPL(__netpoll_cleanup);
+ 
+-		/* avoid racing with NAPI reading npinfo */
+-		synchronize_rcu_bh();
++static void rcu_cleanup_netpoll(struct rcu_head *rcu_head)
++{
++	struct netpoll *np = container_of(rcu_head, struct netpoll, rcu);
+ 
+-		skb_queue_purge(&npinfo->arp_tx);
+-		skb_queue_purge(&npinfo->txq);
+-		cancel_delayed_work_sync(&npinfo->tx_work);
++	__netpoll_cleanup(np);
++	kfree(np);
++}
+ 
+-		/* clean after last, unfinished work */
+-		__skb_queue_purge(&npinfo->txq);
+-		kfree(npinfo);
+-	}
++void __netpoll_free_rcu(struct netpoll *np)
++{
++	call_rcu_bh(&np->rcu, rcu_cleanup_netpoll);
+ }
+-EXPORT_SYMBOL_GPL(__netpoll_cleanup);
++EXPORT_SYMBOL_GPL(__netpoll_free_rcu);
+ 
+ void netpoll_cleanup(struct netpoll *np)
+ {
 -- 
 1.7.7.6
