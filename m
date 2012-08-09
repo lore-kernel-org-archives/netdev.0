@@ -1,32 +1,92 @@
-From: Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
-Subject: Re: [PATCH] ipv4: tcp: security_sk_alloc() needed for unicast_sock
-Date: Thu, 09 Aug 2012 15:26:53 -0700
-Message-ID: <5024392D.3060608@schaufler-ca.com>
-References: <50215A7E.8000701@linaro.org>  <1344462889.28967.328.camel@edumazet-glaptop>  <5022FD9A.4020603@schaufler-ca.com> <1695034.0lrQgQPOMT@sifl>  <1344523833.28967.996.camel@edumazet-glaptop>  <CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw@mail.gmail.com>  <1344547743.31104.582.camel@edumazet-glaptop>  <5024313F.1010404@schaufler-ca.com> <1344549920.31104.701.camel@edumazet-glaptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/19] netfilter: IPv6 NAT
+Date: Fri, 10 Aug 2012 00:30:15 +0200 (MEST)
+Message-ID: <Pine.GSO.4.63.1208100025500.26308@stinky-local.trash.net>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+ <20120809220014.GB26051@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-        lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org,
-        john.johansen-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-        LSM <linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <owner-selinux-MESi4pFTnrejpDF0oNHs+n7yKkN/O5/Z@public.gmane.org>
-In-Reply-To: <1344549920.31104.701.camel@edumazet-glaptop>
-Sender: owner-selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20120809220014.GB26051@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/9/2012 3:05 PM, Eric Dumazet wrote:
-> On Thu, 2012-08-09 at 14:53 -0700, Casey Schaufler wrote:
->> On 8/9/2012 2:29 PM, Eric Dumazet wrote:
->>> smack_sk_alloc_security() uses smk_of_current(): What can be the
-> I repeat: There are no true socket for these control packets.
+On Fri, 10 Aug 2012, Pablo Neira Ayuso wrote:
 
-OK, fine. You have an optimization. I'm good with that. Just don't
-expect that the entire software stack you are taking advantage of
-is going to change to accommodate your special case.
+> Hi Patrick,
+>
+> On Thu, Aug 09, 2012 at 10:08:44PM +0200, kaber@trash.net wrote:
+>> The following patches contain an updated version of IPv6 NAT against
+>> Linus' current tree.
+>>
+>> The series is organized as follows:
+>>
+>> - Patches 01-03 contain bugfixes for SIP helper bugs/regressions
+>>   present in the current kernel
+>
+> Thanks, I'll pass these to David.
+>
+> I have also two more to fixes to oopses regarding SIP. I'm expecting
+> one user to finally confirm that their issues are fixed.
+
+If you want me to have a look as well, just send me an URL or the patches.
+
+>> - Patches 04-06 improve conntrack fragmentation handling, the IPv6
+>>   parts are also a precondition for IPv6 NAT
+>>
+>> - Patches 07 and 08 prepare the current NAT code for conversion to
+>>   an address family independant core, but contain no functional
+>>   changes
+>>
+>> - Patch 09 adds the address family independant NAT core and converts
+>>   the existing IPv4-only NAT code to an AF-specific module
+>>
+>> - Patches 10 and 11 add some infrastructure for IPv6 NAT
+>>
+>> - Patch 12 adds IPv6 NAT support
+>>
+>> - Patches 13-15 add IPv6 specific NAT targets
+>>
+>> - Patches 16-19 add some IPv6-capable ports of existing NAT helpers
+>>
+>> - Patch 19 is independant of the IPv6 NAT code and adds support for
+>>   stateless IPv6 prefix translation, just to relieve my conscience ;)
+>>
+>>
+>> Since the last posting numerous bugs have been fixed, I don't remember
+>> all of them, the more important ones include:
+>>
+>> - automatic NAT module loading in ctnetlink
+>>
+>> - address selection when mapping to IPv6 ranges
+>>
+>> - handling of IPv6 fragments
+>>
+>> - NAT handling of ICMPv6 error messages
+>
+> Thanks, I was keeping the previous patchset in one branch:
+>
+> http://1984.lsi.us.es/git/nf-next/log/?h=nf-nat4
+>
+> You can also find forward ports of netlink-mmap (from Florian Westpal)
+> and one for nftables from myself in that tree.
+
+Thanks, Florian just pointed me to these trees. Will have a look at
+the changes compared to my tree. I'm actually intending to finish up
+the mmaped netlink work once I'm done with IPv6 NAT.
+
+>> Besides implementing IPv6 NAT, there are no known bugs left. Userspace
+>> patches will follow shortly.
+>
+> We have this branch for iptables IPv6 NAT:
+>
+> http://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=shortlog;h=refs/heads/nf-nat
+>
+> Let me know if you're OK with these.
+
+For now I'll just accumulate feedback and will incorporate it into my 
+tree. I'll also diff them against your tree and will then send the
+final result once all feedback/fixes are included.
+
