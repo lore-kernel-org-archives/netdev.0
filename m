@@ -1,75 +1,57 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 12/14] netpoll: handle vlan tags in netpoll tx and rx path
-Date: Thu,  9 Aug 2012 23:00:24 +0800
-Message-ID: <1344524426-11588-13-git-send-email-amwang@redhat.com>
+Subject: [PATCH 13/14] netpoll: re-enable irq in poll_napi()
+Date: Thu,  9 Aug 2012 23:00:25 +0800
+Message-ID: <1344524426-11588-14-git-send-email-amwang@redhat.com>
 References: <1344524426-11588-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, Benjamin LaHaise <bcrl@kvack.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
+Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56227 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29246 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030934Ab2HIPBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 11:01:15 -0400
+	id S1030889Ab2HIPBK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 11:01:10 -0400
 In-Reply-To: <1344524426-11588-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch, I can't get netconsole logs remotely over
-vlan. The reason is probably we don't handle vlan tags in either
-netpoll tx or rx path.
+napi->poll() needs IRQ enabled, so we have to re-enable IRQ before
+calling it.
 
-I am not sure if I use these vlan functions correctly, at
-least this patch works.
-
-Cc: Benjamin LaHaise <bcrl@kvack.org>
-Cc: Patrick McHardy <kaber@trash.net>
 Cc: David Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/core/netpoll.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+ net/core/netpoll.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 174346a..e4ba3e7 100644
+index e4ba3e7..346b1eb 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -26,6 +26,7 @@
- #include <linux/workqueue.h>
- #include <linux/slab.h>
- #include <linux/export.h>
-+#include <linux/if_vlan.h>
- #include <net/tcp.h>
- #include <net/udp.h>
- #include <asm/unaligned.h>
-@@ -334,6 +335,14 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 		     tries > 0; --tries) {
- 			if (__netif_tx_trylock(txq)) {
- 				if (!netif_xmit_stopped(txq)) {
-+					if (vlan_tx_tag_present(skb) &&
-+					    !(netif_skb_features(skb) & NETIF_F_HW_VLAN_TX)) {
-+						skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
-+						if (unlikely(!skb))
-+							break;
-+						skb->vlan_tci = 0;
-+					}
-+
- 					status = ops->ndo_start_xmit(skb, dev);
- 					if (status == NETDEV_TX_OK)
- 						txq_trans_update(txq);
-@@ -567,6 +576,12 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- 		return 1;
- 	}
+@@ -168,16 +168,24 @@ static void poll_napi(struct net_device *dev)
+ 	struct napi_struct *napi;
+ 	int budget = 16;
  
-+	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
-+		skb = vlan_untag(skb);
-+		if (unlikely(!skb))
-+			goto out;
-+	}
++	WARN_ON_ONCE(!irqs_disabled());
 +
- 	proto = ntohs(eth_hdr(skb)->h_proto);
- 	if (proto != ETH_P_IP)
- 		goto out;
+ 	list_for_each_entry(napi, &dev->napi_list, dev_list) {
++		local_irq_enable();
+ 		if (napi->poll_owner != smp_processor_id() &&
+ 		    spin_trylock(&napi->poll_lock)) {
++			rcu_read_lock_bh();
+ 			budget = poll_one_napi(rcu_dereference_bh(dev->npinfo),
+ 					       napi, budget);
++			rcu_read_unlock_bh();
+ 			spin_unlock(&napi->poll_lock);
+ 
+-			if (!budget)
++			if (!budget) {
++				local_irq_disable();
+ 				break;
++			}
+ 		}
++		local_irq_disable();
+ 	}
+ }
+ 
 -- 
 1.7.7.6
