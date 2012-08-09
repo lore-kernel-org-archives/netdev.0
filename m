@@ -1,65 +1,92 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: tcp: unicast_sock should not land outside of TCP
- stack
-Date: Fri, 10 Aug 2012 01:56:06 +0200
-Message-ID: <1344556566.31104.808.camel@edumazet-glaptop>
-References: <1344523833.28967.996.camel@edumazet-glaptop>
-	 <CACLa4ptkvKj2GT4ZL+msMuWOHW885Hugk8nz3hvptOoY9-totw@mail.gmail.com>
-	 <1344547743.31104.582.camel@edumazet-glaptop>
-	 <20120809.163851.1182547052663187702.davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv6: fix TCP early demux
+Date: Fri, 10 Aug 2012 01:58:53 +0200
+Message-ID: <1344556733.31104.819.camel@edumazet-glaptop>
+References: <1344265773.26674.27.camel@edumazet-glaptop>
+	 <20120809160349.d2880b5a.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eparis@parisplace.org, paul@paul-moore.com, casey@schaufler-ca.com,
-	johnstul@us.ibm.com, serge@hallyn.com,
-	linux-kernel@vger.kernel.org, james.l.morris@oracle.com,
-	selinux@tycho.nsa.gov, john.johansen@canonical.com,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20120809.163851.1182547052663187702.davem@davemloft.net>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:39469 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755661Ab2HIX66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 19:58:58 -0400
+Received: by wgbdr13 with SMTP id dr13so925433wgb.1
+        for <netdev@vger.kernel.org>; Thu, 09 Aug 2012 16:58:57 -0700 (PDT)
+In-Reply-To: <20120809160349.d2880b5a.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 2012-08-09 at 16:03 -0700, Andrew Morton wrote:
+> On Mon, 06 Aug 2012 17:09:33 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > IPv6 needs a cookie in dst_check() call.
+> > 
+> > We need to add rx_dst_cookie and provide a family independent
+> > sk_rx_dst_set(sk, skb) method to properly support IPv6 TCP early demux.
+> 
+> My test box is oopsing late in initscripts.  Current mainline, config
+> at http://ozlabs.org/~akpm/stuff/config-akpm2.
+> 
+> It looks like icsk->icsk_af_ops->sk_rx_dst_set is NULL.  Reverting this
+> patch fixes things up.
+> 
+> 
+> [   67.422369] SELinux: initialized (dev autofs, type autofs), uses genfs_contexts
+> [   67.449678] SELinux: initialized (dev autofs, type autofs), uses genfs_contexts
+> [   92.631060] BUG: unable to handle kernel NULL pointer dereference at           (null)
+> [   92.631435] IP: [<          (null)>]           (null)
+> [   92.631645] PGD 0 
+> [   92.631846] Oops: 0010 [#1] SMP 
+> [   92.632095] Modules linked in: autofs4 sunrpc ipv6 dm_mirror dm_region_hash dm_log dm_multipath dm_mod video sbs sbshc battery ac lp parport sg snd_hda_intel snd_hda_codec snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device pcspkr snd_pcm_oss snd_mixer_oss snd_pcm snd_timer serio_raw button floppy snd i2c_i801 i2c_core soundcore snd_page_alloc shpchp ide_cd_mod cdrom microcode ehci_hcd ohci_hcd uhci_hcd
+> [   92.634294] CPU 0 
+> [   92.634294] Pid: 4469, comm: sendmail Not tainted 3.6.0-rc1 #3  
+> [   92.634294] RIP: 0010:[<0000000000000000>]  [<          (null)>]           (null)
+> [   92.634294] RSP: 0018:ffff880245fc7cb0  EFLAGS: 00010282
+> [   92.634294] RAX: ffffffffa01985f0 RBX: ffff88024827ad00 RCX: 0000000000000000
+> [   92.634294] RDX: 0000000000000218 RSI: ffff880254735380 RDI: ffff88024827ad00
+> [   92.634294] RBP: ffff880245fc7cc8 R08: 0000000000000001 R09: 0000000000000000
+> [   92.634294] R10: 0000000000000000 R11: ffff880245fc7bf8 R12: ffff880254735380
+> [   92.634294] R13: ffff880254735380 R14: 0000000000000000 R15: 7fffffffffff0218
+> [   92.634294] FS:  00007f4516ccd6f0(0000) GS:ffff880256600000(0000) knlGS:0000000000000000
+> [   92.634294] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> [   92.634294] CR2: 0000000000000000 CR3: 0000000245ed1000 CR4: 00000000000007f0
+> [   92.634294] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [   92.634294] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> [   92.634294] Process sendmail (pid: 4469, threadinfo ffff880245fc6000, task ffff880254b8cac0)
+> [   92.634294] Stack:
+> [   92.634294]  ffffffff813837a7 ffff88024827ad00 ffff880254b6b0e8 ffff880245fc7d68
+> [   92.634294]  ffffffff81385083 00000000001d2680 ffff8802547353a8 ffff880245fc7d18
+> [   92.634294]  ffffffff8105903a ffff88024827ad60 0000000000000002 00000000000000ff
+> [   92.634294] Call Trace:
+> [   92.634294]  [<ffffffff813837a7>] ? tcp_finish_connect+0x2c/0xfa
+> [   92.634294]  [<ffffffff81385083>] tcp_rcv_state_process+0x2b6/0x9c6
+> [   92.634294]  [<ffffffff8105903a>] ? sched_clock_cpu+0xc3/0xd1
+> [   92.634294]  [<ffffffff81059073>] ? local_clock+0x2b/0x3c
+> [   92.634294]  [<ffffffff8138caf3>] tcp_v4_do_rcv+0x63a/0x670
+> [   92.634294]  [<ffffffff8133278e>] release_sock+0x128/0x1bd
+> [   92.634294]  [<ffffffff8139f060>] __inet_stream_connect+0x1b1/0x352
+> [   92.634294]  [<ffffffff813325f5>] ? lock_sock_nested+0x74/0x7f
+> [   92.634294]  [<ffffffff8104b333>] ? wake_up_bit+0x25/0x25
+> [   92.634294]  [<ffffffff813325f5>] ? lock_sock_nested+0x74/0x7f
+> [   92.634294]  [<ffffffff8139f223>] ? inet_stream_connect+0x22/0x4b
+> [   92.634294]  [<ffffffff8139f234>] inet_stream_connect+0x33/0x4b
+> [   92.634294]  [<ffffffff8132e8cf>] sys_connect+0x78/0x9e
+> [   92.634294]  [<ffffffff813fd407>] ? sysret_check+0x1b/0x56
+> [   92.634294]  [<ffffffff81088503>] ? __audit_syscall_entry+0x195/0x1c8
+> [   92.634294]  [<ffffffff811cc26e>] ? trace_hardirqs_on_thunk+0x3a/0x3f
+> [   92.634294]  [<ffffffff813fd3e2>] system_call_fastpath+0x16/0x1b
+> [   92.634294] Code:  Bad RIP value.
+> [   92.634294] RIP  [<          (null)>]           (null)
+> [   92.634294]  RSP <ffff880245fc7cb0>
+> [   92.634294] CR2: 0000000000000000
+> [   92.648982] ---[ end trace 24e2bed94314c8d9 ]---
+> [   92.649146] Kernel panic - not syncing: Fatal exception in interrupt
 
-commit be9f4a44e7d41cee (ipv4: tcp: remove per net tcp_sock) added a
-selinux regression, reported and bisected by John Stultz
+Oops, it seems I missed ipv6_mapped
 
-selinux_ip_postroute_compat() expect to find a valid sk->sk_security
-pointer, but this field is NULL for unicast_sock
-
-It turns out that unicast_sock are really temporary stuff to be able
-to reuse  part of IP stack (ip_append_data()/ip_push_pending_frames())
-
-Fact is that frames sent by ip_send_unicast_reply() should be orphaned
-to not fool LSM.
-
-Note IPv6 never had this problem, as tcp_v6_send_response() doesnt use a
-fake socket at all. I'll probably implement tcp_v4_send_response() to
-remove these unicast_sock in linux-3.7
-
-Reported-by: John Stultz <johnstul@us.ibm.com>
-Bisected-by: John Stultz <johnstul@us.ibm.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Paul Moore <paul@paul-moore.com>
-Cc: Eric Paris <eparis@parisplace.org>
-Cc: "Serge E. Hallyn" <serge@hallyn.com>
----
- net/ipv4/ip_output.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 76dde25..ec410e0 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1536,6 +1536,7 @@ void ip_send_unicast_reply(struct net *net, struct sk_buff *skb, __be32 daddr,
- 			  arg->csumoffset) = csum_fold(csum_add(nskb->csum,
- 								arg->csum));
- 		nskb->ip_summed = CHECKSUM_NONE;
-+		skb_orphan(nskb);
- 		skb_set_queue_mapping(nskb, skb_get_queue_mapping(skb));
- 		ip_push_pending_frames(sk, &fl4);
- 	}
-
-
+Thanks Andrew, I'll send a fix
