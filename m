@@ -1,30 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 00/19] netfilter: IPv6 NAT
-Date: Thu, 09 Aug 2012 13:56:32 -0700
-Message-ID: <87a9y3n5rz.fsf@xmission.com>
-References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] SubmittingPatches: clarify SOB tag usage when evolving submissions
+Date: Thu, 9 Aug 2012 22:58:27 +0200
+Message-ID: <CAMuHMdUd5x04KyyKa84J3PDB2xPj70xZLezwMJn1J=jwmzcnnA@mail.gmail.com>
+References: <1344545493-6820-1-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1344542943-11588-1-git-send-email-kaber@trash.net>
-	(kaber@trash.net's message of "Thu, 9 Aug 2012 22:08:44 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: torvalds@linux-foundation.org, rdunlap@xenotime.net, tytso@mit.edu,
+	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344545493-6820-1-git-send-email-mcgrof@do-not-panic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-kaber@trash.net writes:
+On Thu, Aug 9, 2012 at 10:51 PM, Luis R. Rodriguez
+<mcgrof@do-not-panic.com> wrote:
+> of a second patch submission must supply their own Siged-off-by
 
-> The following patches contain an updated version of IPv6 NAT against
-> Linus' current tree.
+Signed-off-by
+
+> --- a/Documentation/SubmittingPatches
+> +++ b/Documentation/SubmittingPatches
+> @@ -366,6 +366,21 @@ and protect the submitter from complaints. Note that under no circumstances
+>  can you change the author's identity (the From header), as it is the one
+>  which appears in the changelog.
 >
-> The series is organized as follows:
->
-> - Patches 01-03 contain bugfixes for SIP helper bugs/regressions
->   present in the current kernel
+> +If you are submitting a large change (for example a new driver) at times
+> +you may be asked to make quite a lot of modifications prior to getting
+> +your change accepted. At times you may even receive patches from developers
+> +who not only wish to tell you what you should change to get your changes
+> +upstream but actually send you patches. If those patches were made publicly
+> +and they do contain a Singed-off-by tag you are not expected to provide
 
-Why not just delete this code?  The current best practices are to
-disable ALGs for SIP.  To the point in some circles people recommend
-running SIP over TLS to avoid over helpful NAT ALGs.
+Signed-off-by
 
-Eric
+> +their own Singed-off-by tag on the second iteration of the patch so long
+
+idem
+
+> +as there is a public record somewhere that can be used to show the
+> +contributor had sent their changes with their own Singed-off-by tag.
+
+ditto
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
