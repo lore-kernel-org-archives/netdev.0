@@ -1,62 +1,74 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] net: add new QCA alx ethernet driver
-Date: Thu, 9 Aug 2012 10:54:54 -0400
-Message-ID: <20120809145454.GA21195@home.goodmis.org>
-References: <6349D7A510622448B1BA0967850A8438013692CA@NASANEXD02D.na.qualcomm.com>
- <1344485382.2024.9.camel@joe2Laptop>
- <6349D7A510622448B1BA0967850A843801369364@NASANEXD02D.na.qualcomm.com>
- <20120808.231804.12694947300243733.davem@davemloft.net>
- <6349D7A510622448B1BA0967850A8438013693DD@NASANEXD02D.na.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"joe@perches.com" <joe@perches.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"hao-ran.liu@canonical.com" <hao-ran.liu@canonical.com>,
-	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
-To: "Ren, Cloud" <cjren@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6349D7A510622448B1BA0967850A8438013693DD@NASANEXD02D.na.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH v3 0/14] some netpoll and netconsole fixes
+Date: Thu,  9 Aug 2012 23:00:12 +0800
+Message-ID: <1344524426-11588-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33636 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030517Ab2HIPAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 11:00:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 09, 2012 at 06:49:25AM +0000, Ren, Cloud wrote:
-> 
-> Please calm down. I will follow rule of sending email from now on. Sorry for causing
-> your trouble. Luis has ever asked joe for adding as a Signed-off-by. At that time joe agreed
-> with it. If joe prefers his name not be listed as a Signed-off-by, I will respect his decision.
-> alx driver is innocent. Please help review.  Thanks
+V3:
+* add more patches
+* update patch 7 as David suggested
 
-I'm curious, did Luis ask on list or off? When I ask someone for a
-Signed-off-by tag, I always ask them to post it to the list, even when
-they have given it to me privately. I like others to see that someone
-explicitly gave me their permission, as I would never add a Signed-off
-tag for someone else.
+V2:
+* update patch 1/8 as Eric suggested
+* drop the bridge patch, add comments instead
+* add patch 8/8
 
-The Signed-off tag has some legal bindings (all other tags are for
-credit/info only). It is that person saying that the changes they made
-to a patch are theirs and are giving the right to distribute it. It is
-also used by those that take the changes and insert it into the
-repository.
+This patchset fixes serval problems in netconsole and netpoll.
 
->From Documentation/SubmittingPatches:
+I ran this patch in my KVM guest with some netpoll test cases,
+even covered with some corner cases, everything worked as expected.
 
-  The sign-off is a simple line at the end of the explanation for the
-  patch, which certifies that you wrote it or otherwise have the right to
-  pass it on as an open-source patch.
+BTW, my kernel config enables the following validatation options:
 
-Joe, If you actually modified part of the code in the patch, you do have
-the right to add a signed-off-by tag. If you just made suggestions or
-reviewed, then a 'Suggested-by' or 'Reviewed-by' tag would be more
-appropriate.
+CONFIG_DEBUG_ATOMIC_SLEEP=y
+CONFIG_PROVE_LOCKING=y
+CONFIG_PROVE_RCU=y
+CONFIG_LOCKDEP=y
+CONFIG_RCU_CPU_STALL_TIMEOUT=60
+CONFIG_LOCKUP_DETECTOR=y
+CONFIG_HARDLOCKUP_DETECTOR=y
 
-  The Signed-off-by: tag indicates that the signer was involved in the
-  development of the patch, or that he/she was in the patch's delivery
-  path.
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
--- Steve
+--------
+
+ netpoll: use GFP_ATOMIC in slave_enable_netpoll() and
+ netpoll: make __netpoll_cleanup non-block
+ netconsole: do not release spin_lock when calling
+ netpoll: take rcu_read_lock_bh() in netpoll_rx()
+ netpoll: use netpoll_rx_on() in netpoll_rx()
+ netpoll: take rcu_read_lock_bh() in
+ bridge: add some comments for NETDEV_RELEASE
+ bridge: use list_for_each_entry() in netpoll functions
+ netpoll: check netpoll tx status on the right device
+ netpoll: convert several functions to bool
+ vlan: clean up vlan_dev_hard_start_xmit()
+ netpoll: handle vlan tags in netpoll tx and rx path
+ netpoll: re-enable irq in poll_napi()
+ netconsole.txt: revision of examples for the receiver
+
+
+ Documentation/networking/netconsole.txt |   19 +++++-
+ drivers/net/bonding/bond_main.c         |   12 ++--
+ drivers/net/netconsole.c                |    5 --
+ drivers/net/team/team.c                 |   16 +++--
+ include/linux/if_team.h                 |    2 +-
+ include/linux/netdevice.h               |    3 +-
+ include/linux/netpoll.h                 |   42 +++++++-----
+ net/8021q/vlan_dev.c                    |   40 +++++++----
+ net/bridge/br_device.c                  |   27 +++-----
+ net/bridge/br_forward.c                 |    2 +-
+ net/bridge/br_if.c                      |    5 +-
+ net/bridge/br_private.h                 |    4 +-
+ net/core/netpoll.c                      |  109 ++++++++++++++++++++++---------
+ 13 files changed, 179 insertions(+), 107 deletions(-)
