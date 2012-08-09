@@ -1,74 +1,63 @@
 From: kaber@trash.net
-Subject: [PATCH 11/19] net: core: add function for incremental IPv6 pseudo header checksum updates
-Date: Thu,  9 Aug 2012 22:08:55 +0200
-Message-ID: <1344542943-11588-12-git-send-email-kaber@trash.net>
-References: <1344542943-11588-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 00/19] netfilter: IPv6 NAT
+Date: Thu,  9 Aug 2012 22:08:44 +0200
+Message-ID: <1344542943-11588-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65312 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:65310 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754512Ab2HIUSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 16:18:36 -0400
-In-Reply-To: <1344542943-11588-1-git-send-email-kaber@trash.net>
+	with ESMTP id S1754160Ab2HIUSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 16:18:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+The following patches contain an updated version of IPv6 NAT against
+Linus' current tree.
 
-Add inet_proto_csum_replace16 for incrementally updating IPv6 pseudo header
-checksums for IPv6 NAT.
+The series is organized as follows:
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- include/net/checksum.h |    3 +++
- net/core/utils.c       |   20 ++++++++++++++++++++
- 2 files changed, 23 insertions(+), 0 deletions(-)
+- Patches 01-03 contain bugfixes for SIP helper bugs/regressions
+  present in the current kernel
 
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index ba55d8b..600d1d7 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -109,6 +109,9 @@ static inline void csum_replace2(__sum16 *sum, __be16 from, __be16 to)
- struct sk_buff;
- extern void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
- 				     __be32 from, __be32 to, int pseudohdr);
-+extern void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
-+				      const __be32 *from, const __be32 *to,
-+				      int pseudohdr);
- 
- static inline void inet_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
- 					    __be16 from, __be16 to,
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 39895a6..f5613d5 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -294,6 +294,26 @@ void inet_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
- }
- EXPORT_SYMBOL(inet_proto_csum_replace4);
- 
-+void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
-+			       const __be32 *from, const __be32 *to,
-+			       int pseudohdr)
-+{
-+	__be32 diff[] = {
-+		~from[0], ~from[1], ~from[2], ~from[3],
-+		to[0], to[1], to[2], to[3],
-+	};
-+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-+		*sum = csum_fold(csum_partial(diff, sizeof(diff),
-+				 ~csum_unfold(*sum)));
-+		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
-+			skb->csum = ~csum_partial(diff, sizeof(diff),
-+						  ~skb->csum);
-+	} else if (pseudohdr)
-+		*sum = ~csum_fold(csum_partial(diff, sizeof(diff),
-+				  csum_unfold(*sum)));
-+}
-+EXPORT_SYMBOL(inet_proto_csum_replace16);
-+
- int mac_pton(const char *s, u8 *mac)
- {
- 	int i;
--- 
-1.7.1
+- Patches 04-06 improve conntrack fragmentation handling, the IPv6
+  parts are also a precondition for IPv6 NAT
+
+- Patches 07 and 08 prepare the current NAT code for conversion to
+  an address family independant core, but contain no functional
+  changes
+
+- Patch 09 adds the address family independant NAT core and converts
+  the existing IPv4-only NAT code to an AF-specific module
+
+- Patches 10 and 11 add some infrastructure for IPv6 NAT
+
+- Patch 12 adds IPv6 NAT support
+
+- Patches 13-15 add IPv6 specific NAT targets
+
+- Patches 16-19 add some IPv6-capable ports of existing NAT helpers
+
+- Patch 19 is independant of the IPv6 NAT code and adds support for
+  stateless IPv6 prefix translation, just to relieve my conscience ;)
+
+
+Since the last posting numerous bugs have been fixed, I don't remember
+all of them, the more important ones include:
+
+- automatic NAT module loading in ctnetlink
+
+- address selection when mapping to IPv6 ranges
+
+- handling of IPv6 fragments
+
+- NAT handling of ICMPv6 error messages
+
+Besides implementing IPv6 NAT, there are no known bugs left. Userspace
+patches will follow shortly.
+
+The entire patchset is also available at
+
+git://github.com/kaber/nf-nat-ipv6.git master
+
+Comments, questions and test results welcome.
