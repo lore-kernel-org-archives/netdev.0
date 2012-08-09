@@ -1,63 +1,42 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 14/14] netconsole.txt: revision of examples for the receiver of kernel messages
-Date: Thu,  9 Aug 2012 23:00:26 +0800
-Message-ID: <1344524426-11588-15-git-send-email-amwang@redhat.com>
+Subject: [PATCH 07/14] bridge: add some comments for NETDEV_RELEASE
+Date: Thu,  9 Aug 2012 23:00:19 +0800
+Message-ID: <1344524426-11588-8-git-send-email-amwang@redhat.com>
 References: <1344524426-11588-1-git-send-email-amwang@redhat.com>
-Cc: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>,
-	Cong Wang <amwang@redhat.com>
+Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57577 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51501 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030919Ab2HIPBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 11:01:23 -0400
+	id S1030900Ab2HIPAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2012 11:00:55 -0400
 In-Reply-To: <1344524426-11588-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>
+Add comments on why we don't notify NETDEV_RELEASE.
 
-There are at least 4 implementations of netcat with the BSD-based
-being the only one that has to be used without the -p switch to
-specify the listening port.
-
-Jan Engelhardt suggested to add an example for socat(1).
-
-Signed-off-by: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>
+Cc: David Miller <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- Documentation/networking/netconsole.txt |   19 +++++++++++++++++--
- 1 files changed, 17 insertions(+), 2 deletions(-)
+ net/bridge/br_if.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
-index 8d02207..2e9e0ae2 100644
---- a/Documentation/networking/netconsole.txt
-+++ b/Documentation/networking/netconsole.txt
-@@ -51,8 +51,23 @@ Built-in netconsole starts immediately after the TCP stack is
- initialized and attempts to bring up the supplied dev at the supplied
- address.
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 171fd6b..bf47d4f 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -427,6 +427,9 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ 	if (!p || p->br != br)
+ 		return -EINVAL;
  
--The remote host can run either 'netcat -u -l -p <port>',
--'nc -l -u <port>' or syslogd.
-+The remote host has several options to receive the kernel messages,
-+for example:
-+
-+1) syslogd
-+
-+2) netcat
-+
-+   On distributions using a BSD-based netcat version (e.g. Fedora,
-+   openSUSE and Ubuntu) the listening port must be specified without
-+   the -p switch:
-+
-+   'nc -u -l -p <port>' / 'nc -u -l <port>' or
-+   'netcat -u -l -p <port>' / 'netcat -u -l <port>'
-+
-+3) socat
-+
-+   'socat udp-recv:<port> -'
++	/* We don't notify NETDEV_RELEASE event, as this will
++	 * stop netconsole on the bridge.
++	 */
+ 	del_nbp(p);
  
- Dynamic reconfiguration:
- ========================
+ 	spin_lock_bh(&br->lock);
 -- 
 1.7.7.6
