@@ -1,196 +1,95 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [iproute2][PATCH 2/2] add ematch man page
-Date: Thu,  9 Aug 2012 21:18:51 +0200
-Message-ID: <1344539931-2653-2-git-send-email-fw@strlen.de>
-References: <1344539931-2653-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [net-next] bonding: don't allow the master to become its slave
+Date: Thu, 09 Aug 2012 12:23:31 -0700
+Message-ID: <21070.1344540211@death.nxdomain>
+References: <1344537049-11473-1-git-send-email-fbl@redhat.com> <1344539003.2593.7.camel@bwh-desktop.uk.solarflarecom.com>
+Cc: Flavio Leitner <fbl@redhat.com>, netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Leonardo Chiquitto <lchiquitto@suse.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39850 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751185Ab2HITVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 15:21:22 -0400
-In-Reply-To: <1344539931-2653-1-git-send-email-fw@strlen.de>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:38004 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759194Ab2HITXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 15:23:55 -0400
+Received: from /spool/local
+	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 9 Aug 2012 13:23:54 -0600
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id C632B19D8048
+	for <netdev@vger.kernel.org>; Thu,  9 Aug 2012 19:23:44 +0000 (WET)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q79JNmLO142790
+	for <netdev@vger.kernel.org>; Thu, 9 Aug 2012 13:23:48 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q79JNbEs021943
+	for <netdev@vger.kernel.org>; Thu, 9 Aug 2012 13:23:38 -0600
+In-reply-to: <1344539003.2593.7.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ben Hutchings <bhutchings@solarflare.com> wrote:
+
+>On Thu, 2012-08-09 at 15:30 -0300, Flavio Leitner wrote:
+>> It doesn't make any sense to allow the master to become
+>> its slave. That creates a loop of events causing a crash.
+>
+>What if there are other intermediate devices, e.g. the slave is a VLAN
+>sub-device of the bond?  And doesn't team also have this problem?
+>
+>I think a more general check for such loops might be required.
+
+	I thought we had disallowed any nesting of bonds at all, but I
+checked the netdev archives, and it appears we discussed it (and agreed
+it didn't work), but it kind of petered out.
+
+http://patchwork.ozlabs.org/patch/79705/
+
+	In any event, I think a patch like the following would get all
+cases (double enslavement or enslavement of any bonding master) in one
+place:
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6fae5f3..d14651c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1505,18 +1505,17 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	int link_reporting;
+ 	int res = 0;
+ 
++	if (slave_dev->priv_flags & IFF_BONDING) {
++		pr_debug("Error, Device was already enslaved\n");
++		return -EBUSY;
++	}
++
+ 	if (!bond->params.use_carrier && slave_dev->ethtool_ops == NULL &&
+ 		slave_ops->ndo_do_ioctl == NULL) {
+ 		pr_warning("%s: Warning: no link monitoring support for %s\n",
+ 			   bond_dev->name, slave_dev->name);
+ 	}
+ 
+-	/* already enslaved */
+-	if (slave_dev->flags & IFF_SLAVE) {
+-		pr_debug("Error, Device was already enslaved\n");
+-		return -EBUSY;
+-	}
+-
+ 	/* vlan challenged mutual exclusion */
+ 	/* no need to lock since we're protected by rtnl_lock */
+ 	if (slave_dev->features & NETIF_F_VLAN_CHALLENGED) {
+
+
+	This is basically the same logic that Jiri Bohac originally
+proposed in the discussion I mention above, although this patch moves
+the test further up and combines the master and slave tests into one.
+
+	Comments?  I haven't tested this at all, but I think the logic
+is correct.  I don't think having two separate tests to get special
+"master" and "slave" error cases is worthwhile.
+
+	-J
+
 ---
- could need more work, but a terse one is better than none.
-
- man/man8/tc-ematch.8 |  152 ++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/tc.8        |    1 +
- 2 files changed, 153 insertions(+), 0 deletions(-)
- create mode 100644 man/man8/tc-ematch.8
-
-diff --git a/man/man8/tc-ematch.8 b/man/man8/tc-ematch.8
-new file mode 100644
-index 0000000..53ae161
---- /dev/null
-+++ b/man/man8/tc-ematch.8
-@@ -0,0 +1,152 @@
-+.TH filter ematch "6 August 2012" iproute2 Linux
-+.
-+.SH NAME
-+ematch \- extended matches for use with "basic" or "flow" filters
-+.
-+.SH SYNOPSIS
-+.sp
-+.ad l
-+.in +8
-+.ti -8
-+.B "tc filter add .. basic match"
-+.RI EXPR
-+.B .. flowid ..
-+.sp
-+
-+.ti -8
-+.IR EXPR " := " TERM " [ { "
-+.B and | or
-+}
-+.IR EXPR
-+]
-+
-+.ti -8
-+.IR TERM " := [ " not " ] { " MATCH " | '(' " EXPR " ')' } "
-+
-+.ti -8
-+.IR MATCH " := " module " '(' " ARGS " ')' "
-+
-+.ti -8
-+.IR ARGS " := " ARG1 " " ARG2 " ..
-+
-+.SH MATCHES
-+
-+.SS cmp
-+Simple comparison ematch: arithmetic compare of packet data to a given value.
-+.ti
-+.IR cmp "( " ALIGN " at " OFFSET " [ " ATTRS " ]  { " eq " | " lt " | " gt "  } " VALUE " )
-+
-+.ti
-+.IR ALIGN " := { " u8 " | " u16 " | " u32 " } "
-+
-+.ti
-+.IR ATTRS " := [  layer " LAYER " ] [ mask " MASK " ] [ " trans " ] "
-+
-+.ti
-+.IR ALIGN " := { " u8 " | " u16 " | " u32 } "
-+
-+.ti
-+.IR LAYER " := { " link " | " network " | " transport " | " 0..%d " }
-+
-+.SS meta
-+Metadata ematch
-+.ti
-+.IR meta "( " OBJECT " { " eq " | " lt "  |" gt " } " OBJECT " )
-+
-+.ti
-+.IR OBJECT " := { " META_ID " |  " VALUE " }
-+
-+.ti
-+.IR META_ID " := id " [ shift " SHIFT " ] [ mask " MASK " ]
-+
-+.TP
-+meta attributes:
-+
-+\fBrandom\fP 32 bit random value
-+
-+\fBloadavg_1\fP Load average in last 5 minutes
-+
-+\fBnf_mark\fP Netfilter mark
-+
-+\fBvlan\fP Vlan tag
-+
-+\fBsk_rcvbuf\fP Receive buffer size
-+
-+\fBsk_snd_queue\fP Send queue length
-+
-+.PP
-+A full list of meta attributes can be obtained via
-+
-+# tc filter add dev eth1 basic match 'meta(list)'
-+
-+.SS nbyte
-+match packet data byte sequence
-+.ti
-+.IR nbyte "( " NEEDLE  " at " OFFSET " [ layer " LAYER " ] )
-+
-+.ti
-+.IR NEEDLE  " := { " string " | " c-escape-sequence "  } "
-+
-+.ti
-+.IR OFFSET  " := " int
-+
-+.ti
-+.IR LAYER " := { " link " | " network " | " transport " | " 0..%d " }
-+
-+.SS u32
-+u32 ematch
-+.ti
-+.IR u32 "( " ALIGN VALUE MASK " at " [ nexthdr+ ] " OFFSET " )
-+
-+.ti
-+.IR ALIGN " := " { " u8 " | " u16 " | " u32 " }
-+
-+.SS ipset
-+test packet agains ipset membership
-+.ti
-+.IR ipset "( " SETNAME FLAGS )
-+
-+.ti
-+.IR SETNAME " := " string
-+
-+.ti
-+.IR FLAGS " := " { " FLAG " [, " FLAGS "] }
-+
-+The flag options are the same as those used by the iptables "set" match.
-+
-+When using the ipset ematch with the "ip_set_hash:net,iface" set type,
-+the interface can be queried using "src,dst (source ip address, outgoing interface) or
-+"src,src" (source ip address, incoming interface) syntax.
-+
-+.SH CAVEATS
-+
-+The ematch syntax uses '(' and ')' to group expressions. All braces need to be
-+escaped properly to prevent shell commandline from interpreting these directly.
-+
-+When using the ipset ematch with the "ifb" device, the outgoing device will be the
-+ifb device itself, e.g. "ifb0".
-+The original interface (i.e. the device the packet arrived on) is treated as the incoming interface.
-+
-+.SH EXAMPLE & USAGE
-+
-+# tc filter add .. basic match ...
-+
-+# 'cmp(u16 at 3 layer 2 mask 0xff00 gt 20)'
-+
-+# 'meta(nfmark gt 24)' and 'meta(tcindex mask 0xf0 eq 0xf0)'
-+
-+# 'nbyte("ababa" at 12 layer 1)'
-+
-+# 'u32(u16 0x1122 0xffff at nexthdr+4)'
-+
-+Check if packet source ip address is member of set named \fBbulk\fP:
-+
-+# 'ipset(bulk src)'
-+
-+Check if packet source ip and the interface the packet arrived on is member of "hash:net,iface" set named \fBinteractive\fP:
-+
-+# 'ipset(interactive src,src)'
-+
-+.SH "AUTHOR"
-+
-+The extended match infrastructure was added by Thomas Graf.
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index 95571a3..a285c49 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -374,6 +374,7 @@ was written by Alexey N. Kuznetsov and added in Linux 2.2.
- .BR tc-choke (8),
- .BR tc-codel (8),
- .BR tc-drr (8),
-+.BR tc-ematch (8),
- .BR tc-fq_codel (8),
- .BR tc-hfsc (7),
- .BR tc-hfsc (8),
--- 
-1.7.3.4
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
