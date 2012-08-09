@@ -1,63 +1,51 @@
 From: kaber@trash.net
-Subject: [PATCH 00/19] netfilter: IPv6 NAT
-Date: Thu,  9 Aug 2012 22:08:44 +0200
-Message-ID: <1344542943-11588-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 10/19] netfilter: ipv6: expand skb head in ip6_route_me_harder after oif change
+Date: Thu,  9 Aug 2012 22:08:54 +0200
+Message-ID: <1344542943-11588-11-git-send-email-kaber@trash.net>
+References: <1344542943-11588-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65310 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754160Ab2HIUSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 16:18:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1344542943-11588-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The following patches contain an updated version of IPv6 NAT against
-Linus' current tree.
+From: Patrick McHardy <kaber@trash.net>
 
-The series is organized as follows:
+Expand the skb headroom if the oif changed due to rerouting similar to
+how IPv4 packets are handled.
 
-- Patches 01-03 contain bugfixes for SIP helper bugs/regressions
-  present in the current kernel
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv6/netfilter.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-- Patches 04-06 improve conntrack fragmentation handling, the IPv6
-  parts are also a precondition for IPv6 NAT
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index db31561..429089c 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -15,6 +15,7 @@ int ip6_route_me_harder(struct sk_buff *skb)
+ {
+ 	struct net *net = dev_net(skb_dst(skb)->dev);
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
++	unsigned int hh_len;
+ 	struct dst_entry *dst;
+ 	struct flowi6 fl6 = {
+ 		.flowi6_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0,
+@@ -47,6 +48,13 @@ int ip6_route_me_harder(struct sk_buff *skb)
+ 	}
+ #endif
+ 
++	/* Change in oif may mean change in hh_len. */
++	hh_len = skb_dst(skb)->dev->hard_header_len;
++	if (skb_headroom(skb) < hh_len &&
++	    pskb_expand_head(skb, HH_DATA_ALIGN(hh_len - skb_headroom(skb)),
++			     0, GFP_ATOMIC))
++		return -1;
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ip6_route_me_harder);
+-- 
+1.7.1
 
-- Patches 07 and 08 prepare the current NAT code for conversion to
-  an address family independant core, but contain no functional
-  changes
-
-- Patch 09 adds the address family independant NAT core and converts
-  the existing IPv4-only NAT code to an AF-specific module
-
-- Patches 10 and 11 add some infrastructure for IPv6 NAT
-
-- Patch 12 adds IPv6 NAT support
-
-- Patches 13-15 add IPv6 specific NAT targets
-
-- Patches 16-19 add some IPv6-capable ports of existing NAT helpers
-
-- Patch 19 is independant of the IPv6 NAT code and adds support for
-  stateless IPv6 prefix translation, just to relieve my conscience ;)
-
-
-Since the last posting numerous bugs have been fixed, I don't remember
-all of them, the more important ones include:
-
-- automatic NAT module loading in ctnetlink
-
-- address selection when mapping to IPv6 ranges
-
-- handling of IPv6 fragments
-
-- NAT handling of ICMPv6 error messages
-
-Besides implementing IPv6 NAT, there are no known bugs left. Userspace
-patches will follow shortly.
-
-The entire patchset is also available at
-
-git://github.com/kaber/nf-nat-ipv6.git master
-
-Comments, questions and test results welcome.
