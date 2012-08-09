@@ -1,128 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug with IPv6-UDP address binding
-Date: Thu, 09 Aug 2012 13:43:54 +0200
-Message-ID: <1344512634.28967.732.camel@edumazet-glaptop>
-References: <1344458238.3069.13.camel@localhost>
-	 <1344459591.28967.271.camel@edumazet-glaptop>
-	 <1344505205.3069.55.camel@localhost>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3 0/7] mv643xx.c: Add basic device tree support.
+Date: Thu, 9 Aug 2012 11:43:32 +0000
+Message-ID: <201208091143.32972.arnd@arndb.de>
+References: <1344350092-24050-1-git-send-email-ian.molton@codethink.co.uk> <50226779.6060201@codethink.co.uk> <50239815.6020108@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Ian Molton <ian.molton@codethink.co.uk>,
+	thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
+	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	ben.dooks@codethink.co.uk, dale@farnsworth.org,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:35648 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757551Ab2HILn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 07:43:59 -0400
-Received: by bkwj10 with SMTP id j10so131713bkw.19
-        for <netdev@vger.kernel.org>; Thu, 09 Aug 2012 04:43:57 -0700 (PDT)
-In-Reply-To: <1344505205.3069.55.camel@localhost>
+Received: from moutng.kundenserver.de ([212.227.126.171]:54478 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417Ab2HILoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 07:44:24 -0400
+In-Reply-To: <50239815.6020108@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-08-09 at 11:40 +0200, Jesper Dangaard Brouer wrote:
-> On Wed, 2012-08-08 at 22:59 +0200, Eric Dumazet wrote:
-> > On Wed, 2012-08-08 at 22:37 +0200, Jesper Dangaard Brouer wrote:
+ On 08/08/12 14:19, Ian Molton wrote:
+ > On 08/08/12 13:39, Arnd Bergmann wrote:
+ >> On Wednesday 08 August 2012, Ian Molton wrote:
+ >>> This method would require a small amount of rework in the driver to
+ >>> set up <n> ports, rather than just one.
+ >> This looks quite nice, but it is still very much incompatible with the
+ >> existing binding. Obviously we can abandon an existing binding and
+ >> introduce a second one for the same hardware, but that should not
+ >> be taken lightly.
+ > Fair, however the existing users aren't anywhere near as
+ > numerous as the new ones.
 
-> > Then nc should bind a new socket on this address, then do the connect()
-> 
-> Yes, after the difficult extraction of the dest IP of the UDP packet.
-> 
+Depends on how you count the numbers. I see at least three machines
+supported in the kernel with the old binding and none with the new one
+so far ;-)
 
-Thats 10 lines of code. The hard part is in kernel actually ;)
+ >> I don't fully understand your concern with the overlapping
+ >> registers, mostly because I still don't know all the combinations
+ >> that are actually valid here. Let me try to say what I understood
+ >> so far, and you can correct me if that's wrong:
+ >>
+ >> * A system can have multiple instances of an mv64360 ethernet
+ >> block, with a register area of 0x2000 bytes.
+ >> * Each such block can have three MACs and three PHYs.
+ >> * The first 0x400 bytes in the register space control the three
+ >>   PHYs and the remaining registers control the MACs.
+ >> * While this is meant to be used in a way that you assign
+ >>   the each of the three PHYs to one of the MACs, this is not
+ >>   always done, and sometimes you use a different PHY (?), or
+ >>   one from a different instance of the mv64360 ethernet block
+ >>   on the same SoC?.
+ > Nearly - the whole block is 0x2000 in size, yes. And each one
+ > can have 3 MACs and PHYs, as you say.
+ >
+ > There is SMI @ 0x2000 - just one for all ports, and in many
+ > (all?) cases, for all all the other controllers on the SoC to
+ > share. On the armadaXP SoC, for example, each ethernet
+ > block has its own alias of the same bas SMI reg. (there are
+ > 4 blocks)
+ >
+ > ethernet0@ 0x2400
+ > ## regs in order: Main regs, MIB counters, Special mcast table, Mcast
+ > table, Unicast table.
+ >    port0 has regs at +0x0000 *0x1000 +0x1400 +0x1500 +0x1600
+ >    port1 has regs at +0x0400 *0x1080 +0x1800 +0x1900 +0x1a00
+ >    port2 has regs at +0x0800 *0x1100 +0x1c00 +0x1d00 +0x1e00
+ > ethernet1@ 0x6400
+ >   port0 has regs at +0x0000 *0x1000 +0x1400 +0x1500 +0x1600
+ > ...
+ >
+ > As you can see, instead of putting port1 at +0x1700 or so,
+ > marvell have overlapped the register files - in fact, doubly
+ > so, since port1 + 0x1080 is right in the middle of
+ > (port0 + 0x1000) -> (port0 + 0x16ff), so one cant simply map two
+ > sets of regs like 0x0000->0x03ff and 0x1000->0x16ff for port one
+ > either.
 
-> 
-> Now I better understand, why the DNS server named/bind is so annoying,
-> that is requires a restart after adding IPs.  I guess they didn't
-> implement this recvmsg(), and instead chooses to bind to all avail IPs
-> on init/start.
+This could theoretically be dealt with by having 5 register ranges
+per device, but that would cause extra overhead and also be
+incompatible with the existing binding. I think showing one
+parent device with children at address 0, 1 and 2 is ok. The driver
+already knows all those offsets and they are always the same
+for all variants of mv643xx, right?
 
-Thats an implementation choice, no more no less.
-
-Here is an IPv4 sample UDP application, able to echo packets with the IP
-source set to original DST address of the ping packet.
-
-Doing the same on IPv6 is probably trivial as well
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <linux/udp.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-
-#define PORT 4040
-
-int pktinfo_get(struct msghdr *my_hdr, struct in_pktinfo *pktinfo)
-{
-	int res = -1;
-
-	if (my_hdr->msg_controllen > 0) {
-		struct cmsghdr *get_cmsg;
-		for (get_cmsg = CMSG_FIRSTHDR(my_hdr); get_cmsg;
-			get_cmsg = CMSG_NXTHDR(my_hdr, get_cmsg)) {
-			if (get_cmsg->cmsg_type == IP_PKTINFO) {
-				struct in_pktinfo *get_pktinfo = (struct in_pktinfo *)CMSG_DATA(get_cmsg);
-				memcpy(pktinfo, get_pktinfo, sizeof(*pktinfo));
-				res = 0;
-			}
-		}
-	}
-	return res;
-}
-
-int main(int argc, char *argv[])
-{
-	int fd = socket(AF_INET, SOCK_DGRAM, 0);
-	struct sockaddr_in addr, rem_addr;
-	int res, on = 1;
-	struct msghdr msghdr;
-	struct iovec vec[1];
-	char cbuf[512];
-	char frame[4096];
-	struct in_pktinfo pktinfo;
-	int c, count = 1000000;
-
-	while ((c = getopt(argc, argv, "c:")) != -1) {
-		if (c == 'c') count = atoi(optarg);
-		}
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(PORT);
-	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-		perror("bind");
-		return 1;
-	}
-	setsockopt(fd, SOL_IP, IP_PKTINFO, &on, sizeof(on));
-
-	while (1) {
-		memset(&msghdr, 0, sizeof(msghdr));
-		msghdr.msg_control = cbuf;
-		msghdr.msg_controllen = sizeof(cbuf);
-		msghdr.msg_iov = vec;
-		msghdr.msg_iovlen = 1;
-		vec[0].iov_base = frame;
-		vec[0].iov_len = sizeof(frame);
-		msghdr.msg_name = &rem_addr;
-		msghdr.msg_namelen = sizeof(rem_addr);
-		res = recvmsg(fd, &msghdr, 0);
-		if (res == -1)
-			break;
-		if (pktinfo_get(&msghdr, &pktinfo) == 0)
-			printf("Got IP_PKTINFO dst addr=%s\n", inet_ntoa(pktinfo.ipi_spec_dst));
-
-		/* ok, just echo reply this frame.
-		 * Using sendmsg() will provide IP_PKTINFO back to kernel
-		 * to let it use the 'right' source address
-		 * (destination address of the incoming packet)
-		 */
-		vec[0].iov_len = res;
-		sendmsg(fd, &msghdr, 0);
-		if (--count == 0)
-			break;
-	}
-	return 0;
-}
+	Arnd
