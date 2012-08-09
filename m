@@ -1,53 +1,58 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [RFC net-next 3/4] gianfar: Separate out the Rx and Tx coalescing
- functions
-Date: Thu, 9 Aug 2012 19:24:48 +0300
-Message-ID: <5023E450.9090704@freescale.com>
-References: <1344428810-29923-1-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-2-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-3-git-send-email-claudiu.manoil@freescale.com> <1344428810-29923-4-git-send-email-claudiu.manoil@freescale.com> <20120808154454.GA11043@windriver.com>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: [PATCH net-next] af_packet: relax BUG statement in
+ tpacket_destruct_skb
+Date: Thu, 09 Aug 2012 18:39:05 +0200
+Message-ID: <1344530345.28842.11.camel@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:6561
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753072Ab2HIQZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 12:25:02 -0400
-In-Reply-To: <20120808154454.GA11043@windriver.com>
+Received: from www62.your-server.de ([213.133.104.62]:44887 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758678Ab2HIQjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2012 12:39:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/8/2012 6:44 PM, Paul Gortmaker wrote:
-> [[RFC net-next 3/4] gianfar: Separate out the Rx and Tx coalescing functions] On 08/08/2012 (Wed 15:26) Claudiu Manoil wrote:
->
->> Split the coalescing programming support by Rx and Tx h/w queues, in order to
->> introduce a separate NAPI for the Tx confirmation path (next patch). This way,
->> the Rx processing path will handle the coalescing settings for the Rx queues
->> only, resp. the Tx confirmation processing path will handle the Tx queues.
->>
->> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
->> ---
->>   drivers/net/ethernet/freescale/gianfar.c |   36 +++++++++++++++++++++++------
->>   1 files changed, 28 insertions(+), 8 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
->> index ddd350a..919acb3 100644
->> --- a/drivers/net/ethernet/freescale/gianfar.c
->> +++ b/drivers/net/ethernet/freescale/gianfar.c
->> @@ -1794,8 +1794,8 @@ void gfar_start(struct net_device *dev)
->>   	dev->trans_start = jiffies; /* prevent tx timeout */
->>   }
->>
->> -void gfar_configure_coalescing(struct gfar_private *priv,
->> -			       unsigned long tx_mask, unsigned long rx_mask)
->> +static inline void gfar_configure_tx_coalescing(struct gfar_private *priv,
->
-> I believe the preference is to not specify inline when all the chunks in
-> play are present in the one C file -- i.e. let gcc figure it out.  Same
-> for the Rx instance below.
->
-> P.
-> --
-I agree with you.
-thanks
+Here's a quote of the comment about the BUG macro from asm-generic/bug.h:
+
+ Don't use BUG() or BUG_ON() unless there's really no way out; one
+ example might be detecting data structure corruption in the middle
+ of an operation that can't be backed out of.  If the (sub)system
+ can somehow continue operating, perhaps with reduced functionality,
+ it's probably not BUG-worthy.
+
+ If you're tempted to BUG(), think again:  is completely giving up
+ really the *only* solution?  There are usually better options, where
+ users don't need to reboot ASAP and can mostly shut down cleanly.
+
+In our case, the status flag of a ring buffer slot is managed from both sides,
+the kernel space and the user space. This means that even though the kernel
+side might work as expected, the user space screws up and changes this flag
+right between the send(2) is triggered when the flag is changed to
+TP_STATUS_SENDING and a given skb is destructed after some time. Then, this
+will hit the BUG macro. Instead, we relax this condition with a WARN_ON_ONCE
+macro, so that the user is aware of this situation. I've tested it and the
+system still behaves /stable/, so in accordance with the above comment, we
+should rather relax this behavior with a warning.
+
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+---
+ net/packet/af_packet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index ceaca7c..4def36f 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1936,7 +1936,7 @@ static void tpacket_destruct_skb(struct sk_buff *skb)
+ 
+ 	if (likely(po->tx_ring.pg_vec)) {
+ 		ph = skb_shinfo(skb)->destructor_arg;
+-		BUG_ON(__packet_get_status(po, ph) != TP_STATUS_SENDING);
++		WARN_ON_ONCE(__packet_get_status(po, ph) != TP_STATUS_SENDING);
+ 		BUG_ON(atomic_read(&po->tx_ring.pending) == 0);
+ 		atomic_dec(&po->tx_ring.pending);
+ 		__packet_set_status(po, ph, TP_STATUS_AVAILABLE);
