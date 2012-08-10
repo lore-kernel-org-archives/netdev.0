@@ -1,48 +1,49 @@
-From: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified
- root
-Date: Fri, 10 Aug 2012 19:40:28 +0100
-Message-ID: <20120810194028.792f29f1@pyramind.ukuu.org.uk>
-References: <20120810125701.7115.71612.stgit@localhost.localdomain>
-	<50254FA6.3060806@zytor.com>
-	<20120810192628.79a34d28@pyramind.ukuu.org.uk>
-	<5025537D.9060300@zytor.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: [E1000-devel] discussion questions: SR-IOV, virtualization, and
+ bonding
+Date: Fri, 10 Aug 2012 12:41:40 -0600
+Message-ID: <502555E4.6060705@genband.com>
+References: <501AD33E.5090308@genband.com> <17679.1343939453@death.nxdomain>	 <501AFEAD.10001@genband.com> <501B0037.1010804@genband.com>	 <20421.1343948491@death.nxdomain> <501B587E.6040703@intel.com> <1344016163.2610.9.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-To: "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5025537D.9060300-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og121.obsmtp.com ([64.18.2.20]:40350 "EHLO
+	exprod7og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754673Ab2HJSl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 14:41:58 -0400
+In-Reply-To: <1344016163.2610.9.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > AF_UNIX between roots raises some interesting semantic questions when
-> > you begin passing file descriptors down them as well.
-> 
-> Why is that?  A file descriptor carries all that information with it...
+On 08/03/2012 11:49 AM, Ben Hutchings wrote:
+> On Thu, 2012-08-02 at 21:50 -0700, John Fastabend wrote:
 
-Things like fchdir(). It's not a machine breaking problem but for
-containers as opposed to chroot we need to be clear what the expected
-isolation sematics are.
+>> Perhaps one argument against this is if the hardware supports loopback
+>> modes or the edge relay in the hardware is acting like a VEB it may
+>> still be possible to support VF to VF traffic even if the external link
+>> is down. Not sure how useful this is though or if any existing hardware
+>> even supports it.
+> [...]
+>
+> It seems to me that VF to VF traffic ought to still work.  If it doesn't
+> then that's an unfortunate regression when moving from software bridging
+> and virtio to hardware-supported network virtualisation.  (But hybrid
+> network virtualisation may help to solve that.)
 
-Agreed on open() for sockets.. the lack of open is a Berklix derived
-pecularity of the interface. It would equally be useful to be able to
-open "/dev/socket/ipv4/1.2.3.4/1135" and the like for scripts and stuff
+I would have thought this to be desirable as well.  Apparently the Intel 
+engineers disagreed.  The 82599 datasheet has the following:
 
-That needs VFS changes however so you can pass the remainder of a path to
-a device node. It also lets you do a lot of other sane stuff like
+"Loopback is disabled when the network link is disconnected. It is 
+expected (but not required) that system software (including VMs) does 
+not post packets for transmission when the link is disconnected. Note 
+that packets posted by system software for transmission when the link is 
+down are buffered."
 
-	open /dev/ttyS0/9600/8n1
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Chris
