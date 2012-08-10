@@ -1,61 +1,44 @@
 From: Jain Priyanka-B32167 <B32167@freescale.com>
-Subject: RE: [PATCH][XFRM] Replace rwlock on xfrm_policy_afinfo with rcu
-Date: Fri, 10 Aug 2012 04:28:04 +0000
-Message-ID: <AC83832D6324604BB08FAE5A33553F1907A9B368@039-SN2MPN1-012.039d.mgd.msft.net>
-References: <1344316904-2544-1-git-send-email-Priyanka.Jain@freescale.com>
- <1344407147.28967.212.camel@edumazet-glaptop>
- <50220AB2.5030504@windriver.com>
+Subject: RE: [PATCH][XFRM][v2] Replace rwlock on xfrm_policy_afinfo with rcu
+Date: Fri, 10 Aug 2012 04:29:46 +0000
+Message-ID: <AC83832D6324604BB08FAE5A33553F1907A9B384@039-SN2MPN1-012.039d.mgd.msft.net>
+References: <1344493315-2505-1-git-send-email-Priyanka.Jain@freescale.com>
+ <20120809.161508.1611476184890758249.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fan Du <fan.du@windriver.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.181.182] ([216.32.181.182]:6015 "EHLO
+Received: from [216.32.181.185] ([216.32.181.185]:21201 "EHLO
 	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751110Ab2HJE3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 00:29:13 -0400
-In-Reply-To: <50220AB2.5030504@windriver.com>
+	by vger.kernel.org with ESMTP id S1751110Ab2HJEbB convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 00:31:01 -0400
+In-Reply-To: <20120809.161508.1611476184890758249.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gRXJpYyBEdW1hemV0LA0KDQpMaWtlIEZhbiBEdSwgZXZlbiBJIGNvdWxkIG5vdCBzZWUg
-dGhlIGJ1ZyBpbiB0aGUgY3VycmVudCBjb2RlLiBDYW4geW91IHBsZWFzZSBlbGFib3JhdGUuDQoN
-ClRoYW5rcw0KUHJpeWFua2ENCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEZh
-biBEdSBbbWFpbHRvOmZhbi5kdUB3aW5kcml2ZXIuY29tXSANClNlbnQ6IFdlZG5lc2RheSwgQXVn
-dXN0IDA4LCAyMDEyIDEyOjE0IFBNDQpUbzogRXJpYyBEdW1hemV0DQpDYzogSmFpbiBQcml5YW5r
-YS1CMzIxNjc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IFJlOiBbUEFUQ0hdW1hG
-Uk1dIFJlcGxhY2Ugcndsb2NrIG9uIHhmcm1fcG9saWN5X2FmaW5mbyB3aXRoIHJjdQ0KDQpGaXJz
-dCwgc29ycnkgdG8ganVtcCBpbi4NCg0KT24gMjAxMuW5tDA45pyIMDjml6UgMTQ6MjUsIEVyaWMg
-RHVtYXpldCB3cm90ZToNCj4gT24gVHVlLCAyMDEyLTA4LTA3IGF0IDEwOjUxICswNTMwLCBQcml5
-YW5rYSBKYWluIHdyb3RlOg0KPj4geGZybV9wb2xpY3lfYWZpbmZvIGlzIHJlYWQgbW9zbHkgZGF0
-YSBzdHJ1Y3R1cmUuDQo+PiBXcml0ZSBvbiB4ZnJtX3BvbGljeV9hZmluZm8gaXMgZG9uZSBvbmx5
-IGF0IHRoZSB0aW1lIG9mIA0KPj4gY29uZmlndXJhdGlvbi4NCj4+IFNvIHJ3bG9ja3MgY2FuIGJl
-IHNhZmVseSByZXBsYWNlZCB3aXRoIFJDVS4NCj4+DQo+PiBSQ1VzIHVzYWdlIG9wdGltaXplcyB0
-aGUgcGVyZm9ybWFuY2UuDQo+DQo+DQo+PiAgIHN0YXRpYyBzdHJ1Y3QgeGZybV9wb2xpY3lfYWZp
-bmZvICp4ZnJtX3BvbGljeV9nZXRfYWZpbmZvKHVuc2lnbmVkIA0KPj4gc2hvcnQgZmFtaWx5KSBA
-QCAtMjUzMCwxNiArMjUzNSwxNiBAQCBzdGF0aWMgc3RydWN0IHhmcm1fcG9saWN5X2FmaW5mbyAq
-eGZybV9wb2xpY3lfZ2V0X2FmaW5mbyh1bnNpZ25lZCBzaG9ydCBmYW1pbHkpDQo+PiAgIAlzdHJ1
-Y3QgeGZybV9wb2xpY3lfYWZpbmZvICphZmluZm87DQo+PiAgIAlpZiAodW5saWtlbHkoZmFtaWx5
-Pj0gTlBST1RPKSkNCj4+ICAgCQlyZXR1cm4gTlVMTDsNCj4+IC0JcmVhZF9sb2NrKCZ4ZnJtX3Bv
-bGljeV9hZmluZm9fbG9jayk7DQo+PiAtCWFmaW5mbyA9IHhmcm1fcG9saWN5X2FmaW5mb1tmYW1p
-bHldOw0KPj4gKwlyY3VfcmVhZF9sb2NrKCk7DQo+PiArCWFmaW5mbyA9IHJjdV9kZXJlZmVyZW5j
-ZSh4ZnJtX3BvbGljeV9hZmluZm9bZmFtaWx5XSk7DQo+PiAgIAlpZiAodW5saWtlbHkoIWFmaW5m
-bykpDQo+PiAtCQlyZWFkX3VubG9jaygmeGZybV9wb2xpY3lfYWZpbmZvX2xvY2spOw0KPj4gKwkJ
-cmN1X3JlYWRfdW5sb2NrKCk7DQo+DQo+IFRoaXMgbWFrZXMgbm8gc2Vuc2UgdG8gbWUgOiBXZSBj
-YW50IHNhZmVseSByZXR1cm4gYWZpbmZvIGhlcmUuDQo+DQo+IE5vdGUgdGhlIGN1cnJlbnQgY29k
-ZSBpcyBidWdneSBhcyB3ZWxsLCB0aGlzIGlzIHdvcnJ5aW5nLg0KPg0KPiBBcyBzb29uIGFzIHdl
-IGV4aXQgZnJvbSB4ZnJtX3BvbGljeV9nZXRfYWZpbmZvKCksIHBvaW50ZXIgbWlnaHQgYmUgDQo+
-IGludmFsaWQuDQo+DQpZZXMsIGl0IG1pZ2h0IGJlIGludmFsaWQsIGJ1dCBhbGwgdGhlIGNhbGxl
-cnMgaGF2ZSBjaGVja2VkIHRoZSByZXR1cm4gdmFsdWUsIHRodXMgdXNlIGl0IGluIGEgc2FuZSB3
-YXkuDQpTbyBJIGRvbid0IGZvbGxvdyAiTm90ZSB0aGUgY3VycmVudCBjb2RlIGlzIGJ1Z2d5IGFz
-IHdlbGwiLg0KDQpBbSBJIG1pc3Npbmcgc29tZXRoaW5nIGhlcmU/DQoNCg0KPiBSZWFsbHksIFJD
-VSBjb252ZXJzaW9uIHNob3VsZCBiZSB0aGUgcmlnaHQgbW9tZW50IHRvIHNwb3QgdGhvc2UgYnVn
-cyANCj4gYW5kIGZpcnN0IGZpeCB0aGVtIChmb3Igc3RhYmxlIHRyZWVzKQ0KPg0KPg0KPg0KPiAt
-LQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJz
-Y3JpYmUgbmV0ZGV2IiBpbiANCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2
-Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5mbyANCj4gYXQgIGh0dHA6Ly92Z2VyLmtl
-cm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KPg0KDQotLSANCg0KTG92ZSBlYWNoIGRheSEN
-Ci0tZmFuDQoNCg==
+
+
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
+Sent: Friday, August 10, 2012 4:45 AM
+To: Jain Priyanka-B32167
+Cc: netdev@vger.kernel.org
+Subject: Re: [PATCH][XFRM][v2] Replace rwlock on xfrm_policy_afinfo with rcu
+
+From: Priyanka Jain <Priyanka.Jain@freescale.com>
+Date: Thu, 9 Aug 2012 11:51:55 +0530
+
+> +	local_bh_disable();
+> +	rcu_read_lock();
+
+This is "rcu_read_lock_bh()"
+[Priyanka] will correct this in v3. 
+
+Also I do not believe you addressed any of Eric Dumazet's feedback.
+[Priyanka] Will send v3 after closing on Eric Dumazet's feedback. Thanks
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
