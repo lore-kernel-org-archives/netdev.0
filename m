@@ -1,48 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: tcp: unicast_sock should not land outside of TCP
- stack
-Date: Thu, 09 Aug 2012 21:05:46 -0700 (PDT)
-Message-ID: <20120809.210546.819623704116134361.davem@davemloft.net>
-References: <1344547743.31104.582.camel@edumazet-glaptop>
-	<20120809.163851.1182547052663187702.davem@davemloft.net>
-	<1344556566.31104.808.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: tcp: ipv6_mapped needs sk_rx_dst_set method
+Date: Thu, 09 Aug 2012 21:06:00 -0700 (PDT)
+Message-ID: <20120809.210600.638327100706973152.davem@davemloft.net>
+References: <20120809160349.d2880b5a.akpm@linux-foundation.org>
+	<1344556733.31104.819.camel@edumazet-glaptop>
+	<1344557460.31104.863.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eparis@parisplace.org, paul@paul-moore.com, casey@schaufler-ca.com,
-	johnstul@us.ibm.com, serge@hallyn.com,
-	linux-kernel@vger.kernel.org, james.l.morris@oracle.com,
-	selinux@tycho.nsa.gov, john.johansen@canonical.com,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1344556566.31104.808.camel@edumazet-glaptop>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36503 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792Ab2HJEGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 00:06:01 -0400
+In-Reply-To: <1344557460.31104.863.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Aug 2012 01:56:06 +0200
+Date: Fri, 10 Aug 2012 02:11:00 +0200
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> commit be9f4a44e7d41cee (ipv4: tcp: remove per net tcp_sock) added a
-> selinux regression, reported and bisected by John Stultz
+> commit 5d299f3d3c8a2fb (net: ipv6: fix TCP early demux) added a
+> regression for ipv6_mapped case.
+ ...
+> Fix this using inet_sk_rx_dst_set(), and export this function in case
+> IPv6 is modular.
 > 
-> selinux_ip_postroute_compat() expect to find a valid sk->sk_security
-> pointer, but this field is NULL for unicast_sock
-> 
-> It turns out that unicast_sock are really temporary stuff to be able
-> to reuse  part of IP stack (ip_append_data()/ip_push_pending_frames())
-> 
-> Fact is that frames sent by ip_send_unicast_reply() should be orphaned
-> to not fool LSM.
-> 
-> Note IPv6 never had this problem, as tcp_v6_send_response() doesnt use a
-> fake socket at all. I'll probably implement tcp_v4_send_response() to
-> remove these unicast_sock in linux-3.7
-> 
-> Reported-by: John Stultz <johnstul@us.ibm.com>
-> Bisected-by: John Stultz <johnstul@us.ibm.com>
+> Reported-by: Andrew Morton <akpm@linux-foundation.org>
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
