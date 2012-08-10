@@ -1,103 +1,124 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH v2] SubmittingPatches: clarify SOB tag usage when evolving
- submissions
-Date: Fri, 10 Aug 2012 10:38:21 -0700
-Message-ID: <5025470D.8090702@xenotime.net>
-References: <1344548903-23117-1-git-send-email-mcgrof@do-not-panic.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [RFC] NETDEV_UNREGISTER_BATCH seems unused nowaday ?
+Date: Fri, 10 Aug 2012 10:55:16 -0700
+Message-ID: <20120810175516.GE2371@linux.vnet.ibm.com>
+References: <1344590824.31104.1953.camel@edumazet-glaptop>
+ <20120810.034211.994338127277150687.davem@davemloft.net>
+ <1344596809.31104.2358.camel@edumazet-glaptop>
+ <87vcgq955v.fsf@xmission.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, tytso@mit.edu,
-	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rob Landley <rob@landley.net>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344548903-23117-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:51664 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758318Ab2HJRzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 13:55:40 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Fri, 10 Aug 2012 11:55:40 -0600
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id E303219D8047
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 17:55:30 +0000 (WET)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q7AHtIdL176628
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 11:55:19 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q7AHtHZB005479
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 11:55:18 -0600
+Content-Disposition: inline
+In-Reply-To: <87vcgq955v.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2012 02:48 PM, Luis R. Rodriguez wrote:
-
-> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+On Fri, Aug 10, 2012 at 07:45:48AM -0700, Eric W. Biederman wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
 > 
-> Initial large code submissions typically are not accepted
-> on their first patch submission. The developers are
-> typically given feedback and at times some developers may
-> even submit changes to the original authors for integration
-> into their second submission attempt.
+> > On Fri, 2012-08-10 at 03:42 -0700, David Miller wrote:
+> >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Date: Fri, 10 Aug 2012 11:27:04 +0200
+> >> 
+> >> > NETDEV_UNREGISTER_BATCH seems unused we can probably remove it.
+> >> 
+> >> Indeed, the routing cache was the final real user.
+> >> 
+> >> > I am tracking a device refcount issue, delaying net device dismantle by
+> >> > 1 second in netdev_wait_allrefs()
+> >> > 
+> >> > I guess we need to add a notifier called _after_ the final
+> >> > synchronize_net() in rollback_registered_many()
+> >> 
+> >> It's essentially caused by DST_GC_INC, right?
+> >
+> > No, we in fact need a rcu_barrier(), then another call to
+> > dst_dev_event().
+> >
+> > rcu_barrier() is needed so that in-flight call_rcu() of routes (from
+> > rt_free()) are completed. Or else we miss these dst in the
+> > dst_dev_event().
 > 
-> Developers wishing to contribute changes to the evolution
-> of a second patch submission must supply their own Siged-off-by
-> tag to the original authors and must submit their changes
-> on a public mailing list or ensure that these submission
-> are recorded somewhere publicly.
+> > I have a working patch, adding the rcu_barrier() and one additional
+> > NETDEV_UNREGISTER_FINAL event.
 > 
-> To date a few of these type of contributors have expressed
-> different preferences for whether or not their own SOB tag
-> should be used for a second code submission. Lets keep things
-> simple and only require the contributor's SOB tag if so desired
-> explicitly. It is not technically required if there already
-> is a public record of their contribution somewhere.
+> Can someone help bring me up to speed.  What has changed in the
+> dst ref counting that has invalidated our previous solutions?
 > 
-> Document this on Documentation/SubmittingPatches
+> As for the idea of putting an rcu_barrier inside of the rtnl_lock.  I
+> really don't like it. You are trading off a 1000ms singled threaded wait
+> without locks for extending the hold times of rtnl lock by 12ms or so.
 > 
-> Signed-off-by: Luis R. Rodriguez <mcgrof@do-not-panic.com>
+> We already have an rcu_barrier on that path in netdev_run_todo,
+> so we can reorganize things to use that barrier I would be much
+> happer.  Furthermore I talked to Paul McKenney a while ago
+> about creating an rcu_barrier expedited and he really did not
+> like the idea.
 
+For whatever it is worth, I do have rcu_barrier_expedited() on my list
+of things that at least one person has expressed interest in, but that
+I do not yet have a good solution for.  Obstacles include the following:
 
-Note:  I'm no longer maintaining Documentation/, so I'm cc-ing Rob.
+1.	If a given CPU has lots of callbacks, but is running a real-time
+	process, what do you do?  (a) Hammer the real-time process?
+	(b) Make rcu_barrier_expedited() wait (current likely choice)?
+	(c) Handle via a set priority for callback processing (which
+	might be the case for BOOST_RCU builds)?  (d) Force migration
+	of the callbacks (mmmaybe...)?  (e) Force migration of the
+	real-time process (ouch!)?
 
-> ---
+2.	Ditto, but huge numbers of callbacks and non-realtime processes.
+	Similar solution space.
+
+3.	There will be some real-time disruption from any reasonable
+	implementation of rcu_barrier_expedited().  Maybe the RT
+	guys choose to map it to rcu_barrier()?
+
+On the other hand, in the same email thread back in May you were also
+looking for a kmem_cache_free_rcu().  At the time I didn't have a
+good solution for this, but I do believe that I have one now.  ;-)
+
+							Thanx, Paul
+
+> Reading through the code we really should get dst_rcu_free
+> out of the header and make it non-line.  dst_rcu_free can't
+> possibly be called from a location where it can be inlined.
 > 
-> This v2 has Singed/Signed typo fixes.
+> Trying to understand your analysis I have stared at the code for
+> a while and I am definitely not seeing any rcu callbacks that
+> result in calling rt_free.  So one of us is missing something.
 > 
->  Documentation/SubmittingPatches |   15 +++++++++++++++
->  1 file changed, 15 insertions(+)
+> All I am seeing from your trace is one call of rtnetlink_dev_notifier
+> the refcount is at 7 and the next call of rtnetlink_dev_notifier the
+> refcnt has dropped to 1.
 > 
-> diff --git a/Documentation/SubmittingPatches b/Documentation/SubmittingPatches
-> index c379a2a..3154565 100644
-> --- a/Documentation/SubmittingPatches
-> +++ b/Documentation/SubmittingPatches
-> @@ -366,6 +366,21 @@ and protect the submitter from complaints. Note that under no circumstances
->  can you change the author's identity (the From header), as it is the one
->  which appears in the changelog.
->  
-> +If you are submitting a large change (for example a new driver) at times
-> +you may be asked to make quite a lot of modifications prior to getting
-> +your change accepted. At times you may even receive patches from developers
-> +who not only wish to tell you what you should change to get your changes
-> +upstream but actually send you patches. If those patches were made publicly
-> +and they do contain a Signed-off-by tag you are not expected to provide
-
-
-I would add a comma:                   tag,
-
-but for a patch that attempts to clarify, I don't find it very helpful.
-
-> +their own Signed-off-by tag on the second iteration of the patch so long
-> +as there is a public record somewhere that can be used to show the
-> +contributor had sent their changes with their own Signed-off-by tag.
-
-> +
-
-> +If you receive patches privately during development you may want to
-> +ask for these patches to be re-posted publicly or you can also decide
-> +to merge the patches as part of a separate historical git tree that
-> +will remain online for historical archiving.
-
-
-I don't think it's a good idea to require a historical git archive for
-(private) patches.  If I send a patch privately and it contains an SOB:
-line, then the maintainer should be able to apply the patch and
-use the SOB: from the patch (IMO).  Are you addressing some concern
-about fraudulent emails/patches?
-
-> +
->  Special note to back-porters: It seems to be a common and useful practise
->  to insert an indication of the origin of a patch at the top of the commit
->  message (just after the subject line) to facilitate tracking. For instance,
-
-
-
--- 
-~Randy
+> Eric
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
