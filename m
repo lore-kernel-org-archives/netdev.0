@@ -1,43 +1,73 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 07/14] bridge: add some comments for NETDEV_RELEASE
-Date: Fri, 10 Aug 2012 15:10:30 +0800
-Message-ID: <1344582637-18261-8-git-send-email-amwang@redhat.com>
+Subject: [PATCH 05/14] netpoll: use netpoll_rx_on() in netpoll_rx()
+Date: Fri, 10 Aug 2012 15:10:28 +0800
+Message-ID: <1344582637-18261-6-git-send-email-amwang@redhat.com>
 References: <1344582637-18261-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Cc: Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5646 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33965 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756110Ab2HJHLL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 03:11:11 -0400
+	id S1751831Ab2HJHLG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 03:11:06 -0400
 In-Reply-To: <1344582637-18261-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add comments on why we don't notify NETDEV_RELEASE.
+The logic of the code is same, just call netpoll_rx_on().
 
-Cc: David Miller <davem@davemloft.net>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/bridge/br_if.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ include/linux/netpoll.h |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 171fd6b..1c8fdc3 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -427,6 +427,10 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- 	if (!p || p->br != br)
- 		return -EINVAL;
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 5d881c3..2d178ba 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -63,6 +63,13 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
  
-+	/* Since more than one interface can be attached to a bridge,
-+	 * there still maybe an alternate path for netconsole to use;
-+	 * therefore there is no reason for a NETDEV_RELEASE event.
-+	 */
- 	del_nbp(p);
  
- 	spin_lock_bh(&br->lock);
+ #ifdef CONFIG_NETPOLL
++static inline int netpoll_rx_on(struct sk_buff *skb)
++{
++	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
++
++	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
++}
++
+ static inline bool netpoll_rx(struct sk_buff *skb)
+ {
+ 	struct netpoll_info *npinfo;
+@@ -70,11 +77,11 @@ static inline bool netpoll_rx(struct sk_buff *skb)
+ 	bool ret = false;
+ 
+ 	local_irq_save(flags);
+-	npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 
+-	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
++	if (!netpoll_rx_on(skb))
+ 		goto out;
+ 
++	npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 	spin_lock(&npinfo->rx_lock);
+ 	/* check rx_flags again with the lock held */
+ 	if (npinfo->rx_flags && __netpoll_rx(skb, npinfo))
+@@ -86,13 +93,6 @@ out:
+ 	return ret;
+ }
+ 
+-static inline int netpoll_rx_on(struct sk_buff *skb)
+-{
+-	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
+-
+-	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
+-}
+-
+ static inline int netpoll_receive_skb(struct sk_buff *skb)
+ {
+ 	if (!list_empty(&skb->dev->napi_list))
 -- 
 1.7.7.6
