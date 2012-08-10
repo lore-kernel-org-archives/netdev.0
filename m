@@ -1,84 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: fix ip_send_skb()
-Date: Fri, 10 Aug 2012 14:22:47 +0200
-Message-ID: <1344601367.31104.2672.camel@edumazet-glaptop>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: [RFC PATCH 1/2] unix sockets: add ability for search for peer from
+	passed root
+Date: Fri, 10 Aug 2012 16:57:30 +0400
+Message-ID: <20120810125730.7115.96005.stgit@localhost.localdomain>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:60227 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842Ab2HJMWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 08:22:52 -0400
-Received: by weyx8 with SMTP id x8so952817wey.19
-        for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 05:22:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120810125701.7115.71612.stgit-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+This helper is used stream sockets yet.
+All is simple: if non-NULL struct path was passed to unix_find_other(), then
+vfs_path_lookup() is called instead of kern_path().
 
-ip_send_skb() can send orphaned skb, so we must pass the net pointer to
-avoid possible NULL dereference in error path.
-
-Bug added by commit 3a7c384ffd57 (ipv4: tcp: unicast_sock should not
-land outside of TCP stack)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
 ---
- include/net/ip.h     |    2 +-
- net/ipv4/ip_output.c |    5 ++---
- net/ipv4/udp.c       |    2 +-
- 3 files changed, 4 insertions(+), 5 deletions(-)
+ include/net/af_unix.h |    2 ++
+ net/unix/af_unix.c    |   25 ++++++++++++++++++-------
+ 2 files changed, 20 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index bd5e444..5a5d84d 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -120,7 +120,7 @@ extern struct sk_buff  *__ip_make_skb(struct sock *sk,
- 				      struct flowi4 *fl4,
- 				      struct sk_buff_head *queue,
- 				      struct inet_cork *cork);
--extern int		ip_send_skb(struct sk_buff *skb);
-+extern int		ip_send_skb(struct net *net, struct sk_buff *skb);
- extern int		ip_push_pending_frames(struct sock *sk, struct flowi4 *fl4);
- extern void		ip_flush_pending_frames(struct sock *sk);
- extern struct sk_buff  *ip_make_skb(struct sock *sk,
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index ec410e0..147ccc3 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1366,9 +1366,8 @@ out:
- 	return skb;
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index 2ee33da..559467e 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -67,6 +67,8 @@ struct unix_sock {
+ 
+ long unix_inq_len(struct sock *sk);
+ long unix_outq_len(struct sock *sk);
++int unix_stream_connect_root(struct path *root, struct socket *sock,
++			     struct sockaddr *uaddr, int addr_len, int flags);
+ 
+ #ifdef CONFIG_SYSCTL
+ extern int unix_sysctl_register(struct net *net);
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 641f2e4..a790ebc 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -759,7 +759,7 @@ out:	mutex_unlock(&u->readlock);
+ 	return err;
  }
  
--int ip_send_skb(struct sk_buff *skb)
-+int ip_send_skb(struct net *net, struct sk_buff *skb)
+-static struct sock *unix_find_other(struct net *net,
++static struct sock *unix_find_other(struct net *net, struct path *root,
+ 				    struct sockaddr_un *sunname, int len,
+ 				    int type, unsigned int hash, int *error)
  {
--	struct net *net = sock_net(skb->sk);
- 	int err;
+@@ -769,7 +769,11 @@ static struct sock *unix_find_other(struct net *net,
  
- 	err = ip_local_out(skb);
-@@ -1391,7 +1390,7 @@ int ip_push_pending_frames(struct sock *sk, struct flowi4 *fl4)
- 		return 0;
+ 	if (sunname->sun_path[0]) {
+ 		struct inode *inode;
+-		err = kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
++
++		if (root)
++			err = vfs_path_lookup(root->dentry, root->mnt, sunname->sun_path, LOOKUP_FOLLOW, &path);
++		else
++			err = kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
+ 		if (err)
+ 			goto fail;
+ 		inode = path.dentry->d_inode;
+@@ -979,7 +983,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+ 			goto out;
  
- 	/* Netfilter gets whole the not fragmented skb. */
--	return ip_send_skb(skb);
-+	return ip_send_skb(sock_net(sk), skb);
+ restart:
+-		other = unix_find_other(net, sunaddr, alen, sock->type, hash, &err);
++		other = unix_find_other(net, NULL, sunaddr, alen, sock->type, hash, &err);
+ 		if (!other)
+ 			goto out;
+ 
+@@ -1053,8 +1057,8 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
+ 	return timeo;
  }
  
- /*
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b4c3582..6f6d1ac 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -758,7 +758,7 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
- 		uh->check = CSUM_MANGLED_0;
+-static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+-			       int addr_len, int flags)
++int unix_stream_connect_root(struct path *root, struct socket *sock,
++			     struct sockaddr *uaddr, int addr_len, int flags)
+ {
+ 	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
+ 	struct sock *sk = sock->sk;
+@@ -1098,7 +1102,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
  
- send:
--	err = ip_send_skb(skb);
-+	err = ip_send_skb(sock_net(sk), skb);
- 	if (err) {
- 		if (err == -ENOBUFS && !inet->recverr) {
- 			UDP_INC_STATS_USER(sock_net(sk),
+ restart:
+ 	/*  Find listening sock. */
+-	other = unix_find_other(net, sunaddr, addr_len, sk->sk_type, hash, &err);
++	other = unix_find_other(net, root, sunaddr, addr_len, sk->sk_type, hash, &err);
+ 	if (!other)
+ 		goto out;
+ 
+@@ -1227,6 +1231,13 @@ out:
+ 		sock_put(other);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(unix_stream_connect_root);
++
++static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
++				    int addr_len, int flags)
++{
++	return unix_stream_connect_root(NULL, sock, uaddr, addr_len, flags);
++}
+ 
+ static int unix_socketpair(struct socket *socka, struct socket *sockb)
+ {
+@@ -1508,7 +1519,7 @@ restart:
+ 		if (sunaddr == NULL)
+ 			goto out_free;
+ 
+-		other = unix_find_other(net, sunaddr, namelen, sk->sk_type,
++		other = unix_find_other(net, NULL, sunaddr, namelen, sk->sk_type,
+ 					hash, &err);
+ 		if (other == NULL)
+ 			goto out_free;
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
