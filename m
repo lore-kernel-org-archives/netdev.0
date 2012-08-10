@@ -1,49 +1,84 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 7/8] bridge: add some comments for NETDEV_RELEASE
-Date: Fri, 10 Aug 2012 04:13:18 -0700
-Message-ID: <1344597198.2338.9.camel@joe2Laptop>
-References: <1344263012-4031-1-git-send-email-amwang@redhat.com>
-	 <1344263012-4031-8-git-send-email-amwang@redhat.com>
-	 <20120806.135003.442648448779232464.davem@davemloft.net>
-	 <1344296345.2026.3.camel@joe2Laptop>
-	 <alpine.LNX.2.01.1208101257010.10147@frira.zrqbmnf.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, amwang@redhat.com,
-	netdev@vger.kernel.org, shemminger@vyatta.com
-To: Jan Engelhardt <jengelh@inai.de>
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH v5 00/15] some netpoll and netconsole fixes
+Date: Fri, 10 Aug 2012 19:24:36 +0800
+Message-ID: <1344597891-32242-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:33179 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753133Ab2HJLNT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 07:13:19 -0400
-In-Reply-To: <alpine.LNX.2.01.1208101257010.10147@frira.zrqbmnf.qr>
+Received: from mx1.redhat.com ([209.132.183.28]:29150 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751151Ab2HJLZW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 07:25:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-10 at 12:59 +0200, Jan Engelhardt wrote:
-> On Tuesday 2012-08-07 01:39, Joe Perches wrote:
-> >On Mon, 2012-08-06 at 13:50 -0700, David Miller wrote:
-> >> > +	/*
-> >> > +	 * We don't notify NETDEV_RELEASE event, as this will
-> >> > +	 * stop netconsole on the bridge.
-> >> > +	 */
-> >> 
-> >> Please format comments in the networking:
-> >> 
-> >> 	/* Like
-> >> 	 * this.
-> >> 	 */
-> >
-> >Maybe add a networking specific block comment style
-> >to checkpatch. This doesn't trigger on files outside
-> >of drivers/net and net.
-> 
-> Is there any particular reason why net/ wants to be special?
+V5:
+* Rename the local variable 'info' to 'vlan'
+* add another vlan cleanup patch
 
-A determined maintainer with a strong desire
-for consistency using an idiomatic style.
+V4:
+* rebase against net tree
+* fix a compile error in patch 9
+* update patch 7 as Stephen suggested
 
-A thread about it:
-https://lkml.org/lkml/2012/4/16/443
+V3:
+* add more patches
+* update patch 7 as David suggested
+
+V2:
+* update patch 1/8 as Eric suggested
+* drop the bridge patch, add comments instead
+* add patch 8/8
+
+This patchset fixes serval problems in netconsole and netpoll.
+
+I ran this patchset in my KVM guest with some netpoll test cases,
+even covered with some corner cases, everything worked as expected.
+
+BTW, my kernel config enables the following validatation options:
+
+CONFIG_DEBUG_ATOMIC_SLEEP=y
+CONFIG_PROVE_LOCKING=y
+CONFIG_PROVE_RCU=y
+CONFIG_LOCKDEP=y
+CONFIG_RCU_CPU_STALL_TIMEOUT=60
+CONFIG_LOCKUP_DETECTOR=y
+CONFIG_HARDLOCKUP_DETECTOR=y
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+--------
+
+ netpoll: use GFP_ATOMIC in slave_enable_netpoll() and
+ netpoll: make __netpoll_cleanup non-block
+ netconsole: do not release spin_lock when calling
+ netpoll: take rcu_read_lock_bh() in netpoll_rx()
+ netpoll: use netpoll_rx_on() in netpoll_rx()
+ netpoll: take rcu_read_lock_bh() in
+ bridge: add some comments for NETDEV_RELEASE
+ bridge: use list_for_each_entry() in netpoll functions
+ netpoll: check netpoll tx status on the right device
+ netpoll: convert several functions to bool
+ vlan: clean up some variable names
+ vlan: clean up vlan_dev_hard_start_xmit()
+ netpoll: handle vlan tags in netpoll tx and rx path
+ netpoll: re-enable irq in poll_napi()
+ netconsole.txt: revision of examples for the receiver
+
+
+ Documentation/networking/netconsole.txt |   19 +++++-
+ drivers/net/bonding/bond_main.c         |   12 ++--
+ drivers/net/netconsole.c                |    5 --
+ drivers/net/team/team.c                 |   16 +++--
+ include/linux/if_team.h                 |   30 ++++----
+ include/linux/netdevice.h               |    3 +-
+ include/linux/netpoll.h                 |   42 +++++++-----
+ net/8021q/vlan_dev.c                    |   52 +++++++++------
+ net/bridge/br_device.c                  |   27 +++-----
+ net/bridge/br_forward.c                 |    2 +-
+ net/bridge/br_if.c                      |    6 ++-
+ net/bridge/br_private.h                 |    4 +-
+ net/core/netpoll.c                      |  109 ++++++++++++++++++++++---------
+ 13 files changed, 200 insertions(+), 127 deletions(-)
