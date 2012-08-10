@@ -1,75 +1,63 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 13/15] netpoll: handle vlan tags in netpoll tx and rx path
-Date: Fri, 10 Aug 2012 19:24:49 +0800
-Message-ID: <1344597891-32242-14-git-send-email-amwang@redhat.com>
+Subject: [PATCH 15/15] netconsole.txt: revision of examples for the receiver of kernel messages
+Date: Fri, 10 Aug 2012 19:24:51 +0800
+Message-ID: <1344597891-32242-16-git-send-email-amwang@redhat.com>
 References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, Benjamin LaHaise <bcrl@kvack.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
+Cc: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64537 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16318 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755079Ab2HJLZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 07:25:57 -0400
+	id S1755244Ab2HJL0D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 07:26:03 -0400
 In-Reply-To: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch, I can't get netconsole logs remotely over
-vlan. The reason is probably we don't handle vlan tags in either
-netpoll tx or rx path.
+From: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>
 
-I am not sure if I use these vlan functions correctly, at
-least this patch works.
+There are at least 4 implementations of netcat with the BSD-based
+being the only one that has to be used without the -p switch to
+specify the listening port.
 
-Cc: Benjamin LaHaise <bcrl@kvack.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David Miller <davem@davemloft.net>
+Jan Engelhardt suggested to add an example for socat(1).
+
+Signed-off-by: Dirk Gouders <gouders@et.bocholt.fh-gelsenkirchen.de>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/core/netpoll.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+ Documentation/networking/netconsole.txt |   19 +++++++++++++++++--
+ 1 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 174346a..e4ba3e7 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -26,6 +26,7 @@
- #include <linux/workqueue.h>
- #include <linux/slab.h>
- #include <linux/export.h>
-+#include <linux/if_vlan.h>
- #include <net/tcp.h>
- #include <net/udp.h>
- #include <asm/unaligned.h>
-@@ -334,6 +335,14 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
- 		     tries > 0; --tries) {
- 			if (__netif_tx_trylock(txq)) {
- 				if (!netif_xmit_stopped(txq)) {
-+					if (vlan_tx_tag_present(skb) &&
-+					    !(netif_skb_features(skb) & NETIF_F_HW_VLAN_TX)) {
-+						skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
-+						if (unlikely(!skb))
-+							break;
-+						skb->vlan_tci = 0;
-+					}
-+
- 					status = ops->ndo_start_xmit(skb, dev);
- 					if (status == NETDEV_TX_OK)
- 						txq_trans_update(txq);
-@@ -567,6 +576,12 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- 		return 1;
- 	}
+diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+index 8d02207..2e9e0ae2 100644
+--- a/Documentation/networking/netconsole.txt
++++ b/Documentation/networking/netconsole.txt
+@@ -51,8 +51,23 @@ Built-in netconsole starts immediately after the TCP stack is
+ initialized and attempts to bring up the supplied dev at the supplied
+ address.
  
-+	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
-+		skb = vlan_untag(skb);
-+		if (unlikely(!skb))
-+			goto out;
-+	}
+-The remote host can run either 'netcat -u -l -p <port>',
+-'nc -l -u <port>' or syslogd.
++The remote host has several options to receive the kernel messages,
++for example:
 +
- 	proto = ntohs(eth_hdr(skb)->h_proto);
- 	if (proto != ETH_P_IP)
- 		goto out;
++1) syslogd
++
++2) netcat
++
++   On distributions using a BSD-based netcat version (e.g. Fedora,
++   openSUSE and Ubuntu) the listening port must be specified without
++   the -p switch:
++
++   'nc -u -l -p <port>' / 'nc -u -l <port>' or
++   'netcat -u -l -p <port>' / 'netcat -u -l <port>'
++
++3) socat
++
++   'socat udp-recv:<port> -'
+ 
+ Dynamic reconfiguration:
+ ========================
 -- 
 1.7.7.6
