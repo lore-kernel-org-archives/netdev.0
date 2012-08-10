@@ -1,124 +1,146 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [RFC] NETDEV_UNREGISTER_BATCH seems unused nowaday ?
-Date: Fri, 10 Aug 2012 10:55:16 -0700
-Message-ID: <20120810175516.GE2371@linux.vnet.ibm.com>
-References: <1344590824.31104.1953.camel@edumazet-glaptop>
- <20120810.034211.994338127277150687.davem@davemloft.net>
- <1344596809.31104.2358.camel@edumazet-glaptop>
- <87vcgq955v.fsf@xmission.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [RFC PATCH 1/2] unix sockets: add ability for search for peer
+ from passed root
+Date: Fri, 10 Aug 2012 14:10:02 -0400
+Message-ID: <20120810181002.GB17404@fieldses.org>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain>
+ <20120810125730.7115.96005.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:51664 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758318Ab2HJRzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 13:55:40 -0400
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 10 Aug 2012 11:55:40 -0600
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id E303219D8047
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 17:55:30 +0000 (WET)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id q7AHtIdL176628
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 11:55:19 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id q7AHtHZB005479
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 11:55:18 -0600
+Cc: Trond.Myklebust@netapp.com, davem@davemloft.net,
+	linux-nfs@vger.kernel.org, eric.dumazet@gmail.com,
+	xemul@parallels.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk,
+	tim.c.chen@linux.intel.com, devel@openvz.org
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87vcgq955v.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20120810125730.7115.96005.stgit@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2012 at 07:45:48AM -0700, Eric W. Biederman wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
-> 
-> > On Fri, 2012-08-10 at 03:42 -0700, David Miller wrote:
-> >> From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> Date: Fri, 10 Aug 2012 11:27:04 +0200
-> >> 
-> >> > NETDEV_UNREGISTER_BATCH seems unused we can probably remove it.
-> >> 
-> >> Indeed, the routing cache was the final real user.
-> >> 
-> >> > I am tracking a device refcount issue, delaying net device dismantle by
-> >> > 1 second in netdev_wait_allrefs()
-> >> > 
-> >> > I guess we need to add a notifier called _after_ the final
-> >> > synchronize_net() in rollback_registered_many()
-> >> 
-> >> It's essentially caused by DST_GC_INC, right?
-> >
-> > No, we in fact need a rcu_barrier(), then another call to
-> > dst_dev_event().
-> >
-> > rcu_barrier() is needed so that in-flight call_rcu() of routes (from
-> > rt_free()) are completed. Or else we miss these dst in the
-> > dst_dev_event().
-> 
-> > I have a working patch, adding the rcu_barrier() and one additional
-> > NETDEV_UNREGISTER_FINAL event.
-> 
-> Can someone help bring me up to speed.  What has changed in the
-> dst ref counting that has invalidated our previous solutions?
-> 
-> As for the idea of putting an rcu_barrier inside of the rtnl_lock.  I
-> really don't like it. You are trading off a 1000ms singled threaded wait
-> without locks for extending the hold times of rtnl lock by 12ms or so.
-> 
-> We already have an rcu_barrier on that path in netdev_run_todo,
-> so we can reorganize things to use that barrier I would be much
-> happer.  Furthermore I talked to Paul McKenney a while ago
-> about creating an rcu_barrier expedited and he really did not
-> like the idea.
+On Fri, Aug 10, 2012 at 04:57:30PM +0400, Stanislav Kinsbursky wrote:
+> This helper is used stream sockets yet.
+> All is simple: if non-NULL struct path was passed to unix_find_other(), then
+> vfs_path_lookup() is called instead of kern_path().
 
-For whatever it is worth, I do have rcu_barrier_expedited() on my list
-of things that at least one person has expressed interest in, but that
-I do not yet have a good solution for.  Obstacles include the following:
+I'm having some trouble parsing the changelog.  Maybe something like?:
 
-1.	If a given CPU has lots of callbacks, but is running a real-time
-	process, what do you do?  (a) Hammer the real-time process?
-	(b) Make rcu_barrier_expedited() wait (current likely choice)?
-	(c) Handle via a set priority for callback processing (which
-	might be the case for BOOST_RCU builds)?  (d) Force migration
-	of the callbacks (mmmaybe...)?  (e) Force migration of the
-	real-time process (ouch!)?
+	unix sockets: add ability to look up using passed-in root
 
-2.	Ditto, but huge numbers of callbacks and non-realtime processes.
-	Similar solution space.
+	Export a unix_stream_connect_root() helper that allows a caller
+	to optionally pass in a root path, in which case the lookup will
+	be done relative to the given path instead of the current
+	working directory.
 
-3.	There will be some real-time disruption from any reasonable
-	implementation of rcu_barrier_expedited().  Maybe the RT
-	guys choose to map it to rcu_barrier()?
+I guess this is a question for the networking people, but: will it cause
+problems to have sunrpc calling directly into the unix socket code?
 
-On the other hand, in the same email thread back in May you were also
-looking for a kmem_cache_free_rcu().  At the time I didn't have a
-good solution for this, but I do believe that I have one now.  ;-)
+(And if so, what would be the alternative: define some variant of
+sockaddr_un that includes the root path?  Something better?)
 
-							Thanx, Paul
+--b.
 
-> Reading through the code we really should get dst_rcu_free
-> out of the header and make it non-line.  dst_rcu_free can't
-> possibly be called from a location where it can be inlined.
 > 
-> Trying to understand your analysis I have stared at the code for
-> a while and I am definitely not seeing any rcu callbacks that
-> result in calling rt_free.  So one of us is missing something.
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
+> ---
+>  include/net/af_unix.h |    2 ++
+>  net/unix/af_unix.c    |   25 ++++++++++++++++++-------
+>  2 files changed, 20 insertions(+), 7 deletions(-)
 > 
-> All I am seeing from your trace is one call of rtnetlink_dev_notifier
-> the refcount is at 7 and the next call of rtnetlink_dev_notifier the
-> refcnt has dropped to 1.
-> 
-> Eric
-> 
+> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+> index 2ee33da..559467e 100644
+> --- a/include/net/af_unix.h
+> +++ b/include/net/af_unix.h
+> @@ -67,6 +67,8 @@ struct unix_sock {
+>  
+>  long unix_inq_len(struct sock *sk);
+>  long unix_outq_len(struct sock *sk);
+> +int unix_stream_connect_root(struct path *root, struct socket *sock,
+> +			     struct sockaddr *uaddr, int addr_len, int flags);
+>  
+>  #ifdef CONFIG_SYSCTL
+>  extern int unix_sysctl_register(struct net *net);
+> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> index 641f2e4..a790ebc 100644
+> --- a/net/unix/af_unix.c
+> +++ b/net/unix/af_unix.c
+> @@ -759,7 +759,7 @@ out:	mutex_unlock(&u->readlock);
+>  	return err;
+>  }
+>  
+> -static struct sock *unix_find_other(struct net *net,
+> +static struct sock *unix_find_other(struct net *net, struct path *root,
+>  				    struct sockaddr_un *sunname, int len,
+>  				    int type, unsigned int hash, int *error)
+>  {
+> @@ -769,7 +769,11 @@ static struct sock *unix_find_other(struct net *net,
+>  
+>  	if (sunname->sun_path[0]) {
+>  		struct inode *inode;
+> -		err = kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
+> +
+> +		if (root)
+> +			err = vfs_path_lookup(root->dentry, root->mnt, sunname->sun_path, LOOKUP_FOLLOW, &path);
+> +		else
+> +			err = kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
+>  		if (err)
+>  			goto fail;
+>  		inode = path.dentry->d_inode;
+> @@ -979,7 +983,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
+>  			goto out;
+>  
+>  restart:
+> -		other = unix_find_other(net, sunaddr, alen, sock->type, hash, &err);
+> +		other = unix_find_other(net, NULL, sunaddr, alen, sock->type, hash, &err);
+>  		if (!other)
+>  			goto out;
+>  
+> @@ -1053,8 +1057,8 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
+>  	return timeo;
+>  }
+>  
+> -static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+> -			       int addr_len, int flags)
+> +int unix_stream_connect_root(struct path *root, struct socket *sock,
+> +			     struct sockaddr *uaddr, int addr_len, int flags)
+>  {
+>  	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
+>  	struct sock *sk = sock->sk;
+> @@ -1098,7 +1102,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+>  
+>  restart:
+>  	/*  Find listening sock. */
+> -	other = unix_find_other(net, sunaddr, addr_len, sk->sk_type, hash, &err);
+> +	other = unix_find_other(net, root, sunaddr, addr_len, sk->sk_type, hash, &err);
+>  	if (!other)
+>  		goto out;
+>  
+> @@ -1227,6 +1231,13 @@ out:
+>  		sock_put(other);
+>  	return err;
+>  }
+> +EXPORT_SYMBOL_GPL(unix_stream_connect_root);
+> +
+> +static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+> +				    int addr_len, int flags)
+> +{
+> +	return unix_stream_connect_root(NULL, sock, uaddr, addr_len, flags);
+> +}
+>  
+>  static int unix_socketpair(struct socket *socka, struct socket *sockb)
+>  {
+> @@ -1508,7 +1519,7 @@ restart:
+>  		if (sunaddr == NULL)
+>  			goto out_free;
+>  
+> -		other = unix_find_other(net, sunaddr, namelen, sk->sk_type,
+> +		other = unix_find_other(net, NULL, sunaddr, namelen, sk->sk_type,
+>  					hash, &err);
+>  		if (other == NULL)
+>  			goto out_free;
 > 
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
