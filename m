@@ -1,174 +1,307 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 02/15] netpoll: make __netpoll_cleanup non-block
-Date: Fri, 10 Aug 2012 19:24:38 +0800
-Message-ID: <1344597891-32242-3-git-send-email-amwang@redhat.com>
+Subject: [PATCH 01/15] netpoll: use GFP_ATOMIC in slave_enable_netpoll() and __netpoll_setup()
+Date: Fri, 10 Aug 2012 19:24:37 +0800
+Message-ID: <1344597891-32242-2-git-send-email-amwang@redhat.com>
 References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8389 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14946 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752254Ab2HJLZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752090Ab2HJLZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 10 Aug 2012 07:25:26 -0400
 In-Reply-To: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Like the previous patch, slave_disable_netpoll() and __netpoll_cleanup()
-may be called with read_lock() held too, so we should make them
-non-block, by moving the cleanup and kfree() to call_rcu_bh() callbacks.
+slave_enable_netpoll() and __netpoll_setup() may be called
+with read_lock() held, so should use GFP_ATOMIC to allocate
+memory. Eric suggested to pass gfp flags to __netpoll_setup().
 
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |    4 +--
- include/linux/netpoll.h         |    3 ++
- net/8021q/vlan_dev.c            |    6 +----
- net/bridge/br_device.c          |    6 +----
- net/core/netpoll.c              |   42 +++++++++++++++++++++++++++++---------
- 5 files changed, 38 insertions(+), 23 deletions(-)
+ drivers/net/bonding/bond_main.c |    6 +++---
+ drivers/net/team/team.c         |   16 +++++++++-------
+ include/linux/netdevice.h       |    3 ++-
+ include/linux/netpoll.h         |    2 +-
+ net/8021q/vlan_dev.c            |    7 ++++---
+ net/bridge/br_device.c          |   12 ++++++------
+ net/bridge/br_if.c              |    2 +-
+ net/bridge/br_private.h         |    4 ++--
+ net/core/netpoll.c              |    8 ++++----
+ 9 files changed, 32 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 8697136..e428916 100644
+index 6fae5f3..8697136 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1257,9 +1257,7 @@ static inline void slave_disable_netpoll(struct slave *slave)
- 		return;
+@@ -1235,12 +1235,12 @@ static inline int slave_enable_netpoll(struct slave *slave)
+ 	struct netpoll *np;
+ 	int err = 0;
  
- 	slave->np = NULL;
--	synchronize_rcu_bh();
--	__netpoll_cleanup(np);
--	kfree(np);
-+	__netpoll_free_rcu(np);
+-	np = kzalloc(sizeof(*np), GFP_KERNEL);
++	np = kzalloc(sizeof(*np), GFP_ATOMIC);
+ 	err = -ENOMEM;
+ 	if (!np)
+ 		goto out;
+ 
+-	err = __netpoll_setup(np, slave->dev);
++	err = __netpoll_setup(np, slave->dev, GFP_ATOMIC);
+ 	if (err) {
+ 		kfree(np);
+ 		goto out;
+@@ -1292,7 +1292,7 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+ 	read_unlock(&bond->lock);
  }
- static inline bool slave_dev_support_netpoll(struct net_device *slave_dev)
+ 
+-static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
++static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, gfp_t gfp)
  {
+ 	struct bonding *bond = netdev_priv(dev);
+ 	struct slave *slave;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 87707ab..341b65d 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -795,16 +795,17 @@ static void team_port_leave(struct team *team, struct team_port *port)
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-static int team_port_enable_netpoll(struct team *team, struct team_port *port)
++static int team_port_enable_netpoll(struct team *team, struct team_port *port,
++				    gfp_t gfp)
+ {
+ 	struct netpoll *np;
+ 	int err;
+ 
+-	np = kzalloc(sizeof(*np), GFP_KERNEL);
++	np = kzalloc(sizeof(*np), gfp);
+ 	if (!np)
+ 		return -ENOMEM;
+ 
+-	err = __netpoll_setup(np, port->dev);
++	err = __netpoll_setup(np, port->dev, gfp);
+ 	if (err) {
+ 		kfree(np);
+ 		return err;
+@@ -833,7 +834,8 @@ static struct netpoll_info *team_netpoll_info(struct team *team)
+ }
+ 
+ #else
+-static int team_port_enable_netpoll(struct team *team, struct team_port *port)
++static int team_port_enable_netpoll(struct team *team, struct team_port *port,
++				    gfp_t gfp)
+ {
+ 	return 0;
+ }
+@@ -913,7 +915,7 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 	}
+ 
+ 	if (team_netpoll_info(team)) {
+-		err = team_port_enable_netpoll(team, port);
++		err = team_port_enable_netpoll(team, port, GFP_KERNEL);
+ 		if (err) {
+ 			netdev_err(dev, "Failed to enable netpoll on device %s\n",
+ 				   portname);
+@@ -1443,7 +1445,7 @@ static void team_netpoll_cleanup(struct net_device *dev)
+ }
+ 
+ static int team_netpoll_setup(struct net_device *dev,
+-			      struct netpoll_info *npifo)
++			      struct netpoll_info *npifo, gfp_t gfp)
+ {
+ 	struct team *team = netdev_priv(dev);
+ 	struct team_port *port;
+@@ -1451,7 +1453,7 @@ static int team_netpoll_setup(struct net_device *dev,
+ 
+ 	mutex_lock(&team->lock);
+ 	list_for_each_entry(port, &team->port_list, list) {
+-		err = team_port_enable_netpoll(team, port);
++		err = team_port_enable_netpoll(team, port, gfp);
+ 		if (err) {
+ 			__team_netpoll_cleanup(team);
+ 			break;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a9db4f3..3560d68 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -953,7 +953,8 @@ struct net_device_ops {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	void                    (*ndo_poll_controller)(struct net_device *dev);
+ 	int			(*ndo_netpoll_setup)(struct net_device *dev,
+-						     struct netpoll_info *info);
++						     struct netpoll_info *info,
++						     gfp_t gfp);
+ 	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
+ #endif
+ 	int			(*ndo_set_vf_mac)(struct net_device *dev,
 diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index bf2d51e..907812e 100644
+index 28f5389..bf2d51e 100644
 --- a/include/linux/netpoll.h
 +++ b/include/linux/netpoll.h
-@@ -23,6 +23,7 @@ struct netpoll {
- 	u8 remote_mac[ETH_ALEN];
- 
- 	struct list_head rx; /* rx_np list element */
-+	struct rcu_head rcu;
- };
- 
- struct netpoll_info {
-@@ -38,6 +39,7 @@ struct netpoll_info {
- 	struct delayed_work tx_work;
- 
- 	struct netpoll *netpoll;
-+	struct rcu_head rcu;
- };
- 
+@@ -43,7 +43,7 @@ struct netpoll_info {
  void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
-@@ -48,6 +50,7 @@ int netpoll_setup(struct netpoll *np);
+ void netpoll_print_options(struct netpoll *np);
+ int netpoll_parse_options(struct netpoll *np, char *opt);
+-int __netpoll_setup(struct netpoll *np, struct net_device *ndev);
++int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp);
+ int netpoll_setup(struct netpoll *np);
  int netpoll_trap(void);
  void netpoll_set_trap(int trap);
- void __netpoll_cleanup(struct netpoll *np);
-+void __netpoll_free_rcu(struct netpoll *np);
- void netpoll_cleanup(struct netpoll *np);
- int __netpoll_rx(struct sk_buff *skb);
- void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
 diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index ee4ae09..b65623f 100644
+index 73a2a83..ee4ae09 100644
 --- a/net/8021q/vlan_dev.c
 +++ b/net/8021q/vlan_dev.c
-@@ -704,11 +704,7 @@ static void vlan_dev_netpoll_cleanup(struct net_device *dev)
- 
- 	info->netpoll = NULL;
- 
--        /* Wait for transmitting packets to finish before freeing. */
--        synchronize_rcu_bh();
--
--        __netpoll_cleanup(netpoll);
--        kfree(netpoll);
-+	__netpoll_free_rcu(netpoll);
+@@ -669,19 +669,20 @@ static void vlan_dev_poll_controller(struct net_device *dev)
+ 	return;
  }
- #endif /* CONFIG_NET_POLL_CONTROLLER */
  
+-static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo)
++static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo,
++				  gfp_t gfp)
+ {
+ 	struct vlan_dev_priv *info = vlan_dev_priv(dev);
+ 	struct net_device *real_dev = info->real_dev;
+ 	struct netpoll *netpoll;
+ 	int err = 0;
+ 
+-	netpoll = kzalloc(sizeof(*netpoll), GFP_KERNEL);
++	netpoll = kzalloc(sizeof(*netpoll), gfp);
+ 	err = -ENOMEM;
+ 	if (!netpoll)
+ 		goto out;
+ 
+-	err = __netpoll_setup(netpoll, real_dev);
++	err = __netpoll_setup(netpoll, real_dev, gfp);
+ 	if (err) {
+ 		kfree(netpoll);
+ 		goto out;
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index ed0e0f9..f41ba40 100644
+index 3334845..ed0e0f9 100644
 --- a/net/bridge/br_device.c
 +++ b/net/bridge/br_device.c
-@@ -267,11 +267,7 @@ void br_netpoll_disable(struct net_bridge_port *p)
- 
- 	p->np = NULL;
- 
--	/* Wait for transmitting packets to finish before freeing. */
--	synchronize_rcu_bh();
--
--	__netpoll_cleanup(np);
--	kfree(np);
-+	__netpoll_free_rcu(np);
+@@ -213,7 +213,8 @@ static void br_netpoll_cleanup(struct net_device *dev)
+ 	}
  }
  
- #endif
+-static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
++static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni,
++			    gfp_t gfp)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	struct net_bridge_port *p, *n;
+@@ -222,8 +223,7 @@ static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
+ 	list_for_each_entry_safe(p, n, &br->port_list, list) {
+ 		if (!p->dev)
+ 			continue;
+-
+-		err = br_netpoll_enable(p);
++		err = br_netpoll_enable(p, gfp);
+ 		if (err)
+ 			goto fail;
+ 	}
+@@ -236,17 +236,17 @@ fail:
+ 	goto out;
+ }
+ 
+-int br_netpoll_enable(struct net_bridge_port *p)
++int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
+ {
+ 	struct netpoll *np;
+ 	int err = 0;
+ 
+-	np = kzalloc(sizeof(*p->np), GFP_KERNEL);
++	np = kzalloc(sizeof(*p->np), gfp);
+ 	err = -ENOMEM;
+ 	if (!np)
+ 		goto out;
+ 
+-	err = __netpoll_setup(np, p->dev);
++	err = __netpoll_setup(np, p->dev, gfp);
+ 	if (err) {
+ 		kfree(np);
+ 		goto out;
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index e1144e1..171fd6b 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -361,7 +361,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	if (err)
+ 		goto err2;
+ 
+-	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p))))
++	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p, GFP_KERNEL))))
+ 		goto err3;
+ 
+ 	err = netdev_set_master(dev, br->dev);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index a768b24..f507d2a 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -316,7 +316,7 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ 		netpoll_send_skb(np, skb);
+ }
+ 
+-extern int br_netpoll_enable(struct net_bridge_port *p);
++extern int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp);
+ extern void br_netpoll_disable(struct net_bridge_port *p);
+ #else
+ static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
+@@ -329,7 +329,7 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+ {
+ }
+ 
+-static inline int br_netpoll_enable(struct net_bridge_port *p)
++static inline int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp)
+ {
+ 	return 0;
+ }
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 37cc854..dc17f1d 100644
+index b4c90e4..37cc854 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -878,6 +878,24 @@ static int __init netpoll_init(void)
+@@ -715,7 +715,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
  }
- core_initcall(netpoll_init);
+ EXPORT_SYMBOL(netpoll_parse_options);
  
-+static void rcu_cleanup_netpoll_info(struct rcu_head *rcu_head)
-+{
-+	struct netpoll_info *npinfo =
-+			container_of(rcu_head, struct netpoll_info, rcu);
-+
-+	skb_queue_purge(&npinfo->arp_tx);
-+	skb_queue_purge(&npinfo->txq);
-+
-+	/* we can't call cancel_delayed_work_sync here, as we are in softirq */
-+	cancel_delayed_work(&npinfo->tx_work);
-+
-+	/* clean after last, unfinished work */
-+	__skb_queue_purge(&npinfo->txq);
-+	/* now cancel it again */
-+	cancel_delayed_work(&npinfo->tx_work);
-+	kfree(npinfo);
-+}
-+
- void __netpoll_cleanup(struct netpoll *np)
+-int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
++int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
  {
  	struct netpoll_info *npinfo;
-@@ -903,20 +921,24 @@ void __netpoll_cleanup(struct netpoll *np)
- 			ops->ndo_netpoll_cleanup(np->dev);
+ 	const struct net_device_ops *ops;
+@@ -734,7 +734,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 	}
  
- 		RCU_INIT_POINTER(np->dev->npinfo, NULL);
-+		call_rcu_bh(&npinfo->rcu, rcu_cleanup_netpoll_info);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(__netpoll_cleanup);
+ 	if (!ndev->npinfo) {
+-		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
++		npinfo = kmalloc(sizeof(*npinfo), gfp);
+ 		if (!npinfo) {
+ 			err = -ENOMEM;
+ 			goto out;
+@@ -752,7 +752,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
  
--		/* avoid racing with NAPI reading npinfo */
--		synchronize_rcu_bh();
-+static void rcu_cleanup_netpoll(struct rcu_head *rcu_head)
-+{
-+	struct netpoll *np = container_of(rcu_head, struct netpoll, rcu);
+ 		ops = np->dev->netdev_ops;
+ 		if (ops->ndo_netpoll_setup) {
+-			err = ops->ndo_netpoll_setup(ndev, npinfo);
++			err = ops->ndo_netpoll_setup(ndev, npinfo, gfp);
+ 			if (err)
+ 				goto free_npinfo;
+ 		}
+@@ -857,7 +857,7 @@ int netpoll_setup(struct netpoll *np)
+ 	refill_skbs();
  
--		skb_queue_purge(&npinfo->arp_tx);
--		skb_queue_purge(&npinfo->txq);
--		cancel_delayed_work_sync(&npinfo->tx_work);
-+	__netpoll_cleanup(np);
-+	kfree(np);
-+}
+ 	rtnl_lock();
+-	err = __netpoll_setup(np, ndev);
++	err = __netpoll_setup(np, ndev, GFP_KERNEL);
+ 	rtnl_unlock();
  
--		/* clean after last, unfinished work */
--		__skb_queue_purge(&npinfo->txq);
--		kfree(npinfo);
--	}
-+void __netpoll_free_rcu(struct netpoll *np)
-+{
-+	call_rcu_bh(&np->rcu, rcu_cleanup_netpoll);
- }
--EXPORT_SYMBOL_GPL(__netpoll_cleanup);
-+EXPORT_SYMBOL_GPL(__netpoll_free_rcu);
- 
- void netpoll_cleanup(struct netpoll *np)
- {
+ 	if (err)
 -- 
 1.7.7.6
