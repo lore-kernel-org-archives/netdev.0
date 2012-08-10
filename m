@@ -1,90 +1,52 @@
-From: Dmitry Melekhov <dm@belkam.com>
-Subject: no network to ip phones
-Date: Fri, 10 Aug 2012 07:54:19 +0400
-Message-ID: <502485EB.4040801@belkam.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/14] some netpoll and netconsole fixes
+Date: Thu, 09 Aug 2012 21:03:19 -0700 (PDT)
+Message-ID: <20120809.210319.607775008694193852.davem@davemloft.net>
+References: <20120809.163046.584126910434037730.davem@davemloft.net>
+	<20120809.163616.132379032405824162.davem@davemloft.net>
+	<1344564802.17296.1.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2.belkam.com ([88.80.32.211]:42704 "HELO relay2.belkam.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750704Ab2HJED0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 00:03:26 -0400
-Received: from inetgw1.p98.belkam.com (localhost [127.0.0.1])
-	(using TLSv1.1 with cipher AECDH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by relay2.belkam.com (Postfix) with ESMTPS id C0793200CA
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 07:54:20 +0400 (MSK)
-Received: from localhost (localhost [127.0.0.1])
-	by inetgw1.p98.belkam.com (Postfix) with ESMTP id BA18E6261B
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 07:54:20 +0400 (MSK)
-Received: from inetgw1.p98.belkam.com ([127.0.0.1])
-	by localhost (inetgw1.p98.belkam.com [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id mrtNlAUZCucJ for <netdev@vger.kernel.org>;
-	Fri, 10 Aug 2012 07:54:20 +0400 (MSK)
-Received: from [192.168.22.229] (dm.p98.belkam.com [192.168.22.229])
-	(using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by inetgw1.p98.belkam.com (Postfix) with ESMTPS id A8A37625EF
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 07:54:20 +0400 (MSK)
+Received: from shards.monkeyblade.net ([149.20.54.216]:36362 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720Ab2HJEDX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 00:03:23 -0400
+In-Reply-To: <1344564802.17296.1.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
-
-
-I run asterisk on x86 server , with kernel 2.6.39 all is OK, but with 3.0.38
-and 3.0.39 after some time server lost connections to sip phones:
-
-[Aug 2 15:02:51] WARNING[5790]: chan_sip.c:3392 __sip_xmit: sip_xmit of
-0x9bd88f8 (len 548) to 192.168.26.116:5060 returned -2: Network is down
-
-ping says the same, but other hosts work OK (from any other networks), only sip
-phones are affected.
-
-interfaces:
-
-[root@asterisk ~]# ifconfig
-eth0 Link encap:Ethernet HWaddr 00:30:48:85:5B:0A
-           inet addr:192.168.22.19 Bcast:192.168.22.255 Mask:255.255.255.0
-           inet6 addr: fe80::230:48ff:fe85:5b0a/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1
-           RX packets:61867 errors:0 dropped:666 overruns:0 frame:0
-           TX packets:25992 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:7013187 (6.6 MiB) TX bytes:3754003 (3.5 MiB)
-
-eth0.9 Link encap:Ethernet HWaddr 00:30:48:85:5B:0A
-           inet addr:192.168.42.132 Bcast:192.168.42.255 Mask:255.255.255.128
-           inet6 addr: fe80::230:48ff:fe85:5b0a/64 Scope:Link
-           UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1
-           RX packets:11634 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:10753 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:0
-           RX bytes:2407018 (2.2 MiB) TX bytes:2439435 (2.3 MiB)
-
-
-default gateway is on eth0, i.e. not tagged.
-
-hardware:
-[root@asterisk ~]# /sbin/lspci -nn | grep -i net
-01:01.0 Ethernet controller [0200]: Intel Corporation 82547GI Gigabit Ethernet
-Controller [8086:1075]
-02:01.0 Ethernet controller [0200]: Digium, Inc. Wildcard TE122 single-span
-T1/E1/J1 card [d161:8001] (rev 11)
-03:0a.0 Ethernet controller [0200]: Intel Corporation 82541GI Gigabit Ethernet
-Controller [8086:1076]
-
-I use elrepo kernel build, here is there bug report:
-
-http://elrepo.org/bugs/view.php?id=294
-
-I have no idea what can cause this problem :-(
-
-Thank you!
-
-btw, here is bug report:
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=45681
+RnJvbTogQ29uZyBXYW5nIDxhbXdhbmdAcmVkaGF0LmNvbT4NCkRhdGU6IEZyaSwgMTAgQXVnIDIw
+MTIgMTA6MTM6MjIgKzA4MDANCg0KPiBPbiBUaHUsIDIwMTItMDgtMDkgYXQgMTY6MzYgLTA3MDAs
+IERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldD4NCj4+IERhdGU6IFRodSwgMDkgQXVnIDIwMTIgMTY6MzA6NDYgLTA3MDAgKFBEVCkN
+Cj4+IA0KPj4gPiBGcm9tOiBDb25nIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29tPg0KPj4gPiBEYXRl
+OiBUaHUsICA5IEF1ZyAyMDEyIDIzOjAwOjEyICswODAwDQo+PiA+IA0KPj4gPj4gVjM6DQo+PiA+
+PiAqIGFkZCBtb3JlIHBhdGNoZXMNCj4+ID4+ICogdXBkYXRlIHBhdGNoIDcgYXMgRGF2aWQgc3Vn
+Z2VzdGVkDQo+PiA+PiANCj4+ID4+IFYyOg0KPj4gPj4gKiB1cGRhdGUgcGF0Y2ggMS84IGFzIEVy
+aWMgc3VnZ2VzdGVkDQo+PiA+PiAqIGRyb3AgdGhlIGJyaWRnZSBwYXRjaCwgYWRkIGNvbW1lbnRz
+IGluc3RlYWQNCj4+ID4+ICogYWRkIHBhdGNoIDgvOA0KPj4gPj4gDQo+PiA+PiBUaGlzIHBhdGNo
+c2V0IGZpeGVzIHNlcnZhbCBwcm9ibGVtcyBpbiBuZXRjb25zb2xlIGFuZCBuZXRwb2xsLg0KPj4g
+Pj4gDQo+PiA+PiBJIHJhbiB0aGlzIHBhdGNoIGluIG15IEtWTSBndWVzdCB3aXRoIHNvbWUgbmV0
+cG9sbCB0ZXN0IGNhc2VzLA0KPj4gPj4gZXZlbiBjb3ZlcmVkIHdpdGggc29tZSBjb3JuZXIgY2Fz
+ZXMsIGV2ZXJ5dGhpbmcgd29ya2VkIGFzIGV4cGVjdGVkLg0KPj4gPiANCj4+ID4gQWxsIGFwcGxp
+ZWQgdG8gJ25ldCcsIHRoYW5rcyBmb3IgZml4aW5nIGFsbCBvZiB0aGlzIHN0dWZmLg0KPj4gDQo+
+PiBBY3R1YWxseSwgeW91IGRpZG4ndCB0ZXN0IHRoZSBidWlsZCB2ZXJ5IHdlbGwsIEknbSByZXZl
+cnRpbmc6DQo+PiANCj4+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC90ZWFtL3Rl
+YW1fbW9kZV9icm9hZGNhc3QuYzoxNzowOg0KPj4gaW5jbHVkZS9saW51eC9pZl90ZWFtLmg6IElu
+IGZ1bmN0aW9uIKF0ZWFtX2Rldl9xdWV1ZV94bWl0ojoNCj4+IGluY2x1ZGUvbGludXgvaWZfdGVh
+bS5oOjEwNzo2OiBlcnJvcjogZGVyZWZlcmVuY2luZyBwb2ludGVyIHRvIGluY29tcGxldGUgdHlw
+ZQ0KPj4gbWFrZVszXTogKioqIFtkcml2ZXJzL25ldC90ZWFtL3RlYW1fbW9kZV9icm9hZGNhc3Qu
+b10gRXJyb3IgMQ0KPj4gbWFrZVszXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4u
+Li4NCj4+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC90ZWFtL3RlYW0uYzozMTow
+Og0KPj4gaW5jbHVkZS9saW51eC9pZl90ZWFtLmg6IEluIGZ1bmN0aW9uIKF0ZWFtX2Rldl9xdWV1
+ZV94bWl0ojoNCj4+IGluY2x1ZGUvbGludXgvaWZfdGVhbS5oOjEwNzo2OiBlcnJvcjogZGVyZWZl
+cmVuY2luZyBwb2ludGVyIHRvIGluY29tcGxldGUgdHlwZQ0KPj4gbWFrZVszXTogKioqIFtkcml2
+ZXJzL25ldC90ZWFtL3RlYW0ub10gRXJyb3IgMQ0KPj4gbWFrZVsyXTogKioqIFtkcml2ZXJzL25l
+dC90ZWFtXSBFcnJvciAyDQo+PiBtYWtlWzJdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBq
+b2JzLi4uLg0KPiANCj4gT29wcyEgU29ycnkgdGhhdCBJIGZvcmdvdCB0byBlbmFibGUgQ09ORklH
+X05FVF9URUFNLg0KPiANCj4gRG8geW91IHdhbnQgbWUgdG8gc2VuZCBhIGRlbHRhIHBhdGNoIG9y
+IHNlbmQgdjQ/DQoNClBsZWFzZSByZXNlbmQgdGhlIGZ1bGwgc2VyaWVzLg0K
