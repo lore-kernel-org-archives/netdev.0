@@ -1,52 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/14] some netpoll and netconsole fixes
-Date: Thu, 09 Aug 2012 21:03:19 -0700 (PDT)
-Message-ID: <20120809.210319.607775008694193852.davem@davemloft.net>
-References: <20120809.163046.584126910434037730.davem@davemloft.net>
-	<20120809.163616.132379032405824162.davem@davemloft.net>
-	<1344564802.17296.1.camel@cr0>
+Subject: Re: [PATCH] ipv4: tcp: unicast_sock should not land outside of TCP
+ stack
+Date: Thu, 09 Aug 2012 21:05:46 -0700 (PDT)
+Message-ID: <20120809.210546.819623704116134361.davem@davemloft.net>
+References: <1344547743.31104.582.camel@edumazet-glaptop>
+	<20120809.163851.1182547052663187702.davem@davemloft.net>
+	<1344556566.31104.808.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36362 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720Ab2HJEDX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 00:03:23 -0400
-In-Reply-To: <1344564802.17296.1.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eparis@parisplace.org, paul@paul-moore.com, casey@schaufler-ca.com,
+	johnstul@us.ibm.com, serge@hallyn.com,
+	linux-kernel@vger.kernel.org, james.l.morris@oracle.com,
+	selinux@tycho.nsa.gov, john.johansen@canonical.com,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1344556566.31104.808.camel@edumazet-glaptop>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQ29uZyBXYW5nIDxhbXdhbmdAcmVkaGF0LmNvbT4NCkRhdGU6IEZyaSwgMTAgQXVnIDIw
-MTIgMTA6MTM6MjIgKzA4MDANCg0KPiBPbiBUaHUsIDIwMTItMDgtMDkgYXQgMTY6MzYgLTA3MDAs
-IERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEZyb206IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldD4NCj4+IERhdGU6IFRodSwgMDkgQXVnIDIwMTIgMTY6MzA6NDYgLTA3MDAgKFBEVCkN
-Cj4+IA0KPj4gPiBGcm9tOiBDb25nIFdhbmcgPGFtd2FuZ0ByZWRoYXQuY29tPg0KPj4gPiBEYXRl
-OiBUaHUsICA5IEF1ZyAyMDEyIDIzOjAwOjEyICswODAwDQo+PiA+IA0KPj4gPj4gVjM6DQo+PiA+
-PiAqIGFkZCBtb3JlIHBhdGNoZXMNCj4+ID4+ICogdXBkYXRlIHBhdGNoIDcgYXMgRGF2aWQgc3Vn
-Z2VzdGVkDQo+PiA+PiANCj4+ID4+IFYyOg0KPj4gPj4gKiB1cGRhdGUgcGF0Y2ggMS84IGFzIEVy
-aWMgc3VnZ2VzdGVkDQo+PiA+PiAqIGRyb3AgdGhlIGJyaWRnZSBwYXRjaCwgYWRkIGNvbW1lbnRz
-IGluc3RlYWQNCj4+ID4+ICogYWRkIHBhdGNoIDgvOA0KPj4gPj4gDQo+PiA+PiBUaGlzIHBhdGNo
-c2V0IGZpeGVzIHNlcnZhbCBwcm9ibGVtcyBpbiBuZXRjb25zb2xlIGFuZCBuZXRwb2xsLg0KPj4g
-Pj4gDQo+PiA+PiBJIHJhbiB0aGlzIHBhdGNoIGluIG15IEtWTSBndWVzdCB3aXRoIHNvbWUgbmV0
-cG9sbCB0ZXN0IGNhc2VzLA0KPj4gPj4gZXZlbiBjb3ZlcmVkIHdpdGggc29tZSBjb3JuZXIgY2Fz
-ZXMsIGV2ZXJ5dGhpbmcgd29ya2VkIGFzIGV4cGVjdGVkLg0KPj4gPiANCj4+ID4gQWxsIGFwcGxp
-ZWQgdG8gJ25ldCcsIHRoYW5rcyBmb3IgZml4aW5nIGFsbCBvZiB0aGlzIHN0dWZmLg0KPj4gDQo+
-PiBBY3R1YWxseSwgeW91IGRpZG4ndCB0ZXN0IHRoZSBidWlsZCB2ZXJ5IHdlbGwsIEknbSByZXZl
-cnRpbmc6DQo+PiANCj4+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC90ZWFtL3Rl
-YW1fbW9kZV9icm9hZGNhc3QuYzoxNzowOg0KPj4gaW5jbHVkZS9saW51eC9pZl90ZWFtLmg6IElu
-IGZ1bmN0aW9uIKF0ZWFtX2Rldl9xdWV1ZV94bWl0ojoNCj4+IGluY2x1ZGUvbGludXgvaWZfdGVh
-bS5oOjEwNzo2OiBlcnJvcjogZGVyZWZlcmVuY2luZyBwb2ludGVyIHRvIGluY29tcGxldGUgdHlw
-ZQ0KPj4gbWFrZVszXTogKioqIFtkcml2ZXJzL25ldC90ZWFtL3RlYW1fbW9kZV9icm9hZGNhc3Qu
-b10gRXJyb3IgMQ0KPj4gbWFrZVszXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4u
-Li4NCj4+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC90ZWFtL3RlYW0uYzozMTow
-Og0KPj4gaW5jbHVkZS9saW51eC9pZl90ZWFtLmg6IEluIGZ1bmN0aW9uIKF0ZWFtX2Rldl9xdWV1
-ZV94bWl0ojoNCj4+IGluY2x1ZGUvbGludXgvaWZfdGVhbS5oOjEwNzo2OiBlcnJvcjogZGVyZWZl
-cmVuY2luZyBwb2ludGVyIHRvIGluY29tcGxldGUgdHlwZQ0KPj4gbWFrZVszXTogKioqIFtkcml2
-ZXJzL25ldC90ZWFtL3RlYW0ub10gRXJyb3IgMQ0KPj4gbWFrZVsyXTogKioqIFtkcml2ZXJzL25l
-dC90ZWFtXSBFcnJvciAyDQo+PiBtYWtlWzJdOiAqKiogV2FpdGluZyBmb3IgdW5maW5pc2hlZCBq
-b2JzLi4uLg0KPiANCj4gT29wcyEgU29ycnkgdGhhdCBJIGZvcmdvdCB0byBlbmFibGUgQ09ORklH
-X05FVF9URUFNLg0KPiANCj4gRG8geW91IHdhbnQgbWUgdG8gc2VuZCBhIGRlbHRhIHBhdGNoIG9y
-IHNlbmQgdjQ/DQoNClBsZWFzZSByZXNlbmQgdGhlIGZ1bGwgc2VyaWVzLg0K
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 10 Aug 2012 01:56:06 +0200
+
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> commit be9f4a44e7d41cee (ipv4: tcp: remove per net tcp_sock) added a
+> selinux regression, reported and bisected by John Stultz
+> 
+> selinux_ip_postroute_compat() expect to find a valid sk->sk_security
+> pointer, but this field is NULL for unicast_sock
+> 
+> It turns out that unicast_sock are really temporary stuff to be able
+> to reuse  part of IP stack (ip_append_data()/ip_push_pending_frames())
+> 
+> Fact is that frames sent by ip_send_unicast_reply() should be orphaned
+> to not fool LSM.
+> 
+> Note IPv6 never had this problem, as tcp_v6_send_response() doesnt use a
+> fake socket at all. I'll probably implement tcp_v4_send_response() to
+> remove these unicast_sock in linux-3.7
+> 
+> Reported-by: John Stultz <johnstul@us.ibm.com>
+> Bisected-by: John Stultz <johnstul@us.ibm.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied.
