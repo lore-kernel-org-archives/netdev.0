@@ -1,199 +1,40 @@
-From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [RFC PATCH 1/2] unix sockets: add ability for search for peer
- from passed root
-Date: Fri, 10 Aug 2012 22:43:59 +0400
-Message-ID: <5025566F.3010703@parallels.com>
-References: <20120810125701.7115.71612.stgit@localhost.localdomain> <20120810125730.7115.96005.stgit@localhost.localdomain> <20120810181002.GB17404@fieldses.org>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified root
+Date: Fri, 10 Aug 2012 11:42:32 -0700
+Message-ID: <50255618.9080708@zytor.com>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain> <50254FA6.3060806@zytor.com> <20120810192628.79a34d28@pyramind.ukuu.org.uk> <5025537D.9060300@zytor.com> <20120810194028.792f29f1@pyramind.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org" <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	"tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20120810181002.GB17404-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stanislav Kinsbursky <skinsbursky@parallels.com>,
+	Trond.Myklebust@netapp.com, davem@davemloft.net,
+	linux-nfs@vger.kernel.org, eric.dumazet@gmail.com,
+	xemul@parallels.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bfields@fieldses.org,
+	viro@zeniv.linux.org.uk, tim.c.chen@linux.intel.com,
+	devel@openvz.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120810194028.792f29f1@pyramind.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-10.08.2012 22:10, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Fri, Aug 10, 2012 at 04:57:30PM +0400, Stanislav Kinsbursky wrote:
->> This helper is used stream sockets yet.
->> All is simple: if non-NULL struct path was passed to unix_find_other=
-(), then
->> vfs_path_lookup() is called instead of kern_path().
-> I'm having some trouble parsing the changelog.  Maybe something like?=
-:
->
-> 	unix sockets: add ability to look up using passed-in root
->
-> 	Export a unix_stream_connect_root() helper that allows a caller
-> 	to optionally pass in a root path, in which case the lookup will
-> 	be done relative to the given path instead of the current
-> 	working directory.
+On 08/10/2012 11:40 AM, Alan Cox wrote:
+> 
+> Agreed on open() for sockets.. the lack of open is a Berklix derived
+> pecularity of the interface. It would equally be useful to be able to
+> open "/dev/socket/ipv4/1.2.3.4/1135" and the like for scripts and stuff
+> 
+> That needs VFS changes however so you can pass the remainder of a path to
+> a device node. It also lets you do a lot of other sane stuff like
+> 
+> 	open /dev/ttyS0/9600/8n1
+> 
 
-Yep, your variant is much better. Thanks.
+Well, supporting device node subpaths would be nice, but I don't think
+that that is a requirement either for being able to open() a socket (as
+a Linux extension) nor for supporting something like your above
+/dev/socket/... since that could be done with a filesystem rather than
+just a device node.
 
->
-> I guess this is a question for the networking people, but: will it ca=
-use
-> problems to have sunrpc calling directly into the unix socket code?
->
-> (And if so, what would be the alternative: define some variant of
-> sockaddr_un that includes the root path?  Something better?)
-
-That was my first idea. But there are problems with this solution (add=20
-root path to sockaddr_un) :
-1) sockaddr_un size will change. I don't know, how this will affect=20
-user-space. Of course, we can introduce something like:
-
-struct sockaddr_un_kern {
-struct sockaddr_un un;
-struct path *path;
-}
-
-But even in this case we need to color this structure somehow (for=20
-example, set path to NULL for simple connect or bind call) . And to add=
-=20
-this color, we have to separate sys_connect () from our=20
-sock->ops->connect() call. And I don't really know how to do it since w=
-e=20
-don't have any info about socket type in sys_connect () in hands. I.e.=20
-we have it, but then we have to add some specific UNIX socket logic to=20
-completely generic sys_connect () and sys_bind () .
-
-> --b.
->
->> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
->> ---
->>   include/net/af_unix.h |    2 ++
->>   net/unix/af_unix.c    |   25 ++++++++++++++++++-------
->>   2 files changed, 20 insertions(+), 7 deletions(-)
->>
->> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
->> index 2ee33da..559467e 100644
->> --- a/include/net/af_unix.h
->> +++ b/include/net/af_unix.h
->> @@ -67,6 +67,8 @@ struct unix_sock {
->>  =20
->>   long unix_inq_len(struct sock *sk);
->>   long unix_outq_len(struct sock *sk);
->> +int unix_stream_connect_root(struct path *root, struct socket *sock=
-,
->> +			     struct sockaddr *uaddr, int addr_len, int flags);
->>  =20
->>   #ifdef CONFIG_SYSCTL
->>   extern int unix_sysctl_register(struct net *net);
->> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
->> index 641f2e4..a790ebc 100644
->> --- a/net/unix/af_unix.c
->> +++ b/net/unix/af_unix.c
->> @@ -759,7 +759,7 @@ out:	mutex_unlock(&u->readlock);
->>   	return err;
->>   }
->>  =20
->> -static struct sock *unix_find_other(struct net *net,
->> +static struct sock *unix_find_other(struct net *net, struct path *r=
-oot,
->>   				    struct sockaddr_un *sunname, int len,
->>   				    int type, unsigned int hash, int *error)
->>   {
->> @@ -769,7 +769,11 @@ static struct sock *unix_find_other(struct net =
-*net,
->>  =20
->>   	if (sunname->sun_path[0]) {
->>   		struct inode *inode;
->> -		err =3D kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
->> +
->> +		if (root)
->> +			err =3D vfs_path_lookup(root->dentry, root->mnt, sunname->sun_pa=
-th, LOOKUP_FOLLOW, &path);
->> +		else
->> +			err =3D kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
->>   		if (err)
->>   			goto fail;
->>   		inode =3D path.dentry->d_inode;
->> @@ -979,7 +983,7 @@ static int unix_dgram_connect(struct socket *soc=
-k, struct sockaddr *addr,
->>   			goto out;
->>  =20
->>   restart:
->> -		other =3D unix_find_other(net, sunaddr, alen, sock->type, hash, &=
-err);
->> +		other =3D unix_find_other(net, NULL, sunaddr, alen, sock->type, h=
-ash, &err);
->>   		if (!other)
->>   			goto out;
->>  =20
->> @@ -1053,8 +1057,8 @@ static long unix_wait_for_peer(struct sock *ot=
-her, long timeo)
->>   	return timeo;
->>   }
->>  =20
->> -static int unix_stream_connect(struct socket *sock, struct sockaddr=
- *uaddr,
->> -			       int addr_len, int flags)
->> +int unix_stream_connect_root(struct path *root, struct socket *sock=
-,
->> +			     struct sockaddr *uaddr, int addr_len, int flags)
->>   {
->>   	struct sockaddr_un *sunaddr =3D (struct sockaddr_un *)uaddr;
->>   	struct sock *sk =3D sock->sk;
->> @@ -1098,7 +1102,7 @@ static int unix_stream_connect(struct socket *=
-sock, struct sockaddr *uaddr,
->>  =20
->>   restart:
->>   	/*  Find listening sock. */
->> -	other =3D unix_find_other(net, sunaddr, addr_len, sk->sk_type, has=
-h, &err);
->> +	other =3D unix_find_other(net, root, sunaddr, addr_len, sk->sk_typ=
-e, hash, &err);
->>   	if (!other)
->>   		goto out;
->>  =20
->> @@ -1227,6 +1231,13 @@ out:
->>   		sock_put(other);
->>   	return err;
->>   }
->> +EXPORT_SYMBOL_GPL(unix_stream_connect_root);
->> +
->> +static int unix_stream_connect(struct socket *sock, struct sockaddr=
- *uaddr,
->> +				    int addr_len, int flags)
->> +{
->> +	return unix_stream_connect_root(NULL, sock, uaddr, addr_len, flags=
-);
->> +}
->>  =20
->>   static int unix_socketpair(struct socket *socka, struct socket *so=
-ckb)
->>   {
->> @@ -1508,7 +1519,7 @@ restart:
->>   		if (sunaddr =3D=3D NULL)
->>   			goto out_free;
->>  =20
->> -		other =3D unix_find_other(net, sunaddr, namelen, sk->sk_type,
->> +		other =3D unix_find_other(net, NULL, sunaddr, namelen, sk->sk_typ=
-e,
->>   					hash, &err);
->>   		if (other =3D=3D NULL)
->>   			goto out_free;
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-nfs"=
- in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	-hpa
