@@ -1,35 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] SubmittingPatches: clarify SOB tag usage when
- evolving submissions
-Date: Thu, 09 Aug 2012 18:12:11 -0700
-Message-ID: <1344561131.2034.1.camel@joe2Laptop>
-References: <1344548903-23117-1-git-send-email-mcgrof@do-not-panic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, rdunlap@xenotime.net, tytso@mit.edu,
-	alan@lxorguk.ukuu.org.uk, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:53184 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751440Ab2HJBMM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2012 21:12:12 -0400
-In-Reply-To: <1344548903-23117-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 1/5] ipvs: ip_vs_ftp depends on nf_conntrack_ftp helper
+Date: Fri, 10 Aug 2012 10:41:30 +0900
+Message-ID: <1344562895-22790-2-git-send-email-horms@verge.net.au>
+References: <1344562895-22790-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1344562895-22790-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-08-09 at 14:48 -0700, Luis R. Rodriguez wrote:
-> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-> 
-> Initial large code submissions typically are not accepted
-> on their first patch submission. The developers are
-> typically given feedback and at times some developers may
-> even submit changes to the original authors for integration
-> into their second submission attempt.
-> 
-> Developers wishing to contribute changes to the evolution
-> of a second patch submission must supply their own Siged-off-by
+From: Julian Anastasov <ja@ssi.bg>
 
-Signed-off-by:  :)
+	The FTP application indirectly depends on the
+nf_conntrack_ftp helper for proper NAT support. If the
+module is not loaded, IPVS can resize the packets for the
+command connection, eg. PASV response but the SEQ adjustment
+logic in ipv4_confirm is not called without helper.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/netfilter/ipvs/Kconfig b/net/netfilter/ipvs/Kconfig
+index f987138..8b2cffd 100644
+--- a/net/netfilter/ipvs/Kconfig
++++ b/net/netfilter/ipvs/Kconfig
+@@ -250,7 +250,8 @@ comment 'IPVS application helper'
+ 
+ config	IP_VS_FTP
+   	tristate "FTP protocol helper"
+-        depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT
++	depends on IP_VS_PROTO_TCP && NF_CONNTRACK && NF_NAT && \
++		NF_CONNTRACK_FTP
+ 	select IP_VS_NFCT
+ 	---help---
+ 	  FTP is a protocol that transfers IP address and/or port number in
+-- 
+1.7.10.2.484.gcd07cc5
+
