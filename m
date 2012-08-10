@@ -1,45 +1,73 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 03/15] netconsole: do not release spin_lock when calling __netpoll_cleanup
-Date: Fri, 10 Aug 2012 19:24:39 +0800
-Message-ID: <1344597891-32242-4-git-send-email-amwang@redhat.com>
+Subject: [PATCH 05/15] netpoll: use netpoll_rx_on() in netpoll_rx()
+Date: Fri, 10 Aug 2012 19:24:41 +0800
+Message-ID: <1344597891-32242-6-git-send-email-amwang@redhat.com>
 References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Cc: Cong Wang <amwang@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62476 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52587 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752254Ab2HJLZa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 07:25:30 -0400
+	id S1753616Ab2HJLZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 07:25:33 -0400
 In-Reply-To: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the previous patch applied, __netpoll_cleanup() is non-block now,
-so we don't need to release the spin_lock before calling it.
+The logic of the code is same, just call netpoll_rx_on().
 
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/netconsole.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+ include/linux/netpoll.h |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index f9347ea..f0ad56c 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -640,12 +640,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 				 * rtnl_lock already held
- 				 */
- 				if (nt->np.dev) {
--					spin_unlock_irqrestore(
--							      &target_list_lock,
--							      flags);
- 					__netpoll_cleanup(&nt->np);
--					spin_lock_irqsave(&target_list_lock,
--							  flags);
- 					dev_put(nt->np.dev);
- 					nt->np.dev = NULL;
- 					netconsole_target_put(nt);
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 5d881c3..2d178ba 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -63,6 +63,13 @@ static inline void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ 
+ 
+ #ifdef CONFIG_NETPOLL
++static inline int netpoll_rx_on(struct sk_buff *skb)
++{
++	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
++
++	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
++}
++
+ static inline bool netpoll_rx(struct sk_buff *skb)
+ {
+ 	struct netpoll_info *npinfo;
+@@ -70,11 +77,11 @@ static inline bool netpoll_rx(struct sk_buff *skb)
+ 	bool ret = false;
+ 
+ 	local_irq_save(flags);
+-	npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 
+-	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
++	if (!netpoll_rx_on(skb))
+ 		goto out;
+ 
++	npinfo = rcu_dereference_bh(skb->dev->npinfo);
+ 	spin_lock(&npinfo->rx_lock);
+ 	/* check rx_flags again with the lock held */
+ 	if (npinfo->rx_flags && __netpoll_rx(skb, npinfo))
+@@ -86,13 +93,6 @@ out:
+ 	return ret;
+ }
+ 
+-static inline int netpoll_rx_on(struct sk_buff *skb)
+-{
+-	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
+-
+-	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
+-}
+-
+ static inline int netpoll_receive_skb(struct sk_buff *skb)
+ {
+ 	if (!list_empty(&skb->dev->napi_list))
 -- 
 1.7.7.6
