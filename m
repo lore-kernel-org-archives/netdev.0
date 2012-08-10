@@ -1,59 +1,108 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 08/14] bridge: use list_for_each_entry() in netpoll functions
-Date: Fri, 10 Aug 2012 15:10:31 +0800
-Message-ID: <1344582637-18261-9-git-send-email-amwang@redhat.com>
+Subject: [PATCH 09/14] netpoll: check netpoll tx status on the right device
+Date: Fri, 10 Aug 2012 15:10:32 +0800
+Message-ID: <1344582637-18261-10-git-send-email-amwang@redhat.com>
 References: <1344582637-18261-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Cc: Cong Wang <amwang@redhat.com>, Jiri Pirko <jpirko@redhat.com>,
+	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9644 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28139 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756134Ab2HJHLO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 03:11:14 -0400
+	id S1756110Ab2HJHLR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 03:11:17 -0400
 In-Reply-To: <1344582637-18261-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We don't delete 'p' from the list in the loop,
-so we can just use list_for_each_entry().
+Although this doesn't matter actually, because netpoll_tx_running()
+doesn't use the parameter, the code will be more readable.
 
+For team_dev_queue_xmit() we have to move it down to avoid
+compile errors.
+
+Cc: Jiri Pirko <jpirko@redhat.com>
 Cc: David Miller <davem@davemloft.net>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/bridge/br_device.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/bonding/bond_main.c |    2 +-
+ include/linux/if_team.h         |   30 +++++++++++++++---------------
+ net/bridge/br_forward.c         |    2 +-
+ 3 files changed, 17 insertions(+), 17 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index f41ba40..32211fa 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -206,21 +206,20 @@ static void br_poll_controller(struct net_device *br_dev)
- static void br_netpoll_cleanup(struct net_device *dev)
- {
- 	struct net_bridge *br = netdev_priv(dev);
--	struct net_bridge_port *p, *n;
-+	struct net_bridge_port *p;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e428916..d688a8a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -398,7 +398,7 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ 		     sizeof(qdisc_skb_cb(skb)->slave_dev_queue_mapping));
+ 	skb->queue_mapping = qdisc_skb_cb(skb)->slave_dev_queue_mapping;
  
--	list_for_each_entry_safe(p, n, &br->port_list, list) {
-+	list_for_each_entry(p, &br->port_list, list)
- 		br_netpoll_disable(p);
--	}
+-	if (unlikely(netpoll_tx_running(slave_dev)))
++	if (unlikely(netpoll_tx_running(bond->dev)))
+ 		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
+ 	else
+ 		dev_queue_xmit(skb);
+diff --git a/include/linux/if_team.h b/include/linux/if_team.h
+index 6960fc1..aa2e167 100644
+--- a/include/linux/if_team.h
++++ b/include/linux/if_team.h
+@@ -96,21 +96,6 @@ static inline void team_netpoll_send_skb(struct team_port *port,
  }
+ #endif
  
- static int br_netpoll_setup(struct net_device *dev, struct netpoll_info *ni,
- 			    gfp_t gfp)
+-static inline int team_dev_queue_xmit(struct team *team, struct team_port *port,
+-				      struct sk_buff *skb)
+-{
+-	BUILD_BUG_ON(sizeof(skb->queue_mapping) !=
+-		     sizeof(qdisc_skb_cb(skb)->slave_dev_queue_mapping));
+-	skb_set_queue_mapping(skb, qdisc_skb_cb(skb)->slave_dev_queue_mapping);
+-
+-	skb->dev = port->dev;
+-	if (unlikely(netpoll_tx_running(port->dev))) {
+-		team_netpoll_send_skb(port, skb);
+-		return 0;
+-	}
+-	return dev_queue_xmit(skb);
+-}
+-
+ struct team_mode_ops {
+ 	int (*init)(struct team *team);
+ 	void (*exit)(struct team *team);
+@@ -200,6 +185,21 @@ struct team {
+ 	long mode_priv[TEAM_MODE_PRIV_LONGS];
+ };
+ 
++static inline int team_dev_queue_xmit(struct team *team, struct team_port *port,
++				      struct sk_buff *skb)
++{
++	BUILD_BUG_ON(sizeof(skb->queue_mapping) !=
++		     sizeof(qdisc_skb_cb(skb)->slave_dev_queue_mapping));
++	skb_set_queue_mapping(skb, qdisc_skb_cb(skb)->slave_dev_queue_mapping);
++
++	skb->dev = port->dev;
++	if (unlikely(netpoll_tx_running(team->dev))) {
++		team_netpoll_send_skb(port, skb);
++		return 0;
++	}
++	return dev_queue_xmit(skb);
++}
++
+ static inline struct hlist_head *team_port_index_hash(struct team *team,
+ 						      int port_index)
  {
- 	struct net_bridge *br = netdev_priv(dev);
--	struct net_bridge_port *p, *n;
-+	struct net_bridge_port *p;
- 	int err = 0;
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index e9466d4..02015a5 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -65,7 +65,7 @@ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+ {
+ 	skb->dev = to->dev;
  
--	list_for_each_entry_safe(p, n, &br->port_list, list) {
-+	list_for_each_entry(p, &br->port_list, list) {
- 		if (!p->dev)
- 			continue;
- 		err = br_netpoll_enable(p, gfp);
+-	if (unlikely(netpoll_tx_running(to->dev))) {
++	if (unlikely(netpoll_tx_running(to->br->dev))) {
+ 		if (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))
+ 			kfree_skb(skb);
+ 		else {
 -- 
 1.7.7.6
