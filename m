@@ -1,33 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix ip_send_skb()
-Date: Fri, 10 Aug 2012 14:09:27 -0700 (PDT)
-Message-ID: <20120810.140927.907727160541183930.davem@davemloft.net>
-References: <1344601367.31104.2672.camel@edumazet-glaptop>
+From: Stuart Wacha <piotr.zachaczewski@2buymedia.com>
+Subject: try your scekxual strength - use VjaqrRa sSupEer Acctivve Ppjills
+Date: Fri, 10 Aug 2012 14:09:01 +0100
+Message-ID: <2528619615.20120810140901@2buymedia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45441 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752853Ab2HJVJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 17:09:27 -0400
-In-Reply-To: <1344601367.31104.2672.camel@edumazet-glaptop>
+Received: from tower.qday.pl ([87.98.236.62]:35974 "EHLO mx.qday.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754921Ab2HJVQL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 17:16:11 -0400
+Received: from mx.qday.pl (localhost [127.0.0.1])
+	by mx.qday.pl (Postfix) with ESMTP id 93DF430C383
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 23:09:02 +0200 (CEST)
+Received: from 2buymedia.com (unknown [216.70.97.241])
+	by mx.qday.pl (Postfix) with ESMTPA id 4A62D30C384
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 23:09:02 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Aug 2012 14:22:47 +0200
-
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> ip_send_skb() can send orphaned skb, so we must pass the net pointer to
-> avoid possible NULL dereference in error path.
-> 
-> Bug added by commit 3a7c384ffd57 (ipv4: tcp: unicast_sock should not
-> land outside of TCP stack)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks Eric.
+bBuy VjaqrRa ppiills in due course
+ http://litoralcreativo.cl/_vti_txt/dis.php?Stuart Wacha
+best wishes, Stuart Wacha
