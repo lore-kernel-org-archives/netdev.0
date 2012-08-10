@@ -1,43 +1,71 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 07/15] bridge: add some comments for NETDEV_RELEASE
-Date: Fri, 10 Aug 2012 19:24:43 +0800
-Message-ID: <1344597891-32242-8-git-send-email-amwang@redhat.com>
+Subject: [PATCH 11/15] vlan: clean up some variable names
+Date: Fri, 10 Aug 2012 19:24:47 +0800
+Message-ID: <1344597891-32242-12-git-send-email-amwang@redhat.com>
 References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Cc: Cong Wang <amwang@redhat.com>, Benjamin LaHaise <bcrl@kvack.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17856 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60156 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753952Ab2HJLZi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 07:25:38 -0400
+	id S1754906Ab2HJLZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 07:25:52 -0400
 In-Reply-To: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add comments on why we don't notify NETDEV_RELEASE.
+To be consistent, s/info/vlan/.
 
+Cc: Benjamin LaHaise <bcrl@kvack.org>
+Cc: Patrick McHardy <kaber@trash.net>
 Cc: David Miller <davem@davemloft.net>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/bridge/br_if.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/8021q/vlan_dev.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 171fd6b..1c8fdc3 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -427,6 +427,10 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
- 	if (!p || p->br != br)
- 		return -EINVAL;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index b65623f..0347d48 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -672,8 +672,8 @@ static void vlan_dev_poll_controller(struct net_device *dev)
+ static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo,
+ 				  gfp_t gfp)
+ {
+-	struct vlan_dev_priv *info = vlan_dev_priv(dev);
+-	struct net_device *real_dev = info->real_dev;
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++	struct net_device *real_dev = vlan->real_dev;
+ 	struct netpoll *netpoll;
+ 	int err = 0;
  
-+	/* Since more than one interface can be attached to a bridge,
-+	 * there still maybe an alternate path for netconsole to use;
-+	 * therefore there is no reason for a NETDEV_RELEASE event.
-+	 */
- 	del_nbp(p);
+@@ -688,7 +688,7 @@ static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *n
+ 		goto out;
+ 	}
  
- 	spin_lock_bh(&br->lock);
+-	info->netpoll = netpoll;
++	vlan->netpoll = netpoll;
+ 
+ out:
+ 	return err;
+@@ -696,13 +696,13 @@ out:
+ 
+ static void vlan_dev_netpoll_cleanup(struct net_device *dev)
+ {
+-	struct vlan_dev_priv *info = vlan_dev_priv(dev);
+-	struct netpoll *netpoll = info->netpoll;
++	struct vlan_dev_priv *vlan= vlan_dev_priv(dev);
++	struct netpoll *netpoll = vlan->netpoll;
+ 
+ 	if (!netpoll)
+ 		return;
+ 
+-	info->netpoll = NULL;
++	vlan->netpoll = NULL;
+ 
+ 	__netpoll_free_rcu(netpoll);
+ }
 -- 
 1.7.7.6
