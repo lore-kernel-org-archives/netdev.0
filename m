@@ -1,47 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] NETDEV_UNREGISTER_BATCH seems unused nowaday ?
-Date: Fri, 10 Aug 2012 13:06:49 +0200
-Message-ID: <1344596809.31104.2358.camel@edumazet-glaptop>
-References: <1344590824.31104.1953.camel@edumazet-glaptop>
-	 <20120810.034211.994338127277150687.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 7/8] bridge: add some comments for NETDEV_RELEASE
+Date: Fri, 10 Aug 2012 04:13:18 -0700
+Message-ID: <1344597198.2338.9.camel@joe2Laptop>
+References: <1344263012-4031-1-git-send-email-amwang@redhat.com>
+	 <1344263012-4031-8-git-send-email-amwang@redhat.com>
+	 <20120806.135003.442648448779232464.davem@davemloft.net>
+	 <1344296345.2026.3.camel@joe2Laptop>
+	 <alpine.LNX.2.01.1208101257010.10147@frira.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, amwang@redhat.com,
+	netdev@vger.kernel.org, shemminger@vyatta.com
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:38267 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760206Ab2HJLGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 07:06:54 -0400
-Received: by bkwj10 with SMTP id j10so542680bkw.19
-        for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 04:06:53 -0700 (PDT)
-In-Reply-To: <20120810.034211.994338127277150687.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:33179 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753133Ab2HJLNT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 07:13:19 -0400
+In-Reply-To: <alpine.LNX.2.01.1208101257010.10147@frira.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-10 at 03:42 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 10 Aug 2012 11:27:04 +0200
+On Fri, 2012-08-10 at 12:59 +0200, Jan Engelhardt wrote:
+> On Tuesday 2012-08-07 01:39, Joe Perches wrote:
+> >On Mon, 2012-08-06 at 13:50 -0700, David Miller wrote:
+> >> > +	/*
+> >> > +	 * We don't notify NETDEV_RELEASE event, as this will
+> >> > +	 * stop netconsole on the bridge.
+> >> > +	 */
+> >> 
+> >> Please format comments in the networking:
+> >> 
+> >> 	/* Like
+> >> 	 * this.
+> >> 	 */
+> >
+> >Maybe add a networking specific block comment style
+> >to checkpatch. This doesn't trigger on files outside
+> >of drivers/net and net.
 > 
-> > NETDEV_UNREGISTER_BATCH seems unused we can probably remove it.
-> 
-> Indeed, the routing cache was the final real user.
-> 
-> > I am tracking a device refcount issue, delaying net device dismantle by
-> > 1 second in netdev_wait_allrefs()
-> > 
-> > I guess we need to add a notifier called _after_ the final
-> > synchronize_net() in rollback_registered_many()
-> 
-> It's essentially caused by DST_GC_INC, right?
+> Is there any particular reason why net/ wants to be special?
 
-No, we in fact need a rcu_barrier(), then another call to
-dst_dev_event().
+A determined maintainer with a strong desire
+for consistency using an idiomatic style.
 
-rcu_barrier() is needed so that in-flight call_rcu() of routes (from
-rt_free()) are completed. Or else we miss these dst in the
-dst_dev_event().
-
-I have a working patch, adding the rcu_barrier() and one additional
-NETDEV_UNREGISTER_FINAL event.
+A thread about it:
+https://lkml.org/lkml/2012/4/16/443
