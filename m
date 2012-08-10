@@ -1,121 +1,58 @@
-From: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Subject: [RFC PATCH 2/2] SUNRPC: connect local transports with
-	unix_stream_connect_root() helper
-Date: Fri, 10 Aug 2012 16:57:35 +0400
-Message-ID: <20120810125735.7115.62993.stgit@localhost.localdomain>
-References: <20120810125701.7115.71612.stgit@localhost.localdomain>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net-next] bonding: don't allow the master to become its slave
+Date: Fri, 10 Aug 2012 15:04:01 +0200
+Message-ID: <20120810130401.GC1543@minipsycho>
+References: <20120809195539.GB1783@minipsycho.orion>
+ <1344546593.2593.24.camel@bwh-desktop.uk.solarflarecom.com>
+ <22811.1344547628@death.nxdomain>
+ <20120809.164331.1709422829981798177.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-nfs@vger.kernel.org, eric.dumazet@gmail.com,
-	xemul@parallels.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bfields@fieldses.org,
-	viro@zeniv.linux.org.uk, tim.c.chen@linux.intel.com,
-	devel@openvz.org
-To: Trond.Myklebust@netapp.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120810125701.7115.71612.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, bhutchings@solarflare.com, jpirko@redhat.com,
+	fbl@redhat.com, netdev@vger.kernel.org, andy@greyhouse.net,
+	lchiquitto@suse.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:53288 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988Ab2HJNEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 09:04:06 -0400
+Received: by wibhr14 with SMTP id hr14so1351818wib.1
+        for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 06:04:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120809.164331.1709422829981798177.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Today, there is a problem in connecting of local SUNRPC thansports. These
-transports uses UNIX sockets and connection itself is done by rpciod
-workqueue.
-But UNIX sockets lookup is done in context of process file system root. I.e.
-all local thunsports are connecting in rpciod context.
-This works nice until we will try to mount NFS from process with other root -
-for example in container. This container can have it's own (nested) root and
-rcpbind process, listening on it's own unix sockets. But NFS mount attempt in
-this container will register new service (Lockd for example) in global rpcbind
-- not containers's one.
-This patch solves the problem by using special helper
-unix_stream_connect_root(), which lookup socket file starting from passed
-root.
+Fri, Aug 10, 2012 at 01:43:31AM CEST, davem@davemloft.net wrote:
+>From: Jay Vosburgh <fubar@us.ibm.com>
+>Date: Thu, 09 Aug 2012 14:27:08 -0700
+>
+>> 	If that's hard to do (and it might be; I'm not aware of a
+>> standard way to run up and down those stacks of interfaces, which might
+>> not always be vlans in the middle), there's still the priv_flags &
+>> IFF_BONDING test that bonding could (and probably should) do itself as
+>> well.  The team driver could presumably have a similar test, although I
+>> seem to recall that team was allowed to nest.
+>> 
+>> 	FWIW, I've seen both the top and bottom halves of that picture
+>> in use (i.e., bonds consisting of vlans as slaves or bonds with vlans
+>> configured above them), but not combined as in your diagram.
+>
+>We're basically looking for cycles in a complex graph.
+>
+>Some combination of Jay and Ben's most recent patches, with some minor
+>modifications, ought to do it.
 
-Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
----
- net/sunrpc/xprtsock.c |   28 +++++++++++++++++++++++++---
- 1 files changed, 25 insertions(+), 3 deletions(-)
 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 890b03f..01a6f2a 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -37,6 +37,7 @@
- #include <linux/sunrpc/svcsock.h>
- #include <linux/sunrpc/xprtsock.h>
- #include <linux/file.h>
-+#include <linux/fs_struct.h>
- #ifdef CONFIG_SUNRPC_BACKCHANNEL
- #include <linux/sunrpc/bc_xprt.h>
- #endif
-@@ -45,6 +46,7 @@
- #include <net/checksum.h>
- #include <net/udp.h>
- #include <net/tcp.h>
-+#include <net/af_unix.h>
- 
- #include "sunrpc.h"
- 
-@@ -255,6 +257,11 @@ struct sock_xprt {
- 	void			(*old_state_change)(struct sock *);
- 	void			(*old_write_space)(struct sock *);
- 	void			(*old_error_report)(struct sock *);
-+
-+	/*
-+	 * Saved transport creator root. Required for local transports only.
-+	 */
-+	struct path		root;
- };
- 
- /*
-@@ -1873,7 +1880,8 @@ static int xs_local_finish_connecting(struct rpc_xprt *xprt,
- 	/* Tell the socket layer to start connecting... */
- 	xprt->stat.connect_count++;
- 	xprt->stat.connect_start = jiffies;
--	return kernel_connect(sock, xs_addr(xprt), xprt->addrlen, 0);
-+	return unix_stream_connect_root(&transport->root, sock, xs_addr(xprt),
-+					xprt->addrlen, 0);
- }
- 
- /**
-@@ -2213,6 +2221,18 @@ static void xs_connect(struct rpc_task *task)
- 	}
- }
- 
-+static void xs_local_destroy(struct rpc_xprt *xprt)
-+{
-+	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
-+	struct path root = transport->root;
-+
-+	dprintk("RPC:       xs_local_destroy xprt %p\n", xprt);
-+
-+	xs_destroy(xprt);
-+
-+	path_put(&root);
-+}
-+
- /**
-  * xs_local_print_stats - display AF_LOCAL socket-specifc stats
-  * @xprt: rpc_xprt struct containing statistics
-@@ -2431,7 +2451,7 @@ static struct rpc_xprt_ops xs_local_ops = {
- 	.send_request		= xs_local_send_request,
- 	.set_retrans_timeout	= xprt_set_retrans_timeout_def,
- 	.close			= xs_close,
--	.destroy		= xs_destroy,
-+	.destroy		= xs_local_destroy,
- 	.print_stats		= xs_local_print_stats,
- };
- 
-@@ -2607,8 +2627,10 @@ static struct rpc_xprt *xs_setup_local(struct xprt_create *args)
- 	dprintk("RPC:       set up xprt to %s via AF_LOCAL\n",
- 			xprt->address_strings[RPC_DISPLAY_ADDR]);
- 
--	if (try_module_get(THIS_MODULE))
-+	if (try_module_get(THIS_MODULE)) {
-+		get_fs_root(current->fs, &transport->root);
- 		return xprt;
-+	}
- 	ret = ERR_PTR(-EINVAL);
- out_err:
- 	xprt_free(xprt);
+Hmm. Would be probably good to have list/table of related devices,
+possibly with information about the relation.
+After that, every relation add would check for loops.
+
+I will dive in the code over the weekend to see if this is doable in
+some nice way.
+
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
