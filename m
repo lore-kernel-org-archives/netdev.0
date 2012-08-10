@@ -1,44 +1,125 @@
-From: Jain Priyanka-B32167 <B32167@freescale.com>
-Subject: RE: [PATCH][XFRM][v2] Replace rwlock on xfrm_policy_afinfo with rcu
-Date: Fri, 10 Aug 2012 04:29:46 +0000
-Message-ID: <AC83832D6324604BB08FAE5A33553F1907A9B384@039-SN2MPN1-012.039d.mgd.msft.net>
-References: <1344493315-2505-1-git-send-email-Priyanka.Jain@freescale.com>
- <20120809.161508.1611476184890758249.davem@davemloft.net>
+From: Daniel J Blueman <daniel@quora.org>
+Subject: [3.5.1] tg3 waitqueue hang on hotplug remove...
+Date: Fri, 10 Aug 2012 13:27:42 +0800
+Message-ID: <CAMVG2suraC4LpgpmfwOCeOOXHdCXRmZou4sUD8Z_V=U090GE4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.181.185] ([216.32.181.185]:21201 "EHLO
-	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751110Ab2HJEbB convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 00:31:01 -0400
-In-Reply-To: <20120809.161508.1611476184890758249.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Matt, Michael,
 
+On my Macbook Retina with 3.5.1, I see the tg3 external adapter (via
+Thunderbolt) get logically disconnected after a while despite
+remaining connected (Thunderbolt issues).
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
-Sent: Friday, August 10, 2012 4:45 AM
-To: Jain Priyanka-B32167
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH][XFRM][v2] Replace rwlock on xfrm_policy_afinfo with rcu
+The problem is though, that the pciehp_wq workqueue fails to complete
+flushing from the call to pcie_cleanup_slot (inlined in
+pciehp_release_ctrl) [1]; looks like tg3_tx or so is missing a
+finish_wait(), no?
 
-From: Priyanka Jain <Priyanka.Jain@freescale.com>
-Date: Thu, 9 Aug 2012 11:51:55 +0530
+Daniel
 
-> +	local_bh_disable();
-> +	rcu_read_lock();
+--- [1]
 
-This is "rcu_read_lock_bh()"
-[Priyanka] will correct this in v3. 
-
-Also I do not believe you addressed any of Eric Dumazet's feedback.
-[Priyanka] Will send v3 after closing on Eric Dumazet's feedback. Thanks
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+pcieport 0000:00:01.0: irq 42 for MSI/MSI-X
+pcieport 0000:00:01.1: irq 43 for MSI/MSI-X
+pcieport 0000:00:01.2: irq 44 for MSI/MSI-X
+pcieport 0000:05:00.0: irq 45 for MSI/MSI-X
+pcieport 0000:06:00.0: irq 46 for MSI/MSI-X
+pcieport 0000:06:03.0: irq 47 for MSI/MSI-X
+pcieport 0000:06:04.0: irq 48 for MSI/MSI-X
+pcieport 0000:06:05.0: irq 49 for MSI/MSI-X
+pcieport 0000:06:06.0: irq 50 for MSI/MSI-X
+pcieport 0000:08:00.0: irq 51 for MSI/MSI-X
+pcieport 0000:09:00.0: irq 52 for MSI/MSI-X
+pci_hotplug: PCI Hot Plug PCI Core version: 0.5
+pciehp 0000:06:00.0:pcie24: HPC vendor_id 8086 device_id 1547 ss_vid
+2222 ss_did 1111
+pciehp 0000:06:00.0:pcie24: service driver pciehp loaded
+pciehp 0000:06:03.0:pcie24: HPC vendor_id 8086 device_id 1547 ss_vid
+2222 ss_did 1111
+pciehp 0000:06:03.0:pcie24: service driver pciehp loaded
+pciehp 0000:06:04.0:pcie24: HPC vendor_id 8086 device_id 1547 ss_vid
+2222 ss_did 1111
+pciehp 0000:06:04.0:pcie24: service driver pciehp loaded
+pciehp 0000:06:05.0:pcie24: HPC vendor_id 8086 device_id 1547 ss_vid
+2222 ss_did 1111
+pciehp 0000:06:05.0:pcie24: service driver pciehp loaded
+pciehp 0000:06:06.0:pcie24: HPC vendor_id 8086 device_id 1547 ss_vid
+2222 ss_did 1111
+pciehp 0000:06:06.0:pcie24: service driver pciehp loaded
+pciehp 0000:09:00.0:pcie24: HPC vendor_id 8086 device_id 1549 ss_vid 0 ss_did 0
+pciehp 0000:09:00.0:pcie24: service driver pciehp loaded
+pciehp: PCI Express Hot Plug Controller Driver version: 0.4
+tg3 0000:0a:00.0: eth0: Tigon3 [partno(BCM957762) rev 57766000] (PCI
+Express) MAC address 40:6c:8f:36:1a:67
+tg3 0000:0a:00.0: eth0: attached PHY is 57765 (10/100/1000Base-T
+Ethernet) (WireSpeed[1], EEE[0])
+tg3 0000:0a:00.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+tg3 0000:0a:00.0: eth0: dma_rwctrl[00000001] dma_mask[64-bit]
+...
+pciehp 0000:06:03.0:pcie24: Card not present on Slot(3)
+tg3 0000:0a:00.0: tg3_abort_hw timed out, TX_MODE_ENABLE will not
+clear MAC_TX_MODE=ffffffff
+tg3 0000:0a:00.0: eth1: No firmware running
+tg3 0000:0a:00.0: eth1: Link is down
+[sched_delayed] sched: RT throttling activated
+pciehp 0000:09:00.0:pcie24: unloading service driver pciehp
+INFO: task kworker/0:2:3072 blocked for more than 120 seconds.
+"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+kworker/0:2   D ffffffff8180cc20   0 3072   2 0x00000000
+ ffff880237f75800 0000000000000046 0000000000000001 ffff880237f757b0
+ ffff880237f75fd8 ffff880237f75fd8 ffff880237f75fd8 0000000000013940
+ ffff88025f3b5c00 ffff880237eb5c00 0000000000000000 7fffffffffffffff
+Call Trace:
+ [<ffffffff816966e9>] schedule+0x29/0x70
+ [<ffffffff81694e05>] schedule_timeout+0x2a5/0x320
+ [<ffffffff81040af9>] ? default_spin_lock_flags+0x9/0x10
+ [<ffffffff811ee0f9>] ? pde_put+0x79/0xa0
+ [<ffffffff8169653f>] wait_for_common+0xdf/0x180
+ [<ffffffff811ee0f9>] ? pde_put+0x79/0xa0
+ [<ffffffff8108a360>] ? try_to_wake_up+0x200/0x200
+ [<ffffffff816966bd>] wait_for_completion+0x1d/0x20
+ [<ffffffff81070ec3>] flush_workqueue+0x143/0x400
+ [<ffffffff8136d600>] ? pciehp_disable_slot+0x1f0/0x1f0
+ [<ffffffff8136f986>] pciehp_release_ctrl+0x46/0xa0
+ [<ffffffff8136c037>] pciehp_remove+0x27/0x30
+ [<ffffffff81365167>] pcie_port_remove_service+0x57/0x70
+ [<ffffffff81423abc>] __device_release_driver+0x7c/0xe0
+ [<ffffffff81423b4c>] device_release_driver+0x2c/0x40
+ [<ffffffff81423551>] bus_remove_device+0xe1/0x120
+ [<ffffffff81365480>] ? resume_iter+0x40/0x40
+ [<ffffffff81420d60>] device_del+0x120/0x1b0
+ [<ffffffff81365480>] ? resume_iter+0x40/0x40
+ [<ffffffff81420e06>] device_unregister+0x16/0x30
+ [<ffffffff813654bd>] remove_iter+0x3d/0x50
+ [<ffffffff8141fe64>] device_for_each_child+0x44/0x70
+ [<ffffffff81365a16>] pcie_port_device_remove+0x26/0x40
+ [<ffffffff81365b56>] pcie_portdrv_remove+0x16/0x30
+ [<ffffffff8135e426>] pci_device_remove+0x46/0x110
+ [<ffffffff81423abc>] __device_release_driver+0x7c/0xe0
+ [<ffffffff81423b4c>] device_release_driver+0x2c/0x40
+ [<ffffffff81423551>] bus_remove_device+0xe1/0x120
+ [<ffffffff81420d60>] device_del+0x120/0x1b0
+ [<ffffffff81420e06>] device_unregister+0x16/0x30
+ [<ffffffff81357c64>] pci_stop_bus_device+0x94/0xa0
+ [<ffffffff81357c13>] pci_stop_bus_device+0x43/0xa0
+ [<ffffffff81357e16>] pci_stop_and_remove_bus_device+0x16/0x30
+ [<ffffffff8136db61>] pciehp_unconfigure_device+0x91/0x190
+ [<ffffffff8136d485>] pciehp_disable_slot+0x75/0x1f0
+ [<ffffffff8136d6e3>] pciehp_power_thread+0xe3/0x110
+ [<ffffffff81071a3a>] process_one_work+0x11a/0x480
+ [<ffffffff81072ac5>] worker_thread+0x165/0x370
+ [<ffffffff81072960>] ? manage_workers.isra.29+0x130/0x130
+ [<ffffffff81077873>] kthread+0x93/0xa0
+ [<ffffffff816a1164>] kernel_thread_helper+0x4/0x10
+ [<ffffffff810777e0>] ? kthread_freezable_should_stop+0x70/0x70
+ [<ffffffff816a1160>] ? gs_change+0x13/0x13
+-- 
+Daniel J Blueman
