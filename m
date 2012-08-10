@@ -1,153 +1,127 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 1/2] net: move and rename netif_notify_peers()
-Date: Fri, 10 Aug 2012 16:14:56 +0800
-Message-ID: <1344586497-2702-1-git-send-email-amwang@redhat.com>
+Subject: [PATCH 2/2] net: remove netdev_bonding_change()
+Date: Fri, 10 Aug 2012 16:14:57 +0800
+Message-ID: <1344586497-2702-2-git-send-email-amwang@redhat.com>
+References: <1344586497-2702-1-git-send-email-amwang@redhat.com>
 Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <Ian.Campbell@citrix.com>
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13668 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23666 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756532Ab2HJIPS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757391Ab2HJIPS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 10 Aug 2012 04:15:18 -0400
+In-Reply-To: <1344586497-2702-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I believe net/core/dev.c is a better place for netif_notify_peers(),
-because other net event notify functions also stay in this file.
-
-And rename it to netdev_notify_peers().
+I don't see any benifits to use netdev_bonding_change() than
+using call_netdevice_notifiers() directly.
 
 Cc: David S. Miller <davem@davemloft.net>
-Cc: Ian Campbell <Ian.Campbell@citrix.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |    2 +-
- drivers/net/virtio_net.c        |    2 +-
- drivers/net/xen-netfront.c      |    2 +-
- include/linux/netdevice.h       |    3 +--
- net/core/dev.c                  |   18 ++++++++++++++++++
- net/sched/sch_generic.c         |   18 ------------------
- 6 files changed, 22 insertions(+), 23 deletions(-)
+ drivers/net/bonding/bond_main.c |   20 ++++++++++----------
+ include/linux/netdevice.h       |    2 --
+ net/core/dev.c                  |    6 ------
+ 3 files changed, 10 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 8c5a1c4..e91111a 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -400,7 +400,7 @@ static void netvsc_send_garp(struct work_struct *w)
- 	ndev_ctx = container_of(w, struct net_device_context, dwork.work);
- 	net_device = hv_get_drvdata(ndev_ctx->device_ctx);
- 	net = net_device->ndev;
--	netif_notify_peers(net);
-+	netdev_notify_peers(net);
- }
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6fae5f3..d95fbc3 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1120,10 +1120,10 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			write_unlock_bh(&bond->curr_slave_lock);
+ 			read_unlock(&bond->lock);
  
+-			netdev_bonding_change(bond->dev, NETDEV_BONDING_FAILOVER);
++			call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
+ 			if (should_notify_peers)
+-				netdev_bonding_change(bond->dev,
+-						      NETDEV_NOTIFY_PEERS);
++				call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
++							 bond->dev);
  
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 83d2b0c..81a64c5 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -993,7 +993,7 @@ static void virtnet_config_changed_work(struct work_struct *work)
- 		goto done;
+ 			read_lock(&bond->lock);
+ 			write_lock_bh(&bond->curr_slave_lock);
+@@ -1560,8 +1560,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 				 bond_dev->name,
+ 				 bond_dev->type, slave_dev->type);
  
- 	if (v & VIRTIO_NET_S_ANNOUNCE) {
--		netif_notify_peers(vi->dev);
-+		netdev_notify_peers(vi->dev);
- 		virtnet_ack_link_announce(vi);
+-			res = netdev_bonding_change(bond_dev,
+-						    NETDEV_PRE_TYPE_CHANGE);
++			res = call_netdevice_notifiers(NETDEV_PRE_TYPE_CHANGE,
++						       bond_dev);
+ 			res = notifier_to_errno(res);
+ 			if (res) {
+ 				pr_err("%s: refused to change device type\n",
+@@ -1581,8 +1581,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 				bond_dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 			}
+ 
+-			netdev_bonding_change(bond_dev,
+-					      NETDEV_POST_TYPE_CHANGE);
++			call_netdevice_notifiers(NETDEV_POST_TYPE_CHANGE,
++						 bond_dev);
+ 		}
+ 	} else if (bond_dev->type != slave_dev->type) {
+ 		pr_err("%s ether type (%d) is different from other slaves (%d), can not enslave it.\n",
+@@ -1943,7 +1943,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
  	}
  
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 3089990..39afd37 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1731,7 +1731,7 @@ static void netback_changed(struct xenbus_device *dev,
- 		break;
+ 	block_netpoll_tx();
+-	netdev_bonding_change(bond_dev, NETDEV_RELEASE);
++	call_netdevice_notifiers(NETDEV_RELEASE, bond_dev);
+ 	write_lock_bh(&bond->lock);
  
- 	case XenbusStateConnected:
--		netif_notify_peers(netdev);
-+		netdev_notify_peers(netdev);
- 		break;
- 
- 	case XenbusStateClosing:
+ 	slave = bond_get_slave_by_dev(bond, slave_dev);
+@@ -2586,7 +2586,7 @@ re_arm:
+ 			read_unlock(&bond->lock);
+ 			return;
+ 		}
+-		netdev_bonding_change(bond->dev, NETDEV_NOTIFY_PEERS);
++		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+ 		rtnl_unlock();
+ 	}
+ }
+@@ -3205,7 +3205,7 @@ re_arm:
+ 			read_unlock(&bond->lock);
+ 			return;
+ 		}
+-		netdev_bonding_change(bond->dev, NETDEV_NOTIFY_PEERS);
++		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+ 		rtnl_unlock();
+ 	}
+ }
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a9db4f3..8d4b731 100644
+index 8d4b731..1d6ab69 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -2246,8 +2246,6 @@ extern void netif_carrier_on(struct net_device *dev);
- 
- extern void netif_carrier_off(struct net_device *dev);
- 
--extern void netif_notify_peers(struct net_device *dev);
--
- /**
-  *	netif_dormant_on - mark device as dormant.
-  *	@dev: network device
-@@ -2596,6 +2594,7 @@ extern void		__dev_set_rx_mode(struct net_device *dev);
- extern int		dev_set_promiscuity(struct net_device *dev, int inc);
+@@ -2595,8 +2595,6 @@ extern int		dev_set_promiscuity(struct net_device *dev, int inc);
  extern int		dev_set_allmulti(struct net_device *dev, int inc);
  extern void		netdev_state_change(struct net_device *dev);
-+extern void		netdev_notify_peers(struct net_device *dev);
- extern int		netdev_bonding_change(struct net_device *dev,
- 					      unsigned long event);
+ extern void		netdev_notify_peers(struct net_device *dev);
+-extern int		netdev_bonding_change(struct net_device *dev,
+-					      unsigned long event);
  extern void		netdev_features_change(struct net_device *dev);
+ /* Load a device via the kmod */
+ extern void		dev_load(struct net *net, const char *name);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index a39354e..1eb9636 100644
+index 1eb9636..8e480eb 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1109,6 +1109,24 @@ void netdev_state_change(struct net_device *dev)
+@@ -1127,12 +1127,6 @@ void netdev_notify_peers(struct net_device *dev)
  }
- EXPORT_SYMBOL(netdev_state_change);
+ EXPORT_SYMBOL(netdev_notify_peers);
  
-+/**
-+ * 	netdev_notify_peers - notify network peers about existence of @dev
-+ * 	@dev: network device
-+ *
-+ * Generate traffic such that interested network peers are aware of
-+ * @dev, such as by generating a gratuitous ARP. This may be used when
-+ * a device wants to inform the rest of the network about some sort of
-+ * reconfiguration such as a failover event or virtual machine
-+ * migration.
-+ */
-+void netdev_notify_peers(struct net_device *dev)
-+{
-+	rtnl_lock();
-+	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, dev);
-+	rtnl_unlock();
-+}
-+EXPORT_SYMBOL(netdev_notify_peers);
-+
- int netdev_bonding_change(struct net_device *dev, unsigned long event)
- {
- 	return call_netdevice_notifiers(event, dev);
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 511323e..6c4d5fe 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -324,24 +324,6 @@ void netif_carrier_off(struct net_device *dev)
- }
- EXPORT_SYMBOL(netif_carrier_off);
- 
--/**
-- * 	netif_notify_peers - notify network peers about existence of @dev
-- * 	@dev: network device
-- *
-- * Generate traffic such that interested network peers are aware of
-- * @dev, such as by generating a gratuitous ARP. This may be used when
-- * a device wants to inform the rest of the network about some sort of
-- * reconfiguration such as a failover event or virtual machine
-- * migration.
-- */
--void netif_notify_peers(struct net_device *dev)
+-int netdev_bonding_change(struct net_device *dev, unsigned long event)
 -{
--	rtnl_lock();
--	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, dev);
--	rtnl_unlock();
+-	return call_netdevice_notifiers(event, dev);
 -}
--EXPORT_SYMBOL(netif_notify_peers);
+-EXPORT_SYMBOL(netdev_bonding_change);
 -
- /* "NOOP" scheduler: the best scheduler, recommended for all interfaces
-    under all circumstances. It is difficult to invent anything faster or
-    cheaper.
+ /**
+  *	dev_load 	- load a network module
+  *	@net: the applicable net namespace
 -- 
 1.7.7.6
