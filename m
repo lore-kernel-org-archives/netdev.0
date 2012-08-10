@@ -1,25 +1,20 @@
-From: Stuart Wacha <piotr.zachaczewski@2buymedia.com>
-Subject: try your scekxual strength - use VjaqrRa sSupEer Acctivve Ppjills
-Date: Fri, 10 Aug 2012 14:09:01 +0100
-Message-ID: <2528619615.20120810140901@2buymedia.com>
+From: mary <web67789782@att.net>
+Subject: Nice to meet you,
+Date: Fri, 10 Aug 2012 14:41:26 -0700 (PDT)
+Message-ID: <1344634886.50165.YahooMailClassic@web181301.mail.ne1.yahoo.com>
+Reply-To: mjane302@yahoo.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tower.qday.pl ([87.98.236.62]:35974 "EHLO mx.qday.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754921Ab2HJVQL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 17:16:11 -0400
-Received: from mx.qday.pl (localhost [127.0.0.1])
-	by mx.qday.pl (Postfix) with ESMTP id 93DF430C383
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 23:09:02 +0200 (CEST)
-Received: from 2buymedia.com (unknown [216.70.97.241])
-	by mx.qday.pl (Postfix) with ESMTPA id 4A62D30C384
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 23:09:02 +0200 (CEST)
+Received: from nm6.access.bullet.mail.sp2.yahoo.com ([98.139.44.133]:21387
+	"HELO nm6.access.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752853Ab2HJVl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 17:41:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bBuy VjaqrRa ppiills in due course
- http://litoralcreativo.cl/_vti_txt/dis.php?Stuart Wacha
-best wishes, Stuart Wacha
+
+Nice to meet you,
+Am miss Mary,interested in you,and wish to have you as my friend, for a friend is all about Respect,Admiration and love passion also friendship is consist of sharing of ideas and planing together, i intend to send you my picture for you,if you reply me.
+thanks from Mary
