@@ -1,49 +1,199 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: [E1000-devel] discussion questions: SR-IOV, virtualization, and
- bonding
-Date: Fri, 10 Aug 2012 12:41:40 -0600
-Message-ID: <502555E4.6060705@genband.com>
-References: <501AD33E.5090308@genband.com> <17679.1343939453@death.nxdomain>	 <501AFEAD.10001@genband.com> <501B0037.1010804@genband.com>	 <20421.1343948491@death.nxdomain> <501B587E.6040703@intel.com> <1344016163.2610.9.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [RFC PATCH 1/2] unix sockets: add ability for search for peer
+ from passed root
+Date: Fri, 10 Aug 2012 22:43:59 +0400
+Message-ID: <5025566F.3010703@parallels.com>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain> <20120810125730.7115.96005.stgit@localhost.localdomain> <20120810181002.GB17404@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og121.obsmtp.com ([64.18.2.20]:40350 "EHLO
-	exprod7og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754673Ab2HJSl6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 14:41:58 -0400
-In-Reply-To: <1344016163.2610.9.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pavel Emelianov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org" <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	"tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org" <tim.c.chen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org" <devel-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120810181002.GB17404-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 08/03/2012 11:49 AM, Ben Hutchings wrote:
-> On Thu, 2012-08-02 at 21:50 -0700, John Fastabend wrote:
-
->> Perhaps one argument against this is if the hardware supports loopback
->> modes or the edge relay in the hardware is acting like a VEB it may
->> still be possible to support VF to VF traffic even if the external link
->> is down. Not sure how useful this is though or if any existing hardware
->> even supports it.
-> [...]
+10.08.2012 22:10, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Fri, Aug 10, 2012 at 04:57:30PM +0400, Stanislav Kinsbursky wrote:
+>> This helper is used stream sockets yet.
+>> All is simple: if non-NULL struct path was passed to unix_find_other=
+(), then
+>> vfs_path_lookup() is called instead of kern_path().
+> I'm having some trouble parsing the changelog.  Maybe something like?=
+:
 >
-> It seems to me that VF to VF traffic ought to still work.  If it doesn't
-> then that's an unfortunate regression when moving from software bridging
-> and virtio to hardware-supported network virtualisation.  (But hybrid
-> network virtualisation may help to solve that.)
+> 	unix sockets: add ability to look up using passed-in root
+>
+> 	Export a unix_stream_connect_root() helper that allows a caller
+> 	to optionally pass in a root path, in which case the lookup will
+> 	be done relative to the given path instead of the current
+> 	working directory.
 
-I would have thought this to be desirable as well.  Apparently the Intel 
-engineers disagreed.  The 82599 datasheet has the following:
+Yep, your variant is much better. Thanks.
 
-"Loopback is disabled when the network link is disconnected. It is 
-expected (but not required) that system software (including VMs) does 
-not post packets for transmission when the link is disconnected. Note 
-that packets posted by system software for transmission when the link is 
-down are buffered."
+>
+> I guess this is a question for the networking people, but: will it ca=
+use
+> problems to have sunrpc calling directly into the unix socket code?
+>
+> (And if so, what would be the alternative: define some variant of
+> sockaddr_un that includes the root path?  Something better?)
 
-Chris
+That was my first idea. But there are problems with this solution (add=20
+root path to sockaddr_un) :
+1) sockaddr_un size will change. I don't know, how this will affect=20
+user-space. Of course, we can introduce something like:
+
+struct sockaddr_un_kern {
+struct sockaddr_un un;
+struct path *path;
+}
+
+But even in this case we need to color this structure somehow (for=20
+example, set path to NULL for simple connect or bind call) . And to add=
+=20
+this color, we have to separate sys_connect () from our=20
+sock->ops->connect() call. And I don't really know how to do it since w=
+e=20
+don't have any info about socket type in sys_connect () in hands. I.e.=20
+we have it, but then we have to add some specific UNIX socket logic to=20
+completely generic sys_connect () and sys_bind () .
+
+> --b.
+>
+>> Signed-off-by: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+>> ---
+>>   include/net/af_unix.h |    2 ++
+>>   net/unix/af_unix.c    |   25 ++++++++++++++++++-------
+>>   2 files changed, 20 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+>> index 2ee33da..559467e 100644
+>> --- a/include/net/af_unix.h
+>> +++ b/include/net/af_unix.h
+>> @@ -67,6 +67,8 @@ struct unix_sock {
+>>  =20
+>>   long unix_inq_len(struct sock *sk);
+>>   long unix_outq_len(struct sock *sk);
+>> +int unix_stream_connect_root(struct path *root, struct socket *sock=
+,
+>> +			     struct sockaddr *uaddr, int addr_len, int flags);
+>>  =20
+>>   #ifdef CONFIG_SYSCTL
+>>   extern int unix_sysctl_register(struct net *net);
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index 641f2e4..a790ebc 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+>> @@ -759,7 +759,7 @@ out:	mutex_unlock(&u->readlock);
+>>   	return err;
+>>   }
+>>  =20
+>> -static struct sock *unix_find_other(struct net *net,
+>> +static struct sock *unix_find_other(struct net *net, struct path *r=
+oot,
+>>   				    struct sockaddr_un *sunname, int len,
+>>   				    int type, unsigned int hash, int *error)
+>>   {
+>> @@ -769,7 +769,11 @@ static struct sock *unix_find_other(struct net =
+*net,
+>>  =20
+>>   	if (sunname->sun_path[0]) {
+>>   		struct inode *inode;
+>> -		err =3D kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
+>> +
+>> +		if (root)
+>> +			err =3D vfs_path_lookup(root->dentry, root->mnt, sunname->sun_pa=
+th, LOOKUP_FOLLOW, &path);
+>> +		else
+>> +			err =3D kern_path(sunname->sun_path, LOOKUP_FOLLOW, &path);
+>>   		if (err)
+>>   			goto fail;
+>>   		inode =3D path.dentry->d_inode;
+>> @@ -979,7 +983,7 @@ static int unix_dgram_connect(struct socket *soc=
+k, struct sockaddr *addr,
+>>   			goto out;
+>>  =20
+>>   restart:
+>> -		other =3D unix_find_other(net, sunaddr, alen, sock->type, hash, &=
+err);
+>> +		other =3D unix_find_other(net, NULL, sunaddr, alen, sock->type, h=
+ash, &err);
+>>   		if (!other)
+>>   			goto out;
+>>  =20
+>> @@ -1053,8 +1057,8 @@ static long unix_wait_for_peer(struct sock *ot=
+her, long timeo)
+>>   	return timeo;
+>>   }
+>>  =20
+>> -static int unix_stream_connect(struct socket *sock, struct sockaddr=
+ *uaddr,
+>> -			       int addr_len, int flags)
+>> +int unix_stream_connect_root(struct path *root, struct socket *sock=
+,
+>> +			     struct sockaddr *uaddr, int addr_len, int flags)
+>>   {
+>>   	struct sockaddr_un *sunaddr =3D (struct sockaddr_un *)uaddr;
+>>   	struct sock *sk =3D sock->sk;
+>> @@ -1098,7 +1102,7 @@ static int unix_stream_connect(struct socket *=
+sock, struct sockaddr *uaddr,
+>>  =20
+>>   restart:
+>>   	/*  Find listening sock. */
+>> -	other =3D unix_find_other(net, sunaddr, addr_len, sk->sk_type, has=
+h, &err);
+>> +	other =3D unix_find_other(net, root, sunaddr, addr_len, sk->sk_typ=
+e, hash, &err);
+>>   	if (!other)
+>>   		goto out;
+>>  =20
+>> @@ -1227,6 +1231,13 @@ out:
+>>   		sock_put(other);
+>>   	return err;
+>>   }
+>> +EXPORT_SYMBOL_GPL(unix_stream_connect_root);
+>> +
+>> +static int unix_stream_connect(struct socket *sock, struct sockaddr=
+ *uaddr,
+>> +				    int addr_len, int flags)
+>> +{
+>> +	return unix_stream_connect_root(NULL, sock, uaddr, addr_len, flags=
+);
+>> +}
+>>  =20
+>>   static int unix_socketpair(struct socket *socka, struct socket *so=
+ckb)
+>>   {
+>> @@ -1508,7 +1519,7 @@ restart:
+>>   		if (sunaddr =3D=3D NULL)
+>>   			goto out_free;
+>>  =20
+>> -		other =3D unix_find_other(net, sunaddr, namelen, sk->sk_type,
+>> +		other =3D unix_find_other(net, NULL, sunaddr, namelen, sk->sk_typ=
+e,
+>>   					hash, &err);
+>>   		if (other =3D=3D NULL)
+>>   			goto out_free;
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-nfs"=
+ in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
