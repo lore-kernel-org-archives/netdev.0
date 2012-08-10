@@ -1,71 +1,57 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 11/15] vlan: clean up some variable names
-Date: Fri, 10 Aug 2012 19:24:47 +0800
-Message-ID: <1344597891-32242-12-git-send-email-amwang@redhat.com>
+Subject: [PATCH 14/15] netpoll: re-enable irq in poll_napi()
+Date: Fri, 10 Aug 2012 19:24:50 +0800
+Message-ID: <1344597891-32242-15-git-send-email-amwang@redhat.com>
 References: <1344597891-32242-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>, Benjamin LaHaise <bcrl@kvack.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
+Cc: Cong Wang <amwang@redhat.com>, David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60156 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33977 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754906Ab2HJLZw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2012 07:25:52 -0400
+	id S1754913Ab2HJLZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 07:25:56 -0400
 In-Reply-To: <1344597891-32242-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To be consistent, s/info/vlan/.
+napi->poll() needs IRQ enabled, so we have to re-enable IRQ before
+calling it.
 
-Cc: Benjamin LaHaise <bcrl@kvack.org>
-Cc: Patrick McHardy <kaber@trash.net>
 Cc: David Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/8021q/vlan_dev.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ net/core/netpoll.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index b65623f..0347d48 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -672,8 +672,8 @@ static void vlan_dev_poll_controller(struct net_device *dev)
- static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *npinfo,
- 				  gfp_t gfp)
- {
--	struct vlan_dev_priv *info = vlan_dev_priv(dev);
--	struct net_device *real_dev = info->real_dev;
-+	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
-+	struct net_device *real_dev = vlan->real_dev;
- 	struct netpoll *netpoll;
- 	int err = 0;
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index e4ba3e7..346b1eb 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -168,16 +168,24 @@ static void poll_napi(struct net_device *dev)
+ 	struct napi_struct *napi;
+ 	int budget = 16;
  
-@@ -688,7 +688,7 @@ static int vlan_dev_netpoll_setup(struct net_device *dev, struct netpoll_info *n
- 		goto out;
++	WARN_ON_ONCE(!irqs_disabled());
++
+ 	list_for_each_entry(napi, &dev->napi_list, dev_list) {
++		local_irq_enable();
+ 		if (napi->poll_owner != smp_processor_id() &&
+ 		    spin_trylock(&napi->poll_lock)) {
++			rcu_read_lock_bh();
+ 			budget = poll_one_napi(rcu_dereference_bh(dev->npinfo),
+ 					       napi, budget);
++			rcu_read_unlock_bh();
+ 			spin_unlock(&napi->poll_lock);
+ 
+-			if (!budget)
++			if (!budget) {
++				local_irq_disable();
+ 				break;
++			}
+ 		}
++		local_irq_disable();
  	}
- 
--	info->netpoll = netpoll;
-+	vlan->netpoll = netpoll;
- 
- out:
- 	return err;
-@@ -696,13 +696,13 @@ out:
- 
- static void vlan_dev_netpoll_cleanup(struct net_device *dev)
- {
--	struct vlan_dev_priv *info = vlan_dev_priv(dev);
--	struct netpoll *netpoll = info->netpoll;
-+	struct vlan_dev_priv *vlan= vlan_dev_priv(dev);
-+	struct netpoll *netpoll = vlan->netpoll;
- 
- 	if (!netpoll)
- 		return;
- 
--	info->netpoll = NULL;
-+	vlan->netpoll = NULL;
- 
- 	__netpoll_free_rcu(netpoll);
  }
+ 
 -- 
 1.7.7.6
