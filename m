@@ -1,64 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] NETDEV_UNREGISTER_BATCH seems unused nowaday ?
-Date: Fri, 10 Aug 2012 17:01:19 +0200
-Message-ID: <1344610879.31104.2715.camel@edumazet-glaptop>
-References: <1344590824.31104.1953.camel@edumazet-glaptop>
-	 <20120810.034211.994338127277150687.davem@davemloft.net>
-	 <1344596809.31104.2358.camel@edumazet-glaptop>
-	 <87vcgq955v.fsf@xmission.com>
+Subject: Re: [PATCH] codel: refine one condition to avoid a nul rec_inv_sqrt
+Date: Fri, 10 Aug 2012 17:16:11 +0200
+Message-ID: <1344611771.31104.2716.camel@edumazet-glaptop>
+References: <1343631141.2626.13293.camel@edumazet-glaptop>
+	 <20120730.145412.1689803770003231369.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org, lp2s1h@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:47992 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:46116 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758269Ab2HJPBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 11:01:24 -0400
-Received: by bkwj10 with SMTP id j10so633091bkw.19
-        for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 08:01:23 -0700 (PDT)
-In-Reply-To: <87vcgq955v.fsf@xmission.com>
+	with ESMTP id S1754572Ab2HJPQQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2012 11:16:16 -0400
+Received: by bkwj10 with SMTP id j10so639098bkw.19
+        for <netdev@vger.kernel.org>; Fri, 10 Aug 2012 08:16:15 -0700 (PDT)
+In-Reply-To: <20120730.145412.1689803770003231369.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-08-10 at 07:45 -0700, Eric W. Biederman wrote:
-
-> Can someone help bring me up to speed.  What has changed in the
-> dst ref counting that has invalidated our previous solutions?
+On Mon, 2012-07-30 at 14:54 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 30 Jul 2012 08:52:21 +0200
 > 
-
-In fact your patch (850a545bd8a416484 net: Move rcu_barrier from
-rollback_registered_many to netdev_run_todo.) reinstated the problem
-again. You didnt notice, but other people can see the problem.
-
-> As for the idea of putting an rcu_barrier inside of the rtnl_lock.  I
-> really don't like it. You are trading off a 1000ms singled threaded wait
-> without locks for extending the hold times of rtnl lock by 12ms or so.
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > One condition before codel_Newton_step() was not good if
+> > we never left the dropping state for a flow. As a result
+> > rec_inv_sqrt was 0, instead of the ~0 initial value.
+> > 
+> > codel control law was then set to a very aggressive mode, dropping
+> > many packets before reaching 'target' and recovering from this problem.
+> > 
+> > To keep codel_vars_init() as efficient as possible, refine
+> > the condition to make sure rec_inv_sqrt initial value is correct
+> > 
+> > Many thanks to Anton Mich for discovering the issue and suggesting
+> > a fix.
+> > 
+> > Reported-by: Anton Mich <lp2s1h@gmail.com>
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > 
+> Applied and queued up for -stable.
 
-We probably can keep the rcu_barrier() in netdev_run_todo() and kick the
-UNREGISTER_FINAL in netdev_run_todo() too.
+Hi David, I think this patch got lost somehow ?
 
-I'll try that.
-
-
-> We already have an rcu_barrier on that path in netdev_run_todo,
-> so we can reorganize things to use that barrier I would be much
-> happer.  Furthermore I talked to Paul McKenney a while ago
-> about creating an rcu_barrier expedited and he really did not
-> like the idea.
-> 
-> Reading through the code we really should get dst_rcu_free
-> out of the header and make it non-line.  dst_rcu_free can't
-> possibly be called from a location where it can be inlined.
-> 
-> Trying to understand your analysis I have stared at the code for
-> a while and I am definitely not seeing any rcu callbacks that
-> result in calling rt_free.  So one of us is missing something.
-
-Recent commits add the rt_free() calls.
-
-Of course, if you unregister a dummy device you wont see the problem.
-
-If you unregister a real device, you definitely hit the problem.
+Thanks
