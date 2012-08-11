@@ -1,44 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TCP stalls with 802.3ad + bridge + kvm guest
-Date: Sat, 11 Aug 2012 11:28:40 -0700
-Message-ID: <20120811112840.0dc9ba71@nehalam.linuxnetplumber.net>
-References: <20120727183840.GE17572@p12n.org>
-	<26496.1343419205@death.nxdomain>
-	<20120801144104.GN17572@p12n.org>
-	<CAEuXFExg2X9r0zE8wUs9Npd7jPUN2WHbyJcnH6eT_23f2DoPjw@mail.gmail.com>
-	<20120804162219.GT17572@p12n.org>
-	<20120804224511.GU17572@p12n.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	jgoerzen@efolder.net
-To: Peter Samuelson <psamuelson@efolder.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44559 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751998Ab2HKS2y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Aug 2012 14:28:54 -0400
-In-Reply-To: <20120804224511.GU17572@p12n.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH v2 08/15] unix: declaring unix protocols has its own proc entry
+Date: Sun, 12 Aug 2012 05:07:11 +0900
+Message-ID: <1344715638-22997-8-git-send-email-yamato@redhat.com>
+References: <1344715638-22997-1-git-send-email-yamato@redhat.com>
+Cc: linux-kernel@vger.kernel.org, Masatake YAMATO <yamato@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344715638-22997-1-git-send-email-yamato@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 4 Aug 2012 17:45:11 -0500
-Peter Samuelson <psamuelson@efolder.net> wrote:
+Declaring unix protocols has its own proc entry.
 
-> 
-> > [Jesse Brandeburg]
-> > > try
-> > > # ethtool -K ethx tso off gso off lro off
-> 
-> Specifically, 'lro off' is the trick.  The others don't have a
-> noticeable effect.  Now I can get 70 MB/s or better most of the time,
-> in either direction.
-> 
-> Thanks again,
-> Peter
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ net/unix/af_unix.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-When device is added to bridge, the bridge code does ask the device
-to turn LRO off (automatically). Unfortunately some device drivers are
-broken.
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index e4768c1..7f109e6 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -616,6 +616,7 @@ static struct proto unix_proto = {
+ 	.name			= "UNIX",
+ 	.owner			= THIS_MODULE,
+ 	.obj_size		= sizeof(struct unix_sock),
++	.has_own_proc_entry= 1,
+ };
+ 
+ /*
+-- 
+1.7.11.2
