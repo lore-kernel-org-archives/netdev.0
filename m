@@ -1,49 +1,41 @@
-From: Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
-Subject: [PATCH 1/1] 	r8169: Removed unused macros from r8169.c
-Date: Fri, 10 Aug 2012 07:33:11 -0700
-Message-ID: <1344609191-5229-1-git-send-email-dayanidhi.sreenivasan@gmail.com>
-References: <r8169-Removed-unused-macros-from-r8169.c>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
-To: romieu@fr.zoreil.com, nic_swsd@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <r8169-Removed-unused-macros-from-r8169.c>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/1] ixgbe: add missing braces
+Date: Fri, 10 Aug 2012 17:34:43 -0700
+Message-ID: <1344645283.10630.5.camel@joe2Laptop>
+References: <1344620114-6173-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:59623 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751661Ab2HKAeo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2012 20:34:44 -0400
+In-Reply-To: <1344620114-6173-1-git-send-email-peter.p.waskiewicz.jr@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2012-08-10 at 10:35 -0700, Peter P Waskiewicz Jr wrote:
+> From: Emil Tantilov <emil.s.tantilov@intel.com>
+[]
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+[]
+> @@ -804,12 +804,13 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
+>  	    link_mode == IXGBE_AUTOC_LMS_KX4_KX_KR_SGMII) {
+>  		/* Set KX4/KX/KR support according to speed requested */
+>  		autoc &= ~(IXGBE_AUTOC_KX4_KX_SUPP_MASK | IXGBE_AUTOC_KR_SUPP);
+> -		if (speed & IXGBE_LINK_SPEED_10GB_FULL)
+> +		if (speed & IXGBE_LINK_SPEED_10GB_FULL) {
+>  			if (orig_autoc & IXGBE_AUTOC_KX4_SUPP)
+>  				autoc |= IXGBE_AUTOC_KX4_SUPP;
+>  			if ((orig_autoc & IXGBE_AUTOC_KR_SUPP) &&
+>  			    (hw->phy.smart_speed_active == false))
 
-Signed-off-by: Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+trivial and unrelated:
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b47d5b3..60b45ca 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -78,23 +78,18 @@ static const int multicast_filter_limit = 32;
- 
- #define MAX_READ_REQUEST_SHIFT	12
- #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
--#define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
- #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
- 
- #define R8169_REGS_SIZE		256
- #define R8169_NAPI_WEIGHT	64
- #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
- #define NUM_RX_DESC	256	/* Number of Rx descriptor registers */
--#define RX_BUF_SIZE	1536	/* Rx Buffer size */
- #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
- #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
- 
- #define RTL8169_TX_TIMEOUT	(6*HZ)
- #define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
--#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
--#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
--#define RTL_EEPROM_SIG_ADDR	0x0000
- 
- /* write/read MMIO register */
- #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
--- 
-1.7.5.4
+Testing booleans against true|false is not good style.
+
+"value == false" is better written as "!value", etc...
