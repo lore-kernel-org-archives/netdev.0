@@ -1,44 +1,36 @@
-From: Denis Efremov <yefremov.denis@gmail.com>
-Subject: [PATCH v2] macvtap: rcu_dereference outside read-lock section
-Date: Sun, 12 Aug 2012 10:26:31 +0400
-Message-ID: <1344752791-21140-1-git-send-email-yefremov.denis@gmail.com>
-References: <20120811.181642.1587792778007257202.davem@davemloft.net>
-Cc: Denis Efremov <yefremov.denis@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
-To: "David S. Miller" <davem@davemloft.net>
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: Re: [PATCH v2 01/15] net: proc entry showing inodes on sockfs and
+ their types
+Date: Sun, 12 Aug 2012 15:44:16 +0900 (JST)
+Message-ID: <20120812.154416.1611788053634506933.yamato@redhat.com>
+References: <1344715638-22997-1-git-send-email-yamato@redhat.com>
+	<20120811.210434.961670950702666620.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120811.181642.1587792778007257202.davem@davemloft.net>
+In-Reply-To: <20120811.210434.961670950702666620.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rcu_dereference occurs in update section. Replacement by
-rcu_dereference_protected in order to prevent lockdep
-complaint.
+> 
+> Sorry, you cannot do this.
+> 
+> You are adding a new lock and insert into a global list for
+> pretty much every socket created, that will destroy performance.
 
-Found by Linux Driver Verification project (linuxtesting.org)
+I think there are no serious performance penalty in generally use.
+Most frequently used types of sockets like tcp, udp, and unix are not
+stored to the global list and don't touch the new lock at all.
+Please, look at has_own_proc_entry in struct proto.
 
-Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
----
- drivers/net/macvtap.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+> You also cannnot add new fields to socket listing procfs files,
+> it will break existing application which depend upon the existing
+> exact layout of those fields.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 0737bd4..0f0f9ce 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -94,7 +94,8 @@ static int get_slot(struct macvlan_dev *vlan, struct macvtap_queue *q)
- 	int i;
- 
- 	for (i = 0; i < MAX_MACVTAP_QUEUES; i++) {
--		if (rcu_dereference(vlan->taps[i]) == q)
-+		if (rcu_dereference_protected(vlan->taps[i],
-+					      lockdep_is_held(&macvtap_lock)) == q)
- 			return i;
- 	}
- 
--- 
-1.7.7
+Is there any strcut which can be extended? 
+Extending struct sock is o.k.?
+
+Masatake YAMATO
