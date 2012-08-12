@@ -1,68 +1,57 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] macvtap: rcu_dereference outside read-lock section
-Date: Sun, 12 Aug 2012 11:49:29 +0300
-Message-ID: <20120812084929.GB4430@redhat.com>
-References: <20120811.181642.1587792778007257202.davem@davemloft.net>
- <1344752791-21140-1-git-send-email-yefremov.denis@gmail.com>
+Subject: Re: [Question]About KVM network zero-copy  feature!
+Date: Sun, 12 Aug 2012 12:37:31 +0300
+Message-ID: <20120812093730.GD1421@redhat.com>
+References: <50248148.4070204@huawei.com>
+	<20120811135556.58ddf48d@nehalam.linuxnetplumber.net>
+	<5026D49B.10305@tuffmail.com> <5026FC04.6080108@tuffmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
-To: Denis Efremov <yefremov.denis@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6289 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750982Ab2HLIsf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2012 04:48:35 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: xiaohui.xin@intel.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	"Peter Huang\(Peng\)" <peter.huangpeng@huawei.com>,
+	virtualization@lists.linux-foundation.org, avi@redhat.com,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Robert Vineyard <vineyard@tuffmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1344752791-21140-1-git-send-email-yefremov.denis@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5026FC04.6080108@tuffmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 12, 2012 at 10:26:31AM +0400, Denis Efremov wrote:
-> rcu_dereference occurs in update section. Replacement by
-> rcu_dereference_protected in order to prevent lockdep
-> complaint.
+On Sat, Aug 11, 2012 at 08:42:44PM -0400, Robert Vineyard wrote:
+> (adding Xin Xiaohui to the conversation for comment)
 > 
-> Found by Linux Driver Verification project (linuxtesting.org)
+> According to the NetworkingTodo page on the KVM wiki, zero-copy RX
+> for macvtap is in fact on the roadmap, assigned to Xin:
 > 
-> Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
-> ---
->  drivers/net/macvtap.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
+> http://www.linux-kvm.org/page/NetworkingTodo
+
+AFAIK Xin left Intel and is not working on it.
+Contributions are welcome.
+
+> The Release Notes for RHEL 6.2 (originally published on 12/06/2011)
+> also specifically mention macvtap/vhost zero-copy capabilities as
+> being included as a Technology Preview:
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 0737bd4..0f0f9ce 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -94,7 +94,8 @@ static int get_slot(struct macvlan_dev *vlan, struct macvtap_queue *q)
->  	int i;
->  
->  	for (i = 0; i < MAX_MACVTAP_QUEUES; i++) {
-> -		if (rcu_dereference(vlan->taps[i]) == q)
-> +		if (rcu_dereference_protected(vlan->taps[i],
-> +					      lockdep_is_held(&macvtap_lock)) == q)
+> http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/6.2_Release_Notes/virtualization.html
+> 
+> Since I've been unable to find much information on the current
+> status of this development, can anyone confirm if this functionality
+> is still in the works? If so, is there any planned ETA?
+> 
+> Thanks,
+> Robert Vineyard
 
-And now it's too long.  Maybe a temporary would be better?
+I think this means TX.
 
-		struct macvtap_queue *t;
-		t = rcu_dereference_protected(vlan->taps[i],
-					      lockdep_is_held(&macvtap_lock));
-		if (t == q)
-  			return i;
-		
-?
-
-Anyway -
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-
->  			return i;
->  	}
->  
-> -- 
-> 1.7.7
+-- 
+MST
