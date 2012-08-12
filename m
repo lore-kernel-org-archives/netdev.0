@@ -1,42 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Sun, 12 Aug 2012 13:54:22 +0300
-Message-ID: <20120812105421.GI1421@redhat.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
- <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
- <87boitz044.fsf@xmission.com>
- <20120805185031.GA18640@redhat.com>
- <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
+From: Ooi@zimbra.computerteam.it, teek@zimbra.computerteam.it
+Subject: Matter that needs your attention
+Date: Sun, 12 Aug 2012 11:05:14 +0100
+Message-ID: <20120812100535.A9A3BEFF7F9@zimbra.computerteam.it>
+Reply-To: ooitekc@yahoo.com.my
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Doug Ledford <dledford@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9749 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750828Ab2HLKzh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2012 06:55:37 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
+Received: from host194-150-static.37-85-b.business.telecomitalia.it ([85.37.150.194]:51249
+	"EHLO zimbra.computerteam.it" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751253Ab2HLLEK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2012 07:04:10 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by zimbra.computerteam.it (Postfix) with ESMTP id 2A9E3EFF844
+	for <netdev@vger.kernel.org>; Sun, 12 Aug 2012 12:05:37 +0200 (CEST)
+Received: from zimbra.computerteam.it ([127.0.0.1])
+	by localhost (zimbra.computerteam.it [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Il00Dc3WeBB7 for <netdev@vger.kernel.org>;
+	Sun, 12 Aug 2012 12:05:37 +0200 (CEST)
+Received: from [49.124.159.117] (unknown [49.124.159.117])
+	by zimbra.computerteam.it (Postfix) with ESMTPA id A9A3BEFF7F9
+	for <netdev@vger.kernel.org>; Sun, 12 Aug 2012 12:05:35 +0200 (CEST)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 08, 2012 at 08:23:15AM +0300, Or Gerlitz wrote:
-> > So far the things that make sense. Here are some that don't, to me:
-> 
-> > - Is a pdf presentation all you have in terms of documentation?
-> >   We are talking communication protocols here - I would expect a
-> >   proper spec, and some effort to standardize, otherwise where's the
-> >   guarantee it won't change in an incompatible way?
-> 
-> To be precise, the solution uses 100% IPoIB wire-protocol, so we don't
-> see a need
-> for any spec change / standardization effort.
+Good day,
 
-Thinking about it some more, the solution is not really 100% local:
-- ARP packets used at migration are visible on the network
-- QPN/LID in MAC are guest visible, and could be exported on the network
+This is a personal email directed to you for your consideration alone, I
+request that it remain and be treated as such only. Please bear with me for
+now and do not ask my name. I am a banker here in Malaysia
+
+I have an interesting business proposal for you that will be of immense
+benefit to both of us. Although this may be hard for you to believe, we
+stand to gain 7.2 million USD between us in a matter of days. Please grant
+me the benefit of doubt and hear me out. I need you to signify your interest
+by replying to this email..
+
+Most importantly, I will need you to promise to keep whatever you learn from
+me between us even if you decide not to go along with me. I will make more
+details available to you on receipt of a positive response from you.
+
+Warm regards from 
+Malaysia
