@@ -1,72 +1,65 @@
-From: forex.gold.car@gmail.com
-Subject: =?utf-8?B?2K7YtdmFIDUwJSDYudmE2Ykg2KfZiSDYrdmF2YTZhyDYp9i52YTYp9mG2YrZhyDYp9mIINin2LHYqNitINmF2YYg2YXZiNmC2LnZgyDZhdmGMdin2YTZiSAxNiQg2YTZg9mEIDEwMDAg2LLYp9im2LE=?=
-Date: Sun, 12 Aug 2012 07:55:46 -0700 (PDT)
-Message-ID: <5027c3f2.c754b40a.4094.0099@mx.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
+Date: Sun, 12 Aug 2012 08:40:13 -0700
+Message-ID: <877gt415lu.fsf@xmission.com>
+References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
+	<1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
+	<87boitz044.fsf@xmission.com> <20120805185031.GA18640@redhat.com>
+	<CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
+	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
+	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
+	Doug Ledford <dledford@redhat.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:38668 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675Ab2HLOzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2012 10:55:48 -0400
-Received: by wibhq12 with SMTP id hq12so2331366wib.1
-        for <netdev@vger.kernel.org>; Sun, 12 Aug 2012 07:55:47 -0700 (PDT)
+Received: from out03.mta.xmission.com ([166.70.13.233]:60926 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032Ab2HLPk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2012 11:40:26 -0400
+In-Reply-To: <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
+	(Or Gerlitz's message of "Wed, 8 Aug 2012 08:23:15 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQrYp9mE2LPZhNin2YUg2LnZhNmK2YPZhQ0KDQrZiNit2YrYp9mD2YUg2KfZhNmE2YcNCg0K
-2KPZhtinINmH2LTYp9mFINmF2K3YsdmFINmF2YYg2YHYsdmK2YIg2KfZhNmF2KjZiti52KfY
-qiDYqNmF2YjZgti5IA0KDQpoaXZpc2l0cy5jb20NCtmE2YLYryDYqti02LHZgdiqINio2LLZ
-itin2LHZhyDZiNmB2K3YtSDZhdmI2YLYudmD2YUg2KfZhNmD2LHZitmFDQoNCtmI2YjYrNiv
-2Kog2KfZhtmHINiz2YrZg9mI2YYg2YXZhiDYp9mE2YXYq9mF2LEg2YjYp9mE2YXZgdmK2K8g
-2KfZhiDZhtiq2LnYp9mI2YYg2LPZiNmK2Kcg2YHZiSDZhdis2KfZhCDYp9mE2KrYs9mI2YrZ
-giDYp9mE2KfYudmE2KfZhtmJDQrYrdmK2Ksg2YrZhdmD2YbZg9mFINin2YTYp9mG2LbZhdin
-2YUg2YTZhti42KfZhdmG2Kcg2YHZiSDYp9it2K8g2KfZhNmC2LPZhdmK2YYNCg0K2YLYs9mF
-INin2YTZhtin2LTYsdmK2YYNCtit2YrYqyDZitmF2YPZhtmD2YUg2YHZiSDZh9iw2Kcg2KfZ
-hNmC2LPZhSDZhti02LEg2KfYudmE2KfZhtin2KrZhtinINmB2Ykg2YXZiNmC2LnZg9mFINin
-2YTZg9ix2YrZhSANCtmF2YYg2K7ZhNin2YQg2KrYsdmD2YrYqCDYp9mE2YPZiNivINin2YTY
-rtin2LUg2KjZhtinINmB2Ykg2YfZitiv2LEg2YXZiNmC2LnZg9mFINmI2YXYtNin2YfYr9mH
-INin2YTYp9i52YTYp9mG2KfYqiDYp9mE2YXZhtio2KvZgtmHINiq2LjZh9ixINmB2Ykg2YXZ
-iNmC2Lkg2LPZitin2K/YqtmD2YUNCtmK2YXZg9mG2YPZhSDYp9mE2LHYqNitINmF2YYg2K7Z
-hNin2YQg2YfYsNinINin2YTZgtiz2YUg2YXZhiAxLTE2INiv2YjZhNin2LEg2KfZhdix2YrZ
-g9mJINmE2YPZhCDYp9mE2YEg2LjZh9mI2LEg2KfYudmE2KfZhtmJINmF2YYg2KfZhNmB2KrY
-rdin2Kog2KfZhNmF2YbYs9iv2YTZhyDYp9mE2KrZiSDYqti42YfYsSDZgdmJINmF2YjZgti5
-2YPZhQ0K2YfYsNinINmI2YXZhiDYp9mE2KzYr9mK2LEg2KjYp9mE2LDZg9ixINin2YYg2KfZ
-hNix2KjYrSDZitiy2YrYryDYudmE2Ykg2K3Ys9ioINin2YTZhdmG2KfZgdiz2Ycg2LnZhNmJ
-INmG2YjYudmK2Ycg2KfZhNiy2KfYptixINmI2K/ZiNmE2KrZhyDZgdmJINmG2LjYp9mF2YbY
-pw0K2YrZhdmD2YbZg9mFINin2YTYqtis2LHYqNmHINin2YTYp9mGIGh0dHA6Ly93d3cuaGl2
-aXNpdHMuY29tL3B1Ymxpc2hlcnMNCg0K2YLYs9mFINin2YTZhdi52YTZhtmK2YYNCtmK2YXZ
-g9mG2YPZhSDYp9mE2KrYs9mI2YrZgiDYp9mIINin2YTYqtix2YjZitisINmE2YXZiNmC2LnZ
-g9mFINin2YTZg9ix2YrZhSDYqNin2YLZhCDYp9mE2KPYs9i52KfYsSDZhNiv2YrZhtinDQrY
-qNin2YTZhti42KfZhSDYp9mE2LnYp9mE2YXZiSDYp9mIINmG2LjYp9mFINin2YTYp9iz2KrZ
-h9iv2KfZgSDYp9mE2YHYsdmK2K8NCtmF2Lkg2YjYrNmI2K8g2YPZiNio2YjZhtin2Kog2K7Y
-tdmFINmI2LnYsdmI2LYg2YjYqtiu2YHZiti22KfYqiDZitmI2YXZitmHDQrYqtiz2KrYt9mK
-2Lkg2KfZhiDYqtiz2YjZgiDZiNiq2LnZhNmGINi52YYg2YXZiNmC2LnZgyDZhNiv2YrZhtin
-INil2KjYqtiv2KfYoSDZhdmGIDEg2K/ZiNmE2KfYsSDZgdmC2LcNCtmI2KrYs9iq2LfZiti5
-INin2YYg2KrYrdi12YQg2LnZhNmJINmF2YTZitmI2YYg2LLYp9im2LEg2KggMjI1INiv2YjZ
-hNin2LEg2YHZgti3INmI2YfYsNinINin2YTYudix2LYg2YfZiCDZh9iv2YrYqtmG2Kcg2YTY
-s9mK2KfYr9iq2YPZhSDZhNio2K/Yp9mK2Ycg2KfZhNiq2LnYp9mI2YYg2KfZhNmF2KvZhdix
-INmI2KfZhNio2YbYp9ihDQrZitmF2YPZhtmD2YUg2KrYrNix2KjZhyDYp9mE2KfYudmE2KfZ
-hiDZhNiv2YrZhtinINio2KfYs9iq2K7Yr9in2YUg2YfYsNinINin2YTZg9mI2KjZiNmGINin
-2YTYqtix2YjZitis2Ykg2YXYuSAzMyXYrti12YUNCnVzZSB0aGlzIFByb21vY29kZTogNTAl
-b2ZmZXINCjFNaWxsaW9uIHZpc2l0b3JzPSQyMjUgb25seQ0KaHR0cDovL3d3dy5oaXZpc2l0
-cy5jb20vYWR2ZXJ0aXNlcnMNCg0K2YjYs9in2KbZhCDYp9mE2K/Zgdi5INmE2KfYsdiz2KfZ
-hCDZiNin2LPYqtmC2KjYp9mEINin2YTYqtit2YjZitmE2KfYqg0K2KzZhdmK2Lkg2KfZhNio
-2YbZiNmDINin2YTYp9mE2YrZg9iq2LHZiNmG2YrZhyDZiNi32LHZgiDYp9mE2KrYrdmI2YrZ
-hCDYp9mE2K/ZiNmE2YrZhyDZiNin2YTZhdit2YTZitmHDQpodHRwOi8vd3d3LmhpdmlzaXRz
-LmNvbS9hZHZlcnRpc2Vycy9tYW51YWxwYXltZW50DQrYqNin2YTYp9i22KfZgdmHINin2YTZ
-iSDYp9mE2KjYsdmK2K8g2KfZhNmF2LXYsdmJINmI2KfZhNiq2LPZhNmK2YUg2KfZhNmK2K/Z
-iNmJINmB2Ykg2KjYudi2INin2YTYr9mI2YQg2YjYp9mE2YXYr9mGDQoNCtmD2YjYqNmI2YbY
-p9iqINis2YjYrNmEINin2K/ZiNix2K/YsiDZgdim2YcgMTAwINiv2YjZhNin2LENCtmD2YjY
-qNmI2YbYp9iqINis2YjYrNmEINmB2YbYrdmGINmE2K/ZitmG2Kcg2YPZhdmK2KfYqiDZg9io
-2YrYsdmHINmI2KjYp9iz2LnYp9ixINmF2LnZgtmI2YTZhyDYrNiv2KcNCtiz2LnYsSDYp9mE
-2YPZiNio2YjZhiDZhNin2LPYudin2LEg2KfZhNis2YXZhNmHDQokMS41INmB2YLYtw0K2YjY
-sNmE2YMg2YTZg9mI2KjZiNmG2KfYqiDYp9iv2YjYsdiv2LIg2YHYptmHIDEwMNiv2YjZhNin
-2LENCg0K2YbYrdmGINit2LHZiti12YjZhiDYrNiv2Kcg2LnZhNmJINin2YTYs9mF2KfYuSDZ
-hdmG2YPZhQ0K2YjZhtiq2LTYsdmBINio2KrZiNin2LXZhCDYs9mK2KfYr9iq2YPZhSDZhdi5
-2YbYpyDYudio2LEg2KfZhNmI2LPYp9im2YQg2KfZhNiq2KfZhNmK2YcNCmh0dHA6Ly93d3cu
-aGl2aXNpdHMuY29tL2NvbnRhY3R1cw0K2YjYqtmB2LbZhNmI2Kcg2KjZgtio2YjZhCDZgdin
-2KbZgiDYp9mE2KrYrdmK2Ycg2YjYp9mE2KfYrdiq2LHYp9mFDQrYr9mF2KrZhSDYqNiu2YrY
-sQ0K
+Or Gerlitz <or.gerlitz@gmail.com> writes:
+
+> On Sun, Aug 5, 2012 at 9:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>
+> [...]
+>> So it seems that a sane solution would involve an extra level of
+>> indirection, with guest addresses being translated to host IB addresses.
+>> As long as you do this, maybe using an ethernet frame format makes sense.
+> [...]
+>
+> Yep, that's among the points we're trying to make, the way you've put
+> it makes it clearer.
+>
+>> - IGMP/MAC snooping in a driver is just too hairy.
+>
+> mmm, any rough idea/direction how to do that otherwise?
+
+Let me give you a non-hack recomendation.
+
+- Give up on being wire compatible with IPoIB.
+
+- Define and implement ethernet over inifiniband aka EoIB.
+
+With EoIB:
+- The SM would map ethernet address to inifiniband hardware addresses.
+- You discover which multicast addresses are of interest from the
+  IP layer above so no snooping is necessary.
+- You could run queue pairs directly to hosts.
+
+Shrug.  It is trivial and it will work.  It will probably run into the
+same problems that have historically been a problem for using IPoIB
+(lack of stateless offloads) but shrug that is mostly a NIC firmware
+problem.  The switches will have no trouble and interoperability will
+be assured.
+
+If you want to map ethernet over infiniband please map ethernet over
+infiniband.  Don't poorly NAT ethernet into infiniband.
+
+Eric
