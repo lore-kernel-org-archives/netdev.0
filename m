@@ -1,65 +1,115 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Sun, 12 Aug 2012 08:40:13 -0700
-Message-ID: <877gt415lu.fsf@xmission.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
-	<1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
-	<87boitz044.fsf@xmission.com> <20120805185031.GA18640@redhat.com>
-	<CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net 2/3] net: qmi_wwan: add Sierra Wireless devices
+Date: Sun, 12 Aug 2012 21:16:31 +0200
+Message-ID: <1344798992-10176-3-git-send-email-bjorn@mork.no>
+References: <1344798992-10176-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Doug Ledford <dledford@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:60926 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab2HLPk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2012 11:40:26 -0400
-In-Reply-To: <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
-	(Or Gerlitz's message of "Wed, 8 Aug 2012 08:23:15 +0300")
+Received: from canardo.mork.no ([148.122.252.1]:41811 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752366Ab2HLTQr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2012 15:16:47 -0400
+In-Reply-To: <1344798992-10176-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <or.gerlitz@gmail.com> writes:
+Add 6 new devices and one modified device, based on
+information from laptop vendor Windows drivers.
 
-> On Sun, Aug 5, 2012 at 9:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
->
-> [...]
->> So it seems that a sane solution would involve an extra level of
->> indirection, with guest addresses being translated to host IB addresses.
->> As long as you do this, maybe using an ethernet frame format makes sense.
-> [...]
->
-> Yep, that's among the points we're trying to make, the way you've put
-> it makes it clearer.
->
->> - IGMP/MAC snooping in a driver is just too hairy.
->
-> mmm, any rough idea/direction how to do that otherwise?
+Sony provides a driver with two new devices using
+a Gobi 2k+ layout (1199:68a5 and 1199:68a9).  The
+Sony driver also adds a non-standard QMI/net
+interface to the already supported 1199:9011
+Gobi device. We do not know whether this is an
+alternate interface number or an additional
+interface which might be present, but that doesn't
+really matter.
 
-Let me give you a non-hack recomendation.
+Lenovo provides a driver supporting 4 new devices:
+ - MC7770 (1199:901b) with standard Gobi 2k+ layout
+ - MC7700 (0f3d:68a2) with layout similar to MC7710
+ - MC7750 (114f:68a2) with layout similar to MC7710
+ - EM7700 (1199:901c) with layout similar to MC7710
 
-- Give up on being wire compatible with IPoIB.
+Note regaring the three devices similar to MC7710:
 
-- Define and implement ethernet over inifiniband aka EoIB.
+The Windows drivers only support interface #8 on these
+devices.  The MC7710 can support QMI/net functions on
+interface #19 and #20 as well, and this driver is
+verified to work on interface #19 (a firmware bug is
+suspected to prevent #20 from working).
 
-With EoIB:
-- The SM would map ethernet address to inifiniband hardware addresses.
-- You discover which multicast addresses are of interest from the
-  IP layer above so no snooping is necessary.
-- You could run queue pairs directly to hosts.
+We do not enable these additional interfaces until they
+either show up in a Windows driver or are verified to
+work in some other way.  Therefore limiting the new
+devices to interface #8 for now.
 
-Shrug.  It is trivial and it will work.  It will probably run into the
-same problems that have historically been a problem for using IPoIB
-(lack of stateless offloads) but shrug that is mostly a NIC firmware
-problem.  The switches will have no trouble and interoperability will
-be assured.
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/qmi_wwan.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-If you want to map ethernet over infiniband please map ethernet over
-infiniband.  Don't poorly NAT ethernet into infiniband.
-
-Eric
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index c6a5873..24524b2 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -401,8 +401,11 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x19d2, 0x1010, 4)},	/* ZTE (Vodafone) K3571-Z */
+ 	{QMI_FIXED_INTF(0x19d2, 0x1402, 2)},	/* ZTE MF60 */
+ 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
++	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
++	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
+ mode */
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
+I mode */
++	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
+=20
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+@@ -430,6 +433,8 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9265)},	/* Asus Gobi 2000 Modem device (VR=
+305) */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9235)},	/* Top Global Gobi 2000 Modem devi=
+ce (VR306) */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9275)},	/* iRex Technologies Gobi 2000 Mod=
+em device (VR307) */
++	{QMI_GOBI_DEVICE(0x1199, 0x68a5)},	/* Sierra Wireless Modem */
++	{QMI_GOBI_DEVICE(0x1199, 0x68a9)},	/* Sierra Wireless Modem */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9001)},	/* Sierra Wireless Gobi 2000 Modem=
+ device (VT773) */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9002)},	/* Sierra Wireless Gobi 2000 Modem=
+ device (VT773) */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9003)},	/* Sierra Wireless Gobi 2000 Modem=
+ device (VT773) */
+@@ -441,11 +446,14 @@ static const struct usb_device_id products[] =3D =
+{
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9009)},	/* Sierra Wireless Gobi 2000 Modem=
+ device (VT773) */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x900a)},	/* Sierra Wireless Gobi 2000 Modem=
+ device (VT773) */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9011)},	/* Sierra Wireless Gobi 2000 Modem=
+ device (MC8305) */
++	{QMI_FIXED_INTF(0x1199, 0x9011, 5)},	/* alternate interface number!? =
+*/
+ 	{QMI_GOBI_DEVICE(0x16d8, 0x8002)},	/* CMDTech Gobi 2000 Modem device =
+(VU922) */
+ 	{QMI_GOBI_DEVICE(0x05c6, 0x9205)},	/* Gobi 2000 Modem device */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9013)},	/* Sierra Wireless Gobi 3000 Modem=
+ device (MC8355) */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9015)},	/* Sierra Wireless Gobi 3000 Modem=
+ device */
+ 	{QMI_GOBI_DEVICE(0x1199, 0x9019)},	/* Sierra Wireless Gobi 3000 Modem=
+ device */
++	{QMI_GOBI_DEVICE(0x1199, 0x901b)},	/* Sierra Wireless MC7770 */
++
+ 	{ }					/* END */
+ };
+ MODULE_DEVICE_TABLE(usb, products);
+--=20
+1.7.10.4
