@@ -1,23 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 01/15] net: proc entry showing inodes on sockfs and
- their types
-Date: Sat, 11 Aug 2012 21:05:40 -0700 (PDT)
-Message-ID: <20120811.210540.1158066885515664193.davem@davemloft.net>
-References: <1344715638-22997-1-git-send-email-yamato@redhat.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [PATCH] bnx2x: Fix compiler warnings
+Date: Sun, 12 Aug 2012 07:50:48 +0300
+Message-ID: <50273628.50503@broadcom.com>
+References: <1344741035-1493-1-git-send-email-joren.vanonder@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yamato@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344715638-22997-1-git-send-email-yamato@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Joren Van Onder" <joren.vanonder@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1115 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750711Ab2HLEuC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2012 00:50:02 -0400
+In-Reply-To: <1344741035-1493-1-git-send-email-joren.vanonder@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-I also want to mention that I absolutely do not consider better lsof
-support important at all.
-
-So if you want to add this, it had to be exactly zero overhead and it
-must not break anything that exists already.  Your patch set violates
-this on both counts.
+> Fix the following compiler warnings:
+> 
+>  - drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:2908:3: warning: comparison
+>    of distinct pointer types lacks a cast [enabled by default]
+>  - drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:1709:7: warning: comparison
+>    of distinct pointer types lacks a cast [enabled by default]
+> 
+> Signed-off-by: Joren Van Onder <joren.vanonder@gmail.com>
+Thanks Joren.
+Acked-By: Yuval Mintz <yuvalmin@broadcom.com>
