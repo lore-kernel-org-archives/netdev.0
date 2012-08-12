@@ -1,31 +1,44 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [PATCH] bnx2x: Fix compiler warnings
-Date: Sun, 12 Aug 2012 07:50:48 +0300
-Message-ID: <50273628.50503@broadcom.com>
-References: <1344741035-1493-1-git-send-email-joren.vanonder@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Joren Van Onder" <joren.vanonder@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1115 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750711Ab2HLEuC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2012 00:50:02 -0400
-In-Reply-To: <1344741035-1493-1-git-send-email-joren.vanonder@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Denis Efremov <yefremov.denis@gmail.com>
+Subject: [PATCH v2] macvtap: rcu_dereference outside read-lock section
+Date: Sun, 12 Aug 2012 10:26:31 +0400
+Message-ID: <1344752791-21140-1-git-send-email-yefremov.denis@gmail.com>
+References: <20120811.181642.1587792778007257202.davem@davemloft.net>
+Cc: Denis Efremov <yefremov.denis@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@ispras.ru
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120811.181642.1587792778007257202.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Fix the following compiler warnings:
-> 
->  - drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:2908:3: warning: comparison
->    of distinct pointer types lacks a cast [enabled by default]
->  - drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:1709:7: warning: comparison
->    of distinct pointer types lacks a cast [enabled by default]
-> 
-> Signed-off-by: Joren Van Onder <joren.vanonder@gmail.com>
-Thanks Joren.
-Acked-By: Yuval Mintz <yuvalmin@broadcom.com>
+rcu_dereference occurs in update section. Replacement by
+rcu_dereference_protected in order to prevent lockdep
+complaint.
+
+Found by Linux Driver Verification project (linuxtesting.org)
+
+Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
+---
+ drivers/net/macvtap.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 0737bd4..0f0f9ce 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -94,7 +94,8 @@ static int get_slot(struct macvlan_dev *vlan, struct macvtap_queue *q)
+ 	int i;
+ 
+ 	for (i = 0; i < MAX_MACVTAP_QUEUES; i++) {
+-		if (rcu_dereference(vlan->taps[i]) == q)
++		if (rcu_dereference_protected(vlan->taps[i],
++					      lockdep_is_held(&macvtap_lock)) == q)
+ 			return i;
+ 	}
+ 
+-- 
+1.7.7
