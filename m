@@ -1,58 +1,70 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Sun, 12 Aug 2012 16:55:44 +0300
-Message-ID: <20120812135544.GB6003@redhat.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com>
- <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com>
- <87boitz044.fsf@xmission.com>
- <20120805185031.GA18640@redhat.com>
- <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com>
- <20120812102240.GG1421@redhat.com>
- <5027AC88.2020509@mellanox.com>
+Date: Sun, 12 Aug 2012 17:05:12 +0300
+Message-ID: <20120812140511.GC6003@redhat.com>
+References: <501C3527.6060809@mellanox.com>
+ <20120803.143315.151094375569109262.davem@davemloft.net>
+ <501C5328.4060301@mellanox.com>
+ <20120803.163627.1867181085116225405.davem@davemloft.net>
+ <50205DE0.7080706@mellanox.com>
+ <87obmnfs4p.fsf@xmission.com>
+ <871ujjfkb1.fsf@xmission.com>
+ <CAJZOPZ+W0wfa38LejXt0gvBNa8Q6pWVZOs7xctHGRQXHAeMYPQ@mail.gmail.com>
+ <87hasd7pbz.fsf@xmission.com>
+ <CAJZOPZKVjxaf1Sqchm4X4nKhYLR5yxnMiTjmvx1n4OELu=jhbg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Doug Ledford <dledford@redhat.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Ali Ayoub <ali@mellanox.com>,
+	David Miller <davem@davemloft.net>, ogerlitz@mellanox.com,
+	roland@kernel.org, netdev@vger.kernel.org, sean.hefty@intel.com,
+	erezsh@mellanox.co.il, dledford@redhat.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38248 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51254 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751990Ab2HLN47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2012 09:56:59 -0400
+	id S1751971Ab2HLOG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2012 10:06:27 -0400
 Content-Disposition: inline
-In-Reply-To: <5027AC88.2020509@mellanox.com>
+In-Reply-To: <CAJZOPZKVjxaf1Sqchm4X4nKhYLR5yxnMiTjmvx1n4OELu=jhbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 12, 2012 at 04:15:52PM +0300, Or Gerlitz wrote:
-> On 12/08/2012 13:22, Michael S. Tsirkin wrote:
-> >>>>>- IGMP/MAC snooping in a driver is just too hairy.
-> >>
-> >>>mmm, any rough idea/direction how to do that otherwise?
-> >Sure, even two ways, ideally you'd do both:)
-> >A. fix macvtap
-> >1. Use netdev_for_each_mc_addr etc to get multicast addresses
-> >2. teach macvtap to fill that in (it currently floods multicasts
-> >    for guest to guest communication so we ned to fix it anyway)
-> >
-> >B. fix bridge
-> >    teach bridge to work for VMs without using promisc mode
+On Thu, Aug 09, 2012 at 07:06:46AM +0300, Or Gerlitz wrote:
+> Eric W. Biederman <ebiederm@xmission.com> wrote:
+> > Or Gerlitz <or.gerlitz@gmail.com> writes:
 > 
-> I wasn't sure to fully follow... need some more bits of info, the
-> macvtap fix
-> relates only to IGMP snooping, correct? as for the bridge fix, does
-> this somehow
-> relates to ARP snooping we do in the driver? how?
+> >> To put things in place, DHCPv4 is supported with eIPoIB, the DHCP
+> >> UDP/IP payload  isn't touched, only need to set the BOOTP broadcast
+> >> flag in the dhcp server config file.
+> 
+> > Wrong.  DHCPv4 is broken over eIPoIB. Coming from ethernet
+> > htype == 1 not 32 as required by RFC4390
+> > hlen == 6 not 0 as required by RFC4390
+> > The chaddr field is has 6 bytes of the ethernet mac address not the
+> > required 16 bytes of 0. The client-identifier field is optional over ethernet.
+> > An ethernet DHCPv4 client simply does not generate a dhcp packet that
+> > conforms to RFC4390.
+> >
+> > Therefore DHCPv4 over eIPoIB is broken, and a dhcp server or relay
+> > may reasonably look at the DHCP packet and drop it because it is garbage.
+> >
+> > You might find a forgiving dhcp server that doesn't drop insane packets
+> > on the floor and tries to make things work.
+> 
+> Under the eIPoIB design, the VM DHCP interaction follows
+> Ethernet DHCP, and not the IPoIB DHCP (RFC 4390).
+> 
+> The DHCP server has no reason to drop such packets.
+> 
+> DHCP is a L7 (L5 to be precise) construct, I don't see
+> why that the fact IPoIB DHCP RFC exists, means/mandates
+> the DHCP server to care on the link layer type.
 > 
 > Or.
 
-I didn't realize you do ARP snooping. Why?
-
-I know you mangle outgoing ARP packets, this will go
-away if you maintain a mapping in SM accessible to all guests.
+For example DHCP server could be configured with
+HW address/IP address table.
 
 -- 
 MST
