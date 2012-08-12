@@ -1,47 +1,46 @@
-From: Ooi@zimbra.computerteam.it, teek@zimbra.computerteam.it
-Subject: Matter that needs your attention
-Date: Sun, 12 Aug 2012 11:05:14 +0100
-Message-ID: <20120812100535.A9A3BEFF7F9@zimbra.computerteam.it>
-Reply-To: ooitekc@yahoo.com.my
+From: Domenico Andreoli <cavokz@gmail.com>
+Subject: Re: [PATCH V3] CS89x0 : Use ioread16/iowrite16 on all platforms
+Date: Sun, 12 Aug 2012 13:24:33 +0200
+Message-ID: <20120812112433.GA31699@glitch>
+References: <1337274702-19536-1-git-send-email-jaccon.bastiaansen@gmail.com>
+ <20120517.190346.175685939436302276.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jaccon.bastiaansen@gmail.com, arnd@arndb.de,
+	netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	romieu@fr.zoreil.com, joe@perches.com, gfm@funxed.com,
+	festevam@gmail.com, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host194-150-static.37-85-b.business.telecomitalia.it ([85.37.150.194]:51249
-	"EHLO zimbra.computerteam.it" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751253Ab2HLLEK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2012 07:04:10 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by zimbra.computerteam.it (Postfix) with ESMTP id 2A9E3EFF844
-	for <netdev@vger.kernel.org>; Sun, 12 Aug 2012 12:05:37 +0200 (CEST)
-Received: from zimbra.computerteam.it ([127.0.0.1])
-	by localhost (zimbra.computerteam.it [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id Il00Dc3WeBB7 for <netdev@vger.kernel.org>;
-	Sun, 12 Aug 2012 12:05:37 +0200 (CEST)
-Received: from [49.124.159.117] (unknown [49.124.159.117])
-	by zimbra.computerteam.it (Postfix) with ESMTPA id A9A3BEFF7F9
-	for <netdev@vger.kernel.org>; Sun, 12 Aug 2012 12:05:35 +0200 (CEST)
-Content-Description: Mail message body
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:62943 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178Ab2HLLYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2012 07:24:05 -0400
+Received: by eaac11 with SMTP id c11so884643eaa.19
+        for <netdev@vger.kernel.org>; Sun, 12 Aug 2012 04:24:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20120517.190346.175685939436302276.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good day,
+On Thu, May 17, 2012 at 07:03:46PM -0400, David Miller wrote:
+> From: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+> Date: Thu, 17 May 2012 19:11:42 +0200
+> 
+> > The use of the inw/outw functions by the cs89x0 platform driver
+> > results in NULL pointer references on ARM platforms and
+> > platforms that do not provide ISA-style programmed I/O accessors.
+> > 
+> > Using inw/outw also accesses the wrong address space on platforms
+> > that have a PCI I/O space that is not identity-mapped into the
+> > physical address space.
+> > 
+> > Signed-off-by: Jaccon Bastiaansen <jaccon.bastiaansen@gmail.com>
+> 
+> I could nit-pick more on this patch, but it's such a significant
+> improvement I'm just going to apply this V3 as-is to net-next.
 
-This is a personal email directed to you for your consideration alone, I
-request that it remain and be treated as such only. Please bear with me for
-now and do not ask my name. I am a banker here in Malaysia
+Is this going into v3.6 or v3.7?
 
-I have an interesting business proposal for you that will be of immense
-benefit to both of us. Although this may be hard for you to believe, we
-stand to gain 7.2 million USD between us in a matter of days. Please grant
-me the benefit of doubt and hear me out. I need you to signify your interest
-by replying to this email..
-
-Most importantly, I will need you to promise to keep whatever you learn from
-me between us even if you decide not to go along with me. I will make more
-details available to you on receipt of a positive response from you.
-
-Warm regards from 
-Malaysia
+cheers,
+Domenico
