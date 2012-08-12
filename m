@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] macvtap: rcu_dereference outside read-lock section
-Date: Sun, 12 Aug 2012 13:41:18 -0700 (PDT)
-Message-ID: <20120812.134118.90820419749031873.davem@davemloft.net>
-References: <20120811.181642.1587792778007257202.davem@davemloft.net>
-	<1344752791-21140-1-git-send-email-yefremov.denis@gmail.com>
-	<20120812084929.GB4430@redhat.com>
+Subject: Re: [PATCH] bnx2x: Fix compiler warnings
+Date: Sun, 12 Aug 2012 13:42:25 -0700 (PDT)
+Message-ID: <20120812.134225.1778015851322929441.davem@davemloft.net>
+References: <1344741035-1493-1-git-send-email-joren.vanonder@gmail.com>
+	<50273628.50503@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yefremov.denis@gmail.com, jasowang@redhat.com,
-	ebiederm@xmission.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@ispras.ru
-To: mst@redhat.com
+Cc: joren.vanonder@gmail.com, eilong@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yuvalmin@broadcom.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120812084929.GB4430@redhat.com>
+In-Reply-To: <50273628.50503@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 12 Aug 2012 11:49:29 +0300
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Sun, 12 Aug 2012 07:50:48 +0300
 
-> On Sun, Aug 12, 2012 at 10:26:31AM +0400, Denis Efremov wrote:
->> rcu_dereference occurs in update section. Replacement by
->> rcu_dereference_protected in order to prevent lockdep
->> complaint.
+>> Fix the following compiler warnings:
 >> 
->> Found by Linux Driver Verification project (linuxtesting.org)
+>>  - drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:2908:3: warning: comparison
+>>    of distinct pointer types lacks a cast [enabled by default]
+>>  - drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:1709:7: warning: comparison
+>>    of distinct pointer types lacks a cast [enabled by default]
 >> 
->> Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
-...
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Joren Van Onder <joren.vanonder@gmail.com>
+> Thanks Joren.
+> Acked-By: Yuval Mintz <yuvalmin@broadcom.com>
 
-Applied, thanks everyone.
+Applied.
