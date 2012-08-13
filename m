@@ -1,8 +1,7 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 11/21] netlink: Make the sending netlink socket availabe in
-	NETLINK_CB
-Date: Mon, 13 Aug 2012 13:18:25 -0700
-Message-ID: <1344889115-21610-11-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 12/21] userns: Implement sk_user_ns
+Date: Mon, 13 Aug 2012 13:18:26 -0700
+Message-ID: <1344889115-21610-12-git-send-email-ebiederm@xmission.com>
 References: <87ehnav9n5.fsf@xmission.com>
 	<1344889115-21610-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -27,67 +26,34 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-The sending socket of an skb is already available by it's port id
-in the NETLINK_CB.  If you want to know more like to examine the
-credentials on the sending socket you have to look up the sending
-socket by it's port id and all of the needed functions and data
-structures are static inside of af_netlink.c.  So do the simple
-thing and pass the sending socket to the receivers in the NETLINK_CB.
-
-I intend to use this to get the user namespace of the sending socket
-in inet_diag so that I can report uids in the context of the process
-who opened the socket, the same way I report uids in the contect
-of the process who opens files.
+Add a helper sk_user_ns to make it easy to find the user namespace
+of the process that opened a socket.
 
 Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- include/linux/netlink.h  |    1 +
- net/netlink/af_netlink.c |    6 ++++--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ include/net/sock.h |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index f74dd13..c9fdde2 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -165,6 +165,7 @@ struct netlink_skb_parms {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	__u32			pid;
- 	__u32			dst_group;
-+	struct sock		*ssk;
- };
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 65c3d62..9d43736 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -604,6 +604,15 @@ static inline void sk_add_bind_node(struct sock *sk,
+ #define sk_for_each_bound(__sk, node, list) \
+ 	hlist_for_each_entry(__sk, node, list, sk_bind_node)
  
- #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 5463969..7cb7867 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -912,7 +912,8 @@ static void netlink_rcv_wake(struct sock *sk)
- 		wake_up_interruptible(&nlk->wait);
- }
- 
--static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
-+static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
-+				  struct sock *ssk)
- {
- 	int ret;
- 	struct netlink_sock *nlk = nlk_sk(sk);
-@@ -921,6 +922,7 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
- 	if (nlk->netlink_rcv != NULL) {
- 		ret = skb->len;
- 		skb_set_owner_r(skb, sk);
-+		NETLINK_CB(skb).ssk = ssk;
- 		nlk->netlink_rcv(skb);
- 		consume_skb(skb);
- 	} else {
-@@ -947,7 +949,7 @@ retry:
- 		return PTR_ERR(sk);
- 	}
- 	if (netlink_is_kernel(sk))
--		return netlink_unicast_kernel(sk, skb);
-+		return netlink_unicast_kernel(sk, skb, ssk);
- 
- 	if (sk_filter(sk, skb)) {
- 		err = skb->len;
++static inline struct user_namespace *sk_user_ns(struct sock *sk)
++{
++	/* Careful only use this in a context where these parameters
++	 * can not change and must all be valid, such as recvmsg from
++	 * userspace.
++	 */
++	return sk->sk_socket->file->f_cred->user_ns;
++}
++
+ /* Sock flags */
+ enum sock_flags {
+ 	SOCK_DEAD,
 -- 
 1.7.5.4
