@@ -1,80 +1,61 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tc-tbf.8: Add parameter range to man page.
-Date: Mon, 13 Aug 2012 08:30:15 -0700
-Message-ID: <20120813083015.27b66cd7@nehalam.linuxnetplumber.net>
-References: <1344306632-15288-1-git-send-email-lw@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Li Wei <lw@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36528 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752420Ab2HMPa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2012 11:30:26 -0400
-In-Reply-To: <1344306632-15288-1-git-send-email-lw@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 07/16] netpoll: remove usage of dev->master
+Date: Mon, 13 Aug 2012 17:27:06 +0200
+Message-ID: <1344871635-1052-8-git-send-email-jiri@resnulli.us>
+References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
+	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
+	shemminger@vyatta.com, bhutchings@solarflare.com,
+	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
+	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
+	fbl@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Aug 2012 10:30:32 +0800
-Li Wei <lw@cn.fujitsu.com> wrote:
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/netpoll.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
-> ---
->  man/man8/tc-tbf.8 |    6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/man/man8/tc-tbf.8 b/man/man8/tc-tbf.8
-> index 3abb238..7b76146 100644
-> --- a/man/man8/tc-tbf.8
-> +++ b/man/man8/tc-tbf.8
-> @@ -76,6 +76,7 @@ latency parameter, which specifies the maximum amount of time a packet can
->  sit in the TBF. The latter calculation takes into account the size of the
->  bucket, the rate and possibly the peakrate (if set). These two parameters
->  are mutually exclusive. 
-> +The range of parameter limit is [1, UINT32_MAX] bytes.
->  .TP
->  burst
->  Also known as buffer or maxburst.
-> @@ -85,6 +86,7 @@ if you want to reach your configured rate!
->  
->  If your buffer is too small, packets may be dropped because more tokens arrive per timer tick than fit in your bucket.
->  The minimum buffer size can be calculated by dividing the rate by HZ.
-> +The range of this parameter is [1, UINT32_MAX] bytes.
->  
->  Token usage calculations are performed using a table which by default has a resolution of 8 packets. 
->  This resolution can be changed by specifying the 
-> @@ -96,11 +98,13 @@ this. Must be an integral power of 2.
->  mpu
->  A zero-sized packet does not use zero bandwidth. For ethernet, no packet uses less than 64 bytes. The Minimum Packet Unit 
->  determines the minimal token usage (specified in bytes) for a packet. Defaults to zero.
-> +The range of this parameter is [0, UINT32_MAX] bytes.
->  .TP
->  rate
->  The speed knob. See remarks above about limits! See 
->  .BR tc (8)
->  for units.
-> +The range of this parameter is [1, UINT32_MAX] bps.
->  .PP
->  Furthermore, if a peakrate is desired, the following parameters are available:
->  
-> @@ -108,12 +112,14 @@ Furthermore, if a peakrate is desired, the following parameters are available:
->  peakrate
->  Maximum depletion rate of the bucket. Limited to 1mbit/s on Intel, 10mbit/s on Alpha. The peakrate does 
->  not need to be set, it is only necessary if perfect millisecond timescale shaping is required.
-> +The range of this parameter is [1, UINT32_MAX] bps.
->  
->  .TP
->  mtu/minburst
->  Specifies the size of the peakrate bucket. For perfect accuracy, should be set to the MTU of the interface.
->  If a peakrate is needed, but some burstiness is acceptable, this size can be raised. A 3000 byte minburst
->  allows around 3mbit/s of peakrate, given 1000 byte packets.
-> +The range of this parameter is [1, UINT32_MAX] bytes.
->  
->  Like the regular burstsize you can also specify a 
->  .B cell
-
-Not sure about this, other qdisc don't document ranges on their man pages.
-Probably better to fix the generic documentation about qdisc parameters
-which already exists on 'tc-qdisc' man page.
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index b4c90e4..5c8e560 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -207,12 +207,16 @@ static void netpoll_poll_dev(struct net_device *dev)
+ 
+ 	if (dev->flags & IFF_SLAVE) {
+ 		if (dev->npinfo) {
+-			struct net_device *bond_dev = dev->master;
++			struct net_device *bond_dev;
+ 			struct sk_buff *skb;
++
++			rcu_read_lock();
++			bond_dev = netdev_unique_upper_dev_get_rcu(dev);
+ 			while ((skb = skb_dequeue(&dev->npinfo->arp_tx))) {
+ 				skb->dev = bond_dev;
+ 				skb_queue_tail(&bond_dev->npinfo->arp_tx, skb);
+ 			}
++			rcu_read_unlock();
+ 		}
+ 	}
+ 
+@@ -795,7 +799,7 @@ int netpoll_setup(struct netpoll *np)
+ 		return -ENODEV;
+ 	}
+ 
+-	if (ndev->master) {
++	if (netdev_unique_upper_dev_get(ndev)) {
+ 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
+ 		err = -EBUSY;
+ 		goto put;
+-- 
+1.7.10.4
