@@ -1,16 +1,17 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 14/21] userns: nfnetlink_log: Report socket uids in the log
-	sockets user namespace
-Date: Mon, 13 Aug 2012 13:18:28 -0700
-Message-ID: <1344889115-21610-14-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 15/21] net sched: Pass the skb into change so it can access
+	NETLINK_CB
+Date: Mon, 13 Aug 2012 13:18:29 -0700
+Message-ID: <1344889115-21610-15-git-send-email-ebiederm@xmission.com>
 References: <87ehnav9n5.fsf@xmission.com>
 	<1344889115-21610-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 In-Reply-To: <1344889115-21610-1-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
@@ -27,87 +28,171 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-At logging instance creation capture the peer netlink socket's user
-namespace. Use the captured peer user namespace when reporting socket
-uids to the peer.
+cls_flow.c plays with uids and gids.  Unless I misread that
+code it is possible for classifiers to depend on the specific uid and
+gid values.  Therefore I need to know the user namespace of the
+netlink socket that is installing the packet classifiers.  Pass
+in the rtnetlink skb so I can access the NETLINK_CB of the passed
+packet.  In particular I want access to sk_user_ns(NETLINK_CB(in_skb).ssk).
 
-The peer socket's user namespace is guaranateed to be valid until the user
-closes the netlink socket.  nfnetlink_log removes instances during the final
-close of a socket.  __build_packet_message does not get called after an
-instance is destroyed.   Therefore it is safe to let the peer netlink socket
-take care of the user namespace reference counting for us.
+Pass in not the user namespace but the incomming rtnetlink skb into
+the the classifier change routines as that is generally the more useful
+parameter.
 
+Cc: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
 Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- init/Kconfig                  |    1 -
- net/netfilter/nfnetlink_log.c |   14 ++++++++++----
- 2 files changed, 10 insertions(+), 5 deletions(-)
+ include/net/sch_generic.h |    3 ++-
+ net/sched/cls_api.c       |    2 +-
+ net/sched/cls_basic.c     |    3 ++-
+ net/sched/cls_cgroup.c    |    3 ++-
+ net/sched/cls_flow.c      |    3 ++-
+ net/sched/cls_fw.c        |    3 ++-
+ net/sched/cls_route.c     |    3 ++-
+ net/sched/cls_rsvp.h      |    3 ++-
+ net/sched/cls_tcindex.c   |    3 ++-
+ net/sched/cls_u32.c       |    3 ++-
+ 10 files changed, 19 insertions(+), 10 deletions(-)
 
-diff --git a/init/Kconfig b/init/Kconfig
-index 07435e0..2660b31 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -947,7 +947,6 @@ config UIDGID_CONVERTED
- 	depends on NETFILTER_XT_MATCH_OWNER = n
- 	depends on NETFILTER_XT_MATCH_RECENT = n
- 	depends on NETFILTER_XT_TARGET_LOG = n
--	depends on NETFILTER_NETLINK_LOG = n
- 	depends on AF_RXRPC = n
- 	depends on NET_KEY = n
- 	depends on DNS_RESOLVER = n
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 169ab59..4142aac 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -55,6 +55,7 @@ struct nfulnl_instance {
- 	unsigned int qlen;		/* number of nlmsgs in skb */
- 	struct sk_buff *skb;		/* pre-allocatd skb */
- 	struct timer_list timer;
-+	struct user_namespace *peer_user_ns;	/* User namespace of the peer process */
- 	int peer_pid;			/* PID of the peer process */
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index d9611e0..4616f46 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -188,7 +188,8 @@ struct tcf_proto_ops {
  
- 	/* configurable parameters */
-@@ -132,7 +133,7 @@ instance_put(struct nfulnl_instance *inst)
- static void nfulnl_timer(unsigned long data);
+ 	unsigned long		(*get)(struct tcf_proto*, u32 handle);
+ 	void			(*put)(struct tcf_proto*, unsigned long);
+-	int			(*change)(struct tcf_proto*, unsigned long,
++	int			(*change)(struct sk_buff *,
++					struct tcf_proto*, unsigned long,
+ 					u32 handle, struct nlattr **,
+ 					unsigned long *);
+ 	int			(*delete)(struct tcf_proto*, unsigned long);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 6dd1131..dc3ef5a 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -319,7 +319,7 @@ replay:
+ 		}
+ 	}
  
- static struct nfulnl_instance *
--instance_create(u_int16_t group_num, int pid)
-+instance_create(u_int16_t group_num, int pid, struct user_namespace *user_ns)
+-	err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
++	err = tp->ops->change(skb, tp, cl, t->tcm_handle, tca, &fh);
+ 	if (err == 0) {
+ 		if (tp_created) {
+ 			spin_lock_bh(root_lock);
+diff --git a/net/sched/cls_basic.c b/net/sched/cls_basic.c
+index 590960a..344a11b 100644
+--- a/net/sched/cls_basic.c
++++ b/net/sched/cls_basic.c
+@@ -162,7 +162,8 @@ errout:
+ 	return err;
+ }
+ 
+-static int basic_change(struct tcf_proto *tp, unsigned long base, u32 handle,
++static int basic_change(struct sk_buff *in_skb,
++			struct tcf_proto *tp, unsigned long base, u32 handle,
+ 			struct nlattr **tca, unsigned long *arg)
  {
- 	struct nfulnl_instance *inst;
  	int err;
-@@ -162,6 +163,7 @@ instance_create(u_int16_t group_num, int pid)
+diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+index 7743ea8..91de666 100644
+--- a/net/sched/cls_cgroup.c
++++ b/net/sched/cls_cgroup.c
+@@ -151,7 +151,8 @@ static const struct nla_policy cgroup_policy[TCA_CGROUP_MAX + 1] = {
+ 	[TCA_CGROUP_EMATCHES]	= { .type = NLA_NESTED },
+ };
  
- 	setup_timer(&inst->timer, nfulnl_timer, (unsigned long)inst);
+-static int cls_cgroup_change(struct tcf_proto *tp, unsigned long base,
++static int cls_cgroup_change(struct sk_buff *in_skb,
++			     struct tcf_proto *tp, unsigned long base,
+ 			     u32 handle, struct nlattr **tca,
+ 			     unsigned long *arg)
+ {
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index ccd08c8..ae854f3 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -347,7 +347,8 @@ static const struct nla_policy flow_policy[TCA_FLOW_MAX + 1] = {
+ 	[TCA_FLOW_PERTURB]	= { .type = NLA_U32 },
+ };
  
-+	inst->peer_user_ns = user_ns;
- 	inst->peer_pid = pid;
- 	inst->group_num = group_num;
+-static int flow_change(struct tcf_proto *tp, unsigned long base,
++static int flow_change(struct sk_buff *in_skb, 
++		       struct tcf_proto *tp, unsigned long base,
+ 		       u32 handle, struct nlattr **tca,
+ 		       unsigned long *arg)
+ {
+diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
+index 8384a47..4075a0a 100644
+--- a/net/sched/cls_fw.c
++++ b/net/sched/cls_fw.c
+@@ -233,7 +233,8 @@ errout:
+ 	return err;
+ }
  
-@@ -503,8 +505,11 @@ __build_packet_message(struct nfulnl_instance *inst,
- 		read_lock_bh(&skb->sk->sk_callback_lock);
- 		if (skb->sk->sk_socket && skb->sk->sk_socket->file) {
- 			struct file *file = skb->sk->sk_socket->file;
--			__be32 uid = htonl(file->f_cred->fsuid);
--			__be32 gid = htonl(file->f_cred->fsgid);
-+			__be32 uid = htonl(from_kuid_munged(inst->peer_user_ns,
-+							    file->f_cred->fsuid));
-+			__be32 gid = htonl(from_kgid_munged(inst->peer_user_ns,
-+							    file->f_cred->fsgid));
-+			/* need to unlock here since NLA_PUT may goto */
- 			read_unlock_bh(&skb->sk->sk_callback_lock);
- 			if (nla_put_be32(inst->skb, NFULA_UID, uid) ||
- 			    nla_put_be32(inst->skb, NFULA_GID, gid))
-@@ -783,7 +788,8 @@ nfulnl_recv_config(struct sock *ctnl, struct sk_buff *skb,
- 			}
+-static int fw_change(struct tcf_proto *tp, unsigned long base,
++static int fw_change(struct sk_buff *in_skb,
++		     struct tcf_proto *tp, unsigned long base,
+ 		     u32 handle,
+ 		     struct nlattr **tca,
+ 		     unsigned long *arg)
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 44f405c..c10d57b 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -427,7 +427,8 @@ errout:
+ 	return err;
+ }
  
- 			inst = instance_create(group_num,
--					       NETLINK_CB(skb).pid);
-+					       NETLINK_CB(skb).pid,
-+					       sk_user_ns(NETLINK_CB(skb).ssk));
- 			if (IS_ERR(inst)) {
- 				ret = PTR_ERR(inst);
- 				goto out;
+-static int route4_change(struct tcf_proto *tp, unsigned long base,
++static int route4_change(struct sk_buff *in_skb,
++		       struct tcf_proto *tp, unsigned long base,
+ 		       u32 handle,
+ 		       struct nlattr **tca,
+ 		       unsigned long *arg)
+diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
+index 18ab93e..494bbb9 100644
+--- a/net/sched/cls_rsvp.h
++++ b/net/sched/cls_rsvp.h
+@@ -416,7 +416,8 @@ static const struct nla_policy rsvp_policy[TCA_RSVP_MAX + 1] = {
+ 	[TCA_RSVP_PINFO]	= { .len = sizeof(struct tc_rsvp_pinfo) },
+ };
+ 
+-static int rsvp_change(struct tcf_proto *tp, unsigned long base,
++static int rsvp_change(struct sk_buff *in_skb,
++		       struct tcf_proto *tp, unsigned long base,
+ 		       u32 handle,
+ 		       struct nlattr **tca,
+ 		       unsigned long *arg)
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index fe29420..a1293b4 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -332,7 +332,8 @@ errout:
+ }
+ 
+ static int
+-tcindex_change(struct tcf_proto *tp, unsigned long base, u32 handle,
++tcindex_change(struct sk_buff *in_skb,
++	       struct tcf_proto *tp, unsigned long base, u32 handle,
+ 	       struct nlattr **tca, unsigned long *arg)
+ {
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index d45373f..c7c27bc 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -544,7 +544,8 @@ errout:
+ 	return err;
+ }
+ 
+-static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
++static int u32_change(struct sk_buff *in_skb,
++		      struct tcf_proto *tp, unsigned long base, u32 handle,
+ 		      struct nlattr **tca,
+ 		      unsigned long *arg)
+ {
 -- 
 1.7.5.4
