@@ -1,40 +1,64 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 1/2] net: move and rename netif_notify_peers()
-Date: Mon, 13 Aug 2012 10:46:42 +0800
-Message-ID: <1344826002.22116.3.camel@cr0>
-References: <1344586497-2702-1-git-send-email-amwang@redhat.com>
-	 <1344625276.2701.10.camel@bwh-desktop.uk.solarflarecom.com>
+From: Robert Vineyard <vineyard@tuffmail.com>
+Subject: Re: [Question]About KVM network zero-copy  feature!
+Date: Sun, 12 Aug 2012 23:45:27 -0400
+Message-ID: <50287857.2060305@tuffmail.com>
+References: <50248148.4070204@huawei.com>
+	<20120811135556.58ddf48d@nehalam.linuxnetplumber.net>
+	<5026D49B.10305@tuffmail.com> <5026FC04.6080108@tuffmail.com>
+	<20120812093730.GD1421@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19728 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752447Ab2HMCqz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2012 22:46:55 -0400
-In-Reply-To: <1344625276.2701.10.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xiaohui.xin@intel.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	"Peter Huang\(Peng\)" <peter.huangpeng@huawei.com>,
+	virtualization@lists.linux-foundation.org, avi@redhat.com,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120812093730.GD1421@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-08-10 at 20:01 +0100, Ben Hutchings wrote:
-> On Fri, 2012-08-10 at 16:14 +0800, Cong Wang wrote:
-> > I believe net/core/dev.c is a better place for netif_notify_peers(),
-> > because other net event notify functions also stay in this file.
-> > 
-> > And rename it to netdev_notify_peers().
-> [...]
-> 
-> Is there a convention for using the 'netdev' vs 'netif' prefixes?
-> If not, I don't see the point in renaming just this one function.
-> 
+On 08/12/2012 05:37 AM, Michael S. Tsirkin wrote:
+> AFAIK Xin left Intel and is not working on it.
+> Contributions are welcome.
 
-The reason why I rename it is there are more functions named netdev_*
-than netif_* in net/core/dev.c. Also given that netdev_bonding_change()
-has netdev_ prefix too.
+That's too bad... do you know of anyone else (at Intel or otherwise) who 
+might be familiar enough with the existing codebase to get me started?
 
-I don't have strong opinions on this.
+ From the code I've looked at, it appears that among other things 
+they're using the splice(2) / vmsplice(2) system calls to effect 
+"copying" without actually copying data. If I understand the semantics 
+correctly, these calls are basically shuffling pointers around to avoid 
+unnecessary memcpy(3) / mmap(2) calls. I've even seen a "zero-copy" 
+version of sendfile(2) that essentially wraps it around a call to splice(2).
 
-Thanks.
+I may be able to hack something together based on the current zero-copy 
+TX implementation, but as I'm still wrapping my head around several of 
+the concepts I just described, it may be awhile before I can produce 
+anything useful. I have quite a bit of experience developing for Linux 
+in C, but this would be my first attempt at writing kernel/device-driver 
+code.
+
+>> The Release Notes for RHEL 6.2 (originally published on 12/06/2011)
+>> also specifically mention macvtap/vhost zero-copy capabilities as
+>> being included as a Technology Preview:
+>>
+>> http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/6.2_Release_Notes/virtualization.html
+>
+> I think this means TX.
+
+It does. I meant to clarify that point in my original email... yes, only 
+TX zero-copy is currently implemented, and it is still marked as 
+"experimental". Outside of the custom solutions like PF_RING that I 
+mentioned, I don't know that I've seen zero-copy for RX.
+
+-- Robert Vineyard
