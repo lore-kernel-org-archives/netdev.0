@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/16] net: introduce upper device lists and remove dev->master
-Date: Mon, 13 Aug 2012 17:26:59 +0200
-Message-ID: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/16] macvlan: add link to upper device
+Date: Mon, 13 Aug 2012 17:27:01 +0200
+Message-ID: <1344871635-1052-3-git-send-email-jiri@resnulli.us>
+References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
 	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
@@ -16,64 +17,50 @@ Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	fbl@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/macvlan.c |    9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Recent discussion around
-"[net-next] bonding: don't allow the master to become its slave"
-forced me to think about upper<->lower device connections.
-
-This patchset adds a possibility to record upper device linkage.
-All upper<->lower devices are converted to use this mechanism right after.
-That leads to dev->master removal because this info becomes redundant since
-"unique links" have the same value.
-
-After all changes, there is no longer possible to do:
-"bond->someotherdevice->samebond"
-
-Also I think that drivers like cxgb3, qlcnic, qeth would benefit by this
-in future by being able to get more appropriate info about l3 addresses.
-
-Jiri Pirko (16):
-  net: introduce upper device lists
-  macvlan: add link to upper device
-  vlan: add link to upper device
-  rtnetlink: remove usage of dev->master
-  team: remove usage of netdev_set_master()
-  bridge: remove usage of netdev_set_master()
-  netpoll: remove usage of dev->master
-  cxgb3: remove usage of dev->master
-  qlcnic: guard __vlan_find_dev_deep() by rcu_read_lock
-  qeth: ensure that __vlan_find_dev_deep() is called with rcu_read_lock
-  vlan: remove usage of dev->master in __vlan_find_dev_deep()
-  nes: remove usage of dev->master
-  bonding: remove usage of dev->master
-  net: remove no longer used netdev_set_bond_master() and
-    netdev_set_master()
-  net: remove usage of dev->master
-  net: kill dev->master
-
- drivers/infiniband/hw/nes/nes.c                    |    8 +-
- drivers/infiniband/hw/nes/nes_cm.c                 |    2 +-
- drivers/net/bonding/bond_3ad.c                     |   30 +--
- drivers/net/bonding/bond_alb.c                     |    6 +-
- drivers/net/bonding/bond_main.c                    |   94 ++++----
- drivers/net/bonding/bonding.h                      |   14 +-
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |   11 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +
- drivers/net/macvlan.c                              |    9 +-
- drivers/net/team/team.c                            |   13 +-
- drivers/s390/net/qeth_l3_main.c                    |   21 +-
- include/linux/netdevice.h                          |   22 +-
- net/8021q/vlan.c                                   |   10 +-
- net/8021q/vlan_core.c                              |   18 +-
- net/bridge/br_if.c                                 |    6 +-
- net/core/dev.c                                     |  241 +++++++++++++++++---
- net/core/netpoll.c                                 |    8 +-
- net/core/rtnetlink.c                               |   45 ++--
- 18 files changed, 392 insertions(+), 168 deletions(-)
-
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 66a9bfe..f5bd8a2 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -765,16 +765,22 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 		memcpy(dev->dev_addr, lowerdev->dev_addr, ETH_ALEN);
+ 	}
+ 
++	err = netdev_upper_dev_link(lowerdev, dev);
++	if (err)
++		goto destroy_port;
++
+ 	port->count += 1;
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto destroy_port;
++		goto upper_dev_unlink;
+ 
+ 	list_add_tail(&vlan->list, &port->vlans);
+ 	netif_stacked_transfer_operstate(lowerdev, dev);
+ 
+ 	return 0;
+ 
++upper_dev_unlink:
++	netdev_upper_dev_unlink(lowerdev, dev);
+ destroy_port:
+ 	port->count -= 1;
+ 	if (!port->count)
+@@ -798,6 +804,7 @@ void macvlan_dellink(struct net_device *dev, struct list_head *head)
+ 
+ 	list_del(&vlan->list);
+ 	unregister_netdevice_queue(dev, head);
++	netdev_upper_dev_unlink(vlan->lowerdev, dev);
+ }
+ EXPORT_SYMBOL_GPL(macvlan_dellink);
+ 
 -- 
 1.7.10.4
