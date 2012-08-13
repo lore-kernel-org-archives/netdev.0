@@ -1,18 +1,15 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 02/21] userns: Convert __dev_set_promiscuity to use kuids in
-	audit logs
-Date: Mon, 13 Aug 2012 13:18:16 -0700
-Message-ID: <1344889115-21610-2-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 03/21] userns: Convert sock_i_uid to return a kuid_t
+Date: Mon, 13 Aug 2012 13:18:17 -0700
+Message-ID: <1344889115-21610-3-git-send-email-ebiederm@xmission.com>
 References: <87ehnav9n5.fsf@xmission.com>
 	<1344889115-21610-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Klaus Heinrich Kiwi <klausk-xuelUoVDAHHQT0dZR+AlfA@public.gmane.org>,
+Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
 	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 In-Reply-To: <1344889115-21610-1-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
@@ -29,38 +26,45 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Cc: Klaus Heinrich Kiwi <klausk-xuelUoVDAHHQT0dZR+AlfA@public.gmane.org>
-Cc: Eric Paris <eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- net/core/dev.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ include/net/sock.h |    2 +-
+ net/core/sock.c    |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0cb3fe8..026bb4a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4492,8 +4492,8 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
- static int __dev_set_promiscuity(struct net_device *dev, int inc)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index b373023..65c3d62 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1668,7 +1668,7 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
+ 	write_unlock_bh(&sk->sk_callback_lock);
+ }
+ 
+-extern int sock_i_uid(struct sock *sk);
++extern kuid_t sock_i_uid(struct sock *sk);
+ extern unsigned long sock_i_ino(struct sock *sk);
+ 
+ static inline struct dst_entry *
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9c7fe4f..5c6a435 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1526,12 +1526,12 @@ void sock_edemux(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(sock_edemux);
+ 
+-int sock_i_uid(struct sock *sk)
++kuid_t sock_i_uid(struct sock *sk)
  {
- 	unsigned int old_flags = dev->flags;
--	uid_t uid;
--	gid_t gid;
+-	int uid;
 +	kuid_t uid;
-+	kgid_t gid;
  
- 	ASSERT_RTNL();
- 
-@@ -4525,7 +4525,8 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
- 				dev->name, (dev->flags & IFF_PROMISC),
- 				(old_flags & IFF_PROMISC),
- 				audit_get_loginuid(current),
--				uid, gid,
-+				from_kuid(&init_user_ns, uid),
-+				from_kgid(&init_user_ns, gid),
- 				audit_get_sessionid(current));
- 		}
- 
+ 	read_lock_bh(&sk->sk_callback_lock);
+-	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : 0;
++	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : GLOBAL_ROOT_UID;
+ 	read_unlock_bh(&sk->sk_callback_lock);
+ 	return uid;
+ }
 -- 
 1.7.5.4
