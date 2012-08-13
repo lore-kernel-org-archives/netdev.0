@@ -1,41 +1,68 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [flame^Wreview] net: netprio_cgroup: rework update socket logic
-Date: Mon, 13 Aug 2012 10:31:22 -0700
-Message-ID: <502939EA.80907@intel.com>
-References: <20120813015348.GZ23464@ZenIV.linux.org.uk> <502896C5.7080303@intel.com> <50289D7F.3070402@intel.com> <20120813121827.GB23464@ZenIV.linux.org.uk> <50293224.90803@intel.com> <20120813170109.GD23464@ZenIV.linux.org.uk>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next 15/16] net: remove usage of dev->master
+Date: Mon, 13 Aug 2012 19:31:41 +0200
+Message-ID: <20120813173141.GB1808@minipsycho.orion>
+References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
+ <1344871635-1052-16-git-send-email-jiri@resnulli.us>
+ <1344878131.2733.28.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20120813170109.GD23464@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1344878131.2733.28.camel-/LGg1Z1CJKReKY3V0RtoKmatzQS1i7+A3tAM5lWOD0I@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 8/13/2012 10:01 AM, Al Viro wrote:
-> On Mon, Aug 13, 2012 at 09:58:12AM -0700, John Fastabend wrote:
->> [...]
->>
->>> HOWEVER, it still doesn't address more fundamental problem - somebody
->>> creating a socket and passing it to you in SCM_RIGHTS datagram will
->>> leave you with a socket you can do IO on, still tagged according to who
->>> had created it.
->>>
->>> AFAICS, the whole point of that exercise was to allow third-party changing
->>> the priorities of traffic on sockets already created by a process we now
->>> move to a different cgroup.  Consider e.g. this:
->>
->> Correct that is the point of the exercise.
->>
->> To fix this specific case we could add a call to sock_update_netprioidx
->> in scm_recv to set the sk_cgrp_prioidx value.
+Mon, Aug 13, 2012 at 07:15:31PM CEST, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org wrote:
+>On Mon, 2012-08-13 at 17:27 +0200, Jiri Pirko wrote:
+>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+>> ---
+>>  net/core/dev.c |    4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index c0f9adb..8977404 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -5461,8 +5461,8 @@ static void rollback_registered_many(struct list_head *head)
+>>  		if (dev->netdev_ops->ndo_uninit)
+>>  			dev->netdev_ops->ndo_uninit(dev);
+>>  
+>> -		/* Notifier chain MUST detach us from master device. */
+>> -		WARN_ON(dev->master);
+>> +		/* Notifier chain MUST detach us all upper devices. */
+>> +		WARN_ON(netdev_has_any_upper_dev(dev));
+>>  
+>>  		/* Remove entries from kobject tree */
+>>  		netdev_unregister_kobject(dev);
 >
-> On every received descriptor, that is?  Eeek...
->
+>I think this should be folded into patch 1, since that already ensures
+>that any master device is included in the upper device list.
 
-We are already iterating through the files in scm_detach_fds called from
-scm_recv(). This would be an extra (file->f_op == &socket_file_ops)
-check here and then the sock update.
+Right, I will squash it into patch 1
+
+>
+>Ben.
+>
+>-- 
+>Ben Hutchings, Staff Engineer, Solarflare
+>Not speaking for my employer; that's the marketing department's job.
+>They asked us to note that Solarflare product names are trademarked.
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
