@@ -1,69 +1,49 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH] netvm: check for page == NULL when propogating the
- skb->pfmemalloc flag
-Date: Mon, 13 Aug 2012 11:26:04 +0100
-Message-ID: <20120813102604.GC4177@suse.de>
-References: <20120807085554.GF29814@suse.de>
- <20120808.155046.820543563969484712.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net 0/3] qmi_wwan: simplify device matching and add a few new devices
+Date: Mon, 13 Aug 2012 12:39:09 +0200
+Message-ID: <87mx1zjctu.fsf@nemi.mork.no>
+References: <1344798992-10176-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	konrad@darnok.org, Ian.Campbell@eu.citrix.com,
-	Jeremy Fitzhardinge <jeremy@xensource.com>, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120808.155046.820543563969484712.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1344798992-10176-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+ (=?utf-8?Q?=22Bj=C3=B8rn?= Mork"'s
+	message of "Sun, 12 Aug 2012 21:16:29 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2012 at 03:50:46PM -0700, David Miller wrote:
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Tue, 7 Aug 2012 09:55:55 +0100
-> 
-> > Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
-> > for the following bug triggered by a xen network driver
->  ...
-> > The problem is that the xenfront driver is passing a NULL page to
-> > __skb_fill_page_desc() which was unexpected. This patch checks that
-> > there is a page before dereferencing.
-> > 
-> > Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
-> 
-> That call to __skb_fill_page_desc() in xen-netfront.c looks completely bogus.
-> It's the only driver passing NULL here.
-> 
-> That whole song and dance figuring out what to do with the head
-> fragment page, depending upon whether the length is greater than the
-> RX_COPY_THRESHOLD, is completely unnecessary.
-> 
-> Just use something like a call to __pskb_pull_tail(skb, len) and all
-> that other crap around that area can simply be deleted.
+Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
 
-I looked at this for a while but I did not see how __pskb_pull_tail()
-could be used sensibly but I'm simily not familiar with writing network
-device drivers or Xen.
+> The home cooked whitelisting code can be removed now that=20
+> the USB core supports interface number matching.
+>
+> The second patch adds a few new devices.
+>
+> The third patch improves device list readability by using
+> existing macros where possible.
+>
+> I hope this can go in 3.6-rc2/3. The series is based on
+> the current net/master (commit 2359a476)
 
-This messing with RX_COPY_THRESHOLD seems to be related to how the frontend
-and backend communicate (maybe some fixed limitation of the xenbus). The
-existing code looks like it is trying to take the fragments received and
-pass them straight to the backend without copying by passing the fragments
-to the backend without copying. I worry that if I try converting this to
-__pskb_pull_tail() that it would either hit the limitation of xenbus or
-introduce copying where it is not wanted.
+Just an additional afterthought: Please do not apply this as it is to
+"net-next" if you decide it is inappropriate for "net".
 
-I'm going to have to punt this to Jeremy and the other Xen folk as I'm not
-sure what the original intention was and I don't have a Xen setup anywhere
-to test any patch. Jeremy, xen folk? 
+New devices will be added to the driver during the 3.6 cycle whether or
+not the probing changes are accepted.  This will result in unnecessary
+merge conflicts. I'll submit a new version of the patch set for
+"net-next" when we have a better idea of what the device list looks lik=
+e
+at the beginning of the 3.7 cycle.
 
--- 
-Mel Gorman
-SUSE Labs
+But I am still hoping this is accepted for "net", although I obviously
+screwed up choosing strategy to avoid net/usb merge conflicts.
 
+
+Bj=C3=B8rn
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
