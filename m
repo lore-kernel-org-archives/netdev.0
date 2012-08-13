@@ -1,70 +1,80 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/16] vlan: remove usage of dev->master in __vlan_find_dev_deep()
-Date: Mon, 13 Aug 2012 17:27:10 +0200
-Message-ID: <1344871635-1052-12-git-send-email-jiri@resnulli.us>
-References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
-	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
-	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
-	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
-	shemminger@vyatta.com, bhutchings@solarflare.com,
-	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
-	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
-	fbl@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] tc-tbf.8: Add parameter range to man page.
+Date: Mon, 13 Aug 2012 08:30:15 -0700
+Message-ID: <20120813083015.27b66cd7@nehalam.linuxnetplumber.net>
+References: <1344306632-15288-1-git-send-email-lw@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Li Wei <lw@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36528 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752420Ab2HMPa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2012 11:30:26 -0400
+In-Reply-To: <1344306632-15288-1-git-send-email-lw@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Also, since all users call __vlan_find_dev_deep() with rcu_read_lock,
-make no possibility to call this with rtnl mutex held only.
+On Tue, 7 Aug 2012 10:30:32 +0800
+Li Wei <lw@cn.fujitsu.com> wrote:
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/8021q/vlan_core.c |   18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
+> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> ---
+>  man/man8/tc-tbf.8 |    6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> diff --git a/man/man8/tc-tbf.8 b/man/man8/tc-tbf.8
+> index 3abb238..7b76146 100644
+> --- a/man/man8/tc-tbf.8
+> +++ b/man/man8/tc-tbf.8
+> @@ -76,6 +76,7 @@ latency parameter, which specifies the maximum amount of time a packet can
+>  sit in the TBF. The latter calculation takes into account the size of the
+>  bucket, the rate and possibly the peakrate (if set). These two parameters
+>  are mutually exclusive. 
+> +The range of parameter limit is [1, UINT32_MAX] bytes.
+>  .TP
+>  burst
+>  Also known as buffer or maxburst.
+> @@ -85,6 +86,7 @@ if you want to reach your configured rate!
+>  
+>  If your buffer is too small, packets may be dropped because more tokens arrive per timer tick than fit in your bucket.
+>  The minimum buffer size can be calculated by dividing the rate by HZ.
+> +The range of this parameter is [1, UINT32_MAX] bytes.
+>  
+>  Token usage calculations are performed using a table which by default has a resolution of 8 packets. 
+>  This resolution can be changed by specifying the 
+> @@ -96,11 +98,13 @@ this. Must be an integral power of 2.
+>  mpu
+>  A zero-sized packet does not use zero bandwidth. For ethernet, no packet uses less than 64 bytes. The Minimum Packet Unit 
+>  determines the minimal token usage (specified in bytes) for a packet. Defaults to zero.
+> +The range of this parameter is [0, UINT32_MAX] bytes.
+>  .TP
+>  rate
+>  The speed knob. See remarks above about limits! See 
+>  .BR tc (8)
+>  for units.
+> +The range of this parameter is [1, UINT32_MAX] bps.
+>  .PP
+>  Furthermore, if a peakrate is desired, the following parameters are available:
+>  
+> @@ -108,12 +112,14 @@ Furthermore, if a peakrate is desired, the following parameters are available:
+>  peakrate
+>  Maximum depletion rate of the bucket. Limited to 1mbit/s on Intel, 10mbit/s on Alpha. The peakrate does 
+>  not need to be set, it is only necessary if perfect millisecond timescale shaping is required.
+> +The range of this parameter is [1, UINT32_MAX] bps.
+>  
+>  .TP
+>  mtu/minburst
+>  Specifies the size of the peakrate bucket. For perfect accuracy, should be set to the MTU of the interface.
+>  If a peakrate is needed, but some burstiness is acceptable, this size can be raised. A 3000 byte minburst
+>  allows around 3mbit/s of peakrate, given 1000 byte packets.
+> +The range of this parameter is [1, UINT32_MAX] bytes.
+>  
+>  Like the regular burstsize you can also specify a 
+>  .B cell
 
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 8ca533c..f9518ad 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -66,21 +66,25 @@ bool vlan_do_receive(struct sk_buff **skbp, bool last_handler)
- 	return true;
- }
- 
--/* Must be invoked with rcu_read_lock or with RTNL. */
--struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
-+/* Must be invoked with rcu_read_lock. */
-+struct net_device *__vlan_find_dev_deep(struct net_device *dev,
- 					u16 vlan_id)
- {
--	struct vlan_info *vlan_info = rcu_dereference_rtnl(real_dev->vlan_info);
-+	struct vlan_info *vlan_info = rcu_dereference(dev->vlan_info);
- 
- 	if (vlan_info) {
- 		return vlan_group_get_device(&vlan_info->grp, vlan_id);
- 	} else {
- 		/*
--		 * Bonding slaves do not have grp assigned to themselves.
--		 * Grp is assigned to bonding master instead.
-+		 * Lower devices of unique uppers (bonding, team) do not have
-+		 * grp assigned to themselves. Grp is assigned to upper device
-+		 * instead.
- 		 */
--		if (netif_is_bond_slave(real_dev))
--			return __vlan_find_dev_deep(real_dev->master, vlan_id);
-+		struct net_device *upper_dev;
-+
-+		upper_dev = netdev_unique_upper_dev_get_rcu(dev);
-+		if (upper_dev)
-+			return __vlan_find_dev_deep(upper_dev, vlan_id);
- 	}
- 
- 	return NULL;
--- 
-1.7.10.4
+Not sure about this, other qdisc don't document ranges on their man pages.
+Probably better to fix the generic documentation about qdisc parameters
+which already exists on 'tc-qdisc' man page.
