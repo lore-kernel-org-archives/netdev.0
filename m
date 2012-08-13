@@ -1,16 +1,19 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 21/21] userns: Convert tun/tap to use kuid and kgid where
-	appropriate
-Date: Mon, 13 Aug 2012 13:18:35 -0700
-Message-ID: <1344889115-21610-21-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 20/21] userns: Make the airo wireless driver use kuids for
+	proc uids and gids
+Date: Mon, 13 Aug 2012 13:18:34 -0700
+Message-ID: <1344889115-21610-20-git-send-email-ebiederm@xmission.com>
 References: <87ehnav9n5.fsf@xmission.com>
 	<1344889115-21610-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Maxim Krasnyansky <maxk-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 In-Reply-To: <1344889115-21610-1-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
@@ -27,127 +30,160 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Cc: Maxim Krasnyansky <maxk-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
+Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Alexey Dobriyan <adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/tun.c |   46 ++++++++++++++++++++++++++++++++--------------
- init/Kconfig      |    1 -
- 2 files changed, 32 insertions(+), 15 deletions(-)
+ drivers/net/wireless/airo.c |   48 +++++++++++++++++++++++++-----------------
+ init/Kconfig                |    2 -
+ 2 files changed, 28 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 926d4db..a9bd9f3 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -120,8 +120,8 @@ struct tun_sock;
- struct tun_struct {
- 	struct tun_file		*tfile;
- 	unsigned int 		flags;
--	uid_t			owner;
--	gid_t			group;
-+	kuid_t			owner;
-+	kgid_t			group;
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+index f9f15bb..c586f78 100644
+--- a/drivers/net/wireless/airo.c
++++ b/drivers/net/wireless/airo.c
+@@ -232,8 +232,10 @@ static int adhoc;
  
- 	struct net_device	*dev;
- 	netdev_features_t	set_features;
-@@ -1032,8 +1032,8 @@ static void tun_setup(struct net_device *dev)
+ static int probe = 1;
+ 
++static kuid_t proc_kuid;
+ static int proc_uid /* = 0 */;
+ 
++static kgid_t proc_kgid;
+ static int proc_gid /* = 0 */;
+ 
+ static int airo_perm = 0555;
+@@ -4499,78 +4501,79 @@ struct proc_data {
+ static int setup_proc_entry( struct net_device *dev,
+ 			     struct airo_info *apriv ) {
+ 	struct proc_dir_entry *entry;
++
+ 	/* First setup the device directory */
+ 	strcpy(apriv->proc_name,dev->name);
+ 	apriv->proc_entry = proc_mkdir_mode(apriv->proc_name, airo_perm,
+ 					    airo_entry);
+ 	if (!apriv->proc_entry)
+ 		goto fail;
+-	apriv->proc_entry->uid = proc_uid;
+-	apriv->proc_entry->gid = proc_gid;
++	apriv->proc_entry->uid = proc_kuid;
++	apriv->proc_entry->gid = proc_kgid;
+ 
+ 	/* Setup the StatsDelta */
+ 	entry = proc_create_data("StatsDelta", S_IRUGO & proc_perm,
+ 				 apriv->proc_entry, &proc_statsdelta_ops, dev);
+ 	if (!entry)
+ 		goto fail_stats_delta;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the Stats */
+ 	entry = proc_create_data("Stats", S_IRUGO & proc_perm,
+ 				 apriv->proc_entry, &proc_stats_ops, dev);
+ 	if (!entry)
+ 		goto fail_stats;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the Status */
+ 	entry = proc_create_data("Status", S_IRUGO & proc_perm,
+ 				 apriv->proc_entry, &proc_status_ops, dev);
+ 	if (!entry)
+ 		goto fail_status;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the Config */
+ 	entry = proc_create_data("Config", proc_perm,
+ 				 apriv->proc_entry, &proc_config_ops, dev);
+ 	if (!entry)
+ 		goto fail_config;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the SSID */
+ 	entry = proc_create_data("SSID", proc_perm,
+ 				 apriv->proc_entry, &proc_SSID_ops, dev);
+ 	if (!entry)
+ 		goto fail_ssid;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the APList */
+ 	entry = proc_create_data("APList", proc_perm,
+ 				 apriv->proc_entry, &proc_APList_ops, dev);
+ 	if (!entry)
+ 		goto fail_aplist;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the BSSList */
+ 	entry = proc_create_data("BSSList", proc_perm,
+ 				 apriv->proc_entry, &proc_BSSList_ops, dev);
+ 	if (!entry)
+ 		goto fail_bsslist;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	/* Setup the WepKey */
+ 	entry = proc_create_data("WepKey", proc_perm,
+ 				 apriv->proc_entry, &proc_wepkey_ops, dev);
+ 	if (!entry)
+ 		goto fail_wepkey;
+-	entry->uid = proc_uid;
+-	entry->gid = proc_gid;
++	entry->uid = proc_kuid;
++	entry->gid = proc_kgid;
+ 
+ 	return 0;
+ 
+@@ -5697,11 +5700,16 @@ static int __init airo_init_module( void )
  {
- 	struct tun_struct *tun = netdev_priv(dev);
+ 	int i;
  
--	tun->owner = -1;
--	tun->group = -1;
-+	tun->owner = INVALID_UID;
-+	tun->group = INVALID_GID;
++	proc_kuid = make_kuid(&init_user_ns, proc_uid);
++	proc_kgid = make_kgid(&init_user_ns, proc_gid);
++	if (!uid_valid(proc_kuid) || !gid_valid(proc_kgid))
++		return -EINVAL;
++
+ 	airo_entry = proc_mkdir_mode("driver/aironet", airo_perm, NULL);
  
- 	dev->ethtool_ops = &tun_ethtool_ops;
- 	dev->destructor = tun_free_netdev;
-@@ -1156,14 +1156,20 @@ static ssize_t tun_show_owner(struct device *dev, struct device_attribute *attr,
- 			      char *buf)
- {
- 	struct tun_struct *tun = netdev_priv(to_net_dev(dev));
--	return sprintf(buf, "%d\n", tun->owner);
-+	return uid_valid(tun->owner)?
-+		sprintf(buf, "%u\n",
-+			from_kuid_munged(current_user_ns(), tun->owner)):
-+		sprintf(buf, "-1\n");
- }
+ 	if (airo_entry) {
+-		airo_entry->uid = proc_uid;
+-		airo_entry->gid = proc_gid;
++		airo_entry->uid = proc_kuid;
++		airo_entry->gid = proc_kgid;
+ 	}
  
- static ssize_t tun_show_group(struct device *dev, struct device_attribute *attr,
- 			      char *buf)
- {
- 	struct tun_struct *tun = netdev_priv(to_net_dev(dev));
--	return sprintf(buf, "%d\n", tun->group);
-+	return gid_valid(tun->group) ?
-+		sprintf(buf, "%u\n",
-+			from_kgid_munged(current_user_ns(), tun->group)):
-+		sprintf(buf, "-1\n");
- }
- 
- static DEVICE_ATTR(tun_flags, 0444, tun_show_flags, NULL);
-@@ -1190,8 +1196,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		else
- 			return -EINVAL;
- 
--		if (((tun->owner != -1 && cred->euid != tun->owner) ||
--		     (tun->group != -1 && !in_egroup_p(tun->group))) &&
-+		if (((uid_valid(tun->owner) && !uid_eq(cred->euid, tun->owner)) ||
-+		     (gid_valid(tun->group) && !in_egroup_p(tun->group))) &&
- 		    !capable(CAP_NET_ADMIN))
- 			return -EPERM;
- 		err = security_tun_dev_attach(tun->socket.sk);
-@@ -1375,6 +1381,8 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	void __user* argp = (void __user*)arg;
- 	struct sock_fprog fprog;
- 	struct ifreq ifr;
-+	kuid_t owner;
-+	kgid_t group;
- 	int sndbuf;
- 	int vnet_hdr_sz;
- 	int ret;
-@@ -1448,16 +1456,26 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 
- 	case TUNSETOWNER:
- 		/* Set owner of the device */
--		tun->owner = (uid_t) arg;
--
--		tun_debug(KERN_INFO, tun, "owner set to %d\n", tun->owner);
-+		owner = make_kuid(current_user_ns(), arg);
-+		if (!uid_valid(owner)) {
-+			ret = -EINVAL;
-+			break;
-+		}
-+		tun->owner = owner;
-+		tun_debug(KERN_INFO, tun, "owner set to %d\n",
-+			  from_kuid(&init_user_ns, tun->owner));
- 		break;
- 
- 	case TUNSETGROUP:
- 		/* Set group of the device */
--		tun->group= (gid_t) arg;
--
--		tun_debug(KERN_INFO, tun, "group set to %d\n", tun->group);
-+		group = make_kgid(current_user_ns(), arg);
-+		if (!gid_valid(group)) {
-+			ret = -EINVAL;
-+			break;
-+		}
-+		tun->group = group;
-+		tun_debug(KERN_INFO, tun, "group set to %d\n",
-+			  from_kgid(&init_user_ns, tun->group));
- 		break;
- 
- 	case TUNSETLINK:
+ 	for (i = 0; i < 4 && io[i] && irq[i]; i++) {
 diff --git a/init/Kconfig b/init/Kconfig
-index eac23a6..b445d6f 100644
+index 76ffca9..eac23a6 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1003,7 +1003,6 @@ config UIDGID_CONVERTED
+@@ -1003,8 +1003,6 @@ config UIDGID_CONVERTED
  	depends on !UML || HOSTFS = n
  
  	# The rare drivers that won't build
--	depends on TUN = n
+-	depends on AIRO = n
+-	depends on AIRO_CS = n
+ 	depends on TUN = n
  	depends on INFINIBAND_QIB = n
  	depends on BLK_DEV_LOOP = n
- 	depends on ANDROID_BINDER_IPC = n
 -- 
 1.7.5.4
