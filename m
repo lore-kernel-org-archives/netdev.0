@@ -1,130 +1,81 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified
- root
-Date: Mon, 13 Aug 2012 14:24:31 -0400
-Message-ID: <20120813182431.GA4234@fieldses.org>
-References: <20120810125701.7115.71612.stgit@localhost.localdomain>
- <50254FA6.3060806@zytor.com>
- <20120810192628.79a34d28@pyramind.ukuu.org.uk>
- <20120810191149.GA17985@fieldses.org>
- <20120810202818.06236f46@pyramind.ukuu.org.uk>
- <50259494.8060304@zytor.com>
- <5025FA5A.4090403@parallels.com>
- <50263ECC.4060501@parallels.com>
- <20120813164730.GB2497@fieldses.org>
- <50293BE9.3010408@parallels.com>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [PATCH] netvm: check for page == NULL when propogating the skb->pfmemalloc
+ flag
+Date: Mon, 13 Aug 2012 11:56:48 -0700
+Message-ID: <50294DF0.8040206@goop.org>
+References: <20120807085554.GF29814@suse.de> <20120808.155046.820543563969484712.davem@davemloft.net> <20120813102604.GC4177@suse.de> <20120813104745.GE4177@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Emelianov <xemul@parallels.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
-	"devel@openvz.org" <devel@openvz.org>
-To: Stanislav Kinsbursky <skinsbursky@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50293BE9.3010408@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+ konrad@darnok.org, Ian.Campbell@eu.citrix.com,
+ David Miller <davem@davemloft.net>,
+ akpm@linux-foundation.org
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20120813104745.GE4177@suse.de>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 13, 2012 at 09:39:53PM +0400, Stanislav Kinsbursky wrote:
-> 13.08.2012 20:47, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Sat, Aug 11, 2012 at 03:15:24PM +0400, Stanislav Kinsbursky wrote=
-:
-> >>11.08.2012 10:23, Pavel Emelyanov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >>>On 08/11/2012 03:09 AM, H. Peter Anvin wrote:
-> >>>>On 08/10/2012 12:28 PM, Alan Cox wrote:
-> >>>>>Explicitly for Linux yes - this is not generally true of the AF_=
-UNIX
-> >>>>>socket domain and even the permissions aspect isn't guaranteed t=
-o be
-> >>>>>supported on some BSD environments !
-> >>>>Yes, but let's worry about what the Linux behavior should be.
-> >>>>
-> >>>>>The name is however just a proxy for the socket itself. You don'=
-t even
-> >>>>>get a device node in the usual sense or the same inode in the fi=
-le system
-> >>>>>space.
-> >>>>No, but it is looked up the same way any other inode is (the diff=
-erence
-> >>>>between FIFOs and sockets is that sockets have separate connectio=
-ns,
-> >>>>which is also why open() on sockets would be nice.)
-> >>>>
-> >>>>However, there is a fundamental difference between AF_UNIX socket=
-s and
-> >>>>open(), and that is how the pathname is delivered.  It thus would=
- make
-> >>>>more sense to provide the openat()-like information in struct
-> >>>>sockaddr_un, but that may be very hard to do in a sensible way.  =
-In that
-> >>>>sense it perhaps would be cleaner to be able to do an open[at]() =
-on the
-> >>>>socket node with O_PATH (perhaps there should be an O_SOCKET opti=
-on,
-> >>>>even?) and pass the resulting file descriptor to bind() or connec=
-t().
-> >>>I vote for this (openat + O_WHATEVER on a unix socket) as well. It=
- will
-> >>>help us in checkpoint-restore, making handling of overmounted/unli=
-nked
-> >>>sockets much cleaner.
-> >>I have to notice, that it's not enough and doesn't solve the issue.
-> >>There should be some way how to connect/bind already existent unix
-> >>socket (from kernel, at least), because socket can be created in
-> >>user space.
-> >>And this way (sock operation or whatever) have to provide an abilit=
-y
-> >>to lookup UNIX socket starting from specified root to support
-> >>containers.
-> >I don't understand--the rpcbind sockets are created by the kernel.  =
-What
-> >am I missing?
->=20
-> Kernel preform connect to rpcbind socket (i.e. user-space binds it),
-> doesn't it?
+On 08/13/2012 03:47 AM, Mel Gorman wrote:
+> Resending to correct Jeremy's address.
+>
+> On Wed, Aug 08, 2012 at 03:50:46PM -0700, David Miller wrote:
+>> From: Mel Gorman <mgorman@suse.de>
+>> Date: Tue, 7 Aug 2012 09:55:55 +0100
+>>
+>>> Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
+>>> for the following bug triggered by a xen network driver
+>>  ...
+>>> The problem is that the xenfront driver is passing a NULL page to
+>>> __skb_fill_page_desc() which was unexpected. This patch checks that
+>>> there is a page before dereferencing.
+>>>
+>>> Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+>>> Signed-off-by: Mel Gorman <mgorman@suse.de>
+>> That call to __skb_fill_page_desc() in xen-netfront.c looks completely bogus.
+>> It's the only driver passing NULL here.
+>>
+>> That whole song and dance figuring out what to do with the head
+>> fragment page, depending upon whether the length is greater than the
+>> RX_COPY_THRESHOLD, is completely unnecessary.
+>>
+>> Just use something like a call to __pskb_pull_tail(skb, len) and all
+>> that other crap around that area can simply be deleted.
+> I looked at this for a while but I did not see how __pskb_pull_tail()
+> could be used sensibly but I'm simily not familiar with writing network
+> device drivers or Xen.
+>
+> This messing with RX_COPY_THRESHOLD seems to be related to how the frontend
+> and backend communicate (maybe some fixed limitation of the xenbus). The
+> existing code looks like it is trying to take the fragments received and
+> pass them straight to the backend without copying by passing the fragments
+> to the backend without copying. I worry that if I try converting this to
+> __pskb_pull_tail() that it would either hit the limitation of xenbus or
+> introduce copying where it is not wanted.
+>
+> I'm going to have to punt this to Jeremy and the other Xen folk as I'm not
+> sure what the original intention was and I don't have a Xen setup anywhere
+> to test any patch. Jeremy, xen folk? 
 
-I'm confused, possibly because there are three "sockets" here: the
-client-side socket that's connected, the server-side socket that's
-bound, and the common object that exists in the filesystem namespace.
+It's been a while since I've looked at that stuff, but as I remember,
+the issue is that since the packet ring memory is shared with another
+domain which may be untrustworthy, we want to make copies of the headers
+before making any decisions based on them so that the other domain can't
+change them after header processing but before they're actually sent. 
+(The packet payload is considered less important, but of course the same
+issue applies if you're using some kind of content-aware packet filter.)
 
-Userland creates the server-side socket and binds to it.  All of that i=
-s
-done in the context of the rpcbind process, so is created in rpcbind's
-namespace.  That should be OK, right?
+So that's the rationale for always copying RX_COPY_THRESHOLD, even if
+the packet is larger than that amount.  As far as I know, changing this
+behaviour wouldn't break the ring protocol, but it does introduce a
+potential security issue.
 
-The client side socket is created and connected in
-xs_local_setup_socket().
+    J
 
-Making sure they both end up with the same thing is a matter of making
-sure they lookup the same path in the same namespace.  The difficult
-part of that is the in-kernel client-side socket connect, where we don'=
-t
-have the right process context any more.
-
-We currently set that up with __sock_create followed by
-kernel_connect.
-
-The proposal seems to be to instead do an openat followed by a
-kernel_connect, and pass the path in the openat instead of the connect.
-
-(Though in the kernel we won't be able to call openat, so we'll end up
-doing something like nfsd does (calling lookup_one_len() and
-dentry_open() by hand).)
-
-Have I got all that right?
-
-I don't know if that's better just calling into the unix socket code at
-connect time as your patch does.  Maybe the answer depends on whether
-it's a priority to make this functionality available to userspace.
-
---b.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
