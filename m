@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/16] bridge: remove usage of netdev_set_master()
-Date: Mon, 13 Aug 2012 17:27:05 +0200
-Message-ID: <1344871635-1052-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 04/16] rtnetlink: remove usage of dev->master
+Date: Mon, 13 Aug 2012 17:27:03 +0200
+Message-ID: <1344871635-1052-5-git-send-email-jiri@resnulli.us>
 References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -23,39 +23,121 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/bridge/br_if.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/core/rtnetlink.c |   44 ++++++++++++++++++++++++--------------------
+ 1 file changed, 24 insertions(+), 20 deletions(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index e1144e1..5933900 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -148,7 +148,7 @@ static void del_nbp(struct net_bridge_port *p)
- 	netdev_rx_handler_unregister(dev);
- 	synchronize_net();
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 34d975b..c341eb7 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -879,6 +879,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	const struct rtnl_link_stats64 *stats;
+ 	struct nlattr *attr, *af_spec;
+ 	struct rtnl_af_ops *af_ops;
++	struct net_device *upper_dev = netdev_unique_upper_dev_get(dev);
  
--	netdev_set_master(dev, NULL);
-+	netdev_upper_dev_unlink(dev, br->dev);
+ 	ASSERT_RTNL();
+ 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
+@@ -907,8 +908,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ #endif
+ 	    (dev->ifindex != dev->iflink &&
+ 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+-	    (dev->master &&
+-	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
++	    (upper_dev &&
++	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
+ 	    (dev->qdisc &&
+ 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
+ 	    (dev->ifalias &&
+@@ -1270,16 +1271,16 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
  
- 	br_multicast_del_port(p);
+ static int do_set_master(struct net_device *dev, int ifindex)
+ {
+-	struct net_device *master_dev;
++	struct net_device *upper_dev = netdev_unique_upper_dev_get(dev);
+ 	const struct net_device_ops *ops;
+ 	int err;
  
-@@ -364,7 +364,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p))))
- 		goto err3;
+-	if (dev->master) {
+-		if (dev->master->ifindex == ifindex)
++	if (upper_dev) {
++		if (upper_dev->ifindex == ifindex)
+ 			return 0;
+-		ops = dev->master->netdev_ops;
++		ops = upper_dev->netdev_ops;
+ 		if (ops->ndo_del_slave) {
+-			err = ops->ndo_del_slave(dev->master, dev);
++			err = ops->ndo_del_slave(upper_dev, dev);
+ 			if (err)
+ 				return err;
+ 		} else {
+@@ -1288,12 +1289,12 @@ static int do_set_master(struct net_device *dev, int ifindex)
+ 	}
  
--	err = netdev_set_master(dev, br->dev);
-+	err = netdev_unique_upper_dev_link(dev, br->dev);
- 	if (err)
- 		goto err3;
+ 	if (ifindex) {
+-		master_dev = __dev_get_by_index(dev_net(dev), ifindex);
+-		if (!master_dev)
++		upper_dev = __dev_get_by_index(dev_net(dev), ifindex);
++		if (!upper_dev)
+ 			return -EINVAL;
+-		ops = master_dev->netdev_ops;
++		ops = upper_dev->netdev_ops;
+ 		if (ops->ndo_add_slave) {
+-			err = ops->ndo_add_slave(master_dev, dev);
++			err = ops->ndo_add_slave(upper_dev, dev);
+ 			if (err)
+ 				return err;
+ 		} else {
+@@ -2050,7 +2051,6 @@ errout:
+ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	struct net_device *master = NULL;
+ 	struct ndmsg *ndm;
+ 	struct nlattr *tb[NDA_MAX+1];
+ 	struct net_device *dev;
+@@ -2089,9 +2089,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	/* Support fdb on master device the net/bridge default case */
+ 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+ 	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+-		master = dev->master;
+-		err = master->netdev_ops->ndo_fdb_add(ndm, dev, addr,
+-						      nlh->nlmsg_flags);
++		struct net_device *br_dev = netdev_unique_upper_dev_get(dev);
++		const struct net_device_ops *ops = br_dev->netdev_ops;
++
++		err = ops->ndo_fdb_add(ndm, dev, addr, nlh->nlmsg_flags);
+ 		if (err)
+ 			goto out;
+ 		else
+@@ -2148,10 +2149,11 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	/* Support fdb on master device the net/bridge default case */
+ 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+ 	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+-		struct net_device *master = dev->master;
++		struct net_device *br_dev = netdev_unique_upper_dev_get(dev);
++		const struct net_device_ops *ops = br_dev->netdev_ops;
  
-@@ -403,7 +403,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	return 0;
+-		if (master->netdev_ops->ndo_fdb_del)
+-			err = master->netdev_ops->ndo_fdb_del(ndm, dev, addr);
++		if (ops->ndo_fdb_del)
++			err = ops->ndo_fdb_del(ndm, dev, addr);
  
- err4:
--	netdev_set_master(dev, NULL);
-+	netdev_upper_dev_unlink(dev, br->dev);
- err3:
- 	sysfs_remove_link(br->ifobj, p->dev->name);
- err2:
+ 		if (err)
+ 			goto out;
+@@ -2234,9 +2236,11 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+ 		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+-			struct net_device *master = dev->master;
+-			const struct net_device_ops *ops = master->netdev_ops;
++			struct net_device *br_dev;
++			const struct net_device_ops *ops;
+ 
++			br_dev = netdev_unique_upper_dev_get(dev);
++			ops = br_dev->netdev_ops;
+ 			if (ops->ndo_fdb_dump)
+ 				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
+ 		}
 -- 
 1.7.10.4
