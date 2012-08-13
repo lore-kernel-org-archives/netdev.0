@@ -1,63 +1,52 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH] netvm: check for page == NULL when
- propogating the skb->pfmemalloc flag
-Date: Mon, 13 Aug 2012 11:41:44 -0400
-Message-ID: <20120813154144.GA24868@phenom.dumpdata.com>
-References: <20120807085554.GF29814@suse.de>
- <20120808.155046.820543563969484712.davem@davemloft.net>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH net-next] time: jiffies_delta_to_clock_t() helper to the
+ rescue
+Date: Mon, 13 Aug 2012 17:52:44 +0200 (CEST)
+Message-ID: <alpine.LFD.2.02.1208131749230.32033@ionos>
+References: <1344496433.28967.443.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mgorman@suse.de, xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Ian.Campbell@eu.citrix.com,
-        linux-mm@kvack.org, konrad@darnok.org, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>,
-        Ian Campbell <Ian.Campbell@eu.citrix.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20120808.155046.820543563969484712.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	hank <pyu@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1344496433.28967.443.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2012 at 03:50:46PM -0700, David Miller wrote:
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Tue, 7 Aug 2012 09:55:55 +0100
+On Thu, 9 Aug 2012, Eric Dumazet wrote:
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
-> > for the following bug triggered by a xen network driver
->  ...
-> > The problem is that the xenfront driver is passing a NULL page to
-> > __skb_fill_page_desc() which was unexpected. This patch checks that
-> > there is a page before dereferencing.
-> > 
-> > Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
+> Various /proc/net files sometimes report crazy timer values, expressed
+> in clock_t units.
 > 
-> That call to __skb_fill_page_desc() in xen-netfront.c looks completely bogus.
-> It's the only driver passing NULL here.
-
-It looks to be passing a valid page pointer (at least by looking
-at the code) so I am not sure how it got turned in a NULL.
-
-But let me double-check by instrumenting the driver..
+> This happens when an expired timer delta (expires - jiffies) is passed
+> to jiffies_to_clock_t().
+>
+> This function has an overflow in :
 > 
-> That whole song and dance figuring out what to do with the head
-> fragment page, depending upon whether the length is greater than the
-> RX_COPY_THRESHOLD, is completely unnecessary.
+> return div_u64((u64)x * TICK_NSEC, NSEC_PER_SEC / USER_HZ);
 > 
-> Just use something like a call to __pskb_pull_tail(skb, len) and all
-> that other crap around that area can simply be deleted.
+> commit cbbc719fccdb8cb (time: Change jiffies_to_clock_t() argument type
+> to unsigned long) only got around the problem.
+> 
+> As we cant output negative values in /proc/net/tcp without breaking
+> various tools, I suggest adding a jiffies_delta_to_clock_t() wrapper
+> that caps the negative delta to a 0 value.
 
-It looks like an overkill - it does a lot more than just allocate an SKB
-and a page.
+That's correct for 64bit, but for 32bit you do the same for valid
+timer values where expires < jiffies. So you might output 0 for valid
+armed timers for quite a while around the point where jiffies are
+close to the wrapping point.
 
-Deleting of extra code would be nice - however I am not going to be able
-to do that for the next two weeks sadly - as my plate if full of debugging
-some other stuff.
+Dunno if that's an issue, but it want's to be documented at least.
 
-Lets see if Ian has some time.
+Thanks,
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	tglx
