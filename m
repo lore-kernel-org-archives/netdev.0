@@ -1,68 +1,84 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [patch net-next 15/16] net: remove usage of dev->master
-Date: Mon, 13 Aug 2012 19:31:41 +0200
-Message-ID: <20120813173141.GB1808@minipsycho.orion>
-References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
- <1344871635-1052-16-git-send-email-jiri@resnulli.us>
- <1344878131.2733.28.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified root
+Date: Mon, 13 Aug 2012 21:39:53 +0400
+Message-ID: <50293BE9.3010408@parallels.com>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain> <50254FA6.3060806@zytor.com> <20120810192628.79a34d28@pyramind.ukuu.org.uk> <20120810191149.GA17985@fieldses.org> <20120810202818.06236f46@pyramind.ukuu.org.uk> <50259494.8060304@zytor.com> <5025FA5A.4090403@parallels.com> <50263ECC.4060501@parallels.com> <20120813164730.GB2497@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
-	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-	sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1344878131.2733.28.camel-/LGg1Z1CJKReKY3V0RtoKmatzQS1i7+A3tAM5lWOD0I@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelianov <xemul@parallels.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
+	"devel@openvz.org" <devel@openvz.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20120813164730.GB2497@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mon, Aug 13, 2012 at 07:15:31PM CEST, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org wrote:
->On Mon, 2012-08-13 at 17:27 +0200, Jiri Pirko wrote:
->> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->> ---
->>  net/core/dev.c |    4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index c0f9adb..8977404 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -5461,8 +5461,8 @@ static void rollback_registered_many(struct list_head *head)
->>  		if (dev->netdev_ops->ndo_uninit)
->>  			dev->netdev_ops->ndo_uninit(dev);
->>  
->> -		/* Notifier chain MUST detach us from master device. */
->> -		WARN_ON(dev->master);
->> +		/* Notifier chain MUST detach us all upper devices. */
->> +		WARN_ON(netdev_has_any_upper_dev(dev));
->>  
->>  		/* Remove entries from kobject tree */
->>  		netdev_unregister_kobject(dev);
->
->I think this should be folded into patch 1, since that already ensures
->that any master device is included in the upper device list.
+13.08.2012 20:47, J. Bruce Fields =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On Sat, Aug 11, 2012 at 03:15:24PM +0400, Stanislav Kinsbursky wrote:
+>> 11.08.2012 10:23, Pavel Emelyanov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>>> On 08/11/2012 03:09 AM, H. Peter Anvin wrote:
+>>>> On 08/10/2012 12:28 PM, Alan Cox wrote:
+>>>>> Explicitly for Linux yes - this is not generally true of the AF_U=
+NIX
+>>>>> socket domain and even the permissions aspect isn't guaranteed to=
+ be
+>>>>> supported on some BSD environments !
+>>>> Yes, but let's worry about what the Linux behavior should be.
+>>>>
+>>>>> The name is however just a proxy for the socket itself. You don't=
+ even
+>>>>> get a device node in the usual sense or the same inode in the fil=
+e system
+>>>>> space.
+>>>> No, but it is looked up the same way any other inode is (the diffe=
+rence
+>>>> between FIFOs and sockets is that sockets have separate connection=
+s,
+>>>> which is also why open() on sockets would be nice.)
+>>>>
+>>>> However, there is a fundamental difference between AF_UNIX sockets=
+ and
+>>>> open(), and that is how the pathname is delivered.  It thus would =
+make
+>>>> more sense to provide the openat()-like information in struct
+>>>> sockaddr_un, but that may be very hard to do in a sensible way.  I=
+n that
+>>>> sense it perhaps would be cleaner to be able to do an open[at]() o=
+n the
+>>>> socket node with O_PATH (perhaps there should be an O_SOCKET optio=
+n,
+>>>> even?) and pass the resulting file descriptor to bind() or connect=
+().
+>>> I vote for this (openat + O_WHATEVER on a unix socket) as well. It =
+will
+>>> help us in checkpoint-restore, making handling of overmounted/unlin=
+ked
+>>> sockets much cleaner.
+>> I have to notice, that it's not enough and doesn't solve the issue.
+>> There should be some way how to connect/bind already existent unix
+>> socket (from kernel, at least), because socket can be created in
+>> user space.
+>> And this way (sock operation or whatever) have to provide an ability
+>> to lookup UNIX socket starting from specified root to support
+>> containers.
+> I don't understand--the rpcbind sockets are created by the kernel.  W=
+hat
+> am I missing?
 
-Right, I will squash it into patch 1
+Kernel preform connect to rpcbind socket (i.e. user-space binds it),=20
+doesn't it?
 
 >
->Ben.
->
->-- 
->Ben Hutchings, Staff Engineer, Solarflare
->Not speaking for my employer; that's the marketing department's job.
->They asked us to note that Solarflare product names are trademarked.
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --b.
