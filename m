@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/16] macvlan: add link to upper device
-Date: Mon, 13 Aug 2012 17:27:01 +0200
-Message-ID: <1344871635-1052-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 08/16] cxgb3: remove usage of dev->master
+Date: Mon, 13 Aug 2012 17:27:07 +0200
+Message-ID: <1344871635-1052-9-git-send-email-jiri@resnulli.us>
 References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -16,51 +16,47 @@ Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
 	fbl@redhat.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:60996 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752730Ab2HMP1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2012 11:27:42 -0400
+Received: by mail-ee0-f46.google.com with SMTP id l10so1192584eei.19
+        for <netdev@vger.kernel.org>; Mon, 13 Aug 2012 08:27:41 -0700 (PDT)
 In-Reply-To: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/macvlan.c |    9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 66a9bfe..f5bd8a2 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -765,16 +765,22 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 		memcpy(dev->dev_addr, lowerdev->dev_addr, ETH_ALEN);
- 	}
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+index 2dbbcbb..28365db 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+@@ -182,14 +182,17 @@ static struct net_device *get_iff_from_mac(struct adapter *adapter,
+ 		struct net_device *dev = adapter->port[i];
  
-+	err = netdev_upper_dev_link(lowerdev, dev);
-+	if (err)
-+		goto destroy_port;
+ 		if (!memcmp(dev->dev_addr, mac, ETH_ALEN)) {
++			rcu_read_lock();
+ 			if (vlan && vlan != VLAN_VID_MASK) {
+-				rcu_read_lock();
+ 				dev = __vlan_find_dev_deep(dev, vlan);
+-				rcu_read_unlock();
+ 			} else if (netif_is_bond_slave(dev)) {
+-				while (dev->master)
+-					dev = dev->master;
++				struct net_device *upper_dev;
 +
- 	port->count += 1;
- 	err = register_netdevice(dev);
- 	if (err < 0)
--		goto destroy_port;
-+		goto upper_dev_unlink;
- 
- 	list_add_tail(&vlan->list, &port->vlans);
- 	netif_stacked_transfer_operstate(lowerdev, dev);
- 
- 	return 0;
- 
-+upper_dev_unlink:
-+	netdev_upper_dev_unlink(lowerdev, dev);
- destroy_port:
- 	port->count -= 1;
- 	if (!port->count)
-@@ -798,6 +804,7 @@ void macvlan_dellink(struct net_device *dev, struct list_head *head)
- 
- 	list_del(&vlan->list);
- 	unregister_netdevice_queue(dev, head);
-+	netdev_upper_dev_unlink(vlan->lowerdev, dev);
- }
- EXPORT_SYMBOL_GPL(macvlan_dellink);
- 
++				while ((upper_dev =
++					netdev_unique_upper_dev_get_rcu(dev)))
++					dev = upper_dev;
+ 			}
++			rcu_read_unlock();
+ 			return dev;
+ 		}
+ 	}
 -- 
 1.7.10.4
