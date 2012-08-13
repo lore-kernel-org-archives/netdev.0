@@ -1,102 +1,73 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: Re: [PATCH V2 09/12] net/eipoib: Add main driver functionality
-Date: Mon, 13 Aug 2012 09:08:35 -0700
-Message-ID: <ceb0d636-74a3-4d6d-86de-84e8970dd8ec@email.android.com>
-References: <1343840975-3252-1-git-send-email-ogerlitz@mellanox.com> <1343840975-3252-10-git-send-email-ogerlitz@mellanox.com> <87boitz044.fsf@xmission.com> <20120805185031.GA18640@redhat.com> <CAJZOPZKtdvxTGvrxj+T896mEexb=yN9s1cCuqUmhhzCOvUPEnA@mail.gmail.com> <877gt415lu.fsf@xmission.com> <5028BBCE.4020908@mellanox.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] configure: Add search path for 64bit library.
+Date: Mon, 13 Aug 2012 17:22:40 +0100
+Message-ID: <1344874960.2733.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1344313376-22602-1-git-send-email-lw@cn.fujitsu.com>
+	 <1344363358.2688.8.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20120813082624.153167a8@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, davem@davemloft.net,
-	roland@kernel.org, netdev@vger.kernel.org, ali@mellanox.com,
-	sean.hefty@intel.com, Erez Shitrit <erezsh@mellanox.co.il>,
-	Doug Ledford <dledford@redhat.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Li Wei <lw@cn.fujitsu.com>, <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:51111 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751971Ab2HMQI4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2012 12:08:56 -0400
-In-Reply-To: <5028BBCE.4020908@mellanox.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:35432 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752324Ab2HMQWx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2012 12:22:53 -0400
+In-Reply-To: <20120813082624.153167a8@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <ogerlitz@mellanox.com> wrote:
+On Mon, 2012-08-13 at 08:26 -0700, Stephen Hemminger wrote:
+> On Tue, 7 Aug 2012 19:15:58 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > The subject line doesn't say what this is for, but it looks like
+> > iproute2...
+> > 
+> > On Tue, 2012-08-07 at 12:22 +0800, Li Wei wrote:
+> > > Signed-off-by: Li Wei <lw@cn.fujitsu.com>
+> > > ---
+> > >  configure |    2 +-
+> > >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > > 
+> > > diff --git a/configure b/configure
+> > > index 0f4444f..997759c 100755
+> > > --- a/configure
+> > > +++ b/configure
+> > > @@ -149,7 +149,7 @@ check_ipt()
+> > >  check_ipt_lib_dir()
+> > >  {
+> > >  	IPT_LIB_DIR=""
+> > > -	for dir in /lib /usr/lib /usr/local/lib
+> > > +	for dir in /lib /usr/lib /usr/local/lib /lib64 /usr/lib64 /usr/local/lib64
+> > >  	do
+> > >  		for file in $dir/{xtables,iptables}/lib*t_*so ; do
+> > >  			if [ -f $file ]; then
+> > 
+> > On a bi-arch system, surely the lib64 directories should be preferred to
+> > the lib directories?  And this still leaves multi-arch to be handled.
+> > 
+> > I think this should be done with pkg-config:
+> > 
+> >     pkg-config --variable=xtlibdir xtables
+> > 
+> > possibly with that directory list as a fallback if it's useful to
+> > support iptables library versions that didn't include xtables.pc.
+> > 
+> > Ben.
+> > 
+> 
+> Does every distro have pkg-config or does more logic need to be done here?
 
->On 12/08/2012 18:40, Eric W. Biederman wrote:
->> Let me give you a non-hack recomendation.
->>
->> - Give up on being wire compatible with IPoIB.
->>
->> - Define and implement ethernet over inifiniband aka EoIB.
->>
->> With EoIB:
->> - The SM would map ethernet address to inifiniband hardware
->addresses.
->> - You discover which multicast addresses are of interest from the
->>    IP layer above so no snooping is necessary.
->> - You could run queue pairs directly to hosts.
->>
->> Shrug.  It is trivial and it will work.  It will probably run into
->the
->> same problems that have historically been a problem for using IPoIB
->> (lack of stateless offloads) but shrug that is mostly a NIC firmware
->> problem.  The switches will have no trouble and interoperability will
->> be assured.
->>
->> If you want to map ethernet over infiniband please map ethernet over
->> infiniband.  Don't poorly NAT ethernet into infiniband.
->>
->>
->
->
->EoIB is a valid suggestion and we will look into it as well, BUT:
->
->Providing EoIB is a separate discussion, obviously defining and 
->standardizing a new protocol takes what is takes (a lot of time,
->longish 
->term effort), and will also take time to develop/debug/mature e.g as
+Every distro has pkg-config; the question is whether you want to support
+library versions that don't include a pkg-config file (xtables.pc), if
+they exist.
 
-If you follow Michael Tirskins suggestion and use the same wire encoding as IPoIB and infer the mac address from the lids and queue pair numbers as you are already doing with for eIPoIB, except for defining exactly how to get the subnet manager to store the mac address to lid/qpn mapping you are done.
+Ben.
 
-If you don't involve a comitte and simply define a defacto standard it will take less effort than this conversation and less effort than implementing your eIPoIB driver.
-
-
->you 
->mentioned, some of the features/offloads might require new NIC HW, etc 
->-- compared to IPoIB which is here for many years
-
-So deploy routing and proxy arp and you are done.
-
->In practice there is already a huge install base for IPoIB software and
->
->hardware products, in different operating environments/OS. We can't
->just 
->through away everything and tell people to replace it all with a new 
->protocol, e.g. bridging devices, storage systems/appliances, VMware, 
->Windows, .. systems in production environments --- so
->the interoperability concern you've mentioned gonna hit very hard.
-
-There is no need to throw anything away.  Just put them on different IP subnets.
-
-Shrug.
-
->The eIPoIB driver comes to provide a way to work with IPoIB in 
->virtualized environments, where still, the suggestions/concerns raised 
->in this thread should be addressed.
-
-eIPoIB does not work.
-
-I can't get an IP address with out a specially configured dhcp server, and special dhcp clients.
-
-eIPoIB does not work with IPv6.
-
-As David Miller already said this code has no chance of being merged.
-
-Shrug.  I have been polite and pointed out implementation choices that actually work.  Solutions that are less effort and less code, and provide more interoperability.
-
-If after patient explanation you can not appreciate why people consider eIPoIB to be totally unacceptable that is your problem.
-
-Good luck in your future endeavours,
-
-Eric
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
