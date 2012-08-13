@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 03/21] userns: Convert sock_i_uid to return a kuid_t
-Date: Mon, 13 Aug 2012 13:18:17 -0700
-Message-ID: <1344889115-21610-3-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 04/21] userns: Allow USER_NS and NET simultaneously in Kconfig
+Date: Mon, 13 Aug 2012 13:18:18 -0700
+Message-ID: <1344889115-21610-4-git-send-email-ebiederm@xmission.com>
 References: <87ehnav9n5.fsf@xmission.com>
 	<1344889115-21610-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -26,45 +26,26 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Now that the networking core is user namespace safe allow
+networking and user namespaces to be built at the same time.
+
 Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- include/net/sock.h |    2 +-
- net/core/sock.c    |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ init/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index b373023..65c3d62 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1668,7 +1668,7 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
- 	write_unlock_bh(&sk->sk_callback_lock);
- }
+diff --git a/init/Kconfig b/init/Kconfig
+index 364b38d..80fae19 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -942,7 +942,7 @@ config UIDGID_CONVERTED
+ 	depends on PROC_EVENTS = n
  
--extern int sock_i_uid(struct sock *sk);
-+extern kuid_t sock_i_uid(struct sock *sk);
- extern unsigned long sock_i_ino(struct sock *sk);
- 
- static inline struct dst_entry *
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9c7fe4f..5c6a435 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1526,12 +1526,12 @@ void sock_edemux(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(sock_edemux);
- 
--int sock_i_uid(struct sock *sk)
-+kuid_t sock_i_uid(struct sock *sk)
- {
--	int uid;
-+	kuid_t uid;
- 
- 	read_lock_bh(&sk->sk_callback_lock);
--	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : 0;
-+	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : GLOBAL_ROOT_UID;
- 	read_unlock_bh(&sk->sk_callback_lock);
- 	return uid;
- }
+ 	# Networking
+-	depends on NET = n
++	depends on PACKET = n
+ 	depends on NET_9P = n
+ 	depends on IPX = n
+ 	depends on PHONET = n
 -- 
 1.7.5.4
