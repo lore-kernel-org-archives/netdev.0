@@ -1,73 +1,92 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: [PATCH] netvm: check for page == NULL when propogating the
- skb->pfmemalloc flag
-Date: Mon, 13 Aug 2012 11:47:45 +0100
-Message-ID: <20120813104745.GE4177@suse.de>
-References: <20120807085554.GF29814@suse.de>
- <20120808.155046.820543563969484712.davem@davemloft.net>
- <20120813102604.GC4177@suse.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [flame^Wreview] net: netprio_cgroup: rework update socket logic
+Date: Mon, 13 Aug 2012 07:22:53 -0400
+Message-ID: <20120813112253.GA7300@hmsreliant.think-freely.org>
+References: <20120813015348.GZ23464@ZenIV.linux.org.uk>
+ <502896C5.7080303@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	konrad@darnok.org, Ian.Campbell@eu.citrix.com,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Al Viro <viro@ZenIV.linux.org.uk>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20120813102604.GC4177@suse.de>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <502896C5.7080303@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Resending to correct Jeremy's address.
-
-On Wed, Aug 08, 2012 at 03:50:46PM -0700, David Miller wrote:
-> From: Mel Gorman <mgorman@suse.de>
-> Date: Tue, 7 Aug 2012 09:55:55 +0100
+On Sun, Aug 12, 2012 at 10:55:17PM -0700, John Fastabend wrote:
+> On 8/12/2012 6:53 PM, Al Viro wrote:
+> >	Ladies and gentlemen, who the devil had reviewed that little gem?
+> >
+> >commit 406a3c638ce8b17d9704052c07955490f732c2b8
+> >Author: John Fastabend <john.r.fastabend@intel.com>
+> >Date:   Fri Jul 20 10:39:25 2012 +0000
+> >
+> >is a bleeding bogosity that doesn't pass even the most cursory
+> >inspection.  It iterates through descriptor tables of a bunch
+> >of processes, doing this:
+> >                         file = fcheck_files(files, fd);
+> >                         if (!file)
+> >                                 continue;
+> >
+> >                         path = d_path(&file->f_path, tmp, PAGE_SIZE);
+> >                         rv = sscanf(path, "socket:[%lu]", &s);
+> >                         if (rv <= 0)
+> >                                 continue;
+> >
+> >                         sock = sock_from_file(file, &err);
+> >                         if (!err)
+> >                                 sock_update_netprioidx(sock->sk, p);
+> >Note the charming use of sscanf() for pattern-matching.  's' (inode
+> >number of socket) is completely unused afterwards; what happens here
+> >is a very badly written attempt to skip non-sockets.  Why, will
+> >sock_from_file() blow up on non-sockets?  And isn't there some less
+> >obnoxious way to check that the file is a sockfs one?  Let's see:
+> >struct socket *sock_from_file(struct file *file, int *err)
+> >{
+> >         if (file->f_op == &socket_file_ops)
+> >                 return file->private_data;      /* set in sock_map_fd */
+> >
+> >         *err = -ENOTSOCK;
+> >         return NULL;
+> >}
+> >... and the first line is exactly that - a check that we are on sockfs.
+> >_Far_ less expensive one, at that, so it's not even that we are avoiding
+> >a costly test.  In other words, all masturbation with d_path() is absolutely
+> >pointless.
+> >
+> >Furthermore, it's racy; had been even more so before the delayed fput series
+> >went in, but even now it's not safe.  fcheck_files() does *NOT* guarantee
+> >that file is not getting closed right now.  rcu_read_lock() prevents only
+> >freeing and potential reuse of struct file we'd got; it might go all the
+> >way through final fput() just as we look at it.  So file->f_path is not
+> >protected by anything.  Worse yet, neither is struct socket itself - we
+> >might be going through sock_release() at the same time, so sock->sk might
+> >very well be NULL, leaving us a oops even after we dump d_path() idiocy.
+> >
+> >To make it even funnier, there's such thing as SCM_RIGHTS datagrams and
+> >descriptor passing.  In other words, it's *not* going to catch all sockets
+> >that would be caught by the earlier variant.
+> >
 > 
-> > Commit [c48a11c7: netvm: propagate page->pfmemalloc to skb] is responsible
-> > for the following bug triggered by a xen network driver
->  ...
-> > The problem is that the xenfront driver is passing a NULL page to
-> > __skb_fill_page_desc() which was unexpected. This patch checks that
-> > there is a page before dereferencing.
-> > 
-> > Reported-and-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
+Yes, thank you Al, I should have reviewed this more throughly.  
+
+> OK clearly I screwed it up thanks for reviewing Al. How about this.
 > 
-> That call to __skb_fill_page_desc() in xen-netfront.c looks completely bogus.
-> It's the only driver passing NULL here.
+>                 fdt = files_fdtable(files);
+>                 for (fd = 0; fd < fdt->max_fds; fd++) {
+>                         struct socket *sock;
+>                         int err = 0;
 > 
-> That whole song and dance figuring out what to do with the head
-> fragment page, depending upon whether the length is greater than the
-> RX_COPY_THRESHOLD, is completely unnecessary.
-> 
-> Just use something like a call to __pskb_pull_tail(skb, len) and all
-> that other crap around that area can simply be deleted.
+>                         sock = sockfd_lookup(fd, &err);
+>                         if (!sock) {
+>                                 lock_sock(sock->sk);
+What are you protecting with lock_sock here?  The other call sites don't make
+use of the socket lock.  Arguagbly they could, but I don't think they need to.
+As long as the fd doesn't go away we should be able to update the
+sk_cgrp_prioidx safely.
 
-I looked at this for a while but I did not see how __pskb_pull_tail()
-could be used sensibly but I'm simily not familiar with writing network
-device drivers or Xen.
-
-This messing with RX_COPY_THRESHOLD seems to be related to how the frontend
-and backend communicate (maybe some fixed limitation of the xenbus). The
-existing code looks like it is trying to take the fragments received and
-pass them straight to the backend without copying by passing the fragments
-to the backend without copying. I worry that if I try converting this to
-__pskb_pull_tail() that it would either hit the limitation of xenbus or
-introduce copying where it is not wanted.
-
-I'm going to have to punt this to Jeremy and the other Xen folk as I'm not
-sure what the original intention was and I don't have a Xen setup anywhere
-to test any patch. Jeremy, xen folk? 
-
-
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards
+Neil
