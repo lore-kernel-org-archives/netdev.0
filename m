@@ -1,40 +1,50 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: [PATCH] net: add new QCA alx ethernet driver
-Date: Mon, 13 Aug 2012 01:19:24 +0000
-Message-ID: <157393863283F442885425D2C4542856282E0637@nasanexd02f.na.qualcomm.com>
-References: <1344507270-2907-1-git-send-email-cjren@qca.qualcomm.com>
- <20120811135044.529a7081@nehalam.linuxnetplumber.net>
+From: "Peter Huang(Peng)" <peter.huangpeng@huawei.com>
+Subject: Re: [Question]About KVM network zero-copy  feature!
+Date: Mon, 13 Aug 2012 09:24:54 +0800
+Message-ID: <50285766.50307@huawei.com>
+References: <50248148.4070204@huawei.com>
+	<20120811135556.58ddf48d@nehalam.linuxnetplumber.net>
+	<5026D49B.10305@tuffmail.com> <5026FC04.6080108@tuffmail.com>
+	<20120812093730.GD1421@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qca-linux-team <qca-linux-team@qualcomm.com>,
-	nic-devel <nic-devel@qualcomm.com>,
-	"Hao-Ran Liu(Joseph Liu)" <hao-ran.liu@canonical.com>,
-	Joe Perches <joe@perches.com>,
-	"Rodriguez, Luis" <rodrigue@qca.qualcomm.com>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:20925 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767Ab2HMBT1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2012 21:19:27 -0400
-In-Reply-To: <20120811135044.529a7081@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: xiaohui.xin@intel.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, avi@redhat.com,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20120812093730.GD1421@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> From: Stephen Hemminger [mailto:shemminger@vyatta.com]
-> Sent: Sunday, August 12, 2012 4:51
-> To: Ren, Cloud
-> > +	strcpy(netdev->name, "eth%d");
-> > +	retval = register_netdev(netdev);
-> 
-> The strcpy is unnecessary, alloc_etherdev already sets that.
+Hi, Michael
 
-Thanks, Hemminger, we will remove this line in the next post.
+IIt will be usefull if we can implement rx zero-copy, could you give
+ me some help if you know some technical details or some
+references on the internet?
 
--Xiong
+I am wondering may be I can take a deep look on it first then decide
+if I can take it over or not.
+
+Thanks a lot.
+
+On 2012/8/12 17:37, Michael S. Tsirkin wrote:
+> On Sat, Aug 11, 2012 at 08:42:44PM -0400, Robert Vineyard wrote:
+>> (adding Xin Xiaohui to the conversation for comment)
+>>
+>> According to the NetworkingTodo page on the KVM wiki, zero-copy RX
+>> for macvtap is in fact on the roadmap, assigned to Xin:
+>>
+>> http://www.linux-kvm.org/page/NetworkingTodo
+> AFAIK Xin left Intel and is not working on it.
+> Contributions are welcome.
+>
