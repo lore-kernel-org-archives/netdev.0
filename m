@@ -1,73 +1,94 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] configure: Add search path for 64bit library.
-Date: Mon, 13 Aug 2012 09:33:23 -0700
-Message-ID: <20120813093323.1506aa83@nehalam.linuxnetplumber.net>
-References: <1344313376-22602-1-git-send-email-lw@cn.fujitsu.com>
-	<1344363358.2688.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<20120813082624.153167a8@nehalam.linuxnetplumber.net>
-	<1344874960.2733.2.camel@bwh-desktop.uk.solarflarecom.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [RFC PATCH 0/2] net: connect to UNIX sockets from specified
+ root
+Date: Mon, 13 Aug 2012 12:47:30 -0400
+Message-ID: <20120813164730.GB2497@fieldses.org>
+References: <20120810125701.7115.71612.stgit@localhost.localdomain>
+ <50254FA6.3060806@zytor.com>
+ <20120810192628.79a34d28@pyramind.ukuu.org.uk>
+ <20120810191149.GA17985@fieldses.org>
+ <20120810202818.06236f46@pyramind.ukuu.org.uk>
+ <50259494.8060304@zytor.com>
+ <5025FA5A.4090403@parallels.com>
+ <50263ECC.4060501@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Li Wei <lw@cn.fujitsu.com>, <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"tim.c.chen@linux.intel.com" <tim.c.chen@linux.intel.com>,
+	"devel@openvz.org" <devel@openvz.org>
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33887 "EHLO mail.vyatta.com"
+Received: from fieldses.org ([174.143.236.118]:32942 "EHLO fieldses.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752149Ab2HMQdi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2012 12:33:38 -0400
-In-Reply-To: <1344874960.2733.2.camel@bwh-desktop.uk.solarflarecom.com>
+	id S1752241Ab2HMQrp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2012 12:47:45 -0400
+Content-Disposition: inline
+In-Reply-To: <50263ECC.4060501@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 13 Aug 2012 17:22:40 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Sat, Aug 11, 2012 at 03:15:24PM +0400, Stanislav Kinsbursky wrote:
+> 11.08.2012 10:23, Pavel Emelyanov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >On 08/11/2012 03:09 AM, H. Peter Anvin wrote:
+> >>On 08/10/2012 12:28 PM, Alan Cox wrote:
+> >>>Explicitly for Linux yes - this is not generally true of the AF_UN=
+IX
+> >>>socket domain and even the permissions aspect isn't guaranteed to =
+be
+> >>>supported on some BSD environments !
+> >>Yes, but let's worry about what the Linux behavior should be.
+> >>
+> >>>The name is however just a proxy for the socket itself. You don't =
+even
+> >>>get a device node in the usual sense or the same inode in the file=
+ system
+> >>>space.
+> >>
+> >>No, but it is looked up the same way any other inode is (the differ=
+ence
+> >>between FIFOs and sockets is that sockets have separate connections=
+,
+> >>which is also why open() on sockets would be nice.)
+> >>
+> >>However, there is a fundamental difference between AF_UNIX sockets =
+and
+> >>open(), and that is how the pathname is delivered.  It thus would m=
+ake
+> >>more sense to provide the openat()-like information in struct
+> >>sockaddr_un, but that may be very hard to do in a sensible way.  In=
+ that
+> >>sense it perhaps would be cleaner to be able to do an open[at]() on=
+ the
+> >>socket node with O_PATH (perhaps there should be an O_SOCKET option=
+,
+> >>even?) and pass the resulting file descriptor to bind() or connect(=
+).
+> >I vote for this (openat + O_WHATEVER on a unix socket) as well. It w=
+ill
+> >help us in checkpoint-restore, making handling of overmounted/unlink=
+ed
+> >sockets much cleaner.
+>=20
+> I have to notice, that it's not enough and doesn't solve the issue.
+> There should be some way how to connect/bind already existent unix
+> socket (from kernel, at least), because socket can be created in
+> user space.
+> And this way (sock operation or whatever) have to provide an ability
+> to lookup UNIX socket starting from specified root to support
+> containers.
 
-> On Mon, 2012-08-13 at 08:26 -0700, Stephen Hemminger wrote:
-> > On Tue, 7 Aug 2012 19:15:58 +0100
-> > Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > 
-> > > The subject line doesn't say what this is for, but it looks like
-> > > iproute2...
-> > > 
-> > > On Tue, 2012-08-07 at 12:22 +0800, Li Wei wrote:
-> > > > Signed-off-by: Li Wei <lw@cn.fujitsu.com>
-> > > > ---
-> > > >  configure |    2 +-
-> > > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > > 
-> > > > diff --git a/configure b/configure
-> > > > index 0f4444f..997759c 100755
-> > > > --- a/configure
-> > > > +++ b/configure
-> > > > @@ -149,7 +149,7 @@ check_ipt()
-> > > >  check_ipt_lib_dir()
-> > > >  {
-> > > >  	IPT_LIB_DIR=""
-> > > > -	for dir in /lib /usr/lib /usr/local/lib
-> > > > +	for dir in /lib /usr/lib /usr/local/lib /lib64 /usr/lib64 /usr/local/lib64
-> > > >  	do
-> > > >  		for file in $dir/{xtables,iptables}/lib*t_*so ; do
-> > > >  			if [ -f $file ]; then
-> > > 
-> > > On a bi-arch system, surely the lib64 directories should be preferred to
-> > > the lib directories?  And this still leaves multi-arch to be handled.
-> > > 
-> > > I think this should be done with pkg-config:
-> > > 
-> > >     pkg-config --variable=xtlibdir xtables
-> > > 
-> > > possibly with that directory list as a fallback if it's useful to
-> > > support iptables library versions that didn't include xtables.pc.
-> > > 
-> > > Ben.
-> > > 
-> > 
-> > Does every distro have pkg-config or does more logic need to be done here?
-> 
-> Every distro has pkg-config; the question is whether you want to support
-> library versions that don't include a pkg-config file (xtables.pc), if
-> they exist.
+I don't understand--the rpcbind sockets are created by the kernel.  Wha=
+t
+am I missing?
 
-Let's do pkg-config first, and as a fallback keep the old code and only
-look in the same old places.
+--b.
