@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/16] team: remove usage of netdev_set_master()
-Date: Mon, 13 Aug 2012 17:27:04 +0200
-Message-ID: <1344871635-1052-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 03/16] vlan: add link to upper device
+Date: Mon, 13 Aug 2012 17:27:02 +0200
+Message-ID: <1344871635-1052-4-git-send-email-jiri@resnulli.us>
 References: <1344871635-1052-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -23,48 +23,45 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/team/team.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ net/8021q/vlan.c |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index ba10c46..0533cbf 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1040,10 +1040,11 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 		}
- 	}
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 9096bcb..739665e 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -105,6 +105,8 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 	 */
+ 	unregister_netdevice_queue(dev, head);
  
--	err = netdev_set_master(port_dev, dev);
-+	err = netdev_unique_upper_dev_link(port_dev, dev);
- 	if (err) {
--		netdev_err(dev, "Device %s failed to set master\n", portname);
--		goto err_set_master;
-+		netdev_err(dev, "Device %s failed to set upper link\n",
-+			   portname);
-+		goto err_set_upper_link;
- 	}
++	netdev_upper_dev_unlink(real_dev, dev);
++
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_gvrp_uninit_applicant(real_dev);
  
- 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
-@@ -1076,9 +1077,9 @@ err_option_port_add:
- 	netdev_rx_handler_unregister(port_dev);
+@@ -162,9 +164,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_applicant;
  
- err_handler_register:
--	netdev_set_master(port_dev, NULL);
-+	netdev_upper_dev_unlink(port_dev, dev);
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_uninit_applicant;
++
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto out_uninit_applicant;
++		goto out_upper_dev_unlink;
  
--err_set_master:
-+err_set_upper_link:
- 	team_port_disable_netpoll(port);
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -180,6 +186,8 @@ int register_vlan_dev(struct net_device *dev)
  
- err_enable_netpoll:
-@@ -1121,7 +1122,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
- 	team_port_disable(team, port);
- 	list_del_rcu(&port->list);
- 	netdev_rx_handler_unregister(port_dev);
--	netdev_set_master(port_dev, NULL);
-+	netdev_upper_dev_unlink(port_dev, dev);
- 	team_port_disable_netpoll(port);
- 	vlan_vids_del_by_dev(port_dev, dev);
- 	dev_close(port_dev);
+ 	return 0;
+ 
++upper_dev_unlink:
++	netdev_upper_dev_unlink(real_dev, dev);
+ out_uninit_applicant:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_gvrp_uninit_applicant(real_dev);
 -- 
 1.7.10.4
