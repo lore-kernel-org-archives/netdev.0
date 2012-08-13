@@ -1,14 +1,18 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: [REVIEW][PATCH 0/21] User namespace changes to the networking stack.
-Date: Mon, 13 Aug 2012 13:07:10 -0700
-Message-ID: <87ehnav9n5.fsf@xmission.com>
+From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 01/21] userns: Convert net/core/scm.c to use kuids and kgids
+Date: Mon, 13 Aug 2012 13:18:15 -0700
+Message-ID: <1344889115-21610-1-git-send-email-ebiederm@xmission.com>
+References: <87ehnav9n5.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
 	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87ehnav9n5.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
@@ -20,104 +24,112 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-This is a modest set of changes against the current networking stack to
-enable basic user namespace support.  Allowing the code to compile with
-user namespaces enabled and removing the assumption that there is only
-the initial user namespace.
+With the existence of kuid_t and kgid_t we can take this further
+and remove the usage of struct cred altogether, ensuring we
+don't get cache line misses from reference counts.   For now
+however start simply and do a straight forward conversion
+I can be certain is correct.
 
-Work to relax the privilege checks in the networking stack from
-"capable(CAP_NET_ADMIN)" or "capable(CAP_NET_RAW)" to
-"ns_capable(net->user_ns, CAP_NET_ADMIN)" or 
-"ns_capable(net->user_ns, CAP_NET_RAW)" allowing root in a user
-namespace to control a network namespace will come later.
+In cred_to_ucred use from_kuid_munged and from_kgid_munged
+as these values are going directly to userspace and we want to use
+the userspace safe values not -1 when reporting a value that does not
+map.  The earlier conversion that used from_kuid was buggy in that
+respect.  Oops.
 
-David there are just enough interdependencies between the user namespace
-bits that I intend to merge them all through my user namespace tree.
-After the review is complete I will add these patches to my for-next
-branch of my user-namespace.git tree where I do not intend to rebase.
-If it make sense to pull these into net-next to avoid or reduce
-conflicts that should not be a problem.
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+---
+ net/core/scm.c  |   31 +++++++++++++++++++++++--------
+ net/core/sock.c |    4 ++--
+ 2 files changed, 25 insertions(+), 10 deletions(-)
 
-A current snapshot of my development tree for people who are interested
-in seeing the entire picture is at:
-
-git.kernel.org:/pub/scm/linux/kernel/git/ebiederm/user-namespace.git userns-always-map-user-v46
-
-Eric W. Biederman (21):
-      userns: Convert net/core/scm.c to use kuids and kgids
-      userns: Convert __dev_set_promiscuity to use kuids in audit logs
-      userns: Convert sock_i_uid to return a kuid_t
-      userns: Allow USER_NS and NET simultaneously in Kconfig
-      userns: Make seq_file's user namespace accessible
-      userns: Print out socket uids in a user namespace aware fashion.
-      userns: Use kgids for sysctl_ping_group_range
-      net ip6 flowlabel: Make owner a union of struct pid * and kuid_t
-      pidns: Export free_pid_ns
-      userns: Convert net/ax25 to use kuid_t where appropriate
-      netlink: Make the sending netlink socket availabe in NETLINK_CB
-      userns: Implement sk_user_ns
-      userns: Teach inet_diag to work with user namespaces
-      userns: nfnetlink_log: Report socket uids in the log sockets user namespace
-      net sched: Pass the skb into change so it can access NETLINK_CB
-      userns: Convert cls_flow to work with user namespaces enabled
-      userns: Convert xt_LOG to print socket kuids and kgids as uids and gids
-      userns xt_recent: Specify the owner/group of ip_list_perms in the initial user namespace
-      userns: xt_owner: Add basic user namespace support.
-      userns: Make the airo wireless driver use kuids for proc uids and gids
-      userns: Convert tun/tap to use kuid and kgid where appropriate
-
- drivers/net/tun.c             |   46 ++++++++++++++++++++++++++-----------
- drivers/net/wireless/airo.c   |   48 +++++++++++++++++++++++----------------
- fs/seq_file.c                 |    4 +++
- include/linux/inet_diag.h     |    1 +
- include/linux/netlink.h       |    1 +
- include/linux/seq_file.h      |   14 +++++++++++
- include/net/ax25.h            |    4 +-
- include/net/ipv6.h            |    5 +++-
- include/net/netns/ipv4.h      |    3 +-
- include/net/sch_generic.h     |    3 +-
- include/net/sock.h            |   11 ++++++++-
- include/net/tcp.h             |    3 +-
- init/Kconfig                  |   18 --------------
- kernel/pid.c                  |    1 +
- kernel/pid_namespace.c        |    2 +
- net/appletalk/atalk_proc.c    |    3 +-
- net/ax25/ax25_uid.c           |   21 +++++++++++-----
- net/core/dev.c                |    7 +++--
- net/core/scm.c                |   31 ++++++++++++++++++------
- net/core/sock.c               |   10 ++++----
- net/ipv4/inet_diag.c          |   21 ++++++++++++-----
- net/ipv4/ping.c               |   22 +++++++----------
- net/ipv4/raw.c                |    4 ++-
- net/ipv4/sysctl_net_ipv4.c    |   42 ++++++++++++++++++++++------------
- net/ipv4/tcp_ipv4.c           |    6 ++--
- net/ipv4/udp.c                |    4 ++-
- net/ipv4/udp_diag.c           |    5 +++-
- net/ipv6/ip6_flowlabel.c      |   50 +++++++++++++++++++++++++++++++++++-----
- net/ipv6/raw.c                |    3 +-
- net/ipv6/tcp_ipv6.c           |    6 ++--
- net/ipv6/udp.c                |    3 +-
- net/ipx/ipx_proc.c            |    3 +-
- net/key/af_key.c              |    2 +-
- net/llc/llc_proc.c            |    2 +-
- net/netfilter/nfnetlink_log.c |   14 ++++++++---
- net/netfilter/xt_LOG.c        |   16 ++++++++-----
- net/netfilter/xt_owner.c      |   30 +++++++++++++++++++-----
- net/netfilter/xt_recent.c     |   13 +++++++++-
- net/netlink/af_netlink.c      |    6 +++-
- net/packet/af_packet.c        |    2 +-
- net/phonet/socket.c           |    6 +++-
- net/sched/cls_api.c           |    2 +-
- net/sched/cls_basic.c         |    3 +-
- net/sched/cls_cgroup.c        |    3 +-
- net/sched/cls_flow.c          |   19 +++++++++++----
- net/sched/cls_fw.c            |    3 +-
- net/sched/cls_route.c         |    3 +-
- net/sched/cls_rsvp.h          |    3 +-
- net/sched/cls_tcindex.c       |    3 +-
- net/sched/cls_u32.c           |    3 +-
- net/sctp/proc.c               |    6 +++-
- 51 files changed, 368 insertions(+), 176 deletions(-)
-
-Eric
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 8f6ccfd..5472ae7 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -45,12 +45,17 @@
+ static __inline__ int scm_check_creds(struct ucred *creds)
+ {
+ 	const struct cred *cred = current_cred();
++	kuid_t uid = make_kuid(cred->user_ns, creds->uid);
++	kgid_t gid = make_kgid(cred->user_ns, creds->gid);
++
++	if (!uid_valid(uid) || !gid_valid(gid))
++		return -EINVAL;
+ 
+ 	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
+-	    ((creds->uid == cred->uid   || creds->uid == cred->euid ||
+-	      creds->uid == cred->suid) || capable(CAP_SETUID)) &&
+-	    ((creds->gid == cred->gid   || creds->gid == cred->egid ||
+-	      creds->gid == cred->sgid) || capable(CAP_SETGID))) {
++	    ((uid_eq(uid, cred->uid)   || uid_eq(uid, cred->euid) ||
++	      uid_eq(uid, cred->suid)) || capable(CAP_SETUID)) &&
++	    ((gid_eq(gid, cred->gid)   || gid_eq(gid, cred->egid) ||
++	      gid_eq(gid, cred->sgid)) || capable(CAP_SETGID))) {
+ 	       return 0;
+ 	}
+ 	return -EPERM;
+@@ -149,6 +154,9 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 				goto error;
+ 			break;
+ 		case SCM_CREDENTIALS:
++		{
++			kuid_t uid;
++			kgid_t gid;
+ 			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct ucred)))
+ 				goto error;
+ 			memcpy(&p->creds, CMSG_DATA(cmsg), sizeof(struct ucred));
+@@ -166,22 +174,29 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
+ 				p->pid = pid;
+ 			}
+ 
++			err = -EINVAL;
++			uid = make_kuid(current_user_ns(), p->creds.uid);
++			gid = make_kgid(current_user_ns(), p->creds.gid);
++			if (!uid_valid(uid) || !gid_valid(gid))
++				goto error;
++
+ 			if (!p->cred ||
+-			    (p->cred->euid != p->creds.uid) ||
+-			    (p->cred->egid != p->creds.gid)) {
++			    !uid_eq(p->cred->euid, uid) ||
++			    !gid_eq(p->cred->egid, gid)) {
+ 				struct cred *cred;
+ 				err = -ENOMEM;
+ 				cred = prepare_creds();
+ 				if (!cred)
+ 					goto error;
+ 
+-				cred->uid = cred->euid = p->creds.uid;
+-				cred->gid = cred->egid = p->creds.gid;
++				cred->uid = cred->euid = uid;
++				cred->gid = cred->egid = gid;
+ 				if (p->cred)
+ 					put_cred(p->cred);
+ 				p->cred = cred;
+ 			}
+ 			break;
++		}
+ 		default:
+ 			goto error;
+ 		}
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 6b654b3..9c7fe4f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -868,8 +868,8 @@ void cred_to_ucred(struct pid *pid, const struct cred *cred,
+ 	if (cred) {
+ 		struct user_namespace *current_ns = current_user_ns();
+ 
+-		ucred->uid = from_kuid(current_ns, cred->euid);
+-		ucred->gid = from_kgid(current_ns, cred->egid);
++		ucred->uid = from_kuid_munged(current_ns, cred->euid);
++		ucred->gid = from_kgid_munged(current_ns, cred->egid);
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(cred_to_ucred);
+-- 
+1.7.5.4
