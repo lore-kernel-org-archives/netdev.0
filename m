@@ -1,62 +1,67 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next v2 01/15] net: introduce upper device
-	lists
-Date: Tue, 14 Aug 2012 16:00:55 -0700
-Message-ID: <20120814160055.1e948456@nehalam.linuxnetplumber.net>
-References: <1344956748-2099-1-git-send-email-jiri@resnulli.us>
-	<1344956748-2099-2-git-send-email-jiri@resnulli.us>
-	<1344983624.2690.77.camel@bwh-desktop.uk.solarflarecom.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH 2/2] powerpc/85xx: add Fman MDIO muxing support to the
+ P4080DS
+Date: Tue, 14 Aug 2012 18:06:28 -0500
+Message-ID: <502AD9F4.10903@freescale.com>
+References: <1344637896-14267-1-git-send-email-timur@freescale.com> <1344637896-14267-2-git-send-email-timur@freescale.com> <5F0028FE-C555-47DE-B69A-888E7322A6E1@kernel.crashing.org> <502AC7C3.9030902@freescale.com> <502AC8D3.4010602@freescale.com> <502ACA09.6070906@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, ursula.braun@de.ibm.com,
-	john.r.fastabend@intel.com, edumazet@google.com,
-	sean.hefty@intel.com, therbert@google.com, roland@kernel.org,
-	linux-s390@vger.kernel.org, linux-rdma@vger.kernel.org,
-	fubar@us.ibm.com, fbl@redhat.com, hal.rosenstock@gmail.com,
-	Jiri Pirko <jiri@resnulli.us>, faisal.latif@intel.com,
-	linux-driver@qlogic.com, blaschka@linux.vnet.ibm.com,
-	sony.chacko@qlogic.com, gregory.v.rose@intel.com,
-	xiyou.wangcong@gmail.com, jitendra.kalsaria@qlogic.com,
-	divy@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kaber@trash.net, joe@perches.com,
-	linux390@de.ibm.com, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1344983624.2690.77.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Kumar Gala <galak@kernel.crashing.org>,
+	Andy Fleming <afleming@freescale.com>, <ddaney.cavm@gmail.com>,
+	<linuxppc-dev@ozlabs.org>, <netdev@vger.kernel.org>
+To: Timur Tabi <timur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:21256
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754362Ab2HNXGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2012 19:06:37 -0400
+In-Reply-To: <502ACA09.6070906@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Aug 2012 23:33:44 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
-
-> On Tue, 2012-08-14 at 17:05 +0200, Jiri Pirko wrote:
-> > This lists are supposed to serve for storing pointers to all upper devices.
-> > Eventually it will replace dev->master pointer which is used for
-> > bonding, bridge, team but it cannot be used for vlan, macvlan where
-> > there might be multiple upper present. In case the upper link is
-> > replacement for dev->master, it is marked with "master" flag.
+On 08/14/2012 04:58 PM, Timur Tabi wrote:
+> Scott Wood wrote:
 > 
-> Something I found interesting is that the dev->master pointer and now
-> netdev_master_upper_dev_get{,_rcu}() are hardly used by the stackled
-> drivers that set the master.  They also have to set an rx_handler on the
-> lower device (which is itself mutually exclusive) which gets its own
-> context pointer (rx_handler_data).
+>> I think that was internally, and not on this specific comment wording.
+>> I don't think that code comment adequately explains things.
 > 
-> Instead, the master pointer is mostly used by device drivers to find out
-> about a bridge or bonding device above *their* devices.  And that seems
-> to work only for those specific device drivers, not e.g. openvswitch or
-> team.  I wonder if we could find a better way to encapsulate the things
-> they want do do, in a later step (not holding up this change!).
+> I don't really have any more insight to add.
 
-The concept is master is very useful to user level config things like
-Vyatta for seeing parent/child relationship. Since is in ABI now, it
-must stay.
+My point (at least, this part of it) was that more of the insight you've
+already provided should be moved from e-mail discussion to the code comment.
+
+>>> otherwise, the mdio-mux code would not prepare the mdio mus in time, and
+>>> there would be initialization failures.  Now maybe this goes away with
+>>> -EPROBE_DEFER, or maybe it doesn't.  But until we push the DPAA drivers
+>>> upstream, we won't know.
+>>
+>> Do you know if it's theoretically supposed to be fixed and just can't
+>> test it, or are you unsure of whether it's even supposed to work?
+> 
+> I'm not sure of anything.  For one thing, we don't implement EPROBE_DEFER
+> in the DPAA drivers, so we'd probably have to fix that before anything.
+> And then, I'm just guessing that's the solution.
+
+I feel confident saying it is the solution, at least until it is
+demonstrated otherwise.
+
+>> I don't think we should be relying on the order of this list to
+>> determine probe order.  For one thing, it won't work if the drivers
+>> register after you create the platform devices (e.g. they're modules).
+> 
+> I agree we should not be relying on the order, but I don't know what to
+> do.  EPROBE_DEFER was designed to handle this situation, so my
+> recommendation is to worry about it later.  I can beef up the comment to
+> talk about that, if you want.
+
+If the DPAA driver doesn't implement it when it's submitted, it's a bug
+in the DPAA driver and we should insist it be fixed.  I don't think we
+should at all entertain the notion that careful device id list ordering
+is even a potential solution.
+
+If anything, I'd make the ordering be "wrong" to force that code path to
+be tested -- though ideally there would be a more systematic approach to
+such testing, that doesn't require inefficiency during normal boot.
+
+-Scott
